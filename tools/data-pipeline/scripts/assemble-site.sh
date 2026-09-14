@@ -69,3 +69,20 @@ done
 cd "$REPO_ROOT"
 ./gradlew -q :tools:data-pipeline:content:mergeManifests --args="$ARGS_STR"
 rm -f "$PREV_MANIFEST"
+
+# Pagina minimale per la radice del sito Pages: senza questa, GET / da 404 (nessun file la
+# serve) — solo per verifica manuale, l'app non chiama mai questo URL.
+FINAL_MANIFEST="$SITE_DIR/manifest.json"
+REGION_ROWS="$(grep -o '"regionId"[[:space:]]*:[[:space:]]*"[^"]*"' "$FINAL_MANIFEST" | sed 's/.*:[[:space:]]*"//;s/"$//' | sort -u | while read -r rid; do
+  echo "<li><a href=\"regions/$rid/\">$rid</a></li>"
+done)"
+cat > "$SITE_DIR/index.html" <<HTML
+<!doctype html>
+<meta charset="utf-8">
+<title>Pocket Travel — dati regioni</title>
+<p>Questo host serve solo dati statici per l'app Pocket Travel, non e' pensato per la navigazione.</p>
+<p><a href="manifest.json">manifest.json</a></p>
+<ul>
+$REGION_ROWS
+</ul>
+HTML
