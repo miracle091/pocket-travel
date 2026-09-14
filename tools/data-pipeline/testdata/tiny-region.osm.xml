@@ -1,0 +1,56 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version="0.6" generator="pocket-travel-pipeline">
+  <!-- Tutti i <node> prima di tutti i <way>: richiesto dal parser XML di GraphHopper
+       (WaySegmentParser), a differenza di Planetiler che tollera l'ordine interlacciato. -->
+
+  <!-- Footway: stessa geometria di feature/map/src/test/resources/tiny-footway.osm.xml,
+       cosi' l'estratto resta utilizzabile anche per il round-trip di GraphHopper import. -->
+  <node id="1" lat="45.4642" lon="9.1900"/>
+  <node id="2" lat="45.4650" lon="9.1910"/>
+  <node id="3" lat="45.4658" lon="9.1920"/>
+
+  <!-- Building: poligono chiuso minimo per verificare il layer Shortbread "buildings". -->
+  <node id="20" lat="45.4644" lon="9.1902"/>
+  <node id="21" lat="45.4644" lon="9.1906"/>
+  <node id="22" lat="45.4647" lon="9.1906"/>
+  <node id="23" lat="45.4647" lon="9.1902"/>
+
+  <!-- Water: poligono chiuso minimo per verificare il layer Shortbread "water". -->
+  <node id="40" lat="45.4652" lon="9.1912"/>
+  <node id="41" lat="45.4652" lon="9.1917"/>
+  <node id="42" lat="45.4656" lon="9.1917"/>
+  <node id="43" lat="45.4656" lon="9.1912"/>
+
+  <!-- POI: nodo isolato con tag riconoscibili, per l'estrazione poi.db. Non influisce sui
+       layer Shortbread (ShortbreadProfile non guarda i tag dei node) ne' sul routing
+       (nodo senza way che lo referenzi). -->
+  <node id="60" lat="45.4646" lon="9.1908">
+    <tag k="tourism" v="viewpoint"/>
+    <tag k="name" v="Punto panoramico di prova"/>
+  </node>
+
+  <way id="10">
+    <nd ref="1"/>
+    <nd ref="2"/>
+    <nd ref="3"/>
+    <tag k="highway" v="footway"/>
+  </way>
+
+  <way id="30">
+    <nd ref="20"/>
+    <nd ref="21"/>
+    <nd ref="22"/>
+    <nd ref="23"/>
+    <nd ref="20"/>
+    <tag k="building" v="yes"/>
+  </way>
+
+  <way id="50">
+    <nd ref="40"/>
+    <nd ref="41"/>
+    <nd ref="42"/>
+    <nd ref="43"/>
+    <nd ref="40"/>
+    <tag k="natural" v="water"/>
+  </way>
+</osm>

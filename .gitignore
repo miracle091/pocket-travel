@@ -1,0 +1,17 @@
+*.iml
+.gradle/
+/local.properties
+.idea/
+.claude/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.hprof
+/.kotlin/
+node_modules/
+.env*
+
+# Byproduct di Planetiler quando gira da tools/data-pipeline (cerca data/tile_weights.tsv.gz)
+/tools/data-pipeline/data/

@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version="0.6" generator="pocket-travel-pipeline">
+  <!-- Estratto sintetico che attraversa deliberatamente il confine di tile BRouter 5x5 gradi a
+       lon=10.0 (E5_N45.rd5 copre lon [5,10), E10_N45.rd5 copre lon [10,15)) — usato per generare
+       una coppia di segmenti .rd5 adiacenti per il test di routing multi-tile di
+       BRouterRouteEngineTest (gap segnalato nel README, mai testato con 2+ segmenti). -->
+  <node id="1" lat="45.5000" lon="9.9970"/>
+  <node id="2" lat="45.5000" lon="9.9990"/>
+  <node id="3" lat="45.5000" lon="10.0010"/>
+  <node id="4" lat="45.5000" lon="10.0030"/>
+
+  <way id="10">
+    <nd ref="1"/>
+    <nd ref="2"/>
+    <nd ref="3"/>
+    <nd ref="4"/>
+    <tag k="highway" v="footway"/>
+  </way>
+</osm>

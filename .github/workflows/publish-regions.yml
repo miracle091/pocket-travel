@@ -1,0 +1,105 @@
+name: Publish regions
+
+# Piano A3: pubblica su GitHub Pages i pacchetti regionali (content.db + manifest.json).
+# map.pmtiles non e' mai un file da ospitare (estratto lato device dalla build Protomaps, vedi
+# PmtilesExtractor) e i segmenti .rd5 sono referenziati direttamente su brouter.de (mai
+# ri-ospitati) — l'unico file che pubblichiamo noi e' content.db per regione.
+#
+# Solo trigger manuale: nessuna pubblicazione automatica non controllata (coerente con il resto
+# del progetto, dove ogni azione di rete e' sempre su richiesta esplicita).
+on:
+  workflow_dispatch:
+    inputs:
+      regions:
+        description: >
+          regionId da (ri)generare in questa run, separati da virgola (vedi
+          tools/data-pipeline/scripts/pilot-regions.sh per l'elenco completo).
+          Vuoto = tutto il lotto pilota.
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Genera i pacchetti regionali selezionati
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          source tools/data-pipeline/scripts/pilot-regions.sh
+
+          SELECTED="${{ github.event.inputs.regions }}"
+          OUTPUT_ROOT="$RUNNER_TEMP/regions-out"
+          SITE_DIR="$RUNNER_TEMP/site"
+          CONTENT_DB_BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          VERSION="$(date -u +%Y.%m.%d)"
+          mkdir -p "$OUTPUT_ROOT" "$SITE_DIR"
+
+          FRAGMENT_FILES=()
+          for spec in "${PILOT_REGIONS[@]}"; do
+            IFS='|' read -r regionId displayName minLon minLat maxLon maxLat wikiTitle <<< "$spec"
+            if [ -n "$SELECTED" ]; then
+              case ",$SELECTED," in
+                *",$regionId,"*) ;;
+                *) continue ;;
+              esac
+            fi
+            echo "::group::$regionId"
+            regionOut="$OUTPUT_ROOT/$regionId"
+            tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
+              "$minLon" "$minLat" "$maxLon" "$maxLat" "$wikiTitle" "$CONTENT_DB_BASE_URL" "$regionOut"
+            destDir="$SITE_DIR/regions/$regionId/$VERSION"
+            mkdir -p "$destDir"
+            cp "$regionOut/content.db" "$destDir/content.db"
+            FRAGMENT_FILES+=("$regionOut/manifest-fragment.json")
+            echo "::endgroup::"
+          done
+
+          if [ "${#FRAGMENT_FILES[@]}" -eq 0 ]; then
+            echo "Nessuna region selezionata corrisponde al lotto pilota: $SELECTED" >&2
+            exit 1
+          fi
+
+          PUBLISHED_MANIFEST_URL="$CONTENT_DB_BASE_URL/manifest.json"
+          tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$PUBLISHED_MANIFEST_URL" "${FRAGMENT_FILES[@]}"
+
+          echo "site_dir=$SITE_DIR" >> "$GITHUB_OUTPUT"
+          echo "pages_host=${{ github.repository_owner }}.github.io" >> "$GITHUB_OUTPUT"
+
+      - name: Valida il manifest prima del deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew -q :tools:data-pipeline:content:validateManifest \
+            --args="${{ steps.build.outputs.site_dir }}/manifest.json ${{ steps.build.outputs.pages_host }}"
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ steps.build.outputs.site_dir }}
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema "reale" post-splash: la UI e' interamente Compose (MaterialTheme in MainActivity),
+         questo tema XML esiste solo perche' Android richiede un android:theme sull'Activity
+         per agganciare androidx.core.splashscreen. -->
+    <style name="Theme.PocketTravel" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.PocketTravel.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <item name="postSplashScreenTheme">@style/Theme.PocketTravel</item>
+    </style>
+</resources>

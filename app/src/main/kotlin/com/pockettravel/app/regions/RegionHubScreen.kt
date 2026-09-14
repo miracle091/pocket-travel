@@ -1,0 +1,94 @@
+package com.pockettravel.app.regions
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.feature.ai.AiAssistantScreen
+import com.pockettravel.feature.guide.GuideScreen
+import com.pockettravel.feature.map.MapRouteViewModel
+import com.pockettravel.feature.map.MapScreen
+
+private enum class RegionTab(val label: String, val icon: ImageVector) {
+    GUIDE("Guida", AppIcons.World),
+    MAP("Mappa", AppIcons.Map),
+    AI("Assistente", AppIcons.AiAssistant),
+}
+
+// Guida/Mappa/Assistente sono viste sorelle della stessa regione, senza bisogno di un proprio
+// back-stack indipendente: il tab selezionato e' stato locale (rememberSaveable), non un nested
+// NavHost — un nested graph qui sarebbe un'astrazione non necessaria per tre viste che condividono
+// la stessa "torna alla lista regioni".
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RegionHubScreen(regionId: String, onBack: () -> Unit, viewModel: RegionHubViewModel = hiltViewModel()) {
+    var selectedTab by rememberSaveable { mutableStateOf(RegionTab.GUIDE) }
+    val displayName by viewModel.displayName.collectAsStateWithLifecycle()
+    LaunchedEffect(regionId) { viewModel.load(regionId) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(displayName ?: regionId) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
+                    }
+                },
+            )
+        },
+        bottomBar = {
+            NavigationBar {
+                RegionTab.entries.forEach { tab ->
+                    NavigationBarItem(
+                        selected = tab == selectedTab,
+                        onClick = { selectedTab = tab },
+                        icon = {
+                            Icon(
+                                imageVector = tab.icon,
+                                contentDescription = tab.label,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        },
+                        label = { Text(tab.label) },
+                    )
+                }
+            }
+        },
+    ) { innerPadding ->
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            when (selectedTab) {
+                RegionTab.GUIDE -> GuideScreen(regionId = regionId)
+                RegionTab.MAP -> {
+                    val mapViewModel: MapRouteViewModel = hiltViewModel()
+                    LaunchedEffect(regionId) { mapViewModel.loadPins(regionId) }
+                    val pins by mapViewModel.pins.collectAsStateWithLifecycle()
+                    MapScreen(tileSource = mapViewModel.tileSource, regionId = regionId, pins = pins)
+                }
+                RegionTab.AI -> AiAssistantScreen(regionId = regionId)
+            }
+        }
+    }
+}

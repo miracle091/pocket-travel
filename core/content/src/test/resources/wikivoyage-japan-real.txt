@@ -1,0 +1,179 @@
+==Get in==
+[[File:Visa policy of Japan.svg|thumb|450px|Visa policy of Japan{{legend|#ee161f|Japan}} {{legend|#0b6628|Visa-free - up to 6 months}} {{legend|#1cb34b|Visa-free - 90 days}}{{legend|#1ab5a1|Visa-free - 30 days (registered passports only)}}{{legend|#b6e717|Visa-free - 15 days}}{{legend|#ddf395|Visa-free - 15 days (registered passports only)}}{{legend|#adadad|Visa required}}{{legend|#555555|Admission refused}}]]
+{{infobox|Visa policy overview|* '''Visa free entry''': 15, 30 or 90 days for citizens of [https://www.mofa.go.jp/j_info/visit/visa/short/novisa.html certain countries]
+* '''Transit Visa''': 15 days
+* '''Temporary Visitor Visa''': max. 90 days (for short-term stay like tourism and business)
+* '''Working Visa''': max. 3 years
+* '''General Visa''': max. 3 years (for accepting training)
+* '''Special Visa''': max. 3 years (for long-term residence)
+You can contact your nearest [http://www.mofa.go.jp/about/emb_cons/mofaserv.html Japanese embassies and consulates] for more details.
+}}
+[https://www.mofa.go.jp/j_info/visit/visa/short/novisa.html#list Citizens of many countries], including the US, Canada, UK and EU, can obtain entry permission on arrival without a visa. This is usually valid for a stay of up to 90 days, although Mexicans and some Europeans are permitted to stay for 180 days if they ask for a longer stay upon entry. All others must obtain a "temporary visitor" visa prior to arrival, which is generally valid for a stay of 90 days. The Ministry of Foreign Affairs maintains an [https://www.mofa.go.jp/j_info/visit/visa/ on-line Guide to Japanese Visas]. 
+
+===Transit without a visa (TWOV)===
+No visa is required for a same-day transit between international flights at the same airport, so long as you do not leave the secured area.
+
+Visitors with tickets for onward travel to a third country may be granted a '''Shore Pass''' for a maximum of 72 hours with their permitted stay area limited to the vicinity of the port of entry. The port of departure does not have to be the same as the port of entry. Instead, it only needs to be in its vicinity.
+
+Shore Passes are granted at immigration discretion and airlines may hesitate to allow you to board if you have a multi-day layover and are relying on getting on. Getting a transit visa in advance is always a safer option.
+
+===Residence Card===
+Travellers entering Japan with anything other than a temporary visitor visa are required to obtain a "Residence Card" (在留カード), colloquially known as a ''gaijin card'', within 90 days of arrival and carry it at all times in lieu of their passport. Those staying for 90 days or less may complete this registration, but they are not obligated to. This will be invalidated upon exit from Japan, unless a re-entry permit is held.
+
+===Customs===
+Foreigners must typically fill out a '''disembarkation form''' for immigration, a '''declaration form''' for customs, and a '''quarantine form''' if required. The '''[https://services.digital.go.jp/en/visit-japan-web/ Visit Japan Web service]''' can be used to electronically submit all required forms in advance. After completing the forms, present the QR code to the immigration and customs stations.
+
+'''Drug laws''' are stricter in Japan than in many other countries. Some over-the-counter and prescription drugs that are legal in other countries are not allowed in Japan. Ignorance is not considered an excuse, and you can expect to be jailed and deported if caught. See the [http://www.customs.go.jp/english/index.htm Japan Customs website] for details, or check with the nearest Japanese embassy or consulate. (See also ''[[#Drugs|&sect; Drugs]]''.)
+* Some '''over-the-counter medications''', notably pseudoephedrine (Actifed, Claritin-D, Sudafed, Vicks inhalers) and codeine (some cough medications), cannot be brought into Japan.
+** Some items that may not be brought in can be found locally with restrictions: for example, Benza-Block L, a common cold medicine in Japan, contains pseudoephedrine, with the restriction that one person may only buy one box from one pharmacy at a time.
+* Some '''prescription medicines''' (mostly strong painkillers) are also banned even if you have a prescription, unless you get a ''yunyu kakuninsho'' (輸入確認書, "import confirmation document"), which typically takes 1-2 weeks to obtain. Some drugs may need additional import/export certificates.
+** You may also require permission in order to import drug-filled syringes, such as '''EpiPens'''.
+** Nicotine vapes can be brought into Japan, limited to a one month supply if bought overseas. Larger quantities of nicotine liquid brought into Japan require a pharmaceutical import certificate (薬監証明; ''yakkan shōmei''), issued by the Regional Bureau of Health and Welfare. 
+** Drugs used to treat '''ADHD''' are restricted: amphetamine (Adderall) is completely illegal, while methylphenidate (Ritalin/Concerta) and atomoxetine (Strattera) may require permission depending on the amount.
+* '''[[Cannabis]]''' and '''CBD/THC''' products, though trending towards legalization in the West, are ''illegal'' in Japan.
+
+By law, Japan also forbids the importation of most '''meat, fruit, vegetable and plant products,''' in some cases punishable by imprisonment and/or fines of up to ¥3 million.
+
+Once in Japan, you must carry your '''passport or trusted traveler card''' (see below) with you at all times. If caught in a random check without it (and nightclub raids are not uncommon), you'll be detained until somebody can fetch it for you. First offenders who apologize are usually let off with a warning, although you could be fined up to ¥200,000.  You are also required to show the latest entry sticker if availing of products that are not available to Japanese residents (e.g. JR Pass, special train fares for foreigners).
+
+All foreigners (except those on government business and certain permanent residents) age 16 and older are electronically fingerprinted and photographed as part of immigration entry procedures. This may be followed by a short interview conducted by the immigration officer. Entry will be denied if any of these procedures are refused.
+
+====Trusted Traveler Program====
+Foreigners who travel frequently to Japan may be able to take advantage of Japan's [https://www.moj.go.jp/isa/content/001402157.pdf Trusted Traveler Program] (TTP) to expedite arrival procedures. Among the requirements in order to use the service, you must possess a passport from a country that has visa-free arrangements with Japan, have never been deported, and have never been criminally convicted. 
+
+Tourists that qualify for the TTP include those holding premium credit/debit cards issued by a global brand (such as MasterCard, Visa or American Express) that have visited Japan at least once within the last 12 months. United States citizens enrolled in Global Entry (the US Trusted Traveler Program) are also eligible under the same travel requirements.
+
+The fee to apply for the program is &yen;4000. Upon approval, you will receive a registered user card valid for either 3 years or until the expiration date of your passport, whichever is sooner. The card will allow you to use the automated immigration kiosks at most international airports, bypassing the staffed immigration counters. You can also carry the card on you in place of your passport, and it will suffice as identification if requested by authorities; the main exception is for tax-exempt shopping, for which both passport and card are required.
+
+It is important to note that TTP travelers '''do not receive the "temporary visitor" landing permission stamp on their passport''', which is required to receive travel passes or tickets restricted to foreigners such as the Japan Rail Pass. In these instances, you will have to undergo standard immigration procedures to receive the stamp.
+
+===By plane===
+[[File:011 Aircraft of various airlines together at Narita Airport, Japan. Swiss Air Lines, United Airlines, Thai Airways.JPG|thumb|Foreign aircraft at Narita Airport]]
+Most international flights arrive at [[NRT|Narita Airport]] ({{IATA|NRT}}) or [[HND|Haneda Airport]] ({{IATA|HND}}) near [[Tokyo]], or [[KIX|Kansai Airport]] ({{IATA|KIX}}) near [[Osaka]]. Many flights from major Asian cities also serve [[NGO|Chubu Centrair Airport]] ({{IATA|NGO}}) near [[Nagoya]], [[FUK|Fukuoka Airport]] ({{IATA|FUK}}) on Kyushu Island, and [[CTS|Chitose Airport]] ({{IATA|CTS}}) near [[Sapporo]], Hokkaido Island.
+
+Just about every sizable city has an airport although most only offer domestic flights and a few services to [[China]], [[South Korea]], and [[Taiwan]]. Depending on the destination, transiting via a neighboring country can sometimes be cheaper and/or faster than via a major Japanese hub. For example, travelling to [[Okinawa]] from [[Taipei]] takes 1.5 hours, compared to three hours from Tokyo.
+
+Airports are generally easy to get through and not particularly crowded assuming you avoid the main holiday periods — namely New Year's (end of December &ndash; beginning of January), Golden Week (end of April &ndash; beginning of May), and Obon (mid-August), when things are more hectic and expensive.
+
+Japan's two major airlines are flag carrier '''[https://www.jal.co.jp Japan Airlines]{{Dead link|date=March 2025 |bot=InternetArchiveBot }}''' ('''JAL''', 日本航空 ''nihon kōkū'') and '''[https://www.ana.co.jp All Nippon Airways]''' ('''ANA''', 全日本空輸 ''zen nippon kūyu'', or just 全日空 ''zennikkū''). Low-cost carriers have become popular with cheap domestic and international flights, and Narita is now a hub for low cost carriers, including [https://www.jetstar.com/jp/en/ Jetstar Japan],  [https://www.skymark.co.jp/ Skymark], and [https://www.flypeach.com/ Peach].
+
+===By boat===
+
+There are international ferries to Japan from South Korea, China and Taiwan. These are not always price competitive with air tickets, and also often have long travel times. As of January 2024, there are no regular ferries between Russia and Japan.
+
+====South Korea====
+*Ferries from [[South Korea]]'s second city [[Busan]] offer an alternative to flying. To [[Fukuoka]], [https://www.camellia-line.co.jp/ Camellia Line] operates a ferry service that takes 8 hours. To [[Shimonoseki]], Kanbu Ferry has daily service. To [[Osaka]], Pan Star Line offers thrice-weekly service. [[Tsushima]] Island is the closest part of Japan to [[South Korea]], and day trips from Busan are practical.
+
+====China====
+* [[Shanghai]]-[[Osaka]]/[[Kobe]]: [https://www.shinganjin.com/en/ Japan-China Ferry]{{Dead link|date=May 2024 |bot=InternetArchiveBot }}, weekly service from [[China]] that alternates between Kobe and Osaka.
+* [[Tianjin]]-[[Kobe]]: China Express Line, weekly service.
+* [[Suzhou]]-[[Shimonoseki]]: Shanghai-Shimonoseki Ferry, 3 per week
+
+====Taiwan====
+* [[Keelung]]-[[Ishigaki]]: [https://yaimaline.com/en/ Yaima Line] ferry, once or twice a week
+
+==Respect==
+
+{{infobox|Using people's names|2=Names are a complicated matter in Japan. Most Japanese follow the Western naming order when writing or saying their names in English. However, when names are written or spoken in Japanese, they always follow the East Asian naming order of '''family name followed by given name'''. Therefore someone called Taro <span style="font-variant:small-caps">Yamada</span> in English would be called ''<span style="font-variant:small-caps">Yamada</span> Tarō'' in Japanese. The names of historical figures from before the Meiji restoration follow East Asian naming conventions even when written in English.
+
+Using someone's given name when speaking to or about them is considered very personal, and is only done when addressing children of elementary school age or younger, and very close friends. At all other times, the default is to '''use family names plus ''-san'' (さん)''', a suffix approximately like "Mr." or "Ms." Most Japanese know that Westerners usually go by their given names, so they may call you "John" or "Mary" with no suffix, but unless they tell you otherwise, you should still call them "<span style="font-variant:small-caps">Family name</span>''-san''" to be polite. (However, don't introduce ''yourself'' as "John-san". The point is to honor others, not yourself.)
+
+''San'' is the default suffix, but you may encounter a few others:
+* ''-sama'' (様) — People above you, from bosses up to deities, as well as customers
+* ''-kun'' (君) — Young boys, good male friends and male subordinates
+* ''-chan'' (ちゃん) — Young children and close (usually female) friends
+To avoid being overly familiar or formal, stick with "<span style="font-variant:small-caps">Family name</span>''-san''" until someone asks you to call them differently.
+
+In business settings, the title is often used in place of the family name when addressing a person; for instance, an employee may address his company's president as ''shachō-sama'' (社長様, "Honored Mr./Ms. President"), while a customer may address a shop owner (but not the other employees) as ''tenchō-san'' ("Mr./Ms. Storekeeper").
+
+Lastly, the reigning '''Emperor''' is always called ''Tennō Heika'' ("His (Imperial) Majesty the Emperor"), ''Kinjō Heika'' ("His Current Majesty") or simply ''Tennō'' ("the Emperor") or ''Heika'' ("His Majesty") in Japanese. Calling him "Emperor Reiwa", even in English, is a faux pas since this is strictly his future posthumous name. Calling him by his given name, Naruhito, is considered vulgar.}}
+
+Most Japanese are very understanding of a foreigner not conforming instantly to their culture; indeed, many believe that their language and culture are among the most difficult to understand in the world, so they are generally quite happy to assist you if you appear to be struggling. However, Japanese will appreciate it if you follow at least the rules below, many of which boil down to social norms of strict cleanliness and avoiding intruding on others (''meiwaku'').
+
+The post-COVID tourism boom has led to a spike in anti-foreigner sentiment in heavily-touristed areas like Tokyo, Osaka and Kyoto, due to the misbehavior of many foreign tourists. Follow the law, be polite, be considerate and try your best to adhere to Japanese cultural norms. 
+
+===Things to avoid===
+
+Japanese people tend to be tolerant of blunders in this regard by foreigners. There are a few serious etiquette breaches that will meet with universal disapproval (even when demonstrated by foreigners) and should be avoided if at all possible:
+
+* Never walk on a '''tatami mat''' wearing shoes or even slippers, as it would damage the tatami.
+* Never leave your '''chopsticks''' standing upright in a bowl of rice (this is how rice is offered to the dead).
+* Never enter a '''bathtub''' without washing yourself thoroughly first. (See ''[[Public baths in Japan]]'' for details.)
+
+===Things to do===
+
+* Learn a little of the '''language''', and try to use it. They will be complimentary if you try, and there is no reason to be embarrassed. They realize that Japanese is very difficult for foreigners and are tolerant about your mistakes; on the contrary, they will like you more for trying.
+* The average Japanese person '''bows''' over 100 times a day; this ubiquitous gesture of respect is used for greeting, saying farewell, thanking, accepting thanks, apologizing, accepting apologies, etc. Men bow with their hands to their sides. Women bow with their hands together in front. Women's hands look like they are settled in their lap when bowing (not in a prayer position). The exact degree of the bow depends on your position in society relative to the receiver of the bow and on the occasion: the largely unwritten rules are complex, but for foreigners, a "token bow" is fine, and better than accidentally performing a deep formal bow. Many Japanese will gladly offer a handshake instead or in addition; just be careful that you don't bump heads when trying to do both at the same time.
+* When you are '''handing something to someone''', especially a business card, it is considered polite to present it holding it with both hands.
+** '''Business cards''' in particular are treated very respectfully and formally. How you treat someone's card is seen as representing how you will treat the person. When accepting a card, use both hands to pick it up by the corners, and take the time to read the card and confirm how to pronounce the person's name. It's disrespectful to write on a card, fold it, or place it in your back pocket (where you'll sit on it!).
+* Registers often have a small dish used to give your payment and receive change.
+: When giving money as a gift (such as a tip at a ryokan), you should get pristine unused bills from the bank, and present them in a formal envelope.
+* When you are '''drinking sake or beer in a group''', it is polite not to fill your own glass but to allow someone else to do it. Typically, glasses are refilled well before they are empty. To be especially polite, hold up your own glass with both hands while one of your companions fills it. (It's fine to refuse, but you have to do so frequently; otherwise, a senior person at your table might fill your glass when you're not looking.)
+* '''Gift-giving''' is big in Japan. If you'll be meeting friends, relatives, colleagues or business partners, it'll be appreciated if you give them a souvenir (''omiyage''), ideally something small, consumable and representative of your home country: candy, cookies, alcohol, soap and stationery are popular options. The wrapping of the gift is at least as important as the contents, and if you're giving the gift to a group like a family or office, it should be shareable and individually portioned. Don't be surprised to get return gifts to balance out the obligation they incurred by receiving gifts from you!
+** In the unlikely event you are invited to a Japanese home, a gift is basically mandatory. An easy option is to visit a department store basement, which has beautifully packed gift boxes of food for this purpose. Flowers work too, but consult a florist to avoid accidentally giving a funeral or romantic bouquet.
+** Gifts of money are expected for major events like weddings and funerals. Numerous rules of etiquette too complex to cover here apply, so consult a local for guidance regarding amounts, proper presentation, etc.
+* '''Expressing gratitude''' is slightly different from obligatory gift-giving. Even if you brought a gift for your Japanese host, once you return, it is a sign of good etiquette to send a handwritten thank-you card: it will be much appreciated. Japanese guests always exchange photos that they have taken with their hosts so you should expect to receive some snapshots and should prepare to send yours (of you and your hosts together) back to them. Depending on their age and the nature of your relationship (business or personal), an online exchange may suffice.
+* '''Humility''' is highly valued in Japan, and bragging about your achievements will not be well-received. It is also customary to politely turn down any compliments you receive from others. Don't say "thank you" to a compliment, as that will come across as arrogant.
+* It's obligatory to show respect for '''the elderly and authority figures''' in Japan. If you're on public transportation, give up your seat for them. If someone in a position of authority requests you to do something, you are expected do it. Japanese authority figures take a very dim view of people who challenge or undermine them. Some priority seats (優先席 ''yūsenseki'', or シルバーシート ''shirubā shīto'', "silver seats") on many trains are set aside for the disabled, elderly, pregnant women, and people with infants.
+* There are not many '''trash cans''' in public; you may have to carry around your trash for a while before finding one. Japan is very conscious of '''recycling'''. Most disposable containers are labelled with a recycling symbol in Japanese indicating what type of material it is. Some types of recycling bins you'll often see are:
+** Paper (紙 ''kami'')
+** PET/Plastic (ペット ''petto'' or プラ ''pura'')
+** Glass bottles (ビン ''bin'')
+** Metal cans (カン ''kan'')
+** Burnable trash (もえるゴミ ''moeru gomi'')
+** Non-burnable trash (もえないゴミ ''moenai gomi'')
+* '''Punctuality''' is highly valued, and generally expected thanks to Japan's reliable public transit. If you're meeting someone and it looks like you'll arrive even a few minutes late, Japanese prefer the reassurance of a phone call or message if you can send one. Being on time (which really means being early) is even more important in business; Japanese employees might get scolded for arriving even one minute late to work in the morning.
+* When riding on Shinkansen and limited express trains, it is considered good manners to ask for permission from the person behind you before reclining your seat (''"Isu o taoshite mo ii desu ka?"''), to which they will almost always oblige. Likewise, the passenger sitting in front of you would often do the same to you, and you should respond with a nod of your head.
+
+===Other things===
+[[File:Tidy Japan 土足厳禁 くつべら入れ 2011 (6314266743).jpg|thumb|Please take off your shoes]]
+* Hospitality in Japan means giving visitors and guests the very best, no matter how much it inconveniences the host. For example, asking for directions on the street can sometimes prompt the stranger to go out of their way to walk you all the way to your destination. You'll particularly notice this during a homestay, where you'll be offered use of the bath before the rest of the family, and may be given the host's bed while they sleep on the couch. In Western culture it would be polite to refuse such accommodation, but in Japanese culture you should apologize for inconveniencing them, which serves as acceptance of their generosity. Similarly, while entertaining guests it's common for the host to putter around busily in the kitchen and elsewhere, which is meant to create an air of "all your needs are being met"; rather than offering to help them, you should just sit and enjoy the peaceful moment they're offering for you.
+* '''Shoes''' (and feet in general) are considered very dirty by the Japanese. Avoid pointing your soles at anybody (such as resting your foot on the opposite knee when seated) and try to restrain children from standing up on seats. Brushing your feet against somebody's clothing, even by accident, is very rude.
+:* In many buildings, you're expected to '''take your shoes off''' when you enter, leaving them in a lowered entryway or a shoe locker. You can borrow slippers if any are available (although they are usually only in sizes for typically smaller Japanese feet), wear socks or go bare foot.
+:: Wearing shoes inside such a building is seen as disrespectful, as it brings dirt and/or evil spirits inside the building. For related reasons, it's preferred if you can both remove and put on your shoes using your hands as little as possible.
+* In some traditional settings, you may be expected to sit in ''seiza'' posture, '''kneeling''' on the floor. This is the traditional way to sit on tatami mats, with or without a cushion. However, today even most younger Japanese can't sit this way for more than a few minutes without their legs going numb, so most foreigners have no hope. Give it a try to be respectful, but when your legs start aching, say ''"Sumimasen"'' ("Excuse me") and change your posture to something less formal but still polite: men may sit cross-legged, and women usually sit with both legs to one side.
+* The Japanese consider '''back slaps''' rude, especially if they're coming from someone they just met. '''Hugging''' is typically reserved only for romantic couples.
+* Point with an '''open hand''', not a finger, and tell people to come by waving your hand facing '''down''', not up.
+* Avoid shouting or talking '''loudly''' in public. Talking on a mobile phone on a train is considered rude, and many trains have signs advising you not to use them. (Sending text messages, however, is considered ''de rigueur''.)
+* '''Blowing your nose''' in public is considered rude, much like flatulence. (Quietly dabbing at a runny nose with a tissue is fine.)
+* '''Smoking''' is increasingly banned in public. Most smokers will be found huddled around designated smoking areas.
+* '''Saving face''' is a very important concept in Japanese culture. Particularly in business settings, Japanese people will rarely say "no" if they are not interested in a deal, and would instead say something more indirect such as "I'll think about it" or "maybe" instead. Body language is also used for this in place of words; if your question is met by someone '''loudly breathing in through their teeth''', sometimes accompanied by scratching the back of the head (a gesture that conveys embarrassment), the answer is actually "no". Unless it is by a boss or someone from a position of seniority, mistakes are typically not pointed out, and doing so will likely cause major embarrassment.
+* '''Privacy''' is highly valued in Japan. Always ask for permission before photographing people, even in public.
+* The word '''four''' (四 ''shi'') sounds like "death" (死 ''shi''), so many Japanese buildings skip floor 4 entirely.
+
+=== Sensitive issues ===
+* Japanese people generally do not discuss their country's '''politics''' openly and freely. Initiating political discussions might come across as awkward or even rude. 
+* Japan's territorial disputes and complicated relationships with Russia, China, and the two Koreas are sensitive issues that are best not discussed.
+* '''World War II''' — a touchy and complicated topic, especially with older people. While it is generally best avoided, the vast majority of Japanese people bear no animosity against the United States, and American visitors will get a particularly warm welcome, as most Japanese admire American culture.
+* Try not to discuss misconducts of American soldiers stationed in Japan.
+* Avoid talking about Japan's historical marginalization of the Ainu and Ryukyuan people, as well as the Burakumin, as these can engender strong reactions from some locals.
+
+===Dress===
+For most tourists, dressing for daily sightseeing in Japan puts you at a disadvantage: you will most likely stand out, no matter how you dress, next to the throngs of ''salarymen'' (male office workers) in suits and children in school uniforms. Japan is known for being very fashionable, whether dressing in kimono, tailored suits, or the latest trends from Harajuku.
+
+First and foremost: '''wear shoes that can easily slip off and on, and keep a pair of socks handy as needed'''. Athletic shoes are acceptable, but keep them tied loosely so you can slip them off and on. Dress shoes are acceptable as well, as are quality walking sandals (not flip-flops), although sandals are not common outdoor wear for locals. Japanese culture sees shoes as being dirty, and before entering someone's house, certain restaurants, dressing rooms, and temples (to name a few), you ''must'' remove your shoes. The older generation of Japanese tend to group steps into two types: wooden ("clean") and concrete or stone ("dirty"). If you are going to be stepping on to wood, take your shoes off and place them to the side; there might even be a cubby hole for you to put your shoes in.
+
+And '''don't forget socks,''' as it's generally more common to wear socks when in temples and houses, if you don't have slippers available. Japanese people are known for their love of socks, and sock stores selling high quality and colorful socks are found in most cities. Many of the socks sold in Japan are made there. So, bring a pair of socks in your bag while you're sightseeing, if you aren't wearing them. Tights are acceptable for women. Footsies and under the ankle socks are handy, especially if you're going for the "no socks" look.
+
+Shorts are uncommon, and generally only worn by children and teens. Though a common item in tourist summer apparel, instead try stylish jeans or slacks, or capri pants for keeping cool in warm weather. In the summer, women wear sun dresses from trendy stores and breathable slacks made of fabrics like linen. Keep it stylish and comfortable.
+
+In business situations, suits are standard; companies will let you know if you can or should wear casual dress. Suits are worn out for after work drinks and entertainment.
+
+For clubbing and nights out, dress casual cool. Japanese women generally do not wear skin tight, super short dresses and cleavage is rarely shown, unless at the beach. Women dressed in tight short dresses and very sexy looks are often stereotyped as sex workers or escorts. When visiting Tokyo, for example, you will see young women and men dressed in subculture styles, such as Harajuku, Lolita, and punk.
+
+If you plan on visiting a [[Public baths in Japan|hot spring or public bath]], they're almost always used nude (except for rare mixed-gender baths). For men, speedos or trunks are fine at a bath that allows bathing suits; for the beach, boardshorts are also okay. For women, a modest swimsuit is better than a skimpy bikini if you're visiting a bath that allows bathing suits; for the beach, bikinis are okay. At public or private pools, you may have to wear a swimming cap; they may be provided for you, or you can bring your own.
+
+====Accessories====
+Japan in the summer can be extremely warm and humid. The Japanese frequently wipe sweat from their face with a colorful '''handkerchief''' (ハンカチ ''hankachi''), use a '''fan''' (扇子 ''sensu'' for a folding fan, 団扇 ''uchiwa'' for a flat fan) to keep themselves cool, or (for women) use '''umbrellas''' (傘 ''kasa'') to shade themselves. Purchasing one or all of these items is not only a smart way to stay cool, but can provide a lasting memento from your visit. In historic and tourism areas you will find shops selling beautiful fans and umbrellas. Both are affordable investments, though they can be pricey if you wish to have a real work of art. However, most Japanese use cheap but beautiful fans &ndash; many made in China &ndash; in their every day life, only to replace them when they become hard to close or worn. Cheap flat paper fans are often distributed for free at festivals and events.
+
+Traditional umbrellas can be bought at gift shops, and stylish umbrellas for rain and shine can be purchased at women's accessory and clothing stores throughout the country. Handkerchiefs are popular for both men or women. Some look like traditional cotton handkerchiefs you'd use to blow your nose, others are small towels. Japan's fabulous ''depāto'' (department stores) carry all colors, makes and models of these necessities. It's an affordable luxury &ndash; you can find men's and women's handkerchiefs from high end designers like Yves Saint Laurent and Burberry for ¥1,500 or less. You'll also find locally made versions in gift shops and stores throughout the country. Keep them in your purse or pocket, and wipe your brow when necessary.
+
+'''Rain umbrellas''' are often cheap plastic, and available at every convenience store for about ¥500. Since they all look alike, they're sometimes treated as a communal resource. When you go in a store, you leave yours at the door, and when you leave, you simply grab an identical one, whether or not it was the one you brought. Some stores instead have bags to keep your umbrella from dripping on the floor. Hostels usually have umbrellas to lend, as do some other lodgings and businesses. Rather than toting your own umbrella around, you may find it more convenient to buy a cheap one (if you even need to), "donate" it to your hostel, and buy a new one in your next city.
+
+===Religion===
+Religious freedom is respected by most Japanese, and people of all faiths are generally able to practise their religion without any major problems. You are expected to dress and behave in a respectful manner whenever you visit religious sites.
+
+As in many other Asian countries, swastikas are Buddhist symbols representing peace and do not represent Nazism or antisemitism in any way, and you will notice the symbol is actually pointing in the opposite direction. Swastikas are often used on maps to mark the locations of Buddhist temples and monasteries.
+
+When visiting a Shinto shrine or a Buddhist temple, follow the appropriate '''cleansing procedure''' at the ''chōzuya'' or ''temizuya'' before you enter. Using your right hand, fill the dipper with water. Rinse your left hand, then your right hand. Then, cup your left hand and fill it with water, using it to rinse your mouth. ''Do not'' touch the dipper directly with your mouth. Spit the water onto the rocks. After that, rinse your left hand one more time. Finally, turn the dipper upright so the remaining water spills down to rinse the handle before returning the dipper.
+
