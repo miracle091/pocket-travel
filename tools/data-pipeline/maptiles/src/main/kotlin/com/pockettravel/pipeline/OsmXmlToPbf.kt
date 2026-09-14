@@ -28,6 +28,13 @@ data class OsmData(val nodes: List<OsmNode>, val ways: List<OsmWay>)
  * ("duplicate key found in late check") molto a valle nella pipeline.
  */
 fun parseOsmXml(file: File): OsmData {
+    // Il limite JAXP sulla dimensione dell'"entita' documento" (100.000 caratteri di default)
+    // scatta anche su XML grandi ma innocui quando disallow-doctype-decl e' attivo (es. estratto
+    // Overpass reale per una nazione grande, milioni di righe) - non e' l'XXE che
+    // disallow-doctype-decl/external-entities gia' prevengono, quindi lo disattiviamo qui.
+    System.setProperty("jdk.xml.maxGeneralEntitySizeLimit", "0")
+    System.setProperty("jdk.xml.totalEntitySizeLimit", "0")
+    System.setProperty("jdk.xml.entityExpansionLimit", "0")
     val doc = DocumentBuilderFactory.newInstance().apply {
         setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
         setFeature("http://xml.org/sax/features/external-general-entities", false)
