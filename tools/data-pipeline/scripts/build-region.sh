@@ -133,6 +133,15 @@ fi
 # --- 4. POI da Overpass (nodi con amenity/shop/tourism/leisure/historic dentro il bbox) ----------
 POI_XML="$WORKDIR/poi.osm.xml"
 OVERPASS_QUERY="[out:xml][timeout:900];(node[\"amenity\"](${MIN_LAT},${MIN_LON},${MAX_LAT},${MAX_LON});node[\"shop\"](${MIN_LAT},${MIN_LON},${MAX_LAT},${MAX_LON});node[\"tourism\"](${MIN_LAT},${MIN_LON},${MAX_LAT},${MAX_LON});node[\"leisure\"](${MIN_LAT},${MIN_LON},${MAX_LAT},${MAX_LON});node[\"historic\"](${MIN_LAT},${MIN_LON},${MAX_LAT},${MAX_LON}););out body;"
+# Mirror pubblici noti dell'istanza Overpass ufficiale (stesso database OSM, gestiti da terzi):
+# ad ogni tentativo si ruota su un mirror diverso, cosi' un singolo server occupato/in timeout
+# non consuma tutti i tentativi su se stesso.
+OVERPASS_ENDPOINTS=(
+  "https://overpass-api.de/api/interpreter"
+  "https://z.overpass-api.de/api/interpreter"
+  "https://overpass.openstreetmap.fr/api/interpreter"
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+)
 echo "-- interrogo Overpass per i POI..."
 # Overpass e' un servizio pubblico condiviso, spesso occupato/rate-limited: qualche ritentativo
 # con backoff evita di far fallire l'intera pipeline per un timeout transitorio del server.
@@ -143,17 +152,20 @@ echo "-- interrogo Overpass per i POI..."
 # timeout:180 troppo basso per un bbox nazionale). Va quindi rifiutato come le altre risposte
 # non valide, cosi' da ritentare invece di proseguire con un content.db vuoto di POI.
 overpass_ok=0
-for attempt in 1 2 3; do
-  curl -sS "https://overpass-api.de/api/interpreter" --data-urlencode "data=${OVERPASS_QUERY}" -o "$POI_XML"
+ATTEMPTS=3
+for attempt in $(seq 1 "$ATTEMPTS"); do
+  endpoint="${OVERPASS_ENDPOINTS[$(( (attempt - 1) % ${#OVERPASS_ENDPOINTS[@]} ))]}"
+  echo "-- tentativo $attempt/$ATTEMPTS su $endpoint..."
+  curl -sS --max-time 950 "$endpoint" --data-urlencode "data=${OVERPASS_QUERY}" -o "$POI_XML"
   if grep -q "<osm" "$POI_XML" && ! grep -q "<remark>" "$POI_XML"; then
     overpass_ok=1
     break
   fi
-  echo "-- Overpass non disponibile o in timeout (tentativo $attempt/3), riprovo tra $((attempt * 20))s..."
+  echo "-- $endpoint non disponibile o in timeout, riprovo tra $((attempt * 20))s..."
   sleep $((attempt * 20))
 done
 if [ "$overpass_ok" -ne 1 ]; then
-  echo "ERRORE: risposta Overpass non valida per $REGION_ID dopo 3 tentativi" >&2
+  echo "ERRORE: nessun mirror Overpass ha risposto validamente per $REGION_ID dopo $ATTEMPTS tentativi" >&2
   cat "$POI_XML" >&2
   exit 1
 fi
