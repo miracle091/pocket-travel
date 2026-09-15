@@ -111,6 +111,10 @@ fun writeGuideDb(sections: List<GuideSectionRow>, regionId: String, sourceUrl: S
                 """.trimIndent()
             )
         }
+        // Stesso fix di GeneratePoi.kt/writePoiDb: una transazione esplicita evita un commit
+        // con fsync per ogni riga (qui sempre poche unita', ma coerente con l'altra tabella
+        // dello stesso file).
+        conn.autoCommit = false
         conn.prepareStatement(
             "INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES (?, ?, ?, ?, ?)"
         ).use { insert ->
@@ -124,5 +128,6 @@ fun writeGuideDb(sections: List<GuideSectionRow>, regionId: String, sourceUrl: S
             }
             insert.executeBatch()
         }
+        conn.commit()
     }
 }

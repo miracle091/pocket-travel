@@ -9,12 +9,18 @@ import java.sql.DriverManager
 private val poiTagKeys = listOf("amenity", "shop", "tourism", "leisure", "historic")
 
 fun main(args: Array<String>) {
-    require(args.size == 3) { "Uso: generatePoi <input.osm.xml> <regionId> <output content.db>" }
-    val inputXml = File(args[0])
-    val regionId = args[1]
-    val outputDb = File(args[2])
+    require(args.size >= 3) { "Uso: generatePoi <regionId> <output content.db> <input1.osm.xml> [input2.osm.xml ...]" }
+    val regionId = args[0]
+    val outputDb = File(args[1])
+    val inputFiles = args.drop(2).map(::File)
 
-    val pois = extractPois(parseOsmXml(inputXml))
+    // Un bbox nazionale grande (es. Stati Uniti) supera la capacita' di una singola query
+    // Overpass (visto: 504 Gateway Timeout anche a 900s) - build-region.sh lo spezza in piu'
+    // chunk 5x5 gradi, ciascuno con il proprio file XML. I nodi vengono dedotti di nuovo qui
+    // (oltre al dedup gia' fatto da parseOsmXml per file) perche' un nodo esattamente sul
+    // confine tra due chunk puo' comparire nella risposta di entrambi.
+    val nodes = inputFiles.flatMap { parseOsmXml(it).nodes }.distinctBy { it.id }
+    val pois = extractPois(OsmData(nodes, emptyList()))
 
     writePoiDb(pois, regionId, outputDb)
     println("poi: ${pois.size} POI scritti in ${outputDb.path}")
@@ -58,6 +64,12 @@ fun writePoiDb(pois: List<Poi>, regionId: String, outputDb: File) {
                 """.trimIndent()
             )
         }
+        // Con autocommit di default, executeBatch() esegue comunque un commit (con fsync su
+        // disco) per ogni singola riga, non uno solo alla fine - trascurabile per poche centinaia
+        // di POI (San Marino), ma per una nazione grande (es. Italia, decine/centinaia di
+        // migliaia di POI su tutto il territorio) trasforma l'inserimento in minuti invece che
+        // frazioni di secondo. Una singola transazione esplicita elimina il commit per-riga.
+        conn.autoCommit = false
         conn.prepareStatement("INSERT INTO poi (regionId, name, category, lat, lon, osmTag) VALUES (?, ?, ?, ?, ?, ?)").use { insert ->
             pois.forEach { poi ->
                 insert.setString(1, regionId)
@@ -70,5 +82,6 @@ fun writePoiDb(pois: List<Poi>, regionId: String, outputDb: File) {
             }
             insert.executeBatch()
         }
+        conn.commit()
     }
 }
