@@ -19,7 +19,7 @@ REGIONS=("${PILOT_REGIONS[@]}")
 
 FRAGMENT_FILES=()
 for spec in "${REGIONS[@]}"; do
-  IFS='|' read -r regionId displayName minLon minLat maxLon maxLat wikiTitle <<< "$spec"
+  IFS='|' read -r regionId displayName minLon minLat maxLon maxLat wikiTitle _flag _group _groupLabel _continent <<< "$spec"
   regionOut="$OUTPUT_ROOT/$regionId"
   "$SCRIPT_DIR/build-region.sh" "$regionId" "$displayName" "$VERSION" \
     "$minLon" "$minLat" "$maxLon" "$maxLat" "$wikiTitle" "$CONTENT_DB_BASE_URL" "$regionOut"
@@ -30,7 +30,7 @@ done
 SITE_DIR="$OUTPUT_ROOT/site"
 mkdir -p "$SITE_DIR"
 for spec in "${REGIONS[@]}"; do
-  IFS='|' read -r regionId _ _ _ _ _ _ <<< "$spec"
+  IFS='|' read -r regionId _ _ _ _ _ _ _ _ _ _ <<< "$spec"
   destDir="$SITE_DIR/regions/$regionId/$VERSION"
   mkdir -p "$destDir"
   cp "$OUTPUT_ROOT/$regionId/content.db" "$destDir/content.db"

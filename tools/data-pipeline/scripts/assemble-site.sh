@@ -95,18 +95,123 @@ cd "$REPO_ROOT"
 rm -f "$PREV_MANIFEST"
 
 # Pagina minimale per la radice del sito Pages: senza questa, GET / da 404 (nessun file la
-# serve) — solo per verifica manuale, l'app non chiama mai questo URL.
+# serve) — solo per verifica manuale, l'app non chiama mai questo URL. Elenca TUTTO il lotto
+# pilota (non solo le regioni di questa run/gia' pubblicate), cosi' si vede a colpo d'occhio
+# anche quali nazioni sono attualmente non disponibili perche' la loro generazione e' fallita
+# (es. Stati Uniti su un bbox troppo grande per Overpass) - fonte unica pilot-regions.sh, cosi'
+# la pagina resta sincronizzata con l'elenco reale senza doverlo duplicare qui.
+# shellcheck source=./pilot-regions.sh
+source "$SCRIPT_DIR/pilot-regions.sh"
+
+# Bandiere come SVG vettoriali (scripts/assets/flags/, vendorizzate da flag-icons - vedi
+# assets/flags/README.md e LICENSE), non emoji: gli emoji bandiera non si vedono su Windows (il
+# font di sistema non li renderizza, mostra solo il codice testuale) - un <img> verso un vero
+# file SVG e' vettoriale ed e' identico su ogni piattaforma. Copertura completa ISO 3166-1
+# alpha-2 gia' pronta all'uso per qualunque nazione futura, non solo il lotto pilota attuale.
+mkdir -p "$SITE_DIR/assets/flags"
+cp "$SCRIPT_DIR"/assets/flags/*.svg "$SITE_DIR/assets/flags/"
+
+# Icone di stato disponibile/non disponibile, anche queste SVG inline invece di ✅/❌ (stesso
+# motivo delle bandiere: niente emoji).
+STATUS_OK_SVG='<svg class="status" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.5" fill="none" stroke="#1a7f37" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+STATUS_FAIL_SVG='<svg class="status" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="#b42318" stroke-width="2" stroke-linecap="round"/></svg>'
+
 FINAL_MANIFEST="$SITE_DIR/manifest.json"
-REGION_ROWS="$(grep -o '"regionId"[[:space:]]*:[[:space:]]*"[^"]*"' "$FINAL_MANIFEST" | sed 's/.*:[[:space:]]*"//;s/"$//' | sort -u | while read -r rid; do
-  echo "<li><a href=\"regions/$rid/\">$rid</a></li>"
-done)"
+PRESENT_REGION_IDS="$(grep -o '"regionId"[[:space:]]*:[[:space:]]*"[^"]*"' "$FINAL_MANIFEST" | sed 's/.*:[[:space:]]*"//;s/"$//' | sort -u)"
+
+is_present() {
+  echo "$PRESENT_REGION_IDS" | grep -qxF "$1"
+}
+
+flag_img() {
+  echo "<img class=\"flag\" src=\"assets/flags/$1.svg\" width=\"28\" height=\"21\" alt=\"\">"
+}
+
+# Solo l'icona (spunta verde/croce rossa) come segnale di stato per una nazione singola, senza
+# testo ne' separatore: il nome basta, l'icona da sola dice se e' disponibile o no. Per una
+# sotto-regione dentro un gruppo (terzo argomento "true", es. Alaska dentro "Stati Uniti
+# d'America") si tiene invece il trattino "—", perche' li' l'elenco e' piu' denso (piu' voci
+# una sotto l'altra nello stesso gruppo) e il separatore aiuta a leggerle.
+status_html() {
+  local regionId="$1" label="$2" withDash="${3:-false}"
+  local text="$label"
+  [ "$withDash" = "true" ] && text="$label —"
+  if is_present "$regionId"; then
+    echo "<a href=\"regions/$regionId/\">$text $STATUS_OK_SVG</a>"
+  else
+    echo "$text $STATUS_FAIL_SVG"
+  fi
+}
+
+# L'elenco dei continenti e' esplicito e completo (non dedotto da PILOT_REGIONS): la pagina mostra
+# fin da subito tutti i continenti, anche quelli senza ancora nessuna nazione pubblicata, cosi' si
+# vede a colpo d'occhio la copertura mondiale prevista (piano A2: "tutte le nazioni"), non solo il
+# lotto pilota attuale.
+CONTINENTS=("Europa" "Asia" "Africa" "Nord America" "Sud America" "Oceania")
+
+CONTINENT_SECTIONS=""
+for continent in "${CONTINENTS[@]}"; do
+  REGION_ROWS=""
+  currentGroup=""
+  groupFlagImg=""
+  groupSubRows=""
+
+  # Due livelli di raggruppamento dentro questo continente, un solo passaggio su PILOT_REGIONS
+  # filtrato: apre/chiude un gruppo quando groupName cambia rispetto alla riga precedente (le
+  # region non contigue della stessa nazione, oggi solo le 3 USA, vanno tenute consecutive in
+  # PILOT_REGIONS perche' questo funzioni).
+  flush_group() {
+    if [ -n "$currentGroup" ]; then
+      row="<li>$groupFlagImg $currentGroup<ul class=\"subgroup\">$groupSubRows</ul></li>"
+      REGION_ROWS="$(printf '%s\n%s' "$REGION_ROWS" "$row")"
+    fi
+    currentGroup=""
+    groupFlagImg=""
+    groupSubRows=""
+  }
+
+  for spec in "${PILOT_REGIONS[@]}"; do
+    IFS='|' read -r regionId displayName _ _ _ _ _ flag groupName groupLabel regionContinent <<< "$spec"
+    [ "$regionContinent" = "$continent" ] || continue
+    if [ -n "$groupName" ]; then
+      if [ "$groupName" != "$currentGroup" ]; then
+        flush_group
+        currentGroup="$groupName"
+        groupFlagImg="$(flag_img "$flag")"
+      fi
+      groupSubRows="$groupSubRows<li>$(status_html "$regionId" "$groupLabel" true)</li>"
+    else
+      flush_group
+      row="<li>$(flag_img "$flag") $(status_html "$regionId" "$displayName")</li>"
+      REGION_ROWS="$(printf '%s\n%s' "$REGION_ROWS" "$row")"
+    fi
+  done
+  flush_group
+
+  if [ -z "$REGION_ROWS" ]; then
+    body="<p class=\"empty\">Nessuna nazione pubblicata ancora in questo continente.</p>"
+  else
+    body="<ul>$REGION_ROWS</ul>"
+  fi
+  section="<h2>$continent</h2>$body"
+  CONTINENT_SECTIONS="$(printf '%s\n%s' "$CONTINENT_SECTIONS" "$section")"
+done
+
 cat > "$SITE_DIR/index.html" <<HTML
 <!doctype html>
 <meta charset="utf-8">
 <title>Pocket Travel — dati regioni</title>
-<p>Questo host serve solo dati statici per l'app Pocket Travel, non e' pensato per la navigazione.</p>
+<style>
+  ul { padding-left: 0; }
+  li { list-style: none; margin: 4px 0; }
+  .flag { vertical-align: middle; border: 1px solid rgba(0,0,0,.15); border-radius: 2px; margin-right: 4px; }
+  .status { vertical-align: middle; margin-right: 2px; }
+  .subgroup { padding-left: 32px; margin: 4px 0; }
+  h2 { font-size: 1.05em; margin: 20px 0 6px; border-bottom: 1px solid rgba(0,0,0,.15); padding-bottom: 2px; }
+  .empty { color: #767676; font-style: italic; margin: 4px 0; }
+</style>
+<p>Questo host serve solo dati statici per l'app <a href="https://github.com/miracle091/pocket-travel">Pocket Travel</a>.</p>
+<p>Ultimo aggiornamento: $(date -u +%Y.%m.%d)</p>
 <p><a href="manifest.json">manifest.json</a></p>
-<ul>
-$REGION_ROWS
-</ul>
+$CONTINENT_SECTIONS
 HTML
