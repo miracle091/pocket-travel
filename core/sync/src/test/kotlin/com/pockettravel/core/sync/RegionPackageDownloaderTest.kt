@@ -5,6 +5,7 @@ import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
 import kotlin.io.path.createTempDirectory
+import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -53,7 +54,7 @@ class RegionPackageDownloaderTest {
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it.toInt() and 0xFF) }
 
     @Test
-    fun `scarica e verifica un file completo`() {
+    fun `scarica e verifica un file completo`() = runBlocking {
         val text = "contenuto di test"
         server.enqueue(MockResponse().setResponseCode(200).setBody(text))
         val target = File(targetDir, "content.db")
@@ -65,7 +66,7 @@ class RegionPackageDownloaderTest {
     }
 
     @Test
-    fun `riprende un download parziale con Range e Content-Range`() {
+    fun `riprende un download parziale con Range e Content-Range`() = runBlocking {
         val fullText = "0123456789ABCDEF"
         val alreadyDownloaded = fullText.substring(0, 6)
         val remaining = fullText.substring(6)
@@ -87,7 +88,7 @@ class RegionPackageDownloaderTest {
     }
 
     @Test
-    fun `checksum non valido fa fallire il download e cancella il part file`() {
+    fun `checksum non valido fa fallire il download e cancella il part file`() = runBlocking {
         val bytes = "contenuto reale".toByteArray()
         server.enqueue(MockResponse().setResponseCode(200).setBody("contenuto reale"))
         val wrongManifest = manifestFile(bytes).copy(sha256 = sha256Hex("altro contenuto".toByteArray()))
@@ -103,7 +104,7 @@ class RegionPackageDownloaderTest {
     }
 
     @Test
-    fun `dimensione diversa da quella dichiarata fa fallire il download`() {
+    fun `dimensione diversa da quella dichiarata fa fallire il download`() = runBlocking {
         val bytes = "abc".toByteArray()
         server.enqueue(MockResponse().setResponseCode(200).setBody("abc"))
         val manifest = manifestFile(bytes).copy(sizeBytes = 999)
@@ -117,7 +118,7 @@ class RegionPackageDownloaderTest {
     }
 
     @Test
-    fun `un errore 404 e' permanente`() {
+    fun `un errore 404 e' permanente`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(404))
         val bytes = "x".toByteArray()
 
@@ -130,7 +131,7 @@ class RegionPackageDownloaderTest {
     }
 
     @Test
-    fun `un errore 500 non e' permanente ed e' quindi ritentabile`() {
+    fun `un errore 500 non e' permanente ed e' quindi ritentabile`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(500))
         val bytes = "x".toByteArray()
 

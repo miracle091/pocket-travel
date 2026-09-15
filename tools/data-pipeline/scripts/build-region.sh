@@ -53,6 +53,28 @@ trap 'rm -rf "$WORKDIR"' EXIT
 # e non serve: bash e java concordano gia' sullo stesso path POSIX.
 winpath() { cygpath -m "$1" 2>/dev/null || echo "$1"; }
 
+# curl -sS scarica in silenzio: per i trasferimenti piu' grandi (rd5, dump Wikivoyage) i log
+# di GitHub Actions restano vuoti per tutta la durata del download, senza modo di distinguere
+# un download lento da uno bloccato. Scarica in background e stampa periodicamente i KB
+# scaricati finora, senza il meter interattivo di curl (a base di \r, illeggibile in un log
+# non-tty).
+download_with_progress() {
+  local url="$1" out="$2" label="$3"
+  curl -sS -o "$out" "$url" &
+  local pid=$!
+  local last_kb=-1
+  while kill -0 "$pid" 2>/dev/null; do
+    sleep 2
+    local size_kb=0
+    [ -f "$out" ] && size_kb=$(( $(wc -c < "$out" | tr -d ' ') / 1024 ))
+    if [ "$size_kb" -ne "$last_kb" ]; then
+      echo "-- $label: ${size_kb} KB scaricati..."
+      last_kb=$size_kb
+    fi
+  done
+  wait "$pid"
+}
+
 echo "== [$REGION_ID] bbox: $MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT =="
 
 # --- 1. Data Protomaps piu' recente disponibile (build giornaliera, whole-planet) ---------------
@@ -101,7 +123,7 @@ while [ "$lon" -le "$LON_END" ]; do
     if [ "$code" = "200" ]; then
       tmp="$WORKDIR/${tile}.rd5"
       echo "-- scarico $tile.rd5 (per hash, non ri-ospitato)..."
-      curl -sS -o "$tmp" "$url"
+      download_with_progress "$url" "$tmp" "$tile.rd5"
       size="$(wc -c < "$tmp" | tr -d ' ')"
       hash="$(sha256sum "$tmp" | awk '{print $1}')"
       rm -f "$tmp"
@@ -124,7 +146,7 @@ fi
 DUMP_FILE="$WORKDIR/dump.txt"
 WIKI_URL="https://en.wikivoyage.org/wiki/${WIKI_TITLE}"
 echo "-- scarico dump Wikivoyage: $WIKI_TITLE"
-curl -sS "https://en.wikivoyage.org/w/index.php?title=${WIKI_TITLE}&action=raw" -o "$DUMP_FILE"
+download_with_progress "https://en.wikivoyage.org/w/index.php?title=${WIKI_TITLE}&action=raw" "$DUMP_FILE" "dump Wikivoyage $WIKI_TITLE"
 if [ ! -s "$DUMP_FILE" ]; then
   echo "ERRORE: dump Wikivoyage vuoto per $WIKI_TITLE (titolo pagina errato?)" >&2
   exit 1

@@ -143,9 +143,9 @@ private fun RegionRow(item: RegionUiItem, viewModel: RegionListViewModel, onClic
             }
 
             if (isDownloading) {
-                val filesDone = workInfo?.progress?.getInt(RegionPackageDownloadWorker.KEY_FILES_DONE, 0) ?: 0
-                val totalFiles = workInfo?.progress?.getInt(RegionPackageDownloadWorker.KEY_TOTAL_FILES, 0) ?: 0
-                val progress = if (totalFiles > 0) filesDone / totalFiles.toFloat() else 0f
+                val bytesDownloaded = workInfo?.progress?.getLong(RegionPackageDownloadWorker.KEY_BYTES_DOWNLOADED, 0L) ?: 0L
+                val totalBytes = workInfo?.progress?.getLong(RegionPackageDownloadWorker.KEY_TOTAL_BYTES, 0L) ?: 0L
+                val progress = if (totalBytes > 0) bytesDownloaded / totalBytes.toFloat() else 0f
                 LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
             }
         }

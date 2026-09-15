@@ -24,22 +24,31 @@ class RegionPackageDownloader @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val regionStorage: RegionStorage,
 ) {
-    suspend fun download(entry: RegionManifestEntry, onProgress: suspend (filesDone: Int, totalFiles: Int) -> Unit): File =
+    suspend fun download(entry: RegionManifestEntry, onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit): File =
         withContext(Dispatchers.IO) {
             entry.validate()
             regionStorage.cleanupStagingExcept(entry.regionId, entry.version)
             val staging = regionStorage.stagingDirectoryFor(entry.regionId, entry.version)
             staging.mkdirs()
-            entry.files.forEachIndexed { index, file ->
-                downloadAndVerify(file, File(staging, file.name))
-                onProgress(index + 1, entry.files.size)
+            val totalBytes = entry.files.sumOf { it.sizeBytes }
+            var bytesBeforeCurrentFile = 0L
+            entry.files.forEach { file ->
+                val baseBytes = bytesBeforeCurrentFile
+                downloadAndVerify(file, File(staging, file.name)) { fileBytesDownloaded ->
+                    onProgress(baseBytes + fileBytesDownloaded, totalBytes)
+                }
+                bytesBeforeCurrentFile += file.sizeBytes
             }
             staging
         }
     // internal (non private) cosi' un test puo' esercitare direttamente il download/verifica
     // byte-per-byte senza dover soddisfare anche il vincolo HTTPS+host-allowlist di
     // RegionManifestEntry.validate() (gia' coperto a parte da RegionManifestTest).
-    internal fun downloadAndVerify(file: RegionManifestFile, target: File) {
+    internal suspend fun downloadAndVerify(
+        file: RegionManifestFile,
+        target: File,
+        onProgress: suspend (bytesDownloaded: Long) -> Unit = {},
+    ) {
         val partFile = File(target.parentFile, "${target.name}.part")
         val existingBytes = if (partFile.exists()) partFile.length() else 0L
 
@@ -59,7 +68,23 @@ class RegionPackageDownloader @Inject constructor(
             if (existingBytes > 0 && response.code == 206) {
                 require(response.header("Content-Range")?.startsWith("bytes $existingBytes-", ignoreCase = true) == true) { "Risposta range non valida per ${file.name}" }
             }
-            FileOutputStream(partFile, append).use { output -> body.byteStream().copyTo(output) }
+            var downloaded = if (append) existingBytes else 0L
+            var lastReported = downloaded
+            FileOutputStream(partFile, append).use { output ->
+                body.byteStream().use { input ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    var read: Int
+                    while (input.read(buffer).also { read = it } != -1) {
+                        output.write(buffer, 0, read)
+                        downloaded += read
+                        if (downloaded - lastReported >= PROGRESS_STEP_BYTES) {
+                            lastReported = downloaded
+                            onProgress(downloaded)
+                        }
+                    }
+                }
+            }
+            onProgress(downloaded)
         }
 
         if (partFile.length() != file.sizeBytes) {
@@ -88,6 +113,7 @@ class RegionPackageDownloader @Inject constructor(
         return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) }
     }
 
-    companion object {
+    private companion object {
+        const val PROGRESS_STEP_BYTES = 1_000_000L
     }
 }

@@ -33,8 +33,8 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         return try {
             val entryJson = inputData.getString(KEY_MANIFEST_ENTRY) ?: return Result.failure()
             val entry = json.decodeFromString(RegionManifestEntry.serializer(), entryJson)
-            val stagingDir = downloader.download(entry) { filesDone, totalFiles ->
-                setProgress(workDataOf(KEY_FILES_DONE to filesDone, KEY_TOTAL_FILES to totalFiles))
+            val stagingDir = downloader.download(entry) { bytesDownloaded, totalBytes ->
+                setProgress(workDataOf(KEY_BYTES_DOWNLOADED to bytesDownloaded, KEY_TOTAL_BYTES to totalBytes))
             }
             // map.pmtiles non e' tra i file scaricati (vedi RegionManifestEntry.mapSource):
             // assemblato qui estraendo solo le tile del bounding box dalla build Protomaps.
@@ -69,7 +69,7 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
 
     companion object {
         const val KEY_MANIFEST_ENTRY = "manifest_entry"
-        const val KEY_FILES_DONE = "files_done"
-        const val KEY_TOTAL_FILES = "total_files"
+        const val KEY_BYTES_DOWNLOADED = "bytes_downloaded"
+        const val KEY_TOTAL_BYTES = "total_bytes"
     }
 }
