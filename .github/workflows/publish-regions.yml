@@ -57,9 +57,18 @@ jobs:
           VERSION="$(date -u +%Y.%m.%d)"
           mkdir -p "$OUTPUT_ROOT" "$SITE_DIR"
 
+          # Una regione che fallisce (es. query Overpass troppo pesante per un bbox enorme) non
+          # deve far perdere il lavoro gia' fatto per le regioni precedenti nella stessa run: con
+          # "set -e" un fallimento non protetto da if/else avrebbe interrotto subito lo script,
+          # saltando merge/validate/deploy anche per le regioni gia' completate con successo
+          # (visto: San Marino/Italia/Giappone generati correttamente ma mai pubblicati perche'
+          # gli Stati Uniti sono falliti dopo, nella stessa run). L'if/else qui sotto e' una delle
+          # eccezioni riconosciute da "set -e" (il comando testato in una condizione if non fa
+          # terminare lo script), quindi si continua con le regioni successive.
           FRAGMENT_FILES=()
+          FAILED_REGIONS=()
           for spec in "${PILOT_REGIONS[@]}"; do
-            IFS='|' read -r regionId displayName minLon minLat maxLon maxLat wikiTitle <<< "$spec"
+            IFS='|' read -r regionId displayName minLon minLat maxLon maxLat wikiTitle flag groupName groupLabel continent <<< "$spec"
             if [ -n "$SELECTED" ]; then
               case ",$SELECTED," in
                 *",$regionId,"*) ;;
@@ -68,18 +77,25 @@ jobs:
             fi
             echo "::group::$regionId"
             regionOut="$OUTPUT_ROOT/$regionId"
-            tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
-              "$minLon" "$minLat" "$maxLon" "$maxLat" "$wikiTitle" "$CONTENT_DB_BASE_URL" "$regionOut"
-            destDir="$SITE_DIR/regions/$regionId/$VERSION"
-            mkdir -p "$destDir"
-            cp "$regionOut/content.db" "$destDir/content.db"
-            FRAGMENT_FILES+=("$regionOut/manifest-fragment.json")
+            if tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
+              "$minLon" "$minLat" "$maxLon" "$maxLat" "$wikiTitle" "$CONTENT_DB_BASE_URL" "$regionOut"; then
+              destDir="$SITE_DIR/regions/$regionId/$VERSION"
+              mkdir -p "$destDir"
+              cp "$regionOut/content.db" "$destDir/content.db"
+              FRAGMENT_FILES+=("$regionOut/manifest-fragment.json")
+            else
+              echo "::warning::regione $regionId fallita, salto e continuo con le prossime"
+              FAILED_REGIONS+=("$regionId")
+            fi
             echo "::endgroup::"
           done
 
           if [ "${#FRAGMENT_FILES[@]}" -eq 0 ]; then
-            echo "Nessuna region selezionata corrisponde al lotto pilota: $SELECTED" >&2
+            echo "Nessuna regione completata con successo tra: $SELECTED" >&2
             exit 1
+          fi
+          if [ "${#FAILED_REGIONS[@]}" -gt 0 ]; then
+            echo "::warning::regioni fallite in questa run (non pubblicate, da rilanciare a parte): ${FAILED_REGIONS[*]}"
           fi
 
           PUBLISHED_MANIFEST_URL="$CONTENT_DB_BASE_URL/manifest.json"

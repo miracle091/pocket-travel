@@ -161,43 +161,84 @@ if [ ! -s "$DUMP_FILE" ]; then
 fi
 
 # --- 4. POI da Overpass (nodi con amenity/shop/tourism/leisure/historic dentro il bbox) ----------
-POI_XML="$WORKDIR/poi.osm.xml"
-OVERPASS_QUERY="[out:xml][timeout:900];(node[\"amenity\"](${MIN_LAT},${MIN_LON},${MAX_LAT},${MAX_LON});node[\"shop\"](${MIN_LAT},${MIN_LON},${MAX_LAT},${MAX_LON});node[\"tourism\"](${MIN_LAT},${MIN_LON},${MAX_LAT},${MAX_LON});node[\"leisure\"](${MIN_LAT},${MIN_LON},${MAX_LAT},${MAX_LON});node[\"historic\"](${MIN_LAT},${MIN_LON},${MAX_LAT},${MAX_LON}););out body;"
-# Mirror pubblici noti dell'istanza Overpass ufficiale (stesso database OSM, gestiti da terzi):
-# ad ogni tentativo si ruota su un mirror diverso, cosi' un singolo server occupato/in timeout
-# non consuma tutti i tentativi su se stesso.
+# Una singola query sull'intero bbox non regge per una nazione grande: gli Stati Uniti (bbox
+# contiguo, 48 stati) hanno fatto scadere tutti e 3 i mirror pubblici, l'ultimo con un 504
+# Gateway Timeout del reverse proxy anche dopo 900s pieni - non e' un timeout nostro ritentabile,
+# il server si arrende prima di finire di elaborare un'area cosi' grande. Si spezza quindi la
+# query nella stessa griglia 5x5 gradi gia' calcolata sopra per i segmenti .rd5 (riuso diretto,
+# non una seconda griglia indipendente): per un paese piccolo come San Marino restano invariati
+# un solo chunk e una sola query, per uno grande diventano N query piu' leggere, ciascuna con lo
+# stesso fallback multi-mirror di prima. generatePoi (piu' sotto) unisce i risultati.
 OVERPASS_ENDPOINTS=(
   "https://overpass-api.de/api/interpreter"
   "https://z.overpass-api.de/api/interpreter"
   "https://overpass.openstreetmap.fr/api/interpreter"
   "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
 )
-echo "-- interrogo Overpass per i POI..."
-# Overpass e' un servizio pubblico condiviso, spesso occupato/rate-limited: qualche ritentativo
-# con backoff evita di far fallire l'intera pipeline per un timeout transitorio del server.
-# Attenzione: su un timeout della query (bbox grande, es. una nazione intera), Overpass non
-# fallisce la richiesta HTTP ma risponde comunque con un <osm> ben formato contenente un
-# <remark>runtime error: Query timed out...</remark> e zero nodi -- un semplice grep "<osm"
-# lo scambierebbe per una risposta valida, producendo silenziosamente 0 POI (visto con l'Italia:
-# timeout:180 troppo basso per un bbox nazionale). Va quindi rifiutato come le altre risposte
-# non valide, cosi' da ritentare invece di proseguire con un content.db vuoto di POI.
-overpass_ok=0
 ATTEMPTS=3
-for attempt in $(seq 1 "$ATTEMPTS"); do
-  endpoint="${OVERPASS_ENDPOINTS[$(( (attempt - 1) % ${#OVERPASS_ENDPOINTS[@]} ))]}"
-  echo "-- tentativo $attempt/$ATTEMPTS su $endpoint..."
-  download_with_progress "$POI_XML" "Overpass POI ($endpoint)" -sS --max-time 950 "$endpoint" --data-urlencode "data=${OVERPASS_QUERY}" -o "$POI_XML"
-  if grep -q "<osm" "$POI_XML" && ! grep -q "<remark>" "$POI_XML"; then
-    overpass_ok=1
-    break
-  fi
-  echo "-- $endpoint non disponibile o in timeout, riprovo tra $((attempt * 20))s..."
-  sleep $((attempt * 20))
+
+fmax() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0>b+0)?a:b }'; }
+fmin() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0<b+0)?a:b }'; }
+
+# Ritenta un singolo chunk sui mirror noti, come il vecchio ciclo su tutto il bbox (stessa
+# rilevazione del <remark> di timeout mascherato da XML valido, vedi sotto). Ritorna 1 se nessun
+# mirror ha risposto validamente dopo $ATTEMPTS tentativi - il chiamante decide se e' fatale.
+fetch_overpass_chunk() {
+  local chunkMinLon="$1" chunkMinLat="$2" chunkMaxLon="$3" chunkMaxLat="$4" outFile="$5"
+  local query="[out:xml][timeout:900];(node[\"amenity\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});node[\"shop\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});node[\"tourism\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});node[\"leisure\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});node[\"historic\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon}););out body;"
+  for attempt in $(seq 1 "$ATTEMPTS"); do
+    local endpoint="${OVERPASS_ENDPOINTS[$(( (attempt - 1) % ${#OVERPASS_ENDPOINTS[@]} ))]}"
+    echo "-- tentativo $attempt/$ATTEMPTS su $endpoint..."
+    download_with_progress "$outFile" "Overpass POI ($endpoint)" -sS --max-time 950 "$endpoint" --data-urlencode "data=${query}" -o "$outFile"
+    # Attenzione: su un timeout della query (bbox grande), Overpass non fallisce la richiesta
+    # HTTP ma risponde comunque con un <osm> ben formato contenente un
+    # <remark>runtime error: Query timed out...</remark> e zero nodi -- un semplice grep "<osm"
+    # lo scambierebbe per una risposta valida, producendo silenziosamente 0 POI (visto con
+    # l'Italia: timeout:180 troppo basso per un bbox nazionale).
+    if grep -q "<osm" "$outFile" && ! grep -q "<remark>" "$outFile"; then
+      return 0
+    fi
+    echo "-- $endpoint non disponibile o in timeout, riprovo tra $((attempt * 20))s..."
+    sleep $((attempt * 20))
+  done
+  return 1
+}
+
+echo "-- interrogo Overpass per i POI (a chunk di 5x5 gradi)..."
+POI_XML_FILES=()
+FAILED_CHUNKS=0
+lon="$LON_START"
+chunkIndex=0
+while [ "$lon" -le "$LON_END" ]; do
+  lat="$LAT_START"
+  while [ "$lat" -le "$LAT_END" ]; do
+    chunkMinLon="$(fmax "$MIN_LON" "$lon")"
+    chunkMinLat="$(fmax "$MIN_LAT" "$lat")"
+    chunkMaxLon="$(fmin "$MAX_LON" "$((lon + 5))")"
+    chunkMaxLat="$(fmin "$MAX_LAT" "$((lat + 5))")"
+    chunkIndex=$((chunkIndex + 1))
+    chunkFile="$WORKDIR/poi-chunk-${chunkIndex}.osm.xml"
+    echo "-- chunk $chunkIndex: $chunkMinLon,$chunkMinLat,$chunkMaxLon,$chunkMaxLat"
+    if fetch_overpass_chunk "$chunkMinLon" "$chunkMinLat" "$chunkMaxLon" "$chunkMaxLat" "$chunkFile"; then
+      POI_XML_FILES+=("$chunkFile")
+    else
+      # Non fatale subito: un chunk perso (una sotto-area di una nazione grande) significa POI
+      # mancanti solo li', non l'intera regione da buttare via - coerente con la stessa logica
+      # "non perdere il lavoro gia' fatto" applicata alle regioni nel workflow.
+      echo "-- chunk $chunkIndex fallito dopo $ATTEMPTS tentativi su tutti i mirror, salto (POI di quella sotto-area mancanti)" >&2
+      FAILED_CHUNKS=$((FAILED_CHUNKS + 1))
+    fi
+    lat=$(( lat + 5 ))
+  done
+  lon=$(( lon + 5 ))
 done
-if [ "$overpass_ok" -ne 1 ]; then
-  echo "ERRORE: nessun mirror Overpass ha risposto validamente per $REGION_ID dopo $ATTEMPTS tentativi" >&2
-  cat "$POI_XML" >&2
+
+if [ "${#POI_XML_FILES[@]}" -eq 0 ]; then
+  echo "ERRORE: nessun chunk Overpass ha prodotto dati validi per $REGION_ID" >&2
   exit 1
+fi
+if [ "$FAILED_CHUNKS" -gt 0 ]; then
+  echo "-- attenzione: $FAILED_CHUNKS/$chunkIndex chunk falliti, alcuni POI di $REGION_ID mancheranno"
 fi
 
 # --- 5. content.db: guide_sections + poi, via i tool Kotlin esistenti ----------------------------
@@ -208,8 +249,11 @@ echo "-- genero content.db (guide_sections)..."
 ./gradlew -q :tools:data-pipeline:content:generateGuideContent \
   --args="\"$(winpath "$DUMP_FILE")\" \"$REGION_ID\" \"$WIKI_URL\" \"$(winpath "$CONTENT_DB")\""
 echo "-- genero content.db (poi)..."
-./gradlew -q :tools:data-pipeline:content:generatePoi \
-  --args="\"$(winpath "$POI_XML")\" \"$REGION_ID\" \"$(winpath "$CONTENT_DB")\""
+POI_ARGS="\"$REGION_ID\" \"$(winpath "$CONTENT_DB")\""
+for f in "${POI_XML_FILES[@]}"; do
+  POI_ARGS="$POI_ARGS \"$(winpath "$f")\""
+done
+./gradlew -q :tools:data-pipeline:content:generatePoi --args="$POI_ARGS"
 
 # --- 6. Frammento manifest.json (content.db nostro + rd5 remoti + mapSource) ---------------------
 CONTENT_DB_URL="${CONTENT_DB_BASE_URL}/regions/${REGION_ID}/${VERSION}/content.db"
