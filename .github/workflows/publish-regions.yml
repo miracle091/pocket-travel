@@ -1,9 +1,10 @@
 name: Publish regions
 
-# Piano A3: pubblica su GitHub Pages i pacchetti regionali (content.db + manifest.json).
-# map.pmtiles non e' mai un file da ospitare (estratto lato device dalla build Protomaps, vedi
-# PmtilesExtractor) e i segmenti .rd5 sono referenziati direttamente su brouter.de (mai
-# ri-ospitati) — l'unico file che pubblichiamo noi e' content.db per regione.
+# Piano A3: pubblica su GitHub Pages i pacchetti regionali (content.db + segmenti .rd5 +
+# manifest.json). map.pmtiles non e' mai un file da ospitare (estratto lato device dalla build
+# Protomaps, vedi PmtilesExtractor); i segmenti .rd5 invece sono ri-ospitati insieme a
+# content.db (non solo referenziati su brouter.de) perche' quel file cambia dimensione/hash nel
+# tempo — vedi il commento in testa a tools/data-pipeline/scripts/build-region.sh.
 #
 # Solo trigger manuale: nessuna pubblicazione automatica non controllata (coerente con il resto
 # del progetto, dove ogni azione di rete e' sempre su richiesta esplicita).
@@ -82,6 +83,12 @@ jobs:
               destDir="$SITE_DIR/regions/$regionId/$VERSION"
               mkdir -p "$destDir"
               cp "$regionOut/content.db" "$destDir/content.db"
+              # Segmenti .rd5 ri-ospitati insieme a content.db (vedi commento in testa a
+              # build-region.sh): zero o piu' a seconda di quante tile intersecano il bbox.
+              for rd5 in "$regionOut"/*.rd5; do
+                [ -e "$rd5" ] || continue
+                cp "$rd5" "$destDir/"
+              done
               FRAGMENT_FILES+=("$regionOut/manifest-fragment.json")
             else
               echo "::warning::regione $regionId fallita, salto e continuo con le prossime"

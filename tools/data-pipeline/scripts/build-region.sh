@@ -2,11 +2,20 @@
 # Orchestratore batch (piano A2): per UNA regione (una nazione o una sua sotto-area, per le
 # nazioni non contigue — vedi build-pilot-regions.sh per Stati Uniti), genera content.db
 # (Wikivoyage + POI, riusando i tool Kotlin esistenti generateGuideContent/generatePoi),
-# risolve e hasha i segmenti BRouter .rd5 che intersecano il bbox (referenziati direttamente
-# su brouter.de nel manifest, MAI ri-scaricati/ri-ospitati — vengono scaricati una volta qui
-# solo per calcolarne sha256/sizeBytes, richiesti da RegionManifestEntry.validate()), e produce
-# il frammento manifest.json (mapSource punta alla build Protomaps corrente per l'estrazione
-# lato device della mappa — vedi PmtilesExtractor, core:sync).
+# scarica e ri-ospita i segmenti BRouter .rd5 che intersecano il bbox (stesso host di
+# content.db, vedi manifest-fragment.json), e produce il frammento manifest.json (mapSource
+# punta alla build Protomaps corrente per l'estrazione lato device della mappa — vedi
+# PmtilesExtractor, core:sync).
+#
+# I .rd5 sono ri-ospitati (non solo hashati e scartati come in origine) perche' brouter.de
+# rigenera periodicamente i propri segmenti: la stessa tile scaricata a poche ore di distanza
+# ha gia' dato dimensioni diverse (visto su E10_N40.rd5: 80062379, poi 80071670, poi 79989750
+# byte in meno di un giorno). RegionPackageDownloader.downloadAndVerify() confronta la
+# dimensione scaricata con quella pinnata nel manifest al momento della pubblicazione e la
+# rigetta come PermanentRegionPackageException se non combacia piu' — un manifest che punta
+# dritto a brouter.de si rompe quindi da solo ad ogni rigenerazione a monte, senza modo per
+# l'app di saperlo in anticipo. Ospitando la nostra copia, dimensione/hash restano quelli del
+# file che l'utente scarica davvero, stabili finche' non ripubblichiamo la regione.
 #
 # Uso:
 #   build-region.sh <regionId> <displayName> <version> <minLon> <minLat> <maxLon> <maxLat> \
@@ -16,8 +25,9 @@
 #   build-region.sh san-marino "San Marino" 2026.09.14 12.40 43.89 12.52 43.99 \
 #                    San_Marino https://miracle091.github.io/pocket-travel /tmp/out/san-marino
 #
-# Richiede: curl, sha256sum, awk, gradle wrapper (./gradlew) dalla root del repo. Nessun
-# segmento .rd5 viene mai conservato su disco oltre il tempo necessario a hasharlo.
+# Richiede: curl, sha256sum, awk, gradle wrapper (./gradlew) dalla root del repo. I segmenti
+# .rd5 restano in <outputDir> insieme a content.db, pronti per essere copiati nel sito da
+# pubblicare (vedi build-pilot-regions.sh/publish-regions.yml).
 set -euo pipefail
 
 if [ "$#" -ne 10 ]; then
@@ -103,7 +113,7 @@ resolve_protomaps_date() {
 PROTOMAPS_DATE="$(resolve_protomaps_date)"
 echo "-- build Protomaps: ${PROTOMAPS_DATE}.pmtiles"
 
-# --- 2. Segmenti BRouter .rd5 che intersecano il bbox (tile fisse 5x5 gradi) ---------------------
+# --- 2. Griglia di tile 5x5 gradi che copre il bbox (usata sia per i segmenti .rd5 che per le query Overpass, sezione 4) ---
 floor5() {
   awk -v v="$1" 'BEGIN { x = v / 5; ix = int(x); if (x < ix) ix -= 1; printf "%d", ix * 5 }'
 }
@@ -120,36 +130,6 @@ LON_END="$(floor5 "$MAX_LON")"
 LAT_START="$(floor5 "$MIN_LAT")"
 LAT_END="$(floor5 "$MAX_LAT")"
 
-REMOTE_FILES_JSON=""
-lon="$LON_START"
-while [ "$lon" -le "$LON_END" ]; do
-  lat="$LAT_START"
-  while [ "$lat" -le "$LAT_END" ]; do
-    tile="$(tile_name "$lon" "$lat")"
-    url="${BROUTER_BASE}/${tile}.rd5"
-    code="$(curl -s -o /dev/null -w '%{http_code}' -I "$url")"
-    if [ "$code" = "200" ]; then
-      tmp="$WORKDIR/${tile}.rd5"
-      echo "-- scarico $tile.rd5 (per hash, non ri-ospitato)..."
-      download_with_progress "$tmp" "$tile.rd5" -sS -o "$tmp" "$url"
-      size="$(wc -c < "$tmp" | tr -d ' ')"
-      hash="$(sha256sum "$tmp" | awk '{print $1}')"
-      rm -f "$tmp"
-      entry="{ \"name\": \"${tile}.rd5\", \"url\": \"${url}\", \"sizeBytes\": ${size}, \"sha256\": \"${hash}\" }"
-      if [ -z "$REMOTE_FILES_JSON" ]; then REMOTE_FILES_JSON="$entry"; else REMOTE_FILES_JSON="$REMOTE_FILES_JSON, $entry"; fi
-    else
-      echo "-- $tile.rd5 non esiste (probabile tile oceanica), salto"
-    fi
-    lat=$(( lat + 5 ))
-  done
-  lon=$(( lon + 5 ))
-done
-
-if [ -z "$REMOTE_FILES_JSON" ]; then
-  echo "ERRORE: nessun segmento .rd5 trovato per il bbox di $REGION_ID" >&2
-  exit 1
-fi
-
 # --- 3. Guida testuale da Wikivoyage (wikitext grezzo) -------------------------------------------
 DUMP_FILE="$WORKDIR/dump.txt"
 WIKI_URL="https://en.wikivoyage.org/wiki/${WIKI_TITLE}"
@@ -160,19 +140,32 @@ if [ ! -s "$DUMP_FILE" ]; then
   exit 1
 fi
 
-# --- 4. POI da Overpass (nodi con amenity/shop/tourism/leisure/historic dentro il bbox) ----------
-# Una singola query sull'intero bbox non regge per una nazione grande: gli Stati Uniti (bbox
-# contiguo, 48 stati) hanno fatto scadere tutti e 3 i mirror pubblici, l'ultimo con un 504
+# --- 4. Segmenti .rd5 + POI Overpass, tile per tile (stessa griglia 5x5 gradi) -------------------
+# Le due cose sono unite in un solo giro sulla griglia (non due giri separati come prima):
+# interrogare Overpass anche per una tile senza .rd5 (nessuna strada estratta, quasi certamente
+# oceano aperto) e' puro spreco - trovato sul Giappone (arcipelago, fino a 42 tile nella griglia
+# rettangolare che ne racchiude il territorio, la maggior parte mare) dove ogni tile oceanica
+# pagava comunque il balzello di backoff sui mirror morti sotto (vedi OVERPASS_ENDPOINTS) prima di
+# scoprire l'ovvio: zero POI in mezzo al mare.
+#
+# Una singola query Overpass sull'intero bbox non regge invece per una nazione grande: gli Stati
+# Uniti (bbox contiguo, 48 stati) hanno fatto scadere tutti i mirror pubblici, l'ultimo con un 504
 # Gateway Timeout del reverse proxy anche dopo 900s pieni - non e' un timeout nostro ritentabile,
-# il server si arrende prima di finire di elaborare un'area cosi' grande. Si spezza quindi la
-# query nella stessa griglia 5x5 gradi gia' calcolata sopra per i segmenti .rd5 (riuso diretto,
-# non una seconda griglia indipendente): per un paese piccolo come San Marino restano invariati
-# un solo chunk e una sola query, per uno grande diventano N query piu' leggere, ciascuna con lo
-# stesso fallback multi-mirror di prima. generatePoi (piu' sotto) unisce i risultati.
+# il server si arrende prima di finire di elaborare un'area cosi' grande. Si spezza quindi anche
+# la query POI nella stessa griglia usata per i segmenti .rd5: per un paese piccolo come San
+# Marino resta un solo chunk/una sola query, per uno grande diventano N query piu' leggere.
+# generatePoi (piu' sotto) unisce i risultati delle tile con terra emersa.
+#
+# overpass.openstreetmap.fr per primo (non per ultimo come prima): sui mirror precedenti
+# (overpass-api.de, z.overpass-api.de) ogni singolo tentativo di questa sessione e' fallito,
+# nessuno dei due ha mai risposto una volta - tenerli come primi tentativi costava ~60s di
+# backoff a vuoto (20s+40s) PER OGNI tile della griglia, moltiplicato per decine di tile su un
+# paese grande diventa mezz'ora o piu' di puro tempo morto. Restano come fallback, non rimossi
+# del tutto, nel caso smettano di essere irraggiungibili in futuro.
 OVERPASS_ENDPOINTS=(
+  "https://overpass.openstreetmap.fr/api/interpreter"
   "https://overpass-api.de/api/interpreter"
   "https://z.overpass-api.de/api/interpreter"
-  "https://overpass.openstreetmap.fr/api/interpreter"
   "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
 )
 ATTEMPTS=3
@@ -180,9 +173,9 @@ ATTEMPTS=3
 fmax() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0>b+0)?a:b }'; }
 fmin() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0<b+0)?a:b }'; }
 
-# Ritenta un singolo chunk sui mirror noti, come il vecchio ciclo su tutto il bbox (stessa
-# rilevazione del <remark> di timeout mascherato da XML valido, vedi sotto). Ritorna 1 se nessun
-# mirror ha risposto validamente dopo $ATTEMPTS tentativi - il chiamante decide se e' fatale.
+# Ritenta un singolo chunk sui mirror noti (stessa rilevazione del <remark> di timeout mascherato
+# da XML valido, vedi sotto). Ritorna 1 se nessun mirror ha risposto validamente dopo $ATTEMPTS
+# tentativi - il chiamante decide se e' fatale.
 fetch_overpass_chunk() {
   local chunkMinLon="$1" chunkMinLat="$2" chunkMaxLon="$3" chunkMaxLat="$4" outFile="$5"
   local query="[out:xml][timeout:900];(node[\"amenity\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});node[\"shop\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});node[\"tourism\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});node[\"leisure\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});node[\"historic\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon}););out body;"
@@ -204,7 +197,8 @@ fetch_overpass_chunk() {
   return 1
 }
 
-echo "-- interrogo Overpass per i POI (a chunk di 5x5 gradi)..."
+echo "-- risolvo segmenti .rd5 e interrogo Overpass per i POI, tile per tile..."
+REMOTE_FILES_JSON=""
 POI_XML_FILES=()
 FAILED_CHUNKS=0
 lon="$LON_START"
@@ -212,27 +206,47 @@ chunkIndex=0
 while [ "$lon" -le "$LON_END" ]; do
   lat="$LAT_START"
   while [ "$lat" -le "$LAT_END" ]; do
-    chunkMinLon="$(fmax "$MIN_LON" "$lon")"
-    chunkMinLat="$(fmax "$MIN_LAT" "$lat")"
-    chunkMaxLon="$(fmin "$MAX_LON" "$((lon + 5))")"
-    chunkMaxLat="$(fmin "$MAX_LAT" "$((lat + 5))")"
-    chunkIndex=$((chunkIndex + 1))
-    chunkFile="$WORKDIR/poi-chunk-${chunkIndex}.osm.xml"
-    echo "-- chunk $chunkIndex: $chunkMinLon,$chunkMinLat,$chunkMaxLon,$chunkMaxLat"
-    if fetch_overpass_chunk "$chunkMinLon" "$chunkMinLat" "$chunkMaxLon" "$chunkMaxLat" "$chunkFile"; then
-      POI_XML_FILES+=("$chunkFile")
+    tile="$(tile_name "$lon" "$lat")"
+    url="${BROUTER_BASE}/${tile}.rd5"
+    code="$(curl -s -o /dev/null -w '%{http_code}' -I "$url")"
+    if [ "$code" = "200" ]; then
+      dest="$OUTPUT_DIR/${tile}.rd5"
+      echo "-- scarico $tile.rd5 (ri-ospitato insieme a content.db, vedi commento in testa al file)..."
+      download_with_progress "$dest" "$tile.rd5" -sS -o "$dest" "$url"
+      size="$(wc -c < "$dest" | tr -d ' ')"
+      hash="$(sha256sum "$dest" | awk '{print $1}')"
+      rd5Url="${CONTENT_DB_BASE_URL}/regions/${REGION_ID}/${VERSION}/${tile}.rd5"
+      entry="{ \"name\": \"${tile}.rd5\", \"url\": \"${rd5Url}\", \"sizeBytes\": ${size}, \"sha256\": \"${hash}\" }"
+      if [ -z "$REMOTE_FILES_JSON" ]; then REMOTE_FILES_JSON="$entry"; else REMOTE_FILES_JSON="$REMOTE_FILES_JSON, $entry"; fi
+
+      chunkMinLon="$(fmax "$MIN_LON" "$lon")"
+      chunkMinLat="$(fmax "$MIN_LAT" "$lat")"
+      chunkMaxLon="$(fmin "$MAX_LON" "$((lon + 5))")"
+      chunkMaxLat="$(fmin "$MAX_LAT" "$((lat + 5))")"
+      chunkIndex=$((chunkIndex + 1))
+      chunkFile="$WORKDIR/poi-chunk-${chunkIndex}.osm.xml"
+      echo "-- chunk $chunkIndex ($tile): $chunkMinLon,$chunkMinLat,$chunkMaxLon,$chunkMaxLat"
+      if fetch_overpass_chunk "$chunkMinLon" "$chunkMinLat" "$chunkMaxLon" "$chunkMaxLat" "$chunkFile"; then
+        POI_XML_FILES+=("$chunkFile")
+      else
+        # Non fatale subito: un chunk perso (una sotto-area di una nazione grande) significa POI
+        # mancanti solo li', non l'intera regione da buttare via - coerente con la stessa logica
+        # "non perdere il lavoro gia' fatto" applicata alle regioni nel workflow.
+        echo "-- chunk $chunkIndex fallito dopo $ATTEMPTS tentativi su tutti i mirror, salto (POI di quella sotto-area mancanti)" >&2
+        FAILED_CHUNKS=$((FAILED_CHUNKS + 1))
+      fi
     else
-      # Non fatale subito: un chunk perso (una sotto-area di una nazione grande) significa POI
-      # mancanti solo li', non l'intera regione da buttare via - coerente con la stessa logica
-      # "non perdere il lavoro gia' fatto" applicata alle regioni nel workflow.
-      echo "-- chunk $chunkIndex fallito dopo $ATTEMPTS tentativi su tutti i mirror, salto (POI di quella sotto-area mancanti)" >&2
-      FAILED_CHUNKS=$((FAILED_CHUNKS + 1))
+      echo "-- $tile.rd5 non esiste (probabile tile oceanica), salto anche Overpass per questa tile"
     fi
     lat=$(( lat + 5 ))
   done
   lon=$(( lon + 5 ))
 done
 
+if [ -z "$REMOTE_FILES_JSON" ]; then
+  echo "ERRORE: nessun segmento .rd5 trovato per il bbox di $REGION_ID" >&2
+  exit 1
+fi
 if [ "${#POI_XML_FILES[@]}" -eq 0 ]; then
   echo "ERRORE: nessun chunk Overpass ha prodotto dati validi per $REGION_ID" >&2
   exit 1

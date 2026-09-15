@@ -34,10 +34,10 @@ fun localFileEntry(file: File, name: String, url: String): ManifestFileEntry =
 
 /**
  * Schema atteso da RegionManifest.kt/RegionManifestTest.kt (core/sync). I segmenti .rd5 non
- * sono mai file locali qui (piano A2: referenziati direttamente su brouter.de, mai ri-ospitati)
- * — il chiamante li passa gia' come ManifestFileEntry con sha256/sizeBytes calcolati scaricando
- * e hashando lo stream una volta (vedi tools/data-pipeline/scripts/build-region.sh), senza
- * tenere gli 80+ MB per segmento su disco.
+ * sono file locali per QUESTO tool (a differenza di content.db) — il chiamante li passa gia'
+ * come ManifestFileEntry con sha256/sizeBytes calcolati scaricandoli e hashandoli una volta
+ * (vedi tools/data-pipeline/scripts/build-region.sh), che li scrive anche su disco accanto a
+ * content.db perche' il sito li ri-ospiti: url punta quindi al nostro host, non a brouter.de.
  */
 fun buildManifestJson(
     regionId: String,

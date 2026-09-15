@@ -34,6 +34,12 @@ for spec in "${REGIONS[@]}"; do
   destDir="$SITE_DIR/regions/$regionId/$VERSION"
   mkdir -p "$destDir"
   cp "$OUTPUT_ROOT/$regionId/content.db" "$destDir/content.db"
+  # Segmenti .rd5 ri-ospitati insieme a content.db (vedi commento in testa a build-region.sh):
+  # zero o piu' a seconda di quante tile 5x5 gradi intersecano il bbox della regione.
+  for rd5 in "$OUTPUT_ROOT/$regionId"/*.rd5; do
+    [ -e "$rd5" ] || continue
+    cp "$rd5" "$destDir/"
+  done
 done
 
 # gradlew invoca java.exe nativo di Windows: gli argomenti --args vogliono path Windows reali,

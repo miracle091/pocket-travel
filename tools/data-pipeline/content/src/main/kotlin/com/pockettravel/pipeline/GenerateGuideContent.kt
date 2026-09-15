@@ -15,6 +15,12 @@ private val headingToCategory = mapOf(
     "stay safe" to "SICUREZZA",
     "get around" to "TRASPORTI",
     "talk" to "FRASI_UTILI",
+    "sleep" to "ALLOGGIO",
+    "eat" to "CIBO_BEVANDE",
+    "drink" to "CIBO_BEVANDE",
+    "buy" to "ACQUISTI",
+    "connect" to "CONNETTIVITA",
+    "cope" to "VITA_QUOTIDIANA",
 )
 
 // (?!=)/(?<!=) escludono i sotto-titoli ===/==== (3+ segni "="): senza, un "===Get in==="
