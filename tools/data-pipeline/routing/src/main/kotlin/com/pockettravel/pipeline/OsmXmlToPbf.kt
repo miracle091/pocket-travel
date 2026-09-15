@@ -3,11 +3,12 @@ package com.pockettravel.pipeline
 import com.google.protobuf.ByteString
 import java.io.File
 import java.io.FileOutputStream
-import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.parsers.SAXParserFactory
 import org.openstreetmap.osmosis.osmbinary.Osmformat
 import org.openstreetmap.osmosis.osmbinary.file.BlockOutputStream
 import org.openstreetmap.osmosis.osmbinary.file.FileBlock
-import org.w3c.dom.Element
+import org.xml.sax.Attributes
+import org.xml.sax.helpers.DefaultHandler
 
 data class OsmNode(val id: Long, val lat: Double, val lon: Double, val tags: Map<String, String> = emptyMap())
 data class OsmWay(val id: Long, val nodeIds: List<Long>, val tags: Map<String, String>)
@@ -29,55 +30,69 @@ data class OsmData(val nodes: List<OsmNode>, val ways: List<OsmWay>)
  * qualunque consumatore di OsmData duplicherebbe silenziosamente quel nodo.
  */
 fun parseOsmXml(file: File): OsmData {
-    // Il limite JAXP sulla dimensione dell'"entita' documento" (100.000 caratteri di default)
-    // scatta anche su XML grandi ma innocui quando disallow-doctype-decl e' attivo (es. estratto
-    // Overpass reale per una nazione grande, milioni di righe) - non e' l'XXE che
-    // disallow-doctype-decl/external-entities gia' prevengono, quindi lo disattiviamo qui.
-    System.setProperty("jdk.xml.maxGeneralEntitySizeLimit", "0")
-    System.setProperty("jdk.xml.totalEntitySizeLimit", "0")
-    System.setProperty("jdk.xml.entityExpansionLimit", "0")
-    val doc = DocumentBuilderFactory.newInstance().apply {
+    // Parser SAX (streaming) invece di DOM: un DOM tiene l'intero albero XML in memoria con un
+    // overhead per-nodo pesante (DeferredDocumentImpl di Xerces) - per un estratto Overpass di
+    // una nazione grande (es. Italia, milioni di nodi) questo esaurisce lo heap di default della
+    // JVM (visto: OutOfMemoryError generando content.db per l'Italia). SAX processa un elemento
+    // alla volta e costruisce solo gli OsmNode/OsmWay leggeri che servono a valle.
+    val nodes = mutableListOf<OsmNode>()
+    val ways = mutableListOf<OsmWay>()
+    var currentTags = mutableMapOf<String, String>()
+    var currentNodeIds = mutableListOf<Long>()
+    var currentId = 0L
+    var currentLat = 0.0
+    var currentLon = 0.0
+    var inNode = false
+    var inWay = false
+
+    val handler = object : DefaultHandler() {
+        override fun startElement(uri: String, localName: String, qName: String, attributes: Attributes) {
+            when (qName) {
+                "node" -> {
+                    inNode = true
+                    currentId = attributes.getValue("id").toLong()
+                    currentLat = attributes.getValue("lat").toDouble()
+                    currentLon = attributes.getValue("lon").toDouble()
+                    currentTags = mutableMapOf()
+                }
+                "way" -> {
+                    inWay = true
+                    currentId = attributes.getValue("id").toLong()
+                    currentTags = mutableMapOf()
+                    currentNodeIds = mutableListOf()
+                }
+                "tag" -> if (inNode || inWay) {
+                    currentTags[attributes.getValue("k")] = attributes.getValue("v")
+                }
+                "nd" -> if (inWay) {
+                    currentNodeIds += attributes.getValue("ref").toLong()
+                }
+            }
+        }
+
+        override fun endElement(uri: String, localName: String, qName: String) {
+            when (qName) {
+                "node" -> {
+                    nodes += OsmNode(id = currentId, lat = currentLat, lon = currentLon, tags = currentTags)
+                    inNode = false
+                }
+                "way" -> {
+                    ways += OsmWay(id = currentId, nodeIds = currentNodeIds, tags = currentTags)
+                    inWay = false
+                }
+            }
+        }
+    }
+
+    SAXParserFactory.newInstance().apply {
         setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
         setFeature("http://xml.org/sax/features/external-general-entities", false)
         setFeature("http://xml.org/sax/features/external-parameter-entities", false)
         setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
         isXIncludeAware = false
-        isExpandEntityReferences = false
-    }.newDocumentBuilder().parse(file)
-    val nodes = doc.getElementsByTagName("node").let { list ->
-        (0 until list.length).map { i ->
-            val el = list.item(i) as Element
-            val tags = mutableMapOf<String, String>()
-            val children = el.childNodes
-            for (c in 0 until children.length) {
-                val child = children.item(c) as? Element ?: continue
-                if (child.tagName == "tag") tags[child.getAttribute("k")] = child.getAttribute("v")
-            }
-            OsmNode(
-                id = el.getAttribute("id").toLong(),
-                lat = el.getAttribute("lat").toDouble(),
-                lon = el.getAttribute("lon").toDouble(),
-                tags = tags,
-            )
-        }.distinctBy { it.id }
-    }
-    val ways = doc.getElementsByTagName("way").let { list ->
-        (0 until list.length).map { i ->
-            val el = list.item(i) as Element
-            val nodeIds = mutableListOf<Long>()
-            val tags = mutableMapOf<String, String>()
-            val children = el.childNodes
-            for (c in 0 until children.length) {
-                val child = children.item(c) as? Element ?: continue
-                when (child.tagName) {
-                    "nd" -> nodeIds += child.getAttribute("ref").toLong()
-                    "tag" -> tags[child.getAttribute("k")] = child.getAttribute("v")
-                }
-            }
-            OsmWay(id = el.getAttribute("id").toLong(), nodeIds = nodeIds, tags = tags)
-        }
-    }
-    return OsmData(nodes, ways)
+    }.newSAXParser().parse(file, handler)
+
+    return OsmData(nodes.distinctBy { it.id }, ways)
 }
 
 /**
