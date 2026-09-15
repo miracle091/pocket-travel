@@ -34,6 +34,16 @@ fun parseOsmXml(file: File): OsmData {
     // una nazione grande (es. Italia, milioni di nodi) questo esaurisce lo heap di default della
     // JVM (visto: OutOfMemoryError generando content.db per l'Italia). SAX processa un elemento
     // alla volta e costruisce solo gli OsmNode/OsmWay leggeri che servono a valle.
+    //
+    // Il limite JAXP sulla dimensione dell'"entita' documento" (100.000 caratteri di default)
+    // scatta anche su XML grandi ma innocui quando disallow-doctype-decl e' attivo (es. estratto
+    // Overpass reale per una nazione grande, milioni di righe) - non e' l'XXE che
+    // disallow-doctype-decl/external-entities gia' prevengono, quindi lo disattiviamo qui.
+    // Si applica anche al parser SAX, non solo al DOM: va impostato comunque.
+    System.setProperty("jdk.xml.maxGeneralEntitySizeLimit", "0")
+    System.setProperty("jdk.xml.totalEntitySizeLimit", "0")
+    System.setProperty("jdk.xml.entityExpansionLimit", "0")
+
     val nodes = mutableListOf<OsmNode>()
     val ways = mutableListOf<OsmWay>()
     var currentTags = mutableMapOf<String, String>()
