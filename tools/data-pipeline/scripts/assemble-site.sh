@@ -19,6 +19,30 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 winpath() { cygpath -m "$1" 2>/dev/null || echo "$1"; }
 
+# Duplicato intenzionale di build-region.sh/download_with_progress (stesso contenuto): script
+# separati, invocati come step distinti del workflow, non sourced insieme - vedi il commento
+# in build-region.sh per il motivo (curl -sS silenzioso lascia i log di GitHub Actions vuoti
+# per tutta la durata di un content.db portato avanti da una pubblicazione precedente).
+download_with_progress() {
+  local out="$1" label="$2"
+  shift 2
+  curl "$@" &
+  local pid=$!
+  local last_kb=-1
+  local elapsed=0
+  while kill -0 "$pid" 2>/dev/null; do
+    sleep 2
+    elapsed=$((elapsed + 2))
+    local size_kb=0
+    [ -f "$out" ] && size_kb=$(( $(wc -c < "$out" | tr -d ' ') / 1024 ))
+    if [ "$size_kb" -ne "$last_kb" ] || [ $((elapsed % 30)) -eq 0 ]; then
+      echo "-- $label: ${size_kb} KB scaricati (${elapsed}s trascorsi)..."
+      last_kb=$size_kb
+    fi
+  done
+  wait "$pid"
+}
+
 mkdir -p "$SITE_DIR"
 PREV_MANIFEST="$(mktemp)"
 MANIFEST_INPUTS=()
@@ -50,7 +74,7 @@ if curl -sSf -o "$PREV_MANIFEST" "$PUBLISHED_MANIFEST_URL" 2>/dev/null; then
           dest="$SITE_DIR/$relPath"
           mkdir -p "$(dirname "$dest")"
           echo "-- porto avanti $relPath (regione non toccata in questa run)"
-          curl -sSf -o "$dest" "$url"
+          download_with_progress "$dest" "$relPath" -sSf -o "$dest" "$url"
         fi
         ;;
     esac

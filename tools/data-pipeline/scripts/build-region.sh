@@ -53,22 +53,30 @@ trap 'rm -rf "$WORKDIR"' EXIT
 # e non serve: bash e java concordano gia' sullo stesso path POSIX.
 winpath() { cygpath -m "$1" 2>/dev/null || echo "$1"; }
 
-# curl -sS scarica in silenzio: per i trasferimenti piu' grandi (rd5, dump Wikivoyage) i log
-# di GitHub Actions restano vuoti per tutta la durata del download, senza modo di distinguere
-# un download lento da uno bloccato. Scarica in background e stampa periodicamente i KB
-# scaricati finora, senza il meter interattivo di curl (a base di \r, illeggibile in un log
-# non-tty).
+# curl -sS scarica in silenzio: per i trasferimenti piu' grandi (rd5, dump Wikivoyage, risposta
+# Overpass) i log di GitHub Actions restano vuoti per tutta la durata del download - per Overpass
+# su un bbox nazionale possono passare 10+ minuti senza una sola riga di log, senza modo di
+# distinguere un download lento da uno bloccato. Scarica in background e stampa periodicamente i
+# KB scaricati finora, senza il meter interattivo di curl (a base di \r, illeggibile in un log
+# non-tty). $@ dopo out/label sono passati a curl cosi' com'e' (GET o POST con -data-urlencode).
 download_with_progress() {
-  local url="$1" out="$2" label="$3"
-  curl -sS -o "$out" "$url" &
+  local out="$1" label="$2"
+  shift 2
+  curl "$@" &
   local pid=$!
   local last_kb=-1
+  local elapsed=0
+  # Overpass elabora la query lato server prima di iniziare a rispondere: i byte scaricati
+  # restano a 0 per gran parte dell'attesa (anche 10+ minuti su un bbox nazionale), quindi il
+  # solo cambio di dimensione non basta a distinguere un'attesa normale da un blocco - un
+  # "battito" ogni 30s conferma che il processo e' ancora vivo anche a 0 byte.
   while kill -0 "$pid" 2>/dev/null; do
     sleep 2
+    elapsed=$((elapsed + 2))
     local size_kb=0
     [ -f "$out" ] && size_kb=$(( $(wc -c < "$out" | tr -d ' ') / 1024 ))
-    if [ "$size_kb" -ne "$last_kb" ]; then
-      echo "-- $label: ${size_kb} KB scaricati..."
+    if [ "$size_kb" -ne "$last_kb" ] || [ $((elapsed % 30)) -eq 0 ]; then
+      echo "-- $label: ${size_kb} KB scaricati (${elapsed}s trascorsi)..."
       last_kb=$size_kb
     fi
   done
@@ -123,7 +131,7 @@ while [ "$lon" -le "$LON_END" ]; do
     if [ "$code" = "200" ]; then
       tmp="$WORKDIR/${tile}.rd5"
       echo "-- scarico $tile.rd5 (per hash, non ri-ospitato)..."
-      download_with_progress "$url" "$tmp" "$tile.rd5"
+      download_with_progress "$tmp" "$tile.rd5" -sS -o "$tmp" "$url"
       size="$(wc -c < "$tmp" | tr -d ' ')"
       hash="$(sha256sum "$tmp" | awk '{print $1}')"
       rm -f "$tmp"
@@ -146,7 +154,7 @@ fi
 DUMP_FILE="$WORKDIR/dump.txt"
 WIKI_URL="https://en.wikivoyage.org/wiki/${WIKI_TITLE}"
 echo "-- scarico dump Wikivoyage: $WIKI_TITLE"
-download_with_progress "https://en.wikivoyage.org/w/index.php?title=${WIKI_TITLE}&action=raw" "$DUMP_FILE" "dump Wikivoyage $WIKI_TITLE"
+download_with_progress "$DUMP_FILE" "dump Wikivoyage $WIKI_TITLE" -sS "https://en.wikivoyage.org/w/index.php?title=${WIKI_TITLE}&action=raw" -o "$DUMP_FILE"
 if [ ! -s "$DUMP_FILE" ]; then
   echo "ERRORE: dump Wikivoyage vuoto per $WIKI_TITLE (titolo pagina errato?)" >&2
   exit 1
@@ -178,7 +186,7 @@ ATTEMPTS=3
 for attempt in $(seq 1 "$ATTEMPTS"); do
   endpoint="${OVERPASS_ENDPOINTS[$(( (attempt - 1) % ${#OVERPASS_ENDPOINTS[@]} ))]}"
   echo "-- tentativo $attempt/$ATTEMPTS su $endpoint..."
-  curl -sS --max-time 950 "$endpoint" --data-urlencode "data=${OVERPASS_QUERY}" -o "$POI_XML"
+  download_with_progress "$POI_XML" "Overpass POI ($endpoint)" -sS --max-time 950 "$endpoint" --data-urlencode "data=${OVERPASS_QUERY}" -o "$POI_XML"
   if grep -q "<osm" "$POI_XML" && ! grep -q "<remark>" "$POI_XML"; then
     overpass_ok=1
     break
