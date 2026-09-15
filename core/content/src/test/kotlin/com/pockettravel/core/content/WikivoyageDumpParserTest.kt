@@ -31,13 +31,31 @@ class WikivoyageDumpParserTest {
 
         == Talk ==
         '''Konnichiwa''' means hello. Few people speak English outside major cities.
+
+        == Sleep ==
+        Capsule hotels and ryokan are common alongside international hotel chains.
+
+        == Eat ==
+        Slurping noodles is acceptable and even encouraged.
+
+        == Drink ==
+        Tipping at bars and izakaya is not expected and can cause confusion.
+
+        == Buy ==
+        Prices are fixed; haggling is not part of Japanese shopping culture.
+
+        == Connect ==
+        Prepaid SIM cards for tourists are available at the airport.
+
+        == Cope ==
+        Coin laundries are widely available even in small towns.
     """.trimIndent()
 
     @Test
     fun `extracts only headings mapped to a guide category`() {
         val sections = parser.parse("japan", SOURCE_URL, sampleDump)
 
-        assertEquals(6, sections.size)
+        assertEquals(12, sections.size)
         assertTrue(sections.none { it.title.equals("Understand", ignoreCase = true) })
     }
 
@@ -52,6 +70,11 @@ class WikivoyageDumpParserTest {
         assertTrue(byCategory.getValue(GuideCategory.TRASPORTI).body.contains("Japan Rail Pass"))
         assertTrue(byCategory.getValue(GuideCategory.SALUTE).body.contains("Tap water"))
         assertTrue(byCategory.getValue(GuideCategory.SICUREZZA).body.contains("earthquakes"))
+        assertTrue(byCategory.getValue(GuideCategory.ALLOGGIO).body.contains("ryokan"))
+        assertTrue(byCategory.getValue(GuideCategory.CIBO_BEVANDE).body.contains("izakaya"))
+        assertTrue(byCategory.getValue(GuideCategory.ACQUISTI).body.contains("haggling"))
+        assertTrue(byCategory.getValue(GuideCategory.CONNETTIVITA).body.contains("SIM"))
+        assertTrue(byCategory.getValue(GuideCategory.VITA_QUOTIDIANA).body.contains("laundries"))
     }
 
     @Test

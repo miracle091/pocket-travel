@@ -10,12 +10,14 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pockettravel.app.licenses.LicensesScreen
 import com.pockettravel.app.navigation.PocketTravelDestinations.ARG_REGION_ID
+import com.pockettravel.app.navigation.PocketTravelDestinations.ARG_TAB
 import com.pockettravel.app.navigation.PocketTravelDestinations.LICENSES
 import com.pockettravel.app.navigation.PocketTravelDestinations.ONBOARDING
 import com.pockettravel.app.navigation.PocketTravelDestinations.REGIONS
 import com.pockettravel.app.navigation.PocketTravelDestinations.REGION_HUB_PATTERN
 import com.pockettravel.app.navigation.PocketTravelDestinations.SOURCES
 import com.pockettravel.app.navigation.PocketTravelDestinations.STORAGE
+import com.pockettravel.app.navigation.PocketTravelDestinations.TUTORIAL
 import com.pockettravel.app.navigation.PocketTravelDestinations.VAULT
 import com.pockettravel.app.navigation.PocketTravelDestinations.regionHub
 import com.pockettravel.app.onboarding.OnboardingScreen
@@ -54,6 +56,15 @@ fun PocketTravelNavHost(onboardingViewModel: OnboardingViewModel = hiltViewModel
                 onOpenSources = { navController.navigate(SOURCES) },
                 onOpenLicenses = { navController.navigate(LICENSES) },
                 onOpenVault = { navController.navigate(VAULT) },
+                onOpenTutorial = { navController.navigate(TUTORIAL) },
+                onOpenMap = { regionId -> navController.navigate(regionHub(regionId, tab = "map")) },
+                onOpenAi = { regionId -> navController.navigate(regionHub(regionId, tab = "ai")) },
+            )
+        }
+        composable(TUTORIAL) {
+            OnboardingScreen(
+                viewModel = onboardingViewModel,
+                onComplete = { navController.popBackStack() },
             )
         }
         composable(STORAGE) {
@@ -70,10 +81,14 @@ fun PocketTravelNavHost(onboardingViewModel: OnboardingViewModel = hiltViewModel
         }
         composable(
             route = REGION_HUB_PATTERN,
-            arguments = listOf(navArgument(ARG_REGION_ID) { type = NavType.StringType }),
+            arguments = listOf(
+                navArgument(ARG_REGION_ID) { type = NavType.StringType },
+                navArgument(ARG_TAB) { type = NavType.StringType; defaultValue = "guide" },
+            ),
         ) { backStackEntry ->
             val regionId = backStackEntry.arguments?.getString(ARG_REGION_ID).orEmpty()
-            RegionHubScreen(regionId = regionId, onBack = { navController.popBackStack() })
+            val tab = backStackEntry.arguments?.getString(ARG_TAB) ?: "guide"
+            RegionHubScreen(regionId = regionId, initialTab = tab, onBack = { navController.popBackStack() })
         }
     }
 }

@@ -10,12 +10,17 @@ import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.HealthAndSafety
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Hotel
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -45,6 +50,11 @@ object AppIcons {
     val Translation: ImageVector = Icons.Filled.Translate
     val VerifiedLink: ImageVector = Icons.Filled.VerifiedUser
     val AiAssistant: ImageVector = Icons.Filled.AutoAwesome
+    val Accommodation: ImageVector = Icons.Filled.Hotel
+    val FoodDrink: ImageVector = Icons.Filled.Restaurant
+    val Shopping: ImageVector = Icons.Filled.ShoppingBag
+    val Connectivity: ImageVector = Icons.Filled.Wifi
+    val DailyLife: ImageVector = Icons.Filled.Home
 
     @Composable
     fun customs(): ImageVector = ImageVector.vectorResource(id = R.drawable.ic_fact_check)

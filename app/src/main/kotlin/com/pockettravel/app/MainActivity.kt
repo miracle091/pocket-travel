@@ -3,12 +3,12 @@ package com.pockettravel.app
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import com.pockettravel.app.navigation.PocketTravelNavHost
+import com.pockettravel.core.ui.PocketTravelTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 // FragmentActivity (sottoclasse di ComponentActivity) invece di ComponentActivity: richiesto da
@@ -19,7 +19,7 @@ class MainActivity : FragmentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            PocketTravelTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     PocketTravelNavHost()
                 }

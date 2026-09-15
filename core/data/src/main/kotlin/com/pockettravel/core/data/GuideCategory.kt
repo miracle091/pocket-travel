@@ -7,4 +7,9 @@ enum class GuideCategory {
     SICUREZZA,
     TRASPORTI,
     FRASI_UTILI,
+    ALLOGGIO,
+    CIBO_BEVANDE,
+    ACQUISTI,
+    CONNETTIVITA,
+    VITA_QUOTIDIANA,
 }

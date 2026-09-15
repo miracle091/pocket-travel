@@ -11,10 +11,14 @@ object SyncConfig {
     const val PERIODIC_SYNC_WORK_NAME = "region-manifest-sync"
     const val DOWNLOAD_WORK_NAME_PREFIX = "region-download-"
 
-    // brouter.de: segmenti di routing .rd5 referenziati direttamente, mai ri-ospitati (build
-    // settimanale gia' pronta pubblicata dal progetto BRouter). build.protomaps.com:
-    // mapSource.sourceUrl (MapExtractionSource) punta alla build giornaliera whole-planet da
-    // cui il device estrae solo le tile del bounding box della regione — vedi PmtilesExtractor.
+    // brouter.de: tenuto in whitelist solo per retrocompatibilita' con voci di manifest
+    // pubblicate prima che i segmenti .rd5 venissero ri-ospitati (vedi build-region.sh) — quei
+    // segmenti cambiano dimensione/hash nel tempo (rigenerazione periodica lato BRouter),
+    // rompendo permanentemente ogni download che li referenzia ancora in diretta
+    // (RegionPackageDownloader.downloadAndVerify rigetta un file la cui dimensione non combacia
+    // piu' col manifest). build.protomaps.com: mapSource.sourceUrl (MapExtractionSource) punta
+    // alla build giornaliera whole-planet da cui il device estrae solo le tile del bounding box
+    // della regione — vedi PmtilesExtractor.
     val ALLOWED_MANIFEST_HOSTS: Set<String> = setOf(
         URI(MANIFEST_URL).host,
         "brouter.de",

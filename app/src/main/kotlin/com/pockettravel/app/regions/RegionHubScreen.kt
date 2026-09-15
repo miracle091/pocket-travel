@@ -31,10 +31,15 @@ import com.pockettravel.feature.guide.GuideScreen
 import com.pockettravel.feature.map.MapRouteViewModel
 import com.pockettravel.feature.map.MapScreen
 
-private enum class RegionTab(val label: String, val icon: ImageVector) {
-    GUIDE("Guida", AppIcons.World),
-    MAP("Mappa", AppIcons.Map),
-    AI("Assistente", AppIcons.AiAssistant),
+private enum class RegionTab(val key: String, val label: String, val icon: ImageVector) {
+    GUIDE("guide", "Guida", AppIcons.World),
+    MAP("map", "Mappa", AppIcons.Map),
+    AI("ai", "Assistente", AppIcons.AiAssistant),
+    ;
+
+    companion object {
+        fun fromKey(key: String): RegionTab = entries.firstOrNull { it.key == key } ?: GUIDE
+    }
 }
 
 // Guida/Mappa/Assistente sono viste sorelle della stessa regione, senza bisogno di un proprio
@@ -43,8 +48,13 @@ private enum class RegionTab(val label: String, val icon: ImageVector) {
 // la stessa "torna alla lista regioni".
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegionHubScreen(regionId: String, onBack: () -> Unit, viewModel: RegionHubViewModel = hiltViewModel()) {
-    var selectedTab by rememberSaveable { mutableStateOf(RegionTab.GUIDE) }
+fun RegionHubScreen(
+    regionId: String,
+    initialTab: String = "guide",
+    onBack: () -> Unit,
+    viewModel: RegionHubViewModel = hiltViewModel(),
+) {
+    var selectedTab by rememberSaveable(regionId) { mutableStateOf(RegionTab.fromKey(initialTab)) }
     val displayName by viewModel.displayName.collectAsStateWithLifecycle()
     LaunchedEffect(regionId) { viewModel.load(regionId) }
 

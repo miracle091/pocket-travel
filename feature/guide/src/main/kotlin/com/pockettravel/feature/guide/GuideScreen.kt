@@ -96,6 +96,11 @@ private fun GuideCategory.displayName(): String = when (this) {
     GuideCategory.SICUREZZA -> "Sicurezza"
     GuideCategory.TRASPORTI -> "Trasporti"
     GuideCategory.FRASI_UTILI -> "Frasi utili"
+    GuideCategory.ALLOGGIO -> "Alloggio"
+    GuideCategory.CIBO_BEVANDE -> "Cibo e bevande"
+    GuideCategory.ACQUISTI -> "Acquisti"
+    GuideCategory.CONNETTIVITA -> "Connettività"
+    GuideCategory.VITA_QUOTIDIANA -> "Vita quotidiana"
 }
 
 // Nessuna icona del set copre esattamente "sicurezza"/"trasporti": usate le piu' vicine per
@@ -108,4 +113,9 @@ private fun GuideCategory.icon(): ImageVector = when (this) {
     GuideCategory.SICUREZZA -> AppIcons.OfficialAuthority
     GuideCategory.TRASPORTI -> AppIcons.Flights
     GuideCategory.FRASI_UTILI -> AppIcons.Translation
+    GuideCategory.ALLOGGIO -> AppIcons.Accommodation
+    GuideCategory.CIBO_BEVANDE -> AppIcons.FoodDrink
+    GuideCategory.ACQUISTI -> AppIcons.Shopping
+    GuideCategory.CONNETTIVITA -> AppIcons.Connectivity
+    GuideCategory.VITA_QUOTIDIANA -> AppIcons.DailyLife
 }

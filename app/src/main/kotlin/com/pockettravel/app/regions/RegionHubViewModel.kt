@@ -15,12 +15,14 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class RegionHubViewModel @Inject constructor(
     private val regionRepository: RegionRepository,
+    private val recentRegionPreferences: RecentRegionPreferences,
 ) : ViewModel() {
 
     private val _displayName = MutableStateFlow<String?>(null)
     val displayName: StateFlow<String?> = _displayName.asStateFlow()
 
     fun load(regionId: String) {
+        recentRegionPreferences.setLastRegionId(regionId)
         viewModelScope.launch {
             _displayName.value = regionRepository.displayName(regionId)
         }

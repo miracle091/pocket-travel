@@ -13,28 +13,34 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -43,6 +49,7 @@ import androidx.work.WorkInfo
 import com.pockettravel.core.sync.RegionPackageDownloadWorker
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,52 +59,81 @@ fun RegionListScreen(
     onOpenSources: () -> Unit,
     onOpenLicenses: () -> Unit,
     onOpenVault: () -> Unit,
+    onOpenTutorial: () -> Unit,
+    onOpenMap: (String) -> Unit,
+    onOpenAi: (String) -> Unit,
     viewModel: RegionListViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var menuExpanded by remember { mutableStateOf(false) }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    val lastRegionId = viewModel.lastRegionId()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Regioni") },
-                actions = {
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(imageVector = Icons.Filled.MoreVert, contentDescription = "Altre opzioni")
-                    }
-                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Spazio di archiviazione") },
-                            leadingIcon = { MenuIcon(AppIcons.Settings) },
-                            onClick = { menuExpanded = false; onOpenStorage() },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Fonti ufficiali") },
-                            leadingIcon = { MenuIcon(AppIcons.OfficialAuthority) },
-                            onClick = { menuExpanded = false; onOpenSources() },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Licenze") },
-                            leadingIcon = { MenuIcon(AppIcons.Info) },
-                            onClick = { menuExpanded = false; onOpenLicenses() },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Documenti") },
-                            leadingIcon = { MenuIcon(AppIcons.passport()) },
-                            onClick = { menuExpanded = false; onOpenVault() },
-                        )
-                    }
-                },
-            )
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                Text(
+                    text = "Pocket Travel",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(16.dp),
+                )
+                HorizontalDivider()
+                DrawerItem(label = "Regioni", icon = AppIcons.World, selected = true) {
+                    scope.launch { drawerState.close() }
+                }
+                DrawerItem(label = "Mappa", icon = AppIcons.Map, enabled = lastRegionId != null) {
+                    scope.launch { drawerState.close() }
+                    lastRegionId?.let(onOpenMap)
+                }
+                DrawerItem(label = "Assistente IA", icon = AppIcons.AiAssistant, enabled = lastRegionId != null) {
+                    scope.launch { drawerState.close() }
+                    lastRegionId?.let(onOpenAi)
+                }
+                DrawerItem(label = "Spazio di archiviazione", icon = AppIcons.Settings) {
+                    scope.launch { drawerState.close() }
+                    onOpenStorage()
+                }
+                DrawerItem(label = "Fonti ufficiali", icon = AppIcons.OfficialAuthority) {
+                    scope.launch { drawerState.close() }
+                    onOpenSources()
+                }
+                DrawerItem(label = "Licenze", icon = AppIcons.Info) {
+                    scope.launch { drawerState.close() }
+                    onOpenLicenses()
+                }
+                DrawerItem(label = "Documenti", icon = AppIcons.passport()) {
+                    scope.launch { drawerState.close() }
+                    onOpenVault()
+                }
+                HorizontalDivider()
+                DrawerItem(label = "Rivedi tutorial", icon = AppIcons.Help) {
+                    scope.launch { drawerState.close() }
+                    onOpenTutorial()
+                }
+            }
         },
-    ) { innerPadding ->
-        Column(modifier = Modifier.fillMaxWidth().padding(innerPadding).padding(16.dp)) {
-            when {
-                uiState.isLoading && uiState.items.isEmpty() -> CircularProgressIndicator()
-                uiState.errorMessage != null -> Text(text = uiState.errorMessage!!, color = MaterialTheme.colorScheme.error)
-                else -> LazyColumn {
-                    items(uiState.items, key = { it.regionId }) { item ->
-                        RegionRow(item = item, viewModel = viewModel, onClick = { onRegionClick(item.regionId) })
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Regioni") },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(imageVector = Icons.Filled.Menu, contentDescription = "Menu")
+                        }
+                    },
+                )
+            },
+        ) { innerPadding ->
+            Column(modifier = Modifier.fillMaxWidth().padding(innerPadding).padding(16.dp)) {
+                when {
+                    uiState.isLoading && uiState.items.isEmpty() -> CircularProgressIndicator()
+                    uiState.errorMessage != null -> Text(text = uiState.errorMessage!!, color = MaterialTheme.colorScheme.error)
+                    else -> LazyColumn {
+                        items(uiState.items, key = { it.regionId }) { item ->
+                            RegionRow(item = item, viewModel = viewModel, onClick = { onRegionClick(item.regionId) })
+                        }
                     }
                 }
             }
@@ -106,8 +142,20 @@ fun RegionListScreen(
 }
 
 @Composable
-private fun MenuIcon(icon: ImageVector) {
-    Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(24.dp))
+private fun DrawerItem(
+    label: String,
+    icon: ImageVector,
+    selected: Boolean = false,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    NavigationDrawerItem(
+        label = { Text(label) },
+        icon = { Icon(imageVector = icon, contentDescription = null) },
+        selected = selected,
+        onClick = { if (enabled) onClick() },
+        modifier = Modifier.padding(horizontal = 12.dp).alpha(if (enabled) 1f else 0.4f),
+    )
 }
 
 @Composable

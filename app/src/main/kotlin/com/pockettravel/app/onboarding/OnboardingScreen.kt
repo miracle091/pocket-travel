@@ -1,6 +1,8 @@
 package com.pockettravel.app.onboarding
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -28,37 +32,46 @@ import com.pockettravel.core.ui.AppIcons
 
 private data class OnboardingStep(val title: String, val body: String, val icon: ImageVector)
 
-private val steps = listOf(
-    OnboardingStep(
-        title = "Benvenuto in Pocket Travel",
-        body = "Una guida di viaggio che funziona anche senza connessione: usi e costumi, " +
-            "dogane, vaccinazioni, mappe e un assistente IA a bordo. Nessun account, " +
-            "nessuna raccolta di dati personali.",
-        icon = AppIcons.Compass,
-    ),
-    OnboardingStep(
-        title = "Scarica una regione per iniziare",
-        body = "Guida, mappa e punti di interesse sono organizzati in pacchetti regionali da " +
-            "scaricare quando vuoi. Potrai gestirli in qualsiasi momento da Spazio di archiviazione.",
-        icon = AppIcons.Download,
-    ),
-    OnboardingStep(
-        title = "L'assistente IA ha due modalità",
-        body = "\"Sul dispositivo\" funziona anche offline, ma richiede almeno 4 GB di RAM e il " +
-            "download di un modello. \"Online\" usa una tua chiave API personale, mai condivisa " +
-            "con un server dell'app.",
-        icon = AppIcons.AiAssistant,
-    ),
-    OnboardingStep(
-        title = "Le fonti ufficiali restano esterne",
-        body = "Ambasciate, ministeri e OMS si aprono in una scheda del browser e richiedono una " +
-            "connessione: l'app non li salva mai offline, per restare sempre aggiornati.",
-        icon = AppIcons.OfficialAuthority,
-    ),
-)
-
 @Composable
 fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hiltViewModel()) {
+    val vaultIcon = AppIcons.passport()
+    val steps = remember(vaultIcon) {
+        listOf(
+            OnboardingStep(
+                title = "Benvenuto in Pocket Travel",
+                body = "Una guida di viaggio che funziona anche senza connessione: usi e costumi, " +
+                    "dogane, vaccinazioni, mappe e un assistente IA a bordo. Nessun account, " +
+                    "nessuna raccolta di dati personali.",
+                icon = AppIcons.Compass,
+            ),
+            OnboardingStep(
+                title = "Scarica una regione per iniziare",
+                body = "Guida, mappa e punti di interesse sono organizzati in pacchetti regionali da " +
+                    "scaricare quando vuoi. Potrai gestirli in qualsiasi momento da Spazio di archiviazione.",
+                icon = AppIcons.Download,
+            ),
+            OnboardingStep(
+                title = "L'assistente IA ha due modalità",
+                body = "\"Sul dispositivo\" funziona anche offline, ma richiede almeno 4 GB di RAM e il " +
+                    "download di un modello. \"Online\" usa una tua chiave API personale, mai condivisa " +
+                    "con un server dell'app.",
+                icon = AppIcons.AiAssistant,
+            ),
+            OnboardingStep(
+                title = "I documenti restano al sicuro",
+                body = "Passaporto e certificati di vaccinazione si trovano in \"Documenti\", protetti " +
+                    "da biometria o blocco schermo e mai inviati fuori dal dispositivo.",
+                icon = vaultIcon,
+            ),
+            OnboardingStep(
+                title = "Le fonti ufficiali restano esterne",
+                body = "Ambasciate, ministeri e OMS si aprono in una scheda del browser e richiedono una " +
+                    "connessione: l'app non li salva mai offline, per restare sempre aggiornati.",
+                icon = AppIcons.OfficialAuthority,
+            ),
+        )
+    }
+
     var stepIndex by remember { mutableStateOf(0) }
     val step = steps[stepIndex]
     val isLastStep = stepIndex == steps.lastIndex
@@ -68,6 +81,7 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
             Icon(
                 imageVector = step.icon,
                 contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(64.dp),
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -76,11 +90,20 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
             Text(text = step.body, style = MaterialTheme.typography.bodyLarge)
         }
 
+        StepDots(count = steps.size, current = stepIndex)
+        Spacer(modifier = Modifier.height(16.dp))
+
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = { viewModel.complete(); onComplete() }) {
                 Text("Salta")
             }
             Spacer(modifier = Modifier.weight(1f))
+            if (stepIndex > 0) {
+                TextButton(onClick = { stepIndex -= 1 }) {
+                    Text("Indietro")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+            }
             Button(
                 onClick = {
                     if (isLastStep) {
@@ -93,6 +116,20 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
             ) {
                 Text(if (isLastStep) "Inizia" else "Avanti")
             }
+        }
+    }
+}
+
+@Composable
+private fun StepDots(count: Int, current: Int) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        repeat(count) { index ->
+            val color = if (index == current) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
+            Box(modifier = Modifier.size(8.dp).background(color = color, shape = CircleShape))
         }
     }
 }

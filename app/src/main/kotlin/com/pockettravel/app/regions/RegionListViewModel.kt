@@ -36,6 +36,7 @@ class RegionListViewModel @Inject constructor(
     private val manifestClient: ManifestClient,
     private val regionRepository: RegionRepository,
     private val regionSyncScheduler: RegionSyncScheduler,
+    private val recentRegionPreferences: RecentRegionPreferences,
 ) : ViewModel() {
 
     private val manifestRegions = MutableStateFlow<List<RegionManifestEntry>>(emptyList())
@@ -94,4 +95,6 @@ class RegionListViewModel @Inject constructor(
 
     fun observeDownloadProgress(regionId: String): Flow<WorkInfo?> =
         regionSyncScheduler.observeDownload(regionId)
+
+    fun lastRegionId(): String? = recentRegionPreferences.lastRegionId()
 }
