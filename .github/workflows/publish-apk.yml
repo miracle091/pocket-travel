@@ -7,6 +7,12 @@ name: Publish APK
 # (vedi job check-version-bump) - un push senza bump di versione non deve ripubblicare
 # la stessa release. workflow_dispatch resta un modo per forzare comunque una
 # ripubblicazione (es. per rigenerare un asset corrotto) senza dover fare un bump finto.
+#
+# Pubblica anche app-status.json (versione app + modello IA on-device correnti) sulla release
+# fissa "app-status": il controllo aggiornamenti sul device (core:sync/AppUpdateCheckWorker,
+# feature:ai/LlmModelUpdateCheckWorker) lo legge da li', volutamente separato da manifest.json
+# (pacchetti regionali, publish-regions.yml) — versione app/modello cambiano solo con un
+# rilascio, mai insieme all'aggiornamento dati regionali.
 on:
   push:
     branches: [main]
@@ -106,3 +112,36 @@ jobs:
               --title "Pocket Travel $VERSION" \
               --notes-file "$NOTES_FILE"
           gh release upload "$TAG" "$APK" --repo "${{ github.repository }}" --clobber
+
+      - name: Pubblica app-status.json (controllo aggiornamenti app/modello IA sul device)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Release fissa "app-status" (stesso pattern di "region-data" in publish-regions.yml),
+          # non GitHub Pages: appVersion/aiModel devono cambiare solo con un rilascio app, mai
+          # insieme all'aggiornamento (settimanale/manuale) dei pacchetti regionali su Pages -
+          # vedi SyncConfig.APP_STATUS_URL (core:sync).
+          gh release view app-status --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+            gh release create app-status --repo "${{ github.repository }}" \
+              --title "Stato app" \
+              --notes "app-status.json: versione app e modello IA on-device correnti, letti da core:sync/AppUpdateCheckWorker e feature:ai/LlmModelUpdateCheckWorker. Non e' una release software."
+
+          VERSION="$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
+          VERSION_CODE="$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)"
+          AI_MODEL_CONFIG="feature/ai/src/main/kotlin/com/pockettravel/feature/ai/AiModelConfig.kt"
+          AI_MODEL_VERSION="$(grep -oP 'MODEL_FILE_NAME = "\K[^"]+' "$AI_MODEL_CONFIG")"
+          AI_MODEL_SHA256="$(grep -oP 'MODEL_SHA256 = "\K[^"]+' "$AI_MODEL_CONFIG")"
+          AI_MODEL_SIZE_MB="$(grep -oP 'MODEL_SIZE_BYTES = \K[0-9]+' "$AI_MODEL_CONFIG")"
+          AI_MODEL_SIZE_BYTES=$((AI_MODEL_SIZE_MB * 1024 * 1024))
+
+          APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
+          jq -n \
+            --arg versionName "$VERSION" \
+            --argjson versionCode "$VERSION_CODE" \
+            --arg modelVersion "$AI_MODEL_VERSION" \
+            --arg sha256 "$AI_MODEL_SHA256" \
+            --argjson sizeBytes "$AI_MODEL_SIZE_BYTES" \
+            '{appVersion: {versionName: $versionName, versionCode: $versionCode}, aiModel: {modelVersion: $modelVersion, sha256: $sha256, sizeBytes: $sizeBytes}}' \
+            > "$APP_STATUS_FILE"
+
+          gh release upload app-status "$APP_STATUS_FILE" --repo "${{ github.repository }}" --clobber

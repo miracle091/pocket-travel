@@ -49,6 +49,7 @@ import androidx.work.WorkInfo
 import com.pockettravel.core.sync.RegionPackageDownloadWorker
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
+import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -203,13 +204,22 @@ private fun RegionRow(item: RegionUiItem, viewModel: RegionListViewModel, onClic
 @Composable
 private fun RegionActions(item: RegionUiItem, isDownloading: Boolean, viewModel: RegionListViewModel) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showLargeDownloadWarning by remember { mutableStateOf(false) }
+
+    val startDownload = {
+        if (item.sizeBytes > LARGE_DOWNLOAD_WARNING_BYTES) {
+            showLargeDownloadWarning = true
+        } else {
+            viewModel.download(item.regionId)
+        }
+    }
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         when (item.status) {
-            RegionStatus.NOT_INSTALLED -> Button(onClick = { viewModel.download(item.regionId) }, enabled = !isDownloading) {
+            RegionStatus.NOT_INSTALLED -> Button(onClick = startDownload, enabled = !isDownloading) {
                 Text("Scarica")
             }
-            RegionStatus.UPDATE_AVAILABLE -> Button(onClick = { viewModel.download(item.regionId) }, enabled = !isDownloading) {
+            RegionStatus.UPDATE_AVAILABLE -> Button(onClick = startDownload, enabled = !isDownloading) {
                 Text("Aggiorna")
             }
             RegionStatus.INSTALLED -> OutlinedButton(onClick = { showDeleteConfirm = true }) {
@@ -224,6 +234,16 @@ private fun RegionActions(item: RegionUiItem, isDownloading: Boolean, viewModel:
             message = "I contenuti scaricati per questa regione verranno rimossi dal dispositivo.",
             onConfirm = { showDeleteConfirm = false; viewModel.delete(item.regionId) },
             onDismiss = { showDeleteConfirm = false },
+        )
+    }
+
+    if (showLargeDownloadWarning) {
+        ConfirmationDialog(
+            title = "Download di grandi dimensioni",
+            message = "${item.displayName} pesa ${item.sizeBytes / (1024 * 1024)} MB. Continuare?",
+            confirmLabel = "Scarica",
+            onConfirm = { showLargeDownloadWarning = false; viewModel.download(item.regionId) },
+            onDismiss = { showLargeDownloadWarning = false },
         )
     }
 }

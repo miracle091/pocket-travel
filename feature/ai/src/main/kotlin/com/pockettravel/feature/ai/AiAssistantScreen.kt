@@ -32,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.CustomTabsLauncher
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
+import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
 
 @Composable
 fun AiAssistantScreen(regionId: String, viewModel: AiAssistantViewModel = hiltViewModel()) {
@@ -77,6 +78,8 @@ private fun ModeSelector(mode: AiEngineMode, onModeChanged: (AiEngineMode) -> Un
 
 @Composable
 private fun ModelDownloadCard(uiState: AiUiState, viewModel: AiAssistantViewModel) {
+    var showLargeDownloadWarning by remember { mutableStateOf(false) }
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Modello IA non ancora scaricato.")
@@ -96,7 +99,15 @@ private fun ModelDownloadCard(uiState: AiUiState, viewModel: AiAssistantViewMode
                     )
                 } else {
                     Row {
-                        Button(onClick = { viewModel.downloadModel() }) {
+                        Button(
+                            onClick = {
+                                if (AiModelConfig.MODEL_SIZE_BYTES > LARGE_DOWNLOAD_WARNING_BYTES) {
+                                    showLargeDownloadWarning = true
+                                } else {
+                                    viewModel.downloadModel()
+                                }
+                            },
+                        ) {
                             Text("Scarica modello")
                         }
                         Spacer(modifier = Modifier.width(8.dp))
@@ -107,6 +118,16 @@ private fun ModelDownloadCard(uiState: AiUiState, viewModel: AiAssistantViewMode
                 }
             }
         }
+    }
+
+    if (showLargeDownloadWarning) {
+        ConfirmationDialog(
+            title = "Download di grandi dimensioni",
+            message = "Il modello IA pesa circa ${AiModelConfig.MODEL_SIZE_BYTES / (1024 * 1024)} MB. Continuare?",
+            confirmLabel = "Scarica",
+            onConfirm = { showLargeDownloadWarning = false; viewModel.downloadModel() },
+            onDismiss = { showLargeDownloadWarning = false },
+        )
     }
 }
 

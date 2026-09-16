@@ -33,6 +33,7 @@ kotlin {
 
 dependencies {
     implementation(project(":core:data"))
+    implementation(project(":core:sync"))
     implementation(project(":core:ui"))
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

@@ -12,9 +12,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 
 /**
- * Controllo periodico, solo su Wi-Fi (vincolo impostato da [RegionSyncScheduler]): confronta
- * il manifest remoto con le regioni già installate e, se una versione è cambiata, notifica —
- * non scarica mai automaticamente. Vedi "Flusso di sincronizzazione" nella specifica tecnica.
+ * Controllo periodico, qualunque rete incluse i dati cellulari (vincolo impostato da
+ * [RegionSyncScheduler] — manifest.json e' pochi KB): confronta il manifest remoto con le
+ * regioni già installate e, se una versione è cambiata, notifica — non scarica mai
+ * automaticamente. Vedi "Flusso di sincronizzazione" nella specifica tecnica.
  */
 @HiltWorker
 class RegionManifestSyncWorker @AssistedInject constructor(

@@ -11,6 +11,14 @@ object SyncConfig {
     const val PERIODIC_SYNC_WORK_NAME = "region-manifest-sync"
     const val DOWNLOAD_WORK_NAME_PREFIX = "region-download-"
 
+    // Asset di una release GitHub fissa ("app-status", sovrascritta ad ogni pubblicazione APK -
+    // vedi publish-apk.yml), non un file su GitHub Pages: appVersion/aiModel cambiano solo quando
+    // l'app viene rilasciata, mai insieme all'aggiornamento settimanale dei pacchetti regionali
+    // (manifest.json sopra) — tenerli nello stesso file avrebbe legato due cicli di pubblicazione
+    // indipendenti tra loro.
+    const val APP_STATUS_URL = "https://github.com/miracle091/pocket-travel/releases/download/app-status/app-status.json"
+    const val APP_UPDATE_CHECK_WORK_NAME = "app-update-check"
+
     // brouter.de: tenuto in whitelist solo per retrocompatibilita' con voci di manifest
     // pubblicate prima che i segmenti .rd5 venissero ri-ospitati (vedi build-region.sh) — quei
     // segmenti cambiano dimensione/hash nel tempo (rigenerazione periodica lato BRouter),

@@ -4,6 +4,13 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ## [Non rilasciato]
 
+### Aggiunto
+- Controllo periodico (qualunque rete inclusi i dati cellulari) di aggiornamenti disponibili per l'app e per il modello IA on-device, in aggiunta a quello già esistente per i pacchetti regionali — solo notifica, mai un download automatico. Fonte: `app-status.json`, asset di una release GitHub fissa (`app-status`) pubblicato da `publish-apk.yml` ad ogni rilascio dell'app, volutamente separato da `manifest.json`/GitHub Pages (pacchetti regionali) così i due cicli di pubblicazione restano indipendenti.
+- Avviso di conferma prima di avviare un download (pacchetto regionale o modello IA) sopra i 100 MB.
+
+### Modificato
+- Il controllo periodico di aggiornamenti dei pacchetti regionali non è più limitato al solo Wi-Fi (manifest.json è pochi KB; i pacchetti veri e propri restano scaricati solo su richiesta esplicita).
+
 ## [0.2.0]
 
 ### Aggiunto
@@ -12,7 +19,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Macro-categorie POI (alloggio, cibo e bevande, negozi, attrazioni, altro) derivate dal tag OSM grezzo, con pin colorati per categoria e filtro a chip sulla mappa regionale.
 - Pubblicazione dell'APK di release firmato come asset di una GitHub Release, automatica sui push a `main` con bump di versione (`publish-apk.yml`); l'APK di debug viene invece caricato come artifact ad ogni push (`android-ci.yml`).
 
-## [0.1.0]
+## [0.1.0] - mai rilasciata
 
 Prima baseline documentata: nessuna versione precedente pubblicata da cui derivare un diff.
 

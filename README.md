@@ -1,10 +1,8 @@
 # Pocket Travel
 
-Guida turistica Android offline-first: contenuti su usi, dogane e vaccinazioni, mappe vettoriali offline e assistente AI a bordo. Nessun backend proprietario; le uniche fonti online ammesse sono link verificati verso siti ufficiali (ambasciate, ministeri, OMS).
+Pocket Travel è un'applicazione (o strumento) pensata per chi ama viaggiare. Progettata per essere leggera e portatile (proprio come averla in tasca), ti aiuta a organizzare itinerari, scoprire mete e gestire le tue avventure in modo semplice e intuitivo.
 
-Specifica tecnica completa (architettura, mappa dati, prompt AI, licenze): vedi l'artifact "Pocket Travel" pubblicato in conversazione.
-
-Versione corrente: **0.1.0** ([Semantic Versioning](https://semver.org/lang/it/)) — vedi [CHANGELOG.md](CHANGELOG.md).
+Versione corrente: **0.2.0** ([Semantic Versioning](https://semver.org/lang/it/)) — vedi [CHANGELOG.md](CHANGELOG.md).
 
 ## Stato
 

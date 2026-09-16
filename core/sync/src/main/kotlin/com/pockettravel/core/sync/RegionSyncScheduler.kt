@@ -24,10 +24,14 @@ class RegionSyncScheduler @Inject constructor(
 ) {
     private val workManager get() = WorkManager.getInstance(context)
 
-    /** Controllo periodico del manifest, solo su Wi-Fi — mai un download automatico. */
+    // Anche su dati cellulari: manifest.json e' pochi KB, non i pacchetti regionali veri e propri
+    // (content.db + segmenti .rd5, quelli si', mai su rete a consumo) — solo il download esplicito
+    // richiesto dall'utente in enqueueDownload() resta vincolato a una rete qualunque ma sempre
+    // su richiesta, mai automatico.
+    /** Controllo periodico del manifest, qualunque rete — mai un download automatico. */
     fun schedulePeriodicManifestCheck() {
         val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.UNMETERED)
+            .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
         val request = PeriodicWorkRequestBuilder<RegionManifestSyncWorker>(1, TimeUnit.DAYS)
             .setConstraints(constraints)
