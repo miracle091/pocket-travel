@@ -7,6 +7,6 @@ class PocketTravelDestinationsTest {
 
     @Test
     fun `regionHub costruisce la rotta con l'id regione`() {
-        assertEquals("region/italia", PocketTravelDestinations.regionHub("italia"))
+        assertEquals("region/italia?tab=guide", PocketTravelDestinations.regionHub("italia"))
     }
 }
