@@ -135,11 +135,11 @@ flag_img() {
 status_html() {
   local regionId="$1" label="$2" withDash="${3:-false}"
   local text="$label"
-  [ "$withDash" = "true" ] && text="$label —"
+  [ "$withDash" = "true" ] && text="— $label"
   if is_present "$regionId"; then
-    echo "<a href=\"regions/$regionId/\">$text $STATUS_OK_SVG</a>"
+    echo "<a class=\"entry\" href=\"regions/$regionId/\">$text $STATUS_OK_SVG</a>"
   else
-    echo "$text $STATUS_FAIL_SVG"
+    echo "<span class=\"entry\">$text $STATUS_FAIL_SVG</span>"
   fi
 }
 
@@ -167,7 +167,7 @@ for continent in "${CONTINENTS[@]}"; do
   # PILOT_REGIONS perche' questo funzioni).
   flush_group() {
     if [ -n "$currentGroup" ]; then
-      row="<li>$groupFlagImg $currentGroup<ul class=\"subgroup\">$groupSubRows</ul></li>"
+      row="<li><span class=\"row\">$groupFlagImg $currentGroup</span><ul class=\"subgroup\">$groupSubRows</ul></li>"
       REGION_ROWS="$(printf '%s\n%s' "$REGION_ROWS" "$row")"
     fi
     currentGroup=""
@@ -187,7 +187,7 @@ for continent in "${CONTINENTS[@]}"; do
       groupSubRows="$groupSubRows<li>$(status_html "$regionId" "$groupLabel" true)</li>"
     else
       flush_group
-      row="<li>$(flag_img "$flag") $(status_html "$regionId" "$displayName")</li>"
+      row="<li><span class=\"row\">$(flag_img "$flag") $(status_html "$regionId" "$displayName")</span></li>"
       REGION_ROWS="$(printf '%s\n%s' "$REGION_ROWS" "$row")"
     fi
   done
@@ -198,25 +198,129 @@ for continent in "${CONTINENTS[@]}"; do
   else
     body="<ul>$REGION_ROWS</ul>"
   fi
-  section="<h2>$continent</h2>$body"
+  section="<section class=\"continent\"><h2>$continent</h2>$body</section>"
   CONTINENT_SECTIONS="$(printf '%s\n%s' "$CONTINENT_SECTIONS" "$section")"
 done
 
 cat > "$SITE_DIR/index.html" <<HTML
 <!doctype html>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pocket Travel — dati regioni</title>
 <style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fff;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --border: rgba(0,0,0,.15);
+    --link: #0a5fc4;
+    --card-bg: #f7f7f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a;
+      --fg: #e7e7e7;
+      --muted: #9a9a9a;
+      --border: rgba(255,255,255,.15);
+      --link: #6cb2ff;
+      --card-bg: #1d2025;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 16px 20px 48px;
+    line-height: 1.4;
+  }
+  a { color: var(--link); }
+  input[type="search"] {
+    display: block;
+    width: 100%;
+    max-width: 360px;
+    padding: 8px 10px;
+    font-size: 1em;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card-bg);
+    color: var(--fg);
+    margin: 12px 0;
+  }
+  .continents { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px 32px; }
+  .continent { min-width: 0; }
   ul { padding-left: 0; }
   li { list-style: none; margin: 4px 0; }
-  .flag { vertical-align: middle; border: 1px solid rgba(0,0,0,.15); border-radius: 2px; margin-right: 4px; }
-  .status { vertical-align: middle; margin-right: 2px; }
+  .row { display: flex; align-items: center; gap: 4px; }
+  .entry { display: inline-flex; align-items: center; gap: 4px; }
+  .flag { border: 1px solid var(--border); border-radius: 2px; flex-shrink: 0; }
+  .status { flex-shrink: 0; }
   .subgroup { padding-left: 32px; margin: 4px 0; }
-  h2 { font-size: 1.05em; margin: 20px 0 6px; border-bottom: 1px solid rgba(0,0,0,.15); padding-bottom: 2px; }
-  .empty { color: #767676; font-style: italic; margin: 4px 0; }
+  h2 { font-size: 1.05em; margin: 20px 0 6px; border-bottom: 1px solid var(--border); padding-bottom: 2px; }
+  .empty { color: var(--muted); font-style: italic; margin: 4px 0; }
+  #no-results { color: var(--muted); font-style: italic; }
 </style>
 <p>Questo host serve solo dati statici per l'app <a href="https://github.com/miracle091/pocket-travel">Pocket Travel</a>.</p>
 <p>Ultimo aggiornamento: $(date -u +%Y.%m.%d)</p>
 <p><a href="manifest.json">manifest.json</a></p>
+<input type="search" id="search" placeholder="Cerca una nazione…" aria-label="Cerca una nazione">
+<p id="no-results" hidden>Nessun risultato.</p>
+<div class="continents">
 $CONTINENT_SECTIONS
+</div>
+<script>
+(function () {
+  var input = document.getElementById('search');
+  var noResults = document.getElementById('no-results');
+  if (!input) return;
+  var sections = document.querySelectorAll('.continent');
+
+  function groupLabelText(li) {
+    var clone = li.cloneNode(true);
+    var sub = clone.querySelector('.subgroup');
+    if (sub) sub.remove();
+    return clone.textContent.toLowerCase();
+  }
+
+  input.addEventListener('input', function () {
+    var q = input.value.trim().toLowerCase();
+    var anyVisibleTotal = false;
+    sections.forEach(function (section) {
+      var topItems = section.querySelectorAll(':scope > ul > li');
+      if (topItems.length === 0) {
+        var placeholderVisible = !q;
+        section.style.display = placeholderVisible ? '' : 'none';
+        if (placeholderVisible) anyVisibleTotal = true;
+        return;
+      }
+      var anyVisible = false;
+      topItems.forEach(function (li) {
+        var subUl = li.querySelector('.subgroup');
+        if (!subUl) {
+          var match = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+          li.style.display = match ? '' : 'none';
+          if (match) anyVisible = true;
+          return;
+        }
+        var groupMatch = !q || groupLabelText(li).indexOf(q) !== -1;
+        var subItems = subUl.querySelectorAll('li');
+        var anySubVisible = false;
+        subItems.forEach(function (sub) {
+          var visible = groupMatch || sub.textContent.toLowerCase().indexOf(q) !== -1;
+          sub.style.display = visible ? '' : 'none';
+          if (visible) anySubVisible = true;
+        });
+        li.style.display = anySubVisible ? '' : 'none';
+        if (anySubVisible) anyVisible = true;
+      });
+      section.style.display = anyVisible ? '' : 'none';
+      if (anyVisible) anyVisibleTotal = true;
+    });
+    noResults.hidden = anyVisibleTotal || !q;
+  });
+})();
+</script>
 HTML
