@@ -340,7 +340,7 @@ abstract class OsmPath implements OsmLinkHolder {
         if (rc.nogoCost < 0) {
           cost = -1;
         } else {
-          cost += rc.nogoCost;
+          cost += (int) rc.nogoCost;
         }
         return;
       }
@@ -372,7 +372,7 @@ abstract class OsmPath implements OsmLinkHolder {
       cost = -1;
       return;
     } else {
-      cost += rc.nogoCost;
+      cost += (int) rc.nogoCost;
     }
 
     // add target-node costs

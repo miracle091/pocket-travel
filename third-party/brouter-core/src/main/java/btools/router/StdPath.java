@@ -151,8 +151,8 @@ final class StdPath extends OsmPath {
     // leads to an immediate penalty
 
     int delta_h_micros = (int) (1000000. * delta_h);
-    ehbd += -delta_h_micros - dist * downhillcutoff;
-    ehbu += delta_h_micros - dist * uphillcutoff;
+    ehbd += (int) (-delta_h_micros - dist * downhillcutoff);
+    ehbu += (int) (delta_h_micros - dist * uphillcutoff);
 
     float downweight = 0.f;
     if (ehbd > rc.elevationpenaltybuffer) {
@@ -179,7 +179,7 @@ final class StdPath extends OsmPath {
       if (elevationCost > 0) {
         sectionCost += elevationCost;
         if (message != null) {
-          message.linkelevationcost += elevationCost;
+          message.linkelevationcost += (int) elevationCost;
         }
       }
     } else if (ehbd < 0) {
@@ -211,7 +211,7 @@ final class StdPath extends OsmPath {
       if (elevationCost > 0) {
         sectionCost += elevationCost;
         if (message != null) {
-          message.linkelevationcost += elevationCost;
+          message.linkelevationcost += (int) elevationCost;
         }
       }
     } else if (ehbu < 0) {
@@ -294,7 +294,7 @@ final class StdPath extends OsmPath {
     }
 
     // compute incline
-    elevation_buffer += delta_h;
+    elevation_buffer += (float) delta_h;
     double incline = calcIncline(dist);
 
     double maxSpeed = rc.maxSpeed;
@@ -318,7 +318,7 @@ final class StdPath extends OsmPath {
     // (Count only positive, negative would mean breaking to enforce maxspeed)
     double energy = dist * (rc.S_C_x * speed * speed + f_roll);
     if (energy > 0.) {
-      totalEnergy += energy;
+      totalEnergy += (float) energy;
     }
   }
 

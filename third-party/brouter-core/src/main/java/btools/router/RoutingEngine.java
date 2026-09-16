@@ -1524,7 +1524,7 @@ public class RoutingEngine extends Thread {
       n.message.linkdist = dist;
       n.message.turnangle = (float) angle;
       totaldist += dist;
-      totaltime += n.getTime();
+      totaltime += (int) n.getTime();
       tmptime = (n.getTime() - lasttime);
       if (dist > 0) {
         speed = dist / tmptime * 3.6f;
