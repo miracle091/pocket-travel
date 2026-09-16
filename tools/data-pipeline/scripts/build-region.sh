@@ -23,7 +23,12 @@
 #
 # Esempio (San Marino):
 #   build-region.sh san-marino "San Marino" 2026.09.14 12.40 43.89 12.52 43.99 \
-#                    San_Marino https://miracle091.github.io/pocket-travel /tmp/out/san-marino
+#                    San_Marino https://github.com/miracle091/pocket-travel/releases/download/region-data \
+#                    /tmp/out/san-marino
+#
+# <contentDbBaseUrl> e' la base a cui content.db/i .rd5 saranno raggiungibili una volta caricati
+# (oggi gli asset della release "region-data", vedi publish-regions.yml): questo script calcola
+# solo gli URL da scrivere nel manifest, non carica nulla.
 #
 # Richiede: curl, sha256sum, awk, gradle wrapper (./gradlew) dalla root del repo. I segmenti
 # .rd5 restano in <outputDir> insieme a content.db, pronti per essere copiati nel sito da
@@ -215,7 +220,7 @@ while [ "$lon" -le "$LON_END" ]; do
       download_with_progress "$dest" "$tile.rd5" -sS -o "$dest" "$url"
       size="$(wc -c < "$dest" | tr -d ' ')"
       hash="$(sha256sum "$dest" | awk '{print $1}')"
-      rd5Url="${CONTENT_DB_BASE_URL}/regions/${REGION_ID}/${VERSION}/${tile}.rd5"
+      rd5Url="${CONTENT_DB_BASE_URL}/${REGION_ID}--${VERSION}--${tile}.rd5"
       entry="{ \"name\": \"${tile}.rd5\", \"url\": \"${rd5Url}\", \"sizeBytes\": ${size}, \"sha256\": \"${hash}\" }"
       if [ -z "$REMOTE_FILES_JSON" ]; then REMOTE_FILES_JSON="$entry"; else REMOTE_FILES_JSON="$REMOTE_FILES_JSON, $entry"; fi
 
@@ -270,7 +275,7 @@ done
 ./gradlew -q :tools:data-pipeline:content:generatePoi --args="$POI_ARGS"
 
 # --- 6. Frammento manifest.json (content.db nostro + rd5 remoti + mapSource) ---------------------
-CONTENT_DB_URL="${CONTENT_DB_BASE_URL}/regions/${REGION_ID}/${VERSION}/content.db"
+CONTENT_DB_URL="${CONTENT_DB_BASE_URL}/${REGION_ID}--${VERSION}--content.db"
 SPEC_FILE="$WORKDIR/spec.json"
 cat > "$SPEC_FILE" <<EOF
 {

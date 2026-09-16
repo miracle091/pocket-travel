@@ -1,8 +1,10 @@
 name: Publish regions
 
-# Piano A3: pubblica su GitHub Pages i pacchetti regionali (content.db + segmenti .rd5 +
-# manifest.json). map.pmtiles non e' mai un file da ospitare (estratto lato device dalla build
-# Protomaps, vedi PmtilesExtractor); i segmenti .rd5 invece sono ri-ospitati insieme a
+# Piano A3: pubblica manifest.json su GitHub Pages; content.db e i segmenti .rd5 (il grosso dei
+# dati) vanno invece sugli asset della release "region-data" - GitHub Pages ha un limite fisso di
+# 1GB per l'intero sito, sforato con la copertura mondiale di pilot-regions.sh (254 regioni), gli
+# asset di una release no. map.pmtiles non e' mai un file da ospitare (estratto lato device dalla
+# build Protomaps, vedi PmtilesExtractor); i segmenti .rd5 invece sono ri-ospitati insieme a
 # content.db (non solo referenziati su brouter.de) perche' quel file cambia dimensione/hash nel
 # tempo — vedi il commento in testa a tools/data-pipeline/scripts/build-region.sh.
 #
@@ -20,7 +22,7 @@ on:
         default: ""
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -34,6 +36,8 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v5
 
@@ -42,7 +46,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Assicura la release che ospita i pacchetti regionali
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view region-data --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+            gh release create region-data --repo "${{ github.repository }}" \
+              --title "Dati regionali" \
+              --notes "Asset binari (content.db + segmenti .rd5) per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
 
       - name: Genera i pacchetti regionali selezionati
         id: build
@@ -54,7 +67,14 @@ jobs:
           SELECTED="${{ github.event.inputs.regions }}"
           OUTPUT_ROOT="$RUNNER_TEMP/regions-out"
           SITE_DIR="$RUNNER_TEMP/site"
-          CONTENT_DB_BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          # Pages ospita solo manifest.json + index.html + bandiere (pochi KB, mai vicino al
+          # limite di 1GB). content.db e i .rd5 (il grosso dei dati) vivono invece sugli asset
+          # della release "region-data": a differenza di Pages, che sostituisce l'intero sito ad
+          # ogni deploy, gli asset di una release non spariscono mai da soli - vedi il commento in
+          # testa a assemble-site.sh per il problema che questo risolve (sito cumulativo
+          # sopra 1GB con 254 regioni pilota).
+          PAGES_BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          RELEASE_BASE_URL="https://github.com/${{ github.repository }}/releases/download/region-data"
           VERSION="$(date -u +%Y.%m.%d)"
           mkdir -p "$OUTPUT_ROOT" "$SITE_DIR"
 
@@ -79,16 +99,24 @@ jobs:
             echo "::group::$regionId"
             regionOut="$OUTPUT_ROOT/$regionId"
             if tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
-              "$minLon" "$minLat" "$maxLon" "$maxLat" "$wikiTitle" "$CONTENT_DB_BASE_URL" "$regionOut"; then
-              destDir="$SITE_DIR/regions/$regionId/$VERSION"
-              mkdir -p "$destDir"
-              cp "$regionOut/content.db" "$destDir/content.db"
-              # Segmenti .rd5 ri-ospitati insieme a content.db (vedi commento in testa a
-              # build-region.sh): zero o piu' a seconda di quante tile intersecano il bbox.
+              "$minLon" "$minLat" "$maxLon" "$maxLat" "$wikiTitle" "$RELEASE_BASE_URL" "$regionOut"; then
+              # content.db + segmenti .rd5 (zero o piu' a seconda di quante tile intersecano il
+              # bbox) caricati come asset della release, rinominati con un prefisso
+              # regionId--version-- per essere univoci nell'intera release (che accumula tutte
+              # le regioni). --clobber: un rilancio della stessa regione nello stesso giorno
+              # (stessa VERSION) deve poter sovrascrivere l'asset gia' caricato in un tentativo
+              # precedente fallito a meta'.
+              uploads=()
+              contentDbAsset="$regionOut/${regionId}--${VERSION}--content.db"
+              cp "$regionOut/content.db" "$contentDbAsset"
+              uploads+=("$contentDbAsset")
               for rd5 in "$regionOut"/*.rd5; do
                 [ -e "$rd5" ] || continue
-                cp "$rd5" "$destDir/"
+                rd5Asset="$regionOut/${regionId}--${VERSION}--$(basename "$rd5")"
+                cp "$rd5" "$rd5Asset"
+                uploads+=("$rd5Asset")
               done
+              gh release upload region-data "${uploads[@]}" --repo "${{ github.repository }}" --clobber
               FRAGMENT_FILES+=("$regionOut/manifest-fragment.json")
             else
               echo "::warning::regione $regionId fallita, salto e continuo con le prossime"
@@ -105,7 +133,7 @@ jobs:
             echo "::warning::regioni fallite in questa run (non pubblicate, da rilanciare a parte): ${FAILED_REGIONS[*]}"
           fi
 
-          PUBLISHED_MANIFEST_URL="$CONTENT_DB_BASE_URL/manifest.json"
+          PUBLISHED_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
           tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$PUBLISHED_MANIFEST_URL" "${FRAGMENT_FILES[@]}"
 
           echo "site_dir=$SITE_DIR" >> "$GITHUB_OUTPUT"
@@ -118,11 +146,11 @@ jobs:
           ./gradlew -q :tools:data-pipeline:content:validateManifest \
             --args="${{ steps.build.outputs.site_dir }}/manifest.json ${{ steps.build.outputs.pages_host }}"
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ${{ steps.build.outputs.site_dir }}
 
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

@@ -83,7 +83,10 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
 
 fun main(args: Array<String>) {
     require(args.size == 2) { "Uso: validateManifest <manifest.json> <pagesHost>" }
-    val allowedHosts = setOf(args[1], "brouter.de", "build.protomaps.com")
+    // github.com: content.db e i segmenti .rd5 vivono sugli asset della release "region-data",
+    // non piu' sotto pagesHost — vedi SyncConfig.ALLOWED_MANIFEST_HOSTS (core/sync), duplicato qui
+    // di proposito.
+    val allowedHosts = setOf(args[1], "brouter.de", "build.protomaps.com", "github.com")
     validateManifestJson(File(args[0]).readText(), allowedHosts)
     println("manifest valido: ${args[0]}")
 }
