@@ -19,3 +19,21 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
 
       - run: ./gradlew assembleDebug lint --no-daemon
+
+      - name: Carica l'APK di debug come artifact con nome eloquente
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
+          SHA="${GITHUB_SHA::7}"
+          NAME="pocket-travel-debug-v${VERSION}-${SHA}.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/$NAME"
+          echo "DEBUG_APK_NAME=$NAME" >> "$GITHUB_ENV"
+          echo "DEBUG_APK_PATH=$RUNNER_TEMP/$NAME" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
+        with:
+          name: ${{ env.DEBUG_APK_NAME }}
+          path: ${{ env.DEBUG_APK_PATH }}

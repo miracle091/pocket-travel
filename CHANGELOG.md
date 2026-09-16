@@ -4,10 +4,13 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ## [Non rilasciato]
 
+## [0.2.0]
+
 ### Aggiunto
 - Cinque nuove categorie guida (alloggio, cibo e bevande, acquisti, connettività, vita quotidiana), mappate dalle sezioni Wikivoyage "Sleep"/"Eat"/"Drink"/"Buy"/"Connect"/"Cope".
 - Agenzia delle Dogane e dei Monopoli nel registro delle fonti ufficiali, citata specificamente per la categoria dogane al posto della fonte generica Farnesina.
 - Macro-categorie POI (alloggio, cibo e bevande, negozi, attrazioni, altro) derivate dal tag OSM grezzo, con pin colorati per categoria e filtro a chip sulla mappa regionale.
+- Pubblicazione dell'APK di release firmato come asset di una GitHub Release, automatica sui push a `main` con bump di versione (`publish-apk.yml`); l'APK di debug viene invece caricato come artifact ad ogni push (`android-ci.yml`).
 
 ## [0.1.0]
 

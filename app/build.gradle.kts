@@ -13,8 +13,30 @@ android {
         applicationId = "com.pockettravel.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
+    }
+
+    // Le credenziali arrivano da variabili d'ambiente (secrets del workflow CI, mai committate):
+    // se assenti (build locale di sviluppo) la release resta semplicemente non firmata.
+    signingConfigs {
+        create("release") {
+            val storePath = System.getenv("RELEASE_KEYSTORE_PATH")
+            if (storePath != null) {
+                storeFile = file(storePath)
+                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (System.getenv("RELEASE_KEYSTORE_PATH") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
 
     buildFeatures {

@@ -1,0 +1,108 @@
+name: Publish APK
+
+# Builda un APK di release (mai debug, e mai come artifact di workflow) firmato con
+# la upload key e lo pubblica come asset di una GitHub Release, taggata con
+# versionName da app/build.gradle.kts.
+# Su push a main parte solo se versionCode e' cambiato rispetto al commit precedente
+# (vedi job check-version-bump) - un push senza bump di versione non deve ripubblicare
+# la stessa release. workflow_dispatch resta un modo per forzare comunque una
+# ripubblicazione (es. per rigenerare un asset corrotto) senza dover fare un bump finto.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check-version-bump:
+    runs-on: ubuntu-latest
+    outputs:
+      bumped: ${{ steps.check.outputs.bumped }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CURRENT="$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)"
+          PREVIOUS="$(git show HEAD~1:app/build.gradle.kts 2>/dev/null | grep -oP 'versionCode = \K[0-9]+' || echo 0)"
+          if [ "$CURRENT" != "$PREVIOUS" ]; then
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-and-publish:
+    needs: check-version-bump
+    if: needs.check-version-bump.outputs.bumped == 'true'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Decodifica il keystore di firma
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Build APK di release firmato
+        shell: bash
+        env:
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          export RELEASE_KEYSTORE_PATH="$RUNNER_TEMP/release.jks"
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Pubblica la release su GitHub
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
+          TAG="v$VERSION"
+          APK="app/build/outputs/apk/release/app-release.apk"
+          CHANGELOG_URL="https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md"
+          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+
+          {
+            echo "Changelog completo: $CHANGELOG_URL"
+            echo ""
+            # Estrae solo la sezione di questa versione da CHANGELOG.md (dal suo "## [VERSION]"
+            # alla prossima intestazione "## [", esclusa), cosi' le note della release non
+            # duplicano a mano un testo che va tenuto sincronizzato in un solo posto.
+            awk -v ver="## [$VERSION]" '
+              $0 == ver { found=1; next }
+              found && /^## \[/ { exit }
+              found { print }
+            ' CHANGELOG.md
+          } > "$NOTES_FILE"
+
+          # Un rilancio dello stesso workflow sulla stessa VERSION (es. per correggere un
+          # problema nell'APK appena caricato) deve poter riusare la release gia' creata
+          # invece di fallire su "release already exists".
+          gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1 && \
+            gh release edit "$TAG" --repo "${{ github.repository }}" --notes-file "$NOTES_FILE" || \
+            gh release create "$TAG" --repo "${{ github.repository }}" \
+              --title "Pocket Travel $VERSION" \
+              --notes-file "$NOTES_FILE"
+          gh release upload "$TAG" "$APK" --repo "${{ github.repository }}" --clobber
