@@ -1,6 +1,7 @@
 package com.pockettravel.core.data.di
 
 import android.content.Context
+import com.pockettravel.core.data.PassportPhotosDir
 import com.pockettravel.core.data.RegionsDir
 import com.pockettravel.core.data.RegionsStagingDir
 import dagger.Module
@@ -26,4 +27,10 @@ object StorageModule {
     @RegionsStagingDir
     fun provideRegionsStagingDir(@ApplicationContext context: Context): File =
         File(context.cacheDir, "regions_staging").apply { mkdirs() }
+
+    @Provides
+    @Singleton
+    @PassportPhotosDir
+    fun providePassportPhotosDir(@ApplicationContext context: Context): File =
+        File(context.filesDir, "passport_photos").apply { mkdirs() }
 }

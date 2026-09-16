@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Fotocamera interna (vedi PassportPhotoCapture.kt) invece dell'app fotocamera di sistema:
+         serve per disegnare l'overlay di inquadratura e il rilevamento rosso/verde sopra
+         l'anteprima live, cosa non possibile delegando a un intent esterno. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+</manifest>
