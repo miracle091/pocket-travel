@@ -17,10 +17,12 @@ app/                    shell UI, navigazione, DI (Hilt)
 core/data/              Room DB, RegionPackage, gestione pacchetti regionali
 core/content/           import/parsing contenuti guida (Wikivoyage → schema interno)
 core/sync/              WorkManager: sync manifest, download pacchetti
+core/ui/                design system condiviso (tema, componenti Compose comuni)
 feature/guide/          UI guida turistica
 feature/map/            mappa MapLibre, POI, routing
 feature/ai/             orchestrazione prompt, motore locale/online
 feature/sources/        registro fonti ufficiali esterne
+feature/vault/          UI vault passaporti cifrato
 tools/data-pipeline/    generazione e pubblicazione dei pacchetti regionali
 ```
 
@@ -33,3 +35,7 @@ Richiede Android Studio (porta con sé JDK 17+ e Gradle).
 1. Apri la cartella in Android Studio.
 2. Lascia che generi il Gradle wrapper e sincronizzi le dipendenze al primo avvio.
 3. Le versioni in `gradle/libs.versions.toml` sono già verificate contro una build reale (vedi il log di sviluppo) — accetta comunque i suggerimenti di aggiornamento AGP/Kotlin/Compose che Android Studio propone al sync, se presenti.
+
+## Licenza
+
+[MIT](LICENSE)
