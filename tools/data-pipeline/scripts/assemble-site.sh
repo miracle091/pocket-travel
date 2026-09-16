@@ -147,7 +147,12 @@ status_html() {
 # fin da subito tutti i continenti, anche quelli senza ancora nessuna nazione pubblicata, cosi' si
 # vede a colpo d'occhio la copertura mondiale prevista (piano A2: "tutte le nazioni"), non solo il
 # lotto pilota attuale.
-CONTINENTS=("Europa" "Asia" "Africa" "Nord America" "Sud America" "Oceania")
+#
+# "Territori disabitati" e' una settima voce a parte (non un continente geografico vero) per i
+# territori senza popolazione permanente (basi scientifiche, riserve naturali, isolotti disabitati)
+# — tenuti fuori dai raggruppamenti per continente cosi' non si mescolano con le nazioni con
+# popolazione e turismo reale.
+CONTINENTS=("Europa" "Asia" "Africa" "Nord America" "Sud America" "Oceania" "Territori disabitati")
 
 CONTINENT_SECTIONS=""
 for continent in "${CONTINENTS[@]}"; do
