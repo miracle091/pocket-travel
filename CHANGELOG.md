@@ -1,12 +1,16 @@
 # Changelog
 
-Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versionamento secondo [Semantic Versioning](https://semver.org/lang/it/). Le voci non riportano date: la cronologia dettagliata, verificata passo per passo, resta in [README.md](README.md).
+Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versionamento secondo [Semantic Versioning](https://semver.org/lang/it/). Le voci non riportano date: la cronologia dettagliata resta in [README.md](README.md).
 
 ## [Non rilasciato]
+
+## [0.3.0]
 
 ### Aggiunto
 - Controllo periodico (qualunque rete inclusi i dati cellulari) di aggiornamenti disponibili per l'app e per il modello IA on-device, in aggiunta a quello già esistente per i pacchetti regionali — solo notifica, mai un download automatico. Fonte: `app-status.json`, asset di una release GitHub fissa (`app-status`) pubblicato da `publish-apk.yml` ad ogni rilascio dell'app, volutamente separato da `manifest.json`/GitHub Pages (pacchetti regionali) così i due cicli di pubblicazione restano indipendenti.
 - Avviso di conferma prima di avviare un download (pacchetto regionale o modello IA) sopra i 100 MB.
+- Pubblicazione automatica settimanale dei pacchetti regionali (`publish-regions.yml`): 7 trigger `schedule` (uno per giorno) processano un bucket di regioni bilanciato per carico reale (tile `.rd5` misurate su `brouter.de`, non stima geometrica), con sharding a matrice dentro ogni bucket per restare sotto il limite di 6h/job e nel fair use dei mirror Overpass pubblici; `workflow_dispatch` resta invariato per run manuali/mirate.
+- Controllo di necessità in `build-region.sh`: prima di rigenerare una regione, confronta le tile `.rd5` attese con quelle già pubblicate (nome e dimensione) e salta l'intera rigenerazione — niente fetch Wikivoyage né query Overpass — se non è cambiato nulla dalla settimana precedente.
 
 ### Modificato
 - Il controllo periodico di aggiornamenti dei pacchetti regionali non è più limitato al solo Wi-Fi (manifest.json è pochi KB; i pacchetti veri e propri restano scaricati solo su richiesta esplicita).

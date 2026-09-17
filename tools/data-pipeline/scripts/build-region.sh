@@ -19,7 +19,7 @@
 #
 # Uso:
 #   build-region.sh <regionId> <displayName> <version> <minLon> <minLat> <maxLon> <maxLat> \
-#                    <wikivoyagePageTitle> <contentDbBaseUrl> <outputDir>
+#                    <wikivoyagePageTitle> <contentDbBaseUrl> <outputDir> [publishedManifestUrl]
 #
 # Esempio (San Marino):
 #   build-region.sh san-marino "San Marino" 2026.09.14 12.40 43.89 12.52 43.99 \
@@ -30,13 +30,23 @@
 # (oggi gli asset della release "region-data", vedi publish-regions.yml): questo script calcola
 # solo gli URL da scrivere nel manifest, non carica nulla.
 #
-# Richiede: curl, sha256sum, awk, gradle wrapper (./gradlew) dalla root del repo. I segmenti
-# .rd5 restano in <outputDir> insieme a content.db, pronti per essere copiati nel sito da
-# pubblicare (vedi build-pilot-regions.sh/publish-regions.yml).
+# <publishedManifestUrl> (opzionale, es. https://.../manifest.json): se presente, prima di fare
+# qualunque lavoro costoso lo script confronta le tile .rd5 attese con quelle gia' pubblicate per
+# REGION_ID (stesso nome, stessa dimensione) - se coincidono la regione e' considerata invariata
+# questa settimana e la rigenerazione viene saltata del tutto (vedi sezione "2bis." sotto e
+# .claude/docs/weekly-manifest-update-plan.md, "Controllo di necessita'"). Omesso (come per
+# l'esecuzione locale via build-pilot-regions.sh, sempre "tutto fresco") = nessun controllo,
+# rigenerazione completa come sempre. Quando la regione viene saltata, <outputDir>/.skipped viene
+# creato (vuoto) invece di content.db/i .rd5 - il chiamante lo usa per capire che non c'e' nulla
+# di nuovo da ricaricare (vedi publish-regions.yml).
+#
+# Richiede: curl, sha256sum, awk, jq (solo se si passa publishedManifestUrl), gradle wrapper
+# (./gradlew) dalla root del repo. I segmenti .rd5 restano in <outputDir> insieme a content.db,
+# pronti per essere copiati nel sito da pubblicare (vedi build-pilot-regions.sh/publish-regions.yml).
 set -euo pipefail
 
-if [ "$#" -ne 10 ]; then
-  echo "Uso: $0 <regionId> <displayName> <version> <minLon> <minLat> <maxLon> <maxLat> <wikivoyagePageTitle> <contentDbBaseUrl> <outputDir>" >&2
+if [ "$#" -lt 10 ] || [ "$#" -gt 11 ]; then
+  echo "Uso: $0 <regionId> <displayName> <version> <minLon> <minLat> <maxLon> <maxLat> <wikivoyagePageTitle> <contentDbBaseUrl> <outputDir> [publishedManifestUrl]" >&2
   exit 1
 fi
 
@@ -50,6 +60,7 @@ MAX_LAT="$7"
 WIKI_TITLE="$8"
 CONTENT_DB_BASE_URL="${9%/}"
 OUTPUT_DIR="${10}"
+PUBLISHED_MANIFEST_URL="${11:-}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 BROUTER_BASE="https://brouter.de/brouter/segments4"
@@ -130,10 +141,75 @@ tile_name() {
   echo "${ew}${alon}_${ns}${alat}"
 }
 
+# Popolato dalla sezione 2bis (se gira) con l'HTTP status gia' osservato per ciascuna tile, cosi'
+# la sezione 4 non ripete la stessa richiesta HEAD per le tile gia' controllate - vuoto (nessun
+# riuso, comportamento invariato) quando la sezione 2bis non gira, es. esecuzione locale.
+declare -A PRECHECKED_TILE_CODE
+
 LON_START="$(floor5 "$MIN_LON")"
 LON_END="$(floor5 "$MAX_LON")"
 LAT_START="$(floor5 "$MIN_LAT")"
 LAT_END="$(floor5 "$MAX_LAT")"
+
+# --- 2bis. Controllo di necessita': salta la regione se le tile .rd5 attese sono gia' quelle
+# pubblicate (vedi .claude/docs/weekly-manifest-update-plan.md, "Controllo di necessita'") -------
+# Confronto sulla dimensione (Content-Length via HEAD), non sull'hash: piu' economico (nessun
+# download necessario) ma in teoria non si accorgerebbe di un contenuto cambiato a parita' di
+# byte - la dimensione cambia pero' quasi sempre quando BRouter rigenera davvero un segmento (vedi
+# il commento in testa a questo file, esempio E10_N40.rd5), quindi resta un proxy ragionevole in
+# pratica, non una garanzia crittografica come lo sha256 gia' usato altrove per l'integrita' del
+# download. Un confronto per sha256 richiederebbe scaricare comunque il file, annullando il
+# risparmio che questo controllo vuole ottenere. Nessun $PUBLISHED_MANIFEST_URL o jq mancante =
+# nessun controllo, si procede sempre con la rigenerazione completa (comportamento storico, usato
+# anche dall'esecuzione locale via build-pilot-regions.sh).
+if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
+  echo "-- controllo se $REGION_ID e' gia' aggiornata rispetto a $PUBLISHED_MANIFEST_URL..."
+  PUBLISHED_MANIFEST="$WORKDIR/published-manifest.json"
+  if curl -sSf -o "$PUBLISHED_MANIFEST" "$PUBLISHED_MANIFEST_URL" 2>/dev/null; then
+    # Un file TSV (nome<TAB>dimensione) invece di un array JSON costruito con una chiamata jq per
+    # tile: su una regione grande (es. Canada, ~130 tile) risparmia altrettante invocazioni jq, una
+    # sola alla fine basta per ordinare/convertire tutto il file in JSON.
+    EXPECTED_TSV="$WORKDIR/expected-rd5.tsv"
+    : > "$EXPECTED_TSV"
+    lon="$LON_START"
+    while [ "$lon" -le "$LON_END" ]; do
+      lat="$LAT_START"
+      while [ "$lat" -le "$LAT_END" ]; do
+        tile="$(tile_name "$lon" "$lat")"
+        headers="$(curl -sS -I "${BROUTER_BASE}/${tile}.rd5" 2>/dev/null || true)"
+        code="$(printf '%s' "$headers" | head -1 | awk '{print $2}')"
+        PRECHECKED_TILE_CODE["$tile"]="${code:-000}"
+        if [ "$code" = "200" ]; then
+          size="$(printf '%s' "$headers" | tr -d '\r' | grep -i '^content-length:' | tail -1 | awk '{print $2}')"
+          printf '%s.rd5\t%s\n' "$tile" "${size:-0}" >> "$EXPECTED_TSV"
+        fi
+        lat=$((lat + 5))
+      done
+      lon=$((lon + 5))
+    done
+    EXPECTED_SORTED="$(jq -R -s -c '
+      split("\n") | map(select(length > 0) | split("\t") | {name: .[0], sizeBytes: (.[1] | tonumber)})
+      | sort_by(.name)
+    ' "$EXPECTED_TSV")"
+
+    PUBLISHED_SORTED="$(jq -c --arg id "$REGION_ID" '
+      [(.regions // [])[] | select(.regionId == $id) | (.files // [])[] | select(.name | endswith(".rd5")) | {name, sizeBytes}]
+      | sort_by(.name)
+    ' "$PUBLISHED_MANIFEST" 2>/dev/null || echo "[]")"
+
+    if [ -n "$EXPECTED_SORTED" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$PUBLISHED_SORTED" = "$EXPECTED_SORTED" ]; then
+      echo "== [$REGION_ID] invariata rispetto al manifest pubblicato (stesse tile .rd5, stesse dimensioni): salto la rigenerazione =="
+      : > "$OUTPUT_DIR/.skipped"
+      jq -c --arg id "$REGION_ID" '{manifestVersion: 1, regions: [(.regions // [])[] | select(.regionId == $id)]}' \
+        "$PUBLISHED_MANIFEST" > "$OUTPUT_DIR/manifest-fragment.json"
+      echo "== [$REGION_ID] fatto (saltata, frammento riusato da quello pubblicato) =="
+      exit 0
+    fi
+    echo "-- $REGION_ID cambiata (o non ancora pubblicata): rigenerazione completa"
+  else
+    echo "-- nessun manifest pubblicato raggiungibile su $PUBLISHED_MANIFEST_URL: rigenerazione completa"
+  fi
+fi
 
 # --- 3. Guida testuale da Wikivoyage (wikitext grezzo) -------------------------------------------
 DUMP_FILE="$WORKDIR/dump.txt"
@@ -213,7 +289,14 @@ while [ "$lon" -le "$LON_END" ]; do
   while [ "$lat" -le "$LAT_END" ]; do
     tile="$(tile_name "$lon" "$lat")"
     url="${BROUTER_BASE}/${tile}.rd5"
-    code="$(curl -s -o /dev/null -w '%{http_code}' -I "$url")"
+    # Riusa l'esito gia' osservato dalla sezione 2bis per questa tile, se c'e' (stessa richiesta
+    # HEAD, evita di rifarla identica una seconda volta quando il controllo di necessita' e' girato
+    # ma non ha portato a uno skip - vuota quando la sezione 2bis non gira, comportamento invariato).
+    if [ -n "${PRECHECKED_TILE_CODE[$tile]:-}" ]; then
+      code="${PRECHECKED_TILE_CODE[$tile]}"
+    else
+      code="$(curl -s -o /dev/null -w '%{http_code}' -I "$url")"
+    fi
     if [ "$code" = "200" ]; then
       dest="$OUTPUT_DIR/${tile}.rd5"
       echo "-- scarico $tile.rd5 (ri-ospitato insieme a content.db, vedi commento in testa al file)..."

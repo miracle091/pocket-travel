@@ -8,9 +8,26 @@ name: Publish regions
 # content.db (non solo referenziati su brouter.de) perche' quel file cambia dimensione/hash nel
 # tempo — vedi il commento in testa a tools/data-pipeline/scripts/build-region.sh.
 #
-# Solo trigger manuale: nessuna pubblicazione automatica non controllata (coerente con il resto
-# del progetto, dove ogni azione di rete e' sempre su richiesta esplicita).
+# Trigger: 7 righe schedule (una per giorno) rigenerano automaticamente il bucket del giorno
+# (tools/data-pipeline/scripts/weekly-schedule.sh, vedi generate-weekly-schedule.sh e
+# .claude/docs/weekly-manifest-update-plan.md per l'algoritmo e la motivazione — cadenza
+# settimanale perche' i segmenti .rd5 di BRouter vengono rigenerati settimanalmente, non ha senso
+# ripubblicare piu' spesso). workflow_dispatch resta disponibile per run manuali/mirate (regions
+# esplicito) o per rigenerare tutto il lotto (regions vuoto, fuori da uno schedule).
+#
+# Il lavoro e' spalmato su piu' giorni (bucket) E, dentro ogni bucket, su piu' shard in parallelo
+# (matrice a 3 vie) per due limiti concreti, non teorici:
+#   1. limite di 6h per job di GitHub Actions
+#   2. fair use dei mirror Overpass pubblici (infrastruttura gratuita condivisa, non nostra)
 on:
+  schedule:
+    - cron: '0 2 * * 1'  # lunedi - bucket giorno 1 (piu' visitate)
+    - cron: '0 2 * * 2'  # martedi - bucket giorno 2
+    - cron: '0 2 * * 3'  # mercoledi - bucket giorno 3
+    - cron: '0 2 * * 4'  # giovedi - bucket giorno 4
+    - cron: '0 2 * * 5'  # venerdi - bucket giorno 5
+    - cron: '0 2 * * 6'  # sabato - bucket giorno 6
+    - cron: '0 2 * * 0'  # domenica - bucket giorno 7 (meno visitate)
   workflow_dispatch:
     inputs:
       regions:
@@ -31,11 +48,91 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-publish:
+  # Determina l'elenco di regioni da processare in questa run (bucket del giorno, input manuale,
+  # o tutto il lotto) e lo divide in 3 shard per il job a matrice sotto.
+  plan:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      shard0: ${{ steps.plan.outputs.shard0 }}
+      shard1: ${{ steps.plan.outputs.shard1 }}
+      shard2: ${{ steps.plan.outputs.shard2 }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # Gira qui (una volta, prima della matrice) e non dentro il job "build": se lo shard 0/1/2
+      # eseguissero tutti "gh release view || gh release create" in parallelo, alla primissima run
+      # in assoluto (release ancora inesistente) andrebbero in race - il secondo "gh release
+      # create" a completare fallirebbe perche' un altro shard ha gia' creato la release nel
+      # frattempo, facendo fallire quello shard senza motivo.
+      - name: Assicura la release che ospita i pacchetti regionali
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view region-data --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+            gh release create region-data --repo "${{ github.repository }}" \
+              --title "Dati regionali" \
+              --notes "Asset binari (content.db + segmenti .rd5) per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
+
+      - name: Determina le regioni della run e gli shard
+        id: plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          source tools/data-pipeline/scripts/pilot-regions.sh
+
+          SELECTED="${{ github.event.inputs.regions }}"
+          if [ -z "$SELECTED" ] && [ -n "${{ github.event.schedule }}" ]; then
+            # github.event.schedule e' la stringa cron esatta che ha innescato la run (una delle 7
+            # sopra): l'ultimo campo e' il giorno della settimana cron (0=domenica..6=sabato).
+            # weekly-schedule.sh usa invece 1=lunedi..7=domenica (piu' naturale per un bucket
+            # "giorno N della settimana lavorativa+weekend"), da cui il rimappaggio di 0 a 7.
+            source tools/data-pipeline/scripts/weekly-schedule.sh
+            SCHEDULE="${{ github.event.schedule }}"
+            DOW="${SCHEDULE##* }"
+            [ "$DOW" = "0" ] && DOW=7
+            varName="WEEKLY_SCHEDULE_DAY_${DOW}"
+            SELECTED="${!varName}"
+            echo "-- trigger schedule ($SCHEDULE): bucket del giorno $DOW"
+          fi
+          if [ -z "$SELECTED" ]; then
+            # workflow_dispatch senza regions esplicite (fuori da uno schedule): tutto il lotto,
+            # comportamento storico prima dell'introduzione dei bucket.
+            ids=()
+            for spec in "${PILOT_REGIONS[@]}"; do
+              IFS='|' read -r regionId _ <<< "$spec"
+              ids+=("$regionId")
+            done
+            SELECTED="$(IFS=,; echo "${ids[*]}")"
+          fi
+          echo "-- regioni selezionate: $SELECTED"
+
+          # Sharding a matrice: split round-robin in 3 shard fissi. Per run piccole/manuali uno o
+          # due shard possono restare vuoti - il job "build" per quello shard non fa nulla e
+          # termina subito (vedi sotto), non e' un errore.
+          IFS=',' read -ra REGION_ARR <<< "$SELECTED"
+          SHARD_COUNT=3
+          declare -a SHARDS
+          for ((n = 0; n < SHARD_COUNT; n++)); do SHARDS[$n]=""; done
+          for ((idx = 0; idx < ${#REGION_ARR[@]}; idx++)); do
+            s=$((idx % SHARD_COUNT))
+            if [ -z "${SHARDS[$s]}" ]; then SHARDS[$s]="${REGION_ARR[$idx]}"; else SHARDS[$s]="${SHARDS[$s]},${REGION_ARR[$idx]}"; fi
+          done
+          echo "shard0=${SHARDS[0]}" >> "$GITHUB_OUTPUT"
+          echo "shard1=${SHARDS[1]}" >> "$GITHUB_OUTPUT"
+          echo "shard2=${SHARDS[2]}" >> "$GITHUB_OUTPUT"
+
+  # Genera i pacchetti regionali (content.db + .rd5) per lo shard assegnato e carica gli asset
+  # sulla release "region-data". I frammenti manifest prodotti vanno come artifact al job
+  # "publish" sotto (job diversi non condividono il filesystem).
+  build:
+    needs: plan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -48,76 +145,85 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
-      - name: Assicura la release che ospita i pacchetti regionali
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh release view region-data --repo "${{ github.repository }}" >/dev/null 2>&1 || \
-            gh release create region-data --repo "${{ github.repository }}" \
-              --title "Dati regionali" \
-              --notes "Asset binari (content.db + segmenti .rd5) per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
-
-      - name: Genera i pacchetti regionali selezionati
+      - name: Genera i pacchetti regionali dello shard
         id: build
         shell: bash
         run: |
           set -euo pipefail
           source tools/data-pipeline/scripts/pilot-regions.sh
 
-          SELECTED="${{ github.event.inputs.regions }}"
+          case "${{ matrix.shard }}" in
+            0) SELECTED="${{ needs.plan.outputs.shard0 }}" ;;
+            1) SELECTED="${{ needs.plan.outputs.shard1 }}" ;;
+            2) SELECTED="${{ needs.plan.outputs.shard2 }}" ;;
+          esac
+          if [ -z "$SELECTED" ]; then
+            echo "-- shard ${{ matrix.shard }} vuoto, nulla da fare"
+            echo "has_fragments=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           OUTPUT_ROOT="$RUNNER_TEMP/regions-out"
-          SITE_DIR="$RUNNER_TEMP/site"
           # Pages ospita solo manifest.json + index.html + bandiere (pochi KB, mai vicino al
           # limite di 1GB). content.db e i .rd5 (il grosso dei dati) vivono invece sugli asset
           # della release "region-data": a differenza di Pages, che sostituisce l'intero sito ad
           # ogni deploy, gli asset di una release non spariscono mai da soli - vedi il commento in
-          # testa a assemble-site.sh per il problema che questo risolve (sito cumulativo
-          # sopra 1GB con 254 regioni pilota).
+          # testa a assemble-site.sh per il problema che questo risolve (sito cumulativo sopra
+          # 1GB con 254 regioni pilota).
           PAGES_BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
           RELEASE_BASE_URL="https://github.com/${{ github.repository }}/releases/download/region-data"
+          PUBLISHED_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
           VERSION="$(date -u +%Y.%m.%d)"
-          mkdir -p "$OUTPUT_ROOT" "$SITE_DIR"
+          mkdir -p "$OUTPUT_ROOT" "$RUNNER_TEMP/fragments"
 
           # Una regione che fallisce (es. query Overpass troppo pesante per un bbox enorme) non
-          # deve far perdere il lavoro gia' fatto per le regioni precedenti nella stessa run: con
+          # deve far perdere il lavoro gia' fatto per le regioni precedenti nello stesso shard: con
           # "set -e" un fallimento non protetto da if/else avrebbe interrotto subito lo script,
-          # saltando merge/validate/deploy anche per le regioni gia' completate con successo
-          # (visto: San Marino/Italia/Giappone generati correttamente ma mai pubblicati perche'
-          # gli Stati Uniti sono falliti dopo, nella stessa run). L'if/else qui sotto e' una delle
-          # eccezioni riconosciute da "set -e" (il comando testato in una condizione if non fa
-          # terminare lo script), quindi si continua con le regioni successive.
-          FRAGMENT_FILES=()
+          # saltando le regioni successive anche se gia' completate con successo (visto: San
+          # Marino/Italia/Giappone generati correttamente ma mai pubblicati perche' gli Stati Uniti
+          # sono falliti dopo, nella stessa run). L'if/else qui sotto e' una delle eccezioni
+          # riconosciute da "set -e" (il comando testato in una condizione if non fa terminare lo
+          # script), quindi si continua con le regioni successive.
           FAILED_REGIONS=()
+          IFS=',' read -ra SHARD_REGIONS <<< "$SELECTED"
           for spec in "${PILOT_REGIONS[@]}"; do
             IFS='|' read -r regionId displayName minLon minLat maxLon maxLat wikiTitle flag groupName groupLabel continent <<< "$spec"
-            if [ -n "$SELECTED" ]; then
-              case ",$SELECTED," in
-                *",$regionId,"*) ;;
-                *) continue ;;
-              esac
-            fi
+            match=false
+            for r in "${SHARD_REGIONS[@]}"; do [ "$r" = "$regionId" ] && match=true && break; done
+            [ "$match" = true ] || continue
+
             echo "::group::$regionId"
             regionOut="$OUTPUT_ROOT/$regionId"
             if tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
-              "$minLon" "$minLat" "$maxLon" "$maxLat" "$wikiTitle" "$RELEASE_BASE_URL" "$regionOut"; then
-              # content.db + segmenti .rd5 (zero o piu' a seconda di quante tile intersecano il
-              # bbox) caricati come asset della release, rinominati con un prefisso
-              # regionId--version-- per essere univoci nell'intera release (che accumula tutte
-              # le regioni). --clobber: un rilancio della stessa regione nello stesso giorno
-              # (stessa VERSION) deve poter sovrascrivere l'asset gia' caricato in un tentativo
-              # precedente fallito a meta'.
-              uploads=()
-              contentDbAsset="$regionOut/${regionId}--${VERSION}--content.db"
-              cp "$regionOut/content.db" "$contentDbAsset"
-              uploads+=("$contentDbAsset")
-              for rd5 in "$regionOut"/*.rd5; do
-                [ -e "$rd5" ] || continue
-                rd5Asset="$regionOut/${regionId}--${VERSION}--$(basename "$rd5")"
-                cp "$rd5" "$rd5Asset"
-                uploads+=("$rd5Asset")
-              done
-              gh release upload region-data "${uploads[@]}" --repo "${{ github.repository }}" --clobber
-              FRAGMENT_FILES+=("$regionOut/manifest-fragment.json")
+              "$minLon" "$minLat" "$maxLon" "$maxLat" "$wikiTitle" "$RELEASE_BASE_URL" "$regionOut" \
+              "$PUBLISHED_MANIFEST_URL"; then
+              if [ -f "$regionOut/.skipped" ]; then
+                # Controllo di necessita' in build-region.sh: tile .rd5 attese invariate rispetto
+                # al manifest gia' pubblicato, il frammento e' quello di sempre, niente da
+                # ricaricare sulla release (vedi build-region.sh, sezione "2bis").
+                echo "-- $regionId invariata: riuso il frammento pubblicato, nessun asset da ricaricare"
+              else
+                # content.db + segmenti .rd5 (zero o piu' a seconda di quante tile intersecano il
+                # bbox) caricati come asset della release, rinominati con un prefisso
+                # regionId--version-- per essere univoci nell'intera release (che accumula tutte
+                # le regioni). --clobber: un rilancio della stessa regione nello stesso giorno
+                # (stessa VERSION) deve poter sovrascrivere l'asset gia' caricato in un tentativo
+                # precedente fallito a meta'.
+                uploads=()
+                contentDbAsset="$regionOut/${regionId}--${VERSION}--content.db"
+                cp "$regionOut/content.db" "$contentDbAsset"
+                uploads+=("$contentDbAsset")
+                for rd5 in "$regionOut"/*.rd5; do
+                  [ -e "$rd5" ] || continue
+                  rd5Asset="$regionOut/${regionId}--${VERSION}--$(basename "$rd5")"
+                  cp "$rd5" "$rd5Asset"
+                  uploads+=("$rd5Asset")
+                done
+                gh release upload region-data "${uploads[@]}" --repo "${{ github.repository }}" --clobber
+              fi
+              # Nome unico per regione: piu' regioni condividerebbero altrimenti lo stesso nome di
+              # file "manifest-fragment.json" una volta appiattite nella stessa cartella artifact.
+              cp "$regionOut/manifest-fragment.json" "$RUNNER_TEMP/fragments/${regionId}.json"
             else
               echo "::warning::regione $regionId fallita, salto e continuo con le prossime"
               FAILED_REGIONS+=("$regionId")
@@ -125,16 +231,69 @@ jobs:
             echo "::endgroup::"
           done
 
-          if [ "${#FRAGMENT_FILES[@]}" -eq 0 ]; then
-            echo "Nessuna regione completata con successo tra: $SELECTED" >&2
+          fragmentCount="$(find "$RUNNER_TEMP/fragments" -maxdepth 1 -name '*.json' | wc -l)"
+          if [ "$fragmentCount" -eq 0 ]; then
+            echo "has_fragments=false" >> "$GITHUB_OUTPUT"
+            echo "Nessuna regione completata con successo in questo shard: $SELECTED" >&2
             exit 1
           fi
           if [ "${#FAILED_REGIONS[@]}" -gt 0 ]; then
-            echo "::warning::regioni fallite in questa run (non pubblicate, da rilanciare a parte): ${FAILED_REGIONS[*]}"
+            echo "::warning::regioni fallite in questo shard (non pubblicate, da rilanciare a parte): ${FAILED_REGIONS[*]}"
+          fi
+          echo "has_fragments=true" >> "$GITHUB_OUTPUT"
+
+      - name: Carica i frammenti manifest dello shard
+        if: steps.build.outputs.has_fragments == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-fragments-${{ matrix.shard }}
+          path: ${{ runner.temp }}/fragments/*.json
+          retention-days: 1
+
+  # Riunisce i frammenti manifest di tutti gli shard col manifest gia' pubblicato e pubblica su
+  # Pages. Gira comunque (always()) anche se uno shard e' fallito del tutto, cosi' il lavoro degli
+  # shard riusciti non va perso — se pero' NESSuno shard ha prodotto frammenti, il passo sotto
+  # fallisce esplicitamente (niente da assemblare/pubblicare).
+  publish:
+    needs: build
+    if: always()
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: manifest-fragments-*
+          path: ${{ runner.temp }}/fragments
+          merge-multiple: true
+        continue-on-error: true
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Assembla il sito
+        id: assemble
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          FRAGMENT_FILES=("$RUNNER_TEMP/fragments"/*.json)
+          if [ "${#FRAGMENT_FILES[@]}" -eq 0 ]; then
+            echo "Nessuno shard ha prodotto frammenti manifest in questa run, niente da pubblicare" >&2
+            exit 1
           fi
 
-          PUBLISHED_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
-          tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$PUBLISHED_MANIFEST_URL" "${FRAGMENT_FILES[@]}"
+          SITE_DIR="$RUNNER_TEMP/site"
+          PAGES_BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          mkdir -p "$SITE_DIR"
+          tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$PAGES_BASE_URL/manifest.json" "${FRAGMENT_FILES[@]}"
 
           echo "site_dir=$SITE_DIR" >> "$GITHUB_OUTPUT"
           echo "pages_host=${{ github.repository_owner }}.github.io" >> "$GITHUB_OUTPUT"
@@ -144,13 +303,13 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew -q :tools:data-pipeline:content:validateManifest \
-            --args="${{ steps.build.outputs.site_dir }}/manifest.json ${{ steps.build.outputs.pages_host }}"
+            --args="${{ steps.assemble.outputs.site_dir }}/manifest.json ${{ steps.assemble.outputs.pages_host }}"
 
       - uses: actions/configure-pages@v6
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: ${{ steps.build.outputs.site_dir }}
+          path: ${{ steps.assemble.outputs.site_dir }}
 
       - id: deployment
         uses: actions/deploy-pages@v5

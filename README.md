@@ -1,12 +1,12 @@
-# Pocket Travel
+# 🧭 Pocket Travel
 
-Pocket Travel è un'applicazione (o strumento) pensata per chi ama viaggiare. Progettata per essere leggera e portatile (proprio come averla in tasca), ti aiuta a organizzare itinerari, scoprire mete e gestire le tue avventure in modo semplice e intuitivo.
+Pocket Travel è un'app per chi viaggia senza voler dipendere dalla connessione: guida turistica offline, mappa con routing pedonale, assistente IA e vault per i documenti, tutto scaricabile a pacchetti per regione.
 
-Versione corrente: **0.2.0** ([Semantic Versioning](https://semver.org/lang/it/)) — vedi [CHANGELOG.md](CHANGELOG.md).
+Versione corrente: **0.3.0** ([Semantic Versioning](https://semver.org/lang/it/)) — vedi [CHANGELOG.md](CHANGELOG.md).
 
 ## Stato
 
-MVP funzionalmente completo: guida turistica offline con ricerca full-text, mappa vettoriale con routing pedonale offline (BRouter), assistente IA con modalità locale (on-device, con controllo RAM) e online (chiave utente personale), vault passaporti cifrato, gestione pacchetti regionali (download/aggiornamento/rimozione) e registro fonti ufficiali esterne. Pipeline dati e orchestratore per generare e pubblicare pacchetti regionali sono pronti (`tools/data-pipeline`, `.github/workflows/publish-regions.yml`); manca ancora un repository GitHub reale collegato per pubblicarli.
+MVP funzionalmente completo: guida turistica offline con ricerca full-text, mappa vettoriale con routing pedonale offline (BRouter), assistente IA con modalità locale (on-device, con controllo RAM) e online (chiave utente personale), vault passaporti cifrato, gestione pacchetti regionali (download/aggiornamento/rimozione) e registro fonti ufficiali esterne. Pipeline dati e orchestratore per generare e pubblicare pacchetti regionali sono pronti, inclusa la pubblicazione automatica settimanale a bucket con controllo di necessità (`tools/data-pipeline`, `.github/workflows/publish-regions.yml`); manca ancora un repository GitHub reale collegato per pubblicarli.
 
 ## Struttura
 
@@ -32,7 +32,7 @@ Richiede Android Studio (porta con sé JDK 17+ e Gradle).
 
 1. Apri la cartella in Android Studio.
 2. Lascia che generi il Gradle wrapper e sincronizzi le dipendenze al primo avvio.
-3. Le versioni in `gradle/libs.versions.toml` sono già verificate contro una build reale (vedi il log di sviluppo) — accetta comunque i suggerimenti di aggiornamento AGP/Kotlin/Compose che Android Studio propone al sync, se presenti.
+3. Le versioni in `gradle/libs.versions.toml` sono già verificate contro una build reale (vedi il log di sviluppo). Accetta comunque i suggerimenti di aggiornamento AGP/Kotlin/Compose che Android Studio propone al sync, se presenti.
 
 ## Licenza
 
