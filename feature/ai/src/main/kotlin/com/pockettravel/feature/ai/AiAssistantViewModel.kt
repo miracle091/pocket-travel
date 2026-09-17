@@ -24,6 +24,8 @@ data class AiUiState(
     val hfTokenInput: String = "",
     val benchmarkResult: BenchmarkResult? = null,
     val isBenchmarking: Boolean = false,
+    val allBenchmarkResults: List<BenchmarkResult> = emptyList(),
+    val showBenchmarkComparison: Boolean = false,
     val question: String = "",
     val isThinking: Boolean = false,
     val answer: AssistantAnswer? = null,
@@ -57,6 +59,7 @@ class AiAssistantViewModel @Inject constructor(
             isApiKeyConfigured = aiSettingsStore.hasApiKey(),
             hasHfToken = aiSettingsStore.hasHuggingFaceToken(),
             benchmarkResult = aiSettingsStore.benchmarkResult(aiSettingsStore.selectedModelId()),
+            allBenchmarkResults = aiSettingsStore.allBenchmarkResults(),
         ),
     )
     val uiState: StateFlow<AiUiState> = _uiState.asStateFlow()
@@ -176,11 +179,21 @@ class AiAssistantViewModel @Inject constructor(
             try {
                 val result = llmBenchmark.run(modelId)
                 aiSettingsStore.saveBenchmarkResult(result)
-                _uiState.update { it.copy(isBenchmarking = false, benchmarkResult = result) }
+                _uiState.update {
+                    it.copy(isBenchmarking = false, benchmarkResult = result, allBenchmarkResults = aiSettingsStore.allBenchmarkResults())
+                }
             } catch (_: Exception) {
                 _uiState.update { it.copy(isBenchmarking = false, errorMessage = "Benchmark non riuscito.") }
             }
         }
+    }
+
+    fun showBenchmarkComparison() {
+        _uiState.update { it.copy(showBenchmarkComparison = true, allBenchmarkResults = aiSettingsStore.allBenchmarkResults()) }
+    }
+
+    fun hideBenchmarkComparison() {
+        _uiState.update { it.copy(showBenchmarkComparison = false) }
     }
 
     fun downloadModel() {

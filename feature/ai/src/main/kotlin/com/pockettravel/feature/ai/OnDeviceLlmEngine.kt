@@ -28,10 +28,31 @@ class OnDeviceLlmEngine @Inject constructor(
     private val mutex = Mutex()
     private var engine: Engine? = null
 
+    /**
+     * Carica il motore se non è già in memoria, restituendo quanto è durato il caricamento — 0
+     * se era già caricato. Usata dal benchmark per non confondere il tempo di caricamento (una
+     * tantum, secondi) con la velocità di generazione: senza questo, il primo prompt dopo un
+     * cambio di modello includerebbe silenziosamente `Engine.initialize()` nel suo tempo,
+     * facendo sembrare un modello appena cambiato più lento di uno già in uso nella sessione.
+     */
+    suspend fun ensureLoaded(): Long = withContext(Dispatchers.IO) {
+        coordinator.withModelLock {
+            mutex.withLock {
+                if (engine != null) {
+                    0L
+                } else {
+                    val start = System.currentTimeMillis()
+                    loadEngineIfNeeded()
+                    System.currentTimeMillis() - start
+                }
+            }
+        }
+    }
+
     suspend fun generate(prompt: String): String = withContext(Dispatchers.IO) {
         coordinator.withModelLock {
             mutex.withLock {
-            val activeEngine = engine ?: createEngine().also { engine = it }
+            val activeEngine = loadEngineIfNeeded()
             activeEngine.createConversation(
                 ConversationConfig(
                     samplerConfig = SamplerConfig(topK = TOP_K, topP = TOP_P, temperature = TEMPERATURE),
@@ -61,6 +82,8 @@ class OnDeviceLlmEngine @Inject constructor(
         engine?.close()
         engine = null
     }
+
+    private fun loadEngineIfNeeded(): Engine = engine ?: createEngine().also { engine = it }
 
     private fun createEngine(): Engine {
         val definition = aiSettingsStore.selectedModelDefinition()

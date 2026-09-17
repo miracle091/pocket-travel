@@ -64,14 +64,21 @@ class AiSettingsStore @Inject constructor(@ApplicationContext context: Context) 
             modelId = modelId,
             wordsPerSecond = prefs.getFloat(benchmarkKey(modelId, KEY_BENCHMARK_WORDS_PER_SECOND), 0f),
             totalLatencyMs = prefs.getLong(benchmarkKey(modelId, KEY_BENCHMARK_LATENCY_MS), 0L),
+            loadTimeMs = prefs.getLong(benchmarkKey(modelId, KEY_BENCHMARK_LOAD_MS), 0L),
             qualityScore = prefs.getInt(benchmarkKey(modelId, KEY_BENCHMARK_QUALITY), 0),
             ranAt = ranAt,
         )
     }
 
+    // LlmModelCatalog.ALL e' un elenco fisso e noto: nessun bisogno di una chiave separata che
+    // elenchi "quali modelli hanno un risultato" per la vista di confronto, basta scorrerlo.
+    fun allBenchmarkResults(): List<BenchmarkResult> =
+        LlmModelCatalog.ALL.mapNotNull { benchmarkResult(it.id) }
+
     fun saveBenchmarkResult(result: BenchmarkResult) = prefs.edit {
         putFloat(benchmarkKey(result.modelId, KEY_BENCHMARK_WORDS_PER_SECOND), result.wordsPerSecond)
         putLong(benchmarkKey(result.modelId, KEY_BENCHMARK_LATENCY_MS), result.totalLatencyMs)
+        putLong(benchmarkKey(result.modelId, KEY_BENCHMARK_LOAD_MS), result.loadTimeMs)
         putInt(benchmarkKey(result.modelId, KEY_BENCHMARK_QUALITY), result.qualityScore)
         putLong(benchmarkKey(result.modelId, KEY_BENCHMARK_RAN_AT), result.ranAt)
     }
@@ -93,6 +100,7 @@ class AiSettingsStore @Inject constructor(@ApplicationContext context: Context) 
         const val DEFAULT_SELECTED_MODEL_ID = "gemma3-1b-it"
         const val KEY_BENCHMARK_WORDS_PER_SECOND = "benchmark_words_per_second"
         const val KEY_BENCHMARK_LATENCY_MS = "benchmark_latency_ms"
+        const val KEY_BENCHMARK_LOAD_MS = "benchmark_load_ms"
         const val KEY_BENCHMARK_QUALITY = "benchmark_quality"
         const val KEY_BENCHMARK_RAN_AT = "benchmark_ran_at"
     }

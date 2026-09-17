@@ -51,6 +51,29 @@ class LlmBenchmarkTest {
     }
 
     @Test
+    fun `loadTimeMs di default e' zero e non entra nel calcolo di wordsPerSecond`() {
+        val answers = listOf("una due tre quattro", "cinque sei")
+
+        val result = scoreBenchmarkAnswers("model-f", prompts, answers, elapsedMs = 2000L)
+
+        assertEquals(0L, result.loadTimeMs)
+        assertEquals(3f, result.wordsPerSecond, 0.01f)
+    }
+
+    @Test
+    fun `loadTimeMs passato esplicitamente viene riportato nel risultato, separato da elapsedMs`() {
+        val answers = listOf("una due tre quattro", "cinque sei")
+
+        val result = scoreBenchmarkAnswers("model-g", prompts, answers, elapsedMs = 2000L, loadTimeMs = 5000L)
+
+        assertEquals(5000L, result.loadTimeMs)
+        assertEquals(2000L, result.totalLatencyMs)
+        // wordsPerSecond resta calcolato solo su elapsedMs (generazione), non su elapsedMs+loadTimeMs:
+        // il caricamento non deve far sembrare la generazione piu' lenta di quanto sia davvero.
+        assertEquals(3f, result.wordsPerSecond, 0.01f)
+    }
+
+    @Test
     fun `richiede lo stesso numero di prompt e risposte`() {
         try {
             scoreBenchmarkAnswers("model-e", prompts, listOf("solo una risposta"), elapsedMs = 1000L)

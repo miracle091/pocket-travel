@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -18,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -316,17 +318,61 @@ private fun AssistantConversation(regionId: String, uiState: AiUiState, viewMode
 
 @Composable
 private fun BenchmarkRow(uiState: AiUiState, viewModel: AiAssistantViewModel) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        OutlinedButton(onClick = { viewModel.runBenchmark() }, enabled = !uiState.isBenchmarking) {
-            Text(if (uiState.isBenchmarking) "Benchmark in corso…" else "Esegui benchmark")
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(onClick = { viewModel.runBenchmark() }, enabled = !uiState.isBenchmarking) {
+                Text(if (uiState.isBenchmarking) "Benchmark in corso…" else "Esegui benchmark")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            OutlinedButton(onClick = { viewModel.showBenchmarkComparison() }) {
+                Text("Confronta modelli")
+            }
         }
         val result = uiState.benchmarkResult
         if (result != null && result.modelId == uiState.selectedModelId) {
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "${result.wordsPerSecond.toInt()} parole/s · qualità ${result.qualityScore}/100",
+                "${result.wordsPerSecond.toInt()} parole/s · qualità ${result.qualityScore}/100" +
+                    (if (result.loadTimeMs > 0) " · caricamento ${result.loadTimeMs / 1000f}s" else ""),
                 style = MaterialTheme.typography.bodySmall,
             )
         }
     }
+
+    if (uiState.showBenchmarkComparison) {
+        BenchmarkComparisonDialog(uiState, viewModel)
+    }
+}
+
+@Composable
+private fun BenchmarkComparisonDialog(uiState: AiUiState, viewModel: AiAssistantViewModel) {
+    AlertDialog(
+        onDismissRequest = { viewModel.hideBenchmarkComparison() },
+        confirmButton = {
+            TextButton(onClick = { viewModel.hideBenchmarkComparison() }) { Text("Chiudi") }
+        },
+        title = { Text("Modelli provati") },
+        text = {
+            Column {
+                // Solo i modelli con un risultato salvato (LlmModelCatalog.ALL puo' includere
+                // modelli mai scaricati su questo device, es. per una fascia RAM diversa) — un
+                // modello non ancora provato non aggiunge informazione utile al confronto.
+                val results = uiState.allBenchmarkResults.sortedByDescending { it.qualityScore }
+                if (results.isEmpty()) {
+                    Text("Nessun modello ancora provato.")
+                } else {
+                    results.forEach { result ->
+                        val displayName = LlmModelCatalog.ALL.firstOrNull { it.id == result.modelId }?.displayName ?: result.modelId
+                        Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                            Text(displayName, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                "${result.wordsPerSecond.toInt()} parole/s · qualità ${result.qualityScore}/100",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+    )
 }

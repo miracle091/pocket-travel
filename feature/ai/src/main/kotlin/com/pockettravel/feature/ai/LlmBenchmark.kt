@@ -19,6 +19,11 @@ data class BenchmarkResult(
     // precisione con "tokensPerSecond".
     val wordsPerSecond: Float,
     val totalLatencyMs: Long,
+    // Tempo di Engine.initialize() (una tantum, non ripetuto se il modello e' gia' in memoria)
+    // separato dalla generazione — vedi OnDeviceLlmEngine.ensureLoaded(). 0 se il motore era
+    // gia' caricato al momento del run (es. un secondo benchmark sullo stesso modello nella
+    // stessa sessione).
+    val loadTimeMs: Long,
     val qualityScore: Int,
     val ranAt: Long,
 )
@@ -28,16 +33,20 @@ class LlmBenchmark @Inject constructor(
     private val engine: OnDeviceLlmEngine,
 ) {
     suspend fun run(modelId: String): BenchmarkResult {
+        val loadTimeMs = engine.ensureLoaded()
         val start = System.currentTimeMillis()
         val answers = PROMPTS.map { engine.generate(it.prompt).trim() }
         val elapsedMs = (System.currentTimeMillis() - start).coerceAtLeast(1L)
-        return scoreBenchmarkAnswers(modelId, PROMPTS, answers, elapsedMs)
+        return scoreBenchmarkAnswers(modelId, PROMPTS, answers, elapsedMs, loadTimeMs)
     }
 
     internal companion object {
         // Domande generiche sul dominio viaggio, non legate a una regione specifica: il
         // benchmark valuta il modello grezzo via OnDeviceLlmEngine.generate(), non la
         // pipeline RAG di TravelAssistant (che dipende dai contenuti di una regione scaricata).
+        // Sei categorie diverse (documenti, fuso orario, sicurezza, visti, aritmetica breve,
+        // usi e costumi) invece di tre simili, per un segnale di qualita' un po' piu' robusto —
+        // resta comunque un'euristica su parole chiave, non un eval semantico vero.
         val PROMPTS = listOf(
             BenchmarkPrompt(
                 prompt = "Quali documenti servono di solito per attraversare una frontiera internazionale?",
@@ -54,6 +63,23 @@ class LlmBenchmark @Inject constructor(
                 expectedKeywords = listOf("sicur"),
                 minAnswerLength = 20,
             ),
+            BenchmarkPrompt(
+                prompt = "Qual è la differenza tra un visto turistico e un visto di transito?",
+                expectedKeywords = listOf("visto"),
+                minAnswerLength = 20,
+            ),
+            // Aritmetica breve, non dominio viaggio in senso stretto: un differenziatore reale
+            // tra modelli piccoli (135M-4B), non solo un test di conoscenza enciclopedica.
+            BenchmarkPrompt(
+                prompt = "Se il volo parte alle 14:00 e bisogna essere in aeroporto 2 ore prima, a che ora bisogna arrivare in aeroporto?",
+                expectedKeywords = listOf("12"),
+                minAnswerLength = 5,
+            ),
+            BenchmarkPrompt(
+                prompt = "Quali comportamenti è meglio evitare quando si visita un luogo di culto in un altro paese?",
+                expectedKeywords = listOf("rispett"),
+                minAnswerLength = 20,
+            ),
         )
     }
 }
@@ -66,6 +92,7 @@ internal fun scoreBenchmarkAnswers(
     prompts: List<BenchmarkPrompt>,
     answers: List<String>,
     elapsedMs: Long,
+    loadTimeMs: Long = 0L,
 ): BenchmarkResult {
     require(prompts.size == answers.size) { "prompts e answers devono avere la stessa dimensione" }
 
@@ -92,6 +119,7 @@ internal fun scoreBenchmarkAnswers(
         modelId = modelId,
         wordsPerSecond = wordsPerSecond,
         totalLatencyMs = safeElapsedMs,
+        loadTimeMs = loadTimeMs,
         qualityScore = qualityScore,
         ranAt = System.currentTimeMillis(),
     )
