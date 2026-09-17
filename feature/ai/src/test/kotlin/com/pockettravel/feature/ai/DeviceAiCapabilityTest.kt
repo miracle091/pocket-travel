@@ -37,14 +37,20 @@ class DeviceAiCapabilityTest {
     }
 
     @Test
-    fun `ramTierFor reports MINIMO between 4 and 6 GB`() {
+    fun `ramTierFor reports MINIMO between 4 and 8 GB`() {
         assertEquals(RamTier.MINIMO, ramTierFor(4 * GB))
-        assertEquals(RamTier.MINIMO, ramTierFor(6 * GB - 1))
+        assertEquals(RamTier.MINIMO, ramTierFor(8 * GB - 1))
     }
 
     @Test
-    fun `ramTierFor reports CONFORTEVOLE from 6 GB`() {
-        assertEquals(RamTier.CONFORTEVOLE, ramTierFor(6 * GB))
+    fun `ramTierFor reports CONFORTEVOLE between 8 and 12 GB`() {
         assertEquals(RamTier.CONFORTEVOLE, ramTierFor(8 * GB))
+        assertEquals(RamTier.CONFORTEVOLE, ramTierFor(12 * GB - 1))
+    }
+
+    @Test
+    fun `ramTierFor reports AMPIA from 12 GB`() {
+        assertEquals(RamTier.AMPIA, ramTierFor(12 * GB))
+        assertEquals(RamTier.AMPIA, ramTierFor(16 * GB))
     }
 }

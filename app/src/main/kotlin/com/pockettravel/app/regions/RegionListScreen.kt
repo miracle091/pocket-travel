@@ -159,8 +159,10 @@ private fun DrawerItem(
     )
 }
 
+// internal, non private: riusata anche dallo step di onboarding "Scarica una regione" (stesso
+// modulo :app, pacchetto diverso).
 @Composable
-private fun RegionRow(item: RegionUiItem, viewModel: RegionListViewModel, onClick: () -> Unit) {
+internal fun RegionRow(item: RegionUiItem, viewModel: RegionListViewModel, onClick: () -> Unit) {
     val workInfo by remember(item.regionId) { viewModel.observeDownloadProgress(item.regionId) }
         .collectAsStateWithLifecycle(initialValue = null)
     val isDownloading = workInfo?.state == WorkInfo.State.RUNNING || workInfo?.state == WorkInfo.State.ENQUEUED

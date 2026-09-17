@@ -20,52 +20,79 @@ class ModelAuthException(message: String) : Exception(message)
  *  transitorio, ritentare la stessa richiesta darebbe sempre lo stesso esito. */
 class ModelDownloadFailedException(message: String) : Exception(message)
 
+/** definition.sha256 == null: modello non ancora disponibile per il download (vedi LlmModelDefinition). */
+class ModelNotAvailableException(message: String) : Exception(message)
+
 /**
  * Modello IA on-device: scaricato solo su richiesta, liberabile dall'utente in un tocco —
  * vedi "Vincoli tecnici" nella specifica tecnica (quantizzato, consigliato sotto 1,5 GB).
+ * Generalizzato a un catalogo di modelli (LlmModelCatalog): ogni metodo prende il
+ * [LlmModelDefinition] su cui operare invece di leggere un unico modello fisso, cosi' il
+ * chiamante (risolto da AiSettingsStore.selectedModelId) resta l'unica fonte di verita' su
+ * quale modello e' "quello attivo" — nessuno stato duplicato qui dentro.
  */
 class LlmModelManager @Inject constructor(
     private val okHttpClient: OkHttpClient,
     @AiModelsDir private val modelsDir: File,
     private val coordinator: AiModelCoordinator,
 ) {
-    val modelFile: File get() = File(modelsDir, AiModelConfig.MODEL_FILE_NAME)
-    private val partFile: File get() = File(modelsDir, "${AiModelConfig.MODEL_FILE_NAME}.part")
+    fun modelFile(definition: LlmModelDefinition): File = File(modelsDir, definition.fileName)
+    private fun partFile(definition: LlmModelDefinition): File = File(modelsDir, "${definition.fileName}.part")
 
-    fun isDownloaded(): Boolean = modelFile.exists()
+    fun isDownloaded(definition: LlmModelDefinition): Boolean = modelFile(definition).exists()
 
-    fun sizeOnDisk(): Long = if (modelFile.exists()) modelFile.length() else 0L
+    fun sizeOnDisk(definition: LlmModelDefinition): Long =
+        modelFile(definition).let { if (it.exists()) it.length() else 0L }
 
     fun availableStorageBytes(): Long = modelsDir.usableSpace
 
-    // modelUrl/expectedSha256 hanno un default di produzione ma restano parametri (non
-    // AiModelConfig letto direttamente nel corpo) cosi' un test puo' verificare il download e
-    // la verifica del checksum contro un server HTTP locale, senza scaricare davvero 584 MB da
-    // un repo HuggingFace con licenza gated.
     suspend fun download(
-        modelUrl: String = AiModelConfig.MODEL_URL,
-        expectedSha256: String = AiModelConfig.MODEL_SHA256,
+        definition: LlmModelDefinition,
         hfToken: String? = null,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     ) {
+        // Fallisce prima di aprire la connessione (non dopo centinaia di MB scaricati e
+        // scartati): un sha256 nullo qui indica un modello non ancora pubblicato, non un
+        // problema di rete o di integrità del file.
+        if (definition.sha256 == null) {
+            throw ModelNotAvailableException("Il modello «${definition.displayName}» non è ancora disponibile per il download.")
+        }
         coordinator.withModelLock {
             withContext(Dispatchers.IO) {
-                downloadAndVerify(modelUrl, expectedSha256, hfToken, onProgress)
+                downloadAndVerify(definition, hfToken, onProgress)
             }
         }
+    }
+
+    /**
+     * Un solo modello on-device installato alla volta: se un altro modello e' gia' presente su
+     * disco, va eliminato (e il motore rilasciato) prima di scaricare quello nuovo — evita di
+     * accumulare piu' file da centinaia di MB/pochi GB ciascuno in parallelo.
+     */
+    suspend fun selectAndDownload(
+        newDefinition: LlmModelDefinition,
+        currentlyInstalled: LlmModelDefinition?,
+        hfToken: String? = null,
+        onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
+    ) {
+        if (currentlyInstalled != null && currentlyInstalled.id != newDefinition.id) {
+            delete(currentlyInstalled)
+        }
+        download(newDefinition, hfToken, onProgress)
     }
 
     // internal (non private) cosi' un test puo' esercitare il resume Range/la classificazione
     // errori senza dover passare per il Mutex di AiModelCoordinator — stesso approccio di
     // RegionPackageDownloader.downloadAndVerify.
     internal suspend fun downloadAndVerify(
-        modelUrl: String,
-        expectedSha256: String,
+        definition: LlmModelDefinition,
         hfToken: String?,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     ) {
+        val partFile = partFile(definition)
+        val modelFile = modelFile(definition)
         val existingBytes = if (partFile.exists()) partFile.length() else 0L
-        val requestBuilder = Request.Builder().url(modelUrl)
+        val requestBuilder = Request.Builder().url(definition.url)
         if (!hfToken.isNullOrBlank()) {
             requestBuilder.header("Authorization", "Bearer $hfToken")
         }
@@ -75,8 +102,8 @@ class LlmModelManager @Inject constructor(
         val request = requestBuilder.build()
 
         okHttpClient.newCall(request).execute().use { response ->
-            // Repo HuggingFace gated (vedi AiModelConfig): 401/403 significano quasi
-            // sempre token mancante/errato o licenza Gemma non accettata, non un guasto
+            // Repo HuggingFace gated (vedi LlmModelDefinition.licenseUrl): 401/403 significano
+            // quasi sempre token mancante/errato o licenza non accettata, non un guasto
             // generico — messaggio dedicato cosi' la UI puo' guidare l'utente a sistemare
             // il token invece di un "riprova più tardi" fuorviante.
             if (response.code == 401 || response.code == 403) {
@@ -127,10 +154,10 @@ class LlmModelManager @Inject constructor(
         // dopo una ripresa i byte gia' presenti prima di questa chiamata non sono mai passati
         // per il digest di questa esecuzione.
         val actualSha256 = sha256Of(partFile)
-        if (!actualSha256.equals(expectedSha256, ignoreCase = true)) {
+        if (!actualSha256.equals(definition.sha256, ignoreCase = true)) {
             partFile.delete()
             throw ModelIntegrityException(
-                "Checksum del modello non valido: atteso $expectedSha256, ottenuto $actualSha256",
+                "Checksum del modello non valido: atteso ${definition.sha256}, ottenuto $actualSha256",
             )
         }
         check(partFile.renameTo(modelFile)) { "Impossibile installare il modello" }
@@ -147,9 +174,9 @@ class LlmModelManager @Inject constructor(
         return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) }
     }
 
-    suspend fun delete(): Boolean = coordinator.withModelLock { deleteWithoutLock() }
+    suspend fun delete(definition: LlmModelDefinition): Boolean = coordinator.withModelLock { deleteWithoutLock(definition) }
 
-    internal fun deleteWithoutLock(): Boolean = modelFile.delete()
+    internal fun deleteWithoutLock(definition: LlmModelDefinition): Boolean = modelFile(definition).delete()
 
     private companion object {
         const val PROGRESS_STEP_BYTES = 1_000_000L

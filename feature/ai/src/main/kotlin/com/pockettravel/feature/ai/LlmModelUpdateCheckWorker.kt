@@ -16,8 +16,9 @@ import kotlinx.coroutines.CancellationException
  * Controllo periodico (qualunque rete incluse i dati cellulari, vedi
  * [LlmModelUpdateCheckScheduler]): legge app-status.json (asset della release GitHub
  * "app-status", pubblicato da publish-apk.yml ad ogni rilascio app — non legato
- * all'aggiornamento dei pacchetti regionali, vedi AppStatus.kt in core:sync). Se il modello IA
- * on-device installato ha uno sha256 diverso da quello pubblicato, notifica — non scarica mai
+ * all'aggiornamento dei pacchetti regionali, vedi AppStatus.kt in core:sync), una entry per
+ * modello del catalogo (LlmModelCatalog.ALL). Se il modello IA on-device installato ha uno
+ * sha256 diverso da quello pubblicato per lo stesso modelId, notifica — non scarica mai
  * automaticamente. Notifica solo se l'utente ha gia' scaricato un modello: nessun senso di
  * segnalare un aggiornamento a chi non usa la modalita' on-device.
  */
@@ -27,15 +28,21 @@ class LlmModelUpdateCheckWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val appStatusClient: AppStatusClient,
     private val modelManager: LlmModelManager,
+    private val aiSettingsStore: AiSettingsStore,
     private val notifier: UpdateAvailableNotifier,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
         return try {
-            if (modelManager.isDownloaded()) {
-                val aiModel = appStatusClient.fetchAppStatus().aiModel
-                if (aiModel != null && isAiModelUpdateAvailable(AiModelConfig.MODEL_SHA256, aiModel)) {
-                    notifier.notifyAiModelUpdateAvailable(aiModel)
+            val definition = aiSettingsStore.selectedModelDefinition()
+            // sha256 non nullo per costruzione qui: un modello senza sha256 non puo' essere
+            // stato scaricato (vedi LlmModelManager.download), quindi isDownloaded() sarebbe
+            // gia' false — lo smart-cast serve solo a soddisfare il compilatore.
+            val installedSha256 = definition.sha256
+            if (installedSha256 != null && modelManager.isDownloaded(definition)) {
+                val remote = appStatusClient.fetchAppStatus().aiModels.firstOrNull { it.modelId == definition.id }
+                if (remote != null && isAiModelUpdateAvailable(installedSha256, remote)) {
+                    notifier.notifyAiModelUpdateAvailable(remote)
                 }
             }
             Result.success()

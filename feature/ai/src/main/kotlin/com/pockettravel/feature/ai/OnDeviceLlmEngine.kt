@@ -23,6 +23,7 @@ import kotlinx.coroutines.withContext
 class OnDeviceLlmEngine @Inject constructor(
     private val modelManager: LlmModelManager,
     private val coordinator: AiModelCoordinator,
+    private val aiSettingsStore: AiSettingsStore,
 ) {
     private val mutex = Mutex()
     private var engine: Engine? = null
@@ -53,7 +54,7 @@ class OnDeviceLlmEngine @Inject constructor(
 
     suspend fun releaseAndDelete(): Boolean = coordinator.withModelLock {
         releaseWithoutLock()
-        modelManager.deleteWithoutLock()
+        modelManager.deleteWithoutLock(aiSettingsStore.selectedModelDefinition())
     }
 
     fun releaseWithoutLock() {
@@ -62,8 +63,9 @@ class OnDeviceLlmEngine @Inject constructor(
     }
 
     private fun createEngine(): Engine {
-        check(modelManager.isDownloaded()) { "Modello IA non scaricato" }
-        return Engine(EngineConfig(modelPath = modelManager.modelFile.absolutePath, backend = Backend.CPU()))
+        val definition = aiSettingsStore.selectedModelDefinition()
+        check(modelManager.isDownloaded(definition)) { "Modello IA non scaricato" }
+        return Engine(EngineConfig(modelPath = modelManager.modelFile(definition).absolutePath, backend = Backend.CPU()))
             .apply { initialize() }
     }
 

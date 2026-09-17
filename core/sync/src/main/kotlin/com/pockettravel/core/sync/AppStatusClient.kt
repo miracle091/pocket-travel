@@ -20,7 +20,7 @@ class AppStatusClient @Inject constructor(
             val body = response.body?.string() ?: error("Empty app status response")
             json.decodeFromString(AppStatus.serializer(), body).also { status ->
                 status.appVersion?.validate()
-                status.aiModel?.validate()
+                status.aiModels.forEach { it.validate() }
             }
         }
     }

@@ -27,7 +27,17 @@ class LlmModelDownloadWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            modelManager.download(hfToken = aiSettingsStore.huggingFaceToken()) { downloaded, total ->
+            val definition = aiSettingsStore.selectedModelDefinition()
+            // Un solo modello installato alla volta (vedi LlmModelManager.selectAndDownload):
+            // se un altro modello e' gia' su disco va eliminato prima di scaricare questo.
+            val currentlyInstalled = LlmModelCatalog.ALL.firstOrNull {
+                it.id != definition.id && modelManager.isDownloaded(it)
+            }
+            modelManager.selectAndDownload(
+                newDefinition = definition,
+                currentlyInstalled = currentlyInstalled,
+                hfToken = aiSettingsStore.huggingFaceToken(),
+            ) { downloaded, total ->
                 setProgress(workDataOf(KEY_BYTES_DOWNLOADED to downloaded, KEY_TOTAL_BYTES to total))
             }
             Result.success()

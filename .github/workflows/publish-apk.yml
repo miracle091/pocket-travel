@@ -113,35 +113,38 @@ jobs:
               --notes-file "$NOTES_FILE"
           gh release upload "$TAG" "$APK" --repo "${{ github.repository }}" --clobber
 
-      - name: Pubblica app-status.json (controllo aggiornamenti app/modello IA sul device)
+      - name: Pubblica app-status.json (controllo aggiornamenti app/modelli IA sul device)
         shell: bash
         run: |
           set -euo pipefail
           # Release fissa "app-status" (stesso pattern di "region-data" in publish-regions.yml),
-          # non GitHub Pages: appVersion/aiModel devono cambiare solo con un rilascio app, mai
+          # non GitHub Pages: appVersion/aiModels devono cambiare solo con un rilascio app, mai
           # insieme all'aggiornamento (settimanale/manuale) dei pacchetti regionali su Pages -
           # vedi SyncConfig.APP_STATUS_URL (core:sync).
           gh release view app-status --repo "${{ github.repository }}" >/dev/null 2>&1 || \
             gh release create app-status --repo "${{ github.repository }}" \
               --title "Stato app" \
-              --notes "app-status.json: versione app e modello IA on-device correnti, letti da core:sync/AppUpdateCheckWorker e feature:ai/LlmModelUpdateCheckWorker. Non e' una release software."
+              --notes "app-status.json: versione app e modelli IA on-device correnti, letti da core:sync/AppUpdateCheckWorker e feature:ai/LlmModelUpdateCheckWorker. Non e' una release software."
 
           VERSION="$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
           VERSION_CODE="$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)"
-          AI_MODEL_CONFIG="feature/ai/src/main/kotlin/com/pockettravel/feature/ai/AiModelConfig.kt"
-          AI_MODEL_VERSION="$(grep -oP 'MODEL_FILE_NAME = "\K[^"]+' "$AI_MODEL_CONFIG")"
-          AI_MODEL_SHA256="$(grep -oP 'MODEL_SHA256 = "\K[^"]+' "$AI_MODEL_CONFIG")"
-          AI_MODEL_SIZE_MB="$(grep -oP 'MODEL_SIZE_BYTES = \K[0-9]+' "$AI_MODEL_CONFIG")"
-          AI_MODEL_SIZE_BYTES=$((AI_MODEL_SIZE_MB * 1024 * 1024))
 
           APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
+          AI_MODELS_FILE="$RUNNER_TEMP/ai-models.json"
+
+          # Un jq/grep sul singolo AiModelConfig bastava per un modello solo; con LlmModelCatalog
+          # (una lista di LlmModelDefinition, una entry per modello) serve un parser vero - vedi
+          # scripts/generate_ai_models_manifest.py per il perche' non e' inline qui (heredoc
+          # bash e indentazione block scalar YAML sono incompatibili in questo caso).
+          python3 scripts/generate_ai_models_manifest.py \
+            "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/LlmModelCatalog.kt" \
+            > "$AI_MODELS_FILE"
+
           jq -n \
             --arg versionName "$VERSION" \
             --argjson versionCode "$VERSION_CODE" \
-            --arg modelVersion "$AI_MODEL_VERSION" \
-            --arg sha256 "$AI_MODEL_SHA256" \
-            --argjson sizeBytes "$AI_MODEL_SIZE_BYTES" \
-            '{appVersion: {versionName: $versionName, versionCode: $versionCode}, aiModel: {modelVersion: $modelVersion, sha256: $sha256, sizeBytes: $sizeBytes}}' \
+            --slurpfile aiModels "$AI_MODELS_FILE" \
+            '{appVersion: {versionName: $versionName, versionCode: $versionCode}, aiModels: $aiModels[0]}' \
             > "$APP_STATUS_FILE"
 
           gh release upload app-status "$APP_STATUS_FILE" --repo "${{ github.repository }}" --clobber

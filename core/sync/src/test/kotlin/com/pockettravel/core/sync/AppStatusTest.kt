@@ -10,11 +10,13 @@ class AppStatusTest {
     private val json = Json { ignoreUnknownKeys = true }
 
     @Test
-    fun `parses appVersion and aiModel when present`() {
+    fun `parses appVersion and aiModels when present`() {
         val statusJson = """
             {
               "appVersion": { "versionName": "0.3.0", "versionCode": 3 },
-              "aiModel": { "modelVersion": "gemma3-1b-it-int4.litertlm", "sha256": "${"a".repeat(64)}", "sizeBytes": 612368384 }
+              "aiModels": [
+                { "modelId": "gemma3-1b-it", "modelVersion": "gemma3-1b-it-int4.litertlm", "sha256": "${"a".repeat(64)}", "sizeBytes": 612368384 }
+              ]
             }
         """.trimIndent()
 
@@ -22,16 +24,17 @@ class AppStatusTest {
 
         assertEquals("0.3.0", status.appVersion?.versionName)
         assertEquals(3, status.appVersion?.versionCode)
-        assertEquals("gemma3-1b-it-int4.litertlm", status.aiModel?.modelVersion)
-        assertEquals(612_368_384L, status.aiModel?.sizeBytes)
+        assertEquals("gemma3-1b-it", status.aiModels.single().modelId)
+        assertEquals("gemma3-1b-it-int4.litertlm", status.aiModels.single().modelVersion)
+        assertEquals(612_368_384L, status.aiModels.single().sizeBytes)
     }
 
     @Test
-    fun `appVersion and aiModel are independently optional`() {
+    fun `appVersion is optional and aiModels defaults to empty`() {
         val status = json.decodeFromString(AppStatus.serializer(), "{}")
 
         assertNull(status.appVersion)
-        assertNull(status.aiModel)
+        assertEquals(emptyList<Any>(), status.aiModels)
     }
 
     @Test

@@ -32,7 +32,7 @@ class AiSettingsStore @Inject constructor(@ApplicationContext context: Context) 
 
     fun clearApiKey() = apiKeyStore.clear()
 
-    // Il repo HuggingFace del modello on-device è a licenza gated (vedi AiModelConfig): serve
+    // Il repo HuggingFace di alcuni modelli on-device è a licenza gated (vedi LlmModelDefinition.licenseUrl): serve
     // un token personale dell'utente, mai condiviso/incorporato nell'app — stessa cifratura
     // Keystore della chiave API online, alias separato per non mescolare i due segreti.
     fun hasHuggingFaceToken(): Boolean = !huggingFaceToken().isNullOrBlank()
@@ -47,6 +47,37 @@ class AiSettingsStore @Inject constructor(@ApplicationContext context: Context) 
 
     fun model(): String = prefs.getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
 
+    // Un solo modello on-device installabile alla volta (vedi LlmModelManager.selectAndDownload):
+    // questo e' l'id del modello scelto dall'utente in LlmModelCatalog.ALL, non necessariamente
+    // ancora scaricato. Default al modello storico (l'unico esistente prima del catalogo) cosi'
+    // un utente che ha gia' installato quel file continua a puntarci senza dover riscegliere.
+    fun selectedModelId(): String = prefs.getString(KEY_SELECTED_MODEL_ID, DEFAULT_SELECTED_MODEL_ID) ?: DEFAULT_SELECTED_MODEL_ID
+
+    fun setSelectedModelId(modelId: String) = prefs.edit { putString(KEY_SELECTED_MODEL_ID, modelId) }
+
+    // Un risultato per modello, non solo per l'ultimo eseguito: cambiare modello selezionato non
+    // deve far perdere il benchmark gia' fatto per quello precedente, se l'utente torna indietro.
+    fun benchmarkResult(modelId: String): BenchmarkResult? {
+        val ranAt = prefs.getLong(benchmarkKey(modelId, KEY_BENCHMARK_RAN_AT), -1L)
+        if (ranAt < 0) return null
+        return BenchmarkResult(
+            modelId = modelId,
+            wordsPerSecond = prefs.getFloat(benchmarkKey(modelId, KEY_BENCHMARK_WORDS_PER_SECOND), 0f),
+            totalLatencyMs = prefs.getLong(benchmarkKey(modelId, KEY_BENCHMARK_LATENCY_MS), 0L),
+            qualityScore = prefs.getInt(benchmarkKey(modelId, KEY_BENCHMARK_QUALITY), 0),
+            ranAt = ranAt,
+        )
+    }
+
+    fun saveBenchmarkResult(result: BenchmarkResult) = prefs.edit {
+        putFloat(benchmarkKey(result.modelId, KEY_BENCHMARK_WORDS_PER_SECOND), result.wordsPerSecond)
+        putLong(benchmarkKey(result.modelId, KEY_BENCHMARK_LATENCY_MS), result.totalLatencyMs)
+        putInt(benchmarkKey(result.modelId, KEY_BENCHMARK_QUALITY), result.qualityScore)
+        putLong(benchmarkKey(result.modelId, KEY_BENCHMARK_RAN_AT), result.ranAt)
+    }
+
+    private fun benchmarkKey(modelId: String, field: String) = "${field}_$modelId"
+
     private companion object {
         const val PREFERENCES_NAME = "ai_online_settings_v2"
         const val KEY_MODE = "engine_mode"
@@ -58,6 +89,12 @@ class AiSettingsStore @Inject constructor(@ApplicationContext context: Context) 
         const val API_KEY_PAYLOAD = "api_key_payload"
         const val HF_TOKEN_ALIAS = "pocket_travel_hf_token_v1"
         const val HF_TOKEN_PAYLOAD = "hf_token_payload"
+        const val KEY_SELECTED_MODEL_ID = "selected_model_id"
+        const val DEFAULT_SELECTED_MODEL_ID = "gemma3-1b-it"
+        const val KEY_BENCHMARK_WORDS_PER_SECOND = "benchmark_words_per_second"
+        const val KEY_BENCHMARK_LATENCY_MS = "benchmark_latency_ms"
+        const val KEY_BENCHMARK_QUALITY = "benchmark_quality"
+        const val KEY_BENCHMARK_RAN_AT = "benchmark_ran_at"
     }
 }
 

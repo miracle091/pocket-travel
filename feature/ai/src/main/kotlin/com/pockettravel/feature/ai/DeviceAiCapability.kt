@@ -6,11 +6,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 /**
- * Fasce di RAM, non solo un tutto/niente: con un solo modello disponibile oggi (AiModelConfig)
- * CONFORTEVOLE non sblocca ancora nulla di diverso da MINIMO, ma prepara il terreno per varianti
- * di modello dimensionate per fascia senza introdurre oggi complessita' speculativa.
+ * Fasce di RAM: ciascuna sblocca un sottoinsieme diverso di LlmModelCatalog.ALL (via
+ * LlmModelDefinition.minRamTier) — MINIMO i modelli piu' leggeri, AMPIA quelli piu' pesanti.
  */
-enum class RamTier { INSUFFICIENTE, MINIMO, CONFORTEVOLE }
+enum class RamTier { INSUFFICIENTE, MINIMO, CONFORTEVOLE, AMPIA }
 
 /** Vincolo tecnico: almeno 4 GB di RAM per abilitare l'AI locale, altrimenti va disattivata. */
 class DeviceAiCapability @Inject constructor(
@@ -27,12 +26,14 @@ class DeviceAiCapability @Inject constructor(
 
     companion object {
         const val MIN_RAM_BYTES = 4L * 1024 * 1024 * 1024
-        const val COMFORTABLE_RAM_BYTES = 6L * 1024 * 1024 * 1024
+        const val COMFORTABLE_RAM_BYTES = 8L * 1024 * 1024 * 1024
+        const val AMPLE_RAM_BYTES = 12L * 1024 * 1024 * 1024
 
         // Estratte a parte per essere testabili in JVM puro: ActivityManager.getMemoryInfo
         // richiede un Context Android, non disponibile nei unit test di questo modulo (solo
         // JUnit, nessun Robolectric — coerente con il resto del modulo, es. buildFtsQuery).
         fun ramTierFor(totalMemBytes: Long): RamTier = when {
+            totalMemBytes >= AMPLE_RAM_BYTES -> RamTier.AMPIA
             totalMemBytes >= COMFORTABLE_RAM_BYTES -> RamTier.CONFORTEVOLE
             totalMemBytes >= MIN_RAM_BYTES -> RamTier.MINIMO
             else -> RamTier.INSUFFICIENTE

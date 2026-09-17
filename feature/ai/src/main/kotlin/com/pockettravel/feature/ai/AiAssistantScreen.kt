@@ -1,6 +1,7 @@
 package com.pockettravel.feature.ai
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -41,16 +42,18 @@ fun AiAssistantScreen(regionId: String, viewModel: AiAssistantViewModel = hiltVi
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
         Text(text = "Assistente di viaggio", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(12.dp))
-        ModeSelector(mode = uiState.mode, onModeChanged = viewModel::onModeChanged)
-        Spacer(modifier = Modifier.height(12.dp))
+        // Sotto i 4 GB di RAM l'assistente e' solo Online (vedi AiAssistantViewModel: mode e'
+        // gia' forzato a ONLINE li'): niente selettore da mostrare, un solo modo esiste.
+        if (uiState.isDeviceCapable) {
+            ModeSelector(mode = uiState.mode, onModeChanged = viewModel::onModeChanged)
+            Spacer(modifier = Modifier.height(12.dp))
+        }
 
         when (uiState.mode) {
-            AiEngineMode.ON_DEVICE -> when {
-                !uiState.isDeviceCapable -> Text(
-                    "Il tuo dispositivo ha meno di 4 GB di RAM: l'assistente sul dispositivo non è disponibile. Puoi usare la modalità Online.",
-                )
-                !uiState.isModelDownloaded -> ModelDownloadCard(uiState, viewModel)
-                else -> AssistantConversation(regionId, uiState, viewModel)
+            AiEngineMode.ON_DEVICE -> if (!uiState.isModelDownloaded) {
+                ModelListCard(uiState, viewModel)
+            } else {
+                AssistantConversation(regionId, uiState, viewModel)
             }
             AiEngineMode.ONLINE -> if (!uiState.isApiKeyConfigured) {
                 ApiKeyCard(uiState, viewModel)
@@ -76,43 +79,82 @@ private fun ModeSelector(mode: AiEngineMode, onModeChanged: (AiEngineMode) -> Un
     }
 }
 
+/** Lista dei modelli disponibili per la fascia RAM del dispositivo (uiState.availableModels,
+ *  gia' filtrata da AiAssistantViewModel). Un solo modello installato alla volta: selezionarne
+ *  uno diverso da quello scaricato lo sostituisce (vedi LlmModelManager.selectAndDownload).
+ *  Non private: riusata anche dallo step di onboarding "Scarica il modello IA" (modulo :app,
+ *  quindi serve visibilita' public — un internal qui non basterebbe, e' un modulo diverso). */
 @Composable
-private fun ModelDownloadCard(uiState: AiUiState, viewModel: AiAssistantViewModel) {
+fun ModelListCard(uiState: AiUiState, viewModel: AiAssistantViewModel) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text("Scegli un modello IA da scaricare, in base alla RAM del tuo dispositivo:", style = MaterialTheme.typography.bodyMedium)
+        Spacer(modifier = Modifier.height(8.dp))
+        uiState.availableModels.forEach { definition ->
+            ModelRow(definition = definition, isSelected = definition.id == uiState.selectedModelId, uiState = uiState, viewModel = viewModel)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiState: AiUiState, viewModel: AiAssistantViewModel) {
     var showLargeDownloadWarning by remember { mutableStateOf(false) }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(enabled = !isSelected) { viewModel.onModelSelected(definition.id) },
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Modello IA non ancora scaricato.")
-            if (!uiState.hasHfToken) {
-                HfTokenForm(uiState, viewModel)
-            } else {
-                uiState.errorMessage?.let {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = it, color = MaterialTheme.colorScheme.error)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(definition.displayName, style = MaterialTheme.typography.titleMedium)
+                    Text("${definition.sizeBytes / (1024 * 1024)} MB", style = MaterialTheme.typography.bodySmall)
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-                val downloadProgress = uiState.downloadProgress
-                if (downloadProgress != null) {
-                    LinearProgressIndicator(
-                        progress = { downloadProgress },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                when {
+                    definition.sha256 == null ->
+                        Text("Presto disponibile", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    isSelected ->
+                        Text("Selezionato", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+
+            // sha256 == null: modello non ancora pubblicato (in attesa di fine-tuning/upload
+            // proprio, vedi LlmModelCatalog) — nessun pulsante di download da mostrare, non c'e'
+            // nulla da scaricare finche' non viene pubblicato un hash reale.
+            if (isSelected && definition.sha256 != null) {
+                if (definition.licenseUrl != null && !uiState.hasHfToken) {
+                    HfTokenForm(definition, uiState, viewModel)
                 } else {
-                    Row {
-                        Button(
-                            onClick = {
-                                if (AiModelConfig.MODEL_SIZE_BYTES > LARGE_DOWNLOAD_WARNING_BYTES) {
-                                    showLargeDownloadWarning = true
-                                } else {
-                                    viewModel.downloadModel()
+                    uiState.errorMessage?.let {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = it, color = MaterialTheme.colorScheme.error)
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    val downloadProgress = uiState.downloadProgress
+                    if (downloadProgress != null) {
+                        LinearProgressIndicator(progress = { downloadProgress }, modifier = Modifier.fillMaxWidth())
+                    } else {
+                        Row {
+                            Button(
+                                onClick = {
+                                    if (definition.sizeBytes > LARGE_DOWNLOAD_WARNING_BYTES) {
+                                        showLargeDownloadWarning = true
+                                    } else {
+                                        viewModel.downloadModel()
+                                    }
+                                },
+                            ) {
+                                Text("Scarica modello")
+                            }
+                            if (definition.licenseUrl != null) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                OutlinedButton(onClick = { viewModel.clearHfToken() }) {
+                                    Text("Cambia token")
                                 }
-                            },
-                        ) {
-                            Text("Scarica modello")
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        OutlinedButton(onClick = { viewModel.clearHfToken() }) {
-                            Text("Cambia token")
+                            }
                         }
                     }
                 }
@@ -123,7 +165,7 @@ private fun ModelDownloadCard(uiState: AiUiState, viewModel: AiAssistantViewMode
     if (showLargeDownloadWarning) {
         ConfirmationDialog(
             title = "Download di grandi dimensioni",
-            message = "Il modello IA pesa circa ${AiModelConfig.MODEL_SIZE_BYTES / (1024 * 1024)} MB. Continuare?",
+            message = "${definition.displayName} pesa circa ${definition.sizeBytes / (1024 * 1024)} MB. Continuare?",
             confirmLabel = "Scarica",
             onConfirm = { showLargeDownloadWarning = false; viewModel.downloadModel() },
             onDismiss = { showLargeDownloadWarning = false },
@@ -131,13 +173,20 @@ private fun ModelDownloadCard(uiState: AiUiState, viewModel: AiAssistantViewMode
     }
 }
 
+/** Istruzioni per un modello gated (definition.licenseUrl != null): non tutti i modelli del
+ *  catalogo lo sono (Apache 2.0/MIT non richiedono nulla di tutto questo). */
 @Composable
-private fun HfTokenForm(uiState: AiUiState, viewModel: AiAssistantViewModel) {
+private fun HfTokenForm(definition: LlmModelDefinition, uiState: AiUiState, viewModel: AiAssistantViewModel) {
+    val context = LocalContext.current
     Spacer(modifier = Modifier.height(8.dp))
-    Text(
-        "Il modello è ospitato su HuggingFace con licenza Gemma: accettala su huggingface.co e incolla qui il tuo token di accesso personale.",
-        style = MaterialTheme.typography.bodySmall,
-    )
+    Text("«${definition.displayName}» richiede una licenza su HuggingFace:", style = MaterialTheme.typography.bodySmall)
+    Text("1. Apri la pagina del modello e accetta la licenza.", style = MaterialTheme.typography.bodySmall)
+    Text("2. Genera un token di accesso su huggingface.co/settings/tokens.", style = MaterialTheme.typography.bodySmall)
+    Text("3. Incollalo qui sotto.", style = MaterialTheme.typography.bodySmall)
+    Spacer(modifier = Modifier.height(8.dp))
+    OutlinedButton(onClick = { definition.licenseUrl?.let { CustomTabsLauncher.open(context, it) } }) {
+        Text("Apri pagina del modello")
+    }
     Spacer(modifier = Modifier.height(8.dp))
     OutlinedTextField(
         value = uiState.hfTokenInput,
@@ -185,6 +234,10 @@ private fun AssistantConversation(regionId: String, uiState: AiUiState, viewMode
     val isOnDevice = uiState.mode == AiEngineMode.ON_DEVICE
 
     Column {
+        if (isOnDevice) {
+            BenchmarkRow(uiState, viewModel)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
         Row(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = uiState.question,
@@ -257,6 +310,23 @@ private fun AssistantConversation(regionId: String, uiState: AiUiState, viewMode
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun BenchmarkRow(uiState: AiUiState, viewModel: AiAssistantViewModel) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        OutlinedButton(onClick = { viewModel.runBenchmark() }, enabled = !uiState.isBenchmarking) {
+            Text(if (uiState.isBenchmarking) "Benchmark in corso…" else "Esegui benchmark")
+        }
+        val result = uiState.benchmarkResult
+        if (result != null && result.modelId == uiState.selectedModelId) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                "${result.wordsPerSecond.toInt()} parole/s · qualità ${result.qualityScore}/100",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }

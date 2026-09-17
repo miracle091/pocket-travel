@@ -3,8 +3,10 @@ package com.pockettravel.app.storage
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.feature.ai.AiSettingsStore
 import com.pockettravel.feature.ai.LlmModelManager
 import com.pockettravel.feature.ai.OnDeviceLlmEngine
+import com.pockettravel.feature.ai.selectedModelDefinition
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +42,7 @@ class StorageViewModel @Inject constructor(
     private val regionRepository: RegionRepository,
     private val modelManager: LlmModelManager,
     private val engine: OnDeviceLlmEngine,
+    private val aiSettingsStore: AiSettingsStore,
 ) : ViewModel() {
 
     private val modelState = MutableStateFlow(currentModelState())
@@ -78,5 +81,8 @@ class StorageViewModel @Inject constructor(
         availableBytes.value = regionRepository.availableStorageBytes()
     }
 
-    private fun currentModelState() = ModelState(modelManager.isDownloaded(), modelManager.sizeOnDisk())
+    private fun currentModelState(): ModelState {
+        val definition = aiSettingsStore.selectedModelDefinition()
+        return ModelState(modelManager.isDownloaded(definition), modelManager.sizeOnDisk(definition))
+    }
 }
