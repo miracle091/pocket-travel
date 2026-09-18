@@ -51,7 +51,7 @@ jobs:
   # Determina l'elenco di regioni da processare in questa run (bucket del giorno, input manuale,
   # o tutto il lotto) e lo divide in 3 shard per il job a matrice sotto.
   plan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       shard0: ${{ steps.plan.outputs.shard0 }}
       shard1: ${{ steps.plan.outputs.shard1 }}
@@ -128,7 +128,7 @@ jobs:
   # "publish" sotto (job diversi non condividono il filesystem).
   build:
     needs: plan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -257,7 +257,7 @@ jobs:
   publish:
     needs: build
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
