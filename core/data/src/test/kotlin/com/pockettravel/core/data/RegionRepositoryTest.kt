@@ -1,5 +1,6 @@
 package com.pockettravel.core.data
 
+import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.GuideDao
 import com.pockettravel.core.data.db.GuideSectionEntity
 import com.pockettravel.core.data.db.InstalledRegionEntity
@@ -68,6 +69,7 @@ private class UnusedRegionDatabase(
     override fun poiDao() = poi
     override fun regionPackageDao() = regionPackage
     override fun passportDao(): PassportDao = throw UnsupportedOperationException()
+    override fun emergencyNumbersDao(): EmergencyNumbersDao = throw UnsupportedOperationException()
 
     // Mai chiamati nei test: qui RegionDatabase non e' mai inizializzata da Room, serve solo
     // come valore-tipo per il costruttore di RegionRepository.

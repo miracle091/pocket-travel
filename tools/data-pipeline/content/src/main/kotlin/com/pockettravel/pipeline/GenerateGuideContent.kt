@@ -8,19 +8,32 @@ import java.sql.DriverManager
 // Kotlin/JVM puro senza conflitti di variant Gradle — vedi il commento in
 // maptiles/build.gradle.kts per lo stesso problema con :core:*. La logica e' poche righe
 // di testo, non vale la pena riorganizzare i moduli app solo per condividerla.
+// Titoli IT (build-region.sh preferisce ora la pagina Wikivoyage italiana quando esiste, vedi
+// quel file): stesso schema di sezioni delle voci EN sul template di pagina-nazione, titoli
+// diversi. "Tenersi informati" mappa su VITA_QUOTIDIANA come il piu' vicino equivalente di "cope"
+// (entrambe sezioni "vita pratica in loco" generiche) — non e' una traduzione letterale.
 private val headingToCategory = mapOf(
     "respect" to "USI_COSTUMI",
+    "rispettare le usanze" to "USI_COSTUMI",
     "get in" to "DOGANE",
+    "come arrivare" to "DOGANE",
     "stay healthy" to "SALUTE",
+    "situazione sanitaria" to "SALUTE",
     "stay safe" to "SICUREZZA",
+    "sicurezza" to "SICUREZZA",
     "get around" to "TRASPORTI",
+    "come spostarsi" to "TRASPORTI",
     "talk" to "FRASI_UTILI",
     "sleep" to "ALLOGGIO",
     "eat" to "CIBO_BEVANDE",
     "drink" to "CIBO_BEVANDE",
+    "a tavola" to "CIBO_BEVANDE",
     "buy" to "ACQUISTI",
+    "valuta e acquisti" to "ACQUISTI",
     "connect" to "CONNETTIVITA",
+    "come restare in contatto" to "CONNETTIVITA",
     "cope" to "VITA_QUOTIDIANA",
+    "tenersi informati" to "VITA_QUOTIDIANA",
 )
 
 // (?!=)/(?<!=) escludono i sotto-titoli ===/==== (3+ segni "="): senza, un "===Get in==="
@@ -28,6 +41,10 @@ private val headingToCategory = mapOf(
 // tutto il testo reale di Wikivoyage dopo la prima sottosezione — stesso fix di
 // core/content/WikivoyageDumpParser.kt.
 private val headingRegex = Regex("""^==(?!=)\s*(.+?)\s*(?<!=)==$""")
+private val htmlCommentRegex = Regex("""(?s)<!--.*?-->""")
+// Da tenere prima di htmlTagRegex: quest'ultimo toglie solo i tag <ref>/</ref>, lasciando il
+// testo della citazione come prosa vagante in mezzo al corpo della sezione.
+private val refTagRegex = Regex("""(?is)<ref\b[^>]*?/>|<ref\b[^>]*?>.*?</ref>""")
 private val wikiFileLinkRegex = Regex("""(?is)\[\[(?:File|Image):.*?]]""")
 private val wikiLinkRegex = Regex("""\[\[(?:[^|\]]*\|)?([^\]]+)]]""")
 private val externalLinkWithTextRegex = Regex("""\[https?://\S+\s+([^\]]+)]""")
@@ -35,7 +52,15 @@ private val bareExternalLinkRegex = Regex("""\[https?://\S+]""")
 private val boldItalicRegex = Regex("""'{2,3}""")
 private val templateRegex = Regex("""\{\{[^}]*}}""")
 private val htmlTagRegex = Regex("""<[^>]+>""")
-private val subHeadingLineRegex = Regex("""(?m)^={3,}\s*(.+?)\s*={3,}$""")
+private val subHeadingLineRegex = Regex("""^={3,}\s*(.+?)\s*={3,}$""")
+private val listMarkerRegex = Regex("""^[*#:]+\s*""")
+private val blankLinesRegex = Regex("""\n{3,}""")
+
+// Mai presente in un testo reale: marca una riga di sottotitolo (===Money===) nel passaggio
+// riga-per-riga di cleanBody, cosi' da poterla distinguere da una riga di corpo normale prima
+// di convertirla nella forma finale "▸ Titolo" — o di scartarla se la sottosezione e' vuota
+// (vedi commento su cleanBody).
+private const val SUBHEADING_MARKER = ""
 
 data class GuideSectionRow(val category: String, val title: String, val body: String)
 
@@ -47,16 +72,7 @@ fun parseWikivoyageDump(dumpText: String): List<GuideSectionRow> {
     fun flush() {
         val heading = currentHeading ?: return
         val category = headingToCategory[heading.lowercase()] ?: return
-        val body = currentBody.toString()
-            .replace(wikiFileLinkRegex, "")
-            .replace(externalLinkWithTextRegex, "$1")
-            .replace(bareExternalLinkRegex, "")
-            .replace(wikiLinkRegex, "$1")
-            .replace(boldItalicRegex, "")
-            .replace(templateRegex, "")
-            .replace(htmlTagRegex, "")
-            .replace(subHeadingLineRegex, "$1")
-            .trim()
+        val body = cleanBody(currentBody.toString())
         if (body.isNotBlank()) {
             sections += GuideSectionRow(category = category, title = heading, body = body)
         }
@@ -75,6 +91,52 @@ fun parseWikivoyageDump(dumpText: String): List<GuideSectionRow> {
     flush()
 
     return sections
+}
+
+// Il wikitext grezzo di Wikivoyage porta sintassi che non ha senso mostrare cosi' com'e' in una
+// Text semplice (nessun renderer markdown lato app, vedi GuideScreen): citazioni <ref> il cui
+// contenuto restava come prosa vagante, elenchi puntati/numerati con l'asterisco/cancelletto
+// grezzo davanti, e sottotitoli ===Foo=== che — se la sottosezione era solo un template ormai
+// tolto (es. {{Pricerange}} su "Money" in molte pagine paese) — restavano come parola orfana
+// seguita da una riga vuota enorme.
+private fun cleanBody(raw: String): String {
+    val stripped = raw
+        .replace(htmlCommentRegex, "")
+        .replace(refTagRegex, "")
+        .replace(wikiFileLinkRegex, "")
+        .replace(externalLinkWithTextRegex, "$1")
+        .replace(bareExternalLinkRegex, "")
+        .replace(wikiLinkRegex, "$1")
+        .replace(boldItalicRegex, "")
+        .replace(templateRegex, "")
+        .replace(htmlTagRegex, "")
+
+    val markedLines = stripped.lineSequence().map { rawLine ->
+        val line = rawLine.trim()
+        val heading = subHeadingLineRegex.find(line)?.groupValues?.get(1)
+        if (heading != null) {
+            "$SUBHEADING_MARKER$heading"
+        } else {
+            listMarkerRegex.replace(line) { match -> if (match.value.any { it == '*' || it == '#' }) "• " else "" }
+        }
+    }.toList()
+
+    val kept = mutableListOf<String>()
+    for (index in markedLines.indices) {
+        val line = markedLines[index]
+        if (line.startsWith(SUBHEADING_MARKER)) {
+            val hasBody = markedLines.drop(index + 1)
+                .takeWhile { !it.startsWith(SUBHEADING_MARKER) }
+                .any { it.isNotBlank() }
+            if (hasBody) kept += "▸ ${line.removePrefix(SUBHEADING_MARKER)}"
+        } else {
+            kept += line
+        }
+    }
+
+    return kept.joinToString("\n")
+        .replace(blankLinesRegex, "\n\n")
+        .trim()
 }
 
 fun main(args: Array<String>) {

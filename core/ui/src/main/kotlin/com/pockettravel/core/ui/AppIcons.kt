@@ -4,8 +4,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Emergency
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Flight
@@ -44,6 +46,8 @@ object AppIcons {
     val Checklist: ImageVector = Icons.Filled.Checklist
     val Flights: ImageVector = Icons.Filled.Flight
     val HealthGuidance: ImageVector = Icons.Filled.HealthAndSafety
+    val Emergency: ImageVector = Icons.Filled.Emergency
+    val Call: ImageVector = Icons.Filled.Call
     val Map: ImageVector = Icons.Filled.Map
     val OfficialAuthority: ImageVector = Icons.Filled.AccountBalance
     val OfflineWifi: ImageVector = Icons.Filled.WifiOff

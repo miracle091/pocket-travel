@@ -2,6 +2,8 @@ package com.pockettravel.feature.guide
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pockettravel.core.data.EmergencyNumbers
+import com.pockettravel.core.data.EmergencyNumbersRepository
 import com.pockettravel.core.data.GuideRepository
 import com.pockettravel.core.data.GuideSection
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +17,7 @@ import kotlinx.coroutines.launch
 
 data class GuideUiState(
     val sections: List<GuideSection> = emptyList(),
+    val emergencyNumbers: EmergencyNumbers? = null,
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
 )
@@ -22,6 +25,7 @@ data class GuideUiState(
 @HiltViewModel
 class GuideViewModel @Inject constructor(
     private val guideRepository: GuideRepository,
+    private val emergencyNumbersRepository: EmergencyNumbersRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GuideUiState())
@@ -39,7 +43,8 @@ class GuideViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
                 val sections = guideRepository.sectionsFor(regionId)
-                _uiState.update { it.copy(sections = sections, isLoading = false) }
+                val emergencyNumbers = emergencyNumbersRepository.forRegion(regionId)
+                _uiState.update { it.copy(sections = sections, emergencyNumbers = emergencyNumbers, isLoading = false) }
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Exception) {

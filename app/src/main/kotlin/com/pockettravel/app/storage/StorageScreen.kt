@@ -13,6 +13,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -34,8 +35,11 @@ import com.pockettravel.core.ui.ConfirmationDialog
 @Composable
 fun StorageScreen(onBack: () -> Unit, viewModel: StorageViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val usedMb = (uiState.regionsSizeBytes + uiState.modelSizeBytes).toMb()
+    val usedBytes = uiState.regionsSizeBytes + uiState.modelSizeBytes
+    val usedMb = usedBytes.toMb()
     val availableMb = uiState.availableBytes.toMb()
+    val totalBytes = usedBytes + uiState.availableBytes
+    val usedFraction = if (totalBytes > 0) usedBytes / totalBytes.toFloat() else 0f
 
     Scaffold(
         topBar = {
@@ -54,6 +58,8 @@ fun StorageScreen(onBack: () -> Unit, viewModel: StorageViewModel = hiltViewMode
                 text = "Occupati da Pocket Travel: $usedMb MB · Liberi sul dispositivo: $availableMb MB",
                 style = MaterialTheme.typography.bodyMedium,
             )
+            Spacer(modifier = Modifier.height(8.dp))
+            LinearProgressIndicator(progress = { usedFraction }, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(text = "Regioni installate", style = MaterialTheme.typography.titleMedium)

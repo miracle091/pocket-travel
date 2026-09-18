@@ -22,16 +22,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.pockettravel.core.data.CustomTabsLauncher
 import com.pockettravel.core.data.OfficialSource
 import com.pockettravel.core.data.officialSourcesRegistry
 import com.pockettravel.core.ui.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OfficialSourcesScreen(onBack: () -> Unit) {
+fun OfficialSourcesScreen(onBack: () -> Unit, onOpenSource: (url: String, title: String) -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -46,7 +44,7 @@ fun OfficialSourcesScreen(onBack: () -> Unit) {
     ) { innerPadding ->
         Column(modifier = Modifier.fillMaxWidth().padding(innerPadding).padding(16.dp)) {
             officialSourcesRegistry.forEach { source ->
-                OfficialSourceRow(source)
+                OfficialSourceRow(source, onClick = { onOpenSource(source.url, source.name) })
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
@@ -54,12 +52,11 @@ fun OfficialSourcesScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun OfficialSourceRow(source: OfficialSource) {
-    val context = LocalContext.current
+private fun OfficialSourceRow(source: OfficialSource, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { CustomTabsLauncher.open(context, source.url) },
+            .clickable(onClick = onClick),
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(

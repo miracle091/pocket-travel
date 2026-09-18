@@ -12,4 +12,5 @@ data class PoiEntity(
     val lat: Double,
     val lon: Double,
     val osmTag: String,
+    val phone: String? = null,
 )

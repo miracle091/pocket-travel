@@ -5,6 +5,7 @@ enum class PoiCategory {
     CIBO_BEVANDE,
     NEGOZI,
     ATTRAZIONI,
+    AMBASCIATA_CONSOLATO,
     ALTRO,
 }
 
@@ -19,6 +20,7 @@ private val attractionValues = setOf("attraction", "museum", "viewpoint", "galle
  * pratiche già in uso per le guide testuali.
  */
 fun Poi.poiCategory(): PoiCategory = when {
+    category == "embassy" -> PoiCategory.AMBASCIATA_CONSOLATO
     osmTag.startsWith("shop=") -> PoiCategory.NEGOZI
     osmTag.startsWith("historic=") -> PoiCategory.ATTRAZIONI
     category in accommodationValues -> PoiCategory.ALLOGGIO

@@ -25,7 +25,7 @@ class MapRouteViewModel @Inject constructor(
     fun loadPins(regionId: String) {
         viewModelScope.launch {
             _pins.value = poiRepository.forRegion(regionId).map { poi ->
-                MapPin(poi.id.toString(), poi.name, poi.latitude, poi.longitude, poi.poiCategory())
+                MapPin(poi.id.toString(), poi.name, poi.latitude, poi.longitude, poi.poiCategory(), poi.phone)
             }
         }
     }

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Orchestratore batch (piano A2): per UNA regione (una nazione o una sua sotto-area, per le
 # nazioni non contigue — vedi build-pilot-regions.sh per Stati Uniti), genera content.db
-# (Wikivoyage + POI, riusando i tool Kotlin esistenti generateGuideContent/generatePoi),
+# (Wikivoyage + POI + numeri di emergenza, riusando i tool Kotlin esistenti
+# generateGuideContent/generatePoi/generateEmergencyNumbers),
 # scarica e ri-ospita i segmenti BRouter .rd5 che intersecano il bbox (stesso host di
 # content.db, vedi manifest-fragment.json), e produce il frammento manifest.json (mapSource
 # punta alla build Protomaps corrente per l'estrazione lato device della mappa — vedi
@@ -211,11 +212,39 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
   fi
 fi
 
-# --- 3. Guida testuale da Wikivoyage (wikitext grezzo) -------------------------------------------
+# --- 3. Guida testuale da Wikivoyage (wikitext grezzo): preferisce l'edizione italiana -----------
+# Wikivoyage IT e' scritto da editor italiani, non una traduzione automatica: piu' "tradotto" e
+# "leggibile" di qualunque pipeline di traduzione aggiunta qui, senza dipendenze nuove (vedi "no
+# hosting infra" nella memoria di progetto). Il titolo IT non si puo' indovinare da WIKI_TITLE
+# (es. "Giappone" per "Japan", "Palau (stato)" per "Palau"): si risolve dai langlinks interwiki
+# della pagina EN via l'API MediaWiki, gia' tenuti allineati da Wikivoyage stesso — evita di
+# mantenere a mano una seconda colonna di titoli IT in pilot-regions.sh (~200 righe), che si
+# disallineerebbe silenziosamente ad ogni rinomina di pagina. jq resta facoltativo altrove in
+# questo script (solo per PUBLISHED_MANIFEST_URL): questa risposta la parsiamo con sed per non
+# renderlo improvvisamente obbligatorio anche per l'esecuzione locale senza manifest pubblicato.
 DUMP_FILE="$WORKDIR/dump.txt"
 WIKI_URL="https://en.wikivoyage.org/wiki/${WIKI_TITLE}"
-echo "-- scarico dump Wikivoyage: $WIKI_TITLE"
-download_with_progress "$DUMP_FILE" "dump Wikivoyage $WIKI_TITLE" -sS "https://en.wikivoyage.org/w/index.php?title=${WIKI_TITLE}&action=raw" -o "$DUMP_FILE"
+LANGLINKS_JSON="$(curl -sS "https://en.wikivoyage.org/w/api.php?action=query&titles=${WIKI_TITLE}&prop=langlinks&lllang=it&format=json" 2>/dev/null || true)"
+IT_TITLE="$(printf '%s' "$LANGLINKS_JSON" | sed -n 's/.*"lang":"it","\*":"\([^"]*\)".*/\1/p')"
+
+if [ -n "$IT_TITLE" ]; then
+  IT_TITLE_URL="${IT_TITLE// /_}"
+  echo "-- scarico dump Wikivoyage (IT): $IT_TITLE"
+  download_with_progress "$DUMP_FILE" "dump Wikivoyage IT $IT_TITLE" -sS \
+    "https://it.wikivoyage.org/w/index.php?title=${IT_TITLE_URL}&action=raw" -o "$DUMP_FILE"
+  if [ -s "$DUMP_FILE" ]; then
+    WIKI_URL="https://it.wikivoyage.org/wiki/${IT_TITLE_URL}"
+  fi
+fi
+
+# Nessun langlink IT (o pagina IT risultata vuota nonostante il langlink): fallback sull'originale
+# inglese, comportamento identico a prima di questa modifica.
+if [ ! -s "$DUMP_FILE" ]; then
+  echo "-- scarico dump Wikivoyage (EN): $WIKI_TITLE"
+  download_with_progress "$DUMP_FILE" "dump Wikivoyage EN $WIKI_TITLE" -sS "https://en.wikivoyage.org/w/index.php?title=${WIKI_TITLE}&action=raw" -o "$DUMP_FILE"
+  WIKI_URL="https://en.wikivoyage.org/wiki/${WIKI_TITLE}"
+fi
+
 if [ ! -s "$DUMP_FILE" ]; then
   echo "ERRORE: dump Wikivoyage vuoto per $WIKI_TITLE (titolo pagina errato?)" >&2
   exit 1
@@ -356,6 +385,9 @@ for f in "${POI_XML_FILES[@]}"; do
   POI_ARGS="$POI_ARGS \"$(winpath "$f")\""
 done
 ./gradlew -q :tools:data-pipeline:content:generatePoi --args="$POI_ARGS"
+echo "-- genero content.db (emergency_numbers)..."
+./gradlew -q :tools:data-pipeline:content:generateEmergencyNumbers \
+  --args="\"$REGION_ID\" \"$(winpath "$CONTENT_DB")\""
 
 # --- 6. Frammento manifest.json (content.db nostro + rd5 remoti + mapSource) ---------------------
 CONTENT_DB_URL="${CONTENT_DB_BASE_URL}/${REGION_ID}--${VERSION}--content.db"

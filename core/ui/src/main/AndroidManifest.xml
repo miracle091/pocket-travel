@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Richiesto da isOnCellularNetwork() in LargeDownloadWarning.kt: stesso pattern di
+         core/sync (INTERNET dichiarato li', non in app) - il permesso vive nel modulo che lo usa. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+</manifest>

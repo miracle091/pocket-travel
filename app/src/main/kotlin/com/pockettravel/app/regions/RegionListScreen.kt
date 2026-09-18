@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -50,13 +51,16 @@ import androidx.work.WorkInfo
 import com.pockettravel.core.sync.RegionPackageDownloadWorker
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
+import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
+import com.pockettravel.core.ui.isOnCellularNetwork
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegionListScreen(
     onRegionClick: (String) -> Unit,
+    onPreviewClick: (regionId: String, displayName: String) -> Unit,
     onOpenStorage: () -> Unit,
     onOpenSources: () -> Unit,
     onOpenLicenses: () -> Unit,
@@ -75,12 +79,21 @@ fun RegionListScreen(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
-                Text(
-                    text = "Pocket Travel",
-                    style = MaterialTheme.typography.titleLarge,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(16.dp),
-                )
+                ) {
+                    Icon(
+                        imageVector = AppIcons.World,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "Pocket Travel", style = MaterialTheme.typography.titleLarge)
+                }
                 HorizontalDivider()
+                DrawerSectionLabel("Viaggio")
                 DrawerItem(label = "Regioni", icon = AppIcons.World, selected = true) {
                     scope.launch { drawerState.close() }
                 }
@@ -92,26 +105,27 @@ fun RegionListScreen(
                     scope.launch { drawerState.close() }
                     lastRegionId?.let(onOpenAi)
                 }
-                DrawerItem(label = "Spazio di archiviazione", icon = AppIcons.Settings) {
-                    scope.launch { drawerState.close() }
-                    onOpenStorage()
-                }
-                DrawerItem(label = "Fonti ufficiali", icon = AppIcons.OfficialAuthority) {
-                    scope.launch { drawerState.close() }
-                    onOpenSources()
-                }
-                DrawerItem(label = "Licenze", icon = AppIcons.Info) {
-                    scope.launch { drawerState.close() }
-                    onOpenLicenses()
-                }
                 DrawerItem(label = "Documenti", icon = AppIcons.passport()) {
                     scope.launch { drawerState.close() }
                     onOpenVault()
                 }
                 HorizontalDivider()
+                DrawerSectionLabel("App")
+                DrawerItem(label = "Fonti ufficiali", icon = AppIcons.OfficialAuthority) {
+                    scope.launch { drawerState.close() }
+                    onOpenSources()
+                }
+                DrawerItem(label = "Spazio di archiviazione", icon = AppIcons.Settings) {
+                    scope.launch { drawerState.close() }
+                    onOpenStorage()
+                }
                 DrawerItem(label = "Rivedi tutorial", icon = AppIcons.Help) {
                     scope.launch { drawerState.close() }
                     onOpenTutorial()
+                }
+                DrawerItem(label = "Licenze", icon = AppIcons.Info) {
+                    scope.launch { drawerState.close() }
+                    onOpenLicenses()
                 }
             }
         },
@@ -136,16 +150,56 @@ fun RegionListScreen(
             Column(modifier = Modifier.fillMaxWidth().padding(innerPadding).padding(16.dp)) {
                 when {
                     uiState.isLoading && uiState.items.isEmpty() -> CircularProgressIndicator()
-                    uiState.errorMessage != null -> Text(text = uiState.errorMessage!!, color = MaterialTheme.colorScheme.error)
-                    else -> LazyColumn {
-                        items(uiState.items, key = { it.regionId }) { item ->
-                            RegionRow(item = item, viewModel = viewModel, onClick = { onRegionClick(item.regionId) })
+                    uiState.errorMessage != null -> EmptyState(
+                        icon = AppIcons.OfflineWifi,
+                        title = uiState.errorMessage!!,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    else -> {
+                        val grouped = uiState.items.groupBy { Continent.of(it.regionId) }
+                        LazyColumn {
+                            Continent.entries.forEach { continent ->
+                                val regionsInContinent = grouped[continent].orEmpty()
+                                if (regionsInContinent.isNotEmpty()) {
+                                    item(key = "header_${continent.name}") {
+                                        Text(
+                                            text = continent.label,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                                        )
+                                    }
+                                    items(regionsInContinent, key = { it.regionId }) { item ->
+                                        RegionRow(
+                                            item = item,
+                                            viewModel = viewModel,
+                                            onClick = {
+                                                if (item.status == RegionStatus.NOT_INSTALLED) {
+                                                    onPreviewClick(item.regionId, item.displayName)
+                                                } else {
+                                                    onRegionClick(item.regionId)
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun DrawerSectionLabel(label: String) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
+    )
 }
 
 @Composable
@@ -166,21 +220,20 @@ private fun DrawerItem(
 }
 
 // internal, non private: riusata anche dallo step di onboarding "Scarica una regione" (stesso
-// modulo :app, pacchetto diverso).
+// modulo :app, pacchetto diverso). Il tap e' sempre attivo: per una regione non installata porta
+// a un'anteprima della guida Wikivoyage (senza scaricare mappa/routing), non piu' un no-op — vedi
+// RegionListScreen.onClick sopra e RegionPreviewScreen.
 @Composable
 internal fun RegionRow(item: RegionUiItem, viewModel: RegionListViewModel, onClick: () -> Unit) {
     val workInfo by remember(item.regionId) { viewModel.observeDownloadProgress(item.regionId) }
         .collectAsStateWithLifecycle(initialValue = null)
     val isDownloading = workInfo?.state == WorkInfo.State.RUNNING || workInfo?.state == WorkInfo.State.ENQUEUED
-    // Una regione non ancora scaricata non ha contenuti locali da mostrare: il tap non porta
-    // da nessuna parte, l'unica azione sensata resta il tasto "Scarica" qui sotto.
-    val isNavigable = item.status != RegionStatus.NOT_INSTALLED
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp)
-            .clickable(enabled = isNavigable, onClick = onClick),
+            .clickable(onClick = onClick),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -211,11 +264,12 @@ internal fun RegionRow(item: RegionUiItem, viewModel: RegionListViewModel, onCli
 
 @Composable
 private fun RegionActions(item: RegionUiItem, isDownloading: Boolean, viewModel: RegionListViewModel) {
+    val context = LocalContext.current
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showLargeDownloadWarning by remember { mutableStateOf(false) }
 
     val startDownload = {
-        if (item.sizeBytes > LARGE_DOWNLOAD_WARNING_BYTES) {
+        if (item.sizeBytes > LARGE_DOWNLOAD_WARNING_BYTES && isOnCellularNetwork(context)) {
             showLargeDownloadWarning = true
         } else {
             viewModel.download(item.regionId)
@@ -260,4 +314,24 @@ private fun RegionStatus.label(): String = when (this) {
     RegionStatus.NOT_INSTALLED -> "non installata"
     RegionStatus.INSTALLED -> "installata"
     RegionStatus.UPDATE_AVAILABLE -> "aggiornamento disponibile"
+}
+
+// Il manifest non porta un campo continente (vedi RegionManifestEntry): mappatura statica per
+// regionId, nello stesso spirito di GuideCategory.icon()/colorFor(PoiCategory) — va aggiornato
+// a mano quando la pipeline dati pubblica una nuova regione fuori da queste tre aree.
+private enum class Continent(val label: String) {
+    EUROPA("Europa"),
+    AMERICHE("Americhe"),
+    ASIA("Asia"),
+    ALTRO("Altro"),
+    ;
+
+    companion object {
+        fun of(regionId: String): Continent = when {
+            regionId in setOf("italia", "san-marino", "andorra") -> EUROPA
+            regionId.startsWith("stati-uniti") -> AMERICHE
+            regionId in setOf("giappone") -> ASIA
+            else -> ALTRO
+        }
+    }
 }

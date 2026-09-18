@@ -24,7 +24,7 @@ class ContentDbMergeTest {
                 outputDb,
             )
             writePoiDb(
-                listOf(Poi("Punto panoramico", "viewpoint", 45.4646, 9.1908, "tourism=viewpoint")),
+                listOf(Poi("Punto panoramico", "viewpoint", 45.4646, 9.1908, "tourism=viewpoint", null)),
                 "test-region",
                 outputDb,
             )
@@ -41,7 +41,7 @@ class ContentDbMergeTest {
         outputDb.delete()
         try {
             writePoiDb(
-                listOf(Poi("Punto panoramico", "viewpoint", 45.4646, 9.1908, "tourism=viewpoint")),
+                listOf(Poi("Punto panoramico", "viewpoint", 45.4646, 9.1908, "tourism=viewpoint", null)),
                 "test-region",
                 outputDb,
             )

@@ -70,6 +70,7 @@ import com.pockettravel.core.data.DocumentType
 import com.pockettravel.core.data.Passport
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
+import com.pockettravel.core.ui.EmptyState
 import java.util.UUID
 import kotlinx.coroutines.launch
 
@@ -229,9 +230,12 @@ private fun PassportVaultContent(viewModel: PassportVaultViewModel) {
         },
     ) { innerPadding ->
         if (passports.isEmpty()) {
-            Column(modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp)) {
-                Text("Nessun documento salvato. Usa il pulsante + per aggiungerne uno.")
-            }
+            EmptyState(
+                icon = AppIcons.passport(),
+                title = "Nessun documento salvato",
+                subtitle = "Usa il pulsante + per aggiungerne uno.",
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+            )
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp)) {
                 items(passports, key = { it.id }) { passport ->

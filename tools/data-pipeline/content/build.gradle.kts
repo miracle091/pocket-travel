@@ -54,6 +54,7 @@ registerPipelineTask("generateGuideContent", "com.pockettravel.pipeline.Generate
 // un margine di heap esplicito assorbe nazioni ancora piu' grandi/dense di POI senza dipendere
 // dal default della JVM (visto: OutOfMemoryError sul default generando content.db per l'Italia).
 registerPipelineTask("generatePoi", "com.pockettravel.pipeline.GeneratePoiKt", maxHeap = "4g", usesSqlite = true)
+registerPipelineTask("generateEmergencyNumbers", "com.pockettravel.pipeline.GenerateEmergencyNumbersKt", usesSqlite = true)
 registerPipelineTask("generateManifest", "com.pockettravel.pipeline.GenerateManifestKt")
 registerPipelineTask("mergeManifests", "com.pockettravel.pipeline.MergeManifestsKt")
 registerPipelineTask("validateManifest", "com.pockettravel.pipeline.ValidateManifestKt")

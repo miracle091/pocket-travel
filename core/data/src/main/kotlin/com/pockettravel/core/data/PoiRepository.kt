@@ -16,6 +16,7 @@ data class Poi(
     val latitude: Double,
     val longitude: Double,
     val osmTag: String,
+    val phone: String?,
 )
 
-private fun PoiEntity.toDomain() = Poi(id, regionId, name, category, lat, lon, osmTag)
+private fun PoiEntity.toDomain() = Poi(id, regionId, name, category, lat, lon, osmTag, phone)

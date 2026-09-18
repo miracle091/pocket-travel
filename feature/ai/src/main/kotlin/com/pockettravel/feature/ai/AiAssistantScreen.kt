@@ -13,11 +13,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,13 +40,27 @@ import com.pockettravel.core.data.CustomTabsLauncher
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
+import com.pockettravel.core.ui.isOnCellularNetwork
 
 @Composable
-fun AiAssistantScreen(regionId: String, viewModel: AiAssistantViewModel = hiltViewModel()) {
+fun AiAssistantScreen(
+    regionId: String,
+    viewModel: AiAssistantViewModel = hiltViewModel(),
+    onOpenOfficialSource: (url: String) -> Unit = {},
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-        Text(text = "Assistente di viaggio", style = MaterialTheme.typography.headlineSmall)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = AppIcons.AiAssistant,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(text = "Assistente di viaggio", style = MaterialTheme.typography.headlineSmall)
+        }
         Spacer(modifier = Modifier.height(12.dp))
         // Sotto i 4 GB di RAM l'assistente e' solo Online (vedi AiAssistantViewModel: mode e'
         // gia' forzato a ONLINE li'): niente selettore da mostrare, un solo modo esiste.
@@ -55,28 +73,30 @@ fun AiAssistantScreen(regionId: String, viewModel: AiAssistantViewModel = hiltVi
             AiEngineMode.ON_DEVICE -> if (!uiState.isModelDownloaded) {
                 ModelListCard(uiState, viewModel)
             } else {
-                AssistantConversation(regionId, uiState, viewModel)
+                AssistantConversation(regionId, uiState, viewModel, onOpenOfficialSource)
             }
             AiEngineMode.ONLINE -> if (!uiState.isApiKeyConfigured) {
                 ApiKeyCard(uiState, viewModel)
             } else {
-                AssistantConversation(regionId, uiState, viewModel)
+                AssistantConversation(regionId, uiState, viewModel, onOpenOfficialSource)
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ModeSelector(mode: AiEngineMode, onModeChanged: (AiEngineMode) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        AiEngineMode.entries.forEach { candidate ->
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        AiEngineMode.entries.forEachIndexed { index, candidate ->
             val label = if (candidate == AiEngineMode.ON_DEVICE) "Sul dispositivo" else "Online"
-            if (candidate == mode) {
-                Button(onClick = {}, modifier = Modifier.weight(1f)) { Text(label) }
-            } else {
-                OutlinedButton(onClick = { onModeChanged(candidate) }, modifier = Modifier.weight(1f)) { Text(label) }
+            SegmentedButton(
+                selected = candidate == mode,
+                onClick = { onModeChanged(candidate) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = AiEngineMode.entries.size),
+            ) {
+                Text(label)
             }
-            if (candidate != AiEngineMode.entries.last()) Spacer(modifier = Modifier.width(8.dp))
         }
     }
 }
@@ -100,6 +120,7 @@ fun ModelListCard(uiState: AiUiState, viewModel: AiAssistantViewModel) {
 
 @Composable
 private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiState: AiUiState, viewModel: AiAssistantViewModel) {
+    val context = LocalContext.current
     var showLargeDownloadWarning by remember { mutableStateOf(false) }
 
     Card(
@@ -142,7 +163,7 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
                         Row {
                             Button(
                                 onClick = {
-                                    if (definition.sizeBytes > LARGE_DOWNLOAD_WARNING_BYTES) {
+                                    if (definition.sizeBytes > LARGE_DOWNLOAD_WARNING_BYTES && isOnCellularNetwork(context)) {
                                         showLargeDownloadWarning = true
                                     } else {
                                         viewModel.downloadModel()
@@ -230,8 +251,12 @@ private fun ApiKeyCard(uiState: AiUiState, viewModel: AiAssistantViewModel) {
 }
 
 @Composable
-private fun AssistantConversation(regionId: String, uiState: AiUiState, viewModel: AiAssistantViewModel) {
-    val context = LocalContext.current
+private fun AssistantConversation(
+    regionId: String,
+    uiState: AiUiState,
+    viewModel: AiAssistantViewModel,
+    onOpenOfficialSource: (url: String) -> Unit,
+) {
     var showRemoveConfirm by remember { mutableStateOf(false) }
     val isOnDevice = uiState.mode == AiEngineMode.ON_DEVICE
 
@@ -294,7 +319,7 @@ private fun AssistantConversation(regionId: String, uiState: AiUiState, viewMode
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = answer.officialSourceUrl?.let { url ->
-                                Modifier.clickable { CustomTabsLauncher.open(context, url) }
+                                Modifier.clickable { onOpenOfficialSource(url) }
                             } ?: Modifier,
                         ) {
                             Icon(

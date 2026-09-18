@@ -59,6 +59,41 @@ class RegionContentImporterSchemaTest {
                         category TEXT NOT NULL,
                         lat REAL NOT NULL,
                         lon REAL NOT NULL,
+                        osmTag TEXT NOT NULL,
+                        phone TEXT
+                    )
+                    """.trimIndent()
+                )
+                statement.execute(
+                    "INSERT INTO poi VALUES ('test-region', 'Ambasciata', 'embassy', 45.4646, 9.1908, 'amenity=embassy', '+39 06 1234567')"
+                )
+            }
+            conn.createStatement().use { statement ->
+                val rs = statement.executeQuery(RegionContentImporter.POI_QUERY)
+                assertEquals(true, rs.next())
+                assertEquals("Ambasciata", rs.getString("name"))
+                assertEquals("embassy", rs.getString("category"))
+                assertEquals(45.4646, rs.getDouble("lat"), 1e-9)
+                assertEquals(9.1908, rs.getDouble("lon"), 1e-9)
+                assertEquals("amenity=embassy", rs.getString("osmTag"))
+                assertEquals("+39 06 1234567", rs.getString("phone"))
+            }
+        }
+    }
+
+    @Test
+    fun `la query poi legacy (senza colonna phone) legge le colonne prodotte da pacchetti gia' pubblicati`() {
+        val dbFile = File(createTempDirectory("pocket-travel-test").toFile(), "content.db")
+        DriverManager.getConnection("jdbc:sqlite:${dbFile.path}").use { conn ->
+            conn.createStatement().use { statement ->
+                statement.execute(
+                    """
+                    CREATE TABLE poi (
+                        regionId TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        category TEXT NOT NULL,
+                        lat REAL NOT NULL,
+                        lon REAL NOT NULL,
                         osmTag TEXT NOT NULL
                     )
                     """.trimIndent()
@@ -68,13 +103,44 @@ class RegionContentImporterSchemaTest {
                 )
             }
             conn.createStatement().use { statement ->
-                val rs = statement.executeQuery(RegionContentImporter.POI_QUERY)
+                val rs = statement.executeQuery(RegionContentImporter.POI_QUERY_LEGACY)
                 assertEquals(true, rs.next())
                 assertEquals("Punto panoramico", rs.getString("name"))
                 assertEquals("viewpoint", rs.getString("category"))
                 assertEquals(45.4646, rs.getDouble("lat"), 1e-9)
                 assertEquals(9.1908, rs.getDouble("lon"), 1e-9)
                 assertEquals("tourism=viewpoint", rs.getString("osmTag"))
+            }
+        }
+    }
+
+    @Test
+    fun `la query emergency_numbers legge le colonne prodotte dalla pipeline`() {
+        val dbFile = File(createTempDirectory("pocket-travel-test").toFile(), "content.db")
+        DriverManager.getConnection("jdbc:sqlite:${dbFile.path}").use { conn ->
+            conn.createStatement().use { statement ->
+                statement.execute(
+                    """
+                    CREATE TABLE emergency_numbers (
+                        regionId TEXT NOT NULL,
+                        general TEXT,
+                        police TEXT NOT NULL,
+                        ambulance TEXT NOT NULL,
+                        fire TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                statement.execute(
+                    "INSERT INTO emergency_numbers VALUES ('test-region', '112', '113', '118', '115')"
+                )
+            }
+            conn.createStatement().use { statement ->
+                val rs = statement.executeQuery(RegionContentImporter.EMERGENCY_NUMBERS_QUERY)
+                assertEquals(true, rs.next())
+                assertEquals("112", rs.getString("general"))
+                assertEquals("113", rs.getString("police"))
+                assertEquals("118", rs.getString("ambulance"))
+                assertEquals("115", rs.getString("fire"))
             }
         }
     }
@@ -87,7 +153,7 @@ class RegionContentImporterSchemaTest {
                 statement.execute(
                     "CREATE TABLE guide_sections (regionId TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT)"
                 )
-                statement.execute("CREATE TABLE poi (regionId TEXT, name TEXT, category TEXT, lat REAL, lon REAL, osmTag TEXT)")
+                statement.execute("CREATE TABLE poi (regionId TEXT, name TEXT, category TEXT, lat REAL, lon REAL, osmTag TEXT, phone TEXT)")
             }
             conn.createStatement().use { statement ->
                 assertEquals(false, statement.executeQuery(RegionContentImporter.GUIDE_SECTIONS_QUERY).next())

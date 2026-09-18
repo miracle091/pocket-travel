@@ -1,5 +1,7 @@
 package com.pockettravel.feature.guide
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,10 +14,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,13 +32,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pockettravel.core.data.CustomTabsLauncher
+import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSection
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.EmptyState
 
 @Composable
-fun GuideScreen(regionId: String, viewModel: GuideViewModel = hiltViewModel()) {
+fun GuideScreen(
+    regionId: String,
+    onOpenSource: (url: String, title: String) -> Unit = { _, _ -> },
+    viewModel: GuideViewModel = hiltViewModel(),
+) {
     LaunchedEffect(regionId) { viewModel.load(regionId) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -43,17 +53,28 @@ fun GuideScreen(regionId: String, viewModel: GuideViewModel = hiltViewModel()) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) { CircularProgressIndicator() }
 
-        uiState.errorMessage != null -> Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            Text(text = uiState.errorMessage!!, color = MaterialTheme.colorScheme.error)
-        }
+        uiState.errorMessage != null -> EmptyState(
+            icon = AppIcons.Info,
+            title = uiState.errorMessage!!,
+            modifier = Modifier.fillMaxSize(),
+        )
 
-        uiState.sections.isEmpty() -> Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            Text("Nessun contenuto guida disponibile per questa regione.")
-        }
+        uiState.sections.isEmpty() && uiState.emergencyNumbers == null -> EmptyState(
+            icon = AppIcons.Compass,
+            title = "Nessun contenuto guida disponibile",
+            subtitle = "Non ci sono ancora sezioni guida pubblicate per questa regione.",
+            modifier = Modifier.fillMaxSize(),
+        )
 
         else -> LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            uiState.emergencyNumbers?.let { numbers ->
+                item(key = "emergency_numbers") {
+                    EmergencyNumbersCard(numbers)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
             items(uiState.sections, key = { "${it.category}_${it.title}" }) { section ->
-                GuideSectionCard(section)
+                GuideSectionCard(section, onOpenSource)
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
@@ -61,17 +82,92 @@ fun GuideScreen(regionId: String, viewModel: GuideViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun GuideSectionCard(section: GuideSection) {
+private fun EmergencyNumbersCard(numbers: EmergencyNumbers) {
     val context = LocalContext.current
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = section.category.icon(),
+                    imageVector = AppIcons.Emergency,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Numeri di emergenza",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+            numbers.entries().forEach { (label, number) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))) }
+                        .padding(top = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                        Text(
+                            text = number,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    }
+                    Icon(
+                        imageVector = AppIcons.Call,
+                        contentDescription = "Chiama $label",
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                }
+            }
+        }
+    }
+}
+
+// Se il numero generale coincide con tutti gli altri (es. 911 negli Stati Uniti, 112 in
+// Andorra) mostra una sola riga invece di quattro identiche; altrimenti raggruppa per numero
+// (es. Giappone: ambulanza e vigili del fuoco condividono il 119) cosi' un numero condiviso
+// non compare due volte.
+private fun EmergencyNumbers.entries(): List<Pair<String, String>> {
+    val generalNumber = general
+    if (generalNumber != null && generalNumber == police && generalNumber == ambulance && generalNumber == fire) {
+        return listOf("Emergenza" to generalNumber)
+    }
+    val labeled = buildList {
+        general?.let { add("Generale" to it) }
+        add("Polizia" to police)
+        add("Ambulanza" to ambulance)
+        add("Vigili del fuoco" to fire)
+    }
+    return labeled.groupBy({ it.second }, { it.first }).map { (number, labels) -> labels.joinToString(" / ") to number }
+}
+
+@Composable
+private fun GuideSectionCard(section: GuideSection, onOpenSource: (url: String, title: String) -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Icon(
+                        imageVector = section.category.icon(),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(6.dp).size(20.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(text = section.category.displayName(), style = MaterialTheme.typography.labelLarge)
             }
             Spacer(modifier = Modifier.height(4.dp))
@@ -83,7 +179,7 @@ private fun GuideSectionCard(section: GuideSection) {
                 text = "Fonte: Wikivoyage",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable { CustomTabsLauncher.open(context, section.sourceUrl) },
+                modifier = Modifier.clickable { onOpenSource(section.sourceUrl, "Wikivoyage") },
             )
         }
     }

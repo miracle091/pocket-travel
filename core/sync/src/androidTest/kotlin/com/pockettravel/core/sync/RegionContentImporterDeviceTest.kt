@@ -35,7 +35,7 @@ class RegionContentImporterDeviceTest {
 
         val db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).build()
         try {
-            RegionContentImporter(db.guideDao(), db.poiDao(), db).import(regionId, packageDir)
+            RegionContentImporter(db.guideDao(), db.poiDao(), db.emergencyNumbersDao(), db).import(regionId, packageDir)
 
             val sections = db.guideDao().sectionsForRegion(regionId)
             assertEquals(2, sections.size)
@@ -48,7 +48,7 @@ class RegionContentImporterDeviceTest {
             assertFalse("content.db va cancellato dopo l'import, non serve piu'", File(packageDir, "content.db").exists())
 
             copyAsset(context, "content.db", File(packageDir, "content.db"))
-            RegionContentImporter(db.guideDao(), db.poiDao(), db).import(regionId, packageDir)
+            RegionContentImporter(db.guideDao(), db.poiDao(), db.emergencyNumbersDao(), db).import(regionId, packageDir)
             assertEquals(2, db.guideDao().sectionsForRegion(regionId).size)
             assertEquals(1, db.poiDao().poisForRegion(regionId).size)
         } finally {

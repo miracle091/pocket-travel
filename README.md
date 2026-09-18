@@ -2,7 +2,7 @@
 
 Pocket Travel è un'app per chi viaggia senza voler dipendere dalla connessione: guida turistica offline, mappa con routing pedonale, assistente IA e vault per i documenti, tutto scaricabile a pacchetti per regione.
 
-Versione corrente: **0.3.0** ([Semantic Versioning](https://semver.org/lang/it/)) — vedi [CHANGELOG.md](CHANGELOG.md).
+Versione corrente: **0.4.0** ([Semantic Versioning](https://semver.org/lang/it/)) — vedi [CHANGELOG.md](CHANGELOG.md).
 
 ## Stato
 

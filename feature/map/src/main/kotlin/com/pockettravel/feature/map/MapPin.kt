@@ -8,4 +8,5 @@ data class MapPin(
     val latitude: Double,
     val longitude: Double,
     val category: PoiCategory,
+    val phone: String?,
 )

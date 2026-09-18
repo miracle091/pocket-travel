@@ -52,11 +52,15 @@ fun RegionHubScreen(
     regionId: String,
     initialTab: String = "guide",
     onBack: () -> Unit,
+    onOpenOfficialSource: (url: String) -> Unit = {},
+    onOpenSource: (url: String, title: String) -> Unit = { _, _ -> },
     viewModel: RegionHubViewModel = hiltViewModel(),
 ) {
     var selectedTab by rememberSaveable(regionId) { mutableStateOf(RegionTab.fromKey(initialTab)) }
     val displayName by viewModel.displayName.collectAsStateWithLifecycle()
+    val regionMissing by viewModel.regionMissing.collectAsStateWithLifecycle()
     LaunchedEffect(regionId) { viewModel.load(regionId) }
+    LaunchedEffect(regionMissing) { if (regionMissing) onBack() }
 
     Scaffold(
         topBar = {
@@ -90,14 +94,14 @@ fun RegionHubScreen(
     ) { innerPadding ->
         Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             when (selectedTab) {
-                RegionTab.GUIDE -> GuideScreen(regionId = regionId)
+                RegionTab.GUIDE -> GuideScreen(regionId = regionId, onOpenSource = onOpenSource)
                 RegionTab.MAP -> {
                     val mapViewModel: MapRouteViewModel = hiltViewModel()
                     LaunchedEffect(regionId) { mapViewModel.loadPins(regionId) }
                     val pins by mapViewModel.pins.collectAsStateWithLifecycle()
                     MapScreen(tileSource = mapViewModel.tileSource, regionId = regionId, pins = pins)
                 }
-                RegionTab.AI -> AiAssistantScreen(regionId = regionId)
+                RegionTab.AI -> AiAssistantScreen(regionId = regionId, onOpenOfficialSource = onOpenOfficialSource)
             }
         }
     }

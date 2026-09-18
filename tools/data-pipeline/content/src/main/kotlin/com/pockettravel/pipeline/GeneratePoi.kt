@@ -26,7 +26,7 @@ fun main(args: Array<String>) {
     println("poi: ${pois.size} POI scritti in ${outputDb.path}")
 }
 
-data class Poi(val name: String, val category: String, val lat: Double, val lon: Double, val osmTag: String)
+data class Poi(val name: String, val category: String, val lat: Double, val lon: Double, val osmTag: String, val phone: String?)
 
 fun extractPois(data: OsmData): List<Poi> = data.nodes.mapNotNull { node ->
     val tagKey = poiTagKeys.firstOrNull { node.tags.containsKey(it) } ?: return@mapNotNull null
@@ -37,6 +37,9 @@ fun extractPois(data: OsmData): List<Poi> = data.nodes.mapNotNull { node ->
         lat = node.lat,
         lon = node.lon,
         osmTag = "$tagKey=$tagValue",
+        // "phone" e' il tag storico, "contact:phone" quello piu' recente dello schema
+        // contact:* — OSM non li ha mai consolidati in uno solo, entrambi ancora in uso.
+        phone = node.tags["phone"] ?: node.tags["contact:phone"],
     )
 }
 
@@ -59,7 +62,8 @@ fun writePoiDb(pois: List<Poi>, regionId: String, outputDb: File) {
                     category TEXT NOT NULL,
                     lat REAL NOT NULL,
                     lon REAL NOT NULL,
-                    osmTag TEXT NOT NULL
+                    osmTag TEXT NOT NULL,
+                    phone TEXT
                 )
                 """.trimIndent()
             )
@@ -70,7 +74,7 @@ fun writePoiDb(pois: List<Poi>, regionId: String, outputDb: File) {
         // migliaia di POI su tutto il territorio) trasforma l'inserimento in minuti invece che
         // frazioni di secondo. Una singola transazione esplicita elimina il commit per-riga.
         conn.autoCommit = false
-        conn.prepareStatement("INSERT INTO poi (regionId, name, category, lat, lon, osmTag) VALUES (?, ?, ?, ?, ?, ?)").use { insert ->
+        conn.prepareStatement("INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone) VALUES (?, ?, ?, ?, ?, ?, ?)").use { insert ->
             pois.forEach { poi ->
                 insert.setString(1, regionId)
                 insert.setString(2, poi.name)
@@ -78,6 +82,7 @@ fun writePoiDb(pois: List<Poi>, regionId: String, outputDb: File) {
                 insert.setDouble(4, poi.lat)
                 insert.setDouble(5, poi.lon)
                 insert.setString(6, poi.osmTag)
+                insert.setString(7, poi.phone)
                 insert.addBatch()
             }
             insert.executeBatch()

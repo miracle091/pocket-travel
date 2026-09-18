@@ -13,6 +13,7 @@ class PoiCategoryTest {
         latitude = 0.0,
         longitude = 0.0,
         osmTag = osmTag,
+        phone = null,
     )
 
     @Test
@@ -44,5 +45,10 @@ class PoiCategoryTest {
     fun `il resto va in ALTRO`() {
         assertEquals(PoiCategory.ALTRO, poi("bank", "amenity=bank").poiCategory())
         assertEquals(PoiCategory.ALTRO, poi("pharmacy", "amenity=pharmacy").poiCategory())
+    }
+
+    @Test
+    fun `embassy va in AMBASCIATA_CONSOLATO`() {
+        assertEquals(PoiCategory.AMBASCIATA_CONSOLATO, poi("embassy", "amenity=embassy").poiCategory())
     }
 }
