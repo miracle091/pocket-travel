@@ -5,14 +5,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 ## [Non rilasciato]
 
 ### Aggiunto
-- Catalogo di 9 modelli IA on-device su 3 fasce di RAM (invece di un unico modello fisso), un solo modello installato alla volta: selezionarne uno diverso elimina quello precedente prima di scaricare il nuovo.
-- Benchmark on-device del modello installato (velocità e un punteggio euristico di qualità su prompt fissi).
-- Istruzioni in-app per il download di modelli con licenza ad accesso ristretto su HuggingFace, non più specifiche del solo modello Gemma.
-- Due nuovi step facoltativi nell'onboarding al primo avvio: download di una regione e download del modello IA, entrambi saltabili.
-
-### Modificato
-- Sotto i 4 GB di RAM l'assistente IA è solo Online: la modalità "sul dispositivo" non viene più mostrata come opzione, dato che il dispositivo non può comunque usarla.
-- Il controllo periodico di aggiornamenti del modello IA (`app-status.json`) copre ora l'intero catalogo invece del solo modello storico.
+- Tasto "Controlla aggiornamenti" nella schermata Regioni: in aggiunta al controllo periodico automatico, forza subito un nuovo controllo del catalogo regioni, della versione app e del modello IA.
 
 ## [0.3.0]
 
@@ -21,9 +14,15 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Avviso di conferma prima di avviare un download (pacchetto regionale o modello IA) sopra i 100 MB.
 - Pubblicazione automatica settimanale dei pacchetti regionali (`publish-regions.yml`): 7 trigger `schedule` (uno per giorno) processano un bucket di regioni bilanciato per carico reale (tile `.rd5` misurate su `brouter.de`, non stima geometrica), con sharding a matrice dentro ogni bucket per restare sotto il limite di 6h/job e nel fair use dei mirror Overpass pubblici; `workflow_dispatch` resta invariato per run manuali/mirate.
 - Controllo di necessità in `build-region.sh`: prima di rigenerare una regione, confronta le tile `.rd5` attese con quelle già pubblicate (nome e dimensione) e salta l'intera rigenerazione — niente fetch Wikivoyage né query Overpass — se non è cambiato nulla dalla settimana precedente.
+- Catalogo di 9 modelli IA on-device su 3 fasce di RAM (invece di un unico modello fisso), un solo modello installato alla volta: selezionarne uno diverso elimina quello precedente prima di scaricare il nuovo.
+- Benchmark on-device del modello installato (velocità e un punteggio euristico di qualità su prompt fissi).
+- Istruzioni in-app per il download di modelli con licenza ad accesso ristretto su HuggingFace, non più specifiche del solo modello Gemma.
+- Due nuovi step facoltativi nell'onboarding al primo avvio: download di una regione e download del modello IA, entrambi saltabili.
 
 ### Modificato
 - Il controllo periodico di aggiornamenti dei pacchetti regionali non è più limitato al solo Wi-Fi (manifest.json è pochi KB; i pacchetti veri e propri restano scaricati solo su richiesta esplicita).
+- Sotto i 4 GB di RAM l'assistente IA è solo Online: la modalità "sul dispositivo" non viene più mostrata come opzione, dato che il dispositivo non può comunque usarla.
+- Il controllo periodico di aggiornamenti del modello IA (`app-status.json`) copre ora l'intero catalogo invece del solo modello storico.
 
 ## [0.2.0]
 

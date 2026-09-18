@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.sync.AppUpdateCheckScheduler
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
+import com.pockettravel.feature.ai.LlmModelUpdateCheckScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
@@ -37,6 +39,8 @@ class RegionListViewModel @Inject constructor(
     private val regionRepository: RegionRepository,
     private val regionSyncScheduler: RegionSyncScheduler,
     private val recentRegionPreferences: RecentRegionPreferences,
+    private val appUpdateCheckScheduler: AppUpdateCheckScheduler,
+    private val llmModelUpdateCheckScheduler: LlmModelUpdateCheckScheduler,
 ) : ViewModel() {
 
     private val manifestRegions = MutableStateFlow<List<RegionManifestEntry>>(emptyList())
@@ -78,6 +82,14 @@ class RegionListViewModel @Inject constructor(
                 isLoading.value = false
             }
         }
+    }
+
+    /** Controllo manuale immediato, in aggiunta a quello periodico: manifest regioni (qui, sincrono)
+     *  + versione app e modello IA (in background, notificano se c'e' un aggiornamento). */
+    fun checkForUpdatesNow() {
+        refresh()
+        appUpdateCheckScheduler.checkNow()
+        llmModelUpdateCheckScheduler.checkNow()
     }
 
     fun download(regionId: String) {

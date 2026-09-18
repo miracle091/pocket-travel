@@ -3,7 +3,9 @@ package com.pockettravel.feature.ai
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -28,6 +30,17 @@ class LlmModelUpdateCheckScheduler @Inject constructor(
             .setConstraints(constraints)
             .build()
         workManager.enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+    }
+
+    /** Controllo manuale immediato (es. tasto "Controlla aggiornamenti"), in aggiunta a quello periodico sopra. */
+    fun checkNow() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+        val request = OneTimeWorkRequestBuilder<LlmModelUpdateCheckWorker>()
+            .setConstraints(constraints)
+            .build()
+        workManager.enqueueUniqueWork("$WORK_NAME-manual", ExistingWorkPolicy.REPLACE, request)
     }
 
     private companion object {
