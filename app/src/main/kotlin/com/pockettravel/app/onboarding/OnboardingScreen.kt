@@ -1,5 +1,11 @@
 package com.pockettravel.app.onboarding
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,7 +36,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.regions.RegionListViewModel
@@ -65,8 +74,8 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
                     OnboardingStep.Info(
                         title = "L'assistente IA ha due modalità",
                         body = "\"Sul dispositivo\" funziona anche offline, ma richiede almeno 4 GB di RAM e il " +
-                            "download di un modello. \"Online\" usa una tua chiave API personale, mai condivisa " +
-                            "con un server dell'app.",
+                            "download di un modello. \"Online\" usa una tua chiave API personale (da configurare " +
+                            "nell'app prima di poterla usare), mai condivisa con un server dell'app.",
                         icon = AppIcons.AiAssistant,
                     )
                 } else {
@@ -74,7 +83,8 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
                         title = "L'assistente IA è disponibile Online",
                         body = "Il tuo dispositivo ha meno di 4 GB di RAM: la modalità \"Sul dispositivo\" non è " +
                             "disponibile. L'assistente funziona comunque in modalità Online, con una tua chiave " +
-                            "API personale, mai condivisa con un server dell'app.",
+                            "API personale (da configurare nell'app prima di poterla usare), mai condivisa con " +
+                            "un server dell'app.",
                         icon = AppIcons.AiAssistant,
                     )
                 },
@@ -103,6 +113,27 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
     val step = steps[stepIndex]
     val isLastStep = stepIndex == steps.lastIndex
 
+    // Il tasto Indietro di sistema deve comportarsi come "Indietro" qui dentro (tornare allo step
+    // precedente), non uscire di colpo dal wizard perdendo la posizione — solo al primo step non
+    // c'e' nulla da intercettare, torna il comportamento di default (esce).
+    BackHandler(enabled = stepIndex > 0) { stepIndex -= 1 }
+
+    val context = LocalContext.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    // Richiesta al raggiungimento dell'ultimo step, non subito all'apertura: a quel punto l'utente
+    // ha gia' visto perche' servono (controllo aggiornamenti regioni/app/modello IA, vedi step
+    // precedenti) invece di un permesso a freddo alla primissima schermata.
+    LaunchedEffect(isLastStep) {
+        if (
+            isLastStep &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
         Column(modifier = Modifier.weight(1f)) {
             when (val currentStep = step) {
@@ -112,6 +143,12 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
             }
         }
 
+        Text(
+            text = "Passo ${stepIndex + 1} di ${steps.size}",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
         StepDots(count = steps.size, current = stepIndex)
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -161,6 +198,22 @@ private fun InfoStepContent(step: OnboardingStep.Info) {
     }
 }
 
+// Intestazione compatta (icona + titolo in riga) per gli step interattivi, che a differenza di
+// InfoStepContent hanno sotto una lista da tenere scrollabile, non spazio vuoto da centrare.
+@Composable
+private fun StepHeader(icon: ImageVector, title: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(32.dp),
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(text = title, style = MaterialTheme.typography.headlineSmall)
+    }
+}
+
 // Riusa RegionListViewModel/RegionRow del modulo :regions (stesso modulo :app, package diverso):
 // stessa logica di download/eliminazione della schermata "Regioni" vera, non una copia.
 @Composable
@@ -168,7 +221,9 @@ private fun RegionDownloadStepContent(viewModel: RegionListViewModel = hiltViewM
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Text(text = "Scarica una regione per iniziare", style = MaterialTheme.typography.headlineSmall)
+        // Icona piccola in riga col titolo, non centrata a piena altezza come InfoStepContent:
+        // qui sotto c'e' una lista che deve restare scrollabile, non spazio vuoto da riempire.
+        StepHeader(icon = AppIcons.World, title = "Scarica una regione per iniziare")
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             "Facoltativo: guida, mappa e punti di interesse sono organizzati in pacchetti regionali. " +
@@ -198,7 +253,7 @@ private fun AiModelDownloadStepContent(viewModel: AiAssistantViewModel = hiltVie
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Text(text = "Scarica il modello IA", style = MaterialTheme.typography.headlineSmall)
+        StepHeader(icon = AppIcons.AiAssistant, title = "Scarica il modello IA")
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             "Facoltativo: puoi scaricarlo qui o in qualsiasi momento dopo, dalla schermata Assistente IA.",

@@ -6,6 +6,10 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ### Aggiunto
 - Tasto "Controlla aggiornamenti" nella schermata Regioni: in aggiunta al controllo periodico automatico, forza subito un nuovo controllo del catalogo regioni, della versione app e del modello IA.
+- Onboarding: richiesta del permesso di notifica (Android 13+) all'ultimo step, indicatore testuale "Passo X di Y" oltre ai pallini, tasto Indietro di sistema che torna allo step precedente invece di uscire dal wizard, icona coerente anche sugli step di download regione/modello IA (prima privi di icona a differenza degli altri step).
+
+### Modificato
+- Onboarding: chiarito che la modalità IA "Online" richiede di configurare una chiave API personale prima di poterla usare.
 
 ## [0.3.0]
 
