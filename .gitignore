@@ -12,6 +12,8 @@ captures/
 /.kotlin/
 node_modules/
 .env*
+unsloth_compiled_cache/
+__pycache__/
 
 # Byproduct di Planetiler quando gira da tools/data-pipeline (cerca data/tile_weights.tsv.gz)
 /tools/data-pipeline/data/
