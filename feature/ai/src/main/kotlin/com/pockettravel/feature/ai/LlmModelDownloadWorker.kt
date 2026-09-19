@@ -36,15 +36,12 @@ class LlmModelDownloadWorker @AssistedInject constructor(
             modelManager.selectAndDownload(
                 newDefinition = definition,
                 currentlyInstalled = currentlyInstalled,
-                hfToken = aiSettingsStore.huggingFaceToken(),
             ) { downloaded, total ->
                 setProgress(workDataOf(KEY_BYTES_DOWNLOADED to downloaded, KEY_TOTAL_BYTES to total))
             }
             Result.success()
         } catch (error: CancellationException) {
             throw error
-        } catch (_: ModelAuthException) {
-            Result.failure(workDataOf(KEY_FAILURE_REASON to FAILURE_REASON_AUTH))
         } catch (_: ModelIntegrityException) {
             Result.failure(workDataOf(KEY_FAILURE_REASON to FAILURE_REASON_INTEGRITY))
         } catch (_: ModelDownloadFailedException) {
@@ -60,7 +57,6 @@ class LlmModelDownloadWorker @AssistedInject constructor(
         const val KEY_BYTES_DOWNLOADED = "bytes_downloaded"
         const val KEY_TOTAL_BYTES = "total_bytes"
         const val KEY_FAILURE_REASON = "failure_reason"
-        const val FAILURE_REASON_AUTH = "auth"
         const val FAILURE_REASON_INTEGRITY = "integrity"
     }
 }

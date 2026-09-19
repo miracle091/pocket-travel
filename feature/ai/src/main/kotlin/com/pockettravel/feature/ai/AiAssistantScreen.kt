@@ -36,7 +36,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pockettravel.core.data.CustomTabsLauncher
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
@@ -148,37 +147,25 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
             // proprio, vedi LlmModelCatalog) — nessun pulsante di download da mostrare, non c'e'
             // nulla da scaricare finche' non viene pubblicato un hash reale.
             if (isSelected && definition.sha256 != null) {
-                if (definition.licenseUrl != null && !uiState.hasHfToken) {
-                    HfTokenForm(definition, uiState, viewModel)
+                uiState.errorMessage?.let {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = it, color = MaterialTheme.colorScheme.error)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                val downloadProgress = uiState.downloadProgress
+                if (downloadProgress != null) {
+                    LinearProgressIndicator(progress = { downloadProgress }, modifier = Modifier.fillMaxWidth())
                 } else {
-                    uiState.errorMessage?.let {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = it, color = MaterialTheme.colorScheme.error)
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    val downloadProgress = uiState.downloadProgress
-                    if (downloadProgress != null) {
-                        LinearProgressIndicator(progress = { downloadProgress }, modifier = Modifier.fillMaxWidth())
-                    } else {
-                        Row {
-                            Button(
-                                onClick = {
-                                    if (definition.sizeBytes > LARGE_DOWNLOAD_WARNING_BYTES && isOnCellularNetwork(context)) {
-                                        showLargeDownloadWarning = true
-                                    } else {
-                                        viewModel.downloadModel()
-                                    }
-                                },
-                            ) {
-                                Text("Scarica modello")
+                    Button(
+                        onClick = {
+                            if (definition.sizeBytes > LARGE_DOWNLOAD_WARNING_BYTES && isOnCellularNetwork(context)) {
+                                showLargeDownloadWarning = true
+                            } else {
+                                viewModel.downloadModel()
                             }
-                            if (definition.licenseUrl != null) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                OutlinedButton(onClick = { viewModel.clearHfToken() }) {
-                                    Text("Cambia token")
-                                }
-                            }
-                        }
+                        },
+                    ) {
+                        Text("Scarica modello")
                     }
                 }
             }
@@ -193,34 +180,6 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
             onConfirm = { showLargeDownloadWarning = false; viewModel.downloadModel() },
             onDismiss = { showLargeDownloadWarning = false },
         )
-    }
-}
-
-/** Istruzioni per un modello gated (definition.licenseUrl != null): non tutti i modelli del
- *  catalogo lo sono (Apache 2.0/MIT non richiedono nulla di tutto questo). */
-@Composable
-private fun HfTokenForm(definition: LlmModelDefinition, uiState: AiUiState, viewModel: AiAssistantViewModel) {
-    val context = LocalContext.current
-    Spacer(modifier = Modifier.height(8.dp))
-    Text("«${definition.displayName}» richiede una licenza su HuggingFace:", style = MaterialTheme.typography.bodySmall)
-    Text("1. Apri la pagina del modello e accetta la licenza.", style = MaterialTheme.typography.bodySmall)
-    Text("2. Genera un token di accesso su huggingface.co/settings/tokens.", style = MaterialTheme.typography.bodySmall)
-    Text("3. Incollalo qui sotto.", style = MaterialTheme.typography.bodySmall)
-    Spacer(modifier = Modifier.height(8.dp))
-    OutlinedButton(onClick = { definition.licenseUrl?.let { CustomTabsLauncher.open(context, it) } }) {
-        Text("Apri pagina del modello")
-    }
-    Spacer(modifier = Modifier.height(8.dp))
-    OutlinedTextField(
-        value = uiState.hfTokenInput,
-        onValueChange = viewModel::onHfTokenInputChanged,
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text("Token HuggingFace") },
-        visualTransformation = PasswordVisualTransformation(),
-    )
-    Spacer(modifier = Modifier.height(8.dp))
-    Button(onClick = { viewModel.saveHfToken() }, enabled = uiState.hfTokenInput.isNotBlank()) {
-        Text("Salva token")
     }
 }
 

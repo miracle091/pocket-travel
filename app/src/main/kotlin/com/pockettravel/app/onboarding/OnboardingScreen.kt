@@ -246,7 +246,7 @@ private fun RegionDownloadStepContent(viewModel: RegionListViewModel = hiltViewM
 }
 
 // Riusa AiAssistantViewModel/ModelListCard di :feature:ai: stessa logica di selezione/download/
-// token gated della schermata "Assistente IA" vera. Mostrato solo quando isOnDeviceAiSupported
+// download della schermata "Assistente IA" vera. Mostrato solo quando isOnDeviceAiSupported
 // (vedi OnboardingScreen), quindi il catalogo qui non e' mai vuoto.
 @Composable
 private fun AiModelDownloadStepContent(viewModel: AiAssistantViewModel = hiltViewModel()) {

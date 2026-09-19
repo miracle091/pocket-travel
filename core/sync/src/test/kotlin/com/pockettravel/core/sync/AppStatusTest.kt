@@ -15,7 +15,7 @@ class AppStatusTest {
             {
               "appVersion": { "versionName": "0.3.0", "versionCode": 3 },
               "aiModels": [
-                { "modelId": "gemma3-1b-it", "modelVersion": "gemma3-1b-it-int4.litertlm", "sha256": "${"a".repeat(64)}", "sizeBytes": 612368384 }
+                { "modelId": "qwen3-0.6b", "modelVersion": "qwen3_0_6b_mixed_int4.litertlm", "sha256": "${"a".repeat(64)}", "sizeBytes": 612368384 }
               ]
             }
         """.trimIndent()
@@ -24,8 +24,8 @@ class AppStatusTest {
 
         assertEquals("0.3.0", status.appVersion?.versionName)
         assertEquals(3, status.appVersion?.versionCode)
-        assertEquals("gemma3-1b-it", status.aiModels.single().modelId)
-        assertEquals("gemma3-1b-it-int4.litertlm", status.aiModels.single().modelVersion)
+        assertEquals("qwen3-0.6b", status.aiModels.single().modelId)
+        assertEquals("qwen3_0_6b_mixed_int4.litertlm", status.aiModels.single().modelVersion)
         assertEquals(612_368_384L, status.aiModels.single().sizeBytes)
     }
 

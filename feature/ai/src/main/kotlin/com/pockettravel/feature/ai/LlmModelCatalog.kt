@@ -3,10 +3,9 @@ package com.pockettravel.feature.ai
 /**
  * Un modello scaricabile del catalogo. `sha256 == null` significa "non ancora disponibile per il
  * download" (vedi LlmModelManager.download, che rifiuta di procedere in quel caso, e ModelRow in
- * AiAssistantScreen, che mostra "Presto disponibile" invece del pulsante) — oggi il caso solo per
- * gemma-3n-e2b-it/e4b-it, il cui sha256 non è ottenibile senza un token HuggingFace autenticato.
- * `licenseUrl` è null per i modelli non gated (Apache 2.0/MIT): per quelli, [LlmModelManager.download]
- * non richiede un token HuggingFace. Ogni `url`/`fileName` referenziato è la build generica
+ * AiAssistantScreen, che mostra "Presto disponibile" invece del pulsante) — oggi nessun modello.
+ * Il catalogo contiene solo modelli non gated (Apache 2.0/MIT): il download non richiede alcun
+ * token HuggingFace. Ogni `url`/`fileName` referenziato è la build generica
  * (senza suffisso di chip NPU tipo mediatek/qualcomm/Google_Tensor), l'unica compatibile con
  * `Backend.CPU()` fisso in [OnDeviceLlmEngine] — verificato per ciascun modello leggendo il file
  * tree del repo HuggingFace, non assunto dal nome. Dati raccolti in
@@ -20,30 +19,18 @@ data class LlmModelDefinition(
     val sha256: String?,
     val sizeBytes: Long,
     val minRamTier: RamTier,
-    val licenseUrl: String? = null,
 )
 
 object LlmModelCatalog {
-    // Fasce MINIMO/CONFORTEVOLE/AMPIA: vedi DeviceAiCapability.RamTier. Tre modelli per fascia.
+    // Fasce MINIMO/CONFORTEVOLE/AMPIA: vedi DeviceAiCapability.RamTier. Due modelli per fascia.
+    // Solo modelli non gated (Apache 2.0/MIT): niente modelli Gemma o altri repo che richiedono
+    // accettare una licenza su HuggingFace.
     // sha256 dei modelli base ufficiali (litert-community/google), verificato via curl diretto sul
     // puntatore Git LFS di ciascun repo — mai dal riassunto di un fetch automatico, non affidabile
     // su stringhe esadecimali lunghe. Restano scaricabili cosi' come sono oggi; se in futuro
     // vengono pubblicate versioni fine-tunate proprie (vedi .claude/docs/llm-model-training-plan.md),
     // questi valori andranno sostituiti con lo sha256 reale di quelle versioni, non lasciati com'è.
-    // gemma-3n-e2b-it/e4b-it restano sha256 = null: non ottenibile senza un token HuggingFace
-    // autenticato con licenza Gemma accettata (vedi .claude/docs/llm-model-catalog-research.md,
-    // sezione "Aperti") — NON un valore inventato.
     val ALL: List<LlmModelDefinition> = listOf(
-        LlmModelDefinition(
-            id = "gemma3-1b-it",
-            displayName = "Gemma 3 1B IT",
-            url = "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.litertlm",
-            fileName = "gemma3-1b-it-int4.litertlm",
-            sha256 = "1325ae366d31950f137c9c357b9fa89448b176d76998180c08ceaca78bba98be",
-            sizeBytes = 584_417_280L,
-            minRamTier = RamTier.MINIMO,
-            licenseUrl = "https://huggingface.co/litert-community/Gemma3-1B-IT",
-        ),
         LlmModelDefinition(
             id = "smollm2-135m-instruct",
             displayName = "SmolLM2 135M Instruct",
@@ -81,16 +68,6 @@ object LlmModelCatalog {
             minRamTier = RamTier.CONFORTEVOLE,
         ),
         LlmModelDefinition(
-            id = "gemma-3n-e2b-it",
-            displayName = "Gemma 3n E2B IT",
-            url = "https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm",
-            fileName = "gemma-3n-E2B-it-int4.litertlm",
-            sha256 = null,
-            sizeBytes = 3_655_827_456L,
-            minRamTier = RamTier.CONFORTEVOLE,
-            licenseUrl = "https://huggingface.co/google/gemma-3n-E2B-it-litert-lm",
-        ),
-        LlmModelDefinition(
             id = "phi-4-mini-instruct",
             displayName = "Phi-4 Mini Instruct",
             url = "https://huggingface.co/litert-community/Phi-4-mini-instruct/resolve/main/Phi-4-mini-instruct_multi-prefill-seq_q8_ekv4096.litertlm",
@@ -107,16 +84,6 @@ object LlmModelCatalog {
             sha256 = "f0794bc77efeaaf4f7af815f04c483b19b8f2ae4a102cef1b7b760a25848a18e",
             sizeBytes = 2_659_057_664L,
             minRamTier = RamTier.AMPIA,
-        ),
-        LlmModelDefinition(
-            id = "gemma-3n-e4b-it",
-            displayName = "Gemma 3n E4B IT",
-            url = "https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4.litertlm",
-            fileName = "gemma-3n-E4B-it-int4.litertlm",
-            sha256 = null,
-            sizeBytes = 4_919_541_760L,
-            minRamTier = RamTier.AMPIA,
-            licenseUrl = "https://huggingface.co/google/gemma-3n-E4B-it-litert-lm",
         ),
     )
 }

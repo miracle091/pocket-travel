@@ -4,6 +4,9 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ## [Non rilasciato]
 
+### Modificato
+- Modelli IA on-device: rimossi Gemma 3 1B e Gemma 3n (E2B/E4B) dal catalogo e la relativa voce nelle licenze, perché richiedono di accettare una licenza su HuggingFace. Il modello predefinito diventa Qwen3 0.6B; chi aveva selezionato un modello Gemma torna al predefinito. Di conseguenza rimossi anche il campo per il token HuggingFace nella schermata Assistente IA e il suo codice.
+
 ## [0.4.0]
 
 ### Aggiunto

@@ -83,32 +83,6 @@ class LlmModelManagerTest {
     }
 
     @Test
-    fun `un token viene inviato come header Authorization Bearer`() = runBlocking {
-        val content = "modello finto"
-        server.enqueue(MockResponse().setResponseCode(200).setBody(content))
-        val definition = testDefinition.copy(url = server.url("/model").toString(), sha256 = sha256Hex(content.toByteArray()))
-
-        modelManager.download(definition, hfToken = "hf_test_token") { _, _ -> }
-
-        assertEquals("Bearer hf_test_token", server.takeRequest().getHeader("Authorization"))
-    }
-
-    @Test
-    fun `una risposta 401 lancia ModelAuthException invece di un errore generico`() = runBlocking {
-        server.enqueue(MockResponse().setResponseCode(401))
-        val definition = testDefinition.copy(url = server.url("/model").toString())
-
-        try {
-            modelManager.download(definition) { _, _ -> }
-            fail("un 401 deve lanciare ModelAuthException")
-        } catch (_: ModelAuthException) {
-            // atteso
-        }
-
-        assertFalse(File(modelsDir, "${definition.fileName}.part").exists())
-    }
-
-    @Test
     fun `riprende un download parziale con Range e Content-Range`() = runBlocking {
         val fullText = "0123456789ABCDEF".repeat(10)
         val alreadyDownloaded = fullText.substring(0, 60)

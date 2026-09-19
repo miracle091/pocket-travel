@@ -20,8 +20,6 @@ data class AiUiState(
     val downloadProgress: Float? = null,
     val isApiKeyConfigured: Boolean,
     val apiKeyInput: String = "",
-    val hasHfToken: Boolean,
-    val hfTokenInput: String = "",
     val benchmarkResult: BenchmarkResult? = null,
     val isBenchmarking: Boolean = false,
     val allBenchmarkResults: List<BenchmarkResult> = emptyList(),
@@ -57,7 +55,6 @@ class AiAssistantViewModel @Inject constructor(
             selectedModelId = aiSettingsStore.selectedModelId(),
             isModelDownloaded = modelManager.isDownloaded(aiSettingsStore.selectedModelDefinition()),
             isApiKeyConfigured = aiSettingsStore.hasApiKey(),
-            hasHfToken = aiSettingsStore.hasHuggingFaceToken(),
             benchmarkResult = aiSettingsStore.benchmarkResult(aiSettingsStore.selectedModelId()),
             allBenchmarkResults = aiSettingsStore.allBenchmarkResults(),
         ),
@@ -90,8 +87,6 @@ class AiAssistantViewModel @Inject constructor(
                     }
                     WorkInfo.State.FAILED -> {
                         val message = when (workInfo.outputData.getString(LlmModelDownloadWorker.KEY_FAILURE_REASON)) {
-                            LlmModelDownloadWorker.FAILURE_REASON_AUTH ->
-                                "Token HuggingFace mancante o non valido: verifica il token e riprova."
                             LlmModelDownloadWorker.FAILURE_REASON_INTEGRITY ->
                                 "Il file scaricato non ha superato la verifica di integrità. Riprova."
                             else -> "Download del modello fallito. Riprova più tardi."
@@ -130,24 +125,8 @@ class AiAssistantViewModel @Inject constructor(
         _uiState.update { it.copy(isApiKeyConfigured = false, answer = null) }
     }
 
-    fun onHfTokenInputChanged(value: String) {
-        _uiState.update { it.copy(hfTokenInput = value) }
-    }
-
-    fun saveHfToken() {
-        val token = _uiState.value.hfTokenInput.trim()
-        if (token.isBlank()) return
-        aiSettingsStore.setHuggingFaceToken(token)
-        _uiState.update { it.copy(hasHfToken = true, hfTokenInput = "", errorMessage = null) }
-    }
-
-    fun clearHfToken() {
-        aiSettingsStore.clearHuggingFaceToken()
-        _uiState.update { it.copy(hasHfToken = false) }
-    }
-
     /** Cambia il modello selezionato senza scaricarlo: la UI mostra poi il pulsante di download
-     *  (o le istruzioni del token HF se il modello è gated) per quello scelto. */
+     *  per quello scelto. */
     fun onModelSelected(modelId: String) {
         val previousId = _uiState.value.selectedModelId
         aiSettingsStore.setSelectedModelId(modelId)
@@ -204,10 +183,6 @@ class AiAssistantViewModel @Inject constructor(
         val definition = aiSettingsStore.selectedModelDefinition()
         if (definition.sha256 == null) {
             _uiState.update { it.copy(errorMessage = "Questo modello non è ancora disponibile per il download.") }
-            return
-        }
-        if (definition.licenseUrl != null && aiSettingsStore.huggingFaceToken().isNullOrBlank()) {
-            _uiState.update { it.copy(errorMessage = "Inserisci il tuo token HuggingFace prima di scaricare il modello.") }
             return
         }
         if (modelManager.availableStorageBytes() < definition.sizeBytes) {

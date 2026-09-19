@@ -17,7 +17,6 @@ class AiSettingsStore @Inject constructor(@ApplicationContext context: Context) 
 
     private val prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
     private val apiKeyStore = AndroidKeystoreSecretStore(context, API_KEY_ALIAS, API_KEY_PAYLOAD)
-    private val hfTokenStore = AndroidKeystoreSecretStore(context, HF_TOKEN_ALIAS, HF_TOKEN_PAYLOAD)
 
     fun engineMode(): AiEngineMode =
         AiEngineMode.valueOf(prefs.getString(KEY_MODE, AiEngineMode.ON_DEVICE.name) ?: AiEngineMode.ON_DEVICE.name)
@@ -32,26 +31,17 @@ class AiSettingsStore @Inject constructor(@ApplicationContext context: Context) 
 
     fun clearApiKey() = apiKeyStore.clear()
 
-    // Il repo HuggingFace di alcuni modelli on-device è a licenza gated (vedi LlmModelDefinition.licenseUrl): serve
-    // un token personale dell'utente, mai condiviso/incorporato nell'app — stessa cifratura
-    // Keystore della chiave API online, alias separato per non mescolare i due segreti.
-    fun hasHuggingFaceToken(): Boolean = !huggingFaceToken().isNullOrBlank()
-
-    fun huggingFaceToken(): String? = hfTokenStore.read()
-
-    fun setHuggingFaceToken(token: String) = hfTokenStore.write(token)
-
-    fun clearHuggingFaceToken() = hfTokenStore.clear()
-
     fun baseUrl(): String = prefs.getString(KEY_BASE_URL, DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
 
     fun model(): String = prefs.getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
 
     // Un solo modello on-device installabile alla volta (vedi LlmModelManager.selectAndDownload):
     // questo e' l'id del modello scelto dall'utente in LlmModelCatalog.ALL, non necessariamente
-    // ancora scaricato. Default al modello storico (l'unico esistente prima del catalogo) cosi'
-    // un utente che ha gia' installato quel file continua a puntarci senza dover riscegliere.
-    fun selectedModelId(): String = prefs.getString(KEY_SELECTED_MODEL_ID, DEFAULT_SELECTED_MODEL_ID) ?: DEFAULT_SELECTED_MODEL_ID
+    // ancora scaricato. Un id salvato che non e' piu' nel catalogo (es. un modello rimosso) torna
+    // al default, altrimenti selectedModelDefinition() fallirebbe.
+    fun selectedModelId(): String =
+        prefs.getString(KEY_SELECTED_MODEL_ID, null)?.takeIf { id -> LlmModelCatalog.ALL.any { it.id == id } }
+            ?: DEFAULT_SELECTED_MODEL_ID
 
     fun setSelectedModelId(modelId: String) = prefs.edit { putString(KEY_SELECTED_MODEL_ID, modelId) }
 
@@ -94,10 +84,8 @@ class AiSettingsStore @Inject constructor(@ApplicationContext context: Context) 
         const val DEFAULT_MODEL = "gpt-4o-mini"
         const val API_KEY_ALIAS = "pocket_travel_ai_api_key_v2"
         const val API_KEY_PAYLOAD = "api_key_payload"
-        const val HF_TOKEN_ALIAS = "pocket_travel_hf_token_v1"
-        const val HF_TOKEN_PAYLOAD = "hf_token_payload"
         const val KEY_SELECTED_MODEL_ID = "selected_model_id"
-        const val DEFAULT_SELECTED_MODEL_ID = "gemma3-1b-it"
+        const val DEFAULT_SELECTED_MODEL_ID = "qwen3-0.6b"
         const val KEY_BENCHMARK_WORDS_PER_SECOND = "benchmark_words_per_second"
         const val KEY_BENCHMARK_LATENCY_MS = "benchmark_latency_ms"
         const val KEY_BENCHMARK_LOAD_MS = "benchmark_load_ms"

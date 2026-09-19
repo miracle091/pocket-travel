@@ -39,9 +39,4 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
         license = "CC BY-SA 4.0",
         note = "Attribuzione visibile obbligatoria; i contenuti derivati restano CC BY-SA.",
     ),
-    LicenseEntry(
-        component = "Modello on-device Gemma3-1B-IT (LiteRT Community)",
-        license = "Licenza custom Google (Gemma)",
-        note = "Non OSI-approved; richiede accettazione della licenza su Hugging Face.",
-    ),
 )

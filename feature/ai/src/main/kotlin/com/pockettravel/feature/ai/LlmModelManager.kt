@@ -14,8 +14,6 @@ import okhttp3.Request
 
 class ModelIntegrityException(message: String) : Exception(message)
 
-class ModelAuthException(message: String) : Exception(message)
-
 /** Errore non recuperabile con un retry (es. HTTP 404): a differenza di un errore di rete
  *  transitorio, ritentare la stessa richiesta darebbe sempre lo stesso esito. */
 class ModelDownloadFailedException(message: String) : Exception(message)
@@ -48,7 +46,6 @@ class LlmModelManager @Inject constructor(
 
     suspend fun download(
         definition: LlmModelDefinition,
-        hfToken: String? = null,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     ) {
         // Fallisce prima di aprire la connessione (non dopo centinaia di MB scaricati e
@@ -59,7 +56,7 @@ class LlmModelManager @Inject constructor(
         }
         coordinator.withModelLock {
             withContext(Dispatchers.IO) {
-                downloadAndVerify(definition, hfToken, onProgress)
+                downloadAndVerify(definition, onProgress)
             }
         }
     }
@@ -72,13 +69,12 @@ class LlmModelManager @Inject constructor(
     suspend fun selectAndDownload(
         newDefinition: LlmModelDefinition,
         currentlyInstalled: LlmModelDefinition?,
-        hfToken: String? = null,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     ) {
         if (currentlyInstalled != null && currentlyInstalled.id != newDefinition.id) {
             delete(currentlyInstalled)
         }
-        download(newDefinition, hfToken, onProgress)
+        download(newDefinition, onProgress)
     }
 
     // internal (non private) cosi' un test puo' esercitare il resume Range/la classificazione
@@ -86,31 +82,18 @@ class LlmModelManager @Inject constructor(
     // RegionPackageDownloader.downloadAndVerify.
     internal suspend fun downloadAndVerify(
         definition: LlmModelDefinition,
-        hfToken: String?,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     ) {
         val partFile = partFile(definition)
         val modelFile = modelFile(definition)
         val existingBytes = if (partFile.exists()) partFile.length() else 0L
         val requestBuilder = Request.Builder().url(definition.url)
-        if (!hfToken.isNullOrBlank()) {
-            requestBuilder.header("Authorization", "Bearer $hfToken")
-        }
         if (existingBytes > 0) {
             requestBuilder.header("Range", "bytes=$existingBytes-")
         }
         val request = requestBuilder.build()
 
         okHttpClient.newCall(request).execute().use { response ->
-            // Repo HuggingFace gated (vedi LlmModelDefinition.licenseUrl): 401/403 significano
-            // quasi sempre token mancante/errato o licenza non accettata, non un guasto
-            // generico — messaggio dedicato cosi' la UI puo' guidare l'utente a sistemare
-            // il token invece di un "riprova più tardi" fuorviante.
-            if (response.code == 401 || response.code == 403) {
-                throw ModelAuthException(
-                    "Accesso negato (HTTP ${response.code}): verifica il token HuggingFace e di aver accettato la licenza del modello su huggingface.co.",
-                )
-            }
             if (!response.isSuccessful) {
                 // Stessa classificazione di RegionPackageDownloader: un 4xx (tranne 408/429,
                 // tipicamente transitori) non cambierebbe ritentando la stessa richiesta; un
