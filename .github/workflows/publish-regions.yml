@@ -9,9 +9,8 @@ name: Publish regions
 # tempo — vedi il commento in testa a tools/data-pipeline/scripts/build-region.sh.
 #
 # Trigger: 7 righe schedule (una per giorno) rigenerano automaticamente il bucket del giorno
-# (tools/data-pipeline/scripts/weekly-schedule.sh, vedi generate-weekly-schedule.sh e
-# .claude/docs/weekly-manifest-update-plan.md per l'algoritmo e la motivazione — cadenza
-# settimanale perche' i segmenti .rd5 di BRouter vengono rigenerati settimanalmente, non ha senso
+# (tools/data-pipeline/scripts/weekly-schedule.sh, generato da generate-weekly-schedule.sh —
+# cadenza settimanale perche' i segmenti .rd5 di BRouter vengono rigenerati settimanalmente, non ha senso
 # ripubblicare piu' spesso). workflow_dispatch resta disponibile per run manuali/mirate (regions
 # esplicito) o per rigenerare tutto il lotto (regions vuoto, fuori da uno schedule).
 #
@@ -223,10 +222,14 @@ jobs:
                 # le regioni). --clobber: un rilancio della stessa regione nello stesso giorno
                 # (stessa VERSION) deve poter sovrascrivere l'asset gia' caricato in un tentativo
                 # precedente fallito a meta'.
+                # In modalita' incrementale (.incremental, vedi build-region.sh sezione 2bis) non
+                # c'e' un content.db nuovo: si caricano solo le tile cambiate.
                 uploads=()
-                contentDbAsset="$regionOut/${regionId}--${VERSION}--content.db"
-                cp "$regionOut/content.db" "$contentDbAsset"
-                uploads+=("$contentDbAsset")
+                if [ -f "$regionOut/content.db" ]; then
+                  contentDbAsset="$regionOut/${regionId}--${VERSION}--content.db"
+                  cp "$regionOut/content.db" "$contentDbAsset"
+                  uploads+=("$contentDbAsset")
+                fi
                 for rd5 in "$regionOut"/*.rd5; do
                   [ -e "$rd5" ] || continue
                   rd5Asset="$regionOut/${regionId}--${VERSION}--$(basename "$rd5")"

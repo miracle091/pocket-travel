@@ -2,8 +2,7 @@
 # Generato da generate-weekly-schedule.sh il 2026-09-17 — NON MODIFICARE A MANO.
 # Rilancia generate-weekly-schedule.sh per rigenerarlo (es. dopo una modifica a
 # pilot-regions.sh). Ogni WEEKLY_SCHEDULE_DAY_N e' l'elenco regionId, separati da virgola,
-# da processare nel giorno N (1=lunedi ... 7=domenica) — vedi
-# .claude/docs/weekly-manifest-update-plan.md per l'algoritmo di assegnazione.
+# da processare nel giorno N (1=lunedi ... 7=domenica).
 #
 # Carico misurato (tile land) per giorno al momento della generazione:
 #   giorno 1: 308 tile land

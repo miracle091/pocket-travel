@@ -34,8 +34,8 @@
 # <publishedManifestUrl> (opzionale, es. https://.../manifest.json): se presente, prima di fare
 # qualunque lavoro costoso lo script confronta le tile .rd5 attese con quelle gia' pubblicate per
 # REGION_ID (stesso nome, stessa dimensione) - se coincidono la regione e' considerata invariata
-# questa settimana e la rigenerazione viene saltata del tutto (vedi sezione "2bis." sotto e
-# .claude/docs/weekly-manifest-update-plan.md, "Controllo di necessita'"). Omesso (come per
+# questa settimana e la rigenerazione viene saltata del tutto (vedi sezione "2bis." sotto).
+# Omesso (come per
 # l'esecuzione locale via build-pilot-regions.sh, sempre "tutto fresco") = nessun controllo,
 # rigenerazione completa come sempre. Quando la regione viene saltata, <outputDir>/.skipped viene
 # creato (vuoto) invece di content.db/i .rd5 - il chiamante lo usa per capire che non c'e' nulla
@@ -67,6 +67,9 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 BROUTER_BASE="https://brouter.de/brouter/segments4"
 MAP_MIN_ZOOM=0
 MAP_MAX_ZOOM=14
+# Oltre questa eta' (giorni) del content.db pubblicato, una regione con tile cambiate viene
+# rigenerata per intero (POI/guida aggiornati) invece che solo nelle tile (vedi sezione 2bis).
+CONTENT_MAX_AGE_DAYS="${CONTENT_MAX_AGE_DAYS:-30}"
 
 mkdir -p "$OUTPUT_DIR"
 WORKDIR="$(mktemp -d)"
@@ -153,7 +156,7 @@ LAT_START="$(floor5 "$MIN_LAT")"
 LAT_END="$(floor5 "$MAX_LAT")"
 
 # --- 2bis. Controllo di necessita': salta la regione se le tile .rd5 attese sono gia' quelle
-# pubblicate (vedi .claude/docs/weekly-manifest-update-plan.md, "Controllo di necessita'") -------
+# pubblicate -------------------------------------------------------------------------------------
 # Confronto sulla dimensione (Content-Length via HEAD), non sull'hash: piu' economico (nessun
 # download necessario) ma in teoria non si accorgerebbe di un contenuto cambiato a parita' di
 # byte - la dimensione cambia pero' quasi sempre quando BRouter rigenera davvero un segmento (vedi
@@ -205,6 +208,50 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
         "$PUBLISHED_MANIFEST" > "$OUTPUT_DIR/manifest-fragment.json"
       echo "== [$REGION_ID] fatto (saltata, frammento riusato da quello pubblicato) =="
       exit 0
+    fi
+    # Aggiornamento incrementale: la regione e' gia' pubblicata con le stesse tile (cambiano solo
+    # le dimensioni di alcune) e il suo content.db ha meno di CONTENT_MAX_AGE_DAYS giorni. content.db
+    # (Wikivoyage + POI Overpass) non dipende dalle tile di routing, quindi non lo rigeneriamo: si
+    # riscaricano solo le tile cambiate e si riusa il resto del frammento pubblicato (content.db e
+    # tile invariate mantengono il loro URL, gli asset restano sulla release). La data del
+    # content.db si ricava dal nome dell'asset (regionId--YYYY.MM.DD--content.db).
+    PUBLISHED_REGION="$(jq -c --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id)][0] // empty' "$PUBLISHED_MANIFEST" 2>/dev/null || true)"
+    if [ -n "$PUBLISHED_REGION" ] && [ "$EXPECTED_SORTED" != "[]" ]; then
+      SAME_TILES="$(jq -n --argjson a "$EXPECTED_SORTED" --argjson b "$PUBLISHED_SORTED" '($a | map(.name)) == ($b | map(.name))')"
+      PUBLISHED_CONTENT_URL="$(printf '%s' "$PUBLISHED_REGION" | jq -r '[.files[] | select(.name == "content.db") | .url][0] // ""')"
+      CONTENT_DATE="$(printf '%s' "$PUBLISHED_CONTENT_URL" | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)--content\.db$#\1#p')"
+      CONTENT_AGE_DAYS=""
+      if [ -n "$CONTENT_DATE" ]; then
+        CONTENT_AGE_DAYS="$(( ($(date -u +%s) - $(date -u -d "${CONTENT_DATE//./-}" +%s)) / 86400 ))"
+      fi
+      if [ "$SAME_TILES" = "true" ] && [ -n "$CONTENT_AGE_DAYS" ] && [ "$CONTENT_AGE_DAYS" -le "$CONTENT_MAX_AGE_DAYS" ]; then
+        echo "-- $REGION_ID: stesse tile, content.db di $CONTENT_AGE_DAYS giorni (max $CONTENT_MAX_AGE_DAYS): aggiorno solo le tile cambiate"
+        UPDATED_TSV="$WORKDIR/updated-rd5.tsv"
+        : > "$UPDATED_TSV"
+        CHANGED_TILES="$(jq -r -n --argjson a "$EXPECTED_SORTED" --argjson b "$PUBLISHED_SORTED" \
+          '$a[] as $e | ($b[] | select(.name == $e.name)) as $p | select($p.sizeBytes != $e.sizeBytes) | $e.name')"
+        while read -r tileFile; do
+          [ -n "$tileFile" ] || continue
+          dest="$OUTPUT_DIR/$tileFile"
+          echo "-- scarico $tileFile (cambiata)..."
+          download_with_progress "$dest" "$tileFile" -sS -o "$dest" "${BROUTER_BASE}/${tileFile}"
+          size="$(wc -c < "$dest" | tr -d ' ')"
+          hash="$(sha256sum "$dest" | awk '{print $1}')"
+          printf '%s\t%s\t%s\t%s\n' "$tileFile" "${CONTENT_DB_BASE_URL}/${REGION_ID}--${VERSION}--${tileFile}" "$size" "$hash" >> "$UPDATED_TSV"
+        done <<< "$CHANGED_TILES"
+        jq -R -s -c 'split("\n") | map(select(length > 0) | split("\t") | {name: .[0], url: .[1], sizeBytes: (.[2] | tonumber), sha256: .[3]})' \
+          "$UPDATED_TSV" > "$WORKDIR/updated-rd5.json"
+        jq -c --arg id "$REGION_ID" --arg version "$VERSION" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          --arg src "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" --slurpfile upd "$WORKDIR/updated-rd5.json" '
+          ($upd[0] | map({key: .name, value: .}) | from_entries) as $u
+          | {manifestVersion: 1, regions: [(.regions // [])[] | select(.regionId == $id)
+              | .version = $version | .updatedAt = $now | .mapSource.sourceUrl = $src
+              | .files |= map(if $u[.name] then $u[.name] else . end)]}' \
+          "$PUBLISHED_MANIFEST" > "$OUTPUT_DIR/manifest-fragment.json"
+        : > "$OUTPUT_DIR/.incremental"
+        echo "== [$REGION_ID] fatto (incrementale: solo tile cambiate, content.db riusato) =="
+        exit 0
+      fi
     fi
     echo "-- $REGION_ID cambiata (o non ancora pubblicata): rigenerazione completa"
   else

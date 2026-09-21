@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Script una tantum (NON eseguito in CI): genera weekly-schedule.sh, l'assegnazione statica delle
 # 254 regioni di pilot-regions.sh ai 7 giorni della settimana usata da publish-regions.yml per
-# spalmare la ripubblicazione automatica (vedi .claude/docs/weekly-manifest-update-plan.md per la
-# motivazione completa). Va rilanciato a mano quando pilot-regions.sh cambia (regione
+# spalmare la ripubblicazione automatica.
+# Va rilanciato a mano quando pilot-regions.sh cambia (regione
 # aggiunta/rimossa/bbox modificato) o quando si vuole aggiornare il peso misurato delle regioni
 # (la copertura .rd5 di BRouter puo' cambiare nel tempo) — nessun automatismo lo richiama da solo.
 #
@@ -194,8 +194,7 @@ awk -F'\t' -v giantsFile="$GIANTS_FILE" -v nonGiantFile="$NONGIANT_FILE" '
   echo "# Generato da generate-weekly-schedule.sh il $(date -u +%Y-%m-%d) — NON MODIFICARE A MANO."
   echo "# Rilancia generate-weekly-schedule.sh per rigenerarlo (es. dopo una modifica a"
   echo "# pilot-regions.sh). Ogni WEEKLY_SCHEDULE_DAY_N e' l'elenco regionId, separati da virgola,"
-  echo "# da processare nel giorno N (1=lunedi ... 7=domenica) — vedi"
-  echo "# .claude/docs/weekly-manifest-update-plan.md per l'algoritmo di assegnazione."
+  echo "# da processare nel giorno N (1=lunedi ... 7=domenica)."
   echo "#"
   echo "# Carico misurato (tile land) per giorno al momento della generazione:"
   for d in 1 2 3 4 5 6 7; do
