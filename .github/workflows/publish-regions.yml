@@ -334,3 +334,34 @@ jobs:
 
       - id: deployment
         uses: actions/deploy-pages@v5
+
+      # Gli asset si chiamano regionId--VERSION--file: ogni rigenerazione ne aggiunge di nuovi
+      # senza togliere i vecchi, e ogni release e' limitata a 1000 asset. Dopo il deploy (i vecchi
+      # URL restano in uso fino ad allora) si cancella da ogni release "region-data*" cio' che il
+      # manifest appena pubblicato non referenzia piu'. Il manifest e' cumulativo (frammenti di
+      # questa run + regioni gia' pubblicate), quindi le regioni non toccate restano intatte.
+      - name: Rimuove gli asset non piu' referenziati dal manifest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          MANIFEST="${{ steps.assemble.outputs.site_dir }}/manifest.json"
+          REFERENCED="$RUNNER_TEMP/referenced.txt"
+          grep -oE 'https://github\.com/[^"]+/releases/download/[^"/]+/[^"]+' "$MANIFEST" \
+            | sed -E 's#.*/releases/download/##' | sort -u > "$REFERENCED"
+          if [ ! -s "$REFERENCED" ]; then
+            echo "Il manifest non referenzia alcun asset di release: non cancello nulla" >&2
+            exit 1
+          fi
+          for tag in $(gh release list --repo "${{ github.repository }}" --limit 200 --json tagName --jq '.[].tagName' | grep '^region-data'); do
+            deleted=0
+            while read -r name; do
+              [ -n "$name" ] || continue
+              if ! grep -qxF "$tag/$name" "$REFERENCED"; then
+                gh release delete-asset "$tag" "$name" --repo "${{ github.repository }}" --yes
+                deleted=$((deleted + 1))
+              fi
+            done < <(gh release view "$tag" --repo "${{ github.repository }}" --json assets --jq '.assets[].name')
+            echo "-- $tag: $deleted asset non referenziati rimossi"
+          done
