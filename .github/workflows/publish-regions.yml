@@ -66,14 +66,26 @@ jobs:
       # in assoluto (release ancora inesistente) andrebbero in race - il secondo "gh release
       # create" a completare fallirebbe perche' un altro shard ha gia' creato la release nel
       # frattempo, facendo fallire quello shard senza motivo.
-      - name: Assicura la release che ospita i pacchetti regionali
+      - name: Assicura le release che ospitano i pacchetti regionali
         shell: bash
         run: |
           set -euo pipefail
-          gh release view region-data --repo "${{ github.repository }}" >/dev/null 2>&1 || \
-            gh release create region-data --repo "${{ github.repository }}" \
-              --title "Dati regionali" \
-              --notes "Asset binari (content.db + segmenti .rd5) per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
+          source tools/data-pipeline/scripts/pilot-regions.sh
+          # Una release per continente ("region-data-<slug>"): GitHub limita ogni release a 1000
+          # asset e la sola release "region-data" con content.db + .rd5 di 254 regioni li ha
+          # sforati (HTTP 422 "file_count limited to 1000 assets per release"). Le regioni gia'
+          # pubblicate restano raggiungibili sulla vecchia release "region-data" (URL nel manifest).
+          declare -A SEEN=()
+          for spec in "${PILOT_REGIONS[@]}"; do
+            IFS='|' read -r _ _ _ _ _ _ _ _ _ _ continent <<< "$spec"
+            slug="$(echo "$continent" | tr 'A-Z' 'a-z' | tr ' ' '-')"
+            [ -z "${SEEN[$slug]:-}" ] || continue
+            SEEN[$slug]=1
+            gh release view "region-data-$slug" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+              gh release create "region-data-$slug" --repo "${{ github.repository }}" \
+                --title "Dati regionali ($continent)" \
+                --notes "Asset binari (content.db + segmenti .rd5) per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
+          done
 
       - name: Determina le regioni della run e gli shard
         id: plan
@@ -171,7 +183,7 @@ jobs:
           # testa a assemble-site.sh per il problema che questo risolve (sito cumulativo sopra
           # 1GB con 254 regioni pilota).
           PAGES_BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
-          RELEASE_BASE_URL="https://github.com/${{ github.repository }}/releases/download/region-data"
+          RELEASE_BASE_URL_PREFIX="https://github.com/${{ github.repository }}/releases/download"
           PUBLISHED_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
           VERSION="$(date -u +%Y.%m.%d)"
           mkdir -p "$OUTPUT_ROOT" "$RUNNER_TEMP/fragments"
@@ -192,6 +204,8 @@ jobs:
             for r in "${SHARD_REGIONS[@]}"; do [ "$r" = "$regionId" ] && match=true && break; done
             [ "$match" = true ] || continue
 
+            releaseTag="region-data-$(echo "$continent" | tr 'A-Z' 'a-z' | tr ' ' '-')"
+            RELEASE_BASE_URL="$RELEASE_BASE_URL_PREFIX/$releaseTag"
             echo "::group::$regionId"
             regionOut="$OUTPUT_ROOT/$regionId"
             if tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
@@ -219,7 +233,14 @@ jobs:
                   cp "$rd5" "$rd5Asset"
                   uploads+=("$rd5Asset")
                 done
-                gh release upload region-data "${uploads[@]}" --repo "${{ github.repository }}" --clobber
+                uploadOk=true
+                gh release upload "$releaseTag" "${uploads[@]}" --repo "${{ github.repository }}" --clobber || uploadOk=false
+                if [ "$uploadOk" != true ]; then
+                  echo "::warning::upload asset di $regionId fallito, salto e continuo con le prossime"
+                  FAILED_REGIONS+=("$regionId")
+                  echo "::endgroup::"
+                  continue
+                fi
               fi
               # Nome unico per regione: piu' regioni condividerebbero altrimenti lo stesso nome di
               # file "manifest-fragment.json" una volta appiattite nella stessa cartella artifact.
