@@ -13,7 +13,8 @@ class GeneratePoiTest {
         outputDb.delete()
 
         try {
-            val pois = extractPois(parseOsmXml(File("testdata/tiny-region.osm.xml")))
+            val poiTagKeys = listOf("amenity", "shop", "tourism", "leisure", "historic")
+            val pois = extractPois(parseOsmXml(File("testdata/tiny-region.osm.xml")), poiTagKeys)
             writePoiDb(pois, "test-region", outputDb)
 
             DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->

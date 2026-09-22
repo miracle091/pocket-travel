@@ -20,7 +20,8 @@ FRAGMENT_FILES=("$@")
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-winpath() { cygpath -m "$1" 2>/dev/null || echo "$1"; }
+# shellcheck source=./lib.sh
+source "$SCRIPT_DIR/lib.sh"
 
 mkdir -p "$SITE_DIR"
 PREV_MANIFEST="$(mktemp)"

@@ -63,7 +63,10 @@ CONTENT_DB_BASE_URL="${9%/}"
 OUTPUT_DIR="${10}"
 PUBLISHED_MANIFEST_URL="${11:-}"
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+# shellcheck source=./lib.sh
+source "$SCRIPT_DIR/lib.sh"
 BROUTER_BASE="https://brouter.de/brouter/segments4"
 MAP_MIN_ZOOM=0
 MAP_MAX_ZOOM=14
@@ -74,14 +77,6 @@ CONTENT_MAX_AGE_DAYS="${CONTENT_MAX_AGE_DAYS:-30}"
 mkdir -p "$OUTPUT_DIR"
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
-
-# gradlew invoca java.exe nativo di Windows: gli argomenti passati via --args="..." vanno in
-# path Windows reali (con lettera di unita'), non nel path POSIX virtuale di git-bash/MSYS
-# (es. /tmp/xxx), altrimenti java.exe non li trova (visto: FileNotFoundException su un path
-# tipo "\tmp\xxx\dump.txt", senza lettera di unita'). "-m" (non "-w"): forward slash, niente
-# da escapare quando il path finisce anche dentro spec.json. Su Linux (CI) cygpath non esiste
-# e non serve: bash e java concordano gia' sullo stesso path POSIX.
-winpath() { cygpath -m "$1" 2>/dev/null || echo "$1"; }
 
 # curl -sS scarica in silenzio: per i trasferimenti piu' grandi (rd5, dump Wikivoyage, risposta
 # Overpass) i log di GitHub Actions restano vuoti per tutta la durata del download - per Overpass
@@ -116,34 +111,17 @@ download_with_progress() {
 echo "== [$REGION_ID] bbox: $MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT =="
 
 # --- 1. Data Protomaps piu' recente disponibile (build giornaliera, whole-planet) ---------------
-resolve_protomaps_date() {
-  for days_ago in 0 1 2 3; do
-    local d
-    d="$(date -u -d "-${days_ago} day" +%Y%m%d)"
-    local code
-    code="$(curl -s -o /dev/null -w '%{http_code}' -I "https://build.protomaps.com/${d}.pmtiles")"
-    if [ "$code" = "200" ]; then
-      echo "$d"
-      return 0
-    fi
-  done
-  echo "ERRORE: nessuna build Protomaps trovata negli ultimi giorni" >&2
-  return 1
-}
-PROTOMAPS_DATE="$(resolve_protomaps_date)"
+# resolve_protomaps_date e' in lib.sh. PROTOMAPS_DATE_OVERRIDE (opzionale): quando il chiamante
+# processa piu' regioni nella stessa run e l'ha gia' risolta una volta, evita di rifarlo qui.
+if [ -n "${PROTOMAPS_DATE_OVERRIDE:-}" ]; then
+  PROTOMAPS_DATE="$PROTOMAPS_DATE_OVERRIDE"
+else
+  PROTOMAPS_DATE="$(resolve_protomaps_date)"
+fi
 echo "-- build Protomaps: ${PROTOMAPS_DATE}.pmtiles"
 
 # --- 2. Griglia di tile 5x5 gradi che copre il bbox (usata sia per i segmenti .rd5 che per le query Overpass, sezione 4) ---
-floor5() {
-  awk -v v="$1" 'BEGIN { x = v / 5; ix = int(x); if (x < ix) ix -= 1; printf "%d", ix * 5 }'
-}
-
-tile_name() {
-  local lon="$1" lat="$2" ew="E" ns="N" alon="$lon" alat="$lat"
-  if [ "$lon" -lt 0 ]; then ew="W"; alon=$(( -lon )); fi
-  if [ "$lat" -lt 0 ]; then ns="S"; alat=$(( -lat )); fi
-  echo "${ew}${alon}_${ns}${alat}"
-}
+# floor5/tile_name sono in lib.sh (condivise con generate-weekly-schedule.sh, stessa griglia).
 
 # Popolato dalla sezione 2bis (se gira) con l'HTTP status gia' osservato per ciascuna tile, cosi'
 # la sezione 4 non ripete la stessa richiesta HEAD per le tile gia' controllate - vuoto (nessun
@@ -327,6 +305,13 @@ OVERPASS_ENDPOINTS=(
 )
 ATTEMPTS=3
 
+# Chiavi di tag OSM riconosciute come punti di interesse — sottoinsieme minimo, non lo schema POI
+# completo di OSM (amenity/shop/tourism/leisure/historic coprono la maggior parte dei casi comuni
+# per una guida di viaggio). Unica fonte di verita': passata a generatePoi via CLI (vedi POI_ARGS
+# piu' sotto) invece di essere duplicata anche li', cosi' la query Overpass e il filtro dei nodi
+# in GeneratePoi.kt non possono disallinearsi.
+POI_TAG_KEYS=(amenity shop tourism leisure historic)
+
 fmax() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0>b+0)?a:b }'; }
 fmin() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0<b+0)?a:b }'; }
 
@@ -335,7 +320,11 @@ fmin() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0<b+0)?a:b }'; }
 # tentativi - il chiamante decide se e' fatale.
 fetch_overpass_chunk() {
   local chunkMinLon="$1" chunkMinLat="$2" chunkMaxLon="$3" chunkMaxLat="$4" outFile="$5"
-  local query="[out:xml][timeout:900];(node[\"amenity\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});node[\"shop\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});node[\"tourism\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});node[\"leisure\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});node[\"historic\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon}););out body;"
+  local query="[out:xml][timeout:900];("
+  for tag in "${POI_TAG_KEYS[@]}"; do
+    query="${query}node[\"${tag}\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});"
+  done
+  query="${query});out body;"
   for attempt in $(seq 1 "$ATTEMPTS"); do
     local endpoint="${OVERPASS_ENDPOINTS[$(( (attempt - 1) % ${#OVERPASS_ENDPOINTS[@]} ))]}"
     echo "-- tentativo $attempt/$ATTEMPTS su $endpoint..."
@@ -427,7 +416,8 @@ echo "-- genero content.db (guide_sections)..."
 ./gradlew -q :tools:data-pipeline:content:generateGuideContent \
   --args="\"$(winpath "$DUMP_FILE")\" \"$REGION_ID\" \"$WIKI_URL\" \"$(winpath "$CONTENT_DB")\""
 echo "-- genero content.db (poi)..."
-POI_ARGS="\"$REGION_ID\" \"$(winpath "$CONTENT_DB")\""
+POI_TAG_KEYS_ARG="$(IFS=,; echo "${POI_TAG_KEYS[*]}")"
+POI_ARGS="\"$REGION_ID\" \"$(winpath "$CONTENT_DB")\" \"$POI_TAG_KEYS_ARG\""
 for f in "${POI_XML_FILES[@]}"; do
   POI_ARGS="$POI_ARGS \"$(winpath "$f")\""
 done

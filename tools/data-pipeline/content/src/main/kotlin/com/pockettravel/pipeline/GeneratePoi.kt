@@ -1,18 +1,15 @@
 package com.pockettravel.pipeline
 
 import java.io.File
-import java.sql.DriverManager
-
-/** Chiavi di tag OSM riconosciute come punti di interesse — sottoinsieme minimo, non lo
- *  schema POI completo di OSM (amenity/shop/tourism/leisure/historic coprono la maggior
- *  parte dei casi comuni per una guida di viaggio). */
-private val poiTagKeys = listOf("amenity", "shop", "tourism", "leisure", "historic")
 
 fun main(args: Array<String>) {
-    require(args.size >= 3) { "Uso: generatePoi <regionId> <output content.db> <input1.osm.xml> [input2.osm.xml ...]" }
+    require(args.size >= 4) { "Uso: generatePoi <regionId> <output content.db> <poiTagKeys separate da virgola> <input1.osm.xml> [input2.osm.xml ...]" }
     val regionId = args[0]
     val outputDb = File(args[1])
-    val inputFiles = args.drop(2).map(::File)
+    // Passate da build-region.sh (unica fonte di verita', usata anche per costruire la query
+    // Overpass) invece di essere ridefinite qui: cosi' i due non possono disallinearsi.
+    val poiTagKeys = args[2].split(",")
+    val inputFiles = args.drop(3).map(::File)
 
     // Un bbox nazionale grande (es. Stati Uniti) supera la capacita' di una singola query
     // Overpass (visto: 504 Gateway Timeout anche a 900s) - build-region.sh lo spezza in piu'
@@ -20,7 +17,7 @@ fun main(args: Array<String>) {
     // (oltre al dedup gia' fatto da parseOsmXml per file) perche' un nodo esattamente sul
     // confine tra due chunk puo' comparire nella risposta di entrambi.
     val nodes = inputFiles.flatMap { parseOsmXml(it).nodes }.distinctBy { it.id }
-    val pois = extractPois(OsmData(nodes, emptyList()))
+    val pois = extractPois(OsmData(nodes, emptyList()), poiTagKeys)
 
     writePoiDb(pois, regionId, outputDb)
     println("poi: ${pois.size} POI scritti in ${outputDb.path}")
@@ -28,7 +25,7 @@ fun main(args: Array<String>) {
 
 data class Poi(val name: String, val category: String, val lat: Double, val lon: Double, val osmTag: String, val phone: String?)
 
-fun extractPois(data: OsmData): List<Poi> = data.nodes.mapNotNull { node ->
+fun extractPois(data: OsmData, poiTagKeys: List<String>): List<Poi> = data.nodes.mapNotNull { node ->
     val tagKey = poiTagKeys.firstOrNull { node.tags.containsKey(it) } ?: return@mapNotNull null
     val tagValue = node.tags.getValue(tagKey)
     Poi(
@@ -51,42 +48,29 @@ fun extractPois(data: OsmData): List<Poi> = data.nodes.mapNotNull { node ->
  * GenerateGuideContent.kt — vedi il commento li' per il perche' del file unico.
  */
 fun writePoiDb(pois: List<Poi>, regionId: String, outputDb: File) {
-    DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
-        conn.createStatement().use { statement ->
-            statement.execute("DROP TABLE IF EXISTS poi")
-            statement.execute(
-                """
-                CREATE TABLE poi (
-                    regionId TEXT NOT NULL,
-                    name TEXT NOT NULL,
-                    category TEXT NOT NULL,
-                    lat REAL NOT NULL,
-                    lon REAL NOT NULL,
-                    osmTag TEXT NOT NULL,
-                    phone TEXT
-                )
-                """.trimIndent()
+    writeSqliteTable(
+        outputDb = outputDb,
+        tableName = "poi",
+        createTableSql = """
+            CREATE TABLE poi (
+                regionId TEXT NOT NULL,
+                name TEXT NOT NULL,
+                category TEXT NOT NULL,
+                lat REAL NOT NULL,
+                lon REAL NOT NULL,
+                osmTag TEXT NOT NULL,
+                phone TEXT
             )
-        }
-        // Con autocommit di default, executeBatch() esegue comunque un commit (con fsync su
-        // disco) per ogni singola riga, non uno solo alla fine - trascurabile per poche centinaia
-        // di POI (San Marino), ma per una nazione grande (es. Italia, decine/centinaia di
-        // migliaia di POI su tutto il territorio) trasforma l'inserimento in minuti invece che
-        // frazioni di secondo. Una singola transazione esplicita elimina il commit per-riga.
-        conn.autoCommit = false
-        conn.prepareStatement("INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone) VALUES (?, ?, ?, ?, ?, ?, ?)").use { insert ->
-            pois.forEach { poi ->
-                insert.setString(1, regionId)
-                insert.setString(2, poi.name)
-                insert.setString(3, poi.category)
-                insert.setDouble(4, poi.lat)
-                insert.setDouble(5, poi.lon)
-                insert.setString(6, poi.osmTag)
-                insert.setString(7, poi.phone)
-                insert.addBatch()
-            }
-            insert.executeBatch()
-        }
-        conn.commit()
+            """.trimIndent(),
+        insertSql = "INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        rows = pois,
+    ) { insert, poi ->
+        insert.setString(1, regionId)
+        insert.setString(2, poi.name)
+        insert.setString(3, poi.category)
+        insert.setDouble(4, poi.lat)
+        insert.setDouble(5, poi.lon)
+        insert.setString(6, poi.osmTag)
+        insert.setString(7, poi.phone)
     }
 }

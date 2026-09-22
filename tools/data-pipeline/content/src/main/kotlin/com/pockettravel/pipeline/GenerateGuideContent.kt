@@ -1,7 +1,6 @@
 package com.pockettravel.pipeline
 
 import java.io.File
-import java.sql.DriverManager
 
 // Duplicato minimo di core/content/WikivoyageDumpParser.kt e WikivoyageSectionMapping.kt:
 // quel modulo e' una libreria Android (com.android.library), non consumabile da un modulo
@@ -164,38 +163,25 @@ fun main(args: Array<String>) {
  * eseguite senza cancellarsi a vicenda.
  */
 fun writeGuideDb(sections: List<GuideSectionRow>, regionId: String, sourceUrl: String, outputDb: File) {
-    DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
-        conn.createStatement().use { statement ->
-            statement.execute("DROP TABLE IF EXISTS guide_sections")
-            statement.execute(
-                """
-                CREATE TABLE guide_sections (
-                    regionId TEXT NOT NULL,
-                    category TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    body TEXT NOT NULL,
-                    sourceUrl TEXT NOT NULL
-                )
-                """.trimIndent()
+    writeSqliteTable(
+        outputDb = outputDb,
+        tableName = "guide_sections",
+        createTableSql = """
+            CREATE TABLE guide_sections (
+                regionId TEXT NOT NULL,
+                category TEXT NOT NULL,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                sourceUrl TEXT NOT NULL
             )
-        }
-        // Stesso fix di GeneratePoi.kt/writePoiDb: una transazione esplicita evita un commit
-        // con fsync per ogni riga (qui sempre poche unita', ma coerente con l'altra tabella
-        // dello stesso file).
-        conn.autoCommit = false
-        conn.prepareStatement(
-            "INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES (?, ?, ?, ?, ?)"
-        ).use { insert ->
-            sections.forEach { section ->
-                insert.setString(1, regionId)
-                insert.setString(2, section.category)
-                insert.setString(3, section.title)
-                insert.setString(4, section.body)
-                insert.setString(5, sourceUrl)
-                insert.addBatch()
-            }
-            insert.executeBatch()
-        }
-        conn.commit()
+            """.trimIndent(),
+        insertSql = "INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES (?, ?, ?, ?, ?)",
+        rows = sections,
+    ) { insert, section ->
+        insert.setString(1, regionId)
+        insert.setString(2, section.category)
+        insert.setString(3, section.title)
+        insert.setString(4, section.body)
+        insert.setString(5, sourceUrl)
     }
 }

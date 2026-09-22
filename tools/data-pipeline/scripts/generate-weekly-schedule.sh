@@ -35,20 +35,11 @@ CONCURRENCY=8
 
 # shellcheck source=./pilot-regions.sh
 source "$SCRIPT_DIR/pilot-regions.sh"
+# shellcheck source=./lib.sh
+source "$SCRIPT_DIR/lib.sh"
 
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
-
-# --- stessa griglia di build-region.sh (floor5/tile_name) --------------------------------------
-floor5() {
-  awk -v v="$1" 'BEGIN { x = v / 5; ix = int(x); if (x < ix) ix -= 1; printf "%d", ix * 5 }'
-}
-tile_name() {
-  local lon="$1" lat="$2" ew="E" ns="N" alon="$lon" alat="$lat"
-  if [ "$lon" -lt 0 ]; then ew="W"; alon=$(( -lon )); fi
-  if [ "$lat" -lt 0 ]; then ns="S"; alat=$(( -lat )); fi
-  echo "${ew}${alon}_${ns}${alat}"
-}
 
 # --- passo 1: tile per regione + insieme globale deduplicato -----------------------------------
 echo "== calcolo la griglia di tile per ${#PILOT_REGIONS[@]} regioni ==" >&2
@@ -212,6 +203,13 @@ awk -F'\t' -v giantsFile="$GIANTS_FILE" -v nonGiantFile="$NONGIANT_FILE" '
     ids="$(sort -t $'\t' -k3,3n "$ASSIGN_FILE" | awk -F'\t' -v d="$d" '$2 == d { print $1 }' | paste -sd, -)"
     echo "WEEKLY_SCHEDULE_DAY_${d}=\"${ids}\""
   done
+  echo ""
+  echo "# Peso (tile land misurate) per regione, riusato da publish-regions.yml per bilanciare gli"
+  echo "# shard dentro il bucket del giorno (bin-packing goloso, stesso principio di sopra ma sui 3"
+  echo "# shard invece che sui 7 giorni)."
+  echo "declare -A WEEKLY_SCHEDULE_TILES=("
+  awk -F'\t' '{ printf "  [%s]=%d\n", $1, $2 }' "$LOADS_FILE"
+  echo ")"
 } > "$OUT_FILE"
 
 echo "== scritto $OUT_FILE ==" >&2

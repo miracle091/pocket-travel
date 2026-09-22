@@ -7,6 +7,9 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 ### Modificato
 - Modelli IA on-device: rimossi Gemma 3 1B e Gemma 3n (E2B/E4B) dal catalogo e la relativa voce nelle licenze, perché richiedono di accettare una licenza su HuggingFace. Il modello predefinito diventa Qwen3 0.6B; chi aveva selezionato un modello Gemma torna al predefinito. Di conseguenza rimossi anche il campo per il token HuggingFace nella schermata Assistente IA e il suo codice.
 
+### Corretto
+- Pubblicazione automatica settimanale (`publish-regions.yml`): lo sharding a 3 vie dentro il bucket di ogni giorno era round-robin, senza tenere conto del peso reale delle regioni — una nazione enorme (es. Canada) poteva finire da sola in uno shard e rischiare di sforare il limite di 6h di un job GitHub Actions. Ora usa lo stesso bin-packing goloso per peso (tile `.rd5` misurate) già impiegato per bilanciare i 7 giorni della settimana.
+
 ## [0.4.0]
 
 ### Aggiunto

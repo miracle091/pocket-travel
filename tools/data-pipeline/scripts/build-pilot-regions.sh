@@ -20,7 +20,14 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # shellcheck source=./pilot-regions.sh
 source "$SCRIPT_DIR/pilot-regions.sh"
+# shellcheck source=./lib.sh
+source "$SCRIPT_DIR/lib.sh"
 REGIONS=("${PILOT_REGIONS[@]}")
+
+# Risolta una volta sola per l'intero lotto (non da ogni build-region.sh, vedi lib.sh): stessa
+# build Protomaps per tutte le regioni della stessa run.
+export PROTOMAPS_DATE_OVERRIDE="$(resolve_protomaps_date)"
+echo "== build Protomaps: ${PROTOMAPS_DATE_OVERRIDE}.pmtiles =="
 
 FRAGMENT_FILES=()
 for spec in "${REGIONS[@]}"; do
@@ -50,10 +57,8 @@ for spec in "${REGIONS[@]}"; do
   done
 done
 
-# gradlew invoca java.exe nativo di Windows: gli argomenti --args vogliono path Windows reali,
-# non il path POSIX virtuale di git-bash/MSYS (stesso problema/fix di build-region.sh). Su
-# Linux (CI) cygpath non esiste e non serve.
-winpath() { cygpath -m "$1" 2>/dev/null || echo "$1"; }
+# shellcheck source=./lib.sh
+source "$SCRIPT_DIR/lib.sh"
 ARGS_STR="\"$(winpath "$SITE_DIR/manifest.json")\""
 for f in "${FRAGMENT_FILES[@]}"; do
   ARGS_STR="$ARGS_STR \"$(winpath "$f")\""
