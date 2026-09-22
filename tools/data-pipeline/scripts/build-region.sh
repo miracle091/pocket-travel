@@ -440,7 +440,8 @@ cat > "$SPEC_FILE" <<EOF
     "sourceUrl": "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles",
     "minLon": ${MIN_LON}, "minLat": ${MIN_LAT}, "maxLon": ${MAX_LON}, "maxLat": ${MAX_LAT},
     "minZoom": ${MAP_MIN_ZOOM}, "maxZoom": ${MAP_MAX_ZOOM}
-  }
+  },
+  "wikivoyageUrl": "${WIKI_URL}"
 }
 EOF
 

@@ -4,6 +4,9 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ## [Non rilasciato]
 
+### Aggiunto
+- Pagina di stato GitHub Pages ridisegnata: elenco nazioni a card invece che a righe, nav sticky per saltare rapidamente a un continente (meno scroll per trovare una nazione), barra di ricerca più grande e a misura di tocco. Rimossa la riga "Ultimo aggiornamento: data" in testa, sostituita da un pannello "Ultimi aggiornamenti" (raggruppato per data di pubblicazione, derivato da `version`/`updatedAt` già presenti nel manifest). Il nome di ogni nazione è ora un link alla propria pagina Wikivoyage (edizione italiana quando esiste, fallback su quella inglese — stessa preferenza già usata dalla pipeline dati).
+
 ### Modificato
 - Modelli IA on-device: rimossi Gemma 3 1B e Gemma 3n (E2B/E4B) dal catalogo e la relativa voce nelle licenze, perché richiedono di accettare una licenza su HuggingFace. Il modello predefinito diventa Qwen3 0.6B; chi aveva selezionato un modello Gemma torna al predefinito. Di conseguenza rimossi anche il campo per il token HuggingFace nella schermata Assistente IA e il suo codice.
 

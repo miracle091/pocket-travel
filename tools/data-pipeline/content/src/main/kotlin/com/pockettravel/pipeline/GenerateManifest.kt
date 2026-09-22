@@ -46,6 +46,7 @@ fun buildManifestJson(
     updatedAt: String,
     files: List<ManifestFileEntry>,
     mapSource: MapSourceInput? = null,
+    wikivoyageUrl: String? = null,
 ): String {
     require(files.isNotEmpty()) { "Il pacchetto $regionId non contiene file" }
 
@@ -66,6 +67,8 @@ fun buildManifestJson(
         .put("version", version)
         .put("updatedAt", updatedAt)
         .put("files", filesArray)
+
+    wikivoyageUrl?.let { region.put("wikivoyageUrl", it) }
 
     mapSource?.let { ms ->
         region.put(
@@ -98,7 +101,8 @@ fun buildManifestJson(
  *   "regionId": "sm", "displayName": "San Marino", "version": "2026.09.14",
  *   "contentDb": { "path": "/abs/content.db", "url": "https://.../content.db" },
  *   "remoteFiles": [ { "name": "E10_N40.rd5", "url": "...", "sizeBytes": 123, "sha256": "..." } ],
- *   "mapSource": { "sourceUrl": "...", "minLon": .., "minLat": .., "maxLon": .., "maxLat": .., "minZoom": 0, "maxZoom": 14 }
+ *   "mapSource": { "sourceUrl": "...", "minLon": .., "minLat": .., "maxLon": .., "maxLat": .., "minZoom": 0, "maxZoom": 14 },
+ *   "wikivoyageUrl": "https://it.wikivoyage.org/wiki/San_Marino"
  * }
  */
 fun buildManifestJsonFromSpec(specJson: String): String {
@@ -133,6 +137,7 @@ fun buildManifestJsonFromSpec(specJson: String): String {
         updatedAt = Instant.now().toString(),
         files = files,
         mapSource = mapSource,
+        wikivoyageUrl = spec.optString("wikivoyageUrl").ifBlank { null },
     )
 }
 

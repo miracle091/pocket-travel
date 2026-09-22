@@ -11,6 +11,8 @@
 # superato il limite di 1GB di GitHub Pages.)
 #
 # Uso: assemble-site.sh <siteDir> <publishedManifestUrl> <fragmentFile1> [fragmentFile2 ...]
+# Richiede jq (per la sezione "Ultimi aggiornamenti" della pagina, derivata da version/updatedAt
+# del manifest unito) oltre alle dipendenze gia' richieste da mergeManifests (gradle wrapper).
 set -euo pipefail
 
 SITE_DIR="$1"; shift
@@ -74,6 +76,19 @@ is_present() {
   echo "$PRESENT_REGION_IDS" | grep -qxF "$1"
 }
 
+# Nome nazione collegato alla propria pagina Wikivoyage: riusa l'URL gia' risolto e salvato nel
+# manifest da build-region.sh (edizione italiana preferita, fallback su quella inglese se manca
+# il langlink - vedi il commento li'), nessuna nuova risoluzione di lingua lato sito. Facoltativo
+# come jq sopra ("Ultimi aggiornamenti"): senza jq i nomi restano semplice testo, come prima.
+WIKIVOYAGE_URLS=""
+if command -v jq >/dev/null 2>&1; then
+  WIKIVOYAGE_URLS="$(jq -r '.regions[] | select(.wikivoyageUrl != null) | [.regionId, .wikivoyageUrl] | @tsv' "$FINAL_MANIFEST")"
+fi
+
+wikivoyage_url_for() {
+  echo "$WIKIVOYAGE_URLS" | awk -F'\t' -v id="$1" '$1 == id { print $2; exit }'
+}
+
 flag_img() {
   echo "<img class=\"flag\" src=\"assets/flags/$1.svg\" width=\"28\" height=\"21\" alt=\"\">"
 }
@@ -87,10 +102,13 @@ status_html() {
   local regionId="$1" label="$2" withDash="${3:-false}"
   local text="$label"
   [ "$withDash" = "true" ] && text="— $label"
+  local wikiUrl
+  wikiUrl="$(wikivoyage_url_for "$regionId")"
+  [ -n "$wikiUrl" ] && text="<a href=\"$wikiUrl\">$text</a>"
   if is_present "$regionId"; then
-    # Niente piu' un href "regions/$regionId/": content.db/i .rd5 non vivono piu' sotto site/
-    # (vedi il commento in testa al file) e non hanno una singola pagina browsable a cui
-    # linkare - il download vero e proprio passa dagli URL in manifest.json, non da qui.
+    # L'href sopra e' verso Wikivoyage (guida testuale), non verso i dati della regione: content.db/
+    # i .rd5 non vivono piu' sotto site/ (vedi il commento in testa al file) e non hanno una singola
+    # pagina browsable a cui linkare - il download vero e proprio passa dagli URL in manifest.json.
     echo "<span class=\"entry\">$text $STATUS_OK_SVG</span>"
   else
     echo "<span class=\"entry\">$text $STATUS_FAIL_SVG</span>"
@@ -108,9 +126,17 @@ status_html() {
 # popolazione e turismo reale.
 CONTINENTS=("Europa" "Asia" "Africa" "Nord America" "Sud America" "Oceania" "Territori disabitati")
 
+# Solo caratteri ASCII nei nomi qui sopra (nessun accento): un tr basta per l'id di ancora del
+# menu di navigazione sticky, niente traslitterazione.
+slug() { echo "$1" | tr '[:upper:] ' '[:lower:]-'; }
+
+CONTINENT_NAV=""
 CONTINENT_SECTIONS=""
 for continent in "${CONTINENTS[@]}"; do
-  REGION_ROWS=""
+  continentId="$(slug "$continent")"
+  CONTINENT_NAV="$CONTINENT_NAV<a href=\"#$continentId\">$continent</a>"
+
+  REGION_CARDS=""
   currentGroup=""
   groupFlagImg=""
   groupSubRows=""
@@ -121,8 +147,8 @@ for continent in "${CONTINENTS[@]}"; do
   # PILOT_REGIONS perche' questo funzioni).
   flush_group() {
     if [ -n "$currentGroup" ]; then
-      row="<li><span class=\"row\">$groupFlagImg $currentGroup</span><ul class=\"subgroup\">$groupSubRows</ul></li>"
-      REGION_ROWS="$(printf '%s\n%s' "$REGION_ROWS" "$row")"
+      card="<div class=\"card\"><div class=\"card-head\">$groupFlagImg<span class=\"card-title\">$currentGroup</span></div><ul class=\"subgroup\">$groupSubRows</ul></div>"
+      REGION_CARDS="$(printf '%s\n%s' "$REGION_CARDS" "$card")"
     fi
     currentGroup=""
     groupFlagImg=""
@@ -141,20 +167,43 @@ for continent in "${CONTINENTS[@]}"; do
       groupSubRows="$groupSubRows<li>$(status_html "$regionId" "$groupLabel" true)</li>"
     else
       flush_group
-      row="<li><span class=\"row\">$(flag_img "$flag") $(status_html "$regionId" "$displayName")</span></li>"
-      REGION_ROWS="$(printf '%s\n%s' "$REGION_ROWS" "$row")"
+      card="<div class=\"card\"><div class=\"card-head\">$(flag_img "$flag") $(status_html "$regionId" "$displayName")</div></div>"
+      REGION_CARDS="$(printf '%s\n%s' "$REGION_CARDS" "$card")"
     fi
   done
   flush_group
 
-  if [ -z "$REGION_ROWS" ]; then
+  if [ -z "$REGION_CARDS" ]; then
     body="<p class=\"empty\">Nessuna nazione pubblicata ancora in questo continente.</p>"
   else
-    body="<ul>$REGION_ROWS</ul>"
+    body="<div class=\"card-grid\">$REGION_CARDS</div>"
   fi
-  section="<section class=\"continent\"><h2>$continent</h2>$body</section>"
+  section="<section class=\"continent\" id=\"$continentId\"><h2>$continent</h2>$body</section>"
   CONTINENT_SECTIONS="$(printf '%s\n%s' "$CONTINENT_SECTIONS" "$section")"
 done
+
+# "Ultimi aggiornamenti": derivato da version/updatedAt gia' presenti in ogni region del manifest
+# unito, non serve nessuna cronologia separata da mantenere. Raggruppato per version (una per
+# ogni run di pubblicazione, non per singola nazione) e limitato alle 10 piu' recenti cosi' la
+# sezione resta di dimensione costante anche a copertura mondiale completa (254 nazioni), invece
+# di crescere senza limite.
+CHANGELOG_HTML=""
+if command -v jq >/dev/null 2>&1; then
+  while IFS=$'\t' read -r version names; do
+    CHANGELOG_HTML="$CHANGELOG_HTML<dt>$version</dt><dd>$names</dd>"
+  done < <(jq -r '
+    [.regions[] | select(.version != null and .version != "") | {displayName, version}]
+    | group_by(.version)
+    | map({version: .[0].version, names: (map(.displayName) | sort | join(", "))})
+    | sort_by(.version)
+    | reverse
+    | .[:10]
+    | .[]
+    | [.version, .names]
+    | @tsv
+  ' "$FINAL_MANIFEST")
+fi
+[ -n "$CHANGELOG_HTML" ] || CHANGELOG_HTML="<dd class=\"empty\">Nessun aggiornamento ancora pubblicato.</dd>"
 
 cat > "$SITE_DIR/index.html" <<HTML
 <!doctype html>
@@ -195,33 +244,76 @@ cat > "$SITE_DIR/index.html" <<HTML
   input[type="search"] {
     display: block;
     width: 100%;
-    max-width: 360px;
-    padding: 8px 10px;
-    font-size: 1em;
+    max-width: 420px;
+    min-height: 44px;
+    padding: 10px 14px;
+    font-size: 16px;
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: 8px;
     background: var(--card-bg);
     color: var(--fg);
     margin: 12px 0;
   }
-  .continents { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px 32px; }
-  .continent { min-width: 0; }
+  .continent-nav {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--bg);
+    padding: 8px 0;
+    margin: 0 0 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .continent-nav a {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 4px 14px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    text-decoration: none;
+    font-size: .9em;
+    white-space: nowrap;
+  }
+  .changelog { margin: 12px 0; border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; background: var(--card-bg); }
+  .changelog summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+  .changelog-list { margin: 8px 0 0; }
+  .changelog-list dt { font-weight: 600; margin-top: 10px; }
+  .changelog-list dt:first-child { margin-top: 0; }
+  .changelog-list dd { margin: 2px 0 0; color: var(--muted); }
+  .continent { min-width: 0; padding-bottom: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .continent:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  /* Colonne di larghezza uniforme (niente piu' card larghe quanto il contenuto, che rendeva le
+     righe irregolari): 190px basta a tenere la quasi totalita' dei nomi su una riga sola: solo i
+     pochi nomi davvero lunghi (es. "Territorio Britannico dell'Oceano Indiano") vanno a capo su
+     due righe invece di essere tagliati - nessuna ellissi forzata. */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-top: 10px; }
+  .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; min-width: 0; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .card-head { display: flex; align-items: center; gap: 8px; }
+  .card-title { font-weight: 600; min-width: 0; }
   ul { padding-left: 0; }
   li { list-style: none; margin: 4px 0; }
-  .row { display: flex; align-items: center; gap: 4px; }
   .entry { display: inline-flex; align-items: center; gap: 4px; }
   .flag { border: 1px solid var(--border); border-radius: 2px; flex-shrink: 0; }
   .status { flex-shrink: 0; }
-  .subgroup { padding-left: 32px; margin: 4px 0; }
-  h2 { font-size: 1.05em; margin: 20px 0 6px; border-bottom: 1px solid var(--border); padding-bottom: 2px; }
+  .card .subgroup { padding-left: 0; margin: 10px 0 0; border-top: 1px solid var(--border); padding-top: 8px; }
+  h2 { font-size: 1.05em; margin: 0; scroll-margin-top: 56px; }
   .empty { color: var(--muted); font-style: italic; margin: 4px 0; }
   #no-results { color: var(--muted); font-style: italic; }
 </style>
 <p>Questo host serve solo dati statici per l'app <a href="https://github.com/miracle091/pocket-travel">Pocket Travel</a>.</p>
-<p>Ultimo aggiornamento: $(date -u +%Y.%m.%d)</p>
 <p><a href="manifest.json">manifest.json</a></p>
+<details class="changelog">
+  <summary>Ultimi aggiornamenti</summary>
+  <dl class="changelog-list">$CHANGELOG_HTML</dl>
+</details>
 <input type="search" id="search" placeholder="Cerca una nazione…" aria-label="Cerca una nazione">
 <p id="no-results" hidden>Nessun risultato.</p>
+<nav class="continent-nav" aria-label="Vai al continente">$CONTINENT_NAV</nav>
 <div class="continents">
 $CONTINENT_SECTIONS
 </div>
@@ -232,8 +324,8 @@ $CONTINENT_SECTIONS
   if (!input) return;
   var sections = document.querySelectorAll('.continent');
 
-  function groupLabelText(li) {
-    var clone = li.cloneNode(true);
+  function groupLabelText(card) {
+    var clone = card.cloneNode(true);
     var sub = clone.querySelector('.subgroup');
     if (sub) sub.remove();
     return clone.textContent.toLowerCase();
@@ -243,23 +335,23 @@ $CONTINENT_SECTIONS
     var q = input.value.trim().toLowerCase();
     var anyVisibleTotal = false;
     sections.forEach(function (section) {
-      var topItems = section.querySelectorAll(':scope > ul > li');
-      if (topItems.length === 0) {
+      var cards = section.querySelectorAll(':scope > .card-grid > .card');
+      if (cards.length === 0) {
         var placeholderVisible = !q;
         section.style.display = placeholderVisible ? '' : 'none';
         if (placeholderVisible) anyVisibleTotal = true;
         return;
       }
       var anyVisible = false;
-      topItems.forEach(function (li) {
-        var subUl = li.querySelector('.subgroup');
+      cards.forEach(function (card) {
+        var subUl = card.querySelector('.subgroup');
         if (!subUl) {
-          var match = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
-          li.style.display = match ? '' : 'none';
+          var match = !q || card.textContent.toLowerCase().indexOf(q) !== -1;
+          card.style.display = match ? '' : 'none';
           if (match) anyVisible = true;
           return;
         }
-        var groupMatch = !q || groupLabelText(li).indexOf(q) !== -1;
+        var groupMatch = !q || groupLabelText(card).indexOf(q) !== -1;
         var subItems = subUl.querySelectorAll('li');
         var anySubVisible = false;
         subItems.forEach(function (sub) {
@@ -267,7 +359,7 @@ $CONTINENT_SECTIONS
           sub.style.display = visible ? '' : 'none';
           if (visible) anySubVisible = true;
         });
-        li.style.display = anySubVisible ? '' : 'none';
+        card.style.display = anySubVisible ? '' : 'none';
         if (anySubVisible) anyVisible = true;
       });
       section.style.display = anyVisible ? '' : 'none';
