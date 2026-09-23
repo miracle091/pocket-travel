@@ -1,28 +1,31 @@
 package com.pockettravel.app.regions
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.feature.ai.AiAssistantScreen
 import com.pockettravel.feature.guide.GuideScreen
@@ -52,6 +55,9 @@ fun RegionHubScreen(
     onBack: () -> Unit,
     onOpenOfficialSource: (url: String) -> Unit = {},
     onOpenSource: (url: String, title: String) -> Unit = { _, _ -> },
+    // true quando l'hub e' il pannello di dettaglio accanto all'elenco regioni (schermi larghi):
+    // barra in basso invece della rail, che finirebbe in mezzo allo schermo.
+    compactNavigation: Boolean = false,
     viewModel: RegionHubViewModel = hiltViewModel(),
 ) {
     var selectedTab by rememberSaveable(regionId) { mutableStateOf(RegionTab.fromKey(initialTab)) }
@@ -60,54 +66,67 @@ fun RegionHubScreen(
     LaunchedEffect(regionId) { viewModel.load(regionId) }
     LaunchedEffect(regionMissing) { if (regionMissing) onBack() }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(displayName ?: regionId) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(imageVector = AppIcons.Back, contentDescription = "Indietro")
-                    }
-                },
-            )
-        },
-        bottomBar = {
-            NavigationBar {
-                RegionTab.entries.forEach { tab ->
-                    NavigationBarItem(
-                        selected = tab == selectedTab,
-                        onClick = { selectedTab = tab },
-                        icon = {
-                            Icon(
-                                imageVector = tab.icon(),
-                                contentDescription = tab.label,
-                                modifier = Modifier.size(24.dp),
-                            )
-                        },
-                        label = { Text(tab.label) },
-                    )
-                }
+    val adaptiveInfo = currentWindowAdaptiveInfo()
+    NavigationSuiteScaffold(
+        navigationSuiteItems = {
+            RegionTab.entries.forEach { tab ->
+                val selected = tab == selectedTab
+                item(
+                    selected = selected,
+                    onClick = { selectedTab = tab },
+                    icon = { Icon(imageVector = tab.icon(selected), contentDescription = null) },
+                    label = { Text(tab.label) },
+                )
             }
         },
-    ) { innerPadding ->
-        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            when (selectedTab) {
-                RegionTab.GUIDE -> GuideScreen(regionId = regionId, onOpenSource = onOpenSource)
-                RegionTab.MAP -> {
-                    val mapViewModel: MapRouteViewModel = hiltViewModel()
-                    LaunchedEffect(regionId) { mapViewModel.loadPins(regionId) }
-                    val pins by mapViewModel.pins.collectAsStateWithLifecycle()
-                    MapScreen(tileSource = mapViewModel.tileSource, regionId = regionId, pins = pins)
+        layoutType = if (compactNavigation) {
+            NavigationSuiteType.NavigationBar
+        } else {
+            NavigationSuiteScaffoldDefaults.navigationSuiteType(adaptiveInfo)
+        },
+    ) {
+        // Dentro NavigationSuiteScaffold: gli inset di sistema li gestiscono la barra/rail e la top app bar,
+        // applicarli anche qui lascerebbe una fascia vuota sopra la barra di navigazione.
+        Scaffold(
+            contentWindowInsets = WindowInsets(0),
+            topBar = {
+                TopAppBar(
+                    title = { Text(displayName ?: regionId) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(imageVector = AppIcons.Back, contentDescription = "Indietro")
+                        }
+                    },
+                )
+            },
+        ) { innerPadding ->
+            // imePadding: con l'edge-to-edge la tastiera non ridimensiona piu' la finestra, il campo
+            // di testo dell'assistente deve restare sopra la tastiera da solo.
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .consumeWindowInsets(innerPadding)
+                    .imePadding(),
+            ) {
+                when (selectedTab) {
+                    RegionTab.GUIDE -> GuideScreen(regionId = regionId, onOpenSource = onOpenSource)
+                    RegionTab.MAP -> {
+                        val mapViewModel: MapRouteViewModel = hiltViewModel()
+                        LaunchedEffect(regionId) { mapViewModel.loadPins(regionId) }
+                        val pins by mapViewModel.pins.collectAsStateWithLifecycle()
+                        MapScreen(tileSource = mapViewModel.tileSource, regionId = regionId, pins = pins)
+                    }
+                    RegionTab.AI -> AiAssistantScreen(regionId = regionId, onOpenOfficialSource = onOpenOfficialSource)
                 }
-                RegionTab.AI -> AiAssistantScreen(regionId = regionId, onOpenOfficialSource = onOpenOfficialSource)
             }
         }
     }
 }
 
 @Composable
-private fun RegionTab.icon(): ImageVector = when (this) {
-    RegionTab.GUIDE -> AppIcons.World
-    RegionTab.MAP -> AppIcons.Map
-    RegionTab.AI -> AppIcons.AiAssistant
+private fun RegionTab.icon(selected: Boolean): ImageVector = when (this) {
+    RegionTab.GUIDE -> if (selected) AppIcons.WorldFilled else AppIcons.World
+    RegionTab.MAP -> if (selected) AppIcons.MapFilled else AppIcons.Map
+    RegionTab.AI -> if (selected) AppIcons.AiAssistantFilled else AppIcons.AiAssistant
 }

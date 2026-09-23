@@ -10,6 +10,7 @@ object PocketTravelDestinations {
     const val SOURCES = "sources"
     const val LICENSES = "licenses"
     const val VAULT = "vault"
+    const val MORE = "more"
 
     const val ARG_REGION_ID = "regionId"
     const val ARG_TAB = "tab"

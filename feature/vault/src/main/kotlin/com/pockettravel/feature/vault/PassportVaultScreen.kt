@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -52,8 +53,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -93,7 +94,7 @@ private enum class GateStatus { CHECKING, NOT_ENROLLED, LOCKED, UNLOCKED }
 // (repository.lock()) quando questa schermata viene chiusa.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PassportVaultScreen(onBack: () -> Unit, viewModel: PassportVaultViewModel = hiltViewModel()) {
+fun PassportVaultScreen(onBack: (() -> Unit)? = null, viewModel: PassportVaultViewModel = hiltViewModel()) {
     val context = LocalContext.current
     var gateStatus by remember {
         val canAuthenticate = BiometricManager.from(context).canAuthenticate(ALLOWED_AUTHENTICATORS)
@@ -106,13 +107,19 @@ fun PassportVaultScreen(onBack: () -> Unit, viewModel: PassportVaultViewModel = 
         onDispose { viewModel.lock() }
     }
 
+    // Dentro NavigationSuiteScaffold: gli inset di sistema li gestiscono la barra/rail e la top app bar,
+    // applicarli anche qui lascerebbe una fascia vuota sopra la barra di navigazione.
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             TopAppBar(
                 title = { Text("Documenti") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(imageVector = AppIcons.Back, contentDescription = "Indietro")
+                    // Destinazione principale della barra di navigazione: nessuna freccia indietro.
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(imageVector = AppIcons.Back, contentDescription = "Indietro")
+                        }
                     }
                 },
             )
@@ -218,7 +225,10 @@ private fun PassportVaultContent(viewModel: PassportVaultViewModel) {
     val passports by viewModel.passports.collectAsStateWithLifecycle()
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
 
+    // Dentro NavigationSuiteScaffold: gli inset di sistema li gestiscono la barra/rail e la top app bar,
+    // applicarli anche qui lascerebbe una fascia vuota sopra la barra di navigazione.
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
                 Icon(imageVector = AppIcons.Add, contentDescription = "Aggiungi documento")
