@@ -36,6 +36,8 @@
     <string name="more_storage_subtitle">Regioni e modelli IA scaricati</string>
     <string name="more_tutorial">Rivedi tutorial</string>
     <string name="more_licenses">Licenze</string>
+    <string name="more_dynamic_color">Colori dal wallpaper</string>
+    <string name="more_dynamic_color_subtitle">Usa i colori dello sfondo del telefono invece di quelli dell\'app</string>
     <string name="more_licenses_subtitle">Componenti e dati di terze parti</string>
 
     <!-- Navigazione principale -->

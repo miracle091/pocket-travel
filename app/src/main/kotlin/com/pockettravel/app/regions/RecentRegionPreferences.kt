@@ -6,7 +6,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Ricorda l'ultima regione aperta, per far puntare le voci globali Mappa/IA del drawer a un contesto valido. */
+/** Ricorda l'ultima regione aperta, per riaprirne la mappa all'avvio (vedi StartDestinationViewModel). */
 @Singleton
 class RecentRegionPreferences @Inject constructor(@ApplicationContext context: Context) {
 
