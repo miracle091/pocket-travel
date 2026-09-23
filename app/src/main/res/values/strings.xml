@@ -24,6 +24,15 @@
     <string name="regions_large_download_message">%1$s pesa %2$s e sei su rete mobile. Continuare?</string>
     <string name="regions_large_download_confirm">Scarica</string>
     <string name="continent_other">Altro</string>
+    <string name="regions_downloaded">Le tue nazioni</string>
+    <plurals name="continent_count">
+        <item quantity="one">%1$d nazione</item>
+        <item quantity="other">%1$d nazioni</item>
+    </plurals>
+    <string name="continent_expanded">aperto</string>
+    <string name="continent_collapsed">chiuso</string>
+    <string name="continent_expand">Mostra le nazioni</string>
+    <string name="continent_collapse">Nascondi le nazioni</string>
 
     <!-- Altro -->
     <string name="more_title">Altro</string>

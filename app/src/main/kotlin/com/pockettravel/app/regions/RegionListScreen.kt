@@ -2,13 +2,16 @@ package com.pockettravel.app.regions
 
 import android.text.format.Formatter
 import androidx.annotation.StringRes
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -43,11 +46,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -165,7 +173,12 @@ internal fun RegionListContent(
                     modifier = Modifier.fillMaxSize(),
                 )
 
-                else -> RegionGroupedList(items = uiState.items, rowActions = rowActions, onRegionClick = onRegionClick)
+                else -> RegionGroupedList(
+                    items = uiState.items,
+                    searching = uiState.query.isNotBlank(),
+                    rowActions = rowActions,
+                    onRegionClick = onRegionClick,
+                )
             }
         }
     }
@@ -206,36 +219,97 @@ private fun RegionSearchField(query: String, onQueryChange: (String) -> Unit, mo
 @Composable
 private fun RegionGroupedList(
     items: List<RegionUiItem>,
+    searching: Boolean,
     rowActions: RegionRowActions,
     onRegionClick: (RegionUiItem) -> Unit,
 ) {
-    val groups = groupByContinent(items)
+    val groups = groupRegions(items)
     val otherLabel = stringResource(R.string.continent_other)
+    val downloadedLabel = stringResource(R.string.regions_downloaded)
+    // Gruppi a scomparsa: "Le tue nazioni" aperto di default, i continenti chiusi. Qui si salvano
+    // solo i gruppi che l'utente ha invertito rispetto al default (anche alla rotazione). Durante
+    // una ricerca sono tutti aperti, per vedere subito i risultati.
+    var toggled by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
     LazyColumn(
         contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, bottom = Spacing.l),
     ) {
-        groups.forEach { (continent, regions) ->
-            item(key = "header_${continent ?: ""}") {
-                Text(
-                    text = continent ?: otherLabel,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .padding(start = Spacing.l, top = Spacing.l, bottom = Spacing.s)
-                        .semantics { heading() },
+        groups.forEach { (group, regions) ->
+            val key = group.key
+            val expandedByDefault = group == RegionGroup.Downloaded
+            val expanded = searching || ((key in toggled) != expandedByDefault)
+            item(key = "header_$key") {
+                ContinentHeader(
+                    title = when (group) {
+                        RegionGroup.Downloaded -> downloadedLabel
+                        is RegionGroup.Continent -> group.name ?: otherLabel
+                    },
+                    count = regions.size,
+                    expanded = expanded,
+                    enabled = !searching,
+                    onToggle = { toggled = ArrayList(if (key in toggled) toggled - key else toggled + key) },
+                    modifier = Modifier.animateItem(),
                 )
             }
-            // Un gruppo per continente: righe su una superficie tonale arrotondata, separate da
-            // divisori, invece di una card per riga.
-            itemsIndexed(regions, key = { _, item -> item.regionId }) { index, item ->
-                val shape = groupShape(index, regions.size)
-                Surface(shape = shape, color = MaterialTheme.colorScheme.surfaceContainerLow) {
-                    Column {
-                        RegionRow(item = item, actions = rowActions, onClick = { onRegionClick(item) })
-                        if (index < regions.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 72.dp))
+            if (expanded) {
+                // Un gruppo per continente: righe su una superficie tonale arrotondata, separate da
+                // divisori, invece di una card per riga.
+                itemsIndexed(regions, key = { _, item -> item.regionId }) { index, item ->
+                    val shape = groupShape(index, regions.size)
+                    Surface(shape = shape, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.animateItem()) {
+                        Column {
+                            RegionRow(item = item, actions = rowActions, onClick = { onRegionClick(item) })
+                            if (index < regions.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 72.dp))
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ContinentHeader(
+    title: String,
+    count: Int,
+    expanded: Boolean,
+    enabled: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
+    val stateText = stringResource(if (expanded) R.string.continent_expanded else R.string.continent_collapsed)
+    val actionLabel = stringResource(if (expanded) R.string.continent_collapse else R.string.continent_expand)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = Spacing.s)
+            .clip(MaterialTheme.shapes.large)
+            .clickable(enabled = enabled, onClickLabel = actionLabel, role = Role.Button, onClick = onToggle)
+            .heightIn(min = 56.dp)
+            .padding(horizontal = Spacing.l)
+            .semantics(mergeDescendants = true) {
+                heading()
+                stateDescription = stateText
+            },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = pluralStringResource(R.plurals.continent_count, count, count),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (enabled) {
+            Icon(
+                imageVector = AppIcons.ExpandMore,
+                contentDescription = null,
+                modifier = Modifier.padding(start = Spacing.s).rotate(rotation),
+            )
         }
     }
 }
@@ -364,9 +438,31 @@ private fun RegionStatus.label(): Int = when (this) {
 // coda, le regioni senza continente (manifest pubblicati prima del campo) nel gruppo "Altro".
 private val CONTINENT_ORDER = listOf("Europa", "Asia", "Africa", "Nord America", "Sud America", "Oceania", "Territori disabitati")
 
-internal fun groupByContinent(items: List<RegionUiItem>): List<Pair<String?, List<RegionUiItem>>> {
+// Gruppo dell'elenco regioni: prima "Le tue nazioni" (scaricate o da aggiornare), poi i continenti
+// con le sole nazioni non ancora scaricate.
+internal sealed interface RegionGroup {
+    val key: String
+
+    data object Downloaded : RegionGroup {
+        override val key = "downloaded"
+    }
+
+    data class Continent(val name: String?) : RegionGroup {
+        override val key = "continent_" + (name ?: "")
+    }
+}
+
+internal fun groupRegions(items: List<RegionUiItem>): List<Pair<RegionGroup, List<RegionUiItem>>> {
     val collator = Collator.getInstance(Locale.ITALIAN).apply { strength = Collator.PRIMARY }
-    return items
+    val byName = compareBy(collator) { item: RegionUiItem -> item.displayName }
+    val (downloaded, others) = items.partition { it.status != RegionStatus.NOT_INSTALLED }
+    val downloadedGroup = downloaded
+        // Da aggiornare prima delle gia' aggiornate, poi per nome.
+        .sortedWith(compareBy<RegionUiItem> { it.status != RegionStatus.UPDATE_AVAILABLE }.then(byName))
+        .takeIf { it.isNotEmpty() }
+        ?.let { listOf(RegionGroup.Downloaded to it) }
+        .orEmpty()
+    val continentGroups = others
         .groupBy { it.continent }
         .toList()
         .sortedBy { (continent, _) ->
@@ -376,7 +472,8 @@ internal fun groupByContinent(items: List<RegionUiItem>): List<Pair<String?, Lis
                 else -> CONTINENT_ORDER.size
             }
         }
-        .map { (continent, regions) -> continent to regions.sortedWith(compareBy(collator) { it.displayName }) }
+        .map { (continent, regions) -> RegionGroup.Continent(continent) to regions.sortedWith(byName) }
+    return downloadedGroup + continentGroups
 }
 
 @Preview(widthDp = 360, heightDp = 640)
