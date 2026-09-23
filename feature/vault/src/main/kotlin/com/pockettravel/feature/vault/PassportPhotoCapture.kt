@@ -194,7 +194,9 @@ internal fun DocumentCameraCaptureScreen(
 // campionare, cosi' il colore corrisponde approssimativamente a cio' che viene analizzato.
 @Composable
 private fun DocumentFrameOverlay(isWellFramed: Boolean, modifier: Modifier = Modifier) {
-    val color = if (isWellFramed) Color(0xFF4CAF50) else Color(0xFFF44336)
+    // Colori "fixed" del tema: restano chiari e ben visibili sopra l'anteprima della fotocamera in
+    // entrambi i temi; lo stato e' ripetuto anche dal testo in alto (non solo dal colore).
+    val color = if (isWellFramed) MaterialTheme.colorScheme.primaryFixed else MaterialTheme.colorScheme.error
     Canvas(modifier = modifier) {
         val frameWidth = size.width * 0.7f
         val frameHeight = size.height * 0.7f

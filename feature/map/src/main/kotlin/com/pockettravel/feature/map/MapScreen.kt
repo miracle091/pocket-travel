@@ -211,7 +211,7 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
                     ) {
                         Icon(AppIcons.Call, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(Spacing.s))
-                        Text("${stringResource(R.string.poi_call)} $phone")
+                        Text(stringResource(R.string.poi_call, phone))
                     }
                 }
             }

@@ -5,6 +5,11 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 ## [Non rilasciato]
 
 ### Aggiunto
+- Interfaccia completamente ridisegnata su Material Design 3: tema con colori dal wallpaper (Android 12+, disattivabile da Altro → "Colori dal wallpaper") o palette del brand, in tre livelli di contrasto; icone Material Symbols; tema scuro anche per la mappa. Navigazione con barra in basso (Regioni, Documenti, Altro) al posto del menu laterale, che su tablet e pieghevoli diventa una barra laterale con elenco regioni e dettaglio affiancati. L'app va a tutto schermo (edge-to-edge) e supporta il gesto Indietro predittivo, con animazioni di transizione.
+- Ricerca nell'elenco delle regioni, senza distinzione di maiuscole e accenti.
+- Mappa: segnalini in stile Google Maps, con colore e simbolo diversi per ogni categoria (alloggio, cibo, negozi, attrazioni, ambasciate); i filtri fanno anche da legenda e la scheda di un punto si apre dal basso.
+- Assistente in stile chat (domanda e risposta in bolle, campo di invio in basso); Documenti con modulo a schermo intero; Guida con filtri per categoria.
+- Accessibilità: testi leggibili fino al 200% di ingrandimento, tutti i pulsanti di almeno 48 dp e con etichetta per TalkBack, titoli annunciati come tali, risposta dell'assistente annunciata quando arriva.
 - Pagina di stato GitHub Pages ridisegnata: elenco nazioni a card invece che a righe, nav sticky per saltare rapidamente a un continente (meno scroll per trovare una nazione), barra di ricerca più grande e a misura di tocco. Rimossa la riga "Ultimo aggiornamento: data" in testa, sostituita da un pannello "Ultimi aggiornamenti" (raggruppato per data di pubblicazione, derivato da `version`/`updatedAt` già presenti nel manifest). Il nome di ogni nazione è ora un link alla propria pagina Wikivoyage (edizione italiana quando esiste, fallback su quella inglese — stessa preferenza già usata dalla pipeline dati).
 
 ### Modificato
@@ -12,6 +17,9 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Motore IA on-device: passaggio da LiteRT-LM (Google, senza nuove release da agosto 2026) a llama.cpp, compilato da sorgente nell'app. I modelli del catalogo sono ora file GGUF quantizzati Q4_K_M, più leggeri dei precedenti `.litertlm` (es. Qwen3 0.6B da 474 a 378 MB). I modelli già scaricati nel vecchio formato non sono più utilizzabili e vengono eliminati in automatico al primo avvio, liberando spazio: il modello va scaricato di nuovo dalla schermata Assistente IA. Rimosso dal catalogo DeepSeek R1 Distill Qwen 1.5B: come modello "reasoning" genera un lungo ragionamento prima della risposta, troppo lento su un telefono; per la fascia da 8 GB di RAM resta Qwen2.5 1.5B.
 
 ### Corretto
+- Aprendo l'app sulla mappa dell'ultima regione, il tasto Indietro chiudeva l'app invece di tornare all'elenco regioni.
+- Elenco regioni: l'avviso "spazio insufficiente" sostituiva l'intero elenco con un messaggio di errore; ora compare come notifica temporanea (Snackbar).
+- Onboarding: il passo "Scarica una regione" indicava di farlo da "Spazio di archiviazione", da cui non si scarica; ora rimanda alla schermata Regioni. Ruotando lo schermo il tutorial non torna più al primo passo.
 - Guida: le sottosezioni delle voci Wikivoyage (es. "Vini rossi", "Moscati e passiti" sotto "Bevande") comparivano come testo semplice preceduto da `;` o `▸`, senza che si capisse che erano titoli. Ora sono mostrate come sottotitoli, senza simbolo e annunciate come titoli da TalkBack; vale subito anche per le regioni già scaricate. La pipeline dati converte ora anche la sintassi `;Titolo` in sottosezione, per i pacchetti pubblicati da qui in avanti.
 - Pubblicazione automatica settimanale (`publish-regions.yml`): lo sharding a 3 vie dentro il bucket di ogni giorno era round-robin, senza tenere conto del peso reale delle regioni — una nazione enorme (es. Canada) poteva finire da sola in uno shard e rischiare di sforare il limite di 6h di un job GitHub Actions. Ora usa lo stesso bin-packing goloso per peso (tile `.rd5` misurate) già impiegato per bilanciare i 7 giorni della settimana.
 
