@@ -1,6 +1,9 @@
 package com.pockettravel.pipeline
 
 import java.io.File
+import javax.xml.parsers.SAXParserFactory
+import org.xml.sax.Attributes
+import org.xml.sax.helpers.DefaultHandler
 
 fun main(args: Array<String>) {
     require(args.size >= 4) { "Uso: generatePoi <regionId> <output poi.db> <poiTagKeys separate da virgola> <input1.osm.xml> [input2.osm.xml ...]" }
@@ -13,30 +16,80 @@ fun main(args: Array<String>) {
 
     // Un bbox nazionale grande (es. Stati Uniti) supera la capacita' di una singola query
     // Overpass (visto: 504 Gateway Timeout anche a 900s) - build-region.sh lo spezza in piu'
-    // chunk 5x5 gradi, ciascuno con il proprio file XML. I nodi vengono dedotti di nuovo qui
-    // (oltre al dedup gia' fatto da parseOsmXml per file) perche' un nodo esattamente sul
-    // confine tra due chunk puo' comparire nella risposta di entrambi.
-    val nodes = inputFiles.flatMap { parseOsmXml(it).nodes }.distinctBy { it.id }
-    val pois = extractPois(OsmData(nodes, emptyList()), poiTagKeys)
+    // chunk 5x5 gradi, ciascuno con il proprio file XML, letti uno dopo l'altro da readPois.
+    val pois = readPois(inputFiles, poiTagKeys)
 
     writePoiDb(pois, regionId, outputDb)
     println("poi: ${pois.size} POI scritti in ${outputDb.path}")
 }
 
+/**
+ * Legge i POI dagli XML Overpass in streaming, tenendo in memoria solo i [Poi] (pochi campi) e
+ * non ogni nodo con tutti i suoi tag come parseOsmXml: con tutti i nodi della Germania in
+ * memoria generatePoi esauriva lo heap di 4g (OutOfMemoryError nel build del 2026-09-23).
+ * Un nodo esattamente sul confine tra due chunk puo' comparire in entrambi i file: conta una
+ * volta sola.
+ */
+fun readPois(files: List<File>, poiTagKeys: List<String>): List<Poi> {
+    // Stessi limiti JAXP disattivati di parseOsmXml (maptiles): innocui con disallow-doctype-decl,
+    // scattano su estratti Overpass nazionali di milioni di righe.
+    System.setProperty("jdk.xml.maxGeneralEntitySizeLimit", "0")
+    System.setProperty("jdk.xml.totalEntitySizeLimit", "0")
+    System.setProperty("jdk.xml.entityExpansionLimit", "0")
+
+    val pois = mutableListOf<Poi>()
+    val seenIds = HashSet<Long>()
+    var tags = HashMap<String, String>()
+    var id = 0L
+    var lat = 0.0
+    var lon = 0.0
+    var inNode = false
+    val handler = object : DefaultHandler() {
+        override fun startElement(uri: String, localName: String, qName: String, attributes: Attributes) {
+            when (qName) {
+                "node" -> {
+                    inNode = true
+                    id = attributes.getValue("id").toLong()
+                    lat = attributes.getValue("lat").toDouble()
+                    lon = attributes.getValue("lon").toDouble()
+                    tags = HashMap()
+                }
+                "tag" -> if (inNode) tags[attributes.getValue("k")] = attributes.getValue("v")
+            }
+        }
+
+        override fun endElement(uri: String, localName: String, qName: String) {
+            if (qName != "node") return
+            inNode = false
+            val poi = poiFrom(tags, lat, lon, poiTagKeys) ?: return
+            if (seenIds.add(id)) pois += poi
+        }
+    }
+    val parser = SAXParserFactory.newInstance().apply {
+        setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+        setFeature("http://xml.org/sax/features/external-general-entities", false)
+        setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+        setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+        isXIncludeAware = false
+    }.newSAXParser()
+    files.forEach { parser.parse(it, handler) }
+    return pois
+}
+
 data class Poi(val name: String, val category: String, val lat: Double, val lon: Double, val osmTag: String, val phone: String?)
 
-fun extractPois(data: OsmData, poiTagKeys: List<String>): List<Poi> = data.nodes.mapNotNull { node ->
-    val tagKey = poiTagKeys.firstOrNull { node.tags.containsKey(it) } ?: return@mapNotNull null
-    val tagValue = node.tags.getValue(tagKey)
-    Poi(
-        name = node.tags["name"] ?: tagValue,
+private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagKeys: List<String>): Poi? {
+    val tagKey = poiTagKeys.firstOrNull { tags.containsKey(it) } ?: return null
+    val tagValue = tags.getValue(tagKey)
+    return Poi(
+        name = tags["name"] ?: tagValue,
         category = tagValue,
-        lat = node.lat,
-        lon = node.lon,
+        lat = lat,
+        lon = lon,
         osmTag = "$tagKey=$tagValue",
         // "phone" e' il tag storico, "contact:phone" quello piu' recente dello schema
         // contact:* — OSM non li ha mai consolidati in uno solo, entrambi ancora in uso.
-        phone = node.tags["phone"] ?: node.tags["contact:phone"],
+        phone = tags["phone"] ?: tags["contact:phone"],
     )
 }
 
