@@ -38,14 +38,24 @@ fi
 
 MANIFEST_INPUTS+=("${FRAGMENT_FILES[@]}")
 
-ARGS_STR="\"$(winpath "$SITE_DIR/manifest.json")\""
+# Continente di ogni regione (ultimo campo di PILOT_REGIONS), scritto dal merge nel campo
+# "continent" di tutte le regioni del manifest, anche quelle non ricostruite in questa run: l'app
+# raggruppa l'elenco regioni per continente e non ha altra fonte per saperlo.
+source "$SCRIPT_DIR/pilot-regions.sh"
+CONTINENTS_TSV="$(mktemp)"
+for spec in "${PILOT_REGIONS[@]}"; do
+  IFS='|' read -r regionId _ _ _ _ _ _ _ _ _ continent <<< "$spec"
+  printf '%s\t%s\n' "$regionId" "$continent" >> "$CONTINENTS_TSV"
+done
+
+ARGS_STR="--continents \"$(winpath "$CONTINENTS_TSV")\" \"$(winpath "$SITE_DIR/manifest.json")\""
 for f in "${MANIFEST_INPUTS[@]}"; do
   ARGS_STR="$ARGS_STR \"$(winpath "$f")\""
 done
 
 cd "$REPO_ROOT"
 ./gradlew -q :tools:data-pipeline:content:mergeManifests --args="$ARGS_STR"
-rm -f "$PREV_MANIFEST"
+rm -f "$PREV_MANIFEST" "$CONTINENTS_TSV"
 
 # Pagina minimale per la radice del sito Pages: senza questa, GET / da 404 (nessun file la
 # serve) — solo per verifica manuale, l'app non chiama mai questo URL. Elenca TUTTO il lotto

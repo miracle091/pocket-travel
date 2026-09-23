@@ -35,6 +35,29 @@ class MergeManifestsTest {
     }
 
     @Test
+    fun `scrive il continente su tutte le regioni presenti nella mappa, anche quelle gia' pubblicate`() {
+        val dir = createTempDirectory("pocket-travel-test-merge-continent").toFile()
+        try {
+            val published = fragmentFor(dir, "san-marino", "San Marino")
+            val thisRun = fragmentFor(dir, "giappone", "Giappone")
+
+            val merged = JSONObject(
+                mergeManifestJson(listOf(published, thisRun), mapOf("san-marino" to "Europa", "giappone" to "Asia")),
+            )
+
+            val continentById = merged.getJSONArray("regions").let { regions ->
+                (0 until regions.length()).associate {
+                    val region = regions.getJSONObject(it)
+                    region.getString("regionId") to region.optString("continent")
+                }
+            }
+            assertEquals(mapOf("san-marino" to "Europa", "giappone" to "Asia"), continentById)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `una regionId duplicata viene sostituita dall'ultimo manifest fornito`() {
         val dir = createTempDirectory("pocket-travel-test-merge-dup").toFile()
         try {
