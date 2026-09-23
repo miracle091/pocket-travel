@@ -189,15 +189,20 @@ private fun NoLockScreenSetUp() {
 private fun LockedContent(viewModel: PassportVaultViewModel, onUnlock: (GateStatus) -> Unit) {
     val context = LocalContext.current
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    val promptTitle = stringResource(R.string.vault_prompt_title)
+    val promptSubtitle = stringResource(R.string.vault_prompt_subtitle)
+    val promptCancel = stringResource(R.string.vault_prompt_cancel)
+    val unlockFailed = stringResource(R.string.vault_unlock_failed)
+    val authFailed = stringResource(R.string.vault_auth_failed)
 
     fun showPrompt() {
         val activity = context as FragmentActivity
         val unlockIntent = viewModel.prepareUnlockCipher()
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle(context.getString(R.string.vault_prompt_title))
-            .setSubtitle(context.getString(R.string.vault_prompt_subtitle))
+            .setTitle(promptTitle)
+            .setSubtitle(promptSubtitle)
             .setAllowedAuthenticators(ALLOWED_AUTHENTICATORS)
-            .setNegativeButtonText(context.getString(R.string.vault_prompt_cancel))
+            .setNegativeButtonText(promptCancel)
             .build()
         val prompt = BiometricPrompt(
             activity,
@@ -206,7 +211,7 @@ private fun LockedContent(viewModel: PassportVaultViewModel, onUnlock: (GateStat
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     val authenticatedCipher = result.cryptoObject?.cipher
                     if (authenticatedCipher == null) {
-                        errorMessage = context.getString(R.string.vault_unlock_failed)
+                        errorMessage = unlockFailed
                         return
                     }
                     viewModel.completeUnlock(unlockIntent, authenticatedCipher)
@@ -219,7 +224,7 @@ private fun LockedContent(viewModel: PassportVaultViewModel, onUnlock: (GateStat
                 }
 
                 override fun onAuthenticationFailed() {
-                    errorMessage = context.getString(R.string.vault_auth_failed)
+                    errorMessage = authFailed
                 }
             },
         )
