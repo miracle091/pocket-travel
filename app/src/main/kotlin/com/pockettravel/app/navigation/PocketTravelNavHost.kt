@@ -1,6 +1,16 @@
 package com.pockettravel.app.navigation
 
+import android.content.res.Resources
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -26,6 +36,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -131,7 +142,16 @@ fun PocketTravelNavHost(
             NavigationSuiteType.None
         },
     ) {
-        NavHost(navController = navController, startDestination = startDestination) {
+        NavHost(
+            navController = navController,
+            startDestination = startDestination,
+            // Motion M3: "shared axis" orizzontale tra una schermata e il suo dettaglio (avanti da
+            // destra, indietro verso destra, anche durante il gesto di back predittivo).
+            enterTransition = { sharedAxisEnter(forward = true) },
+            exitTransition = { sharedAxisExit(forward = true) },
+            popEnterTransition = { sharedAxisEnter(forward = false) },
+            popExitTransition = { sharedAxisExit(forward = false) },
+        ) {
             composable(ONBOARDING) {
                 OnboardingScreen(
                     viewModel = onboardingViewModel,
@@ -142,7 +162,7 @@ fun PocketTravelNavHost(
                     },
                 )
             }
-            composable(REGIONS) {
+            composable(REGIONS, enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
                 val onPreviewClick = { regionId: String, displayName: String ->
                     navController.navigate(regionPreview(regionId, displayName))
                 }
@@ -155,10 +175,10 @@ fun PocketTravelNavHost(
                     )
                 }
             }
-            composable(VAULT) {
+            composable(VAULT, enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
                 PassportVaultScreen()
             }
-            composable(MORE) {
+            composable(MORE, enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
                 MoreScreen(
                     onOpenSources = { navController.navigate(SOURCES) },
                     onOpenStorage = { navController.navigate(STORAGE) },
@@ -286,4 +306,39 @@ private fun NavHostController.navigateTopLevel(route: String) {
 private fun NavHostController.navigateToOfficialSource(url: String) {
     val name = officialSourcesRegistry.firstOrNull { it.url == url }?.name.orEmpty()
     navigate(inAppBrowser(url, name))
+}
+
+// Transizioni M3 (durate "medium" della spec di motion). Le animazioni Compose rispettano da sole
+// l'impostazione di sistema "Rimuovi animazioni".
+private const val MOTION_MS = 300
+private const val SHARED_AXIS_OFFSET_DP = 30
+
+private fun sharedAxisOffset(forward: Boolean): Int {
+    val px = (SHARED_AXIS_OFFSET_DP * Resources.getSystem().displayMetrics.density).toInt()
+    return if (forward) px else -px
+}
+
+private fun sharedAxisEnter(forward: Boolean): EnterTransition =
+    slideInHorizontally(tween(MOTION_MS)) { sharedAxisOffset(forward) } + fadeIn(tween(MOTION_MS / 2, delayMillis = MOTION_MS / 4))
+
+private fun sharedAxisExit(forward: Boolean): ExitTransition =
+    slideOutHorizontally(tween(MOTION_MS)) { -sharedAxisOffset(forward) } + fadeOut(tween(MOTION_MS / 4))
+
+private fun fadeThroughEnter(): EnterTransition =
+    fadeIn(tween(MOTION_MS * 2 / 3, delayMillis = MOTION_MS / 3)) + scaleIn(tween(MOTION_MS * 2 / 3, delayMillis = MOTION_MS / 3), initialScale = 0.92f)
+
+private fun fadeThroughExit(): ExitTransition = fadeOut(tween(MOTION_MS / 3))
+
+// Destinazioni principali: "fade through" tra loro (cambio di sezione dalla barra), "shared axis"
+// verso e dalle schermate di dettaglio.
+private fun NavBackStackEntry.isTopLevel() = TopLevelDestination.entries.any { it.route == destination.route }
+
+private val topLevelEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+    if (initialState.isTopLevel()) fadeThroughEnter() else sharedAxisEnter(forward = true)
+}
+private val topLevelExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+    if (targetState.isTopLevel()) fadeThroughExit() else sharedAxisExit(forward = true)
+}
+private val topLevelPopEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+    if (initialState.isTopLevel()) fadeThroughEnter() else sharedAxisEnter(forward = false)
 }

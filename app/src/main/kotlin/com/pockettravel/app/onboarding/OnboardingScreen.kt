@@ -7,6 +7,13 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -99,7 +106,6 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
 
     // rememberSaveable: ruotando lo schermo il wizard resta allo stesso passo.
     var stepIndex by rememberSaveable { mutableIntStateOf(0) }
-    val step = steps[stepIndex]
     val isLastStep = stepIndex == steps.lastIndex
 
     // Il tasto Indietro di sistema deve comportarsi come "Indietro" qui dentro (tornare allo step
@@ -126,8 +132,18 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
     // Larghezza massima: su tablet il wizard resta una colonna leggibile al centro.
     Box(modifier = Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.TopCenter) {
         Column(modifier = Modifier.widthIn(max = 600.dp).fillMaxSize().padding(Spacing.xl)) {
-            Column(modifier = Modifier.weight(1f)) {
-                when (val currentStep = step) {
+            // Avanti/Indietro scorrono il contenuto nella direzione del passo (shared axis orizzontale).
+            AnimatedContent(
+                targetState = stepIndex,
+                transitionSpec = {
+                    val direction = if (targetState > initialState) 1 else -1
+                    (slideInHorizontally(tween(300)) { it / 6 * direction } + fadeIn(tween(200, delayMillis = 75)))
+                        .togetherWith(slideOutHorizontally(tween(300)) { -it / 6 * direction } + fadeOut(tween(75)))
+                },
+                modifier = Modifier.weight(1f),
+                label = "onboardingStep",
+            ) { index ->
+                when (val currentStep = steps[index]) {
                     is OnboardingStep.Info -> InfoStepContent(currentStep)
                     OnboardingStep.RegionDownload -> RegionDownloadStepContent()
                     OnboardingStep.AiModelDownload -> AiModelDownloadStepContent()

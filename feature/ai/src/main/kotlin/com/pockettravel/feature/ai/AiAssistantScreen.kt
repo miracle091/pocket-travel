@@ -1,6 +1,7 @@
 package com.pockettravel.feature.ai
 
 import android.text.format.Formatter
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -257,7 +258,8 @@ private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String)
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
         ) {
-            Column(modifier = Modifier.padding(Spacing.l)) {
+            // animateContentSize: la bolla cresce con morbidezza da "Sto pensando…" alla risposta.
+            Column(modifier = Modifier.animateContentSize().padding(Spacing.l)) {
                 val answer = uiState.answer
                 val error = uiState.errorMessage
                 when {

@@ -1,6 +1,8 @@
 package com.pockettravel.app.regions
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -113,7 +115,9 @@ fun RegionHubScreen(
                     .consumeWindowInsets(innerPadding)
                     .imePadding(),
             ) {
-                when (selectedTab) {
+                // Motion M3 "fade through" tra le tab sorelle.
+                Crossfade(targetState = selectedTab, animationSpec = tween(250), label = "regionTab") { tab ->
+                when (tab) {
                     RegionTab.GUIDE -> GuideScreen(regionId = regionId, onOpenSource = onOpenSource)
                     RegionTab.MAP -> {
                         val mapViewModel: MapRouteViewModel = hiltViewModel()
@@ -122,6 +126,7 @@ fun RegionHubScreen(
                         MapScreen(tileSource = mapViewModel.tileSource, regionId = regionId, pins = pins)
                     }
                     RegionTab.AI -> AiAssistantScreen(regionId = regionId, onOpenOfficialSource = onOpenOfficialSource)
+                }
                 }
             }
         }
