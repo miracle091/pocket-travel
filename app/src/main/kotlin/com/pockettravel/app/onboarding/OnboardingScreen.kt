@@ -38,12 +38,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.regions.RegionListViewModel
 import com.pockettravel.app.regions.RegionRow
+import com.pockettravel.app.regions.RegionRowActions
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.feature.ai.AiAssistantViewModel
 import com.pockettravel.feature.ai.ModelListCard
@@ -237,12 +239,20 @@ private fun RegionDownloadStepContent(viewModel: RegionListViewModel = hiltViewM
         Spacer(modifier = Modifier.height(12.dp))
         when {
             uiState.isLoading && uiState.items.isEmpty() -> CircularProgressIndicator()
-            uiState.errorMessage != null -> Text(text = uiState.errorMessage!!, color = MaterialTheme.colorScheme.error)
+            uiState.loadError != null -> Text(text = stringResource(uiState.loadError!!), color = MaterialTheme.colorScheme.error)
             else -> LazyColumn(modifier = Modifier.weight(1f)) {
                 items(uiState.items, key = { it.regionId }) { item ->
                     // onClick e' no-op qui: l'onboarding non naviga al dettaglio di una regione,
                     // la riga serve solo per vedere lo stato e scaricare/eliminare.
-                    RegionRow(item = item, viewModel = viewModel, onClick = {})
+                    RegionRow(
+                        item = item,
+                        actions = RegionRowActions(
+                            observeProgress = viewModel::observeDownloadProgress,
+                            onDownload = viewModel::download,
+                            onDelete = viewModel::delete,
+                        ),
+                        onClick = {},
+                    )
                 }
             }
         }

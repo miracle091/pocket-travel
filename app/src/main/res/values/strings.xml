@@ -1,3 +1,30 @@
 <resources>
     <string name="app_name">Pocket Travel</string>
+
+    <!-- Elenco regioni -->
+    <string name="regions_title">Regioni</string>
+    <string name="regions_check_updates">Controlla aggiornamenti</string>
+    <string name="regions_search_hint">Cerca una regione</string>
+    <string name="regions_search_clear">Cancella ricerca</string>
+    <string name="regions_search_empty_title">Nessuna regione trovata</string>
+    <string name="regions_search_empty_subtitle">Nessuna regione corrisponde a \"%1$s\".</string>
+    <string name="regions_load_error">Impossibile contattare il catalogo regioni. Riprova più tardi.</string>
+    <string name="regions_retry">Riprova</string>
+    <string name="regions_not_enough_space">Spazio insufficiente per scaricare questa regione.</string>
+    <string name="regions_status_not_installed">%1$s · non installata</string>
+    <string name="regions_status_installed">%1$s · installata</string>
+    <string name="regions_status_update">%1$s · aggiornamento disponibile</string>
+    <string name="regions_status_downloading">Download in corso · %1$d%%</string>
+    <string name="regions_download">Scarica %1$s</string>
+    <string name="regions_update">Aggiorna</string>
+    <string name="regions_delete">Elimina %1$s</string>
+    <string name="regions_delete_title">Eliminare %1$s?</string>
+    <string name="regions_delete_message">I contenuti scaricati per questa regione verranno rimossi dal dispositivo.</string>
+    <string name="regions_large_download_title">Download di grandi dimensioni</string>
+    <string name="regions_large_download_message">%1$s pesa %2$s e sei su rete mobile. Continuare?</string>
+    <string name="regions_large_download_confirm">Scarica</string>
+    <string name="continent_europe">Europa</string>
+    <string name="continent_americas">Americhe</string>
+    <string name="continent_asia">Asia</string>
+    <string name="continent_other">Altro</string>
 </resources>
