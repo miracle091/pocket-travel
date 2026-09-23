@@ -21,7 +21,8 @@ import org.junit.runner.RunWith
 /**
  * PackageImporterSchemaTest (JVM) verifica solo le query via JDBC. Qui GuidesImporter e
  * PoiImporter girano con android.database.sqlite e Room reali, su guides.db e poi.db prodotti da
- * tools/data-pipeline (asset androidTest: guide di San Marino e Lettonia, POI di San Marino).
+ * tools/data-pipeline (asset androidTest: guide di San Marino e Lettonia, POI di San Marino, content.db
+ * v1 di Andorra).
  */
 @RunWith(AndroidJUnit4::class)
 class PackageImporterDeviceTest {
@@ -80,6 +81,17 @@ class PackageImporterDeviceTest {
 
         importer.import("san-marino", copyAsset("poi.db"))
         assertEquals(708, db.poiDao().poisForRegion("san-marino").size)
+    }
+
+    @Test
+    fun importaIlContentDbV1SenzaColonnaPhoneComePacchettoPoi() = runBlocking {
+        // content.db pubblicato di Andorra (2026.09.18, prima della colonna phone): le regioni non
+        // ancora rigenerate lo usano come pacchetto POI dopo la conversione del manifest v1.
+        PoiImporter(db.poiDao(), db).import("andorra", copyAsset("content-v1.db"))
+
+        val pois = db.poiDao().poisForRegion("andorra")
+        assertEquals(2681, pois.size)
+        assertTrue(pois.all { it.phone == null })
     }
 
     private fun copyAsset(name: String): File {

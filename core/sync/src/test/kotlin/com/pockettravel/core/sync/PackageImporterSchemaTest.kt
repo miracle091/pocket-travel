@@ -76,6 +76,20 @@ class PackageImporterSchemaTest {
     }
 
     @Test
+    fun `la query poi legacy legge i content db v1 senza colonna phone`() = withDb { conn ->
+        conn.createStatement().use { statement ->
+            statement.execute("CREATE TABLE poi (regionId TEXT, name TEXT, category TEXT, lat REAL, lon REAL, osmTag TEXT)")
+            statement.execute("INSERT INTO poi VALUES ('test-region', 'Punto panoramico', 'viewpoint', 45.0, 9.0, 'tourism=viewpoint')")
+        }
+        conn.createStatement().use { statement ->
+            val rs = statement.executeQuery(PoiImporter.POI_QUERY_LEGACY)
+            assertEquals(true, rs.next())
+            assertEquals("Punto panoramico", rs.getString("name"))
+            assertEquals("tourism=viewpoint", rs.getString("osmTag"))
+        }
+    }
+
+    @Test
     fun `la query poi legge le colonne di poi db`() = withDb { conn ->
         conn.createStatement().use { statement ->
             statement.execute(
