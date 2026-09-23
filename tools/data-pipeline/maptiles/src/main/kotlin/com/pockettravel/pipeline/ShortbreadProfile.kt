@@ -9,7 +9,7 @@ import com.onthegomap.planetiler.reader.SourceFeature
  * OfflineTileSource.kt (feature/map) sa disegnare: "water", "transportation",
  * "buildings". Non e' un'implementazione completa dello schema Shortbread (che ne
  * definisce molti di piu') — solo il sottoinsieme richiesto dallo style JSON attuale
- * dell'app, per confermare i nomi reali dei source-layer (Fase 7, punto 2).
+ * dell'app, per confermare i nomi reali dei source-layer.
  */
 class ShortbreadProfile : Profile {
 

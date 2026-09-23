@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Genera il dataset SFT (formato onDevicePrompt) dalle guide Wikivoyage IT delle regioni pilota.
 
-Metodo "template + negativi sintetici" (piano llm-model-training-plan.md):
+Metodo "template + negativi sintetici":
 - positivi: domanda per categoria (template), risposta = prime frasi della sezione (estrattivo);
 - negativi: domanda su una categoria che il contesto NON copre -> "il contesto non basta".
 
@@ -21,7 +21,7 @@ Viaggiare Sicuri (Farnesina, in italiano) alimenta anche i positivi, ma la sua l
 (il sito non concede un riuso esplicito) e il training e' estrattivo (le risposte sono frasi letterali
 della fonte): un modello addestrato con VS puo' rigenerare testo Farnesina non licenziato se interrogato,
 un rischio di redistribuzione, non solo di attribuzione mancante.
-POLICY (vedi anche model-publishing-plan.md): il default (senza --vs) e' l'UNICA variante che puo' finire
+POLICY: il default (senza --vs) e' l'UNICA variante che puo' finire
 su un repo HuggingFace pubblico (upload_hf.py rifiuta --public se rileva righe VS in ATTRIBUTION.tsv). Con
 --vs, VS viene incluso per un dataset/modello di uso locale o personale: mai per la pubblicazione.
 Wikipedia IT (CC BY-SA 4.0, via langlink dall'articolo tematico EN: "Cuisine of X", "Culture of X", ecc.)
@@ -560,7 +560,7 @@ def main():
 
     # nomi distinti per --vs: il default (pubblicabile, senza VS) resta pocket_travel_sft.jsonl/ATTRIBUTION.tsv
     # (stesso nome atteso di default da train_lora.py); --vs (locale) scrive su file .with-vs a parte, cosi'
-    # le due varianti convivono sul disco senza sovrascriversi a vicenda (vedi model-publishing-plan.md)
+    # le due varianti convivono sul disco senza sovrascriversi a vicenda
     suffix = ".with-vs" if a.vs else ""
     data_out, attr_out = OUT / f"pocket_travel_sft{suffix}.jsonl", OUT / f"ATTRIBUTION{suffix}.tsv"
     with open(data_out, "w", encoding="utf-8") as f:

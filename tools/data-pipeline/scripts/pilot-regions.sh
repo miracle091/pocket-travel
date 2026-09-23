@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Elenco del lotto pilota (piano A2, deciso il 2026-09-14) — sorgente unica condivisa da
+# Elenco del lotto pilota — sorgente unica condivisa da
 # build-pilot-regions.sh (esecuzione locale, tutte le regioni) e dal workflow publish-regions.yml
 # (esecuzione selettiva via input workflow_dispatch), per evitare due copie che possono
 # disallinearsi.

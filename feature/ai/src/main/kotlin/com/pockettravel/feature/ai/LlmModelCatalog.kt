@@ -7,8 +7,7 @@ package com.pockettravel.feature.ai
  * Il catalogo contiene solo modelli non gated (Apache 2.0/MIT): il download non richiede alcun
  * token HuggingFace. Ogni `url`/`fileName` referenziato e' un file GGUF quantizzato Q4_K_M
  * (bilanciamento qualita'/dimensione standard nell'ecosistema llama.cpp), l'unico formato che
- * [OnDeviceLlmEngine] sa caricare dopo il passaggio da LiteRT-LM a llama.cpp. Dati raccolti in
- * .claude/docs/llm-model-catalog-research.md.
+ * [OnDeviceLlmEngine] (llama.cpp) sa caricare.
  */
 data class LlmModelDefinition(
     val id: String,

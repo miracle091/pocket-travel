@@ -9,7 +9,7 @@ Uso:
   python upload_hf.py <cartella modello> --repo utente/nome \\
       --base-model HuggingFaceTB/SmolLM2-135M-Instruct --base-license apache-2.0 [--push] [--public]
 
-POLICY Viaggiare Sicuri (vedi generate_sft_dataset.py e model-publishing-plan.md): con --vs il dataset
+POLICY Viaggiare Sicuri (vedi generate_sft_dataset.py): con --vs il dataset
 include Viaggiare Sicuri (Farnesina), licenza non verificata; siccome il training e' estrattivo, un modello
 addestrato con VS puo' rigenerare quel testo se interrogato. Solo il dataset di default (senza --vs) e'
 quindi pubblicabile. Questo script rifiuta --public se ATTRIBUTION.tsv contiene righe VS (vedi check_no_vs

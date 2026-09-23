@@ -128,7 +128,7 @@ status_html() {
 
 # L'elenco dei continenti e' esplicito e completo (non dedotto da PILOT_REGIONS): la pagina mostra
 # fin da subito tutti i continenti, anche quelli senza ancora nessuna nazione pubblicata, cosi' si
-# vede a colpo d'occhio la copertura mondiale prevista (piano A2: "tutte le nazioni"), non solo il
+# vede a colpo d'occhio la copertura mondiale prevista (tutte le nazioni), non solo il
 # lotto pilota attuale.
 CONTINENTS=("Europa" "Asia" "Africa" "Nord America" "Sud America" "Oceania")
 
@@ -192,7 +192,7 @@ done
 # recente) gia' presenti in ogni region del manifest unito, non serve nessuna cronologia separata da
 # mantenere. Raggruppato per version (una per
 # ogni run di pubblicazione, non per singola nazione) e limitato alle 10 piu' recenti cosi' la
-# sezione resta di dimensione costante anche a copertura mondiale completa (254 nazioni), invece
+# sezione resta di dimensione costante anche a copertura mondiale completa (tutte le nazioni), invece
 # di crescere senza limite.
 CHANGELOG_HTML=""
 if command -v jq >/dev/null 2>&1; then

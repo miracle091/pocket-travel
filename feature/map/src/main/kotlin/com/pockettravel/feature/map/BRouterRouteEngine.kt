@@ -5,10 +5,8 @@ import btools.router.RoutingEngine
 import btools.router.RoutingParamCollector
 import java.io.File
 
-// Sostituisce GraphHopperRouteEngine (rimosso): GraphHopper 11.0 non carica su Android ART reale
-// in nessuna configurazione di storage (NoSuchMethodError su VarHandle/ByteBuffer, verificato su
-// device). BRouter e' stato verificato funzionare su ART reale e
-// il suo sorgente e' vendorizzato in :third-party:brouter-core.
+// BRouter e' stato verificato funzionare su Android ART reale; il suo sorgente e' vendorizzato
+// in :third-party:brouter-core.
 //
 // API di btools.router.RoutingEngine/RoutingContext/RoutingParamCollector non documentata per uso
 // embedded: ricostruita leggendo il bytecode di btools.server.BRouter.main() (il comando CLI

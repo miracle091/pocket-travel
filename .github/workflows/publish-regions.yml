@@ -1,6 +1,6 @@
 name: Publish regions
 
-# Piano A3: pubblica manifest.json su GitHub Pages; i pacchetti (guides.db unico per tutte le
+# Pubblica manifest.json su GitHub Pages; i pacchetti (guides.db unico per tutte le
 # regioni, poi.db e segmenti .rd5 per regione: il grosso dei dati) vanno invece sugli asset delle
 # release "region-data*" - GitHub Pages ha un limite fisso di 1GB per l'intero sito, sforato con la
 # copertura mondiale di pilot-regions.sh (254 regioni), gli asset di una release no. map.pmtiles
@@ -85,7 +85,7 @@ jobs:
           set -euo pipefail
           source tools/data-pipeline/scripts/pilot-regions.sh
           # Una release per continente ("region-data-<slug>"): GitHub limita ogni release a 1000
-          # asset e la sola release "region-data" con content.db + .rd5 di 254 regioni li ha
+          # asset e la sola release "region-data" con i pacchetti di 254 regioni li ha
           # sforati (HTTP 422 "file_count limited to 1000 assets per release"). Le regioni gia'
           # pubblicate restano raggiungibili sulla vecchia release "region-data" (URL nel manifest).
           declare -A SEEN=()

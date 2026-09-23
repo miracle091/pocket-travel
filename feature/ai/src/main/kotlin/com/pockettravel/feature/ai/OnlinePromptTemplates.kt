@@ -1,6 +1,6 @@
 package com.pockettravel.feature.ai
 
-/** Template "Online" dalla sezione "Esempi di prompt AI efficaci" della specifica tecnica. */
+/** Template dei prompt della modalita' "Online". */
 object OnlinePromptTemplates {
 
     fun onlinePrompt(question: String): String = """

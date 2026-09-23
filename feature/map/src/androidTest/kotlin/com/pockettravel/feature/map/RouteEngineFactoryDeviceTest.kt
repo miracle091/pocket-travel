@@ -11,9 +11,8 @@ import org.junit.runner.RunWith
 /**
  * Verifica su device/emulatore reale (Pixel 8 AVD) che il wiring di
  * produzione — copia del profilo dagli asset dell'app, costruzione di RoutingContext/
- * RoutingEngine tramite RouteEngineModule — funzioni su Android ART reale. Stesso identico
- * livello a cui GraphHopper falliva prima (NoSuchMethodError, vedi Fase 9): qui il risultato
- * atteso è pulito, nessuna eccezione.
+ * RoutingEngine tramite RouteEngineModule — funzioni su Android ART reale: il risultato atteso e'
+ * pulito, nessuna eccezione.
  *
  * Non verifica un percorso reale (richiederebbe un vero segmento .rd5, non bundlato qui per non
  * appesantire il repo con un file di 12 MB — verifica manuale fatta

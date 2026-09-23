@@ -26,11 +26,8 @@ fun main(args: Array<String>) {
  * opzionali (elevazione SRTM, pseudo-tag da database) non necessari per un estratto regionale
  * piccolo.
  *
- * parseOsmXml/writeOsmPbf vengono da :tools:data-pipeline:maptiles (stesso package
- * com.pockettravel.pipeline, nessun import necessario): la separazione storica da :routing era
- * dovuta a un conflitto di versione hppc tra planetiler-core e graphhopper-core (vedi
- * maptiles/build.gradle.kts), non piu' rilevante ora che GraphHopper e' stato rimosso da questo
- * modulo (Fase 11).
+ * parseOsmXml/writeOsmPbf vengono da OsmXmlToPbf.kt di questo modulo, copia di quello di
+ * :tools:data-pipeline:maptiles (vedi routing/build.gradle.kts).
  */
 fun generateRd5(osmXmlFile: File, outputDir: File): List<File> {
     // Senza questo, OsmParser (letto da btools.mapcreator.OsmParser upstream) tratta il .pbf

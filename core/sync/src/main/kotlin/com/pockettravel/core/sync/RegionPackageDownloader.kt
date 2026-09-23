@@ -17,8 +17,7 @@ class PermanentRegionPackageException(message: String) : Exception(message)
 /**
  * Downloads the given manifest files (poi.db, .rd5 routing segments, guides.db) into a staging
  * directory with HTTP range resume and verifies each against its manifest SHA-256; the caller
- * validates the manifest entry first and then moves the staged files into place — see
- * "Download verificato" nella specifica tecnica.
+ * validates the manifest entry first and then moves the staged files into place.
  */
 class RegionPackageDownloader @Inject constructor(
     private val okHttpClient: OkHttpClient,

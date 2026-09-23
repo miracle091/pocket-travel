@@ -58,8 +58,7 @@ dependencies {
 
     // Test strumentato (androidTest): verifica su device/emulatore reale che il wiring di
     // RouteEngineModule (copia profilo dagli asset, RoutingContext/RoutingEngine di
-    // :third-party:brouter-core) non crashi su Android ART — stesso livello a cui GraphHopper
-    // falliva (vedi README Fase 9/10).
+    // :third-party:brouter-core) non crashi su Android ART.
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
 }

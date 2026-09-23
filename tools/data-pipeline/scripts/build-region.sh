@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Orchestratore batch (piano A2): per UNA regione (una nazione o una sua sotto-area, per le
+# Orchestratore batch: per UNA regione (una nazione o una sua sotto-area, per le
 # nazioni non contigue — vedi build-pilot-regions.sh per Stati Uniti), genera poi.db (POI
 # Overpass, via il tool Kotlin generatePoi), scarica e ri-ospita i segmenti BRouter .rd5 che
 # intersecano il bbox (stesso host di poi.db, vedi manifest-fragment.json), e produce il

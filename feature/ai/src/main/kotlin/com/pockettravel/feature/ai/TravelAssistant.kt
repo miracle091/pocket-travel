@@ -14,12 +14,12 @@ data class AssistantAnswer(
 )
 
 /**
- * Orchestrazione dell'assistente nelle due modalità della specifica: "Sul dispositivo"
- * usa il RAG semplice su guide.db (ricerca full-text di Fase 1 come CONTESTO del prompt
- * locale); "Online" invia solo la domanda a un servizio esterno con la chiave personale
- * dell'utente, senza contesto RAG — per questo non produce citazioni di sezione. In
- * entrambe le modalità, le sezioni trovate su dogane/salute attivano il banner
- * "Verifica sempre sulla fonte ufficiale" con link diretto alla fonte pertinente.
+ * Orchestrazione dell'assistente nelle due modalità: "Sul dispositivo" usa il RAG semplice
+ * sulle guide in region.db (ricerca full-text come CONTESTO del prompt locale); "Online" invia
+ * solo la domanda a un servizio esterno con la chiave personale dell'utente, senza contesto RAG
+ * — per questo non produce citazioni di sezione. In entrambe le modalità, le sezioni trovate su
+ * dogane/salute attivano il banner "Verifica sempre sulla fonte ufficiale" con link diretto alla
+ * fonte pertinente.
  */
 class TravelAssistant @Inject constructor(
     private val guideRepository: GuideRepository,
@@ -91,7 +91,6 @@ internal fun buildFtsQuery(question: String): String =
         .filter { it.length >= 4 }
         .joinToString(" OR ")
 
-// maxChars di default ~2000 = ~500 token (stima 4 caratteri/token), il chunk RAG
-// consigliato dalla specifica tecnica.
+// maxChars di default ~2000 = ~500 token (stima 4 caratteri/token) per il chunk RAG.
 internal fun truncateContext(context: String, maxChars: Int = 2_000): String =
     if (context.length <= maxChars) context else context.take(maxChars)

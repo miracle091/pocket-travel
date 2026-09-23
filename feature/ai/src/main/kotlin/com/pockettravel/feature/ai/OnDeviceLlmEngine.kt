@@ -15,10 +15,9 @@ import kotlinx.coroutines.withContext
 
 /**
  * Wrapper attorno al bridge JNI di llama.cpp (com.pockettravel.feature.ai.llamacpp, vendorizzato
- * in third-party/llama-cpp — successore di LiteRT-LM, che non pubblica piu' release da agosto
- * 2026 secondo il changelog ufficiale). A differenza di LiteRT-LM, [InferenceEngineImpl] e' gia'
- * un singleton di processo (un solo backend GGML/NDK caricato una volta): qui non lo si ricrea
- * mai, si carica/scarica solo il MODELLO al suo interno.
+ * in third-party/llama-cpp). [InferenceEngineImpl] e' un singleton di processo (un solo backend
+ * GGML/NDK caricato una volta): qui non lo si ricrea mai, si carica/scarica solo il MODELLO al
+ * suo interno.
  */
 @Singleton
 class OnDeviceLlmEngine @Inject constructor(
@@ -58,7 +57,7 @@ class OnDeviceLlmEngine @Inject constructor(
                 // Reset esplicito: i dati di training (pocket_travel_sft.jsonl) non hanno mai
                 // un turno "system", solo user+assistant — senza reset, sendUserPrompt
                 // accumulerebbe la history tra una domanda e l'altra invece di restare un turno
-                // singolo come con LiteRT-LM (createConversation() creava sempre una conversation nuova).
+                // singolo.
                 engine.resetConversation()
                 engine.sendUserPrompt(prompt).toList().joinToString(separator = "")
             }
@@ -94,10 +93,8 @@ class OnDeviceLlmEngine @Inject constructor(
     }
 
     private companion object {
-        // topK/topP: stessi valori usati con LiteRT-LM prima della migrazione (SamplerConfig
-        // dell'esempio "Getting started" ufficiale, non ancora verificati su device reale). La
-        // temperature (0.3, bassa per ridurre le allucinazioni su temi normativi/sanitari — vedi
-        // "Esempi di prompt AI efficaci" nella specifica tecnica) e' fissata lato nativo
+        // topK/topP non ancora verificati su device reale. La temperature (0.3, bassa per ridurre
+        // le allucinazioni su temi normativi/sanitari) e' fissata lato nativo
         // (ai_chat.cpp: DEFAULT_SAMPLER_TEMP), non e' un parametro di loadModel().
         const val TOP_K = 10
         const val TOP_P = 0.95f

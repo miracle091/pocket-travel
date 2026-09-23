@@ -1,6 +1,6 @@
 package com.pockettravel.feature.ai
 
-/** Template dalla sezione "Esempi di prompt AI efficaci" della specifica tecnica. */
+/** Template dei prompt dell'assistente. */
 object PromptTemplates {
 
     fun onDevicePrompt(context: String, question: String): String = """

@@ -1,9 +1,6 @@
-// Genera i file .rd5 per BRouter (vedi README Fase 12) tramite i tre stadi ufficiali di
-// btools.mapcreator vendorizzati in :third-party:brouter-map-creator (OsmFastCutter ->
-// PosUnifier -> WayLinker). Storicamente separato da :maptiles per un conflitto di versione
-// hppc tra graphhopper-core e planetiler-core (vedi maptiles/build.gradle.kts) — non piu'
-// rilevante da quando questo modulo ha smesso di usare GraphHopper (Fase 11), ma la
-// separazione resta: dipendere da :maptiles solo per il piccolo convertitore OSM XML -> PBF
+// Genera i file .rd5 per BRouter tramite i tre stadi ufficiali di btools.mapcreator
+// vendorizzati in :third-party:brouter-map-creator (OsmFastCutter -> PosUnifier -> WayLinker).
+// Separato da :maptiles: dipendere da :maptiles solo per il piccolo convertitore OSM XML -> PBF
 // trascinerebbe planetiler-core (bloat non necessario qui), percio' quelle due funzioni sono
 // duplicate localmente in OsmXmlToPbf.kt.
 plugins {

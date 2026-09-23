@@ -22,8 +22,8 @@ class ModelDownloadFailedException(message: String) : Exception(message)
 class ModelNotAvailableException(message: String) : Exception(message)
 
 /**
- * Modello IA on-device: scaricato solo su richiesta, liberabile dall'utente in un tocco —
- * vedi "Vincoli tecnici" nella specifica tecnica (quantizzato, consigliato sotto 1,5 GB).
+ * Modello IA on-device: scaricato solo su richiesta, liberabile dall'utente in un tocco
+ * (quantizzato, consigliato sotto 1,5 GB).
  * Generalizzato a un catalogo di modelli (LlmModelCatalog): ogni metodo prende il
  * [LlmModelDefinition] su cui operare invece di leggere un unico modello fisso, cosi' il
  * chiamante (risolto da AiSettingsStore.selectedModelId) resta l'unica fonte di verita' su

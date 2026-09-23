@@ -8,8 +8,8 @@ import org.json.JSONObject
  * Unisce N manifest.json (frammenti di GenerateManifest: una regione ciascuno, oppure il solo
  * pacchetto guide) in un unico manifest.json valido per lo schema v2 di RegionManifest
  * (core/sync). Se una regionId compare in piu' manifest di input vince l'ultimo fornito, e lo
- * stesso vale per la voce "guides": permette a una pubblicazione parziale (workflow A3 nel
- * piano) di aggiornare solo cio' che e' stato rigenerato mergiando col manifest gia' online,
+ * stesso vale per la voce "guides": permette a una pubblicazione parziale (publish-regions.yml) di
+ * aggiornare solo cio' che e' stato rigenerato mergiando col manifest gia' online,
  * senza far sparire il resto.
  *
  * Gli input possono essere anche in formato v1 (il manifest pubblicato prima della separazione

@@ -43,9 +43,8 @@ data class StorageUiState(
 private data class ModelState(val isDownloaded: Boolean, val sizeBytes: Long)
 
 /**
- * Vista unica dello spazio occupato da regioni scaricate e modello IA locale, con
- * cancellazione — le due sole cose che, tra i pacchetti regionali (Fase 3) e il modello
- * (Fase 4), occupano spazio scaricabile su richiesta.
+ * Vista unica dello spazio occupato da guide, pacchetti delle regioni e modello IA locale, con
+ * cancellazione: tutto cio' che l'app scarica su richiesta.
  */
 @HiltViewModel
 class StorageViewModel @Inject constructor(

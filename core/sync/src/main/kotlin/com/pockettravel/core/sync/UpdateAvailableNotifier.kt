@@ -55,8 +55,7 @@ class UpdateAvailableNotifier @Inject constructor(
             return
         }
         val notification = NotificationCompat.Builder(context, channelId)
-            // Icona di sistema come segnaposto: nessun asset reale ancora nel progetto,
-            // stessa scelta della Fase 2 per il pin sulla mappa — fuori scope Fase 3.
+            // Icona di sistema come segnaposto: nessun asset dedicato nel progetto.
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle(title)
             .setContentText(text)

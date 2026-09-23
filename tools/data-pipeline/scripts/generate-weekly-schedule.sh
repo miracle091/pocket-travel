@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 # Script una tantum (NON eseguito in CI): genera weekly-schedule.sh, l'assegnazione statica delle
-# 254 regioni di pilot-regions.sh ai 7 giorni della settimana usata da publish-regions.yml per
+# regioni di pilot-regions.sh ai 7 giorni della settimana usata da publish-regions.yml per
 # spalmare la ripubblicazione automatica.
 # Va rilanciato a mano quando pilot-regions.sh cambia (regione
 # aggiunta/rimossa/bbox modificato) o quando si vuole aggiornare il peso misurato delle regioni
 # (la copertura .rd5 di BRouter puo' cambiare nel tempo) — nessun automatismo lo richiama da solo.
 #
-# Algoritmo (vedi il piano per i dettagli):
+# Algoritmo:
 #   1. Peso di ogni regione = tile .rd5 REALI (non geometriche): stessa griglia 5x5 gradi di
 #      build-region.sh, una richiesta HEAD per tile unica su brouter.de per scartare le tile
 #      oceaniche (nessun .rd5 pubblicato li'). Le tile sono deduplicate globalmente prima delle
 #      richieste HEAD (alcune regioni confinano/si toccano: Stati Uniti/Russia/Kiribati/Figi sono
 #      spezzate in piu' bbox adiacenti), cosi' ogni tile viene richiesta una sola volta.
 #   2. Rank turistico noto solo per una manciata di nazioni (fonte UNWTO/Statista/Wikipedia 2024,
-#      vedi il piano, sezione 3 - alta confidenza solo sulla top ~12): le altre 242 regioni sono
+#      alta confidenza solo sulla top ~12): le altre regioni sono
 #      "senza rank", in coda, nell'ordine di pilot-regions.sh (cioe' per continente).
 #   3. Le regioni "gigante" (>50 tile land) vengono spalmate un giorno diverso a testa (ordine
 #      decrescente per tile land, giorno = indice a rotazione sui 7 giorni) finche' i 7 giorni non
@@ -114,7 +114,7 @@ for spec in "${PILOT_REGIONS[@]}"; do
 done
 echo "== $totalLand tile land totali su ${#PILOT_REGIONS[@]} regioni ==" >&2
 
-# --- passo 4: rank turistico noto (fonte: piano, sezione 3 — solo la top ~12 ad alta confidenza,
+# --- passo 4: rank turistico noto (fonte UNWTO/Statista/Wikipedia 2024 — solo la top ~12 ad alta confidenza,
 # il resto resta "senza rank" e va in coda nell'ordine di pilot-regions.sh) ---------------------
 RANKS_FILE="$WORKDIR/ranks.tsv"
 cat > "$RANKS_FILE" <<'RANKS'

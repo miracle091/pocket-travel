@@ -7,7 +7,7 @@ import org.json.JSONObject
 /**
  * Duplica intenzionalmente le regole di RegionManifestEntry.validate() (core/sync, modulo
  * Android non raggiungibile da questo modulo Kotlin/JVM puro) cosi' il workflow di
- * pubblicazione (A3) puo' rifiutare un manifest malformato PRIMA del deploy su Pages, senza
+ * pubblicazione (publish-regions.yml) puo' rifiutare un manifest malformato PRIMA del deploy su Pages, senza
  * bisogno di un modulo Android in CI solo per una validazione. Se le regole in RegionManifest.kt
  * cambiano, vanno aggiornate anche qui. L'host Pages non e' hardcoded: viene passato dal
  * chiamante (il workflow lo conosce da github.repository_owner), cosi' non c'e' un nome utente

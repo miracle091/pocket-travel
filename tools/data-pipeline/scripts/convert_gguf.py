@@ -16,7 +16,7 @@ del GGUF. Nota per chi tocca ai_chat.cpp: OnDeviceLlmEngine oggi non li usa a ru
 chiama common_chat_format_single con use_jinja=false, quindi passa dal formatter CHATML hardcoded di
 llama.cpp — src/llama-chat.cpp — non dal chat_template scritto qui nel file); per Qwen3 questo formatter
 non inserisce il blocco "<think>\n\n</think>\n\n" che il training assume sempre presente nel prefisso del
-turno assistente (a differenza del vecchio export LiteRT-LM, che lo forzava). Non e' un problema di questo
+turno assistente. Non e' un problema di questo
 script: se serve parita' di comportamento con il training per i modelli Qwen3, va risolto lato ai_chat.cpp.
 """
 import argparse

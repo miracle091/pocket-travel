@@ -2,10 +2,8 @@ package com.pockettravel.core.sync
 
 import java.net.URI
 
-// Hosting statico open (GitHub Pages), mai un backend dell'app — vedi sezione "Dati &
-// sincronizzazione" della specifica tecnica. MANIFEST_URL resta un segnaposto finche' il repo
-// non e' davvero pubblicato su GitHub Pages (nessun remote configurato al momento in cui
-// questo valore e' stato scritto) — va corretto con l'host reale prima del rilascio.
+// Hosting statico open (GitHub Pages), mai un backend dell'app: manifest.json pubblicato da
+// .github/workflows/publish-regions.yml.
 object SyncConfig {
     private const val PUBLISHED_MANIFEST_URL = "https://miracle091.github.io/pocket-travel/manifest.json"
 

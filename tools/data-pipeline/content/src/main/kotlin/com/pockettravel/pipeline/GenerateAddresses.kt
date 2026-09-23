@@ -81,7 +81,7 @@ fun writeAddressesDb(addresses: List<Address>, outputDb: File) {
 
 fun main(args: Array<String>) {
     require(args.size >= 6) {
-        "Uso: generateAddresses <output content.db> <minLon> <minLat> <maxLon> <maxLat> <z15-1.pmtiles> [z15-2.pmtiles ...]"
+        "Uso: generateAddresses <output.db> <minLon> <minLat> <maxLon> <maxLat> <z15-1.pmtiles> [z15-2.pmtiles ...]"
     }
     val outputDb = File(args[0])
     val (minLon, minLat, maxLon, maxLat) = args.slice(1..4).map { it.toDouble() }

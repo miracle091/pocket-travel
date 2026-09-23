@@ -1,7 +1,5 @@
-// Genera map.pmtiles (Planetiler, profilo Shortbread minimale). Separato dal sottoprogetto
-// :routing perche' planetiler-core e graphhopper-core richiedono versioni incompatibili
-// di com.carrotsearch:hppc (verificato: forzarne una sola rompe l'altro a runtime con
-// NoClassDefFoundError) — isolarli in due classpath Gradle distinti evita l'hack.
+// Genera map.pmtiles (Planetiler, profilo Shortbread minimale). Separato da :routing, che non ha
+// bisogno di planetiler-core (vedi routing/build.gradle.kts).
 plugins {
     // Senza versione: AGP 9.4.0 (compilatore Kotlin integrato) mette gia' questo plugin
     // sul classpath del build a una versione fissa — dichiararne una diversa qui fa

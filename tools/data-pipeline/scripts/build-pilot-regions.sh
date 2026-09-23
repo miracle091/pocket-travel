@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Lancia build-region.sh per l'intero lotto pilota (piano A2, deciso il 2026-09-14) — vedi
+# Lancia build-region.sh per l'intero lotto pilota — vedi
 # pilot-regions.sh per l'elenco e le note su bbox/Stati Uniti non contigui. Esecuzione locale
 # "tutto fresco"; il workflow publish-regions.yml usa lo stesso pilot-regions.sh ma permette di
 # selezionare un sottoinsieme e unisce col manifest gia' pubblicato (assemble-site.sh).

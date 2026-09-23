@@ -7,8 +7,7 @@ il terminatore di un heredoc bash deve stare a colonna 0 (nessuna indentazione),
 un block scalar YAML (`run: |`) richiede che ogni riga sia indentata almeno quanto la
 prima - da qui uno script separato invece di un python3 -c inline.
 
-Le entry con sha256 non ancora verificato restano commentate nel sorgente Kotlin (vedi
-.claude/docs/llm-model-catalog-research.md): il regex sui blocchi "LlmModelDefinition(...)"
+Le entry con sha256 non ancora verificato restano commentate nel sorgente Kotlin: il regex sui blocchi "LlmModelDefinition(...)"
 le esclude gia' da solo, senza doverle filtrare qui.
 """
 import json

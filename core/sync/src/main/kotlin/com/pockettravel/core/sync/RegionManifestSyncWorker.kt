@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.first
  * [RegionSyncScheduler] — manifest.json e' pochi KB): confronta il manifest remoto con le
  * regioni già installate e, se la versione di un pacchetto installato è cambiata, notifica — i
  * pacchetti delle regioni non si scaricano mai in automatico; solo le guide, su Wi-Fi.
- * Vedi "Flusso di sincronizzazione" nella specifica tecnica.
  */
 @HiltWorker
 class RegionManifestSyncWorker @AssistedInject constructor(

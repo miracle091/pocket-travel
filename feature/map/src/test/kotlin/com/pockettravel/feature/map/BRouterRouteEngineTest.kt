@@ -18,8 +18,7 @@ import org.junit.rules.TemporaryFolder
  * appesantire il repo con un file di 12 MB.
  *
  * Questo test copre comunque codice di produzione reale: caricamento profilo (.brf/lookups.dat)
- * e costruzione del RoutingContext — lo stesso livello a cui GraphHopper falliva su Android
- * (vedi Fase 9) — con un esito atteso pulito (nessun percorso trovato, nessuna eccezione) quando
+ * e costruzione del RoutingContext, con un esito atteso pulito (nessun percorso trovato, nessuna eccezione) quando
  * la cartella dei segmenti è vuota.
  */
 class BRouterRouteEngineTest {
@@ -50,7 +49,7 @@ class BRouterRouteEngineTest {
     // sintetico con un'unica via che attraversa deliberatamente il confine di tile a lon=10.0
     // (tools/data-pipeline/testdata/tiny-region-two-tiles.osm.xml) — non file scaricati a mano,
     // e piccoli abbastanza (circa 4.4 KB l'uno) da bundlare come fixture permanenti, a differenza
-    // dei segmenti reali di brouter.de usati solo per verifiche manuali una tantum (vedi Fase 10).
+    // dei segmenti reali di brouter.de usati solo per verifiche manuali una tantum.
     @Test
     fun `instrada correttamente quando il percorso attraversa due segmenti rd5 adiacenti`() {
         val segmentDir = tempFolder.newFolder("segments4")

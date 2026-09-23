@@ -33,7 +33,7 @@ fun parseOsmXml(file: File): OsmData {
     // Parser SAX (streaming) invece di DOM: un DOM tiene l'intero albero XML in memoria con un
     // overhead per-nodo pesante (DeferredDocumentImpl di Xerces) - per un estratto Overpass di
     // una nazione grande (es. Italia, milioni di nodi) questo esaurisce lo heap di default della
-    // JVM (visto: OutOfMemoryError generando content.db per l'Italia). SAX processa un elemento
+    // JVM (visto: OutOfMemoryError generando i POI dell'Italia). SAX processa un elemento
     // alla volta e costruisce solo gli OsmNode/OsmWay leggeri che servono a valle.
     //
     // Il limite JAXP sulla dimensione dell'"entita' documento" (100.000 caratteri di default)

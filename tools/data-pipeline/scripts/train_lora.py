@@ -22,7 +22,7 @@ Scelte che contano per la qualita':
   set), cosi' ogni categoria pesa in media 1 nella loss a prescindere da quante righe ha.
 - --dataset sceglie il file dentro data/sft/ (default pocket_travel_sft.jsonl, pubblicabile, senza
   Viaggiare Sicuri; pocket_travel_sft.with-vs.jsonl per la variante con VS, generata con
-  generate_sft_dataset.py --vs, SOLO uso locale/personale — vedi model-publishing-plan.md). L'ATTRIBUTION.tsv
+  generate_sft_dataset.py --vs, SOLO uso locale/personale). L'ATTRIBUTION.tsv
   gemella viene copiata in <out>/lora (e <out>/merged con --merge), cosi' upload_hf.py verifica le fonti
   usate per QUESTO training, non l'ultimo dataset generato.
 """
