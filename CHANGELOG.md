@@ -4,6 +4,9 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ## [Non rilasciato]
 
+### Corretto
+- Documenti: cambiando la lingua del sistema con l'app già aperta, la richiesta di sblocco con impronta o volto restava nella lingua precedente (titolo, sottotitolo, pulsante Annulla e messaggi di errore).
+
 ## [0.5.0]
 
 ### Aggiunto
