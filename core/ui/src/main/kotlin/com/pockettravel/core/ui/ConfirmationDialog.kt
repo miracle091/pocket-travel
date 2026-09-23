@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 
 // Conferma condivisa per azioni distruttive (elimina regione/modello, rimuovi chiave API, ecc.):
 // prima di questa, ogni eliminazione nell'app scattava al primo tap, senza possibilità di
@@ -16,8 +17,8 @@ import androidx.compose.runtime.Composable
 fun ConfirmationDialog(
     title: String,
     message: String,
-    confirmLabel: String = "Elimina",
-    dismissLabel: String = "Annulla",
+    confirmLabel: String = stringResource(R.string.confirm_delete),
+    dismissLabel: String = stringResource(R.string.confirm_cancel),
     destructive: Boolean = true,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,

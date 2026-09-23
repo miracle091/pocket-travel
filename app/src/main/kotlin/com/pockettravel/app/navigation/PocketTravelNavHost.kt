@@ -1,5 +1,6 @@
 package com.pockettravel.app.navigation
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -22,6 +23,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -32,6 +34,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.window.core.layout.WindowSizeClass
+import com.pockettravel.app.R
 import com.pockettravel.app.browser.InAppBrowserScreen
 import com.pockettravel.app.licenses.LicensesScreen
 import com.pockettravel.app.more.MoreScreen
@@ -69,10 +72,10 @@ import com.pockettravel.feature.vault.PassportVaultScreen
 // Le tre destinazioni principali della barra/rail di navigazione (M3: il menu laterale modale e'
 // sconsigliato, sostituito dalla navigation suite). La barra compare solo su queste tre: le
 // schermate di dettaglio (hub regione, fonti, licenze...) occupano tutto lo spazio.
-private enum class TopLevelDestination(val route: String, val label: String) {
-    REGIONS(PocketTravelDestinations.REGIONS, "Regioni"),
-    VAULT(PocketTravelDestinations.VAULT, "Documenti"),
-    MORE(PocketTravelDestinations.MORE, "Altro"),
+private enum class TopLevelDestination(val route: String, @StringRes val label: Int) {
+    REGIONS(PocketTravelDestinations.REGIONS, R.string.nav_regions),
+    VAULT(PocketTravelDestinations.VAULT, R.string.nav_documents),
+    MORE(PocketTravelDestinations.MORE, R.string.nav_more),
 }
 
 @Composable
@@ -118,7 +121,7 @@ fun PocketTravelNavHost(
                     selected = selected,
                     onClick = { navController.navigateTopLevel(destination.route) },
                     icon = { Icon(imageVector = destination.icon(selected), contentDescription = null) },
-                    label = { Text(destination.label) },
+                    label = { Text(stringResource(destination.label)) },
                 )
             }
         },
@@ -250,8 +253,8 @@ private fun RegionsListDetail(
             if (regionId == null) {
                 EmptyState(
                     icon = AppIcons.World,
-                    title = "Scegli una regione",
-                    subtitle = "Guida, mappa e assistente della regione compaiono qui.",
+                    title = stringResource(R.string.list_detail_empty_title),
+                    subtitle = stringResource(R.string.list_detail_empty_subtitle),
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {

@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 sealed interface RegionPreviewState {
     data object Loading : RegionPreviewState
     data object Ready : RegionPreviewState
-    data class Error(val message: String) : RegionPreviewState
+    data object Error : RegionPreviewState
 }
 
 @HiltViewModel
@@ -40,7 +40,7 @@ class RegionPreviewViewModel @Inject constructor(
                 guidePreviewDownloader.preview(entry)
                 _state.value = RegionPreviewState.Ready
             } catch (_: Exception) {
-                _state.value = RegionPreviewState.Error("Impossibile caricare l'anteprima. Riprova più tardi.")
+                _state.value = RegionPreviewState.Error
             }
         }
     }

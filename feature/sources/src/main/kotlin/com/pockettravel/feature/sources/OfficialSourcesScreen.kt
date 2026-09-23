@@ -2,28 +2,29 @@ package com.pockettravel.feature.sources
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.pockettravel.core.data.OfficialSource
 import com.pockettravel.core.data.officialSourcesRegistry
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.R as UiR
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,19 +32,25 @@ fun OfficialSourcesScreen(onBack: () -> Unit, onOpenSource: (url: String, title:
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Fonti ufficiali") },
+                title = { Text(stringResource(R.string.sources_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = AppIcons.Back, contentDescription = "Indietro")
+                        Icon(imageVector = AppIcons.Back, contentDescription = stringResource(UiR.string.back))
                     }
                 },
             )
         },
     ) { innerPadding ->
-        Column(modifier = Modifier.fillMaxWidth().padding(innerPadding).padding(16.dp)) {
-            officialSourcesRegistry.forEach { source ->
-                OfficialSourceRow(source, onClick = { onOpenSource(source.url, source.name) })
-                Spacer(modifier = Modifier.height(8.dp))
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            modifier = Modifier.fillMaxWidth().padding(innerPadding).padding(horizontal = Spacing.l, vertical = Spacing.s),
+        ) {
+            Column {
+                officialSourcesRegistry.forEachIndexed { index, source ->
+                    OfficialSourceRow(source, onClick = { onOpenSource(source.url, source.name) })
+                    if (index < officialSourcesRegistry.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                }
             }
         }
     }
@@ -51,27 +58,12 @@ fun OfficialSourcesScreen(onBack: () -> Unit, onOpenSource: (url: String, title:
 
 @Composable
 private fun OfficialSourceRow(source: OfficialSource, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-    ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = AppIcons.OfficialAuthority,
-                contentDescription = null,
-                modifier = Modifier.size(32.dp),
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(text = source.name, style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Contenuto esterno, richiede connessione",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
+    ListItem(
+        headlineContent = { Text(source.name) },
+        supportingContent = { Text(stringResource(R.string.sources_external)) },
+        leadingContent = { Icon(AppIcons.OfficialAuthority, contentDescription = null) },
+        trailingContent = { Icon(AppIcons.OpenExternal, contentDescription = null) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.clickable(onClick = onClick),
+    )
 }

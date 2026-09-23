@@ -15,6 +15,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import com.pockettravel.app.R
 import com.pockettravel.core.ui.AppIcons
 
 // Terza destinazione principale ("Altro"): raccoglie le voci di servizio che prima stavano nella
@@ -31,13 +33,13 @@ fun MoreScreen(
     // applicarli anche qui lascerebbe una fascia vuota sopra la barra di navigazione.
     Scaffold(
         contentWindowInsets = WindowInsets(0),
-        topBar = { TopAppBar(title = { Text("Altro") }) },
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.more_title)) }) },
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).verticalScroll(rememberScrollState())) {
-            MoreItem(AppIcons.OfficialAuthority, "Fonti ufficiali", "Ministeri, ambasciate e OMS", onOpenSources)
-            MoreItem(AppIcons.Storage, "Spazio di archiviazione", "Regioni e modelli IA scaricati", onOpenStorage)
-            MoreItem(AppIcons.Tutorial, "Rivedi tutorial", null, onOpenTutorial)
-            MoreItem(AppIcons.Licenses, "Licenze", "Componenti e dati di terze parti", onOpenLicenses)
+            MoreItem(AppIcons.OfficialAuthority, stringResource(R.string.more_sources), stringResource(R.string.more_sources_subtitle), onOpenSources)
+            MoreItem(AppIcons.Storage, stringResource(R.string.more_storage), stringResource(R.string.more_storage_subtitle), onOpenStorage)
+            MoreItem(AppIcons.Tutorial, stringResource(R.string.more_tutorial), null, onOpenTutorial)
+            MoreItem(AppIcons.Licenses, stringResource(R.string.more_licenses), stringResource(R.string.more_licenses_subtitle), onOpenLicenses)
         }
     }
 }

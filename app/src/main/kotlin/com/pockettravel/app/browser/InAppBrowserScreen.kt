@@ -21,7 +21,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.R as UiR
 
 // Sostituisce le Chrome Custom Tabs per le fonti ufficiali del registro (Farnesina, OMS, Agenzia
 // delle Dogane) e per la sorgente Wikivoyage di ogni sezione guida: l'utente ha chiesto
@@ -45,10 +48,10 @@ fun InAppBrowserScreen(url: String, title: String, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(pageTitle) },
+                title = { Text(pageTitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = AppIcons.Back, contentDescription = "Indietro")
+                        Icon(imageVector = AppIcons.Back, contentDescription = stringResource(UiR.string.back))
                     }
                 },
             )

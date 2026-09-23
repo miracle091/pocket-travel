@@ -27,4 +27,45 @@
     <string name="continent_americas">Americhe</string>
     <string name="continent_asia">Asia</string>
     <string name="continent_other">Altro</string>
+
+    <!-- Altro -->
+    <string name="more_title">Altro</string>
+    <string name="more_sources">Fonti ufficiali</string>
+    <string name="more_sources_subtitle">Ministeri, ambasciate e OMS</string>
+    <string name="more_storage">Spazio di archiviazione</string>
+    <string name="more_storage_subtitle">Regioni e modelli IA scaricati</string>
+    <string name="more_tutorial">Rivedi tutorial</string>
+    <string name="more_licenses">Licenze</string>
+    <string name="more_licenses_subtitle">Componenti e dati di terze parti</string>
+
+    <!-- Navigazione principale -->
+    <string name="nav_regions">Regioni</string>
+    <string name="nav_documents">Documenti</string>
+    <string name="nav_more">Altro</string>
+    <string name="nav_guide">Guida</string>
+    <string name="nav_map">Mappa</string>
+    <string name="nav_assistant">Assistente</string>
+    <string name="list_detail_empty_title">Scegli una regione</string>
+    <string name="list_detail_empty_subtitle">Guida, mappa e assistente della regione compaiono qui.</string>
+
+    <!-- Spazio di archiviazione -->
+    <string name="storage_title">Spazio di archiviazione</string>
+    <string name="storage_summary">Pocket Travel occupa %1$s · %2$s liberi sul dispositivo</string>
+    <string name="storage_regions">Regioni installate</string>
+    <string name="storage_no_regions">Nessuna regione installata.</string>
+    <string name="storage_model">Modello IA locale</string>
+    <string name="storage_no_model">Nessun modello IA scaricato.</string>
+    <string name="storage_delete">Elimina %1$s</string>
+    <string name="storage_delete_title">Eliminare %1$s?</string>
+    <string name="storage_delete_message">Questo spazio verrà liberato rimuovendo i dati salvati localmente.</string>
+
+    <!-- Anteprima regione -->
+    <string name="preview_banner_title">Anteprima senza download</string>
+    <string name="preview_banner_body">Mappa e assistente offline richiedono il pacchetto completo.</string>
+    <string name="preview_download">Scarica</string>
+    <string name="preview_error">Impossibile caricare l\'anteprima. Riprova più tardi.</string>
+
+    <!-- Licenze -->
+    <string name="licenses_title">Licenze</string>
+    <string name="licenses_license">Licenza: %1$s</string>
 </resources>

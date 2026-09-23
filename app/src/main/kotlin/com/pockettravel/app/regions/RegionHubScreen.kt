@@ -1,5 +1,6 @@
 package com.pockettravel.app.regions
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -24,18 +25,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pockettravel.app.R
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.R as UiR
 import com.pockettravel.feature.ai.AiAssistantScreen
 import com.pockettravel.feature.guide.GuideScreen
 import com.pockettravel.feature.map.MapRouteViewModel
 import com.pockettravel.feature.map.MapScreen
 
-private enum class RegionTab(val key: String, val label: String) {
-    GUIDE("guide", "Guida"),
-    MAP("map", "Mappa"),
-    AI("ai", "Assistente"),
+private enum class RegionTab(val key: String, @StringRes val label: Int) {
+    GUIDE("guide", R.string.nav_guide),
+    MAP("map", R.string.nav_map),
+    AI("ai", R.string.nav_assistant),
     ;
 
     companion object {
@@ -75,7 +79,7 @@ fun RegionHubScreen(
                     selected = selected,
                     onClick = { selectedTab = tab },
                     icon = { Icon(imageVector = tab.icon(selected), contentDescription = null) },
-                    label = { Text(tab.label) },
+                    label = { Text(stringResource(tab.label)) },
                 )
             }
         },
@@ -94,7 +98,7 @@ fun RegionHubScreen(
                     title = { Text(displayName ?: regionId) },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(imageVector = AppIcons.Back, contentDescription = "Indietro")
+                            Icon(imageVector = AppIcons.Back, contentDescription = stringResource(UiR.string.back))
                         }
                     },
                 )

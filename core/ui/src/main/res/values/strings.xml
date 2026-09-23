@@ -1,0 +1,5 @@
+<resources>
+    <string name="back">Indietro</string>
+    <string name="confirm_delete">Elimina</string>
+    <string name="confirm_cancel">Annulla</string>
+</resources>
