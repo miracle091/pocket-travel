@@ -1,0 +1,26 @@
+<resources>
+    <string name="guide_load_error">Impossibile caricare la guida per questa regione.</string>
+    <string name="guide_empty_title">Nessun contenuto guida disponibile</string>
+    <string name="guide_empty_subtitle">Non ci sono ancora sezioni guida pubblicate per questa regione.</string>
+    <string name="guide_filter_all">Tutte</string>
+    <string name="guide_source">Fonte: Wikivoyage</string>
+    <string name="guide_source_title">Wikivoyage</string>
+    <string name="emergency_title">Numeri di emergenza</string>
+    <string name="emergency_general">Generale</string>
+    <string name="emergency_single">Emergenza</string>
+    <string name="emergency_police">Polizia</string>
+    <string name="emergency_ambulance">Ambulanza</string>
+    <string name="emergency_fire">Vigili del fuoco</string>
+    <string name="emergency_call">Chiama %1$s, %2$s</string>
+    <string name="category_customs_usages">Usi e costumi</string>
+    <string name="category_customs">Dogane</string>
+    <string name="category_health">Salute</string>
+    <string name="category_safety">Sicurezza</string>
+    <string name="category_transport">Trasporti</string>
+    <string name="category_phrases">Frasi utili</string>
+    <string name="category_lodging">Alloggio</string>
+    <string name="category_food">Cibo e bevande</string>
+    <string name="category_shopping">Acquisti</string>
+    <string name="category_connectivity">Connettività</string>
+    <string name="category_daily_life">Vita quotidiana</string>
+</resources>

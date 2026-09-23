@@ -1,5 +1,6 @@
 package com.pockettravel.feature.guide
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.EmergencyNumbers
@@ -19,7 +20,7 @@ data class GuideUiState(
     val sections: List<GuideSection> = emptyList(),
     val emergencyNumbers: EmergencyNumbers? = null,
     val isLoading: Boolean = true,
-    val errorMessage: String? = null,
+    @StringRes val loadError: Int? = null,
 )
 
 @HiltViewModel
@@ -40,7 +41,7 @@ class GuideViewModel @Inject constructor(
         if (loadedForRegionId == regionId) return
         loadedForRegionId = regionId
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            _uiState.update { it.copy(isLoading = true, loadError = null) }
             try {
                 val sections = guideRepository.sectionsFor(regionId)
                 val emergencyNumbers = emergencyNumbersRepository.forRegion(regionId)
@@ -49,7 +50,7 @@ class GuideViewModel @Inject constructor(
                 throw cancellation
             } catch (error: Exception) {
                 loadedForRegionId = null
-                _uiState.update { it.copy(isLoading = false, errorMessage = "Impossibile caricare la guida per questa regione.") }
+                _uiState.update { it.copy(isLoading = false, loadError = R.string.guide_load_error) }
             }
         }
     }
