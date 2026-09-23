@@ -39,6 +39,9 @@ class PmtilesTileSource(private val regionsDir: File) : OfflineTileSource {
         // maxzoom=14 dice a MapLibre di fermare le richieste li' e ri-scalare (overzoom) l'ultima
         // tile disponibile, come fa Google Maps quando non ha piu' dettaglio.
         //
+        // "boundaries": confini dal layer omonimo di Protomaps (kind_detail = admin_level OSM):
+        // nazionali (<= 2) continui e piu' marcati, regionali/provinciali (3-4) tratteggiati da z5.
+        //
         // "glyphs": i font per le etichette (nomi di strade/localita') vanno serviti in locale,
         // mai da rete (nessun hosting proprio, vedi CLAUDE.md/memoria progetto) — bundle di un
         // solo fontstack/range (Klokantech Noto Sans Regular, licenza OFL, solo range 0-255:
@@ -87,6 +90,8 @@ class PmtilesTileSource(private val regionsDir: File) : OfflineTileSource {
                 { "id": "roads_minor_casing", "type": "line", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "minor_road", "other"], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "${palette.minorCasing}", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.6, 18, 8] } },
                 { "id": "roads_minor", "type": "line", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "minor_road", "other"], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "${palette.minorRoad}", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.3, 18, 5] } },
                 { "id": "roads_major", "type": "line", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "highway", "major_road"], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "${palette.majorRoad}", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 1, 18, 10] } },
+                { "id": "boundaries_region", "type": "line", "source": "region", "source-layer": "boundaries", "filter": ["all", [">=", "kind_detail", 3], ["<=", "kind_detail", 4]], "minzoom": 5, "layout": { "line-join": "round" }, "paint": { "line-color": "${palette.boundaryRegion}", "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.6, 14, 1.5], "line-dasharray": [3, 2] } },
+                { "id": "boundaries_country", "type": "line", "source": "region", "source-layer": "boundaries", "filter": ["<=", "kind_detail", 2], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "${palette.boundaryCountry}", "line-width": ["interpolate", ["linear"], ["zoom"], 2, 0.8, 14, 2.5] } },
                 { "id": "places_locality", "type": "symbol", "source": "region", "source-layer": "places", "filter": ["in", "kind", "locality", "macrohood", "neighbourhood"], "minzoom": 10, "layout": { "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 13 }, "paint": { "text-color": "${palette.placeText}", "text-halo-color": "${palette.placeHalo}", "text-halo-width": 1.2 } },
                 { "id": "roads_labels_major", "type": "symbol", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "highway", "major_road"], "minzoom": 11, "layout": { "symbol-placement": "line", "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 12 }, "paint": { "text-color": "${palette.majorLabel}", "text-halo-color": "${palette.majorLabelHalo}", "text-halo-width": 1 } },
                 { "id": "roads_labels_minor", "type": "symbol", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "minor_road", "other"], "minzoom": 15, "layout": { "symbol-placement": "line", "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 11 }, "paint": { "text-color": "${palette.minorLabel}", "text-halo-color": "${palette.minorLabelHalo}", "text-halo-width": 1.2 } }
@@ -114,6 +119,8 @@ private data class MapPalette(
     val majorLabelHalo: String,
     val minorLabel: String,
     val minorLabelHalo: String,
+    val boundaryCountry: String,
+    val boundaryRegion: String,
 ) {
     companion object {
         val Light = MapPalette(
@@ -121,12 +128,14 @@ private data class MapPalette(
             path = "#b7ac9a", minorCasing = "#d6d2c8", minorRoad = "#ffffff", majorRoad = "#f7c164",
             placeText = "#3f3b33", placeHalo = "#ffffff", majorLabel = "#7a5c1e", majorLabelHalo = "#f7c164",
             minorLabel = "#5a5346", minorLabelHalo = "#ffffff",
+            boundaryCountry = "#8f8a9e", boundaryRegion = "#b9b4c4",
         )
         val Dark = MapPalette(
             background = "#1d2226", water = "#17344a", building = "#2a3036", buildingOutline = "#363d44",
             path = "#5b646c", minorCasing = "#262c31", minorRoad = "#3b434b", majorRoad = "#8a6a34",
             placeText = "#e2e4e6", placeHalo = "#1d2226", majorLabel = "#f3d49a", majorLabelHalo = "#1d2226",
             minorLabel = "#c3c8cc", minorLabelHalo = "#1d2226",
+            boundaryCountry = "#8d96a3", boundaryRegion = "#5b646f",
         )
     }
 }
