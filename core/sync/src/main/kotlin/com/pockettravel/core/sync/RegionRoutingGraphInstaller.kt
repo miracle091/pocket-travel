@@ -8,7 +8,7 @@ import kotlinx.coroutines.withContext
 /**
  * Sposta i file .rd5 scaricati (uno o piu' segmenti BRouter, un file per ogni tile 5x5
  * attraversata dalla regione — vedi tools/data-pipeline/routing) da packageDir/
- * (dove RegionPackageDownloader li scrive, come content.db/map.pmtiles) a
+ * (dove RegionPackageDownloader li scrive, come poi.db/map.pmtiles) a
  * packageDir/routing/ — la cartella che BRouterRouteEngine si aspetta (RouteEngineModule,
  * feature/map). A differenza del vecchio routing.ghz di GraphHopper (uno zip da estrarre), un
  * .rd5 e' gia' pronto all'uso: basta spostarlo nella cartella giusta, nessuna estrazione.

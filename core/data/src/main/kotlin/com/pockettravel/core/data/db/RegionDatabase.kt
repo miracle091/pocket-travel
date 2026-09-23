@@ -14,8 +14,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         InstalledRegionEntity::class,
         PassportEntity::class,
         EmergencyNumbersEntity::class,
+        InstalledGuidesEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -78,6 +79,45 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
                 `police` TEXT NOT NULL,
                 `ambulance` TEXT NOT NULL,
                 `fire` TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+}
+
+// Pacchetti separati (guide, mappa, routing, POI): installed_regions passa da una sola version a
+// una per pacchetto, nullable (ogni combinazione e' possibile). Le regioni gia' installate hanno
+// tutti e tre, con la stessa versione. installed_guides resta vuota: le guide finora importate
+// venivano dai content.db per regione, il pacchetto guide unico va ancora scaricato.
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE `installed_regions_new` (
+                `regionId` TEXT NOT NULL PRIMARY KEY,
+                `displayName` TEXT NOT NULL,
+                `mapVersion` TEXT,
+                `routingVersion` TEXT,
+                `poiVersion` TEXT,
+                `sizeBytes` INTEGER NOT NULL,
+                `installedAt` INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO `installed_regions_new`
+            SELECT `regionId`, `displayName`, `version`, `version`, `version`, `sizeBytes`, `installedAt`
+            FROM `installed_regions`
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE `installed_regions`")
+        db.execSQL("ALTER TABLE `installed_regions_new` RENAME TO `installed_regions`")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `installed_guides` (
+                `id` INTEGER NOT NULL PRIMARY KEY,
+                `version` TEXT NOT NULL
             )
             """.trimIndent()
         )

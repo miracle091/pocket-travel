@@ -13,6 +13,6 @@ interface EmergencyNumbersDao {
     @Query("SELECT * FROM emergency_numbers WHERE regionId = :regionId")
     suspend fun forRegion(regionId: String): EmergencyNumbersEntity?
 
-    @Query("DELETE FROM emergency_numbers WHERE regionId = :regionId")
-    suspend fun deleteForRegion(regionId: String)
+    @Query("DELETE FROM emergency_numbers")
+    suspend fun deleteAll()
 }

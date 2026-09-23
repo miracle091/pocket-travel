@@ -5,6 +5,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionPackage
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
@@ -23,7 +24,7 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
     private val downloader: RegionPackageDownloader,
     private val regionRepository: RegionRepository,
     private val regionStorage: RegionStorage,
-    private val contentImporter: RegionContentImporter,
+    private val poiImporter: PoiImporter,
     private val routingGraphInstaller: RegionRoutingGraphInstaller,
     private val pmtilesExtractor: PmtilesExtractor,
     private val json: Json,
@@ -33,24 +34,30 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         return try {
             val entryJson = inputData.getString(KEY_MANIFEST_ENTRY) ?: return Result.failure()
             val entry = json.decodeFromString(RegionManifestEntry.serializer(), entryJson)
-            val stagingDir = downloader.download(entry) { bytesDownloaded, totalBytes ->
+            entry.validate()
+            val stagingVersion = PackageKind.entries.joinToString("_") { entry.versionOf(it) }
+            val stagingDir = downloader.download(entry.regionId, stagingVersion, entry.routing.files + entry.poi.file) { bytesDownloaded, totalBytes ->
                 setProgress(workDataOf(KEY_BYTES_DOWNLOADED to bytesDownloaded, KEY_TOTAL_BYTES to totalBytes))
             }
-            // map.pmtiles non e' tra i file scaricati (vedi RegionManifestEntry.mapSource):
+            // map.pmtiles non e' tra i file scaricati (vedi MapPackageEntry):
             // assemblato qui estraendo solo le tile del bounding box dalla build Protomaps.
-            entry.mapSource?.let { mapSource ->
-                pmtilesExtractor.extract(mapSource, File(stagingDir, "map.pmtiles"))
-            }
+            pmtilesExtractor.extract(entry.map.source, File(stagingDir, "map.pmtiles"))
             routingGraphInstaller.install(stagingDir)
             val activation = regionStorage.activate(entry.regionId, stagingDir)
             try {
                 regionRepository.inInstallTransaction {
                     val packageDir = regionStorage.directoryFor(entry.regionId)
-                    contentImporter.import(entry.regionId, packageDir)
-                    regionRepository.markInstalled(RegionPackage(entry.regionId, entry.displayName, entry.version, entry.sizeBytes))
+                    poiImporter.import(entry.regionId, File(packageDir, entry.poi.file.name))
+                    regionRepository.markInstalled(
+                        RegionPackage(
+                            entry.regionId, entry.displayName,
+                            mapVersion = entry.map.version, routingVersion = entry.routing.version, poiVersion = entry.poi.version,
+                            sizeBytes = entry.downloadBytes(PackageKind.entries.toSet()),
+                        ),
+                    )
                 }
                 activation.commit()
-                regionStorage.cleanupStagingExcept(entry.regionId, entry.version)
+                regionStorage.cleanupStagingExcept(entry.regionId, stagingVersion)
             } catch (error: Exception) {
                 activation.rollback()
                 throw error

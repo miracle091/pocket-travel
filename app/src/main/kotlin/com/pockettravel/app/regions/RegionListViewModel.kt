@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pockettravel.app.R
+import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.sync.AppUpdateCheckScheduler
 import com.pockettravel.core.sync.ManifestClient
@@ -75,10 +76,11 @@ class RegionListViewModel @Inject constructor(
                 val local = installedByRegion[remote.regionId]
                 val regionStatus = when {
                     local == null -> RegionStatus.NOT_INSTALLED
-                    local.version != remote.version -> RegionStatus.UPDATE_AVAILABLE
+                    PackageKind.entries.any { kind -> local.versionOf(kind)?.let { it != remote.versionOf(kind) } == true } ->
+                        RegionStatus.UPDATE_AVAILABLE
                     else -> RegionStatus.INSTALLED
                 }
-                RegionUiItem(remote.regionId, remote.displayName, remote.sizeBytes, regionStatus, remote.continent, remote.countryCode)
+                RegionUiItem(remote.regionId, remote.displayName, remote.downloadBytes(PackageKind.entries.toSet()), regionStatus, remote.continent, remote.countryCode)
             }
         RegionListUiState(
             items = items,
@@ -121,7 +123,7 @@ class RegionListViewModel @Inject constructor(
 
     fun download(regionId: String) {
         val entry = manifestRegions.value.firstOrNull { it.regionId == regionId } ?: return
-        if (regionRepository.availableStorageBytes() < entry.sizeBytes) {
+        if (regionRepository.availableStorageBytes() < entry.downloadBytes(PackageKind.entries.toSet())) {
             status.update { it.copy(message = R.string.regions_not_enough_space) }
             return
         }

@@ -3,7 +3,8 @@ package com.pockettravel.app.regions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.sync.ManifestClient
-import com.pockettravel.core.sync.RegionGuidePreviewDownloader
+import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.sync.GuidesInstaller
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,7 +23,8 @@ sealed interface RegionPreviewState {
 @HiltViewModel
 class RegionPreviewViewModel @Inject constructor(
     private val manifestClient: ManifestClient,
-    private val guidePreviewDownloader: RegionGuidePreviewDownloader,
+    private val guidesInstaller: GuidesInstaller,
+    private val regionRepository: RegionRepository,
     private val regionSyncScheduler: RegionSyncScheduler,
 ) : ViewModel() {
 
@@ -35,9 +37,10 @@ class RegionPreviewViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = RegionPreviewState.Loading
             try {
-                val entry = manifestClient.fetchManifest().regions.first { it.regionId == regionId }
-                manifestEntry = entry
-                guidePreviewDownloader.preview(entry)
+                val manifest = manifestClient.fetchManifest()
+                manifestEntry = manifest.regions.first { it.regionId == regionId }
+                // Le guide di tutte le nazioni sono un solo pacchetto: se gia' installato non serve scaricare nulla.
+                if (regionRepository.installedGuidesVersion() == null) guidesInstaller.install(manifest.guides)
                 _state.value = RegionPreviewState.Ready
             } catch (_: Exception) {
                 _state.value = RegionPreviewState.Error

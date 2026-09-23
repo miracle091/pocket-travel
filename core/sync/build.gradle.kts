@@ -45,13 +45,13 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation(libs.okhttp.mockwebserver)
-    // Solo per verificare a livello di schema che le query di RegionContentImporter
-    // corrispondano alle colonne prodotte dalla pipeline dati (tools/data-pipeline) — non
+    // Solo per verificare a livello di schema che le query di GuidesImporter e
+    // PoiImporter corrispondano alle colonne prodotte dalla pipeline dati (tools/data-pipeline) — non
     // esercita android.database.sqlite.SQLiteDatabase stesso, che richiede un device/
     // emulatore reale (nessun Robolectric aggiunto qui: il progetto non lo usa altrove).
     testImplementation("org.xerial:sqlite-jdbc:3.53.4.0")
 
-    // Test strumentati (androidTest): eseguono RegionContentImporter/RegionRoutingGraphInstaller
+    // Test strumentati (androidTest): eseguono GuidesImporter/PoiImporter
     // con android.database.sqlite reale su device/emulatore, colmando il limite dei test JVM sopra.
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)

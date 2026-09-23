@@ -27,8 +27,8 @@ private class FakeGuideDao : GuideDao {
     override suspend fun searchInRegion(regionId: String, query: String): List<GuideSectionEntity> =
         search(query).filter { it.regionId == regionId }
 
-    override suspend fun deleteForRegion(regionId: String) {
-        stored.removeAll { it.regionId == regionId }
+    override suspend fun deleteAll() {
+        stored.clear()
     }
 }
 

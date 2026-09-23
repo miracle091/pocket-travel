@@ -19,4 +19,10 @@ interface RegionPackageDao {
 
     @Query("DELETE FROM installed_regions WHERE regionId = :regionId")
     suspend fun deleteById(regionId: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertGuides(guides: InstalledGuidesEntity)
+
+    @Query("SELECT version FROM installed_guides WHERE id = 0")
+    suspend fun guidesVersion(): String?
 }

@@ -13,7 +13,7 @@ annotation class RegionsDir
 @Retention(AnnotationRetention.BINARY)
 annotation class RegionsStagingDir
 
-/** Owns the on-disk layout for regional packages (`content.db`, `map.pmtiles`, one or more `.rd5` routing segments). */
+/** Owns the on-disk layout for regional packages (`map.pmtiles`, one or more `.rd5` routing segments; `poi.db` only until imported). */
 class RegionStorage @Inject constructor(
     @param:RegionsDir private val regionsDir: File,
     @param:RegionsStagingDir private val stagingDir: File,

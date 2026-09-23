@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -33,9 +34,11 @@ class RegionManifestSyncWorker @AssistedInject constructor(
 
             manifest.regions.forEach { remote ->
                 val local = installedById[remote.regionId]
-                if (local != null && local.version != remote.version) {
-                    notifier.notifyUpdateAvailable(remote)
+                if (local == null) return@forEach
+                val outdated = PackageKind.entries.filterTo(mutableSetOf()) { kind ->
+                    local.versionOf(kind)?.let { it != remote.versionOf(kind) } == true
                 }
+                if (outdated.isNotEmpty()) notifier.notifyUpdateAvailable(remote, outdated)
             }
             Result.success()
         } catch (error: CancellationException) {

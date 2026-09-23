@@ -3,6 +3,7 @@ package com.pockettravel.core.data
 import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.GuideDao
 import com.pockettravel.core.data.db.GuideSectionEntity
+import com.pockettravel.core.data.db.InstalledGuidesEntity
 import com.pockettravel.core.data.db.InstalledRegionEntity
 import com.pockettravel.core.data.db.PassportDao
 import com.pockettravel.core.data.db.PoiDao
@@ -42,6 +43,10 @@ private class FakeRegionPackageDao : RegionPackageDao {
         entities.remove(regionId)
         flow.value = entities.values.sortedBy { it.displayName }
     }
+
+    private var guides: InstalledGuidesEntity? = null
+    override suspend fun upsertGuides(guides: InstalledGuidesEntity) { this.guides = guides }
+    override suspend fun guidesVersion(): String? = guides?.version
 }
 
 private class NoOpGuideDao : GuideDao {
@@ -49,7 +54,7 @@ private class NoOpGuideDao : GuideDao {
     override suspend fun sectionsForRegion(regionId: String): List<GuideSectionEntity> = emptyList()
     override suspend fun search(query: String): List<GuideSectionEntity> = emptyList()
     override suspend fun searchInRegion(regionId: String, query: String): List<GuideSectionEntity> = emptyList()
-    override suspend fun deleteForRegion(regionId: String) = Unit
+    override suspend fun deleteAll() = Unit
 }
 
 private class NoOpPoiDao : PoiDao {
@@ -90,7 +95,6 @@ class RegionRepositoryTest {
         )
         val repository = RegionRepository(
             regionPackageDao = regionPackageDao,
-            guideDao = guideDao,
             poiDao = poiDao,
             regionStorage = regionStorage,
             database = UnusedRegionDatabase(guideDao, poiDao, regionPackageDao),
@@ -102,26 +106,43 @@ class RegionRepositoryTest {
     fun `markInstalled rende la regione visibile a observeInstalled e installedVersion`() = runBlocking {
         val (repository, _) = newRepository()
 
-        repository.markInstalled(RegionPackage(regionId = "italia", displayName = "Italia", version = "1", sizeBytes = 1000))
+        repository.markInstalled(RegionPackage("italia", "Italia", mapVersion = "1", routingVersion = "2", poiVersion = "3", sizeBytes = 1000))
 
-        assertEquals("1", repository.installedVersion("italia"))
+        assertEquals("1", repository.installedVersion("italia", PackageKind.MAP))
+        assertEquals("2", repository.installedVersion("italia", PackageKind.ROUTING))
+        assertEquals("3", repository.installedVersion("italia", PackageKind.POI))
         assertEquals(listOf("Italia"), repository.observeInstalled().first().map { it.displayName })
     }
 
     @Test
-    fun `installedVersion e' null per una regione mai installata`() = runBlocking {
+    fun `installedVersion e' null per una regione mai installata o un pacchetto assente`() = runBlocking {
         val (repository, _) = newRepository()
-        assertNull(repository.installedVersion("mai-installata"))
+        repository.markInstalled(RegionPackage("italia", "Italia", mapVersion = null, routingVersion = null, poiVersion = "1", sizeBytes = 10))
+
+        assertNull(repository.installedVersion("mai-installata", PackageKind.POI))
+        assertNull(repository.installedVersion("italia", PackageKind.MAP))
+        assertEquals("1", repository.installedVersion("italia", PackageKind.POI))
     }
 
     @Test
     fun `markInstalled sovrascrive una versione precedente della stessa regione`() = runBlocking {
         val (repository, _) = newRepository()
-        repository.markInstalled(RegionPackage(regionId = "italia", displayName = "Italia", version = "1", sizeBytes = 1000))
+        repository.markInstalled(RegionPackage("italia", "Italia", mapVersion = "1", routingVersion = "1", poiVersion = "1", sizeBytes = 1000))
 
-        repository.markInstalled(RegionPackage(regionId = "italia", displayName = "Italia", version = "2", sizeBytes = 2000))
+        repository.markInstalled(RegionPackage("italia", "Italia", mapVersion = "1", routingVersion = "1", poiVersion = "2", sizeBytes = 2000))
 
-        assertEquals("2", repository.installedVersion("italia"))
+        assertEquals("2", repository.installedVersion("italia", PackageKind.POI))
+        assertEquals("1", repository.installedVersion("italia", PackageKind.MAP))
+    }
+
+    @Test
+    fun `le guide non sono installate finche' markGuidesInstalled non le registra`() = runBlocking {
+        val (repository, _) = newRepository()
+        assertNull(repository.installedGuidesVersion())
+
+        repository.markGuidesInstalled("2026.09.23")
+
+        assertEquals("2026.09.23", repository.installedGuidesVersion())
     }
 
     @Test

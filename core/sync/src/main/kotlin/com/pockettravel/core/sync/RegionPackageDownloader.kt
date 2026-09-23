@@ -15,24 +15,28 @@ import okhttp3.Request
 class PermanentRegionPackageException(message: String) : Exception(message)
 
 /**
- * Downloads every file listed in a region's manifest entry (content.db, map.pmtiles, plus
- * one or more .rd5 routing segments) with HTTP range resume, verifies each
- * against its manifest SHA-256, then swaps the whole package into place in one rename — see
+ * Downloads the given manifest files (poi.db, .rd5 routing segments, guides.db) into a staging
+ * directory with HTTP range resume and verifies each against its manifest SHA-256; the caller
+ * validates the manifest entry first and then moves the staged files into place — see
  * "Download verificato" nella specifica tecnica.
  */
 class RegionPackageDownloader @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val regionStorage: RegionStorage,
 ) {
-    suspend fun download(entry: RegionManifestEntry, onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit): File =
+    suspend fun download(
+        regionId: String,
+        stagingVersion: String,
+        files: List<RegionManifestFile>,
+        onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit = { _, _ -> },
+    ): File =
         withContext(Dispatchers.IO) {
-            entry.validate()
-            regionStorage.cleanupStagingExcept(entry.regionId, entry.version)
-            val staging = regionStorage.stagingDirectoryFor(entry.regionId, entry.version)
+            regionStorage.cleanupStagingExcept(regionId, stagingVersion)
+            val staging = regionStorage.stagingDirectoryFor(regionId, stagingVersion)
             staging.mkdirs()
-            val totalBytes = entry.files.sumOf { it.sizeBytes }
+            val totalBytes = files.sumOf { it.sizeBytes }
             var bytesBeforeCurrentFile = 0L
-            entry.files.forEach { file ->
+            files.forEach { file ->
                 val baseBytes = bytesBeforeCurrentFile
                 downloadAndVerify(file, File(staging, file.name)) { fileBytesDownloaded ->
                     onProgress(baseBytes + fileBytesDownloaded, totalBytes)

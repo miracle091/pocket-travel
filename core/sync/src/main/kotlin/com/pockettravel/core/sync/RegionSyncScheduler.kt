@@ -25,7 +25,7 @@ class RegionSyncScheduler @Inject constructor(
     private val workManager get() = WorkManager.getInstance(context)
 
     // Anche su dati cellulari: manifest.json e' pochi KB, non i pacchetti regionali veri e propri
-    // (content.db + segmenti .rd5, quelli si', mai su rete a consumo) — solo il download esplicito
+    // (poi.db + segmenti .rd5, quelli si', mai su rete a consumo) — solo il download esplicito
     // richiesto dall'utente in enqueueDownload() resta vincolato a una rete qualunque ma sempre
     // su richiesta, mai automatico.
     /** Controllo periodico del manifest, qualunque rete — mai un download automatico. */

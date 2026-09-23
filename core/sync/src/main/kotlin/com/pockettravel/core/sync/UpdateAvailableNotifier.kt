@@ -10,6 +10,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.pockettravel.core.data.PackageKind
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
@@ -30,8 +31,8 @@ class UpdateAvailableNotifier @Inject constructor(
         )
     }
 
-    fun notifyUpdateAvailable(entry: RegionManifestEntry) {
-        val sizeMb = entry.sizeBytes / (1024 * 1024)
+    fun notifyUpdateAvailable(entry: RegionManifestEntry, kinds: Set<PackageKind>) {
+        val sizeMb = entry.downloadBytes(kinds) / (1024 * 1024)
         notify(CHANNEL_ID, entry.regionId.hashCode(), "Aggiornamento disponibile", "${entry.displayName}, $sizeMb MB")
     }
 

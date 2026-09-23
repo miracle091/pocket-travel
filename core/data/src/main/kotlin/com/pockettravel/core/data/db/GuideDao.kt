@@ -31,6 +31,6 @@ interface GuideDao {
     )
     suspend fun searchInRegion(regionId: String, query: String): List<GuideSectionEntity>
 
-    @Query("DELETE FROM guide_sections WHERE regionId = :regionId")
-    suspend fun deleteForRegion(regionId: String)
+    @Query("DELETE FROM guide_sections")
+    suspend fun deleteAll()
 }

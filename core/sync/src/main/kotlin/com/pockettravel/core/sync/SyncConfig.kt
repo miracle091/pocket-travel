@@ -26,7 +26,7 @@ object SyncConfig {
     // (RegionPackageDownloader.downloadAndVerify rigetta un file la cui dimensione non combacia
     // piu' col manifest). build.protomaps.com: mapSource.sourceUrl (MapExtractionSource) punta
     // alla build giornaliera whole-planet da cui il device estrae solo le tile del bounding box
-    // della regione — vedi PmtilesExtractor. github.com: content.db e i segmenti .rd5 ri-ospitati
+    // della regione — vedi PmtilesExtractor. github.com: guides.db, poi.db e i segmenti .rd5 ri-ospitati
     // vivono sugli asset della release "region-data" (github.com/OWNER/REPO/releases/download/...,
     // limite di 1GB di GitHub Pages sforato con la copertura mondiale di pilot-regions.sh — vedi
     // assemble-site.sh); solo l'host conta qui, il redirect verso il vero storage degli asset

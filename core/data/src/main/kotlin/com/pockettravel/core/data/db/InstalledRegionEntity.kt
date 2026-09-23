@@ -7,7 +7,9 @@ import androidx.room.PrimaryKey
 data class InstalledRegionEntity(
     @PrimaryKey val regionId: String,
     val displayName: String,
-    val version: String,
+    val mapVersion: String?,
+    val routingVersion: String?,
+    val poiVersion: String?,
     val sizeBytes: Long,
     val installedAt: Long,
 )
