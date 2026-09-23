@@ -297,7 +297,6 @@ PILOT_REGIONS=(
   # continente fittizio "Territori disabitati" aggiunto in assemble-site.sh apposta per questi,
   # cosi' restano separati dalle nazioni con popolazione/turismo reale.
   "antartide|Antartide|-180.00|-90.00|180.00|-60.00|Antarctica|aq|||Territori disabitati"
-  "isola-bouvet|Isola Bouvet (Norvegia)|3.30|-54.50|3.50|-54.30|Bouvet_Island|bv|||Territori disabitati"
   "heard-mcdonald|Isole Heard e McDonald (Australia)|73.20|-53.20|73.70|-52.90|Heard_Island_and_McDonald_Islands|hm|||Territori disabitati"
   "terre-australi-francesi|Terre Australi e Antartiche Francesi (Francia)|50.00|-50.00|78.50|-37.50|French_Southern_and_Antarctic_Lands|tf|||Territori disabitati"
   "georgia-sandwich-sud|Georgia del Sud e Sandwich Meridionali (Regno Unito)|-38.30|-59.60|-26.00|-53.90|South_Georgia_and_the_South_Sandwich_Islands|gs|||Territori disabitati"
