@@ -20,39 +20,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - language: actions
-            build-mode: none
-          - language: c-cpp
-            build-mode: none
-          - language: java-kotlin
-            build-mode: manual
-          - language: python
-            build-mode: none
+        # Manca java-kotlin: l'estrattore Kotlin di CodeQL rifiuta la 2.4.20 del
+        # progetto ("Kotlin version 2.4.20 is too recent") e fa fallire la
+        # compilazione, mentre senza build resterebbe fuori comunque perché salta il
+        # Kotlin in silenzio. Analizzabile sarebbe solo il Java, che qui esiste unicamente
+        # in third-party/brouter-core ed è escluso. Da rimettere quando un bundle CodeQL
+        # supporterà la versione di Kotlin in gradle/libs.versions.toml.
+        language: [actions, c-cpp, python]
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v5
-        if: matrix.language == 'java-kotlin'
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - uses: gradle/actions/setup-gradle@v5
-        if: matrix.language == 'java-kotlin'
-
+      # build-mode none non è solo più economico: è la condizione perché paths-ignore
+      # abbia effetto sul C/C++, che altrimenti verrebbe analizzato per intero, llama.cpp
+      # compreso.
       - uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          build-mode: none
           config-file: ./.github/codeql/codeql-config.yml
-
-      # Il Kotlin va compilato per essere analizzato: con build-mode "none" CodeQL lo
-      # salta in silenzio e guarda solo il Java. Per il C/C++ vale l'opposto — senza
-      # build il filtro paths-ignore ha effetto e llama.cpp resta fuori.
-      - name: Compila per l'estrazione del Kotlin
-        if: matrix.language == 'java-kotlin'
-        run: ./gradlew assembleDebug --no-daemon
 
       - uses: github/codeql-action/analyze@v4
         with:
