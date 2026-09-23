@@ -30,6 +30,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ### Corretto
 - Pubblicazione automatica (`publish-regions.yml`): rilanciare una pubblicazione fallita falliva sempre ("Multiple artifacts named github-pages"), perché ogni tentativo caricava un altro artefatto con lo stesso nome. Ora l'artefatto ha un nome diverso per ogni tentativo.
+- Pubblicazione automatica: le nazioni con moltissimi punti di interesse (es. Germania) fallivano per memoria esaurita generando il pacchetto POI, e restavano fuori dal catalogo. Ora i POI si leggono in streaming.
 - Aprendo l'app sulla mappa dell'ultima regione, il tasto Indietro chiudeva l'app invece di tornare all'elenco regioni.
 - Elenco regioni: l'avviso "spazio insufficiente" sostituiva l'intero elenco con un messaggio di errore; ora compare come notifica temporanea (Snackbar).
 - Onboarding: il passo "Scarica una regione" indicava di farlo da "Spazio di archiviazione", da cui non si scarica; ora rimanda alla schermata Regioni. Ruotando lo schermo il tutorial non torna più al primo passo.
