@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -154,9 +155,9 @@ internal fun DocumentCameraCaptureScreen(
 
             Text(
                 text = if (isWellFramed) {
-                    "Documento inquadrato bene"
+                    stringResource(R.string.vault_camera_ok)
                 } else {
-                    "Inquadra il documento nel riquadro, ben illuminato e senza riflessi"
+                    stringResource(R.string.vault_camera_hint)
                 },
                 color = Color.White,
                 style = MaterialTheme.typography.bodyMedium,
@@ -165,7 +166,7 @@ internal fun DocumentCameraCaptureScreen(
             )
 
             IconButton(onClick = onClose, modifier = Modifier.align(Alignment.TopStart).padding(16.dp)) {
-                Icon(imageVector = AppIcons.Close, contentDescription = "Chiudi fotocamera", tint = Color.White)
+                Icon(imageVector = AppIcons.Close, contentDescription = stringResource(R.string.vault_camera_close), tint = Color.White)
             }
 
             Text(

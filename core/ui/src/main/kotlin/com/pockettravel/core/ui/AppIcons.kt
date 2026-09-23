@@ -20,6 +20,8 @@ object AppIcons {
     val Check: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_check)
     val Error: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_error)
     val Delete: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_delete)
+    val Edit: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_edit)
+    val Lock: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_lock)
     val OpenExternal: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_open_in_new)
     val Download: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_download)
     val Favorite: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_favorite)

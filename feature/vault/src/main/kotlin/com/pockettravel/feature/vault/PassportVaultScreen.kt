@@ -7,6 +7,7 @@ import android.graphics.BitmapFactory
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
@@ -15,30 +16,35 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -53,12 +59,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -68,6 +77,8 @@ import com.pockettravel.core.data.Passport
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.EmptyState
+import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.R as UiR
 import java.util.UUID
 import kotlinx.coroutines.launch
 
@@ -79,10 +90,11 @@ private const val ALLOWED_AUTHENTICATORS = BIOMETRIC_STRONG
 
 private const val MAX_PHOTOS_PER_DOCUMENT = 50
 
-private fun DocumentType.label(): String = when (this) {
-    DocumentType.PASSPORT -> "Passaporto"
-    DocumentType.TICKET -> "Biglietto"
-    DocumentType.OTHER -> "Altro"
+@StringRes
+private fun DocumentType.label(): Int = when (this) {
+    DocumentType.PASSPORT -> R.string.vault_type_passport
+    DocumentType.TICKET -> R.string.vault_type_ticket
+    DocumentType.OTHER -> R.string.vault_type_other
 }
 
 private enum class GateStatus { CHECKING, NOT_ENROLLED, LOCKED, UNLOCKED }
@@ -102,6 +114,7 @@ fun PassportVaultScreen(onBack: (() -> Unit)? = null, viewModel: PassportVaultVi
             if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) GateStatus.LOCKED else GateStatus.NOT_ENROLLED,
         )
     }
+    var showAddDialog by rememberSaveable { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
         onDispose { viewModel.lock() }
@@ -113,141 +126,35 @@ fun PassportVaultScreen(onBack: (() -> Unit)? = null, viewModel: PassportVaultVi
         contentWindowInsets = WindowInsets(0),
         topBar = {
             TopAppBar(
-                title = { Text("Documenti") },
+                title = { Text(stringResource(R.string.vault_title)) },
                 navigationIcon = {
                     // Destinazione principale della barra di navigazione: nessuna freccia indietro.
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
-                            Icon(imageVector = AppIcons.Back, contentDescription = "Indietro")
+                            Icon(imageVector = AppIcons.Back, contentDescription = stringResource(UiR.string.back))
                         }
                     }
                 },
             )
         },
+        floatingActionButton = {
+            if (gateStatus == GateStatus.UNLOCKED) {
+                ExtendedFloatingActionButton(
+                    onClick = { showAddDialog = true },
+                    icon = { Icon(AppIcons.Add, contentDescription = null) },
+                    text = { Text(stringResource(R.string.vault_add)) },
+                )
+            }
+        },
     ) { innerPadding ->
-        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             when (gateStatus) {
                 GateStatus.NOT_ENROLLED -> NoLockScreenSetUp()
                 GateStatus.CHECKING, GateStatus.LOCKED -> LockedContent(
                     viewModel = viewModel,
                     onUnlock = { gateStatus = it },
                 )
-                GateStatus.UNLOCKED -> PassportVaultContent(viewModel)
-            }
-        }
-    }
-}
-
-@Composable
-private fun NoLockScreenSetUp() {
-    val context = LocalContext.current
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Icon(imageVector = AppIcons.Passport, contentDescription = null, modifier = Modifier.size(48.dp))
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Questo dispositivo non ha una biometria forte configurata (impronta o volto). " +
-                "Per proteggere i documenti salvati qui, imposta prima la biometria nelle impostazioni.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = { context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) }) {
-            Text("Apri impostazioni di sicurezza")
-        }
-    }
-}
-
-@Composable
-private fun LockedContent(viewModel: PassportVaultViewModel, onUnlock: (GateStatus) -> Unit) {
-    val context = LocalContext.current
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    fun showPrompt() {
-        val activity = context as FragmentActivity
-        val unlockIntent = viewModel.prepareUnlockCipher()
-        val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Sblocca i documenti")
-            .setSubtitle("Usa la biometria del dispositivo")
-            .setAllowedAuthenticators(ALLOWED_AUTHENTICATORS)
-            .setNegativeButtonText("Annulla")
-            .build()
-        val prompt = BiometricPrompt(
-            activity,
-            ContextCompat.getMainExecutor(context),
-            object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    val authenticatedCipher = result.cryptoObject?.cipher
-                    if (authenticatedCipher == null) {
-                        errorMessage = "Sblocco non riuscito, riprova."
-                        return
-                    }
-                    viewModel.completeUnlock(unlockIntent, authenticatedCipher)
-                    errorMessage = null
-                    onUnlock(GateStatus.UNLOCKED)
-                }
-
-                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                    errorMessage = errString.toString()
-                }
-
-                override fun onAuthenticationFailed() {
-                    errorMessage = "Autenticazione non riuscita, riprova."
-                }
-            },
-        )
-        prompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(unlockIntent.cipher))
-    }
-
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Icon(imageVector = AppIcons.Passport, contentDescription = null, modifier = Modifier.size(48.dp))
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = "I documenti sono protetti da biometria o blocco schermo.", style = MaterialTheme.typography.bodyMedium)
-        errorMessage?.let {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = { showPrompt() }) {
-            Text("Sblocca")
-        }
-    }
-}
-
-@Composable
-private fun PassportVaultContent(viewModel: PassportVaultViewModel) {
-    val passports by viewModel.passports.collectAsStateWithLifecycle()
-    var showAddDialog by rememberSaveable { mutableStateOf(false) }
-
-    // Dentro NavigationSuiteScaffold: gli inset di sistema li gestiscono la barra/rail e la top app bar,
-    // applicarli anche qui lascerebbe una fascia vuota sopra la barra di navigazione.
-    Scaffold(
-        contentWindowInsets = WindowInsets(0),
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(imageVector = AppIcons.Add, contentDescription = "Aggiungi documento")
-            }
-        },
-    ) { innerPadding ->
-        if (passports.isEmpty()) {
-            EmptyState(
-                icon = AppIcons.Passport,
-                title = "Nessun documento salvato",
-                subtitle = "Usa il pulsante + per aggiungerne uno.",
-                modifier = Modifier.fillMaxSize().padding(innerPadding),
-            )
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp)) {
-                items(passports, key = { it.id }) { passport ->
-                    PassportCard(viewModel = viewModel, passport = passport, onDelete = { viewModel.delete(passport.id) })
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
+                GateStatus.UNLOCKED -> PassportList(viewModel)
             }
         }
     }
@@ -263,39 +170,156 @@ private fun PassportVaultContent(viewModel: PassportVaultViewModel) {
 }
 
 @Composable
+private fun NoLockScreenSetUp() {
+    val context = LocalContext.current
+    EmptyState(
+        icon = AppIcons.Lock,
+        title = stringResource(R.string.vault_no_biometric_title),
+        subtitle = stringResource(R.string.vault_no_biometric_body),
+        modifier = Modifier.fillMaxSize(),
+        action = {
+            Button(onClick = { context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) }) {
+                Text(stringResource(R.string.vault_open_security_settings))
+            }
+        },
+    )
+}
+
+@Composable
+private fun LockedContent(viewModel: PassportVaultViewModel, onUnlock: (GateStatus) -> Unit) {
+    val context = LocalContext.current
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    fun showPrompt() {
+        val activity = context as FragmentActivity
+        val unlockIntent = viewModel.prepareUnlockCipher()
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle(context.getString(R.string.vault_prompt_title))
+            .setSubtitle(context.getString(R.string.vault_prompt_subtitle))
+            .setAllowedAuthenticators(ALLOWED_AUTHENTICATORS)
+            .setNegativeButtonText(context.getString(R.string.vault_prompt_cancel))
+            .build()
+        val prompt = BiometricPrompt(
+            activity,
+            ContextCompat.getMainExecutor(context),
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    val authenticatedCipher = result.cryptoObject?.cipher
+                    if (authenticatedCipher == null) {
+                        errorMessage = context.getString(R.string.vault_unlock_failed)
+                        return
+                    }
+                    viewModel.completeUnlock(unlockIntent, authenticatedCipher)
+                    errorMessage = null
+                    onUnlock(GateStatus.UNLOCKED)
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    errorMessage = errString.toString()
+                }
+
+                override fun onAuthenticationFailed() {
+                    errorMessage = context.getString(R.string.vault_auth_failed)
+                }
+            },
+        )
+        prompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(unlockIntent.cipher))
+    }
+
+    EmptyState(
+        icon = AppIcons.Lock,
+        title = stringResource(R.string.vault_locked_title),
+        subtitle = errorMessage ?: stringResource(R.string.vault_locked_body),
+        modifier = Modifier.fillMaxSize(),
+        action = {
+            Button(onClick = { showPrompt() }) {
+                Text(stringResource(R.string.vault_unlock))
+            }
+        },
+    )
+}
+
+@Composable
+private fun PassportList(viewModel: PassportVaultViewModel) {
+    val passports by viewModel.passports.collectAsStateWithLifecycle()
+    if (passports.isEmpty()) {
+        EmptyState(
+            icon = AppIcons.Passport,
+            title = stringResource(R.string.vault_empty_title),
+            subtitle = stringResource(R.string.vault_empty_subtitle),
+            modifier = Modifier.fillMaxSize(),
+        )
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            // Spazio in fondo per non coprire l'ultimo documento con il FAB esteso.
+            contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, top = Spacing.s, bottom = 88.dp),
+            verticalArrangement = Arrangement.spacedBy(Spacing.m),
+        ) {
+            items(passports, key = { it.id }) { passport ->
+                PassportCard(viewModel = viewModel, passport = passport, onDelete = { viewModel.delete(passport.id) })
+            }
+        }
+    }
+}
+
+@Composable
 private fun PassportCard(viewModel: PassportVaultViewModel, passport: Passport, onDelete: () -> Unit) {
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-    var showEditDialog by remember { mutableStateOf(false) }
-    var viewerFileName by remember { mutableStateOf<String?>(null) }
+    var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
+    var showEditDialog by rememberSaveable { mutableStateOf(false) }
+    var viewerFileName by rememberSaveable { mutableStateOf<String?>(null) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column {
-                    Text(text = passport.documentType.label(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+        Column(modifier = Modifier.fillMaxWidth().padding(start = Spacing.l, top = Spacing.l, bottom = Spacing.l, end = Spacing.xs)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
+                    Icon(
+                        AppIcons.Passport,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(Spacing.s),
+                    )
+                }
+                Spacer(modifier = Modifier.width(Spacing.m))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(passport.documentType.label()),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                     Text(text = passport.fullName, style = MaterialTheme.typography.titleMedium)
-                    Text(text = "${passport.documentNumber} · ${passport.nationality}", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = listOf(passport.documentNumber, passport.nationality).filter { it.isNotBlank() }.joinToString(" · "),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     if (passport.expiryDate.isNotBlank()) {
-                        Text(text = "Scadenza: ${passport.expiryDate}", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            text = stringResource(R.string.vault_expiry, passport.expiryDate),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
-                Row {
-                    OutlinedButton(onClick = { showEditDialog = true }) { Text("Modifica") }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedButton(onClick = { showDeleteConfirm = true }) { Text("Elimina") }
+                IconButton(onClick = { showEditDialog = true }) {
+                    Icon(AppIcons.Edit, contentDescription = stringResource(R.string.vault_edit, passport.fullName))
+                }
+                IconButton(onClick = { showDeleteConfirm = true }) {
+                    Icon(AppIcons.Delete, contentDescription = stringResource(R.string.vault_delete, passport.fullName))
                 }
             }
             if (passport.note.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = passport.note, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    text = passport.note,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = Spacing.m, end = Spacing.m),
+                )
             }
             if (passport.photoFileNames.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+                    modifier = Modifier.padding(top = Spacing.m),
+                ) {
                     items(passport.photoFileNames, key = { it }) { fileName ->
                         PhotoThumbnail(viewModel = viewModel, fileName = fileName, onClick = { viewerFileName = fileName })
                     }
@@ -306,8 +330,8 @@ private fun PassportCard(viewModel: PassportVaultViewModel, passport: Passport, 
 
     if (showDeleteConfirm) {
         ConfirmationDialog(
-            title = "Eliminare questo documento?",
-            message = "${passport.fullName} verrà rimosso definitivamente dal vault.",
+            title = stringResource(R.string.vault_delete_title),
+            message = stringResource(R.string.vault_delete_message, passport.fullName),
             onConfirm = { showDeleteConfirm = false; onDelete() },
             onDismiss = { showDeleteConfirm = false },
         )
@@ -328,7 +352,7 @@ private fun PassportCard(viewModel: PassportVaultViewModel, passport: Passport, 
 }
 
 // bitmap e' null finche' il caricamento/decifratura non e' completo (o se fallisce): il thumbnail
-// resta vuoto invece di mostrare un placeholder, coerente con la semplicita' del resto della UI.
+// resta una superficie vuota invece di mostrare un placeholder.
 @Composable
 private fun PhotoThumbnail(
     viewModel: PassportVaultViewModel,
@@ -342,22 +366,37 @@ private fun PhotoThumbnail(
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
         }
     }
-    Box(modifier = Modifier.size(64.dp)) {
-        bitmap?.let { image ->
-            Image(
-                bitmap = image,
-                contentDescription = "Foto documento",
-                contentScale = ContentScale.Crop,
-                modifier = if (onClick != null) {
-                    Modifier.size(64.dp).clickable(onClick = onClick)
-                } else {
-                    Modifier.size(64.dp)
-                },
-            )
+    Box(modifier = Modifier.size(72.dp)) {
+        Surface(
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+            modifier = Modifier.size(72.dp),
+        ) {
+            bitmap?.let { image ->
+                Image(
+                    bitmap = image,
+                    contentDescription = stringResource(R.string.vault_photo),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(MaterialTheme.shapes.medium)
+                        .let { if (onClick != null) it.clickable(onClick = onClick) else it },
+                )
+            }
         }
         if (onRemove != null) {
-            IconButton(onClick = onRemove, modifier = Modifier.align(Alignment.TopEnd).size(20.dp)) {
-                Icon(imageVector = AppIcons.Close, contentDescription = "Rimuovi foto", tint = Color.White)
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.inverseSurface,
+                modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.xs).size(28.dp),
+                onClick = onRemove,
+            ) {
+                Icon(
+                    imageVector = AppIcons.Close,
+                    contentDescription = stringResource(R.string.vault_photo_remove),
+                    tint = MaterialTheme.colorScheme.inverseOnSurface,
+                    modifier = Modifier.padding(Spacing.xs),
+                )
             }
         }
     }
@@ -373,10 +412,10 @@ private fun PhotoViewerDialog(viewModel: PassportVaultViewModel, fileName: Strin
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Chiudi") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.vault_close)) } },
         text = {
             bitmap?.let { image ->
-                Image(bitmap = image, contentDescription = "Foto documento", modifier = Modifier.fillMaxWidth())
+                Image(bitmap = image, contentDescription = stringResource(R.string.vault_photo), modifier = Modifier.fillMaxWidth())
             }
         },
     )
@@ -387,6 +426,8 @@ private fun PhotoViewerDialog(viewModel: PassportVaultViewModel, fileName: Strin
 // questa sessione di dialogo ma mai salvate (Annulla) vengono scartate; le foto gia' presenti su
 // un documento esistente e rimosse qui vengono cancellate solo alla conferma (Salva), cosi' un
 // Annulla non rompe i riferimenti del documento gia' salvato su disco.
+// Dialog a schermo intero (M3 per i moduli su telefono): chiudi a sinistra, Salva in alto a destra.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PassportEditDialog(
     viewModel: PassportVaultViewModel,
@@ -417,33 +458,75 @@ private fun PassportEditDialog(
         }
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (existing == null) "Nuovo documento" else "Modifica documento") },
-        text = {
-            Column {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    val cancel = {
+        (photoFileNames - initialPhotoFileNames.toSet()).forEach { viewModel.discardPhoto(it) }
+        onDismiss()
+    }
+    val canSave = fullName.isNotBlank() && documentNumber.isNotBlank()
+
+    Dialog(
+        onDismissRequest = cancel,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(stringResource(if (existing == null) R.string.vault_new_document else R.string.vault_edit_document)) },
+                    navigationIcon = {
+                        IconButton(onClick = cancel) {
+                            Icon(AppIcons.Close, contentDescription = stringResource(R.string.vault_cancel))
+                        }
+                    },
+                    actions = {
+                        TextButton(
+                            enabled = canSave,
+                            onClick = {
+                                (initialPhotoFileNames - photoFileNames.toSet()).forEach { viewModel.discardPhoto(it) }
+                                onSave(
+                                    Passport(
+                                        id = existing?.id ?: UUID.randomUUID().toString(),
+                                        fullName = fullName,
+                                        documentNumber = documentNumber,
+                                        nationality = nationality,
+                                        dateOfBirth = existing?.dateOfBirth ?: "",
+                                        issueDate = existing?.issueDate ?: "",
+                                        expiryDate = expiryDate,
+                                        note = note,
+                                        photoFileNames = photoFileNames,
+                                        documentType = documentType,
+                                    ),
+                                )
+                            },
+                        ) { Text(stringResource(R.string.vault_save)) }
+                    },
+                )
+            },
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Spacing.l, vertical = Spacing.s),
+                verticalArrangement = Arrangement.spacedBy(Spacing.m),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                     DocumentType.entries.forEach { type ->
                         FilterChip(
                             selected = documentType == type,
                             onClick = { documentType = type },
-                            label = { Text(type.label()) },
+                            label = { Text(stringResource(type.label())) },
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = fullName, onValueChange = { fullName = it }, label = { Text("Nome e cognome") }, modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = documentNumber, onValueChange = { documentNumber = it }, label = { Text("Numero documento") }, modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = nationality, onValueChange = { nationality = it }, label = { Text("Nazionalità") }, modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = expiryDate, onValueChange = { expiryDate = it }, label = { Text("Scadenza (AAAA-MM-GG)") }, modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Note") }, modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = fullName, onValueChange = { fullName = it }, label = { Text(stringResource(R.string.vault_field_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = documentNumber, onValueChange = { documentNumber = it }, label = { Text(stringResource(R.string.vault_field_number)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = nationality, onValueChange = { nationality = it }, label = { Text(stringResource(R.string.vault_field_nationality)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = expiryDate, onValueChange = { expiryDate = it }, label = { Text(stringResource(R.string.vault_field_expiry)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text(stringResource(R.string.vault_field_note)) }, modifier = Modifier.fillMaxWidth())
                 if (photoFileNames.isNotEmpty()) {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         items(photoFileNames, key = { it }) { fileName ->
                             PhotoThumbnail(
                                 viewModel = viewModel,
@@ -452,54 +535,25 @@ private fun PassportEditDialog(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
                 OutlinedButton(
                     onClick = { openCamera() },
                     enabled = photoFileNames.size < MAX_PHOTOS_PER_DOCUMENT,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
+                    Icon(AppIcons.Camera, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(Spacing.s))
                     Text(
                         if (photoFileNames.size < MAX_PHOTOS_PER_DOCUMENT) {
-                            "Aggiungi foto"
+                            stringResource(R.string.vault_add_photo)
                         } else {
-                            "Limite di $MAX_PHOTOS_PER_DOCUMENT foto raggiunto"
+                            stringResource(R.string.vault_photo_limit, MAX_PHOTOS_PER_DOCUMENT)
                         },
                     )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = fullName.isNotBlank() && documentNumber.isNotBlank(),
-                onClick = {
-                    (initialPhotoFileNames - photoFileNames.toSet()).forEach { viewModel.discardPhoto(it) }
-                    onSave(
-                        Passport(
-                            id = existing?.id ?: UUID.randomUUID().toString(),
-                            fullName = fullName,
-                            documentNumber = documentNumber,
-                            nationality = nationality,
-                            dateOfBirth = existing?.dateOfBirth ?: "",
-                            issueDate = existing?.issueDate ?: "",
-                            expiryDate = expiryDate,
-                            note = note,
-                            photoFileNames = photoFileNames,
-                            documentType = documentType,
-                        ),
-                    )
-                },
-            ) { Text("Salva") }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    (photoFileNames - initialPhotoFileNames.toSet()).forEach { viewModel.discardPhoto(it) }
-                    onDismiss()
-                },
-            ) { Text("Annulla") }
-        },
-    )
+        }
+    }
 
     if (showCamera) {
         DocumentCameraCaptureScreen(
