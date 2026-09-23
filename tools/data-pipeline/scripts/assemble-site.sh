@@ -38,14 +38,15 @@ fi
 
 MANIFEST_INPUTS+=("${FRAGMENT_FILES[@]}")
 
-# Continente di ogni regione (ultimo campo di PILOT_REGIONS), scritto dal merge nel campo
-# "continent" di tutte le regioni del manifest, anche quelle non ricostruite in questa run: l'app
-# raggruppa l'elenco regioni per continente e non ha altra fonte per saperlo.
+# Continente e codice paese di ogni regione (campi continent e flagCode di PILOT_REGIONS), scritti
+# dal merge nei campi "continent" e "countryCode" di tutte le regioni del manifest, anche quelle non
+# ricostruite in questa run: l'app raggruppa l'elenco per continente e rende cliccabili i paesi
+# sulla mappa del mondo, e non ha altra fonte per saperlo.
 source "$SCRIPT_DIR/pilot-regions.sh"
 CONTINENTS_TSV="$(mktemp)"
 for spec in "${PILOT_REGIONS[@]}"; do
-  IFS='|' read -r regionId _ _ _ _ _ _ _ _ _ continent <<< "$spec"
-  printf '%s\t%s\n' "$regionId" "$continent" >> "$CONTINENTS_TSV"
+  IFS='|' read -r regionId _ _ _ _ _ _ flagCode _ _ continent <<< "$spec"
+  printf '%s\t%s\t%s\n' "$regionId" "$continent" "$flagCode" >> "$CONTINENTS_TSV"
 done
 
 ARGS_STR="--continents \"$(winpath "$CONTINENTS_TSV")\" \"$(winpath "$SITE_DIR/manifest.json")\""

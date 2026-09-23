@@ -42,16 +42,20 @@ class MergeManifestsTest {
             val thisRun = fragmentFor(dir, "giappone", "Giappone")
 
             val merged = JSONObject(
-                mergeManifestJson(listOf(published, thisRun), mapOf("san-marino" to "Europa", "giappone" to "Asia")),
+                mergeManifestJson(
+                    listOf(published, thisRun),
+                    continents = mapOf("san-marino" to "Europa", "giappone" to "Asia"),
+                    countryCodes = mapOf("san-marino" to "sm", "giappone" to "jp"),
+                ),
             )
 
-            val continentById = merged.getJSONArray("regions").let { regions ->
+            val infoById = merged.getJSONArray("regions").let { regions ->
                 (0 until regions.length()).associate {
                     val region = regions.getJSONObject(it)
-                    region.getString("regionId") to region.optString("continent")
+                    region.getString("regionId") to (region.optString("continent") to region.optString("countryCode"))
                 }
             }
-            assertEquals(mapOf("san-marino" to "Europa", "giappone" to "Asia"), continentById)
+            assertEquals(mapOf("san-marino" to ("Europa" to "sm"), "giappone" to ("Asia" to "jp")), infoById)
         } finally {
             dir.deleteRecursively()
         }

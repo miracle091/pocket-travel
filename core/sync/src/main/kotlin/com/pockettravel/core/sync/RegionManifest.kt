@@ -18,6 +18,8 @@ data class RegionManifestEntry(
     // Continente (da pilot-regions.sh, aggiunto dal merge della pipeline): assente nei manifest
     // pubblicati prima del campo, l'app ricade allora sul gruppo "Altro".
     val continent: String? = null,
+    // Codice ISO 3166-1 alpha-2 minuscolo del paese (piu' regioni possono condividerlo, es. "us").
+    val countryCode: String? = null,
 ) { val sizeBytes: Long get() = files.sumOf { it.sizeBytes } }
 
 @Serializable

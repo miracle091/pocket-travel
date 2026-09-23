@@ -25,6 +25,8 @@ dependencies {
     // GraphHopper).
     implementation(project(":tools:data-pipeline:maptiles"))
     implementation(libs.sqlite.jdbc)
+    // Lettura PMTiles locali e decodifica dei tile vettoriali per GenerateAddresses.kt.
+    implementation(libs.planetiler.core)
 
     testImplementation("junit:junit:4.13.2")
     // Usato anche da MergeManifests.kt (parsing/merge di manifest.json reali), non solo dai
@@ -54,6 +56,8 @@ registerPipelineTask("generateGuideContent", "com.pockettravel.pipeline.Generate
 // un margine di heap esplicito assorbe nazioni ancora piu' grandi/dense di POI senza dipendere
 // dal default della JVM (visto: OutOfMemoryError sul default generando content.db per l'Italia).
 registerPipelineTask("generatePoi", "com.pockettravel.pipeline.GeneratePoiKt", maxHeap = "4g", usesSqlite = true)
+registerPipelineTask("generateAddresses", "com.pockettravel.pipeline.GenerateAddressesKt", maxHeap = "4g", usesSqlite = true)
+registerPipelineTask("generateWorldMap", "com.pockettravel.pipeline.GenerateWorldMapKt")
 registerPipelineTask("generateEmergencyNumbers", "com.pockettravel.pipeline.GenerateEmergencyNumbersKt", usesSqlite = true)
 registerPipelineTask("generateManifest", "com.pockettravel.pipeline.GenerateManifestKt")
 registerPipelineTask("mergeManifests", "com.pockettravel.pipeline.MergeManifestsKt")

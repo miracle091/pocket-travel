@@ -12,11 +12,16 @@ import org.json.JSONObject
  * aggiornare solo le nazioni toccate mergiando col manifest gia' online, senza far sparire
  * le nazioni non toccate in questa run.
  *
- * continents (regionId -> continente, da pilot-regions.sh) viene scritto nel campo "continent" di
- * ogni regione presente, anche di quelle non ricostruite in questa run: l'app raggruppa
- * l'elenco regioni per continente e non ha altra fonte per saperlo.
+ * continents e countryCodes (regionId -> continente / codice ISO 3166-1 alpha-2 minuscolo, da
+ * pilot-regions.sh) vengono scritti nei campi "continent" e "countryCode" di ogni regione presente,
+ * anche di quelle non ricostruite in questa run: l'app raggruppa l'elenco per continente e trova le
+ * regioni di un paese toccato sulla mappa del mondo, e non ha altra fonte per saperlo.
  */
-fun mergeManifestJson(manifestJsons: List<String>, continents: Map<String, String> = emptyMap()): String {
+fun mergeManifestJson(
+    manifestJsons: List<String>,
+    continents: Map<String, String> = emptyMap(),
+    countryCodes: Map<String, String> = emptyMap(),
+): String {
     require(manifestJsons.isNotEmpty()) { "Nessun manifest da unire" }
 
     val regionsById = LinkedHashMap<String, JSONObject>()
@@ -31,7 +36,10 @@ fun mergeManifestJson(manifestJsons: List<String>, continents: Map<String, Strin
         }
     }
 
-    regionsById.forEach { (regionId, region) -> continents[regionId]?.let { region.put("continent", it) } }
+    regionsById.forEach { (regionId, region) ->
+        continents[regionId]?.let { region.put("continent", it) }
+        countryCodes[regionId]?.let { region.put("countryCode", it) }
+    }
 
     val merged = JSONObject()
         .put("manifestVersion", 1)
@@ -40,21 +48,20 @@ fun mergeManifestJson(manifestJsons: List<String>, continents: Map<String, Strin
 }
 
 fun main(args: Array<String>) {
-    // --continents <file.tsv> opzionale in testa: righe "regionId<TAB>continente".
+    // --continents <file.tsv> opzionale in testa: righe "regionId<TAB>continente<TAB>codicePaese".
     val continentsFile = if (args.firstOrNull() == "--continents") File(args[1]) else null
     val rest = if (continentsFile != null) args.drop(2) else args.toList()
     require(rest.size >= 2) {
         "Uso: mergeManifests [--continents <regioni.tsv>] <output manifest.json> <input1.json> [input2.json ...]"
     }
-    val continents = continentsFile?.readLines()
-        ?.filter { it.isNotBlank() }
-        ?.associate { line -> line.substringBefore('\t') to line.substringAfter('\t') }
-        .orEmpty()
+    val rows = continentsFile?.readLines()?.filter { it.isNotBlank() }?.map { it.split('\t') }.orEmpty()
+    val continents = rows.filter { it.size >= 2 }.associate { it[0] to it[1] }
+    val countryCodes = rows.filter { it.size >= 3 && it[2].isNotBlank() }.associate { it[0] to it[2] }
     val outputFile = File(rest[0])
     val inputFiles = rest.drop(1).map { File(it) }
     inputFiles.forEach { require(it.exists()) { "Manifest non trovato: ${it.path}" } }
 
-    val merged = mergeManifestJson(inputFiles.map { it.readText() }, continents)
+    val merged = mergeManifestJson(inputFiles.map { it.readText() }, continents, countryCodes)
     outputFile.writeText(merged)
     println("manifest unito (${inputFiles.size} input, ${JSONObject(merged).getJSONArray("regions").length()} regioni) scritto in ${outputFile.path}")
 }
