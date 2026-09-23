@@ -29,6 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -173,7 +175,7 @@ private fun GuideSectionCard(section: GuideSection, onOpenSource: (url: String, 
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = section.title, style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = section.body, style = MaterialTheme.typography.bodyMedium)
+            GuideBody(section.body)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Fonte: Wikivoyage",
@@ -181,6 +183,49 @@ private fun GuideSectionCard(section: GuideSection, onOpenSource: (url: String, 
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.clickable { onOpenSource(section.sourceUrl, "Wikivoyage") },
             )
+        }
+    }
+}
+
+// Le sottosezioni arrivano nel body come righe "▸ Titolo" (===Titolo=== di Wikivoyage, vedi
+// cleanBody in GenerateGuideContent) oppure, nei pacchetti generati prima del fix, come ";Titolo"
+// (lista di definizione wiki): entrambe mostrate come titolo, senza il simbolo davanti.
+private val subheadingLineRegex = Regex("""^(?:▸|;)\s*(.+)$""")
+
+internal data class GuideBodyBlock(val text: String, val isSubheading: Boolean)
+
+internal fun guideBodyBlocks(body: String): List<GuideBodyBlock> {
+    val blocks = mutableListOf<GuideBodyBlock>()
+    val paragraph = mutableListOf<String>()
+    fun flushParagraph() {
+        val text = paragraph.joinToString("\n").trim('\n')
+        if (text.isNotBlank()) blocks += GuideBodyBlock(text, isSubheading = false)
+        paragraph.clear()
+    }
+    body.lineSequence().forEach { line ->
+        val subheading = subheadingLineRegex.find(line.trim())?.groupValues?.get(1)
+        if (subheading != null) {
+            flushParagraph()
+            blocks += GuideBodyBlock(subheading, isSubheading = true)
+        } else {
+            paragraph += line
+        }
+    }
+    flushParagraph()
+    return blocks
+}
+
+@Composable
+private fun GuideBody(body: String) {
+    guideBodyBlocks(body).forEach { block ->
+        if (block.isSubheading) {
+            Text(
+                text = block.text,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp).semantics { heading() },
+            )
+        } else {
+            Text(text = block.text, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
