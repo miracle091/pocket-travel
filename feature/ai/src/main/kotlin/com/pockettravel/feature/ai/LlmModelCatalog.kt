@@ -21,9 +21,13 @@ data class LlmModelDefinition(
 )
 
 object LlmModelCatalog {
-    // Fasce MINIMO/CONFORTEVOLE/AMPIA: vedi DeviceAiCapability.RamTier. Due modelli per fascia.
+    // Fasce MINIMO/CONFORTEVOLE/AMPIA: vedi DeviceAiCapability.RamTier. Due modelli per fascia,
+    // tranne CONFORTEVOLE (solo Qwen2.5 1.5B).
     // Solo modelli non gated (Apache 2.0/MIT): niente modelli Gemma o altri repo che richiedono
     // accettare una licenza su HuggingFace.
+    // Niente modelli "reasoning" (es. DeepSeek R1 Distill, rimosso): generano un blocco <think>
+    // di centinaia di token prima della risposta, lento su CPU mobile e a rischio di esaurire il
+    // limite di token prima di rispondere.
     // Quantizzazioni GGUF Q4_K_M, pubblicate dall'autore ufficiale del modello quando disponibile
     // (Qwen), altrimenti da un publisher di quantizzazioni affidabile (unsloth, il più usato nella
     // community llama.cpp per questi modelli). sha256 letto dal puntatore Git LFS via l'API tree
@@ -55,15 +59,6 @@ object LlmModelCatalog {
             fileName = "qwen2.5-1.5b-instruct-q4_k_m.gguf",
             sha256 = "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
             sizeBytes = 1_117_320_736L,
-            minRamTier = RamTier.CONFORTEVOLE,
-        ),
-        LlmModelDefinition(
-            id = "deepseek-r1-distill-qwen-1.5b",
-            displayName = "DeepSeek R1 Distill Qwen 1.5B",
-            url = "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",
-            fileName = "DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",
-            sha256 = "f3bdf9cf31dee4b57ae4e455a1cb0d01b5c2c1b50d72d3112141c195506c2840",
-            sizeBytes = 1_117_321_312L,
             minRamTier = RamTier.CONFORTEVOLE,
         ),
         LlmModelDefinition(
