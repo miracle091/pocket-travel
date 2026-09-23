@@ -14,6 +14,7 @@ object AppIcons {
     val Menu: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_menu)
     val Add: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_add)
     val Close: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_close)
+    val Send: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_send)
     val Refresh: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_refresh)
     val Search: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_search)
     val Check: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_check)

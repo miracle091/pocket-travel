@@ -1,5 +1,6 @@
 package com.pockettravel.feature.ai
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
@@ -27,7 +28,8 @@ data class AiUiState(
     val question: String = "",
     val isThinking: Boolean = false,
     val answer: AssistantAnswer? = null,
-    val errorMessage: String? = null,
+    val askedQuestion: String? = null,
+    @StringRes val errorMessage: Int? = null,
 )
 
 @HiltViewModel
@@ -88,8 +90,8 @@ class AiAssistantViewModel @Inject constructor(
                     WorkInfo.State.FAILED -> {
                         val message = when (workInfo.outputData.getString(LlmModelDownloadWorker.KEY_FAILURE_REASON)) {
                             LlmModelDownloadWorker.FAILURE_REASON_INTEGRITY ->
-                                "Il file scaricato non ha superato la verifica di integrità. Riprova."
-                            else -> "Download del modello fallito. Riprova più tardi."
+                                R.string.ai_error_integrity
+                            else -> R.string.ai_error_download
                         }
                         _uiState.update { it.copy(downloadProgress = null, errorMessage = message) }
                     }
@@ -102,7 +104,7 @@ class AiAssistantViewModel @Inject constructor(
 
     fun onModeChanged(mode: AiEngineMode) {
         aiSettingsStore.setEngineMode(mode)
-        _uiState.update { it.copy(mode = mode, answer = null, errorMessage = null) }
+        _uiState.update { it.copy(mode = mode, answer = null, askedQuestion = null, errorMessage = null) }
     }
 
     fun onQuestionChanged(value: String) {
@@ -162,7 +164,7 @@ class AiAssistantViewModel @Inject constructor(
                     it.copy(isBenchmarking = false, benchmarkResult = result, allBenchmarkResults = aiSettingsStore.allBenchmarkResults())
                 }
             } catch (_: Exception) {
-                _uiState.update { it.copy(isBenchmarking = false, errorMessage = "Benchmark non riuscito.") }
+                _uiState.update { it.copy(isBenchmarking = false, errorMessage = R.string.ai_error_benchmark) }
             }
         }
     }
@@ -177,16 +179,16 @@ class AiAssistantViewModel @Inject constructor(
 
     fun downloadModel() {
         if (!deviceAiCapability.isOnDeviceAiSupported()) {
-            _uiState.update { it.copy(isDeviceCapable = false, errorMessage = "Il dispositivo non ha RAM sufficiente per il modello IA.") }
+            _uiState.update { it.copy(isDeviceCapable = false, errorMessage = R.string.ai_error_ram) }
             return
         }
         val definition = aiSettingsStore.selectedModelDefinition()
         if (definition.sha256 == null) {
-            _uiState.update { it.copy(errorMessage = "Questo modello non è ancora disponibile per il download.") }
+            _uiState.update { it.copy(errorMessage = R.string.ai_error_not_available) }
             return
         }
         if (modelManager.availableStorageBytes() < definition.sizeBytes) {
-            _uiState.update { it.copy(errorMessage = "Spazio insufficiente per scaricare il modello IA.") }
+            _uiState.update { it.copy(errorMessage = R.string.ai_error_space) }
             return
         }
         _uiState.update { it.copy(downloadProgress = 0f, errorMessage = null) }
@@ -196,7 +198,7 @@ class AiAssistantViewModel @Inject constructor(
     fun deleteModel() {
         viewModelScope.launch {
             engine.releaseAndDelete()
-            _uiState.update { it.copy(isModelDownloaded = false, answer = null) }
+            _uiState.update { it.copy(isModelDownloaded = false, answer = null, askedQuestion = null) }
         }
     }
 
@@ -206,13 +208,13 @@ class AiAssistantViewModel @Inject constructor(
         if (question.isBlank() || state.isThinking) return
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isThinking = true, errorMessage = null) }
+            _uiState.update { it.copy(isThinking = true, errorMessage = null, askedQuestion = question, question = "", answer = null) }
             try {
                 val answer = travelAssistant.ask(regionId, question, state.mode)
                 _uiState.update { it.copy(isThinking = false, answer = answer) }
             } catch (_: Exception) {
                 _uiState.update {
-                    it.copy(isThinking = false, errorMessage = "Non sono riuscito a generare una risposta.")
+                    it.copy(isThinking = false, errorMessage = R.string.ai_error_answer)
                 }
             }
         }
