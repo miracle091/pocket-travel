@@ -6,4 +6,7 @@
     <string name="poi_embassy">Ambasciate e consolati</string>
     <string name="poi_other">Altro</string>
     <string name="poi_call">Chiama %1$s</string>
+    <string name="world_legend_downloaded">Scaricata</string>
+    <string name="world_legend_available">Disponibile</string>
+    <string name="world_legend_unavailable">Non ancora disponibile</string>
 </resources>

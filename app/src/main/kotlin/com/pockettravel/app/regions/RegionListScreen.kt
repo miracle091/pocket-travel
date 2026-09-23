@@ -79,10 +79,14 @@ import kotlinx.coroutines.flow.flowOf
 fun RegionListScreen(
     onRegionClick: (String) -> Unit,
     onPreviewClick: (regionId: String, displayName: String) -> Unit,
+    // false nel layout lista-dettaglio dei tablet: li' la mappa del mondo sta gia' nel pannello
+    // di destra, il pulsante Elenco/Mappa non serve.
+    showMapToggle: Boolean = true,
     viewModel: RegionListViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     RegionListContent(
+        showMapToggle = showMapToggle,
         uiState = uiState,
         onQueryChange = viewModel::onQueryChange,
         onCheckUpdates = viewModel::checkForUpdatesNow,
@@ -115,6 +119,7 @@ internal class RegionRowActions(
 @Composable
 internal fun RegionListContent(
     uiState: RegionListUiState,
+    showMapToggle: Boolean = true,
     onQueryChange: (String) -> Unit,
     onCheckUpdates: () -> Unit,
     onRetry: () -> Unit,
@@ -123,6 +128,7 @@ internal fun RegionListContent(
     onRegionClick: (RegionUiItem) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    var showMap by rememberSaveable { mutableStateOf(false) }
     val message = uiState.message?.let { stringResource(it) }
     LaunchedEffect(message) {
         if (message != null) {
@@ -139,6 +145,20 @@ internal fun RegionListContent(
             TopAppBar(
                 title = { Text(stringResource(R.string.regions_title)) },
                 actions = {
+                    if (showMapToggle) {
+                        IconButton(
+                            onClick = {
+                                // La mappa mostra tutto il catalogo: una ricerca in corso filtrerebbe i paesi.
+                                if (!showMap) onQueryChange("")
+                                showMap = !showMap
+                            },
+                        ) {
+                            Icon(
+                                imageVector = if (showMap) AppIcons.ListView else AppIcons.Map,
+                                contentDescription = stringResource(if (showMap) R.string.regions_show_list else R.string.regions_show_map),
+                            )
+                        }
+                    }
                     IconButton(onClick = onCheckUpdates) {
                         Icon(imageVector = AppIcons.Refresh, contentDescription = stringResource(R.string.regions_check_updates))
                     }
@@ -147,6 +167,15 @@ internal fun RegionListContent(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
+        if (showMap && showMapToggle) {
+            RegionWorldMap(
+                items = uiState.items,
+                rowActions = rowActions,
+                onRegionClick = onRegionClick,
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+            )
+            return@Scaffold
+        }
         Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             RegionSearchField(
                 query = uiState.query,
@@ -226,7 +255,7 @@ private fun RegionGroupedList(
     val groups = groupRegions(items)
     val otherLabel = stringResource(R.string.continent_other)
     val downloadedLabel = stringResource(R.string.regions_downloaded)
-    // Gruppi a scomparsa: "Le tue nazioni" aperto di default, i continenti chiusi. Qui si salvano
+    // Gruppi a scomparsa: "Nazioni scaricate" aperto di default, i continenti chiusi. Qui si salvano
     // solo i gruppi che l'utente ha invertito rispetto al default (anche alla rotazione). Durante
     // una ricerca sono tutti aperti, per vedere subito i risultati.
     var toggled by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
@@ -438,7 +467,7 @@ private fun RegionStatus.label(): Int = when (this) {
 // coda, le regioni senza continente (manifest pubblicati prima del campo) nel gruppo "Altro".
 private val CONTINENT_ORDER = listOf("Europa", "Asia", "Africa", "Nord America", "Sud America", "Oceania", "Territori disabitati")
 
-// Gruppo dell'elenco regioni: prima "Le tue nazioni" (scaricate o da aggiornare), poi i continenti
+// Gruppo dell'elenco regioni: prima "Nazioni scaricate" (scaricate o da aggiornare), poi i continenti
 // con le sole nazioni non ancora scaricate.
 internal sealed interface RegionGroup {
     val key: String

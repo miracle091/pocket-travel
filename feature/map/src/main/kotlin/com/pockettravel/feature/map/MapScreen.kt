@@ -26,7 +26,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,9 +41,6 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.pockettravel.core.data.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PoiColors
@@ -52,7 +48,6 @@ import com.pockettravel.core.ui.Spacing
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
-import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.plugins.annotation.SymbolManager
 import org.maplibre.android.plugins.annotation.SymbolOptions
@@ -67,8 +62,7 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
     val context = LocalContext.current
     MapLibreInitializer.ensureInitialized(context)
 
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val mapView = remember { MapView(context) }
+    val mapView = rememberMapViewWithLifecycle()
     // Stile scuro quando l'app e' in tema scuro (segue il tema effettivo, non solo il sistema).
     val darkMap = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val styleJson = remember(tileSource, regionId, darkMap) { tileSource.styleJson(regionId, dark = darkMap) }
@@ -80,22 +74,6 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
     var cameraFitted by remember { mutableStateOf(false) }
     val visiblePins = pins.filter { it.category in selectedCategories }
     val presentCategories = PoiCategory.entries.filter { category -> pins.any { it.category == category } }
-
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_CREATE -> mapView.onCreate(null)
-                Lifecycle.Event.ON_START -> mapView.onStart()
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                Lifecycle.Event.ON_STOP -> mapView.onStop()
-                Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
-                else -> Unit
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(

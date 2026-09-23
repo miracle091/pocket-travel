@@ -24,7 +24,10 @@
     <string name="regions_large_download_message">%1$s pesa %2$s e sei su rete mobile. Continuare?</string>
     <string name="regions_large_download_confirm">Scarica</string>
     <string name="continent_other">Altro</string>
-    <string name="regions_downloaded">Le tue nazioni</string>
+    <string name="regions_downloaded">Nazioni scaricate</string>
+    <string name="regions_show_map">Mostra la mappa del mondo</string>
+    <string name="regions_show_list">Mostra l\'elenco</string>
+    <string name="world_map_not_available">Questa nazione non è ancora disponibile nel catalogo.</string>
     <plurals name="continent_count">
         <item quantity="one">%1$d nazione</item>
         <item quantity="other">%1$d nazioni</item>

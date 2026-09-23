@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -72,6 +73,10 @@ import com.pockettravel.app.onboarding.OnboardingScreen
 import com.pockettravel.app.onboarding.OnboardingViewModel
 import com.pockettravel.app.regions.RegionHubScreen
 import com.pockettravel.app.regions.RegionListScreen
+import com.pockettravel.app.regions.RegionListViewModel
+import com.pockettravel.app.regions.RegionRowActions
+import com.pockettravel.app.regions.RegionStatus
+import com.pockettravel.app.regions.RegionWorldMap
 import com.pockettravel.app.regions.RegionPreviewScreen
 import com.pockettravel.app.storage.StorageScreen
 import com.pockettravel.core.data.officialSourcesRegistry
@@ -261,20 +266,34 @@ fun PocketTravelNavHost(
 private fun RegionsListDetail(
     navController: NavHostController,
     onPreviewClick: (regionId: String, displayName: String) -> Unit,
+    regionListViewModel: RegionListViewModel = hiltViewModel(),
 ) {
     var selectedRegionId by rememberSaveable { mutableStateOf<String?>(null) }
     Row(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.width(400.dp).fillMaxHeight()) {
-            RegionListScreen(onRegionClick = { selectedRegionId = it }, onPreviewClick = onPreviewClick)
+            RegionListScreen(onRegionClick = { selectedRegionId = it }, onPreviewClick = onPreviewClick, showMapToggle = false)
         }
         VerticalDivider()
         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
             val regionId = selectedRegionId
             if (regionId == null) {
-                EmptyState(
-                    icon = AppIcons.World,
-                    title = stringResource(R.string.list_detail_empty_title),
-                    subtitle = stringResource(R.string.list_detail_empty_subtitle),
+                // Nessuna regione scelta: il pannello di destra mostra la mappa del mondo, dove
+                // toccare un paese equivale a sceglierlo dall'elenco.
+                val uiState by regionListViewModel.uiState.collectAsStateWithLifecycle()
+                RegionWorldMap(
+                    items = uiState.items,
+                    rowActions = RegionRowActions(
+                        observeProgress = regionListViewModel::observeDownloadProgress,
+                        onDownload = regionListViewModel::download,
+                        onDelete = regionListViewModel::delete,
+                    ),
+                    onRegionClick = { item ->
+                        if (item.status == RegionStatus.NOT_INSTALLED) {
+                            onPreviewClick(item.regionId, item.displayName)
+                        } else {
+                            selectedRegionId = item.regionId
+                        }
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {

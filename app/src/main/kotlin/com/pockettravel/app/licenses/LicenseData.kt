@@ -28,6 +28,11 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
     LicenseEntry("pmtiles-reader (lettura PMTiles via HTTP range, core:sync)", "BSD-3-Clause"),
     LicenseEntry("Basemap Protomaps (software/schema)", "BSD-3-Clause"),
     LicenseEntry(
+        component = "Natural Earth (confini dei paesi, mappa del mondo)",
+        license = "Pubblico dominio",
+        note = "Dati 1:50m, ridotti a confini, codice ISO e nome del paese (feature:map/src/main/assets/world).",
+    ),
+    LicenseEntry(
         component = "Klokantech Noto Sans (glifi etichette mappa, feature:map/src/main/assets/fonts)",
         license = "SIL OFL 1.1",
         note = "Font Noto Sans (Google) ripacchettato in SDF da openmaptiles/fonts; solo il range 0-255 (ASCII + Latin-1) e' incluso nell'app.",
