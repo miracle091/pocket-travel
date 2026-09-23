@@ -1,104 +1,118 @@
 package com.pockettravel.pipeline
 
-import java.io.File
-import kotlin.io.path.createTempDirectory
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MergeManifestsTest {
 
-    private fun fragmentFor(regionDir: File, regionId: String, displayName: String, version: String = "1"): String {
-        val file = File(regionDir, "content.db").apply { writeText("contenuto di test per $regionId") }
-        val manifestFiles = listOf(localFileEntry(file, "content.db", "https://example.org/$regionId/content.db"))
-        return buildManifestJson(regionId, displayName, version, "2026-09-14T00:00:00Z", manifestFiles)
+    private val mapSource = MapSourceInput("https://build.protomaps.com/20260914.pmtiles", 12.4, 43.89, 12.52, 43.99, 0, 14)
+
+    private fun fragmentFor(regionId: String, displayName: String, version: String = "1"): String =
+        buildRegionFragmentJson(
+            regionId, displayName, version, "2026-09-14T00:00:00Z", mapSource,
+            routingFiles = listOf(ManifestFileEntry("E10_N40.rd5", "https://example.org/$regionId/E10_N40.rd5", 10, "a".repeat(64))),
+            poiFile = ManifestFileEntry("poi.db", "https://example.org/$regionId/poi.db", 5, "b".repeat(64)),
+        )
+
+    private fun guidesFragment(version: String) = buildGuidesFragmentJson(
+        version,
+        ManifestFileEntry("guides.db", "https://example.org/guides-$version.db", 3, "c".repeat(64)),
+        mapOf("san-marino" to "https://it.wikivoyage.org/wiki/San_Marino"),
+    )
+
+    private fun regionsById(merged: JSONObject): Map<String, JSONObject> = merged.getJSONArray("regions").let { regions ->
+        (0 until regions.length()).associate { regions.getJSONObject(it).getString("regionId") to regions.getJSONObject(it) }
     }
 
     @Test
     fun `unisce piu' manifest in uno unico con tutte le regioni`() {
-        val dir = createTempDirectory("pocket-travel-test-merge").toFile()
-        try {
-            val sanMarino = fragmentFor(dir, "san-marino", "San Marino")
-            val italia = fragmentFor(dir, "italia", "Italia")
+        val merged = JSONObject(mergeManifestJson(listOf(fragmentFor("san-marino", "San Marino"), fragmentFor("italia", "Italia"))))
 
-            val merged = JSONObject(mergeManifestJson(listOf(sanMarino, italia)))
-
-            assertEquals(1, merged.getInt("manifestVersion"))
-            val regions = merged.getJSONArray("regions")
-            assertEquals(2, regions.length())
-            val regionIds = (0 until regions.length()).map { regions.getJSONObject(it).getString("regionId") }.toSet()
-            assertEquals(setOf("san-marino", "italia"), regionIds)
-        } finally {
-            dir.deleteRecursively()
-        }
+        assertEquals(2, merged.getInt("manifestVersion"))
+        assertEquals(setOf("san-marino", "italia"), regionsById(merged).keys)
     }
 
     @Test
     fun `scrive il continente su tutte le regioni presenti nella mappa, anche quelle gia' pubblicate`() {
-        val dir = createTempDirectory("pocket-travel-test-merge-continent").toFile()
-        try {
-            val published = fragmentFor(dir, "san-marino", "San Marino")
-            val thisRun = fragmentFor(dir, "giappone", "Giappone")
+        val merged = JSONObject(
+            mergeManifestJson(
+                listOf(fragmentFor("san-marino", "San Marino"), fragmentFor("giappone", "Giappone")),
+                continents = mapOf("san-marino" to "Europa", "giappone" to "Asia"),
+                countryCodes = mapOf("san-marino" to "sm", "giappone" to "jp"),
+            ),
+        )
 
-            val merged = JSONObject(
-                mergeManifestJson(
-                    listOf(published, thisRun),
-                    continents = mapOf("san-marino" to "Europa", "giappone" to "Asia"),
-                    countryCodes = mapOf("san-marino" to "sm", "giappone" to "jp"),
-                ),
-            )
-
-            val infoById = merged.getJSONArray("regions").let { regions ->
-                (0 until regions.length()).associate {
-                    val region = regions.getJSONObject(it)
-                    region.getString("regionId") to (region.optString("continent") to region.optString("countryCode"))
-                }
-            }
-            assertEquals(mapOf("san-marino" to ("Europa" to "sm"), "giappone" to ("Asia" to "jp")), infoById)
-        } finally {
-            dir.deleteRecursively()
-        }
+        val infoById = regionsById(merged).mapValues { (_, region) -> region.optString("continent") to region.optString("countryCode") }
+        assertEquals(mapOf("san-marino" to ("Europa" to "sm"), "giappone" to ("Asia" to "jp")), infoById)
     }
 
     @Test
     fun `una regionId duplicata viene sostituita dall'ultimo manifest fornito`() {
-        val dir = createTempDirectory("pocket-travel-test-merge-dup").toFile()
-        try {
-            val italiaV1 = fragmentFor(dir, "italia", "Italia", version = "1")
-            val italiaV2 = fragmentFor(dir, "italia", "Italia", version = "2")
+        val merged = JSONObject(mergeManifestJson(listOf(fragmentFor("italia", "Italia", "1"), fragmentFor("italia", "Italia", "2"))))
 
-            val merged = JSONObject(mergeManifestJson(listOf(italiaV1, italiaV2)))
-
-            val regions = merged.getJSONArray("regions")
-            assertEquals(1, regions.length())
-            assertEquals("2", regions.getJSONObject(0).getString("version"))
-        } finally {
-            dir.deleteRecursively()
-        }
+        val regions = merged.getJSONArray("regions")
+        assertEquals(1, regions.length())
+        assertEquals("2", regions.getJSONObject(0).getJSONObject("poi").getString("version"))
     }
 
     @Test
-    fun `una pubblicazione parziale non fa sparire le regioni non toccate`() {
-        val dir = createTempDirectory("pocket-travel-test-merge-partial").toFile()
-        try {
-            val giaPubblicato = mergeManifestJson(
-                listOf(fragmentFor(dir, "giappone", "Giappone"), fragmentFor(dir, "stati-uniti", "Stati Uniti")),
-            )
-            val nuovoFrammento = fragmentFor(dir, "stati-uniti", "Stati Uniti", version = "2")
+    fun `una pubblicazione parziale non fa sparire le regioni ne' le guide non toccate`() {
+        val giaPubblicato = mergeManifestJson(
+            listOf(guidesFragment("2026.09.20"), fragmentFor("giappone", "Giappone"), fragmentFor("stati-uniti", "Stati Uniti")),
+        )
 
-            val merged = JSONObject(mergeManifestJson(listOf(giaPubblicato, nuovoFrammento)))
+        val merged = JSONObject(mergeManifestJson(listOf(giaPubblicato, fragmentFor("stati-uniti", "Stati Uniti", "2"))))
 
-            val regions = merged.getJSONArray("regions")
-            assertEquals(2, regions.length())
-            val byId = (0 until regions.length()).associate {
-                regions.getJSONObject(it).getString("regionId") to regions.getJSONObject(it).getString("version")
+        val byId = regionsById(merged).mapValues { (_, region) -> region.getJSONObject("routing").getString("version") }
+        assertEquals(mapOf("giappone" to "1", "stati-uniti" to "2"), byId)
+        assertEquals("2026.09.20", merged.getJSONObject("guides").getString("version"))
+    }
+
+    @Test
+    fun `le guide dell'ultimo frammento sostituiscono quelle pubblicate e portano il link wikivoyage`() {
+        val giaPubblicato = mergeManifestJson(listOf(guidesFragment("2026.09.20"), fragmentFor("san-marino", "San Marino")))
+
+        val merged = JSONObject(mergeManifestJson(listOf(giaPubblicato, guidesFragment("2026.09.23"))))
+
+        assertEquals("2026.09.23", merged.getJSONObject("guides").getString("version"))
+        assertEquals("https://it.wikivoyage.org/wiki/San_Marino", regionsById(merged).getValue("san-marino").getString("wikivoyageUrl"))
+        assertFalse(merged.has("wikivoyageUrls"))
+    }
+
+    @Test
+    fun `converte una regione del manifest v1 in mappa, routing e POI da content_db`() {
+        val v1 = """
+            {
+              "manifestVersion": 1,
+              "regions": [{
+                "regionId": "san-marino", "displayName": "San Marino", "version": "2026.09.20",
+                "updatedAt": "2026-09-20T07:28:15Z", "continent": "Europa", "countryCode": "sm",
+                "files": [
+                  { "name": "content.db", "url": "https://example.org/san-marino--2026.09.20--content.db", "sizeBytes": 81920, "sha256": "${"a".repeat(64)}" },
+                  { "name": "E10_N40.rd5", "url": "https://example.org/san-marino--2026.09.20--E10_N40.rd5", "sizeBytes": 80044439, "sha256": "${"b".repeat(64)}" }
+                ],
+                "mapSource": { "sourceUrl": "https://build.protomaps.com/20260919.pmtiles", "minLon": 12.4, "minLat": 43.89, "maxLon": 12.52, "maxLat": 43.99, "minZoom": 0, "maxZoom": 14 }
+              }]
             }
-            assertEquals("1", byId.getValue("giappone"))
-            assertEquals("2", byId.getValue("stati-uniti"))
-        } finally {
-            dir.deleteRecursively()
-        }
+        """.trimIndent()
+
+        val region = regionsById(JSONObject(mergeManifestJson(listOf(v1)))).getValue("san-marino")
+
+        assertFalse(region.has("files"))
+        assertFalse(region.has("version"))
+        assertEquals("Europa", region.getString("continent"))
+        assertEquals("2026.09.20", region.getJSONObject("map").getString("version"))
+        assertEquals("https://build.protomaps.com/20260919.pmtiles", region.getJSONObject("map").getJSONObject("source").getString("sourceUrl"))
+        val routingFiles = region.getJSONObject("routing").getJSONArray("files")
+        assertEquals(1, routingFiles.length())
+        assertEquals("E10_N40.rd5", routingFiles.getJSONObject(0).getString("name"))
+        val poiFile = region.getJSONObject("poi").getJSONObject("file")
+        assertEquals("poi.db", poiFile.getString("name"))
+        assertEquals("https://example.org/san-marino--2026.09.20--content.db", poiFile.getString("url"))
+        assertEquals(81920, poiFile.getLong("sizeBytes"))
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -108,17 +122,11 @@ class MergeManifestsTest {
 
     @Test(expected = IllegalArgumentException::class)
     fun `fallisce se un manifest ha una manifestVersion non supportata`() {
-        mergeManifestJson(listOf("""{"manifestVersion": 2, "regions": []}"""))
+        mergeManifestJson(listOf("""{"manifestVersion": 3, "regions": []}"""))
     }
 
     @Test
     fun `il risultato e' JSON valido riparsabile`() {
-        val dir = createTempDirectory("pocket-travel-test-merge-json").toFile()
-        try {
-            val merged = mergeManifestJson(listOf(fragmentFor(dir, "san-marino", "San Marino")))
-            assertTrue(JSONObject(merged).has("regions"))
-        } finally {
-            dir.deleteRecursively()
-        }
+        assertTrue(JSONObject(mergeManifestJson(listOf(fragmentFor("san-marino", "San Marino")))).has("regions"))
     }
 }

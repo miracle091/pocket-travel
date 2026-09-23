@@ -8,42 +8,26 @@ import org.junit.Test
 class GenerateEmergencyNumbersTest {
 
     @Test
-    fun `scrive la riga dei numeri di emergenza per una regione nota`() {
-        val outputDb = File.createTempFile("pocket-travel-test", ".content.db")
+    fun `scrive una riga per ogni regione con numeri mappati e nessuna per le altre`() {
+        val outputDb = File.createTempFile("pocket-travel-test", ".guides.db")
         outputDb.delete()
 
         try {
-            val numbers = EmergencyNumbers(general = "112", police = "113", ambulance = "118", fire = "115")
-            writeEmergencyNumbersDb(numbers, "test-region", outputDb)
+            writeEmergencyNumbersTable(listOf("italia", "regione-sconosciuta", "giappone"), outputDb)
 
             DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
                 conn.createStatement().use { statement ->
-                    val rs = statement.executeQuery("SELECT regionId, general, police, ambulance, fire FROM emergency_numbers")
+                    val rs = statement.executeQuery("SELECT regionId, general, police, ambulance, fire FROM emergency_numbers ORDER BY regionId")
                     assertEquals(true, rs.next())
-                    assertEquals("test-region", rs.getString("regionId"))
+                    assertEquals("giappone", rs.getString("regionId"))
+                    assertEquals(null, rs.getString("general"))
+                    assertEquals("110", rs.getString("police"))
+                    assertEquals(true, rs.next())
+                    assertEquals("italia", rs.getString("regionId"))
                     assertEquals("112", rs.getString("general"))
                     assertEquals("113", rs.getString("police"))
                     assertEquals("118", rs.getString("ambulance"))
                     assertEquals("115", rs.getString("fire"))
-                    assertEquals(false, rs.next())
-                }
-            }
-        } finally {
-            outputDb.delete()
-        }
-    }
-
-    @Test
-    fun `nessuna riga per una regione senza numeri mappati`() {
-        val outputDb = File.createTempFile("pocket-travel-test", ".content.db")
-        outputDb.delete()
-
-        try {
-            writeEmergencyNumbersDb(null, "regione-sconosciuta", outputDb)
-
-            DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
-                conn.createStatement().use { statement ->
-                    val rs = statement.executeQuery("SELECT * FROM emergency_numbers")
                     assertEquals(false, rs.next())
                 }
             }

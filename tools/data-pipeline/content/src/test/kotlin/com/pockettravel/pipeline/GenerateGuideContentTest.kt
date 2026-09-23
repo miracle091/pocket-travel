@@ -9,13 +9,13 @@ class GenerateGuideContentTest {
 
     @Test
     fun `estrae solo le sezioni con categoria mappata dall'estratto wikivoyage di test`() {
-        val outputDb = File.createTempFile("pocket-travel-test", ".content.db")
+        val outputDb = File.createTempFile("pocket-travel-test", ".guides.db")
         outputDb.delete()
 
         try {
             val dumpText = File("testdata/wikivoyage-excerpt.txt").readText()
             val sections = parseWikivoyageDump(dumpText)
-            writeGuideDb(sections, "test-region", "https://example.org/test-region", outputDb)
+            writeGuidesDb(listOf(RegionGuide("test-region", "https://example.org/test-region", sections)), outputDb)
 
             DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
                 conn.createStatement().use { statement ->
@@ -42,13 +42,13 @@ class GenerateGuideContentTest {
 
     @Test
     fun `estrae le sezioni anche dai titoli italiani (build-region_sh preferisce ora Wikivoyage IT)`() {
-        val outputDb = File.createTempFile("pocket-travel-test", ".content.db")
+        val outputDb = File.createTempFile("pocket-travel-test", ".guides.db")
         outputDb.delete()
 
         try {
             val dumpText = File("testdata/wikivoyage-excerpt-it.txt").readText()
             val sections = parseWikivoyageDump(dumpText)
-            writeGuideDb(sections, "test-region", "https://it.wikivoyage.org/wiki/Test", outputDb)
+            writeGuidesDb(listOf(RegionGuide("test-region", "https://it.wikivoyage.org/wiki/Test", sections)), outputDb)
 
             DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
                 conn.createStatement().use { statement ->
@@ -75,13 +75,13 @@ class GenerateGuideContentTest {
 
     @Test
     fun `ripulisce citazioni, elenchi e sottotitoli vuoti dal corpo per la leggibilita'`() {
-        val outputDb = File.createTempFile("pocket-travel-test", ".content.db")
+        val outputDb = File.createTempFile("pocket-travel-test", ".guides.db")
         outputDb.delete()
 
         try {
             val dumpText = File("testdata/wikivoyage-excerpt-readability.txt").readText()
             val sections = parseWikivoyageDump(dumpText)
-            writeGuideDb(sections, "test-region", "https://example.org/test-region", outputDb)
+            writeGuidesDb(listOf(RegionGuide("test-region", "https://example.org/test-region", sections)), outputDb)
 
             DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
                 conn.createStatement().use { statement ->
@@ -102,6 +102,62 @@ class GenerateGuideContentTest {
             }
         } finally {
             outputDb.delete()
+        }
+    }
+
+    @Test
+    fun `guides db contiene le sezioni di tutte le regioni e i numeri di emergenza di quelle mappate`() {
+        val outputDb = File.createTempFile("pocket-travel-test", ".guides.db")
+        outputDb.delete()
+
+        try {
+            writeGuidesDb(
+                listOf(
+                    RegionGuide("italia", "https://it.wikivoyage.org/wiki/Italia", listOf(GuideSectionRow("SICUREZZA", "Sicurezza", "a"))),
+                    RegionGuide("regione-sconosciuta", "https://example.org", listOf(GuideSectionRow("TRASPORTI", "Get around", "b"))),
+                ),
+                outputDb,
+            )
+
+            DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
+                conn.createStatement().use { statement ->
+                    val sections = statement.executeQuery("SELECT regionId FROM guide_sections ORDER BY regionId")
+                    assertEquals(true, sections.next())
+                    assertEquals("italia", sections.getString(1))
+                    assertEquals(true, sections.next())
+                    assertEquals("regione-sconosciuta", sections.getString(1))
+                    assertEquals(false, sections.next())
+
+                    val numbers = statement.executeQuery("SELECT regionId, general FROM emergency_numbers")
+                    assertEquals(true, numbers.next())
+                    assertEquals("italia", numbers.getString("regionId"))
+                    assertEquals("112", numbers.getString("general"))
+                    assertEquals(false, numbers.next())
+                }
+            }
+        } finally {
+            outputDb.delete()
+        }
+    }
+
+    @Test
+    fun `sameGuidesContent ignora l'ordine delle regioni ma non un testo cambiato`() {
+        val a = File.createTempFile("pocket-travel-test", ".guides.db")
+        val b = File.createTempFile("pocket-travel-test", ".guides.db")
+        val c = File.createTempFile("pocket-travel-test", ".guides.db")
+        listOf(a, b, c).forEach { it.delete() }
+        val italia = RegionGuide("italia", "https://it.wikivoyage.org/wiki/Italia", listOf(GuideSectionRow("SICUREZZA", "Sicurezza", "testo")))
+        val giappone = RegionGuide("giappone", "https://it.wikivoyage.org/wiki/Giappone", listOf(GuideSectionRow("SALUTE", "Salute", "testo")))
+
+        try {
+            writeGuidesDb(listOf(italia, giappone), a)
+            writeGuidesDb(listOf(giappone, italia), b)
+            writeGuidesDb(listOf(italia, giappone.copy(sections = listOf(GuideSectionRow("SALUTE", "Salute", "testo nuovo")))), c)
+
+            assertEquals(true, sameGuidesContent(a, b))
+            assertEquals(false, sameGuidesContent(a, c))
+        } finally {
+            listOf(a, b, c).forEach { it.delete() }
         }
     }
 }

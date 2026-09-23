@@ -2,102 +2,83 @@ package com.pockettravel.pipeline
 
 import java.io.File
 import kotlin.io.path.createTempDirectory
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GenerateManifestTest {
 
+    private val mapSource = MapSourceInput(
+        sourceUrl = "https://build.protomaps.com/20260910.pmtiles",
+        minLon = 10.0, minLat = 42.0, maxLon = 12.0, maxLat = 44.0,
+        minZoom = 0, maxZoom = 14,
+    )
+    private val rd5 = ManifestFileEntry("E5_N45.rd5", "https://example.org/E5_N45.rd5", 79_980_459L, "a".repeat(64))
+
     @Test
-    fun `il manifest generato rispetta lo schema atteso da RegionManifest`() {
+    fun `il frammento di regione separa mappa, routing e POI con le rispettive versioni`() {
         val packageDir = createTempDirectory("pocket-travel-test-manifest").toFile()
         try {
-            val contentDb = File(packageDir, "content.db").apply { writeText("contenuto di test") }
-            val files = listOf(
-                localFileEntry(contentDb, "content.db", "https://example.org/test-region/content.db"),
-                ManifestFileEntry(
-                    name = "E5_N45.rd5",
-                    url = "https://brouter.de/brouter/segments4/E5_N45.rd5",
-                    sizeBytes = 79_980_459L,
-                    sha256 = "a".repeat(64),
-                ),
-            )
+            val poiDb = File(packageDir, "poi.db").apply { writeText("contenuto di test") }
 
-            val json = buildManifestJson(
+            val json = buildRegionFragmentJson(
                 regionId = "test-region",
                 displayName = "Regione di Test",
                 version = "2026.09.10",
                 updatedAt = "2026-09-10T00:00:00Z",
-                files = files,
-                mapSource = MapSourceInput(
-                    sourceUrl = "https://build.protomaps.com/20260910.pmtiles",
-                    minLon = 10.0, minLat = 42.0, maxLon = 12.0, maxLat = 44.0,
-                    minZoom = 0, maxZoom = 14,
-                ),
+                mapSource = mapSource,
+                routingFiles = listOf(rd5),
+                poiFile = localFileEntry(poiDb, "poi.db", "https://example.org/poi.db"),
             )
 
             val root = JSONObject(json)
-            assertEquals(1, root.getInt("manifestVersion"))
+            assertEquals(2, root.getInt("manifestVersion"))
             val region = root.getJSONArray("regions").getJSONObject(0)
             assertEquals("test-region", region.getString("regionId"))
             assertEquals("Regione di Test", region.getString("displayName"))
 
-            val filesJson = region.getJSONArray("files")
-            assertEquals(2, filesJson.length())
-            val contentDbJson = (0 until filesJson.length()).map { filesJson.getJSONObject(it) }
-                .first { it.getString("name") == "content.db" }
-            assertEquals(contentDb.length(), contentDbJson.getLong("sizeBytes"))
-            assertEquals(sha256Of(contentDb), contentDbJson.getString("sha256"))
+            val map = region.getJSONObject("map")
+            assertEquals("2026.09.10", map.getString("version"))
+            assertEquals(14, map.getJSONObject("source").getInt("maxZoom"))
 
-            val mapSourceJson = region.getJSONObject("mapSource")
-            assertEquals("https://build.protomaps.com/20260910.pmtiles", mapSourceJson.getString("sourceUrl"))
-            assertEquals(14, mapSourceJson.getInt("maxZoom"))
+            val routing = region.getJSONObject("routing")
+            assertEquals("2026.09.10", routing.getString("version"))
+            assertEquals("E5_N45.rd5", routing.getJSONArray("files").getJSONObject(0).getString("name"))
+
+            val poiFile = region.getJSONObject("poi").getJSONObject("file")
+            assertEquals("poi.db", poiFile.getString("name"))
+            assertEquals(poiDb.length(), poiFile.getLong("sizeBytes"))
+            assertEquals(sha256Of(poiDb), poiFile.getString("sha256"))
         } finally {
             packageDir.deleteRecursively()
         }
     }
 
-    @Test
-    fun `mapSource e' assente se non fornito`() {
-        val packageDir = createTempDirectory("pocket-travel-test-manifest-no-map").toFile()
-        try {
-            val contentDb = File(packageDir, "content.db").apply { writeText("x") }
-            val json = buildManifestJson(
-                regionId = "test-region",
-                displayName = "Regione di Test",
-                version = "1",
-                updatedAt = "2026-09-10T00:00:00Z",
-                files = listOf(localFileEntry(contentDb, "content.db", "https://example.org/content.db")),
-            )
-
-            val region = JSONObject(json).getJSONArray("regions").getJSONObject(0)
-            assertFalse(region.has("mapSource"))
-        } finally {
-            packageDir.deleteRecursively()
-        }
+    @Test(expected = IllegalArgumentException::class)
+    fun `fallisce se il routing non ha segmenti`() {
+        buildRegionFragmentJson(
+            "test-region", "Regione di Test", "1", "2026-09-10T00:00:00Z", mapSource, emptyList(),
+            ManifestFileEntry("poi.db", "https://example.org/poi.db", 1, "b".repeat(64)),
+        )
     }
 
     @Test
-    fun `buildManifestJsonFromSpec assembla content_db locale e file remoti gia' hashati`() {
+    fun `buildRegionFragmentJsonFromSpec assembla poi_db locale e segmenti gia' hashati`() {
         val packageDir = createTempDirectory("pocket-travel-test-manifest-spec").toFile()
         try {
-            val contentDb = File(packageDir, "content.db").apply { writeText("contenuto reale") }
+            val poiDb = File(packageDir, "poi.db").apply { writeText("contenuto reale") }
             val spec = JSONObject()
                 .put("regionId", "sm")
                 .put("displayName", "San Marino")
                 .put("version", "2026.09.14")
+                .put("poiDb", JSONObject().put("path", poiDb.absolutePath).put("url", "https://example.org/sm/poi.db"))
                 .put(
-                    "contentDb",
-                    JSONObject().put("path", contentDb.absolutePath).put("url", "https://example.org/sm/content.db"),
-                )
-                .put(
-                    "remoteFiles",
-                    org.json.JSONArray().put(
+                    "routingFiles",
+                    JSONArray().put(
                         JSONObject()
                             .put("name", "E10_N40.rd5")
-                            .put("url", "https://brouter.de/brouter/segments4/E10_N40.rd5")
+                            .put("url", "https://example.org/E10_N40.rd5")
                             .put("sizeBytes", 79_980_459L)
                             .put("sha256", "b".repeat(64)),
                     ),
@@ -110,16 +91,37 @@ class GenerateManifestTest {
                         .put("minZoom", 0).put("maxZoom", 14),
                 )
 
-            val json = buildManifestJsonFromSpec(spec.toString())
+            val region = JSONObject(buildRegionFragmentJsonFromSpec(spec.toString())).getJSONArray("regions").getJSONObject(0)
 
-            val region = JSONObject(json).getJSONArray("regions").getJSONObject(0)
             assertEquals("sm", region.getString("regionId"))
-            val filesJson = region.getJSONArray("files")
-            assertEquals(2, filesJson.length())
-            assertTrue((0 until filesJson.length()).map { filesJson.getJSONObject(it).getString("name") }
-                .containsAll(listOf("content.db", "E10_N40.rd5")))
+            assertEquals("https://example.org/sm/poi.db", region.getJSONObject("poi").getJSONObject("file").getString("url"))
+            assertEquals(1, region.getJSONObject("routing").getJSONArray("files").length())
+            assertEquals("https://build.protomaps.com/20260914.pmtiles", region.getJSONObject("map").getJSONObject("source").getString("sourceUrl"))
         } finally {
             packageDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `il frammento guide ha la voce guides e nessuna regione`() {
+        val dir = createTempDirectory("pocket-travel-test-manifest-guides").toFile()
+        try {
+            val guidesDb = File(dir, "guides.db").apply { writeText("guide") }
+
+            val root = JSONObject(
+                buildGuidesFragmentJson(
+                    "2026.09.23",
+                    localFileEntry(guidesDb, "guides.db", "https://example.org/guides.db"),
+                    mapOf("italia" to "https://it.wikivoyage.org/wiki/Italia"),
+                ),
+            )
+
+            assertEquals(0, root.getJSONArray("regions").length())
+            assertEquals("2026.09.23", root.getJSONObject("guides").getString("version"))
+            assertEquals(sha256Of(guidesDb), root.getJSONObject("guides").getJSONObject("file").getString("sha256"))
+            assertEquals("https://it.wikivoyage.org/wiki/Italia", root.getJSONObject("wikivoyageUrls").getString("italia"))
+        } finally {
+            dir.deleteRecursively()
         }
     }
 }

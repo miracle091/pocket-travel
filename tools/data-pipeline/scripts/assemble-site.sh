@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Assembla il sito da pubblicare (site/) unendo i frammenti manifest appena generati con il
-# manifest.json gia' pubblicato online (se esiste). Serve solo a unire il JSON: content.db e i
-# .rd5 delle regioni non toccate in questa run non vanno ri-copiati da nessuna parte, perche' non
+# manifest.json gia' pubblicato online (se esiste). Serve solo a unire il JSON: guides.db, poi.db e
+# i .rd5 non toccati in questa run non vanno ri-copiati da nessuna parte, perche' non
 # vivono piu' sul sito Pages ma sugli asset della release "region-data" (vedi
 # tools/data-pipeline/scripts/build-region.sh e .github/workflows/publish-regions.yml) - a
 # differenza di actions/deploy-pages, che sostituisce l'intero sito ad ogni pubblicazione, gli
@@ -11,8 +11,8 @@
 # superato il limite di 1GB di GitHub Pages.)
 #
 # Uso: assemble-site.sh <siteDir> <publishedManifestUrl> <fragmentFile1> [fragmentFile2 ...]
-# Richiede jq (per la sezione "Ultimi aggiornamenti" della pagina, derivata da version/updatedAt
-# del manifest unito) oltre alle dipendenze gia' richieste da mergeManifests (gradle wrapper).
+# Richiede jq (per la sezione "Ultimi aggiornamenti" della pagina, derivata dalle versioni dei
+# pacchetti del manifest unito) oltre alle dipendenze gia' richieste da mergeManifests (gradle wrapper).
 set -euo pipefail
 
 SITE_DIR="$1"; shift
@@ -117,7 +117,7 @@ status_html() {
   wikiUrl="$(wikivoyage_url_for "$regionId")"
   [ -n "$wikiUrl" ] && text="<a href=\"$wikiUrl\">$text</a>"
   if is_present "$regionId"; then
-    # L'href sopra e' verso Wikivoyage (guida testuale), non verso i dati della regione: content.db/
+    # L'href sopra e' verso Wikivoyage (guida testuale), non verso i dati della regione: poi.db/
     # i .rd5 non vivono piu' sotto site/ (vedi il commento in testa al file) e non hanno una singola
     # pagina browsable a cui linkare - il download vero e proprio passa dagli URL in manifest.json.
     echo "<span class=\"entry\">$text $STATUS_OK_SVG</span>"
@@ -193,8 +193,9 @@ for continent in "${CONTINENTS[@]}"; do
   CONTINENT_SECTIONS="$(printf '%s\n%s' "$CONTINENT_SECTIONS" "$section")"
 done
 
-# "Ultimi aggiornamenti": derivato da version/updatedAt gia' presenti in ogni region del manifest
-# unito, non serve nessuna cronologia separata da mantenere. Raggruppato per version (una per
+# "Ultimi aggiornamenti": derivato dalle versioni dei pacchetti (mappa, routing, POI: la piu'
+# recente) gia' presenti in ogni region del manifest unito, non serve nessuna cronologia separata da
+# mantenere. Raggruppato per version (una per
 # ogni run di pubblicazione, non per singola nazione) e limitato alle 10 piu' recenti cosi' la
 # sezione resta di dimensione costante anche a copertura mondiale completa (254 nazioni), invece
 # di crescere senza limite.
@@ -203,7 +204,8 @@ if command -v jq >/dev/null 2>&1; then
   while IFS=$'\t' read -r version names; do
     CHANGELOG_HTML="$CHANGELOG_HTML<dt>$version</dt><dd>$names</dd>"
   done < <(jq -r '
-    [.regions[] | select(.version != null and .version != "") | {displayName, version}]
+    [.regions[] | {displayName, version: ([.map.version, .routing.version, .poi.version] | map(select(. != null)) | max)}
+      | select(.version != null and .version != "")]
     | group_by(.version)
     | map({version: .[0].version, names: (map(.displayName) | sort | join(", "))})
     | sort_by(.version)

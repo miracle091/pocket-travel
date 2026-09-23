@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Helper condivisi dagli script della pipeline publish-region (build-region.sh, assemble-site.sh,
+# Helper condivisi dagli script della pipeline publish-region (build-region.sh, build-guides.sh, assemble-site.sh,
 # build-pilot-regions.sh, generate-weekly-schedule.sh). Solo funzioni, nessun effetto collaterale:
 # sourcing sicuro da qualunque script con "set -euo pipefail" gia' attivo.
 # shellcheck shell=bash
@@ -41,5 +41,38 @@ resolve_protomaps_date() {
     fi
   done
   echo "ERRORE: nessuna build Protomaps trovata negli ultimi giorni" >&2
+  return 1
+}
+
+# Scarica il wikitext grezzo della pagina Wikivoyage di una regione in <outFile> e stampa l'URL
+# della pagina usata (per il campo sourceUrl delle sezioni). Preferisce l'edizione italiana:
+# Wikivoyage IT e' scritto da editor italiani, non una traduzione automatica — piu' "tradotto" e
+# "leggibile" di qualunque pipeline di traduzione aggiunta qui, senza dipendenze nuove (vedi "no
+# hosting infra" nella memoria di progetto). Il titolo IT non si puo' indovinare dal titolo EN
+# (es. "Giappone" per "Japan", "Palau (stato)" per "Palau"): si risolve dai langlinks interwiki
+# della pagina EN via l'API MediaWiki, gia' tenuti allineati da Wikivoyage stesso — evita di
+# mantenere a mano una seconda colonna di titoli IT in pilot-regions.sh, che si disallineerebbe
+# silenziosamente ad ogni rinomina di pagina. La risposta si parsa con sed per non rendere jq
+# obbligatorio. Nessun langlink IT (o pagina IT vuota): fallback sull'originale inglese.
+# Ritorna 1 (e nessun URL) se anche la pagina EN risulta vuota (titolo errato o errore di rete).
+fetch_wikivoyage_dump() {
+  local wikiTitle="$1" outFile="$2"
+  local langlinks itTitle itTitleUrl
+  langlinks="$(curl -sS "https://en.wikivoyage.org/w/api.php?action=query&titles=${wikiTitle}&prop=langlinks&lllang=it&format=json" 2>/dev/null || true)"
+  itTitle="$(printf '%s' "$langlinks" | sed -n 's/.*"lang":"it","\*":"\([^"]*\)".*/\1/p')"
+  : > "$outFile"
+  if [ -n "$itTitle" ]; then
+    itTitleUrl="${itTitle// /_}"
+    curl -sS "https://it.wikivoyage.org/w/index.php?title=${itTitleUrl}&action=raw" -o "$outFile" 2>/dev/null || : > "$outFile"
+    if [ -s "$outFile" ]; then
+      echo "https://it.wikivoyage.org/wiki/${itTitleUrl}"
+      return 0
+    fi
+  fi
+  curl -sS "https://en.wikivoyage.org/w/index.php?title=${wikiTitle}&action=raw" -o "$outFile" 2>/dev/null || : > "$outFile"
+  if [ -s "$outFile" ]; then
+    echo "https://en.wikivoyage.org/wiki/${wikiTitle}"
+    return 0
+  fi
   return 1
 }

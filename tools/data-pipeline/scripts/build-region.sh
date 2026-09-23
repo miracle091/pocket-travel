@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Orchestratore batch (piano A2): per UNA regione (una nazione o una sua sotto-area, per le
-# nazioni non contigue — vedi build-pilot-regions.sh per Stati Uniti), genera content.db
-# (Wikivoyage + POI + numeri di emergenza, riusando i tool Kotlin esistenti
-# generateGuideContent/generatePoi/generateEmergencyNumbers),
-# scarica e ri-ospita i segmenti BRouter .rd5 che intersecano il bbox (stesso host di
-# content.db, vedi manifest-fragment.json), e produce il frammento manifest.json (mapSource
-# punta alla build Protomaps corrente per l'estrazione lato device della mappa — vedi
-# PmtilesExtractor, core:sync).
+# nazioni non contigue — vedi build-pilot-regions.sh per Stati Uniti), genera poi.db (POI
+# Overpass, via il tool Kotlin generatePoi), scarica e ri-ospita i segmenti BRouter .rd5 che
+# intersecano il bbox (stesso host di poi.db, vedi manifest-fragment.json), e produce il
+# frammento manifest.json con i tre pacchetti della regione: mappa (map.source punta alla build
+# Protomaps corrente per l'estrazione lato device — vedi PmtilesExtractor, core:sync), routing
+# (.rd5) e POI, ciascuno con la propria versione. Le guide non sono qui: un solo pacchetto per
+# tutte le regioni, generato da build-guides.sh.
 #
 # I .rd5 sono ri-ospitati (non solo hashati e scartati come in origine) perche' brouter.de
 # rigenera periodicamente i propri segmenti: la stessa tile scaricata a poche ore di distanza
@@ -20,14 +20,14 @@
 #
 # Uso:
 #   build-region.sh <regionId> <displayName> <version> <minLon> <minLat> <maxLon> <maxLat> \
-#                    <wikivoyagePageTitle> <contentDbBaseUrl> <outputDir> [publishedManifestUrl]
+#                    <assetBaseUrl> <outputDir> [publishedManifestUrl]
 #
 # Esempio (San Marino):
 #   build-region.sh san-marino "San Marino" 2026.09.14 12.40 43.89 12.52 43.99 \
-#                    San_Marino https://github.com/miracle091/pocket-travel/releases/download/region-data \
+#                    https://github.com/miracle091/pocket-travel/releases/download/region-data \
 #                    /tmp/out/san-marino
 #
-# <contentDbBaseUrl> e' la base a cui content.db/i .rd5 saranno raggiungibili una volta caricati
+# <assetBaseUrl> e' la base a cui poi.db/i .rd5 saranno raggiungibili una volta caricati
 # (oggi gli asset della release "region-data", vedi publish-regions.yml): questo script calcola
 # solo gli URL da scrivere nel manifest, non carica nulla.
 #
@@ -38,16 +38,16 @@
 # Omesso (come per
 # l'esecuzione locale via build-pilot-regions.sh, sempre "tutto fresco") = nessun controllo,
 # rigenerazione completa come sempre. Quando la regione viene saltata, <outputDir>/.skipped viene
-# creato (vuoto) invece di content.db/i .rd5 - il chiamante lo usa per capire che non c'e' nulla
+# creato (vuoto) invece di poi.db/i .rd5 - il chiamante lo usa per capire che non c'e' nulla
 # di nuovo da ricaricare (vedi publish-regions.yml).
 #
 # Richiede: curl, sha256sum, awk, jq (solo se si passa publishedManifestUrl), gradle wrapper
-# (./gradlew) dalla root del repo. I segmenti .rd5 restano in <outputDir> insieme a content.db,
+# (./gradlew) dalla root del repo. I segmenti .rd5 restano in <outputDir> insieme a poi.db,
 # pronti per essere copiati nel sito da pubblicare (vedi build-pilot-regions.sh/publish-regions.yml).
 set -euo pipefail
 
-if [ "$#" -lt 10 ] || [ "$#" -gt 11 ]; then
-  echo "Uso: $0 <regionId> <displayName> <version> <minLon> <minLat> <maxLon> <maxLat> <wikivoyagePageTitle> <contentDbBaseUrl> <outputDir> [publishedManifestUrl]" >&2
+if [ "$#" -lt 9 ] || [ "$#" -gt 10 ]; then
+  echo "Uso: $0 <regionId> <displayName> <version> <minLon> <minLat> <maxLon> <maxLat> <assetBaseUrl> <outputDir> [publishedManifestUrl]" >&2
   exit 1
 fi
 
@@ -58,10 +58,9 @@ MIN_LON="$4"
 MIN_LAT="$5"
 MAX_LON="$6"
 MAX_LAT="$7"
-WIKI_TITLE="$8"
-CONTENT_DB_BASE_URL="${9%/}"
-OUTPUT_DIR="${10}"
-PUBLISHED_MANIFEST_URL="${11:-}"
+ASSET_BASE_URL="${8%/}"
+OUTPUT_DIR="$9"
+PUBLISHED_MANIFEST_URL="${10:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
@@ -70,9 +69,9 @@ source "$SCRIPT_DIR/lib.sh"
 BROUTER_BASE="https://brouter.de/brouter/segments4"
 MAP_MIN_ZOOM=0
 MAP_MAX_ZOOM=14
-# Oltre questa eta' (giorni) del content.db pubblicato, una regione con tile cambiate viene
-# rigenerata per intero (POI/guida aggiornati) invece che solo nelle tile (vedi sezione 2bis).
-CONTENT_MAX_AGE_DAYS="${CONTENT_MAX_AGE_DAYS:-30}"
+# Oltre questa eta' (giorni) del poi.db pubblicato, una regione con tile cambiate viene
+# rigenerata per intero (POI aggiornati) invece che solo nelle tile (vedi sezione 2bis).
+POI_MAX_AGE_DAYS="${POI_MAX_AGE_DAYS:-30}"
 
 mkdir -p "$OUTPUT_DIR"
 WORKDIR="$(mktemp -d)"
@@ -175,35 +174,39 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
     ' "$EXPECTED_TSV")"
 
     PUBLISHED_SORTED="$(jq -c --arg id "$REGION_ID" '
-      [(.regions // [])[] | select(.regionId == $id) | (.files // [])[] | select(.name | endswith(".rd5")) | {name, sizeBytes}]
+      [(.regions // [])[] | select(.regionId == $id) | (.routing.files // .files // [])[] | select(.name | endswith(".rd5")) | {name, sizeBytes}]
       | sort_by(.name)
     ' "$PUBLISHED_MANIFEST" 2>/dev/null || echo "[]")"
 
     if [ -n "$EXPECTED_SORTED" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$PUBLISHED_SORTED" = "$EXPECTED_SORTED" ]; then
       echo "== [$REGION_ID] invariata rispetto al manifest pubblicato (stesse tile .rd5, stesse dimensioni): salto la rigenerazione =="
       : > "$OUTPUT_DIR/.skipped"
-      jq -c --arg id "$REGION_ID" '{manifestVersion: 1, regions: [(.regions // [])[] | select(.regionId == $id)]}' \
+      # manifestVersion quella del manifest pubblicato: una regione ancora v1 viene convertita da
+      # mergeManifests (vedi MergeManifests.kt), non qui.
+      jq -c --arg id "$REGION_ID" '{manifestVersion: .manifestVersion, regions: [(.regions // [])[] | select(.regionId == $id)]}' \
         "$PUBLISHED_MANIFEST" > "$OUTPUT_DIR/manifest-fragment.json"
       echo "== [$REGION_ID] fatto (saltata, frammento riusato da quello pubblicato) =="
       exit 0
     fi
-    # Aggiornamento incrementale: la regione e' gia' pubblicata con le stesse tile (cambiano solo
-    # le dimensioni di alcune) e il suo content.db ha meno di CONTENT_MAX_AGE_DAYS giorni. content.db
-    # (Wikivoyage + POI Overpass) non dipende dalle tile di routing, quindi non lo rigeneriamo: si
-    # riscaricano solo le tile cambiate e si riusa il resto del frammento pubblicato (content.db e
-    # tile invariate mantengono il loro URL, gli asset restano sulla release). La data del
-    # content.db si ricava dal nome dell'asset (regionId--YYYY.MM.DD--content.db).
+    # Aggiornamento incrementale: la regione e' gia' pubblicata nel formato a pacchetti (v2) con
+    # le stesse tile (cambiano solo le dimensioni di alcune) e il suo poi.db ha meno di
+    # POI_MAX_AGE_DAYS giorni. I POI non dipendono dalle tile di routing, quindi non li rigeneriamo:
+    # si riscaricano solo le tile cambiate (nuova versione del routing, e della mappa, che punta
+    # alla build Protomaps corrente) e il POI resta quello pubblicato, con la sua versione. La data
+    # del poi.db si ricava dal nome dell'asset (regionId--YYYY.MM.DD--poi.db, o --content.db per le
+    # regioni convertite dal formato v1). Una regione ancora v1 (senza "routing") viene rigenerata
+    # per intero.
     PUBLISHED_REGION="$(jq -c --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id)][0] // empty' "$PUBLISHED_MANIFEST" 2>/dev/null || true)"
-    if [ -n "$PUBLISHED_REGION" ] && [ "$EXPECTED_SORTED" != "[]" ]; then
+    if [ -n "$PUBLISHED_REGION" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$(printf '%s' "$PUBLISHED_REGION" | jq 'has("routing")')" = "true" ]; then
       SAME_TILES="$(jq -n --argjson a "$EXPECTED_SORTED" --argjson b "$PUBLISHED_SORTED" '($a | map(.name)) == ($b | map(.name))')"
-      PUBLISHED_CONTENT_URL="$(printf '%s' "$PUBLISHED_REGION" | jq -r '[.files[] | select(.name == "content.db") | .url][0] // ""')"
-      CONTENT_DATE="$(printf '%s' "$PUBLISHED_CONTENT_URL" | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)--content\.db$#\1#p')"
-      CONTENT_AGE_DAYS=""
-      if [ -n "$CONTENT_DATE" ]; then
-        CONTENT_AGE_DAYS="$(( ($(date -u +%s) - $(date -u -d "${CONTENT_DATE//./-}" +%s)) / 86400 ))"
+      PUBLISHED_POI_URL="$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.file.url // ""')"
+      POI_DATE="$(printf '%s' "$PUBLISHED_POI_URL" | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)--\(poi\|content\)\.db$#\1#p')"
+      POI_AGE_DAYS=""
+      if [ -n "$POI_DATE" ]; then
+        POI_AGE_DAYS="$(( ($(date -u +%s) - $(date -u -d "${POI_DATE//./-}" +%s)) / 86400 ))"
       fi
-      if [ "$SAME_TILES" = "true" ] && [ -n "$CONTENT_AGE_DAYS" ] && [ "$CONTENT_AGE_DAYS" -le "$CONTENT_MAX_AGE_DAYS" ]; then
-        echo "-- $REGION_ID: stesse tile, content.db di $CONTENT_AGE_DAYS giorni (max $CONTENT_MAX_AGE_DAYS): aggiorno solo le tile cambiate"
+      if [ "$SAME_TILES" = "true" ] && [ -n "$POI_AGE_DAYS" ] && [ "$POI_AGE_DAYS" -le "$POI_MAX_AGE_DAYS" ]; then
+        echo "-- $REGION_ID: stesse tile, poi.db di $POI_AGE_DAYS giorni (max $POI_MAX_AGE_DAYS): aggiorno solo le tile cambiate"
         UPDATED_TSV="$WORKDIR/updated-rd5.tsv"
         : > "$UPDATED_TSV"
         CHANGED_TILES="$(jq -r -n --argjson a "$EXPECTED_SORTED" --argjson b "$PUBLISHED_SORTED" \
@@ -215,19 +218,20 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
           download_with_progress "$dest" "$tileFile" -sS -o "$dest" "${BROUTER_BASE}/${tileFile}"
           size="$(wc -c < "$dest" | tr -d ' ')"
           hash="$(sha256sum "$dest" | awk '{print $1}')"
-          printf '%s\t%s\t%s\t%s\n' "$tileFile" "${CONTENT_DB_BASE_URL}/${REGION_ID}--${VERSION}--${tileFile}" "$size" "$hash" >> "$UPDATED_TSV"
+          printf '%s\t%s\t%s\t%s\n' "$tileFile" "${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${tileFile}" "$size" "$hash" >> "$UPDATED_TSV"
         done <<< "$CHANGED_TILES"
         jq -R -s -c 'split("\n") | map(select(length > 0) | split("\t") | {name: .[0], url: .[1], sizeBytes: (.[2] | tonumber), sha256: .[3]})' \
           "$UPDATED_TSV" > "$WORKDIR/updated-rd5.json"
         jq -c --arg id "$REGION_ID" --arg version "$VERSION" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
           --arg src "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" --slurpfile upd "$WORKDIR/updated-rd5.json" '
           ($upd[0] | map({key: .name, value: .}) | from_entries) as $u
-          | {manifestVersion: 1, regions: [(.regions // [])[] | select(.regionId == $id)
-              | .version = $version | .updatedAt = $now | .mapSource.sourceUrl = $src
-              | .files |= map(if $u[.name] then $u[.name] else . end)]}' \
+          | {manifestVersion: 2, regions: [(.regions // [])[] | select(.regionId == $id)
+              | .updatedAt = $now
+              | .map.version = $version | .map.source.sourceUrl = $src
+              | .routing.version = $version | .routing.files |= map(if $u[.name] then $u[.name] else . end)]}' \
           "$PUBLISHED_MANIFEST" > "$OUTPUT_DIR/manifest-fragment.json"
         : > "$OUTPUT_DIR/.incremental"
-        echo "== [$REGION_ID] fatto (incrementale: solo tile cambiate, content.db riusato) =="
+        echo "== [$REGION_ID] fatto (incrementale: solo tile cambiate, poi.db riusato) =="
         exit 0
       fi
     fi
@@ -237,45 +241,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
   fi
 fi
 
-# --- 3. Guida testuale da Wikivoyage (wikitext grezzo): preferisce l'edizione italiana -----------
-# Wikivoyage IT e' scritto da editor italiani, non una traduzione automatica: piu' "tradotto" e
-# "leggibile" di qualunque pipeline di traduzione aggiunta qui, senza dipendenze nuove (vedi "no
-# hosting infra" nella memoria di progetto). Il titolo IT non si puo' indovinare da WIKI_TITLE
-# (es. "Giappone" per "Japan", "Palau (stato)" per "Palau"): si risolve dai langlinks interwiki
-# della pagina EN via l'API MediaWiki, gia' tenuti allineati da Wikivoyage stesso — evita di
-# mantenere a mano una seconda colonna di titoli IT in pilot-regions.sh (~200 righe), che si
-# disallineerebbe silenziosamente ad ogni rinomina di pagina. jq resta facoltativo altrove in
-# questo script (solo per PUBLISHED_MANIFEST_URL): questa risposta la parsiamo con sed per non
-# renderlo improvvisamente obbligatorio anche per l'esecuzione locale senza manifest pubblicato.
-DUMP_FILE="$WORKDIR/dump.txt"
-WIKI_URL="https://en.wikivoyage.org/wiki/${WIKI_TITLE}"
-LANGLINKS_JSON="$(curl -sS "https://en.wikivoyage.org/w/api.php?action=query&titles=${WIKI_TITLE}&prop=langlinks&lllang=it&format=json" 2>/dev/null || true)"
-IT_TITLE="$(printf '%s' "$LANGLINKS_JSON" | sed -n 's/.*"lang":"it","\*":"\([^"]*\)".*/\1/p')"
-
-if [ -n "$IT_TITLE" ]; then
-  IT_TITLE_URL="${IT_TITLE// /_}"
-  echo "-- scarico dump Wikivoyage (IT): $IT_TITLE"
-  download_with_progress "$DUMP_FILE" "dump Wikivoyage IT $IT_TITLE" -sS \
-    "https://it.wikivoyage.org/w/index.php?title=${IT_TITLE_URL}&action=raw" -o "$DUMP_FILE"
-  if [ -s "$DUMP_FILE" ]; then
-    WIKI_URL="https://it.wikivoyage.org/wiki/${IT_TITLE_URL}"
-  fi
-fi
-
-# Nessun langlink IT (o pagina IT risultata vuota nonostante il langlink): fallback sull'originale
-# inglese, comportamento identico a prima di questa modifica.
-if [ ! -s "$DUMP_FILE" ]; then
-  echo "-- scarico dump Wikivoyage (EN): $WIKI_TITLE"
-  download_with_progress "$DUMP_FILE" "dump Wikivoyage EN $WIKI_TITLE" -sS "https://en.wikivoyage.org/w/index.php?title=${WIKI_TITLE}&action=raw" -o "$DUMP_FILE"
-  WIKI_URL="https://en.wikivoyage.org/wiki/${WIKI_TITLE}"
-fi
-
-if [ ! -s "$DUMP_FILE" ]; then
-  echo "ERRORE: dump Wikivoyage vuoto per $WIKI_TITLE (titolo pagina errato?)" >&2
-  exit 1
-fi
-
-# --- 4. Segmenti .rd5 + POI Overpass, tile per tile (stessa griglia 5x5 gradi) -------------------
+# --- 3. Segmenti .rd5 + POI Overpass, tile per tile (stessa griglia 5x5 gradi) -------------------
 # Le due cose sono unite in un solo giro sulla griglia (non due giri separati come prima):
 # interrogare Overpass anche per una tile senza .rd5 (nessuna strada estratta, quasi certamente
 # oceano aperto) e' puro spreco - trovato sul Giappone (arcipelago, fino a 42 tile nella griglia
@@ -364,11 +330,11 @@ while [ "$lon" -le "$LON_END" ]; do
     fi
     if [ "$code" = "200" ]; then
       dest="$OUTPUT_DIR/${tile}.rd5"
-      echo "-- scarico $tile.rd5 (ri-ospitato insieme a content.db, vedi commento in testa al file)..."
+      echo "-- scarico $tile.rd5 (ri-ospitato insieme a poi.db, vedi commento in testa al file)..."
       download_with_progress "$dest" "$tile.rd5" -sS -o "$dest" "$url"
       size="$(wc -c < "$dest" | tr -d ' ')"
       hash="$(sha256sum "$dest" | awk '{print $1}')"
-      rd5Url="${CONTENT_DB_BASE_URL}/${REGION_ID}--${VERSION}--${tile}.rd5"
+      rd5Url="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${tile}.rd5"
       entry="{ \"name\": \"${tile}.rd5\", \"url\": \"${rd5Url}\", \"sizeBytes\": ${size}, \"sha256\": \"${hash}\" }"
       if [ -z "$REMOTE_FILES_JSON" ]; then REMOTE_FILES_JSON="$entry"; else REMOTE_FILES_JSON="$REMOTE_FILES_JSON, $entry"; fi
 
@@ -408,40 +374,33 @@ if [ "$FAILED_CHUNKS" -gt 0 ]; then
   echo "-- attenzione: $FAILED_CHUNKS/$chunkIndex chunk falliti, alcuni POI di $REGION_ID mancheranno"
 fi
 
-# --- 5. content.db: guide_sections + poi, via i tool Kotlin esistenti ----------------------------
-CONTENT_DB="$OUTPUT_DIR/content.db"
-rm -f "$CONTENT_DB"
+# --- 4. poi.db, via il tool Kotlin generatePoi --------------------------------------------------
+POI_DB="$OUTPUT_DIR/poi.db"
+rm -f "$POI_DB"
 cd "$REPO_ROOT"
-echo "-- genero content.db (guide_sections)..."
-./gradlew -q :tools:data-pipeline:content:generateGuideContent \
-  --args="\"$(winpath "$DUMP_FILE")\" \"$REGION_ID\" \"$WIKI_URL\" \"$(winpath "$CONTENT_DB")\""
-echo "-- genero content.db (poi)..."
+echo "-- genero poi.db..."
 POI_TAG_KEYS_ARG="$(IFS=,; echo "${POI_TAG_KEYS[*]}")"
-POI_ARGS="\"$REGION_ID\" \"$(winpath "$CONTENT_DB")\" \"$POI_TAG_KEYS_ARG\""
+POI_ARGS="\"$REGION_ID\" \"$(winpath "$POI_DB")\" \"$POI_TAG_KEYS_ARG\""
 for f in "${POI_XML_FILES[@]}"; do
   POI_ARGS="$POI_ARGS \"$(winpath "$f")\""
 done
 ./gradlew -q :tools:data-pipeline:content:generatePoi --args="$POI_ARGS"
-echo "-- genero content.db (emergency_numbers)..."
-./gradlew -q :tools:data-pipeline:content:generateEmergencyNumbers \
-  --args="\"$REGION_ID\" \"$(winpath "$CONTENT_DB")\""
 
-# --- 6. Frammento manifest.json (content.db nostro + rd5 remoti + mapSource) ---------------------
-CONTENT_DB_URL="${CONTENT_DB_BASE_URL}/${REGION_ID}--${VERSION}--content.db"
+# --- 5. Frammento manifest.json (poi.db nostro + rd5 ri-ospitati + sorgente mappa) -------------
+POI_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi.db"
 SPEC_FILE="$WORKDIR/spec.json"
 cat > "$SPEC_FILE" <<EOF
 {
   "regionId": "${REGION_ID}",
   "displayName": "${DISPLAY_NAME}",
   "version": "${VERSION}",
-  "contentDb": { "path": "$(winpath "$CONTENT_DB")", "url": "${CONTENT_DB_URL}" },
-  "remoteFiles": [ ${REMOTE_FILES_JSON} ],
+  "poiDb": { "path": "$(winpath "$POI_DB")", "url": "${POI_DB_URL}" },
+  "routingFiles": [ ${REMOTE_FILES_JSON} ],
   "mapSource": {
     "sourceUrl": "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles",
     "minLon": ${MIN_LON}, "minLat": ${MIN_LAT}, "maxLon": ${MAX_LON}, "maxLat": ${MAX_LAT},
     "minZoom": ${MAP_MIN_ZOOM}, "maxZoom": ${MAP_MAX_ZOOM}
-  },
-  "wikivoyageUrl": "${WIKI_URL}"
+  }
 }
 EOF
 
@@ -450,4 +409,4 @@ echo "-- genero il frammento manifest..."
 ./gradlew -q :tools:data-pipeline:content:generateManifest \
   --args="\"$(winpath "$SPEC_FILE")\" \"$(winpath "$MANIFEST_FRAGMENT")\""
 
-echo "== [$REGION_ID] fatto: $CONTENT_DB, $MANIFEST_FRAGMENT =="
+echo "== [$REGION_ID] fatto: $POI_DB, $MANIFEST_FRAGMENT =="

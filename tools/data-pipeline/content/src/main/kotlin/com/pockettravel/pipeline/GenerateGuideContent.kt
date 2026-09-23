@@ -1,6 +1,7 @@
 package com.pockettravel.pipeline
 
 import java.io.File
+import java.sql.DriverManager
 
 // Duplicato minimo di core/content/WikivoyageDumpParser.kt e WikivoyageSectionMapping.kt:
 // quel modulo e' una libreria Android (com.android.library), non consumabile da un modulo
@@ -141,31 +142,55 @@ private fun cleanBody(raw: String): String {
         .trim()
 }
 
-fun main(args: Array<String>) {
-    require(args.size == 4) { "Uso: generateGuideContent <input dump.txt> <regionId> <sourceUrl> <output content.db>" }
-    val dumpFile = File(args[0])
-    val regionId = args[1]
-    val sourceUrl = args[2]
-    val outputDb = File(args[3])
+/** Guida di una regione: sezioni estratte dal dump Wikivoyage e URL della pagina da cui vengono. */
+data class RegionGuide(val regionId: String, val sourceUrl: String, val sections: List<GuideSectionRow>)
 
-    val sections = parseWikivoyageDump(dumpFile.readText())
-    writeGuideDb(sections, regionId, sourceUrl, outputDb)
-    println("guide_sections: ${sections.size} sezioni scritte in ${outputDb.path}")
+/**
+ * Genera guides.db, il pacchetto guide unico per tutte le regioni (guide_sections +
+ * emergency_numbers), scaricato dall'app separatamente da mappa, POI e routing.
+ *
+ * regioni.tsv: una riga per regione "regionId<TAB>dump.txt<TAB>sourceUrl" (vedi build-guides.sh).
+ * Dump vuoto = pagina Wikivoyage non scaricata in questa run: si ricopiano le sezioni di quella
+ * regione dal guides.db pubblicato, se passato, invece di farla sparire per un errore di rete.
+ *
+ * Se il contenuto generato e' identico a quello del guides.db pubblicato, l'output non viene
+ * scritto: il chiamante riusa la voce gia' pubblicata e la versione non cambia, cosi' l'app non
+ * riscarica le guide a ogni run.
+ */
+fun main(args: Array<String>) {
+    require(args.size in 2..3) { "Uso: generateGuides <regioni.tsv> <output guides.db> [guides.db pubblicato]" }
+    val outputDb = File(args[1])
+    val publishedDb = args.getOrNull(2)?.let(::File)?.takeIf { it.exists() }
+
+    val guides = File(args[0]).readLines().filter { it.isNotBlank() }.map { line ->
+        val (regionId, dumpPath, sourceUrl) = line.split('\t')
+        val dump = dumpPath.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.length() > 0 }
+        if (dump != null) {
+            RegionGuide(regionId, sourceUrl, parseWikivoyageDump(dump.readText()))
+        } else {
+            println("guide: $regionId senza dump in questa run, ricopio le sezioni pubblicate")
+            publishedDb?.let { readRegionGuide(it, regionId) } ?: RegionGuide(regionId, sourceUrl, emptyList())
+        }
+    }
+
+    outputDb.delete()
+    writeGuidesDb(guides, outputDb)
+    if (publishedDb != null && sameGuidesContent(outputDb, publishedDb)) {
+        outputDb.delete()
+        println("guide: contenuto identico a quello pubblicato, nessun nuovo guides.db")
+        return
+    }
+    println("guide: ${guides.sumOf { it.sections.size }} sezioni di ${guides.size} regioni scritte in ${outputDb.path}")
 }
 
 /**
  * Schema minimo (non lo schema Room di GuideSectionEntity, niente FTS4): una tabella
  * "guide_sections" con le stesse colonne meno l'id autogenerato. L'app importa riga per
  * riga in region.db via GuideDao.insertAll(), che ripopola anche la shadow table FTS
- * come effetto collaterale dell'insert Room.
- *
- * outputDb e' content.db, condiviso con la tabella "poi" scritta da GeneratePoi.kt (le due tabelle
- * stavano in due file .db separati, accorpati in uno solo perche'
- * l'app li importa comunque entrambi nello stesso region.db) — non si cancella l'intero file,
- * solo la propria tabella, cosi' le due generazioni si compongono in qualunque ordine vengano
- * eseguite senza cancellarsi a vicenda.
+ * come effetto collaterale dell'insert Room. Nello stesso file la tabella emergency_numbers
+ * (vedi GenerateEmergencyNumbers.kt).
  */
-fun writeGuideDb(sections: List<GuideSectionRow>, regionId: String, sourceUrl: String, outputDb: File) {
+fun writeGuidesDb(guides: List<RegionGuide>, outputDb: File) {
     writeSqliteTable(
         outputDb = outputDb,
         tableName = "guide_sections",
@@ -179,12 +204,47 @@ fun writeGuideDb(sections: List<GuideSectionRow>, regionId: String, sourceUrl: S
             )
             """.trimIndent(),
         insertSql = "INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES (?, ?, ?, ?, ?)",
-        rows = sections,
-    ) { insert, section ->
-        insert.setString(1, regionId)
+        rows = guides.flatMap { guide -> guide.sections.map { guide to it } },
+    ) { insert, (guide, section) ->
+        insert.setString(1, guide.regionId)
         insert.setString(2, section.category)
         insert.setString(3, section.title)
         insert.setString(4, section.body)
-        insert.setString(5, sourceUrl)
+        insert.setString(5, guide.sourceUrl)
     }
+    writeEmergencyNumbersTable(guides.map { it.regionId }, outputDb)
 }
+
+private fun readRegionGuide(db: File, regionId: String): RegionGuide? =
+    DriverManager.getConnection("jdbc:sqlite:${db.path}").use { conn ->
+        conn.prepareStatement("SELECT category, title, body, sourceUrl FROM guide_sections WHERE regionId = ?").use { query ->
+            query.setString(1, regionId)
+            val rs = query.executeQuery()
+            var sourceUrl: String? = null
+            val sections = mutableListOf<GuideSectionRow>()
+            while (rs.next()) {
+                sections += GuideSectionRow(rs.getString(1), rs.getString(2), rs.getString(3))
+                sourceUrl = rs.getString(4)
+            }
+            sourceUrl?.let { RegionGuide(regionId, it, sections) }
+        }
+    }
+
+/** Stesse righe in guide_sections ed emergency_numbers, a prescindere dall'ordine di inserimento. */
+fun sameGuidesContent(a: File, b: File): Boolean {
+    val queries = listOf(
+        "SELECT regionId, category, title, body, sourceUrl FROM guide_sections ORDER BY 1, 2, 3, 4, 5",
+        "SELECT regionId, general, police, ambulance, fire FROM emergency_numbers ORDER BY 1",
+    )
+    return queries.all { sql -> readRows(a, sql) == readRows(b, sql) }
+}
+
+private fun readRows(db: File, sql: String): List<List<String?>>? =
+    DriverManager.getConnection("jdbc:sqlite:${db.path}").use { conn ->
+        conn.createStatement().use { statement ->
+            // Tabella assente (file non generato da questo tool): null, mai uguale a un file valido.
+            val rs = runCatching { statement.executeQuery(sql) }.getOrNull() ?: return@use null
+            val columns = rs.metaData.columnCount
+            buildList { while (rs.next()) add((1..columns).map { rs.getString(it) }) }
+        }
+    }

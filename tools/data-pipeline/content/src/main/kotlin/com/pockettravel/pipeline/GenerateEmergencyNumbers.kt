@@ -1,7 +1,6 @@
 package com.pockettravel.pipeline
 
 import java.io.File
-import java.sql.DriverManager
 
 data class EmergencyNumbers(val general: String?, val police: String, val ambulance: String, val fire: String)
 
@@ -21,49 +20,31 @@ private val emergencyNumbersByRegion = mapOf(
     "giappone" to EmergencyNumbers(general = null, police = "110", ambulance = "119", fire = "119"),
 )
 
-fun main(args: Array<String>) {
-    require(args.size == 2) { "Uso: generateEmergencyNumbers <regionId> <output content.db>" }
-    val regionId = args[0]
-    val outputDb = File(args[1])
-
-    val numbers = emergencyNumbersByRegion[regionId]
-    writeEmergencyNumbersDb(numbers, regionId, outputDb)
-    println("emergency_numbers: ${if (numbers != null) 1 else 0} riga scritta in ${outputDb.path}")
-}
-
 /**
- * Schema minimo (non lo schema Room di EmergencyNumbersEntity): una tabella
- * "emergency_numbers" con al piu' una riga (la regione stessa), che l'app importa in
- * region.db via EmergencyNumbersDao. Stesso file condiviso content.db di guide_sections/poi
- * (vedi commenti li'): solo la propria tabella viene ricreata, non l'intero file.
+ * Tabella "emergency_numbers" di guides.db (schema minimo, non quello Room di
+ * EmergencyNumbersEntity): una riga per ciascuna delle regioni passate che ha numeri mappati,
+ * importata dall'app in region.db via EmergencyNumbersDao insieme alle guide.
  */
-fun writeEmergencyNumbersDb(numbers: EmergencyNumbers?, regionId: String, outputDb: File) {
-    DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
-        conn.createStatement().use { statement ->
-            statement.execute("DROP TABLE IF EXISTS emergency_numbers")
-            statement.execute(
-                """
-                CREATE TABLE emergency_numbers (
-                    regionId TEXT NOT NULL,
-                    general TEXT,
-                    police TEXT NOT NULL,
-                    ambulance TEXT NOT NULL,
-                    fire TEXT NOT NULL
-                )
-                """.trimIndent()
+fun writeEmergencyNumbersTable(regionIds: List<String>, outputDb: File) {
+    writeSqliteTable(
+        outputDb = outputDb,
+        tableName = "emergency_numbers",
+        createTableSql = """
+            CREATE TABLE emergency_numbers (
+                regionId TEXT NOT NULL,
+                general TEXT,
+                police TEXT NOT NULL,
+                ambulance TEXT NOT NULL,
+                fire TEXT NOT NULL
             )
-        }
-        if (numbers != null) {
-            conn.prepareStatement(
-                "INSERT INTO emergency_numbers (regionId, general, police, ambulance, fire) VALUES (?, ?, ?, ?, ?)"
-            ).use { insert ->
-                insert.setString(1, regionId)
-                insert.setString(2, numbers.general)
-                insert.setString(3, numbers.police)
-                insert.setString(4, numbers.ambulance)
-                insert.setString(5, numbers.fire)
-                insert.execute()
-            }
-        }
+            """.trimIndent(),
+        insertSql = "INSERT INTO emergency_numbers (regionId, general, police, ambulance, fire) VALUES (?, ?, ?, ?, ?)",
+        rows = regionIds.mapNotNull { regionId -> emergencyNumbersByRegion[regionId]?.let { regionId to it } },
+    ) { insert, (regionId, numbers) ->
+        insert.setString(1, regionId)
+        insert.setString(2, numbers.general)
+        insert.setString(3, numbers.police)
+        insert.setString(4, numbers.ambulance)
+        insert.setString(5, numbers.fire)
     }
 }

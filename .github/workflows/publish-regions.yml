@@ -1,12 +1,16 @@
 name: Publish regions
 
-# Piano A3: pubblica manifest.json su GitHub Pages; content.db e i segmenti .rd5 (il grosso dei
-# dati) vanno invece sugli asset della release "region-data" - GitHub Pages ha un limite fisso di
-# 1GB per l'intero sito, sforato con la copertura mondiale di pilot-regions.sh (254 regioni), gli
-# asset di una release no. map.pmtiles non e' mai un file da ospitare (estratto lato device dalla
-# build Protomaps, vedi PmtilesExtractor); i segmenti .rd5 invece sono ri-ospitati insieme a
-# content.db (non solo referenziati su brouter.de) perche' quel file cambia dimensione/hash nel
-# tempo — vedi il commento in testa a tools/data-pipeline/scripts/build-region.sh.
+# Piano A3: pubblica manifest.json su GitHub Pages; i pacchetti (guides.db unico per tutte le
+# regioni, poi.db e segmenti .rd5 per regione: il grosso dei dati) vanno invece sugli asset delle
+# release "region-data*" - GitHub Pages ha un limite fisso di 1GB per l'intero sito, sforato con la
+# copertura mondiale di pilot-regions.sh (254 regioni), gli asset di una release no. map.pmtiles
+# non e' mai un file da ospitare (estratto lato device dalla build Protomaps, vedi
+# PmtilesExtractor); i segmenti .rd5 invece sono ri-ospitati insieme a poi.db (non solo
+# referenziati su brouter.de) perche' quel file cambia dimensione/hash nel tempo — vedi il
+# commento in testa a tools/data-pipeline/scripts/build-region.sh.
+#
+# Il pacchetto guide (job "guides") si rigenera a ogni run per tutte le regioni: e' piccolo, e
+# build-guides.sh pubblica una nuova versione solo se il contenuto e' cambiato.
 #
 # Trigger: 7 righe schedule (una per giorno) rigenerano automaticamente il bucket del giorno
 # (tools/data-pipeline/scripts/weekly-schedule.sh, generato da generate-weekly-schedule.sh —
@@ -93,8 +97,14 @@ jobs:
             gh release view "region-data-$slug" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
               gh release create "region-data-$slug" --repo "${{ github.repository }}" \
                 --title "Dati regionali ($continent)" \
-                --notes "Asset binari (content.db + segmenti .rd5) per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
+                --notes "Asset binari (poi.db + segmenti .rd5) per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
           done
+          # Release del pacchetto guide unico: stesso prefisso "region-data" cosi' la pulizia degli
+          # asset non piu' referenziati nel job "publish" la copre senza casi speciali.
+          gh release view "region-data-guide" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+            gh release create "region-data-guide" --repo "${{ github.repository }}" \
+              --title "Guide di viaggio" \
+              --notes "guides.db (guide Wikivoyage e numeri di emergenza di tutte le regioni) per l'app Pocket Travel, referenziato da manifest.json su GitHub Pages. Non e' una release software."
 
       - name: Determina le regioni della run e gli shard
         id: plan
@@ -164,7 +174,48 @@ jobs:
           echo "shard1=${SHARDS[1]}" >> "$GITHUB_OUTPUT"
           echo "shard2=${SHARDS[2]}" >> "$GITHUB_OUTPUT"
 
-  # Genera i pacchetti regionali (content.db + .rd5) per lo shard assegnato e carica gli asset
+  # Genera il pacchetto guide unico (guides.db) e il suo frammento manifest. Un solo job, non
+  # sharded: sono poche centinaia di pagine Wikivoyage di pochi KB ciascuna.
+  guides:
+    needs: plan
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Genera guides.db
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(date -u +%Y.%m.%d)"
+          OUT="$RUNNER_TEMP/guides-out"
+          tools/data-pipeline/scripts/build-guides.sh "$VERSION" \
+            "https://github.com/${{ github.repository }}/releases/download/region-data-guide" "$OUT" \
+            "${{ env.PAGES_BASE_URL }}/manifest.json"
+          if [ -f "$OUT/guides.db" ]; then
+            asset="$OUT/guides--${VERSION}--guides.db"
+            cp "$OUT/guides.db" "$asset"
+            gh release upload region-data-guide "$asset" --repo "${{ github.repository }}" --clobber
+          fi
+          mkdir -p "$RUNNER_TEMP/fragments"
+          cp "$OUT/manifest-fragment.json" "$RUNNER_TEMP/fragments/guides.json"
+
+      - name: Carica il frammento manifest delle guide
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-fragments-guides
+          path: ${{ runner.temp }}/fragments/guides.json
+          retention-days: 1
+
+  # Genera i pacchetti regionali (poi.db + .rd5) per lo shard assegnato e carica gli asset
   # sulla release "region-data". I frammenti manifest prodotti vanno come artifact al job
   # "publish" sotto (job diversi non condividono il filesystem).
   build:
@@ -208,7 +259,7 @@ jobs:
 
           OUTPUT_ROOT="$RUNNER_TEMP/regions-out"
           # Pages ospita solo manifest.json + index.html + bandiere (pochi KB, mai vicino al
-          # limite di 1GB). content.db e i .rd5 (il grosso dei dati) vivono invece sugli asset
+          # limite di 1GB). poi.db e i .rd5 (il grosso dei dati) vivono invece sugli asset
           # della release "region-data": a differenza di Pages, che sostituisce l'intero sito ad
           # ogni deploy, gli asset di una release non spariscono mai da soli - vedi il commento in
           # testa a assemble-site.sh per il problema che questo risolve (sito cumulativo sopra
@@ -236,7 +287,7 @@ jobs:
           FAILED_REGIONS=()
           IFS=',' read -ra SHARD_REGIONS <<< "$SELECTED"
           for spec in "${PILOT_REGIONS[@]}"; do
-            IFS='|' read -r regionId displayName minLon minLat maxLon maxLat wikiTitle flag groupName groupLabel continent <<< "$spec"
+            IFS='|' read -r regionId displayName minLon minLat maxLon maxLat _wikiTitle flag groupName groupLabel continent <<< "$spec"
             match=false
             for r in "${SHARD_REGIONS[@]}"; do [ "$r" = "$regionId" ] && match=true && break; done
             [ "$match" = true ] || continue
@@ -246,7 +297,7 @@ jobs:
             echo "::group::$regionId"
             regionOut="$OUTPUT_ROOT/$regionId"
             if tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
-              "$minLon" "$minLat" "$maxLon" "$maxLat" "$wikiTitle" "$RELEASE_BASE_URL" "$regionOut" \
+              "$minLon" "$minLat" "$maxLon" "$maxLat" "$RELEASE_BASE_URL" "$regionOut" \
               "$PUBLISHED_MANIFEST_URL"; then
               if [ -f "$regionOut/.skipped" ]; then
                 # Controllo di necessita' in build-region.sh: tile .rd5 attese invariate rispetto
@@ -254,19 +305,19 @@ jobs:
                 # ricaricare sulla release (vedi build-region.sh, sezione "2bis").
                 echo "-- $regionId invariata: riuso il frammento pubblicato, nessun asset da ricaricare"
               else
-                # content.db + segmenti .rd5 (zero o piu' a seconda di quante tile intersecano il
+                # poi.db + segmenti .rd5 (zero o piu' a seconda di quante tile intersecano il
                 # bbox) caricati come asset della release, rinominati con un prefisso
                 # regionId--version-- per essere univoci nell'intera release (che accumula tutte
                 # le regioni). --clobber: un rilancio della stessa regione nello stesso giorno
                 # (stessa VERSION) deve poter sovrascrivere l'asset gia' caricato in un tentativo
                 # precedente fallito a meta'.
                 # In modalita' incrementale (.incremental, vedi build-region.sh sezione 2bis) non
-                # c'e' un content.db nuovo: si caricano solo le tile cambiate.
+                # c'e' un poi.db nuovo: si caricano solo le tile cambiate.
                 uploads=()
-                if [ -f "$regionOut/content.db" ]; then
-                  contentDbAsset="$regionOut/${regionId}--${VERSION}--content.db"
-                  cp "$regionOut/content.db" "$contentDbAsset"
-                  uploads+=("$contentDbAsset")
+                if [ -f "$regionOut/poi.db" ]; then
+                  poiDbAsset="$regionOut/${regionId}--${VERSION}--poi.db"
+                  cp "$regionOut/poi.db" "$poiDbAsset"
+                  uploads+=("$poiDbAsset")
                 fi
                 for rd5 in "$regionOut"/*.rd5; do
                   [ -e "$rd5" ] || continue
@@ -312,12 +363,14 @@ jobs:
           path: ${{ runner.temp }}/fragments/*.json
           retention-days: 1
 
-  # Riunisce i frammenti manifest di tutti gli shard col manifest gia' pubblicato e pubblica su
-  # Pages. Gira comunque (always()) anche se uno shard e' fallito del tutto, cosi' il lavoro degli
-  # shard riusciti non va perso — se pero' NESSuno shard ha prodotto frammenti, il passo sotto
-  # fallisce esplicitamente (niente da assemblare/pubblicare).
+  # Riunisce i frammenti manifest di tutti gli shard (e delle guide) col manifest gia' pubblicato e
+  # pubblica su Pages. Gira comunque (always()) anche se uno shard e' fallito del tutto, cosi' il
+  # lavoro degli shard riusciti non va perso — se pero' NESSuno shard ha prodotto frammenti, il passo
+  # sotto fallisce esplicitamente (niente da assemblare/pubblicare). Senza il frammento guide il
+  # manifest resta con le guide gia' pubblicate; se non ce ne sono (prima run nel formato a
+  # pacchetti) la validazione fallisce e non si pubblica nulla.
   publish:
-    needs: build
+    needs: [guides, build]
     if: always()
     runs-on: ubuntu-24.04
     environment:

@@ -3,7 +3,7 @@ package com.pockettravel.pipeline
 import java.io.File
 
 fun main(args: Array<String>) {
-    require(args.size >= 4) { "Uso: generatePoi <regionId> <output content.db> <poiTagKeys separate da virgola> <input1.osm.xml> [input2.osm.xml ...]" }
+    require(args.size >= 4) { "Uso: generatePoi <regionId> <output poi.db> <poiTagKeys separate da virgola> <input1.osm.xml> [input2.osm.xml ...]" }
     val regionId = args[0]
     val outputDb = File(args[1])
     // Passate da build-region.sh (unica fonte di verita', usata anche per costruire la query
@@ -44,8 +44,8 @@ fun extractPois(data: OsmData, poiTagKeys: List<String>): List<Poi> = data.nodes
  * Schema minimo (non lo schema Room di PoiEntity): una tabella "poi" con le stesse colonne
  * meno l'id autogenerato, che l'app importa riga per riga in region.db via PoiDao.insertAll().
  *
- * outputDb e' content.db, condiviso con la tabella "guide_sections" scritta da
- * GenerateGuideContent.kt — vedi il commento li' per il perche' del file unico.
+ * outputDb e' poi.db, il pacchetto POI della regione, scaricato e aggiornato dall'app
+ * separatamente da guide (guides.db), mappa e routing.
  */
 fun writePoiDb(pois: List<Poi>, regionId: String, outputDb: File) {
     writeSqliteTable(

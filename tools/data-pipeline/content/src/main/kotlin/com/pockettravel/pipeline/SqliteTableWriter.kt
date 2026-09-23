@@ -6,8 +6,9 @@ import java.sql.PreparedStatement
 
 /**
  * Ricrea una singola tabella di outputDb (DROP + CREATE) e vi inserisce rows in un'unica
- * transazione esplicita — condiviso da writePoiDb (GeneratePoi.kt) e writeGuideDb
- * (GenerateGuideContent.kt), le due tabelle di content.db.
+ * transazione esplicita — condiviso da writePoiDb (GeneratePoi.kt, poi.db), writeGuidesDb
+ * (GenerateGuideContent.kt) e writeEmergencyNumbersTable (GenerateEmergencyNumbers.kt), le due
+ * tabelle di guides.db.
  *
  * Con autocommit di default, executeBatch() esegue comunque un commit (con fsync su disco) per
  * ogni singola riga, non uno solo alla fine - trascurabile per poche centinaia di POI (San
@@ -15,8 +16,8 @@ import java.sql.PreparedStatement
  * il territorio) trasforma l'inserimento in minuti invece che frazioni di secondo. Una singola
  * transazione esplicita elimina il commit per-riga.
  *
- * Solo la propria tabella viene ricreata, non l'intero file: content.db e' condiviso tra le due
- * tabelle, generate in ordine qualunque, senza cancellarsi a vicenda.
+ * Solo la propria tabella viene ricreata, non l'intero file: guides.db contiene due tabelle
+ * scritte una dopo l'altra, senza cancellarsi a vicenda.
  */
 fun <T> writeSqliteTable(
     outputDb: File,
