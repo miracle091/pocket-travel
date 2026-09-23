@@ -29,6 +29,7 @@ data class RegionUiItem(
     val displayName: String,
     val sizeBytes: Long,
     val status: RegionStatus,
+    val continent: String? = null,
 )
 
 data class RegionListUiState(
@@ -76,7 +77,7 @@ class RegionListViewModel @Inject constructor(
                     local.version != remote.version -> RegionStatus.UPDATE_AVAILABLE
                     else -> RegionStatus.INSTALLED
                 }
-                RegionUiItem(remote.regionId, remote.displayName, remote.sizeBytes, regionStatus)
+                RegionUiItem(remote.regionId, remote.displayName, remote.sizeBytes, regionStatus, remote.continent)
             }
         RegionListUiState(
             items = items,

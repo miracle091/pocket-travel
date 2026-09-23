@@ -15,6 +15,9 @@ data class RegionManifestEntry(
     // map.pmtiles NON e' tra i file scaricati: viene assemblato sul device estraendo solo le
     // tile di questo bounding box dalla build pubblica Protomaps — vedi PmtilesExtractor.
     val mapSource: MapExtractionSource? = null,
+    // Continente (da pilot-regions.sh, aggiunto dal merge della pipeline): assente nei manifest
+    // pubblicati prima del campo, l'app ricade allora sul gruppo "Altro".
+    val continent: String? = null,
 ) { val sizeBytes: Long get() = files.sumOf { it.sizeBytes } }
 
 @Serializable

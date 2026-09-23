@@ -25,7 +25,8 @@ class RegionManifestTest {
                 "sourceUrl": "https://build.protomaps.com/20260901.pmtiles",
                 "minLon": 10.0, "minLat": 42.0, "maxLon": 12.0, "maxLat": 44.0,
                 "minZoom": 0, "maxZoom": 14
-              }
+              },
+              "continent": "Europa"
             }
           ]
         }
@@ -42,6 +43,7 @@ class RegionManifestTest {
         assertEquals("it-toscana", region.regionId)
         assertEquals("Italia — Toscana", region.displayName)
         assertEquals("2026.03.01", region.version)
+        assertEquals("Europa", region.continent)
         assertEquals(2, region.files.size)
     }
 

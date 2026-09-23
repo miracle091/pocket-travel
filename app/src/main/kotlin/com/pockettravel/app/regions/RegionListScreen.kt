@@ -62,6 +62,8 @@ import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.isOnCellularNetwork
+import java.text.Collator
+import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
@@ -207,16 +209,15 @@ private fun RegionGroupedList(
     rowActions: RegionRowActions,
     onRegionClick: (RegionUiItem) -> Unit,
 ) {
-    val grouped = items.groupBy { Continent.of(it.regionId) }
+    val groups = groupByContinent(items)
+    val otherLabel = stringResource(R.string.continent_other)
     LazyColumn(
         contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, bottom = Spacing.l),
     ) {
-        Continent.entries.forEach { continent ->
-            val regions = grouped[continent].orEmpty()
-            if (regions.isEmpty()) return@forEach
-            item(key = "header_${continent.name}") {
+        groups.forEach { (continent, regions) ->
+            item(key = "header_${continent ?: ""}") {
                 Text(
-                    text = stringResource(continent.label),
+                    text = continent ?: otherLabel,
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
@@ -359,24 +360,23 @@ private fun RegionStatus.label(): Int = when (this) {
     RegionStatus.UPDATE_AVAILABLE -> R.string.regions_status_update
 }
 
-// Il manifest non porta un campo continente (vedi RegionManifestEntry): mappatura statica per
-// regionId, nello stesso spirito di GuideCategory.icon()/colorFor(PoiCategory) — va aggiornato
-// a mano quando la pipeline dati pubblica una nuova regione fuori da queste tre aree.
-private enum class Continent(@StringRes val label: Int) {
-    EUROPA(R.string.continent_europe),
-    AMERICHE(R.string.continent_americas),
-    ASIA(R.string.continent_asia),
-    ALTRO(R.string.continent_other),
-    ;
+// Ordine dei continenti come in pilot-regions.sh/assemble-site.sh; un continente sconosciuto va in
+// coda, le regioni senza continente (manifest pubblicati prima del campo) nel gruppo "Altro".
+private val CONTINENT_ORDER = listOf("Europa", "Asia", "Africa", "Nord America", "Sud America", "Oceania", "Territori disabitati")
 
-    companion object {
-        fun of(regionId: String): Continent = when {
-            regionId in setOf("italia", "san-marino", "andorra") -> EUROPA
-            regionId.startsWith("stati-uniti") -> AMERICHE
-            regionId in setOf("giappone") -> ASIA
-            else -> ALTRO
+internal fun groupByContinent(items: List<RegionUiItem>): List<Pair<String?, List<RegionUiItem>>> {
+    val collator = Collator.getInstance(Locale.ITALIAN).apply { strength = Collator.PRIMARY }
+    return items
+        .groupBy { it.continent }
+        .toList()
+        .sortedBy { (continent, _) ->
+            when (continent) {
+                null -> Int.MAX_VALUE
+                in CONTINENT_ORDER -> CONTINENT_ORDER.indexOf(continent)
+                else -> CONTINENT_ORDER.size
+            }
         }
-    }
+        .map { (continent, regions) -> continent to regions.sortedWith(compareBy(collator) { it.displayName }) }
 }
 
 @Preview(widthDp = 360, heightDp = 640)
@@ -387,10 +387,10 @@ private fun RegionListPreview() {
             uiState = RegionListUiState(
                 isLoading = false,
                 items = listOf(
-                    RegionUiItem("san-marino", "San Marino", 76L shl 20, RegionStatus.INSTALLED),
-                    RegionUiItem("italia", "Italia", 940L shl 20, RegionStatus.UPDATE_AVAILABLE),
-                    RegionUiItem("andorra", "Andorra", 114L shl 20, RegionStatus.NOT_INSTALLED),
-                    RegionUiItem("giappone", "Giappone", 566L shl 20, RegionStatus.NOT_INSTALLED),
+                    RegionUiItem("san-marino", "San Marino", 76L shl 20, RegionStatus.INSTALLED, "Europa"),
+                    RegionUiItem("italia", "Italia", 940L shl 20, RegionStatus.UPDATE_AVAILABLE, "Europa"),
+                    RegionUiItem("andorra", "Andorra", 114L shl 20, RegionStatus.NOT_INSTALLED, "Europa"),
+                    RegionUiItem("giappone", "Giappone", 566L shl 20, RegionStatus.NOT_INSTALLED, "Asia"),
                 ),
             ),
             onQueryChange = {},
