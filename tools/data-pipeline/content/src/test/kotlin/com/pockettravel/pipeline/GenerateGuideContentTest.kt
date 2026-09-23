@@ -93,7 +93,9 @@ class GenerateGuideContentTest {
                             "Popular purchases include:\n" +
                             "• Perfume\n" +
                             "• Cigarettes\n" +
-                            "• Alcohol",
+                            "• Alcohol\n" +
+                            "▸ Souvenirs\n" +
+                            "• Stamps",
                         rs.getString("body"),
                     )
                 }

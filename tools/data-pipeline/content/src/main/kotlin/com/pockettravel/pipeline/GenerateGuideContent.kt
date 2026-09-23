@@ -52,7 +52,10 @@ private val boldItalicRegex = Regex("""'{2,3}""")
 private val templateRegex = Regex("""\{\{[^}]*}}""")
 private val htmlTagRegex = Regex("""<[^>]+>""")
 private val subHeadingLineRegex = Regex("""^={3,}\s*(.+?)\s*={3,}$""")
-private val listMarkerRegex = Regex("""^[*#:]+\s*""")
+// ";Termine" (lista di definizione wiki): Wikivoyage la usa come sottotitolo dentro un elenco
+// (es. ";Vini rossi" sotto "Bere"), trattato come ===Termine===.
+private val definitionTermLineRegex = Regex("""^;\s*(.+)$""")
+private val listMarkerRegex =Regex("""^[*#:]+\s*""")
 private val blankLinesRegex = Regex("""\n{3,}""")
 
 // Mai presente in un testo reale: marca una riga di sottotitolo (===Money===) nel passaggio
@@ -112,7 +115,7 @@ private fun cleanBody(raw: String): String {
 
     val markedLines = stripped.lineSequence().map { rawLine ->
         val line = rawLine.trim()
-        val heading = subHeadingLineRegex.find(line)?.groupValues?.get(1)
+        val heading = (subHeadingLineRegex.find(line) ?: definitionTermLineRegex.find(line))?.groupValues?.get(1)
         if (heading != null) {
             "$SUBHEADING_MARKER$heading"
         } else {
