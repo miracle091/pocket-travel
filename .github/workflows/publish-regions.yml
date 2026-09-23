@@ -422,12 +422,18 @@ jobs:
 
       - uses: actions/configure-pages@v6
 
+      # Un nome per tentativo: ogni rilancio di una run carica un altro artefatto nella stessa
+      # run, e deploy-pages rifiuta di pubblicare se ne trova piu' d'uno con lo stesso nome
+      # ("Multiple artifacts named github-pages", run del 2026-09-21 al terzo tentativo).
       - uses: actions/upload-pages-artifact@v3
         with:
+          name: github-pages-${{ github.run_attempt }}
           path: ${{ steps.assemble.outputs.site_dir }}
 
       - id: deployment
         uses: actions/deploy-pages@v5
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
 
       # Gli asset si chiamano regionId--VERSION--file: ogni rigenerazione ne aggiunge di nuovi
       # senza togliere i vecchi, e ogni release e' limitata a 1000 asset. Dopo il deploy (i vecchi
