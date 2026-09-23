@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.pockettravel.feature.ai"
-    compileSdk = 35
+    compileSdk = 37
 
     // NDK 29 stabile (non l'rc1 usato da examples/llama.android): verificato su sdkmanager --list
     // a settembre 2026, l'rc e' stato superato da una release finale con lo stesso major.

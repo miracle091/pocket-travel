@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.pockettravel.app"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.pockettravel.app"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 5
         versionName = "0.4.0"
     }
@@ -86,6 +86,7 @@ dependencies {
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.core)
     implementation(libs.navigation.compose)
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)

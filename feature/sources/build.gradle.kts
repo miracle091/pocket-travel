@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.pockettravel.feature.sources"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 26
@@ -33,4 +33,5 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.core)
 }

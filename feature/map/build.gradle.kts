@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.pockettravel.feature.map"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 26

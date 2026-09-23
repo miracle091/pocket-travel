@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.pockettravel.feature.guide"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 26

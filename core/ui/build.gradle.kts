@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.pockettravel.core.ui"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 26
