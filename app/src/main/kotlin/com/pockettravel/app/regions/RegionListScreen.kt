@@ -12,9 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -105,7 +102,7 @@ fun RegionListScreen(
                     scope.launch { drawerState.close() }
                     lastRegionId?.let(onOpenAi)
                 }
-                DrawerItem(label = "Documenti", icon = AppIcons.passport()) {
+                DrawerItem(label = "Documenti", icon = AppIcons.Passport) {
                     scope.launch { drawerState.close() }
                     onOpenVault()
                 }
@@ -136,12 +133,12 @@ fun RegionListScreen(
                     title = { Text("Regioni") },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(imageVector = Icons.Filled.Menu, contentDescription = "Menu")
+                            Icon(imageVector = AppIcons.Menu, contentDescription = "Menu")
                         }
                     },
                     actions = {
                         IconButton(onClick = { viewModel.checkForUpdatesNow() }) {
-                            Icon(imageVector = Icons.Filled.Refresh, contentDescription = "Controlla aggiornamenti")
+                            Icon(imageVector = AppIcons.Refresh, contentDescription = "Controlla aggiornamenti")
                         }
                     },
                 )
@@ -304,6 +301,7 @@ private fun RegionActions(item: RegionUiItem, isDownloading: Boolean, viewModel:
             title = "Download di grandi dimensioni",
             message = "${item.displayName} pesa ${item.sizeBytes / (1024 * 1024)} MB. Continuare?",
             confirmLabel = "Scarica",
+            destructive = false,
             onConfirm = { showLargeDownloadWarning = false; viewModel.download(item.regionId) },
             onDismiss = { showLargeDownloadWarning = false },
         )

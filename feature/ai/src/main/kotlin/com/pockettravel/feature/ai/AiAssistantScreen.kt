@@ -177,6 +177,7 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
             title = "Download di grandi dimensioni",
             message = "${definition.displayName} pesa circa ${definition.sizeBytes / (1024 * 1024)} MB. Continuare?",
             confirmLabel = "Scarica",
+            destructive = false,
             onConfirm = { showLargeDownloadWarning = false; viewModel.downloadModel() },
             onDismiss = { showLargeDownloadWarning = false },
         )

@@ -26,10 +26,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -116,7 +112,7 @@ fun PassportVaultScreen(onBack: () -> Unit, viewModel: PassportVaultViewModel = 
                 title = { Text("Documenti") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
+                        Icon(imageVector = AppIcons.Back, contentDescription = "Indietro")
                     }
                 },
             )
@@ -143,7 +139,7 @@ private fun NoLockScreenSetUp() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(imageVector = AppIcons.passport(), contentDescription = null, modifier = Modifier.size(48.dp))
+        Icon(imageVector = AppIcons.Passport, contentDescription = null, modifier = Modifier.size(48.dp))
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "Questo dispositivo non ha una biometria forte configurata (impronta o volto). " +
@@ -203,7 +199,7 @@ private fun LockedContent(viewModel: PassportVaultViewModel, onUnlock: (GateStat
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(imageVector = AppIcons.passport(), contentDescription = null, modifier = Modifier.size(48.dp))
+        Icon(imageVector = AppIcons.Passport, contentDescription = null, modifier = Modifier.size(48.dp))
         Spacer(modifier = Modifier.height(16.dp))
         Text(text = "I documenti sono protetti da biometria o blocco schermo.", style = MaterialTheme.typography.bodyMedium)
         errorMessage?.let {
@@ -225,13 +221,13 @@ private fun PassportVaultContent(viewModel: PassportVaultViewModel) {
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(imageVector = Icons.Filled.Add, contentDescription = "Aggiungi documento")
+                Icon(imageVector = AppIcons.Add, contentDescription = "Aggiungi documento")
             }
         },
     ) { innerPadding ->
         if (passports.isEmpty()) {
             EmptyState(
-                icon = AppIcons.passport(),
+                icon = AppIcons.Passport,
                 title = "Nessun documento salvato",
                 subtitle = "Usa il pulsante + per aggiungerne uno.",
                 modifier = Modifier.fillMaxSize().padding(innerPadding),
@@ -351,7 +347,7 @@ private fun PhotoThumbnail(
         }
         if (onRemove != null) {
             IconButton(onClick = onRemove, modifier = Modifier.align(Alignment.TopEnd).size(20.dp)) {
-                Icon(imageVector = Icons.Filled.Close, contentDescription = "Rimuovi foto", tint = Color.White)
+                Icon(imageVector = AppIcons.Close, contentDescription = "Rimuovi foto", tint = Color.White)
             }
         }
     }

@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,10 +29,10 @@ import com.pockettravel.feature.guide.GuideScreen
 import com.pockettravel.feature.map.MapRouteViewModel
 import com.pockettravel.feature.map.MapScreen
 
-private enum class RegionTab(val key: String, val label: String, val icon: ImageVector) {
-    GUIDE("guide", "Guida", AppIcons.World),
-    MAP("map", "Mappa", AppIcons.Map),
-    AI("ai", "Assistente", AppIcons.AiAssistant),
+private enum class RegionTab(val key: String, val label: String) {
+    GUIDE("guide", "Guida"),
+    MAP("map", "Mappa"),
+    AI("ai", "Assistente"),
     ;
 
     companion object {
@@ -68,7 +66,7 @@ fun RegionHubScreen(
                 title = { Text(displayName ?: regionId) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
+                        Icon(imageVector = AppIcons.Back, contentDescription = "Indietro")
                     }
                 },
             )
@@ -81,7 +79,7 @@ fun RegionHubScreen(
                         onClick = { selectedTab = tab },
                         icon = {
                             Icon(
-                                imageVector = tab.icon,
+                                imageVector = tab.icon(),
                                 contentDescription = tab.label,
                                 modifier = Modifier.size(24.dp),
                             )
@@ -105,4 +103,11 @@ fun RegionHubScreen(
             }
         }
     }
+}
+
+@Composable
+private fun RegionTab.icon(): ImageVector = when (this) {
+    RegionTab.GUIDE -> AppIcons.World
+    RegionTab.MAP -> AppIcons.Map
+    RegionTab.AI -> AppIcons.AiAssistant
 }

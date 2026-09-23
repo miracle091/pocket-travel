@@ -249,7 +249,7 @@ private fun GuideCategory.displayName(): String = when (this) {
 @Composable
 private fun GuideCategory.icon(): ImageVector = when (this) {
     GuideCategory.USI_COSTUMI -> AppIcons.Checklist
-    GuideCategory.DOGANE -> AppIcons.customs()
+    GuideCategory.DOGANE -> AppIcons.Customs
     GuideCategory.SALUTE -> AppIcons.HealthGuidance
     GuideCategory.SICUREZZA -> AppIcons.OfficialAuthority
     GuideCategory.TRASPORTI -> AppIcons.Flights

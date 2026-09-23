@@ -1,71 +1,64 @@
 package com.pockettravel.core.ui
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Help
-import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Checklist
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Emergency
-import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Flight
-import androidx.compose.material.icons.filled.HealthAndSafety
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Hotel
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.ShoppingBag
-import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material.icons.filled.VerifiedUser
-import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 
-// Sostituisce le 19 icone raster PNG di core/data (nero cotto nei pixel, non tintabili) con
-// ImageVector reali. 16 dei 19 concetti risolvono da Icons.Filled.* (material-icons-core, via
-// compose-material3, o material-icons-extended, dichiarata in questo modulo); i 3 concetti senza
-// equivalente nemmeno nell'artifact esteso (customs/passport/vaccinations) sono XML vector
-// drawable scelti a mano dal set Material Symbols ufficiale (vedi ic_fact_check.xml/ic_badge.xml/
-// ic_vaccines.xml per la provenienza).
+// Unico set di icone dell'app: Material Symbols Rounded (peso 400, griglia 24 dp), vector
+// drawable ufficiali copiati da github.com/google/material-design-icons (symbols/android/<nome>/
+// materialsymbolsrounded/, attributo tint rimosso: la tinta la applica Icon). Nessuna dipendenza
+// da material-icons-extended. Le varianti *Filled (fill 1) sono per gli elementi selezionati
+// della navigazione, come prevede M3.
 object AppIcons {
-    val Download: ImageVector = Icons.Filled.Download
-    val Favorite: ImageVector = Icons.Filled.Favorite
-    val Help: ImageVector = Icons.AutoMirrored.Filled.Help
-    val Info: ImageVector = Icons.Filled.Info
-    val Settings: ImageVector = Icons.Filled.Settings
-    val World: ImageVector = Icons.Filled.Public
-
-    val Compass: ImageVector = Icons.Filled.Explore
-    val Checklist: ImageVector = Icons.Filled.Checklist
-    val Flights: ImageVector = Icons.Filled.Flight
-    val HealthGuidance: ImageVector = Icons.Filled.HealthAndSafety
-    val Emergency: ImageVector = Icons.Filled.Emergency
-    val Call: ImageVector = Icons.Filled.Call
-    val Map: ImageVector = Icons.Filled.Map
-    val OfficialAuthority: ImageVector = Icons.Filled.AccountBalance
-    val OfflineWifi: ImageVector = Icons.Filled.WifiOff
-    val Translation: ImageVector = Icons.Filled.Translate
-    val VerifiedLink: ImageVector = Icons.Filled.VerifiedUser
-    val AiAssistant: ImageVector = Icons.Filled.AutoAwesome
-    val Accommodation: ImageVector = Icons.Filled.Hotel
-    val FoodDrink: ImageVector = Icons.Filled.Restaurant
-    val Shopping: ImageVector = Icons.Filled.ShoppingBag
-    val Connectivity: ImageVector = Icons.Filled.Wifi
-    val DailyLife: ImageVector = Icons.Filled.Home
-
-    @Composable
-    fun customs(): ImageVector = ImageVector.vectorResource(id = R.drawable.ic_fact_check)
-
-    @Composable
-    fun passport(): ImageVector = ImageVector.vectorResource(id = R.drawable.ic_badge)
-
-    @Composable
-    fun vaccinations(): ImageVector = ImageVector.vectorResource(id = R.drawable.ic_vaccines)
+    val Back: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_arrow_back)
+    val Menu: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_menu)
+    val Add: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_add)
+    val Close: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_close)
+    val Refresh: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_refresh)
+    val Search: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_search)
+    val Check: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_check)
+    val Error: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_error)
+    val Delete: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_delete)
+    val OpenExternal: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_open_in_new)
+    val Download: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_download)
+    val Favorite: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_favorite)
+    val Help: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_help)
+    val Info: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_info)
+    val Settings: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_settings)
+    val Palette: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_palette)
+    val World: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_public)
+    val WorldFilled: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_public_fill)
+    val Compass: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_explore)
+    val CompassFilled: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_explore_fill)
+    val Map: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_map)
+    val MapFilled: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_map_fill)
+    val AiAssistant: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_auto_awesome)
+    val AiAssistantFilled: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_auto_awesome_fill)
+    val Documents: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_description)
+    val DocumentsFilled: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_description_fill)
+    val More: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_more_horiz)
+    val MoreFilled: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_more_horiz_fill)
+    val Storage: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_storage)
+    val Licenses: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_gavel)
+    val Tutorial: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_school)
+    val Camera: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_photo_camera)
+    val Checklist: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_checklist)
+    val Flights: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_flight)
+    val HealthGuidance: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_health_and_safety)
+    val Emergency: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_emergency)
+    val Call: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_call)
+    val OfficialAuthority: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_account_balance)
+    val OfflineWifi: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_wifi_off)
+    val Translation: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_translate)
+    val VerifiedLink: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_verified_user)
+    val Accommodation: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_hotel)
+    val FoodDrink: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_restaurant)
+    val Shopping: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_shopping_bag)
+    val Attractions: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_attractions)
+    val Place: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_location_on)
+    val Connectivity: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_wifi)
+    val DailyLife: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_home)
+    val Customs: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_fact_check)
+    val Passport: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_badge)
+    val Vaccinations: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_vaccines)
 }

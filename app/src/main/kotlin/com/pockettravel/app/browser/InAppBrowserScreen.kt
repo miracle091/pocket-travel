@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -23,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import com.pockettravel.core.ui.AppIcons
 
 // Sostituisce le Chrome Custom Tabs per le fonti ufficiali del registro (Farnesina, OMS, Agenzia
 // delle Dogane) e per la sorgente Wikivoyage di ogni sezione guida: l'utente ha chiesto
@@ -49,7 +48,7 @@ fun InAppBrowserScreen(url: String, title: String, onBack: () -> Unit) {
                 title = { Text(pageTitle) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
+                        Icon(imageVector = AppIcons.Back, contentDescription = "Indietro")
                     }
                 },
             )

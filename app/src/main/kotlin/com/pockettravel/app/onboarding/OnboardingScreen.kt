@@ -55,9 +55,12 @@ private sealed interface OnboardingStep {
 
 @Composable
 fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hiltViewModel()) {
-    val vaultIcon = AppIcons.passport()
+    val vaultIcon = AppIcons.Passport
+    val compassIcon = AppIcons.Compass
+    val aiIcon = AppIcons.AiAssistant
+    val officialIcon = AppIcons.OfficialAuthority
     val isOnDeviceAiSupported = viewModel.isOnDeviceAiSupported
-    val steps = remember(vaultIcon, isOnDeviceAiSupported) {
+    val steps = remember(vaultIcon, compassIcon, aiIcon, officialIcon, isOnDeviceAiSupported) {
         buildList {
             add(
                 OnboardingStep.Info(
@@ -65,7 +68,7 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
                     body = "Una guida di viaggio che funziona anche senza connessione: usi e costumi, " +
                         "dogane, vaccinazioni, mappe e un assistente IA a bordo. Nessun account, " +
                         "nessuna raccolta di dati personali.",
-                    icon = AppIcons.Compass,
+                    icon = compassIcon,
                 ),
             )
             add(OnboardingStep.RegionDownload)
@@ -76,7 +79,7 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
                         body = "\"Sul dispositivo\" funziona anche offline, ma richiede almeno 4 GB di RAM e il " +
                             "download di un modello. \"Online\" usa una tua chiave API personale (da configurare " +
                             "nell'app prima di poterla usare), mai condivisa con un server dell'app.",
-                        icon = AppIcons.AiAssistant,
+                        icon = aiIcon,
                     )
                 } else {
                     OnboardingStep.Info(
@@ -85,7 +88,7 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
                             "disponibile. L'assistente funziona comunque in modalità Online, con una tua chiave " +
                             "API personale (da configurare nell'app prima di poterla usare), mai condivisa con " +
                             "un server dell'app.",
-                        icon = AppIcons.AiAssistant,
+                        icon = aiIcon,
                     )
                 },
             )
@@ -103,7 +106,7 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
                     title = "Le fonti ufficiali restano esterne",
                     body = "Ambasciate, ministeri e OMS si aprono in una scheda del browser e richiedono una " +
                         "connessione: l'app non li salva mai offline, per restare sempre aggiornati.",
-                    icon = AppIcons.OfficialAuthority,
+                    icon = officialIcon,
                 ),
             )
         }

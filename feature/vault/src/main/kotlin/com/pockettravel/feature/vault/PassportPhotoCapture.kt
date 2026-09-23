@@ -19,8 +19,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +47,7 @@ import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
 import kotlin.math.abs
+import com.pockettravel.core.ui.AppIcons
 
 // Fotocamera interna (CameraX) invece dell'app fotocamera di sistema: serve per disegnare
 // l'overlay di inquadratura e il segnale rosso/verde sopra l'anteprima live, cosa impossibile
@@ -166,7 +165,7 @@ internal fun DocumentCameraCaptureScreen(
             )
 
             IconButton(onClick = onClose, modifier = Modifier.align(Alignment.TopStart).padding(16.dp)) {
-                Icon(imageVector = Icons.Filled.Close, contentDescription = "Chiudi fotocamera", tint = Color.White)
+                Icon(imageVector = AppIcons.Close, contentDescription = "Chiudi fotocamera", tint = Color.White)
             }
 
             Text(
