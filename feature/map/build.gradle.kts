@@ -32,6 +32,7 @@ kotlin {
 
 dependencies {
     implementation(project(":core:data"))
+    implementation(project(":core:ui"))
     implementation(project(":third-party:brouter-core"))
     implementation(libs.maplibre.android.sdk)
     implementation(libs.maplibre.annotation.plugin)

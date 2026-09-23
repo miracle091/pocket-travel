@@ -1,36 +1,54 @@
 package com.pockettravel.feature.map
 
-import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
 import android.net.Uri
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.pockettravel.core.data.PoiCategory
+import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.PoiColors
+import com.pockettravel.core.ui.Spacing
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
@@ -43,27 +61,7 @@ private const val PIN_ICON_PREFIX = "pocket-travel-pin-"
 
 private fun iconIdFor(category: PoiCategory) = PIN_ICON_PREFIX + category.name
 
-// Nessuna nuova icona disegnata a mano (rischio di path SVG errati): stessa sagoma di
-// ic_map_pin.xml, tinta con un colore diverso per categoria — abbastanza per distinguerle a
-// colpo d'occhio sulla mappa senza introdurre asset grafici nuovi.
-private fun colorFor(category: PoiCategory): Int = when (category) {
-    PoiCategory.ALLOGGIO -> 0xFF1F4877.toInt()
-    PoiCategory.CIBO_BEVANDE -> 0xFFC1440E.toInt()
-    PoiCategory.NEGOZI -> 0xFF2E7D32.toInt()
-    PoiCategory.ATTRAZIONI -> 0xFF6A1B9A.toInt()
-    PoiCategory.AMBASCIATA_CONSOLATO -> 0xFFF9A825.toInt()
-    PoiCategory.ALTRO -> 0xFF616161.toInt()
-}
-
-private fun PoiCategory.displayName(): String = when (this) {
-    PoiCategory.ALLOGGIO -> "Alloggio"
-    PoiCategory.CIBO_BEVANDE -> "Cibo e bevande"
-    PoiCategory.NEGOZI -> "Negozi"
-    PoiCategory.ATTRAZIONI -> "Attrazioni"
-    PoiCategory.AMBASCIATA_CONSOLATO -> "Ambasciate e consolati"
-    PoiCategory.ALTRO -> "Altro"
-}
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin> = emptyList()) {
     val context = LocalContext.current
@@ -71,7 +69,9 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
 
     val lifecycleOwner = LocalLifecycleOwner.current
     val mapView = remember { MapView(context) }
-    val styleJson = remember(tileSource, regionId) { tileSource.styleJson(regionId) }
+    // Stile scuro quando l'app e' in tema scuro (segue il tema effettivo, non solo il sistema).
+    val darkMap = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val styleJson = remember(tileSource, regionId, darkMap) { tileSource.styleJson(regionId, dark = darkMap) }
     var configuredStyle by remember { mutableStateOf<String?>(null) }
     var symbolManager by remember { mutableStateOf<SymbolManager?>(null) }
     var selectedCategories by remember { mutableStateOf(PoiCategory.entries.toSet()) }
@@ -79,6 +79,7 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
     var selectedPin by remember { mutableStateOf<MapPin?>(null) }
     var cameraFitted by remember { mutableStateOf(false) }
     val visiblePins = pins.filter { it.category in selectedCategories }
+    val presentCategories = PoiCategory.entries.filter { category -> pins.any { it.category == category } }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -96,28 +97,9 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        LazyRow(
-            modifier = Modifier.padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(PoiCategory.entries) { category ->
-                FilterChip(
-                    selected = category in selectedCategories,
-                    onClick = {
-                        selectedCategories = if (category in selectedCategories) {
-                            selectedCategories - category
-                        } else {
-                            selectedCategories + category
-                        }
-                    },
-                    label = { Text(category.displayName()) },
-                )
-            }
-        }
-
+    Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
-            modifier = Modifier.fillMaxSize().weight(1f),
+            modifier = Modifier.fillMaxSize(),
             factory = { mapView },
             update = { view ->
                 if (configuredStyle != styleJson) {
@@ -131,12 +113,16 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
                         map.setPrefetchZoomDelta(1)
                         map.setStyle(Style.Builder().fromJson(styleJson)) { style ->
                             PoiCategory.entries.forEach { category ->
-                                style.addImage(iconIdFor(category), pinBitmap(context, colorFor(category)))
+                                style.addImage(iconIdFor(category), poiPinBitmap(context, category))
                             }
-                            symbolManager = SymbolManager(view, map, style)
-                            symbolManager?.addClickListener { symbol ->
-                                selectedPin = symbolPinMap[symbol.id]
-                                true
+                            // Cambio di stile (tema chiaro/scuro): il vecchio SymbolManager e'
+                            // legato allo stile precedente, va chiuso prima di crearne uno nuovo.
+                            symbolManager?.onDestroy()
+                            symbolManager = SymbolManager(view, map, style).apply {
+                                addClickListener { symbol ->
+                                    selectedPin = symbolPinMap[symbol.id]
+                                    true
+                                }
                             }
                             symbolPinMap = renderPins(symbolManager, visiblePins)
                         }
@@ -168,31 +154,89 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
                 }
             },
         )
+
+        // Filtri flottanti sopra la mappa: ogni chip porta colore e glifo del proprio segnalino,
+        // quindi fa anche da legenda.
+        if (presentCategories.isNotEmpty()) {
+            LazyRow(
+                modifier = Modifier.fillMaxWidth().align(Alignment.TopStart),
+                contentPadding = PaddingValues(horizontal = Spacing.m, vertical = Spacing.s),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+            ) {
+                items(presentCategories) { category ->
+                    val selected = category in selectedCategories
+                    FilterChip(
+                        selected = selected,
+                        onClick = {
+                            selectedCategories = if (selected) selectedCategories - category else selectedCategories + category
+                        },
+                        label = { Text(stringResource(category.label())) },
+                        leadingIcon = { PoiBadge(category, size = 20) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        ),
+                        elevation = FilterChipDefaults.filterChipElevation(elevation = 3.dp),
+                    )
+                }
+            }
+        }
     }
 
     selectedPin?.let { pin ->
-        AlertDialog(
-            onDismissRequest = { selectedPin = null },
-            title = { Text(pin.name) },
-            text = {
-                Column {
-                    Text(pin.category.displayName())
-                    pin.phone?.let { phone -> Text(phone) }
+        ModalBottomSheet(onDismissRequest = { selectedPin = null }) {
+            Column(modifier = Modifier.fillMaxWidth().padding(start = Spacing.xl, end = Spacing.xl, bottom = Spacing.xxl)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    PoiBadge(pin.category, size = 40)
+                    Spacer(modifier = Modifier.width(Spacing.l))
+                    Column {
+                        Text(
+                            text = pin.name,
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.semantics { heading() },
+                        )
+                        Text(
+                            text = stringResource(pin.category.label()),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-            },
-            confirmButton = {
-                val phone = pin.phone
-                if (phone != null) {
-                    TextButton(onClick = {
-                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
-                        selectedPin = null
-                    }) { Text("Chiama") }
+                pin.phone?.let { phone ->
+                    Spacer(modifier = Modifier.padding(top = Spacing.l))
+                    FilledTonalButton(
+                        onClick = {
+                            context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                            selectedPin = null
+                        },
+                    ) {
+                        Icon(AppIcons.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(Spacing.s))
+                        Text("${stringResource(R.string.poi_call)} $phone")
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { selectedPin = null }) { Text("Chiudi") }
-            },
-        )
+            }
+        }
+    }
+}
+
+// Cerchio nel colore della categoria con il glifo bianco: stesso aspetto della testa del
+// segnalino, usato nei chip e nella scheda del POI.
+@Composable
+private fun PoiBadge(category: PoiCategory, size: Int) {
+    Surface(shape = CircleShape, color = category.pinColor(), modifier = Modifier.size(size.dp)) {
+        Box(contentAlignment = Alignment.Center) {
+            val glyph = category.glyph()
+            if (glyph != null) {
+                Icon(
+                    imageVector = ImageVector.vectorResource(glyph),
+                    contentDescription = null,
+                    tint = PoiColors.Glyph,
+                    modifier = Modifier.size((size * 0.6f).dp),
+                )
+            } else {
+                Surface(shape = CircleShape, color = PoiColors.Glyph, modifier = Modifier.size((size * 0.3f).dp)) {}
+            }
+        }
     }
 }
 
@@ -204,37 +248,8 @@ private fun renderPins(symbolManager: SymbolManager?, pins: List<MapPin>): Map<L
             SymbolOptions()
                 .withLatLng(LatLng(pin.latitude, pin.longitude))
                 .withIconImage(iconIdFor(pin.category))
-                .withIconAnchor("bottom")
+                .withIconAnchor("bottom"),
         )
         symbol.id to pin
     }
-}
-
-// Icona reale (Material "place", vedi ic_map_pin.xml) renderizzata a Bitmap e tinta per
-// categoria: SymbolManager di MapLibre richiede un Bitmap per style.addImage, non un
-// ImageVector Compose. Ombra di contatto + pallino centrale bianco (invece del buco trasparente
-// che il path del vector lascerebbe da solo) per avvicinare l'aspetto ai segnalini di Google
-// Maps — stesso posizionamento (0,0,size,size) di prima: l'anchor "bottom" di SymbolOptions deve
-// continuare a combaciare esattamente con la punta del pin, quindi il canvas non cambia
-// dimensione, solo cosa ci viene disegnato dentro.
-private fun pinBitmap(context: Context, tintColor: Int): Bitmap {
-    val size = 64
-    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bitmap)
-
-    val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x40000000 }
-    canvas.drawOval(size * 0.28f, size * 0.87f, size * 0.72f, size * 0.99f, shadowPaint)
-
-    val drawable = context.resources.getDrawable(R.drawable.ic_map_pin, context.theme).mutate()
-    drawable.setTint(tintColor)
-    drawable.setBounds(0, 0, size, size)
-    drawable.draw(canvas)
-
-    // Stesso centro/raggio del cerchio "bucato" nel path di ic_map_pin.xml (viewport 24x24,
-    // cerchio a (12,9) raggio 2.5): riempirlo esattamente li' evita sia un buco trasparente sia
-    // un bordo colorato residuo attorno al pallino bianco.
-    val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
-    canvas.drawCircle(size * (12f / 24f), size * (9f / 24f), size * (2.5f / 24f), dotPaint)
-
-    return bitmap
 }

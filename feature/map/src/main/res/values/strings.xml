@@ -1,0 +1,9 @@
+<resources>
+    <string name="poi_lodging">Alloggio</string>
+    <string name="poi_food">Cibo e bevande</string>
+    <string name="poi_shopping">Negozi</string>
+    <string name="poi_attractions">Attrazioni</string>
+    <string name="poi_embassy">Ambasciate e consolati</string>
+    <string name="poi_other">Altro</string>
+    <string name="poi_call">Chiama</string>
+</resources>

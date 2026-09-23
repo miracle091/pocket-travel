@@ -3,7 +3,7 @@ package com.pockettravel.feature.map
 import java.io.File
 
 interface OfflineTileSource {
-    fun styleJson(regionId: String): String
+    fun styleJson(regionId: String, dark: Boolean = false): String
 }
 
 // MapLibre Native gestisce il protocollo pmtiles:// nativamente su Android (nessun parser
@@ -13,7 +13,8 @@ interface OfflineTileSource {
 // non offre letture a range di byte, che il formato PMTiles richiede.
 class PmtilesTileSource(private val regionsDir: File) : OfflineTileSource {
 
-    override fun styleJson(regionId: String): String {
+    override fun styleJson(regionId: String, dark: Boolean): String {
+        val palette = if (dark) MapPalette.Dark else MapPalette.Light
         val pmtilesPath = File(regionsDir, "$regionId/map.pmtiles").absolutePath
 
         // I nomi dei source-layer ("water", "roads", "buildings", "places") sono quelli dello
@@ -78,19 +79,54 @@ class PmtilesTileSource(private val regionsDir: File) : OfflineTileSource {
                 }
               },
               "layers": [
-                { "id": "background", "type": "background", "paint": { "background-color": "#f2efe9" } },
-                { "id": "water", "type": "fill", "source": "region", "source-layer": "water", "paint": { "fill-color": "#a7cfe8" } },
-                { "id": "buildings", "type": "fill", "source": "region", "source-layer": "buildings", "paint": { "fill-color": "#ddd6c9" } },
-                { "id": "buildings_outline", "type": "line", "source": "region", "source-layer": "buildings", "minzoom": 15, "paint": { "line-color": "#c7bfae", "line-width": 0.5 } },
-                { "id": "roads_path", "type": "line", "source": "region", "source-layer": "roads", "filter": ["==", "kind", "path"], "layout": { "line-cap": "round" }, "paint": { "line-color": "#b7ac9a", "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.5, 18, 2], "line-dasharray": [2, 2] } },
-                { "id": "roads_minor_casing", "type": "line", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "minor_road", "other"], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "#d6d2c8", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.6, 18, 8] } },
-                { "id": "roads_minor", "type": "line", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "minor_road", "other"], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.3, 18, 5] } },
-                { "id": "roads_major", "type": "line", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "highway", "major_road"], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "#f7c164", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 1, 18, 10] } },
-                { "id": "places_locality", "type": "symbol", "source": "region", "source-layer": "places", "filter": ["in", "kind", "locality", "macrohood", "neighbourhood"], "minzoom": 10, "layout": { "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 13 }, "paint": { "text-color": "#3f3b33", "text-halo-color": "#ffffff", "text-halo-width": 1.2 } },
-                { "id": "roads_labels_major", "type": "symbol", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "highway", "major_road"], "minzoom": 11, "layout": { "symbol-placement": "line", "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 12 }, "paint": { "text-color": "#7a5c1e", "text-halo-color": "#f7c164", "text-halo-width": 1 } },
-                { "id": "roads_labels_minor", "type": "symbol", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "minor_road", "other"], "minzoom": 15, "layout": { "symbol-placement": "line", "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 11 }, "paint": { "text-color": "#5a5346", "text-halo-color": "#ffffff", "text-halo-width": 1.2 } }
+                { "id": "background", "type": "background", "paint": { "background-color": "${palette.background}" } },
+                { "id": "water", "type": "fill", "source": "region", "source-layer": "water", "paint": { "fill-color": "${palette.water}" } },
+                { "id": "buildings", "type": "fill", "source": "region", "source-layer": "buildings", "paint": { "fill-color": "${palette.building}" } },
+                { "id": "buildings_outline", "type": "line", "source": "region", "source-layer": "buildings", "minzoom": 15, "paint": { "line-color": "${palette.buildingOutline}", "line-width": 0.5 } },
+                { "id": "roads_path", "type": "line", "source": "region", "source-layer": "roads", "filter": ["==", "kind", "path"], "layout": { "line-cap": "round" }, "paint": { "line-color": "${palette.path}", "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.5, 18, 2], "line-dasharray": [2, 2] } },
+                { "id": "roads_minor_casing", "type": "line", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "minor_road", "other"], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "${palette.minorCasing}", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.6, 18, 8] } },
+                { "id": "roads_minor", "type": "line", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "minor_road", "other"], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "${palette.minorRoad}", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.3, 18, 5] } },
+                { "id": "roads_major", "type": "line", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "highway", "major_road"], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "${palette.majorRoad}", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 1, 18, 10] } },
+                { "id": "places_locality", "type": "symbol", "source": "region", "source-layer": "places", "filter": ["in", "kind", "locality", "macrohood", "neighbourhood"], "minzoom": 10, "layout": { "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 13 }, "paint": { "text-color": "${palette.placeText}", "text-halo-color": "${palette.placeHalo}", "text-halo-width": 1.2 } },
+                { "id": "roads_labels_major", "type": "symbol", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "highway", "major_road"], "minzoom": 11, "layout": { "symbol-placement": "line", "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 12 }, "paint": { "text-color": "${palette.majorLabel}", "text-halo-color": "${palette.majorLabelHalo}", "text-halo-width": 1 } },
+                { "id": "roads_labels_minor", "type": "symbol", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "minor_road", "other"], "minzoom": 15, "layout": { "symbol-placement": "line", "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 11 }, "paint": { "text-color": "${palette.minorLabel}", "text-halo-color": "${palette.minorLabelHalo}", "text-halo-width": 1.2 } }
               ]
             }
         """.trimIndent()
+    }
+}
+
+// Colori dello stile. Light: la palette storica in stile Google Maps. Dark: stessa gerarchia
+// (strade principali ambrate, minori piu' chiare dello sfondo, acqua blu scuro) su fondo scuro,
+// per non abbagliare quando l'app e' in tema scuro; etichette chiare con alone dello sfondo.
+private data class MapPalette(
+    val background: String,
+    val water: String,
+    val building: String,
+    val buildingOutline: String,
+    val path: String,
+    val minorCasing: String,
+    val minorRoad: String,
+    val majorRoad: String,
+    val placeText: String,
+    val placeHalo: String,
+    val majorLabel: String,
+    val majorLabelHalo: String,
+    val minorLabel: String,
+    val minorLabelHalo: String,
+) {
+    companion object {
+        val Light = MapPalette(
+            background = "#f2efe9", water = "#a7cfe8", building = "#ddd6c9", buildingOutline = "#c7bfae",
+            path = "#b7ac9a", minorCasing = "#d6d2c8", minorRoad = "#ffffff", majorRoad = "#f7c164",
+            placeText = "#3f3b33", placeHalo = "#ffffff", majorLabel = "#7a5c1e", majorLabelHalo = "#f7c164",
+            minorLabel = "#5a5346", minorLabelHalo = "#ffffff",
+        )
+        val Dark = MapPalette(
+            background = "#1d2226", water = "#17344a", building = "#2a3036", buildingOutline = "#363d44",
+            path = "#5b646c", minorCasing = "#262c31", minorRoad = "#3b434b", majorRoad = "#8a6a34",
+            placeText = "#e2e4e6", placeHalo = "#1d2226", majorLabel = "#f3d49a", majorLabelHalo = "#1d2226",
+            minorLabel = "#c3c8cc", minorLabelHalo = "#1d2226",
+        )
     }
 }
