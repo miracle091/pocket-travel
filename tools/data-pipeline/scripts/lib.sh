@@ -19,7 +19,8 @@ floor5() {
   awk -v v="$1" 'BEGIN { x = v / 5; ix = int(x); if (x < ix) ix -= 1; printf "%d", ix * 5 }'
 }
 tile_name() {
-  local lon="$1" lat="$2" ew="E" ns="N" alon="$lon" alat="$lat"
+  local lon="$1" lat="$2"
+  local ew="E" ns="N" alon="$lon" alat="$lat"
   if [ "$lon" -lt 0 ]; then ew="W"; alon=$(( -lon )); fi
   if [ "$lat" -lt 0 ]; then ns="S"; alat=$(( -lat )); fi
   echo "${ew}${alon}_${ns}${alat}"
