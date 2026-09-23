@@ -27,6 +27,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
   - Spazio di archiviazione: riga per le guide e, sotto ogni regione, righe separate per mappa, percorsi e punti di interesse.
   - Le regioni già installate restano utilizzabili; le guide vanno riscaricate una volta (in automatico su Wi-Fi). Le versioni precedenti dell'app non leggono il nuovo catalogo: dopo la sua pubblicazione non scaricano più regioni finché non vengono aggiornate.
 - Rimossi dal catalogo i territori senza popolazione permanente (Antartide, Isole Heard e McDonald, Terre Australi e Antartiche Francesi, Georgia del Sud e Sandwich Meridionali, Territorio Britannico dell'Oceano Indiano, Isole Minori Esterne degli Stati Uniti, Clipperton, Isola Bouvet) e il relativo gruppo "Territori disabitati". Chi ne aveva già scaricato uno lo trova ancora in Spazio di archiviazione, da dove può eliminarlo, ma non più nell'elenco Regioni, e non riceve più aggiornamenti.
+- Pubblicazione automatica settimanale: calendario dei giorni rigenerato sul nuovo elenco di 246 regioni, con un carico per giorno tra 297 e 324 tile (prima tra 257 e 331 dopo la rimozione dei territori disabitati).
 
 ### Corretto
 - Pubblicazione automatica (`publish-regions.yml`): rilanciare una pubblicazione fallita falliva sempre ("Multiple artifacts named github-pages"), perché ogni tentativo caricava un altro artefatto con lo stesso nome. Ora l'artefatto ha un nome diverso per ogni tentativo.
