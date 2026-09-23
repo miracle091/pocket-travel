@@ -43,54 +43,65 @@ class RegionStorageTest {
         }
     }
 
-    @Test
-    fun `activate installa una regione nuova senza backup precedente`() {
-        val (storage, _) = newStorage()
-        val staged = storage.stagingDirectoryFor("italia", "v1")
+    private fun stagedFile(storage: RegionStorage, version: String, name: String, text: String): File {
+        val staged = storage.stagingDirectoryFor("italia", version)
         staged.mkdirs()
-        File(staged, "content.db").writeText("dati")
+        return File(staged, name).apply { writeText(text) }
+    }
 
-        val activation = storage.activate("italia", staged)
+    @Test
+    fun `activatePackage installa un pacchetto in una regione nuova`() {
+        val (storage, _) = newStorage()
+        val staged = stagedFile(storage, "v1", RegionStorage.MAP_FILE, "mappa")
+
+        storage.activatePackage("italia", RegionStorage.MAP_FILE, staged).commit()
+
+        assertEquals("mappa", File(storage.directoryFor("italia"), RegionStorage.MAP_FILE).readText())
+        assertFalse(staged.exists())
+    }
+
+    @Test
+    fun `activatePackage sostituisce un pacchetto senza toccare gli altri`() {
+        val (storage, _) = newStorage()
+        storage.activatePackage("italia", RegionStorage.MAP_FILE, stagedFile(storage, "v1", RegionStorage.MAP_FILE, "mappa")).commit()
+        val routing = File(storage.stagingDirectoryFor("italia", "v1"), RegionStorage.ROUTING_DIR).apply { mkdirs() }
+        File(routing, "E10_N40.rd5").writeText("segmento")
+        storage.activatePackage("italia", RegionStorage.ROUTING_DIR, routing).commit()
+
+        storage.activatePackage("italia", RegionStorage.MAP_FILE, stagedFile(storage, "v2", RegionStorage.MAP_FILE, "mappa nuova")).commit()
 
         val live = storage.directoryFor("italia")
-        assertTrue(live.isDirectory)
-        assertEquals("dati", File(live, "content.db").readText())
-        assertFalse("una prima installazione non ha nulla da salvare come backup", staged.exists())
-        activation.commit()
+        assertEquals("mappa nuova", File(live, RegionStorage.MAP_FILE).readText())
+        assertEquals("segmento", File(live, "${RegionStorage.ROUTING_DIR}/E10_N40.rd5").readText())
+        assertFalse(File(live, ".${RegionStorage.MAP_FILE}.backup").exists())
     }
 
     @Test
-    fun `activate salva la versione precedente come backup e rollback la ripristina`() {
+    fun `rollback di activatePackage ripristina il pacchetto precedente`() {
         val (storage, _) = newStorage()
-        val oldStaged = storage.stagingDirectoryFor("italia", "v1")
-        oldStaged.mkdirs()
-        File(oldStaged, "content.db").writeText("vecchia versione")
-        storage.activate("italia", oldStaged).commit()
+        storage.activatePackage("italia", RegionStorage.MAP_FILE, stagedFile(storage, "v1", RegionStorage.MAP_FILE, "vecchia")).commit()
 
-        val newStaged = storage.stagingDirectoryFor("italia", "v2")
-        newStaged.mkdirs()
-        File(newStaged, "content.db").writeText("nuova versione")
-        val activation = storage.activate("italia", newStaged)
-
-        assertEquals("nuova versione", File(storage.directoryFor("italia"), "content.db").readText())
-
+        val activation = storage.activatePackage("italia", RegionStorage.MAP_FILE, stagedFile(storage, "v2", RegionStorage.MAP_FILE, "nuova"))
         activation.rollback()
 
-        assertEquals("vecchia versione", File(storage.directoryFor("italia"), "content.db").readText())
+        assertEquals("vecchia", File(storage.directoryFor("italia"), RegionStorage.MAP_FILE).readText())
     }
 
     @Test
-    fun `activate commit rimuove il backup`() {
-        val (storage, root) = newStorage()
-        val oldStaged = storage.stagingDirectoryFor("italia", "v1")
-        oldStaged.mkdirs()
-        storage.activate("italia", oldStaged).commit()
+    fun `deletePackage e packageBytes agiscono su un solo pacchetto`() {
+        val (storage, _) = newStorage()
+        storage.activatePackage("italia", RegionStorage.MAP_FILE, stagedFile(storage, "v1", RegionStorage.MAP_FILE, "12345")).commit()
+        val routing = File(storage.stagingDirectoryFor("italia", "v1"), RegionStorage.ROUTING_DIR).apply { mkdirs() }
+        File(routing, "a.rd5").writeText("123")
+        storage.activatePackage("italia", RegionStorage.ROUTING_DIR, routing).commit()
 
-        val newStaged = storage.stagingDirectoryFor("italia", "v2")
-        newStaged.mkdirs()
-        storage.activate("italia", newStaged).commit()
+        assertEquals(5L, storage.packageBytes("italia", RegionStorage.MAP_FILE))
+        assertEquals(3L, storage.packageBytes("italia", RegionStorage.ROUTING_DIR))
 
-        assertFalse(File(File(root, "regions"), ".italia.backup").exists())
+        assertTrue(storage.deletePackage("italia", RegionStorage.MAP_FILE))
+
+        assertEquals(0L, storage.packageBytes("italia", RegionStorage.MAP_FILE))
+        assertEquals(3L, storage.packageBytes("italia", RegionStorage.ROUTING_DIR))
     }
 
     @Test
@@ -109,9 +120,7 @@ class RegionStorageTest {
     @Test
     fun `delete rimuove una regione installata e ritorna true`() {
         val (storage, _) = newStorage()
-        val staged = storage.stagingDirectoryFor("italia", "v1")
-        staged.mkdirs()
-        storage.activate("italia", staged).commit()
+        storage.activatePackage("italia", RegionStorage.MAP_FILE, stagedFile(storage, "v1", RegionStorage.MAP_FILE, "mappa")).commit()
 
         assertTrue(storage.delete("italia"))
         assertFalse(storage.directoryFor("italia").exists())

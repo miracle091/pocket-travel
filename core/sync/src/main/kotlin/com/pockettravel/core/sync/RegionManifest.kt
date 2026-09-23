@@ -98,7 +98,9 @@ private fun isSafeVersion(version: String): Boolean = version.matches(Regex("[A-
 
 private fun isAllowedManifestUrl(url: String): Boolean {
     val uri = runCatching { URI(url) }.getOrNull() ?: return false
-    return uri.scheme.equals("https", ignoreCase = true) && uri.host != null &&
+    val secure = uri.scheme.equals("https", ignoreCase = true) ||
+        (uri.scheme == "http" && uri.host != null && uri.host == SyncConfig.CLEARTEXT_MANIFEST_HOST)
+    return secure && uri.host != null &&
         uri.host in SyncConfig.ALLOWED_MANIFEST_HOSTS && uri.userInfo == null && uri.fragment == null
 }
 

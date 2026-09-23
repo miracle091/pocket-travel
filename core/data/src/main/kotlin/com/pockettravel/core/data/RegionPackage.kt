@@ -7,6 +7,7 @@ data class RegionPackage(
     val mapVersion: String?,
     val routingVersion: String?,
     val poiVersion: String?,
+    val poiSizeBytes: Long?,
     val sizeBytes: Long,
 ) {
     fun versionOf(kind: PackageKind): String? = when (kind) {

@@ -99,7 +99,10 @@ class RegionListViewModel @Inject constructor(
         viewModelScope.launch {
             status.update { it.copy(isLoading = true) }
             try {
-                manifestRegions.value = manifestClient.fetchManifest().regions
+                val manifest = manifestClient.fetchManifest()
+                manifestRegions.value = manifest.regions
+                // Le guide si aggiornano da sole (su Wi-Fi) anche da qui, non solo col controllo periodico.
+                if (regionRepository.installedGuidesVersion() != manifest.guides.version) regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = true)
                 status.update { it.copy(loadError = null) }
             } catch (_: Exception) {
                 status.update { it.copy(loadError = R.string.regions_load_error) }
@@ -121,13 +124,19 @@ class RegionListViewModel @Inject constructor(
         query.value = newQuery
     }
 
+    /** Scarica i pacchetti della regione mancanti o non aggiornati (tutti, se non e' installata). */
     fun download(regionId: String) {
         val entry = manifestRegions.value.firstOrNull { it.regionId == regionId } ?: return
-        if (regionRepository.availableStorageBytes() < entry.downloadBytes(PackageKind.entries.toSet())) {
-            status.update { it.copy(message = R.string.regions_not_enough_space) }
-            return
+        viewModelScope.launch {
+            val local = regionRepository.installed(regionId)
+            val kinds = PackageKind.entries.filterTo(mutableSetOf()) { local?.versionOf(it) != entry.versionOf(it) }
+            if (kinds.isEmpty()) return@launch
+            if (regionRepository.availableStorageBytes() < entry.downloadBytes(kinds)) {
+                status.update { it.copy(message = R.string.regions_not_enough_space) }
+                return@launch
+            }
+            regionSyncScheduler.enqueueDownload(entry, kinds)
         }
-        regionSyncScheduler.enqueueDownload(entry)
     }
 
     fun onMessageShown() {

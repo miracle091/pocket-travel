@@ -103,36 +103,50 @@ class RegionRepositoryTest {
     }
 
     @Test
-    fun `markInstalled rende la regione visibile a observeInstalled e installedVersion`() = runBlocking {
+    fun `markPackagesInstalled rende la regione visibile con le versioni di ogni pacchetto`() = runBlocking {
         val (repository, _) = newRepository()
 
-        repository.markInstalled(RegionPackage("italia", "Italia", mapVersion = "1", routingVersion = "2", poiVersion = "3", sizeBytes = 1000))
+        repository.markPackagesInstalled(
+            "italia", "Italia",
+            mapOf(PackageKind.MAP to "1", PackageKind.ROUTING to "2", PackageKind.POI to "3"),
+            poiSizeBytes = 1000,
+        )
 
-        assertEquals("1", repository.installedVersion("italia", PackageKind.MAP))
-        assertEquals("2", repository.installedVersion("italia", PackageKind.ROUTING))
-        assertEquals("3", repository.installedVersion("italia", PackageKind.POI))
+        val installed = repository.installed("italia")!!
+        assertEquals("1", installed.mapVersion)
+        assertEquals("2", installed.routingVersion)
+        assertEquals("3", installed.poiVersion)
+        assertEquals(1000L, installed.sizeBytes)
         assertEquals(listOf("Italia"), repository.observeInstalled().first().map { it.displayName })
     }
 
     @Test
-    fun `installedVersion e' null per una regione mai installata o un pacchetto assente`() = runBlocking {
+    fun `installed e' null per una regione mai installata e un pacchetto assente ha versione null`() = runBlocking {
         val (repository, _) = newRepository()
-        repository.markInstalled(RegionPackage("italia", "Italia", mapVersion = null, routingVersion = null, poiVersion = "1", sizeBytes = 10))
+        repository.markPackagesInstalled("italia", "Italia", mapOf(PackageKind.POI to "1"), poiSizeBytes = 10)
 
-        assertNull(repository.installedVersion("mai-installata", PackageKind.POI))
-        assertNull(repository.installedVersion("italia", PackageKind.MAP))
-        assertEquals("1", repository.installedVersion("italia", PackageKind.POI))
+        assertNull(repository.installed("mai-installata"))
+        assertNull(repository.installed("italia")!!.mapVersion)
+        assertEquals("1", repository.installed("italia")!!.poiVersion)
     }
 
     @Test
-    fun `markInstalled sovrascrive una versione precedente della stessa regione`() = runBlocking {
+    fun `markPackagesInstalled aggiorna un pacchetto e conserva gli altri`() = runBlocking {
         val (repository, _) = newRepository()
-        repository.markInstalled(RegionPackage("italia", "Italia", mapVersion = "1", routingVersion = "1", poiVersion = "1", sizeBytes = 1000))
+        repository.markPackagesInstalled("italia", "Italia", mapOf(PackageKind.MAP to "1", PackageKind.POI to "1"), poiSizeBytes = 500)
 
-        repository.markInstalled(RegionPackage("italia", "Italia", mapVersion = "1", routingVersion = "1", poiVersion = "2", sizeBytes = 2000))
+        repository.markPackagesInstalled("italia", "Italia", mapOf(PackageKind.MAP to "2"))
 
-        assertEquals("2", repository.installedVersion("italia", PackageKind.POI))
-        assertEquals("1", repository.installedVersion("italia", PackageKind.MAP))
+        val installed = repository.installed("italia")!!
+        assertEquals("2", installed.mapVersion)
+        assertEquals("1", installed.poiVersion)
+        assertEquals(500L, installed.poiSizeBytes)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `markPackagesInstalled richiede la dimensione dei POI`() = runBlocking {
+        val (repository, _) = newRepository()
+        repository.markPackagesInstalled("italia", "Italia", mapOf(PackageKind.POI to "1"))
     }
 
     @Test

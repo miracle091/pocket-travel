@@ -12,6 +12,20 @@ android {
     defaultConfig {
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "MANIFEST_URL_OVERRIDE", "\"\"")
+    }
+
+    // Solo debug: manifest alternativo (es. un server locale per provare i pacchetti sull'emulatore),
+    // passato con -PpocketTravel.manifestUrl=http://10.0.2.2:8000/manifest.json. Vuoto = manifest pubblicato.
+    buildTypes {
+        getByName("debug") {
+            val manifestUrl = providers.gradleProperty("pocketTravel.manifestUrl").getOrElse("")
+            buildConfigField("String", "MANIFEST_URL_OVERRIDE", "\"$manifestUrl\"")
+        }
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {
@@ -55,6 +69,7 @@ dependencies {
     // con android.database.sqlite reale su device/emulatore, colmando il limite dei test JVM sopra.
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.okhttp.mockwebserver)
     // room-runtime non e' esposto da :core:data (dichiarato li' come implementation, non api) —
     // qui serve direttamente per chiamare Room.inMemoryDatabaseBuilder(...) nel test.
     androidTestImplementation(libs.room.runtime)

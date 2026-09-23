@@ -19,14 +19,61 @@ class RegionRepository @Inject constructor(
     fun observeInstalled(): Flow<List<RegionPackage>> =
         regionPackageDao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
-    suspend fun installedVersion(regionId: String, kind: PackageKind): String? =
-        regionPackageDao.findById(regionId)?.toDomain()?.versionOf(kind)
-
     suspend fun displayName(regionId: String): String? =
         regionPackageDao.findById(regionId)?.displayName
 
-    suspend fun markInstalled(pkg: RegionPackage) =
-        regionPackageDao.upsert(pkg.toEntity(installedAt = System.currentTimeMillis()))
+    suspend fun installed(regionId: String): RegionPackage? = regionPackageDao.findById(regionId)?.toDomain()
+
+    /**
+     * Registra i pacchetti appena installati ([versions]), conservando gli altri gia' presenti.
+     * [poiSizeBytes] e' richiesto quando tra i pacchetti c'e' [PackageKind.POI].
+     */
+    suspend fun markPackagesInstalled(regionId: String, displayName: String, versions: Map<PackageKind, String>, poiSizeBytes: Long? = null) {
+        require(PackageKind.POI !in versions || poiSizeBytes != null) { "poiSizeBytes mancante per $regionId" }
+        val current = installed(regionId)
+        save(
+            regionId, displayName,
+            versionOf = { kind -> versions[kind] ?: current?.versionOf(kind) },
+            poiSizeBytes = if (PackageKind.POI in versions) poiSizeBytes else current?.poiSizeBytes,
+        )
+    }
+
+    /** Elimina un solo pacchetto della regione; tolto l'ultimo, la regione non risulta piu' installata. */
+    suspend fun removePackage(regionId: String, kind: PackageKind) {
+        val current = installed(regionId) ?: return
+        database.withTransaction {
+            when (kind) {
+                PackageKind.MAP -> check(regionStorage.deletePackage(regionId, RegionStorage.MAP_FILE)) { "Impossibile eliminare la mappa di $regionId" }
+                PackageKind.ROUTING -> check(regionStorage.deletePackage(regionId, RegionStorage.ROUTING_DIR)) { "Impossibile eliminare il routing di $regionId" }
+                PackageKind.POI -> poiDao.deleteForRegion(regionId)
+            }
+            save(
+                regionId, current.displayName,
+                versionOf = { if (it == kind) null else current.versionOf(it) },
+                poiSizeBytes = if (kind == PackageKind.POI) null else current.poiSizeBytes,
+            )
+        }
+    }
+
+    private suspend fun save(regionId: String, displayName: String, versionOf: (PackageKind) -> String?, poiSizeBytes: Long?) {
+        if (PackageKind.entries.all { versionOf(it) == null }) {
+            remove(regionId)
+            return
+        }
+        val diskBytes = regionStorage.packageBytes(regionId, RegionStorage.MAP_FILE) + regionStorage.packageBytes(regionId, RegionStorage.ROUTING_DIR)
+        regionPackageDao.upsert(
+            InstalledRegionEntity(
+                regionId = regionId,
+                displayName = displayName,
+                mapVersion = versionOf(PackageKind.MAP),
+                routingVersion = versionOf(PackageKind.ROUTING),
+                poiVersion = versionOf(PackageKind.POI),
+                poiSizeBytes = poiSizeBytes,
+                sizeBytes = diskBytes + (poiSizeBytes ?: 0L),
+                installedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
 
     /** Versione del pacchetto guide installato, null se non ancora scaricato. */
     suspend fun installedGuidesVersion(): String? = regionPackageDao.guidesVersion()
@@ -54,15 +101,6 @@ private fun InstalledRegionEntity.toDomain() = RegionPackage(
     mapVersion = mapVersion,
     routingVersion = routingVersion,
     poiVersion = poiVersion,
+    poiSizeBytes = poiSizeBytes,
     sizeBytes = sizeBytes,
-)
-
-private fun RegionPackage.toEntity(installedAt: Long) = InstalledRegionEntity(
-    regionId = regionId,
-    displayName = displayName,
-    mapVersion = mapVersion,
-    routingVersion = routingVersion,
-    poiVersion = poiVersion,
-    sizeBytes = sizeBytes,
-    installedAt = installedAt,
 )

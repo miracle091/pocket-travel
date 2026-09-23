@@ -11,6 +11,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import com.pockettravel.core.data.PackageKind
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -58,13 +59,18 @@ class RegionSyncScheduler @Inject constructor(
         )
     }
 
-    /** Download esplicito richiesto dall'utente per una regione. */
-    fun enqueueDownload(entry: RegionManifestEntry) {
+    /**
+     * Download esplicito richiesto dall'utente dei pacchetti [kinds] di una regione. Accoda anche
+     * il controllo delle guide senza vincolo di Wi-Fi: chi scarica una regione si aspetta di
+     * trovarne subito la guida.
+     */
+    fun enqueueDownload(entry: RegionManifestEntry, kinds: Set<PackageKind>) {
         val data = Data.Builder()
             .putString(
                 RegionPackageDownloadWorker.KEY_MANIFEST_ENTRY,
                 json.encodeToString(RegionManifestEntry.serializer(), entry),
             )
+            .putStringArray(RegionPackageDownloadWorker.KEY_PACKAGE_KINDS, kinds.map { it.name }.toTypedArray())
             .build()
         val request = OneTimeWorkRequestBuilder<RegionPackageDownloadWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
@@ -74,6 +80,25 @@ class RegionSyncScheduler @Inject constructor(
         workManager.enqueueUniqueWork(
             workNameFor(entry.regionId),
             ExistingWorkPolicy.KEEP,
+            request,
+        )
+        enqueueGuidesSync(onlyOnWifi = false)
+    }
+
+    /**
+     * Installa o aggiorna il pacchetto guide se il manifest ne ha una versione diversa. In
+     * automatico ([onlyOnWifi]) non sostituisce una richiesta gia' in coda; su richiesta
+     * dell'utente la sostituisce, cosi' non resta in attesa del Wi-Fi.
+     */
+    fun enqueueGuidesSync(onlyOnWifi: Boolean) {
+        val networkType = if (onlyOnWifi) NetworkType.UNMETERED else NetworkType.CONNECTED
+        val request = OneTimeWorkRequestBuilder<GuidesSyncWorker>()
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(networkType).build())
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .build()
+        workManager.enqueueUniqueWork(
+            SyncConfig.GUIDES_SYNC_WORK_NAME,
+            if (onlyOnWifi) ExistingWorkPolicy.KEEP else ExistingWorkPolicy.REPLACE,
             request,
         )
     }

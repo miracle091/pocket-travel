@@ -21,17 +21,35 @@ class RegionStorage @Inject constructor(
     fun directoryFor(regionId: String): File = safeChild(regionsDir, regionId, "regionId")
     fun stagingDirectoryFor(regionId: String, version: String): File = safeChild(safeChild(stagingDir, regionId, "regionId"), version, "version")
 
-    fun activate(regionId: String, stagedDirectory: File): Activation {
-        require(stagedDirectory.isDirectory) { "Staging mancante per $regionId" }
-        val live = directoryFor(regionId)
-        val backup = File(live.parentFile, ".${live.name}.backup")
+    /**
+     * Sostituisce un solo pacchetto della regione ([MAP_FILE] o [ROUTING_DIR]) con quello in
+     * staging, lasciando intatti gli altri. Il precedente resta come backup fino a commit/rollback.
+     */
+    fun activatePackage(regionId: String, packageName: String, staged: File): Activation {
+        require(packageName == MAP_FILE || packageName == ROUTING_DIR) { "Pacchetto sconosciuto: $packageName" }
+        require(staged.exists()) { "Staging mancante per $regionId/$packageName" }
+        val regionDir = directoryFor(regionId)
+        regionDir.mkdirs()
+        val live = File(regionDir, packageName)
+        val backup = File(regionDir, ".$packageName.backup")
         backup.deleteRecursively()
         val hadPrevious = live.exists()
-        if (hadPrevious) check(live.renameTo(backup)) { "Impossibile preparare l'aggiornamento $regionId" }
-        try { check(stagedDirectory.renameTo(live)) { "Impossibile installare il pacchetto $regionId" } }
+        if (hadPrevious) check(live.renameTo(backup)) { "Impossibile preparare l'aggiornamento $regionId/$packageName" }
+        try { check(staged.renameTo(live)) { "Impossibile installare $regionId/$packageName" } }
         catch (error: Exception) { if (hadPrevious) backup.renameTo(live); throw error }
         return Activation(live, backup, hadPrevious)
     }
+
+    /** Elimina un solo pacchetto ([MAP_FILE] o [ROUTING_DIR]) della regione. */
+    fun deletePackage(regionId: String, packageName: String): Boolean {
+        require(packageName == MAP_FILE || packageName == ROUTING_DIR) { "Pacchetto sconosciuto: $packageName" }
+        val target = File(directoryFor(regionId), packageName)
+        return !target.exists() || (target.deleteRecursively() && !target.exists())
+    }
+
+    /** Byte occupati sul disco da un pacchetto della regione, 0 se assente. */
+    fun packageBytes(regionId: String, packageName: String): Long =
+        File(directoryFor(regionId), packageName).walkBottomUp().filter { it.isFile }.sumOf { it.length() }
 
     fun cleanupStagingExcept(regionId: String, version: String) {
         val regionStaging = safeChild(stagingDir, regionId, "regionId")
@@ -48,6 +66,13 @@ class RegionStorage @Inject constructor(
     class Activation(private val live: File, private val backup: File, private val hadPrevious: Boolean) {
         fun commit() { backup.deleteRecursively() }
         fun rollback() { live.deleteRecursively(); if (hadPrevious) backup.renameTo(live) }
+    }
+
+    companion object {
+        // Devono combaciare con OfflineTileSource e RouteEngineModule (feature/map) e con
+        // RegionRoutingGraphInstaller.ROUTING_DIR_NAME (core/sync).
+        const val MAP_FILE = "map.pmtiles"
+        const val ROUTING_DIR = "routing"
     }
 
     private fun safeChild(root: File, segment: String, field: String): File {

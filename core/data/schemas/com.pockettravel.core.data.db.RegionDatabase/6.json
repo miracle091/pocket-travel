@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 6,
-    "identityHash": "aeab84aacb83f08df6028a36c86cfef6",
+    "identityHash": "d21d3cd18eca3420704970e305ae892f",
     "entities": [
       {
         "tableName": "guide_sections",
@@ -152,7 +152,7 @@
       },
       {
         "tableName": "installed_regions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`regionId` TEXT NOT NULL, `displayName` TEXT NOT NULL, `mapVersion` TEXT, `routingVersion` TEXT, `poiVersion` TEXT, `sizeBytes` INTEGER NOT NULL, `installedAt` INTEGER NOT NULL, PRIMARY KEY(`regionId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`regionId` TEXT NOT NULL, `displayName` TEXT NOT NULL, `mapVersion` TEXT, `routingVersion` TEXT, `poiVersion` TEXT, `poiSizeBytes` INTEGER, `sizeBytes` INTEGER NOT NULL, `installedAt` INTEGER NOT NULL, PRIMARY KEY(`regionId`))",
         "fields": [
           {
             "fieldPath": "regionId",
@@ -180,6 +180,11 @@
             "fieldPath": "poiVersion",
             "columnName": "poiVersion",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "poiSizeBytes",
+            "columnName": "poiSizeBytes",
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "sizeBytes",
@@ -305,7 +310,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'aeab84aacb83f08df6028a36c86cfef6')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd21d3cd18eca3420704970e305ae892f')"
     ]
   }
 }

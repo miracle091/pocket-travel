@@ -87,8 +87,9 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
 
 // Pacchetti separati (guide, mappa, routing, POI): installed_regions passa da una sola version a
 // una per pacchetto, nullable (ogni combinazione e' possibile). Le regioni gia' installate hanno
-// tutti e tre, con la stessa versione. installed_guides resta vuota: le guide finora importate
-// venivano dai content.db per regione, il pacchetto guide unico va ancora scaricato.
+// tutti e tre, con la stessa versione; poiSizeBytes resta NULL (il vecchio sizeBytes non separava
+// i POI dal resto). installed_guides resta vuota: le guide finora importate venivano dai
+// content.db per regione, il pacchetto guide unico va ancora scaricato.
 val MIGRATION_5_6 = object : Migration(5, 6) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
@@ -99,6 +100,7 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
                 `mapVersion` TEXT,
                 `routingVersion` TEXT,
                 `poiVersion` TEXT,
+                `poiSizeBytes` INTEGER,
                 `sizeBytes` INTEGER NOT NULL,
                 `installedAt` INTEGER NOT NULL
             )
@@ -107,7 +109,7 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         db.execSQL(
             """
             INSERT INTO `installed_regions_new`
-            SELECT `regionId`, `displayName`, `version`, `version`, `version`, `sizeBytes`, `installedAt`
+            SELECT `regionId`, `displayName`, `version`, `version`, `version`, NULL, `sizeBytes`, `installedAt`
             FROM `installed_regions`
             """.trimIndent()
         )

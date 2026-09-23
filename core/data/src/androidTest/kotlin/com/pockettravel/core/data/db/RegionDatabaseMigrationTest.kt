@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -25,7 +26,7 @@ class RegionDatabaseMigrationTest {
 
         // Valida anche lo schema risultante contro quello atteso dalla versione 6.
         helper.runMigrationsAndValidate(DB_NAME, 6, true, MIGRATION_5_6).use { db ->
-            db.query("SELECT regionId, displayName, mapVersion, routingVersion, poiVersion, sizeBytes, installedAt FROM installed_regions").use { cursor ->
+            db.query("SELECT regionId, displayName, mapVersion, routingVersion, poiVersion, sizeBytes, installedAt, poiSizeBytes FROM installed_regions").use { cursor ->
                 assertEquals(1, cursor.count)
                 cursor.moveToFirst()
                 assertEquals("italia", cursor.getString(0))
@@ -35,6 +36,7 @@ class RegionDatabaseMigrationTest {
                 assertEquals("2026.09.01", cursor.getString(4))
                 assertEquals(1000L, cursor.getLong(5))
                 assertEquals(42L, cursor.getLong(6))
+                assertTrue("la dimensione dei POI non era separata prima della 6", cursor.isNull(7))
             }
             db.query("SELECT * FROM installed_guides").use { cursor ->
                 assertFalse("le guide vanno scaricate come pacchetto unico", cursor.moveToFirst())

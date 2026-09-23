@@ -15,8 +15,9 @@ import kotlinx.coroutines.flow.first
 /**
  * Controllo periodico, qualunque rete incluse i dati cellulari (vincolo impostato da
  * [RegionSyncScheduler] — manifest.json e' pochi KB): confronta il manifest remoto con le
- * regioni già installate e, se una versione è cambiata, notifica — non scarica mai
- * automaticamente. Vedi "Flusso di sincronizzazione" nella specifica tecnica.
+ * regioni già installate e, se la versione di un pacchetto installato è cambiata, notifica — i
+ * pacchetti delle regioni non si scaricano mai in automatico; solo le guide, su Wi-Fi.
+ * Vedi "Flusso di sincronizzazione" nella specifica tecnica.
  */
 @HiltWorker
 class RegionManifestSyncWorker @AssistedInject constructor(
@@ -25,6 +26,7 @@ class RegionManifestSyncWorker @AssistedInject constructor(
     private val manifestClient: ManifestClient,
     private val regionRepository: RegionRepository,
     private val notifier: UpdateAvailableNotifier,
+    private val scheduler: RegionSyncScheduler,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
@@ -40,6 +42,8 @@ class RegionManifestSyncWorker @AssistedInject constructor(
                 }
                 if (outdated.isNotEmpty()) notifier.notifyUpdateAvailable(remote, outdated)
             }
+            // Le guide (tutte le nazioni, meno di un MB) si installano e aggiornano da sole, su Wi-Fi.
+            if (regionRepository.installedGuidesVersion() != manifest.guides.version) scheduler.enqueueGuidesSync(onlyOnWifi = true)
             Result.success()
         } catch (error: CancellationException) {
             throw error

@@ -3,6 +3,7 @@ package com.pockettravel.app.regions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.sync.ManifestClient
+import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.sync.GuidesInstaller
 import com.pockettravel.core.sync.RegionManifestEntry
@@ -50,6 +51,6 @@ class RegionPreviewViewModel @Inject constructor(
 
     /** Avvia il download completo (mappa + routing inclusi) dal pacchetto gia' individuato da load(). */
     fun downloadFull() {
-        manifestEntry?.let(regionSyncScheduler::enqueueDownload)
+        manifestEntry?.let { regionSyncScheduler.enqueueDownload(it, PackageKind.entries.toSet()) }
     }
 }

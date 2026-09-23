@@ -7,9 +7,18 @@ import java.net.URI
 // non e' davvero pubblicato su GitHub Pages (nessun remote configurato al momento in cui
 // questo valore e' stato scritto) — va corretto con l'host reale prima del rilascio.
 object SyncConfig {
-    const val MANIFEST_URL = "https://miracle091.github.io/pocket-travel/manifest.json"
+    private const val PUBLISHED_MANIFEST_URL = "https://miracle091.github.io/pocket-travel/manifest.json"
+
+    // BuildConfig.MANIFEST_URL_OVERRIDE e' vuoto nelle build di release (vedi build.gradle.kts).
+    val MANIFEST_URL: String = BuildConfig.MANIFEST_URL_OVERRIDE.ifEmpty { PUBLISHED_MANIFEST_URL }
+
+    // Host di un manifest alternativo servito in chiaro (http, server locale in debug): l'unico
+    // per cui RegionManifest accetta URL non https. null col manifest pubblicato.
+    val CLEARTEXT_MANIFEST_HOST: String? = URI(MANIFEST_URL).takeIf { it.scheme == "http" }?.host
+
     const val PERIODIC_SYNC_WORK_NAME = "region-manifest-sync"
     const val DOWNLOAD_WORK_NAME_PREFIX = "region-download-"
+    const val GUIDES_SYNC_WORK_NAME = "guides-sync"
 
     // Asset di una release GitHub fissa ("app-status", sovrascritta ad ogni pubblicazione APK -
     // vedi publish-apk.yml), non un file su GitHub Pages: appVersion/aiModel cambiano solo quando

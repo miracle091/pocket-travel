@@ -98,6 +98,12 @@ class RegionManifestTest {
     }
 
     @Test
+    fun `validation rejects plain http without a debug manifest override`() {
+        val region = parse(sampleManifest.replace("https://github.com/o/r/releases/download/region-data/poi.db", "http://github.com/poi.db")).regions.single()
+        assertThrows(IllegalArgumentException::class.java) { region.validate() }
+    }
+
+    @Test
     fun `validation rejects a region without routing segments`() {
         val region = parse().regions.single()
         val withoutRouting = region.copy(routing = region.routing.copy(files = emptyList()))
