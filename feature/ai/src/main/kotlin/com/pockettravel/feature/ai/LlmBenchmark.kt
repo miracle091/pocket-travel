@@ -14,7 +14,7 @@ internal data class BenchmarkPrompt(val prompt: String, val expectedKeywords: Li
 
 data class BenchmarkResult(
     val modelId: String,
-    // Non un vero conteggio di token (OnDeviceLlmEngine/LiteRT-LM non lo espone qui): parole
+    // Non un vero conteggio di token (OnDeviceLlmEngine/llama.cpp non lo espone qui): parole
     // separate da spazi, un proxy piu' onesto da nominare "wordsPerSecond" che far finta di
     // precisione con "tokensPerSecond".
     val wordsPerSecond: Float,
@@ -85,7 +85,7 @@ class LlmBenchmark @Inject constructor(
 }
 
 // Estratta a parte per essere testabile in JVM puro: OnDeviceLlmEngine.generate() dipende da
-// LiteRT-LM (nativo), non istanziabile in un unit test — stesso approccio di
+// llama.cpp (nativo), non istanziabile in un unit test — stesso approccio di
 // DeviceAiCapability.ramTierFor per lo stesso motivo.
 internal fun scoreBenchmarkAnswers(
     modelId: String,

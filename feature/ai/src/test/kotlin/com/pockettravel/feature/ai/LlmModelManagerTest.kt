@@ -31,7 +31,7 @@ class LlmModelManagerTest {
         id = "test-model",
         displayName = "Test Model",
         url = "",
-        fileName = "test-model.litertlm",
+        fileName = "test-model.gguf",
         sha256 = "",
         sizeBytes = 0L,
         minRamTier = RamTier.MINIMO,
@@ -134,14 +134,14 @@ class LlmModelManagerTest {
 
     @Test
     fun `selectAndDownload elimina il modello precedente prima di scaricare quello nuovo`() = runBlocking {
-        val oldDefinition = testDefinition.copy(id = "old-model", fileName = "old-model.litertlm")
+        val oldDefinition = testDefinition.copy(id = "old-model", fileName = "old-model.gguf")
         File(modelsDir, oldDefinition.fileName).writeText("vecchio modello installato")
 
         val newContent = "nuovo modello"
         server.enqueue(MockResponse().setResponseCode(200).setBody(newContent))
         val newDefinition = testDefinition.copy(
             id = "new-model",
-            fileName = "new-model.litertlm",
+            fileName = "new-model.gguf",
             url = server.url("/model").toString(),
             sha256 = sha256Hex(newContent.toByteArray()),
         )

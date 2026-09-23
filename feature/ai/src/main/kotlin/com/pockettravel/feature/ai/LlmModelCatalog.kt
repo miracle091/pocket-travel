@@ -5,10 +5,9 @@ package com.pockettravel.feature.ai
  * download" (vedi LlmModelManager.download, che rifiuta di procedere in quel caso, e ModelRow in
  * AiAssistantScreen, che mostra "Presto disponibile" invece del pulsante) — oggi nessun modello.
  * Il catalogo contiene solo modelli non gated (Apache 2.0/MIT): il download non richiede alcun
- * token HuggingFace. Ogni `url`/`fileName` referenziato è la build generica
- * (senza suffisso di chip NPU tipo mediatek/qualcomm/Google_Tensor), l'unica compatibile con
- * `Backend.CPU()` fisso in [OnDeviceLlmEngine] — verificato per ciascun modello leggendo il file
- * tree del repo HuggingFace, non assunto dal nome. Dati raccolti in
+ * token HuggingFace. Ogni `url`/`fileName` referenziato e' un file GGUF quantizzato Q4_K_M
+ * (bilanciamento qualita'/dimensione standard nell'ecosistema llama.cpp), l'unico formato che
+ * [OnDeviceLlmEngine] sa caricare dopo il passaggio da LiteRT-LM a llama.cpp. Dati raccolti in
  * .claude/docs/llm-model-catalog-research.md.
  */
 data class LlmModelDefinition(
@@ -25,64 +24,64 @@ object LlmModelCatalog {
     // Fasce MINIMO/CONFORTEVOLE/AMPIA: vedi DeviceAiCapability.RamTier. Due modelli per fascia.
     // Solo modelli non gated (Apache 2.0/MIT): niente modelli Gemma o altri repo che richiedono
     // accettare una licenza su HuggingFace.
-    // sha256 dei modelli base ufficiali (litert-community/google), verificato via curl diretto sul
-    // puntatore Git LFS di ciascun repo — mai dal riassunto di un fetch automatico, non affidabile
-    // su stringhe esadecimali lunghe. Restano scaricabili cosi' come sono oggi; se in futuro
-    // vengono pubblicate versioni fine-tunate proprie (vedi .claude/docs/llm-model-training-plan.md),
-    // questi valori andranno sostituiti con lo sha256 reale di quelle versioni, non lasciati com'è.
+    // Quantizzazioni GGUF Q4_K_M, pubblicate dall'autore ufficiale del modello quando disponibile
+    // (Qwen), altrimenti da un publisher di quantizzazioni affidabile (unsloth, il più usato nella
+    // community llama.cpp per questi modelli). sha256 letto dal puntatore Git LFS via l'API tree
+    // di HuggingFace (mai dal riassunto di un fetch automatico, non affidabile su stringhe
+    // esadecimali lunghe), dimensione confermata anche via Content-Length sull'URL di download reale.
     val ALL: List<LlmModelDefinition> = listOf(
         LlmModelDefinition(
             id = "smollm2-135m-instruct",
             displayName = "SmolLM2 135M Instruct",
-            url = "https://huggingface.co/litert-community/SmolLM2-135M-Instruct/resolve/main/SmolLM2_135M_Instruct.litertlm",
-            fileName = "SmolLM2_135M_Instruct.litertlm",
-            sha256 = "ccdc5c85735743f081b7d44ca309cab569f76c0f2f0e8e163449a63721969c37",
-            sizeBytes = 142_819_328L,
+            url = "https://huggingface.co/unsloth/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q4_K_M.gguf",
+            fileName = "SmolLM2-135M-Instruct-Q4_K_M.gguf",
+            sha256 = "ed5fa30c487b282ec156c29062f1222e5c20875a944ac98289dbd242e947f747",
+            sizeBytes = 105_454_144L,
             minRamTier = RamTier.MINIMO,
         ),
         LlmModelDefinition(
             id = "qwen3-0.6b",
             displayName = "Qwen3 0.6B",
-            url = "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/qwen3_0_6b_mixed_int4.litertlm",
-            fileName = "qwen3_0_6b_mixed_int4.litertlm",
-            sha256 = "b1baab462f6be49d70eada79d715c2c52cd9ece0cad00bddf6a2c097d23498e9",
-            sizeBytes = 497_664_000L,
+            url = "https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf",
+            fileName = "Qwen3-0.6B-Q4_K_M.gguf",
+            sha256 = "ac2d97712095a558e31573f62f466a3f9d93990898b0ec79d7c974c1780d524a",
+            sizeBytes = 396_705_472L,
             minRamTier = RamTier.MINIMO,
         ),
         LlmModelDefinition(
             id = "qwen2.5-1.5b-instruct",
             displayName = "Qwen2.5 1.5B Instruct",
-            url = "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm",
-            fileName = "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm",
-            sha256 = "faa60663b333290c1496c499828b21d3e3254a788cacd8cce917ce0f761a2dc9",
-            sizeBytes = 1_597_931_520L,
+            url = "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+            fileName = "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+            sha256 = "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
+            sizeBytes = 1_117_320_736L,
             minRamTier = RamTier.CONFORTEVOLE,
         ),
         LlmModelDefinition(
             id = "deepseek-r1-distill-qwen-1.5b",
             displayName = "DeepSeek R1 Distill Qwen 1.5B",
-            url = "https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B_multi-prefill-seq_q8_ekv4096.litertlm",
-            fileName = "DeepSeek-R1-Distill-Qwen-1.5B_multi-prefill-seq_q8_ekv4096.litertlm",
-            sha256 = "69b35f01759eed765641ab4af589bbe98131fd2825662a086d9037409b8c1295",
-            sizeBytes = 1_833_451_520L,
+            url = "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",
+            fileName = "DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",
+            sha256 = "f3bdf9cf31dee4b57ae4e455a1cb0d01b5c2c1b50d72d3112141c195506c2840",
+            sizeBytes = 1_117_321_312L,
             minRamTier = RamTier.CONFORTEVOLE,
         ),
         LlmModelDefinition(
             id = "phi-4-mini-instruct",
             displayName = "Phi-4 Mini Instruct",
-            url = "https://huggingface.co/litert-community/Phi-4-mini-instruct/resolve/main/Phi-4-mini-instruct_multi-prefill-seq_q8_ekv4096.litertlm",
-            fileName = "Phi-4-mini-instruct_multi-prefill-seq_q8_ekv4096.litertlm",
-            sha256 = "7764d4deb53800578307be33039476b38a6c370fff71bedb3c0552563e23ab02",
-            sizeBytes = 3_910_090_752L,
+            url = "https://huggingface.co/unsloth/Phi-4-mini-instruct-GGUF/resolve/main/Phi-4-mini-instruct-Q4_K_M.gguf",
+            fileName = "Phi-4-mini-instruct-Q4_K_M.gguf",
+            sha256 = "88c00229914083cd112853aab84ed51b87bdf6b9ce42f532d8c85c7c63b1730a",
+            sizeBytes = 2_491_874_272L,
             minRamTier = RamTier.AMPIA,
         ),
         LlmModelDefinition(
             id = "qwen3-4b",
             displayName = "Qwen3 4B",
-            url = "https://huggingface.co/litert-community/Qwen3-4B/resolve/main/qwen3_4b_mixed_int4.litertlm",
-            fileName = "qwen3_4b_mixed_int4.litertlm",
-            sha256 = "f0794bc77efeaaf4f7af815f04c483b19b8f2ae4a102cef1b7b760a25848a18e",
-            sizeBytes = 2_659_057_664L,
+            url = "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
+            fileName = "Qwen3-4B-Q4_K_M.gguf",
+            sha256 = "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+            sizeBytes = 2_497_280_256L,
             minRamTier = RamTier.AMPIA,
         ),
     )

@@ -18,13 +18,6 @@ browser = "1.8.0"
 maplibreAnnotation = "3.0.2"
 kotlinxSerialization = "1.7.3"
 hiltWork = "1.2.0"
-# 0.17.0 (l'ultima) e' l'unica release a dipendere da kotlin-reflect:2.4.0, che il
-# compilatore Kotlin integrato di AGP 9.4.0 (fissato a 2.2.10, legge metadata solo fino
-# a 2.3.0) non riesce a leggere. Verificato sui POM ufficiali (dl.google.com/android/maven2)
-# di 0.13.0/0.15.0/0.16.0/0.16.1: tutte usano ancora kotlin-reflect:2.2.21. Usata 0.16.1,
-# l'ultima stabile (0.17.0-alpha1 sarebbe piu' vicina alla versione target ma resta
-# un'alpha, evitata su richiesta esplicita).
-litertlm = "0.16.1"
 vectordrawable = "1.2.0"
 planetiler = "0.10.2"
 osmosisOsmBinary = "0.48.3"
@@ -65,7 +58,6 @@ maplibre-annotation-plugin = { group = "org.maplibre.gl", name = "android-plugin
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltWork" }
 hilt-work-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hiltWork" }
-litertlm-android = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", version.ref = "litertlm" }
 androidx-vectordrawable = { group = "androidx.vectordrawable", name = "vectordrawable", version.ref = "vectordrawable" }
 androidx-vectordrawable-animated = { group = "androidx.vectordrawable", name = "vectordrawable-animated", version.ref = "vectordrawable" }
 planetiler-core = { group = "com.onthegomap.planetiler", name = "planetiler-core", version.ref = "planetiler" }

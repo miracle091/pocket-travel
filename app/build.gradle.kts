@@ -43,6 +43,15 @@ android {
         compose = true
     }
 
+    // feature:ai compila llama.cpp con GGML_BACKEND_DL=ON: i backend CPU (libggml-cpu-*.so) sono
+    // caricati con dlopen da applicationInfo.nativeLibraryDir, che resta vuota se le .so non vengono
+    // estratte dall'APK (default AGP, extractNativeLibs=false) — "no backends are loaded" al load().
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

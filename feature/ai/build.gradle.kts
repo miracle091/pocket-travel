@@ -10,13 +10,52 @@ android {
     namespace = "com.pockettravel.feature.ai"
     compileSdk = 35
 
+    // NDK 29 stabile (non l'rc1 usato da examples/llama.android): verificato su sdkmanager --list
+    // a settembre 2026, l'rc e' stato superato da una release finale con lo stesso major.
+    ndkVersion = "29.0.14206865"
+
     defaultConfig {
+        // Il riferimento (examples/llama.android, com.arm.aichat) richiede minSdk 33; qui si
+        // tenta 26 per restare allineati al resto del progetto, verificando la build per davvero
+        // (rischio accettato: puo' darsi che qualche API NDK/Kotlin non funzioni sotto API 33).
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+        externalNativeBuild {
+            cmake {
+                arguments += "-DCMAKE_BUILD_TYPE=Release"
+                arguments += "-DBUILD_SHARED_LIBS=ON"
+                arguments += "-DLLAMA_BUILD_APP=OFF"
+                arguments += "-DLLAMA_BUILD_COMMON=ON"
+                arguments += "-DLLAMA_OPENSSL=OFF"
+
+                arguments += "-DGGML_NATIVE=OFF"
+                arguments += "-DGGML_BACKEND_DL=ON"
+                arguments += "-DGGML_CPU_ALL_VARIANTS=ON"
+                arguments += "-DGGML_LLAMAFILE=OFF"
+            }
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path("src/main/cpp/CMakeLists.txt")
+            version = "3.31.6"
+        }
     }
 
     buildFeatures {
         compose = true
+    }
+
+    // Vale solo per l'APK dei test strumentati di questo modulo: per l'app lo stesso blocco sta in
+    // app/build.gradle.kts, con il motivo (backend GGML caricati via dlopen da nativeLibraryDir).
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 
     compileOptions {
@@ -50,9 +89,6 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
-    // LiteRT-LM (Apache-2.0): successore consigliato da Google a MediaPipe LLM Inference,
-    // che è in maintenance-only mode — verificato su ai.google.dev/edge a settembre 2026.
-    implementation(libs.litertlm.android)
 
     testImplementation("junit:junit:4.13.2")
     testImplementation(libs.okhttp.mockwebserver)
