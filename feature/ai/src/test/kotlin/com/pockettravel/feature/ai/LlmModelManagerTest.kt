@@ -11,6 +11,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
@@ -150,5 +151,21 @@ class LlmModelManagerTest {
 
         assertFalse("il vecchio modello deve essere eliminato dopo lo switch", modelManager.isDownloaded(oldDefinition))
         assertEquals(newContent, modelManager.modelFile(newDefinition).readText())
+    }
+
+    @Test
+    fun `deleteOrphanedFiles elimina i file fuori catalogo e conserva modelli e download in corso`() {
+        val catalogModel = LlmModelCatalog.ALL.first()
+        val installed = File(modelsDir, catalogModel.fileName).apply { writeText("modello installato") }
+        val partial = File(modelsDir, "${LlmModelCatalog.ALL.last().fileName}.part").apply { writeText("download a meta'") }
+        val oldLiteRt = File(modelsDir, "qwen3_0_6b_mixed_int4.litertlm").apply { writeText("vecchio formato") }
+        val oldLiteRtPart = File(modelsDir, "qwen3_4b_mixed_int4.litertlm.part").apply { writeText("vecchio parziale") }
+
+        modelManager.deleteOrphanedFiles()
+
+        assertTrue(installed.exists())
+        assertTrue(partial.exists())
+        assertFalse(oldLiteRt.exists())
+        assertFalse(oldLiteRtPart.exists())
     }
 }

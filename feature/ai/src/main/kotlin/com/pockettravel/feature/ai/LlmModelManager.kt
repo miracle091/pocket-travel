@@ -161,6 +161,17 @@ class LlmModelManager @Inject constructor(
 
     internal fun deleteWithoutLock(definition: LlmModelDefinition): Boolean = modelFile(definition).delete()
 
+    /**
+     * Elimina da [modelsDir] ogni file che non e' un modello del catalogo attuale ne' il suo `.part`:
+     * es. i `.litertlm` scaricati prima del passaggio a llama.cpp, che nessun altro codice
+     * referenzia piu' e che occuperebbero 1,6–3,9 GB per sempre. Senza lock: i file del catalogo
+     * (compreso un download in corso) non vengono mai toccati, quindi non c'e' corsa con download().
+     */
+    fun deleteOrphanedFiles() {
+        val keep = LlmModelCatalog.ALL.flatMap { listOf(it.fileName, "${it.fileName}.part") }.toSet()
+        modelsDir.listFiles()?.filter { it.isFile && it.name !in keep }?.forEach { it.delete() }
+    }
+
     private companion object {
         const val PROGRESS_STEP_BYTES = 1_000_000L
     }
