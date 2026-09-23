@@ -1,5 +1,0 @@
-# Il codice sotto third-party/ è vendorizzato da progetti esterni (llama.cpp, BRouter):
-# non lo modifichiamo, quindi analizzarlo produce solo rumore. Il filtro vale per i
-# linguaggi interpretati e per quelli compilati analizzati senza build (qui: c-cpp).
-paths-ignore:
-  - third-party/**
