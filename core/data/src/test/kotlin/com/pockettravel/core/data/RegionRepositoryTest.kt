@@ -44,9 +44,10 @@ private class FakeRegionPackageDao : RegionPackageDao {
         flow.value = entities.values.sortedBy { it.displayName }
     }
 
-    private var guides: InstalledGuidesEntity? = null
-    override suspend fun upsertGuides(guides: InstalledGuidesEntity) { this.guides = guides }
-    override suspend fun guidesVersion(): String? = guides?.version
+    private val guides = MutableStateFlow<InstalledGuidesEntity?>(null)
+    override suspend fun upsertGuides(guides: InstalledGuidesEntity) { this.guides.value = guides }
+    override suspend fun guidesVersion(): String? = guides.value?.version
+    override fun observeGuides(): Flow<InstalledGuidesEntity?> = guides
 }
 
 private class NoOpGuideDao : GuideDao {
@@ -154,9 +155,10 @@ class RegionRepositoryTest {
         val (repository, _) = newRepository()
         assertNull(repository.installedGuidesVersion())
 
-        repository.markGuidesInstalled("2026.09.23")
+        repository.markGuidesInstalled("2026.09.23", 900_000)
 
         assertEquals("2026.09.23", repository.installedGuidesVersion())
+        assertEquals(InstalledGuides("2026.09.23", 900_000), repository.observeInstalledGuides().first())
     }
 
     @Test

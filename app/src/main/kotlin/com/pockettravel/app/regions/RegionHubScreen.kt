@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -32,6 +34,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.R as UiR
 import com.pockettravel.feature.ai.AiAssistantScreen
 import com.pockettravel.feature.guide.GuideScreen
@@ -69,6 +72,7 @@ fun RegionHubScreen(
     var selectedTab by rememberSaveable(regionId) { mutableStateOf(RegionTab.fromKey(initialTab)) }
     val displayName by viewModel.displayName.collectAsStateWithLifecycle()
     val regionMissing by viewModel.regionMissing.collectAsStateWithLifecycle()
+    val mapState by viewModel.mapState.collectAsStateWithLifecycle()
     LaunchedEffect(regionId) { viewModel.load(regionId) }
     LaunchedEffect(regionMissing) { if (regionMissing) onBack() }
 
@@ -119,11 +123,26 @@ fun RegionHubScreen(
                 Crossfade(targetState = selectedTab, animationSpec = tween(250), label = "regionTab") { tab ->
                 when (tab) {
                     RegionTab.GUIDE -> GuideScreen(regionId = regionId, onOpenSource = onOpenSource)
-                    RegionTab.MAP -> {
+                    RegionTab.MAP -> if (mapState == RegionMapState.INSTALLED) {
                         val mapViewModel: MapRouteViewModel = hiltViewModel()
                         LaunchedEffect(regionId) { mapViewModel.loadPins(regionId) }
                         val pins by mapViewModel.pins.collectAsStateWithLifecycle()
                         MapScreen(tileSource = mapViewModel.tileSource, regionId = regionId, pins = pins)
+                    } else {
+                        // I pacchetti si installano separatamente: la regione puo' avere guida e POI senza mappa.
+                        EmptyState(
+                            icon = AppIcons.Map,
+                            title = stringResource(R.string.map_not_downloaded_title),
+                            subtitle = stringResource(R.string.map_not_downloaded_body),
+                            modifier = Modifier.fillMaxSize(),
+                            action = {
+                                if (mapState == RegionMapState.DOWNLOADING) {
+                                    CircularProgressIndicator()
+                                } else {
+                                    FilledTonalButton(onClick = viewModel::downloadMap) { Text(stringResource(R.string.map_download)) }
+                                }
+                            },
+                        )
                     }
                     RegionTab.AI -> AiAssistantScreen(regionId = regionId, onOpenOfficialSource = onOpenOfficialSource)
                 }

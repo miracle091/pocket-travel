@@ -35,7 +35,7 @@ class GuidesImporter @Inject constructor(
                 emergencyNumbersDao.deleteAll()
                 guideDao.insertAll(sections)
                 emergencyNumbersDao.insertAll(emergencyNumbers)
-                regionRepository.markGuidesInstalled(version)
+                regionRepository.markGuidesInstalled(version, guidesDbFile.length())
             }
         }
         guidesDbFile.delete()

@@ -103,6 +103,9 @@ class RegionSyncScheduler @Inject constructor(
         )
     }
 
+    fun observeGuidesSync(): Flow<WorkInfo?> =
+        workManager.getWorkInfosForUniqueWorkFlow(SyncConfig.GUIDES_SYNC_WORK_NAME).map { it.firstOrNull() }
+
     fun observeDownload(regionId: String): Flow<WorkInfo?> =
         workManager.getWorkInfosForUniqueWorkFlow(workNameFor(regionId)).map { it.firstOrNull() }
 

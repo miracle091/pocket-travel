@@ -1,0 +1,70 @@
+package com.pockettravel.app.regions
+
+import com.pockettravel.core.data.PackageKind
+import com.pockettravel.core.data.RegionPackage
+import com.pockettravel.core.sync.MapExtractionSource
+import com.pockettravel.core.sync.MapPackageEntry
+import com.pockettravel.core.sync.PoiPackageEntry
+import com.pockettravel.core.sync.RegionManifestEntry
+import com.pockettravel.core.sync.RegionManifestFile
+import com.pockettravel.core.sync.RoutingPackageEntry
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class RegionUiItemTest {
+
+    private fun file(name: String, size: Long) = RegionManifestFile(name, "https://github.com/$name", size, "a".repeat(64))
+
+    private val remote = RegionManifestEntry(
+        regionId = "italia",
+        displayName = "Italia",
+        updatedAt = "2026-09-23T00:00:00Z",
+        map = MapPackageEntry("m2", MapExtractionSource("https://build.protomaps.com/x.pmtiles", 6.0, 36.0, 19.0, 47.0, 0, 14)),
+        routing = RoutingPackageEntry("r1", listOf(file("E5_N45.rd5", 80_000_000))),
+        poi = PoiPackageEntry("p2", file("poi.db", 60_000_000)),
+    )
+
+    private fun local(map: String?, routing: String?, poi: String?) =
+        RegionPackage("italia", "Italia", map, routing, poi, poiSizeBytes = poi?.let { 60_000_000L }, sizeBytes = 123)
+
+    private val noBytes: (RegionPackage, PackageKind) -> Long? = { _, _ -> null }
+
+    @Test
+    fun `una regione non installata mostra la dimensione di tutti i pacchetti`() {
+        val item = regionUiItem(remote, null, noBytes)
+
+        assertEquals(RegionStatus.NOT_INSTALLED, item.status)
+        assertEquals(140_000_000L, item.sizeBytes)
+        assertEquals(List(3) { RegionStatus.NOT_INSTALLED }, item.packages.map { it.status })
+    }
+
+    @Test
+    fun `da aggiornare mostra la dimensione dei soli pacchetti installati e cambiati`() {
+        val item = regionUiItem(remote, local(map = "m2", routing = "r1", poi = "p1"), noBytes)
+
+        assertEquals(RegionStatus.UPDATE_AVAILABLE, item.status)
+        assertEquals(60_000_000L, item.sizeBytes)
+        assertEquals(
+            listOf(RegionStatus.INSTALLED, RegionStatus.INSTALLED, RegionStatus.UPDATE_AVAILABLE),
+            item.packages.map { it.status },
+        )
+    }
+
+    @Test
+    fun `un pacchetto non installato non conta come aggiornamento`() {
+        val installed = local(map = null, routing = "r1", poi = "p2")
+        val item = regionUiItem(remote, installed, noBytes)
+
+        assertEquals(RegionStatus.INSTALLED, item.status)
+        assertEquals(123L, item.sizeBytes)
+        assertEquals(RegionStatus.NOT_INSTALLED, item.packages.first { it.kind == PackageKind.MAP }.status)
+        assertEquals(emptySet<PackageKind>(), outdatedKinds(remote, installed))
+    }
+
+    @Test
+    fun `la dimensione installata di ogni pacchetto arriva dal repository`() {
+        val item = regionUiItem(remote, local("m2", "r1", "p2")) { _, kind -> kind.ordinal.toLong() + 1 }
+
+        assertEquals(listOf(1L, 2L, 3L), item.packages.map { it.installedBytes })
+    }
+}

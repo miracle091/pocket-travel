@@ -286,6 +286,8 @@ private fun RegionsListDetail(
                         observeProgress = regionListViewModel::observeDownloadProgress,
                         onDownload = regionListViewModel::download,
                         onDelete = regionListViewModel::delete,
+                        onDownloadPackage = regionListViewModel::downloadPackage,
+                        onDeletePackage = regionListViewModel::deletePackage,
                     ),
                     onRegionClick = { item ->
                         if (item.status == RegionStatus.NOT_INSTALLED) {

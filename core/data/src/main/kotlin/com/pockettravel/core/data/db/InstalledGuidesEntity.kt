@@ -8,4 +8,5 @@ import androidx.room.PrimaryKey
 data class InstalledGuidesEntity(
     @PrimaryKey val id: Int = 0,
     val version: String,
+    val sizeBytes: Long,
 )

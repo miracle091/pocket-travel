@@ -119,7 +119,8 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
             """
             CREATE TABLE IF NOT EXISTS `installed_guides` (
                 `id` INTEGER NOT NULL PRIMARY KEY,
-                `version` TEXT NOT NULL
+                `version` TEXT NOT NULL,
+                `sizeBytes` INTEGER NOT NULL
             )
             """.trimIndent()
         )

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 6,
-    "identityHash": "d21d3cd18eca3420704970e305ae892f",
+    "identityHash": "f6421cae0af39551f803dbe627ef1c2a",
     "entities": [
       {
         "tableName": "guide_sections",
@@ -285,7 +285,7 @@
       },
       {
         "tableName": "installed_guides",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `version` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `version` TEXT NOT NULL, `sizeBytes` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -297,6 +297,12 @@
             "fieldPath": "version",
             "columnName": "version",
             "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sizeBytes",
+            "columnName": "sizeBytes",
+            "affinity": "INTEGER",
             "notNull": true
           }
         ],
@@ -310,7 +316,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd21d3cd18eca3420704970e305ae892f')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f6421cae0af39551f803dbe627ef1c2a')"
     ]
   }
 }

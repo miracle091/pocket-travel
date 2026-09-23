@@ -25,4 +25,7 @@ interface RegionPackageDao {
 
     @Query("SELECT version FROM installed_guides WHERE id = 0")
     suspend fun guidesVersion(): String?
+
+    @Query("SELECT * FROM installed_guides WHERE id = 0")
+    fun observeGuides(): Flow<InstalledGuidesEntity?>
 }

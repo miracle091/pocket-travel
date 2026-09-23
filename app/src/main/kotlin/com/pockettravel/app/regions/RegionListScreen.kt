@@ -62,6 +62,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.work.WorkInfo
 import com.pockettravel.app.R
+import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.sync.RegionPackageDownloadWorker
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
@@ -96,6 +97,8 @@ fun RegionListScreen(
             observeProgress = viewModel::observeDownloadProgress,
             onDownload = viewModel::download,
             onDelete = viewModel::delete,
+            onDownloadPackage = viewModel::downloadPackage,
+            onDeletePackage = viewModel::deletePackage,
         ),
         onRegionClick = { item ->
             if (item.status == RegionStatus.NOT_INSTALLED) {
@@ -113,6 +116,8 @@ internal class RegionRowActions(
     val observeProgress: (regionId: String) -> Flow<WorkInfo?>,
     val onDownload: (regionId: String) -> Unit,
     val onDelete: (regionId: String) -> Unit,
+    val onDownloadPackage: (regionId: String, kind: PackageKind) -> Unit,
+    val onDeletePackage: (regionId: String, kind: PackageKind) -> Unit,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -378,7 +383,7 @@ internal fun RegionRow(item: RegionUiItem, actions: RegionRowActions, onClick: (
                     if (isDownloading) {
                         stringResource(R.string.regions_status_downloading, (progress * 100).toInt())
                     } else {
-                        stringResource(item.status.label(), size)
+                        stringResource(item.statusLabel(), size)
                     },
                 )
             },
@@ -411,7 +416,7 @@ internal fun RegionRow(item: RegionUiItem, actions: RegionRowActions, onClick: (
 @Composable
 private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actions: RegionRowActions) {
     val context = LocalContext.current
-    var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
+    var showPackages by rememberSaveable { mutableStateOf(false) }
     var showLargeDownloadWarning by rememberSaveable { mutableStateOf(false) }
     val size = Formatter.formatShortFileSize(LocalContext.current, item.sizeBytes)
 
@@ -427,21 +432,21 @@ private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actio
         RegionStatus.NOT_INSTALLED -> FilledTonalIconButton(onClick = startDownload, enabled = !isDownloading) {
             Icon(AppIcons.Download, contentDescription = stringResource(R.string.regions_download, item.displayName))
         }
-        RegionStatus.UPDATE_AVAILABLE -> FilledTonalButton(onClick = startDownload, enabled = !isDownloading) {
-            Text(stringResource(R.string.regions_update))
-        }
-        RegionStatus.INSTALLED -> IconButton(onClick = { showDeleteConfirm = true }) {
-            Icon(AppIcons.Delete, contentDescription = stringResource(R.string.regions_delete, item.displayName))
+        RegionStatus.UPDATE_AVAILABLE, RegionStatus.INSTALLED -> Row(verticalAlignment = Alignment.CenterVertically) {
+            if (item.status == RegionStatus.UPDATE_AVAILABLE) {
+                FilledTonalButton(onClick = startDownload, enabled = !isDownloading) {
+                    Text(stringResource(R.string.regions_update))
+                }
+            }
+            // Mappa, percorsi e POI uno per uno, ed "Elimina tutto": vedi RegionPackagesSheet.
+            IconButton(onClick = { showPackages = true }) {
+                Icon(AppIcons.MoreVert, contentDescription = stringResource(R.string.regions_packages, item.displayName))
+            }
         }
     }
 
-    if (showDeleteConfirm) {
-        ConfirmationDialog(
-            title = stringResource(R.string.regions_delete_title, item.displayName),
-            message = stringResource(R.string.regions_delete_message),
-            onConfirm = { showDeleteConfirm = false; actions.onDelete(item.regionId) },
-            onDismiss = { showDeleteConfirm = false },
-        )
+    if (showPackages) {
+        RegionPackagesSheet(item = item, isDownloading = isDownloading, actions = actions, onDismiss = { showPackages = false })
     }
 
     if (showLargeDownloadWarning) {
@@ -457,9 +462,10 @@ private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actio
 }
 
 @StringRes
-private fun RegionStatus.label(): Int = when (this) {
+private fun RegionUiItem.statusLabel(): Int = when (status) {
     RegionStatus.NOT_INSTALLED -> R.string.regions_status_not_installed
-    RegionStatus.INSTALLED -> R.string.regions_status_installed
+    RegionStatus.INSTALLED ->
+        if (packages.any { it.status == RegionStatus.NOT_INSTALLED }) R.string.regions_status_partial else R.string.regions_status_installed
     RegionStatus.UPDATE_AVAILABLE -> R.string.regions_status_update
 }
 
@@ -523,7 +529,13 @@ private fun RegionListPreview() {
             onCheckUpdates = {},
             onRetry = {},
             onMessageShown = {},
-            rowActions = RegionRowActions(observeProgress = { flowOf(null) }, onDownload = {}, onDelete = {}),
+            rowActions = RegionRowActions(
+                observeProgress = { flowOf(null) },
+                onDownload = {},
+                onDelete = {},
+                onDownloadPackage = { _, _ -> },
+                onDeletePackage = { _, _ -> },
+            ),
             onRegionClick = {},
         )
     }

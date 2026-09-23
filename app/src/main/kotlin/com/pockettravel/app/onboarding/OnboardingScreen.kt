@@ -3,6 +3,7 @@ package com.pockettravel.app.onboarding
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.text.format.Formatter
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -35,6 +36,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -72,6 +74,7 @@ private enum class InfoIcon { COMPASS, AI, VAULT, OFFICIAL }
 
 private sealed interface OnboardingStep {
     data class Info(@StringRes val title: Int, @StringRes val body: Int, val icon: InfoIcon) : OnboardingStep
+    data object GuidesDownload : OnboardingStep
     data object RegionDownload : OnboardingStep
     data object AiModelDownload : OnboardingStep
 }
@@ -90,6 +93,7 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
     val steps = remember(isOnDeviceAiSupported) {
         buildList {
             add(OnboardingStep.Info(R.string.onboarding_welcome_title, R.string.onboarding_welcome_body, InfoIcon.COMPASS))
+            add(OnboardingStep.GuidesDownload)
             add(OnboardingStep.RegionDownload)
             add(
                 if (isOnDeviceAiSupported) {
@@ -145,6 +149,7 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
             ) { index ->
                 when (val currentStep = steps[index]) {
                     is OnboardingStep.Info -> InfoStepContent(currentStep)
+                    OnboardingStep.GuidesDownload -> GuidesDownloadStepContent()
                     OnboardingStep.RegionDownload -> RegionDownloadStepContent()
                     OnboardingStep.AiModelDownload -> AiModelDownloadStepContent()
                 }
@@ -249,6 +254,43 @@ private fun StepHeader(icon: ImageVector, title: String, body: String) {
     )
 }
 
+// Passo facoltativo: pacchetto guide unico per tutte le nazioni (meno di un MB). Se l'utente lo
+// salta, le guide si scaricano da sole alla prima connessione Wi-Fi (GuidesSyncWorker).
+@Composable
+private fun GuidesDownloadStepContent(viewModel: GuidesDownloadViewModel = hiltViewModel()) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        StepHeader(
+            icon = AppIcons.Book,
+            title = stringResource(R.string.onboarding_guides_title),
+            body = stringResource(R.string.onboarding_guides_body),
+        )
+        when {
+            uiState.isInstalled -> Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(AppIcons.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(Spacing.s))
+                Text(stringResource(R.string.onboarding_guides_done), style = MaterialTheme.typography.bodyLarge)
+            }
+            uiState.isDownloading -> Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(Spacing.m))
+                Text(stringResource(R.string.onboarding_guides_downloading), style = MaterialTheme.typography.bodyLarge)
+            }
+            else -> FilledTonalButton(onClick = viewModel::download) {
+                Icon(AppIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(Spacing.s))
+                Text(
+                    uiState.downloadBytes
+                        ?.let { stringResource(R.string.onboarding_guides_download, Formatter.formatShortFileSize(context, it)) }
+                        ?: stringResource(R.string.onboarding_guides_download_no_size),
+                )
+            }
+        }
+    }
+}
+
 // Riusa RegionListViewModel/RegionRow del modulo :regions (stesso modulo :app, package diverso):
 // stessa logica di download/eliminazione della schermata "Regioni" vera, non una copia.
 @Composable
@@ -279,6 +321,8 @@ private fun RegionDownloadStepContent(viewModel: RegionListViewModel = hiltViewM
                                 observeProgress = viewModel::observeDownloadProgress,
                                 onDownload = viewModel::download,
                                 onDelete = viewModel::delete,
+                                onDownloadPackage = viewModel::downloadPackage,
+                                onDeletePackage = viewModel::deletePackage,
                             ),
                             onClick = {},
                         )

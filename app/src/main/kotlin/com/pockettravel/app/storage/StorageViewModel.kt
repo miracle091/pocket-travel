@@ -2,27 +2,37 @@ package com.pockettravel.app.storage
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pockettravel.core.data.InstalledGuides
+import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.feature.ai.AiSettingsStore
 import com.pockettravel.feature.ai.LlmModelManager
 import com.pockettravel.feature.ai.OnDeviceLlmEngine
 import com.pockettravel.feature.ai.selectedModelDefinition
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+data class StoragePackageItem(val kind: PackageKind, val sizeBytes: Long?)
 
 data class StorageRegionItem(
     val regionId: String,
     val displayName: String,
     val sizeBytes: Long,
+    // Solo i pacchetti installati.
+    val packages: List<StoragePackageItem> = emptyList(),
 )
 
 data class StorageUiState(
+    val guides: InstalledGuides? = null,
     val installedRegions: List<StorageRegionItem> = emptyList(),
     val regionsSizeBytes: Long = 0L,
     val isModelDownloaded: Boolean = false,
@@ -40,6 +50,7 @@ private data class ModelState(val isDownloaded: Boolean, val sizeBytes: Long)
 @HiltViewModel
 class StorageViewModel @Inject constructor(
     private val regionRepository: RegionRepository,
+    private val regionSyncScheduler: RegionSyncScheduler,
     private val modelManager: LlmModelManager,
     private val engine: OnDeviceLlmEngine,
     private val aiSettingsStore: AiSettingsStore,
@@ -50,17 +61,27 @@ class StorageViewModel @Inject constructor(
 
     val uiState: StateFlow<StorageUiState> = combine(
         regionRepository.observeInstalled(),
+        regionRepository.observeInstalledGuides(),
         modelState,
         availableBytes,
-    ) { regions, model, available ->
+    ) { regions, guides, model, available ->
         StorageUiState(
-            installedRegions = regions.map { StorageRegionItem(it.regionId, it.displayName, it.sizeBytes) },
-            regionsSizeBytes = regions.sumOf { it.sizeBytes },
+            guides = guides,
+            installedRegions = regions.map { region ->
+                val packages = PackageKind.entries
+                    .filter { region.versionOf(it) != null }
+                    .map { StoragePackageItem(it, regionRepository.packageBytes(region, it)) }
+                StorageRegionItem(region.regionId, region.displayName, region.sizeBytes, packages)
+            },
+            regionsSizeBytes = regions.sumOf { it.sizeBytes } + (guides?.sizeBytes ?: 0L),
             isModelDownloaded = model.isDownloaded,
             modelSizeBytes = model.sizeBytes,
             availableBytes = available,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StorageUiState())
+    }
+        // packageBytes legge le dimensioni di mappa e routing dal disco.
+        .flowOn(Dispatchers.IO)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StorageUiState())
 
     fun deleteRegion(regionId: String) {
         viewModelScope.launch {
@@ -68,6 +89,15 @@ class StorageViewModel @Inject constructor(
             refreshDeviceState()
         }
     }
+
+    fun deletePackage(regionId: String, kind: PackageKind) {
+        viewModelScope.launch {
+            regionRepository.removePackage(regionId, kind)
+            refreshDeviceState()
+        }
+    }
+
+    fun downloadGuides() = regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = false)
 
     fun deleteModel() {
         viewModelScope.launch {

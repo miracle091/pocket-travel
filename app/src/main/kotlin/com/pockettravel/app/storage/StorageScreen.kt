@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,6 +36,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
+import com.pockettravel.app.regions.deleteTitle
+import com.pockettravel.app.regions.icon
+import com.pockettravel.app.regions.label
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.Spacing
@@ -81,20 +85,54 @@ fun StorageScreen(onBack: () -> Unit, viewModel: StorageViewModel = hiltViewMode
                 modifier = Modifier.fillMaxWidth().padding(top = Spacing.m, bottom = Spacing.xl),
             )
 
-            SectionHeader(stringResource(R.string.storage_regions))
+            SectionHeader(stringResource(R.string.storage_guides))
+            val guides = uiState.guides
+            if (guides != null) {
+                Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                    // Nessun elimina: le guide si riscaricherebbero da sole al primo Wi-Fi.
+                    StorageRow(
+                        icon = AppIcons.Book,
+                        title = stringResource(R.string.storage_guides_title),
+                        supporting = stringResource(R.string.storage_guides_auto, Formatter.formatShortFileSize(context, guides.sizeBytes)),
+                    )
+                }
+            } else {
+                EmptyLine(stringResource(R.string.storage_no_guides))
+                TextButton(onClick = viewModel::downloadGuides, modifier = Modifier.padding(start = Spacing.s)) {
+                    Text(stringResource(R.string.storage_guides_download))
+                }
+            }
+
+            SectionHeader(stringResource(R.string.storage_regions), modifier = Modifier.padding(top = Spacing.xl))
             if (uiState.installedRegions.isEmpty()) {
                 EmptyLine(stringResource(R.string.storage_no_regions))
             } else {
-                Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
-                    Column {
-                        uiState.installedRegions.forEachIndexed { index, region ->
+                // Una superficie per regione: il totale (elimina tutto) e sotto mappa, percorsi e POI.
+                uiState.installedRegions.forEach { region ->
+                    Surface(
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        modifier = Modifier.padding(bottom = Spacing.s),
+                    ) {
+                        Column {
                             StorageRow(
                                 icon = AppIcons.WorldFilled,
                                 title = region.displayName,
-                                sizeBytes = region.sizeBytes,
+                                supporting = Formatter.formatShortFileSize(context, region.sizeBytes),
                                 onDelete = { viewModel.deleteRegion(region.regionId) },
                             )
-                            if (index < uiState.installedRegions.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                            region.packages.forEach { pkg ->
+                                HorizontalDivider(modifier = Modifier.padding(start = Spacing.l + 56.dp))
+                                StorageRow(
+                                    icon = pkg.kind.icon(),
+                                    title = stringResource(pkg.kind.label()),
+                                    supporting = pkg.sizeBytes?.let { Formatter.formatShortFileSize(context, it) } ?: "—",
+                                    onDelete = { viewModel.deletePackage(region.regionId, pkg.kind) },
+                                    deleteTitle = stringResource(pkg.kind.deleteTitle(), region.displayName),
+                                    deleteMessage = stringResource(R.string.package_delete_message),
+                                    modifier = Modifier.padding(start = Spacing.l),
+                                )
+                            }
                         }
                     }
                 }
@@ -106,7 +144,7 @@ fun StorageScreen(onBack: () -> Unit, viewModel: StorageViewModel = hiltViewMode
                     StorageRow(
                         icon = AppIcons.AiAssistant,
                         title = stringResource(R.string.storage_model),
-                        sizeBytes = uiState.modelSizeBytes,
+                        supporting = Formatter.formatShortFileSize(context, uiState.modelSizeBytes),
                         onDelete = { viewModel.deleteModel() },
                     )
                 }
@@ -138,25 +176,37 @@ private fun EmptyLine(text: String) {
 }
 
 @Composable
-private fun StorageRow(icon: ImageVector, title: String, sizeBytes: Long, onDelete: () -> Unit) {
+private fun StorageRow(
+    icon: ImageVector,
+    title: String,
+    supporting: String,
+    // null: riga solo informativa, senza elimina.
+    onDelete: (() -> Unit)? = null,
+    deleteTitle: String = stringResource(R.string.storage_delete_title, title),
+    deleteMessage: String = stringResource(R.string.storage_delete_message),
+    modifier: Modifier = Modifier,
+) {
     var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
 
     ListItem(
         headlineContent = { Text(title) },
-        supportingContent = { Text(Formatter.formatShortFileSize(LocalContext.current, sizeBytes)) },
+        supportingContent = { Text(supporting) },
         leadingContent = { Icon(icon, contentDescription = null) },
-        trailingContent = {
-            IconButton(onClick = { showDeleteConfirm = true }) {
-                Icon(AppIcons.Delete, contentDescription = stringResource(R.string.storage_delete, title))
+        trailingContent = onDelete?.let {
+            {
+                IconButton(onClick = { showDeleteConfirm = true }) {
+                    Icon(AppIcons.Delete, contentDescription = stringResource(R.string.storage_delete, title))
+                }
             }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = modifier,
     )
 
-    if (showDeleteConfirm) {
+    if (showDeleteConfirm && onDelete != null) {
         ConfirmationDialog(
-            title = stringResource(R.string.storage_delete_title, title),
-            message = stringResource(R.string.storage_delete_message),
+            title = deleteTitle,
+            message = deleteMessage,
             onConfirm = { showDeleteConfirm = false; onDelete() },
             onDismiss = { showDeleteConfirm = false },
         )

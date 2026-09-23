@@ -78,8 +78,11 @@ class RegionRepository @Inject constructor(
     /** Versione del pacchetto guide installato, null se non ancora scaricato. */
     suspend fun installedGuidesVersion(): String? = regionPackageDao.guidesVersion()
 
-    suspend fun markGuidesInstalled(version: String) =
-        regionPackageDao.upsertGuides(InstalledGuidesEntity(version = version))
+    fun observeInstalledGuides(): Flow<InstalledGuides?> =
+        regionPackageDao.observeGuides().map { it?.let { entity -> InstalledGuides(entity.version, entity.sizeBytes) } }
+
+    suspend fun markGuidesInstalled(version: String, sizeBytes: Long) =
+        regionPackageDao.upsertGuides(InstalledGuidesEntity(version = version, sizeBytes = sizeBytes))
 
     suspend fun <T> inInstallTransaction(block: suspend () -> T): T = database.withTransaction { block() }
 
@@ -90,6 +93,14 @@ class RegionRepository @Inject constructor(
             regionPackageDao.deleteById(regionId)
             poiDao.deleteForRegion(regionId)
         }
+    }
+
+    /** Byte occupati da un pacchetto installato: mappa e routing dal disco, POI dalla dimensione registrata. */
+    fun packageBytes(region: RegionPackage, kind: PackageKind): Long? = when {
+        region.versionOf(kind) == null -> null
+        kind == PackageKind.MAP -> regionStorage.packageBytes(region.regionId, RegionStorage.MAP_FILE)
+        kind == PackageKind.ROUTING -> regionStorage.packageBytes(region.regionId, RegionStorage.ROUTING_DIR)
+        else -> region.poiSizeBytes
     }
 
     fun availableStorageBytes(): Long = regionStorage.availableBytes()
