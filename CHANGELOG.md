@@ -1,8 +1,10 @@
 # Changelog
 
-Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versionamento secondo [Semantic Versioning](https://semver.org/lang/it/). Le voci non riportano date: la cronologia dettagliata resta in [README.md](README.md).
+Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versionamento secondo [Semantic Versioning](https://semver.org/lang/it/). Le voci non riportano date: la cronologia dettagliata resta nella storia git del repository.
 
 ## [Non rilasciato]
+
+## [0.5.0]
 
 ### Aggiunto
 - Interfaccia completamente ridisegnata su Material Design 3: tema con colori dal wallpaper (Android 12+, disattivabile da Altro → "Colori dal wallpaper") o palette del brand, in tre livelli di contrasto; icone Material Symbols; tema scuro anche per la mappa. Navigazione con barra in basso (Regioni, Documenti, Altro) al posto del menu laterale, che su tablet e pieghevoli diventa una barra laterale con elenco regioni e dettaglio affiancati. L'app va a tutto schermo (edge-to-edge) e supporta il gesto Indietro predittivo, con animazioni di transizione.
@@ -28,6 +30,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
   - Le regioni già installate restano utilizzabili; le guide vanno riscaricate una volta (in automatico su Wi-Fi). Le versioni precedenti dell'app non leggono il nuovo catalogo: dopo la sua pubblicazione non scaricano più regioni finché non vengono aggiornate.
 - Rimossi dal catalogo i territori senza popolazione permanente (Antartide, Isole Heard e McDonald, Terre Australi e Antartiche Francesi, Georgia del Sud e Sandwich Meridionali, Territorio Britannico dell'Oceano Indiano, Isole Minori Esterne degli Stati Uniti, Clipperton, Isola Bouvet) e il relativo gruppo "Territori disabitati". Chi ne aveva già scaricato uno lo trova ancora in Spazio di archiviazione, da dove può eliminarlo, ma non più nell'elenco Regioni, e non riceve più aggiornamenti.
 - Pubblicazione automatica settimanale: calendario dei giorni rigenerato sul nuovo elenco di 246 regioni, con un carico per giorno tra 297 e 324 tile (prima tra 257 e 331 dopo la rimozione dei territori disabitati).
+- Pubblicazione automatica: pacchetti su una release per continente (una release GitHub ha al massimo 1000 file), asset non piu' usati dal catalogo cancellati dopo ogni pubblicazione, e regioni con le stesse tile di routing aggiornate solo nei segmenti cambiati invece di essere rigenerate da capo.
 
 ### Corretto
 - Pubblicazione automatica (`publish-regions.yml`): rilanciare una pubblicazione fallita falliva sempre ("Multiple artifacts named github-pages"), perché ogni tentativo caricava un altro artefatto con lo stesso nome. Ora l'artefatto ha un nome diverso per ogni tentativo.

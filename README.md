@@ -1,38 +1,51 @@
 # 🧭 Pocket Travel
 
-Pocket Travel è un'app per chi viaggia senza voler dipendere dalla connessione: guida turistica offline, mappa con routing pedonale, assistente IA e vault per i documenti, tutto scaricabile a pacchetti per regione.
+Pocket Travel è un'app per chi viaggia senza voler dipendere dalla connessione: guida turistica offline, mappa con routing pedonale, assistente IA e vault per i documenti. Le guide di tutte le nazioni sono un unico pacchetto leggero; per ogni regione mappa, percorsi e punti di interesse si scaricano e aggiornano separatamente.
 
-Versione corrente: **0.4.0** ([Semantic Versioning](https://semver.org/lang/it/)) — vedi [CHANGELOG.md](CHANGELOG.md).
+Versione corrente: **0.5.0** ([Semantic Versioning](https://semver.org/lang/it/)) — vedi [CHANGELOG.md](CHANGELOG.md).
 
 ## Stato
 
-MVP funzionalmente completo: guida turistica offline con ricerca full-text, mappa vettoriale con routing pedonale offline (BRouter), assistente IA con modalità locale (on-device, con controllo RAM) e online (chiave utente personale), vault passaporti cifrato, gestione pacchetti regionali (download/aggiornamento/rimozione) e registro fonti ufficiali esterne. Pipeline dati e orchestratore per generare e pubblicare pacchetti regionali sono pronti, inclusa la pubblicazione automatica settimanale a bucket con controllo di necessità (`tools/data-pipeline`, `.github/workflows/publish-regions.yml`); manca ancora un repository GitHub reale collegato per pubblicarli.
+MVP funzionalmente completo: guida turistica offline con ricerca full-text, mappa vettoriale con routing pedonale offline (BRouter), assistente IA con modalità locale (llama.cpp, modelli GGUF, con controllo RAM) e online (chiave utente personale), vault passaporti cifrato, gestione dei pacchetti (guide, mappa, percorsi, punti di interesse: download, aggiornamento e rimozione uno per uno) e registro fonti ufficiali esterne. Interfaccia Material Design 3 con layout adattivo per telefono e tablet.
+
+Il catalogo delle regioni (246 nel lotto pilota, `tools/data-pipeline/scripts/pilot-regions.sh`) è generato da `tools/data-pipeline` e pubblicato ogni settimana da `.github/workflows/publish-regions.yml`: `manifest.json` su GitHub Pages, i pacchetti sulle release `region-data*` del repository.
 
 ## Struttura
 
 ```
-app/                    shell UI, navigazione, DI (Hilt)
-core/data/              Room DB, RegionPackage, gestione pacchetti regionali
-core/content/           import/parsing contenuti guida (Wikivoyage → schema interno)
-core/sync/              WorkManager: sync manifest, download pacchetti
-core/ui/                design system condiviso (tema, componenti Compose comuni)
-feature/guide/          UI guida turistica
-feature/map/            mappa MapLibre, POI, routing
-feature/ai/             orchestrazione prompt, motore locale/online
-feature/sources/        registro fonti ufficiali esterne
-feature/vault/          UI vault passaporti cifrato
-tools/data-pipeline/    generazione e pubblicazione dei pacchetti regionali
+app/                        shell UI, navigazione, DI (Hilt)
+core/data/                  Room DB (region.db), pacchetti installati, archiviazione su disco
+core/content/               parsing dei contenuti Wikivoyage (usato dalla pipeline per le guide)
+core/sync/                  WorkManager: sync del manifest, download e installazione dei pacchetti
+core/ui/                    design system condiviso (tema M3, icone, componenti Compose comuni)
+feature/guide/              UI guida turistica
+feature/map/                mappa MapLibre, POI, routing, mappa del mondo
+feature/ai/                 orchestrazione prompt, motore locale (llama.cpp via JNI) e online
+feature/sources/            registro fonti ufficiali esterne
+feature/vault/              UI vault passaporti cifrato
+third-party/                sorgenti vendorizzati: brouter-core, brouter-map-creator, llama-cpp
+tools/data-pipeline/        generazione e pubblicazione dei pacchetti
+  content/                  guides.db, poi.db, manifest (merge e validazione), mappa del mondo
+  maptiles/, routing/       generatori locali di map.pmtiles (Planetiler) e .rd5 (BRouter), non
+                            usati in produzione: mappa da Protomaps, segmenti da brouter.de
+  scripts/                  build-guides.sh, build-region.sh, assemble-site.sh, calendario
+                            settimanale, script Python per dataset/training/conversione GGUF
+  data/sft/                 dataset di fine-tuning dell'assistente
+scripts/                    generate_ai_models_manifest.py (catalogo modelli IA per app-status.json)
+.github/workflows/          android-ci.yml, publish-apk.yml, publish-regions.yml
 ```
 
 Ogni modulo `feature` dipende solo dai moduli `core`, mai da altri `feature`.
 
 ## Aprire il progetto
 
-Richiede Android Studio (porta con sé JDK 17+ e Gradle).
+Richiede Android Studio con JDK 17 o successivo.
 
-1. Apri la cartella in Android Studio.
-2. Lascia che generi il Gradle wrapper e sincronizzi le dipendenze al primo avvio.
-3. Le versioni in `gradle/libs.versions.toml` sono già verificate contro una build reale (vedi il log di sviluppo). Accetta comunque i suggerimenti di aggiornamento AGP/Kotlin/Compose che Android Studio propone al sync, se presenti.
+1. Apri la cartella in Android Studio: usa il Gradle wrapper già presente nel repository (`gradlew`, Gradle 9.7.1).
+2. Le versioni delle dipendenze sono in `gradle/libs.versions.toml`.
+3. Per provare l'app con un catalogo locale invece di quello pubblicato (solo build di debug):
+   `./gradlew :app:installDebug -PpocketTravel.manifestUrl=http://10.0.2.2:8000/manifest.json`
+   (`10.0.2.2` è il PC visto dall'emulatore; l'HTTP in chiaro è consentito solo verso quell'host).
 
 ## Licenza
 
