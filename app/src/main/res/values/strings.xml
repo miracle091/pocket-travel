@@ -68,4 +68,25 @@
     <!-- Licenze -->
     <string name="licenses_title">Licenze</string>
     <string name="licenses_license">Licenza: %1$s</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome_title">Benvenuto in Pocket Travel</string>
+    <string name="onboarding_welcome_body">Una guida di viaggio che funziona anche senza connessione: usi e costumi, dogane, vaccinazioni, mappe e un assistente IA a bordo. Nessun account, nessuna raccolta di dati personali.</string>
+    <string name="onboarding_ai_title">L\'assistente IA ha due modalità</string>
+    <string name="onboarding_ai_body">\"Sul dispositivo\" funziona anche offline, ma richiede almeno 4 GB di RAM e il download di un modello. \"Online\" usa una tua chiave API personale (da configurare nell\'app prima di poterla usare), mai condivisa con un server dell\'app.</string>
+    <string name="onboarding_ai_online_title">L\'assistente IA è disponibile Online</string>
+    <string name="onboarding_ai_online_body">Il tuo dispositivo ha meno di 4 GB di RAM: la modalità \"Sul dispositivo\" non è disponibile. L\'assistente funziona comunque in modalità Online, con una tua chiave API personale (da configurare nell\'app prima di poterla usare), mai condivisa con un server dell\'app.</string>
+    <string name="onboarding_vault_title">I documenti restano al sicuro</string>
+    <string name="onboarding_vault_body">Passaporto e certificati di vaccinazione si trovano in \"Documenti\", protetti da biometria o blocco schermo e mai inviati fuori dal dispositivo.</string>
+    <string name="onboarding_sources_title">Le fonti ufficiali restano esterne</string>
+    <string name="onboarding_sources_body">Ambasciate, ministeri e OMS si aprono in una scheda del browser e richiedono una connessione: l\'app non li salva mai offline, per restare sempre aggiornati.</string>
+    <string name="onboarding_region_title">Scarica una regione per iniziare</string>
+    <string name="onboarding_region_body">Facoltativo: guida, mappa e punti di interesse sono organizzati in pacchetti regionali. Puoi scaricarne una qui o in qualsiasi momento dalla schermata Regioni.</string>
+    <string name="onboarding_model_title">Scarica il modello IA</string>
+    <string name="onboarding_model_body">Facoltativo: puoi scaricarlo qui o in qualsiasi momento dopo, dalla schermata Assistente.</string>
+    <string name="onboarding_step">Passo %1$d di %2$d</string>
+    <string name="onboarding_skip">Salta</string>
+    <string name="onboarding_back">Indietro</string>
+    <string name="onboarding_next">Avanti</string>
+    <string name="onboarding_start">Inizia</string>
 </resources>

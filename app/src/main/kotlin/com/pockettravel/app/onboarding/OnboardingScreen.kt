@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,103 +20,85 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pockettravel.app.R
 import com.pockettravel.app.regions.RegionListViewModel
 import com.pockettravel.app.regions.RegionRow
 import com.pockettravel.app.regions.RegionRowActions
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.Spacing
 import com.pockettravel.feature.ai.AiAssistantViewModel
 import com.pockettravel.feature.ai.ModelListCard
 
+private enum class InfoIcon { COMPASS, AI, VAULT, OFFICIAL }
+
 private sealed interface OnboardingStep {
-    data class Info(val title: String, val body: String, val icon: ImageVector) : OnboardingStep
+    data class Info(@StringRes val title: Int, @StringRes val body: Int, val icon: InfoIcon) : OnboardingStep
     data object RegionDownload : OnboardingStep
     data object AiModelDownload : OnboardingStep
 }
 
 @Composable
+private fun InfoIcon.vector(): ImageVector = when (this) {
+    InfoIcon.COMPASS -> AppIcons.Compass
+    InfoIcon.AI -> AppIcons.AiAssistant
+    InfoIcon.VAULT -> AppIcons.Passport
+    InfoIcon.OFFICIAL -> AppIcons.OfficialAuthority
+}
+
+@Composable
 fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hiltViewModel()) {
-    val vaultIcon = AppIcons.Passport
-    val compassIcon = AppIcons.Compass
-    val aiIcon = AppIcons.AiAssistant
-    val officialIcon = AppIcons.OfficialAuthority
     val isOnDeviceAiSupported = viewModel.isOnDeviceAiSupported
-    val steps = remember(vaultIcon, compassIcon, aiIcon, officialIcon, isOnDeviceAiSupported) {
+    val steps = remember(isOnDeviceAiSupported) {
         buildList {
-            add(
-                OnboardingStep.Info(
-                    title = "Benvenuto in Pocket Travel",
-                    body = "Una guida di viaggio che funziona anche senza connessione: usi e costumi, " +
-                        "dogane, vaccinazioni, mappe e un assistente IA a bordo. Nessun account, " +
-                        "nessuna raccolta di dati personali.",
-                    icon = compassIcon,
-                ),
-            )
+            add(OnboardingStep.Info(R.string.onboarding_welcome_title, R.string.onboarding_welcome_body, InfoIcon.COMPASS))
             add(OnboardingStep.RegionDownload)
             add(
                 if (isOnDeviceAiSupported) {
-                    OnboardingStep.Info(
-                        title = "L'assistente IA ha due modalità",
-                        body = "\"Sul dispositivo\" funziona anche offline, ma richiede almeno 4 GB di RAM e il " +
-                            "download di un modello. \"Online\" usa una tua chiave API personale (da configurare " +
-                            "nell'app prima di poterla usare), mai condivisa con un server dell'app.",
-                        icon = aiIcon,
-                    )
+                    OnboardingStep.Info(R.string.onboarding_ai_title, R.string.onboarding_ai_body, InfoIcon.AI)
                 } else {
-                    OnboardingStep.Info(
-                        title = "L'assistente IA è disponibile Online",
-                        body = "Il tuo dispositivo ha meno di 4 GB di RAM: la modalità \"Sul dispositivo\" non è " +
-                            "disponibile. L'assistente funziona comunque in modalità Online, con una tua chiave " +
-                            "API personale (da configurare nell'app prima di poterla usare), mai condivisa con " +
-                            "un server dell'app.",
-                        icon = aiIcon,
-                    )
+                    OnboardingStep.Info(R.string.onboarding_ai_online_title, R.string.onboarding_ai_online_body, InfoIcon.AI)
                 },
             )
             if (isOnDeviceAiSupported) add(OnboardingStep.AiModelDownload)
-            add(
-                OnboardingStep.Info(
-                    title = "I documenti restano al sicuro",
-                    body = "Passaporto e certificati di vaccinazione si trovano in \"Documenti\", protetti " +
-                        "da biometria o blocco schermo e mai inviati fuori dal dispositivo.",
-                    icon = vaultIcon,
-                ),
-            )
-            add(
-                OnboardingStep.Info(
-                    title = "Le fonti ufficiali restano esterne",
-                    body = "Ambasciate, ministeri e OMS si aprono in una scheda del browser e richiedono una " +
-                        "connessione: l'app non li salva mai offline, per restare sempre aggiornati.",
-                    icon = officialIcon,
-                ),
-            )
+            add(OnboardingStep.Info(R.string.onboarding_vault_title, R.string.onboarding_vault_body, InfoIcon.VAULT))
+            add(OnboardingStep.Info(R.string.onboarding_sources_title, R.string.onboarding_sources_body, InfoIcon.OFFICIAL))
         }
     }
 
-    var stepIndex by remember { mutableStateOf(0) }
+    // rememberSaveable: ruotando lo schermo il wizard resta allo stesso passo.
+    var stepIndex by rememberSaveable { mutableIntStateOf(0) }
     val step = steps[stepIndex]
     val isLastStep = stepIndex == steps.lastIndex
 
@@ -140,49 +123,54 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp)) {
-        Column(modifier = Modifier.weight(1f)) {
-            when (val currentStep = step) {
-                is OnboardingStep.Info -> InfoStepContent(currentStep)
-                OnboardingStep.RegionDownload -> RegionDownloadStepContent()
-                OnboardingStep.AiModelDownload -> AiModelDownloadStepContent()
-            }
-        }
-
-        Text(
-            text = "Passo ${stepIndex + 1} di ${steps.size}",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        StepDots(count = steps.size, current = stepIndex)
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // "Salta"/"Avanti" restano gli unici controlli di navigazione, anche per i due step
-        // interattivi: scaricare una regione o il modello IA qui e' facoltativo, "Avanti" non
-        // resta mai bloccato in attesa di un download.
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { viewModel.complete(); onComplete() }) {
-                Text("Salta")
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            if (stepIndex > 0) {
-                TextButton(onClick = { stepIndex -= 1 }) {
-                    Text("Indietro")
+    // Larghezza massima: su tablet il wizard resta una colonna leggibile al centro.
+    Box(modifier = Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.TopCenter) {
+        Column(modifier = Modifier.widthIn(max = 600.dp).fillMaxSize().padding(Spacing.xl)) {
+            Column(modifier = Modifier.weight(1f)) {
+                when (val currentStep = step) {
+                    is OnboardingStep.Info -> InfoStepContent(currentStep)
+                    OnboardingStep.RegionDownload -> RegionDownloadStepContent()
+                    OnboardingStep.AiModelDownload -> AiModelDownloadStepContent()
                 }
-                Spacer(modifier = Modifier.width(8.dp))
             }
-            Button(
-                onClick = {
-                    if (isLastStep) {
-                        viewModel.complete()
-                        onComplete()
-                    } else {
-                        stepIndex += 1
+
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = Spacing.l)) {
+                StepIndicator(count = steps.size, current = stepIndex)
+                Spacer(modifier = Modifier.width(Spacing.m))
+                Text(
+                    text = stringResource(R.string.onboarding_step, stepIndex + 1, steps.size),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(modifier = Modifier.height(Spacing.l))
+
+            // "Salta"/"Avanti" restano gli unici controlli di navigazione, anche per i due step
+            // interattivi: scaricare una regione o il modello IA qui e' facoltativo, "Avanti" non
+            // resta mai bloccato in attesa di un download.
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { viewModel.complete(); onComplete() }) {
+                    Text(stringResource(R.string.onboarding_skip))
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                if (stepIndex > 0) {
+                    TextButton(onClick = { stepIndex -= 1 }) {
+                        Text(stringResource(R.string.onboarding_back))
                     }
-                },
-            ) {
-                Text(if (isLastStep) "Inizia" else "Avanti")
+                    Spacer(modifier = Modifier.width(Spacing.s))
+                }
+                Button(
+                    onClick = {
+                        if (isLastStep) {
+                            viewModel.complete()
+                            onComplete()
+                        } else {
+                            stepIndex += 1
+                        }
+                    },
+                ) {
+                    Text(stringResource(if (isLastStep) R.string.onboarding_start else R.string.onboarding_next))
+                }
             }
         }
     }
@@ -190,34 +178,59 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
 
 @Composable
 private fun InfoStepContent(step: OnboardingStep.Info) {
-    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-        Icon(
-            imageVector = step.icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(64.dp),
+    // Scorrevole: con il testo al 200% il contenuto puo' superare l'altezza disponibile.
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+            Icon(
+                imageVector = step.icon.vector(),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(Spacing.xl).size(56.dp),
+            )
+        }
+        Spacer(modifier = Modifier.height(Spacing.xl))
+        Text(
+            text = stringResource(step.title),
+            style = MaterialTheme.typography.headlineMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.semantics { heading() },
         )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = step.title, style = MaterialTheme.typography.headlineSmall)
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(text = step.body, style = MaterialTheme.typography.bodyLarge)
+        Spacer(modifier = Modifier.height(Spacing.l))
+        Text(
+            text = stringResource(step.body),
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
 // Intestazione compatta (icona + titolo in riga) per gli step interattivi, che a differenza di
 // InfoStepContent hanno sotto una lista da tenere scrollabile, non spazio vuoto da centrare.
 @Composable
-private fun StepHeader(icon: ImageVector, title: String) {
+private fun StepHeader(icon: ImageVector, title: String, body: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(32.dp),
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(text = title, style = MaterialTheme.typography.headlineSmall)
+        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(Spacing.s).size(24.dp),
+            )
+        }
+        Spacer(modifier = Modifier.width(Spacing.m))
+        Text(text = title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
     }
+    Text(
+        text = body,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = Spacing.s, bottom = Spacing.m),
+    )
 }
 
 // Riusa RegionListViewModel/RegionRow del modulo :regions (stesso modulo :app, package diverso):
@@ -227,32 +240,33 @@ private fun RegionDownloadStepContent(viewModel: RegionListViewModel = hiltViewM
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Icona piccola in riga col titolo, non centrata a piena altezza come InfoStepContent:
-        // qui sotto c'e' una lista che deve restare scrollabile, non spazio vuoto da riempire.
-        StepHeader(icon = AppIcons.World, title = "Scarica una regione per iniziare")
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            "Facoltativo: guida, mappa e punti di interesse sono organizzati in pacchetti regionali. " +
-                "Puoi scaricarne una qui o farlo in qualsiasi momento da Spazio di archiviazione.",
-            style = MaterialTheme.typography.bodyMedium,
+        StepHeader(
+            icon = AppIcons.World,
+            title = stringResource(R.string.onboarding_region_title),
+            body = stringResource(R.string.onboarding_region_body),
         )
-        Spacer(modifier = Modifier.height(12.dp))
         when {
             uiState.isLoading && uiState.items.isEmpty() -> CircularProgressIndicator()
             uiState.loadError != null -> Text(text = stringResource(uiState.loadError!!), color = MaterialTheme.colorScheme.error)
-            else -> LazyColumn(modifier = Modifier.weight(1f)) {
-                items(uiState.items, key = { it.regionId }) { item ->
-                    // onClick e' no-op qui: l'onboarding non naviga al dettaglio di una regione,
-                    // la riga serve solo per vedere lo stato e scaricare/eliminare.
-                    RegionRow(
-                        item = item,
-                        actions = RegionRowActions(
-                            observeProgress = viewModel::observeDownloadProgress,
-                            onDownload = viewModel::download,
-                            onDelete = viewModel::delete,
-                        ),
-                        onClick = {},
-                    )
+            else -> Surface(
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier.weight(1f),
+            ) {
+                LazyColumn {
+                    items(uiState.items, key = { it.regionId }) { item ->
+                        // onClick e' no-op qui: l'onboarding non naviga al dettaglio di una regione,
+                        // la riga serve solo per vedere lo stato e scaricare/eliminare.
+                        RegionRow(
+                            item = item,
+                            actions = RegionRowActions(
+                                observeProgress = viewModel::observeDownloadProgress,
+                                onDownload = viewModel::download,
+                                onDelete = viewModel::delete,
+                            ),
+                            onClick = {},
+                        )
+                    }
                 }
             }
         }
@@ -266,28 +280,31 @@ private fun RegionDownloadStepContent(viewModel: RegionListViewModel = hiltViewM
 private fun AiModelDownloadStepContent(viewModel: AiAssistantViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        StepHeader(icon = AppIcons.AiAssistant, title = "Scarica il modello IA")
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            "Facoltativo: puoi scaricarlo qui o in qualsiasi momento dopo, dalla schermata Assistente IA.",
-            style = MaterialTheme.typography.bodyMedium,
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        StepHeader(
+            icon = AppIcons.AiAssistant,
+            title = stringResource(R.string.onboarding_model_title),
+            body = stringResource(R.string.onboarding_model_body),
         )
-        Spacer(modifier = Modifier.height(12.dp))
         ModelListCard(uiState, viewModel)
     }
 }
 
+// Indicatore di avanzamento in stile M3: il passo corrente e' una pillola allungata, gli altri
+// pallini. Puramente visivo (il testo "Passo X di Y" accanto lo rende accessibile).
 @Composable
-private fun StepDots(count: Int, current: Int) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun StepIndicator(count: Int, current: Int) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         repeat(count) { index ->
-            val color = if (index == current) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            }
-            Box(modifier = Modifier.size(8.dp).background(color = color, shape = CircleShape))
+            val active = index == current
+            Box(
+                modifier = Modifier
+                    .size(width = if (active) 24.dp else 8.dp, height = 8.dp)
+                    .background(
+                        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                        shape = CircleShape,
+                    ),
+            )
         }
     }
 }
