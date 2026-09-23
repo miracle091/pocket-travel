@@ -108,7 +108,7 @@ private fun ModeSelector(mode: AiEngineMode, onModeChanged: (AiEngineMode) -> Un
 @Composable
 fun ModelListCard(uiState: AiUiState, viewModel: AiAssistantViewModel) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Scegli un modello IA da scaricare, in base alla RAM del tuo dispositivo:", style = MaterialTheme.typography.bodyMedium)
+        Text("Scegli un modello IA da scaricare.", style = MaterialTheme.typography.bodyMedium)
         Spacer(modifier = Modifier.height(8.dp))
         uiState.availableModels.forEach { definition ->
             ModelRow(definition = definition, isSelected = definition.id == uiState.selectedModelId, uiState = uiState, viewModel = viewModel)
