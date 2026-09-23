@@ -293,18 +293,4 @@ PILOT_REGIONS=(
   "guam|Guam (Stati Uniti)|144.62|13.23|144.95|13.65|Guam|gu|||Oceania"
   "samoa-americane|Samoa Americane (Stati Uniti)|-171.10|-14.37|-169.40|-11.02|American_Samoa|as|||Oceania"
   "isole-marianne-settentrionali|Isole Marianne Settentrionali (Stati Uniti)|144.90|14.10|146.10|20.60|Northern_Mariana_Islands|mp|||Oceania"
-  # Territori senza popolazione permanente (basi scientifiche, riserve naturali) — vedi il
-  # continente fittizio "Territori disabitati" aggiunto in assemble-site.sh apposta per questi,
-  # cosi' restano separati dalle nazioni con popolazione/turismo reale.
-  "antartide|Antartide|-180.00|-90.00|180.00|-60.00|Antarctica|aq|||Territori disabitati"
-  "heard-mcdonald|Isole Heard e McDonald (Australia)|73.20|-53.20|73.70|-52.90|Heard_Island_and_McDonald_Islands|hm|||Territori disabitati"
-  "terre-australi-francesi|Terre Australi e Antartiche Francesi (Francia)|50.00|-50.00|78.50|-37.50|French_Southern_and_Antarctic_Lands|tf|||Territori disabitati"
-  "georgia-sandwich-sud|Georgia del Sud e Sandwich Meridionali (Regno Unito)|-38.30|-59.60|-26.00|-53.90|South_Georgia_and_the_South_Sandwich_Islands|gs|||Territori disabitati"
-  "chagos|Territorio Britannico dell'Oceano Indiano (Regno Unito)|70.90|-7.50|72.60|-5.10|British_Indian_Ocean_Territory|io|||Territori disabitati"
-  # UM (Stati Uniti) raggruppa molti isolotti sparsi e disabitati (Midway, Johnston, isole
-  # equatoriali) sotto un solo codice ISO: rappresentata solo Wake Island, la piu' nota; le altre
-  # sono omesse per lo stesso motivo del lembo di Chukotka russo (irrilevanti, complicherebbero il
-  # bbox attraversando l'antimeridiano per un'area gia' marginale).
-  "isole-minori-usa|Isole Minori Esterne (Stati Uniti)|166.55|19.25|166.70|19.35|United_States_Minor_Outlying_Islands|um|||Territori disabitati"
-  "clipperton|Isola di Clipperton (Francia)|-109.25|10.25|-109.15|10.35|Clipperton_Island|cp|||Territori disabitati"
 )

@@ -50,6 +50,19 @@ class MergeManifestsTest {
     }
 
     @Test
+    fun `scarta le regioni gia' pubblicate che non sono piu' nel lotto pilota`() {
+        val merged = JSONObject(
+            mergeManifestJson(
+                listOf(fragmentFor("san-marino", "San Marino"), fragmentFor("antartide", "Antartide"), guidesFragment("1")),
+                knownRegionIds = setOf("san-marino", "italia"),
+            ),
+        )
+
+        assertEquals(setOf("san-marino"), regionsById(merged).keys)
+        assertEquals("1", merged.getJSONObject("guides").getString("version"))
+    }
+
+    @Test
     fun `una regionId duplicata viene sostituita dall'ultimo manifest fornito`() {
         val merged = JSONObject(mergeManifestJson(listOf(fragmentFor("italia", "Italia", "1"), fragmentFor("italia", "Italia", "2"))))
 

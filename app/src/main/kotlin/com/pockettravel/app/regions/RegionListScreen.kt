@@ -471,7 +471,7 @@ private fun RegionUiItem.statusLabel(): Int = when (status) {
 
 // Ordine dei continenti come in pilot-regions.sh/assemble-site.sh; un continente sconosciuto va in
 // coda, le regioni senza continente (manifest pubblicati prima del campo) nel gruppo "Altro".
-private val CONTINENT_ORDER = listOf("Europa", "Asia", "Africa", "Nord America", "Sud America", "Oceania", "Territori disabitati")
+private val CONTINENT_ORDER = listOf("Europa", "Asia", "Africa", "Nord America", "Sud America", "Oceania")
 
 // Gruppo dell'elenco regioni: prima "Nazioni scaricate" (scaricate o da aggiornare), poi i continenti
 // con le sole nazioni non ancora scaricate.

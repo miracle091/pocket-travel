@@ -23,11 +23,16 @@ import org.json.JSONObject
  * anche di quelle non ricostruite in questa run: l'app raggruppa l'elenco per continente e trova le
  * regioni di un paese toccato sulla mappa del mondo, e non ha altra fonte per saperlo. Allo stesso
  * modo i "wikivoyageUrls" del frammento guide finiscono nel campo "wikivoyageUrl" delle regioni.
+ *
+ * knownRegionIds (le regioni di pilot-regions.sh), se indicato, scarta le regioni che non ne fanno
+ * piu' parte: senza, una regione tolta dal lotto pilota resterebbe per sempre nel manifest,
+ * ricopiata a ogni run da quello gia' pubblicato.
  */
 fun mergeManifestJson(
     manifestJsons: List<String>,
     continents: Map<String, String> = emptyMap(),
     countryCodes: Map<String, String> = emptyMap(),
+    knownRegionIds: Set<String>? = null,
 ): String {
     require(manifestJsons.isNotEmpty()) { "Nessun manifest da unire" }
 
@@ -46,6 +51,8 @@ fun mergeManifestJson(
             regionsById[region.getString("regionId")] = if (region.has("files")) convertV1Region(region) else region
         }
     }
+
+    knownRegionIds?.let { known -> regionsById.keys.retainAll(known) }
 
     regionsById.forEach { (regionId, region) ->
         continents[regionId]?.let { region.put("continent", it) }
@@ -94,7 +101,9 @@ fun main(args: Array<String>) {
     val inputFiles = rest.drop(1).map { File(it) }
     inputFiles.forEach { require(it.exists()) { "Manifest non trovato: ${it.path}" } }
 
-    val merged = mergeManifestJson(inputFiles.map { it.readText() }, continents, countryCodes)
+    // La tabella --continents elenca tutte le regioni di pilot-regions.sh: chi non c'e' e' stata tolta.
+    val knownRegionIds = continentsFile?.let { rows.map { it[0] }.toSet() }?.takeIf { it.isNotEmpty() }
+    val merged = mergeManifestJson(inputFiles.map { it.readText() }, continents, countryCodes, knownRegionIds)
     outputFile.writeText(merged)
     println("manifest unito (${inputFiles.size} input, ${JSONObject(merged).getJSONArray("regions").length()} regioni) scritto in ${outputFile.path}")
 }
