@@ -22,6 +22,7 @@ class PoiCategoryTest {
     fun `tourism di alloggio va in ALLOGGIO`() {
         assertEquals(PoiCategory.ALLOGGIO, poi("hotel", "tourism=hotel").poiCategory())
         assertEquals(PoiCategory.ALLOGGIO, poi("guest_house", "tourism=guest_house").poiCategory())
+        assertEquals(PoiCategory.ALLOGGIO, poi("caravan_site", "tourism=caravan_site").poiCategory())
     }
 
     @Test

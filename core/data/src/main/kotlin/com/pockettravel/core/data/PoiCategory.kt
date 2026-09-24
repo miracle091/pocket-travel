@@ -29,7 +29,7 @@ enum class PoiCategory {
     ALTRO,
 }
 
-private val accommodationValues = setOf("hotel", "guest_house", "hostel", "motel", "apartment", "camp_site", "chalet")
+private val accommodationValues = setOf("hotel", "guest_house", "hostel", "motel", "apartment", "camp_site", "caravan_site", "chalet")
 private val foodDrinkValues = setOf("restaurant", "cafe", "bar", "pub", "fast_food", "food_court", "ice_cream", "biergarten")
 private val rentalTags = setOf(
     "amenity=car_rental", "amenity=bicycle_rental", "amenity=motorcycle_rental", "amenity=scooter_rental",
