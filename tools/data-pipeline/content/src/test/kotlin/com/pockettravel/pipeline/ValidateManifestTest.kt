@@ -83,6 +83,24 @@ class ValidateManifestTest {
         assertThrows(ManifestValidationException::class.java) { validateManifestJson(json, allowedHosts) }
     }
 
+    private fun withAddresses(url: String) = validManifest().replace(
+        "\"poi\": {",
+        """"addresses": { "version": "2026.09.24", "file": { "name": "addresses.pmtiles", "url": "$url", "sizeBytes": 146238, "sha256": "${"d".repeat(64)}" } },
+          "poi": {""",
+    )
+
+    @Test
+    fun `accetta i civici facoltativi`() {
+        validateManifestJson(withAddresses("https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.24--addresses.pmtiles"), allowedHosts)
+    }
+
+    @Test
+    fun `rifiuta civici su un host non consentito`() {
+        assertThrows(ManifestValidationException::class.java) {
+            validateManifestJson(withAddresses("https://evil.example.com/addresses.pmtiles"), allowedHosts)
+        }
+    }
+
     @Test
     fun `rifiuta un manifestVersion non supportata`() {
         assertThrows(ManifestValidationException::class.java) {

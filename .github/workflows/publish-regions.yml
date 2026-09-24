@@ -245,6 +245,17 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
+      # go-pmtiles estrae le sole tile z15 dei civici (build-addresses.sh): versione e sha256 fissati.
+      - name: Installa go-pmtiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL -o "$RUNNER_TEMP/go-pmtiles.tar.gz" https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_x86_64.tar.gz
+          echo "3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f  $RUNNER_TEMP/go-pmtiles.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$RUNNER_TEMP/go-pmtiles.tar.gz" -C "$RUNNER_TEMP/bin" pmtiles
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
       - name: Genera i pacchetti regionali dello shard
         id: build
         shell: bash
@@ -307,6 +318,11 @@ jobs:
             if tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
               "$minLon" "$minLat" "$maxLon" "$maxLat" "$RELEASE_BASE_URL" "$regionOut" \
               "$PUBLISHED_MANIFEST_URL"; then
+              # Civici (facoltativi, mai fatali): aggiunge la voce "addresses" al frammento e, se il
+              # file e' nuovo, lascia addresses.pmtiles da caricare (togliendo .skipped se serve).
+              tools/data-pipeline/scripts/build-addresses.sh "$regionId" "$VERSION" \
+                "$minLon" "$minLat" "$maxLon" "$maxLat" "$RELEASE_BASE_URL" "$regionOut" \
+                "$PUBLISHED_MANIFEST_URL" || echo "::warning::civici di $regionId non generati"
               if [ -f "$regionOut/.skipped" ]; then
                 # Controllo di necessita' in build-region.sh: tile .rd5 attese invariate rispetto
                 # al manifest gia' pubblicato, il frammento e' quello di sempre, niente da
@@ -320,12 +336,18 @@ jobs:
                 # (stessa VERSION) deve poter sovrascrivere l'asset gia' caricato in un tentativo
                 # precedente fallito a meta'.
                 # In modalita' incrementale (.incremental, vedi build-region.sh sezione 2bis) si
-                # caricano solo le tile cambiate, piu' il poi.db se era scaduto ed e' stato rigenerato.
+                # caricano solo le tile cambiate, piu' il poi.db se era scaduto ed e' stato rigenerato e
+                # addresses.pmtiles se build-addresses.sh ne ha prodotto uno nuovo.
                 uploads=()
                 if [ -f "$regionOut/poi.db" ]; then
                   poiDbAsset="$regionOut/${regionId}--${VERSION}--poi.db"
                   cp "$regionOut/poi.db" "$poiDbAsset"
                   uploads+=("$poiDbAsset")
+                fi
+                if [ -f "$regionOut/addresses.pmtiles" ]; then
+                  addressesAsset="$regionOut/${regionId}--${VERSION}--addresses.pmtiles"
+                  cp "$regionOut/addresses.pmtiles" "$addressesAsset"
+                  uploads+=("$addressesAsset")
                 fi
                 for rd5 in "$regionOut"/*.rd5; do
                   [ -e "$rd5" ] || continue

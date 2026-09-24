@@ -67,6 +67,12 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
         val poi = region.getJSONObject("poi")
         validateVersion(poi, "$regionId/poi")
         validateFile(poi.getJSONObject("file"), regionId, allowedHosts)
+
+        // Civici: facoltativi (regioni non ancora generate o troppo grandi da estrarre).
+        region.optJSONObject("addresses")?.let { addresses ->
+            validateVersion(addresses, "$regionId/addresses")
+            validateFile(addresses.getJSONObject("file"), regionId, allowedHosts)
+        }
     }
 }
 
