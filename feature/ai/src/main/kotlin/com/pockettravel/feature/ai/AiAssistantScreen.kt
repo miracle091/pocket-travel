@@ -21,14 +21,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -60,8 +58,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
+import com.pockettravel.core.ui.DownloadProgressIndicator
 import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
+import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.isOnCellularNetwork
@@ -264,7 +264,7 @@ private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String)
                 val error = uiState.errorMessage
                 when {
                     uiState.isThinking -> Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        PocketTravelLoadingIndicator(modifier = Modifier.size(24.dp))
                         Spacer(modifier = Modifier.width(Spacing.m))
                         Text(stringResource(R.string.ai_thinking), style = MaterialTheme.typography.bodyLarge)
                     }
@@ -391,7 +391,7 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
                         stringResource(R.string.ai_model_downloading, (downloadProgress * 100).toInt()),
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    LinearProgressIndicator(progress = { downloadProgress }, modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs))
+                    DownloadProgressIndicator(progress = { downloadProgress }, modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs))
                 } else {
                     Button(
                         onClick = {

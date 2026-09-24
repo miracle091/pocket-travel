@@ -5,7 +5,9 @@ import android.content.Context
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
@@ -14,6 +16,8 @@ import androidx.compose.ui.platform.LocalContext
 // Unico punto in cui l'app dichiara il proprio tema. Typography e Shapes restano quelli di
 // default di material3, che coincidono con la type scale e la shape scale M3 (4/8/12/16/28 dp):
 // le schermate li usano solo tramite MaterialTheme.typography / MaterialTheme.shapes.
+// Tema Expressive con motion a molla (MotionScheme.expressive), come da piano M3.
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PocketTravelTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -27,7 +31,7 @@ fun PocketTravelTheme(
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         else -> brandColorScheme(darkTheme, systemContrast(context))
     }
-    MaterialTheme(colorScheme = colorScheme, content = content)
+    MaterialExpressiveTheme(colorScheme = colorScheme, motionScheme = MotionScheme.expressive(), content = content)
 }
 
 private fun brandColorScheme(darkTheme: Boolean, contrast: Float): ColorScheme = when {

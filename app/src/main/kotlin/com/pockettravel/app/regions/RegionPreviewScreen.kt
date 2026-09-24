@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -29,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.EmptyState
+import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.feature.guide.GuideScreen
 import com.pockettravel.core.ui.R as UiR
@@ -86,7 +86,7 @@ fun RegionPreviewScreen(
 
             when (state) {
                 RegionPreviewState.Loading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    PocketTravelLoadingIndicator()
                 }
 
                 RegionPreviewState.Error -> EmptyState(

@@ -35,7 +35,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -66,6 +65,8 @@ import com.pockettravel.app.regions.RegionListViewModel
 import com.pockettravel.app.regions.RegionRow
 import com.pockettravel.app.regions.RegionRowActions
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.HeroShape
+import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.feature.ai.AiAssistantViewModel
 import com.pockettravel.feature.ai.ModelListCard
@@ -205,7 +206,7 @@ private fun InfoStepContent(step: OnboardingStep.Info) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+        Surface(shape = HeroShape, color = MaterialTheme.colorScheme.primaryContainer) {
             Icon(
                 imageVector = step.icon.vector(),
                 contentDescription = null,
@@ -274,7 +275,7 @@ private fun GuidesDownloadStepContent(viewModel: GuidesDownloadViewModel = hiltV
                 Text(stringResource(R.string.onboarding_guides_done), style = MaterialTheme.typography.bodyLarge)
             }
             uiState.isDownloading -> Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                PocketTravelLoadingIndicator(modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(Spacing.m))
                 Text(stringResource(R.string.onboarding_guides_downloading), style = MaterialTheme.typography.bodyLarge)
             }
@@ -304,7 +305,7 @@ private fun RegionDownloadStepContent(viewModel: RegionListViewModel = hiltViewM
             body = stringResource(R.string.onboarding_region_body),
         )
         when {
-            uiState.isLoading && uiState.items.isEmpty() -> CircularProgressIndicator()
+            uiState.isLoading && uiState.items.isEmpty() -> PocketTravelLoadingIndicator()
             uiState.loadError != null -> Text(text = stringResource(uiState.loadError!!), color = MaterialTheme.colorScheme.error)
             else -> Surface(
                 shape = MaterialTheme.shapes.large,
