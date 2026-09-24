@@ -10,7 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Migrazioni 5 -> 6 (pacchetti separati) e 6 -> 7 sugli schemi esportati in core/data/schemas. */
+/** Migrazioni 5 -> 6 (pacchetti separati), 6 -> 7 e 7 -> 8 sugli schemi esportati in core/data/schemas. */
 @RunWith(AndroidJUnit4::class)
 class RegionDatabaseMigrationTest {
 
@@ -62,6 +62,23 @@ class RegionDatabaseMigrationTest {
             db.query("SELECT police FROM emergency_numbers WHERE regionId = 'italia'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("113", cursor.getString(0))
+            }
+        }
+    }
+
+    @Test
+    fun migrazione7a8AggiungeIlCodicePaeseVuoto() {
+        helper.createDatabase(DB_NAME, 7).use { db ->
+            db.execSQL("INSERT INTO installed_regions VALUES ('italia', 'Italia', '1', '1', '1', 10, 1000, 42)")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 8, true, MIGRATION_7_8).use { db ->
+            db.query("SELECT displayName, countryCode, mapVersion, sizeBytes FROM installed_regions WHERE regionId = 'italia'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Italia", cursor.getString(0))
+                assertTrue("il codice arriva dal manifest, non dalla migrazione", cursor.isNull(1))
+                assertEquals("1", cursor.getString(2))
+                assertEquals(1000L, cursor.getLong(3))
             }
         }
     }

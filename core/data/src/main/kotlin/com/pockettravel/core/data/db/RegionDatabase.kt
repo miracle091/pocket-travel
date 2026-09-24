@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         InstalledGuidesEntity::class,
         NoCentralEmergencyNumberEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -133,5 +133,13 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
 val MIGRATION_6_7 = object : Migration(6, 7) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("CREATE TABLE IF NOT EXISTS `emergency_numbers_none` (`regionId` TEXT NOT NULL PRIMARY KEY)")
+    }
+}
+
+// Codice paese per la bandiera in Spazio: le regioni gia' installate restano a NULL finche' l'elenco
+// regioni non lo riempie dal manifest (RegionListViewModel.refresh).
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `countryCode` TEXT")
     }
 }

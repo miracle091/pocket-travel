@@ -4,6 +4,7 @@ package com.pockettravel.core.data
 data class RegionPackage(
     val regionId: String,
     val displayName: String,
+    val countryCode: String?,
     val mapVersion: String?,
     val routingVersion: String?,
     val poiVersion: String?,

@@ -3,8 +3,6 @@ package com.pockettravel.app.regions
 import android.text.format.Formatter
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -53,10 +50,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -72,6 +67,7 @@ import com.pockettravel.app.R
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.sync.RegionPackageDownloadWorker
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.CountryFlag
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.DownloadProgressIndicator
 import com.pockettravel.core.ui.EmptyState
@@ -79,8 +75,6 @@ import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
-import com.pockettravel.core.ui.flagCropAlignment
-import com.pockettravel.core.ui.flagRes
 import com.pockettravel.core.ui.isOnCellularNetwork
 import java.text.Collator
 import java.util.Locale
@@ -411,20 +405,7 @@ internal fun RegionRow(item: RegionUiItem, actions: RegionRowActions, onClick: (
                 )
             },
             leadingContent = {
-                val countryCode = item.countryCode
-                val flag = countryCode?.let(::flagRes)
-                if (countryCode != null && flag != null) {
-                    Image(
-                        painter = painterResource(flag),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        alignment = flagCropAlignment(countryCode),
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
-                    )
-                } else {
+                CountryFlag(item.countryCode, size = 40.dp) {
                     Surface(
                         shape = CircleShape,
                         color = if (installed) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,

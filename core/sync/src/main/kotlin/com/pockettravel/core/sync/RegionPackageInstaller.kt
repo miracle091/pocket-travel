@@ -49,7 +49,7 @@ class RegionPackageInstaller @Inject constructor(
             regionRepository.inInstallTransaction {
                 if (PackageKind.POI in kinds) poiImporter.import(entry.regionId, File(staging, entry.poi.file.name))
                 regionRepository.markPackagesInstalled(
-                    entry.regionId, entry.displayName,
+                    entry.regionId, entry.displayName, entry.countryCode,
                     versions = kinds.associateWith { entry.versionOf(it) },
                     poiSizeBytes = if (PackageKind.POI in kinds) entry.poi.file.sizeBytes else null,
                 )

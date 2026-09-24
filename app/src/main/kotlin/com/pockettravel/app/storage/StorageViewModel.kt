@@ -26,6 +26,7 @@ data class StoragePackageItem(val kind: PackageKind, val sizeBytes: Long?)
 data class StorageRegionItem(
     val regionId: String,
     val displayName: String,
+    val countryCode: String?,
     val sizeBytes: Long,
     // Solo i pacchetti installati.
     val packages: List<StoragePackageItem> = emptyList(),
@@ -70,7 +71,7 @@ class StorageViewModel @Inject constructor(
                 val packages = PackageKind.entries
                     .filter { region.versionOf(it) != null }
                     .map { StoragePackageItem(it, regionRepository.packageBytes(region, it)) }
-                StorageRegionItem(region.regionId, region.displayName, region.sizeBytes, packages)
+                StorageRegionItem(region.regionId, region.displayName, region.countryCode, region.sizeBytes, packages)
             },
             regionsSizeBytes = regions.sumOf { it.sizeBytes } + (guides?.sizeBytes ?: 0L),
             isModelDownloaded = model.isDownloaded,

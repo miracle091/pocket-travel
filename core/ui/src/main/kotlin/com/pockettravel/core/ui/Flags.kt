@@ -1,8 +1,20 @@
 package com.pockettravel.core.ui
 
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 // Bandiere nazionali come VectorDrawable (res/drawable/ic_flag_<iso2>.xml), da
 // westnordost/flags-vector-drawables-android (fonte: Wikipedia, licenza di ciascuna bandiera).
@@ -274,4 +286,25 @@ fun flagCropAlignment(countryCode: String): Alignment = when (countryCode.upperc
     "BH", "CV", "EH", "GL", "GQ", "KP", "PT", "QA", "ST", "UM", "US" -> BiasAlignment(-0.5f, 0f)
     "BT", "CC" -> BiasAlignment(0.5f, 0f)
     else -> Alignment.Center
+}
+
+// Bandiera ritagliata in un cerchio con un bordo sottile (le bandiere chiare restano leggibili sullo
+// sfondo); [fallback] se il codice manca o non ha una bandiera.
+@Composable
+fun CountryFlag(countryCode: String?, size: Dp, fallback: @Composable () -> Unit) {
+    val flag = countryCode?.let(::flagRes)
+    if (countryCode == null || flag == null) {
+        fallback()
+        return
+    }
+    Image(
+        painter = painterResource(flag),
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        alignment = flagCropAlignment(countryCode),
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
+    )
 }

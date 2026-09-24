@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -112,6 +113,11 @@ class RegionListViewModel @Inject constructor(
                 manifestRegions.value = manifest.regions
                 // Le guide si aggiornano da sole (su Wi-Fi) anche da qui, non solo col controllo periodico.
                 if (regionRepository.installedGuidesVersion() != manifest.guides.version) regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = true)
+                // Regioni installate prima che il database salvasse il codice paese: serve alla bandiera in Spazio.
+                val withoutCode = regionRepository.observeInstalled().first().filter { it.countryCode == null }.mapTo(mutableSetOf()) { it.regionId }
+                manifest.regions.filter { it.regionId in withoutCode }.forEach { remote ->
+                    remote.countryCode?.let { regionRepository.fillCountryCode(remote.regionId, it) }
+                }
                 status.update { it.copy(loadError = null) }
             } catch (_: Exception) {
                 status.update { it.copy(loadError = R.string.regions_load_error) }

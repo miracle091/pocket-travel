@@ -25,7 +25,7 @@ class RegionUiItemTest {
     )
 
     private fun local(map: String?, routing: String?, poi: String?) =
-        RegionPackage("italia", "Italia", map, routing, poi, poiSizeBytes = poi?.let { 60_000_000L }, sizeBytes = 123)
+        RegionPackage("italia", "Italia", "it", map, routing, poi, poiSizeBytes = poi?.let { 60_000_000L }, sizeBytes = 123)
 
     private val noBytes: (RegionPackage, PackageKind) -> Long? = { _, _ -> null }
 

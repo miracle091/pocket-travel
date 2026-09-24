@@ -7,6 +7,9 @@ import androidx.room.PrimaryKey
 data class InstalledRegionEntity(
     @PrimaryKey val regionId: String,
     val displayName: String,
+    // ISO 3166-1 alpha-2 dal manifest, per la bandiera; null per le regioni installate prima della
+    // versione 8 del database finche' l'elenco regioni non lo riempie dal manifest.
+    val countryCode: String?,
     val mapVersion: String?,
     val routingVersion: String?,
     val poiVersion: String?,

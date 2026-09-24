@@ -28,11 +28,17 @@ class RegionRepository @Inject constructor(
      * Registra i pacchetti appena installati ([versions]), conservando gli altri gia' presenti.
      * [poiSizeBytes] e' richiesto quando tra i pacchetti c'e' [PackageKind.POI].
      */
-    suspend fun markPackagesInstalled(regionId: String, displayName: String, versions: Map<PackageKind, String>, poiSizeBytes: Long? = null) {
+    suspend fun markPackagesInstalled(
+        regionId: String,
+        displayName: String,
+        countryCode: String?,
+        versions: Map<PackageKind, String>,
+        poiSizeBytes: Long? = null,
+    ) {
         require(PackageKind.POI !in versions || poiSizeBytes != null) { "poiSizeBytes mancante per $regionId" }
         val current = installed(regionId)
         save(
-            regionId, displayName,
+            regionId, displayName, countryCode ?: current?.countryCode,
             versionOf = { kind -> versions[kind] ?: current?.versionOf(kind) },
             poiSizeBytes = if (PackageKind.POI in versions) poiSizeBytes else current?.poiSizeBytes,
         )
@@ -48,14 +54,14 @@ class RegionRepository @Inject constructor(
                 PackageKind.POI -> poiDao.deleteForRegion(regionId)
             }
             save(
-                regionId, current.displayName,
+                regionId, current.displayName, current.countryCode,
                 versionOf = { if (it == kind) null else current.versionOf(it) },
                 poiSizeBytes = if (kind == PackageKind.POI) null else current.poiSizeBytes,
             )
         }
     }
 
-    private suspend fun save(regionId: String, displayName: String, versionOf: (PackageKind) -> String?, poiSizeBytes: Long?) {
+    private suspend fun save(regionId: String, displayName: String, countryCode: String?, versionOf: (PackageKind) -> String?, poiSizeBytes: Long?) {
         if (PackageKind.entries.all { versionOf(it) == null }) {
             remove(regionId)
             return
@@ -65,6 +71,7 @@ class RegionRepository @Inject constructor(
             InstalledRegionEntity(
                 regionId = regionId,
                 displayName = displayName,
+                countryCode = countryCode,
                 mapVersion = versionOf(PackageKind.MAP),
                 routingVersion = versionOf(PackageKind.ROUTING),
                 poiVersion = versionOf(PackageKind.POI),
@@ -74,6 +81,9 @@ class RegionRepository @Inject constructor(
             ),
         )
     }
+
+    /** Codice paese dal manifest per le regioni installate prima che il database lo salvasse. */
+    suspend fun fillCountryCode(regionId: String, countryCode: String) = regionPackageDao.fillCountryCode(regionId, countryCode)
 
     /** Versione del pacchetto guide installato, null se non ancora scaricato. */
     suspend fun installedGuidesVersion(): String? = regionPackageDao.guidesVersion()
@@ -109,6 +119,7 @@ class RegionRepository @Inject constructor(
 private fun InstalledRegionEntity.toDomain() = RegionPackage(
     regionId = regionId,
     displayName = displayName,
+    countryCode = countryCode,
     mapVersion = mapVersion,
     routingVersion = routingVersion,
     poiVersion = poiVersion,

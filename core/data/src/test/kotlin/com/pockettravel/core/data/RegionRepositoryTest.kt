@@ -44,6 +44,11 @@ private class FakeRegionPackageDao : RegionPackageDao {
         flow.value = entities.values.sortedBy { it.displayName }
     }
 
+    override suspend fun fillCountryCode(regionId: String, countryCode: String) {
+        val current = entities[regionId] ?: return
+        if (current.countryCode == null) upsert(current.copy(countryCode = countryCode))
+    }
+
     private val guides = MutableStateFlow<InstalledGuidesEntity?>(null)
     override suspend fun upsertGuides(guides: InstalledGuidesEntity) { this.guides.value = guides }
     override suspend fun guidesVersion(): String? = guides.value?.version
@@ -108,7 +113,7 @@ class RegionRepositoryTest {
         val (repository, _) = newRepository()
 
         repository.markPackagesInstalled(
-            "italia", "Italia",
+            "italia", "Italia", "it",
             mapOf(PackageKind.MAP to "1", PackageKind.ROUTING to "2", PackageKind.POI to "3"),
             poiSizeBytes = 1000,
         )
@@ -124,7 +129,7 @@ class RegionRepositoryTest {
     @Test
     fun `installed e' null per una regione mai installata e un pacchetto assente ha versione null`() = runBlocking {
         val (repository, _) = newRepository()
-        repository.markPackagesInstalled("italia", "Italia", mapOf(PackageKind.POI to "1"), poiSizeBytes = 10)
+        repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.POI to "1"), poiSizeBytes = 10)
 
         assertNull(repository.installed("mai-installata"))
         assertNull(repository.installed("italia")!!.mapVersion)
@@ -134,9 +139,9 @@ class RegionRepositoryTest {
     @Test
     fun `markPackagesInstalled aggiorna un pacchetto e conserva gli altri`() = runBlocking {
         val (repository, _) = newRepository()
-        repository.markPackagesInstalled("italia", "Italia", mapOf(PackageKind.MAP to "1", PackageKind.POI to "1"), poiSizeBytes = 500)
+        repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.MAP to "1", PackageKind.POI to "1"), poiSizeBytes = 500)
 
-        repository.markPackagesInstalled("italia", "Italia", mapOf(PackageKind.MAP to "2"))
+        repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.MAP to "2"))
 
         val installed = repository.installed("italia")!!
         assertEquals("2", installed.mapVersion)
@@ -144,10 +149,32 @@ class RegionRepositoryTest {
         assertEquals(500L, installed.poiSizeBytes)
     }
 
+    @Test
+    fun `il codice paese resta aggiornando un pacchetto senza codice`() = runBlocking {
+        val (repository, _) = newRepository()
+        repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.MAP to "1", PackageKind.POI to "1"), poiSizeBytes = 500)
+
+        repository.markPackagesInstalled("italia", "Italia", null, mapOf(PackageKind.MAP to "2"))
+        assertEquals("it", repository.installed("italia")!!.countryCode)
+    }
+
+    @Test
+    fun `fillCountryCode riempie solo un codice mancante`() = runBlocking {
+        val (repository, _) = newRepository()
+        repository.markPackagesInstalled("italia", "Italia", null, mapOf(PackageKind.POI to "1"), poiSizeBytes = 10)
+        repository.markPackagesInstalled("francia", "Francia", "fr", mapOf(PackageKind.POI to "1"), poiSizeBytes = 10)
+
+        repository.fillCountryCode("italia", "it")
+        repository.fillCountryCode("francia", "xx")
+
+        assertEquals("it", repository.installed("italia")!!.countryCode)
+        assertEquals("fr", repository.installed("francia")!!.countryCode)
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun `markPackagesInstalled richiede la dimensione dei POI`() = runBlocking {
         val (repository, _) = newRepository()
-        repository.markPackagesInstalled("italia", "Italia", mapOf(PackageKind.POI to "1"))
+        repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.POI to "1"))
     }
 
     @Test

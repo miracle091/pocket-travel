@@ -41,6 +41,7 @@ import com.pockettravel.app.regions.icon
 import com.pockettravel.app.regions.label
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
+import com.pockettravel.core.ui.CountryFlag
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.R as UiR
 
@@ -117,6 +118,7 @@ fun StorageScreen(onBack: () -> Unit, viewModel: StorageViewModel = hiltViewMode
                         Column {
                             StorageRow(
                                 icon = AppIcons.WorldFilled,
+                                countryCode = region.countryCode,
                                 title = region.displayName,
                                 supporting = Formatter.formatShortFileSize(context, region.sizeBytes),
                                 onDelete = { viewModel.deleteRegion(region.regionId) },
@@ -178,6 +180,8 @@ private fun EmptyLine(text: String) {
 @Composable
 private fun StorageRow(
     icon: ImageVector,
+    // Se c'e' una bandiera per il codice, al posto di [icon].
+    countryCode: String? = null,
     title: String,
     supporting: String,
     // null: riga solo informativa, senza elimina.
@@ -191,7 +195,9 @@ private fun StorageRow(
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = { Text(supporting) },
-        leadingContent = { Icon(icon, contentDescription = null) },
+        leadingContent = {
+            CountryFlag(countryCode, size = 40.dp) { Icon(icon, contentDescription = null) }
+        },
         trailingContent = onDelete?.let {
             {
                 IconButton(onClick = { showDeleteConfirm = true }) {
