@@ -53,7 +53,7 @@ class GeneratePoiTest {
     }
 
     @Test
-    fun `aree e relazioni col loro centro, parcheggi privati, metro e uffici informazioni`() {
+    fun `aree e relazioni col loro centro, parcheggi privati, metro, uffici informazioni e parchi`() {
         val xml = File.createTempFile("pocket-travel-test", ".osm.xml")
         try {
             xml.writeText(
@@ -65,17 +65,19 @@ class GeneratePoiTest {
                   <node id="1" lat="45.46" lon="9.18"><tag k="railway" v="station"/><tag k="station" v="subway"/><tag k="name" v="Duomo"/></node>
                   <node id="2" lat="44.06" lon="12.57"><tag k="tourism" v="information"/><tag k="information" v="office"/></node>
                   <node id="3" lat="44.06" lon="12.58"><tag k="tourism" v="information"/><tag k="information" v="board"/></node>
+                  <way id="4"><center lat="44.07" lon="12.57"/><tag k="leisure" v="park"/><tag k="name" v="Parco Marecchia"/></way>
+                  <way id="5"><center lat="44.07" lon="12.58"/><tag k="leisure" v="park"/></way>
                   <relation id="1"><center lat="44.02" lon="12.61"/><tag k="aeroway" v="aerodrome"/><tag k="iata" v="RMI"/></relation>
                   <way id="3"><tag k="amenity" v="parking"/></way>
                 </osm>
                 """.trimIndent(),
             )
-            val pois = readPois(listOf(xml), listOf("amenity", "tourism", "railway", "aeroway"))
+            val pois = readPois(listOf(xml), listOf("amenity", "tourism", "leisure", "railway", "aeroway"))
 
-            // Way 3 senza <center>: niente coordinate, scartata. Way 1 e nodo 1 hanno lo stesso id ma
+            // Way 5: parco senza nome, scartato. Way 3 senza <center>: niente coordinate, scartata. Way 1 e nodo 1 hanno lo stesso id ma
             // tipi diversi: entrambi presenti.
             assertEquals(
-                listOf("parking_private", "parking", "subway_station", "information_office", "information", "aerodrome"),
+                listOf("parking_private", "parking", "subway_station", "information_office", "information", "park", "aerodrome"),
                 pois.map { it.category },
             )
             assertEquals(44.02, pois.last().lat, 1e-9)

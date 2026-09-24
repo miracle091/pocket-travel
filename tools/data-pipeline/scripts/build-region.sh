@@ -322,8 +322,9 @@ fetch_overpass_chunk() {
   local bbox="(${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon})"
   query="${query}way[\"amenity\"~\"^(parking|bus_station|hospital|fire_station|place_of_worship|monastery|ferry_terminal)$\"]${bbox};"
   query="${query}way[\"tourism\"=\"information\"][\"information\"~\"^(office|visitor_centre)$\"]${bbox};"
-  # Parchi pubblici e a pagamento (parchi a tema e acquatici, zoo): quasi sempre aree o relazioni.
-  query="${query}wr[\"leisure\"~\"^(park|water_park)$\"]${bbox};wr[\"tourism\"~\"^(theme_park|zoo)$\"]${bbox};"
+  # Parchi pubblici e a pagamento (parchi a tema e acquatici, zoo): quasi sempre aree o relazioni. Dei
+  # parchi pubblici solo quelli con un nome: gli altri sono per lo piu' aiuole e giardinetti.
+  query="${query}wr[\"leisure\"=\"park\"][\"name\"]${bbox};wr[\"leisure\"=\"water_park\"]${bbox};wr[\"tourism\"~\"^(theme_park|zoo)$\"]${bbox};"
   # Trasporti: stazioni (treno e metro), autostazioni, aeroporti con codice IATA (niente aviosuperfici).
   query="${query}nw[\"railway\"~\"^(station|halt)$\"]${bbox};nwr[\"aeroway\"=\"aerodrome\"][\"iata\"]${bbox};"
   query="${query});out center;"

@@ -88,6 +88,8 @@ data class Poi(val name: String, val category: String, val lat: Double, val lon:
 private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagKeys: List<String>): Poi? {
     val tagKey = poiTagKeys.firstOrNull { tags.containsKey(it) } ?: return null
     val tagValue = tags.getValue(tagKey)
+    // Parchi senza nome: per lo piu' aiuole e giardinetti, sulla mappa sarebbero solo "park".
+    if (tagKey == "leisure" && tagValue == "park" && tags["name"] == null) return null
     return Poi(
         name = tags["name"] ?: tagValue,
         category = when {
