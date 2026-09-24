@@ -53,7 +53,7 @@ class GeneratePoiTest {
     }
 
     @Test
-    fun `aree e relazioni col loro centro, parcheggi privati e metro`() {
+    fun `aree e relazioni col loro centro, parcheggi privati, metro e uffici informazioni`() {
         val xml = File.createTempFile("pocket-travel-test", ".osm.xml")
         try {
             xml.writeText(
@@ -63,17 +63,19 @@ class GeneratePoiTest {
                   <way id="1"><center lat="44.05" lon="12.55"/><tag k="amenity" v="parking"/><tag k="access" v="private"/></way>
                   <way id="2"><center lat="44.06" lon="12.56"/><tag k="amenity" v="parking"/><tag k="access" v="yes"/></way>
                   <node id="1" lat="45.46" lon="9.18"><tag k="railway" v="station"/><tag k="station" v="subway"/><tag k="name" v="Duomo"/></node>
+                  <node id="2" lat="44.06" lon="12.57"><tag k="tourism" v="information"/><tag k="information" v="office"/></node>
+                  <node id="3" lat="44.06" lon="12.58"><tag k="tourism" v="information"/><tag k="information" v="board"/></node>
                   <relation id="1"><center lat="44.02" lon="12.61"/><tag k="aeroway" v="aerodrome"/><tag k="iata" v="RMI"/></relation>
                   <way id="3"><tag k="amenity" v="parking"/></way>
                 </osm>
                 """.trimIndent(),
             )
-            val pois = readPois(listOf(xml), listOf("amenity", "railway", "aeroway"))
+            val pois = readPois(listOf(xml), listOf("amenity", "tourism", "railway", "aeroway"))
 
             // Way 3 senza <center>: niente coordinate, scartata. Way 1 e nodo 1 hanno lo stesso id ma
             // tipi diversi: entrambi presenti.
             assertEquals(
-                listOf("parking_private", "parking", "subway_station", "aerodrome"),
+                listOf("parking_private", "parking", "subway_station", "information_office", "information", "aerodrome"),
                 pois.map { it.category },
             )
             assertEquals(44.02, pois.last().lat, 1e-9)

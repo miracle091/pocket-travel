@@ -41,12 +41,18 @@ class PoiCategoryTest {
         assertEquals(PoiCategory.ATTRAZIONI, poi("monument", "historic=monument").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("viewpoint", "tourism=viewpoint").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("museum", "tourism=museum").poiCategory())
+        assertEquals(PoiCategory.ATTRAZIONI, poi("monastery", "amenity=monastery").poiCategory())
+        assertEquals(PoiCategory.ATTRAZIONI, poi("fountain", "amenity=fountain").poiCategory())
+        assertEquals(PoiCategory.ATTRAZIONI, poi("park", "leisure=park").poiCategory())
+        assertEquals(PoiCategory.ATTRAZIONI, poi("water_park", "leisure=water_park").poiCategory())
+        assertEquals(PoiCategory.ATTRAZIONI, poi("theme_park", "tourism=theme_park").poiCategory())
+        assertEquals(PoiCategory.ATTRAZIONI, poi("place_of_worship", "amenity=place_of_worship").poiCategory())
     }
 
     @Test
     fun `il resto va in ALTRO`() {
-        assertEquals(PoiCategory.ALTRO, poi("bank", "amenity=bank").poiCategory())
-        assertEquals(PoiCategory.ALTRO, poi("pharmacy", "amenity=pharmacy").poiCategory())
+        assertEquals(PoiCategory.ALTRO, poi("cinema", "amenity=cinema").poiCategory())
+        assertEquals(PoiCategory.ALTRO, poi("library", "amenity=library").poiCategory())
     }
 
     @Test
@@ -65,16 +71,45 @@ class PoiCategoryTest {
     }
 
     @Test
-    fun `i cestini non vanno sulla mappa, la raccolta differenziata si`() {
-        assertTrue(poi("waste_basket", "amenity=waste_basket").isHiddenOnMap())
-        assertTrue(poi("waste_disposal", "amenity=waste_disposal").isHiddenOnMap())
-        assertFalse(poi("recycling", "amenity=recycling").isHiddenOnMap())
+    fun `cestini, riciclo, scuole e fontanelle non vanno sulla mappa`() {
+        listOf(
+            "amenity=waste_basket", "amenity=waste_disposal", "amenity=recycling", "amenity=school",
+            "amenity=drinking_water", "leisure=beach_resort",
+        ).forEach { tag -> assertTrue("$tag va nascosto", poi(tag.substringAfter("="), tag).isHiddenOnMap()) }
+        assertFalse(poi("cinema", "amenity=cinema").isHiddenOnMap())
     }
 
     @Test
-    fun `parcheggi pubblici e privati, stalli e panchine nascosti`() {
+    fun `farmacie, ospedali, vigili del fuoco, veterinari, banche, bancomat, poste e uffici informazioni hanno una categoria propria`() {
+        assertEquals(PoiCategory.FARMACIA, poi("pharmacy", "amenity=pharmacy").poiCategory())
+        assertEquals(PoiCategory.OSPEDALE, poi("hospital", "amenity=hospital").poiCategory())
+        assertEquals(PoiCategory.VIGILI_DEL_FUOCO, poi("fire_station", "amenity=fire_station").poiCategory())
+        assertEquals(PoiCategory.VETERINARIO, poi("veterinary", "amenity=veterinary").poiCategory())
+        assertEquals(PoiCategory.BANCA, poi("bank", "amenity=bank").poiCategory())
+        assertEquals(PoiCategory.BANCOMAT, poi("atm", "amenity=atm").poiCategory())
+        assertEquals(PoiCategory.UFFICIO_POSTALE, poi("post_office", "amenity=post_office").poiCategory())
+        assertEquals(PoiCategory.INFORMAZIONI, poi("information_office", "tourism=information").poiCategory())
+        assertFalse(poi("information_office", "tourism=information").isHiddenOnMap())
+        assertTrue("i cartelli informativi vanno nascosti", poi("information", "tourism=information").isHiddenOnMap())
+    }
+
+    @Test
+    fun `noleggi di auto, bici, moto e barche vanno in NOLEGGIO`() {
+        listOf("amenity=car_rental", "amenity=bicycle_rental", "amenity=motorcycle_rental", "amenity=boat_rental").forEach { tag ->
+            assertEquals(tag, PoiCategory.NOLEGGIO, poi(tag.substringAfter("="), tag).poiCategory())
+        }
+        assertTrue(poi("bus_rental", "amenity=bus_rental").isHiddenOnMap())
+    }
+
+    @Test
+    fun `parcheggi privati, stalli e panchine nascosti`() {
         assertEquals(PoiCategory.PARCHEGGIO, poi("parking", "amenity=parking").poiCategory())
+        assertFalse(poi("parking", "amenity=parking").isHiddenOnMap())
+        assertTrue(poi("parking_private", "amenity=parking").isHiddenOnMap())
         assertEquals(PoiCategory.PARCHEGGIO, poi("parking_entrance", "amenity=parking_entrance").poiCategory())
+        assertEquals(PoiCategory.PARCHEGGIO, poi("bicycle_parking", "amenity=bicycle_parking").poiCategory())
+        assertEquals(PoiCategory.PARCHEGGIO, poi("motorcycle_parking", "amenity=motorcycle_parking").poiCategory())
+        assertEquals(PoiCategory.ALTRO, poi("boat_parking", "amenity=boat_parking").poiCategory())
         assertEquals(PoiCategory.PARCHEGGIO_PRIVATO, poi("parking_private", "amenity=parking").poiCategory())
         assertTrue(poi("parking_space", "amenity=parking_space").isHiddenOnMap())
         assertTrue(poi("bench", "amenity=bench").isHiddenOnMap())
@@ -87,6 +122,8 @@ class PoiCategoryTest {
         assertEquals(PoiCategory.TRENO, poi("halt", "railway=halt").poiCategory())
         assertEquals(PoiCategory.METRO, poi("subway_station", "railway=station").poiCategory())
         assertEquals(PoiCategory.AUTOBUS, poi("bus_station", "amenity=bus_station").poiCategory())
+        assertEquals(PoiCategory.TAXI, poi("taxi", "amenity=taxi").poiCategory())
+        assertEquals(PoiCategory.TRAGHETTO, poi("ferry_terminal", "amenity=ferry_terminal").poiCategory())
         assertEquals(PoiCategory.AEROPORTO, poi("aerodrome", "aeroway=aerodrome").poiCategory())
     }
 }

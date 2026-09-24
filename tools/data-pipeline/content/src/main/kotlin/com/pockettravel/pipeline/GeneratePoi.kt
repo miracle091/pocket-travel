@@ -93,6 +93,9 @@ private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagK
         category = when {
             tagKey == "amenity" && tagValue == "parking" && tags["access"] in PRIVATE_ACCESS -> "parking_private"
             tagKey == "railway" && (tags["station"] == "subway" || tags["subway"] == "yes") -> "subway_station"
+            // Uffici e centri informazioni, non i cartelli e i segnavia (stesso tag tourism=information).
+            tagKey == "tourism" && tagValue == "information" && tags["information"] in INFO_OFFICE ->
+                "information_office"
             else -> tagValue
         },
         lat = lat,
@@ -142,3 +145,5 @@ fun writePoiDb(pois: List<Poi>, regionId: String, outputDb: File) {
 // Parcheggi non aperti a tutti (tag access OSM): l'app li mostra con un segnalino a parte. Resta
 // osmTag "amenity=parking", cambia solo category.
 private val PRIVATE_ACCESS = setOf("private", "customers", "no", "permit", "residents")
+
+private val INFO_OFFICE = setOf("office", "visitor_centre")

@@ -18,13 +18,13 @@ internal fun PoiCategory.pinColor(): Color = when (this) {
     PoiCategory.CIBO_BEVANDE -> PoiColors.FoodDrink
     PoiCategory.NEGOZI -> PoiColors.Shopping
     PoiCategory.ATTRAZIONI -> PoiColors.Attractions
-    PoiCategory.AMBASCIATA_CONSOLATO -> PoiColors.Embassy
-    PoiCategory.POLIZIA -> PoiColors.Police
-    PoiCategory.BAGNI_PUBBLICI -> PoiColors.Toilets
-    PoiCategory.CARBURANTE -> PoiColors.Fuel
-    PoiCategory.PARCHEGGIO -> PoiColors.Parking
-    PoiCategory.PARCHEGGIO_PRIVATO -> PoiColors.PrivateParking
-    PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.AEROPORTO -> PoiColors.Transit
+    PoiCategory.AMBASCIATA_CONSOLATO, PoiCategory.POLIZIA, PoiCategory.BAGNI_PUBBLICI, PoiCategory.FARMACIA,
+    PoiCategory.OSPEDALE, PoiCategory.VIGILI_DEL_FUOCO, PoiCategory.VETERINARIO,
+    PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.UFFICIO_POSTALE, PoiCategory.INFORMAZIONI ->
+        PoiColors.PublicServices
+    PoiCategory.CARBURANTE, PoiCategory.NOLEGGIO, PoiCategory.PARCHEGGIO, PoiCategory.PARCHEGGIO_PRIVATO,
+    PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO,
+    PoiCategory.AEROPORTO -> PoiColors.Transport
     PoiCategory.ALTRO -> PoiColors.Other
 }
 
@@ -40,10 +40,21 @@ internal fun PoiCategory.glyph(): Int? = when (this) {
     PoiCategory.POLIZIA -> UiR.drawable.ms_local_police
     PoiCategory.BAGNI_PUBBLICI -> UiR.drawable.ms_wc
     PoiCategory.CARBURANTE -> UiR.drawable.ms_local_gas_station
+    PoiCategory.FARMACIA -> UiR.drawable.ms_local_pharmacy
+    PoiCategory.OSPEDALE -> UiR.drawable.ms_local_hospital
+    PoiCategory.VIGILI_DEL_FUOCO -> UiR.drawable.ms_fire_truck
+    PoiCategory.VETERINARIO -> UiR.drawable.ms_pets
+    PoiCategory.BANCA -> UiR.drawable.ms_savings
+    PoiCategory.BANCOMAT -> UiR.drawable.ms_local_atm
+    PoiCategory.UFFICIO_POSTALE -> UiR.drawable.ms_local_post_office
+    PoiCategory.INFORMAZIONI -> UiR.drawable.ms_info
+    PoiCategory.NOLEGGIO -> UiR.drawable.ms_car_rental
     PoiCategory.PARCHEGGIO, PoiCategory.PARCHEGGIO_PRIVATO -> UiR.drawable.ms_local_parking
     PoiCategory.TRENO -> UiR.drawable.ms_train
     PoiCategory.METRO -> UiR.drawable.ms_subway
     PoiCategory.AUTOBUS -> UiR.drawable.ms_directions_bus
+    PoiCategory.TAXI -> UiR.drawable.ms_local_taxi
+    PoiCategory.TRAGHETTO -> UiR.drawable.ms_directions_boat
     PoiCategory.AEROPORTO -> UiR.drawable.ms_flight
     PoiCategory.ALTRO -> null
 }
@@ -58,11 +69,22 @@ internal fun PoiCategory.label(): Int = when (this) {
     PoiCategory.POLIZIA -> R.string.poi_police
     PoiCategory.BAGNI_PUBBLICI -> R.string.poi_toilets
     PoiCategory.CARBURANTE -> R.string.poi_fuel
+    PoiCategory.FARMACIA -> R.string.poi_pharmacy
+    PoiCategory.OSPEDALE -> R.string.poi_hospital
+    PoiCategory.VIGILI_DEL_FUOCO -> R.string.poi_fire_station
+    PoiCategory.VETERINARIO -> R.string.poi_veterinary
+    PoiCategory.BANCA -> R.string.poi_bank
+    PoiCategory.BANCOMAT -> R.string.poi_atm
+    PoiCategory.UFFICIO_POSTALE -> R.string.poi_post_office
+    PoiCategory.INFORMAZIONI -> R.string.poi_information
+    PoiCategory.NOLEGGIO -> R.string.poi_rental
     PoiCategory.PARCHEGGIO -> R.string.poi_parking
     PoiCategory.PARCHEGGIO_PRIVATO -> R.string.poi_parking_private
     PoiCategory.TRENO -> R.string.poi_train
     PoiCategory.METRO -> R.string.poi_metro
     PoiCategory.AUTOBUS -> R.string.poi_bus
+    PoiCategory.TAXI -> R.string.poi_taxi
+    PoiCategory.TRAGHETTO -> R.string.poi_ferry
     PoiCategory.AEROPORTO -> R.string.poi_airport
     PoiCategory.ALTRO -> R.string.poi_other
 }

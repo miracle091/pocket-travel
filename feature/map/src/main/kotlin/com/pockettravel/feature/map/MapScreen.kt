@@ -26,6 +26,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +55,9 @@ import org.maplibre.android.plugins.annotation.SymbolOptions
 
 private const val PIN_ICON_PREFIX = "pocket-travel-pin-"
 
+// I parcheggi sono tanti e fitti (a Rimini oltre 800): solo da vicino, per non coprire il resto.
+private const val PARKING_MIN_ZOOM = 15.0
+
 private fun iconIdFor(category: PoiCategory) = PIN_ICON_PREFIX + category.name
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -72,7 +76,18 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
     var symbolPinMap by remember { mutableStateOf<Map<Long, MapPin>>(emptyMap()) }
     var selectedPin by remember { mutableStateOf<MapPin?>(null) }
     var cameraFitted by remember { mutableStateOf(false) }
-    val visiblePins = pins.filter { it.category in selectedCategories }
+    var parkingZoom by remember { mutableStateOf(false) }
+    LaunchedEffect(mapView) {
+        mapView.getMapAsync { map ->
+            val update = { parkingZoom = map.cameraPosition.zoom >= PARKING_MIN_ZOOM }
+            // Move per i gesti, idle anche per gli spostamenti via codice (il fit iniziale).
+            map.addOnCameraMoveListener(update)
+            map.addOnCameraIdleListener(update)
+        }
+    }
+    val visiblePins = pins.filter {
+        it.category in selectedCategories && (it.category != PoiCategory.PARCHEGGIO || parkingZoom)
+    }
     val presentCategories = PoiCategory.entries.filter { category -> pins.any { it.category == category } }
 
     Box(modifier = Modifier.fillMaxSize()) {

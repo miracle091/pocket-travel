@@ -317,10 +317,13 @@ fetch_overpass_chunk() {
   for tag in "${POI_TAG_KEYS[@]}"; do
     query="${query}node[\"${tag}\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});"
   done
-  # Parcheggi e autostazioni anche come aree (quasi sempre disegnati cosi'): "out center" da' alle
-  # way un punto.
+  # Parcheggi, autostazioni, ospedali, caserme dei pompieri, chiese, monasteri e terminal dei
+  # traghetti anche come aree (quasi sempre disegnati cosi'): "out center" da' alle way un punto.
   local bbox="(${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon})"
-  query="${query}way[\"amenity\"~\"^(parking|bus_station)$\"]${bbox};"
+  query="${query}way[\"amenity\"~\"^(parking|bus_station|hospital|fire_station|place_of_worship|monastery|ferry_terminal)$\"]${bbox};"
+  query="${query}way[\"tourism\"=\"information\"][\"information\"~\"^(office|visitor_centre)$\"]${bbox};"
+  # Parchi pubblici e a pagamento (parchi a tema e acquatici, zoo): quasi sempre aree o relazioni.
+  query="${query}wr[\"leisure\"~\"^(park|water_park)$\"]${bbox};wr[\"tourism\"~\"^(theme_park|zoo)$\"]${bbox};"
   # Trasporti: stazioni (treno e metro), autostazioni, aeroporti con codice IATA (niente aviosuperfici).
   query="${query}nw[\"railway\"~\"^(station|halt)$\"]${bbox};nwr[\"aeroway\"=\"aerodrome\"][\"iata\"]${bbox};"
   query="${query});out center;"
