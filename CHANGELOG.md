@@ -5,6 +5,11 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 ## [Non rilasciato]
 
 ### Aggiunto
+- Numeri civici sulla mappa, visibili avvicinandosi (da zoom 17): un pacchetto a parte e leggero per regione (San Marino 146 kB, circa 50 MB l'Italia intera), da scaricare dal foglio Pacchetti; la mappa resta quella di prima. Le regioni ricevono i civici man mano che vengono ripubblicate.
+- Mappa: segnalini con colore e simbolo propri per polizia, bagni pubblici, distributori di carburante, parcheggi (pubblici e privati), stazioni ferroviarie, metropolitana, autostazioni e aeroporti. Parcheggi, stazioni e aeroporti disegnati in OpenStreetMap come aree arrivano con il prossimo aggiornamento dei punti di interesse di ogni regione.
+
+### Modificato
+- Mappa: cestini, panchine, tavoli da picnic e singoli stalli di parcheggio non compaiono piu' come punti di interesse.
 - Elenco regioni: la bandiera di ogni nazione al posto dell'icona del globo.
 - Componenti Material 3 Expressive: indicatore di caricamento animato, barra di avanzamento ondulata per i download, titolo grande che si riduce scorrendo l'elenco regioni, animazioni a molla.
 - Numeri di emergenza per tutte le 246 regioni (prima solo 7), presi da Travel.gc.ca (Governo del Canada) e confrontati con Wikipedia e Wikidata, più le schede di viaggio del Governo britannico dove non bastavano; le fonti sono nella schermata Licenze. Per gli 11 paesi senza un numero di emergenza nazionale (es. Iraq, Libia, Guinea, Sud Sudan) la scheda lo dice e consiglia di annotare prima i contatti di polizia e strutture sanitarie locali.
