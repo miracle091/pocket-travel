@@ -37,7 +37,7 @@ private val rentalTags = setOf(
 )
 private val attractionValues = setOf(
     "attraction", "museum", "viewpoint", "gallery", "artwork", "zoo", "theme_park", "water_park", "park", "garden",
-    "monastery", "place_of_worship", "fountain",
+    "monastery", "place_of_worship", "fountain", "playground",
 )
 
 /**
