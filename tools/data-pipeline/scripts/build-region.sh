@@ -280,19 +280,19 @@ fi
 # Marino resta un solo chunk/una sola query, per uno grande diventano N query piu' leggere.
 # generatePoi (piu' sotto) unisce i risultati delle tile con terra emersa.
 #
-# overpass.openstreetmap.fr per primo (non per ultimo come prima): sui mirror precedenti
-# (overpass-api.de, z.overpass-api.de) ogni singolo tentativo di questa sessione e' fallito,
-# nessuno dei due ha mai risposto una volta - tenerli come primi tentativi costava ~60s di
-# backoff a vuoto (20s+40s) PER OGNI tile della griglia, moltiplicato per decine di tile su un
-# paese grande diventa mezz'ora o piu' di puro tempo morto. Restano come fallback, non rimossi
-# del tutto, nel caso smettano di essere irraggiungibili in futuro.
+# Istanze gratuite e senza chiave con copertura mondiale (wiki OSM, "Overpass API - Instances
+# with global data coverage", verificato il 2026-09-24): prima quelle senza limiti dichiarati
+# (VK Maps, private.coffee), poi le due FOSSGIS, che chiedono meno di 10.000 richieste al giorno.
+# overpass.openstreetmap.fr tolto: dal 2026-09 risponde solo a usi autorizzati. La disponibilita'
+# cambia di ora in ora (stesso giorno: una istanza in timeout, un'altra con 504), quindi
+# ATTEMPTS = numero di istanze, cosi' ogni chunk le prova tutte.
 OVERPASS_ENDPOINTS=(
-  "https://overpass.openstreetmap.fr/api/interpreter"
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+  "https://overpass.private.coffee/api/interpreter"
   "https://overpass-api.de/api/interpreter"
   "https://z.overpass-api.de/api/interpreter"
-  "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
 )
-ATTEMPTS=3
+ATTEMPTS=${#OVERPASS_ENDPOINTS[@]}
 
 # Chiavi di tag OSM riconosciute come punti di interesse — sottoinsieme minimo, non lo schema POI
 # completo di OSM (amenity/shop/tourism/leisure/historic coprono la maggior parte dei casi comuni
@@ -300,6 +300,10 @@ ATTEMPTS=3
 # piu' sotto) invece di essere duplicata anche li', cosi' la query Overpass e il filtro dei nodi
 # in GeneratePoi.kt non possono disallinearsi.
 POI_TAG_KEYS=(amenity shop tourism leisure historic)
+# Chiavi lette da generatePoi ma interrogate su Overpass solo con i filtri mirati di
+# fetch_overpass_chunk (stazioni, aeroporti): con la chiave intera arriverebbero anche binari,
+# passaggi a livello e segnali.
+POI_EXTRA_TAG_KEYS=(railway aeroway)
 
 fmax() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0>b+0)?a:b }'; }
 fmin() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0<b+0)?a:b }'; }
@@ -313,7 +317,13 @@ fetch_overpass_chunk() {
   for tag in "${POI_TAG_KEYS[@]}"; do
     query="${query}node[\"${tag}\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});"
   done
-  query="${query});out body;"
+  # Parcheggi e autostazioni anche come aree (quasi sempre disegnati cosi'): "out center" da' alle
+  # way un punto.
+  local bbox="(${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon})"
+  query="${query}way[\"amenity\"~\"^(parking|bus_station)$\"]${bbox};"
+  # Trasporti: stazioni (treno e metro), autostazioni, aeroporti con codice IATA (niente aviosuperfici).
+  query="${query}nw[\"railway\"~\"^(station|halt)$\"]${bbox};nwr[\"aeroway\"=\"aerodrome\"][\"iata\"]${bbox};"
+  query="${query});out center;"
   for attempt in $(seq 1 "$ATTEMPTS"); do
     local endpoint="${OVERPASS_ENDPOINTS[$(( (attempt - 1) % ${#OVERPASS_ENDPOINTS[@]} ))]}"
     echo "-- tentativo $attempt/$ATTEMPTS su $endpoint..."
@@ -404,7 +414,7 @@ POI_DB="$OUTPUT_DIR/poi.db"
 rm -f "$POI_DB"
 cd "$REPO_ROOT"
 echo "-- genero poi.db..."
-POI_TAG_KEYS_ARG="$(IFS=,; echo "${POI_TAG_KEYS[*]}")"
+POI_TAG_KEYS_ARG="$(IFS=,; echo "${POI_TAG_KEYS[*]} ${POI_EXTRA_TAG_KEYS[*]}" | tr ' ' ,)"
 POI_ARGS="\"$REGION_ID\" \"$(winpath "$POI_DB")\" \"$POI_TAG_KEYS_ARG\""
 for f in "${POI_XML_FILES[@]}"; do
   POI_ARGS="$POI_ARGS \"$(winpath "$f")\""

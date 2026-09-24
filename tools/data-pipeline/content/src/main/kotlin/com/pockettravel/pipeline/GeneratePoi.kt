@@ -38,31 +38,38 @@ fun readPois(files: List<File>, poiTagKeys: List<String>): List<Poi> {
     System.setProperty("jdk.xml.entityExpansionLimit", "0")
 
     val pois = mutableListOf<Poi>()
-    val seenIds = HashSet<Long>()
+    // Nodi, way e relazioni hanno spazi di id separati in OSM: la chiave li distingue.
+    val seenIds = HashSet<String>()
     var tags = HashMap<String, String>()
     var id = 0L
     var lat = 0.0
     var lon = 0.0
-    var inNode = false
+    var inElement: String? = null
     val handler = object : DefaultHandler() {
         override fun startElement(uri: String, localName: String, qName: String, attributes: Attributes) {
             when (qName) {
-                "node" -> {
-                    inNode = true
+                "node", "way", "relation" -> {
+                    inElement = qName
                     id = attributes.getValue("id").toLong()
-                    lat = attributes.getValue("lat").toDouble()
-                    lon = attributes.getValue("lon").toDouble()
+                    // Way e relazioni non hanno coordinate proprie: arrivano dal loro <center> ("out center").
+                    lat = attributes.getValue("lat")?.toDouble() ?: Double.NaN
+                    lon = attributes.getValue("lon")?.toDouble() ?: Double.NaN
                     tags = HashMap()
                 }
-                "tag" -> if (inNode) tags[attributes.getValue("k")] = attributes.getValue("v")
+                "center" -> if (inElement == "way" || inElement == "relation") {
+                    lat = attributes.getValue("lat").toDouble()
+                    lon = attributes.getValue("lon").toDouble()
+                }
+                "tag" -> if (inElement != null) tags[attributes.getValue("k")] = attributes.getValue("v")
             }
         }
 
         override fun endElement(uri: String, localName: String, qName: String) {
-            if (qName != "node") return
-            inNode = false
+            if (qName != "node" && qName != "way" && qName != "relation") return
+            inElement = null
+            if (lat.isNaN() || lon.isNaN()) return
             val poi = poiFrom(tags, lat, lon, poiTagKeys) ?: return
-            if (seenIds.add(id)) pois += poi
+            if (seenIds.add("$qName/$id")) pois += poi
         }
     }
     val parser = SAXParserFactory.newInstance().apply {
@@ -83,7 +90,11 @@ private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagK
     val tagValue = tags.getValue(tagKey)
     return Poi(
         name = tags["name"] ?: tagValue,
-        category = tagValue,
+        category = when {
+            tagKey == "amenity" && tagValue == "parking" && tags["access"] in PRIVATE_ACCESS -> "parking_private"
+            tagKey == "railway" && (tags["station"] == "subway" || tags["subway"] == "yes") -> "subway_station"
+            else -> tagValue
+        },
         lat = lat,
         lon = lon,
         osmTag = "$tagKey=$tagValue",
@@ -127,3 +138,7 @@ fun writePoiDb(pois: List<Poi>, regionId: String, outputDb: File) {
         insert.setString(7, poi.phone)
     }
 }
+
+// Parcheggi non aperti a tutti (tag access OSM): l'app li mostra con un segnalino a parte. Resta
+// osmTag "amenity=parking", cambia solo category.
+private val PRIVATE_ACCESS = setOf("private", "customers", "no", "permit", "residents")
