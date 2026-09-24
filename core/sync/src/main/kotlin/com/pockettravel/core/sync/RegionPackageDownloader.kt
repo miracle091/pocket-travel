@@ -33,17 +33,40 @@ class RegionPackageDownloader @Inject constructor(
             regionStorage.cleanupStagingExcept(regionId, stagingVersion)
             val staging = regionStorage.stagingDirectoryFor(regionId, stagingVersion)
             staging.mkdirs()
+            val installedRouting = File(regionStorage.directoryFor(regionId), RegionStorage.ROUTING_DIR)
             val totalBytes = files.sumOf { it.sizeBytes }
             var bytesBeforeCurrentFile = 0L
             files.forEach { file ->
                 val baseBytes = bytesBeforeCurrentFile
-                downloadAndVerify(file, File(staging, file.name)) { fileBytesDownloaded ->
-                    onProgress(baseBytes + fileBytesDownloaded, totalBytes)
+                val target = File(staging, file.name)
+                if (reuseLocalCopy(file, target, File(installedRouting, file.name))) {
+                    onProgress(baseBytes + file.sizeBytes, totalBytes)
+                } else {
+                    downloadAndVerify(file, target) { fileBytesDownloaded ->
+                        onProgress(baseBytes + fileBytesDownloaded, totalBytes)
+                    }
                 }
                 bytesBeforeCurrentFile += file.sizeBytes
             }
             staging
         }
+
+    /**
+     * Evita di riscaricare un file che c'e' gia': un segmento .rd5 installato con lo stesso nome,
+     * dimensione e SHA-256 (tile non cambiata tra due versioni del routing, la pipeline ricarica
+     * solo quelle cambiate), o un file gia' completo in staging da un tentativo precedente. Il
+     * segmento installato si copia, non si sposta: serve ancora per il rollback
+     * (RegionStorage.activatePackage).
+     */
+    private fun reuseLocalCopy(file: RegionManifestFile, target: File, installed: File): Boolean {
+        if (!target.exists() && installed.isFile && installed.length() == file.sizeBytes) {
+            installed.copyTo(target)
+        }
+        if (!target.exists()) return false
+        if (target.length() == file.sizeBytes && sha256Of(target).equals(file.sha256, ignoreCase = true)) return true
+        target.delete()
+        return false
+    }
     // internal (non private) cosi' un test puo' esercitare direttamente il download/verifica
     // byte-per-byte senza dover soddisfare anche il vincolo HTTPS+host-allowlist di
     // RegionManifestEntry.validate() (gia' coperto a parte da RegionManifestTest).

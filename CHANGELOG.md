@@ -9,6 +9,9 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Componenti Material 3 Expressive: indicatore di caricamento animato, barra di avanzamento ondulata per i download, titolo grande che si riduce scorrendo l'elenco regioni, animazioni a molla.
 - Numeri di emergenza per tutte le 246 regioni (prima solo 7), presi da Travel.gc.ca (Governo del Canada) e confrontati con Wikipedia e Wikidata, più le schede di viaggio del Governo britannico dove non bastavano; le fonti sono nella schermata Licenze. Per gli 11 paesi senza un numero di emergenza nazionale (es. Iraq, Libia, Guinea, Sud Sudan) la scheda lo dice e consiglia di annotare prima i contatti di polizia e strutture sanitarie locali.
 
+### Modificato
+- Aggiornamento dei percorsi: l'app riscarica solo i segmenti cambiati e riusa quelli già installati (prima riscaricava tutti i segmenti della regione, anche centinaia di MB per un paese grande).
+
 ### Corretto
 - Ricerca regioni: scrivendo si perdevano lettere e il cursore tornava all'inizio (es. "Letton" diventava "Ltt").
 - Elenco regioni con testo ingrandito oltre il 150%: il pulsante "Aggiorna" schiacciava il nome della nazione fino a spezzarlo lettera per lettera; ora è un pulsante con la sola icona.

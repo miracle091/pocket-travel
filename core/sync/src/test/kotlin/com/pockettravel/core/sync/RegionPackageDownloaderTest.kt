@@ -24,6 +24,7 @@ class RegionPackageDownloaderTest {
 
     private val server = MockWebServer()
     private lateinit var downloader: RegionPackageDownloader
+    private lateinit var regionStorage: RegionStorage
     private lateinit var targetDir: File
 
     @Before
@@ -31,7 +32,7 @@ class RegionPackageDownloaderTest {
         server.start()
         val root = createTempDirectory("pocket-travel-downloader-test").toFile()
         targetDir = File(root, "target").apply { mkdirs() }
-        val regionStorage = RegionStorage(
+        regionStorage = RegionStorage(
             regionsDir = File(root, "regions").apply { mkdirs() },
             stagingDir = File(root, "staging").apply { mkdirs() },
         )
@@ -128,6 +129,29 @@ class RegionPackageDownloaderTest {
         } catch (_: PermanentRegionPackageException) {
             // atteso
         }
+    }
+
+    @Test
+    fun `riusa i segmenti rd5 installati invariati e scarica solo quelli cambiati`() = runBlocking {
+        val installedRouting = File(regionStorage.directoryFor("italia"), RegionStorage.ROUTING_DIR).apply { mkdirs() }
+        val unchanged = "tile invariata".toByteArray()
+        File(installedRouting, "E10_N40.rd5").writeBytes(unchanged)
+        // Stessa dimensione del nuovo contenuto ma hash diverso: va riscaricato, non riusato.
+        File(installedRouting, "E10_N45.rd5").writeBytes("tile vecchia!".toByteArray())
+        val changed = "tile cambiata".toByteArray()
+        server.enqueue(MockResponse().setResponseCode(200).setBody("tile cambiata"))
+
+        val staging = downloader.download(
+            "italia", "routing-2",
+            listOf(manifestFile(unchanged, "E10_N40.rd5"), manifestFile(changed, "E10_N45.rd5")),
+        )
+
+        assertEquals(1, server.requestCount)
+        assertEquals("/E10_N45.rd5", server.takeRequest().path)
+        assertEquals("tile invariata", File(staging, "E10_N40.rd5").readText())
+        assertEquals("tile cambiata", File(staging, "E10_N45.rd5").readText())
+        // Il segmento installato resta al suo posto per il rollback.
+        assertEquals("tile invariata", File(installedRouting, "E10_N40.rd5").readText())
     }
 
     @Test
