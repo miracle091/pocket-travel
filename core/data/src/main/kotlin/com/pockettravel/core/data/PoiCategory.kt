@@ -95,7 +95,24 @@ private val hiddenOnMapTags = setOf(
     "amenity=surf_school",
 )
 
-/** true per i POI da non mostrare sulla mappa: i tipi sopra, i parcheggi privati e i cartelli informativi. */
-fun Poi.isHiddenOnMap(): Boolean = osmTag in hiddenOnMapTags ||
-    poiCategory() == PoiCategory.PARCHEGGIO_PRIVATO ||
-    (osmTag == "tourism=information" && category != "information_office")
+// Servizi che in OSM di solito non hanno un nome (bagni, bancomat, parcheggi...): restano sulla mappa
+// anche senza, a differenza di tutti gli altri POI.
+private val namelessOnMapCategories = setOf(
+    PoiCategory.BAGNI_PUBBLICI, PoiCategory.BANCOMAT, PoiCategory.PARCHEGGIO, PoiCategory.CARBURANTE,
+    PoiCategory.FARMACIA, PoiCategory.OSPEDALE, PoiCategory.TAXI, PoiCategory.UFFICIO_POSTALE,
+)
+
+/** false se OSM non ha un nome: la pipeline mette allora il valore del tag (es. "toilets"). */
+fun Poi.hasName(): Boolean = name != osmTag.substringAfter("=")
+
+/**
+ * true per i POI da non mostrare sulla mappa: i tipi sopra, i parcheggi privati, i cartelli
+ * informativi e quelli senza nome, tranne i servizi di namelessOnMapCategories e le fontane.
+ */
+fun Poi.isHiddenOnMap(): Boolean {
+    val category = poiCategory()
+    return osmTag in hiddenOnMapTags ||
+        category == PoiCategory.PARCHEGGIO_PRIVATO ||
+        (osmTag == "tourism=information" && this.category != "information_office") ||
+        (!hasName() && category !in namelessOnMapCategories && osmTag != "amenity=fountain")
+}

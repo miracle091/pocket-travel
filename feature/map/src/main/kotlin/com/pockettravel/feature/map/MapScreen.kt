@@ -183,15 +183,17 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
                     Spacer(modifier = Modifier.width(Spacing.l))
                     Column {
                         Text(
-                            text = pin.name,
+                            text = pin.name ?: stringResource(pin.category.label()),
                             style = MaterialTheme.typography.titleLarge,
                             modifier = Modifier.semantics { heading() },
                         )
-                        Text(
-                            text = stringResource(pin.category.label()),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        if (pin.name != null) {
+                            Text(
+                                text = stringResource(pin.category.label()),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
                 pin.phone?.let { phone ->

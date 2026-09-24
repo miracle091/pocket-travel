@@ -7,10 +7,10 @@ import org.junit.Test
 
 class PoiCategoryTest {
 
-    private fun poi(category: String, osmTag: String) = Poi(
+    private fun poi(category: String, osmTag: String, name: String = "test") = Poi(
         id = 1,
         regionId = "italia",
-        name = "test",
+        name = name,
         category = category,
         latitude = 0.0,
         longitude = 0.0,
@@ -125,5 +125,18 @@ class PoiCategoryTest {
         assertEquals(PoiCategory.TAXI, poi("taxi", "amenity=taxi").poiCategory())
         assertEquals(PoiCategory.TRAGHETTO, poi("ferry_terminal", "amenity=ferry_terminal").poiCategory())
         assertEquals(PoiCategory.AEROPORTO, poi("aerodrome", "aeroway=aerodrome").poiCategory())
+    }
+
+    @Test
+    fun `senza nome nascosti, tranne i servizi e le fontane`() {
+        // Senza nome in OSM la pipeline mette come nome il valore del tag.
+        assertTrue(poi("restaurant", "amenity=restaurant", name = "restaurant").isHiddenOnMap())
+        assertTrue(poi("park", "leisure=park", name = "park").isHiddenOnMap())
+        assertFalse(poi("restaurant", "amenity=restaurant", name = "Da Mario").isHiddenOnMap())
+        listOf("amenity=toilets", "amenity=atm", "amenity=parking", "amenity=fuel", "amenity=pharmacy", "amenity=fountain")
+            .forEach { tag ->
+                val value = tag.substringAfter("=")
+                assertFalse("$tag senza nome resta", poi(value, tag, name = value).isHiddenOnMap())
+            }
     }
 }

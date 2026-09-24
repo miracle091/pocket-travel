@@ -14,6 +14,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 ### Modificato
 - Nuova icona dell'app e nuova schermata di avvio: una bussola cucita in una tasca, tutta vettoriale, con la versione monocromatica per le icone a tema di Android 13+.
 - Mappa: segnalini in 7 colori, uno per famiglia (alloggio, cibo, negozi, attrazioni, trasporti, servizi pubblici, altro); il tipo lo dice il simbolo.
+- Mappa: i punti di interesse senza nome non compaiono più, tranne bagni, bancomat, parcheggi, distributori, farmacie, ospedali, taxi, uffici postali e fontane, che in OpenStreetMap di solito un nome non l'hanno; nella loro scheda il titolo è la categoria.
 - Mappa: non compaiono più come punti di interesse cestini, panchine, tavoli da picnic, singoli stalli e parcheggi privati, cartelli informativi, fontanelle, raccolta differenziata, scuole, asili e università, stabilimenti balneari e altri tipi poco utili in viaggio.
 - Aggiornamento dei percorsi: l'app riscarica solo i segmenti cambiati e riusa quelli già installati (prima riscaricava tutti i segmenti della regione, anche centinaia di MB per un paese grande).
 

@@ -3,6 +3,7 @@ package com.pockettravel.feature.map
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.PoiRepository
+import com.pockettravel.core.data.hasName
 import com.pockettravel.core.data.isHiddenOnMap
 import com.pockettravel.core.data.poiCategory
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +27,7 @@ class MapRouteViewModel @Inject constructor(
     fun loadPins(regionId: String) {
         viewModelScope.launch {
             _pins.value = poiRepository.forRegion(regionId).filterNot { it.isHiddenOnMap() }.map { poi ->
-                MapPin(poi.id.toString(), poi.name, poi.latitude, poi.longitude, poi.poiCategory(), poi.phone)
+                MapPin(poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.phone)
             }
         }
     }
