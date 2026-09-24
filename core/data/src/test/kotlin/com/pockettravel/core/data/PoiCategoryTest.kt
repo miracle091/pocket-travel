@@ -46,8 +46,6 @@ class PoiCategoryTest {
         assertEquals(PoiCategory.ATTRAZIONI, poi("fountain", "amenity=fountain").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("playground", "leisure=playground").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("nature_reserve", "leisure=nature_reserve").poiCategory())
-        assertEquals(PoiCategory.ATTRAZIONI, poi("cinema", "amenity=cinema").poiCategory())
-        assertEquals(PoiCategory.ATTRAZIONI, poi("theatre", "amenity=theatre").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("park", "leisure=park").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("water_park", "leisure=water_park").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("theme_park", "tourism=theme_park").poiCategory())
@@ -83,6 +81,13 @@ class PoiCategoryTest {
             "amenity=drinking_water", "leisure=beach_resort",
         ).forEach { tag -> assertTrue("$tag va nascosto", poi(tag.substringAfter("="), tag).isHiddenOnMap()) }
         assertFalse(poi("library", "amenity=library").isHiddenOnMap())
+    }
+
+    @Test
+    fun `cinema, teatri, discoteche e sale giochi vanno in SVAGO`() {
+        listOf("amenity=cinema", "amenity=theatre", "amenity=nightclub", "leisure=amusement_arcade").forEach { tag ->
+            assertEquals(tag, PoiCategory.SVAGO, poi(tag.substringAfter("="), tag).poiCategory())
+        }
     }
 
     @Test

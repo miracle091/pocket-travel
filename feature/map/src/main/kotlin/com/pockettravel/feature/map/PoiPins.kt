@@ -18,6 +18,7 @@ internal fun PoiCategory.pinColor(): Color = when (this) {
     PoiCategory.CIBO_BEVANDE -> PoiColors.FoodDrink
     PoiCategory.NEGOZI -> PoiColors.Shopping
     PoiCategory.ATTRAZIONI -> PoiColors.Attractions
+    PoiCategory.SVAGO -> PoiColors.Entertainment
     PoiCategory.AMBASCIATA_CONSOLATO, PoiCategory.POLIZIA, PoiCategory.BAGNI_PUBBLICI, PoiCategory.FARMACIA,
     PoiCategory.OSPEDALE, PoiCategory.VIGILI_DEL_FUOCO, PoiCategory.VETERINARIO,
     PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.UFFICIO_POSTALE, PoiCategory.INFORMAZIONI ->
@@ -36,6 +37,7 @@ internal fun PoiCategory.glyph(): Int? = when (this) {
     PoiCategory.CIBO_BEVANDE -> UiR.drawable.ms_restaurant
     PoiCategory.NEGOZI -> UiR.drawable.ms_shopping_bag
     PoiCategory.ATTRAZIONI -> UiR.drawable.ms_attractions
+    PoiCategory.SVAGO -> UiR.drawable.ms_theater_comedy
     PoiCategory.AMBASCIATA_CONSOLATO -> UiR.drawable.ms_account_balance
     PoiCategory.POLIZIA -> UiR.drawable.ms_local_police
     PoiCategory.BAGNI_PUBBLICI -> UiR.drawable.ms_wc
@@ -66,6 +68,7 @@ internal fun PoiCategory.label(): Int = when (this) {
     PoiCategory.CIBO_BEVANDE -> R.string.poi_food
     PoiCategory.NEGOZI -> R.string.poi_shopping
     PoiCategory.ATTRAZIONI -> R.string.poi_attractions
+    PoiCategory.SVAGO -> R.string.poi_entertainment
     PoiCategory.AMBASCIATA_CONSOLATO -> R.string.poi_embassy
     PoiCategory.POLIZIA -> R.string.poi_police
     PoiCategory.BAGNI_PUBBLICI -> R.string.poi_toilets

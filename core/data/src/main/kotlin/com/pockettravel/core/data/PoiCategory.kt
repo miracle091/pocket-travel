@@ -5,6 +5,7 @@ enum class PoiCategory {
     CIBO_BEVANDE,
     NEGOZI,
     ATTRAZIONI,
+    SVAGO,
     AMBASCIATA_CONSOLATO,
     POLIZIA,
     BAGNI_PUBBLICI,
@@ -36,9 +37,13 @@ private val rentalTags = setOf(
     "amenity=car_rental", "amenity=bicycle_rental", "amenity=motorcycle_rental", "amenity=scooter_rental",
     "amenity=boat_rental", "amenity=ski_rental",
 )
+private val entertainmentTags = setOf(
+    "amenity=cinema", "amenity=theatre", "amenity=nightclub", "amenity=casino", "leisure=bowling_alley",
+    "leisure=amusement_arcade",
+)
 private val attractionValues = setOf(
     "attraction", "museum", "viewpoint", "gallery", "artwork", "zoo", "theme_park", "water_park", "park", "garden",
-    "monastery", "place_of_worship", "fountain", "playground", "nature_reserve", "cinema", "theatre",
+    "monastery", "place_of_worship", "fountain", "playground", "nature_reserve",
 )
 
 /**
@@ -76,6 +81,7 @@ fun Poi.poiCategory(): PoiCategory = when {
     osmTag == "amenity=taxi" -> PoiCategory.TAXI
     osmTag == "amenity=ferry_terminal" -> PoiCategory.TRAGHETTO
     osmTag == "aeroway=aerodrome" -> PoiCategory.AEROPORTO
+    osmTag in entertainmentTags -> PoiCategory.SVAGO
     osmTag.startsWith("shop=") -> PoiCategory.NEGOZI
     osmTag.startsWith("historic=") -> PoiCategory.ATTRAZIONI
     category in accommodationValues -> PoiCategory.ALLOGGIO

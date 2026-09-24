@@ -38,7 +38,7 @@ private fun ThemeTokensPreview() {
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                     listOf(
                         PoiColors.Lodging, PoiColors.FoodDrink, PoiColors.Shopping,
-                        PoiColors.Attractions, PoiColors.Transport, PoiColors.PublicServices, PoiColors.Other,
+                        PoiColors.Attractions, PoiColors.Entertainment, PoiColors.Transport, PoiColors.PublicServices, PoiColors.Other,
                     ).forEach { Surface(Modifier.size(32.dp), shape = CircleShape, color = it) {} }
                 }
                 val t = MaterialTheme.typography
