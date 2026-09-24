@@ -25,7 +25,7 @@ class PmtilesTileSource(private val regionsDir: File) : OfflineTileSource {
         }.orEmpty()
         val addressesLayer = addresses?.let {
             """,
-                { "id": "addresses", "type": "symbol", "source": "addresses", "source-layer": "addresses", "minzoom": 17, "layout": { "text-field": ["get", "number"], "text-font": ["NotoSansRegular"], "text-size": 10 }, "paint": { "text-color": "${palette.addressText}", "text-halo-color": "${palette.background}", "text-halo-width": 1 } }"""
+                { "id": "addresses", "type": "symbol", "source": "addresses", "source-layer": "addresses", "minzoom": 17, "layout": { "text-field": ["get", "number"], "text-font": ["NotoSansRegular"], "text-size": 11 }, "paint": { "text-color": "${palette.addressText}", "text-halo-color": "${palette.building}", "text-halo-width": 1.2 } }"""
         }.orEmpty()
 
         // I nomi dei source-layer ("water", "roads", "buildings", "places") sono quelli dello
@@ -141,7 +141,7 @@ private data class MapPalette(
             placeText = "#3f3b33", placeHalo = "#ffffff", majorLabel = "#7a5c1e", majorLabelHalo = "#f7c164",
             minorLabel = "#5a5346", minorLabelHalo = "#ffffff",
             boundaryCountry = "#8f8a9e", boundaryRegion = "#b9b4c4",
-            addressText = "#8a8275",
+            addressText = "#4a443a",
         )
         val Dark = MapPalette(
             background = "#1d2226", water = "#17344a", building = "#2a3036", buildingOutline = "#363d44",
@@ -149,7 +149,7 @@ private data class MapPalette(
             placeText = "#e2e4e6", placeHalo = "#1d2226", majorLabel = "#f3d49a", majorLabelHalo = "#1d2226",
             minorLabel = "#c3c8cc", minorLabelHalo = "#1d2226",
             boundaryCountry = "#8d96a3", boundaryRegion = "#5b646f",
-            addressText = "#9aa1a8",
+            addressText = "#c3c8cc",
         )
     }
 }
