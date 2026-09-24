@@ -234,7 +234,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
           echo "-- scarico $tileFile (cambiata)..."
           download_with_progress "$dest" "$tileFile" -sS -o "$dest" "${BROUTER_BASE}/${tileFile}"
           size="$(wc -c < "$dest" | tr -d ' ')"
-          hash="$(sha256sum "$dest" | awk '{print $1}')"
+          hash="$(sha256sum < "$dest" | awk '{print $1}')"
           printf '%s\t%s\t%s\t%s\n' "$tileFile" "${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${tileFile}" "$size" "$hash" >> "$UPDATED_TSV"
         done <<< "$CHANGED_TILES"
         jq -R -s -c 'split("\n") | map(select(length > 0) | split("\t") | {name: .[0], url: .[1], sizeBytes: (.[2] | tonumber), sha256: .[3]})' \
@@ -357,7 +357,7 @@ while [ "$lon" -le "$LON_END" ]; do
         echo "-- scarico $tile.rd5 (ri-ospitato insieme a poi.db, vedi commento in testa al file)..."
         download_with_progress "$dest" "$tile.rd5" -sS -o "$dest" "$url"
         size="$(wc -c < "$dest" | tr -d ' ')"
-        hash="$(sha256sum "$dest" | awk '{print $1}')"
+        hash="$(sha256sum < "$dest" | awk '{print $1}')"
         rd5Url="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${tile}.rd5"
         entry="{ \"name\": \"${tile}.rd5\", \"url\": \"${rd5Url}\", \"sizeBytes\": ${size}, \"sha256\": \"${hash}\" }"
         if [ -z "$REMOTE_FILES_JSON" ]; then REMOTE_FILES_JSON="$entry"; else REMOTE_FILES_JSON="$REMOTE_FILES_JSON, $entry"; fi

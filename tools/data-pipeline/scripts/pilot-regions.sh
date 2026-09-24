@@ -294,3 +294,18 @@ PILOT_REGIONS=(
   "samoa-americane|Samoa Americane (Stati Uniti)|-171.10|-14.37|-169.40|-11.02|American_Samoa|as|||Oceania"
   "isole-marianne-settentrionali|Isole Marianne Settentrionali (Stati Uniti)|144.90|14.10|146.10|20.60|Northern_Mariana_Islands|mp|||Oceania"
 )
+
+# Release GitHub che ospita gli asset (poi.db, .rd5) di una regione: una per continente,
+# "region-data-<continente>", perche' ogni release e' limitata a 1000 asset. Durante una run i
+# nuovi asset si aggiungono ai vecchi, che la pulizia post-deploy toglie solo alla fine: una
+# release deve reggere il doppio dei suoi asset stabili. L'Asia (760 asset al 2026-09-24, oltre
+# 1500 durante una rigenerazione completa) e' divisa in due: le 5 regioni piu' grandi (367 asset)
+# stanno in "region-data-asia-grandi". Gli asset gia' pubblicati restano dove sono finche' la
+# regione non li rigenera: il manifest ha URL assoluti, quindi una regione puo' averli su tutte e due.
+region_release_tag() {
+  local regionId="$1" continent="$2"
+  case "$regionId" in
+    cina|russia-siberia|russia-estremo-oriente|indonesia|india) echo "region-data-asia-grandi" ;;
+    *) echo "region-data-$(echo "$continent" | tr 'A-Z' 'a-z' | tr ' ' '-')" ;;
+  esac
+}
