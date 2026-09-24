@@ -3,6 +3,8 @@ package com.pockettravel.app.regions
 import android.text.format.Formatter
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,20 +15,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DockedSearchBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -36,7 +39,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,7 +52,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -66,10 +73,14 @@ import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.sync.RegionPackageDownloadWorker
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
+import com.pockettravel.core.ui.DownloadProgressIndicator
 import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
+import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.flagCropAlignment
+import com.pockettravel.core.ui.flagRes
 import com.pockettravel.core.ui.isOnCellularNetwork
 import java.text.Collator
 import java.util.Locale
@@ -120,7 +131,7 @@ internal class RegionRowActions(
     val onDeletePackage: (regionId: String, kind: PackageKind) -> Unit,
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun RegionListContent(
     uiState: RegionListUiState,
@@ -142,13 +153,17 @@ internal fun RegionListContent(
         }
     }
 
+    // Top app bar grande che si comprime scorrendo l'elenco.
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     // Dentro NavigationSuiteScaffold: gli inset di sistema li gestiscono la barra/rail e la top app bar,
     // applicarli anche qui lascerebbe una fascia vuota sopra la barra di navigazione.
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         contentWindowInsets = WindowInsets(0),
         topBar = {
-            TopAppBar(
+            LargeFlexibleTopAppBar(
                 title = { Text(stringResource(R.string.regions_title)) },
+                scrollBehavior = scrollBehavior,
                 actions = {
                     if (showMapToggle) {
                         IconButton(
@@ -191,7 +206,7 @@ internal fun RegionListContent(
                 uiState.isLoading && uiState.items.isEmpty() && uiState.query.isEmpty() -> Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
-                ) { CircularProgressIndicator() }
+                ) { PocketTravelLoadingIndicator() }
 
                 uiState.loadError != null && uiState.items.isEmpty() -> EmptyState(
                     icon = AppIcons.OfflineWifi,
@@ -221,21 +236,29 @@ internal fun RegionListContent(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RegionSearchField(query: String, onQueryChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    // Testo tenuto qui e non riletto da uiState.query: lo stato del ViewModel arriva in ritardo
+    // (combine su Dispatchers.IO) e, usato come valore del campo, faceva perdere caratteri e
+    // riportava il cursore all'inizio mentre si scriveva.
+    var text by rememberSaveable { mutableStateOf(query) }
+    val onTextChange = { value: String ->
+        text = value
+        onQueryChange(value)
+    }
     // Barra di ricerca M3 "docked" usata solo come campo: filtra l'elenco sotto mentre si scrive,
     // senza aprire una vista di risultati separata.
     DockedSearchBar(
         inputField = {
             SearchBarDefaults.InputField(
-                query = query,
-                onQueryChange = onQueryChange,
+                query = text,
+                onQueryChange = onTextChange,
                 onSearch = {},
                 expanded = false,
                 onExpandedChange = {},
                 placeholder = { Text(stringResource(R.string.regions_search_hint)) },
                 leadingIcon = { Icon(AppIcons.Search, contentDescription = null) },
-                trailingIcon = if (query.isNotEmpty()) {
+                trailingIcon = if (text.isNotEmpty()) {
                     {
-                        IconButton(onClick = { onQueryChange("") }) {
+                        IconButton(onClick = { onTextChange("") }) {
                             Icon(AppIcons.Close, contentDescription = stringResource(R.string.regions_search_clear))
                         }
                     }
@@ -388,16 +411,31 @@ internal fun RegionRow(item: RegionUiItem, actions: RegionRowActions, onClick: (
                 )
             },
             leadingContent = {
-                Surface(
-                    shape = CircleShape,
-                    color = if (installed) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-                ) {
-                    Icon(
-                        imageVector = if (installed) AppIcons.WorldFilled else AppIcons.World,
+                val countryCode = item.countryCode
+                val flag = countryCode?.let(::flagRes)
+                if (countryCode != null && flag != null) {
+                    Image(
+                        painter = painterResource(flag),
                         contentDescription = null,
-                        tint = if (installed) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(Spacing.s),
+                        contentScale = ContentScale.Crop,
+                        alignment = flagCropAlignment(countryCode),
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
                     )
+                } else {
+                    Surface(
+                        shape = CircleShape,
+                        color = if (installed) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                    ) {
+                        Icon(
+                            imageVector = if (installed) AppIcons.WorldFilled else AppIcons.World,
+                            contentDescription = null,
+                            tint = if (installed) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(Spacing.s),
+                        )
+                    }
                 }
             },
             trailingContent = { RegionActionButton(item = item, isDownloading = isDownloading, actions = actions) },
@@ -405,7 +443,7 @@ internal fun RegionRow(item: RegionUiItem, actions: RegionRowActions, onClick: (
             modifier = Modifier.clickable(onClick = onClick),
         )
         if (isDownloading) {
-            LinearProgressIndicator(
+            DownloadProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth().padding(start = 72.dp, end = Spacing.l, bottom = Spacing.m),
             )
@@ -434,8 +472,16 @@ private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actio
         }
         RegionStatus.UPDATE_AVAILABLE, RegionStatus.INSTALLED -> Row(verticalAlignment = Alignment.CenterVertically) {
             if (item.status == RegionStatus.UPDATE_AVAILABLE) {
-                FilledTonalButton(onClick = startDownload, enabled = !isDownloading) {
-                    Text(stringResource(R.string.regions_update))
+                // Con il testo molto grande il pulsante con l'etichetta schiaccerebbe il nome della
+                // regione fino a spezzarlo lettera per lettera: solo icona, come "Scarica".
+                if (LocalDensity.current.fontScale >= 1.5f) {
+                    FilledTonalIconButton(onClick = startDownload, enabled = !isDownloading) {
+                        Icon(AppIcons.Download, contentDescription = stringResource(R.string.regions_update_region, item.displayName))
+                    }
+                } else {
+                    FilledTonalButton(onClick = startDownload, enabled = !isDownloading) {
+                        Text(stringResource(R.string.regions_update))
+                    }
                 }
             }
             // Mappa, percorsi e POI uno per uno, ed "Elimina tutto": vedi RegionPackagesSheet.

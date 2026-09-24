@@ -33,6 +33,11 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
         note = "Dati 1:50m, ridotti a confini, codice ISO e nome del paese (feature:map/src/main/assets/world).",
     ),
     LicenseEntry(
+        component = "Bandiere nazionali (westnordost/flags-vector-drawables-android, core:ui/src/main/res/drawable/ic_flag_*)",
+        license = "Licenza di ciascuna bandiera su Wikipedia/Wikimedia Commons, in gran parte pubblico dominio",
+        note = "Vettoriali esportati dalle bandiere di Wikipedia (Timeline of national flags).",
+    ),
+    LicenseEntry(
         component = "Klokantech Noto Sans (glifi etichette mappa, feature:map/src/main/assets/fonts)",
         license = "SIL OFL 1.1",
         note = "Font Noto Sans (Google) ripacchettato in SDF da openmaptiles/fonts; solo il range 0-255 (ASCII + Latin-1) e' incluso nell'app.",

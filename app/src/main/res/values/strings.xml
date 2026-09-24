@@ -18,6 +18,7 @@
     <string name="regions_status_downloading">Download in corso · %1$d%%</string>
     <string name="regions_download">Scarica %1$s</string>
     <string name="regions_update">Aggiorna</string>
+    <string name="regions_update_region">Aggiorna %1$s</string>
     <string name="regions_delete">Elimina %1$s</string>
     <string name="regions_delete_title">Eliminare %1$s?</string>
     <string name="regions_delete_message">I contenuti scaricati per questa regione verranno rimossi dal dispositivo.</string>
