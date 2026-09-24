@@ -160,4 +160,23 @@ class GenerateGuideContentTest {
             listOf(a, b, c).forEach { it.delete() }
         }
     }
+
+    @Test
+    fun `usa la pagina inglese solo se quella italiana non da' sezioni`() {
+        val itSoloTitoli = "== Sicurezza ==\n\n== A tavola ==\n"
+        val itConTesto = "== Sicurezza ==\nZona tranquilla.\n"
+        val en = "== Stay safe ==\nQuiet area.\n"
+
+        val fallback = regionGuideFromDumps("r", itSoloTitoli, "https://it.example/r", en, "https://en.example/r")
+        assertEquals("https://en.example/r", fallback.sourceUrl)
+        assertEquals(listOf("Stay safe"), fallback.sections.map { it.title })
+
+        val italiana = regionGuideFromDumps("r", itConTesto, "https://it.example/r", en, "https://en.example/r")
+        assertEquals("https://it.example/r", italiana.sourceUrl)
+        assertEquals(listOf("Sicurezza"), italiana.sections.map { it.title })
+
+        val senzaInglese = regionGuideFromDumps("r", itSoloTitoli, "https://it.example/r", null, "")
+        assertEquals("https://it.example/r", senzaInglese.sourceUrl)
+        assertEquals(0, senzaInglese.sections.size)
+    }
 }

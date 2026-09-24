@@ -54,23 +54,36 @@ resolve_protomaps_date() {
 # della pagina EN via l'API MediaWiki, gia' tenuti allineati da Wikivoyage stesso — evita di
 # mantenere a mano una seconda colonna di titoli IT in pilot-regions.sh, che si disallineerebbe
 # silenziosamente ad ogni rinomina di pagina. La risposta si parsa con sed per non rendere jq
-# obbligatorio. Nessun langlink IT (o pagina IT vuota): fallback sull'originale inglese.
+# obbligatorio: utf8=1 fa arrivare il titolo in UTF-8 invece che con gli escape \uXXXX (con gli
+# escape "Faer Oer" diventava un titolo non valido), e --data-urlencode lo codifica per l'URL.
+# Nessun langlink IT (o pagina IT vuota): fallback sull'originale inglese.
+# -f: una risposta HTTP di errore (400, 403, 429) non deve finire in <outFile> come se fosse la
+# pagina, altrimenti la regione esce senza sezioni invece di tenere la guida gia' pubblicata.
+# Lo User-Agent descrittivo e' richiesto dalla policy di Wikimedia.
 # Ritorna 1 (e nessun URL) se anche la pagina EN risulta vuota (titolo errato o errore di rete).
+wikimedia_curl() { curl -sSf --retry 3 --retry-delay 5 -A "PocketTravelDataPipeline/1.0 (https://github.com/miracle091/pocket-travel)" "$@"; }
 fetch_wikivoyage_dump() {
   local wikiTitle="$1" outFile="$2"
   local langlinks itTitle itTitleUrl
-  langlinks="$(curl -sS "https://en.wikivoyage.org/w/api.php?action=query&titles=${wikiTitle}&prop=langlinks&lllang=it&format=json" 2>/dev/null || true)"
+  langlinks="$(wikimedia_curl "https://en.wikivoyage.org/w/api.php?action=query&titles=${wikiTitle}&prop=langlinks&lllang=it&format=json&utf8=1&redirects=1" 2>/dev/null || true)"
   itTitle="$(printf '%s' "$langlinks" | sed -n 's/.*"lang":"it","\*":"\([^"]*\)".*/\1/p')"
   : > "$outFile"
   if [ -n "$itTitle" ]; then
     itTitleUrl="${itTitle// /_}"
-    curl -sS "https://it.wikivoyage.org/w/index.php?title=${itTitleUrl}&action=raw" -o "$outFile" 2>/dev/null || : > "$outFile"
+    wikimedia_curl -G "https://it.wikivoyage.org/w/index.php" --data-urlencode "title=${itTitleUrl}" -d action=raw -o "$outFile" 2>/dev/null || : > "$outFile"
     if [ -s "$outFile" ]; then
       echo "https://it.wikivoyage.org/wiki/${itTitleUrl}"
       return 0
     fi
   fi
-  curl -sS "https://en.wikivoyage.org/w/index.php?title=${wikiTitle}&action=raw" -o "$outFile" 2>/dev/null || : > "$outFile"
+  fetch_wikivoyage_en_dump "$wikiTitle" "$outFile"
+}
+
+# Solo la pagina inglese: stesso contratto di fetch_wikivoyage_dump (URL su stdout, 1 se vuota).
+# build-guides.sh la usa anche come ripiego per le pagine italiane con i soli titoli.
+fetch_wikivoyage_en_dump() {
+  local wikiTitle="$1" outFile="$2"
+  wikimedia_curl "https://en.wikivoyage.org/w/index.php?title=${wikiTitle}&action=raw" -o "$outFile" 2>/dev/null || : > "$outFile"
   if [ -s "$outFile" ]; then
     echo "https://en.wikivoyage.org/wiki/${wikiTitle}"
     return 0

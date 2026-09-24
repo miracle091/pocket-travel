@@ -149,7 +149,8 @@ data class RegionGuide(val regionId: String, val sourceUrl: String, val sections
  * Genera guides.db, il pacchetto guide unico per tutte le regioni (guide_sections +
  * emergency_numbers), scaricato dall'app separatamente da mappa, POI e routing.
  *
- * regioni.tsv: una riga per regione "regionId<TAB>dump.txt<TAB>sourceUrl" (vedi build-guides.sh).
+ * regioni.tsv: una riga per regione "regionId<TAB>dump.txt<TAB>sourceUrl", con in piu'
+ * "<TAB>dumpEn.txt<TAB>sourceUrlEn" quando build-guides.sh ha scaricato anche la pagina inglese.
  * Dump vuoto = pagina Wikivoyage non scaricata in questa run: si ricopiano le sezioni di quella
  * regione dal guides.db pubblicato, se passato, invece di farla sparire per un errore di rete.
  *
@@ -163,10 +164,12 @@ fun main(args: Array<String>) {
     val publishedDb = args.getOrNull(2)?.let(::File)?.takeIf { it.exists() }
 
     val guides = File(args[0]).readLines().filter { it.isNotBlank() }.map { line ->
-        val (regionId, dumpPath, sourceUrl) = line.split('\t')
+        val columns = line.split('\t')
+        val (regionId, dumpPath, sourceUrl) = columns
         val dump = dumpPath.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.length() > 0 }
+        val dumpEn = columns.getOrNull(3)?.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.length() > 0 }
         if (dump != null) {
-            RegionGuide(regionId, sourceUrl, parseWikivoyageDump(dump.readText()))
+            regionGuideFromDumps(regionId, dump.readText(), sourceUrl, dumpEn?.readText(), columns.getOrNull(4).orEmpty())
         } else {
             println("guide: $regionId senza dump in questa run, ricopio le sezioni pubblicate")
             publishedDb?.let { readRegionGuide(it, regionId) } ?: RegionGuide(regionId, sourceUrl, emptyList())
@@ -181,6 +184,22 @@ fun main(args: Array<String>) {
         return
     }
     println("guide: ${guides.sumOf { it.sections.size }} sezioni di ${guides.size} regioni scritte in ${outputDb.path}")
+}
+
+/**
+ * Guida di una regione dalla pagina scaricata (di norma quella italiana). Se non ne esce nessuna
+ * sezione (pagina IT con i soli titoli, es. Siberia) e c'e' la pagina inglese, si usa quella.
+ */
+fun regionGuideFromDumps(regionId: String, dump: String, sourceUrl: String, dumpEn: String?, sourceUrlEn: String): RegionGuide {
+    val sections = parseWikivoyageDump(dump)
+    if (sections.isEmpty() && dumpEn != null) {
+        val sectionsEn = parseWikivoyageDump(dumpEn)
+        if (sectionsEn.isNotEmpty()) {
+            println("guide: $regionId senza sezioni nella pagina $sourceUrl, uso $sourceUrlEn")
+            return RegionGuide(regionId, sourceUrlEn, sectionsEn)
+        }
+    }
+    return RegionGuide(regionId, sourceUrl, sections)
 }
 
 /**
@@ -230,11 +249,12 @@ private fun readRegionGuide(db: File, regionId: String): RegionGuide? =
         }
     }
 
-/** Stesse righe in guide_sections ed emergency_numbers, a prescindere dall'ordine di inserimento. */
+/** Stesse righe in guide_sections e nelle tabelle dei numeri di emergenza, a prescindere dall'ordine di inserimento. */
 fun sameGuidesContent(a: File, b: File): Boolean {
     val queries = listOf(
         "SELECT regionId, category, title, body, sourceUrl FROM guide_sections ORDER BY 1, 2, 3, 4, 5",
         "SELECT regionId, general, police, ambulance, fire FROM emergency_numbers ORDER BY 1",
+        "SELECT regionId FROM emergency_numbers_none ORDER BY 1",
     )
     return queries.all { sql -> readRows(a, sql) == readRows(b, sql) }
 }

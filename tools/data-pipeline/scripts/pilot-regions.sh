@@ -106,7 +106,7 @@ PILOT_REGIONS=(
   "brunei|Brunei|114.20|4.01|115.45|5.45|Brunei|bn|||Asia"
   "cambogia|Cambogia|102.35|10.49|107.61|14.57|Cambodia|kh|||Asia"
   "cina|Cina|73.68|18.20|135.03|53.46|China|cn|||Asia"
-  "georgia|Georgia|39.96|41.06|46.64|43.55|Georgia|ge|||Asia"
+  "georgia|Georgia|39.96|41.06|46.64|43.55|Georgia_(country)|ge|||Asia"
   "hong-kong|Hong Kong (Cina)|113.83|22.15|114.44|22.58|Hong_Kong|hk|||Asia"
   "macao|Macao (Cina)|113.52|22.10|113.60|22.22|Macau|mo|||Asia"
   "india|India|68.18|7.97|97.40|35.67|India|in|||Asia"

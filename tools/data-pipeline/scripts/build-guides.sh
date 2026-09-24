@@ -47,7 +47,16 @@ for spec in "${PILOT_REGIONS[@]}"; do
   IFS='|' read -r regionId _ _ _ _ _ wikiTitle _ <<< "$spec"
   dump="$WORKDIR/$regionId.txt"
   if sourceUrl="$(fetch_wikivoyage_dump "$wikiTitle" "$dump")"; then
-    printf '%s\t%s\t%s\n' "$regionId" "$(winpath "$dump")" "$sourceUrl" >> "$REGIONS_TSV"
+    # Pagina italiana molto corta (una vera pagina paese e' 20-130 KB; la Siberia, solo titoli, 4
+    # KB): scarico anche quella inglese, e generateGuides la usa se l'italiana non da' sezioni.
+    # Solo sotto soglia, per non raddoppiare le richieste a Wikimedia.
+    dumpEn="$WORKDIR/$regionId.en.txt"
+    if [[ "$sourceUrl" == https://it.* ]] && [ "$(wc -c < "$dump")" -lt 8000 ] \
+      && sourceUrlEn="$(fetch_wikivoyage_en_dump "$wikiTitle" "$dumpEn")"; then
+      printf '%s\t%s\t%s\t%s\t%s\n' "$regionId" "$(winpath "$dump")" "$sourceUrl" "$(winpath "$dumpEn")" "$sourceUrlEn" >> "$REGIONS_TSV"
+    else
+      printf '%s\t%s\t%s\n' "$regionId" "$(winpath "$dump")" "$sourceUrl" >> "$REGIONS_TSV"
+    fi
   else
     echo "-- $regionId: pagina Wikivoyage $wikiTitle non scaricata, tengo la guida gia' pubblicata" >&2
     printf '%s\t\t\n' "$regionId" >> "$REGIONS_TSV"
