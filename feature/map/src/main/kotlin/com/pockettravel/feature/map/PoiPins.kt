@@ -19,6 +19,12 @@ internal fun PoiCategory.pinColor(): Color = when (this) {
     PoiCategory.NEGOZI -> PoiColors.Shopping
     PoiCategory.ATTRAZIONI -> PoiColors.Attractions
     PoiCategory.AMBASCIATA_CONSOLATO -> PoiColors.Embassy
+    PoiCategory.POLIZIA -> PoiColors.Police
+    PoiCategory.BAGNI_PUBBLICI -> PoiColors.Toilets
+    PoiCategory.CARBURANTE -> PoiColors.Fuel
+    PoiCategory.PARCHEGGIO -> PoiColors.Parking
+    PoiCategory.PARCHEGGIO_PRIVATO -> PoiColors.PrivateParking
+    PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.AEROPORTO -> PoiColors.Transit
     PoiCategory.ALTRO -> PoiColors.Other
 }
 
@@ -31,6 +37,14 @@ internal fun PoiCategory.glyph(): Int? = when (this) {
     PoiCategory.NEGOZI -> UiR.drawable.ms_shopping_bag
     PoiCategory.ATTRAZIONI -> UiR.drawable.ms_attractions
     PoiCategory.AMBASCIATA_CONSOLATO -> UiR.drawable.ms_account_balance
+    PoiCategory.POLIZIA -> UiR.drawable.ms_local_police
+    PoiCategory.BAGNI_PUBBLICI -> UiR.drawable.ms_wc
+    PoiCategory.CARBURANTE -> UiR.drawable.ms_local_gas_station
+    PoiCategory.PARCHEGGIO, PoiCategory.PARCHEGGIO_PRIVATO -> UiR.drawable.ms_local_parking
+    PoiCategory.TRENO -> UiR.drawable.ms_train
+    PoiCategory.METRO -> UiR.drawable.ms_subway
+    PoiCategory.AUTOBUS -> UiR.drawable.ms_directions_bus
+    PoiCategory.AEROPORTO -> UiR.drawable.ms_flight
     PoiCategory.ALTRO -> null
 }
 
@@ -41,6 +55,15 @@ internal fun PoiCategory.label(): Int = when (this) {
     PoiCategory.NEGOZI -> R.string.poi_shopping
     PoiCategory.ATTRAZIONI -> R.string.poi_attractions
     PoiCategory.AMBASCIATA_CONSOLATO -> R.string.poi_embassy
+    PoiCategory.POLIZIA -> R.string.poi_police
+    PoiCategory.BAGNI_PUBBLICI -> R.string.poi_toilets
+    PoiCategory.CARBURANTE -> R.string.poi_fuel
+    PoiCategory.PARCHEGGIO -> R.string.poi_parking
+    PoiCategory.PARCHEGGIO_PRIVATO -> R.string.poi_parking_private
+    PoiCategory.TRENO -> R.string.poi_train
+    PoiCategory.METRO -> R.string.poi_metro
+    PoiCategory.AUTOBUS -> R.string.poi_bus
+    PoiCategory.AEROPORTO -> R.string.poi_airport
     PoiCategory.ALTRO -> R.string.poi_other
 }
 

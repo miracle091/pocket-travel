@@ -14,5 +14,12 @@ object PoiColors {
     val Shopping = Color(0xFF007BC5)
     val Attractions = Color(0xFF007F5E)
     val Embassy = Color(0xFF5F6368)
+    val Police = Color(0xFF33449C)
+    val Toilets = Color(0xFF7B4FBF)
+    val Fuel = Color(0xFFC5221F)
+    val Parking = Color(0xFF1967D2)
+    val PrivateParking = Color(0xFF5F6B7A)
+    // Un solo colore per treno, metro, autobus e aeroporto (come Google Maps): il tipo lo dice il glifo.
+    val Transit = Color(0xFF00707A)
     val Other = Color(0xFF80868B)
 }

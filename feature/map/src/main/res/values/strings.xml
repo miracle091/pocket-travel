@@ -4,6 +4,15 @@
     <string name="poi_shopping">Negozi</string>
     <string name="poi_attractions">Attrazioni</string>
     <string name="poi_embassy">Ambasciate e consolati</string>
+    <string name="poi_police">Polizia</string>
+    <string name="poi_toilets">Bagni pubblici</string>
+    <string name="poi_fuel">Carburante</string>
+    <string name="poi_parking">Parcheggi</string>
+    <string name="poi_parking_private">Parcheggi privati</string>
+    <string name="poi_train">Stazioni ferroviarie</string>
+    <string name="poi_metro">Metropolitana</string>
+    <string name="poi_bus">Autostazioni</string>
+    <string name="poi_airport">Aeroporti</string>
     <string name="poi_other">Altro</string>
     <string name="poi_call">Chiama %1$s</string>
     <string name="world_legend_downloaded">Scaricata</string>
