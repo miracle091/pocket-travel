@@ -1,7 +1,13 @@
 package com.pockettravel.pipeline
 
+import com.onthegomap.planetiler.VectorTile
+import com.onthegomap.planetiler.pmtiles.ReadablePmtiles
+import java.io.ByteArrayInputStream
 import java.io.File
-import java.sql.DriverManager
+import java.util.zip.GZIPInputStream
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import org.locationtech.jts.geom.Point
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -33,20 +39,42 @@ class GenerateAddressesTest {
     }
 
     @Test
-    fun `scrive la tabella addresses in content db`() {
-        val outputDb = File.createTempFile("pocket-travel-test", ".content.db")
+    fun `scrive i civici in un pmtiles di soli punti a z14`() {
+        val addresses = extractAddresses(fixture, 12.44, 43.93, 12.46, 43.94)
+        val output = File.createTempFile("pocket-travel-test", ".addresses.pmtiles")
         try {
-            writeAddressesDb(listOf(Address(43_935_000, 12_447_000, "12A")), outputDb)
-            DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
-                conn.createStatement().executeQuery("SELECT latE6, lonE6, number FROM addresses").use { rs ->
-                    assertTrue(rs.next())
-                    assertEquals(43_935_000, rs.getInt(1))
-                    assertEquals(12_447_000, rs.getInt(2))
-                    assertEquals("12A", rs.getString(3))
+            writeAddressesPmtiles(addresses, output, 12.44, 43.93, 12.46, 43.94)
+
+            val decoded = mutableListOf<Address>()
+            ReadablePmtiles.newReadFromFile(output.toPath()).use { archive ->
+                archive.getAllTiles().use { tiles ->
+                    tiles.forEachRemaining { tile ->
+                        val coord = tile.coord()
+                        assertEquals(14, coord.z())
+                        VectorTile.decode(GZIPInputStream(ByteArrayInputStream(tile.bytes())).readBytes()).forEach { feature ->
+                            assertEquals("addresses", feature.layer())
+                            val point = feature.geometry().decode() as Point
+                            val lon = tileXToLon(coord.x() + point.x / 256.0, 14)
+                            val lat = tileYToLat(coord.y() + point.y / 256.0, 14)
+                            decoded += Address((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), feature.attrs()["number"].toString())
+                        }
+                    }
                 }
             }
+
+            assertEquals(addresses.size, decoded.size)
+            assertEquals(addresses.map { it.number }.sorted(), decoded.map { it.number }.sorted())
+            // La griglia z14 (4096 unita' per tile, ~0,6 m) sposta i punti di poco: entro 20 microgradi.
+            // Ogni punto letto deve avere un originale con lo stesso numero a quella distanza (lo
+            // stesso numero compare piu' volte, su vie diverse).
+            val remaining = addresses.toMutableList()
+            decoded.forEach { b ->
+                val match = remaining.firstOrNull { a -> a.number == b.number && abs(a.latE6 - b.latE6) <= 20 && abs(a.lonE6 - b.lonE6) <= 20 }
+                assertTrue("nessun originale vicino a $b", match != null)
+                remaining.remove(match)
+            }
         } finally {
-            outputDb.delete()
+            output.delete()
         }
     }
 
