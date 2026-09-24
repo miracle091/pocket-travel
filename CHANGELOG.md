@@ -5,9 +5,13 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 ## [Non rilasciato]
 
 ### Aggiunto
+- Elenco regioni: la bandiera di ogni nazione al posto dell'icona del globo.
+- Componenti Material 3 Expressive: indicatore di caricamento animato, barra di avanzamento ondulata per i download, titolo grande che si riduce scorrendo l'elenco regioni, animazioni a molla.
 - Numeri di emergenza per tutte le 246 regioni (prima solo 7), presi da Travel.gc.ca (Governo del Canada) e confrontati con Wikipedia e Wikidata, più le schede di viaggio del Governo britannico dove non bastavano; le fonti sono nella schermata Licenze. Per gli 11 paesi senza un numero di emergenza nazionale (es. Iraq, Libia, Guinea, Sud Sudan) la scheda lo dice e consiglia di annotare prima i contatti di polizia e strutture sanitarie locali.
 
 ### Corretto
+- Ricerca regioni: scrivendo si perdevano lettere e il cursore tornava all'inizio (es. "Letton" diventava "Ltt").
+- Elenco regioni con testo ingrandito oltre il 150%: il pulsante "Aggiorna" schiacciava il nome della nazione fino a spezzarlo lettera per lettera; ora è un pulsante con la sola icona.
 - Documenti: cambiando la lingua del sistema con l'app già aperta, la richiesta di sblocco con impronta o volto restava nella lingua precedente (titolo, sottotitolo, pulsante Annulla e messaggi di errore).
 - Guide: 225 nazioni su 246 risultavano senza nessuna sezione (es. Isole Faroe, Germania, Stati Uniti). La pipeline salvava come guida le risposte di errore di Wikivoyage e non trovava la pagina italiana per i titoli con lettere accentate o con un redirect. Ora tutte le 246 nazioni hanno la guida: 245 in italiano, e la Siberia in inglese perché la sua pagina italiana ha solo i titoli.
 - Punti di interesse: una regione con i segmenti di percorso invariati non aggiornava mai i propri POI. Ora vengono rigenerati quando hanno più di 30 giorni, senza riscaricare mappa e percorsi, e l'app li riscarica solo se sono davvero cambiati.
