@@ -46,6 +46,8 @@ class PoiCategoryTest {
         assertEquals(PoiCategory.ATTRAZIONI, poi("fountain", "amenity=fountain").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("playground", "leisure=playground").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("nature_reserve", "leisure=nature_reserve").poiCategory())
+        assertEquals(PoiCategory.ATTRAZIONI, poi("cinema", "amenity=cinema").poiCategory())
+        assertEquals(PoiCategory.ATTRAZIONI, poi("theatre", "amenity=theatre").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("park", "leisure=park").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("water_park", "leisure=water_park").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("theme_park", "tourism=theme_park").poiCategory())
@@ -54,7 +56,7 @@ class PoiCategoryTest {
 
     @Test
     fun `il resto va in ALTRO`() {
-        assertEquals(PoiCategory.ALTRO, poi("cinema", "amenity=cinema").poiCategory())
+        assertEquals(PoiCategory.ALTRO, poi("library", "amenity=library").poiCategory())
         assertEquals(PoiCategory.ALTRO, poi("library", "amenity=library").poiCategory())
     }
 
@@ -68,6 +70,7 @@ class PoiCategoryTest {
         assertEquals(PoiCategory.POLIZIA, poi("police", "amenity=police").poiCategory())
         assertEquals(PoiCategory.BAGNI_PUBBLICI, poi("toilets", "amenity=toilets").poiCategory())
         assertEquals(PoiCategory.CARBURANTE, poi("fuel", "amenity=fuel").poiCategory())
+        assertEquals(PoiCategory.RICARICA, poi("charging_station", "amenity=charging_station").poiCategory())
         listOf("amenity=police", "amenity=toilets", "amenity=fuel").forEach { tag ->
             assertFalse("$tag non va nascosto", poi(tag.substringAfter("="), tag).isHiddenOnMap())
         }
@@ -79,7 +82,7 @@ class PoiCategoryTest {
             "amenity=waste_basket", "amenity=waste_disposal", "amenity=recycling", "amenity=school",
             "amenity=drinking_water", "leisure=beach_resort",
         ).forEach { tag -> assertTrue("$tag va nascosto", poi(tag.substringAfter("="), tag).isHiddenOnMap()) }
-        assertFalse(poi("cinema", "amenity=cinema").isHiddenOnMap())
+        assertFalse(poi("library", "amenity=library").isHiddenOnMap())
     }
 
     @Test
@@ -136,7 +139,9 @@ class PoiCategoryTest {
         assertTrue(poi("restaurant", "amenity=restaurant", name = "restaurant").isHiddenOnMap())
         assertTrue(poi("park", "leisure=park", name = "park").isHiddenOnMap())
         assertFalse(poi("restaurant", "amenity=restaurant", name = "Da Mario").isHiddenOnMap())
-        listOf("amenity=toilets", "amenity=atm", "amenity=parking", "amenity=fuel", "amenity=pharmacy", "amenity=fountain")
+        listOf("amenity=toilets", "amenity=atm", "amenity=parking", "amenity=fuel", "amenity=charging_station", "amenity=pharmacy",
+            "amenity=fountain",
+        )
             .forEach { tag ->
                 val value = tag.substringAfter("=")
                 assertFalse("$tag senza nome resta", poi(value, tag, name = value).isHiddenOnMap())

@@ -22,7 +22,7 @@ internal fun PoiCategory.pinColor(): Color = when (this) {
     PoiCategory.OSPEDALE, PoiCategory.VIGILI_DEL_FUOCO, PoiCategory.VETERINARIO,
     PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.UFFICIO_POSTALE, PoiCategory.INFORMAZIONI ->
         PoiColors.PublicServices
-    PoiCategory.CARBURANTE, PoiCategory.NOLEGGIO, PoiCategory.PARCHEGGIO, PoiCategory.PARCHEGGIO_PRIVATO,
+    PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.NOLEGGIO, PoiCategory.PARCHEGGIO, PoiCategory.PARCHEGGIO_PRIVATO,
     PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO,
     PoiCategory.AEROPORTO -> PoiColors.Transport
     PoiCategory.ALTRO -> PoiColors.Other
@@ -40,6 +40,7 @@ internal fun PoiCategory.glyph(): Int? = when (this) {
     PoiCategory.POLIZIA -> UiR.drawable.ms_local_police
     PoiCategory.BAGNI_PUBBLICI -> UiR.drawable.ms_wc
     PoiCategory.CARBURANTE -> UiR.drawable.ms_local_gas_station
+    PoiCategory.RICARICA -> UiR.drawable.ms_ev_station
     PoiCategory.FARMACIA -> UiR.drawable.ms_local_pharmacy
     PoiCategory.OSPEDALE -> UiR.drawable.ms_local_hospital
     PoiCategory.VIGILI_DEL_FUOCO -> UiR.drawable.ms_fire_truck
@@ -69,6 +70,7 @@ internal fun PoiCategory.label(): Int = when (this) {
     PoiCategory.POLIZIA -> R.string.poi_police
     PoiCategory.BAGNI_PUBBLICI -> R.string.poi_toilets
     PoiCategory.CARBURANTE -> R.string.poi_fuel
+    PoiCategory.RICARICA -> R.string.poi_charging
     PoiCategory.FARMACIA -> R.string.poi_pharmacy
     PoiCategory.OSPEDALE -> R.string.poi_hospital
     PoiCategory.VIGILI_DEL_FUOCO -> R.string.poi_fire_station

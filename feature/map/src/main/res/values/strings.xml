@@ -7,6 +7,7 @@
     <string name="poi_police">Polizia</string>
     <string name="poi_toilets">Bagni pubblici</string>
     <string name="poi_fuel">Carburante</string>
+    <string name="poi_charging">Ricarica elettrica</string>
     <string name="poi_pharmacy">Farmacie</string>
     <string name="poi_hospital">Ospedali</string>
     <string name="poi_fire_station">Vigili del fuoco</string>

@@ -9,6 +9,7 @@ enum class PoiCategory {
     POLIZIA,
     BAGNI_PUBBLICI,
     CARBURANTE,
+    RICARICA,
     FARMACIA,
     OSPEDALE,
     VIGILI_DEL_FUOCO,
@@ -37,7 +38,7 @@ private val rentalTags = setOf(
 )
 private val attractionValues = setOf(
     "attraction", "museum", "viewpoint", "gallery", "artwork", "zoo", "theme_park", "water_park", "park", "garden",
-    "monastery", "place_of_worship", "fountain", "playground", "nature_reserve",
+    "monastery", "place_of_worship", "fountain", "playground", "nature_reserve", "cinema", "theatre",
 )
 
 /**
@@ -51,6 +52,7 @@ fun Poi.poiCategory(): PoiCategory = when {
     osmTag == "amenity=police" -> PoiCategory.POLIZIA
     osmTag == "amenity=toilets" -> PoiCategory.BAGNI_PUBBLICI
     osmTag == "amenity=fuel" -> PoiCategory.CARBURANTE
+    osmTag == "amenity=charging_station" -> PoiCategory.RICARICA
     osmTag == "amenity=pharmacy" -> PoiCategory.FARMACIA
     osmTag == "amenity=hospital" -> PoiCategory.OSPEDALE
     osmTag == "amenity=fire_station" -> PoiCategory.VIGILI_DEL_FUOCO
@@ -99,7 +101,7 @@ private val hiddenOnMapTags = setOf(
 // anche senza, a differenza di tutti gli altri POI.
 private val namelessOnMapCategories = setOf(
     PoiCategory.BAGNI_PUBBLICI, PoiCategory.BANCOMAT, PoiCategory.PARCHEGGIO, PoiCategory.CARBURANTE,
-    PoiCategory.FARMACIA, PoiCategory.OSPEDALE, PoiCategory.TAXI, PoiCategory.UFFICIO_POSTALE,
+    PoiCategory.RICARICA, PoiCategory.FARMACIA, PoiCategory.OSPEDALE, PoiCategory.TAXI, PoiCategory.UFFICIO_POSTALE,
 )
 
 /** false se OSM non ha un nome: la pipeline mette allora il valore del tag (es. "toilets"). */

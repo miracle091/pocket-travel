@@ -14,7 +14,8 @@ object PoiColors {
     val FoodDrink = Color(0xFFD37F00)
     val Shopping = Color(0xFF007BC5)
     val Attractions = Color(0xFF007F5E)
-    // Trasporti: treno, metro, autobus, taxi, traghetti, aeroporto, parcheggi, carburante e noleggi.
+    // Trasporti: treno, metro, autobus, taxi, traghetti, aeroporto, parcheggi, carburante, ricarica elettrica e
+    // noleggi.
     val Transport = Color(0xFF00707A)
     // Polizia, ambasciate, bagni pubblici, farmacie, ospedali, vigili del fuoco, veterinari, banche, bancomat
     // uffici postali e centri informazioni.
