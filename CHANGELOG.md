@@ -4,6 +4,8 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ## [Non rilasciato]
 
+## [0.6.0]
+
 ### Aggiunto
 - Numeri civici sulla mappa, visibili avvicinandosi (da zoom 17): un pacchetto a parte e leggero per regione (San Marino 146 kB, circa 50 MB l'Italia intera), da scaricare dal foglio Pacchetti; la mappa resta quella di prima. Le regioni ricevono i civici man mano che vengono ripubblicate.
 - Mappa: segnalini con simbolo proprio per polizia, bagni pubblici, farmacie, ospedali, vigili del fuoco, veterinari, banche, bancomat, uffici postali, uffici turistici, distributori di carburante, colonnine di ricarica, noleggi, svago (cinema, teatri, discoteche, casinò, bowling, sale giochi), parcheggi (anche per bici e moto, visibili da zoom 15), stazioni ferroviarie, metropolitana, autostazioni, taxi, traghetti e aeroporti. Tra le attrazioni anche chiese, monasteri, fontane, parchi, parchi giochi, riserve naturali, parchi a tema e acquatici. Quelli disegnati in OpenStreetMap come aree (parcheggi, stazioni, aeroporti, ospedali, chiese, parchi...) e gli uffici turistici arrivano con il prossimo aggiornamento dei punti di interesse di ogni regione.

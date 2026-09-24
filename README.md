@@ -1,12 +1,12 @@
 # 🧭 Pocket Travel
 
-Pocket Travel è un'app per chi viaggia senza voler dipendere dalla connessione: guida turistica offline, mappa con routing pedonale, assistente IA e vault per i documenti. Le guide di tutte le nazioni sono un unico pacchetto leggero; per ogni regione mappa, percorsi e punti di interesse si scaricano e aggiornano separatamente.
+Pocket Travel è un'app per chi viaggia senza voler dipendere dalla connessione: guida turistica offline, mappa con routing pedonale, assistente IA e vault per i documenti. Le guide di tutte le nazioni sono un unico pacchetto leggero; per ogni regione mappa, percorsi, punti di interesse e numeri civici si scaricano e aggiornano separatamente.
 
-Versione corrente: **0.5.0** ([Semantic Versioning](https://semver.org/lang/it/)) — vedi [CHANGELOG.md](CHANGELOG.md).
+Versione corrente: **0.6.0** ([Semantic Versioning](https://semver.org/lang/it/)) — vedi [CHANGELOG.md](CHANGELOG.md).
 
 ## Stato
 
-MVP funzionalmente completo: guida turistica offline con ricerca full-text, mappa vettoriale con routing pedonale offline (BRouter), assistente IA con modalità locale (llama.cpp, modelli GGUF, con controllo RAM) e online (chiave utente personale), vault passaporti cifrato, gestione dei pacchetti (guide, mappa, percorsi, punti di interesse: download, aggiornamento e rimozione uno per uno) e registro fonti ufficiali esterne. Interfaccia Material Design 3 con layout adattivo per telefono e tablet.
+MVP funzionalmente completo: guida turistica offline con ricerca full-text, mappa vettoriale con routing pedonale offline (BRouter), assistente IA con modalità locale (llama.cpp, modelli GGUF, con controllo RAM) e online (chiave utente personale), vault passaporti cifrato, gestione dei pacchetti (guide, mappa, percorsi, punti di interesse, numeri civici: download, aggiornamento e rimozione uno per uno) e registro fonti ufficiali esterne. Interfaccia Material Design 3 con layout adattivo per telefono e tablet.
 
 Il catalogo delle regioni (246 nel lotto pilota, `tools/data-pipeline/scripts/pilot-regions.sh`) è generato da `tools/data-pipeline` e pubblicato ogni settimana da `.github/workflows/publish-regions.yml`: `manifest.json` su GitHub Pages, i pacchetti sulle release `region-data*` del repository.
 
