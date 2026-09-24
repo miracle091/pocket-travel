@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         InstalledGuidesEntity::class,
         NoCentralEmergencyNumberEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -141,5 +141,12 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
 val MIGRATION_7_8 = object : Migration(7, 8) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `countryCode` TEXT")
+    }
+}
+
+// Pacchetto civici (addresses.pmtiles): nessuna regione gia' installata lo ha.
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `addressesVersion` TEXT")
     }
 }

@@ -3,6 +3,7 @@ package com.pockettravel.core.sync
 import com.pockettravel.core.data.PackageKind
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -76,6 +77,26 @@ class RegionManifestTest {
         assertEquals(3_500_000L, region.downloadBytes(setOf(PackageKind.POI)))
         assertEquals(0L, region.downloadBytes(setOf(PackageKind.MAP)))
         assertEquals(31_500_000L, region.downloadBytes(PackageKind.entries.toSet()))
+    }
+
+    private val withAddresses = sampleManifest.replace(
+        "\"continent\": \"Europa\"",
+        """"addresses": { "version": "2026.03.04", "file": { "name": "addresses.pmtiles", "url": "https://github.com/o/r/releases/download/region-data/addresses.pmtiles", "sizeBytes": 150000, "sha256": "$sha" } },
+              "continent": "Europa"""",
+    )
+
+    @Test
+    fun `i civici sono facoltativi e contano solo se offerti`() {
+        val without = parse().regions.single()
+        assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI), without.availableKinds)
+        assertNull(without.versionOf(PackageKind.ADDRESSES))
+
+        val with = parse(withAddresses).regions.single()
+        with.validate()
+        assertEquals(PackageKind.entries.toSet(), with.availableKinds)
+        assertEquals("2026.03.04", with.versionOf(PackageKind.ADDRESSES))
+        assertEquals(150_000L, with.downloadBytes(setOf(PackageKind.ADDRESSES)))
+        assertEquals(31_650_000L, with.downloadBytes(with.availableKinds))
     }
 
     @Test

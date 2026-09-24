@@ -144,7 +144,7 @@ class RegionListViewModel @Inject constructor(
         val entry = manifestRegions.value.firstOrNull { it.regionId == regionId } ?: return
         viewModelScope.launch {
             val local = regionRepository.installed(regionId)
-            enqueue(entry, if (local == null) PackageKind.entries.toSet() else outdatedKinds(entry, local))
+            enqueue(entry, if (local == null) entry.availableKinds else outdatedKinds(entry, local))
         }
     }
 
@@ -179,9 +179,9 @@ class RegionListViewModel @Inject constructor(
         regionSyncScheduler.observeDownload(regionId)
 }
 
-/** Pacchetti installati la cui versione nel manifest e' cambiata. */
+/** Pacchetti installati la cui versione nel manifest e' cambiata (tra quelli che il manifest offre ancora). */
 internal fun outdatedKinds(remote: RegionManifestEntry, local: RegionPackage?): Set<PackageKind> =
-    PackageKind.entries.filterTo(mutableSetOf()) { kind -> local?.versionOf(kind)?.let { it != remote.versionOf(kind) } == true }
+    remote.availableKinds.filterTo(mutableSetOf()) { kind -> local?.versionOf(kind)?.let { it != remote.versionOf(kind) } == true }
 
 internal fun regionUiItem(
     remote: RegionManifestEntry,
@@ -194,7 +194,8 @@ internal fun regionUiItem(
         outdated.isNotEmpty() -> RegionStatus.UPDATE_AVAILABLE
         else -> RegionStatus.INSTALLED
     }
-    val packages = PackageKind.entries.map { kind ->
+    // I civici possono mancare dal manifest: la riga c'e' se il manifest li offre o se sono installati.
+    val packages = PackageKind.entries.filter { it in remote.availableKinds || local?.versionOf(it) != null }.map { kind ->
         PackageUiState(
             kind = kind,
             status = when {
@@ -207,7 +208,7 @@ internal fun regionUiItem(
         )
     }
     val sizeBytes = when (status) {
-        RegionStatus.NOT_INSTALLED -> remote.downloadBytes(PackageKind.entries.toSet())
+        RegionStatus.NOT_INSTALLED -> remote.downloadBytes(remote.availableKinds)
         RegionStatus.UPDATE_AVAILABLE -> remote.downloadBytes(outdated)
         RegionStatus.INSTALLED -> local!!.sizeBytes
     }

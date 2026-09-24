@@ -2,6 +2,7 @@ package com.pockettravel.app.regions
 
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionPackage
+import com.pockettravel.core.sync.AddressesPackageEntry
 import com.pockettravel.core.sync.MapExtractionSource
 import com.pockettravel.core.sync.MapPackageEntry
 import com.pockettravel.core.sync.PoiPackageEntry
@@ -24,8 +25,10 @@ class RegionUiItemTest {
         poi = PoiPackageEntry("p2", file("poi.db", 60_000_000)),
     )
 
-    private fun local(map: String?, routing: String?, poi: String?) =
-        RegionPackage("italia", "Italia", "it", map, routing, poi, poiSizeBytes = poi?.let { 60_000_000L }, sizeBytes = 123)
+    private fun local(map: String?, routing: String?, poi: String?, addresses: String? = null) =
+        RegionPackage("italia", "Italia", "it", map, routing, poi, addresses, poiSizeBytes = poi?.let { 60_000_000L }, sizeBytes = 123)
+
+    private val withAddresses = remote.copy(addresses = AddressesPackageEntry("a1", file("addresses.pmtiles", 50_000_000)))
 
     private val noBytes: (RegionPackage, PackageKind) -> Long? = { _, _ -> null }
 
@@ -66,5 +69,29 @@ class RegionUiItemTest {
         val item = regionUiItem(remote, local("m2", "r1", "p2")) { _, kind -> kind.ordinal.toLong() + 1 }
 
         assertEquals(listOf(1L, 2L, 3L), item.packages.map { it.installedBytes })
+    }
+
+    @Test
+    fun `i civici offerti dal manifest contano nella prima installazione`() {
+        val item = regionUiItem(withAddresses, null, noBytes)
+
+        assertEquals(190_000_000L, item.sizeBytes)
+        assertEquals(PackageKind.entries.toList(), item.packages.map { it.kind })
+    }
+
+    @Test
+    fun `civici nuovi su una regione installata non sono un aggiornamento`() {
+        val item = regionUiItem(withAddresses, local(map = "m2", routing = "r1", poi = "p2"), noBytes)
+
+        assertEquals(RegionStatus.INSTALLED, item.status)
+        assertEquals(RegionStatus.NOT_INSTALLED, item.packages.first { it.kind == PackageKind.ADDRESSES }.status)
+    }
+
+    @Test
+    fun `civici installati ma non piu' offerti restano eliminabili e non chiedono aggiornamenti`() {
+        val item = regionUiItem(remote, local(map = "m2", routing = "r1", poi = "p2", addresses = "a1"), noBytes)
+
+        assertEquals(RegionStatus.INSTALLED, item.status)
+        assertEquals(RegionStatus.INSTALLED, item.packages.first { it.kind == PackageKind.ADDRESSES }.status)
     }
 }

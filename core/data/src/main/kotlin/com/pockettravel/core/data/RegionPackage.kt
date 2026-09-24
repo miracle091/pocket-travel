@@ -8,6 +8,7 @@ data class RegionPackage(
     val mapVersion: String?,
     val routingVersion: String?,
     val poiVersion: String?,
+    val addressesVersion: String?,
     val poiSizeBytes: Long?,
     val sizeBytes: Long,
 ) {
@@ -15,5 +16,6 @@ data class RegionPackage(
         PackageKind.MAP -> mapVersion
         PackageKind.ROUTING -> routingVersion
         PackageKind.POI -> poiVersion
+        PackageKind.ADDRESSES -> addressesVersion
     }
 }

@@ -16,6 +16,17 @@ class PmtilesTileSource(private val regionsDir: File) : OfflineTileSource {
     override fun styleJson(regionId: String, dark: Boolean): String {
         val palette = if (dark) MapPalette.Dark else MapPalette.Light
         val pmtilesPath = File(regionsDir, "$regionId/map.pmtiles").absolutePath
+        // Civici (pacchetto facoltativo, stesso nome di RegionStorage.ADDRESSES_FILE): solo punti,
+        // tutti a z14, che MapLibre sovrazooma; etichette da zoom 17, dove non coprono le strade.
+        val addresses = File(regionsDir, "$regionId/addresses.pmtiles").takeIf { it.isFile }
+        val addressesSource = addresses?.let {
+            """,
+                "addresses": { "type": "vector", "url": "pmtiles://file://${it.absolutePath}", "attribution": "© OpenStreetMap contributors", "minzoom": 14, "maxzoom": 14 }"""
+        }.orEmpty()
+        val addressesLayer = addresses?.let {
+            """,
+                { "id": "addresses", "type": "symbol", "source": "addresses", "source-layer": "addresses", "minzoom": 17, "layout": { "text-field": ["get", "number"], "text-font": ["NotoSansRegular"], "text-size": 10 }, "paint": { "text-color": "${palette.addressText}", "text-halo-color": "${palette.background}", "text-halo-width": 1 } }"""
+        }.orEmpty()
 
         // I nomi dei source-layer ("water", "roads", "buildings", "places") sono quelli dello
         // schema "basemap" ufficiale Protomaps (docs.protomaps.com/basemaps/layers), non piu'
@@ -79,7 +90,7 @@ class PmtilesTileSource(private val regionsDir: File) : OfflineTileSource {
                   "attribution": "© OpenStreetMap contributors",
                   "minzoom": 0,
                   "maxzoom": 14
-                }
+                }$addressesSource
               },
               "layers": [
                 { "id": "background", "type": "background", "paint": { "background-color": "${palette.background}" } },
@@ -94,7 +105,7 @@ class PmtilesTileSource(private val regionsDir: File) : OfflineTileSource {
                 { "id": "boundaries_country", "type": "line", "source": "region", "source-layer": "boundaries", "filter": ["<=", "kind_detail", 2], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "${palette.boundaryCountry}", "line-width": ["interpolate", ["linear"], ["zoom"], 2, 0.8, 14, 2.5] } },
                 { "id": "places_locality", "type": "symbol", "source": "region", "source-layer": "places", "filter": ["in", "kind", "locality", "macrohood", "neighbourhood"], "minzoom": 10, "layout": { "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 13 }, "paint": { "text-color": "${palette.placeText}", "text-halo-color": "${palette.placeHalo}", "text-halo-width": 1.2 } },
                 { "id": "roads_labels_major", "type": "symbol", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "highway", "major_road"], "minzoom": 11, "layout": { "symbol-placement": "line", "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 12 }, "paint": { "text-color": "${palette.majorLabel}", "text-halo-color": "${palette.majorLabelHalo}", "text-halo-width": 1 } },
-                { "id": "roads_labels_minor", "type": "symbol", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "minor_road", "other"], "minzoom": 15, "layout": { "symbol-placement": "line", "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 11 }, "paint": { "text-color": "${palette.minorLabel}", "text-halo-color": "${palette.minorLabelHalo}", "text-halo-width": 1.2 } }
+                { "id": "roads_labels_minor", "type": "symbol", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "minor_road", "other"], "minzoom": 15, "layout": { "symbol-placement": "line", "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 11 }, "paint": { "text-color": "${palette.minorLabel}", "text-halo-color": "${palette.minorLabelHalo}", "text-halo-width": 1.2 } }$addressesLayer
               ]
             }
         """.trimIndent()
@@ -121,6 +132,7 @@ private data class MapPalette(
     val minorLabelHalo: String,
     val boundaryCountry: String,
     val boundaryRegion: String,
+    val addressText: String,
 ) {
     companion object {
         val Light = MapPalette(
@@ -129,6 +141,7 @@ private data class MapPalette(
             placeText = "#3f3b33", placeHalo = "#ffffff", majorLabel = "#7a5c1e", majorLabelHalo = "#f7c164",
             minorLabel = "#5a5346", minorLabelHalo = "#ffffff",
             boundaryCountry = "#8f8a9e", boundaryRegion = "#b9b4c4",
+            addressText = "#8a8275",
         )
         val Dark = MapPalette(
             background = "#1d2226", water = "#17344a", building = "#2a3036", buildingOutline = "#363d44",
@@ -136,6 +149,7 @@ private data class MapPalette(
             placeText = "#e2e4e6", placeHalo = "#1d2226", majorLabel = "#f3d49a", majorLabelHalo = "#1d2226",
             minorLabel = "#c3c8cc", minorLabelHalo = "#1d2226",
             boundaryCountry = "#8d96a3", boundaryRegion = "#5b646f",
+            addressText = "#9aa1a8",
         )
     }
 }

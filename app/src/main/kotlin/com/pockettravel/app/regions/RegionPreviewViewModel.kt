@@ -51,6 +51,6 @@ class RegionPreviewViewModel @Inject constructor(
 
     /** Avvia il download completo (mappa + routing inclusi) dal pacchetto gia' individuato da load(). */
     fun downloadFull() {
-        manifestEntry?.let { regionSyncScheduler.enqueueDownload(it, PackageKind.entries.toSet()) }
+        manifestEntry?.let { regionSyncScheduler.enqueueDownload(it, it.availableKinds) }
     }
 }

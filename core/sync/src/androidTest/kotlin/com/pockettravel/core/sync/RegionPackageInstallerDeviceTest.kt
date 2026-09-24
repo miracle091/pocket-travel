@@ -143,7 +143,7 @@ class RegionPackageInstallerDeviceTest {
 
     @Test
     fun aggiornareSoloIPoiLasciaMappaERoutingAllaLoroVersione() = runBlocking {
-        installer.install(entry(), PackageKind.entries.toSet())
+        installer.install(entry(), entry().availableKinds)
         val mapBefore = File(regionDir, RegionStorage.MAP_FILE).lastModified()
 
         installer.install(entry(poiVersion = "p2"), setOf(PackageKind.POI))
@@ -158,7 +158,7 @@ class RegionPackageInstallerDeviceTest {
 
     @Test
     fun eliminareUnPacchettoConservaGliAltriEFinitiTuttiLaRegioneSparisce() = runBlocking {
-        installer.install(entry(), PackageKind.entries.toSet())
+        installer.install(entry(), entry().availableKinds)
 
         repository.removePackage("san-marino", PackageKind.MAP)
         assertFalse(File(regionDir, RegionStorage.MAP_FILE).exists())

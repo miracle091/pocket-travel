@@ -61,6 +61,7 @@ object AppIcons {
     val Shopping: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_shopping_bag)
     val Attractions: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_attractions)
     val Place: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_location_on)
+    val HomePin: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_home_pin)
     val Route: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_route)
     val Book: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_menu_book)
     val MoreVert: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_more_vert)

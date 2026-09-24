@@ -27,6 +27,7 @@
     <string name="package_map">Mappa</string>
     <string name="package_routing">Percorsi</string>
     <string name="package_poi">Punti di interesse</string>
+    <string name="package_addresses">Numeri civici</string>
     <string name="package_status_installed">Installato · %1$s</string>
     <string name="package_status_installed_no_size">Installato</string>
     <string name="package_status_update">Da aggiornare · %1$s</string>
@@ -38,6 +39,7 @@
     <string name="package_delete_title_map">Eliminare la mappa di %1$s?</string>
     <string name="package_delete_title_routing">Eliminare i percorsi di %1$s?</string>
     <string name="package_delete_title_poi">Eliminare i punti di interesse di %1$s?</string>
+    <string name="package_delete_title_addresses">Eliminare i numeri civici di %1$s?</string>
     <string name="package_delete_message">Gli altri pacchetti della regione restano sul dispositivo.</string>
     <string name="map_not_downloaded_title">Mappa non scaricata</string>
     <string name="map_not_downloaded_body">Guida e punti di interesse sono disponibili; la mappa di questa regione va scaricata a parte.</string>

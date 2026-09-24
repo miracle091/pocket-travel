@@ -13,7 +13,7 @@ annotation class RegionsDir
 @Retention(AnnotationRetention.BINARY)
 annotation class RegionsStagingDir
 
-/** Owns the on-disk layout for regional packages (`map.pmtiles`, one or more `.rd5` routing segments; `poi.db` only until imported). */
+/** Owns the on-disk layout for regional packages (`map.pmtiles`, one or more `.rd5` routing segments, `addresses.pmtiles`; `poi.db` only until imported). */
 class RegionStorage @Inject constructor(
     @param:RegionsDir private val regionsDir: File,
     @param:RegionsStagingDir private val stagingDir: File,
@@ -22,11 +22,11 @@ class RegionStorage @Inject constructor(
     fun stagingDirectoryFor(regionId: String, version: String): File = safeChild(safeChild(stagingDir, regionId, "regionId"), version, "version")
 
     /**
-     * Sostituisce un solo pacchetto della regione ([MAP_FILE] o [ROUTING_DIR]) con quello in
+     * Sostituisce un solo pacchetto della regione ([MAP_FILE], [ROUTING_DIR] o [ADDRESSES_FILE]) con quello in
      * staging, lasciando intatti gli altri. Il precedente resta come backup fino a commit/rollback.
      */
     fun activatePackage(regionId: String, packageName: String, staged: File): Activation {
-        require(packageName == MAP_FILE || packageName == ROUTING_DIR) { "Pacchetto sconosciuto: $packageName" }
+        require(packageName in PACKAGE_NAMES) { "Pacchetto sconosciuto: $packageName" }
         require(staged.exists()) { "Staging mancante per $regionId/$packageName" }
         val regionDir = directoryFor(regionId)
         regionDir.mkdirs()
@@ -40,9 +40,9 @@ class RegionStorage @Inject constructor(
         return Activation(live, backup, hadPrevious)
     }
 
-    /** Elimina un solo pacchetto ([MAP_FILE] o [ROUTING_DIR]) della regione. */
+    /** Elimina un solo pacchetto ([MAP_FILE], [ROUTING_DIR] o [ADDRESSES_FILE]) della regione. */
     fun deletePackage(regionId: String, packageName: String): Boolean {
-        require(packageName == MAP_FILE || packageName == ROUTING_DIR) { "Pacchetto sconosciuto: $packageName" }
+        require(packageName in PACKAGE_NAMES) { "Pacchetto sconosciuto: $packageName" }
         val target = File(directoryFor(regionId), packageName)
         return !target.exists() || (target.deleteRecursively() && !target.exists())
     }
@@ -73,6 +73,9 @@ class RegionStorage @Inject constructor(
         // RegionRoutingGraphInstaller.ROUTING_DIR_NAME (core/sync).
         const val MAP_FILE = "map.pmtiles"
         const val ROUTING_DIR = "routing"
+        // Civici sovrapposti alla mappa (OfflineTileSource).
+        const val ADDRESSES_FILE = "addresses.pmtiles"
+        private val PACKAGE_NAMES = setOf(MAP_FILE, ROUTING_DIR, ADDRESSES_FILE)
     }
 
     private fun safeChild(root: File, segment: String, field: String): File {

@@ -13,6 +13,7 @@ data class InstalledRegionEntity(
     val mapVersion: String?,
     val routingVersion: String?,
     val poiVersion: String?,
+    val addressesVersion: String?,
     // Byte del poi.db importato: i POI stanno in region.db, non misurabili dal disco come mappa e routing.
     val poiSizeBytes: Long?,
     // Totale sul device: mappa + routing (dal disco) + poiSizeBytes.

@@ -10,7 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Migrazioni 5 -> 6 (pacchetti separati), 6 -> 7 e 7 -> 8 sugli schemi esportati in core/data/schemas. */
+/** Migrazioni 5 -> 6 (pacchetti separati), 6 -> 7, 7 -> 8 e 8 -> 9 sugli schemi esportati in core/data/schemas. */
 @RunWith(AndroidJUnit4::class)
 class RegionDatabaseMigrationTest {
 
@@ -79,6 +79,22 @@ class RegionDatabaseMigrationTest {
                 assertTrue("il codice arriva dal manifest, non dalla migrazione", cursor.isNull(1))
                 assertEquals("1", cursor.getString(2))
                 assertEquals(1000L, cursor.getLong(3))
+            }
+        }
+    }
+
+    @Test
+    fun migrazione8a9AggiungeLaVersioneDeiCivici() {
+        helper.createDatabase(DB_NAME, 8).use { db ->
+            db.execSQL("INSERT INTO installed_regions (regionId, displayName, countryCode, mapVersion, routingVersion, poiVersion, poiSizeBytes, sizeBytes, installedAt) VALUES ('italia', 'Italia', 'it', '1', '1', '1', 10, 1000, 42)")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 9, true, MIGRATION_8_9).use { db ->
+            db.query("SELECT countryCode, poiVersion, addressesVersion FROM installed_regions WHERE regionId = 'italia'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("it", cursor.getString(0))
+                assertEquals("1", cursor.getString(1))
+                assertTrue("nessuna regione ha gia' i civici", cursor.isNull(2))
             }
         }
     }

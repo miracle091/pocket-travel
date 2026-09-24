@@ -36,7 +36,7 @@ class RegionManifestSyncWorker @AssistedInject constructor(
             manifest.regions.forEach { remote ->
                 val local = installedById[remote.regionId]
                 if (local == null) return@forEach
-                val outdated = PackageKind.entries.filterTo(mutableSetOf()) { kind ->
+                val outdated = remote.availableKinds.filterTo(mutableSetOf()) { kind ->
                     local.versionOf(kind)?.let { it != remote.versionOf(kind) } == true
                 }
                 if (outdated.isNotEmpty()) notifier.notifyUpdateAvailable(remote, outdated)
