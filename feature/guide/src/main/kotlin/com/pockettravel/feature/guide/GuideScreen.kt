@@ -80,7 +80,7 @@ internal fun GuideContent(uiState: GuideUiState, onOpenSource: (url: String, tit
             modifier = Modifier.fillMaxSize(),
         )
 
-        uiState.sections.isEmpty() && uiState.emergencyNumbers == null -> EmptyState(
+        uiState.sections.isEmpty() && uiState.emergencyNumbers == null && !uiState.noCentralEmergencyNumber -> EmptyState(
             icon = AppIcons.Compass,
             title = stringResource(R.string.guide_empty_title),
             subtitle = stringResource(R.string.guide_empty_subtitle),
@@ -130,11 +130,9 @@ private fun GuideSectionsList(uiState: GuideUiState, onOpenSource: (url: String,
                     }
                 }
             }
-            if (selectedCategory == null) {
-                uiState.emergencyNumbers?.let { numbers ->
-                    item(key = "emergency_numbers") {
-                        EmergencyNumbersCard(numbers, modifier = Modifier.padding(horizontal = Spacing.l))
-                    }
+            if (selectedCategory == null && (uiState.emergencyNumbers != null || uiState.noCentralEmergencyNumber)) {
+                item(key = "emergency_numbers") {
+                    EmergencyNumbersCard(uiState.emergencyNumbers, modifier = Modifier.padding(horizontal = Spacing.l))
                 }
             }
             items(visibleSections, key = { "${it.category}_${it.title}" }) { section ->
@@ -144,8 +142,9 @@ private fun GuideSectionsList(uiState: GuideUiState, onOpenSource: (url: String,
     }
 }
 
+// numbers nullo: la regione non ha un numero di emergenza centralizzato, e la scheda lo dichiara.
 @Composable
-private fun EmergencyNumbersCard(numbers: EmergencyNumbers, modifier: Modifier = Modifier) {
+private fun EmergencyNumbersCard(numbers: EmergencyNumbers?, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -167,7 +166,14 @@ private fun EmergencyNumbersCard(numbers: EmergencyNumbers, modifier: Modifier =
                     modifier = Modifier.semantics { heading() },
                 )
             }
-            numbers.entries().forEach { (labelIds, number) ->
+            if (numbers == null) {
+                Text(
+                    text = stringResource(R.string.emergency_no_central_number),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.s),
+                )
+            }
+            numbers?.entries()?.forEach { (labelIds, number) ->
                 val label = labelIds.map { stringResource(it) }.joinToString(" / ")
                 val callLabel = stringResource(R.string.emergency_call, label, number)
                 Row(
@@ -347,6 +353,19 @@ private fun GuidePreview() {
                         ),
                     ),
                 ),
+                onOpenSource = { _, _ -> },
+            )
+        }
+    }
+}
+
+@Preview(widthDp = 360, heightDp = 400)
+@Composable
+private fun GuideNoCentralEmergencyNumberPreview() {
+    PocketTravelTheme(dynamicColor = false) {
+        Surface {
+            GuideContent(
+                uiState = GuideUiState(isLoading = false, noCentralEmergencyNumber = true),
                 onOpenSource = { _, _ -> },
             )
         }

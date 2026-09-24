@@ -9,6 +9,9 @@ class EmergencyNumbersRepository @Inject constructor(
     suspend fun forRegion(regionId: String): EmergencyNumbers? = emergencyNumbersDao.forRegion(regionId)?.let {
         EmergencyNumbers(general = it.general, police = it.police, ambulance = it.ambulance, fire = it.fire)
     }
+
+    /** true se la regione non ha un numero di emergenza centralizzato (dato del pacchetto guide). */
+    suspend fun hasNoCentralNumber(regionId: String): Boolean = emergencyNumbersDao.hasNoCentralNumber(regionId)
 }
 
 data class EmergencyNumbers(

@@ -47,4 +47,14 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
         license = "CC BY-SA 4.0",
         note = "Attribuzione visibile obbligatoria; i contenuti derivati restano CC BY-SA.",
     ),
+    LicenseEntry(
+        component = "Numeri di emergenza: Travel.gc.ca (Governo del Canada)",
+        license = "Open Government Licence - Canada 2.0",
+        note = "Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert - Canada. Confrontati con Wikipedia (CC BY-SA 4.0) e Wikidata (CC0).",
+    ),
+    LicenseEntry(
+        component = "Numeri di emergenza: gov.uk Foreign travel advice (Governo del Regno Unito)",
+        license = "Open Government Licence v3.0",
+        note = "Contains public sector information licensed under the Open Government Licence v3.0.",
+    ),
 )

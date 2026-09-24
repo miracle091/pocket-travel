@@ -12,6 +12,7 @@
     <string name="emergency_ambulance">Ambulanza</string>
     <string name="emergency_fire">Vigili del fuoco</string>
     <string name="emergency_call">Chiama %1$s, %2$s</string>
+    <string name="emergency_no_central_number">Il paese non ha un numero di emergenza nazionale. Prima di partire, annota i contatti della polizia e delle strutture sanitarie della zona.</string>
     <string name="category_customs_usages">Usi e costumi</string>
     <string name="category_customs">Dogane</string>
     <string name="category_health">Salute</string>

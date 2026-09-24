@@ -10,7 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Migrazione 5 -> 6 (pacchetti separati) sugli schemi esportati in core/data/schemas. */
+/** Migrazioni 5 -> 6 (pacchetti separati) e 6 -> 7 sugli schemi esportati in core/data/schemas. */
 @RunWith(AndroidJUnit4::class)
 class RegionDatabaseMigrationTest {
 
@@ -44,6 +44,24 @@ class RegionDatabaseMigrationTest {
             db.query("SELECT COUNT(*) FROM guide_sections").use { cursor ->
                 cursor.moveToFirst()
                 assertEquals(1, cursor.getInt(0))
+            }
+        }
+    }
+
+    @Test
+    fun migrazione6a7AggiungeLaTabellaDelleRegioniSenzaNumeroDiEmergenza() {
+        helper.createDatabase(DB_NAME, 6).use { db ->
+            db.execSQL("INSERT INTO emergency_numbers VALUES ('italia', '112', '113', '118', '115')")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 7, true, MIGRATION_6_7).use { db ->
+            db.query("SELECT COUNT(*) FROM emergency_numbers_none").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(0, cursor.getInt(0))
+            }
+            db.query("SELECT police FROM emergency_numbers WHERE regionId = 'italia'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("113", cursor.getString(0))
             }
         }
     }

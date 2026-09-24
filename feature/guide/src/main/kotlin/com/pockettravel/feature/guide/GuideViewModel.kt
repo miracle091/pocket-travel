@@ -19,6 +19,8 @@ import kotlinx.coroutines.launch
 data class GuideUiState(
     val sections: List<GuideSection> = emptyList(),
     val emergencyNumbers: EmergencyNumbers? = null,
+    // La regione non ha un numero di emergenza centralizzato: la scheda lo dice al posto dei numeri.
+    val noCentralEmergencyNumber: Boolean = false,
     val isLoading: Boolean = true,
     @StringRes val loadError: Int? = null,
 )
@@ -45,7 +47,15 @@ class GuideViewModel @Inject constructor(
             try {
                 val sections = guideRepository.sectionsFor(regionId)
                 val emergencyNumbers = emergencyNumbersRepository.forRegion(regionId)
-                _uiState.update { it.copy(sections = sections, emergencyNumbers = emergencyNumbers, isLoading = false) }
+                val noCentralEmergencyNumber = emergencyNumbers == null && emergencyNumbersRepository.hasNoCentralNumber(regionId)
+                _uiState.update {
+                    it.copy(
+                        sections = sections,
+                        emergencyNumbers = emergencyNumbers,
+                        noCentralEmergencyNumber = noCentralEmergencyNumber,
+                        isLoading = false,
+                    )
+                }
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Exception) {

@@ -1,0 +1,253 @@
+# Numeri di emergenza per regione (vedi GenerateEmergencyNumbers.kt).
+# Fonti: CA = Travel.gc.ca (Governo del Canada, Open Government Licence - Canada),
+# WP = Wikipedia EN "List of emergency telephone numbers", WD = Wikidata P2852,
+# FCDO = gov.uk Foreign travel advice (Open Government Licence v3.0), WV = Wikivoyage EN,
+# WV/WVfr = Wikivoyage (varie lingue / FR, Infobox numero di emergenza), NIHRACS = Norfolk Island Health (norfolkislandhealth.gov.nf).
+# Riga senza numeri: nessun numero di emergenza centralizzato (l'app lo dichiara nella scheda).
+# regionId	general	police	ambulance	fire	fonti	nota
+afghanistan		119	102	112	CA+WP/WD	
+albania	112	129	127	128	CA+WP/WD	
+algeria		17	14	14	CA+WP+WD	ambulanza: WP+WD (CA da' un numero fisso)
+andorra	112	110	116	118	CA+WP	
+angola		113	116	115	CA+WP/WD	
+anguilla	911	911	911	911	CA+WP/WD	
+antigua-barbuda	911	911	911	911	CA+WP	
+arabia-saudita	911	999	997	998	CA+WP+WD	
+argentina	911	911	107	100	CA+WD	107 = ambulanza a Buenos Aires
+armenia	112	102	103	101	CA+WP/WD	
+aruba	911	100	911	911	CA+WP+WD	
+australia	000	000	000	000	CA+WP/WD	
+austria	112	133	144	122	CA	
+azerbaigian		102	103	101	CA+WP/WD	
+bahamas	911	911	911	911	CA+WP	
+bahrein	999	999	999	999	CA+WP	
+bangladesh	999	999	999	999	WP+WD	
+barbados		211	511	311	CA+WP/WD	
+belgio	112	101	112	112	CA	
+belize	911	911	911	911	CA+WP/WD	
+benin		117	112	118	CA+WP+WD	
+bermuda	911	911	911	911	CA+WP/WD	
+bhutan		113	112	110	CA+WP+WD	
+bielorussia		102	103	101	CA+WP/WD	
+bolivia		110	118	119	FCDO+CA+WD	CA: ambulanza 165 a La Paz
+bonaire	911	911	911	911	CA+WP/WD	
+bosnia-erzegovina	112	122	124	123	CA	
+botswana		999	997	998	CA+WP/WD	
+brasile		190	192	193	CA	
+brunei		993	991	995	CA+WP/WD	
+bulgaria	112	112	112	112	CA+WP/WD	
+burkina-faso		17	112	18	CA+WP+WD	
+burundi	112	112	112	112	FCDO+CA+WD	Croce Rossa 109
+cambogia		117	119	118	CA+WP/WD	
+camerun	112	117	119	118	CA+WP+WD	
+canada	911	911	911	911	WP+WD	
+capo-verde		132	130	131	CA+WP/WD	
+ciad		2020	1212	1212	FCDO+CA	WP+WD 17/18
+cile		133	131	132	CA+WP/WD	
+cina		110	120	119	CA+WP/WD	
+cipro	112	112	112	112	CA+WP	
+citta-del-vaticano	112	112	112	112	WP+WD	
+colombia	123	123	123	123	CA+WP/WD	
+colombia-san-andres	123	123	123	123	CA+WP/WD	
+comore		17	772 03 73	18	CA+WP+WD	
+congo					CA+FCDO	CA: polizia 117, pompieri 118
+congo-rd					CA	
+corea-del-nord					CA	
+corea-del-sud		112	119	119	CA+WP/WD	
+costa-avorio		170	185	180	CA+WP/WD	
+costa-rica	911	911	911	911	CA+WP/WD	
+croazia	112	112	112	112	CA+WP/WD	
+cuba		106	104	105	CA+WP/WD	
+curacao		911	912	911	CA+WP/WD	
+danimarca	112	112	112	112	CA+WP/WD	
+dominica	999	999	999	999	CA+WP/WD	
+ecuador	911	911	911	911	WP+WD	
+egitto		122	123	180	FCDO+WP+WD	CA 112/113/110
+el-salvador	911	911	132	913	WP+WD	
+emirati-arabi-uniti		999	998	997	CA	
+eritrea		113	114	116	CA+WP/WD	
+estonia	112	112	112	112	CA+WP/WD	
+eswatini	999	999	977	933	CA+WP+WD	
+etiopia		991	907	939	CA+WD	
+figi-lau	911	917	911	911	CA+WP	
+figi-occidentali	911	917	911	911	CA+WP	
+filippine	911	911	911	911	CA+WP/WD	
+finlandia	112	112	112	112	CA+WP/WD	
+francia	112	17	15	18	CA	15/18: numeri nazionali francesi, come nei territori d'oltremare
+gabon		177	1300	18	FCDO+CA+WP+WD+WV	polizia 177: CA, FCDO, WV de Libreville (1730: WP in 5 lingue, stessa fonte emergencynumbers.org; 1722: WD, WV pt/fr); pompieri 18 ovunque tranne FCDO 177
+gambia		117	116	118	CA+WP/WD	
+georgia	112	112	112	112	CA+WP/WD	
+germania		110	112	112	CA+WP/WD	
+ghana	112	191	193	192	CA+WP/WD	
+giamaica		119	110	110	FCDO+WP+WD	CA 911 per ambulanza e pompieri
+giappone		110	119	119	manuale+CA+WP	
+gibilterra	999	999	999	999	CA+WP/WD	
+gibuti		17	19	18	WP+WD	CA: 18 per ogni emergenza
+giordania	911	911	911	911	CA+WP/WD	
+grecia	112	100	112	112	CA	
+grenada	911	911	911	911	CA+WP/WD	
+groenlandia	112	112	112	112	CA+WP/WD	
+guadalupa	112	17	15	18	CA+WP+WD	
+guam	911	911	911	911	CA+WP/WD	
+guatemala		110	122	122	FCDO+WP	ambulanza e pompieri anche 123
+guinea					FCDO	nessun servizio di emergenza; CA 122/1717
+guinea-bissau		117	1313	1313	FCDO+CA	WD 121/119/180
+guinea-equatoriale		113	112	115	CA+WD	
+guyana		911	913	912	CA+WP/WD	
+guyana-francese	112	17	15	18	CA+WP+WD	
+haiti		114	116	115	CA+WP+WD	
+honduras	911	911	195	198	CA+WP	
+hong-kong	999	999	999	999	CA+WP/WD	
+india		100	102	101	CA+WP/WD	
+indonesia	112	110	112	112	CA+WP+WD	CA indica solo il 110 per la polizia
+iran		110	115	125	CA+WP/WD	
+iraq					CA	
+irlanda	112	112	112	112	CA+WP	
+islanda	112	112	112	112	CA+WP/WD	
+isola-christmas	000	000	000	000	WP	
+isola-norfolk	000	000	000	000	WV+NIHRACS	Wikivoyage EN e Norfolk Island Health
+isole-cayman	911	911	911	911	CA+WP/WD	
+isole-cocos	000	000	000	000	WP	
+isole-cook		999	998	996	CA+WP/WD	
+isole-falkland	999	999	999	999	CA+WP/WD	
+isole-faroe	112	112	112	112	WP+WD	
+isole-marianne-settentrionali	911	911	911	911	CA+WP/WD	
+isole-marshall					CA	
+isole-pitcairn					FCDO	nessuna rete mobile; medico 984 0132, polizia 984 0141
+isole-salomone		999	911	988	CA+WD	
+isole-vergini-americane	911	911	911	911	CA+WP/WD	
+isole-vergini-britanniche	999	999	999	999	CA+WP/WD	
+israele		100	101	102	CA+WP/WD	
+italia	112	113	118	115	manuale+WP+WD	113/118/115 instradati al 112 dove il NUE e' attivo
+kazakistan	112	102	103	101	CA+WP/WD	
+kenya	999	999	999	999	CA	
+kirghizistan	112	102	103	101	CA	
+kiribati-gilbert	999	192	994	193	FCDO+CA+WD+WP+WVfr	999: FCDO, WP en/pt/id, WVfr; 192/193: CA, WD, WP fi/pt (FCDO 992/993); 994: CA, FCDO (WD e WP fi/pt 194/195)
+kiribati-line	999	192	994	193	FCDO+CA+WD+WP+WVfr	999: FCDO, WP en/pt/id, WVfr; 192/193: CA, WD, WP fi/pt (FCDO 992/993); 994: CA, FCDO (WD e WP fi/pt 194/195)
+kosovo	112	112	112	112	CA+WP/WD	
+kuwait	112	112	112	112	CA+WP/WD	
+laos		1191	1195	1190	FCDO+CA	WP+WD 191/195/190
+lesotho	112	112	112	112	FCDO+WD	CA solo numeri fissi
+lettonia	112	112	112	112	CA+WP/WD	
+libano		112	140	175	CA+WP/WD	
+liberia	911	911	911	911	WP+WD	
+libia					CA	
+liechtenstein	112	117	144	118	CA+WP/WD	
+lituania	112	112	112	112	CA+WP/WD	
+lussemburgo		113	112	112	CA+WP/WD	
+macao	999	999	999	999	FCDO+WP+WD	CA indica 112
+macedonia-del-nord		192	194	193	CA+WP/WD	
+madagascar		117	124	118	CA+WP+WD	
+malawi		997	998	999	CA+WP/WD	
+maldive		119	102	118	CA+WP/WD	
+malesia	999	999	999	999	CA+WP/WD	
+mali		17	15	18	CA+WP/WD	
+malta	112	112	112	112	CA+WP/WD	
+marocco		190	150	150	FCDO+CA	WP+WD 19/15/15; gendarmeria 177
+martinica	112	17	15	18	CA+WP+WD	
+mauritania		117	101	118	FCDO+WP+WD	CA 17/18
+mauritius		999	114	995	CA+WP/WD	
+mayotte	112	17	15	18	CA+WP+WD	
+messico	911	911	911	911	WP+WD	
+micronesia	911	911	911	911	CA+WP	
+moldavia	112	112	112	112	CA+WP/WD	
+monaco	112	112	112	112	CA+WP/WD	
+mongolia		102	103	101	CA+WP/WD	
+montenegro	112	122	124	123	CA+WP/WD	
+montserrat	911	999	911	911	CA+WP	
+mozambico	112	112	848888	198	FCDO+CA+WP	ambulanza anche 823388
+myanmar		199	192	191	CA+WP/WD	
+namibia		10111	10177	998	CA+WD	ambulanza/pompieri solo da CA
+nauru		110	111	112	CA+WP/WD	
+nepal		100	102	101	CA+WP/WD	
+nicaragua		118	128	115	CA+WP/WD	
+niger		17	15	18	CA+WP/WD	
+nigeria	112	112	112	112	CA+WP+WD	
+niue	999	999	999	999	CA+WP/WD	
+norvegia		112	113	110	CA+WP/WD	
+nuova-caledonia		17	15	18	CA	
+nuova-zelanda	111	111	111	111	CA+WP/WD	
+oman	9999	9999	9999	9999	CA+WP/WD	
+paesi-bassi	112	112	112	112	CA+WP/WD	
+pakistan		15	115	16	CA+WP/WD	
+palau	911	911	911	911	CA+WP/WD	
+palestina		100	101	102	FCDO+WP	
+panama		104	911	103	CA+WP/WD	
+papua-nuova-guinea					CA	numeri solo a Port Moresby
+paraguay	911	911	911	911	CA+WP/WD	
+peru	911	105	116	116	CA+WP+WD	ambulanza: CA 116, WD 106/117
+polinesia-francese	112	17	15	18	CA+WP+WD	
+polonia	112	112	112	112	CA+WP/WD	
+portogallo	112	112	112	112	CA+WP/WD	
+portorico	911	911	911	911	CA+WP/WD	
+qatar	999	999	999	999	CA+WP/WD	
+regno-unito	999	999	999	999	CA+WP/WD	
+repubblica-ceca	112	112	112	112	CA+WP/WD	
+repubblica-centrafricana	117	117	610600	118	FCDO+CA+WP	FCDO: servizi poco affidabili fuori Bangui
+repubblica-dominicana	911	911	911	911	CA+WP/WD	
+riunione	112	17	15	18	CA+WP+WD	
+romania	112	112	112	112	CA+WP/WD	
+ruanda		112	912	112	CA+WP+WD	
+russia-estremo-oriente	112	102	103	101	CA+WP/WD	
+russia-europea	112	102	103	101	CA+WP/WD	
+russia-kaliningrad	112	102	103	101	CA+WP/WD	
+russia-siberia	112	102	103	101	CA+WP/WD	
+saint-barthelemy	112	17	15	18	CA+WP+WD	
+saint-kitts-nevis	911	911	911	911	CA+WP+WD	CA indica 333 per i pompieri
+saint-lucia		999	911	911	CA+WP/WD	
+saint-martin	112	17	15	18	CA+WP+WD	
+saint-pierre-miquelon	112	112	112	112	CA+WP/WD	
+saint-vincent-grenadine	911	911	911	911	CA+WP	
+samoa	911	911	911	911	FCDO+CA	WP 999, WD 995/996/994
+samoa-americane	911	911	911	911	CA+WP/WD	
+san-marino	112	113	118	115	manuale+CA	
+sao-tome-principe	112	112	112	112	WP+WD	
+senegal		17	15	18	FCDO+CA	gendarmeria 123
+serbia		192	194	193	CA+WP/WD	
+seychelles	112	999	151	999	CA+WP+WD	
+sierra-leone	117	117	117	117	FCDO	CA 112/999/033, WP+WD 019/999/999
+singapore		999	995	995	CA+WP/WD	
+sint-eustatius-saba	911	911	911	911	CA+WP/WD	
+sint-maarten	911	911	912	919	CA+WP	
+siria		112	110	113	CA+WP/WD	
+slovacchia	112	158	155	150	CA	
+slovenia	112	112	112	112	CA+WP/WD	
+somalia		888	999	555	CA+WP	CA: numeri poco affidabili
+spagna	112	112	112	112	CA+WP/WD	
+sri-lanka		119	110	110	CA	
+stati-uniti	911	911	911	911	manuale+WP+WD	
+stati-uniti-alaska	911	911	911	911	manuale+WP+WD	
+stati-uniti-hawaii	911	911	911	911	manuale+WP+WD	
+sud-sudan					FCDO	CA 777, WP 999, WD 911
+sudafrica	112	10111	10177	10177	CA+WP+WD	pompieri: CA 10111, WP 10177
+sudan	999	999	333	777	CA+WP+WD	333/777 solo da CA
+suriname		115	113	110	CA+WD	
+svalbard-jan-mayen		112	113	110	FCDO+CA (Norvegia)	numeri nazionali norvegesi
+svezia	112	112	112	112	CA+WP/WD	
+svizzera	112	117	144	118	CA+WP/WD	
+tagikistan	112	112	112	112	CA+WP/WD	
+taiwan		110	119	119	CA+WP/WD	
+tanzania	112	112	112	112	CA+WP+WD	
+thailandia		191	1669	199	CA+WP/WD	
+timor-est		112	110	115	CA	
+togo		117	8200	118	FCDO+CA+WP	
+tokelau					CA	
+tonga	911	911	911	911	CA+WP/WD	
+trinidad-tobago		999	811	990	CA	
+tunisia		197	190	198	CA+WP/WD	
+turchia	112	112	112	112	CA+WP/WD	
+turkmenistan		02	03	01	CA+WP/WD	
+turks-caicos	911	911	911	911	CA+WP	
+tuvalu	911	911	911	911	CA+WP/WD	
+ucraina	112	102	103	101	CA+WP/WD	
+uganda	999	999	999	999	FCDO+CA	WP+WD 112/911
+ungheria	112	107	104	105	CA+WP/WD	
+uruguay	911	911	105	104	CA+WP+WD	
+uzbekistan		102	103	101	CA+WP/WD	
+vanuatu		111	112	113	CA+WP/WD	
+venezuela	911	911	911	911	CA+WP/WD	
+vietnam		113	115	114	CA+WP/WD	
+wallis-futuna	112	17	15	18	FCDO+WP	da rete fissa 721772
+yemen		199	191	191	FCDO+CA+WP	FCDO: polizia anche 194, servizi poco affidabili
+zambia		991	992	993	FCDO+CA+WD	
+zimbabwe	999	999	999	999	CA+WP/WD	

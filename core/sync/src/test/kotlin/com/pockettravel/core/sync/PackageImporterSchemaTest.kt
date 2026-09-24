@@ -76,6 +76,22 @@ class PackageImporterSchemaTest {
     }
 
     @Test
+    fun `emergency_numbers_none si legge solo se guides db ha la tabella`() = withDb { conn ->
+        conn.createStatement().use { statement ->
+            assertEquals(false, statement.executeQuery(GuidesImporter.NO_CENTRAL_NUMBER_TABLE_QUERY).next())
+            statement.execute("CREATE TABLE emergency_numbers_none (regionId TEXT NOT NULL)")
+            statement.execute("INSERT INTO emergency_numbers_none VALUES ('test-region')")
+        }
+        conn.createStatement().use { statement ->
+            assertEquals(true, statement.executeQuery(GuidesImporter.NO_CENTRAL_NUMBER_TABLE_QUERY).next())
+            val rs = statement.executeQuery(GuidesImporter.NO_CENTRAL_NUMBER_QUERY)
+            assertEquals(true, rs.next())
+            assertEquals("test-region", rs.getString("regionId"))
+            assertEquals(false, rs.next())
+        }
+    }
+
+    @Test
     fun `la query poi legacy legge i content db v1 senza colonna phone`() = withDb { conn ->
         conn.createStatement().use { statement ->
             statement.execute("CREATE TABLE poi (regionId TEXT, name TEXT, category TEXT, lat REAL, lon REAL, osmTag TEXT)")

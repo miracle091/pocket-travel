@@ -15,4 +15,13 @@ interface EmergencyNumbersDao {
 
     @Query("DELETE FROM emergency_numbers")
     suspend fun deleteAll()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertNoCentralNumber(regions: List<NoCentralEmergencyNumberEntity>)
+
+    @Query("SELECT EXISTS(SELECT 1 FROM emergency_numbers_none WHERE regionId = :regionId)")
+    suspend fun hasNoCentralNumber(regionId: String): Boolean
+
+    @Query("DELETE FROM emergency_numbers_none")
+    suspend fun deleteAllNoCentralNumber()
 }

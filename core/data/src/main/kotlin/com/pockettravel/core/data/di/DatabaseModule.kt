@@ -9,6 +9,7 @@ import com.pockettravel.core.data.db.MIGRATION_2_3
 import com.pockettravel.core.data.db.MIGRATION_3_4
 import com.pockettravel.core.data.db.MIGRATION_4_5
 import com.pockettravel.core.data.db.MIGRATION_5_6
+import com.pockettravel.core.data.db.MIGRATION_6_7
 import com.pockettravel.core.data.db.PassportDao
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.RegionDatabase
@@ -28,7 +29,7 @@ object DatabaseModule {
     @Singleton
     fun provideRegionDatabase(@ApplicationContext context: Context): RegionDatabase =
         Room.databaseBuilder(context, RegionDatabase::class.java, "region.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
             .build()
 
     @Provides

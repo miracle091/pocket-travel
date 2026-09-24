@@ -13,7 +13,7 @@ class GenerateEmergencyNumbersTest {
         outputDb.delete()
 
         try {
-            writeEmergencyNumbersTable(listOf("italia", "regione-sconosciuta", "giappone"), outputDb)
+            writeEmergencyNumbersTable(listOf("italia", "regione-sconosciuta", "giappone", "iraq"), outputDb)
 
             DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
                 conn.createStatement().use { statement ->
@@ -28,6 +28,12 @@ class GenerateEmergencyNumbersTest {
                     assertEquals("113", rs.getString("police"))
                     assertEquals("118", rs.getString("ambulance"))
                     assertEquals("115", rs.getString("fire"))
+                    assertEquals(false, rs.next())
+                }
+                conn.createStatement().use { statement ->
+                    val rs = statement.executeQuery("SELECT regionId FROM emergency_numbers_none")
+                    assertEquals(true, rs.next())
+                    assertEquals("iraq", rs.getString("regionId"))
                     assertEquals(false, rs.next())
                 }
             }
