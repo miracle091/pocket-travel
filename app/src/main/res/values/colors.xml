@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Blu denim campionato da images/app_icon_main.png, usato come sfondo dell'adaptive icon
-         cosi' il piccolo margine visibile attorno all'illustrazione si confonde con essa. -->
+    <!-- Blu denim, sfondo dell'adaptive icon e del cerchio dell'icona nella splash. -->
     <color name="ic_launcher_background">#1F4877</color>
+    <color name="splash_background">#163558</color>
 </resources>

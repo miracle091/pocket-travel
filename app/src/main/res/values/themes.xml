@@ -5,9 +5,11 @@
          per agganciare androidx.core.splashscreen. -->
     <style name="Theme.PocketTravel" parent="android:Theme.Material.Light.NoActionBar" />
 
-    <style name="Theme.PocketTravel.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+    <!-- Splash: l'icona dell'app su un cerchio blu, sopra un blu piu' scuro. -->
+    <style name="Theme.PocketTravel.Splash" parent="Theme.SplashScreen.IconBackground">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
         <item name="postSplashScreenTheme">@style/Theme.PocketTravel</item>
     </style>
 </resources>

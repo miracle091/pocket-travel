@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icona a tema (Android 13+): conta solo l'alfa, il sistema la colora. La tasca e' disegnata dalle
+     sole cuciture, la bussola dal contorno e dall'ago nord pieno. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round"
+        android:pathData="M33.40 38.60L36.00 38.60M37.80 38.60L40.40 38.60M42.20 38.60L44.80 38.60M46.60 38.60L49.20 38.60M51.00 38.60L53.60 38.60M55.40 38.60L58.00 38.60M59.80 38.60L62.40 38.60M64.20 38.60L66.80 38.60M68.60 38.60L71.20 38.60" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round"
+        android:pathData="M33.40 42.00L36.00 42.00M37.80 42.00L40.40 42.00M42.20 42.00L44.80 42.00M46.60 42.00L49.20 42.00M51.00 42.00L53.60 42.00M55.40 42.00L58.00 42.00M59.80 42.00L62.40 42.00M64.20 42.00L66.80 42.00M68.60 42.00L71.20 42.00M75.50 42.90L75.50 45.50M75.50 47.30L75.50 49.90M75.50 51.70L75.50 54.30M75.50 56.10L75.50 58.70M75.50 60.50L75.50 63.10M74.76 64.71L72.60 66.17M71.12 67.18L68.96 68.64M67.48 69.65L65.32 71.11M63.84 72.12L61.68 73.58M60.20 74.59L58.04 76.05M56.56 77.06L54.40 78.53M53.26 78.29L51.10 76.83M49.62 75.82L47.46 74.36M45.98 73.35L43.82 71.89M42.34 70.88L40.18 69.42M38.70 68.41L36.54 66.95M35.06 65.94L32.90 64.47M32.50 63.30L32.50 60.70M32.50 58.90L32.50 56.30M32.50 54.50L32.50 51.90M32.50 50.10L32.50 47.50M32.50 45.70L32.50 43.10" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:pathData="M43,58a11,11 0,1 0,22 0a11,11 0,1 0,-22 0" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round"
+        android:pathData="M54,44.8V47.44M54,68.56V71.2M40.8,58H43.44M64.56,58H67.2" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54,49.42L56.86,58H51.14Z" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.1" android:strokeLineJoin="round"
+        android:pathData="M54,66.58L56.86,58H51.14Z" />
+</vector>
