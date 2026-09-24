@@ -33,8 +33,9 @@
 #
 # <publishedManifestUrl> (opzionale, es. https://.../manifest.json): se presente, prima di fare
 # qualunque lavoro costoso lo script confronta le tile .rd5 attese con quelle gia' pubblicate per
-# REGION_ID (stesso nome, stessa dimensione) - se coincidono la regione e' considerata invariata
-# questa settimana e la rigenerazione viene saltata del tutto (vedi sezione "2bis." sotto).
+# REGION_ID (stesso nome, stessa dimensione) - se coincidono e il poi.db pubblicato non ha piu' di
+# POI_MAX_AGE_DAYS giorni, la regione e' considerata invariata questa settimana e la rigenerazione
+# viene saltata del tutto (vedi sezione "2bis." sotto).
 # Omesso (come per
 # l'esecuzione locale via build-pilot-regions.sh, sempre "tutto fresco") = nessun controllo,
 # rigenerazione completa come sempre. Quando la regione viene saltata, <outputDir>/.skipped viene
@@ -69,8 +70,8 @@ source "$SCRIPT_DIR/lib.sh"
 BROUTER_BASE="https://brouter.de/brouter/segments4"
 MAP_MIN_ZOOM=0
 MAP_MAX_ZOOM=14
-# Oltre questa eta' (giorni) del poi.db pubblicato, una regione con tile cambiate viene
-# rigenerata per intero (POI aggiornati) invece che solo nelle tile (vedi sezione 2bis).
+# Oltre questa eta' (giorni) il poi.db pubblicato viene rigenerato, anche se le tile sono
+# invariate; sotto, si riusa (vedi sezione 2bis).
 POI_MAX_AGE_DAYS="${POI_MAX_AGE_DAYS:-30}"
 
 mkdir -p "$OUTPUT_DIR"
@@ -126,6 +127,9 @@ echo "-- build Protomaps: ${PROTOMAPS_DATE}.pmtiles"
 # la sezione 4 non ripete la stessa richiesta HEAD per le tile gia' controllate - vuoto (nessun
 # riuso, comportamento invariato) quando la sezione 2bis non gira, es. esecuzione locale.
 declare -A PRECHECKED_TILE_CODE
+# true quando la sezione 2bis ha gia' scritto il frammento (tile cambiate) e resta da rigenerare
+# solo il poi.db: la sezione 3 interroga Overpass senza riscaricare i .rd5.
+POI_ONLY=false
 
 LON_START="$(floor5 "$MIN_LON")"
 LON_END="$(floor5 "$MAX_LON")"
@@ -178,7 +182,23 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
       | sort_by(.name)
     ' "$PUBLISHED_MANIFEST" 2>/dev/null || echo "[]")"
 
-    if [ -n "$EXPECTED_SORTED" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$PUBLISHED_SORTED" = "$EXPECTED_SORTED" ]; then
+    # Eta' del poi.db pubblicato, dal nome dell'asset (regionId--YYYY.MM.DD--poi.db, o --content.db
+    # per le regioni convertite dal formato v1). Serve sia allo skip qui sotto sia all'aggiornamento
+    # incrementale: senza, una regione con le tile invariate verrebbe saltata per sempre e i suoi
+    # POI non si aggiornerebbero mai.
+    PUBLISHED_REGION="$(jq -c --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id)][0] // empty' "$PUBLISHED_MANIFEST" 2>/dev/null || true)"
+    PUBLISHED_POI_URL="$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.file.url // ""' 2>/dev/null || true)"
+    POI_DATE="$(printf '%s' "$PUBLISHED_POI_URL" | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)--\(poi\|content\)\.db$#\1#p')"
+    POI_AGE_DAYS=""
+    if [ -n "$POI_DATE" ]; then
+      POI_AGE_DAYS="$(( ($(date -u +%s) - $(date -u -d "${POI_DATE//./-}" +%s)) / 86400 ))"
+    fi
+    POI_STALE=false
+    if [ -n "$POI_AGE_DAYS" ] && [ "$POI_AGE_DAYS" -gt "$POI_MAX_AGE_DAYS" ]; then
+      POI_STALE=true
+    fi
+
+    if [ -n "$EXPECTED_SORTED" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$PUBLISHED_SORTED" = "$EXPECTED_SORTED" ] && [ "$POI_STALE" != "true" ]; then
       echo "== [$REGION_ID] invariata rispetto al manifest pubblicato (stesse tile .rd5, stesse dimensioni): salto la rigenerazione =="
       : > "$OUTPUT_DIR/.skipped"
       # manifestVersion quella del manifest pubblicato: una regione ancora v1 viene convertita da
@@ -189,24 +209,21 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
       exit 0
     fi
     # Aggiornamento incrementale: la regione e' gia' pubblicata nel formato a pacchetti (v2) con
-    # le stesse tile (cambiano solo le dimensioni di alcune) e il suo poi.db ha meno di
-    # POI_MAX_AGE_DAYS giorni. I POI non dipendono dalle tile di routing, quindi non li rigeneriamo:
-    # si riscaricano solo le tile cambiate (nuova versione del routing, e della mappa, che punta
-    # alla build Protomaps corrente) e il POI resta quello pubblicato, con la sua versione. La data
-    # del poi.db si ricava dal nome dell'asset (regionId--YYYY.MM.DD--poi.db, o --content.db per le
-    # regioni convertite dal formato v1). Una regione ancora v1 (senza "routing") viene rigenerata
-    # per intero.
-    PUBLISHED_REGION="$(jq -c --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id)][0] // empty' "$PUBLISHED_MANIFEST" 2>/dev/null || true)"
+    # le stesse tile (cambiano solo le dimensioni di alcune). Si riscaricano solo le tile cambiate
+    # (nuova versione del routing, e della mappa, che punta alla build Protomaps corrente; nessuna
+    # delle due cambia versione se non e' cambiata nessuna tile, altrimenti l'app riscaricherebbe
+    # per niente). I POI non dipendono dalle tile di routing: il poi.db pubblicato resta com'e' se
+    # ha al piu' POI_MAX_AGE_DAYS giorni, altrimenti si rigenera solo lui (sezione 3 in modalita'
+    # POI_ONLY). Una regione ancora v1 (senza "routing") viene rigenerata per intero.
     if [ -n "$PUBLISHED_REGION" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$(printf '%s' "$PUBLISHED_REGION" | jq 'has("routing")')" = "true" ]; then
       SAME_TILES="$(jq -n --argjson a "$EXPECTED_SORTED" --argjson b "$PUBLISHED_SORTED" '($a | map(.name)) == ($b | map(.name))')"
-      PUBLISHED_POI_URL="$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.file.url // ""')"
-      POI_DATE="$(printf '%s' "$PUBLISHED_POI_URL" | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)--\(poi\|content\)\.db$#\1#p')"
-      POI_AGE_DAYS=""
-      if [ -n "$POI_DATE" ]; then
-        POI_AGE_DAYS="$(( ($(date -u +%s) - $(date -u -d "${POI_DATE//./-}" +%s)) / 86400 ))"
-      fi
-      if [ "$SAME_TILES" = "true" ] && [ -n "$POI_AGE_DAYS" ] && [ "$POI_AGE_DAYS" -le "$POI_MAX_AGE_DAYS" ]; then
-        echo "-- $REGION_ID: stesse tile, poi.db di $POI_AGE_DAYS giorni (max $POI_MAX_AGE_DAYS): aggiorno solo le tile cambiate"
+      if [ "$SAME_TILES" = "true" ] && [ -n "$POI_AGE_DAYS" ]; then
+        if [ "$POI_STALE" = "true" ]; then
+          echo "-- $REGION_ID: stesse tile, poi.db di $POI_AGE_DAYS giorni (max $POI_MAX_AGE_DAYS): aggiorno le tile cambiate e rigenero il poi.db"
+          POI_ONLY=true
+        else
+          echo "-- $REGION_ID: stesse tile, poi.db di $POI_AGE_DAYS giorni (max $POI_MAX_AGE_DAYS): aggiorno solo le tile cambiate"
+        fi
         UPDATED_TSV="$WORKDIR/updated-rd5.tsv"
         : > "$UPDATED_TSV"
         CHANGED_TILES="$(jq -r -n --argjson a "$EXPECTED_SORTED" --argjson b "$PUBLISHED_SORTED" \
@@ -227,15 +244,21 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
           ($upd[0] | map({key: .name, value: .}) | from_entries) as $u
           | {manifestVersion: 2, regions: [(.regions // [])[] | select(.regionId == $id)
               | .updatedAt = $now
-              | .map.version = $version | .map.source.sourceUrl = $src
-              | .routing.version = $version | .routing.files |= map(if $u[.name] then $u[.name] else . end)]}' \
+              | if ($u | length) > 0 then
+                  .map.version = $version | .map.source.sourceUrl = $src
+                  | .routing.version = $version | .routing.files |= map(if $u[.name] then $u[.name] else . end)
+                else . end]}' \
           "$PUBLISHED_MANIFEST" > "$OUTPUT_DIR/manifest-fragment.json"
         : > "$OUTPUT_DIR/.incremental"
-        echo "== [$REGION_ID] fatto (incrementale: solo tile cambiate, poi.db riusato) =="
-        exit 0
+        if [ "$POI_ONLY" != "true" ]; then
+          echo "== [$REGION_ID] fatto (incrementale: solo tile cambiate, poi.db riusato) =="
+          exit 0
+        fi
       fi
     fi
-    echo "-- $REGION_ID cambiata (o non ancora pubblicata): rigenerazione completa"
+    if [ "$POI_ONLY" != "true" ]; then
+      echo "-- $REGION_ID cambiata (o non ancora pubblicata): rigenerazione completa"
+    fi
   else
     echo "-- nessun manifest pubblicato raggiungibile su $PUBLISHED_MANIFEST_URL: rigenerazione completa"
   fi
@@ -329,14 +352,16 @@ while [ "$lon" -le "$LON_END" ]; do
       code="$(curl -s -o /dev/null -w '%{http_code}' -I "$url")"
     fi
     if [ "$code" = "200" ]; then
-      dest="$OUTPUT_DIR/${tile}.rd5"
-      echo "-- scarico $tile.rd5 (ri-ospitato insieme a poi.db, vedi commento in testa al file)..."
-      download_with_progress "$dest" "$tile.rd5" -sS -o "$dest" "$url"
-      size="$(wc -c < "$dest" | tr -d ' ')"
-      hash="$(sha256sum "$dest" | awk '{print $1}')"
-      rd5Url="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${tile}.rd5"
-      entry="{ \"name\": \"${tile}.rd5\", \"url\": \"${rd5Url}\", \"sizeBytes\": ${size}, \"sha256\": \"${hash}\" }"
-      if [ -z "$REMOTE_FILES_JSON" ]; then REMOTE_FILES_JSON="$entry"; else REMOTE_FILES_JSON="$REMOTE_FILES_JSON, $entry"; fi
+      if [ "$POI_ONLY" != "true" ]; then
+        dest="$OUTPUT_DIR/${tile}.rd5"
+        echo "-- scarico $tile.rd5 (ri-ospitato insieme a poi.db, vedi commento in testa al file)..."
+        download_with_progress "$dest" "$tile.rd5" -sS -o "$dest" "$url"
+        size="$(wc -c < "$dest" | tr -d ' ')"
+        hash="$(sha256sum "$dest" | awk '{print $1}')"
+        rd5Url="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${tile}.rd5"
+        entry="{ \"name\": \"${tile}.rd5\", \"url\": \"${rd5Url}\", \"sizeBytes\": ${size}, \"sha256\": \"${hash}\" }"
+        if [ -z "$REMOTE_FILES_JSON" ]; then REMOTE_FILES_JSON="$entry"; else REMOTE_FILES_JSON="$REMOTE_FILES_JSON, $entry"; fi
+      fi
 
       chunkMinLon="$(fmax "$MIN_LON" "$lon")"
       chunkMinLat="$(fmax "$MIN_LAT" "$lat")"
@@ -362,7 +387,7 @@ while [ "$lon" -le "$LON_END" ]; do
   lon=$(( lon + 5 ))
 done
 
-if [ -z "$REMOTE_FILES_JSON" ]; then
+if [ -z "$REMOTE_FILES_JSON" ] && [ "$POI_ONLY" != "true" ]; then
   echo "ERRORE: nessun segmento .rd5 trovato per il bbox di $REGION_ID" >&2
   exit 1
 fi
@@ -388,6 +413,36 @@ done
 
 # --- 5. Frammento manifest.json (poi.db nostro + rd5 ri-ospitati + sorgente mappa) -------------
 POI_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi.db"
+if [ "$POI_ONLY" = "true" ]; then
+  # Il frammento incrementale scritto dalla sezione 2bis ha gia' mappa e routing: si sostituisce
+  # solo il pacchetto POI. Se il poi.db rigenerato e' identico a quello pubblicato si tiene la voce
+  # pubblicata (e non si carica nulla): una versione nuova farebbe riscaricare all'app gli stessi dati.
+  MANIFEST_FRAGMENT="$OUTPUT_DIR/manifest-fragment.json"
+  POI_HASH="$(sha256sum < "$POI_DB" | awk '{print $1}')"
+  if [ "$POI_HASH" = "$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.file.sha256 // ""')" ]; then
+    rm -f "$POI_DB"
+    CHANGED_RD5=false
+    for rd5 in "$OUTPUT_DIR"/*.rd5; do
+      [ -e "$rd5" ] && CHANGED_RD5=true
+    done
+    if [ "$CHANGED_RD5" != "true" ]; then
+      # Nessuna tile cambiata e poi.db identico: niente da caricare, come lo skip della sezione 2bis.
+      rm -f "$OUTPUT_DIR/.incremental"
+      : > "$OUTPUT_DIR/.skipped"
+      jq -c --arg id "$REGION_ID" '{manifestVersion: .manifestVersion, regions: [(.regions // [])[] | select(.regionId == $id)]}' \
+        "$PUBLISHED_MANIFEST" > "$MANIFEST_FRAGMENT"
+    fi
+    echo "== [$REGION_ID] fatto (incrementale: poi.db rigenerato ma identico a quello pubblicato) =="
+    exit 0
+  fi
+  jq -c --arg version "$VERSION" --arg url "$POI_DB_URL" \
+    --argjson size "$(wc -c < "$POI_DB" | tr -d ' ')" --arg hash "$POI_HASH" '
+    .regions |= map(.poi = {version: $version, file: {name: "poi.db", url: $url, sizeBytes: $size, sha256: $hash}})' \
+    "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
+  mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
+  echo "== [$REGION_ID] fatto (incrementale: tile cambiate e poi.db rigenerato) =="
+  exit 0
+fi
 SPEC_FILE="$WORKDIR/spec.json"
 cat > "$SPEC_FILE" <<EOF
 {

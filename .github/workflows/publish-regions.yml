@@ -45,6 +45,12 @@ on:
           Vuoto = tutto il lotto pilota.
         required: false
         default: ""
+      poi_max_age_days:
+        description: >
+          Eta' massima (giorni) di un poi.db pubblicato prima di rigenerarlo (POI_MAX_AGE_DAYS di
+          build-region.sh). 0 = rigenera i POI delle regioni scelte anche se recenti. Vuoto = 30.
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -227,6 +233,7 @@ jobs:
         shard: [0, 1, 2]
     env:
       GH_TOKEN: ${{ github.token }}
+      POI_MAX_AGE_DAYS: ${{ github.event.inputs.poi_max_age_days || '30' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -311,8 +318,8 @@ jobs:
                 # le regioni). --clobber: un rilancio della stessa regione nello stesso giorno
                 # (stessa VERSION) deve poter sovrascrivere l'asset gia' caricato in un tentativo
                 # precedente fallito a meta'.
-                # In modalita' incrementale (.incremental, vedi build-region.sh sezione 2bis) non
-                # c'e' un poi.db nuovo: si caricano solo le tile cambiate.
+                # In modalita' incrementale (.incremental, vedi build-region.sh sezione 2bis) si
+                # caricano solo le tile cambiate, piu' il poi.db se era scaduto ed e' stato rigenerato.
                 uploads=()
                 if [ -f "$regionOut/poi.db" ]; then
                   poiDbAsset="$regionOut/${regionId}--${VERSION}--poi.db"
