@@ -6,6 +6,7 @@ import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.hasName
 import com.pockettravel.core.data.isHiddenOnMap
 import com.pockettravel.core.data.poiCategory
+import com.pockettravel.core.poi.PoiCategory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,14 +14,19 @@ import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
-// Holder minimo per far arrivare OfflineTileSource (fornito da RouteEngineModule) a MapScreen
-// tramite hiltViewModel(), come ogni altra dipendenza di questo progetto raggiunge una
-// composable — MapScreen stessa resta stateless, nessuna logica in piu' qui.
+// Holder minimo per far arrivare OfflineTileSource (fornito da RouteEngineModule), i segnalini e i
+// filtri salvati a MapScreen tramite hiltViewModel(), come ogni altra dipendenza di questo progetto
+// raggiunge una composable — MapScreen stessa resta stateless.
 @HiltViewModel
 class MapRouteViewModel @Inject constructor(
     val tileSource: OfflineTileSource,
     private val poiRepository: PoiRepository,
+    private val filterPreferences: MapFilterPreferences,
 ) : ViewModel() {
+    val hiddenCategories: StateFlow<Set<PoiCategory>> = filterPreferences.hiddenCategories
+
+    fun setHiddenCategories(categories: Set<PoiCategory>) = filterPreferences.setHidden(categories)
+
     private val _pins = MutableStateFlow<List<MapPin>>(emptyList())
     val pins: StateFlow<List<MapPin>> = _pins.asStateFlow()
 

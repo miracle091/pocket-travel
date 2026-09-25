@@ -127,7 +127,14 @@ fun RegionHubScreen(
                         val mapViewModel: MapRouteViewModel = hiltViewModel()
                         LaunchedEffect(regionId) { mapViewModel.loadPins(regionId) }
                         val pins by mapViewModel.pins.collectAsStateWithLifecycle()
-                        MapScreen(tileSource = mapViewModel.tileSource, regionId = regionId, pins = pins)
+                        val hiddenCategories by mapViewModel.hiddenCategories.collectAsStateWithLifecycle()
+                        MapScreen(
+                            tileSource = mapViewModel.tileSource,
+                            regionId = regionId,
+                            pins = pins,
+                            hiddenCategories = hiddenCategories,
+                            onHiddenCategoriesChange = mapViewModel::setHiddenCategories,
+                        )
                     } else {
                         // I pacchetti si installano separatamente: la regione puo' avere guida e POI senza mappa.
                         EmptyState(

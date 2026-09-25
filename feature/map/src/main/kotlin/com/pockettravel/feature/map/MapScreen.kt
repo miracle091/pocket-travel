@@ -23,6 +23,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,7 +64,14 @@ private fun iconIdFor(category: PoiCategory) = PIN_ICON_PREFIX + category.name
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin> = emptyList()) {
+fun MapScreen(
+    tileSource: OfflineTileSource,
+    regionId: String,
+    pins: List<MapPin> = emptyList(),
+    // Categorie nascoste, salvate per tutte le regioni (MapFilterPreferences): chip e legenda le cambiano.
+    hiddenCategories: Set<PoiCategory> = emptySet(),
+    onHiddenCategoriesChange: (Set<PoiCategory>) -> Unit = {},
+) {
     val context = LocalContext.current
     MapLibreInitializer.ensureInitialized(context)
 
@@ -72,7 +81,8 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
     val styleJson = remember(tileSource, regionId, darkMap) { tileSource.styleJson(regionId, dark = darkMap) }
     var configuredStyle by remember { mutableStateOf<String?>(null) }
     var symbolManager by remember { mutableStateOf<SymbolManager?>(null) }
-    var selectedCategories by remember { mutableStateOf(PoiCategory.entries.toSet()) }
+    // Saveable: il foglio resta aperto dopo una rotazione o un cambio di tema.
+    var showLegend by rememberSaveable { mutableStateOf(false) }
     var symbolPinMap by remember { mutableStateOf<Map<Long, MapPin>>(emptyMap()) }
     var selectedPin by remember { mutableStateOf<MapPin?>(null) }
     var cameraFitted by remember { mutableStateOf(false) }
@@ -86,7 +96,7 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
         }
     }
     val visiblePins = pins.filter {
-        it.category in selectedCategories && (it.category != PoiCategory.PARCHEGGIO || parkingZoom)
+        it.category !in hiddenCategories && (it.category != PoiCategory.PARCHEGGIO || parkingZoom)
     }
     val presentCategories = PoiCategory.entries.filter { category -> pins.any { it.category == category } }
 
@@ -148,8 +158,8 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
             },
         )
 
-        // Filtri flottanti sopra la mappa: ogni chip porta colore e glifo del proprio segnalino,
-        // quindi fa anche da legenda.
+        // Filtri flottanti sopra la mappa: ogni chip porta colore e glifo del proprio segnalino. La
+        // legenda completa, a gruppi, si apre dal pulsante in basso.
         if (presentCategories.isNotEmpty()) {
             LazyRow(
                 modifier = Modifier.fillMaxWidth().align(Alignment.TopStart),
@@ -157,11 +167,11 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
                 horizontalArrangement = Arrangement.spacedBy(Spacing.s),
             ) {
                 items(presentCategories) { category ->
-                    val selected = category in selectedCategories
+                    val selected = category !in hiddenCategories
                     FilterChip(
                         selected = selected,
                         onClick = {
-                            selectedCategories = if (selected) selectedCategories - category else selectedCategories + category
+                            onHiddenCategoriesChange(if (selected) hiddenCategories + category else hiddenCategories - category)
                         },
                         label = { Text(stringResource(category.label())) },
                         leadingIcon = { PoiBadge(category, size = 20) },
@@ -172,7 +182,22 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
                     )
                 }
             }
+            SmallFloatingActionButton(
+                onClick = { showLegend = true },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.l),
+            ) {
+                Icon(AppIcons.Layers, contentDescription = stringResource(R.string.map_legend_open))
+            }
         }
+    }
+
+    if (showLegend) {
+        MapLegendSheet(
+            presentCategories = presentCategories.toSet(),
+            hiddenCategories = hiddenCategories,
+            onHiddenCategoriesChange = onHiddenCategoriesChange,
+            onDismiss = { showLegend = false },
+        )
     }
 
     selectedPin?.let { pin ->
@@ -217,7 +242,7 @@ fun MapScreen(tileSource: OfflineTileSource, regionId: String, pins: List<MapPin
 // Cerchio nel colore della categoria con il glifo bianco: stesso aspetto della testa del
 // segnalino, usato nei chip e nella scheda del POI.
 @Composable
-private fun PoiBadge(category: PoiCategory, size: Int) {
+internal fun PoiBadge(category: PoiCategory, size: Int) {
     Surface(shape = CircleShape, color = category.pinColor(), modifier = Modifier.size(size.dp)) {
         Box(contentAlignment = Alignment.Center) {
             val glyph = category.glyph()

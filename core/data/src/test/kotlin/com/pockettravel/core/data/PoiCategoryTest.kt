@@ -45,7 +45,7 @@ class PoiCategoryTest {
         assertEquals(PoiCategory.ATTRAZIONI, poi("museum", "tourism=museum").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("monastery", "amenity=monastery").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("fountain", "amenity=fountain").poiCategory())
-        assertEquals(PoiCategory.ATTRAZIONI, poi("playground", "leisure=playground").poiCategory())
+        assertEquals(PoiCategory.PARCO_GIOCHI, poi("playground", "leisure=playground").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("nature_reserve", "leisure=nature_reserve").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("park", "leisure=park").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("water_park", "leisure=water_park").poiCategory())

@@ -16,12 +16,12 @@ import com.pockettravel.core.ui.R as UiR
 internal fun PoiCategory.pinColor(): Color = when (this) {
     PoiCategory.ALLOGGIO -> PoiColors.Lodging
     PoiCategory.CIBO_BEVANDE -> PoiColors.FoodDrink
-    PoiCategory.NEGOZI -> PoiColors.Shopping
-    PoiCategory.ATTRAZIONI -> PoiColors.Attractions
+    PoiCategory.NEGOZI, PoiCategory.DISTRIBUTORI -> PoiColors.Shopping
+    PoiCategory.ATTRAZIONI, PoiCategory.PARCO_GIOCHI, PoiCategory.TAVOLI_PICNIC -> PoiColors.Attractions
     PoiCategory.SVAGO -> PoiColors.Entertainment
-    PoiCategory.AMBASCIATA_CONSOLATO, PoiCategory.POLIZIA, PoiCategory.BAGNI_PUBBLICI, PoiCategory.FARMACIA,
-    PoiCategory.OSPEDALE, PoiCategory.VIGILI_DEL_FUOCO, PoiCategory.VETERINARIO,
-    PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.UFFICIO_POSTALE, PoiCategory.INFORMAZIONI ->
+    PoiCategory.AMBASCIATA_CONSOLATO, PoiCategory.POLIZIA, PoiCategory.BAGNI_PUBBLICI, PoiCategory.ACQUA_POTABILE,
+    PoiCategory.FARMACIA, PoiCategory.OSPEDALE, PoiCategory.VIGILI_DEL_FUOCO, PoiCategory.VETERINARIO,
+    PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.UFFICIO_POSTALE, PoiCategory.CASSETTA_POSTALE, PoiCategory.INFORMAZIONI ->
         PoiColors.PublicServices
     PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.NOLEGGIO, PoiCategory.PARCHEGGIO, PoiCategory.PARCHEGGIO_PRIVATO,
     PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO,
@@ -36,6 +36,11 @@ internal fun PoiCategory.glyph(): Int? = when (this) {
     PoiCategory.ALLOGGIO -> UiR.drawable.ms_hotel
     PoiCategory.CIBO_BEVANDE -> UiR.drawable.ms_restaurant
     PoiCategory.NEGOZI -> UiR.drawable.ms_shopping_bag
+    PoiCategory.DISTRIBUTORI -> UiR.drawable.ms_local_convenience_store
+    PoiCategory.PARCO_GIOCHI -> UiR.drawable.ms_playground
+    PoiCategory.TAVOLI_PICNIC -> UiR.drawable.ms_deck
+    PoiCategory.ACQUA_POTABILE -> UiR.drawable.ms_water_drop
+    PoiCategory.CASSETTA_POSTALE -> UiR.drawable.ms_markunread_mailbox
     PoiCategory.ATTRAZIONI -> UiR.drawable.ms_attractions
     PoiCategory.SVAGO -> UiR.drawable.ms_theater_comedy
     PoiCategory.AMBASCIATA_CONSOLATO -> UiR.drawable.ms_account_balance
@@ -67,6 +72,11 @@ internal fun PoiCategory.label(): Int = when (this) {
     PoiCategory.ALLOGGIO -> R.string.poi_lodging
     PoiCategory.CIBO_BEVANDE -> R.string.poi_food
     PoiCategory.NEGOZI -> R.string.poi_shopping
+    PoiCategory.DISTRIBUTORI -> R.string.poi_vending
+    PoiCategory.PARCO_GIOCHI -> R.string.poi_playground
+    PoiCategory.TAVOLI_PICNIC -> R.string.poi_picnic_table
+    PoiCategory.ACQUA_POTABILE -> R.string.poi_drinking_water
+    PoiCategory.CASSETTA_POSTALE -> R.string.poi_post_box
     PoiCategory.ATTRAZIONI -> R.string.poi_attractions
     PoiCategory.SVAGO -> R.string.poi_entertainment
     PoiCategory.AMBASCIATA_CONSOLATO -> R.string.poi_embassy

@@ -44,4 +44,13 @@ class PoiPackageTest {
         assertNull(poiPackageOf("Scuola Dante", "school", "amenity=school"))
         assertNull(poiPackageOf("Cartello", "information", "tourism=information"))
     }
+
+    @Test
+    fun `i tipi dell'extra hanno una categoria propria`() {
+        assertEquals(PoiCategory.ACQUA_POTABILE, poiCategoryOf("drinking_water", "amenity=drinking_water"))
+        assertEquals(PoiCategory.TAVOLI_PICNIC, poiCategoryOf("picnic_table", "leisure=picnic_table"))
+        assertEquals(PoiCategory.PARCO_GIOCHI, poiCategoryOf("playground", "leisure=playground"))
+        assertEquals(PoiCategory.DISTRIBUTORI, poiCategoryOf("vending_machine", "amenity=vending_machine"))
+        assertEquals(PoiCategory.CASSETTA_POSTALE, poiCategoryOf("post_box", "amenity=post_box"))
+    }
 }

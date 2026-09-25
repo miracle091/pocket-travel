@@ -4,11 +4,15 @@ enum class PoiCategory {
     ALLOGGIO,
     CIBO_BEVANDE,
     NEGOZI,
+    DISTRIBUTORI,
     ATTRAZIONI,
     SVAGO,
+    PARCO_GIOCHI,
+    TAVOLI_PICNIC,
     AMBASCIATA_CONSOLATO,
     POLIZIA,
     BAGNI_PUBBLICI,
+    ACQUA_POTABILE,
     CARBURANTE,
     RICARICA,
     FARMACIA,
@@ -18,6 +22,7 @@ enum class PoiCategory {
     BANCA,
     BANCOMAT,
     UFFICIO_POSTALE,
+    CASSETTA_POSTALE,
     INFORMAZIONI,
     NOLEGGIO,
     PARCHEGGIO,
@@ -43,7 +48,7 @@ private val entertainmentTags = setOf(
 )
 private val attractionValues = setOf(
     "attraction", "museum", "viewpoint", "gallery", "artwork", "zoo", "theme_park", "water_park", "park", "garden",
-    "monastery", "place_of_worship", "fountain", "playground", "nature_reserve",
+    "monastery", "place_of_worship", "fountain", "nature_reserve",
 )
 
 /**
@@ -65,6 +70,12 @@ fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     osmTag == "amenity=bank" -> PoiCategory.BANCA
     osmTag == "amenity=atm" -> PoiCategory.BANCOMAT
     osmTag == "amenity=post_office" -> PoiCategory.UFFICIO_POSTALE
+    // Tipi del pacchetto POI extra (vedi poiPackageOf); i parchi giochi con nome sono nel base.
+    osmTag == "amenity=drinking_water" -> PoiCategory.ACQUA_POTABILE
+    osmTag == "leisure=picnic_table" -> PoiCategory.TAVOLI_PICNIC
+    osmTag == "leisure=playground" -> PoiCategory.PARCO_GIOCHI
+    osmTag == "amenity=vending_machine" -> PoiCategory.DISTRIBUTORI
+    osmTag == "amenity=post_box" -> PoiCategory.CASSETTA_POSTALE
     // "information_office": tourism=information con information=office, deciso dalla pipeline (GeneratePoi.kt).
     category == "information_office" -> PoiCategory.INFORMAZIONI
     osmTag in rentalTags -> PoiCategory.NOLEGGIO

@@ -19,8 +19,8 @@ object PoiColors {
     // Trasporti: treno, metro, autobus, taxi, traghetti, aeroporto, parcheggi, carburante, ricarica elettrica e
     // noleggi.
     val Transport = Color(0xFF00707A)
-    // Polizia, ambasciate, bagni pubblici, farmacie, ospedali, vigili del fuoco, veterinari, banche, bancomat
-    // uffici postali e centri informazioni.
+    // Polizia, ambasciate, bagni pubblici, acqua potabile, farmacie, ospedali, vigili del fuoco, veterinari,
+    // banche, bancomat, uffici postali, cassette postali e centri informazioni.
     val PublicServices = Color(0xFF33449C)
     val Other = Color(0xFF80868B)
 }
