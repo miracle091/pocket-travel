@@ -95,7 +95,7 @@ jobs:
           # asset e la sola release "region-data" con i pacchetti di 254 regioni li ha
           # sforati (HTTP 422 "file_count limited to 1000 assets per release"). Le regioni gia'
           # pubblicate restano raggiungibili sulla vecchia release "region-data" (URL nel manifest).
-          # L'Asia e' divisa in due release, vedi region_release_tag in pilot-regions.sh.
+          # Asia e Africa sono divise in piu' release, vedi region_release_tag in pilot-regions.sh.
           declare -A SEEN=()
           for spec in "${PILOT_REGIONS[@]}"; do
             IFS='|' read -r regionId _ _ _ _ _ _ _ _ _ continent <<< "$spec"

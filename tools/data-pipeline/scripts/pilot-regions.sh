@@ -417,6 +417,10 @@ PILOT_REGIONS=(
 # ripetono tra regioni vicine (stima per eccesso: USA ~190, Canada ~250, Cina ~190, Russia europea
 # ~110) e nella release del continente supererebbero il limite durante una rigenerazione. La
 # Francia (13 regioni, ~26 tile) resta in quella dell'Europa.
+# Dal 2026-09-25 (POI compressi ed extra: fino a 4 file POI per regione, aggiornati ogni settimana)
+# anche Asia e Africa sono divise in due per longitudine del centro del bbox: a ovest di 75° E
+# (Medio Oriente, Caucaso, Asia centrale, Pakistan) "region-data-asia-ovest", a ovest di 20° E
+# "region-data-africa-ovest"; il resto resta in "region-data-asia" e "region-data-africa".
 region_release_tag() {
   local regionId="$1" continent="$2"
   case "$regionId" in
@@ -426,7 +430,21 @@ region_release_tag() {
     cina-*) echo "region-data-cina" ;;
     russia-caucaso-settentrionale|russia-centro|russia-nord-europeo|russia-nord-ovest|russia-terra-nera-centrale|russia-urali-europei|russia-volga|russia-volga-vjatka)
       echo "region-data-russia-europea" ;;
-    *) echo "region-data-$(echo "$continent" | tr 'A-Z' 'a-z' | tr ' ' '-')" ;;
+    *)
+      local tag spec lon
+      tag="region-data-$(echo "$continent" | tr 'A-Z' 'a-z' | tr ' ' '-')"
+      case "$tag" in
+        region-data-asia|region-data-africa)
+          for spec in "${PILOT_REGIONS[@]}"; do
+            [ "${spec%%|*}" = "$regionId" ] || continue
+            lon="$(echo "$spec" | awk -F'|' '{print ($3 + $5) / 2}')"
+            if awk -v lon="$lon" -v max="$([ "$tag" = region-data-asia ] && echo 75 || echo 20)" 'BEGIN{exit !(lon < max)}'; then
+              tag="$tag-ovest"
+            fi
+            break
+          done ;;
+      esac
+      echo "$tag" ;;
   esac
 }
 
