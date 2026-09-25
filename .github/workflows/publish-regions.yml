@@ -304,6 +304,9 @@ jobs:
           # riconosciute da "set -e" (il comando testato in una condizione if non fa terminare lo
           # script), quindi si continua con le regioni successive.
           FAILED_REGIONS=()
+          # Regioni rimaste senza civici nuovi, con il motivo (scritto da build-addresses.sh).
+          export ADDRESSES_REPORT="$RUNNER_TEMP/addresses-report.md"
+          : > "$ADDRESSES_REPORT"
           IFS=',' read -ra SHARD_REGIONS <<< "$SELECTED"
           for spec in "${PILOT_REGIONS[@]}"; do
             IFS='|' read -r regionId displayName minLon minLat maxLon maxLat _wikiTitle flag groupName groupLabel continent <<< "$spec"
@@ -355,8 +358,19 @@ jobs:
                   cp "$rd5" "$rd5Asset"
                   uploads+=("$rd5Asset")
                 done
-                uploadOk=true
-                gh release upload "$releaseTag" "${uploads[@]}" --repo "${{ github.repository }}" --clobber || uploadOk=false
+                # Fino a 3 tentativi: l'API a volte risponde "release not found" su una release che
+                # esiste (tanzania, run del 2026-09-24). --clobber rende sicuro il ricaricamento.
+                uploadOk=false
+                for attempt in 1 2 3; do
+                  if gh release upload "$releaseTag" "${uploads[@]}" --repo "${{ github.repository }}" --clobber; then
+                    uploadOk=true
+                    break
+                  fi
+                  if [ "$attempt" -lt 3 ]; then
+                    echo "-- upload di $regionId fallito (tentativo $attempt/3), riprovo tra $((attempt * 30))s"
+                    sleep $((attempt * 30))
+                  fi
+                done
                 if [ "$uploadOk" != true ]; then
                   echo "::warning::upload asset di $regionId fallito, salto e continuo con le prossime"
                   FAILED_REGIONS+=("$regionId")
@@ -373,6 +387,23 @@ jobs:
             fi
             echo "::endgroup::"
           done
+
+          # Riepilogo nella pagina del job, per non dover cercare i problemi nel log.
+          {
+            echo "### Shard ${{ matrix.shard }}"
+            if [ "${#FAILED_REGIONS[@]}" -gt 0 ]; then
+              echo "Regioni fallite (non pubblicate, da rilanciare a parte): ${FAILED_REGIONS[*]}"
+              echo
+            fi
+            if [ -s "$ADDRESSES_REPORT" ]; then
+              echo "Regioni senza civici nuovi:"
+              echo
+              cat "$ADDRESSES_REPORT"
+            fi
+            if [ "${#FAILED_REGIONS[@]}" -eq 0 ] && [ ! -s "$ADDRESSES_REPORT" ]; then
+              echo "Nessun problema."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
           fragmentCount="$(find "$RUNNER_TEMP/fragments" -maxdepth 1 -name '*.json' | wc -l)"
           if [ "$fragmentCount" -eq 0 ]; then
