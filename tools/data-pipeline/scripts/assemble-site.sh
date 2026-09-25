@@ -55,7 +55,14 @@ for spec in "${REPLACED_REGIONS[@]}"; do
   printf '%s\t%s\n' "$regionId" "$groupName" >> "$REPLACED_TSV"
 done
 
-ARGS_STR="--continents \"$(winpath "$CONTINENTS_TSV")\" --replaced \"$(winpath "$REPLACED_TSV")\" \"$(winpath "$SITE_DIR/manifest.json")\""
+# Build Protomaps corrente per tutte le regioni: build.protomaps.com tiene le build solo ~6 giorni, e
+# una regione non rigenerata da piu' tempo punterebbe a una build sparita (installazione impossibile).
+# Le app installate non riscaricano la mappa: guardano map.version, non l'indirizzo.
+MAP_SOURCE_ARG=""
+if PROTOMAPS_DATE="${PROTOMAPS_DATE_OVERRIDE:-$(resolve_protomaps_date)}"; then
+  MAP_SOURCE_ARG="--map-source-url https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles"
+fi
+ARGS_STR="--continents \"$(winpath "$CONTINENTS_TSV")\" --replaced \"$(winpath "$REPLACED_TSV")\" $MAP_SOURCE_ARG \"$(winpath "$SITE_DIR/manifest.json")\""
 for f in "${MANIFEST_INPUTS[@]}"; do
   ARGS_STR="$ARGS_STR \"$(winpath "$f")\""
 done

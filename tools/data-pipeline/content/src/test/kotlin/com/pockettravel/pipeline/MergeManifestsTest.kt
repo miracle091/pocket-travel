@@ -179,4 +179,19 @@ class MergeManifestsTest {
         assertEquals(setOf("canada", "canada-yukon"), regionsById(merged).keys)
         assertFalse(merged.has("replacedRegions"))
     }
+
+    @Test
+    fun `porta la mappa di tutte le regioni sulla build Protomaps corrente`() {
+        val merged = JSONObject(
+            mergeManifestJson(
+                listOf(fragmentFor("san-marino", "San Marino"), fragmentFor("italia", "Italia")),
+                mapSourceUrl = "https://build.protomaps.com/20260925.pmtiles",
+            ),
+        )
+
+        regionsById(merged).values.forEach { region ->
+            assertEquals("https://build.protomaps.com/20260925.pmtiles", region.getJSONObject("map").getJSONObject("source").getString("sourceUrl"))
+            assertEquals("1", region.getJSONObject("map").getString("version"))
+        }
+    }
 }

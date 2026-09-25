@@ -70,6 +70,12 @@ source "$SCRIPT_DIR/lib.sh"
 BROUTER_BASE="https://brouter.de/brouter/segments4"
 MAP_MIN_ZOOM=0
 MAP_MAX_ZOOM=14
+# Versione della mappa (map.version, che fa ri-estrarre la mappa alle app installate): nuova solo se
+# quella pubblicata ha piu' di MAP_MAX_AGE_DAYS giorni E le tile della regione sono cambiate. Il
+# confronto usa un'impronta (mapFingerprint) delle sole tile da MAP_FINGERPRINT_MIN_ZOOM in su: quelle
+# piu' basse coprono aree enormi e cambiano quasi a ogni build per modifiche lontane dalla regione.
+MAP_MAX_AGE_DAYS="${MAP_MAX_AGE_DAYS:-30}"
+MAP_FINGERPRINT_MIN_ZOOM=12
 # Oltre questa eta' (giorni) il poi.db pubblicato viene rigenerato, anche se le tile sono
 # invariate; sotto, si riusa (vedi sezione 2bis).
 POI_MAX_AGE_DAYS="${POI_MAX_AGE_DAYS:-30}"
@@ -194,16 +200,34 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
       POI_AGE_DAYS="$(( ($(date -u +%s) - $(date -u -d "${POI_DATE//./-}" +%s)) / 86400 ))"
     fi
     POI_STALE=false
+
+    # Impronta delle tile della regione nella build corrente e confronto con la mappa pubblicata.
+    MAP_FINGERPRINT="$(cd "$REPO_ROOT" && ./gradlew -q :tools:data-pipeline:content:mapFingerprint \
+      --args="https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles $MIN_LON $MIN_LAT $MAX_LON $MAX_LAT $MAP_FINGERPRINT_MIN_ZOOM $MAP_MAX_ZOOM" 2>/dev/null \
+      | sed -n 's/.*impronta \([0-9a-f]\{64\}\).*/\1/p' | tail -1 || true)"
+    PUBLISHED_MAP_FINGERPRINT="$(printf '%s' "$PUBLISHED_REGION" | jq -r '.map.fingerprint // ""' 2>/dev/null || true)"
+    PUBLISHED_MAP_DATE="$(printf '%s' "$PUBLISHED_REGION" | jq -r '.map.version // ""' 2>/dev/null | sed -n 's/^\([0-9]\{4\}\)\.\([0-9]\{2\}\)\.\([0-9]\{2\}\)$/\1-\2-\3/p' || true)"
+    MAP_DUE=false
+    if [ -n "$MAP_FINGERPRINT" ] && [ -n "$PUBLISHED_MAP_FINGERPRINT" ] && [ "$MAP_FINGERPRINT" != "$PUBLISHED_MAP_FINGERPRINT" ] && [ -n "$PUBLISHED_MAP_DATE" ]; then
+      MAP_AGE_DAYS="$(( ($(date -u +%s) - $(date -u -d "$PUBLISHED_MAP_DATE" +%s)) / 86400 ))"
+      if [ "$MAP_AGE_DAYS" -gt "$MAP_MAX_AGE_DAYS" ]; then
+        MAP_DUE=true
+        echo "-- $REGION_ID: mappa di $MAP_AGE_DAYS giorni (max $MAP_MAX_AGE_DAYS) e tile cambiate: nuova versione della mappa"
+      fi
+    fi
     if [ -n "$POI_AGE_DAYS" ] && [ "$POI_AGE_DAYS" -gt "$POI_MAX_AGE_DAYS" ]; then
       POI_STALE=true
     fi
 
-    if [ -n "$EXPECTED_SORTED" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$PUBLISHED_SORTED" = "$EXPECTED_SORTED" ] && [ "$POI_STALE" != "true" ]; then
+    if [ -n "$EXPECTED_SORTED" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$PUBLISHED_SORTED" = "$EXPECTED_SORTED" ] && [ "$POI_STALE" != "true" ] && [ "$MAP_DUE" != "true" ]; then
       echo "== [$REGION_ID] invariata rispetto al manifest pubblicato (stesse tile .rd5, stesse dimensioni): salto la rigenerazione =="
       : > "$OUTPUT_DIR/.skipped"
       # manifestVersion quella del manifest pubblicato: una regione ancora v1 viene convertita da
       # mergeManifests (vedi MergeManifests.kt), non qui.
-      jq -c --arg id "$REGION_ID" '{manifestVersion: .manifestVersion, regions: [(.regions // [])[] | select(.regionId == $id)]}' \
+      # Mappe pubblicate prima dell'impronta: la registra senza cambiare versione (riferimento per
+      # i confronti successivi).
+      jq -c --arg id "$REGION_ID" --arg fp "$MAP_FINGERPRINT" '{manifestVersion: .manifestVersion, regions: [(.regions // [])[] | select(.regionId == $id)
+        | if (.map.fingerprint // "") == "" and $fp != "" then .map.fingerprint = $fp else . end]}' \
         "$PUBLISHED_MANIFEST" > "$OUTPUT_DIR/manifest-fragment.json"
       echo "== [$REGION_ID] fatto (saltata, frammento riusato da quello pubblicato) =="
       exit 0
@@ -239,14 +263,20 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
         done <<< "$CHANGED_TILES"
         jq -R -s -c 'split("\n") | map(select(length > 0) | split("\t") | {name: .[0], url: .[1], sizeBytes: (.[2] | tonumber), sha256: .[3]})' \
           "$UPDATED_TSV" > "$WORKDIR/updated-rd5.json"
+        # Mappa e routing hanno versioni indipendenti: una tile .rd5 cambiata non fa piu' ri-estrarre
+        # la mappa (prima map.version cambiava con routing.version).
         jq -c --arg id "$REGION_ID" --arg version "$VERSION" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-          --arg src "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" --slurpfile upd "$WORKDIR/updated-rd5.json" '
+          --arg src "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" --slurpfile upd "$WORKDIR/updated-rd5.json" \
+          --arg fp "$MAP_FINGERPRINT" --argjson mapdue "$MAP_DUE" '
           ($upd[0] | map({key: .name, value: .}) | from_entries) as $u
           | {manifestVersion: 2, regions: [(.regions // [])[] | select(.regionId == $id)
               | .updatedAt = $now
+              | .map.source.sourceUrl = $src
+              | if $mapdue then .map.version = $version | .map.fingerprint = $fp
+                elif (.map.fingerprint // "") == "" and $fp != "" then .map.fingerprint = $fp
+                else . end
               | if ($u | length) > 0 then
-                  .map.version = $version | .map.source.sourceUrl = $src
-                  | .routing.version = $version | .routing.files |= map(if $u[.name] then $u[.name] else . end)
+                  .routing.version = $version | .routing.files |= map(if $u[.name] then $u[.name] else . end)
                 else . end]}' \
           "$PUBLISHED_MANIFEST" > "$OUTPUT_DIR/manifest-fragment.json"
         : > "$OUTPUT_DIR/.incremental"
@@ -488,5 +518,15 @@ MANIFEST_FRAGMENT="$OUTPUT_DIR/manifest-fragment.json"
 echo "-- genero il frammento manifest..."
 ./gradlew -q :tools:data-pipeline:content:generateManifest \
   --args="\"$(winpath "$SPEC_FILE")\" \"$(winpath "$MANIFEST_FRAGMENT")\""
+# Impronta delle tile della mappa appena pubblicata (riferimento per la prossima versione).
+if [ -z "${MAP_FINGERPRINT:-}" ]; then
+  MAP_FINGERPRINT="$(./gradlew -q :tools:data-pipeline:content:mapFingerprint \
+    --args="https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles $MIN_LON $MIN_LAT $MAX_LON $MAX_LAT $MAP_FINGERPRINT_MIN_ZOOM $MAP_MAX_ZOOM" 2>/dev/null \
+    | sed -n 's/.*impronta \([0-9a-f]\{64\}\).*/\1/p' | tail -1 || true)"
+fi
+if [ -n "$MAP_FINGERPRINT" ]; then
+  jq -c --arg fp "$MAP_FINGERPRINT" '.regions |= map(.map.fingerprint = $fp)' "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
+  mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
+fi
 
 echo "== [$REGION_ID] fatto: $POI_DB, $MANIFEST_FRAGMENT =="

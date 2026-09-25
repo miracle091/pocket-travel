@@ -57,6 +57,7 @@ registerPipelineTask("generatePoi", "com.pockettravel.pipeline.GeneratePoiKt", m
 registerPipelineTask("generateAddresses", "com.pockettravel.pipeline.GenerateAddressesKt", maxHeap = "4g", usesSqlite = true)
 registerPipelineTask("generateWorldMap", "com.pockettravel.pipeline.GenerateWorldMapKt")
 registerPipelineTask("generateManifest", "com.pockettravel.pipeline.GenerateManifestKt")
+registerPipelineTask("mapFingerprint", "com.pockettravel.pipeline.MapFingerprintKt", maxHeap = "2g")
 registerPipelineTask("mergeManifests", "com.pockettravel.pipeline.MergeManifestsKt")
 registerPipelineTask("validateManifest", "com.pockettravel.pipeline.ValidateManifestKt")
 
