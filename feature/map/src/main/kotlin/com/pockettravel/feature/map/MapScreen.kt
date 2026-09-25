@@ -2,6 +2,7 @@ package com.pockettravel.feature.map
 
 import android.content.Intent
 import android.net.Uri
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +49,7 @@ import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PoiColors
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.R as UiR
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
@@ -71,6 +73,8 @@ fun MapScreen(
     // Categorie nascoste, salvate per tutte le regioni (MapFilterPreferences): chip e legenda le cambiano.
     hiddenCategories: Set<PoiCategory> = emptySet(),
     onHiddenCategoriesChange: (Set<PoiCategory>) -> Unit = {},
+    // Modalita' "In sedia a rotelle": via i POI che OSM segna come non accessibili.
+    hideInaccessible: Boolean = false,
 ) {
     val context = LocalContext.current
     MapLibreInitializer.ensureInitialized(context)
@@ -96,7 +100,8 @@ fun MapScreen(
         }
     }
     val visiblePins = pins.filter {
-        it.category !in hiddenCategories && (it.category != PoiCategory.PARCHEGGIO || parkingZoom)
+        it.category !in hiddenCategories && (it.category != PoiCategory.PARCHEGGIO || parkingZoom) &&
+            !(hideInaccessible && it.wheelchair == "no")
     }
     val presentCategories = PoiCategory.entries.filter { category -> pins.any { it.category == category } }
 
@@ -221,6 +226,13 @@ fun MapScreen(
                         }
                     }
                 }
+                wheelchairLabel(pin.wheelchair)?.let { label ->
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = Spacing.l)) {
+                        Icon(ImageVector.vectorResource(UiR.drawable.ms_accessible), contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(Spacing.s))
+                        Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
                 pin.phone?.let { phone ->
                     Spacer(modifier = Modifier.padding(top = Spacing.l))
                     FilledTonalButton(
@@ -258,6 +270,15 @@ internal fun PoiBadge(category: PoiCategory, size: Int) {
             }
         }
     }
+}
+
+// Solo i valori OSM con un significato chiaro; gli altri (es. "unknown") come se mancasse.
+@StringRes
+private fun wheelchairLabel(value: String?): Int? = when (value) {
+    "yes", "designated" -> R.string.poi_wheelchair_yes
+    "limited" -> R.string.poi_wheelchair_limited
+    "no" -> R.string.poi_wheelchair_no
+    else -> null
 }
 
 private fun renderPins(symbolManager: SymbolManager?, pins: List<MapPin>): Map<Long, MapPin> {

@@ -10,4 +10,6 @@ data class MapPin(
     val longitude: Double,
     val category: PoiCategory,
     val phone: String?,
+    // Tag OSM "wheelchair" (yes, limited, no...), null se non indicato.
+    val wheelchair: String? = null,
 )

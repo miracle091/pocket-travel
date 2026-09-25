@@ -22,7 +22,9 @@ class MapRouteViewModel @Inject constructor(
     val tileSource: OfflineTileSource,
     private val poiRepository: PoiRepository,
     private val filterPreferences: MapFilterPreferences,
+    usageModePreferences: UsageModePreferences,
 ) : ViewModel() {
+    val usageMode: StateFlow<UsageMode?> = usageModePreferences.mode
     val hiddenCategories: StateFlow<Set<PoiCategory>> = filterPreferences.hiddenCategories
 
     fun setHiddenCategories(categories: Set<PoiCategory>) = filterPreferences.setHidden(categories)
@@ -34,7 +36,7 @@ class MapRouteViewModel @Inject constructor(
         viewModelScope.launch {
             // I POI extra li ha scaricati l'utente apposta: si mostrano anche se di solito nascosti.
             _pins.value = poiRepository.forRegion(regionId).filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
-                MapPin(poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.phone)
+                MapPin(poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.phone, poi.wheelchair)
             }
         }
     }

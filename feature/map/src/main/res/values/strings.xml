@@ -50,6 +50,9 @@
     <string name="map_legend_group_health">Emergenze e salute</string>
     <string name="map_legend_group_other">Altro</string>
     <string name="map_legend_show_all">Mostra tutto</string>
+    <string name="poi_wheelchair_yes">Accessibile in sedia a rotelle</string>
+    <string name="poi_wheelchair_limited">Accessibile in parte in sedia a rotelle</string>
+    <string name="poi_wheelchair_no">Non accessibile in sedia a rotelle</string>
     <string name="poi_call">Chiama %1$s</string>
     <string name="world_legend_downloaded">Scaricata</string>
     <string name="world_legend_available">Disponibile</string>

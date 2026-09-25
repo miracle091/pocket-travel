@@ -53,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -67,14 +68,17 @@ import com.pockettravel.app.regions.RegionRowActions
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.HeroShape
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
+import com.pockettravel.core.ui.R as UiR
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.feature.ai.AiAssistantViewModel
 import com.pockettravel.feature.ai.ModelListCard
+import com.pockettravel.feature.map.UsageModeOptions
 
 private enum class InfoIcon { COMPASS, AI, VAULT, OFFICIAL }
 
 private sealed interface OnboardingStep {
     data class Info(@StringRes val title: Int, @StringRes val body: Int, val icon: InfoIcon) : OnboardingStep
+    data object UsageModeChoice : OnboardingStep
     data object GuidesDownload : OnboardingStep
     data object RegionDownload : OnboardingStep
     data object AiModelDownload : OnboardingStep
@@ -94,6 +98,7 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
     val steps = remember(isOnDeviceAiSupported) {
         buildList {
             add(OnboardingStep.Info(R.string.onboarding_welcome_title, R.string.onboarding_welcome_body, InfoIcon.COMPASS))
+            add(OnboardingStep.UsageModeChoice)
             add(OnboardingStep.GuidesDownload)
             add(OnboardingStep.RegionDownload)
             add(
@@ -150,6 +155,7 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
             ) { index ->
                 when (val currentStep = steps[index]) {
                     is OnboardingStep.Info -> InfoStepContent(currentStep)
+                    OnboardingStep.UsageModeChoice -> UsageModeStepContent(viewModel)
                     OnboardingStep.GuidesDownload -> GuidesDownloadStepContent()
                     OnboardingStep.RegionDownload -> RegionDownloadStepContent()
                     OnboardingStep.AiModelDownload -> AiModelDownloadStepContent()
@@ -253,6 +259,20 @@ private fun StepHeader(icon: ImageVector, title: String, body: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = Spacing.s, bottom = Spacing.m),
     )
+}
+
+// Passo facoltativo: senza una scelta la mappa mostra tutte le categorie, come prima delle modalita'.
+@Composable
+private fun UsageModeStepContent(viewModel: OnboardingViewModel) {
+    val usageMode by viewModel.usageMode.collectAsStateWithLifecycle()
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        StepHeader(
+            icon = ImageVector.vectorResource(UiR.drawable.ms_directions_walk),
+            title = stringResource(R.string.onboarding_usage_mode_title),
+            body = stringResource(R.string.onboarding_usage_mode_body),
+        )
+        UsageModeOptions(selected = usageMode, onSelect = viewModel::setUsageMode)
+    }
 }
 
 // Passo facoltativo: pacchetto guide unico per tutte le nazioni (meno di un MB). Se l'utente lo

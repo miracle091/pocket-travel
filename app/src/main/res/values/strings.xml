@@ -71,6 +71,9 @@
     <string name="more_storage">Spazio di archiviazione</string>
     <string name="more_storage_subtitle">Regioni e modelli IA scaricati</string>
     <string name="more_tutorial">Rivedi tutorial</string>
+    <string name="more_usage_mode">Come ti sposti</string>
+    <string name="more_usage_mode_none">Non scelto: la mappa mostra tutte le categorie</string>
+    <string name="more_usage_mode_body">La mappa mostra per primi i punti utili per questo modo di viaggiare. Scegliendolo, i filtri della mappa tornano a quelli predefiniti.</string>
     <string name="more_licenses">Licenze</string>
     <string name="more_dynamic_color">Colori dal wallpaper</string>
     <string name="more_dynamic_color_subtitle">Usa i colori dello sfondo del telefono invece di quelli dell\'app</string>
@@ -123,6 +126,8 @@
     <string name="onboarding_vault_body">Passaporto e certificati di vaccinazione si trovano in \"Documenti\", protetti da biometria o blocco schermo e mai inviati fuori dal dispositivo.</string>
     <string name="onboarding_sources_title">Le fonti ufficiali restano esterne</string>
     <string name="onboarding_sources_body">Ambasciate, ministeri e OMS si aprono in una scheda del browser e richiedono una connessione: l\'app non li salva mai offline, per restare sempre aggiornati.</string>
+    <string name="onboarding_usage_mode_title">Come ti sposti?</string>
+    <string name="onboarding_usage_mode_body">La mappa mostrerà per primi i punti utili per te. Puoi cambiarlo quando vuoi da Altro, o saltare questo passo.</string>
     <string name="onboarding_guides_title">Guide di tutte le nazioni</string>
     <string name="onboarding_guides_body">Facoltativo: usi e costumi, sicurezza e numeri di emergenza di ogni paese, per consultarli anche prima di scegliere una regione. Se salti questo passo si scaricano da sole alla prima connessione Wi-Fi.</string>
     <string name="onboarding_guides_download">Scarica le guide (%1$s)</string>
