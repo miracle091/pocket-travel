@@ -8,7 +8,7 @@ Versione corrente: **0.6.0** ([Semantic Versioning](https://semver.org/lang/it/)
 
 MVP funzionalmente completo: guida turistica offline con ricerca full-text, mappa vettoriale con routing pedonale offline (BRouter), assistente IA con modalità locale (llama.cpp, modelli GGUF, con controllo RAM) e online (chiave utente personale), vault passaporti cifrato, gestione dei pacchetti (guide, mappa, percorsi, punti di interesse, punti di interesse extra, numeri civici: download, aggiornamento e rimozione uno per uno), legenda della mappa con filtri salvati, modalità d'uso ("Come ti sposti") che scelgono i punti di interesse mostrati di default e registro fonti ufficiali esterne. Interfaccia Material Design 3 con layout adattivo per telefono e tablet.
 
-Il catalogo delle regioni (246 nel lotto pilota, `tools/data-pipeline/scripts/pilot-regions.sh`) è generato da `tools/data-pipeline` e pubblicato ogni settimana da `.github/workflows/publish-regions.yml`: `manifest.json` su GitHub Pages, i pacchetti sulle release `region-data*` del repository.
+Il catalogo delle regioni (294 nel lotto pilota, con gli Stati Uniti divisi per stato, `tools/data-pipeline/scripts/pilot-regions.sh`) è generato da `tools/data-pipeline` e pubblicato ogni settimana da `.github/workflows/publish-regions.yml`: `manifest.json` su GitHub Pages, i pacchetti sulle release `region-data*` del repository.
 
 ## Struttura
 
