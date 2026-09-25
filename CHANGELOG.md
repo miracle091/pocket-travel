@@ -4,6 +4,23 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ## [Non rilasciato]
 
+### Aggiunto
+- "Come ti sposti": sette modalità (A piedi, Escursionismo, In bici, In auto o in moto, In camper, Con i mezzi pubblici, Con disabilità) da scegliere nel primo avvio, facoltativamente, o in qualsiasi momento da Altro. Ogni modalità decide quali punti di interesse la mappa mostra di default; dove dormire, dove mangiare ed emergenze restano sempre visibili. Cambiando modalità i filtri della mappa tornano a quelli predefiniti. La modalità sceglie anche il tipo di percorso (a piedi, escursionismo, bici o auto), che verrà usato dal calcolo dei percorsi.
+- Legenda della mappa: dal pulsante in basso a destra, tutte le categorie presenti nella regione divise in gruppi (Dormire e mangiare, Da vedere e da fare, Negozi, Soldi e posta, Servizi utili, Mezzi di trasporto, Auto, bici e camper, Salute e sicurezza), ognuna con il suo interruttore, e "Mostra tutto". Le scelte della legenda e dei filtri sopra la mappa ora si ricordano e valgono per tutte le regioni.
+- Punti di interesse extra: fontanelle, tavoli da picnic, parchi giochi, distributori automatici, cassette postali e bar, ristoranti e negozi senza nome, in un pacchetto a parte da scaricare solo se servono dal foglio Pacchetti (San Marino circa 20 kB). "Scarica" non li include.
+- Accessibilità: la scheda di un punto di interesse dice se è accessibile in sedia a rotelle, del tutto o in parte, quando OpenStreetMap lo indica. Nella modalità "Con disabilità" i posti segnati come non accessibili non compaiono. Il dato arriva con il prossimo aggiornamento dei punti di interesse di ogni regione.
+- Nuove categorie sulla mappa, con simbolo proprio: Fontanelle, Picnic, Parchi giochi, Distributori automatici, Cassette postali, Servizi per camper (scarico e acqua) e Ripari.
+
+### Modificato
+- Pacchetti dei punti di interesse circa dimezzati (Spagna da 110 a 55 MB): non contengono più ciò che la mappa non mostra, come panchine, cestini, raccolta differenziata e piscine private. Arrivano con il prossimo aggiornamento dei punti di interesse di ogni regione.
+- Punti di interesse aggiornati ogni settimana invece che ogni 30 giorni.
+- Tornano sulla mappa anche senza nome belvedere, noleggio bici, servizi per camper, aree picnic e ripari, utili per chi cammina, pedala o viaggia in camper.
+- Nomi delle categorie più semplici: Dove dormire, Dove mangiare e bere, Da vedere, Cinema, teatri e locali, Benzinai, Colonnine di ricarica, Informazioni turistiche, Stazioni dei treni, Stazioni degli autobus, Porti e traghetti. I parchi giochi hanno una categoria propria invece di stare tra le attrazioni.
+- Foglio Pacchetti: dove i numeri civici non ci sono, la riga "Numeri civici" lo dice ("Non disponibili per questa regione") invece di sparire. Oggi mancano a Figi (Isole Lau), Guinea Equatoriale, Kiribati (Isole della Linea), Nauru, Tokelau e Wallis e Futuna, che non hanno civici in OpenStreetMap, e alle regioni troppo grandi per l'estrazione attuale (Canada, Cina, Francia, Russia europea, Stati Uniti).
+
+### Corretto
+- Numeri civici mancanti a Filippine, Finlandia e Tanzania per errori di rete temporanei durante la pubblicazione: ora ci sono, e la pubblicazione riprova più volte il download e il caricamento prima di rinunciare.
+
 ## [0.6.0]
 
 ### Aggiunto

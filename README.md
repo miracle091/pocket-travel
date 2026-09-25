@@ -1,12 +1,12 @@
 # 🧭 Pocket Travel
 
-Pocket Travel è un'app per chi viaggia senza voler dipendere dalla connessione: guida turistica offline, mappa con routing pedonale, assistente IA e vault per i documenti. Le guide di tutte le nazioni sono un unico pacchetto leggero; per ogni regione mappa, percorsi, punti di interesse e numeri civici si scaricano e aggiornano separatamente.
+Pocket Travel è un'app per chi viaggia senza voler dipendere dalla connessione: guida turistica offline, mappa con routing pedonale, assistente IA e vault per i documenti. Le guide di tutte le nazioni sono un unico pacchetto leggero; per ogni regione mappa, percorsi, punti di interesse (più quelli extra, facoltativi) e numeri civici si scaricano e aggiornano separatamente.
 
 Versione corrente: **0.6.0** ([Semantic Versioning](https://semver.org/lang/it/)) — vedi [CHANGELOG.md](CHANGELOG.md).
 
 ## Stato
 
-MVP funzionalmente completo: guida turistica offline con ricerca full-text, mappa vettoriale con routing pedonale offline (BRouter), assistente IA con modalità locale (llama.cpp, modelli GGUF, con controllo RAM) e online (chiave utente personale), vault passaporti cifrato, gestione dei pacchetti (guide, mappa, percorsi, punti di interesse, numeri civici: download, aggiornamento e rimozione uno per uno) e registro fonti ufficiali esterne. Interfaccia Material Design 3 con layout adattivo per telefono e tablet.
+MVP funzionalmente completo: guida turistica offline con ricerca full-text, mappa vettoriale con routing pedonale offline (BRouter), assistente IA con modalità locale (llama.cpp, modelli GGUF, con controllo RAM) e online (chiave utente personale), vault passaporti cifrato, gestione dei pacchetti (guide, mappa, percorsi, punti di interesse, punti di interesse extra, numeri civici: download, aggiornamento e rimozione uno per uno), legenda della mappa con filtri salvati, modalità d'uso ("Come ti sposti") che scelgono i punti di interesse mostrati di default e registro fonti ufficiali esterne. Interfaccia Material Design 3 con layout adattivo per telefono e tablet.
 
 Il catalogo delle regioni (246 nel lotto pilota, `tools/data-pipeline/scripts/pilot-regions.sh`) è generato da `tools/data-pipeline` e pubblicato ogni settimana da `.github/workflows/publish-regions.yml`: `manifest.json` su GitHub Pages, i pacchetti sulle release `region-data*` del repository.
 
@@ -17,6 +17,7 @@ app/                        shell UI, navigazione, DI (Hilt)
 core/data/                  Room DB (region.db), pacchetti installati, archiviazione su disco
 core/content/               parsing dei contenuti Wikivoyage (usato dalla pipeline per le guide)
 core/sync/                  WorkManager: sync del manifest, download e installazione dei pacchetti
+core/poi/                   categorie dei POI e regole su cosa mostrare e pubblicare (Kotlin puro, usato anche dalla pipeline)
 core/ui/                    design system condiviso (tema M3, icone, componenti Compose comuni)
 feature/guide/              UI guida turistica
 feature/map/                mappa MapLibre, POI, routing, mappa del mondo
@@ -25,7 +26,7 @@ feature/sources/            registro fonti ufficiali esterne
 feature/vault/              UI vault passaporti cifrato
 third-party/                sorgenti vendorizzati: brouter-core, brouter-map-creator, llama-cpp
 tools/data-pipeline/        generazione e pubblicazione dei pacchetti
-  content/                  guides.db, poi.db, manifest (merge e validazione), mappa del mondo
+  content/                  guides.db, poi.db e poi-extra.db, civici, manifest (merge e validazione), mappa del mondo
   maptiles/, routing/       generatori locali di map.pmtiles (Planetiler) e .rd5 (BRouter), non
                             usati in produzione: mappa da Protomaps, segmenti da brouter.de
   scripts/                  build-guides.sh, build-region.sh, assemble-site.sh, calendario
