@@ -4,6 +4,8 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ## [Non rilasciato]
 
+## [0.7.0]
+
 ### Aggiunto
 - Paesi grandi divisi in regioni da scaricare una per una, ognuna con i numeri civici: Stati Uniti (48 stati e il Distretto di Columbia, oltre ad Alaska e Hawaii), Canada (13 province e territori), Russia europea (8 regioni), Cina (31 province e municipalità) e Francia (13 regioni). Una vecchia regione resta scaricabile finché tutte le sue regioni nuove non sono pubblicate; chi l'ha già scaricata la trova ancora tra le nazioni scaricate, utilizzabile ma senza più aggiornamenti, con "Scegli le regioni" per passare a quelle nuove. Le regioni con un territorio enorme e pochi indirizzi (es. il Nunavut, 1.569 civici) li prendono direttamente da OpenStreetMap invece di scaricare gigabyte di mappa.
 - Elenco regioni: i paesi divisi in più regioni (Stati Uniti, Russia, Figi, Kiribati, Colombia, Caraibi olandesi) sono una sola voce da aprire, con i nomi brevi delle regioni sotto.
