@@ -15,4 +15,8 @@ interface PoiDao {
 
     @Query("DELETE FROM poi WHERE regionId = :regionId")
     suspend fun deleteForRegion(regionId: String)
+
+    /** Solo i POI del pacchetto base ([extra] false) o solo quelli del pacchetto extra. */
+    @Query("DELETE FROM poi WHERE regionId = :regionId AND extra = :extra")
+    suspend fun deletePackageForRegion(regionId: String, extra: Boolean)
 }

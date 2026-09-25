@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 /**
  * manifest.json nel formato a pacchetti (manifestVersion 2, generato da tools/data-pipeline):
  * un pacchetto guide unico per tutte le regioni, e per ogni regione i pacchetti mappa, routing,
- * POI e (facoltativo) civici, ciascuno con la propria versione, scaricabili e aggiornabili
+ * POI e (facoltativi) POI extra e civici, ciascuno con la propria versione, scaricabili e aggiornabili
  * separatamente.
  */
 @Serializable
@@ -23,6 +23,8 @@ data class RegionManifestEntry(
     val map: MapPackageEntry,
     val routing: RoutingPackageEntry,
     val poi: PoiPackageEntry,
+    // POI extra (fontanelle, tavoli da picnic...): assenti per le regioni senza o non ancora rigenerate.
+    val poiExtra: PoiPackageEntry? = null,
     // Numeri civici: assenti per le regioni non ancora generate o troppo grandi da estrarre.
     val addresses: AddressesPackageEntry? = null,
     // Continente (da pilot-regions.sh, aggiunto dal merge della pipeline): assente, l'app ricade
@@ -31,17 +33,22 @@ data class RegionManifestEntry(
     // Codice ISO 3166-1 alpha-2 minuscolo del paese (piu' regioni possono condividerlo, es. "us").
     val countryCode: String? = null,
 ) {
-    /** Versione del pacchetto nel manifest, null se la regione non lo offre (solo i civici). */
+    /** Versione del pacchetto nel manifest, null se la regione non lo offre (POI extra e civici). */
     fun versionOf(kind: PackageKind): String? = when (kind) {
         PackageKind.MAP -> map.version
         PackageKind.ROUTING -> routing.version
         PackageKind.POI -> poi.version
+        PackageKind.POI_EXTRA -> poiExtra?.version
         PackageKind.ADDRESSES -> addresses?.version
     }
 
-    /** I pacchetti che il manifest offre per questa regione (tutti tranne, a volte, i civici). */
+    /** I pacchetti che il manifest offre per questa regione (tutti tranne, a volte, POI extra e civici). */
     val availableKinds: Set<PackageKind>
         get() = PackageKind.entries.filterTo(mutableSetOf()) { versionOf(it) != null }
+
+    /** I pacchetti del download completo ("Scarica"): tutti quelli offerti tranne i POI extra, solo su richiesta. */
+    val defaultKinds: Set<PackageKind>
+        get() = availableKinds - PackageKind.POI_EXTRA
 
     /**
      * Byte da scaricare per questi pacchetti. La mappa non ha una dimensione nota in anticipo:
@@ -51,6 +58,7 @@ data class RegionManifestEntry(
     fun downloadBytes(kinds: Set<PackageKind>): Long =
         (if (PackageKind.ROUTING in kinds) routing.files.sumOf { it.sizeBytes } else 0L) +
             (if (PackageKind.POI in kinds) poi.file.sizeBytes else 0L) +
+            (if (PackageKind.POI_EXTRA in kinds) poiExtra?.file?.sizeBytes ?: 0L else 0L) +
             (if (PackageKind.ADDRESSES in kinds) addresses?.file?.sizeBytes ?: 0L else 0L)
 }
 
@@ -62,7 +70,7 @@ data class MapPackageEntry(val version: String, val source: MapExtractionSource)
 @Serializable
 data class RoutingPackageEntry(val version: String, val files: List<RegionManifestFile>)
 
-/** poi.db della regione. */
+/** poi.db (o poi-extra.db) della regione. */
 @Serializable
 data class PoiPackageEntry(val version: String, val file: RegionManifestFile)
 
@@ -92,6 +100,10 @@ fun RegionManifestEntry.validate() {
     require(routing.files.map { it.name }.toSet().size == routing.files.size) { "File duplicati nel routing di $regionId" }
     routing.files.forEach { it.validate(regionId) }
     poi.file.validate(regionId)
+    poiExtra?.let {
+        require(isSafeVersion(it.version)) { "version dei POI extra non valida per $regionId" }
+        it.file.validate(regionId)
+    }
     addresses?.let {
         require(isSafeVersion(it.version)) { "version dei civici non valida per $regionId" }
         it.file.validate(regionId)

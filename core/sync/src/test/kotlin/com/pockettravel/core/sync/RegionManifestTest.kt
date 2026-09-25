@@ -93,7 +93,7 @@ class RegionManifestTest {
 
         val with = parse(withAddresses).regions.single()
         with.validate()
-        assertEquals(PackageKind.entries.toSet(), with.availableKinds)
+        assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI, PackageKind.ADDRESSES), with.availableKinds)
         assertEquals("2026.03.04", with.versionOf(PackageKind.ADDRESSES))
         assertEquals(150_000L, with.downloadBytes(setOf(PackageKind.ADDRESSES)))
         assertEquals(31_650_000L, with.downloadBytes(with.availableKinds))
@@ -135,5 +135,26 @@ class RegionManifestTest {
     fun `ignores unknown fields for forward compatibility`() {
         val manifest = parse(sampleManifest.replaceFirst("\"manifestVersion\": 2,", "\"manifestVersion\": 2, \"generatedBy\": \"pipeline-x\","))
         assertEquals(1, manifest.regions.size)
+    }
+
+    @Test
+    fun `i POI extra sono facoltativi, convalidati e fuori dal download completo`() {
+        val with = parse(sampleManifest.replace(
+            "\"continent\": \"Europa\"",
+            """"poiExtra": { "version": "2026.03.04", "file": { "name": "poi-extra.db", "url": "https://github.com/o/r/releases/download/region-data/poi-extra.db", "sizeBytes": 70000, "sha256": "$sha" } },
+              "continent": "Europa"""",
+        )).regions.single()
+        with.validate()
+        assertEquals("2026.03.04", with.versionOf(PackageKind.POI_EXTRA))
+        assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI), with.defaultKinds)
+        assertEquals(70_000L, with.downloadBytes(setOf(PackageKind.POI_EXTRA)))
+        assertNull(parse().regions.single().versionOf(PackageKind.POI_EXTRA))
+
+        val badHost = parse(sampleManifest.replace(
+            "\"continent\": \"Europa\"",
+            """"poiExtra": { "version": "2026.03.04", "file": { "name": "poi-extra.db", "url": "https://evil.example.com/poi-extra.db", "sizeBytes": 70000, "sha256": "$sha" } },
+              "continent": "Europa"""",
+        )).regions.single()
+        assertThrows(IllegalArgumentException::class.java) { badHost.validate() }
     }
 }

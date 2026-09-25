@@ -26,7 +26,8 @@ class RegionRepository @Inject constructor(
 
     /**
      * Registra i pacchetti appena installati ([versions]), conservando gli altri gia' presenti.
-     * [poiSizeBytes] e' richiesto quando tra i pacchetti c'e' [PackageKind.POI].
+     * [poiSizeBytes] e [poiExtraSizeBytes] sono richiesti quando tra i pacchetti c'e' [PackageKind.POI] o
+     * [PackageKind.POI_EXTRA].
      */
     suspend fun markPackagesInstalled(
         regionId: String,
@@ -34,13 +35,16 @@ class RegionRepository @Inject constructor(
         countryCode: String?,
         versions: Map<PackageKind, String>,
         poiSizeBytes: Long? = null,
+        poiExtraSizeBytes: Long? = null,
     ) {
         require(PackageKind.POI !in versions || poiSizeBytes != null) { "poiSizeBytes mancante per $regionId" }
+        require(PackageKind.POI_EXTRA !in versions || poiExtraSizeBytes != null) { "poiExtraSizeBytes mancante per $regionId" }
         val current = installed(regionId)
         save(
             regionId, displayName, countryCode ?: current?.countryCode,
             versionOf = { kind -> versions[kind] ?: current?.versionOf(kind) },
             poiSizeBytes = if (PackageKind.POI in versions) poiSizeBytes else current?.poiSizeBytes,
+            poiExtraSizeBytes = if (PackageKind.POI_EXTRA in versions) poiExtraSizeBytes else current?.poiExtraSizeBytes,
         )
     }
 
@@ -51,18 +55,20 @@ class RegionRepository @Inject constructor(
             when (kind) {
                 PackageKind.MAP -> check(regionStorage.deletePackage(regionId, RegionStorage.MAP_FILE)) { "Impossibile eliminare la mappa di $regionId" }
                 PackageKind.ROUTING -> check(regionStorage.deletePackage(regionId, RegionStorage.ROUTING_DIR)) { "Impossibile eliminare il routing di $regionId" }
-                PackageKind.POI -> poiDao.deleteForRegion(regionId)
+                PackageKind.POI -> poiDao.deletePackageForRegion(regionId, extra = false)
+                PackageKind.POI_EXTRA -> poiDao.deletePackageForRegion(regionId, extra = true)
                 PackageKind.ADDRESSES -> check(regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_FILE)) { "Impossibile eliminare i civici di $regionId" }
             }
             save(
                 regionId, current.displayName, current.countryCode,
                 versionOf = { if (it == kind) null else current.versionOf(it) },
                 poiSizeBytes = if (kind == PackageKind.POI) null else current.poiSizeBytes,
+                poiExtraSizeBytes = if (kind == PackageKind.POI_EXTRA) null else current.poiExtraSizeBytes,
             )
         }
     }
 
-    private suspend fun save(regionId: String, displayName: String, countryCode: String?, versionOf: (PackageKind) -> String?, poiSizeBytes: Long?) {
+    private suspend fun save(regionId: String, displayName: String, countryCode: String?, versionOf: (PackageKind) -> String?, poiSizeBytes: Long?, poiExtraSizeBytes: Long?) {
         if (PackageKind.entries.all { versionOf(it) == null }) {
             remove(regionId)
             return
@@ -77,9 +83,11 @@ class RegionRepository @Inject constructor(
                 mapVersion = versionOf(PackageKind.MAP),
                 routingVersion = versionOf(PackageKind.ROUTING),
                 poiVersion = versionOf(PackageKind.POI),
+                poiExtraVersion = versionOf(PackageKind.POI_EXTRA),
                 addressesVersion = versionOf(PackageKind.ADDRESSES),
                 poiSizeBytes = poiSizeBytes,
-                sizeBytes = diskBytes + (poiSizeBytes ?: 0L),
+                poiExtraSizeBytes = poiExtraSizeBytes,
+                sizeBytes = diskBytes + (poiSizeBytes ?: 0L) + (poiExtraSizeBytes ?: 0L),
                 installedAt = System.currentTimeMillis(),
             ),
         )
@@ -108,12 +116,13 @@ class RegionRepository @Inject constructor(
         }
     }
 
-    /** Byte occupati da un pacchetto installato: mappa, routing e civici dal disco, POI dalla dimensione registrata. */
+    /** Byte occupati da un pacchetto installato: mappa, routing e civici dal disco, POI (base ed extra) dalla dimensione registrata. */
     fun packageBytes(region: RegionPackage, kind: PackageKind): Long? = when {
         region.versionOf(kind) == null -> null
         kind == PackageKind.MAP -> regionStorage.packageBytes(region.regionId, RegionStorage.MAP_FILE)
         kind == PackageKind.ROUTING -> regionStorage.packageBytes(region.regionId, RegionStorage.ROUTING_DIR)
         kind == PackageKind.ADDRESSES -> regionStorage.packageBytes(region.regionId, RegionStorage.ADDRESSES_FILE)
+        kind == PackageKind.POI_EXTRA -> region.poiExtraSizeBytes
         else -> region.poiSizeBytes
     }
 
@@ -127,7 +136,9 @@ private fun InstalledRegionEntity.toDomain() = RegionPackage(
     mapVersion = mapVersion,
     routingVersion = routingVersion,
     poiVersion = poiVersion,
+    poiExtraVersion = poiExtraVersion,
     addressesVersion = addressesVersion,
     poiSizeBytes = poiSizeBytes,
+    poiExtraSizeBytes = poiExtraSizeBytes,
     sizeBytes = sizeBytes,
 )

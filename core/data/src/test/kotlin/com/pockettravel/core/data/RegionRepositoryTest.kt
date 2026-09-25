@@ -67,6 +67,7 @@ private class NoOpPoiDao : PoiDao {
     override suspend fun insertAll(pois: List<PoiEntity>) = Unit
     override suspend fun poisForRegion(regionId: String): List<PoiEntity> = emptyList()
     override suspend fun deleteForRegion(regionId: String) = Unit
+    override suspend fun deletePackageForRegion(regionId: String, extra: Boolean) = Unit
 }
 
 /** Mai usata per una transazione reale in questi test (vedi nota sopra) — serve solo a
@@ -192,5 +193,18 @@ class RegionRepositoryTest {
     fun `availableStorageBytes delega a RegionStorage`() = runBlocking {
         val (repository, _) = newRepository()
         assertEquals(true, repository.availableStorageBytes() >= 0)
+    }
+
+    @Test
+    fun `i POI extra contano nella dimensione della regione e non toccano quella dei POI base`() = runBlocking {
+        val (repository, _) = newRepository()
+        repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.POI to "1"), poiSizeBytes = 500)
+        repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.POI_EXTRA to "1"), poiExtraSizeBytes = 200)
+
+        val installed = repository.installed("italia")!!
+        assertEquals("1", installed.poiExtraVersion)
+        assertEquals(700L, installed.sizeBytes)
+        assertEquals(500L, repository.packageBytes(installed, PackageKind.POI))
+        assertEquals(200L, repository.packageBytes(installed, PackageKind.POI_EXTRA))
     }
 }

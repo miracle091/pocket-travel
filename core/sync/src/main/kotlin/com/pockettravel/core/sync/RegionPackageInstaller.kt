@@ -8,7 +8,7 @@ import javax.inject.Inject
 
 /**
  * Installa (o aggiorna) solo i pacchetti [kinds] di una regione, lasciando intatti gli altri:
- * scarica e verifica i file (poi.db, segmenti .rd5, addresses.pmtiles), estrae map.pmtiles dalla build Protomaps,
+ * scarica e verifica i file (poi.db, poi-extra.db, segmenti .rd5, addresses.pmtiles), estrae map.pmtiles dalla build Protomaps,
  * poi sostituisce ogni pacchetto su disco e importa i POI. Se un passo fallisce, i pacchetti
  * gia' sostituiti tornano alla versione precedente. Il chiamante valida [entry].
  */
@@ -30,6 +30,7 @@ class RegionPackageInstaller @Inject constructor(
         val files = buildList {
             if (PackageKind.ROUTING in kinds) addAll(entry.routing.files)
             if (PackageKind.POI in kinds) add(entry.poi.file)
+            if (PackageKind.POI_EXTRA in kinds) add(entry.poiExtra!!.file)
             if (PackageKind.ADDRESSES in kinds) add(entry.addresses!!.file)
         }
         // Una cartella di staging per combinazione di pacchetti e versioni: un download interrotto
@@ -53,10 +54,12 @@ class RegionPackageInstaller @Inject constructor(
             }
             regionRepository.inInstallTransaction {
                 if (PackageKind.POI in kinds) poiImporter.import(entry.regionId, File(staging, entry.poi.file.name))
+                if (PackageKind.POI_EXTRA in kinds) poiImporter.import(entry.regionId, File(staging, entry.poiExtra!!.file.name), extra = true)
                 regionRepository.markPackagesInstalled(
                     entry.regionId, entry.displayName, entry.countryCode,
                     versions = kinds.associateWith { entry.versionOf(it)!! },
                     poiSizeBytes = if (PackageKind.POI in kinds) entry.poi.file.sizeBytes else null,
+                    poiExtraSizeBytes = if (PackageKind.POI_EXTRA in kinds) entry.poiExtra!!.file.sizeBytes else null,
                 )
             }
         } catch (error: Exception) {

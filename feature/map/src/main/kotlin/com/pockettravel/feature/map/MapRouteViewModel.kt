@@ -26,7 +26,8 @@ class MapRouteViewModel @Inject constructor(
 
     fun loadPins(regionId: String) {
         viewModelScope.launch {
-            _pins.value = poiRepository.forRegion(regionId).filterNot { it.isHiddenOnMap() }.map { poi ->
+            // I POI extra li ha scaricati l'utente apposta: si mostrano anche se di solito nascosti.
+            _pins.value = poiRepository.forRegion(regionId).filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
                 MapPin(poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.phone)
             }
         }

@@ -25,8 +25,11 @@ class RegionUiItemTest {
         poi = PoiPackageEntry("p2", file("poi.db", 60_000_000)),
     )
 
-    private fun local(map: String?, routing: String?, poi: String?, addresses: String? = null) =
-        RegionPackage("italia", "Italia", "it", map, routing, poi, addresses, poiSizeBytes = poi?.let { 60_000_000L }, sizeBytes = 123)
+    private fun local(map: String?, routing: String?, poi: String?, addresses: String? = null, poiExtra: String? = null) =
+        RegionPackage(
+            "italia", "Italia", "it", mapVersion = map, routingVersion = routing, poiVersion = poi, poiExtraVersion = poiExtra,
+            addressesVersion = addresses, poiSizeBytes = poi?.let { 60_000_000L }, poiExtraSizeBytes = poiExtra?.let { 1_000_000L }, sizeBytes = 123,
+        )
 
     private val withAddresses = remote.copy(addresses = AddressesPackageEntry("a1", file("addresses.pmtiles", 50_000_000)))
 
@@ -76,7 +79,7 @@ class RegionUiItemTest {
         val item = regionUiItem(withAddresses, null, noBytes)
 
         assertEquals(190_000_000L, item.sizeBytes)
-        assertEquals(PackageKind.entries.toList(), item.packages.map { it.kind })
+        assertEquals(listOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI, PackageKind.ADDRESSES), item.packages.map { it.kind })
     }
 
     @Test
@@ -107,5 +110,32 @@ class RegionUiItemTest {
     @Test
     fun `civici offerti non sono tra i non disponibili`() {
         assertEquals(emptyList<PackageKind>(), regionUiItem(withAddresses, null, noBytes).unavailableKinds)
+    }
+
+    private val withPoiExtra = remote.copy(poiExtra = PoiPackageEntry("p2", file("poi-extra.db", 5_000_000)))
+
+    @Test
+    fun `i POI extra si offrono nel foglio ma non entrano nel download completo`() {
+        val item = regionUiItem(withPoiExtra, null, noBytes)
+
+        assertEquals(140_000_000L, item.sizeBytes)
+        assertEquals(RegionStatus.NOT_INSTALLED, item.packages.first { it.kind == PackageKind.POI_EXTRA }.status)
+        assertEquals(5_000_000L, item.packages.first { it.kind == PackageKind.POI_EXTRA }.downloadBytes)
+    }
+
+    @Test
+    fun `POI extra mancanti non sono segnalati come non disponibili ne' come aggiornamento`() {
+        val installed = local(map = "m2", routing = "r1", poi = "p2")
+
+        assertEquals(listOf(PackageKind.ADDRESSES), regionUiItem(remote, installed, noBytes).unavailableKinds)
+        assertEquals(RegionStatus.INSTALLED, regionUiItem(withPoiExtra, installed, noBytes).status)
+    }
+
+    @Test
+    fun `POI extra installati e cambiati sono un aggiornamento`() {
+        val item = regionUiItem(withPoiExtra, local(map = "m2", routing = "r1", poi = "p2", poiExtra = "p1"), noBytes)
+
+        assertEquals(RegionStatus.UPDATE_AVAILABLE, item.status)
+        assertEquals(5_000_000L, item.sizeBytes)
     }
 }

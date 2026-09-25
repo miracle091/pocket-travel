@@ -147,7 +147,7 @@ class RegionListViewModel @Inject constructor(
         val entry = manifestRegions.value.firstOrNull { it.regionId == regionId } ?: return
         viewModelScope.launch {
             val local = regionRepository.installed(regionId)
-            enqueue(entry, if (local == null) entry.availableKinds else outdatedKinds(entry, local))
+            enqueue(entry, if (local == null) entry.defaultKinds else outdatedKinds(entry, local))
         }
     }
 
@@ -197,8 +197,11 @@ internal fun regionUiItem(
         outdated.isNotEmpty() -> RegionStatus.UPDATE_AVAILABLE
         else -> RegionStatus.INSTALLED
     }
-    // I civici possono mancare dal manifest: la riga c'e' se il manifest li offre o se sono installati.
-    val (shown, unavailable) = PackageKind.entries.partition { it in remote.availableKinds || local?.versionOf(it) != null }
+    // POI extra e civici possono mancare dal manifest: la riga c'e' se il manifest li offre o se sono
+    // installati. Solo i civici mancanti si segnalano come "non disponibili": i POI extra arrivano man
+    // mano che la pipeline rigenera i POI delle regioni.
+    val (shown, missing) = PackageKind.entries.partition { it in remote.availableKinds || local?.versionOf(it) != null }
+    val unavailable = missing.filter { it == PackageKind.ADDRESSES }
     val packages = shown.map { kind ->
         PackageUiState(
             kind = kind,
@@ -212,7 +215,7 @@ internal fun regionUiItem(
         )
     }
     val sizeBytes = when (status) {
-        RegionStatus.NOT_INSTALLED -> remote.downloadBytes(remote.availableKinds)
+        RegionStatus.NOT_INSTALLED -> remote.downloadBytes(remote.defaultKinds)
         RegionStatus.UPDATE_AVAILABLE -> remote.downloadBytes(outdated)
         RegionStatus.INSTALLED -> local!!.sizeBytes
     }

@@ -10,7 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Migrazioni 5 -> 6 (pacchetti separati), 6 -> 7, 7 -> 8 e 8 -> 9 sugli schemi esportati in core/data/schemas. */
+/** Migrazioni 5 -> 6 (pacchetti separati), 6 -> 7, 7 -> 8, 8 -> 9 e 9 -> 10 sugli schemi esportati in core/data/schemas. */
 @RunWith(AndroidJUnit4::class)
 class RegionDatabaseMigrationTest {
 
@@ -95,6 +95,26 @@ class RegionDatabaseMigrationTest {
                 assertEquals("it", cursor.getString(0))
                 assertEquals("1", cursor.getString(1))
                 assertTrue("nessuna regione ha gia' i civici", cursor.isNull(2))
+            }
+        }
+    }
+
+    @Test
+    fun migrazione9a10AggiungeIPoiExtraEMarcaBaseQuelliGiaImportati() {
+        helper.createDatabase(DB_NAME, 9).use { db ->
+            db.execSQL("INSERT INTO installed_regions (regionId, displayName, countryCode, mapVersion, routingVersion, poiVersion, addressesVersion, poiSizeBytes, sizeBytes, installedAt) VALUES ('italia', 'Italia', 'it', '1', '1', '1', NULL, 10, 1000, 42)")
+            db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone) VALUES ('italia', 'Da Mario', 'restaurant', 45.0, 9.0, 'amenity=restaurant', NULL)")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 10, true, MIGRATION_9_10).use { db ->
+            db.query("SELECT poiVersion, poiExtraVersion, poiExtraSizeBytes FROM installed_regions WHERE regionId = 'italia'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("1", cursor.getString(0))
+                assertTrue("nessuna regione ha gia' i POI extra", cursor.isNull(1) && cursor.isNull(2))
+            }
+            db.query("SELECT extra FROM poi WHERE regionId = 'italia'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
             }
         }
     }

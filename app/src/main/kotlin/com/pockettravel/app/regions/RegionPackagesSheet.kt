@@ -190,6 +190,7 @@ internal fun PackageKind.label(): Int = when (this) {
     PackageKind.MAP -> R.string.package_map
     PackageKind.ROUTING -> R.string.package_routing
     PackageKind.POI -> R.string.package_poi
+    PackageKind.POI_EXTRA -> R.string.package_poi_extra
     PackageKind.ADDRESSES -> R.string.package_addresses
 }
 
@@ -198,6 +199,7 @@ internal fun PackageKind.deleteTitle(): Int = when (this) {
     PackageKind.MAP -> R.string.package_delete_title_map
     PackageKind.ROUTING -> R.string.package_delete_title_routing
     PackageKind.POI -> R.string.package_delete_title_poi
+    PackageKind.POI_EXTRA -> R.string.package_delete_title_poi_extra
     PackageKind.ADDRESSES -> R.string.package_delete_title_addresses
 }
 
@@ -206,5 +208,6 @@ internal fun PackageKind.icon(): ImageVector = when (this) {
     PackageKind.MAP -> AppIcons.Map
     PackageKind.ROUTING -> AppIcons.Route
     PackageKind.POI -> AppIcons.Place
+    PackageKind.POI_EXTRA -> AppIcons.AddLocation
     PackageKind.ADDRESSES -> AppIcons.HomePin
 }

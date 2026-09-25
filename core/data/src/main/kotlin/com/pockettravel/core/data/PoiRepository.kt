@@ -17,6 +17,8 @@ data class Poi(
     val longitude: Double,
     val osmTag: String,
     val phone: String?,
+    // Dal pacchetto extra: la mappa li mostra anche se isHiddenOnMap() li nasconderebbe.
+    val extra: Boolean = false,
 )
 
-private fun PoiEntity.toDomain() = Poi(id, regionId, name, category, lat, lon, osmTag, phone)
+private fun PoiEntity.toDomain() = Poi(id, regionId, name, category, lat, lon, osmTag, phone, extra)
