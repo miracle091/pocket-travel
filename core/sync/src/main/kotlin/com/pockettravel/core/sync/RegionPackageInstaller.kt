@@ -4,6 +4,7 @@ import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
 import java.io.File
+import java.util.zip.GZIPInputStream
 import javax.inject.Inject
 
 /**
@@ -29,14 +30,16 @@ class RegionPackageInstaller @Inject constructor(
         require(entry.availableKinds.containsAll(kinds)) { "Pacchetti non offerti dal manifest per ${entry.regionId}: ${kinds - entry.availableKinds}" }
         val files = buildList {
             if (PackageKind.ROUTING in kinds) addAll(entry.routing.files)
-            if (PackageKind.POI in kinds) add(entry.poi.file)
-            if (PackageKind.POI_EXTRA in kinds) add(entry.poiExtra!!.file)
+            if (PackageKind.POI in kinds) add(entry.poi.downloadFile)
+            if (PackageKind.POI_EXTRA in kinds) add(entry.poiExtra!!.downloadFile)
             if (PackageKind.ADDRESSES in kinds) add(entry.addresses!!.file)
         }
         // Una cartella di staging per combinazione di pacchetti e versioni: un download interrotto
         // riprende dai file .part della stessa richiesta, una richiesta diversa riparte da zero.
         val stagingVersion = PackageKind.entries.filter { it in kinds }.joinToString("_") { "${it.name.lowercase()}-${entry.versionOf(it)}" }
         val staging = downloader.download(entry.regionId, stagingVersion, files, onProgress)
+        if (PackageKind.POI in kinds) unpackPoi(staging, entry.poi)
+        if (PackageKind.POI_EXTRA in kinds) unpackPoi(staging, entry.poiExtra!!)
 
         if (PackageKind.MAP in kinds) pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE))
         if (PackageKind.ROUTING in kinds) routingGraphInstaller.install(staging)
@@ -68,5 +71,16 @@ class RegionPackageInstaller @Inject constructor(
         }
         activations.forEach { it.commit() }
         staging.deleteRecursively()
+    }
+
+    /** Decomprime il file POI scaricato compresso (gia' verificato con il suo sha256) in [PoiPackageEntry.file]. */
+    private fun unpackPoi(staging: File, poi: PoiPackageEntry) {
+        val gz = poi.fileGz ?: return
+        val target = File(staging, poi.file.name)
+        val part = File(staging, "${poi.file.name}.unpack")
+        GZIPInputStream(File(staging, gz.name).inputStream().buffered()).use { input ->
+            part.outputStream().use { input.copyTo(it) }
+        }
+        check(part.renameTo(target)) { "Impossibile finalizzare ${poi.file.name}" }
     }
 }

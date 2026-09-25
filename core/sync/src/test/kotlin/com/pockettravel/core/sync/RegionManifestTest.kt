@@ -159,6 +159,21 @@ class RegionManifestTest {
     }
 
     @Test
+    fun `se c'e' la copia compressa dei POI si scarica quella`() {
+        fun withGz(url: String) = parse(sampleManifest.replace(
+            "\"sizeBytes\": 3500000, \"sha256\": \"$sha\" }",
+            "\"sizeBytes\": 3500000, \"sha256\": \"$sha\" },\n" +
+                """"fileGz": { "name": "poi.db.gz", "url": "$url", "sizeBytes": 1200000, "sha256": "$sha" }""",
+        )).regions.single()
+        val region = withGz("https://github.com/o/r/releases/download/region-data/poi.db.gz")
+        region.validate()
+        assertEquals("poi.db.gz", region.poi.downloadFile.name)
+        assertEquals(1_200_000L, region.downloadBytes(setOf(PackageKind.POI)))
+        assertEquals(3_500_000L, parse().regions.single().downloadBytes(setOf(PackageKind.POI)))
+        assertThrows(IllegalArgumentException::class.java) { withGz("https://evil.example.com/poi.db.gz").validate() }
+    }
+
+    @Test
     fun `legge le regioni sostituite e i gruppi, facoltativi`() {
         assertEquals(emptyList<ReplacedRegion>(), parse().replacedRegions)
         val json = sampleManifest.trimEnd().removeSuffix("}") + """, "replacedRegions": [{ "regionId": "stati-uniti", "groupName": "Stati Uniti d'America" }] }"""

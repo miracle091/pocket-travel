@@ -9,8 +9,10 @@ import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.db.RegionDatabase
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.MessageDigest
+import java.util.zip.GZIPOutputStream
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.Dispatcher
@@ -172,5 +174,19 @@ class RegionPackageInstallerDeviceTest {
         repository.removePackage("san-marino", PackageKind.ROUTING)
         assertNull(repository.installed("san-marino"))
         assertFalse(regionDir.exists())
+    }
+
+    @Test
+    fun iPoiCompressiSiScaricanoEDecomprimonoPrimaDellImport() = runBlocking {
+        files["poi.db.gz"] = ByteArrayOutputStream().also { out -> GZIPOutputStream(out).use { it.write(files.getValue("poi.db")) } }.toByteArray()
+        val compressed = entry().let { it.copy(poi = it.poi.copy(fileGz = manifestFile("poi.db.gz"))) }
+        files.remove("poi.db") // il file non compresso non deve servire
+
+        installer.install(compressed, setOf(PackageKind.POI))
+
+        val installed = repository.installed("san-marino")!!
+        assertEquals("p1", installed.poiVersion)
+        assertEquals(708, db.poiDao().poisForRegion("san-marino").size)
+        assertEquals(compressed.poi.file.sizeBytes, installed.sizeBytes)
     }
 }

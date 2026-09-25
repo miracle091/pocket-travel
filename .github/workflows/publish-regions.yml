@@ -355,6 +355,13 @@ jobs:
                   cp "$regionOut/poi.db" "$poiDbAsset"
                   uploads+=("$poiDbAsset")
                 fi
+                # Copie compresse dei POI (fileGz nel manifest), per le app che le sanno scaricare.
+                for gz in poi.db.gz poi-extra.db.gz; do
+                  [ -f "$regionOut/$gz" ] || continue
+                  gzAsset="$regionOut/${regionId}--${VERSION}--$gz"
+                  cp "$regionOut/$gz" "$gzAsset"
+                  uploads+=("$gzAsset")
+                done
                 if [ -f "$regionOut/poi-extra.db" ]; then
                   poiExtraAsset="$regionOut/${regionId}--${VERSION}--poi-extra.db"
                   cp "$regionOut/poi-extra.db" "$poiExtraAsset"

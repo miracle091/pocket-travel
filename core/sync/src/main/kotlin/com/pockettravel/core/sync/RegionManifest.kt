@@ -72,8 +72,8 @@ data class RegionManifestEntry(
      */
     fun downloadBytes(kinds: Set<PackageKind>): Long =
         (if (PackageKind.ROUTING in kinds) routing.files.sumOf { it.sizeBytes } else 0L) +
-            (if (PackageKind.POI in kinds) poi.file.sizeBytes else 0L) +
-            (if (PackageKind.POI_EXTRA in kinds) poiExtra?.file?.sizeBytes ?: 0L else 0L) +
+            (if (PackageKind.POI in kinds) poi.downloadFile.sizeBytes else 0L) +
+            (if (PackageKind.POI_EXTRA in kinds) poiExtra?.downloadFile?.sizeBytes ?: 0L else 0L) +
             (if (PackageKind.ADDRESSES in kinds) addresses?.file?.sizeBytes ?: 0L else 0L)
 }
 
@@ -85,9 +85,14 @@ data class MapPackageEntry(val version: String, val source: MapExtractionSource)
 @Serializable
 data class RoutingPackageEntry(val version: String, val files: List<RegionManifestFile>)
 
-/** poi.db (o poi-extra.db) della regione. */
+/**
+ * poi.db (o poi-extra.db) della regione. [fileGz], se c'e', e' lo stesso file compresso con gzip:
+ * si scarica quello e lo si decomprime in [file] (le app piu' vecchie lo ignorano e scaricano [file]).
+ */
 @Serializable
-data class PoiPackageEntry(val version: String, val file: RegionManifestFile)
+data class PoiPackageEntry(val version: String, val file: RegionManifestFile, val fileGz: RegionManifestFile? = null) {
+    val downloadFile: RegionManifestFile get() = fileGz ?: file
+}
 
 /** addresses.pmtiles della regione: i soli civici, sovrapposti alla mappa. */
 @Serializable
@@ -115,9 +120,11 @@ fun RegionManifestEntry.validate() {
     require(routing.files.map { it.name }.toSet().size == routing.files.size) { "File duplicati nel routing di $regionId" }
     routing.files.forEach { it.validate(regionId) }
     poi.file.validate(regionId)
+    poi.fileGz?.validate(regionId)
     poiExtra?.let {
         require(isSafeVersion(it.version)) { "version dei POI extra non valida per $regionId" }
         it.file.validate(regionId)
+        it.fileGz?.validate(regionId)
     }
     addresses?.let {
         require(isSafeVersion(it.version)) { "version dei civici non valida per $regionId" }
