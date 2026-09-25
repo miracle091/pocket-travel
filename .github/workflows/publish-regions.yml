@@ -323,9 +323,14 @@ jobs:
               "$PUBLISHED_MANIFEST_URL"; then
               # Civici (facoltativi, mai fatali): aggiunge la voce "addresses" al frammento e, se il
               # file e' nuovo, lascia addresses.pmtiles da caricare (togliendo .skipped se serve).
-              tools/data-pipeline/scripts/build-addresses.sh "$regionId" "$VERSION" \
-                "$minLon" "$minLat" "$maxLon" "$maxLat" "$RELEASE_BASE_URL" "$regionOut" \
-                "$PUBLISHED_MANIFEST_URL" || echo "::warning::civici di $regionId non generati"
+              # Saltati per le regioni senza nessun civico (region_has_addresses in pilot-regions.sh).
+              if region_has_addresses "$regionId"; then
+                tools/data-pipeline/scripts/build-addresses.sh "$regionId" "$VERSION" \
+                  "$minLon" "$minLat" "$maxLon" "$maxLat" "$RELEASE_BASE_URL" "$regionOut" \
+                  "$PUBLISHED_MANIFEST_URL" || echo "::warning::civici di $regionId non generati"
+              else
+                echo "-- $regionId: nessun civico disponibile (region_has_addresses), salto i civici"
+              fi
               if [ -f "$regionOut/.skipped" ]; then
                 # Controllo di necessita' in build-region.sh: tile .rd5 attese invariate rispetto
                 # al manifest gia' pubblicato, il frammento e' quello di sempre, niente da

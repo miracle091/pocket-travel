@@ -309,3 +309,13 @@ region_release_tag() {
     *) echo "region-data-$(echo "$continent" | tr 'A-Z' 'a-z' | tr ' ' '-')" ;;
   esac
 }
+
+# Regioni senza nessun civico: zero indirizzi nelle z15 di Protomaps (run del 2026-09-24) e nessun
+# dato in Overture (rilascio 2026-09-23.0). Il workflow non lancia build-addresses.sh per loro:
+# niente estrazione inutile e niente riga nel riepilogo. Toglierle da qui se compare una fonte.
+region_has_addresses() {
+  case "$1" in
+    figi-lau|guinea-equatoriale|kiribati-line|nauru|tokelau|wallis-futuna) return 1 ;;
+    *) return 0 ;;
+  esac
+}
