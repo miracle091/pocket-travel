@@ -84,4 +84,18 @@ class GenerateAddressesTest {
         assertEquals(0.0, tileXToLon(16384.0, 15), 1e-9)
         assertEquals(0.0, tileYToLat(16384.0, 15), 1e-9)
     }
+
+    @Test
+    fun `legge i civici della fonte di riserva, scartando righe incomplete e punti fuori dal bbox`() {
+        val points = File.createTempFile("pocket-travel-test", ".tsv")
+        try {
+            points.writeText("63.7467\t-68.5170\t1020\n63.75\t-68.52\t\nnon\tnumeri\t3\n10.0\t10.0\t5\n")
+
+            val addresses = readAddressPoints(points, -70.0, 60.0, -60.0, 70.0)
+
+            assertEquals(listOf(Address(63_746_700, -68_517_000, "1020")), addresses)
+        } finally {
+            points.delete()
+        }
+    }
 }

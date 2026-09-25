@@ -90,3 +90,33 @@ fetch_wikivoyage_en_dump() {
   fi
   return 1
 }
+
+# Istanze gratuite e senza chiave con copertura mondiale (wiki OSM, "Overpass API - Instances
+# with global data coverage", verificato il 2026-09-24): prima quelle senza limiti dichiarati
+# (VK Maps, private.coffee), poi le due FOSSGIS, che chiedono meno di 10.000 richieste al giorno.
+# overpass.openstreetmap.fr tolto: dal 2026-09 risponde solo a usi autorizzati. La disponibilita'
+# cambia di ora in ora (stesso giorno: una istanza in timeout, un'altra con 504), quindi
+# ATTEMPTS = numero di istanze, cosi' ogni chunk le prova tutte.
+OVERPASS_ENDPOINTS=(
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+  "https://overpass.private.coffee/api/interpreter"
+  "https://overpass-api.de/api/interpreter"
+  "https://z.overpass-api.de/api/interpreter"
+)
+
+# Query Overpass con risposta JSON ([out:json]), scritta in <outFile>: prova i mirror uno dopo l'altro
+# finche' uno risponde con un JSON valido e senza "remark" (un timeout della query arriva come
+# risposta valida con il solo remark). Lo User-Agent descrittivo serve: overpass-api.de risponde
+# 406 senza (visto il 2026-09-25). Ritorna 1 se nessun mirror risponde.
+overpass_json() {
+  local query="$1" outFile="$2" endpoint
+  for endpoint in "${OVERPASS_ENDPOINTS[@]}"; do
+    if curl -sS --max-time 950 -A "PocketTravelDataPipeline/1.0 (https://github.com/miracle091/pocket-travel)" \
+      "$endpoint" --data-urlencode "data=$query" -o "$outFile" &&
+      jq -e '(.elements | type) == "array" and (.remark == null)' "$outFile" >/dev/null 2>&1; then
+      return 0
+    fi
+    echo "-- Overpass $endpoint non disponibile o in timeout, provo il successivo" >&2
+  done
+  return 1
+}

@@ -66,6 +66,20 @@ fun extractAddresses(pmtiles: File, minLon: Double, minLat: Double, maxLon: Doub
     return addresses
 }
 
+/**
+ * Civici gia' come punti, una riga "lat<TAB>lon<TAB>numero" (fonte di riserva Overpass di
+ * build-addresses.sh, per le regioni troppo grandi da estrarre dalle z15), tenendo solo quelli nel bbox.
+ */
+fun readAddressPoints(points: File, minLon: Double, minLat: Double, maxLon: Double, maxLat: Double): List<Address> =
+    points.readLines().mapNotNull { line ->
+        val fields = line.split('\t')
+        val lat = fields.getOrNull(0)?.toDoubleOrNull() ?: return@mapNotNull null
+        val lon = fields.getOrNull(1)?.toDoubleOrNull() ?: return@mapNotNull null
+        val number = fields.getOrNull(2)?.trim().orEmpty()
+        if (number.isEmpty() || lon !in minLon..maxLon || lat !in minLat..maxLat) return@mapNotNull null
+        Address((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), number)
+    }
+
 private fun gunzipIfNeeded(bytes: ByteArray): ByteArray =
     if (bytes.size > 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte()) {
         GZIPInputStream(ByteArrayInputStream(bytes)).use { it.readBytes() }
@@ -139,13 +153,15 @@ private fun gzip(bytes: ByteArray): ByteArray =
 
 fun main(args: Array<String>) {
     require(args.size >= 6) {
-        "Uso: generateAddresses <output.pmtiles> <minLon> <minLat> <maxLon> <maxLat> <z15-1.pmtiles> [z15-2.pmtiles ...]"
+        "Uso: generateAddresses <output.pmtiles> <minLon> <minLat> <maxLon> <maxLat> <z15-1.pmtiles | punti.tsv> [...]"
     }
     val output = File(args[0])
     val (minLon, minLat, maxLon, maxLat) = args.slice(1..4).map { it.toDouble() }
     // Con piu' estratti (riquadri adiacenti) un indirizzo sul bordo compare in entrambi.
     val addresses = args.drop(5).map(::File)
-        .flatMap { extractAddresses(it, minLon, minLat, maxLon, maxLat) }
+        .flatMap {
+            if (it.name.endsWith(".tsv")) readAddressPoints(it, minLon, minLat, maxLon, maxLat) else extractAddresses(it, minLon, minLat, maxLon, maxLat)
+        }
         .distinct()
     writeAddressesPmtiles(addresses, output, minLon, minLat, maxLon, maxLat)
     println("indirizzi: ${addresses.size} scritti in ${output.path}")

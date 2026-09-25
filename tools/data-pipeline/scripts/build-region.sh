@@ -280,18 +280,8 @@ fi
 # Marino resta un solo chunk/una sola query, per uno grande diventano N query piu' leggere.
 # generatePoi (piu' sotto) unisce i risultati delle tile con terra emersa.
 #
-# Istanze gratuite e senza chiave con copertura mondiale (wiki OSM, "Overpass API - Instances
-# with global data coverage", verificato il 2026-09-24): prima quelle senza limiti dichiarati
-# (VK Maps, private.coffee), poi le due FOSSGIS, che chiedono meno di 10.000 richieste al giorno.
-# overpass.openstreetmap.fr tolto: dal 2026-09 risponde solo a usi autorizzati. La disponibilita'
-# cambia di ora in ora (stesso giorno: una istanza in timeout, un'altra con 504), quindi
-# ATTEMPTS = numero di istanze, cosi' ogni chunk le prova tutte.
-OVERPASS_ENDPOINTS=(
-  "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
-  "https://overpass.private.coffee/api/interpreter"
-  "https://overpass-api.de/api/interpreter"
-  "https://z.overpass-api.de/api/interpreter"
-)
+# Mirror Overpass: OVERPASS_ENDPOINTS in lib.sh. ATTEMPTS = numero di istanze, cosi' ogni chunk le
+# prova tutte.
 ATTEMPTS=${#OVERPASS_ENDPOINTS[@]}
 
 # Chiavi di tag OSM riconosciute come punti di interesse — sottoinsieme minimo, non lo schema POI

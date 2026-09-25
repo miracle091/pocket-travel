@@ -19,11 +19,15 @@
 #   ADDRESSES_MAX_AGE_DAYS    (30)   oltre questa eta' il file pubblicato viene rigenerato
 #   ADDRESSES_MAX_EXTRACT_MB  (4000) sopra questa dimensione delle z15 la regione resta senza civici
 #   ADDRESSES_ATTEMPTS        (3)    tentativi di stima ed estrazione delle z15 (attese di 30 s, poi 2 min)
+#   ADDRESSES_OVERPASS_MAX    (200000) fonte di riserva: se le z15 superano ADDRESSES_MAX_EXTRACT_MB e nel
+#                                    riquadro ci sono al piu' questi civici, si prendono da Overpass
+#                                    (stessi dati OSM: nodi e centroidi degli edifici con addr:housenumber)
 #   ADDRESSES_REPORT                 se impostata, file a cui aggiungere una riga per ogni regione
 #                                    rimasta senza civici nuovi, con il motivo (riepilogo del job)
 #   PMTILES_BIN                      eseguibile go-pmtiles (default: "pmtiles" o "go-pmtiles" nel PATH)
 #
-# Richiede: jq, curl, sha256sum, go-pmtiles, gradle wrapper dalla root del repo.
+# Richiede: jq, curl, sha256sum, go-pmtiles, gradle wrapper dalla root del repo (Overpass solo per la
+# fonte di riserva).
 set -euo pipefail
 
 if [ "$#" -lt 8 ] || [ "$#" -gt 9 ]; then
@@ -43,12 +47,15 @@ PUBLISHED_MANIFEST_URL="${9:-}"
 ADDRESSES_MAX_AGE_DAYS="${ADDRESSES_MAX_AGE_DAYS:-30}"
 ADDRESSES_MAX_EXTRACT_MB="${ADDRESSES_MAX_EXTRACT_MB:-4000}"
 ADDRESSES_ATTEMPTS="${ADDRESSES_ATTEMPTS:-3}"
+ADDRESSES_OVERPASS_MAX="${ADDRESSES_OVERPASS_MAX:-200000}"
 ADDRESSES_REPORT="${ADDRESSES_REPORT:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 # shellcheck source=./lib.sh
 source "$SCRIPT_DIR/lib.sh"
+# shellcheck source=./pilot-regions.sh
+source "$SCRIPT_DIR/pilot-regions.sh"
 
 FRAGMENT="$OUTPUT_DIR/manifest-fragment.json"
 ADDRESSES_FILE="$OUTPUT_DIR/addresses.pmtiles"
@@ -128,6 +135,38 @@ if [ -z "$PMTILES_BIN" ]; then
   exit 0
 fi
 
+# Fonte di riserva per le regioni con un riquadro enorme e pochi civici (es. Nunavut: 4.403 MB di z15
+# per 1.569 civici): li conta su Overpass e, se sono al piu' ADDRESSES_OVERPASS_MAX, li scrive in
+# $POINTS (lat, lon, numero separati da tab) per GenerateAddresses. OVERPASS_NOTE dice perche' no.
+POINTS="$WORKDIR/points.tsv"
+OVERPASS_NOTE=""
+points_from_overpass() {
+  # Area amministrativa (region_osm_area, pilot-regions.sh) se c'e', altrimenti il riquadro.
+  local iso area count
+  iso="$(region_osm_area "$REGION_ID")"
+  if [ -n "$iso" ]; then
+    area="area[\"ISO3166-2\"=\"$iso\"]->.a;nwr[\"addr:housenumber\"](area.a)"
+  else
+    area="nwr[\"addr:housenumber\"]($MIN_LAT,$MIN_LON,$MAX_LAT,$MAX_LON)"
+  fi
+  if ! overpass_json "[out:json][timeout:900];$area;out count;" "$WORKDIR/count.json"; then
+    OVERPASS_NOTE=", Overpass non disponibile"
+    return 1
+  fi
+  count="$(jq -r '.elements[0].tags.total // 0' "$WORKDIR/count.json")"
+  echo "-- $REGION_ID: $count civici su Overpass"
+  if [ "$count" -eq 0 ] || [ "$count" -gt "$ADDRESSES_OVERPASS_MAX" ]; then
+    OVERPASS_NOTE=", $count civici su Overpass (max $ADDRESSES_OVERPASS_MAX)"
+    return 1
+  fi
+  if ! overpass_json "[out:json][timeout:900];$area;out tags center qt;" "$WORKDIR/addresses.json"; then
+    OVERPASS_NOTE=", Overpass non disponibile"
+    return 1
+  fi
+  jq -r '.elements[] | [(.lat // .center.lat), (.lon // .center.lon), .tags["addr:housenumber"]] | @tsv' \
+    "$WORKDIR/addresses.json" > "$POINTS"
+}
+
 # Stessa build Protomaps della mappa della regione.
 SOURCE_URL="$(jq -r '.regions[0].map.source.sourceUrl' "$FRAGMENT")"
 BBOX="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT"
@@ -142,13 +181,16 @@ fi
 EXTRACT_MB="$(printf '%s' "$DRY_RUN" | sed -n 's/.*archive size of \([0-9.]*\) \([kMG]\{0,1\}B\).*/\1 \2/p' | tail -1 \
   | awk '{ f = ($2 == "GB") ? 1024 : ($2 == "MB") ? 1 : ($2 == "kB") ? 1 / 1024 : 1 / 1048576; printf "%d", $1 * f + 0.5 }')"
 echo "-- $REGION_ID: z15 da estrarre ~${EXTRACT_MB:-?} MB"
+INPUT="$Z15"
 if [ -z "$EXTRACT_MB" ] || [ "$EXTRACT_MB" -gt "$ADDRESSES_MAX_EXTRACT_MB" ]; then
-  echo "::warning::$REGION_ID: z15 troppo grandi (${EXTRACT_MB:-?} MB, max $ADDRESSES_MAX_EXTRACT_MB) o stima illeggibile"
-  give_up "estrazione troppo grande (${EXTRACT_MB:-?} MB, max $ADDRESSES_MAX_EXTRACT_MB)"
-  exit 0
-fi
-
-if ! with_retries "$PMTILES_BIN" extract "$SOURCE_URL" "$Z15" --bbox="$BBOX" --minzoom=15 --maxzoom=15; then
+  echo "-- $REGION_ID: z15 troppo grandi (${EXTRACT_MB:-?} MB, max $ADDRESSES_MAX_EXTRACT_MB): provo i civici da Overpass"
+  if ! points_from_overpass; then
+    echo "::warning::$REGION_ID: z15 troppo grandi (${EXTRACT_MB:-?} MB, max $ADDRESSES_MAX_EXTRACT_MB)$OVERPASS_NOTE"
+    give_up "estrazione troppo grande (${EXTRACT_MB:-?} MB, max $ADDRESSES_MAX_EXTRACT_MB)$OVERPASS_NOTE"
+    exit 0
+  fi
+  INPUT="$POINTS"
+elif ! with_retries "$PMTILES_BIN" extract "$SOURCE_URL" "$Z15" --bbox="$BBOX" --minzoom=15 --maxzoom=15; then
   echo "::warning::estrazione delle z15 di $REGION_ID fallita"
   give_up "estrazione fallita dopo $ADDRESSES_ATTEMPTS tentativi"
   exit 0
@@ -158,7 +200,7 @@ rm -f "$ADDRESSES_FILE"
 cd "$REPO_ROOT"
 # Il log di Planetiler puo' precedere la riga con codici colore ANSI: niente ancora a inizio riga.
 if ! GENERATED="$(./gradlew -q :tools:data-pipeline:content:generateAddresses \
-  --args="\"$(winpath "$ADDRESSES_FILE")\" $MIN_LON $MIN_LAT $MAX_LON $MAX_LAT \"$(winpath "$Z15")\"" | tee /dev/stderr | sed -n 's/.*indirizzi: \([0-9]*\) .*/\1/p')"; then
+  --args="\"$(winpath "$ADDRESSES_FILE")\" $MIN_LON $MIN_LAT $MAX_LON $MAX_LAT \"$(winpath "$INPUT")\"" | tee /dev/stderr | sed -n 's/.*indirizzi: \([0-9]*\) .*/\1/p')"; then
   rm -f "$Z15" "$ADDRESSES_FILE"
   echo "::warning::generateAddresses fallito per $REGION_ID"
   give_up "generazione fallita"
