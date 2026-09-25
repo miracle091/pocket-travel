@@ -40,11 +40,53 @@ burkina-faso		17	112	18	CA+WP+WD
 burundi	112	112	112	112	FCDO+CA+WD	Croce Rossa 109
 cambogia		117	119	118	CA+WP/WD	
 camerun	112	117	119	118	CA+WP+WD	
-canada	911	911	911	911	WP+WD	
+canada-alberta	911	911	911	911	WP+WD	
+canada-columbia-britannica	911	911	911	911	WP+WD	
+canada-isola-del-principe-edoardo	911	911	911	911	WP+WD	
+canada-manitoba	911	911	911	911	WP+WD	
+canada-nunavut	911	911	911	911	WP+WD	
+canada-nuova-scozia	911	911	911	911	WP+WD	
+canada-nuovo-brunswick	911	911	911	911	WP+WD	
+canada-ontario	911	911	911	911	WP+WD	
+canada-quebec	911	911	911	911	WP+WD	
+canada-saskatchewan	911	911	911	911	WP+WD	
+canada-terranova-e-labrador	911	911	911	911	WP+WD	
+canada-territori-del-nord-ovest	911	911	911	911	WP+WD	
+canada-yukon	911	911	911	911	WP+WD	
 capo-verde		132	130	131	CA+WP/WD	
 ciad		2020	1212	1212	FCDO+CA	WP+WD 17/18
 cile		133	131	132	CA+WP/WD	
-cina		110	120	119	CA+WP/WD	
+cina-anhui		110	120	119	CA+WP/WD	
+cina-chongqing		110	120	119	CA+WP/WD	
+cina-fujian		110	120	119	CA+WP/WD	
+cina-gansu		110	120	119	CA+WP/WD	
+cina-guangdong		110	120	119	CA+WP/WD	
+cina-guangxi		110	120	119	CA+WP/WD	
+cina-guizhou		110	120	119	CA+WP/WD	
+cina-hainan		110	120	119	CA+WP/WD	
+cina-hebei		110	120	119	CA+WP/WD	
+cina-heilongjiang		110	120	119	CA+WP/WD	
+cina-henan		110	120	119	CA+WP/WD	
+cina-hubei		110	120	119	CA+WP/WD	
+cina-hunan		110	120	119	CA+WP/WD	
+cina-jiangsu		110	120	119	CA+WP/WD	
+cina-jiangxi		110	120	119	CA+WP/WD	
+cina-jilin		110	120	119	CA+WP/WD	
+cina-liaoning		110	120	119	CA+WP/WD	
+cina-mongolia-interna		110	120	119	CA+WP/WD	
+cina-ningxia		110	120	119	CA+WP/WD	
+cina-pechino		110	120	119	CA+WP/WD	
+cina-qinghai		110	120	119	CA+WP/WD	
+cina-shaanxi		110	120	119	CA+WP/WD	
+cina-shandong		110	120	119	CA+WP/WD	
+cina-shanghai		110	120	119	CA+WP/WD	
+cina-shanxi		110	120	119	CA+WP/WD	
+cina-sichuan		110	120	119	CA+WP/WD	
+cina-tianjin		110	120	119	CA+WP/WD	
+cina-tibet		110	120	119	CA+WP/WD	
+cina-xinjiang		110	120	119	CA+WP/WD	
+cina-yunnan		110	120	119	CA+WP/WD	
+cina-zhejiang		110	120	119	CA+WP/WD	
 cipro	112	112	112	112	CA+WP	
 citta-del-vaticano	112	112	112	112	WP+WD	
 colombia	123	123	123	123	CA+WP/WD	
@@ -73,7 +115,19 @@ figi-lau	911	917	911	911	CA+WP
 figi-occidentali	911	917	911	911	CA+WP	
 filippine	911	911	911	911	CA+WP/WD	
 finlandia	112	112	112	112	CA+WP/WD	
-francia	112	17	15	18	CA	15/18: numeri nazionali francesi, come nei territori d'oltremare
+francia-alta-francia	112	17	15	18	CA	15/18: numeri nazionali francesi, come nei territori d'oltremare
+francia-alvernia-rodano-alpi	112	17	15	18	CA	15/18: numeri nazionali francesi, come nei territori d'oltremare
+francia-borgogna-franca-contea	112	17	15	18	CA	15/18: numeri nazionali francesi, come nei territori d'oltremare
+francia-bretagna	112	17	15	18	CA	15/18: numeri nazionali francesi, come nei territori d'oltremare
+francia-centro-valle-della-loira	112	17	15	18	CA	15/18: numeri nazionali francesi, come nei territori d'oltremare
+francia-corsica	112	17	15	18	CA	15/18: numeri nazionali francesi, come nei territori d'oltremare
+francia-grand-est	112	17	15	18	CA	15/18: numeri nazionali francesi, come nei territori d'oltremare
+francia-ile-de-france	112	17	15	18	CA	15/18: numeri nazionali francesi, come nei territori d'oltremare
+francia-normandia	112	17	15	18	CA	15/18: numeri nazionali francesi, come nei territori d'oltremare
+francia-nuova-aquitania	112	17	15	18	CA	15/18: numeri nazionali francesi, come nei territori d'oltremare
+francia-occitania	112	17	15	18	CA	15/18: numeri nazionali francesi, come nei territori d'oltremare
+francia-paesi-della-loira	112	17	15	18	CA	15/18: numeri nazionali francesi, come nei territori d'oltremare
+francia-provenza-alpi-costa-azzurra	112	17	15	18	CA	15/18: numeri nazionali francesi, come nei territori d'oltremare
 gabon		177	1300	18	FCDO+CA+WP+WD+WV	polizia 177: CA, FCDO, WV de Libreville (1730: WP in 5 lingue, stessa fonte emergencynumbers.org; 1722: WD, WV pt/fr); pompieri 18 ovunque tranne FCDO 177
 gambia		117	116	118	CA+WP/WD	
 georgia	112	112	112	112	CA+WP/WD	
@@ -189,7 +243,14 @@ riunione	112	17	15	18	CA+WP+WD
 romania	112	112	112	112	CA+WP/WD	
 ruanda		112	912	112	CA+WP+WD	
 russia-estremo-oriente	112	102	103	101	CA+WP/WD	
-russia-europea	112	102	103	101	CA+WP/WD	
+russia-caucaso-settentrionale	112	102	103	101	CA+WP/WD	
+russia-centro	112	102	103	101	CA+WP/WD	
+russia-nord-europeo	112	102	103	101	CA+WP/WD	
+russia-nord-ovest	112	102	103	101	CA+WP/WD	
+russia-terra-nera-centrale	112	102	103	101	CA+WP/WD	
+russia-urali-europei	112	102	103	101	CA+WP/WD	
+russia-volga	112	102	103	101	CA+WP/WD	
+russia-volga-vjatka	112	102	103	101	CA+WP/WD	
 russia-kaliningrad	112	102	103	101	CA+WP/WD	
 russia-siberia	112	102	103	101	CA+WP/WD	
 saint-barthelemy	112	17	15	18	CA+WP+WD	

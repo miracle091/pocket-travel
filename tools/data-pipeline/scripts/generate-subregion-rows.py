@@ -26,8 +26,7 @@ import urllib.parse
 import urllib.request
 
 
-def bbox(geometry):
-    """Riquadro di Polygon/MultiPolygon, arrotondato verso l'esterno a 0,01 gradi."""
+def points(geometry):
     xs, ys = [], []
 
     def walk(coords):
@@ -39,12 +38,28 @@ def bbox(geometry):
                 walk(c)
 
     walk(geometry["coordinates"])
+    return xs, ys
+
+
+def bbox(geometries):
+    """Riquadro di uno o piu' Polygon/MultiPolygon, arrotondato verso l'esterno a 0,01 gradi."""
+    xs, ys = [], []
+    for geometry in geometries:
+        gx, gy = points(geometry)
+        xs += gx
+        ys += gy
     return (
         math.floor(min(xs) * 100) / 100,
         math.floor(min(ys) * 100) / 100,
         math.ceil(max(xs) * 100) / 100,
         math.ceil(max(ys) * 100) / 100,
     )
+
+
+def center(geometry):
+    """Centro del riquadro della suddivisione: basta per decidere in quale area cade."""
+    xs, ys = points(geometry)
+    return (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
 
 
 def slug(text):
@@ -91,23 +106,46 @@ def main():
     parser.add_argument("--exclude", default="", help="nomi (inglesi) da saltare, separati da virgola")
     parser.add_argument("--name", action="append", help="nome inglese=nome italiano, per sostituire name_it")
     parser.add_argument("--wiki", action="append", help="nome inglese=titolo Wikivoyage EN")
+    parser.add_argument(
+        "--group-by",
+        help="proprieta' Natural Earth con cui unire piu' suddivisioni in una regione (es. region: "
+        "distretti federali russi, regioni francesi dai dipartimenti); il nome e' il valore della proprieta'",
+    )
+    parser.add_argument(
+        "--within",
+        help="minLon,minLat,maxLon,maxLat: solo le suddivisioni col centro dentro (es. la Russia europea)",
+    )
     parser.add_argument("--check-wikivoyage", action="store_true")
     args = parser.parse_args()
 
     names = pairs(args.name)
     wiki = pairs(args.wiki)
     exclude = {n.strip() for n in args.exclude.split(",") if n.strip()}
+    within = [float(v) for v in args.within.split(",")] if args.within else None
     with open(args.geojson, encoding="utf-8") as f:
         features = json.load(f)["features"]
 
-    rows, titles = [], []
+    # Nome inglese della regione -> (nome italiano da Natural Earth, geometrie).
+    regions = {}
     for feature in features:
         props = feature["properties"]
         if props.get("adm0_a3") != args.country or props["name"] in exclude:
             continue
-        name_it = names.get(props["name"]) or props.get("name_it") or props["name"]
-        title = wiki.get(props["name"], props["name"].replace(" ", "_"))
-        min_lon, min_lat, max_lon, max_lat = bbox(feature["geometry"])
+        if within:
+            lon, lat = center(feature["geometry"])
+            if not (within[0] <= lon <= within[2] and within[1] <= lat <= within[3]):
+                continue
+        key = props.get(args.group_by) if args.group_by else props["name"]
+        if not key or key in exclude:
+            continue
+        name_it = None if args.group_by else props.get("name_it")
+        regions.setdefault(key, [name_it, []])[1].append(feature["geometry"])
+
+    rows, titles = [], []
+    for name, (ne_name_it, geometries) in regions.items():
+        name_it = names.get(name) or ne_name_it or name
+        title = wiki.get(name, name.replace(" ", "_"))
+        min_lon, min_lat, max_lon, max_lat = bbox(geometries)
         rows.append((
             f"{args.id_prefix}-{slug(name_it)}", f"{args.display_prefix} - {name_it}",
             f"{min_lon:.2f}", f"{min_lat:.2f}", f"{max_lon:.2f}", f"{max_lat:.2f}",

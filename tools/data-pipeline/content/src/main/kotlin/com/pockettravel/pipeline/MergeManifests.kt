@@ -26,8 +26,9 @@ import org.json.JSONObject
  *
  * groups (regionId -> groupName, groupLabel, da pilot-regions.sh) finisce nei campi "groupName" e
  * "groupLabel": l'app raccoglie sotto un'unica voce le regioni dello stesso paese (es. gli stati USA).
- * replacedRegions (regionId di una regione tolta -> groupName delle regioni che la sostituiscono) finisce
- * nel campo "replacedRegions": l'app le propone a chi ha ancora installata la regione tolta.
+ * replacedRegions (regionId di una regione tolta -> groupName delle regioni che la sostituiscono): la regione
+ * tolta resta finche' tutte le regioni del gruppo sono nel manifest, poi sparisce e finisce nel campo
+ * "replacedRegions", con cui l'app propone le regioni nuove a chi ha ancora installata quella vecchia.
  *
  * knownRegionIds (le regioni di pilot-regions.sh), se indicato, scarta le regioni che non ne fanno
  * piu' parte: senza, una regione tolta dal lotto pilota resterebbe per sempre nel manifest,
@@ -59,7 +60,14 @@ fun mergeManifestJson(
         }
     }
 
-    knownRegionIds?.let { known -> regionsById.keys.retainAll(known) }
+    // Una regione sostituita resta (com'e', senza aggiornamenti) finche' tutte le regioni del suo gruppo
+    // non sono nel manifest: senza, al primo run dopo la divisione il paese sparirebbe per giorni,
+    // finche' il calendario settimanale non ha pubblicato tutte le regioni nuove.
+    val completed = replacedRegions.filter { (_, groupName) ->
+        val members = groups.filterValues { it.first == groupName }.keys
+        members.isNotEmpty() && members.all { it in regionsById }
+    }
+    knownRegionIds?.let { known -> regionsById.keys.retainAll(known + (replacedRegions.keys - completed.keys)) }
 
     regionsById.forEach { (regionId, region) ->
         continents[regionId]?.let { region.put("continent", it) }
@@ -78,10 +86,10 @@ fun mergeManifestJson(
     val merged = JSONObject().put("manifestVersion", MANIFEST_VERSION)
     guides?.let { merged.put("guides", it) }
     merged.put("regions", JSONArray(regionsById.values.toList()))
-    if (replacedRegions.isNotEmpty()) {
+    if (completed.isNotEmpty()) {
         merged.put(
             "replacedRegions",
-            JSONArray(replacedRegions.map { (regionId, groupName) -> JSONObject().put("regionId", regionId).put("groupName", groupName) }),
+            JSONArray(completed.map { (regionId, groupName) -> JSONObject().put("regionId", regionId).put("groupName", groupName) }),
         )
     }
     return merged.toString(2)

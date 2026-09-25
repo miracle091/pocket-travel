@@ -164,4 +164,19 @@ class MergeManifestsTest {
         assertEquals("stati-uniti", replaced.getString("regionId"))
         assertEquals("Stati Uniti d'America", replaced.getString("groupName"))
     }
+
+    @Test
+    fun `la regione sostituita resta finche' non sono pubblicate tutte le regioni del suo gruppo`() {
+        val merged = JSONObject(
+            mergeManifestJson(
+                listOf(fragmentFor("canada", "Canada"), fragmentFor("canada-yukon", "Canada - Yukon")),
+                knownRegionIds = setOf("canada-yukon", "canada-ontario"),
+                groups = mapOf("canada-yukon" to ("Canada" to "Yukon"), "canada-ontario" to ("Canada" to "Ontario")),
+                replacedRegions = mapOf("canada" to "Canada"),
+            ),
+        )
+
+        assertEquals(setOf("canada", "canada-yukon"), regionsById(merged).keys)
+        assertFalse(merged.has("replacedRegions"))
+    }
 }

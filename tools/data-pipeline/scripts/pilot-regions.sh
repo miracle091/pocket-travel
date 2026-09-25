@@ -8,8 +8,10 @@
 # Columbia, dal 2026-09-25) piu' Alaska e Hawaii: un'unica regione per i 48 stati era troppo grande
 # (civici impossibili da estrarre, download di gigabyte per visitare una citta'). Le righe degli
 # stati vengono da generate-subregion-rows.py (confini Natural Earth); la vecchia regione
-# "stati-uniti" e' in REPLACED_REGIONS, piu' sotto. Ogni region e' un'unita' geografica arbitraria
-# nello schema (RegionManifestEntry), non necessariamente una nazione intera.
+# "stati-uniti" e' in REPLACED_REGIONS, piu' sotto. Allo stesso modo, sempre dal 2026-09-25: Canada
+# (13 province e territori), Russia europea (8 regioni economiche a ovest dei 60° E), Cina (31
+# province e municipalita') e Francia metropolitana (13 regioni). Ogni region e' un'unita'
+# geografica arbitraria nello schema (RegionManifestEntry), non necessariamente una nazione intera.
 #
 # I bbox sono approssimazioni rettangolari (mapSource supporta solo bbox, non poligoni) —
 # includono territorio confinante/mare, coerente con qualunque approccio a bounding-box.
@@ -51,7 +53,19 @@ PILOT_REGIONS=(
   "danimarca|Danimarca|8.09|54.80|12.69|57.73|Denmark|dk|||Europa"
   "estonia|Estonia|23.34|57.47|28.13|59.61|Estonia|ee|||Europa"
   "finlandia|Finlandia|20.65|59.85|31.52|70.16|Finland|fi|||Europa"
-  "francia|Francia|-5.00|42.50|9.56|51.15|France|fr|||Europa"
+  "francia-alta-francia|Francia - Alta Francia|1.37|48.84|4.26|51.09|Hauts-de-France|fr|Francia|Alta Francia|Europa"
+  "francia-alvernia-rodano-alpi|Francia - Alvernia-Rodano-Alpi|2.05|44.12|7.17|46.80|Auvergne-Rhône-Alpes|fr|Francia|Alvernia-Rodano-Alpi|Europa"
+  "francia-borgogna-franca-contea|Francia - Borgogna-Franca Contea|2.83|46.17|7.16|48.42|Bourgogne-Franche-Comté|fr|Francia|Borgogna-Franca Contea|Europa"
+  "francia-bretagna|Francia - Bretagna|-5.14|47.29|-1.03|48.88|Brittany|fr|Francia|Bretagna|Europa"
+  "francia-centro-valle-della-loira|Francia - Centro-Valle della Loira|0.06|46.35|3.12|48.94|Centre-Val_de_Loire|fr|Francia|Centro-Valle della Loira|Europa"
+  "francia-corsica|Francia - Corsica|8.54|41.36|9.56|43.02|Corsica|fr|Francia|Corsica|Europa"
+  "francia-grand-est|Francia - Grand Est|3.38|47.41|8.21|50.17|Grand_Est|fr|Francia|Grand Est|Europa"
+  "francia-ile-de-france|Francia - Île-de-France|1.44|48.12|3.54|49.24|Île-de-France|fr|Francia|Île-de-France|Europa"
+  "francia-normandia|Francia - Normandia|-1.95|48.18|1.79|50.07|Normandy|fr|Francia|Normandia|Europa"
+  "francia-nuova-aquitania|Francia - Nuova Aquitania|-1.80|42.77|2.60|47.17|Nouvelle-Aquitaine|fr|Francia|Nuova Aquitania|Europa"
+  "francia-occitania|Francia - Occitania|-0.32|42.32|4.85|45.05|Occitanie|fr|Francia|Occitania|Europa"
+  "francia-paesi-della-loira|Francia - Paesi della Loira|-2.56|46.27|0.92|48.57|Pays_de_la_Loire|fr|Francia|Paesi della Loira|Europa"
+  "francia-provenza-alpi-costa-azzurra|Francia - Provenza-Alpi-Costa Azzurra|4.20|42.98|7.70|45.13|Provence-Alpes-Côte_d'Azur|fr|Francia|Provenza-Alpi-Costa Azzurra|Europa"
   "germania|Germania|5.99|47.30|15.02|54.98|Germany|de|||Europa"
   "grecia|Grecia|20.15|34.92|26.60|41.83|Greece|gr|||Europa"
   "irlanda|Irlanda|-9.98|51.67|-6.03|55.13|Ireland|ie|||Europa"
@@ -93,7 +107,14 @@ PILOT_REGIONS=(
   # (punta della Chukotka, isola Wrangel) e' omesso: territorio remoto e pressoche' disabitato,
   # richiederebbe una quinta region minuscola solo per quello.
   "russia-kaliningrad|Russia - Kaliningrad|19.50|54.25|22.90|55.35|Kaliningrad|ru|Russia|Kaliningrad (exclave)|Europa"
-  "russia-europea|Russia - Europea|27.00|41.00|60.00|82.00|Russia|ru|Russia|Russia europea|Europa"
+  "russia-caucaso-settentrionale|Russia - Caucaso settentrionale|32.50|41.19|48.58|50.23|North_Caucasus|ru|Russia|Caucaso settentrionale|Europa"
+  "russia-centro|Russia - Centro|30.79|51.78|47.61|59.64|Central_Russia|ru|Russia|Centro|Europa"
+  "russia-nord-europeo|Russia - Nord europeo|28.41|58.49|68.95|81.86|Northwestern_Russia|ru|Russia|Nord europeo|Europa"
+  "russia-nord-ovest|Russia - Nord-Ovest|27.35|55.57|36.18|61.33|Northwestern_Russia|ru|Russia|Nord-Ovest|Europa"
+  "russia-terra-nera-centrale|Russia - Terra Nera centrale|34.11|49.56|43.24|53.83|Central_Russia|ru|Russia|Terra Nera centrale|Europa"
+  "russia-urali-europei|Russia - Urali europei|50.79|50.49|61.59|61.69|Urals|ru|Russia|Urali europei|Europa"
+  "russia-volga|Russia - Volga|41.16|44.74|54.18|56.67|Volga_Region|ru|Russia|Volga|Europa"
+  "russia-volga-vjatka|Russia - Volga-Vjatka|41.78|53.66|53.93|61.06|Volga_Region|ru|Russia|Volga-Vjatka|Europa"
   "giappone|Giappone|122.90|20.30|153.99|45.60|Japan|jp|||Asia"
   "russia-siberia|Russia - Siberia|60.00|45.00|120.00|82.00|Siberia|ru|Russia|Siberia|Asia"
   "russia-estremo-oriente|Russia - Estremo Oriente|120.00|41.50|180.00|77.50|Russian_Far_East|ru|Russia|Estremo Oriente|Asia"
@@ -105,7 +126,37 @@ PILOT_REGIONS=(
   "bhutan|Bhutan|88.81|26.72|92.10|28.30|Bhutan|bt|||Asia"
   "brunei|Brunei|114.20|4.01|115.45|5.45|Brunei|bn|||Asia"
   "cambogia|Cambogia|102.35|10.49|107.61|14.57|Cambodia|kh|||Asia"
-  "cina|Cina|73.68|18.20|135.03|53.46|China|cn|||Asia"
+  "cina-anhui|Cina - Anhui|114.87|29.40|119.63|34.64|Anhui|cn|Cina|Anhui|Asia"
+  "cina-chongqing|Cina - Chongqing|105.29|28.19|110.18|32.20|Chongqing|cn|Cina|Chongqing|Asia"
+  "cina-fujian|Cina - Fujian|115.84|23.58|120.43|28.33|Fujian|cn|Cina|Fujian|Asia"
+  "cina-gansu|Cina - Gansu|92.77|32.60|108.71|42.79|Gansu|cn|Cina|Gansu|Asia"
+  "cina-guangdong|Cina - Guangdong|109.66|20.26|117.18|25.51|Guangdong|cn|Cina|Guangdong|Asia"
+  "cina-guangxi|Cina - Guangxi|104.49|21.42|112.05|26.39|Guangxi|cn|Cina|Guangxi|Asia"
+  "cina-guizhou|Cina - Guizhou|103.59|24.63|109.51|29.25|Guizhou|cn|Cina|Guizhou|Asia"
+  "cina-hainan|Cina - Hainan|108.63|18.21|111.02|20.14|Hainan|cn|Cina|Hainan|Asia"
+  "cina-hebei|Cina - Hebei|113.45|36.05|119.85|42.60|Hebei|cn|Cina|Hebei|Asia"
+  "cina-heilongjiang|Cina - Heilongjiang|121.17|43.43|134.76|53.56|Heilongjiang|cn|Cina|Heilongjiang|Asia"
+  "cina-henan|Cina - Henan|110.32|31.39|116.65|36.36|Henan|cn|Cina|Henan|Asia"
+  "cina-hubei|Cina - Hubei|108.38|29.06|116.15|33.27|Hubei|cn|Cina|Hubei|Asia"
+  "cina-hunan|Cina - Hunan|108.79|24.64|114.23|30.10|Hunan|cn|Cina|Hunan|Asia"
+  "cina-jiangsu|Cina - Jiangsu|116.37|30.76|121.87|35.11|Jiangsu|cn|Cina|Jiangsu|Asia"
+  "cina-jiangxi|Cina - Jiangxi|113.56|24.49|118.48|30.06|Jiangxi|cn|Cina|Jiangxi|Asia"
+  "cina-jilin|Cina - Jilin|121.66|40.85|131.27|46.28|Jilin|cn|Cina|Jilin|Asia"
+  "cina-liaoning|Cina - Liaoning|118.85|38.73|125.77|43.48|Liaoning|cn|Cina|Liaoning|Asia"
+  "cina-mongolia-interna|Cina - Mongolia Interna|97.20|37.39|126.06|53.32|Inner_Mongolia|cn|Cina|Mongolia Interna|Asia"
+  "cina-ningxia|Cina - Ningxia|104.35|35.26|107.66|39.37|Ningxia|cn|Cina|Ningxia|Asia"
+  "cina-pechino|Cina - Pechino|115.42|39.44|117.43|41.04|Beijing|cn|Cina|Pechino|Asia"
+  "cina-qinghai|Cina - Qinghai|89.43|31.54|103.05|39.33|Qinghai|cn|Cina|Qinghai|Asia"
+  "cina-shaanxi|Cina - Shaanxi|105.49|31.70|111.23|39.57|Shaanxi|cn|Cina|Shaanxi|Asia"
+  "cina-shandong|Cina - Shandong|114.83|34.39|122.67|38.28|Shandong|cn|Cina|Shandong|Asia"
+  "cina-shanghai|Cina - Shanghai|120.88|30.68|121.88|31.81|Shanghai|cn|Cina|Shanghai|Asia"
+  "cina-shanxi|Cina - Shanxi|110.23|34.58|114.55|40.75|Shanxi|cn|Cina|Shanxi|Asia"
+  "cina-sichuan|Cina - Sichuan|97.36|26.03|108.52|34.30|Sichuan|cn|Cina|Sichuan|Asia"
+  "cina-tianjin|Cina - Tianjin|116.68|38.55|118.01|40.26|Tianjin|cn|Cina|Tianjin|Asia"
+  "cina-tibet|Cina - Tibet|78.38|27.31|99.11|36.45|Tibet|cn|Cina|Tibet|Asia"
+  "cina-xinjiang|Cina - Xinjiang|73.60|34.33|96.38|49.17|Xinjiang|cn|Cina|Xinjiang|Asia"
+  "cina-yunnan|Cina - Yunnan|97.52|21.15|106.20|29.23|Yunnan|cn|Cina|Yunnan|Asia"
+  "cina-zhejiang|Cina - Zhejiang|118.00|27.20|122.41|31.18|Zhejiang|cn|Cina|Zhejiang|Asia"
   "georgia|Georgia|39.96|41.06|46.64|43.55|Georgia_(country)|ge|||Asia"
   "hong-kong|Hong Kong (Cina)|113.83|22.15|114.44|22.58|Hong_Kong|hk|||Asia"
   "macao|Macao (Cina)|113.52|22.10|113.60|22.22|Macau|mo|||Asia"
@@ -253,7 +304,19 @@ PILOT_REGIONS=(
   "stati-uniti-wyoming|Stati Uniti - Wyoming|-111.06|41.00|-104.02|45.01|Wyoming|us|Stati Uniti d'America|Wyoming|Nord America"
   "stati-uniti-alaska|Stati Uniti - Alaska|-170.00|51.00|-129.90|71.60|Alaska|us|Stati Uniti d'America|Alaska|Nord America"
   "stati-uniti-hawaii|Stati Uniti - Hawaii|-160.30|18.90|-154.70|22.30|Hawaii|us|Stati Uniti d'America|Hawaii|Nord America"
-  "canada|Canada|-141.00|41.68|-52.65|83.23|Canada|ca|||Nord America"
+  "canada-alberta|Canada - Alberta|-120.01|48.99|-109.99|60.01|Alberta|ca|Canada|Alberta|Nord America"
+  "canada-columbia-britannica|Canada - Columbia Britannica|-139.06|48.32|-114.05|60.01|British_Columbia|ca|Canada|Columbia Britannica|Nord America"
+  "canada-isola-del-principe-edoardo|Canada - Isola del Principe Edoardo|-64.41|45.96|-62.02|47.07|Prince_Edward_Island|ca|Canada|Isola del Principe Edoardo|Nord America"
+  "canada-manitoba|Canada - Manitoba|-102.01|48.99|-88.94|60.01|Manitoba|ca|Canada|Manitoba|Nord America"
+  "canada-nunavut|Canada - Nunavut|-120.69|51.94|-61.20|83.12|Nunavut|ca|Canada|Nunavut|Nord America"
+  "canada-nuova-scozia|Canada - Nuova Scozia|-66.33|43.51|-59.72|47.01|Nova_Scotia|ca|Canada|Nuova Scozia|Nord America"
+  "canada-nuovo-brunswick|Canada - Nuovo Brunswick|-69.06|44.62|-63.83|48.07|New_Brunswick|ca|Canada|Nuovo Brunswick|Nord America"
+  "canada-ontario|Canada - Ontario|-95.17|41.67|-74.34|56.86|Ontario|ca|Canada|Ontario|Nord America"
+  "canada-quebec|Canada - Québec|-79.72|45.00|-57.10|62.58|Quebec|ca|Canada|Québec|Nord America"
+  "canada-saskatchewan|Canada - Saskatchewan|-110.01|48.99|-101.36|60.01|Saskatchewan|ca|Canada|Saskatchewan|Nord America"
+  "canada-terranova-e-labrador|Canada - Terranova e Labrador|-67.77|46.62|-52.65|60.31|Newfoundland_and_Labrador|ca|Canada|Terranova e Labrador|Nord America"
+  "canada-territori-del-nord-ovest|Canada - Territori del Nord-Ovest|-136.45|60.00|-101.98|78.76|Northwest_Territories|ca|Canada|Territori del Nord-Ovest|Nord America"
+  "canada-yukon|Canada - Yukon|-141.01|60.00|-123.81|69.66|Yukon|ca|Canada|Yukon|Nord America"
   "messico|Messico|-117.13|14.54|-86.81|32.72|Mexico|mx|||Nord America"
   "guatemala|Guatemala|-92.23|13.74|-88.23|17.82|Guatemala|gt|||Nord America"
   "belize|Belize|-89.23|15.89|-88.11|18.50|Belize|bz|||Nord America"
@@ -350,14 +413,19 @@ PILOT_REGIONS=(
 # 1500 durante una rigenerazione completa) e' divisa in due: le 5 regioni piu' grandi (367 asset)
 # stanno in "region-data-asia-grandi". Gli asset gia' pubblicati restano dove sono finche' la
 # regione non li rigenera: il manifest ha URL assoluti, quindi una regione puo' averli su tutte e due.
-# Gli stati USA (piu' Alaska e Hawaii) hanno una release propria: circa 190 segmenti .rd5 (le tile
-# di confine si ripetono tra stati vicini) piu' POI e civici, che nella release del Nord America
-# supererebbero il limite durante una rigenerazione.
+# I paesi divisi in regioni piu' piccole hanno una release propria, perche' le tile .rd5 di confine si
+# ripetono tra regioni vicine (stima per eccesso: USA ~190, Canada ~250, Cina ~190, Russia europea
+# ~110) e nella release del continente supererebbero il limite durante una rigenerazione. La
+# Francia (13 regioni, ~26 tile) resta in quella dell'Europa.
 region_release_tag() {
   local regionId="$1" continent="$2"
   case "$regionId" in
     cina|russia-siberia|russia-estremo-oriente|indonesia|india) echo "region-data-asia-grandi" ;;
     stati-uniti-*) echo "region-data-stati-uniti" ;;
+    canada-*) echo "region-data-canada" ;;
+    cina-*) echo "region-data-cina" ;;
+    russia-caucaso-settentrionale|russia-centro|russia-nord-europeo|russia-nord-ovest|russia-terra-nera-centrale|russia-urali-europei|russia-volga|russia-volga-vjatka)
+      echo "region-data-russia-europea" ;;
     *) echo "region-data-$(echo "$continent" | tr 'A-Z' 'a-z' | tr ' ' '-')" ;;
   esac
 }
@@ -378,4 +446,8 @@ region_has_addresses() {
 # ha ancora installata quella vecchia.
 REPLACED_REGIONS=(
   "stati-uniti|Stati Uniti d'America"
+  "canada|Canada"
+  "russia-europea|Russia"
+  "cina|Cina"
+  "francia|Francia"
 )

@@ -5,21 +5,21 @@
 # da processare nel giorno N (1=lunedi ... 7=domenica).
 #
 # Carico misurato (tile land) per giorno al momento della generazione:
-#   giorno 1: 321 tile land
-#   giorno 2: 319 tile land
-#   giorno 3: 344 tile land
-#   giorno 4: 321 tile land
-#   giorno 5: 317 tile land
-#   giorno 6: 317 tile land
-#   giorno 7: 329 tile land
+#   giorno 1: 361 tile land
+#   giorno 2: 370 tile land
+#   giorno 3: 359 tile land
+#   giorno 4: 361 tile land
+#   giorno 5: 357 tile land
+#   giorno 6: 357 tile land
+#   giorno 7: 382 tile land
 
-WEEKLY_SCHEDULE_DAY_1="kazakistan,taiwan,timor-est,vietnam,botswana,comore,congo,eswatini,etiopia,mauritania,seychelles,tunisia,zambia,stati-uniti-carolina-del-sud,stati-uniti-illinois,stati-uniti-maryland,stati-uniti-mississippi,stati-uniti-new-hampshire,stati-uniti-ohio,stati-uniti-oregon,stati-uniti-virginia,stati-uniti-wisconsin,canada,honduras,haiti,trinidad-tobago,dominica,saint-vincent-grenadine,saint-barthelemy,anguilla,sint-eustatius-saba,cile,papua-nuova-guinea,wallis-futuna,isole-cook"
-WEEKLY_SCHEDULE_DAY_2="austria,germania,azerbaigian,cina,georgia,iran,libano,malesia,corea-del-nord,pakistan,emirati-arabi-uniti,algeria,guinea,libia,sierra-leone,sudan,stati-uniti-dakota-del-sud,stati-uniti-iowa,stati-uniti-maine,stati-uniti-nebraska,stati-uniti-new-jersey,stati-uniti-pennsylvania,stati-uniti-wyoming,panama,repubblica-dominicana,grenada,guadalupa,bermuda,aruba,colombia,uruguay,venezuela,isole-marshall,isole-pitcairn,tokelau,isola-christmas,samoa-americane"
-WEEKLY_SCHEDULE_DAY_3="italia,grecia,regno-unito,russia-siberia,bahrein,bangladesh,brunei,hong-kong,iraq,kuwait,laos,maldive,nepal,oman,palestina,filippine,sri-lanka,tagikistan,yemen,angola,gibuti,egitto,lesotho,madagascar,niger,tanzania,mayotte,stati-uniti-carolina-del-nord,stati-uniti-delaware,stati-uniti-florida,stati-uniti-massachusetts,stati-uniti-missouri,stati-uniti-oklahoma,stati-uniti-virginia-occidentale,belize,el-salvador,cuba,isole-cayman,portorico,colombia-san-andres,ecuador,paraguay,guyana-francese,australia"
-WEEKLY_SCHEDULE_DAY_4="francia,spagna,russia-estremo-oriente,israele,giordania,kirghizistan,mongolia,singapore,corea-del-sud,siria,turchia,uzbekistan,capo-verde,ciad,gambia,guinea-bissau,kenya,mauritius,mozambico,somalia,zimbabwe,stati-uniti-alabama,stati-uniti-colorado,stati-uniti-indiana,stati-uniti-michigan,stati-uniti-new-york,stati-uniti-rhode-island,stati-uniti-utah,stati-uniti-alaska,messico,isole-salomone,micronesia,isole-marianne-settentrionali"
-WEEKLY_SCHEDULE_DAY_5="bosnia-erzegovina,cipro,estonia,finlandia,montenegro,polonia,romania,slovacchia,svezia,ungheria,gibilterra,russia-kaliningrad,giappone,myanmar,qatar,arabia-saudita,repubblica-centrafricana,gabon,costa-avorio,mali,nigeria,togo,uganda,riunione,stati-uniti-arizona,stati-uniti-connecticut,stati-uniti-distretto-di-columbia,stati-uniti-georgia,stati-uniti-kentucky,stati-uniti-minnesota,stati-uniti-nuovo-messico,stati-uniti-tennessee,stati-uniti-hawaii,nicaragua,barbados,saint-kitts-nevis,martinica,isole-vergini-britanniche,curacao,isole-vergini-americane,brasile,guyana,peru,figi-occidentali,figi-lau,vanuatu,kiribati-gilbert,nauru,palau,tonga,niue,isola-norfolk,isole-cocos"
-WEEKLY_SCHEDULE_DAY_6="belgio,bulgaria,citta-del-vaticano,danimarca,islanda,lussemburgo,macedonia-del-nord,malta,monaco,norvegia,isole-faroe,svalbard-jan-mayen,russia-europea,armenia,bhutan,cambogia,macao,india,thailandia,burundi,camerun,guinea-equatoriale,eritrea,ghana,liberia,malawi,marocco,ruanda,sao-tome-principe,senegal,sudafrica,stati-uniti-arkansas,stati-uniti-dakota-del-nord,stati-uniti-idaho,stati-uniti-louisiana,stati-uniti-montana,stati-uniti-texas,giamaica,bahamas,saint-pierre-miquelon,turks-caicos,sint-maarten,argentina,samoa,tuvalu,nuova-caledonia,guam"
-WEEKLY_SCHEDULE_DAY_7="san-marino,albania,andorra,bielorussia,croazia,irlanda,kosovo,lettonia,liechtenstein,lituania,moldavia,paesi-bassi,portogallo,repubblica-ceca,serbia,slovenia,svizzera,ucraina,afghanistan,indonesia,turkmenistan,benin,burkina-faso,congo-rd,namibia,sud-sudan,stati-uniti-california,stati-uniti-kansas,stati-uniti-nevada,stati-uniti-vermont,stati-uniti-washington,guatemala,costa-rica,antigua-barbuda,saint-lucia,groenlandia,saint-martin,montserrat,bonaire,bolivia,suriname,isole-falkland,nuova-zelanda,kiribati-line,polinesia-francese"
+WEEKLY_SCHEDULE_DAY_1="russia-nord-ovest,giappone,russia-siberia,cina-shanghai,cina-sichuan,hong-kong,macao,india,corea-del-sud,tagikistan,yemen,benin,burkina-faso,congo-rd,namibia,sudafrica,stati-uniti-arkansas,stati-uniti-dakota-del-nord,stati-uniti-idaho,stati-uniti-louisiana,stati-uniti-montana,stati-uniti-texas,canada-ontario,panama,haiti,bahamas,martinica,isole-cayman,portorico,colombia-san-andres,ecuador,peru,isole-salomone,isole-marshall,isole-cook"
+WEEKLY_SCHEDULE_DAY_2="bahrein,brunei,cina-gansu,cina-jiangxi,cina-qinghai,georgia,iran,kirghizistan,nepal,oman,palestina,filippine,sri-lanka,thailandia,burundi,capo-verde,repubblica-centrafricana,gabon,costa-avorio,mali,ruanda,sao-tome-principe,senegal,sud-sudan,stati-uniti-california,stati-uniti-kansas,stati-uniti-nevada,stati-uniti-vermont,stati-uniti-washington,canada-alberta,canada-nunavut,canada-terranova-e-labrador,messico,nicaragua,trinidad-tobago,antigua-barbuda,saint-kitts-nevis,saint-pierre-miquelon,isole-vergini-britanniche,curacao,isole-vergini-americane,guyana,suriname,uruguay,venezuela,kiribati-line,polinesia-francese"
+WEEKLY_SCHEDULE_DAY_3="italia,austria,germania,russia-volga,russia-estremo-oriente,bangladesh,cina-chongqing,cina-guizhou,cina-heilongjiang,cina-mongolia-interna,laos,mongolia,singapore,siria,emirati-arabi-uniti,algeria,guinea,libia,seychelles,tunisia,zambia,stati-uniti-carolina-del-sud,stati-uniti-illinois,stati-uniti-maryland,stati-uniti-mississippi,stati-uniti-new-hampshire,stati-uniti-ohio,stati-uniti-oregon,stati-uniti-virginia,stati-uniti-wisconsin,canada-isola-del-principe-edoardo,canada-manitoba,canada-territori-del-nord-ovest,paraguay,guyana-francese,nuova-zelanda,vanuatu,micronesia,samoa-americane"
+WEEKLY_SCHEDULE_DAY_4="grecia,regno-unito,spagna,russia-terra-nera-centrale,afghanistan,cina-guangdong,cina-hebei,cina-hunan,cina-ningxia,cina-shaanxi,cina-tibet,israele,kazakistan,turchia,vietnam,botswana,comore,congo,eswatini,etiopia,mauritania,sierra-leone,sudan,stati-uniti-dakota-del-sud,stati-uniti-iowa,stati-uniti-maine,stati-uniti-nebraska,stati-uniti-new-jersey,stati-uniti-pennsylvania,stati-uniti-wyoming,canada-nuovo-brunswick,canada-quebec,honduras,cuba,turks-caicos,sint-maarten,argentina,brasile,nuova-caledonia,isola-christmas,isole-marianne-settentrionali"
+WEEKLY_SCHEDULE_DAY_5="paesi-bassi,portogallo,repubblica-ceca,serbia,slovenia,svizzera,ucraina,russia-centro,russia-urali-europei,armenia,bhutan,cambogia,cina-fujian,cina-hainan,cina-henan,cina-jiangsu,cina-liaoning,cina-tianjin,cina-xinjiang,maldive,myanmar,qatar,arabia-saudita,ciad,gambia,guinea-bissau,kenya,mauritius,mozambico,somalia,zimbabwe,mayotte,stati-uniti-carolina-del-nord,stati-uniti-delaware,stati-uniti-florida,stati-uniti-massachusetts,stati-uniti-missouri,stati-uniti-oklahoma,stati-uniti-virginia-occidentale,canada-columbia-britannica,guatemala,belize,el-salvador,costa-rica,barbados,dominica,saint-lucia,groenlandia,saint-martin,montserrat,bonaire,bolivia,isole-falkland,figi-occidentali,figi-lau,papua-nuova-guinea,tonga,niue,tokelau,isole-cocos"
+WEEKLY_SCHEDULE_DAY_6="san-marino,andorra,belgio,bosnia-erzegovina,bulgaria,cipro,danimarca,finlandia,francia-corsica,francia-ile-de-france,francia-normandia,francia-occitania,francia-provenza-alpi-costa-azzurra,kosovo,lettonia,liechtenstein,lituania,moldavia,norvegia,isole-faroe,svalbard-jan-mayen,russia-nord-europeo,cina-pechino,cina-shandong,cina-zhejiang,indonesia,taiwan,turkmenistan,angola,gibuti,egitto,lesotho,madagascar,niger,tanzania,stati-uniti-alabama,stati-uniti-colorado,stati-uniti-indiana,stati-uniti-michigan,stati-uniti-new-york,stati-uniti-rhode-island,stati-uniti-utah,stati-uniti-alaska,saint-vincent-grenadine,saint-barthelemy,anguilla,sint-eustatius-saba,cile,kiribati-gilbert,nauru,palau,samoa,tuvalu,wallis-futuna,isole-pitcairn,isola-norfolk,guam"
+WEEKLY_SCHEDULE_DAY_7="albania,bielorussia,citta-del-vaticano,croazia,estonia,francia-alta-francia,francia-alvernia-rodano-alpi,francia-borgogna-franca-contea,francia-bretagna,francia-centro-valle-della-loira,francia-grand-est,francia-nuova-aquitania,francia-paesi-della-loira,irlanda,islanda,lussemburgo,macedonia-del-nord,malta,monaco,montenegro,polonia,romania,slovacchia,svezia,ungheria,gibilterra,russia-kaliningrad,russia-caucaso-settentrionale,russia-volga-vjatka,azerbaigian,cina-anhui,cina-guangxi,cina-hubei,cina-jilin,cina-shanxi,cina-yunnan,iraq,giordania,kuwait,libano,malesia,corea-del-nord,pakistan,timor-est,uzbekistan,camerun,guinea-equatoriale,eritrea,ghana,liberia,malawi,marocco,nigeria,togo,uganda,riunione,stati-uniti-arizona,stati-uniti-connecticut,stati-uniti-distretto-di-columbia,stati-uniti-georgia,stati-uniti-kentucky,stati-uniti-minnesota,stati-uniti-nuovo-messico,stati-uniti-tennessee,stati-uniti-hawaii,canada-nuova-scozia,canada-saskatchewan,canada-yukon,giamaica,repubblica-dominicana,grenada,guadalupa,bermuda,aruba,colombia,australia"
 
 # Peso (tile land misurate) per regione, riusato da publish-regions.yml per bilanciare gli
 # shard dentro il bucket del giorno (bin-packing goloso, stesso principio di sopra ma sui 3
@@ -40,7 +40,19 @@ declare -A WEEKLY_SCHEDULE_TILES=(
   [danimarca]=4
   [estonia]=2
   [finlandia]=12
-  [francia]=9
+  [francia-alta-francia]=2
+  [francia-alvernia-rodano-alpi]=4
+  [francia-borgogna-franca-contea]=2
+  [francia-bretagna]=2
+  [francia-centro-valle-della-loira]=1
+  [francia-corsica]=1
+  [francia-grand-est]=4
+  [francia-ile-de-france]=1
+  [francia-normandia]=4
+  [francia-nuova-aquitania]=4
+  [francia-occitania]=4
+  [francia-paesi-della-loira]=2
+  [francia-provenza-alpi-costa-azzurra]=4
   [germania]=6
   [grecia]=6
   [irlanda]=2
@@ -74,7 +86,14 @@ declare -A WEEKLY_SCHEDULE_TILES=(
   [svalbard-jan-mayen]=10
   [gibilterra]=1
   [russia-kaliningrad]=4
-  [russia-europea]=59
+  [russia-caucaso-settentrionale]=12
+  [russia-centro]=8
+  [russia-nord-europeo]=40
+  [russia-nord-ovest]=6
+  [russia-terra-nera-centrale]=6
+  [russia-urali-europei]=9
+  [russia-volga]=12
+  [russia-volga-vjatka]=9
   [giappone]=32
   [russia-siberia]=91
   [russia-estremo-oriente]=75
@@ -86,7 +105,37 @@ declare -A WEEKLY_SCHEDULE_TILES=(
   [bhutan]=2
   [brunei]=4
   [cambogia]=2
-  [cina]=107
+  [cina-anhui]=4
+  [cina-chongqing]=4
+  [cina-fujian]=4
+  [cina-gansu]=12
+  [cina-guangdong]=6
+  [cina-guangxi]=6
+  [cina-guizhou]=4
+  [cina-hainan]=4
+  [cina-hebei]=4
+  [cina-heilongjiang]=9
+  [cina-henan]=4
+  [cina-hubei]=6
+  [cina-hunan]=6
+  [cina-jiangsu]=4
+  [cina-jiangxi]=6
+  [cina-jilin]=6
+  [cina-liaoning]=6
+  [cina-mongolia-interna]=28
+  [cina-ningxia]=2
+  [cina-pechino]=2
+  [cina-qinghai]=8
+  [cina-shaanxi]=4
+  [cina-shandong]=6
+  [cina-shanghai]=1
+  [cina-shanxi]=3
+  [cina-sichuan]=6
+  [cina-tianjin]=2
+  [cina-tibet]=15
+  [cina-xinjiang]=24
+  [cina-yunnan]=6
+  [cina-zhejiang]=4
   [georgia]=3
   [hong-kong]=1
   [macao]=1
@@ -234,7 +283,19 @@ declare -A WEEKLY_SCHEDULE_TILES=(
   [stati-uniti-wyoming]=6
   [stati-uniti-alaska]=37
   [stati-uniti-hawaii]=4
-  [canada]=131
+  [canada-alberta]=16
+  [canada-columbia-britannica]=21
+  [canada-isola-del-principe-edoardo]=1
+  [canada-manitoba]=15
+  [canada-nunavut]=77
+  [canada-nuova-scozia]=6
+  [canada-nuovo-brunswick]=4
+  [canada-ontario]=24
+  [canada-quebec]=19
+  [canada-saskatchewan]=12
+  [canada-terranova-e-labrador]=13
+  [canada-territori-del-nord-ovest]=24
+  [canada-yukon]=10
   [messico]=28
   [guatemala]=4
   [belize]=1
