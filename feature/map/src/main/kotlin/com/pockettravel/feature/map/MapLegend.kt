@@ -35,20 +35,24 @@ internal enum class LegendGroup(@StringRes val label: Int, val categories: List<
         R.string.map_legend_group_visit,
         listOf(PoiCategory.ATTRAZIONI, PoiCategory.SVAGO, PoiCategory.PARCO_GIOCHI, PoiCategory.TAVOLI_PICNIC, PoiCategory.RIPARI),
     ),
-    SERVICES(
-        R.string.map_legend_group_services,
-        listOf(
-            PoiCategory.NEGOZI, PoiCategory.DISTRIBUTORI, PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.UFFICIO_POSTALE,
-            PoiCategory.CASSETTA_POSTALE, PoiCategory.INFORMAZIONI, PoiCategory.BAGNI_PUBBLICI, PoiCategory.ACQUA_POTABILE,
-            PoiCategory.AMBASCIATA_CONSOLATO,
-        ),
+    SHOPS(R.string.map_legend_group_shops, listOf(PoiCategory.NEGOZI, PoiCategory.DISTRIBUTORI)),
+    MONEY_POST(
+        R.string.map_legend_group_money_post,
+        listOf(PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.UFFICIO_POSTALE, PoiCategory.CASSETTA_POSTALE),
+    ),
+    USEFUL(
+        R.string.map_legend_group_useful,
+        listOf(PoiCategory.BAGNI_PUBBLICI, PoiCategory.ACQUA_POTABILE, PoiCategory.INFORMAZIONI, PoiCategory.AMBASCIATA_CONSOLATO),
     ),
     TRANSPORT(
         R.string.map_legend_group_transport,
+        listOf(PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO, PoiCategory.AEROPORTO),
+    ),
+    VEHICLES(
+        R.string.map_legend_group_vehicles,
         listOf(
-            PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO,
-            PoiCategory.AEROPORTO, PoiCategory.NOLEGGIO, PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.SERVIZI_CAMPER, PoiCategory.PARCHEGGIO,
-            PoiCategory.PARCHEGGIO_PRIVATO,
+            PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.SERVIZI_CAMPER, PoiCategory.PARCHEGGIO,
+            PoiCategory.PARCHEGGIO_PRIVATO, PoiCategory.NOLEGGIO,
         ),
     ),
     HEALTH(

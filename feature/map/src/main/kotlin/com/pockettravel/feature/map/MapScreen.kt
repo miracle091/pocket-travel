@@ -73,7 +73,7 @@ fun MapScreen(
     // Categorie nascoste, salvate per tutte le regioni (MapFilterPreferences): chip e legenda le cambiano.
     hiddenCategories: Set<PoiCategory> = emptySet(),
     onHiddenCategoriesChange: (Set<PoiCategory>) -> Unit = {},
-    // Modalita' "In sedia a rotelle": via i POI che OSM segna come non accessibili.
+    // Modalita' "Con disabilità": via i POI che OSM segna come non accessibili in sedia a rotelle.
     hideInaccessible: Boolean = false,
 ) {
     val context = LocalContext.current
