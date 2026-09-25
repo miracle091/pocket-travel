@@ -47,6 +47,8 @@ dependencies {
     implementation(libs.room.ktx)
     implementation(libs.work.runtime.ktx)
     implementation(libs.okhttp)
+    // Decompressione dei pacchetti POI .xz (xz-java, 0BSD, Java puro).
+    implementation(libs.xz)
     // Lettura PMTiles via HTTP range request (BSD-3, verificato) per estrarre lato device solo
     // le tile della bounding box di una regione dalla build pubblica Protomaps — vedi
     // PmtilesExtractor. Compatibile Android (dichiarato dal progetto fino ad API 16).

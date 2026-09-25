@@ -110,14 +110,14 @@ class ValidateManifestTest {
 
     @Test
     fun `accetta la copia compressa facoltativa dei POI e ne controlla l'host`() {
-        fun withPoiGz(url: String) = validManifest().replace(
+        fun withPoiXz(url: String) = validManifest().replace(
             "--poi.db\", \"sizeBytes\": 100, \"sha256\": \"${"a".repeat(64)}\" }",
             "--poi.db\", \"sizeBytes\": 100, \"sha256\": \"${"a".repeat(64)}\" },\n" +
-                """"fileGz": { "name": "poi.db.gz", "url": "$url", "sizeBytes": 40, "sha256": "${"f".repeat(64)}" }""",
+                """"fileXz": { "name": "poi.db.xz", "url": "$url", "sizeBytes": 40, "sha256": "${"f".repeat(64)}" }""",
         )
-        validateManifestJson(withPoiGz("https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.14--poi.db.gz"), allowedHosts)
+        validateManifestJson(withPoiXz("https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.14--poi.db.xz"), allowedHosts)
         assertThrows(ManifestValidationException::class.java) {
-            validateManifestJson(withPoiGz("https://evil.example.com/poi.db.gz"), allowedHosts)
+            validateManifestJson(withPoiXz("https://evil.example.com/poi.db.xz"), allowedHosts)
         }
     }
 

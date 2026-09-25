@@ -340,33 +340,23 @@ jobs:
                 # ricaricare sulla release (vedi build-region.sh, sezione "2bis").
                 echo "-- $regionId invariata: riuso il frammento pubblicato, nessun asset da ricaricare"
               else
-                # poi.db, poi-extra.db + segmenti .rd5 (zero o piu' a seconda di quante tile intersecano il
+                # poi.db.xz, poi-extra.db.xz + segmenti .rd5 (zero o piu' a seconda di quante tile intersecano il
                 # bbox) caricati come asset della release, rinominati con un prefisso
                 # regionId--version-- per essere univoci nell'intera release (che accumula tutte
                 # le regioni). --clobber: un rilancio della stessa regione nello stesso giorno
                 # (stessa VERSION) deve poter sovrascrivere l'asset gia' caricato in un tentativo
                 # precedente fallito a meta'.
                 # In modalita' incrementale (.incremental, vedi build-region.sh sezione 2bis) si
-                # caricano solo le tile cambiate, piu' poi.db/poi-extra.db se erano scaduti e sono cambiati e
+                # caricano solo le tile cambiate, piu' poi.db.xz/poi-extra.db.xz se erano scaduti e sono cambiati e
                 # addresses.pmtiles se build-addresses.sh ne ha prodotto uno nuovo.
                 uploads=()
-                if [ -f "$regionOut/poi.db" ]; then
-                  poiDbAsset="$regionOut/${regionId}--${VERSION}--poi.db"
-                  cp "$regionOut/poi.db" "$poiDbAsset"
-                  uploads+=("$poiDbAsset")
-                fi
-                # Copie compresse dei POI (fileGz nel manifest), per le app che le sanno scaricare.
-                for gz in poi.db.gz poi-extra.db.gz; do
-                  [ -f "$regionOut/$gz" ] || continue
-                  gzAsset="$regionOut/${regionId}--${VERSION}--$gz"
-                  cp "$regionOut/$gz" "$gzAsset"
-                  uploads+=("$gzAsset")
+                # I POI si caricano solo compressi (vedi xz_entry in build-region.sh).
+                for xz in poi.db.xz poi-extra.db.xz; do
+                  [ -f "$regionOut/$xz" ] || continue
+                  xzAsset="$regionOut/${regionId}--${VERSION}--$xz"
+                  cp "$regionOut/$xz" "$xzAsset"
+                  uploads+=("$xzAsset")
                 done
-                if [ -f "$regionOut/poi-extra.db" ]; then
-                  poiExtraAsset="$regionOut/${regionId}--${VERSION}--poi-extra.db"
-                  cp "$regionOut/poi-extra.db" "$poiExtraAsset"
-                  uploads+=("$poiExtraAsset")
-                fi
                 if [ -f "$regionOut/addresses.pmtiles" ]; then
                   addressesAsset="$regionOut/${regionId}--${VERSION}--addresses.pmtiles"
                   cp "$regionOut/addresses.pmtiles" "$addressesAsset"

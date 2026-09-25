@@ -15,7 +15,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ### Modificato
 - Pacchetti dei punti di interesse circa dimezzati (Spagna da 110 a 55 MB): non contengono più ciò che la mappa non mostra, come panchine, cestini, raccolta differenziata e piscine private. Arrivano con il prossimo aggiornamento dei punti di interesse di ogni regione.
-- Punti di interesse scaricati compressi e decompressi sul telefono: circa un terzo del peso (San Marino da 64 a 23 kB). Le versioni precedenti dell’app continuano a scaricare il file non compresso.
+- Punti di interesse scaricati compressi (xz) e decompressi sul telefono, con controllo del database ottenuto: circa un quarto del peso (Spagna da 110 a 26 MB). Le regioni pubblicate da ora in poi hanno i punti di interesse solo compressi: servono questa versione dell’app o successive.
 - Punti di interesse aggiornati ogni settimana invece che ogni 30 giorni.
 - Tornano sulla mappa anche senza nome belvedere, noleggio bici, servizi per camper, aree picnic e ripari, utili per chi cammina, pedala o viaggia in camper.
 - Nomi delle categorie più semplici: Dove dormire, Dove mangiare e bere, Da vedere, Cinema, teatri e locali, Benzinai, Colonnine di ricarica, Informazioni turistiche, Stazioni dei treni, Stazioni degli autobus, Porti e traghetti. I parchi giochi hanno una categoria propria invece di stare tra le attrazioni.

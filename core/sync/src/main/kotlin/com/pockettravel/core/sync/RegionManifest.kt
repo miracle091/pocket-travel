@@ -86,12 +86,13 @@ data class MapPackageEntry(val version: String, val source: MapExtractionSource)
 data class RoutingPackageEntry(val version: String, val files: List<RegionManifestFile>)
 
 /**
- * poi.db (o poi-extra.db) della regione. [fileGz], se c'e', e' lo stesso file compresso con gzip:
- * si scarica quello e lo si decomprime in [file] (le app piu' vecchie lo ignorano e scaricano [file]).
+ * poi.db (o poi-extra.db) della regione. [fileXz], se c'e', e' il file da scaricare, compresso con
+ * xz: lo si decomprime e il risultato deve avere dimensione e sha256 di [file]. Senza [fileXz]
+ * (regioni pubblicate prima della compressione) si scarica direttamente [file].
  */
 @Serializable
-data class PoiPackageEntry(val version: String, val file: RegionManifestFile, val fileGz: RegionManifestFile? = null) {
-    val downloadFile: RegionManifestFile get() = fileGz ?: file
+data class PoiPackageEntry(val version: String, val file: RegionManifestFile, val fileXz: RegionManifestFile? = null) {
+    val downloadFile: RegionManifestFile get() = fileXz ?: file
 }
 
 /** addresses.pmtiles della regione: i soli civici, sovrapposti alla mappa. */
@@ -120,11 +121,11 @@ fun RegionManifestEntry.validate() {
     require(routing.files.map { it.name }.toSet().size == routing.files.size) { "File duplicati nel routing di $regionId" }
     routing.files.forEach { it.validate(regionId) }
     poi.file.validate(regionId)
-    poi.fileGz?.validate(regionId)
+    poi.fileXz?.validate(regionId)
     poiExtra?.let {
         require(isSafeVersion(it.version)) { "version dei POI extra non valida per $regionId" }
         it.file.validate(regionId)
-        it.fileGz?.validate(regionId)
+        it.fileXz?.validate(regionId)
     }
     addresses?.let {
         require(isSafeVersion(it.version)) { "version dei civici non valida per $regionId" }

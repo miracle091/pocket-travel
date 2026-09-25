@@ -12,7 +12,6 @@ import com.pockettravel.core.data.db.RegionDatabase
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.MessageDigest
-import java.util.zip.GZIPOutputStream
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.Dispatcher
@@ -24,10 +23,13 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.tukaani.xz.LZMA2Options
+import org.tukaani.xz.XZOutputStream
 
 /**
  * RegionPackageInstaller con Room, SQLite e file system reali: ogni pacchetto (mappa, routing,
@@ -178,9 +180,7 @@ class RegionPackageInstallerDeviceTest {
 
     @Test
     fun iPoiCompressiSiScaricanoEDecomprimonoPrimaDellImport() = runBlocking {
-        files["poi.db.gz"] = ByteArrayOutputStream().also { out -> GZIPOutputStream(out).use { it.write(files.getValue("poi.db")) } }.toByteArray()
-        val compressed = entry().let { it.copy(poi = it.poi.copy(fileGz = manifestFile("poi.db.gz"))) }
-        files.remove("poi.db") // il file non compresso non deve servire
+        val compressed = compressedPoiEntry()
 
         installer.install(compressed, setOf(PackageKind.POI))
 
@@ -188,5 +188,21 @@ class RegionPackageInstallerDeviceTest {
         assertEquals("p1", installed.poiVersion)
         assertEquals(708, db.poiDao().poisForRegion("san-marino").size)
         assertEquals(compressed.poi.file.sizeBytes, installed.sizeBytes)
+    }
+
+    @Test
+    fun unPoiDecompressoDiversoDalManifestNonSiInstalla() {
+        val compressed = compressedPoiEntry().let { it.copy(poi = it.poi.copy(file = it.poi.file.copy(sha256 = "0".repeat(64)))) }
+
+        assertThrows(PermanentRegionPackageException::class.java) { runBlocking { installer.install(compressed, setOf(PackageKind.POI)) } }
+        assertNull(runBlocking { repository.installed("san-marino") })
+    }
+
+    /** poi.db servito solo compresso con xz, come lo pubblica la pipeline. */
+    private fun compressedPoiEntry(): RegionManifestEntry {
+        files["poi.db.xz"] = ByteArrayOutputStream().also { out -> XZOutputStream(out, LZMA2Options()).use { it.write(files.getValue("poi.db")) } }.toByteArray()
+        val entry = entry().let { it.copy(poi = it.poi.copy(fileXz = manifestFile("poi.db.xz"))) }
+        files.remove("poi.db") // il file non compresso non e' pubblicato
+        return entry
     }
 }

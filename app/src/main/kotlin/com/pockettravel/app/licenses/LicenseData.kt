@@ -26,6 +26,7 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
     LicenseEntry("yhirose/cpp-httplib (usato da llama.cpp, third-party/llama-cpp/vendor/cpp-httplib)", "MIT"),
     LicenseEntry("AndroidX Browser (Custom Tabs)", "Apache-2.0"),
     LicenseEntry("pmtiles-reader (lettura PMTiles via HTTP range, core:sync)", "BSD-3-Clause"),
+    LicenseEntry("XZ for Java (decompressione dei punti di interesse, core:sync)", "0BSD"),
     LicenseEntry("Basemap Protomaps (software/schema)", "BSD-3-Clause"),
     LicenseEntry(
         component = "Natural Earth (confini dei paesi, mappa del mondo)",

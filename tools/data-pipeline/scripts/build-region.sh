@@ -439,7 +439,7 @@ fi
 # picnic...), assente se la regione non ne ha. Gli altri non si pubblicano (regole in core:poi).
 POI_DB="$OUTPUT_DIR/poi.db"
 POI_EXTRA_DB="$OUTPUT_DIR/poi-extra.db"
-rm -f "$POI_DB" "$POI_EXTRA_DB" "$POI_DB.gz" "$POI_EXTRA_DB.gz"
+rm -f "$POI_DB" "$POI_EXTRA_DB" "$POI_DB.xz" "$POI_EXTRA_DB.xz"
 cd "$REPO_ROOT"
 echo "-- genero poi.db e poi-extra.db..."
 POI_TAG_KEYS_ARG="$(IFS=,; echo "${POI_TAG_KEYS[*]} ${POI_EXTRA_TAG_KEYS[*]}" | tr ' ' ,)"
@@ -449,19 +449,21 @@ for f in "${POI_XML_FILES[@]}"; do
 done
 ./gradlew -q :tools:data-pipeline:content:generatePoi --args="$POI_ARGS"
 
-# Copia compressa di un pacchetto POI (<file>.gz, accanto al file: le app gia' installate scaricano
-# quello non compresso, le nuove questo) e la sua voce "fileGz" per il manifest. -n: niente nome ne'
-# data nell'intestazione gzip, cosi' lo stesso poi.db da' sempre lo stesso .gz (e lo stesso sha256).
-gzip_entry() {
+# I pacchetti POI si pubblicano solo compressi con xz (<file>.xz): Spagna 110 MB -> 26 MB, contro i
+# 44 MB di gzip. Nel manifest "file" descrive il database non compresso (nome, dimensione e sha256,
+# che l'app ricontrolla dopo la decompressione) e "fileXz" il file da scaricare; tutti e due hanno
+# l'URL del .xz. Dizionario da 16 MiB: il telefono decomprime con ~17 MB di memoria (il preset 9e
+# ne vorrebbe 65) perdendo meno del 2%. Un solo thread: lo stesso poi.db da' sempre lo stesso .xz.
+xz_entry() {
   local file="$1" url="$2"
-  gzip -n -9 -c "$file" > "$file.gz"
-  jq -n -c --arg name "$(basename "$file").gz" --arg url "$url" --argjson size "$(wc -c < "$file.gz" | tr -d ' ')" \
-    --arg hash "$(sha256sum < "$file.gz" | awk '{print $1}')" '{name: $name, url: $url, sizeBytes: $size, sha256: $hash}'
+  xz -T1 --lzma2=preset=9e,dict=16MiB -c "$file" > "$file.xz"
+  jq -n -c --arg name "$(basename "$file").xz" --arg url "$url" --argjson size "$(wc -c < "$file.xz" | tr -d ' ')" \
+    --arg hash "$(sha256sum < "$file.xz" | awk '{print $1}')" '{name: $name, url: $url, sizeBytes: $size, sha256: $hash}'
 }
 
 # --- 5. Frammento manifest.json (poi.db e poi-extra.db nostri + rd5 ri-ospitati + sorgente mappa)
-POI_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi.db"
-POI_EXTRA_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi-extra.db"
+POI_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi.db.xz"
+POI_EXTRA_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi-extra.db.xz"
 if [ "$POI_ONLY" = "true" ]; then
   # Il frammento incrementale scritto dalla sezione 2bis ha gia' mappa, routing e le voci POI
   # pubblicate: si aggiornano solo i pacchetti POI. Un file identico a quello pubblicato si scarta e
@@ -481,8 +483,8 @@ if [ "$POI_ONLY" = "true" ]; then
       return 0
     fi
     jq -c --arg key "$key" --arg version "$VERSION" --arg name "$name" --arg url "$url" \
-      --argjson size "$(wc -c < "$file" | tr -d ' ')" --arg hash "$hash" --argjson gz "$(gzip_entry "$file" "$url.gz")" '
-      .regions |= map(.[$key] = {version: $version, file: {name: $name, url: $url, sizeBytes: $size, sha256: $hash}, fileGz: $gz})' \
+      --argjson size "$(wc -c < "$file" | tr -d ' ')" --arg hash "$hash" --argjson xz "$(xz_entry "$file" "$url")" '
+      .regions |= map(.[$key] = {version: $version, file: {name: $name, url: $url, sizeBytes: $size, sha256: $hash}, fileXz: $xz})' \
       "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
     mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
   }
@@ -530,12 +532,12 @@ MANIFEST_FRAGMENT="$OUTPUT_DIR/manifest-fragment.json"
 echo "-- genero il frammento manifest..."
 ./gradlew -q :tools:data-pipeline:content:generateManifest \
   --args="\"$(winpath "$SPEC_FILE")\" \"$(winpath "$MANIFEST_FRAGMENT")\""
-# Copie compresse dei POI (voce fileGz, vedi gzip_entry).
-POI_GZ="$(gzip_entry "$POI_DB" "$POI_DB_URL.gz")"
-POI_EXTRA_GZ="null"
-[ -f "$POI_EXTRA_DB" ] && POI_EXTRA_GZ="$(gzip_entry "$POI_EXTRA_DB" "$POI_EXTRA_DB_URL.gz")"
-jq -c --argjson gz "$POI_GZ" --argjson extraGz "$POI_EXTRA_GZ" \
-  '.regions |= map(.poi.fileGz = $gz | if .poiExtra and $extraGz then .poiExtra.fileGz = $extraGz else . end)' \
+# POI compressi (voce fileXz, vedi xz_entry).
+POI_XZ="$(xz_entry "$POI_DB" "$POI_DB_URL")"
+POI_EXTRA_XZ="null"
+[ -f "$POI_EXTRA_DB" ] && POI_EXTRA_XZ="$(xz_entry "$POI_EXTRA_DB" "$POI_EXTRA_DB_URL")"
+jq -c --argjson xz "$POI_XZ" --argjson extraXz "$POI_EXTRA_XZ" \
+  '.regions |= map(.poi.fileXz = $xz | if .poiExtra and $extraXz then .poiExtra.fileXz = $extraXz else . end)' \
   "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
 mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
 # Impronta delle tile della mappa appena pubblicata (riferimento per la prossima versione).

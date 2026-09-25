@@ -4,8 +4,10 @@ import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
 import java.io.File
-import java.util.zip.GZIPInputStream
+import java.security.DigestOutputStream
+import java.security.MessageDigest
 import javax.inject.Inject
+import org.tukaani.xz.XZInputStream
 
 /**
  * Installa (o aggiorna) solo i pacchetti [kinds] di una regione, lasciando intatti gli altri:
@@ -73,13 +75,23 @@ class RegionPackageInstaller @Inject constructor(
         staging.deleteRecursively()
     }
 
-    /** Decomprime il file POI scaricato compresso (gia' verificato con il suo sha256) in [PoiPackageEntry.file]. */
+    /**
+     * Decomprime il file POI scaricato compresso (gia' verificato con il suo sha256) in
+     * [PoiPackageEntry.file], controllando dimensione e sha256 del database decompresso.
+     */
     private fun unpackPoi(staging: File, poi: PoiPackageEntry) {
-        val gz = poi.fileGz ?: return
+        val xz = poi.fileXz ?: return
         val target = File(staging, poi.file.name)
         val part = File(staging, "${poi.file.name}.unpack")
-        GZIPInputStream(File(staging, gz.name).inputStream().buffered()).use { input ->
-            part.outputStream().use { input.copyTo(it) }
+        val digest = MessageDigest.getInstance("SHA-256")
+        XZInputStream(File(staging, xz.name).inputStream().buffered()).use { input ->
+            DigestOutputStream(part.outputStream().buffered(), digest).use { input.copyTo(it) }
+        }
+        val sha256 = digest.digest().joinToString("") { "%02x".format(it) }
+        if (part.length() != poi.file.sizeBytes || !sha256.equals(poi.file.sha256, ignoreCase = true)) {
+            part.delete()
+            File(staging, xz.name).delete()
+            throw PermanentRegionPackageException("${poi.file.name} decompresso non corrisponde al manifest")
         }
         check(part.renameTo(target)) { "Impossibile finalizzare ${poi.file.name}" }
     }

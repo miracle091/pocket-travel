@@ -51,7 +51,7 @@ mkdir -p "$SITE_DIR" "$RELEASE_ASSETS_DIR"
 cp "$OUTPUT_ROOT/guides/guides.db" "$RELEASE_ASSETS_DIR/guides--${VERSION}--guides.db"
 for spec in "${REGIONS[@]}"; do
   IFS='|' read -r regionId _ _ _ _ _ _ _ _ _ _ <<< "$spec"
-  cp "$OUTPUT_ROOT/$regionId/poi.db" "$RELEASE_ASSETS_DIR/${regionId}--${VERSION}--poi.db"
+  cp "$OUTPUT_ROOT/$regionId/poi.db.xz" "$RELEASE_ASSETS_DIR/${regionId}--${VERSION}--poi.db.xz"
   # Segmenti .rd5 ri-ospitati insieme a poi.db (vedi commento in testa a build-region.sh):
   # zero o piu' a seconda di quante tile 5x5 gradi intersecano il bbox della regione.
   for rd5 in "$OUTPUT_ROOT/$regionId"/*.rd5; do
