@@ -86,6 +86,10 @@ internal fun RegionPackagesSheet(
                         )
                         if (index < item.packages.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
                     }
+                    item.unavailableKinds.forEach { kind ->
+                        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                        UnavailablePackageRow(kind)
+                    }
                 }
             }
             TextButton(
@@ -156,6 +160,22 @@ private fun PackageRow(pkg: PackageUiState, enabled: Boolean, onDownload: () -> 
             }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+// Pacchetto che il manifest non offre per la regione: nessuna azione, solo il motivo.
+@Composable
+private fun UnavailablePackageRow(kind: PackageKind) {
+    ListItem(
+        headlineContent = { Text(stringResource(kind.label())) },
+        supportingContent = { Text(stringResource(R.string.package_status_unavailable)) },
+        leadingContent = { Icon(kind.icon(), contentDescription = null) },
+        colors = ListItemDefaults.colors(
+            containerColor = Color.Transparent,
+            headlineColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            leadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
         modifier = Modifier.fillMaxWidth(),
     )
 }

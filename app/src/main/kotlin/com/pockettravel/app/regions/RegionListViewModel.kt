@@ -48,6 +48,9 @@ data class RegionUiItem(
     val continent: String? = null,
     val countryCode: String? = null,
     val packages: List<PackageUiState> = emptyList(),
+    // Pacchetti che il manifest non offre per questa regione e che non sono installati (oggi solo
+    // i civici: nessuna fonte o regione troppo grande): mostrati come "non disponibili".
+    val unavailableKinds: List<PackageKind> = emptyList(),
 )
 
 data class RegionListUiState(
@@ -195,7 +198,8 @@ internal fun regionUiItem(
         else -> RegionStatus.INSTALLED
     }
     // I civici possono mancare dal manifest: la riga c'e' se il manifest li offre o se sono installati.
-    val packages = PackageKind.entries.filter { it in remote.availableKinds || local?.versionOf(it) != null }.map { kind ->
+    val (shown, unavailable) = PackageKind.entries.partition { it in remote.availableKinds || local?.versionOf(it) != null }
+    val packages = shown.map { kind ->
         PackageUiState(
             kind = kind,
             status = when {
@@ -212,7 +216,7 @@ internal fun regionUiItem(
         RegionStatus.UPDATE_AVAILABLE -> remote.downloadBytes(outdated)
         RegionStatus.INSTALLED -> local!!.sizeBytes
     }
-    return RegionUiItem(remote.regionId, remote.displayName, sizeBytes, status, remote.continent, remote.countryCode, packages)
+    return RegionUiItem(remote.regionId, remote.displayName, sizeBytes, status, remote.continent, remote.countryCode, packages, unavailable)
 }
 
 // Ricerca senza distinzione di maiuscole e accenti ("cina" trova "Cina", "sao" trova "São Tomé").

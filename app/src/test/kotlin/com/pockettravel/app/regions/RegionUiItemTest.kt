@@ -93,5 +93,19 @@ class RegionUiItemTest {
 
         assertEquals(RegionStatus.INSTALLED, item.status)
         assertEquals(RegionStatus.INSTALLED, item.packages.first { it.kind == PackageKind.ADDRESSES }.status)
+        assertEquals(emptyList<PackageKind>(), item.unavailableKinds)
+    }
+
+    @Test
+    fun `civici non offerti e non installati sono segnalati come non disponibili`() {
+        val item = regionUiItem(remote, local(map = "m2", routing = "r1", poi = "p2"), noBytes)
+
+        assertEquals(listOf(PackageKind.ADDRESSES), item.unavailableKinds)
+        assertEquals(listOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI), item.packages.map { it.kind })
+    }
+
+    @Test
+    fun `civici offerti non sono tra i non disponibili`() {
+        assertEquals(emptyList<PackageKind>(), regionUiItem(withAddresses, null, noBytes).unavailableKinds)
     }
 }
