@@ -12,9 +12,13 @@
 #      oceaniche (nessun .rd5 pubblicato li'). Le tile sono deduplicate globalmente prima delle
 #      richieste HEAD (alcune regioni confinano/si toccano: Stati Uniti/Russia/Kiribati/Figi sono
 #      spezzate in piu' bbox adiacenti), cosi' ogni tile viene richiesta una sola volta.
+#      Se il sito pubblica region-timings.tsv (secondi dell'ultima generazione di ogni regione,
+#      scritto da publish-regions.yml), per le regioni misurate il peso e' quello, in "tile
+#      equivalenti": secondi / 12 (12 s per tile land, media della run completa del 2026-09-24).
 #   2. Rank turistico noto solo per una manciata di nazioni (fonte UNWTO/Statista/Wikipedia 2024,
 #      alta confidenza solo sulla top ~12): le altre regioni sono
-#      "senza rank", in coda, nell'ordine di pilot-regions.sh (cioe' per continente).
+#      "senza rank", in coda, nell'ordine di pilot-regions.sh (cioe' per continente). Il rank di
+#      una nazione divisa in regioni (es. "stati-uniti") vale per tutte le sue ("stati-uniti-*").
 #   3. Le regioni "gigante" (>50 tile land) vengono spalmate un giorno diverso a testa (ordine
 #      decrescente per tile land, giorno = indice a rotazione sui 7 giorni) finche' i 7 giorni non
 #      sono coperti, poi si ricomincia dal giorno 1 — cosi' il gigante piu' grande finisce
@@ -32,6 +36,8 @@ BROUTER_BASE="https://brouter.de/brouter/segments4"
 OUT_FILE="$SCRIPT_DIR/weekly-schedule.sh"
 GIANT_THRESHOLD=50
 CONCURRENCY=8
+REGION_TIMINGS_URL="https://miracle091.github.io/pocket-travel/region-timings.tsv"
+SECONDS_PER_TILE=12
 
 # shellcheck source=./pilot-regions.sh
 source "$SCRIPT_DIR/pilot-regions.sh"
@@ -97,7 +103,14 @@ while IFS=$'\t' read -r tile status; do
   TILE_STATUS["$tile"]="$status"
 done < "$TILE_STATUS_FILE"
 
-# --- passo 3: tile land per regione, nell'ordine di pilot-regions.sh ---------------------------
+# --- passo 3: peso per regione (tile land o tempo misurato), nell'ordine di pilot-regions.sh ----
+declare -A TIMINGS=()
+if curl -sSfL -A "$PIPELINE_USER_AGENT" "$REGION_TIMINGS_URL" -o "$WORKDIR/timings.tsv"; then
+  while IFS=$'\t' read -r regionId seconds; do
+    [[ "$seconds" =~ ^[0-9]+$ ]] && TIMINGS[$regionId]="$seconds"
+  done < "$WORKDIR/timings.tsv"
+fi
+echo "== tempi misurati per ${#TIMINGS[@]} regioni ==" >&2
 LOADS_FILE="$WORKDIR/loads.tsv"
 : > "$LOADS_FILE"
 orderIndex=0
@@ -108,6 +121,10 @@ for spec in "${PILOT_REGIONS[@]}"; do
   for tile in ${REGION_TILES["$regionId"]}; do
     [ "${TILE_STATUS[$tile]:-ocean}" = "land" ] && landCount=$((landCount + 1))
   done
+  if [ -n "${TIMINGS[$regionId]:-}" ]; then
+    landCount=$(( (TIMINGS[$regionId] + SECONDS_PER_TILE / 2) / SECONDS_PER_TILE ))
+    [ "$landCount" -ge 1 ] || landCount=1
+  fi
   printf '%s\t%d\t%d\n' "$regionId" "$landCount" "$orderIndex" >> "$LOADS_FILE"
   orderIndex=$((orderIndex + 1))
   totalLand=$((totalLand + landCount))
@@ -135,7 +152,11 @@ RANKS
 COMBINED_FILE="$WORKDIR/combined.tsv"
 awk -F'\t' '
   NR==FNR { rank[$1] = $2; next }
-  { r = ($1 in rank) ? rank[$1] : 999999; printf "%s\t%d\t%d\t%d\n", $1, $2, $3, r }
+  {
+    r = ($1 in rank) ? rank[$1] : 999999
+    for (k in rank) if (index($1, k "-") == 1 && rank[k] < r) r = rank[k]
+    printf "%s\t%d\t%d\t%d\n", $1, $2, $3, r
+  }
 ' "$RANKS_FILE" "$LOADS_FILE" > "$COMBINED_FILE"
 # colonne: regionId, landCount, orderIndex, visitRank
 

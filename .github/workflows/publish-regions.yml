@@ -22,8 +22,8 @@ name: Publish regions
 # (matrice a 3 vie) per due limiti concreti, non teorici:
 #   1. limite di 6h per job di GitHub Actions
 #   2. fair use dei mirror Overpass pubblici (infrastruttura gratuita condivisa, non nostra)
-# Lo split fra shard e' bilanciato per peso (WEEKLY_SCHEDULE_TILES, le tile land misurate da
-# generate-weekly-schedule.sh) e non un semplice round-robin per indice: senza bilanciamento, piu'
+# Lo split fra shard e' bilanciato per peso (i secondi dell'ultima generazione di ogni regione,
+# region-timings.tsv sul sito; senza misura le tile land di WEEKLY_SCHEDULE_TILES) e non un semplice round-robin per indice: senza bilanciamento, piu'
 # regioni "gigante" (canada, stati-uniti, russia, brasile, cina, india, ...) capitate per caso nello
 # stesso bucket-giorno potevano finire nello stesso shard, rischiando di sforare il limite di 6h
 # mentre gli altri shard restavano quasi vuoti.
@@ -158,10 +158,21 @@ jobs:
           # succedere: e' generato dallo stesso pilot-regions.sh) pesano 0. Per run piccole/manuali
           # uno o due shard possono restare vuoti - il job "build" per quello shard non fa nulla e
           # termina subito (vedi sotto), non e' un errore.
+          # Peso = secondi dell'ultima generazione completa della regione (region-timings.tsv,
+          # pubblicato accanto al manifest dal job "publish"): le tile contano poco per i POI,
+          # rigenerati ogni settimana e lunghi dove i punti sono tanti (Germania: poche tile, molti
+          # POI). Senza misura: 12 s per tile land, la media della run completa del 2026-09-24.
+          declare -A TIMINGS=()
+          if curl -sSfL -A "PocketTravelDataPipeline/1.0" "${{ env.PAGES_BASE_URL }}/region-timings.tsv" -o "$RUNNER_TEMP/region-timings.tsv"; then
+            while IFS=$'\t' read -r regionId seconds; do
+              [[ "$seconds" =~ ^[0-9]+$ ]] && TIMINGS[$regionId]="$seconds"
+            done < "$RUNNER_TEMP/region-timings.tsv"
+          fi
+          echo "-- tempi misurati per ${#TIMINGS[@]} regioni"
           IFS=',' read -ra REGION_ARR <<< "$SELECTED"
           SORTED_FILE="$RUNNER_TEMP/sorted-regions.tsv"
           for r in "${REGION_ARR[@]}"; do
-            printf '%d\t%s\n' "${WEEKLY_SCHEDULE_TILES[$r]:-0}" "$r"
+            printf '%d\t%s\n' "${TIMINGS[$r]:-$(( ${WEEKLY_SCHEDULE_TILES[$r]:-1} * 12 ))}" "$r"
           done | sort -t $'\t' -k1,1nr > "$SORTED_FILE"
 
           SHARD_COUNT=3
@@ -176,7 +187,7 @@ jobs:
             if [ -z "${SHARDS[$lightest]}" ]; then SHARDS[$lightest]="$regionId"; else SHARDS[$lightest]="${SHARDS[$lightest]},$regionId"; fi
             SHARD_LOAD[$lightest]=$((SHARD_LOAD[$lightest] + weight))
           done < "$SORTED_FILE"
-          echo "-- carico stimato per shard (tile land): ${SHARD_LOAD[0]}, ${SHARD_LOAD[1]}, ${SHARD_LOAD[2]}"
+          echo "-- carico stimato per shard (secondi): ${SHARD_LOAD[0]}, ${SHARD_LOAD[1]}, ${SHARD_LOAD[2]}"
 
           echo "shard0=${SHARDS[0]}" >> "$GITHUB_OUTPUT"
           echo "shard1=${SHARDS[1]}" >> "$GITHUB_OUTPUT"
@@ -320,6 +331,7 @@ jobs:
             releaseTag="$(region_release_tag "$regionId" "$continent")"
             RELEASE_BASE_URL="$RELEASE_BASE_URL_PREFIX/$releaseTag"
             echo "::group::$regionId"
+            regionStart=$SECONDS
             regionOut="$OUTPUT_ROOT/$regionId"
             if tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
               "$minLon" "$minLat" "$maxLon" "$maxLat" "$RELEASE_BASE_URL" "$regionOut" \
@@ -394,6 +406,11 @@ jobs:
               # Nome unico per regione: piu' regioni condividerebbero altrimenti lo stesso nome di
               # file "manifest-fragment.json" una volta appiattite nella stessa cartella artifact.
               cp "$regionOut/manifest-fragment.json" "$RUNNER_TEMP/fragments/${regionId}.json"
+              # Durata della regione, per bilanciare gli shard delle prossime run (region-timings.tsv).
+              # Non quella delle regioni saltate perche' invariate: una settimana dopo non lo saranno.
+              if [ ! -f "$regionOut/.skipped" ]; then
+                printf '%s\t%d\n' "$regionId" "$((SECONDS - regionStart))" >> "$RUNNER_TEMP/fragments/timings-${{ matrix.shard }}.tsv"
+              fi
             else
               echo "::warning::regione $regionId fallita, salto e continuo con le prossime"
               FAILED_REGIONS+=("$regionId")
@@ -434,7 +451,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: manifest-fragments-${{ matrix.shard }}
-          path: ${{ runner.temp }}/fragments/*.json
+          path: |
+            ${{ runner.temp }}/fragments/*.json
+            ${{ runner.temp }}/fragments/*.tsv
           retention-days: 1
 
   # Riunisce i frammenti manifest di tutti gli shard (e delle guide) col manifest gia' pubblicato e
@@ -483,6 +502,13 @@ jobs:
           PAGES_BASE_URL="${{ env.PAGES_BASE_URL }}"
           mkdir -p "$SITE_DIR"
           tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$PAGES_BASE_URL/manifest.json" "${FRAGMENT_FILES[@]}"
+          # Tempi per regione (peso degli shard nel job "plan"): quelli pubblicati, aggiornati con
+          # quelli di questa run. Pages sostituisce l'intero sito, quindi si riportano ogni volta.
+          PUBLISHED_TIMINGS="$RUNNER_TEMP/published-timings.tsv"
+          curl -sSfL -A "PocketTravelDataPipeline/1.0" "$PAGES_BASE_URL/region-timings.tsv" -o "$PUBLISHED_TIMINGS" || : > "$PUBLISHED_TIMINGS"
+          cat "$PUBLISHED_TIMINGS" "$RUNNER_TEMP/fragments"/timings-*.tsv \
+            | awk -F'\t' 'NF == 2 && $2 ~ /^[0-9]+$/ { t[$1] = $2 } END { for (r in t) print r "\t" t[r] }' \
+            | sort > "$SITE_DIR/region-timings.tsv"
 
           echo "site_dir=$SITE_DIR" >> "$GITHUB_OUTPUT"
           echo "pages_host=${{ github.repository_owner }}.github.io" >> "$GITHUB_OUTPUT"
