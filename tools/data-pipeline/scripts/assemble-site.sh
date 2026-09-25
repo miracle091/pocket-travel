@@ -45,11 +45,17 @@ MANIFEST_INPUTS+=("${FRAGMENT_FILES[@]}")
 source "$SCRIPT_DIR/pilot-regions.sh"
 CONTINENTS_TSV="$(mktemp)"
 for spec in "${PILOT_REGIONS[@]}"; do
-  IFS='|' read -r regionId _ _ _ _ _ _ flagCode _ _ continent <<< "$spec"
-  printf '%s\t%s\t%s\n' "$regionId" "$continent" "$flagCode" >> "$CONTINENTS_TSV"
+  IFS='|' read -r regionId _ _ _ _ _ _ flagCode groupName groupLabel continent <<< "$spec"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$regionId" "$continent" "$flagCode" "$groupName" "$groupLabel" >> "$CONTINENTS_TSV"
+done
+# Regioni divise in regioni piu' piccole (REPLACED_REGIONS): l'app propone le nuove a chi ha la vecchia.
+REPLACED_TSV="$(mktemp)"
+for spec in "${REPLACED_REGIONS[@]}"; do
+  IFS='|' read -r regionId groupName <<< "$spec"
+  printf '%s\t%s\n' "$regionId" "$groupName" >> "$REPLACED_TSV"
 done
 
-ARGS_STR="--continents \"$(winpath "$CONTINENTS_TSV")\" \"$(winpath "$SITE_DIR/manifest.json")\""
+ARGS_STR="--continents \"$(winpath "$CONTINENTS_TSV")\" --replaced \"$(winpath "$REPLACED_TSV")\" \"$(winpath "$SITE_DIR/manifest.json")\""
 for f in "${MANIFEST_INPUTS[@]}"; do
   ARGS_STR="$ARGS_STR \"$(winpath "$f")\""
 done

@@ -142,4 +142,26 @@ class MergeManifestsTest {
     fun `il risultato e' JSON valido riparsabile`() {
         assertTrue(JSONObject(mergeManifestJson(listOf(fragmentFor("san-marino", "San Marino")))).has("regions"))
     }
+
+    @Test
+    fun `scrive gruppo e regioni sostituite, e toglie il gruppo a chi non ne ha piu' uno`() {
+        val published = JSONObject(fragmentFor("stati-uniti", "Stati Uniti (contigui)"))
+        val merged = JSONObject(
+            mergeManifestJson(
+                listOf(fragmentFor("italia", "Italia").let { JSONObject(it).apply { getJSONArray("regions").getJSONObject(0).put("groupName", "vecchio") }.toString() }, published.toString(), fragmentFor("stati-uniti-ohio", "Stati Uniti - Ohio")),
+                knownRegionIds = setOf("italia", "stati-uniti-ohio"),
+                groups = mapOf("stati-uniti-ohio" to ("Stati Uniti d'America" to "Ohio")),
+                replacedRegions = mapOf("stati-uniti" to "Stati Uniti d'America"),
+            ),
+        )
+        val regions = regionsById(merged)
+
+        assertEquals(setOf("italia", "stati-uniti-ohio"), regions.keys)
+        assertEquals("Stati Uniti d'America", regions.getValue("stati-uniti-ohio").getString("groupName"))
+        assertEquals("Ohio", regions.getValue("stati-uniti-ohio").getString("groupLabel"))
+        assertFalse(regions.getValue("italia").has("groupName"))
+        val replaced = merged.getJSONArray("replacedRegions").getJSONObject(0)
+        assertEquals("stati-uniti", replaced.getString("regionId"))
+        assertEquals("Stati Uniti d'America", replaced.getString("groupName"))
+    }
 }

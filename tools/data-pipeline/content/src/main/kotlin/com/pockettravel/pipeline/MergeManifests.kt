@@ -24,6 +24,11 @@ import org.json.JSONObject
  * regioni di un paese toccato sulla mappa del mondo, e non ha altra fonte per saperlo. Allo stesso
  * modo i "wikivoyageUrls" del frammento guide finiscono nel campo "wikivoyageUrl" delle regioni.
  *
+ * groups (regionId -> groupName, groupLabel, da pilot-regions.sh) finisce nei campi "groupName" e
+ * "groupLabel": l'app raccoglie sotto un'unica voce le regioni dello stesso paese (es. gli stati USA).
+ * replacedRegions (regionId di una regione tolta -> groupName delle regioni che la sostituiscono) finisce
+ * nel campo "replacedRegions": l'app le propone a chi ha ancora installata la regione tolta.
+ *
  * knownRegionIds (le regioni di pilot-regions.sh), se indicato, scarta le regioni che non ne fanno
  * piu' parte: senza, una regione tolta dal lotto pilota resterebbe per sempre nel manifest,
  * ricopiata a ogni run da quello gia' pubblicato.
@@ -33,6 +38,8 @@ fun mergeManifestJson(
     continents: Map<String, String> = emptyMap(),
     countryCodes: Map<String, String> = emptyMap(),
     knownRegionIds: Set<String>? = null,
+    groups: Map<String, Pair<String, String>> = emptyMap(),
+    replacedRegions: Map<String, String> = emptyMap(),
 ): String {
     require(manifestJsons.isNotEmpty()) { "Nessun manifest da unire" }
 
@@ -58,11 +65,25 @@ fun mergeManifestJson(
         continents[regionId]?.let { region.put("continent", it) }
         countryCodes[regionId]?.let { region.put("countryCode", it) }
         wikivoyageUrls[regionId]?.let { region.put("wikivoyageUrl", it) }
+        val group = groups[regionId]
+        if (group != null) {
+            region.put("groupName", group.first).put("groupLabel", group.second)
+        } else if (knownRegionIds != null) {
+            // Con l'elenco completo delle regioni, chi non ha gruppo non deve tenerne uno vecchio.
+            region.remove("groupName")
+            region.remove("groupLabel")
+        }
     }
 
     val merged = JSONObject().put("manifestVersion", MANIFEST_VERSION)
     guides?.let { merged.put("guides", it) }
     merged.put("regions", JSONArray(regionsById.values.toList()))
+    if (replacedRegions.isNotEmpty()) {
+        merged.put(
+            "replacedRegions",
+            JSONArray(replacedRegions.map { (regionId, groupName) -> JSONObject().put("regionId", regionId).put("groupName", groupName) }),
+        )
+    }
     return merged.toString(2)
 }
 
@@ -88,22 +109,35 @@ internal fun convertV1Region(region: JSONObject): JSONObject {
 }
 
 fun main(args: Array<String>) {
-    // --continents <file.tsv> opzionale in testa: righe "regionId<TAB>continente<TAB>codicePaese".
-    val continentsFile = if (args.firstOrNull() == "--continents") File(args[1]) else null
-    val rest = if (continentsFile != null) args.drop(2) else args.toList()
+    // Opzioni in testa: --continents <file.tsv> (righe "regionId<TAB>continente<TAB>codicePaese<TAB>
+    // groupName<TAB>groupLabel") e --replaced <file.tsv> (righe "regionId tolta<TAB>groupName").
+    var continentsFile: File? = null
+    var replacedFile: File? = null
+    var rest = args.toList()
+    while (rest.firstOrNull()?.startsWith("--") == true) {
+        when (rest[0]) {
+            "--continents" -> continentsFile = File(rest[1])
+            "--replaced" -> replacedFile = File(rest[1])
+            else -> error("Opzione sconosciuta: ${rest[0]}")
+        }
+        rest = rest.drop(2)
+    }
     require(rest.size >= 2) {
-        "Uso: mergeManifests [--continents <regioni.tsv>] <output manifest.json> <input1.json> [input2.json ...]"
+        "Uso: mergeManifests [--continents <regioni.tsv>] [--replaced <sostituite.tsv>] <output manifest.json> <input1.json> [input2.json ...]"
     }
     val rows = continentsFile?.readLines()?.filter { it.isNotBlank() }?.map { it.split('\t') }.orEmpty()
     val continents = rows.filter { it.size >= 2 }.associate { it[0] to it[1] }
     val countryCodes = rows.filter { it.size >= 3 && it[2].isNotBlank() }.associate { it[0] to it[2] }
+    val groups = rows.filter { it.size >= 5 && it[3].isNotBlank() }.associate { it[0] to (it[3] to it[4]) }
+    val replaced = replacedFile?.readLines()?.filter { it.isNotBlank() }?.map { it.split('\t') }
+        ?.associate { it[0] to it[1] }.orEmpty()
     val outputFile = File(rest[0])
     val inputFiles = rest.drop(1).map { File(it) }
     inputFiles.forEach { require(it.exists()) { "Manifest non trovato: ${it.path}" } }
 
     // La tabella --continents elenca tutte le regioni di pilot-regions.sh: chi non c'e' e' stata tolta.
     val knownRegionIds = continentsFile?.let { rows.map { it[0] }.toSet() }?.takeIf { it.isNotEmpty() }
-    val merged = mergeManifestJson(inputFiles.map { it.readText() }, continents, countryCodes, knownRegionIds)
+    val merged = mergeManifestJson(inputFiles.map { it.readText() }, continents, countryCodes, knownRegionIds, groups, replaced)
     outputFile.writeText(merged)
     println("manifest unito (${inputFiles.size} input, ${JSONObject(merged).getJSONArray("regions").length()} regioni) scritto in ${outputFile.path}")
 }

@@ -1,5 +1,6 @@
 package com.pockettravel.pipeline
 
+import org.json.JSONObject
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -118,6 +119,26 @@ class ValidateManifestTest {
     fun `rifiuta un manifestVersion non supportata`() {
         assertThrows(ManifestValidationException::class.java) {
             validateManifestJson(validManifest().replace("\"manifestVersion\": 2", "\"manifestVersion\": 1"), allowedHosts)
+        }
+    }
+
+    @Test
+    fun `controlla che una regione sostituita non ci sia piu' e che il suo gruppo esista`() {
+        val grouped = JSONObject(validManifest()).apply {
+            getJSONArray("regions").getJSONObject(0).put("groupName", "Stati Uniti d'America")
+        }
+        fun withReplaced(regionId: String, groupName: String) = JSONObject(grouped.toString()).put(
+            "replacedRegions",
+            org.json.JSONArray().put(JSONObject().put("regionId", regionId).put("groupName", groupName)),
+        ).toString()
+        val presentId = grouped.getJSONArray("regions").getJSONObject(0).getString("regionId")
+
+        validateManifestJson(withReplaced("stati-uniti", "Stati Uniti d'America"), allowedHosts)
+        assertThrows(ManifestValidationException::class.java) {
+            validateManifestJson(withReplaced("stati-uniti", "Canada"), allowedHosts)
+        }
+        assertThrows(ManifestValidationException::class.java) {
+            validateManifestJson(withReplaced(presentId, "Stati Uniti d'America"), allowedHosts)
         }
     }
 }

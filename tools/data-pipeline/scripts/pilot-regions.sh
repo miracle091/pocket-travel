@@ -4,33 +4,33 @@
 # (esecuzione selettiva via input workflow_dispatch), per evitare due copie che possono
 # disallinearsi.
 #
-# Gli Stati Uniti sono territorio non contiguo (48 stati + Alaska + Hawaii separati da migliaia
-# di km di oceano/Canada/Messico): un unico bbox rettangolare finirebbe per includere anche
-# Canada/Messico/oceano aperto, quindi sono pubblicati come 3 region separate — ogni region e'
-# gia' un'unita' geografica arbitraria nello schema esistente (RegionManifestEntry), non
-# necessariamente una nazione intera, quindi questo non richiede alcuna modifica allo schema.
+# Gli Stati Uniti sono pubblicati come una regione per stato (48 stati contigui + Distretto di
+# Columbia, dal 2026-09-25) piu' Alaska e Hawaii: un'unica regione per i 48 stati era troppo grande
+# (civici impossibili da estrarre, download di gigabyte per visitare una citta'). Le righe degli
+# stati vengono da generate-subregion-rows.py (confini Natural Earth); la vecchia regione
+# "stati-uniti" e' in REPLACED_REGIONS, piu' sotto. Ogni region e' un'unita' geografica arbitraria
+# nello schema (RegionManifestEntry), non necessariamente una nazione intera.
 #
 # I bbox sono approssimazioni rettangolari (mapSource supporta solo bbox, non poligoni) —
 # includono territorio confinante/mare, coerente con qualunque approccio a bounding-box.
 #
-# flagCode e' il codice ISO 3166-1 alpha-2 in minuscolo della nazione (le 3 region statunitensi
+# flagCode e' il codice ISO 3166-1 alpha-2 in minuscolo della nazione (le region statunitensi
 # condividono lo stesso "us", non sono nazioni a se' - vedi nota sopra) - usato nella pagina
 # indice statica del sito pubblicato (assemble-site.sh) per risolvere il file
 # scripts/assets/flags/<flagCode>.svg (bandiera vettoriale, non emoji: gli emoji bandiera non si
 # vedono su Windows, il font di sistema non li renderizza).
 #
-# groupName/groupLabel (opzionali, vuoti per le nazioni normali) servono solo alla pagina indice
-# statica (assemble-site.sh): quando piu' region condividono lo stesso groupName (qui le 3 region
-# statunitensi non contigue, vedi nota sopra), la pagina le raccoglie sotto un'unica voce
-# "groupName" con groupLabel come sotto-voce, invece di 3 righe separate ciascuna con "Stati
-# Uniti" ripetuto nel nome — non tocca ne' regionId ne' displayName (quello resta il nome mostrato
-# nell'app, RegionListScreen, e non deve cambiare per un dettaglio di questa sola pagina).
+# groupName/groupLabel (opzionali, vuoti per le nazioni normali): quando piu' region condividono lo
+# stesso groupName (es. gli stati USA), la pagina indice statica (assemble-site.sh) e l'elenco
+# regioni dell'app le raccolgono sotto un'unica voce "groupName" con groupLabel come sotto-voce.
+# Arrivano all'app nel manifest (campi groupName/groupLabel, scritti da mergeManifests). Non
+# toccano ne' regionId ne' displayName.
 #
 # continent raggruppa ulteriormente la pagina indice sotto un'intestazione per continente - le
 # righe vanno tenute ordinate per continente (qui gia' cosi': Europa, poi Asia, poi Nord America)
 # perche' assemble-site.sh apre/chiude ogni sezione con un solo passaggio, senza riordinare.
 # Hawaii e' geograficamente nel Pacifico ma resta "Nord America" qui: e' la stessa voce/gruppo
-# "Stati Uniti d'America" delle altre 2 region USA, non ha senso spezzare un gruppo a meta' tra
+# "Stati Uniti d'America" delle altre region USA, non ha senso spezzare un gruppo a meta' tra
 # due continenti.
 #
 # Formato per riga:
@@ -202,7 +202,55 @@ PILOT_REGIONS=(
   "zimbabwe|Zimbabwe|25.26|-22.27|32.85|-15.51|Zimbabwe|zw|||Africa"
   "riunione|Riunione (Francia)|55.22|-21.39|55.84|-20.87|Reunion|re|||Africa"
   "mayotte|Mayotte (Francia)|45.02|-13.00|45.30|-12.64|Mayotte|yt|||Africa"
-  "stati-uniti|Stati Uniti (contigui)|-125.00|24.50|-66.90|49.40|United_States_of_America|us|Stati Uniti d'America|Contigui (48 stati)|Nord America"
+  "stati-uniti-alabama|Stati Uniti - Alabama|-88.49|30.23|-84.92|35.03|Alabama|us|Stati Uniti d'America|Alabama|Nord America"
+  "stati-uniti-arizona|Stati Uniti - Arizona|-114.84|31.32|-109.04|37.01|Arizona|us|Stati Uniti d'America|Arizona|Nord America"
+  "stati-uniti-arkansas|Stati Uniti - Arkansas|-94.62|33.01|-89.68|36.51|Arkansas|us|Stati Uniti d'America|Arkansas|Nord America"
+  "stati-uniti-california|Stati Uniti - California|-124.38|32.53|-114.12|42.01|California|us|Stati Uniti d'America|California|Nord America"
+  "stati-uniti-carolina-del-nord|Stati Uniti - Carolina del Nord|-84.33|33.87|-75.45|36.62|North_Carolina|us|Stati Uniti d'America|Carolina del Nord|Nord America"
+  "stati-uniti-carolina-del-sud|Stati Uniti - Carolina del Sud|-83.36|32.02|-78.56|35.22|South_Carolina|us|Stati Uniti d'America|Carolina del Sud|Nord America"
+  "stati-uniti-colorado|Stati Uniti - Colorado|-109.05|37.00|-102.01|41.01|Colorado|us|Stati Uniti d'America|Colorado|Nord America"
+  "stati-uniti-connecticut|Stati Uniti - Connecticut|-73.73|40.99|-71.79|42.06|Connecticut|us|Stati Uniti d'America|Connecticut|Nord America"
+  "stati-uniti-dakota-del-nord|Stati Uniti - Dakota del Nord|-104.04|45.94|-96.55|49.00|North_Dakota|us|Stati Uniti d'America|Dakota del Nord|Nord America"
+  "stati-uniti-dakota-del-sud|Stati Uniti - Dakota del Sud|-104.04|42.51|-96.45|45.95|South_Dakota|us|Stati Uniti d'America|Dakota del Sud|Nord America"
+  "stati-uniti-delaware|Stati Uniti - Delaware|-75.79|38.45|-75.03|39.85|Delaware|us|Stati Uniti d'America|Delaware|Nord America"
+  "stati-uniti-distretto-di-columbia|Stati Uniti - Distretto di Columbia|-77.13|38.80|-76.93|39.02|Washington,_D.C.|us|Stati Uniti d'America|Distretto di Columbia|Nord America"
+  "stati-uniti-florida|Stati Uniti - Florida|-87.61|24.54|-80.04|31.01|Florida|us|Stati Uniti d'America|Florida|Nord America"
+  "stati-uniti-georgia|Stati Uniti - Georgia|-85.63|30.37|-80.87|35.01|Georgia_(U.S._state)|us|Stati Uniti d'America|Georgia|Nord America"
+  "stati-uniti-idaho|Stati Uniti - Idaho|-117.21|42.00|-111.05|49.00|Idaho|us|Stati Uniti d'America|Idaho|Nord America"
+  "stati-uniti-illinois|Stati Uniti - Illinois|-91.51|36.99|-87.03|42.52|Illinois|us|Stati Uniti d'America|Illinois|Nord America"
+  "stati-uniti-indiana|Stati Uniti - Indiana|-88.10|37.78|-84.78|41.77|Indiana|us|Stati Uniti d'America|Indiana|Nord America"
+  "stati-uniti-iowa|Stati Uniti - Iowa|-96.63|40.37|-90.14|43.51|Iowa|us|Stati Uniti d'America|Iowa|Nord America"
+  "stati-uniti-kansas|Stati Uniti - Kansas|-102.03|37.00|-94.61|40.01|Kansas|us|Stati Uniti d'America|Kansas|Nord America"
+  "stati-uniti-kentucky|Stati Uniti - Kentucky|-89.57|36.49|-81.96|39.13|Kentucky|us|Stati Uniti d'America|Kentucky|Nord America"
+  "stati-uniti-louisiana|Stati Uniti - Louisiana|-94.05|28.98|-88.81|33.02|Louisiana|us|Stati Uniti d'America|Louisiana|Nord America"
+  "stati-uniti-maine|Stati Uniti - Maine|-71.09|43.07|-66.98|47.47|Maine|us|Stati Uniti d'America|Maine|Nord America"
+  "stati-uniti-maryland|Stati Uniti - Maryland|-79.49|37.95|-75.03|39.73|Maryland|us|Stati Uniti d'America|Maryland|Nord America"
+  "stati-uniti-massachusetts|Stati Uniti - Massachusetts|-73.51|41.24|-69.93|42.89|Massachusetts|us|Stati Uniti d'America|Massachusetts|Nord America"
+  "stati-uniti-michigan|Stati Uniti - Michigan|-90.42|41.70|-82.13|48.31|Michigan|us|Stati Uniti d'America|Michigan|Nord America"
+  "stati-uniti-minnesota|Stati Uniti - Minnesota|-97.23|43.50|-89.49|49.37|Minnesota|us|Stati Uniti d'America|Minnesota|Nord America"
+  "stati-uniti-mississippi|Stati Uniti - Mississippi|-91.66|30.19|-88.08|35.01|Mississippi|us|Stati Uniti d'America|Mississippi|Nord America"
+  "stati-uniti-missouri|Stati Uniti - Missouri|-95.77|35.99|-89.12|40.63|Missouri|us|Stati Uniti d'America|Missouri|Nord America"
+  "stati-uniti-montana|Stati Uniti - Montana|-116.05|44.39|-104.00|49.00|Montana|us|Stati Uniti d'America|Montana|Nord America"
+  "stati-uniti-nebraska|Stati Uniti - Nebraska|-104.03|40.00|-95.34|43.01|Nebraska|us|Stati Uniti d'America|Nebraska|Nord America"
+  "stati-uniti-nevada|Stati Uniti - Nevada|-120.01|34.99|-114.04|42.01|Nevada|us|Stati Uniti d'America|Nevada|Nord America"
+  "stati-uniti-new-hampshire|Stati Uniti - New Hampshire|-72.56|42.70|-70.73|45.30|New_Hampshire|us|Stati Uniti d'America|New Hampshire|Nord America"
+  "stati-uniti-new-jersey|Stati Uniti - New Jersey|-75.53|38.94|-73.91|41.36|New_Jersey|us|Stati Uniti d'America|New Jersey|Nord America"
+  "stati-uniti-new-york|Stati Uniti - New York|-79.77|40.51|-71.90|45.01|New_York_(state)|us|Stati Uniti d'America|New York|Nord America"
+  "stati-uniti-nuovo-messico|Stati Uniti - Nuovo Messico|-109.05|31.32|-103.00|37.01|New_Mexico|us|Stati Uniti d'America|Nuovo Messico|Nord America"
+  "stati-uniti-ohio|Stati Uniti - Ohio|-84.83|38.41|-80.51|42.33|Ohio|us|Stati Uniti d'America|Ohio|Nord America"
+  "stati-uniti-oklahoma|Stati Uniti - Oklahoma|-103.01|33.64|-94.43|37.01|Oklahoma|us|Stati Uniti d'America|Oklahoma|Nord America"
+  "stati-uniti-oregon|Stati Uniti - Oregon|-124.54|42.00|-116.47|46.23|Oregon|us|Stati Uniti d'America|Oregon|Nord America"
+  "stati-uniti-pennsylvania|Stati Uniti - Pennsylvania|-80.53|39.72|-74.69|42.54|Pennsylvania|us|Stati Uniti d'America|Pennsylvania|Nord America"
+  "stati-uniti-rhode-island|Stati Uniti - Rhode Island|-71.85|41.33|-71.23|42.02|Rhode_Island|us|Stati Uniti d'America|Rhode Island|Nord America"
+  "stati-uniti-tennessee|Stati Uniti - Tennessee|-90.30|34.98|-81.65|36.70|Tennessee|us|Stati Uniti d'America|Tennessee|Nord America"
+  "stati-uniti-texas|Stati Uniti - Texas|-106.67|25.87|-93.53|36.51|Texas|us|Stati Uniti d'America|Texas|Nord America"
+  "stati-uniti-utah|Stati Uniti - Utah|-114.05|37.00|-109.04|42.01|Utah|us|Stati Uniti d'America|Utah|Nord America"
+  "stati-uniti-vermont|Stati Uniti - Vermont|-73.43|42.73|-71.51|45.01|Vermont|us|Stati Uniti d'America|Vermont|Nord America"
+  "stati-uniti-virginia|Stati Uniti - Virginia|-83.67|36.55|-75.22|39.46|Virginia|us|Stati Uniti d'America|Virginia|Nord America"
+  "stati-uniti-virginia-occidentale|Stati Uniti - Virginia Occidentale|-82.62|37.20|-77.72|40.65|West_Virginia|us|Stati Uniti d'America|Virginia Occidentale|Nord America"
+  "stati-uniti-washington|Stati Uniti - Washington|-124.71|45.59|-116.89|49.00|Washington_(state)|us|Stati Uniti d'America|Washington|Nord America"
+  "stati-uniti-wisconsin|Stati Uniti - Wisconsin|-92.90|42.49|-86.26|47.31|Wisconsin|us|Stati Uniti d'America|Wisconsin|Nord America"
+  "stati-uniti-wyoming|Stati Uniti - Wyoming|-111.06|41.00|-104.02|45.01|Wyoming|us|Stati Uniti d'America|Wyoming|Nord America"
   "stati-uniti-alaska|Stati Uniti - Alaska|-170.00|51.00|-129.90|71.60|Alaska|us|Stati Uniti d'America|Alaska|Nord America"
   "stati-uniti-hawaii|Stati Uniti - Hawaii|-160.30|18.90|-154.70|22.30|Hawaii|us|Stati Uniti d'America|Hawaii|Nord America"
   "canada|Canada|-141.00|41.68|-52.65|83.23|Canada|ca|||Nord America"
@@ -302,10 +350,14 @@ PILOT_REGIONS=(
 # 1500 durante una rigenerazione completa) e' divisa in due: le 5 regioni piu' grandi (367 asset)
 # stanno in "region-data-asia-grandi". Gli asset gia' pubblicati restano dove sono finche' la
 # regione non li rigenera: il manifest ha URL assoluti, quindi una regione puo' averli su tutte e due.
+# Gli stati USA (piu' Alaska e Hawaii) hanno una release propria: circa 190 segmenti .rd5 (le tile
+# di confine si ripetono tra stati vicini) piu' POI e civici, che nella release del Nord America
+# supererebbero il limite durante una rigenerazione.
 region_release_tag() {
   local regionId="$1" continent="$2"
   case "$regionId" in
     cina|russia-siberia|russia-estremo-oriente|indonesia|india) echo "region-data-asia-grandi" ;;
+    stati-uniti-*) echo "region-data-stati-uniti" ;;
     *) echo "region-data-$(echo "$continent" | tr 'A-Z' 'a-z' | tr ' ' '-')" ;;
   esac
 }
@@ -319,3 +371,11 @@ region_has_addresses() {
     *) return 0 ;;
   esac
 }
+
+# Regioni divise in regioni piu' piccole: regionId della vecchia regione | groupName delle nuove.
+# Tolta da PILOT_REGIONS, la vecchia regione sparisce dal manifest; mergeManifests scrive questo
+# elenco nel campo "replacedRegions" del manifest, cosi' l'app propone le regioni del gruppo a chi
+# ha ancora installata quella vecchia.
+REPLACED_REGIONS=(
+  "stati-uniti|Stati Uniti d'America"
+)

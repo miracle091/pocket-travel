@@ -41,11 +41,13 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
     if (regions.length() == 0) throw ManifestValidationException("Il manifest non contiene regioni")
 
     val seenRegionIds = mutableSetOf<String>()
+    val groupNames = mutableSetOf<String>()
     for (i in 0 until regions.length()) {
         val region = regions.getJSONObject(i)
         val regionId = region.getString("regionId")
         if (!isSafeSegment(regionId)) throw ManifestValidationException("regionId non valido: $regionId")
         if (!seenRegionIds.add(regionId)) throw ManifestValidationException("regionId duplicato: $regionId")
+        region.optString("groupName").takeIf { it.isNotBlank() }?.let { groupNames += it }
 
         val map = region.getJSONObject("map")
         validateVersion(map, "$regionId/map")
@@ -79,6 +81,17 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
             validateVersion(addresses, "$regionId/addresses")
             validateFile(addresses.getJSONObject("file"), regionId, allowedHosts)
         }
+    }
+
+    // Regioni tolte e sostituite da un gruppo di regioni piu' piccole (facoltativo).
+    val replaced = root.optJSONArray("replacedRegions")
+    for (i in 0 until (replaced?.length() ?: 0)) {
+        val entry = replaced!!.getJSONObject(i)
+        val regionId = entry.getString("regionId")
+        if (!isSafeSegment(regionId)) throw ManifestValidationException("regionId sostituita non valida: $regionId")
+        if (regionId in seenRegionIds) throw ManifestValidationException("$regionId e' sostituita ma ancora tra le regioni")
+        val groupName = entry.getString("groupName")
+        if (groupName !in groupNames) throw ManifestValidationException("Nessuna regione nel gruppo $groupName che sostituisce $regionId")
     }
 }
 
