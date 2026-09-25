@@ -45,6 +45,10 @@ resolve_protomaps_date() {
   return 1
 }
 
+# User-Agent descrittivo della pipeline: richiesto dalla policy di Wikimedia; senza, overpass-api.de
+# risponde 406 (visto il 2026-09-25).
+PIPELINE_USER_AGENT="PocketTravelDataPipeline/1.0 (https://github.com/miracle091/pocket-travel)"
+
 # Scarica il wikitext grezzo della pagina Wikivoyage di una regione in <outFile> e stampa l'URL
 # della pagina usata (per il campo sourceUrl delle sezioni). Preferisce l'edizione italiana:
 # Wikivoyage IT e' scritto da editor italiani, non una traduzione automatica — piu' "tradotto" e
@@ -61,7 +65,7 @@ resolve_protomaps_date() {
 # pagina, altrimenti la regione esce senza sezioni invece di tenere la guida gia' pubblicata.
 # Lo User-Agent descrittivo e' richiesto dalla policy di Wikimedia.
 # Ritorna 1 (e nessun URL) se anche la pagina EN risulta vuota (titolo errato o errore di rete).
-wikimedia_curl() { curl -sSf --retry 3 --retry-delay 5 -A "PocketTravelDataPipeline/1.0 (https://github.com/miracle091/pocket-travel)" "$@"; }
+wikimedia_curl() { curl -sSf --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" "$@"; }
 fetch_wikivoyage_dump() {
   local wikiTitle="$1" outFile="$2"
   local langlinks itTitle itTitleUrl
@@ -111,7 +115,7 @@ OVERPASS_ENDPOINTS=(
 overpass_json() {
   local query="$1" outFile="$2" endpoint
   for endpoint in "${OVERPASS_ENDPOINTS[@]}"; do
-    if curl -sS --max-time 950 -A "PocketTravelDataPipeline/1.0 (https://github.com/miracle091/pocket-travel)" \
+    if curl -sS --max-time 950 -A "$PIPELINE_USER_AGENT" \
       "$endpoint" --data-urlencode "data=$query" -o "$outFile" &&
       jq -e '(.elements | type) == "array" and (.remark == null)' "$outFile" >/dev/null 2>&1; then
       return 0

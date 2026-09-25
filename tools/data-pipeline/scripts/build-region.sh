@@ -322,7 +322,7 @@ fetch_overpass_chunk() {
   for attempt in $(seq 1 "$ATTEMPTS"); do
     local endpoint="${OVERPASS_ENDPOINTS[$(( (attempt - 1) % ${#OVERPASS_ENDPOINTS[@]} ))]}"
     echo "-- tentativo $attempt/$ATTEMPTS su $endpoint..."
-    download_with_progress "$outFile" "Overpass POI ($endpoint)" -sS --max-time 950 "$endpoint" --data-urlencode "data=${query}" -o "$outFile"
+    download_with_progress "$outFile" "Overpass POI ($endpoint)" -sS --max-time 950 -A "$PIPELINE_USER_AGENT" "$endpoint" --data-urlencode "data=${query}" -o "$outFile"
     # Attenzione: su un timeout della query (bbox grande), Overpass non fallisce la richiesta
     # HTTP ma risponde comunque con un <osm> ben formato contenente un
     # <remark>runtime error: Query timed out...</remark> e zero nodi -- un semplice grep "<osm"
