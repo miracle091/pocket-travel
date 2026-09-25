@@ -16,8 +16,8 @@ object PoiColors {
     val Attractions = Color(0xFF007F5E)
     // Svago: cinema, teatri, discoteche, casino', bowling e sale giochi.
     val Entertainment = Color(0xFFC5221F)
-    // Trasporti: treno, metro, autobus, taxi, traghetti, aeroporto, parcheggi, carburante, ricarica elettrica e
-    // noleggi.
+    // Trasporti: treno, metro, autobus, taxi, traghetti, aeroporto, parcheggi, carburante, ricarica elettrica,
+    // servizi per camper e noleggi.
     val Transport = Color(0xFF00707A)
     // Polizia, ambasciate, bagni pubblici, acqua potabile, farmacie, ospedali, vigili del fuoco, veterinari,
     // banche, bancomat, uffici postali, cassette postali e centri informazioni.

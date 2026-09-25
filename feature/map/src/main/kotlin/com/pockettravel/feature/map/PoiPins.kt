@@ -17,13 +17,13 @@ internal fun PoiCategory.pinColor(): Color = when (this) {
     PoiCategory.ALLOGGIO -> PoiColors.Lodging
     PoiCategory.CIBO_BEVANDE -> PoiColors.FoodDrink
     PoiCategory.NEGOZI, PoiCategory.DISTRIBUTORI -> PoiColors.Shopping
-    PoiCategory.ATTRAZIONI, PoiCategory.PARCO_GIOCHI, PoiCategory.TAVOLI_PICNIC -> PoiColors.Attractions
+    PoiCategory.ATTRAZIONI, PoiCategory.PARCO_GIOCHI, PoiCategory.TAVOLI_PICNIC, PoiCategory.RIPARI -> PoiColors.Attractions
     PoiCategory.SVAGO -> PoiColors.Entertainment
     PoiCategory.AMBASCIATA_CONSOLATO, PoiCategory.POLIZIA, PoiCategory.BAGNI_PUBBLICI, PoiCategory.ACQUA_POTABILE,
     PoiCategory.FARMACIA, PoiCategory.OSPEDALE, PoiCategory.VIGILI_DEL_FUOCO, PoiCategory.VETERINARIO,
     PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.UFFICIO_POSTALE, PoiCategory.CASSETTA_POSTALE, PoiCategory.INFORMAZIONI ->
         PoiColors.PublicServices
-    PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.NOLEGGIO, PoiCategory.PARCHEGGIO, PoiCategory.PARCHEGGIO_PRIVATO,
+    PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.SERVIZI_CAMPER, PoiCategory.NOLEGGIO, PoiCategory.PARCHEGGIO, PoiCategory.PARCHEGGIO_PRIVATO,
     PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO,
     PoiCategory.AEROPORTO -> PoiColors.Transport
     PoiCategory.ALTRO -> PoiColors.Other
@@ -39,6 +39,8 @@ internal fun PoiCategory.glyph(): Int? = when (this) {
     PoiCategory.DISTRIBUTORI -> UiR.drawable.ms_local_convenience_store
     PoiCategory.PARCO_GIOCHI -> UiR.drawable.ms_playground
     PoiCategory.TAVOLI_PICNIC -> UiR.drawable.ms_deck
+    PoiCategory.RIPARI -> UiR.drawable.ms_roofing
+    PoiCategory.SERVIZI_CAMPER -> UiR.drawable.ms_rv_hookup
     PoiCategory.ACQUA_POTABILE -> UiR.drawable.ms_water_drop
     PoiCategory.CASSETTA_POSTALE -> UiR.drawable.ms_markunread_mailbox
     PoiCategory.ATTRAZIONI -> UiR.drawable.ms_attractions
@@ -75,6 +77,8 @@ internal fun PoiCategory.label(): Int = when (this) {
     PoiCategory.DISTRIBUTORI -> R.string.poi_vending
     PoiCategory.PARCO_GIOCHI -> R.string.poi_playground
     PoiCategory.TAVOLI_PICNIC -> R.string.poi_picnic_table
+    PoiCategory.RIPARI -> R.string.poi_shelter
+    PoiCategory.SERVIZI_CAMPER -> R.string.poi_camper_services
     PoiCategory.ACQUA_POTABILE -> R.string.poi_drinking_water
     PoiCategory.CASSETTA_POSTALE -> R.string.poi_post_box
     PoiCategory.ATTRAZIONI -> R.string.poi_attractions

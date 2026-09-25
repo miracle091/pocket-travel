@@ -29,7 +29,9 @@
     <string name="poi_other">Altro</string>
     <string name="poi_vending">Distributori automatici</string>
     <string name="poi_playground">Parchi giochi</string>
-    <string name="poi_picnic_table">Tavoli da picnic</string>
+    <string name="poi_picnic_table">Picnic</string>
+    <string name="poi_shelter">Ripari</string>
+    <string name="poi_camper_services">Servizi per camper</string>
     <string name="poi_drinking_water">Fontanelle</string>
     <string name="poi_post_box">Cassette postali</string>
     <string name="map_legend">Legenda</string>

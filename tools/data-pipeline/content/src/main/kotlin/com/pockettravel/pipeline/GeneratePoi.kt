@@ -96,7 +96,16 @@ fun readPois(files: List<File>, poiTagKeys: List<String>): List<Poi> {
     return pois
 }
 
-data class Poi(val name: String, val category: String, val lat: Double, val lon: Double, val osmTag: String, val phone: String?)
+data class Poi(
+    val name: String,
+    val category: String,
+    val lat: Double,
+    val lon: Double,
+    val osmTag: String,
+    val phone: String?,
+    // Tag OSM "wheelchair" (yes, limited, no, designated...), null se assente: per la modalita' Accessibilita'.
+    val wheelchair: String? = null,
+)
 
 private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagKeys: List<String>): Poi? {
     val tagKey = poiTagKeys.firstOrNull { tags.containsKey(it) } ?: return null
@@ -119,6 +128,7 @@ private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagK
         // "phone" e' il tag storico, "contact:phone" quello piu' recente dello schema
         // contact:* — OSM non li ha mai consolidati in uno solo, entrambi ancora in uso.
         phone = tags["phone"] ?: tags["contact:phone"],
+        wheelchair = tags["wheelchair"],
     )
 }
 
@@ -141,10 +151,11 @@ fun writePoiDb(pois: List<Poi>, regionId: String, outputDb: File) {
                 lat REAL NOT NULL,
                 lon REAL NOT NULL,
                 osmTag TEXT NOT NULL,
-                phone TEXT
+                phone TEXT,
+                wheelchair TEXT
             )
             """.trimIndent(),
-        insertSql = "INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        insertSql = "INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone, wheelchair) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         rows = pois,
     ) { insert, poi ->
         insert.setString(1, regionId)
@@ -154,6 +165,7 @@ fun writePoiDb(pois: List<Poi>, regionId: String, outputDb: File) {
         insert.setDouble(5, poi.lon)
         insert.setString(6, poi.osmTag)
         insert.setString(7, poi.phone)
+        insert.setString(8, poi.wheelchair)
     }
 }
 

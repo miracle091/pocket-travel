@@ -9,12 +9,14 @@ enum class PoiCategory {
     SVAGO,
     PARCO_GIOCHI,
     TAVOLI_PICNIC,
+    RIPARI,
     AMBASCIATA_CONSOLATO,
     POLIZIA,
     BAGNI_PUBBLICI,
     ACQUA_POTABILE,
     CARBURANTE,
     RICARICA,
+    SERVIZI_CAMPER,
     FARMACIA,
     OSPEDALE,
     VIGILI_DEL_FUOCO,
@@ -72,7 +74,10 @@ fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     osmTag == "amenity=post_office" -> PoiCategory.UFFICIO_POSTALE
     // Tipi del pacchetto POI extra (vedi poiPackageOf); i parchi giochi con nome sono nel base.
     osmTag == "amenity=drinking_water" -> PoiCategory.ACQUA_POTABILE
-    osmTag == "leisure=picnic_table" -> PoiCategory.TAVOLI_PICNIC
+    osmTag == "leisure=picnic_table" || osmTag == "tourism=picnic_site" -> PoiCategory.TAVOLI_PICNIC
+    osmTag == "amenity=shelter" -> PoiCategory.RIPARI
+    // Scarico dei serbatoi e rifornimento d'acqua per camper e caravan.
+    osmTag == "amenity=sanitary_dump_station" || osmTag == "amenity=water_point" -> PoiCategory.SERVIZI_CAMPER
     osmTag == "leisure=playground" -> PoiCategory.PARCO_GIOCHI
     osmTag == "amenity=vending_machine" -> PoiCategory.DISTRIBUTORI
     osmTag == "amenity=post_box" -> PoiCategory.CASSETTA_POSTALE
@@ -110,8 +115,7 @@ private val hiddenOnMapTags = setOf(
     "leisure=beach_resort", "amenity=drinking_water", "amenity=recycling", "amenity=photo_booth",
     "amenity=driving_school", "amenity=kindergarten", "amenity=school", "amenity=childcare", "amenity=university",
     "amenity=bus_rental", "amenity=dancing_school", "amenity=telecommunication", "leisure=adult_gaming_centre",
-    "amenity=compressed_air", "amenity=fish_spa", "amenity=music_school", "amenity=sanitary_dump_station",
-    "amenity=surf_school",
+    "amenity=compressed_air", "amenity=fish_spa", "amenity=music_school", "amenity=surf_school",
 )
 
 // Servizi che in OSM di solito non hanno un nome (bagni, bancomat, parcheggi...): restano sulla mappa
@@ -119,21 +123,26 @@ private val hiddenOnMapTags = setOf(
 private val namelessOnMapCategories = setOf(
     PoiCategory.BAGNI_PUBBLICI, PoiCategory.BANCOMAT, PoiCategory.PARCHEGGIO, PoiCategory.CARBURANTE,
     PoiCategory.RICARICA, PoiCategory.FARMACIA, PoiCategory.OSPEDALE, PoiCategory.TAXI, PoiCategory.UFFICIO_POSTALE,
+    PoiCategory.SERVIZI_CAMPER, PoiCategory.RIPARI,
 )
+
+// Come sopra, per tipi di categorie che hanno anche POI da nascondere senza nome (tavoli da picnic
+// e noleggi d'auto senza nome restano nascosti). Servono alle modalita' d'uso (escursionismo, bici).
+private val namelessOnMapTags = setOf("amenity=fountain", "tourism=viewpoint", "amenity=bicycle_rental", "tourism=picnic_site")
 
 /** false se OSM non ha un nome: la pipeline mette allora il valore del tag (es. "toilets"). */
 fun poiHasName(name: String, osmTag: String): Boolean = name != osmTag.substringAfter("=")
 
 /**
  * true per i POI da non mostrare sulla mappa: i tipi sopra, i parcheggi privati, i cartelli
- * informativi e quelli senza nome, tranne i servizi di namelessOnMapCategories e le fontane.
+ * informativi e quelli senza nome, tranne i servizi di namelessOnMapCategories e i tipi di namelessOnMapTags.
  */
 fun isPoiHiddenOnMap(name: String, category: String, osmTag: String): Boolean {
     val poiCategory = poiCategoryOf(category, osmTag)
     return osmTag in hiddenOnMapTags ||
         poiCategory == PoiCategory.PARCHEGGIO_PRIVATO ||
         (osmTag == "tourism=information" && category != "information_office") ||
-        (!poiHasName(name, osmTag) && poiCategory !in namelessOnMapCategories && osmTag != "amenity=fountain")
+        (!poiHasName(name, osmTag) && poiCategory !in namelessOnMapCategories && osmTag !in namelessOnMapTags)
 }
 
 /** Pacchetto in cui la pipeline pubblica un POI (vedi [poiPackageOf]). */

@@ -38,7 +38,7 @@ class GeneratePoiTest {
     fun `un nodo presente in due chunk conta una volta e i nodi senza tag POI sono ignorati`() {
         val dir = kotlin.io.path.createTempDirectory("pocket-travel-poi").toFile()
         fun chunk(name: String, body: String) = File(dir, name).apply { writeText("<?xml version=\"1.0\"?><osm version=\"0.6\">$body</osm>") }
-        val confine = """<node id="1" lat="47.0" lon="10.0"><tag k="amenity" v="cafe"/><tag k="name" v="Bar al confine"/><tag k="contact:phone" v="+43 1"/></node>"""
+        val confine = """<node id="1" lat="47.0" lon="10.0"><tag k="amenity" v="cafe"/><tag k="name" v="Bar al confine"/><tag k="contact:phone" v="+43 1"/><tag k="wheelchair" v="limited"/></node>"""
         val files = listOf(
             chunk("a.xml", confine + """<node id="2" lat="46.0" lon="9.0"><tag k="highway" v="bus_stop"/></node>"""),
             chunk("b.xml", confine + """<node id="3" lat="48.0" lon="11.0"><tag k="shop" v="bakery"/></node>"""),
@@ -48,6 +48,8 @@ class GeneratePoiTest {
 
         assertEquals(listOf("Bar al confine", "bakery"), pois.map { it.name })
         assertEquals("+43 1", pois.first().phone)
+        assertEquals("limited", pois.first().wheelchair)
+        assertEquals(null, pois.last().wheelchair)
         assertEquals("shop=bakery", pois.last().osmTag)
         dir.deleteRecursively()
     }

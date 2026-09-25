@@ -39,7 +39,6 @@ class PoiPackageTest {
         assertNull(unnamed("amenity=waste_basket"))
         assertNull(unnamed("amenity=recycling"))
         assertNull(unnamed("leisure=swimming_pool"))
-        assertNull(unnamed("tourism=viewpoint"))
         assertNull(unnamed("shop=vacant"))
         assertNull(poiPackageOf("Scuola Dante", "school", "amenity=school"))
         assertNull(poiPackageOf("Cartello", "information", "tourism=information"))
@@ -52,5 +51,19 @@ class PoiPackageTest {
         assertEquals(PoiCategory.PARCO_GIOCHI, poiCategoryOf("playground", "leisure=playground"))
         assertEquals(PoiCategory.DISTRIBUTORI, poiCategoryOf("vending_machine", "amenity=vending_machine"))
         assertEquals(PoiCategory.CASSETTA_POSTALE, poiCategoryOf("post_box", "amenity=post_box"))
+    }
+
+    @Test
+    fun `belvedere, noleggio bici, servizi camper, aree picnic e ripari vanno nel base anche senza nome`() {
+        listOf(
+            "tourism=viewpoint", "amenity=bicycle_rental", "amenity=sanitary_dump_station", "amenity=water_point",
+            "tourism=picnic_site", "amenity=shelter",
+        ).forEach { assertEquals(it, PoiPackage.BASE, unnamed(it)) }
+        assertEquals(PoiCategory.SERVIZI_CAMPER, poiCategoryOf("water_point", "amenity=water_point"))
+        assertEquals(PoiCategory.RIPARI, poiCategoryOf("shelter", "amenity=shelter"))
+        assertEquals(PoiCategory.TAVOLI_PICNIC, poiCategoryOf("picnic_site", "tourism=picnic_site"))
+        // Gli altri tipi delle stesse categorie restano come prima.
+        assertEquals(PoiPackage.EXTRA, unnamed("leisure=picnic_table"))
+        assertNull(unnamed("amenity=car_rental"))
     }
 }

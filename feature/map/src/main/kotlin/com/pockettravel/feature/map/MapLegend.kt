@@ -33,7 +33,7 @@ internal enum class LegendGroup(@StringRes val label: Int, val categories: List<
     EAT_SLEEP(R.string.map_legend_group_eat_sleep, listOf(PoiCategory.ALLOGGIO, PoiCategory.CIBO_BEVANDE)),
     VISIT(
         R.string.map_legend_group_visit,
-        listOf(PoiCategory.ATTRAZIONI, PoiCategory.SVAGO, PoiCategory.PARCO_GIOCHI, PoiCategory.TAVOLI_PICNIC),
+        listOf(PoiCategory.ATTRAZIONI, PoiCategory.SVAGO, PoiCategory.PARCO_GIOCHI, PoiCategory.TAVOLI_PICNIC, PoiCategory.RIPARI),
     ),
     SERVICES(
         R.string.map_legend_group_services,
@@ -47,7 +47,7 @@ internal enum class LegendGroup(@StringRes val label: Int, val categories: List<
         R.string.map_legend_group_transport,
         listOf(
             PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO,
-            PoiCategory.AEROPORTO, PoiCategory.NOLEGGIO, PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.PARCHEGGIO,
+            PoiCategory.AEROPORTO, PoiCategory.NOLEGGIO, PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.SERVIZI_CAMPER, PoiCategory.PARCHEGGIO,
             PoiCategory.PARCHEGGIO_PRIVATO,
         ),
     ),
