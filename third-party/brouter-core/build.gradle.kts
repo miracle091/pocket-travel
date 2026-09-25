@@ -8,6 +8,8 @@
 // tag v1.7.10) usati per CARICARE un .rd5 e calcolare un percorso — non brouter-mapcreator, che
 // serve solo a GENERARE i .rd5 e porta con se' osmosis-osm-binary/protobuf (verificato leggendo
 // brouter-core/build.gradle upstream: nessuna di queste 5 dipendenze le richiede).
+// Dallo stesso tag anche KinematicModel/KinematicPath/KinematicPrePath (2026-09-25): il profilo
+// car-vario.brf li carica per nome ("---model:btools.router.KinematicModel", Class.forName).
 plugins {
     id("java-library")
 }

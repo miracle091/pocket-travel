@@ -34,6 +34,13 @@
     <string name="poi_camper_services">Servizi per camper</string>
     <string name="poi_drinking_water">Fontanelle</string>
     <string name="poi_post_box">Cassette postali</string>
+    <string name="usage_mode_walk">A piedi</string>
+    <string name="usage_mode_hiking">Escursionismo</string>
+    <string name="usage_mode_bike">In bici</string>
+    <string name="usage_mode_car">In auto o in moto</string>
+    <string name="usage_mode_camper">In camper</string>
+    <string name="usage_mode_transit">Con i mezzi pubblici</string>
+    <string name="usage_mode_wheelchair">In sedia a rotelle</string>
     <string name="map_legend">Legenda</string>
     <string name="map_legend_open">Apri la legenda della mappa</string>
     <string name="map_legend_group_eat_sleep">Mangiare e dormire</string>
