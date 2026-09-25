@@ -21,6 +21,8 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Nomi delle categorie più semplici: Dove dormire, Dove mangiare e bere, Da vedere, Cinema, teatri e locali, Benzinai, Colonnine di ricarica, Informazioni turistiche, Stazioni dei treni, Stazioni degli autobus, Porti e traghetti. I parchi giochi hanno una categoria propria invece di stare tra le attrazioni.
 - Foglio Pacchetti: dove i numeri civici non ci sono, la riga "Numeri civici" lo dice ("Non disponibili per questa regione") invece di sparire. Oggi mancano a Figi (Isole Lau), Guinea Equatoriale, Kiribati (Isole della Linea), Nauru, Tokelau e Wallis e Futuna, che non hanno civici in OpenStreetMap, e alle regioni troppo grandi per l'estrazione attuale (Canada, Cina, Francia, Russia europea, Stati Uniti).
 
+- Pubblicazione automatica: Asia e Africa su due release ciascuna (divise per longitudine), per restare lontani dal limite di 1000 file per release. Gli shard di ogni run sono bilanciati sui tempi misurati di ogni regione (region-timings.tsv sul sito) invece che sulle sole tile di routing: la run completa scende da circa 146 a 122 minuti. Le regioni di Stati Uniti, Cina e Francia tornano nella prima metà della settimana come le altre nazioni più visitate.
+
 ### Corretto
 - Numeri civici mancanti a Filippine, Finlandia e Tanzania per errori di rete temporanei durante la pubblicazione: ora ci sono, e la pubblicazione riprova più volte il download e il caricamento prima di rinunciare.
 
