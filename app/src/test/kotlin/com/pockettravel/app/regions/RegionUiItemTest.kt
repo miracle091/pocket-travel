@@ -37,11 +37,11 @@ class RegionUiItemTest {
     private val noBytes: (RegionPackage, PackageKind) -> Long? = { _, _ -> null }
 
     @Test
-    fun `una regione non installata mostra la dimensione di tutti i pacchetti`() {
+    fun `una regione non installata mostra la dimensione del download completo, senza percorsi`() {
         val item = regionUiItem(remote, null, noBytes)
 
         assertEquals(RegionStatus.NOT_INSTALLED, item.status)
-        assertEquals(140_000_000L, item.sizeBytes)
+        assertEquals(60_000_000L, item.sizeBytes)
         assertEquals(List(3) { RegionStatus.NOT_INSTALLED }, item.packages.map { it.status })
     }
 
@@ -79,7 +79,7 @@ class RegionUiItemTest {
     fun `i civici offerti dal manifest contano nella prima installazione`() {
         val item = regionUiItem(withAddresses, null, noBytes)
 
-        assertEquals(190_000_000L, item.sizeBytes)
+        assertEquals(110_000_000L, item.sizeBytes)
         assertEquals(listOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI, PackageKind.ADDRESSES), item.packages.map { it.kind })
     }
 
@@ -119,7 +119,7 @@ class RegionUiItemTest {
     fun `i POI extra si offrono nel foglio ma non entrano nel download completo`() {
         val item = regionUiItem(withPoiExtra, null, noBytes)
 
-        assertEquals(140_000_000L, item.sizeBytes)
+        assertEquals(60_000_000L, item.sizeBytes)
         assertEquals(RegionStatus.NOT_INSTALLED, item.packages.first { it.kind == PackageKind.POI_EXTRA }.status)
         assertEquals(5_000_000L, item.packages.first { it.kind == PackageKind.POI_EXTRA }.downloadBytes)
     }

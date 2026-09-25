@@ -146,7 +146,7 @@ class RegionManifestTest {
         )).regions.single()
         with.validate()
         assertEquals("2026.03.04", with.versionOf(PackageKind.POI_EXTRA))
-        assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI), with.defaultKinds)
+        assertEquals(setOf(PackageKind.MAP, PackageKind.POI), with.defaultKinds)
         assertEquals(70_000L, with.downloadBytes(setOf(PackageKind.POI_EXTRA)))
         assertNull(parse().regions.single().versionOf(PackageKind.POI_EXTRA))
 

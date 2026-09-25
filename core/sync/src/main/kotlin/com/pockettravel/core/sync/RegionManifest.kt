@@ -61,9 +61,14 @@ data class RegionManifestEntry(
     val availableKinds: Set<PackageKind>
         get() = PackageKind.entries.filterTo(mutableSetOf()) { versionOf(it) != null }
 
-    /** I pacchetti del download completo ("Scarica"): tutti quelli offerti tranne i POI extra, solo su richiesta. */
+    /**
+     * I pacchetti del download completo ("Scarica"): tutti quelli offerti tranne i POI extra e i
+     * percorsi, solo su richiesta dal foglio Pacchetti. I percorsi tornano nel download completo
+     * quando c'e' la schermata che li usa (routes-integration-plan.md): oggi occupano spazio (Italia
+     * 840 MB) senza servire a nulla. "Aggiorna" riguarda comunque tutti i pacchetti installati.
+     */
     val defaultKinds: Set<PackageKind>
-        get() = availableKinds - PackageKind.POI_EXTRA
+        get() = availableKinds - PackageKind.POI_EXTRA - PackageKind.ROUTING
 
     /**
      * Byte da scaricare per questi pacchetti. La mappa non ha una dimensione nota in anticipo:
