@@ -8,13 +8,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,6 +39,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -209,7 +213,7 @@ internal fun RegionListContent(
                     action = { FilledTonalButton(onClick = onRetry) { Text(stringResource(R.string.regions_retry)) } },
                 )
 
-                uiState.items.isEmpty() && uiState.query.isNotBlank() -> EmptyState(
+                uiState.items.isEmpty() && uiState.replaced.isEmpty() && uiState.query.isNotBlank() -> EmptyState(
                     icon = AppIcons.Search,
                     title = stringResource(R.string.regions_search_empty_title),
                     subtitle = stringResource(R.string.regions_search_empty_subtitle, uiState.query),
@@ -218,6 +222,7 @@ internal fun RegionListContent(
 
                 else -> RegionGroupedList(
                     items = uiState.items,
+                    replaced = uiState.replaced,
                     searching = uiState.query.isNotBlank(),
                     rowActions = rowActions,
                     onRegionClick = onRegionClick,
@@ -270,22 +275,38 @@ private fun RegionSearchField(query: String, onQueryChange: (String) -> Unit, mo
 @Composable
 private fun RegionGroupedList(
     items: List<RegionUiItem>,
+    replaced: List<ReplacedRegionItem>,
     searching: Boolean,
     rowActions: RegionRowActions,
     onRegionClick: (RegionUiItem) -> Unit,
 ) {
-    val groups = groupRegions(items)
+    // Le regioni sostituite stanno in cima alle nazioni scaricate, anche se non ce ne sono altre.
+    val groups = groupRegions(items).let { grouped ->
+        if (replaced.isNotEmpty() && grouped.none { it.first == RegionGroup.Downloaded }) listOf(RegionGroup.Downloaded to emptyList<RegionUiItem>()) + grouped else grouped
+    }
+    val listState = rememberLazyListState()
+    // "Scegli" su una regione sostituita apre continente e paese, poi scorre fino al paese.
+    var scrollToKey by remember { mutableStateOf<String?>(null) }
+    var deleting by remember { mutableStateOf<ReplacedRegionItem?>(null) }
     val otherLabel = stringResource(R.string.continent_other)
     val downloadedLabel = stringResource(R.string.regions_downloaded)
     // Gruppi a scomparsa: "Nazioni scaricate" aperto di default, i continenti chiusi. Qui si salvano
     // solo i gruppi che l'utente ha invertito rispetto al default (anche alla rotazione). Durante
     // una ricerca sono tutti aperti, per vedere subito i risultati.
     var toggled by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
+    val rowsByGroup = groups.associate { (group, regions) ->
+        val entries = if (group == RegionGroup.Downloaded) regions.map { RegionListEntry.Single(it) } else countryEntries(regions)
+        val replacedRows = if (group == RegionGroup.Downloaded) replaced.map { ListRow.Replaced(it) } else emptyList()
+        group.key to (entries to replacedRows + visibleRows(entries, isExpanded = { searching || "country_$it" in toggled }))
+    }
     LazyColumn(
+        state = listState,
         contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, bottom = Spacing.l),
     ) {
         groups.forEach { (group, regions) ->
             val key = group.key
+            // Nelle nazioni scaricate ogni regione resta una riga: sono poche e servono subito.
+            val (entries, rows) = rowsByGroup.getValue(key)
             val expandedByDefault = group == RegionGroup.Downloaded
             val expanded = searching || ((key in toggled) != expandedByDefault)
             item(key = "header_$key") {
@@ -294,7 +315,7 @@ private fun RegionGroupedList(
                         RegionGroup.Downloaded -> downloadedLabel
                         is RegionGroup.Continent -> group.name ?: otherLabel
                     },
-                    count = regions.size,
+                    count = entries.size + if (group == RegionGroup.Downloaded) replaced.size else 0,
                     expanded = expanded,
                     enabled = !searching,
                     onToggle = { toggled = ArrayList(if (key in toggled) toggled - key else toggled + key) },
@@ -303,18 +324,77 @@ private fun RegionGroupedList(
             }
             if (expanded) {
                 // Un gruppo per continente: righe su una superficie tonale arrotondata, separate da
-                // divisori, invece di una card per riga.
-                itemsIndexed(regions, key = { _, item -> item.regionId }) { index, item ->
-                    val shape = groupShape(index, regions.size)
+                // divisori, invece di una card per riga. I paesi divisi in piu' regioni (es. gli stati
+                // USA) sono una riga a scomparsa con le loro regioni sotto.
+                itemsIndexed(rows, key = { _, row -> row.key }) { index, row ->
+                    val shape = groupShape(index, rows.size)
                     Surface(shape = shape, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.animateItem()) {
                         Column {
-                            RegionRow(item = item, actions = rowActions, onClick = { onRegionClick(item) })
-                            if (index < regions.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 72.dp))
+                            when (row) {
+                                is ListRow.Region -> RegionRow(
+                                    item = row.item,
+                                    actions = rowActions,
+                                    onClick = { onRegionClick(row.item) },
+                                    title = if (row.inCountry) row.item.groupLabel ?: row.item.displayName else row.item.displayName,
+                                    modifier = if (row.inCountry) Modifier.padding(start = Spacing.xl) else Modifier,
+                                )
+                                is ListRow.Replaced -> ReplacedRegionRow(
+                                    item = row.item,
+                                    onOpen = {
+                                        onRegionClick(
+                                            RegionUiItem(row.item.regionId, row.item.displayName, row.item.sizeBytes, RegionStatus.INSTALLED, countryCode = row.item.countryCode),
+                                        )
+                                    },
+                                    onChoose = {
+                                        val continent = items.firstOrNull { it.groupName == row.item.groupName }?.continent
+                                        val keys = listOf(RegionGroup.Continent(continent).key, "country_${row.item.groupName}")
+                                        toggled = ArrayList(toggled - keys.toSet() + keys)
+                                        scrollToKey = "country_${row.item.groupName}"
+                                    },
+                                    onDelete = { deleting = row.item },
+                                )
+                                is ListRow.CountryHeader -> CountryRow(
+                                    country = row.country,
+                                    expanded = row.expanded,
+                                    enabled = !searching,
+                                    onToggle = {
+                                        val countryKey = "country_${row.country.name}"
+                                        toggled = ArrayList(if (countryKey in toggled) toggled - countryKey else toggled + countryKey)
+                                    },
+                                )
+                            }
+                            if (index < rows.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 72.dp))
                         }
                     }
                 }
             }
         }
+    }
+    // Indice della riga cercata nell'ordine della LazyColumn: intestazione di ogni gruppo, poi le sue righe se aperto.
+    LaunchedEffect(scrollToKey, rowsByGroup) {
+        val target = scrollToKey ?: return@LaunchedEffect
+        var index = 0
+        for ((group, _) in groups) {
+            index++
+            val expanded = searching || ((group.key in toggled) != (group == RegionGroup.Downloaded))
+            if (!expanded) continue
+            val rows = rowsByGroup.getValue(group.key).second
+            val found = rows.indexOfFirst { it.key == target }
+            if (found >= 0) {
+                listState.animateScrollToItem(index + found)
+                scrollToKey = null
+                return@LaunchedEffect
+            }
+            index += rows.size
+        }
+    }
+    deleting?.let { item ->
+        ConfirmationDialog(
+            title = stringResource(R.string.regions_delete_title, item.displayName),
+            message = stringResource(R.string.regions_delete_message),
+            onConfirm = { deleting = null; rowActions.onDelete(item.regionId) },
+            onDismiss = { deleting = null },
+        )
     }
 }
 
@@ -365,6 +445,59 @@ private fun ContinentHeader(
     }
 }
 
+// Regione installata che il manifest ha diviso in regioni piu' piccole: si apre ancora (i dati sono
+// sul dispositivo), non si aggiorna piu'; "Scegli" porta alle regioni che la sostituiscono.
+@Composable
+private fun ReplacedRegionRow(item: ReplacedRegionItem, onOpen: () -> Unit, onChoose: () -> Unit, onDelete: () -> Unit) {
+    Column(modifier = Modifier.clickable(onClick = onOpen)) {
+        ListItem(
+            headlineContent = { Text(item.displayName) },
+            supportingContent = { Text(stringResource(R.string.regions_replaced)) },
+            leadingContent = {
+                CountryFlag(item.countryCode, size = 40.dp) {
+                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+                        Icon(AppIcons.WorldFilled, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(Spacing.s))
+                    }
+                }
+            },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        )
+        Row(modifier = Modifier.padding(start = 72.dp, end = Spacing.s, bottom = Spacing.s)) {
+            FilledTonalButton(onClick = onChoose) { Text(stringResource(R.string.regions_replaced_choose)) }
+            Spacer(modifier = Modifier.width(Spacing.s))
+            TextButton(onClick = onDelete) { Text(stringResource(R.string.regions_replaced_delete)) }
+        }
+    }
+}
+
+// Riga di un paese diviso in piu' regioni: bandiera, nome, quante regioni, freccia per aprirla.
+@Composable
+private fun CountryRow(country: RegionListEntry.Country, expanded: Boolean, enabled: Boolean, onToggle: () -> Unit) {
+    val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "countryChevron")
+    val stateText = stringResource(if (expanded) R.string.continent_expanded else R.string.continent_collapsed)
+    val actionLabel = stringResource(if (expanded) R.string.continent_collapse else R.string.continent_expand)
+    ListItem(
+        headlineContent = { Text(country.name) },
+        supportingContent = { Text(pluralStringResource(R.plurals.country_region_count, country.items.size, country.items.size)) },
+        leadingContent = {
+            CountryFlag(country.countryCode, size = 40.dp) {
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHighest) {
+                    Icon(AppIcons.World, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(Spacing.s))
+                }
+            }
+        },
+        trailingContent = if (enabled) {
+            { Icon(AppIcons.ExpandMore, contentDescription = null, modifier = Modifier.rotate(rotation)) }
+        } else {
+            null
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier
+            .clickable(enabled = enabled, onClickLabel = actionLabel, role = Role.Button, onClick = onToggle)
+            .semantics(mergeDescendants = true) { stateDescription = stateText },
+    )
+}
+
 @Composable
 private fun groupShape(index: Int, size: Int) = MaterialTheme.shapes.large.let { large ->
     when {
@@ -381,7 +514,13 @@ private val ZeroCorner = CornerSize(0)
 // regione non installata porta a un'anteprima della guida Wikivoyage (senza scaricare
 // mappa/routing), vedi RegionPreviewScreen.
 @Composable
-internal fun RegionRow(item: RegionUiItem, actions: RegionRowActions, onClick: () -> Unit) {
+internal fun RegionRow(
+    item: RegionUiItem,
+    actions: RegionRowActions,
+    onClick: () -> Unit,
+    title: String = item.displayName,
+    modifier: Modifier = Modifier,
+) {
     val workInfo by remember(item.regionId) { actions.observeProgress(item.regionId) }
         .collectAsStateWithLifecycle(initialValue = null)
     val isDownloading = workInfo?.state == WorkInfo.State.RUNNING || workInfo?.state == WorkInfo.State.ENQUEUED
@@ -392,9 +531,9 @@ internal fun RegionRow(item: RegionUiItem, actions: RegionRowActions, onClick: (
     val size = Formatter.formatShortFileSize(LocalContext.current, item.sizeBytes)
     val installed = item.status != RegionStatus.NOT_INSTALLED
 
-    Column {
+    Column(modifier = modifier) {
         ListItem(
-            headlineContent = { Text(item.displayName) },
+            headlineContent = { Text(title) },
             supportingContent = {
                 Text(
                     if (isDownloading) {
@@ -516,6 +655,58 @@ internal sealed interface RegionGroup {
 
     data class Continent(val name: String?) : RegionGroup {
         override val key = "continent_" + (name ?: "")
+    }
+}
+
+// Voce di un continente: una regione, oppure un paese diviso in piu' regioni (stesso groupName).
+internal sealed interface RegionListEntry {
+    data class Single(val item: RegionUiItem) : RegionListEntry
+
+    data class Country(val name: String, val countryCode: String?, val items: List<RegionUiItem>) : RegionListEntry
+}
+
+/** Raccoglie in una voce paese le regioni con lo stesso groupName (se sono piu' d'una), nell'ordine per nome. */
+internal fun countryEntries(regions: List<RegionUiItem>): List<RegionListEntry> {
+    val collator = Collator.getInstance(Locale.ITALIAN).apply { strength = Collator.PRIMARY }
+    val byGroup = regions.filter { it.groupName != null }.groupBy { it.groupName!! }.filterValues { it.size > 1 }
+    val entries = regions.filter { it.groupName !in byGroup }.map<RegionUiItem, RegionListEntry> { RegionListEntry.Single(it) } +
+        byGroup.map { (name, items) ->
+            RegionListEntry.Country(name, items.first().countryCode, items.sortedWith(compareBy(collator) { it.groupLabel ?: it.displayName }))
+        }
+    return entries.sortedWith(
+        compareBy(collator) { entry ->
+            when (entry) {
+                is RegionListEntry.Single -> entry.item.displayName
+                is RegionListEntry.Country -> entry.name
+            }
+        },
+    )
+}
+
+// Righe visibili di un continente aperto: i paesi chiusi mostrano solo la propria riga.
+internal sealed interface ListRow {
+    val key: String
+
+    data class Region(val item: RegionUiItem, val inCountry: Boolean) : ListRow {
+        override val key = item.regionId
+    }
+
+    data class Replaced(val item: ReplacedRegionItem) : ListRow {
+        override val key = "replaced_" + item.regionId
+    }
+
+    data class CountryHeader(val country: RegionListEntry.Country, val expanded: Boolean) : ListRow {
+        override val key = "country_" + country.name
+    }
+}
+
+internal fun visibleRows(entries: List<RegionListEntry>, isExpanded: (String) -> Boolean): List<ListRow> = entries.flatMap { entry ->
+    when (entry) {
+        is RegionListEntry.Single -> listOf(ListRow.Region(entry.item, inCountry = false))
+        is RegionListEntry.Country -> {
+            val expanded = isExpanded(entry.name)
+            listOf(ListRow.CountryHeader(entry, expanded)) + if (expanded) entry.items.map { ListRow.Region(it, inCountry = true) } else emptyList()
+        }
     }
 }
 

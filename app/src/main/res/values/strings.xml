@@ -23,6 +23,9 @@
     <string name="regions_delete_title">Eliminare %1$s?</string>
     <string name="regions_delete_message">I contenuti scaricati per questa regione verranno rimossi dal dispositivo.</string>
     <string name="regions_delete_all">Elimina tutto</string>
+    <string name="regions_replaced">Ora è divisa in regioni più piccole: scegli quali scaricare. Questa non si aggiorna più.</string>
+    <string name="regions_replaced_choose">Scegli le regioni</string>
+    <string name="regions_replaced_delete">Elimina</string>
     <string name="regions_packages">Pacchetti di %1$s</string>
     <string name="package_map">Mappa</string>
     <string name="package_routing">Percorsi</string>
@@ -143,4 +146,8 @@
     <string name="onboarding_back">Indietro</string>
     <string name="onboarding_next">Avanti</string>
     <string name="onboarding_start">Inizia</string>
+    <plurals name="country_region_count">
+        <item quantity="one">%d regione</item>
+        <item quantity="other">%d regioni</item>
+    </plurals>
 </resources>

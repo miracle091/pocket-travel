@@ -12,6 +12,7 @@ import com.pockettravel.core.sync.AppUpdateCheckScheduler
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
+import com.pockettravel.core.sync.ReplacedRegion
 import com.pockettravel.feature.ai.LlmModelUpdateCheckScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.Normalizer
@@ -51,10 +52,24 @@ data class RegionUiItem(
     // Pacchetti che il manifest non offre per questa regione e che non sono installati (oggi solo
     // i civici: nessuna fonte o regione troppo grande): mostrati come "non disponibili".
     val unavailableKinds: List<PackageKind> = emptyList(),
+    // Paese diviso in piu' regioni e nome breve della regione nel gruppo (dal manifest).
+    val groupName: String? = null,
+    val groupLabel: String? = null,
+)
+
+/** Regione installata che il manifest ha tolto e diviso nelle regioni del gruppo [groupName]. */
+data class ReplacedRegionItem(
+    val regionId: String,
+    val displayName: String,
+    val countryCode: String?,
+    val groupName: String,
+    val sizeBytes: Long,
 )
 
 data class RegionListUiState(
     val items: List<RegionUiItem> = emptyList(),
+    // Si possono ancora aprire (i dati sono sul dispositivo) ma non si aggiornano piu'.
+    val replaced: List<ReplacedRegionItem> = emptyList(),
     val query: String = "",
     val isLoading: Boolean = true,
     // Catalogo irraggiungibile: sostituisce l'elenco (non c'e' nulla da mostrare).
@@ -79,6 +94,7 @@ class RegionListViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val manifestRegions = MutableStateFlow<List<RegionManifestEntry>>(emptyList())
+    private val replacedRegions = MutableStateFlow<List<ReplacedRegion>>(emptyList())
     private val status = MutableStateFlow(LoadStatus())
     private val query = MutableStateFlow("")
 
@@ -87,13 +103,16 @@ class RegionListViewModel @Inject constructor(
         regionRepository.observeInstalled(),
         status,
         query,
-    ) { remoteRegions, installed, currentStatus, currentQuery ->
+        replacedRegions,
+    ) { remoteRegions, installed, currentStatus, currentQuery, replacedByManifest ->
         val installedByRegion = installed.associateBy { it.regionId }
         val items = remoteRegions
             .filter { matchesQuery(it.displayName, currentQuery) }
             .map { remote -> regionUiItem(remote, installedByRegion[remote.regionId], regionRepository::packageBytes) }
+        val replaced = replacedItems(installed, remoteRegions, replacedByManifest).filter { matchesQuery(it.displayName, currentQuery) }
         RegionListUiState(
             items = items,
+            replaced = replaced,
             query = currentQuery,
             isLoading = currentStatus.isLoading,
             loadError = currentStatus.loadError,
@@ -114,6 +133,7 @@ class RegionListViewModel @Inject constructor(
             try {
                 val manifest = manifestClient.fetchManifest()
                 manifestRegions.value = manifest.regions
+                replacedRegions.value = manifest.replacedRegions
                 // Le guide si aggiornano da sole (su Wi-Fi) anche da qui, non solo col controllo periodico.
                 if (regionRepository.installedGuidesVersion() != manifest.guides.version) regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = true)
                 // Regioni installate prima che il database salvasse il codice paese: serve alla bandiera in Spazio.
@@ -182,6 +202,19 @@ class RegionListViewModel @Inject constructor(
         regionSyncScheduler.observeDownload(regionId)
 }
 
+/** Regioni installate che il manifest non offre piu' perche' divise in regioni piu' piccole. */
+internal fun replacedItems(
+    installed: List<RegionPackage>,
+    remoteRegions: List<RegionManifestEntry>,
+    replacedRegions: List<ReplacedRegion>,
+): List<ReplacedRegionItem> {
+    val remoteIds = remoteRegions.mapTo(mutableSetOf()) { it.regionId }
+    val groups = replacedRegions.associate { it.regionId to it.groupName }
+    return installed
+        .filter { it.regionId !in remoteIds && it.regionId in groups }
+        .map { ReplacedRegionItem(it.regionId, it.displayName, it.countryCode, groups.getValue(it.regionId), it.sizeBytes) }
+}
+
 /** Pacchetti installati la cui versione nel manifest e' cambiata (tra quelli che il manifest offre ancora). */
 internal fun outdatedKinds(remote: RegionManifestEntry, local: RegionPackage?): Set<PackageKind> =
     remote.availableKinds.filterTo(mutableSetOf()) { kind -> local?.versionOf(kind)?.let { it != remote.versionOf(kind) } == true }
@@ -219,7 +252,10 @@ internal fun regionUiItem(
         RegionStatus.UPDATE_AVAILABLE -> remote.downloadBytes(outdated)
         RegionStatus.INSTALLED -> local!!.sizeBytes
     }
-    return RegionUiItem(remote.regionId, remote.displayName, sizeBytes, status, remote.continent, remote.countryCode, packages, unavailable)
+    return RegionUiItem(
+        remote.regionId, remote.displayName, sizeBytes, status, remote.continent, remote.countryCode, packages, unavailable,
+        remote.groupName, remote.groupLabel,
+    )
 }
 
 // Ricerca senza distinzione di maiuscole e accenti ("cina" trova "Cina", "sao" trova "São Tomé").

@@ -11,7 +11,18 @@ import kotlinx.serialization.Serializable
  * separatamente.
  */
 @Serializable
-data class RegionManifest(val manifestVersion: Int, val guides: GuidesManifestEntry, val regions: List<RegionManifestEntry>)
+data class RegionManifest(
+    val manifestVersion: Int,
+    val guides: GuidesManifestEntry,
+    val regions: List<RegionManifestEntry>,
+    // Regioni tolte e divise in regioni piu' piccole (es. "stati-uniti" -> gli stati): l'app le propone
+    // a chi ha ancora installata quella vecchia.
+    val replacedRegions: List<ReplacedRegion> = emptyList(),
+)
+
+/** Regione tolta dal manifest e sostituita dalle regioni del gruppo [groupName]. */
+@Serializable
+data class ReplacedRegion(val regionId: String, val groupName: String)
 
 /** guides.db: guide Wikivoyage e numeri di emergenza di tutte le regioni. */
 @Serializable
@@ -32,6 +43,10 @@ data class RegionManifestEntry(
     val continent: String? = null,
     // Codice ISO 3166-1 alpha-2 minuscolo del paese (piu' regioni possono condividerlo, es. "us").
     val countryCode: String? = null,
+    // Paese diviso in piu' regioni (es. "Stati Uniti d'America") e nome breve della regione nel
+    // gruppo (es. "California"): l'elenco le raccoglie sotto un'unica voce. Assenti per le nazioni intere.
+    val groupName: String? = null,
+    val groupLabel: String? = null,
 ) {
     /** Versione del pacchetto nel manifest, null se la regione non lo offre (POI extra e civici). */
     fun versionOf(kind: PackageKind): String? = when (kind) {

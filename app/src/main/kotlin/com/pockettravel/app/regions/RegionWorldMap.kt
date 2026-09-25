@@ -3,10 +3,13 @@ package com.pockettravel.app.regions
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,8 +59,9 @@ internal fun RegionWorldMap(
     selectedIso?.let { iso ->
         val regions = regionsByCountry[iso].orEmpty()
         val countryName = Locale("", iso.uppercase()).getDisplayCountry(Locale.ITALIAN)
-        ModalBottomSheet(onDismissRequest = { selectedIso = null }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.xxl)) {
+        // Aperto per intero e scorrevole: gli Stati Uniti hanno 51 regioni.
+        ModalBottomSheet(onDismissRequest = { selectedIso = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = Spacing.xxl)) {
                 Text(
                     text = countryName,
                     style = MaterialTheme.typography.titleLarge,
@@ -71,8 +75,13 @@ internal fun RegionWorldMap(
                         modifier = Modifier.padding(horizontal = Spacing.xl),
                     )
                 } else {
-                    regions.sortedBy { it.displayName }.forEach { region ->
-                        RegionRow(item = region, actions = rowActions, onClick = { selectedIso = null; onRegionClick(region) })
+                    regions.sortedBy { it.groupLabel ?: it.displayName }.forEach { region ->
+                        RegionRow(
+                            item = region,
+                            actions = rowActions,
+                            onClick = { selectedIso = null; onRegionClick(region) },
+                            title = region.groupLabel ?: region.displayName,
+                        )
                     }
                 }
             }

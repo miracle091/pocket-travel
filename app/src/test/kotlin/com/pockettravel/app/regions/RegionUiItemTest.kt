@@ -8,6 +8,7 @@ import com.pockettravel.core.sync.MapPackageEntry
 import com.pockettravel.core.sync.PoiPackageEntry
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionManifestFile
+import com.pockettravel.core.sync.ReplacedRegion
 import com.pockettravel.core.sync.RoutingPackageEntry
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -137,5 +138,20 @@ class RegionUiItemTest {
 
         assertEquals(RegionStatus.UPDATE_AVAILABLE, item.status)
         assertEquals(5_000_000L, item.sizeBytes)
+    }
+
+    @Test
+    fun `una regione installata e sostituita nel manifest viene proposta con il suo gruppo`() {
+        val oldRegion = RegionPackage(
+            "stati-uniti", "Stati Uniti (contigui)", "us", mapVersion = "m1", routingVersion = "r1", poiVersion = "p1",
+            poiExtraVersion = null, addressesVersion = null, poiSizeBytes = 1, poiExtraSizeBytes = null, sizeBytes = 2_000,
+        )
+        val replaced = listOf(ReplacedRegion("stati-uniti", "Stati Uniti d'America"))
+
+        val items = replacedItems(listOf(oldRegion, local("m2", "r1", "p2")), listOf(remote), replaced)
+
+        assertEquals(listOf(ReplacedRegionItem("stati-uniti", "Stati Uniti (contigui)", "us", "Stati Uniti d'America", 2_000)), items)
+        // Ancora nel manifest (o non sostituita): nessuna proposta.
+        assertEquals(emptyList<ReplacedRegionItem>(), replacedItems(listOf(local("m2", "r1", "p2")), listOf(remote), listOf(ReplacedRegion("italia", "x"))))
     }
 }

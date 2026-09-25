@@ -157,4 +157,12 @@ class RegionManifestTest {
         )).regions.single()
         assertThrows(IllegalArgumentException::class.java) { badHost.validate() }
     }
+
+    @Test
+    fun `legge le regioni sostituite e i gruppi, facoltativi`() {
+        assertEquals(emptyList<ReplacedRegion>(), parse().replacedRegions)
+        val json = sampleManifest.trimEnd().removeSuffix("}") + """, "replacedRegions": [{ "regionId": "stati-uniti", "groupName": "Stati Uniti d'America" }] }"""
+        val manifest = parse(json)
+        assertEquals(listOf(ReplacedRegion("stati-uniti", "Stati Uniti d'America")), manifest.replacedRegions)
+    }
 }
