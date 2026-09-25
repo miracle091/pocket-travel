@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         InstalledGuidesEntity::class,
         NoCentralEmergencyNumberEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -157,5 +157,12 @@ val MIGRATION_9_10 = object : Migration(9, 10) {
         db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `poiExtraVersion` TEXT")
         db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `poiExtraSizeBytes` INTEGER")
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `extra` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+// Accessibilita' in sedia a rotelle dei POI (tag OSM "wheelchair"): i POI gia' importati non la hanno.
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `poi` ADD COLUMN `wheelchair` TEXT")
     }
 }

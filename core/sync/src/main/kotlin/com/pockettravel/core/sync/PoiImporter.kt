@@ -31,13 +31,16 @@ class PoiImporter @Inject constructor(
         poiDbFile.delete()
     }
 
-    // Le regioni ancora nel formato v1 hanno come pacchetto POI il loro content.db (vedi
-    // MergeManifests.convertV1Region, tools/data-pipeline): quelli pubblicati prima della colonna
-    // phone non la hanno, e selezionarla farebbe fallire l'intero download.
+    // Le colonne facoltative dipendono da quando il file e' stato generato: i content.db v1 (vedi
+    // MergeManifests.convertV1Region, tools/data-pipeline) pubblicati prima di "phone" non la hanno, i
+    // poi.db pubblicati prima di "wheelchair" nemmeno questa. Selezionare una colonna assente farebbe
+    // fallire l'intero download.
     private fun readPois(regionId: String, db: SQLiteDatabase, extra: Boolean): List<PoiEntity> {
-        val hasPhone = hasPhoneColumn(db)
+        val columns = poiColumns(db)
         val pois = mutableListOf<PoiEntity>()
-        db.rawQuery(if (hasPhone) POI_QUERY else POI_QUERY_LEGACY, null).use { cursor ->
+        db.rawQuery(poiQuery(columns), null).use { cursor ->
+            val phone = cursor.getColumnIndex("phone")
+            val wheelchair = cursor.getColumnIndex("wheelchair")
             while (cursor.moveToNext()) {
                 pois += PoiEntity(
                     regionId = regionId,
@@ -46,7 +49,8 @@ class PoiImporter @Inject constructor(
                     lat = cursor.getDouble(2),
                     lon = cursor.getDouble(3),
                     osmTag = cursor.getString(4),
-                    phone = if (hasPhone && !cursor.isNull(5)) cursor.getString(5) else null,
+                    phone = if (phone >= 0 && !cursor.isNull(phone)) cursor.getString(phone) else null,
+                    wheelchair = if (wheelchair >= 0 && !cursor.isNull(wheelchair)) cursor.getString(wheelchair) else null,
                     extra = extra,
                 )
             }
@@ -54,19 +58,20 @@ class PoiImporter @Inject constructor(
         return pois
     }
 
-    private fun hasPhoneColumn(db: SQLiteDatabase): Boolean {
+    private fun poiColumns(db: SQLiteDatabase): Set<String> {
+        val columns = mutableSetOf<String>()
         db.rawQuery("PRAGMA table_info(poi)", null).use { cursor ->
             val nameIndex = cursor.getColumnIndexOrThrow("name")
-            while (cursor.moveToNext()) {
-                if (cursor.getString(nameIndex) == "phone") return true
-            }
+            while (cursor.moveToNext()) columns += cursor.getString(nameIndex)
         }
-        return false
+        return columns
     }
 
     companion object {
         // Vedi GuidesImporter: eseguita via JDBC da un test JVM contro lo schema della pipeline.
-        internal const val POI_QUERY = "SELECT name, category, lat, lon, osmTag, phone FROM poi"
-        internal const val POI_QUERY_LEGACY = "SELECT name, category, lat, lon, osmTag FROM poi"
+        internal fun poiQuery(columns: Set<String>): String =
+            "SELECT name, category, lat, lon, osmTag" + OPTIONAL_COLUMNS.filter { it in columns }.joinToString("") { ", $it" } + " FROM poi"
+
+        private val OPTIONAL_COLUMNS = listOf("phone", "wheelchair")
     }
 }

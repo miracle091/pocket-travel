@@ -10,7 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Migrazioni 5 -> 6 (pacchetti separati), 6 -> 7, 7 -> 8, 8 -> 9 e 9 -> 10 sugli schemi esportati in core/data/schemas. */
+/** Migrazioni 5 -> 6 (pacchetti separati), 6 -> 7, 7 -> 8, 8 -> 9, 9 -> 10 e 10 -> 11 sugli schemi esportati in core/data/schemas. */
 @RunWith(AndroidJUnit4::class)
 class RegionDatabaseMigrationTest {
 
@@ -115,6 +115,21 @@ class RegionDatabaseMigrationTest {
             db.query("SELECT extra FROM poi WHERE regionId = 'italia'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
+    @Test
+    fun migrazione10a11AggiungeLAccessibilitaVuotaAiPoi() {
+        helper.createDatabase(DB_NAME, 10).use { db ->
+            db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone, extra) VALUES ('italia', 'Da Mario', 'restaurant', 45.0, 9.0, 'amenity=restaurant', NULL, 0)")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 11, true, MIGRATION_10_11).use { db ->
+            db.query("SELECT name, wheelchair FROM poi").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Da Mario", cursor.getString(0))
+                assertTrue(cursor.isNull(1))
             }
         }
     }
