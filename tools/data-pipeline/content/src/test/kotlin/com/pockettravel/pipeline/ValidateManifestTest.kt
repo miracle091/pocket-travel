@@ -95,6 +95,19 @@ class ValidateManifestTest {
     }
 
     @Test
+    fun `accetta i POI extra facoltativi e ne controlla l'host`() {
+        fun withPoiExtra(url: String) = validManifest().replace(
+            "\"poi\": {",
+            """"poiExtra": { "version": "2026.09.25", "file": { "name": "poi-extra.db", "url": "$url", "sizeBytes": 1024, "sha256": "${"e".repeat(64)}" } },
+              "poi": {""",
+        )
+        validateManifestJson(withPoiExtra("https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.25--poi-extra.db"), allowedHosts)
+        assertThrows(ManifestValidationException::class.java) {
+            validateManifestJson(withPoiExtra("https://evil.example.com/poi-extra.db"), allowedHosts)
+        }
+    }
+
+    @Test
     fun `rifiuta civici su un host non consentito`() {
         assertThrows(ManifestValidationException::class.java) {
             validateManifestJson(withAddresses("https://evil.example.com/addresses.pmtiles"), allowedHosts)

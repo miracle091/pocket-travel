@@ -414,49 +414,68 @@ if [ "$FAILED_CHUNKS" -gt 0 ]; then
   echo "-- attenzione: $FAILED_CHUNKS/$chunkIndex chunk falliti, alcuni POI di $REGION_ID mancheranno"
 fi
 
-# --- 4. poi.db, via il tool Kotlin generatePoi --------------------------------------------------
+# --- 4. poi.db e poi-extra.db, via il tool Kotlin generatePoi ------------------------------------
+# poi.db: i POI che la mappa mostra. poi-extra.db: quelli scaricabili a parte (fontanelle, tavoli da
+# picnic...), assente se la regione non ne ha. Gli altri non si pubblicano (regole in core:poi).
 POI_DB="$OUTPUT_DIR/poi.db"
-rm -f "$POI_DB"
+POI_EXTRA_DB="$OUTPUT_DIR/poi-extra.db"
+rm -f "$POI_DB" "$POI_EXTRA_DB"
 cd "$REPO_ROOT"
-echo "-- genero poi.db..."
+echo "-- genero poi.db e poi-extra.db..."
 POI_TAG_KEYS_ARG="$(IFS=,; echo "${POI_TAG_KEYS[*]} ${POI_EXTRA_TAG_KEYS[*]}" | tr ' ' ,)"
-POI_ARGS="\"$REGION_ID\" \"$(winpath "$POI_DB")\" \"$POI_TAG_KEYS_ARG\""
+POI_ARGS="\"$REGION_ID\" \"$(winpath "$POI_DB")\" \"$(winpath "$POI_EXTRA_DB")\" \"$POI_TAG_KEYS_ARG\""
 for f in "${POI_XML_FILES[@]}"; do
   POI_ARGS="$POI_ARGS \"$(winpath "$f")\""
 done
 ./gradlew -q :tools:data-pipeline:content:generatePoi --args="$POI_ARGS"
 
-# --- 5. Frammento manifest.json (poi.db nostro + rd5 ri-ospitati + sorgente mappa) -------------
+# --- 5. Frammento manifest.json (poi.db e poi-extra.db nostri + rd5 ri-ospitati + sorgente mappa)
 POI_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi.db"
+POI_EXTRA_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi-extra.db"
 if [ "$POI_ONLY" = "true" ]; then
-  # Il frammento incrementale scritto dalla sezione 2bis ha gia' mappa e routing: si sostituisce
-  # solo il pacchetto POI. Se il poi.db rigenerato e' identico a quello pubblicato si tiene la voce
-  # pubblicata (e non si carica nulla): una versione nuova farebbe riscaricare all'app gli stessi dati.
+  # Il frammento incrementale scritto dalla sezione 2bis ha gia' mappa, routing e le voci POI
+  # pubblicate: si aggiornano solo i pacchetti POI. Un file identico a quello pubblicato si scarta e
+  # si tiene la voce pubblicata: una versione nuova farebbe riscaricare all'app gli stessi dati.
   MANIFEST_FRAGMENT="$OUTPUT_DIR/manifest-fragment.json"
-  POI_HASH="$(sha256sum < "$POI_DB" | awk '{print $1}')"
-  if [ "$POI_HASH" = "$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.file.sha256 // ""')" ]; then
-    rm -f "$POI_DB"
+  update_poi_entry() {
+    local key="$1" file="$2" name="$3" url="$4" hash
+    if [ ! -f "$file" ]; then
+      # Nessun POI extra nella regione: niente voce.
+      jq -c --arg key "$key" '.regions |= map(del(.[$key]))' "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
+      mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
+      return 0
+    fi
+    hash="$(sha256sum < "$file" | awk '{print $1}')"
+    if [ "$hash" = "$(printf '%s' "$PUBLISHED_REGION" | jq -r --arg key "$key" '.[$key].file.sha256 // ""')" ]; then
+      rm -f "$file"
+      return 0
+    fi
+    jq -c --arg key "$key" --arg version "$VERSION" --arg name "$name" --arg url "$url"       --argjson size "$(wc -c < "$file" | tr -d ' ')" --arg hash "$hash" '
+      .regions |= map(.[$key] = {version: $version, file: {name: $name, url: $url, sizeBytes: $size, sha256: $hash}})'       "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
+    mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
+  }
+  update_poi_entry poi "$POI_DB" poi.db "$POI_DB_URL"
+  update_poi_entry poiExtra "$POI_EXTRA_DB" poi-extra.db "$POI_EXTRA_DB_URL"
+  if [ ! -f "$POI_DB" ] && [ ! -f "$POI_EXTRA_DB" ]; then
     CHANGED_RD5=false
     for rd5 in "$OUTPUT_DIR"/*.rd5; do
       [ -e "$rd5" ] && CHANGED_RD5=true
     done
-    if [ "$CHANGED_RD5" != "true" ]; then
-      # Nessuna tile cambiata e poi.db identico: niente da caricare, come lo skip della sezione 2bis.
+    if [ "$CHANGED_RD5" != "true" ] && [ "$(jq -c '.regions[0] | {poi, poiExtra}' "$MANIFEST_FRAGMENT")" = "$(printf '%s' "$PUBLISHED_REGION" | jq -c '{poi, poiExtra}')" ]; then
+      # Nessuna tile cambiata e POI identici: niente da caricare, come lo skip della sezione 2bis.
       rm -f "$OUTPUT_DIR/.incremental"
       : > "$OUTPUT_DIR/.skipped"
-      jq -c --arg id "$REGION_ID" '{manifestVersion: .manifestVersion, regions: [(.regions // [])[] | select(.regionId == $id)]}' \
-        "$PUBLISHED_MANIFEST" > "$MANIFEST_FRAGMENT"
+      jq -c --arg id "$REGION_ID" '{manifestVersion: .manifestVersion, regions: [(.regions // [])[] | select(.regionId == $id)]}'         "$PUBLISHED_MANIFEST" > "$MANIFEST_FRAGMENT"
     fi
-    echo "== [$REGION_ID] fatto (incrementale: poi.db rigenerato ma identico a quello pubblicato) =="
+    echo "== [$REGION_ID] fatto (incrementale: POI rigenerati ma identici a quelli pubblicati) =="
     exit 0
   fi
-  jq -c --arg version "$VERSION" --arg url "$POI_DB_URL" \
-    --argjson size "$(wc -c < "$POI_DB" | tr -d ' ')" --arg hash "$POI_HASH" '
-    .regions |= map(.poi = {version: $version, file: {name: "poi.db", url: $url, sizeBytes: $size, sha256: $hash}})' \
-    "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
-  mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
-  echo "== [$REGION_ID] fatto (incrementale: tile cambiate e poi.db rigenerato) =="
+  echo "== [$REGION_ID] fatto (incrementale: POI rigenerati) =="
   exit 0
+fi
+POI_EXTRA_SPEC=""
+if [ -f "$POI_EXTRA_DB" ]; then
+  POI_EXTRA_SPEC="\"poiExtraDb\": { \"path\": \"$(winpath "$POI_EXTRA_DB")\", \"url\": \"${POI_EXTRA_DB_URL}\" },"
 fi
 SPEC_FILE="$WORKDIR/spec.json"
 cat > "$SPEC_FILE" <<EOF
@@ -465,6 +484,7 @@ cat > "$SPEC_FILE" <<EOF
   "displayName": "${DISPLAY_NAME}",
   "version": "${VERSION}",
   "poiDb": { "path": "$(winpath "$POI_DB")", "url": "${POI_DB_URL}" },
+  ${POI_EXTRA_SPEC}
   "routingFiles": [ ${REMOTE_FILES_JSON} ],
   "mapSource": {
     "sourceUrl": "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles",

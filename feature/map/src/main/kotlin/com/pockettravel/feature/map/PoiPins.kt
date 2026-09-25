@@ -9,7 +9,7 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import com.pockettravel.core.data.PoiCategory
+import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.PoiColors
 import com.pockettravel.core.ui.R as UiR
 

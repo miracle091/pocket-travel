@@ -3,7 +3,7 @@
 // gli importer lato app (core/sync) leggono riga per riga per popolare region.db.
 // - guides.db (generateGuides): guide_sections + emergency_numbers di tutte le regioni, un solo
 //   pacchetto aggiornato separatamente;
-// - poi.db (generatePoi): i POI di una regione.
+// - poi.db e poi-extra.db (generatePoi): i POI di una regione, base ed extra (vedi core:poi).
 plugins {
     id("org.jetbrains.kotlin.jvm")
 }
@@ -20,6 +20,8 @@ kotlin {
 }
 
 dependencies {
+    // Regole dei POI condivise con l'app: quali vanno nel pacchetto base, quali nell'extra.
+    implementation(project(":core:poi"))
     implementation(libs.sqlite.jdbc)
     // Lettura PMTiles locali e decodifica dei tile vettoriali per GenerateAddresses.kt.
     implementation(libs.planetiler.core)

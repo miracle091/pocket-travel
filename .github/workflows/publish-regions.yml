@@ -337,20 +337,25 @@ jobs:
                 # ricaricare sulla release (vedi build-region.sh, sezione "2bis").
                 echo "-- $regionId invariata: riuso il frammento pubblicato, nessun asset da ricaricare"
               else
-                # poi.db + segmenti .rd5 (zero o piu' a seconda di quante tile intersecano il
+                # poi.db, poi-extra.db + segmenti .rd5 (zero o piu' a seconda di quante tile intersecano il
                 # bbox) caricati come asset della release, rinominati con un prefisso
                 # regionId--version-- per essere univoci nell'intera release (che accumula tutte
                 # le regioni). --clobber: un rilancio della stessa regione nello stesso giorno
                 # (stessa VERSION) deve poter sovrascrivere l'asset gia' caricato in un tentativo
                 # precedente fallito a meta'.
                 # In modalita' incrementale (.incremental, vedi build-region.sh sezione 2bis) si
-                # caricano solo le tile cambiate, piu' il poi.db se era scaduto ed e' stato rigenerato e
+                # caricano solo le tile cambiate, piu' poi.db/poi-extra.db se erano scaduti e sono cambiati e
                 # addresses.pmtiles se build-addresses.sh ne ha prodotto uno nuovo.
                 uploads=()
                 if [ -f "$regionOut/poi.db" ]; then
                   poiDbAsset="$regionOut/${regionId}--${VERSION}--poi.db"
                   cp "$regionOut/poi.db" "$poiDbAsset"
                   uploads+=("$poiDbAsset")
+                fi
+                if [ -f "$regionOut/poi-extra.db" ]; then
+                  poiExtraAsset="$regionOut/${regionId}--${VERSION}--poi-extra.db"
+                  cp "$regionOut/poi-extra.db" "$poiExtraAsset"
+                  uploads+=("$poiExtraAsset")
                 fi
                 if [ -f "$regionOut/addresses.pmtiles" ]; then
                   addressesAsset="$regionOut/${regionId}--${VERSION}--addresses.pmtiles"
@@ -365,8 +370,11 @@ jobs:
                 done
                 # Fino a 3 tentativi: l'API a volte risponde "release not found" su una release che
                 # esiste (tanzania, run del 2026-09-24). --clobber rende sicuro il ricaricamento.
-                uploadOk=false
+                # Nessun file (es. la regione ha perso solo i POI extra): cambia solo il manifest.
+                uploadOk=true
+                [ "${#uploads[@]}" -eq 0 ] || uploadOk=false
                 for attempt in 1 2 3; do
+                  [ "${#uploads[@]}" -gt 0 ] || break
                   if gh release upload "$releaseTag" "${uploads[@]}" --repo "${{ github.repository }}" --clobber; then
                     uploadOk=true
                     break

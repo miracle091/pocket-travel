@@ -1,26 +1,39 @@
 package com.pockettravel.pipeline
 
+import com.pockettravel.core.poi.PoiPackage
+import com.pockettravel.core.poi.poiPackageOf
 import java.io.File
 import javax.xml.parsers.SAXParserFactory
 import org.xml.sax.Attributes
 import org.xml.sax.helpers.DefaultHandler
 
 fun main(args: Array<String>) {
-    require(args.size >= 4) { "Uso: generatePoi <regionId> <output poi.db> <poiTagKeys separate da virgola> <input1.osm.xml> [input2.osm.xml ...]" }
+    require(args.size >= 5) {
+        "Uso: generatePoi <regionId> <output poi.db> <output poi-extra.db> <poiTagKeys separate da virgola> <input1.osm.xml> [input2.osm.xml ...]"
+    }
     val regionId = args[0]
     val outputDb = File(args[1])
+    val extraDb = File(args[2])
     // Passate da build-region.sh (unica fonte di verita', usata anche per costruire la query
     // Overpass) invece di essere ridefinite qui: cosi' i due non possono disallinearsi.
-    val poiTagKeys = args[2].split(",")
-    val inputFiles = args.drop(3).map(::File)
+    val poiTagKeys = args[3].split(",")
+    val inputFiles = args.drop(4).map(::File)
 
     // Un bbox nazionale grande (es. Stati Uniti) supera la capacita' di una singola query
     // Overpass (visto: 504 Gateway Timeout anche a 900s) - build-region.sh lo spezza in piu'
     // chunk 5x5 gradi, ciascuno con il proprio file XML, letti uno dopo l'altro da readPois.
     val pois = readPois(inputFiles, poiTagKeys)
 
-    writePoiDb(pois, regionId, outputDb)
-    println("poi: ${pois.size} POI scritti in ${outputDb.path}")
+    // Base: i POI che la mappa mostra. Extra: quelli che l'utente puo' scaricare a parte. Gli altri
+    // (panchine, cestini...) la mappa non li mostrerebbe comunque e non si pubblicano.
+    val byPackage = pois.groupBy { poiPackageOf(it.name, it.category, it.osmTag) }
+    val base = byPackage[PoiPackage.BASE].orEmpty()
+    val extra = byPackage[PoiPackage.EXTRA].orEmpty()
+    writePoiDb(base, regionId, outputDb)
+    // Niente file extra se non c'e' nessun POI: la regione resta senza pacchetto extra.
+    extraDb.delete()
+    if (extra.isNotEmpty()) writePoiDb(extra, regionId, extraDb)
+    println("poi: ${base.size} base in ${outputDb.path}, ${extra.size} extra, ${byPackage[null].orEmpty().size} non pubblicati")
 }
 
 /**
@@ -113,8 +126,8 @@ private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagK
  * Schema minimo (non lo schema Room di PoiEntity): una tabella "poi" con le stesse colonne
  * meno l'id autogenerato, che l'app importa riga per riga in region.db via PoiDao.insertAll().
  *
- * outputDb e' poi.db, il pacchetto POI della regione, scaricato e aggiornato dall'app
- * separatamente da guide (guides.db), mappa e routing.
+ * outputDb e' poi.db (o poi-extra.db, stesso formato), un pacchetto POI della regione, scaricato
+ * e aggiornato dall'app separatamente da guide (guides.db), mappa e routing.
  */
 fun writePoiDb(pois: List<Poi>, regionId: String, outputDb: File) {
     writeSqliteTable(

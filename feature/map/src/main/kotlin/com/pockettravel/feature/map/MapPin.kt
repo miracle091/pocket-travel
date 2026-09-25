@@ -1,6 +1,6 @@
 package com.pockettravel.feature.map
 
-import com.pockettravel.core.data.PoiCategory
+import com.pockettravel.core.poi.PoiCategory
 
 data class MapPin(
     val id: String,

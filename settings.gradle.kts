@@ -28,6 +28,7 @@ include(
     ":core:content",
     ":core:sync",
     ":core:ui",
+    ":core:poi",
     ":feature:guide",
     ":feature:map",
     ":feature:ai",

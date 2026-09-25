@@ -68,6 +68,12 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
         validateVersion(poi, "$regionId/poi")
         validateFile(poi.getJSONObject("file"), regionId, allowedHosts)
 
+        // POI extra: facoltativi (regioni senza, o non ancora rigenerate).
+        region.optJSONObject("poiExtra")?.let { poiExtra ->
+            validateVersion(poiExtra, "$regionId/poiExtra")
+            validateFile(poiExtra.getJSONObject("file"), regionId, allowedHosts)
+        }
+
         // Civici: facoltativi (regioni non ancora generate o troppo grandi da estrarre).
         region.optJSONObject("addresses")?.let { addresses ->
             validateVersion(addresses, "$regionId/addresses")

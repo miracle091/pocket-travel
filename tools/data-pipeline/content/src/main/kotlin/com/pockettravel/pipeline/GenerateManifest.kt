@@ -67,6 +67,8 @@ fun buildRegionFragmentJson(
     mapSource: MapSourceInput,
     routingFiles: List<ManifestFileEntry>,
     poiFile: ManifestFileEntry,
+    // POI extra (scaricati solo su richiesta): assente se la regione non ne ha.
+    poiExtraFile: ManifestFileEntry? = null,
 ): String {
     require(routingFiles.isNotEmpty()) { "Il routing di $regionId non contiene segmenti .rd5" }
 
@@ -77,6 +79,7 @@ fun buildRegionFragmentJson(
         .put("map", JSONObject().put("version", version).put("source", mapSource.toJson()))
         .put("routing", JSONObject().put("version", version).put("files", JSONArray(routingFiles.map { it.toJson() })))
         .put("poi", JSONObject().put("version", version).put("file", poiFile.toJson()))
+    poiExtraFile?.let { region.put("poiExtra", JSONObject().put("version", version).put("file", it.toJson())) }
 
     return JSONObject()
         .put("manifestVersion", MANIFEST_VERSION)
@@ -106,6 +109,7 @@ fun buildGuidesFragmentJson(version: String, file: ManifestFileEntry, wikivoyage
  * {
  *   "regionId": "sm", "displayName": "San Marino", "version": "2026.09.14",
  *   "poiDb": { "path": "/abs/poi.db", "url": "https://.../poi.db" },
+ *   "poiExtraDb": { "path": "/abs/poi-extra.db", "url": "https://.../poi-extra.db" },   (facoltativo)
  *   "routingFiles": [ { "name": "E10_N40.rd5", "url": "...", "sizeBytes": 123, "sha256": "..." } ],
  *   "mapSource": { "sourceUrl": "...", "minLon": .., "minLat": .., "maxLon": .., "maxLat": .., "minZoom": 0, "maxZoom": 14 }
  * }
@@ -138,6 +142,9 @@ fun buildRegionFragmentJsonFromSpec(specJson: String): String {
         ),
         routingFiles = routingFiles,
         poiFile = localFileEntry(File(poiDb.getString("path")), "poi.db", poiDb.getString("url")),
+        poiExtraFile = spec.optJSONObject("poiExtraDb")?.let {
+            localFileEntry(File(it.getString("path")), "poi-extra.db", it.getString("url"))
+        },
     )
 }
 

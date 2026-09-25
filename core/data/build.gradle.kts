@@ -34,6 +34,8 @@ kotlin {
 }
 
 dependencies {
+    // PoiCategory e regole dei POI, condivise con la pipeline: api perche' fanno parte dell'API di Poi.
+    api(project(":core:poi"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)

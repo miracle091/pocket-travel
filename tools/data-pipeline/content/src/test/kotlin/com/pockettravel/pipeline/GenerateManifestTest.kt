@@ -5,6 +5,7 @@ import kotlin.io.path.createTempDirectory
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class GenerateManifestTest {
@@ -97,6 +98,16 @@ class GenerateManifestTest {
             assertEquals("https://example.org/sm/poi.db", region.getJSONObject("poi").getJSONObject("file").getString("url"))
             assertEquals(1, region.getJSONObject("routing").getJSONArray("files").length())
             assertEquals("https://build.protomaps.com/20260914.pmtiles", region.getJSONObject("map").getJSONObject("source").getString("sourceUrl"))
+            assertFalse(region.has("poiExtra"))
+
+            // POI extra facoltativi: stessa versione degli altri pacchetti, hash del file locale.
+            val poiExtraDb = File(packageDir, "poi-extra.db").apply { writeText("extra") }
+            spec.put("poiExtraDb", JSONObject().put("path", poiExtraDb.absolutePath).put("url", "https://example.org/sm/poi-extra.db"))
+            val poiExtra = JSONObject(buildRegionFragmentJsonFromSpec(spec.toString()))
+                .getJSONArray("regions").getJSONObject(0).getJSONObject("poiExtra")
+            assertEquals("2026.09.14", poiExtra.getString("version"))
+            assertEquals("poi-extra.db", poiExtra.getJSONObject("file").getString("name"))
+            assertEquals(5L, poiExtra.getJSONObject("file").getLong("sizeBytes"))
         } finally {
             packageDir.deleteRecursively()
         }
