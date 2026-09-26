@@ -32,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
+import com.pockettravel.app.navigation.regionContainer
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
@@ -78,6 +79,7 @@ fun RegionHubScreen(
 
     val adaptiveInfo = currentWindowAdaptiveInfo()
     NavigationSuiteScaffold(
+        modifier = Modifier.regionContainer(regionId),
         navigationSuiteItems = {
             RegionTab.entries.forEach { tab ->
                 val selected = tab == selectedTab

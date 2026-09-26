@@ -5,6 +5,8 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -24,6 +26,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -105,6 +108,7 @@ private fun TopLevelDestination.icon(selected: Boolean): ImageVector = when (thi
 // il vecchio if/else hardcoded in MainActivity. Lo start destination si decide una volta
 // sola in modo sincrono (StartDestinationViewModel) — non reattivamente, perche' una volta
 // scelta la rotta iniziale non deve piu' cambiare per la vita del NavHost.
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PocketTravelNavHost(
     onboardingViewModel: OnboardingViewModel = hiltViewModel(),
@@ -147,6 +151,8 @@ fun PocketTravelNavHost(
             NavigationSuiteType.None
         },
     ) {
+        SharedTransitionLayout {
+        CompositionLocalProvider(LocalSharedTransitionScope provides this) {
         NavHost(
             navController = navController,
             startDestination = startDestination,
@@ -174,10 +180,12 @@ fun PocketTravelNavHost(
                 if (isExpanded) {
                     RegionsListDetail(navController = navController, onPreviewClick = onPreviewClick)
                 } else {
-                    RegionListScreen(
-                        onRegionClick = { regionId -> navController.navigate(regionHub(regionId)) },
-                        onPreviewClick = onPreviewClick,
-                    )
+                    RegionContainerTransformScope(this) {
+                        RegionListScreen(
+                            onRegionClick = { regionId -> navController.navigate(regionHub(regionId)) },
+                            onPreviewClick = onPreviewClick,
+                        )
+                    }
                 }
             }
             composable(VAULT, enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
@@ -215,16 +223,22 @@ fun PocketTravelNavHost(
                     navArgument(ARG_REGION_ID) { type = NavType.StringType },
                     navArgument(ARG_TAB) { type = NavType.StringType; defaultValue = "guide" },
                 ),
+                // Dall'elenco regioni la riga si trasforma nell'hub (container transform): la
+                // schermata sotto sfuma invece di scorrere, per non spostare la riga che si allarga.
+                enterTransition = { if (initialState.destination.route == REGIONS) fadeIn(tween(MOTION_MS)) else sharedAxisEnter(forward = true) },
+                popExitTransition = { if (targetState.destination.route == REGIONS) fadeOut(tween(MOTION_MS)) else sharedAxisExit(forward = false) },
             ) { backStackEntry ->
                 val regionId = backStackEntry.arguments?.getString(ARG_REGION_ID).orEmpty()
                 val tab = backStackEntry.arguments?.getString(ARG_TAB) ?: "guide"
-                RegionHubScreen(
-                    regionId = regionId,
-                    initialTab = tab,
-                    onBack = { if (!navController.popBackStack()) navController.navigate(REGIONS) },
-                    onOpenOfficialSource = { url -> navController.navigateToOfficialSource(url) },
-                    onOpenSource = { url, title -> navController.navigate(inAppBrowser(url, title)) },
-                )
+                RegionContainerTransformScope(this) {
+                    RegionHubScreen(
+                        regionId = regionId,
+                        initialTab = tab,
+                        onBack = { if (!navController.popBackStack()) navController.navigate(REGIONS) },
+                        onOpenOfficialSource = { url -> navController.navigateToOfficialSource(url) },
+                        onOpenSource = { url, title -> navController.navigate(inAppBrowser(url, title)) },
+                    )
+                }
             }
             composable(
                 route = REGION_PREVIEW_PATTERN,
@@ -256,6 +270,8 @@ fun PocketTravelNavHost(
                 val title = backStackEntry.arguments?.getString(ARG_TITLE).orEmpty()
                 InAppBrowserScreen(url = url, title = title, onBack = { navController.popBackStack() })
             }
+        }
+        }
         }
     }
 }
@@ -354,12 +370,23 @@ private fun fadeThroughExit(): ExitTransition = fadeOut(tween(MOTION_MS / 3))
 // verso e dalle schermate di dettaglio.
 private fun NavBackStackEntry.isTopLevel() = TopLevelDestination.entries.any { it.route == destination.route }
 
+private fun NavBackStackEntry.isRegionHub() = destination.route == REGION_HUB_PATTERN
+
 private val topLevelEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
     if (initialState.isTopLevel()) fadeThroughEnter() else sharedAxisEnter(forward = true)
 }
 private val topLevelExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
-    if (targetState.isTopLevel()) fadeThroughExit() else sharedAxisExit(forward = true)
+    when {
+        targetState.isTopLevel() -> fadeThroughExit()
+        // Verso l'hub: container transform, l'elenco sfuma sotto la riga che si allarga.
+        targetState.isRegionHub() -> fadeOut(tween(MOTION_MS))
+        else -> sharedAxisExit(forward = true)
+    }
 }
 private val topLevelPopEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
-    if (initialState.isTopLevel()) fadeThroughEnter() else sharedAxisEnter(forward = false)
+    when {
+        initialState.isTopLevel() -> fadeThroughEnter()
+        initialState.isRegionHub() -> fadeIn(tween(MOTION_MS))
+        else -> sharedAxisEnter(forward = false)
+    }
 }

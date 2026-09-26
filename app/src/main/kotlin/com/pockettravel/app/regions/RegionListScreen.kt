@@ -68,6 +68,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.work.WorkInfo
 import com.pockettravel.app.R
+import com.pockettravel.app.navigation.regionContainer
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.sync.RegionPackageDownloadWorker
 import com.pockettravel.core.ui.AppIcons
@@ -328,7 +329,9 @@ private fun RegionGroupedList(
                 // USA) sono una riga a scomparsa con le loro regioni sotto.
                 itemsIndexed(rows, key = { _, row -> row.key }) { index, row ->
                     val shape = groupShape(index, rows.size)
-                    Surface(shape = shape, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.animateItem()) {
+                    // La riga di una regione e' il contenitore che si trasforma nell'hub quando la si apre.
+                    val containerModifier = if (row is ListRow.Region) Modifier.regionContainer(row.item.regionId) else Modifier
+                    Surface(shape = shape, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.animateItem().then(containerModifier)) {
                         Column {
                             when (row) {
                                 is ListRow.Region -> RegionRow(
