@@ -4,6 +4,11 @@
     <string name="ai_mode_online">Online</string>
     <string name="ai_more_actions">Altre azioni</string>
     <string name="ai_choose_model">Scegli un modello IA da scaricare.</string>
+    <string name="ai_models_intro">Tutti i modelli funzionano senza connessione e rispondono usando le guide scaricate. Cambia il modo in cui sono stati preparati.</string>
+    <string name="ai_models_official">Ufficiali</string>
+    <string name="ai_models_official_desc">Modelli generici, così come li pubblicano i loro autori. Sanno fare un po\' di tutto, ma a volte rispondono con conoscenze proprie invece che con la guida, o non dicono quando la guida non basta.</string>
+    <string name="ai_models_trained">Addestrati da noi</string>
+    <string name="ai_models_trained_desc">Gli stessi tipi di modello, allenati da Pocket Travel sulle guide di viaggio: rispondono in italiano in poche frasi, solo con quello che c\'è nella guida, e dicono chiaramente quando un\'informazione manca.</string>
     <string name="ai_model_coming_soon">Presto disponibile</string>
     <string name="ai_model_selected">Selezionato</string>
     <string name="ai_model_download">Scarica modello</string>

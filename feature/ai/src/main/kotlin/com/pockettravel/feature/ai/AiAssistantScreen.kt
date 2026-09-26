@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -342,10 +343,31 @@ private fun ModelList(uiState: AiUiState, actions: AiActions) {
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(vertical = Spacing.s),
         )
-        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
-            Column {
-                uiState.availableModels.forEach { definition ->
-                    ModelRow(definition = definition, isSelected = definition.id == uiState.selectedModelId, uiState = uiState, actions = actions)
+        // Premessa: la differenza tra i due gruppi, prima delle liste
+        Text(
+            stringResource(R.string.ai_models_intro),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = Spacing.s),
+        )
+        uiState.availableModels.groupBy { it.origin }.toSortedMap().forEach { (origin, models) ->
+            Text(
+                stringResource(if (origin == ModelOrigin.ADDESTRATO) R.string.ai_models_trained else R.string.ai_models_official),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = Spacing.m, bottom = Spacing.xs).semantics { heading() },
+            )
+            Text(
+                stringResource(if (origin == ModelOrigin.ADDESTRATO) R.string.ai_models_trained_desc else R.string.ai_models_official_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = Spacing.s),
+            )
+            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                Column {
+                    models.forEach { definition ->
+                        ModelRow(definition = definition, isSelected = definition.id == uiState.selectedModelId, uiState = uiState, actions = actions)
+                    }
                 }
             }
         }
