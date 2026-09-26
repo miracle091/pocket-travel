@@ -42,7 +42,7 @@
 # creato (vuoto) invece di poi.db/i .rd5 - il chiamante lo usa per capire che non c'e' nulla
 # di nuovo da ricaricare (vedi publish-regions.yml).
 #
-# Richiede: curl, sha256sum, awk, jq (solo se si passa publishedManifestUrl), gradle wrapper
+# Richiede: curl, sha256sum, awk, jq, python3 (clip_rd5.py), gradle wrapper
 # (./gradlew) dalla root del repo. I segmenti .rd5 restano in <outputDir> insieme a poi.db,
 # pronti per essere copiati nel sito da pubblicare (vedi build-pilot-regions.sh/publish-regions.yml).
 set -euo pipefail
@@ -68,13 +68,23 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 # shellcheck source=./lib.sh
 source "$SCRIPT_DIR/lib.sh"
 BROUTER_BASE="https://brouter.de/brouter/segments4"
-# I .rd5 di brouter.de coprono 5x5 gradi: appena scaricati si ritagliano sul riquadro della regione
-# allargato di RD5_CLIP_MARGIN gradi (clip_rd5.py; San Marino da 76 a 0,9 MB, stesso percorso). Nel
-# manifest sizeBytes/sha256 sono del file ritagliato, sourceSizeBytes dell'originale (confronto 2bis).
+# I .rd5 di brouter.de coprono 5x5 gradi: si scaricano gia' ritagliati sul riquadro della regione
+# allargato di RD5_CLIP_MARGIN gradi (clip_rd5.py con richieste HTTP Range: San Marino 0,9 MB invece
+# di 76, Lussemburgo 6,3 invece di 435, stesso percorso). Nel
+# manifest sizeBytes/sha256 sono del file ritagliato, sourceKey = "<dimensione originale> $RD5_CLIP":
+# il confronto 2bis riscarica una tile se cambia su brouter.de o se cambiano riquadro o margine.
 RD5_CLIP_MARGIN="${RD5_CLIP_MARGIN:-0.1}"
-clip_rd5() {
-  python3 "$SCRIPT_DIR/clip_rd5.py" "$1" "$1.clip" --bbox "$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --margin "$RD5_CLIP_MARGIN" \
-    && mv "$1.clip" "$1"
+RD5_CLIP="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT $RD5_CLIP_MARGIN"
+# Colonne del TSV scritto da fetch_rd5 -> voci routing.files del manifest.
+RD5_TSV_TO_JSON='split("\n") | map(select(length > 0) | split("\t") | {name: .[0], url: .[1], sizeBytes: (.[2] | tonumber), sha256: .[3], sourceKey: .[4]})'
+# fetch_rd5 <tile.rd5> <tsv>: scarica in OUTPUT_DIR la parte della tile che serve alla regione e
+# aggiunge la sua riga (nome, url ri-ospitato, dimensione, sha256, sourceKey) al TSV.
+fetch_rd5() {
+  local name="$1" dest="$OUTPUT_DIR/$1" sourceSize
+  sourceSize="$(python3 "$SCRIPT_DIR/clip_rd5.py" "${BROUTER_BASE}/${name}" "$dest" \
+    --bbox "$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --margin "$RD5_CLIP_MARGIN" --user-agent "$PIPELINE_USER_AGENT")"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$name" "${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${name}" \
+    "$(wc -c < "$dest" | tr -d ' ')" "$(sha256sum < "$dest" | awk '{print $1}')" "$sourceSize $RD5_CLIP" >> "$2"
 }
 MAP_MIN_ZOOM=0
 MAP_MAX_ZOOM=14
@@ -186,14 +196,14 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
       done
       lon=$((lon + 5))
     done
-    EXPECTED_SORTED="$(jq -R -s -c '
-      split("\n") | map(select(length > 0) | split("\t") | {name: .[0], sizeBytes: (.[1] | tonumber)})
+    EXPECTED_SORTED="$(jq -R -s -c --arg clip "$RD5_CLIP" '
+      split("\n") | map(select(length > 0) | split("\t") | {name: .[0], sourceKey: "\(.[1]) \($clip)"})
       | sort_by(.name)
     ' "$EXPECTED_TSV")"
 
     PUBLISHED_SORTED="$(jq -c --arg id "$REGION_ID" '
       [(.regions // [])[] | select(.regionId == $id) | (.routing.files // .files // [])[] | select(.name | endswith(".rd5"))
-        | {name, sizeBytes: (.sourceSizeBytes // -1)}]
+        | {name, sourceKey: (.sourceKey // "")}]
       | sort_by(.name)
     ' "$PUBLISHED_MANIFEST" 2>/dev/null || echo "[]")"
 
@@ -260,20 +270,13 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
         UPDATED_TSV="$WORKDIR/updated-rd5.tsv"
         : > "$UPDATED_TSV"
         CHANGED_TILES="$(jq -r -n --argjson a "$EXPECTED_SORTED" --argjson b "$PUBLISHED_SORTED" \
-          '$a[] as $e | ($b[] | select(.name == $e.name)) as $p | select($p.sizeBytes != $e.sizeBytes) | $e.name')"
+          '$a[] as $e | ($b[] | select(.name == $e.name)) as $p | select($p.sourceKey != $e.sourceKey) | $e.name')"
         while read -r tileFile; do
           [ -n "$tileFile" ] || continue
-          dest="$OUTPUT_DIR/$tileFile"
           echo "-- scarico $tileFile (cambiata)..."
-          download_with_progress "$dest" "$tileFile" -sS -o "$dest" "${BROUTER_BASE}/${tileFile}"
-          sourceSize="$(wc -c < "$dest" | tr -d ' ')"
-          clip_rd5 "$dest"
-          size="$(wc -c < "$dest" | tr -d ' ')"
-          hash="$(sha256sum < "$dest" | awk '{print $1}')"
-          printf '%s\t%s\t%s\t%s\t%s\n' "$tileFile" "${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${tileFile}" "$size" "$hash" "$sourceSize" >> "$UPDATED_TSV"
+          fetch_rd5 "$tileFile" "$UPDATED_TSV"
         done <<< "$CHANGED_TILES"
-        jq -R -s -c 'split("\n") | map(select(length > 0) | split("\t") | {name: .[0], url: .[1], sizeBytes: (.[2] | tonumber), sha256: .[3], sourceSizeBytes: (.[4] | tonumber)})' \
-          "$UPDATED_TSV" > "$WORKDIR/updated-rd5.json"
+        jq -R -s -c "$RD5_TSV_TO_JSON" "$UPDATED_TSV" > "$WORKDIR/updated-rd5.json"
         # Mappa e routing hanno versioni indipendenti: una tile .rd5 cambiata non fa piu' ri-estrarre
         # la mappa (prima map.version cambiava con routing.version).
         jq -c --arg id "$REGION_ID" --arg version "$VERSION" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -379,7 +382,8 @@ fetch_overpass_chunk() {
 }
 
 echo "-- risolvo segmenti .rd5 e interrogo Overpass per i POI, tile per tile..."
-REMOTE_FILES_JSON=""
+ROUTING_TSV="$WORKDIR/routing-rd5.tsv"
+: > "$ROUTING_TSV"
 POI_XML_FILES=()
 FAILED_CHUNKS=0
 lon="$LON_START"
@@ -399,16 +403,8 @@ while [ "$lon" -le "$LON_END" ]; do
     fi
     if [ "$code" = "200" ]; then
       if [ "$POI_ONLY" != "true" ]; then
-        dest="$OUTPUT_DIR/${tile}.rd5"
         echo "-- scarico $tile.rd5 (ri-ospitato insieme a poi.db, vedi commento in testa al file)..."
-        download_with_progress "$dest" "$tile.rd5" -sS -o "$dest" "$url"
-        sourceSize="$(wc -c < "$dest" | tr -d ' ')"
-        clip_rd5 "$dest"
-        size="$(wc -c < "$dest" | tr -d ' ')"
-        hash="$(sha256sum < "$dest" | awk '{print $1}')"
-        rd5Url="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${tile}.rd5"
-        entry="{ \"name\": \"${tile}.rd5\", \"url\": \"${rd5Url}\", \"sizeBytes\": ${size}, \"sha256\": \"${hash}\", \"sourceSizeBytes\": ${sourceSize} }"
-        if [ -z "$REMOTE_FILES_JSON" ]; then REMOTE_FILES_JSON="$entry"; else REMOTE_FILES_JSON="$REMOTE_FILES_JSON, $entry"; fi
+        fetch_rd5 "$tile.rd5" "$ROUTING_TSV"
       fi
 
       chunkMinLon="$(fmax "$MIN_LON" "$lon")"
@@ -435,7 +431,7 @@ while [ "$lon" -le "$LON_END" ]; do
   lon=$(( lon + 5 ))
 done
 
-if [ -z "$REMOTE_FILES_JSON" ] && [ "$POI_ONLY" != "true" ]; then
+if [ ! -s "$ROUTING_TSV" ] && [ "$POI_ONLY" != "true" ]; then
   echo "ERRORE: nessun segmento .rd5 trovato per il bbox di $REGION_ID" >&2
   exit 1
 fi
@@ -532,7 +528,7 @@ cat > "$SPEC_FILE" <<EOF
   "version": "${VERSION}",
   "poiDb": { "path": "$(winpath "$POI_DB")", "url": "${POI_DB_URL}" },
   ${POI_EXTRA_SPEC}
-  "routingFiles": [ ${REMOTE_FILES_JSON} ],
+  "routingFiles": $(jq -R -s -c "$RD5_TSV_TO_JSON" "$ROUTING_TSV"),
   "mapSource": {
     "sourceUrl": "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles",
     "minLon": ${MIN_LON}, "minLat": ${MIN_LAT}, "maxLon": ${MAX_LON}, "maxLat": ${MAX_LAT},

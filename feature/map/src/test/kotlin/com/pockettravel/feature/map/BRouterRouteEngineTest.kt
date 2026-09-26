@@ -30,9 +30,7 @@ class BRouterRouteEngineTest {
     @Test
     fun `nessun segmento disponibile restituisce null senza eccezioni`() {
         val segmentDir = tempFolder.newFolder("segments4")
-        val profileDir = tempFolder.newFolder("profiles2")
-        copyProfileResource("trekking.brf", profileDir)
-        copyProfileResource("lookups.dat", profileDir)
+        val profileDir = profileDir()
 
         val engine = BRouterRouteEngine(segmentDir, profileDir)
         val route = engine.route(
@@ -54,9 +52,7 @@ class BRouterRouteEngineTest {
     @Test
     fun `instrada correttamente quando il percorso attraversa due segmenti rd5 adiacenti`() {
         val segmentDir = tempFolder.newFolder("segments4")
-        val profileDir = tempFolder.newFolder("profiles2")
-        copyProfileResource("trekking.brf", profileDir)
-        copyProfileResource("lookups.dat", profileDir)
+        val profileDir = profileDir()
         copySegmentResource("E5_N45.rd5", segmentDir)
         copySegmentResource("E10_N45.rd5", segmentDir)
 
@@ -82,9 +78,7 @@ class BRouterRouteEngineTest {
     fun `un percorso dentro la regione e' identico con il segmento ritagliato`() {
         val base = System.getenv("RD5_CLIP_TEST_DIR")?.let(::File)
         assumeTrue("RD5_CLIP_TEST_DIR non impostata", base != null && File(base, "clipped/E10_N40.rd5").exists())
-        val profileDir = tempFolder.newFolder("profiles2")
-        copyProfileResource("trekking.brf", profileDir)
-        copyProfileResource("lookups.dat", profileDir)
+        val profileDir = profileDir()
         // Serravalle -> Citta' di San Marino, a piedi (profilo trekking)
         val from = RoutePoint(43.9690, 12.4800)
         val to = RoutePoint(43.9356, 12.4473)
@@ -94,6 +88,11 @@ class BRouterRouteEngineTest {
 
         assertNotNull("percorso con il segmento originale", original)
         assertEquals(original, clipped)
+    }
+
+    private fun profileDir(): File = tempFolder.newFolder("profiles2").also {
+        copyProfileResource("trekking.brf", it)
+        copyProfileResource("lookups.dat", it)
     }
 
     private fun copyProfileResource(name: String, targetDir: File) {
