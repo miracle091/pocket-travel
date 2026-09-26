@@ -1,12 +1,12 @@
 # 🧭 Pocket Travel
 
-Pocket Travel è un'app per chi viaggia senza voler dipendere dalla connessione: guida turistica offline, mappa con routing pedonale, assistente IA e vault per i documenti. Le guide di tutte le nazioni sono un unico pacchetto leggero; per ogni regione mappa, percorsi, punti di interesse (più quelli extra, facoltativi) e numeri civici si scaricano e aggiornano separatamente.
+Pocket Travel è un'app per chi viaggia senza voler dipendere dalla connessione: guida turistica offline, mappa, assistente IA e vault per i documenti. Le guide di tutte le nazioni sono un unico pacchetto leggero; per ogni regione mappa, percorsi, punti di interesse (più quelli extra, facoltativi) e numeri civici si scaricano e aggiornano separatamente.
 
-Versione corrente: **0.6.0** ([Semantic Versioning](https://semver.org/lang/it/)) — vedi [CHANGELOG.md](CHANGELOG.md).
+Versione corrente: **0.7.0** ([Semantic Versioning](https://semver.org/lang/it/)) — vedi [CHANGELOG.md](CHANGELOG.md).
 
 ## Stato
 
-MVP funzionalmente completo: guida turistica offline con ricerca full-text, mappa vettoriale con routing pedonale offline (BRouter), assistente IA con modalità locale (llama.cpp, modelli GGUF, con controllo RAM) e online (chiave utente personale), vault passaporti cifrato, gestione dei pacchetti (guide, mappa, percorsi, punti di interesse, punti di interesse extra, numeri civici: download, aggiornamento e rimozione uno per uno), legenda della mappa con filtri salvati, modalità d'uso ("Come ti sposti") che scelgono i punti di interesse mostrati di default e registro fonti ufficiali esterne. Interfaccia Material Design 3 con layout adattivo per telefono e tablet.
+MVP funzionalmente completo: guida turistica offline con ricerca full-text, mappa vettoriale offline (il motore dei percorsi, BRouter, c'è già ma non ha ancora una schermata), assistente IA con modalità locale (llama.cpp, modelli GGUF scelti in base alla RAM, divisi tra "ufficiali" e "addestrati da noi" sulle guide, questi ultimi in arrivo) e online (chiave utente personale), vault passaporti cifrato, gestione dei pacchetti (guide, mappa, percorsi, punti di interesse, punti di interesse extra, numeri civici: download, aggiornamento e rimozione uno per uno), legenda della mappa con filtri salvati, modalità d'uso ("Come ti sposti") che scelgono i punti di interesse mostrati di default e registro fonti ufficiali esterne. Interfaccia Material Design 3 con layout adattivo per telefono e tablet.
 
 Il catalogo delle regioni (355 nel lotto pilota, con Stati Uniti, Canada, Russia europea, Cina e Francia divisi in regioni, `tools/data-pipeline/scripts/pilot-regions.sh`) è generato da `tools/data-pipeline` e pubblicato ogni settimana da `.github/workflows/publish-regions.yml`: `manifest.json` su GitHub Pages, i pacchetti sulle release `region-data*` del repository.
 
@@ -30,8 +30,9 @@ tools/data-pipeline/        generazione e pubblicazione dei pacchetti
   maptiles/, routing/       generatori locali di map.pmtiles (Planetiler) e .rd5 (BRouter), non
                             usati in produzione: mappa da Protomaps, segmenti da brouter.de
   scripts/                  build-guides.sh, build-region.sh, assemble-site.sh, calendario
-                            settimanale, script Python per dataset/training/conversione GGUF
-  data/sft/                 dataset di fine-tuning dell'assistente
+                            settimanale, script Python per dataset/training/valutazione/
+                            conversione GGUF con imatrix (riga di stato comune in status.py)
+  data/sft/                 dataset di fine-tuning dell'assistente (non versionato)
 scripts/                    generate_ai_models_manifest.py (catalogo modelli IA per app-status.json)
 .github/workflows/          android-ci.yml, publish-apk.yml, publish-regions.yml
 ```

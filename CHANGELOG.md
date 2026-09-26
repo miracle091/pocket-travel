@@ -4,6 +4,13 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ## [Non rilasciato]
 
+### Aggiunto
+- Scelta del modello dell'assistente divisa in due gruppi, con una breve premessa sulle differenze: "Ufficiali" (modelli generici, come li pubblicano i loro autori) e "Addestrati da noi" (addestrati sulle guide di viaggio per rispondere in italiano, in poche frasi, solo con la guida e dicendo quando un'informazione manca). I modelli addestrati da noi, uno per fascia di memoria (0,8B, 2B e 4B), compaiono come "Presto disponibile" finché l'addestramento non è finito.
+- Aprendo una regione dall'elenco, la sua riga si allarga fino a diventare la pagina della regione e si richiude tornando indietro (anche con il gesto Indietro).
+
+### Modificato
+- Strumenti di addestramento dell'assistente: dati più puliti (risposte più brevi e senza link, niente introduzioni enciclopediche, un quarto di esempi di rifiuto, fonti ridotte a Wikivoyage e Wikipedia), regioni di test fisse, quantizzazione calibrata sulle guide (imatrix) e una riga di stato leggibile con avanzamento, velocità e tempo mancante in addestramento, valutazione e conversione.
+
 ## [0.7.0]
 
 ### Aggiunto
