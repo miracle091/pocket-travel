@@ -225,8 +225,8 @@ fun PocketTravelNavHost(
                 ),
                 // Dall'elenco regioni la riga si trasforma nell'hub (container transform): la
                 // schermata sotto sfuma invece di scorrere, per non spostare la riga che si allarga.
-                enterTransition = { if (initialState.destination.route == REGIONS) fadeIn(tween(MOTION_MS)) else sharedAxisEnter(forward = true) },
-                popExitTransition = { if (targetState.destination.route == REGIONS) fadeOut(tween(MOTION_MS)) else sharedAxisExit(forward = false) },
+                enterTransition = { if (initialState.destination.route == REGIONS) containerFadeIn() else sharedAxisEnter(forward = true) },
+                popExitTransition = { if (targetState.destination.route == REGIONS) containerFadeOut() else sharedAxisExit(forward = false) },
             ) { backStackEntry ->
                 val regionId = backStackEntry.arguments?.getString(ARG_REGION_ID).orEmpty()
                 val tab = backStackEntry.arguments?.getString(ARG_TAB) ?: "guide"
@@ -379,14 +379,14 @@ private val topLevelExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -
     when {
         targetState.isTopLevel() -> fadeThroughExit()
         // Verso l'hub: container transform, l'elenco sfuma sotto la riga che si allarga.
-        targetState.isRegionHub() -> fadeOut(tween(MOTION_MS))
+        targetState.isRegionHub() -> containerFadeOut()
         else -> sharedAxisExit(forward = true)
     }
 }
 private val topLevelPopEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
     when {
         initialState.isTopLevel() -> fadeThroughEnter()
-        initialState.isRegionHub() -> fadeIn(tween(MOTION_MS))
+        initialState.isRegionHub() -> containerFadeIn()
         else -> sharedAxisEnter(forward = false)
     }
 }
