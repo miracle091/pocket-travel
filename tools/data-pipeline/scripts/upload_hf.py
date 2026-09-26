@@ -54,11 +54,10 @@ rifiuto esplicito quando il contesto non basta.
 
 Fonti che alimentano le risposte (il modello puo' riprodurne frasi letterali):
 - Wikivoyage IT — CC BY-SA 4.0
-- Wikipedia IT, articoli tematici per paese (cucina/cultura/telecomunicazioni/media) — CC BY-SA 4.0
+- Wikipedia IT, paragrafi degli articoli tematici per paese (cucina/cultura/telecomunicazioni/media) — CC BY-SA 4.0
 
 Fonti usate solo come contesto per i rifiuti (mai riprodotte: il target e' sempre la frase di rifiuto, non
-il testo della fonte): Wikivoyage EN/DE/FR (CC BY-SA 4.0), FCDO/gov.uk (OGL v3.0), World Factbook (CC0 1.0),
-worldfactbooks.com (licenze miste per campo), Travel.gc.ca (Open Government Licence - Canada).
+il testo della fonte): Wikivoyage EN (CC BY-SA 4.0).
 
 Elenco completo delle pagine sorgente in `ATTRIBUTION.tsv`, incluso in questo repo. Questa build non
 include Viaggiare Sicuri (Farnesina): licenza non verificata, esclusa dai pesi pubblici.

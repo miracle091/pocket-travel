@@ -10,13 +10,9 @@ Output (in tools/data-pipeline/data/sft/, git-ignored): pocket_travel_sft.jsonl 
 (pubblicabile, senza VS) oppure pocket_travel_sft.with-vs.jsonl + ATTRIBUTION.with-vs.tsv (con --vs) — nomi
 distinti apposta, cosi' le due varianti convivono sul disco senza sovrascriversi; raw/<regionId>[.en].txt
 (cache, condivisa tra le due varianti). Positivi solo dalle pagine IT (la risposta estrattiva EN sarebbe in
-inglese, contro "rispondi in italiano"); le pagine EN, DE e FR servono da contesto per i negativi.
+inglese, contro "rispondi in italiano"); le pagine EN servono da contesto per una quota minore dei negativi
+(NEG_EN_SHARE): nell'app il contesto e' sempre Wikivoyage IT, quindi la maggior parte dei negativi usa quello.
 Il testo Wikivoyage e' CC BY-SA 4.0: ATTRIBUTION.tsv elenca le pagine sorgente per la model card.
-Le schede FCDO (gov.uk, OGL v3.0), gli avvisi di viaggio canadesi (travel.gc.ca, Open Government Licence -
-Canada; alternativa al CDC Yellow Book, dietro un menu JS senza endpoint scoperto), il World Factbook (CC0
-1.0, via github.com/factbook/factbook.json) e worldfactbooks.com (licenze aperte miste per campo) servono
-solo da contesto per i negativi, come le pagine EN: nessun positivo, la risposta resta in italiano.
-worldfactbook.co non e' incluso: l'API richiede una chiave dietro login, nessun accesso libero.
 Viaggiare Sicuri (Farnesina, in italiano) alimenta anche i positivi, ma la sua licenza non e' verificata
 (il sito non concede un riuso esplicito) e il training e' estrattivo (le risposte sono frasi letterali
 della fonte): un modello addestrato con VS puo' rigenerare testo Farnesina non licenziato se interrogato,
@@ -26,15 +22,20 @@ su un repo HuggingFace pubblico (upload_hf.py rifiuta --public se rileva righe V
 --vs, VS viene incluso per un dataset/modello di uso locale o personale: mai per la pubblicazione.
 Wikipedia IT (CC BY-SA 4.0, via langlink dall'articolo tematico EN: "Cuisine of X", "Culture of X", ecc.)
 alimenta i positivi di CIBO_BEVANDE, CONNETTIVITA, USI_COSTUMI, VITA_QUOTIDIANA: sono le categorie che
-Wikivoyage spesso non tratta a fondo (vedi bilanciamento nel dev doc).
+Wikivoyage spesso non tratta a fondo (vedi bilanciamento nel dev doc). L'articolo si divide in paragrafi e
+si tengono solo i piu' pertinenti (WP_MAX_PARAGRAPHS): lunghi come una sezione Wikivoyage, non l'intro
+enciclopedica troncata a 2000 caratteri.
 """
 import argparse, html, json, random, re, sys, time, urllib.error, urllib.parse, urllib.request
 from collections import Counter
 from pathlib import Path
 
+from eval_common import TEST_REGIONS
+from status import Progress, phase
+
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parent / "data" / "sft"
-UA = {"User-Agent": "pocket-travel-sft/0.1 (https://github.com/miracle091/pocket-travel)"}
+UA = {"User-Agent": "pocket-travel-sft/0.4 (https://github.com/miracle091/pocket-travel)"}
 
 # Stessa mappa (voci IT) di GenerateGuideContent.kt
 HEADING_TO_CATEGORY = {
@@ -51,43 +52,10 @@ EN_HEADING_TO_CATEGORY = {
     "connect": "CONNETTIVITA", "cope": "VITA_QUOTIDIANA",
 }
 
-# Voci DE e FR (stessa corrispondenza semantica di EN: es. "cope" ~ "Praktische Hinweise" / "Gérer le quotidien")
-DE_HEADING_TO_CATEGORY = {
-    "regeln und respekt": "USI_COSTUMI", "anreise": "DOGANE", "gesundheit": "SALUTE", "sicherheit": "SICUREZZA",
-    "mobilität": "TRASPORTI", "küche": "CIBO_BEVANDE", "einkaufen": "ACQUISTI",
-    "post und telekommunikation": "CONNETTIVITA", "praktische hinweise": "VITA_QUOTIDIANA",
-}
-FR_HEADING_TO_CATEGORY = {
-    "respecter": "USI_COSTUMI", "aller": "DOGANE", "santé": "SALUTE", "sécurité": "SICUREZZA",
-    "circuler": "TRASPORTI", "manger": "CIBO_BEVANDE", "boire": "CIBO_BEVANDE", "acheter": "ACQUISTI",
-    "communiquer": "CONNETTIVITA", "gérer le quotidien": "VITA_QUOTIDIANA",
-}
-
 # Sezioni delle schede Viaggiare Sicuri (Farnesina, in italiano) -> categoria. Licenza non verificata.
 VS_BASE = "https://www.viaggiaresicuri.it"
 VS_SECTION_TO_CATEGORY = {"infoSicurezza": "SICUREZZA", "infoSituazioneSanitaria": "SALUTE",
                           "infoRequisitiIngresso": "DOGANE", "infoMobilita": "TRASPORTI"}
-
-# Parti delle schede FCDO (slug della Content API di gov.uk) -> categoria; solo quelle con domande in QUESTIONS
-FCDO_PART_TO_CATEGORY = {"safety-and-security": "SICUREZZA", "health": "SALUTE", "entry-requirements": "DOGANE"}
-
-# World Factbook (CC0 1.0, github.com/factbook/factbook.json: mirror del Factbook CIA, chiuso a feb. 2026).
-# Solo i campi testuali (non le tabelle numeriche) delle due sezioni con un aggancio chiaro a una categoria.
-FACTBOOK_BASE = "https://raw.githubusercontent.com/factbook/factbook.json/master"
-FACTBOOK_FIELDS = {"ACQUISTI": [("Economy", "Exchange rates")], "CONNETTIVITA": [("Communications", "Broadcast media")]}
-
-# Travel.gc.ca (Canada), Open Government Licence - Canada: alternativa al CDC Yellow Book (pagina per paese
-# dietro un menu JavaScript, nessun endpoint scoperto). File JSON per paese, chiave = ISO alpha-2 (= flagCode
-# di pilot-regions.sh, nessuna conversione necessaria, a differenza del World Factbook).
-CA_BASE = "https://data.international.gc.ca/travel-voyage"
-CA_FIELD_TO_CATEGORY = {"security": "SICUREZZA", "health": "SALUTE", "entry-exit": "DOGANE", "laws-culture": "USI_COSTUMI"}
-
-# worldfactbooks.com: continuazione dell'archivio CIA Factbook + statistiche live, licenza diversa per campo
-# (vedi worldfactbooks.com/sources): valuta dalla sezione "Reference" (mledoze/countries), utenti internet
-# dalla sezione "Live statistics" (World Bank, World Development Indicators).
-WFB_BASE = "https://worldfactbooks.com"
-WFB_FIELD_LICENSE = {"ACQUISTI": "ODbL 1.0 (mledoze/countries, via worldfactbooks.com)",
-                     "CONNETTIVITA": "CC BY 4.0 (World Bank, via worldfactbooks.com)"}
 
 QUESTIONS = {
     "USI_COSTUMI": ["Quali usanze devo rispettare in {r}?", "Ci sono regole di comportamento da conoscere in {r}?", "Come mi comporto con la gente del posto in {r}?"],
@@ -151,6 +119,11 @@ KEYWORDS = {  # radici che il contesto deve contenere perche' la categoria sia d
 # il testo di fallback quando la ricerca non trova nulla.
 FALLBACK_CONTEXT = "Nessuna informazione disponibile per questa regione."
 MAX_CONTEXT = 2000
+# Risposta: "massimo 3 frasi" del prompt, ma le frasi Wikivoyage possono essere lunghissime
+MAX_ANSWER = 450
+URL = re.compile(r"https?://|www\.", re.I)
+# Quota dei negativi con contesto Wikivoyage EN invece che IT (nell'app il contesto e' sempre IT)
+NEG_EN_SHARE = 0.2
 
 TOPIC = {  # per la risposta negativa: gia' con preposizione articolata
     "USI_COSTUMI": "sulle usanze locali", "DOGANE": "su come arrivare", "SALUTE": "sulla salute e sulle vaccinazioni",
@@ -219,11 +192,16 @@ def make_context(rng, bodies):
 
 def pick_answer(context, body, question, cat, name):
     """Fino a 3 frasi del corpo presenti per intero nel contesto: quelle piu' vicine alla domanda
-    (parole in comune, escluso il nome della regione) o alla categoria; in ordine di testo."""
+    (parole in comune, escluso il nome della regione) o alla categoria; in ordine di testo. Solo frasi
+    pertinenti (punteggio > 0) se ce ne sono, senza link, e al massimo MAX_ANSWER caratteri in tutto."""
     stems = {w[:5] for w in re.findall(r"\w{4,}", question.lower())} - {w[:5] for w in re.findall(r"\w{4,}", name.lower())}
-    cand = [(i, x) for i, x in enumerate(sentences(body)) if x in context]
+    cand = [(i, x) for i, x in enumerate(sentences(body))
+            if x in context and not URL.search(x) and len(x) <= MAX_ANSWER]  # frasi-elenco lunghissime: fuori
     score = lambda x: 2 * sum(st in x.lower() for st in stems) + any(k in x.lower() for k in KEYWORDS[cat])
-    best = sorted(cand, key=lambda t: (-score(t[1]), t[0]))[:3]
+    ranked = sorted(cand, key=lambda t: (-score(t[1]), t[0]))
+    best = [t for t in ranked if score(t[1]) > 0][:3] or ranked[:1]
+    while len(best) > 1 and sum(len(x) + 1 for _, x in best) > MAX_ANSWER:
+        best.pop()  # toglie la meno pertinente
     return " ".join(x for _, x in sorted(best))
 
 def get(url):
@@ -278,33 +256,27 @@ def fetch_wp_it(en_title, cat):
         return (text, f"https://it.wikipedia.org/wiki/{it_title}") if text.strip() else None
     return None
 
+WP_MAX_PARAGRAPHS = 2
+WP_MIN_PARAGRAPH = 150
+WP_SKIP_SECTIONS = {"note", "bibliografia", "voci correlate", "collegamenti esterni", "altri progetti", "galleria d'immagini"}
+
 def parse_wp_it(raw, cat):
-    """[(cat, corpo)]: l'intero articolo (pulito come le sezioni Wikivoyage) e' un'unica sezione tematica."""
-    body = html.unescape(clean(raw))
-    return [(cat, body)] if body and not LEFTOVER.search(body) else []
-
-def fetch_fcdo(title):
-    """(json_raw, url) della scheda FCDO (gov.uk) del paese, o None. Lo slug e' il titolo Wikivoyage EN
-    in minuscolo con i trattini: dove non coincide la Content API risponde 404 e la regione resta senza."""
-    slug = title.lower().replace("_", "-").replace("'", "")
-    try:
-        text = get(f"https://www.gov.uk/api/content/foreign-travel-advice/{slug}")
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            return None
-        raise
-    return text, f"https://www.gov.uk/foreign-travel-advice/{slug}"
-
-def parse_fcdo(raw):
-    """[(categoria, corpo)] dalle parti della scheda FCDO (HTML -> testo)."""
-    parts = json.loads(raw)["details"].get("parts", [])
-    out = []
-    for p in parts:
-        cat = FCDO_PART_TO_CATEGORY.get(p["slug"])
-        body = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", p["body"]))).strip()
-        if cat and body:
-            out.append((cat, body))
-    return out
+    """[(cat, paragrafo)]: i WP_MAX_PARAGRAPHS paragrafi dell'articolo che toccano piu' parole chiave della
+    categoria (puliti come le sezioni Wikivoyage), nell'ordine dell'articolo; niente incipit enciclopedico
+    (tutto cio' che precede il primo titolo), note e bibliografia."""
+    paras, skip = [], True
+    for block in re.split(r"\n\s*\n", raw):
+        if (m := HEADING.match(block.strip()) or re.match(r"^={2,}\s*(.+?)\s*={2,}", block.strip())):
+            skip = m.group(1).lower() in WP_SKIP_SECTIONS
+            block = block.split("\n", 1)[1] if "\n" in block else ""
+        if skip:
+            continue
+        body = html.unescape(clean(block))
+        if len(body) >= WP_MIN_PARAGRAPH and not LEFTOVER.search(body) and covers(cat, body):
+            paras.append(body)
+    hits = lambda p: sum(k in p.lower() for k in KEYWORDS[cat])
+    best = sorted(sorted(range(len(paras)), key=lambda i: -hits(paras[i]))[:WP_MAX_PARAGRAPHS])
+    return [(cat, paras[i]) for i in best]
 
 def fetch_vs(iso3):
     """(json_raw, url) della scheda paese di Viaggiare Sicuri (JSON statico del sito), o None."""
@@ -330,91 +302,6 @@ def parse_vs(raw):
             out.append((cat, body))
     return out
 
-def factbook_index():
-    """titolo Wikivoyage EN normalizzato -> path (regione/codice.json) del World Factbook. Scarica l'elenco
-    (git tree, una chiamata) e ogni profilo paese una volta sola (poi in cache su disco come le altre fonti);
-    i codici sono GEC/FIPS, non ISO (vedi README del repo), quindi l'indice si costruisce sul nome, non sul flagCode."""
-    tree = json.loads(get("https://api.github.com/repos/factbook/factbook.json/git/trees/master?recursive=1"))
-    paths = [t["path"] for t in tree["tree"]
-            if t["path"].count("/") == 1 and t["path"].endswith(".json") and not t["path"].startswith("meta/")]
-    cache_dir = OUT / "raw" / "factbook"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    idx = {}
-    for p in paths:
-        cache = cache_dir / p.replace("/", "_")
-        if cache.exists():
-            d = json.loads(cache.read_text(encoding="utf-8"))
-        else:
-            d = json.loads(get(f"{FACTBOOK_BASE}/{p}"))
-            cache.write_text(json.dumps(d), encoding="utf-8"); time.sleep(0.2)
-        name = d.get("Government", {}).get("Country name", {}).get("conventional short form", {}).get("text")
-        if name:
-            idx[name.lower()] = p
-    return idx
-
-def fetch_factbook(title, idx):
-    """(json_raw, url) del profilo World Factbook via l'indice nome->path, o None (gia' in cache da factbook_index)."""
-    path = idx.get(title.replace("_", " ").lower())
-    if not path:
-        return None
-    raw = (OUT / "raw" / "factbook" / path.replace("/", "_")).read_text(encoding="utf-8")
-    return raw, f"https://github.com/factbook/factbook.json/blob/master/{path}"
-
-def parse_factbook(raw):
-    """[(categoria, corpo)] dai campi testuali di FACTBOOK_FIELDS."""
-    d = json.loads(raw)
-    out = []
-    for cat, fields in FACTBOOK_FIELDS.items():
-        parts = [f"{field}: {t}" for section, field in fields
-                if (t := (d.get(section, {}).get(field) or {}).get("text"))]
-        if parts:
-            out.append((cat, " ".join(parts)))
-    return out
-
-def fetch_ca(flag_code):
-    """(json_raw, url) della scheda di viaggio canadese (travel.gc.ca) del paese, o None."""
-    try:
-        return get(f"{CA_BASE}/cta-cap-{flag_code.upper()}.json"), f"https://travel.gc.ca/destinations/{flag_code.lower()}"
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            return None
-        raise
-
-def parse_ca(raw):
-    """[(categoria, corpo)] dai campi HTML di CA_FIELD_TO_CATEGORY (troncati: alcuni superano i 10k caratteri)."""
-    e = json.loads(raw)["data"]["eng"]
-    out = []
-    for field, cat in CA_FIELD_TO_CATEGORY.items():
-        t = e.get(field)
-        body = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", t or ""))).strip()[:3000]
-        if body:
-            out.append((cat, body))
-    return out
-
-def ca_codes(regions):
-    """regionId -> flagCode (ISO alpha-2), diretto: i file travel.gc.ca sono gia' chiavati per ISO alpha-2."""
-    rows = [r.split("|") for r in re.findall(r'^\s*"([^"]+\|[^"]+)"\s*$', (HERE / "pilot-regions.sh").read_text(encoding="utf-8"), re.M)]
-    return {f[0]: f[7] for f in rows if len(f) > 8 and f[7]}
-
-def fetch_worldfactbooks(title):
-    """(markdown, url) del profilo worldfactbooks.com, o None."""
-    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
-    try:
-        return get(f"{WFB_BASE}/country/{slug}.md"), f"{WFB_BASE}/country/{slug}/"
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            return None
-        raise
-
-def parse_worldfactbooks(raw):
-    """[(categoria, corpo)]: valuta -> ACQUISTI, utenti internet -> CONNETTIVITA (righe del markdown)."""
-    out = []
-    if m := re.search(r"^- Currency: (.+)$", raw, re.M):
-        out.append(("ACQUISTI", f"Currency: {m.group(1)}"))
-    if m := re.search(r"^- Internet users: (.+)$", raw, re.M):
-        out.append(("CONNETTIVITA", f"Internet users: {m.group(1)}"))
-    return out
-
 def vs_codes(regions):
     """regionId -> codice ISO3 della scheda VS. Solo regioni con bandiera propria (non condivisa con altre
     regioni, non in un gruppo): altrimenti la scheda del paese non descriverebbe la regione."""
@@ -431,7 +318,7 @@ def load_regions():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0, help="solo le prime N regioni")
-    ap.add_argument("--negatives", type=float, default=0.2, help="quota di negativi sui positivi")
+    ap.add_argument("--negatives", type=float, default=0.33, help="negativi per positivo (0.33 = ~25%% del totale)")
     ap.add_argument("--off-topic", type=float, default=0.25, help="quota di negativi con domanda fuori tema")
     ap.add_argument("--empty", type=float, default=0.1, help="quota di negativi con il contesto di fallback")
     ap.add_argument("--english", type=float, default=0.2, help="quota di domande in inglese")
@@ -442,21 +329,23 @@ def main():
     rng = random.Random(a.seed)
     (OUT / "raw").mkdir(parents=True, exist_ok=True)
 
-    regions = load_regions()[: a.limit or None]
+    # niente sottoregioni delle regioni di test (es. canada-*): il test resterebbe dentro il training
+    regions = [r for r in load_regions() if r[0] in TEST_REGIONS or not any(r[0].startswith(f"{t}-") for t in TEST_REGIONS)]
+    regions = regions[: a.limit or None]
     def load_page(rid, lang, title):
         """(testo, url) dalla cache o da Wikivoyage, o None."""
         suffix = "" if lang == "it" else f".{lang}"
         cache, meta = OUT / "raw" / f"{rid}{suffix}.txt", OUT / "raw" / f"{rid}{suffix}.url"
         try:
-            if cache.exists():
-                return cache.read_text(encoding="utf-8"), meta.read_text(encoding="utf-8")
-            res = {"it": fetch_it, "en": fetch_en, "fcdo": fetch_fcdo, "vs": fetch_vs, "ca": fetch_ca,
-                   "de": lambda t: fetch_it(t, "de"), "fr": lambda t: fetch_it(t, "fr"),
-                   "fb": lambda t: fetch_factbook(t, fb_idx), "wfb": fetch_worldfactbooks,
+            if cache.exists():  # file vuoto = pagina inesistente (per riprovare basta cancellarlo)
+                text = cache.read_text(encoding="utf-8")
+                return (text, meta.read_text(encoding="utf-8")) if text else None
+            res = {"it": fetch_it, "en": fetch_en, "vs": fetch_vs,
                    **{s: (lambda t, c=cat: fetch_wp_it(t, c)) for cat, s in WP_LANG_SUFFIX.items()},
                    }[lang](title); time.sleep(0.5)
             if not res:
-                print(f"-- {rid}: nessuna pagina {lang.upper()}"); return None
+                print(f"-- {rid}: nessuna pagina {lang.upper()}")
+                cache.write_text("", encoding="utf-8"); meta.write_text("", encoding="utf-8"); return None
             cache.write_text(res[0], encoding="utf-8"); meta.write_text(res[1], encoding="utf-8")
             return res
         except Exception as e:
@@ -466,24 +355,16 @@ def main():
     # la risposta estrattiva di una pagina EN sarebbe in inglese, contro "rispondi in italiano".
     data, attribution = {}, []
     vs = vs_codes(regions) if a.vs else {}
-    ca = ca_codes(regions)
-    fb_idx = factbook_index()
-    PARSE = {"fcdo": parse_fcdo, "fb": parse_factbook, "wfb": parse_worldfactbooks}
-    LICENSE = {"fcdo": "OGL v3.0", "fb": "CC0 1.0 (factbook.json)"}
-    for rid, name, title in regions:
+    phase("fonti", f"{len(regions)} regioni (pagine dalla cache in raw/, le mancanti dalla rete)")
+    progress = Progress("fonti", len(regions), "regione", every=20)
+    for n, (rid, name, title) in enumerate(regions, 1):
+        progress.update(n - 1, rid)
         by_lang = {}
-        for lang, headings in (("it", HEADING_TO_CATEGORY), ("en", EN_HEADING_TO_CATEGORY),
-                              ("de", DE_HEADING_TO_CATEGORY), ("fr", FR_HEADING_TO_CATEGORY),
-                              ("fcdo", None), ("fb", None), ("wfb", None)):
+        for lang, headings in (("it", HEADING_TO_CATEGORY), ("en", EN_HEADING_TO_CATEGORY)):
             page = load_page(rid, lang, title)
-            secs = (PARSE[lang](page[0]) if lang in PARSE else parse_sections(page[0], headings)) if page else []
-            if secs:
+            if page and (secs := parse_sections(page[0], headings)):
                 by_lang[lang] = secs
-                if lang == "wfb":  # licenza diversa per campo (vedi WFB_FIELD_LICENSE), non un'unica riga
-                    for cat, _ in secs:
-                        attribution.append((rid, name, page[1], WFB_FIELD_LICENSE.get(cat, "licenza non specificata (worldfactbooks.com)")))
-                else:
-                    attribution.append((rid, name, page[1], LICENSE.get(lang, "CC BY-SA 4.0")))
+                attribution.append((rid, name, page[1], "CC BY-SA 4.0"))
         page = load_page(rid, "vs", vs[rid]) if rid in vs else None
         if page and (secs := parse_vs(page[0])):  # italiano: alimenta anche i positivi
             by_lang["it"] = by_lang.get("it", []) + secs
@@ -493,10 +374,6 @@ def main():
             if page and (secs := parse_wp_it(page[0], cat)):
                 by_lang["it"] = by_lang.get("it", []) + secs
                 attribution.append((rid, name, page[1], "CC BY-SA 4.0 (Wikipedia)"))
-        page = load_page(rid, "ca", ca[rid]) if rid in ca else None
-        if page and (secs := parse_ca(page[0])):
-            by_lang["ca"] = secs
-            attribution.append((rid, name, page[1], "Open Government Licence - Canada"))
         if by_lang:
             data[rid] = (name, by_lang)
 
@@ -508,8 +385,10 @@ def main():
         return {"messages": [{"role": "user", "content": on_device_prompt(context, q)},
                              {"role": "assistant", "content": ans}], "kind": kind, "region": rid, "category": cat}
 
+    progress.update(len(regions), f"{len(data)} regioni con testo")
+    phase("righe", "positivi, poi negativi")
     # positivi: sezione giusta + 0-2 sezioni distraenti (categorie diverse, che non trattano la domanda)
-    rows, pos = [], 0
+    rows, pos, seen = [], 0, set()
     for rid, (name, langs) in data.items():
         secs_it = langs.get("it", [])
         for cat, body in secs_it:
@@ -524,8 +403,9 @@ def main():
                 if len(answer) < 40:  # la sezione giusta e' stata troncata: riprova da sola
                     context = make_context(rng, [body])
                     answer = pick_answer(context, body, q, cat, name)
-                if len(answer) < 40:
+                if len(answer) < 40 or (context, q) in seen:
                     continue
+                seen.add((context, q))
                 rows.append(row("pos", rid, cat, context, q, answer)); pos += 1
     # negativi: categoria assente dal contesto (1-3 sezioni che non la trattano), domanda fuori tema,
     # oppure contesto di fallback
@@ -534,7 +414,9 @@ def main():
     while neg < n_neg and tries < n_neg * 20:
         tries += 1
         rid = rng.choice(ids); name, langs = data[rid]
-        secs = langs[rng.choice(sorted(langs))]  # il contesto puo' essere IT o EN, la risposta e' sempre IT
+        # contesto IT come nell'app, EN solo per una quota minore; la risposta e' sempre IT
+        lang = "en" if "en" in langs and ("it" not in langs or rng.random() < NEG_EN_SHARE) else "it"
+        secs = langs[lang]
         tail = rng.choice(REFUSAL_TAILS)
         x = rng.random()
         if x < a.off_topic:
@@ -555,6 +437,9 @@ def main():
                 if not bodies:
                     continue
                 context = make_context(rng, rng.sample(bodies, min(len(bodies), rng.randint(1, 3))))
+        if (context, q) in seen:
+            continue
+        seen.add((context, q))
         rows.append(row("neg", rid, cat, context, q, ans)); neg += 1
     rng.shuffle(rows)
 
@@ -571,10 +456,8 @@ def main():
         for rid, name, url, lic in attribution:
             f.write(f"{rid}\t{name}\t{url}\t{lic}\n")
     n_it = sum("it" in langs for _, langs in data.values())
-    print(f"regioni con guida: {len(data)}/{len(regions)} (IT: {n_it}, DE: {sum('de' in l for _, l in data.values())}, "
-          f"FR: {sum('fr' in l for _, l in data.values())}, FCDO: {sum('fcdo' in l for _, l in data.values())}, "
-          f"FB: {sum('fb' in l for _, l in data.values())}, WFB: {sum('wfb' in l for _, l in data.values())}, "
-          f"CA: {sum('ca' in l for _, l in data.values())}, VS: {sum(r[3] == 'licenza non verificata (Farnesina)' for r in attribution)}); "
+    print(f"regioni con guida: {len(data)}/{len(regions)} (IT: {n_it}, EN: {sum('en' in l for _, l in data.values())}, "
+          f"VS: {sum(r[3] == 'licenza non verificata (Farnesina)' for r in attribution)}); "
           f"positivi={pos} negativi={neg} totale={len(rows)}")
     print("per categoria:", dict(Counter(r["category"] for r in rows)))
     print(f"scritto {data_out}")

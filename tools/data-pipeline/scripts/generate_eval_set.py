@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera il test esteso (eval_extended.jsonl) sulle regioni di test di train_lora.py (seed 42, 1/20).
+"""Genera il test esteso (eval_extended.jsonl) sulle regioni di test di train_lora.py (TEST_REGIONS in eval_common.py).
 
 Il test base usa le stesse domande e la stessa forma di negativo del training: misura se il modello ha
 imparato quel criterio, non se generalizza. Qui le domande sono scritte a mano e NON sono nei template
@@ -16,6 +16,8 @@ Legge solo la cache di generate_sft_dataset.py (data/sft/raw): niente rete. Uso:
 import json
 import random
 from collections import Counter
+
+from eval_common import TEST_REGIONS
 
 from generate_sft_dataset import (EN_HEADING_TO_CATEGORY, FALLBACK_CONTEXT, HEADING_TO_CATEGORY, OUT, QUESTIONS, TOPIC,
                                   covers, load_regions, make_context, on_device_prompt, parse_sections, pick_answer)
@@ -50,10 +52,9 @@ OFF_TOPIC = ["Qual e' la capitale della Francia?", "Come si prepara la carbonara
 
 def main():
     rng = random.Random(42)
-    rows = [json.loads(l) for l in open(OUT / "pocket_travel_sft.jsonl", encoding="utf-8")]
-    regions = sorted({r["region"] for r in rows})
-    held_out = sorted(random.Random(42).sample(regions, max(1, len(regions) // 20)))  # come train_lora.py
-    names = {rid: name for rid, name, _ in load_regions()}
+    held_out = sorted(TEST_REGIONS)  # come train_lora.py
+    # le regioni sostituite da sottoregioni (es. canada) non sono piu' in pilot-regions.sh: nome dall'id
+    names = {rid: rid.replace("-", " ").title() for rid in held_out} | {rid: name for rid, name, _ in load_regions()}
     langs = {}  # rid -> {"it": [(cat, corpo)], "en": [...]}
     for rid in held_out:
         langs[rid] = {}

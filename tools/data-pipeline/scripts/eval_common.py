@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 """Utilita' condivise da eval_behavior.py e eval_gguf.py: stesse regioni di test di
-train_lora.py (seed 42, 1/20) e stesso formato di report, sia base che esteso (generate_eval_set.py).
+train_lora.py (TEST_REGIONS) e stesso formato di report, sia base che esteso (generate_eval_set.py).
 """
 import json
-import random
 from pathlib import Path
 
 SFT_DIR = Path(__file__).resolve().parent.parent / "data" / "sft"
 REFUSAL = "Il contesto non contiene informazioni"
+# Regioni di test, fisse: erano il campione casuale (seed 42, 1/20) delle 251 regioni del dataset v5 e
+# restano le stesse anche quando l'elenco regioni cambia (es. paesi divisi per stato), cosi' i risultati
+# restano confrontabili. generate_sft_dataset.py esclude anche le loro sottoregioni (es. canada-*).
+TEST_REGIONS = frozenset({"antartide", "bosnia-erzegovina", "brasile", "canada", "emirati-arabi-uniti", "figi-lau",
+                          "germania", "palau", "regno-unito", "samoa", "samoa-americane"})
 
 
 def load_test_rows(extended):
     """(righe di test, regioni di test). Se extended, le righe vengono da eval_extended.jsonl."""
     rows = [json.loads(l) for l in open(SFT_DIR / "pocket_travel_sft.jsonl", encoding="utf-8")]
-    regions = sorted({r["region"] for r in rows})
-    held_out = set(random.Random(42).sample(regions, max(1, len(regions) // 20)))
+    held_out = set(TEST_REGIONS)
     if extended:
         ext = [json.loads(l) for l in open(SFT_DIR / "eval_extended.jsonl", encoding="utf-8")]
         return ext, held_out

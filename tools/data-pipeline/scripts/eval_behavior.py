@@ -17,6 +17,7 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from eval_common import REFUSAL, SFT_DIR, load_test_rows, print_report
+from status import Progress, phase
 
 ap = argparse.ArgumentParser()
 ap.add_argument("model", nargs="?", default=str(SFT_DIR / "run-smollm2-135m" / "merged"))
@@ -29,10 +30,13 @@ a = ap.parse_args()
 BF16 = torch.cuda.is_bf16_supported() and torch.cuda.get_device_capability()[0] >= 8
 DTYPE = torch.bfloat16 if BF16 else torch.float16
 
+phase("caricamento modello", a.model)
 tok = AutoTokenizer.from_pretrained(a.model, padding_side="left")
 model = AutoModelForCausalLM.from_pretrained(a.model, dtype=DTYPE).to("cuda").eval()
 
 test, held_out = load_test_rows(a.extended)
+phase("eval", f"{len(test)} righe {'(test esteso)' if a.extended else '(test base)'}, batch {a.batch}")
+progress = Progress("eval", len(test), "riga", every=30)
 
 stats = {}  # tipo di riga -> [(ha rifiutato, risposta ok)]
 for i in range(0, len(test), a.batch):
@@ -49,5 +53,8 @@ for i in range(0, len(test), a.batch):
         stats.setdefault(r["kind"], []).append((got.startswith(REFUSAL), same))
         if a.errors and r["kind"].startswith("pos") and got.startswith(REFUSAL):
             print("RIFIUTO SBAGLIATO", r["category"], "|", r["messages"][0]["content"].rsplit("DOMANDA: ", 1)[1])
+    done = sum(len(rs) for rs in stats.values())
+    refused = {p: [x[0] for k, rs in stats.items() if k.startswith(p) for x in rs] for p in ("pos", "neg")}
+    progress.update(done, " · ".join(f"{p} rifiutati {100 * sum(v) // len(v)}%" for p, v in refused.items() if v))
 
 print_report(stats, test, held_out, a.extended)
