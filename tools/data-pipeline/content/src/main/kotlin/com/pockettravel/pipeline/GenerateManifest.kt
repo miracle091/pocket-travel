@@ -7,7 +7,10 @@ import java.time.Instant
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class ManifestFileEntry(val name: String, val url: String, val sizeBytes: Long, val sha256: String)
+/** sourceSizeBytes: solo per i .rd5 ritagliati sulla regione (clip_rd5.py), dimensione del file
+ *  originale di brouter.de; build-region.sh la confronta con quella attuale per capire se la tile
+ *  e' cambiata (sizeBytes e' quella del file ritagliato). Non letto dall'app. */
+data class ManifestFileEntry(val name: String, val url: String, val sizeBytes: Long, val sha256: String, val sourceSizeBytes: Long? = null)
 
 /** bbox+sorgente per l'estrazione lato device di map.pmtiles (vedi PmtilesExtractor, core:sync) —
  *  non un file da impacchettare, la build Protomaps e' letta via HTTP range direttamente dal device. */
@@ -40,6 +43,7 @@ private fun ManifestFileEntry.toJson(): JSONObject = JSONObject()
     .put("url", url)
     .put("sizeBytes", sizeBytes)
     .put("sha256", sha256)
+    .apply { sourceSizeBytes?.let { put("sourceSizeBytes", it) } }
 
 private fun MapSourceInput.toJson(): JSONObject = JSONObject()
     .put("sourceUrl", sourceUrl)
@@ -125,6 +129,7 @@ fun buildRegionFragmentJsonFromSpec(specJson: String): String {
                 url = f.getString("url"),
                 sizeBytes = f.getLong("sizeBytes"),
                 sha256 = f.getString("sha256"),
+                sourceSizeBytes = if (f.has("sourceSizeBytes")) f.getLong("sourceSizeBytes") else null,
             )
         }
     }

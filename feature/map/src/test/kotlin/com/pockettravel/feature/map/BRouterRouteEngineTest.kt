@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -70,6 +71,29 @@ class BRouterRouteEngineTest {
 
         assertNotNull("un percorso che attraversa il confine di tile deve essere trovato usando entrambi i segmenti", route)
         assertTrue("distanza attesa positiva e plausibile per ~0.006 gradi di longitudine", route!!.distanceMeters in 100.0..2000.0)
+    }
+
+    // Segmenti ritagliati sulla regione (tools/data-pipeline/scripts/clip_rd5.py): lo stesso percorso
+    // dentro la regione deve venire identico con il .rd5 originale di brouter.de e con quello ritagliato.
+    // Il .rd5 originale pesa decine di MB e non sta nel repo: il test gira solo se RD5_CLIP_TEST_DIR
+    // indica una cartella con orig/E10_N40.rd5 (da brouter.de) e clipped/E10_N40.rd5 (ritagliato sul
+    // riquadro di San Marino), altrimenti viene saltato.
+    @Test
+    fun `un percorso dentro la regione e' identico con il segmento ritagliato`() {
+        val base = System.getenv("RD5_CLIP_TEST_DIR")?.let(::File)
+        assumeTrue("RD5_CLIP_TEST_DIR non impostata", base != null && File(base, "clipped/E10_N40.rd5").exists())
+        val profileDir = tempFolder.newFolder("profiles2")
+        copyProfileResource("trekking.brf", profileDir)
+        copyProfileResource("lookups.dat", profileDir)
+        // Serravalle -> Citta' di San Marino, a piedi (profilo trekking)
+        val from = RoutePoint(43.9690, 12.4800)
+        val to = RoutePoint(43.9356, 12.4473)
+
+        val original = BRouterRouteEngine(File(base, "orig"), profileDir).route(from, to)
+        val clipped = BRouterRouteEngine(File(base, "clipped"), profileDir).route(from, to)
+
+        assertNotNull("percorso con il segmento originale", original)
+        assertEquals(original, clipped)
     }
 
     private fun copyProfileResource(name: String, targetDir: File) {

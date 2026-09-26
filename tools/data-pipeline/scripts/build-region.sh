@@ -68,6 +68,14 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 # shellcheck source=./lib.sh
 source "$SCRIPT_DIR/lib.sh"
 BROUTER_BASE="https://brouter.de/brouter/segments4"
+# I .rd5 di brouter.de coprono 5x5 gradi: appena scaricati si ritagliano sul riquadro della regione
+# allargato di RD5_CLIP_MARGIN gradi (clip_rd5.py; San Marino da 76 a 0,9 MB, stesso percorso). Nel
+# manifest sizeBytes/sha256 sono del file ritagliato, sourceSizeBytes dell'originale (confronto 2bis).
+RD5_CLIP_MARGIN="${RD5_CLIP_MARGIN:-0.1}"
+clip_rd5() {
+  python3 "$SCRIPT_DIR/clip_rd5.py" "$1" "$1.clip" --bbox "$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --margin "$RD5_CLIP_MARGIN" \
+    && mv "$1.clip" "$1"
+}
 MAP_MIN_ZOOM=0
 MAP_MAX_ZOOM=14
 # Versione della mappa (map.version, che fa ri-estrarre la mappa alle app installate): nuova solo se
@@ -184,7 +192,8 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
     ' "$EXPECTED_TSV")"
 
     PUBLISHED_SORTED="$(jq -c --arg id "$REGION_ID" '
-      [(.regions // [])[] | select(.regionId == $id) | (.routing.files // .files // [])[] | select(.name | endswith(".rd5")) | {name, sizeBytes}]
+      [(.regions // [])[] | select(.regionId == $id) | (.routing.files // .files // [])[] | select(.name | endswith(".rd5"))
+        | {name, sizeBytes: (.sourceSizeBytes // -1)}]
       | sort_by(.name)
     ' "$PUBLISHED_MANIFEST" 2>/dev/null || echo "[]")"
 
@@ -257,11 +266,13 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
           dest="$OUTPUT_DIR/$tileFile"
           echo "-- scarico $tileFile (cambiata)..."
           download_with_progress "$dest" "$tileFile" -sS -o "$dest" "${BROUTER_BASE}/${tileFile}"
+          sourceSize="$(wc -c < "$dest" | tr -d ' ')"
+          clip_rd5 "$dest"
           size="$(wc -c < "$dest" | tr -d ' ')"
           hash="$(sha256sum < "$dest" | awk '{print $1}')"
-          printf '%s\t%s\t%s\t%s\n' "$tileFile" "${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${tileFile}" "$size" "$hash" >> "$UPDATED_TSV"
+          printf '%s\t%s\t%s\t%s\t%s\n' "$tileFile" "${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${tileFile}" "$size" "$hash" "$sourceSize" >> "$UPDATED_TSV"
         done <<< "$CHANGED_TILES"
-        jq -R -s -c 'split("\n") | map(select(length > 0) | split("\t") | {name: .[0], url: .[1], sizeBytes: (.[2] | tonumber), sha256: .[3]})' \
+        jq -R -s -c 'split("\n") | map(select(length > 0) | split("\t") | {name: .[0], url: .[1], sizeBytes: (.[2] | tonumber), sha256: .[3], sourceSizeBytes: (.[4] | tonumber)})' \
           "$UPDATED_TSV" > "$WORKDIR/updated-rd5.json"
         # Mappa e routing hanno versioni indipendenti: una tile .rd5 cambiata non fa piu' ri-estrarre
         # la mappa (prima map.version cambiava con routing.version).
@@ -391,10 +402,12 @@ while [ "$lon" -le "$LON_END" ]; do
         dest="$OUTPUT_DIR/${tile}.rd5"
         echo "-- scarico $tile.rd5 (ri-ospitato insieme a poi.db, vedi commento in testa al file)..."
         download_with_progress "$dest" "$tile.rd5" -sS -o "$dest" "$url"
+        sourceSize="$(wc -c < "$dest" | tr -d ' ')"
+        clip_rd5 "$dest"
         size="$(wc -c < "$dest" | tr -d ' ')"
         hash="$(sha256sum < "$dest" | awk '{print $1}')"
         rd5Url="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${tile}.rd5"
-        entry="{ \"name\": \"${tile}.rd5\", \"url\": \"${rd5Url}\", \"sizeBytes\": ${size}, \"sha256\": \"${hash}\" }"
+        entry="{ \"name\": \"${tile}.rd5\", \"url\": \"${rd5Url}\", \"sizeBytes\": ${size}, \"sha256\": \"${hash}\", \"sourceSizeBytes\": ${sourceSize} }"
         if [ -z "$REMOTE_FILES_JSON" ]; then REMOTE_FILES_JSON="$entry"; else REMOTE_FILES_JSON="$REMOTE_FILES_JSON, $entry"; fi
       fi
 

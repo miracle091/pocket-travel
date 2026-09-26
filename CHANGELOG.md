@@ -9,6 +9,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Aprendo una regione dall'elenco, la sua riga si allarga fino a diventare la pagina della regione e si richiude tornando indietro (anche con il gesto Indietro).
 
 ### Modificato
+- Percorsi molto più leggeri: i dati per il calcolo dei percorsi sono ritagliati sulla regione invece di coprire un quadrato di 5 gradi (Lussemburgo da 415 a 6 MB, San Marino da 76 a 1 MB), con gli stessi percorsi dentro la regione e fino a circa 10 km oltre il confine. Arrivano con il prossimo aggiornamento di ogni regione.
 - Strumenti di addestramento dell'assistente: dati più puliti (risposte più brevi e senza link, niente introduzioni enciclopediche, un quarto di esempi di rifiuto, fonti ridotte a Wikivoyage e Wikipedia), regioni di test fisse, quantizzazione calibrata sulle guide (imatrix) e una riga di stato leggibile con avanzamento, velocità e tempo mancante in addestramento, valutazione e conversione.
 
 ## [0.7.0]
