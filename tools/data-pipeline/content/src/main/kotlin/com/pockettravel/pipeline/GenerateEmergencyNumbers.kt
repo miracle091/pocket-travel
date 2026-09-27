@@ -32,6 +32,23 @@ private val regionsWithoutCentralNumber: Set<String> by lazy {
 }
 
 /**
+ * "Numeri di emergenza: Generale 112, Polizia 113, Ambulanza 118, Vigili del fuoco 115" per la
+ * sezione "Fatti rapidi" di una regione (vedi quickFactsSection in GenerateGuideContent.kt), o
+ * null se la regione non ha numeri mappati (assente da emergency-numbers.tsv, o senza numero
+ * centralizzato).
+ */
+fun emergencyNumbersLine(regionId: String): String? {
+    val numbers = emergencyNumbersByRegion[regionId] ?: return null
+    val parts = buildList {
+        numbers.general?.let { add("Generale $it") }
+        add("Polizia ${numbers.police}")
+        add("Ambulanza ${numbers.ambulance}")
+        add("Vigili del fuoco ${numbers.fire}")
+    }
+    return "Numeri di emergenza: " + parts.joinToString(", ")
+}
+
+/**
  * Tabelle "emergency_numbers" ed "emergency_numbers_none" di guides.db (schema minimo, non quello
  * Room), importate dall'app in region.db via EmergencyNumbersDao insieme alle guide. La prima ha una
  * riga per ciascuna delle regioni passate che ha numeri mappati. La seconda elenca le regioni senza

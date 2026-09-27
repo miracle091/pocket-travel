@@ -81,11 +81,21 @@ PIPELINE_USER_AGENT="PocketTravelDataPipeline/1.0 (https://github.com/miracle091
 # Lo User-Agent descrittivo e' richiesto dalla policy di Wikimedia.
 # Ritorna 1 (e nessun URL) se anche la pagina EN risulta vuota (titolo errato o errore di rete).
 wikimedia_curl() { curl -sSf --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" "$@"; }
+
+# Titolo IT Wikivoyage di una pagina (dal suo titolo EN, via langlink interwiki) o vuoto se non
+# esiste una pagina IT - stesso approccio di fetch_wikivoyage_dump piu' sotto, estratto perche'
+# build-cities-dump.sh lo riusa senza scaricare anche il testo della pagina (gli serve solo il
+# titolo, per abbinare le pagine {{QuickbarCity}} del dump alla regione).
+resolve_it_wikivoyage_title() {
+  local wikiTitle="$1" langlinks
+  langlinks="$(wikimedia_curl "https://en.wikivoyage.org/w/api.php?action=query&titles=${wikiTitle}&prop=langlinks&lllang=it&format=json&utf8=1&redirects=1" 2>/dev/null || true)"
+  printf '%s' "$langlinks" | sed -n 's/.*"lang":"it","\*":"\([^"]*\)".*/\1/p'
+}
+
 fetch_wikivoyage_dump() {
   local wikiTitle="$1" outFile="$2"
-  local langlinks itTitle itTitleUrl
-  langlinks="$(wikimedia_curl "https://en.wikivoyage.org/w/api.php?action=query&titles=${wikiTitle}&prop=langlinks&lllang=it&format=json&utf8=1&redirects=1" 2>/dev/null || true)"
-  itTitle="$(printf '%s' "$langlinks" | sed -n 's/.*"lang":"it","\*":"\([^"]*\)".*/\1/p')"
+  local itTitle itTitleUrl
+  itTitle="$(resolve_it_wikivoyage_title "$wikiTitle")"
   : > "$outFile"
   if [ -n "$itTitle" ]; then
     itTitleUrl="${itTitle// /_}"
@@ -96,6 +106,37 @@ fetch_wikivoyage_dump() {
     fi
   fi
   fetch_wikivoyage_en_dump "$wikiTitle" "$outFile"
+}
+
+# Scarica l'ultimo dump completo di Wikivoyage IT (pages-articles, ~50 MB compressi) in <outFile> e
+# ne verifica lo sha1 dal file sha1sums pubblicato accanto, con fino a 3 tentativi (stesso motivo
+# del ritentativo su build.protomaps.com in build-addresses.sh: un download cosi' grande puo'
+# interrompersi a meta'). Usato da build-cities-dump.sh (fase 1 di rag-knowledge-plan.md, guide
+# delle citta') per trovare con un solo passaggio le pagine {{QuickbarCity}} di tutte le regioni,
+# invece di migliaia di richieste API. "latest" (non una data precisa): dumps.wikimedia.org
+# mantiene un alias sempre aggiornato accanto alla cartella datata, evitando di dover risolvere la
+# data della corsa piu' recente come fa resolve_protomaps_date per le build Protomaps.
+WIKIVOYAGE_IT_DUMP_BASE_URL="https://dumps.wikimedia.org/itwikivoyage/latest"
+WIKIVOYAGE_IT_DUMP_NAME="itwikivoyage-latest-pages-articles.xml.bz2"
+fetch_wikivoyage_it_dump() {
+  local outFile="$1" attempt sha1File sha1
+  sha1File="$(mktemp)"
+  for attempt in 1 2 3; do
+    if wikimedia_curl -o "$outFile" "$WIKIVOYAGE_IT_DUMP_BASE_URL/$WIKIVOYAGE_IT_DUMP_NAME" 2>/dev/null \
+      && wikimedia_curl -o "$sha1File" "$WIKIVOYAGE_IT_DUMP_BASE_URL/itwikivoyage-latest-sha1sums.txt" 2>/dev/null; then
+      sha1="$(grep -F "$WIKIVOYAGE_IT_DUMP_NAME" "$sha1File" | awk '{print $1}' | head -1)"
+      if [ -n "$sha1" ] && printf '%s  %s\n' "$sha1" "$outFile" | sha1sum -c - >/dev/null 2>&1; then
+        rm -f "$sha1File"
+        return 0
+      fi
+    fi
+    if [ "$attempt" -lt 3 ]; then
+      echo "-- dump Wikivoyage IT: tentativo $attempt/3 fallito (download o sha1), riprovo tra $((attempt * 30))s" >&2
+      sleep $((attempt * 30))
+    fi
+  done
+  rm -f "$sha1File" "$outFile"
+  return 1
 }
 
 # Solo la pagina inglese: stesso contratto di fetch_wikivoyage_dump (URL su stdout, 1 se vuota).

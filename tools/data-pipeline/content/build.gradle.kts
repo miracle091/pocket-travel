@@ -49,6 +49,7 @@ fun registerPipelineTask(name: String, mainClass: String, maxHeap: String? = nul
 }
 
 registerPipelineTask("generateGuides", "com.pockettravel.pipeline.GenerateGuideContentKt", usesSqlite = true)
+registerPipelineTask("generateCities", "com.pockettravel.pipeline.GenerateCitiesKt", usesSqlite = true)
 // L'unico task che legge l'XML OSM grezzo di un'intera nazione (es. Germania, Stati Uniti): oltre
 // alla lettura in streaming di readPois (tiene in memoria solo i POI, non i nodi con tutti i tag),
 // un margine di heap esplicito assorbe nazioni ancora piu' grandi/dense di POI senza dipendere

@@ -182,6 +182,58 @@ class GenerateGuideContentTest {
     }
 
     @Test
+    fun `sezione Fatti rapidi dai campi del QuickbarCountry e dai numeri di emergenza`() {
+        val dump = """
+            {{QuickbarCountry
+            | Lingua = Italiano, [[Tedesco]] ([[Trentino-Alto Adige]])
+            | Elettricità = 230V/50Hz (presa italiana, europea e tedesca)
+            | Fuso orario = UTC+1
+            }}
+
+            == Sicurezza ==
+            Zona tranquilla.
+        """.trimIndent()
+
+        val guide = regionGuideFromDumps("italia", dump, "https://it.wikivoyage.org/wiki/Italia", null, "")
+
+        val fattiRapidi = guide.sections.single { it.category == "FATTI_RAPIDI" }
+        assertEquals("Fatti rapidi", fattiRapidi.title)
+        assertEquals(
+            "Lingua: Italiano, Tedesco (Trentino-Alto Adige)\n" +
+                "Elettricità: 230V/50Hz (presa italiana, europea e tedesca)\n" +
+                "Fuso orario: UTC+1\n" +
+                "Numeri di emergenza: Generale 112, Polizia 113, Ambulanza 118, Vigili del fuoco 115",
+            fattiRapidi.body,
+        )
+    }
+
+    @Test
+    fun `Fatti rapidi su piu' righe (Valuta) diventa una riga sola con le voci separate da virgola`() {
+        val dump = """
+            {{QuickbarCountry
+            | Valuta=
+            *bolívar venezuelano sovrano (VES)<br>
+            *petro (criptovaluta)<br>
+            *dollaro statunitense
+            | Fuso orario = UTC-4:30
+            }}
+        """.trimIndent()
+
+        val fattiRapidi = quickFactsSection("venezuela-test", dump)
+
+        // Ordine fisso (Lingua, Elettricità, Fuso orario, Valuta), non quello di comparsa nel wikitext.
+        assertEquals(
+            "Fuso orario: UTC-4:30\nValuta: bolívar venezuelano sovrano (VES), petro (criptovaluta), dollaro statunitense",
+            fattiRapidi?.body,
+        )
+    }
+
+    @Test
+    fun `nessuna sezione Fatti rapidi senza campi Quickbar ne' numeri di emergenza`() {
+        assertEquals(null, quickFactsSection("regione-sconosciuta", "{{QuickbarCountry\n| Banner = x.jpg\n}}"))
+    }
+
+    @Test
     fun `usa la pagina inglese solo se quella italiana non da' sezioni`() {
         val itSoloTitoli = "== Sicurezza ==\n\n== A tavola ==\n"
         val itConTesto = "== Sicurezza ==\nZona tranquilla.\n"

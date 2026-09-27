@@ -427,6 +427,26 @@ jobs:
           export ADDRESSES_REPORT="$RUNNER_TEMP/addresses-report.md"
           : > "$ADDRESSES_REPORT"
           IFS=',' read -ra SHARD_REGIONS <<< "$SELECTED"
+
+          # Citta' delle regioni (fase 1 di rag-knowledge-plan.md): un solo passaggio sul dump di
+          # Wikivoyage IT per l'intero shard (build-cities-dump.sh), prima del giro per regione qui
+          # sotto - mai fatale, se fallisce le regioni di questo run restano senza citta' nuove
+          # (build-cities.sh, piu' sotto, tiene la voce gia' pubblicata).
+          CITIES_REGIONS_TSV="$RUNNER_TEMP/cities-regions.tsv"
+          : > "$CITIES_REGIONS_TSV"
+          for spec in "${PILOT_REGIONS[@]}"; do
+            IFS='|' read -r regionId _displayName _minLon _minLat _maxLon _maxLat wikiTitle _flag _groupName _groupLabel _continent <<< "$spec"
+            for r in "${SHARD_REGIONS[@]}"; do
+              [ "$r" = "$regionId" ] || continue
+              printf '%s\t%s\n' "$regionId" "$wikiTitle" >> "$CITIES_REGIONS_TSV"
+              break
+            done
+          done
+          CITIES_JSONL_DIR="$RUNNER_TEMP/cities-jsonl"
+          mkdir -p "$CITIES_JSONL_DIR"
+          tools/data-pipeline/scripts/build-cities-dump.sh "$CITIES_REGIONS_TSV" "$CITIES_JSONL_DIR" \
+            || echo "::warning::dump citta' non generato per questo shard, regioni senza citta' nuove"
+
           for spec in "${PILOT_REGIONS[@]}"; do
             IFS='|' read -r regionId displayName minLon minLat maxLon maxLat _wikiTitle flag groupName groupLabel continent <<< "$spec"
             match=false
@@ -451,6 +471,12 @@ jobs:
               else
                 echo "-- $regionId: nessun civico disponibile (region_has_addresses), salto i civici"
               fi
+              # Citta' (facoltative, mai fatali): aggiunge la voce "cities" al frammento e, se il
+              # dump e' stato estratto per questa regione (vedi CITIES_JSONL_DIR sopra) e produce
+              # sezioni, lascia cities.db.xz da caricare.
+              tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
+                "$RELEASE_BASE_URL" "$regionOut" "$CITIES_JSONL_DIR" \
+                "$PUBLISHED_MANIFEST_URL" || echo "::warning::citta' di $regionId non generate"
               if [ -f "$regionOut/.skipped" ]; then
                 # Controllo di necessita' in build-region.sh: tile .rd5 attese invariate rispetto
                 # al manifest gia' pubblicato, il frammento e' quello di sempre, niente da
@@ -464,12 +490,13 @@ jobs:
                 # (stessa VERSION) deve poter sovrascrivere l'asset gia' caricato in un tentativo
                 # precedente fallito a meta'.
                 # In modalita' incrementale (.incremental, vedi build-region.sh sezione 2bis) si
-                # caricano solo le tile cambiate, piu' poi.db.xz/poi-extra.db.xz se erano scaduti e sono cambiati e
-                # addresses.pmtiles.xz se build-addresses.sh ne ha prodotto uno nuovo.
+                # caricano solo le tile cambiate, piu' poi.db.xz/poi-extra.db.xz se erano scaduti e sono cambiati,
+                # addresses.pmtiles.xz se build-addresses.sh ne ha prodotto uno nuovo e cities.db.xz se
+                # build-cities.sh ne ha prodotto uno nuovo.
                 uploads=()
-                # I POI, l'anteprima e i civici si caricano solo compressi (vedi xz_entry in
-                # lib.sh, build_preview in build-region.sh).
-                for xz in poi.db.xz poi-extra.db.xz preview.pmtiles.xz addresses.pmtiles.xz; do
+                # I POI, l'anteprima, i civici e le citta' si caricano solo compressi (vedi xz_entry
+                # in lib.sh, build_preview in build-region.sh).
+                for xz in poi.db.xz poi-extra.db.xz preview.pmtiles.xz addresses.pmtiles.xz cities.db.xz; do
                   [ -f "$regionOut/$xz" ] || continue
                   xzAsset="$regionOut/${regionId}--${VERSION}--$xz"
                   cp "$regionOut/$xz" "$xzAsset"

@@ -102,6 +102,14 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
             addresses.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
         }
 
+        // Citta': facoltative (regioni non ancora rigenerate, o senza pagine {{QuickbarCity}}
+        // abbinate su Wikivoyage IT), stesso schema di addresses.
+        region.optJSONObject("cities")?.let { cities ->
+            validateVersion(cities, "$regionId/cities")
+            validateFile(cities.getJSONObject("file"), regionId, allowedHosts)
+            cities.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
+        }
+
         // Anteprima offline: facoltativa (regioni non ancora rigenerate da quando esiste, o senza
         // go-pmtiles in quella run), stesso schema di poi/poiExtra piu' il livello di zoom usato.
         region.optJSONObject("preview")?.let { preview ->

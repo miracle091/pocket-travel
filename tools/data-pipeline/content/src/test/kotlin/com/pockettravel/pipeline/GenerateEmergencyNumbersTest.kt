@@ -41,4 +41,15 @@ class GenerateEmergencyNumbersTest {
             outputDb.delete()
         }
     }
+
+    @Test
+    fun `emergencyNumbersLine salta Generale se la regione non ha un numero unico`() {
+        assertEquals("Numeri di emergenza: Polizia 110, Ambulanza 119, Vigili del fuoco 119", emergencyNumbersLine("giappone"))
+    }
+
+    @Test
+    fun `emergencyNumbersLine e' null per una regione senza numeri mappati`() {
+        assertEquals(null, emergencyNumbersLine("iraq"))
+        assertEquals(null, emergencyNumbersLine("regione-sconosciuta"))
+    }
 }

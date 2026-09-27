@@ -91,14 +91,17 @@ private const val SUBHEADING_MARKER = ""
 
 data class GuideSectionRow(val category: String, val title: String, val body: String)
 
-fun parseWikivoyageDump(dumpText: String): List<GuideSectionRow> {
+// categories di default: le guide di regione (headingToCategory sopra). GenerateCities.kt passa la
+// propria mappa (titoli di sezione delle pagine citta', diversi da quelli delle pagine nazione) per
+// riusare qui sotto lo stesso parsing e la stessa cleanBody, senza duplicarli.
+fun parseWikivoyageDump(dumpText: String, categories: Map<String, String> = headingToCategory): List<GuideSectionRow> {
     val sections = mutableListOf<GuideSectionRow>()
     var currentHeading: String? = null
     val currentBody = StringBuilder()
 
     fun flush() {
         val heading = currentHeading ?: return
-        val category = headingToCategory[heading.lowercase()] ?: return
+        val category = categories[heading.lowercase()] ?: return
         val body = cleanBody(currentBody.toString())
         if (body.isNotBlank()) {
             sections += GuideSectionRow(category = category, title = heading, body = body)
@@ -176,6 +179,56 @@ private fun cleanBody(raw: String): String {
         .trim()
 }
 
+// Campi del {{QuickbarCountry}}/{{QuickbarRegion}} di Wikivoyage IT per la sezione "Fatti rapidi"
+// (fase 2 di rag-knowledge-plan.md): nomi verificati sui dump reali (es. Italia, Venezuela, Isole
+// Fær Øer in tools/data-pipeline/data/sft/raw). Cercato solo nei primi QUICKBAR_SCAN_CHARS
+// caratteri, dove sta sempre il riquadro: evita di raccogliere per sbagliato un "Valuta =" che
+// comparisse molto piu' in basso nella pagina. Il valore di un campo puo' andare su piu' righe
+// (es. Valuta del Venezuela, un elenco puntato con tre voci): si ferma al campo successivo o alla
+// chiusura "}}" del template.
+private val quickFactFieldRegex = Regex(
+    """(?m)^\|\s*(Lingua|Elettricità|Fuso orario|Valuta)\s*=\s*(.*?)(?=\n\s*\|[^|\n]*=|\n\s*}}|\z)""",
+    RegexOption.DOT_MATCHES_ALL,
+)
+private const val QUICKBAR_SCAN_CHARS = 4000
+private val quickFactOrder = listOf("Lingua", "Elettricità", "Fuso orario", "Valuta")
+
+// Pulizia inline di un valore di campo Quickbar (una riga, non una sezione): stesse regex di
+// rimozione del markup wiki di cleanBody, senza la gestione di sottotitoli/elenchi puntati su piu'
+// righe — un valore come quello di Valuta (tre voci separate da "*") diventa una singola riga con
+// le voci separate da virgola, non un elenco "▸/•" come nel corpo di una sezione.
+private fun cleanQuickFactValue(raw: String): String =
+    raw
+        .replace(htmlCommentRegex, "")
+        .replace(refTagRegex, "")
+        .replace(wikiFileLinkRegex, "")
+        .replace(externalLinkWithTextRegex, "$1")
+        .replace(bareExternalLinkRegex, "")
+        .replace(wikiLinkRegex, "$1")
+        .replace(boldItalicRegex, "")
+        .replace(templateRegex, "")
+        .replace(htmlTagRegex, "")
+        .lineSequence()
+        .map { listMarkerRegex.replace(it.trim(), "").trim() }
+        .filter { it.isNotBlank() }
+        .joinToString(", ")
+
+/**
+ * Sezione "Fatti rapidi" (categoria FATTI_RAPIDI) di una regione: una riga per ciascuno dei campi
+ * Lingua/Elettricità/Fuso orario/Valuta presenti nel {{QuickbarCountry}}/{{QuickbarRegion}} della
+ * pagina, piu' una riga con i numeri di emergenza (vedi emergencyNumbersLine in
+ * GenerateEmergencyNumbers.kt). Nessuna riga per un dato assente, null (nessuna sezione) se non
+ * c'e' nessun dato — vedi il contratto in rag-knowledge-plan.md.
+ */
+fun quickFactsSection(regionId: String, dumpText: String): GuideSectionRow? {
+    val fields = quickFactFieldRegex.findAll(dumpText.take(QUICKBAR_SCAN_CHARS))
+        .associate { it.groupValues[1] to cleanQuickFactValue(it.groupValues[2]) }
+        .filterValues { it.isNotBlank() }
+    val lines = quickFactOrder.mapNotNull { field -> fields[field]?.let { "$field: $it" } } +
+        listOfNotNull(emergencyNumbersLine(regionId))
+    return lines.takeIf { it.isNotEmpty() }?.let { GuideSectionRow(category = "FATTI_RAPIDI", title = "Fatti rapidi", body = it.joinToString("\n")) }
+}
+
 /** Guida di una regione: sezioni estratte dal dump Wikivoyage e URL della pagina da cui vengono. */
 data class RegionGuide(val regionId: String, val sourceUrl: String, val sections: List<GuideSectionRow>)
 
@@ -226,14 +279,18 @@ fun main(args: Array<String>) {
  */
 fun regionGuideFromDumps(regionId: String, dump: String, sourceUrl: String, dumpEn: String?, sourceUrlEn: String): RegionGuide {
     val sections = parseWikivoyageDump(dump)
+    // Fatti rapidi: sempre dal Quickbar della pagina scaricata (di norma quella italiana), anche
+    // quando il corpo delle sezioni viene dall'inglese piu' sotto — i nomi dei campi (Lingua,
+    // Elettricità...) sono quelli di Wikivoyage IT.
+    val quickFacts = quickFactsSection(regionId, dump)
     if (sections.isEmpty() && dumpEn != null) {
         val sectionsEn = parseWikivoyageDump(dumpEn)
         if (sectionsEn.isNotEmpty()) {
             println("guide: $regionId senza sezioni nella pagina $sourceUrl, uso $sourceUrlEn")
-            return RegionGuide(regionId, sourceUrlEn, sectionsEn)
+            return RegionGuide(regionId, sourceUrlEn, listOfNotNull(quickFacts) + sectionsEn)
         }
     }
-    return RegionGuide(regionId, sourceUrl, sections)
+    return RegionGuide(regionId, sourceUrl, listOfNotNull(quickFacts) + sections)
 }
 
 /**

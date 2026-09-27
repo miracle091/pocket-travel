@@ -125,6 +125,34 @@ class ValidateManifestTest {
         }
     }
 
+    private fun withCities(url: String, fileXz: String = "") = validManifest().replace(
+        "\"poi\": {",
+        """"cities": { "version": "2026.09.27", "file": { "name": "cities.db", "url": "$url", "sizeBytes": 62000, "sha256": "${"5".repeat(64)}" }$fileXz },
+          "poi": {""",
+    )
+
+    @Test
+    fun `accetta le citta' facoltative`() {
+        validateManifestJson(withCities("https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.27--cities.db"), allowedHosts)
+    }
+
+    @Test
+    fun `accetta la copia compressa facoltativa delle citta' e ne controlla l'host`() {
+        val goodUrl = "https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.27--cities.db.xz"
+        fun fileXz(url: String) = ""","fileXz": { "name": "cities.db.xz", "url": "$url", "sizeBytes": 15000, "sha256": "${"6".repeat(64)}" }"""
+        validateManifestJson(withCities(goodUrl, fileXz(goodUrl)), allowedHosts)
+        assertThrows(ManifestValidationException::class.java) {
+            validateManifestJson(withCities(goodUrl, fileXz("https://evil.example.com/cities.db.xz")), allowedHosts)
+        }
+    }
+
+    @Test
+    fun `rifiuta citta' su un host non consentito`() {
+        assertThrows(ManifestValidationException::class.java) {
+            validateManifestJson(withCities("https://evil.example.com/cities.db"), allowedHosts)
+        }
+    }
+
     @Test
     fun `accetta i POI extra facoltativi e ne controlla l'host`() {
         fun withPoiExtra(url: String) = validManifest().replace(
