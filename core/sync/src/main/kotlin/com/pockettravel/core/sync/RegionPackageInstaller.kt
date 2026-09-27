@@ -39,6 +39,9 @@ class RegionPackageInstaller @Inject constructor(
             if (PackageKind.POI_EXTRA in kinds) add(entry.poiExtra!!.downloadFile)
             if (PackageKind.ADDRESSES in kinds) add(entry.addresses!!.file)
         }
+        // Prima di tutto: un tentativo precedente interrotto da un crash puo' aver lasciato backup da
+        // chiudere, che activatePackage sovrascriverebbe (RegionStartupRecovery salta le regioni in download).
+        withContext(Dispatchers.IO) { regionRepository.recoverInterruptedActivations(entry.regionId) }
         // Una cartella di staging per combinazione di pacchetti e versioni: un download interrotto
         // riprende dai file .part della stessa richiesta, una richiesta diversa riparte da zero.
         val stagingVersion = PackageKind.entries.filter { it in kinds }.joinToString("_") { "${it.name.lowercase()}-${entry.versionOf(it)}" }
@@ -57,13 +60,13 @@ class RegionPackageInstaller @Inject constructor(
         val activations = mutableListOf<RegionStorage.Activation>()
         try {
             if (PackageKind.MAP in kinds) {
-                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.MAP_FILE, File(staging, RegionStorage.MAP_FILE))
+                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.MAP_FILE, File(staging, RegionStorage.MAP_FILE), entry.map.version)
             }
             if (PackageKind.ROUTING in kinds) {
-                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ROUTING_DIR, File(staging, RegionStorage.ROUTING_DIR))
+                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ROUTING_DIR, File(staging, RegionStorage.ROUTING_DIR), entry.routing.version)
             }
             if (PackageKind.ADDRESSES in kinds) {
-                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_FILE, File(staging, entry.addresses!!.file.name))
+                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_FILE, File(staging, entry.addresses!!.file.name), entry.addresses.version)
             }
             regionRepository.inInstallTransaction {
                 if (PackageKind.POI in kinds) poiImporter.import(entry.regionId, File(staging, entry.poi.file.name))

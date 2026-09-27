@@ -23,21 +23,55 @@ class RegionStorage @Inject constructor(
 
     /**
      * Sostituisce un solo pacchetto della regione ([MAP_FILE], [ROUTING_DIR] o [ADDRESSES_FILE]) con quello in
-     * staging, lasciando intatti gli altri. Il precedente resta come backup fino a commit/rollback.
+     * staging, lasciando intatti gli altri. Il precedente resta come backup fino a commit/rollback;
+     * accanto resta anche [version], la versione in attivazione, per [recoverInterruptedActivations].
      */
-    fun activatePackage(regionId: String, packageName: String, staged: File): Activation {
+    fun activatePackage(regionId: String, packageName: String, staged: File, version: String): Activation {
         require(packageName in PACKAGE_NAMES) { "Pacchetto sconosciuto: $packageName" }
         require(staged.exists()) { "Staging mancante per $regionId/$packageName" }
         val regionDir = directoryFor(regionId)
         regionDir.mkdirs()
         val live = File(regionDir, packageName)
         val backup = File(regionDir, ".$packageName.backup")
+        val pending = File(regionDir, ".$packageName.pending")
         backup.deleteRecursively()
         val hadPrevious = live.exists()
-        if (hadPrevious) check(live.renameTo(backup)) { "Impossibile preparare l'aggiornamento $regionId/$packageName" }
+        if (hadPrevious) {
+            // Solo se ci sara' un backup: la versione in attivazione, scritta prima di toccare il pacchetto attivo.
+            pending.writeText(version)
+            check(live.renameTo(backup)) { "Impossibile preparare l'aggiornamento $regionId/$packageName" }
+        }
         try { check(staged.renameTo(live)) { "Impossibile installare $regionId/$packageName" } }
-        catch (error: Exception) { if (hadPrevious) backup.renameTo(live); throw error }
-        return Activation(live, backup, hadPrevious)
+        catch (error: Exception) { if (hadPrevious) { backup.renameTo(live); pending.delete() }; throw error }
+        return Activation(live, backup, pending, hadPrevious)
+    }
+
+    /**
+     * Chiude le attivazioni di [regionId] interrotte da un crash tra [activatePackage] e
+     * commit/rollback. [installedVersion] e' la versione registrata nel database per il pacchetto
+     * (fonte di verita'): se e' quella che si stava attivando manca solo il commit e il backup si
+     * elimina, altrimenti il pacchetto attivo torna quello del backup.
+     */
+    fun recoverInterruptedActivations(regionId: String, installedVersion: (packageName: String) -> String?) = synchronized(RECOVERY_LOCK) {
+        val regionDir = directoryFor(regionId)
+        for (packageName in PACKAGE_NAMES) {
+            val live = File(regionDir, packageName)
+            val backup = File(regionDir, ".$packageName.backup")
+            val pending = File(regionDir, ".$packageName.pending")
+            val activating = pending.takeIf { it.exists() }?.readText()
+            if (activating != null && activating == installedVersion(packageName) && live.exists()) {
+                // Il database registra gia' la versione nuova: mancava solo commit().
+                backup.deleteRecursively()
+            } else if (backup.exists()) {
+                // Database fermo alla versione precedente, oppure backup senza versione in attivazione
+                // (lasciato da una versione precedente dell'app): il backup e' il pacchetto registrato.
+                live.deleteRecursively()
+                check(backup.renameTo(live)) { "Impossibile ripristinare $regionId/$packageName" }
+            }
+            // Senza backup il pacchetto attivo e' ancora il precedente: l'attivazione si e' fermata
+            // prima di spostarlo, o il rollback l'aveva gia' rimesso al suo posto.
+            pending.delete()
+        }
     }
 
     /** Elimina un solo pacchetto ([MAP_FILE], [ROUTING_DIR] o [ADDRESSES_FILE]) della regione. */
@@ -68,9 +102,16 @@ class RegionStorage @Inject constructor(
 
     fun availableBytes(): Long = regionsDir.usableSpace
 
-    class Activation(private val live: File, private val backup: File, private val hadPrevious: Boolean) {
-        fun commit() { backup.deleteRecursively() }
-        fun rollback() { live.deleteRecursively(); if (hadPrevious) backup.renameTo(live) }
+    /** Regioni con una cartella su disco (pacchetti installati o attivazioni interrotte). */
+    fun regionIdsOnDisk(): List<String> = regionsDir.listFiles().orEmpty().filter { it.isDirectory }.map { it.name }
+
+    /** Cartelle di staging presenti, una per regione (o per le guide, vedi GuidesInstaller). */
+    fun stagingIds(): List<String> = stagingDir.listFiles().orEmpty().filter { it.isDirectory }.map { it.name }
+
+    // Il file .pending si elimina per ultimo: finche' esiste, recoverInterruptedActivations sa cosa si stava attivando.
+    class Activation(private val live: File, private val backup: File, private val pending: File, private val hadPrevious: Boolean) {
+        fun commit() { backup.deleteRecursively(); pending.delete() }
+        fun rollback() { live.deleteRecursively(); if (hadPrevious) backup.renameTo(live); pending.delete() }
     }
 
     companion object {
@@ -81,6 +122,8 @@ class RegionStorage @Inject constructor(
         // Civici sovrapposti alla mappa (OfflineTileSource).
         const val ADDRESSES_FILE = "addresses.pmtiles"
         private val PACKAGE_NAMES = setOf(MAP_FILE, ROUTING_DIR, ADDRESSES_FILE)
+        // Istanze di RegionStorage non condivise: due recuperi della stessa regione non si sovrappongono.
+        private val RECOVERY_LOCK = Any()
     }
 
     private fun safeChild(root: File, segment: String, field: String): File {

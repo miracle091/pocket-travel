@@ -117,6 +117,19 @@ class RegionRepository @Inject constructor(
 
     suspend fun <T> inInstallTransaction(block: suspend () -> T): T = database.withTransaction { block() }
 
+    /** Riallinea i pacchetti su disco di [regionId] alle versioni registrate dopo un'installazione interrotta da un crash. */
+    suspend fun recoverInterruptedActivations(regionId: String) {
+        val current = installed(regionId)
+        regionStorage.recoverInterruptedActivations(regionId) { packageName ->
+            when (packageName) {
+                RegionStorage.MAP_FILE -> current?.mapVersion
+                RegionStorage.ROUTING_DIR -> current?.routingVersion
+                RegionStorage.ADDRESSES_FILE -> current?.addressesVersion
+                else -> null
+            }
+        }
+    }
+
     // Le guide restano: sono un pacchetto unico per tutte le regioni, non di questa regione.
     suspend fun remove(regionId: String) {
         check(regionStorage.delete(regionId)) { "Impossibile eliminare la regione $regionId" }

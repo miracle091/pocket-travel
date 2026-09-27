@@ -16,6 +16,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 
@@ -108,6 +109,14 @@ class RegionSyncScheduler @Inject constructor(
 
     fun observeDownload(regionId: String): Flow<WorkInfo?> =
         workManager.getWorkInfosForUniqueWorkFlow(workNameFor(regionId)).map { it.firstOrNull() }
+
+    /** Vero se il download della regione e' in coda, in attesa di un nuovo tentativo o in corso. */
+    suspend fun isDownloadPending(regionId: String): Boolean = isPending(workNameFor(regionId))
+
+    suspend fun isGuidesSyncPending(): Boolean = isPending(SyncConfig.GUIDES_SYNC_WORK_NAME)
+
+    private suspend fun isPending(workName: String): Boolean =
+        workManager.getWorkInfosForUniqueWorkFlow(workName).first().any { !it.state.isFinished }
 
     fun cancelDownload(regionId: String) {
         workManager.cancelUniqueWork(workNameFor(regionId))

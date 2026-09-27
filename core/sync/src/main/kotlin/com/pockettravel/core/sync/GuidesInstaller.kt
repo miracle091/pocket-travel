@@ -18,7 +18,7 @@ class GuidesInstaller @Inject constructor(
         staging.deleteRecursively()
     }
 
-    private companion object {
+    internal companion object {
         // Cartella di staging delle guide, accanto a quelle per regione (RegionStorage).
         const val STAGING_ID = "_guides"
     }

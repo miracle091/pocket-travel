@@ -25,8 +25,10 @@ object StorageModule {
     @Provides
     @Singleton
     @RegionsStagingDir
+    // Non in cacheDir: il sistema puo' svuotarla a meta' download (vedi RegionStartupRecovery).
+    // noBackupFilesDir: dati temporanei, esclusi dai backup.
     fun provideRegionsStagingDir(@ApplicationContext context: Context): File =
-        File(context.cacheDir, "regions_staging").apply { mkdirs() }
+        File(context.noBackupFilesDir, "regions_staging").apply { mkdirs() }
 
     @Provides
     @Singleton
