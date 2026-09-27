@@ -49,8 +49,9 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         }
         // Installazione finita (i file sono gia' stati spostati, restava una cartella vuota) o
         // fallimento definitivo: lo staging (file .part compresi) non serve piu'. Solo un nuovo
-        // tentativo lo riusa.
-        if (result !is Result.Retry) regionId?.let(regionStorage::deleteStaging)
+        // tentativo lo riusa. Confronto con Result.retry() (Retry.equals vale per ogni Retry): la
+        // classe Result.Retry e' API riservata a WorkManager e il lint (RestrictedApi) la rifiuta.
+        if (result != Result.retry()) regionId?.let(regionStorage::deleteStaging)
         return result
     }
 
