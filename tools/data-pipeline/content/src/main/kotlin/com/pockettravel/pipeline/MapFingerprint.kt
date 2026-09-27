@@ -3,12 +3,14 @@ package com.pockettravel.pipeline
 import com.onthegomap.planetiler.geo.TileCoord
 import com.onthegomap.planetiler.pmtiles.Pmtiles
 import java.io.File
+import java.io.IOException
 import java.io.RandomAccessFile
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.security.MessageDigest
+import java.time.Duration
 import java.util.zip.GZIPInputStream
 import kotlin.math.PI
 import kotlin.math.floor
@@ -27,18 +29,40 @@ fun interface RangeReader {
 }
 
 fun httpRangeReader(url: String): RangeReader {
-    val client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build()
+    val client = HttpClient.newBuilder()
+        .followRedirects(HttpClient.Redirect.NORMAL)
+        .connectTimeout(Duration.ofSeconds(30))
+        .build()
     return RangeReader { offset, length ->
         val request = HttpRequest.newBuilder(URI(url))
             .header("Range", "bytes=$offset-${offset + length - 1}")
             .header("User-Agent", "PocketTravelDataPipeline/1.0 (https://github.com/miracle091/pocket-travel)")
+            .timeout(Duration.ofSeconds(120))
             .build()
-        val response = client.send(request, HttpResponse.BodyHandlers.ofByteArray())
-        // Solo 206: un 200 e' il file intero (il server ha ignorato il Range), non i byte chiesti.
-        check(response.statusCode() == 206) {
-            "HTTP ${response.statusCode()} leggendo $url: attesa risposta 206 (Partial Content) alla richiesta Range"
+        // Fino a 3 tentativi: senza timeout ne' ritentativi una connessione bloccata fermava
+        // build-region.sh per sempre, e un errore passeggero dava un'impronta vuota.
+        withRetries(attempts = 3) {
+            val response = client.send(request, HttpResponse.BodyHandlers.ofByteArray())
+            // Solo 206: un 200 e' il file intero (il server ha ignorato il Range), non i byte chiesti.
+            check(response.statusCode() == 206) {
+                "HTTP ${response.statusCode()} leggendo $url: attesa risposta 206 (Partial Content) alla richiesta Range"
+            }
+            response.body()
         }
-        response.body()
+    }
+}
+
+/** Ritenta [block] su errori di rete (IOException, compresi i timeout) o risposte inattese, con attese di 2, 4... s. */
+private fun <T> withRetries(attempts: Int, block: () -> T): T {
+    var attempt = 1
+    while (true) {
+        try {
+            return block()
+        } catch (e: Exception) {
+            if ((e !is IOException && e !is IllegalStateException) || attempt >= attempts) throw e
+            Thread.sleep(2000L * attempt)
+            attempt++
+        }
     }
 }
 

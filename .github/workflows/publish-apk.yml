@@ -58,7 +58,9 @@ jobs:
 
   build-and-publish:
     needs: check-version-bump
-    if: needs.check-version-bump.outputs.bumped == 'true'
+    # Solo da main: un workflow_dispatch lanciato da un altro ramo non deve pubblicare release ne'
+    # app-status.json.
+    if: needs.check-version-bump.outputs.bumped == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     env:
       GH_TOKEN: ${{ github.token }}
@@ -101,28 +103,36 @@ jobs:
           CHANGELOG_URL="https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md"
           NOTES_FILE="$RUNNER_TEMP/release-notes.md"
 
+          # Estrae solo la sezione di questa versione da CHANGELOG.md (dal suo "## [VERSION]"
+          # alla prossima intestazione "## [", esclusa), cosi' le note della release non
+          # duplicano a mano un testo che va tenuto sincronizzato in un solo posto.
+          SECTION="$(awk -v ver="## [$VERSION]" '
+            $0 == ver { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md)"
+          # Sezione assente o vuota: una release senza note si scopre solo dopo, meglio fermarsi.
+          if [ -z "$(printf '%s' "$SECTION" | tr -d '[:space:]')" ]; then
+            echo "Nessuna voce \"## [$VERSION]\" (o voce vuota) in CHANGELOG.md: aggiungerla prima di pubblicare" >&2
+            exit 1
+          fi
           {
             echo "Changelog completo: $CHANGELOG_URL"
             echo ""
-            # Estrae solo la sezione di questa versione da CHANGELOG.md (dal suo "## [VERSION]"
-            # alla prossima intestazione "## [", esclusa), cosi' le note della release non
-            # duplicano a mano un testo che va tenuto sincronizzato in un solo posto.
-            awk -v ver="## [$VERSION]" '
-              $0 == ver { found=1; next }
-              found && /^## \[/ { exit }
-              found { print }
-            ' CHANGELOG.md
+            printf '%s\n' "$SECTION"
           } > "$NOTES_FILE"
 
           # Un rilancio dello stesso workflow sulla stessa VERSION (es. per correggere un
           # problema nell'APK appena caricato) deve poter riusare la release gia' creata
           # invece di fallire su "release already exists".
-          gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1 && \
-            gh release edit "$TAG" --repo "${{ github.repository }}" --notes-file "$NOTES_FILE" || \
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "${{ github.repository }}" --notes-file "$NOTES_FILE"
+          else
             gh release create "$TAG" --repo "${{ github.repository }}" \
               --target "$GITHUB_SHA" \
               --title "Pocket Travel $VERSION" \
               --notes-file "$NOTES_FILE"
+          fi
           gh release upload "$TAG" "$APK" --repo "${{ github.repository }}" --clobber
 
       - name: Pubblica app-status.json (controllo aggiornamenti app/modelli IA sul device)

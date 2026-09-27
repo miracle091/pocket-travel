@@ -57,10 +57,10 @@ on:
         required: false
         default: ""
 
+# Minimo a livello di workflow: contents: write solo ai job che creano release o ne caricano/tolgono
+# asset, pages/id-token solo al job "publish" che fa il deploy su Pages.
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: pages
@@ -76,6 +76,8 @@ jobs:
   # o tutto il lotto) e lo divide in 3 shard per il job a matrice sotto.
   plan:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     outputs:
       shard0: ${{ steps.plan.outputs.shard0 }}
       shard1: ${{ steps.plan.outputs.shard1 }}
@@ -121,6 +123,9 @@ jobs:
       - name: Determina le regioni della run e gli shard
         id: plan
         shell: bash
+        # L'input arriva da env, non interpolato nello script (niente iniezione di comandi).
+        env:
+          REGIONS_INPUT: ${{ github.event.inputs.regions }}
         run: |
           set -euo pipefail
           source tools/data-pipeline/scripts/pilot-regions.sh
@@ -128,7 +133,13 @@ jobs:
           # regione riusato piu' in basso per bilanciare gli shard.
           source tools/data-pipeline/scripts/weekly-schedule.sh
 
-          SELECTED="${{ github.event.inputs.regions }}"
+          # Spazi tolti ("italia, francia" -> "italia,francia"); ogni regionId deve essere un id
+          # valido, perche' finisce negli output del job e da li' negli script del job "build".
+          SELECTED="$(printf '%s' "${REGIONS_INPUT:-}" | tr -d '[:space:]')"
+          if [ -n "$SELECTED" ] && ! [[ "$SELECTED" =~ ^[a-z0-9-]+(,[a-z0-9-]+)*$ ]]; then
+            echo "regions non valido: '$SELECTED' (regionId separati da virgola, solo a-z, 0-9 e -)" >&2
+            exit 1
+          fi
           if [ -z "$SELECTED" ] && [ -n "${{ github.event.schedule }}" ]; then
             # github.event.schedule e' la stringa cron esatta che ha innescato la run (una delle 7
             # sopra): l'ultimo campo e' il giorno della settimana cron (0=domenica..6=sabato).
@@ -202,6 +213,8 @@ jobs:
   guides:
     needs: plan
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -246,6 +259,8 @@ jobs:
   # gia' pubblicata resta (mergeManifests la riporta avanti dal manifest online, come "guides").
   world-map:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     env:
       GH_TOKEN: ${{ github.token }}
       WORLD_MAP_MAX_AGE_DAYS: 30
@@ -294,7 +309,15 @@ jobs:
           # Estratta direttamente col nome dell'asset: niente copia di un file da ~555 MB
           ASSET_NAME="world-${PROTOMAPS_DATE}-z8.pmtiles"
           ASSET="$RUNNER_TEMP/$ASSET_NAME"
-          pmtiles extract "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" "$ASSET" --maxzoom=8
+          # Fino a 3 tentativi: build.protomaps.com a volte chiude la connessione a meta' download
+          # (stesso problema dei civici, vedi with_retries in build-addresses.sh).
+          for attempt in 1 2 3; do
+            rm -f "$ASSET"
+            pmtiles extract "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" "$ASSET" --maxzoom=8 && break
+            [ "$attempt" -lt 3 ] || { echo "Estrazione della mappa del mondo fallita dopo 3 tentativi" >&2; exit 1; }
+            echo "-- estrazione della mappa del mondo fallita (tentativo $attempt/3), riprovo tra $((attempt * 60))s"
+            sleep $((attempt * 60))
+          done
           gh release upload world-map "$ASSET" --repo "${{ github.repository }}" --clobber
 
           SIZE="$(wc -c < "$ASSET" | tr -d ' ')"
@@ -319,6 +342,8 @@ jobs:
   build:
     needs: plan
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -544,11 +569,38 @@ jobs:
     needs: [guides, world-map, build]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
+    # contents: write per togliere gli asset non piu' referenziati (ultimo passo).
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
+
+      # I dati che richiedono un'app piu' recente (min-app-version-code, vedi assemble-site.sh) non
+      # si pubblicano prima di quell'app: le installazioni esistenti bloccherebbero i download
+      # chiedendo un aggiornamento che non c'e' ancora. versionCode rilasciato = app-status.json
+      # (publish-apk.yml), lo stesso che legge il controllo aggiornamenti sul device.
+      - name: Controlla che l'app richiesta dai dati sia gia' rilasciata
+        shell: bash
+        run: |
+          set -euo pipefail
+          MIN_APP_VERSION_CODE="$(tr -dc '0-9' < tools/data-pipeline/min-app-version-code)"
+          RELEASED_VERSION_CODE="$(curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 \
+            "https://github.com/${{ github.repository }}/releases/download/app-status/app-status.json" \
+            | jq -r '.appVersion.versionCode // empty')"
+          if ! [[ "$RELEASED_VERSION_CODE" =~ ^[0-9]+$ ]]; then
+            echo "versionCode dell'app rilasciata non trovato in app-status.json: non pubblico" >&2
+            exit 1
+          fi
+          if [ "$MIN_APP_VERSION_CODE" -gt "$RELEASED_VERSION_CODE" ]; then
+            echo "min-app-version-code ($MIN_APP_VERSION_CODE) e' maggiore del versionCode dell'app rilasciata ($RELEASED_VERSION_CODE): rilasciare prima l'app (publish-apk.yml), poi ripubblicare i dati" >&2
+            exit 1
+          fi
+          echo "-- min-app-version-code $MIN_APP_VERSION_CODE, app rilasciata $RELEASED_VERSION_CODE: ok"
 
       - uses: actions/download-artifact@v4
         with:
@@ -579,8 +631,8 @@ jobs:
           SITE_DIR="$RUNNER_TEMP/site"
           PAGES_BASE_URL="${{ env.PAGES_BASE_URL }}"
           mkdir -p "$SITE_DIR"
-          # Manifest pubblicato prima di questa run: la pulizia degli asset (ultimo passo) lo usa per
-          # il periodo di grazia di una generazione e per il controllo sul numero di regioni.
+          # Manifest pubblicato prima di questa run: lo usano il controllo sulle regioni perse (prima
+          # del deploy) e la pulizia degli asset (ultimo passo) per il periodo di grazia di una generazione.
           curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/manifest.json" \
             -o "$RUNNER_TEMP/previous-manifest.json" || rm -f "$RUNNER_TEMP/previous-manifest.json"
           tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$PAGES_BASE_URL/manifest.json" "${FRAGMENT_FILES[@]}"
@@ -601,6 +653,35 @@ jobs:
           set -euo pipefail
           ./gradlew -q :tools:data-pipeline:content:validateManifest \
             --args="${{ steps.assemble.outputs.site_dir }}/manifest.json ${{ steps.assemble.outputs.pages_host }}"
+
+      # Prima del deploy: ogni regione del manifest precedente deve restare nel nuovo, salvo quelle
+      # che il merge toglie di proposito (fuori da pilot-regions.sh, o sostituite da un gruppo ormai
+      # completo e quindi in "replacedRegions", vedi knownRegionIds/replacedRegions in
+      # MergeManifests.kt). Altrimenti e' quasi certamente un merge incompleto: pubblicarlo farebbe
+      # sparire regioni dall'app e la pulizia ne cancellerebbe gli asset.
+      - name: Controlla che il nuovo manifest non perda regioni
+        shell: bash
+        run: |
+          set -euo pipefail
+          MANIFEST="${{ steps.assemble.outputs.site_dir }}/manifest.json"
+          PREVIOUS_MANIFEST="$RUNNER_TEMP/previous-manifest.json"
+          if [ ! -s "$PREVIOUS_MANIFEST" ]; then
+            echo "::warning::manifest precedente non disponibile: nessun confronto sulle regioni"
+            exit 0
+          fi
+          source tools/data-pipeline/scripts/pilot-regions.sh
+          KNOWN="$RUNNER_TEMP/known-regions.txt"
+          for spec in "${PILOT_REGIONS[@]}" "${REPLACED_REGIONS[@]}"; do echo "${spec%%|*}"; done | sort -u > "$KNOWN"
+          MISSING="$(jq -r --rawfile known "$KNOWN" --slurpfile new "$MANIFEST" '
+            ($known | split("\n") | map(select(length > 0))) as $k
+            | ([$new[0].regions[].regionId] + [($new[0].replacedRegions // [])[].regionId]) as $kept
+            | [(.regions // [])[].regionId | select(IN($k[]) and (IN($kept[]) | not))] | join(" ")
+          ' "$PREVIOUS_MANIFEST")"
+          if [ -n "$MISSING" ]; then
+            echo "Il nuovo manifest ha perso regioni ancora nel lotto pilota: $MISSING. Non pubblico" >&2
+            exit 1
+          fi
+          echo "-- nessuna regione persa ($(jq '.regions | length' "$PREVIOUS_MANIFEST") prima, $(jq '.regions | length' "$MANIFEST") ora)"
 
       - uses: actions/configure-pages@v6
 
@@ -637,14 +718,7 @@ jobs:
             echo "::warning::manifest precedente non disponibile: non cancello nulla in questa run"
             exit 0
           fi
-          # Un manifest con meno regioni del precedente e' quasi certamente un merge incompleto:
-          # cancellare ora toglierebbe gli asset di regioni ancora pubblicate.
-          newCount="$(jq '.regions | length' "$MANIFEST")"
-          prevCount="$(jq '.regions | length' "$PREVIOUS_MANIFEST")"
-          if [ "$newCount" -lt "$prevCount" ]; then
-            echo "Il nuovo manifest ha $newCount regioni, il precedente $prevCount: non cancello nulla" >&2
-            exit 1
-          fi
+          # Le regioni perse per un merge incompleto le ferma gia' il controllo prima del deploy.
           REFERENCED="$RUNNER_TEMP/referenced.txt"
           cat "$MANIFEST" "$PREVIOUS_MANIFEST" \
             | grep -oE 'https://github\.com/[^"]+/releases/download/[^"/]+/[^"]+' \

@@ -50,7 +50,7 @@ resolve_protomaps_date() {
     local d
     d="$(date -u -d "-${days_ago} day" +%Y%m%d)"
     local code
-    code="$(curl -s -o /dev/null -w '%{http_code}' -I "https://build.protomaps.com/${d}.pmtiles")"
+    code="$(curl -s --max-time 30 --retry 3 -o /dev/null -w '%{http_code}' -I "https://build.protomaps.com/${d}.pmtiles")"
     if [ "$code" = "200" ]; then
       echo "$d"
       return 0

@@ -72,9 +72,18 @@ if [ ! -f "$FRAGMENT" ]; then
 fi
 
 # Voce "addresses" gia' pubblicata per la regione ("" se assente).
+# Manifest non scaricabile (ritentativi esauriti): errore invece di rigenerare come se la regione non
+# avesse civici pubblicati (nuova versione e riscaricamento senza motivo). Solo un 404 (prima
+# pubblicazione) vale come "nessuna voce pubblicata".
 PUBLISHED_ENTRY=""
-if [ -n "$PUBLISHED_MANIFEST_URL" ] && curl -sSf -o "$WORKDIR/published.json" "$PUBLISHED_MANIFEST_URL" 2>/dev/null; then
-  PUBLISHED_ENTRY="$(jq -c --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id) | .addresses // empty][0] // empty' "$WORKDIR/published.json")"
+if [ -n "$PUBLISHED_MANIFEST_URL" ]; then
+  PUBLISHED_HTTP="$(curl -sSf --retry 5 --retry-all-errors -o "$WORKDIR/published.json" -w '%{http_code}' "$PUBLISHED_MANIFEST_URL" 2>/dev/null || true)"
+  if [ "$PUBLISHED_HTTP" = "200" ]; then
+    PUBLISHED_ENTRY="$(jq -c --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id) | .addresses // empty][0] // empty' "$WORKDIR/published.json")"
+  elif [ "$PUBLISHED_HTTP" != "404" ]; then
+    echo "ERRORE: manifest pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL (HTTP ${PUBLISHED_HTTP:-000})" >&2
+    exit 1
+  fi
 fi
 
 set_entry() {

@@ -78,7 +78,7 @@ done
 
 cd "$REPO_ROOT"
 ./gradlew -q :tools:data-pipeline:content:mergeManifests --args="$ARGS_STR"
-rm -f "$PREV_MANIFEST" "$CONTINENTS_TSV"
+rm -f "$PREV_MANIFEST" "$CONTINENTS_TSV" "$REPLACED_TSV"
 
 # Pagina minimale per la radice del sito Pages: senza questa, GET / da 404 (nessun file la
 # serve) — solo per verifica manuale, l'app non chiama mai questo URL. Elenca TUTTO il lotto

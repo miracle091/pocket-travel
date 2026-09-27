@@ -26,10 +26,25 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
-      - run: ./gradlew assembleDebug lint --no-daemon
+      - run: ./gradlew assembleDebug lint testDebugUnitTest :tools:data-pipeline:content:test --no-daemon
 
       - name: Test di clip_rd5.py
         run: python3 tools/data-pipeline/scripts/test_clip_rd5.py
+
+      # weekly-schedule.sh e' generato da pilot-regions.sh (generate-weekly-schedule.sh): se non e'
+      # stato rigenerato dopo una modifica all'elenco, una regione nuova non verrebbe mai pubblicata
+      # dallo schedule (o una tolta verrebbe ancora chiesta). Ogni regione una e una sola volta.
+      - name: Calendario settimanale allineato a pilot-regions.sh
+        shell: bash
+        run: |
+          set -euo pipefail
+          source tools/data-pipeline/scripts/pilot-regions.sh
+          source tools/data-pipeline/scripts/weekly-schedule.sh
+          if ! diff <(for spec in "${PILOT_REGIONS[@]}"; do echo "${spec%%|*}"; done | sort) \
+            <(for d in 1 2 3 4 5 6 7; do v="WEEKLY_SCHEDULE_DAY_$d"; tr ',' '\n' <<< "${!v}"; done | sort); then
+            echo "weekly-schedule.sh non corrisponde a pilot-regions.sh (< solo nell'elenco, > solo nel calendario o ripetute): rilanciare generate-weekly-schedule.sh" >&2
+            exit 1
+          fi
 
       - name: Carica l'APK di debug come artifact con nome eloquente
         if: github.event_name == 'push'

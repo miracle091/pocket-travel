@@ -269,7 +269,15 @@ LAT_END="$(floor5 "$MAX_LAT")"
 if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
   echo "-- controllo se $REGION_ID e' gia' aggiornata rispetto a $PUBLISHED_MANIFEST_URL..."
   PUBLISHED_MANIFEST="$WORKDIR/published-manifest.json"
-  if curl -sSf -o "$PUBLISHED_MANIFEST" "$PUBLISHED_MANIFEST_URL" 2>/dev/null; then
+  # Con ritentativi e, se non arriva, errore: una rigenerazione completa per un problema di rete
+  # darebbe nuove versioni (e riscaricamenti) a mappa, routing e POI senza motivo. Solo un 404 (nessun
+  # manifest ancora pubblicato, prima pubblicazione) porta alla rigenerazione completa.
+  PUBLISHED_MANIFEST_HTTP="$(curl -sSf --retry 5 --retry-all-errors -o "$PUBLISHED_MANIFEST" -w '%{http_code}' "$PUBLISHED_MANIFEST_URL" 2>/dev/null || true)"
+  if [ "$PUBLISHED_MANIFEST_HTTP" != "200" ] && [ "$PUBLISHED_MANIFEST_HTTP" != "404" ]; then
+    echo "ERRORE: manifest pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL (HTTP ${PUBLISHED_MANIFEST_HTTP:-000})" >&2
+    exit 1
+  fi
+  if [ "$PUBLISHED_MANIFEST_HTTP" = "200" ]; then
     # Un file TSV (nome<TAB>dimensione) invece di un array JSON costruito con una chiamata jq per
     # tile: su una regione grande (es. Canada, ~130 tile) risparmia altrettante invocazioni jq, una
     # sola alla fine basta per ordinare/convertire tutto il file in JSON.
@@ -415,7 +423,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
       echo "-- $REGION_ID cambiata (o non ancora pubblicata): rigenerazione completa"
     fi
   else
-    echo "-- nessun manifest pubblicato raggiungibile su $PUBLISHED_MANIFEST_URL: rigenerazione completa"
+    echo "-- nessun manifest pubblicato su $PUBLISHED_MANIFEST_URL (HTTP 404): rigenerazione completa"
   fi
 fi
 
@@ -477,13 +485,17 @@ fetch_overpass_chunk() {
   for attempt in $(seq 1 "$ATTEMPTS"); do
     local endpoint="${OVERPASS_ENDPOINTS[$(( (attempt - 1) % ${#OVERPASS_ENDPOINTS[@]} ))]}"
     echo "-- tentativo $attempt/$ATTEMPTS su $endpoint..."
-    download_with_progress "$outFile" "Overpass POI ($endpoint)" -sS --max-time 950 -A "$PIPELINE_USER_AGENT" "$endpoint" --data-urlencode "data=${query}" -o "$outFile"
+    # Tolto prima di ogni tentativo: senza, un tentativo fallito prima di scrivere lascerebbe il file
+    # del tentativo precedente.
+    rm -f "$outFile"
     # Attenzione: su un timeout della query (bbox grande), Overpass non fallisce la richiesta
     # HTTP ma risponde comunque con un <osm> ben formato contenente un
     # <remark>runtime error: Query timed out...</remark> e zero nodi -- un semplice grep "<osm"
     # lo scambierebbe per una risposta valida, producendo silenziosamente 0 POI (visto con
-    # l'Italia: timeout:180 troppo basso per un bbox nazionale).
-    if grep -q "<osm" "$outFile" && ! grep -q "<remark>" "$outFile"; then
+    # l'Italia: timeout:180 troppo basso per un bbox nazionale). Serve anche l'esito di curl: un
+    # download interrotto (--max-time, connessione chiusa) lascia un XML troncato che inizia con <osm.
+    if download_with_progress "$outFile" "Overpass POI ($endpoint)" -sS --max-time 950 -A "$PIPELINE_USER_AGENT" "$endpoint" --data-urlencode "data=${query}" -o "$outFile" \
+      && grep -q "<osm" "$outFile" && ! grep -q "<remark>" "$outFile"; then
       return 0
     fi
     if [ "$attempt" -lt "$ATTEMPTS" ]; then
@@ -615,7 +627,10 @@ if [ "$POI_ONLY" = "true" ]; then
     for rd5 in "$OUTPUT_DIR"/*.rd5; do
       [ -e "$rd5" ] && CHANGED_RD5=true
     done
-    if [ "$CHANGED_RD5" != "true" ] && [ "$(jq -c '.regions[0] | {poi, poiExtra}' "$MANIFEST_FRAGMENT")" = "$(printf '%s' "$PUBLISHED_REGION" | jq -c '{poi, poiExtra}')" ]; then
+    # Non se la sezione 2bis ha dato una nuova versione alla mappa (MAP_DUE) o ha (ri)generato
+    # l'anteprima: il frammento pubblicato le perderebbe.
+    if [ "$CHANGED_RD5" != "true" ] && [ "$MAP_DUE" != "true" ] && [ ! -f "$OUTPUT_DIR/preview.pmtiles.xz" ] \
+      && [ "$(jq -c '.regions[0] | {poi, poiExtra}' "$MANIFEST_FRAGMENT")" = "$(printf '%s' "$PUBLISHED_REGION" | jq -c '{poi, poiExtra}')" ]; then
       # Nessuna tile cambiata e POI identici: niente da caricare, come lo skip della sezione 2bis.
       rm -f "$OUTPUT_DIR/.incremental"
       : > "$OUTPUT_DIR/.skipped"
@@ -627,9 +642,9 @@ if [ "$POI_ONLY" = "true" ]; then
   echo "== [$REGION_ID] fatto (incrementale: POI rigenerati) =="
   exit 0
 fi
-POI_EXTRA_SPEC=""
+POI_EXTRA_SPEC="null"
 if [ -f "$POI_EXTRA_DB" ]; then
-  POI_EXTRA_SPEC="\"poiExtraDb\": { \"path\": \"$(winpath "$POI_EXTRA_DB")\", \"url\": \"${POI_EXTRA_DB_URL}\" },"
+  POI_EXTRA_SPEC="$(jq -n -c --arg path "$(winpath "$POI_EXTRA_DB")" --arg url "$POI_EXTRA_DB_URL" '{path: $path, url: $url}')"
 fi
 # Anteprima: la mappa e' comunque appena (ri)estratta dalla build Protomaps corrente in questa
 # rigenerazione completa, quindi si genera sempre (non solo quando cambia rispetto alla precedente,
@@ -637,30 +652,32 @@ fi
 # calcolato da generateManifest sul file locale); "fileXz" si aggiunge dopo coi valori gia' pronti
 # di build_preview, senza ricomprimere (vedi PREVIEW_XZ_SIZE/PREVIEW_XZ_SHA256 piu' sotto).
 PREVIEW_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--preview.pmtiles.xz"
-PREVIEW_SPEC=""
+PREVIEW_SPEC="null"
 if [ -n "$PMTILES_BIN" ]; then
   build_preview "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles"
-  PREVIEW_SPEC="\"previewPmtiles\": { \"path\": \"$(winpath "$OUTPUT_DIR/preview.pmtiles")\", \"url\": \"${PREVIEW_URL}\", \"maxZoom\": ${PREVIEW_ZOOM_USED} },"
+  PREVIEW_SPEC="$(jq -n -c --arg path "$(winpath "$OUTPUT_DIR/preview.pmtiles")" --arg url "$PREVIEW_URL" \
+    --argjson maxZoom "$PREVIEW_ZOOM_USED" '{path: $path, url: $url, maxZoom: $maxZoom}')"
 else
   echo "::warning::go-pmtiles non trovato: $REGION_ID senza anteprima"
 fi
+# Costruita con jq (--arg), non con un heredoc: un displayName con virgolette o backslash
+# produrrebbe altrimenti un JSON non valido.
 SPEC_FILE="$WORKDIR/spec.json"
-cat > "$SPEC_FILE" <<EOF
-{
-  "regionId": "${REGION_ID}",
-  "displayName": "${DISPLAY_NAME}",
-  "version": "${VERSION}",
-  "poiDb": { "path": "$(winpath "$POI_DB")", "url": "${POI_DB_URL}" },
-  ${POI_EXTRA_SPEC}
-  ${PREVIEW_SPEC}
-  "routingFiles": $(jq -R -s -c "$RD5_TSV_TO_JSON" "$ROUTING_TSV"),
-  "mapSource": {
-    "sourceUrl": "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles",
-    "minLon": ${MIN_LON}, "minLat": ${MIN_LAT}, "maxLon": ${MAX_LON}, "maxLat": ${MAX_LAT},
-    "minZoom": ${MAP_MIN_ZOOM}, "maxZoom": ${MAP_MAX_ZOOM}
-  }
-}
-EOF
+jq -n \
+  --arg regionId "$REGION_ID" --arg displayName "$DISPLAY_NAME" --arg version "$VERSION" \
+  --arg poiPath "$(winpath "$POI_DB")" --arg poiUrl "$POI_DB_URL" \
+  --argjson poiExtra "$POI_EXTRA_SPEC" --argjson preview "$PREVIEW_SPEC" \
+  --argjson routingFiles "$(jq -R -s -c "$RD5_TSV_TO_JSON" "$ROUTING_TSV")" \
+  --arg sourceUrl "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" \
+  --argjson minLon "$MIN_LON" --argjson minLat "$MIN_LAT" --argjson maxLon "$MAX_LON" --argjson maxLat "$MAX_LAT" \
+  --argjson minZoom "$MAP_MIN_ZOOM" --argjson maxZoom "$MAP_MAX_ZOOM" '
+  {regionId: $regionId, displayName: $displayName, version: $version,
+   poiDb: {path: $poiPath, url: $poiUrl}}
+  + (if $poiExtra then {poiExtraDb: $poiExtra} else {} end)
+  + (if $preview then {previewPmtiles: $preview} else {} end)
+  + {routingFiles: $routingFiles,
+     mapSource: {sourceUrl: $sourceUrl, minLon: $minLon, minLat: $minLat, maxLon: $maxLon, maxLat: $maxLat,
+                 minZoom: $minZoom, maxZoom: $maxZoom}}' > "$SPEC_FILE"
 
 MANIFEST_FRAGMENT="$OUTPUT_DIR/manifest-fragment.json"
 echo "-- genero il frammento manifest..."
