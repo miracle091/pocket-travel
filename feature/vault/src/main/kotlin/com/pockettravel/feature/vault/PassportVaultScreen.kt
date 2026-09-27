@@ -64,6 +64,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -80,7 +81,9 @@ import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.R as UiR
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // Solo BIOMETRIC_STRONG: il BiometricPrompt qui e' legato a un CryptoObject (vedi showPrompt),
 // e androidx.biometric non supporta CryptoObject insieme a DEVICE_CREDENTIAL (IllegalArgumentException
@@ -366,10 +369,9 @@ private fun PhotoThumbnail(
     onRemove: (() -> Unit)? = null,
 ) {
     var bitmap by remember(fileName) { mutableStateOf<ImageBitmap?>(null) }
+    val thumbnailPx = with(LocalDensity.current) { 72.dp.roundToPx() }
     LaunchedEffect(fileName) {
-        bitmap = viewModel.loadPhoto(fileName)?.let { bytes ->
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-        }
+        bitmap = viewModel.loadPhoto(fileName)?.let { bytes -> decodeSampled(bytes, thumbnailPx) }
     }
     Box(modifier = Modifier.size(72.dp)) {
         Surface(
@@ -410,10 +412,9 @@ private fun PhotoThumbnail(
 @Composable
 private fun PhotoViewerDialog(viewModel: PassportVaultViewModel, fileName: String, onDismiss: () -> Unit) {
     var bitmap by remember(fileName) { mutableStateOf<ImageBitmap?>(null) }
+    val screenWidthPx = LocalContext.current.resources.displayMetrics.widthPixels
     LaunchedEffect(fileName) {
-        bitmap = viewModel.loadPhoto(fileName)?.let { bytes ->
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-        }
+        bitmap = viewModel.loadPhoto(fileName)?.let { bytes -> decodeSampled(bytes, screenWidthPx) }
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -424,6 +425,17 @@ private fun PhotoViewerDialog(viewModel: PassportVaultViewModel, fileName: Strin
             }
         },
     )
+}
+
+// Decodifica fuori dal main thread, ridotta (inSampleSize, potenze di 2) finche' il lato corto resta
+// almeno [targetPx]: una foto della fotocamera a piena risoluzione occupa decine di MB in memoria.
+private suspend fun decodeSampled(bytes: ByteArray, targetPx: Int): ImageBitmap? = withContext(Dispatchers.Default) {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    var sampleSize = 1
+    while (minOf(bounds.outWidth, bounds.outHeight) / (sampleSize * 2) >= targetPx) sampleSize *= 2
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sampleSize })
+        ?.asImageBitmap()
 }
 
 // existing == null crea un nuovo documento; altrimenti modifica quello passato (stesso id,

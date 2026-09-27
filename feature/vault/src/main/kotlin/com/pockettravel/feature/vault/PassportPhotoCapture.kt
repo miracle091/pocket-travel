@@ -48,6 +48,8 @@ import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
 import kotlin.math.abs
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asExecutor
 import com.pockettravel.core.ui.AppIcons
 
 // Fotocamera interna (CameraX) invece dell'app fotocamera di sistema: serve per disegnare
@@ -84,20 +86,32 @@ internal fun DocumentCameraCaptureScreen(
             isCapturing = true
             val dir = File(context.cacheDir, "camera_tmp").apply { mkdirs() }
             val file = File(dir, "${UUID.randomUUID()}.jpg")
+            val mainExecutor = ContextCompat.getMainExecutor(context)
+            // Callback su un thread di IO (EXIF e lettura del file fuori dal main thread); il file
+            // temporaneo in chiaro si cancella sempre, anche se la rimozione dell'EXIF fallisce
+            // (in quel caso lo scatto si scarta: niente foto con posizione e data ancora dentro).
             imageCapture.takePicture(
                 ImageCapture.OutputFileOptions.Builder(file).build(),
-                ContextCompat.getMainExecutor(context),
+                Dispatchers.IO.asExecutor(),
                 object : ImageCapture.OnImageSavedCallback {
                     override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                        stripSensitiveExif(file)
-                        onCaptured(file.readBytes())
-                        file.delete()
-                        isCapturing = false
+                        val bytes = try {
+                            stripSensitiveExif(file)
+                            file.readBytes()
+                        } catch (_: Exception) {
+                            null
+                        } finally {
+                            file.delete()
+                        }
+                        mainExecutor.execute {
+                            bytes?.let(onCaptured)
+                            isCapturing = false
+                        }
                     }
 
                     override fun onError(exception: ImageCaptureException) {
                         file.delete()
-                        isCapturing = false
+                        mainExecutor.execute { isCapturing = false }
                     }
                 },
             )
