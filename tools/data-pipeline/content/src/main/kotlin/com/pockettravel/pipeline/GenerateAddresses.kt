@@ -103,15 +103,16 @@ private const val LAYER = "addresses"
  * tile fino allo zoom a cui mostra i civici, senza scaricare le z15 della mappa.
  */
 fun writeAddressesPmtiles(addresses: List<Address>, output: File, minLon: Double, minLat: Double, maxLon: Double, maxLat: Double) {
-    val byTile = addresses.groupBy { tileOf(it) }
+    // worldPixel calcolato una volta per civico: serve sia per la tile sia per il punto dentro la tile.
+    val byTile = addresses.map { it to worldPixel(it) }.groupBy { (_, pixel) -> tileOf(pixel) }
     output.delete()
     WriteablePmtiles.newWriteToFile(output.toPath()).use { archive ->
         archive.initialize()
         archive.newTileWriter().use { writer ->
             // Il writer PMTiles vuole le tile nell'ordine della sua curva (Hilbert).
             byTile.entries.sortedBy { archive.tileOrder().encode(it.key) }.forEach { (coord, points) ->
-                val features = points.mapIndexed { index, address ->
-                    VectorTile.Feature(LAYER, index.toLong(), VectorTile.encodeGeometry(pointInTile(address, coord)), mapOf("number" to address.number))
+                val features = points.mapIndexed { index, (address, pixel) ->
+                    VectorTile.Feature(LAYER, index.toLong(), VectorTile.encodeGeometry(pointInTile(pixel, coord)), mapOf("number" to address.number))
                 }
                 val tile = VectorTile().addLayerFeatures(LAYER, features).encode()
                 writer.write(TileEncodingResult(coord, gzip(tile), OptionalLong.empty()))
@@ -127,8 +128,8 @@ fun writeAddressesPmtiles(addresses: List<Address>, output: File, minLon: Double
     }
 }
 
-private fun tileOf(address: Address): TileCoord {
-    val (x, y) = worldPixel(address)
+private fun tileOf(pixel: Pair<Double, Double>): TileCoord {
+    val (x, y) = pixel
     return TileCoord.ofXYZ(x.toInt(), y.toInt(), OUTPUT_ZOOM)
 }
 
@@ -142,10 +143,12 @@ private fun worldPixel(address: Address): Pair<Double, Double> {
     return x to y
 }
 
+private val geometryFactory = GeometryFactory()
+
 // Punto nelle coordinate della tile 0..256, le stesse che VectorTile.encodeGeometry si aspetta.
-private fun pointInTile(address: Address, coord: TileCoord): Point {
-    val (x, y) = worldPixel(address)
-    return GeometryFactory().createPoint(Coordinate((x - coord.x()) * 256.0, (y - coord.y()) * 256.0))
+private fun pointInTile(pixel: Pair<Double, Double>, coord: TileCoord): Point {
+    val (x, y) = pixel
+    return geometryFactory.createPoint(Coordinate((x - coord.x()) * 256.0, (y - coord.y()) * 256.0))
 }
 
 private fun gzip(bytes: ByteArray): ByteArray =

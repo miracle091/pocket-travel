@@ -30,7 +30,11 @@ class RouteEngineFactoryDeviceTest {
         val regionId = "test-region"
         File(regionsDir, "$regionId/routing").mkdirs()
 
-        val factory = RouteEngineModule.provideRouteEngineFactory(regionsDir, context)
+        val factory = RouteEngineModule.provideRouteEngineFactory(
+            regionsDir,
+            context,
+            UsageModePreferences(context, MapFilterPreferences(context)),
+        )
         val engine = factory.create(regionId)
 
         val route = engine.route(

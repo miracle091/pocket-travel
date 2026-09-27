@@ -58,7 +58,16 @@ fun mergeManifestJson(
         val regions = root.getJSONArray("regions")
         for (i in 0 until regions.length()) {
             val region = regions.getJSONObject(i)
-            regionsById[region.getString("regionId")] = if (region.has("files")) convertV1Region(region) else region
+            val regionId = region.getString("regionId")
+            val replacement = if (region.has("files")) convertV1Region(region) else region
+            // Un frammento nuovo puo' non avere i metadati gia' scritti nel manifest precedente: si
+            // tengono quelli, altrimenti una regione fuori da --continents o senza guida li perderebbe.
+            regionsById[regionId]?.let { previous ->
+                listOf("wikivoyageUrl", "continent", "countryCode").forEach { key ->
+                    if (!replacement.has(key) && previous.has(key)) replacement.put(key, previous.get(key))
+                }
+            }
+            regionsById[regionId] = replacement
         }
     }
 
@@ -143,7 +152,7 @@ fun main(args: Array<String>) {
     val countryCodes = rows.filter { it.size >= 3 && it[2].isNotBlank() }.associate { it[0] to it[2] }
     val groups = rows.filter { it.size >= 5 && it[3].isNotBlank() }.associate { it[0] to (it[3] to it[4]) }
     val replaced = replacedFile?.readLines()?.filter { it.isNotBlank() }?.map { it.split('\t') }
-        ?.associate { it[0] to it[1] }.orEmpty()
+        ?.filter { it.size >= 2 }?.associate { it[0] to it[1] }.orEmpty()
     val outputFile = File(rest[0])
     val inputFiles = rest.drop(1).map { File(it) }
     inputFiles.forEach { require(it.exists()) { "Manifest non trovato: ${it.path}" } }

@@ -7,6 +7,7 @@ import com.pockettravel.core.data.hasName
 import com.pockettravel.core.data.isHiddenOnMap
 import com.pockettravel.core.data.poiCategory
 import com.pockettravel.core.poi.PoiCategory
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,8 +33,12 @@ class MapRouteViewModel @Inject constructor(
     private val _pins = MutableStateFlow<List<MapPin>>(emptyList())
     val pins: StateFlow<List<MapPin>> = _pins.asStateFlow()
 
+    private var loadPinsJob: Job? = null
+
     fun loadPins(regionId: String) {
-        viewModelScope.launch {
+        // Annulla il caricamento precedente: una regione lenta non deve sovrascrivere i segnalini.
+        loadPinsJob?.cancel()
+        loadPinsJob = viewModelScope.launch {
             // I POI extra li ha scaricati l'utente apposta: si mostrano anche se di solito nascosti.
             _pins.value = poiRepository.forRegion(regionId).filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
                 MapPin(poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.phone, poi.wheelchair)

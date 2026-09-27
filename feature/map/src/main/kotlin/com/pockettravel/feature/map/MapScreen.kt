@@ -62,6 +62,9 @@ private const val PIN_ICON_PREFIX = "pocket-travel-pin-"
 // I parcheggi sono tanti e fitti (a Rimini oltre 800): solo da vicino, per non coprire il resto.
 private const val PARKING_MIN_ZOOM = 15.0
 
+// Zoom del fit iniziale quando la regione ha un solo pin (niente bounds da inquadrare).
+private const val SINGLE_PIN_ZOOM = 15.0
+
 private fun iconIdFor(category: PoiCategory) = PIN_ICON_PREFIX + category.name
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -104,6 +107,11 @@ fun MapScreen(
             !(hideInaccessible && it.wheelchair == "no")
     }
     val presentCategories = PoiCategory.entries.filter { category -> pins.any { it.category == category } }
+    // Segnalini ridisegnati solo quando cambiano quelli visibili o il SymbolManager (nuovo stile),
+    // non a ogni ricomposizione.
+    LaunchedEffect(symbolManager, visiblePins) {
+        symbolPinMap = renderPins(symbolManager, visiblePins)
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
@@ -132,11 +140,9 @@ fun MapScreen(
                                     true
                                 }
                             }
-                            symbolPinMap = renderPins(symbolManager, visiblePins)
                         }
                     }
                 }
-                symbolPinMap = renderPins(symbolManager, visiblePins)
 
                 // PmtilesExtractor scarica solo le tile che intersecano il bounding box della
                 // regione (vedi core:sync/PmtilesExtractor.tileRangeFor), per tenere piccolo il
@@ -155,9 +161,16 @@ fun MapScreen(
                 if (!cameraFitted && pins.isNotEmpty()) {
                     cameraFitted = true
                     view.getMapAsync { map ->
-                        val boundsBuilder = LatLngBounds.Builder()
-                        pins.forEach { pin -> boundsBuilder.include(LatLng(pin.latitude, pin.longitude)) }
-                        map.moveCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 64))
+                        // LatLngBounds.Builder.build() vuole almeno 2 punti: con un solo pin si
+                        // centra la camera su di lui.
+                        val update = if (pins.size == 1) {
+                            CameraUpdateFactory.newLatLngZoom(LatLng(pins[0].latitude, pins[0].longitude), SINGLE_PIN_ZOOM)
+                        } else {
+                            val boundsBuilder = LatLngBounds.Builder()
+                            pins.forEach { pin -> boundsBuilder.include(LatLng(pin.latitude, pin.longitude)) }
+                            CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 64)
+                        }
+                        map.moveCamera(update)
                     }
                 }
             },

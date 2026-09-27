@@ -128,9 +128,16 @@ private fun cleanBody(raw: String): String {
     for (index in markedLines.indices) {
         val line = markedLines[index]
         if (line.startsWith(SUBHEADING_MARKER)) {
-            val hasBody = markedLines.drop(index + 1)
-                .takeWhile { !it.startsWith(SUBHEADING_MARKER) }
-                .any { it.isNotBlank() }
+            // Scansione in avanti fino al prossimo sottotitolo, senza copiare la lista a ogni sottotitolo.
+            var next = index + 1
+            var hasBody = false
+            while (next < markedLines.size && !markedLines[next].startsWith(SUBHEADING_MARKER)) {
+                if (markedLines[next].isNotBlank()) {
+                    hasBody = true
+                    break
+                }
+                next++
+            }
             if (hasBody) kept += "▸ ${line.removePrefix(SUBHEADING_MARKER)}"
         } else {
             kept += line

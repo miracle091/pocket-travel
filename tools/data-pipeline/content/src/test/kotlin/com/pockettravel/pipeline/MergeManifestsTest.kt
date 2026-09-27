@@ -72,6 +72,23 @@ class MergeManifestsTest {
     }
 
     @Test
+    fun `una regione sostituita da un frammento nuovo tiene continente, codice paese e link wikivoyage`() {
+        val giaPubblicato = mergeManifestJson(
+            listOf(guidesFragment("1"), fragmentFor("san-marino", "San Marino", "1")),
+            continents = mapOf("san-marino" to "Europa"),
+            countryCodes = mapOf("san-marino" to "sm"),
+        )
+
+        val merged = JSONObject(mergeManifestJson(listOf(giaPubblicato, fragmentFor("san-marino", "San Marino", "2"))))
+
+        val region = regionsById(merged).getValue("san-marino")
+        assertEquals("2", region.getJSONObject("poi").getString("version"))
+        assertEquals("Europa", region.getString("continent"))
+        assertEquals("sm", region.getString("countryCode"))
+        assertEquals("https://it.wikivoyage.org/wiki/San_Marino", region.getString("wikivoyageUrl"))
+    }
+
+    @Test
     fun `una pubblicazione parziale non fa sparire le regioni ne' le guide non toccate`() {
         val giaPubblicato = mergeManifestJson(
             listOf(guidesFragment("2026.09.20"), fragmentFor("giappone", "Giappone"), fragmentFor("stati-uniti", "Stati Uniti")),

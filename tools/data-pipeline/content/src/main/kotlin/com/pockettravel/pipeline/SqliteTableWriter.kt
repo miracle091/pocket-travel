@@ -28,18 +28,24 @@ fun <T> writeSqliteTable(
     bindRow: (PreparedStatement, T) -> Unit,
 ) {
     DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
+        // DROP e CREATE nella stessa transazione degli insert: se un insert fallisce, il rollback
+        // (chiusura senza commit) lascia la tabella precedente invece di una vuota.
+        conn.autoCommit = false
         conn.createStatement().use { statement ->
             statement.execute("DROP TABLE IF EXISTS $tableName")
             statement.execute(createTableSql)
         }
-        conn.autoCommit = false
         conn.prepareStatement(insertSql).use { insert ->
-            rows.forEach { row ->
+            rows.forEachIndexed { index, row ->
                 bindRow(insert, row)
                 insert.addBatch()
+                // Batch a blocchi, per non tenere in memoria tutte le righe di una nazione grande.
+                if ((index + 1) % BATCH_SIZE == 0) insert.executeBatch()
             }
             insert.executeBatch()
         }
         conn.commit()
     }
 }
+
+private const val BATCH_SIZE = 10_000

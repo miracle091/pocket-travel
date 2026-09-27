@@ -31,7 +31,7 @@ object RouteEngineModule {
         usageModePreferences: UsageModePreferences,
     ): RouteEngineFactory {
         val profileDir = File(context.filesDir, PROFILE_ASSET_DIR)
-        copyProfileAssetsIfMissing(context, profileDir)
+        syncProfileAssets(context, profileDir)
 
         return RouteEngineFactory { regionId ->
             BRouterRouteEngine(
@@ -49,16 +49,18 @@ object RouteEngineModule {
 
     // I profili .brf + lookups.dat sono logica dell'app (gli stessi per tutte le regioni), non dati
     // per-regione — bundlati come asset e copiati su file reali: BRouter legge da file system, non da
-    // uno stream di asset compresso. File per file, cosi' un'app gia' installata riceve anche i
-    // profili aggiunti dopo (prima c'era solo trekking.brf).
-    private fun copyProfileAssetsIfMissing(context: Context, profileDir: File) {
+    // uno stream di asset compresso. File per file, confrontando i byte: un'app gia' installata riceve
+    // i profili aggiunti o modificati da un aggiornamento. La scrittura passa da un file temporaneo
+    // rinominato sul definitivo, cosi' una copia interrotta non lascia un file troncato.
+    private fun syncProfileAssets(context: Context, profileDir: File) {
         profileDir.mkdirs()
         for (assetName in UsageMode.ROUTING_PROFILES.map { "$it.brf" } + "lookups.dat") {
             val target = File(profileDir, assetName)
-            if (target.exists()) continue
-            context.assets.open("$PROFILE_ASSET_DIR/$assetName").use { input ->
-                target.outputStream().use { output -> input.copyTo(output) }
-            }
+            val bytes = context.assets.open("$PROFILE_ASSET_DIR/$assetName").use { it.readBytes() }
+            if (target.exists() && target.readBytes().contentEquals(bytes)) continue
+            val temp = File(profileDir, "$assetName.tmp")
+            temp.writeBytes(bytes)
+            check(temp.renameTo(target)) { "impossibile sostituire ${target.path}" }
         }
     }
 }

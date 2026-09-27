@@ -34,7 +34,10 @@ fun httpRangeReader(url: String): RangeReader {
             .header("User-Agent", "PocketTravelDataPipeline/1.0 (https://github.com/miracle091/pocket-travel)")
             .build()
         val response = client.send(request, HttpResponse.BodyHandlers.ofByteArray())
-        check(response.statusCode() == 206 || response.statusCode() == 200) { "HTTP ${response.statusCode()} leggendo $url" }
+        // Solo 206: un 200 e' il file intero (il server ha ignorato il Range), non i byte chiesti.
+        check(response.statusCode() == 206) {
+            "HTTP ${response.statusCode()} leggendo $url: attesa risposta 206 (Partial Content) alla richiesta Range"
+        }
         response.body()
     }
 }
