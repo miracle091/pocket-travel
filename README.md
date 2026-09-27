@@ -26,10 +26,10 @@
 
 In viaggio la connessione manca proprio quando serve: in aereo, in montagna, all'estero senza roaming. Pocket Travel scarica prima quello che ti serve e poi lo usa offline.
 
-- **Guida** – le informazioni essenziali di ogni paese (cosa vedere, dove mangiare, come muoversi, soldi, sicurezza) e i numeri di emergenza da chiamare con un tocco.
+- **Guida** – le informazioni essenziali di ogni paese e delle sue città (cosa vedere, dove mangiare, come muoversi, soldi, sicurezza), i fatti rapidi (lingua, prese, fuso orario) e i numeri di emergenza da chiamare con un tocco.
 - **Mappa** – mappa dettagliata con ristoranti, alloggi, farmacie, bancomat e molto altro. Scegli come ti sposti e l'app ti mostra i punti che ti servono.
 - **Assistente IA** – fai una domanda sul posto in cui sei ("dove si mangia bene?", "come pago il bus?") e ti risponde usando la guida. Funziona anche offline, con un piccolo modello di intelligenza artificiale scaricato sul telefono.
-- **Documenti** – una copia del passaporto e dei biglietti, cifrata e sbloccabile solo con la tua impronta o il tuo volto.
+- **Documenti** – una copia del passaporto e dei biglietti, cifrata e sbloccabile solo con la tua impronta o il tuo volto, e le tue note di viaggio (prenotazioni, indirizzi), cifrate e usate dall'assistente IA quando servono.
 
 Scegli tu cosa scaricare: per ogni paese mappa, punti di interesse e numeri civici sono pacchetti separati, così non occupi spazio per quello che non usi. Le guide di tutto il mondo pesano pochi megabyte. Il calcolo dei percorsi a piedi, in bici e in auto è in arrivo.
 
