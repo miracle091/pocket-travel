@@ -41,6 +41,8 @@ Tutto viene da progetti aperti e liberi: le guide da [Wikivoyage](https://it.wik
 
 ## Per chi sviluppa
 
+Per iniziare c'è una [guida rapida](docs/GUIDA.md); il perché delle scelte tecniche è spiegato nella [wiki](https://github.com/miracle091/pocket-travel/wiki).
+
 L'app è scritta in Kotlin con Jetpack Compose. Il codice è diviso in moduli:
 
 | Cartella | Cosa contiene |
