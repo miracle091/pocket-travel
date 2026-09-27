@@ -22,7 +22,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** Stato della mappa della regione aperta: i pacchetti si installano separatamente, puo' mancare. */
-enum class RegionMapState { INSTALLED, MISSING, DOWNLOADING }
+// LOADING: stato non ancora noto, per non mostrare la mappa (o il suo stato vuoto) prima del primo valore.
+enum class RegionMapState { LOADING, INSTALLED, MISSING, DOWNLOADING }
 
 // Prima di questo, RegionHubScreen mostrava il regionId grezzo (es. "italia") nella TopAppBar
 // invece del nome regione reale.
@@ -54,7 +55,7 @@ class RegionHubViewModel @Inject constructor(
             regionRepository.observeInstalled().map { regions -> regions.firstOrNull { it.regionId == id }?.mapVersion != null },
             regionSyncScheduler.observeDownload(id),
         ) { hasMap, work -> mapState(hasMap, work) }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RegionMapState.INSTALLED)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RegionMapState.LOADING)
 
     fun load(regionId: String) {
         this.regionId.value = regionId

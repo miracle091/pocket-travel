@@ -77,6 +77,11 @@ fun InAppBrowserScreen(url: String, title: String, onBack: () -> Unit) {
                         webView = this
                     }
                 },
+                // Libera il WebView (renderer, JS, memoria) quando la schermata esce dalla composizione.
+                onRelease = {
+                    webView = null
+                    it.destroy()
+                },
             )
         }
     }

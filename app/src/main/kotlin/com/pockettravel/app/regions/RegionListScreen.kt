@@ -121,8 +121,9 @@ fun RegionListScreen(
 }
 
 // Azioni di una riga regione, raccolte per poter essere fornite dal ViewModel (schermata e step
-// di onboarding) o da valori finti (@Preview).
-internal class RegionRowActions(
+// di onboarding) o da valori finti (@Preview). Data class: i riferimenti a metodi del ViewModel sono
+// uguali tra ricomposizioni, cosi' un'istanza ricreata non impedisce di saltare le righe.
+internal data class RegionRowActions(
     val observeProgress: (regionId: String) -> Flow<WorkInfo?>,
     val onDownload: (regionId: String) -> Unit,
     val onDelete: (regionId: String) -> Unit,
@@ -282,8 +283,10 @@ private fun RegionGroupedList(
     onRegionClick: (RegionUiItem) -> Unit,
 ) {
     // Le regioni sostituite stanno in cima alle nazioni scaricate, anche se non ce ne sono altre.
-    val groups = groupRegions(items).let { grouped ->
-        if (replaced.isNotEmpty() && grouped.none { it.first == RegionGroup.Downloaded }) listOf(RegionGroup.Downloaded to emptyList<RegionUiItem>()) + grouped else grouped
+    val groups = remember(items, replaced) {
+        groupRegions(items).let { grouped ->
+            if (replaced.isNotEmpty() && grouped.none { it.first == RegionGroup.Downloaded }) listOf(RegionGroup.Downloaded to emptyList<RegionUiItem>()) + grouped else grouped
+        }
     }
     val listState = rememberLazyListState()
     // "Scegli" su una regione sostituita apre continente e paese, poi scorre fino al paese.
@@ -295,10 +298,12 @@ private fun RegionGroupedList(
     // solo i gruppi che l'utente ha invertito rispetto al default (anche alla rotazione). Durante
     // una ricerca sono tutti aperti, per vedere subito i risultati.
     var toggled by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
-    val rowsByGroup = groups.associate { (group, regions) ->
-        val entries = if (group == RegionGroup.Downloaded) regions.map { RegionListEntry.Single(it) } else countryEntries(regions)
-        val replacedRows = if (group == RegionGroup.Downloaded) replaced.map { ListRow.Replaced(it) } else emptyList()
-        group.key to (entries to replacedRows + visibleRows(entries, isExpanded = { searching || "country_$it" in toggled }))
+    val rowsByGroup = remember(groups, replaced, searching, toggled) {
+        groups.associate { (group, regions) ->
+            val entries = if (group == RegionGroup.Downloaded) regions.map { RegionListEntry.Single(it) } else countryEntries(regions)
+            val replacedRows = if (group == RegionGroup.Downloaded) replaced.map { ListRow.Replaced(it) } else emptyList()
+            group.key to (entries to replacedRows + visibleRows(entries, isExpanded = { searching || "country_$it" in toggled }))
+        }
     }
     LazyColumn(
         state = listState,

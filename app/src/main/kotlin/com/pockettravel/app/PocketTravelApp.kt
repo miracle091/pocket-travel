@@ -1,6 +1,7 @@
 package com.pockettravel.app
 
 import android.app.Application
+import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.pockettravel.core.sync.AppUpdateCheckScheduler
@@ -31,6 +32,10 @@ class PocketTravelApp : Application(), Configuration.Provider {
         appUpdateCheckScheduler.schedulePeriodicCheck()
         llmModelUpdateCheckScheduler.schedulePeriodicCheck()
         // Fuori dal main thread: rimuove i modelli rimasti da formati/cataloghi precedenti (.litertlm).
-        CoroutineScope(Dispatchers.IO).launch { llmModelManager.deleteOrphanedFiles() }
+        // runCatching: un'eccezione non gestita in questo scope farebbe chiudere l'app all'avvio.
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching { llmModelManager.deleteOrphanedFiles() }
+                .onFailure { Log.w("PocketTravelApp", "Pulizia dei modelli orfani fallita", it) }
+        }
     }
 }

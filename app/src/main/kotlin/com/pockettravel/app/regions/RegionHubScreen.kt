@@ -125,7 +125,9 @@ fun RegionHubScreen(
                 Crossfade(targetState = selectedTab, animationSpec = tween(250), label = "regionTab") { tab ->
                 when (tab) {
                     RegionTab.GUIDE -> GuideScreen(regionId = regionId, onOpenSource = onOpenSource)
-                    RegionTab.MAP -> if (mapState == RegionMapState.INSTALLED) {
+                    RegionTab.MAP -> if (mapState == RegionMapState.LOADING) {
+                        // Stato della mappa non ancora noto: nessun contenuto finche' non arriva.
+                    } else if (mapState == RegionMapState.INSTALLED) {
                         val mapViewModel: MapRouteViewModel = hiltViewModel()
                         LaunchedEffect(regionId) { mapViewModel.loadPins(regionId) }
                         val pins by mapViewModel.pins.collectAsStateWithLifecycle()
