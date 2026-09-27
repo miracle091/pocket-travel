@@ -51,6 +51,30 @@ private val externalLinkWithTextRegex = Regex("""\[https?://\S+\s+([^\]]+)]""")
 private val bareExternalLinkRegex = Regex("""\[https?://\S+]""")
 private val boldItalicRegex = Regex("""'{2,3}""")
 private val templateRegex = Regex("""\{\{[^}]*}}""")
+// Template di Wikivoyage che portano testo da mostrare: il nome del luogo (marker, see, do, eat...)
+// con la sua descrizione, e il codice dell'aeroporto (IATA). Tolti interi da templateRegex lasciavano
+// frasi rotte come "L' (), situato nel sobborgo di...". Espansi prima di wikiLinkRegex perche' il nome
+// puo' contenere [[link|testo]] (le | dentro il link non separano i parametri).
+private val iataRegex = Regex("""(?i)\{\{\s*IATA\s*\|\s*([A-Z]{3})\s*}}""")
+private val listingRegex = Regex("""(?is)\{\{\s*(?:marker|see|do|go|eat|drink|sleep|buy|listing)\s*\|([^{}]*)}}""")
+private val listingParamSplitRegex = Regex("""\|(?![^\[]*]])""")
+// "()" o "(, )" rimasti dopo aver tolto i template che stavano tra parentesi
+private val emptyParenthesesRegex = Regex("""\s*\(\s*[,;]?\s*\)""")
+
+private fun expandListing(params: String): String {
+    val fields = listingParamSplitRegex.split(params).associate { part ->
+        part.substringBefore('=').trim().lowercase() to part.substringAfter('=', "").trim()
+    }
+    val name = fields["nome"].orEmpty().ifEmpty { fields["name"].orEmpty() }
+    val description = fields["descrizione"].orEmpty().ifEmpty { fields["content"].orEmpty() }
+    return when {
+        name.isEmpty() -> description
+        description.isEmpty() -> name
+        // "...del {{see|nome=X|descrizione=, l'attrazione...}}" continua la frase
+        description.first() in ",.;:" -> "$name${description.first()} ${description.drop(1).trimStart()}"
+        else -> "$name: $description"
+    }
+}
 private val htmlTagRegex = Regex("""<[^>]+>""")
 private val subHeadingLineRegex = Regex("""^={3,}\s*(.+?)\s*={3,}$""")
 // ";Termine" (lista di definizione wiki): Wikivoyage la usa come sottotitolo dentro un elenco
@@ -106,6 +130,8 @@ private fun cleanBody(raw: String): String {
     val stripped = raw
         .replace(htmlCommentRegex, "")
         .replace(refTagRegex, "")
+        .replace(iataRegex, "$1")
+        .replace(listingRegex) { expandListing(it.groupValues[1]) }
         .replace(wikiFileLinkRegex, "")
         .replace(externalLinkWithTextRegex, "$1")
         .replace(bareExternalLinkRegex, "")
@@ -113,6 +139,7 @@ private fun cleanBody(raw: String): String {
         .replace(boldItalicRegex, "")
         .replace(templateRegex, "")
         .replace(htmlTagRegex, "")
+        .replace(emptyParenthesesRegex, "")
 
     val markedLines = stripped.lineSequence().map { rawLine ->
         val line = rawLine.trim()

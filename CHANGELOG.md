@@ -18,6 +18,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Strumenti di addestramento dell'assistente: dati più puliti (risposte più brevi e senza link, niente introduzioni enciclopediche, un quarto di esempi di rifiuto, fonti ridotte a Wikivoyage e Wikipedia), regioni di test fisse, quantizzazione calibrata sulle guide (imatrix) e una riga di stato leggibile con avanzamento, velocità e tempo mancante in addestramento, valutazione e conversione.
 
 ### Corretto
+- Guide piu' leggibili: nomi di luoghi, aeroporti e attrazioni non spariscono piu' dalle frasi (prima si leggeva per esempio "L' (), situato nel sobborgo di..."), in circa 4 guide su 10.
 - Girando il telefono non si perdono più la pagina aperta nel browser interno, la scheda del punto selezionato sulla mappa e lo sblocco della cassaforte (che si blocca comunque uscendo dalla schermata). La cassaforte si accorge subito del blocco schermo appena impostato, e se l'accesso alla fotocamera è negato compare un messaggio con il collegamento alle impostazioni.
 - Guida e ricerca dell'assistente più veloci, e la ricerca trova anche le parole scritte con maiuscole accentate; le emoji nelle domande arrivano intatte all'assistente.
 - Un passaporto o una chiave salvati in modo danneggiato non mandano più in crash l'app, e annullare un download lo ferma subito.

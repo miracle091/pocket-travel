@@ -106,6 +106,26 @@ class GenerateGuideContentTest {
     }
 
     @Test
+    fun `i template marker, see e IATA tengono nome e descrizione invece di sparire`() {
+        val dumpText = """
+            == Come arrivare ==
+            * L'{{marker|tipo=go |nome=[[Aeroporto di Firenze-Peretola|Aeroporto Amerigo Vespucci]] |lat=43.8}} ({{IATA|FLR}}), situato a Peretola.
+            Si raggiunge l'ingresso del {{see
+            | nome=Castello di San Giorgio | alt= | sito=https://example.org
+            | descrizione=,l'attrazione piu' visitata.
+            }} Poi {{Pricerange|a}}() si prosegue.
+        """.trimIndent()
+
+        val body = parseWikivoyageDump(dumpText).single().body
+
+        assertEquals(
+            "• L'Aeroporto Amerigo Vespucci (FLR), situato a Peretola.\n" +
+                "Si raggiunge l'ingresso del Castello di San Giorgio, l'attrazione piu' visitata. Poi si prosegue.",
+            body,
+        )
+    }
+
+    @Test
     fun `guides db contiene le sezioni di tutte le regioni e i numeri di emergenza di quelle mappate`() {
         val outputDb = File.createTempFile("pocket-travel-test", ".guides.db")
         outputDb.delete()
