@@ -21,7 +21,6 @@ kotlinxSerialization = "1.7.3"
 hiltWork = "1.2.0"
 vectordrawable = "1.2.0"
 planetiler = "0.10.2"
-osmosisOsmBinary = "0.48.3"
 sqliteJdbc = "3.53.4.0"
 androidxTestExtJunit = "1.2.1"
 androidxTestRunner = "1.6.2"
@@ -73,7 +72,6 @@ hilt-work-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.
 androidx-vectordrawable = { group = "androidx.vectordrawable", name = "vectordrawable", version.ref = "vectordrawable" }
 androidx-vectordrawable-animated = { group = "androidx.vectordrawable", name = "vectordrawable-animated", version.ref = "vectordrawable" }
 planetiler-core = { group = "com.onthegomap.planetiler", name = "planetiler-core", version.ref = "planetiler" }
-osmosis-osm-binary = { group = "org.openstreetmap.osmosis", name = "osmosis-osm-binary", version.ref = "osmosisOsmBinary" }
 sqlite-jdbc = { group = "org.xerial", name = "sqlite-jdbc", version.ref = "sqliteJdbc" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExtJunit" }
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }

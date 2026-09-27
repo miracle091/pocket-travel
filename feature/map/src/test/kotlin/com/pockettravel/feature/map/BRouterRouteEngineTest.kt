@@ -44,7 +44,8 @@ class BRouterRouteEngineTest {
     // Gap segnalato nel log di sviluppo: il routing non era mai stato verificato con 2+ segmenti .rd5
     // adiacenti nella stessa cartella. E5_N45.rd5/E10_N45.rd5 in
     // src/test/resources/multi-tile-segments/ sono stati generati una tantum con la pipeline
-    // reale del progetto (tools/data-pipeline/routing, task generateRoutingGraph) da un estratto
+    // del progetto (tools/data-pipeline/routing, task generateRoutingGraph, rimosso il 2026-09-27:
+    // resta nella storia git) da un estratto
     // sintetico con un'unica via che attraversa deliberatamente il confine di tile a lon=10.0
     // (tools/data-pipeline/testdata/tiny-region-two-tiles.osm.xml) — non file scaricati a mano,
     // e piccoli abbastanza (circa 4.4 KB l'uno) da bundlare come fixture permanenti, a differenza

@@ -24,11 +24,9 @@ feature/map/                mappa MapLibre, POI, routing, mappa del mondo
 feature/ai/                 orchestrazione prompt, motore locale (llama.cpp via JNI) e online
 feature/sources/            registro fonti ufficiali esterne
 feature/vault/              UI vault passaporti cifrato
-third-party/                sorgenti vendorizzati: brouter-core, brouter-map-creator, llama-cpp
+third-party/                sorgenti vendorizzati: brouter-core, llama-cpp
 tools/data-pipeline/        generazione e pubblicazione dei pacchetti
   content/                  guides.db, poi.db e poi-extra.db, civici, manifest (merge e validazione), mappa del mondo
-  maptiles/, routing/       generatori locali di map.pmtiles (Planetiler) e .rd5 (BRouter), non
-                            usati in produzione: mappa da Protomaps, segmenti da brouter.de
   scripts/                  build-guides.sh, build-region.sh, assemble-site.sh, calendario
                             settimanale, script Python per dataset/training/valutazione/
                             conversione GGUF con imatrix (riga di stato comune in status.py,

@@ -34,9 +34,6 @@ include(
     ":feature:ai",
     ":feature:sources",
     ":feature:vault",
-    ":tools:data-pipeline:maptiles",
-    ":tools:data-pipeline:routing",
     ":tools:data-pipeline:content",
     ":third-party:brouter-core",
-    ":third-party:brouter-map-creator",
 )
