@@ -78,8 +78,34 @@ class RegionStorage @Inject constructor(
     fun deletePackage(regionId: String, packageName: String): Boolean {
         require(packageName in PACKAGE_NAMES) { "Pacchetto sconosciuto: $packageName" }
         val target = File(directoryFor(regionId), packageName)
+        versionedLinks(target).forEach { it.delete() }
         return !target.exists() || (target.deleteRecursively() && !target.exists())
     }
+
+    /**
+     * File da dare a MapLibre per un archivio PMTiles della regione ([MAP_FILE] o [ADDRESSES_FILE]),
+     * null se non installato. MapLibre tiene in memoria header e directory di ogni archivio per
+     * percorso, per tutta la vita del processo, e non accetta parametri nell'URL di un file: se
+     * l'archivio viene sostituito allo stesso percorso (aggiornamento o nuovo download con l'app
+     * aperta) legge il file nuovo con gli offset del vecchio e va in abort nativo ("incorrect header
+     * check"). Qui il percorso passa per una cartella vuota con la data di modifica nel nome
+     * (`.v-map-<data>/../map.pmtiles`): il kernel lo risolve nello stesso file, ma per MapLibre e' un
+     * percorso nuovo a ogni versione (hard e soft link non si possono usare: SELinux nega `link` alle
+     * app). Le cartelle delle versioni precedenti si cancellano; se non si riesce a creare la
+     * cartella si torna al percorso normale.
+     */
+    fun versionedPmtiles(regionId: String, packageName: String): File? {
+        require(packageName == MAP_FILE || packageName == ADDRESSES_FILE) { "Non e' un archivio PMTiles: $packageName" }
+        val file = File(directoryFor(regionId), packageName)
+        if (!file.isFile) return null
+        val marker = File(file.parentFile, ".v-${file.nameWithoutExtension}-${file.lastModified()}")
+        versionedLinks(file).filter { it != marker }.forEach { it.delete() }
+        if (!marker.isDirectory && !marker.mkdir()) return file
+        return File(marker, "../${file.name}")
+    }
+
+    private fun versionedLinks(packageFile: File): List<File> =
+        packageFile.parentFile?.listFiles().orEmpty().filter { it.name.startsWith(".v-${packageFile.nameWithoutExtension}-") }
 
     /** Byte occupati sul disco da un pacchetto della regione, 0 se assente. */
     fun packageBytes(regionId: String, packageName: String): Long =

@@ -1,5 +1,6 @@
 package com.pockettravel.feature.map
 
+import com.pockettravel.core.data.RegionStorage
 import java.io.File
 
 interface OfflineTileSource {
@@ -11,17 +12,23 @@ interface OfflineTileSource {
 // source vettoriale dello style. Richiede un file reale su storage privato dell'app —
 // pmtiles://asset:// (file in assets/) non è supportato perché l'asset manager di Android
 // non offre letture a range di byte, che il formato PMTiles richiede.
-class PmtilesTileSource(private val regionsDir: File) : OfflineTileSource {
+class PmtilesTileSource(private val regionStorage: RegionStorage) : OfflineTileSource {
+
+    // Percorso diverso per ogni versione del file invece di map.pmtiles: vedi RegionStorage.versionedPmtiles.
+    private fun pmtilesUrl(file: File) = "pmtiles://file://${file.absolutePath}"
 
     override fun styleJson(regionId: String, dark: Boolean): String {
         val palette = if (dark) MapPalette.Dark else MapPalette.Light
-        val pmtilesPath = File(regionsDir, "$regionId/map.pmtiles").absolutePath
+        val mapUrl = pmtilesUrl(
+            regionStorage.versionedPmtiles(regionId, RegionStorage.MAP_FILE)
+                ?: File(regionStorage.directoryFor(regionId), RegionStorage.MAP_FILE),
+        )
         // Civici (pacchetto facoltativo, stesso nome di RegionStorage.ADDRESSES_FILE): solo punti,
         // tutti a z14, che MapLibre sovrazooma; etichette da zoom 17, dove non coprono le strade.
-        val addresses = File(regionsDir, "$regionId/addresses.pmtiles").takeIf { it.isFile }
+        val addresses = regionStorage.versionedPmtiles(regionId, RegionStorage.ADDRESSES_FILE)
         val addressesSource = addresses?.let {
             """,
-                "addresses": { "type": "vector", "url": "pmtiles://file://${it.absolutePath}", "attribution": "© OpenStreetMap contributors", "minzoom": 14, "maxzoom": 14 }"""
+                "addresses": { "type": "vector", "url": "${pmtilesUrl(it)}", "attribution": "© OpenStreetMap contributors", "minzoom": 14, "maxzoom": 14 }"""
         }.orEmpty()
         val addressesLayer = addresses?.let {
             """,
@@ -86,7 +93,7 @@ class PmtilesTileSource(private val regionsDir: File) : OfflineTileSource {
               "sources": {
                 "region": {
                   "type": "vector",
-                  "url": "pmtiles://file://$pmtilesPath",
+                  "url": "$mapUrl",
                   "attribution": "© OpenStreetMap contributors",
                   "minzoom": 0,
                   "maxzoom": 14

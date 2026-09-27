@@ -1,6 +1,7 @@
 package com.pockettravel.feature.map.di
 
 import android.content.Context
+import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.RegionsDir
 import com.pockettravel.feature.map.BRouterRouteEngine
 import com.pockettravel.feature.map.OfflineTileSource
@@ -44,8 +45,8 @@ object RouteEngineModule {
     }
 
     @Provides
-    fun provideOfflineTileSource(@RegionsDir regionsDir: File): OfflineTileSource =
-        PmtilesTileSource(regionsDir)
+    fun provideOfflineTileSource(regionStorage: RegionStorage): OfflineTileSource =
+        PmtilesTileSource(regionStorage)
 
     // I profili .brf + lookups.dat sono logica dell'app (gli stessi per tutte le regioni), non dati
     // per-regione — bundlati come asset e copiati su file reali: BRouter legge da file system, non da

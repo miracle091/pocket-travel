@@ -5,6 +5,7 @@ import java.io.IOException
 import kotlin.io.path.createTempDirectory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -245,5 +246,35 @@ class RegionStorageTest {
         // Tolleranza: tra le due letture altri processi (anche la build stessa) scrivono sul disco
         val difference = kotlin.math.abs(File(root, "regions").usableSpace - storage.availableBytes())
         assertTrue("differenza $difference byte", difference < 64L * 1024 * 1024)
+    }
+
+    @Test
+    fun `versionedPmtiles da' un percorso nuovo per ogni versione del file, null se non installato`() {
+        val (storage, _) = newStorage()
+        assertNull(storage.versionedPmtiles("italia", RegionStorage.MAP_FILE))
+        val dir = storage.directoryFor("italia").apply { mkdirs() }
+        val map = File(dir, RegionStorage.MAP_FILE).apply { writeText("mappa 1"); setLastModified(1_000_000L) }
+
+        val first = storage.versionedPmtiles("italia", RegionStorage.MAP_FILE)!!
+        assertEquals(map.canonicalFile, first.canonicalFile)
+        assertEquals("mappa 1", first.readText())
+
+        map.writeText("mappa 2"); map.setLastModified(2_000_000L)
+        val second = storage.versionedPmtiles("italia", RegionStorage.MAP_FILE)!!
+        assertTrue(first.path != second.path)
+        assertEquals("mappa 2", second.readText())
+        // resta solo la cartella della versione attuale
+        assertEquals(listOf(".v-map-2000000"), dir.list()!!.filter { it.startsWith(".v-") })
+    }
+
+    @Test
+    fun `deletePackage della mappa cancella anche le cartelle di versione`() {
+        val (storage, _) = newStorage()
+        val dir = storage.directoryFor("italia").apply { mkdirs() }
+        File(dir, RegionStorage.MAP_FILE).writeText("mappa")
+        File(dir, ".v-map-123").mkdir()
+        File(dir, ".v-addresses-9").mkdir()
+        assertTrue(storage.deletePackage("italia", RegionStorage.MAP_FILE))
+        assertEquals(setOf(".v-addresses-9"), dir.list()!!.toSet())
     }
 }
