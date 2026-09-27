@@ -347,7 +347,7 @@ static int decode_tokens_in_batches(
         llama_context *context,
         llama_batch &batch,
         const llama_tokens &tokens,
-        const llama_pos start_pos,
+        llama_pos start_pos,
         const bool compute_last_logit = false) {
     // Process tokens in batches using the global batch
     LOGd("%s: Decode %d tokens starting at position %d", __func__, (int) tokens.size(), start_pos);
@@ -359,7 +359,15 @@ static int decode_tokens_in_batches(
         // Shift context if current batch cannot fit into the context
         if (start_pos + i + cur_batch_size >= DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM) {
             LOGw("%s: Current batch won't fit into context! Shifting...", __func__);
+            // current_position deve riflettere gli i token gia' decodificati da questa chiamata
+            // prima dello shift: start_pos e' catturato all'inizio della funzione e non segue lo
+            // shift da solo, altrimenti i batch successivi userebbero posizioni non aggiornate.
+            current_position = start_pos + i;
             shift_context();
+            start_pos = current_position - i;
+            // Il chiamante aggiunge poi a current_position tutti i token di questa chiamata: va
+            // riportato all'inizio (spostato) della chiamata, o risulterebbe avanti di i token.
+            current_position = start_pos;
         }
 
         // Add tokens to the batch with proper positions
@@ -458,14 +466,16 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processUs
         LOGv("token: `%s`\t -> `%d`", common_token_to_piece(g_context, id).c_str(), id);
     }
 
-    // Ensure user prompt doesn't exceed the context size by truncating if necessary.
-    const int user_prompt_size = (int) user_tokens.size();
-    const int max_batch_size = DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM;
-    if (user_prompt_size > max_batch_size) {
-        const int skipped_tokens = user_prompt_size - max_batch_size;
-        user_tokens.resize(max_batch_size);
+    // Ensure user prompt doesn't exceed the remaining context, truncating if necessary. Il budget
+    // tiene conto dei token gia' occupati da current_position (system prompt/turni precedenti),
+    // non solo della dimensione assoluta del contesto.
+    const int max_new_tokens = std::max(0, DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM - current_position);
+    if ((int) user_tokens.size() > max_new_tokens) {
+        const int skipped_tokens = (int) user_tokens.size() - max_new_tokens;
+        user_tokens.resize(max_new_tokens);
         LOGw("%s: User prompt too long! Skipped %d tokens!", __func__, skipped_tokens);
     }
+    const int user_prompt_size = (int) user_tokens.size();
 
     // Decode user tokens in batches
     if (decode_tokens_in_batches(g_context, g_batch, user_tokens, current_position, true)) {
@@ -475,7 +485,7 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processUs
 
     // Update position
     current_position += user_prompt_size;
-    stop_generation_position = current_position + user_prompt_size + n_predict;
+    stop_generation_position = current_position + n_predict;
     return 0;
 }
 
@@ -511,6 +521,71 @@ static bool is_valid_utf8(const char *string) {
         }
     }
     return true;
+}
+
+// env->NewStringUTF() richiede Modified UTF-8 (CESU-8): le sequenze UTF-8 standard a 4 byte (emoji,
+// CJK supplementari) non sono valide in quel formato e vengono troncate o mandano in abort sotto
+// CheckJNI. Decodifica manualmente in UTF-16 (con surrogate pair per i code point oltre U+FFFF) e
+// usa NewString, che accetta UTF-16 nativo; le sequenze non valide diventano U+FFFD.
+static jstring utf8_to_jstring(JNIEnv *env, const std::string &utf8) {
+    std::vector<jchar> utf16;
+    utf16.reserve(utf8.size());
+    const auto *bytes = (const unsigned char *) utf8.data();
+    const size_t len = utf8.size();
+    size_t i = 0;
+    while (i < len) {
+        const unsigned char b0 = bytes[i];
+        uint32_t cp;
+        int num;
+        if ((b0 & 0x80) == 0x00) {
+            cp = b0;
+            num = 1;
+        } else if ((b0 & 0xE0) == 0xC0) {
+            cp = b0 & 0x1F;
+            num = 2;
+        } else if ((b0 & 0xF0) == 0xE0) {
+            cp = b0 & 0x0F;
+            num = 3;
+        } else if ((b0 & 0xF8) == 0xF0) {
+            cp = b0 & 0x07;
+            num = 4;
+        } else {
+            utf16.push_back(0xFFFD);
+            i += 1;
+            continue;
+        }
+
+        if (i + num > len) {
+            utf16.push_back(0xFFFD);
+            i += 1;
+            continue;
+        }
+
+        bool valid = true;
+        for (int j = 1; j < num; ++j) {
+            const unsigned char cb = bytes[i + j];
+            if ((cb & 0xC0) != 0x80) {
+                valid = false;
+                break;
+            }
+            cp = (cp << 6) | (cb & 0x3F);
+        }
+        if (!valid) {
+            utf16.push_back(0xFFFD);
+            i += 1;
+            continue;
+        }
+
+        i += num;
+        if (cp <= 0xFFFF) {
+            utf16.push_back((jchar) cp);
+        } else {
+            cp -= 0x10000;
+            utf16.push_back((jchar) (0xD800 + (cp >> 10)));
+            utf16.push_back((jchar) (0xDC00 + (cp & 0x3FF)));
+        }
+    }
+    return env->NewString(utf16.data(), (jsize) utf16.size());
 }
 
 extern "C"
@@ -560,14 +635,14 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_generateN
     // Create and return a valid UTF-8 Java string
     jstring result = nullptr;
     if (is_valid_utf8(cached_token_chars.c_str())) {
-        result = env->NewStringUTF(cached_token_chars.c_str());
+        result = utf8_to_jstring(env, cached_token_chars);
         LOGv("id: %d,\tcached: `%s`,\tnew: `%s`", new_token_id, cached_token_chars.c_str(), new_token_chars.c_str());
 
         assistant_ss << cached_token_chars;
         cached_token_chars.clear();
     } else {
         LOGv("id: %d,\tappend to cache", new_token_id);
-        result = env->NewStringUTF("");
+        result = utf8_to_jstring(env, "");
     }
     return result;
 }

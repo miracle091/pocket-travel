@@ -87,7 +87,9 @@ private fun GuideSection.isRegulatedTopic(): Boolean =
 internal fun buildFtsQuery(question: String): String =
     question
         .split(Regex("\\s+"))
-        .map { token -> token.filter { it.isLetterOrDigit() } }
+        // minuscolo: FTS riconosce AND/OR/NOT/NEAR come operatori solo in maiuscolo, e il confronto dei
+        // termini ignora comunque maiuscole e minuscole
+        .map { token -> token.filter { it.isLetterOrDigit() }.lowercase() }
         .filter { it.length >= 4 }
         .joinToString(" OR ")
 

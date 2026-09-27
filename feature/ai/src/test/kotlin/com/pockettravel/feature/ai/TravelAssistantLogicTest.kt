@@ -10,7 +10,14 @@ class TravelAssistantLogicTest {
     fun `builds an OR query from words of at least four characters`() {
         val query = buildFtsQuery("Posso portare farmaci da banco in Giappone?")
 
-        assertEquals("Posso OR portare OR farmaci OR banco OR Giappone", query)
+        assertEquals("posso OR portare OR farmaci OR banco OR giappone", query)
+    }
+
+    @Test
+    fun `operatori FTS scritti in maiuscolo nella domanda restano parole`() {
+        val query = buildFtsQuery("Hotel NEAR stazione OR aeroporto")
+
+        assertEquals("hotel OR near OR stazione OR aeroporto", query)
     }
 
     @Test
