@@ -105,6 +105,9 @@ def main():
     ap.add_argument("--base-model", required=True)
     ap.add_argument("--base-license", required=True, help="licenza del modello base, es. apache-2.0 o mit")
     ap.add_argument("--license", default="cc-by-sa-4.0", help="licenza dichiarata per il modello pubblicato")
+    ap.add_argument("--card", type=Path,
+                    help="model card da caricare come README.md al posto di quella generata "
+                         "(es. tools/data-pipeline/model-cards/<repo>.md)")
     ap.add_argument("--public", action="store_true", help="repo pubblico (default: privato)")
     ap.add_argument("--push", action="store_true", help="carica davvero (default: dry-run)")
     a = ap.parse_args()
@@ -114,8 +117,11 @@ def main():
     attribution = resolve_attribution(a.folder)
     attribution_in_folder = attribution.parent == a.folder
     check_no_vs(attribution, a.public)
-    card = CARD.format(name=a.repo.split("/")[-1], license=a.license, base_model=a.base_model,
-                       base_license=a.base_license)
+    if a.card:
+        card = a.card.read_text(encoding="utf-8")
+    else:
+        card = CARD.format(name=a.repo.split("/")[-1], license=a.license, base_model=a.base_model,
+                           base_license=a.base_license)
     files = sorted(p for p in a.folder.rglob("*") if p.is_file())
     size = sum(p.stat().st_size for p in files) / 2**20
 
