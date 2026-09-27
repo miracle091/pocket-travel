@@ -146,4 +146,33 @@ class PackageImporterSchemaTest {
             PoiImporter.poiQuery(setOf("regionId", "name", "category", "lat", "lon", "osmTag", "phone")),
         )
     }
+
+    @Test
+    fun `la query city_sections legge le colonne di cities db`() = withDb { conn ->
+        conn.createStatement().use { statement ->
+            statement.execute(
+                """
+                CREATE TABLE city_sections (
+                    city TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    body TEXT NOT NULL,
+                    sourceUrl TEXT NOT NULL
+                )
+                """.trimIndent()
+            )
+            statement.execute(
+                "INSERT INTO city_sections VALUES ('Roma', 'COSA_VEDERE', 'Cosa vedere', 'body', 'https://it.wikivoyage.org/wiki/Roma')"
+            )
+        }
+        conn.createStatement().use { statement ->
+            val rs = statement.executeQuery(CityImporter.CITY_SECTIONS_QUERY)
+            assertEquals(true, rs.next())
+            assertEquals("Roma", rs.getString("city"))
+            assertEquals("COSA_VEDERE", rs.getString("category"))
+            assertEquals("Cosa vedere", rs.getString("title"))
+            assertEquals("body", rs.getString("body"))
+            assertEquals("https://it.wikivoyage.org/wiki/Roma", rs.getString("sourceUrl"))
+        }
+    }
 }

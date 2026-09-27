@@ -11,9 +11,9 @@ import kotlinx.coroutines.withContext
 
 /**
  * Installa (o aggiorna) solo i pacchetti [kinds] di una regione, lasciando intatti gli altri:
- * scarica e verifica i file (poi.db, poi-extra.db, segmenti .rd5, addresses.pmtiles), estrae map.pmtiles dalla build Protomaps,
- * poi sostituisce ogni pacchetto su disco e importa i POI. Se un passo fallisce, i pacchetti
- * gia' sostituiti tornano alla versione precedente. Il chiamante valida [entry].
+ * scarica e verifica i file (poi.db, poi-extra.db, segmenti .rd5, addresses.pmtiles, cities.db), estrae map.pmtiles dalla build Protomaps,
+ * poi sostituisce ogni pacchetto su disco e importa i POI e le guide delle citta'. Se un passo
+ * fallisce, i pacchetti gia' sostituiti tornano alla versione precedente. Il chiamante valida [entry].
  */
 class RegionPackageInstaller @Inject constructor(
     private val downloader: RegionPackageDownloader,
@@ -22,6 +22,7 @@ class RegionPackageInstaller @Inject constructor(
     private val poiImporter: PoiImporter,
     private val routingGraphInstaller: RegionRoutingGraphInstaller,
     private val pmtilesExtractor: PmtilesExtractor,
+    private val cityImporter: CityImporter,
 ) {
     suspend fun install(
         entry: RegionManifestEntry,
@@ -39,6 +40,7 @@ class RegionPackageInstaller @Inject constructor(
             if (PackageKind.POI in kinds) add(entry.poi.downloadFile)
             if (PackageKind.POI_EXTRA in kinds) add(entry.poiExtra!!.downloadFile)
             if (PackageKind.ADDRESSES in kinds) add(entry.addresses!!.downloadFile)
+            if (PackageKind.CITIES in kinds) add(entry.cities!!.downloadFile)
             if (installPreview) add(entry.preview!!.downloadFile)
         }
         // Prima di tutto: un tentativo precedente interrotto da un crash puo' aver lasciato backup da
@@ -52,6 +54,7 @@ class RegionPackageInstaller @Inject constructor(
         if (PackageKind.POI in kinds) unpackXz(staging, entry.poi.file, entry.poi.fileXz)
         if (PackageKind.POI_EXTRA in kinds) unpackXz(staging, entry.poiExtra!!.file, entry.poiExtra.fileXz)
         if (PackageKind.ADDRESSES in kinds) unpackXz(staging, entry.addresses!!.file, entry.addresses.fileXz)
+        if (PackageKind.CITIES in kinds) unpackXz(staging, entry.cities!!.file, entry.cities.fileXz)
         if (installPreview) unpackXz(staging, entry.preview!!.file, entry.preview.fileXz)
 
         if (PackageKind.MAP in kinds) {
@@ -67,6 +70,11 @@ class RegionPackageInstaller @Inject constructor(
         val poisToImport = if (PackageKind.POI in kinds) poiImporter.readPois(entry.regionId, File(staging, entry.poi.file.name)) else null
         val poiExtraToImport = if (PackageKind.POI_EXTRA in kinds) {
             poiImporter.readPois(entry.regionId, File(staging, entry.poiExtra!!.file.name), extra = true)
+        } else {
+            null
+        }
+        val citySectionsToImport = if (PackageKind.CITIES in kinds) {
+            cityImporter.readSections(entry.regionId, File(staging, entry.cities!!.file.name))
         } else {
             null
         }
@@ -88,12 +96,14 @@ class RegionPackageInstaller @Inject constructor(
             regionRepository.inInstallTransaction {
                 poisToImport?.let { poiImporter.replace(entry.regionId, it) }
                 poiExtraToImport?.let { poiImporter.replace(entry.regionId, it, extra = true) }
+                citySectionsToImport?.let { cityImporter.replace(entry.regionId, it) }
                 regionRepository.markPackagesInstalled(
                     entry.regionId, entry.displayName, entry.countryCode,
                     versions = kinds.associateWith { entry.versionOf(it)!! },
                     poiSizeBytes = if (PackageKind.POI in kinds) entry.poi.file.sizeBytes else null,
                     poiExtraSizeBytes = if (PackageKind.POI_EXTRA in kinds) entry.poiExtra!!.file.sizeBytes else null,
                     previewVersion = if (installPreview) entry.preview!!.version else null,
+                    citiesSizeBytes = if (PackageKind.CITIES in kinds) entry.cities!!.file.sizeBytes else null,
                 )
             }
         } catch (error: Exception) {

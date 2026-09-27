@@ -34,6 +34,17 @@ class GuideRepository @Inject constructor(
             .take(limit)
             .map { it.section.toDomain() }
 
+    /**
+     * Come searchInRegion, ma con il punteggio esposto: usata da TravelAssistant per unire i
+     * candidati con quelli di CityRepository.searchInRegionScored, che usa lo stesso schema di
+     * ranking (vedi matchScore).
+     */
+    suspend fun searchInRegionScored(regionId: String, query: String, limit: Int): List<Pair<GuideSection, Double>> =
+        guideDao.searchInRegionRanked(regionId, query, maxOf(limit, CANDIDATE_CAP))
+            .map { it.section.toDomain() to matchScore(it.matchinfo) }
+            .sortedByDescending { it.second }
+            .take(limit)
+
     private companion object {
         const val CANDIDATE_CAP = 30
     }

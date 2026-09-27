@@ -50,6 +50,8 @@ data class RegionManifestEntry(
     val poiExtra: PoiPackageEntry? = null,
     // Numeri civici: assenti per le regioni non ancora generate o troppo grandi da estrarre.
     val addresses: AddressesPackageEntry? = null,
+    // Guide delle citta' (city_sections di cities.db): assenti per le regioni senza citta' abbinate.
+    val cities: CitiesPackageEntry? = null,
     // Anteprima offline (pochi zoom, tetto di peso compresso): si installa da sola con ogni download
     // della regione (RegionPackageInstaller), non e' un PackageKind. Assente per le regioni non ancora
     // rigenerate.
@@ -71,6 +73,7 @@ data class RegionManifestEntry(
         PackageKind.POI -> poi.version
         PackageKind.POI_EXTRA -> poiExtra?.version
         PackageKind.ADDRESSES -> addresses?.version
+        PackageKind.CITIES -> cities?.version
     }
 
     /** I pacchetti che il manifest offre per questa regione (tutti tranne, a volte, POI extra e civici). */
@@ -95,7 +98,8 @@ data class RegionManifestEntry(
         (if (PackageKind.ROUTING in kinds) routing.files.sumOf { it.sizeBytes } else 0L) +
             (if (PackageKind.POI in kinds) poi.downloadFile.sizeBytes else 0L) +
             (if (PackageKind.POI_EXTRA in kinds) poiExtra?.downloadFile?.sizeBytes ?: 0L else 0L) +
-            (if (PackageKind.ADDRESSES in kinds) addresses?.downloadFile?.sizeBytes ?: 0L else 0L)
+            (if (PackageKind.ADDRESSES in kinds) addresses?.downloadFile?.sizeBytes ?: 0L else 0L) +
+            (if (PackageKind.CITIES in kinds) cities?.downloadFile?.sizeBytes ?: 0L else 0L)
 }
 
 /** map.pmtiles non e' un file scaricato: viene estratto sul device dalle tile di [source]. */
@@ -123,6 +127,16 @@ data class PoiPackageEntry(val version: String, val file: RegionManifestFile, va
  */
 @Serializable
 data class AddressesPackageEntry(val version: String, val file: RegionManifestFile, val fileXz: RegionManifestFile? = null) {
+    val downloadFile: RegionManifestFile get() = fileXz ?: file
+}
+
+/**
+ * cities.db della regione: sezioni delle guide di citta' (city_sections), stesso schema di
+ * [PoiPackageEntry]: [fileXz], se c'e', e' il file da scaricare, compresso con xz, il cui risultato
+ * decompresso deve avere dimensione e sha256 di [file].
+ */
+@Serializable
+data class CitiesPackageEntry(val version: String, val file: RegionManifestFile, val fileXz: RegionManifestFile? = null) {
     val downloadFile: RegionManifestFile get() = fileXz ?: file
 }
 
@@ -174,6 +188,11 @@ fun RegionManifestEntry.validate() {
     }
     addresses?.let {
         require(isSafeVersion(it.version)) { "version dei civici non valida per $regionId" }
+        it.file.validate(regionId)
+        it.fileXz?.validate(regionId)
+    }
+    cities?.let {
+        require(isSafeVersion(it.version)) { "version delle guide di citta' non valida per $regionId" }
         it.file.validate(regionId)
         it.fileXz?.validate(regionId)
     }

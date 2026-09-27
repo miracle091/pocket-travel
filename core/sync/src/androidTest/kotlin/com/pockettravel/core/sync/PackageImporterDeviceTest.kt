@@ -1,6 +1,7 @@
 package com.pockettravel.core.sync
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -38,7 +39,7 @@ class PackageImporterDeviceTest {
         workDir.mkdirs()
         db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).build()
         val storage = RegionStorage(File(workDir, "regions").apply { mkdirs() }, File(workDir, "staging").apply { mkdirs() })
-        repository = RegionRepository(db.regionPackageDao(), db.poiDao(), storage, db)
+        repository = RegionRepository(db.regionPackageDao(), db.poiDao(), storage, db, db.cityDao())
     }
 
     @After
@@ -92,6 +93,43 @@ class PackageImporterDeviceTest {
         val pois = db.poiDao().poisForRegion("andorra")
         assertEquals(2681, pois.size)
         assertTrue(pois.all { it.phone == null })
+    }
+
+    @Test
+    fun importaLeGuideDiCittaDiUnaRegioneSostituendoQuellePrecedentiESaltandoLeCategorieSconosciute() = runBlocking {
+        val importer = CityImporter(db.cityDao(), db)
+
+        val file = citiesDbFile("cities-san-marino.db") { cities ->
+            cities.execSQL("INSERT INTO city_sections VALUES ('Citta di San Marino', 'COSA_VEDERE', 'Cosa vedere', 'corpo', 'https://it.wikivoyage.org/wiki/Citta_di_San_Marino')")
+            // Categoria non ancora nota a questa build: va saltata, non deve far fallire l'import.
+            cities.execSQL("INSERT INTO city_sections VALUES ('Citta di San Marino', 'CATEGORIA_FUTURA', 'Sezione futura', 'corpo', 'https://it.wikivoyage.org/wiki/Citta_di_San_Marino')")
+        }
+
+        importer.import("san-marino", file)
+
+        val sections = db.cityDao().sectionsFor("san-marino", "Citta di San Marino")
+        assertEquals(1, sections.size)
+        assertEquals("Cosa vedere", sections.single().title)
+        assertFalse("cities.db va cancellato dopo l'import", file.exists())
+
+        // Un secondo import sostituisce, non accoda.
+        val secondFile = citiesDbFile("cities-san-marino-2.db") { cities ->
+            cities.execSQL("INSERT INTO city_sections VALUES ('Citta di San Marino', 'COSA_VEDERE', 'Cosa vedere', 'corpo aggiornato', 'https://it.wikivoyage.org/wiki/Citta_di_San_Marino')")
+        }
+        importer.import("san-marino", secondFile)
+        val sectionsAfterUpdate = db.cityDao().sectionsFor("san-marino", "Citta di San Marino")
+        assertEquals(1, sectionsAfterUpdate.size)
+        assertEquals("corpo aggiornato", sectionsAfterUpdate.single().body)
+    }
+
+    /** Crea un cities.db minimo (stesso schema pubblicato da tools/data-pipeline) senza bisogno di un asset. */
+    private fun citiesDbFile(name: String, insertRows: (SQLiteDatabase) -> Unit): File {
+        val file = File(workDir, name)
+        SQLiteDatabase.openOrCreateDatabase(file, null).use { cities ->
+            cities.execSQL("CREATE TABLE city_sections (city TEXT NOT NULL, category TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, sourceUrl TEXT NOT NULL)")
+            insertRows(cities)
+        }
+        return file
     }
 
     private fun copyAsset(name: String): File {

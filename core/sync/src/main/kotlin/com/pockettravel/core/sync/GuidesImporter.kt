@@ -2,8 +2,8 @@ package com.pockettravel.core.sync
 
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.withTransaction
-import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.guideCategoryOrNull
 import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.EmergencyNumbersEntity
 import com.pockettravel.core.data.db.GuideDao
@@ -47,13 +47,16 @@ class GuidesImporter @Inject constructor(
         guidesDbFile.delete()
     }
 
+    // Le categorie sconosciute (pubblicate da una pipeline piu' recente di questa build dell'app)
+    // vengono saltate invece di far fallire l'intero import.
     private fun readGuideSections(db: SQLiteDatabase): List<GuideSectionEntity> {
         val sections = mutableListOf<GuideSectionEntity>()
         db.rawQuery(GUIDE_SECTIONS_QUERY, null).use { cursor ->
             while (cursor.moveToNext()) {
+                val category = guideCategoryOrNull(cursor.getString(1)) ?: continue
                 sections += GuideSectionEntity(
                     regionId = cursor.getString(0),
-                    category = GuideCategory.valueOf(cursor.getString(1)),
+                    category = category,
                     title = cursor.getString(2),
                     body = cursor.getString(3),
                     sourceUrl = cursor.getString(4),

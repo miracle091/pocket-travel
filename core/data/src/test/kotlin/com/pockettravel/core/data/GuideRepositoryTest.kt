@@ -120,6 +120,22 @@ class GuideRepositoryTest {
     }
 
     @Test
+    fun `searchInRegionScored espone lo stesso punteggio usato per ordinare searchInRegion`() = runBlocking {
+        val dao = FakeGuideDao()
+        val repository = GuideRepository(dao)
+        val entity = GuideSectionEntity(regionId = "italia", category = GuideCategory.DOGANE, title = "Dogane", body = "corpo", sourceUrl = "https://it.wikivoyage.org/wiki/Italia")
+        dao.stored += entity
+        dao.setMatchInfo(entity, matchInfo(phraseCount = 1, columnCount = 2, perPhraseColumnHits = listOf(Triple(1, 1, 1), Triple(0, 0, 1))))
+
+        val result = repository.searchInRegionScored("italia", "dogane", limit = 10)
+
+        assertEquals(1, result.size)
+        assertEquals("Dogane", result.single().first.title)
+        // Un solo hit nel titolo (peso 3.0), nessun hit nel corpo: stesso matchScore usato da searchInRegion.
+        assertEquals(3.0, result.single().second, 1e-9)
+    }
+
+    @Test
     fun `searchInRegion ordina per rilevanza col matchinfo, non per ordine di inserimento`() = runBlocking {
         // Caso reale: "Quale valuta si usa a San Marino?" tornava "Come arrivare" (che nomina San
         // Marino piu' volte nel corpo) invece di "Valuta e acquisti", perche' la MATCH non aveva un

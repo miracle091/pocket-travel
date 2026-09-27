@@ -5,4 +5,5 @@ package com.pockettravel.core.data
  * Le guide non sono qui: un solo pacchetto per tutte le regioni (vedi installed_guides).
  */
 // POI_EXTRA: fontanelle, tavoli da picnic, parchi giochi... (vedi core:poi), solo su richiesta.
-enum class PackageKind { MAP, ROUTING, POI, POI_EXTRA, ADDRESSES }
+// CITIES: guide delle citta' della regione (city_sections), scaricate col resto nel download completo.
+enum class PackageKind { MAP, ROUTING, POI, POI_EXTRA, ADDRESSES, CITIES }

@@ -1,6 +1,7 @@
 package com.pockettravel.core.data
 
 import androidx.room.withTransaction
+import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.InstalledGuidesEntity
 import com.pockettravel.core.data.db.InstalledRegionEntity
 import com.pockettravel.core.data.db.PoiDao
@@ -15,6 +16,7 @@ class RegionRepository @Inject constructor(
     private val poiDao: PoiDao,
     private val regionStorage: RegionStorage,
     private val database: RegionDatabase,
+    private val cityDao: CityDao,
 ) {
     fun observeInstalled(): Flow<List<RegionPackage>> =
         regionPackageDao.observeAll().map { entities -> entities.map { it.toDomain() } }
@@ -38,9 +40,11 @@ class RegionRepository @Inject constructor(
         poiSizeBytes: Long? = null,
         poiExtraSizeBytes: Long? = null,
         previewVersion: String? = null,
+        citiesSizeBytes: Long? = null,
     ) {
         require(PackageKind.POI !in versions || poiSizeBytes != null) { "poiSizeBytes mancante per $regionId" }
         require(PackageKind.POI_EXTRA !in versions || poiExtraSizeBytes != null) { "poiExtraSizeBytes mancante per $regionId" }
+        require(PackageKind.CITIES !in versions || citiesSizeBytes != null) { "citiesSizeBytes mancante per $regionId" }
         val current = installed(regionId)
         save(
             regionId, displayName, countryCode ?: current?.countryCode,
@@ -48,6 +52,7 @@ class RegionRepository @Inject constructor(
             poiSizeBytes = if (PackageKind.POI in versions) poiSizeBytes else current?.poiSizeBytes,
             poiExtraSizeBytes = if (PackageKind.POI_EXTRA in versions) poiExtraSizeBytes else current?.poiExtraSizeBytes,
             previewVersion = previewVersion ?: current?.previewVersion,
+            citiesSizeBytes = if (PackageKind.CITIES in versions) citiesSizeBytes else current?.citiesSizeBytes,
         )
     }
 
@@ -64,12 +69,13 @@ class RegionRepository @Inject constructor(
             PackageKind.MAP -> check(regionStorage.deletePackage(regionId, RegionStorage.MAP_FILE)) { "Impossibile eliminare la mappa di $regionId" }
             PackageKind.ROUTING -> check(regionStorage.deletePackage(regionId, RegionStorage.ROUTING_DIR)) { "Impossibile eliminare il routing di $regionId" }
             PackageKind.ADDRESSES -> check(regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_FILE)) { "Impossibile eliminare i civici di $regionId" }
-            PackageKind.POI, PackageKind.POI_EXTRA -> Unit
+            PackageKind.POI, PackageKind.POI_EXTRA, PackageKind.CITIES -> Unit
         }
         database.withTransaction {
             when (kind) {
                 PackageKind.POI -> poiDao.deletePackageForRegion(regionId, extra = false)
                 PackageKind.POI_EXTRA -> poiDao.deletePackageForRegion(regionId, extra = true)
+                PackageKind.CITIES -> cityDao.deleteForRegion(regionId)
                 PackageKind.MAP, PackageKind.ROUTING, PackageKind.ADDRESSES -> Unit
             }
             save(
@@ -78,11 +84,21 @@ class RegionRepository @Inject constructor(
                 poiSizeBytes = if (kind == PackageKind.POI) null else current.poiSizeBytes,
                 poiExtraSizeBytes = if (kind == PackageKind.POI_EXTRA) null else current.poiExtraSizeBytes,
                 previewVersion = current.previewVersion,
+                citiesSizeBytes = if (kind == PackageKind.CITIES) null else current.citiesSizeBytes,
             )
         }
     }
 
-    private suspend fun save(regionId: String, displayName: String, countryCode: String?, versionOf: (PackageKind) -> String?, poiSizeBytes: Long?, poiExtraSizeBytes: Long?, previewVersion: String?) {
+    private suspend fun save(
+        regionId: String,
+        displayName: String,
+        countryCode: String?,
+        versionOf: (PackageKind) -> String?,
+        poiSizeBytes: Long?,
+        poiExtraSizeBytes: Long?,
+        previewVersion: String?,
+        citiesSizeBytes: Long?,
+    ) {
         if (PackageKind.entries.all { versionOf(it) == null }) {
             remove(regionId)
             return
@@ -102,8 +118,10 @@ class RegionRepository @Inject constructor(
                 previewVersion = previewVersion,
                 poiSizeBytes = poiSizeBytes,
                 poiExtraSizeBytes = poiExtraSizeBytes,
-                sizeBytes = diskBytes + (poiSizeBytes ?: 0L) + (poiExtraSizeBytes ?: 0L),
+                sizeBytes = diskBytes + (poiSizeBytes ?: 0L) + (poiExtraSizeBytes ?: 0L) + (citiesSizeBytes ?: 0L),
                 installedAt = System.currentTimeMillis(),
+                citiesVersion = versionOf(PackageKind.CITIES),
+                citiesSizeBytes = citiesSizeBytes,
             ),
         )
     }
@@ -143,16 +161,18 @@ class RegionRepository @Inject constructor(
         database.withTransaction {
             regionPackageDao.deleteById(regionId)
             poiDao.deleteForRegion(regionId)
+            cityDao.deleteForRegion(regionId)
         }
     }
 
-    /** Byte occupati da un pacchetto installato: mappa, routing e civici dal disco, POI (base ed extra) dalla dimensione registrata. */
+    /** Byte occupati da un pacchetto installato: mappa, routing e civici dal disco, POI (base ed extra) e citta' dalla dimensione registrata. */
     fun packageBytes(region: RegionPackage, kind: PackageKind): Long? = when {
         region.versionOf(kind) == null -> null
         kind == PackageKind.MAP -> regionStorage.packageBytes(region.regionId, RegionStorage.MAP_FILE)
         kind == PackageKind.ROUTING -> regionStorage.packageBytes(region.regionId, RegionStorage.ROUTING_DIR)
         kind == PackageKind.ADDRESSES -> regionStorage.packageBytes(region.regionId, RegionStorage.ADDRESSES_FILE)
         kind == PackageKind.POI_EXTRA -> region.poiExtraSizeBytes
+        kind == PackageKind.CITIES -> region.citiesSizeBytes
         else -> region.poiSizeBytes
     }
 
@@ -172,4 +192,6 @@ private fun InstalledRegionEntity.toDomain() = RegionPackage(
     poiExtraSizeBytes = poiExtraSizeBytes,
     sizeBytes = sizeBytes,
     previewVersion = previewVersion,
+    citiesVersion = citiesVersion,
+    citiesSizeBytes = citiesSizeBytes,
 )

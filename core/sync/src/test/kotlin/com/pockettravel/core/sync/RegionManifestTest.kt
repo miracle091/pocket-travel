@@ -5,6 +5,7 @@ import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RegionManifestTest {
@@ -126,6 +127,41 @@ class RegionManifestTest {
         assertEquals(133_500L, region.downloadBytes(setOf(PackageKind.ADDRESSES)))
         assertEquals(150_000L, parse(withAddresses).regions.single().downloadBytes(setOf(PackageKind.ADDRESSES)))
         assertThrows(IllegalArgumentException::class.java) { withXz("https://evil.example.com/addresses.pmtiles.xz").validate() }
+    }
+
+    private val withCities = sampleManifest.replace(
+        "\"continent\": \"Europa\"",
+        """"cities": { "version": "2026.03.06", "file": { "name": "cities.db", "url": "https://github.com/o/r/releases/download/region-data/cities.db", "sizeBytes": 250000, "sha256": "$sha" } },
+              "continent": "Europa"""",
+    )
+
+    @Test
+    fun `le guide di citta' sono facoltative, nel download completo e contano solo se offerte`() {
+        val without = parse().regions.single()
+        assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI), without.availableKinds)
+        assertNull(without.versionOf(PackageKind.CITIES))
+
+        val with = parse(withCities).regions.single()
+        with.validate()
+        assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI, PackageKind.CITIES), with.availableKinds)
+        assertEquals("2026.03.06", with.versionOf(PackageKind.CITIES))
+        assertEquals(250_000L, with.downloadBytes(setOf(PackageKind.CITIES)))
+        assertTrue("le guide di citta' sono nel download completo", PackageKind.CITIES in with.defaultKinds)
+    }
+
+    @Test
+    fun `se c'e' la copia compressa delle guide di citta' si scarica quella`() {
+        fun withXz(url: String) = parse(withCities.replace(
+            "\"sizeBytes\": 250000, \"sha256\": \"$sha\" }",
+            "\"sizeBytes\": 250000, \"sha256\": \"$sha\" },\n" +
+                """"fileXz": { "name": "cities.db.xz", "url": "$url", "sizeBytes": 90000, "sha256": "$sha" }""",
+        )).regions.single()
+        val region = withXz("https://github.com/o/r/releases/download/region-data/cities.db.xz")
+        region.validate()
+        assertEquals("cities.db.xz", region.cities!!.downloadFile.name)
+        assertEquals(90_000L, region.downloadBytes(setOf(PackageKind.CITIES)))
+        assertEquals(250_000L, parse(withCities).regions.single().downloadBytes(setOf(PackageKind.CITIES)))
+        assertThrows(IllegalArgumentException::class.java) { withXz("https://evil.example.com/cities.db.xz").validate() }
     }
 
     @Test

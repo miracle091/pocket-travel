@@ -16,6 +16,10 @@ data class RegionPackage(
     // Anteprima offline installata (preview.pmtiles): non e' un PackageKind, vedi InstalledRegionEntity.
     // Default null: non tocca le costruzioni esistenti (test in app/) che non la conoscono ancora.
     val previewVersion: String? = null,
+    // Guide delle citta' (city_sections in region.db, non misurabili dal disco come mappa e routing,
+    // vedi citiesSizeBytes). Default null: come previewVersion, non tocca le costruzioni esistenti.
+    val citiesVersion: String? = null,
+    val citiesSizeBytes: Long? = null,
 ) {
     fun versionOf(kind: PackageKind): String? = when (kind) {
         PackageKind.MAP -> mapVersion
@@ -23,5 +27,6 @@ data class RegionPackage(
         PackageKind.POI -> poiVersion
         PackageKind.POI_EXTRA -> poiExtraVersion
         PackageKind.ADDRESSES -> addressesVersion
+        PackageKind.CITIES -> citiesVersion
     }
 }

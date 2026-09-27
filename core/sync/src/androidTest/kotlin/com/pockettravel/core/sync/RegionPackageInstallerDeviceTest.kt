@@ -82,7 +82,7 @@ class RegionPackageInstallerDeviceTest {
 
         db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).build()
         storage = RegionStorage(File(workDir, "regions").apply { mkdirs() }, File(workDir, "staging").apply { mkdirs() })
-        repository = RegionRepository(db.regionPackageDao(), db.poiDao(), storage, db)
+        repository = RegionRepository(db.regionPackageDao(), db.poiDao(), storage, db, db.cityDao())
         installer = RegionPackageInstaller(
             RegionPackageDownloader(OkHttpClient(), storage),
             repository,
@@ -90,6 +90,7 @@ class RegionPackageInstallerDeviceTest {
             PoiImporter(db.poiDao(), db),
             RegionRoutingGraphInstaller(),
             PmtilesExtractor(),
+            CityImporter(db.cityDao(), db),
         )
     }
 
@@ -272,5 +273,49 @@ class RegionPackageInstallerDeviceTest {
         val entry = entry().copy(addresses = AddressesPackageEntry("a1", manifestFile("addresses.pmtiles"), manifestFile("addresses.pmtiles.xz")))
         files.remove("addresses.pmtiles") // il file non compresso non e' pubblicato
         return entry
+    }
+
+    @Test
+    fun leGuideDiCittaCompresseSiScaricanoDecomprimonoEImportanoInRegionDb() = runBlocking {
+        val compressed = compressedCitiesEntry()
+
+        installer.install(compressed, setOf(PackageKind.CITIES))
+
+        val installed = repository.installed("san-marino")!!
+        assertEquals("c1", installed.citiesVersion)
+        assertEquals(
+            listOf("Cosa vedere"),
+            db.cityDao().sectionsFor("san-marino", "Citta di San Marino").map { it.title },
+        )
+    }
+
+    @Test
+    fun unaGuidaDiCittaDecompressaDiversaDalManifestNonSiInstalla() {
+        val compressed = compressedCitiesEntry().let { it.copy(cities = it.cities!!.copy(file = it.cities.file.copy(sha256 = "0".repeat(64)))) }
+
+        assertThrows(PermanentRegionPackageException::class.java) { runBlocking { installer.install(compressed, setOf(PackageKind.CITIES)) } }
+        assertNull(runBlocking { repository.installed("san-marino") })
+    }
+
+    /** cities.db servito solo compresso con xz, come lo pubblica la pipeline. */
+    private fun compressedCitiesEntry(): RegionManifestEntry {
+        files["cities.db"] = citiesDbBytes()
+        files["cities.db.xz"] = ByteArrayOutputStream().also { out -> XZOutputStream(out, LZMA2Options()).use { it.write(files.getValue("cities.db")) } }.toByteArray()
+        val entry = entry().copy(cities = CitiesPackageEntry("c1", manifestFile("cities.db"), manifestFile("cities.db.xz")))
+        files.remove("cities.db") // il file non compresso non e' pubblicato
+        return entry
+    }
+
+    /** cities.db minimo (stesso schema pubblicato da tools/data-pipeline), senza bisogno di un asset. */
+    private fun citiesDbBytes(): ByteArray {
+        val file = File(workDir, "cities-src.db")
+        file.delete()
+        android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(file, null).use { cities ->
+            cities.execSQL("CREATE TABLE city_sections (city TEXT NOT NULL, category TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, sourceUrl TEXT NOT NULL)")
+            cities.execSQL("INSERT INTO city_sections VALUES ('Citta di San Marino', 'COSA_VEDERE', 'Cosa vedere', 'corpo', 'https://it.wikivoyage.org/wiki/Citta_di_San_Marino')")
+        }
+        val bytes = file.readBytes()
+        file.delete()
+        return bytes
     }
 }

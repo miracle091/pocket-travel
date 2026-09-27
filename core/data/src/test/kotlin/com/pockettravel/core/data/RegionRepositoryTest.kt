@@ -1,11 +1,15 @@
 package com.pockettravel.core.data
 
+import com.pockettravel.core.data.db.CityDao
+import com.pockettravel.core.data.db.CitySectionEntity
+import com.pockettravel.core.data.db.CitySectionMatch
 import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.GuideDao
 import com.pockettravel.core.data.db.GuideSectionEntity
 import com.pockettravel.core.data.db.GuideSectionMatch
 import com.pockettravel.core.data.db.InstalledGuidesEntity
 import com.pockettravel.core.data.db.InstalledRegionEntity
+import com.pockettravel.core.data.db.NoteDao
 import com.pockettravel.core.data.db.PassportDao
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiEntity
@@ -72,6 +76,17 @@ private class NoOpPoiDao : PoiDao {
     override suspend fun deletePackageForRegion(regionId: String, extra: Boolean) = Unit
 }
 
+private class NoOpCityDao : CityDao {
+    val deletedRegions = mutableListOf<String>()
+
+    override suspend fun insertAll(sections: List<CitySectionEntity>) = Unit
+    override fun citiesForRegion(regionId: String) = throw UnsupportedOperationException()
+    override suspend fun sectionsFor(regionId: String, city: String): List<CitySectionEntity> = emptyList()
+    override suspend fun searchInRegionRanked(regionId: String, query: String, candidateLimit: Int): List<CitySectionMatch> = emptyList()
+    override suspend fun deleteForRegion(regionId: String) { deletedRegions += regionId }
+    override suspend fun optimizeFts() = Unit
+}
+
 /** Mai usata per una transazione reale in questi test (vedi nota sopra) — serve solo a
  * soddisfare il tipo del costruttore di RegionRepository. */
 private class UnusedRegionDatabase(
@@ -84,6 +99,8 @@ private class UnusedRegionDatabase(
     override fun regionPackageDao() = regionPackage
     override fun passportDao(): PassportDao = throw UnsupportedOperationException()
     override fun emergencyNumbersDao(): EmergencyNumbersDao = throw UnsupportedOperationException()
+    override fun cityDao(): CityDao = throw UnsupportedOperationException()
+    override fun noteDao(): NoteDao = throw UnsupportedOperationException()
 
     // Mai chiamati nei test: qui RegionDatabase non e' mai inizializzata da Room, serve solo
     // come valore-tipo per il costruttore di RegionRepository.
@@ -107,6 +124,7 @@ class RegionRepositoryTest {
             poiDao = poiDao,
             regionStorage = regionStorage,
             database = UnusedRegionDatabase(guideDao, poiDao, regionPackageDao),
+            cityDao = NoOpCityDao(),
         )
         return repository to regionPackageDao
     }
@@ -222,5 +240,23 @@ class RegionRepositoryTest {
         assertEquals(700L, installed.sizeBytes)
         assertEquals(500L, repository.packageBytes(installed, PackageKind.POI))
         assertEquals(200L, repository.packageBytes(installed, PackageKind.POI_EXTRA))
+    }
+
+    @Test
+    fun `le guide di citta' contano nella dimensione della regione`() = runBlocking {
+        val (repository, _) = newRepository()
+
+        repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.CITIES to "1"), citiesSizeBytes = 300)
+
+        val installed = repository.installed("italia")!!
+        assertEquals("1", installed.citiesVersion)
+        assertEquals(300L, installed.sizeBytes)
+        assertEquals(300L, repository.packageBytes(installed, PackageKind.CITIES))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `markPackagesInstalled richiede la dimensione delle citta'`() = runBlocking {
+        val (repository, _) = newRepository()
+        repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.CITIES to "1"))
     }
 }

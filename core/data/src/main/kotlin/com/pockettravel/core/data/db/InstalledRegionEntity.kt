@@ -23,7 +23,10 @@ data class InstalledRegionEntity(
     val poiSizeBytes: Long?,
     // Come poiSizeBytes, per il poi-extra.db importato.
     val poiExtraSizeBytes: Long?,
-    // Totale sul device: mappa + routing + civici (dal disco) + poiSizeBytes + poiExtraSizeBytes.
+    // Totale sul device: mappa + routing + civici (dal disco) + poiSizeBytes + poiExtraSizeBytes + citiesSizeBytes.
     val sizeBytes: Long,
     val installedAt: Long,
+    val citiesVersion: String?,
+    // Come poiSizeBytes, per il cities.db importato (guide delle citta' in city_sections).
+    val citiesSizeBytes: Long?,
 )

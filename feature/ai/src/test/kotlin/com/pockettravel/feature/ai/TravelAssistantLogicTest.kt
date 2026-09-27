@@ -1,5 +1,9 @@
 package com.pockettravel.feature.ai
 
+import com.pockettravel.core.data.CitySection
+import com.pockettravel.core.data.GuideCategory
+import com.pockettravel.core.data.GuideSection
+import com.pockettravel.core.data.Note
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -62,5 +66,81 @@ class TravelAssistantLogicTest {
         val shortContext = "Dogane: dichiarare importi oltre una certa soglia."
 
         assertEquals(shortContext, truncateContext(shortContext, maxChars = 2000))
+    }
+
+    private fun guideSection(title: String, body: String = "corpo", category: GuideCategory = GuideCategory.TRASPORTI) = GuideSection(
+        regionId = "italia",
+        category = category,
+        title = title,
+        body = body,
+        sourceUrl = "https://it.wikivoyage.org/wiki/Italia",
+    )
+
+    private fun citySection(city: String, title: String, body: String = "corpo") = CitySection(
+        regionId = "italia",
+        city = city,
+        category = GuideCategory.COSA_VEDERE,
+        title = title,
+        body = body,
+        sourceUrl = "https://it.wikivoyage.org/wiki/$city",
+    )
+
+    @Test
+    fun `mergeBestSections unisce guida e citta' per punteggio, non per fonte`() {
+        val result = mergeBestSections(
+            guideMatches = listOf(guideSection("Dogane", "corpo dogane") to 1.0, guideSection("Trasporti", "corpo trasporti") to 5.0),
+            cityMatches = listOf(citySection("Roma", "Cosa vedere a Roma") to 3.0),
+            limit = 3,
+        )
+
+        assertEquals(3, result.size)
+        assertEquals("corpo trasporti", result[0].body)
+        assertEquals("corpo dogane", result[2].body)
+    }
+
+    @Test
+    fun `mergeBestSections taglia al limite anche con piu' candidati di entrambe le fonti`() {
+        val guide = listOf(guideSection("A", "corpo A") to 1.0, guideSection("B", "corpo B") to 2.0)
+        val city = listOf(citySection("Roma", "C", "corpo C") to 3.0, citySection("Roma", "D", "corpo D") to 4.0)
+
+        val result = mergeBestSections(guide, city, limit = 2)
+
+        assertEquals(listOf("corpo D", "corpo C"), result.map { it.body })
+    }
+
+    @Test
+    fun `mergeBestSections cita la citta' nelle sezioni delle guide di citta'`() {
+        val result = mergeBestSections(emptyList(), listOf(citySection("Roma", "Cosa vedere") to 1.0), limit = 3)
+
+        assertTrue(result.single().citation.contains("(Roma)"))
+    }
+
+    @Test
+    fun `buildOnDeviceContext aggiunge la nota etichettata dopo le sezioni`() {
+        val sections = mergeBestSections(listOf(guideSection("Dogane", "corpo dogane") to 1.0), emptyList(), limit = 3)
+        val note = Note(id = 1, title = "Volo di ritorno", body = "Martedi alle 18", updatedAt = 0)
+
+        val context = buildOnDeviceContext(sections, note)
+
+        assertEquals("corpo dogane\n\nNota personale: Volo di ritorno\nMartedi alle 18", context)
+    }
+
+    @Test
+    fun `buildOnDeviceContext senza nota resta solo le sezioni`() {
+        val sections = mergeBestSections(listOf(guideSection("Dogane", "corpo dogane") to 1.0), emptyList(), limit = 3)
+
+        assertEquals("corpo dogane", buildOnDeviceContext(sections, note = null))
+    }
+
+    @Test
+    fun `buildOnDeviceContext resta nello stesso limite di caratteri con o senza nota`() {
+        val sections = mergeBestSections(listOf(guideSection("Dogane", "a".repeat(1900)) to 1.0), emptyList(), limit = 3)
+        val note = Note(id = 1, title = "t", body = "b".repeat(500), updatedAt = 0)
+
+        val context = buildOnDeviceContext(sections, note, maxChars = 2000)
+
+        assertEquals(2000, context.length)
+        // la nota resta (accorciata al suo tetto), sono le sezioni a cedere spazio
+        assertTrue(context.contains("Nota personale: t"))
     }
 }

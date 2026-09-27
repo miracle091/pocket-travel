@@ -192,6 +192,47 @@ class RegionDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrazione14a15AggiungeLeGuideDiCittaELeNotePersonali() {
+        helper.createDatabase(DB_NAME, 14).use { db ->
+            db.execSQL(
+                "INSERT INTO installed_regions (regionId, displayName, countryCode, mapVersion, routingVersion, poiVersion, poiExtraVersion, addressesVersion, previewVersion, poiSizeBytes, poiExtraSizeBytes, sizeBytes, installedAt) " +
+                    "VALUES ('italia', 'Italia', 'it', '1', '1', '1', NULL, NULL, NULL, 10, NULL, 1000, 42)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 15, true, MIGRATION_14_15).use { db ->
+            db.query("SELECT mapVersion, citiesVersion, citiesSizeBytes FROM installed_regions WHERE regionId = 'italia'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("1", cursor.getString(0))
+                assertTrue("nessuna regione ha gia' le citta' prima della 15", cursor.isNull(1) && cursor.isNull(2))
+            }
+
+            db.execSQL(
+                "INSERT INTO city_sections (regionId, city, category, title, body, sourceUrl) VALUES ('peru', 'Lima', 'COSA_VEDERE', 'Cosa vedere a PERÙ', 'corpo', 'https://it.wikivoyage.org/wiki/Lima')",
+            )
+            db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'index_city_sections_regionId_city'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+            }
+            db.query(
+                "SELECT city_sections.title FROM city_sections " +
+                    "JOIN city_sections_fts ON city_sections.id = city_sections_fts.rowid " +
+                    "WHERE city_sections_fts MATCH 'perù'",
+            ).use { cursor ->
+                assertTrue("unicode61 casefolda anche le maiuscole accentate indicizzate", cursor.moveToFirst())
+                assertEquals("Cosa vedere a PERÙ", cursor.getString(0))
+            }
+
+            db.execSQL("INSERT INTO notes (title, body, updatedAt) VALUES ('cifrato-titolo', 'cifrato-corpo', 100)")
+            db.query("SELECT title, body, updatedAt FROM notes").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("cifrato-titolo", cursor.getString(0))
+                assertEquals("cifrato-corpo", cursor.getString(1))
+                assertEquals(100L, cursor.getLong(2))
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test.db"
     }

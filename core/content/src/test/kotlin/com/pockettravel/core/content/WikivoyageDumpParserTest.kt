@@ -64,7 +64,10 @@ class WikivoyageDumpParserTest {
         val sections = parser.parse("japan", SOURCE_URL, sampleDump)
         val byCategory = sections.associateBy { it.category }
 
-        assertEquals(GuideCategory.entries.toSet(), byCategory.keys)
+        // DA_SAPERE e COSA_VEDERE vengono dalle pagine delle citta', FATTI_RAPIDI dai riquadri: non da
+        // un titolo di sezione di una guida di paese
+        val notFromCountryHeadings = setOf(GuideCategory.DA_SAPERE, GuideCategory.COSA_VEDERE, GuideCategory.FATTI_RAPIDI)
+        assertEquals(GuideCategory.entries.toSet() - notFromCountryHeadings, byCategory.keys)
         assertTrue(byCategory.getValue(GuideCategory.USI_COSTUMI).body.contains("Bowing"))
         assertTrue(byCategory.getValue(GuideCategory.DOGANE).body.contains("customs"))
         assertTrue(byCategory.getValue(GuideCategory.TRASPORTI).body.contains("Japan Rail Pass"))

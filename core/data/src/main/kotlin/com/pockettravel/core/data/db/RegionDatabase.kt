@@ -16,8 +16,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         EmergencyNumbersEntity::class,
         InstalledGuidesEntity::class,
         NoCentralEmergencyNumberEntity::class,
+        CitySectionEntity::class,
+        CitySectionFts::class,
+        NoteEntity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -27,6 +30,8 @@ abstract class RegionDatabase : RoomDatabase() {
     abstract fun regionPackageDao(): RegionPackageDao
     abstract fun passportDao(): PassportDao
     abstract fun emergencyNumbersDao(): EmergencyNumbersDao
+    abstract fun cityDao(): CityDao
+    abstract fun noteDao(): NoteDao
 }
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -212,5 +217,59 @@ val MIGRATION_13_14 = object : Migration(13, 14) {
             "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_guide_sections_fts_AFTER_INSERT AFTER INSERT ON `guide_sections` BEGIN INSERT INTO `guide_sections_fts`(`docid`, `title`, `body`) VALUES (NEW.`rowid`, NEW.`title`, NEW.`body`); END"
         )
         db.execSQL("INSERT INTO guide_sections_fts(guide_sections_fts) VALUES('rebuild')")
+    }
+}
+
+// Guide delle citta' per regione (rag-knowledge-plan.md, fase 1) e note personali (fase 4).
+// city_sections e' nella stessa forma di guide_sections, con l'indice composto (regionId, city)
+// richiesto da CityRepository; city_sections_fts ha lo stesso tokenizer unicode61 e le stesse
+// trigger di sincronizzazione col content table di guide_sections_fts (vedi MIGRATION_13_14).
+// citiesVersion/citiesSizeBytes su installed_regions restano NULL finche' una regione non scarica
+// il pacchetto citta'; notes resta vuota finche' l'utente non scrive la prima nota.
+val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `citiesVersion` TEXT")
+        db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `citiesSizeBytes` INTEGER")
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `city_sections` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `regionId` TEXT NOT NULL,
+                `city` TEXT NOT NULL,
+                `category` TEXT NOT NULL,
+                `title` TEXT NOT NULL,
+                `body` TEXT NOT NULL,
+                `sourceUrl` TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_city_sections_regionId_city` ON `city_sections` (`regionId`, `city`)")
+        db.execSQL(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS `city_sections_fts` USING FTS4(`title` TEXT NOT NULL, `body` TEXT NOT NULL, content=`city_sections`, tokenize=unicode61)"
+        )
+        db.execSQL(
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_city_sections_fts_BEFORE_UPDATE BEFORE UPDATE ON `city_sections` BEGIN DELETE FROM `city_sections_fts` WHERE `docid`=OLD.`rowid`; END"
+        )
+        db.execSQL(
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_city_sections_fts_BEFORE_DELETE BEFORE DELETE ON `city_sections` BEGIN DELETE FROM `city_sections_fts` WHERE `docid`=OLD.`rowid`; END"
+        )
+        db.execSQL(
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_city_sections_fts_AFTER_UPDATE AFTER UPDATE ON `city_sections` BEGIN INSERT INTO `city_sections_fts`(`docid`, `title`, `body`) VALUES (NEW.`rowid`, NEW.`title`, NEW.`body`); END"
+        )
+        db.execSQL(
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_city_sections_fts_AFTER_INSERT AFTER INSERT ON `city_sections` BEGIN INSERT INTO `city_sections_fts`(`docid`, `title`, `body`) VALUES (NEW.`rowid`, NEW.`title`, NEW.`body`); END"
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `notes` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `title` TEXT NOT NULL,
+                `body` TEXT NOT NULL,
+                `updatedAt` INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
     }
 }
