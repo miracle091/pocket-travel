@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.core.content.edit
 import com.pockettravel.core.data.crypto.KeystoreCipher
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,11 +39,20 @@ class AiSettingsStore @Inject constructor(@ApplicationContext private val contex
     // Un solo modello on-device installabile alla volta (vedi LlmModelManager.selectAndDownload):
     // questo e' l'id del modello scelto dall'utente in LlmModelCatalog.ALL, non necessariamente
     // ancora scaricato. Senza una scelta, o con un id salvato che non e' piu' nel catalogo (es. un
-    // modello rimosso), vale il predefinito della fascia di RAM del dispositivo, altrimenti
-    // selectedModelDefinition() fallirebbe.
+    // modello rimosso), vale il modello gia' scaricato (uno solo alla volta: chi aveva scaricato il
+    // predefinito di prima non deve riscaricarne un altro quando il predefinito cambia) o, se non ce
+    // n'e', il predefinito della fascia di RAM del dispositivo, altrimenti selectedModelDefinition()
+    // fallirebbe.
     fun selectedModelId(): String =
         prefs.getString(KEY_SELECTED_MODEL_ID, null)?.takeIf { id -> LlmModelCatalog.ALL.any { it.id == id } }
+            ?: downloadedModelId()
             ?: LlmModelCatalog.defaultFor(DeviceAiCapability(context).ramTier()).id
+
+    // Stessa cartella di AiModule.provideAiModelsDir.
+    private fun downloadedModelId(): String? {
+        val modelsDir = File(context.filesDir, "models")
+        return LlmModelCatalog.ALL.firstOrNull { File(modelsDir, it.fileName).exists() }?.id
+    }
 
     fun setSelectedModelId(modelId: String) = prefs.edit { putString(KEY_SELECTED_MODEL_ID, modelId) }
 

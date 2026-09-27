@@ -3,8 +3,8 @@ package com.pockettravel.feature.ai
 /**
  * Un modello scaricabile del catalogo. `sha256 == null` significa "non ancora disponibile per il
  * download" (vedi LlmModelManager.download, che rifiuta di procedere in quel caso, e ModelRow in
- * AiAssistantScreen, che mostra "Presto disponibile" invece del pulsante) — oggi i modelli
- * addestrati da noi, finche' non sono pubblicati.
+ * AiAssistantScreen, che mostra "Presto disponibile" invece del pulsante): serve per un modello
+ * aggiunto al catalogo prima della sua pubblicazione.
  * Il catalogo contiene solo modelli non gated (Apache 2.0/MIT): il download non richiede alcun
  * token HuggingFace. Ogni `url`/`fileName` referenziato e' un file GGUF quantizzato a ~4 bit
  * (UD-Q4_K_XL per gli ufficiali, Q4_K_M con imatrix per i nostri), l'unico formato che
@@ -70,16 +70,15 @@ object LlmModelCatalog {
             sizeBytes = 2_546_340_960L,
             minRamTier = RamTier.AMPIA,
         ),
-        // Addestrati da noi (uno per fascia di RAM), addestrati ma non ancora pubblicati: sha256 null =
-        // "Presto disponibile", nessun download. URL e nome del repo sono indicativi (organizzazione
-        // HuggingFace da confermare); dimensioni reali dei GGUF pronti. Dopo l'upload (upload_hf.py)
-        // vanno completati URL e sha256 (in .claude/docs/llm-model-catalog-research.md).
+        // Addestrati da noi (uno per fascia di RAM), pubblicati sull'organizzazione HuggingFace
+        // pockettravel (upload_hf.py, 2026-09-27): sha256 e dimensioni ricontrollati via API tree dopo
+        // l'upload. Sono i predefiniti delle loro fasce (vedi defaultFor).
         LlmModelDefinition(
             id = "pt-qwen3.5-0.8b",
             displayName = "Pocket Travel 0.8B (Qwen3.5)",
             url = "https://huggingface.co/pockettravel/qwen3.5-0.8b-travel-it-GGUF/resolve/main/qwen3.5-0.8b-travel-it-Q4_K_M.gguf",
             fileName = "qwen3.5-0.8b-travel-it-Q4_K_M.gguf",
-            sha256 = null,
+            sha256 = "d23612782bb7dc851941d8df76244acce890cadeac5567a1b227cd43703ee900",
             sizeBytes = 529_297_120L,
             minRamTier = RamTier.MINIMO,
             origin = ModelOrigin.ADDESTRATO,
@@ -89,7 +88,7 @@ object LlmModelCatalog {
             displayName = "Pocket Travel 2B (Qwen3.5)",
             url = "https://huggingface.co/pockettravel/qwen3.5-2b-travel-it-GGUF/resolve/main/qwen3.5-2b-travel-it-Q4_K_M.gguf",
             fileName = "qwen3.5-2b-travel-it-Q4_K_M.gguf",
-            sha256 = null,
+            sha256 = "70ef97ff47a672f10cdbef35f771155645059f509893f0ea9c2145f51f5ffea6",
             sizeBytes = 1_274_396_384L,
             minRamTier = RamTier.CONFORTEVOLE,
             origin = ModelOrigin.ADDESTRATO,
@@ -99,7 +98,7 @@ object LlmModelCatalog {
             displayName = "Pocket Travel 4B (Qwen3)",
             url = "https://huggingface.co/pockettravel/qwen3-4b-instruct-2507-travel-it-GGUF/resolve/main/qwen3-4b-instruct-2507-travel-it-Q4_K_M.gguf",
             fileName = "qwen3-4b-instruct-2507-travel-it-Q4_K_M.gguf",
-            sha256 = null,
+            sha256 = "919a8acb3523d8215b5746f2585b3954782225083a9a0c2ba7f71c431e2dfe35",
             sizeBytes = 2_497_280_416L,
             minRamTier = RamTier.AMPIA,
             origin = ModelOrigin.ADDESTRATO,
@@ -107,14 +106,15 @@ object LlmModelCatalog {
     )
 
     /**
-     * Modello predefinito per la fascia di RAM del dispositivo: l'ufficiale scaricabile della fascia
-     * (4 GB -> 0.8B, 8 GB -> 2B, 12 GB -> 4B), o il piu' grande tra quelli che la fascia regge; con
-     * RAM insufficiente (AI locale disattivata) il piu' leggero.
+     * Modello predefinito per la fascia di RAM del dispositivo: il nostro addestrato scaricabile della
+     * fascia (4 GB -> 0.8B, 8 GB -> 2B, 12 GB -> 4B), o il piu' grande tra quelli che la fascia regge;
+     * con RAM insufficiente (IA locale disattivata) il piu' leggero. Addestrati invece degli ufficiali
+     * (utente, 2026-09-27): rifiutano molto meglio le domande a cui la guida non risponde.
      */
     fun defaultFor(tier: RamTier): LlmModelDefinition {
-        val official = ALL.filter { it.origin == ModelOrigin.UFFICIALE && it.sha256 != null }
-        return official.filter { it.minRamTier <= tier }.maxByOrNull { it.minRamTier }
-            ?: official.minBy { it.minRamTier }
+        val trained = ALL.filter { it.origin == ModelOrigin.ADDESTRATO && it.sha256 != null }
+        return trained.filter { it.minRamTier <= tier }.maxByOrNull { it.minRamTier }
+            ?: trained.minBy { it.minRamTier }
     }
 }
 
