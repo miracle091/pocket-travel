@@ -24,16 +24,6 @@ interface GuideDao {
     @Query("SELECT * FROM guide_sections WHERE regionId = :regionId ORDER BY category")
     suspend fun sectionsForRegion(regionId: String): List<GuideSectionEntity>
 
-    @Query(
-        """
-        SELECT guide_sections.* FROM guide_sections
-        JOIN guide_sections_fts ON guide_sections.id = guide_sections_fts.rowid
-        WHERE guide_sections_fts MATCH :query
-        LIMIT :limit
-        """
-    )
-    suspend fun search(query: String, limit: Int): List<GuideSectionEntity>
-
     // Nessun ORDER BY per rilevanza: FTS4 non ha bm25(), quindi si prendono fino a candidateLimit
     // candidati (in ordine di rowid) col loro matchinfo, e GuideRepository.searchInRegion li
     // riordina in Kotlin prima di tagliare al limite richiesto dal chiamante.

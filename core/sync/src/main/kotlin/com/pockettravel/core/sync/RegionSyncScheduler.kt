@@ -81,9 +81,15 @@ class RegionSyncScheduler @Inject constructor(
             .setInputData(data)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
+        // APPEND_OR_REPLACE, non KEEP: se un download di questa regione e' gia' in coda o in corso,
+        // una richiesta di altri pacchetti (es. routing mentre scarica map) si accoda invece di
+        // sparire in silenzio. Il worker legge i kinds dal proprio input, quindi ogni link della
+        // catena installa solo i pacchetti richiesti in quella chiamata, senza toccare lo staging
+        // (nome per kinds+versione) degli altri. cancelDownload usa lo stesso nome univoco e annulla
+        // l'intera catena, incluse le richieste ancora in coda.
         workManager.enqueueUniqueWork(
             workNameFor(entry.regionId),
-            ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
             request,
         )
         enqueueGuidesSync(onlyOnWifi = false)
@@ -115,8 +121,12 @@ class RegionSyncScheduler @Inject constructor(
     fun observeGuidesSync(): Flow<WorkInfo?> =
         workManager.getWorkInfosForUniqueWorkFlow(SyncConfig.GUIDES_SYNC_WORK_NAME).map { it.firstOrNull() }
 
+    // Con APPEND_OR_REPLACE (vedi enqueueDownload) il nome univoco puo' avere piu' download in catena:
+    // si segue quello non ancora finito, altrimenti l'ultimo; il primo della lista poteva essere un
+    // download gia' riuscito mentre il successivo scaricava ancora.
     fun observeDownload(regionId: String): Flow<WorkInfo?> =
-        workManager.getWorkInfosForUniqueWorkFlow(workNameFor(regionId)).map { it.firstOrNull() }
+        workManager.getWorkInfosForUniqueWorkFlow(workNameFor(regionId))
+            .map { infos -> infos.firstOrNull { !it.state.isFinished } ?: infos.lastOrNull() }
 
     /** Vero se il download della regione e' in coda, in attesa di un nuovo tentativo o in corso. */
     suspend fun isDownloadPending(regionId: String): Boolean = isPending(workNameFor(regionId))

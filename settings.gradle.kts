@@ -25,7 +25,6 @@ rootProject.name = "pocket-travel"
 include(
     ":app",
     ":core:data",
-    ":core:content",
     ":core:sync",
     ":core:ui",
     ":core:poi",

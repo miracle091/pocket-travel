@@ -22,11 +22,6 @@ private class FakeGuideDao : GuideDao {
     override suspend fun sectionsForRegion(regionId: String): List<GuideSectionEntity> =
         stored.filter { it.regionId == regionId }
 
-    override suspend fun search(query: String, limit: Int): List<GuideSectionEntity> {
-        lastSearchQuery = query
-        return stored.filter { it.title.contains(query, ignoreCase = true) || it.body.contains(query, ignoreCase = true) }.take(limit)
-    }
-
     // Il fake non replica il matching testuale FTS: filtra solo per regione e ritorna il
     // matchinfo impostato con setMatchInfo (NO_MATCH_INFO di default), cosi' i test si concentrano
     // sul ranking fatto da GuideRepository invece che sulla sintassi della query.
@@ -93,18 +88,6 @@ class GuideRepositoryTest {
         assertEquals(1, result.size)
         assertEquals("Dogane", result.single().title)
         assertEquals("italia", result.single().regionId)
-    }
-
-    @Test
-    fun `search delega alla query FTS del dao`() = runBlocking {
-        val dao = FakeGuideDao()
-        val repository = GuideRepository(dao)
-        repository.importSections(listOf(section("italia", "Vaccinazioni richieste")))
-
-        val result = repository.search("vaccinazioni", limit = 10)
-
-        assertEquals("vaccinazioni", dao.lastSearchQuery)
-        assertEquals(1, result.size)
     }
 
     @Test

@@ -19,10 +19,6 @@ class GuideRepository @Inject constructor(
     suspend fun sectionsFor(regionId: String): List<GuideSection> =
         guideDao.sectionsForRegion(regionId).map { it.toDomain() }
 
-    /** [query] e' un'espressione FTS4 MATCH gia' pulita dal chiamante (es. TravelAssistant.buildFtsQuery). */
-    suspend fun search(query: String, limit: Int): List<GuideSection> =
-        guideDao.search(query, limit).map { it.toDomain() }
-
     /**
      * FTS4 non ha bm25() (arrivato solo con FTS5): si prendono fino a CANDIDATE_CAP candidati col
      * loro matchinfo e si riordinano per rilevanza in Kotlin (vedi matchScore) prima di tagliare a

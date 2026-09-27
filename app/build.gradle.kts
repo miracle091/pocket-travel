@@ -66,7 +66,6 @@ kotlin {
 
 dependencies {
     implementation(project(":core:data"))
-    implementation(project(":core:content"))
     implementation(project(":core:sync"))
     implementation(project(":core:ui"))
     implementation(project(":feature:guide"))
