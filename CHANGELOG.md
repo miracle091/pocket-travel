@@ -10,6 +10,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Aprendo una regione dall'elenco, la sua riga si allarga fino a diventare la pagina della regione e si richiude tornando indietro (anche con il gesto Indietro).
 
 ### Modificato
+- L'assistente si chiama ovunque "Assistente IA" (scheda, titoli e messaggi).
 - Modelli "Ufficiali" dell'assistente rinnovati: uno per fascia di memoria, della stessa famiglia dei modelli addestrati da noi (Qwen3.5 0.8B, Qwen3.5 2B, Qwen3 4B Instruct 2507), in una versione quantizzata più precisa. Tolti i modelli precedenti, tra cui SmolLM2 che parlava solo inglese: chi ne aveva scelto uno torna al modello predefinito, che ora dipende dalla memoria del telefono: Qwen3.5 0.8B con 4 GB, Qwen3.5 2B con 8 GB, Qwen3 4B Instruct 2507 con 12 GB o più.
 - Download più leggeri, utile soprattutto su rete mobile e in roaming: le guide (da 6,3 a 1,5 MB) e i numeri civici arrivano compressi, come già i punti di interesse. Le versioni precedenti dell'app non possono scaricare i dati in questo formato: invece di un errore silenzioso compare un breve messaggio che invita ad aggiornare l'app.
 - Percorsi molto più leggeri: i dati per il calcolo dei percorsi sono ritagliati sulla regione invece di coprire un quadrato di 5 gradi (Lussemburgo da 415 a 6 MB, San Marino da 76 a 1 MB), con gli stessi percorsi dentro la regione e fino a circa 10 km oltre il confine. Arrivano con il prossimo aggiornamento di ogni regione.

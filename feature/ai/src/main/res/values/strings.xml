@@ -1,5 +1,5 @@
 <resources>
-    <string name="ai_title">Assistente di viaggio</string>
+    <string name="ai_title">Assistente IA</string>
     <string name="ai_mode_on_device">Sul dispositivo</string>
     <string name="ai_mode_online">Online</string>
     <string name="ai_more_actions">Altre azioni</string>
@@ -16,7 +16,7 @@
     <string name="ai_large_download_title">Download di grandi dimensioni</string>
     <string name="ai_large_download_message">%1$s pesa circa %2$s e sei su rete mobile. Continuare?</string>
     <string name="ai_large_download_confirm">Scarica</string>
-    <string name="ai_api_key_intro">Inserisci la tua chiave API personale per usare l\'assistente online.</string>
+    <string name="ai_api_key_intro">Inserisci la tua chiave API personale per usare l\'assistente IA online.</string>
     <string name="ai_api_key_privacy">La chiave resta solo su questo dispositivo, cifrata in Android Keystore: le domande vengono inviate direttamente al servizio scelto, mai a un server dell\'app.</string>
     <string name="ai_api_key_label">Chiave API</string>
     <string name="ai_api_key_save">Salva chiave</string>
@@ -29,9 +29,9 @@
     <string name="ai_delete_model">Elimina modello</string>
     <string name="ai_remove_key">Rimuovi chiave</string>
     <string name="ai_delete_model_title">Eliminare il modello IA?</string>
-    <string name="ai_delete_model_message">Dovrai riscaricarlo per tornare a usare l\'assistente sul dispositivo.</string>
+    <string name="ai_delete_model_message">Dovrai riscaricarlo per tornare a usare l\'assistente IA sul dispositivo.</string>
     <string name="ai_remove_key_title">Rimuovere la chiave API?</string>
-    <string name="ai_remove_key_message">Dovrai reinserirla per tornare a usare l\'assistente online.</string>
+    <string name="ai_remove_key_message">Dovrai reinserirla per tornare a usare l\'assistente IA online.</string>
     <string name="ai_benchmark_run">Esegui benchmark</string>
     <string name="ai_benchmark_running">Benchmark in corso…</string>
     <string name="ai_benchmark_compare">Confronta modelli</string>
