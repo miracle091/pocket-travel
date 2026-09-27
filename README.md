@@ -1,54 +1,66 @@
-# 🧭 Pocket Travel
+<p align="center">
+  <img src="docs/images/icon.svg" width="120" alt="Icona di Pocket Travel: una tasca con una bussola">
+</p>
 
-Pocket Travel è un'app per chi viaggia senza voler dipendere dalla connessione: guida turistica offline, mappa, assistente IA e vault per i documenti. Le guide di tutte le nazioni sono un unico pacchetto leggero; per ogni regione mappa, percorsi, punti di interesse (più quelli extra, facoltativi) e numeri civici si scaricano e aggiornano separatamente.
+<h1 align="center">Pocket Travel</h1>
 
-Versione corrente: **0.7.0** ([Semantic Versioning](https://semver.org/lang/it/)) — vedi [CHANGELOG.md](CHANGELOG.md).
+<p align="center">
+  Una bussola in tasca per ogni viaggio.<br>
+  Guida, mappa, assistente IA e documenti, anche senza internet.
+</p>
 
-## Stato
+<p align="center">
+  <a href="https://github.com/miracle091/pocket-travel/releases/tag/v0.7.0">Scarica l'app</a> ·
+  <a href="CHANGELOG.md">Novità</a> ·
+  versione <strong>0.7.0</strong>
+</p>
 
-MVP funzionalmente completo: guida turistica offline con ricerca full-text, mappa vettoriale offline (il motore dei percorsi, BRouter, c'è già ma non ha ancora una schermata), assistente IA con modalità locale (llama.cpp, modelli GGUF scelti in base alla RAM, divisi tra "ufficiali" e "addestrati da noi" sulle guide, questi ultimi addestrati e in attesa di pubblicazione) e online (chiave utente personale), vault passaporti cifrato, gestione dei pacchetti (guide, mappa, percorsi, punti di interesse, punti di interesse extra, numeri civici: download, aggiornamento e rimozione uno per uno), legenda della mappa con filtri salvati, modalità d'uso ("Come ti sposti") che scelgono i punti di interesse mostrati di default e registro fonti ufficiali esterne. Interfaccia Material Design 3 con layout adattivo per telefono e tablet.
+<p align="center">
+  <img src="docs/images/regions.png" width="200" alt="Elenco delle nazioni divise per continente">
+  <img src="docs/images/guide.png" width="200" alt="Guida di San Marino con i numeri di emergenza">
+  <img src="docs/images/map.png" width="200" alt="Mappa offline di San Marino con i punti di interesse">
+  <img src="docs/images/packages.png" width="200" alt="Pacchetti scaricabili di San Marino">
+</p>
 
-Il catalogo delle regioni (355 nel lotto pilota, con Stati Uniti, Canada, Russia europea, Cina e Francia divisi in regioni, `tools/data-pipeline/scripts/pilot-regions.sh`) è generato da `tools/data-pipeline` e pubblicato ogni settimana da `.github/workflows/publish-regions.yml`: `manifest.json` su GitHub Pages, i pacchetti sulle release `region-data*` del repository.
+## Cosa fa
 
-## Struttura
+In viaggio la connessione manca proprio quando serve: in aereo, in montagna, all'estero senza roaming. Pocket Travel scarica prima quello che ti serve e poi lo usa offline.
 
+- **Guida** – le informazioni essenziali di ogni paese (cosa vedere, dove mangiare, come muoversi, soldi, sicurezza) e i numeri di emergenza da chiamare con un tocco.
+- **Mappa** – mappa dettagliata con ristoranti, alloggi, farmacie, bancomat e molto altro. Scegli come ti sposti e l'app ti mostra i punti che ti servono.
+- **Assistente IA** – fai una domanda sul posto in cui sei ("dove si mangia bene?", "come pago il bus?") e ti risponde usando la guida. Funziona anche offline, con un piccolo modello di intelligenza artificiale scaricato sul telefono.
+- **Documenti** – una copia del passaporto e dei biglietti, cifrata e sbloccabile solo con la tua impronta o il tuo volto.
+
+Scegli tu cosa scaricare: per ogni paese mappa, punti di interesse e numeri civici sono pacchetti separati, così non occupi spazio per quello che non usi. Le guide di tutto il mondo pesano pochi megabyte. Il calcolo dei percorsi a piedi, in bici e in auto è in arrivo.
+
+Ci sono 355 paesi e regioni (gli stati più grandi, come Stati Uniti, Canada e Cina, sono divisi in parti), aggiornati ogni settimana.
+
+## Da dove vengono i dati
+
+Tutto viene da progetti aperti e liberi: le guide da [Wikivoyage](https://it.wikivoyage.org) e [Wikipedia](https://it.wikipedia.org), le mappe e i punti di interesse da [OpenStreetMap](https://www.openstreetmap.org) (le mappe nel formato di [Protomaps](https://protomaps.com)), i percorsi da [BRouter](https://brouter.de). L'app non ha un server suo e non raccoglie dati su di te: la chiave dell'assistente IA online, se la usi, resta solo sul telefono.
+
+## Per chi sviluppa
+
+L'app è scritta in Kotlin con Jetpack Compose. Il codice è diviso in moduli:
+
+| Cartella | Cosa contiene |
+|---|---|
+| `app/` | schermate principali e navigazione |
+| `core/` | database, download e installazione dei pacchetti, tema grafico, categorie dei punti di interesse |
+| `feature/` | guida, mappa, assistente IA, documenti, fonti ufficiali (ognuna dipende solo da `core`) |
+| `tools/data-pipeline/` | gli script che preparano e pubblicano ogni settimana guide, mappe e punti di interesse, e quelli per addestrare i modelli dell'assistente IA |
+| `third-party/` | copie di BRouter e llama.cpp usate dall'app |
+
+Per aprire il progetto serve Android Studio con JDK 17 o successivo: apri la cartella e Android Studio fa il resto (Gradle è già incluso).
+
+Per provare l'app con un catalogo di dati tuo invece di quello pubblicato (solo nelle build di debug):
+
+```bash
+./gradlew :app:installDebug -PpocketTravel.manifestUrl=http://10.0.2.2:8000/manifest.json
 ```
-app/                        shell UI, navigazione, DI (Hilt)
-core/data/                  Room DB (region.db), pacchetti installati, archiviazione su disco
-core/content/               parsing dei contenuti Wikivoyage (usato dalla pipeline per le guide)
-core/sync/                  WorkManager: sync del manifest, download e installazione dei pacchetti
-core/poi/                   categorie dei POI e regole su cosa mostrare e pubblicare (Kotlin puro, usato anche dalla pipeline)
-core/ui/                    design system condiviso (tema M3, icone, componenti Compose comuni)
-feature/guide/              UI guida turistica
-feature/map/                mappa MapLibre, POI, routing, mappa del mondo
-feature/ai/                 orchestrazione prompt, motore locale (llama.cpp via JNI) e online
-feature/sources/            registro fonti ufficiali esterne
-feature/vault/              UI vault passaporti cifrato
-third-party/                sorgenti vendorizzati: brouter-core, llama-cpp
-tools/data-pipeline/        generazione e pubblicazione dei pacchetti
-  content/                  guides.db, poi.db e poi-extra.db, civici, manifest (merge e validazione), mappa del mondo
-  scripts/                  build-guides.sh, build-region.sh, assemble-site.sh, calendario
-                            settimanale, script Python per dataset/training/valutazione/
-                            conversione GGUF con imatrix (riga di stato comune in status.py,
-                            controllo della VRAM in vram.py, binari llama.cpp per CPU/Vulkan/
-                            ROCm/CUDA con get_llama_tools.py)
-  data/sft/                 dataset di fine-tuning dell'assistente (non versionato)
-scripts/                    generate_ai_models_manifest.py (catalogo modelli IA per app-status.json)
-.github/workflows/          android-ci.yml, publish-apk.yml, publish-regions.yml
-```
 
-Ogni modulo `feature` dipende solo dai moduli `core`, mai da altri `feature`.
-
-## Aprire il progetto
-
-Richiede Android Studio con JDK 17 o successivo.
-
-1. Apri la cartella in Android Studio: usa il Gradle wrapper già presente nel repository (`gradlew`, Gradle 9.7.1).
-2. Le versioni delle dipendenze sono in `gradle/libs.versions.toml`.
-3. Per provare l'app con un catalogo locale invece di quello pubblicato (solo build di debug):
-   `./gradlew :app:installDebug -PpocketTravel.manifestUrl=http://10.0.2.2:8000/manifest.json`
-   (`10.0.2.2` è il PC visto dall'emulatore; l'HTTP in chiaro è consentito solo verso quell'host).
+`10.0.2.2` è il tuo PC visto dall'emulatore.
 
 ## Licenza
 
-[MIT](LICENSE)
+Il codice è sotto licenza [MIT](LICENSE). I dati hanno le loro licenze ([CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.it) per Wikivoyage e Wikipedia, [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/) per OpenStreetMap): l'elenco completo è nella schermata Licenze dell'app.
