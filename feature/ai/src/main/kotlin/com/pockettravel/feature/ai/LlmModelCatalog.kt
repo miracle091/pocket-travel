@@ -105,6 +105,17 @@ object LlmModelCatalog {
             origin = ModelOrigin.ADDESTRATO,
         ),
     )
+
+    /**
+     * Modello predefinito per la fascia di RAM del dispositivo: l'ufficiale scaricabile della fascia
+     * (4 GB -> 0.8B, 8 GB -> 2B, 12 GB -> 4B), o il piu' grande tra quelli che la fascia regge; con
+     * RAM insufficiente (AI locale disattivata) il piu' leggero.
+     */
+    fun defaultFor(tier: RamTier): LlmModelDefinition {
+        val official = ALL.filter { it.origin == ModelOrigin.UFFICIALE && it.sha256 != null }
+        return official.filter { it.minRamTier <= tier }.maxByOrNull { it.minRamTier }
+            ?: official.minBy { it.minRamTier }
+    }
 }
 
 /** Risolve il modello attualmente scelto dall'utente — unico punto usato da engine/worker/viewmodel. */
