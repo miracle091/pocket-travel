@@ -15,6 +15,7 @@ Legge solo la cache di generate_sft_dataset.py (data/sft/raw): niente rete. Uso:
 """
 import json
 import random
+import sys
 from collections import Counter
 
 from eval_common import TEST_REGIONS
@@ -78,6 +79,9 @@ def main():
 
     out = []
     for rid in held_out:
+        if not langs[rid]:
+            print(f"{rid}: nessuna sezione in {OUT / 'raw'} (ne' IT ne' EN), regione saltata", file=sys.stderr)
+            continue
         name = names[rid]
         secs_it = langs[rid].get("it", [])
         for cat, body in secs_it:

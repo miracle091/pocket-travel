@@ -7,8 +7,9 @@ il terminatore di un heredoc bash deve stare a colonna 0 (nessuna indentazione),
 un block scalar YAML (`run: |`) richiede che ogni riga sia indentata almeno quanto la
 prima - da qui uno script separato invece di un python3 -c inline.
 
-Le entry con sha256 non ancora verificato restano commentate nel sorgente Kotlin: il regex sui blocchi "LlmModelDefinition(...)"
-le esclude gia' da solo, senza doverle filtrare qui.
+Le entry non ancora disponibili hanno `sha256 = null` nel sorgente Kotlin: field("sha256") cerca
+solo un valore tra virgolette, quindi restano fuori da sole. Nessun modello estratto = errore
+(exit 1), per non pubblicare un app-status.json con aiModels vuoto.
 """
 import json
 import re
@@ -41,4 +42,7 @@ def extract_entries(kotlin_source: str) -> list[dict]:
 if __name__ == "__main__":
     catalog_path = sys.argv[1]
     with open(catalog_path, encoding="utf-8") as f:
-        print(json.dumps(extract_entries(f.read())))
+        entries = extract_entries(f.read())
+    if not entries:
+        sys.exit(f"nessun modello estratto da {catalog_path}: formato di LlmModelCatalog.kt cambiato?")
+    print(json.dumps(entries))

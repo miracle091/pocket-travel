@@ -86,6 +86,23 @@ fetch_rd5() {
   printf '%s\t%s\t%s\t%s\t%s\n' "$name" "${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${name}" \
     "$(wc -c < "$dest" | tr -d ' ')" "$(sha256sum < "$dest" | awk '{print $1}')" "$sourceSize $RD5_CLIP" >> "$2"
 }
+# rd5_head <url> <headersFile>: HEAD della tile con fino a 4 tentativi, scrive gli header nel file e
+# stampa il codice HTTP (000 = nessuna risposta). Solo 200 e 404 sono esiti definitivi: 404 e' una
+# tile senza strade (oceano), un timeout o un 5xx si ritenta e non va scambiato per oceano.
+rd5_head() {
+  local url="$1" out="$2" code attempt
+  for attempt in 1 2 3 4; do
+    curl -sS -I --max-time 60 "$url" > "$out" 2>/dev/null || true
+    code="$(head -1 "$out" | awk '{print $2}')"
+    code="${code:-000}"
+    if [ "$code" = "200" ] || [ "$code" = "404" ] || [ "$attempt" -eq 4 ]; then
+      break
+    fi
+    echo "-- HEAD $url: HTTP $code (tentativo $attempt/4), riprovo tra $((attempt * 10))s..." >&2
+    sleep $((attempt * 10))
+  done
+  echo "$code"
+}
 MAP_MIN_ZOOM=0
 MAP_MAX_ZOOM=14
 # Versione della mappa (map.version, che fa ri-estrarre la mappa alle app installate): nuova solo se
@@ -185,12 +202,14 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
       lat="$LAT_START"
       while [ "$lat" -le "$LAT_END" ]; do
         tile="$(tile_name "$lon" "$lat")"
-        headers="$(curl -sS -I "${BROUTER_BASE}/${tile}.rd5" 2>/dev/null || true)"
-        code="$(printf '%s' "$headers" | head -1 | awk '{print $2}')"
-        PRECHECKED_TILE_CODE["$tile"]="${code:-000}"
+        code="$(rd5_head "${BROUTER_BASE}/${tile}.rd5" "$WORKDIR/head.txt")"
+        PRECHECKED_TILE_CODE["$tile"]="$code"
         if [ "$code" = "200" ]; then
-          size="$(printf '%s' "$headers" | tr -d '\r' | grep -i '^content-length:' | tail -1 | awk '{print $2}')"
+          size="$(tr -d '\r' < "$WORKDIR/head.txt" | grep -i '^content-length:' | tail -1 | awk '{print $2}')"
           printf '%s.rd5\t%s\n' "$tile" "${size:-0}" >> "$EXPECTED_TSV"
+        elif [ "$code" != "404" ]; then
+          echo "ERRORE: HEAD di ${tile}.rd5 fallita (HTTP $code) dopo 4 tentativi, non posso sapere se la tile esiste" >&2
+          exit 1
         fi
         lat=$((lat + 5))
       done
@@ -375,8 +394,10 @@ fetch_overpass_chunk() {
     if grep -q "<osm" "$outFile" && ! grep -q "<remark>" "$outFile"; then
       return 0
     fi
-    echo "-- $endpoint non disponibile o in timeout, riprovo tra $((attempt * 20))s..."
-    sleep $((attempt * 20))
+    if [ "$attempt" -lt "$ATTEMPTS" ]; then
+      echo "-- $endpoint non disponibile o in timeout, riprovo tra $((attempt * 20))s..."
+      sleep $((attempt * 20))
+    fi
   done
   return 1
 }
@@ -399,7 +420,11 @@ while [ "$lon" -le "$LON_END" ]; do
     if [ -n "${PRECHECKED_TILE_CODE[$tile]:-}" ]; then
       code="${PRECHECKED_TILE_CODE[$tile]}"
     else
-      code="$(curl -s -o /dev/null -w '%{http_code}' -I "$url")"
+      code="$(rd5_head "$url" "$WORKDIR/head.txt")"
+    fi
+    if [ "$code" != "200" ] && [ "$code" != "404" ]; then
+      echo "ERRORE: HEAD di $tile.rd5 fallita (HTTP $code) dopo 4 tentativi, non posso sapere se la tile esiste" >&2
+      exit 1
     fi
     if [ "$code" = "200" ]; then
       if [ "$POI_ONLY" != "true" ]; then

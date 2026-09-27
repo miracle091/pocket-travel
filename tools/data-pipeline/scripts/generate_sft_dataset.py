@@ -35,7 +35,7 @@ from status import Progress, phase
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parent / "data" / "sft"
-UA = {"User-Agent": "pocket-travel-sft/0.4 (https://github.com/miracle091/pocket-travel)"}
+UA = {"User-Agent": "pocket-travel-sft/0.5 (https://github.com/miracle091/pocket-travel)"}
 
 # Stessa mappa (voci IT) di GenerateGuideContent.kt
 HEADING_TO_CATEGORY = {
@@ -211,7 +211,8 @@ def get(url):
 
 def fetch_it(title, lang="it"):
     """(testo_raw, url) della pagina in lingua `lang` (IT, DE, FR) via langlink EN, o None."""
-    q = f"https://en.wikivoyage.org/w/api.php?action=query&titles={title}&prop=langlinks&lllang={lang}&format=json"
+    q = (f"https://en.wikivoyage.org/w/api.php?action=query&titles={urllib.parse.quote(title)}"
+         f"&prop=langlinks&lllang={lang}&redirects=1&format=json")
     pages = json.loads(get(q))["query"]["pages"]
     links = next(iter(pages.values())).get("langlinks")
     if not links:
@@ -222,8 +223,9 @@ def fetch_it(title, lang="it"):
 
 def fetch_en(title):
     """(testo_raw, url) della pagina EN, o None."""
-    text = get(f"https://en.wikivoyage.org/w/index.php?title={title}&action=raw")
-    return (text, f"https://en.wikivoyage.org/wiki/{title}") if text.strip() else None
+    en_title = urllib.parse.quote(title)
+    text = get(f"https://en.wikivoyage.org/w/index.php?title={en_title}&action=raw")
+    return (text, f"https://en.wikivoyage.org/wiki/{en_title}") if text.strip() else None
 
 # Titoli Wikipedia EN per l'articolo tematico di un paese: alimentano i positivi delle categorie che
 # Wikivoyage spesso non tratta a fondo (CIBO_BEVANDE, CONNETTIVITA, USI_COSTUMI, VITA_QUOTIDIANA).

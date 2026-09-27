@@ -26,7 +26,8 @@ REGIONS=("${PILOT_REGIONS[@]}")
 
 # Risolta una volta sola per l'intero lotto (non da ogni build-region.sh, vedi lib.sh): stessa
 # build Protomaps per tutte le regioni della stessa run.
-export PROTOMAPS_DATE_OVERRIDE="$(resolve_protomaps_date)"
+PROTOMAPS_DATE_OVERRIDE="$(resolve_protomaps_date)"
+export PROTOMAPS_DATE_OVERRIDE
 echo "== build Protomaps: ${PROTOMAPS_DATE_OVERRIDE}.pmtiles =="
 
 # Pacchetto guide unico per tutte le regioni (vedi build-guides.sh), poi i pacchetti per regione.
@@ -60,8 +61,6 @@ for spec in "${REGIONS[@]}"; do
   done
 done
 
-# shellcheck source=./lib.sh
-source "$SCRIPT_DIR/lib.sh"
 ARGS_STR="\"$(winpath "$SITE_DIR/manifest.json")\""
 for f in "${FRAGMENT_FILES[@]}"; do
   ARGS_STR="$ARGS_STR \"$(winpath "$f")\""

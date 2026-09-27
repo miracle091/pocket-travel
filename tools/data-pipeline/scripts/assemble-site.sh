@@ -29,11 +29,17 @@ mkdir -p "$SITE_DIR"
 PREV_MANIFEST="$(mktemp)"
 MANIFEST_INPUTS=()
 
-if curl -sSf -o "$PREV_MANIFEST" "$PUBLISHED_MANIFEST_URL" 2>/dev/null; then
+# Senza il manifest pubblicato il merge conterrebbe solo le regioni di questa run, e la pulizia
+# degli asset in publish-regions.yml cancellerebbe quelli di tutte le altre: si ritenta e, se non
+# arriva, ci si ferma. BOOTSTRAP=1 solo per la primissima pubblicazione (nessun manifest online).
+if curl -sSf --retry 5 --retry-all-errors --retry-delay 5 -o "$PREV_MANIFEST" "$PUBLISHED_MANIFEST_URL"; then
   echo "-- manifest gia' pubblicato trovato, unisco (le regioni di questa run vincono)"
   MANIFEST_INPUTS+=("$PREV_MANIFEST")
+elif [ "${BOOTSTRAP:-}" = "1" ]; then
+  echo "-- nessun manifest pubblicato trovato e BOOTSTRAP=1 (prima pubblicazione): nessun merge"
 else
-  echo "-- nessun manifest pubblicato trovato (prima pubblicazione, o non ancora online): nessun merge"
+  echo "ERRORE: manifest pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL; per una prima pubblicazione rilanciare con BOOTSTRAP=1" >&2
+  exit 1
 fi
 
 MANIFEST_INPUTS+=("${FRAGMENT_FILES[@]}")

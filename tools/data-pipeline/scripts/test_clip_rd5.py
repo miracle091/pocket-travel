@@ -69,6 +69,7 @@ def read_cells(rd5):
 class RangeHandler(http.server.BaseHTTPRequestHandler):
     data = b""
     honor_range = True
+    next_data = None  # se impostato, sostituisce data dopo la prima richiesta (file cambiato a meta')
 
     def do_GET(self):
         spec = self.headers["Range"].removeprefix("bytes=")
@@ -81,6 +82,8 @@ class RangeHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+        if RangeHandler.next_data is not None:
+            RangeHandler.data, RangeHandler.next_data = RangeHandler.next_data, None
 
     def log_message(self, *args):
         pass
@@ -132,6 +135,18 @@ class ClipRd5Test(unittest.TestCase):
             with self.assertRaises(OSError):
                 clip(HttpSource(f"http://127.0.0.1:{server.server_port}/{self.NAME}", "test"), self.BBOX)
         finally:
+            server.shutdown()
+
+    def test_via_http_file_cambiato_a_meta_errore(self):
+        RangeHandler.data, RangeHandler.honor_range = self.rd5, True
+        RangeHandler.next_data = self.rd5 + b"nuovo"  # brouter.de rigenera la tile durante il download
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), RangeHandler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            with self.assertRaises(OSError):
+                clip(HttpSource(f"http://127.0.0.1:{server.server_port}/{self.NAME}", "test"), self.BBOX)
+        finally:
+            RangeHandler.next_data = None
             server.shutdown()
 
 

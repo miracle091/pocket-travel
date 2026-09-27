@@ -68,28 +68,41 @@ class FileSource:
 
 class HttpSource:
     """Legge intervalli di byte da un .rd5 remoto con richieste HTTP Range su una sola connessione
-    (brouter.de le supporta): si scaricano solo le parti che finiscono nel file ritagliato."""
+    (brouter.de le supporta): si scaricano solo le parti che finiscono nel file ritagliato.
+    Il file remoto non deve cambiare fra una richiesta e l'altra (brouter.de rigenera le tile):
+    dimensione totale ed ETag della prima risposta devono restare uguali, altrimenti OSError."""
 
     def __init__(self, url, user_agent):
         u = urlsplit(url)
         self.name, self.url, self.user_agent = Path(u.path).name, u, user_agent
-        self.conn, self.size, self.fetched = None, None, 0
+        self.conn, self.size, self.etag, self.fetched = None, None, None, 0
 
     def read(self, start, end=None):
         wanted = f"bytes={start}-{'' if end is None else end - 1}"
+        headers = {"Range": wanted, "User-Agent": self.user_agent}
+        # If-Range: con un file cambiato il server risponde 200 (intero) invece di 206, e si fallisce.
+        # Solo con un ETag forte: uno debole (W/) non e' ammesso in If-Range.
+        if self.etag and not self.etag.startswith("W/"):
+            headers["If-Range"] = self.etag
         for attempt in range(5):
             try:
                 if self.conn is None:
                     conn_class = http.client.HTTPSConnection if self.url.scheme == "https" else http.client.HTTPConnection
                     self.conn = conn_class(self.url.netloc, timeout=60)
-                self.conn.request("GET", self.url.path, headers={"Range": wanted, "User-Agent": self.user_agent})
+                self.conn.request("GET", self.url.path, headers=headers)
                 resp = self.conn.getresponse()
                 body = resp.read()
             except (OSError, http.client.HTTPException) as e:
                 error = e
             else:
                 if resp.status == 206:
-                    self.size = int(resp.getheader("Content-Range").rsplit("/", 1)[1])
+                    size = int(resp.getheader("Content-Range").rsplit("/", 1)[1])
+                    etag = resp.getheader("ETag")
+                    if self.size is None:
+                        self.size, self.etag = size, etag
+                    elif size != self.size or (self.etag and etag and etag != self.etag):
+                        raise OSError(f"{self.name}: il file remoto e' cambiato durante il download "
+                                      f"({self.size} -> {size} byte, ETag {self.etag} -> {etag})")
                     self.fetched += len(body)
                     return body
                 error = OSError(f"{self.name}: HTTP {resp.status} per {wanted}")

@@ -306,7 +306,8 @@ jobs:
           # Risolta una volta per l'intero shard (non da ogni build-region.sh, vedi lib.sh): stessa
           # build Protomaps per tutte le regioni di questa run, evita fino a 4 richieste HEAD
           # identiche ripetute per ogni singola regione dello shard.
-          export PROTOMAPS_DATE_OVERRIDE="$(resolve_protomaps_date)"
+          PROTOMAPS_DATE_OVERRIDE="$(resolve_protomaps_date)"
+          export PROTOMAPS_DATE_OVERRIDE
           echo "-- build Protomaps: ${PROTOMAPS_DATE_OVERRIDE}.pmtiles"
 
           # Una regione che fallisce (es. query Overpass troppo pesante per un bbox enorme) non
@@ -457,14 +458,14 @@ jobs:
           retention-days: 1
 
   # Riunisce i frammenti manifest di tutti gli shard (e delle guide) col manifest gia' pubblicato e
-  # pubblica su Pages. Gira comunque (always()) anche se uno shard e' fallito del tutto, cosi' il
+  # pubblica su Pages. Gira comunque (!cancelled()) anche se uno shard e' fallito del tutto, cosi' il
   # lavoro degli shard riusciti non va perso — se pero' NESSuno shard ha prodotto frammenti, il passo
   # sotto fallisce esplicitamente (niente da assemblare/pubblicare). Senza il frammento guide il
   # manifest resta con le guide gia' pubblicate; se non ce ne sono (prima run nel formato a
   # pacchetti) la validazione fallisce e non si pubblica nulla.
   publish:
     needs: [guides, build]
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     environment:
       name: github-pages
@@ -501,6 +502,10 @@ jobs:
           SITE_DIR="$RUNNER_TEMP/site"
           PAGES_BASE_URL="${{ env.PAGES_BASE_URL }}"
           mkdir -p "$SITE_DIR"
+          # Manifest pubblicato prima di questa run: la pulizia degli asset (ultimo passo) lo usa per
+          # il periodo di grazia di una generazione e per il controllo sul numero di regioni.
+          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/manifest.json" \
+            -o "$RUNNER_TEMP/previous-manifest.json" || rm -f "$RUNNER_TEMP/previous-manifest.json"
           tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$PAGES_BASE_URL/manifest.json" "${FRAGMENT_FILES[@]}"
           # Tempi per regione (peso degli shard nel job "plan"): quelli pubblicati, aggiornati con
           # quelli di questa run. Pages sostituisce l'intero sito, quindi si riportano ogni volta.
@@ -540,6 +545,8 @@ jobs:
       # URL restano in uso fino ad allora) si cancella da ogni release "region-data*" cio' che il
       # manifest appena pubblicato non referenzia piu'. Il manifest e' cumulativo (frammenti di
       # questa run + regioni gia' pubblicate), quindi le regioni non toccate restano intatte.
+      # Periodo di grazia di una generazione: resta anche cio' che referenziava il manifest
+      # precedente (le app che l'hanno appena letto scaricano ancora quegli URL).
       - name: Rimuove gli asset non piu' referenziati dal manifest
         shell: bash
         env:
@@ -547,8 +554,22 @@ jobs:
         run: |
           set -euo pipefail
           MANIFEST="${{ steps.assemble.outputs.site_dir }}/manifest.json"
+          PREVIOUS_MANIFEST="$RUNNER_TEMP/previous-manifest.json"
+          if [ ! -s "$PREVIOUS_MANIFEST" ]; then
+            echo "::warning::manifest precedente non disponibile: non cancello nulla in questa run"
+            exit 0
+          fi
+          # Un manifest con meno regioni del precedente e' quasi certamente un merge incompleto:
+          # cancellare ora toglierebbe gli asset di regioni ancora pubblicate.
+          newCount="$(jq '.regions | length' "$MANIFEST")"
+          prevCount="$(jq '.regions | length' "$PREVIOUS_MANIFEST")"
+          if [ "$newCount" -lt "$prevCount" ]; then
+            echo "Il nuovo manifest ha $newCount regioni, il precedente $prevCount: non cancello nulla" >&2
+            exit 1
+          fi
           REFERENCED="$RUNNER_TEMP/referenced.txt"
-          grep -oE 'https://github\.com/[^"]+/releases/download/[^"/]+/[^"]+' "$MANIFEST" \
+          cat "$MANIFEST" "$PREVIOUS_MANIFEST" \
+            | grep -oE 'https://github\.com/[^"]+/releases/download/[^"/]+/[^"]+' \
             | sed -E 's#.*/releases/download/##' | sort -u > "$REFERENCED"
           if [ ! -s "$REFERENCED" ]; then
             echo "Il manifest non referenzia alcun asset di release: non cancello nulla" >&2

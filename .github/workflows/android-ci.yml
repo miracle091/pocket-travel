@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+# Un nuovo push sulla stessa PR annulla la run precedente; su main ogni push completa la sua.
+concurrency:
+  group: android-ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -22,6 +27,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
 
       - run: ./gradlew assembleDebug lint --no-daemon
+
+      - name: Test di clip_rd5.py
+        run: python3 tools/data-pipeline/scripts/test_clip_rd5.py
 
       - name: Carica l'APK di debug come artifact con nome eloquente
         if: github.event_name == 'push'
