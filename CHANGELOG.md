@@ -5,6 +5,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 ## [Non rilasciato]
 
 ### Aggiunto
+- La scheda Mappa non è più vuota se la mappa della regione non è scaricata: con ogni regione arriva un'anteprima leggera (strade principali e confini, al massimo 10 MB), se c'è rete si vede la mappa del mondo online e, senza nulla di tutto questo, uno sfondo che fa capire che la mappa manca. Sempre con i punti di interesse, e con una barra per scaricare la mappa che ricorda che dettaglio delle strade e percorsi richiedono mappa e percorsi scaricati.
 - Scelta del modello dell'assistente divisa in due gruppi, con una breve premessa sulle differenze: "Ufficiali" (modelli generici, come li pubblicano i loro autori) e "Addestrati da noi" (addestrati sulle guide di viaggio per rispondere in italiano, in poche frasi, solo con la guida e dicendo quando un'informazione manca). I modelli addestrati da noi, uno per fascia di memoria (0,8B, 2B e 4B), compaiono come "Presto disponibile" finché l'addestramento non è finito.
 - Aprendo una regione dall'elenco, la sua riga si allarga fino a diventare la pagina della regione e si richiude tornando indietro (anche con il gesto Indietro).
 
@@ -15,6 +16,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Strumenti di addestramento dell'assistente: dati più puliti (risposte più brevi e senza link, niente introduzioni enciclopediche, un quarto di esempi di rifiuto, fonti ridotte a Wikivoyage e Wikipedia), regioni di test fisse, quantizzazione calibrata sulle guide (imatrix) e una riga di stato leggibile con avanzamento, velocità e tempo mancante in addestramento, valutazione e conversione.
 
 ### Corretto
+- La mappa non va più in crash quando cambia da sola mentre è aperta (mappa appena scaricata, ritorno della connessione, cambio di tema).
 - Scaricare la mappa di un paese grande non rischia più di esaurire la memoria del telefono: la mappa viene scritta su file man mano, e le parti uguali (come il mare) si salvano una volta sola, con file più piccoli.
 - I download delle regioni non si interrompono più se Android libera la cache, e un'installazione interrotta a metà (per esempio chiudendo l'app o per un riavvio) viene sistemata al successivo avvio senza lasciare file doppi.
 - Un download di regione interrotto proprio alla fine non resta più bloccato per sempre; i file temporanei di un download fallito o di una regione eliminata vengono cancellati, ed eliminare una regione ferma anche il suo download in corso.
