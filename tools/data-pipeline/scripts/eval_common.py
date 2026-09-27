@@ -1,11 +1,59 @@
 #!/usr/bin/env python3
-"""Utilita' condivise da eval_behavior.py e eval_gguf.py: stesse regioni di test di
-train_lora.py (TEST_REGIONS) e stesso formato di report, sia base che esteso (generate_eval_set.py).
+"""Utilita' condivise da eval_behavior.py, eval_gguf.py e convert_gguf.py: stesse regioni di test di
+train_lora.py (TEST_REGIONS), stesso formato di report, sia base che esteso (generate_eval_set.py), e
+ricerca dei binari di llama.cpp.
 """
 import json
+import os
+import shutil
+import sys
 from pathlib import Path
 
+
+EMPTY_THINK = "<think>\n\n</think>\n\n"
+
+
+def chat_prompt_and_answer(tok, messages):
+    """(prompt, risposta) come testo, nel formato che l'app usa a runtime (ai_chat.cpp): ChatML del turno
+    utente, piu' il blocco <think> vuoto se il chat template supporta enable_thinking. La risposta (da
+    imparare) non contiene mai quel blocco: alcuni template (il Qwen3 ibrido, anche la copia di Unsloth di
+    Qwen3-4B-Instruct-2507) lo mettono nel turno assistente completo ma non nel prompt di generazione,
+    e il modello imparava a scriverlo lui (visto: il 4B rispondeva "<think>..." e nessun rifiuto veniva
+    riconosciuto). Con un solo messaggio si ottiene solo il prompt (risposta vuota)."""
+    prompt = tok.apply_chat_template(messages[:1], add_generation_prompt=True, tokenize=False, enable_thinking=False)
+    if "enable_thinking" in (tok.chat_template or "") and not prompt.endswith(EMPTY_THINK):
+        prompt += EMPTY_THINK
+    if len(messages) < 2:
+        return prompt, ""
+    full = tok.apply_chat_template(messages, tokenize=False, enable_thinking=False)
+    base = tok.apply_chat_template(messages[:1], add_generation_prompt=True, tokenize=False, enable_thinking=False)
+    assert full.startswith(base), "il template non estende il prompt: maschera non valida"
+    return prompt, full[len(base):].removeprefix(EMPTY_THINK)
+
+
+def find_llama_bin(name, *dirs):
+    """Eseguibile di llama.cpp: nelle cartelle date (binari di get_llama_tools.py, o clone con build/bin),
+    poi nel PATH."""
+    candidates = [Path(d) / sub for d in dirs if d for sub in ("", "build/bin", "build/bin/Release", "build", "bin")]
+    found = next((str(c / f"{name}{ext}") for c in candidates for ext in ("", ".exe") if (c / f"{name}{ext}").is_file()),
+                 None) or shutil.which(name)
+    if not found:
+        sys.exit(f"{name} non trovato in {', '.join(str(d) for d in dirs if d)} ne' nel PATH: "
+                 "scarica i binari con get_llama_tools.py")
+    return found
+
+
+def llama_env(exe):
+    """Ambiente per un binario di llama.cpp: la build ROCm di get_llama_tools.py trova hipblas/rocblas
+    nelle cartelle di extra-path.txt, accanto all'eseguibile."""
+    env = dict(os.environ)
+    extra = Path(exe).parent / "extra-path.txt"
+    if extra.exists():
+        env["PATH"] = os.pathsep.join(extra.read_text(encoding="utf-8").splitlines() + [env.get("PATH", "")])
+    return env
+
 SFT_DIR = Path(__file__).resolve().parent.parent / "data" / "sft"
+DEFAULT_DATASET = "pocket_travel_sft.jsonl"
 REFUSAL = "Il contesto non contiene informazioni"
 # Regioni di test, fisse: erano il campione casuale (seed 42, 1/20) delle 251 regioni del dataset v5 e
 # restano le stesse anche quando l'elenco regioni cambia (es. paesi divisi per stato), cosi' i risultati
@@ -14,18 +62,45 @@ TEST_REGIONS = frozenset({"antartide", "bosnia-erzegovina", "brasile", "canada",
                           "germania", "palau", "regno-unito", "samoa", "samoa-americane"})
 
 
-def load_test_rows(extended):
-    """(righe di test, regioni di test). Se extended, le righe vengono da eval_extended.jsonl."""
-    rows = [json.loads(l) for l in open(SFT_DIR / "pocket_travel_sft.jsonl", encoding="utf-8")]
+def run_dataset(model_dir):
+    """Dataset (file in data/sft/) con cui e' stato addestrato <run>/merged: da <run>/run.json scritto
+    da train_lora.py, altrimenti quello di default."""
+    run_json = Path(model_dir).parent / "run.json"
+    if run_json.exists():
+        return json.loads(run_json.read_text(encoding="utf-8")).get("dataset", DEFAULT_DATASET)
+    return DEFAULT_DATASET
+
+
+def load_test_rows(extended, dataset=None):
+    """(righe di test, regioni di test). Se extended, le righe vengono da eval_extended.jsonl,
+    altrimenti dalle regioni di test del dataset di training (default DEFAULT_DATASET)."""
     held_out = set(TEST_REGIONS)
-    if extended:
-        ext = [json.loads(l) for l in open(SFT_DIR / "eval_extended.jsonl", encoding="utf-8")]
-        return ext, held_out
-    return [r for r in rows if r["region"] in held_out], held_out
+    path = SFT_DIR / ("eval_extended.jsonl" if extended else dataset or DEFAULT_DATASET)
+    rows = [json.loads(l) for l in open(path, encoding="utf-8")]
+    return (rows if extended else [r for r in rows if r["region"] in held_out]), held_out
+
+
+def score(stats, row, got):
+    """Aggiunge a stats (tipo di riga -> [(ha rifiutato, risposta ok)]) la risposta got alla riga row."""
+    want = row["messages"][1]["content"]
+    # positivi: stesso inizio; negativi: stesso tema del rifiuto (la parte dopo ":" e' una di 4 code
+    # scelte a caso da generate_sft_dataset.py, confrontarla abbasserebbe la metrica a ~25%)
+    same = got[:60] == want[:60] if row["kind"].startswith("pos") else got.split(":")[0] == want.split(":")[0]
+    stats.setdefault(row["kind"], []).append((got.startswith(REFUSAL), same))
+
+
+def refusal_summary(stats):
+    """'pos rifiutati 3% · neg rifiutati 91%' sulle righe fatte finora (per la riga di stato)."""
+    out = []
+    for prefix in ("pos", "neg"):
+        rows = [x for kind, rs in stats.items() if kind.startswith(prefix) for x in rs]
+        if rows:
+            out.append(f"{prefix} rifiutati {100 * sum(x[0] for x in rows) // len(rows)}%")
+    return " · ".join(out)
 
 
 def pct(rows, i):
-    return 100 * sum(x[i] for x in rows) / len(rows)
+    return 100 * sum(x[i] for x in rows) / len(rows) if rows else 0.0
 
 
 def print_report(stats, test, held_out, extended):
@@ -34,7 +109,7 @@ def print_report(stats, test, held_out, extended):
         for kind, rs in sorted(stats.items()):
             print(f"{kind}: {len(rs)} righe | rifiuta {pct(rs, 0):.1f}%" + (" (atteso 0%)" if kind.startswith("pos") else " (atteso 100%)"))
         return
-    pos, neg = stats["pos"], stats["neg"]
+    pos, neg = stats.get("pos", []), stats.get("neg", [])
     print(f"test: {len(test)} righe, {len(held_out)} regioni | pos {len(pos)} neg {len(neg)}")
     print(f"POS: rifiuto sbagliato {pct(pos, 0):.1f}% | inizio uguale all'atteso {pct(pos, 1):.1f}%")
-    print(f"NEG: rifiuta {pct(neg, 0):.1f}% | risposta identica (tema giusto) {pct(neg, 1):.1f}%")
+    print(f"NEG: rifiuta {pct(neg, 0):.1f}% | tema del rifiuto giusto {pct(neg, 1):.1f}%")
