@@ -21,15 +21,24 @@ data class RegionManifest(
     // Mondo online a bassa risoluzione (z0-8), nostro: assente finche' la release GitHub "world-map"
     // non e' pubblicata. core/sync lo salva in WorldMapStore (core/data) ad ogni sync riuscita.
     val worldMap: WorldMapEntry? = null,
+    // Versione minima dell'app (versionCode) che sa leggere questi dati: vedi AppCompatibility.
+    val minAppVersionCode: Int? = null,
 )
 
 /** Regione tolta dal manifest e sostituita dalle regioni del gruppo [groupName]. */
 @Serializable
 data class ReplacedRegion(val regionId: String, val groupName: String)
 
-/** guides.db: guide Wikivoyage e numeri di emergenza di tutte le regioni. */
+/**
+ * guides.db: guide Wikivoyage e numeri di emergenza di tutte le regioni. [fileXz], se c'e', e' il
+ * file da scaricare, compresso con xz: lo si decomprime e il risultato deve avere dimensione e
+ * sha256 di [file]. Senza [fileXz] (manifest pubblicati prima della compressione) si scarica
+ * direttamente [file].
+ */
 @Serializable
-data class GuidesManifestEntry(val version: String, val file: RegionManifestFile)
+data class GuidesManifestEntry(val version: String, val file: RegionManifestFile, val fileXz: RegionManifestFile? = null) {
+    val downloadFile: RegionManifestFile get() = fileXz ?: file
+}
 
 @Serializable
 data class RegionManifestEntry(
@@ -86,7 +95,7 @@ data class RegionManifestEntry(
         (if (PackageKind.ROUTING in kinds) routing.files.sumOf { it.sizeBytes } else 0L) +
             (if (PackageKind.POI in kinds) poi.downloadFile.sizeBytes else 0L) +
             (if (PackageKind.POI_EXTRA in kinds) poiExtra?.downloadFile?.sizeBytes ?: 0L else 0L) +
-            (if (PackageKind.ADDRESSES in kinds) addresses?.file?.sizeBytes ?: 0L else 0L)
+            (if (PackageKind.ADDRESSES in kinds) addresses?.downloadFile?.sizeBytes ?: 0L else 0L)
 }
 
 /** map.pmtiles non e' un file scaricato: viene estratto sul device dalle tile di [source]. */
@@ -107,9 +116,15 @@ data class PoiPackageEntry(val version: String, val file: RegionManifestFile, va
     val downloadFile: RegionManifestFile get() = fileXz ?: file
 }
 
-/** addresses.pmtiles della regione: i soli civici, sovrapposti alla mappa. */
+/**
+ * addresses.pmtiles della regione: i soli civici, sovrapposti alla mappa. Stesso schema di
+ * [PoiPackageEntry]: [fileXz], se c'e', e' il file da scaricare, compresso con xz, il cui risultato
+ * decompresso deve avere dimensione e sha256 di [file].
+ */
 @Serializable
-data class AddressesPackageEntry(val version: String, val file: RegionManifestFile)
+data class AddressesPackageEntry(val version: String, val file: RegionManifestFile, val fileXz: RegionManifestFile? = null) {
+    val downloadFile: RegionManifestFile get() = fileXz ?: file
+}
 
 /**
  * preview.pmtiles della regione, stesso schema di [PoiPackageEntry]: [fileXz], se c'e', e' il file da
@@ -141,6 +156,7 @@ data class MapExtractionSource(
 fun GuidesManifestEntry.validate() {
     require(isSafeVersion(version)) { "version delle guide non valida" }
     file.validate("guide")
+    fileXz?.validate("guide")
 }
 
 fun RegionManifestEntry.validate() {
@@ -159,6 +175,7 @@ fun RegionManifestEntry.validate() {
     addresses?.let {
         require(isSafeVersion(it.version)) { "version dei civici non valida per $regionId" }
         it.file.validate(regionId)
+        it.fileXz?.validate(regionId)
     }
     preview?.let {
         require(isSafeVersion(it.version)) { "version dell'anteprima non valida per $regionId" }

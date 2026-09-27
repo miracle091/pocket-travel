@@ -47,7 +47,7 @@ class GuidesDownloadViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            downloadBytes.value = runCatching { manifestClient.fetchManifest().guides.file.sizeBytes }.getOrNull()
+            downloadBytes.value = runCatching { manifestClient.fetchManifest().guides.downloadFile.sizeBytes }.getOrNull()
         }
     }
 

@@ -23,6 +23,7 @@ import kotlinx.serialization.json.Json
 class RegionSyncScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
     private val json: Json,
+    private val appCompatibility: AppCompatibility,
 ) {
     private val workManager get() = WorkManager.getInstance(context)
 
@@ -66,6 +67,8 @@ class RegionSyncScheduler @Inject constructor(
      * trovarne subito la guida.
      */
     fun enqueueDownload(entry: RegionManifestEntry, kinds: Set<PackageKind>) {
+        // Dati in un formato che quest'app non sa leggere: invito ad aggiornarla invece di un errore muto.
+        if (appCompatibility.requiresAppUpdate()) return appCompatibility.showUpdateRequiredMessage()
         val data = Data.Builder()
             .putString(
                 RegionPackageDownloadWorker.KEY_MANIFEST_ENTRY,
@@ -92,6 +95,11 @@ class RegionSyncScheduler @Inject constructor(
      * dell'utente la sostituisce, cosi' non resta in attesa del Wi-Fi.
      */
     fun enqueueGuidesSync(onlyOnWifi: Boolean) {
+        // In automatico (onlyOnWifi) si salta in silenzio; su richiesta dell'utente lo si avvisa.
+        if (appCompatibility.requiresAppUpdate()) {
+            if (!onlyOnWifi) appCompatibility.showUpdateRequiredMessage()
+            return
+        }
         val networkType = if (onlyOnWifi) NetworkType.UNMETERED else NetworkType.CONNECTED
         val request = OneTimeWorkRequestBuilder<GuidesSyncWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(networkType).build())

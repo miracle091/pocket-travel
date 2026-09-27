@@ -4,13 +4,10 @@ import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
 import java.io.File
-import java.security.DigestOutputStream
-import java.security.MessageDigest
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
-import org.tukaani.xz.XZInputStream
 
 /**
  * Installa (o aggiorna) solo i pacchetti [kinds] di una regione, lasciando intatti gli altri:
@@ -41,7 +38,7 @@ class RegionPackageInstaller @Inject constructor(
             if (PackageKind.ROUTING in kinds) addAll(entry.routing.files)
             if (PackageKind.POI in kinds) add(entry.poi.downloadFile)
             if (PackageKind.POI_EXTRA in kinds) add(entry.poiExtra!!.downloadFile)
-            if (PackageKind.ADDRESSES in kinds) add(entry.addresses!!.file)
+            if (PackageKind.ADDRESSES in kinds) add(entry.addresses!!.downloadFile)
             if (installPreview) add(entry.preview!!.downloadFile)
         }
         // Prima di tutto: un tentativo precedente interrotto da un crash puo' aver lasciato backup da
@@ -54,6 +51,7 @@ class RegionPackageInstaller @Inject constructor(
         val staging = downloader.download(entry.regionId, stagingVersion, files, onProgress)
         if (PackageKind.POI in kinds) unpackXz(staging, entry.poi.file, entry.poi.fileXz)
         if (PackageKind.POI_EXTRA in kinds) unpackXz(staging, entry.poiExtra!!.file, entry.poiExtra.fileXz)
+        if (PackageKind.ADDRESSES in kinds) unpackXz(staging, entry.addresses!!.file, entry.addresses.fileXz)
         if (installPreview) unpackXz(staging, entry.preview!!.file, entry.preview.fileXz)
 
         if (PackageKind.MAP in kinds) {
@@ -95,26 +93,5 @@ class RegionPackageInstaller @Inject constructor(
         }
         activations.forEach { it.commit() }
         staging.deleteRecursively()
-    }
-
-    /**
-     * Decomprime un file scaricato compresso (poi.db, poi-extra.db o preview.pmtiles, gia' verificato
-     * con il suo sha256) in [file], controllando dimensione e sha256 del risultato decompresso.
-     */
-    private fun unpackXz(staging: File, file: RegionManifestFile, fileXz: RegionManifestFile?) {
-        val xz = fileXz ?: return
-        val target = File(staging, file.name)
-        val part = File(staging, "${file.name}.unpack")
-        val digest = MessageDigest.getInstance("SHA-256")
-        XZInputStream(File(staging, xz.name).inputStream().buffered()).use { input ->
-            DigestOutputStream(part.outputStream().buffered(), digest).use { input.copyTo(it) }
-        }
-        val sha256 = digest.digest().joinToString("") { "%02x".format(it) }
-        if (part.length() != file.sizeBytes || !sha256.equals(file.sha256, ignoreCase = true)) {
-            part.delete()
-            File(staging, xz.name).delete()
-            throw PermanentRegionPackageException("${file.name} decompresso non corrisponde al manifest")
-        }
-        check(part.renameTo(target)) { "Impossibile finalizzare ${file.name}" }
     }
 }

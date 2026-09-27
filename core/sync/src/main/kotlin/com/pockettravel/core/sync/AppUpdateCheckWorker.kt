@@ -1,7 +1,6 @@
 package com.pockettravel.core.sync
 
 import android.content.Context
-import androidx.core.content.pm.PackageInfoCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -27,7 +26,7 @@ class AppUpdateCheckWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         return try {
             val appVersion = appStatusClient.fetchAppStatus().appVersion
-            if (appVersion != null && isAppUpdateAvailable(installedVersionCode(), appVersion)) {
+            if (appVersion != null && isAppUpdateAvailable(installedAppVersionCode(applicationContext), appVersion)) {
                 notifier.notifyAppUpdateAvailable(appVersion)
             }
             Result.success()
@@ -38,11 +37,6 @@ class AppUpdateCheckWorker @AssistedInject constructor(
         } catch (_: Exception) {
             Result.failure()
         }
-    }
-
-    private fun installedVersionCode(): Long {
-        val packageInfo = applicationContext.packageManager.getPackageInfo(applicationContext.packageName, 0)
-        return PackageInfoCompat.getLongVersionCode(packageInfo)
     }
 }
 

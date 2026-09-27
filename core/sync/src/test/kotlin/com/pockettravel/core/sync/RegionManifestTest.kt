@@ -70,6 +70,20 @@ class RegionManifestTest {
     }
 
     @Test
+    fun `se c'e' la copia compressa delle guide si scarica quella`() {
+        fun withXz(url: String) = parse(sampleManifest.replace(
+            "\"sizeBytes\": 900000, \"sha256\": \"$sha\" }",
+            "\"sizeBytes\": 900000, \"sha256\": \"$sha\" },\n" +
+                """"fileXz": { "name": "guides.db.xz", "url": "$url", "sizeBytes": 210000, "sha256": "$sha" }""",
+        )).guides
+        val guides = withXz("https://github.com/o/r/releases/download/region-data/guides.db.xz")
+        guides.validate()
+        assertEquals("guides.db.xz", guides.downloadFile.name)
+        assertEquals("guides.db", parse().guides.downloadFile.name)
+        assertThrows(IllegalArgumentException::class.java) { withXz("https://evil.example.com/guides.db.xz").validate() }
+    }
+
+    @Test
     fun `download size counts only the requested packages, the map is extracted on device`() {
         val region = parse().regions.single()
 
@@ -97,6 +111,21 @@ class RegionManifestTest {
         assertEquals("2026.03.04", with.versionOf(PackageKind.ADDRESSES))
         assertEquals(150_000L, with.downloadBytes(setOf(PackageKind.ADDRESSES)))
         assertEquals(31_650_000L, with.downloadBytes(with.availableKinds))
+    }
+
+    @Test
+    fun `se c'e' la copia compressa dei civici si scarica quella`() {
+        fun withXz(url: String) = parse(withAddresses.replace(
+            "\"sizeBytes\": 150000, \"sha256\": \"$sha\" }",
+            "\"sizeBytes\": 150000, \"sha256\": \"$sha\" },\n" +
+                """"fileXz": { "name": "addresses.pmtiles.xz", "url": "$url", "sizeBytes": 133500, "sha256": "$sha" }""",
+        )).regions.single()
+        val region = withXz("https://github.com/o/r/releases/download/region-data/addresses.pmtiles.xz")
+        region.validate()
+        assertEquals("addresses.pmtiles.xz", region.addresses!!.downloadFile.name)
+        assertEquals(133_500L, region.downloadBytes(setOf(PackageKind.ADDRESSES)))
+        assertEquals(150_000L, parse(withAddresses).regions.single().downloadBytes(setOf(PackageKind.ADDRESSES)))
+        assertThrows(IllegalArgumentException::class.java) { withXz("https://evil.example.com/addresses.pmtiles.xz").validate() }
     }
 
     @Test

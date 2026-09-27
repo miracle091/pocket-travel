@@ -13,6 +13,7 @@ class ManifestClient @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val json: Json,
     private val worldMapStore: WorldMapStore,
+    private val appCompatibility: AppCompatibility,
 ) {
     suspend fun fetchManifest(): RegionManifest = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(SyncConfig.MANIFEST_URL).build()
@@ -31,6 +32,7 @@ class ManifestClient @Inject constructor(
                 manifest.worldMap?.validate()
                 // Ad ogni sync riuscita: feature/map legge solo WorldMapStore, non dipende da core/sync.
                 worldMapStore.save(manifest.worldMap?.url, manifest.worldMap?.maxZoom ?: worldMapStore.worldMapMaxZoom())
+                appCompatibility.update(manifest.minAppVersionCode)
             }
         }
     }

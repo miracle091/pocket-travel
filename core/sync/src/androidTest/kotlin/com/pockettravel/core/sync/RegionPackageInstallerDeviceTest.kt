@@ -245,4 +245,32 @@ class RegionPackageInstallerDeviceTest {
         files.remove("poi.db") // il file non compresso non e' pubblicato
         return entry
     }
+
+    @Test
+    fun iCiviciCompressiSiScaricanoEDecomprimonoPrimaDiEssereAttivati() = runBlocking {
+        val compressed = compressedAddressesEntry()
+
+        installer.install(compressed, setOf(PackageKind.ADDRESSES))
+
+        val installed = repository.installed("san-marino")!!
+        assertEquals("a1", installed.addressesVersion)
+        assertEquals("civici sammarinesi", File(regionDir, RegionStorage.ADDRESSES_FILE).readText())
+    }
+
+    @Test
+    fun unCivicoDecompressoDiversoDalManifestNonSiInstalla() {
+        val compressed = compressedAddressesEntry().let { it.copy(addresses = it.addresses!!.copy(file = it.addresses.file.copy(sha256 = "0".repeat(64)))) }
+
+        assertThrows(PermanentRegionPackageException::class.java) { runBlocking { installer.install(compressed, setOf(PackageKind.ADDRESSES)) } }
+        assertNull(runBlocking { repository.installed("san-marino") })
+    }
+
+    /** addresses.pmtiles servito solo compresso con xz, come lo pubblica la pipeline. */
+    private fun compressedAddressesEntry(): RegionManifestEntry {
+        files["addresses.pmtiles"] = "civici sammarinesi".toByteArray()
+        files["addresses.pmtiles.xz"] = ByteArrayOutputStream().also { out -> XZOutputStream(out, LZMA2Options()).use { it.write(files.getValue("addresses.pmtiles")) } }.toByteArray()
+        val entry = entry().copy(addresses = AddressesPackageEntry("a1", manifestFile("addresses.pmtiles"), manifestFile("addresses.pmtiles.xz")))
+        files.remove("addresses.pmtiles") // il file non compresso non e' pubblicato
+        return entry
+    }
 }
