@@ -45,8 +45,10 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         } catch (_: Exception) {
             Result.failure()
         }
-        // Fallimento definitivo: lo staging (file .part compresi) non serve piu' a nessun tentativo.
-        if (result is Result.Failure) regionId?.let(regionStorage::deleteStaging)
+        // Installazione finita (i file sono gia' stati spostati, restava una cartella vuota) o
+        // fallimento definitivo: lo staging (file .part compresi) non serve piu'. Solo un nuovo
+        // tentativo lo riusa.
+        if (result !is Result.Retry) regionId?.let(regionStorage::deleteStaging)
         return result
     }
 
