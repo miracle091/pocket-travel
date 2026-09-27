@@ -3,6 +3,7 @@
 // la logica e' invariata.
 #include <android/log.h>
 #include <jni.h>
+#include <algorithm>
 #include <iomanip>
 #include <cmath>
 #include <string>
@@ -34,6 +35,7 @@ constexpr int   N_THREADS_HEADROOM      = 2;
 constexpr int   DEFAULT_CONTEXT_SIZE    = 8192;
 constexpr int   OVERFLOW_HEADROOM       = 4;
 constexpr int   BATCH_SIZE              = 512;
+constexpr size_t MAX_CACHED_TOKEN_BYTES = 256;
 constexpr float DEFAULT_SAMPLER_TEMP    = 0.3f;
 
 static llama_model                      * g_model;
@@ -157,6 +159,10 @@ extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_benchModel(JNIEnv *env, jobject /*unused*/, jint pp, jint tg,
                                                       jint pl, jint nr) {
+    // g_batch ha capacita' BATCH_SIZE: il loop di prompt processing qui sotto aggiunge pp token allo
+    // stesso batch, e superare BATCH_SIZE farebbe abortire su GGML_ASSERT. bench e' attualmente
+    // inutilizzata da Kotlin, quindi si clampa pp invece di ridimensionare il batch.
+    pp = std::min(pp, BATCH_SIZE);
     auto *context = init_context(g_model, pp);
     if (!context) {
         const auto *const err_msg = "Fail to init_context! Bench aborted.";
@@ -388,6 +394,45 @@ static int decode_tokens_in_batches(
     return 0;
 }
 
+// env->GetStringUTFChars() restituisce Modified UTF-8 (CESU-8): i code point oltre la BMP (emoji)
+// vi sono codificati come coppia di surrogate anziche' una sequenza UTF-8 standard a 4 byte, il che
+// corromperebbe il prompt passato a common_tokenize. Legge invece l'UTF-16 nativo con
+// GetStringChars/GetStringLength e lo converte in UTF-8 standard, ricombinando le surrogate pair
+// (una spaiata diventa U+FFFD), simmetrico a utf8_to_jstring qui sotto.
+static std::string jstring_to_utf8(JNIEnv *env, jstring str) {
+    const jchar *chars = env->GetStringChars(str, nullptr);
+    if (!chars) { return {}; }
+    const jsize len = env->GetStringLength(str);
+    std::string utf8;
+    utf8.reserve(len);
+    for (jsize i = 0; i < len; ++i) {
+        uint32_t cp = chars[i];
+        if (cp >= 0xD800 && cp <= 0xDBFF && i + 1 < len && chars[i + 1] >= 0xDC00 && chars[i + 1] <= 0xDFFF) {
+            cp = 0x10000 + ((cp - 0xD800) << 10) + (chars[i + 1] - 0xDC00);
+            ++i;
+        } else if (cp >= 0xD800 && cp <= 0xDFFF) {
+            cp = 0xFFFD;
+        }
+        if (cp <= 0x7F) {
+            utf8 += (char) cp;
+        } else if (cp <= 0x7FF) {
+            utf8 += (char) (0xC0 | (cp >> 6));
+            utf8 += (char) (0x80 | (cp & 0x3F));
+        } else if (cp <= 0xFFFF) {
+            utf8 += (char) (0xE0 | (cp >> 12));
+            utf8 += (char) (0x80 | ((cp >> 6) & 0x3F));
+            utf8 += (char) (0x80 | (cp & 0x3F));
+        } else {
+            utf8 += (char) (0xF0 | (cp >> 18));
+            utf8 += (char) (0x80 | ((cp >> 12) & 0x3F));
+            utf8 += (char) (0x80 | ((cp >> 6) & 0x3F));
+            utf8 += (char) (0x80 | (cp & 0x3F));
+        }
+    }
+    env->ReleaseStringChars(str, chars);
+    return utf8;
+}
+
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processSystemPrompt(
@@ -400,16 +445,15 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processSy
     reset_short_term_states();
 
     // Obtain system prompt from JEnv
-    const auto *system_prompt = env->GetStringUTFChars(jsystem_prompt, nullptr);
-    LOGd("%s: System prompt received: \n%s", __func__, system_prompt);
-    std::string formatted_system_prompt(system_prompt);
+    std::string system_prompt = jstring_to_utf8(env, jsystem_prompt);
+    LOGd("%s: System prompt received: \n%s", __func__, system_prompt.c_str());
+    std::string formatted_system_prompt = system_prompt;
 
     // Format system prompt if applicable
     const bool has_chat_template = common_chat_templates_was_explicit(g_chat_templates.get());
     if (has_chat_template) {
         formatted_system_prompt = chat_add_and_format(ROLE_SYSTEM, system_prompt);
     }
-    env->ReleaseStringUTFChars(jsystem_prompt, system_prompt);
 
     // Tokenize system prompt
     const auto system_tokens = common_tokenize(g_context, formatted_system_prompt,
@@ -449,16 +493,15 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processUs
     reset_short_term_states();
 
     // Obtain and tokenize user prompt
-    const auto *const user_prompt = env->GetStringUTFChars(juser_prompt, nullptr);
-    LOGd("%s: User prompt received: \n%s", __func__, user_prompt);
-    std::string formatted_user_prompt(user_prompt);
+    std::string user_prompt = jstring_to_utf8(env, juser_prompt);
+    LOGd("%s: User prompt received: \n%s", __func__, user_prompt.c_str());
+    std::string formatted_user_prompt = user_prompt;
 
     // Format user prompt if applicable
     const bool has_chat_template = common_chat_templates_was_explicit(g_chat_templates.get());
     if (has_chat_template) {
         formatted_user_prompt = chat_add_and_format(ROLE_USER, user_prompt);
     }
-    env->ReleaseStringUTFChars(juser_prompt, user_prompt);
 
     // Decode formatted user prompts
     auto user_tokens = common_tokenize(g_context, formatted_user_prompt, has_chat_template, has_chat_template);
@@ -638,6 +681,15 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_generateN
         result = utf8_to_jstring(env, cached_token_chars);
         LOGv("id: %d,\tcached: `%s`,\tnew: `%s`", new_token_id, cached_token_chars.c_str(), new_token_chars.c_str());
 
+        assistant_ss << cached_token_chars;
+        cached_token_chars.clear();
+    } else if (cached_token_chars.size() > MAX_CACHED_TOKEN_BYTES) {
+        // Un carattere spezzato tra due token torna valido al token successivo (la cache contiene il
+        // testo del token piu' al massimo 3 byte in attesa): oltre questa soglia i byte sono davvero
+        // rotti e la cache crescerebbe senza limite. La forziamo attraverso utf8_to_jstring, che
+        // sostituisce i byte non decodificabili con U+FFFD, e ripartiamo pulita.
+        LOGv("id: %d,\tinvalid UTF-8 sequence too long, flushing with replacement", new_token_id);
+        result = utf8_to_jstring(env, cached_token_chars);
         assistant_ss << cached_token_chars;
         cached_token_chars.clear();
     } else {
