@@ -58,9 +58,10 @@ private class FakeRegionPackageDao : RegionPackageDao {
 private class NoOpGuideDao : GuideDao {
     override suspend fun insertAll(sections: List<GuideSectionEntity>) = Unit
     override suspend fun sectionsForRegion(regionId: String): List<GuideSectionEntity> = emptyList()
-    override suspend fun search(query: String): List<GuideSectionEntity> = emptyList()
-    override suspend fun searchInRegion(regionId: String, query: String): List<GuideSectionEntity> = emptyList()
+    override suspend fun search(query: String, limit: Int): List<GuideSectionEntity> = emptyList()
+    override suspend fun searchInRegion(regionId: String, query: String, limit: Int): List<GuideSectionEntity> = emptyList()
     override suspend fun deleteAll() = Unit
+    override suspend fun optimizeFts() = Unit
 }
 
 private class NoOpPoiDao : PoiDao {

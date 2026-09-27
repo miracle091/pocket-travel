@@ -10,7 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Migrazioni 5 -> 6 (pacchetti separati), 6 -> 7, 7 -> 8, 8 -> 9, 9 -> 10, 10 -> 11, 11 -> 12 e 12 -> 13 sugli schemi esportati in core/data/schemas. */
+/** Migrazioni 5 -> 6 (pacchetti separati), 6 -> 7, 7 -> 8, 8 -> 9, 9 -> 10, 10 -> 11, 11 -> 12, 12 -> 13 e 13 -> 14 sugli schemi esportati in core/data/schemas. */
 @RunWith(AndroidJUnit4::class)
 class RegionDatabaseMigrationTest {
 
@@ -165,6 +165,29 @@ class RegionDatabaseMigrationTest {
                 assertTrue(cursor.moveToFirst())
                 assertEquals("1", cursor.getString(0))
                 assertTrue("nessuna regione ha gia' l'anteprima prima della 13", cursor.isNull(1))
+            }
+        }
+    }
+
+    @Test
+    fun migrazione13a14IndicizzaLeSezioniPerRegioneEIlTokenizerUnicode61TrovaLeMaiuscoleAccentate() {
+        helper.createDatabase(DB_NAME, 13).use { db ->
+            db.execSQL(
+                "INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES ('peru', 'TRASPORTI', 'PERÙ in autobus', 'corpo', 'https://example.org')",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 14, true, MIGRATION_13_14).use { db ->
+            db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'index_guide_sections_regionId'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+            }
+            db.query(
+                "SELECT guide_sections.title FROM guide_sections " +
+                    "JOIN guide_sections_fts ON guide_sections.id = guide_sections_fts.rowid " +
+                    "WHERE guide_sections_fts MATCH 'perù'",
+            ).use { cursor ->
+                assertTrue("unicode61 casefolda anche le maiuscole accentate indicizzate", cursor.moveToFirst())
+                assertEquals("PERÙ in autobus", cursor.getString(0))
             }
         }
     }

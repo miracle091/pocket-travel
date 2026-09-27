@@ -62,6 +62,15 @@ class RegionPackageInstaller @Inject constructor(
         }
         if (PackageKind.ROUTING in kinds) routingGraphInstaller.install(staging)
 
+        // Lettura e parsing dei POI prima della transazione di scrittura: dentro
+        // regionRepository.inInstallTransaction deve restare solo il delete+insert, non l'IO sul file.
+        val poisToImport = if (PackageKind.POI in kinds) poiImporter.readPois(entry.regionId, File(staging, entry.poi.file.name)) else null
+        val poiExtraToImport = if (PackageKind.POI_EXTRA in kinds) {
+            poiImporter.readPois(entry.regionId, File(staging, entry.poiExtra!!.file.name), extra = true)
+        } else {
+            null
+        }
+
         val activations = mutableListOf<RegionStorage.Activation>()
         try {
             if (PackageKind.MAP in kinds) {
@@ -77,8 +86,8 @@ class RegionPackageInstaller @Inject constructor(
                 activations += regionStorage.activatePackage(entry.regionId, RegionStorage.PREVIEW_FILE, File(staging, entry.preview!!.file.name), entry.preview.version)
             }
             regionRepository.inInstallTransaction {
-                if (PackageKind.POI in kinds) poiImporter.import(entry.regionId, File(staging, entry.poi.file.name))
-                if (PackageKind.POI_EXTRA in kinds) poiImporter.import(entry.regionId, File(staging, entry.poiExtra!!.file.name), extra = true)
+                poisToImport?.let { poiImporter.replace(entry.regionId, it) }
+                poiExtraToImport?.let { poiImporter.replace(entry.regionId, it, extra = true) }
                 regionRepository.markPackagesInstalled(
                     entry.regionId, entry.displayName, entry.countryCode,
                     versions = kinds.associateWith { entry.versionOf(it)!! },

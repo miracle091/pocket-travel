@@ -19,17 +19,19 @@ private class FakeGuideDao : GuideDao {
     override suspend fun sectionsForRegion(regionId: String): List<GuideSectionEntity> =
         stored.filter { it.regionId == regionId }
 
-    override suspend fun search(query: String): List<GuideSectionEntity> {
+    override suspend fun search(query: String, limit: Int): List<GuideSectionEntity> {
         lastSearchQuery = query
-        return stored.filter { it.title.contains(query, ignoreCase = true) || it.body.contains(query, ignoreCase = true) }
+        return stored.filter { it.title.contains(query, ignoreCase = true) || it.body.contains(query, ignoreCase = true) }.take(limit)
     }
 
-    override suspend fun searchInRegion(regionId: String, query: String): List<GuideSectionEntity> =
-        search(query).filter { it.regionId == regionId }
+    override suspend fun searchInRegion(regionId: String, query: String, limit: Int): List<GuideSectionEntity> =
+        search(query, limit).filter { it.regionId == regionId }
 
     override suspend fun deleteAll() {
         stored.clear()
     }
+
+    override suspend fun optimizeFts() {}
 }
 
 class GuideRepositoryTest {
@@ -62,7 +64,7 @@ class GuideRepositoryTest {
         val repository = GuideRepository(dao)
         repository.importSections(listOf(section("italia", "Vaccinazioni richieste")))
 
-        val result = repository.search("vaccinazioni")
+        val result = repository.search("vaccinazioni", limit = 10)
 
         assertEquals("vaccinazioni", dao.lastSearchQuery)
         assertEquals(1, result.size)
@@ -74,7 +76,7 @@ class GuideRepositoryTest {
         val repository = GuideRepository(dao)
         repository.importSections(listOf(section("italia", "Dogane italiane"), section("francia", "Dogane francesi")))
 
-        val result = repository.searchInRegion("italia", "dogane")
+        val result = repository.searchInRegion("italia", "dogane", limit = 10)
 
         assertEquals(1, result.size)
         assertEquals("italia", result.single().regionId)

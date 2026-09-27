@@ -32,7 +32,7 @@ class TravelAssistant @Inject constructor(
         val matches = if (ftsQuery.isBlank()) {
             emptyList()
         } else {
-            guideRepository.searchInRegion(regionId, ftsQuery).take(MAX_SECTIONS)
+            guideRepository.searchInRegion(regionId, ftsQuery, MAX_SECTIONS)
         }
         val regulatedMatch = matches.firstOrNull { it.isRegulatedTopic() }
 

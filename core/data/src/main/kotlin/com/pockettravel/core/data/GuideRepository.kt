@@ -19,11 +19,11 @@ class GuideRepository @Inject constructor(
         guideDao.sectionsForRegion(regionId).map { it.toDomain() }
 
     /** [query] e' un'espressione FTS4 MATCH gia' pulita dal chiamante (es. TravelAssistant.buildFtsQuery). */
-    suspend fun search(query: String): List<GuideSection> =
-        guideDao.search(query).map { it.toDomain() }
+    suspend fun search(query: String, limit: Int): List<GuideSection> =
+        guideDao.search(query, limit).map { it.toDomain() }
 
-    suspend fun searchInRegion(regionId: String, query: String): List<GuideSection> =
-        guideDao.searchInRegion(regionId, query).map { it.toDomain() }
+    suspend fun searchInRegion(regionId: String, query: String, limit: Int): List<GuideSection> =
+        guideDao.searchInRegion(regionId, query, limit).map { it.toDomain() }
 }
 
 private fun GuideSection.toEntity() = GuideSectionEntity(

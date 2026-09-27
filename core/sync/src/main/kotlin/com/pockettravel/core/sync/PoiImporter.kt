@@ -21,14 +21,29 @@ class PoiImporter @Inject constructor(
     private val database: RegionDatabase,
 ) {
     suspend fun import(regionId: String, poiDbFile: File, extra: Boolean = false) = withContext(Dispatchers.IO) {
-        SQLiteDatabase.openDatabase(poiDbFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-            val pois = readPois(regionId, db, extra)
-            database.withTransaction {
-                poiDao.deletePackageForRegion(regionId, extra)
-                poiDao.insertAll(pois)
+        val pois = readPois(regionId, poiDbFile, extra)
+        replace(regionId, pois, extra)
+        poiDbFile.delete()
+    }
+
+    /**
+     * Legge e fa il parsing del file senza toccare region.db: va chiamata fuori da
+     * RegionRepository.inInstallTransaction, cosi' l'IO sul file non tiene occupato il lock di
+     * scrittura del database (RegionPackageInstaller).
+     */
+    suspend fun readPois(regionId: String, poiDbFile: File, extra: Boolean = false): List<PoiEntity> =
+        withContext(Dispatchers.IO) {
+            SQLiteDatabase.openDatabase(poiDbFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+                readPois(regionId, db, extra)
             }
         }
-        poiDbFile.delete()
+
+    /** Sostituisce i POI del pacchetto: va chiamata dentro RegionRepository.inInstallTransaction. */
+    suspend fun replace(regionId: String, pois: List<PoiEntity>, extra: Boolean = false) {
+        database.withTransaction {
+            poiDao.deletePackageForRegion(regionId, extra)
+            poiDao.insertAll(pois)
+        }
     }
 
     // Le colonne facoltative dipendono da quando il file e' stato generato: i content.db v1 (vedi

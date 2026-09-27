@@ -38,6 +38,7 @@ class GuidesImporter @Inject constructor(
                 emergencyNumbersDao.deleteAll()
                 emergencyNumbersDao.deleteAllNoCentralNumber()
                 guideDao.insertAll(sections)
+                guideDao.optimizeFts()
                 emergencyNumbersDao.insertAll(emergencyNumbers)
                 emergencyNumbersDao.insertNoCentralNumber(noCentralNumber)
                 regionRepository.markGuidesInstalled(version, guidesDbFile.length())

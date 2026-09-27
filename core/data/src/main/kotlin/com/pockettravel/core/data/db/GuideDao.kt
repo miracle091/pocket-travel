@@ -18,19 +18,26 @@ interface GuideDao {
         SELECT guide_sections.* FROM guide_sections
         JOIN guide_sections_fts ON guide_sections.id = guide_sections_fts.rowid
         WHERE guide_sections_fts MATCH :query
+        LIMIT :limit
         """
     )
-    suspend fun search(query: String): List<GuideSectionEntity>
+    suspend fun search(query: String, limit: Int): List<GuideSectionEntity>
 
     @Query(
         """
         SELECT guide_sections.* FROM guide_sections
         JOIN guide_sections_fts ON guide_sections.id = guide_sections_fts.rowid
         WHERE guide_sections_fts MATCH :query AND guide_sections.regionId = :regionId
+        LIMIT :limit
         """
     )
-    suspend fun searchInRegion(regionId: String, query: String): List<GuideSectionEntity>
+    suspend fun searchInRegion(regionId: String, query: String, limit: Int): List<GuideSectionEntity>
 
     @Query("DELETE FROM guide_sections")
     suspend fun deleteAll()
+
+    // Da chiamare dopo un reimport completo (GuidesImporter): 'optimize' fonde i segmenti dell'indice
+    // FTS accumulati da delete+insert in uno solo, invece di lasciarli frammentarsi nel tempo.
+    @Query("INSERT INTO guide_sections_fts(guide_sections_fts) VALUES('optimize')")
+    suspend fun optimizeFts()
 }
