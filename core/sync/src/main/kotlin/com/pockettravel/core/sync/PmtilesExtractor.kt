@@ -33,29 +33,32 @@ class PmtilesExtractor @Inject constructor() {
     fun extract(mapSource: MapExtractionSource, outputFile: File, ensureActive: () -> Unit = {}) {
         HttpUrlConnectionChannel(URL(mapSource.sourceUrl)).use { channel ->
             Reader(channel).use { reader ->
-                val entries = fetchEntries(reader, mapSource, ensureActive)
-                if (entries.isEmpty()) {
-                    throw PmtilesExtractionException("Nessuna tile trovata per il bounding box richiesto")
+                // Le tile finiscono subito su un file temporaneo accanto all'output (non in RAM,
+                // vedi PmtilesTileSpool), cancellato alla chiusura anche su errore o annullamento.
+                PmtilesTileSpool(outputFile.absoluteFile.parentFile).use { tiles ->
+                    fetchTiles(reader, mapSource, tiles, ensureActive)
+                    if (tiles.tileCount == 0) {
+                        throw PmtilesExtractionException("Nessuna tile trovata per il bounding box richiesto")
+                    }
+                    PmtilesWriter.write(
+                        outputFile = outputFile,
+                        tiles = tiles,
+                        metadataJson = reader.metadata,
+                        tileCompression = reader.tileCompression,
+                        tileType = reader.tileType,
+                        minZoom = mapSource.minZoom,
+                        maxZoom = mapSource.maxZoom,
+                        minLon = mapSource.minLon,
+                        minLat = mapSource.minLat,
+                        maxLon = mapSource.maxLon,
+                        maxLat = mapSource.maxLat,
+                    )
                 }
-                PmtilesWriter.write(
-                    outputFile = outputFile,
-                    entries = entries,
-                    metadataJson = reader.metadata,
-                    tileCompression = reader.tileCompression,
-                    tileType = reader.tileType,
-                    minZoom = mapSource.minZoom,
-                    maxZoom = mapSource.maxZoom,
-                    minLon = mapSource.minLon,
-                    minLat = mapSource.minLat,
-                    maxLon = mapSource.maxLon,
-                    maxLat = mapSource.maxLat,
-                )
             }
         }
     }
 
-    private fun fetchEntries(reader: Reader, mapSource: MapExtractionSource, ensureActive: () -> Unit): List<PmtilesEntry> {
-        val entries = mutableListOf<PmtilesEntry>()
+    private fun fetchTiles(reader: Reader, mapSource: MapExtractionSource, tiles: PmtilesTileSpool, ensureActive: () -> Unit) {
         for (zoom in mapSource.minZoom..mapSource.maxZoom) {
             val range = tileRangeFor(mapSource, zoom)
             for (x in range.minX..range.maxX) {
@@ -63,11 +66,10 @@ class PmtilesExtractor @Inject constructor() {
                 for (y in range.minY..range.maxY) {
                     val data = reader.getTile(zoom, x, y) ?: continue
                     val tileId = zoomOffset(zoom) + Hilbert.zxyToIndex(zoom, x.toLong(), y.toLong())
-                    entries += PmtilesEntry(tileId, data)
+                    tiles.add(tileId, data)
                 }
             }
         }
-        return entries
     }
 
     private data class TileRange(val minX: Int, val maxX: Int, val minY: Int, val maxY: Int)

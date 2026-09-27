@@ -14,7 +14,10 @@ import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 
@@ -107,6 +110,79 @@ class PmtilesExtractorTest {
             assertNull("una tile fuori dal bbox non deve essere stata estratta", reader.getTile(1, 1, 0))
             assertNull("una tile fuori dal bbox non deve essere stata estratta", reader.getTile(1, 1, 1))
         }
+    }
+
+    @Test
+    fun `l'annullamento interrompe l'estrazione senza lasciare file temporanei`() {
+        val remoteEntries = (0 until 4).flatMap { x -> (0 until 4).map { y -> PmtilesEntry(tileId(2, x, y), fakeTile(2, x, y)) } }
+        PmtilesWriter.write(
+            outputFile = sourceFile,
+            entries = remoteEntries,
+            metadataJson = """{"name":"fake"}""",
+            tileCompression = Constants.COMPRESSION_GZIP,
+            tileType = Constants.TYPE_MVT,
+            minZoom = 2,
+            maxZoom = 2,
+            minLon = -180.0,
+            minLat = -85.0,
+            maxLon = 180.0,
+            maxLat = 85.0,
+        )
+        server.dispatcher = RangeFileDispatcher(sourceFile)
+        server.start()
+        val mapSource = MapExtractionSource(
+            sourceUrl = server.url("/whole-planet.pmtiles").toString(),
+            minLon = -170.0, minLat = -80.0, maxLon = 170.0, maxLat = 80.0,
+            minZoom = 2, maxZoom = 2,
+        )
+
+        var columns = 0
+        try {
+            // annullato alla terza colonna: alcune tile sono gia' sul file temporaneo
+            PmtilesExtractor().extract(mapSource, outputFile) {
+                if (++columns == 3) throw IllegalStateException("annullato")
+            }
+            fail("l'estrazione doveva essere interrotta")
+        } catch (expected: IllegalStateException) {
+            assertEquals("annullato", expected.message)
+        }
+
+        val dir = outputFile.parentFile!!
+        assertTrue("nessun file temporaneo residuo", dir.listFiles()!!.none { it.name.endsWith(".tmp") })
+        assertFalse("nessun archivio parziale", outputFile.exists())
+    }
+
+    @Test
+    fun `l'estrazione riuscita non lascia file temporanei`() {
+        val remoteEntries = listOf(PmtilesEntry(tileId(0, 0, 0), fakeTile(0, 0, 0)))
+        PmtilesWriter.write(
+            outputFile = sourceFile,
+            entries = remoteEntries,
+            metadataJson = """{"name":"fake"}""",
+            tileCompression = Constants.COMPRESSION_GZIP,
+            tileType = Constants.TYPE_MVT,
+            minZoom = 0,
+            maxZoom = 0,
+            minLon = -180.0,
+            minLat = -85.0,
+            maxLon = 180.0,
+            maxLat = 85.0,
+        )
+        server.dispatcher = RangeFileDispatcher(sourceFile)
+        server.start()
+        val mapSource = MapExtractionSource(
+            sourceUrl = server.url("/whole-planet.pmtiles").toString(),
+            minLon = -170.0, minLat = -80.0, maxLon = 170.0, maxLat = 80.0,
+            minZoom = 0, maxZoom = 0,
+        )
+
+        PmtilesExtractor().extract(mapSource, outputFile)
+
+        Reader(outputFile).use { reader -> assertArrayEquals(fakeTile(0, 0, 0), reader.getTile(0, 0, 0)) }
+        assertEquals(
+            setOf("source.pmtiles", "map.pmtiles"),
+            outputFile.parentFile!!.listFiles()!!.map { it.name }.toSet(),
+        )
     }
 
     @Test(expected = PmtilesExtractionException::class)
