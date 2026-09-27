@@ -20,6 +20,8 @@
     <string name="ai_api_key_privacy">La chiave resta solo su questo dispositivo, cifrata in Android Keystore: le domande vengono inviate direttamente al servizio scelto, mai a un server dell\'app.</string>
     <string name="ai_api_key_label">Chiave API</string>
     <string name="ai_api_key_save">Salva chiave</string>
+    <string name="ai_api_key_show">Mostra chiave</string>
+    <string name="ai_api_key_hide">Nascondi chiave</string>
     <string name="ai_question_hint">Fai una domanda sulla regione</string>
     <string name="ai_send">Invia domanda</string>
     <string name="ai_thinking">Sto pensando…</string>

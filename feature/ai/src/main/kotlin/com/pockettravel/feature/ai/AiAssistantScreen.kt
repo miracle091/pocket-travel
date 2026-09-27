@@ -53,6 +53,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -447,6 +448,7 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
 
 @Composable
 private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
+    var isKeyVisible by rememberSaveable { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
         Text(stringResource(R.string.ai_api_key_intro), style = MaterialTheme.typography.bodyLarge)
         Text(
@@ -459,7 +461,17 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
             onValueChange = actions.onApiKeyInputChanged,
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(R.string.ai_api_key_label)) },
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (isKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { isKeyVisible = !isKeyVisible }) {
+                    Icon(
+                        if (isKeyVisible) AppIcons.VisibilityOff else AppIcons.Visibility,
+                        contentDescription = stringResource(
+                            if (isKeyVisible) R.string.ai_api_key_hide else R.string.ai_api_key_show,
+                        ),
+                    )
+                }
+            },
             singleLine = true,
         )
         Button(onClick = actions.onSaveApiKey, enabled = uiState.apiKeyInput.isNotBlank()) {

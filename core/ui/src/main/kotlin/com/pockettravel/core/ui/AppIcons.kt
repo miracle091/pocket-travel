@@ -72,4 +72,6 @@ object AppIcons {
     val Customs: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_fact_check)
     val Passport: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_badge)
     val Vaccinations: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_vaccines)
+    val Visibility: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_visibility)
+    val VisibilityOff: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_visibility_off)
 }
