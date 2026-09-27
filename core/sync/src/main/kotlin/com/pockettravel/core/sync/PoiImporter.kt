@@ -15,6 +15,14 @@ import kotlinx.coroutines.withContext
  * tools/data-pipeline) in region.db, l'unico database che l'app interroga via PoiDao, sostituendo
  * i POI dello stesso pacchetto gia' presenti per la regione. Le colonne corrispondono 1:1 a PoiEntity meno l'id, autogenerato all'insert. poi.db
  * viene cancellato dopo un import riuscito: tenerlo raddoppierebbe lo spazio occupato.
+ *
+ * Due formati, distinti da PRAGMA user_version (SQLiteDatabase.version): 0 (assente, il vecchio
+ * formato) ha "category"/"osmTag" in chiaro e lat/lon REAL su ogni riga di "poi", oltre a una
+ * colonna "regionId" costante mai letta (il chiamante la passa gia'); >= 1 e' il formato compatto
+ * di GeneratePoi.kt (tools/data-pipeline, POI_DB_FORMAT_VERSION) - "poi" ha solo un intero "code"
+ * verso la tabella "poi_code" (category/osmTag) e coordinate come interi in microgradi
+ * (latE6/lonE6). Finche' non tutte le regioni pubblicate sono state rigenerate nel nuovo formato
+ * (rigenerazione incrementale, non tutte insieme) l'app puo' incontrare entrambi: legge entrambi.
  */
 class PoiImporter @Inject constructor(
     private val poiDao: PoiDao,
@@ -51,9 +59,11 @@ class PoiImporter @Inject constructor(
     // poi.db pubblicati prima di "wheelchair" nemmeno questa. Selezionare una colonna assente farebbe
     // fallire l'intero download.
     private fun readPois(regionId: String, db: SQLiteDatabase, extra: Boolean): List<PoiEntity> {
-        val columns = poiColumns(db)
+        // db.version legge PRAGMA user_version: assente (0) sui file nel vecchio formato, vedi la
+        // nota di formato sopra la classe.
+        val query = if (db.version >= 1) COMPACT_POI_QUERY else poiQuery(poiColumns(db))
         val pois = mutableListOf<PoiEntity>()
-        db.rawQuery(poiQuery(columns), null).use { cursor ->
+        db.rawQuery(query, null).use { cursor ->
             val phone = cursor.getColumnIndex("phone")
             val wheelchair = cursor.getColumnIndex("wheelchair")
             while (cursor.moveToNext()) {
@@ -86,6 +96,14 @@ class PoiImporter @Inject constructor(
         // Vedi GuidesImporter: eseguita via JDBC da un test JVM contro lo schema della pipeline.
         internal fun poiQuery(columns: Set<String>): String =
             "SELECT name, category, lat, lon, osmTag" + OPTIONAL_COLUMNS.filter { it in columns }.joinToString("") { ", $it" } + " FROM poi"
+
+        // Formato compatto (GeneratePoi.kt, POI_DB_FORMAT_VERSION): stesso ordine di colonne di
+        // poiQuery (name, category, lat, lon, osmTag, phone, wheelchair) cosi' readPois legge le
+        // prime cinque per posizione in entrambi i casi; phone e wheelchair ci sono sempre (anche
+        // se null) in questo formato, a differenza del vecchio dove sono colonne facoltative.
+        internal const val COMPACT_POI_QUERY =
+            "SELECT poi.name, poi_code.category, poi.latE6 / 1000000.0 AS lat, poi.lonE6 / 1000000.0 AS lon, poi_code.osmTag, poi.phone, poi.wheelchair" +
+                " FROM poi JOIN poi_code ON poi.code = poi_code.code"
 
         private val OPTIONAL_COLUMNS = listOf("phone", "wheelchair")
     }

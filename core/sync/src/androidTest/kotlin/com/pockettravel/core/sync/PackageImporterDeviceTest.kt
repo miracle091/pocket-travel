@@ -96,6 +96,23 @@ class PackageImporterDeviceTest {
     }
 
     @Test
+    fun importaIPoiNelFormatoCompattoConLaTabellaDeiCodici() = runBlocking {
+        val file = compactPoiDbFile("poi-compact.db")
+        PoiImporter(db.poiDao(), db).import("test-region", file)
+
+        val pois = db.poiDao().poisForRegion("test-region")
+        assertEquals(1, pois.size)
+        val poi = pois.single()
+        assertEquals("Ambasciata", poi.name)
+        assertEquals("embassy", poi.category)
+        assertEquals("amenity=embassy", poi.osmTag)
+        assertEquals(45.4646, poi.lat, 1e-6)
+        assertEquals(9.1908, poi.lon, 1e-6)
+        assertEquals("+39 06 1234567", poi.phone)
+        assertFalse("poi.db va cancellato dopo l'import", file.exists())
+    }
+
+    @Test
     fun importaLeGuideDiCittaDiUnaRegioneSostituendoQuellePrecedentiESaltandoLeCategorieSconosciute() = runBlocking {
         val importer = CityImporter(db.cityDao(), db)
 
@@ -120,6 +137,21 @@ class PackageImporterDeviceTest {
         val sectionsAfterUpdate = db.cityDao().sectionsFor("san-marino", "Citta di San Marino")
         assertEquals(1, sectionsAfterUpdate.size)
         assertEquals("corpo aggiornato", sectionsAfterUpdate.single().body)
+    }
+
+    /** Crea un poi.db minimo nel formato compatto (poi_code + poi, PRAGMA user_version=1), vedi GeneratePoi.kt. */
+    private fun compactPoiDbFile(name: String): File {
+        val file = File(workDir, name)
+        SQLiteDatabase.openOrCreateDatabase(file, null).use { poi ->
+            poi.execSQL("CREATE TABLE poi_code (code INTEGER NOT NULL PRIMARY KEY, category TEXT NOT NULL, osmTag TEXT NOT NULL)")
+            poi.execSQL("INSERT INTO poi_code VALUES (0, 'embassy', 'amenity=embassy')")
+            poi.execSQL(
+                "CREATE TABLE poi (name TEXT NOT NULL, code INTEGER NOT NULL, latE6 INTEGER NOT NULL, lonE6 INTEGER NOT NULL, phone TEXT, wheelchair TEXT)"
+            )
+            poi.execSQL("INSERT INTO poi VALUES ('Ambasciata', 0, 45464600, 9190800, '+39 06 1234567', NULL)")
+            poi.version = 1
+        }
+        return file
     }
 
     /** Crea un cities.db minimo (stesso schema pubblicato da tools/data-pipeline) senza bisogno di un asset. */

@@ -16,17 +16,54 @@ class GeneratePoiTest {
 
         try {
             val pois = readPois(listOf(File("testdata/tiny-region.osm.xml")), poiTagKeys)
-            writePoiDb(pois, "test-region", outputDb)
+            writePoiDb(pois, outputDb)
 
             DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
                 conn.createStatement().use { statement ->
-                    val rs = statement.executeQuery("SELECT regionId, name, category, osmTag FROM poi")
+                    val rs = statement.executeQuery(
+                        "SELECT poi.name, poi_code.category, poi_code.osmTag FROM poi JOIN poi_code ON poi.code = poi_code.code"
+                    )
                     assertEquals(true, rs.next())
-                    assertEquals("test-region", rs.getString("regionId"))
                     assertEquals("Punto panoramico di prova", rs.getString("name"))
                     assertEquals("viewpoint", rs.getString("category"))
                     assertEquals("tourism=viewpoint", rs.getString("osmTag"))
                     assertEquals(false, rs.next())
+                }
+                // Marcatore di formato letto da PoiImporter, vedi POI_DB_FORMAT_VERSION.
+                val version = conn.createStatement().executeQuery("PRAGMA user_version")
+                version.next()
+                assertEquals(1, version.getInt(1))
+            }
+        } finally {
+            outputDb.delete()
+        }
+    }
+
+    @Test
+    fun `la tabella dei codici ha una riga per ogni coppia category-osmTag distinta, niente colonna regionId`() {
+        val outputDb = File.createTempFile("pocket-travel-test", ".poi.db")
+        outputDb.delete()
+
+        try {
+            val pois = readPois(listOf(File("testdata/tiny-region.osm.xml")), poiTagKeys)
+            writePoiDb(pois + pois, outputDb) // stessi POI due volte: stesso code, non due righe in poi_code.
+
+            DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
+                conn.createStatement().use { statement ->
+                    val codes = statement.executeQuery("SELECT COUNT(*) FROM poi_code")
+                    codes.next()
+                    assertEquals(1, codes.getInt(1))
+                    val rows = statement.executeQuery("SELECT COUNT(*) FROM poi")
+                    rows.next()
+                    assertEquals(2, rows.getInt(1))
+                    assertEquals(
+                        false,
+                        statement.executeQuery("PRAGMA table_info(poi)").let { info ->
+                            var hasRegionId = false
+                            while (info.next()) if (info.getString("name") == "regionId") hasRegionId = true
+                            hasRegionId
+                        },
+                    )
                 }
             }
         } finally {

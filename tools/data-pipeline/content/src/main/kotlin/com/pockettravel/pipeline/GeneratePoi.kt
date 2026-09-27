@@ -3,6 +3,7 @@ package com.pockettravel.pipeline
 import com.pockettravel.core.poi.PoiPackage
 import com.pockettravel.core.poi.poiPackageOf
 import java.io.File
+import java.sql.DriverManager
 import javax.xml.parsers.SAXParserFactory
 import org.xml.sax.Attributes
 import org.xml.sax.helpers.DefaultHandler
@@ -11,7 +12,8 @@ fun main(args: Array<String>) {
     require(args.size >= 5) {
         "Uso: generatePoi <regionId> <output poi.db> <output poi-extra.db> <poiTagKeys separate da virgola> <input1.osm.xml> [input2.osm.xml ...]"
     }
-    val regionId = args[0]
+    // regionId non finisce piu' nel file (era una colonna costante su ogni riga, vedi writePoiDb):
+    // resta come argomento posizionale per compatibilita' con build-region.sh, non altrimenti usato qui.
     val outputDb = File(args[1])
     val extraDb = File(args[2])
     // Passate da build-region.sh (unica fonte di verita', usata anche per costruire la query
@@ -29,10 +31,10 @@ fun main(args: Array<String>) {
     val byPackage = pois.groupBy { poiPackageOf(it.name, it.category, it.osmTag) }
     val base = byPackage[PoiPackage.BASE].orEmpty()
     val extra = byPackage[PoiPackage.EXTRA].orEmpty()
-    writePoiDb(base, regionId, outputDb)
+    writePoiDb(base, outputDb)
     // Niente file extra se non c'e' nessun POI: la regione resta senza pacchetto extra.
     extraDb.delete()
-    if (extra.isNotEmpty()) writePoiDb(extra, regionId, extraDb)
+    if (extra.isNotEmpty()) writePoiDb(extra, extraDb)
     println("poi: ${base.size} base in ${outputDb.path}, ${extra.size} extra, ${byPackage[null].orEmpty().size} non pubblicati")
 }
 
@@ -133,41 +135,79 @@ private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagK
 }
 
 /**
- * Schema minimo (non lo schema Room di PoiEntity): una tabella "poi" con le stesse colonne
- * meno l'id autogenerato, che l'app importa riga per riga in region.db via PoiDao.insertAll().
+ * Formato compatto (non lo schema Room di PoiEntity), letto riga per riga dall'app via
+ * PoiDao.insertAll() dopo il parsing di PoiImporter (core:sync):
+ * - "poi_code": una riga per ogni coppia (category, osmTag) distinta della regione (poche decine
+ *   o centinaia anche su un file con decine di migliaia di POI), cosi' "poi" non ripete due
+ *   stringhe identiche a ogni riga ma un solo intero.
+ * - "poi": name, il code di poi_code, le coordinate come interi in microgradi (lat/lon * 1e6,
+ *   precisione ~0,11 m, piu' che sufficiente per un segnalino) invece di REAL a 8 byte, phone e
+ *   wheelchair facoltativi. Niente colonna regionId (era costante su ogni riga: la regione la
+ *   passa comunque chi importa il file).
+ * - PRAGMA user_version = [POI_DB_FORMAT_VERSION]: marcatore di formato per PoiImporter, che
+ *   legge sia questo che il vecchio formato (regionId/category/osmTag/lat/lon in chiaro,
+ *   user_version assente cioe' 0 di default) - vedi PoiImporter.readPois.
  *
  * outputDb e' poi.db (o poi-extra.db, stesso formato), un pacchetto POI della regione, scaricato
  * e aggiornato dall'app separatamente da guide (guides.db), mappa e routing.
  */
-fun writePoiDb(pois: List<Poi>, regionId: String, outputDb: File) {
+fun writePoiDb(pois: List<Poi>, outputDb: File) {
+    // LinkedHashMap: assegna i code in ordine di prima comparsa, solo per avere un file
+    // deterministico a parita' di input (non serve altrimenti).
+    val codeOf = LinkedHashMap<Pair<String, String>, Int>()
+    for (poi in pois) codeOf.getOrPut(poi.category to poi.osmTag) { codeOf.size }
+
+    writeSqliteTable(
+        outputDb = outputDb,
+        tableName = "poi_code",
+        createTableSql = """
+            CREATE TABLE poi_code (
+                code INTEGER NOT NULL PRIMARY KEY,
+                category TEXT NOT NULL,
+                osmTag TEXT NOT NULL
+            )
+            """.trimIndent(),
+        insertSql = "INSERT INTO poi_code (code, category, osmTag) VALUES (?, ?, ?)",
+        rows = codeOf.entries.toList(),
+    ) { insert, entry ->
+        insert.setInt(1, entry.value)
+        insert.setString(2, entry.key.first)
+        insert.setString(3, entry.key.second)
+    }
+
     writeSqliteTable(
         outputDb = outputDb,
         tableName = "poi",
         createTableSql = """
             CREATE TABLE poi (
-                regionId TEXT NOT NULL,
                 name TEXT NOT NULL,
-                category TEXT NOT NULL,
-                lat REAL NOT NULL,
-                lon REAL NOT NULL,
-                osmTag TEXT NOT NULL,
+                code INTEGER NOT NULL,
+                latE6 INTEGER NOT NULL,
+                lonE6 INTEGER NOT NULL,
                 phone TEXT,
                 wheelchair TEXT
             )
             """.trimIndent(),
-        insertSql = "INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone, wheelchair) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        insertSql = "INSERT INTO poi (name, code, latE6, lonE6, phone, wheelchair) VALUES (?, ?, ?, ?, ?, ?)",
         rows = pois,
     ) { insert, poi ->
-        insert.setString(1, regionId)
-        insert.setString(2, poi.name)
-        insert.setString(3, poi.category)
-        insert.setDouble(4, poi.lat)
-        insert.setDouble(5, poi.lon)
-        insert.setString(6, poi.osmTag)
-        insert.setString(7, poi.phone)
-        insert.setString(8, poi.wheelchair)
+        insert.setString(1, poi.name)
+        insert.setInt(2, codeOf.getValue(poi.category to poi.osmTag))
+        insert.setInt(3, Math.round(poi.lat * 1_000_000.0).toInt())
+        insert.setInt(4, Math.round(poi.lon * 1_000_000.0).toInt())
+        insert.setString(5, poi.phone)
+        insert.setString(6, poi.wheelchair)
+    }
+
+    // A parte (non e' una tabella): writeSqliteTable ricrea una tabella per volta, il marcatore di
+    // formato riguarda il file intero.
+    DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
+        conn.createStatement().use { it.execute("PRAGMA user_version = $POI_DB_FORMAT_VERSION") }
     }
 }
+
+/** Formato compatto (poi_code + microgradi), vedi [writePoiDb]. 0 (assente) e' il vecchio formato. */
+const val POI_DB_FORMAT_VERSION = 1
 
 // Parcheggi non aperti a tutti (tag access OSM): l'app li mostra con un segnalino a parte. Resta
 // osmTag "amenity=parking", cambia solo category.

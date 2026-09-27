@@ -140,6 +140,41 @@ class PackageImporterSchemaTest {
     }
 
     @Test
+    fun `la query poi compatta legge poi_code e le coordinate in microgradi di poi db`() = withDb { conn ->
+        conn.createStatement().use { statement ->
+            statement.execute(
+                "CREATE TABLE poi_code (code INTEGER NOT NULL PRIMARY KEY, category TEXT NOT NULL, osmTag TEXT NOT NULL)"
+            )
+            statement.execute("INSERT INTO poi_code VALUES (0, 'embassy', 'amenity=embassy')")
+            statement.execute(
+                """
+                CREATE TABLE poi (
+                    name TEXT NOT NULL,
+                    code INTEGER NOT NULL,
+                    latE6 INTEGER NOT NULL,
+                    lonE6 INTEGER NOT NULL,
+                    phone TEXT,
+                    wheelchair TEXT
+                )
+                """.trimIndent()
+            )
+            statement.execute("INSERT INTO poi VALUES ('Ambasciata', 0, 45464600, 9190800, '+39 06 1234567', 'yes')")
+        }
+        conn.createStatement().use { statement ->
+            val rs = statement.executeQuery(PoiImporter.COMPACT_POI_QUERY)
+            assertEquals(true, rs.next())
+            assertEquals("Ambasciata", rs.getString("name"))
+            assertEquals("embassy", rs.getString("category"))
+            assertEquals(45.4646, rs.getDouble("lat"), 1e-9)
+            assertEquals(9.1908, rs.getDouble("lon"), 1e-9)
+            assertEquals("amenity=embassy", rs.getString("osmTag"))
+            assertEquals("+39 06 1234567", rs.getString("phone"))
+            assertEquals("yes", rs.getString("wheelchair"))
+            assertEquals(false, rs.next())
+        }
+    }
+
+    @Test
     fun `la query poi seleziona solo le colonne facoltative presenti nel file`() {
         assertEquals(
             "SELECT name, category, lat, lon, osmTag, phone FROM poi",
