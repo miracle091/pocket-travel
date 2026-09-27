@@ -25,10 +25,15 @@ class PmtilesExtractionException(message: String) : Exception(message)
  */
 class PmtilesExtractor @Inject constructor() {
 
-    fun extract(mapSource: MapExtractionSource, outputFile: File) {
+    /**
+     * Bloccante (richieste HTTP range): va chiamato fuori dal main thread. [ensureActive] e'
+     * invocato prima di ogni colonna di tile e deve lanciare un'eccezione per interrompere
+     * l'estrazione (es. CoroutineScope.ensureActive del worker annullato).
+     */
+    fun extract(mapSource: MapExtractionSource, outputFile: File, ensureActive: () -> Unit = {}) {
         HttpUrlConnectionChannel(URL(mapSource.sourceUrl)).use { channel ->
             Reader(channel).use { reader ->
-                val entries = fetchEntries(reader, mapSource)
+                val entries = fetchEntries(reader, mapSource, ensureActive)
                 if (entries.isEmpty()) {
                     throw PmtilesExtractionException("Nessuna tile trovata per il bounding box richiesto")
                 }
@@ -49,11 +54,12 @@ class PmtilesExtractor @Inject constructor() {
         }
     }
 
-    private fun fetchEntries(reader: Reader, mapSource: MapExtractionSource): List<PmtilesEntry> {
+    private fun fetchEntries(reader: Reader, mapSource: MapExtractionSource, ensureActive: () -> Unit): List<PmtilesEntry> {
         val entries = mutableListOf<PmtilesEntry>()
         for (zoom in mapSource.minZoom..mapSource.maxZoom) {
             val range = tileRangeFor(mapSource, zoom)
             for (x in range.minX..range.maxX) {
+                ensureActive()
                 for (y in range.minY..range.maxY) {
                     val data = reader.getTile(zoom, x, y) ?: continue
                     val tileId = zoomOffset(zoom) + Hilbert.zxyToIndex(zoom, x.toLong(), y.toLong())

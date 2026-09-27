@@ -118,6 +118,19 @@ class RegionStorageTest {
     }
 
     @Test
+    fun `deleteStaging rimuove lo staging di una sola regione`() {
+        val (storage, _) = newStorage()
+        File(storage.stagingDirectoryFor("italia", "v1").apply { mkdirs() }, "poi.db.part").writeText("x")
+        storage.stagingDirectoryFor("francia", "v1").mkdirs()
+
+        storage.deleteStaging("italia")
+        storage.deleteStaging("mai-scaricata")
+
+        assertFalse(storage.stagingDirectoryFor("italia", "v1").parentFile!!.exists())
+        assertTrue(storage.stagingDirectoryFor("francia", "v1").exists())
+    }
+
+    @Test
     fun `delete rimuove una regione installata e ritorna true`() {
         val (storage, _) = newStorage()
         storage.activatePackage("italia", RegionStorage.MAP_FILE, stagedFile(storage, "v1", RegionStorage.MAP_FILE, "mappa")).commit()

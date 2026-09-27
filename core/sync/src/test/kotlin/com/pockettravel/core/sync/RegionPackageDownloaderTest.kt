@@ -168,4 +168,35 @@ class RegionPackageDownloaderTest {
             // atteso: errore transitorio, il worker chiamante puo' ritentare
         }
     }
+
+    @Test
+    fun `un part file gia' completo viene verificato e finalizzato senza richieste HTTP`() = runBlocking {
+        val bytes = "0123456789".toByteArray()
+        File(targetDir, "content.db.part").writeBytes(bytes)
+
+        downloader.downloadAndVerify(manifestFile(bytes), File(targetDir, "content.db"))
+
+        assertEquals("0123456789", File(targetDir, "content.db").readText())
+        assertFalse(File(targetDir, "content.db.part").exists())
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun `un 416 cancella il part file ed e' ritentabile`() = runBlocking {
+        val bytes = "0123456789".toByteArray()
+        val partFile = File(targetDir, "content.db.part")
+        partFile.writeBytes("01234".toByteArray())
+        server.enqueue(MockResponse().setResponseCode(416))
+
+        try {
+            downloader.downloadAndVerify(manifestFile(bytes), File(targetDir, "content.db"))
+            fail("un 416 deve far fallire il tentativo")
+        } catch (_: PermanentRegionPackageException) {
+            fail("un 416 non deve essere trattato come permanente")
+        } catch (_: IOException) {
+            // atteso: al prossimo tentativo si riparte da zero
+        }
+        assertEquals("bytes=5-", server.takeRequest().getHeader("Range"))
+        assertFalse(partFile.exists())
+    }
 }

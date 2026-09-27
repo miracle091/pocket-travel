@@ -56,6 +56,11 @@ class RegionStorage @Inject constructor(
         regionStaging.listFiles().orEmpty().filter { it.name != version }.forEach { it.deleteRecursively() }
     }
 
+    /** Elimina tutto lo staging della regione (download falliti o interrotti, regione rimossa). */
+    fun deleteStaging(regionId: String) {
+        safeChild(stagingDir, regionId, "regionId").deleteRecursively()
+    }
+
     fun delete(regionId: String): Boolean {
         val directory = directoryFor(regionId)
         return !directory.exists() || (directory.deleteRecursively() && !directory.exists())

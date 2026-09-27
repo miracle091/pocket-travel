@@ -1,5 +1,6 @@
 package com.pockettravel.core.sync
 
+import java.io.IOException
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -15,6 +16,10 @@ class ManifestClient @Inject constructor(
         val request = Request.Builder().url(SyncConfig.MANIFEST_URL).build()
         okHttpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
+                // Errori temporanei del server: IOException, cosi' i worker riprovano.
+                if (response.code >= 500 || response.code == 408 || response.code == 429) {
+                    throw IOException("Manifest fetch failed: HTTP ${response.code}")
+                }
                 error("Manifest fetch failed: HTTP ${response.code}")
             }
             val body = response.body?.string() ?: error("Empty manifest response")

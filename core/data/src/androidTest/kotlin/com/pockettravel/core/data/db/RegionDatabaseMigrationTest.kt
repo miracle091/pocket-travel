@@ -134,6 +134,23 @@ class RegionDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrazione11a12IndicizzaIPoiPerRegioneEConservaQuelliImportati() {
+        helper.createDatabase(DB_NAME, 11).use { db ->
+            db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone, extra, wheelchair) VALUES ('italia', 'Da Mario', 'restaurant', 45.0, 9.0, 'amenity=restaurant', NULL, 0, 'yes')")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 12, true, MIGRATION_11_12).use { db ->
+            db.query("SELECT name FROM poi WHERE regionId = 'italia'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Da Mario", cursor.getString(0))
+            }
+            db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'index_poi_regionId'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+            }
+        }
+    }
+
     private companion object {
         const val DB_NAME = "migration-test.db"
     }

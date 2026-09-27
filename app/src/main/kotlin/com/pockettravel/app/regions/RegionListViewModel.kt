@@ -191,6 +191,7 @@ class RegionListViewModel @Inject constructor(
     }
 
     fun delete(regionId: String) {
+        regionSyncScheduler.cancelDownload(regionId)
         viewModelScope.launch { regionRepository.remove(regionId) }
     }
 

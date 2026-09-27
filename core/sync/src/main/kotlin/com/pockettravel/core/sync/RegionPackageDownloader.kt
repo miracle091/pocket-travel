@@ -76,14 +76,22 @@ class RegionPackageDownloader @Inject constructor(
         onProgress: suspend (bytesDownloaded: Long) -> Unit = {},
     ) {
         val partFile = File(target.parentFile, "${target.name}.part")
+        if (partFile.length() > file.sizeBytes) partFile.delete()
         val existingBytes = if (partFile.exists()) partFile.length() else 0L
 
-        val request = Request.Builder().url(file.url).apply {
-            if (existingBytes > 0) header("Range", "bytes=$existingBytes-")
-        }.build()
-
-        okHttpClient.newCall(request).execute().use { response ->
+        // .part gia' completo (processo chiuso tra l'ultimo byte e il renameTo): niente richiesta, si
+        // verifica e basta. Chiedere "bytes=<dimensione>-" darebbe 416 e il download fallirebbe per sempre.
+        if (existingBytes < file.sizeBytes) okHttpClient.newCall(
+            Request.Builder().url(file.url).apply {
+                if (existingBytes > 0) header("Range", "bytes=$existingBytes-")
+            }.build(),
+        ).execute().use { response ->
             if (!response.isSuccessful) {
+                if (response.code == 416) {
+                    // .part non coerente con il file sul server (es. cambiato a parita' di nome): si riparte da zero
+                    partFile.delete()
+                    throw IOException("Range non valido per ${file.name}: riscarico da capo")
+                }
                 if (response.code in 400..499 && response.code != 408 && response.code != 429) {
                     throw PermanentRegionPackageException("Download fallito per ${file.name}: HTTP ${response.code}")
                 }

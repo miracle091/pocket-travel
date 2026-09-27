@@ -7,6 +7,10 @@ import javax.inject.Inject
 class GuideRepository @Inject constructor(
     private val guideDao: GuideDao,
 ) {
+    /**
+     * Solo per i test: non sostituisce le sezioni gia' presenti. L'import reale del pacchetto guide
+     * passa da GuidesImporter (core/sync), che svuota e reimporta tutto in una transazione.
+     */
     suspend fun importSections(sections: List<GuideSection>) {
         guideDao.insertAll(sections.map { it.toEntity() })
     }
@@ -14,6 +18,7 @@ class GuideRepository @Inject constructor(
     suspend fun sectionsFor(regionId: String): List<GuideSection> =
         guideDao.sectionsForRegion(regionId).map { it.toDomain() }
 
+    /** [query] e' un'espressione FTS4 MATCH gia' pulita dal chiamante (es. TravelAssistant.buildFtsQuery). */
     suspend fun search(query: String): List<GuideSection> =
         guideDao.search(query).map { it.toDomain() }
 

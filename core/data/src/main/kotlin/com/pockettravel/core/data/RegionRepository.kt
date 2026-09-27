@@ -51,13 +51,23 @@ class RegionRepository @Inject constructor(
     /** Elimina un solo pacchetto della regione; tolto l'ultimo, la regione non risulta piu' installata. */
     suspend fun removePackage(regionId: String, kind: PackageKind) {
         val current = installed(regionId) ?: return
+        // Ultimo pacchetto: si elimina l'intera regione, con i file fuori dalla transazione come in remove().
+        if (PackageKind.entries.all { it == kind || current.versionOf(it) == null }) {
+            remove(regionId)
+            return
+        }
+        // File su disco fuori dalla transazione (come in remove()); prima di save(), che ne legge le dimensioni.
+        when (kind) {
+            PackageKind.MAP -> check(regionStorage.deletePackage(regionId, RegionStorage.MAP_FILE)) { "Impossibile eliminare la mappa di $regionId" }
+            PackageKind.ROUTING -> check(regionStorage.deletePackage(regionId, RegionStorage.ROUTING_DIR)) { "Impossibile eliminare il routing di $regionId" }
+            PackageKind.ADDRESSES -> check(regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_FILE)) { "Impossibile eliminare i civici di $regionId" }
+            PackageKind.POI, PackageKind.POI_EXTRA -> Unit
+        }
         database.withTransaction {
             when (kind) {
-                PackageKind.MAP -> check(regionStorage.deletePackage(regionId, RegionStorage.MAP_FILE)) { "Impossibile eliminare la mappa di $regionId" }
-                PackageKind.ROUTING -> check(regionStorage.deletePackage(regionId, RegionStorage.ROUTING_DIR)) { "Impossibile eliminare il routing di $regionId" }
                 PackageKind.POI -> poiDao.deletePackageForRegion(regionId, extra = false)
                 PackageKind.POI_EXTRA -> poiDao.deletePackageForRegion(regionId, extra = true)
-                PackageKind.ADDRESSES -> check(regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_FILE)) { "Impossibile eliminare i civici di $regionId" }
+                PackageKind.MAP, PackageKind.ROUTING, PackageKind.ADDRESSES -> Unit
             }
             save(
                 regionId, current.displayName, current.countryCode,
@@ -110,6 +120,7 @@ class RegionRepository @Inject constructor(
     // Le guide restano: sono un pacchetto unico per tutte le regioni, non di questa regione.
     suspend fun remove(regionId: String) {
         check(regionStorage.delete(regionId)) { "Impossibile eliminare la regione $regionId" }
+        regionStorage.deleteStaging(regionId)
         database.withTransaction {
             regionPackageDao.deleteById(regionId)
             poiDao.deleteForRegion(regionId)

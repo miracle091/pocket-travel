@@ -84,6 +84,7 @@ class StorageViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StorageUiState())
 
     fun deleteRegion(regionId: String) {
+        regionSyncScheduler.cancelDownload(regionId)
         viewModelScope.launch {
             regionRepository.remove(regionId)
             refreshDeviceState()

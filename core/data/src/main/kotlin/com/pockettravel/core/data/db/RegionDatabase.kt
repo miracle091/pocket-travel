@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         InstalledGuidesEntity::class,
         NoCentralEmergencyNumberEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -164,5 +164,12 @@ val MIGRATION_9_10 = object : Migration(9, 10) {
 val MIGRATION_10_11 = object : Migration(10, 11) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `wheelchair` TEXT")
+    }
+}
+
+// Indice su poi.regionId: senza, caricare o eliminare i POI di una regione scorre l'intera tabella.
+val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionId` ON `poi` (`regionId`)")
     }
 }

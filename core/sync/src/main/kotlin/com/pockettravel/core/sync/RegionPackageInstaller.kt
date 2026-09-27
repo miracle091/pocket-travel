@@ -7,6 +7,9 @@ import java.io.File
 import java.security.DigestOutputStream
 import java.security.MessageDigest
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import org.tukaani.xz.XZInputStream
 
 /**
@@ -43,7 +46,12 @@ class RegionPackageInstaller @Inject constructor(
         if (PackageKind.POI in kinds) unpackPoi(staging, entry.poi)
         if (PackageKind.POI_EXTRA in kinds) unpackPoi(staging, entry.poiExtra!!)
 
-        if (PackageKind.MAP in kinds) pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE))
+        if (PackageKind.MAP in kinds) {
+            // Estrazione bloccante (HTTP range): su IO e interrompibile se il download viene annullato.
+            withContext(Dispatchers.IO) {
+                pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE)) { ensureActive() }
+            }
+        }
         if (PackageKind.ROUTING in kinds) routingGraphInstaller.install(staging)
 
         val activations = mutableListOf<RegionStorage.Activation>()

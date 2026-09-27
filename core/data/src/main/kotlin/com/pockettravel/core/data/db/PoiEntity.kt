@@ -2,9 +2,11 @@ package com.pockettravel.core.data.db
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "poi")
+// Indice su regionId: ogni query e ogni eliminazione dei POI filtra per regione.
+@Entity(tableName = "poi", indices = [Index("regionId")])
 data class PoiEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val regionId: String,
