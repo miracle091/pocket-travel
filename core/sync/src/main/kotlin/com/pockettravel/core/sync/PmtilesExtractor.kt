@@ -6,10 +6,6 @@ import ch.poole.geo.pmtiles.Reader
 import java.io.File
 import java.net.URL
 import javax.inject.Inject
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.ln
-import kotlin.math.tan
 
 class PmtilesExtractionException(message: String) : Exception(message)
 
@@ -60,7 +56,7 @@ class PmtilesExtractor @Inject constructor() {
 
     private fun fetchTiles(reader: Reader, mapSource: MapExtractionSource, tiles: PmtilesTileSpool, ensureActive: () -> Unit) {
         for (zoom in mapSource.minZoom..mapSource.maxZoom) {
-            val range = tileRangeFor(mapSource, zoom)
+            val range = tileRangeFor(mapSource.minLon, mapSource.minLat, mapSource.maxLon, mapSource.maxLat, zoom)
             for (x in range.minX..range.maxX) {
                 ensureActive()
                 for (y in range.minY..range.maxY) {
@@ -70,25 +66,6 @@ class PmtilesExtractor @Inject constructor() {
                 }
             }
         }
-    }
-
-    private data class TileRange(val minX: Int, val maxX: Int, val minY: Int, val maxY: Int)
-
-    // Convenzione slippy-map standard (Google/OSM, la stessa usata da Hilbert.zxyToIndex).
-    private fun tileRangeFor(mapSource: MapExtractionSource, zoom: Int): TileRange {
-        val tilesPerAxis = 1 shl zoom
-        fun lonToX(lon: Double) = (((lon + 180.0) / 360.0) * tilesPerAxis).toInt().coerceIn(0, tilesPerAxis - 1)
-        fun latToY(lat: Double): Int {
-            val latRad = Math.toRadians(lat.coerceIn(-85.0511, 85.0511))
-            val y = (1.0 - ln(tan(latRad) + 1.0 / cos(latRad)) / PI) / 2.0 * tilesPerAxis
-            return y.toInt().coerceIn(0, tilesPerAxis - 1)
-        }
-        return TileRange(
-            minX = lonToX(mapSource.minLon),
-            maxX = lonToX(mapSource.maxLon),
-            minY = latToY(mapSource.maxLat), // latitudine massima -> Y minore
-            maxY = latToY(mapSource.minLat),
-        )
     }
 
     /** Somma cumulativa delle tile di tutti gli zoom precedenti a `zoom` (0 = nessuna): stesso

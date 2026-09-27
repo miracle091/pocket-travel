@@ -39,6 +39,11 @@ import org.json.JSONObject
  * ne produce uno solo quando serve davvero (mappa pubblicata assente o troppo vecchia): se non gira
  * o non rigenera nulla, la voce gia' pubblicata (nel manifest online, sempre il primo input di
  * questa funzione) resta cosi' com'e'.
+ *
+ * "addressGrid" (indice dei civici a celle, vedi address-grid-plan.md) e' come "worldMap": vince
+ * l'ultimo frammento che la contiene (generateAddressGrid ne scrive uno solo, con l'indice appena
+ * unito). Le regioni v1/v2 tengono anche la loro vecchia voce "addresses" (congelata, non piu'
+ * aggiornata): le app vecchie che non conoscono la griglia continuano a leggere quella.
  */
 fun mergeManifestJson(
     manifestJsons: List<String>,
@@ -58,12 +63,14 @@ fun mergeManifestJson(
     val wikivoyageUrls = mutableMapOf<String, String>()
     var guides: JSONObject? = null
     var worldMap: JSONObject? = null
+    var addressGrid: JSONObject? = null
     manifestJsons.forEach { json ->
         val root = JSONObject(json)
         val manifestVersion = root.getInt("manifestVersion")
         require(manifestVersion == 1 || manifestVersion == MANIFEST_VERSION) { "manifestVersion non supportata: $manifestVersion" }
         root.optJSONObject("guides")?.let { guides = it }
         root.optJSONObject("worldMap")?.let { worldMap = it }
+        root.optJSONObject("addressGrid")?.let { addressGrid = it }
         root.optJSONObject("wikivoyageUrls")?.let { urls -> urls.keySet().forEach { wikivoyageUrls[it] = urls.getString(it) } }
         val regions = root.getJSONArray("regions")
         for (i in 0 until regions.length()) {
@@ -108,6 +115,7 @@ fun mergeManifestJson(
     val merged = JSONObject().put("manifestVersion", MANIFEST_VERSION)
     guides?.let { merged.put("guides", it) }
     worldMap?.let { merged.put("worldMap", it) }
+    addressGrid?.let { merged.put("addressGrid", it) }
     minAppVersionCode?.let { merged.put("minAppVersionCode", it) }
     merged.put("regions", JSONArray(regionsById.values.toList()))
     if (completed.isNotEmpty()) {

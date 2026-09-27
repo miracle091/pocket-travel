@@ -91,6 +91,7 @@ class RegionPackageInstallerDeviceTest {
             RegionRoutingGraphInstaller(),
             PmtilesExtractor(),
             CityImporter(db.cityDao(), db),
+            RegionAddressGridInstaller(storage),
         )
     }
 

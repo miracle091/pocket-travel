@@ -14,6 +14,11 @@ import kotlinx.serialization.Serializable
 data class RegionManifest(
     val manifestVersion: Int,
     val guides: GuidesManifestEntry,
+    // Indice dei civici a griglia (address-grid-plan.md), a fianco di manifest.json su GitHub
+    // Pages: assente finche' la pipeline non e' passata alla griglia, o per le app vecchie che non
+    // lo sanno leggere (ignoreUnknownKeys = true). Le voci "addresses" delle singole regioni restano
+    // congelate (vedi RegionManifestEntry) invece di sparire, cosi' quelle app continuano a funzionare.
+    val addressGrid: AddressGridManifestEntry? = null,
     val regions: List<RegionManifestEntry>,
     // Regioni tolte e divise in regioni piu' piccole (es. "stati-uniti" -> gli stati): l'app le propone
     // a chi ha ancora installata quella vecchia.
@@ -48,8 +53,18 @@ data class RegionManifestEntry(
     val poi: PoiPackageEntry,
     // POI extra (fontanelle, tavoli da picnic...): assenti per le regioni senza o non ancora rigenerate.
     val poiExtra: PoiPackageEntry? = null,
-    // Numeri civici: assenti per le regioni non ancora generate o troppo grandi da estrarre.
+    // Numeri civici: assenti per le regioni non ancora generate o troppo grandi da estrarre. Percorso
+    // di oggi, congelato dal passaggio alla griglia (vedi RegionManifest.addressGrid): non si aggiorna
+    // piu' per le regioni che sono passate a [addressGrid].
     val addresses: AddressesPackageEntry? = null,
+    // Celle dei civici a griglia (address-grid-plan.md) che intersecano questa regione: mai nel
+    // manifest (assente li'), valorizzato dall'app dopo aver scaricato l'indice (AddressGridClient +
+    // regionGridCells) prima di accodare un download — cosi' RegionPackageDownloadWorker lo riceve
+    // nell'input di lavoro insieme al resto dell'entry, senza bisogno di un canale a parte. La
+    // versione dei civici si calcola da qui (regionAddressesGridVersion), non e' un campo a parte:
+    // non puo' disallinearsi dalle celle. Null se il manifest non offre [RegionManifest.addressGrid],
+    // se questa regione ha gia' [addresses] (percorso di oggi) o se non ha celle nel suo riquadro.
+    val addressGrid: RegionAddressGridEntry? = null,
     // Guide delle citta' (city_sections di cities.db): assenti per le regioni senza citta' abbinate.
     val cities: CitiesPackageEntry? = null,
     // Anteprima offline (pochi zoom, tetto di peso compresso): si installa da sola con ogni download
@@ -72,7 +87,8 @@ data class RegionManifestEntry(
         PackageKind.ROUTING -> routing.version
         PackageKind.POI -> poi.version
         PackageKind.POI_EXTRA -> poiExtra?.version
-        PackageKind.ADDRESSES -> addresses?.version
+        // A griglia se la regione ha celle, altrimenti il percorso di oggi (mai entrambi: vedi addressGrid).
+        PackageKind.ADDRESSES -> addressGrid?.let { regionAddressesGridVersion(it.cells) } ?: addresses?.version
         PackageKind.CITIES -> cities?.version
     }
 
@@ -92,14 +108,21 @@ data class RegionManifestEntry(
     /**
      * Byte da scaricare per questi pacchetti. La mappa non ha una dimensione nota in anticipo:
      * map.pmtiles viene estratto sul device dalla build Protomaps (vedi PmtilesExtractor), quindi
-     * conta zero come prima della separazione in pacchetti.
+     * conta zero come prima della separazione in pacchetti. Per i civici a griglia [installedAddressCells]
+     * (id di cella -> version gia' installata, RegionStorage.installedAddressCells) fa contare solo le
+     * celle nuove o cambiate, come verra' davvero scaricato: vuoto (default) conta tutte le celle,
+     * corretto per una prima installazione.
      */
-    fun downloadBytes(kinds: Set<PackageKind>): Long =
+    fun downloadBytes(kinds: Set<PackageKind>, installedAddressCells: Map<String, String> = emptyMap()): Long =
         (if (PackageKind.ROUTING in kinds) routing.files.sumOf { it.sizeBytes } else 0L) +
             (if (PackageKind.POI in kinds) poi.downloadFile.sizeBytes else 0L) +
             (if (PackageKind.POI_EXTRA in kinds) poiExtra?.downloadFile?.sizeBytes ?: 0L else 0L) +
-            (if (PackageKind.ADDRESSES in kinds) addresses?.downloadFile?.sizeBytes ?: 0L else 0L) +
+            (if (PackageKind.ADDRESSES in kinds) addressesDownloadBytes(installedAddressCells) else 0L) +
             (if (PackageKind.CITIES in kinds) cities?.downloadFile?.sizeBytes ?: 0L else 0L)
+
+    private fun addressesDownloadBytes(installedAddressCells: Map<String, String>): Long =
+        addressGrid?.cells?.filter { installedAddressCells[it.id] != it.version }?.sumOf { it.downloadFile.sizeBytes }
+            ?: addresses?.downloadFile?.sizeBytes ?: 0L
 }
 
 /** map.pmtiles non e' un file scaricato: viene estratto sul device dalle tile di [source]. */
@@ -129,6 +152,42 @@ data class PoiPackageEntry(val version: String, val file: RegionManifestFile, va
 data class AddressesPackageEntry(val version: String, val file: RegionManifestFile, val fileXz: RegionManifestFile? = null) {
     val downloadFile: RegionManifestFile get() = fileXz ?: file
 }
+
+/** Celle dei civici a griglia (address-grid-plan.md) di una regione: vedi [RegionManifestEntry.addressGrid]. */
+@Serializable
+data class RegionAddressGridEntry(val cells: List<AddressGridCell>)
+
+/**
+ * Voce "addressGrid" in cima al manifest (address-grid-plan.md): riferimento a address-grid.json,
+ * scaricato e verificato (sha256) come gli altri file del manifest, vedi AddressGridClient.
+ */
+@Serializable
+data class AddressGridManifestEntry(val version: String, val url: String, val sizeBytes: Long, val sha256: String)
+
+/**
+ * address-grid.json (address-grid-plan.md): indice pubblicato di tutte le celle dei civici, a fianco
+ * di manifest.json. [cells] ordinato per id, nessun id discendente di un altro (validate()).
+ */
+@Serializable
+data class AddressGridIndex(
+    val version: String,
+    val tileZoom: Int,
+    val cells: List<AddressGridCell>,
+    val attributions: List<AddressGridAttribution> = emptyList(),
+)
+
+/**
+ * Una cella (nodo z/x/y del quadtree Web Mercator, z <= 14 = tileZoom, address-grid-plan.md): stesso schema di
+ * [PoiPackageEntry], [fileXz] se c'e' e' il file da scaricare, compresso con xz.
+ */
+@Serializable
+data class AddressGridCell(val id: String, val version: String, val file: RegionManifestFile, val fileXz: RegionManifestFile? = null) {
+    val downloadFile: RegionManifestFile get() = fileXz ?: file
+}
+
+/** Fonte dei civici (OSM, dataset Overture ammessi...), per la schermata Licenze. */
+@Serializable
+data class AddressGridAttribution(val source: String, val license: String, val url: String? = null)
 
 /**
  * cities.db della regione: sezioni delle guide di citta' (city_sections), stesso schema di
@@ -191,6 +250,7 @@ fun RegionManifestEntry.validate() {
         it.file.validate(regionId)
         it.fileXz?.validate(regionId)
     }
+    addressGrid?.cells?.forEach { it.validate(regionId) }
     cities?.let {
         require(isSafeVersion(it.version)) { "version delle guide di citta' non valida per $regionId" }
         it.file.validate(regionId)
@@ -216,6 +276,39 @@ fun WorldMapEntry.validate() {
     require(maxZoom in 0..22) { "maxZoom del mondo online non valido" }
     require(sizeBytes >= 0) { "Dimensione del mondo online non valida" }
     require(isAllowedManifestUrl(url)) { "url del mondo online non consentito" }
+}
+
+fun AddressGridManifestEntry.validate() {
+    require(isSafeVersion(version)) { "version della griglia indirizzi non valida" }
+    require(sizeBytes >= 0) { "Dimensione della griglia indirizzi non valida" }
+    require(sha256.matches(Regex("[0-9a-fA-F]{64}"))) { "SHA-256 della griglia indirizzi non valido" }
+    require(isAllowedManifestUrl(url)) { "url della griglia indirizzi non consentito" }
+}
+
+/**
+ * Convalida address-grid.json: id di cella nel formato "z/x/y" (z <= 14, [parseCellId]), nessuno
+ * duplicato o discendente di un altro (le celle non si sovrappongono mai, address-grid-plan.md),
+ * ordinate per id come pubblicate dalla pipeline.
+ */
+fun AddressGridIndex.validate() {
+    require(isSafeVersion(version)) { "version dell'indice civici non valida" }
+    require(tileZoom in 0..22) { "tileZoom non valido" }
+    require(cells == cells.sortedBy { it.id }) { "cells non ordinato per id" }
+    require(cells.map { it.id }.toSet().size == cells.size) { "id di cella duplicati" }
+    val ids = cells.map { requireNotNull(parseCellId(it.id)) { "id di cella non valido: ${it.id}" } }
+    for (i in ids.indices) {
+        for (j in ids.indices) {
+            require(i == j || !ids[i].isSameOrDescendantOf(ids[j])) { "cella discendente di un'altra: ${cells[i].id} di ${cells[j].id}" }
+        }
+    }
+    cells.forEach { it.validate("address-grid") }
+}
+
+private fun AddressGridCell.validate(owner: String) {
+    require(parseCellId(id) != null) { "id di cella non valido: $id" }
+    require(isSafeVersion(version)) { "version di cella non valida per $id" }
+    file.validate("$owner/$id")
+    fileXz?.validate("$owner/$id")
 }
 
 private fun RegionManifestFile.validate(owner: String) {

@@ -111,23 +111,8 @@ give_up() {
   fi
 }
 
-# Riprova un comando fino a ADDRESSES_ATTEMPTS volte: build.protomaps.com a volte chiude la
-# connessione a meta' download (filippine al 96%, finlandia al 70%, run del 2026-09-24).
-with_retries() {
-  local attempt wait
-  for attempt in $(seq 1 "$ADDRESSES_ATTEMPTS"); do
-    if "$@"; then
-      return 0
-    fi
-    if [ "$attempt" -lt "$ADDRESSES_ATTEMPTS" ]; then
-      wait=$(( 30 * 4 ** (attempt - 1) ))
-      echo "-- $REGION_ID: tentativo $attempt/$ADDRESSES_ATTEMPTS fallito, riprovo tra ${wait}s" >&2
-      rm -f "$Z15"
-      sleep "$wait"
-    fi
-  done
-  return 1
-}
+# with_retries (lib.sh, condivisa con build-address-cell.sh) vuole <label> <attempts> <cleanupFile>
+# in testa: le chiamate sotto li passano gia' come $REGION_ID $ADDRESSES_ATTEMPTS $Z15.
 
 # Eta' del file pubblicato, dal nome dell'asset (regionId--YYYY.MM.DD--addresses.pmtiles[.xz], dal
 # 2026-09-27 con il suffisso della run dopo la data: YYYY.MM.DD.<run>.<tentativo>).
@@ -156,29 +141,14 @@ POINTS="$WORKDIR/points.tsv"
 OVERPASS_NOTE=""
 points_from_overpass() {
   # Area amministrativa (region_osm_area, pilot-regions.sh) se c'e', altrimenti il riquadro.
-  local iso area count
+  local iso area
   iso="$(region_osm_area "$REGION_ID")"
   if [ -n "$iso" ]; then
     area="area[\"ISO3166-2\"=\"$iso\"]->.a;nwr[\"addr:housenumber\"](area.a)"
   else
     area="nwr[\"addr:housenumber\"]($MIN_LAT,$MIN_LON,$MAX_LAT,$MAX_LON)"
   fi
-  if ! overpass_json "[out:json][timeout:900];$area;out count;" "$WORKDIR/count.json"; then
-    OVERPASS_NOTE=", Overpass non disponibile"
-    return 1
-  fi
-  count="$(jq -r '.elements[0].tags.total // 0' "$WORKDIR/count.json")"
-  echo "-- $REGION_ID: $count civici su Overpass"
-  if [ "$count" -eq 0 ] || [ "$count" -gt "$ADDRESSES_OVERPASS_MAX" ]; then
-    OVERPASS_NOTE=", $count civici su Overpass (max $ADDRESSES_OVERPASS_MAX)"
-    return 1
-  fi
-  if ! overpass_json "[out:json][timeout:900];$area;out tags center qt;" "$WORKDIR/addresses.json"; then
-    OVERPASS_NOTE=", Overpass non disponibile"
-    return 1
-  fi
-  jq -r '.elements[] | [(.lat // .center.lat), (.lon // .center.lon), .tags["addr:housenumber"]] | @tsv' \
-    "$WORKDIR/addresses.json" > "$POINTS"
+  fetch_overpass_address_points "$REGION_ID" "$area" "$ADDRESSES_OVERPASS_MAX" "$POINTS" OVERPASS_NOTE
 }
 
 # Stessa build Protomaps della mappa della regione.
@@ -187,7 +157,7 @@ BBOX="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT"
 Z15="$WORKDIR/z15.pmtiles"
 
 # Stima prima di scaricare: "... for an archive size of 2.5 MB".
-if ! DRY_RUN="$(with_retries "$PMTILES_BIN" extract "$SOURCE_URL" "$Z15" --bbox="$BBOX" --minzoom=15 --maxzoom=15 --dry-run 2>&1)"; then
+if ! DRY_RUN="$(with_retries "$REGION_ID" "$ADDRESSES_ATTEMPTS" "$Z15" "$PMTILES_BIN" extract "$SOURCE_URL" "$Z15" --bbox="$BBOX" --minzoom=15 --maxzoom=15 --dry-run 2>&1)"; then
   echo "::warning::stima delle z15 di $REGION_ID fallita"
   give_up "stima fallita"
   exit 0
@@ -204,7 +174,7 @@ if [ -z "$EXTRACT_MB" ] || [ "$EXTRACT_MB" -gt "$ADDRESSES_MAX_EXTRACT_MB" ]; th
     exit 0
   fi
   INPUT="$POINTS"
-elif ! with_retries "$PMTILES_BIN" extract "$SOURCE_URL" "$Z15" --bbox="$BBOX" --minzoom=15 --maxzoom=15; then
+elif ! with_retries "$REGION_ID" "$ADDRESSES_ATTEMPTS" "$Z15" "$PMTILES_BIN" extract "$SOURCE_URL" "$Z15" --bbox="$BBOX" --minzoom=15 --maxzoom=15; then
   echo "::warning::estrazione delle z15 di $REGION_ID fallita"
   give_up "estrazione fallita dopo $ADDRESSES_ATTEMPTS tentativi"
   exit 0

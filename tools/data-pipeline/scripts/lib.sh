@@ -60,6 +60,86 @@ resolve_protomaps_date() {
   return 1
 }
 
+# Riprova <cmd...> fino a <attempts> volte con attesa crescente (30s, 2min, 8min...), rimuovendo
+# <cleanupFile> (se non vuoto) tra un tentativo e l'altro: build.protomaps.com a volte chiude la
+# connessione a meta' (filippine al 96%, finlandia al 70%, run del 2026-09-24). <label> solo per i
+# messaggi. Condivisa da build-addresses.sh (bbox di una regione) e build-address-cell.sh (bbox di
+# una cella della griglia dei civici).
+with_retries() {
+  local label="$1" attempts="$2" cleanupFile="$3" attempt wait
+  shift 3
+  for attempt in $(seq 1 "$attempts"); do
+    if "$@"; then
+      return 0
+    fi
+    if [ "$attempt" -lt "$attempts" ]; then
+      wait=$(( 30 * 4 ** (attempt - 1) ))
+      echo "-- $label: tentativo $attempt/$attempts fallito, riprovo tra ${wait}s" >&2
+      [ -z "$cleanupFile" ] || rm -f "$cleanupFile"
+      sleep "$wait"
+    fi
+  done
+  return 1
+}
+
+# Civici da Overpass per un'area o un bbox (fonte di riserva quando l'estrazione Protomaps e' troppo
+# grande, vedi build-addresses.sh e build-address-cell.sh): scrive "lat<TAB>lon<TAB>numero" in
+# <outFile>, solo se il conteggio e' <= <maxCount>. <areaQuery> e' la clausola Overpass della
+# selezione (es. "nwr[\"addr:housenumber\"](minLat,minLon,maxLat,maxLon)" oppure
+# "area[\"ISO3166-2\"=\"XX\"]->.a;nwr[\"addr:housenumber\"](area.a)"). Scrive l'esito in <noteVar>
+# (nameref): vuoto se riuscito, altrimenti il motivo per il riepilogo del chiamante.
+fetch_overpass_address_points() {
+  local label="$1" areaQuery="$2" maxCount="$3" outFile="$4" noteVar="$5"
+  local -n note_ref="$noteVar"
+  local workdir count
+  workdir="$(mktemp -d)"
+  note_ref=""
+  if ! overpass_json "[out:json][timeout:900];$areaQuery;out count;" "$workdir/count.json"; then
+    note_ref=", Overpass non disponibile"
+    rm -rf "$workdir"
+    return 1
+  fi
+  count="$(jq -r '.elements[0].tags.total // 0' "$workdir/count.json")"
+  echo "-- $label: $count civici su Overpass"
+  if [ "$count" -eq 0 ] || [ "$count" -gt "$maxCount" ]; then
+    note_ref=", $count civici su Overpass (max $maxCount)"
+    rm -rf "$workdir"
+    return 1
+  fi
+  if ! overpass_json "[out:json][timeout:900];$areaQuery;out tags center qt;" "$workdir/addresses.json"; then
+    note_ref=", Overpass non disponibile"
+    rm -rf "$workdir"
+    return 1
+  fi
+  jq -r '.elements[] | [(.lat // .center.lat), (.lon // .center.lon), .tags["addr:housenumber"]] | @tsv' \
+    "$workdir/addresses.json" > "$outFile"
+  rm -rf "$workdir"
+}
+
+# Riquadro (minLon minLat maxLon maxLat, separati da spazio) di una cella z/x/y del quadtree Web
+# Mercator (vedi address-grid-plan.md: stessa curva delle tile, z<=12): standard "slippy map tile
+# bounds", usato da build-address-cell.sh per l'estrazione Protomaps/Overpass e la query Overture.
+cell_bbox() {
+  local z="$1" x="$2" y="$3"
+  # awk non ha sinh()/atan() a un argomento in modo portabile: implementati qui sotto (atan2 si',
+  # e' nel POSIX awk) senza dipendere da estensioni gawk.
+  awk -v z="$z" -v x="$x" -v y="$y" 'BEGIN {
+    pi = atan2(0, -1)
+    n = 2 ^ z
+    minLon = x / n * 360 - 180
+    maxLon = (x + 1) / n * 360 - 180
+    maxLat = tile_lat(y, n, pi)
+    minLat = tile_lat(y + 1, n, pi)
+    printf "%.10f %.10f %.10f %.10f\n", minLon, minLat, maxLon, maxLat
+  }
+  function tile_lat(ty, n, pi,    yFrac, sinhArg, ex, eNegX) {
+    yFrac = pi * (1 - 2 * ty / n)
+    ex = exp(yFrac); eNegX = exp(-yFrac)
+    sinhArg = (ex - eNegX) / 2
+    return atan2(sinhArg, 1) * 180 / pi
+  }'
+}
+
 # fetch_published_manifest <urlOPath> <out>: copia in <out> il manifest pubblicato e stampa il codice
 # HTTP (200 = trovato, 404 = nessun manifest pubblicato, altro = non scaricabile). <urlOPath> puo'
 # essere un file locale gia' scaricato: publish-regions.yml scarica il manifest una volta per shard

@@ -9,6 +9,8 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import org.locationtech.jts.geom.Point
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -97,5 +99,69 @@ class GenerateAddressesTest {
         } finally {
             points.delete()
         }
+    }
+
+    @Test
+    fun `legge i punti Overture, scartando righe incomplete e punti fuori dal bbox`() {
+        val points = File.createTempFile("pocket-travel-test", ".tsv")
+        try {
+            points.writeText("43.9424\t12.4578\t10\tit/countrywide\n43.95\t12.46\t\tit/countrywide\n10.0\t10.0\t5\tit/countrywide\n")
+
+            val addresses = readOvertureAddressPoints(points, 12.40, 43.89, 12.52, 43.99)
+
+            assertEquals(listOf(OvertureAddress(43_942_400, 12_457_800, "10", "it/countrywide")), addresses)
+        } finally {
+            points.delete()
+        }
+    }
+
+    @Test
+    fun `dedupeWithOverture scarta un punto Overture vicino a un OSM con lo stesso numero`() {
+        val osm = listOf(Address(43_942_400, 12_457_800, "10"))
+        val overture = listOf(
+            // ~15 m a nord dell'OSM, stesso numero: scartato (entro il raggio di 30 m).
+            OvertureAddress(43_942_535, 12_457_800, "10", "it/countrywide"),
+            // stesso punto, numero diverso: tenuto (indirizzo nuovo).
+            OvertureAddress(43_942_400, 12_457_800, "12", "it/countrywide"),
+            // oltre 30 m: tenuto anche se il numero e' uguale.
+            OvertureAddress(43_943_500, 12_457_800, "10", "it/countrywide"),
+        )
+
+        val result = dedupeWithOverture(osm, overture)
+
+        assertEquals(
+            setOf(Address(43_942_400, 12_457_800, "10"), Address(43_942_400, 12_457_800, "12"), Address(43_943_500, 12_457_800, "10")),
+            result.toSet(),
+        )
+    }
+
+    @Test
+    fun `dedupeWithOverture toglie i doppioni interni sullo stesso punto e numero`() {
+        val overture = listOf(
+            OvertureAddress(43_942_400, 12_457_800, "10", "pt/countrywide"),
+            OvertureAddress(43_942_400, 12_457_800, "10", "pt/countrywide"),
+            OvertureAddress(43_942_401, 12_457_801, "10", "pt/countrywide"), // ~0,1 m, stessa chiave arrotondata
+        )
+
+        val result = dedupeWithOverture(emptyList(), overture)
+
+        assertEquals(1, result.size)
+    }
+
+    @Test
+    fun `addressCellContains tiene solo gli indirizzi della cella`() {
+        val sanMarino = Address(43_942_400, 12_457_800, "1") // cella 12/2189/1490 (vedi build-address-cell.sh)
+        val roma = Address(41_902_800, 12_496_400, "1") // fuori da quella cella
+
+        assertTrue(addressCellContains(sanMarino, CellId(12, 2189, 1490)))
+        assertFalse(addressCellContains(roma, CellId(12, 2189, 1490)))
+        // Una cella meno profonda (z inferiore) e' un antenato: la contiene comunque.
+        assertTrue(addressCellContains(sanMarino, CellId(10, 547, 372)))
+    }
+
+    @Test
+    fun `parseCellId legge z x y e rifiuta un formato diverso`() {
+        assertEquals(CellId(12, 2189, 1490), parseCellId("12/2189/1490"))
+        assertThrows(IllegalArgumentException::class.java) { parseCellId("12/2189") }
     }
 }

@@ -68,7 +68,12 @@ class RegionRepository @Inject constructor(
         when (kind) {
             PackageKind.MAP -> check(regionStorage.deletePackage(regionId, RegionStorage.MAP_FILE)) { "Impossibile eliminare la mappa di $regionId" }
             PackageKind.ROUTING -> check(regionStorage.deletePackage(regionId, RegionStorage.ROUTING_DIR)) { "Impossibile eliminare il routing di $regionId" }
-            PackageKind.ADDRESSES -> check(regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_FILE)) { "Impossibile eliminare i civici di $regionId" }
+            PackageKind.ADDRESSES -> {
+                check(regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_FILE)) { "Impossibile eliminare i civici di $regionId" }
+                // Percorso a griglia: elenco delle celle installate accanto ad ADDRESSES_FILE, assente
+                // (deletePackage torna comunque true) per il percorso di oggi.
+                regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_CELLS_FILE)
+            }
             PackageKind.POI, PackageKind.POI_EXTRA, PackageKind.CITIES -> Unit
         }
         database.withTransaction {
@@ -104,7 +109,8 @@ class RegionRepository @Inject constructor(
             return
         }
         val diskBytes = regionStorage.packageBytes(regionId, RegionStorage.MAP_FILE) + regionStorage.packageBytes(regionId, RegionStorage.ROUTING_DIR) +
-            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_FILE) + regionStorage.packageBytes(regionId, RegionStorage.PREVIEW_FILE)
+            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_FILE) + regionStorage.packageBytes(regionId, RegionStorage.PREVIEW_FILE) +
+            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_CELLS_FILE)
         regionPackageDao.upsert(
             InstalledRegionEntity(
                 regionId = regionId,
@@ -148,6 +154,7 @@ class RegionRepository @Inject constructor(
                 RegionStorage.MAP_FILE -> current?.mapVersion
                 RegionStorage.ROUTING_DIR -> current?.routingVersion
                 RegionStorage.ADDRESSES_FILE -> current?.addressesVersion
+                RegionStorage.ADDRESSES_CELLS_FILE -> current?.addressesVersion
                 RegionStorage.PREVIEW_FILE -> current?.previewVersion
                 else -> null
             }
@@ -177,6 +184,9 @@ class RegionRepository @Inject constructor(
     }
 
     fun availableStorageBytes(): Long = regionStorage.availableBytes()
+
+    /** Celle dei civici a griglia gia' installate (id -> version), per la dimensione da scaricare (RegionListViewModel). */
+    fun installedAddressCells(regionId: String): Map<String, String> = regionStorage.installedAddressCells(regionId)
 }
 
 private fun InstalledRegionEntity.toDomain() = RegionPackage(

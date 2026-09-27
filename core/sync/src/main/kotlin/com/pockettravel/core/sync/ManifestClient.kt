@@ -30,6 +30,7 @@ class ManifestClient @Inject constructor(
                 manifest.guides.validate()
                 manifest.regions.forEach(RegionManifestEntry::validate)
                 manifest.worldMap?.validate()
+                manifest.addressGrid?.validate()
                 // Ad ogni sync riuscita: feature/map legge solo WorldMapStore, non dipende da core/sync.
                 worldMapStore.save(manifest.worldMap?.url, manifest.worldMap?.maxZoom ?: worldMapStore.worldMapMaxZoom())
                 appCompatibility.update(manifest.minAppVersionCode)

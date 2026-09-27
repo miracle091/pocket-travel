@@ -8,11 +8,13 @@ import com.pockettravel.app.R
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionPackage
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.sync.AddressGridClient
 import com.pockettravel.core.sync.AppUpdateCheckScheduler
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.ReplacedRegion
+import com.pockettravel.core.sync.attachAddressGridCells
 import com.pockettravel.feature.ai.LlmModelUpdateCheckScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.Normalizer
@@ -87,6 +89,7 @@ private data class LoadStatus(
 @HiltViewModel
 class RegionListViewModel @Inject constructor(
     private val manifestClient: ManifestClient,
+    private val addressGridClient: AddressGridClient,
     private val regionRepository: RegionRepository,
     private val regionSyncScheduler: RegionSyncScheduler,
     private val appUpdateCheckScheduler: AppUpdateCheckScheduler,
@@ -108,7 +111,7 @@ class RegionListViewModel @Inject constructor(
         val installedByRegion = installed.associateBy { it.regionId }
         val items = remoteRegions
             .filter { matchesQuery(it.displayName, currentQuery) }
-            .map { remote -> regionUiItem(remote, installedByRegion[remote.regionId], regionRepository::packageBytes) }
+            .map { remote -> regionUiItem(remote, installedByRegion[remote.regionId], regionRepository::packageBytes, regionRepository::installedAddressCells) }
         val replaced = replacedItems(installed, remoteRegions, replacedByManifest).filter { matchesQuery(it.displayName, currentQuery) }
         RegionListUiState(
             items = items,
@@ -132,7 +135,11 @@ class RegionListViewModel @Inject constructor(
             status.update { it.copy(isLoading = true) }
             try {
                 val manifest = manifestClient.fetchManifest()
-                manifestRegions.value = manifest.regions
+                // Civici a griglia (address-grid-plan.md "App" 1-3): un errore qui (rete, indice non
+                // valido) non deve bloccare l'elenco delle regioni, solo lasciarle senza civici a
+                // griglia per questo aggiornamento — riprovera' al prossimo refresh().
+                val addressGridIndex = manifest.addressGrid?.let { entry -> runCatching { addressGridClient.fetchIndex(entry) }.getOrNull() }
+                manifestRegions.value = attachAddressGridCells(manifest.regions, addressGridIndex)
                 replacedRegions.value = manifest.replacedRegions
                 // Le guide si aggiornano da sole (su Wi-Fi) anche da qui, non solo col controllo periodico.
                 if (regionRepository.installedGuidesVersion() != manifest.guides.version) regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = true)
@@ -224,7 +231,12 @@ internal fun regionUiItem(
     remote: RegionManifestEntry,
     local: RegionPackage?,
     installedBytes: (RegionPackage, PackageKind) -> Long?,
+    // Civici a griglia (address-grid-plan.md "App" 5): celle gia' installate (id -> version), per
+    // contare solo quelle nuove o cambiate nella dimensione da scaricare. Non serve per il percorso
+    // di oggi (entry.addresses): il default basta a tutti i test e alle regioni senza griglia.
+    installedAddressCells: (regionId: String) -> Map<String, String> = { emptyMap() },
 ): RegionUiItem {
+    val addressCellVersions = if (remote.addressGrid != null && local != null) installedAddressCells(remote.regionId) else emptyMap()
     val outdated = outdatedKinds(remote, local)
     val status = when {
         local == null -> RegionStatus.NOT_INSTALLED
@@ -244,13 +256,13 @@ internal fun regionUiItem(
                 kind in outdated -> RegionStatus.UPDATE_AVAILABLE
                 else -> RegionStatus.INSTALLED
             },
-            downloadBytes = remote.downloadBytes(setOf(kind)),
+            downloadBytes = remote.downloadBytes(setOf(kind), addressCellVersions),
             installedBytes = local?.let { installedBytes(it, kind) },
         )
     }
     val sizeBytes = when (status) {
-        RegionStatus.NOT_INSTALLED -> remote.downloadBytes(remote.defaultKinds)
-        RegionStatus.UPDATE_AVAILABLE -> remote.downloadBytes(outdated)
+        RegionStatus.NOT_INSTALLED -> remote.downloadBytes(remote.defaultKinds, addressCellVersions)
+        RegionStatus.UPDATE_AVAILABLE -> remote.downloadBytes(outdated, addressCellVersions)
         RegionStatus.INSTALLED -> local!!.sizeBytes
     }
     return RegionUiItem(

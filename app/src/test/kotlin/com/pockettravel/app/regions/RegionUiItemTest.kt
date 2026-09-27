@@ -70,7 +70,7 @@ class RegionUiItemTest {
 
     @Test
     fun `la dimensione installata di ogni pacchetto arriva dal repository`() {
-        val item = regionUiItem(remote, local("m2", "r1", "p2")) { _, kind -> kind.ordinal.toLong() + 1 }
+        val item = regionUiItem(remote, local("m2", "r1", "p2"), installedBytes = { _, kind -> kind.ordinal.toLong() + 1 })
 
         assertEquals(listOf(1L, 2L, 3L), item.packages.map { it.installedBytes })
     }

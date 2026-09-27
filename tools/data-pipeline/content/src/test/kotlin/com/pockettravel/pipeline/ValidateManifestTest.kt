@@ -253,4 +253,70 @@ class ValidateManifestTest {
             validateManifestJson(withReplaced(presentId, "Stati Uniti d'America"), allowedHosts)
         }
     }
+
+    private fun withAddressGrid(url: String) =
+        """{ "manifestVersion": 2, $guides, "addressGrid": { "version": "2026.09.30.1", "url": "$url", "sizeBytes": 300000, "sha256": "${"7".repeat(64)}" }, "regions": [${region()}] }"""
+
+    @Test
+    fun `accetta l'indice dei civici a celle e ne controlla l'host`() {
+        validateManifestJson(withAddressGrid("https://miracle091.github.io/pocket-travel/address-grid.json"), allowedHosts)
+        assertThrows(ManifestValidationException::class.java) {
+            validateManifestJson(withAddressGrid("https://evil.example.com/address-grid.json"), allowedHosts)
+        }
+    }
+
+    private fun gridCell(id: String, version: String = "2026.09.30.1") = """
+        { "id": "$id", "version": "$version",
+          "file": { "name": "cell.pmtiles", "url": "https://github.com/miracle091/pocket-travel/releases/download/address-cells-0/$id/cell.pmtiles", "sizeBytes": 100, "sha256": "${"a".repeat(64)}" },
+          "fileXz": { "name": "cell.pmtiles.xz", "url": "https://github.com/miracle091/pocket-travel/releases/download/address-cells-0/$id/cell.pmtiles.xz", "sizeBytes": 40, "sha256": "${"b".repeat(64)}" } }
+    """.trimIndent()
+
+    private val gridAttributions = """[{ "source": "OpenStreetMap", "license": "ODbL-1.0", "url": "https://www.openstreetmap.org/copyright" }]"""
+
+    private fun addressGridIndex(vararg cells: String) =
+        """{ "version": "2026.09.30.1", "tileZoom": 14, "cells": [${cells.joinToString(",")}], "attributions": $gridAttributions }"""
+
+    @Test
+    fun `un indice dei civici valido non lancia eccezioni`() {
+        validateAddressGridJson(addressGridIndex(gridCell("11/1/1"), gridCell("12/50/50")), allowedHosts)
+    }
+
+    @Test
+    fun `rifiuta un id di cella con zoom oltre 14`() {
+        assertThrows(ManifestValidationException::class.java) {
+            validateAddressGridJson(addressGridIndex(gridCell("15/1/1")), allowedHosts)
+        }
+    }
+
+    @Test
+    fun `accetta una cella a z14, la singola tile non divisibile oltre`() {
+        validateAddressGridJson(addressGridIndex(gridCell("14/1/1")), allowedHosts)
+    }
+
+    @Test
+    fun `rifiuta una cella antenata di un'altra`() {
+        assertThrows(ManifestValidationException::class.java) {
+            validateAddressGridJson(addressGridIndex(gridCell("11/1/1"), gridCell("12/2/2")), allowedHosts)
+        }
+    }
+
+    @Test
+    fun `rifiuta celle non ordinate per id`() {
+        assertThrows(ManifestValidationException::class.java) {
+            validateAddressGridJson(addressGridIndex(gridCell("12/50/51"), gridCell("12/50/50")), allowedHosts)
+        }
+    }
+
+    @Test
+    fun `rifiuta un indice senza attribuzioni`() {
+        val json = addressGridIndex(gridCell("11/1/1")).replace(gridAttributions, "[]")
+        assertThrows(ManifestValidationException::class.java) { validateAddressGridJson(json, allowedHosts) }
+    }
+
+    @Test
+    fun `rifiuta un id di cella duplicato`() {
+        assertThrows(ManifestValidationException::class.java) {
+            validateAddressGridJson(addressGridIndex(gridCell("11/1/1"), gridCell("11/1/1")), allowedHosts)
+        }
+    }
 }

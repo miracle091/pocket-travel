@@ -240,4 +240,26 @@ class MergeManifestsTest {
             assertEquals("1", region.getJSONObject("map").getString("version"))
         }
     }
+
+    private fun addressGridFragment(version: String) =
+        """{ "manifestVersion": 2, "addressGrid": { "version": "$version", "url": "https://example.org/address-grid-$version.json", "sizeBytes": 300000, "sha256": "${"d".repeat(64)}" }, "regions": [] }"""
+
+    @Test
+    fun `l'indice dei civici dell'ultimo frammento sostituisce quello pubblicato, come le guide`() {
+        val giaPubblicato = mergeManifestJson(listOf(guidesFragment("1"), fragmentFor("san-marino", "San Marino"), addressGridFragment("2026.09.30.1")))
+
+        val merged = JSONObject(mergeManifestJson(listOf(giaPubblicato, addressGridFragment("2026.10.01.1"))))
+
+        assertEquals("2026.10.01.1", merged.getJSONObject("addressGrid").getString("version"))
+        assertEquals(setOf("san-marino"), regionsById(merged).keys)
+    }
+
+    @Test
+    fun `senza un nuovo frammento l'indice dei civici pubblicato resta com'e'`() {
+        val giaPubblicato = mergeManifestJson(listOf(guidesFragment("1"), fragmentFor("san-marino", "San Marino"), addressGridFragment("2026.09.30.1")))
+
+        val merged = JSONObject(mergeManifestJson(listOf(giaPubblicato, fragmentFor("san-marino", "San Marino", "2"))))
+
+        assertEquals("2026.09.30.1", merged.getJSONObject("addressGrid").getString("version"))
+    }
 }

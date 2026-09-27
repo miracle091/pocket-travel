@@ -111,6 +111,16 @@ class RegionStorage @Inject constructor(
     fun packageBytes(regionId: String, packageName: String): Long =
         File(directoryFor(regionId), packageName).walkBottomUp().filter { it.isFile }.sumOf { it.length() }
 
+    /**
+     * Celle dei civici a griglia attive nell'ultimo [ADDRESSES_CELLS_FILE] installato (id di cella ->
+     * version, address-grid-plan.md "App" 4), vuoto se la regione non li usa (percorso di oggi, o
+     * civici non installati).
+     */
+    fun installedAddressCells(regionId: String): Map<String, String> {
+        val file = File(directoryFor(regionId), ADDRESSES_CELLS_FILE)
+        return if (file.isFile) decodeAddressCells(file.readText()) else emptyMap()
+    }
+
     fun cleanupStagingExcept(regionId: String, version: String) {
         val regionStaging = safeChild(stagingDir, regionId, "regionId")
         regionStaging.listFiles().orEmpty().filter { it.name != version }.forEach { it.deleteRecursively() }
@@ -150,9 +160,31 @@ class RegionStorage @Inject constructor(
         // Anteprima offline (pochi zoom): si installa da sola con ogni download della regione, vedi
         // RegionPackageInstaller; sopravvive all'eliminazione della sola mappa.
         const val PREVIEW_FILE = "preview.pmtiles"
-        private val PACKAGE_NAMES = setOf(MAP_FILE, ROUTING_DIR, ADDRESSES_FILE, PREVIEW_FILE)
+        // Civici a griglia (address-grid-plan.md): elenco delle celle in ADDRESSES_FILE (id -> version),
+        // scritto e attivato accanto ad esso, atomicamente con lo stesso meccanismo di activatePackage.
+        // Assente per le regioni installate col percorso di oggi (una sola voce "addresses").
+        const val ADDRESSES_CELLS_FILE = "addresses-cells.json"
+        private val PACKAGE_NAMES = setOf(MAP_FILE, ROUTING_DIR, ADDRESSES_FILE, PREVIEW_FILE, ADDRESSES_CELLS_FILE)
         // Istanze di RegionStorage non condivise: due recuperi della stessa regione non si sovrappongono.
         private val RECOVERY_LOCK = Any()
+
+        /**
+         * Formato di [ADDRESSES_CELLS_FILE]: un oggetto json id -> version. Id e version sono gia'
+         * limitati a caratteri sicuri prima di arrivare qui (un id di cella e' sempre "z/x/y",
+         * RegionManifest.isSafeVersion per le version): non serve una libreria json per un formato
+         * cosi' semplice e interamente sotto il nostro controllo.
+         */
+        fun encodeAddressCells(cells: Map<String, String>): String =
+            cells.entries.sortedBy { it.key }.joinToString(prefix = "{", postfix = "}", separator = ",") { (id, version) -> "\"$id\":\"$version\"" }
+
+        fun decodeAddressCells(text: String): Map<String, String> {
+            val body = text.trim().removeSurrounding("{", "}")
+            if (body.isBlank()) return emptyMap()
+            return body.split(",").associate { entry ->
+                val (key, value) = entry.split(":", limit = 2)
+                key.trim().trim('"') to value.trim().trim('"')
+            }
+        }
     }
 
     private fun safeChild(root: File, segment: String, field: String): File {

@@ -296,6 +296,72 @@ class RegionManifestTest {
         assertThrows(IllegalArgumentException::class.java) { badHost.validate() }
     }
 
+    private val withAddressGridManifestEntry = sampleManifest.trimEnd().removeSuffix("}") +
+        """, "addressGrid": { "version": "2026.10.01.123.1", "url": "https://miracle091.github.io/pocket-travel/address-grid.json", "sizeBytes": 250000, "sha256": "$sha" } }"""
+
+    @Test
+    fun `addressGrid e' facoltativo, in cima al manifest`() {
+        assertNull(parse().addressGrid)
+
+        val manifest = parse(withAddressGridManifestEntry)
+        val addressGrid = manifest.addressGrid!!
+        addressGrid.validate()
+        assertEquals("2026.10.01.123.1", addressGrid.version)
+        assertEquals(250_000L, addressGrid.sizeBytes)
+
+        val badHost = parse(withAddressGridManifestEntry.replace(
+            "https://miracle091.github.io/pocket-travel/address-grid.json",
+            "https://evil.example.com/address-grid.json",
+        )).addressGrid!!
+        assertThrows(IllegalArgumentException::class.java) { badHost.validate() }
+    }
+
+    private fun addressCellFile(name: String) = RegionManifestFile(name, "https://github.com/o/r/releases/download/address-cells-1/$name", 8_000_000L, sha)
+
+    @Test
+    fun `i civici a griglia di una regione sostituiscono la version e la dimensione del percorso di oggi`() {
+        val cells = listOf(
+            AddressGridCell("12/2178/1500", "2026.09.30.120.1", addressCellFile("cell-12-2178-1500--2026.09.30.120.1--addresses.pmtiles")),
+            AddressGridCell("12/2179/1500", "2026.09.30.118.2", addressCellFile("cell-12-2179-1500--2026.09.30.118.2--addresses.pmtiles")),
+        )
+        val region = parse().regions.single().copy(addressGrid = RegionAddressGridEntry(cells))
+        region.validate()
+
+        assertEquals(regionAddressesGridVersion(cells), region.versionOf(PackageKind.ADDRESSES))
+        assertTrue(region.versionOf(PackageKind.ADDRESSES)!!.startsWith("grid-"))
+        assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI, PackageKind.ADDRESSES), region.availableKinds)
+        // Nessuna cella gia' installata: si scaricano entrambe.
+        assertEquals(16_000_000L, region.downloadBytes(setOf(PackageKind.ADDRESSES)))
+        // Una cella gia' installata alla stessa version: si scarica solo l'altra.
+        assertEquals(8_000_000L, region.downloadBytes(setOf(PackageKind.ADDRESSES), mapOf("12/2178/1500" to "2026.09.30.120.1")))
+        // Entrambe gia' installate alla stessa version: niente da scaricare.
+        assertEquals(
+            0L,
+            region.downloadBytes(
+                setOf(PackageKind.ADDRESSES),
+                mapOf("12/2178/1500" to "2026.09.30.120.1", "12/2179/1500" to "2026.09.30.118.2"),
+            ),
+        )
+    }
+
+    @Test
+    fun `un id di cella non valido in addressGrid non passa la convalida della regione`() {
+        val cells = listOf(AddressGridCell("99/0/0", "v1", addressCellFile("cell.pmtiles")))
+        val region = parse().regions.single().copy(addressGrid = RegionAddressGridEntry(cells))
+        assertThrows(IllegalArgumentException::class.java) { region.validate() }
+    }
+
+    @Test
+    fun `RegionManifestEntry con addressGrid sopravvive a un giro di json (RegionPackageDownloadWorker)`() {
+        val cells = listOf(AddressGridCell("12/2178/1500", "2026.09.30.120.1", addressCellFile("cell.pmtiles")))
+        val region = parse().regions.single().copy(addressGrid = RegionAddressGridEntry(cells))
+
+        val roundTripped = json.decodeFromString(RegionManifestEntry.serializer(), json.encodeToString(RegionManifestEntry.serializer(), region))
+
+        assertEquals(region, roundTripped)
+        roundTripped.validate()
+    }
+
     @Test
     fun `legge le regioni sostituite e i gruppi, facoltativi`() {
         assertEquals(emptyList<ReplacedRegion>(), parse().replacedRegions)

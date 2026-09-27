@@ -71,7 +71,7 @@ def rocm_lib_dirs():
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("backend", choices=("cpu", "vulkan", "rocm", "cuda-12.4", "cuda-13.4"))
-    ap.add_argument("--dest", type=Path, default=Path(r"D:\pocket-travel-train\llama-tools"),
+    ap.add_argument("--dest", type=Path, default=Path.home() / ".cache" / "pocket-travel" / "llama-tools",
                     help="cartella base: i binari finiscono in <dest>/<build>-<backend>")
     a = ap.parse_args()
     asset = "rocm-10.0" if a.backend == "rocm" else a.backend  # nome del pacchetto HIP nella release

@@ -49,6 +49,16 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
         if (!isAllowedUrl(url, allowedHosts)) throw ManifestValidationException("worldMap.url non consentito: $url")
     }
 
+    // Indice dei civici a celle (facoltativo, vedi address-grid-plan.md): assente finche' la
+    // griglia non e' stata pubblicata la prima volta.
+    root.optJSONObject("addressGrid")?.let { addressGrid ->
+        validateVersion(addressGrid, "addressGrid")
+        if (addressGrid.getLong("sizeBytes") < 0) throw ManifestValidationException("addressGrid.sizeBytes non valido")
+        if (!addressGrid.getString("sha256").matches(sha256Regex)) throw ManifestValidationException("addressGrid.sha256 non valido")
+        val url = addressGrid.getString("url")
+        if (!isAllowedUrl(url, allowedHosts)) throw ManifestValidationException("addressGrid.url non consentito: $url")
+    }
+
     if (root.has("minAppVersionCode")) {
         val minAppVersionCode = root.getInt("minAppVersionCode")
         if (minAppVersionCode <= 0) throw ManifestValidationException("minAppVersionCode non valido: $minAppVersionCode")
@@ -146,6 +156,64 @@ private fun validateFile(file: JSONObject, owner: String, allowedHosts: Set<Stri
     if (!isAllowedUrl(url, allowedHosts)) throw ManifestValidationException("URL non consentito per $owner/$name: $url")
 }
 
+/**
+ * Valida address-grid.json (indice dei civici a celle, vedi address-grid-plan.md): duplica qui le
+ * stesse regole della griglia dell'app (RegionManifest.kt, core/sync), stesso motivo di
+ * validateManifestJson sopra. Celle con id valido (z in 0..14, x/y dentro 0..2^z-1), nessuna
+ * discendente di un'altra (isAncestorCell, GenerateAddressGrid.kt), ordinate per id, file/fileXz
+ * come le altre voci del manifest, almeno un'attribuzione.
+ */
+fun validateAddressGridJson(indexJson: String, allowedHosts: Set<String>) {
+    val root = JSONObject(indexJson)
+    if (!root.getString("version").matches(safeSegmentRegex)) throw ManifestValidationException("address-grid.json: version non valida")
+    val tileZoom = root.getInt("tileZoom")
+    if (tileZoom !in 0..22) throw ManifestValidationException("address-grid.json: tileZoom non valido: $tileZoom")
+
+    val cells = root.getJSONArray("cells")
+    if (cells.length() == 0) throw ManifestValidationException("address-grid.json: nessuna cella")
+
+    val seenIds = mutableSetOf<String>()
+    val ids = mutableListOf<String>()
+    var previous: Triple<Int, Int, Int>? = null
+    for (i in 0 until cells.length()) {
+        val cell = cells.getJSONObject(i)
+        val id = cell.getString("id")
+        val parts = id.split('/')
+        val z = parts.getOrNull(0)?.toIntOrNull()
+        val x = parts.getOrNull(1)?.toIntOrNull()
+        val y = parts.getOrNull(2)?.toIntOrNull()
+        if (parts.size != 3 || z == null || x == null || y == null || z !in 0..14 || x !in 0 until (1 shl z) || y !in 0 until (1 shl z)) {
+            throw ManifestValidationException("address-grid.json: id di cella non valido: $id")
+        }
+        if (!seenIds.add(id)) throw ManifestValidationException("address-grid.json: id di cella duplicato: $id")
+        val sortKey = Triple(z, x, y)
+        previous?.let { prev ->
+            val cmp = compareValuesBy(sortKey, prev, { it.first }, { it.second }, { it.third })
+            if (cmp < 0) throw ManifestValidationException("address-grid.json: celle non ordinate per id (vicino a $id)")
+        }
+        previous = sortKey
+        ids += id
+
+        validateVersion(cell, "addressGrid/$id")
+        validateFile(cell.getJSONObject("file"), "addressGrid/$id", allowedHosts)
+        cell.optJSONObject("fileXz")?.let { validateFile(it, "addressGrid/$id", allowedHosts) }
+    }
+    ids.forEach { candidate ->
+        if (ids.any { other -> isAncestorCell(candidate, other) }) {
+            throw ManifestValidationException("address-grid.json: $candidate e' antenata di un'altra cella")
+        }
+    }
+
+    val attributions = root.getJSONArray("attributions")
+    if (attributions.length() == 0) throw ManifestValidationException("address-grid.json: nessuna attribuzione")
+    for (i in 0 until attributions.length()) {
+        val attribution = attributions.getJSONObject(i)
+        attribution.getString("source")
+        attribution.getString("license")
+        attribution.getString("url")
+    }
+}
+
 private fun validateMapSource(mapSource: JSONObject, regionId: String, allowedHosts: Set<String>) {
     val sourceUrl = mapSource.getString("sourceUrl")
     if (!isAllowedUrl(sourceUrl, allowedHosts)) throw ManifestValidationException("map.source.sourceUrl non consentito per $regionId")
@@ -163,11 +231,15 @@ private fun validateMapSource(mapSource: JSONObject, regionId: String, allowedHo
 }
 
 fun main(args: Array<String>) {
-    require(args.size == 2) { "Uso: validateManifest <manifest.json> <pagesHost>" }
-    // github.com: guides.db, poi.db e i segmenti .rd5 vivono sugli asset delle release "region-data*",
-    // non piu' sotto pagesHost — vedi SyncConfig.ALLOWED_MANIFEST_HOSTS (core/sync), duplicato qui
-    // di proposito.
+    require(args.size == 2 || args.size == 3) { "Uso: validateManifest <manifest.json> <pagesHost> [<address-grid.json>]" }
+    // github.com: guides.db, poi.db e i segmenti .rd5 vivono sugli asset delle release "region-data*"
+    // e "address-cells-*", non piu' sotto pagesHost — vedi SyncConfig.ALLOWED_MANIFEST_HOSTS
+    // (core/sync), duplicato qui di proposito.
     val allowedHosts = setOf(args[1], "brouter.de", "build.protomaps.com", "github.com")
     validateManifestJson(File(args[0]).readText(), allowedHosts)
     println("manifest valido: ${args[0]}")
+    if (args.size == 3) {
+        validateAddressGridJson(File(args[2]).readText(), allowedHosts)
+        println("indice civici valido: ${args[2]}")
+    }
 }

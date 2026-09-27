@@ -342,6 +342,206 @@ jobs:
           path: ${{ runner.temp }}/fragments/world-map.json
           retention-days: 1
 
+  # Celle della griglia adattiva dei civici (OSM + Overture, vedi .claude/docs/address-grid-plan.md):
+  # una quota giornaliera (hash stabile dell'id mod 30, come un calendario a 30 giorni) cosi' ogni
+  # cella si ricostruisce al piu' ogni 30 giorni - build-address-cell.sh ha comunque il proprio
+  # controllo d'eta' come le regioni, quindi una quota imprecisa e' innocua, solo un po' di lavoro
+  # sprecato. Un solo job (non a matrice): con ~1.640 celle nel seme una quota di 1/30 (circa 55
+  # celle) impiega poche decine di minuti, ben sotto il limite di 6h. Le celle vivono sulle release
+  # "address-cells-<n>" (n = hash stabile dell'id mod 6, stesso motivo del limite di 1000 asset per
+  # release di region_release_tag in pilot-regions.sh) invece che su "region-data*": non sono
+  # legate a una regione. L'indice (address-grid.json) e il suo frammento manifest (voce
+  # "addressGrid") vanno al job "publish" come artifact, stesso schema di "guides"/"world-map".
+  address-grid:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHON_BIN: python3
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      # go-pmtiles: stessa versione e installazione del job "build" sotto.
+      - name: Installa go-pmtiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL -o "$RUNNER_TEMP/go-pmtiles.tar.gz" https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_x86_64.tar.gz
+          echo "3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f  $RUNNER_TEMP/go-pmtiles.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$RUNNER_TEMP/go-pmtiles.tar.gz" -C "$RUNNER_TEMP/bin" pmtiles
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      # duckdb (con httpfs/spatial, caricate a runtime da overture_addresses.py): niente versione
+      # fissata via hash, e' un pacchetto Python puro installato ad ogni run, come il resto del
+      # toolchain Python di questo job (nessun requirements.txt nel pipeline oggi).
+      - name: Installa duckdb
+        shell: bash
+        run: python3 -m pip install --quiet --disable-pip-version-check duckdb
+
+      - name: Assicura le release delle celle
+        shell: bash
+        run: |
+          set -euo pipefail
+          for n in 0 1 2 3 4 5; do
+            gh release view "address-cells-$n" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+              gh release create "address-cells-$n" --repo "${{ github.repository }}" \
+                --title "Civici a celle ($n/6)" \
+                --notes "Asset binari (celle addresses.pmtiles.xz della griglia adattiva dei civici) per l'app Pocket Travel, referenziati da address-grid.json su GitHub Pages. Non e' una release software."
+          done
+
+      - name: Costruisci la quota di celle di oggi
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          # shellcheck source=./tools/data-pipeline/scripts/lib.sh
+          source tools/data-pipeline/scripts/lib.sh
+          PAGES_BASE_URL="${{ env.PAGES_BASE_URL }}"
+          INDEX_URL="$PAGES_BASE_URL/address-grid.json"
+
+          # Partizione attuale: l'indice pubblicato (fonte di verita', include le celle divise da
+          # run precedenti) o, alla primissima pubblicazione (404), il seme versionato nel repo.
+          IDS_FILE="$RUNNER_TEMP/all-cell-ids.txt"
+          PUBLISHED_INDEX_FILE="$RUNNER_TEMP/published-index.json"
+          # File locale scaricato una volta per l'intero job (non uno per cella): passato cosi'
+          # com'e' a build-address-cell.sh piu' sotto (fetch_published_manifest, lib.sh, accetta
+          # un path al posto dell'URL).
+          PUBLISHED_INDEX_ARG=""
+          PUBLISHED_INDEX_HTTP="$(fetch_published_manifest "$INDEX_URL" "$PUBLISHED_INDEX_FILE")"
+          if [ "$PUBLISHED_INDEX_HTTP" = "200" ]; then
+            jq -r '.cells[].id' "$PUBLISHED_INDEX_FILE" > "$IDS_FILE"
+            PUBLISHED_INDEX_ARG="$PUBLISHED_INDEX_FILE"
+          elif [ "$PUBLISHED_INDEX_HTTP" = "404" ]; then
+            cp tools/data-pipeline/address-grid-seed.tsv "$IDS_FILE"
+            rm -f "$PUBLISHED_INDEX_FILE"
+          else
+            echo "ERRORE: indice civici non scaricabile da $INDEX_URL (HTTP ${PUBLISHED_INDEX_HTTP:-000})" >&2
+            exit 1
+          fi
+          echo "-- $(wc -l < "$IDS_FILE") celle nella partizione attuale"
+
+          # Slot 0..29 stabile per id (cksum: nessuna dipendenza in piu', basta per distribuire il
+          # lavoro sui giorni - non serve crittografico). Giorni dall'epoca, non giorno del mese:
+          # niente bias sui bordi del mese.
+          TODAY_SLOT=$(( $(date -u +%s) / 86400 % 30 ))
+          SELECTED_FILE="$RUNNER_TEMP/selected-cells.txt"
+          : > "$SELECTED_FILE"
+          while IFS= read -r id; do
+            [ -n "$id" ] || continue
+            slot=$(( $(printf '%s' "$id" | cksum | cut -d' ' -f1) % 30 ))
+            [ "$slot" -eq "$TODAY_SLOT" ] && echo "$id" >> "$SELECTED_FILE"
+          done < "$IDS_FILE"
+          echo "-- quota di oggi (slot $TODAY_SLOT/30): $(wc -l < "$SELECTED_FILE") celle"
+
+          PROTOMAPS_DATE="$(resolve_protomaps_date)"
+          SOURCE_URL="https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles"
+          echo "-- build Protomaps: ${PROTOMAPS_DATE}.pmtiles"
+          # Stesso rilascio Overture per tutte le celle della run (il piu' recente, risolto una volta).
+          OVERTURE_RELEASE="$(python3 tools/data-pipeline/scripts/overture_addresses.py --print-release)"
+          export OVERTURE_RELEASE
+          echo "-- rilascio Overture: $OVERTURE_RELEASE"
+          VERSION="$(date -u +%Y.%m.%d).${{ github.run_number }}.${{ github.run_attempt }}"
+
+          ALL_ENTRIES="$RUNNER_TEMP/all-entries.jsonl"
+          : > "$ALL_ENTRIES"
+          FAILED_CELLS=()
+          while IFS= read -r id; do
+            [ -n "$id" ] || continue
+            n=$(( $(printf '%s' "$id" | cksum | cut -d' ' -f1) % 6 ))
+            tag="address-cells-$n"
+            CELL_OUT="$RUNNER_TEMP/cell-out"
+            rm -rf "$CELL_OUT"
+            mkdir -p "$CELL_OUT"
+            echo "::group::$id"
+            if ! tools/data-pipeline/scripts/build-address-cell.sh "$id" "$VERSION" "$SOURCE_URL" \
+              "https://github.com/${{ github.repository }}/releases/download/$tag" "$CELL_OUT" \
+              "$PUBLISHED_INDEX_ARG"; then
+              echo "::warning::cella $id fallita, salto e continuo"
+              FAILED_CELLS+=("$id")
+              echo "::endgroup::"
+              continue
+            fi
+            shopt -s nullglob
+            assets=("$CELL_OUT"/cell-*"--${VERSION}--addresses.pmtiles.xz")
+            if [ "${#assets[@]}" -gt 0 ]; then
+              uploadOk=false
+              for attempt in 1 2 3; do
+                if gh release upload "$tag" "${assets[@]}" --repo "${{ github.repository }}" --clobber; then
+                  uploadOk=true
+                  break
+                fi
+                [ "$attempt" -lt 3 ] && sleep $((attempt * 30))
+              done
+              if [ "$uploadOk" != true ]; then
+                echo "::warning::upload della cella $id fallito, salto e continuo"
+                FAILED_CELLS+=("$id")
+                echo "::endgroup::"
+                continue
+              fi
+            fi
+            [ ! -f "$CELL_OUT/address-grid-entries.jsonl" ] || cat "$CELL_OUT/address-grid-entries.jsonl" >> "$ALL_ENTRIES"
+            echo "::endgroup::"
+          done < "$SELECTED_FILE"
+          if [ "${#FAILED_CELLS[@]}" -gt 0 ]; then
+            echo "::warning::celle fallite in questa run (restano con la voce gia' pubblicata, se c'era): ${FAILED_CELLS[*]}"
+          fi
+
+          # Attribuzioni per la schermata Licenze: OSM, Overture e i distributori (OpenAddresses,
+          # AddressForAll), piu' il testo richiesto da ogni fonte ammessa dalla lista bianca (tutte
+          # quelle che la griglia puo' usare nel tempo, non solo quelle toccate dalle celle di oggi -
+          # sapere quali finiscono davvero in OGNI cella pubblicata richiederebbe di leggerle tutte a
+          # ogni run). {anno} e {data} nei testi: data del rilascio Overture usato. Testi uguali una volta sola.
+          ATTRIBUTIONS_TSV="$RUNNER_TEMP/attributions.tsv"
+          OVERTURE_DATE="${OVERTURE_RELEASE%%.*}"
+          {
+            printf 'OpenStreetMap\tODbL-1.0\thttps://www.openstreetmap.org/copyright\n'
+            printf 'Overture Maps Foundation (overturemaps.org), OpenAddresses, AddressForAll\tvarie\thttps://docs.overturemaps.org/attribution/\n'
+            awk -F'\t' -v anno="${OVERTURE_DATE%%-*}" -v data="$OVERTURE_DATE" \
+              '$0 !~ /^#/ && NF >= 5 && $4 == "allow" && !seen[$5]++ {
+                 text = $5; gsub(/\{anno\}/, anno, text); gsub(/\{data\}/, data, text)
+                 printf "%s\t%s\thttps://docs.overturemaps.org/attribution/\n", text, $3
+               }' tools/data-pipeline/overture-address-sources.tsv
+          } > "$ATTRIBUTIONS_TSV"
+
+          mkdir -p "$RUNNER_TEMP/fragments" "$RUNNER_TEMP/address-grid-index"
+          INDEX_OUT="$RUNNER_TEMP/address-grid-index/address-grid.json"
+          FRAGMENT_OUT="$RUNNER_TEMP/fragments/address-grid.json"
+          # Stesso schema di ARGS_STR in assemble-site.sh: costruita per pezzi (non con
+          # un'espansione di array dentro una stringa gia' tra doppi apici, che non separerebbe
+          # correttamente gli elementi).
+          ARGS_STR="\"$VERSION\" \"$INDEX_URL\" \"$(winpath "$INDEX_OUT")\" \"$(winpath "$FRAGMENT_OUT")\" \"$(winpath "$ATTRIBUTIONS_TSV")\""
+          [ ! -s "$PUBLISHED_INDEX_FILE" ] || ARGS_STR="$ARGS_STR --published \"$(winpath "$PUBLISHED_INDEX_FILE")\""
+          [ ! -s "$ALL_ENTRIES" ] || ARGS_STR="$ARGS_STR --entries \"$(winpath "$ALL_ENTRIES")\""
+          ./gradlew -q :tools:data-pipeline:content:generateAddressGrid --args="$ARGS_STR"
+
+      # Due artifact distinti e non solo per ordine: il job "publish" scarica "manifest-fragments-*"
+      # con merge-multiple (tutti i frammenti appiattiti nella stessa cartella, stesso nome di file
+      # accettato perche' ognuno e' un frammento manifest valido) - l'indice vero e proprio non lo
+      # e' (niente "manifestVersion", schema diverso) e finirebbe scambiato per un frammento se
+      # stesse nello stesso artifact/pattern.
+      - name: Carica il frammento manifest dell'indice civici
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: manifest-fragments-address-grid
+          path: ${{ runner.temp }}/fragments/address-grid.json
+          retention-days: 1
+
+      - name: Carica l'indice dei civici
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: address-grid-index
+          path: ${{ runner.temp }}/address-grid-index/address-grid.json
+          retention-days: 1
+
   # Genera i pacchetti regionali (poi.db + .rd5) per lo shard assegnato e carica gli asset
   # sulla release "region-data". I frammenti manifest prodotti vanno come artifact al job
   # "publish" sotto (job diversi non condividono il filesystem).
@@ -616,7 +816,7 @@ jobs:
   # frammento world-map (nessuna rigenerazione in questa run, il caso comune) resta la mappa del
   # mondo gia' pubblicata, se c'e'.
   publish:
-    needs: [guides, world-map, build]
+    needs: [guides, world-map, address-grid, build]
     if: ${{ !cancelled() }}
     # Un deploy su Pages (e un merge/pulizia sul manifest) alla volta: vedi il commento sulla concurrency in testa al file.
     concurrency:
@@ -663,6 +863,15 @@ jobs:
           merge-multiple: true
         continue-on-error: true
 
+      # address-grid.json (l'indice, non un frammento manifest: niente "manifestVersion", non deve
+      # entrare nel merge sopra) - facoltativo, assente se il job "address-grid" e' fallito del
+      # tutto o non ha prodotto nulla (continue-on-error qui sotto, come per i frammenti).
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: address-grid-index
+          path: ${{ runner.temp }}/address-grid-index
+        continue-on-error: true
+
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
@@ -689,6 +898,11 @@ jobs:
           # del deploy) e la pulizia degli asset (ultimo passo) per il periodo di grazia di una generazione.
           curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/manifest.json" \
             -o "$RUNNER_TEMP/previous-manifest.json" || rm -f "$RUNNER_TEMP/previous-manifest.json"
+          # address-grid.json pubblicato prima di questa run: gli URL delle celle non toccate oggi
+          # vivono solo li' (non in manifest.json, che ha solo il puntatore "addressGrid"), servono
+          # alla pulizia degli asset (ultimo passo) per lo stesso periodo di grazia.
+          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/address-grid.json" \
+            -o "$RUNNER_TEMP/previous-address-grid.json" || rm -f "$RUNNER_TEMP/previous-address-grid.json"
           # Stesso file anche per il merge (curl legge file://), senza scaricarlo una seconda volta; se
           # il download sopra e' fallito assemble-site.sh riprova dall'URL e decide lui (errore, o
           # BOOTSTRAP=1 alla prima pubblicazione).
@@ -703,6 +917,20 @@ jobs:
             | awk -F'\t' 'NF == 2 && $2 ~ /^[0-9]+$/ { t[$1] = $2 } END { for (r in t) print r "\t" t[r] }' \
             | sort > "$SITE_DIR/region-timings.tsv"
 
+          # address-grid.json (indice dei civici a celle, job "address-grid"): accanto a
+          # manifest.json su Pages, come region-timings.tsv sopra - non e' un frammento da
+          # unire (e' gia' il risultato finale del merge fatto da generateAddressGrid nel suo
+          # job). Se quel job non ha prodotto nulla (download-artifact sopra in continue-on-error),
+          # mergeManifests tiene la voce "addressGrid" del manifest pubblicato: si ripubblica
+          # allora l'indice precedente, lo stesso file (e sha256) a cui quella voce punta, invece
+          # di lasciare il puntatore verso un file sparito dal sito.
+          ADDRESS_GRID_FILE="$RUNNER_TEMP/address-grid-index/address-grid.json"
+          if [ -s "$ADDRESS_GRID_FILE" ]; then
+            cp "$ADDRESS_GRID_FILE" "$SITE_DIR/address-grid.json"
+          elif [ -s "$RUNNER_TEMP/previous-address-grid.json" ]; then
+            cp "$RUNNER_TEMP/previous-address-grid.json" "$SITE_DIR/address-grid.json"
+          fi
+
           echo "site_dir=$SITE_DIR" >> "$GITHUB_OUTPUT"
           echo "pages_host=${{ github.repository_owner }}.github.io" >> "$GITHUB_OUTPUT"
 
@@ -710,8 +938,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew -q :tools:data-pipeline:content:validateManifest \
-            --args="${{ steps.assemble.outputs.site_dir }}/manifest.json ${{ steps.assemble.outputs.pages_host }}"
+          SITE_DIR="${{ steps.assemble.outputs.site_dir }}"
+          ARGS="$SITE_DIR/manifest.json ${{ steps.assemble.outputs.pages_host }}"
+          [ ! -s "$SITE_DIR/address-grid.json" ] || ARGS="$ARGS $SITE_DIR/address-grid.json"
+          ./gradlew -q :tools:data-pipeline:content:validateManifest --args="$ARGS"
 
       # Prima del deploy: ogni regione del manifest precedente deve restare nel nuovo, salvo quelle
       # che il merge toglie di proposito (fuori da pilot-regions.sh, o sostituite da un gruppo ormai
@@ -778,8 +1008,16 @@ jobs:
             exit 0
           fi
           # Le regioni perse per un merge incompleto le ferma gia' il controllo prima del deploy.
+          # Gli URL delle celle dei civici vivono in address-grid.json, non in manifest.json (che ha
+          # solo il puntatore "addressGrid"): senza questi due file la pulizia cancellerebbe subito
+          # gli asset di ogni cella non toccata dalla run di oggi (quasi tutte, vedi la quota
+          # giornaliera nel job "address-grid").
           REFERENCED="$RUNNER_TEMP/referenced.txt"
-          cat "$MANIFEST" "$PREVIOUS_MANIFEST" \
+          SCAN_FILES=("$MANIFEST" "$PREVIOUS_MANIFEST")
+          for f in "${{ steps.assemble.outputs.site_dir }}/address-grid.json" "$RUNNER_TEMP/previous-address-grid.json"; do
+            if [ -s "$f" ]; then SCAN_FILES+=("$f"); fi
+          done
+          cat "${SCAN_FILES[@]}" \
             | grep -oE 'https://github\.com/[^"]+/releases/download/[^"/]+/[^"]+' \
             | sed -E 's#.*/releases/download/##' | sort -u > "$REFERENCED"
           if [ ! -s "$REFERENCED" ]; then
@@ -790,7 +1028,7 @@ jobs:
           # un'altra run ancora in corso (vedi il commento sulla concurrency in testa al file), la
           # pulizia della run successiva li togliera'.
           CUTOFF="$(date -u -d '-24 hours' +%Y-%m-%dT%H:%M:%SZ)"
-          for tag in $(gh release list --repo "${{ github.repository }}" --limit 200 --json tagName --jq '.[].tagName' | grep -E '^(region-data|world-map)'); do
+          for tag in $(gh release list --repo "${{ github.repository }}" --limit 200 --json tagName --jq '.[].tagName' | grep -E '^(region-data|world-map|address-cells-)'); do
             deleted=0
             total=0
             # Elenco completo a pagine di 100 (quello dentro la release puo' essere troncato).

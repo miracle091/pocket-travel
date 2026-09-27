@@ -23,6 +23,7 @@ class RegionPackageInstaller @Inject constructor(
     private val routingGraphInstaller: RegionRoutingGraphInstaller,
     private val pmtilesExtractor: PmtilesExtractor,
     private val cityImporter: CityImporter,
+    private val addressGridInstaller: RegionAddressGridInstaller,
 ) {
     suspend fun install(
         entry: RegionManifestEntry,
@@ -35,11 +36,16 @@ class RegionPackageInstaller @Inject constructor(
         // ogni download della regione, quando il manifest la offre con una versione diversa da quella
         // gia' installata — cosi' le regioni gia' scaricate la prendono al primo aggiornamento successivo.
         val installPreview = entry.preview != null && regionRepository.installed(entry.regionId)?.previewVersion != entry.preview.version
+        // A griglia (address-grid-plan.md "App" 4): solo le celle nuove o cambiate si scaricano, le
+        // altre restano quelle gia' installate. null = percorso di oggi (entry.addresses).
+        val addressPlan = if (PackageKind.ADDRESSES in kinds) entry.addressGrid?.let { addressGridInstaller.plan(entry.regionId, it) } else null
         val files = buildList {
             if (PackageKind.ROUTING in kinds) addAll(entry.routing.files)
             if (PackageKind.POI in kinds) add(entry.poi.downloadFile)
             if (PackageKind.POI_EXTRA in kinds) add(entry.poiExtra!!.downloadFile)
-            if (PackageKind.ADDRESSES in kinds) add(entry.addresses!!.downloadFile)
+            if (PackageKind.ADDRESSES in kinds) {
+                if (addressPlan != null) addAll(addressPlan.toDownload.map { it.downloadFile }) else add(entry.addresses!!.downloadFile)
+            }
             if (PackageKind.CITIES in kinds) add(entry.cities!!.downloadFile)
             if (installPreview) add(entry.preview!!.downloadFile)
         }
@@ -53,7 +59,16 @@ class RegionPackageInstaller @Inject constructor(
         val staging = downloader.download(entry.regionId, stagingVersion, files, onProgress)
         if (PackageKind.POI in kinds) unpackXz(staging, entry.poi.file, entry.poi.fileXz)
         if (PackageKind.POI_EXTRA in kinds) unpackXz(staging, entry.poiExtra!!.file, entry.poiExtra.fileXz)
-        if (PackageKind.ADDRESSES in kinds) unpackXz(staging, entry.addresses!!.file, entry.addresses.fileXz)
+        if (PackageKind.ADDRESSES in kinds) {
+            if (addressPlan != null) {
+                addressPlan.toDownload.forEach { unpackXz(staging, it.file, it.fileXz) }
+                withContext(Dispatchers.IO) {
+                    addressGridInstaller.mergeInto(entry.regionId, entry.map.source, addressPlan, staging) { ensureActive() }
+                }
+            } else {
+                unpackXz(staging, entry.addresses!!.file, entry.addresses.fileXz)
+            }
+        }
         if (PackageKind.CITIES in kinds) unpackXz(staging, entry.cities!!.file, entry.cities.fileXz)
         if (installPreview) unpackXz(staging, entry.preview!!.file, entry.preview.fileXz)
 
@@ -88,7 +103,13 @@ class RegionPackageInstaller @Inject constructor(
                 activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ROUTING_DIR, File(staging, RegionStorage.ROUTING_DIR), entry.routing.version)
             }
             if (PackageKind.ADDRESSES in kinds) {
-                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_FILE, File(staging, entry.addresses!!.file.name), entry.addresses.version)
+                if (addressPlan != null) {
+                    val version = entry.versionOf(PackageKind.ADDRESSES)!!
+                    activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_FILE, File(staging, RegionStorage.ADDRESSES_FILE), version)
+                    activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_CELLS_FILE, File(staging, RegionStorage.ADDRESSES_CELLS_FILE), version)
+                } else {
+                    activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_FILE, File(staging, entry.addresses!!.file.name), entry.addresses.version)
+                }
             }
             if (installPreview) {
                 activations += regionStorage.activatePackage(entry.regionId, RegionStorage.PREVIEW_FILE, File(staging, entry.preview!!.file.name), entry.preview.version)

@@ -17,6 +17,8 @@ import java.util.zip.GZIPOutputStream
 import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.cos
+import kotlin.math.floor
+import kotlin.math.hypot
 import kotlin.math.ln
 import kotlin.math.roundToInt
 import kotlin.math.sinh
@@ -79,6 +81,99 @@ fun readAddressPoints(points: File, minLon: Double, minLat: Double, maxLon: Doub
         if (number.isEmpty() || lon !in minLon..maxLon || lat !in minLat..maxLat) return@mapNotNull null
         Address((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), number)
     }
+
+/**
+ * Punto Overture del tema addresses (griglia adattiva, vedi address-grid-plan.md): stessa forma di
+ * [Address] piu' il dataset di provenienza (sources[1].dataset della query DuckDB), che serve solo a
+ * chi genera i punti (lista bianca in overture-address-sources.tsv) - qui non e' piu' necessario,
+ * separato da Address per non confondere le due fonti nella deduplica.
+ */
+data class OvertureAddress(val latE6: Int, val lonE6: Int, val number: String, val dataset: String)
+
+/**
+ * Punti Overture, una riga "lat<TAB>lon<TAB>numero<TAB>dataset" (query DuckDB del tema addresses,
+ * vedi scripts/overture_addresses.py), tenendo solo quelli nel bbox.
+ */
+fun readOvertureAddressPoints(points: File, minLon: Double, minLat: Double, maxLon: Double, maxLat: Double): List<OvertureAddress> =
+    points.readLines().mapNotNull { line ->
+        val fields = line.split('\t')
+        val lat = fields.getOrNull(0)?.toDoubleOrNull() ?: return@mapNotNull null
+        val lon = fields.getOrNull(1)?.toDoubleOrNull() ?: return@mapNotNull null
+        val number = fields.getOrNull(2)?.trim().orEmpty()
+        val dataset = fields.getOrNull(3)?.trim().orEmpty()
+        if (number.isEmpty() || lon !in minLon..maxLon || lat !in minLat..maxLat) return@mapNotNull null
+        OvertureAddress((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), number, dataset)
+    }
+
+private fun normalizedNumber(number: String): String = number.trim().lowercase().filterNot { it.isWhitespace() }
+
+// Chiave della deduplica (a): punto arrotondato a ~1 m (latE6/lonE6 sono gia' a ~0,11 m, arrotondare
+// alla decina li porta a ~1,1 m) + numero normalizzato - vedi overture-and-map-diff-research.md.
+private fun roundedPointKey(latE6: Int, lonE6: Int, number: String): Triple<Int, Int, String> =
+    Triple((latE6 / 10) * 10, (lonE6 / 10) * 10, normalizedNumber(number))
+
+private const val DEDUP_RADIUS_M = 30.0
+private const val DEDUP_GRID_CELL_M = 30.0
+
+private fun metersPerDegree(latE6: Int): Pair<Double, Double> {
+    val kx = 111_320.0 * cos(Math.toRadians(latE6 / 1e6))
+    val ky = 110_540.0
+    return kx to ky
+}
+
+private fun dedupGridKey(latE6: Int, lonE6: Int): Pair<Int, Int> {
+    val (kx, ky) = metersPerDegree(latE6)
+    return floor(lonE6 / 1e6 * kx / DEDUP_GRID_CELL_M).toInt() to floor(latE6 / 1e6 * ky / DEDUP_GRID_CELL_M).toInt()
+}
+
+/**
+ * Deduplica indirizzi OSM + Overture (vedi address-grid-plan.md, passo 1 della pipeline):
+ * (a) distinct per fonte su punto arrotondato a ~1 m + numero normalizzato (toglie i doppioni
+ * interni, es. il catasto portoghese con piu' righe sullo stesso punto);
+ * (b) un punto Overture si scarta se entro 30 m c'e' un civico OSM con lo stesso numero normalizzato
+ * (priorita' a OSM, unica fonte con licenza ODbL gia' accettata per l'intera mappa).
+ * Non filtra per cella: quello e' un passo successivo (vedi [addressCellContains]).
+ */
+fun dedupeWithOverture(osm: List<Address>, overture: List<OvertureAddress>): List<Address> {
+    val osmDistinct = osm.distinctBy { roundedPointKey(it.latE6, it.lonE6, it.number) }
+    val overtureDistinct = overture.distinctBy { roundedPointKey(it.latE6, it.lonE6, it.number) }
+    val osmGrid = osmDistinct.groupBy { dedupGridKey(it.latE6, it.lonE6) }
+    val newOverture = overtureDistinct.filterNot { candidate ->
+        val (gx, gy) = dedupGridKey(candidate.latE6, candidate.lonE6)
+        val number = normalizedNumber(candidate.number)
+        val (kx, ky) = metersPerDegree(candidate.latE6)
+        (-1..1).any { dx ->
+            (-1..1).any { dy ->
+                osmGrid[(gx + dx) to (gy + dy)].orEmpty().any { osmAddress ->
+                    normalizedNumber(osmAddress.number) == number &&
+                        hypot(
+                            (candidate.lonE6 - osmAddress.lonE6) / 1e6 * kx,
+                            (candidate.latE6 - osmAddress.latE6) / 1e6 * ky,
+                        ) <= DEDUP_RADIUS_M
+                }
+            }
+        }
+    }
+    return osmDistinct + newOverture.map { Address(it.latE6, it.lonE6, it.number) }
+}
+
+/** Id di una cella della griglia adattiva (vedi address-grid-plan.md): nodo z/x/y del quadtree Web Mercator. */
+data class CellId(val z: Int, val x: Int, val y: Int) {
+    override fun toString(): String = "$z/$x/$y"
+}
+
+fun parseCellId(spec: String): CellId {
+    val parts = spec.split('/')
+    require(parts.size == 3) { "id di cella non valido: $spec" }
+    return CellId(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
+}
+
+/** true se la tile z14 di [address] (la stessa griglia del pmtiles scritto da [writeAddressesPmtiles]) e' discendente di [cell]. */
+internal fun addressCellContains(address: Address, cell: CellId): Boolean {
+    val (x, y) = worldPixel(address)
+    val shift = OUTPUT_ZOOM - cell.z
+    return (x.toInt() shr shift) == cell.x && (y.toInt() shr shift) == cell.y
+}
 
 private fun gunzipIfNeeded(bytes: ByteArray): ByteArray =
     if (bytes.size > 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte()) {
@@ -156,16 +251,35 @@ private fun gzip(bytes: ByteArray): ByteArray =
 
 fun main(args: Array<String>) {
     require(args.size >= 6) {
-        "Uso: generateAddresses <output.pmtiles> <minLon> <minLat> <maxLon> <maxLat> <z15-1.pmtiles | punti.tsv> [...]"
+        "Uso: generateAddresses <output.pmtiles> <minLon> <minLat> <maxLon> <maxLat> <z15-1.pmtiles | punti.tsv> [...] " +
+            "[--overture <overture.tsv>] [--cell <z/x/y>]"
     }
     val output = File(args[0])
     val (minLon, minLat, maxLon, maxLat) = args.slice(1..4).map { it.toDouble() }
+    var overtureFile: File? = null
+    var cell: CellId? = null
+    val inputPaths = mutableListOf<String>()
+    var i = 5
+    while (i < args.size) {
+        when (args[i]) {
+            "--overture" -> { overtureFile = File(args[i + 1]); i += 2 }
+            "--cell" -> { cell = parseCellId(args[i + 1]); i += 2 }
+            else -> { inputPaths += args[i]; i += 1 }
+        }
+    }
     // Con piu' estratti (riquadri adiacenti) un indirizzo sul bordo compare in entrambi.
-    val addresses = args.drop(5).map(::File)
+    val osmAddresses = inputPaths.map(::File)
         .flatMap {
             if (it.name.endsWith(".tsv")) readAddressPoints(it, minLon, minLat, maxLon, maxLat) else extractAddresses(it, minLon, minLat, maxLon, maxLat)
         }
         .distinct()
+    val overtureAddresses = overtureFile?.let { readOvertureAddressPoints(it, minLon, minLat, maxLon, maxLat) }.orEmpty()
+    var addresses = if (overtureAddresses.isEmpty()) osmAddresses else dedupeWithOverture(osmAddresses, overtureAddresses)
+    val beforeCellFilter = addresses.size
+    cell?.let { addresses = addresses.filter { address -> addressCellContains(address, it) } }
     writeAddressesPmtiles(addresses, output, minLon, minLat, maxLon, maxLat)
-    println("indirizzi: ${addresses.size} scritti in ${output.path}")
+    println(
+        "indirizzi: ${addresses.size} scritti in ${output.path} " +
+            "(osm=${osmAddresses.size}, overture=${overtureAddresses.size}, dopo deduplica=$beforeCellFilter)",
+    )
 }

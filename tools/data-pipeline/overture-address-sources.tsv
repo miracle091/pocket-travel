@@ -1,0 +1,447 @@
+# Lista bianca delle fonti Overture (tema addresses) nella griglia dei civici: una riga per coppia
+# esatta (sources[1].dataset, sources[1].license) presente nel rilascio 2026-09-23.1 (431 coppie,
+# 474 M indirizzi), letta a mano il 2026-09-27 (termini di ogni fonte, vedi
+# .claude/docs/overture-address-licences.md). Un dataset nuovo o con licenza cambiata in un rilascio
+# successivo non e' in lista e resta fuori finche' non lo si rivede (scripts/overture_addresses.py).
+#
+# Escluse: Hong Kong (termini senza diritto di modifica) e le contee di Kent, Muskegon e Allegan in
+# Michigan (licenza revocabile, modifiche riservate alla contea). Ammesse per scelta dell'utente
+# (2026-09-27) anche le fonti con basi piu' deboli: Brasile (IBGE senza licenza esplicita, CC0
+# secondo Overture), Mississippi, Colorado e Minnesota (nessuna licenza pubblicata), Portogallo e
+# Islanda (licenza non confermata sulla pagina di Overture), Estonia e Messico.
+#
+# attribuzione: testo per la schermata Licenze; {anno} e {data} li riempie il workflow con la data
+# del rilascio Overture usato.
+#
+# paese	dataset	licenza	decisione	attribuzione
+AT	at/countrywide	CC-BY-4.0	allow	(c) Austrian Address Register (BEV); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+AU	au/countrywide	LicenseRef-Proprietary	allow	G-NAF (c) Geoscape Australia licensed by the Commonwealth of Australia under the Open Geo-coded National Address File (G-NAF) End User Licence Agreement; modificato; divieto di uso per invii postali senza verifica secondaria (EULA 2.a.2)
+BE	be/bru/bosa-region-brussels-fr	CC-BY-4.0	allow	UrbIS, Bruxelles, via BOSA; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+BE	be/vlg/bosa-region-flanders-nl	CC-BY-4.0	allow	Adressenregister (AR), Vlaanderen, via BOSA; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+BE	be/wal/bosa-region-wallonia-fr	CC-BY-4.0	allow	ICAR, Wallonie, via BOSA; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+BR	br/ac/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/al/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/am/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/ap/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/ba/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/ce/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/df/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/es/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/go/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/ma/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/mg/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/ms/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/mt/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/pa/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/pb/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/pe/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/pi/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/pr/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/rj/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/rn/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/ro/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/rr/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/rs/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/sc/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/se/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/sp/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/to/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+CA	ca/countrywide	LicenseRef-Proprietary	allow	Adapted from Statistics Canada, National Address Register, {data}. This does not constitute an endorsement by Statistics Canada of this product.
+CA	ca/qc/province	CC-BY-4.0	allow	Ministère des Ressources naturelles et des Forêts du Québec, Adresses Quebec; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+CA	ca/yt/province	LicenseRef-Proprietary	allow	Contains information licensed under the Open Government Licence - Yukon (Government of Yukon, Civic Address Point)
+CH	ch/countrywide	LicenseRef-Proprietary	allow	Bundesamt für Landestopografie swisstopo (Amtliches Verzeichnis der Gebäudeadressen)
+CL	cl/countrywide	CC-BY-4.0	allow	(c) Instituto Nacional de Estadísticas (Chile); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+CO	co/countrywide	CC-BY-4.0	allow	Departamento Administrativo Nacional de Estadística (DANE); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+CZ	ČÚZK	CC-BY-4.0	allow	Obsahuje data ČÚZK (Český úřad zeměměřický a katastrální); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+DE	de/bb/statewide	DL-DE-BY-2.0	allow	GeoBasis-DE/LGB ({anno}), Datenlizenz Deutschland - Namensnennung - Version 2.0 (www.govdata.de/dl-de/by-2-0); verändert
+DE	de/berlin	DL-DE-ZERO-2.0	allow	Geoportal Berlin (cortesia; dl-de/zero-2-0)
+DE	de/bw/statewide	DL-DE-BY-2.0	allow	LGL, www.lgl-bw.de ({anno}), Datenlizenz Deutschland - Namensnennung - Version 2.0 (www.govdata.de/dl-de/by-2-0); verändert
+DE	de/hb/statewide	CC-BY-4.0	allow	Landesamt GeoInformation Bremen; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+DE	de/he/statewide	DL-DE-ZERO-2.0	allow	Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) (cortesia; dl-de/zero-2-0)
+DE	de/hh/statewide	DL-DE-BY-2.0	allow	Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) ({anno}), Datenlizenz Deutschland - Namensnennung - Version 2.0 (www.govdata.de/dl-de/by-2-0); verändert
+DE	de/mv/statewide	CC-BY-4.0	allow	Landesamt für innere Verwaltung Mecklenburg-Vorpommern (LAiV); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+DE	de/ni/statewide	CC-BY-4.0	allow	Landesamt für Geoinformation und Landesvermessung Niedersachsen (LGLN); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+DE	de/nw/statewide	DL-DE-ZERO-2.0	allow	Geobasis NRW (cortesia; dl-de/zero-2-0)
+DE	de/rp/statewide	DL-DE-BY-2.0	allow	GeoBasis-DE/LVermGeoRP ({anno}), Datenlizenz Deutschland - Namensnennung - Version 2.0 (www.govdata.de/dl-de/by-2-0); verändert
+DE	de/sh/statewide	CC-BY-4.0	allow	(c) GeoBasis-DE/LVermGeo SH; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+DE	de/sl/statewide	DL-DE-BY-2.0	allow	GeoBasis-DE/LVermGeo SL ({anno}), Datenlizenz Deutschland - Namensnennung - Version 2.0 (www.govdata.de/dl-de/by-2-0); verändert
+DE	de/sn/statewide	DL-DE-BY-2.0	allow	Staatsbetrieb Geobasisinformation und Vermessung Sachsen (GeoSN) ({anno}), Datenlizenz Deutschland - Namensnennung - Version 2.0 (www.govdata.de/dl-de/by-2-0); verändert
+DE	de/st/statewide	DL-DE-BY-2.0	allow	GeoBasis-DE/LVermGeo ST ({anno}), Datenlizenz Deutschland - Namensnennung - Version 2.0 (www.govdata.de/dl-de/by-2-0); verändert
+DE	de/th/statewide	DL-DE-BY-2.0	allow	GDI-Th / Freistaat Thüringen ({anno}), Datenlizenz Deutschland - Namensnennung - Version 2.0 (www.govdata.de/dl-de/by-2-0); verändert
+DK	dk/countrywide	LicenseRef-Proprietary	allow	Indeholder data fra Klimadatastyrelsen, Danmarks Adresseregister (DAR), {data}; CC BY 4.0; modificato
+EE	ee/countrywide	LicenseRef-Proprietary	allow	Maa- ja Ruumiamet, aadressiandmed (ADS) {anno}
+ES	es/countrywide	CC-BY-4.0	allow	scne.es / CNIG - Instituto Geográfico Nacional; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+FI	fi/countrywide-fi	CC-BY-4.0	allow	Syke (Suomen ympäristökeskus); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+FO	fo/countrywide	LicenseRef-Proprietary	allow	Data from the Faroese Environment Agency, Umhvørvisstovan: addresses, {data}; link ai termini
+FR	fr/01/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/02/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/03/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/04/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/05/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/06/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/07/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/08/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/09/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/10/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/11/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/12/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/13/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/14/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/15/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/16/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/17/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/18/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/19/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/21/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/22/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/23/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/24/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/25/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/26/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/27/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/28/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/29/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/2A/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/2B/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/30/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/31/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/32/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/33/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/34/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/35/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/36/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/37/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/38/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/39/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/40/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/41/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/42/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/43/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/44/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/45/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/46/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/47/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/48/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/49/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/50/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/51/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/52/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/53/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/54/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/55/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/56/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/57/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/58/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/59/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/60/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/61/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/62/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/63/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/64/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/65/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/66/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/67/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/68/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/69/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/70/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/71/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/72/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/73/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/74/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/75/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/76/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/77/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/78/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/79/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/80/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/81/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/82/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/83/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/84/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/85/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/86/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/87/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/88/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/89/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/90/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/91/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/92/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/93/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/94/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/95/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/971/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/972/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/973/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/974/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/976/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/bl/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/mf/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+FR	fr/pm/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr), {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+GL	gl/countrywide	LicenseRef-Proprietary	allow	Contains data from Asiaq, Greenland Survey, addresses, {anno}; link ai termini
+HK	hk/countrywide-en	LicenseRef-Proprietary	exclude	n/a (termini CSDI: nessun diritto di modifica, manleva illimitata)
+HR	hr/countrywide	LicenseRef-Proprietary	allow	Državna geodetska uprava, Registar prostornih jedinica - adrese, {data}; URI del dataset; Otvorena dozvola; modificato
+IS	Stadfangaskrá	LicenseRef-Proprietary	allow	Byggir á upplýsingum frá Húsnæðis- og mannvirkjastofnun (HMS), Staðfangaskrá
+IT	it/countrywide	CC-BY-4.0	allow	ANNCSU - Archivio Nazionale dei Numeri Civici delle Strade Urbane (Istat/Agenzia delle Entrate); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/aichi	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/akita	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/aomori	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/chiba	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/ehime	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/fukui	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/fukuoka	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/fukushima	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/gifu	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/gunma	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/hiroshima	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/hokkaido	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/hyogo	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/ibaraki	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/ishikawa	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/iwate	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/kagawa	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/kagoshima	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/kanagawa	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/kochi	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/kumamoto	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/kyoto	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/mie	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/miyagi	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/miyazaki	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/nagano	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/nagasaki	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/nara	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/niigata	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/oita	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/okayama	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/okinawa	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/osaka	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/saga	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/saitama	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/shiga	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/shimane	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/shizuoka	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/tochigi	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/tokushima	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/tokyo	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/tottori	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/toyama	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/wakayama	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/yamagata	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/yamaguchi	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+JP	jp/yamanashi	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+LI	li/countrywide	LicenseRef-Proprietary	allow	Liechtensteinische Landesverwaltung (Nutzungsbedingungen OGD v2 allegate/linkate)
+LT	lt/countrywide	CC-BY-4.0	allow	VĮ Registrų centras; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+LU	lu/countrywide	CC0-1.0	allow	data.public.lu (cortesia; CC0)
+LV	lv/countrywide	CC-BY-4.0	allow	Valsts digitālās attīstības aģentūra; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+MX	mx/countrywide	LicenseRef-Proprietary	allow	Fuente: INEGI, Censos Económicos, {data}; datos transformados por Pocket Travel, no por el INEGI
+NC	nc/countrywide	etalab-2.0	allow	Gouvernement de la Nouvelle-Calédonie, {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+NL	BAG Light	CC0-1.0	allow	Kadaster / PDOK (BAG) (cortesia; CC0)
+NO	no/countrywide	CC-BY-4.0	allow	Kartverket, Matrikkelen - adresse; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+NZ	nz/countrywide	CC-BY-4.0	allow	Land Information New Zealand (LINZ); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+PF	pf/countrywide	etalab-2.0	allow	Gouvernement de la Polynésie française, {data}; Licence Ouverte / Open Licence 2.0 (Etalab); modifié
+PL	pl/dolnoslaskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PL	pl/kujawsko-pomorskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PL	pl/lodzkie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PL	pl/lubelskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PL	pl/lubuskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PL	pl/malopolskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PL	pl/mazowieckie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PL	pl/opolskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PL	pl/podkarpackie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PL	pl/podlaskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PL	pl/pomorskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PL	pl/slaskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PL	pl/swietokrzyskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PL	pl/warminsko-mazurskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PL	pl/wielkopolskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PL	pl/zachodniopomorskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
+PT	pt/countrywide	CC-BY-4.0	allow	Instituto Nacional de Estatística (INE); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+RS	rs/countrywide	LicenseRef-Proprietary	allow	Republički geodetski zavod, Adresni registar, data.gov.rs/sr/datasets/adresni-registar, preuzeto {data}; modificato
+SG	sg/countrywide	LicenseRef-Proprietary	allow	Contains information from OneMap addresses accessed on {data} from Singapore Land Authority which is made available under the terms of the Singapore Open Data Licence version 1.0 (onemap.gov.sg/legal/opendatalicence.html)
+SI	GURS	CC-BY-4.0	allow	Geodetska uprava Republike Slovenije (GURS); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+SK	sk/countrywide	CC0-1.0	allow	Ministerstvo vnútra SR, Register adries (cortesia; CC0)
+TW	tw/cha/regionwide	CC-BY-4.0	allow	Changhua County Government Civil Affairs Office (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/cyq/regionwide	CC-BY-4.0	allow	Chiayi County Government (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/hsq/regionwide	CC-BY-4.0	allow	Hsinchu County Civil Affairs Office (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/hsz/regionwide	CC-BY-4.0	allow	Hsinchu City Civil Affairs Office (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/hua/regionwide	CC-BY-4.0	allow	Hualien County Government (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/kee/regionwide	CC-BY-4.0	allow	Keelung City Government Civil Affairs Bureau (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/khh/regionwide	CC-BY-4.0	allow	Kaohsiung City Government Civil Affairs Bureau (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/kin/regionwide	CC-BY-4.0	allow	Kinmen County Civil Affairs Office (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/mia/regionwide-zh	CC-BY-4.0	allow	Miaoli Civil Affairs Office (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/nwt/regionwide	CC-BY-4.0	allow	New Taipei City Government Civil Affairs Bureau (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/pen/regionwide	CC-BY-4.0	allow	Penghu County Government (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/pif/regionwide	CC-BY-4.0	allow	Pingtung County Government (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/tao/regionwide	CC-BY-4.0	allow	Taoyuan City Government Civil Affairs Bureau (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/tnn/regionwide	CC-BY-4.0	allow	Tainan City Government Civil Affairs Bureau (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/tpe/regionwide	CC-BY-4.0	allow	Taipei City Government Civil Affairs Bureau (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/ttt/regionwide	CC-BY-4.0	allow	Taitung County Government (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/txg/regionwide	CC-BY-4.0	allow	Taichung City Government Civil Affairs Bureau (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+TW	tw/yun/regionwide	CC-BY-4.0	allow	Yunlin County Government (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+US	NAD	LicenseRef-Public-Domain-US	allow	U.S. Department of Transportation, National Address Database (NAD) (cortesia); non usare come mailing list
+US	us/ca/alameda	LicenseRef-Public-Domain-US-CA-Law	allow	Alameda County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/alpine	LicenseRef-Public-Domain-US-CA-Law	allow	Alpine County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/amador	LicenseRef-Public-Domain-US-CA-Law	allow	Amador County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/butte	LicenseRef-Public-Domain-US-CA-Law	allow	Butte County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/calaveras	LicenseRef-Public-Domain-US-CA-Law	allow	Calaveras County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/colusa	LicenseRef-Public-Domain-US-CA-Law	allow	Colusa County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/contra_costa	LicenseRef-Public-Domain-US-CA-Law	allow	Contra Costa County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/del_norte	LicenseRef-Public-Domain-US-CA-Law	allow	Del Norte County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/el_dorado	LicenseRef-Public-Domain-US-CA-Law	allow	El Dorado County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/fresno	CC0-1.0	allow	Fresno County (cortesia; CC0)
+US	us/ca/glenn	LicenseRef-Public-Domain-US-CA-Law	allow	Glenn County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/humboldt	LicenseRef-Public-Domain-US-CA-Law	allow	Humboldt County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/imperial	LicenseRef-Public-Domain-US-CA-Law	allow	Imperial County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/inyo	LicenseRef-Public-Domain-US-CA-Law	allow	Inyo County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/kern	LicenseRef-Public-Domain-US-CA-Law	allow	Kern County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/kings	LicenseRef-Public-Domain-US-CA-Law	allow	Kings County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/lake	LicenseRef-Public-Domain-US-CA-Law	allow	Lake County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/lassen	LicenseRef-Public-Domain-US-CA-Law	allow	Lassen County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/los_angeles	LicenseRef-Proprietary	allow	Los Angeles County (Open Data Terms of Use; nessun avallo della contea)
+US	us/ca/madera	LicenseRef-Public-Domain-US-CA-Law	allow	Madera County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/marin	LicenseRef-Public-Domain-US-CA-Law	allow	Marin County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/mariposa	LicenseRef-Public-Domain-US-CA-Law	allow	Mariposa County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/mendocino	LicenseRef-Public-Domain-US-CA-Law	allow	Mendocino County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/merced	LicenseRef-Public-Domain-US-CA-Law	allow	Merced County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/modoc	LicenseRef-Public-Domain-US-CA-Law	allow	Modoc County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/mono	LicenseRef-Public-Domain-US-CA-Law	allow	Mono County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/monterey	LicenseRef-Public-Domain-US-CA-Law	allow	Monterey County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/napa	LicenseRef-Public-Domain-US-CA-Law	allow	Napa County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/nevada	LicenseRef-Public-Domain-US-CA-Law	allow	Nevada County; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+US	us/ca/orange	LicenseRef-Public-Domain-US-CA-Law	allow	Orange County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/placer	LicenseRef-Public-Domain-US-CA-Law	allow	Placer County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/plumas	LicenseRef-Public-Domain-US-CA-Law	allow	Plumas County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/riverside	LicenseRef-Public-Domain-US-CA-Law	allow	Riverside County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/sacramento	LicenseRef-Public-Domain-US-CA-Law	allow	Sacramento County; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+US	us/ca/san_benito	LicenseRef-Public-Domain-US-CA-Law	allow	San Benito County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/san_bernardino	LicenseRef-Public-Domain-US-CA-Law	allow	San Bernardino County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/san_diego	LicenseRef-Public-Domain-US-CA-Law	allow	San Diego County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/san_francisco	PDDL-1.0	allow	City and County of San Francisco (cortesia; PDDL 1.0)
+US	us/ca/san_joaquin	LicenseRef-Public-Domain-US-CA-Law	allow	San Joaquin County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/san_luis_obispo	LicenseRef-Public-Domain-US-CA-Law	allow	San Luis Obispo County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/san_mateo	LicenseRef-Public-Domain-US-CA-Law	allow	San Mateo County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/santa_barbara	LicenseRef-Public-Domain-US-CA-Law	allow	Santa Barbara County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/santa_clara	LicenseRef-Public-Domain-US-CA-Law	allow	Santa Clara County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/santa_cruz	LicenseRef-Proprietary	allow	Santa Cruz County (cortesia)
+US	us/ca/shasta	LicenseRef-Public-Domain-US-CA-Law	allow	Shasta County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/sierra	LicenseRef-Public-Domain-US-CA-Law	allow	Sierra County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/siskiyou	LicenseRef-Public-Domain-US-CA-Law	allow	Siskiyou County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/solano	LicenseRef-Public-Domain-US-CA-Law	allow	Solano County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/sonoma	LicenseRef-Public-Domain-US-CA-Law	allow	Sonoma County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/stanislaus	LicenseRef-Public-Domain-US-CA-Law	allow	Stanislaus County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/sutter	LicenseRef-Public-Domain-US-CA-Law	allow	Sutter County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/tehama	LicenseRef-Public-Domain-US-CA-Law	allow	Tehama County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/trinity	LicenseRef-Public-Domain-US-CA-Law	allow	Trinity County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/tulare	LicenseRef-Public-Domain-US-CA-Law	allow	Tulare County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/tuolumne	LicenseRef-Public-Domain-US-CA-Law	allow	Tuolumne County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/yolo	LicenseRef-Public-Domain-US-CA-Law	allow	Yolo County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/ca/yuba	LicenseRef-Public-Domain-US-CA-Law	allow	Yuba County, California (cortesia; pubblico dominio per il California Public Records Act)
+US	us/co/statewide	LicenseRef-Proprietary	allow	Colorado Governor's Office of Information Technology (cortesia)
+US	us/fl/alachua	LicenseRef-Public-Domain-US-FL-Law	allow	Alachua County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/baker	LicenseRef-Public-Domain-US-FL-Law	allow	Baker County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/bay	LicenseRef-Public-Domain-US-FL-Law	allow	Bay County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/bradford	LicenseRef-Public-Domain-US-FL-Law	allow	Bradford County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/brevard	LicenseRef-Public-Domain-US-FL-Law	allow	Brevard County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/broward	LicenseRef-Public-Domain-US-FL-Law	allow	Broward County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/calhoun	LicenseRef-Public-Domain-US-FL-Law	allow	Calhoun County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/charlotte	LicenseRef-Public-Domain-US-FL-Law	allow	Charlotte County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/citrus	LicenseRef-Public-Domain-US-FL-Law	allow	Citrus County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/clay	LicenseRef-Public-Domain-US-FL-Law	allow	Clay County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/collier	LicenseRef-Public-Domain-US-FL-Law	allow	Collier County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/columbia	LicenseRef-Public-Domain-US-FL-Law	allow	Columbia County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/desoto	LicenseRef-Public-Domain-US-FL-Law	allow	Desoto County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/dixie	LicenseRef-Public-Domain-US-FL-Law	allow	Dixie County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/duval	LicenseRef-Public-Domain-US-FL-Law	allow	Duval County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/escambia	LicenseRef-Public-Domain-US-FL-Law	allow	Escambia County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/flagler	LicenseRef-Public-Domain-US-FL-Law	allow	Flagler County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/franklin	LicenseRef-Public-Domain-US-FL-Law	allow	Franklin County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/gadsden	LicenseRef-Public-Domain-US-FL-Law	allow	Gadsden County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/gilchrist	LicenseRef-Public-Domain-US-FL-Law	allow	Gilchrist County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/glades	LicenseRef-Public-Domain-US-FL-Law	allow	Glades County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/gulf	LicenseRef-Public-Domain-US-FL-Law	allow	Gulf County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/hamilton	LicenseRef-Public-Domain-US-FL-Law	allow	Hamilton County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/hardee	LicenseRef-Public-Domain-US-FL-Law	allow	Hardee County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/hendry	LicenseRef-Public-Domain-US-FL-Law	allow	Hendry County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/hernando	LicenseRef-Public-Domain-US-FL-Law	allow	Hernando County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/highlands	LicenseRef-Public-Domain-US-FL-Law	allow	Highlands County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/hillsborough	CC-BY-4.0	allow	Hillsborough County, Florida; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+US	us/fl/indian_river	LicenseRef-Public-Domain-US-FL-Law	allow	Indian River County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/jefferson	LicenseRef-Public-Domain-US-FL-Law	allow	Jefferson County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/lafayette	LicenseRef-Public-Domain-US-FL-Law	allow	Lafayette County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/lake	LicenseRef-Public-Domain-US-FL-Law	allow	Lake County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/lee	LicenseRef-Public-Domain-US-FL-Law	allow	Lee County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/leon	LicenseRef-Public-Domain-US-FL-Law	allow	Leon County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/levy	LicenseRef-Public-Domain-US-FL-Law	allow	Levy County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/liberty	LicenseRef-Public-Domain-US-FL-Law	allow	Liberty County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/madison	LicenseRef-Public-Domain-US-FL-Law	allow	Madison County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/manatee	CC-BY-4.0	allow	Manatee County, Florida; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+US	us/fl/marion	LicenseRef-Public-Domain-US-FL-Law	allow	Marion County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/martin	LicenseRef-Public-Domain-US-FL-Law	allow	Martin County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/miami-dade	LicenseRef-Public-Domain-US-FL-Law	allow	Miami Dade County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/monroe	LicenseRef-Public-Domain-US-FL-Law	allow	Monroe County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/nassau	LicenseRef-Public-Domain-US-FL-Law	allow	Nassau County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/okaloosa	LicenseRef-Public-Domain-US-FL-Law	allow	Okaloosa County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/okeechobee	LicenseRef-Public-Domain-US-FL-Law	allow	Okeechobee County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/orange	LicenseRef-Proprietary	allow	Orange County, Florida (cortesia)
+US	us/fl/osceola	LicenseRef-Public-Domain-US-FL-Law	allow	Osceola County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/palm_beach	LicenseRef-Proprietary	allow	Palm Beach County (cortesia)
+US	us/fl/pasco	LicenseRef-Public-Domain-US-FL-Law	allow	Pasco County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/pinellas	LicenseRef-Public-Domain-US-FL-Law	allow	Pinellas County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/polk	LicenseRef-Public-Domain-US-FL-Law	allow	Polk County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/putnam	LicenseRef-Public-Domain-US-FL-Law	allow	Putnam County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/santa_rosa	LicenseRef-Public-Domain-US-FL-Law	allow	Santa Rosa County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/sarasota	LicenseRef-Public-Domain-US-FL-Law	allow	Sarasota County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/seminole	LicenseRef-Public-Domain-US-FL-Law	allow	Seminole County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/st-johns	LicenseRef-Public-Domain-US-FL-Law	allow	St. Johns County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/st-lucie	LicenseRef-Public-Domain-US-FL-Law	allow	St. Lucie County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/sumter	LicenseRef-Public-Domain-US-FL-Law	allow	Sumter County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/suwannee	LicenseRef-Public-Domain-US-FL-Law	allow	Suwannee County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/taylor	LicenseRef-Public-Domain-US-FL-Law	allow	Taylor County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/union	LicenseRef-Public-Domain-US-FL-Law	allow	Union County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/volusia	LicenseRef-Public-Domain-US-FL-Law	allow	Volusia County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/wakulla	LicenseRef-Public-Domain-US-FL-Law	allow	Wakulla County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/walton	LicenseRef-Public-Domain-US-FL-Law	allow	Walton County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/fl/washington	LicenseRef-Public-Domain-US-FL-Law	allow	Washington County, Florida (cortesia; pubblico dominio per il Florida Public Records Law)
+US	us/ga/clarke	CC-BY-4.0	allow	Athens-Clarke County GIS; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+US	us/ga/dekalb	CC-BY-4.0	allow	DeKalb County, Georgia; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+US	us/id/ada	CC-BY-4.0	allow	City of Boise; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+US	us/la/city_of_new_orleans	CC0-1.0	allow	City of New Orleans (cortesia; CC0)
+US	us/ma/statewide	LicenseRef-Proprietary	allow	MassGIS (Bureau of Geographic Information), Commonwealth of Massachusetts EOTSS
+US	us/mi/allegan	LicenseRef-Proprietary	exclude	n/a (licenza revocabile, modifica vietata)
+US	us/mi/kent	LicenseRef-Proprietary	exclude	n/a (licenza revocabile, modifica vietata)
+US	us/mi/muskegon	LicenseRef-Proprietary	exclude	n/a (licenza revocabile, modifica vietata)
+US	us/mi/oakland	LicenseRef-Proprietary	allow	Oakland County, Michigan (Open Data Terms of Use)
+US	us/mn/statewide	LicenseRef-Proprietary	allow	MnGeo / Minnesota NG9-1-1 Program e MetroGIS, Address Points Opt-In Open Counties (cortesia)
+US	us/ms/adams	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Adams County (cortesia; nessuna licenza esplicita)
+US	us/ms/alcorn	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Alcorn County (cortesia; nessuna licenza esplicita)
+US	us/ms/chickasaw	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Chickasaw County (cortesia; nessuna licenza esplicita)
+US	us/ms/choctaw	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Choctaw County (cortesia; nessuna licenza esplicita)
+US	us/ms/claiborne	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Claiborne County (cortesia; nessuna licenza esplicita)
+US	us/ms/clay	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Clay County (cortesia; nessuna licenza esplicita)
+US	us/ms/coahoma	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Coahoma County (cortesia; nessuna licenza esplicita)
+US	us/ms/covington	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Covington County (cortesia; nessuna licenza esplicita)
+US	us/ms/desoto	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Desoto County (cortesia; nessuna licenza esplicita)
+US	us/ms/harrison	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Harrison County (cortesia; nessuna licenza esplicita)
+US	us/ms/itawamba	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Itawamba County (cortesia; nessuna licenza esplicita)
+US	us/ms/jefferson	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Jefferson County (cortesia; nessuna licenza esplicita)
+US	us/ms/jones	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Jones County (cortesia; nessuna licenza esplicita)
+US	us/ms/lafayette	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Lafayette County (cortesia; nessuna licenza esplicita)
+US	us/ms/madison	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Madison County (cortesia; nessuna licenza esplicita)
+US	us/ms/noxubee	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Noxubee County (cortesia; nessuna licenza esplicita)
+US	us/ms/oktibbeha	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Oktibbeha County (cortesia; nessuna licenza esplicita)
+US	us/ms/pearl_river	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Pearl River County (cortesia; nessuna licenza esplicita)
+US	us/ms/prentiss	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Prentiss County (cortesia; nessuna licenza esplicita)
+US	us/ms/rankin	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Rankin County (cortesia; nessuna licenza esplicita)
+US	us/ms/simpson	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Simpson County (cortesia; nessuna licenza esplicita)
+US	us/ms/smith	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Smith County (cortesia; nessuna licenza esplicita)
+US	us/ms/statewide-east	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / MS Cadastral Framework (MDEQ) (cortesia; nessuna licenza esplicita)
+US	us/ms/statewide-west	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / MS Cadastral Framework (MDEQ) (cortesia; nessuna licenza esplicita)
+US	us/ms/wayne	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Wayne County (cortesia; nessuna licenza esplicita)
+US	us/ms/webster	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Webster County (cortesia; nessuna licenza esplicita)
+US	us/ms/winston	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Winston County (cortesia; nessuna licenza esplicita)
+US	us/nv/carson_city	LicenseRef-Proprietary	allow	Carson City, NV. Carson City is not responsible for the accuracy of the information. Modifications were made without the involvement or knowledge of Carson City.
+US	us/ny/city_of_new_york	LicenseRef-Proprietary	allow	NYC Open Data, Address Point (NYC Department of City Planning), versione {data}; modificato
+US	us/or/statewide	LicenseRef-Proprietary	allow	Oregon 9-1-1 Public Safety Answering Points (PSAP), Oregon Department of Emergency Management (OEM), Oregon Department of Administrative Services (DAS)
+US	us/pa/lackawanna	PDDL-1.0	allow	City of Scranton GIS (Lackawanna County) (cortesia; PDDL 1.0)
+US	us/wi/waupaca	CC-BY-4.0	allow	Waupaca County, Wisconsin; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+UY	uy/countrywide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado

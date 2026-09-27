@@ -119,6 +119,7 @@
     <!-- Licenze -->
     <string name="licenses_title">Licenze</string>
     <string name="licenses_license">Licenza: %1$s</string>
+    <string name="licenses_address_sources_title">Fonti dei civici</string>
 
     <!-- Onboarding -->
     <string name="onboarding_welcome_title">Benvenuto in Pocket Travel</string>
