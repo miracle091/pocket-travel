@@ -192,6 +192,7 @@ internal fun PackageKind.label(): Int = when (this) {
     PackageKind.POI -> R.string.package_poi
     PackageKind.POI_EXTRA -> R.string.package_poi_extra
     PackageKind.ADDRESSES -> R.string.package_addresses
+    PackageKind.CITIES -> R.string.package_cities
 }
 
 @StringRes
@@ -201,6 +202,7 @@ internal fun PackageKind.deleteTitle(): Int = when (this) {
     PackageKind.POI -> R.string.package_delete_title_poi
     PackageKind.POI_EXTRA -> R.string.package_delete_title_poi_extra
     PackageKind.ADDRESSES -> R.string.package_delete_title_addresses
+    PackageKind.CITIES -> R.string.package_delete_title_cities
 }
 
 @Composable
@@ -210,4 +212,5 @@ internal fun PackageKind.icon(): ImageVector = when (this) {
     PackageKind.POI -> AppIcons.Place
     PackageKind.POI_EXTRA -> AppIcons.AddLocation
     PackageKind.ADDRESSES -> AppIcons.HomePin
+    PackageKind.CITIES -> AppIcons.Cities
 }

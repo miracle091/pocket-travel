@@ -61,6 +61,7 @@ import com.pockettravel.app.navigation.PocketTravelDestinations.ARG_URL
 import com.pockettravel.app.navigation.PocketTravelDestinations.IN_APP_BROWSER_PATTERN
 import com.pockettravel.app.navigation.PocketTravelDestinations.LICENSES
 import com.pockettravel.app.navigation.PocketTravelDestinations.MORE
+import com.pockettravel.app.navigation.PocketTravelDestinations.NOTES
 import com.pockettravel.app.navigation.PocketTravelDestinations.ONBOARDING
 import com.pockettravel.app.navigation.PocketTravelDestinations.REGIONS
 import com.pockettravel.app.navigation.PocketTravelDestinations.REGION_HUB_PATTERN
@@ -86,6 +87,7 @@ import com.pockettravel.core.data.officialSourcesRegistry
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.feature.sources.OfficialSourcesScreen
+import com.pockettravel.feature.vault.NotesScreen
 import com.pockettravel.feature.vault.PassportVaultScreen
 
 // Le tre destinazioni principali della barra/rail di navigazione (M3: il menu laterale modale e'
@@ -189,7 +191,10 @@ fun PocketTravelNavHost(
                 }
             }
             composable(VAULT, enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
-                PassportVaultScreen()
+                PassportVaultScreen(onOpenNotes = { navController.navigate(NOTES) })
+            }
+            composable(NOTES) {
+                NotesScreen(onBack = { navController.popBackStack() })
             }
             composable(MORE, enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
                 MoreScreen(

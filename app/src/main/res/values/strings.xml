@@ -32,6 +32,7 @@
     <string name="package_poi">Punti di interesse</string>
     <string name="package_poi_extra">Punti di interesse extra</string>
     <string name="package_addresses">Numeri civici</string>
+    <string name="package_cities">Guide delle città</string>
     <string name="package_status_installed">Installato · %1$s</string>
     <string name="package_status_installed_no_size">Installato</string>
     <string name="package_status_update">Da aggiornare · %1$s</string>
@@ -46,6 +47,7 @@
     <string name="package_delete_title_poi">Eliminare i punti di interesse di %1$s?</string>
     <string name="package_delete_title_poi_extra">Eliminare i punti di interesse extra di %1$s?</string>
     <string name="package_delete_title_addresses">Eliminare i numeri civici di %1$s?</string>
+    <string name="package_delete_title_cities">Eliminare le guide delle città di %1$s?</string>
     <string name="package_delete_message">Gli altri pacchetti della regione restano sul dispositivo.</string>
     <string name="map_download">Scarica la mappa</string>
     <string name="map_preview_notice">Anteprima: per il dettaglio delle strade e per i percorsi scarica la mappa e i percorsi della regione.</string>

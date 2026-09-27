@@ -74,4 +74,7 @@ object AppIcons {
     val Vaccinations: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_vaccines)
     val Visibility: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_visibility)
     val VisibilityOff: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_visibility_off)
+    val QuickFacts: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_bolt)
+    val Cities: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_location_city)
+    val Notes: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_sticky_note_2)
 }

@@ -2,6 +2,7 @@ package com.pockettravel.feature.guide
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,26 +19,37 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -45,8 +57,11 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pockettravel.core.data.CitySection
 import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSection
@@ -55,6 +70,7 @@ import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.R as UiR
 
 @Composable
 fun GuideScreen(
@@ -64,11 +80,27 @@ fun GuideScreen(
 ) {
     LaunchedEffect(regionId) { viewModel.load(regionId) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    GuideContent(uiState = uiState, onOpenSource = onOpenSource)
+    var showCities by rememberSaveable(regionId) { mutableStateOf(false) }
+
+    GuideContent(uiState = uiState, onOpenSource = onOpenSource, onOpenCities = { showCities = true })
+
+    if (showCities) {
+        CitiesDialog(
+            regionId = regionId,
+            cities = uiState.cities,
+            viewModel = viewModel,
+            onOpenSource = onOpenSource,
+            onDismiss = { showCities = false },
+        )
+    }
 }
 
 @Composable
-internal fun GuideContent(uiState: GuideUiState, onOpenSource: (url: String, title: String) -> Unit) {
+internal fun GuideContent(
+    uiState: GuideUiState,
+    onOpenSource: (url: String, title: String) -> Unit,
+    onOpenCities: () -> Unit = {},
+) {
     when {
         uiState.isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             PocketTravelLoadingIndicator()
@@ -80,22 +112,173 @@ internal fun GuideContent(uiState: GuideUiState, onOpenSource: (url: String, tit
             modifier = Modifier.fillMaxSize(),
         )
 
-        uiState.sections.isEmpty() && uiState.emergencyNumbers == null && !uiState.noCentralEmergencyNumber -> EmptyState(
+        uiState.sections.isEmpty() && uiState.emergencyNumbers == null && !uiState.noCentralEmergencyNumber && uiState.cities.isEmpty() -> EmptyState(
             icon = AppIcons.Compass,
             title = stringResource(R.string.guide_empty_title),
             subtitle = stringResource(R.string.guide_empty_subtitle),
             modifier = Modifier.fillMaxSize(),
         )
 
-        else -> GuideSectionsList(uiState, onOpenSource)
+        else -> GuideSectionsList(uiState, onOpenSource, onOpenCities)
+    }
+}
+
+// FATTI_RAPIDI (lingua, elettricita', fuso orario, valuta, numeri di emergenza) in cima alla
+// guida non filtrata: sortedBy e' stabile, le altre sezioni restano nel loro ordine.
+@Composable
+private fun GuideSectionsList(uiState: GuideUiState, onOpenSource: (url: String, title: String) -> Unit, onOpenCities: () -> Unit) {
+    var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
+    val orderedSections = remember(uiState.sections) {
+        uiState.sections.sortedBy { if (it.category == GuideCategory.FATTI_RAPIDI) 0 else 1 }
+    }
+    SectionsWithFilters(
+        sections = orderedSections.map { it.toUi() },
+        selectedCategory = selectedCategory,
+        onSelectedCategoryChange = { selectedCategory = it },
+        onOpenSource = onOpenSource,
+        extraContent = {
+            if (uiState.cities.isNotEmpty()) {
+                item(key = "cities") {
+                    CitiesEntryCard(onClick = onOpenCities, modifier = Modifier.padding(horizontal = Spacing.l))
+                }
+            }
+            if (uiState.emergencyNumbers != null || uiState.noCentralEmergencyNumber) {
+                item(key = "emergency_numbers") {
+                    EmergencyNumbersCard(uiState.emergencyNumbers, modifier = Modifier.padding(horizontal = Spacing.l))
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun CitiesEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Card(modifier = modifier.fillMaxWidth()) {
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.guide_cities_title)) },
+            supportingContent = { Text(stringResource(R.string.guide_cities_subtitle)) },
+            leadingContent = {
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
+                    Icon(
+                        AppIcons.Cities,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(6.dp).size(20.dp),
+                    )
+                }
+            },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            modifier = Modifier.clickable(onClick = onClick),
+        )
+    }
+}
+
+// Elenco delle citta' della regione (CityRepository.citiesFor) e dettaglio di una citta', in un
+// dialogo a schermo intero sopra la scheda Guida — non una rotta separata del NavHost, come i
+// documenti in PassportEditDialog: due sole viste "figlie" senza bisogno di un proprio back stack.
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CitiesDialog(
+    regionId: String,
+    cities: List<String>,
+    viewModel: GuideViewModel,
+    onOpenSource: (url: String, title: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var selectedCity by rememberSaveable { mutableStateOf<String?>(null) }
+    val goBack = {
+        if (selectedCity != null) {
+            viewModel.clearCity()
+            selectedCity = null
+        } else {
+            onDismiss()
+        }
+    }
+    // dismissOnBackPress = false: il back va prima dal dettaglio all'elenco, solo poi chiude il dialogo.
+    BackHandler(onBack = goBack)
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false)) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(selectedCity ?: stringResource(R.string.guide_cities_title)) },
+                    navigationIcon = {
+                        IconButton(onClick = goBack) {
+                            Icon(imageVector = AppIcons.Back, contentDescription = stringResource(UiR.string.back))
+                        }
+                    },
+                )
+            },
+        ) { innerPadding ->
+            Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+                val city = selectedCity
+                if (city == null) {
+                    CityListContent(cities = cities, onCityClick = { selectedCity = it })
+                } else {
+                    LaunchedEffect(regionId, city) { viewModel.loadCity(regionId, city) }
+                    val cityUiState by viewModel.cityUiState.collectAsStateWithLifecycle()
+                    CityGuideContent(uiState = cityUiState, onOpenSource = onOpenSource)
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun GuideSectionsList(uiState: GuideUiState, onOpenSource: (url: String, title: String) -> Unit) {
+private fun CityListContent(cities: List<String>, onCityClick: (String) -> Unit) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        itemsIndexed(cities, key = { _, city -> city }) { index, city ->
+            ListItem(
+                headlineContent = { Text(city) },
+                leadingContent = { Icon(AppIcons.Cities, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth().clickable { onCityClick(city) },
+            )
+            if (index < cities.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        }
+    }
+}
+
+@Composable
+private fun CityGuideContent(uiState: CityGuideUiState, onOpenSource: (url: String, title: String) -> Unit) {
     var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
-    val categories = uiState.sections.map { it.category }.distinct()
-    val visibleSections = uiState.sections.filter { selectedCategory == null || it.category == selectedCategory }
+    when {
+        uiState.isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            PocketTravelLoadingIndicator()
+        }
+
+        uiState.loadError != null -> EmptyState(
+            icon = AppIcons.Error,
+            title = stringResource(uiState.loadError),
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        uiState.sections.isEmpty() -> EmptyState(
+            icon = AppIcons.Cities,
+            title = stringResource(R.string.guide_city_empty_title),
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        else -> SectionsWithFilters(
+            sections = uiState.sections.map { it.toUi() },
+            selectedCategory = selectedCategory,
+            onSelectedCategoryChange = { selectedCategory = it },
+            onOpenSource = onOpenSource,
+        )
+    }
+}
+
+// Filtri per categoria + elenco delle sezioni: stessa vista sia per la guida del paese sia per il
+// dettaglio di una citta' (GuideSectionCard e' l'unico posto che disegna una sezione).
+@Composable
+private fun SectionsWithFilters(
+    sections: List<SectionUi>,
+    selectedCategory: GuideCategory?,
+    onSelectedCategoryChange: (GuideCategory?) -> Unit,
+    onOpenSource: (url: String, title: String) -> Unit,
+    extraContent: (LazyListScope.() -> Unit)? = null,
+) {
+    val categories = sections.map { it.category }.distinct()
+    val visibleSections = sections.filter { selectedCategory == null || it.category == selectedCategory }
 
     // Larghezza massima di lettura: sugli schermi larghi il testo della guida non si allunga su
     // righe da 200 caratteri.
@@ -115,14 +298,14 @@ private fun GuideSectionsList(uiState: GuideUiState, onOpenSource: (url: String,
                         item {
                             FilterChip(
                                 selected = selectedCategory == null,
-                                onClick = { selectedCategory = null },
+                                onClick = { onSelectedCategoryChange(null) },
                                 label = { Text(stringResource(R.string.guide_filter_all)) },
                             )
                         }
                         items(categories) { category ->
                             FilterChip(
                                 selected = category == selectedCategory,
-                                onClick = { selectedCategory = if (category == selectedCategory) null else category },
+                                onClick = { onSelectedCategoryChange(if (category == selectedCategory) null else category) },
                                 label = { Text(stringResource(category.displayName())) },
                                 leadingIcon = { Icon(category.icon(), contentDescription = null, modifier = Modifier.size(18.dp)) },
                             )
@@ -130,10 +313,8 @@ private fun GuideSectionsList(uiState: GuideUiState, onOpenSource: (url: String,
                     }
                 }
             }
-            if (selectedCategory == null && (uiState.emergencyNumbers != null || uiState.noCentralEmergencyNumber)) {
-                item(key = "emergency_numbers") {
-                    EmergencyNumbersCard(uiState.emergencyNumbers, modifier = Modifier.padding(horizontal = Spacing.l))
-                }
+            if (selectedCategory == null && extraContent != null) {
+                extraContent()
             }
             items(visibleSections, key = { "${it.category}_${it.title}" }) { section ->
                 GuideSectionCard(section, onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l))
@@ -215,9 +396,17 @@ private fun EmergencyNumbers.entries(): List<Pair<List<Int>, String>> {
     return labeled.groupBy({ it.second }, { it.first }).map { (number, labels) -> labels to number }
 }
 
+// Forma comune a GuideSection e CitySection (stessa GuideCategory, titolo, corpo e fonte): un'unica
+// scheda/filtro per la guida del paese e per il dettaglio di una citta', senza dipendere da quale
+// dei due repository ha prodotto la sezione.
+internal data class SectionUi(val category: GuideCategory, val title: String, val body: String, val sourceUrl: String)
+
+private fun GuideSection.toUi() = SectionUi(category, title, body, sourceUrl)
+private fun CitySection.toUi() = SectionUi(category, title, body, sourceUrl)
+
 @Composable
 private fun GuideSectionCard(
-    section: GuideSection,
+    section: SectionUi,
     onOpenSource: (url: String, title: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -315,6 +504,9 @@ private fun GuideCategory.displayName(): Int = when (this) {
     GuideCategory.ACQUISTI -> R.string.category_shopping
     GuideCategory.CONNETTIVITA -> R.string.category_connectivity
     GuideCategory.VITA_QUOTIDIANA -> R.string.category_daily_life
+    GuideCategory.DA_SAPERE -> R.string.category_good_to_know
+    GuideCategory.COSA_VEDERE -> R.string.category_see_do
+    GuideCategory.FATTI_RAPIDI -> R.string.category_quick_facts
 }
 
 // Nessuna icona del set copre esattamente "sicurezza"/"trasporti": usate le piu' vicine per
@@ -332,6 +524,9 @@ private fun GuideCategory.icon(): ImageVector = when (this) {
     GuideCategory.ACQUISTI -> AppIcons.Shopping
     GuideCategory.CONNETTIVITA -> AppIcons.Connectivity
     GuideCategory.VITA_QUOTIDIANA -> AppIcons.DailyLife
+    GuideCategory.DA_SAPERE -> AppIcons.Info
+    GuideCategory.COSA_VEDERE -> AppIcons.Attractions
+    GuideCategory.FATTI_RAPIDI -> AppIcons.QuickFacts
 }
 
 @Preview(widthDp = 360, heightDp = 800)
@@ -343,6 +538,7 @@ private fun GuidePreview() {
                 uiState = GuideUiState(
                     isLoading = false,
                     emergencyNumbers = EmergencyNumbers(general = "112", police = "113", ambulance = "118", fire = "115"),
+                    cities = listOf("Serravalle", "Borgo Maggiore"),
                     sections = listOf(
                         GuideSection(
                             regionId = "san-marino",

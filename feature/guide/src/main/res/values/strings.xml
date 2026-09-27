@@ -24,4 +24,11 @@
     <string name="category_shopping">Acquisti</string>
     <string name="category_connectivity">Connettività</string>
     <string name="category_daily_life">Vita quotidiana</string>
+    <string name="category_good_to_know">Da sapere</string>
+    <string name="category_see_do">Cosa vedere e fare</string>
+    <string name="category_quick_facts">Fatti rapidi</string>
+    <string name="guide_cities_title">Città</string>
+    <string name="guide_cities_subtitle">Guide delle città di questa regione</string>
+    <string name="guide_city_empty_title">Nessun contenuto guida disponibile per questa città</string>
+    <string name="guide_city_load_error">Impossibile caricare la guida per questa città.</string>
 </resources>

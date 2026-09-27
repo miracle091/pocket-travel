@@ -118,7 +118,13 @@ private enum class GateStatus { CHECKING, NOT_ENROLLED, LOCKED, UNLOCKED }
 // (repository.lock()) quando questa schermata viene chiusa.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PassportVaultScreen(onBack: (() -> Unit)? = null, viewModel: PassportVaultViewModel = hiltViewModel()) {
+fun PassportVaultScreen(
+    onBack: (() -> Unit)? = null,
+    // Le note non passano dal gate biometrico di questa schermata (vedi NotesScreen): l'azione
+    // in barra e' sempre visibile, qualunque sia gateStatus.
+    onOpenNotes: () -> Unit = {},
+    viewModel: PassportVaultViewModel = hiltViewModel(),
+) {
     val context = LocalContext.current
     var gateStatus by remember {
         val canAuthenticate = BiometricManager.from(context).canAuthenticate(ALLOWED_AUTHENTICATORS)
@@ -167,6 +173,11 @@ fun PassportVaultScreen(onBack: (() -> Unit)? = null, viewModel: PassportVaultVi
                         IconButton(onClick = onBack) {
                             Icon(imageVector = AppIcons.Back, contentDescription = stringResource(UiR.string.back))
                         }
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onOpenNotes) {
+                        Icon(imageVector = AppIcons.Notes, contentDescription = stringResource(R.string.vault_open_notes))
                     }
                 },
             )

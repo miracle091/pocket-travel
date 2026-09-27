@@ -42,4 +42,20 @@
     <string name="vault_camera_capture">Scatta la foto</string>
     <string name="vault_camera_permission_denied">Permesso fotocamera negato: non è possibile scattare foto ai documenti.</string>
     <string name="vault_open_app_settings">Impostazioni</string>
+    <string name="vault_open_notes">Note</string>
+    <string name="notes_title">Note</string>
+    <string name="notes_add">Aggiungi</string>
+    <string name="notes_empty_title">Nessuna nota salvata</string>
+    <string name="notes_empty_subtitle">Crea la prima nota per appunti di viaggio, prenotazioni o indirizzi. Le note sono cifrate sul telefono e l\'assistente IA può usarle per rispondere alle tue domande.</string>
+    <string name="notes_privacy_notice">Le note sono cifrate sul telefono. L\'assistente IA può usarle per rispondere alle tue domande.</string>
+    <string name="notes_edit">Modifica %1$s</string>
+    <string name="notes_delete">Elimina %1$s</string>
+    <string name="notes_delete_title">Eliminare questa nota?</string>
+    <string name="notes_delete_message">%1$s verrà rimossa definitivamente.</string>
+    <string name="notes_new">Nuova nota</string>
+    <string name="notes_edit_title">Modifica nota</string>
+    <string name="notes_field_title">Titolo</string>
+    <string name="notes_field_body">Testo</string>
+    <string name="notes_save">Salva</string>
+    <string name="notes_cancel">Annulla</string>
 </resources>
