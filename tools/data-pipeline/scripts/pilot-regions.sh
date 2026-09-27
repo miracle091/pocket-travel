@@ -424,7 +424,7 @@ PILOT_REGIONS=(
 region_release_tag() {
   local regionId="$1" continent="$2"
   case "$regionId" in
-    cina|russia-siberia|russia-estremo-oriente|indonesia|india) echo "region-data-asia-grandi" ;;
+    russia-siberia|russia-estremo-oriente|indonesia|india) echo "region-data-asia-grandi" ;;
     stati-uniti-*) echo "region-data-stati-uniti" ;;
     canada-*) echo "region-data-canada" ;;
     cina-*) echo "region-data-cina" ;;

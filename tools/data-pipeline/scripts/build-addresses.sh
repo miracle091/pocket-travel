@@ -77,7 +77,7 @@ fi
 # pubblicazione) vale come "nessuna voce pubblicata".
 PUBLISHED_ENTRY=""
 if [ -n "$PUBLISHED_MANIFEST_URL" ]; then
-  PUBLISHED_HTTP="$(curl -sSf --retry 5 --retry-all-errors -o "$WORKDIR/published.json" -w '%{http_code}' "$PUBLISHED_MANIFEST_URL" 2>/dev/null || true)"
+  PUBLISHED_HTTP="$(fetch_published_manifest "$PUBLISHED_MANIFEST_URL" "$WORKDIR/published.json")"
   if [ "$PUBLISHED_HTTP" = "200" ]; then
     PUBLISHED_ENTRY="$(jq -c --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id) | .addresses // empty][0] // empty' "$WORKDIR/published.json")"
   elif [ "$PUBLISHED_HTTP" != "404" ]; then
@@ -129,9 +129,10 @@ with_retries() {
   return 1
 }
 
-# Eta' del file pubblicato, dal nome dell'asset (regionId--YYYY.MM.DD--addresses.pmtiles[.xz]).
+# Eta' del file pubblicato, dal nome dell'asset (regionId--YYYY.MM.DD--addresses.pmtiles[.xz], dal
+# 2026-09-27 con il suffisso della run dopo la data: YYYY.MM.DD.<run>.<tentativo>).
 if [ -n "$PUBLISHED_ENTRY" ]; then
-  PUBLISHED_DATE="$(printf '%s' "$PUBLISHED_ENTRY" | jq -r '.file.url' | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)--addresses\.pmtiles\(\.xz\)\?$#\1#p')"
+  PUBLISHED_DATE="$(printf '%s' "$PUBLISHED_ENTRY" | jq -r '.file.url' | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)\(\.[0-9][0-9.]*\)\?--addresses\.pmtiles\(\.xz\)\?$#\1#p')"
   if [ -n "$PUBLISHED_DATE" ]; then
     AGE_DAYS="$(( ($(date -u +%s) - $(date -u -d "${PUBLISHED_DATE//./-}" +%s)) / 86400 ))"
     if [ "$AGE_DAYS" -le "$ADDRESSES_MAX_AGE_DAYS" ]; then

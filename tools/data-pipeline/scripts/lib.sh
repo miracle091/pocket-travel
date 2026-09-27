@@ -60,6 +60,19 @@ resolve_protomaps_date() {
   return 1
 }
 
+# fetch_published_manifest <urlOPath> <out>: copia in <out> il manifest pubblicato e stampa il codice
+# HTTP (200 = trovato, 404 = nessun manifest pubblicato, altro = non scaricabile). <urlOPath> puo'
+# essere un file locale gia' scaricato: publish-regions.yml scarica il manifest una volta per shard
+# e lo passa a build-region.sh, build-addresses.sh e build-cities.sh, invece di tre download per
+# regione (centinaia per run).
+fetch_published_manifest() {
+  if [ -f "$1" ]; then
+    cp "$1" "$2" && echo 200
+    return 0
+  fi
+  curl -sSf --retry 5 --retry-all-errors -o "$2" -w '%{http_code}' "$1" 2>/dev/null || true
+}
+
 # User-Agent descrittivo della pipeline: richiesto dalla policy di Wikimedia; senza, overpass-api.de
 # risponde 406 (visto il 2026-09-25).
 PIPELINE_USER_AGENT="PocketTravelDataPipeline/1.0 (https://github.com/miracle091/pocket-travel)"

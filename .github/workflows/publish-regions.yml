@@ -62,9 +62,14 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: pages
-  cancel-in-progress: false
+# Nessuna concurrency a livello di workflow: un gruppo tiene al massimo una run in corso e UNA in
+# attesa, e una nuova run in coda annulla quella gia' in attesa (anche con cancel-in-progress:
+# false). Con run che durano ore, una run manuale lanciata durante uno schedule poteva far annullare
+# il bucket del giorno successivo rimasto in coda. Il gruppo "pages" sta solo sul job "publish"
+# (pochi minuti: la finestra in cui una terza run puo' scavalcarne una in attesa e' minima). I job
+# di generazione di run diverse possono quindi sovrapporsi: gli asset non si scontrano (VERSION
+# unica per run, vedi job "build") e la pulizia nel job "publish" non tocca gli asset caricati da
+# meno di 24 ore, che possono appartenere a una run ancora in corso.
 
 env:
   # Unica per tutta la run, riusata dai job "build" e "publish" (prima ricostruita identica in
@@ -85,7 +90,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       # Gira qui (una volta, prima della matrice) e non dentro il job "build": se lo shard 0/1/2
       # eseguissero tutti "gh release view || gh release create" in parallelo, alla primissima run
@@ -218,20 +223,21 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '25'
 
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
 
       - name: Genera guides.db
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="$(date -u +%Y.%m.%d)"
+          # Data + numero e tentativo della run: unica per run, come nel job "build" (vedi li').
+          VERSION="$(date -u +%Y.%m.%d).${{ github.run_number }}.${{ github.run_attempt }}"
           OUT="$RUNNER_TEMP/guides-out"
           tools/data-pipeline/scripts/build-guides.sh "$VERSION" \
             "https://github.com/${{ github.repository }}/releases/download/region-data-guide" "$OUT" \
@@ -245,7 +251,7 @@ jobs:
           cp "$OUT/manifest-fragment.json" "$RUNNER_TEMP/fragments/guides.json"
 
       - name: Carica il frammento manifest delle guide
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: manifest-fragments-guides
           path: ${{ runner.temp }}/fragments/guides.json
@@ -265,7 +271,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       WORLD_MAP_MAX_AGE_DAYS: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       # go-pmtiles: stessa versione e installazione del job "build" sotto.
       - name: Installa go-pmtiles
@@ -330,7 +336,7 @@ jobs:
 
       - name: Carica il frammento manifest della mappa del mondo
         if: steps.build.outputs.changed == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: manifest-fragments-world-map
           path: ${{ runner.temp }}/fragments/world-map.json
@@ -354,14 +360,14 @@ jobs:
       # 6 rinnova i POI a ogni turno (7 li rinnoverebbe ogni due settimane).
       POI_MAX_AGE_DAYS: ${{ github.event.inputs.poi_max_age_days || '6' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '25'
 
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
 
       # go-pmtiles estrae le sole tile z15 dei civici (build-addresses.sh): versione e sha256 fissati.
       - name: Installa go-pmtiles
@@ -404,8 +410,25 @@ jobs:
           PAGES_BASE_URL="${{ env.PAGES_BASE_URL }}"
           RELEASE_BASE_URL_PREFIX="https://github.com/${{ github.repository }}/releases/download"
           PUBLISHED_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
-          VERSION="$(date -u +%Y.%m.%d)"
+          # Data + numero e tentativo della run (YYYY.MM.DD.<run>.<tentativo>): con la sola data una
+          # seconda run nello stesso giorno ricaricava con --clobber asset con lo stesso nome (e byte
+          # diversi) gia' referenziati dal manifest online. Gli script leggono la data dai nomi degli
+          # asset ignorando il suffisso (vedi POI_DATE in build-region.sh).
+          VERSION="$(date -u +%Y.%m.%d).${{ github.run_number }}.${{ github.run_attempt }}"
           mkdir -p "$OUTPUT_ROOT" "$RUNNER_TEMP/fragments"
+
+          # Manifest pubblicato scaricato una volta per shard e passato come file locale a
+          # build-region.sh, build-addresses.sh e build-cities.sh (fetch_published_manifest in lib.sh),
+          # invece di tre download per regione. Stessa semantica degli script: non scaricabile =
+          # errore, 404 = prima pubblicazione (si lascia l'URL, gli script vedono lo stesso 404).
+          PUBLISHED_MANIFEST_FILE="$RUNNER_TEMP/published-manifest.json"
+          PUBLISHED_MANIFEST_HTTP="$(fetch_published_manifest "$PUBLISHED_MANIFEST_URL" "$PUBLISHED_MANIFEST_FILE")"
+          if [ "$PUBLISHED_MANIFEST_HTTP" = "200" ]; then
+            PUBLISHED_MANIFEST_URL="$PUBLISHED_MANIFEST_FILE"
+          elif [ "$PUBLISHED_MANIFEST_HTTP" != "404" ]; then
+            echo "ERRORE: manifest pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL (HTTP ${PUBLISHED_MANIFEST_HTTP:-000})" >&2
+            exit 1
+          fi
 
           # Risolta una volta per l'intero shard (non da ogni build-region.sh, vedi lib.sh): stessa
           # build Protomaps per tutte le regioni di questa run, evita fino a 4 richieste HEAD
@@ -486,9 +509,9 @@ jobs:
                 # poi.db.xz, poi-extra.db.xz + segmenti .rd5 (zero o piu' a seconda di quante tile intersecano il
                 # bbox) caricati come asset della release, rinominati con un prefisso
                 # regionId--version-- per essere univoci nell'intera release (che accumula tutte
-                # le regioni). --clobber: un rilancio della stessa regione nello stesso giorno
-                # (stessa VERSION) deve poter sovrascrivere l'asset gia' caricato in un tentativo
-                # precedente fallito a meta'.
+                # le regioni). --clobber: un nuovo tentativo di upload qui sotto deve poter
+                # sovrascrivere l'asset caricato a meta' dal tentativo fallito (VERSION e' unica per
+                # run e tentativo, quindi non tocca mai asset di altre run).
                 # In modalita' incrementale (.incremental, vedi build-region.sh sezione 2bis) si
                 # caricano solo le tile cambiate, piu' poi.db.xz/poi-extra.db.xz se erano scaduti e sono cambiati,
                 # addresses.pmtiles.xz se build-addresses.sh ne ha prodotto uno nuovo e cities.db.xz se
@@ -576,7 +599,7 @@ jobs:
 
       - name: Carica i frammenti manifest dello shard
         if: steps.build.outputs.has_fragments == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: manifest-fragments-${{ matrix.shard }}
           path: |
@@ -595,6 +618,10 @@ jobs:
   publish:
     needs: [guides, world-map, build]
     if: ${{ !cancelled() }}
+    # Un deploy su Pages (e un merge/pulizia sul manifest) alla volta: vedi il commento sulla concurrency in testa al file.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     # contents: write per togliere gli asset non piu' referenziati (ultimo passo).
     permissions:
@@ -605,7 +632,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       # I dati che richiedono un'app piu' recente (min-app-version-code, vedi assemble-site.sh) non
       # si pubblicano prima di quell'app: le installazioni esistenti bloccherebbero i download
@@ -629,19 +656,19 @@ jobs:
           fi
           echo "-- min-app-version-code $MIN_APP_VERSION_CODE, app rilasciata $RELEASED_VERSION_CODE: ok"
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: manifest-fragments-*
           path: ${{ runner.temp }}/fragments
           merge-multiple: true
         continue-on-error: true
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '25'
 
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
 
       - name: Assembla il sito
         id: assemble
@@ -662,7 +689,12 @@ jobs:
           # del deploy) e la pulizia degli asset (ultimo passo) per il periodo di grazia di una generazione.
           curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/manifest.json" \
             -o "$RUNNER_TEMP/previous-manifest.json" || rm -f "$RUNNER_TEMP/previous-manifest.json"
-          tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$PAGES_BASE_URL/manifest.json" "${FRAGMENT_FILES[@]}"
+          # Stesso file anche per il merge (curl legge file://), senza scaricarlo una seconda volta; se
+          # il download sopra e' fallito assemble-site.sh riprova dall'URL e decide lui (errore, o
+          # BOOTSTRAP=1 alla prima pubblicazione).
+          MERGE_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
+          [ ! -s "$RUNNER_TEMP/previous-manifest.json" ] || MERGE_MANIFEST_URL="file://$RUNNER_TEMP/previous-manifest.json"
+          tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$MERGE_MANIFEST_URL" "${FRAGMENT_FILES[@]}"
           # Tempi per regione (peso degli shard nel job "plan"): quelli pubblicati, aggiornati con
           # quelli di questa run. Pages sostituisce l'intero sito, quindi si riportano ogni volta.
           PUBLISHED_TIMINGS="$RUNNER_TEMP/published-timings.tsv"
@@ -710,18 +742,18 @@ jobs:
           fi
           echo "-- nessuna regione persa ($(jq '.regions | length' "$PREVIOUS_MANIFEST") prima, $(jq '.regions | length' "$MANIFEST") ora)"
 
-      - uses: actions/configure-pages@v6
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       # Un nome per tentativo: ogni rilancio di una run carica un altro artefatto nella stessa
       # run, e deploy-pages rifiuta di pubblicare se ne trova piu' d'uno con lo stesso nome
       # ("Multiple artifacts named github-pages", run del 2026-09-21 al terzo tentativo).
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
           name: github-pages-${{ github.run_attempt }}
           path: ${{ steps.assemble.outputs.site_dir }}
 
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
         with:
           artifact_name: github-pages-${{ github.run_attempt }}
 
@@ -754,17 +786,23 @@ jobs:
             echo "Il manifest non referenzia alcun asset di release: non cancello nulla" >&2
             exit 1
           fi
+          # Gli asset caricati nelle ultime 24 ore restano anche se non referenziati: possono essere di
+          # un'altra run ancora in corso (vedi il commento sulla concurrency in testa al file), la
+          # pulizia della run successiva li togliera'.
+          CUTOFF="$(date -u -d '-24 hours' +%Y-%m-%dT%H:%M:%SZ)"
           for tag in $(gh release list --repo "${{ github.repository }}" --limit 200 --json tagName --jq '.[].tagName' | grep -E '^(region-data|world-map)'); do
             deleted=0
             total=0
-            while read -r name; do
+            # Elenco completo a pagine di 100 (quello dentro la release puo' essere troncato).
+            releaseId="$(gh api "repos/${{ github.repository }}/releases/tags/$tag" --jq '.id')"
+            while IFS=$'\t' read -r name createdAt; do
               [ -n "$name" ] || continue
               total=$((total + 1))
-              if ! grep -qxF "$tag/$name" "$REFERENCED"; then
+              if ! grep -qxF "$tag/$name" "$REFERENCED" && [[ "$createdAt" < "$CUTOFF" ]]; then
                 gh release delete-asset "$tag" "$name" --repo "${{ github.repository }}" --yes
                 deleted=$((deleted + 1))
               fi
-            done < <(gh release view "$tag" --repo "${{ github.repository }}" --json assets --jq '.assets[].name')
+            done < <(gh api --paginate "repos/${{ github.repository }}/releases/$releaseId/assets?per_page=100" --jq '.[] | [.name, .created_at] | @tsv')
             kept=$((total - deleted))
             echo "-- $tag: $deleted asset non referenziati rimossi, $kept restano"
             # Durante una rigenerazione completa i nuovi asset si sommano ai vecchi: sopra i 500

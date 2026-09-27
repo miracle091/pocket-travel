@@ -1,0 +1,13 @@
+# Aggiornamenti settimanali delle action (fissate a SHA di commit nei workflow, con la versione in
+# commento) e delle dipendenze Gradle (gradle/libs.versions.toml).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly

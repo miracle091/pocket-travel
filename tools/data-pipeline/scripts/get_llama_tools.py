@@ -24,6 +24,7 @@ Stampa la cartella dei binari, da passare a eval_gguf.py --llama-cpp / convert_g
 """
 import argparse
 import glob
+import hashlib
 import io
 import os
 import site
@@ -34,12 +35,29 @@ from pathlib import Path
 
 LLAMA_BUILD = "b11035"
 RELEASE = f"https://github.com/ggml-org/llama.cpp/releases/download/{LLAMA_BUILD}"
+# sha256 dei pacchetti della release LLAMA_BUILD (campo "digest" degli asset in
+# gh api repos/ggml-org/llama.cpp/releases/tags/b11035): da aggiornare insieme a LLAMA_BUILD.
+SHA256 = {
+    "llama-b11035-bin-win-cpu-x64.zip": "fdf221abf441b5ad813aebb2ce6e57f6016a91d5523a7a3216555287b3b6a552",
+    "llama-b11035-bin-win-vulkan-x64.zip": "d3b779409b0f5ca77e07d3242a396af99203887279ff18c3444f240bd3ea8811",
+    "llama-b11035-bin-win-rocm-10.0-x64.zip": "2c6abbc10f03d8b437ff85bae6a8522cc5053277c271f21e5a133eefac37fa99",
+    "llama-b11035-bin-win-cuda-12.4-x64.zip": "6ccbcd3c11733b77441f739ceed1e7e642e210edbba5ada32165df6731b56e4e",
+    "llama-b11035-bin-win-cuda-13.4-x64.zip": "1ac687e713639e7d2b569c493bf58bff47392441dd97ae51e1511014575e8b7b",
+    "cudart-llama-bin-win-cuda-12.4-x64.zip": "8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6",
+    "cudart-llama-bin-win-cuda-13.4-x64.zip": "738f8c251ac22b70c3ae6f83a10cf222725df0395246a2cf58f32bdb85fbe668",
+}
 
 
 def download(url, dest):
+    """Scarica lo zip, ne verifica lo sha256 (SHA256) e solo allora lo estrae in dest."""
     print(f"-- scarico {url}", file=sys.stderr)
     with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "PocketTravelDataPipeline"})) as r:
-        zipfile.ZipFile(io.BytesIO(r.read())).extractall(dest)
+        data = r.read()
+    name = url.rsplit("/", 1)[1]
+    digest = hashlib.sha256(data).hexdigest()
+    if digest != SHA256[name]:
+        sys.exit(f"{name}: sha256 {digest} diverso da quello atteso {SHA256[name]}, non estraggo")
+    zipfile.ZipFile(io.BytesIO(data)).extractall(dest)
 
 
 def rocm_lib_dirs():

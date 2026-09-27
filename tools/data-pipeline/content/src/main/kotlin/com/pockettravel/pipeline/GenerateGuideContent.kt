@@ -3,11 +3,7 @@ package com.pockettravel.pipeline
 import java.io.File
 import java.sql.DriverManager
 
-// Duplicato minimo di core/content/WikivoyageDumpParser.kt e WikivoyageSectionMapping.kt:
-// quel modulo e' una libreria Android (com.android.library), non consumabile da un modulo
-// Kotlin/JVM puro senza conflitti di variant Gradle — vedi il commento in
-// maptiles/build.gradle.kts per lo stesso problema con :core:*. La logica e' poche righe
-// di testo, non vale la pena riorganizzare i moduli app solo per condividerla.
+// Unico parser delle guide Wikivoyage (il vecchio core/content, mai usato dall'app, e' stato tolto).
 // Titoli IT (build-region.sh preferisce ora la pagina Wikivoyage italiana quando esiste, vedi
 // quel file): stesso schema di sezioni delle voci EN sul template di pagina-nazione, titoli
 // diversi. "Tenersi informati" mappa su VITA_QUOTIDIANA come il piu' vicino equivalente di "cope"
@@ -38,8 +34,7 @@ private val headingToCategory = mapOf(
 
 // (?!=)/(?<!=) escludono i sotto-titoli ===/==== (3+ segni "="): senza, un "===Get in==="
 // verrebbe trattato come un nuovo titolo di sezione (non mappato), troncando silenziosamente
-// tutto il testo reale di Wikivoyage dopo la prima sottosezione — stesso fix di
-// core/content/WikivoyageDumpParser.kt.
+// tutto il testo reale di Wikivoyage dopo la prima sottosezione.
 private val headingRegex = Regex("""^==(?!=)\s*(.+?)\s*(?<!=)==$""")
 private val htmlCommentRegex = Regex("""(?s)<!--.*?-->""")
 // Da tenere prima di htmlTagRegex: quest'ultimo toglie solo i tag <ref>/</ref>, lasciando il

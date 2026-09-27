@@ -272,7 +272,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
   # Con ritentativi e, se non arriva, errore: una rigenerazione completa per un problema di rete
   # darebbe nuove versioni (e riscaricamenti) a mappa, routing e POI senza motivo. Solo un 404 (nessun
   # manifest ancora pubblicato, prima pubblicazione) porta alla rigenerazione completa.
-  PUBLISHED_MANIFEST_HTTP="$(curl -sSf --retry 5 --retry-all-errors -o "$PUBLISHED_MANIFEST" -w '%{http_code}' "$PUBLISHED_MANIFEST_URL" 2>/dev/null || true)"
+  PUBLISHED_MANIFEST_HTTP="$(fetch_published_manifest "$PUBLISHED_MANIFEST_URL" "$PUBLISHED_MANIFEST")"
   if [ "$PUBLISHED_MANIFEST_HTTP" != "200" ] && [ "$PUBLISHED_MANIFEST_HTTP" != "404" ]; then
     echo "ERRORE: manifest pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL (HTTP ${PUBLISHED_MANIFEST_HTTP:-000})" >&2
     exit 1
@@ -313,12 +313,13 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
     ' "$PUBLISHED_MANIFEST" 2>/dev/null || echo "[]")"
 
     # Eta' del poi.db pubblicato, dal nome dell'asset (regionId--YYYY.MM.DD--poi.db, o --content.db
-    # per le regioni convertite dal formato v1). Serve sia allo skip qui sotto sia all'aggiornamento
+    # per le regioni convertite dal formato v1; dal 2026-09-27 la versione ha anche il suffisso della
+    # run, YYYY.MM.DD.<run>.<tentativo>). Serve sia allo skip qui sotto sia all'aggiornamento
     # incrementale: senza, una regione con le tile invariate verrebbe saltata per sempre e i suoi
     # POI non si aggiornerebbero mai.
     PUBLISHED_REGION="$(jq -c --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id)][0] // empty' "$PUBLISHED_MANIFEST" 2>/dev/null || true)"
     PUBLISHED_POI_URL="$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.file.url // ""' 2>/dev/null || true)"
-    POI_DATE="$(printf '%s' "$PUBLISHED_POI_URL" | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)--\(poi\|content\)\.db\(\.xz\)\?$#\1#p')"
+    POI_DATE="$(printf '%s' "$PUBLISHED_POI_URL" | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)\(\.[0-9][0-9.]*\)\?--\(poi\|content\)\.db\(\.xz\)\?$#\1#p')"
     POI_AGE_DAYS=""
     if [ -n "$POI_DATE" ]; then
       POI_AGE_DAYS="$(( ($(date -u +%s) - $(date -u -d "${POI_DATE//./-}" +%s)) / 86400 ))"
@@ -330,7 +331,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
       --args="https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles $MIN_LON $MIN_LAT $MAX_LON $MAX_LAT $MAP_FINGERPRINT_MIN_ZOOM $MAP_MAX_ZOOM" 2>/dev/null \
       | sed -n 's/.*impronta \([0-9a-f]\{64\}\).*/\1/p' | tail -1 || true)"
     PUBLISHED_MAP_FINGERPRINT="$(printf '%s' "$PUBLISHED_REGION" | jq -r '.map.fingerprint // ""' 2>/dev/null || true)"
-    PUBLISHED_MAP_DATE="$(printf '%s' "$PUBLISHED_REGION" | jq -r '.map.version // ""' 2>/dev/null | sed -n 's/^\([0-9]\{4\}\)\.\([0-9]\{2\}\)\.\([0-9]\{2\}\)$/\1-\2-\3/p' || true)"
+    PUBLISHED_MAP_DATE="$(printf '%s' "$PUBLISHED_REGION" | jq -r '.map.version // ""' 2>/dev/null | sed -n 's/^\([0-9]\{4\}\)\.\([0-9]\{2\}\)\.\([0-9]\{2\}\)\(\.[0-9][0-9.]*\)\?$/\1-\2-\3/p' || true)"
     MAP_DUE=false
     if [ -n "$MAP_FINGERPRINT" ] && [ -n "$PUBLISHED_MAP_FINGERPRINT" ] && [ "$MAP_FINGERPRINT" != "$PUBLISHED_MAP_FINGERPRINT" ] && [ -n "$PUBLISHED_MAP_DATE" ]; then
       MAP_AGE_DAYS="$(( ($(date -u +%s) - $(date -u -d "$PUBLISHED_MAP_DATE" +%s)) / 86400 ))"

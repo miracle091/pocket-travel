@@ -221,7 +221,7 @@ if command -v jq >/dev/null 2>&1; then
   while IFS=$'\t' read -r version names; do
     CHANGELOG_HTML="$CHANGELOG_HTML<dt>$version</dt><dd>$names</dd>"
   done < <(jq -r '
-    [.regions[] | {displayName, version: ([.map.version, .routing.version, .poi.version] | map(select(. != null)) | max)}
+    [.regions[] | {displayName, version: ([.map.version, .routing.version, .poi.version] | map(select(. != null)) | max | .[0:10])}
       | select(.version != null and .version != "")]
     | group_by(.version)
     | map({version: .[0].version, names: (map(.displayName) | sort | join(", "))})

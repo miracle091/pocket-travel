@@ -57,7 +57,7 @@ fi
 # un 404 (prima pubblicazione) vale come "nessuna voce pubblicata".
 PUBLISHED_ENTRY=""
 if [ -n "$PUBLISHED_MANIFEST_URL" ]; then
-  PUBLISHED_HTTP="$(curl -sSf --retry 5 --retry-all-errors -o "$WORKDIR/published.json" -w '%{http_code}' "$PUBLISHED_MANIFEST_URL" 2>/dev/null || true)"
+  PUBLISHED_HTTP="$(fetch_published_manifest "$PUBLISHED_MANIFEST_URL" "$WORKDIR/published.json")"
   if [ "$PUBLISHED_HTTP" = "200" ]; then
     PUBLISHED_ENTRY="$(jq -c --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id) | .cities // empty][0] // empty' "$WORKDIR/published.json")"
   elif [ "$PUBLISHED_HTTP" != "404" ]; then
