@@ -10,7 +10,17 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ### Modificato
 - Percorsi molto più leggeri: i dati per il calcolo dei percorsi sono ritagliati sulla regione invece di coprire un quadrato di 5 gradi (Lussemburgo da 415 a 6 MB, San Marino da 76 a 1 MB), con gli stessi percorsi dentro la regione e fino a circa 10 km oltre il confine. Arrivano con il prossimo aggiornamento di ogni regione.
+- Modelli dell'assistente addestrati sulle guide (0,8B, 2B e 4B) pronti: in prova rifiutano quasi sempre le domande a cui la guida non risponde (96-100%, contro 0-58% dei modelli generici) e sbagliano un rifiuto solo nel 3-5% delle domande legittime. Arrivano nell'app quando saranno pubblicati.
 - Strumenti di addestramento dell'assistente: dati più puliti (risposte più brevi e senza link, niente introduzioni enciclopediche, un quarto di esempi di rifiuto, fonti ridotte a Wikivoyage e Wikipedia), regioni di test fisse, quantizzazione calibrata sulle guide (imatrix) e una riga di stato leggibile con avanzamento, velocità e tempo mancante in addestramento, valutazione e conversione.
+
+### Corretto
+- Un download di regione interrotto proprio alla fine non resta più bloccato per sempre; i file temporanei di un download fallito o di una regione eliminata vengono cancellati, ed eliminare una regione ferma anche il suo download in corso.
+- La mappa non va più in crash quando c'è un solo punto da mostrare, e i punti vengono ridisegnati solo quando cambiano.
+- I profili dei percorsi si aggiornano insieme all'app.
+- Assistente: le risposte non superano più la lunghezza prevista, emoji e caratteri rari non arrivano più corrotti, e parole come "NEAR" o "NOT" nella domanda non disturbano più la ricerca nella guida.
+- La foto del passaporto non resta mai in chiaro nei file temporanei, e le miniature si caricano senza bloccare lo schermo.
+- Il browser interno libera la memoria quando si chiude; la pagina di una regione non mostra più per un attimo la mappa prima di sapere se è installata.
+- Pubblicazione dei dati più sicura: un problema di rete non può più far cancellare i pacchetti delle altre regioni né far pubblicare una regione senza una parte dei percorsi.
 
 ## [0.7.0]
 
