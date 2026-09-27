@@ -121,6 +121,47 @@ class ValidateManifestTest {
         }
     }
 
+    private fun withPreview(url: String, fileXz: String = "") = validManifest().replace(
+        "\"poi\": {",
+        """"preview": { "version": "2026.09.26", "maxZoom": 9, "file": { "name": "preview.pmtiles", "url": "$url", "sizeBytes": 1200000, "sha256": "${"1".repeat(64)}" }$fileXz },
+          "poi": {""",
+    )
+
+    @Test
+    fun `accetta l'anteprima facoltativa e ne controlla l'host`() {
+        val url = "https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.26--preview.pmtiles.xz"
+        validateManifestJson(withPreview(url), allowedHosts)
+        assertThrows(ManifestValidationException::class.java) { validateManifestJson(withPreview("https://evil.example.com/preview.pmtiles.xz"), allowedHosts) }
+    }
+
+    @Test
+    fun `accetta la copia compressa facoltativa dell'anteprima e ne controlla l'host`() {
+        val goodUrl = "https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.26--preview.pmtiles.xz"
+        fun fileXz(url: String) = ""","fileXz": { "name": "preview.pmtiles.xz", "url": "$url", "sizeBytes": 900000, "sha256": "${"2".repeat(64)}" }"""
+        validateManifestJson(withPreview(goodUrl, fileXz(goodUrl)), allowedHosts)
+        assertThrows(ManifestValidationException::class.java) {
+            validateManifestJson(withPreview(goodUrl, fileXz("https://evil.example.com/preview.pmtiles.xz")), allowedHosts)
+        }
+    }
+
+    @Test
+    fun `rifiuta un maxZoom non valido per l'anteprima`() {
+        val url = "https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.26--preview.pmtiles.xz"
+        val json = withPreview(url).replace("\"maxZoom\": 9", "\"maxZoom\": 99")
+        assertThrows(ManifestValidationException::class.java) { validateManifestJson(json, allowedHosts) }
+    }
+
+    private fun withWorldMap(url: String) =
+        """{ "manifestVersion": 2, $guides, "worldMap": { "version": "20260926", "maxZoom": 8, "url": "$url", "sizeBytes": 555000000 }, "regions": [${region()}] }"""
+
+    @Test
+    fun `accetta la mappa del mondo facoltativa e ne controlla l'host`() {
+        validateManifestJson(withWorldMap("https://github.com/miracle091/pocket-travel/releases/download/world-map/world-20260926-z8.pmtiles"), allowedHosts)
+        assertThrows(ManifestValidationException::class.java) {
+            validateManifestJson(withWorldMap("https://evil.example.com/world-20260926-z8.pmtiles"), allowedHosts)
+        }
+    }
+
     @Test
     fun `rifiuta civici su un host non consentito`() {
         assertThrows(ManifestValidationException::class.java) {

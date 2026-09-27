@@ -108,6 +108,40 @@ class GenerateManifestTest {
             assertEquals("2026.09.14", poiExtra.getString("version"))
             assertEquals("poi-extra.db", poiExtra.getJSONObject("file").getString("name"))
             assertEquals(5L, poiExtra.getJSONObject("file").getLong("sizeBytes"))
+
+            // Anteprima facoltativa: stessa versione, maxZoom dalla spec, niente fileXz (aggiunto
+            // dopo da build-region.sh, come per poi.fileXz).
+            val previewPmtiles = File(packageDir, "preview.pmtiles").apply { writeText("anteprima") }
+            spec.put(
+                "previewPmtiles",
+                JSONObject().put("path", previewPmtiles.absolutePath).put("url", "https://example.org/sm/preview.pmtiles.xz").put("maxZoom", 9),
+            )
+            val preview = JSONObject(buildRegionFragmentJsonFromSpec(spec.toString()))
+                .getJSONArray("regions").getJSONObject(0).getJSONObject("preview")
+            assertEquals("2026.09.14", preview.getString("version"))
+            assertEquals(9, preview.getInt("maxZoom"))
+            assertEquals("preview.pmtiles", preview.getJSONObject("file").getString("name"))
+            assertEquals(sha256Of(previewPmtiles), preview.getJSONObject("file").getString("sha256"))
+            assertFalse(preview.has("fileXz"))
+        } finally {
+            packageDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `senza previewPmtiles nella spec la regione non ha la voce preview`() {
+        val packageDir = createTempDirectory("pocket-travel-test-manifest-no-preview").toFile()
+        try {
+            val poiDb = File(packageDir, "poi.db").apply { writeText("contenuto") }
+            val region = JSONObject(
+                buildRegionFragmentJson(
+                    "test-region", "Regione di Test", "1", "2026-09-10T00:00:00Z", mapSource,
+                    routingFiles = listOf(rd5),
+                    poiFile = localFileEntry(poiDb, "poi.db", "https://example.org/poi.db"),
+                ),
+            ).getJSONArray("regions").getJSONObject(0)
+
+            assertFalse(region.has("preview"))
         } finally {
             packageDir.deleteRecursively()
         }

@@ -10,7 +10,11 @@ name: Publish regions
 # commento in testa a tools/data-pipeline/scripts/build-region.sh.
 #
 # Il pacchetto guide (job "guides") si rigenera a ogni run per tutte le regioni: e' piccolo, e
-# build-guides.sh pubblica una nuova versione solo se il contenuto e' cambiato.
+# build-guides.sh pubblica una nuova versione solo se il contenuto e' cambiato. Ogni regione porta
+# anche un'anteprima offline a pochi zoom (preview.pmtiles, stesso trattamento di poi.db - vedi
+# build-region.sh) e il manifest ha in cima "worldMap": mappa del mondo online a bassa risoluzione
+# (job "world-map"), sulla release "world-map", rigenerata solo ogni ~30 giorni o se assente (vedi
+# .claude/docs/map-preview-online-plan.md).
 #
 # Trigger: 7 righe schedule (una per giorno) rigenerano automaticamente il bucket del giorno
 # (tools/data-pipeline/scripts/weekly-schedule.sh, generato da generate-weekly-schedule.sh —
@@ -234,6 +238,81 @@ jobs:
           path: ${{ runner.temp }}/fragments/guides.json
           retention-days: 1
 
+  # Mappa del mondo online a bassa risoluzione (z0-8, ~555 MB), sulla release "world-map": letta
+  # dall'app a pezzi con richieste Range quando la mappa di una regione non e' scaricata ma c'e'
+  # rete (vedi .claude/docs/map-preview-online-plan.md, "Decisioni" del 2026-09-27). Un solo job,
+  # non sharded: un solo file per l'intero pianeta. Si rigenera solo se quella pubblicata ha piu' di
+  # WORLD_MAP_MAX_AGE_DAYS giorni o manca del tutto - altrimenti il job non produce nulla e la voce
+  # gia' pubblicata resta (mergeManifests la riporta avanti dal manifest online, come "guides").
+  world-map:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      WORLD_MAP_MAX_AGE_DAYS: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      # go-pmtiles: stessa versione e installazione del job "build" sotto.
+      - name: Installa go-pmtiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL -o "$RUNNER_TEMP/go-pmtiles.tar.gz" https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_x86_64.tar.gz
+          echo "3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f  $RUNNER_TEMP/go-pmtiles.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$RUNNER_TEMP/go-pmtiles.tar.gz" -C "$RUNNER_TEMP/bin" pmtiles
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Rigenera la mappa del mondo se serve
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          # shellcheck source=./tools/data-pipeline/scripts/lib.sh
+          source tools/data-pipeline/scripts/lib.sh
+          PROTOMAPS_DATE="$(resolve_protomaps_date)"
+          echo "-- build Protomaps: ${PROTOMAPS_DATE}.pmtiles"
+
+          PUBLISHED_DATE=""
+          if curl -sSfL "${{ env.PAGES_BASE_URL }}/manifest.json" -o "$RUNNER_TEMP/published-manifest.json" 2>/dev/null; then
+            PUBLISHED_DATE="$(jq -r '.worldMap.version // ""' "$RUNNER_TEMP/published-manifest.json")"
+          fi
+          if [ -n "$PUBLISHED_DATE" ]; then
+            AGE_DAYS="$(( ($(date -u +%s) - $(date -u -d "$PUBLISHED_DATE" +%s)) / 86400 ))"
+            if [ "$AGE_DAYS" -le "$WORLD_MAP_MAX_AGE_DAYS" ]; then
+              echo "-- mappa del mondo pubblicata il $PUBLISHED_DATE, $AGE_DAYS giorni fa (max $WORLD_MAP_MAX_AGE_DAYS): non la rigenero"
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          gh release view world-map --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+            gh release create world-map --repo "${{ github.repository }}" \
+              --title "Mappa del mondo" \
+              --notes "Mappa del mondo a bassa risoluzione (z0-8) per l'app Pocket Travel, letta online a pezzi. Non e' una release software."
+
+          # Estratta direttamente col nome dell'asset: niente copia di un file da ~555 MB
+          ASSET_NAME="world-${PROTOMAPS_DATE}-z8.pmtiles"
+          ASSET="$RUNNER_TEMP/$ASSET_NAME"
+          pmtiles extract "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" "$ASSET" --maxzoom=8
+          gh release upload world-map "$ASSET" --repo "${{ github.repository }}" --clobber
+
+          SIZE="$(wc -c < "$ASSET" | tr -d ' ')"
+          mkdir -p "$RUNNER_TEMP/fragments"
+          jq -n -c --arg version "$PROTOMAPS_DATE" \
+            --arg url "https://github.com/${{ github.repository }}/releases/download/world-map/$ASSET_NAME" --argjson size "$SIZE" \
+            '{manifestVersion: 2, worldMap: {version: $version, maxZoom: 8, url: $url, sizeBytes: $size}, regions: []}' \
+            > "$RUNNER_TEMP/fragments/world-map.json"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Carica il frammento manifest della mappa del mondo
+        if: steps.build.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-fragments-world-map
+          path: ${{ runner.temp }}/fragments/world-map.json
+          retention-days: 1
+
   # Genera i pacchetti regionali (poi.db + .rd5) per lo shard assegnato e carica gli asset
   # sulla release "region-data". I frammenti manifest prodotti vanno come artifact al job
   # "publish" sotto (job diversi non condividono il filesystem).
@@ -363,8 +442,9 @@ jobs:
                 # caricano solo le tile cambiate, piu' poi.db.xz/poi-extra.db.xz se erano scaduti e sono cambiati e
                 # addresses.pmtiles se build-addresses.sh ne ha prodotto uno nuovo.
                 uploads=()
-                # I POI si caricano solo compressi (vedi xz_entry in build-region.sh).
-                for xz in poi.db.xz poi-extra.db.xz; do
+                # I POI e l'anteprima si caricano solo compressi (vedi xz_entry/build_preview in
+                # build-region.sh).
+                for xz in poi.db.xz poi-extra.db.xz preview.pmtiles.xz; do
                   [ -f "$regionOut/$xz" ] || continue
                   xzAsset="$regionOut/${regionId}--${VERSION}--$xz"
                   cp "$regionOut/$xz" "$xzAsset"
@@ -457,14 +537,16 @@ jobs:
             ${{ runner.temp }}/fragments/*.tsv
           retention-days: 1
 
-  # Riunisce i frammenti manifest di tutti gli shard (e delle guide) col manifest gia' pubblicato e
-  # pubblica su Pages. Gira comunque (!cancelled()) anche se uno shard e' fallito del tutto, cosi' il
-  # lavoro degli shard riusciti non va perso — se pero' NESSuno shard ha prodotto frammenti, il passo
-  # sotto fallisce esplicitamente (niente da assemblare/pubblicare). Senza il frammento guide il
-  # manifest resta con le guide gia' pubblicate; se non ce ne sono (prima run nel formato a
-  # pacchetti) la validazione fallisce e non si pubblica nulla.
+  # Riunisce i frammenti manifest di tutti gli shard (e delle guide, e della mappa del mondo) col
+  # manifest gia' pubblicato e pubblica su Pages. Gira comunque (!cancelled()) anche se uno shard e'
+  # fallito del tutto, cosi' il lavoro degli shard riusciti non va perso — se pero' NESSuno shard ha
+  # prodotto frammenti, il passo sotto fallisce esplicitamente (niente da assemblare/pubblicare).
+  # Senza il frammento guide il manifest resta con le guide gia' pubblicate; se non ce ne sono
+  # (prima run nel formato a pacchetti) la validazione fallisce e non si pubblica nulla. Senza il
+  # frammento world-map (nessuna rigenerazione in questa run, il caso comune) resta la mappa del
+  # mondo gia' pubblicata, se c'e'.
   publish:
-    needs: [guides, build]
+    needs: [guides, world-map, build]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     environment:
@@ -542,11 +624,12 @@ jobs:
 
       # Gli asset si chiamano regionId--VERSION--file: ogni rigenerazione ne aggiunge di nuovi
       # senza togliere i vecchi, e ogni release e' limitata a 1000 asset. Dopo il deploy (i vecchi
-      # URL restano in uso fino ad allora) si cancella da ogni release "region-data*" cio' che il
-      # manifest appena pubblicato non referenzia piu'. Il manifest e' cumulativo (frammenti di
-      # questa run + regioni gia' pubblicate), quindi le regioni non toccate restano intatte.
-      # Periodo di grazia di una generazione: resta anche cio' che referenziava il manifest
-      # precedente (le app che l'hanno appena letto scaricano ancora quegli URL).
+      # URL restano in uso fino ad allora) si cancella da ogni release "region-data*" e da
+      # "world-map" cio' che il manifest appena pubblicato non referenzia piu'. Il manifest e'
+      # cumulativo (frammenti di questa run + regioni/mappa del mondo gia' pubblicate), quindi le
+      # regioni non toccate restano intatte. Periodo di grazia di una generazione: resta anche cio'
+      # che referenziava il manifest precedente (le app che l'hanno appena letto scaricano ancora
+      # quegli URL).
       - name: Rimuove gli asset non piu' referenziati dal manifest
         shell: bash
         env:
@@ -575,7 +658,7 @@ jobs:
             echo "Il manifest non referenzia alcun asset di release: non cancello nulla" >&2
             exit 1
           fi
-          for tag in $(gh release list --repo "${{ github.repository }}" --limit 200 --json tagName --jq '.[].tagName' | grep '^region-data'); do
+          for tag in $(gh release list --repo "${{ github.repository }}" --limit 200 --json tagName --jq '.[].tagName' | grep -E '^(region-data|world-map)'); do
             deleted=0
             total=0
             while read -r name; do

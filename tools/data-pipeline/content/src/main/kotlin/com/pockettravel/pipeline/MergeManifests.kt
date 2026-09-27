@@ -33,6 +33,12 @@ import org.json.JSONObject
  * knownRegionIds (le regioni di pilot-regions.sh), se indicato, scarta le regioni che non ne fanno
  * piu' parte: senza, una regione tolta dal lotto pilota resterebbe per sempre nel manifest,
  * ricopiata a ogni run da quello gia' pubblicato.
+ *
+ * "worldMap" (mappa del mondo online, vedi map-preview-online-plan.md) e' come "guides": non una
+ * regione, vince l'ultimo frammento che la contiene. Il job che la rigenera (publish-regions.yml)
+ * ne produce uno solo quando serve davvero (mappa pubblicata assente o troppo vecchia): se non gira
+ * o non rigenera nulla, la voce gia' pubblicata (nel manifest online, sempre il primo input di
+ * questa funzione) resta cosi' com'e'.
  */
 fun mergeManifestJson(
     manifestJsons: List<String>,
@@ -49,11 +55,13 @@ fun mergeManifestJson(
     val regionsById = LinkedHashMap<String, JSONObject>()
     val wikivoyageUrls = mutableMapOf<String, String>()
     var guides: JSONObject? = null
+    var worldMap: JSONObject? = null
     manifestJsons.forEach { json ->
         val root = JSONObject(json)
         val manifestVersion = root.getInt("manifestVersion")
         require(manifestVersion == 1 || manifestVersion == MANIFEST_VERSION) { "manifestVersion non supportata: $manifestVersion" }
         root.optJSONObject("guides")?.let { guides = it }
+        root.optJSONObject("worldMap")?.let { worldMap = it }
         root.optJSONObject("wikivoyageUrls")?.let { urls -> urls.keySet().forEach { wikivoyageUrls[it] = urls.getString(it) } }
         val regions = root.getJSONArray("regions")
         for (i in 0 until regions.length()) {
@@ -97,6 +105,7 @@ fun mergeManifestJson(
 
     val merged = JSONObject().put("manifestVersion", MANIFEST_VERSION)
     guides?.let { merged.put("guides", it) }
+    worldMap?.let { merged.put("worldMap", it) }
     merged.put("regions", JSONArray(regionsById.values.toList()))
     if (completed.isNotEmpty()) {
         merged.put(

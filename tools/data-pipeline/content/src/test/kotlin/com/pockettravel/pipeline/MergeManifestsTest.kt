@@ -198,6 +198,27 @@ class MergeManifestsTest {
     }
 
     @Test
+    fun `la mappa del mondo dell'ultimo frammento sostituisce quella pubblicata`() {
+        val worldMapFragment = """{"manifestVersion": 2, "worldMap": {"version": "20260926", "maxZoom": 8, "url": "https://github.com/miracle091/pocket-travel/releases/download/world-map/world-20260926-z8.pmtiles", "sizeBytes": 555000000}, "regions": []}"""
+        val giaPubblicato = mergeManifestJson(listOf(worldMapFragment, fragmentFor("san-marino", "San Marino")))
+
+        val merged = JSONObject(mergeManifestJson(listOf(giaPubblicato, fragmentFor("italia", "Italia"))))
+
+        assertEquals("20260926", merged.getJSONObject("worldMap").getString("version"))
+        assertTrue(regionsById(merged).keys.containsAll(setOf("san-marino", "italia")))
+    }
+
+    @Test
+    fun `senza un nuovo frammento worldMap resta quello gia' pubblicato`() {
+        val worldMapFragment = """{"manifestVersion": 2, "worldMap": {"version": "20260926", "maxZoom": 8, "url": "https://github.com/miracle091/pocket-travel/releases/download/world-map/world-20260926-z8.pmtiles", "sizeBytes": 555000000}, "regions": []}"""
+        val giaPubblicato = mergeManifestJson(listOf(worldMapFragment, fragmentFor("san-marino", "San Marino")))
+
+        val merged = JSONObject(mergeManifestJson(listOf(giaPubblicato, fragmentFor("san-marino", "San Marino", "2"))))
+
+        assertEquals("20260926", merged.getJSONObject("worldMap").getString("version"))
+    }
+
+    @Test
     fun `porta la mappa di tutte le regioni sulla build Protomaps corrente`() {
         val merged = JSONObject(
             mergeManifestJson(

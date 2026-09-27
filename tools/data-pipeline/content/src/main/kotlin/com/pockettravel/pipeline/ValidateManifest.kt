@@ -37,6 +37,17 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
     validateVersion(guides, "guide")
     validateFile(guides.getJSONObject("file"), "guide", allowedHosts)
 
+    // Mappa del mondo online (facoltativa, vedi map-preview-online-plan.md): non un "file" da
+    // verificare dopo il download (letta a pezzi con richieste Range), solo url/sizeBytes/maxZoom.
+    root.optJSONObject("worldMap")?.let { worldMap ->
+        validateVersion(worldMap, "worldMap")
+        val maxZoom = worldMap.getInt("maxZoom")
+        if (maxZoom !in 0..22) throw ManifestValidationException("worldMap.maxZoom non valido: $maxZoom")
+        if (worldMap.getLong("sizeBytes") < 0) throw ManifestValidationException("worldMap.sizeBytes non valido")
+        val url = worldMap.getString("url")
+        if (!isAllowedUrl(url, allowedHosts)) throw ManifestValidationException("worldMap.url non consentito: $url")
+    }
+
     val regions = root.getJSONArray("regions")
     if (regions.length() == 0) throw ManifestValidationException("Il manifest non contiene regioni")
 
@@ -82,6 +93,16 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
         region.optJSONObject("addresses")?.let { addresses ->
             validateVersion(addresses, "$regionId/addresses")
             validateFile(addresses.getJSONObject("file"), regionId, allowedHosts)
+        }
+
+        // Anteprima offline: facoltativa (regioni non ancora rigenerate da quando esiste, o senza
+        // go-pmtiles in quella run), stesso schema di poi/poiExtra piu' il livello di zoom usato.
+        region.optJSONObject("preview")?.let { preview ->
+            validateVersion(preview, "$regionId/preview")
+            val maxZoom = preview.getInt("maxZoom")
+            if (maxZoom !in 0..22) throw ManifestValidationException("preview.maxZoom non valido per $regionId: $maxZoom")
+            validateFile(preview.getJSONObject("file"), regionId, allowedHosts)
+            preview.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
         }
     }
 

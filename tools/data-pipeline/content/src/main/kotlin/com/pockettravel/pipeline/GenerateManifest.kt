@@ -73,6 +73,11 @@ fun buildRegionFragmentJson(
     poiFile: ManifestFileEntry,
     // POI extra (scaricati solo su richiesta): assente se la regione non ne ha.
     poiExtraFile: ManifestFileEntry? = null,
+    // Anteprima offline (preview.pmtiles, vedi map-preview-online-plan.md): assente se go-pmtiles
+    // non e' disponibile in questa run (build-region.sh continua senza, mai fatale). fileXz non e'
+    // qui: build-region.sh lo aggiunge dopo con lo stesso schema di poi.fileXz (xz_entry).
+    previewFile: ManifestFileEntry? = null,
+    previewMaxZoom: Int? = null,
 ): String {
     require(routingFiles.isNotEmpty()) { "Il routing di $regionId non contiene segmenti .rd5" }
 
@@ -84,6 +89,9 @@ fun buildRegionFragmentJson(
         .put("routing", JSONObject().put("version", version).put("files", JSONArray(routingFiles.map { it.toJson() })))
         .put("poi", JSONObject().put("version", version).put("file", poiFile.toJson()))
     poiExtraFile?.let { region.put("poiExtra", JSONObject().put("version", version).put("file", it.toJson())) }
+    if (previewFile != null && previewMaxZoom != null) {
+        region.put("preview", JSONObject().put("version", version).put("maxZoom", previewMaxZoom).put("file", previewFile.toJson()))
+    }
 
     return JSONObject()
         .put("manifestVersion", MANIFEST_VERSION)
@@ -115,7 +123,8 @@ fun buildGuidesFragmentJson(version: String, file: ManifestFileEntry, wikivoyage
  *   "poiDb": { "path": "/abs/poi.db", "url": "https://.../poi.db" },
  *   "poiExtraDb": { "path": "/abs/poi-extra.db", "url": "https://.../poi-extra.db" },   (facoltativo)
  *   "routingFiles": [ { "name": "E10_N40.rd5", "url": "...", "sizeBytes": 123, "sha256": "..." } ],
- *   "mapSource": { "sourceUrl": "...", "minLon": .., "minLat": .., "maxLon": .., "maxLat": .., "minZoom": 0, "maxZoom": 14 }
+ *   "mapSource": { "sourceUrl": "...", "minLon": .., "minLat": .., "maxLon": .., "maxLat": .., "minZoom": 0, "maxZoom": 14 },
+ *   "previewPmtiles": { "path": "/abs/preview.pmtiles", "url": "https://.../preview.pmtiles.xz", "maxZoom": 9 }   (facoltativo)
  * }
  */
 fun buildRegionFragmentJsonFromSpec(specJson: String): String {
@@ -134,6 +143,7 @@ fun buildRegionFragmentJsonFromSpec(specJson: String): String {
         }
     }
     val ms = spec.getJSONObject("mapSource")
+    val preview = spec.optJSONObject("previewPmtiles")
     return buildRegionFragmentJson(
         regionId = spec.getString("regionId"),
         displayName = spec.getString("displayName"),
@@ -150,6 +160,8 @@ fun buildRegionFragmentJsonFromSpec(specJson: String): String {
         poiExtraFile = spec.optJSONObject("poiExtraDb")?.let {
             localFileEntry(File(it.getString("path")), "poi-extra.db", it.getString("url"))
         },
+        previewFile = preview?.let { localFileEntry(File(it.getString("path")), "preview.pmtiles", it.getString("url")) },
+        previewMaxZoom = preview?.getInt("maxZoom"),
     )
 }
 
