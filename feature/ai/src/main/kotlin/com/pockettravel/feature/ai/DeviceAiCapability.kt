@@ -24,6 +24,13 @@ class DeviceAiCapability @Inject constructor(
         return ramTierFor(memoryInfo.totalMem)
     }
 
+    /**
+     * Numero di thread nativi da usare per l'inferenza llama.cpp: i core disponibili meno 1 (per
+     * lasciare margine a UI/sistema), limitato in base alla fascia di RAM cosi' un device con
+     * molti core ma poca RAM non viene comunque sovraccaricato.
+     */
+    fun inferenceThreadCount(): Int = inferenceThreadCountFor(ramTier(), Runtime.getRuntime().availableProcessors())
+
     companion object {
         const val MIN_RAM_BYTES = 4L * 1024 * 1024 * 1024
         const val COMFORTABLE_RAM_BYTES = 8L * 1024 * 1024 * 1024
@@ -40,5 +47,16 @@ class DeviceAiCapability @Inject constructor(
         }
 
         fun isRamSufficient(totalMemBytes: Long): Boolean = ramTierFor(totalMemBytes) != RamTier.INSUFFICIENTE
+
+        // Estratta a parte per essere testabile in JVM puro, stesso motivo di ramTierFor.
+        fun inferenceThreadCountFor(ramTier: RamTier, availableCores: Int): Int {
+            // La RAM non dice quanti core ha il telefono (molti da 4 GB ne hanno 8): sotto i 12 GB
+            // resta il tetto di 4 di prima, solo la fascia AMPIA (telefoni di punta) sale a 6.
+            val cap = when (ramTier) {
+                RamTier.AMPIA -> 6
+                RamTier.CONFORTEVOLE, RamTier.MINIMO, RamTier.INSUFFICIENTE -> 4
+            }
+            return (availableCores - 1).coerceIn(1, cap)
+        }
     }
 }

@@ -25,6 +25,7 @@ class OnDeviceLlmEngine @Inject constructor(
     private val modelManager: LlmModelManager,
     private val coordinator: AiModelCoordinator,
     private val aiSettingsStore: AiSettingsStore,
+    private val deviceAiCapability: DeviceAiCapability,
 ) {
     private val mutex = Mutex()
     private val engine: InferenceEngine by lazy { InferenceEngineImpl.getInstance(context) }
@@ -89,7 +90,12 @@ class OnDeviceLlmEngine @Inject constructor(
         if (engine.state.value is InferenceEngine.State.Error) engine.cleanUp()
         val definition = aiSettingsStore.selectedModelDefinition()
         check(modelManager.isDownloaded(definition)) { "Modello IA non scaricato" }
-        engine.loadModel(modelManager.modelFile(definition).absolutePath, topK = TOP_K, topP = TOP_P)
+        engine.loadModel(
+            modelManager.modelFile(definition).absolutePath,
+            topK = TOP_K,
+            topP = TOP_P,
+            nThreads = deviceAiCapability.inferenceThreadCount(),
+        )
     }
 
     private companion object {

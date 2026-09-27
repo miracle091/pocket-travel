@@ -20,7 +20,12 @@ interface InferenceEngine {
      *
      * @throws UnsupportedArchitectureException if model architecture not supported
      */
-    suspend fun loadModel(pathToModel: String, topK: Int = DEFAULT_TOP_K, topP: Float = DEFAULT_TOP_P)
+    suspend fun loadModel(
+        pathToModel: String,
+        topK: Int = DEFAULT_TOP_K,
+        topP: Float = DEFAULT_TOP_P,
+        nThreads: Int = DEFAULT_N_THREADS,
+    )
 
     /**
      * Sends a system prompt to the loaded model
@@ -49,7 +54,11 @@ interface InferenceEngine {
     fun cleanUp()
 
     /**
-     * Cleans up resources when the engine is no longer needed.
+     * Frees the native GGML backend (llama_backend_free), on top of what [cleanUp] already frees.
+     * Not called by app code today: the implementation is a process-lifetime singleton with no way
+     * to run [loadModel]'s underlying native `init()` again afterwards, so calling this would
+     * permanently break the engine for the rest of the process. Process death is the real shutdown
+     * path here; kept for completeness / instrumented tests that create their own instance.
      */
     fun destroy()
 
@@ -80,6 +89,8 @@ interface InferenceEngine {
         // propri valori a loadModel().
         const val DEFAULT_TOP_K = 40
         const val DEFAULT_TOP_P = 0.95f
+        // Fallback se il chiamante non passa il proprio valore (vedi DeviceAiCapability.inferenceThreadCount).
+        const val DEFAULT_N_THREADS = 4
     }
 }
 

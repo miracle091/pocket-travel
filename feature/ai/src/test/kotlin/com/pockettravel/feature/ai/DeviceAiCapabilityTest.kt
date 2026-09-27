@@ -1,5 +1,6 @@
 package com.pockettravel.feature.ai
 
+import com.pockettravel.feature.ai.DeviceAiCapability.Companion.inferenceThreadCountFor
 import com.pockettravel.feature.ai.DeviceAiCapability.Companion.isRamSufficient
 import com.pockettravel.feature.ai.DeviceAiCapability.Companion.ramTierFor
 import org.junit.Assert.assertEquals
@@ -52,5 +53,24 @@ class DeviceAiCapabilityTest {
     fun `ramTierFor reports AMPIA from 12 GB`() {
         assertEquals(RamTier.AMPIA, ramTierFor(12 * GB))
         assertEquals(RamTier.AMPIA, ramTierFor(16 * GB))
+    }
+
+    @Test
+    fun `inferenceThreadCountFor uses cores minus one below the tier cap`() {
+        assertEquals(3, inferenceThreadCountFor(RamTier.AMPIA, availableCores = 4))
+        assertEquals(1, inferenceThreadCountFor(RamTier.MINIMO, availableCores = 2))
+    }
+
+    @Test
+    fun `inferenceThreadCountFor clamps to the tier cap on many-core devices`() {
+        assertEquals(4, inferenceThreadCountFor(RamTier.MINIMO, availableCores = 16))
+        assertEquals(4, inferenceThreadCountFor(RamTier.CONFORTEVOLE, availableCores = 16))
+        assertEquals(6, inferenceThreadCountFor(RamTier.AMPIA, availableCores = 16))
+    }
+
+    @Test
+    fun `inferenceThreadCountFor never goes below one core`() {
+        assertEquals(1, inferenceThreadCountFor(RamTier.AMPIA, availableCores = 1))
+        assertEquals(1, inferenceThreadCountFor(RamTier.INSUFFICIENTE, availableCores = 1))
     }
 }

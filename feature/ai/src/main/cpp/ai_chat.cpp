@@ -7,7 +7,6 @@
 #include <iomanip>
 #include <cmath>
 #include <string>
-#include <unistd.h>
 #include <sampling.h>
 
 #include "logging.h"
@@ -28,9 +27,10 @@ static std::string join(const std::vector<T> &values, const std::string &delim) 
 /**
  * LLama resources: context, model, batch and sampler
  */
-constexpr int   N_THREADS_MIN           = 2;
-constexpr int   N_THREADS_MAX           = 4;
-constexpr int   N_THREADS_HEADROOM      = 2;
+// Il numero di thread e' deciso lato Kotlin (DeviceAiCapability.inferenceThreadCount, in base a
+// fascia di RAM e core disponibili) e passato a prepare(): questo resta solo un fallback di
+// sicurezza se arrivasse un valore non valido (<= 0).
+constexpr int   DEFAULT_N_THREADS       = 4;
 
 constexpr int   DEFAULT_CONTEXT_SIZE    = 8192;
 constexpr int   OVERFLOW_HEADROOM       = 4;
@@ -44,6 +44,7 @@ static llama_batch                        g_batch;
 static common_chat_templates_ptr          g_chat_templates;
 static bool                               g_chat_template_supports_thinking;
 static common_sampler                   * g_sampler;
+static int                                g_n_threads = DEFAULT_N_THREADS;
 
 extern "C"
 JNIEXPORT void JNICALL
@@ -85,11 +86,7 @@ static llama_context *init_context(llama_model *model, const int n_ctx = DEFAULT
         return nullptr;
     }
 
-    // Multi-threading setup
-    const int n_threads = std::max(N_THREADS_MIN, std::min(N_THREADS_MAX,
-                                                     (int) sysconf(_SC_NPROCESSORS_ONLN) -
-                                                     N_THREADS_HEADROOM));
-    LOGi("%s: Using %d threads", __func__, n_threads);
+    LOGi("%s: Using %d threads", __func__, g_n_threads);
 
     // Context parameters setup
     llama_context_params ctx_params = llama_context_default_params();
@@ -101,8 +98,8 @@ static llama_context *init_context(llama_model *model, const int n_ctx = DEFAULT
     ctx_params.n_ctx = n_ctx;
     ctx_params.n_batch = BATCH_SIZE;
     ctx_params.n_ubatch = BATCH_SIZE;
-    ctx_params.n_threads = n_threads;
-    ctx_params.n_threads_batch = n_threads;
+    ctx_params.n_threads = g_n_threads;
+    ctx_params.n_threads_batch = g_n_threads;
     auto *context = llama_init_from_model(g_model, ctx_params);
     if (context == nullptr) {
         LOGe("%s: llama_new_context_with_model() returned null)", __func__);
@@ -123,7 +120,8 @@ static common_sampler *new_sampler(float temp, int32_t top_k, float top_p) {
 // con LiteRT-LM prima della migrazione.
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_prepare(JNIEnv * /*env*/, jobject /*unused*/, jint top_k, jfloat top_p) {
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_prepare(JNIEnv * /*env*/, jobject /*unused*/, jint top_k, jfloat top_p, jint n_threads) {
+    g_n_threads = n_threads > 0 ? n_threads : DEFAULT_N_THREADS;
     auto *context = init_context(g_model);
     if (!context) { return 1; }
     g_context = context;
@@ -326,15 +324,18 @@ static std::string chat_add_and_format(const std::string &role, const std::strin
  * - stop generation position
  * - token chars caching
  * - current assistant message being generated
+ * - posizione di partenza del turno assistente in corso (per riallineare la KV cache se cancellato)
  */
 static llama_pos stop_generation_position;
 static std::string cached_token_chars;
 static std::ostringstream assistant_ss;
+static llama_pos generation_start_position;
 
 static void reset_short_term_states() {
     stop_generation_position = 0;
     cached_token_chars.clear();
     assistant_ss.str("");
+    generation_start_position = 0;
 }
 
 // Pulisce KV-cache e history senza passare dal system prompt (processSystemPrompt): i dati di
@@ -528,8 +529,27 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processUs
 
     // Update position
     current_position += user_prompt_size;
+    // Posizione della KV cache subito prima del primo token generato dall'assistente: se il turno
+    // viene cancellato a meta' (vedi cancelGeneration), e' il punto a cui tornare.
+    generation_start_position = current_position;
     stop_generation_position = current_position + n_predict;
     return 0;
+}
+
+// Il turno assistente viene aggiunto a chat_msgs solo su EOG (generateNextToken), ma la KV cache
+// viene aggiornata ad ogni token campionato: se la generazione e' cancellata a meta' (Kotlin,
+// CancellationException o _cancelGeneration), la cache resterebbe con token "orfani" mai riflessi
+// nella history, disallineata dal prossimo processUserPrompt/processSystemPrompt. Va chiamata dal
+// lato Kotlin non appena la generazione viene interrotta prima di EOG.
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_cancelGeneration(JNIEnv * /*env*/, jobject /*unused*/) {
+    if (g_context && current_position > generation_start_position) {
+        LOGi("%s: Rolling back KV cache from %d to %d", __func__, current_position, generation_start_position);
+        llama_memory_seq_rm(llama_get_memory(g_context), 0, generation_start_position, current_position);
+        current_position = generation_start_position;
+    }
+    reset_short_term_states();
 }
 
 static bool is_valid_utf8(const char *string) {

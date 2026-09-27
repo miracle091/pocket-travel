@@ -117,6 +117,7 @@ class LlamaEngineDeviceTest {
             LlmModelManager(OkHttpClient(), modelsDir, coordinator),
             coordinator,
             settings,
+            DeviceAiCapability(context),
         )
         try {
             engine.loadModel(garbageFile().absolutePath)

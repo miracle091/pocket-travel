@@ -39,7 +39,10 @@ import java.io.IOException
  * 3. Send prompts with [sendUserPrompt]
  * 4. Generate responses as token streams
  * 5. Perform [cleanUp] when done with a model
- * 6. Properly [destroy] when completely done
+ *
+ * This is a process-lifetime singleton (see [getInstance]): [destroy] is intentionally never
+ * called by app code, since it would free the native backend with no way to reload it — see its
+ * KDoc on [com.pockettravel.feature.ai.llamacpp.InferenceEngine].
  *
  * State transitions are managed automatically and validated at each operation.
  *
@@ -88,7 +91,7 @@ internal class InferenceEngineImpl private constructor(
     private external fun load(modelPath: String): Int
 
     @FastNative
-    private external fun prepare(topK: Int, topP: Float): Int
+    private external fun prepare(topK: Int, topP: Float, nThreads: Int): Int
 
     @FastNative
     private external fun systemInfo(): String
@@ -107,6 +110,9 @@ internal class InferenceEngineImpl private constructor(
 
     @FastNative
     private external fun resetConversationNative()
+
+    @FastNative
+    private external fun cancelGeneration()
 
     @FastNative
     private external fun unload()
@@ -152,7 +158,7 @@ internal class InferenceEngineImpl private constructor(
     /**
      * Load the LLM
      */
-    override suspend fun loadModel(pathToModel: String, topK: Int, topP: Float) =
+    override suspend fun loadModel(pathToModel: String, topK: Int, topP: Float, nThreads: Int) =
         withContext(llamaDispatcher) {
             check(_state.value is InferenceEngine.State.Initialized) {
                 "Cannot load model in ${_state.value.javaClass.simpleName}!"
@@ -172,7 +178,7 @@ internal class InferenceEngineImpl private constructor(
                 load(pathToModel).let {
                     if (it != 0) throw UnsupportedArchitectureException()
                 }
-                prepare(topK, topP).let {
+                prepare(topK, topP, nThreads).let {
                     if (it != 0) throw IOException("Failed to prepare resources")
                 }
                 Log.i(TAG, "Model loaded!")
@@ -260,12 +266,17 @@ internal class InferenceEngineImpl private constructor(
             }
             if (_cancelGeneration) {
                 Log.i(TAG, "Assistant generation aborted per requested.")
+                // Riallinea la KV cache nativa alla posizione precedente al turno interrotto: senza
+                // questo, i token gia' campionati (mai aggiunti a chat_msgs, che si aggiorna solo
+                // su EOG) resterebbero nella cache e disallineerebbero il prossimo prompt.
+                cancelGeneration()
             } else {
                 Log.i(TAG, "Assistant generation complete. Awaiting user prompt...")
             }
             _state.value = InferenceEngine.State.ModelReady
         } catch (e: CancellationException) {
             Log.i(TAG, "Assistant generation's flow collection cancelled.")
+            cancelGeneration()
             _state.value = InferenceEngine.State.ModelReady
             throw e
         } catch (e: Exception) {
