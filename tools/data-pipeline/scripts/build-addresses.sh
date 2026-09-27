@@ -120,9 +120,9 @@ with_retries() {
   return 1
 }
 
-# Eta' del file pubblicato, dal nome dell'asset (regionId--YYYY.MM.DD--addresses.pmtiles).
+# Eta' del file pubblicato, dal nome dell'asset (regionId--YYYY.MM.DD--addresses.pmtiles[.xz]).
 if [ -n "$PUBLISHED_ENTRY" ]; then
-  PUBLISHED_DATE="$(printf '%s' "$PUBLISHED_ENTRY" | jq -r '.file.url' | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)--addresses\.pmtiles$#\1#p')"
+  PUBLISHED_DATE="$(printf '%s' "$PUBLISHED_ENTRY" | jq -r '.file.url' | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)--addresses\.pmtiles\(\.xz\)\?$#\1#p')"
   if [ -n "$PUBLISHED_DATE" ]; then
     AGE_DAYS="$(( ($(date -u +%s) - $(date -u -d "${PUBLISHED_DATE//./-}" +%s)) / 86400 ))"
     if [ "$AGE_DAYS" -le "$ADDRESSES_MAX_AGE_DAYS" ]; then
