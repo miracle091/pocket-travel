@@ -1,9 +1,14 @@
 package com.pockettravel.feature.map.di
 
 import android.content.Context
+import android.net.ConnectivityManager
 import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.RegionsDir
+import com.pockettravel.core.data.WorldMapStore
+import com.pockettravel.feature.map.AndroidConnectivityChecker
 import com.pockettravel.feature.map.BRouterRouteEngine
+import com.pockettravel.feature.map.ConnectivityChecker
+import com.pockettravel.feature.map.ConnectivityObserver
 import com.pockettravel.feature.map.OfflineTileSource
 import com.pockettravel.feature.map.PmtilesTileSource
 import com.pockettravel.feature.map.RouteEngineFactory
@@ -45,8 +50,23 @@ object RouteEngineModule {
     }
 
     @Provides
-    fun provideOfflineTileSource(regionStorage: RegionStorage): OfflineTileSource =
-        PmtilesTileSource(regionStorage)
+    fun provideOfflineTileSource(
+        regionStorage: RegionStorage,
+        worldMapStore: WorldMapStore,
+        connectivityChecker: ConnectivityChecker,
+    ): OfflineTileSource = PmtilesTileSource(regionStorage, worldMapStore, connectivityChecker)
+
+    @Provides
+    fun provideConnectivityManager(@ApplicationContext context: Context): ConnectivityManager =
+        context.getSystemService(ConnectivityManager::class.java)
+
+    @Provides
+    fun provideConnectivityChecker(connectivityManager: ConnectivityManager): ConnectivityChecker =
+        AndroidConnectivityChecker(connectivityManager)
+
+    @Provides
+    fun provideConnectivityObserver(connectivityManager: ConnectivityManager): ConnectivityObserver =
+        ConnectivityObserver(connectivityManager)
 
     // I profili .brf + lookups.dat sono logica dell'app (gli stessi per tutte le regioni), non dati
     // per-regione — bundlati come asset e copiati su file reali: BRouter legge da file system, non da

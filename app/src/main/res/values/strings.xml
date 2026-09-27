@@ -47,9 +47,9 @@
     <string name="package_delete_title_poi_extra">Eliminare i punti di interesse extra di %1$s?</string>
     <string name="package_delete_title_addresses">Eliminare i numeri civici di %1$s?</string>
     <string name="package_delete_message">Gli altri pacchetti della regione restano sul dispositivo.</string>
-    <string name="map_not_downloaded_title">Mappa non scaricata</string>
-    <string name="map_not_downloaded_body">Guida e punti di interesse sono disponibili; la mappa di questa regione va scaricata a parte.</string>
     <string name="map_download">Scarica la mappa</string>
+    <string name="map_preview_notice">Anteprima: per il dettaglio delle strade e per i percorsi scarica la mappa e i percorsi della regione.</string>
+    <string name="map_missing_notice">Mappa non scaricata: scaricala per vedere strade e luoghi. Senza mappa e percorsi scaricati i percorsi non funzionano.</string>
     <string name="regions_large_download_title">Download di grandi dimensioni</string>
     <string name="regions_large_download_message">%1$s pesa %2$s e sei su rete mobile. Continuare?</string>
     <string name="regions_large_download_confirm">Scarica</string>

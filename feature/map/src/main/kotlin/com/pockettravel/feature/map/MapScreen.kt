@@ -72,6 +72,10 @@ private fun iconIdFor(category: PoiCategory) = PIN_ICON_PREFIX + category.name
 fun MapScreen(
     tileSource: OfflineTileSource,
     regionId: String,
+    // Solo per invalidare la cache dello stile (remember piu' sotto) quando cambia la sorgente
+    // usata (mappa scaricata, anteprima installata, connettivita'): il valore vero e proprio lo
+    // rilegge tileSource.styleJson.
+    mapSource: MapSourceState,
     pins: List<MapPin> = emptyList(),
     // Categorie nascoste, salvate per tutte le regioni (MapFilterPreferences): chip e legenda le cambiano.
     hiddenCategories: Set<PoiCategory> = emptySet(),
@@ -85,7 +89,7 @@ fun MapScreen(
     val mapView = rememberMapViewWithLifecycle()
     // Stile scuro quando l'app e' in tema scuro (segue il tema effettivo, non solo il sistema).
     val darkMap = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val styleJson = remember(tileSource, regionId, darkMap) { tileSource.styleJson(regionId, dark = darkMap) }
+    val styleJson = remember(tileSource, regionId, darkMap, mapSource) { tileSource.styleJson(regionId, dark = darkMap) }
     var configuredStyle by remember { mutableStateOf<String?>(null) }
     var symbolManager by remember { mutableStateOf<SymbolManager?>(null) }
     // Saveable: il foglio resta aperto dopo una rotazione o un cambio di tema.
@@ -127,13 +131,19 @@ fun MapScreen(
                         // rete in piu' come costerebbe con tile remote, solo un parsing leggermente
                         // anticipato di una tile che verra' comunque renderizzata.
                         map.setPrefetchZoomDelta(1)
+                        // Il vecchio SymbolManager e' legato allo stile corrente: va chiuso PRIMA di
+                        // setStyle. Chiuso dopo (nel callback) il suo layer nativo e' gia' stato
+                        // distrutto dal cambio di stile e onDestroy va in SIGSEGV (visto al ritorno
+                        // della rete, quando la mappa passa dallo sfondo "mancante" al mondo online).
+                        symbolManager?.onDestroy()
+                        symbolManager = null
                         map.setStyle(Style.Builder().fromJson(styleJson)) { style ->
                             PoiCategory.entries.forEach { category ->
                                 style.addImage(iconIdFor(category), poiPinBitmap(context, category))
                             }
-                            // Cambio di stile (tema chiaro/scuro): il vecchio SymbolManager e'
-                            // legato allo stile precedente, va chiuso prima di crearne uno nuovo.
-                            symbolManager?.onDestroy()
+                            // Usata solo quando lo stile non ha alcuna sorgente (MapSourceKind.NONE),
+                            // ma aggiunta sempre, come le icone dei POI sopra.
+                            style.addImage(MISSING_MAP_HATCH_IMAGE, missingMapHatchBitmap(context, darkMap))
                             symbolManager = SymbolManager(view, map, style).apply {
                                 addClickListener { symbol ->
                                     selectedPin = symbolPinMap[symbol.id]

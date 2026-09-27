@@ -3,14 +3,23 @@ package com.pockettravel.feature.map
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.PoiRepository
+import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.hasName
 import com.pockettravel.core.data.isHiddenOnMap
 import com.pockettravel.core.data.poiCategory
 import com.pockettravel.core.poi.PoiCategory
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -22,8 +31,10 @@ import javax.inject.Inject
 class MapRouteViewModel @Inject constructor(
     val tileSource: OfflineTileSource,
     private val poiRepository: PoiRepository,
+    regionRepository: RegionRepository,
     private val filterPreferences: MapFilterPreferences,
     usageModePreferences: UsageModePreferences,
+    connectivityObserver: ConnectivityObserver,
 ) : ViewModel() {
     val usageMode: StateFlow<UsageMode?> = usageModePreferences.mode
     val hiddenCategories: StateFlow<Set<PoiCategory>> = filterPreferences.hiddenCategories
@@ -35,7 +46,27 @@ class MapRouteViewModel @Inject constructor(
 
     private var loadPinsJob: Job? = null
 
+    private val regionIdFlow = MutableStateFlow<String?>(null)
+
+    // Versioni installate di mappa, anteprima e civici della regione corrente, dal database: cambiano
+    // quando un pacchetto finisce di installarsi, anche in background con la scheda Mappa aperta.
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val installedVersions = regionIdFlow.filterNotNull().flatMapLatest { regionId ->
+        regionRepository.observeInstalled().map { installed ->
+            installed.firstOrNull { it.regionId == regionId }?.let { listOf(it.mapVersion, it.previewVersion, it.addressesVersion) }
+        }
+    }.distinctUntilChanged()
+
+    // Sorgente in uso per la regione corrente: il tipo serve a RegionHubScreen per la barra "Scarica
+    // la mappa"; l'intero stato (tipo + versioni) e' la chiave con cui MapScreen ricostruisce lo stile,
+    // cosi' anche un'anteprima o una mappa aggiornata (stesso tipo, file nuovo) viene ridisegnata.
+    val mapSource: StateFlow<MapSourceState> = combine(
+        regionIdFlow.filterNotNull(), connectivityObserver.changes(), installedVersions,
+    ) { regionId, _, versions -> MapSourceState(tileSource.sourceKind(regionId), versions) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MapSourceState(MapSourceKind.NONE, null))
+
     fun loadPins(regionId: String) {
+        regionIdFlow.value = regionId
         // Annulla il caricamento precedente: una regione lenta non deve sovrascrivere i segnalini.
         loadPinsJob?.cancel()
         loadPinsJob = viewModelScope.launch {
@@ -46,3 +77,6 @@ class MapRouteViewModel @Inject constructor(
         }
     }
 }
+
+/** Sorgente della mappa in uso e versioni dei pacchetti locali da cui dipende lo stile. */
+data class MapSourceState(val kind: MapSourceKind, val installedVersions: List<String?>?)
