@@ -28,7 +28,7 @@ class TravelAssistant @Inject constructor(
     private val aiSettingsStore: AiSettingsStore,
 ) {
     suspend fun ask(regionId: String, question: String, mode: AiEngineMode): AssistantAnswer {
-        val ftsQuery = buildFtsQuery(question)
+        val ftsQuery = buildFtsQuery(question, regionId)
         val matches = if (ftsQuery.isBlank()) {
             emptyList()
         } else {
@@ -82,16 +82,21 @@ private fun GuideSection.isRegulatedTopic(): Boolean =
 /**
  * FTS4 MATCH non tollera bene una domanda in linguaggio naturale così com'è (punteggiatura,
  * parole troppo corte che sono quasi sempre rumore): si tengono solo i token di almeno 4
- * lettere/cifre, uniti con OR per allargare il richiamo invece di richiederli tutti.
+ * lettere/cifre, uniti con OR per allargare il richiamo invece di richiederli tutti. Si scartano
+ * anche i token che fanno parte del nome della regione (es. "marino" per "san-marino"): il filtro
+ * per regionId in searchInRegion restringe gia' alla regione giusta, quindi in query sono solo
+ * rumore che compare in ogni sezione e confonde il ranking per rilevanza.
  */
-internal fun buildFtsQuery(question: String): String =
-    question
+internal fun buildFtsQuery(question: String, regionId: String): String {
+    val regionNameTokens = regionId.split(Regex("[^\\p{L}\\p{N}]+")).map { it.lowercase() }.toSet()
+    return question
         .split(Regex("\\s+"))
         // minuscolo: FTS riconosce AND/OR/NOT/NEAR come operatori solo in maiuscolo, e il confronto dei
         // termini ignora comunque maiuscole e minuscole
         .map { token -> token.filter { it.isLetterOrDigit() }.lowercase() }
-        .filter { it.length >= 4 }
+        .filter { it.length >= 4 && it !in regionNameTokens }
         .joinToString(" OR ")
+}
 
 // maxChars di default ~2000 = ~500 token (stima 4 caratteri/token) per il chunk RAG.
 internal fun truncateContext(context: String, maxChars: Int = 2_000): String =

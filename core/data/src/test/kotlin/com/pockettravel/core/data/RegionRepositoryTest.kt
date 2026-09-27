@@ -3,6 +3,7 @@ package com.pockettravel.core.data
 import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.GuideDao
 import com.pockettravel.core.data.db.GuideSectionEntity
+import com.pockettravel.core.data.db.GuideSectionMatch
 import com.pockettravel.core.data.db.InstalledGuidesEntity
 import com.pockettravel.core.data.db.InstalledRegionEntity
 import com.pockettravel.core.data.db.PassportDao
@@ -59,7 +60,7 @@ private class NoOpGuideDao : GuideDao {
     override suspend fun insertAll(sections: List<GuideSectionEntity>) = Unit
     override suspend fun sectionsForRegion(regionId: String): List<GuideSectionEntity> = emptyList()
     override suspend fun search(query: String, limit: Int): List<GuideSectionEntity> = emptyList()
-    override suspend fun searchInRegion(regionId: String, query: String, limit: Int): List<GuideSectionEntity> = emptyList()
+    override suspend fun searchInRegionRanked(regionId: String, query: String, candidateLimit: Int): List<GuideSectionMatch> = emptyList()
     override suspend fun deleteAll() = Unit
     override suspend fun optimizeFts() = Unit
 }
