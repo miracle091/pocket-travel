@@ -21,9 +21,9 @@ class SessionAesCipher(key: ByteArray) {
     }
 
     fun decrypt(payload: String): String? {
-        val iv = AesGcmCodec.decodeIv(payload) ?: return null
-        val ciphertext = AesGcmCodec.decodeCiphertext(payload) ?: return null
         return try {
+            val iv = AesGcmCodec.decodeIv(payload) ?: return null
+            val ciphertext = AesGcmCodec.decodeCiphertext(payload) ?: return null
             val cipher = Cipher.getInstance(AesGcmCodec.TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(AesGcmCodec.TAG_LENGTH_BITS, iv))
             String(cipher.doFinal(ciphertext), Charsets.UTF_8)

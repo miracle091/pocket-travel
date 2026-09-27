@@ -1,6 +1,7 @@
 package com.pockettravel.core.sync
 
 import android.content.Context
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -42,7 +43,8 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         } catch (_: IOException) {
             // Errore di rete: si riprova, ma non all'infinito.
             if (runAttemptCount < MAX_RETRIES) Result.retry() else Result.failure()
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            Log.w(TAG, "Download pacchetto regione fallito", error)
             Result.failure()
         }
         // Installazione finita (i file sono gia' stati spostati, restava una cartella vuota) o
@@ -59,5 +61,6 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         const val KEY_TOTAL_BYTES = "total_bytes"
         // Tentativi ripetuti dopo il primo per errori di rete, poi il download si arrende.
         private const val MAX_RETRIES = 5
+        private val TAG = RegionPackageDownloadWorker::class.java.simpleName
     }
 }

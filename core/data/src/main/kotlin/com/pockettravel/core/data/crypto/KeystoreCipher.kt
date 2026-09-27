@@ -40,9 +40,9 @@ class KeystoreCipher(
     }
 
     fun decrypt(payload: String): String? {
-        val iv = AesGcmCodec.decodeIv(payload) ?: return null
-        val ciphertext = AesGcmCodec.decodeCiphertext(payload) ?: return null
         return try {
+            val iv = AesGcmCodec.decodeIv(payload) ?: return null
+            val ciphertext = AesGcmCodec.decodeCiphertext(payload) ?: return null
             val cipher = newDecryptionCipher(iv)
             String(cipher.doFinal(ciphertext), Charsets.UTF_8)
         } catch (_: AEADBadTagException) {

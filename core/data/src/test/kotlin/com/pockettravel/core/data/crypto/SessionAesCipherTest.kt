@@ -68,6 +68,11 @@ class SessionAesCipherTest {
     }
 
     @Test
+    fun `decrypt su un payload con base64 invalido restituisce null invece di lanciare`() {
+        assertNull(SessionAesCipher(randomKey()).decrypt("###:###"))
+    }
+
+    @Test
     fun `decryptBytes su un payload vuoto restituisce null invece di lanciare`() {
         assertNull(SessionAesCipher(randomKey()).decryptBytes(ByteArray(0)))
     }

@@ -8,6 +8,8 @@ import java.security.DigestInputStream
 import java.security.MessageDigest
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -109,6 +111,8 @@ class RegionPackageDownloader @Inject constructor(
                     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                     var read: Int
                     while (input.read(buffer).also { read = it } != -1) {
+                        // Annullare il download (es. regione eliminata) lo ferma subito, non al prossimo onProgress.
+                        currentCoroutineContext().ensureActive()
                         output.write(buffer, 0, read)
                         downloaded += read
                         if (downloaded - lastReported >= PROGRESS_STEP_BYTES) {

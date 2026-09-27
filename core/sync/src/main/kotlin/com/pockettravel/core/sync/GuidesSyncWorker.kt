@@ -1,6 +1,7 @@
 package com.pockettravel.core.sync
 
 import android.content.Context
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -35,8 +36,13 @@ class GuidesSyncWorker @AssistedInject constructor(
             Result.failure()
         } catch (_: IOException) {
             Result.retry()
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            Log.w(TAG, "Sync guide fallita", error)
             Result.failure()
         }
+    }
+
+    private companion object {
+        private val TAG = GuidesSyncWorker::class.java.simpleName
     }
 }
