@@ -23,15 +23,15 @@ import org.junit.runner.RunWith
 /**
  * Esercita la libreria nativa llm-engine vera (llama.cpp) con un modello GGUF reale: i percorsi di
  * errore/recupero dell'engine non sono testabili in JVM, perche' InferenceEngineImpl carica la
- * libreria nativa alla creazione. Il modello (SmolLM2 135M, ~100 MB, lo stesso del catalogo) non
+ * libreria nativa alla creazione. Il modello (Qwen3.5 0.8B, ~530 MB, il piu' piccolo del catalogo) non
  * e' nel repo: va copiato prima in getExternalFilesDir(null), altrimenti i test vengono saltati:
- *   adb push SmolLM2-135M-Instruct-Q4_K_M.gguf /sdcard/Android/data/com.pockettravel.feature.ai.test/files/
+ *   adb push Qwen3.5-0.8B-UD-Q4_K_XL.gguf /sdcard/Android/data/com.pockettravel.feature.ai.test/files/
  */
 @RunWith(AndroidJUnit4::class)
 class LlamaEngineDeviceTest {
 
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
-    private val definition = LlmModelCatalog.ALL.first { it.id == "smollm2-135m-instruct" }
+    private val definition = LlmModelCatalog.ALL.first { it.id == "qwen3.5-0.8b" }
     private lateinit var modelsDir: File
     private lateinit var modelPath: String
     private lateinit var engine: InferenceEngine

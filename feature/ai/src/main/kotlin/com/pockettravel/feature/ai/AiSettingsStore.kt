@@ -85,7 +85,7 @@ class AiSettingsStore @Inject constructor(@ApplicationContext context: Context) 
         const val API_KEY_ALIAS = "pocket_travel_ai_api_key_v2"
         const val API_KEY_PAYLOAD = "api_key_payload"
         const val KEY_SELECTED_MODEL_ID = "selected_model_id"
-        const val DEFAULT_SELECTED_MODEL_ID = "qwen3-0.6b"
+        const val DEFAULT_SELECTED_MODEL_ID = "qwen3.5-0.8b"
         const val KEY_BENCHMARK_WORDS_PER_SECOND = "benchmark_words_per_second"
         const val KEY_BENCHMARK_LATENCY_MS = "benchmark_latency_ms"
         const val KEY_BENCHMARK_LOAD_MS = "benchmark_load_ms"
