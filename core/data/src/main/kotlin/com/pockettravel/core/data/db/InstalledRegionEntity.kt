@@ -15,6 +15,10 @@ data class InstalledRegionEntity(
     val poiVersion: String?,
     val poiExtraVersion: String?,
     val addressesVersion: String?,
+    // Anteprima offline (preview.pmtiles, pochi zoom): si installa e aggiorna da sola con ogni
+    // download della regione (RegionPackageInstaller), non e' un pacchetto a parte per l'utente -
+    // sparisce solo con l'intera regione, mai con "elimina mappa".
+    val previewVersion: String?,
     // Byte del poi.db importato: i POI stanno in region.db, non misurabili dal disco come mappa e routing.
     val poiSizeBytes: Long?,
     // Come poiSizeBytes, per il poi-extra.db importato.

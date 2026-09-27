@@ -13,6 +13,9 @@ data class RegionPackage(
     val poiSizeBytes: Long?,
     val poiExtraSizeBytes: Long?,
     val sizeBytes: Long,
+    // Anteprima offline installata (preview.pmtiles): non e' un PackageKind, vedi InstalledRegionEntity.
+    // Default null: non tocca le costruzioni esistenti (test in app/) che non la conoscono ancora.
+    val previewVersion: String? = null,
 ) {
     fun versionOf(kind: PackageKind): String? = when (kind) {
         PackageKind.MAP -> mapVersion

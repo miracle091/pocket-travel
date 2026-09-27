@@ -10,7 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Migrazioni 5 -> 6 (pacchetti separati), 6 -> 7, 7 -> 8, 8 -> 9, 9 -> 10 e 10 -> 11 sugli schemi esportati in core/data/schemas. */
+/** Migrazioni 5 -> 6 (pacchetti separati), 6 -> 7, 7 -> 8, 8 -> 9, 9 -> 10, 10 -> 11, 11 -> 12 e 12 -> 13 sugli schemi esportati in core/data/schemas. */
 @RunWith(AndroidJUnit4::class)
 class RegionDatabaseMigrationTest {
 
@@ -147,6 +147,24 @@ class RegionDatabaseMigrationTest {
             }
             db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'index_poi_regionId'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
+            }
+        }
+    }
+
+    @Test
+    fun migrazione12a13AggiungeLaVersioneDellAnteprimaVuota() {
+        helper.createDatabase(DB_NAME, 12).use { db ->
+            db.execSQL(
+                "INSERT INTO installed_regions (regionId, displayName, countryCode, mapVersion, routingVersion, poiVersion, poiExtraVersion, addressesVersion, poiSizeBytes, poiExtraSizeBytes, sizeBytes, installedAt) " +
+                    "VALUES ('italia', 'Italia', 'it', '1', '1', '1', NULL, NULL, 10, NULL, 1000, 42)",
+            )
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 13, true, MIGRATION_12_13).use { db ->
+            db.query("SELECT mapVersion, previewVersion FROM installed_regions WHERE regionId = 'italia'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("1", cursor.getString(0))
+                assertTrue("nessuna regione ha gia' l'anteprima prima della 13", cursor.isNull(1))
             }
         }
     }

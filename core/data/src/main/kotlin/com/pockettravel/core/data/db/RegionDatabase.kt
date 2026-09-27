@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         InstalledGuidesEntity::class,
         NoCentralEmergencyNumberEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -171,5 +171,14 @@ val MIGRATION_10_11 = object : Migration(10, 11) {
 val MIGRATION_11_12 = object : Migration(11, 12) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionId` ON `poi` (`regionId`)")
+    }
+}
+
+// Anteprima offline della regione (preview.pmtiles, pochi zoom): si installa e aggiorna da sola con
+// ogni download della regione (RegionPackageInstaller), non e' un PackageKind ne' un pacchetto che
+// l'utente puo' togliere a parte - le regioni gia' installate la prendono al prossimo aggiornamento.
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `previewVersion` TEXT")
     }
 }

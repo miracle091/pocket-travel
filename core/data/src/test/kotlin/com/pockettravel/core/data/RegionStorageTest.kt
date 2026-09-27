@@ -268,6 +268,47 @@ class RegionStorageTest {
     }
 
     @Test
+    fun `PREVIEW_FILE si attiva, si versiona e si elimina come MAP_FILE e ADDRESSES_FILE`() {
+        val (storage, _) = newStorage()
+        assertNull(storage.versionedPmtiles("italia", RegionStorage.PREVIEW_FILE))
+
+        storage.activatePackage("italia", RegionStorage.PREVIEW_FILE, stagedFile(storage, "v1", RegionStorage.PREVIEW_FILE, "anteprima 1"), "v1").commit()
+        val dir = storage.directoryFor("italia")
+        val preview = File(dir, RegionStorage.PREVIEW_FILE).apply { setLastModified(1_000_000L) }
+
+        val first = storage.versionedPmtiles("italia", RegionStorage.PREVIEW_FILE)!!
+        assertEquals("anteprima 1", first.readText())
+
+        storage.activatePackage("italia", RegionStorage.PREVIEW_FILE, stagedFile(storage, "v2", RegionStorage.PREVIEW_FILE, "anteprima 2"), "v2").commit()
+        preview.setLastModified(2_000_000L)
+        val second = storage.versionedPmtiles("italia", RegionStorage.PREVIEW_FILE)!!
+        assertEquals("anteprima 2", second.readText())
+        assertTrue(first.path != second.path)
+
+        assertEquals(preview.length(), storage.packageBytes("italia", RegionStorage.PREVIEW_FILE))
+        assertTrue(storage.deletePackage("italia", RegionStorage.PREVIEW_FILE))
+        assertEquals(0L, storage.packageBytes("italia", RegionStorage.PREVIEW_FILE))
+        // L'eliminazione della mappa non deve toccare l'anteprima (si cancella solo con l'intera regione).
+        storage.activatePackage("italia", RegionStorage.MAP_FILE, stagedFile(storage, "v1", RegionStorage.MAP_FILE, "mappa"), "v1").commit()
+        storage.activatePackage("italia", RegionStorage.PREVIEW_FILE, stagedFile(storage, "v3", RegionStorage.PREVIEW_FILE, "anteprima 3"), "v3").commit()
+        assertTrue(storage.deletePackage("italia", RegionStorage.MAP_FILE))
+        assertTrue(File(dir, RegionStorage.PREVIEW_FILE).isFile)
+    }
+
+    @Test
+    fun `recupero dopo un crash chiude anche un attivazione interrotta dell anteprima`() {
+        val (storage, _) = newStorage()
+        storage.activatePackage("italia", RegionStorage.PREVIEW_FILE, stagedFile(storage, "v1", RegionStorage.PREVIEW_FILE, "vecchia"), "v1").commit()
+        // Crash: attivazione senza commit, il database registra ancora v1.
+        storage.activatePackage("italia", RegionStorage.PREVIEW_FILE, stagedFile(storage, "v2", RegionStorage.PREVIEW_FILE, "nuova"), "v2")
+
+        storage.recoverInterruptedActivations("italia") { if (it == RegionStorage.PREVIEW_FILE) "v1" else null }
+
+        assertEquals("vecchia", File(storage.directoryFor("italia"), RegionStorage.PREVIEW_FILE).readText())
+        assertEquals(emptySet<String>(), leftovers(storage))
+    }
+
+    @Test
     fun `deletePackage della mappa cancella anche le cartelle di versione`() {
         val (storage, _) = newStorage()
         val dir = storage.directoryFor("italia").apply { mkdirs() }

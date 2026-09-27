@@ -22,8 +22,8 @@ class RegionStorage @Inject constructor(
     fun stagingDirectoryFor(regionId: String, version: String): File = safeChild(safeChild(stagingDir, regionId, "regionId"), version, "version")
 
     /**
-     * Sostituisce un solo pacchetto della regione ([MAP_FILE], [ROUTING_DIR] o [ADDRESSES_FILE]) con quello in
-     * staging, lasciando intatti gli altri. Il precedente resta come backup fino a commit/rollback;
+     * Sostituisce un solo pacchetto della regione ([MAP_FILE], [ROUTING_DIR], [ADDRESSES_FILE] o
+     * [PREVIEW_FILE]) con quello in staging, lasciando intatti gli altri. Il precedente resta come backup fino a commit/rollback;
      * accanto resta anche [version], la versione in attivazione, per [recoverInterruptedActivations].
      */
     fun activatePackage(regionId: String, packageName: String, staged: File, version: String): Activation {
@@ -74,7 +74,7 @@ class RegionStorage @Inject constructor(
         }
     }
 
-    /** Elimina un solo pacchetto ([MAP_FILE], [ROUTING_DIR] o [ADDRESSES_FILE]) della regione. */
+    /** Elimina un solo pacchetto ([MAP_FILE], [ROUTING_DIR], [ADDRESSES_FILE] o [PREVIEW_FILE]) della regione. */
     fun deletePackage(regionId: String, packageName: String): Boolean {
         require(packageName in PACKAGE_NAMES) { "Pacchetto sconosciuto: $packageName" }
         val target = File(directoryFor(regionId), packageName)
@@ -83,8 +83,8 @@ class RegionStorage @Inject constructor(
     }
 
     /**
-     * File da dare a MapLibre per un archivio PMTiles della regione ([MAP_FILE] o [ADDRESSES_FILE]),
-     * null se non installato. MapLibre tiene in memoria header e directory di ogni archivio per
+     * File da dare a MapLibre per un archivio PMTiles della regione ([MAP_FILE], [ADDRESSES_FILE] o
+     * [PREVIEW_FILE]), null se non installato. MapLibre tiene in memoria header e directory di ogni archivio per
      * percorso, per tutta la vita del processo, e non accetta parametri nell'URL di un file: se
      * l'archivio viene sostituito allo stesso percorso (aggiornamento o nuovo download con l'app
      * aperta) legge il file nuovo con gli offset del vecchio e va in abort nativo ("incorrect header
@@ -95,7 +95,7 @@ class RegionStorage @Inject constructor(
      * cartella si torna al percorso normale.
      */
     fun versionedPmtiles(regionId: String, packageName: String): File? {
-        require(packageName == MAP_FILE || packageName == ADDRESSES_FILE) { "Non e' un archivio PMTiles: $packageName" }
+        require(packageName == MAP_FILE || packageName == ADDRESSES_FILE || packageName == PREVIEW_FILE) { "Non e' un archivio PMTiles: $packageName" }
         val file = File(directoryFor(regionId), packageName)
         if (!file.isFile) return null
         val marker = File(file.parentFile, ".v-${file.nameWithoutExtension}-${file.lastModified()}")
@@ -147,7 +147,10 @@ class RegionStorage @Inject constructor(
         const val ROUTING_DIR = "routing"
         // Civici sovrapposti alla mappa (OfflineTileSource).
         const val ADDRESSES_FILE = "addresses.pmtiles"
-        private val PACKAGE_NAMES = setOf(MAP_FILE, ROUTING_DIR, ADDRESSES_FILE)
+        // Anteprima offline (pochi zoom): si installa da sola con ogni download della regione, vedi
+        // RegionPackageInstaller; sopravvive all'eliminazione della sola mappa.
+        const val PREVIEW_FILE = "preview.pmtiles"
+        private val PACKAGE_NAMES = setOf(MAP_FILE, ROUTING_DIR, ADDRESSES_FILE, PREVIEW_FILE)
         // Istanze di RegionStorage non condivise: due recuperi della stessa regione non si sovrappongono.
         private val RECOVERY_LOCK = Any()
     }

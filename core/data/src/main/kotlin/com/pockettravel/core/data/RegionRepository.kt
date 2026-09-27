@@ -27,7 +27,8 @@ class RegionRepository @Inject constructor(
     /**
      * Registra i pacchetti appena installati ([versions]), conservando gli altri gia' presenti.
      * [poiSizeBytes] e [poiExtraSizeBytes] sono richiesti quando tra i pacchetti c'e' [PackageKind.POI] o
-     * [PackageKind.POI_EXTRA].
+     * [PackageKind.POI_EXTRA]. [previewVersion], se presente, aggiorna l'anteprima installata da sola
+     * insieme a questo download (non e' un [PackageKind], vedi RegionPackageInstaller).
      */
     suspend fun markPackagesInstalled(
         regionId: String,
@@ -36,6 +37,7 @@ class RegionRepository @Inject constructor(
         versions: Map<PackageKind, String>,
         poiSizeBytes: Long? = null,
         poiExtraSizeBytes: Long? = null,
+        previewVersion: String? = null,
     ) {
         require(PackageKind.POI !in versions || poiSizeBytes != null) { "poiSizeBytes mancante per $regionId" }
         require(PackageKind.POI_EXTRA !in versions || poiExtraSizeBytes != null) { "poiExtraSizeBytes mancante per $regionId" }
@@ -45,6 +47,7 @@ class RegionRepository @Inject constructor(
             versionOf = { kind -> versions[kind] ?: current?.versionOf(kind) },
             poiSizeBytes = if (PackageKind.POI in versions) poiSizeBytes else current?.poiSizeBytes,
             poiExtraSizeBytes = if (PackageKind.POI_EXTRA in versions) poiExtraSizeBytes else current?.poiExtraSizeBytes,
+            previewVersion = previewVersion ?: current?.previewVersion,
         )
     }
 
@@ -74,17 +77,18 @@ class RegionRepository @Inject constructor(
                 versionOf = { if (it == kind) null else current.versionOf(it) },
                 poiSizeBytes = if (kind == PackageKind.POI) null else current.poiSizeBytes,
                 poiExtraSizeBytes = if (kind == PackageKind.POI_EXTRA) null else current.poiExtraSizeBytes,
+                previewVersion = current.previewVersion,
             )
         }
     }
 
-    private suspend fun save(regionId: String, displayName: String, countryCode: String?, versionOf: (PackageKind) -> String?, poiSizeBytes: Long?, poiExtraSizeBytes: Long?) {
+    private suspend fun save(regionId: String, displayName: String, countryCode: String?, versionOf: (PackageKind) -> String?, poiSizeBytes: Long?, poiExtraSizeBytes: Long?, previewVersion: String?) {
         if (PackageKind.entries.all { versionOf(it) == null }) {
             remove(regionId)
             return
         }
         val diskBytes = regionStorage.packageBytes(regionId, RegionStorage.MAP_FILE) + regionStorage.packageBytes(regionId, RegionStorage.ROUTING_DIR) +
-            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_FILE)
+            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_FILE) + regionStorage.packageBytes(regionId, RegionStorage.PREVIEW_FILE)
         regionPackageDao.upsert(
             InstalledRegionEntity(
                 regionId = regionId,
@@ -95,6 +99,7 @@ class RegionRepository @Inject constructor(
                 poiVersion = versionOf(PackageKind.POI),
                 poiExtraVersion = versionOf(PackageKind.POI_EXTRA),
                 addressesVersion = versionOf(PackageKind.ADDRESSES),
+                previewVersion = previewVersion,
                 poiSizeBytes = poiSizeBytes,
                 poiExtraSizeBytes = poiExtraSizeBytes,
                 sizeBytes = diskBytes + (poiSizeBytes ?: 0L) + (poiExtraSizeBytes ?: 0L),
@@ -125,6 +130,7 @@ class RegionRepository @Inject constructor(
                 RegionStorage.MAP_FILE -> current?.mapVersion
                 RegionStorage.ROUTING_DIR -> current?.routingVersion
                 RegionStorage.ADDRESSES_FILE -> current?.addressesVersion
+                RegionStorage.PREVIEW_FILE -> current?.previewVersion
                 else -> null
             }
         }
@@ -165,4 +171,5 @@ private fun InstalledRegionEntity.toDomain() = RegionPackage(
     poiSizeBytes = poiSizeBytes,
     poiExtraSizeBytes = poiExtraSizeBytes,
     sizeBytes = sizeBytes,
+    previewVersion = previewVersion,
 )

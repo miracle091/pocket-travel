@@ -33,21 +33,28 @@ class RegionPackageInstaller @Inject constructor(
     ) {
         require(kinds.isNotEmpty()) { "Nessun pacchetto da installare per ${entry.regionId}" }
         require(entry.availableKinds.containsAll(kinds)) { "Pacchetti non offerti dal manifest per ${entry.regionId}: ${kinds - entry.availableKinds}" }
+        // L'anteprima non e' tra i pacchetti richiesti (non e' un PackageKind): si installa da sola con
+        // ogni download della regione, quando il manifest la offre con una versione diversa da quella
+        // gia' installata — cosi' le regioni gia' scaricate la prendono al primo aggiornamento successivo.
+        val installPreview = entry.preview != null && regionRepository.installed(entry.regionId)?.previewVersion != entry.preview.version
         val files = buildList {
             if (PackageKind.ROUTING in kinds) addAll(entry.routing.files)
             if (PackageKind.POI in kinds) add(entry.poi.downloadFile)
             if (PackageKind.POI_EXTRA in kinds) add(entry.poiExtra!!.downloadFile)
             if (PackageKind.ADDRESSES in kinds) add(entry.addresses!!.file)
+            if (installPreview) add(entry.preview!!.downloadFile)
         }
         // Prima di tutto: un tentativo precedente interrotto da un crash puo' aver lasciato backup da
         // chiudere, che activatePackage sovrascriverebbe (RegionStartupRecovery salta le regioni in download).
         withContext(Dispatchers.IO) { regionRepository.recoverInterruptedActivations(entry.regionId) }
         // Una cartella di staging per combinazione di pacchetti e versioni: un download interrotto
         // riprende dai file .part della stessa richiesta, una richiesta diversa riparte da zero.
-        val stagingVersion = PackageKind.entries.filter { it in kinds }.joinToString("_") { "${it.name.lowercase()}-${entry.versionOf(it)}" }
+        val stagingVersion = PackageKind.entries.filter { it in kinds }.joinToString("_") { "${it.name.lowercase()}-${entry.versionOf(it)}" } +
+            (if (installPreview) "_preview-${entry.preview!!.version}" else "")
         val staging = downloader.download(entry.regionId, stagingVersion, files, onProgress)
-        if (PackageKind.POI in kinds) unpackPoi(staging, entry.poi)
-        if (PackageKind.POI_EXTRA in kinds) unpackPoi(staging, entry.poiExtra!!)
+        if (PackageKind.POI in kinds) unpackXz(staging, entry.poi.file, entry.poi.fileXz)
+        if (PackageKind.POI_EXTRA in kinds) unpackXz(staging, entry.poiExtra!!.file, entry.poiExtra.fileXz)
+        if (installPreview) unpackXz(staging, entry.preview!!.file, entry.preview.fileXz)
 
         if (PackageKind.MAP in kinds) {
             // Estrazione bloccante (HTTP range): su IO e interrompibile se il download viene annullato.
@@ -68,6 +75,9 @@ class RegionPackageInstaller @Inject constructor(
             if (PackageKind.ADDRESSES in kinds) {
                 activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_FILE, File(staging, entry.addresses!!.file.name), entry.addresses.version)
             }
+            if (installPreview) {
+                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.PREVIEW_FILE, File(staging, entry.preview!!.file.name), entry.preview.version)
+            }
             regionRepository.inInstallTransaction {
                 if (PackageKind.POI in kinds) poiImporter.import(entry.regionId, File(staging, entry.poi.file.name))
                 if (PackageKind.POI_EXTRA in kinds) poiImporter.import(entry.regionId, File(staging, entry.poiExtra!!.file.name), extra = true)
@@ -76,6 +86,7 @@ class RegionPackageInstaller @Inject constructor(
                     versions = kinds.associateWith { entry.versionOf(it)!! },
                     poiSizeBytes = if (PackageKind.POI in kinds) entry.poi.file.sizeBytes else null,
                     poiExtraSizeBytes = if (PackageKind.POI_EXTRA in kinds) entry.poiExtra!!.file.sizeBytes else null,
+                    previewVersion = if (installPreview) entry.preview!!.version else null,
                 )
             }
         } catch (error: Exception) {
@@ -87,23 +98,23 @@ class RegionPackageInstaller @Inject constructor(
     }
 
     /**
-     * Decomprime il file POI scaricato compresso (gia' verificato con il suo sha256) in
-     * [PoiPackageEntry.file], controllando dimensione e sha256 del database decompresso.
+     * Decomprime un file scaricato compresso (poi.db, poi-extra.db o preview.pmtiles, gia' verificato
+     * con il suo sha256) in [file], controllando dimensione e sha256 del risultato decompresso.
      */
-    private fun unpackPoi(staging: File, poi: PoiPackageEntry) {
-        val xz = poi.fileXz ?: return
-        val target = File(staging, poi.file.name)
-        val part = File(staging, "${poi.file.name}.unpack")
+    private fun unpackXz(staging: File, file: RegionManifestFile, fileXz: RegionManifestFile?) {
+        val xz = fileXz ?: return
+        val target = File(staging, file.name)
+        val part = File(staging, "${file.name}.unpack")
         val digest = MessageDigest.getInstance("SHA-256")
         XZInputStream(File(staging, xz.name).inputStream().buffered()).use { input ->
             DigestOutputStream(part.outputStream().buffered(), digest).use { input.copyTo(it) }
         }
         val sha256 = digest.digest().joinToString("") { "%02x".format(it) }
-        if (part.length() != poi.file.sizeBytes || !sha256.equals(poi.file.sha256, ignoreCase = true)) {
+        if (part.length() != file.sizeBytes || !sha256.equals(file.sha256, ignoreCase = true)) {
             part.delete()
             File(staging, xz.name).delete()
-            throw PermanentRegionPackageException("${poi.file.name} decompresso non corrisponde al manifest")
+            throw PermanentRegionPackageException("${file.name} decompresso non corrisponde al manifest")
         }
-        check(part.renameTo(target)) { "Impossibile finalizzare ${poi.file.name}" }
+        check(part.renameTo(target)) { "Impossibile finalizzare ${file.name}" }
     }
 }

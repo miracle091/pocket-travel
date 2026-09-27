@@ -196,6 +196,20 @@ class RegionRepositoryTest {
     }
 
     @Test
+    fun `previewVersion si aggiorna con markPackagesInstalled e resta se non indicata`() = runBlocking {
+        val (repository, _) = newRepository()
+        repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.MAP to "1"), previewVersion = "2026.09.01")
+
+        assertEquals("2026.09.01", repository.installed("italia")!!.previewVersion)
+
+        repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.MAP to "2"))
+        assertEquals("2026.09.01", repository.installed("italia")!!.previewVersion)
+
+        repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.MAP to "3"), previewVersion = "2026.09.08")
+        assertEquals("2026.09.08", repository.installed("italia")!!.previewVersion)
+    }
+
+    @Test
     fun `i POI extra contano nella dimensione della regione e non toccano quella dei POI base`() = runBlocking {
         val (repository, _) = newRepository()
         repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.POI to "1"), poiSizeBytes = 500)

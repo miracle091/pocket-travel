@@ -118,6 +118,46 @@ class RegionPackageInstallerDeviceTest {
 
     private val regionDir get() = storage.directoryFor("san-marino")
 
+    private fun entryWithPreview(previewVersion: String = "pv1") =
+        entry().copy(preview = PreviewPackageEntry(previewVersion, 9, manifestFile("preview.pmtiles")))
+
+    @Test
+    fun laPreviewSiInstallaDaSolaConUnDownloadEDiSiAggiornaSenzaEsserRichiesta() = runBlocking {
+        files["preview.pmtiles"] = "anteprima 1".toByteArray()
+
+        installer.install(entryWithPreview(), setOf(PackageKind.POI))
+
+        var installed = repository.installed("san-marino")!!
+        assertEquals("pv1", installed.previewVersion)
+        assertEquals("anteprima 1", File(regionDir, RegionStorage.PREVIEW_FILE).readText())
+        val previewModified = File(regionDir, RegionStorage.PREVIEW_FILE).lastModified()
+
+        // Stessa versione dell'anteprima: aggiornando un altro pacchetto non la ritocca.
+        installer.install(entryWithPreview(), setOf(PackageKind.MAP))
+        assertEquals(previewModified, File(regionDir, RegionStorage.PREVIEW_FILE).lastModified())
+
+        // Versione dell'anteprima cambiata: si aggiorna anche se l'utente aggiorna solo un altro pacchetto.
+        files["preview.pmtiles"] = "anteprima 2".toByteArray()
+        installer.install(entryWithPreview(previewVersion = "pv2"), setOf(PackageKind.MAP))
+        installed = repository.installed("san-marino")!!
+        assertEquals("pv2", installed.previewVersion)
+        assertEquals("anteprima 2", File(regionDir, RegionStorage.PREVIEW_FILE).readText())
+    }
+
+    @Test
+    fun eliminareLaMappaNonToccaLAnteprimaSoloLEliminazioneDellaRegioneLaCancella() = runBlocking {
+        files["preview.pmtiles"] = "anteprima".toByteArray()
+        val entryConPreview = entryWithPreview()
+        installer.install(entryConPreview, entryConPreview.availableKinds)
+
+        repository.removePackage("san-marino", PackageKind.MAP)
+        assertTrue(File(regionDir, RegionStorage.PREVIEW_FILE).isFile)
+        assertEquals("pv1", repository.installed("san-marino")!!.previewVersion)
+
+        repository.remove("san-marino")
+        assertFalse(regionDir.exists())
+    }
+
     @Test
     fun ogniPacchettoSiInstallaDaSoloSenzaToccareGliAltri() = runBlocking {
         installer.install(entry(), setOf(PackageKind.POI))

@@ -1,5 +1,6 @@
 package com.pockettravel.core.sync
 
+import com.pockettravel.core.data.WorldMapStore
 import java.io.IOException
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -11,6 +12,7 @@ import okhttp3.Request
 class ManifestClient @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val json: Json,
+    private val worldMapStore: WorldMapStore,
 ) {
     suspend fun fetchManifest(): RegionManifest = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(SyncConfig.MANIFEST_URL).build()
@@ -26,6 +28,9 @@ class ManifestClient @Inject constructor(
             json.decodeFromString(RegionManifest.serializer(), body).also { manifest ->
                 manifest.guides.validate()
                 manifest.regions.forEach(RegionManifestEntry::validate)
+                manifest.worldMap?.validate()
+                // Ad ogni sync riuscita: feature/map legge solo WorldMapStore, non dipende da core/sync.
+                worldMapStore.save(manifest.worldMap?.url, manifest.worldMap?.maxZoom ?: worldMapStore.worldMapMaxZoom())
             }
         }
     }

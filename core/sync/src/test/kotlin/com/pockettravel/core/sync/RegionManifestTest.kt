@@ -173,6 +173,64 @@ class RegionManifestTest {
         assertThrows(IllegalArgumentException::class.java) { withXz("https://evil.example.com/poi.db.xz").validate() }
     }
 
+    private val withPreview = sampleManifest.replace(
+        "\"continent\": \"Europa\"",
+        """"preview": { "version": "2026.03.05", "maxZoom": 9, "file": { "name": "preview.pmtiles", "url": "https://github.com/o/r/releases/download/region-data/preview.pmtiles", "sizeBytes": 1200000, "sha256": "$sha" } },
+              "continent": "Europa"""",
+    )
+
+    @Test
+    fun `l'anteprima e' facoltativa, non e' un pacchetto e non conta nel download completo`() {
+        val without = parse().regions.single()
+        assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI), without.availableKinds)
+
+        val with = parse(withPreview).regions.single()
+        with.validate()
+        assertEquals(9, with.preview!!.maxZoom)
+        assertEquals("preview.pmtiles", with.preview.file.name)
+        assertEquals("preview.pmtiles", with.preview.downloadFile.name)
+        // Non e' un PackageKind: non tocca ne' availableKinds ne' downloadBytes.
+        assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI), with.availableKinds)
+        assertEquals(31_500_000L, with.downloadBytes(with.availableKinds))
+
+        val badHost = parse(withPreview.replace(
+            "https://github.com/o/r/releases/download/region-data/preview.pmtiles",
+            "https://evil.example.com/preview.pmtiles",
+        )).regions.single()
+        assertThrows(IllegalArgumentException::class.java) { badHost.validate() }
+    }
+
+    @Test
+    fun `se c'e' la copia compressa dell'anteprima si scarica quella`() {
+        val withXz = parse(withPreview.replace(
+            "\"sizeBytes\": 1200000, \"sha256\": \"$sha\" }",
+            "\"sizeBytes\": 1200000, \"sha256\": \"$sha\" },\n" +
+                """"fileXz": { "name": "preview.pmtiles.xz", "url": "https://github.com/o/r/releases/download/region-data/preview.pmtiles.xz", "sizeBytes": 900000, "sha256": "$sha" }""",
+        )).regions.single()
+        withXz.validate()
+        assertEquals("preview.pmtiles.xz", withXz.preview!!.downloadFile.name)
+    }
+
+    private val withWorldMap = sampleManifest.trimEnd().removeSuffix("}") +
+        """, "worldMap": { "version": "2026.09.20", "maxZoom": 8, "url": "https://github.com/o/r/releases/download/world-map/world-2026.09.20-z8.pmtiles", "sizeBytes": 555000000 } }"""
+
+    @Test
+    fun `il mondo online e' facoltativo, in cima al manifest`() {
+        assertNull(parse().worldMap)
+
+        val manifest = parse(withWorldMap)
+        val worldMap = manifest.worldMap!!
+        worldMap.validate()
+        assertEquals(8, worldMap.maxZoom)
+        assertEquals(555_000_000L, worldMap.sizeBytes)
+
+        val badHost = parse(withWorldMap.replace(
+            "https://github.com/o/r/releases/download/world-map/world-2026.09.20-z8.pmtiles",
+            "https://evil.example.com/world.pmtiles",
+        )).worldMap!!
+        assertThrows(IllegalArgumentException::class.java) { badHost.validate() }
+    }
+
     @Test
     fun `legge le regioni sostituite e i gruppi, facoltativi`() {
         assertEquals(emptyList<ReplacedRegion>(), parse().replacedRegions)

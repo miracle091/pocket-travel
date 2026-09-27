@@ -18,6 +18,9 @@ data class RegionManifest(
     // Regioni tolte e divise in regioni piu' piccole (es. "stati-uniti" -> gli stati): l'app le propone
     // a chi ha ancora installata quella vecchia.
     val replacedRegions: List<ReplacedRegion> = emptyList(),
+    // Mondo online a bassa risoluzione (z0-8), nostro: assente finche' la release GitHub "world-map"
+    // non e' pubblicata. core/sync lo salva in WorldMapStore (core/data) ad ogni sync riuscita.
+    val worldMap: WorldMapEntry? = null,
 )
 
 /** Regione tolta dal manifest e sostituita dalle regioni del gruppo [groupName]. */
@@ -38,6 +41,10 @@ data class RegionManifestEntry(
     val poiExtra: PoiPackageEntry? = null,
     // Numeri civici: assenti per le regioni non ancora generate o troppo grandi da estrarre.
     val addresses: AddressesPackageEntry? = null,
+    // Anteprima offline (pochi zoom, tetto di peso compresso): si installa da sola con ogni download
+    // della regione (RegionPackageInstaller), non e' un PackageKind. Assente per le regioni non ancora
+    // rigenerate.
+    val preview: PreviewPackageEntry? = null,
     // Continente (da pilot-regions.sh, aggiunto dal merge della pipeline): assente, l'app ricade
     // sul gruppo "Altro".
     val continent: String? = null,
@@ -104,6 +111,23 @@ data class PoiPackageEntry(val version: String, val file: RegionManifestFile, va
 @Serializable
 data class AddressesPackageEntry(val version: String, val file: RegionManifestFile)
 
+/**
+ * preview.pmtiles della regione, stesso schema di [PoiPackageEntry]: [fileXz], se c'e', e' il file da
+ * scaricare, compresso con xz, il cui risultato decompresso deve avere dimensione e sha256 di [file].
+ */
+@Serializable
+data class PreviewPackageEntry(val version: String, val maxZoom: Int, val file: RegionManifestFile, val fileXz: RegionManifestFile? = null) {
+    val downloadFile: RegionManifestFile get() = fileXz ?: file
+}
+
+/**
+ * Mondo online a bassa risoluzione, nostro, pubblicato sulla release GitHub "world-map": non
+ * compresso, letto a pezzi con richieste range (pmtiles://https://...) quando la mappa della regione
+ * non e' scaricata — niente sha256 da verificare, il file non si scarica per intero.
+ */
+@Serializable
+data class WorldMapEntry(val version: String, val maxZoom: Int, val url: String, val sizeBytes: Long)
+
 @Serializable
 data class RegionManifestFile(val name: String, val url: String, val sizeBytes: Long, val sha256: String)
 
@@ -136,6 +160,12 @@ fun RegionManifestEntry.validate() {
         require(isSafeVersion(it.version)) { "version dei civici non valida per $regionId" }
         it.file.validate(regionId)
     }
+    preview?.let {
+        require(isSafeVersion(it.version)) { "version dell'anteprima non valida per $regionId" }
+        require(it.maxZoom in 0..22) { "maxZoom dell'anteprima non valido per $regionId" }
+        it.file.validate(regionId)
+        it.fileXz?.validate(regionId)
+    }
     val source = map.source
     require(isAllowedManifestUrl(source.sourceUrl)) { "map.source.sourceUrl non consentito per $regionId" }
     require(source.minLon < source.maxLon && source.minLat < source.maxLat) { "bounding box non valido per $regionId" }
@@ -143,6 +173,13 @@ fun RegionManifestEntry.validate() {
         "bounding box fuori dai limiti geografici per $regionId"
     }
     require(source.minZoom in 0..22 && source.maxZoom in source.minZoom..22) { "zoom non valido per $regionId" }
+}
+
+fun WorldMapEntry.validate() {
+    require(isSafeVersion(version)) { "version del mondo online non valida" }
+    require(maxZoom in 0..22) { "maxZoom del mondo online non valido" }
+    require(sizeBytes >= 0) { "Dimensione del mondo online non valida" }
+    require(isAllowedManifestUrl(url)) { "url del mondo online non consentito" }
 }
 
 private fun RegionManifestFile.validate(owner: String) {
