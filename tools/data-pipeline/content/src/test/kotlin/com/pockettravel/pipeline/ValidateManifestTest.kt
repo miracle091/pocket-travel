@@ -50,6 +50,13 @@ class ValidateManifestTest {
     }
 
     @Test
+    fun `accetta minAppVersionCode positivo e rifiuta zero`() {
+        validateManifestJson(validManifest().replace("\"manifestVersion\": 2,", "\"manifestVersion\": 2, \"minAppVersionCode\": 9,"), allowedHosts)
+        val json = validManifest().replace("\"manifestVersion\": 2,", "\"manifestVersion\": 2, \"minAppVersionCode\": 0,")
+        assertThrows(ManifestValidationException::class.java) { validateManifestJson(json, allowedHosts) }
+    }
+
+    @Test
     fun `rifiuta un host non consentito`() {
         val json = validManifest().replace("https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.14--E10_N40.rd5", "https://evil.example.com/E10_N40.rd5")
         assertThrows(ManifestValidationException::class.java) { validateManifestJson(json, allowedHosts) }
@@ -84,15 +91,38 @@ class ValidateManifestTest {
         assertThrows(ManifestValidationException::class.java) { validateManifestJson(json, allowedHosts) }
     }
 
-    private fun withAddresses(url: String) = validManifest().replace(
+    @Test
+    fun `accetta la copia compressa facoltativa delle guide e ne controlla l'host`() {
+        fun withGuidesXz(url: String) = validManifest().replace(
+            "--guides.db\", \"sizeBytes\": 900000, \"sha256\": \"${"c".repeat(64)}\" }",
+            "--guides.db\", \"sizeBytes\": 900000, \"sha256\": \"${"c".repeat(64)}\" },\n" +
+                """"fileXz": { "name": "guides.db.xz", "url": "$url", "sizeBytes": 250000, "sha256": "${"4".repeat(64)}" }""",
+        )
+        validateManifestJson(withGuidesXz("https://github.com/miracle091/pocket-travel/releases/download/region-data-guide/guides--2026.09.23--guides.db.xz"), allowedHosts)
+        assertThrows(ManifestValidationException::class.java) {
+            validateManifestJson(withGuidesXz("https://evil.example.com/guides.db.xz"), allowedHosts)
+        }
+    }
+
+    private fun withAddresses(url: String, fileXz: String = "") = validManifest().replace(
         "\"poi\": {",
-        """"addresses": { "version": "2026.09.24", "file": { "name": "addresses.pmtiles", "url": "$url", "sizeBytes": 146238, "sha256": "${"d".repeat(64)}" } },
+        """"addresses": { "version": "2026.09.24", "file": { "name": "addresses.pmtiles", "url": "$url", "sizeBytes": 146238, "sha256": "${"d".repeat(64)}" }$fileXz },
           "poi": {""",
     )
 
     @Test
     fun `accetta i civici facoltativi`() {
         validateManifestJson(withAddresses("https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.24--addresses.pmtiles"), allowedHosts)
+    }
+
+    @Test
+    fun `accetta la copia compressa facoltativa dei civici e ne controlla l'host`() {
+        val goodUrl = "https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.24--addresses.pmtiles.xz"
+        fun fileXz(url: String) = ""","fileXz": { "name": "addresses.pmtiles.xz", "url": "$url", "sizeBytes": 130192, "sha256": "${"3".repeat(64)}" }"""
+        validateManifestJson(withAddresses(goodUrl, fileXz(goodUrl)), allowedHosts)
+        assertThrows(ManifestValidationException::class.java) {
+            validateManifestJson(withAddresses(goodUrl, fileXz("https://evil.example.com/addresses.pmtiles.xz")), allowedHosts)
+        }
     }
 
     @Test

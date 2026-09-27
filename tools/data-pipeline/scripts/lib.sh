@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Helper condivisi dagli script della pipeline publish-region (build-region.sh, build-guides.sh, assemble-site.sh,
-# build-pilot-regions.sh, generate-weekly-schedule.sh). Solo funzioni, nessun effetto collaterale:
+# Helper condivisi dagli script della pipeline publish-region (build-region.sh, build-guides.sh,
+# build-addresses.sh, assemble-site.sh, build-pilot-regions.sh, generate-weekly-schedule.sh). Solo
+# funzioni, nessun effetto collaterale:
 # sourcing sicuro da qualunque script con "set -euo pipefail" gia' attivo.
 # shellcheck shell=bash
 
@@ -10,6 +11,20 @@
 # lettera di unita'). Su Linux (CI) cygpath non esiste e non serve: bash e java concordano gia'
 # sullo stesso path POSIX.
 winpath() { cygpath -m "$1" 2>/dev/null || echo "$1"; }
+
+# xz_entry <file> <url>: comprime <file> in <file>.xz (dizionario da 16 MiB: il telefono decomprime
+# con ~17 MB di memoria, il preset 9e ne vorrebbe 65, perdendo meno del 2%; un solo thread, cosi' lo
+# stesso file da' sempre lo stesso .xz) e stampa su stdout la voce "fileXz" del manifest (nome,
+# url, dimensione e sha256 del .xz). Usata da build-region.sh (poi.db, poi-extra.db, preview.pmtiles),
+# build-guides.sh (guides.db) e build-addresses.sh (addresses.pmtiles): stesso schema ovunque, "file"
+# nel manifest descrive il file non compresso (nome, dimensione e sha256 che l'app ricontrolla dopo
+# la decompressione) e "fileXz" il file da scaricare, con l'URL del .xz.
+xz_entry() {
+  local file="$1" url="$2"
+  xz -T1 --lzma2=preset=9e,dict=16MiB -c "$file" > "$file.xz"
+  jq -n -c --arg name "$(basename "$file").xz" --arg url "$url" --argjson size "$(wc -c < "$file.xz" | tr -d ' ')" \
+    --arg hash "$(sha256sum < "$file.xz" | awk '{print $1}')" '{name: $name, url: $url, sizeBytes: $size, sha256: $hash}'
+}
 
 # Griglia 5x5 gradi usata sia per i segmenti .rd5 di BRouter che per le query Overpass (vedi
 # build-region.sh) sia per il peso delle regioni nello scheduling settimanale/sharding

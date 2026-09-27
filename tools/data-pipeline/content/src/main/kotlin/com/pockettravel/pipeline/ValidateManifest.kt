@@ -36,6 +36,7 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
     val guides = root.optJSONObject("guides") ?: throw ManifestValidationException("Il manifest non contiene il pacchetto guide")
     validateVersion(guides, "guide")
     validateFile(guides.getJSONObject("file"), "guide", allowedHosts)
+    guides.optJSONObject("fileXz")?.let { validateFile(it, "guide", allowedHosts) }
 
     // Mappa del mondo online (facoltativa, vedi map-preview-online-plan.md): non un "file" da
     // verificare dopo il download (letta a pezzi con richieste Range), solo url/sizeBytes/maxZoom.
@@ -46,6 +47,11 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
         if (worldMap.getLong("sizeBytes") < 0) throw ManifestValidationException("worldMap.sizeBytes non valido")
         val url = worldMap.getString("url")
         if (!isAllowedUrl(url, allowedHosts)) throw ManifestValidationException("worldMap.url non consentito: $url")
+    }
+
+    if (root.has("minAppVersionCode")) {
+        val minAppVersionCode = root.getInt("minAppVersionCode")
+        if (minAppVersionCode <= 0) throw ManifestValidationException("minAppVersionCode non valido: $minAppVersionCode")
     }
 
     val regions = root.getJSONArray("regions")
@@ -93,6 +99,7 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
         region.optJSONObject("addresses")?.let { addresses ->
             validateVersion(addresses, "$regionId/addresses")
             validateFile(addresses.getJSONObject("file"), regionId, allowedHosts)
+            addresses.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
         }
 
         // Anteprima offline: facoltativa (regioni non ancora rigenerate da quando esiste, o senza

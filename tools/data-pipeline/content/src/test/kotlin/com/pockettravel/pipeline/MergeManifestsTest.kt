@@ -219,6 +219,14 @@ class MergeManifestsTest {
     }
 
     @Test
+    fun `scrive minAppVersionCode solo se indicato`() {
+        val fragments = listOf(fragmentFor("san-marino", "San Marino"))
+
+        assertEquals(9, JSONObject(mergeManifestJson(fragments, minAppVersionCode = 9)).getInt("minAppVersionCode"))
+        assertFalse(JSONObject(mergeManifestJson(fragments)).has("minAppVersionCode"))
+    }
+
+    @Test
     fun `porta la mappa di tutte le regioni sulla build Protomaps corrente`() {
         val merged = JSONObject(
             mergeManifestJson(

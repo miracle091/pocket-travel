@@ -68,7 +68,10 @@ MAP_SOURCE_ARG=""
 if PROTOMAPS_DATE="${PROTOMAPS_DATE_OVERRIDE:-$(resolve_protomaps_date)}"; then
   MAP_SOURCE_ARG="--map-source-url https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles"
 fi
-ARGS_STR="--continents \"$(winpath "$CONTINENTS_TSV")\" --replaced \"$(winpath "$REPLACED_TSV")\" $MAP_SOURCE_ARG \"$(winpath "$SITE_DIR/manifest.json")\""
+# Versione minima dell'app che sa leggere i dati pubblicati (l'app blocca i download e invita ad
+# aggiornarla): si alza a mano in min-app-version-code solo quando il formato cambia in modo incompatibile.
+MIN_APP_VERSION_CODE="$(tr -dc '0-9' < "$SCRIPT_DIR/../min-app-version-code")"
+ARGS_STR="--continents \"$(winpath "$CONTINENTS_TSV")\" --replaced \"$(winpath "$REPLACED_TSV")\" $MAP_SOURCE_ARG --min-app-version-code $MIN_APP_VERSION_CODE \"$(winpath "$SITE_DIR/manifest.json")\""
 for f in "${MANIFEST_INPUTS[@]}"; do
   ARGS_STR="$ARGS_STR \"$(winpath "$f")\""
 done

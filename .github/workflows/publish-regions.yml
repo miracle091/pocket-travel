@@ -223,9 +223,9 @@ jobs:
           tools/data-pipeline/scripts/build-guides.sh "$VERSION" \
             "https://github.com/${{ github.repository }}/releases/download/region-data-guide" "$OUT" \
             "${{ env.PAGES_BASE_URL }}/manifest.json"
-          if [ -f "$OUT/guides.db" ]; then
-            asset="$OUT/guides--${VERSION}--guides.db"
-            cp "$OUT/guides.db" "$asset"
+          if [ -f "$OUT/guides.db.xz" ]; then
+            asset="$OUT/guides--${VERSION}--guides.db.xz"
+            cp "$OUT/guides.db.xz" "$asset"
             gh release upload region-data-guide "$asset" --repo "${{ github.repository }}" --clobber
           fi
           mkdir -p "$RUNNER_TEMP/fragments"
@@ -440,21 +440,16 @@ jobs:
                 # precedente fallito a meta'.
                 # In modalita' incrementale (.incremental, vedi build-region.sh sezione 2bis) si
                 # caricano solo le tile cambiate, piu' poi.db.xz/poi-extra.db.xz se erano scaduti e sono cambiati e
-                # addresses.pmtiles se build-addresses.sh ne ha prodotto uno nuovo.
+                # addresses.pmtiles.xz se build-addresses.sh ne ha prodotto uno nuovo.
                 uploads=()
-                # I POI e l'anteprima si caricano solo compressi (vedi xz_entry/build_preview in
-                # build-region.sh).
-                for xz in poi.db.xz poi-extra.db.xz preview.pmtiles.xz; do
+                # I POI, l'anteprima e i civici si caricano solo compressi (vedi xz_entry in
+                # lib.sh, build_preview in build-region.sh).
+                for xz in poi.db.xz poi-extra.db.xz preview.pmtiles.xz addresses.pmtiles.xz; do
                   [ -f "$regionOut/$xz" ] || continue
                   xzAsset="$regionOut/${regionId}--${VERSION}--$xz"
                   cp "$regionOut/$xz" "$xzAsset"
                   uploads+=("$xzAsset")
                 done
-                if [ -f "$regionOut/addresses.pmtiles" ]; then
-                  addressesAsset="$regionOut/${regionId}--${VERSION}--addresses.pmtiles"
-                  cp "$regionOut/addresses.pmtiles" "$addressesAsset"
-                  uploads+=("$addressesAsset")
-                fi
                 for rd5 in "$regionOut"/*.rd5; do
                   [ -e "$rd5" ] || continue
                   rd5Asset="$regionOut/${regionId}--${VERSION}--$(basename "$rd5")"

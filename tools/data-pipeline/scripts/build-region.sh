@@ -310,7 +310,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
     # POI non si aggiornerebbero mai.
     PUBLISHED_REGION="$(jq -c --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id)][0] // empty' "$PUBLISHED_MANIFEST" 2>/dev/null || true)"
     PUBLISHED_POI_URL="$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.file.url // ""' 2>/dev/null || true)"
-    POI_DATE="$(printf '%s' "$PUBLISHED_POI_URL" | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)--\(poi\|content\)\.db$#\1#p')"
+    POI_DATE="$(printf '%s' "$PUBLISHED_POI_URL" | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)--\(poi\|content\)\.db\(\.xz\)\?$#\1#p')"
     POI_AGE_DAYS=""
     if [ -n "$POI_DATE" ]; then
       POI_AGE_DAYS="$(( ($(date -u +%s) - $(date -u -d "${POI_DATE//./-}" +%s)) / 86400 ))"
@@ -578,14 +578,8 @@ done
 # I pacchetti POI si pubblicano solo compressi con xz (<file>.xz): Spagna 110 MB -> 26 MB, contro i
 # 44 MB di gzip. Nel manifest "file" descrive il database non compresso (nome, dimensione e sha256,
 # che l'app ricontrolla dopo la decompressione) e "fileXz" il file da scaricare; tutti e due hanno
-# l'URL del .xz. Dizionario da 16 MiB: il telefono decomprime con ~17 MB di memoria (il preset 9e
-# ne vorrebbe 65) perdendo meno del 2%. Un solo thread: lo stesso poi.db da' sempre lo stesso .xz.
-xz_entry() {
-  local file="$1" url="$2"
-  xz -T1 --lzma2=preset=9e,dict=16MiB -c "$file" > "$file.xz"
-  jq -n -c --arg name "$(basename "$file").xz" --arg url "$url" --argjson size "$(wc -c < "$file.xz" | tr -d ' ')" \
-    --arg hash "$(sha256sum < "$file.xz" | awk '{print $1}')" '{name: $name, url: $url, sizeBytes: $size, sha256: $hash}'
-}
+# l'URL del .xz. xz_entry (dizionario da 16 MiB, un solo thread) e' in lib.sh: stessa convenzione
+# per guides.db (build-guides.sh) e addresses.pmtiles (build-addresses.sh).
 
 # --- 5. Frammento manifest.json (poi.db e poi-extra.db nostri + rd5 ri-ospitati + sorgente mappa)
 POI_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi.db.xz"

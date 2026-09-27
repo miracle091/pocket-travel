@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Pacchetto "civici" di UNA regione, da lanciare dopo build-region.sh sulla stessa <outputDir>:
 # aggiunge al manifest-fragment.json gia' scritto la voce "addresses" (facoltativa nel manifest) e,
-# se serve un file nuovo, lascia <outputDir>/addresses.pmtiles da caricare.
+# se serve un file nuovo, lascia <outputDir>/addresses.pmtiles.xz da caricare - unico asset
+# pubblicato, stesso trattamento di poi.db/preview.pmtiles in build-region.sh (addresses.pmtiles
+# -11% con xz, vedi xz_entry in lib.sh): "file" nel manifest descrive il pmtiles decompresso
+# (nome/dimensione/sha256 che l'app ricontrolla dopo il download), "fileXz" il file da scaricare,
+# stesso url per entrambi.
 #
 # I civici stanno nelle tile z15 di Protomaps (layer buildings, kind=address), mentre la mappa
 # dell'app si ferma a z14: qui si estraggono le sole z15 del bbox con go-pmtiles (poche richieste
@@ -26,7 +30,7 @@
 #                                    rimasta senza civici nuovi, con il motivo (riepilogo del job)
 #   PMTILES_BIN                      eseguibile go-pmtiles (default: "pmtiles" o "go-pmtiles" nel PATH)
 #
-# Richiede: jq, curl, sha256sum, go-pmtiles, gradle wrapper dalla root del repo (Overpass solo per la
+# Richiede: jq, curl, sha256sum, xz, go-pmtiles, gradle wrapper dalla root del repo (Overpass solo per la
 # fonte di riserva).
 set -euo pipefail
 
@@ -222,9 +226,11 @@ if [ -n "$PUBLISHED_ENTRY" ] && [ "$HASH" = "$(printf '%s' "$PUBLISHED_ENTRY" | 
 fi
 
 SIZE="$(wc -c < "$ADDRESSES_FILE" | tr -d ' ')"
-set_entry "$(jq -n -c --arg version "$VERSION" --arg url "${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--addresses.pmtiles" \
-  --argjson size "$SIZE" --arg hash "$HASH" \
-  '{version: $version, file: {name: "addresses.pmtiles", url: $url, sizeBytes: $size, sha256: $hash}}')"
+ADDRESSES_XZ_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--addresses.pmtiles.xz"
+ADDRESSES_XZ_JSON="$(xz_entry "$ADDRESSES_FILE" "$ADDRESSES_XZ_URL")"
+set_entry "$(jq -n -c --arg version "$VERSION" --arg url "$ADDRESSES_XZ_URL" \
+  --argjson size "$SIZE" --arg hash "$HASH" --argjson xz "$ADDRESSES_XZ_JSON" \
+  '{version: $version, file: {name: "addresses.pmtiles", url: $url, sizeBytes: $size, sha256: $hash}, fileXz: $xz}')"
 # Una regione altrimenti invariata ora ha un file da caricare: il workflow carica solo le regioni
 # senza .skipped, e con .incremental solo i file presenti in <outputDir>.
 if [ -f "$OUTPUT_DIR/.skipped" ]; then
