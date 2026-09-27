@@ -36,6 +36,10 @@ class PassportVaultViewModel @Inject constructor(
         repository.lock()
     }
 
+    // Vero solo dopo una rotazione (la schermata non blocca quando isChangingConfigurations):
+    // la chiave di sessione e' ancora in memoria e non serve un nuovo prompt biometrico.
+    val isUnlocked: Boolean get() = repository.isUnlocked
+
     fun save(passport: Passport) {
         viewModelScope.launch { repository.save(passport) }
     }

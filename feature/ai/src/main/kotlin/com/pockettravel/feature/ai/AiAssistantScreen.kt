@@ -78,7 +78,7 @@ fun AiAssistantScreen(
 }
 
 // Azioni della schermata, raccolte per separare la UI dal ViewModel (@Preview, onboarding).
-class AiActions(
+data class AiActions(
     val onModeChanged: (AiEngineMode) -> Unit,
     val onModelSelected: (String) -> Unit,
     val onDownloadModel: () -> Unit,

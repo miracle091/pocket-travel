@@ -1,9 +1,11 @@
 package com.pockettravel.feature.vault
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -44,6 +46,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -69,9 +74,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.DocumentType
 import com.pockettravel.core.data.Passport
@@ -114,13 +123,35 @@ fun PassportVaultScreen(onBack: (() -> Unit)? = null, viewModel: PassportVaultVi
     var gateStatus by remember {
         val canAuthenticate = BiometricManager.from(context).canAuthenticate(ALLOWED_AUTHENTICATORS)
         mutableStateOf(
-            if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) GateStatus.LOCKED else GateStatus.NOT_ENROLLED,
+            when {
+                canAuthenticate != BiometricManager.BIOMETRIC_SUCCESS -> GateStatus.NOT_ENROLLED
+                viewModel.isUnlocked -> GateStatus.UNLOCKED
+                else -> GateStatus.LOCKED
+            },
         )
     }
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
 
+    // L'utente puo' uscire da qui per impostare il blocco schermo nelle Impostazioni: al ritorno
+    // (ON_RESUME) si ricontrolla la biometria, cosi' NOT_ENROLLED non resta bloccato per sempre.
+    // Non tocca LOCKED/UNLOCKED gia' impostati, solo NOT_ENROLLED che puo' essere diventato disponibile.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && gateStatus == GateStatus.NOT_ENROLLED) {
+                val canAuthenticate = BiometricManager.from(context).canAuthenticate(ALLOWED_AUTHENTICATORS)
+                if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) gateStatus = GateStatus.LOCKED
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // Il blocco (scarto della chiave di sessione) deve avvenire solo lasciando davvero la
+    // schermata, non a una rotazione: isChangingConfigurations distingue i due casi.
+    val activity = context as? Activity
     DisposableEffect(Unit) {
-        onDispose { viewModel.lock() }
+        onDispose { if (activity?.isChangingConfigurations != true) viewModel.lock() }
     }
 
     // Dentro NavigationSuiteScaffold: gli inset di sistema li gestiscono la barra/rail e la top app bar,
@@ -463,8 +494,31 @@ private fun PassportEditDialog(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     var showCamera by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val cameraPermissionDeniedMessage = stringResource(R.string.vault_camera_permission_denied)
+    val openAppSettingsLabel = stringResource(R.string.vault_open_app_settings)
     val requestCameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) showCamera = true
+        if (granted) {
+            showCamera = true
+        } else {
+            // "Non chiedere piu'": shouldShowRequestPermissionRationale torna false anche prima
+            // della primissima richiesta, ma qui siamo sempre dopo un rifiuto, quindi false vuol
+            // dire davvero "negato per sempre" — solo allora ha senso proporre le impostazioni.
+            val activity = context as? Activity
+            val permanentlyDenied = activity != null &&
+                !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.CAMERA)
+            coroutineScope.launch {
+                val result = snackbarHostState.showSnackbar(
+                    message = cameraPermissionDeniedMessage,
+                    actionLabel = if (permanentlyDenied) openAppSettingsLabel else null,
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")),
+                    )
+                }
+            }
+        }
     }
 
     fun openCamera() {
@@ -518,6 +572,7 @@ private fun PassportEditDialog(
                     },
                 )
             },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
         ) { innerPadding ->
             Column(
                 modifier = Modifier

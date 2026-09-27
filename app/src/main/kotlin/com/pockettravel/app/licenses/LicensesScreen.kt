@@ -44,7 +44,7 @@ fun LicensesScreen(onBack: () -> Unit) {
         },
     ) { innerPadding ->
         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = innerPadding) {
-            items(thirdPartyLicenses) { entry ->
+            items(thirdPartyLicenses, key = { it.component }) { entry ->
                 ListItem(
                     headlineContent = { Text(entry.component) },
                     supportingContent = {

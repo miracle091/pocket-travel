@@ -95,7 +95,10 @@ fun MapScreen(
     // Saveable: il foglio resta aperto dopo una rotazione o un cambio di tema.
     var showLegend by rememberSaveable { mutableStateOf(false) }
     var symbolPinMap by remember { mutableStateOf<Map<Long, MapPin>>(emptyMap()) }
-    var selectedPin by remember { mutableStateOf<MapPin?>(null) }
+    // Saveable come id, non come MapPin: resta valido dopo una rotazione risolvendolo di nuovo
+    // sulla lista pins corrente, invece di riaprire il foglio su un pin ormai stantio.
+    var selectedPinId by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedPin = pins.firstOrNull { it.id == selectedPinId }
     var cameraFitted by remember { mutableStateOf(false) }
     var parkingZoom by remember { mutableStateOf(false) }
     LaunchedEffect(mapView) {
@@ -146,7 +149,7 @@ fun MapScreen(
                             style.addImage(MISSING_MAP_HATCH_IMAGE, missingMapHatchBitmap(context, darkMap))
                             symbolManager = SymbolManager(view, map, style).apply {
                                 addClickListener { symbol ->
-                                    selectedPin = symbolPinMap[symbol.id]
+                                    selectedPinId = symbolPinMap[symbol.id]?.id
                                     true
                                 }
                             }
@@ -229,7 +232,7 @@ fun MapScreen(
     }
 
     selectedPin?.let { pin ->
-        ModalBottomSheet(onDismissRequest = { selectedPin = null }) {
+        ModalBottomSheet(onDismissRequest = { selectedPinId = null }) {
             Column(modifier = Modifier.fillMaxWidth().padding(start = Spacing.xl, end = Spacing.xl, bottom = Spacing.xxl)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     PoiBadge(pin.category, size = 40)
@@ -261,7 +264,7 @@ fun MapScreen(
                     FilledTonalButton(
                         onClick = {
                             context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
-                            selectedPin = null
+                            selectedPinId = null
                         },
                     ) {
                         Icon(AppIcons.Call, contentDescription = null, modifier = Modifier.size(18.dp))

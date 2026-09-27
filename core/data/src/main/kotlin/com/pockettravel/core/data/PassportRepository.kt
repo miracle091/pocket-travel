@@ -35,6 +35,8 @@ class PassportRepository @Inject constructor(
         sessionCipher = null
     }
 
+    val isUnlocked: Boolean get() = sessionCipher != null
+
     fun observeAll(): Flow<List<Passport>> =
         passportDao.observeAll().map { entities -> entities.mapNotNull { it.toDomainOrNull() } }
 

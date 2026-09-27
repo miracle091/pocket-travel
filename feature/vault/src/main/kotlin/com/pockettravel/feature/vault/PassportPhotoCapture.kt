@@ -36,6 +36,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -197,7 +198,11 @@ internal fun DocumentCameraCaptureScreen(
                     .size(72.dp)
                     .clip(CircleShape)
                     .background(if (canCapture && !isCapturing) Color.White else Color.Gray)
-                    .clickable(enabled = canCapture && !isCapturing) { capture() },
+                    .clickable(
+                        enabled = canCapture && !isCapturing,
+                        onClickLabel = stringResource(R.string.vault_camera_capture),
+                        role = Role.Button,
+                    ) { capture() },
             )
         }
     }
