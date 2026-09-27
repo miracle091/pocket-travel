@@ -21,6 +21,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import vram
+
 HERE = Path(__file__).resolve().parent
 
 # Eseguito in un processo a parte: cosi' torch non inizializza la GPU nel launcher e
@@ -31,7 +33,9 @@ gpus = []
 for i in range(torch.cuda.device_count()):
     p = torch.cuda.get_device_properties(i)
     integrated = bool(getattr(p, "is_integrated", False)) or "Graphics" in p.name
-    gpus.append({"index": i, "name": p.name, "vram_gib": round(p.total_memory / 2**30, 1), "integrated": integrated})
+    free = torch.cuda.mem_get_info(i)[0]  # giusto su Linux/WSL, non su Windows (vedi vram.py)
+    gpus.append({"index": i, "name": p.name, "vram_gib": round(p.total_memory / 2**30, 1),
+                 "free_gib": free / 2**30, "integrated": integrated})
 print(json.dumps({"cuda": torch.version.cuda, "hip": getattr(torch.version, "hip", None), "gpus": gpus}))
 """
 
@@ -66,6 +70,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true", help="mostra le scelte e il comando senza lanciare")
     ap.add_argument("--gpu", type=int, help="forza l'indice della GPU invece della scelta automatica")
+    ap.add_argument("--max-vram-held", type=float, default=vram.DEFAULT_MAX_HELD_PCT, help=vram.HELP)
     a, passthrough = ap.parse_known_args()
 
     info = probe()
@@ -77,6 +82,8 @@ def main():
         else max(candidates, key=lambda g: g["vram_gib"])
     if gpu is None:
         sys.exit(f"GPU {a.gpu} non trovata tra: {[g['index'] for g in info['gpus']]}")
+
+    vram.check(gpu["vram_gib"], gpu["free_gib"], a.max_vram_held, f"GPU {gpu['index']} ({gpu['name']})")
 
     env = dict(os.environ)
     env["CUDA_VISIBLE_DEVICES" if vendor == "NVIDIA" else "HIP_VISIBLE_DEVICES"] = str(gpu["index"])

@@ -27,6 +27,10 @@ Scelte che contano per la qualita':
   usate per QUESTO training, non l'ultimo dataset generato.
 """
 import argparse
+import gc
+import hashlib
+import json
+import os
 import random
 import shutil
 import subprocess
@@ -34,7 +38,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from eval_common import TEST_REGIONS
+from eval_common import TEST_REGIONS, chat_prompt_and_answer
 from status import Progress, phase
 
 try:
@@ -46,6 +50,7 @@ from datasets import load_dataset
 from peft import LoraConfig, get_peft_model
 from transformers import (AutoModelForCausalLM, AutoTokenizer, DataCollatorForSeq2Seq, Trainer,
                           TrainerCallback, TrainingArguments)
+from transformers.trainer_utils import get_last_checkpoint
 
 # bf16 nativo (stessa regola per NVIDIA e AMD): capability >= 8 (Ampere+; su ROCm gfx9+). Su Turing/Pascal is_bf16_supported() e' vero ma emulato (lento): meglio fp16
 BF16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported() and torch.cuda.get_device_capability()[0] >= 8
@@ -64,6 +69,8 @@ ap.add_argument("--max-steps", type=int, default=-1, help="-1 = usa --epochs")
 ap.add_argument("--epochs", type=float, default=2)
 ap.add_argument("--max-len", type=int, default=1024)
 ap.add_argument("--batch", type=int, default=4, help="esempi per passo sulla GPU (16 effettivi: cala se manca VRAM)")
+ap.add_argument("--no-group-by-length", action="store_true",
+                help="batch in ordine casuale invece che per lunghezza (come i training fino al 4B del 2026-09-26)")
 ap.add_argument("--merge", action="store_true", help="salva anche i pesi con il LoRA fuso (per la conversione); lancia anche l'eval automatico (run_eval.py)")
 ap.add_argument("--dataset", default="pocket_travel_sft.jsonl",
                 help="file dentro data/sft/ (default: pubblicabile; pocket_travel_sft.with-vs.jsonl per la variante locale con Viaggiare Sicuri)")
@@ -98,9 +105,11 @@ class StatusLine(TrainerCallback):
     def on_train_begin(self, args, state, control, **kwargs):
         phase("training", f"{state.max_steps} passi, batch effettivo {args.per_device_train_batch_size * args.gradient_accumulation_steps}")
         self.p, self.loss, self.eval_loss = Progress("training", state.max_steps, "passo", every=60), None, None
+        self.started = False
     def on_step_end(self, args, state, control, **kwargs):
-        if state.global_step == 1:
-            self.p.mark_start(1)
+        if not self.started:  # primo passo di questo processo (1, o quello dopo il checkpoint ripreso)
+            self.p.mark_start(state.global_step)
+            self.started = True
         self.p.update(state.global_step, self.extra(state))
     def on_log(self, args, state, control, logs=None, **kwargs):
         logs = logs or {}
@@ -132,27 +141,35 @@ class WeightedTrainer(Trainer):
     """Loss pesata per categoria: bypassa il loss interno del modello (che farebbe una media sui
     token di tutto il batch, senza distinzione di riga) e lo ricalcola per riga, poi fa la media
     pesata sulle righe. Con Unsloth si perde il kernel di loss fuso (serve avere i logits)."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # compute_loss non usa num_items_in_batch: senza questo il Trainer non divide il loss per
+        # gradient_accumulation_steps (i modelli Qwen accettano **kwargs) e gradienti e loss mostrato
+        # risultano 16/batch volte piu' grandi (docstring di Trainer.compute_loss)
+        self.model_accepts_loss_kwargs = False
+
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         weight = inputs.pop("weight")
         labels = inputs.pop("labels")
         logits = model(**inputs).logits
-        shift_logits = logits[:, :-1, :].contiguous()
-        shift_labels = labels[:, 1:].contiguous()
-        per_token = torch.nn.functional.cross_entropy(
-            shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1),
-            ignore_index=-100, reduction="none").view(shift_labels.shape)
+        shift_labels = labels[:, 1:]
         mask = shift_labels.ne(-100)
-        per_example = (per_token * mask).sum(1) / mask.sum(1).clamp(min=1)
+        # Cross-entropy solo sui token della risposta (~20%): il prompt e' mascherato, calcolarla su tutte
+        # le posizioni (vocabolario Qwen3.5 ~248k) e poi azzerarla costava ~5 volte il necessario, piu' una
+        # copia intera dei logits (.contiguous()). Stesso risultato: loss per token sommata nella sua riga.
+        per_token = torch.nn.functional.cross_entropy(logits[:, :-1, :][mask], shift_labels[mask], reduction="none")
+        rows = mask.nonzero(as_tuple=True)[0]  # riga di ogni token di risposta, nello stesso ordine di [mask]
+        per_example = (torch.zeros(len(labels), device=per_token.device, dtype=per_token.dtype)
+                       .index_add(0, rows, per_token) / mask.sum(1).clamp(min=1))
         loss = (per_example * weight).sum() / weight.sum()
         return (loss, {"logits": logits}) if return_outputs else loss
 
 def encode(r):
-    prompt = tok.apply_chat_template(r["messages"][:1], add_generation_prompt=True, tokenize=True,
-                                     return_dict=False, enable_thinking=False)
-    full = tok.apply_chat_template(r["messages"], tokenize=True, return_dict=False, enable_thinking=False)
-    assert full[:len(prompt)] == prompt, "il template non estende il prompt: maschera non valida"
-    return {"input_ids": full, "attention_mask": [1] * len(full),
-            "labels": [-100] * len(prompt) + full[len(prompt):]}
+    prompt, answer = chat_prompt_and_answer(tok, r["messages"])
+    prompt_ids = tok(prompt, add_special_tokens=False)["input_ids"]
+    answer_ids = tok(answer, add_special_tokens=False)["input_ids"]
+    return {"input_ids": prompt_ids + answer_ids, "attention_mask": [1] * (len(prompt_ids) + len(answer_ids)),
+            "labels": [-100] * len(prompt_ids) + answer_ids}
 
 phase("preparazione dataset", a.dataset)
 dataset_path = SFT_DIR / a.dataset
@@ -178,6 +195,11 @@ train_ds, test_ds = train_ds.map(add_weight), test_ds.map(add_weight)
 cols = ["input_ids", "attention_mask", "labels", "weight"]
 print(f"righe: train={len(train_ds)} test={len(test_ds)} (regioni di test: {sorted(held_out)})")
 
+# Esempi di lunghezza simile nello stesso batch: meno padding (i contesti vanno da poche righe a
+# --max-len token). transformers 5 usa train_sampling_strategy, le versioni 4.x group_by_length.
+length_grouping = {} if a.no_group_by_length else (
+    {"train_sampling_strategy": "group_by_length"} if "train_sampling_strategy" in TrainingArguments.__dataclass_fields__
+    else {"group_by_length": True})
 trainer = WeightedTrainer(
     model=model, train_dataset=train_ds.select_columns(cols), eval_dataset=test_ds.select_columns(cols),
     data_collator=WeightedCollator(DataCollatorForSeq2Seq(tok, padding=True, label_pad_token_id=-100)),
@@ -189,16 +211,33 @@ trainer = WeightedTrainer(
         per_device_eval_batch_size=a.batch,
         learning_rate=2e-4, lr_scheduler_type="cosine", warmup_steps=5,
         num_train_epochs=a.epochs, max_steps=a.max_steps,
-        logging_steps=5, eval_strategy="steps", eval_steps=50,
-        output_dir=a.out, save_strategy="no", report_to="none", seed=42,
+        logging_steps=5, eval_strategy="steps", eval_steps=100,  # come save_steps; ~50-65 s per eval
+        # checkpoint ogni 100 passi (solo l'ultimo): un training interrotto riparte da li' rilanciando
+        # lo stesso comando, invece che da zero
+        output_dir=a.out, save_strategy="steps", save_steps=100, save_total_limit=1, report_to="none", seed=42,
+        **length_grouping,
         disable_tqdm=True,  # sostituite da StatusLine: le barre tqdm nei log su file diventano illeggibili
         remove_unused_columns=False))  # altrimenti Trainer toglie 'weight': non e' un argomento di model.forward
-trainer.train()
+# Si riprende un checkpoint solo se e' dello stesso training: con un altro modello, dataset o
+# iperparametri il Trainer riprenderebbe lo stato (passi, scheduler) del training vecchio.
+run_key = {"model": a.model, "dataset": a.dataset, "dataset_sha256": hashlib.sha256(dataset_path.read_bytes()).hexdigest(),
+           "max_len": a.max_len, "batch": a.batch, "group_by_length": not a.no_group_by_length, "epochs": a.epochs, "max_steps": a.max_steps, "four_bit": a.four_bit}
+run_key_path = Path(a.out) / "run.json"
+last_checkpoint = get_last_checkpoint(a.out) if Path(a.out).is_dir() else None
+if last_checkpoint:
+    if not run_key_path.exists() or json.loads(run_key_path.read_text(encoding="utf-8")) != run_key:
+        sys.exit(f"{last_checkpoint} e' di un training diverso (modello, dataset o parametri): cancellalo o usa un altro --out")
+    phase("ripresa", last_checkpoint)
+Path(a.out).mkdir(parents=True, exist_ok=True)
+run_key_path.write_text(json.dumps(run_key, indent=2), encoding="utf-8")
+trainer.train(resume_from_checkpoint=last_checkpoint)
 print("peak VRAM GiB:", round(torch.cuda.max_memory_allocated() / 2**30, 2))
 
 phase("salvataggio LoRA", a.out + "/lora")
 model.save_pretrained(a.out + "/lora")
 tok.save_pretrained(a.out + "/lora")
+for checkpoint in Path(a.out).glob("checkpoint-*"):  # servivano solo alla ripresa: LoRA finale salvato
+    shutil.rmtree(checkpoint)
 
 def copy_attribution(dst):
     if attribution_path.exists():
@@ -213,8 +252,8 @@ phase("controllo a campione", "2 positivi e 2 negativi del test")
 model.eval()
 for kind in ("pos", "pos", "neg", "neg"):
     r = random.Random().choice([x for x in test_ds if x["kind"] == kind])
-    ids = tok.apply_chat_template(r["messages"][:1], add_generation_prompt=True, return_tensors="pt",
-                                  return_dict=True, enable_thinking=False).to(model.device)
+    ids = tok(chat_prompt_and_answer(tok, r["messages"][:1])[0], add_special_tokens=False,
+              return_tensors="pt").to(model.device)
     with torch.no_grad():
         out = model.generate(**ids, max_new_tokens=120, do_sample=False)
     print(f"\n[{kind}] {r['messages'][0]['content'].rsplit('DOMANDA:', 1)[1].strip()}")
@@ -227,7 +266,21 @@ if a.merge:
     model.merge_and_unload().save_pretrained(a.out + "/merged")
     tok.save_pretrained(a.out + "/merged")
     copy_attribution(a.out + "/merged")
+# Libera la VRAM prima dell'eval (processo figlio) e dell'uscita: con ROCm su Windows il processo
+# a volte resta appeso in chiusura e il driver continua a riservargli la memoria occupata (visto:
+# 5,8 GB tenuti dal training del 2B finito, il 4B successivo e' finito in memoria condivisa, 12x piu' lento)
+del model, trainer
+gc.collect()
+torch.cuda.empty_cache()
+if a.merge:
     phase("eval automatico", "run_eval.py sul modello fuso")
-    result = subprocess.run([sys.executable, str(Path(__file__).parent / "run_eval.py"), a.out + "/merged"])
+    # --max-vram-held 100: la VRAM ancora tenuta da questo processo (contesto GPU) non e' di "altri"
+    result = subprocess.run([sys.executable, str(Path(__file__).parent / "run_eval.py"), a.out + "/merged",
+                             "--max-vram-held", "100"])
     if result.returncode != 0:
         print("-- eval automatico fallito (training comunque completato)", file=sys.stderr)
+# Uscita senza la chiusura di Python (atexit, distruttori di torch/HIP), dove con ROCm su Windows il
+# processo restava appeso: chi lo lancia (train_auto.py, una catena di training) aspetterebbe per sempre.
+sys.stdout.flush()
+sys.stderr.flush()
+os._exit(0)
