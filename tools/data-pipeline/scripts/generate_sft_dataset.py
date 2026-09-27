@@ -6,6 +6,12 @@ Metodo "template + negativi sintetici":
 - negativi: domanda su una categoria che il contesto NON copre -> "il contesto non basta".
 
 Uso: python generate_sft_dataset.py [--limit N] [--negatives 0.2] [--seed 42] [--vs]
+     [--dump-dir D:/.../20260901 --cities 3000]
+Con --dump-dir i testi vengono dai dump di dumps.wikimedia.org (Wikivoyage IT/EN, Wikipedia IT: vedi
+DUMP_FILES e wiki_dump.py) invece che dall'API, i titoli da sft-sources.tsv: stesso dump e stesso seed
+danno lo stesso dataset. --cities aggiunge le pagine delle citta' di Wikivoyage IT (escluse quelle delle
+regioni di test). Le domande fuori tema includono quelle di truthful_qa_italian e alpaca-cleaned-italian
+(solo le domande, la risposta e' sempre il rifiuto).
 Output (in tools/data-pipeline/data/sft/, git-ignored): pocket_travel_sft.jsonl + ATTRIBUTION.tsv di default
 (pubblicabile, senza VS) oppure pocket_travel_sft.with-vs.jsonl + ATTRIBUTION.with-vs.tsv (con --vs) — nomi
 distinti apposta, cosi' le due varianti convivono sul disco senza sovrascriversi; raw/<regionId>[.en].txt
@@ -32,10 +38,20 @@ from pathlib import Path
 
 from eval_common import TEST_REGIONS
 from status import Progress, phase
+import wiki_dump
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parent / "data" / "sft"
-UA = {"User-Agent": "pocket-travel-sft/0.5 (https://github.com/miracle091/pocket-travel)"}
+UA = {"User-Agent": "pocket-travel-sft/0.6 (https://github.com/miracle091/pocket-travel)"}
+# Con --dump-dir: titolo della pagina di ogni fonte per regione (regionId, fonte, titolo), versionato cosi'
+# che dump + questo file bastino a rifare lo stesso dataset. Le regioni nuove si risolvono via API e si
+# aggiungono qui.
+SOURCES_TSV = HERE.parent / "sft-sources.tsv"
+DUMP_FILES = {"it": "itwikivoyage-{d}-pages-articles.xml.bz2", "en": "enwikivoyage-{d}-pages-articles.xml.bz2",
+              "wp": "itwiki-{d}-pages-articles-multistream.xml.bz2",
+              "wp_index": "itwiki-{d}-pages-articles-multistream-index.txt.bz2"}
+SOURCE_URL = {"it": "https://it.wikivoyage.org/wiki/", "en": "https://en.wikivoyage.org/wiki/",
+              "wp": "https://it.wikipedia.org/wiki/"}
 
 # Stessa mappa (voci IT) di GenerateGuideContent.kt
 HEADING_TO_CATEGORY = {
@@ -129,7 +145,59 @@ TOPIC = {  # per la risposta negativa: gia' con preposizione articolata
     "USI_COSTUMI": "sulle usanze locali", "DOGANE": "su come arrivare", "SALUTE": "sulla salute e sulle vaccinazioni",
     "SICUREZZA": "sulla sicurezza", "TRASPORTI": "sugli spostamenti", "CIBO_BEVANDE": "su cibo e bevande",
     "ACQUISTI": "su valuta e acquisti", "CONNETTIVITA": "su telefono e internet", "VITA_QUOTIDIANA": "sulle informazioni pratiche",
+    "ARRIVARE": "su come arrivare", "COSA_VEDERE": "su cosa vedere", "ALLOGGIO": "su dove dormire", "SHOPPING": "sugli acquisti",
 }
+
+# Pagine delle citta' di Wikivoyage IT (solo con --dump-dir): sezioni diverse da quelle dei paesi, domande
+# pensate per una citta'. Allargano i contesti oltre le ~330 guide dei paesi.
+CITY_HEADING_TO_CATEGORY = {
+    "come arrivare": "ARRIVARE", "come spostarsi": "TRASPORTI", "cosa vedere": "COSA_VEDERE",
+    "dove mangiare": "CIBO_BEVANDE", "dove alloggiare": "ALLOGGIO", "sicurezza": "SICUREZZA",
+    "come restare in contatto": "CONNETTIVITA", "acquisti": "SHOPPING",
+}
+CITY_QUESTIONS = {
+    "ARRIVARE": ["Come arrivo a {r}?", "Come si raggiunge {r}?", "Qual e' il modo migliore per arrivare a {r}?", "C'e' un aeroporto vicino a {r}?"],
+    "TRASPORTI": ["Come mi sposto a {r}?", "Come funzionano i mezzi pubblici a {r}?", "Conviene girare {r} a piedi?"],
+    "COSA_VEDERE": ["Cosa vedere a {r}?", "Quali sono le attrazioni principali di {r}?", "Cosa non perdere a {r}?"],
+    "CIBO_BEVANDE": ["Dove si mangia a {r}?", "Dove posso mangiare bene a {r}?", "Consigli per mangiare a {r}?"],
+    "ALLOGGIO": ["Dove dormire a {r}?", "Dove posso alloggiare a {r}?", "Ci sono alberghi o ostelli a {r}?"],
+    "SICUREZZA": ["{r} e' una citta' sicura?", "Ci sono zone da evitare a {r}?", "A cosa fare attenzione a {r}?"],
+    "CONNETTIVITA": ["C'e' il wifi a {r}?", "Come trovo internet a {r}?", "Dove trovo una connessione a {r}?"],
+    "SHOPPING": ["Dove fare shopping a {r}?", "Cosa comprare a {r}?", "Ci sono mercati a {r}?"],
+}
+CITY_QUESTIONS_EN = {
+    "ARRIVARE": ["How do I get to {r}?", "Is there an airport near {r}?"],
+    "TRASPORTI": ["How do I get around {r}?", "How does public transport work in {r}?"],
+    "COSA_VEDERE": ["What should I see in {r}?", "What are the main sights in {r}?"],
+    "CIBO_BEVANDE": ["Where can I eat in {r}?", "Any food tips for {r}?"],
+    "ALLOGGIO": ["Where should I stay in {r}?", "Are there hostels in {r}?"],
+    "SICUREZZA": ["Is {r} safe?", "Are there areas to avoid in {r}?"],
+    "CONNETTIVITA": ["Is there wifi in {r}?", "How do I get online in {r}?"],
+    "SHOPPING": ["Where can I shop in {r}?", "What should I buy in {r}?"],
+}
+KEYWORDS.update({
+    "ARRIVARE": ["aeroport", "stazion", "treno", "autobus", "aere", "volo", "voli", "autostrad", "porto", "traghett"],
+    "COSA_VEDERE": ["muse", "chies", "palazz", "castell", "piazz", "monument", "cattedral", "ponte", "parco", "galleri"],
+    "ALLOGGIO": ["hotel", "albergh", "ostell", "campegg", "b&b", "pension", "alloggi", "camere", "agriturism"],
+    "SHOPPING": ["negozi", "mercat", "acquist", "centro commerciale", "souvenir", "boutique", "compr"],
+})
+# Quante domande (una per sezione trattata) prendere da ogni citta' e da quante citta' al massimo: le
+# citta' sono ~5.000, senza tetto soffocherebbero le guide dei paesi (il contesto reale dell'app).
+CITY_MAX_QUESTIONS = 3
+# Sezioni di citta' piu' corte (spesso un solo nome d'albergo) darebbero una "risposta" uguale a tutto il
+# contesto: non insegnano a scegliere le frasi giuste.
+CITY_MIN_SECTION = 250
+# Domande fuori tema da dataset italiani pubblicati (vedi fetch_off_topic): ognuna al massimo due volte,
+# per non far imparare al modello poche frasi a memoria invece del concetto di "fuori tema".
+# (dataset, config, split, colonna della domanda, licenza, quante righe tenere)
+OFF_TOPIC_SOURCES = {
+    "truthful_qa_italian": ("sapienzanlp/truthful_qa_italian", "default", "validation", "input_translation", "Apache 2.0", 800),
+    "alpaca_cleaned_italian": ("DanielSc4/alpaca-cleaned-italian", "it", "train", "instruction", "CC BY 4.0", 1500),
+}
+OFF_TOPIC_MAX_USES = 2
+# Una domanda "fuori tema" che tocca i temi di viaggio (es. "consigli per restare in salute") non lo e'
+# davvero: si scarta se contiene una radice di KEYWORDS o una di queste.
+TRAVEL_STEMS = ("viagg", "turis", "vacanz", "citta'", "città", "paese", "paesi", "nazion")
 
 # Copia di PromptTemplates.onDevicePrompt (trimIndent)
 def on_device_prompt(context, question):
@@ -149,7 +217,25 @@ LEFTOVER = re.compile(r"\{\||\|\}|\|-|\{\{|\}\}|valign")
 HEADING = re.compile(r"^==(?!=)\s*(.+?)\s*(?<!=)==$")
 SUBHEADING = re.compile(r"^={3,}.*={3,}$")
 
+# Template di Wikivoyage che contengono testo da tenere (nome del luogo, descrizione): senza questa
+# espansione la pulizia li toglieva interi e restavano frasi come "L' (), situato nel sobborgo di...".
+IATA = re.compile(r"\{\{\s*IATA\s*\|\s*([A-Z]{3})\s*\}\}", re.I)
+LISTING = re.compile(r"\{\{\s*(?:marker|see|do|go|eat|drink|sleep|buy|listing)\s*\|([^{}]*)\}\}", re.I | re.S)
+PARAM_SPLIT = re.compile(r"\|(?![^\[]*\]\])")  # le | dentro [[link|testo]] non separano i parametri
+
+def expand_listing(m):
+    params = {}
+    for part in PARAM_SPLIT.split(m.group(1)):
+        k, _, v = part.partition("=")
+        params[k.strip().lower()] = v.strip()
+    name = params.get("nome") or params.get("name") or ""
+    desc = params.get("descrizione") or params.get("content") or ""
+    if name and desc:  # "...del {{see|nome=X|descrizione=, l'attrazione...}}" continua la frase
+        return name + (desc[0] + " " + desc[1:].lstrip() if desc[0] in ",.;:" else ": " + desc)
+    return name or desc
+
 def clean(raw):
+    raw = LISTING.sub(expand_listing, IATA.sub(r"\1", raw))
     for rx, rep in RX:
         raw = rx.sub(rep, raw)
     lines = []
@@ -157,8 +243,12 @@ def clean(raw):
         l = l.strip()
         if not l or SUBHEADING.match(l):
             continue
-        lines.append(re.sub(r"^[*#:]+\s*", "", l))
-    return re.sub(r"\s+", " ", re.sub(r"\]\]|\[\[", "", " ".join(lines))).strip()
+        item = re.sub(r"^[*#:]+\s*", "", l)
+        if item != l and item and item[-1] not in ".!?:;":
+            item += "."  # voce di elenco: senza, le voci si fondevano in un'unica frase
+        lines.append(item)
+    text = re.sub(r"\]\]|\[\[", "", " ".join(lines))
+    return re.sub(r"\s+", " ", re.sub(r"\s*\(\s*[,;]?\s*\)", "", text)).strip()  # "()" dei template tolti
 
 def parse_sections(text, headings=HEADING_TO_CATEGORY):
     out, cur, body = [], None, []
@@ -317,6 +407,64 @@ def load_regions():
     rows = re.findall(r'^\s*"([^"]+\|[^"]+)"\s*$', src, re.M)
     return [(f[0], f[1], f[6]) for f in (r.split("|") for r in rows) if len(f) >= 7]
 
+def fetch_off_topic():
+    """{fonte: [domande]} dai dataset di OFF_TOPIC_SOURCES, in cache in raw/offtopic_<fonte>.txt (una per
+    riga). Solo domande brevi, a riga singola e senza temi di viaggio."""
+    out = {}
+    for name, (dataset, config, split, column, _, keep) in OFF_TOPIC_SOURCES.items():
+        cache = OUT / "raw" / f"offtopic_{name}.txt"
+        if not cache.exists():
+            qs, offset = [], 0
+            while len(qs) < keep:
+                url = ("https://datasets-server.huggingface.co/rows?" + urllib.parse.urlencode(
+                    {"dataset": dataset, "config": config, "split": split, "offset": offset, "length": 100}))
+                for attempt in range(1, 6):  # datasets-server risponde 429 se le richieste sono fitte
+                    try:
+                        rows = json.loads(get(url))["rows"]
+                        break
+                    except urllib.error.HTTPError as e:
+                        if e.code != 429 or attempt == 5:
+                            raise
+                        time.sleep(15 * attempt)
+                if not rows:
+                    break
+                for r in rows:
+                    q = (r["row"].get(column) or "").strip()
+                    low = q.lower()
+                    if column == "instruction" and r["row"].get("input"):
+                        continue  # alpaca: niente istruzioni con un testo di input a parte
+                    if not 10 <= len(q) <= 160 or "\n" in q:
+                        continue
+                    if any(s in low for s in TRAVEL_STEMS) or any(k in low for ks in KEYWORDS.values() for k in ks):
+                        continue
+                    qs.append(q)
+                offset += 100; time.sleep(2)
+            cache.write_text("\n".join(qs[:keep]) + "\n", encoding="utf-8")
+        out[name] = [l for l in cache.read_text(encoding="utf-8").splitlines() if l.strip()]
+    return out
+
+def load_sources():
+    """{(regionId, fonte): titolo} da SOURCES_TSV (fonte: it, en, wp_cibo, wp_conn, wp_usi, wp_vita)."""
+    if not SOURCES_TSV.exists():
+        return {}
+    rows = [l.split("\t") for l in SOURCES_TSV.read_text(encoding="utf-8").splitlines()[1:] if l.strip()]
+    return {(r[0], r[1]): r[2] for r in rows}
+
+def save_sources(sources):
+    with open(SOURCES_TSV, "w", encoding="utf-8", newline="\n") as f:
+        f.write("regionId\tsource\ttitle\n")
+        for (rid, src), title in sorted(sources.items()):
+            f.write(f"{rid}\t{src}\t{title}\n")
+
+QUICKBAR_FIELD = re.compile(r"^\|\s*(Stato|Stato federato|Regione|Territorio)\s*=\s*\[\[([^\]|#]+)", re.M)
+
+def city_parents(text):
+    """Titoli dei luoghi che contengono una citta' (Stato, Stato federato, Regione, Territorio) dal suo
+    QuickbarCity, o None se la pagina non e' una citta'."""
+    if not re.match(r"\s*\{\{\s*QuickbarCity", text, re.I):
+        return None
+    return {wiki_dump.norm_title(m.group(2)) for m in QUICKBAR_FIELD.finditer(text[:4000])}
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0, help="solo le prime N regioni")
@@ -326,6 +474,11 @@ def main():
     ap.add_argument("--english", type=float, default=0.2, help="quota di domande in inglese")
     ap.add_argument("--vs", action="store_true",
                     help="include Viaggiare Sicuri (Farnesina): licenza non verificata, SOLO uso locale/personale, mai pubblicare")
+    ap.add_argument("--dump-dir", type=Path,
+                    help="cartella con i dump di dumps.wikimedia.org (vedi DUMP_FILES): testi dai dump invece che dall'API")
+    ap.add_argument("--dump-date", help="data dei dump (AAAAMMGG), di default il nome della cartella")
+    ap.add_argument("--cities", type=int, default=0,
+                    help="con --dump-dir: quante citta' di Wikivoyage IT usare (0 = nessuna)")
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
     rng = random.Random(a.seed)
@@ -353,17 +506,44 @@ def main():
         except Exception as e:
             print(f"-- {rid}: errore {lang.upper()} {e}", file=sys.stderr); return None
 
+    # Con --dump-dir: titoli da SOURCES_TSV (i mancanti via API, poi salvati), testi dai dump.
+    sources, texts = load_sources(), {}
+    if a.dump_dir:
+        date = a.dump_date or a.dump_dir.name
+        files = {k: a.dump_dir / v.format(d=date) for k, v in DUMP_FILES.items()}
+        phase("titoli", f"{len(regions)} regioni (da {SOURCES_TSV.name}, i mancanti via API)")
+        for rid, _, title in regions:
+            for src in ("it", "en", *WP_LANG_SUFFIX.values()):
+                if (rid, src) not in sources:
+                    res = load_page(rid, src, title)
+                    sources[(rid, src)] = urllib.parse.unquote(res[1].rsplit("/wiki/", 1)[1]).replace("_", " ") if res else "-"
+        save_sources(sources)
+        phase("dump", f"Wikivoyage IT/EN e Wikipedia IT del {date}")
+        for lang in ("it", "en"):
+            texts[lang] = {t: x for t, x, redirect in wiki_dump.iter_pages(files[lang]) if not redirect}
+        wp_titles = {t for (_, src), t in sources.items() if src.startswith("wp_") and t != "-"}
+        texts["wp"] = wiki_dump.load_multistream(files["wp"], files["wp_index"], wp_titles)
+
+    def load_source(rid, lang, title):
+        """(testo, url): dal dump con --dump-dir, altrimenti come prima (cache in raw/ o rete)."""
+        if not a.dump_dir or lang == "vs":
+            return load_page(rid, lang, title)
+        page = sources.get((rid, lang), "-")
+        group = "wp" if lang.startswith("wp_") else lang
+        text = texts[group].get(wiki_dump.norm_title(page)) if page != "-" else None
+        return (text, SOURCE_URL[group] + urllib.parse.quote(page.replace(" ", "_"))) if text else None
+
     # data: regionId -> (nome, {"it": [(cat, corpo)], "en": [...]}). I positivi usano solo "it":
     # la risposta estrattiva di una pagina EN sarebbe in inglese, contro "rispondi in italiano".
     data, attribution = {}, []
     vs = vs_codes(regions) if a.vs else {}
-    phase("fonti", f"{len(regions)} regioni (pagine dalla cache in raw/, le mancanti dalla rete)")
+    phase("fonti", f"{len(regions)} regioni" + ("" if a.dump_dir else " (pagine dalla cache in raw/, le mancanti dalla rete)"))
     progress = Progress("fonti", len(regions), "regione", every=20)
     for n, (rid, name, title) in enumerate(regions, 1):
         progress.update(n - 1, rid)
         by_lang = {}
         for lang, headings in (("it", HEADING_TO_CATEGORY), ("en", EN_HEADING_TO_CATEGORY)):
-            page = load_page(rid, lang, title)
+            page = load_source(rid, lang, title)
             if page and (secs := parse_sections(page[0], headings)):
                 by_lang[lang] = secs
                 attribution.append((rid, name, page[1], "CC BY-SA 4.0"))
@@ -372,16 +552,31 @@ def main():
             by_lang["it"] = by_lang.get("it", []) + secs
             attribution.append((rid, name, page[1], "licenza non verificata (Farnesina)"))
         for cat, suffix in WP_LANG_SUFFIX.items():  # italiano: alimenta anche i positivi (categorie deboli)
-            page = load_page(rid, suffix, title)
+            page = load_source(rid, suffix, title)
             if page and (secs := parse_wp_it(page[0], cat)):
                 by_lang["it"] = by_lang.get("it", []) + secs
                 attribution.append((rid, name, page[1], "CC BY-SA 4.0 (Wikipedia)"))
         if by_lang:
             data[rid] = (name, by_lang)
 
-    def question(cat, name):
-        pool = QUESTIONS_EN[cat] if rng.random() < a.english else QUESTIONS[cat] + QUESTIONS_EXTRA[cat]
+    def question(cat, name, city=False):
+        if city:
+            pool = CITY_QUESTIONS_EN[cat] if rng.random() < a.english else CITY_QUESTIONS[cat]
+        else:
+            pool = QUESTIONS_EN[cat] if rng.random() < a.english else QUESTIONS[cat] + QUESTIONS_EXTRA[cat]
         return rng.choice(pool).format(r=name)
+
+    # Fuori tema: le liste scritte a mano piu' le domande dei dataset italiani, ognuna al massimo
+    # OFF_TOPIC_MAX_USES volte (prima una stessa domanda compariva decine di volte).
+    extra_off_topic = fetch_off_topic()
+    off_topic_pool = OFF_TOPIC_TRAIN + OFF_TOPIC_TRAIN_EN + [q for qs in extra_off_topic.values() for q in qs]
+    off_topic_uses = Counter()
+
+    def off_topic_question():
+        free = [q for q in off_topic_pool if off_topic_uses[q] < OFF_TOPIC_MAX_USES]
+        q = rng.choice(free or off_topic_pool)
+        off_topic_uses[q] += 1
+        return q
 
     def row(kind, rid, cat, context, q, ans):
         return {"messages": [{"role": "user", "content": on_device_prompt(context, q)},
@@ -422,7 +617,7 @@ def main():
         tail = rng.choice(REFUSAL_TAILS)
         x = rng.random()
         if x < a.off_topic:
-            q = rng.choice(OFF_TOPIC_TRAIN + OFF_TOPIC_TRAIN_EN)
+            q = off_topic_question()
             cat, ans = "OFF", f"Il contesto non contiene informazioni utili a rispondere: {tail}"
             context = make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))))
         else:
@@ -443,11 +638,60 @@ def main():
             continue
         seen.add((context, q))
         rows.append(row("neg", rid, cat, context, q, ans)); neg += 1
+
+    # Citta' di Wikivoyage IT (--dump-dir e --cities): fino a CITY_MAX_QUESTIONS sezioni per citta', una
+    # domanda ciascuna, e un rifiuto ogni 1/negatives positivi circa. Fuori le citta' delle regioni di test
+    # (Stato/Regione/Territorio del QuickbarCity) e le pagine gia' usate come guida di una regione.
+    city_pos = city_neg = 0
+    if a.dump_dir and a.cities:
+        phase("citta'", f"al massimo {a.cities} citta' di Wikivoyage IT")
+        page_title = lambda rid: wiki_dump.norm_title(sources.get((rid, "it"), "-"))
+        test_titles = {page_title(r) for r in TEST_REGIONS}
+        region_titles = {page_title(rid) for rid, _, _ in regions}
+        cities = []
+        for title, text in sorted(texts["it"].items()):
+            parents = city_parents(text)
+            if parents is None or title in region_titles or parents & test_titles:
+                continue
+            secs = [(c, b) for c, b in parse_sections(text, CITY_HEADING_TO_CATEGORY)
+                    if covers(c, b) and len(b) >= CITY_MIN_SECTION]
+            if secs:
+                cities.append((title, secs))
+        rng.shuffle(cities)
+        # "Come arrivare" c'e' in quasi ogni citta': da ognuna si prendono le sezioni delle categorie finora
+        # meno usate, cosi' le categorie restano bilanciate
+        city_cats = Counter()
+        for title, secs in cities[: a.cities]:
+            chosen = sorted(secs, key=lambda s: (city_cats[s[0]], rng.random()))[:CITY_MAX_QUESTIONS]
+            city_cats.update(c for c, _ in chosen)
+            rid = f"citta:{title}"
+            name = re.sub(r"\s*\(.*\)$", "", title)  # "Salem (Oregon)" -> "Salem"
+            attribution.append((rid, name, SOURCE_URL["it"] + urllib.parse.quote(title.replace(" ", "_")), "CC BY-SA 4.0"))
+            for cat, body in chosen:
+                q = question(cat, name, city=True)
+                others = [b for c, b in secs if c != cat and not covers(cat, b)]
+                context = make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))))
+                answer = pick_answer(context, body, q, cat, name)
+                if len(answer) < 40 or (context, q) in seen:
+                    continue
+                seen.add((context, q))
+                rows.append(row("pos", rid, cat, context, q, answer)); city_pos += 1
+            missing = [c for c in CITY_QUESTIONS if c not in {c for c, _ in secs}]
+            if missing and rng.random() < a.negatives * 2:  # ~1 rifiuto ogni 2-3 domande della citta'
+                cat = rng.choice(missing)
+                q = question(cat, name, city=True)
+                context = make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))))
+                if (context, q) not in seen:
+                    seen.add((context, q))
+                    ans = f"Il contesto non contiene informazioni {TOPIC[cat]}: {rng.choice(REFUSAL_TAILS)}"
+                    rows.append(row("neg", rid, cat, context, q, ans)); city_neg += 1
     rng.shuffle(rows)
 
     # nomi distinti per --vs: il default (pubblicabile, senza VS) resta pocket_travel_sft.jsonl/ATTRIBUTION.tsv
     # (stesso nome atteso di default da train_lora.py); --vs (locale) scrive su file .with-vs a parte, cosi'
     # le due varianti convivono sul disco senza sovrascriversi a vicenda
+    for name, (dataset, *_, lic, _) in OFF_TOPIC_SOURCES.items():  # solo domande, con rifiuto come risposta
+        attribution.append(("-", f"domande fuori tema ({name})", f"https://huggingface.co/datasets/{dataset}", lic))
     suffix = ".with-vs" if a.vs else ""
     data_out, attr_out = OUT / f"pocket_travel_sft{suffix}.jsonl", OUT / f"ATTRIBUTION{suffix}.tsv"
     with open(data_out, "w", encoding="utf-8") as f:
@@ -460,8 +704,11 @@ def main():
     n_it = sum("it" in langs for _, langs in data.values())
     print(f"regioni con guida: {len(data)}/{len(regions)} (IT: {n_it}, EN: {sum('en' in l for _, l in data.values())}, "
           f"VS: {sum(r[3] == 'licenza non verificata (Farnesina)' for r in attribution)}); "
-          f"positivi={pos} negativi={neg} totale={len(rows)}")
+          f"positivi={pos} negativi={neg} citta' positivi={city_pos} negativi={city_neg} totale={len(rows)}")
     print("per categoria:", dict(Counter(r["category"] for r in rows)))
+    print(f"domande fuori tema distinte usate: {len(off_topic_uses)} (max {max(off_topic_uses.values(), default=0)} volte l'una)")
+    if a.dump_dir:
+        print(f"fonti: dump del {a.dump_date or a.dump_dir.name}, titoli in {SOURCES_TSV}")
     print(f"scritto {data_out}")
     print("SOLO USO LOCALE (--vs: include Viaggiare Sicuri, licenza non verificata, non pubblicare su HuggingFace)" if a.vs
           else "PUBBLICABILE (nessuna riga Viaggiare Sicuri)")
