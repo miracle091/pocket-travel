@@ -6,7 +6,7 @@ import java.io.File
 
 private const val CELL_MAX_ZOOM = 14
 
-/** Una fonte citata nella schermata Licenze per i civici della griglia (vedi address-grid-plan.md). */
+/** Una fonte citata nella schermata Licenze per i civici della griglia. */
 data class GridAttribution(val source: String, val license: String, val url: String)
 
 internal fun parseCellIdParts(id: String): Triple<Int, Int, Int> {
@@ -30,7 +30,7 @@ internal fun isAncestorCell(ancestor: String, descendant: String): Boolean {
  * per cella rigenerata o riusata, vedi build-address-cell.sh --entries): le nuove sostituiscono
  * quelle con lo stesso id o si aggiungono. Quando una cella si e' divisa i suoi figli compaiono tra
  * le voci nuove: la voce del genitore, ancora nell'indice pubblicato, va tolta - le celle non si
- * fondono mai (address-grid-plan.md), quindi non serve il caso contrario. Risultato ordinato per id
+ * fondono mai, quindi non serve il caso contrario. Risultato ordinato per id
  * (z, x, y): stesso ordine richiesto da ValidateManifest.
  */
 fun mergeAddressGridJson(

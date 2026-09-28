@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Punti Overture (tema addresses) di una cella della griglia adattiva (vedi
-.claude/docs/address-grid-plan.md), filtrati per bbox e per la lista bianca dei dataset
+"""Punti Overture (tema addresses) di una cella della griglia adattiva,
+filtrati per bbox e per la lista bianca dei dataset
 (tools/data-pipeline/overture-address-sources.tsv): scrive "lat<TAB>lon<TAB>numero<TAB>dataset" per
 ogni indirizzo ammesso in <output>, una riga per indirizzo, per GenerateAddresses (--overture).
 
 La lista bianca elenca coppie esatte (sources[1].dataset, sources[1].license), una per dataset
-letto a mano (.claude/docs/overture-address-licences.md): i nomi dei dataset non seguono sempre il
+letto a mano: i nomi dei dataset non seguono sempre il
 codice del paese ("NAD" per gli Stati Uniti, "BAG Light" per i Paesi Bassi...), e un dataset nuovo
 o con una licenza cambiata in un rilascio successivo resta fuori finche' non viene rivisto. Il
 filtro su "country" (colonna semplice, con statistiche per row group) va prima, per scartare i row

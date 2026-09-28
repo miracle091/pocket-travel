@@ -276,7 +276,7 @@ class RegionPackageInstallerDeviceTest {
         assertNull(runBlocking { repository.installed("san-marino") })
     }
 
-    /** Cella dei civici a griglia (address-grid-plan.md), servita solo compressa con xz, come la pubblica la pipeline. */
+    /** Cella dei civici a griglia, servita solo compressa con xz, come la pubblica la pipeline. */
     private fun compressedAddressesEntry(): RegionManifestEntry {
         val cellName = "cell-0-0-0--addresses.pmtiles"
         val cellFile = File(workDir, cellName)

@@ -44,7 +44,7 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
         guidesEn.optJSONObject("fileXz")?.let { validateFile(it, "guidesEn", allowedHosts) }
     }
 
-    // Mappa del mondo online (facoltativa, vedi map-preview-online-plan.md): non un "file" da
+    // Mappa del mondo online (facoltativa): non un "file" da
     // verificare dopo il download (letta a pezzi con richieste Range), solo url/sizeBytes/maxZoom.
     root.optJSONObject("worldMap")?.let { worldMap ->
         validateVersion(worldMap, "worldMap")
@@ -55,7 +55,7 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
         if (!isAllowedUrl(url, allowedHosts)) throw ManifestValidationException("worldMap.url non consentito: $url")
     }
 
-    // Indice dei civici a celle (facoltativo, vedi address-grid-plan.md): assente finche' la
+    // Indice dei civici a celle (facoltativo): assente finche' la
     // griglia non e' stata pubblicata la prima volta.
     root.optJSONObject("addressGrid")?.let { addressGrid ->
         validateVersion(addressGrid, "addressGrid")
@@ -111,8 +111,8 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
             poiExtra.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
         }
 
-        // Civici per regione: voce legacy, congelata (la pipeline non la genera piu', vedi
-        // address-grid-plan.md - i civici si pubblicano ora nella griglia "addressGrid"). Accettata
+        // Civici per regione: voce legacy, congelata (la pipeline non la genera piu':
+        // i civici si pubblicano ora nella griglia "addressGrid"). Accettata
         // finche' il manifest pubblicato la porta ancora avanti per le app vecchie.
         region.optJSONObject("addresses")?.let { addresses ->
             validateVersion(addresses, "$regionId/addresses")
@@ -168,7 +168,7 @@ private fun validateFile(file: JSONObject, owner: String, allowedHosts: Set<Stri
 }
 
 /**
- * Valida address-grid.json (indice dei civici a celle, vedi address-grid-plan.md): duplica qui le
+ * Valida address-grid.json (indice dei civici a celle): duplica qui le
  * stesse regole della griglia dell'app (RegionManifest.kt, core/sync), stesso motivo di
  * validateManifestJson sopra. Celle con id valido (z in 0..14, x/y dentro 0..2^z-1), nessuna
  * discendente di un'altra (isAncestorCell, GenerateAddressGrid.kt), ordinate per id, file/fileXz

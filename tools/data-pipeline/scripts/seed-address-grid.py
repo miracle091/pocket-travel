@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Genera il seme della griglia adattiva dei civici (address-grid-seed.tsv, una riga "z/x/y" per
-cella iniziale, vedi .claude/docs/address-grid-plan.md): quadtree Web Mercator, diviso finche' la
+cella iniziale): quadtree Web Mercator, diviso finche' la
 dimensione stimata di ogni cella sta sotto <cap> (byte) o si arriva a <zoom> (default 12) - oltre,
 la pipeline stessa divide ulteriormente le celle davvero troppo pesanti fino a z14 quando le
 costruisce (build-address-cell.sh); il seme e' solo il punto di partenza, non il tetto vero della
@@ -13,10 +13,9 @@ senza dipendenze esterne:
      vedi tiles()) per il peso di ogni tile z14; il massimo tra regioni diverse toglie i doppioni ai
      confini (una tile puo' comparire nell'estratto di piu' regioni vicine);
   2. Overture: statistiche dei row group Parquet del tema addresses (un CSV con le colonne del
-     comando "aws s3api" / query DuckDB su parquet_metadata, vedi overture-and-map-diff-research.md
-     passo 2), sommando le righe dei row group nelle celle z<zoom> che il loro bbox tocca;
-  3. combinato = max(byte OSM, righe Overture * BYTES_PER_ADDR) * MARGIN per cella, stessa stima del
-     piano (address-grid-plan.md).
+     comando "aws s3api" / query DuckDB su parquet_metadata),
+     sommando le righe dei row group nelle celle z<zoom> che il loro bbox tocca;
+  3. combinato = max(byte OSM, righe Overture * BYTES_PER_ADDR) * MARGIN per cella.
 
 Uso:
   seed-address-grid.py <manifest.json (path o URL)> <overture-rowgroups.csv> <output.tsv>

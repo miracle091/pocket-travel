@@ -144,7 +144,7 @@ class RegionListViewModel @Inject constructor(
             status.update { it.copy(isLoading = true) }
             try {
                 val manifest = manifestClient.fetchManifest()
-                // Civici a griglia (address-grid-plan.md "App" 1-3): un errore qui (rete, indice non
+                // Civici a griglia: un errore qui (rete, indice non
                 // valido) non deve bloccare l'elenco delle regioni, solo lasciarle senza civici a
                 // griglia per questo aggiornamento — riprovera' al prossimo refresh().
                 val addressGridIndex = manifest.addressGrid?.let { entry -> runCatching { addressGridClient.fetchIndex(entry) }.getOrNull() }
@@ -240,7 +240,7 @@ internal fun regionUiItem(
     remote: RegionManifestEntry,
     local: RegionPackage?,
     installedBytes: (RegionPackage, PackageKind) -> Long?,
-    // Civici a griglia (address-grid-plan.md "App" 5): celle gia' installate (id -> version), per
+    // Civici a griglia: celle gia' installate (id -> version), per
     // contare solo quelle nuove o cambiate nella dimensione da scaricare. Non serve per le regioni
     // senza griglia: il default basta a tutti i test.
     installedAddressCells: (regionId: String) -> Map<String, String> = { emptyMap() },

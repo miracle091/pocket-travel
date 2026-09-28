@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-# Il nome del file (con i trattini, vedi address-grid-plan.md) non e' un identificatore Python
+# Il nome del file (con i trattini) non e' un identificatore Python
 # valido per "import seed_address_grid": si carica dal path, come clip_rd5.py fa per se stesso
 # ma qui e' necessario perche' il nome del modulo non puo' avere trattini.
 _spec = importlib.util.spec_from_file_location("seed_address_grid", Path(__file__).parent / "seed-address-grid.py")

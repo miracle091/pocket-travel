@@ -119,8 +119,8 @@ MAP_FINGERPRINT_MIN_ZOOM=12
 POI_MAX_AGE_DAYS="${POI_MAX_AGE_DAYS:-30}"
 
 # Anteprima offline della regione (preview.pmtiles): pochi livelli di zoom della stessa build
-# Protomaps della mappa, con un tetto di peso sul file compresso - decisione dell'utente in
-# .claude/docs/map-preview-online-plan.md ("Decisioni", 2026-09-27). Si parte da PREVIEW_MAX_ZOOM:
+# Protomaps della mappa, con un tetto di peso sul file compresso - decisione dell'utente del
+# 2026-09-27. Si parte da PREVIEW_MAX_ZOOM:
 # se il .xz supera PREVIEW_MAX_XZ_BYTES si rifa' con uno zoom in meno, fino a PREVIEW_MIN_ZOOM
 # incluso - se anche li' resta sopra il tetto si pubblica comunque (e' il minimo scelto) con un
 # avviso, invece di lasciare la regione senza anteprima. Si rigenera solo quando la mappa cambia o

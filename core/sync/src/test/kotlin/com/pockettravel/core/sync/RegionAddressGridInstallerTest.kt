@@ -14,8 +14,8 @@ import java.io.File
 import kotlin.io.path.createTempDirectory
 
 /**
- * RegionAddressGridInstaller.mergeInto ricostruisce addresses.pmtiles dalle celle (address-grid-plan.md
- * "App" 4), leggendo le tile con PmtilesDirectoryReader (cammina la directory, non le coordinate:
+ * RegionAddressGridInstaller.mergeInto ricostruisce addresses.pmtiles dalle celle,
+ * leggendo le tile con PmtilesDirectoryReader (cammina la directory, non le coordinate:
  * vedi l'ultimo test qui sotto per una cella molto rada, dove la differenza conta davvero).
  */
 class RegionAddressGridInstallerTest {

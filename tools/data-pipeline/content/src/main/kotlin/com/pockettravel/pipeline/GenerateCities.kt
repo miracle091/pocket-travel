@@ -3,8 +3,8 @@ package com.pockettravel.pipeline
 import org.json.JSONObject
 import java.io.File
 
-// Mappa titoli di sezione delle pagine citta' di Wikivoyage IT -> categoria (fase 1 di
-// rag-knowledge-plan.md, "Contratto tra le parti"): diversa da headingToCategory
+// Mappa titoli di sezione delle pagine citta' di Wikivoyage IT -> categoria (contratto
+// tra pipeline e app, vedi GuideCategory): diversa da headingToCategory
 // (GenerateGuideContent.kt, pagine nazione) perche' le pagine citta' usano titoli di sezione
 // diversi (Da sapere, Cosa vedere, Cosa fare...). Passata a parseWikivoyageDump, che riusa cosi'
 // lo stesso parsing e la stessa cleanBody delle guide senza duplicarli.
@@ -87,7 +87,7 @@ fun writeCitiesDb(sections: List<CitySectionRow>, outputDb: File) {
 /**
  * Genera cities.db di UNA regione (vedi build-cities.sh): un solo file, non un pacchetto unico
  * come guides.db, perche' le citta' pesano troppo per stare tutte in un pacchetto scaricato da
- * ogni app (vedi le misure in rag-knowledge-plan.md).
+ * ogni app.
  *
  * cities.jsonl assente o vuoto (nessuna citta' abbinata alla regione in questo run, vedi
  * build-cities-dump.sh) o senza sezioni utili: nessun cities.db scritto, il chiamante tiene la

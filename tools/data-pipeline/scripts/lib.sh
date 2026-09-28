@@ -115,7 +115,7 @@ fetch_overpass_address_points() {
 }
 
 # Riquadro (minLon minLat maxLon maxLat, separati da spazio) di una cella z/x/y del quadtree Web
-# Mercator (vedi address-grid-plan.md: stessa curva delle tile, z<=12): standard "slippy map tile
+# Mercator (stessa curva delle tile, z<=12): standard "slippy map tile
 # bounds", usato da build-address-cell.sh per l'estrazione Protomaps/Overpass e la query Overture.
 cell_bbox() {
   local z="$1" x="$2" y="$3"
@@ -202,7 +202,7 @@ fetch_wikivoyage_dump() {
 # Scarica l'ultimo dump completo di Wikivoyage IT (pages-articles, ~50 MB compressi) in <outFile> e
 # ne verifica lo sha1 dal file sha1sums pubblicato accanto, con fino a 3 tentativi (stesso motivo
 # del ritentativo su build.protomaps.com in build-address-cell.sh: un download cosi' grande puo'
-# interrompersi a meta'). Usato da build-cities-dump.sh (fase 1 di rag-knowledge-plan.md, guide
+# interrompersi a meta'). Usato da build-cities-dump.sh (guide
 # delle citta') per trovare con un solo passaggio le pagine {{QuickbarCity}} di tutte le regioni,
 # invece di migliaia di richieste API. "latest" (non una data precisa): dumps.wikimedia.org
 # mantiene un alias sempre aggiornato accanto alla cartella datata, evitando di dover risolvere la

@@ -13,8 +13,7 @@ name: Publish regions
 # build-guides.sh pubblica una nuova versione solo se il contenuto e' cambiato. Ogni regione porta
 # anche un'anteprima offline a pochi zoom (preview.pmtiles, stesso trattamento di poi.db - vedi
 # build-region.sh) e il manifest ha in cima "worldMap": mappa del mondo online a bassa risoluzione
-# (job "world-map"), sulla release "world-map", rigenerata solo ogni ~30 giorni o se assente (vedi
-# .claude/docs/map-preview-online-plan.md).
+# (job "world-map"), sulla release "world-map", rigenerata solo ogni ~30 giorni o se assente.
 #
 # Trigger: 7 righe schedule (una per giorno) rigenerano automaticamente il bucket del giorno
 # (tools/data-pipeline/scripts/weekly-schedule.sh, generato da generate-weekly-schedule.sh —
@@ -276,7 +275,7 @@ jobs:
 
   # Mappa del mondo online a bassa risoluzione (z0-8, ~555 MB), sulla release "world-map": letta
   # dall'app a pezzi con richieste Range quando la mappa di una regione non e' scaricata ma c'e'
-  # rete (vedi .claude/docs/map-preview-online-plan.md, "Decisioni" del 2026-09-27). Un solo job,
+  # rete (decisione del 2026-09-27). Un solo job,
   # non sharded: un solo file per l'intero pianeta. Si rigenera solo se quella pubblicata ha piu' di
   # WORLD_MAP_MAX_AGE_DAYS giorni o manca del tutto - altrimenti il job non produce nulla e la voce
   # gia' pubblicata resta (mergeManifests la riporta avanti dal manifest online, come "guides").
@@ -359,7 +358,7 @@ jobs:
           path: ${{ runner.temp }}/fragments/world-map.json
           retention-days: 1
 
-  # Celle della griglia adattiva dei civici (OSM + Overture, vedi .claude/docs/address-grid-plan.md):
+  # Celle della griglia adattiva dei civici (OSM + Overture):
   # una quota giornaliera (hash stabile dell'id mod 30, come un calendario a 30 giorni) cosi' ogni
   # cella si ricostruisce al piu' ogni 30 giorni - build-address-cell.sh ha comunque il proprio
   # controllo d'eta' come le regioni, quindi una quota imprecisa e' innocua, solo un po' di lavoro
@@ -666,7 +665,7 @@ jobs:
           FAILED_REGIONS=()
           IFS=',' read -ra SHARD_REGIONS <<< "$SELECTED"
 
-          # Citta' delle regioni (fase 1 di rag-knowledge-plan.md): un solo passaggio sul dump di
+          # Citta' delle regioni: un solo passaggio sul dump di
           # Wikivoyage IT per l'intero shard (build-cities-dump.sh), prima del giro per regione qui
           # sotto - mai fatale, se fallisce le regioni di questo run restano senza citta' nuove
           # (build-cities.sh, piu' sotto, tiene la voce gia' pubblicata).

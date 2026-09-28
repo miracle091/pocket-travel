@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Costruisce (o mantiene) UNA cella della griglia adattiva dei civici (vedi
-# .claude/docs/address-grid-plan.md): OSM (z15 Protomaps del bbox della cella, riserva
+# Costruisce (o mantiene) UNA cella della griglia adattiva dei civici:
+# OSM (z15 Protomaps del bbox della cella, riserva
 # Overpass se sono troppe) + Overture (query DuckDB filtrata sulla lista bianca
 # tools/data-pipeline/overture-address-sources.tsv), deduplicati e ritagliati sulla cella da
 # GenerateAddresses (--overture, --cell). Se il file .xz supera ADDRESS_CELL_MAX_BYTES la build
@@ -21,7 +21,7 @@
 #   address-grid-entries.jsonl                            una riga JSON per cella foglia (nuova o
 #                                                          riusata dall'indice pubblicato), stesso
 #                                                          schema delle voci "cells[]" di
-#                                                          address-grid.json (address-grid-plan.md)
+#                                                          address-grid.json
 #
 # Variabili:
 #   ADDRESS_CELL_MAX_BYTES      (10000000) tetto del file .xz oltre cui si dividono i 4 figli

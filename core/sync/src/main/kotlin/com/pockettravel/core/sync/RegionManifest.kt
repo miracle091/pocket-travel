@@ -16,7 +16,7 @@ data class RegionManifest(
     val guides: GuidesManifestEntry,
     // Guide in inglese (build-guides.sh ... en): assenti finche' la pipeline non le pubblica. Vedi guidesChoice.
     val guidesEn: GuidesManifestEntry? = null,
-    // Indice dei civici a griglia (address-grid-plan.md), a fianco di manifest.json su GitHub
+    // Indice dei civici a griglia, a fianco di manifest.json su GitHub
     // Pages: assente finche' la pipeline non e' passata alla griglia, o per le app vecchie che non
     // lo sanno leggere (ignoreUnknownKeys = true).
     val addressGrid: AddressGridManifestEntry? = null,
@@ -54,7 +54,7 @@ data class RegionManifestEntry(
     val poi: PoiPackageEntry,
     // POI extra (fontanelle, tavoli da picnic...): assenti per le regioni senza o non ancora rigenerate.
     val poiExtra: PoiPackageEntry? = null,
-    // Celle dei civici a griglia (address-grid-plan.md) che intersecano questa regione: mai nel
+    // Celle dei civici a griglia che intersecano questa regione: mai nel
     // manifest (assente li'), valorizzato dall'app dopo aver scaricato l'indice (AddressGridClient +
     // regionGridCells) prima di accodare un download — cosi' RegionPackageDownloadWorker lo riceve
     // nell'input di lavoro insieme al resto dell'entry, senza bisogno di un canale a parte. La
@@ -100,7 +100,7 @@ data class RegionManifestEntry(
     /**
      * I pacchetti del download completo ("Scarica"): tutti quelli offerti tranne i POI extra e i
      * percorsi, solo su richiesta dal foglio Pacchetti. I percorsi tornano nel download completo
-     * quando c'e' la schermata che li usa (routes-integration-plan.md): oggi occupano spazio (Italia
+     * quando c'e' la schermata che li usa: oggi occupano spazio (Italia
      * 840 MB) senza servire a nulla. "Aggiorna" riguarda comunque tutti i pacchetti installati.
      */
     val defaultKinds: Set<PackageKind>
@@ -143,19 +143,19 @@ data class PoiPackageEntry(val version: String, val file: RegionManifestFile, va
     val downloadFile: RegionManifestFile get() = fileXz ?: file
 }
 
-/** Celle dei civici a griglia (address-grid-plan.md) di una regione: vedi [RegionManifestEntry.addressGrid]. */
+/** Celle dei civici a griglia di una regione: vedi [RegionManifestEntry.addressGrid]. */
 @Serializable
 data class RegionAddressGridEntry(val cells: List<AddressGridCell>)
 
 /**
- * Voce "addressGrid" in cima al manifest (address-grid-plan.md): riferimento a address-grid.json,
+ * Voce "addressGrid" in cima al manifest: riferimento a address-grid.json,
  * scaricato e verificato (sha256) come gli altri file del manifest, vedi AddressGridClient.
  */
 @Serializable
 data class AddressGridManifestEntry(val version: String, val url: String, val sizeBytes: Long, val sha256: String)
 
 /**
- * address-grid.json (address-grid-plan.md): indice pubblicato di tutte le celle dei civici, a fianco
+ * address-grid.json: indice pubblicato di tutte le celle dei civici, a fianco
  * di manifest.json. [cells] ordinato per id, nessun id discendente di un altro (validate()).
  */
 @Serializable
@@ -167,7 +167,7 @@ data class AddressGridIndex(
 )
 
 /**
- * Una cella (nodo z/x/y del quadtree Web Mercator, z <= 14 = tileZoom, address-grid-plan.md): stesso schema di
+ * Una cella (nodo z/x/y del quadtree Web Mercator, z <= 14 = tileZoom): stesso schema di
  * [PoiPackageEntry], [fileXz] se c'e' e' il file da scaricare, compresso con xz.
  */
 @Serializable
@@ -272,7 +272,7 @@ fun AddressGridManifestEntry.validate() {
 
 /**
  * Convalida address-grid.json: id di cella nel formato "z/x/y" (z <= 14, [parseCellId]), nessuno
- * duplicato o discendente di un altro (le celle non si sovrappongono mai, address-grid-plan.md),
+ * duplicato o discendente di un altro (le celle non si sovrappongono mai),
  * ordinate per id come pubblicate dalla pipeline.
  */
 fun AddressGridIndex.validate() {

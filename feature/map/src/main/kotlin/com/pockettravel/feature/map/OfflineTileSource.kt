@@ -90,7 +90,7 @@ class PmtilesTileSource(
         // build whole-planet Protomaps (PmtilesExtractor, core:sync), non generato dalla nostra
         // pipeline Planetiler. La pipeline locale resta solo per i suoi test, con uno schema
         // diverso. Stesso schema per l'anteprima regionale e per il mondo online: entrambi
-        // estratti dalla stessa build Protomaps (vedi .claude/docs/map-preview-online-plan.md).
+        // estratti dalla stessa build Protomaps.
         //
         // "attribution" sulla source: l'ODbL 1.0 impone di attribuire i dati
         // OpenStreetMap. Essendo tile locali (pmtiles://), non c'è un TileJSON remoto da cui
@@ -200,7 +200,7 @@ internal fun selectSource(
 // L'header PMTiles v3 e' fisso a 127 byte; il byte 101 (0-based) e' il max_zoom dell'archivio
 // (specs.protomaps.dev/pmtiles/spec-v3). Letto qui invece che tenuto in un campo del manifest
 // perche' l'anteprima puo' essere rigenerata con uno zoom diverso da build-region.sh (tetto di
-// peso, vedi map-preview-online-plan.md) e l'header e' l'unica fonte sempre corretta.
+// peso) e l'header e' l'unica fonte sempre corretta.
 private const val PMTILES_HEADER_SIZE = 127
 private const val PMTILES_MAX_ZOOM_OFFSET = 101
 

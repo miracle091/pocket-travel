@@ -5,12 +5,12 @@ import com.pockettravel.core.data.RegionStorage
 import java.io.File
 import javax.inject.Inject
 
-/** Tile dei civici, sempre allo stesso zoom (GenerateAddresses, address-grid-plan.md). */
+/** Tile dei civici, sempre allo stesso zoom (GenerateAddresses). */
 private const val ADDRESS_TILE_ZOOM = 14
 
 /**
- * Ricostruisce addresses.pmtiles di una regione a partire dalle sue celle (address-grid-plan.md,
- * "App" 4): solo le celle nuove o cambiate si scaricano (vedi [plan]), le altre si tengono dal file
+ * Ricostruisce addresses.pmtiles di una regione a partire dalle sue celle:
+ * solo le celle nuove o cambiate si scaricano (vedi [plan]), le altre si tengono dal file
  * gia' installato. Una tile z14 appartiene a una cella se ne e' discendente: le celle sparite dalla
  * regione (es. divise in figlie dalla pipeline) non vengono ricopiate, spariscono col resto del file
  * precedente. Scrive anche [RegionStorage.ADDRESSES_CELLS_FILE] in staging, pronto per
@@ -18,7 +18,7 @@ private const val ADDRESS_TILE_ZOOM = 14
  *
  * Le tile si leggono camminando la directory di ogni file ([PmtilesDirectoryReader]), mai provando
  * le coordinate z14 discendenti di una cella una per una: il seme ha celle molto rade nelle zone a
- * bassa densita' (z3-z6, address-grid-plan.md), dove una cella copre fino a centinaia di milioni di
+ * bassa densita' (z3-z6), dove una cella copre fino a centinaia di milioni di
  * tile quasi tutte vuote — ch.poole.geo.pmtiles.Reader.getTile(z,x,y) (l'unica API della libreria di
  * lettura) richiederebbe altrettante chiamate. Una tile trovata appartiene alla cella cercata se le
  * sue coordinate x,y (Hilbert invertito, [indexToXY]) ricadono nel suo intervallo discendente.

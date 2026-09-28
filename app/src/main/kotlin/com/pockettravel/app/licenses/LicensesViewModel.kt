@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Fonti dei civici a griglia (address-grid-plan.md "App" 6, `attributions` di address-grid.json):
+ * Fonti dei civici a griglia (`attributions` di address-grid.json):
  * un errore (rete, manifest senza addressGrid) lascia semplicemente la lista vuota, la schermata
  * mostra comunque le licenze statiche di [thirdPartyLicenses].
  */

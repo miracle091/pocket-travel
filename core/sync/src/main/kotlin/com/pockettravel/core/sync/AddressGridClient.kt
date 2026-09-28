@@ -5,8 +5,8 @@ import java.io.File
 import javax.inject.Inject
 
 /**
- * Scarica e verifica (sha256) address-grid.json (RegionManifest.addressGrid, address-grid-plan.md
- * "App" 1) con lo stesso downloader e la stessa cache per versione delle guide (RegionPackageDownloader
+ * Scarica e verifica (sha256) address-grid.json (RegionManifest.addressGrid)
+ * con lo stesso downloader e la stessa cache per versione delle guide (RegionPackageDownloader
  * + lo staging di RegionStorage, vedi GuidesInstaller): un file per versione, le altre si cancellano
  * ad ogni fetch riuscito — nessuna directory dedicata da aggiungere.
  */

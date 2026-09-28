@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pacchetto "citta'" di UNA regione (fase 1 di rag-knowledge-plan.md), da lanciare dopo
+# Pacchetto "citta'" di UNA regione, da lanciare dopo
 # build-region.sh sulla stessa <outputDir> e dopo build-cities-dump.sh (che scrive
 # <citiesJsonlDir>/<regionId>.cities.jsonl con un solo passaggio sul dump per tutte le regioni):
 # aggiunge al manifest-fragment.json gia' scritto la voce "cities" (facoltativa nel manifest) e,
@@ -11,7 +11,7 @@
 # Le city_sections (citta', categoria, titolo, corpo, sourceUrl) sono generate dal tool Kotlin
 # generateCities, che pulisce il wikitext con la stessa cleanBody delle guide
 # (GenerateGuideContent.kt, via parseWikivoyageDump) e mappa i titoli di sezione delle citta' sulle
-# categorie del contratto (vedi .claude/docs/rag-knowledge-plan.md).
+# categorie condivise con l'app (GuideCategory).
 #
 # Mai fatale per la regione: se il dump non e' stato estratto in questo run (nessun
 # <regionId>.cities.jsonl, es. build-cities-dump.sh fallito o non lanciato) o generateCities non

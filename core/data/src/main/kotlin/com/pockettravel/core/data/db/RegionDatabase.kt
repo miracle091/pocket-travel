@@ -189,7 +189,7 @@ val MIGRATION_11_15 = object : Migration(11, 15) {
         db.execSQL("INSERT INTO guide_sections_fts(guide_sections_fts) VALUES('rebuild')")
 
         // 14 -> 15:
-        //   Guide delle citta' per regione (rag-knowledge-plan.md, fase 1) e note personali (fase 4).
+        //   Guide delle citta' per regione e note personali.
         //   city_sections e' nella stessa forma di guide_sections, con l'indice composto (regionId, city)
         //   richiesto da CityRepository; city_sections_fts ha lo stesso tokenizer unicode61 e le stesse
         //   trigger di sincronizzazione col content table di guide_sections_fts (vedi MIGRATION_11_15, passo 13 -> 14).

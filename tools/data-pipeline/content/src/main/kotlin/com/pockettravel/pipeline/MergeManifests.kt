@@ -36,13 +36,13 @@ import java.io.File
  * piu' parte: senza, una regione tolta dal lotto pilota resterebbe per sempre nel manifest,
  * ricopiata a ogni run da quello gia' pubblicato.
  *
- * "worldMap" (mappa del mondo online, vedi map-preview-online-plan.md) e' come "guides": non una
+ * "worldMap" (mappa del mondo online) e' come "guides": non una
  * regione, vince l'ultimo frammento che la contiene. Il job che la rigenera (publish-regions.yml)
  * ne produce uno solo quando serve davvero (mappa pubblicata assente o troppo vecchia): se non gira
  * o non rigenera nulla, la voce gia' pubblicata (nel manifest online, sempre il primo input di
  * questa funzione) resta cosi' com'e'.
  *
- * "addressGrid" (indice dei civici a celle, vedi address-grid-plan.md) e' come "worldMap": vince
+ * "addressGrid" (indice dei civici a celle) e' come "worldMap": vince
  * l'ultimo frammento che la contiene (generateAddressGrid ne scrive uno solo, con l'indice appena
  * unito). Le regioni v1/v2 tengono anche la loro vecchia voce "addresses" (congelata, non piu'
  * aggiornata): le app vecchie che non conoscono la griglia continuano a leggere quella.

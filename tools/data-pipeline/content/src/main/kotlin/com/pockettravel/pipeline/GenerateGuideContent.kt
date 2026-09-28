@@ -174,8 +174,8 @@ private fun cleanBody(raw: String): String {
         .trim()
 }
 
-// Campi del {{QuickbarCountry}}/{{QuickbarRegion}} di Wikivoyage IT per la sezione "Fatti rapidi"
-// (fase 2 di rag-knowledge-plan.md): nomi verificati sui dump reali (es. Italia, Venezuela, Isole
+// Campi del {{QuickbarCountry}}/{{QuickbarRegion}} di Wikivoyage IT per la sezione "Fatti rapidi":
+// nomi verificati sui dump reali (es. Italia, Venezuela, Isole
 // Fær Øer in tools/data-pipeline/data/sft/raw). Cercato solo nei primi QUICKBAR_SCAN_CHARS
 // caratteri, dove sta sempre il riquadro: evita di raccogliere per sbagliato un "Valuta =" che
 // comparisse molto piu' in basso nella pagina. Il valore di un campo puo' andare su piu' righe
@@ -215,7 +215,7 @@ private fun cleanQuickFactValue(raw: String): String =
  * Lingua/Elettricità/Fuso orario/Valuta presenti nel {{QuickbarCountry}}/{{QuickbarRegion}} della
  * pagina, piu' una riga con i numeri di emergenza (vedi emergencyNumbersLine in
  * GenerateEmergencyNumbers.kt). Nessuna riga per un dato assente, null (nessuna sezione) se non
- * c'e' nessun dato — vedi il contratto in rag-knowledge-plan.md.
+ * c'e' nessun dato.
  */
 fun quickFactsSection(regionId: String, dumpText: String): GuideSectionRow? {
     val fields = quickFactFieldRegex.findAll(dumpText.take(QUICKBAR_SCAN_CHARS))

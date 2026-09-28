@@ -1,7 +1,7 @@
 # Lista bianca delle fonti Overture (tema addresses) nella griglia dei civici: una riga per coppia
 # esatta (sources[1].dataset, sources[1].license) presente nel rilascio 2026-09-23.1 (431 coppie,
-# 474 M indirizzi), letta a mano il 2026-09-27 (termini di ogni fonte, vedi
-# .claude/docs/overture-address-licences.md). Un dataset nuovo o con licenza cambiata in un rilascio
+# 474 M indirizzi), letta a mano il 2026-09-27 (termini di ogni fonte).
+# Un dataset nuovo o con licenza cambiata in un rilascio
 # successivo non e' in lista e resta fuori finche' non lo si rivede (scripts/overture_addresses.py).
 #
 # Escluse: Hong Kong (termini senza diritto di modifica) e le contee di Kent, Muskegon e Allegan in

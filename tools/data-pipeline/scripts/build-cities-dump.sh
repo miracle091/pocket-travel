@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Un solo passaggio sul dump di Wikivoyage IT (fase 1 di rag-knowledge-plan.md, "Contratto tra le
-# parti") per TUTTE le regioni passate: risolve la pagina IT di ciascuna (stesso approccio a
+# Un solo passaggio sul dump di Wikivoyage IT
+# per TUTTE le regioni passate: risolve la pagina IT di ciascuna (stesso approccio a
 # langlink di fetch_wikivoyage_dump, vedi resolve_it_wikivoyage_title in lib.sh) e scrive
 # <outDir>/<regionId>.cities.jsonl con le pagine {{QuickbarCity}} che la citano (Stato/Stato
 # federato/Regione/Territorio), lette poi da build-cities.sh (una regione alla volta) per generare

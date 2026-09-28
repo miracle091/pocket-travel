@@ -12,7 +12,7 @@ enum class GuideCategory {
     ACQUISTI,
     CONNETTIVITA,
     VITA_QUOTIDIANA,
-    // Aggiunte per le guide delle citta' e i fatti rapidi (rag-knowledge-plan.md, fasi 1 e 2).
+    // Aggiunte per le guide delle citta' e i fatti rapidi.
     DA_SAPERE,
     COSA_VEDERE,
     FATTI_RAPIDI,

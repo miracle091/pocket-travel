@@ -29,8 +29,8 @@ import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.R as UiR
 
 // Mostra thirdPartyLicenses (LicenseData.kt): solo licenze di terze parti realmente in uso,
-// compilate nell'app invece che lette da un asset a runtime. In coda, le fonti dei civici a griglia
-// (address-grid-plan.md "App" 6), lette da address-grid.json quando il manifest le offre.
+// compilate nell'app invece che lette da un asset a runtime. In coda, le fonti dei civici a griglia,
+// lette da address-grid.json quando il manifest le offre.
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LicensesScreen(onBack: () -> Unit, viewModel: LicensesViewModel = hiltViewModel()) {

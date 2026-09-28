@@ -121,7 +121,7 @@ class RegionStorage @Inject constructor(
 
     /**
      * Celle dei civici a griglia attive nell'ultimo [ADDRESSES_CELLS_FILE] installato (id di cella ->
-     * version, address-grid-plan.md "App" 4), vuoto se la regione non li usa (percorso di oggi, o
+     * version), vuoto se la regione non li usa (percorso di oggi, o
      * civici non installati).
      */
     fun installedAddressCells(regionId: String): Map<String, String> {
@@ -171,7 +171,7 @@ class RegionStorage @Inject constructor(
         // Anteprima offline (pochi zoom): si installa da sola con ogni download della regione, vedi
         // RegionPackageInstaller; sopravvive all'eliminazione della sola mappa.
         const val PREVIEW_FILE = "preview.pmtiles"
-        // Civici a griglia (address-grid-plan.md): elenco delle celle in ADDRESSES_FILE (id -> version),
+        // Civici a griglia: elenco delle celle in ADDRESSES_FILE (id -> version),
         // scritto e attivato accanto ad esso, atomicamente con lo stesso meccanismo di activatePackage.
         // Assente per le regioni installate col percorso di oggi (una sola voce "addresses").
         const val ADDRESSES_CELLS_FILE = "addresses-cells.json"

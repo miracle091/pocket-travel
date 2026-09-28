@@ -2,7 +2,7 @@ package com.pockettravel.core.sync
 
 import java.security.MessageDigest
 
-/** Nodo z/x/y del quadtree Web Mercator che identifica una cella dei civici (address-grid-plan.md, z <= 14 = tileZoom). */
+/** Nodo z/x/y del quadtree Web Mercator che identifica una cella dei civici (z <= 14 = tileZoom). */
 internal data class CellId(val z: Int, val x: Int, val y: Int)
 
 private const val MAX_CELL_ZOOM = 14
@@ -30,7 +30,7 @@ internal fun CellId.isSameOrDescendantOf(ancestor: CellId): Boolean {
 /**
  * Celle di [index] che intersecano il riquadro della mappa di una regione (in coordinate tile,
  * stessa proiezione slippy-map di PmtilesExtractor): selezionate quelle la cui tile z/x/y ricade
- * nell'intervallo di tile che copre [bbox] allo stesso zoom della cella (address-grid-plan.md, "App" 2).
+ * nell'intervallo di tile che copre [bbox] allo stesso zoom della cella.
  */
 fun regionGridCells(index: AddressGridIndex, bbox: MapExtractionSource): List<AddressGridCell> =
     index.cells.filter { cell ->
@@ -40,7 +40,7 @@ fun regionGridCells(index: AddressGridIndex, bbox: MapExtractionSource): List<Ad
     }
 
 /**
- * Versione dei civici di una regione dalle sue celle (address-grid-plan.md, "App" 3): "grid-" + i
+ * Versione dei civici di una regione dalle sue celle: "grid-" + i
  * primi 16 esadecimali dello SHA-256 di "id@version" delle celle, uno per riga, ordinati per id —
  * cosi' il confronto di versione gia' esistente (RegionListViewModel.outdatedKinds) vede un
  * aggiornamento ogni volta che una cella cambia, si aggiunge o sparisce (es. divisa in figlie),
@@ -54,7 +54,7 @@ fun regionAddressesGridVersion(cells: List<AddressGridCell>): String {
 }
 
 /**
- * Arricchisce [entries] con le celle della griglia indirizzi (address-grid-plan.md, "App" 1-3):
+ * Arricchisce [entries] con le celle della griglia indirizzi:
  * regioni senza celle nel loro riquadro restano invariate. [index] null (manifest senza
  * addressGrid, o non scaricato con successo) lascia tutte le regioni invariate: i civici non sono
  * disponibili per nessuna regione, come le regioni senza celle nel loro riquadro.

@@ -36,7 +36,7 @@ class RegionPackageInstaller @Inject constructor(
         // ogni download della regione, quando il manifest la offre con una versione diversa da quella
         // gia' installata — cosi' le regioni gia' scaricate la prendono al primo aggiornamento successivo.
         val installPreview = entry.preview != null && regionRepository.installed(entry.regionId)?.previewVersion != entry.preview.version
-        // A griglia (address-grid-plan.md "App" 4): solo le celle nuove o cambiate si scaricano, le
+        // A griglia: solo le celle nuove o cambiate si scaricano, le
         // altre restano quelle gia' installate.
         val addressPlan = if (PackageKind.ADDRESSES in kinds) addressGridInstaller.plan(entry.regionId, entry.addressGrid!!) else null
         val files = buildList {

@@ -73,7 +73,7 @@ fun buildRegionFragmentJson(
     poiFile: ManifestFileEntry,
     // POI extra (scaricati solo su richiesta): assente se la regione non ne ha.
     poiExtraFile: ManifestFileEntry? = null,
-    // Anteprima offline (preview.pmtiles, vedi map-preview-online-plan.md): assente se go-pmtiles
+    // Anteprima offline (preview.pmtiles): assente se go-pmtiles
     // non e' disponibile in questa run (build-region.sh continua senza, mai fatale). fileXz non e'
     // qui: build-region.sh lo aggiunge dopo con lo stesso schema di poi.fileXz (xz_entry).
     previewFile: ManifestFileEntry? = null,

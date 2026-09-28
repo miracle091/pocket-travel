@@ -83,7 +83,7 @@ fun readAddressPoints(points: File, minLon: Double, minLat: Double, maxLon: Doub
     }
 
 /**
- * Punto Overture del tema addresses (griglia adattiva, vedi address-grid-plan.md): stessa forma di
+ * Punto Overture del tema addresses (griglia adattiva): stessa forma di
  * [Address] piu' il dataset di provenienza (sources[1].dataset della query DuckDB), che serve solo a
  * chi genera i punti (lista bianca in overture-address-sources.tsv) - qui non e' piu' necessario,
  * separato da Address per non confondere le due fonti nella deduplica.
@@ -108,7 +108,7 @@ fun readOvertureAddressPoints(points: File, minLon: Double, minLat: Double, maxL
 private fun normalizedNumber(number: String): String = number.trim().lowercase().filterNot { it.isWhitespace() }
 
 // Chiave della deduplica (a): punto arrotondato a ~1 m (latE6/lonE6 sono gia' a ~0,11 m, arrotondare
-// alla decina li porta a ~1,1 m) + numero normalizzato - vedi overture-and-map-diff-research.md.
+// alla decina li porta a ~1,1 m) + numero normalizzato.
 private fun roundedPointKey(latE6: Int, lonE6: Int, number: String): Triple<Int, Int, String> =
     Triple((latE6 / 10) * 10, (lonE6 / 10) * 10, normalizedNumber(number))
 
@@ -127,7 +127,7 @@ private fun dedupGridKey(latE6: Int, lonE6: Int): Pair<Int, Int> {
 }
 
 /**
- * Deduplica indirizzi OSM + Overture (vedi address-grid-plan.md, passo 1 della pipeline):
+ * Deduplica indirizzi OSM + Overture (passo 1 della pipeline):
  * (a) distinct per fonte su punto arrotondato a ~1 m + numero normalizzato (toglie i doppioni
  * interni, es. il catasto portoghese con piu' righe sullo stesso punto);
  * (b) un punto Overture si scarta se entro 30 m c'e' un civico OSM con lo stesso numero normalizzato
@@ -157,7 +157,7 @@ fun dedupeWithOverture(osm: List<Address>, overture: List<OvertureAddress>): Lis
     return osmDistinct + newOverture.map { Address(it.latE6, it.lonE6, it.number) }
 }
 
-/** Id di una cella della griglia adattiva (vedi address-grid-plan.md): nodo z/x/y del quadtree Web Mercator. */
+/** Id di una cella della griglia adattiva: nodo z/x/y del quadtree Web Mercator. */
 data class CellId(val z: Int, val x: Int, val y: Int) {
     override fun toString(): String = "$z/$x/$y"
 }
@@ -267,7 +267,7 @@ fun main(args: Array<String>) {
             else -> { inputPaths += args[i]; i += 1 }
         }
     }
-    val cellId = requireNotNull(cell) { "--cell <z/x/y> obbligatorio: ogni build scrive i civici di una cella della griglia (vedi address-grid-plan.md)" }
+    val cellId = requireNotNull(cell) { "--cell <z/x/y> obbligatorio: ogni build scrive i civici di una cella della griglia" }
     // Con piu' estratti (riquadri adiacenti) un indirizzo sul bordo compare in entrambi.
     val osmAddresses = inputPaths.map(::File)
         .flatMap {
