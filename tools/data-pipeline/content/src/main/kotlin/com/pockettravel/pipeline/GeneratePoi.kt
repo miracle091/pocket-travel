@@ -126,6 +126,9 @@ private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagK
     val tagValue = tags.getValue(tagKey)
     // Parchi senza nome: per lo piu' aiuole e giardinetti, sulla mappa sarebbero solo "park".
     if (tagKey == "leisure" && tagValue == "park" && tags["name"] == null) return null
+    // Pensiline delle fermate: stesso tag dei bivacchi, ma sulla mappa sarebbero centinaia di segnalini
+    // accanto alle fermate.
+    if (tagKey == "amenity" && tagValue == "shelter" && tags["shelter_type"] == "public_transport") return null
     val category = when {
         tagKey == "amenity" && tagValue == "parking" && tags["access"] in PRIVATE_ACCESS -> "parking_private"
         tagKey == "railway" && (tags["station"] == "subway" || tags["subway"] == "yes") -> "subway_station"

@@ -109,6 +109,9 @@ class GeneratePoiTest {
                 """<node id="5" lat="44.10" lon="12.61"><tag k="shop" v="supermarket"/><tag k="brand" v="Conad"/><tag k="name" v="Conad City"/>""" +
                 """<tag k="opening_hours" v="Mo-Su 08:00-21:00"/></node>""" +
                 """<node id="6" lat="44.11" lon="12.62"><tag k="tourism" v="attraction"/><tag k="brand" v="Marchio"/></node>""" +
+                // Pensilina di una fermata: scartata; il bivacco resta.
+                """<node id="7" lat="44.12" lon="12.63"><tag k="amenity" v="shelter"/><tag k="shelter_type" v="public_transport"/></node>""" +
+                """<node id="8" lat="44.13" lon="12.64"><tag k="amenity" v="shelter"/><tag k="shelter_type" v="basic_hut"/></node>""" +
                 "</osm>",
         )
         val outputDb = File(dir, "poi.db")
@@ -126,6 +129,7 @@ class GeneratePoiTest {
             assertEquals(listOf("Conad City", "Mo-Su 08:00-21:00"), listOf(supermercato.name, supermercato.openingHours))
             // Il marchio solo per le categorie con i dettagli.
             assertEquals("attraction", pois[5].name)
+            assertEquals(listOf("amenity=shelter"), pois.drop(6).map { it.osmTag })
 
             writePoiDb(pois, outputDb)
             DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->

@@ -24,12 +24,12 @@ internal fun PoiCategory.pinColor(): Color = when (this) {
     PoiCategory.PARCHI_DIVERTIMENTO, PoiCategory.ZOO, PoiCategory.PARCHI_ACQUATICI, PoiCategory.ATTRAZIONI, PoiCategory.PARCO_GIOCHI,
     PoiCategory.TAVOLI_PICNIC, PoiCategory.RIPARI ->
         PoiColors.Attractions
-    PoiCategory.SVAGO -> PoiColors.Entertainment
-    PoiCategory.AMBASCIATA_CONSOLATO, PoiCategory.POLIZIA, PoiCategory.BAGNI_PUBBLICI, PoiCategory.ACQUA_POTABILE,
+    PoiCategory.SVAGO, PoiCategory.SPORT -> PoiColors.Entertainment
+    PoiCategory.AMBASCIATA_CONSOLATO, PoiCategory.BIBLIOTECHE, PoiCategory.POLIZIA, PoiCategory.MUNICIPIO, PoiCategory.AMBULATORI, PoiCategory.BAGNI_PUBBLICI, PoiCategory.ACQUA_POTABILE,
     PoiCategory.FARMACIA, PoiCategory.OSPEDALE, PoiCategory.VIGILI_DEL_FUOCO, PoiCategory.VETERINARIO,
     PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.UFFICIO_POSTALE, PoiCategory.CASSETTA_POSTALE, PoiCategory.INFORMAZIONI ->
         PoiColors.PublicServices
-    PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.SERVIZI_CAMPER, PoiCategory.NOLEGGIO, PoiCategory.PARCHEGGIO, PoiCategory.PARCHEGGIO_PRIVATO,
+    PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.SERVIZI_CAMPER, PoiCategory.RIPARAZIONE_BICI, PoiCategory.NOLEGGIO, PoiCategory.PARCHEGGIO, PoiCategory.PARCHEGGIO_PRIVATO,
     PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO,
     PoiCategory.AEROPORTO -> PoiColors.Transport
     PoiCategory.ALTRO -> PoiColors.Other
@@ -59,6 +59,11 @@ internal fun PoiCategory.glyph(): Int? = when (this) {
     PoiCategory.PARCHI_ACQUATICI -> UiR.drawable.ms_pool
     PoiCategory.ATTRAZIONI -> UiR.drawable.ms_star
     PoiCategory.SVAGO -> UiR.drawable.ms_theater_comedy
+    PoiCategory.SPORT -> UiR.drawable.ms_fitness_center
+    PoiCategory.BIBLIOTECHE -> UiR.drawable.ms_local_library
+    PoiCategory.MUNICIPIO -> UiR.drawable.ms_location_city
+    PoiCategory.AMBULATORI -> UiR.drawable.ms_medical_services
+    PoiCategory.RIPARAZIONE_BICI -> UiR.drawable.ms_home_repair_service
     PoiCategory.AMBASCIATA_CONSOLATO -> UiR.drawable.ms_account_balance
     PoiCategory.POLIZIA -> UiR.drawable.ms_local_police
     PoiCategory.BAGNI_PUBBLICI -> UiR.drawable.ms_wc
@@ -92,6 +97,11 @@ internal fun PoiCategory.label(): Int = when (this) {
     PoiCategory.PARCO_GIOCHI -> R.string.poi_playground
     PoiCategory.TAVOLI_PICNIC -> R.string.poi_picnic_table
     PoiCategory.RIPARI -> R.string.poi_shelter
+    PoiCategory.SPORT -> R.string.poi_sport
+    PoiCategory.BIBLIOTECHE -> R.string.poi_library
+    PoiCategory.MUNICIPIO -> R.string.poi_townhall
+    PoiCategory.AMBULATORI -> R.string.poi_clinic
+    PoiCategory.RIPARAZIONE_BICI -> R.string.poi_bike_repair
     PoiCategory.SERVIZI_CAMPER -> R.string.poi_camper_services
     PoiCategory.ACQUA_POTABILE -> R.string.poi_drinking_water
     PoiCategory.CASSETTA_POSTALE -> R.string.poi_post_box

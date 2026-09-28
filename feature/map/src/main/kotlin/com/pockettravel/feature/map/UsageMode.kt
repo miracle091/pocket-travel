@@ -45,7 +45,7 @@ enum class UsageMode(
     BICI(
         R.string.usage_mode_bike, UiR.drawable.ms_directions_bike, "trekking",
         setOf(
-            *SIGHTS, PoiCategory.NOLEGGIO, PoiCategory.PARCHEGGIO, PoiCategory.ACQUA_POTABILE,
+            *SIGHTS, PoiCategory.NOLEGGIO, PoiCategory.RIPARAZIONE_BICI, PoiCategory.PARCHEGGIO, PoiCategory.ACQUA_POTABILE,
             PoiCategory.TAVOLI_PICNIC, PoiCategory.NEGOZI, PoiCategory.BANCOMAT, PoiCategory.TRENO,
         ),
     ),

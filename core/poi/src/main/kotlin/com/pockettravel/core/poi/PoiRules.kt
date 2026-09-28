@@ -16,18 +16,23 @@ enum class PoiCategory {
     PARCHI_ACQUATICI,
     ATTRAZIONI,
     SVAGO,
+    SPORT,
     PARCO_GIOCHI,
     TAVOLI_PICNIC,
     RIPARI,
     AMBASCIATA_CONSOLATO,
+    BIBLIOTECHE,
     POLIZIA,
+    MUNICIPIO,
     BAGNI_PUBBLICI,
     ACQUA_POTABILE,
     CARBURANTE,
     RICARICA,
     SERVIZI_CAMPER,
+    RIPARAZIONE_BICI,
     FARMACIA,
     OSPEDALE,
+    AMBULATORI,
     VIGILI_DEL_FUOCO,
     VETERINARIO,
     BANCA,
@@ -47,7 +52,11 @@ enum class PoiCategory {
     ALTRO,
 }
 
-private val accommodationValues = setOf("hotel", "guest_house", "hostel", "motel", "apartment", "camp_site", "caravan_site", "chalet")
+// Anche i rifugi alpini gestiti (ci si dorme e spesso si mangia) e i posti tenda o camper con un nome, spesso
+// aree di sosta libere; quelli senza nome, di solito dentro un campeggio, restano nascosti come ogni alloggio senza nome.
+private val accommodationValues = setOf(
+    "hotel", "guest_house", "hostel", "motel", "apartment", "camp_site", "caravan_site", "chalet", "alpine_hut", "camp_pitch",
+)
 private val foodDrinkValues = setOf("restaurant", "cafe", "bar", "pub", "fast_food", "food_court", "ice_cream", "biergarten")
 private val rentalTags = setOf(
     "amenity=car_rental", "amenity=bicycle_rental", "amenity=motorcycle_rental", "amenity=scooter_rental",
@@ -55,8 +64,9 @@ private val rentalTags = setOf(
 )
 private val entertainmentTags = setOf(
     "amenity=cinema", "amenity=theatre", "amenity=nightclub", "amenity=casino", "leisure=bowling_alley",
-    "leisure=amusement_arcade",
+    "leisure=amusement_arcade", "amenity=arts_centre", "amenity=events_venue",
 )
+private val sportTags = setOf("leisure=sports_centre", "leisure=fitness_centre", "leisure=ski_resort", "leisure=spa")
 private val worshipValues = setOf("place_of_worship", "monastery")
 private val museumArtValues = setOf("museum", "gallery", "artwork")
 private val natureValues = setOf("park", "garden", "nature_reserve")
@@ -83,6 +93,13 @@ fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     osmTag == "amenity=charging_station" -> PoiCategory.RICARICA
     osmTag == "amenity=pharmacy" -> PoiCategory.FARMACIA
     osmTag == "amenity=hospital" -> PoiCategory.OSPEDALE
+    osmTag == "amenity=clinic" || osmTag == "amenity=doctors" || osmTag == "amenity=dentist" -> PoiCategory.AMBULATORI
+    osmTag == "amenity=townhall" -> PoiCategory.MUNICIPIO
+    osmTag in sportTags -> PoiCategory.SPORT
+    osmTag == "amenity=library" -> PoiCategory.BIBLIOTECHE
+    // Lavatoi pubblici storici, spesso senza tag historic.
+    osmTag == "amenity=lavoir" -> PoiCategory.LUOGHI_STORICI
+    osmTag == "amenity=bicycle_repair_station" -> PoiCategory.RIPARAZIONE_BICI
     osmTag == "amenity=fire_station" -> PoiCategory.VIGILI_DEL_FUOCO
     osmTag == "amenity=veterinary" -> PoiCategory.VETERINARIO
     osmTag == "amenity=bank" -> PoiCategory.BANCA
@@ -91,9 +108,11 @@ fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     // Tipi del pacchetto POI extra (vedi poiPackageOf); i parchi giochi con nome sono nel base.
     osmTag == "amenity=drinking_water" -> PoiCategory.ACQUA_POTABILE
     osmTag == "leisure=picnic_table" || osmTag == "tourism=picnic_site" -> PoiCategory.TAVOLI_PICNIC
-    osmTag == "amenity=shelter" -> PoiCategory.RIPARI
+    // Bivacchi, capanne e tettoie (le pensiline delle fermate le scarta la pipeline, vedi GeneratePoi.kt).
+    osmTag == "amenity=shelter" || osmTag == "tourism=wilderness_hut" || osmTag == "tourism=lean_to" -> PoiCategory.RIPARI
     // Scarico dei serbatoi e rifornimento d'acqua per camper e caravan.
-    osmTag == "amenity=sanitary_dump_station" || osmTag == "amenity=water_point" -> PoiCategory.SERVIZI_CAMPER
+    osmTag == "amenity=sanitary_dump_station" || osmTag == "amenity=water_point" || osmTag == "amenity=car_wash" ->
+        PoiCategory.SERVIZI_CAMPER
     osmTag == "leisure=playground" -> PoiCategory.PARCO_GIOCHI
     osmTag == "amenity=vending_machine" -> PoiCategory.DISTRIBUTORI
     osmTag == "amenity=post_box" -> PoiCategory.CASSETTA_POSTALE
@@ -140,6 +159,8 @@ private val hiddenOnMapTags = setOf(
     "amenity=driving_school", "amenity=kindergarten", "amenity=school", "amenity=childcare", "amenity=university",
     "amenity=bus_rental", "amenity=dancing_school", "amenity=telecommunication", "leisure=adult_gaming_centre",
     "amenity=compressed_air", "amenity=fish_spa", "amenity=music_school", "amenity=surf_school",
+    "amenity=social_facility", "amenity=language_school", "amenity=animal_shelter", "amenity=mini_storage",
+    "amenity=parcel_locker", "amenity=watering_place", "amenity=public_bookcase",
 )
 
 // Servizi che in OSM di solito non hanno un nome (bagni, bancomat, parcheggi...): restano sulla mappa
@@ -147,7 +168,7 @@ private val hiddenOnMapTags = setOf(
 private val namelessOnMapCategories = setOf(
     PoiCategory.BAGNI_PUBBLICI, PoiCategory.BANCOMAT, PoiCategory.PARCHEGGIO, PoiCategory.CARBURANTE,
     PoiCategory.RICARICA, PoiCategory.FARMACIA, PoiCategory.OSPEDALE, PoiCategory.TAXI, PoiCategory.UFFICIO_POSTALE,
-    PoiCategory.SERVIZI_CAMPER, PoiCategory.RIPARI,
+    PoiCategory.SERVIZI_CAMPER, PoiCategory.RIPARI, PoiCategory.RIPARAZIONE_BICI,
 )
 
 // Come sopra, per tipi di categorie che hanno anche POI da nascondere senza nome (tavoli da picnic
@@ -156,13 +177,13 @@ private val namelessOnMapTags = setOf("amenity=fountain", "tourism=viewpoint", "
 
 private val detailCategories = setOf(
     PoiCategory.CIBO_BEVANDE, PoiCategory.ALLOGGIO, PoiCategory.AMBASCIATA_CONSOLATO, PoiCategory.FARMACIA,
-    PoiCategory.OSPEDALE, PoiCategory.NEGOZI,
+    PoiCategory.OSPEDALE, PoiCategory.AMBULATORI, PoiCategory.NEGOZI,
 )
 private val contactCategories = setOf(PoiCategory.ALLOGGIO, PoiCategory.AMBASCIATA_CONSOLATO)
 
 /**
  * true per i POI con orari e indirizzo, quando OSM li indica: cibo e bevande, alloggi, ambasciate e consolati,
- * farmacie, ospedali e negozi (supermercati compresi). Senza nome, per questi la pipeline usa il marchio.
+ * farmacie, ospedali, ambulatori e negozi (supermercati compresi). Senza nome, per questi la pipeline usa il marchio.
  */
 fun poiHasDetails(category: String, osmTag: String): Boolean = poiCategoryOf(category, osmTag) in detailCategories
 

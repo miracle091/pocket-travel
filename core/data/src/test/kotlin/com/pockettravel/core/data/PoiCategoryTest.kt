@@ -1,6 +1,7 @@
 package com.pockettravel.core.data
 
 import com.pockettravel.core.poi.PoiCategory
+import com.pockettravel.core.poi.poiPackageOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -60,8 +61,33 @@ class PoiCategoryTest {
 
     @Test
     fun `il resto va in ALTRO`() {
-        assertEquals(PoiCategory.ALTRO, poi("library", "amenity=library").poiCategory())
-        assertEquals(PoiCategory.ALTRO, poi("library", "amenity=library").poiCategory())
+        assertEquals(PoiCategory.ALTRO, poi("community_centre", "amenity=community_centre").poiCategory())
+    }
+
+    @Test
+    fun `ambulatori, municipi, sport, riparazione bici, bivacchi e rifugi`() {
+        assertEquals(PoiCategory.AMBULATORI, poi("clinic", "amenity=clinic").poiCategory())
+        assertEquals(PoiCategory.AMBULATORI, poi("dentist", "amenity=dentist").poiCategory())
+        assertEquals(PoiCategory.MUNICIPIO, poi("Palazzo Pubblico", "amenity=townhall").poiCategory())
+        assertEquals(PoiCategory.SPORT, poi("fitness_centre", "leisure=fitness_centre").poiCategory())
+        assertEquals(PoiCategory.RIPARAZIONE_BICI, poi("bicycle_repair_station", "amenity=bicycle_repair_station").poiCategory())
+        assertEquals(PoiCategory.RIPARI, poi("Bivacco", "tourism=wilderness_hut").poiCategory())
+        assertEquals(PoiCategory.ALLOGGIO, poi("alpine_hut", "tourism=alpine_hut").poiCategory())
+        assertEquals(PoiCategory.SPORT, poi("ski_resort", "leisure=ski_resort").poiCategory())
+        assertEquals(PoiCategory.SVAGO, poi("arts_centre", "amenity=arts_centre").poiCategory())
+        assertEquals(PoiCategory.BIBLIOTECHE, poi("library", "amenity=library").poiCategory())
+        assertEquals(PoiCategory.LUOGHI_STORICI, poi("lavoir", "amenity=lavoir").poiCategory())
+        assertEquals(PoiCategory.RIPARI, poi("lean_to", "tourism=lean_to").poiCategory())
+        assertEquals(PoiCategory.SERVIZI_CAMPER, poi("car_wash", "amenity=car_wash").poiCategory())
+        assertTrue(poi("parcel_locker", "amenity=parcel_locker").copy(name = "Locker").isHiddenOnMap())
+        assertEquals(PoiCategory.ALLOGGIO, poi("camp_pitch", "tourism=camp_pitch").poiCategory())
+        assertFalse(poi("camp_pitch", "tourism=camp_pitch").copy(name = "Area sosta Pian").isHiddenOnMap())
+        assertTrue(poi("camp_pitch", "tourism=camp_pitch").copy(name = "camp_pitch").isHiddenOnMap())
+        // Riparazione bici senza nome resta sulla mappa; servizi sociali mai.
+        assertFalse(poi("bicycle_repair_station", "amenity=bicycle_repair_station").isHiddenOnMap())
+        assertTrue(poi("social_facility", "amenity=social_facility").copy(name = "Casa di riposo").isHiddenOnMap())
+        // Nascosti, quindi la pipeline non li pubblica in nessun pacchetto.
+        assertEquals(null, poiPackageOf("Casa di riposo", "social_facility", "amenity=social_facility"))
     }
 
     @Test

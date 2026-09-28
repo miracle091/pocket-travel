@@ -35,7 +35,7 @@ internal enum class LegendGroup(@StringRes val label: Int, val categories: List<
         R.string.map_legend_group_visit,
         listOf(
             PoiCategory.LUOGHI_DI_CULTO, PoiCategory.MUSEI_ARTE, PoiCategory.LUOGHI_STORICI, PoiCategory.NATURA, PoiCategory.PANORAMI,
-            PoiCategory.PARCHI_DIVERTIMENTO, PoiCategory.ZOO, PoiCategory.PARCHI_ACQUATICI, PoiCategory.ATTRAZIONI, PoiCategory.SVAGO, PoiCategory.PARCO_GIOCHI, PoiCategory.TAVOLI_PICNIC, PoiCategory.RIPARI),
+            PoiCategory.PARCHI_DIVERTIMENTO, PoiCategory.ZOO, PoiCategory.PARCHI_ACQUATICI, PoiCategory.ATTRAZIONI, PoiCategory.SVAGO, PoiCategory.SPORT, PoiCategory.PARCO_GIOCHI, PoiCategory.TAVOLI_PICNIC, PoiCategory.RIPARI),
     ),
     SHOPS(R.string.map_legend_group_shops, listOf(PoiCategory.NEGOZI, PoiCategory.DISTRIBUTORI)),
     MONEY_POST(
@@ -44,7 +44,7 @@ internal enum class LegendGroup(@StringRes val label: Int, val categories: List<
     ),
     USEFUL(
         R.string.map_legend_group_useful,
-        listOf(PoiCategory.BAGNI_PUBBLICI, PoiCategory.ACQUA_POTABILE, PoiCategory.INFORMAZIONI, PoiCategory.AMBASCIATA_CONSOLATO),
+        listOf(PoiCategory.BAGNI_PUBBLICI, PoiCategory.ACQUA_POTABILE, PoiCategory.INFORMAZIONI, PoiCategory.BIBLIOTECHE, PoiCategory.AMBASCIATA_CONSOLATO),
     ),
     TRANSPORT(
         R.string.map_legend_group_transport,
@@ -53,13 +53,16 @@ internal enum class LegendGroup(@StringRes val label: Int, val categories: List<
     VEHICLES(
         R.string.map_legend_group_vehicles,
         listOf(
-            PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.SERVIZI_CAMPER, PoiCategory.PARCHEGGIO,
+            PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.SERVIZI_CAMPER, PoiCategory.RIPARAZIONE_BICI, PoiCategory.PARCHEGGIO,
             PoiCategory.PARCHEGGIO_PRIVATO, PoiCategory.NOLEGGIO,
         ),
     ),
     HEALTH(
         R.string.map_legend_group_health,
-        listOf(PoiCategory.FARMACIA, PoiCategory.OSPEDALE, PoiCategory.POLIZIA, PoiCategory.VIGILI_DEL_FUOCO, PoiCategory.VETERINARIO),
+        listOf(
+            PoiCategory.FARMACIA, PoiCategory.OSPEDALE, PoiCategory.AMBULATORI, PoiCategory.POLIZIA, PoiCategory.VIGILI_DEL_FUOCO,
+            PoiCategory.MUNICIPIO, PoiCategory.VETERINARIO,
+        ),
     ),
     OTHER(R.string.map_legend_group_other, listOf(PoiCategory.ALTRO)),
 }
