@@ -33,50 +33,28 @@ abstract class RegionDatabase : RoomDatabase() {
     abstract fun cityDao(): CityDao
     abstract fun noteDao(): NoteDao
 }
+/** Tutte le migrazioni, per Room.databaseBuilder e per i test. */
+val ALL_MIGRATIONS: Array<Migration>
+    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_16)
 
-val MIGRATION_1_2 = object : Migration(1, 2) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            """
-            CREATE TABLE IF NOT EXISTS `installed_regions` (
-                `regionId` TEXT NOT NULL PRIMARY KEY,
-                `displayName` TEXT NOT NULL,
-                `version` TEXT NOT NULL,
-                `sizeBytes` INTEGER NOT NULL,
-                `installedAt` INTEGER NOT NULL
-            )
-            """.trimIndent()
-        )
-    }
-}
+/** Versioni del database mai uscite in una versione pubblicata dell'app (solo sviluppo). */
+val UNRELEASED_VERSIONS = intArrayOf(1, 2, 4, 7, 8, 10, 12, 13, 14)
 
-val MIGRATION_2_3 = object : Migration(2, 3) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            """
-            CREATE TABLE IF NOT EXISTS `passport_vault` (
-                `id` TEXT NOT NULL PRIMARY KEY,
-                `encryptedPayload` TEXT NOT NULL,
-                `createdAt` INTEGER NOT NULL,
-                `updatedAt` INTEGER NOT NULL
-            )
-            """.trimIndent()
-        )
-    }
-}
+// Una migrazione per ogni versione dell'app pubblicata, dal suo database al successivo: chi
+// aggiorna salta le versioni intermedie usate solo durante lo sviluppo. Le versioni 1 e 2 non sono
+// mai uscite (v0.2.0 partiva gia' dalla 3). Dentro, i passi originali nello stesso ordine.
 
-// Numero di telefono del POI (ambasciate/consolati in primo luogo, ma vale per qualunque POI
-// che lo abbia su OSM): nullable, i pacchetti regionali gia' pubblicati non lo portano finche'
-// non vengono ripubblicati da tools/data-pipeline — la colonna resta NULL per quelli fino ad
-// allora, non un errore di migrazione.
-val MIGRATION_3_4 = object : Migration(3, 4) {
+// Da 3 (v0.2.0 e v0.3.0) a 5 (v0.4.0).
+val MIGRATION_3_5 = object : Migration(3, 5) {
     override fun migrate(db: SupportSQLiteDatabase) {
+        // 3 -> 4:
+        //   Numero di telefono del POI (ambasciate/consolati in primo luogo, ma vale per qualunque POI
+        //   che lo abbia su OSM): nullable, i pacchetti regionali gia' pubblicati non lo portano finche'
+        //   non vengono ripubblicati da tools/data-pipeline — la colonna resta NULL per quelli fino ad
+        //   allora, non un errore di migrazione.
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `phone` TEXT")
-    }
-}
 
-val MIGRATION_4_5 = object : Migration(4, 5) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+        // 4 -> 5.
         db.execSQL(
             """
             CREATE TABLE IF NOT EXISTS `emergency_numbers` (
@@ -91,6 +69,7 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+// Da 5 (v0.4.0) a 6 (v0.5.0).
 // Pacchetti separati (guide, mappa, routing, POI): installed_regions passa da una sola version a
 // una per pacchetto, nullable (ogni combinazione e' possibile). Le regioni gia' installate hanno
 // tutti e tre, con la stessa versione; poiSizeBytes resta NULL (il vecchio sizeBytes non separava
@@ -133,67 +112,58 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
-// Regioni senza numero di emergenza centralizzato, dal guides.db: vuota finche' non si importa un
-// pacchetto guide che la contiene.
-val MIGRATION_6_7 = object : Migration(6, 7) {
+// Da 6 (v0.5.0) a 9 (v0.6.0).
+val MIGRATION_6_9 = object : Migration(6, 9) {
     override fun migrate(db: SupportSQLiteDatabase) {
+        // 6 -> 7:
+        //   Regioni senza numero di emergenza centralizzato, dal guides.db: vuota finche' non si importa un
+        //   pacchetto guide che la contiene.
         db.execSQL("CREATE TABLE IF NOT EXISTS `emergency_numbers_none` (`regionId` TEXT NOT NULL PRIMARY KEY)")
-    }
-}
 
-// Codice paese per la bandiera in Spazio: le regioni gia' installate restano a NULL finche' l'elenco
-// regioni non lo riempie dal manifest (RegionListViewModel.refresh).
-val MIGRATION_7_8 = object : Migration(7, 8) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+        // 7 -> 8:
+        //   Codice paese per la bandiera in Spazio: le regioni gia' installate restano a NULL finche' l'elenco
+        //   regioni non lo riempie dal manifest (RegionListViewModel.refresh).
         db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `countryCode` TEXT")
-    }
-}
 
-// Pacchetto civici (addresses.pmtiles): nessuna regione gia' installata lo ha.
-val MIGRATION_8_9 = object : Migration(8, 9) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+        // 8 -> 9:
+        //   Pacchetto civici (addresses.pmtiles): nessuna regione gia' installata lo ha.
         db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `addressesVersion` TEXT")
     }
 }
 
-// Pacchetto POI extra (poi-extra.db): i POI gia' importati sono tutti del pacchetto base.
-val MIGRATION_9_10 = object : Migration(9, 10) {
+// Da 9 (v0.6.0) a 11 (v0.7.0).
+val MIGRATION_9_11 = object : Migration(9, 11) {
     override fun migrate(db: SupportSQLiteDatabase) {
+        // 9 -> 10:
+        //   Pacchetto POI extra (poi-extra.db): i POI gia' importati sono tutti del pacchetto base.
         db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `poiExtraVersion` TEXT")
         db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `poiExtraSizeBytes` INTEGER")
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `extra` INTEGER NOT NULL DEFAULT 0")
-    }
-}
 
-// Accessibilita' in sedia a rotelle dei POI (tag OSM "wheelchair"): i POI gia' importati non la hanno.
-val MIGRATION_10_11 = object : Migration(10, 11) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+        // 10 -> 11:
+        //   Accessibilita' in sedia a rotelle dei POI (tag OSM "wheelchair"): i POI gia' importati non la hanno.
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `wheelchair` TEXT")
     }
 }
 
-// Indice su poi.regionId: senza, caricare o eliminare i POI di una regione scorre l'intera tabella.
-val MIGRATION_11_12 = object : Migration(11, 12) {
+// Da 11 (v0.7.0) a 15 (v0.8.0).
+val MIGRATION_11_15 = object : Migration(11, 15) {
     override fun migrate(db: SupportSQLiteDatabase) {
+        // 11 -> 12:
+        //   Indice su poi.regionId: senza, caricare o eliminare i POI di una regione scorre l'intera tabella.
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionId` ON `poi` (`regionId`)")
-    }
-}
 
-// Anteprima offline della regione (preview.pmtiles, pochi zoom): si installa e aggiorna da sola con
-// ogni download della regione (RegionPackageInstaller), non e' un PackageKind ne' un pacchetto che
-// l'utente puo' togliere a parte - le regioni gia' installate la prendono al prossimo aggiornamento.
-val MIGRATION_12_13 = object : Migration(12, 13) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+        // 12 -> 13:
+        //   Anteprima offline della regione (preview.pmtiles, pochi zoom): si installa e aggiorna da sola con
+        //   ogni download della regione (RegionPackageInstaller), non e' un PackageKind ne' un pacchetto che
+        //   l'utente puo' togliere a parte - le regioni gia' installate la prendono al prossimo aggiornamento.
         db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `previewVersion` TEXT")
-    }
-}
 
-// Indice su guide_sections.regionId: senza, sectionsForRegion scorre l'intera tabella mondiale delle
-// guide. Il tokenizer FTS delle guide passa da "simple" a unicode61, che casefolda anche le maiuscole
-// accentate: la tabella va ricreata (FTS4 non supporta ALTER del tokenizer), con le stesse trigger di
-// sincronizzazione col content table e un rebuild dell'indice sui dati gia' importati.
-val MIGRATION_13_14 = object : Migration(13, 14) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+        // 13 -> 14:
+        //   Indice su guide_sections.regionId: senza, sectionsForRegion scorre l'intera tabella mondiale delle
+        //   guide. Il tokenizer FTS delle guide passa da "simple" a unicode61, che casefolda anche le maiuscole
+        //   accentate: la tabella va ricreata (FTS4 non supporta ALTER del tokenizer), con le stesse trigger di
+        //   sincronizzazione col content table e un rebuild dell'indice sui dati gia' importati.
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_guide_sections_regionId` ON `guide_sections` (`regionId`)")
 
         db.execSQL("DROP TRIGGER IF EXISTS room_fts_content_sync_guide_sections_fts_BEFORE_UPDATE")
@@ -217,17 +187,14 @@ val MIGRATION_13_14 = object : Migration(13, 14) {
             "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_guide_sections_fts_AFTER_INSERT AFTER INSERT ON `guide_sections` BEGIN INSERT INTO `guide_sections_fts`(`docid`, `title`, `body`) VALUES (NEW.`rowid`, NEW.`title`, NEW.`body`); END"
         )
         db.execSQL("INSERT INTO guide_sections_fts(guide_sections_fts) VALUES('rebuild')")
-    }
-}
 
-// Guide delle citta' per regione (rag-knowledge-plan.md, fase 1) e note personali (fase 4).
-// city_sections e' nella stessa forma di guide_sections, con l'indice composto (regionId, city)
-// richiesto da CityRepository; city_sections_fts ha lo stesso tokenizer unicode61 e le stesse
-// trigger di sincronizzazione col content table di guide_sections_fts (vedi MIGRATION_13_14).
-// citiesVersion/citiesSizeBytes su installed_regions restano NULL finche' una regione non scarica
-// il pacchetto citta'; notes resta vuota finche' l'utente non scrive la prima nota.
-val MIGRATION_14_15 = object : Migration(14, 15) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+        // 14 -> 15:
+        //   Guide delle citta' per regione (rag-knowledge-plan.md, fase 1) e note personali (fase 4).
+        //   city_sections e' nella stessa forma di guide_sections, con l'indice composto (regionId, city)
+        //   richiesto da CityRepository; city_sections_fts ha lo stesso tokenizer unicode61 e le stesse
+        //   trigger di sincronizzazione col content table di guide_sections_fts (vedi MIGRATION_11_15, passo 13 -> 14).
+        //   citiesVersion/citiesSizeBytes su installed_regions restano NULL finche' una regione non scarica
+        //   il pacchetto citta'; notes resta vuota finche' l'utente non scrive la prima nota.
         db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `citiesVersion` TEXT")
         db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `citiesSizeBytes` INTEGER")
 
@@ -274,6 +241,7 @@ val MIGRATION_14_15 = object : Migration(14, 15) {
     }
 }
 
+// Da 15 (v0.8.0) a 16 (prossima versione).
 // Orari e indirizzo dei POI di cibo e bevande: vuoti finche' la regione non riscarica
 // i punti di interesse pubblicati con questi dati.
 val MIGRATION_15_16 = object : Migration(15, 16) {
