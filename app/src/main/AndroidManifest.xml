@@ -3,6 +3,12 @@
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- MapLibre 13 dichiara i permessi di posizione nel suo manifest: l'app non usa la posizione
+         (nessun "sono qui" sulla mappa), quindi non devono finire nell'APK. Da togliere (con la
+         richiesta a runtime) quando arriva la navigazione. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" tools:node="remove" />
+
     <!-- Backup spento ovunque: allowBackup="false" fino ad Android 11, dataExtractionRules da 12 in
          su. fullBackupContent non serve (vale solo con il backup attivo), da qui il tools:ignore. -->
     <application
