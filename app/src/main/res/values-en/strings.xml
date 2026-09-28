@@ -141,9 +141,9 @@
     <string name="onboarding_welcome_title">Welcome to Pocket Travel</string>
     <string name="onboarding_welcome_body">A travel guide that works even offline: local customs, border rules, vaccinations, maps and a built-in AI assistant. No account, no personal data collected.</string>
     <string name="onboarding_ai_title">The AI assistant has two modes</string>
-    <string name="onboarding_ai_body">\"On device\" works offline too, but needs at least 4 GB of RAM and a model download. \"Online\" uses your own API key (set it up in the app first), which is never sent to our servers.</string>
+    <string name="onboarding_ai_body">\"On device\" works even without internet: a small model downloaded to the phone (at least 4 GB of RAM) answers using the guide and your notes. \"Online\" uses a service of your choice (ChatGPT, Mistral, Gemini or Claude) with your own API key, which stays on the phone.</string>
     <string name="onboarding_ai_online_title">The AI assistant is available Online</string>
-    <string name="onboarding_ai_online_body">Your device has less than 4 GB of RAM, so \"On device\" mode isn\'t available. The AI assistant still works in Online mode with your own API key (set it up in the app first), which is never sent to our servers.</string>
+    <string name="onboarding_ai_online_body">Your phone has less than 4 GB of RAM, so \"On device\" mode isn\'t available. The AI assistant works in Online mode, with a service of your choice (ChatGPT, Mistral, Gemini or Claude) and your own API key, which stays on the phone.</string>
     <string name="onboarding_vault_title">Your documents stay safe</string>
     <string name="onboarding_vault_body">Passport and vaccination certificates are kept in \"Documents\", protected by biometrics or screen lock and never sent off the device.</string>
     <string name="onboarding_sources_title">Official sources open online</string>

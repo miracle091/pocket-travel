@@ -35,8 +35,7 @@ enum class ModelOrigin {
 
 object LlmModelCatalog {
     // Fasce MINIMO/CONFORTEVOLE/AMPIA: vedi DeviceAiCapability.RamTier. Un modello ufficiale per fascia,
-    // della stessa famiglia del modello addestrato da noi nella stessa fascia (confronto diretto: vedi
-    // .claude/docs/llm-model-catalog-research.md, 2026-09-27).
+    // della stessa famiglia del modello addestrato da noi nella stessa fascia (confronto diretto).
     // Solo modelli non gated (Apache 2.0/MIT): niente modelli Gemma o altri repo che richiedono
     // accettare una licenza su HuggingFace.
     // Niente modelli solo "reasoning": i Qwen3.5 hanno il thinking, spento da ai_chat.cpp con il blocco
@@ -119,6 +118,18 @@ object LlmModelCatalog {
      * addestrati nella lingua dell'interfaccia [language]: senza (oggi per l'inglese) gli ufficiali,
      * con la stessa regola delle fasce.
      */
+    /**
+     * Modelli da mostrare nella lista: quelli che la fascia di RAM regge, senza gli addestrati in una
+     * lingua diversa da quella dell'interfaccia (utente, 2026-09-28: in inglese solo quelli con supporto
+     * all'inglese, oggi nessuno, quindi il gruppo "Addestrati da noi" non compare).
+     */
+    fun visibleFor(tier: RamTier, language: String): List<LlmModelDefinition> =
+        ALL.filter { tier.ordinal >= it.minRamTier.ordinal && isUsableIn(it, language) }
+
+    /** false per un modello addestrato in un'altra lingua (vedi [visibleFor]). */
+    fun isUsableIn(model: LlmModelDefinition, language: String): Boolean =
+        model.origin != ModelOrigin.ADDESTRATO || model.language == language
+
     fun defaultFor(tier: RamTier, language: String = "it"): LlmModelDefinition {
         val candidates = ALL.filter { it.origin == ModelOrigin.ADDESTRATO && it.language == language && it.sha256 != null }
             .ifEmpty { ALL.filter { it.origin == ModelOrigin.UFFICIALE && it.sha256 != null } }

@@ -16,8 +16,8 @@
     <string name="ai_large_download_title">Download di grandi dimensioni</string>
     <string name="ai_large_download_message">%1$s pesa circa %2$s e sei su rete mobile. Continuare?</string>
     <string name="ai_large_download_confirm">Scarica</string>
-    <string name="ai_api_key_intro">Inserisci la tua chiave API personale per usare l\'assistente IA online.</string>
-    <string name="ai_api_key_privacy">La chiave resta solo su questo dispositivo, cifrata in Android Keystore: le domande vengono inviate direttamente al servizio scelto, mai a un server dell\'app.</string>
+    <string name="ai_api_key_intro">In modalità Online le domande vanno a un servizio di intelligenza artificiale a tua scelta, con una tua chiave API. Scegli il servizio, crea la chiave sul suo sito e incollala qui sotto.</string>
+    <string name="ai_api_key_privacy">La chiave resta solo su questo telefono, cifrata. Le domande vanno direttamente a %1$s, mai a un server di Pocket Travel, e l\'uso lo paghi tu sul tuo account. Cambiando servizio la chiave si cancella.</string>
     <string name="ai_api_key_label">Chiave API</string>
     <string name="ai_api_key_save">Salva chiave</string>
     <string name="ai_api_key_show">Mostra chiave</string>
@@ -26,7 +26,7 @@
     <string name="ai_send">Invia domanda</string>
     <string name="ai_thinking">Sto pensando…</string>
     <string name="ai_empty_title">Chiedi qualcosa sul viaggio</string>
-    <string name="ai_empty_subtitle">Le risposte si basano sulla guida della regione scaricata.</string>
+    <string name="ai_empty_subtitle">Le risposte arrivano dalla guida della regione e dalle tue note, in poche frasi. Se la guida non basta, te lo dice.</string>
     <string name="ai_verify_official">Verifica sempre sulla fonte ufficiale</string>
     <string name="ai_delete_model">Elimina modello</string>
     <string name="ai_remove_key">Rimuovi chiave</string>
@@ -49,4 +49,18 @@
     <string name="ai_error_not_available">Questo modello non è ancora disponibile per il download.</string>
     <string name="ai_error_space">Spazio insufficiente per scaricare il modello IA.</string>
     <string name="ai_error_answer">Non sono riuscito a generare una risposta.</string>
+    <string name="ai_provider_title">Servizio</string>
+    <string name="ai_provider_get_key">Crea la chiave su %1$s</string>
+    <string name="ai_api_key_placeholder">Inizia con %1$s…</string>
+    <string name="ai_empty_subtitle_online">La domanda va a %1$s così com\'è, senza la guida scaricata: le risposte sono più generali. Per dogane e salute controlla sempre la fonte ufficiale.</string>
+    <string name="ai_online_model_title">Modello</string>
+    <string name="ai_error_model">Il servizio non conosce questo modello: controlla il nome in Assistente IA → Online, o scegli Automatico.</string>
+    <string name="ai_provider_model">Modello: %1$s</string>
+    <string name="ai_online_model_auto">Automatico (consigliato)</string>
+    <string name="ai_online_model_auto_desc">Un modello veloce ed economico, aggiornato senza che tu debba fare nulla: basta per le risposte brevi di un viaggio. Oggi: %1$s.</string>
+    <string name="ai_online_model_capable">Più capace: %1$s</string>
+    <string name="ai_online_model_capable_desc">Risposte più accurate alle domande complesse, ma costa di più e può essere più lento.</string>
+    <string name="ai_online_model_other">Altro modello</string>
+    <string name="ai_online_model_other_desc">Scrivi il nome esatto di un altro modello del servizio.</string>
+    <string name="ai_online_model_label">Nome del modello</string>
 </resources>

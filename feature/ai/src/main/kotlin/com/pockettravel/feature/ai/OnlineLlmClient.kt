@@ -23,7 +23,7 @@ class OnlineLlmClient @Inject constructor(
             val requestBody = OpenAiChatRequest(
                 model = model,
                 messages = listOf(OpenAiChatMessage(role = "user", content = prompt)),
-                temperature = TEMPERATURE,
+                temperature = TEMPERATURE.takeIf { supportsTemperature(model) },
             )
             val request = Request.Builder()
                 .url("${baseUrl.trimEnd('/')}/chat/completions")
@@ -34,6 +34,9 @@ class OnlineLlmClient @Inject constructor(
             okHttpClient.newCall(request).execute().use { response ->
                 val responseBody = response.body.string()
                 if (!response.isSuccessful) {
+                    if (response.code == 404 || (response.code == 400 && responseBody.contains("model", ignoreCase = true))) {
+                        throw OnlineModelNotFoundException("Modello \"$model\" non disponibile (HTTP ${response.code})")
+                    }
                     error("Errore dal servizio online (HTTP ${response.code})")
                 }
                 json.decodeFromString(OpenAiChatResponse.serializer(), responseBody)

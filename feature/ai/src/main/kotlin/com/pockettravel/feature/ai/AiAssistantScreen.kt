@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -31,6 +33,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -46,8 +49,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -92,6 +97,8 @@ data class AiActions(
     val onRunBenchmark: () -> Unit,
     val onShowBenchmarkComparison: () -> Unit,
     val onHideBenchmarkComparison: () -> Unit,
+    val onProviderSelected: (OnlineProvider) -> Unit = {},
+    val onOnlineModelChanged: (String) -> Unit = {},
 )
 
 private fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
@@ -100,6 +107,8 @@ private fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
     onDownloadModel = ::downloadModel,
     onApiKeyInputChanged = ::onApiKeyInputChanged,
     onSaveApiKey = ::saveApiKey,
+    onProviderSelected = ::onProviderSelected,
+    onOnlineModelChanged = ::onOnlineModelChanged,
     onQuestionChanged = ::onQuestionChanged,
     onAsk = { ask(regionId) },
     onDeleteModel = ::deleteModel,
@@ -229,7 +238,11 @@ private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String)
         EmptyState(
             icon = AppIcons.AiAssistant,
             title = stringResource(R.string.ai_empty_title),
-            subtitle = stringResource(R.string.ai_empty_subtitle),
+            subtitle = if (uiState.mode == AiEngineMode.ONLINE) {
+                stringResource(R.string.ai_empty_subtitle_online, uiState.onlineProvider.displayName)
+            } else {
+                stringResource(R.string.ai_empty_subtitle)
+            },
             modifier = modifier.fillMaxSize(),
         )
         return
@@ -449,10 +462,40 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
 @Composable
 private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
     var isKeyVisible by rememberSaveable { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
+    val provider = uiState.onlineProvider
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
         Text(stringResource(R.string.ai_api_key_intro), style = MaterialTheme.typography.bodyLarge)
+        // Servizio: uno dei quattro, ognuno col suo modello (OnlineProvider).
         Text(
-            stringResource(R.string.ai_api_key_privacy),
+            stringResource(R.string.ai_provider_title),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.semantics { heading() },
+        )
+        Column(modifier = Modifier.selectableGroup()) {
+            OnlineProvider.entries.forEach { candidate ->
+                ListItem(
+                    leadingContent = { RadioButton(selected = candidate == provider, onClick = null) },
+                    supportingContent = {
+                        Text(stringResource(R.string.ai_provider_model, uiState.onlineModels[candidate] ?: candidate.autoModel))
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.selectable(selected = candidate == provider, role = Role.RadioButton) {
+                        actions.onProviderSelected(candidate)
+                    },
+                    content = { Text(candidate.displayName) },
+                )
+            }
+        }
+        OnlineModelChoice(provider = provider, setting = uiState.onlineModelSetting, onSettingChanged = actions.onOnlineModelChanged)
+        TextButton(onClick = { uriHandler.openUri(provider.keyPageUrl) }) {
+            Text(stringResource(R.string.ai_provider_get_key, provider.displayName))
+            Spacer(modifier = Modifier.width(Spacing.s))
+            Icon(AppIcons.OpenExternal, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+        Text(
+            stringResource(R.string.ai_api_key_privacy, provider.displayName),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -461,6 +504,7 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
             onValueChange = actions.onApiKeyInputChanged,
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(R.string.ai_api_key_label)) },
+            placeholder = provider.keyPrefix?.let { prefix -> { Text(stringResource(R.string.ai_api_key_placeholder, prefix)) } },
             visualTransformation = if (isKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
                 IconButton(onClick = { isKeyVisible = !isKeyVisible }) {
@@ -478,6 +522,62 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
             Text(stringResource(R.string.ai_api_key_save))
         }
     }
+}
+
+// Modello del servizio: Automatico (consigliato, vedi OnlineProvider.autoModel), il piu' capace, o un
+// altro scritto a mano. Ognuno con una riga che spiega la differenza.
+@Composable
+private fun OnlineModelChoice(provider: OnlineProvider, setting: String, onSettingChanged: (String) -> Unit) {
+    // "Altro" resta selezionato mentre si scrive, anche col campo ancora vuoto.
+    var otherSelected by rememberSaveable(provider) { mutableStateOf(setting.isNotBlank() && setting != provider.capableModel) }
+    val choice = when {
+        otherSelected -> 2
+        setting == provider.capableModel -> 1
+        else -> 0
+    }
+    Text(
+        stringResource(R.string.ai_online_model_title),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.semantics { heading() },
+    )
+    Column(modifier = Modifier.selectableGroup()) {
+        ModelChoiceRow(
+            selected = choice == 0,
+            title = stringResource(R.string.ai_online_model_auto),
+            description = stringResource(R.string.ai_online_model_auto_desc, provider.autoModel),
+        ) { otherSelected = false; onSettingChanged("") }
+        ModelChoiceRow(
+            selected = choice == 1,
+            title = stringResource(R.string.ai_online_model_capable, provider.capableModel),
+            description = stringResource(R.string.ai_online_model_capable_desc),
+        ) { otherSelected = false; onSettingChanged(provider.capableModel) }
+        ModelChoiceRow(
+            selected = choice == 2,
+            title = stringResource(R.string.ai_online_model_other),
+            description = stringResource(R.string.ai_online_model_other_desc),
+        ) { otherSelected = true; if (setting == provider.capableModel) onSettingChanged("") }
+    }
+    if (choice == 2) {
+        OutlinedTextField(
+            value = setting,
+            onValueChange = onSettingChanged,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.ai_online_model_label)) },
+            singleLine = true,
+        )
+    }
+}
+
+@Composable
+private fun ModelChoiceRow(selected: Boolean, title: String, description: String, onClick: () -> Unit) {
+    ListItem(
+        leadingContent = { RadioButton(selected = selected, onClick = null) },
+        supportingContent = { Text(description) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
+        content = { Text(title) },
+    )
 }
 
 @Composable

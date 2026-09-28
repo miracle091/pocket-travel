@@ -16,8 +16,8 @@
     <string name="ai_large_download_title">Large download</string>
     <string name="ai_large_download_message">%1$s is about %2$s and you\'re on mobile data. Continue?</string>
     <string name="ai_large_download_confirm">Download</string>
-    <string name="ai_api_key_intro">Enter your personal API key to use the online AI assistant.</string>
-    <string name="ai_api_key_privacy">The key stays only on this device, encrypted in the Android Keystore: questions are sent directly to the chosen service, never to an app server.</string>
+    <string name="ai_api_key_intro">In Online mode your questions go to an AI service of your choice, using your own API key. Pick the service, create a key on its website and paste it below.</string>
+    <string name="ai_api_key_privacy">The key stays only on this phone, encrypted. Questions go straight to %1$s, never to a Pocket Travel server, and you pay for usage on your own account. Switching service deletes the key.</string>
     <string name="ai_api_key_label">API key</string>
     <string name="ai_api_key_save">Save key</string>
     <string name="ai_api_key_show">Show key</string>
@@ -26,7 +26,7 @@
     <string name="ai_send">Send question</string>
     <string name="ai_thinking">Thinking…</string>
     <string name="ai_empty_title">Ask something about your trip</string>
-    <string name="ai_empty_subtitle">Answers are based on the downloaded guide for the region.</string>
+    <string name="ai_empty_subtitle">Answers come from the region\'s guide and your notes, in a few sentences. If the guide isn\'t enough, it tells you.</string>
     <string name="ai_verify_official">Always verify with the official source</string>
     <string name="ai_delete_model">Delete model</string>
     <string name="ai_remove_key">Remove key</string>
@@ -49,4 +49,18 @@
     <string name="ai_error_not_available">This model isn\'t available for download yet.</string>
     <string name="ai_error_space">Not enough space to download the AI model.</string>
     <string name="ai_error_answer">I couldn\'t generate an answer.</string>
+    <string name="ai_provider_title">Service</string>
+    <string name="ai_provider_get_key">Create the key on %1$s</string>
+    <string name="ai_api_key_placeholder">Starts with %1$s…</string>
+    <string name="ai_empty_subtitle_online">Your question goes to %1$s as it is, without the downloaded guide, so answers are more general. For customs and health, always check the official source.</string>
+    <string name="ai_online_model_title">Model</string>
+    <string name="ai_error_model">The service doesn\'t know this model: check its name in AI assistant → Online, or choose Automatic.</string>
+    <string name="ai_provider_model">Model: %1$s</string>
+    <string name="ai_online_model_auto">Automatic (recommended)</string>
+    <string name="ai_online_model_auto_desc">A fast and cheap model, kept up to date without you doing anything: enough for short travel answers. Today: %1$s.</string>
+    <string name="ai_online_model_capable">More capable: %1$s</string>
+    <string name="ai_online_model_capable_desc">More accurate answers to complex questions, but it costs more and can be slower.</string>
+    <string name="ai_online_model_other">Other model</string>
+    <string name="ai_online_model_other_desc">Type the exact name of another model from the service.</string>
+    <string name="ai_online_model_label">Model name</string>
 </resources>

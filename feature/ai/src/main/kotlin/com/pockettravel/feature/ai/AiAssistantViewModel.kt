@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
+import com.pockettravel.core.sync.currentGuidesLanguage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,11 @@ data class AiUiState(
     val isModelDownloaded: Boolean,
     val downloadProgress: Float? = null,
     val isApiKeyConfigured: Boolean,
+    val onlineProvider: OnlineProvider = OnlineProvider.CHATGPT,
+    // Scelta per il servizio corrente: "" = Automatico, altrimenti il nome del modello.
+    val onlineModelSetting: String = "",
+    // Modello in uso per ogni servizio, per la riga "Modello: ..." sotto il suo nome.
+    val onlineModels: Map<OnlineProvider, String> = emptyMap(),
     val apiKeyInput: String = "",
     val benchmarkResult: BenchmarkResult? = null,
     val isBenchmarking: Boolean = false,
@@ -53,10 +59,13 @@ class AiAssistantViewModel @Inject constructor(
             isDeviceCapable = deviceAiCapability.isOnDeviceAiSupported(),
             // L'ordine di RamTier (INSUFFICIENTE < MINIMO < CONFORTEVOLE < AMPIA) e' significativo
             // qui: un device di fascia superiore vede anche i modelli delle fasce inferiori.
-            availableModels = LlmModelCatalog.ALL.filter { deviceAiCapability.ramTier().ordinal >= it.minRamTier.ordinal },
+            availableModels = LlmModelCatalog.visibleFor(deviceAiCapability.ramTier(), currentGuidesLanguage()),
             selectedModelId = aiSettingsStore.selectedModelId(),
             isModelDownloaded = modelManager.isDownloaded(aiSettingsStore.selectedModelDefinition()),
             isApiKeyConfigured = aiSettingsStore.hasApiKey(),
+            onlineProvider = aiSettingsStore.onlineProvider(),
+            onlineModelSetting = aiSettingsStore.onlineModelSetting(),
+            onlineModels = OnlineProvider.entries.associateWith { aiSettingsStore.onlineModel(it) },
             benchmarkResult = aiSettingsStore.benchmarkResult(aiSettingsStore.selectedModelId()),
             allBenchmarkResults = aiSettingsStore.allBenchmarkResults(),
         ),
@@ -122,6 +131,21 @@ class AiAssistantViewModel @Inject constructor(
         _uiState.update { it.copy(isApiKeyConfigured = true, apiKeyInput = "") }
     }
 
+    /** Cambiare servizio cancella la chiave salvata (vedi AiSettingsStore.setOnlineProvider). */
+    fun onProviderSelected(provider: OnlineProvider) {
+        aiSettingsStore.setOnlineProvider(provider)
+        _uiState.update {
+            it.copy(onlineProvider = provider, onlineModelSetting = aiSettingsStore.onlineModelSetting(provider), isApiKeyConfigured = aiSettingsStore.hasApiKey(), answer = null)
+        }
+    }
+
+    /** Modello del servizio online: "" = Automatico, altrimenti il nome (il piu' capace o uno scritto a mano). */
+    fun onOnlineModelChanged(setting: String) {
+        val provider = _uiState.value.onlineProvider
+        aiSettingsStore.setOnlineModelSetting(provider, setting)
+        _uiState.update { it.copy(onlineModelSetting = setting, onlineModels = it.onlineModels + (provider to aiSettingsStore.onlineModel(provider))) }
+    }
+
     fun clearApiKey() {
         aiSettingsStore.clearApiKey()
         _uiState.update { it.copy(isApiKeyConfigured = false, answer = null) }
@@ -163,6 +187,8 @@ class AiAssistantViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(isBenchmarking = false, benchmarkResult = result, allBenchmarkResults = aiSettingsStore.allBenchmarkResults())
                 }
+            } catch (_: OnlineModelNotFoundException) {
+                _uiState.update { it.copy(isThinking = false, errorMessage = R.string.ai_error_model) }
             } catch (_: Exception) {
                 _uiState.update { it.copy(isBenchmarking = false, errorMessage = R.string.ai_error_benchmark) }
             }

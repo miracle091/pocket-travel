@@ -32,4 +32,12 @@ class LlmModelCatalogTest {
         assertEquals(ModelOrigin.UFFICIALE, LlmModelCatalog.defaultFor(RamTier.CONFORTEVOLE, "en").origin)
         assertEquals(RamTier.CONFORTEVOLE, LlmModelCatalog.defaultFor(RamTier.CONFORTEVOLE, "en").minRamTier)
     }
+
+    @Test
+    fun `in inglese la lista mostra solo i modelli addestrati in inglese, oggi nessuno`() {
+        val english = LlmModelCatalog.visibleFor(RamTier.AMPIA, "en")
+        assertEquals(true, english.none { it.origin == ModelOrigin.ADDESTRATO })
+        assertEquals(true, english.any { it.origin == ModelOrigin.UFFICIALE })
+        assertEquals(true, LlmModelCatalog.visibleFor(RamTier.AMPIA, "it").any { it.origin == ModelOrigin.ADDESTRATO })
+    }
 }

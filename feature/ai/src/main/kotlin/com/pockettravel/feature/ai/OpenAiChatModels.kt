@@ -7,7 +7,8 @@ import kotlinx.serialization.Serializable
 data class OpenAiChatRequest(
     val model: String,
     val messages: List<OpenAiChatMessage>,
-    val temperature: Double,
+    // Assente (null, non serializzato: encodeDefaults e' false) per i modelli che non la accettano.
+    val temperature: Double? = null,
 )
 
 @Serializable

@@ -33,9 +33,35 @@ class AiSettingsStore @Inject constructor(@ApplicationContext private val contex
 
     fun clearApiKey() = apiKeyStore.clear()
 
-    fun baseUrl(): String = prefs.getString(KEY_BASE_URL, DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
+    /** Servizio della modalita' "Online" (ChatGPT se mai scelto, come prima che si potesse scegliere). */
+    fun onlineProvider(): OnlineProvider =
+        OnlineProvider.entries.firstOrNull { it.name == prefs.getString(KEY_PROVIDER, null) } ?: OnlineProvider.CHATGPT
 
-    fun model(): String = prefs.getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
+    /**
+     * Cambiando servizio la chiave salvata si cancella: e' di un altro servizio, mandarla al nuovo la
+     * farebbe conoscere a chi non deve averla.
+     */
+    fun setOnlineProvider(provider: OnlineProvider) {
+        if (provider == onlineProvider()) return
+        clearApiKey()
+        prefs.edit { putString(KEY_PROVIDER, provider.name) }
+    }
+
+    fun baseUrl(): String = onlineProvider().baseUrl
+
+    /** Scelta salvata per [provider] (ricordata per ogni servizio): "" = Automatico, altrimenti il nome del modello. */
+    fun onlineModelSetting(provider: OnlineProvider = onlineProvider()): String =
+        prefs.getString(KEY_MODEL_PREFIX + provider.name, null).orEmpty()
+
+    /** Modello da usare per [provider]: quello scelto, o [OnlineProvider.autoModel] con Automatico. */
+    fun onlineModel(provider: OnlineProvider = onlineProvider()): String =
+        onlineModelSetting(provider).trim().ifEmpty { provider.autoModel }
+
+    fun setOnlineModelSetting(provider: OnlineProvider, setting: String) {
+        prefs.edit { putString(KEY_MODEL_PREFIX + provider.name, setting) }
+    }
+
+    fun model(): String = onlineModel()
 
     // Un solo modello on-device installabile alla volta (vedi LlmModelManager.selectAndDownload):
     // questo e' l'id del modello scelto dall'utente in LlmModelCatalog.ALL, non necessariamente
@@ -44,10 +70,16 @@ class AiSettingsStore @Inject constructor(@ApplicationContext private val contex
     // predefinito di prima non deve riscaricarne un altro quando il predefinito cambia) o, se non ce
     // n'e', il predefinito della fascia di RAM del dispositivo, altrimenti selectedModelDefinition()
     // fallirebbe.
-    fun selectedModelId(): String =
-        prefs.getString(KEY_SELECTED_MODEL_ID, null)?.takeIf { id -> LlmModelCatalog.ALL.any { it.id == id } }
-            ?: downloadedModelId()
-            ?: LlmModelCatalog.defaultFor(DeviceAiCapability(context).ramTier(), currentGuidesLanguage()).id
+    // Un modello addestrato in un'altra lingua (es. uno italiano con l'app in inglese) non vale come scelta:
+    // si ricade sul predefinito della lingua (LlmModelCatalog.visibleFor). Il file resta scaricato e si
+    // elimina da Spazio di archiviazione.
+    fun selectedModelId(): String {
+        val language = currentGuidesLanguage()
+        fun usable(id: String?) = id?.takeIf { stored -> LlmModelCatalog.ALL.any { it.id == stored && LlmModelCatalog.isUsableIn(it, language) } }
+        return usable(prefs.getString(KEY_SELECTED_MODEL_ID, null))
+            ?: usable(downloadedModelId())
+            ?: LlmModelCatalog.defaultFor(DeviceAiCapability(context).ramTier(), language).id
+    }
 
     // Stessa cartella di AiModule.provideAiModelsDir.
     private fun downloadedModelId(): String? {
@@ -90,10 +122,8 @@ class AiSettingsStore @Inject constructor(@ApplicationContext private val contex
     private companion object {
         const val PREFERENCES_NAME = "ai_online_settings_v2"
         const val KEY_MODE = "engine_mode"
-        const val KEY_BASE_URL = "openai_base_url"
-        const val KEY_MODEL = "openai_model"
-        const val DEFAULT_BASE_URL = "https://api.openai.com/v1"
-        const val DEFAULT_MODEL = "gpt-4o-mini"
+        const val KEY_PROVIDER = "online_provider"
+        const val KEY_MODEL_PREFIX = "online_model_"
         const val API_KEY_ALIAS = "pocket_travel_ai_api_key_v2"
         const val API_KEY_PAYLOAD = "api_key_payload"
         const val KEY_SELECTED_MODEL_ID = "selected_model_id"
