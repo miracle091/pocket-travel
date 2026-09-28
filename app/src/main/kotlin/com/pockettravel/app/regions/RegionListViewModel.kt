@@ -282,7 +282,8 @@ internal fun regionUiItem(
 /**
  * Il catalogo ha i nomi in italiano: nazioni intere e paesi divisi in piu' regioni prendono il nome
  * dal codice paese nella lingua dell'interfaccia ("be" -> "Belgio"/"Belgium"). Le singole regioni di un
- * paese diviso restano come nel catalogo (groupLabel), col nome del paese davanti.
+ * paese diviso prendono groupLabelEn in inglese (se il catalogo lo ha), groupLabel altrimenti, col nome
+ * del paese davanti.
  */
 internal fun RegionManifestEntry.localizedNames(locale: Locale): RegionManifestEntry {
     val code = countryCode ?: return this
@@ -290,7 +291,8 @@ internal fun RegionManifestEntry.localizedNames(locale: Locale): RegionManifestE
     return if (groupName == null) {
         copy(displayName = country)
     } else {
-        copy(displayName = groupLabel?.let { "$country - $it" } ?: displayName, groupName = country)
+        val label = groupLabelEn?.takeIf { locale.language == "en" } ?: groupLabel
+        copy(displayName = label?.let { "$country - $it" } ?: displayName, groupName = country, groupLabel = label)
     }
 }
 

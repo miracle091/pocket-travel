@@ -51,8 +51,9 @@ MANIFEST_INPUTS+=("${FRAGMENT_FILES[@]}")
 source "$SCRIPT_DIR/pilot-regions.sh"
 CONTINENTS_TSV="$(mktemp)"
 for spec in "${PILOT_REGIONS[@]}"; do
-  IFS='|' read -r regionId _ _ _ _ _ _ flagCode groupName groupLabel continent <<< "$spec"
-  printf '%s\t%s\t%s\t%s\t%s\n' "$regionId" "$continent" "$flagCode" "$groupName" "$groupLabel" >> "$CONTINENTS_TSV"
+  IFS='|' read -r regionId _ _ _ _ _ wikiTitle flagCode groupName groupLabel continent <<< "$spec"
+  # Il titolo Wikivoyage EN da' il nome inglese delle regioni di un paese diviso (groupLabelEn).
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$regionId" "$continent" "$flagCode" "$groupName" "$groupLabel" "$wikiTitle" >> "$CONTINENTS_TSV"
 done
 # Regioni divise in regioni piu' piccole (REPLACED_REGIONS): l'app propone le nuove a chi ha la vecchia.
 REPLACED_TSV="$(mktemp)"

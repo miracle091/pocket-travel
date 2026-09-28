@@ -26,6 +26,8 @@ import java.io.File
  *
  * groups (regionId -> groupName, groupLabel, da pilot-regions.sh) finisce nei campi "groupName" e
  * "groupLabel": l'app raccoglie sotto un'unica voce le regioni dello stesso paese (es. gli stati USA).
+ * groupLabelsEn (regionId -> nome inglese della regione nel gruppo, dal titolo della pagina di Wikivoyage
+ * inglese, vedi [englishLabelOf]) finisce in "groupLabelEn": l'app lo mostra quando e' in inglese.
  * replacedRegions (regionId di una regione tolta -> groupName delle regioni che la sostituiscono): la regione
  * tolta resta finche' tutte le regioni del gruppo sono nel manifest, poi sparisce e finisce nel campo
  * "replacedRegions", con cui l'app propone le regioni nuove a chi ha ancora installata quella vecchia.
@@ -56,6 +58,7 @@ fun mergeManifestJson(
     mapSourceUrl: String? = null,
     // Versione minima dell'app (versionCode) che sa leggere questi dati: file min-app-version-code.
     minAppVersionCode: Int? = null,
+    groupLabelsEn: Map<String, String> = emptyMap(),
 ): String {
     require(manifestJsons.isNotEmpty()) { "Nessun manifest da unire" }
 
@@ -105,10 +108,12 @@ fun mergeManifestJson(
         val group = groups[regionId]
         if (group != null) {
             region.put("groupName", group.first).put("groupLabel", group.second)
+            groupLabelsEn[regionId]?.let { region.put("groupLabelEn", it) }
         } else if (knownRegionIds != null) {
             // Con l'elenco completo delle regioni, chi non ha gruppo non deve tenerne uno vecchio.
             region.remove("groupName")
             region.remove("groupLabel")
+            region.remove("groupLabelEn")
         }
     }
 
@@ -126,6 +131,13 @@ fun mergeManifestJson(
     }
     return merged.toString(2)
 }
+
+/**
+ * Nome inglese di una regione dal titolo della sua pagina di Wikivoyage inglese: "North_Carolina" ->
+ * "North Carolina", "Georgia_(U.S._state)" -> "Georgia", "Washington,_D.C." -> "Washington, D.C.".
+ */
+internal fun englishLabelOf(wikiTitle: String): String =
+    wikiTitle.replace('_', ' ').replace(Regex("""\s*\([^)]*\)$"""), "").trim()
 
 /** Regione v1 (files = content.db + .rd5, mapSource, una sola version) -> regione v2. */
 internal fun convertV1Region(region: JSONObject): JSONObject {
@@ -150,7 +162,7 @@ internal fun convertV1Region(region: JSONObject): JSONObject {
 
 fun main(args: Array<String>) {
     // Opzioni in testa: --continents <file.tsv> (righe "regionId<TAB>continente<TAB>codicePaese<TAB>
-    // groupName<TAB>groupLabel") e --replaced <file.tsv> (righe "regionId tolta<TAB>groupName").
+    // groupName<TAB>groupLabel<TAB>titolo Wikivoyage EN") e --replaced <file.tsv> (righe "regionId tolta<TAB>groupName").
     var continentsFile: File? = null
     var replacedFile: File? = null
     var mapSourceUrl: String? = null
@@ -173,6 +185,7 @@ fun main(args: Array<String>) {
     val continents = rows.filter { it.size >= 2 }.associate { it[0] to it[1] }
     val countryCodes = rows.filter { it.size >= 3 && it[2].isNotBlank() }.associate { it[0] to it[2] }
     val groups = rows.filter { it.size >= 5 && it[3].isNotBlank() }.associate { it[0] to (it[3] to it[4]) }
+    val groupLabelsEn = rows.filter { it.size >= 6 && it[3].isNotBlank() && it[5].isNotBlank() }.associate { it[0] to englishLabelOf(it[5]) }
     val replaced = replacedFile?.readLines()?.filter { it.isNotBlank() }?.map { it.split('\t') }
         ?.filter { it.size >= 2 }?.associate { it[0] to it[1] }.orEmpty()
     val outputFile = File(rest[0])
@@ -181,7 +194,7 @@ fun main(args: Array<String>) {
 
     // La tabella --continents elenca tutte le regioni di pilot-regions.sh: chi non c'e' e' stata tolta.
     val knownRegionIds = continentsFile?.let { rows.map { it[0] }.toSet() }?.takeIf { it.isNotEmpty() }
-    val merged = mergeManifestJson(inputFiles.map { it.readText() }, continents, countryCodes, knownRegionIds, groups, replaced, mapSourceUrl, minAppVersionCode)
+    val merged = mergeManifestJson(inputFiles.map { it.readText() }, continents, countryCodes, knownRegionIds, groups, replaced, mapSourceUrl, minAppVersionCode, groupLabelsEn)
     outputFile.writeText(merged)
     println("manifest unito (${inputFiles.size} input, ${JSONObject(merged).getJSONArray("regions").length()} regioni) scritto in ${outputFile.path}")
 }

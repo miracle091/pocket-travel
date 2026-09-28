@@ -262,4 +262,20 @@ class MergeManifestsTest {
 
         assertEquals("2026.09.30.1", merged.getJSONObject("addressGrid").getString("version"))
     }
+
+    @Test
+    fun `nome inglese delle regioni di un gruppo dal titolo di Wikivoyage`() {
+        assertEquals("North Carolina", englishLabelOf("North_Carolina"))
+        assertEquals("Georgia", englishLabelOf("Georgia_(U.S._state)"))
+        assertEquals("New York", englishLabelOf("New_York_(state)"))
+        assertEquals("Washington, D.C.", englishLabelOf("Washington,_D.C."))
+        val merged = JSONObject(
+            mergeManifestJson(
+                listOf(fragmentFor("stati-uniti-carolina-del-nord", "Stati Uniti - Carolina del Nord")),
+                groups = mapOf("stati-uniti-carolina-del-nord" to ("Stati Uniti d'America" to "Carolina del Nord")),
+                groupLabelsEn = mapOf("stati-uniti-carolina-del-nord" to "North Carolina"),
+            ),
+        )
+        assertEquals("North Carolina", merged.getJSONArray("regions").getJSONObject(0).getString("groupLabelEn"))
+    }
 }

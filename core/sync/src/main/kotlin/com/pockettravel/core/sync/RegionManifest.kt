@@ -75,6 +75,8 @@ data class RegionManifestEntry(
     // gruppo (es. "California"): l'elenco le raccoglie sotto un'unica voce. Assenti per le nazioni intere.
     val groupName: String? = null,
     val groupLabel: String? = null,
+    // Nome inglese di groupLabel (es. "North Carolina" per "Carolina del Nord"), per l'app in inglese.
+    val groupLabelEn: String? = null,
 ) {
     /** Versione del pacchetto nel manifest, null se la regione non lo offre (POI extra e civici). */
     fun versionOf(kind: PackageKind): String? = when (kind) {
