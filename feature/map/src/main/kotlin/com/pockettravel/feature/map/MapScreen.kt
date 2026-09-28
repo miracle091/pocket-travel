@@ -257,7 +257,7 @@ fun MapScreen(
                     PoiBadge(pin.category, size = 40)
                     Spacer(modifier = Modifier.width(Spacing.l))
                     // Titolo: il nome, o il tipo preciso se OSM non ha un nome. Sotto il tipo, non la
-                    // categoria generica della mappa ("Dove mangiare e bere" non dice nulla in piu').
+                    // categoria generica della mappa ("Ristoranti e bar" non dice nulla in piu').
                     val type = poiTypeLabel(pin.osmTag)?.let { stringResource(it) }
                     Column {
                         Text(

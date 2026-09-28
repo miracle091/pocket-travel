@@ -16,6 +16,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Tema scuro anche quando il telefono usa quello chiaro: si attiva in Altro → Aspetto, spento di default (l'app segue il tema del telefono). Nello stesso foglio c'è ora anche "Colori dal wallpaper".
 
 ### Modificato
+- Filtri della mappa più corti e leggibili: "Hotel" invece di "Dove dormire" e "Ristoranti e bar" invece di "Dove mangiare e bere".
 - "Come ti sposti": "Con disabilità" non è più una modalità a sé ma una casella che vale con tutte le altre (a piedi, in bici, in auto…): la mappa nasconde i posti segnati come non accessibili in sedia a rotelle qualunque sia il modo di spostarsi. Chi aveva scelto "Con disabilità" ritrova "A piedi" con la casella attiva. In Altro il foglio resta aperto dopo la scelta, per poter cambiare anche la casella.
 - Spazio per i download: prima di scaricare una regione o un modello dell'assistente, lo spazio disponibile comprende anche la cache di altre app che Android può cancellare, e l'app chiede di liberarla all'inizio del download. Niente più "spazio insufficiente" quando il telefono in realtà lo spazio lo ha.
 - Nessun backup dei dati dell'app nemmeno da Android 12 in su, né nel cloud né nel trasferimento a un nuovo telefono, come già sulle versioni precedenti: la cassaforte è cifrata con chiavi che non lasciano il dispositivo.
