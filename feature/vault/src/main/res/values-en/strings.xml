@@ -17,7 +17,7 @@
     <string name="vault_add">Add</string>
     <string name="vault_empty_title">No documents saved</string>
     <string name="vault_empty_subtitle">Use \"Add\" to save passports, tickets and other documents.</string>
-    <string name="vault_expiry">Expiry: %1$s</string>
+    <string name="vault_expiry">Expires: %1$s</string>
     <string name="vault_edit">Edit %1$s</string>
     <string name="vault_delete">Delete %1$s</string>
     <string name="vault_delete_title">Delete this document?</string>
@@ -30,14 +30,14 @@
     <string name="vault_field_name">Full name</string>
     <string name="vault_field_number">Document number</string>
     <string name="vault_field_nationality">Nationality</string>
-    <string name="vault_field_expiry">Expiry (YYYY-MM-DD)</string>
+    <string name="vault_field_expiry">Expiration date (YYYY-MM-DD)</string>
     <string name="vault_field_note">Note</string>
     <string name="vault_add_photo">Add photo</string>
     <string name="vault_photo_limit">Limit of %1$d photos reached</string>
     <string name="vault_save">Save</string>
     <string name="vault_cancel">Cancel</string>
-    <string name="vault_camera_ok">Document framed well</string>
-    <string name="vault_camera_hint">Frame the document in the box, well lit and without glare</string>
+    <string name="vault_camera_ok">Document in frame</string>
+    <string name="vault_camera_hint">Fit the document in the frame, in good light and without glare</string>
     <string name="vault_camera_close">Close camera</string>
     <string name="vault_camera_capture">Take photo</string>
     <string name="vault_camera_permission_denied">Camera permission denied: can\'t take photos of documents.</string>

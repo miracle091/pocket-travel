@@ -13,13 +13,13 @@
     <string name="emergency_fire">Fire department</string>
     <string name="emergency_call">Call %1$s, %2$s</string>
     <string name="emergency_no_central_number">This country has no national emergency number. Before you leave, note down the local police and healthcare contacts for the area.</string>
-    <string name="category_customs_usages">Customs &amp; etiquette</string>
+    <string name="category_customs_usages">Culture &amp; etiquette</string>
     <string name="category_customs">Customs</string>
     <string name="category_health">Health</string>
     <string name="category_safety">Safety</string>
     <string name="category_transport">Transport</string>
     <string name="category_phrases">Useful phrases</string>
-    <string name="category_lodging">Lodging</string>
+    <string name="category_lodging">Where to stay</string>
     <string name="category_food">Food &amp; drink</string>
     <string name="category_shopping">Shopping</string>
     <string name="category_connectivity">Connectivity</string>
@@ -51,6 +51,6 @@
         <item quantity="one">plane (%d airport)</item>
         <item quantity="other">plane (%d airports)</item>
     </plurals>
-    <string name="emergency_embassies_title">Embassies &amp; consulates of your country (%1$s)</string>
+    <string name="emergency_embassies_title">Your country\'s embassies &amp; consulates (%1$s)</string>
     <string name="emergency_embassies_none">This region\'s data doesn\'t include any embassies or consulates of your country: check your foreign ministry\'s website.</string>
 </resources>

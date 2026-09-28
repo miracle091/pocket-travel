@@ -11,7 +11,7 @@
     <string name="poi_zoo">Zoos</string>
     <string name="poi_water_park">Water parks</string>
     <string name="poi_attractions">Attractions</string>
-    <string name="poi_entertainment">Cinemas, theatres &amp; clubs</string>
+    <string name="poi_entertainment">Cinemas, theaters &amp; clubs</string>
     <string name="poi_embassy">Embassies &amp; consulates</string>
     <string name="poi_police">Police</string>
     <string name="poi_toilets">Public toilets</string>
@@ -53,7 +53,7 @@
     <string name="usage_mode_car">By car or motorcycle</string>
     <string name="usage_mode_camper">By camper</string>
     <string name="usage_mode_transit">By public transport</string>
-    <string name="usage_mode_wheelchair">With a disability</string>
+    <string name="usage_mode_wheelchair">Wheelchair accessible</string>
     <string name="usage_mode_wheelchair_body">In every mode, the map hides places marked as not wheelchair accessible</string>
     <string name="map_legend">Filters</string>
     <string name="map_legend_open">Map filters</string>
@@ -86,7 +86,7 @@
     <string name="poi_type_motel">Motel</string>
     <string name="poi_type_apartment">Apartment</string>
     <string name="poi_type_camp_site">Campsite</string>
-    <string name="poi_type_caravan_site">Caravan site</string>
+    <string name="poi_type_caravan_site">RV park</string>
     <string name="poi_type_chalet">Chalet</string>
     <string name="poi_type_restaurant">Restaurant</string>
     <string name="poi_type_cafe">Café</string>
@@ -102,7 +102,7 @@
     <string name="poi_type_gallery">Art gallery</string>
     <string name="poi_type_artwork">Artwork</string>
     <string name="poi_type_zoo">Zoo</string>
-    <string name="poi_type_theme_park">Amusement park</string>
+    <string name="poi_type_theme_park">Theme park</string>
     <string name="poi_type_water_park">Water park</string>
     <string name="poi_type_park">Park</string>
     <string name="poi_type_garden">Garden</string>
@@ -119,7 +119,7 @@
     <string name="poi_type_tower">Tower</string>
     <string name="poi_type_historic">Historic site</string>
     <string name="poi_type_cinema">Cinema</string>
-    <string name="poi_type_theatre">Theatre</string>
+    <string name="poi_type_theatre">Theater</string>
     <string name="poi_type_nightclub">Nightclub</string>
     <string name="poi_type_casino">Casino</string>
     <string name="poi_type_bowling_alley">Bowling alley</string>
@@ -135,7 +135,7 @@
     <string name="poi_type_doctors">Doctor</string>
     <string name="poi_type_dentist">Dentist</string>
     <string name="poi_type_townhall">Town hall</string>
-    <string name="poi_type_sports_centre">Sports centre</string>
+    <string name="poi_type_sports_centre">Sports center</string>
     <string name="poi_type_fitness_centre">Gym</string>
     <string name="poi_type_bicycle_repair_station">Bicycle repair station</string>
     <string name="poi_type_alpine_hut">Alpine hut</string>
@@ -146,8 +146,8 @@
     <string name="poi_type_ski_resort">Ski resort</string>
     <string name="poi_type_spa">Spa</string>
     <string name="poi_type_library">Library</string>
-    <string name="poi_type_arts_centre">Arts centre</string>
-    <string name="poi_type_events_venue">Events venue</string>
+    <string name="poi_type_arts_centre">Arts center</string>
+    <string name="poi_type_events_venue">Event venue</string>
     <string name="poi_type_lavoir">Wash house</string>
     <string name="poi_type_car_wash">Car wash</string>
     <string name="poi_type_hospital">Hospital</string>
@@ -159,7 +159,7 @@
     <string name="poi_type_pastry">Pastry shop</string>
     <string name="poi_type_clothes">Clothing</string>
     <string name="poi_type_shoes">Shoes</string>
-    <string name="poi_type_books">Bookshop</string>
+    <string name="poi_type_books">Bookstore</string>
     <string name="poi_type_gift">Souvenirs &amp; gifts</string>
     <string name="poi_type_kiosk">Newsstand</string>
     <string name="poi_type_tobacco">Tobacconist</string>

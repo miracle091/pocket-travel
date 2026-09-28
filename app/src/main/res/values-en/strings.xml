@@ -4,7 +4,7 @@
     <!-- Elenco regioni -->
     <string name="regions_title">Regions</string>
     <string name="regions_check_updates">Check for updates</string>
-    <string name="regions_search_hint">Search for a region</string>
+    <string name="regions_search_hint">Search regions</string>
     <string name="regions_search_clear">Clear search</string>
     <string name="regions_search_empty_title">No regions found</string>
     <string name="regions_search_empty_subtitle">No region matches \"%1$s\".</string>
@@ -25,7 +25,7 @@
     <string name="regions_replaced">It\'s now split into smaller regions: choose which ones to download. This one no longer gets updates.</string>
     <string name="regions_replaced_choose">Choose regions</string>
     <string name="regions_replaced_delete">Delete</string>
-    <string name="regions_packages">%1$s packages</string>
+    <string name="regions_packages">Packages for %1$s</string>
     <string name="package_map">Map</string>
     <string name="package_routing">Routing</string>
     <string name="package_poi">Points of interest</string>
@@ -54,7 +54,7 @@
     <string name="regions_large_download_title">Large download</string>
     <string name="regions_large_download_message">%1$s is %2$s and you\'re on mobile data. Continue?</string>
     <string name="regions_large_download_confirm">Download</string>
-    <string name="continent_other">More</string>
+    <string name="continent_other">Other</string>
     <string name="continent_europe">Europe</string>
     <string name="continent_asia">Asia</string>
     <string name="continent_africa">Africa</string>
@@ -88,8 +88,8 @@
     <string name="onboarding_language_body">The app\'s language: you can change it anytime from More. Guides and the AI assistant stay in Italian.</string>
     <string name="more_nationality_none">Not set</string>
     <string name="more_usage_mode_none">Not set: the map shows all categories</string>
-    <string name="more_usage_mode_with_accessible">%1$s, with disability</string>
-    <string name="more_usage_mode_accessible_only">With disability: the map shows all categories</string>
+    <string name="more_usage_mode_with_accessible">%1$s, wheelchair accessible</string>
+    <string name="more_usage_mode_accessible_only">Wheelchair accessible: the map shows all categories</string>
     <string name="more_usage_mode_body">The map shows the points useful for this way of traveling first. Choosing it resets the map filters to their defaults.</string>
     <string name="more_licenses">Licenses</string>
     <string name="more_appearance">Appearance</string>
@@ -124,7 +124,7 @@
     <string name="storage_no_model">No AI model downloaded.</string>
     <string name="storage_delete">Delete %1$s</string>
     <string name="storage_delete_title">Delete %1$s?</string>
-    <string name="storage_delete_message">This space will be freed by removing the locally saved data.</string>
+    <string name="storage_delete_message">The data saved on the device will be removed to free up this space.</string>
 
     <!-- Anteprima regione -->
     <string name="preview_banner_title">Preview without download</string>
@@ -139,14 +139,14 @@
 
     <!-- Onboarding -->
     <string name="onboarding_welcome_title">Welcome to Pocket Travel</string>
-    <string name="onboarding_welcome_body">A travel guide that works even without a connection: local customs, border rules, vaccinations, maps and an on-board AI assistant. No account, no collection of personal data.</string>
+    <string name="onboarding_welcome_body">A travel guide that works even offline: local customs, border rules, vaccinations, maps and a built-in AI assistant. No account, no personal data collected.</string>
     <string name="onboarding_ai_title">The AI assistant has two modes</string>
-    <string name="onboarding_ai_body">\"On-device\" works offline too, but requires at least 4 GB of RAM and downloading a model. \"Online\" uses your own personal API key (to be set up in the app before you can use it), never shared with an app server.</string>
+    <string name="onboarding_ai_body">\"On device\" works offline too, but needs at least 4 GB of RAM and a model download. \"Online\" uses your own API key (set it up in the app first), which is never sent to our servers.</string>
     <string name="onboarding_ai_online_title">The AI assistant is available Online</string>
-    <string name="onboarding_ai_online_body">Your device has less than 4 GB of RAM: \"On-device\" mode isn\'t available. The AI assistant still works in Online mode, with your own personal API key (to be set up in the app before you can use it), never shared with an app server.</string>
+    <string name="onboarding_ai_online_body">Your device has less than 4 GB of RAM, so \"On device\" mode isn\'t available. The AI assistant still works in Online mode with your own API key (set it up in the app first), which is never sent to our servers.</string>
     <string name="onboarding_vault_title">Your documents stay safe</string>
     <string name="onboarding_vault_body">Passport and vaccination certificates are kept in \"Documents\", protected by biometrics or screen lock and never sent off the device.</string>
-    <string name="onboarding_sources_title">Official sources stay external</string>
+    <string name="onboarding_sources_title">Official sources open online</string>
     <string name="onboarding_sources_body">Embassies, ministries and WHO open in a browser tab and require a connection: the app never saves them offline, so they stay up to date.</string>
     <string name="onboarding_usage_mode_title">How do you travel?</string>
     <string name="onboarding_usage_mode_body">The map will show the points useful to you first. You can change it anytime from More, or skip this step.</string>
@@ -154,7 +154,7 @@
     <string name="onboarding_nationality_body">Each region\'s guide has contacts for your country\'s embassies and consulates, along with emergency numbers. You can change it anytime from More.</string>
     <string name="onboarding_nationality_change">Change</string>
     <string name="onboarding_guides_title">Guides for all countries</string>
-    <string name="onboarding_guides_body">Optional: customs, safety and emergency numbers for every country, so you can check them even before choosing a region. If you skip this step, they\'ll download automatically on the first Wi-Fi connection.</string>
+    <string name="onboarding_guides_body">Optional: local customs, safety and emergency numbers for every country, so you can check them even before choosing a region. If you skip this step, they\'ll download automatically the next time you\'re on Wi-Fi.</string>
     <string name="onboarding_guides_download">Download the guides (%1$s)</string>
     <string name="onboarding_guides_download_no_size">Download the guides</string>
     <string name="onboarding_guides_downloading">Downloading guides…</string>
