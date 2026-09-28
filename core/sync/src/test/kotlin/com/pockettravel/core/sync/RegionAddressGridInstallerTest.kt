@@ -4,14 +4,14 @@ import ch.poole.geo.pmtiles.Constants
 import ch.poole.geo.pmtiles.Hilbert
 import ch.poole.geo.pmtiles.Reader
 import com.pockettravel.core.data.RegionStorage
-import java.io.File
-import kotlin.io.path.createTempDirectory
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 /**
  * RegionAddressGridInstaller.mergeInto ricostruisce addresses.pmtiles dalle celle (address-grid-plan.md

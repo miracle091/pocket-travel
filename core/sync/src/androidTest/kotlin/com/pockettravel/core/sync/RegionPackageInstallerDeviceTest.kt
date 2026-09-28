@@ -11,9 +11,6 @@ import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.db.RegionDatabase
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.security.MessageDigest
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.Dispatcher
@@ -33,6 +30,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.tukaani.xz.LZMA2Options
 import org.tukaani.xz.XZOutputStream
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.security.MessageDigest
 
 /**
  * RegionPackageInstaller con Room, SQLite e file system reali: ogni pacchetto (mappa, routing,

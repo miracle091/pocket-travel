@@ -2,8 +2,8 @@ package com.pockettravel.core.data
 
 import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.CitySectionEntity
-import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
+import javax.inject.Inject
 
 class CityRepository @Inject constructor(
     private val cityDao: CityDao,

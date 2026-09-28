@@ -7,6 +7,7 @@ import android.content.Context
 import android.util.Log
 import com.pockettravel.feature.ai.llamacpp.InferenceEngine
 import com.pockettravel.feature.ai.llamacpp.UnsupportedArchitectureException
+import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl.Companion.getInstance
 import dalvik.annotation.optimization.FastNative
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope

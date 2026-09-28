@@ -6,7 +6,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.pockettravel.feature.ai.llamacpp.InferenceEngine
 import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl
 import com.pockettravel.feature.ai.llamacpp.isModelLoaded
-import java.io.File
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -19,6 +18,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 /**
  * Esercita la libreria nativa llm-engine vera (llama.cpp) con un modello GGUF reale: i percorsi di

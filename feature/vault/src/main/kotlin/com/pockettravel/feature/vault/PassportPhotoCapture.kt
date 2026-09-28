@@ -45,13 +45,13 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.pockettravel.core.ui.AppIcons
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asExecutor
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
 import kotlin.math.abs
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.asExecutor
-import com.pockettravel.core.ui.AppIcons
 
 // Fotocamera interna (CameraX) invece dell'app fotocamera di sistema: serve per disegnare
 // l'overlay di inquadratura e il segnale rosso/verde sopra l'anteprima live, cosa impossibile

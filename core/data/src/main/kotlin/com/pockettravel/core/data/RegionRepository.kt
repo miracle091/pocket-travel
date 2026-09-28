@@ -5,11 +5,11 @@ import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.InstalledGuidesEntity
 import com.pockettravel.core.data.db.InstalledRegionEntity
 import com.pockettravel.core.data.db.PoiDao
-import com.pockettravel.core.data.db.RegionPackageDao
 import com.pockettravel.core.data.db.RegionDatabase
-import javax.inject.Inject
+import com.pockettravel.core.data.db.RegionPackageDao
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import javax.inject.Inject
 
 class RegionRepository @Inject constructor(
     private val regionPackageDao: RegionPackageDao,

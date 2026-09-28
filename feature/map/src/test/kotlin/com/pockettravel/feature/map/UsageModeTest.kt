@@ -1,7 +1,6 @@
 package com.pockettravel.feature.map
 
 import com.pockettravel.core.poi.PoiCategory
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -9,6 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.io.File
 
 class UsageModeTest {
 

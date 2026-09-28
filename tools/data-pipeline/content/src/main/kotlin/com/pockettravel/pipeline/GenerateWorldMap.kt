@@ -1,9 +1,9 @@
 package com.pockettravel.pipeline
 
-import java.io.File
-import kotlin.math.roundToLong
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
+import kotlin.math.roundToLong
 
 /**
  * Mappa del mondo leggera inclusa nell'app (feature/map/src/main/assets/world/): confini dei paesi

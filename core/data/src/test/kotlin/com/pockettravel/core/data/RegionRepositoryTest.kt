@@ -1,5 +1,6 @@
 package com.pockettravel.core.data
 
+import androidx.room.InvalidationTracker
 import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.CitySectionEntity
 import com.pockettravel.core.data.db.CitySectionMatch
@@ -15,9 +16,6 @@ import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiEntity
 import com.pockettravel.core.data.db.RegionDatabase
 import com.pockettravel.core.data.db.RegionPackageDao
-import androidx.room.InvalidationTracker
-import java.io.File
-import kotlin.io.path.createTempDirectory
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -25,6 +23,8 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 /** Le tre Dao sono interfacce Room senza logica propria: fake in-memory bastano per testare
  * RegionRepository senza un vero database. `remove()`/`inInstallTransaction()` usano

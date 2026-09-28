@@ -9,8 +9,8 @@ import com.pockettravel.core.sync.AppStatusClient
 import com.pockettravel.core.sync.UpdateAvailableNotifier
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import java.io.IOException
 
 /**
  * Controllo periodico (qualunque rete incluse i dati cellulari, vedi

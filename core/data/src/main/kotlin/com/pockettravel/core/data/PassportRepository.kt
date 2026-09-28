@@ -3,13 +3,13 @@ package com.pockettravel.core.data
 import com.pockettravel.core.data.crypto.SessionAesCipher
 import com.pockettravel.core.data.db.PassportDao
 import com.pockettravel.core.data.db.PassportEntity
-import java.util.UUID
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import java.util.UUID
+import javax.inject.Inject
 
 // Ogni record e' cifrato per intero (JSON serializzato -> AES-256-GCM) invece che campo per
 // campo: una sola chiave per tutti i passaporti, coerente con la scelta di semplicita' gia'

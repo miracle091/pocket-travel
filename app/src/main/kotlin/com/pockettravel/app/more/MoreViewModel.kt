@@ -5,8 +5,8 @@ import com.pockettravel.app.settings.ThemePreferences
 import com.pockettravel.feature.map.UsageMode
 import com.pockettravel.feature.map.UsageModePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.StateFlow
+import javax.inject.Inject
 
 @HiltViewModel
 class MoreViewModel @Inject constructor(

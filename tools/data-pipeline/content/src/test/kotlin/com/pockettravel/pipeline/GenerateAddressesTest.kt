@@ -2,17 +2,17 @@ package com.pockettravel.pipeline
 
 import com.onthegomap.planetiler.VectorTile
 import com.onthegomap.planetiler.pmtiles.ReadablePmtiles
-import java.io.ByteArrayInputStream
-import java.io.File
-import java.util.zip.GZIPInputStream
-import kotlin.math.abs
-import kotlin.math.roundToInt
-import org.locationtech.jts.geom.Point
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.locationtech.jts.geom.Point
+import java.io.ByteArrayInputStream
+import java.io.File
+import java.util.zip.GZIPInputStream
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 class GenerateAddressesTest {
 

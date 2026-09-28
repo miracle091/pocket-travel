@@ -8,7 +8,6 @@ import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionSyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,6 +19,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /** Stato della mappa della regione aperta: i pacchetti si installano separatamente, puo' mancare. */
 // LOADING: stato non ancora noto, per non mostrare la mappa (o il suo stato vuoto) prima del primo valore.

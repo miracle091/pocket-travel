@@ -13,12 +13,12 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.pockettravel.core.data.PackageKind
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.util.concurrent.TimeUnit
-import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
+import java.util.concurrent.TimeUnit
+import javax.inject.Inject
 
 class RegionSyncScheduler @Inject constructor(
     @ApplicationContext private val context: Context,

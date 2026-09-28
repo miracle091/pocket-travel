@@ -1,9 +1,9 @@
 package com.pockettravel.core.sync
 
-import java.io.File
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
+import javax.inject.Inject
 
 /**
  * Sposta i file .rd5 scaricati (uno o piu' segmenti BRouter, un file per ogni tile 5x5

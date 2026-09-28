@@ -34,7 +34,6 @@ import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
@@ -44,6 +43,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -77,8 +77,8 @@ import com.pockettravel.app.navigation.regionContainer
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.sync.RegionPackageDownloadWorker
 import com.pockettravel.core.ui.AppIcons
-import com.pockettravel.core.ui.CountryFlag
 import com.pockettravel.core.ui.ConfirmationDialog
+import com.pockettravel.core.ui.CountryFlag
 import com.pockettravel.core.ui.DownloadProgressIndicator
 import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
@@ -86,10 +86,10 @@ import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.isOnCellularNetwork
-import java.text.Collator
-import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import java.text.Collator
+import java.util.Locale
 
 @Composable
 fun RegionListScreen(

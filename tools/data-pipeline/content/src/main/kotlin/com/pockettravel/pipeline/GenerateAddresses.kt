@@ -8,6 +8,10 @@ import com.onthegomap.planetiler.archive.TileFormat
 import com.onthegomap.planetiler.geo.TileCoord
 import com.onthegomap.planetiler.pmtiles.ReadablePmtiles
 import com.onthegomap.planetiler.pmtiles.WriteablePmtiles
+import org.locationtech.jts.geom.Coordinate
+import org.locationtech.jts.geom.Envelope
+import org.locationtech.jts.geom.GeometryFactory
+import org.locationtech.jts.geom.Point
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -23,10 +27,6 @@ import kotlin.math.ln
 import kotlin.math.roundToInt
 import kotlin.math.sinh
 import kotlin.math.tan
-import org.locationtech.jts.geom.Coordinate
-import org.locationtech.jts.geom.Envelope
-import org.locationtech.jts.geom.GeometryFactory
-import org.locationtech.jts.geom.Point
 
 /**
  * Numeri civici della regione, estratti dalle sole tile z15 del basemap Protomaps (layer

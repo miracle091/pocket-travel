@@ -1,8 +1,8 @@
 package com.pockettravel.core.sync
 
 import com.pockettravel.core.data.PackageKind
-import java.net.URI
 import kotlinx.serialization.Serializable
+import java.net.URI
 
 /**
  * manifest.json nel formato a pacchetti (manifestVersion 2, generato da tools/data-pipeline):

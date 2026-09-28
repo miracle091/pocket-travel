@@ -17,8 +17,6 @@ import com.pockettravel.core.sync.ReplacedRegion
 import com.pockettravel.core.sync.attachAddressGridCells
 import com.pockettravel.feature.ai.LlmModelUpdateCheckScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.text.Normalizer
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +27,8 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.Normalizer
+import javax.inject.Inject
 
 enum class RegionStatus { NOT_INSTALLED, INSTALLED, UPDATE_AVAILABLE }
 

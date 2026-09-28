@@ -89,11 +89,11 @@ import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.Spacing
-import com.pockettravel.core.ui.R as UiR
-import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.UUID
+import com.pockettravel.core.ui.R as UiR
 
 // Solo BIOMETRIC_STRONG: il BiometricPrompt qui e' legato a un CryptoObject (vedi showPrompt),
 // e androidx.biometric non supporta CryptoObject insieme a DEVICE_CREDENTIAL (IllegalArgumentException

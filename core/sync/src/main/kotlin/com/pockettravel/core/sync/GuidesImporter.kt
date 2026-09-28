@@ -3,17 +3,17 @@ package com.pockettravel.core.sync
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.withTransaction
 import com.pockettravel.core.data.RegionRepository
-import com.pockettravel.core.data.guideCategoryOrNull
 import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.EmergencyNumbersEntity
 import com.pockettravel.core.data.db.GuideDao
 import com.pockettravel.core.data.db.GuideSectionEntity
 import com.pockettravel.core.data.db.NoCentralEmergencyNumberEntity
 import com.pockettravel.core.data.db.RegionDatabase
-import java.io.File
-import javax.inject.Inject
+import com.pockettravel.core.data.guideCategoryOrNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
+import javax.inject.Inject
 
 /**
  * Importa guides.db (guide Wikivoyage e numeri di emergenza di tutte le regioni, generato da

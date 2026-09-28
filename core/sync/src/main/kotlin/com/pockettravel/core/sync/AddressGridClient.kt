@@ -1,8 +1,8 @@
 package com.pockettravel.core.sync
 
+import kotlinx.serialization.json.Json
 import java.io.File
 import javax.inject.Inject
-import kotlinx.serialization.json.Json
 
 /**
  * Scarica e verifica (sha256) address-grid.json (RegionManifest.addressGrid, address-grid-plan.md

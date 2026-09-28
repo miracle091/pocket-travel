@@ -1,8 +1,8 @@
 package com.pockettravel.pipeline
 
-import java.io.File
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 /**
  * Unisce N manifest.json (frammenti di GenerateManifest: una regione ciascuno, oppure il solo

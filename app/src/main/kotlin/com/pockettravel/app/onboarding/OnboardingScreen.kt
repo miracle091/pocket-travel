@@ -68,11 +68,11 @@ import com.pockettravel.app.regions.RegionRowActions
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.HeroShape
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
-import com.pockettravel.core.ui.R as UiR
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.feature.ai.AiAssistantViewModel
 import com.pockettravel.feature.ai.ModelListCard
 import com.pockettravel.feature.map.UsageModeOptions
+import com.pockettravel.core.ui.R as UiR
 
 private enum class InfoIcon { COMPASS, AI, VAULT, OFFICIAL }
 

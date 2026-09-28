@@ -5,11 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.Note
 import com.pockettravel.core.data.NoteRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 // A differenza del vault dei documenti (PassportVaultViewModel), nessuno sblocco biometrico:
 // le note sono cifrate a riposo (KeystoreCipher, vedi NoteRepository) ma leggibili subito, cosi'

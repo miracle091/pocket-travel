@@ -8,8 +8,8 @@ import androidx.work.WorkerParameters
 import com.pockettravel.core.data.RegionRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import java.io.IOException
 
 /**
  * Installa o aggiorna il pacchetto guide (tutte le nazioni, meno di un MB) se la versione del

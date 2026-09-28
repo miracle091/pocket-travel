@@ -1,11 +1,11 @@
 package com.pockettravel.pipeline
 
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.security.DigestInputStream
 import java.security.MessageDigest
 import java.time.Instant
-import org.json.JSONArray
-import org.json.JSONObject
 
 /** sourceKey: solo per i .rd5 ritagliati sulla regione (clip_rd5.py), "<dimensione del file originale
  *  di brouter.de> <riquadro> <margine>"; build-region.sh la confronta con quella attesa per capire se

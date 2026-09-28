@@ -1,6 +1,11 @@
 package com.pockettravel.core.data
 
 import android.os.storage.StorageManager
+import com.pockettravel.core.data.RegionStorage.Companion.ADDRESSES_CELLS_FILE
+import com.pockettravel.core.data.RegionStorage.Companion.ADDRESSES_FILE
+import com.pockettravel.core.data.RegionStorage.Companion.MAP_FILE
+import com.pockettravel.core.data.RegionStorage.Companion.PREVIEW_FILE
+import com.pockettravel.core.data.RegionStorage.Companion.ROUTING_DIR
 import java.io.File
 import java.io.IOException
 import javax.inject.Inject

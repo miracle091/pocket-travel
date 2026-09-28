@@ -4,16 +4,16 @@ import android.os.storage.StorageManager
 import com.pockettravel.core.data.allocatableBytes
 import com.pockettravel.core.data.reserveSpace
 import com.pockettravel.feature.ai.di.AiModelsDir
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.security.DigestInputStream
 import java.security.MessageDigest
 import javax.inject.Inject
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
 
 class ModelIntegrityException(message: String) : Exception(message)
 

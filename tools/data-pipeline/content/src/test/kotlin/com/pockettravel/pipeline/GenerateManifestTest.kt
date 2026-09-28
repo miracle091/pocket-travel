@@ -1,12 +1,12 @@
 package com.pockettravel.pipeline
 
-import java.io.File
-import kotlin.io.path.createTempDirectory
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 class GenerateManifestTest {
 

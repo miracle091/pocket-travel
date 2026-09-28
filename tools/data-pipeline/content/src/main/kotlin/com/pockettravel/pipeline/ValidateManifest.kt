@@ -1,8 +1,8 @@
 package com.pockettravel.pipeline
 
+import org.json.JSONObject
 import java.io.File
 import java.net.URI
-import org.json.JSONObject
 
 /**
  * Duplica intenzionalmente le regole di RegionManifestEntry.validate() (core/sync, modulo

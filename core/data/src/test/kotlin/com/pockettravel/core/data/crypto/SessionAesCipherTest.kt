@@ -1,10 +1,10 @@
 package com.pockettravel.core.data.crypto
 
-import java.security.SecureRandom
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.security.SecureRandom
 
 class SessionAesCipherTest {
 

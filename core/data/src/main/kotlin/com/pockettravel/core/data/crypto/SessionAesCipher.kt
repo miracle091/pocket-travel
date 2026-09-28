@@ -1,10 +1,10 @@
 package com.pockettravel.core.data.crypto
 
+import java.security.GeneralSecurityException
 import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
-import java.security.GeneralSecurityException
 
 // Stessa cifratura AES-256-GCM di KeystoreCipher, ma con una SecretKey in RAM (mai nel Keystore)
 // invece che per-alias: usata per la chiave di sessione del vault passaporti, sbloccata una volta

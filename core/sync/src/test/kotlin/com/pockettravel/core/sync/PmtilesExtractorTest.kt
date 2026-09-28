@@ -3,10 +3,6 @@ package com.pockettravel.core.sync
 import ch.poole.geo.pmtiles.Constants
 import ch.poole.geo.pmtiles.Hilbert
 import ch.poole.geo.pmtiles.Reader
-import java.io.File
-import java.io.RandomAccessFile
-import java.nio.ByteBuffer
-import kotlin.io.path.createTempDirectory
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -20,6 +16,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
+import java.io.File
+import java.io.RandomAccessFile
+import kotlin.io.path.createTempDirectory
 
 /**
  * Serve un file locale via HTTP range request, come farebbe build.protomaps.com — porta in

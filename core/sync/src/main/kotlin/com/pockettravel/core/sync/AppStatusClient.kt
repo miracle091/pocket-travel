@@ -1,11 +1,11 @@
 package com.pockettravel.core.sync
 
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import javax.inject.Inject
 
 class AppStatusClient @Inject constructor(
     private val okHttpClient: OkHttpClient,

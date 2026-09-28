@@ -1,6 +1,5 @@
 package com.pockettravel.feature.map
 
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

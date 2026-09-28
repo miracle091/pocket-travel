@@ -1,9 +1,5 @@
 package com.pockettravel.core.sync
 
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.security.MessageDigest
-import kotlin.io.path.createTempDirectory
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,6 +8,10 @@ import org.junit.Before
 import org.junit.Test
 import org.tukaani.xz.LZMA2Options
 import org.tukaani.xz.XZOutputStream
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.security.MessageDigest
+import kotlin.io.path.createTempDirectory
 
 /**
  * unpackXz() e' la decompressione condivisa da RegionPackageInstaller (poi.db, poi-extra.db,

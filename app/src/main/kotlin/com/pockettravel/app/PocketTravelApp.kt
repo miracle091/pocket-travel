@@ -10,10 +10,10 @@ import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.feature.ai.LlmModelManager
 import com.pockettravel.feature.ai.LlmModelUpdateCheckScheduler
 import dagger.hilt.android.HiltAndroidApp
-import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltAndroidApp
 class PocketTravelApp : Application(), Configuration.Provider {

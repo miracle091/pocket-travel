@@ -6,11 +6,11 @@ import com.pockettravel.core.sync.AddressGridAttribution
 import com.pockettravel.core.sync.AddressGridClient
 import com.pockettravel.core.sync.ManifestClient
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * Fonti dei civici a griglia (address-grid-plan.md "App" 6, `attributions` di address-grid.json):

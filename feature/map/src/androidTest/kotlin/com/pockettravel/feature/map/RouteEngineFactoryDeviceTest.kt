@@ -3,10 +3,10 @@ package com.pockettravel.feature.map
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pockettravel.feature.map.di.RouteEngineModule
-import java.io.File
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 /**
  * Verifica su device/emulatore reale (Pixel 8 AVD) che il wiring di

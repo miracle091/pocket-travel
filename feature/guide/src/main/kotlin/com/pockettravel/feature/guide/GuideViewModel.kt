@@ -10,7 +10,6 @@ import com.pockettravel.core.data.EmergencyNumbersRepository
 import com.pockettravel.core.data.GuideRepository
 import com.pockettravel.core.data.GuideSection
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class GuideUiState(
     val sections: List<GuideSection> = emptyList(),

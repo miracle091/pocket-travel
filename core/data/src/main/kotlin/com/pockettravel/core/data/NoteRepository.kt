@@ -3,9 +3,9 @@ package com.pockettravel.core.data
 import com.pockettravel.core.data.crypto.KeystoreCipher
 import com.pockettravel.core.data.db.NoteDao
 import com.pockettravel.core.data.db.NoteEntity
-import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import javax.inject.Inject
 
 /**
  * Note personali dell'utente (prenotazioni, indirizzi, itinerario): title e body sono cifrati con

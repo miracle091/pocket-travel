@@ -1,18 +1,18 @@
 package com.pockettravel.core.sync
 
 import com.pockettravel.core.data.RegionStorage
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.security.DigestInputStream
-import java.security.MessageDigest
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.security.DigestInputStream
+import java.security.MessageDigest
+import javax.inject.Inject
 
 class PermanentRegionPackageException(message: String) : Exception(message)
 

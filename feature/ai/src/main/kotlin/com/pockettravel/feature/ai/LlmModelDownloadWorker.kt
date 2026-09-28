@@ -7,8 +7,8 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import java.io.IOException
 
 /**
  * Download del modello IA richiesto dall'utente — mai automatico. Il token HuggingFace non

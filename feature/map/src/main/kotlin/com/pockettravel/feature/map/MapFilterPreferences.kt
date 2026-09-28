@@ -4,11 +4,11 @@ import android.content.Context
 import androidx.core.content.edit
 import com.pockettravel.core.poi.PoiCategory
 import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Categorie di POI nascoste sulla mappa, uguali per tutte le regioni e ricordate tra un'apertura e

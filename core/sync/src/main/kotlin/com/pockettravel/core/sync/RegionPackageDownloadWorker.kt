@@ -10,9 +10,9 @@ import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionStorage
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
+import java.io.IOException
 
 /** Download dei pacchetti di una regione richiesti dall'utente — mai automatico. */
 @HiltWorker

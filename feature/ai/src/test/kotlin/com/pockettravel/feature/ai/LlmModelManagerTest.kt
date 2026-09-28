@@ -1,9 +1,5 @@
 package com.pockettravel.feature.ai
 
-import java.io.File
-import java.io.IOException
-import java.security.MessageDigest
-import kotlin.io.path.createTempDirectory
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -15,6 +11,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
+import java.io.File
+import java.io.IOException
+import java.security.MessageDigest
+import kotlin.io.path.createTempDirectory
 
 // download() prende un LlmModelDefinition intero (non solo url/sha256 sciolti) apposta per poter
 // costruire qui una definizione di test che punta al MockWebServer, verificando il checksum reale

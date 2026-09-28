@@ -1,6 +1,5 @@
 package com.pockettravel.feature.ai
 
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -8,6 +7,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import javax.inject.Inject
 
 /**
  * Client per l'assistente "Online": chiama direttamente, dal dispositivo, un endpoint

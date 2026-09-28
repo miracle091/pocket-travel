@@ -18,10 +18,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
@@ -78,14 +78,13 @@ import com.pockettravel.app.onboarding.OnboardingViewModel
 import com.pockettravel.app.regions.RegionHubScreen
 import com.pockettravel.app.regions.RegionListScreen
 import com.pockettravel.app.regions.RegionListViewModel
+import com.pockettravel.app.regions.RegionPreviewScreen
 import com.pockettravel.app.regions.RegionRowActions
 import com.pockettravel.app.regions.RegionStatus
 import com.pockettravel.app.regions.RegionWorldMap
-import com.pockettravel.app.regions.RegionPreviewScreen
 import com.pockettravel.app.storage.StorageScreen
 import com.pockettravel.core.data.officialSourcesRegistry
 import com.pockettravel.core.ui.AppIcons
-import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.feature.sources.OfficialSourcesScreen
 import com.pockettravel.feature.vault.NotesScreen
 import com.pockettravel.feature.vault.PassportVaultScreen

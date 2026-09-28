@@ -1,9 +1,9 @@
 package com.pockettravel.core.sync
 
+import org.tukaani.xz.XZInputStream
 import java.io.File
 import java.security.DigestOutputStream
 import java.security.MessageDigest
-import org.tukaani.xz.XZInputStream
 
 /**
  * Decomprime un file scaricato compresso con xz ([fileXz], gia' verificato con il suo sha256) in

@@ -6,10 +6,10 @@ import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.CitySectionEntity
 import com.pockettravel.core.data.db.RegionDatabase
 import com.pockettravel.core.data.guideCategoryOrNull
-import java.io.File
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
+import javax.inject.Inject
 
 /**
  * Importa il cities.db scaricato di una regione (guide delle citta', generato da

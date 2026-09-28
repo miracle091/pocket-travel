@@ -1,10 +1,6 @@
 package com.pockettravel.core.sync
 
 import com.pockettravel.core.data.RegionStorage
-import java.io.File
-import java.io.IOException
-import java.security.MessageDigest
-import kotlin.io.path.createTempDirectory
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -15,6 +11,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
+import java.io.File
+import java.io.IOException
+import java.security.MessageDigest
+import kotlin.io.path.createTempDirectory
 
 // downloadAndVerify() e' internal apposta (vedi commento nella classe di produzione): qui si
 // esercita solo il download/ripresa/verifica byte-per-byte via un vero server HTTP locale

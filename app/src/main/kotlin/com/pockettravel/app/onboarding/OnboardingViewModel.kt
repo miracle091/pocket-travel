@@ -5,8 +5,8 @@ import com.pockettravel.feature.ai.DeviceAiCapability
 import com.pockettravel.feature.map.UsageMode
 import com.pockettravel.feature.map.UsageModePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.StateFlow
+import javax.inject.Inject
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(

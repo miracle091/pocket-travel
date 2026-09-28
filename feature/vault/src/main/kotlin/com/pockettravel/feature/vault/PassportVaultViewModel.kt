@@ -6,12 +6,12 @@ import com.pockettravel.core.data.Passport
 import com.pockettravel.core.data.PassportRepository
 import com.pockettravel.core.data.crypto.VaultKeyEnvelope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.crypto.Cipher
-import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import javax.crypto.Cipher
+import javax.inject.Inject
 
 @HiltViewModel
 class PassportVaultViewModel @Inject constructor(

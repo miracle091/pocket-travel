@@ -1,17 +1,17 @@
 package com.pockettravel.feature.ai
 
+import android.content.Context
 import com.pockettravel.feature.ai.llamacpp.InferenceEngine
 import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl
 import com.pockettravel.feature.ai.llamacpp.isModelLoaded
 import dagger.hilt.android.qualifiers.ApplicationContext
-import android.content.Context
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Wrapper attorno al bridge JNI di llama.cpp (com.pockettravel.feature.ai.llamacpp, vendorizzato

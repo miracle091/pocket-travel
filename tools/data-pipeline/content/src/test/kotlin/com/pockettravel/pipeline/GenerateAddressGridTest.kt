@@ -1,10 +1,10 @@
 package com.pockettravel.pipeline
 
-import java.io.File
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class GenerateAddressGridTest {
 

@@ -1,6 +1,5 @@
 package com.pockettravel.feature.map
 
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -9,6 +8,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.io.File
 
 /**
  * Verifica il wiring reale (RoutingContext/RoutingParamCollector/RoutingEngine di

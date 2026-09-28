@@ -2,11 +2,11 @@ package com.pockettravel.core.sync
 
 import ch.poole.geo.pmtiles.Constants
 import ch.poole.geo.pmtiles.Hilbert
-import java.io.File
-import kotlin.io.path.createTempDirectory
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 /**
  * PmtilesDirectoryReader legge lo stesso formato scritto da PmtilesWriter camminando la directory

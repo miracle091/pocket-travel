@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -23,6 +22,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
@@ -42,13 +42,13 @@ import com.pockettravel.app.R
 import com.pockettravel.app.navigation.regionContainer
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
-import com.pockettravel.core.ui.R as UiR
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.feature.ai.AiAssistantScreen
 import com.pockettravel.feature.guide.GuideScreen
 import com.pockettravel.feature.map.MapRouteViewModel
 import com.pockettravel.feature.map.MapScreen
 import com.pockettravel.feature.map.MapSourceKind
+import com.pockettravel.core.ui.R as UiR
 
 private enum class RegionTab(val key: String, @StringRes val label: Int) {
     GUIDE("guide", R.string.nav_guide),

@@ -11,7 +11,6 @@ import com.pockettravel.feature.ai.LlmModelManager
 import com.pockettravel.feature.ai.OnDeviceLlmEngine
 import com.pockettravel.feature.ai.selectedModelDefinition
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,6 +19,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class StoragePackageItem(val kind: PackageKind, val sizeBytes: Long?)
 

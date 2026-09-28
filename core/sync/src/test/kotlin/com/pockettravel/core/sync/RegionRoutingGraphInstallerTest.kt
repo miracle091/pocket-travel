@@ -1,13 +1,13 @@
 package com.pockettravel.core.sync
 
-import java.io.File
-import kotlin.io.path.createTempDirectory
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 class RegionRoutingGraphInstallerTest {
 

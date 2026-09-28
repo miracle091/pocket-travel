@@ -2,18 +2,17 @@ package com.pockettravel.app.regions
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.pockettravel.core.sync.ManifestClient
-import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.sync.GuidesInstaller
+import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed interface RegionPreviewState {
     data object Loading : RegionPreviewState

@@ -1,9 +1,9 @@
 package com.pockettravel.feature.ai
 
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /** Serializes access to the model file and native engine. */
 @Singleton

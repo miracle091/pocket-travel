@@ -1,7 +1,7 @@
 package com.pockettravel.pipeline
 
-import java.io.File
 import org.json.JSONObject
+import java.io.File
 
 // Mappa titoli di sezione delle pagine citta' di Wikivoyage IT -> categoria (fase 1 di
 // rag-knowledge-plan.md, "Contratto tra le parti"): diversa da headingToCategory

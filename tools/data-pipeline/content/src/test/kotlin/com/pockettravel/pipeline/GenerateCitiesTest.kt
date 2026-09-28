@@ -1,9 +1,9 @@
 package com.pockettravel.pipeline
 
-import java.io.File
-import java.sql.DriverManager
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.io.File
+import java.sql.DriverManager
 
 class GenerateCitiesTest {
 
