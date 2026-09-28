@@ -69,7 +69,8 @@ def fetch_addresses(release, min_lon, min_lat, max_lon, max_lat, allowed):
     country_clause = ", ".join(sql_string(c) for c in countries)
 
     con = duckdb.connect()
-    con.sql("LOAD httpfs; LOAD spatial; SET s3_region='us-west-2';")
+    # INSTALL prima di LOAD: sul runner di CI (ogni volta pulito) le estensioni non ci sono ancora.
+    con.sql("INSTALL httpfs; INSTALL spatial; LOAD httpfs; LOAD spatial; SET s3_region='us-west-2';")
     src = (
         f"read_parquet('s3://overturemaps-us-west-2/release/{release}"
         "/theme=addresses/type=address/*.parquet')"
