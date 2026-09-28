@@ -65,8 +65,8 @@ private fun expandDays(spec: String): List<String> = spec.split(',').flatMap { p
     }
 }
 
-// "9:00-13:00,15:00-19:00" -> "09:00–13:00, 15:00–19:00"
-private fun formatTimes(times: String): String = TIME.findAll(times).joinToString(", ") { m ->
+// "9:00-13:00,15:00-19:00" -> "09:00–13:00 | 15:00–19:00"
+private fun formatTimes(times: String): String = TIME.findAll(times).joinToString(" | ") { m ->
     val (h1, m1, h2, m2) = m.destructured
     "${h1.padStart(2, '0')}:$m1–${h2.padStart(2, '0')}:$m2"
 }

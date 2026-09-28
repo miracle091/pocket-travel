@@ -150,10 +150,16 @@ private val namelessOnMapCategories = setOf(
 // e noleggi d'auto senza nome restano nascosti). Servono alle modalita' d'uso (escursionismo, bici).
 private val namelessOnMapTags = setOf("amenity=fountain", "tourism=viewpoint", "amenity=bicycle_rental", "tourism=picnic_site")
 
-private val detailCategories = setOf(PoiCategory.CIBO_BEVANDE, PoiCategory.ALLOGGIO, PoiCategory.AMBASCIATA_CONSOLATO)
+private val detailCategories = setOf(
+    PoiCategory.CIBO_BEVANDE, PoiCategory.ALLOGGIO, PoiCategory.AMBASCIATA_CONSOLATO, PoiCategory.FARMACIA,
+    PoiCategory.OSPEDALE, PoiCategory.NEGOZI,
+)
 private val contactCategories = setOf(PoiCategory.ALLOGGIO, PoiCategory.AMBASCIATA_CONSOLATO)
 
-/** true per i POI con orari e indirizzo, quando OSM li indica: cibo e bevande, alloggi, ambasciate e consolati. */
+/**
+ * true per i POI con orari e indirizzo, quando OSM li indica: cibo e bevande, alloggi, ambasciate e consolati,
+ * farmacie, ospedali e negozi (supermercati compresi). Senza nome, per questi la pipeline usa il marchio.
+ */
 fun poiHasDetails(category: String, osmTag: String): Boolean = poiCategoryOf(category, osmTag) in detailCategories
 
 /** true per i POI con sito ed email, quando OSM li indica: alloggi (per prenotare), ambasciate e consolati. */

@@ -18,7 +18,7 @@ data class PoiEntity(
     val phone: String? = null,
     // Tag OSM "wheelchair" (yes, limited, no...), null se non indicato.
     val wheelchair: String? = null,
-    // Solo per cibo e bevande (poiHasDetails, core:poi), null se OSM non li indica.
+    // Solo per i POI con poiHasDetails (core:poi), null se OSM non li indica.
     val openingHours: String? = null,
     val address: String? = null,
     // Solo per alloggi, ambasciate e consolati (poiHasContacts, core:poi).

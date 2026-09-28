@@ -6,6 +6,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ### Aggiunto
 - Bar, ristoranti e simili sulla mappa: la scheda mostra indirizzo e orari, in una tabella per giorni con quello di oggi in evidenza, quando OpenStreetMap li indica. Arrivano con il prossimo aggiornamento dei punti di interesse di ogni regione.
+- Farmacie, ospedali, negozi e supermercati: nella scheda indirizzo e orari quando OpenStreetMap li indica e, se il posto non ha un nome, quello del marchio (per esempio "Conad") invece del solo tipo. Arrivano con il prossimo aggiornamento dei punti di interesse.
 - Nazionalità: nel primo avvio (e in Altro) si sceglie il proprio paese, proposto in base al telefono. Nella guida di ogni regione, insieme ai numeri di emergenza, compaiono ambasciate e consolati di quel paese con telefono da chiamare e indirizzo, quando OpenStreetMap li indica. Arrivano con il prossimo aggiornamento dei punti di interesse.
 - Hotel, B&B, ostelli, campeggi e simili: nella scheda indirizzo, orari (quando indicati) e, oltre al telefono, i pulsanti per aprire il sito e scrivere un'email, utili per prenotare. Arrivano con il prossimo aggiornamento dei punti di interesse.
 - Ambasciate e consolati: nella scheda indirizzo, orari e, oltre al telefono, i pulsanti per aprire il sito e scrivere un'email. Sulla mappa compaiono anche le rappresentanze segnate in OpenStreetMap con il tag più recente (office=diplomatic), che prima mancavano. Anche questo arriva con il prossimo aggiornamento dei punti di interesse.
@@ -16,6 +17,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Tema scuro anche quando il telefono usa quello chiaro: si attiva in Altro → Aspetto, spento di default (l'app segue il tema del telefono). Nello stesso foglio c'è ora anche "Colori dal wallpaper".
 
 ### Modificato
+- Scheda dei punti di interesse: icone di indirizzo e orari allineate, e le fasce orarie dello stesso giorno separate da una barra ("08:30–12:30 | 15:30–19:30") invece che da una virgola. Una farmacia o un ospedale senza nome si chiama "Farmacia" e "Ospedale", non con il nome del filtro al plurale.
 - Filtri della mappa più corti e leggibili: "Hotel" invece di "Dove dormire" e "Ristoranti e bar" invece di "Dove mangiare e bere".
 - "Come ti sposti": "Con disabilità" non è più una modalità a sé ma una casella che vale con tutte le altre (a piedi, in bici, in auto…): la mappa nasconde i posti segnati come non accessibili in sedia a rotelle qualunque sia il modo di spostarsi. Chi aveva scelto "Con disabilità" ritrova "A piedi" con la casella attiva. In Altro il foglio resta aperto dopo la scelta, per poter cambiare anche la casella.
 - Spazio per i download: prima di scaricare una regione o un modello dell'assistente, lo spazio disponibile comprende anche la cache di altre app che Android può cancellare, e l'app chiede di liberarla all'inizio del download. Niente più "spazio insufficiente" quando il telefono in realtà lo spazio lo ha.

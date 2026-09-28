@@ -110,7 +110,7 @@ data class Poi(
     val phone: String?,
     // Tag OSM "wheelchair" (yes, limited, no, designated...), null se assente: per la modalita' Accessibilita'.
     val wheelchair: String? = null,
-    // Solo per i POI con poiHasDetails (cibo e bevande), null se OSM non li indica.
+    // Solo per i POI con poiHasDetails (cibo, alloggi, ambasciate, farmacie, ospedali, negozi), null se OSM non li indica.
     val openingHours: String? = null,
     val address: String? = null,
     // Solo per i POI con poiHasContacts (alloggi, ambasciate e consolati).
@@ -140,7 +140,8 @@ private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagK
     val details = poiHasDetails(category, osmTag)
     val contacts = poiHasContacts(category, osmTag)
     return Poi(
-        name = tags["name"] ?: tagValue,
+        // Farmacie, supermercati e catene spesso hanno solo il marchio ("Conad", "Lloyds"): meglio del tipo.
+        name = tags["name"] ?: tags["brand"]?.takeIf { details } ?: tagValue,
         category = category,
         lat = lat,
         lon = lon,
@@ -178,7 +179,7 @@ private fun addressOf(tags: Map<String, String>): String? {
  *   stringhe identiche a ogni riga ma un solo intero.
  * - "poi": name, il code di poi_code, le coordinate come interi in microgradi (lat/lon * 1e6,
  *   precisione ~0,11 m, piu' che sufficiente per un segnalino) invece di REAL a 8 byte, phone e
- *   wheelchair facoltativi, openingHours e address per cibo, alloggi e ambasciate, website ed email per alloggi e ambasciate, country (paese rappresentato) per le ambasciate (colonne
+ *   wheelchair facoltativi, openingHours e address per cibo, alloggi, ambasciate, farmacie, ospedali e negozi, website ed email per alloggi e ambasciate, country (paese rappresentato) per le ambasciate (colonne
  *   aggiunte dopo: le versioni dell'app che non le conoscono non le selezionano). Niente colonna
  *   regionId (era costante su ogni riga: la regione la passa comunque chi importa il file).
  * - PRAGMA user_version = [POI_DB_FORMAT_VERSION]: marcatore di formato per PoiImporter, che

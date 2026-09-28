@@ -117,6 +117,8 @@
     <string name="poi_type_scooter_rental">Noleggio scooter</string>
     <string name="poi_type_boat_rental">Noleggio barche</string>
     <string name="poi_type_ski_rental">Noleggio sci</string>
+    <string name="poi_type_pharmacy">Farmacia</string>
+    <string name="poi_type_hospital">Ospedale</string>
     <string name="poi_type_supermarket">Supermercato</string>
     <string name="poi_type_convenience">Minimarket</string>
     <string name="poi_type_bakery">Panetteria</string>

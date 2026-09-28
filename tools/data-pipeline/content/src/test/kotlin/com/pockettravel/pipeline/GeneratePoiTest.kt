@@ -92,7 +92,7 @@ class GeneratePoiTest {
     }
 
     @Test
-    fun `orari e indirizzo solo per cibo e bevande`() {
+    fun `orari e indirizzo per cibo, farmacie e negozi, non per i musei`() {
         val dir = kotlin.io.path.createTempDirectory("pocket-travel-poi").toFile()
         val xml = File(dir, "a.xml")
         xml.writeText(
@@ -102,20 +102,30 @@ class GeneratePoiTest {
                 """<tag k="addr:housenumber" v="12"/><tag k="addr:city" v="Rimini"/><tag k="contact:website" v="https://damario.example"/>""" +
                 """<tag k="email" v="info@damario.example"/></node>""" +
                 """<node id="2" lat="44.07" lon="12.58"><tag k="amenity" v="cafe"/><tag k="name" v="Bar senza via"/><tag k="addr:city" v="Rimini"/></node>""" +
-                """<node id="3" lat="44.08" lon="12.59"><tag k="shop" v="bakery"/><tag k="name" v="Forno"/><tag k="opening_hours" v="Mo-Sa 07:00-13:00"/>""" +
-                """<tag k="addr:street" v="Via Po"/><tag k="website" v="https://forno.example"/></node>""" +
+                """<node id="3" lat="44.08" lon="12.59"><tag k="tourism" v="museum"/><tag k="name" v="Museo"/><tag k="opening_hours" v="Tu-Su 10:00-18:00"/>""" +
+                """<tag k="addr:street" v="Via Po"/></node>""" +
+                """<node id="4" lat="44.09" lon="12.60"><tag k="amenity" v="pharmacy"/><tag k="brand" v="Farmacia Comunale"/>""" +
+                """<tag k="opening_hours" v="Mo-Fr 08:30-19:30"/><tag k="addr:street" v="Corso d'Augusto"/><tag k="addr:housenumber" v="5"/></node>""" +
+                """<node id="5" lat="44.10" lon="12.61"><tag k="shop" v="supermarket"/><tag k="brand" v="Conad"/><tag k="name" v="Conad City"/>""" +
+                """<tag k="opening_hours" v="Mo-Su 08:00-21:00"/></node>""" +
+                """<node id="6" lat="44.11" lon="12.62"><tag k="tourism" v="attraction"/><tag k="brand" v="Marchio"/></node>""" +
                 "</osm>",
         )
         val outputDb = File(dir, "poi.db")
         try {
             val pois = readPois(listOf(xml), poiTagKeys)
-            val (ristorante, bar, forno) = pois
+            val (ristorante, bar, museo, farmacia, supermercato) = pois
             assertEquals("Mo-Sa 12:00-15:00,19:00-23:00; Su off", ristorante.openingHours)
             assertEquals("Via Roma 12, Rimini", ristorante.address)
             // Solo la citta', senza via: niente indirizzo.
             assertEquals(null, bar.address)
-            // Un negozio non porta i dettagli, anche se OSM li ha.
-            assertEquals(listOf(null, null), listOf(forno.openingHours, forno.address))
+            // Un museo non porta i dettagli, anche se OSM li ha.
+            assertEquals(listOf(null, null), listOf(museo.openingHours, museo.address))
+            // Senza nome, il marchio.
+            assertEquals(listOf("Farmacia Comunale", "Mo-Fr 08:30-19:30", "Corso d'Augusto 5"), listOf(farmacia.name, farmacia.openingHours, farmacia.address))
+            assertEquals(listOf("Conad City", "Mo-Su 08:00-21:00"), listOf(supermercato.name, supermercato.openingHours))
+            // Il marchio solo per le categorie con i dettagli.
+            assertEquals("attraction", pois[5].name)
 
             writePoiDb(pois, outputDb)
             DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->

@@ -11,7 +11,7 @@ class OpeningHoursTest {
     @Test
     fun `giorni consecutivi con lo stesso orario in una riga, giorni non citati chiusi`() {
         assertEquals(
-            listOf("lun–sab 12:00–15:00, 19:00–23:00 *", "dom chiuso"),
+            listOf("lun–sab 12:00–15:00 | 19:00–23:00 *", "dom chiuso"),
             rows("Mo-Sa 12:00-15:00,19:00-23:00; Su off"),
         )
         assertEquals(

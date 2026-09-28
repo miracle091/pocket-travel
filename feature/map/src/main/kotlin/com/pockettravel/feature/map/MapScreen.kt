@@ -43,6 +43,7 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
@@ -323,12 +324,22 @@ fun MapScreen(
 
 // Una riga della scheda del POI: icona piccola e testo (accessibilita', indirizzo, orari).
 @Composable
-private fun PoiDetailRow(icon: ImageVector, text: String) {
+private fun PoiDetailRow(icon: ImageVector, text: String, iconSize: Dp = 16.dp) {
     Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = Spacing.l)) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
-        Spacer(modifier = Modifier.width(Spacing.s))
+        PoiDetailIcon(icon, iconSize)
         Text(text, style = MaterialTheme.typography.bodyMedium)
     }
+}
+
+// Stesso spazio per l'icona in tutte le righe (indirizzo, orari...), cosi' testi e icone restano in
+// colonna; centrata sulla prima riga di testo. size piu' piccolo per i glifi pieni (l'orologio e' un
+// cerchio intero e a pari misura sembra piu' grande del segnaposto).
+@Composable
+private fun PoiDetailIcon(icon: ImageVector, size: Dp = 16.dp) {
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(top = 2.dp, end = 2.dp).size(16.dp)) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(size))
+    }
+    Spacer(modifier = Modifier.width(Spacing.s))
 }
 
 // Orari come tabella (giorni a sinistra, fasce a destra, oggi in grassetto); se la stringa OSM usa
@@ -337,13 +348,11 @@ private fun PoiDetailRow(icon: ImageVector, text: String) {
 private fun OpeningHoursDetail(raw: String) {
     val rows = remember(raw) { parseOpeningHours(raw, LocalDate.now().dayOfWeek.value - 1) }
     if (rows == null) {
-        PoiDetailRow(AppIcons.Schedule, formatOpeningHours(raw))
+        PoiDetailRow(AppIcons.Schedule, formatOpeningHours(raw), iconSize = 14.dp)
         return
     }
     Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = Spacing.l)) {
-        // Piu' piccola delle altre icone della scheda, centrata sulla prima riga della tabella.
-        Icon(AppIcons.Schedule, contentDescription = null, modifier = Modifier.padding(top = 2.dp, end = 2.dp).size(16.dp))
-        Spacer(modifier = Modifier.width(Spacing.s))
+        PoiDetailIcon(AppIcons.Schedule, size = 14.dp)
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             rows.forEach { row ->
                 val weight = if (row.includesToday) FontWeight.Bold else FontWeight.Normal

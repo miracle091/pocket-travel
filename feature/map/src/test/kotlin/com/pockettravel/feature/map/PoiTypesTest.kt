@@ -11,6 +11,7 @@ class PoiTypesTest {
         assertEquals(R.string.poi_type_restaurant, poiTypeLabel("amenity=restaurant"))
         assertEquals(R.string.poi_type_place_of_worship, poiTypeLabel("amenity=place_of_worship"))
         assertEquals(R.string.poi_type_viewpoint, poiTypeLabel("tourism=viewpoint"))
+        assertEquals(R.string.poi_type_pharmacy, poiTypeLabel("amenity=pharmacy"))
     }
 
     @Test
@@ -22,6 +23,6 @@ class PoiTypesTest {
 
     @Test
     fun `senza tipo vale la categoria`() {
-        assertNull(poiTypeLabel("amenity=pharmacy"))
+        assertNull(poiTypeLabel("amenity=toilets"))
     }
 }

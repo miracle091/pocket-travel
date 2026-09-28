@@ -63,6 +63,9 @@ private val TYPES: Map<String, Int> = mapOf(
     "amenity=scooter_rental" to R.string.poi_type_scooter_rental,
     "amenity=boat_rental" to R.string.poi_type_boat_rental,
     "amenity=ski_rental" to R.string.poi_type_ski_rental,
+    // Salute: al singolare nel titolo delle schede senza nome (la categoria e' al plurale, "Farmacie").
+    "amenity=pharmacy" to R.string.poi_type_pharmacy,
+    "amenity=hospital" to R.string.poi_type_hospital,
     // Negozi piu' comuni: gli altri restano "Negozio" (shop=*), i tipi OSM sono centinaia.
     "shop=supermarket" to R.string.poi_type_supermarket,
     "shop=convenience" to R.string.poi_type_convenience,
