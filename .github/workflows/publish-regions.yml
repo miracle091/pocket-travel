@@ -90,7 +90,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Gira qui (una volta, prima della matrice) e non dentro il job "build": se lo shard 0/1/2
       # eseguissero tutti "gh release view || gh release create" in parallelo, alla primissima run
@@ -223,7 +223,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
@@ -271,7 +271,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       WORLD_MAP_MAX_AGE_DAYS: 30
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # go-pmtiles: stessa versione e installazione del job "build" sotto.
       - name: Installa go-pmtiles
@@ -360,7 +360,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       PYTHON_BIN: python3
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
@@ -560,7 +560,7 @@ jobs:
       # 6 rinnova i POI a ogni turno (7 li rinnoverebbe ogni due settimane).
       POI_MAX_AGE_DAYS: ${{ github.event.inputs.poi_max_age_days || '6' }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
@@ -813,7 +813,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # I dati che richiedono un'app piu' recente (min-app-version-code, vedi assemble-site.sh) non
       # si pubblicano prima di quell'app: le installazioni esistenti bloccherebbero i download
