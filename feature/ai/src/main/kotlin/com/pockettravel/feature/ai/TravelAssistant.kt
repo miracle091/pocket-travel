@@ -5,6 +5,7 @@ import com.pockettravel.core.data.CitySection
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideRepository
 import com.pockettravel.core.data.GuideSection
+import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.Note
 import com.pockettravel.core.data.NoteRepository
 import com.pockettravel.core.data.officialSourceFor
@@ -32,6 +33,7 @@ class TravelAssistant @Inject constructor(
     private val engine: OnDeviceLlmEngine,
     private val onlineLlmClient: OnlineLlmClient,
     private val aiSettingsStore: AiSettingsStore,
+    private val nationalityPreferences: NationalityPreferences,
 ) {
     suspend fun ask(regionId: String, question: String, mode: AiEngineMode): AssistantAnswer {
         val ftsQuery = buildFtsQuery(question, regionId)
@@ -51,7 +53,7 @@ class TravelAssistant @Inject constructor(
             AiEngineMode.ONLINE -> askOnline(question)
         }.copy(
             showOfficialSourceBanner = regulatedMatch != null,
-            officialSourceUrl = regulatedMatch?.let { officialSourceFor(it.category).url },
+            officialSourceUrl = regulatedMatch?.let { officialSourceFor(it.category, nationalityPreferences.nationality.value)?.url },
         )
     }
 

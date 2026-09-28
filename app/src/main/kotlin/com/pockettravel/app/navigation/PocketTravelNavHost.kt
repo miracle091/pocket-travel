@@ -53,6 +53,7 @@ import com.pockettravel.app.R
 import com.pockettravel.app.browser.InAppBrowserScreen
 import com.pockettravel.app.licenses.LicensesScreen
 import com.pockettravel.app.more.MoreScreen
+import com.pockettravel.app.more.MoreViewModel
 import com.pockettravel.app.navigation.PocketTravelDestinations.ARG_NAME
 import com.pockettravel.app.navigation.PocketTravelDestinations.ARG_REGION_ID
 import com.pockettravel.app.navigation.PocketTravelDestinations.ARG_TAB
@@ -213,7 +214,10 @@ fun PocketTravelNavHost(
                 StorageScreen(onBack = { navController.popBackStack() })
             }
             composable(SOURCES) {
+                // Stesse preferenze di Altro, da cui si arriva: la nazionalita' sceglie le fonti del proprio paese.
+                val nationality by hiltViewModel<MoreViewModel>().nationality.collectAsStateWithLifecycle()
                 OfficialSourcesScreen(
+                    nationality = nationality,
                     onBack = { navController.popBackStack() },
                     onOpenSource = { url, title -> navController.navigate(inAppBrowser(url, title)) },
                 )

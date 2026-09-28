@@ -21,16 +21,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.pockettravel.core.data.OfficialSource
-import com.pockettravel.core.data.officialSourcesRegistry
+import com.pockettravel.core.data.globalOfficialSources
+import com.pockettravel.core.data.nationalOfficialSources
+import com.pockettravel.core.ui.countryName
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.R as UiR
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OfficialSourcesScreen(onBack: () -> Unit, onOpenSource: (url: String, title: String) -> Unit) {
+fun OfficialSourcesScreen(nationality: String?, onBack: () -> Unit, onOpenSource: (url: String, title: String) -> Unit) {
+    val national = nationalOfficialSources(nationality)
     Scaffold(
         topBar = {
             TopAppBar(
@@ -51,17 +56,47 @@ fun OfficialSourcesScreen(onBack: () -> Unit, onOpenSource: (url: String, title:
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = Spacing.s, vertical = Spacing.s),
             )
-            Surface(
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column {
-                    officialSourcesRegistry.forEachIndexed { index, source ->
-                        OfficialSourceRow(source, onClick = { onOpenSource(source.url, source.name) })
-                        if (index < officialSourcesRegistry.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-                    }
+            // Prima quelle del paese di chi viaggia (NationalityPreferences), poi le internazionali, sempre
+            // presenti; senza fonti per quel paese lo dice invece di mostrare quelle di un altro.
+            if (nationality != null) {
+                SectionTitle(stringResource(R.string.sources_national, countryName(nationality)))
+                if (national.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.sources_national_none),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = Spacing.s, vertical = Spacing.s),
+                    )
+                } else {
+                    SourcesCard(national, onOpenSource)
                 }
+            }
+            SectionTitle(stringResource(R.string.sources_global))
+            SourcesCard(globalOfficialSources, onOpenSource)
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = Spacing.s, end = Spacing.s, top = Spacing.l, bottom = Spacing.s).semantics { heading() },
+    )
+}
+
+@Composable
+private fun SourcesCard(sources: List<OfficialSource>, onOpenSource: (url: String, title: String) -> Unit) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column {
+            sources.forEachIndexed { index, source ->
+                OfficialSourceRow(source, onClick = { onOpenSource(source.url, source.name) })
+                if (index < sources.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             }
         }
     }
