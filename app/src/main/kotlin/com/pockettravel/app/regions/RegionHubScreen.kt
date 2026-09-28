@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalLocale
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
@@ -73,6 +74,8 @@ fun RegionHubScreen(
     onBack: () -> Unit,
     onOpenOfficialSource: (url: String) -> Unit = {},
     onOpenSource: (url: String, title: String) -> Unit = { _, _ -> },
+    // "Indicazioni" nella scheda di un POI della mappa: apre la navigazione verso quel punto.
+    onNavigate: (latitude: Double, longitude: Double, name: String) -> Unit = { _, _, _ -> },
     // true quando l'hub e' il pannello di dettaglio accanto all'elenco regioni (schermi larghi):
     // barra in basso invece della rail, che finirebbe in mezzo allo schermo.
     compactNavigation: Boolean = false,
@@ -148,6 +151,7 @@ fun RegionHubScreen(
                         val accessible by mapViewModel.accessible.collectAsStateWithLifecycle()
                         val mapSource by mapViewModel.mapSource.collectAsStateWithLifecycle()
                         val sourceKind = mapSource.kind
+                        val language = LocalLocale.current.platformLocale.language
                         Column(modifier = Modifier.fillMaxSize()) {
                             Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
                                 MapScreen(
@@ -158,6 +162,9 @@ fun RegionHubScreen(
                                     hiddenCategories = hiddenCategories,
                                     onHiddenCategoriesChange = mapViewModel::setHiddenCategories,
                                     hideInaccessible = accessible,
+                                    onNavigate = { pin ->
+                                        onNavigate(pin.latitude, pin.longitude, pin.displayName(language) ?: pin.name.orEmpty())
+                                    },
                                 )
                             }
                             if (sourceKind != MapSourceKind.FULL) {

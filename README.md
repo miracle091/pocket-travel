@@ -36,7 +36,7 @@ In viaggio la connessione manca proprio quando serve: in aereo, in montagna, all
 
 L'app è in **italiano e in inglese** (dalla prossima versione): interfaccia, guide delle nazioni e delle città e assistente IA. La lingua si sceglie al primo avvio.
 
-Scegli tu cosa scaricare: per ogni paese mappa, punti di interesse e numeri civici sono pacchetti separati, così non occupi spazio per quello che non usi. Le guide di tutto il mondo pesano pochi megabyte. Il calcolo dei percorsi a piedi, in bici e in auto è in arrivo.
+Scegli tu cosa scaricare: per ogni paese mappa, punti di interesse, numeri civici e percorsi sono pacchetti separati, così non occupi spazio per quello che non usi. Le guide di tutto il mondo pesano pochi megabyte. Con il pacchetto Percorsi puoi farti guidare fino a un punto della mappa, svolta dopo svolta, con il GPS acceso; autovelox, limiti di velocità e zone a traffico limitato o a basse emissioni non sono segnalati.
 
 Ci sono 355 paesi e regioni (gli stati più grandi, come Stati Uniti, Canada e Cina, sono divisi in parti), aggiornati ogni settimana.
 
@@ -93,7 +93,7 @@ Il modello in uso si legge sotto il nome di ogni servizio ("Modello: …").
 
 ## Da dove vengono i dati
 
-Tutto viene da progetti aperti e liberi: le guide da [Wikivoyage](https://it.wikivoyage.org) (in italiano e, per l'app in inglese, in [inglese](https://en.wikivoyage.org)) e [Wikipedia](https://it.wikipedia.org), le mappe e i punti di interesse da [OpenStreetMap](https://www.openstreetmap.org) (le mappe nel formato di [Protomaps](https://protomaps.com)), i numeri civici da OpenStreetMap e dai registri ufficiali degli indirizzi raccolti da [Overture Maps](https://overturemaps.org), i percorsi da [BRouter](https://brouter.de). L'app non ha un server suo e non raccoglie dati su di te: la chiave dell'assistente IA online, se la usi, resta solo sul telefono.
+Tutto viene da progetti aperti e liberi: le guide da [Wikivoyage](https://it.wikivoyage.org) (in italiano e, per l'app in inglese, in [inglese](https://en.wikivoyage.org)) e [Wikipedia](https://it.wikipedia.org), le mappe e i punti di interesse da [OpenStreetMap](https://www.openstreetmap.org) (le mappe nel formato di [Protomaps](https://protomaps.com)), i numeri civici da OpenStreetMap e dai registri ufficiali degli indirizzi raccolti da [Overture Maps](https://overturemaps.org), i percorsi da [BRouter](https://brouter.de). L'app non ha un server suo e non raccoglie dati su di te: la posizione, chiesta solo per la navigazione, resta sul telefono; la chiave dell'assistente IA online, se la usi, resta solo sul telefono.
 
 ## Per chi sviluppa
 

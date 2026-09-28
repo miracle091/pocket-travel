@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -96,6 +97,8 @@ fun MapScreen(
     onHiddenCategoriesChange: (Set<PoiCategory>) -> Unit = {},
     // Modalita' "Con disabilità": via i POI che OSM segna come non accessibili in sedia a rotelle.
     hideInaccessible: Boolean = false,
+    // Apre la navigazione verso il punto scelto; null = niente pulsante "Indicazioni".
+    onNavigate: ((MapPin) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     MapLibreInitializer.ensureInitialized(context)
@@ -287,6 +290,19 @@ fun MapScreen(
                 }
                 pin.address?.let { PoiDetailRow(AppIcons.Place, it) }
                 pin.openingHours?.let { OpeningHoursDetail(it) }
+                onNavigate?.let { navigate ->
+                    Spacer(modifier = Modifier.padding(top = Spacing.l))
+                    Button(
+                        onClick = {
+                            selectedPinId = null
+                            navigate(pin)
+                        },
+                    ) {
+                        Icon(AppIcons.Route, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(Spacing.s))
+                        Text(stringResource(R.string.poi_directions))
+                    }
+                }
                 pin.phone?.let { phone ->
                     Spacer(modifier = Modifier.padding(top = Spacing.l))
                     FilledTonalButton(

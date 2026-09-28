@@ -27,6 +27,13 @@ I test sul dispositivo (migrazioni del database, installazione dei pacchetti) gi
 ./gradlew :core:data:connectedDebugAndroidTest :core:sync:connectedDebugAndroidTest
 ```
 
+Alcuni test dei percorsi usano segmenti BRouter veri, troppo grandi per il repository: senza, vengono saltati. Per farli girare scarica da [brouter.de](https://brouter.de/brouter/segments4/) i file e indica le cartelle con due variabili d'ambiente:
+
+- `RD5_CLIP_TEST_DIR`: una cartella con `orig/E10_N40.rd5` (il file di brouter.de) e `clipped/E10_N40.rd5` (lo stesso ritagliato su San Marino con `tools/data-pipeline/scripts/clip_rd5.py --bbox=12.40,43.89,12.52,43.99 --margin 0.1`);
+- `RD5_UK_TEST_DIR`: una cartella con `W5_N50.rd5` (rotonde con guida a sinistra, Milton Keynes).
+
+Tempo e memoria del calcolo sul telefono li misura `RouteEngineBenchmarkDeviceTest` (commento in testa al file per come copiare i segmenti sul dispositivo).
+
 ## Provare con dati tuoi
 
 Nelle build di debug l'app può leggere un catalogo locale invece di quello pubblicato:
@@ -56,6 +63,7 @@ adb shell cmd locale set-app-locales com.pockettravel.app --locales en   # o it
 | i numeri civici (celle da ~10 MB) | `tools/data-pipeline/scripts/build-address-cell.sh` e il seme `tools/data-pipeline/address-grid-seed.tsv` |
 | le fonti Overture dei civici | `tools/data-pipeline/overture-address-sources.tsv` (una fonte nuova resta fuori finché non la si rivede) |
 | i modelli dell'assistente | `feature/ai/.../LlmModelCatalog.kt` (ogni modello addestrato ha la sua lingua) e gli script `train_*.py` / `eval_*.py` |
+| percorsi e navigazione | `feature/map/.../BRouterRouteEngine.kt`, `NavigationScreen.kt`, `NavigationTracker.kt`; le aggiunte a BRouter sono segnate "Pocket Travel" in `third-party/brouter-core` |
 | i testi dell'app | `res/values/strings.xml` (italiano) e `res/values-en/strings.xml` (inglese) di ogni modulo |
 | le guide e le città in inglese | `build-guides.sh … en`, `build-cities.sh … en`, `extract-cities-dump-en.py`; nell'app `core/sync/.../GuidesChoice.kt` |
 

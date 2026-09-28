@@ -38,6 +38,11 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
         note = "Vettoriali esportati dalle bandiere di Wikipedia (Timeline of national flags).",
     ),
     LicenseEntry(
+        component = "Icone Material Symbols (Google, google/material-design-icons, core:ui/src/main/res/drawable/ms_*)",
+        license = "Apache-2.0",
+        note = "Icone dell'interfaccia, delle categorie dei punti di interesse e delle frecce di navigazione.",
+    ),
+    LicenseEntry(
         component = "Klokantech Noto Sans (glifi etichette mappa, feature:map/src/main/assets/fonts)",
         license = "SIL OFL 1.1",
         note = "Font Noto Sans (Google) ripacchettato in SDF da openmaptiles/fonts; solo il range 0-255 (ASCII + Latin-1) e' incluso nell'app.",

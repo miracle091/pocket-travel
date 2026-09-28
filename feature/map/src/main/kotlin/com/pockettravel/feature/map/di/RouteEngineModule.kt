@@ -6,6 +6,8 @@ import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.RegionsDir
 import com.pockettravel.core.data.WorldMapStore
 import com.pockettravel.feature.map.AndroidConnectivityChecker
+import com.pockettravel.feature.map.AndroidGpsLocationSource
+import com.pockettravel.feature.map.GpsLocationSource
 import com.pockettravel.feature.map.BRouterRouteEngine
 import com.pockettravel.feature.map.ConnectivityChecker
 import com.pockettravel.feature.map.ConnectivityObserver
@@ -30,6 +32,10 @@ object RouteEngineModule {
     private const val ROUTING_DIR_NAME = "routing"
     private const val PROFILE_ASSET_DIR = "brouter-profile"
 
+    // Tempo massimo di un calcolo: Milano-Roma in auto (575 km) ha richiesto 45-48 s sull'emulatore,
+    // un telefono e' piu' lento. Oltre, RouteResult.TimedOut ("destinazione troppo lontana").
+    private const val ROUTE_TIMEOUT_MILLIS = 180_000L
+
     @Provides
     fun provideRouteEngineFactory(
         @RegionsDir regionsDir: File,
@@ -45,6 +51,7 @@ object RouteEngineModule {
                 profileDir = profileDir,
                 // Il profilo della modalita' d'uso scelta, letto a ogni motore creato.
                 profileName = usageModePreferences.mode.value?.routingProfile ?: UsageMode.DEFAULT_ROUTING_PROFILE,
+                maxRunningTimeMillis = ROUTE_TIMEOUT_MILLIS,
             )
         }
     }
@@ -55,6 +62,9 @@ object RouteEngineModule {
         worldMapStore: WorldMapStore,
         connectivityChecker: ConnectivityChecker,
     ): OfflineTileSource = PmtilesTileSource(regionStorage, worldMapStore, connectivityChecker)
+
+    @Provides
+    fun provideGpsLocationSource(source: AndroidGpsLocationSource): GpsLocationSource = source
 
     @Provides
     fun provideConnectivityManager(@ApplicationContext context: Context): ConnectivityManager =

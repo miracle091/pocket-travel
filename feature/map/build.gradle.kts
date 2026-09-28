@@ -40,6 +40,8 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    // Richiesta del permesso di posizione dalla schermata di navigazione.
+    implementation(libs.androidx.activity.compose)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
