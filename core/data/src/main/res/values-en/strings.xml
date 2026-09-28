@@ -1,0 +1,12 @@
+<resources>
+    <string name="source_desc_advice_documents">Safety, documents and entry requirements by country</string>
+    <string name="source_desc_register">Register your trip so you can be reached in an emergency</string>
+    <string name="source_desc_passport">How to apply for or renew a passport</string>
+    <string name="source_desc_air_passengers">Flight delays, cancellations and baggage</string>
+    <string name="source_desc_customs">What you can bring in your luggage and duty-free allowances</string>
+    <string name="source_desc_eu_travel">Documents, rights and rules for travelling in the EU</string>
+    <string name="source_desc_eu_health">European Health Insurance Card and healthcare on short stays</string>
+    <string name="source_desc_who">Health and vaccinations for travellers</string>
+    <string name="source_desc_cdc">Health risks and recommended vaccines by destination</string>
+    <string name="source_desc_advice">Safety and entry requirements by country</string>
+</resources>

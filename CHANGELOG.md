@@ -5,6 +5,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 ## [Non rilasciato]
 
 ### Aggiunto
+- App in inglese: tutta l'interfaccia è tradotta. La lingua si sceglie al primo avvio e in Altro → Lingua (da Android 13 anche dalle impostazioni del telefono); di default è l'italiano se il telefono è in italiano, l'inglese altrimenti. I nomi di nazioni e continenti nell'elenco delle regioni seguono la lingua scelta. Guide, fatti rapidi e assistente IA per ora restano in italiano.
 - Bar, ristoranti e simili sulla mappa: la scheda mostra indirizzo e orari, in una tabella per giorni con quello di oggi in evidenza, quando OpenStreetMap li indica. Arrivano con il prossimo aggiornamento dei punti di interesse di ogni regione.
 - Farmacie, ospedali, negozi e supermercati: nella scheda indirizzo e orari quando OpenStreetMap li indica e, se il posto non ha un nome, quello del marchio (per esempio "Conad") invece del solo tipo. Arrivano con il prossimo aggiornamento dei punti di interesse.
 - Nazionalità: nel primo avvio (e in Altro) si sceglie il proprio paese, proposto in base al telefono. Nella guida di ogni regione, insieme ai numeri di emergenza, compaiono ambasciate e consolati di quel paese con telefono da chiamare e indirizzo, quando OpenStreetMap li indica. Arrivano con il prossimo aggiornamento dei punti di interesse.

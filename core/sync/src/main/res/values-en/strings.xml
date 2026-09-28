@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_update_required_for_download">Update the app to download this data: it\'s in a newer format.</string>
+</resources>

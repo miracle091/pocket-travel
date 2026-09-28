@@ -7,9 +7,14 @@ package com.pockettravel.feature.map
 /** Una riga della tabella: giorni consecutivi con lo stesso orario ("lun–ven", "08:00–20:00"). */
 internal data class OpeningHoursRow(val days: String, val hours: String, val includesToday: Boolean)
 
+/** Testi nella lingua dell'interfaccia (vedi openingHoursLabels in MapScreen.kt); [ITALIAN] per i test. */
+internal data class OpeningHoursLabels(val days: List<String>, val closed: String, val alwaysOpen: String, val holidays: String) {
+    companion object {
+        val ITALIAN = OpeningHoursLabels(listOf("lun", "mar", "mer", "gio", "ven", "sab", "dom"), "chiuso", "sempre aperto", "festivi")
+    }
+}
+
 private val DAY_KEYS = listOf("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
-private val DAY_NAMES = listOf("lun", "mar", "mer", "gio", "ven", "sab", "dom")
-private const val CLOSED = "chiuso"
 private const val DAY = "(?:Mo|Tu|We|Th|Fr|Sa|Su|PH)"
 private val DAYS = Regex("""$DAY(?:-$DAY)?(?:,$DAY(?:-$DAY)?)*""")
 private val TIME = Regex("""(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})""")
@@ -20,16 +25,18 @@ private val RULE = Regex("""^(?:(${DAYS.pattern})\s+)?(${TIMES.pattern}|off|clos
  * Righe da lunedi' a domenica (giorni consecutivi con lo stesso orario insieme), piu' i festivi se
  * indicati; null se la stringa usa sintassi che qui non si interpreta. [today]: 0 = lunedi'.
  */
-internal fun parseOpeningHours(raw: String, today: Int): List<OpeningHoursRow>? {
+internal fun parseOpeningHours(raw: String, today: Int, labels: OpeningHoursLabels = OpeningHoursLabels.ITALIAN): List<OpeningHoursRow>? {
+    val closed = labels.closed
+    val names = labels.days
     val text = raw.trim()
     val week = arrayOfNulls<String>(7)
     var holidays: String? = null
     if (text == "24/7") {
-        return listOf(OpeningHoursRow("lun–dom", "sempre aperto", true))
+        return listOf(OpeningHoursRow("${names[0]}–${names[6]}", labels.alwaysOpen, true))
     }
     for (rule in text.split(';').map { it.trim() }.filter { it.isNotEmpty() }) {
         val match = RULE.matchEntire(rule) ?: return null
-        val hours = match.groupValues[2].let { if (it == "off" || it == "closed") CLOSED else formatTimes(it) }
+        val hours = match.groupValues[2].let { if (it == "off" || it == "closed") closed else formatTimes(it) }
         val days = match.groupValues[1]
         // Regola senza giorni: vale per tutta la settimana (le successive la correggono).
         val targets = if (days.isEmpty()) DAY_KEYS else expandDays(days)
@@ -38,17 +45,17 @@ internal fun parseOpeningHours(raw: String, today: Int): List<OpeningHoursRow>? 
         }
     }
     // In OSM i giorni non citati sono chiusi.
-    val filled = week.map { it ?: CLOSED }
+    val filled = week.map { it ?: closed }
     val rows = mutableListOf<OpeningHoursRow>()
     var start = 0
     for (i in 1..7) {
         if (i == 7 || filled[i] != filled[start]) {
-            val label = if (i - 1 == start) DAY_NAMES[start] else "${DAY_NAMES[start]}–${DAY_NAMES[i - 1]}"
+            val label = if (i - 1 == start) names[start] else "${names[start]}–${names[i - 1]}"
             rows += OpeningHoursRow(label, filled[start], today in start until i)
             start = i
         }
     }
-    holidays?.let { rows += OpeningHoursRow("festivi", it, false) }
+    holidays?.let { rows += OpeningHoursRow(labels.holidays, it, false) }
     return rows
 }
 
@@ -71,16 +78,13 @@ private fun formatTimes(times: String): String = TIME.findAll(times).joinToStrin
     "${h1.padStart(2, '0')}:$m1–${h2.padStart(2, '0')}:$m2"
 }
 
-private val WORDS = mapOf(
-    "Mo" to "lun", "Tu" to "mar", "We" to "mer", "Th" to "gio", "Fr" to "ven", "Sa" to "sab", "Su" to "dom",
-    "PH" to "festivi", "off" to "chiuso", "closed" to "chiuso",
-)
 private val WORD = Regex("""\b(Mo|Tu|We|Th|Fr|Sa|Su|PH|off|closed)\b""")
 
-/** Ripiego per le sintassi che parseOpeningHours non interpreta: giorni in italiano, una regola per riga. */
-internal fun formatOpeningHours(raw: String): String {
-    if (raw.trim() == "24/7") return "sempre aperto"
+/** Ripiego per le sintassi che parseOpeningHours non interpreta: giorni tradotti, una regola per riga. */
+internal fun formatOpeningHours(raw: String, labels: OpeningHoursLabels = OpeningHoursLabels.ITALIAN): String {
+    if (raw.trim() == "24/7") return labels.alwaysOpen
+    val words = DAY_KEYS.zip(labels.days).toMap() + mapOf("PH" to labels.holidays, "off" to labels.closed, "closed" to labels.closed)
     return raw.split(';').map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n") { rule ->
-        WORD.replace(rule) { WORDS.getValue(it.value) }.replace(Regex(""",\s*"""), ", ")
+        WORD.replace(rule) { words.getValue(it.value) }.replace(Regex(""",\s*"""), ", ")
     }
 }

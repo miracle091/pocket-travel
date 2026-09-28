@@ -15,8 +15,10 @@ import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.ReplacedRegion
 import com.pockettravel.core.sync.attachAddressGridCells
+import com.pockettravel.core.ui.countryName
 import com.pockettravel.feature.ai.LlmModelUpdateCheckScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -100,9 +102,15 @@ class RegionListViewModel @Inject constructor(
     private val replacedRegions = MutableStateFlow<List<ReplacedRegion>>(emptyList())
     private val status = MutableStateFlow(LoadStatus())
     private val query = MutableStateFlow("")
+    private val locale = MutableStateFlow(Locale.getDefault())
+
+    /** Lingua dell'interfaccia, per i nomi dei paesi (vedi [localizedNames]); la passa la schermata. */
+    fun setLocale(newLocale: Locale) {
+        locale.value = newLocale
+    }
 
     val uiState = combine(
-        manifestRegions,
+        combine(manifestRegions, locale) { regions, currentLocale -> regions.map { it.localizedNames(currentLocale) } },
         regionRepository.observeInstalled(),
         status,
         query,
@@ -269,6 +277,21 @@ internal fun regionUiItem(
         remote.regionId, remote.displayName, sizeBytes, status, remote.continent, remote.countryCode, packages, unavailable,
         remote.groupName, remote.groupLabel,
     )
+}
+
+/**
+ * Il catalogo ha i nomi in italiano: nazioni intere e paesi divisi in piu' regioni prendono il nome
+ * dal codice paese nella lingua dell'interfaccia ("be" -> "Belgio"/"Belgium"). Le singole regioni di un
+ * paese diviso restano come nel catalogo (groupLabel), col nome del paese davanti.
+ */
+internal fun RegionManifestEntry.localizedNames(locale: Locale): RegionManifestEntry {
+    val code = countryCode ?: return this
+    val country = countryName(code, locale).takeIf { !it.equals(code, ignoreCase = true) } ?: return this
+    return if (groupName == null) {
+        copy(displayName = country)
+    } else {
+        copy(displayName = groupLabel?.let { "$country - $it" } ?: displayName, groupName = country)
+    }
 }
 
 // Ricerca senza distinzione di maiuscole e accenti ("cina" trova "Cina", "sao" trova "São Tomé").

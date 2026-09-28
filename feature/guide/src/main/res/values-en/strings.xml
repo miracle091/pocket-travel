@@ -1,0 +1,56 @@
+<resources>
+    <string name="guide_load_error">Couldn\'t load the guide for this region.</string>
+    <string name="guide_empty_title">No guide content available</string>
+    <string name="guide_empty_subtitle">There are no guide sections published for this region yet.</string>
+    <string name="guide_filter_all">All</string>
+    <string name="guide_source">Source: Wikivoyage</string>
+    <string name="guide_source_title">Wikivoyage</string>
+    <string name="emergency_title">Emergency numbers</string>
+    <string name="emergency_general">General</string>
+    <string name="emergency_single">Emergency</string>
+    <string name="emergency_police">Police</string>
+    <string name="emergency_ambulance">Ambulance</string>
+    <string name="emergency_fire">Fire department</string>
+    <string name="emergency_call">Call %1$s, %2$s</string>
+    <string name="emergency_no_central_number">This country has no national emergency number. Before you leave, note down the local police and healthcare contacts for the area.</string>
+    <string name="category_customs_usages">Customs &amp; etiquette</string>
+    <string name="category_customs">Customs</string>
+    <string name="category_health">Health</string>
+    <string name="category_safety">Safety</string>
+    <string name="category_transport">Transport</string>
+    <string name="category_phrases">Useful phrases</string>
+    <string name="category_lodging">Lodging</string>
+    <string name="category_food">Food &amp; drink</string>
+    <string name="category_shopping">Shopping</string>
+    <string name="category_connectivity">Connectivity</string>
+    <string name="category_daily_life">Daily life</string>
+    <string name="category_good_to_know">Good to know</string>
+    <string name="category_see_do">See &amp; do</string>
+    <string name="category_quick_facts">Quick facts</string>
+    <string name="guide_cities_title">Cities</string>
+    <string name="guide_cities_subtitle">Guides for cities in this region</string>
+    <string name="guide_city_empty_title">No guide content available for this city</string>
+    <string name="guide_city_load_error">Couldn\'t load the guide for this city.</string>
+    <plurals name="quick_facts_train">
+        <item quantity="one">train (%d station)</item>
+        <item quantity="other">train (%d stations)</item>
+    </plurals>
+    <plurals name="quick_facts_metro">
+        <item quantity="one">metro (%d station)</item>
+        <item quantity="other">metro (%d stations)</item>
+    </plurals>
+    <plurals name="quick_facts_bus">
+        <item quantity="one">bus (%d station)</item>
+        <item quantity="other">bus (%d stations)</item>
+    </plurals>
+    <plurals name="quick_facts_ferry">
+        <item quantity="one">ferry (%d port)</item>
+        <item quantity="other">ferry (%d ports)</item>
+    </plurals>
+    <plurals name="quick_facts_airport">
+        <item quantity="one">plane (%d airport)</item>
+        <item quantity="other">plane (%d airports)</item>
+    </plurals>
+    <string name="emergency_embassies_title">Embassies &amp; consulates of your country (%1$s)</string>
+    <string name="emergency_embassies_none">This region\'s data doesn\'t include any embassies or consulates of your country: check your foreign ministry\'s website.</string>
+</resources>

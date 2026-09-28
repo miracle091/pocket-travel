@@ -43,6 +43,14 @@ android {
         compose = true
     }
 
+    // La lingua si sceglie dentro l'app (AppLanguage): un bundle diviso per lingua non avrebbe le
+    // stringhe delle lingue diverse da quella del telefono.
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
+
     // feature:ai compila llama.cpp con GGML_BACKEND_DL=ON: i backend CPU (libggml-cpu-*.so) sono
     // caricati con dlopen da applicationInfo.nativeLibraryDir, che resta vuota se le .so non vengono
     // estratte dall'APK (default AGP, extractNativeLibs=false) — "no backends are loaded" al load().

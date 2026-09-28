@@ -23,9 +23,9 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.pockettravel.app.R
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.countryName
 import com.pockettravel.feature.map.CountryStatus
 import com.pockettravel.feature.map.WorldMap
-import java.util.Locale
 
 /**
  * Mappa del mondo con i paesi del catalogo: tocco su un paese con una sola regione -> quella
@@ -59,7 +59,7 @@ internal fun RegionWorldMap(
 
     selectedIso?.let { iso ->
         val regions = regionsByCountry[iso].orEmpty()
-        val countryName = runCatching { Locale.Builder().setRegion(iso).build().getDisplayCountry(Locale.ITALIAN) }.getOrDefault(iso)
+        val countryName = countryName(iso)
         // Aperto per intero e scorrevole: gli Stati Uniti hanno 51 regioni.
         ModalBottomSheet(onDismissRequest = { selectedIso = null }, sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))) {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = Spacing.xxl)) {

@@ -105,7 +105,7 @@ private fun SourcesCard(sources: List<OfficialSource>, onOpenSource: (url: Strin
 @Composable
 private fun OfficialSourceRow(source: OfficialSource, onClick: () -> Unit) {
     ListItem(
-        supportingContent = { Text(source.description) },
+        supportingContent = { Text(stringResource(source.description)) },
         leadingContent = { Icon(AppIcons.OfficialAuthority, contentDescription = null) },
         trailingContent = { Icon(AppIcons.OpenExternal, contentDescription = null) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),

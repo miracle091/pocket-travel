@@ -25,6 +25,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -33,26 +34,33 @@ import java.text.Collator
 import java.text.Normalizer
 import java.util.Locale
 
-/** Nome in italiano del paese ISO 3166-1 alpha-2 ("IT" -> "Italia"); il codice se sconosciuto. */
-fun countryName(countryCode: String): String =
-    runCatching { Locale.Builder().setRegion(countryCode).build().getDisplayCountry(Locale.ITALIAN) }
+/** Come sopra, nella lingua dell'interfaccia. */
+@Composable
+fun countryName(countryCode: String): String = countryName(countryCode, LocalLocale.current.platformLocale)
+
+/** Nome del paese ISO 3166-1 alpha-2 in [locale] ("IT" -> "Italia"/"Italy"); il codice se sconosciuto. */
+fun countryName(countryCode: String, locale: Locale): String =
+    runCatching { Locale.Builder().setRegion(countryCode).build().getDisplayCountry(locale) }
         .getOrNull()?.takeIf { it.isNotBlank() && it != countryCode } ?: countryCode
 
-// Tutti i paesi ISO col nome in italiano, in ordine alfabetico italiano.
-private val countries: List<Pair<String, String>> by lazy {
-    val collator = Collator.getInstance(Locale.ITALIAN)
-    Locale.getISOCountries().map { it to countryName(it) }.sortedWith { a, b -> collator.compare(a.second, b.second) }
+// Tutti i paesi ISO col nome e in ordine alfabetico nella lingua dell'interfaccia (per lingua: si puo' cambiarla
+// senza riavviare l'app).
+private fun countries(locale: Locale): List<Pair<String, String>> {
+    val collator = Collator.getInstance(locale)
+    return Locale.getISOCountries().map { it to countryName(it, locale) }.sortedWith { a, b -> collator.compare(a.second, b.second) }
 }
 
 // Per cercare "cote" e trovare "Côte d'Ivoire".
-private fun String.folded(): String = Normalizer.normalize(this, Normalizer.Form.NFD).replace(Regex("\\p{M}"), "").lowercase(Locale.ITALIAN)
+private fun String.folded(): String = Normalizer.normalize(this, Normalizer.Form.NFD).replace(Regex("\\p{M}"), "").lowercase(Locale.ROOT)
 
 /** Foglio per scegliere un paese: ricerca per nome, bandiera, quello scelto con la spunta. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CountryPickerSheet(title: String, selected: String?, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
-    val filtered = remember(query) { countries.filter { (_, name) -> name.folded().contains(query.trim().folded()) } }
+    val locale = LocalLocale.current.platformLocale
+    val all = remember(locale) { countries(locale) }
+    val filtered = remember(all, query) { all.filter { (_, name) -> name.folded().contains(query.trim().folded()) } }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)),

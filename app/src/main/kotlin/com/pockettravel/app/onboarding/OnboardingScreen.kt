@@ -67,6 +67,7 @@ import com.pockettravel.app.R
 import com.pockettravel.app.regions.RegionListViewModel
 import com.pockettravel.app.regions.RegionRow
 import com.pockettravel.app.regions.RegionRowActions
+import com.pockettravel.app.settings.LanguageOptions
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.CountryFlag
 import com.pockettravel.core.ui.countryName
@@ -83,6 +84,7 @@ private enum class InfoIcon { COMPASS, AI, VAULT, OFFICIAL }
 
 private sealed interface OnboardingStep {
     data class Info(@StringRes val title: Int, @StringRes val body: Int, val icon: InfoIcon) : OnboardingStep
+    data object LanguageChoice : OnboardingStep
     data object UsageModeChoice : OnboardingStep
     data object NationalityChoice : OnboardingStep
     data object GuidesDownload : OnboardingStep
@@ -103,6 +105,8 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
     val isOnDeviceAiSupported = viewModel.isOnDeviceAiSupported
     val steps = remember(isOnDeviceAiSupported) {
         buildList {
+            // Per primo: tutto il resto del wizard e' gia' nella lingua scelta.
+            add(OnboardingStep.LanguageChoice)
             add(OnboardingStep.Info(R.string.onboarding_welcome_title, R.string.onboarding_welcome_body, InfoIcon.COMPASS))
             add(OnboardingStep.UsageModeChoice)
             add(OnboardingStep.NationalityChoice)
@@ -162,6 +166,7 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
             ) { index ->
                 when (val currentStep = steps[index]) {
                     is OnboardingStep.Info -> InfoStepContent(currentStep)
+                    OnboardingStep.LanguageChoice -> LanguageStepContent()
                     OnboardingStep.UsageModeChoice -> UsageModeStepContent(viewModel)
                     OnboardingStep.NationalityChoice -> NationalityStepContent(viewModel)
                     OnboardingStep.GuidesDownload -> GuidesDownloadStepContent()
@@ -289,6 +294,19 @@ private fun UsageModeStepContent(viewModel: OnboardingViewModel) {
     }
 }
 
+// Lingua dell'interfaccia (AppLanguage): scegliendo, l'activity si ricrea e il wizard resta a questo passo.
+@Composable
+private fun LanguageStepContent() {
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        StepHeader(
+            icon = AppIcons.Web,
+            title = stringResource(R.string.onboarding_language_title),
+            body = stringResource(R.string.onboarding_language_body),
+        )
+        LanguageOptions()
+    }
+}
+
 // Proposta: il paese del telefono (NationalityPreferences), da confermare o cambiare. Serve alla guida
 // per mostrare ambasciate e consolati del proprio paese.
 @Composable
@@ -306,7 +324,7 @@ private fun NationalityStepContent(viewModel: OnboardingViewModel) {
             trailingContent = {
                 TextButton(onClick = { showPicker = true }) { Text(stringResource(R.string.onboarding_nationality_change)) }
             },
-            content = { Text(nationality?.let(::countryName) ?: stringResource(R.string.more_nationality_none)) },
+            content = { Text(nationality?.let { countryName(it) } ?: stringResource(R.string.more_nationality_none)) },
         )
     }
     if (showPicker) {

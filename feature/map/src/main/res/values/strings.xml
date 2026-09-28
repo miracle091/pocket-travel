@@ -172,4 +172,17 @@
     <string name="world_legend_downloaded">Scaricata</string>
     <string name="world_legend_available">Disponibile</string>
     <string name="world_legend_unavailable">Non ancora disponibile</string>
+    <!-- Orari nella scheda dei POI: giorni da lunedi' a domenica, abbreviati. -->
+    <string-array name="opening_hours_days">
+        <item>lun</item>
+        <item>mar</item>
+        <item>mer</item>
+        <item>gio</item>
+        <item>ven</item>
+        <item>sab</item>
+        <item>dom</item>
+    </string-array>
+    <string name="opening_hours_closed">chiuso</string>
+    <string name="opening_hours_always_open">sempre aperto</string>
+    <string name="opening_hours_holidays">festivi</string>
 </resources>

@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.heading
@@ -340,9 +341,10 @@ private fun PoiDetailIcon(icon: ImageVector, size: Dp = 16.dp) {
 // una sintassi che parseOpeningHours non interpreta, il testo com'e' (formatOpeningHours).
 @Composable
 private fun OpeningHoursDetail(raw: String) {
-    val rows = remember(raw) { parseOpeningHours(raw, LocalDate.now().dayOfWeek.value - 1) }
+    val labels = openingHoursLabels()
+    val rows = remember(raw, labels) { parseOpeningHours(raw, LocalDate.now().dayOfWeek.value - 1, labels) }
     if (rows == null) {
-        PoiDetailRow(AppIcons.Schedule, formatOpeningHours(raw), iconSize = 14.dp)
+        PoiDetailRow(AppIcons.Schedule, formatOpeningHours(raw, labels), iconSize = 14.dp)
         return
     }
     Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = Spacing.l)) {
@@ -358,6 +360,14 @@ private fun OpeningHoursDetail(raw: String) {
         }
     }
 }
+
+@Composable
+private fun openingHoursLabels() = OpeningHoursLabels(
+    days = stringArrayResource(R.array.opening_hours_days).toList(),
+    closed = stringResource(R.string.opening_hours_closed),
+    alwaysOpen = stringResource(R.string.opening_hours_always_open),
+    holidays = stringResource(R.string.opening_hours_holidays),
+)
 
 // Cerchio nel colore della categoria con il glifo bianco: stesso aspetto della testa del
 // segnalino, usato nel foglio dei filtri e nella scheda del POI.

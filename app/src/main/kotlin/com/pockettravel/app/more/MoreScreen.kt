@@ -23,10 +23,12 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.Role
@@ -35,6 +37,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
+import com.pockettravel.app.settings.AppLanguage
+import com.pockettravel.app.settings.LanguageOptions
+import com.pockettravel.app.settings.label
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.countryName
 import com.pockettravel.core.ui.CountryPickerSheet
@@ -61,6 +66,9 @@ fun MoreScreen(
     var showAppearance by rememberSaveable { mutableStateOf(false) }
     val nationality by viewModel.nationality.collectAsStateWithLifecycle()
     var showNationality by rememberSaveable { mutableStateOf(false) }
+    var showLanguage by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    val language = remember { AppLanguage.current(context) }
     // Dentro NavigationSuiteScaffold: gli inset di sistema li gestiscono la barra/rail e la top app bar,
     // applicarli anche qui lascerebbe una fascia vuota sopra la barra di navigazione.
     Scaffold(
@@ -73,10 +81,11 @@ fun MoreScreen(
                 stringResource(R.string.more_usage_mode),
                 usageModeSummary(usageMode, accessible),
             ) { showUsageModes = true }
+            MoreItem(AppIcons.Web, stringResource(R.string.more_language), language.label()) { showLanguage = true }
             MoreItem(
                 AppIcons.Passport,
                 stringResource(R.string.more_nationality),
-                nationality?.let(::countryName) ?: stringResource(R.string.more_nationality_none),
+                nationality?.let { countryName(it) } ?: stringResource(R.string.more_nationality_none),
             ) { showNationality = true }
             MoreItem(AppIcons.OfficialAuthority, stringResource(R.string.more_sources), stringResource(R.string.more_sources_subtitle), onOpenSources)
             MoreItem(AppIcons.Storage, stringResource(R.string.more_storage), stringResource(R.string.more_storage_subtitle), onOpenStorage)
@@ -109,6 +118,19 @@ fun MoreScreen(
                     onAccessibleChange = viewModel::setAccessible,
                     modifier = Modifier.padding(horizontal = Spacing.s),
                 )
+            }
+        }
+    }
+
+    if (showLanguage) {
+        ModalBottomSheet(onDismissRequest = { showLanguage = false }) {
+            Column(modifier = Modifier.navigationBarsPadding().padding(bottom = Spacing.l)) {
+                Text(
+                    text = stringResource(R.string.more_language),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(horizontal = Spacing.xl).semantics { heading() },
+                )
+                LanguageOptions(onChosen = { showLanguage = false })
             }
         }
     }

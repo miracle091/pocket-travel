@@ -1,0 +1,7 @@
+<resources>
+    <string name="back">Back</string>
+    <string name="confirm_delete">Delete</string>
+    <string name="confirm_cancel">Cancel</string>
+    <string name="country_search_hint">Search for a country</string>
+    <string name="country_selected">Selected</string>
+</resources>

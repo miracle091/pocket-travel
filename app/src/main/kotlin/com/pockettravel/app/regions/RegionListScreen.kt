@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -101,6 +102,8 @@ fun RegionListScreen(
     viewModel: RegionListViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val locale = LocalLocale.current.platformLocale
+    LaunchedEffect(locale) { viewModel.setLocale(locale) }
     RegionListContent(
         showMapToggle = showMapToggle,
         uiState = uiState,
@@ -323,7 +326,7 @@ private fun RegionGroupedList(
                 ContinentHeader(
                     title = when (group) {
                         RegionGroup.Downloaded -> downloadedLabel
-                        is RegionGroup.Continent -> group.name ?: otherLabel
+                        is RegionGroup.Continent -> group.name?.let { continentLabel(it) } ?: otherLabel
                     },
                     count = entries.size + if (group == RegionGroup.Downloaded) replaced.size else 0,
                     expanded = expanded,
@@ -670,6 +673,19 @@ internal sealed interface RegionGroup {
     }
 }
 
+// Il catalogo usa i nomi italiani dei continenti come identificativi (anche nei tag delle release, vedi
+// assemble-site.sh): qui il nome nella lingua dell'interfaccia, quello del catalogo se sconosciuto.
+@Composable
+private fun continentLabel(name: String): String = when (name) {
+    "Europa" -> stringResource(R.string.continent_europe)
+    "Asia" -> stringResource(R.string.continent_asia)
+    "Africa" -> stringResource(R.string.continent_africa)
+    "Nord America" -> stringResource(R.string.continent_north_america)
+    "Sud America" -> stringResource(R.string.continent_south_america)
+    "Oceania" -> stringResource(R.string.continent_oceania)
+    else -> name
+}
+
 // Voce di un continente: una regione, oppure un paese diviso in piu' regioni (stesso groupName).
 internal sealed interface RegionListEntry {
     data class Single(val item: RegionUiItem) : RegionListEntry
@@ -679,7 +695,7 @@ internal sealed interface RegionListEntry {
 
 /** Raccoglie in una voce paese le regioni con lo stesso groupName (se sono piu' d'una), nell'ordine per nome. */
 internal fun countryEntries(regions: List<RegionUiItem>): List<RegionListEntry> {
-    val collator = Collator.getInstance(Locale.ITALIAN).apply { strength = Collator.PRIMARY }
+    val collator = Collator.getInstance(Locale.getDefault()).apply { strength = Collator.PRIMARY }
     val byGroup = regions.filter { it.groupName != null }.groupBy { it.groupName!! }.filterValues { it.size > 1 }
     val entries = regions.filter { it.groupName !in byGroup }.map<RegionUiItem, RegionListEntry> { RegionListEntry.Single(it) } +
         byGroup.map { (name, items) ->
@@ -723,7 +739,7 @@ internal fun visibleRows(entries: List<RegionListEntry>, isExpanded: (String) ->
 }
 
 internal fun groupRegions(items: List<RegionUiItem>): List<Pair<RegionGroup, List<RegionUiItem>>> {
-    val collator = Collator.getInstance(Locale.ITALIAN).apply { strength = Collator.PRIMARY }
+    val collator = Collator.getInstance(Locale.getDefault()).apply { strength = Collator.PRIMARY }
     val byName = compareBy(collator) { item: RegionUiItem -> item.displayName }
     val (downloaded, others) = items.partition { it.status != RegionStatus.NOT_INSTALLED }
     val downloadedGroup = downloaded

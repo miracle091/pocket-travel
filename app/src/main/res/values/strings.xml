@@ -55,6 +55,12 @@
     <string name="regions_large_download_message">%1$s pesa %2$s e sei su rete mobile. Continuare?</string>
     <string name="regions_large_download_confirm">Scarica</string>
     <string name="continent_other">Altro</string>
+    <string name="continent_europe">Europa</string>
+    <string name="continent_asia">Asia</string>
+    <string name="continent_africa">Africa</string>
+    <string name="continent_north_america">Nord America</string>
+    <string name="continent_south_america">Sud America</string>
+    <string name="continent_oceania">Oceania</string>
     <string name="regions_downloaded">Nazioni scaricate</string>
     <string name="regions_show_map">Mostra la mappa del mondo</string>
     <string name="regions_show_list">Mostra l\'elenco</string>
@@ -77,6 +83,9 @@
     <string name="more_tutorial">Rivedi tutorial</string>
     <string name="more_usage_mode">Come ti sposti</string>
     <string name="more_nationality">Nazionalità</string>
+    <string name="more_language">Lingua</string>
+    <string name="onboarding_language_title">Lingua · Language</string>
+    <string name="onboarding_language_body">La lingua dell\'app: puoi cambiarla quando vuoi da Altro. Guide e assistente IA restano in italiano.</string>
     <string name="more_nationality_none">Non scelta</string>
     <string name="more_usage_mode_none">Non scelto: la mappa mostra tutte le categorie</string>
     <string name="more_usage_mode_with_accessible">%1$s, con disabilità</string>

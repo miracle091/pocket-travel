@@ -1,9 +1,11 @@
 package com.pockettravel.app
 
 import android.app.Application
+import android.content.Context
 import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.pockettravel.app.settings.AppLanguage
 import com.pockettravel.core.sync.AppUpdateCheckScheduler
 import com.pockettravel.core.sync.RegionStartupRecovery
 import com.pockettravel.core.sync.RegionSyncScheduler
@@ -24,6 +26,11 @@ class PocketTravelApp : Application(), Configuration.Provider {
     @Inject lateinit var llmModelUpdateCheckScheduler: LlmModelUpdateCheckScheduler
     @Inject lateinit var llmModelManager: LlmModelManager
     @Inject lateinit var regionStartupRecovery: RegionStartupRecovery
+
+    // Come in MainActivity: testi delle notifiche nella lingua scelta anche fino ad Android 12.
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(AppLanguage.wrap(base))
+    }
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().setWorkerFactory(workerFactory).build()

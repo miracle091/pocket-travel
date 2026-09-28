@@ -1,5 +1,6 @@
 package com.pockettravel.app
 
+import android.content.Context
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.SystemBarStyle
@@ -15,6 +16,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.navigation.PocketTravelNavHost
+import com.pockettravel.app.settings.AppLanguage
 import com.pockettravel.app.settings.ThemePreferences
 import com.pockettravel.core.ui.PocketTravelTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -26,8 +28,14 @@ import javax.inject.Inject
 class MainActivity : FragmentActivity() {
     @Inject lateinit var themePreferences: ThemePreferences
 
+    // Fino ad Android 12 la lingua scelta nell'app si applica qui (da 13 ci pensa il sistema).
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
+        AppLanguage.applyDefault(this)
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {

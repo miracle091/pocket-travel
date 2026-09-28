@@ -1,0 +1,13 @@
+<resources>
+    <!-- Descrizioni delle fonti ufficiali (OfficialSource.kt). -->
+    <string name="source_desc_advice_documents">Sicurezza, documenti e ingresso paese per paese</string>
+    <string name="source_desc_register">Segnala il viaggio per essere rintracciato in un\'emergenza</string>
+    <string name="source_desc_passport">Come richiedere o rinnovare il passaporto</string>
+    <string name="source_desc_air_passengers">Ritardi, cancellazioni e bagagli nei voli</string>
+    <string name="source_desc_customs">Cosa si può portare in valigia e franchigie</string>
+    <string name="source_desc_eu_travel">Documenti, diritti e regole per viaggiare nell\'UE</string>
+    <string name="source_desc_eu_health">Tessera sanitaria europea e cure durante un soggiorno breve</string>
+    <string name="source_desc_who">Salute e vaccinazioni per chi viaggia</string>
+    <string name="source_desc_cdc">Rischi sanitari e vaccini consigliati per destinazione</string>
+    <string name="source_desc_advice">Sicurezza e ingresso paese per paese</string>
+</resources>
