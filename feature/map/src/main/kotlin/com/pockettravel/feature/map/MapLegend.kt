@@ -35,7 +35,7 @@ internal enum class LegendGroup(@StringRes val label: Int, val categories: List<
         R.string.map_legend_group_visit,
         listOf(
             PoiCategory.LUOGHI_DI_CULTO, PoiCategory.MUSEI_ARTE, PoiCategory.LUOGHI_STORICI, PoiCategory.NATURA, PoiCategory.PANORAMI,
-            PoiCategory.PARCHI_DIVERTIMENTO, PoiCategory.ATTRAZIONI, PoiCategory.SVAGO, PoiCategory.PARCO_GIOCHI, PoiCategory.TAVOLI_PICNIC, PoiCategory.RIPARI),
+            PoiCategory.PARCHI_DIVERTIMENTO, PoiCategory.ZOO, PoiCategory.PARCHI_ACQUATICI, PoiCategory.ATTRAZIONI, PoiCategory.SVAGO, PoiCategory.PARCO_GIOCHI, PoiCategory.TAVOLI_PICNIC, PoiCategory.RIPARI),
     ),
     SHOPS(R.string.map_legend_group_shops, listOf(PoiCategory.NEGOZI, PoiCategory.DISTRIBUTORI)),
     MONEY_POST(

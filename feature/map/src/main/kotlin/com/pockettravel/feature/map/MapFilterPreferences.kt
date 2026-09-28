@@ -28,6 +28,16 @@ class MapFilterPreferences @Inject constructor(@ApplicationContext context: Cont
                 putBoolean(KEY_SIGHTS_SPLIT, true)
             }
         }
+        // Zoo e parchi acquatici erano in "Parchi divertimento": stessa regola.
+        if (!getBoolean(KEY_AMUSEMENT_SPLIT, false)) {
+            val hidden = getStringSet(KEY_HIDDEN, emptySet()).orEmpty()
+            edit {
+                if (PoiCategory.PARCHI_DIVERTIMENTO.name in hidden) {
+                    putStringSet(KEY_HIDDEN, hidden + PoiCategory.ZOO.name + PoiCategory.PARCHI_ACQUATICI.name)
+                }
+                putBoolean(KEY_AMUSEMENT_SPLIT, true)
+            }
+        }
     }
     private val _hiddenCategories = MutableStateFlow<Set<PoiCategory>>(
         prefs.getStringSet(KEY_HIDDEN, emptySet()).orEmpty()
@@ -43,5 +53,6 @@ class MapFilterPreferences @Inject constructor(@ApplicationContext context: Cont
     private companion object {
         const val KEY_HIDDEN = "hidden_categories"
         const val KEY_SIGHTS_SPLIT = "sights_split"
+        const val KEY_AMUSEMENT_SPLIT = "amusement_split"
     }
 }

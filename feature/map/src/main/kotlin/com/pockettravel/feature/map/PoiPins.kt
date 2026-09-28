@@ -21,7 +21,8 @@ internal fun PoiCategory.pinColor(): Color = when (this) {
     PoiCategory.NEGOZI, PoiCategory.DISTRIBUTORI -> PoiColors.Shopping
     // Stesso colore per tutto "Da vedere": le distingue il glifo.
     PoiCategory.LUOGHI_DI_CULTO, PoiCategory.MUSEI_ARTE, PoiCategory.LUOGHI_STORICI, PoiCategory.NATURA, PoiCategory.PANORAMI,
-    PoiCategory.PARCHI_DIVERTIMENTO, PoiCategory.ATTRAZIONI, PoiCategory.PARCO_GIOCHI, PoiCategory.TAVOLI_PICNIC, PoiCategory.RIPARI ->
+    PoiCategory.PARCHI_DIVERTIMENTO, PoiCategory.ZOO, PoiCategory.PARCHI_ACQUATICI, PoiCategory.ATTRAZIONI, PoiCategory.PARCO_GIOCHI,
+    PoiCategory.TAVOLI_PICNIC, PoiCategory.RIPARI ->
         PoiColors.Attractions
     PoiCategory.SVAGO -> PoiColors.Entertainment
     PoiCategory.AMBASCIATA_CONSOLATO, PoiCategory.POLIZIA, PoiCategory.BAGNI_PUBBLICI, PoiCategory.ACQUA_POTABILE,
@@ -54,6 +55,8 @@ internal fun PoiCategory.glyph(): Int? = when (this) {
     PoiCategory.NATURA -> UiR.drawable.ms_park
     PoiCategory.PANORAMI -> UiR.drawable.ms_landscape
     PoiCategory.PARCHI_DIVERTIMENTO -> UiR.drawable.ms_attractions
+    PoiCategory.ZOO -> UiR.drawable.ms_cruelty_free
+    PoiCategory.PARCHI_ACQUATICI -> UiR.drawable.ms_pool
     PoiCategory.ATTRAZIONI -> UiR.drawable.ms_star
     PoiCategory.SVAGO -> UiR.drawable.ms_theater_comedy
     PoiCategory.AMBASCIATA_CONSOLATO -> UiR.drawable.ms_account_balance
@@ -98,6 +101,8 @@ internal fun PoiCategory.label(): Int = when (this) {
     PoiCategory.NATURA -> R.string.poi_nature
     PoiCategory.PANORAMI -> R.string.poi_viewpoints
     PoiCategory.PARCHI_DIVERTIMENTO -> R.string.poi_amusement
+    PoiCategory.ZOO -> R.string.poi_zoo
+    PoiCategory.PARCHI_ACQUATICI -> R.string.poi_water_park
     PoiCategory.ATTRAZIONI -> R.string.poi_attractions
     PoiCategory.SVAGO -> R.string.poi_entertainment
     PoiCategory.AMBASCIATA_CONSOLATO -> R.string.poi_embassy

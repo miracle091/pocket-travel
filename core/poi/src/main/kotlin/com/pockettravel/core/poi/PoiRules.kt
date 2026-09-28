@@ -12,6 +12,8 @@ enum class PoiCategory {
     NATURA,
     PANORAMI,
     PARCHI_DIVERTIMENTO,
+    ZOO,
+    PARCHI_ACQUATICI,
     ATTRAZIONI,
     SVAGO,
     PARCO_GIOCHI,
@@ -58,13 +60,13 @@ private val entertainmentTags = setOf(
 private val worshipValues = setOf("place_of_worship", "monastery")
 private val museumArtValues = setOf("museum", "gallery", "artwork")
 private val natureValues = setOf("park", "garden", "nature_reserve")
-private val amusementValues = setOf("zoo", "theme_park", "water_park")
+private val amusementValues = setOf("theme_park")
 private val attractionValues = setOf("attraction", "fountain")
 
 /** Le categorie di "Da vedere": per le modalita' d'uso e per i filtri salvati quando era una sola. */
 val SIGHT_CATEGORIES: Set<PoiCategory> = setOf(
     PoiCategory.LUOGHI_DI_CULTO, PoiCategory.MUSEI_ARTE, PoiCategory.LUOGHI_STORICI, PoiCategory.NATURA,
-    PoiCategory.PANORAMI, PoiCategory.PARCHI_DIVERTIMENTO, PoiCategory.ATTRAZIONI,
+    PoiCategory.PANORAMI, PoiCategory.PARCHI_DIVERTIMENTO, PoiCategory.ZOO, PoiCategory.PARCHI_ACQUATICI, PoiCategory.ATTRAZIONI,
 )
 
 /**
@@ -122,6 +124,8 @@ fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     category == "viewpoint" -> PoiCategory.PANORAMI
     category in natureValues -> PoiCategory.NATURA
     category in amusementValues -> PoiCategory.PARCHI_DIVERTIMENTO
+    category == "zoo" -> PoiCategory.ZOO
+    category == "water_park" -> PoiCategory.PARCHI_ACQUATICI
     category in attractionValues -> PoiCategory.ATTRAZIONI
     else -> PoiCategory.ALTRO
 }
