@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="docs/images/regions.png" width="200" alt="Elenco delle nazioni divise per continente">
-  <img src="docs/images/guide.png" width="200" alt="Guida di San Marino con i numeri di emergenza">
+  <img src="docs/images/guide.png" width="200" alt="Guida di San Marino con i numeri di emergenza, le ambasciate del proprio paese e i fatti rapidi">
   <img src="docs/images/map.png" width="200" alt="Mappa offline di San Marino con i punti di interesse">
   <img src="docs/images/packages.png" width="200" alt="Pacchetti scaricabili di San Marino">
 </p>
