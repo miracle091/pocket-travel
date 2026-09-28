@@ -42,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
@@ -49,6 +50,7 @@ import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PoiColors
 import com.pockettravel.core.ui.Spacing
+import java.time.LocalDate
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
@@ -276,7 +278,7 @@ fun MapScreen(
                     PoiDetailRow(ImageVector.vectorResource(UiR.drawable.ms_accessible), stringResource(label))
                 }
                 pin.address?.let { PoiDetailRow(AppIcons.Place, it) }
-                pin.openingHours?.let { PoiDetailRow(AppIcons.Schedule, formatOpeningHours(it)) }
+                pin.openingHours?.let { OpeningHoursDetail(it) }
                 pin.phone?.let { phone ->
                     Spacer(modifier = Modifier.padding(top = Spacing.l))
                     FilledTonalButton(
@@ -302,6 +304,30 @@ private fun PoiDetailRow(icon: ImageVector, text: String) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(Spacing.s))
         Text(text, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+// Orari come tabella (giorni a sinistra, fasce a destra, oggi in grassetto); se la stringa OSM usa
+// una sintassi che parseOpeningHours non interpreta, il testo com'e' (formatOpeningHours).
+@Composable
+private fun OpeningHoursDetail(raw: String) {
+    val rows = remember(raw) { parseOpeningHours(raw, LocalDate.now().dayOfWeek.value - 1) }
+    if (rows == null) {
+        PoiDetailRow(AppIcons.Schedule, formatOpeningHours(raw))
+        return
+    }
+    Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = Spacing.l)) {
+        Icon(AppIcons.Schedule, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(Spacing.s))
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            rows.forEach { row ->
+                val weight = if (row.includesToday) FontWeight.Bold else FontWeight.Normal
+                Row {
+                    Text(row.days, style = MaterialTheme.typography.bodyMedium, fontWeight = weight, modifier = Modifier.width(80.dp))
+                    Text(row.hours, style = MaterialTheme.typography.bodyMedium, fontWeight = weight)
+                }
+            }
+        }
     }
 }
 

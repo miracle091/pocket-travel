@@ -5,7 +5,8 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 ## [Non rilasciato]
 
 ### Aggiunto
-- Bar, ristoranti e simili sulla mappa: la scheda mostra orari (con i giorni in italiano) e indirizzo, quando OpenStreetMap li indica. Arrivano con il prossimo aggiornamento dei punti di interesse di ogni regione.
+- Bar, ristoranti e simili sulla mappa: la scheda mostra indirizzo e orari, in una tabella per giorni con quello di oggi in evidenza, quando OpenStreetMap li indica. Arrivano con il prossimo aggiornamento dei punti di interesse di ogni regione.
+- Scheda dei punti di interesse più chiara: sotto il nome c'è il tipo preciso (Ristorante, Luogo di culto, Museo, Belvedere…) invece della categoria generica della mappa, e i posti senza nome si chiamano con il loro tipo invece di "Da vedere".
 - Tema scuro anche quando il telefono usa quello chiaro: si attiva in Altro → Aspetto, spento di default (l'app segue il tema del telefono). Nello stesso foglio c'è ora anche "Colori dal wallpaper".
 
 ### Modificato
