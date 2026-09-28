@@ -38,6 +38,12 @@ python -m http.server 8000 --directory <cartella con manifest.json>
 
 `10.0.2.2` è il PC visto dall'emulatore.
 
+Per provare l'app in un'altra lingua senza cambiare quella del telefono:
+
+```bash
+adb shell cmd locale set-app-locales com.pockettravel.app --locales en   # o it
+```
+
 ## Dove mettere le mani
 
 | Voglio cambiare… | Guarda in |
@@ -49,7 +55,9 @@ python -m http.server 8000 --directory <cartella con manifest.json>
 | l'elenco delle regioni | `tools/data-pipeline/scripts/pilot-regions.sh`, poi `generate-weekly-schedule.sh` |
 | i numeri civici (celle da ~10 MB) | `tools/data-pipeline/scripts/build-address-cell.sh` e il seme `tools/data-pipeline/address-grid-seed.tsv` |
 | le fonti Overture dei civici | `tools/data-pipeline/overture-address-sources.tsv` (una fonte nuova resta fuori finché non la si rivede) |
-| i modelli dell'assistente | `feature/ai/.../LlmModelCatalog.kt` e gli script `train_*.py` / `eval_*.py` |
+| i modelli dell'assistente | `feature/ai/.../LlmModelCatalog.kt` (ogni modello addestrato ha la sua lingua) e gli script `train_*.py` / `eval_*.py` |
+| i testi dell'app | `res/values/strings.xml` (italiano) e `res/values-en/strings.xml` (inglese) di ogni modulo |
+| le guide e le città in inglese | `build-guides.sh … en`, `build-cities.sh … en`, `extract-cities-dump-en.py`; nell'app `core/sync/.../GuidesChoice.kt` |
 
 ## Rilasciare una versione
 
@@ -61,6 +69,7 @@ python -m http.server 8000 --directory <cartella con manifest.json>
 ## Regole della casa
 
 - Ogni modulo `feature` dipende solo dai moduli `core`.
-- Testi dell'app in italiano, nei file `strings.xml`.
+- Testi dell'app in italiano e in inglese: ogni testo nuovo va in `values/strings.xml` **e** in `values-en/strings.xml` (lint segnala le traduzioni mancanti).
+- Il prompt italiano dell'assistente (`PromptTemplates`) è quello dei dati di addestramento: non va cambiato senza riaddestrare i modelli.
 - Ogni modifica visibile va nel `CHANGELOG.md`.
 - Niente percorsi del proprio computer (`C:\...`, `/home/...`) nei file del repository né nei messaggi di commit.
