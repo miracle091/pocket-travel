@@ -1,7 +1,6 @@
 package com.pockettravel.feature.map
 
 import android.content.Intent
-import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,6 +44,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.net.toUri
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PoiColors
@@ -133,13 +133,13 @@ fun MapScreen(
                         // un placeholder piu' vicino allo zoom target non costa una richiesta di
                         // rete in piu' come costerebbe con tile remote, solo un parsing leggermente
                         // anticipato di una tile che verra' comunque renderizzata.
-                        map.setPrefetchZoomDelta(1)
                         // Il vecchio SymbolManager e' legato allo stile corrente: va chiuso PRIMA di
                         // setStyle. Chiuso dopo (nel callback) il suo layer nativo e' gia' stato
                         // distrutto dal cambio di stile e onDestroy va in SIGSEGV (visto al ritorno
                         // della rete, quando la mappa passa dallo sfondo "mancante" al mondo online).
                         symbolManager?.onDestroy()
                         symbolManager = null
+                        map.prefetchZoomDelta = 1
                         map.setStyle(Style.Builder().fromJson(styleJson)) { style ->
                             PoiCategory.entries.forEach { category ->
                                 style.addImage(iconIdFor(category), poiPinBitmap(context, category))
@@ -263,7 +263,7 @@ fun MapScreen(
                     Spacer(modifier = Modifier.padding(top = Spacing.l))
                     FilledTonalButton(
                         onClick = {
-                            context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                            context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phone".toUri()))
                             selectedPinId = null
                         },
                     ) {

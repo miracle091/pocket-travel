@@ -46,13 +46,13 @@ private const val ADDRESS_ZOOM = 15
 fun extractAddresses(pmtiles: File, minLon: Double, minLat: Double, maxLon: Double, maxLat: Double): List<Address> {
     val addresses = mutableListOf<Address>()
     ReadablePmtiles.newReadFromFile(pmtiles.toPath()).use { archive ->
-        archive.getAllTiles().use { tiles ->
+        archive.allTiles.use { tiles ->
             tiles.forEachRemaining { tile ->
                 val coord = tile.coord()
                 if (coord.z() != ADDRESS_ZOOM) return@forEachRemaining
                 VectorTile.decode(gunzipIfNeeded(tile.bytes())).forEach { feature ->
-                    if (feature.layer() != "buildings" || feature.attrs()["kind"] != "address") return@forEach
-                    val number = feature.attrs()["addr_housenumber"]?.toString()?.trim().orEmpty()
+                    if (feature.layer() != "buildings" || feature.tags()["kind"] != "address") return@forEach
+                    val number = feature.tags()["addr_housenumber"]?.toString()?.trim().orEmpty()
                     if (number.isEmpty()) return@forEach
                     val point = feature.geometry().decode() as? Point ?: return@forEach
                     // decode() restituisce coordinate nella tile scalate su 0..256.

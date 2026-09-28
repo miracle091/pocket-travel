@@ -15,7 +15,6 @@ okhttp = "4.12.0"
 xz = "1.12"
 maplibre = "11.8.0"
 coroutines = "1.9.0"
-browser = "1.8.0"
 maplibreAnnotation = "3.0.2"
 kotlinxSerialization = "1.7.3"
 hiltWork = "1.2.0"
@@ -24,6 +23,9 @@ planetiler = "0.10.2"
 sqliteJdbc = "3.53.4.0"
 androidxTestExtJunit = "1.2.1"
 androidxTestRunner = "1.6.2"
+junit = "4.13.2"
+pmtilesReader = "0.3.7"
+orgJson = "20260814"
 splashscreen = "1.2.0"
 biometric = "1.1.0"
 fragmentKtx = "1.8.5"
@@ -48,8 +50,6 @@ compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 compose-material3-adaptive-navigation-suite = { group = "androidx.compose.material3", name = "material3-adaptive-navigation-suite", version.ref = "material3" }
 compose-material3-adaptive = { group = "androidx.compose.material3.adaptive", name = "adaptive", version.ref = "material3Adaptive" }
-compose-material3-adaptive-layout = { group = "androidx.compose.material3.adaptive", name = "adaptive-layout", version.ref = "material3Adaptive" }
-compose-material3-adaptive-navigation = { group = "androidx.compose.material3.adaptive", name = "adaptive-navigation", version.ref = "material3Adaptive" }
 navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
@@ -64,7 +64,6 @@ okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver",
 xz = { group = "org.tukaani", name = "xz", version.ref = "xz" }
 maplibre-android-sdk = { group = "org.maplibre.gl", name = "android-sdk", version.ref = "maplibre" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
-androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
 maplibre-annotation-plugin = { group = "org.maplibre.gl", name = "android-plugin-annotation-v9", version.ref = "maplibreAnnotation" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltWork" }
@@ -83,6 +82,9 @@ androidx-camera-core = { group = "androidx.camera", name = "camera-core", versio
 androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+pmtiles-reader = { group = "ch.poole.geo.pmtiles-reader", name = "Reader", version.ref = "pmtilesReader" }
+org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

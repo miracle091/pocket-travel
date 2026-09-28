@@ -1,5 +1,6 @@
 package com.pockettravel.app.browser
 
+import android.annotation.SuppressLint
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -29,11 +30,11 @@ import com.pockettravel.core.ui.R as UiR
 
 // Sostituisce le Chrome Custom Tabs per le fonti ufficiali del registro (Farnesina, OMS, Agenzia
 // delle Dogane) e per la sorgente Wikivoyage di ogni sezione guida: l'utente ha chiesto
-// esplicitamente di restare dentro l'app per questi link. Le pagine modello HuggingFace (licenze)
-// restano invece su CustomTabsLauncher — vedi il commento li' per il perche' quella resta la
-// scelta di default (aggiornamenti di sicurezza del browser di sistema, nessuna cache persistente
-// nell'app). Il tasto Indietro di sistema torna alla pagina precedente DENTRO il sito se
-// possibile, prima di uscire dalla schermata.
+// esplicitamente di restare dentro l'app per questi link. Il tasto Indietro di sistema torna alla
+// pagina precedente DENTRO il sito se possibile, prima di uscire dalla schermata.
+// JavaScript serve ai siti delle fonti; nessuna addJavascriptInterface, quindi le pagine non
+// raggiungono codice dell'app.
+@SuppressLint("SetJavaScriptEnabled")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InAppBrowserScreen(url: String, title: String, onBack: () -> Unit) {

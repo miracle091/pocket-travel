@@ -43,5 +43,5 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     ksp(libs.hilt.compiler)
 
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
 }

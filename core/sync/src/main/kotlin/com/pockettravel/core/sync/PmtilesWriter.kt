@@ -319,7 +319,7 @@ object PmtilesWriter {
             start = end
         }
 
-        val rootRunLengths = LongArray(rootIds.size) { 0L }
+        val rootRunLengths = LongArray(rootIds.size)
         val root = encodeDirectory(rootIds.toLongArray(), rootRunLengths, rootLengths.toLongArray(), rootOffsets.toLongArray())
         return gzip(root) to leafDirs
     }

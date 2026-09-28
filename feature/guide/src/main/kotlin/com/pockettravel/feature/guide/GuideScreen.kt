@@ -1,7 +1,6 @@
 package com.pockettravel.feature.guide
 
 import android.content.Intent
-import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
@@ -60,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.CitySection
 import com.pockettravel.core.data.EmergencyNumbers
@@ -362,7 +362,7 @@ private fun EmergencyNumbersCard(numbers: EmergencyNumbers?, modifier: Modifier 
                         .fillMaxWidth()
                         .heightIn(min = 56.dp)
                         .clickable(onClickLabel = callLabel) {
-                            context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")))
+                            context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$number".toUri()))
                         }
                         .padding(horizontal = Spacing.l, vertical = Spacing.s),
                     verticalAlignment = Alignment.CenterVertically,
@@ -451,7 +451,7 @@ private fun GuideSectionCard(
 // Le sottosezioni arrivano nel body come righe "▸ Titolo" (===Titolo=== di Wikivoyage, vedi
 // cleanBody in GenerateGuideContent) oppure, nei pacchetti generati prima del fix, come ";Titolo"
 // (lista di definizione wiki): entrambe mostrate come titolo, senza il simbolo davanti.
-private val subheadingLineRegex = Regex("""^(?:▸|;)\s*(.+)$""")
+private val subheadingLineRegex = Regex("""^[▸;]\s*(.+)$""")
 
 internal data class GuideBodyBlock(val text: String, val isSubheading: Boolean)
 

@@ -5,6 +5,7 @@ import com.pockettravel.core.poi.poiPackageOf
 import java.io.File
 import java.sql.DriverManager
 import javax.xml.parsers.SAXParserFactory
+import kotlin.math.roundToInt
 import org.xml.sax.Attributes
 import org.xml.sax.helpers.DefaultHandler
 
@@ -193,8 +194,8 @@ fun writePoiDb(pois: List<Poi>, outputDb: File) {
     ) { insert, poi ->
         insert.setString(1, poi.name)
         insert.setInt(2, codeOf.getValue(poi.category to poi.osmTag))
-        insert.setInt(3, Math.round(poi.lat * 1_000_000.0).toInt())
-        insert.setInt(4, Math.round(poi.lon * 1_000_000.0).toInt())
+        insert.setInt(3, (poi.lat * 1_000_000.0).roundToInt())
+        insert.setInt(4, (poi.lon * 1_000_000.0).roundToInt())
         insert.setString(5, poi.phone)
         insert.setString(6, poi.wheelchair)
     }

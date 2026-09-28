@@ -6,9 +6,7 @@ import com.pockettravel.feature.map.UsageMode
 import com.pockettravel.feature.map.UsageModePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
@@ -25,11 +23,7 @@ class OnboardingViewModel @Inject constructor(
     // una volta all'apertura dell'onboarding basta (vedi RAM-aware step in OnboardingScreen).
     val isOnDeviceAiSupported: Boolean = deviceAiCapability.isOnDeviceAiSupported()
 
-    private val _isCompleted = MutableStateFlow(onboardingPreferences.isCompleted())
-    val isCompleted: StateFlow<Boolean> = _isCompleted.asStateFlow()
-
     fun complete() {
         onboardingPreferences.markCompleted()
-        _isCompleted.value = true
     }
 }

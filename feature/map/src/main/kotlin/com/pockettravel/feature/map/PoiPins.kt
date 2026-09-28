@@ -9,6 +9,8 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.core.content.res.ResourcesCompat
+import androidx.core.graphics.createBitmap
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.PoiColors
 import com.pockettravel.core.ui.R as UiR
@@ -119,7 +121,7 @@ internal fun poiPinBitmap(context: Context, category: PoiCategory): Bitmap {
     val headRadius = width / 2f
     val tipY = 40f * density
     val stroke = 2f * density
-    val bitmap = Bitmap.createBitmap(width.toInt(), (tipY + 2f * density).toInt(), Bitmap.Config.ARGB_8888)
+    val bitmap = createBitmap(width.toInt(), (tipY + 2f * density).toInt())
     val canvas = Canvas(bitmap)
     val cx = width / 2f
     val cy = headRadius
@@ -154,7 +156,7 @@ internal fun poiPinBitmap(context: Context, category: PoiCategory): Bitmap {
     val glyphRes = category.glyph()
     if (glyphRes != null) {
         val half = 9f * density
-        context.resources.getDrawable(glyphRes, context.theme).mutate().apply {
+        ResourcesCompat.getDrawable(context.resources, glyphRes, context.theme)?.mutate()?.apply {
             setTint(PoiColors.Glyph.toArgb())
             setBounds((cx - half).toInt(), (cy - half).toInt(), (cx + half).toInt(), (cy + half).toInt())
             draw(canvas)

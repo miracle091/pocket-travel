@@ -52,20 +52,20 @@ dependencies {
     // Lettura PMTiles via HTTP range request (BSD-3, verificato) per estrarre lato device solo
     // le tile della bounding box di una regione dalla build pubblica Protomaps — vedi
     // PmtilesExtractor. Compatibile Android (dichiarato dal progetto fino ad API 16).
-    implementation("ch.poole.geo.pmtiles-reader:Reader:0.3.7")
+    implementation(libs.pmtiles.reader)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.hilt.android)
     implementation(libs.hilt.work)
     ksp(libs.hilt.compiler)
     ksp(libs.hilt.work.compiler)
 
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)
     // Solo per verificare a livello di schema che le query di GuidesImporter e
     // PoiImporter corrispondano alle colonne prodotte dalla pipeline dati (tools/data-pipeline) — non
     // esercita android.database.sqlite.SQLiteDatabase stesso, che richiede un device/
     // emulatore reale (nessun Robolectric aggiunto qui: il progetto non lo usa altrove).
-    testImplementation("org.xerial:sqlite-jdbc:3.53.4.0")
+    testImplementation(libs.sqlite.jdbc)
 
     // Test strumentati (androidTest): eseguono GuidesImporter/PoiImporter
     // con android.database.sqlite reale su device/emulatore, colmando il limite dei test JVM sopra.

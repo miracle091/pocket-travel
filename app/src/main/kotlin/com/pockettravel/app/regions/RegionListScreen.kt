@@ -297,7 +297,8 @@ private fun RegionGroupedList(
     // Gruppi a scomparsa: "Nazioni scaricate" aperto di default, i continenti chiusi. Qui si salvano
     // solo i gruppi che l'utente ha invertito rispetto al default (anche alla rotazione). Durante
     // una ricerca sono tutti aperti, per vedere subito i risultati.
-    var toggled by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
+    // Lista immutabile sostituita a ogni modifica (mai mutata sul posto); ArrayList per il salvataggio.
+    var toggled by rememberSaveable { mutableStateOf<List<String>>(arrayListOf()) }
     val rowsByGroup = remember(groups, replaced, searching, toggled) {
         groups.associate { (group, regions) ->
             val entries = if (group == RegionGroup.Downloaded) regions.map { RegionListEntry.Single(it) } else countryEntries(regions)
@@ -309,7 +310,7 @@ private fun RegionGroupedList(
         state = listState,
         contentPadding = PaddingValues(start = Spacing.l, end = Spacing.l, bottom = Spacing.l),
     ) {
-        groups.forEach { (group, regions) ->
+        groups.forEach { (group, _) ->
             val key = group.key
             // Nelle nazioni scaricate ogni regione resta una riga: sono poche e servono subito.
             val (entries, rows) = rowsByGroup.getValue(key)
@@ -526,8 +527,8 @@ internal fun RegionRow(
     item: RegionUiItem,
     actions: RegionRowActions,
     onClick: () -> Unit,
-    title: String = item.displayName,
     modifier: Modifier = Modifier,
+    title: String = item.displayName,
 ) {
     val workInfo by remember(item.regionId) { actions.observeProgress(item.regionId) }
         .collectAsStateWithLifecycle(initialValue = null)

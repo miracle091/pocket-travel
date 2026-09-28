@@ -51,5 +51,5 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
 
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
 }

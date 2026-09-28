@@ -5,7 +5,6 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
-import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -70,12 +69,14 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -454,7 +455,7 @@ private fun PhotoThumbnail(
 @Composable
 private fun PhotoViewerDialog(viewModel: PassportVaultViewModel, fileName: String, onDismiss: () -> Unit) {
     var bitmap by remember(fileName) { mutableStateOf<ImageBitmap?>(null) }
-    val screenWidthPx = LocalContext.current.resources.displayMetrics.widthPixels
+    val screenWidthPx = LocalWindowInfo.current.containerSize.width
     LaunchedEffect(fileName) {
         bitmap = viewModel.loadPhoto(fileName)?.let { bytes -> decodeSampled(bytes, screenWidthPx) }
     }
@@ -525,7 +526,7 @@ private fun PassportEditDialog(
                 )
                 if (result == SnackbarResult.ActionPerformed) {
                     context.startActivity(
-                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")),
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri()),
                     )
                 }
             }

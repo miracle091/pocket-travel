@@ -43,10 +43,9 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.androidx.browser)
     implementation(libs.kotlinx.serialization.json)
 
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
 
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)

@@ -56,6 +56,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    // Timber arriva solo come dipendenza transitiva di MapLibre, insieme al suo controllo lint:
+    // il progetto usa android.util.Log ovunque, quindi "usa Timber" non si applica.
+    lint {
+        disable += "LogNotTimber"
+    }
 }
 
 kotlin {
@@ -96,5 +102,5 @@ dependencies {
     implementation(libs.androidx.fragment.ktx)
     ksp(libs.hilt.compiler)
 
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
 }

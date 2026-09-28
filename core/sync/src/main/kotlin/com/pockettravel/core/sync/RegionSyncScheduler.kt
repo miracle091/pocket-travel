@@ -46,21 +46,6 @@ class RegionSyncScheduler @Inject constructor(
         )
     }
 
-    /** Controllo manuale immediato (es. tasto "Controlla aggiornamenti"), in aggiunta a quello periodico sopra. */
-    fun checkNow() {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-        val request = OneTimeWorkRequestBuilder<RegionManifestSyncWorker>()
-            .setConstraints(constraints)
-            .build()
-        workManager.enqueueUniqueWork(
-            "${SyncConfig.PERIODIC_SYNC_WORK_NAME}-manual",
-            ExistingWorkPolicy.REPLACE,
-            request,
-        )
-    }
-
     /**
      * Download esplicito richiesto dall'utente dei pacchetti [kinds] di una regione. Accoda anche
      * il controllo delle guide senza vincolo di Wi-Fi: chi scarica una regione si aspetta di

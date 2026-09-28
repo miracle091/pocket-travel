@@ -73,7 +73,7 @@ class OnDeviceLlmEngine @Inject constructor(
         modelManager.deleteWithoutLock(aiSettingsStore.selectedModelDefinition())
     }
 
-    suspend fun releaseWithoutLock() {
+    fun releaseWithoutLock() {
         val state = engine.state.value
         // cleanUp() lancia IllegalStateException fuori da ModelReady/Error (es. nessun modello
         // ancora caricato): va chiamata solo se c'e' davvero qualcosa da scaricare.

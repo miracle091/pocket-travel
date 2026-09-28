@@ -180,15 +180,15 @@ private fun EmptyLine(text: String) {
 @Composable
 private fun StorageRow(
     icon: ImageVector,
-    // Se c'e' una bandiera per il codice, al posto di [icon].
-    countryCode: String? = null,
     title: String,
     supporting: String,
+    modifier: Modifier = Modifier,
+    // Se c'e' una bandiera per il codice, al posto di [icon].
+    countryCode: String? = null,
     // null: riga solo informativa, senza elimina.
     onDelete: (() -> Unit)? = null,
     deleteTitle: String = stringResource(R.string.storage_delete_title, title),
     deleteMessage: String = stringResource(R.string.storage_delete_message),
-    modifier: Modifier = Modifier,
 ) {
     var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
 

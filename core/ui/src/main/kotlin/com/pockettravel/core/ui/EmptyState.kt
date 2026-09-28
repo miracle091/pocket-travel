@@ -28,8 +28,8 @@ import androidx.compose.ui.unit.dp
 fun EmptyState(
     icon: ImageVector,
     title: String,
-    subtitle: String? = null,
     modifier: Modifier = Modifier,
+    subtitle: String? = null,
     action: (@Composable () -> Unit)? = null,
 ) {
     Column(

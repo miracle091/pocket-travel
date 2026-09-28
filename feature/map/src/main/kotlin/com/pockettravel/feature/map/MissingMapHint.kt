@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import androidx.core.graphics.createBitmap
 
 // Id dell'immagine aggiunta allo stile con Style.addImage (vedi MapScreen), referenziata dal
 // layer "missing_map_hint" costruito da OfflineTileSource quando manca ogni sorgente.
@@ -17,7 +18,7 @@ internal const val MISSING_MAP_HATCH_IMAGE = "missing-map-hatch"
 internal fun missingMapHatchBitmap(context: Context, dark: Boolean): Bitmap {
     val density = context.resources.displayMetrics.density
     val size = (16f * density).toInt().coerceAtLeast(1)
-    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val bitmap = createBitmap(size, size)
     val canvas = Canvas(bitmap)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = if (dark) 0x33ffffff else 0x22000000

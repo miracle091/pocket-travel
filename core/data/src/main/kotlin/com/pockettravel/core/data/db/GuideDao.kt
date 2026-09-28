@@ -11,7 +11,7 @@ import androidx.room.Query
  * lato Kotlin: FTS4 non ha bm25() come FTS5. Vedi GuideRepository.searchInRegion per la lettura
  * del blob.
  */
-data class GuideSectionMatch(
+class GuideSectionMatch(
     @Embedded val section: GuideSectionEntity,
     val matchinfo: ByteArray,
 )

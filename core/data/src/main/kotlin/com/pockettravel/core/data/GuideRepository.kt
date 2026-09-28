@@ -2,7 +2,6 @@ package com.pockettravel.core.data
 
 import com.pockettravel.core.data.db.GuideDao
 import com.pockettravel.core.data.db.GuideSectionEntity
-import com.pockettravel.core.data.db.GuideSectionMatch
 import javax.inject.Inject
 
 class GuideRepository @Inject constructor(

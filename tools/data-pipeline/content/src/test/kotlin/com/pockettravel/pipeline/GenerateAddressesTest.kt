@@ -49,7 +49,7 @@ class GenerateAddressesTest {
 
             val decoded = mutableListOf<Address>()
             ReadablePmtiles.newReadFromFile(output.toPath()).use { archive ->
-                archive.getAllTiles().use { tiles ->
+                archive.allTiles.use { tiles ->
                     tiles.forEachRemaining { tile ->
                         val coord = tile.coord()
                         assertEquals(14, coord.z())
@@ -58,7 +58,7 @@ class GenerateAddressesTest {
                             val point = feature.geometry().decode() as Point
                             val lon = tileXToLon(coord.x() + point.x / 256.0, 14)
                             val lat = tileYToLat(coord.y() + point.y / 256.0, 14)
-                            decoded += Address((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), feature.attrs()["number"].toString())
+                            decoded += Address((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), feature.tags()["number"].toString())
                         }
                     }
                 }

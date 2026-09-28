@@ -54,7 +54,7 @@ dependencies {
         implementation(libs.androidx.vectordrawable.animated)
     }
 
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
 
     // Test strumentato (androidTest): verifica su device/emulatore reale che il wiring di
     // RouteEngineModule (copia profilo dagli asset, RoutingContext/RoutingEngine di

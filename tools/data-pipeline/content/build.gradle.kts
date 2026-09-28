@@ -26,13 +26,13 @@ dependencies {
     // Lettura PMTiles locali e decodifica dei tile vettoriali per GenerateAddresses.kt.
     implementation(libs.planetiler.core)
 
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
     // Usato anche da MergeManifests.kt (parsing/merge di manifest.json reali), non solo dai
     // test — senza tirare dentro il plugin kotlinx.serialization solo per questo.
-    implementation("org.json:json:20260814")
+    implementation(libs.org.json)
 }
 
-val pipelineRoot = projectDir.parentFile
+val pipelineRoot: File = projectDir.parentFile
 
 fun registerPipelineTask(name: String, mainClass: String, maxHeap: String? = null, usesSqlite: Boolean = false) {
     tasks.register<JavaExec>(name) {

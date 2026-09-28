@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -35,8 +34,7 @@ class RegionManifestSyncWorker @AssistedInject constructor(
             val installedById = regionRepository.observeInstalled().first().associateBy { it.regionId }
 
             manifest.regions.forEach { remote ->
-                val local = installedById[remote.regionId]
-                if (local == null) return@forEach
+                val local = installedById[remote.regionId] ?: return@forEach
                 val outdated = remote.availableKinds.filterTo(mutableSetOf()) { kind ->
                     local.versionOf(kind)?.let { it != remote.versionOf(kind) } == true
                 }

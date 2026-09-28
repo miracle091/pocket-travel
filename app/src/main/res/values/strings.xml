@@ -19,7 +19,6 @@
     <string name="regions_download">Scarica %1$s</string>
     <string name="regions_update">Aggiorna</string>
     <string name="regions_update_region">Aggiorna %1$s</string>
-    <string name="regions_delete">Elimina %1$s</string>
     <string name="regions_delete_title">Eliminare %1$s?</string>
     <string name="regions_delete_message">I contenuti scaricati per questa regione verranno rimossi dal dispositivo.</string>
     <string name="regions_delete_all">Elimina tutto</string>
@@ -91,8 +90,6 @@
     <string name="nav_guide">Guida</string>
     <string name="nav_map">Mappa</string>
     <string name="nav_assistant">Assistente IA</string>
-    <string name="list_detail_empty_title">Scegli una regione</string>
-    <string name="list_detail_empty_subtitle">Guida, mappa e assistente IA della regione compaiono qui.</string>
 
     <!-- Spazio di archiviazione -->
     <string name="storage_title">Spazio di archiviazione</string>
