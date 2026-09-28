@@ -58,27 +58,36 @@ llama-server -m qwen3.5-0.8b-travel-it-Q4_K_M.gguf -c 8192 --chat-template-kwarg
 
 ## Evaluation
 
-Held-out test set of 361 hand-written questions over 11 regions never seen in training, phrased outside
-the training templates. Refusal rates (higher is better on negatives, lower is better on positives), GGUF
-evaluated with llama.cpp:
+Held-out test set of 429 hand-written questions over 11 countries never seen in training, phrased outside
+the training templates: 361 about the countries' guides and 70 about their cities (city pages of Italian
+Wikivoyage). GGUF evaluated with llama.cpp. Refusal rates (higher is better on negatives, lower is better
+on positives) and answer overlap with the expected extract (token F1, 0-1, higher is better):
 
-| Metric | This model | Base model (Unsloth UD-Q4_K_XL) |
-|---|---|---|
-| Refuses when the context has no useful information | 100% | 23% |
-| Refuses off-topic questions | 100% | 6% |
-| Refuses paraphrased questions whose topic is missing from the context | 96% | 15% |
-| Wrongly refuses answerable paraphrased questions | 3% | 5% |
+| Metric | This model | Previous version | Base model (Unsloth UD-Q4_K_XL) |
+|---|---|---|---|
+| Answer overlap, country questions (F1) | 0.67 | 0.70 | – |
+| Answer overlap, city questions (F1) | 0.74 | 0.56 | – |
+| Refuses when the context has no useful information | 100% | 100% | 23% |
+| Refuses off-topic questions | 100% | 100% | 6% |
+| Refuses paraphrased questions whose topic is missing from the context | 96% | 96% | 15% |
+| Refuses city questions whose topic is missing from the page | 100% | 85% | – |
+| Wrongly refuses answerable country questions | 5% | 1% | 5% |
+| Wrongly refuses answerable city questions | 4% | 10% | – |
 
-A refusal is any recognizable "the context does not say" answer in the first 200 characters. The base
-model was run with the same prompt; it rarely uses the exact refusal sentence this model was trained on.
+A refusal is any recognizable "the context does not say" answer. The base model was run with the same
+prompt on the earlier 361-question set; it rarely uses the exact refusal sentence this model was trained on.
 
 ## Training
 
-- Method: LoRA (16-bit, Unsloth) merged into the base weights, 2 epoch(s), loss on answer tokens only.
-- Data: 7,317 synthetic question/answer pairs built from Italian Wikivoyage and Italian Wikipedia
-  (country articles on cuisine, culture, telecommunications, media), about one quarter refusal examples,
+- Method: LoRA (16-bit, Unsloth) merged into the base weights, 1 epoch, loss on answer tokens only. The previous version was trained for 2 epochs on the smaller dataset.
+- Data: 12,677 synthetic question/answer pairs with extractive answers, built from Italian Wikivoyage
+  (country and city pages) and Italian Wikipedia (country articles on cuisine, culture,
+  telecommunications, media) from the Wikimedia dumps of 2026-09-01, about one quarter refusal examples,
   some questions in English, contexts shaped like the app's (1-3 sections, distractor sections, up to 2000
-  characters).
+  characters). Off-topic questions for refusal examples come from
+  [truthful_qa_italian](https://huggingface.co/datasets/sapienzanlp/truthful_qa_italian) (Apache 2.0) and
+  [alpaca-cleaned-italian](https://huggingface.co/datasets/DanielSc4/alpaca-cleaned-italian) (CC BY 4.0);
+  only their questions are used, always with a refusal as answer.
 - Quantization: `llama-quantize` Q4_K_M with an importance matrix calibrated on 400 training prompts.
 - Text only: the base model can also read images, but this GGUF was converted without the vision projector (no `mmproj`).
 

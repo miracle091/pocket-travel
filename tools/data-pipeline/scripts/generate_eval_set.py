@@ -11,17 +11,24 @@ di training (QUESTIONS* in generate_sft_dataset.py), e il contesto e' composto c
   neg_off     domanda che non c'entra con la guida (cultura generale, cucina, sport; IT e EN).
 Un positivo/negativo si tiene solo se il contesto tratta (o non tratta) davvero la categoria (KEYWORDS):
 le sezioni Wikivoyage a volte coprono altro (es. 'restare in contatto' = posta).
-Legge solo la cache di generate_sft_dataset.py (data/sft/raw): niente rete. Uso: python generate_eval_set.py
+Con --dump-dir (i dump di generate_sft_dataset.py) aggiunge in coda righe sulle citta' delle regioni di test,
+che il training esclude: pos_city (domande riformulate, PARA_CITY) e neg_city (categoria assente dalla pagina).
+Legge solo la cache di generate_sft_dataset.py (data/sft/raw) e i dump: niente rete.
+Uso: python generate_eval_set.py [--dump-dir <cartella dei dump> [--dump-date AAAAMMGG]]
 """
+import argparse
 import json
 import random
 import sys
 from collections import Counter
+from pathlib import Path
 
 from eval_common import TEST_REGIONS
 
-from generate_sft_dataset import (EN_HEADING_TO_CATEGORY, FALLBACK_CONTEXT, HEADING_TO_CATEGORY, OUT, QUESTIONS, TOPIC,
-                                  covers, load_regions, make_context, on_device_prompt, parse_sections, pick_answer)
+import wiki_dump
+from generate_sft_dataset import (CITY_HEADING_TO_CATEGORY, CITY_MIN_SECTION, DUMP_FILES, EN_HEADING_TO_CATEGORY,
+                                  FALLBACK_CONTEXT, HEADING_TO_CATEGORY, OUT, QUESTIONS, TOPIC, city_parents, covers,
+                                  load_regions, load_sources, make_context, on_device_prompt, parse_sections, pick_answer)
 
 PARA = {  # riformulazioni generiche: coprono tutta la categoria, cosi' il positivo ha davvero la risposta nel contesto
     "USI_COSTUMI": ["Che galateo bisogna seguire in {r}?", "Consigli di buona educazione per {r}?", "Come evito gaffe con la popolazione di {r}?"],
@@ -45,13 +52,69 @@ PARA_EN = {  # come PARA, in inglese (2 per categoria)
     "CONNETTIVITA": ["How do I stay connected in {r}?", "How is mobile coverage in {r}?"],
     "VITA_QUOTIDIANA": ["How do I keep up with news in {r}?", "Where do I find practical info for {r}?"],
 }
+PARA_CITY = {  # domande sulle citta' riformulate: non sono in CITY_QUESTIONS/CITY_QUESTIONS_EN del training
+    "ARRIVARE": ["Con che mezzi arrivo fino a {r}?", "How can I reach {r}?"],
+    "TRASPORTI": ["Come giro per {r} senza auto?", "What is the easiest way to move around {r}?"],
+    "COSA_VEDERE": ["Che posti meritano una visita a {r}?", "Which places are worth visiting in {r}?"],
+    "CIBO_BEVANDE": ["Qualche posto dove cenare a {r}?", "Where do locals eat in {r}?"],
+    "ALLOGGIO": ["Che sistemazioni ci sono a {r}?", "Which kinds of accommodation exist in {r}?"],
+    "SICUREZZA": ["Devo stare attento a qualcosa a {r}?", "How safe is it to walk around {r}?"],
+    "CONNETTIVITA": ["Come mi collego a internet a {r}?", "Where can I find wifi in {r}?"],
+    "SHOPPING": ["Dove compro souvenir a {r}?", "Where are the markets in {r}?"],
+}
+CITY_POS, CITY_NEG = 50, 20  # righe di citta' nel test (con --dump-dir)
 OFF_TOPIC = ["Qual e' la capitale della Francia?", "Come si prepara la carbonara?", "Chi ha vinto i mondiali di calcio nel 2006?",
              "Quanto fa 17 per 23?", "Scrivimi una poesia sul mare.", "Chi ha scritto la Divina Commedia?",
              "Come si installa Python su Windows?", "Qual e' il senso della vita?",
              "What is the capital of Spain?", "How do I cook pasta?"]
 
 
+def city_rows(rng, dump_dir, dump_date, row, refusal):
+    """Righe sulle citta' delle regioni di test (Stato/Regione/Territorio del QuickbarCity = pagina di una
+    regione di test), dallo stesso dump IT del training: al massimo 2 domande per citta', CITY_POS positivi
+    e CITY_NEG negativi in tutto, a rotazione tra le citta' per non pescarle tutte da un solo paese."""
+    sources = load_sources()
+    test_titles = {wiki_dump.norm_title(sources[(r, "it")]) for r in TEST_REGIONS if sources.get((r, "it"), "-") != "-"}
+    dump = dump_dir / DUMP_FILES["it"].format(d=dump_date)
+    cities = []
+    for title, text, redirect in wiki_dump.iter_pages(dump):
+        parents = None if redirect else city_parents(text)
+        if not parents or not parents & test_titles:
+            continue
+        secs = [(c, b) for c, b in parse_sections(text, CITY_HEADING_TO_CATEGORY) if covers(c, b) and len(b) >= CITY_MIN_SECTION]
+        if secs:
+            cities.append((title, secs))
+    cities.sort()
+    rng.shuffle(cities)
+    pos, neg = [], []
+    for title, secs in cities:
+        name = title.split(" (")[0]  # "Salem (Oregon)" -> "Salem"
+        rid = f"citta:{title}"
+        for cat, body in rng.sample(secs, min(2, len(secs))):
+            if len(pos) >= CITY_POS:
+                break
+            others = [b for c, b in secs if c != cat and not covers(cat, b)]
+            q = rng.choice(PARA_CITY[cat]).format(r=name)
+            context = make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))))
+            answer = pick_answer(context, body, q, cat, name)
+            if len(answer) >= 40:
+                pos.append(row("pos_city", rid, cat, context, q, answer))
+        missing = [c for c in PARA_CITY if c not in {c for c, _ in secs}]
+        if missing and len(neg) < CITY_NEG:
+            cat = rng.choice(missing)
+            context = make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))))
+            neg.append(row("neg_city", rid, cat, context, rng.choice(PARA_CITY[cat]).format(r=name), refusal(cat)))
+        if len(pos) >= CITY_POS and len(neg) >= CITY_NEG:
+            break
+    print(f"citta' delle regioni di test: {len(cities)} con sezioni utili, righe pos {len(pos)} neg {len(neg)}")
+    return pos + neg
+
+
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dump-dir", type=Path, help="cartella dei dump (come generate_sft_dataset.py): aggiunge le citta'")
+    ap.add_argument("--dump-date", help="data dei dump (AAAAMMGG), di default il nome della cartella")
+    args = ap.parse_args()
     rng = random.Random(42)
     held_out = sorted(TEST_REGIONS)  # come train_lora.py
     # le regioni sostituite da sottoregioni (es. canada) non sono piu' in pilot-regions.sh: nome dall'id
@@ -108,6 +171,8 @@ def main():
             out.append(row("neg_off", rid, "OFF", make_context(rng, rng.sample(pool, min(len(pool), rng.randint(1, 3)))),
                            q, refusal("VITA_QUOTIDIANA")))
     rng.shuffle(out)
+    if args.dump_dir:  # in coda, dopo il mescolamento: le righe dei paesi restano quelle di prima
+        out += city_rows(rng, args.dump_dir, args.dump_date or args.dump_dir.name, row, refusal)
     with open(OUT / "eval_extended.jsonl", "w", encoding="utf-8") as f:
         for r in out:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
