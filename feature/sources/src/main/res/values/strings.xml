@@ -1,4 +1,4 @@
 <resources>
     <string name="sources_title">Fonti ufficiali</string>
-    <string name="sources_external">Contenuto esterno, richiede connessione</string>
+    <string name="sources_external">Siti ufficiali esterni all\'app: servono la connessione a internet.</string>
 </resources>

@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -41,15 +43,24 @@ fun OfficialSourcesScreen(onBack: () -> Unit, onOpenSource: (url: String, title:
             )
         },
     ) { innerPadding ->
-        Surface(
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            modifier = Modifier.fillMaxWidth().padding(innerPadding).padding(horizontal = Spacing.l, vertical = Spacing.s),
-        ) {
-            Column {
-                officialSourcesRegistry.forEachIndexed { index, source ->
-                    OfficialSourceRow(source, onClick = { onOpenSource(source.url, source.name) })
-                    if (index < officialSourcesRegistry.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        // Scorrevole: le fonti non stanno tutte in uno schermo, con i caratteri grandi nemmeno la meta'.
+        Column(modifier = Modifier.padding(innerPadding).verticalScroll(rememberScrollState()).padding(horizontal = Spacing.l, vertical = Spacing.s)) {
+            Text(
+                text = stringResource(R.string.sources_external),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = Spacing.s, vertical = Spacing.s),
+            )
+            Surface(
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column {
+                    officialSourcesRegistry.forEachIndexed { index, source ->
+                        OfficialSourceRow(source, onClick = { onOpenSource(source.url, source.name) })
+                        if (index < officialSourcesRegistry.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                    }
                 }
             }
         }
@@ -59,7 +70,7 @@ fun OfficialSourcesScreen(onBack: () -> Unit, onOpenSource: (url: String, title:
 @Composable
 private fun OfficialSourceRow(source: OfficialSource, onClick: () -> Unit) {
     ListItem(
-        supportingContent = { Text(stringResource(R.string.sources_external)) },
+        supportingContent = { Text(source.description) },
         leadingContent = { Icon(AppIcons.OfficialAuthority, contentDescription = null) },
         trailingContent = { Icon(AppIcons.OpenExternal, contentDescription = null) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
