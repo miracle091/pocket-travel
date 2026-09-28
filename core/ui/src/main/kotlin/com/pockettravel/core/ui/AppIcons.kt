@@ -31,6 +31,7 @@ object AppIcons {
     val Info: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_info)
     val Settings: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_settings)
     val Palette: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_palette)
+    val DarkMode: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_dark_mode)
     val World: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_public)
     val WorldFilled: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_public_fill)
     val Compass: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_explore)

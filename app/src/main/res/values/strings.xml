@@ -81,6 +81,12 @@
     <string name="more_usage_mode_accessible_only">Con disabilità: la mappa mostra tutte le categorie</string>
     <string name="more_usage_mode_body">La mappa mostra per primi i punti utili per questo modo di viaggiare. Scegliendolo, i filtri della mappa tornano a quelli predefiniti.</string>
     <string name="more_licenses">Licenze</string>
+    <string name="more_appearance">Aspetto</string>
+    <string name="more_appearance_system">Tema del telefono</string>
+    <string name="more_appearance_dark">Tema scuro</string>
+    <string name="more_appearance_with_dynamic_color">%1$s, colori dal wallpaper</string>
+    <string name="more_force_dark">Tema scuro</string>
+    <string name="more_force_dark_subtitle">Sempre scuro, anche quando il telefono usa il tema chiaro</string>
     <string name="more_dynamic_color">Colori dal wallpaper</string>
     <string name="more_dynamic_color_subtitle">Usa i colori dello sfondo del telefono invece di quelli dell\'app</string>
     <string name="more_licenses_subtitle">Componenti e dati di terze parti</string>

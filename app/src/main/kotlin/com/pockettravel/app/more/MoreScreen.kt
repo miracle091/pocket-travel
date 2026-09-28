@@ -52,9 +52,11 @@ fun MoreScreen(
     viewModel: MoreViewModel = hiltViewModel(),
 ) {
     val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
+    val forceDark by viewModel.forceDark.collectAsStateWithLifecycle()
     val usageMode by viewModel.usageMode.collectAsStateWithLifecycle()
     val accessible by viewModel.accessible.collectAsStateWithLifecycle()
     var showUsageModes by rememberSaveable { mutableStateOf(false) }
+    var showAppearance by rememberSaveable { mutableStateOf(false) }
     // Dentro NavigationSuiteScaffold: gli inset di sistema li gestiscono la barra/rail e la top app bar,
     // applicarli anche qui lascerebbe una fascia vuota sopra la barra di navigazione.
     Scaffold(
@@ -70,20 +72,7 @@ fun MoreScreen(
             MoreItem(AppIcons.OfficialAuthority, stringResource(R.string.more_sources), stringResource(R.string.more_sources_subtitle), onOpenSources)
             MoreItem(AppIcons.Storage, stringResource(R.string.more_storage), stringResource(R.string.more_storage_subtitle), onOpenStorage)
             MoreItem(AppIcons.Tutorial, stringResource(R.string.more_tutorial), null, onOpenTutorial)
-            // Il dynamic color esiste solo da Android 12: sotto, l'interruttore non avrebbe effetto.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                ListItem(
-                    supportingContent = { Text(stringResource(R.string.more_dynamic_color_subtitle)) },
-                    leadingContent = { Icon(imageVector = AppIcons.Palette, contentDescription = null) },
-                    trailingContent = { Switch(checked = useDynamicColor, onCheckedChange = null) },
-                    modifier = Modifier.toggleable(
-                        value = useDynamicColor,
-                        role = Role.Switch,
-                        onValueChange = viewModel::setUseDynamicColor,
-                    ),
-                    content = { Text(stringResource(R.string.more_dynamic_color)) },
-                )
-            }
+            MoreItem(AppIcons.Palette, stringResource(R.string.more_appearance), appearanceSummary(forceDark, useDynamicColor)) { showAppearance = true }
             MoreItem(AppIcons.Licenses, stringResource(R.string.more_licenses), stringResource(R.string.more_licenses_subtitle), onOpenLicenses)
         }
     }
@@ -113,6 +102,56 @@ fun MoreScreen(
                 )
             }
         }
+    }
+
+    if (showAppearance) {
+        ModalBottomSheet(onDismissRequest = { showAppearance = false }) {
+            Column(modifier = Modifier.navigationBarsPadding().padding(bottom = Spacing.l)) {
+                Text(
+                    text = stringResource(R.string.more_appearance),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(horizontal = Spacing.xl).semantics { heading() },
+                )
+                SwitchItem(
+                    icon = AppIcons.DarkMode,
+                    title = stringResource(R.string.more_force_dark),
+                    subtitle = stringResource(R.string.more_force_dark_subtitle),
+                    checked = forceDark,
+                    onCheckedChange = viewModel::setForceDark,
+                )
+                // Il dynamic color esiste solo da Android 12: sotto, l'interruttore non avrebbe effetto.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    SwitchItem(
+                        icon = AppIcons.Palette,
+                        title = stringResource(R.string.more_dynamic_color),
+                        subtitle = stringResource(R.string.more_dynamic_color_subtitle),
+                        checked = useDynamicColor,
+                        onCheckedChange = viewModel::setUseDynamicColor,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SwitchItem(icon: ImageVector, title: String, subtitle: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    ListItem(
+        supportingContent = { Text(subtitle) },
+        leadingContent = { Icon(imageVector = icon, contentDescription = null) },
+        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
+        modifier = Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
+        content = { Text(title) },
+    )
+}
+
+@Composable
+private fun appearanceSummary(forceDark: Boolean, useDynamicColor: Boolean): String {
+    val theme = stringResource(if (forceDark) R.string.more_appearance_dark else R.string.more_appearance_system)
+    return if (useDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        stringResource(R.string.more_appearance_with_dynamic_color, theme)
+    } else {
+        theme
     }
 }
 
