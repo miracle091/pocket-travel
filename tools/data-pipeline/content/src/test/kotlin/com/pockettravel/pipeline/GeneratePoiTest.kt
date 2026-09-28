@@ -140,18 +140,21 @@ class GeneratePoiTest {
                 """<tag k="opening_hours" v="Mo-Fr 09:00-12:00"/><tag k="contact:website" v="https://consolato.example"/>""" +
                 """<tag k="email" v="info@consolato.example"/><tag k="phone" v="+39 06 1"/></node>""" +
                 """<node id="2" lat="41.8" lon="12.4"><tag k="amenity" v="restaurant"/><tag k="name" v="Da Mario"/><tag k="website" v="https://damario.example"/></node>""" +
+                """<node id="3" lat="41.7" lon="12.3"><tag k="tourism" v="hotel"/><tag k="name" v="Hotel Prova"/><tag k="addr:street" v="Via Po"/>""" +
+                """<tag k="opening_hours" v="24/7"/><tag k="contact:website" v="https://hotel.example"/><tag k="contact:email" v="info@hotel.example"/></node>""" +
                 "</osm>",
         )
         try {
-            val (consolato, ristorante) = readPois(listOf(xml), poiTagKeys + "office")
+            val (consolato, ristorante, hotel) = readPois(listOf(xml), poiTagKeys + "office")
             assertEquals("embassy", consolato.category)
             assertEquals("office=diplomatic", consolato.osmTag)
             assertEquals("Via Veneto 1", consolato.address)
             assertEquals("Mo-Fr 09:00-12:00", consolato.openingHours)
             assertEquals("https://consolato.example", consolato.website)
             assertEquals("info@consolato.example", consolato.email)
-            // Sito ed email solo per le ambasciate.
+            // Sito ed email per ambasciate e alloggi, non per i ristoranti.
             assertEquals(null, ristorante.website)
+            assertEquals(listOf("Via Po", "24/7", "https://hotel.example", "info@hotel.example"), listOf(hotel.address, hotel.openingHours, hotel.website, hotel.email))
         } finally {
             dir.deleteRecursively()
         }

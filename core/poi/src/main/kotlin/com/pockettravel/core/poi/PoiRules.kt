@@ -150,12 +150,14 @@ private val namelessOnMapCategories = setOf(
 // e noleggi d'auto senza nome restano nascosti). Servono alle modalita' d'uso (escursionismo, bici).
 private val namelessOnMapTags = setOf("amenity=fountain", "tourism=viewpoint", "amenity=bicycle_rental", "tourism=picnic_site")
 
-/** true per i POI con orari e indirizzo, quando OSM li indica: cibo e bevande, ambasciate e consolati. */
-fun poiHasDetails(category: String, osmTag: String): Boolean =
-    poiCategoryOf(category, osmTag).let { it == PoiCategory.CIBO_BEVANDE || it == PoiCategory.AMBASCIATA_CONSOLATO }
+private val detailCategories = setOf(PoiCategory.CIBO_BEVANDE, PoiCategory.ALLOGGIO, PoiCategory.AMBASCIATA_CONSOLATO)
+private val contactCategories = setOf(PoiCategory.ALLOGGIO, PoiCategory.AMBASCIATA_CONSOLATO)
 
-/** true per i POI con sito ed email, quando OSM li indica: solo ambasciate e consolati. */
-fun poiHasContacts(category: String, osmTag: String): Boolean = poiCategoryOf(category, osmTag) == PoiCategory.AMBASCIATA_CONSOLATO
+/** true per i POI con orari e indirizzo, quando OSM li indica: cibo e bevande, alloggi, ambasciate e consolati. */
+fun poiHasDetails(category: String, osmTag: String): Boolean = poiCategoryOf(category, osmTag) in detailCategories
+
+/** true per i POI con sito ed email, quando OSM li indica: alloggi (per prenotare), ambasciate e consolati. */
+fun poiHasContacts(category: String, osmTag: String): Boolean = poiCategoryOf(category, osmTag) in contactCategories
 
 /** false se OSM non ha un nome: la pipeline mette allora il valore del tag (es. "toilets"). */
 fun poiHasName(name: String, osmTag: String): Boolean = name != osmTag.substringAfter("=")

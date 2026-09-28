@@ -17,7 +17,7 @@ data class MapPin(
     // Cibo e bevande: orari (opening_hours di OSM) e indirizzo, se indicati.
     val openingHours: String? = null,
     val address: String? = null,
-    // Ambasciate e consolati: sito ed email, se indicati.
+    // Alloggi, ambasciate e consolati: sito ed email, se indicati.
     val website: String? = null,
     val email: String? = null,
 )

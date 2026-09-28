@@ -113,7 +113,7 @@ data class Poi(
     // Solo per i POI con poiHasDetails (cibo e bevande), null se OSM non li indica.
     val openingHours: String? = null,
     val address: String? = null,
-    // Solo per i POI con poiHasContacts (ambasciate e consolati).
+    // Solo per i POI con poiHasContacts (alloggi, ambasciate e consolati).
     val website: String? = null,
     val email: String? = null,
 )
@@ -170,7 +170,7 @@ private fun addressOf(tags: Map<String, String>): String? {
  *   stringhe identiche a ogni riga ma un solo intero.
  * - "poi": name, il code di poi_code, le coordinate come interi in microgradi (lat/lon * 1e6,
  *   precisione ~0,11 m, piu' che sufficiente per un segnalino) invece di REAL a 8 byte, phone e
- *   wheelchair facoltativi, openingHours e address per cibo, bevande e ambasciate, website ed email solo per le ambasciate (colonne
+ *   wheelchair facoltativi, openingHours e address per cibo, alloggi e ambasciate, website ed email per alloggi e ambasciate (colonne
  *   aggiunte dopo: le versioni dell'app che non le conoscono non le selezionano). Niente colonna
  *   regionId (era costante su ogni riga: la regione la passa comunque chi importa il file).
  * - PRAGMA user_version = [POI_DB_FORMAT_VERSION]: marcatore di formato per PoiImporter, che
