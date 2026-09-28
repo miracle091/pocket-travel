@@ -84,6 +84,8 @@ class PoiImporter @Inject constructor(
                     website = optional("website"),
                     email = optional("email"),
                     country = optional("country"),
+                    nameEn = optional("nameEn"),
+                    nameIt = optional("nameIt"),
                     extra = extra,
                 )
             }
@@ -114,6 +116,6 @@ class PoiImporter @Inject constructor(
                 OPTIONAL_COLUMNS.filter { it in columns }.joinToString("") { ", poi.$it" } +
                 " FROM poi JOIN poi_code ON poi.code = poi_code.code"
 
-        private val OPTIONAL_COLUMNS = listOf("phone", "wheelchair", "openingHours", "address", "website", "email", "country")
+        private val OPTIONAL_COLUMNS = listOf("phone", "wheelchair", "openingHours", "address", "website", "email", "country", "nameEn", "nameIt")
     }
 }

@@ -66,6 +66,7 @@ import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSection
 import com.pockettravel.core.data.Poi
+import com.pockettravel.core.data.displayName
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.countryName
@@ -441,15 +442,17 @@ private fun EmbassiesSection(country: String, embassies: List<Poi>) {
             modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.s),
         )
     }
+    val language = LocalLocale.current.platformLocale.language
     embassies.forEach { embassy ->
         val phone = embassy.phone
+        val name = embassy.displayName(language)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp)
                 .then(
                     if (phone != null) {
-                        Modifier.clickable(onClickLabel = stringResource(R.string.emergency_call, embassy.name, phone)) {
+                        Modifier.clickable(onClickLabel = stringResource(R.string.emergency_call, name, phone)) {
                             context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phone".toUri()))
                         }
                     } else {
@@ -460,7 +463,7 @@ private fun EmbassiesSection(country: String, embassies: List<Poi>) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = embassy.name, style = MaterialTheme.typography.bodyMedium)
+                Text(text = name, style = MaterialTheme.typography.bodyMedium)
                 phone?.let { Text(text = it, style = MaterialTheme.typography.titleMedium) }
                 embassy.address?.let { Text(text = it, style = MaterialTheme.typography.bodySmall) }
             }

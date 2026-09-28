@@ -26,6 +26,9 @@ data class PoiEntity(
     val email: String? = null,
     // Ambasciate e consolati: paese rappresentato (ISO 3166-1 alpha-2), vedi GeneratePoi.kt.
     val country: String? = null,
+    // Nome in inglese e in italiano (OSM name:en, name:it), solo se diverso da name: vedi Poi.displayName.
+    val nameEn: String? = null,
+    val nameIt: String? = null,
     // true per i POI del pacchetto extra (poi-extra.db): si importano e si eliminano a parte.
     @ColumnInfo(defaultValue = "0") val extra: Boolean = false,
 )

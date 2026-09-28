@@ -5,7 +5,8 @@ import com.pockettravel.core.data.WorldMapStore
 import java.io.File
 
 interface OfflineTileSource {
-    fun styleJson(regionId: String, dark: Boolean = false): String
+    /** [language]: lingua dell'interfaccia ("it"/"en"), per i nomi di localita' e strade (vedi labelField). */
+    fun styleJson(regionId: String, dark: Boolean = false, language: String = "it"): String
 
     /** Sorgente scelta da [styleJson] per la regione, per decidere se e cosa mostrare nella
      * barra "Scarica la mappa" (RegionHubScreen). */
@@ -45,7 +46,8 @@ class PmtilesTileSource(
 
     override fun sourceKind(regionId: String): MapSourceKind = resolve(regionId).kind
 
-    override fun styleJson(regionId: String, dark: Boolean): String {
+    override fun styleJson(regionId: String, dark: Boolean, language: String): String {
+        val label = labelField(language)
         val palette = if (dark) MapPalette.Dark else MapPalette.Light
         val resolved = resolve(regionId)
         if (resolved.kind == MapSourceKind.NONE) {
@@ -124,7 +126,8 @@ class PmtilesTileSource(
         // piu' spesse, strade minori bianche con leggera "casing" grigia, edifici con contorno),
         // con "interpolate"/"zoom" per ispessire le linee avvicinandosi.
         //
-        // "text-field" con coalesce name:it -> name:en -> name (non il solo "name"): i nomi di
+        // "text-field" con coalesce name:it -> name:en -> name (in inglese name:en -> name, vedi
+        // labelField) invece del solo "name": i nomi di
         // strade/localita' sono nomi propri, non traducibili ("Via Roma" resta "Via Roma" anche
         // su Google Maps in italiano) — l'unica localizzazione sensata e' preferire la variante
         // gia' mappata su OSM (rara per name:it, molto piu' comune name:en, es. la
@@ -159,9 +162,9 @@ class PmtilesTileSource(
                 { "id": "roads_major", "type": "line", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "highway", "major_road"], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "${palette.majorRoad}", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 1, 18, 10] } },
                 { "id": "boundaries_region", "type": "line", "source": "region", "source-layer": "boundaries", "filter": ["all", [">=", "kind_detail", 3], ["<=", "kind_detail", 4]], "minzoom": 5, "layout": { "line-join": "round" }, "paint": { "line-color": "${palette.boundaryRegion}", "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.6, 14, 1.5], "line-dasharray": [3, 2] } },
                 { "id": "boundaries_country", "type": "line", "source": "region", "source-layer": "boundaries", "filter": ["<=", "kind_detail", 2], "layout": { "line-join": "round", "line-cap": "round" }, "paint": { "line-color": "${palette.boundaryCountry}", "line-width": ["interpolate", ["linear"], ["zoom"], 2, 0.8, 14, 2.5] } },
-                { "id": "places_locality", "type": "symbol", "source": "region", "source-layer": "places", "filter": ["in", "kind", "locality", "macrohood", "neighbourhood"], "minzoom": 10, "layout": { "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 13 }, "paint": { "text-color": "${palette.placeText}", "text-halo-color": "${palette.placeHalo}", "text-halo-width": 1.2 } },
-                { "id": "roads_labels_major", "type": "symbol", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "highway", "major_road"], "minzoom": 11, "layout": { "symbol-placement": "line", "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 12 }, "paint": { "text-color": "${palette.majorLabel}", "text-halo-color": "${palette.majorLabelHalo}", "text-halo-width": 1 } },
-                { "id": "roads_labels_minor", "type": "symbol", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "minor_road", "other"], "minzoom": 15, "layout": { "symbol-placement": "line", "text-field": ["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]], "text-font": ["NotoSansRegular"], "text-size": 11 }, "paint": { "text-color": "${palette.minorLabel}", "text-halo-color": "${palette.minorLabelHalo}", "text-halo-width": 1.2 } }$addressesLayer
+                { "id": "places_locality", "type": "symbol", "source": "region", "source-layer": "places", "filter": ["in", "kind", "locality", "macrohood", "neighbourhood"], "minzoom": 10, "layout": { "text-field": $label, "text-font": ["NotoSansRegular"], "text-size": 13 }, "paint": { "text-color": "${palette.placeText}", "text-halo-color": "${palette.placeHalo}", "text-halo-width": 1.2 } },
+                { "id": "roads_labels_major", "type": "symbol", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "highway", "major_road"], "minzoom": 11, "layout": { "symbol-placement": "line", "text-field": $label, "text-font": ["NotoSansRegular"], "text-size": 12 }, "paint": { "text-color": "${palette.majorLabel}", "text-halo-color": "${palette.majorLabelHalo}", "text-halo-width": 1 } },
+                { "id": "roads_labels_minor", "type": "symbol", "source": "region", "source-layer": "roads", "filter": ["in", "kind", "minor_road", "other"], "minzoom": 15, "layout": { "symbol-placement": "line", "text-field": $label, "text-font": ["NotoSansRegular"], "text-size": 11 }, "paint": { "text-color": "${palette.minorLabel}", "text-halo-color": "${palette.minorLabelHalo}", "text-halo-width": 1.2 } }$addressesLayer
               ]
             }
         """.trimIndent()
@@ -175,6 +178,10 @@ internal data class ResolvedSource(val kind: MapSourceKind, val url: String?, va
 
 // DEVE combaciare con MAP_MAX_ZOOM di build-region.sh (0/14), vedi il commento in styleJson.
 private const val FULL_MAP_MAX_ZOOM = 14
+
+// Nome da mostrare per localita' e strade: in italiano name:it -> name:en -> name, in inglese name:en -> name.
+internal fun labelField(language: String): String =
+    if (language == "en") """["coalesce", ["get", "name:en"], ["get", "name"]]""" else """["coalesce", ["get", "name:it"], ["get", "name:en"], ["get", "name"]]"""
 
 internal fun selectSource(
     fullMapUrl: String?,

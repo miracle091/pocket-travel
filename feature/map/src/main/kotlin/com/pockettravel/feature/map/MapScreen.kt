@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
@@ -102,7 +103,8 @@ fun MapScreen(
     val mapView = rememberMapViewWithLifecycle()
     // Stile scuro quando l'app e' in tema scuro (segue il tema effettivo, non solo il sistema).
     val darkMap = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val styleJson = remember(tileSource, regionId, darkMap, mapSource) { tileSource.styleJson(regionId, dark = darkMap) }
+    val language = LocalLocale.current.platformLocale.language
+    val styleJson = remember(tileSource, regionId, darkMap, mapSource, language) { tileSource.styleJson(regionId, dark = darkMap, language = language) }
     var configuredStyle by remember { mutableStateOf<String?>(null) }
     // Sorgente dei segnalini dello stile corrente: null durante un cambio di stile.
     var pinsSource by remember { mutableStateOf<GeoJsonSource?>(null) }
@@ -255,12 +257,22 @@ fun MapScreen(
                     // Titolo: il nome, o il tipo preciso se OSM non ha un nome. Sotto il tipo, non la
                     // categoria generica della mappa ("Ristoranti e bar" non dice nulla in piu').
                     val type = poiTypeLabel(pin.osmTag)?.let { stringResource(it) }
+                    // Nome nella lingua dell'interfaccia; quello locale sotto, piu' piccolo, per
+                    // riconoscerlo sui cartelli ("Kiyomizu-dera" / "清水寺").
+                    val shownName = pin.displayName(LocalLocale.current.platformLocale.language)
                     Column {
                         Text(
-                            text = pin.name ?: type ?: stringResource(pin.category.label()),
+                            text = shownName ?: type ?: stringResource(pin.category.label()),
                             style = MaterialTheme.typography.titleLarge,
                             modifier = Modifier.semantics { heading() },
                         )
+                        if (shownName != null && shownName != pin.name) {
+                            Text(
+                                text = pin.name.orEmpty(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         if (pin.name != null && type != null) {
                             Text(
                                 text = type,

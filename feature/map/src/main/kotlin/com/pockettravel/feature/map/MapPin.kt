@@ -20,4 +20,10 @@ data class MapPin(
     // Alloggi, ambasciate e consolati: sito ed email, se indicati.
     val website: String? = null,
     val email: String? = null,
-)
+    // Nomi in inglese e in italiano (OSM name:en, name:it), se diversi da [name].
+    val nameEn: String? = null,
+    val nameIt: String? = null,
+) {
+    /** Nome nella lingua dell'interfaccia se OSM lo ha, altrimenti [name] (null senza nome). */
+    fun displayName(language: String): String? = name?.let { (if (language == "en") nameEn else nameIt ?: nameEn) ?: it }
+}

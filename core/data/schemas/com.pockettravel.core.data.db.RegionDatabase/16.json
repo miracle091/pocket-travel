@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 16,
-    "identityHash": "86eb769087d7e3af2de86e6455e34e0f",
+    "identityHash": "aa7ca7da2916e39e5d42d2c6267f00bd",
     "entities": [
       {
         "tableName": "guide_sections",
@@ -104,7 +104,7 @@
       },
       {
         "tableName": "poi",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `regionId` TEXT NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `lat` REAL NOT NULL, `lon` REAL NOT NULL, `osmTag` TEXT NOT NULL, `phone` TEXT, `wheelchair` TEXT, `openingHours` TEXT, `address` TEXT, `website` TEXT, `email` TEXT, `country` TEXT, `extra` INTEGER NOT NULL DEFAULT 0)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `regionId` TEXT NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `lat` REAL NOT NULL, `lon` REAL NOT NULL, `osmTag` TEXT NOT NULL, `phone` TEXT, `wheelchair` TEXT, `openingHours` TEXT, `address` TEXT, `website` TEXT, `email` TEXT, `country` TEXT, `nameEn` TEXT, `nameIt` TEXT, `extra` INTEGER NOT NULL DEFAULT 0)",
         "fields": [
           {
             "fieldPath": "id",
@@ -181,6 +181,16 @@
           {
             "fieldPath": "country",
             "columnName": "country",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "nameEn",
+            "columnName": "nameEn",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "nameIt",
+            "columnName": "nameIt",
             "affinity": "TEXT"
           },
           {
@@ -569,7 +579,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '86eb769087d7e3af2de86e6455e34e0f')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'aa7ca7da2916e39e5d42d2c6267f00bd')"
     ]
   }
 }

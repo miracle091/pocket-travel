@@ -210,4 +210,23 @@ class GeneratePoiTest {
             xml.delete()
         }
     }
+    @Test
+    fun `nomi in inglese e italiano solo se diversi dal nome locale`() {
+        val dir = kotlin.io.path.createTempDirectory("pocket-travel-poi").toFile()
+        val xml = File(dir, "a.xml")
+        xml.writeText(
+            """<?xml version="1.0"?><osm version="0.6">""" +
+                """<node id="1" lat="34.99" lon="135.78"><tag k="amenity" v="place_of_worship"/><tag k="name" v="清水寺"/>""" +
+                """<tag k="name:en" v="Kiyomizu-dera"/><tag k="name:it" v="Kiyomizu-dera"/></node>""" +
+                """<node id="2" lat="43.93" lon="12.44"><tag k="amenity" v="restaurant"/><tag k="name" v="Da Mario"/><tag k="name:en" v="Da Mario"/></node>""" +
+                "</osm>",
+        )
+        try {
+            val (tempio, ristorante) = readPois(listOf(xml), poiTagKeys)
+            assertEquals(listOf("Kiyomizu-dera", "Kiyomizu-dera"), listOf(tempio.nameEn, tempio.nameIt))
+            assertEquals(listOf(null, null), listOf(ristorante.nameEn, ristorante.nameIt))
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
 }

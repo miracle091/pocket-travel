@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -35,6 +36,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.pockettravel.core.ui.Spacing
+import java.util.Locale
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
@@ -60,8 +62,10 @@ fun WorldMap(
     val mapView = rememberMapViewWithLifecycle()
     val colors = MaterialTheme.colorScheme
     val dark = colors.surface.luminance() < 0.5f
-    val styleJson = remember(countryStatus, colors, dark) {
+    val locale = LocalLocale.current.platformLocale
+    val styleJson = remember(countryStatus, colors, dark, locale) {
         worldStyleJson(
+            locale = locale,
             countryStatus = countryStatus,
             ocean = if (dark) "#17344a" else "#a7cfe8",
             land = colors.surfaceDim.hex(),
@@ -160,6 +164,8 @@ private fun Color.hex(): String = "#%06X".format(toArgb() and 0xFFFFFF)
 
 internal fun worldStyleJson(
     countryStatus: Map<String, CountryStatus>,
+    // Le etichette dell'asset sono in italiano: in un'altra lingua il nome viene dal codice "iso".
+    locale: Locale = Locale.ITALIAN,
     ocean: String,
     land: String,
     available: String,
@@ -179,6 +185,15 @@ internal fun worldStyleJson(
         if (availableIsos.isNotEmpty()) append("[$availableIsos], \"$available\", ")
         append("\"$land\"]")
     }
+    val labelField = if (locale.language == "it") {
+        """["get", "name"]"""
+    } else {
+        val names = Locale.getISOCountries().joinToString(", ") { iso ->
+            val name = Locale.Builder().setRegion(iso).build().getDisplayCountry(locale).replace("\"", "")
+            "\"${iso.lowercase()}\", \"$name\""
+        }
+        """["match", ["get", "iso"], $names, ["get", "name"]]"""
+    }
     return """
         {
           "version": 8,
@@ -193,7 +208,7 @@ internal fun worldStyleJson(
             { "id": "countries-line", "type": "line", "source": "countries", "paint": { "line-color": "$border", "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.3, 6, 1.2] } },
             { "id": "country-labels", "type": "symbol", "source": "labels",
               "filter": ["<=", ["get", "rank"], ["+", 2, ["*", 1.5, ["zoom"]]]],
-              "layout": { "text-field": ["get", "name"], "text-font": ["NotoSansRegular"], "text-size": ["interpolate", ["linear"], ["zoom"], 0, 9, 6, 14], "symbol-sort-key": ["get", "rank"], "text-max-width": 7 },
+              "layout": { "text-field": $labelField, "text-font": ["NotoSansRegular"], "text-size": ["interpolate", ["linear"], ["zoom"], 0, 9, 6, 14], "symbol-sort-key": ["get", "rank"], "text-max-width": 7 },
               "paint": { "text-color": "$label", "text-halo-color": "$labelHalo", "text-halo-width": 1.2 } }
           ]
         }

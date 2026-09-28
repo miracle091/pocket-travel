@@ -34,9 +34,14 @@ data class Poi(
     val website: String? = null,
     val email: String? = null,
     val country: String? = null,
+    val nameEn: String? = null,
+    val nameIt: String? = null,
     // Dal pacchetto extra: la mappa li mostra anche se isHiddenOnMap() li nasconderebbe.
     val extra: Boolean = false,
 )
 
 private fun PoiEntity.toDomain() =
-    Poi(id, regionId, name, category, lat, lon, osmTag, phone, wheelchair, openingHours, address, website, email, country, extra)
+    Poi(id, regionId, name, category, lat, lon, osmTag, phone, wheelchair, openingHours, address, website, email, country, nameEn, nameIt, extra)
+
+/** Nome nella lingua dell'interfaccia ("en"/"it") se OSM lo ha, altrimenti quello locale. */
+fun Poi.displayName(language: String): String = (if (language == "en") nameEn else nameIt ?: nameEn) ?: name

@@ -119,6 +119,10 @@ data class Poi(
     // Ambasciate e consolati: paese che rappresentano (tag OSM "country", ISO 3166-1 alpha-2), per
     // mostrare a chi viaggia quelle del proprio paese.
     val country: String? = null,
+    // Nome in inglese e in italiano (tag OSM name:en, name:it), solo se diverso da name: l'app mostra
+    // quello della lingua dell'interfaccia, utile soprattutto con alfabeti diversi ("清水寺" -> "Kiyomizu-dera").
+    val nameEn: String? = null,
+    val nameIt: String? = null,
 )
 
 private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagKeys: List<String>): Poi? {
@@ -159,8 +163,13 @@ private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagK
         website = (tags["website"] ?: tags["contact:website"]).takeIf { contacts },
         email = (tags["email"] ?: tags["contact:email"]).takeIf { contacts },
         country = if (category == "embassy") representedCountry(tags["country"]) else null,
+        nameEn = translatedName(tags, "name:en"),
+        nameIt = translatedName(tags, "name:it"),
     )
 }
+
+private fun translatedName(tags: Map<String, String>, key: String): String? =
+    tags[key]?.trim()?.takeIf { it.isNotEmpty() && tags["name"] != null && it != tags["name"] }
 
 // "IT", anche da "it" o "IT;SM" (piu' paesi: il primo). null se non e' un codice a due lettere.
 private fun representedCountry(raw: String?): String? =
@@ -231,10 +240,12 @@ fun writePoiDb(pois: List<Poi>, outputDb: File) {
                 address TEXT,
                 website TEXT,
                 email TEXT,
-                country TEXT
+                country TEXT,
+                nameEn TEXT,
+                nameIt TEXT
             )
             """.trimIndent(),
-        insertSql = "INSERT INTO poi (name, code, latE6, lonE6, phone, wheelchair, openingHours, address, website, email, country) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        insertSql = "INSERT INTO poi (name, code, latE6, lonE6, phone, wheelchair, openingHours, address, website, email, country, nameEn, nameIt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         rows = pois,
     ) { insert, poi ->
         insert.setString(1, poi.name)
@@ -248,6 +259,8 @@ fun writePoiDb(pois: List<Poi>, outputDb: File) {
         insert.setString(9, poi.website)
         insert.setString(10, poi.email)
         insert.setString(11, poi.country)
+        insert.setString(12, poi.nameEn)
+        insert.setString(13, poi.nameIt)
     }
 
     // A parte (non e' una tabella): writeSqliteTable ricrea una tabella per volta, il marcatore di
