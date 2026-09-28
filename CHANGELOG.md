@@ -4,13 +4,16 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ## [Non rilasciato]
 
+## [0.8.0]
+
 ### Aggiunto
+- Numeri civici molto più completi: oltre a OpenStreetMap arrivano quelli dei registri ufficiali degli indirizzi di decine di paesi, raccolti da Overture Maps (per esempio a Roma circa 8 volte quelli di prima, nelle zone di campagna anche 70 volte), senza doppioni. Si scaricano a zone di al massimo 10 MB circa: una regione prende solo le zone che la coprono e gli aggiornamenti riscaricano solo quelle cambiate. Le fonti di ogni indirizzo sono elencate nella schermata Licenze. Le versioni precedenti dell'app tengono i civici già scaricati ma non ne ricevono più di nuovi: per averli serve questa versione.
 - Guide delle città: con ogni regione arrivano anche le pagine delle sue città (da sapere, come muoversi, cosa vedere, dove mangiare e dormire…), leggibili dalla scheda Guida e usate dall'assistente IA per rispondere.
 - Fatti rapidi in cima a ogni guida: lingua, prese elettriche, fuso orario, valuta e numeri di emergenza.
 - Note personali nei Documenti (prenotazioni, indirizzi, itinerario): cifrate sul telefono, senza bisogno dell'impronta, e usate dall'assistente IA quando servono per rispondere.
 - Il campo della chiave API dell'assistente online ha un pulsante per mostrarla o nasconderla, per controllarla prima di salvarla.
 - La scheda Mappa non è più vuota se la mappa della regione non è scaricata: con ogni regione arriva un'anteprima leggera (strade principali e confini, al massimo 10 MB), se c'è rete si vede la mappa del mondo online e, senza nulla di tutto questo, uno sfondo che fa capire che la mappa manca. Sempre con i punti di interesse, e con una barra per scaricare la mappa che ricorda che dettaglio delle strade e percorsi richiedono mappa e percorsi scaricati.
-- Scelta del modello dell'assistente divisa in due gruppi, con una breve premessa sulle differenze: "Ufficiali" (modelli generici, come li pubblicano i loro autori) e "Addestrati da noi" (addestrati sulle guide di viaggio per rispondere in italiano, in poche frasi, solo con la guida e dicendo quando un'informazione manca). I modelli addestrati da noi, uno per fascia di memoria (0,8B, 2B e 4B), compaiono come "Presto disponibile" finché l'addestramento non è finito.
+- Scelta del modello dell'assistente divisa in due gruppi, con una breve premessa sulle differenze: "Ufficiali" (modelli generici, come li pubblicano i loro autori) e "Addestrati da noi" (addestrati sulle guide di viaggio per rispondere in italiano, in poche frasi, solo con la guida e dicendo quando un'informazione manca). I modelli addestrati da noi sono uno per fascia di memoria (0,8B, 2B e 4B).
 - Aprendo una regione dall'elenco, la sua riga si allarga fino a diventare la pagina della regione e si richiude tornando indietro (anche con il gesto Indietro).
 
 ### Modificato

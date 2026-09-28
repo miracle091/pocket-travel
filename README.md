@@ -10,9 +10,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/miracle091/pocket-travel/releases/tag/v0.7.0">Scarica l'app</a> ·
+  <a href="https://github.com/miracle091/pocket-travel/releases/tag/v0.8.0">Scarica l'app</a> ·
   <a href="CHANGELOG.md">Novità</a> ·
-  versione <strong>0.7.0</strong>
+  versione <strong>0.8.0</strong>
 </p>
 
 <p align="center">
@@ -37,7 +37,7 @@ Ci sono 355 paesi e regioni (gli stati più grandi, come Stati Uniti, Canada e C
 
 ## Da dove vengono i dati
 
-Tutto viene da progetti aperti e liberi: le guide da [Wikivoyage](https://it.wikivoyage.org) e [Wikipedia](https://it.wikipedia.org), le mappe e i punti di interesse da [OpenStreetMap](https://www.openstreetmap.org) (le mappe nel formato di [Protomaps](https://protomaps.com)), i percorsi da [BRouter](https://brouter.de). L'app non ha un server suo e non raccoglie dati su di te: la chiave dell'assistente IA online, se la usi, resta solo sul telefono.
+Tutto viene da progetti aperti e liberi: le guide da [Wikivoyage](https://it.wikivoyage.org) e [Wikipedia](https://it.wikipedia.org), le mappe e i punti di interesse da [OpenStreetMap](https://www.openstreetmap.org) (le mappe nel formato di [Protomaps](https://protomaps.com)), i numeri civici da OpenStreetMap e dai registri ufficiali degli indirizzi raccolti da [Overture Maps](https://overturemaps.org), i percorsi da [BRouter](https://brouter.de). L'app non ha un server suo e non raccoglie dati su di te: la chiave dell'assistente IA online, se la usi, resta solo sul telefono.
 
 ## Per chi sviluppa
 
@@ -50,7 +50,7 @@ L'app è scritta in Kotlin con Jetpack Compose. Il codice è diviso in moduli:
 | `app/` | schermate principali e navigazione |
 | `core/` | database, download e installazione dei pacchetti, tema grafico, categorie dei punti di interesse |
 | `feature/` | guida, mappa, assistente IA, documenti, fonti ufficiali (ognuna dipende solo da `core`) |
-| `tools/data-pipeline/` | gli script che preparano e pubblicano ogni settimana guide, mappe e punti di interesse, e quelli per addestrare i modelli dell'assistente IA |
+| `tools/data-pipeline/` | gli script che preparano e pubblicano a turno, ogni notte, guide, mappe, punti di interesse e numeri civici, e quelli per addestrare i modelli dell'assistente IA |
 | `third-party/` | copie di BRouter e llama.cpp usate dall'app |
 
 Per aprire il progetto serve Android Studio con JDK 17 o successivo: apri la cartella e Android Studio fa il resto (Gradle è già incluso).
@@ -65,4 +65,4 @@ Per provare l'app con un catalogo di dati tuo invece di quello pubblicato (solo 
 
 ## Licenza
 
-Il codice è sotto licenza [MIT](LICENSE). I dati hanno le loro licenze ([CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.it) per Wikivoyage e Wikipedia, [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/) per OpenStreetMap): l'elenco completo è nella schermata Licenze dell'app.
+Il codice è sotto licenza [MIT](LICENSE). I dati hanno le loro licenze ([CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.it) per Wikivoyage e Wikipedia, [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/) per OpenStreetMap; i civici di Overture Maps hanno la licenza del registro da cui vengono): l'elenco completo, con tutte le fonti dei civici, è nella schermata Licenze dell'app.

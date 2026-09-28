@@ -5,7 +5,7 @@ Le cose da sapere per lavorare su Pocket Travel. Il **perché** delle scelte tec
 ## Cosa serve
 
 - Android Studio con JDK 17 o successivo (Gradle è già incluso nel repository).
-- Per la pipeline dei dati: bash, `jq`, `xz`, Python 3.
+- Per la pipeline dei dati: bash, `jq`, `xz`, Python 3 (per i civici di Overture anche il pacchetto `duckdb`).
 - Per addestrare i modelli dell'assistente: una GPU (AMD con ROCm o NVIDIA) e Unsloth.
 
 ## Compilare e provare
@@ -47,6 +47,8 @@ python -m http.server 8000 --directory <cartella con manifest.json>
 | il database | `core/data/` (ogni cambio di schema vuole una migrazione e il suo test) |
 | cosa finisce nei pacchetti | `tools/data-pipeline/scripts/` e `tools/data-pipeline/content/` |
 | l'elenco delle regioni | `tools/data-pipeline/scripts/pilot-regions.sh`, poi `generate-weekly-schedule.sh` |
+| i numeri civici (celle da ~10 MB) | `tools/data-pipeline/scripts/build-address-cell.sh` e il seme `tools/data-pipeline/address-grid-seed.tsv` |
+| le fonti Overture dei civici | `tools/data-pipeline/overture-address-sources.tsv` (una fonte nuova resta fuori finché non la si rivede) |
 | i modelli dell'assistente | `feature/ai/.../LlmModelCatalog.kt` e gli script `train_*.py` / `eval_*.py` |
 
 ## Rilasciare una versione
@@ -61,3 +63,4 @@ python -m http.server 8000 --directory <cartella con manifest.json>
 - Ogni modulo `feature` dipende solo dai moduli `core`.
 - Testi dell'app in italiano, nei file `strings.xml`.
 - Ogni modifica visibile va nel `CHANGELOG.md`.
+- Niente percorsi del proprio computer (`C:\...`, `/home/...`) nei file del repository né nei messaggi di commit.
