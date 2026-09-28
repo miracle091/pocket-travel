@@ -49,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -131,15 +132,21 @@ internal fun GuideContent(
 private fun GuideSectionsList(uiState: GuideUiState, onOpenSource: (url: String, title: String) -> Unit, onOpenCities: () -> Unit) {
     var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
     val transport = transportSummary(uiState.transportCounts)
-    val orderedSections = remember(uiState.sections, uiState.countryCode, transport) {
-        val extra = QuickFactsExtra(
-            language = uiState.countryCode?.let(::languageOf),
-            currency = uiState.countryCode?.let(::currencyOf),
-            transport = transport,
-        )
+    val uiLanguage = LocalLocale.current.platformLocale.language
+    val orderedSections = remember(uiState.sections, uiState.countryCode, transport, uiLanguage) {
         uiState.sections
             .sortedBy { if (it.category == GuideCategory.FATTI_RAPIDI) 0 else 1 }
-            .map { if (it.category == GuideCategory.FATTI_RAPIDI) it.copy(body = quickFactsBody(it.body, extra)) else it }
+            .map { section ->
+                if (section.category != GuideCategory.FATTI_RAPIDI) return@map section
+                // Etichette e valori aggiunti nella lingua delle guide installate (italiane o inglesi).
+                val labels = QuickFactsLabels.of(section.body, uiLanguage)
+                val extra = QuickFactsExtra(
+                    language = uiState.countryCode?.let { languageOf(it, labels.locale) },
+                    currency = uiState.countryCode?.let { currencyOf(it, labels.locale) },
+                    transport = transport,
+                )
+                section.copy(body = quickFactsBody(section.body, extra, labels))
+            }
     }
     SectionsWithFilters(
         sections = orderedSections.map { it.toUi() },

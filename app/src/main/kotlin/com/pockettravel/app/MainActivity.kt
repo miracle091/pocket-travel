@@ -15,18 +15,26 @@ import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import com.pockettravel.app.navigation.PocketTravelNavHost
 import com.pockettravel.app.settings.AppLanguage
 import com.pockettravel.app.settings.ThemePreferences
+import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.sync.RegionSyncScheduler
+import com.pockettravel.core.sync.currentGuidesLanguage
+import com.pockettravel.core.sync.isEnglishGuidesVersion
 import com.pockettravel.core.ui.PocketTravelTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.launch
 
 // FragmentActivity (sottoclasse di ComponentActivity) invece di ComponentActivity: richiesto da
 // BiometricPrompt (feature:vault, cassaforte documenti) — nessun altro cambio di comportamento.
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     @Inject lateinit var themePreferences: ThemePreferences
+    @Inject lateinit var regionRepository: RegionRepository
+    @Inject lateinit var regionSyncScheduler: RegionSyncScheduler
 
     // Fino ad Android 12 la lingua scelta nell'app si applica qui (da 13 ci pensa il sistema).
     override fun attachBaseContext(newBase: Context) {
@@ -38,6 +46,14 @@ class MainActivity : FragmentActivity() {
         AppLanguage.applyDefault(this)
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // Guide installate in una lingua diversa da quella dell'interfaccia (lingua appena cambiata):
+        // si scaricano subito quelle giuste. Se il manifest non offre guide inglesi il worker non fa nulla.
+        lifecycleScope.launch {
+            val installed = regionRepository.installedGuidesVersion()
+            if (installed != null && isEnglishGuidesVersion(installed) != (currentGuidesLanguage() == "en")) {
+                regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = false)
+            }
+        }
         setContent {
             val useDynamicColor by themePreferences.useDynamicColor.collectAsStateWithLifecycle()
             val forceDark by themePreferences.forceDark.collectAsStateWithLifecycle()

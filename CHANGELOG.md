@@ -19,6 +19,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Tema scuro anche quando il telefono usa quello chiaro: si attiva in Altro → Aspetto, spento di default (l'app segue il tema del telefono). Nello stesso foglio c'è ora anche "Colori dal wallpaper".
 
 ### Modificato
+- App in inglese: anche le guide delle nazioni sono in inglese, prese dalle pagine di Wikivoyage in inglese, con i fatti rapidi (lingua, elettricità, fuso orario, valuta, trasporti) in inglese. Cambiando lingua l'app scarica subito le guide nell'altra lingua. Arrivano con il prossimo aggiornamento delle guide; le guide delle città restano per ora in italiano. Corretto un campo dei fatti rapidi che poteva mostrare "Elettricità: | Fuso orario = ...".
 - App in inglese: gli stati USA nell'elenco delle regioni hanno il nome inglese ("North Carolina" invece di "Carolina del Nord"), con il prossimo aggiornamento del catalogo.
 - Guide più pulite: la fonte non compare più sotto ogni scheda, le pagine Wikivoyage usate sono raccolte in una scheda "Fonti" in fondo alla guida (la licenza resta nella schermata Licenze).
 - Scheda dei punti di interesse: icone di indirizzo e orari allineate, e le fasce orarie dello stesso giorno separate da una barra ("08:30–12:30 | 15:30–19:30") invece che da una virgola. Una farmacia o un ospedale senza nome si chiama "Farmacia" e "Ospedale", non con il nome del filtro al plurale.

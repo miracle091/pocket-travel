@@ -65,6 +65,8 @@ fun mergeManifestJson(
     val regionsById = LinkedHashMap<String, JSONObject>()
     val wikivoyageUrls = mutableMapOf<String, String>()
     var guides: JSONObject? = null
+    // Guida inglese (build-guides.sh ... en): stesso trattamento di "guides".
+    var guidesEn: JSONObject? = null
     var worldMap: JSONObject? = null
     var addressGrid: JSONObject? = null
     manifestJsons.forEach { json ->
@@ -72,6 +74,7 @@ fun mergeManifestJson(
         val manifestVersion = root.getInt("manifestVersion")
         require(manifestVersion == 1 || manifestVersion == MANIFEST_VERSION) { "manifestVersion non supportata: $manifestVersion" }
         root.optJSONObject("guides")?.let { guides = it }
+        root.optJSONObject("guidesEn")?.let { guidesEn = it }
         root.optJSONObject("worldMap")?.let { worldMap = it }
         root.optJSONObject("addressGrid")?.let { addressGrid = it }
         root.optJSONObject("wikivoyageUrls")?.let { urls -> urls.keySet().forEach { wikivoyageUrls[it] = urls.getString(it) } }
@@ -119,6 +122,7 @@ fun mergeManifestJson(
 
     val merged = JSONObject().put("manifestVersion", MANIFEST_VERSION)
     guides?.let { merged.put("guides", it) }
+    guidesEn?.let { merged.put("guidesEn", it) }
     worldMap?.let { merged.put("worldMap", it) }
     addressGrid?.let { merged.put("addressGrid", it) }
     minAppVersionCode?.let { merged.put("minAppVersionCode", it) }

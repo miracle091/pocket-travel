@@ -14,6 +14,8 @@ import java.net.URI
 data class RegionManifest(
     val manifestVersion: Int,
     val guides: GuidesManifestEntry,
+    // Guide in inglese (build-guides.sh ... en): assenti finche' la pipeline non le pubblica. Vedi guidesChoice.
+    val guidesEn: GuidesManifestEntry? = null,
     // Indice dei civici a griglia (address-grid-plan.md), a fianco di manifest.json su GitHub
     // Pages: assente finche' la pipeline non e' passata alla griglia, o per le app vecchie che non
     // lo sanno leggere (ignoreUnknownKeys = true).

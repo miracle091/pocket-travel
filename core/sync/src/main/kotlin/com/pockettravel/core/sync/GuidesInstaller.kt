@@ -12,11 +12,12 @@ class GuidesInstaller @Inject constructor(
     private val downloader: RegionPackageDownloader,
     private val guidesImporter: GuidesImporter,
 ) {
-    suspend fun install(guides: GuidesManifestEntry) {
+    /** [installedVersion]: la versione da registrare, vedi [GuidesChoice]. */
+    suspend fun install(guides: GuidesManifestEntry, installedVersion: String = guides.version) {
         guides.validate()
         val staging = downloader.download(STAGING_ID, guides.version, listOf(guides.downloadFile))
         unpackXz(staging, guides.file, guides.fileXz)
-        guidesImporter.import(File(staging, guides.file.name), guides.version)
+        guidesImporter.import(File(staging, guides.file.name), installedVersion)
         staging.deleteRecursively()
     }
 

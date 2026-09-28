@@ -31,4 +31,22 @@ class QuickFactsTest {
         val extra = QuickFactsExtra(language = "Italiano", currency = "euro (EUR)", transport = null)
         assertEquals("Lingua: Italiano, Tedesco (Trentino-Alto Adige)\nValuta: euro", quickFactsBody(body, extra))
     }
+
+    @Test
+    fun `guide inglesi, etichette inglesi e valori aggiunti in inglese`() {
+        val body = "Electricity: 100V/50-60Hz (American plug)\nTime zone: UTC+9"
+        val labels = QuickFactsLabels.of(body, "it")
+        assertEquals(QuickFactsLabels.ENGLISH, labels)
+        val extra = QuickFactsExtra(language = "Japanese", currency = "Japanese Yen (JPY)", transport = null)
+        assertEquals(
+            "Language: Japanese\nElectricity: 100V/50-60Hz (American plug)\nTime zone: GMT+9\nCurrency: Japanese Yen (JPY)",
+            quickFactsBody(body, extra, labels),
+        )
+    }
+
+    @Test
+    fun `senza campi riconoscibili vale la lingua dell'interfaccia`() {
+        assertEquals(QuickFactsLabels.ENGLISH, QuickFactsLabels.of("", "en"))
+        assertEquals(QuickFactsLabels.ITALIAN, QuickFactsLabels.of("Lingua: Italiano", "en"))
+    }
 }

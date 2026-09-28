@@ -7,6 +7,7 @@ import com.pockettravel.core.sync.GuidesInstaller
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
+import com.pockettravel.core.sync.guidesChoice
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,7 +41,9 @@ class RegionPreviewViewModel @Inject constructor(
                 val manifest = manifestClient.fetchManifest()
                 manifestEntry = manifest.regions.first { it.regionId == regionId }
                 // Le guide di tutte le nazioni sono un solo pacchetto: se gia' installato non serve scaricare nulla.
-                if (regionRepository.installedGuidesVersion() == null) guidesInstaller.install(manifest.guides)
+                if (regionRepository.installedGuidesVersion() == null) {
+                    manifest.guidesChoice().let { guidesInstaller.install(it.entry, it.installedVersion) }
+                }
                 _state.value = RegionPreviewState.Ready
             } catch (_: Exception) {
                 _state.value = RegionPreviewState.Error

@@ -278,4 +278,11 @@ class MergeManifestsTest {
         )
         assertEquals("North Carolina", merged.getJSONArray("regions").getJSONObject(0).getString("groupLabelEn"))
     }
+
+    @Test
+    fun `la guida inglese passa nel manifest unito come quella italiana`() {
+        val en = """{"manifestVersion": 2, "regions": [], "guidesEn": {"version": "2026.09.28", "file": {"name": "guides.db", "url": "https://x/guides-en.db.xz", "sizeBytes": 1, "sha256": "a"}}}"""
+        val merged = JSONObject(mergeManifestJson(listOf(fragmentFor("san-marino", "San Marino"), en)))
+        assertEquals("2026.09.28", merged.getJSONObject("guidesEn").getString("version"))
+    }
 }

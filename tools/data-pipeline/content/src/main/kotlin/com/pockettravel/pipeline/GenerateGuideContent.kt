@@ -182,7 +182,9 @@ private fun cleanBody(raw: String): String {
 // (es. Valuta del Venezuela, un elenco puntato con tre voci): si ferma al campo successivo o alla
 // chiusura "}}" del template.
 private val quickFactFieldRegex = Regex(
-    """(?m)^\|\s*(Lingua|Elettricità|Fuso orario|Valuta)\s*=\s*(.*?)(?=\n\s*\|[^|\n]*=|\n\s*}}|\z)""",
+    // Il valore si ferma anche a un "| Campo =" sulla stessa riga: con un campo vuoto ("|Elettricità= | Fuso
+    // orario = UTC-3") il valore diventava "| Fuso orario = UTC-3".
+    """(?m)(?:^|(?<=\s))\|\s*(Lingua|Elettricità|Fuso orario|Valuta)\s*=\s*(.*?)(?=\n\s*\|[^|\n]*=|\s*\|\s*[^|\[\]{}=\n]+=|\n\s*}}|\z)""",
     RegexOption.DOT_MATCHES_ALL,
 )
 private const val QUICKBAR_SCAN_CHARS = 4000
@@ -224,6 +226,52 @@ fun quickFactsSection(regionId: String, dumpText: String): GuideSectionRow? {
     return lines.takeIf { it.isNotEmpty() }?.let { GuideSectionRow(category = "FATTI_RAPIDI", title = "Fatti rapidi", body = it.joinToString("\n")) }
 }
 
+// Fatti rapidi in inglese: le pagine di Wikivoyage EN non li hanno nel testo ({{quickbar}} li prende da
+// Wikidata quando la pagina si apre), quindi vengono dal Quickbar della pagina italiana, solo per i campi
+// che non dipendono dalla lingua (elettricita' e fuso orario). Lingua e valuta le ricava l'app dal codice
+// paese, nella lingua dell'interfaccia.
+private val plugWords = mapOf(
+    "presa" to "plug", "prese" to "plugs", "europea" to "European", "britannica" to "British",
+    "americana" to "American", "australiana" to "Australian", "tedesca" to "German", "francese" to "French",
+    "cinese" to "Chinese", "argentina" to "Argentine", "svizzera" to "Swiss", "italiana" to "Italian",
+    "giapponese" to "Japanese", "indiana" to "Indian", "sudafricana" to "South African", "danese" to "Danish",
+    "israeliana" to "Israeli", "brasiliana" to "Brazilian", "e" to "and", "ed" to "and", "tipo" to "type",
+)
+private val neutralValueRegex = Regex("""^[0-9UTCGM\s/,.:+\-–~Vvz Hh]+$""")
+
+// "220V/50Hz (presa europea e britannica)" -> "220V/50Hz (European and British plug)"; se nella parentesi
+// resta una parola sconosciuta, solo la parte neutra ("220V/50Hz"), null se nemmeno quella.
+internal fun englishElectricity(value: String): String? {
+    val base = value.substringBefore('(').trim()
+    if (!neutralValueRegex.matches(base)) return null
+    val note = value.substringAfter('(', "").substringBeforeLast(')', "").trim()
+    if (note.isEmpty()) return base
+    val adjectives = note.lowercase().split(Regex("""\s*(?:,|/|\be\b|\bed\b)\s*""")).map { part ->
+        part.replace(Regex("""\bpres[ae]\b"""), "").trim()
+    }.filter { it.isNotBlank() }
+    val translated = adjectives.map { plugWords[it] ?: return base }
+    val plural = translated.size > 1 || Regex("""\bprese\b""").containsMatchIn(note.lowercase())
+    val list = if (translated.size > 1) translated.dropLast(1).joinToString(", ") + " and " + translated.last() else translated.single()
+    return "$base ($list " + (if (plural) "plugs" else "plug") + ")"
+}
+
+// "UTC+1" resta com'e'; con testo italiano ("UTC-3 (costa orientale)...") solo se, tolte le parentesi, resta un valore neutro.
+internal fun englishTimeZone(value: String): String? =
+    value.takeIf { neutralValueRegex.matches(it) }
+        ?: value.replace(Regex("""\([^)]*\)"""), "").replace(Regex("""\s+e\s+"""), ", ").trim().takeIf { neutralValueRegex.matches(it) && it.isNotBlank() }
+
+/** Sezione "Quick facts" della guida inglese dal Quickbar italiano (vedi sopra); null senza dati. */
+fun englishQuickFactsSection(dumpIt: String): GuideSectionRow? {
+    val fields = quickFactFieldRegex.findAll(dumpIt.take(QUICKBAR_SCAN_CHARS))
+        .associate { it.groupValues[1] to cleanQuickFactValue(it.groupValues[2]) }
+        .filterValues { it.isNotBlank() }
+    val lines = listOfNotNull(
+        fields["Elettricità"]?.let(::englishElectricity)?.let { "Electricity: $it" },
+        fields["Fuso orario"]?.let(::englishTimeZone)?.let { "Time zone: $it" },
+    )
+    return lines.takeIf { it.isNotEmpty() }?.let { GuideSectionRow(category = "FATTI_RAPIDI", title = "Quick facts", body = it.joinToString("\n")) }
+}
+
 /** Guida di una regione: sezioni estratte dal dump Wikivoyage e URL della pagina da cui vengono. */
 data class RegionGuide(val regionId: String, val sourceUrl: String, val sections: List<GuideSectionRow>)
 
@@ -240,8 +288,12 @@ data class RegionGuide(val regionId: String, val sourceUrl: String, val sections
  * scritto: il chiamante riusa la voce gia' pubblicata e la versione non cambia, cosi' l'app non
  * riscarica le guide a ogni run.
  */
-fun main(args: Array<String>) {
-    require(args.size in 2..3) { "Uso: generateGuides <regioni.tsv> <output guides.db> [guides.db pubblicato]" }
+fun main(rawArgs: Array<String>) {
+    // --lang en: guida inglese (guides-en.db). regioni.tsv ha allora "regionId<TAB>dumpEn.txt<TAB>sourceUrlEn",
+    // con in piu' "<TAB>dumpIt.txt" (la pagina italiana, solo per i fatti rapidi, vedi englishQuickFactsSection).
+    val english = rawArgs.firstOrNull() == "--lang" && rawArgs.getOrNull(1) == "en"
+    val args = if (rawArgs.firstOrNull() == "--lang") rawArgs.drop(2) else rawArgs.toList()
+    require(args.size in 2..3) { "Uso: generateGuides [--lang en] <regioni.tsv> <output guides.db> [guides.db pubblicato]" }
     val outputDb = File(args[1])
     val publishedDb = args.getOrNull(2)?.let(::File)?.takeIf { it.exists() }
 
@@ -249,9 +301,11 @@ fun main(args: Array<String>) {
         val columns = line.split('\t')
         val (regionId, dumpPath, sourceUrl) = columns
         val dump = dumpPath.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.length() > 0 }
-        val dumpEn = columns.getOrNull(3)?.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.length() > 0 }
-        if (dump != null) {
-            regionGuideFromDumps(regionId, dump.readText(), sourceUrl, dumpEn?.readText(), columns.getOrNull(4).orEmpty())
+        val dumpOther = columns.getOrNull(3)?.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.length() > 0 }
+        if (dump != null && english) {
+            RegionGuide(regionId, sourceUrl, listOfNotNull(dumpOther?.readText()?.let(::englishQuickFactsSection)) + parseWikivoyageDump(dump.readText()))
+        } else if (dump != null) {
+            regionGuideFromDumps(regionId, dump.readText(), sourceUrl, dumpOther?.readText(), columns.getOrNull(4).orEmpty())
         } else {
             println("guide: $regionId senza dump in questa run, ricopio le sezioni pubblicate")
             publishedDb?.let { readRegionGuide(it, regionId) } ?: RegionGuide(regionId, sourceUrl, emptyList())

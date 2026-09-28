@@ -11,37 +11,65 @@ import java.util.Locale
 /** Dati aggiunti ai fatti rapidi quando la guida non li ha. */
 internal data class QuickFactsExtra(val language: String?, val currency: String?, val transport: String?)
 
-private val FIELD_ORDER = listOf("Lingua", "Elettricità", "Fuso orario", "Valuta", "Trasporti")
+/**
+ * Nomi dei campi nella lingua delle guide installate (italiane o inglesi, vedi englishQuickFactsSection
+ * nella pipeline), con [locale] per i valori aggiunti dall'app (lingua e valuta).
+ */
+internal data class QuickFactsLabels(
+    val language: String,
+    val electricity: String,
+    val timeZone: String,
+    val currency: String,
+    val transport: String,
+    val emergency: String,
+    val locale: Locale,
+) {
+    val order get() = listOf(language, electricity, timeZone, currency, transport)
 
-// Hanno gia' la loro scheda, con i pulsanti per chiamare.
-private const val EMERGENCY_FIELD = "Numeri di emergenza"
+    companion object {
+        val ITALIAN = QuickFactsLabels("Lingua", "Elettricità", "Fuso orario", "Valuta", "Trasporti", "Numeri di emergenza", Locale.ITALIAN)
+        val ENGLISH = QuickFactsLabels("Language", "Electricity", "Time zone", "Currency", "Transport", "Emergency numbers", Locale.ENGLISH)
 
-internal fun quickFactsBody(body: String, extra: QuickFactsExtra): String {
+        /** Dai campi del testo pubblicato; senza campi riconoscibili, dalla lingua dell'interfaccia. */
+        fun of(body: String, uiLanguage: String): QuickFactsLabels {
+            val keys = body.lines().map { it.substringBefore(": ") }.toSet()
+            return when {
+                keys.any { it in ENGLISH.order } -> ENGLISH
+                keys.any { it in ITALIAN.order } -> ITALIAN
+                uiLanguage == "en" -> ENGLISH
+                else -> ITALIAN
+            }
+        }
+    }
+}
+
+internal fun quickFactsBody(body: String, extra: QuickFactsExtra, labels: QuickFactsLabels = QuickFactsLabels.of(body, "it")): String {
     val fields = LinkedHashMap<String, String>()
     val loose = mutableListOf<String>()
     for (line in body.lines().filter { it.isNotBlank() }) {
         val separator = line.indexOf(": ")
         if (separator > 0) fields[line.substring(0, separator)] = line.substring(separator + 2) else loose += line
     }
-    fields.remove(EMERGENCY_FIELD)
-    fields["Fuso orario"]?.let { fields["Fuso orario"] = it.replace(Regex("""\bUTC\b"""), "GMT") }
-    if ("Lingua" !in fields) extra.language?.let { fields["Lingua"] = it }
-    if ("Valuta" !in fields) extra.currency?.let { fields["Valuta"] = it }
-    extra.transport?.let { fields["Trasporti"] = it }
-    val ordered = FIELD_ORDER.mapNotNull { key -> fields[key]?.let { "$key: $it" } }
-    val others = fields.filterKeys { it !in FIELD_ORDER }.map { (key, value) -> "$key: $value" }
+    // Hanno gia' la loro scheda, con i pulsanti per chiamare.
+    fields.remove(labels.emergency)
+    fields[labels.timeZone]?.let { fields[labels.timeZone] = it.replace(Regex("""\bUTC\b"""), "GMT") }
+    if (labels.language !in fields) extra.language?.let { fields[labels.language] = it }
+    if (labels.currency !in fields) extra.currency?.let { fields[labels.currency] = it }
+    extra.transport?.let { fields[labels.transport] = it }
+    val ordered = labels.order.mapNotNull { key -> fields[key]?.let { "$key: $it" } }
+    val others = fields.filterKeys { it !in labels.order }.map { (key, value) -> "$key: $value" }
     return (ordered + others + loose).joinToString("\n")
 }
 
-/** "yen giapponese (JPY)" dal codice paese ISO, null se il paese non ha una valuta nota. */
-internal fun currencyOf(countryCode: String): String? = runCatching {
+/** "yen giapponese (JPY)" / "Japanese yen (JPY)" dal codice paese ISO, null se il paese non ha una valuta nota. */
+internal fun currencyOf(countryCode: String, locale: Locale = Locale.ITALIAN): String? = runCatching {
     val currency = Currency.getInstance(Locale.Builder().setRegion(countryCode).build())
-    "${currency.getDisplayName(Locale.ITALIAN)} (${currency.currencyCode})"
+    "${currency.getDisplayName(locale)} (${currency.currencyCode})"
 }.getOrNull()
 
-/** Lingua principale del paese ("Giapponese"), dai dati CLDR di Android; null se sconosciuta. */
-internal fun languageOf(countryCode: String): String? = runCatching {
+/** Lingua principale del paese ("Giapponese"/"Japanese"), dai dati CLDR di Android; null se sconosciuta. */
+internal fun languageOf(countryCode: String, locale: Locale = Locale.ITALIAN): String? = runCatching {
     val likely = ULocale.addLikelySubtags(ULocale("und_$countryCode"))
-    likely.getDisplayLanguage(ULocale.ITALIAN).takeIf { likely.language != "und" && it.isNotBlank() }
-        ?.replaceFirstChar { it.uppercase(Locale.ITALIAN) }
+    likely.getDisplayLanguage(ULocale.forLocale(locale)).takeIf { likely.language != "und" && it.isNotBlank() }
+        ?.replaceFirstChar { it.uppercase(locale) }
 }.getOrNull()

@@ -15,6 +15,7 @@ import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.ReplacedRegion
 import com.pockettravel.core.sync.attachAddressGridCells
+import com.pockettravel.core.sync.guidesChoice
 import com.pockettravel.core.ui.countryName
 import com.pockettravel.feature.ai.LlmModelUpdateCheckScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -150,7 +151,7 @@ class RegionListViewModel @Inject constructor(
                 manifestRegions.value = attachAddressGridCells(manifest.regions, addressGridIndex)
                 replacedRegions.value = manifest.replacedRegions
                 // Le guide si aggiornano da sole (su Wi-Fi) anche da qui, non solo col controllo periodico.
-                if (regionRepository.installedGuidesVersion() != manifest.guides.version) regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = true)
+                if (regionRepository.installedGuidesVersion() != manifest.guidesChoice().installedVersion) regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = true)
                 // Regioni installate prima che il database salvasse il codice paese: serve alla bandiera in Spazio.
                 val withoutCode = regionRepository.observeInstalled().first().filter { it.countryCode == null }.mapTo(mutableSetOf()) { it.regionId }
                 manifest.regions.filter { it.regionId in withoutCode }.forEach { remote ->

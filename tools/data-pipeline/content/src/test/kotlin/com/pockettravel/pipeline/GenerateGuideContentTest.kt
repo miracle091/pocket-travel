@@ -251,4 +251,25 @@ class GenerateGuideContentTest {
         assertEquals("https://it.example/r", senzaInglese.sourceUrl)
         assertEquals(0, senzaInglese.sections.size)
     }
+
+    @Test
+    fun `campo vuoto del Quickbar seguito da un altro sulla stessa riga`() {
+        val dump = "{{QuickbarCountry\n|Elettricità= | Fuso orario = UTC-3\n|Valuta=peso\n}}"
+        assertEquals("Fuso orario: UTC-3\nValuta: peso", quickFactsSection("zz", dump)?.body)
+    }
+
+    @Test
+    fun `fatti rapidi inglesi dai campi neutri del Quickbar italiano`() {
+        assertEquals("220V/50Hz (European plug)", englishElectricity("220V/50Hz (presa europea)"))
+        assertEquals("230V/50Hz (European and British plugs)", englishElectricity("230V/50Hz (presa europea e britannica)"))
+        assertEquals("240V/50Hz (Australian, Chinese and Argentine plugs)", englishElectricity("240V/50Hz (presa australiana/cinese/argentina)"))
+        assertEquals("220V/50Hz", englishElectricity("220V/50Hz (presa strana)"))
+        assertEquals(null, englishElectricity("dipende dalla zona"))
+        assertEquals("UTC+5:30", englishTimeZone("UTC+5:30"))
+        assertEquals("UTC-3, UTC-4", englishTimeZone("UTC-3 (costa orientale) e UTC-4 (costa occidentale)"))
+        val dump = "{{QuickbarCountry\n|Lingua=Italiano\n|Elettricità=230V/50Hz (presa europea)\n|Fuso orario=UTC+1\n}}"
+        val section = englishQuickFactsSection(dump)
+        assertEquals("Quick facts", section?.title)
+        assertEquals("Electricity: 230V/50Hz (European plug)\nTime zone: UTC+1", section?.body)
+    }
 }

@@ -37,6 +37,12 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
     validateVersion(guides, "guide")
     validateFile(guides.getJSONObject("file"), "guide", allowedHosts)
     guides.optJSONObject("fileXz")?.let { validateFile(it, "guide", allowedHosts) }
+    // Guida inglese (facoltativa: assente finche' non e' stata pubblicata la prima volta).
+    root.optJSONObject("guidesEn")?.let { guidesEn ->
+        validateVersion(guidesEn, "guidesEn")
+        validateFile(guidesEn.getJSONObject("file"), "guidesEn", allowedHosts)
+        guidesEn.optJSONObject("fileXz")?.let { validateFile(it, "guidesEn", allowedHosts) }
+    }
 
     // Mappa del mondo online (facoltativa, vedi map-preview-online-plan.md): non un "file" da
     // verificare dopo il download (letta a pezzi con richieste Range), solo url/sizeBytes/maxZoom.

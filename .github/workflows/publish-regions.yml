@@ -232,7 +232,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
 
-      - name: Genera guides.db
+      - name: Genera guides.db e guides-en.db
         shell: bash
         run: |
           set -euo pipefail
@@ -249,12 +249,29 @@ jobs:
           fi
           mkdir -p "$RUNNER_TEMP/fragments"
           cp "$OUT/manifest-fragment.json" "$RUNNER_TEMP/fragments/guides.json"
+          # Guida inglese (voce "guidesEn", asset guides-en--...): stessa release, cartella a parte. Se
+          # fallisce non blocca quella italiana: il manifest tiene la voce guidesEn gia' pubblicata.
+          OUT_EN="$RUNNER_TEMP/guides-en-out"
+          if tools/data-pipeline/scripts/build-guides.sh "$VERSION" \
+            "https://github.com/${{ github.repository }}/releases/download/region-data-guide" "$OUT_EN" \
+            "${{ env.PAGES_BASE_URL }}/manifest.json" en; then
+            if [ -f "$OUT_EN/guides.db.xz" ]; then
+              asset="$OUT_EN/guides-en--${VERSION}--guides.db.xz"
+              cp "$OUT_EN/guides.db.xz" "$asset"
+              gh release upload region-data-guide "$asset" --repo "${{ github.repository }}" --clobber
+            fi
+            cp "$OUT_EN/manifest-fragment.json" "$RUNNER_TEMP/fragments/guides-en.json"
+          else
+            echo "::warning::guida inglese non generata in questa run, resta quella pubblicata"
+          fi
 
       - name: Carica il frammento manifest delle guide
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: manifest-fragments-guides
-          path: ${{ runner.temp }}/fragments/guides.json
+          path: |
+            ${{ runner.temp }}/fragments/guides.json
+            ${{ runner.temp }}/fragments/guides-en.json
           retention-days: 1
 
   # Mappa del mondo online a bassa risoluzione (z0-8, ~555 MB), sulla release "world-map": letta

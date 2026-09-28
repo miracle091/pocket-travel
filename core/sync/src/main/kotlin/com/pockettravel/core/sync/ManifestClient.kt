@@ -28,6 +28,7 @@ class ManifestClient @Inject constructor(
             val body = response.body.string().ifEmpty { error("Empty manifest response") }
             json.decodeFromString(RegionManifest.serializer(), body).also { manifest ->
                 manifest.guides.validate()
+                manifest.guidesEn?.validate()
                 manifest.regions.forEach(RegionManifestEntry::validate)
                 manifest.worldMap?.validate()
                 manifest.addressGrid?.validate()

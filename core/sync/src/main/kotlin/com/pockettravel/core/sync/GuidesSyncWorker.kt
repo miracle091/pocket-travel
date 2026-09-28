@@ -27,8 +27,8 @@ class GuidesSyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            val guides = manifestClient.fetchManifest().guides
-            if (regionRepository.installedGuidesVersion() != guides.version) guidesInstaller.install(guides)
+            val choice = manifestClient.fetchManifest().guidesChoice()
+            if (regionRepository.installedGuidesVersion() != choice.installedVersion) guidesInstaller.install(choice.entry, choice.installedVersion)
             Result.success()
         } catch (error: CancellationException) {
             throw error

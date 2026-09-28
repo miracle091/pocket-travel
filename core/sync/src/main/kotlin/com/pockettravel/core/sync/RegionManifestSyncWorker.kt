@@ -41,7 +41,7 @@ class RegionManifestSyncWorker @AssistedInject constructor(
                 if (outdated.isNotEmpty()) notifier.notifyUpdateAvailable(remote, outdated)
             }
             // Le guide (tutte le nazioni, meno di un MB) si installano e aggiornano da sole, su Wi-Fi.
-            if (regionRepository.installedGuidesVersion() != manifest.guides.version) scheduler.enqueueGuidesSync(onlyOnWifi = true)
+            if (regionRepository.installedGuidesVersion() != manifest.guidesChoice().installedVersion) scheduler.enqueueGuidesSync(onlyOnWifi = true)
             Result.success()
         } catch (error: CancellationException) {
             throw error
