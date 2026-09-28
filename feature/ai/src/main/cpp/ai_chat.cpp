@@ -269,7 +269,6 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_benchMode
  * - chat management
  * - position tracking
  */
-constexpr const char *ROLE_SYSTEM       = "system";
 constexpr const char *ROLE_USER         = "user";
 constexpr const char *ROLE_ASSISTANT    = "assistant";
 
@@ -338,11 +337,12 @@ static void reset_short_term_states() {
     generation_start_position = 0;
 }
 
-// Pulisce KV-cache e history senza passare dal system prompt (processSystemPrompt): i dati di
-// training (pocket_travel_sft.jsonl) non hanno mai un turno "system", solo user+assistant, quindi
-// formattarne uno qui aggiungerebbe al modello un contesto mai visto in training. Chiamata da
-// OnDeviceLlmEngine prima di ogni generate(): senza, sendUserPrompt accumulerebbe la history tra
-// una domanda e l'altra invece di restare un turno singolo come con LiteRT-LM.
+// Pulisce KV-cache e history. Niente system prompt (l'esempio llama.android ne aveva uno, tolto):
+// i dati di training (pocket_travel_sft.jsonl) non hanno mai un turno "system", solo
+// user+assistant, quindi formattarne uno aggiungerebbe al modello un contesto mai visto in
+// training. Chiamata da OnDeviceLlmEngine prima di ogni generate(): senza, sendUserPrompt
+// accumulerebbe la history tra una domanda e l'altra invece di restare un turno singolo come
+// con LiteRT-LM.
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_resetConversationNative(JNIEnv * /*env*/, jobject /*unused*/) {
@@ -436,54 +436,6 @@ static std::string jstring_to_utf8(JNIEnv *env, jstring str) {
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processSystemPrompt(
-        JNIEnv *env,
-        jobject /*unused*/,
-        jstring jsystem_prompt
-) {
-    // Reset long-term & short-term states
-    reset_long_term_states();
-    reset_short_term_states();
-
-    // Obtain system prompt from JEnv
-    std::string system_prompt = jstring_to_utf8(env, jsystem_prompt);
-    LOGd("%s: System prompt received: \n%s", __func__, system_prompt.c_str());
-    std::string formatted_system_prompt = system_prompt;
-
-    // Format system prompt if applicable
-    const bool has_chat_template = common_chat_templates_was_explicit(g_chat_templates.get());
-    if (has_chat_template) {
-        formatted_system_prompt = chat_add_and_format(ROLE_SYSTEM, system_prompt);
-    }
-
-    // Tokenize system prompt
-    const auto system_tokens = common_tokenize(g_context, formatted_system_prompt,
-                                               has_chat_template, has_chat_template);
-    for (auto id: system_tokens) {
-        LOGv("token: `%s`\t -> `%d`", common_token_to_piece(g_context, id).c_str(), id);
-    }
-
-    // Handle context overflow
-    const int max_batch_size = DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM;
-    if ((int) system_tokens.size() > max_batch_size) {
-        LOGe("%s: System prompt too long for context! %d tokens, max: %d",
-             __func__, (int) system_tokens.size(), max_batch_size);
-        return 1;
-    }
-
-    // Decode system tokens in batches
-    if (decode_tokens_in_batches(g_context, g_batch, system_tokens, current_position)) {
-        LOGe("%s: llama_decode() failed!", __func__);
-        return 2;
-    }
-
-    // Update position
-    system_prompt_position = current_position = (int) system_tokens.size();
-    return 0;
-}
-
-extern "C"
-JNIEXPORT jint JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processUserPrompt(
         JNIEnv *env,
         jobject /*unused*/,
@@ -536,10 +488,10 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processUs
     return 0;
 }
 
-// Il turno assistente viene aggiunto a chat_msgs solo su EOG (generateNextToken), ma la KV cache
+// Il turno assistente viene aggiunto a chat_msgs solo su EOG o a n_predict (generateNextToken), ma la KV cache
 // viene aggiornata ad ogni token campionato: se la generazione e' cancellata a meta' (Kotlin,
 // CancellationException o _cancelGeneration), la cache resterebbe con token "orfani" mai riflessi
-// nella history, disallineata dal prossimo processUserPrompt/processSystemPrompt. Va chiamata dal
+// nella history, disallineata dal prossimo processUserPrompt. Va chiamata dal
 // lato Kotlin non appena la generazione viene interrotta prima di EOG.
 extern "C"
 JNIEXPORT void JNICALL
@@ -663,9 +615,24 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_generateN
         shift_context();
     }
 
-    // Stop if reaching the marked position
+    // Stop if reaching the marked position. Come su EOG, il turno assistente va chiuso sia nella KV
+    // cache (token di fine turno, che qui il modello non ha generato) sia in chat_msgs: altrimenti il
+    // prossimo processUserPrompt formatterebbe la history senza questo turno, disallineata dalla cache.
     if (current_position >= stop_generation_position) {
         LOGw("%s: STOP: hitting stop position: %d", __func__, stop_generation_position);
+        const llama_vocab *vocab = llama_model_get_vocab(g_model);
+        llama_token end_token = llama_vocab_eot(vocab);
+        if (end_token == LLAMA_TOKEN_NULL) end_token = llama_vocab_eos(vocab);
+        if (end_token != LLAMA_TOKEN_NULL) {
+            common_batch_clear(g_batch);
+            common_batch_add(g_batch, end_token, current_position, {0}, false);
+            if (llama_decode(g_context, g_batch) != 0) {
+                LOGe("%s: llama_decode() failed for end-of-turn token", __func__);
+                return nullptr;
+            }
+            current_position++;
+        }
+        chat_add_and_format(ROLE_ASSISTANT, assistant_ss.str());
         return nullptr;
     }
 

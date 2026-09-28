@@ -101,9 +101,6 @@ internal class InferenceEngineImpl private constructor(
     private external fun benchModel(pp: Int, tg: Int, pl: Int, nr: Int): String
 
     @FastNative
-    private external fun processSystemPrompt(systemPrompt: String): Int
-
-    @FastNative
     private external fun processUserPrompt(userPrompt: String, predictLength: Int): Int
 
     @FastNative
@@ -125,7 +122,6 @@ internal class InferenceEngineImpl private constructor(
         MutableStateFlow<InferenceEngine.State>(InferenceEngine.State.Uninitialized)
     override val state: StateFlow<InferenceEngine.State> = _state.asStateFlow()
 
-    private var _readyForSystemPrompt = false
     @Volatile
     private var _cancelGeneration = false
 
@@ -174,7 +170,6 @@ internal class InferenceEngineImpl private constructor(
                 }
 
                 Log.i(TAG, "Loading model... \n$pathToModel")
-                _readyForSystemPrompt = false
                 _state.value = InferenceEngine.State.LoadingModel
                 load(pathToModel).let {
                     if (it != 0) throw UnsupportedArchitectureException()
@@ -183,7 +178,6 @@ internal class InferenceEngineImpl private constructor(
                     if (it != 0) throw IOException("Failed to prepare resources")
                 }
                 Log.i(TAG, "Model loaded!")
-                _readyForSystemPrompt = true
 
                 _cancelGeneration = false
                 _state.value = InferenceEngine.State.ModelReady
@@ -192,32 +186,6 @@ internal class InferenceEngineImpl private constructor(
                 _state.value = InferenceEngine.State.Error(e)
                 throw e
             }
-        }
-
-    /**
-     * Process the plain text system prompt
-     */
-    override suspend fun setSystemPrompt(systemPrompt: String) =
-        withContext(llamaDispatcher) {
-            require(systemPrompt.isNotBlank()) { "Cannot process empty system prompt!" }
-            check(_readyForSystemPrompt) { "System prompt must be set ** RIGHT AFTER ** model loaded!" }
-            check(_state.value is InferenceEngine.State.ModelReady) {
-                "Cannot process system prompt in ${_state.value.javaClass.simpleName}!"
-            }
-
-            Log.i(TAG, "Sending system prompt...")
-            _readyForSystemPrompt = false
-            _state.value = InferenceEngine.State.ProcessingSystemPrompt
-            processSystemPrompt(systemPrompt).let { result ->
-                if (result != 0) {
-                    RuntimeException("Failed to process system prompt: $result").also {
-                        _state.value = InferenceEngine.State.Error(it)
-                        throw it
-                    }
-                }
-            }
-            Log.i(TAG, "System prompt processed! Awaiting user prompt...")
-            _state.value = InferenceEngine.State.ModelReady
         }
 
     override suspend fun resetConversation() =
@@ -241,7 +209,6 @@ internal class InferenceEngineImpl private constructor(
         }
 
         Log.i(TAG, "Sending user prompt...")
-        _readyForSystemPrompt = false
         _state.value = InferenceEngine.State.ProcessingUserPrompt
 
         // Fuori dal try (a differenza del riferimento Arm, che faceva solo return@flow): lo stato
@@ -269,7 +236,7 @@ internal class InferenceEngineImpl private constructor(
                 Log.i(TAG, "Assistant generation aborted per requested.")
                 // Riallinea la KV cache nativa alla posizione precedente al turno interrotto: senza
                 // questo, i token gia' campionati (mai aggiunti a chat_msgs, che si aggiorna solo
-                // su EOG) resterebbero nella cache e disallineerebbero il prossimo prompt.
+                // su EOG o a n_predict) resterebbero nella cache e disallineerebbero il prossimo prompt.
                 cancelGeneration()
             } else {
                 Log.i(TAG, "Assistant generation complete. Awaiting user prompt...")
@@ -296,7 +263,6 @@ internal class InferenceEngineImpl private constructor(
                 "Benchmark request discarded due to: $state"
             }
             Log.i(TAG, "Start benchmark (pp: $pp, tg: $tg, pl: $pl, nr: $nr)")
-            _readyForSystemPrompt = false
             _state.value = InferenceEngine.State.Benchmarking
             benchModel(pp, tg, pl, nr).also {
                 _state.value = InferenceEngine.State.ModelReady
@@ -312,7 +278,6 @@ internal class InferenceEngineImpl private constructor(
             when (val state = _state.value) {
                 is InferenceEngine.State.ModelReady -> {
                     Log.i(TAG, "Unloading model and free resources...")
-                    _readyForSystemPrompt = false
                     _state.value = InferenceEngine.State.UnloadingModel
 
                     unload()
@@ -328,7 +293,6 @@ internal class InferenceEngineImpl private constructor(
                     // il loadModel() successivo lo sovrascriveva, perdendo GB di RAM. unload() e'
                     // sicura anche se il modello non e' mai stato caricato (vedi ai_chat.cpp).
                     Log.i(TAG, "Resetting error states...")
-                    _readyForSystemPrompt = false
                     unload()
                     _state.value = InferenceEngine.State.Initialized
                     Log.i(TAG, "States reset!")
@@ -346,7 +310,6 @@ internal class InferenceEngineImpl private constructor(
     override fun destroy() {
         _cancelGeneration = true
         runBlocking(llamaDispatcher) {
-            _readyForSystemPrompt = false
             when(_state.value) {
                 is InferenceEngine.State.Uninitialized -> {}
                 is InferenceEngine.State.Initialized -> shutdown()

@@ -28,13 +28,9 @@ interface InferenceEngine {
     )
 
     /**
-     * Sends a system prompt to the loaded model
-     */
-    suspend fun setSystemPrompt(systemPrompt: String)
-
-    /**
-     * Clears KV-cache and chat history without going through [setSystemPrompt]: use before a
-     * fresh, stateless prompt so it doesn't inherit context from a previous [sendUserPrompt].
+     * Clears KV-cache and chat history: use before a fresh, stateless prompt so it doesn't inherit
+     * context from a previous [sendUserPrompt]. There is no system prompt: the training data never
+     * has a "system" turn.
      */
     suspend fun resetConversation()
 
@@ -75,7 +71,6 @@ interface InferenceEngine {
         object ModelReady : State()
 
         object Benchmarking : State()
-        object ProcessingSystemPrompt : State()
         object ProcessingUserPrompt : State()
 
         object Generating : State()
@@ -99,13 +94,11 @@ val State.isUninterruptible
         this is State.LoadingModel ||
         this is State.UnloadingModel ||
         this is State.Benchmarking ||
-        this is State.ProcessingSystemPrompt ||
         this is State.ProcessingUserPrompt
 
 val State.isModelLoaded: Boolean
     get() = this is State.ModelReady ||
         this is State.Benchmarking ||
-        this is State.ProcessingSystemPrompt ||
         this is State.ProcessingUserPrompt ||
         this is State.Generating
 
