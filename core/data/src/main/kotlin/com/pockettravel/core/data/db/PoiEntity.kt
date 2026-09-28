@@ -24,6 +24,8 @@ data class PoiEntity(
     // Solo per alloggi, ambasciate e consolati (poiHasContacts, core:poi).
     val website: String? = null,
     val email: String? = null,
+    // Ambasciate e consolati: paese rappresentato (ISO 3166-1 alpha-2), vedi GeneratePoi.kt.
+    val country: String? = null,
     // true per i POI del pacchetto extra (poi-extra.db): si importano e si eliminano a parte.
     @ColumnInfo(defaultValue = "0") val extra: Boolean = false,
 )

@@ -21,6 +21,10 @@ interface PoiDao {
     )
     suspend fun transportCounts(regionId: String): List<TransportCount>
 
+    // Ambasciate e consolati di un paese nella regione, per la scheda dei numeri di emergenza.
+    @Query("SELECT * FROM poi WHERE regionId = :regionId AND category = 'embassy' AND country = :country ORDER BY name")
+    suspend fun embassiesOf(regionId: String, country: String): List<PoiEntity>
+
     @Query("DELETE FROM poi WHERE regionId = :regionId")
     suspend fun deleteForRegion(regionId: String)
 

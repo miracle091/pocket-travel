@@ -66,8 +66,10 @@ import com.pockettravel.core.data.CitySection
 import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSection
+import com.pockettravel.core.data.Poi
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.countryName
 import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
@@ -152,9 +154,14 @@ private fun GuideSectionsList(uiState: GuideUiState, onOpenSource: (url: String,
                     CitiesEntryCard(onClick = onOpenCities, modifier = Modifier.padding(horizontal = Spacing.l))
                 }
             }
-            if (uiState.emergencyNumbers != null || uiState.noCentralEmergencyNumber) {
+            if (uiState.emergencyNumbers != null || uiState.noCentralEmergencyNumber || uiState.embassiesCountry != null) {
                 item(key = "emergency_numbers") {
-                    EmergencyNumbersCard(uiState.emergencyNumbers, modifier = Modifier.padding(horizontal = Spacing.l))
+                    EmergencyNumbersCard(
+                        numbers = uiState.emergencyNumbers,
+                        embassiesCountry = uiState.embassiesCountry,
+                        embassies = uiState.embassies,
+                        modifier = Modifier.padding(horizontal = Spacing.l),
+                    )
                 }
             }
         },
@@ -350,7 +357,7 @@ private fun SectionsWithFilters(
 
 // numbers nullo: la regione non ha un numero di emergenza centralizzato, e la scheda lo dichiara.
 @Composable
-private fun EmergencyNumbersCard(numbers: EmergencyNumbers?, modifier: Modifier = Modifier) {
+private fun EmergencyNumbersCard(numbers: EmergencyNumbers?, embassiesCountry: String?, embassies: List<Poi>, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -399,6 +406,53 @@ private fun EmergencyNumbersCard(numbers: EmergencyNumbers?, modifier: Modifier 
                     Icon(imageVector = AppIcons.Call, contentDescription = null)
                 }
             }
+            embassiesCountry?.let { country -> EmbassiesSection(country, embassies) }
+        }
+    }
+}
+
+// Ambasciate e consolati del paese di chi viaggia nella regione (NationalityPreferences): la riga chiama
+// se OSM ha il telefono. Senza rappresentanze nei dati lo dice, invece di non mostrare nulla.
+@Composable
+private fun EmbassiesSection(country: String, embassies: List<Poi>) {
+    val context = LocalContext.current
+    HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.s), color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.2f))
+    Text(
+        text = stringResource(R.string.emergency_embassies_title, countryName(country)),
+        style = MaterialTheme.typography.titleSmall,
+        modifier = Modifier.padding(horizontal = Spacing.l).semantics { heading() },
+    )
+    if (embassies.isEmpty()) {
+        Text(
+            text = stringResource(R.string.emergency_embassies_none),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.s),
+        )
+    }
+    embassies.forEach { embassy ->
+        val phone = embassy.phone
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .then(
+                    if (phone != null) {
+                        Modifier.clickable(onClickLabel = stringResource(R.string.emergency_call, embassy.name, phone)) {
+                            context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phone".toUri()))
+                        }
+                    } else {
+                        Modifier
+                    },
+                )
+                .padding(horizontal = Spacing.l, vertical = Spacing.s),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = embassy.name, style = MaterialTheme.typography.bodyMedium)
+                phone?.let { Text(text = it, style = MaterialTheme.typography.titleMedium) }
+                embassy.address?.let { Text(text = it, style = MaterialTheme.typography.bodySmall) }
+            }
+            if (phone != null) Icon(imageVector = AppIcons.Call, contentDescription = null)
         }
     }
 }

@@ -2,4 +2,6 @@
     <string name="back">Indietro</string>
     <string name="confirm_delete">Elimina</string>
     <string name="confirm_cancel">Annulla</string>
+    <string name="country_search_hint">Cerca un paese</string>
+    <string name="country_selected">Scelto</string>
 </resources>

@@ -183,11 +183,11 @@ class RegionDatabaseMigrationTest {
         }
 
         helper.runMigrationsAndValidate(DB_NAME, 16, true, MIGRATION_15_16).use { db ->
-            db.query("SELECT name, wheelchair, openingHours, address, website, email FROM poi").use { cursor ->
+            db.query("SELECT name, wheelchair, openingHours, address, website, email, country FROM poi").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("Da Mario", cursor.getString(0))
                 assertEquals("yes", cursor.getString(1))
-                assertTrue((2..5).all { cursor.isNull(it) })
+                assertTrue((2..6).all { cursor.isNull(it) })
             }
         }
     }

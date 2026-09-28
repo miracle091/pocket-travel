@@ -51,4 +51,6 @@
         <item quantity="one">aereo (%d aeroporto)</item>
         <item quantity="other">aereo (%d aeroporti)</item>
     </plurals>
+    <string name="emergency_embassies_title">Ambasciate e consolati del tuo paese (%1$s)</string>
+    <string name="emergency_embassies_none">Nei dati di questa regione non ci sono ambasciate o consolati del tuo paese: controlla sul sito del tuo ministero degli esteri.</string>
 </resources>

@@ -37,6 +37,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -66,6 +68,9 @@ import com.pockettravel.app.regions.RegionListViewModel
 import com.pockettravel.app.regions.RegionRow
 import com.pockettravel.app.regions.RegionRowActions
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.CountryFlag
+import com.pockettravel.core.ui.countryName
+import com.pockettravel.core.ui.CountryPickerSheet
 import com.pockettravel.core.ui.HeroShape
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
@@ -79,6 +84,7 @@ private enum class InfoIcon { COMPASS, AI, VAULT, OFFICIAL }
 private sealed interface OnboardingStep {
     data class Info(@StringRes val title: Int, @StringRes val body: Int, val icon: InfoIcon) : OnboardingStep
     data object UsageModeChoice : OnboardingStep
+    data object NationalityChoice : OnboardingStep
     data object GuidesDownload : OnboardingStep
     data object RegionDownload : OnboardingStep
     data object AiModelDownload : OnboardingStep
@@ -99,6 +105,7 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
         buildList {
             add(OnboardingStep.Info(R.string.onboarding_welcome_title, R.string.onboarding_welcome_body, InfoIcon.COMPASS))
             add(OnboardingStep.UsageModeChoice)
+            add(OnboardingStep.NationalityChoice)
             add(OnboardingStep.GuidesDownload)
             add(OnboardingStep.RegionDownload)
             add(
@@ -156,6 +163,7 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
                 when (val currentStep = steps[index]) {
                     is OnboardingStep.Info -> InfoStepContent(currentStep)
                     OnboardingStep.UsageModeChoice -> UsageModeStepContent(viewModel)
+                    OnboardingStep.NationalityChoice -> NationalityStepContent(viewModel)
                     OnboardingStep.GuidesDownload -> GuidesDownloadStepContent()
                     OnboardingStep.RegionDownload -> RegionDownloadStepContent()
                     OnboardingStep.AiModelDownload -> AiModelDownloadStepContent()
@@ -277,6 +285,36 @@ private fun UsageModeStepContent(viewModel: OnboardingViewModel) {
             onSelect = viewModel::setUsageMode,
             accessible = accessible,
             onAccessibleChange = viewModel::setAccessible,
+        )
+    }
+}
+
+// Proposta: il paese del telefono (NationalityPreferences), da confermare o cambiare. Serve alla guida
+// per mostrare ambasciate e consolati del proprio paese.
+@Composable
+private fun NationalityStepContent(viewModel: OnboardingViewModel) {
+    val nationality by viewModel.nationality.collectAsStateWithLifecycle()
+    var showPicker by rememberSaveable { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        StepHeader(
+            icon = AppIcons.Passport,
+            title = stringResource(R.string.onboarding_nationality_title),
+            body = stringResource(R.string.onboarding_nationality_body),
+        )
+        ListItem(
+            leadingContent = { CountryFlag(nationality, size = 40.dp) { Icon(AppIcons.World, contentDescription = null) } },
+            trailingContent = {
+                TextButton(onClick = { showPicker = true }) { Text(stringResource(R.string.onboarding_nationality_change)) }
+            },
+            content = { Text(nationality?.let(::countryName) ?: stringResource(R.string.more_nationality_none)) },
+        )
+    }
+    if (showPicker) {
+        CountryPickerSheet(
+            title = stringResource(R.string.onboarding_nationality_title),
+            selected = nationality,
+            onSelect = { viewModel.setNationality(it); showPicker = false },
+            onDismiss = { showPicker = false },
         )
     }
 }

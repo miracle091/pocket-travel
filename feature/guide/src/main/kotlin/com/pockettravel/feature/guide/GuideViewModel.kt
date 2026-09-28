@@ -9,6 +9,8 @@ import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.EmergencyNumbersRepository
 import com.pockettravel.core.data.GuideRepository
 import com.pockettravel.core.data.GuideSection
+import com.pockettravel.core.data.NationalityPreferences
+import com.pockettravel.core.data.Poi
 import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.poi.PoiCategory
@@ -28,6 +30,10 @@ data class GuideUiState(
     // Per i fatti rapidi: valuta e lingua dal paese, mezzi di trasporto dai POI della regione.
     val countryCode: String? = null,
     val transportCounts: Map<PoiCategory, Int> = emptyMap(),
+    // Paese di chi viaggia se diverso da quello della regione (null altrimenti), con le sue
+    // ambasciate e i suoi consolati nella regione.
+    val embassiesCountry: String? = null,
+    val embassies: List<Poi> = emptyList(),
     // La regione non ha un numero di emergenza centralizzato: la scheda lo dice al posto dei numeri.
     val noCentralEmergencyNumber: Boolean = false,
     // Nomi delle citta' della regione (CityRepository.citiesFor): entry point "Città" nascosto se vuoto.
@@ -49,6 +55,7 @@ class GuideViewModel @Inject constructor(
     private val cityRepository: CityRepository,
     private val regionRepository: RegionRepository,
     private val poiRepository: PoiRepository,
+    private val nationalityPreferences: NationalityPreferences,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GuideUiState())
@@ -62,6 +69,7 @@ class GuideViewModel @Inject constructor(
     // stesso pattern, per coerenza di stile.
     private var loadedForRegionId: String? = null
     private var citiesJob: Job? = null
+    private var embassiesJob: Job? = null
     private var loadedCityKey: Pair<String, String>? = null
 
     fun load(regionId: String) {
@@ -71,6 +79,15 @@ class GuideViewModel @Inject constructor(
         citiesJob = viewModelScope.launch {
             cityRepository.citiesFor(regionId).collect { cities ->
                 _uiState.update { it.copy(cities = cities) }
+            }
+        }
+        embassiesJob?.cancel()
+        embassiesJob = viewModelScope.launch {
+            val regionCountry = regionRepository.installed(regionId)?.countryCode
+            nationalityPreferences.nationality.collect { nationality ->
+                val country = nationality?.takeIf { it != regionCountry }
+                val embassies = country?.let { poiRepository.embassiesOf(regionId, it) }.orEmpty()
+                _uiState.update { it.copy(embassiesCountry = country, embassies = embassies) }
             }
         }
         viewModelScope.launch {

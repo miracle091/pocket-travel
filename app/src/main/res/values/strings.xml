@@ -76,6 +76,8 @@
     <string name="more_storage_subtitle">Regioni e modelli IA scaricati</string>
     <string name="more_tutorial">Rivedi tutorial</string>
     <string name="more_usage_mode">Come ti sposti</string>
+    <string name="more_nationality">Nazionalità</string>
+    <string name="more_nationality_none">Non scelta</string>
     <string name="more_usage_mode_none">Non scelto: la mappa mostra tutte le categorie</string>
     <string name="more_usage_mode_with_accessible">%1$s, con disabilità</string>
     <string name="more_usage_mode_accessible_only">Con disabilità: la mappa mostra tutte le categorie</string>
@@ -139,6 +141,9 @@
     <string name="onboarding_sources_body">Ambasciate, ministeri e OMS si aprono in una scheda del browser e richiedono una connessione: l\'app non li salva mai offline, per restare sempre aggiornati.</string>
     <string name="onboarding_usage_mode_title">Come ti sposti?</string>
     <string name="onboarding_usage_mode_body">La mappa mostrerà per primi i punti utili per te. Puoi cambiarlo quando vuoi da Altro, o saltare questo passo.</string>
+    <string name="onboarding_nationality_title">Di che paese sei?</string>
+    <string name="onboarding_nationality_body">Nella guida di ogni regione trovi i contatti di ambasciate e consolati del tuo paese, insieme ai numeri di emergenza. Puoi cambiarlo quando vuoi da Altro.</string>
+    <string name="onboarding_nationality_change">Cambia</string>
     <string name="onboarding_guides_title">Guide di tutte le nazioni</string>
     <string name="onboarding_guides_body">Facoltativo: usi e costumi, sicurezza e numeri di emergenza di ogni paese, per consultarli anche prima di scegliere una regione. Se salti questo passo si scaricano da sole alla prima connessione Wi-Fi.</string>
     <string name="onboarding_guides_download">Scarica le guide (%1$s)</string>

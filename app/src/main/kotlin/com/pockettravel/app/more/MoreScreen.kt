@@ -36,6 +36,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.countryName
+import com.pockettravel.core.ui.CountryPickerSheet
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.feature.map.UsageMode
 import com.pockettravel.feature.map.UsageModeOptions
@@ -57,6 +59,8 @@ fun MoreScreen(
     val accessible by viewModel.accessible.collectAsStateWithLifecycle()
     var showUsageModes by rememberSaveable { mutableStateOf(false) }
     var showAppearance by rememberSaveable { mutableStateOf(false) }
+    val nationality by viewModel.nationality.collectAsStateWithLifecycle()
+    var showNationality by rememberSaveable { mutableStateOf(false) }
     // Dentro NavigationSuiteScaffold: gli inset di sistema li gestiscono la barra/rail e la top app bar,
     // applicarli anche qui lascerebbe una fascia vuota sopra la barra di navigazione.
     Scaffold(
@@ -69,6 +73,11 @@ fun MoreScreen(
                 stringResource(R.string.more_usage_mode),
                 usageModeSummary(usageMode, accessible),
             ) { showUsageModes = true }
+            MoreItem(
+                AppIcons.Passport,
+                stringResource(R.string.more_nationality),
+                nationality?.let(::countryName) ?: stringResource(R.string.more_nationality_none),
+            ) { showNationality = true }
             MoreItem(AppIcons.OfficialAuthority, stringResource(R.string.more_sources), stringResource(R.string.more_sources_subtitle), onOpenSources)
             MoreItem(AppIcons.Storage, stringResource(R.string.more_storage), stringResource(R.string.more_storage_subtitle), onOpenStorage)
             MoreItem(AppIcons.Tutorial, stringResource(R.string.more_tutorial), null, onOpenTutorial)
@@ -102,6 +111,15 @@ fun MoreScreen(
                 )
             }
         }
+    }
+
+    if (showNationality) {
+        CountryPickerSheet(
+            title = stringResource(R.string.onboarding_nationality_title),
+            selected = nationality,
+            onSelect = { viewModel.setNationality(it); showNationality = false },
+            onDismiss = { showNationality = false },
+        )
     }
 
     if (showAppearance) {

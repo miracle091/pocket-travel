@@ -135,7 +135,7 @@ class GeneratePoiTest {
         val xml = File(dir, "a.xml")
         xml.writeText(
             """<?xml version="1.0"?><osm version="0.6">""" +
-                """<node id="1" lat="41.9" lon="12.5"><tag k="office" v="diplomatic"/><tag k="diplomatic" v="consulate"/>""" +
+                """<node id="1" lat="41.9" lon="12.5"><tag k="office" v="diplomatic"/><tag k="diplomatic" v="consulate"/><tag k="country" v="it;sm"/>""" +
                 """<tag k="name" v="Consolato di Prova"/><tag k="addr:street" v="Via Veneto"/><tag k="addr:housenumber" v="1"/>""" +
                 """<tag k="opening_hours" v="Mo-Fr 09:00-12:00"/><tag k="contact:website" v="https://consolato.example"/>""" +
                 """<tag k="email" v="info@consolato.example"/><tag k="phone" v="+39 06 1"/></node>""" +
@@ -152,6 +152,8 @@ class GeneratePoiTest {
             assertEquals("Mo-Fr 09:00-12:00", consolato.openingHours)
             assertEquals("https://consolato.example", consolato.website)
             assertEquals("info@consolato.example", consolato.email)
+            assertEquals("IT", consolato.country)
+            assertEquals(null, hotel.country)
             // Sito ed email per ambasciate e alloggi, non per i ristoranti.
             assertEquals(null, ristorante.website)
             assertEquals(listOf("Via Po", "24/7", "https://hotel.example", "info@hotel.example"), listOf(hotel.address, hotel.openingHours, hotel.website, hotel.email))

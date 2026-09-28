@@ -242,7 +242,7 @@ val MIGRATION_11_15 = object : Migration(11, 15) {
 }
 
 // Da 15 (v0.8.0) a 16 (prossima versione).
-// Orari e indirizzo dei POI di cibo, alloggi e ambasciate, sito ed email di alloggi e ambasciate: vuoti finche' la regione non riscarica
+// Orari e indirizzo dei POI di cibo, alloggi e ambasciate, sito ed email di alloggi e ambasciate, paese rappresentato dalle ambasciate: vuoti finche' la regione non riscarica
 // i punti di interesse pubblicati con questi dati.
 val MIGRATION_15_16 = object : Migration(15, 16) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -250,5 +250,6 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `address` TEXT")
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `website` TEXT")
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `email` TEXT")
+        db.execSQL("ALTER TABLE `poi` ADD COLUMN `country` TEXT")
     }
 }

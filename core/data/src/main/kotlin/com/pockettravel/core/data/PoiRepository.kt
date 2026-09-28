@@ -9,6 +9,9 @@ import javax.inject.Inject
 class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
     suspend fun forRegion(regionId: String): List<Poi> = poiDao.poisForRegion(regionId).map { it.toDomain() }
 
+    /** Ambasciate e consolati di [country] (ISO alpha-2) nella regione, in ordine di nome. */
+    suspend fun embassiesOf(regionId: String, country: String): List<Poi> = poiDao.embassiesOf(regionId, country).map { it.toDomain() }
+
     /** Quanti treni (stazioni), metro, autostazioni, porti e aeroporti ha la regione, per categoria. */
     suspend fun transportCounts(regionId: String): Map<PoiCategory, Int> =
         poiDao.transportCounts(regionId)
@@ -30,9 +33,10 @@ data class Poi(
     val address: String? = null,
     val website: String? = null,
     val email: String? = null,
+    val country: String? = null,
     // Dal pacchetto extra: la mappa li mostra anche se isHiddenOnMap() li nasconderebbe.
     val extra: Boolean = false,
 )
 
 private fun PoiEntity.toDomain() =
-    Poi(id, regionId, name, category, lat, lon, osmTag, phone, wheelchair, openingHours, address, website, email, extra)
+    Poi(id, regionId, name, category, lat, lon, osmTag, phone, wheelchair, openingHours, address, website, email, country, extra)
