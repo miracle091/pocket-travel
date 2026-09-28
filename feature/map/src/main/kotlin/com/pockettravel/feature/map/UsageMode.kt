@@ -22,8 +22,6 @@ enum class UsageMode(
     @DrawableRes val icon: Int,
     val routingProfile: String,
     visible: Set<PoiCategory>,
-    // Nasconde i POI che OSM segna come non accessibili in sedia a rotelle (wheelchair=no).
-    val hidesInaccessible: Boolean = false,
 ) {
     A_PIEDI(
         R.string.usage_mode_walk, UiR.drawable.ms_directions_walk, "shortest",
@@ -68,16 +66,6 @@ enum class UsageMode(
             PoiCategory.AEROPORTO, PoiCategory.NOLEGGIO, PoiCategory.ATTRAZIONI, PoiCategory.SVAGO, PoiCategory.NEGOZI,
             PoiCategory.BANCOMAT,
         ),
-    ),
-    // BRouter non ha un profilo ufficiale per la sedia a rotelle: "shortest", come a piedi.
-    ACCESSIBILITA(
-        R.string.usage_mode_wheelchair, UiR.drawable.ms_accessible, "shortest",
-        setOf(
-            PoiCategory.ATTRAZIONI, PoiCategory.SVAGO, PoiCategory.NEGOZI, PoiCategory.BANCA, PoiCategory.BANCOMAT,
-            PoiCategory.UFFICIO_POSTALE, PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI,
-            PoiCategory.PARCHEGGIO,
-        ),
-        hidesInaccessible = true,
     ),
     ;
 

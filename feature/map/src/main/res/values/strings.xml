@@ -41,6 +41,7 @@
     <string name="usage_mode_camper">In camper</string>
     <string name="usage_mode_transit">Con i mezzi pubblici</string>
     <string name="usage_mode_wheelchair">Con disabilità</string>
+    <string name="usage_mode_wheelchair_body">In ogni modalità, la mappa nasconde i posti segnati come non accessibili in sedia a rotelle</string>
     <string name="map_legend">Legenda</string>
     <string name="map_legend_open">Apri la legenda della mappa</string>
     <string name="map_legend_group_eat_sleep">Dormire e mangiare</string>

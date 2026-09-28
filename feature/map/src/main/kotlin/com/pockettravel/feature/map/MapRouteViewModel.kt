@@ -36,7 +36,7 @@ class MapRouteViewModel @Inject constructor(
     usageModePreferences: UsageModePreferences,
     connectivityObserver: ConnectivityObserver,
 ) : ViewModel() {
-    val usageMode: StateFlow<UsageMode?> = usageModePreferences.mode
+    val accessible: StateFlow<Boolean> = usageModePreferences.accessible
     val hiddenCategories: StateFlow<Set<PoiCategory>> = filterPreferences.hiddenCategories
 
     fun setHiddenCategories(categories: Set<PoiCategory>) = filterPreferences.setHidden(categories)

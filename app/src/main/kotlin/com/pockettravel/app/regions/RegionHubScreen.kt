@@ -145,7 +145,7 @@ fun RegionHubScreen(
                         // ne accorgerebbe da solo (non osserva il file system).
                         val pins by mapViewModel.pins.collectAsStateWithLifecycle()
                         val hiddenCategories by mapViewModel.hiddenCategories.collectAsStateWithLifecycle()
-                        val usageMode by mapViewModel.usageMode.collectAsStateWithLifecycle()
+                        val accessible by mapViewModel.accessible.collectAsStateWithLifecycle()
                         val mapSource by mapViewModel.mapSource.collectAsStateWithLifecycle()
                         val sourceKind = mapSource.kind
                         Column(modifier = Modifier.fillMaxSize()) {
@@ -157,7 +157,7 @@ fun RegionHubScreen(
                                     pins = pins,
                                     hiddenCategories = hiddenCategories,
                                     onHiddenCategoriesChange = mapViewModel::setHiddenCategories,
-                                    hideInaccessible = usageMode?.hidesInaccessible == true,
+                                    hideInaccessible = accessible,
                                 )
                             }
                             if (sourceKind != MapSourceKind.FULL) {

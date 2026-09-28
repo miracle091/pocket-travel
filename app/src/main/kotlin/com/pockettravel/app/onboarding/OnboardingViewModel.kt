@@ -16,8 +16,11 @@ class OnboardingViewModel @Inject constructor(
 ) : ViewModel() {
 
     val usageMode: StateFlow<UsageMode?> = usageModePreferences.mode
+    val accessible: StateFlow<Boolean> = usageModePreferences.accessible
 
     fun setUsageMode(mode: UsageMode) = usageModePreferences.setMode(mode)
+
+    fun setAccessible(accessible: Boolean) = usageModePreferences.setAccessible(accessible)
 
     // Fascia di RAM statica per la durata della sessione: nessun bisogno di un Flow, un val letto
     // una volta all'apertura dell'onboarding basta (vedi RAM-aware step in OnboardingScreen).

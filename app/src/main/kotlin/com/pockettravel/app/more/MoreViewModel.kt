@@ -15,8 +15,11 @@ class MoreViewModel @Inject constructor(
 ) : ViewModel() {
     val useDynamicColor: StateFlow<Boolean> = themePreferences.useDynamicColor
     val usageMode: StateFlow<UsageMode?> = usageModePreferences.mode
+    val accessible: StateFlow<Boolean> = usageModePreferences.accessible
 
     fun setUseDynamicColor(enabled: Boolean) = themePreferences.setUseDynamicColor(enabled)
 
     fun setUsageMode(mode: UsageMode) = usageModePreferences.setMode(mode)
+
+    fun setAccessible(accessible: Boolean) = usageModePreferences.setAccessible(accessible)
 }

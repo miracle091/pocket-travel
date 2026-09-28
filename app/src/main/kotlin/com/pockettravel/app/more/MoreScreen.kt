@@ -53,6 +53,7 @@ fun MoreScreen(
 ) {
     val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
     val usageMode by viewModel.usageMode.collectAsStateWithLifecycle()
+    val accessible by viewModel.accessible.collectAsStateWithLifecycle()
     var showUsageModes by rememberSaveable { mutableStateOf(false) }
     // Dentro NavigationSuiteScaffold: gli inset di sistema li gestiscono la barra/rail e la top app bar,
     // applicarli anche qui lascerebbe una fascia vuota sopra la barra di navigazione.
@@ -64,7 +65,7 @@ fun MoreScreen(
             MoreItem(
                 ImageVector.vectorResource((usageMode ?: UsageMode.A_PIEDI).icon),
                 stringResource(R.string.more_usage_mode),
-                usageMode?.let { stringResource(it.label) } ?: stringResource(R.string.more_usage_mode_none),
+                usageModeSummary(usageMode, accessible),
             ) { showUsageModes = true }
             MoreItem(AppIcons.OfficialAuthority, stringResource(R.string.more_sources), stringResource(R.string.more_sources_subtitle), onOpenSources)
             MoreItem(AppIcons.Storage, stringResource(R.string.more_storage), stringResource(R.string.more_storage_subtitle), onOpenStorage)
@@ -89,7 +90,7 @@ fun MoreScreen(
 
     // Scegliere una modalita' riporta i filtri della mappa ai suoi predefiniti: lo dice il testo del foglio.
     if (showUsageModes) {
-        // Aperto per intero e scorrevole: 7 voci non stanno a mezza altezza, ne' con i caratteri grandi.
+        // Aperto per intero e scorrevole: 6 modalita' e la casella non stanno a mezza altezza, ne' con i caratteri grandi.
         ModalBottomSheet(onDismissRequest = { showUsageModes = false }, sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))) {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = Spacing.l)) {
                 Text(
@@ -105,7 +106,9 @@ fun MoreScreen(
                 )
                 UsageModeOptions(
                     selected = usageMode,
-                    onSelect = { viewModel.setUsageMode(it); showUsageModes = false },
+                    onSelect = viewModel::setUsageMode,
+                    accessible = accessible,
+                    onAccessibleChange = viewModel::setAccessible,
                     modifier = Modifier.padding(horizontal = Spacing.s),
                 )
             }
@@ -121,4 +124,15 @@ private fun MoreItem(icon: ImageVector, title: String, subtitle: String?, onClic
         modifier = Modifier.clickable(onClick = onClick),
         content = { Text(title) },
     )
+}
+
+@Composable
+private fun usageModeSummary(mode: UsageMode?, accessible: Boolean): String {
+    val label = mode?.let { stringResource(it.label) }
+    return when {
+        label == null && accessible -> stringResource(R.string.more_usage_mode_accessible_only)
+        label == null -> stringResource(R.string.more_usage_mode_none)
+        accessible -> stringResource(R.string.more_usage_mode_with_accessible, label)
+        else -> label
+    }
 }

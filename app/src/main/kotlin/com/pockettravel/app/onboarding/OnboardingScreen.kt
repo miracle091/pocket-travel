@@ -265,13 +265,19 @@ private fun StepHeader(icon: ImageVector, title: String, body: String) {
 @Composable
 private fun UsageModeStepContent(viewModel: OnboardingViewModel) {
     val usageMode by viewModel.usageMode.collectAsStateWithLifecycle()
+    val accessible by viewModel.accessible.collectAsStateWithLifecycle()
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         StepHeader(
             icon = ImageVector.vectorResource(UiR.drawable.ms_directions_walk),
             title = stringResource(R.string.onboarding_usage_mode_title),
             body = stringResource(R.string.onboarding_usage_mode_body),
         )
-        UsageModeOptions(selected = usageMode, onSelect = viewModel::setUsageMode)
+        UsageModeOptions(
+            selected = usageMode,
+            onSelect = viewModel::setUsageMode,
+            accessible = accessible,
+            onAccessibleChange = viewModel::setAccessible,
+        )
     }
 }
 
