@@ -1,0 +1,90 @@
+package com.pockettravel.feature.map
+
+import androidx.annotation.StringRes
+
+// Tipo preciso del POI dal suo tag OSM ("Ristorante", "Luogo di culto", "Museo"), per la scheda: la
+// categoria (PoiCategory) resta quella di icone, colori e filtri, qui c'e' solo il nome da mostrare.
+private val TYPES: Map<String, Int> = mapOf(
+    // Dove dormire
+    "tourism=hotel" to R.string.poi_type_hotel,
+    "tourism=guest_house" to R.string.poi_type_guest_house,
+    "tourism=hostel" to R.string.poi_type_hostel,
+    "tourism=motel" to R.string.poi_type_motel,
+    "tourism=apartment" to R.string.poi_type_apartment,
+    "tourism=camp_site" to R.string.poi_type_camp_site,
+    "tourism=caravan_site" to R.string.poi_type_caravan_site,
+    "tourism=chalet" to R.string.poi_type_chalet,
+    // Cibo e bevande
+    "amenity=restaurant" to R.string.poi_type_restaurant,
+    "amenity=cafe" to R.string.poi_type_cafe,
+    "amenity=bar" to R.string.poi_type_bar,
+    "amenity=pub" to R.string.poi_type_pub,
+    "amenity=fast_food" to R.string.poi_type_fast_food,
+    "amenity=food_court" to R.string.poi_type_food_court,
+    "amenity=ice_cream" to R.string.poi_type_ice_cream,
+    "amenity=biergarten" to R.string.poi_type_biergarten,
+    // Da vedere
+    "tourism=attraction" to R.string.poi_type_attraction,
+    "tourism=museum" to R.string.poi_type_museum,
+    "tourism=viewpoint" to R.string.poi_type_viewpoint,
+    "tourism=gallery" to R.string.poi_type_gallery,
+    "tourism=artwork" to R.string.poi_type_artwork,
+    "tourism=zoo" to R.string.poi_type_zoo,
+    "tourism=theme_park" to R.string.poi_type_theme_park,
+    "leisure=water_park" to R.string.poi_type_water_park,
+    "leisure=park" to R.string.poi_type_park,
+    "leisure=garden" to R.string.poi_type_garden,
+    "leisure=nature_reserve" to R.string.poi_type_nature_reserve,
+    "amenity=monastery" to R.string.poi_type_monastery,
+    "amenity=place_of_worship" to R.string.poi_type_place_of_worship,
+    "amenity=fountain" to R.string.poi_type_fountain,
+    "historic=castle" to R.string.poi_type_castle,
+    "historic=monument" to R.string.poi_type_monument,
+    "historic=memorial" to R.string.poi_type_memorial,
+    "historic=ruins" to R.string.poi_type_ruins,
+    "historic=archaeological_site" to R.string.poi_type_archaeological_site,
+    "historic=church" to R.string.poi_type_place_of_worship,
+    "historic=city_gate" to R.string.poi_type_city_gate,
+    "historic=tower" to R.string.poi_type_tower,
+    // Svago
+    "amenity=cinema" to R.string.poi_type_cinema,
+    "amenity=theatre" to R.string.poi_type_theatre,
+    "amenity=nightclub" to R.string.poi_type_nightclub,
+    "amenity=casino" to R.string.poi_type_casino,
+    "leisure=bowling_alley" to R.string.poi_type_bowling_alley,
+    "leisure=amusement_arcade" to R.string.poi_type_amusement_arcade,
+    // Noleggi
+    "amenity=car_rental" to R.string.poi_type_car_rental,
+    "amenity=bicycle_rental" to R.string.poi_type_bicycle_rental,
+    "amenity=motorcycle_rental" to R.string.poi_type_motorcycle_rental,
+    "amenity=scooter_rental" to R.string.poi_type_scooter_rental,
+    "amenity=boat_rental" to R.string.poi_type_boat_rental,
+    "amenity=ski_rental" to R.string.poi_type_ski_rental,
+    // Negozi piu' comuni: gli altri restano "Negozio" (shop=*), i tipi OSM sono centinaia.
+    "shop=supermarket" to R.string.poi_type_supermarket,
+    "shop=convenience" to R.string.poi_type_convenience,
+    "shop=bakery" to R.string.poi_type_bakery,
+    "shop=butcher" to R.string.poi_type_butcher,
+    "shop=greengrocer" to R.string.poi_type_greengrocer,
+    "shop=pastry" to R.string.poi_type_pastry,
+    "shop=clothes" to R.string.poi_type_clothes,
+    "shop=shoes" to R.string.poi_type_shoes,
+    "shop=books" to R.string.poi_type_books,
+    "shop=gift" to R.string.poi_type_gift,
+    "shop=souvenir" to R.string.poi_type_gift,
+    "shop=kiosk" to R.string.poi_type_kiosk,
+    "shop=newsagent" to R.string.poi_type_kiosk,
+    "shop=tobacco" to R.string.poi_type_tobacco,
+    "shop=optician" to R.string.poi_type_optician,
+    "shop=hairdresser" to R.string.poi_type_hairdresser,
+    "shop=mall" to R.string.poi_type_mall,
+    "shop=department_store" to R.string.poi_type_mall,
+    "shop=bicycle" to R.string.poi_type_bicycle_shop,
+    "shop=outdoor" to R.string.poi_type_outdoor,
+    "shop=sports" to R.string.poi_type_outdoor,
+)
+
+/** Nome del tipo preciso del POI, null se il tag non ne ha uno (vale allora quello della categoria). */
+@StringRes
+internal fun poiTypeLabel(osmTag: String): Int? =
+    TYPES[osmTag] ?: if (osmTag.startsWith("shop=")) R.string.poi_type_shop else if (osmTag.startsWith("historic=")) R.string.poi_type_historic else null

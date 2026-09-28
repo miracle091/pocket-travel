@@ -73,7 +73,7 @@ class MapRouteViewModel @Inject constructor(
             // I POI extra li ha scaricati l'utente apposta: si mostrano anche se di solito nascosti.
             _pins.value = poiRepository.forRegion(regionId).filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
                 MapPin(
-                    poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.phone, poi.wheelchair,
+                    poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.osmTag, poi.phone, poi.wheelchair,
                     openingHours = poi.openingHours, address = poi.address,
                 )
             }

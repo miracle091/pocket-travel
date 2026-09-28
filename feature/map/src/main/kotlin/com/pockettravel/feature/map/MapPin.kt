@@ -9,6 +9,8 @@ data class MapPin(
     val latitude: Double,
     val longitude: Double,
     val category: PoiCategory,
+    // Tag OSM ("amenity=restaurant"): da qui il tipo preciso mostrato nella scheda (poiTypeLabel).
+    val osmTag: String,
     val phone: String?,
     // Tag OSM "wheelchair" (yes, limited, no...), null se non indicato.
     val wheelchair: String? = null,

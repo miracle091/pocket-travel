@@ -254,15 +254,18 @@ fun MapScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     PoiBadge(pin.category, size = 40)
                     Spacer(modifier = Modifier.width(Spacing.l))
+                    // Titolo: il nome, o il tipo preciso se OSM non ha un nome. Sotto il tipo, non la
+                    // categoria generica della mappa ("Dove mangiare e bere" non dice nulla in piu').
+                    val type = poiTypeLabel(pin.osmTag)?.let { stringResource(it) }
                     Column {
                         Text(
-                            text = pin.name ?: stringResource(pin.category.label()),
+                            text = pin.name ?: type ?: stringResource(pin.category.label()),
                             style = MaterialTheme.typography.titleLarge,
                             modifier = Modifier.semantics { heading() },
                         )
-                        if (pin.name != null) {
+                        if (pin.name != null && type != null) {
                             Text(
-                                text = stringResource(pin.category.label()),
+                                text = type,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
