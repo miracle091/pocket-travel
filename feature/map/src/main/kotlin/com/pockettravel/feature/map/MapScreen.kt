@@ -317,7 +317,8 @@ private fun OpeningHoursDetail(raw: String) {
         return
     }
     Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = Spacing.l)) {
-        Icon(AppIcons.Schedule, contentDescription = null, modifier = Modifier.size(20.dp))
+        // Piu' piccola delle altre icone della scheda, centrata sulla prima riga della tabella.
+        Icon(AppIcons.Schedule, contentDescription = null, modifier = Modifier.padding(top = 2.dp, end = 2.dp).size(16.dp))
         Spacer(modifier = Modifier.width(Spacing.s))
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             rows.forEach { row ->

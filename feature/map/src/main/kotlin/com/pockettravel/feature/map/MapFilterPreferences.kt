@@ -3,6 +3,7 @@ package com.pockettravel.feature.map
 import android.content.Context
 import androidx.core.content.edit
 import com.pockettravel.core.poi.PoiCategory
+import com.pockettravel.core.poi.SIGHT_CATEGORIES
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +18,17 @@ import javax.inject.Singleton
 @Singleton
 class MapFilterPreferences @Inject constructor(@ApplicationContext context: Context) {
 
-    private val prefs = context.getSharedPreferences("map_filters", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("map_filters", Context.MODE_PRIVATE).apply {
+        // "Da vedere" era una sola categoria (ATTRAZIONI): chi l'aveva nascosta la ritrova nascosta
+        // anche divisa, invece di vedere comparire le categorie nuove.
+        if (!getBoolean(KEY_SIGHTS_SPLIT, false)) {
+            val hidden = getStringSet(KEY_HIDDEN, emptySet()).orEmpty()
+            edit {
+                if (PoiCategory.ATTRAZIONI.name in hidden) putStringSet(KEY_HIDDEN, hidden + SIGHT_CATEGORIES.map { it.name })
+                putBoolean(KEY_SIGHTS_SPLIT, true)
+            }
+        }
+    }
     private val _hiddenCategories = MutableStateFlow<Set<PoiCategory>>(
         prefs.getStringSet(KEY_HIDDEN, emptySet()).orEmpty()
             .mapNotNullTo(mutableSetOf()) { name -> PoiCategory.entries.firstOrNull { it.name == name } },
@@ -31,5 +42,6 @@ class MapFilterPreferences @Inject constructor(@ApplicationContext context: Cont
 
     private companion object {
         const val KEY_HIDDEN = "hidden_categories"
+        const val KEY_SIGHTS_SPLIT = "sights_split"
     }
 }

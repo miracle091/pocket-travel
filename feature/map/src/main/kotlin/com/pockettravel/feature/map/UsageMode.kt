@@ -3,7 +3,11 @@ package com.pockettravel.feature.map
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import com.pockettravel.core.poi.PoiCategory
+import com.pockettravel.core.poi.SIGHT_CATEGORIES
 import com.pockettravel.core.ui.R as UiR
+
+// "Da vedere" intera (SIGHT_CATEGORIES), dove una modalita' la mostra.
+private val SIGHTS = SIGHT_CATEGORIES.toTypedArray()
 
 // In ogni modalita': dove dormire e mangiare, emergenze e i POI senza categoria precisa.
 private val ALWAYS = setOf(
@@ -26,7 +30,7 @@ enum class UsageMode(
     A_PIEDI(
         R.string.usage_mode_walk, UiR.drawable.ms_directions_walk, "shortest",
         setOf(
-            PoiCategory.ATTRAZIONI, PoiCategory.SVAGO, PoiCategory.NEGOZI, PoiCategory.BANCA, PoiCategory.BANCOMAT,
+            *SIGHTS, PoiCategory.SVAGO, PoiCategory.NEGOZI, PoiCategory.BANCA, PoiCategory.BANCOMAT,
             PoiCategory.UFFICIO_POSTALE, PoiCategory.ACQUA_POTABILE, PoiCategory.PARCO_GIOCHI, PoiCategory.TRENO,
             PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO,
         ),
@@ -34,21 +38,21 @@ enum class UsageMode(
     ESCURSIONISMO(
         R.string.usage_mode_hiking, UiR.drawable.ms_hiking, "hiking-mountain",
         setOf(
-            PoiCategory.ATTRAZIONI, PoiCategory.ACQUA_POTABILE, PoiCategory.TAVOLI_PICNIC, PoiCategory.RIPARI,
+            *SIGHTS, PoiCategory.ACQUA_POTABILE, PoiCategory.TAVOLI_PICNIC, PoiCategory.RIPARI,
             PoiCategory.NEGOZI, PoiCategory.BANCOMAT, PoiCategory.TRENO, PoiCategory.AUTOBUS,
         ),
     ),
     BICI(
         R.string.usage_mode_bike, UiR.drawable.ms_directions_bike, "trekking",
         setOf(
-            PoiCategory.ATTRAZIONI, PoiCategory.NOLEGGIO, PoiCategory.PARCHEGGIO, PoiCategory.ACQUA_POTABILE,
+            *SIGHTS, PoiCategory.NOLEGGIO, PoiCategory.PARCHEGGIO, PoiCategory.ACQUA_POTABILE,
             PoiCategory.TAVOLI_PICNIC, PoiCategory.NEGOZI, PoiCategory.BANCOMAT, PoiCategory.TRENO,
         ),
     ),
     AUTO(
         R.string.usage_mode_car, UiR.drawable.ms_directions_car, "car-vario",
         setOf(
-            PoiCategory.ATTRAZIONI, PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.PARCHEGGIO,
+            *SIGHTS, PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.PARCHEGGIO,
             PoiCategory.NOLEGGIO, PoiCategory.NEGOZI, PoiCategory.BANCOMAT, PoiCategory.AEROPORTO, PoiCategory.TRAGHETTO,
         ),
     ),
@@ -56,14 +60,14 @@ enum class UsageMode(
         R.string.usage_mode_camper, UiR.drawable.ms_rv_hookup, "car-vario",
         setOf(
             PoiCategory.SERVIZI_CAMPER, PoiCategory.CARBURANTE, PoiCategory.PARCHEGGIO, PoiCategory.ACQUA_POTABILE,
-            PoiCategory.ATTRAZIONI, PoiCategory.NEGOZI, PoiCategory.BANCOMAT, PoiCategory.TRAGHETTO,
+            *SIGHTS, PoiCategory.NEGOZI, PoiCategory.BANCOMAT, PoiCategory.TRAGHETTO,
         ),
     ),
     MEZZI_PUBBLICI(
         R.string.usage_mode_transit, UiR.drawable.ms_directions_bus, "shortest",
         setOf(
             PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO,
-            PoiCategory.AEROPORTO, PoiCategory.NOLEGGIO, PoiCategory.ATTRAZIONI, PoiCategory.SVAGO, PoiCategory.NEGOZI,
+            PoiCategory.AEROPORTO, PoiCategory.NOLEGGIO, *SIGHTS, PoiCategory.SVAGO, PoiCategory.NEGOZI,
             PoiCategory.BANCOMAT,
         ),
     ),

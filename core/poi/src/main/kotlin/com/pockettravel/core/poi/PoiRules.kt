@@ -5,6 +5,13 @@ enum class PoiCategory {
     CIBO_BEVANDE,
     NEGOZI,
     DISTRIBUTORI,
+    // "Da vedere", divisa per tipo (SIGHT_CATEGORIES); ATTRAZIONI raccoglie quello che resta.
+    LUOGHI_DI_CULTO,
+    MUSEI_ARTE,
+    LUOGHI_STORICI,
+    NATURA,
+    PANORAMI,
+    PARCHI_DIVERTIMENTO,
     ATTRAZIONI,
     SVAGO,
     PARCO_GIOCHI,
@@ -48,9 +55,16 @@ private val entertainmentTags = setOf(
     "amenity=cinema", "amenity=theatre", "amenity=nightclub", "amenity=casino", "leisure=bowling_alley",
     "leisure=amusement_arcade",
 )
-private val attractionValues = setOf(
-    "attraction", "museum", "viewpoint", "gallery", "artwork", "zoo", "theme_park", "water_park", "park", "garden",
-    "monastery", "place_of_worship", "fountain", "nature_reserve",
+private val worshipValues = setOf("place_of_worship", "monastery")
+private val museumArtValues = setOf("museum", "gallery", "artwork")
+private val natureValues = setOf("park", "garden", "nature_reserve")
+private val amusementValues = setOf("zoo", "theme_park", "water_park")
+private val attractionValues = setOf("attraction", "fountain")
+
+/** Le categorie di "Da vedere": per le modalita' d'uso e per i filtri salvati quando era una sola. */
+val SIGHT_CATEGORIES: Set<PoiCategory> = setOf(
+    PoiCategory.LUOGHI_DI_CULTO, PoiCategory.MUSEI_ARTE, PoiCategory.LUOGHI_STORICI, PoiCategory.NATURA,
+    PoiCategory.PANORAMI, PoiCategory.PARCHI_DIVERTIMENTO, PoiCategory.ATTRAZIONI,
 )
 
 /**
@@ -99,9 +113,15 @@ fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     osmTag == "aeroway=aerodrome" -> PoiCategory.AEROPORTO
     osmTag in entertainmentTags -> PoiCategory.SVAGO
     osmTag.startsWith("shop=") -> PoiCategory.NEGOZI
-    osmTag.startsWith("historic=") -> PoiCategory.ATTRAZIONI
+    osmTag == "historic=church" || osmTag == "historic=monastery" -> PoiCategory.LUOGHI_DI_CULTO
+    osmTag.startsWith("historic=") -> PoiCategory.LUOGHI_STORICI
     category in accommodationValues -> PoiCategory.ALLOGGIO
     category in foodDrinkValues -> PoiCategory.CIBO_BEVANDE
+    category in worshipValues -> PoiCategory.LUOGHI_DI_CULTO
+    category in museumArtValues -> PoiCategory.MUSEI_ARTE
+    category == "viewpoint" -> PoiCategory.PANORAMI
+    category in natureValues -> PoiCategory.NATURA
+    category in amusementValues -> PoiCategory.PARCHI_DIVERTIMENTO
     category in attractionValues -> PoiCategory.ATTRAZIONI
     else -> PoiCategory.ALTRO
 }

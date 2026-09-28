@@ -19,7 +19,10 @@ internal fun PoiCategory.pinColor(): Color = when (this) {
     PoiCategory.ALLOGGIO -> PoiColors.Lodging
     PoiCategory.CIBO_BEVANDE -> PoiColors.FoodDrink
     PoiCategory.NEGOZI, PoiCategory.DISTRIBUTORI -> PoiColors.Shopping
-    PoiCategory.ATTRAZIONI, PoiCategory.PARCO_GIOCHI, PoiCategory.TAVOLI_PICNIC, PoiCategory.RIPARI -> PoiColors.Attractions
+    // Stesso colore per tutto "Da vedere": le distingue il glifo.
+    PoiCategory.LUOGHI_DI_CULTO, PoiCategory.MUSEI_ARTE, PoiCategory.LUOGHI_STORICI, PoiCategory.NATURA, PoiCategory.PANORAMI,
+    PoiCategory.PARCHI_DIVERTIMENTO, PoiCategory.ATTRAZIONI, PoiCategory.PARCO_GIOCHI, PoiCategory.TAVOLI_PICNIC, PoiCategory.RIPARI ->
+        PoiColors.Attractions
     PoiCategory.SVAGO -> PoiColors.Entertainment
     PoiCategory.AMBASCIATA_CONSOLATO, PoiCategory.POLIZIA, PoiCategory.BAGNI_PUBBLICI, PoiCategory.ACQUA_POTABILE,
     PoiCategory.FARMACIA, PoiCategory.OSPEDALE, PoiCategory.VIGILI_DEL_FUOCO, PoiCategory.VETERINARIO,
@@ -45,7 +48,13 @@ internal fun PoiCategory.glyph(): Int? = when (this) {
     PoiCategory.SERVIZI_CAMPER -> UiR.drawable.ms_rv_hookup
     PoiCategory.ACQUA_POTABILE -> UiR.drawable.ms_water_drop
     PoiCategory.CASSETTA_POSTALE -> UiR.drawable.ms_markunread_mailbox
-    PoiCategory.ATTRAZIONI -> UiR.drawable.ms_attractions
+    PoiCategory.LUOGHI_DI_CULTO -> UiR.drawable.ms_church
+    PoiCategory.MUSEI_ARTE -> UiR.drawable.ms_museum
+    PoiCategory.LUOGHI_STORICI -> UiR.drawable.ms_castle
+    PoiCategory.NATURA -> UiR.drawable.ms_park
+    PoiCategory.PANORAMI -> UiR.drawable.ms_landscape
+    PoiCategory.PARCHI_DIVERTIMENTO -> UiR.drawable.ms_attractions
+    PoiCategory.ATTRAZIONI -> UiR.drawable.ms_star
     PoiCategory.SVAGO -> UiR.drawable.ms_theater_comedy
     PoiCategory.AMBASCIATA_CONSOLATO -> UiR.drawable.ms_account_balance
     PoiCategory.POLIZIA -> UiR.drawable.ms_local_police
@@ -83,6 +92,12 @@ internal fun PoiCategory.label(): Int = when (this) {
     PoiCategory.SERVIZI_CAMPER -> R.string.poi_camper_services
     PoiCategory.ACQUA_POTABILE -> R.string.poi_drinking_water
     PoiCategory.CASSETTA_POSTALE -> R.string.poi_post_box
+    PoiCategory.LUOGHI_DI_CULTO -> R.string.poi_worship
+    PoiCategory.MUSEI_ARTE -> R.string.poi_museums_art
+    PoiCategory.LUOGHI_STORICI -> R.string.poi_historic
+    PoiCategory.NATURA -> R.string.poi_nature
+    PoiCategory.PANORAMI -> R.string.poi_viewpoints
+    PoiCategory.PARCHI_DIVERTIMENTO -> R.string.poi_amusement
     PoiCategory.ATTRAZIONI -> R.string.poi_attractions
     PoiCategory.SVAGO -> R.string.poi_entertainment
     PoiCategory.AMBASCIATA_CONSOLATO -> R.string.poi_embassy

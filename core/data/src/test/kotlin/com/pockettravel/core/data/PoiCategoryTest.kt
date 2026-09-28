@@ -39,18 +39,22 @@ class PoiCategoryTest {
     }
 
     @Test
-    fun `historic e i valori tourism di attrazione vanno in ATTRAZIONI`() {
-        assertEquals(PoiCategory.ATTRAZIONI, poi("monument", "historic=monument").poiCategory())
-        assertEquals(PoiCategory.ATTRAZIONI, poi("viewpoint", "tourism=viewpoint").poiCategory())
-        assertEquals(PoiCategory.ATTRAZIONI, poi("museum", "tourism=museum").poiCategory())
-        assertEquals(PoiCategory.ATTRAZIONI, poi("monastery", "amenity=monastery").poiCategory())
+    fun `da vedere diviso per tipo`() {
+        assertEquals(PoiCategory.LUOGHI_DI_CULTO, poi("place_of_worship", "amenity=place_of_worship").poiCategory())
+        assertEquals(PoiCategory.LUOGHI_DI_CULTO, poi("monastery", "amenity=monastery").poiCategory())
+        assertEquals(PoiCategory.LUOGHI_DI_CULTO, poi("church", "historic=church").poiCategory())
+        assertEquals(PoiCategory.MUSEI_ARTE, poi("museum", "tourism=museum").poiCategory())
+        assertEquals(PoiCategory.MUSEI_ARTE, poi("artwork", "tourism=artwork").poiCategory())
+        assertEquals(PoiCategory.LUOGHI_STORICI, poi("monument", "historic=monument").poiCategory())
+        assertEquals(PoiCategory.LUOGHI_STORICI, poi("castle", "historic=castle").poiCategory())
+        assertEquals(PoiCategory.PANORAMI, poi("viewpoint", "tourism=viewpoint").poiCategory())
+        assertEquals(PoiCategory.NATURA, poi("park", "leisure=park").poiCategory())
+        assertEquals(PoiCategory.NATURA, poi("nature_reserve", "leisure=nature_reserve").poiCategory())
+        assertEquals(PoiCategory.PARCHI_DIVERTIMENTO, poi("water_park", "leisure=water_park").poiCategory())
+        assertEquals(PoiCategory.PARCHI_DIVERTIMENTO, poi("theme_park", "tourism=theme_park").poiCategory())
+        assertEquals(PoiCategory.ATTRAZIONI, poi("attraction", "tourism=attraction").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("fountain", "amenity=fountain").poiCategory())
         assertEquals(PoiCategory.PARCO_GIOCHI, poi("playground", "leisure=playground").poiCategory())
-        assertEquals(PoiCategory.ATTRAZIONI, poi("nature_reserve", "leisure=nature_reserve").poiCategory())
-        assertEquals(PoiCategory.ATTRAZIONI, poi("park", "leisure=park").poiCategory())
-        assertEquals(PoiCategory.ATTRAZIONI, poi("water_park", "leisure=water_park").poiCategory())
-        assertEquals(PoiCategory.ATTRAZIONI, poi("theme_park", "tourism=theme_park").poiCategory())
-        assertEquals(PoiCategory.ATTRAZIONI, poi("place_of_worship", "amenity=place_of_worship").poiCategory())
     }
 
     @Test

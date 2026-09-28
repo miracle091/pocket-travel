@@ -2,7 +2,13 @@
     <string name="poi_lodging">Dove dormire</string>
     <string name="poi_food">Dove mangiare e bere</string>
     <string name="poi_shopping">Negozi</string>
-    <string name="poi_attractions">Da vedere</string>
+    <string name="poi_worship">Luoghi di culto</string>
+    <string name="poi_museums_art">Musei e arte</string>
+    <string name="poi_historic">Luoghi storici</string>
+    <string name="poi_nature">Natura e parchi</string>
+    <string name="poi_viewpoints">Panorami</string>
+    <string name="poi_amusement">Parchi divertimento</string>
+    <string name="poi_attractions">Altre attrazioni</string>
     <string name="poi_entertainment">Cinema, teatri e locali</string>
     <string name="poi_embassy">Ambasciate e consolati</string>
     <string name="poi_police">Polizia</string>
