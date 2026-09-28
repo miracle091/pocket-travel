@@ -13,6 +13,14 @@ interface PoiDao {
     @Query("SELECT * FROM poi WHERE regionId = :regionId")
     suspend fun poisForRegion(regionId: String): List<PoiEntity>
 
+    // Stazioni, autostazioni, porti e aeroporti della regione, per i fatti rapidi della guida.
+    @Query(
+        "SELECT osmTag, category, COUNT(*) AS count FROM poi WHERE regionId = :regionId " +
+            "AND osmTag IN ('railway=station', 'railway=halt', 'amenity=bus_station', 'amenity=ferry_terminal', 'aeroway=aerodrome') " +
+            "GROUP BY osmTag, category",
+    )
+    suspend fun transportCounts(regionId: String): List<TransportCount>
+
     @Query("DELETE FROM poi WHERE regionId = :regionId")
     suspend fun deleteForRegion(regionId: String)
 
@@ -20,3 +28,5 @@ interface PoiDao {
     @Query("DELETE FROM poi WHERE regionId = :regionId AND extra = :extra")
     suspend fun deletePackageForRegion(regionId: String, extra: Boolean)
 }
+
+data class TransportCount(val osmTag: String, val category: String, val count: Int)

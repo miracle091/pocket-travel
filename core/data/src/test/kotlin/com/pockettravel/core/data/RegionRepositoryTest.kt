@@ -16,6 +16,7 @@ import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiEntity
 import com.pockettravel.core.data.db.RegionDatabase
 import com.pockettravel.core.data.db.RegionPackageDao
+import com.pockettravel.core.data.db.TransportCount
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -71,6 +72,7 @@ private class NoOpGuideDao : GuideDao {
 private class NoOpPoiDao : PoiDao {
     override suspend fun insertAll(pois: List<PoiEntity>) = Unit
     override suspend fun poisForRegion(regionId: String): List<PoiEntity> = emptyList()
+    override suspend fun transportCounts(regionId: String): List<TransportCount> = emptyList()
     override suspend fun deleteForRegion(regionId: String) = Unit
     override suspend fun deletePackageForRegion(regionId: String, extra: Boolean) = Unit
 }

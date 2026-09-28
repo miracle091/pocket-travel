@@ -2,10 +2,18 @@ package com.pockettravel.core.data
 
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiEntity
+import com.pockettravel.core.poi.PoiCategory
+import com.pockettravel.core.poi.poiCategoryOf
 import javax.inject.Inject
 
 class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
     suspend fun forRegion(regionId: String): List<Poi> = poiDao.poisForRegion(regionId).map { it.toDomain() }
+
+    /** Quanti treni (stazioni), metro, autostazioni, porti e aeroporti ha la regione, per categoria. */
+    suspend fun transportCounts(regionId: String): Map<PoiCategory, Int> =
+        poiDao.transportCounts(regionId)
+            .groupBy({ poiCategoryOf(it.category, it.osmTag) }, { it.count })
+            .mapValues { (_, counts) -> counts.sum() }
 }
 
 data class Poi(

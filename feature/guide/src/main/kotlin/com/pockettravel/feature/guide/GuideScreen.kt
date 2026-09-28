@@ -51,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -65,6 +66,7 @@ import com.pockettravel.core.data.CitySection
 import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSection
+import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
@@ -128,8 +130,16 @@ internal fun GuideContent(
 @Composable
 private fun GuideSectionsList(uiState: GuideUiState, onOpenSource: (url: String, title: String) -> Unit, onOpenCities: () -> Unit) {
     var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
-    val orderedSections = remember(uiState.sections) {
-        uiState.sections.sortedBy { if (it.category == GuideCategory.FATTI_RAPIDI) 0 else 1 }
+    val transport = transportSummary(uiState.transportCounts)
+    val orderedSections = remember(uiState.sections, uiState.countryCode, transport) {
+        val extra = QuickFactsExtra(
+            language = uiState.countryCode?.let(::languageOf),
+            currency = uiState.countryCode?.let(::currencyOf),
+            transport = transport,
+        )
+        uiState.sections
+            .sortedBy { if (it.category == GuideCategory.FATTI_RAPIDI) 0 else 1 }
+            .map { if (it.category == GuideCategory.FATTI_RAPIDI) it.copy(body = quickFactsBody(it.body, extra)) else it }
     }
     SectionsWithFilters(
         sections = orderedSections.map { it.toUi() },
@@ -150,6 +160,21 @@ private fun GuideSectionsList(uiState: GuideUiState, onOpenSource: (url: String,
         },
     )
 }
+
+// "treno (12 stazioni), autobus (3 autostazioni)": i mezzi con piu' punti di partenza per primi.
+@Composable
+private fun transportSummary(counts: Map<PoiCategory, Int>): String? =
+    counts.entries.sortedByDescending { it.value }.mapNotNull { (category, count) ->
+        val plural = when (category) {
+            PoiCategory.TRENO -> R.plurals.quick_facts_train
+            PoiCategory.METRO -> R.plurals.quick_facts_metro
+            PoiCategory.AUTOBUS -> R.plurals.quick_facts_bus
+            PoiCategory.TRAGHETTO -> R.plurals.quick_facts_ferry
+            PoiCategory.AEROPORTO -> R.plurals.quick_facts_airport
+            else -> return@mapNotNull null
+        }
+        pluralStringResource(plural, count, count)
+    }.joinToString(", ").ifEmpty { null }
 
 @Composable
 private fun CitiesEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {

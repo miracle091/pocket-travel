@@ -9,6 +9,9 @@ import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.EmergencyNumbersRepository
 import com.pockettravel.core.data.GuideRepository
 import com.pockettravel.core.data.GuideSection
+import com.pockettravel.core.data.PoiRepository
+import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.poi.PoiCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -22,6 +25,9 @@ import javax.inject.Inject
 data class GuideUiState(
     val sections: List<GuideSection> = emptyList(),
     val emergencyNumbers: EmergencyNumbers? = null,
+    // Per i fatti rapidi: valuta e lingua dal paese, mezzi di trasporto dai POI della regione.
+    val countryCode: String? = null,
+    val transportCounts: Map<PoiCategory, Int> = emptyMap(),
     // La regione non ha un numero di emergenza centralizzato: la scheda lo dice al posto dei numeri.
     val noCentralEmergencyNumber: Boolean = false,
     // Nomi delle citta' della regione (CityRepository.citiesFor): entry point "Città" nascosto se vuoto.
@@ -41,6 +47,8 @@ class GuideViewModel @Inject constructor(
     private val guideRepository: GuideRepository,
     private val emergencyNumbersRepository: EmergencyNumbersRepository,
     private val cityRepository: CityRepository,
+    private val regionRepository: RegionRepository,
+    private val poiRepository: PoiRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GuideUiState())
@@ -71,10 +79,14 @@ class GuideViewModel @Inject constructor(
                 val sections = guideRepository.sectionsFor(regionId)
                 val emergencyNumbers = emergencyNumbersRepository.forRegion(regionId)
                 val noCentralEmergencyNumber = emergencyNumbers == null && emergencyNumbersRepository.hasNoCentralNumber(regionId)
+                val countryCode = regionRepository.installed(regionId)?.countryCode
+                val transportCounts = poiRepository.transportCounts(regionId)
                 _uiState.update {
                     it.copy(
                         sections = sections,
                         emergencyNumbers = emergencyNumbers,
+                        countryCode = countryCode,
+                        transportCounts = transportCounts,
                         noCentralEmergencyNumber = noCentralEmergencyNumber,
                         isLoading = false,
                     )

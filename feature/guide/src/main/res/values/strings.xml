@@ -31,4 +31,24 @@
     <string name="guide_cities_subtitle">Guide delle città di questa regione</string>
     <string name="guide_city_empty_title">Nessun contenuto guida disponibile per questa città</string>
     <string name="guide_city_load_error">Impossibile caricare la guida per questa città.</string>
+    <plurals name="quick_facts_train">
+        <item quantity="one">treno (%d stazione)</item>
+        <item quantity="other">treno (%d stazioni)</item>
+    </plurals>
+    <plurals name="quick_facts_metro">
+        <item quantity="one">metropolitana (%d stazione)</item>
+        <item quantity="other">metropolitana (%d stazioni)</item>
+    </plurals>
+    <plurals name="quick_facts_bus">
+        <item quantity="one">autobus (%d autostazione)</item>
+        <item quantity="other">autobus (%d autostazioni)</item>
+    </plurals>
+    <plurals name="quick_facts_ferry">
+        <item quantity="one">traghetto (%d porto)</item>
+        <item quantity="other">traghetto (%d porti)</item>
+    </plurals>
+    <plurals name="quick_facts_airport">
+        <item quantity="one">aereo (%d aeroporto)</item>
+        <item quantity="other">aereo (%d aeroporti)</item>
+    </plurals>
 </resources>
