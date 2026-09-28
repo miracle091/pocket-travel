@@ -95,7 +95,7 @@ dependencies {
     implementation(libs.compose.material3.adaptive)
     implementation(libs.navigation.compose)
     implementation(libs.hilt.android)
-    implementation(libs.hilt.navigation.compose)
+    implementation(libs.hilt.lifecycle.viewmodel.compose)
     implementation(libs.work.runtime.ktx)
     implementation(libs.hilt.work)
     implementation(libs.androidx.core.splashscreen)
