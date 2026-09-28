@@ -1,9 +1,9 @@
 package com.pockettravel.pipeline
 
-import java.io.File
-import java.sql.DriverManager
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.io.File
+import java.sql.DriverManager
 
 class GeneratePoiTest {
 
@@ -89,6 +89,46 @@ class GeneratePoiTest {
         assertEquals(null, pois.last().wheelchair)
         assertEquals("shop=bakery", pois.last().osmTag)
         dir.deleteRecursively()
+    }
+
+    @Test
+    fun `orari, indirizzo, sito ed email solo per cibo e bevande`() {
+        val dir = kotlin.io.path.createTempDirectory("pocket-travel-poi").toFile()
+        val xml = File(dir, "a.xml")
+        xml.writeText(
+            """<?xml version="1.0"?><osm version="0.6">""" +
+                """<node id="1" lat="44.06" lon="12.57"><tag k="amenity" v="restaurant"/><tag k="name" v="Da Mario"/>""" +
+                """<tag k="opening_hours" v="Mo-Sa 12:00-15:00,19:00-23:00; Su off"/><tag k="addr:street" v="Via Roma"/>""" +
+                """<tag k="addr:housenumber" v="12"/><tag k="addr:city" v="Rimini"/><tag k="contact:website" v="https://damario.example"/>""" +
+                """<tag k="email" v="info@damario.example"/></node>""" +
+                """<node id="2" lat="44.07" lon="12.58"><tag k="amenity" v="cafe"/><tag k="name" v="Bar senza via"/><tag k="addr:city" v="Rimini"/></node>""" +
+                """<node id="3" lat="44.08" lon="12.59"><tag k="shop" v="bakery"/><tag k="name" v="Forno"/><tag k="opening_hours" v="Mo-Sa 07:00-13:00"/>""" +
+                """<tag k="addr:street" v="Via Po"/><tag k="website" v="https://forno.example"/></node>""" +
+                "</osm>",
+        )
+        val outputDb = File(dir, "poi.db")
+        try {
+            val pois = readPois(listOf(xml), poiTagKeys)
+            val (ristorante, bar, forno) = pois
+            assertEquals("Mo-Sa 12:00-15:00,19:00-23:00; Su off", ristorante.openingHours)
+            assertEquals("Via Roma 12, Rimini", ristorante.address)
+            assertEquals("https://damario.example", ristorante.website)
+            assertEquals("info@damario.example", ristorante.email)
+            // Solo la citta', senza via: niente indirizzo.
+            assertEquals(null, bar.address)
+            // Un negozio non porta i dettagli, anche se OSM li ha.
+            assertEquals(listOf(null, null, null, null), listOf(forno.openingHours, forno.address, forno.website, forno.email))
+
+            writePoiDb(pois, outputDb)
+            DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
+                val rs = conn.createStatement().executeQuery("SELECT openingHours, address, website, email FROM poi WHERE name = 'Da Mario'")
+                assertEquals(true, rs.next())
+                assertEquals("Via Roma 12, Rimini", rs.getString("address"))
+                assertEquals("info@damario.example", rs.getString("email"))
+            }
+        } finally {
+            dir.deleteRecursively()
+        }
     }
 
     @Test

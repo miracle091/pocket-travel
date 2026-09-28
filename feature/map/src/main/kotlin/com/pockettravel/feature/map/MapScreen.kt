@@ -49,7 +49,6 @@ import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PoiColors
 import com.pockettravel.core.ui.Spacing
-import com.pockettravel.core.ui.R as UiR
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
@@ -62,6 +61,7 @@ import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
+import com.pockettravel.core.ui.R as UiR
 
 private const val PIN_ICON_PREFIX = "pocket-travel-pin-"
 private const val PINS_SOURCE = "pocket-travel-pins"
@@ -270,12 +270,10 @@ fun MapScreen(
                     }
                 }
                 wheelchairLabel(pin.wheelchair)?.let { label ->
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = Spacing.l)) {
-                        Icon(ImageVector.vectorResource(UiR.drawable.ms_accessible), contentDescription = null, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(Spacing.s))
-                        Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
-                    }
+                    PoiDetailRow(ImageVector.vectorResource(UiR.drawable.ms_accessible), stringResource(label))
                 }
+                pin.address?.let { PoiDetailRow(AppIcons.Place, it) }
+                pin.openingHours?.let { PoiDetailRow(AppIcons.Schedule, formatOpeningHours(it)) }
                 pin.phone?.let { phone ->
                     Spacer(modifier = Modifier.padding(top = Spacing.l))
                     FilledTonalButton(
@@ -289,8 +287,42 @@ fun MapScreen(
                         Text(stringResource(R.string.poi_call, phone))
                     }
                 }
+                pin.website?.let { website ->
+                    Spacer(modifier = Modifier.padding(top = Spacing.s))
+                    FilledTonalButton(
+                        onClick = {
+                            // In OSM il sito c'e' spesso senza schema ("www.esempio.it").
+                            val url = if (website.contains("://")) website else "https://$website"
+                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
+                        },
+                    ) {
+                        Icon(AppIcons.Web, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(Spacing.s))
+                        Text(stringResource(R.string.poi_website))
+                    }
+                }
+                pin.email?.let { email ->
+                    Spacer(modifier = Modifier.padding(top = Spacing.s))
+                    FilledTonalButton(
+                        onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, "mailto:$email".toUri())) } },
+                    ) {
+                        Icon(AppIcons.Mail, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(Spacing.s))
+                        Text(stringResource(R.string.poi_email, email))
+                    }
+                }
             }
         }
+    }
+}
+
+// Una riga della scheda del POI: icona piccola e testo (accessibilita', indirizzo, orari).
+@Composable
+private fun PoiDetailRow(icon: ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = Spacing.l)) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(Spacing.s))
+        Text(text, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

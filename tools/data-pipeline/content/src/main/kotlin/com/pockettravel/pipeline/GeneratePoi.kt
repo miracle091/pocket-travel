@@ -1,13 +1,14 @@
 package com.pockettravel.pipeline
 
 import com.pockettravel.core.poi.PoiPackage
+import com.pockettravel.core.poi.poiHasDetails
 import com.pockettravel.core.poi.poiPackageOf
+import org.xml.sax.Attributes
+import org.xml.sax.helpers.DefaultHandler
 import java.io.File
 import java.sql.DriverManager
 import javax.xml.parsers.SAXParserFactory
 import kotlin.math.roundToInt
-import org.xml.sax.Attributes
-import org.xml.sax.helpers.DefaultHandler
 
 fun main(args: Array<String>) {
     require(args.size >= 5) {
@@ -108,6 +109,11 @@ data class Poi(
     val phone: String?,
     // Tag OSM "wheelchair" (yes, limited, no, designated...), null se assente: per la modalita' Accessibilita'.
     val wheelchair: String? = null,
+    // Solo per i POI con poiHasDetails (cibo e bevande), null se OSM non li indica.
+    val openingHours: String? = null,
+    val address: String? = null,
+    val website: String? = null,
+    val email: String? = null,
 )
 
 private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagKeys: List<String>): Poi? {
@@ -115,24 +121,40 @@ private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagK
     val tagValue = tags.getValue(tagKey)
     // Parchi senza nome: per lo piu' aiuole e giardinetti, sulla mappa sarebbero solo "park".
     if (tagKey == "leisure" && tagValue == "park" && tags["name"] == null) return null
+    val category = when {
+        tagKey == "amenity" && tagValue == "parking" && tags["access"] in PRIVATE_ACCESS -> "parking_private"
+        tagKey == "railway" && (tags["station"] == "subway" || tags["subway"] == "yes") -> "subway_station"
+        // Uffici e centri informazioni, non i cartelli e i segnavia (stesso tag tourism=information).
+        tagKey == "tourism" && tagValue == "information" && tags["information"] in INFO_OFFICE ->
+            "information_office"
+        else -> tagValue
+    }
+    val osmTag = "$tagKey=$tagValue"
+    val details = poiHasDetails(category, osmTag)
     return Poi(
         name = tags["name"] ?: tagValue,
-        category = when {
-            tagKey == "amenity" && tagValue == "parking" && tags["access"] in PRIVATE_ACCESS -> "parking_private"
-            tagKey == "railway" && (tags["station"] == "subway" || tags["subway"] == "yes") -> "subway_station"
-            // Uffici e centri informazioni, non i cartelli e i segnavia (stesso tag tourism=information).
-            tagKey == "tourism" && tagValue == "information" && tags["information"] in INFO_OFFICE ->
-                "information_office"
-            else -> tagValue
-        },
+        category = category,
         lat = lat,
         lon = lon,
-        osmTag = "$tagKey=$tagValue",
+        osmTag = osmTag,
         // "phone" e' il tag storico, "contact:phone" quello piu' recente dello schema
         // contact:* — OSM non li ha mai consolidati in uno solo, entrambi ancora in uso.
         phone = tags["phone"] ?: tags["contact:phone"],
         wheelchair = tags["wheelchair"],
+        openingHours = tags["opening_hours"].takeIf { details },
+        address = addressOf(tags).takeIf { details },
+        // Come per phone: schema storico e contact:*, entrambi in uso.
+        website = (tags["website"] ?: tags["contact:website"]).takeIf { details },
+        email = (tags["email"] ?: tags["contact:email"]).takeIf { details },
     )
+}
+
+// "Via Roma 12, Rimini": via (o localita' senza via) e civico, poi la citta'. Senza via niente
+// indirizzo: la sola citta' non aiuta a trovare il posto.
+private fun addressOf(tags: Map<String, String>): String? {
+    val street = tags["addr:street"] ?: tags["addr:place"] ?: return null
+    val line = listOfNotNull(street, tags["addr:housenumber"]).joinToString(" ")
+    return listOfNotNull(line, tags["addr:city"]).joinToString(", ")
 }
 
 /**
@@ -143,8 +165,9 @@ private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagK
  *   stringhe identiche a ogni riga ma un solo intero.
  * - "poi": name, il code di poi_code, le coordinate come interi in microgradi (lat/lon * 1e6,
  *   precisione ~0,11 m, piu' che sufficiente per un segnalino) invece di REAL a 8 byte, phone e
- *   wheelchair facoltativi. Niente colonna regionId (era costante su ogni riga: la regione la
- *   passa comunque chi importa il file).
+ *   wheelchair facoltativi, e per cibo e bevande openingHours, address, website ed email (colonne
+ *   aggiunte dopo: le versioni dell'app che non le conoscono non le selezionano). Niente colonna
+ *   regionId (era costante su ogni riga: la regione la passa comunque chi importa il file).
  * - PRAGMA user_version = [POI_DB_FORMAT_VERSION]: marcatore di formato per PoiImporter, che
  *   legge sia questo che il vecchio formato (regionId/category/osmTag/lat/lon in chiaro,
  *   user_version assente cioe' 0 di default) - vedi PoiImporter.readPois.
@@ -186,10 +209,14 @@ fun writePoiDb(pois: List<Poi>, outputDb: File) {
                 latE6 INTEGER NOT NULL,
                 lonE6 INTEGER NOT NULL,
                 phone TEXT,
-                wheelchair TEXT
+                wheelchair TEXT,
+                openingHours TEXT,
+                address TEXT,
+                website TEXT,
+                email TEXT
             )
             """.trimIndent(),
-        insertSql = "INSERT INTO poi (name, code, latE6, lonE6, phone, wheelchair) VALUES (?, ?, ?, ?, ?, ?)",
+        insertSql = "INSERT INTO poi (name, code, latE6, lonE6, phone, wheelchair, openingHours, address, website, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         rows = pois,
     ) { insert, poi ->
         insert.setString(1, poi.name)
@@ -198,6 +225,10 @@ fun writePoiDb(pois: List<Poi>, outputDb: File) {
         insert.setInt(4, (poi.lon * 1_000_000.0).roundToInt())
         insert.setString(5, poi.phone)
         insert.setString(6, poi.wheelchair)
+        insert.setString(7, poi.openingHours)
+        insert.setString(8, poi.address)
+        insert.setString(9, poi.website)
+        insert.setString(10, poi.email)
     }
 
     // A parte (non e' una tabella): writeSqliteTable ricrea una tabella per volta, il marcatore di

@@ -5,10 +5,10 @@ import androidx.room.withTransaction
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiEntity
 import com.pockettravel.core.data.db.RegionDatabase
-import java.io.File
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
+import javax.inject.Inject
 
 /**
  * Importa il poi.db (o, con extra, il poi-extra.db) scaricato di una regione (generato da
@@ -61,11 +61,14 @@ class PoiImporter @Inject constructor(
     private fun readPois(regionId: String, db: SQLiteDatabase, extra: Boolean): List<PoiEntity> {
         // db.version legge PRAGMA user_version: assente (0) sui file nel vecchio formato, vedi la
         // nota di formato sopra la classe.
-        val query = if (db.version >= 1) COMPACT_POI_QUERY else poiQuery(poiColumns(db))
+        val columns = poiColumns(db)
+        val query = if (db.version >= 1) compactPoiQuery(columns) else poiQuery(columns)
         val pois = mutableListOf<PoiEntity>()
         db.rawQuery(query, null).use { cursor ->
-            val phone = cursor.getColumnIndex("phone")
-            val wheelchair = cursor.getColumnIndex("wheelchair")
+            fun optional(name: String): String? {
+                val index = cursor.getColumnIndex(name)
+                return if (index >= 0 && !cursor.isNull(index)) cursor.getString(index) else null
+            }
             while (cursor.moveToNext()) {
                 pois += PoiEntity(
                     regionId = regionId,
@@ -74,8 +77,12 @@ class PoiImporter @Inject constructor(
                     lat = cursor.getDouble(2),
                     lon = cursor.getDouble(3),
                     osmTag = cursor.getString(4),
-                    phone = if (phone >= 0 && !cursor.isNull(phone)) cursor.getString(phone) else null,
-                    wheelchair = if (wheelchair >= 0 && !cursor.isNull(wheelchair)) cursor.getString(wheelchair) else null,
+                    phone = optional("phone"),
+                    wheelchair = optional("wheelchair"),
+                    openingHours = optional("openingHours"),
+                    address = optional("address"),
+                    website = optional("website"),
+                    email = optional("email"),
                     extra = extra,
                 )
             }
@@ -98,13 +105,14 @@ class PoiImporter @Inject constructor(
             "SELECT name, category, lat, lon, osmTag" + OPTIONAL_COLUMNS.filter { it in columns }.joinToString("") { ", $it" } + " FROM poi"
 
         // Formato compatto (GeneratePoi.kt, POI_DB_FORMAT_VERSION): stesso ordine di colonne di
-        // poiQuery (name, category, lat, lon, osmTag, phone, wheelchair) cosi' readPois legge le
-        // prime cinque per posizione in entrambi i casi; phone e wheelchair ci sono sempre (anche
-        // se null) in questo formato, a differenza del vecchio dove sono colonne facoltative.
-        internal const val COMPACT_POI_QUERY =
-            "SELECT poi.name, poi_code.category, poi.latE6 / 1000000.0 AS lat, poi.lonE6 / 1000000.0 AS lon, poi_code.osmTag, poi.phone, poi.wheelchair" +
+        // poiQuery (name, category, lat, lon, osmTag, poi le facoltative) cosi' readPois legge le
+        // prime cinque per posizione in entrambi i casi. Anche qui le facoltative dipendono dal file:
+        // i poi.db pubblicati prima di orari, indirizzo, sito ed email non le hanno.
+        internal fun compactPoiQuery(columns: Set<String>): String =
+            "SELECT poi.name, poi_code.category, poi.latE6 / 1000000.0 AS lat, poi.lonE6 / 1000000.0 AS lon, poi_code.osmTag" +
+                OPTIONAL_COLUMNS.filter { it in columns }.joinToString("") { ", poi.$it" } +
                 " FROM poi JOIN poi_code ON poi.code = poi_code.code"
 
-        private val OPTIONAL_COLUMNS = listOf("phone", "wheelchair")
+        private val OPTIONAL_COLUMNS = listOf("phone", "wheelchair", "openingHours", "address", "website", "email")
     }
 }

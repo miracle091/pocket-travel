@@ -1,10 +1,10 @@
 package com.pockettravel.core.sync
 
+import org.junit.Assert.assertEquals
+import org.junit.Test
 import java.io.File
 import java.sql.DriverManager
 import kotlin.io.path.createTempDirectory
-import org.junit.Assert.assertEquals
-import org.junit.Test
 
 /**
  * Verifica a livello di schema che le query di GuidesImporter e PoiImporter corrispondano alle
@@ -161,7 +161,7 @@ class PackageImporterSchemaTest {
             statement.execute("INSERT INTO poi VALUES ('Ambasciata', 0, 45464600, 9190800, '+39 06 1234567', 'yes')")
         }
         conn.createStatement().use { statement ->
-            val rs = statement.executeQuery(PoiImporter.COMPACT_POI_QUERY)
+            val rs = statement.executeQuery(PoiImporter.compactPoiQuery(setOf("name", "code", "latE6", "lonE6", "phone", "wheelchair")))
             assertEquals(true, rs.next())
             assertEquals("Ambasciata", rs.getString("name"))
             assertEquals("embassy", rs.getString("category"))
@@ -172,6 +172,14 @@ class PackageImporterSchemaTest {
             assertEquals("yes", rs.getString("wheelchair"))
             assertEquals(false, rs.next())
         }
+    }
+
+    @Test
+    fun `la query poi compatta aggiunge orari, indirizzo, sito ed email solo se il file li ha`() {
+        val old = PoiImporter.compactPoiQuery(setOf("name", "code", "latE6", "lonE6", "phone", "wheelchair"))
+        assertEquals(false, old.contains("openingHours"))
+        val new = PoiImporter.compactPoiQuery(setOf("name", "phone", "wheelchair", "openingHours", "address", "website", "email"))
+        assertEquals(true, new.contains("poi.wheelchair, poi.openingHours, poi.address, poi.website, poi.email FROM"))
     }
 
     @Test

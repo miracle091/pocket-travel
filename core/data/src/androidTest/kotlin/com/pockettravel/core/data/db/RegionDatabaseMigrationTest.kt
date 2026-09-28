@@ -236,4 +236,20 @@ class RegionDatabaseMigrationTest {
     private companion object {
         const val DB_NAME = "migration-test.db"
     }
+
+    @Test
+    fun migrazione15a16AggiungeIDettagliVuotiAiPoi() {
+        helper.createDatabase(DB_NAME, 15).use { db ->
+            db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone, extra, wheelchair) VALUES ('italia', 'Da Mario', 'restaurant', 45.0, 9.0, 'amenity=restaurant', NULL, 0, 'yes')")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 16, true, MIGRATION_15_16).use { db ->
+            db.query("SELECT name, wheelchair, openingHours, address, website, email FROM poi").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Da Mario", cursor.getString(0))
+                assertEquals("yes", cursor.getString(1))
+                assertTrue((2..5).all { cursor.isNull(it) })
+            }
+        }
+    }
 }

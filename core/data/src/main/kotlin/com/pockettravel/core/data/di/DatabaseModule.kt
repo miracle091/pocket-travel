@@ -5,6 +5,12 @@ import androidx.room.Room
 import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.GuideDao
+import com.pockettravel.core.data.db.MIGRATION_10_11
+import com.pockettravel.core.data.db.MIGRATION_11_12
+import com.pockettravel.core.data.db.MIGRATION_12_13
+import com.pockettravel.core.data.db.MIGRATION_13_14
+import com.pockettravel.core.data.db.MIGRATION_14_15
+import com.pockettravel.core.data.db.MIGRATION_15_16
 import com.pockettravel.core.data.db.MIGRATION_1_2
 import com.pockettravel.core.data.db.MIGRATION_2_3
 import com.pockettravel.core.data.db.MIGRATION_3_4
@@ -14,11 +20,6 @@ import com.pockettravel.core.data.db.MIGRATION_6_7
 import com.pockettravel.core.data.db.MIGRATION_7_8
 import com.pockettravel.core.data.db.MIGRATION_8_9
 import com.pockettravel.core.data.db.MIGRATION_9_10
-import com.pockettravel.core.data.db.MIGRATION_10_11
-import com.pockettravel.core.data.db.MIGRATION_11_12
-import com.pockettravel.core.data.db.MIGRATION_12_13
-import com.pockettravel.core.data.db.MIGRATION_13_14
-import com.pockettravel.core.data.db.MIGRATION_14_15
 import com.pockettravel.core.data.db.NoteDao
 import com.pockettravel.core.data.db.PassportDao
 import com.pockettravel.core.data.db.PoiDao
@@ -39,7 +40,7 @@ object DatabaseModule {
     @Singleton
     fun provideRegionDatabase(@ApplicationContext context: Context): RegionDatabase =
         Room.databaseBuilder(context, RegionDatabase::class.java, "region.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
             .build()
 
     @Provides

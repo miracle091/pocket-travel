@@ -8,20 +8,20 @@ import com.pockettravel.core.data.hasName
 import com.pockettravel.core.data.isHiddenOnMap
 import com.pockettravel.core.data.poiCategory
 import com.pockettravel.core.poi.PoiCategory
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 // Holder minimo per far arrivare OfflineTileSource (fornito da RouteEngineModule), i segnalini e i
@@ -72,7 +72,10 @@ class MapRouteViewModel @Inject constructor(
         loadPinsJob = viewModelScope.launch {
             // I POI extra li ha scaricati l'utente apposta: si mostrano anche se di solito nascosti.
             _pins.value = poiRepository.forRegion(regionId).filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
-                MapPin(poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.phone, poi.wheelchair)
+                MapPin(
+                    poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.phone, poi.wheelchair,
+                    openingHours = poi.openingHours, address = poi.address, website = poi.website, email = poi.email,
+                )
             }
         }
     }

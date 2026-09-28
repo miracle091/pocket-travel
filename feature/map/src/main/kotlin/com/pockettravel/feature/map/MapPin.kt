@@ -12,4 +12,9 @@ data class MapPin(
     val phone: String?,
     // Tag OSM "wheelchair" (yes, limited, no...), null se non indicato.
     val wheelchair: String? = null,
+    // Cibo e bevande: orari (opening_hours di OSM), indirizzo, sito ed email, se indicati.
+    val openingHours: String? = null,
+    val address: String? = null,
+    val website: String? = null,
+    val email: String? = null,
 )
