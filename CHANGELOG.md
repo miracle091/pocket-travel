@@ -4,6 +4,12 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ## [Non rilasciato]
 
+### Modificato
+- "Come ti sposti": "Con disabilità" non è più una modalità a sé ma una casella che vale con tutte le altre (a piedi, in bici, in auto…): la mappa nasconde i posti segnati come non accessibili in sedia a rotelle qualunque sia il modo di spostarsi. Chi aveva scelto "Con disabilità" ritrova "A piedi" con la casella attiva. In Altro il foglio resta aperto dopo la scelta, per poter cambiare anche la casella.
+- Spazio per i download: prima di scaricare una regione o un modello dell'assistente, lo spazio disponibile comprende anche la cache di altre app che Android può cancellare, e l'app chiede di liberarla all'inizio del download. Niente più "spazio insufficiente" quando il telefono in realtà lo spazio lo ha.
+- Nessun backup dei dati dell'app nemmeno da Android 12 in su, né nel cloud né nel trasferimento a un nuovo telefono, come già sulle versioni precedenti: la cassaforte è cifrata con chiavi che non lasciano il dispositivo.
+- Librerie aggiornate: MapLibre 13 per la mappa, OkHttp 5 per i download, CameraX 1.6 per la fotocamera della cassaforte, oltre a Hilt, WorkManager, coroutine e Gradle 9.8. I segnalini della mappa sono disegnati direttamente da MapLibre, senza il plugin delle annotazioni che non riceve più aggiornamenti.
+
 ## [0.8.0]
 
 ### Aggiunto
