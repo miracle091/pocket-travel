@@ -74,7 +74,7 @@ class MapRouteViewModel @Inject constructor(
             _pins.value = poiRepository.forRegion(regionId).filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
                 MapPin(
                     poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.phone, poi.wheelchair,
-                    openingHours = poi.openingHours, address = poi.address, website = poi.website, email = poi.email,
+                    openingHours = poi.openingHours, address = poi.address,
                 )
             }
         }

@@ -92,7 +92,7 @@ class GeneratePoiTest {
     }
 
     @Test
-    fun `orari, indirizzo, sito ed email solo per cibo e bevande`() {
+    fun `orari e indirizzo solo per cibo e bevande`() {
         val dir = kotlin.io.path.createTempDirectory("pocket-travel-poi").toFile()
         val xml = File(dir, "a.xml")
         xml.writeText(
@@ -112,19 +112,17 @@ class GeneratePoiTest {
             val (ristorante, bar, forno) = pois
             assertEquals("Mo-Sa 12:00-15:00,19:00-23:00; Su off", ristorante.openingHours)
             assertEquals("Via Roma 12, Rimini", ristorante.address)
-            assertEquals("https://damario.example", ristorante.website)
-            assertEquals("info@damario.example", ristorante.email)
             // Solo la citta', senza via: niente indirizzo.
             assertEquals(null, bar.address)
             // Un negozio non porta i dettagli, anche se OSM li ha.
-            assertEquals(listOf(null, null, null, null), listOf(forno.openingHours, forno.address, forno.website, forno.email))
+            assertEquals(listOf(null, null), listOf(forno.openingHours, forno.address))
 
             writePoiDb(pois, outputDb)
             DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
-                val rs = conn.createStatement().executeQuery("SELECT openingHours, address, website, email FROM poi WHERE name = 'Da Mario'")
+                val rs = conn.createStatement().executeQuery("SELECT openingHours, address FROM poi WHERE name = 'Da Mario'")
                 assertEquals(true, rs.next())
                 assertEquals("Via Roma 12, Rimini", rs.getString("address"))
-                assertEquals("info@damario.example", rs.getString("email"))
+                assertEquals("Mo-Sa 12:00-15:00,19:00-23:00; Su off", rs.getString("openingHours"))
             }
         } finally {
             dir.deleteRecursively()

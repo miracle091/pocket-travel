@@ -81,8 +81,6 @@ class PoiImporter @Inject constructor(
                     wheelchair = optional("wheelchair"),
                     openingHours = optional("openingHours"),
                     address = optional("address"),
-                    website = optional("website"),
-                    email = optional("email"),
                     extra = extra,
                 )
             }
@@ -107,12 +105,12 @@ class PoiImporter @Inject constructor(
         // Formato compatto (GeneratePoi.kt, POI_DB_FORMAT_VERSION): stesso ordine di colonne di
         // poiQuery (name, category, lat, lon, osmTag, poi le facoltative) cosi' readPois legge le
         // prime cinque per posizione in entrambi i casi. Anche qui le facoltative dipendono dal file:
-        // i poi.db pubblicati prima di orari, indirizzo, sito ed email non le hanno.
+        // i poi.db pubblicati prima di orari e indirizzo non le hanno.
         internal fun compactPoiQuery(columns: Set<String>): String =
             "SELECT poi.name, poi_code.category, poi.latE6 / 1000000.0 AS lat, poi.lonE6 / 1000000.0 AS lon, poi_code.osmTag" +
                 OPTIONAL_COLUMNS.filter { it in columns }.joinToString("") { ", poi.$it" } +
                 " FROM poi JOIN poi_code ON poi.code = poi_code.code"
 
-        private val OPTIONAL_COLUMNS = listOf("phone", "wheelchair", "openingHours", "address", "website", "email")
+        private val OPTIONAL_COLUMNS = listOf("phone", "wheelchair", "openingHours", "address")
     }
 }

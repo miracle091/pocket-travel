@@ -287,30 +287,6 @@ fun MapScreen(
                         Text(stringResource(R.string.poi_call, phone))
                     }
                 }
-                pin.website?.let { website ->
-                    Spacer(modifier = Modifier.padding(top = Spacing.s))
-                    FilledTonalButton(
-                        onClick = {
-                            // In OSM il sito c'e' spesso senza schema ("www.esempio.it").
-                            val url = if (website.contains("://")) website else "https://$website"
-                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
-                        },
-                    ) {
-                        Icon(AppIcons.Web, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(Spacing.s))
-                        Text(stringResource(R.string.poi_website))
-                    }
-                }
-                pin.email?.let { email ->
-                    Spacer(modifier = Modifier.padding(top = Spacing.s))
-                    FilledTonalButton(
-                        onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, "mailto:$email".toUri())) } },
-                    ) {
-                        Icon(AppIcons.Mail, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(Spacing.s))
-                        Text(stringResource(R.string.poi_email, email))
-                    }
-                }
             }
         }
     }

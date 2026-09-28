@@ -175,11 +175,11 @@ class PackageImporterSchemaTest {
     }
 
     @Test
-    fun `la query poi compatta aggiunge orari, indirizzo, sito ed email solo se il file li ha`() {
+    fun `la query poi compatta aggiunge orari e indirizzo solo se il file li ha`() {
         val old = PoiImporter.compactPoiQuery(setOf("name", "code", "latE6", "lonE6", "phone", "wheelchair"))
         assertEquals(false, old.contains("openingHours"))
-        val new = PoiImporter.compactPoiQuery(setOf("name", "phone", "wheelchair", "openingHours", "address", "website", "email"))
-        assertEquals(true, new.contains("poi.wheelchair, poi.openingHours, poi.address, poi.website, poi.email FROM"))
+        val new = PoiImporter.compactPoiQuery(setOf("name", "phone", "wheelchair", "openingHours", "address"))
+        assertEquals(true, new.contains("poi.wheelchair, poi.openingHours, poi.address FROM"))
     }
 
     @Test

@@ -20,11 +20,9 @@ data class Poi(
     val wheelchair: String? = null,
     val openingHours: String? = null,
     val address: String? = null,
-    val website: String? = null,
-    val email: String? = null,
     // Dal pacchetto extra: la mappa li mostra anche se isHiddenOnMap() li nasconderebbe.
     val extra: Boolean = false,
 )
 
 private fun PoiEntity.toDomain() =
-    Poi(id, regionId, name, category, lat, lon, osmTag, phone, wheelchair, openingHours, address, website, email, extra)
+    Poi(id, regionId, name, category, lat, lon, osmTag, phone, wheelchair, openingHours, address, extra)

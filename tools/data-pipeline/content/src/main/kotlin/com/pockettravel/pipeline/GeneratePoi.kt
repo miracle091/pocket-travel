@@ -112,8 +112,6 @@ data class Poi(
     // Solo per i POI con poiHasDetails (cibo e bevande), null se OSM non li indica.
     val openingHours: String? = null,
     val address: String? = null,
-    val website: String? = null,
-    val email: String? = null,
 )
 
 private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagKeys: List<String>): Poi? {
@@ -143,9 +141,6 @@ private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagK
         wheelchair = tags["wheelchair"],
         openingHours = tags["opening_hours"].takeIf { details },
         address = addressOf(tags).takeIf { details },
-        // Come per phone: schema storico e contact:*, entrambi in uso.
-        website = (tags["website"] ?: tags["contact:website"]).takeIf { details },
-        email = (tags["email"] ?: tags["contact:email"]).takeIf { details },
     )
 }
 
@@ -165,7 +160,7 @@ private fun addressOf(tags: Map<String, String>): String? {
  *   stringhe identiche a ogni riga ma un solo intero.
  * - "poi": name, il code di poi_code, le coordinate come interi in microgradi (lat/lon * 1e6,
  *   precisione ~0,11 m, piu' che sufficiente per un segnalino) invece di REAL a 8 byte, phone e
- *   wheelchair facoltativi, e per cibo e bevande openingHours, address, website ed email (colonne
+ *   wheelchair facoltativi, e per cibo e bevande openingHours e address (colonne
  *   aggiunte dopo: le versioni dell'app che non le conoscono non le selezionano). Niente colonna
  *   regionId (era costante su ogni riga: la regione la passa comunque chi importa il file).
  * - PRAGMA user_version = [POI_DB_FORMAT_VERSION]: marcatore di formato per PoiImporter, che
@@ -211,12 +206,10 @@ fun writePoiDb(pois: List<Poi>, outputDb: File) {
                 phone TEXT,
                 wheelchair TEXT,
                 openingHours TEXT,
-                address TEXT,
-                website TEXT,
-                email TEXT
+                address TEXT
             )
             """.trimIndent(),
-        insertSql = "INSERT INTO poi (name, code, latE6, lonE6, phone, wheelchair, openingHours, address, website, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        insertSql = "INSERT INTO poi (name, code, latE6, lonE6, phone, wheelchair, openingHours, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         rows = pois,
     ) { insert, poi ->
         insert.setString(1, poi.name)
@@ -227,8 +220,6 @@ fun writePoiDb(pois: List<Poi>, outputDb: File) {
         insert.setString(6, poi.wheelchair)
         insert.setString(7, poi.openingHours)
         insert.setString(8, poi.address)
-        insert.setString(9, poi.website)
-        insert.setString(10, poi.email)
     }
 
     // A parte (non e' una tabella): writeSqliteTable ricrea una tabella per volta, il marcatore di

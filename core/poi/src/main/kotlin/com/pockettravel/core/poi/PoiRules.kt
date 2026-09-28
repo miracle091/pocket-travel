@@ -130,7 +130,7 @@ private val namelessOnMapCategories = setOf(
 // e noleggi d'auto senza nome restano nascosti). Servono alle modalita' d'uso (escursionismo, bici).
 private val namelessOnMapTags = setOf("amenity=fountain", "tourism=viewpoint", "amenity=bicycle_rental", "tourism=picnic_site")
 
-/** true per i POI con orari, indirizzo, sito ed email, quando OSM li indica: per ora solo cibo e bevande. */
+/** true per i POI con orari e indirizzo, quando OSM li indica: per ora solo cibo e bevande. */
 fun poiHasDetails(category: String, osmTag: String): Boolean = poiCategoryOf(category, osmTag) == PoiCategory.CIBO_BEVANDE
 
 /** false se OSM non ha un nome: la pipeline mette allora il valore del tag (es. "toilets"). */
