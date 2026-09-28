@@ -1,5 +1,8 @@
 package com.pockettravel.feature.ai
 
+import android.os.storage.StorageManager
+import com.pockettravel.core.data.allocatableBytes
+import com.pockettravel.core.data.reserveSpace
 import com.pockettravel.feature.ai.di.AiModelsDir
 import java.io.File
 import java.io.FileOutputStream
@@ -33,6 +36,8 @@ class LlmModelManager @Inject constructor(
     private val okHttpClient: OkHttpClient,
     @AiModelsDir private val modelsDir: File,
     private val coordinator: AiModelCoordinator,
+    // null nei test: lo spazio disponibile e' solo quello libero.
+    private val storageManager: StorageManager? = null,
 ) {
     fun modelFile(definition: LlmModelDefinition): File = File(modelsDir, definition.fileName)
     private fun partFile(definition: LlmModelDefinition): File = File(modelsDir, "${definition.fileName}.part")
@@ -42,7 +47,7 @@ class LlmModelManager @Inject constructor(
     fun sizeOnDisk(definition: LlmModelDefinition): Long =
         modelFile(definition).let { if (it.exists()) it.length() else 0L }
 
-    fun availableStorageBytes(): Long = modelsDir.usableSpace
+    fun availableStorageBytes(): Long = modelsDir.allocatableBytes(storageManager)
 
     suspend fun download(
         definition: LlmModelDefinition,
@@ -87,6 +92,7 @@ class LlmModelManager @Inject constructor(
         val partFile = partFile(definition)
         val modelFile = modelFile(definition)
         val existingBytes = if (partFile.exists()) partFile.length() else 0L
+        modelsDir.reserveSpace(storageManager, definition.sizeBytes - existingBytes)
         val requestBuilder = Request.Builder().url(definition.url)
         if (existingBytes > 0) {
             requestBuilder.header("Range", "bytes=$existingBytes-")

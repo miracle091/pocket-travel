@@ -1,5 +1,6 @@
 package com.pockettravel.core.data
 
+import android.os.storage.StorageManager
 import java.io.File
 import java.io.IOException
 import javax.inject.Inject
@@ -17,6 +18,8 @@ annotation class RegionsStagingDir
 class RegionStorage @Inject constructor(
     @param:RegionsDir private val regionsDir: File,
     @param:RegionsStagingDir private val stagingDir: File,
+    // null nei test JVM: lo spazio disponibile e' solo quello libero.
+    private val storageManager: StorageManager? = null,
 ) {
     fun directoryFor(regionId: String): File = safeChild(regionsDir, regionId, "regionId")
     fun stagingDirectoryFor(regionId: String, version: String): File = safeChild(safeChild(stagingDir, regionId, "regionId"), version, "version")
@@ -136,7 +139,10 @@ class RegionStorage @Inject constructor(
         return !directory.exists() || (directory.deleteRecursively() && !directory.exists())
     }
 
-    fun availableBytes(): Long = regionsDir.usableSpace
+    fun availableBytes(): Long = regionsDir.allocatableBytes(storageManager)
+
+    /** Libera la cache di sistema per [bytes] prima di un download (staging e regioni stanno sullo stesso volume). */
+    fun reserveSpace(bytes: Long) = regionsDir.reserveSpace(storageManager, bytes)
 
     /** Regioni con una cartella su disco (pacchetti installati o attivazioni interrotte). */
     fun regionIdsOnDisk(): List<String> = regionsDir.listFiles().orEmpty().filter { it.isDirectory }.map { it.name }

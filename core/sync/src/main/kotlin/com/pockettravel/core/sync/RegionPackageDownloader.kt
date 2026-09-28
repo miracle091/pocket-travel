@@ -37,6 +37,7 @@ class RegionPackageDownloader @Inject constructor(
             staging.mkdirs()
             val installedRouting = File(regionStorage.directoryFor(regionId), RegionStorage.ROUTING_DIR)
             val totalBytes = files.sumOf { it.sizeBytes }
+            regionStorage.reserveSpace(totalBytes)
             var bytesBeforeCurrentFile = 0L
             files.forEach { file ->
                 val baseBytes = bytesBeforeCurrentFile

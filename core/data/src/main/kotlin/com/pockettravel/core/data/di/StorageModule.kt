@@ -1,6 +1,7 @@
 package com.pockettravel.core.data.di
 
 import android.content.Context
+import android.os.storage.StorageManager
 import com.pockettravel.core.data.PassportPhotosDir
 import com.pockettravel.core.data.RegionsDir
 import com.pockettravel.core.data.RegionsStagingDir
@@ -29,6 +30,10 @@ object StorageModule {
     // noBackupFilesDir: dati temporanei, esclusi dai backup.
     fun provideRegionsStagingDir(@ApplicationContext context: Context): File =
         File(context.noBackupFilesDir, "regions_staging").apply { mkdirs() }
+
+    @Provides
+    fun provideStorageManager(@ApplicationContext context: Context): StorageManager =
+        context.getSystemService(StorageManager::class.java)
 
     @Provides
     @Singleton
