@@ -130,6 +130,34 @@ class GeneratePoiTest {
     }
 
     @Test
+    fun `ambasciate con office=diplomatic, indirizzo, orari, sito ed email`() {
+        val dir = kotlin.io.path.createTempDirectory("pocket-travel-poi").toFile()
+        val xml = File(dir, "a.xml")
+        xml.writeText(
+            """<?xml version="1.0"?><osm version="0.6">""" +
+                """<node id="1" lat="41.9" lon="12.5"><tag k="office" v="diplomatic"/><tag k="diplomatic" v="consulate"/>""" +
+                """<tag k="name" v="Consolato di Prova"/><tag k="addr:street" v="Via Veneto"/><tag k="addr:housenumber" v="1"/>""" +
+                """<tag k="opening_hours" v="Mo-Fr 09:00-12:00"/><tag k="contact:website" v="https://consolato.example"/>""" +
+                """<tag k="email" v="info@consolato.example"/><tag k="phone" v="+39 06 1"/></node>""" +
+                """<node id="2" lat="41.8" lon="12.4"><tag k="amenity" v="restaurant"/><tag k="name" v="Da Mario"/><tag k="website" v="https://damario.example"/></node>""" +
+                "</osm>",
+        )
+        try {
+            val (consolato, ristorante) = readPois(listOf(xml), poiTagKeys + "office")
+            assertEquals("embassy", consolato.category)
+            assertEquals("office=diplomatic", consolato.osmTag)
+            assertEquals("Via Veneto 1", consolato.address)
+            assertEquals("Mo-Fr 09:00-12:00", consolato.openingHours)
+            assertEquals("https://consolato.example", consolato.website)
+            assertEquals("info@consolato.example", consolato.email)
+            // Sito ed email solo per le ambasciate.
+            assertEquals(null, ristorante.website)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `aree e relazioni col loro centro, parcheggi privati, metro, uffici informazioni e parchi`() {
         val xml = File.createTempFile("pocket-travel-test", ".osm.xml")
         try {

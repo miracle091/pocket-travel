@@ -5,6 +5,9 @@ import androidx.annotation.StringRes
 // Tipo preciso del POI dal suo tag OSM ("Ristorante", "Luogo di culto", "Museo"), per la scheda: la
 // categoria (PoiCategory) resta quella di icone, colori e filtri, qui c'e' solo il nome da mostrare.
 private val TYPES: Map<String, Int> = mapOf(
+    // Rappresentanze diplomatiche (office=diplomatic: ambasciate, consolati, missioni)
+    "amenity=embassy" to R.string.poi_type_embassy,
+    "office=diplomatic" to R.string.poi_type_embassy,
     // Dove dormire
     "tourism=hotel" to R.string.poi_type_hotel,
     "tourism=guest_house" to R.string.poi_type_guest_house,

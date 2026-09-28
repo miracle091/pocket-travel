@@ -21,6 +21,9 @@ data class PoiEntity(
     // Solo per cibo e bevande (poiHasDetails, core:poi), null se OSM non li indica.
     val openingHours: String? = null,
     val address: String? = null,
+    // Solo per ambasciate e consolati (poiHasContacts, core:poi).
+    val website: String? = null,
+    val email: String? = null,
     // true per i POI del pacchetto extra (poi-extra.db): si importano e si eliminano a parte.
     @ColumnInfo(defaultValue = "0") val extra: Boolean = false,
 )

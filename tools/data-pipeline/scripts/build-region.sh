@@ -457,7 +457,7 @@ POI_TAG_KEYS=(amenity shop tourism leisure historic)
 # Chiavi lette da generatePoi ma interrogate su Overpass solo con i filtri mirati di
 # fetch_overpass_chunk (stazioni, aeroporti): con la chiave intera arriverebbero anche binari,
 # passaggi a livello e segnali.
-POI_EXTRA_TAG_KEYS=(railway aeroway)
+POI_EXTRA_TAG_KEYS=(railway aeroway office)
 
 fmax() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0>b+0)?a:b }'; }
 fmin() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0<b+0)?a:b }'; }
@@ -476,6 +476,8 @@ fetch_overpass_chunk() {
   local bbox="(${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon})"
   query="${query}way[\"amenity\"~\"^(parking|bus_station|hospital|fire_station|place_of_worship|monastery|ferry_terminal)$\"]${bbox};"
   query="${query}way[\"tourism\"=\"information\"][\"information\"~\"^(office|visitor_centre)$\"]${bbox};"
+  # Ambasciate e consolati col tag moderno (office=diplomatic), non solo amenity=embassy.
+  query="${query}nw[\"office\"=\"diplomatic\"]${bbox};"
   # Parchi pubblici e a pagamento (parchi a tema e acquatici, zoo) e riserve naturali: quasi sempre aree
   # o relazioni. Dei parchi e delle riserve solo quelli con un nome: gli altri parchi sono per lo piu'
   # aiuole e giardinetti.
