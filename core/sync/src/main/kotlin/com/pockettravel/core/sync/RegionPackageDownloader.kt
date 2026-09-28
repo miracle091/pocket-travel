@@ -100,7 +100,7 @@ class RegionPackageDownloader @Inject constructor(
                 }
                 throw IOException("Download fallito per ${file.name}: HTTP ${response.code}")
             }
-            val body = checkNotNull(response.body) { "Corpo vuoto per ${file.name}" }
+            val body = response.body
             val append = response.code == 206 && existingBytes > 0
             if (existingBytes > 0 && response.code == 206) {
                 require(response.header("Content-Range")?.startsWith("bytes $existingBytes-", ignoreCase = true) == true) { "Risposta range non valida per ${file.name}" }

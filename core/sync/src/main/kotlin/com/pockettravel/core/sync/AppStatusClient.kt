@@ -17,7 +17,7 @@ class AppStatusClient @Inject constructor(
             if (!response.isSuccessful) {
                 error("App status fetch failed: HTTP ${response.code}")
             }
-            val body = response.body?.string() ?: error("Empty app status response")
+            val body = response.body.string().ifEmpty { error("Empty app status response") }
             json.decodeFromString(AppStatus.serializer(), body).also { status ->
                 status.appVersion?.validate()
                 status.aiModels.forEach { it.validate() }

@@ -32,7 +32,7 @@ class OnlineLlmClient @Inject constructor(
                 .build()
 
             okHttpClient.newCall(request).execute().use { response ->
-                val responseBody = response.body?.string().orEmpty()
+                val responseBody = response.body.string()
                 if (!response.isSuccessful) {
                     error("Errore dal servizio online (HTTP ${response.code})")
                 }

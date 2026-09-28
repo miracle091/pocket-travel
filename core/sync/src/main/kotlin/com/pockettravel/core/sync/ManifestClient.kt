@@ -25,7 +25,7 @@ class ManifestClient @Inject constructor(
                 }
                 error("Manifest fetch failed: HTTP ${response.code}")
             }
-            val body = response.body?.string() ?: error("Empty manifest response")
+            val body = response.body.string().ifEmpty { error("Empty manifest response") }
             json.decodeFromString(RegionManifest.serializer(), body).also { manifest ->
                 manifest.guides.validate()
                 manifest.regions.forEach(RegionManifestEntry::validate)

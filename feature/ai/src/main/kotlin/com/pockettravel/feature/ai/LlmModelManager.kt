@@ -109,7 +109,7 @@ class LlmModelManager @Inject constructor(
                 }
                 throw IOException("Download modello fallito: HTTP ${response.code}")
             }
-            val body = checkNotNull(response.body) { "Corpo vuoto" }
+            val body = response.body
 
             val resumed = response.code == 206 && existingBytes > 0
             if (existingBytes > 0 && response.code == 206) {
