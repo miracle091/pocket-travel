@@ -3,7 +3,6 @@
     <string name="guide_empty_title">No guide content available</string>
     <string name="guide_empty_subtitle">There are no guide sections published for this region yet.</string>
     <string name="guide_filter_all">All</string>
-    <string name="guide_source">Source: Wikivoyage</string>
     <string name="guide_source_title">Wikivoyage</string>
     <string name="emergency_title">Emergency numbers</string>
     <string name="emergency_general">General</string>
@@ -53,4 +52,5 @@
     </plurals>
     <string name="emergency_embassies_title">Your country\'s embassies &amp; consulates (%1$s)</string>
     <string name="emergency_embassies_none">This region\'s data doesn\'t include any embassies or consulates of your country: check your foreign ministry\'s website.</string>
+    <string name="guide_sources_title">Sources</string>
 </resources>

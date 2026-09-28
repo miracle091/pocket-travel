@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,7 +36,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -349,7 +347,14 @@ private fun SectionsWithFilters(
                 extraContent()
             }
             items(visibleSections, key = { "${it.category}_${it.title}" }) { section ->
-                GuideSectionCard(section, onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l))
+                GuideSectionCard(section, modifier = Modifier.padding(horizontal = Spacing.l))
+            }
+            // Le fonti una volta sola, in fondo, invece che sotto ogni scheda (attribuzione CC BY-SA).
+            val sourceUrls = visibleSections.map { it.sourceUrl }.filter { it.isNotBlank() }.distinct()
+            if (sourceUrls.isNotEmpty()) {
+                item(key = "sources") {
+                    GuideSourcesCard(sourceUrls, onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l))
+                }
             }
         }
     }
@@ -486,12 +491,10 @@ private fun CitySection.toUi() = SectionUi(category, title, body, sourceUrl)
 @Composable
 private fun GuideSectionCard(
     section: SectionUi,
-    onOpenSource: (url: String, title: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val sourceTitle = stringResource(R.string.guide_source_title)
     Card(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.l, bottom = Spacing.xs)) {
+        Column(modifier = Modifier.padding(Spacing.l)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
                     Icon(
@@ -514,18 +517,45 @@ private fun GuideSectionCard(
                 modifier = Modifier.padding(top = Spacing.m, bottom = Spacing.s).semantics { heading() },
             )
             GuideBody(section.body)
-            TextButton(
-                onClick = { onOpenSource(section.sourceUrl, sourceTitle) },
-                contentPadding = ButtonDefaults.TextButtonWithIconContentPadding,
-                modifier = Modifier.padding(top = Spacing.xs),
-            ) {
-                Text(stringResource(R.string.guide_source))
-                Spacer(modifier = Modifier.width(Spacing.s))
-                Icon(AppIcons.OpenExternal, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+// Scheda finale con le pagine Wikivoyage da cui vengono le sezioni mostrate: titolo della pagina
+// (dall'URL) e sito, ognuna apribile. La licenza sta nella schermata Licenze.
+@Composable
+private fun GuideSourcesCard(
+    sourceUrls: List<String>,
+    onOpenSource: (url: String, title: String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val sourceTitle = stringResource(R.string.guide_source_title)
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(vertical = Spacing.l)) {
+            Text(
+                text = stringResource(R.string.guide_sources_title),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = Spacing.l).semantics { heading() },
+            )
+            sourceUrls.forEach { url ->
+                ListItem(
+                    supportingContent = { Text(url.toUri().host.orEmpty()) },
+                    trailingContent = { Icon(AppIcons.OpenExternal, contentDescription = null) },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.clickable { onOpenSource(url, sourceTitle) },
+                    content = { Text(sourcePageTitle(url)) },
+                )
             }
         }
     }
 }
+
+// "https://it.wikivoyage.org/wiki/San_Marino" -> "San Marino"; l'URL intero se non ha /wiki/.
+internal fun sourcePageTitle(url: String): String =
+    url.substringAfter("/wiki/", "").takeIf { it.isNotEmpty() }
+        ?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrDefault(it) }
+        ?.replace('_', ' ')
+        ?: url
 
 // Le sottosezioni arrivano nel body come righe "▸ Titolo" (===Titolo=== di Wikivoyage, vedi
 // cleanBody in GenerateGuideContent) oppure, nei pacchetti generati prima del fix, come ";Titolo"
