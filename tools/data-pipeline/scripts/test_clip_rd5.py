@@ -6,6 +6,8 @@ Uso: python test_clip_rd5.py
 import http.server
 import random
 import struct
+import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -115,6 +117,15 @@ class ClipRd5Test(unittest.TestCase):
         self.assertEqual(kept, len(want))
         self.assertEqual(read_cells(out), want)
         self.assertEqual({k[0] for k in want}, {6, 11})  # sotto-tile (lon -9, lat -19) e (lon -8, lat -19)
+
+    def test_riga_di_comando_con_longitudine_negativa(self):
+        # Come la chiama build-region.sh: con "--bbox -8.9,..." argparse leggerebbe il valore come
+        # un'opzione e fallirebbe per tutte le regioni a ovest di Greenwich.
+        out = self.dir / "out.rd5"
+        subprocess.run([sys.executable, str(Path(__file__).with_name("clip_rd5.py")), str(self.dir / self.NAME),
+                        str(out), f"--bbox={','.join(map(str, self.BBOX))}", "--margin", "0"],
+                       check=True, capture_output=True)
+        self.assertEqual(read_cells(out.read_bytes()), self.expected())
 
     def test_riquadro_senza_dati_da_tile_vuota(self):
         out, kept = clip(FileSource(self.dir / self.NAME), (50, 50, 51, 51))

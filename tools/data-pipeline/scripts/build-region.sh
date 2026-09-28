@@ -85,7 +85,7 @@ RD5_TSV_TO_JSON='split("\n") | map(select(length > 0) | split("\t") | {name: .[0
 fetch_rd5() {
   local name="$1" dest="$OUTPUT_DIR/$1" sourceSize
   sourceSize="$(python3 "$SCRIPT_DIR/clip_rd5.py" "${BROUTER_BASE}/${name}" "$dest" \
-    --bbox "$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --margin "$RD5_CLIP_MARGIN" --user-agent "$PIPELINE_USER_AGENT")"
+    --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --margin "$RD5_CLIP_MARGIN" --user-agent "$PIPELINE_USER_AGENT")"
   printf '%s\t%s\t%s\t%s\t%s\n' "$name" "${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${name}" \
     "$(wc -c < "$dest" | tr -d ' ')" "$(sha256sum < "$dest" | awk '{print $1}')" "$sourceSize $RD5_CLIP" >> "$2"
 }
