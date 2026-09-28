@@ -837,7 +837,7 @@ jobs:
           fi
           echo "-- min-app-version-code $MIN_APP_VERSION_CODE, app rilasciata $RELEASED_VERSION_CODE: ok"
 
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: manifest-fragments-*
           path: ${{ runner.temp }}/fragments
@@ -847,7 +847,7 @@ jobs:
       # address-grid.json (l'indice, non un frammento manifest: niente "manifestVersion", non deve
       # entrare nel merge sopra) - facoltativo, assente se il job "address-grid" e' fallito del
       # tutto o non ha prodotto nulla (continue-on-error qui sotto, come per i frammenti).
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: address-grid-index
           path: ${{ runner.temp }}/address-grid-index
