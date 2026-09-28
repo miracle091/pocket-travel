@@ -99,12 +99,16 @@ data class RegionManifestEntry(
 
     /**
      * I pacchetti del download completo ("Scarica"): tutti quelli offerti tranne i POI extra e i
-     * percorsi, solo su richiesta dal foglio Pacchetti. I percorsi tornano nel download completo
-     * quando c'e' la schermata che li usa: oggi occupano spazio (Italia
-     * 840 MB) senza servire a nulla. "Aggiorna" riguarda comunque tutti i pacchetti installati.
+     * percorsi, solo su richiesta dal foglio Pacchetti o con [downloadKinds]. I percorsi pesano
+     * (Italia 840 MB) e servono solo alla navigazione. "Aggiorna" riguarda comunque tutti i pacchetti
+     * installati.
      */
     val defaultKinds: Set<PackageKind>
         get() = availableKinds - PackageKind.POI_EXTRA - PackageKind.ROUTING
+
+    /** Il download di "Scarica": [defaultKinds] piu' i percorsi se l'utente vuole le indicazioni. */
+    fun downloadKinds(withRouting: Boolean): Set<PackageKind> =
+        if (withRouting) defaultKinds + (availableKinds intersect setOf(PackageKind.ROUTING)) else defaultKinds
 
     /**
      * Byte da scaricare per questi pacchetti. La mappa non ha una dimensione nota in anticipo:

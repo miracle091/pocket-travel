@@ -62,6 +62,7 @@ fun MoreScreen(
     val forceDark by viewModel.forceDark.collectAsStateWithLifecycle()
     val usageMode by viewModel.usageMode.collectAsStateWithLifecycle()
     val accessible by viewModel.accessible.collectAsStateWithLifecycle()
+    val wantsDirections by viewModel.wantsDirections.collectAsStateWithLifecycle()
     var showUsageModes by rememberSaveable { mutableStateOf(false) }
     var showAppearance by rememberSaveable { mutableStateOf(false) }
     val nationality by viewModel.nationality.collectAsStateWithLifecycle()
@@ -116,6 +117,8 @@ fun MoreScreen(
                     onSelect = viewModel::setUsageMode,
                     accessible = accessible,
                     onAccessibleChange = viewModel::setAccessible,
+                    directions = wantsDirections,
+                    onDirectionsChange = viewModel::setWantsDirections,
                     modifier = Modifier.padding(horizontal = Spacing.s),
                 )
             }

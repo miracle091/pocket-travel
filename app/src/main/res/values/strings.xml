@@ -160,7 +160,16 @@
     <string name="onboarding_guides_downloading">Download delle guide in corso…</string>
     <string name="onboarding_guides_done">Guide scaricate</string>
     <string name="onboarding_region_title">Scarica una regione per iniziare</string>
-    <string name="onboarding_region_body">Facoltativo: mappa, percorsi e punti di interesse sono organizzati in pacchetti regionali. Puoi scaricarne una qui o in qualsiasi momento dalla schermata Regioni.</string>
+    <string name="onboarding_region_body">Facoltativo: scegli una o più regioni e, per ognuna, cosa scaricare. In cima quelle del tuo paese e dei paesi vicini. Puoi farlo anche dopo dalla schermata Regioni.</string>
+    <string name="onboarding_region_search">Cerca una regione</string>
+    <string name="onboarding_region_recommended">Consigliate per te</string>
+    <string name="onboarding_region_all">Tutte le regioni</string>
+    <string name="onboarding_region_installed">Già scaricata</string>
+    <string name="onboarding_region_downloading">Download in corso…</string>
+    <plurals name="onboarding_region_download">
+        <item quantity="one">Scarica %1$d regione · %2$s</item>
+        <item quantity="other">Scarica %1$d regioni · %2$s</item>
+    </plurals>
     <string name="onboarding_model_title">Scarica il modello IA</string>
     <string name="onboarding_model_body">Facoltativo: puoi scaricarlo qui o in qualsiasi momento dopo, dalla schermata Assistente IA.</string>
     <string name="onboarding_step">Passo %1$d di %2$d</string>

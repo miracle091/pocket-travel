@@ -19,6 +19,7 @@ class MoreViewModel @Inject constructor(
     val forceDark: StateFlow<Boolean> = themePreferences.forceDark
     val usageMode: StateFlow<UsageMode?> = usageModePreferences.mode
     val accessible: StateFlow<Boolean> = usageModePreferences.accessible
+    val wantsDirections: StateFlow<Boolean> = usageModePreferences.wantsDirections
 
     fun setUseDynamicColor(enabled: Boolean) = themePreferences.setUseDynamicColor(enabled)
 
@@ -31,4 +32,6 @@ class MoreViewModel @Inject constructor(
     fun setUsageMode(mode: UsageMode) = usageModePreferences.setMode(mode)
 
     fun setAccessible(accessible: Boolean) = usageModePreferences.setAccessible(accessible)
+
+    fun setWantsDirections(wants: Boolean) = usageModePreferences.setWantsDirections(wants)
 }

@@ -8,6 +8,7 @@ import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.guidesChoice
+import com.pockettravel.feature.map.UsageModePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +28,7 @@ class RegionPreviewViewModel @Inject constructor(
     private val guidesInstaller: GuidesInstaller,
     private val regionRepository: RegionRepository,
     private val regionSyncScheduler: RegionSyncScheduler,
+    private val usageModePreferences: UsageModePreferences,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<RegionPreviewState>(RegionPreviewState.Loading)
@@ -51,8 +53,8 @@ class RegionPreviewViewModel @Inject constructor(
         }
     }
 
-    /** Avvia il download completo (mappa + routing inclusi) dal pacchetto gia' individuato da load(). */
+    /** Avvia il download completo (i percorsi solo con "Indicazioni") dal pacchetto gia' individuato da load(). */
     fun downloadFull() {
-        manifestEntry?.let { regionSyncScheduler.enqueueDownload(it, it.defaultKinds) }
+        manifestEntry?.let { regionSyncScheduler.enqueueDownload(it, it.downloadKinds(usageModePreferences.wantsDirections.value)) }
     }
 }

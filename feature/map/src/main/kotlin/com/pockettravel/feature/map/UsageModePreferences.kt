@@ -10,8 +10,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Modalita' d'uso scelta (onboarding o Altro), null finche' l'utente non ne sceglie una, e la
- * casella "Con disabilita'", che vale con qualsiasi modalita'.
+ * Modalita' d'uso scelta (onboarding o Altro), null finche' l'utente non ne sceglie una, la
+ * casella "Con disabilita'", che vale con qualsiasi modalita', e "Indicazioni" (percorsi scaricati
+ * con ogni regione).
  */
 @Singleton
 class UsageModePreferences @Inject constructor(
@@ -38,6 +39,15 @@ class UsageModePreferences @Inject constructor(
         filterPreferences.setHidden(mode.defaultHidden)
     }
 
+    private val _wantsDirections = MutableStateFlow(prefs.getBoolean(KEY_DIRECTIONS, false))
+    /** Scaricare anche il pacchetto Percorsi con "Scarica", per la navigazione (spento di default: pesa). */
+    val wantsDirections: StateFlow<Boolean> = _wantsDirections.asStateFlow()
+
+    fun setWantsDirections(wants: Boolean) {
+        prefs.edit { putBoolean(KEY_DIRECTIONS, wants) }
+        _wantsDirections.value = wants
+    }
+
     fun setAccessible(accessible: Boolean) {
         prefs.edit { putBoolean(KEY_ACCESSIBLE, accessible) }
         _accessible.value = accessible
@@ -46,6 +56,7 @@ class UsageModePreferences @Inject constructor(
     private companion object {
         const val KEY_MODE = "mode"
         const val KEY_ACCESSIBLE = "accessible"
+        const val KEY_DIRECTIONS = "directions"
         const val LEGACY_ACCESSIBLE_MODE = "ACCESSIBILITA"
     }
 }

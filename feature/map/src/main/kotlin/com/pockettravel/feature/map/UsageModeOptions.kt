@@ -1,5 +1,10 @@
 package com.pockettravel.feature.map
 
+import com.pockettravel.core.ui.AppIcons
+import androidx.compose.material3.Switch
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.Manifest
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -30,11 +35,18 @@ fun UsageModeOptions(
     onSelect: (UsageMode) -> Unit,
     accessible: Boolean,
     onAccessibleChange: (Boolean) -> Unit,
+    directions: Boolean,
+    onDirectionsChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Accendendo "Indicazioni" si chiede subito il permesso di posizione (decisione utente del
+    // 2026-09-26): solo in primo piano, e chi rifiuta lo concede dopo dalla schermata di navigazione.
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
     Column(modifier = modifier) {
         Column(modifier = Modifier.selectableGroup()) {
-            UsageMode.entries.forEach { mode ->
+            // "Escursionismo" nascosto finche' non ha contenuti suoi (cammini a tappe): resta solo per
+            // chi l'aveva gia' scelto, per non lasciarlo senza modalita' selezionata.
+            UsageMode.entries.filter { it != UsageMode.ESCURSIONISMO || it == selected }.forEach { mode ->
                 ListItem(
                     leadingContent = { Icon(ImageVector.vectorResource(mode.icon), contentDescription = null) },
                     trailingContent = { RadioButton(selected = mode == selected, onClick = null) },
@@ -52,6 +64,19 @@ fun UsageModeOptions(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             modifier = Modifier.toggleable(value = accessible, role = Role.Checkbox, onValueChange = onAccessibleChange),
             content = { Text(stringResource(R.string.usage_mode_wheelchair)) },
+        )
+        ListItem(
+            leadingContent = { Icon(AppIcons.Route, contentDescription = null) },
+            trailingContent = { Switch(checked = directions, onCheckedChange = null) },
+            supportingContent = { Text(stringResource(R.string.usage_mode_directions_body)) },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            modifier = Modifier.toggleable(value = directions, role = Role.Switch) { wants ->
+                onDirectionsChange(wants)
+                if (wants) {
+                    permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                }
+            },
+            content = { Text(stringResource(R.string.usage_mode_directions)) },
         )
     }
 }

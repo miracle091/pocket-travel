@@ -19,10 +19,13 @@ class OnboardingViewModel @Inject constructor(
 
     val usageMode: StateFlow<UsageMode?> = usageModePreferences.mode
     val accessible: StateFlow<Boolean> = usageModePreferences.accessible
+    val wantsDirections: StateFlow<Boolean> = usageModePreferences.wantsDirections
 
     fun setUsageMode(mode: UsageMode) = usageModePreferences.setMode(mode)
 
     fun setAccessible(accessible: Boolean) = usageModePreferences.setAccessible(accessible)
+
+    fun setWantsDirections(wants: Boolean) = usageModePreferences.setWantsDirections(wants)
 
     val nationality: StateFlow<String?> = nationalityPreferences.nationality
 

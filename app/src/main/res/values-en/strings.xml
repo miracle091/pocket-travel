@@ -160,7 +160,16 @@
     <string name="onboarding_guides_downloading">Downloading guides…</string>
     <string name="onboarding_guides_done">Guides downloaded</string>
     <string name="onboarding_region_title">Download a region to get started</string>
-    <string name="onboarding_region_body">Optional: map, routing and points of interest are organized into regional packages. You can download one here or anytime from the Regions screen.</string>
+    <string name="onboarding_region_body">Optional: choose one or more regions and, for each, what to download. Your country and nearby countries are at the top. You can also do this later from the Regions screen.</string>
+    <string name="onboarding_region_search">Search for a region</string>
+    <string name="onboarding_region_recommended">Recommended for you</string>
+    <string name="onboarding_region_all">All regions</string>
+    <string name="onboarding_region_installed">Already downloaded</string>
+    <string name="onboarding_region_downloading">Downloading…</string>
+    <plurals name="onboarding_region_download">
+        <item quantity="one">Download %1$d region · %2$s</item>
+        <item quantity="other">Download %1$d regions · %2$s</item>
+    </plurals>
     <string name="onboarding_model_title">Download the AI model</string>
     <string name="onboarding_model_body">Optional: you can download it here or anytime later, from the AI assistant screen.</string>
     <string name="onboarding_step">Step %1$d of %2$d</string>

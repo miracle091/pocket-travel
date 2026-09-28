@@ -18,6 +18,7 @@ import com.pockettravel.core.sync.attachAddressGridCells
 import com.pockettravel.core.sync.guidesChoice
 import com.pockettravel.core.ui.countryName
 import com.pockettravel.feature.ai.LlmModelUpdateCheckScheduler
+import com.pockettravel.feature.map.UsageModePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
@@ -60,7 +61,11 @@ data class RegionUiItem(
     // Paese diviso in piu' regioni e nome breve della regione nel gruppo (dal manifest).
     val groupName: String? = null,
     val groupLabel: String? = null,
+    // Riquadro geografico della regione (dalla mappa del manifest), per le regioni vicine del primo avvio.
+    val bbox: RegionBbox? = null,
 )
+
+data class RegionBbox(val minLon: Double, val minLat: Double, val maxLon: Double, val maxLat: Double)
 
 /** Regione installata che il manifest ha tolto e diviso nelle regioni del gruppo [groupName]. */
 data class ReplacedRegionItem(
@@ -97,6 +102,7 @@ class RegionListViewModel @Inject constructor(
     private val regionSyncScheduler: RegionSyncScheduler,
     private val appUpdateCheckScheduler: AppUpdateCheckScheduler,
     private val llmModelUpdateCheckScheduler: LlmModelUpdateCheckScheduler,
+    private val usageModePreferences: UsageModePreferences,
 ) : ViewModel() {
 
     private val manifestRegions = MutableStateFlow<List<RegionManifestEntry>>(emptyList())
@@ -112,15 +118,16 @@ class RegionListViewModel @Inject constructor(
 
     val uiState = combine(
         combine(manifestRegions, locale) { regions, currentLocale -> regions.map { it.localizedNames(currentLocale) } },
-        regionRepository.observeInstalled(),
+        // Con "Indicazioni" la dimensione di "Scarica" comprende i percorsi.
+        combine(regionRepository.observeInstalled(), usageModePreferences.wantsDirections, ::Pair),
         status,
         query,
         replacedRegions,
-    ) { remoteRegions, installed, currentStatus, currentQuery, replacedByManifest ->
+    ) { remoteRegions, (installed, wantsDirections), currentStatus, currentQuery, replacedByManifest ->
         val installedByRegion = installed.associateBy { it.regionId }
         val items = remoteRegions
             .filter { matchesQuery(it.displayName, currentQuery) }
-            .map { remote -> regionUiItem(remote, installedByRegion[remote.regionId], regionRepository::packageBytes, regionRepository::installedAddressCells) }
+            .map { remote -> regionUiItem(remote, installedByRegion[remote.regionId], regionRepository::packageBytes, regionRepository::installedAddressCells, wantsDirections) }
         val replaced = replacedItems(installed, remoteRegions, replacedByManifest).filter { matchesQuery(it.displayName, currentQuery) }
         RegionListUiState(
             items = items,
@@ -183,8 +190,14 @@ class RegionListViewModel @Inject constructor(
         val entry = manifestRegions.value.firstOrNull { it.regionId == regionId } ?: return
         viewModelScope.launch {
             val local = regionRepository.installed(regionId)
-            enqueue(entry, if (local == null) entry.defaultKinds else outdatedKinds(entry, local))
+            enqueue(entry, if (local == null) entry.downloadKinds(usageModePreferences.wantsDirections.value) else outdatedKinds(entry, local))
         }
+    }
+
+    /** Scarica i pacchetti scelti di una regione (primo avvio, selezione multipla). */
+    fun downloadKinds(regionId: String, kinds: Set<PackageKind>) {
+        val entry = manifestRegions.value.firstOrNull { it.regionId == regionId } ?: return
+        enqueue(entry, kinds)
     }
 
     /** Scarica o aggiorna un solo pacchetto della regione (foglio "Pacchetti"). */
@@ -244,6 +257,8 @@ internal fun regionUiItem(
     // contare solo quelle nuove o cambiate nella dimensione da scaricare. Non serve per le regioni
     // senza griglia: il default basta a tutti i test.
     installedAddressCells: (regionId: String) -> Map<String, String> = { emptyMap() },
+    // "Indicazioni" attivo: "Scarica" comprende i percorsi (RegionManifestEntry.downloadKinds).
+    withRouting: Boolean = false,
 ): RegionUiItem {
     val addressCellVersions = if (remote.addressGrid != null && local != null) installedAddressCells(remote.regionId) else emptyMap()
     val outdated = outdatedKinds(remote, local)
@@ -270,13 +285,14 @@ internal fun regionUiItem(
         )
     }
     val sizeBytes = when (status) {
-        RegionStatus.NOT_INSTALLED -> remote.downloadBytes(remote.defaultKinds, addressCellVersions)
+        RegionStatus.NOT_INSTALLED -> remote.downloadBytes(remote.downloadKinds(withRouting), addressCellVersions)
         RegionStatus.UPDATE_AVAILABLE -> remote.downloadBytes(outdated, addressCellVersions)
         RegionStatus.INSTALLED -> local!!.sizeBytes
     }
     return RegionUiItem(
         remote.regionId, remote.displayName, sizeBytes, status, remote.continent, remote.countryCode, packages, unavailable,
         remote.groupName, remote.groupLabel,
+        bbox = remote.map.source.let { RegionBbox(it.minLon, it.minLat, it.maxLon, it.maxLat) },
     )
 }
 

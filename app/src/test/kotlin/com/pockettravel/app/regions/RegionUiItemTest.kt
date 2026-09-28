@@ -49,6 +49,15 @@ class RegionUiItemTest {
     }
 
     @Test
+    fun `con le indicazioni il download completo comprende i percorsi`() {
+        val item = regionUiItem(remote, null, noBytes, withRouting = true)
+
+        assertEquals(140_000_000L, item.sizeBytes)
+        assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI), remote.downloadKinds(withRouting = true))
+        assertEquals(setOf(PackageKind.MAP, PackageKind.POI), remote.downloadKinds(withRouting = false))
+    }
+
+    @Test
     fun `da aggiornare mostra la dimensione dei soli pacchetti installati e cambiati`() {
         val item = regionUiItem(remote, local(map = "m2", routing = "r1", poi = "p1"), noBytes)
 

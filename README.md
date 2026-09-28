@@ -36,7 +36,7 @@ In viaggio la connessione manca proprio quando serve: in aereo, in montagna, all
 
 L'app è in **italiano e in inglese** (dalla prossima versione): interfaccia, guide delle nazioni e delle città e assistente IA. La lingua si sceglie al primo avvio.
 
-Scegli tu cosa scaricare: per ogni paese mappa, punti di interesse, numeri civici e percorsi sono pacchetti separati, così non occupi spazio per quello che non usi. Le guide di tutto il mondo pesano pochi megabyte. Con il pacchetto Percorsi puoi farti guidare fino a un punto della mappa, svolta dopo svolta, con il GPS acceso; autovelox, limiti di velocità e zone a traffico limitato o a basse emissioni non sono segnalati.
+Scegli tu cosa scaricare, anche già al primo avvio: per ogni paese mappa, punti di interesse, numeri civici e percorsi sono pacchetti separati, così non occupi spazio per quello che non usi. Le guide di tutto il mondo pesano pochi megabyte. Con il pacchetto Percorsi puoi farti guidare fino a un punto della mappa, svolta dopo svolta, con il GPS acceso; autovelox, limiti di velocità e zone a traffico limitato o a basse emissioni non sono segnalati.
 
 Ci sono 355 paesi e regioni (gli stati più grandi, come Stati Uniti, Canada e Cina, sono divisi in parti), aggiornati ogni settimana.
 

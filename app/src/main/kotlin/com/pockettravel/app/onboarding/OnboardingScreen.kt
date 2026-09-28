@@ -29,8 +29,6 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -64,9 +62,6 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
-import com.pockettravel.app.regions.RegionListViewModel
-import com.pockettravel.app.regions.RegionRow
-import com.pockettravel.app.regions.RegionRowActions
 import com.pockettravel.app.settings.LanguageOptions
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.CountryFlag
@@ -170,7 +165,7 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
                     OnboardingStep.UsageModeChoice -> UsageModeStepContent(viewModel)
                     OnboardingStep.NationalityChoice -> NationalityStepContent(viewModel)
                     OnboardingStep.GuidesDownload -> GuidesDownloadStepContent()
-                    OnboardingStep.RegionDownload -> RegionDownloadStepContent()
+                    OnboardingStep.RegionDownload -> OnboardingRegionStep(viewModel)
                     OnboardingStep.AiModelDownload -> AiModelDownloadStepContent()
                 }
             }
@@ -253,7 +248,7 @@ private fun InfoStepContent(step: OnboardingStep.Info) {
 // Intestazione compatta (icona + titolo in riga) per gli step interattivi, che a differenza di
 // InfoStepContent hanno sotto una lista da tenere scrollabile, non spazio vuoto da centrare.
 @Composable
-private fun StepHeader(icon: ImageVector, title: String, body: String) {
+internal fun StepHeader(icon: ImageVector, title: String, body: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
             Icon(
@@ -279,6 +274,7 @@ private fun StepHeader(icon: ImageVector, title: String, body: String) {
 private fun UsageModeStepContent(viewModel: OnboardingViewModel) {
     val usageMode by viewModel.usageMode.collectAsStateWithLifecycle()
     val accessible by viewModel.accessible.collectAsStateWithLifecycle()
+    val wantsDirections by viewModel.wantsDirections.collectAsStateWithLifecycle()
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         StepHeader(
             icon = ImageVector.vectorResource(UiR.drawable.ms_directions_walk),
@@ -290,6 +286,8 @@ private fun UsageModeStepContent(viewModel: OnboardingViewModel) {
             onSelect = viewModel::setUsageMode,
             accessible = accessible,
             onAccessibleChange = viewModel::setAccessible,
+            directions = wantsDirections,
+            onDirectionsChange = viewModel::setWantsDirections,
         )
     }
 }
@@ -369,48 +367,6 @@ private fun GuidesDownloadStepContent(viewModel: GuidesDownloadViewModel = hiltV
                         ?.let { stringResource(R.string.onboarding_guides_download, Formatter.formatShortFileSize(context, it)) }
                         ?: stringResource(R.string.onboarding_guides_download_no_size),
                 )
-            }
-        }
-    }
-}
-
-// Riusa RegionListViewModel/RegionRow del modulo :regions (stesso modulo :app, package diverso):
-// stessa logica di download/eliminazione della schermata "Regioni" vera, non una copia.
-@Composable
-private fun RegionDownloadStepContent(viewModel: RegionListViewModel = hiltViewModel()) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        StepHeader(
-            icon = AppIcons.World,
-            title = stringResource(R.string.onboarding_region_title),
-            body = stringResource(R.string.onboarding_region_body),
-        )
-        when {
-            uiState.isLoading && uiState.items.isEmpty() -> PocketTravelLoadingIndicator()
-            uiState.loadError != null -> Text(text = stringResource(uiState.loadError!!), color = MaterialTheme.colorScheme.error)
-            else -> Surface(
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                modifier = Modifier.weight(1f),
-            ) {
-                LazyColumn {
-                    items(uiState.items, key = { it.regionId }) { item ->
-                        // onClick e' no-op qui: l'onboarding non naviga al dettaglio di una regione,
-                        // la riga serve solo per vedere lo stato e scaricare/eliminare.
-                        RegionRow(
-                            item = item,
-                            actions = RegionRowActions(
-                                observeProgress = viewModel::observeDownloadProgress,
-                                onDownload = viewModel::download,
-                                onDelete = viewModel::delete,
-                                onDownloadPackage = viewModel::downloadPackage,
-                                onDeletePackage = viewModel::deletePackage,
-                            ),
-                            onClick = {},
-                        )
-                    }
-                }
             }
         }
     }

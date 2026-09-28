@@ -210,6 +210,8 @@
     <string name="navigation_minutes">%1$d min</string>
     <string name="navigation_hours_minutes">%1$d h %2$d min</string>
     <string name="navigation_now">Ora</string>
+    <string name="usage_mode_directions">Indicazioni per arrivare nei posti</string>
+    <string name="usage_mode_directions_body">Con ogni regione scarica anche i percorsi (da pochi MB a qualche centinaio) e chiede la posizione GPS, usata solo mentre navighi.</string>
     <string name="navigation_routing_missing">Per navigare servono i percorsi di questa regione.</string>
     <string name="navigation_routing_download">Scarica i percorsi</string>
     <string name="navigation_routing_downloading">Scaricamento dei percorsi…</string>
