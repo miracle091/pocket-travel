@@ -14,8 +14,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -71,7 +72,6 @@ fun MoreScreen(
             // Il dynamic color esiste solo da Android 12: sotto, l'interruttore non avrebbe effetto.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 ListItem(
-                    headlineContent = { Text(stringResource(R.string.more_dynamic_color)) },
                     supportingContent = { Text(stringResource(R.string.more_dynamic_color_subtitle)) },
                     leadingContent = { Icon(imageVector = AppIcons.Palette, contentDescription = null) },
                     trailingContent = { Switch(checked = useDynamicColor, onCheckedChange = null) },
@@ -80,6 +80,7 @@ fun MoreScreen(
                         role = Role.Switch,
                         onValueChange = viewModel::setUseDynamicColor,
                     ),
+                    content = { Text(stringResource(R.string.more_dynamic_color)) },
                 )
             }
             MoreItem(AppIcons.Licenses, stringResource(R.string.more_licenses), stringResource(R.string.more_licenses_subtitle), onOpenLicenses)
@@ -89,7 +90,7 @@ fun MoreScreen(
     // Scegliere una modalita' riporta i filtri della mappa ai suoi predefiniti: lo dice il testo del foglio.
     if (showUsageModes) {
         // Aperto per intero e scorrevole: 7 voci non stanno a mezza altezza, ne' con i caratteri grandi.
-        ModalBottomSheet(onDismissRequest = { showUsageModes = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        ModalBottomSheet(onDismissRequest = { showUsageModes = false }, sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))) {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = Spacing.l)) {
                 Text(
                     text = stringResource(R.string.more_usage_mode),
@@ -115,9 +116,9 @@ fun MoreScreen(
 @Composable
 private fun MoreItem(icon: ImageVector, title: String, subtitle: String?, onClick: () -> Unit) {
     ListItem(
-        headlineContent = { Text(title) },
         supportingContent = subtitle?.let { { Text(it) } },
         leadingContent = { Icon(imageVector = icon, contentDescription = null) },
         modifier = Modifier.clickable(onClick = onClick),
+        content = { Text(title) },
     )
 }

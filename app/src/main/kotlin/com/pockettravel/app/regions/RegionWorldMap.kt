@@ -8,8 +8,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberBottomSheetState
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,9 +59,9 @@ internal fun RegionWorldMap(
 
     selectedIso?.let { iso ->
         val regions = regionsByCountry[iso].orEmpty()
-        val countryName = Locale("", iso.uppercase()).getDisplayCountry(Locale.ITALIAN)
+        val countryName = runCatching { Locale.Builder().setRegion(iso).build().getDisplayCountry(Locale.ITALIAN) }.getOrDefault(iso)
         // Aperto per intero e scorrevole: gli Stati Uniti hanno 51 regioni.
-        ModalBottomSheet(onDismissRequest = { selectedIso = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        ModalBottomSheet(onDismissRequest = { selectedIso = null }, sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))) {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = Spacing.xxl)) {
                 Text(
                     text = countryName,

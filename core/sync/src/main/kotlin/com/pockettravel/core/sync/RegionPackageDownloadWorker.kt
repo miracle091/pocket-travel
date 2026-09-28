@@ -28,7 +28,7 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         var regionId: String? = null
         val result = try {
             val entryJson = inputData.getString(KEY_MANIFEST_ENTRY) ?: return Result.failure()
-            val kinds = inputData.getStringArray(KEY_PACKAGE_KINDS)?.map(PackageKind::valueOf)?.toSet() ?: return Result.failure()
+            val kinds = inputData.getNullableStringArray(KEY_PACKAGE_KINDS)?.filterNotNull()?.map(PackageKind::valueOf)?.toSet() ?: return Result.failure()
             val entry = json.decodeFromString(RegionManifestEntry.serializer(), entryJson)
             entry.validate()
             regionId = entry.regionId

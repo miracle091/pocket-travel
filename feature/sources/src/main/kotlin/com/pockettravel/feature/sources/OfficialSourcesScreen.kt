@@ -59,11 +59,11 @@ fun OfficialSourcesScreen(onBack: () -> Unit, onOpenSource: (url: String, title:
 @Composable
 private fun OfficialSourceRow(source: OfficialSource, onClick: () -> Unit) {
     ListItem(
-        headlineContent = { Text(source.name) },
         supportingContent = { Text(stringResource(R.string.sources_external)) },
         leadingContent = { Icon(AppIcons.OfficialAuthority, contentDescription = null) },
         trailingContent = { Icon(AppIcons.OpenExternal, contentDescription = null) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.clickable(onClick = onClick),
+        content = { Text(source.name) },
     )
 }

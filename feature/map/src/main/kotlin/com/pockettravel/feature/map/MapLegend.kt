@@ -102,7 +102,6 @@ internal fun MapLegendSheet(
                 categories.forEach { category ->
                     val visible = category !in hiddenCategories
                     ListItem(
-                        headlineContent = { Text(stringResource(category.label())) },
                         leadingContent = { PoiBadge(category, size = 32) },
                         trailingContent = { Switch(checked = visible, onCheckedChange = null) },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -111,6 +110,7 @@ internal fun MapLegendSheet(
                                 onHiddenCategoriesChange(if (visible) hiddenCategories + category else hiddenCategories - category)
                             }
                             .padding(horizontal = Spacing.s),
+                        content = { Text(stringResource(category.label())) },
                     )
                 }
             }

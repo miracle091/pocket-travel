@@ -45,7 +45,7 @@ class RegionPackageInstaller @Inject constructor(
             if (PackageKind.POI_EXTRA in kinds) add(entry.poiExtra!!.downloadFile)
             if (PackageKind.ADDRESSES in kinds) addAll(addressPlan!!.toDownload.map { it.downloadFile })
             if (PackageKind.CITIES in kinds) add(entry.cities!!.downloadFile)
-            if (installPreview) add(entry.preview!!.downloadFile)
+            if (installPreview) add(entry.preview.downloadFile)
         }
         // Prima di tutto: un tentativo precedente interrotto da un crash puo' aver lasciato backup da
         // chiudere, che activatePackage sovrascriverebbe (RegionStartupRecovery salta le regioni in download).
@@ -53,7 +53,7 @@ class RegionPackageInstaller @Inject constructor(
         // Una cartella di staging per combinazione di pacchetti e versioni: un download interrotto
         // riprende dai file .part della stessa richiesta, una richiesta diversa riparte da zero.
         val stagingVersion = PackageKind.entries.filter { it in kinds }.joinToString("_") { "${it.name.lowercase()}-${entry.versionOf(it)}" } +
-            (if (installPreview) "_preview-${entry.preview!!.version}" else "")
+            (if (installPreview) "_preview-${entry.preview.version}" else "")
         val staging = downloader.download(entry.regionId, stagingVersion, files, onProgress)
         if (PackageKind.POI in kinds) unpackXz(staging, entry.poi.file, entry.poi.fileXz)
         if (PackageKind.POI_EXTRA in kinds) unpackXz(staging, entry.poiExtra!!.file, entry.poiExtra.fileXz)
@@ -64,7 +64,7 @@ class RegionPackageInstaller @Inject constructor(
             }
         }
         if (PackageKind.CITIES in kinds) unpackXz(staging, entry.cities!!.file, entry.cities.fileXz)
-        if (installPreview) unpackXz(staging, entry.preview!!.file, entry.preview.fileXz)
+        if (installPreview) unpackXz(staging, entry.preview.file, entry.preview.fileXz)
 
         if (PackageKind.MAP in kinds) {
             // Estrazione bloccante (HTTP range): su IO e interrompibile se il download viene annullato.
@@ -102,7 +102,7 @@ class RegionPackageInstaller @Inject constructor(
                 activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_CELLS_FILE, File(staging, RegionStorage.ADDRESSES_CELLS_FILE), version)
             }
             if (installPreview) {
-                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.PREVIEW_FILE, File(staging, entry.preview!!.file.name), entry.preview.version)
+                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.PREVIEW_FILE, File(staging, entry.preview.file.name), entry.preview.version)
             }
             regionRepository.inInstallTransaction {
                 poisToImport?.let { poiImporter.replace(entry.regionId, it) }
@@ -113,7 +113,7 @@ class RegionPackageInstaller @Inject constructor(
                     versions = kinds.associateWith { entry.versionOf(it)!! },
                     poiSizeBytes = if (PackageKind.POI in kinds) entry.poi.file.sizeBytes else null,
                     poiExtraSizeBytes = if (PackageKind.POI_EXTRA in kinds) entry.poiExtra!!.file.sizeBytes else null,
-                    previewVersion = if (installPreview) entry.preview!!.version else null,
+                    previewVersion = if (installPreview) entry.preview.version else null,
                     citiesSizeBytes = if (PackageKind.CITIES in kinds) entry.cities!!.file.sizeBytes else null,
                 )
             }

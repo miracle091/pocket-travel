@@ -31,7 +31,7 @@ class PmtilesExtractor @Inject constructor() {
             Reader(channel).use { reader ->
                 // Le tile finiscono subito su un file temporaneo accanto all'output (non in RAM,
                 // vedi PmtilesTileSpool), cancellato alla chiusura anche su errore o annullamento.
-                PmtilesTileSpool(outputFile.absoluteFile.parentFile).use { tiles ->
+                PmtilesTileSpool(requireNotNull(outputFile.absoluteFile.parentFile)).use { tiles ->
                     fetchTiles(reader, mapSource, tiles, ensureActive)
                     if (tiles.tileCount == 0) {
                         throw PmtilesExtractionException("Nessuna tile trovata per il bounding box richiesto")

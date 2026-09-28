@@ -21,7 +21,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DockedSearchBar
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -33,7 +34,9 @@ import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -46,8 +49,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -240,26 +245,26 @@ private fun RegionSearchField(query: String, onQueryChange: (String) -> Unit, mo
     // Testo tenuto qui e non riletto da uiState.query: lo stato del ViewModel arriva in ritardo
     // (combine su Dispatchers.IO) e, usato come valore del campo, faceva perdere caratteri e
     // riportava il cursore all'inizio mentre si scriveva.
-    var text by rememberSaveable { mutableStateOf(query) }
-    val onTextChange = { value: String ->
-        text = value
-        onQueryChange(value)
+    val textFieldState = rememberTextFieldState(query)
+    val currentOnQueryChange by rememberUpdatedState(onQueryChange)
+    LaunchedEffect(textFieldState) {
+        snapshotFlow { textFieldState.text.toString() }.collect { currentOnQueryChange(it) }
     }
-    // Barra di ricerca M3 "docked" usata solo come campo: filtra l'elenco sotto mentre si scrive,
-    // senza aprire una vista di risultati separata.
-    DockedSearchBar(
+    // Barra di ricerca M3 usata solo come campo: filtra l'elenco sotto mentre si scrive, senza
+    // una vista di risultati espansa (nessun ExpandedDockedSearchBar).
+    val searchBarState = rememberSearchBarState()
+    SearchBar(
+        state = searchBarState,
         inputField = {
             SearchBarDefaults.InputField(
-                query = text,
-                onQueryChange = onTextChange,
+                textFieldState = textFieldState,
+                searchBarState = searchBarState,
                 onSearch = {},
-                expanded = false,
-                onExpandedChange = {},
                 placeholder = { Text(stringResource(R.string.regions_search_hint)) },
                 leadingIcon = { Icon(AppIcons.Search, contentDescription = null) },
-                trailingIcon = if (text.isNotEmpty()) {
+                trailingIcon = if (textFieldState.text.isNotEmpty()) {
                     {
-                        IconButton(onClick = { onTextChange("") }) {
+                        IconButton(onClick = { textFieldState.clearText() }) {
                             Icon(AppIcons.Close, contentDescription = stringResource(R.string.regions_search_clear))
                         }
                     }
@@ -268,10 +273,8 @@ private fun RegionSearchField(query: String, onQueryChange: (String) -> Unit, mo
                 },
             )
         },
-        expanded = false,
-        onExpandedChange = {},
         modifier = modifier,
-    ) {}
+    )
 }
 
 @Composable
@@ -460,7 +463,6 @@ private fun ContinentHeader(
 private fun ReplacedRegionRow(item: ReplacedRegionItem, onOpen: () -> Unit, onChoose: () -> Unit, onDelete: () -> Unit) {
     Column(modifier = Modifier.clickable(onClick = onOpen)) {
         ListItem(
-            headlineContent = { Text(item.displayName) },
             supportingContent = { Text(stringResource(R.string.regions_replaced)) },
             leadingContent = {
                 CountryFlag(item.countryCode, size = 40.dp) {
@@ -470,6 +472,7 @@ private fun ReplacedRegionRow(item: ReplacedRegionItem, onOpen: () -> Unit, onCh
                 }
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            content = { Text(item.displayName) },
         )
         Row(modifier = Modifier.padding(start = 72.dp, end = Spacing.s, bottom = Spacing.s)) {
             FilledTonalButton(onClick = onChoose) { Text(stringResource(R.string.regions_replaced_choose)) }
@@ -486,7 +489,6 @@ private fun CountryRow(country: RegionListEntry.Country, expanded: Boolean, enab
     val stateText = stringResource(if (expanded) R.string.continent_expanded else R.string.continent_collapsed)
     val actionLabel = stringResource(if (expanded) R.string.continent_collapse else R.string.continent_expand)
     ListItem(
-        headlineContent = { Text(country.name) },
         supportingContent = { Text(pluralStringResource(R.plurals.country_region_count, country.items.size, country.items.size)) },
         leadingContent = {
             CountryFlag(country.countryCode, size = 40.dp) {
@@ -504,6 +506,7 @@ private fun CountryRow(country: RegionListEntry.Country, expanded: Boolean, enab
         modifier = Modifier
             .clickable(enabled = enabled, onClickLabel = actionLabel, role = Role.Button, onClick = onToggle)
             .semantics(mergeDescendants = true) { stateDescription = stateText },
+        content = { Text(country.name) },
     )
 }
 
@@ -542,7 +545,6 @@ internal fun RegionRow(
 
     Column(modifier = modifier) {
         ListItem(
-            headlineContent = { Text(title) },
             supportingContent = {
                 Text(
                     if (isDownloading) {
@@ -570,6 +572,7 @@ internal fun RegionRow(
             trailingContent = { RegionActionButton(item = item, isDownloading = isDownloading, actions = actions) },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             modifier = Modifier.clickable(onClick = onClick),
+            content = { Text(title) },
         )
         if (isDownloading) {
             DownloadProgressIndicator(

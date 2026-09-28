@@ -53,7 +53,6 @@ fun LicensesScreen(onBack: () -> Unit, viewModel: LicensesViewModel = hiltViewMo
         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = innerPadding) {
             items(thirdPartyLicenses, key = { it.component }) { entry ->
                 ListItem(
-                    headlineContent = { Text(entry.component) },
                     supportingContent = {
                         Text(
                             buildString {
@@ -62,6 +61,7 @@ fun LicensesScreen(onBack: () -> Unit, viewModel: LicensesViewModel = hiltViewMo
                             },
                         )
                     },
+                    content = { Text(entry.component) },
                 )
                 HorizontalDivider(modifier = Modifier.padding(start = Spacing.l))
             }
@@ -85,7 +85,7 @@ fun LicensesScreen(onBack: () -> Unit, viewModel: LicensesViewModel = hiltViewMo
 @Composable
 private fun AddressAttributionRow(attribution: AddressGridAttribution) {
     ListItem(
-        headlineContent = { Text(attribution.source) },
         supportingContent = { Text(stringResource(R.string.licenses_license, attribution.license)) },
+        content = { Text(attribution.source) },
     )
 }

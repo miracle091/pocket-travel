@@ -155,7 +155,6 @@ private fun GuideSectionsList(uiState: GuideUiState, onOpenSource: (url: String,
 private fun CitiesEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(modifier = modifier.fillMaxWidth()) {
         ListItem(
-            headlineContent = { Text(stringResource(R.string.guide_cities_title)) },
             supportingContent = { Text(stringResource(R.string.guide_cities_subtitle)) },
             leadingContent = {
                 Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
@@ -169,6 +168,7 @@ private fun CitiesEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) 
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             modifier = Modifier.clickable(onClick = onClick),
+            content = { Text(stringResource(R.string.guide_cities_title)) },
         )
     }
 }
@@ -229,9 +229,9 @@ private fun CityListContent(cities: List<String>, onCityClick: (String) -> Unit)
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         itemsIndexed(cities, key = { _, city -> city }) { index, city ->
             ListItem(
-                headlineContent = { Text(city) },
                 leadingContent = { Icon(AppIcons.Cities, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth().clickable { onCityClick(city) },
+                content = { Text(city) },
             )
             if (index < cities.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         }

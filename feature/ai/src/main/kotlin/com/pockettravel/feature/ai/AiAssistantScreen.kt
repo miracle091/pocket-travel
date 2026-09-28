@@ -384,7 +384,6 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
 
     Column {
         ListItem(
-            headlineContent = { Text(definition.displayName) },
             supportingContent = {
                 Text(
                     when {
@@ -399,6 +398,7 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             modifier = Modifier.clickable(enabled = !isSelected && available) { actions.onModelSelected(definition.id) },
+            content = { Text(definition.displayName) },
         )
         // sha256 == null: modello non ancora pubblicato (in attesa di fine-tuning/upload
         // proprio, vedi LlmModelCatalog) — nessun pulsante di download da mostrare, non c'e'

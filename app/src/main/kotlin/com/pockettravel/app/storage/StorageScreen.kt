@@ -193,7 +193,6 @@ private fun StorageRow(
     var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
 
     ListItem(
-        headlineContent = { Text(title) },
         supportingContent = { Text(supporting) },
         leadingContent = {
             CountryFlag(countryCode, size = 40.dp) { Icon(icon, contentDescription = null) }
@@ -207,6 +206,7 @@ private fun StorageRow(
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = modifier,
+        content = { Text(title) },
     )
 
     if (showDeleteConfirm && onDelete != null) {

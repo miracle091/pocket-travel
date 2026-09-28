@@ -181,7 +181,7 @@ object PmtilesWriter {
         require(entries.isNotEmpty()) { "Nessuna tile da scrivere" }
         // In ordine di tileId: dati "clustered" e, senza tile ripetute, file identico byte per
         // byte a quello del writer precedente (tutto in memoria).
-        PmtilesTileSpool(outputFile.absoluteFile.parentFile).use { tiles ->
+        PmtilesTileSpool(requireNotNull(outputFile.absoluteFile.parentFile)).use { tiles ->
             entries.sortedBy { it.tileId }.forEach { tiles.add(it.tileId, it.data) }
             write(
                 outputFile = outputFile,

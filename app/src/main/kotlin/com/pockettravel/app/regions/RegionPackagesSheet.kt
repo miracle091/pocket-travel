@@ -16,7 +16,8 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -57,7 +58,7 @@ internal fun RegionPackagesSheet(
     var showDeleteAll by rememberSaveable { mutableStateOf(false) }
 
     // Sempre aperto per intero: a meta' altezza (tablet in orizzontale) "Elimina tutto" restava sotto il bordo.
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))) {
         Column(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
@@ -143,7 +144,6 @@ private fun PackageRow(pkg: PackageUiState, enabled: Boolean, onDownload: () -> 
         RegionStatus.NOT_INSTALLED -> sizedStatus(R.string.package_status_not_installed, R.string.package_status_not_installed_no_size, pkg.downloadBytes)
     }
     ListItem(
-        headlineContent = { Text(name) },
         supportingContent = { Text(supporting) },
         leadingContent = { Icon(pkg.kind.icon(), contentDescription = null) },
         trailingContent = {
@@ -161,6 +161,7 @@ private fun PackageRow(pkg: PackageUiState, enabled: Boolean, onDownload: () -> 
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.fillMaxWidth(),
+        content = { Text(name) },
     )
 }
 
@@ -168,7 +169,6 @@ private fun PackageRow(pkg: PackageUiState, enabled: Boolean, onDownload: () -> 
 @Composable
 private fun UnavailablePackageRow(kind: PackageKind) {
     ListItem(
-        headlineContent = { Text(stringResource(kind.label())) },
         supportingContent = { Text(stringResource(R.string.package_status_unavailable)) },
         leadingContent = { Icon(kind.icon(), contentDescription = null) },
         colors = ListItemDefaults.colors(
@@ -177,6 +177,7 @@ private fun UnavailablePackageRow(kind: PackageKind) {
             leadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ),
         modifier = Modifier.fillMaxWidth(),
+        content = { Text(stringResource(kind.label())) },
     )
 }
 
