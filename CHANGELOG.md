@@ -35,6 +35,9 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Nessun backup dei dati dell'app nemmeno da Android 12 in su, né nel cloud né nel trasferimento a un nuovo telefono, come già sulle versioni precedenti: la cassaforte è cifrata con chiavi che non lasciano il dispositivo.
 - Librerie aggiornate: MapLibre 13 per la mappa, OkHttp 5 per i download, CameraX 1.6 per la fotocamera della cassaforte, oltre a Hilt, WorkManager, coroutine e Gradle 9.8. I segnalini della mappa sono disegnati direttamente da MapLibre, senza il plugin delle annotazioni che non riceve più aggiornamenti.
 
+### Corretto
+- Numeri civici: finora erano pubblicati solo per le zone del primo giorno di aggiornamento, e solo con quelli di OpenStreetMap. Ora arrivano, zona dopo zona nell'arco di un mese, per tutto il mondo e anche con quelli dei registri ufficiali raccolti da Overture Maps.
+
 ## [0.8.0]
 
 ### Aggiunto

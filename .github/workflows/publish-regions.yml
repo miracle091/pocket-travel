@@ -55,6 +55,13 @@ on:
           cioe' POI rinnovati a ogni turno settimanale della regione.
         required: false
         default: ""
+      address_cell_max_age_days:
+        description: >
+          Eta' massima (giorni) di una cella dei civici pubblicata prima di rigenerarla
+          (ADDRESS_CELL_MAX_AGE_DAYS di build-address-cell.sh), solo per le celle della quota di
+          oggi. -1 = rigenera anche le celle pubblicate oggi. Vuoto = 30.
+        required: false
+        default: ""
 
 # Minimo a livello di workflow: contents: write solo ai job che creano release o ne caricano/tolgono
 # asset, pages/id-token solo al job "publish" che fa il deploy su Pages.
@@ -375,6 +382,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       PYTHON_BIN: python3
+      ADDRESS_CELL_MAX_AGE_DAYS: ${{ github.event.inputs.address_cell_max_age_days || '30' }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
@@ -424,8 +432,11 @@ jobs:
           PAGES_BASE_URL="${{ env.PAGES_BASE_URL }}"
           INDEX_URL="$PAGES_BASE_URL/address-grid.json"
 
-          # Partizione attuale: l'indice pubblicato (fonte di verita', include le celle divise da
-          # run precedenti) o, alla primissima pubblicazione (404), il seme versionato nel repo.
+          # Partizione attuale: le celle dell'indice pubblicato (fonte di verita', include le celle
+          # divise da run precedenti) piu' le celle del seme versionato nel repo non ancora coperte,
+          # cioe' ne' pubblicate ne' antenate di una cella pubblicata (divisa). Senza il seme la
+          # partizione restava ferma alle celle della prima quota pubblicata. Alla primissima
+          # pubblicazione (404) e' il solo seme.
           IDS_FILE="$RUNNER_TEMP/all-cell-ids.txt"
           PUBLISHED_INDEX_FILE="$RUNNER_TEMP/published-index.json"
           # File locale scaricato una volta per l'intero job (non uno per cella): passato cosi'
@@ -435,6 +446,14 @@ jobs:
           PUBLISHED_INDEX_HTTP="$(fetch_published_manifest "$INDEX_URL" "$PUBLISHED_INDEX_FILE")"
           if [ "$PUBLISHED_INDEX_HTTP" = "200" ]; then
             jq -r '.cells[].id' "$PUBLISHED_INDEX_FILE" > "$IDS_FILE"
+            # Prima passata (le celle pubblicate): segna ognuna e tutti i suoi antenati come
+            # coperti. Seconda passata (il seme): aggiunge le celle non coperte.
+            awk -F/ 'NR == FNR { z = $1; x = $2; y = $3
+                                 while (z >= 0) { covered[z "/" x "/" y] = 1; z--; x = int(x / 2); y = int(y / 2) }
+                                 next }
+                     $0 != "" && !($0 in covered)' "$IDS_FILE" tools/data-pipeline/address-grid-seed.tsv \
+              > "$RUNNER_TEMP/uncovered-seed-ids.txt"
+            cat "$RUNNER_TEMP/uncovered-seed-ids.txt" >> "$IDS_FILE"
             PUBLISHED_INDEX_ARG="$PUBLISHED_INDEX_FILE"
           elif [ "$PUBLISHED_INDEX_HTTP" = "404" ]; then
             cp tools/data-pipeline/address-grid-seed.tsv "$IDS_FILE"
