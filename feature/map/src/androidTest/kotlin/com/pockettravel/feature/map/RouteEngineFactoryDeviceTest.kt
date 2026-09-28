@@ -3,7 +3,8 @@ package com.pockettravel.feature.map
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pockettravel.feature.map.di.RouteEngineModule
-import org.junit.Assert.assertNull
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -37,11 +38,13 @@ class RouteEngineFactoryDeviceTest {
         )
         val engine = factory.create(regionId)
 
-        val route = engine.route(
-            from = RoutePoint(45.4642, 9.1900),
-            to = RoutePoint(45.4658, 9.1920),
-        )
+        val result = runBlocking {
+            engine.route(
+                from = RoutePoint(45.4642, 9.1900),
+                to = RoutePoint(45.4658, 9.1920),
+            )
+        }
 
-        assertNull("senza segmenti non deve essere trovato nessun percorso", route)
+        assertEquals("senza segmenti mancano i dati di percorso", RouteResult.NoRoutingData, result)
     }
 }

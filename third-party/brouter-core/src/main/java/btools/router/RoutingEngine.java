@@ -68,6 +68,11 @@ public class RoutingEngine extends Thread {
 
   private volatile boolean terminated;
 
+  // Pocket Travel (aggiunta non presente upstream): stima dell'avanzamento del calcolo, 0..1, letta
+  // da un altro thread per la barra di avanzamento dell'app. Vedi updateProgress.
+  private volatile double progress;
+  private double progressPhaseStartAir;
+
   protected File segmentDir;
   private String outfileBase;
   private String logfileBase;
@@ -1961,6 +1966,7 @@ public class RoutingEngine extends Thread {
 
     if (startPath1 == null) return null;
     if (startPath2 == null) return null;
+    progressPhaseStartAir = Math.max(startPath1.airdistance, startPath2.airdistance);
 
     synchronized (openSet) {
       openSet.clear();
@@ -2061,6 +2067,7 @@ public class RoutingEngine extends Thread {
 
         nodesVisited++;
         linksProcessed++;
+        if ((linksProcessed & 255) == 0) updateProgress(operationName, path, costCuttingTrack);
 
         OsmLink currentLink = path.getLink();
         OsmNode sourceNode = path.getSourceNode();
@@ -2387,6 +2394,36 @@ public class RoutingEngine extends Thread {
 
   public boolean isFinished() {
     return finished;
+  }
+
+  public double getProgress() {
+    return progress;
+  }
+
+  // Pocket Travel: pesi delle passate di searchRoutedTrack sul tempo totale, misurati sull'emulatore
+  // (Milano-Roma in auto: pass0 sotto il 10% del tempo). pass0 e' la ricerca rapida verso la
+  // destinazione (avanzamento: quanto ci si e' avvicinati in linea d'aria); pass1 quella esatta, un
+  // Dijkstra limitato dal costo di pass0 (avanzamento: costo raggiunto / costo di pass0; il tempo e'
+  // risultato circa proporzionale a quel rapporto alla 0,6); re-tracking ricostruisce il percorso
+  // trovato. Solo crescente.
+  static final double PROGRESS_PASS0 = 0.10;
+  static final double PROGRESS_PASS1 = 0.88;
+  static final double PROGRESS_PASS1_EXPONENT = 0.6;
+
+  private void updateProgress(String operationName, OsmPath path, OsmTrack costCuttingTrack) {
+    double value;
+    if ("pass0".equals(operationName)) {
+      if (progressPhaseStartAir <= 0) return;
+      value = PROGRESS_PASS0 * Math.max(0., 1. - path.airdistance / progressPhaseStartAir);
+    } else if ("pass1".equals(operationName) && costCuttingTrack != null && costCuttingTrack.cost > 0) {
+      double f = Math.min(1., path.cost / (double) costCuttingTrack.cost);
+      value = PROGRESS_PASS0 + PROGRESS_PASS1 * Math.pow(f, PROGRESS_PASS1_EXPONENT);
+    } else if ("re-tracking".equals(operationName) && guideTrack != null && guideTrack.cost > 0) {
+      value = PROGRESS_PASS0 + PROGRESS_PASS1 + (1. - PROGRESS_PASS0 - PROGRESS_PASS1) * Math.min(1., path.cost / (double) guideTrack.cost);
+    } else {
+      return;
+    }
+    if (value > progress) progress = Math.min(value, 0.99);
   }
 
   public int getLinksProcessed() {

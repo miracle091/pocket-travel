@@ -10,6 +10,9 @@
 // brouter-core/build.gradle upstream: nessuna di queste 5 dipendenze le richiede).
 // Dallo stesso tag anche KinematicModel/KinematicPath/KinematicPrePath (2026-09-25): il profilo
 // car-vario.brf li carica per nome ("---model:btools.router.KinematicModel", Class.forName).
+// Modifiche rispetto a upstream (2026-09-28), segnate "Pocket Travel" nel codice: il file aggiunto
+// btools/router/TurnInstructions.java (accesso in sola lettura alle indicazioni di svolta, i cui campi
+// in VoiceHint sono package-private) e in RoutingEngine la stima dell'avanzamento (getProgress).
 plugins {
     id("java-library")
 }

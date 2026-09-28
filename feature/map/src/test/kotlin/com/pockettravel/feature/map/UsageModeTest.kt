@@ -1,9 +1,8 @@
 package com.pockettravel.feature.map
 
 import com.pockettravel.core.poi.PoiCategory
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -39,12 +38,14 @@ class UsageModeTest {
         }
         UsageMode.ROUTING_PROFILES.forEach { profile ->
             assertTrue("$profile.brf mancante negli asset", File(assetProfiles, "$profile.brf").isFile)
-            val route = BRouterRouteEngine(segmentDir, assetProfiles, profile)
-                .route(from = RoutePoint(45.5000, 9.9970), to = RoutePoint(45.5000, 10.0030))
+            val result = runBlocking {
+                BRouterRouteEngine(segmentDir, assetProfiles, profile)
+                    .route(from = RoutePoint(45.5000, 9.9970), to = RoutePoint(45.5000, 10.0030))
+            }
             if (profile == "car-vario") {
-                assertNull("in auto non si passa su una via pedonale", route)
+                assertTrue("in auto non si passa su una via pedonale: $result", result !is RouteResult.Found)
             } else {
-                assertNotNull("$profile deve trovare il percorso a piedi o in bici", route)
+                assertTrue("$profile deve trovare il percorso a piedi o in bici: $result", result is RouteResult.Found)
             }
         }
     }
