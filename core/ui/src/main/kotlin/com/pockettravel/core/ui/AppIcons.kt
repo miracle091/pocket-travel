@@ -68,6 +68,7 @@ object AppIcons {
     val HomePin: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_home_pin)
     val AddLocation: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_add_location)
     val Layers: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_layers)
+    val Filter: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_filter_list)
     val Route: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_route)
     val Book: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_menu_book)
     val MoreVert: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_more_vert)

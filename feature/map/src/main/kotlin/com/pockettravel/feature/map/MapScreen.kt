@@ -13,13 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -38,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.heading
@@ -90,7 +89,7 @@ fun MapScreen(
     // rilegge tileSource.styleJson.
     mapSource: MapSourceState,
     pins: List<MapPin> = emptyList(),
-    // Categorie nascoste, salvate per tutte le regioni (MapFilterPreferences): chip e legenda le cambiano.
+    // Categorie nascoste, salvate per tutte le regioni (MapFilterPreferences): le cambia il foglio dei filtri.
     hiddenCategories: Set<PoiCategory> = emptySet(),
     onHiddenCategoriesChange: (Set<PoiCategory>) -> Unit = {},
     // Modalita' "Con disabilità": via i POI che OSM segna come non accessibili in sedia a rotelle.
@@ -209,35 +208,30 @@ fun MapScreen(
             },
         )
 
-        // Filtri flottanti sopra la mappa: ogni chip porta colore e glifo del proprio segnalino. La
-        // legenda completa, a gruppi, si apre dal pulsante in basso.
+        // Filtri nel foglio a gruppi che si apre dal pulsante in basso, non piu' in una fila sopra la
+        // mappa: con 20 e piu' categorie la fila copriva la mappa e ne mostrava solo tre o quattro.
+        // Il numero sul pulsante dice quante categorie della regione sono nascoste.
         if (presentCategories.isNotEmpty()) {
-            LazyRow(
-                modifier = Modifier.fillMaxWidth().align(Alignment.TopStart),
-                contentPadding = PaddingValues(horizontal = Spacing.m, vertical = Spacing.s),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.s),
-            ) {
-                items(presentCategories) { category ->
-                    val selected = category !in hiddenCategories
-                    FilterChip(
-                        selected = selected,
-                        onClick = {
-                            onHiddenCategoriesChange(if (selected) hiddenCategories + category else hiddenCategories - category)
-                        },
-                        label = { Text(stringResource(category.label())) },
-                        leadingIcon = { PoiBadge(category, size = 20) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        ),
-                        elevation = FilterChipDefaults.filterChipElevation(elevation = 3.dp),
-                    )
-                }
+            val hiddenCount = presentCategories.count { it in hiddenCategories }
+            val filtersLabel = if (hiddenCount > 0) {
+                pluralStringResource(R.plurals.map_filters_open_hidden, hiddenCount, hiddenCount)
+            } else {
+                stringResource(R.string.map_legend_open)
             }
-            SmallFloatingActionButton(
-                onClick = { showLegend = true },
+            BadgedBox(
+                // Nel colore primario, non in quello di errore del Badge: non e' un avviso.
+                badge = {
+                    if (hiddenCount > 0) {
+                        Badge(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) {
+                            Text(hiddenCount.toString())
+                        }
+                    }
+                },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(Spacing.l),
             ) {
-                Icon(AppIcons.Layers, contentDescription = stringResource(R.string.map_legend_open))
+                SmallFloatingActionButton(onClick = { showLegend = true }) {
+                    Icon(AppIcons.Filter, contentDescription = filtersLabel)
+                }
             }
         }
     }
@@ -366,7 +360,7 @@ private fun OpeningHoursDetail(raw: String) {
 }
 
 // Cerchio nel colore della categoria con il glifo bianco: stesso aspetto della testa del
-// segnalino, usato nei chip e nella scheda del POI.
+// segnalino, usato nel foglio dei filtri e nella scheda del POI.
 @Composable
 internal fun PoiBadge(category: PoiCategory, size: Int) {
     Surface(shape = CircleShape, color = category.pinColor(), modifier = Modifier.size(size.dp)) {

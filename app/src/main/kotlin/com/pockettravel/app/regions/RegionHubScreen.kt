@@ -184,7 +184,7 @@ private fun RegionTab.icon(selected: Boolean): ImageVector = when (this) {
     RegionTab.AI -> if (selected) AppIcons.AiAssistantFilled else AppIcons.AiAssistant
 }
 
-// Sotto la mappa, non sopra: cosi' non copre mai i chip dei filtri o il FAB della legenda
+// Sotto la mappa, non sopra: cosi' non copre mai il pulsante dei filtri
 // (Modifier.align in MapScreen li posiziona dentro il suo stesso Box, che qui occupa lo spazio
 // restante sopra la barra). Niente navigationBarsPadding: la barra sta sopra la navigazione della
 // regione, che gestisce gia' gli inset di sistema (con il padding restava una fascia vuota).

@@ -64,8 +64,9 @@ internal enum class LegendGroup(@StringRes val label: Int, val categories: List<
     OTHER(R.string.map_legend_group_other, listOf(PoiCategory.ALTRO)),
 }
 
-// Tutte le categorie presenti nella regione, a gruppi, ciascuna con il suo interruttore: le stesse
-// scelte dei chip sopra la mappa, salvate per tutte le regioni (MapFilterPreferences).
+// Filtri della mappa: tutte le categorie presenti nella regione, a gruppi, ciascuna con il suo
+// interruttore e ogni gruppo con "Mostra tutti"/"Nascondi tutti"; scelte salvate per tutte le regioni
+// (MapFilterPreferences).
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MapLegendSheet(
@@ -94,13 +95,25 @@ internal fun MapLegendSheet(
             LegendGroup.entries.forEach { group ->
                 val categories = group.categories.filter { it in presentCategories }
                 if (categories.isEmpty()) return@forEach
-                Text(
-                    text = stringResource(group.label),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = Spacing.xl, end = Spacing.xl, top = Spacing.l, bottom = Spacing.xs)
-                        .semantics { heading() },
-                )
+                val allVisible = categories.none { it in hiddenCategories }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(start = Spacing.xl, end = Spacing.m, top = Spacing.s),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(group.label),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f).semantics { heading() },
+                    )
+                    TextButton(
+                        onClick = {
+                            onHiddenCategoriesChange(if (allVisible) hiddenCategories + categories else hiddenCategories - categories.toSet())
+                        },
+                    ) {
+                        Text(stringResource(if (allVisible) R.string.map_filters_group_hide else R.string.map_filters_group_show))
+                    }
+                }
                 categories.forEach { category ->
                     val visible = category !in hiddenCategories
                     ListItem(
