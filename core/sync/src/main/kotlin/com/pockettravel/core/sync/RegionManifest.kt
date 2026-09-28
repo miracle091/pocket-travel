@@ -64,6 +64,9 @@ data class RegionManifestEntry(
     val addressGrid: RegionAddressGridEntry? = null,
     // Guide delle citta' (city_sections di cities.db): assenti per le regioni senza citta' abbinate.
     val cities: CitiesPackageEntry? = null,
+    // Citta' di Wikivoyage EN (build-cities.sh ... en). L'app non le legge da qui: con l'interfaccia in
+    // inglese ManifestClient le mette al posto di [cities] (vedi forLanguage in GuidesChoice.kt).
+    val citiesEn: CitiesPackageEntry? = null,
     // Anteprima offline (pochi zoom, tetto di peso compresso): si installa da sola con ogni download
     // della regione (RegionPackageInstaller), non e' un PackageKind. Assente per le regioni non ancora
     // rigenerate.
@@ -233,7 +236,7 @@ fun RegionManifestEntry.validate() {
         it.fileXz?.validate(regionId)
     }
     addressGrid?.cells?.forEach { it.validate(regionId) }
-    cities?.let {
+    listOfNotNull(cities, citiesEn).forEach {
         require(isSafeVersion(it.version)) { "version delle guide di citta' non valida per $regionId" }
         it.file.validate(regionId)
         it.fileXz?.validate(regionId)

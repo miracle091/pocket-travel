@@ -20,13 +20,16 @@
 #
 # Uso:
 #   build-cities.sh <regionId> <version> <assetBaseUrl> <outputDir> <citiesJsonlDir> \
-#                    [publishedManifestUrl]
+#                    [publishedManifestUrl] [it|en]
+#
+# Con "en": <citiesJsonlDir>/<regionId>.cities-en.jsonl (build-cities-dump.sh ... en), voce "citiesEn"
+# del frammento, cities-en.db(.xz) in <outputDir> accanto a quello italiano.
 #
 # Richiede: jq, curl, sha256sum, xz, gradle wrapper dalla root del repo.
 set -euo pipefail
 
-if [ "$#" -lt 5 ] || [ "$#" -gt 6 ]; then
-  echo "Uso: $0 <regionId> <version> <assetBaseUrl> <outputDir> <citiesJsonlDir> [publishedManifestUrl]" >&2
+if [ "$#" -lt 5 ] || [ "$#" -gt 7 ]; then
+  echo "Uso: $0 <regionId> <version> <assetBaseUrl> <outputDir> <citiesJsonlDir> [publishedManifestUrl] [it|en]" >&2
   exit 1
 fi
 
@@ -36,6 +39,12 @@ ASSET_BASE_URL="${3%/}"
 OUTPUT_DIR="$4"
 CITIES_JSONL_DIR="$5"
 PUBLISHED_MANIFEST_URL="${6:-}"
+LANG_CODE="${7:-it}"
+case "$LANG_CODE" in
+  it) ENTRY_KEY="cities"; FILE_BASE="cities"; JSONL_SUFFIX="cities.jsonl"; GEN_LANG="" ;;
+  en) ENTRY_KEY="citiesEn"; FILE_BASE="cities-en"; JSONL_SUFFIX="cities-en.jsonl"; GEN_LANG="--lang en " ;;
+  *) echo "Lingua non supportata: $LANG_CODE" >&2; exit 1 ;;
+esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
@@ -43,7 +52,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
 FRAGMENT="$OUTPUT_DIR/manifest-fragment.json"
-CITIES_FILE="$OUTPUT_DIR/cities.db"
+CITIES_FILE="$OUTPUT_DIR/$FILE_BASE.db"
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
@@ -59,7 +68,7 @@ PUBLISHED_ENTRY=""
 if [ -n "$PUBLISHED_MANIFEST_URL" ]; then
   PUBLISHED_HTTP="$(fetch_published_manifest "$PUBLISHED_MANIFEST_URL" "$WORKDIR/published.json")"
   if [ "$PUBLISHED_HTTP" = "200" ]; then
-    PUBLISHED_ENTRY="$(jq -c --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id) | .cities // empty][0] // empty' "$WORKDIR/published.json")"
+    PUBLISHED_ENTRY="$(jq -c --arg id "$REGION_ID" --arg k "$ENTRY_KEY" '[(.regions // [])[] | select(.regionId == $id) | .[$k] // empty][0] // empty' "$WORKDIR/published.json")"
   elif [ "$PUBLISHED_HTTP" != "404" ]; then
     echo "ERRORE: manifest pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL (HTTP ${PUBLISHED_HTTP:-000})" >&2
     exit 1
@@ -67,7 +76,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ]; then
 fi
 
 set_entry() {
-  jq -c --argjson entry "$1" '.regions |= map(.cities = $entry)' "$FRAGMENT" > "$WORKDIR/fragment.json"
+  jq -c --argjson entry "$1" --arg k "$ENTRY_KEY" '.regions |= map(.[$k] = $entry)' "$FRAGMENT" > "$WORKDIR/fragment.json"
   mv "$WORKDIR/fragment.json" "$FRAGMENT"
 }
 
@@ -80,7 +89,7 @@ keep_published() {
   fi
 }
 
-JSONL="$CITIES_JSONL_DIR/${REGION_ID}.cities.jsonl"
+JSONL="$CITIES_JSONL_DIR/${REGION_ID}.$JSONL_SUFFIX"
 if [ ! -f "$JSONL" ]; then
   keep_published "nessun dump estratto per questa regione in questo run"
   exit 0
@@ -89,7 +98,7 @@ fi
 rm -f "$CITIES_FILE"
 cd "$REPO_ROOT"
 if ! GENERATED="$(./gradlew -q :tools:data-pipeline:content:generateCities \
-  --args="\"$(winpath "$JSONL")\" \"$(winpath "$CITIES_FILE")\"" | tee /dev/stderr | sed -n 's/.*citta.: \([0-9]*\) .*/\1/p')"; then
+  --args="$GEN_LANG\"$(winpath "$JSONL")\" \"$(winpath "$CITIES_FILE")\"" | tee /dev/stderr | sed -n 's/.*citta.: \([0-9]*\) .*/\1/p')"; then
   rm -f "$CITIES_FILE"
   echo "::warning::generateCities fallito per $REGION_ID"
   keep_published "generazione fallita"
@@ -110,11 +119,12 @@ if [ -n "$PUBLISHED_ENTRY" ] && [ "$HASH" = "$(printf '%s' "$PUBLISHED_ENTRY" | 
 fi
 
 SIZE="$(wc -c < "$CITIES_FILE" | tr -d ' ')"
-CITIES_XZ_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--cities.db.xz"
+CITIES_XZ_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--$FILE_BASE.db.xz"
 CITIES_XZ_JSON="$(xz_entry "$CITIES_FILE" "$CITIES_XZ_URL")"
 set_entry "$(jq -n -c --arg version "$VERSION" --arg url "$CITIES_XZ_URL" \
   --argjson size "$SIZE" --arg hash "$HASH" --argjson xz "$CITIES_XZ_JSON" \
-  '{version: $version, file: {name: "cities.db", url: $url, sizeBytes: $size, sha256: $hash}, fileXz: $xz}')"
+  --arg name "$FILE_BASE.db" \
+  '{version: $version, file: {name: $name, url: $url, sizeBytes: $size, sha256: $hash}, fileXz: $xz}')"
 # Una regione altrimenti invariata ora ha un file da caricare: il workflow carica solo le regioni
 # senza .skipped, e con .incremental solo i file presenti in <outputDir> (vedi build-region.sh).
 if [ -f "$OUTPUT_DIR/.skipped" ]; then

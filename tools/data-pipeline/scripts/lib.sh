@@ -209,20 +209,26 @@ fetch_wikivoyage_dump() {
 # data della corsa piu' recente come fa resolve_protomaps_date per le build Protomaps.
 WIKIVOYAGE_IT_DUMP_BASE_URL="https://dumps.wikimedia.org/itwikivoyage/latest"
 WIKIVOYAGE_IT_DUMP_NAME="itwikivoyage-latest-pages-articles.xml.bz2"
-fetch_wikivoyage_it_dump() {
-  local outFile="$1" attempt sha1File sha1
+# Dump di Wikivoyage EN (~130 MB compressi): citta' in inglese (build-cities-dump.sh ... en).
+WIKIVOYAGE_EN_DUMP_NAME="enwikivoyage-latest-pages-articles.xml.bz2"
+fetch_wikivoyage_it_dump() { fetch_wikivoyage_lang_dump it "$1"; }
+fetch_wikivoyage_en_full_dump() { fetch_wikivoyage_lang_dump en "$1"; }
+fetch_wikivoyage_lang_dump() {
+  local lang="$1" outFile="$2" attempt sha1File sha1
+  local baseUrl="https://dumps.wikimedia.org/${lang}wikivoyage/latest"
+  local dumpName="${lang}wikivoyage-latest-pages-articles.xml.bz2"
   sha1File="$(mktemp)"
   for attempt in 1 2 3; do
-    if wikimedia_curl -o "$outFile" "$WIKIVOYAGE_IT_DUMP_BASE_URL/$WIKIVOYAGE_IT_DUMP_NAME" 2>/dev/null \
-      && wikimedia_curl -o "$sha1File" "$WIKIVOYAGE_IT_DUMP_BASE_URL/itwikivoyage-latest-sha1sums.txt" 2>/dev/null; then
-      sha1="$(grep -F "$WIKIVOYAGE_IT_DUMP_NAME" "$sha1File" | awk '{print $1}' | head -1)"
+    if wikimedia_curl -o "$outFile" "$baseUrl/$dumpName" 2>/dev/null \
+      && wikimedia_curl -o "$sha1File" "$baseUrl/${lang}wikivoyage-latest-sha1sums.txt" 2>/dev/null; then
+      sha1="$(grep -F "$dumpName" "$sha1File" | awk '{print $1}' | head -1)"
       if [ -n "$sha1" ] && printf '%s  %s\n' "$sha1" "$outFile" | sha1sum -c - >/dev/null 2>&1; then
         rm -f "$sha1File"
         return 0
       fi
     fi
     if [ "$attempt" -lt 3 ]; then
-      echo "-- dump Wikivoyage IT: tentativo $attempt/3 fallito (download o sha1), riprovo tra $((attempt * 30))s" >&2
+      echo "-- dump Wikivoyage ${lang}: tentativo $attempt/3 fallito (download o sha1), riprovo tra $((attempt * 30))s" >&2
       sleep $((attempt * 30))
     fi
   done

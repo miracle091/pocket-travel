@@ -19,6 +19,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Tema scuro anche quando il telefono usa quello chiaro: si attiva in Altro → Aspetto, spento di default (l'app segue il tema del telefono). Nello stesso foglio c'è ora anche "Colori dal wallpaper".
 
 ### Modificato
+- App in inglese: anche le guide delle città sono in inglese, prese da Wikivoyage in inglese, con le città trovate risalendo la gerarchia delle pagine (città → provincia → regione → nazione). Arrivano con il prossimo aggiornamento di ogni regione; dopo un cambio di lingua il pacchetto delle città risulta da aggiornare.
 - App in inglese: l'assistente IA risponde in inglese, con le guide inglesi come contesto. Finché non ci sono modelli addestrati in inglese, il modello proposto di default in inglese è quello "Ufficiale" della stessa fascia di memoria (i nostri modelli addestrati rispondono in italiano).
 - App in inglese: anche le guide delle nazioni sono in inglese, prese dalle pagine di Wikivoyage in inglese, con i fatti rapidi (lingua, elettricità, fuso orario, valuta, trasporti) in inglese. Cambiando lingua l'app scarica subito le guide nell'altra lingua. Arrivano con il prossimo aggiornamento delle guide; le guide delle città restano per ora in italiano. Corretto un campo dei fatti rapidi che poteva mostrare "Elettricità: | Fuso orario = ...".
 - App in inglese: gli stati USA nell'elenco delle regioni hanno il nome inglese ("North Carolina" invece di "Carolina del Nord"), con il prossimo aggiornamento del catalogo.

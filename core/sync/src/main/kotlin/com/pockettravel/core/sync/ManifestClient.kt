@@ -35,7 +35,7 @@ class ManifestClient @Inject constructor(
                 // Ad ogni sync riuscita: feature/map legge solo WorldMapStore, non dipende da core/sync.
                 worldMapStore.save(manifest.worldMap?.url, manifest.worldMap?.maxZoom ?: worldMapStore.worldMapMaxZoom())
                 appCompatibility.update(manifest.minAppVersionCode)
-            }
+            }.forLanguage()
         }
     }
 }

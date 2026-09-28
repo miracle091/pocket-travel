@@ -11,19 +11,22 @@
 # senza scrivere nulla in <outDir> - le regioni di questo run restano senza citta' nuove
 # (build-cities.sh tiene la voce "cities" gia' pubblicata, se c'e').
 #
-# Uso: build-cities-dump.sh <regioni.tsv> <outDir>
+# Uso: build-cities-dump.sh <regioni.tsv> <outDir> [it|en]
 # regioni.tsv: righe "regionId<TAB>wikiTitle" (titolo EN Wikivoyage, da pilot-regions.sh).
+# Con "en": dump di Wikivoyage EN, <outDir>/<regionId>.cities-en.jsonl (extract-cities-dump-en.py, le
+# citta' si trovano risalendo {{isPartOf}} fino al titolo EN della regione, senza pagine IT).
 #
 # Richiede: curl, python3, gli stessi di lib.sh (nessuna dipendenza in piu').
 set -euo pipefail
 
-if [ "$#" -ne 2 ]; then
-  echo "Uso: $0 <regioni.tsv> <outDir>" >&2
+if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
+  echo "Uso: $0 <regioni.tsv> <outDir> [it|en]" >&2
   exit 1
 fi
 
 REGIONS_TSV="$1"
 OUT_DIR="$2"
+LANG_CODE="${3:-it}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./lib.sh
@@ -32,6 +35,18 @@ source "$SCRIPT_DIR/lib.sh"
 mkdir -p "$OUT_DIR"
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
+
+if [ "$LANG_CODE" = "en" ]; then
+  DUMP="$WORKDIR/$WIKIVOYAGE_EN_DUMP_NAME"
+  echo "-- cities (en): scarico il dump di Wikivoyage EN..."
+  if ! fetch_wikivoyage_en_full_dump "$DUMP"; then
+    echo "::warning::cities (en): dump Wikivoyage EN non scaricato/verificato"
+    exit 1
+  fi
+  echo "-- cities (en): estraggo le pagine citta' dal dump..."
+  python3 "$SCRIPT_DIR/extract-cities-dump-en.py" "$DUMP" "$REGIONS_TSV" "$OUT_DIR"
+  exit 0
+fi
 
 echo "-- citta': risolvo la pagina IT Wikivoyage di ogni regione..."
 RESOLVED_TSV="$WORKDIR/resolved.tsv"

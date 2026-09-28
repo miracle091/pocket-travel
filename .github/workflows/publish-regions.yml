@@ -684,6 +684,9 @@ jobs:
           mkdir -p "$CITIES_JSONL_DIR"
           tools/data-pipeline/scripts/build-cities-dump.sh "$CITIES_REGIONS_TSV" "$CITIES_JSONL_DIR" \
             || echo "::warning::dump citta' non generato per questo shard, regioni senza citta' nuove"
+          # Citta' in inglese (voce "citiesEn"): dump di Wikivoyage EN, stessa cartella (file .cities-en.jsonl).
+          tools/data-pipeline/scripts/build-cities-dump.sh "$CITIES_REGIONS_TSV" "$CITIES_JSONL_DIR" en \
+            || echo "::warning::dump citta' EN non generato per questo shard, regioni senza citta' inglesi nuove"
 
           for spec in "${PILOT_REGIONS[@]}"; do
             IFS='|' read -r regionId displayName minLon minLat maxLon maxLat _wikiTitle flag groupName groupLabel continent <<< "$spec"
@@ -705,6 +708,9 @@ jobs:
               tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
                 "$RELEASE_BASE_URL" "$regionOut" "$CITIES_JSONL_DIR" \
                 "$PUBLISHED_MANIFEST_URL" || echo "::warning::citta' di $regionId non generate"
+              tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
+                "$RELEASE_BASE_URL" "$regionOut" "$CITIES_JSONL_DIR" \
+                "$PUBLISHED_MANIFEST_URL" en || echo "::warning::citta' EN di $regionId non generate"
               if [ -f "$regionOut/.skipped" ]; then
                 # Controllo di necessita' in build-region.sh: tile .rd5 attese invariate rispetto
                 # al manifest gia' pubblicato, il frammento e' quello di sempre, niente da
@@ -723,7 +729,7 @@ jobs:
                 uploads=()
                 # I POI, l'anteprima e le citta' si caricano solo compressi (vedi xz_entry
                 # in lib.sh, build_preview in build-region.sh).
-                for xz in poi.db.xz poi-extra.db.xz preview.pmtiles.xz cities.db.xz; do
+                for xz in poi.db.xz poi-extra.db.xz preview.pmtiles.xz cities.db.xz cities-en.db.xz; do
                   [ -f "$regionOut/$xz" ] || continue
                   xzAsset="$regionOut/${regionId}--${VERSION}--$xz"
                   cp "$regionOut/$xz" "$xzAsset"

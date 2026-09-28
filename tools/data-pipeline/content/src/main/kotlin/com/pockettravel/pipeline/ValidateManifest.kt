@@ -122,10 +122,13 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
 
         // Citta': facoltative (regioni non ancora rigenerate, o senza pagine {{QuickbarCity}}
         // abbinate su Wikivoyage IT), stesso schema di addresses.
-        region.optJSONObject("cities")?.let { cities ->
-            validateVersion(cities, "$regionId/cities")
-            validateFile(cities.getJSONObject("file"), regionId, allowedHosts)
-            cities.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
+        // Anche "citiesEn" (citta' di Wikivoyage EN, build-cities.sh ... en).
+        listOf("cities", "citiesEn").forEach { key ->
+            region.optJSONObject(key)?.let { cities ->
+                validateVersion(cities, "$regionId/$key")
+                validateFile(cities.getJSONObject("file"), regionId, allowedHosts)
+                cities.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
+            }
         }
 
         // Anteprima offline: facoltativa (regioni non ancora rigenerate da quando esiste, o senza

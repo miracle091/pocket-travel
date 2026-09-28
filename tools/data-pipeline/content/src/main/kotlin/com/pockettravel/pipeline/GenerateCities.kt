@@ -22,6 +22,22 @@ private val cityHeadingToCategory = mapOf(
     "informazioni utili" to "VITA_QUOTIDIANA",
 )
 
+// Stesso contratto per le pagine citta' di Wikivoyage EN (GenerateCities --lang en).
+private val cityHeadingToCategoryEn = mapOf(
+    "understand" to "DA_SAPERE",
+    "get in" to "TRASPORTI",
+    "get around" to "TRASPORTI",
+    "see" to "COSA_VEDERE",
+    "do" to "COSA_VEDERE",
+    "buy" to "ACQUISTI",
+    "eat" to "CIBO_BEVANDE",
+    "drink" to "CIBO_BEVANDE",
+    "sleep" to "ALLOGGIO",
+    "stay safe" to "SICUREZZA",
+    "connect" to "CONNETTIVITA",
+    "cope" to "VITA_QUOTIDIANA",
+)
+
 data class CitySectionRow(val city: String, val category: String, val title: String, val body: String, val sourceUrl: String)
 
 /**
@@ -29,12 +45,12 @@ data class CitySectionRow(val city: String, val category: String, val title: Str
  * scritto da extract-cities-dump.py (build-cities-dump.sh) con un solo passaggio sul dump di
  * Wikivoyage IT per tutte le regioni -> le sue city_sections.
  */
-fun parseCitiesJsonl(jsonl: String): List<CitySectionRow> =
+fun parseCitiesJsonl(jsonl: String, english: Boolean = false): List<CitySectionRow> =
     jsonl.lineSequence().filter { it.isNotBlank() }.flatMap { line ->
         val obj = JSONObject(line)
         val city = obj.getString("city")
-        val sourceUrl = "https://it.wikivoyage.org/wiki/" + city.replace(" ", "_")
-        parseWikivoyageDump(obj.getString("text"), cityHeadingToCategory).map { section ->
+        val sourceUrl = (if (english) "https://en.wikivoyage.org/wiki/" else "https://it.wikivoyage.org/wiki/") + city.replace(" ", "_")
+        parseWikivoyageDump(obj.getString("text"), if (english) cityHeadingToCategoryEn else cityHeadingToCategory).map { section ->
             CitySectionRow(city = city, category = section.category, title = section.title, body = section.body, sourceUrl = sourceUrl)
         }
     }.toList()
@@ -77,13 +93,16 @@ fun writeCitiesDb(sections: List<CitySectionRow>, outputDb: File) {
  * build-cities-dump.sh) o senza sezioni utili: nessun cities.db scritto, il chiamante tiene la
  * voce "cities" gia' pubblicata (se c'e').
  */
-fun main(args: Array<String>) {
-    require(args.size == 2) { "Uso: generateCities <cities.jsonl> <output cities.db>" }
+fun main(rawArgs: Array<String>) {
+    // --lang en: pagine di Wikivoyage EN (<regionId>.cities-en.jsonl, extract-cities-dump-en.py).
+    val english = rawArgs.firstOrNull() == "--lang" && rawArgs.getOrNull(1) == "en"
+    val args = if (rawArgs.firstOrNull() == "--lang") rawArgs.drop(2) else rawArgs.toList()
+    require(args.size == 2) { "Uso: generateCities [--lang en] <cities.jsonl> <output cities.db>" }
     val jsonlFile = File(args[0])
     val outputDb = File(args[1])
     outputDb.delete()
 
-    val sections = if (jsonlFile.exists() && jsonlFile.length() > 0) parseCitiesJsonl(jsonlFile.readText()) else emptyList()
+    val sections = if (jsonlFile.exists() && jsonlFile.length() > 0) parseCitiesJsonl(jsonlFile.readText(), english) else emptyList()
     if (sections.isEmpty()) {
         println("citta': nessuna sezione, cities.db non generato")
         return

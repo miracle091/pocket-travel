@@ -71,4 +71,13 @@ class GenerateCitiesTest {
             outputDb.delete()
         }
     }
+
+    @Test
+    fun `citta' di Wikivoyage EN con i titoli di sezione inglesi`() {
+        val text = "{{isPartOf|Rimini (province)}}\n==Understand==\nA seaside town.\n==See==\nThe arch.\n==Go next==\nSan Marino.\n{{usablecity}}"
+        val jsonl = org.json.JSONObject().put("city", "Rimini").put("text", text).toString()
+        val rows = parseCitiesJsonl(jsonl, english = true)
+        assertEquals(listOf("DA_SAPERE", "COSA_VEDERE"), rows.map { it.category })
+        assertEquals("https://en.wikivoyage.org/wiki/Rimini", rows.first().sourceUrl)
+    }
 }
