@@ -3,6 +3,7 @@ package com.pockettravel.feature.ai
 import android.content.Context
 import androidx.core.content.edit
 import com.pockettravel.core.data.crypto.KeystoreCipher
+import com.pockettravel.core.sync.currentGuidesLanguage
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -46,7 +47,7 @@ class AiSettingsStore @Inject constructor(@ApplicationContext private val contex
     fun selectedModelId(): String =
         prefs.getString(KEY_SELECTED_MODEL_ID, null)?.takeIf { id -> LlmModelCatalog.ALL.any { it.id == id } }
             ?: downloadedModelId()
-            ?: LlmModelCatalog.defaultFor(DeviceAiCapability(context).ramTier()).id
+            ?: LlmModelCatalog.defaultFor(DeviceAiCapability(context).ramTier(), currentGuidesLanguage()).id
 
     // Stessa cartella di AiModule.provideAiModelsDir.
     private fun downloadedModelId(): String? {

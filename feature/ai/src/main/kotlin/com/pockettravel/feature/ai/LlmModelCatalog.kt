@@ -19,6 +19,9 @@ data class LlmModelDefinition(
     val sizeBytes: Long,
     val minRamTier: RamTier,
     val origin: ModelOrigin = ModelOrigin.UFFICIALE,
+    // Lingua in cui risponde un modello addestrato da noi ("it"; "en" per quelli inglesi, quando ci
+    // saranno). Null per gli ufficiali, che rispondono nella lingua del prompt.
+    val language: String? = null,
 )
 
 /** Da dove viene il modello: la lista dei modelli li mostra in due gruppi separati. */
@@ -82,6 +85,7 @@ object LlmModelCatalog {
             sizeBytes = 529_297_120L,
             minRamTier = RamTier.MINIMO,
             origin = ModelOrigin.ADDESTRATO,
+            language = "it",
         ),
         LlmModelDefinition(
             id = "pt-qwen3.5-2b",
@@ -92,6 +96,7 @@ object LlmModelCatalog {
             sizeBytes = 1_274_396_384L,
             minRamTier = RamTier.CONFORTEVOLE,
             origin = ModelOrigin.ADDESTRATO,
+            language = "it",
         ),
         LlmModelDefinition(
             id = "pt-qwen3-4b-2507",
@@ -102,6 +107,7 @@ object LlmModelCatalog {
             sizeBytes = 2_497_280_416L,
             minRamTier = RamTier.AMPIA,
             origin = ModelOrigin.ADDESTRATO,
+            language = "it",
         ),
     )
 
@@ -109,12 +115,15 @@ object LlmModelCatalog {
      * Modello predefinito per la fascia di RAM del dispositivo: il nostro addestrato scaricabile della
      * fascia (4 GB -> 0.8B, 8 GB -> 2B, 12 GB -> 4B), o il piu' grande tra quelli che la fascia regge;
      * con RAM insufficiente (IA locale disattivata) il piu' leggero. Addestrati invece degli ufficiali
-     * (utente, 2026-09-27): rifiutano molto meglio le domande a cui la guida non risponde.
+     * (utente, 2026-09-27): rifiutano molto meglio le domande a cui la guida non risponde. Solo quelli
+     * addestrati nella lingua dell'interfaccia [language]: senza (oggi per l'inglese) gli ufficiali,
+     * con la stessa regola delle fasce.
      */
-    fun defaultFor(tier: RamTier): LlmModelDefinition {
-        val trained = ALL.filter { it.origin == ModelOrigin.ADDESTRATO && it.sha256 != null }
-        return trained.filter { it.minRamTier <= tier }.maxByOrNull { it.minRamTier }
-            ?: trained.minBy { it.minRamTier }
+    fun defaultFor(tier: RamTier, language: String = "it"): LlmModelDefinition {
+        val candidates = ALL.filter { it.origin == ModelOrigin.ADDESTRATO && it.language == language && it.sha256 != null }
+            .ifEmpty { ALL.filter { it.origin == ModelOrigin.UFFICIALE && it.sha256 != null } }
+        return candidates.filter { it.minRamTier <= tier }.maxByOrNull { it.minRamTier }
+            ?: candidates.minBy { it.minRamTier }
     }
 }
 

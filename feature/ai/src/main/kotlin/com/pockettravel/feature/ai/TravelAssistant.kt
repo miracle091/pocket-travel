@@ -9,6 +9,7 @@ import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.Note
 import com.pockettravel.core.data.NoteRepository
 import com.pockettravel.core.data.officialSourceFor
+import com.pockettravel.core.sync.currentGuidesLanguage
 import javax.inject.Inject
 
 data class AssistantAnswer(
@@ -36,6 +37,8 @@ class TravelAssistant @Inject constructor(
     private val nationalityPreferences: NationalityPreferences,
 ) {
     suspend fun ask(regionId: String, question: String, mode: AiEngineMode): AssistantAnswer {
+        // Lingua dell'interfaccia: prompt, testo di ripiego e citazioni (le guide installate la seguono).
+        val language = currentGuidesLanguage()
         val ftsQuery = buildFtsQuery(question, regionId)
         val sections = if (ftsQuery.isBlank()) {
             emptyList()
@@ -44,27 +47,29 @@ class TravelAssistant @Inject constructor(
                 guideRepository.searchInRegionScored(regionId, ftsQuery, MAX_SECTIONS),
                 cityRepository.searchInRegionScored(regionId, ftsQuery, MAX_SECTIONS),
                 MAX_SECTIONS,
+                language,
             )
         }
         val regulatedMatch = sections.firstOrNull { it.isRegulatedTopic() }
 
         return when (mode) {
-            AiEngineMode.ON_DEVICE -> askOnDevice(question, sections)
-            AiEngineMode.ONLINE -> askOnline(question)
+            AiEngineMode.ON_DEVICE -> askOnDevice(question, sections, language)
+            AiEngineMode.ONLINE -> askOnline(question, language)
         }.copy(
             showOfficialSourceBanner = regulatedMatch != null,
             officialSourceUrl = regulatedMatch?.let { officialSourceFor(it.category, nationalityPreferences.nationality.value)?.url },
         )
     }
 
-    private suspend fun askOnDevice(question: String, sections: List<AssistantSection>): AssistantAnswer {
+    private suspend fun askOnDevice(question: String, sections: List<AssistantSection>, language: String): AssistantAnswer {
         // Ricerca sulla domanda in linguaggio naturale, non sulla ftsQuery (sintassi OR specifica
         // delle guide): NoteRepository.search fa la sua tokenizzazione, vedi rankNotesByQuery.
         val note = noteRepository.search(question, limit = 1).firstOrNull()
         val context = buildOnDeviceContext(sections, note)
         val prompt = PromptTemplates.onDevicePrompt(
-            context = context.ifBlank { "Nessuna informazione disponibile per questa regione." },
+            context = context.ifBlank { PromptTemplates.emptyContext(language) },
             question = question,
+            language = language,
         )
         return AssistantAnswer(
             text = engine.generate(prompt),
@@ -73,13 +78,13 @@ class TravelAssistant @Inject constructor(
         )
     }
 
-    private suspend fun askOnline(question: String): AssistantAnswer {
+    private suspend fun askOnline(question: String, language: String): AssistantAnswer {
         val apiKey = aiSettingsStore.apiKey() ?: error("Nessuna chiave API online configurata")
         val text = onlineLlmClient.generate(
             baseUrl = aiSettingsStore.baseUrl(),
             apiKey = apiKey,
             model = aiSettingsStore.model(),
-            prompt = OnlinePromptTemplates.onlinePrompt(question),
+            prompt = OnlinePromptTemplates.onlinePrompt(question, language),
         )
         return AssistantAnswer(text = text, sourceCitations = emptyList(), showOfficialSourceBanner = false)
     }
@@ -101,16 +106,16 @@ private fun AssistantSection.isRegulatedTopic(): Boolean =
 
 // CC BY-SA 4.0 impone di indicare la fonte: titolo + link all'articolo originale, non solo il
 // nome "Wikivoyage".
-private fun GuideSection.toAssistantSection() = AssistantSection(
+private fun GuideSection.toAssistantSection(language: String) = AssistantSection(
     body = body,
     category = category,
-    citation = "Fonte: Wikivoyage, sezione $title — $sourceUrl",
+    citation = if (language == "en") "Source: Wikivoyage, section $title — $sourceUrl" else "Fonte: Wikivoyage, sezione $title — $sourceUrl",
 )
 
-private fun CitySection.toAssistantSection() = AssistantSection(
+private fun CitySection.toAssistantSection(language: String) = AssistantSection(
     body = body,
     category = category,
-    citation = "Fonte: Wikivoyage, sezione $title ($city) — $sourceUrl",
+    citation = if (language == "en") "Source: Wikivoyage, section $title ($city) — $sourceUrl" else "Fonte: Wikivoyage, sezione $title ($city) — $sourceUrl",
 )
 
 /**
@@ -122,9 +127,10 @@ internal fun mergeBestSections(
     guideMatches: List<Pair<GuideSection, Double>>,
     cityMatches: List<Pair<CitySection, Double>>,
     limit: Int,
+    language: String = "it",
 ): List<AssistantSection> =
-    (guideMatches.map { (section, score) -> section.toAssistantSection() to score } +
-        cityMatches.map { (section, score) -> section.toAssistantSection() to score })
+    (guideMatches.map { (section, score) -> section.toAssistantSection(language) to score } +
+        cityMatches.map { (section, score) -> section.toAssistantSection(language) to score })
         .sortedByDescending { (_, score) -> score }
         .take(limit)
         .map { (section, _) -> section }

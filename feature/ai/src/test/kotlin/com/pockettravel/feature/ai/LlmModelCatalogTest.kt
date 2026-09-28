@@ -26,4 +26,10 @@ class LlmModelCatalogTest {
             assertTrue(model.sha256 != null)
         }
     }
+
+    @Test
+    fun `in inglese, senza modelli addestrati in inglese, il predefinito e' l'ufficiale della fascia`() {
+        assertEquals(ModelOrigin.UFFICIALE, LlmModelCatalog.defaultFor(RamTier.CONFORTEVOLE, "en").origin)
+        assertEquals(RamTier.CONFORTEVOLE, LlmModelCatalog.defaultFor(RamTier.CONFORTEVOLE, "en").minRamTier)
+    }
 }
