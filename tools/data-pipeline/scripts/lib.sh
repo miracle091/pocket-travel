@@ -179,7 +179,10 @@ wikimedia_curl() { curl -sSf --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT"
 # titolo, per abbinare le pagine {{QuickbarCity}} del dump alla regione).
 resolve_it_wikivoyage_title() {
   local wikiTitle="$1" langlinks
-  langlinks="$(wikimedia_curl "https://en.wikivoyage.org/w/api.php?action=query&titles=${wikiTitle}&prop=langlinks&lllang=it&format=json&utf8=1&redirects=1" 2>/dev/null || true)"
+  # Titolo codificato (--data-urlencode): con lettere accentate in chiaro ("Île-de-France")
+  # Wikimedia risponde 400.
+  langlinks="$(wikimedia_curl -G "https://en.wikivoyage.org/w/api.php" --data-urlencode "titles=${wikiTitle}" \
+    -d action=query -d prop=langlinks -d lllang=it -d format=json -d utf8=1 -d redirects=1 2>/dev/null || true)"
   printf '%s' "$langlinks" | sed -n 's/.*"lang":"it","\*":"\([^"]*\)".*/\1/p'
 }
 
@@ -240,7 +243,7 @@ fetch_wikivoyage_lang_dump() {
 # build-guides.sh la usa anche come ripiego per le pagine italiane con i soli titoli.
 fetch_wikivoyage_en_dump() {
   local wikiTitle="$1" outFile="$2"
-  wikimedia_curl "https://en.wikivoyage.org/w/index.php?title=${wikiTitle}&action=raw" -o "$outFile" 2>/dev/null || : > "$outFile"
+  wikimedia_curl -G "https://en.wikivoyage.org/w/index.php" --data-urlencode "title=${wikiTitle}" -d action=raw -o "$outFile" 2>/dev/null || : > "$outFile"
   if [ -s "$outFile" ]; then
     echo "https://en.wikivoyage.org/wiki/${wikiTitle}"
     return 0
