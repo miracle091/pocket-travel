@@ -54,10 +54,20 @@ import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.Style
-import org.maplibre.android.plugins.annotation.SymbolManager
-import org.maplibre.android.plugins.annotation.SymbolOptions
+import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.layers.SymbolLayer
+import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.Point
 
 private const val PIN_ICON_PREFIX = "pocket-travel-pin-"
+private const val PINS_SOURCE = "pocket-travel-pins"
+private const val PINS_LAYER = "pocket-travel-pins"
+private const val PIN_ID = "id"
+private const val PIN_ICON = "icon"
 
 // I parcheggi sono tanti e fitti (a Rimini oltre 800): solo da vicino, per non coprire il resto.
 private const val PARKING_MIN_ZOOM = 15.0
@@ -91,10 +101,10 @@ fun MapScreen(
     val darkMap = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val styleJson = remember(tileSource, regionId, darkMap, mapSource) { tileSource.styleJson(regionId, dark = darkMap) }
     var configuredStyle by remember { mutableStateOf<String?>(null) }
-    var symbolManager by remember { mutableStateOf<SymbolManager?>(null) }
+    // Sorgente dei segnalini dello stile corrente: null durante un cambio di stile.
+    var pinsSource by remember { mutableStateOf<GeoJsonSource?>(null) }
     // Saveable: il foglio resta aperto dopo una rotazione o un cambio di tema.
     var showLegend by rememberSaveable { mutableStateOf(false) }
-    var symbolPinMap by remember { mutableStateOf<Map<Long, MapPin>>(emptyMap()) }
     // Saveable come id, non come MapPin: resta valido dopo una rotazione risolvendolo di nuovo
     // sulla lista pins corrente, invece di riaprire il foglio su un pin ormai stantio.
     var selectedPinId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -107,6 +117,13 @@ fun MapScreen(
             // Move per i gesti, idle anche per gli spostamenti via codice (il fit iniziale).
             map.addOnCameraMoveListener(update)
             map.addOnCameraIdleListener(update)
+            // Tocco su un segnalino: il primo sotto il dito nel layer dei POI.
+            map.addOnMapClickListener { latLng ->
+                val id = map.queryRenderedFeatures(map.projection.toScreenLocation(latLng), PINS_LAYER)
+                    .firstNotNullOfOrNull { it.getStringProperty(PIN_ID) }
+                if (id != null) selectedPinId = id
+                id != null
+            }
         }
     }
     val visiblePins = pins.filter {
@@ -114,10 +131,10 @@ fun MapScreen(
             !(hideInaccessible && it.wheelchair == "no")
     }
     val presentCategories = PoiCategory.entries.filter { category -> pins.any { it.category == category } }
-    // Segnalini ridisegnati solo quando cambiano quelli visibili o il SymbolManager (nuovo stile),
+    // Segnalini ridisegnati solo quando cambiano quelli visibili o la sorgente (nuovo stile),
     // non a ogni ricomposizione.
-    LaunchedEffect(symbolManager, visiblePins) {
-        symbolPinMap = renderPins(symbolManager, visiblePins)
+    LaunchedEffect(pinsSource, visiblePins) {
+        pinsSource?.setGeoJson(pinsFeatureCollection(visiblePins))
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -133,13 +150,10 @@ fun MapScreen(
                         // un placeholder piu' vicino allo zoom target non costa una richiesta di
                         // rete in piu' come costerebbe con tile remote, solo un parsing leggermente
                         // anticipato di una tile che verra' comunque renderizzata.
-                        // Il vecchio SymbolManager e' legato allo stile corrente: va chiuso PRIMA di
-                        // setStyle. Chiuso dopo (nel callback) il suo layer nativo e' gia' stato
-                        // distrutto dal cambio di stile e onDestroy va in SIGSEGV (visto al ritorno
-                        // della rete, quando la mappa passa dallo sfondo "mancante" al mondo online).
-                        symbolManager?.onDestroy()
-                        symbolManager = null
                         map.prefetchZoomDelta = 1
+                        // La sorgente dei segnalini appartiene allo stile corrente: non va piu' usata
+                        // dopo setStyle, che ne crea una nuova nel callback.
+                        pinsSource = null
                         map.setStyle(Style.Builder().fromJson(styleJson)) { style ->
                             PoiCategory.entries.forEach { category ->
                                 style.addImage(iconIdFor(category), poiPinBitmap(context, category))
@@ -147,12 +161,15 @@ fun MapScreen(
                             // Usata solo quando lo stile non ha alcuna sorgente (MapSourceKind.NONE),
                             // ma aggiunta sempre, come le icone dei POI sopra.
                             style.addImage(MISSING_MAP_HATCH_IMAGE, missingMapHatchBitmap(context, darkMap))
-                            symbolManager = SymbolManager(view, map, style).apply {
-                                addClickListener { symbol ->
-                                    selectedPinId = symbolPinMap[symbol.id]?.id
-                                    true
-                                }
-                            }
+                            val source = GeoJsonSource(PINS_SOURCE)
+                            style.addSource(source)
+                            style.addLayer(
+                                SymbolLayer(PINS_LAYER, PINS_SOURCE).withProperties(
+                                    PropertyFactory.iconImage(Expression.get(PIN_ICON)),
+                                    PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+                                ),
+                            )
+                            pinsSource = source
                         }
                     }
                 }
@@ -307,16 +324,13 @@ private fun wheelchairLabel(value: String?): Int? = when (value) {
     else -> null
 }
 
-private fun renderPins(symbolManager: SymbolManager?, pins: List<MapPin>): Map<Long, MapPin> {
-    symbolManager ?: return emptyMap()
-    symbolManager.deleteAll()
-    return pins.associate { pin ->
-        val symbol = symbolManager.create(
-            SymbolOptions()
-                .withLatLng(LatLng(pin.latitude, pin.longitude))
-                .withIconImage(iconIdFor(pin.category))
-                .withIconAnchor("bottom"),
-        )
-        symbol.id to pin
-    }
-}
+// Un punto per segnalino, con l'id del pin (per il tocco) e l'icona della sua categoria.
+private fun pinsFeatureCollection(pins: List<MapPin>): FeatureCollection =
+    FeatureCollection.fromFeatures(
+        pins.map { pin ->
+            Feature.fromGeometry(Point.fromLngLat(pin.longitude, pin.latitude)).apply {
+                addStringProperty(PIN_ID, pin.id)
+                addStringProperty(PIN_ICON, iconIdFor(pin.category))
+            }
+        },
+    )
