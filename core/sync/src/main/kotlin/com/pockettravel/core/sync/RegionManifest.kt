@@ -16,8 +16,7 @@ data class RegionManifest(
     val guides: GuidesManifestEntry,
     // Indice dei civici a griglia (address-grid-plan.md), a fianco di manifest.json su GitHub
     // Pages: assente finche' la pipeline non e' passata alla griglia, o per le app vecchie che non
-    // lo sanno leggere (ignoreUnknownKeys = true). Le voci "addresses" delle singole regioni restano
-    // congelate (vedi RegionManifestEntry) invece di sparire, cosi' quelle app continuano a funzionare.
+    // lo sanno leggere (ignoreUnknownKeys = true).
     val addressGrid: AddressGridManifestEntry? = null,
     val regions: List<RegionManifestEntry>,
     // Regioni tolte e divise in regioni piu' piccole (es. "stati-uniti" -> gli stati): l'app le propone
@@ -53,17 +52,13 @@ data class RegionManifestEntry(
     val poi: PoiPackageEntry,
     // POI extra (fontanelle, tavoli da picnic...): assenti per le regioni senza o non ancora rigenerate.
     val poiExtra: PoiPackageEntry? = null,
-    // Numeri civici: assenti per le regioni non ancora generate o troppo grandi da estrarre. Percorso
-    // di oggi, congelato dal passaggio alla griglia (vedi RegionManifest.addressGrid): non si aggiorna
-    // piu' per le regioni che sono passate a [addressGrid].
-    val addresses: AddressesPackageEntry? = null,
     // Celle dei civici a griglia (address-grid-plan.md) che intersecano questa regione: mai nel
     // manifest (assente li'), valorizzato dall'app dopo aver scaricato l'indice (AddressGridClient +
     // regionGridCells) prima di accodare un download — cosi' RegionPackageDownloadWorker lo riceve
     // nell'input di lavoro insieme al resto dell'entry, senza bisogno di un canale a parte. La
     // versione dei civici si calcola da qui (regionAddressesGridVersion), non e' un campo a parte:
-    // non puo' disallinearsi dalle celle. Null se il manifest non offre [RegionManifest.addressGrid],
-    // se questa regione ha gia' [addresses] (percorso di oggi) o se non ha celle nel suo riquadro.
+    // non puo' disallinearsi dalle celle. Null se il manifest non offre [RegionManifest.addressGrid]
+    // o se questa regione non ha celle nel suo riquadro.
     val addressGrid: RegionAddressGridEntry? = null,
     // Guide delle citta' (city_sections di cities.db): assenti per le regioni senza citta' abbinate.
     val cities: CitiesPackageEntry? = null,
@@ -87,8 +82,7 @@ data class RegionManifestEntry(
         PackageKind.ROUTING -> routing.version
         PackageKind.POI -> poi.version
         PackageKind.POI_EXTRA -> poiExtra?.version
-        // A griglia se la regione ha celle, altrimenti il percorso di oggi (mai entrambi: vedi addressGrid).
-        PackageKind.ADDRESSES -> addressGrid?.let { regionAddressesGridVersion(it.cells) } ?: addresses?.version
+        PackageKind.ADDRESSES -> addressGrid?.let { regionAddressesGridVersion(it.cells) }
         PackageKind.CITIES -> cities?.version
     }
 
@@ -121,8 +115,7 @@ data class RegionManifestEntry(
             (if (PackageKind.CITIES in kinds) cities?.downloadFile?.sizeBytes ?: 0L else 0L)
 
     private fun addressesDownloadBytes(installedAddressCells: Map<String, String>): Long =
-        addressGrid?.cells?.filter { installedAddressCells[it.id] != it.version }?.sumOf { it.downloadFile.sizeBytes }
-            ?: addresses?.downloadFile?.sizeBytes ?: 0L
+        addressGrid?.cells?.filter { installedAddressCells[it.id] != it.version }?.sumOf { it.downloadFile.sizeBytes } ?: 0L
 }
 
 /** map.pmtiles non e' un file scaricato: viene estratto sul device dalle tile di [source]. */
@@ -140,16 +133,6 @@ data class RoutingPackageEntry(val version: String, val files: List<RegionManife
  */
 @Serializable
 data class PoiPackageEntry(val version: String, val file: RegionManifestFile, val fileXz: RegionManifestFile? = null) {
-    val downloadFile: RegionManifestFile get() = fileXz ?: file
-}
-
-/**
- * addresses.pmtiles della regione: i soli civici, sovrapposti alla mappa. Stesso schema di
- * [PoiPackageEntry]: [fileXz], se c'e', e' il file da scaricare, compresso con xz, il cui risultato
- * decompresso deve avere dimensione e sha256 di [file].
- */
-@Serializable
-data class AddressesPackageEntry(val version: String, val file: RegionManifestFile, val fileXz: RegionManifestFile? = null) {
     val downloadFile: RegionManifestFile get() = fileXz ?: file
 }
 
@@ -242,11 +225,6 @@ fun RegionManifestEntry.validate() {
     poi.fileXz?.validate(regionId)
     poiExtra?.let {
         require(isSafeVersion(it.version)) { "version dei POI extra non valida per $regionId" }
-        it.file.validate(regionId)
-        it.fileXz?.validate(regionId)
-    }
-    addresses?.let {
-        require(isSafeVersion(it.version)) { "version dei civici non valida per $regionId" }
         it.file.validate(regionId)
         it.fileXz?.validate(regionId)
     }

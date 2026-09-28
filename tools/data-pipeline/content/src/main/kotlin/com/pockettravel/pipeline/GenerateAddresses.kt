@@ -70,7 +70,7 @@ fun extractAddresses(pmtiles: File, minLon: Double, minLat: Double, maxLon: Doub
 
 /**
  * Civici gia' come punti, una riga "lat<TAB>lon<TAB>numero" (fonte di riserva Overpass di
- * build-addresses.sh, per le regioni troppo grandi da estrarre dalle z15), tenendo solo quelli nel bbox.
+ * build-address-cell.sh, per le celle troppo grandi da estrarre dalle z15), tenendo solo quelli nel bbox.
  */
 fun readAddressPoints(points: File, minLon: Double, minLat: Double, maxLon: Double, maxLat: Double): List<Address> =
     points.readLines().mapNotNull { line ->
@@ -252,7 +252,7 @@ private fun gzip(bytes: ByteArray): ByteArray =
 fun main(args: Array<String>) {
     require(args.size >= 6) {
         "Uso: generateAddresses <output.pmtiles> <minLon> <minLat> <maxLon> <maxLat> <z15-1.pmtiles | punti.tsv> [...] " +
-            "[--overture <overture.tsv>] [--cell <z/x/y>]"
+            "--cell <z/x/y> [--overture <overture.tsv>]"
     }
     val output = File(args[0])
     val (minLon, minLat, maxLon, maxLat) = args.slice(1..4).map { it.toDouble() }
@@ -267,6 +267,7 @@ fun main(args: Array<String>) {
             else -> { inputPaths += args[i]; i += 1 }
         }
     }
+    val cellId = requireNotNull(cell) { "--cell <z/x/y> obbligatorio: ogni build scrive i civici di una cella della griglia (vedi address-grid-plan.md)" }
     // Con piu' estratti (riquadri adiacenti) un indirizzo sul bordo compare in entrambi.
     val osmAddresses = inputPaths.map(::File)
         .flatMap {
@@ -274,12 +275,11 @@ fun main(args: Array<String>) {
         }
         .distinct()
     val overtureAddresses = overtureFile?.let { readOvertureAddressPoints(it, minLon, minLat, maxLon, maxLat) }.orEmpty()
-    var addresses = if (overtureAddresses.isEmpty()) osmAddresses else dedupeWithOverture(osmAddresses, overtureAddresses)
-    val beforeCellFilter = addresses.size
-    cell?.let { addresses = addresses.filter { address -> addressCellContains(address, it) } }
+    val deduped = if (overtureAddresses.isEmpty()) osmAddresses else dedupeWithOverture(osmAddresses, overtureAddresses)
+    val addresses = deduped.filter { address -> addressCellContains(address, cellId) }
     writeAddressesPmtiles(addresses, output, minLon, minLat, maxLon, maxLat)
     println(
         "indirizzi: ${addresses.size} scritti in ${output.path} " +
-            "(osm=${osmAddresses.size}, overture=${overtureAddresses.size}, dopo deduplica=$beforeCellFilter)",
+            "(osm=${osmAddresses.size}, overture=${overtureAddresses.size}, dopo deduplica=${deduped.size})",
     )
 }

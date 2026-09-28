@@ -129,7 +129,7 @@ POI_MAX_AGE_DAYS="${POI_MAX_AGE_DAYS:-30}"
 PREVIEW_MAX_ZOOM=9
 PREVIEW_MIN_ZOOM=6
 PREVIEW_MAX_XZ_BYTES=$((10 * 1024 * 1024))
-# go-pmtiles: stesso binario e stessa installazione di build-addresses.sh (vedi publish-regions.yml).
+# go-pmtiles: stesso binario e stessa installazione di build-address-cell.sh (vedi publish-regions.yml).
 # Mancante = niente anteprima, mai fatale per la regione (solo un avviso).
 PMTILES_BIN="${PMTILES_BIN:-$(command -v pmtiles || command -v go-pmtiles || true)}"
 
@@ -592,7 +592,7 @@ done
 # 44 MB di gzip. Nel manifest "file" descrive il database non compresso (nome, dimensione e sha256,
 # che l'app ricontrolla dopo la decompressione) e "fileXz" il file da scaricare; tutti e due hanno
 # l'URL del .xz. xz_entry (dizionario da 16 MiB, un solo thread) e' in lib.sh: stessa convenzione
-# per guides.db (build-guides.sh) e addresses.pmtiles (build-addresses.sh).
+# per guides.db (build-guides.sh).
 
 # --- 5. Frammento manifest.json (poi.db e poi-extra.db nostri + rd5 ri-ospitati + sorgente mappa)
 POI_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi.db.xz"

@@ -2,10 +2,11 @@ package com.pockettravel.app.regions
 
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionPackage
-import com.pockettravel.core.sync.AddressesPackageEntry
+import com.pockettravel.core.sync.AddressGridCell
 import com.pockettravel.core.sync.MapExtractionSource
 import com.pockettravel.core.sync.MapPackageEntry
 import com.pockettravel.core.sync.PoiPackageEntry
+import com.pockettravel.core.sync.RegionAddressGridEntry
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionManifestFile
 import com.pockettravel.core.sync.ReplacedRegion
@@ -32,7 +33,9 @@ class RegionUiItemTest {
             addressesVersion = addresses, poiSizeBytes = poi?.let { 60_000_000L }, poiExtraSizeBytes = poiExtra?.let { 1_000_000L }, sizeBytes = 123,
         )
 
-    private val withAddresses = remote.copy(addresses = AddressesPackageEntry("a1", file("addresses.pmtiles", 50_000_000)))
+    private val withAddresses = remote.copy(
+        addressGrid = RegionAddressGridEntry(listOf(AddressGridCell("1/0/0", "a1", file("cell-1-0-0--addresses.pmtiles", 50_000_000)))),
+    )
 
     private val noBytes: (RegionPackage, PackageKind) -> Long? = { _, _ -> null }
 
@@ -89,6 +92,14 @@ class RegionUiItemTest {
 
         assertEquals(RegionStatus.INSTALLED, item.status)
         assertEquals(RegionStatus.NOT_INSTALLED, item.packages.first { it.kind == PackageKind.ADDRESSES }.status)
+    }
+
+    @Test
+    fun `civici installati con una version legacy (percorso di oggi) sono un aggiornamento quando il manifest offre la griglia`() {
+        val item = regionUiItem(withAddresses, local(map = "m2", routing = "r1", poi = "p2", addresses = "2024-01-15"), noBytes)
+
+        assertEquals(RegionStatus.UPDATE_AVAILABLE, item.status)
+        assertEquals(RegionStatus.UPDATE_AVAILABLE, item.packages.first { it.kind == PackageKind.ADDRESSES }.status)
     }
 
     @Test

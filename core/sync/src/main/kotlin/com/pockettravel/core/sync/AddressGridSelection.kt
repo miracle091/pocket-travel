@@ -55,14 +55,13 @@ fun regionAddressesGridVersion(cells: List<AddressGridCell>): String {
 
 /**
  * Arricchisce [entries] con le celle della griglia indirizzi (address-grid-plan.md, "App" 1-3):
- * regioni che hanno gia' [RegionManifestEntry.addresses] (percorso di oggi, congelato) o senza
- * celle nel loro riquadro restano invariate. [index] null (manifest senza addressGrid, o non
- * scaricato con successo) lascia tutte le regioni invariate: percorso di oggi.
+ * regioni senza celle nel loro riquadro restano invariate. [index] null (manifest senza
+ * addressGrid, o non scaricato con successo) lascia tutte le regioni invariate: i civici non sono
+ * disponibili per nessuna regione, come le regioni senza celle nel loro riquadro.
  */
 fun attachAddressGridCells(entries: List<RegionManifestEntry>, index: AddressGridIndex?): List<RegionManifestEntry> {
     if (index == null) return entries
     return entries.map { entry ->
-        if (entry.addresses != null) return@map entry
         val cells = regionGridCells(index, entry.map.source)
         if (cells.isEmpty()) entry else entry.copy(addressGrid = RegionAddressGridEntry(cells))
     }

@@ -3,8 +3,8 @@
 # parti") per TUTTE le regioni passate: risolve la pagina IT di ciascuna (stesso approccio a
 # langlink di fetch_wikivoyage_dump, vedi resolve_it_wikivoyage_title in lib.sh) e scrive
 # <outDir>/<regionId>.cities.jsonl con le pagine {{QuickbarCity}} che la citano (Stato/Stato
-# federato/Regione/Territorio), lette poi da build-cities.sh (una regione alla volta, come
-# build-addresses.sh legge le z15) per generare cities.db.
+# federato/Regione/Territorio), lette poi da build-cities.sh (una regione alla volta) per generare
+# cities.db.
 #
 # Mai fatale per il chiamante (vedi publish-regions.yml): se il dump non si scarica o non passa la
 # verifica sha1 (fetch_wikivoyage_it_dump in lib.sh), o se nessuna pagina IT si risolve, esce 1

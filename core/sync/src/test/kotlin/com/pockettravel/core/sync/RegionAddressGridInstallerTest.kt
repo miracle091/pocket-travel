@@ -84,6 +84,34 @@ class RegionAddressGridInstallerTest {
     }
 
     @Test
+    fun `un addresses pmtiles legacy senza sidecar non si legge, tutte le celle si scaricano`() {
+        val (storage, installer) = newStorageAndInstaller()
+        val regionDir = storage.directoryFor("san-marino").apply { mkdirs() }
+        // Percorso di oggi installato prima del passaggio alla griglia: addresses.pmtiles c'e' ma senza
+        // addresses-cells.json (mai scritto da quel percorso) — il primo giro a griglia deve scaricare
+        // tutte le celle e ricostruire il file, non leggere tile da quello vecchio.
+        writeFixture(File(regionDir, RegionStorage.ADDRESSES_FILE), mapOf(Triple(14, 1, 1) to byteArrayOf(0xAA.toByte())))
+
+        val cellA = AddressGridCell("12/0/0", "v1", cellFile("cell-a.pmtiles")) // z14 discendenti: x 0..3, y 0..3
+        val staging = storage.stagingDirectoryFor("san-marino", "v1").apply { mkdirs() }
+        writeFixture(File(staging, cellA.file.name), mapOf(Triple(14, 1, 1) to byteArrayOf(0xBB.toByte())))
+
+        val plan = installer.plan("san-marino", RegionAddressGridEntry(listOf(cellA)))
+        assertEquals(listOf("12/0/0"), plan.toDownload.map { it.id })
+        assertEquals("nessuna cella e' 'gia' installata' senza il sidecar: tutte da scaricare", emptyList<AddressGridCell>(), plan.unchanged)
+
+        installer.mergeInto("san-marino", mapSource, plan, staging)
+
+        Reader(File(staging, RegionStorage.ADDRESSES_FILE)).use { reader ->
+            assertArrayEquals(
+                "la tile viene dalla cella appena scaricata, non dal vecchio addresses.pmtiles (mai letto)",
+                byteArrayOf(0xBB.toByte()),
+                reader.getTile(14, 1, 1),
+            )
+        }
+    }
+
+    @Test
     fun `una cella invariata si tiene dal file installato, una cambiata si riscarica, una sparita non torna`() {
         val (storage, installer) = newStorageAndInstaller()
         val regionDir = storage.directoryFor("san-marino").apply { mkdirs() }

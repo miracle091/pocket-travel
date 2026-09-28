@@ -316,7 +316,7 @@ jobs:
           ASSET_NAME="world-${PROTOMAPS_DATE}-z8.pmtiles"
           ASSET="$RUNNER_TEMP/$ASSET_NAME"
           # Fino a 3 tentativi: build.protomaps.com a volte chiude la connessione a meta' download
-          # (stesso problema dei civici, vedi with_retries in build-addresses.sh).
+          # (stesso problema dei civici, vedi with_retries in build-address-cell.sh).
           for attempt in 1 2 3; do
             rm -f "$ASSET"
             pmtiles extract "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" "$ASSET" --maxzoom=8 && break
@@ -569,7 +569,8 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
 
-      # go-pmtiles estrae le sole tile z15 dei civici (build-addresses.sh): versione e sha256 fissati.
+      # go-pmtiles estrae l'anteprima offline della regione (preview.pmtiles, build-region.sh):
+      # versione e sha256 fissati.
       - name: Installa go-pmtiles
         shell: bash
         run: |
@@ -618,8 +619,8 @@ jobs:
           mkdir -p "$OUTPUT_ROOT" "$RUNNER_TEMP/fragments"
 
           # Manifest pubblicato scaricato una volta per shard e passato come file locale a
-          # build-region.sh, build-addresses.sh e build-cities.sh (fetch_published_manifest in lib.sh),
-          # invece di tre download per regione. Stessa semantica degli script: non scaricabile =
+          # build-region.sh e build-cities.sh (fetch_published_manifest in lib.sh),
+          # invece di due download per regione. Stessa semantica degli script: non scaricabile =
           # errore, 404 = prima pubblicazione (si lascia l'URL, gli script vedono lo stesso 404).
           PUBLISHED_MANIFEST_FILE="$RUNNER_TEMP/published-manifest.json"
           PUBLISHED_MANIFEST_HTTP="$(fetch_published_manifest "$PUBLISHED_MANIFEST_URL" "$PUBLISHED_MANIFEST_FILE")"
@@ -646,9 +647,6 @@ jobs:
           # riconosciute da "set -e" (il comando testato in una condizione if non fa terminare lo
           # script), quindi si continua con le regioni successive.
           FAILED_REGIONS=()
-          # Regioni rimaste senza civici nuovi, con il motivo (scritto da build-addresses.sh).
-          export ADDRESSES_REPORT="$RUNNER_TEMP/addresses-report.md"
-          : > "$ADDRESSES_REPORT"
           IFS=',' read -ra SHARD_REGIONS <<< "$SELECTED"
 
           # Citta' delle regioni (fase 1 di rag-knowledge-plan.md): un solo passaggio sul dump di
@@ -684,16 +682,6 @@ jobs:
             if tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
               "$minLon" "$minLat" "$maxLon" "$maxLat" "$RELEASE_BASE_URL" "$regionOut" \
               "$PUBLISHED_MANIFEST_URL"; then
-              # Civici (facoltativi, mai fatali): aggiunge la voce "addresses" al frammento e, se il
-              # file e' nuovo, lascia addresses.pmtiles da caricare (togliendo .skipped se serve).
-              # Saltati per le regioni senza nessun civico (region_has_addresses in pilot-regions.sh).
-              if region_has_addresses "$regionId"; then
-                tools/data-pipeline/scripts/build-addresses.sh "$regionId" "$VERSION" \
-                  "$minLon" "$minLat" "$maxLon" "$maxLat" "$RELEASE_BASE_URL" "$regionOut" \
-                  "$PUBLISHED_MANIFEST_URL" || echo "::warning::civici di $regionId non generati"
-              else
-                echo "-- $regionId: nessun civico disponibile (region_has_addresses), salto i civici"
-              fi
               # Citta' (facoltative, mai fatali): aggiunge la voce "cities" al frammento e, se il
               # dump e' stato estratto per questa regione (vedi CITIES_JSONL_DIR sopra) e produce
               # sezioni, lascia cities.db.xz da caricare.
@@ -714,12 +702,11 @@ jobs:
                 # run e tentativo, quindi non tocca mai asset di altre run).
                 # In modalita' incrementale (.incremental, vedi build-region.sh sezione 2bis) si
                 # caricano solo le tile cambiate, piu' poi.db.xz/poi-extra.db.xz se erano scaduti e sono cambiati,
-                # addresses.pmtiles.xz se build-addresses.sh ne ha prodotto uno nuovo e cities.db.xz se
-                # build-cities.sh ne ha prodotto uno nuovo.
+                # e cities.db.xz se build-cities.sh ne ha prodotto uno nuovo.
                 uploads=()
-                # I POI, l'anteprima, i civici e le citta' si caricano solo compressi (vedi xz_entry
+                # I POI, l'anteprima e le citta' si caricano solo compressi (vedi xz_entry
                 # in lib.sh, build_preview in build-region.sh).
-                for xz in poi.db.xz poi-extra.db.xz preview.pmtiles.xz addresses.pmtiles.xz cities.db.xz; do
+                for xz in poi.db.xz poi-extra.db.xz preview.pmtiles.xz cities.db.xz; do
                   [ -f "$regionOut/$xz" ] || continue
                   xzAsset="$regionOut/${regionId}--${VERSION}--$xz"
                   cp "$regionOut/$xz" "$xzAsset"
@@ -775,13 +762,7 @@ jobs:
             if [ "${#FAILED_REGIONS[@]}" -gt 0 ]; then
               echo "Regioni fallite (non pubblicate, da rilanciare a parte): ${FAILED_REGIONS[*]}"
               echo
-            fi
-            if [ -s "$ADDRESSES_REPORT" ]; then
-              echo "Regioni senza civici nuovi:"
-              echo
-              cat "$ADDRESSES_REPORT"
-            fi
-            if [ "${#FAILED_REGIONS[@]}" -eq 0 ] && [ ! -s "$ADDRESSES_REPORT" ]; then
+            else
               echo "Nessun problema."
             fi
           } >> "$GITHUB_STEP_SUMMARY"

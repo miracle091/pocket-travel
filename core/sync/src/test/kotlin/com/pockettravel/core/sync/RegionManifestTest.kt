@@ -94,39 +94,21 @@ class RegionManifestTest {
         assertEquals(31_500_000L, region.downloadBytes(PackageKind.entries.toSet()))
     }
 
-    private val withAddresses = sampleManifest.replace(
+    // Il vecchio pacchetto "addresses" per regione e' stato tolto dall'app (i civici vengono solo
+    // dalla griglia, RegionManifestEntry.addressGrid): il manifest pubblicato lo contiene ancora per
+    // un periodo, l'app deve continuare a leggerlo (ignoreUnknownKeys) senza offrire i civici.
+    private val withLegacyAddresses = sampleManifest.replace(
         "\"continent\": \"Europa\"",
         """"addresses": { "version": "2026.03.04", "file": { "name": "addresses.pmtiles", "url": "https://github.com/o/r/releases/download/region-data/addresses.pmtiles", "sizeBytes": 150000, "sha256": "$sha" } },
               "continent": "Europa"""",
     )
 
     @Test
-    fun `i civici sono facoltativi e contano solo se offerti`() {
-        val without = parse().regions.single()
-        assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI), without.availableKinds)
-        assertNull(without.versionOf(PackageKind.ADDRESSES))
-
-        val with = parse(withAddresses).regions.single()
-        with.validate()
-        assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI, PackageKind.ADDRESSES), with.availableKinds)
-        assertEquals("2026.03.04", with.versionOf(PackageKind.ADDRESSES))
-        assertEquals(150_000L, with.downloadBytes(setOf(PackageKind.ADDRESSES)))
-        assertEquals(31_650_000L, with.downloadBytes(with.availableKinds))
-    }
-
-    @Test
-    fun `se c'e' la copia compressa dei civici si scarica quella`() {
-        fun withXz(url: String) = parse(withAddresses.replace(
-            "\"sizeBytes\": 150000, \"sha256\": \"$sha\" }",
-            "\"sizeBytes\": 150000, \"sha256\": \"$sha\" },\n" +
-                """"fileXz": { "name": "addresses.pmtiles.xz", "url": "$url", "sizeBytes": 133500, "sha256": "$sha" }""",
-        )).regions.single()
-        val region = withXz("https://github.com/o/r/releases/download/region-data/addresses.pmtiles.xz")
+    fun `un vecchio oggetto addresses per regione non impedisce di leggere il manifest, ma i civici restano non disponibili`() {
+        val region = parse(withLegacyAddresses).regions.single()
         region.validate()
-        assertEquals("addresses.pmtiles.xz", region.addresses!!.downloadFile.name)
-        assertEquals(133_500L, region.downloadBytes(setOf(PackageKind.ADDRESSES)))
-        assertEquals(150_000L, parse(withAddresses).regions.single().downloadBytes(setOf(PackageKind.ADDRESSES)))
-        assertThrows(IllegalArgumentException::class.java) { withXz("https://evil.example.com/addresses.pmtiles.xz").validate() }
+        assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI), region.availableKinds)
+        assertNull(region.versionOf(PackageKind.ADDRESSES))
     }
 
     private val withCities = sampleManifest.replace(

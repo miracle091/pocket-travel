@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Costruisce (o mantiene) UNA cella della griglia adattiva dei civici (vedi
-# .claude/docs/address-grid-plan.md): OSM (stesse z15 Protomaps di build-addresses.sh, riserva
+# .claude/docs/address-grid-plan.md): OSM (z15 Protomaps del bbox della cella, riserva
 # Overpass se sono troppe) + Overture (query DuckDB filtrata sulla lista bianca
 # tools/data-pipeline/overture-address-sources.tsv), deduplicati e ritagliati sulla cella da
 # GenerateAddresses (--overture, --cell). Se il file .xz supera ADDRESS_CELL_MAX_BYTES la build
@@ -29,8 +29,7 @@
 #                                          gia' pubblicata si rigenera
 #   ADDRESS_CELL_MAX_EXTRACT_MB (500)      sopra questa dimensione delle z15 del bbox della cella si
 #                                          prova Overpass (fonte di riserva): una cella e' piccola,
-#                                          il limite e' molto piu' basso che per una regione intera
-#                                          (ADDRESSES_MAX_EXTRACT_MB in build-addresses.sh)
+#                                          il limite e' molto piu' basso che per un riquadro regionale
 #   ADDRESS_CELL_OVERPASS_MAX   (200000)   civici massimi accettati dalla fonte di riserva Overpass
 #   ADDRESSES_ATTEMPTS          (3)        tentativi di stima ed estrazione delle z15
 #   OVERTURE_WHITELIST                     lista bianca dei dataset (default:

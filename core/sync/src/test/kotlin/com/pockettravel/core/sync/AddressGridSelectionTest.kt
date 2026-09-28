@@ -105,17 +105,6 @@ class AddressGridSelectionTest {
     }
 
     @Test
-    fun `attachAddressGridCells non tocca una regione col percorso di oggi`() {
-        val withAddresses = baseEntry.copy(addresses = AddressesPackageEntry("a1", file("addresses.pmtiles")))
-        val index = AddressGridIndex("v1", 14, cells = listOf(cell("1/0/0")))
-
-        val result = attachAddressGridCells(listOf(withAddresses), index)
-
-        assertEquals(withAddresses, result.single())
-        assertNull(result.single().addressGrid)
-    }
-
-    @Test
     fun `attachAddressGridCells aggiunge le celle della regione, vuoto se nessuna interseca`() {
         val index = AddressGridIndex("v1", 14, cells = listOf(cell("1/0/0"), cell("1/1/0")))
 

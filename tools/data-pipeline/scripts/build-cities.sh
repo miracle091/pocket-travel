@@ -4,7 +4,7 @@
 # <citiesJsonlDir>/<regionId>.cities.jsonl con un solo passaggio sul dump per tutte le regioni):
 # aggiunge al manifest-fragment.json gia' scritto la voce "cities" (facoltativa nel manifest) e,
 # se il contenuto e' cambiato, lascia <outputDir>/cities.db.xz da caricare - unico asset
-# pubblicato, stesso trattamento di addresses.pmtiles in build-addresses.sh (xz_entry in lib.sh):
+# pubblicato, stesso trattamento di poi.db in build-region.sh (xz_entry in lib.sh):
 # "file" descrive il database decompresso (nome/dimensione/sha256 che l'app ricontrolla dopo il
 # download), "fileXz" il file da scaricare, stesso url per entrambi.
 #
@@ -53,7 +53,7 @@ if [ ! -f "$FRAGMENT" ]; then
 fi
 
 # Voce "cities" gia' pubblicata per la regione ("" se assente). Stesso trattamento degli errori di
-# rete di build-addresses.sh: un manifest non scaricabile e' un errore (non "nessuna citta'"), solo
+# rete di build-region.sh: un manifest non scaricabile e' un errore (non "nessuna citta'"), solo
 # un 404 (prima pubblicazione) vale come "nessuna voce pubblicata".
 PUBLISHED_ENTRY=""
 if [ -n "$PUBLISHED_MANIFEST_URL" ]; then

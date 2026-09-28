@@ -105,7 +105,9 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
             poiExtra.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
         }
 
-        // Civici: facoltativi (regioni non ancora generate o troppo grandi da estrarre).
+        // Civici per regione: voce legacy, congelata (la pipeline non la genera piu', vedi
+        // address-grid-plan.md - i civici si pubblicano ora nella griglia "addressGrid"). Accettata
+        // finche' il manifest pubblicato la porta ancora avanti per le app vecchie.
         region.optJSONObject("addresses")?.let { addresses ->
             validateVersion(addresses, "$regionId/addresses")
             validateFile(addresses.getJSONObject("file"), regionId, allowedHosts)

@@ -448,18 +448,6 @@ region_release_tag() {
   esac
 }
 
-# Regioni senza nessun civico: zero indirizzi nelle z15 di Protomaps (run del 2026-09-24) e nessun
-# dato in Overture (rilascio 2026-09-23.0). Il workflow non lancia build-addresses.sh per loro:
-# niente estrazione inutile e niente riga nel riepilogo. Toglierle da qui se compare una fonte.
-# Il Nunavut (1.569 civici per 4.403 MB di z15) li prende dalla fonte di riserva Overpass di
-# build-addresses.sh.
-region_has_addresses() {
-  case "$1" in
-    figi-lau|guinea-equatoriale|kiribati-line|nauru|tokelau|wallis-futuna) return 1 ;;
-    *) return 0 ;;
-  esac
-}
-
 # Regioni divise in regioni piu' piccole: regionId della vecchia regione | groupName delle nuove.
 # Tolta da PILOT_REGIONS, la vecchia regione sparisce dal manifest; mergeManifests scrive questo
 # elenco nel campo "replacedRegions" del manifest, cosi' l'app propone le regioni del gruppo a chi
@@ -471,13 +459,3 @@ REPLACED_REGIONS=(
   "cina|Cina"
   "francia|Francia"
 )
-
-# Area amministrativa OSM (codice ISO 3166-2) con cui la fonte di riserva Overpass di
-# build-addresses.sh conta e scarica i civici, per le regioni il cui riquadro abbraccia molto
-# territorio delle regioni vicine: col riquadro il Nunavut conta 389.840 civici (Yellowknife, nord
-# del Quebec...), con l'area 1.569. Senza voce qui si usa il riquadro.
-region_osm_area() {
-  case "$1" in
-    canada-nunavut) echo "CA-NU" ;;
-  esac
-}

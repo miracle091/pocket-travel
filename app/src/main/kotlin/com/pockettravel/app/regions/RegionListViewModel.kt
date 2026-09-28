@@ -232,8 +232,8 @@ internal fun regionUiItem(
     local: RegionPackage?,
     installedBytes: (RegionPackage, PackageKind) -> Long?,
     // Civici a griglia (address-grid-plan.md "App" 5): celle gia' installate (id -> version), per
-    // contare solo quelle nuove o cambiate nella dimensione da scaricare. Non serve per il percorso
-    // di oggi (entry.addresses): il default basta a tutti i test e alle regioni senza griglia.
+    // contare solo quelle nuove o cambiate nella dimensione da scaricare. Non serve per le regioni
+    // senza griglia: il default basta a tutti i test.
     installedAddressCells: (regionId: String) -> Map<String, String> = { emptyMap() },
 ): RegionUiItem {
     val addressCellVersions = if (remote.addressGrid != null && local != null) installedAddressCells(remote.regionId) else emptyMap()

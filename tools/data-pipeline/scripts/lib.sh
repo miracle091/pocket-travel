@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Helper condivisi dagli script della pipeline publish-region (build-region.sh, build-guides.sh,
-# build-addresses.sh, assemble-site.sh, build-pilot-regions.sh, generate-weekly-schedule.sh). Solo
+# build-address-cell.sh, assemble-site.sh, build-pilot-regions.sh, generate-weekly-schedule.sh). Solo
 # funzioni, nessun effetto collaterale:
 # sourcing sicuro da qualunque script con "set -euo pipefail" gia' attivo.
 # shellcheck shell=bash
@@ -15,8 +15,8 @@ winpath() { cygpath -m "$1" 2>/dev/null || echo "$1"; }
 # xz_entry <file> <url>: comprime <file> in <file>.xz (dizionario da 16 MiB: il telefono decomprime
 # con ~17 MB di memoria, il preset 9e ne vorrebbe 65, perdendo meno del 2%; un solo thread, cosi' lo
 # stesso file da' sempre lo stesso .xz) e stampa su stdout la voce "fileXz" del manifest (nome,
-# url, dimensione e sha256 del .xz). Usata da build-region.sh (poi.db, poi-extra.db, preview.pmtiles),
-# build-guides.sh (guides.db) e build-addresses.sh (addresses.pmtiles): stesso schema ovunque, "file"
+# url, dimensione e sha256 del .xz). Usata da build-region.sh (poi.db, poi-extra.db, preview.pmtiles)
+# e build-guides.sh (guides.db): stesso schema ovunque, "file"
 # nel manifest descrive il file non compresso (nome, dimensione e sha256 che l'app ricontrolla dopo
 # la decompressione) e "fileXz" il file da scaricare, con l'URL del .xz.
 xz_entry() {
@@ -63,8 +63,7 @@ resolve_protomaps_date() {
 # Riprova <cmd...> fino a <attempts> volte con attesa crescente (30s, 2min, 8min...), rimuovendo
 # <cleanupFile> (se non vuoto) tra un tentativo e l'altro: build.protomaps.com a volte chiude la
 # connessione a meta' (filippine al 96%, finlandia al 70%, run del 2026-09-24). <label> solo per i
-# messaggi. Condivisa da build-addresses.sh (bbox di una regione) e build-address-cell.sh (bbox di
-# una cella della griglia dei civici).
+# messaggi. Usata da build-address-cell.sh (bbox di una cella della griglia dei civici).
 with_retries() {
   local label="$1" attempts="$2" cleanupFile="$3" attempt wait
   shift 3
@@ -82,12 +81,11 @@ with_retries() {
   return 1
 }
 
-# Civici da Overpass per un'area o un bbox (fonte di riserva quando l'estrazione Protomaps e' troppo
-# grande, vedi build-addresses.sh e build-address-cell.sh): scrive "lat<TAB>lon<TAB>numero" in
+# Civici da Overpass per un bbox (fonte di riserva quando l'estrazione Protomaps e' troppo
+# grande, vedi build-address-cell.sh): scrive "lat<TAB>lon<TAB>numero" in
 # <outFile>, solo se il conteggio e' <= <maxCount>. <areaQuery> e' la clausola Overpass della
-# selezione (es. "nwr[\"addr:housenumber\"](minLat,minLon,maxLat,maxLon)" oppure
-# "area[\"ISO3166-2\"=\"XX\"]->.a;nwr[\"addr:housenumber\"](area.a)"). Scrive l'esito in <noteVar>
-# (nameref): vuoto se riuscito, altrimenti il motivo per il riepilogo del chiamante.
+# selezione (es. "nwr[\"addr:housenumber\"](minLat,minLon,maxLat,maxLon)"). Scrive l'esito in
+# <noteVar> (nameref): vuoto se riuscito, altrimenti il motivo per il riepilogo del chiamante.
 fetch_overpass_address_points() {
   local label="$1" areaQuery="$2" maxCount="$3" outFile="$4" noteVar="$5"
   local -n note_ref="$noteVar"
@@ -143,7 +141,7 @@ cell_bbox() {
 # fetch_published_manifest <urlOPath> <out>: copia in <out> il manifest pubblicato e stampa il codice
 # HTTP (200 = trovato, 404 = nessun manifest pubblicato, altro = non scaricabile). <urlOPath> puo'
 # essere un file locale gia' scaricato: publish-regions.yml scarica il manifest una volta per shard
-# e lo passa a build-region.sh, build-addresses.sh e build-cities.sh, invece di tre download per
+# e lo passa a build-region.sh e build-cities.sh, invece di due download per
 # regione (centinaia per run).
 fetch_published_manifest() {
   if [ -f "$1" ]; then
@@ -203,7 +201,7 @@ fetch_wikivoyage_dump() {
 
 # Scarica l'ultimo dump completo di Wikivoyage IT (pages-articles, ~50 MB compressi) in <outFile> e
 # ne verifica lo sha1 dal file sha1sums pubblicato accanto, con fino a 3 tentativi (stesso motivo
-# del ritentativo su build.protomaps.com in build-addresses.sh: un download cosi' grande puo'
+# del ritentativo su build.protomaps.com in build-address-cell.sh: un download cosi' grande puo'
 # interrompersi a meta'). Usato da build-cities-dump.sh (fase 1 di rag-knowledge-plan.md, guide
 # delle citta') per trovare con un solo passaggio le pagine {{QuickbarCity}} di tutte le regioni,
 # invece di migliaia di richieste API. "latest" (non una data precisa): dumps.wikimedia.org

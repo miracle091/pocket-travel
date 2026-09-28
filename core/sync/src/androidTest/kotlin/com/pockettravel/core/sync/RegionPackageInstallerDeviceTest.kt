@@ -5,6 +5,8 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ch.poole.geo.pmtiles.Constants
+import ch.poole.geo.pmtiles.Hilbert
+import ch.poole.geo.pmtiles.Reader
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
@@ -20,6 +22,7 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import okio.Buffer
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -255,25 +258,48 @@ class RegionPackageInstallerDeviceTest {
         installer.install(compressed, setOf(PackageKind.ADDRESSES))
 
         val installed = repository.installed("san-marino")!!
-        assertEquals("a1", installed.addressesVersion)
-        assertEquals("civici sammarinesi", File(regionDir, RegionStorage.ADDRESSES_FILE).readText())
+        assertEquals(compressed.versionOf(PackageKind.ADDRESSES), installed.addressesVersion)
+        assertTrue(installed.addressesVersion!!.startsWith("grid-"))
+        Reader(File(regionDir, RegionStorage.ADDRESSES_FILE)).use { reader ->
+            assertArrayEquals("civici sammarinesi".toByteArray(), reader.getTile(14, 0, 0))
+        }
     }
 
     @Test
     fun unCivicoDecompressoDiversoDalManifestNonSiInstalla() {
-        val compressed = compressedAddressesEntry().let { it.copy(addresses = it.addresses!!.copy(file = it.addresses.file.copy(sha256 = "0".repeat(64)))) }
+        val compressed = compressedAddressesEntry().let { entry ->
+            val cell = entry.addressGrid!!.cells.single()
+            entry.copy(addressGrid = RegionAddressGridEntry(listOf(cell.copy(file = cell.file.copy(sha256 = "0".repeat(64))))))
+        }
 
         assertThrows(PermanentRegionPackageException::class.java) { runBlocking { installer.install(compressed, setOf(PackageKind.ADDRESSES)) } }
         assertNull(runBlocking { repository.installed("san-marino") })
     }
 
-    /** addresses.pmtiles servito solo compresso con xz, come lo pubblica la pipeline. */
+    /** Cella dei civici a griglia (address-grid-plan.md), servita solo compressa con xz, come la pubblica la pipeline. */
     private fun compressedAddressesEntry(): RegionManifestEntry {
-        files["addresses.pmtiles"] = "civici sammarinesi".toByteArray()
-        files["addresses.pmtiles.xz"] = ByteArrayOutputStream().also { out -> XZOutputStream(out, LZMA2Options()).use { it.write(files.getValue("addresses.pmtiles")) } }.toByteArray()
-        val entry = entry().copy(addresses = AddressesPackageEntry("a1", manifestFile("addresses.pmtiles"), manifestFile("addresses.pmtiles.xz")))
-        files.remove("addresses.pmtiles") // il file non compresso non e' pubblicato
+        val cellName = "cell-0-0-0--addresses.pmtiles"
+        val cellFile = File(workDir, cellName)
+        PmtilesWriter.write(
+            outputFile = cellFile,
+            entries = listOf(PmtilesEntry(tileId(14, 0, 0), "civici sammarinesi".toByteArray())),
+            metadataJson = """{"name":"addresses"}""",
+            tileCompression = Constants.COMPRESSION_GZIP,
+            tileType = Constants.TYPE_MVT,
+            minZoom = 14, maxZoom = 14,
+            minLon = 12.40, minLat = 43.89, maxLon = 12.52, maxLat = 43.99,
+        )
+        files[cellName] = cellFile.readBytes()
+        files["$cellName.xz"] = ByteArrayOutputStream().also { out -> XZOutputStream(out, LZMA2Options()).use { it.write(files.getValue(cellName)) } }.toByteArray()
+        val cell = AddressGridCell("0/0/0", "a1", manifestFile(cellName), manifestFile("$cellName.xz"))
+        val entry = entry().copy(addressGrid = RegionAddressGridEntry(listOf(cell)))
+        files.remove(cellName) // il file non compresso non e' pubblicato
         return entry
+    }
+
+    private fun tileId(z: Int, x: Int, y: Int): Long {
+        val zoomOffset = ((1L shl (2 * z)) - 1L) / 3L
+        return zoomOffset + Hilbert.zxyToIndex(z, x.toLong(), y.toLong())
     }
 
     @Test
