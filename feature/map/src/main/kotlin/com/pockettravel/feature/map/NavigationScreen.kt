@@ -287,6 +287,7 @@ private fun ColumnScope.Guidance(state: NavigationUiState.Navigating, tileSource
         route = route,
         pathToNext = progress.pathToNext,
         position = state.position,
+        distanceToNextMeters = progress.distanceToNextMeters,
         onStreetNames = { found -> streetNames = streetNames + found },
         modifier = Modifier.fillMaxWidth().weight(1f).clip(MaterialTheme.shapes.medium),
     )
@@ -413,6 +414,7 @@ private fun NavigationMap(
     route: Route,
     pathToNext: List<RoutePoint>,
     position: RoutePoint,
+    distanceToNextMeters: Double,
     onStreetNames: (Map<Int, String>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -421,7 +423,12 @@ private fun NavigationMap(
     val mapView = rememberMapViewWithLifecycle()
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val language = LocalLocale.current.platformLocale.language
-    val styleJson = remember(tileSource, regionId, dark, language) { tileSource.styleJson(regionId, dark = dark, language = language) }
+    // Con worldFallback: se la posizione esce dal riquadro scaricato restano i paesi (e, con la rete, il mondo) invece del vuoto.
+    val styleJson = remember(tileSource, regionId, dark, language) {
+        tileSource.styleJson(regionId, dark = dark, language = language, worldFallback = true)
+    }
+    // Letto dall'header della mappa installata: 127 byte, una volta per regione.
+    val regionBounds = remember(tileSource, regionId) { tileSource.regionBounds(regionId) }
     val routeColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f).toArgb()
     val nextColor = MaterialTheme.colorScheme.tertiary.toArgb()
     val positionColor = MaterialTheme.colorScheme.primary.toArgb()
@@ -466,7 +473,8 @@ private fun NavigationMap(
         current.next.setGeoJson(lineString(pathToNext))
         current.position.setGeoJson(Point.fromLngLat(position.longitude, position.latitude))
         mapView.getMapAsync { map ->
-            map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(position.latitude, position.longitude), FOLLOW_ZOOM), CAMERA_ANIMATION_MILLIS)
+            val zoom = followZoom(distanceToNextMeters, insideRegion = regionBounds?.contains(position.latitude, position.longitude) == true)
+            map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(position.latitude, position.longitude), zoom), CAMERA_ANIMATION_MILLIS)
         }
     }
 
@@ -523,8 +531,27 @@ private const val ROADS_SOURCE_LAYER = "roads"
 private const val ROUTE_SOURCE = "navigation-route"
 private const val NEXT_SOURCE = "navigation-next"
 private const val POSITION_SOURCE = "navigation-position"
-private const val FOLLOW_ZOOM = 16.0
 private const val CAMERA_ANIMATION_MILLIS = 500
+
+/** Fuori dalla mappa scaricata resta il mondo online (dati fino a z8): oltre questo zoom non mostra piu' niente. */
+private const val OUTSIDE_REGION_MAX_ZOOM = 11.0
+
+/**
+ * Zoom che segue la posizione: vicino alla svolta si vede l'incrocio, lontano la strada davanti
+ * (in autostrada la prossima svolta puo' essere a decine di km). Fuori dal riquadro della mappa
+ * scaricata ([insideRegion] falso) al massimo [OUTSIDE_REGION_MAX_ZOOM].
+ */
+internal fun followZoom(distanceToNextMeters: Double, insideRegion: Boolean): Double {
+    val zoom = when {
+        distanceToNextMeters < 150 -> 17.0
+        distanceToNextMeters < 400 -> 16.0
+        distanceToNextMeters < 1_000 -> 15.0
+        distanceToNextMeters < 3_000 -> 14.0
+        distanceToNextMeters < 8_000 -> 13.0
+        else -> 12.0
+    }
+    return if (insideRegion) zoom else minOf(zoom, OUTSIDE_REGION_MAX_ZOOM)
+}
 
 /** Sotto questa distanza dalla svolta si dice "Ora". */
 private const val NOW_METERS = 10.0

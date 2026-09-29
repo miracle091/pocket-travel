@@ -1,6 +1,8 @@
 package com.pockettravel.feature.map
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -67,6 +69,59 @@ class OfflineTileSourceTest {
             worldMapUrl = null, worldMapMaxZoom = 0, online = true,
         )
         assertEquals(MapSourceKind.NONE, noWorldMap.kind)
+    }
+
+    @Test
+    fun `mondo online sotto la regione solo con mappa della regione e rete`() {
+        val world = "https://example.invalid/world.pmtiles"
+        assertEquals("pmtiles://$world", worldFallbackUrl(MapSourceKind.FULL, world, online = true))
+        assertEquals("pmtiles://$world", worldFallbackUrl(MapSourceKind.PREVIEW, world, online = true))
+        assertEquals(null, worldFallbackUrl(MapSourceKind.FULL, world, online = false))
+        assertEquals(null, worldFallbackUrl(MapSourceKind.FULL, null, online = true))
+        // Con ONLINE_WORLD il mondo e' gia' la sorgente principale: niente doppione.
+        assertEquals(null, worldFallbackUrl(MapSourceKind.ONLINE_WORLD, world, online = true))
+        assertEquals(null, worldFallbackUrl(MapSourceKind.NONE, world, online = true))
+    }
+
+    @Test
+    fun `il ripiego offline ha solo i confini, con la rete anche il mondo sopra`() {
+        val offline = worldFallbackStyle("#00f", "#eee", "#888", "#fc0", worldUrl = null, worldMaxZoom = 8)
+        assertTrue(offline.sources.contains("asset://world/countries.geojson"))
+        assertFalse(offline.sources.contains("\"world\""))
+        assertFalse(offline.layers.contains("fallback_world"))
+
+        val online = worldFallbackStyle("#00f", "#eee", "#888", "#fc0", worldUrl = "pmtiles://https://example.invalid/w.pmtiles", worldMaxZoom = 8)
+        assertTrue(online.sources.contains("\"maxzoom\": 8"))
+        val countries = online.layers.indexOf("fallback_countries")
+        val worldEarth = online.layers.indexOf("fallback_world_earth")
+        assertTrue(countries in 0 until worldEarth)
+    }
+
+    @Test
+    fun `legge il riquadro dai byte 102-117 dell'header PMTiles, anche con longitudini negative`() {
+        val header = ByteArray(127)
+        java.nio.ByteBuffer.wrap(header, 102, 16).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            .putInt(124_000_000).putInt(438_900_000).putInt(125_200_000).putInt(439_900_000)
+        val bounds = pmtilesHeaderBounds(header)
+        assertEquals(MapBounds(12.4, 43.89, 12.52, 43.99), bounds)
+        assertTrue(bounds.contains(latitude = 43.94, longitude = 12.45))
+        assertFalse(bounds.contains(latitude = 44.059, longitude = 12.568)) // Rimini
+
+        java.nio.ByteBuffer.wrap(header, 102, 16).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            .putInt(-1_252_000_000).putInt(424_000_000).putInt(-1_142_000_000).putInt(490_000_000)
+        assertEquals(-125.2, pmtilesHeaderBounds(header).minLon, 1e-9)
+    }
+
+    @Test
+    fun `zoom della navigazione piu' vicino alla svolta, al massimo 11 fuori regione`() {
+        assertEquals(17.0, followZoom(50.0, insideRegion = true), 0.0)
+        assertEquals(16.0, followZoom(230.0, insideRegion = true), 0.0)
+        assertEquals(15.0, followZoom(600.0, insideRegion = true), 0.0)
+        assertEquals(14.0, followZoom(2_000.0, insideRegion = true), 0.0)
+        assertEquals(13.0, followZoom(5_000.0, insideRegion = true), 0.0)
+        assertEquals(12.0, followZoom(40_000.0, insideRegion = true), 0.0)
+        assertEquals(11.0, followZoom(50.0, insideRegion = false), 0.0)
+        assertEquals(11.0, followZoom(40_000.0, insideRegion = false), 0.0)
     }
 
     @Test

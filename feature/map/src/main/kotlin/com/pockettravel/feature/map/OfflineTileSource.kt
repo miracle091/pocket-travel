@@ -5,12 +5,18 @@ import com.pockettravel.core.data.WorldMapStore
 import java.io.File
 
 interface OfflineTileSource {
-    /** [language]: lingua dell'interfaccia ("it"/"en"), per i nomi di localita' e strade (vedi labelField). */
-    fun styleJson(regionId: String, dark: Boolean = false, language: String = "it"): String
+    /** [language]: lingua dell'interfaccia ("it"/"en"), per i nomi di localita' e strade (vedi labelField).
+     * [worldFallback]: sotto la regione anche i confini dei paesi inclusi nell'app e, con la rete,
+     * il mondo online, per quando la vista esce dal riquadro scaricato (navigazione). */
+    fun styleJson(regionId: String, dark: Boolean = false, language: String = "it", worldFallback: Boolean = false): String
 
     /** Sorgente scelta da [styleJson] per la regione, per decidere se e cosa mostrare nella
      * barra "Scarica la mappa" (RegionHubScreen). */
     fun sourceKind(regionId: String): MapSourceKind
+
+    /** Riquadro della mappa della regione installata (completa, altrimenti anteprima); null senza
+     * mappa locale. La navigazione lo usa per sapere se la posizione e' fuori dai dati scaricati. */
+    fun regionBounds(regionId: String): MapBounds?
 }
 
 /** Sorgente della mappa di base, in ordine di preferenza: mappa completa della regione, sua
@@ -46,10 +52,40 @@ class PmtilesTileSource(
 
     override fun sourceKind(regionId: String): MapSourceKind = resolve(regionId).kind
 
-    override fun styleJson(regionId: String, dark: Boolean, language: String): String {
+    override fun regionBounds(regionId: String): MapBounds? {
+        val file = regionStorage.versionedPmtiles(regionId, RegionStorage.MAP_FILE)
+            ?: regionStorage.versionedPmtiles(regionId, RegionStorage.PREVIEW_FILE)
+            ?: return null
+        return runCatching { pmtilesHeaderBounds(readPmtilesHeader(file)) }.getOrNull()
+    }
+
+    override fun styleJson(regionId: String, dark: Boolean, language: String, worldFallback: Boolean): String {
         val label = labelField(language)
         val palette = if (dark) MapPalette.Dark else MapPalette.Light
         val resolved = resolve(regionId)
+        val fallback = if (worldFallback) {
+            worldFallbackStyle(
+                palette,
+                worldFallbackUrl(resolved.kind, worldMapStore.worldMapUrl(), connectivityChecker.isOnline()),
+                worldMapStore.worldMapMaxZoom(),
+            )
+        } else {
+            null
+        }
+        if (resolved.kind == MapSourceKind.NONE && fallback != null) {
+            // Nessuna mappa della regione e niente rete: restano i confini dei paesi, meglio del reticolo.
+            return """
+                {
+                  "version": 8,
+                  "sources": {
+                    ${fallback.sources}
+                  },
+                  "layers": [
+                    ${fallback.layers}
+                  ]
+                }
+            """.trimIndent()
+        }
         if (resolved.kind == MapSourceKind.NONE) {
             // Nessuna sorgente disponibile (ne' locale ne' online): solo sfondo, con un reticolo
             // discreto (pattern "background-pattern", vedi MissingMapHint.kt) che faccia capire
@@ -138,6 +174,17 @@ class PmtilesTileSource(
         // renderizzerebbero comunque (il font bundlato copre solo il range latino), quindi senza
         // questo fallback quelle etichette sarebbero vuote anche quando OSM ha gia' la
         // romanizzazione pronta in name:en.
+        //
+        // Con il ripiego (worldFallback) lo sfondo e' il mare e le terre le disegnano, dal basso:
+        // i confini Natural Earth, il mondo online e lo strato "earth" della regione, preciso sulle
+        // coste; fuori dal riquadro scaricato restano cosi' i paesi invece dello sfondo vuoto.
+        val baseLayers = if (fallback != null) {
+            """${fallback.layers},
+                { "id": "earth", "type": "fill", "source": "region", "source-layer": "earth", "paint": { "fill-color": "${palette.background}" } }"""
+        } else {
+            """{ "id": "background", "type": "background", "paint": { "background-color": "${palette.background}" } }"""
+        }
+        val fallbackSources = fallback?.let { ",\n                ${it.sources}" }.orEmpty()
         return """
             {
               "version": 8,
@@ -149,10 +196,10 @@ class PmtilesTileSource(
                   "attribution": "© OpenStreetMap contributors",
                   "minzoom": 0,
                   "maxzoom": ${resolved.maxZoom}
-                }$addressesSource
+                }$addressesSource$fallbackSources
               },
               "layers": [
-                { "id": "background", "type": "background", "paint": { "background-color": "${palette.background}" } },
+                $baseLayers,
                 { "id": "water", "type": "fill", "source": "region", "source-layer": "water", "paint": { "fill-color": "${palette.water}" } },
                 { "id": "buildings", "type": "fill", "source": "region", "source-layer": "buildings", "paint": { "fill-color": "${palette.building}" } },
                 { "id": "buildings_outline", "type": "line", "source": "region", "source-layer": "buildings", "minzoom": 15, "paint": { "line-color": "${palette.buildingOutline}", "line-width": 0.5 } },
@@ -197,6 +244,46 @@ internal fun selectSource(
     else -> ResolvedSource(MapSourceKind.NONE, null, 0)
 }
 
+/** Sorgenti e strati del ripiego fuori regione, gia' in JSON (senza virgole esterne). */
+internal data class WorldFallbackStyle(val sources: String, val layers: String)
+
+// Mondo online sotto la regione solo se la regione ha una mappa sua (completa o anteprima): con
+// ONLINE_WORLD e' gia' la sorgente principale, con NONE non c'e' rete o non c'e' il mondo.
+internal fun worldFallbackUrl(kind: MapSourceKind, worldMapUrl: String?, online: Boolean): String? =
+    if ((kind == MapSourceKind.FULL || kind == MapSourceKind.PREVIEW) && online && worldMapUrl != null) {
+        "pmtiles://$worldMapUrl"
+    } else {
+        null
+    }
+
+private fun worldFallbackStyle(palette: MapPalette, worldUrl: String?, worldMaxZoom: Int): WorldFallbackStyle =
+    worldFallbackStyle(palette.water, palette.background, palette.boundaryCountry, palette.majorRoad, worldUrl, worldMaxZoom)
+
+// Confini Natural Earth 1:50m inclusi nell'app (gli stessi di WorldMap), sempre; il mondo online
+// (stessa build Protomaps, zoom bassi) solo con [worldUrl]: terre, acqua, strade principali e confini.
+internal fun worldFallbackStyle(
+    water: String,
+    land: String,
+    border: String,
+    majorRoad: String,
+    worldUrl: String?,
+    worldMaxZoom: Int,
+): WorldFallbackStyle {
+    val countriesSource = """"countries": { "type": "geojson", "data": "asset://world/countries.geojson", "attribution": "Natural Earth" }"""
+    val countriesLayers = """{ "id": "fallback_sea", "type": "background", "paint": { "background-color": "$water" } },
+                { "id": "fallback_countries", "type": "fill", "source": "countries", "paint": { "fill-color": "$land", "fill-outline-color": "$border" } }"""
+    if (worldUrl == null) return WorldFallbackStyle(countriesSource, countriesLayers)
+    return WorldFallbackStyle(
+        sources = """$countriesSource,
+                "world": { "type": "vector", "url": "$worldUrl", "attribution": "© OpenStreetMap contributors", "minzoom": 0, "maxzoom": $worldMaxZoom }""",
+        layers = """$countriesLayers,
+                { "id": "fallback_world_earth", "type": "fill", "source": "world", "source-layer": "earth", "paint": { "fill-color": "$land" } },
+                { "id": "fallback_world_water", "type": "fill", "source": "world", "source-layer": "water", "paint": { "fill-color": "$water" } },
+                { "id": "fallback_world_roads", "type": "line", "source": "world", "source-layer": "roads", "filter": ["in", "kind", "highway", "major_road"], "paint": { "line-color": "$majorRoad", "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 14, 4] } },
+                { "id": "fallback_world_boundaries", "type": "line", "source": "world", "source-layer": "boundaries", "filter": ["<=", "kind_detail", 2], "paint": { "line-color": "$border", "line-width": 1 } }""",
+    )
+}
+
 // L'header PMTiles v3 e' fisso a 127 byte; il byte 101 (0-based) e' il max_zoom dell'archivio
 // (specs.protomaps.dev/pmtiles/spec-v3). Letto qui invece che tenuto in un campo del manifest
 // perche' l'anteprima puo' essere rigenerata con uno zoom diverso da build-region.sh (tetto di
@@ -204,7 +291,9 @@ internal fun selectSource(
 private const val PMTILES_HEADER_SIZE = 127
 private const val PMTILES_MAX_ZOOM_OFFSET = 101
 
-internal fun pmtilesHeaderMaxZoom(file: File): Int = file.inputStream().use { stream ->
+internal fun pmtilesHeaderMaxZoom(file: File): Int = pmtilesHeaderMaxZoom(readPmtilesHeader(file))
+
+private fun readPmtilesHeader(file: File): ByteArray = file.inputStream().use { stream ->
     // Non InputStream.readNBytes: richiede API 33, minSdk del modulo e' 26.
     val header = ByteArray(PMTILES_HEADER_SIZE)
     var read = 0
@@ -213,12 +302,29 @@ internal fun pmtilesHeaderMaxZoom(file: File): Int = file.inputStream().use { st
         if (count == -1) break
         read += count
     }
-    pmtilesHeaderMaxZoom(header)
+    header
 }
 
 internal fun pmtilesHeaderMaxZoom(header: ByteArray): Int {
     require(header.size >= PMTILES_HEADER_SIZE) { "Header PMTiles troncato: ${header.size} byte" }
     return header[PMTILES_MAX_ZOOM_OFFSET].toInt() and 0xFF
+}
+
+/** Riquadro dei dati della mappa installata, in gradi. */
+data class MapBounds(val minLon: Double, val minLat: Double, val maxLon: Double, val maxLat: Double) {
+    fun contains(latitude: Double, longitude: Double): Boolean =
+        longitude in minLon..maxLon && latitude in minLat..maxLat
+}
+
+// Byte 102-117 dell'header: min_lon, min_lat, max_lon, max_lat in gradi x 10^7, int32
+// little-endian (spec v3; PmtilesWriter li scrive dal riquadro della regione).
+private const val PMTILES_BOUNDS_OFFSET = 102
+
+internal fun pmtilesHeaderBounds(header: ByteArray): MapBounds {
+    require(header.size >= PMTILES_HEADER_SIZE) { "Header PMTiles troncato: ${header.size} byte" }
+    val buffer = java.nio.ByteBuffer.wrap(header, PMTILES_BOUNDS_OFFSET, 16).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+    val e7 = 10_000_000.0
+    return MapBounds(buffer.int / e7, buffer.int / e7, buffer.int / e7, buffer.int / e7)
 }
 
 // Colori dello stile. Light: la palette storica in stile Google Maps. Dark: stessa gerarchia
