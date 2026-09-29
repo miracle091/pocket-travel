@@ -48,6 +48,34 @@ def load_whitelist(path):
     return allowed
 
 
+def load_excluded_areas(path):
+    """Aree escluse dentro una fonte ammessa (sesta colonna facoltativa, poligono WKT in gradi):
+    [(dataset, licenza, wkt)]. Esempio: Lake County dentro us/mn/statewide."""
+    areas = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if not line or line.startswith("#"):
+                continue
+            fields = [field.strip() for field in line.split("\t")]
+            if len(fields) < 6 or fields[3] != "allow" or not fields[5]:
+                continue
+            if not fields[5].startswith(("POLYGON", "MULTIPOLYGON")):
+                raise ValueError(f"area esclusa non valida per {fields[1]}: serve un POLYGON o MULTIPOLYGON WKT")
+            areas.append((fields[1], fields[2], fields[5]))
+    return areas
+
+
+def excluded_areas_clause(areas):
+    """Condizione SQL che scarta i punti di una fonte dentro la sua area esclusa (vuota senza aree)."""
+    return "".join(
+        f"\n          AND NOT (sources[1].dataset = {sql_string(dataset)}"
+        f" AND sources[1].license = {sql_string(license_id)}"
+        f" AND ST_Within(geometry, ST_GeomFromText({sql_string(wkt)})))"
+        for dataset, license_id, wkt in areas
+    )
+
+
 def load_reviewed(path):
     """Tutte le coppie gia' riviste della lista bianca, ammesse ed escluse: {(paese, dataset, licenza)}."""
     reviewed = set()
@@ -128,7 +156,7 @@ def latest_release():
     return max(releases, key=lambda r: (r.split(".")[0], int(r.split(".")[1])))
 
 
-def fetch_addresses(release, min_lon, min_lat, max_lon, max_lat, allowed):
+def fetch_addresses(release, min_lon, min_lat, max_lon, max_lat, allowed, excluded_areas=()):
     countries = sorted({country for country, _, _ in allowed})
     pairs = ", ".join(sql_string(f"{dataset}|{license_id}") for _, dataset, license_id in allowed)
     country_clause = ", ".join(sql_string(c) for c in countries)
@@ -147,7 +175,7 @@ def fetch_addresses(release, min_lon, min_lat, max_lon, max_lat, allowed):
           AND bbox.ymin BETWEEN {min_lat} AND {max_lat}
           AND number IS NOT NULL AND number != ''
           AND country IN ({country_clause})
-          AND sources[1].dataset || '|' || sources[1].license IN ({pairs})
+          AND sources[1].dataset || '|' || sources[1].license IN ({pairs}){excluded_areas_clause(excluded_areas)}
     """
     return con.sql(query).fetchall()
 
@@ -186,7 +214,8 @@ def main():
         return
 
     release = latest_release() if args.release == "latest" else args.release
-    rows = fetch_addresses(release, args.min_lon, args.min_lat, args.max_lon, args.max_lat, allowed)
+    rows = fetch_addresses(release, args.min_lon, args.min_lat, args.max_lon, args.max_lat, allowed,
+                           load_excluded_areas(args.whitelist))
     with open(args.output, "w", encoding="utf-8") as out:
         for lat, lon, number, dataset in rows:
             if lat is None or lon is None or number is None:

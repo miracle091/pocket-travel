@@ -7,17 +7,20 @@
 # Escluse: Hong Kong (termini senza diritto di modifica) e le contee di Kent, Muskegon e Allegan in
 # Michigan (licenza revocabile, modifiche riservate alla contea). Escluse anche (2026-09-29) le
 # fonti la cui licenza non e' confermata da un testo ufficiale: Brasile (IBGE senza licenza
-# esplicita), Mississippi e Minnesota (nessuna licenza pubblicata; in Minnesota i dati di Lake
-# County, "not for use by third parties", sono nel dataset statale). Confermate invece da un testo
-# ufficiale letto il 2026-09-29: NAD (metadati DCAT del DOT, licenza usa.gov/publicdomain),
-# Portogallo (record INE nel catalogo SNIG, CC-BY-4.0), Islanda (record ISO di HMS nel geoportale,
-# linee guida di riuso anche commerciale con citazione della fonte). Restano ammesse, con basi piu'
-# deboli, Colorado (solo un disclaimer), Estonia e Messico.
+# esplicita) e Mississippi (solo disclaimer). Confermate invece da un testo ufficiale letto il
+# 2026-09-29: NAD (metadati DCAT del DOT, licenza usa.gov/publicdomain), Portogallo (record INE nel
+# catalogo SNIG, CC-BY-4.0), Islanda (record ISO di HMS nel geoportale, linee guida di riuso anche
+# commerciale con citazione della fonte), Minnesota (disclaimer MnGeo, "Redistribution
+# Conditions": uso per ogni scopo, chi ridistribuisce indica limiti e garanzie) senza Lake County,
+# che dichiara i suoi dati "not for use by third parties". Restano ammesse, con basi piu' deboli,
+# Colorado (solo un disclaimer), Estonia e Messico.
 #
 # attribuzione: testo per la schermata Licenze; {anno} e {data} li riempie il workflow con la data
 # del rilascio Overture usato.
+# area_esclusa (facoltativa): poligono WKT in gradi i cui punti si scartano anche se la fonte e'
+# ammessa. Lake County (Minnesota): confine TIGERweb del Census (GEOID 27075), semplificato a ~500 m.
 #
-# paese	dataset	licenza	decisione	attribuzione
+# paese	dataset	licenza	decisione	attribuzione	area_esclusa
 AT	at/countrywide	CC-BY-4.0	allow	(c) Austrian Address Register (BEV); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
 AU	au/countrywide	LicenseRef-Proprietary	allow	G-NAF (c) Geoscape Australia licensed by the Commonwealth of Australia under the Open Geo-coded National Address File (G-NAF) End User Licence Agreement; modificato; divieto di uso per invii postali senza verifica secondaria (EULA 2.a.2)
 BE	be/bru/bosa-region-brussels-fr	CC-BY-4.0	allow	UrbIS, Bruxelles, via BOSA; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
@@ -415,7 +418,7 @@ US	us/mi/allegan	LicenseRef-Proprietary	exclude	n/a (licenza revocabile, modific
 US	us/mi/kent	LicenseRef-Proprietary	exclude	n/a (licenza revocabile, modifica vietata)
 US	us/mi/muskegon	LicenseRef-Proprietary	exclude	n/a (licenza revocabile, modifica vietata)
 US	us/mi/oakland	LicenseRef-Proprietary	allow	Oakland County, Michigan (Open Data Terms of Use)
-US	us/mn/statewide	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata; Lake County: not for use by third parties; esclusa dall'utente 2026-09-29)
+US	us/mn/statewide	LicenseRef-Proprietary	allow	MnGeo (Minnesota IT Services), Minnesota NG9-1-1 Program e MetroGIS, Address Points, Compiled from Opt-In Open Counties; uso per ogni scopo (MnGeo, Redistribution Conditions); dati forniti "as is", senza garanzie; modificato	POLYGON((-91.0231 47.465, -90.7952 47.2443, -91.5002 46.9133, -91.7963 46.7948, -91.7889 47.5426, -91.7994 47.7597, -91.7982 48.203, -91.7861 48.1962, -91.7559 48.206, -91.7484 48.1987, -91.7421 48.2046, -91.7131 48.198, -91.7244 48.1705, -91.7048 48.1707, -91.7081 48.153, -91.6978 48.1416, -91.7118 48.1146, -91.6821 48.1225, -91.6876 48.1119, -91.6651 48.1071, -91.6518 48.114, -91.6399 48.0971, -91.5591 48.1086, -91.5528 48.1032, -91.5694 48.0937, -91.5754 48.0667, -91.5755 48.0489, -91.5675 48.0438, -91.4882 48.0684, -91.45 48.0691, -91.4386 48.0503, -91.4296 48.0487, -91.3909 48.0572, -91.3708 48.0697, -91.2668 48.0788, -91.1373 48.1493, -91.1426 48.1546, -91.0825 48.1812, -91.0321 48.1889, -91.0316 48.0641, -91.0246 48.0641, -91.0265 47.8883, -91.0207 47.888, -91.0231 47.465))
 US	us/ms/adams	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
 US	us/ms/alcorn	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
 US	us/ms/chickasaw	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)

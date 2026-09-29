@@ -71,5 +71,32 @@ class CompareTest(unittest.TestCase):
         self.assertIn("| AT | at/countrywide | CC-BY-4.0 |", report)
 
 
+class ExcludedAreasTest(unittest.TestCase):
+    def write(self, text):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = Path(tmp.name) / "lista.tsv"
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def test_area_solo_sulle_fonti_ammesse(self):
+        path = self.write(
+            "US\tus/mn/statewide\tLicenseRef-Proprietary\tallow\tMnGeo\tPOLYGON((0 0, 1 0, 1 1, 0 0))\n"
+            "US\tus/xx/altro\tCC0-1.0\tallow\tXX\n"
+            "US\tus/yy/escluso\tCC0-1.0\texclude\tn/a\tPOLYGON((0 0, 1 0, 1 1, 0 0))\n"
+        )
+        areas = overture_addresses.load_excluded_areas(path)
+        self.assertEqual(areas, [("us/mn/statewide", "LicenseRef-Proprietary", "POLYGON((0 0, 1 0, 1 1, 0 0))")])
+        clause = overture_addresses.excluded_areas_clause(areas)
+        self.assertIn("AND NOT (sources[1].dataset = 'us/mn/statewide'", clause)
+        self.assertIn("ST_GeomFromText('POLYGON((0 0, 1 0, 1 1, 0 0))')", clause)
+        self.assertEqual(overture_addresses.excluded_areas_clause([]), "")
+
+    def test_area_non_wkt_rifiutata(self):
+        path = self.write("US\tus/mn/statewide\tLicenseRef-Proprietary\tallow\tMnGeo\t-92,46,-90,48\n")
+        with self.assertRaises(ValueError):
+            overture_addresses.load_excluded_areas(path)
+
+
 if __name__ == "__main__":
     unittest.main()
