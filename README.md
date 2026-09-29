@@ -10,9 +10,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/miracle091/pocket-travel/releases/tag/v0.8.0">Scarica l'app</a> ·
+  <a href="https://github.com/miracle091/pocket-travel/releases/tag/v0.9.0">Scarica l'app</a> ·
   <a href="CHANGELOG.md">Novità</a> ·
-  versione <strong>0.8.0</strong>
+  versione <strong>0.9.0</strong>
 </p>
 
 <p align="center">
@@ -21,7 +21,7 @@
   <img src="docs/images/map.png" width="200" alt="Mappa offline di San Marino con i punti di interesse e il pulsante dei filtri">
   <img src="docs/images/filters.png" width="200" alt="Filtri della mappa divisi in gruppi, ognuno con i suoi interruttori">
   <img src="docs/images/ai.png" width="200" alt="Assistente IA online: scelta del servizio (ChatGPT, Mistral AI, Gemini, Claude) e del modello">
-  <img src="docs/images/packages.png" width="200" alt="Pacchetti scaricabili di San Marino">
+  <img src="docs/images/packages.png" width="200" alt="Contenuti scaricabili per San Marino">
 </p>
 
 ## Cosa fa
@@ -30,13 +30,14 @@ In viaggio la connessione manca proprio quando serve: in aereo, in montagna, all
 
 - **Guida** – le informazioni essenziali di ogni paese e delle sue città (cosa vedere, dove mangiare, come muoversi, soldi, sicurezza), i fatti rapidi (lingua, prese, fuso orario, valuta, trasporti), i numeri di emergenza da chiamare con un tocco e le ambasciate e i consolati del tuo paese.
 - **Mappa** – mappa dettagliata con ristoranti, hotel, farmacie, bancomat e molto altro, con orari, indirizzo e contatti quando ci sono. Scegli come ti sposti e l'app ti mostra i punti che ti servono; i filtri sono divisi in gruppi.
+- **Mezzi pubblici** – nella scheda di una fermata, di una stazione o di un porto le prossime partenze delle tre ore successive, offline, per le reti con dati aperti (per ora in Lettonia, Italia, Svezia, Spagna, Francia, Svizzera e Regno Unito). Dove una nazione ne ha molte scegli tu quali scaricare; di default quelle vicine a te.
 - **Assistente IA** – chiedi in parole tue quello che ti serve sapere sul paese o sulla città in cui sei ("dove si mangia bene?", "come pago il bus?") e ti risponde in poche frasi, basandosi sulla guida scaricata e sulle tue note di viaggio, e dicendoti quando la guida non basta. Funziona anche senza internet (vedi [più sotto](#assistente-ia)).
 - **Fonti ufficiali** – i siti del ministero degli esteri del tuo paese e quelli internazionali (OMS, CDC), per controllare documenti, sicurezza e salute prima di partire.
 - **Documenti** – una copia del passaporto e dei biglietti, cifrata e sbloccabile solo con la tua impronta o il tuo volto, e le tue note di viaggio (prenotazioni, indirizzi), cifrate e usate dall'assistente IA quando servono.
 
-L'app è in **italiano e in inglese** (dalla prossima versione): interfaccia, guide delle nazioni e delle città e assistente IA. La lingua si sceglie al primo avvio.
+L'app è in **italiano e in inglese**: interfaccia, guide delle nazioni e delle città e assistente IA. La lingua si sceglie al primo avvio.
 
-Scegli tu cosa scaricare, anche già al primo avvio: per ogni paese mappa, punti di interesse, numeri civici e percorsi sono pacchetti separati, così non occupi spazio per quello che non usi. Le guide di tutto il mondo pesano pochi megabyte. Con il pacchetto Percorsi puoi farti guidare fino a un punto della mappa, svolta dopo svolta, con il GPS acceso; autovelox, limiti di velocità e zone a traffico limitato o a basse emissioni non sono segnalati.
+Scegli tu cosa scaricare, anche già al primo avvio: per ogni paese mappa, punti di interesse, numeri civici, percorsi e orari dei mezzi pubblici sono contenuti separati, così non occupi spazio per quello che non usi. Le guide di tutto il mondo pesano pochi megabyte. Con i Percorsi puoi farti guidare fino a un punto della mappa, svolta dopo svolta, con il GPS acceso, anche da un paese a quello vicino se hai scaricato i percorsi di entrambi; autovelox, limiti di velocità e zone a traffico limitato o a basse emissioni non sono segnalati.
 
 Ci sono 355 paesi e regioni (gli stati più grandi, come Stati Uniti, Canada e Cina, sono divisi in parti), aggiornati ogni settimana.
 
