@@ -5,10 +5,12 @@
 # successivo non e' in lista e resta fuori finche' non lo si rivede (scripts/overture_addresses.py).
 #
 # Escluse: Hong Kong (termini senza diritto di modifica) e le contee di Kent, Muskegon e Allegan in
-# Michigan (licenza revocabile, modifiche riservate alla contea). Ammesse per scelta dell'utente
-# (2026-09-27) anche le fonti con basi piu' deboli: Brasile (IBGE senza licenza esplicita, CC0
-# secondo Overture), Mississippi, Colorado e Minnesota (nessuna licenza pubblicata), Portogallo e
-# Islanda (licenza non confermata sulla pagina di Overture), Estonia e Messico.
+# Michigan (licenza revocabile, modifiche riservate alla contea). Escluse anche (2026-09-29) le
+# fonti la cui licenza non e' confermata da un testo ufficiale: Brasile (IBGE senza licenza
+# esplicita), Mississippi e Minnesota (nessuna licenza pubblicata; in Minnesota i dati di Lake
+# County, "not for use by third parties", sono nel dataset statale), Portogallo e Islanda (licenza
+# non confermata dall'ente), NAD (disclaimer del DOT non letto dalla fonte). Restano ammesse, con
+# basi piu' deboli, Colorado (solo un disclaimer), Estonia e Messico.
 #
 # attribuzione: testo per la schermata Licenze; {anno} e {data} li riempie il workflow con la data
 # del rilascio Overture usato.
@@ -19,33 +21,33 @@ AU	au/countrywide	LicenseRef-Proprietary	allow	G-NAF (c) Geoscape Australia lice
 BE	be/bru/bosa-region-brussels-fr	CC-BY-4.0	allow	UrbIS, Bruxelles, via BOSA; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
 BE	be/vlg/bosa-region-flanders-nl	CC-BY-4.0	allow	Adressenregister (AR), Vlaanderen, via BOSA; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
 BE	be/wal/bosa-region-wallonia-fr	CC-BY-4.0	allow	ICAR, Wallonie, via BOSA; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
-BR	br/ac/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/al/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/am/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/ap/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/ba/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/ce/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/df/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/es/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/go/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/ma/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/mg/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/ms/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/mt/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/pa/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/pb/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/pe/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/pi/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/pr/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/rj/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/rn/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/ro/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/rr/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/rs/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/sc/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/se/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/sp/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
-BR	br/to/statewide	LicenseRef-Proprietary	allow	IBGE, Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE), Censo Demográfico 2022; distribuito da AddressForAll/OpenAddresses (licenza non esplicita: vedi nota)
+BR	br/ac/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/al/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/am/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/ap/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/ba/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/ce/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/df/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/es/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/go/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/ma/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/mg/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/ms/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/mt/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/pa/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/pb/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/pe/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/pi/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/pr/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/rj/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/rn/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/ro/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/rr/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/rs/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/sc/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/se/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/sp/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
+BR	br/to/statewide	LicenseRef-Proprietary	exclude	n/a (IBGE senza licenza esplicita; esclusa dall'utente 2026-09-29)
 CA	ca/countrywide	LicenseRef-Proprietary	allow	Adapted from Statistics Canada, National Address Register, {data}. This does not constitute an endorsement by Statistics Canada of this product.
 CA	ca/qc/province	CC-BY-4.0	allow	Ministère des Ressources naturelles et des Forêts du Québec, Adresses Quebec; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
 CA	ca/yt/province	LicenseRef-Proprietary	allow	Contains information licensed under the Open Government Licence - Yukon (Government of Yukon, Civic Address Point)
@@ -180,7 +182,7 @@ FR	fr/pm/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr
 GL	gl/countrywide	LicenseRef-Proprietary	allow	Contains data from Asiaq, Greenland Survey, addresses, {anno}; link ai termini
 HK	hk/countrywide-en	LicenseRef-Proprietary	exclude	n/a (termini CSDI: nessun diritto di modifica, manleva illimitata)
 HR	hr/countrywide	LicenseRef-Proprietary	allow	Državna geodetska uprava, Registar prostornih jedinica - adrese, {data}; URI del dataset; Otvorena dozvola; modificato
-IS	Stadfangaskrá	LicenseRef-Proprietary	allow	Byggir á upplýsingum frá Húsnæðis- og mannvirkjastofnun (HMS), Staðfangaskrá
+IS	Stadfangaskrá	LicenseRef-Proprietary	exclude	n/a (licenza HMS del file non confermata; esclusa dall'utente 2026-09-29)
 IT	it/countrywide	CC-BY-4.0	allow	ANNCSU - Archivio Nazionale dei Numeri Civici delle Strade Urbane (Istat/Agenzia delle Entrate); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
 JP	jp/aichi	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
 JP	jp/akita	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
@@ -255,7 +257,7 @@ PL	pl/swietokrzyskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urz�
 PL	pl/warminsko-mazurskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
 PL	pl/wielkopolskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
 PL	pl/zachodniopomorskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
-PT	pt/countrywide	CC-BY-4.0	allow	Instituto Nacional de Estatística (INE); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
+PT	pt/countrywide	CC-BY-4.0	exclude	n/a (licenza INE non confermata dalla fonte; esclusa dall'utente 2026-09-29)
 RS	rs/countrywide	LicenseRef-Proprietary	allow	Republički geodetski zavod, Adresni registar, data.gov.rs/sr/datasets/adresni-registar, preuzeto {data}; modificato
 SG	sg/countrywide	LicenseRef-Proprietary	allow	Contains information from OneMap addresses accessed on {data} from Singapore Land Authority which is made available under the terms of the Singapore Open Data Licence version 1.0 (onemap.gov.sg/legal/opendatalicence.html)
 SI	GURS	CC-BY-4.0	allow	Geodetska uprava Republike Slovenije (GURS); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
@@ -278,7 +280,7 @@ TW	tw/tpe/regionwide	CC-BY-4.0	allow	Taipei City Government Civil Affairs Bureau
 TW	tw/ttt/regionwide	CC-BY-4.0	allow	Taitung County Government (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
 TW	tw/txg/regionwide	CC-BY-4.0	allow	Taichung City Government Civil Affairs Bureau (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
 TW	tw/yun/regionwide	CC-BY-4.0	allow	Yunlin County Government (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
-US	NAD	LicenseRef-Public-Domain-US	allow	U.S. Department of Transportation, National Address Database (NAD) (cortesia); non usare come mailing list
+US	NAD	LicenseRef-Public-Domain-US	exclude	n/a (disclaimer del DOT non letto da una fonte ufficiale; esclusa dall'utente 2026-09-29)
 US	us/ca/alameda	LicenseRef-Public-Domain-US-CA-Law	allow	Alameda County, California (cortesia; pubblico dominio per il California Public Records Act)
 US	us/ca/alpine	LicenseRef-Public-Domain-US-CA-Law	allow	Alpine County, California (cortesia; pubblico dominio per il California Public Records Act)
 US	us/ca/amador	LicenseRef-Public-Domain-US-CA-Law	allow	Amador County, California (cortesia; pubblico dominio per il California Public Records Act)
@@ -411,34 +413,34 @@ US	us/mi/allegan	LicenseRef-Proprietary	exclude	n/a (licenza revocabile, modific
 US	us/mi/kent	LicenseRef-Proprietary	exclude	n/a (licenza revocabile, modifica vietata)
 US	us/mi/muskegon	LicenseRef-Proprietary	exclude	n/a (licenza revocabile, modifica vietata)
 US	us/mi/oakland	LicenseRef-Proprietary	allow	Oakland County, Michigan (Open Data Terms of Use)
-US	us/mn/statewide	LicenseRef-Proprietary	allow	MnGeo / Minnesota NG9-1-1 Program e MetroGIS, Address Points Opt-In Open Counties (cortesia)
-US	us/ms/adams	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Adams County (cortesia; nessuna licenza esplicita)
-US	us/ms/alcorn	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Alcorn County (cortesia; nessuna licenza esplicita)
-US	us/ms/chickasaw	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Chickasaw County (cortesia; nessuna licenza esplicita)
-US	us/ms/choctaw	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Choctaw County (cortesia; nessuna licenza esplicita)
-US	us/ms/claiborne	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Claiborne County (cortesia; nessuna licenza esplicita)
-US	us/ms/clay	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Clay County (cortesia; nessuna licenza esplicita)
-US	us/ms/coahoma	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Coahoma County (cortesia; nessuna licenza esplicita)
-US	us/ms/covington	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Covington County (cortesia; nessuna licenza esplicita)
-US	us/ms/desoto	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Desoto County (cortesia; nessuna licenza esplicita)
-US	us/ms/harrison	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Harrison County (cortesia; nessuna licenza esplicita)
-US	us/ms/itawamba	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Itawamba County (cortesia; nessuna licenza esplicita)
-US	us/ms/jefferson	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Jefferson County (cortesia; nessuna licenza esplicita)
-US	us/ms/jones	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Jones County (cortesia; nessuna licenza esplicita)
-US	us/ms/lafayette	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Lafayette County (cortesia; nessuna licenza esplicita)
-US	us/ms/madison	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Madison County (cortesia; nessuna licenza esplicita)
-US	us/ms/noxubee	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Noxubee County (cortesia; nessuna licenza esplicita)
-US	us/ms/oktibbeha	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Oktibbeha County (cortesia; nessuna licenza esplicita)
-US	us/ms/pearl_river	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Pearl River County (cortesia; nessuna licenza esplicita)
-US	us/ms/prentiss	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Prentiss County (cortesia; nessuna licenza esplicita)
-US	us/ms/rankin	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Rankin County (cortesia; nessuna licenza esplicita)
-US	us/ms/simpson	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Simpson County (cortesia; nessuna licenza esplicita)
-US	us/ms/smith	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Smith County (cortesia; nessuna licenza esplicita)
-US	us/ms/statewide-east	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / MS Cadastral Framework (MDEQ) (cortesia; nessuna licenza esplicita)
-US	us/ms/statewide-west	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / MS Cadastral Framework (MDEQ) (cortesia; nessuna licenza esplicita)
-US	us/ms/wayne	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Wayne County (cortesia; nessuna licenza esplicita)
-US	us/ms/webster	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Webster County (cortesia; nessuna licenza esplicita)
-US	us/ms/winston	LicenseRef-Proprietary	allow	Mississippi Automated Resource Information System (MARIS), County Point Addresses / Winston County (cortesia; nessuna licenza esplicita)
+US	us/mn/statewide	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata; Lake County: not for use by third parties; esclusa dall'utente 2026-09-29)
+US	us/ms/adams	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/alcorn	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/chickasaw	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/choctaw	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/claiborne	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/clay	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/coahoma	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/covington	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/desoto	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/harrison	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/itawamba	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/jefferson	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/jones	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/lafayette	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/madison	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/noxubee	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/oktibbeha	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/pearl_river	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/prentiss	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/rankin	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/simpson	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/smith	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/statewide-east	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/statewide-west	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/wayne	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/webster	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
+US	us/ms/winston	LicenseRef-Proprietary	exclude	n/a (nessuna licenza pubblicata (MARIS e contee); esclusa dall'utente 2026-09-29)
 US	us/nv/carson_city	LicenseRef-Proprietary	allow	Carson City, NV. Carson City is not responsible for the accuracy of the information. Modifications were made without the involvement or knowledge of Carson City.
 US	us/ny/city_of_new_york	LicenseRef-Proprietary	allow	NYC Open Data, Address Point (NYC Department of City Planning), versione {data}; modificato
 US	us/or/statewide	LicenseRef-Proprietary	allow	Oregon 9-1-1 Public Safety Answering Points (PSAP), Oregon Department of Emergency Management (OEM), Oregon Department of Administrative Services (DAS)
