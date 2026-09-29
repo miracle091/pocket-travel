@@ -1,6 +1,7 @@
 package com.pockettravel.core.data.crypto
 
 import android.content.Context
+import android.security.keystore.KeyPermanentlyInvalidatedException
 import androidx.core.content.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.security.SecureRandom
@@ -25,14 +26,26 @@ class VaultKeyEnvelope @Inject constructor(@ApplicationContext context: Context)
     }
 
     // Da chiamare prima di aprire il BiometricPrompt: prepara il Cipher da avvolgere in un
-    // CryptoObject, senza eseguire ancora nessuna operazione crittografica.
-    fun prepareUnlockCipher(): UnlockCipher {
+    // CryptoObject, senza eseguire ancora nessuna operazione crittografica. Null se la KEK e' stata
+    // invalidata (impronte aggiunte o tolte, setInvalidatedByBiometricEnrollment): la chiave di
+    // sessione avvolta non si recupera piu', resta solo reset().
+    fun prepareUnlockCipher(): UnlockCipher? {
         val wrappedIv = AesGcmCodec.decodeIv(prefs.getString(KEY_WRAPPED_DEK, null) ?: "")
-        return if (wrappedIv != null) {
-            UnlockCipher.Unwrap(kek.newDecryptionCipher(wrappedIv))
-        } else {
-            UnlockCipher.GenerateAndWrap(kek.newEncryptionCipher())
+        return try {
+            if (wrappedIv != null) {
+                UnlockCipher.Unwrap(kek.newDecryptionCipher(wrappedIv))
+            } else {
+                UnlockCipher.GenerateAndWrap(kek.newEncryptionCipher())
+            }
+        } catch (_: KeyPermanentlyInvalidatedException) {
+            null
         }
+    }
+
+    /** Dimentica KEK e chiave di sessione avvolta: il prossimo sblocco crea una cassaforte nuova. */
+    fun reset() {
+        kek.deleteKey()
+        prefs.edit { remove(KEY_WRAPPED_DEK) }
     }
 
     // Da chiamare nel callback di successo del BiometricPrompt, con il Cipher del CryptoObject

@@ -205,7 +205,8 @@ fun PassportVaultScreen(
         }
     }
 
-    if (showAddDialog) {
+    // Solo da sbloccata: il flag sopravvive alla morte del processo, lo sblocco no (save lancerebbe).
+    if (showAddDialog && gateStatus == GateStatus.UNLOCKED) {
         PassportEditDialog(
             viewModel = viewModel,
             existing = null,
@@ -235,6 +236,9 @@ private fun NoLockScreenSetUp() {
 private fun LockedContent(viewModel: PassportVaultViewModel, onUnlock: (GateStatus) -> Unit) {
     val context = LocalContext.current
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    // Impronte aggiunte o tolte dopo aver creato la cassaforte: la chiave non c'e' piu'.
+    var keyInvalidated by remember { mutableStateOf(false) }
+    var confirmReset by remember { mutableStateOf(false) }
     val promptTitle = stringResource(R.string.vault_prompt_title)
     val promptSubtitle = stringResource(R.string.vault_prompt_subtitle)
     val promptCancel = stringResource(R.string.vault_prompt_cancel)
@@ -243,7 +247,10 @@ private fun LockedContent(viewModel: PassportVaultViewModel, onUnlock: (GateStat
 
     fun showPrompt() {
         val activity = context as FragmentActivity
-        val unlockIntent = viewModel.prepareUnlockCipher()
+        val unlockIntent = viewModel.prepareUnlockCipher() ?: run {
+            keyInvalidated = true
+            return
+        }
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle(promptTitle)
             .setSubtitle(promptSubtitle)
@@ -260,12 +267,18 @@ private fun LockedContent(viewModel: PassportVaultViewModel, onUnlock: (GateStat
                         errorMessage = unlockFailed
                         return
                     }
-                    viewModel.completeUnlock(unlockIntent, authenticatedCipher)
+                    // Chiave di sessione avvolta rovinata: doFinal lancia, meglio un messaggio che un crash.
+                    if (runCatching { viewModel.completeUnlock(unlockIntent, authenticatedCipher) }.isFailure) {
+                        errorMessage = unlockFailed
+                        return
+                    }
                     errorMessage = null
                     onUnlock(GateStatus.UNLOCKED)
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    // Annullato dall'utente: resta la spiegazione, non il testo "Annulla" del sistema.
+                    if (errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON || errorCode == BiometricPrompt.ERROR_USER_CANCELED) return
                     errorMessage = errString.toString()
                 }
 
@@ -275,6 +288,36 @@ private fun LockedContent(viewModel: PassportVaultViewModel, onUnlock: (GateStat
             },
         )
         prompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(unlockIntent.cipher))
+    }
+
+    if (keyInvalidated) {
+        EmptyState(
+            icon = AppIcons.Lock,
+            title = stringResource(R.string.vault_key_invalidated_title),
+            subtitle = stringResource(R.string.vault_key_invalidated_body),
+            modifier = Modifier.fillMaxSize(),
+            action = {
+                Button(onClick = { confirmReset = true }) {
+                    Text(stringResource(R.string.vault_reset))
+                }
+            },
+        )
+        if (confirmReset) {
+            AlertDialog(
+                onDismissRequest = { confirmReset = false },
+                title = { Text(stringResource(R.string.vault_reset_title)) },
+                text = { Text(stringResource(R.string.vault_reset_message)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.resetVault()
+                        confirmReset = false
+                        keyInvalidated = false
+                    }) { Text(stringResource(R.string.vault_reset)) }
+                },
+                dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.vault_prompt_cancel)) } },
+            )
+        }
+        return
     }
 
     EmptyState(

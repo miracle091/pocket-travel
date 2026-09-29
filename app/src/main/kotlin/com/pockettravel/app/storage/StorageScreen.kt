@@ -22,6 +22,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -109,7 +110,8 @@ fun StorageScreen(onBack: () -> Unit, viewModel: StorageViewModel = hiltViewMode
                 EmptyLine(stringResource(R.string.storage_no_regions))
             } else {
                 // Una superficie per regione: il totale (elimina tutto) e sotto mappa, percorsi e POI.
-                uiState.installedRegions.forEach { region ->
+                // key: il dialogo di conferma (rememberSaveable nella riga) resta alla sua regione se l'elenco cambia.
+                uiState.installedRegions.forEach { region -> key(region.regionId) {
                     Surface(
                         shape = MaterialTheme.shapes.large,
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -123,7 +125,7 @@ fun StorageScreen(onBack: () -> Unit, viewModel: StorageViewModel = hiltViewMode
                                 supporting = Formatter.formatShortFileSize(context, region.sizeBytes),
                                 onDelete = { viewModel.deleteRegion(region.regionId) },
                             )
-                            region.packages.forEach { pkg ->
+                            region.packages.forEach { pkg -> key(pkg.kind) {
                                 HorizontalDivider(modifier = Modifier.padding(start = Spacing.l + 56.dp))
                                 StorageRow(
                                     icon = pkg.kind.icon(),
@@ -134,10 +136,10 @@ fun StorageScreen(onBack: () -> Unit, viewModel: StorageViewModel = hiltViewMode
                                     deleteMessage = stringResource(R.string.package_delete_message),
                                     modifier = Modifier.padding(start = Spacing.l),
                                 )
-                            }
+                            } }
                         }
                     }
-                }
+                } }
             }
 
             SectionHeader(stringResource(R.string.storage_model), modifier = Modifier.padding(top = Spacing.xl))

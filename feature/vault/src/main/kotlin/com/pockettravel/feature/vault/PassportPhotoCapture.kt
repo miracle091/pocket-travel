@@ -152,13 +152,16 @@ internal fun DocumentCameraCaptureScreen(
                             val preview = Preview.Builder().build()
                                 .also { it.surfaceProvider = previewView.surfaceProvider }
                             provider.unbindAll()
-                            provider.bindToLifecycle(
-                                lifecycleOwner,
-                                CameraSelector.DEFAULT_BACK_CAMERA,
-                                preview,
-                                imageCapture,
-                                analysis,
-                            )
+                            // Tablet o Chromebook senza fotocamera posteriore (la fotocamera non e' obbligatoria nel manifest).
+                            runCatching {
+                                provider.bindToLifecycle(
+                                    lifecycleOwner,
+                                    CameraSelector.DEFAULT_BACK_CAMERA,
+                                    preview,
+                                    imageCapture,
+                                    analysis,
+                                )
+                            }.onFailure { onClose() }
                         },
                         ContextCompat.getMainExecutor(ctx),
                     )

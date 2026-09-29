@@ -19,4 +19,7 @@ interface PassportDao {
 
     @Query("DELETE FROM passport_vault WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM passport_vault")
+    suspend fun deleteAll()
 }

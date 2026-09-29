@@ -70,6 +70,11 @@ class KeystoreCipher(
         return cipher
     }
 
+    /** Toglie la chiave dal Keystore: la prossima operazione ne genera una nuova. */
+    fun deleteKey() {
+        KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }.deleteEntry(keyAlias)
+    }
+
     // setUserAuthenticationValidityDurationSeconds e' deprecata dall'API 30 in favore di
     // setUserAuthenticationParameters(timeout, authTypes) — non usabile qui perche' minSdk=26.
     // Il valore 0 ha pero' un significato speciale mantenuto anche dalla API deprecata: richiede

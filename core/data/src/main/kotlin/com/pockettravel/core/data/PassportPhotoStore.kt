@@ -21,6 +21,10 @@ class PassportPhotoStore @Inject constructor(@param:PassportPhotosDir private va
     fun read(fileName: String): ByteArray? =
         File(dir, fileName).takeIf { it.exists() }?.readBytes()
 
+    fun deleteAll() {
+        dir.listFiles()?.forEach { it.delete() }
+    }
+
     fun delete(fileName: String) {
         File(dir, fileName).delete()
     }

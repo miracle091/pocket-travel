@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -32,6 +33,11 @@ private class FakePassportDao : PassportDao {
     override suspend fun deleteById(id: String) {
         entities.remove(id)
         flow.value = entities.values.sortedBy { it.createdAt }
+    }
+
+    override suspend fun deleteAll() {
+        entities.clear()
+        flow.value = emptyList()
     }
 }
 
@@ -87,6 +93,27 @@ class PassportRepositoryTest {
         repository.lock()
 
         assertTrue(repository.observeAll().first().isEmpty())
+    }
+
+    @Test
+    fun `deleteAll toglie record e foto e blocca`() = runBlocking {
+        val (repository, photoStore) = newRepository()
+        repository.unlock(randomDek())
+        val fileName = repository.savePhoto(byteArrayOf(1, 2, 3))
+        repository.save(samplePassport(photoFileNames = listOf(fileName)))
+
+        repository.deleteAll()
+
+        assertFalse(repository.isUnlocked)
+        assertNull(photoStore.read(fileName))
+        repository.unlock(randomDek())
+        assertTrue(repository.observeAll().first().isEmpty())
+    }
+
+    @Test(expected = IllegalStateException::class)
+    fun `delete da bloccato lancia invece di lasciare le foto orfane`() = runBlocking {
+        val (repository, _) = newRepository()
+        repository.delete("p1")
     }
 
     @Test

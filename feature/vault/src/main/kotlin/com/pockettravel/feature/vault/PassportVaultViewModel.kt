@@ -26,7 +26,15 @@ class PassportVaultViewModel @Inject constructor(
     val passports: StateFlow<List<Passport>> = repository.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun prepareUnlockCipher(): VaultKeyEnvelope.UnlockCipher = keyEnvelope.prepareUnlockCipher()
+    fun prepareUnlockCipher(): VaultKeyEnvelope.UnlockCipher? = keyEnvelope.prepareUnlockCipher()
+
+    // Chiave invalidata (impronte cambiate): i passaporti non si leggono piu', si ricomincia da vuoto.
+    fun resetVault() {
+        viewModelScope.launch {
+            repository.deleteAll()
+            keyEnvelope.reset()
+        }
+    }
 
     fun completeUnlock(intent: VaultKeyEnvelope.UnlockCipher, authenticatedCipher: Cipher) {
         repository.unlock(keyEnvelope.completeUnlock(intent, authenticatedCipher))

@@ -13,6 +13,11 @@
     <string name="vault_prompt_subtitle">Use the device\'s biometrics</string>
     <string name="vault_prompt_cancel">Cancel</string>
     <string name="vault_unlock_failed">Unlock failed, please try again.</string>
+    <string name="vault_key_invalidated_title">The device fingerprints have changed</string>
+    <string name="vault_key_invalidated_body">For security the documents key is no longer valid: the saved ones can no longer be opened. Reset the vault to start again.</string>
+    <string name="vault_reset">Reset the vault</string>
+    <string name="vault_reset_title">Reset the vault?</string>
+    <string name="vault_reset_message">All saved documents and their photos will be permanently deleted.</string>
     <string name="vault_auth_failed">Authentication failed, please try again.</string>
     <string name="vault_add">Add</string>
     <string name="vault_empty_title">No documents saved</string>

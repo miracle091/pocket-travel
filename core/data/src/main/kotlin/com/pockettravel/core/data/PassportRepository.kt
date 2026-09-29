@@ -55,12 +55,21 @@ class PassportRepository @Inject constructor(
     }
 
     suspend fun delete(id: String) = withContext(Dispatchers.IO) {
+        // Da bloccato il record non si decifra e i nomi delle foto non si leggono: resterebbero orfane.
+        check(isUnlocked) { "Vault bloccato: chiamare unlock() prima di delete()" }
         passportDao.findById(id)?.toDomainOrNull()?.photoFileNames?.forEach { photoStore.delete(it) }
         passportDao.deleteById(id)
     }
 
     // jpegBytes deve gia' arrivare ripulito dei tag EXIF sensibili (vedi PassportPhotoCapture nel
     // modulo feature:vault): qui si cifra soltanto.
+    /** Cancella tutti i passaporti e le foto: per la cassaforte con la chiave invalidata (VaultKeyEnvelope). */
+    suspend fun deleteAll() = withContext(Dispatchers.IO) {
+        lock()
+        passportDao.deleteAll()
+        photoStore.deleteAll()
+    }
+
     suspend fun savePhoto(jpegBytes: ByteArray): String = withContext(Dispatchers.IO) {
         val cipher = sessionCipher ?: error("Vault bloccato: chiamare unlock() prima di savePhoto()")
         val fileName = "${UUID.randomUUID()}.jpg.enc"

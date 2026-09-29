@@ -78,7 +78,8 @@ fun RegionPreviewScreen(
                         Text(stringResource(R.string.preview_banner_body), style = MaterialTheme.typography.bodyMedium)
                     }
                     Spacer(modifier = Modifier.width(Spacing.s))
-                    FilledTonalButton(onClick = { viewModel.downloadFull(); onDownloadFull() }) {
+                    // Solo col manifest arrivato: prima downloadFull non farebbe nulla ma la schermata si chiuderebbe.
+                    FilledTonalButton(onClick = { viewModel.downloadFull(); onDownloadFull() }, enabled = state == RegionPreviewState.Ready) {
                         Text(stringResource(R.string.preview_download))
                     }
                 }

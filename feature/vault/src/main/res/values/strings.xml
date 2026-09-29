@@ -14,6 +14,11 @@
     <string name="vault_prompt_cancel">Annulla</string>
     <string name="vault_unlock_failed">Sblocco non riuscito, riprova.</string>
     <string name="vault_auth_failed">Autenticazione non riuscita, riprova.</string>
+    <string name="vault_key_invalidated_title">Le impronte del dispositivo sono cambiate</string>
+    <string name="vault_key_invalidated_body">Per sicurezza la chiave dei documenti non vale più: quelli salvati non si possono più aprire. Reimposta la cassaforte per ricominciare.</string>
+    <string name="vault_reset">Reimposta la cassaforte</string>
+    <string name="vault_reset_title">Reimpostare la cassaforte?</string>
+    <string name="vault_reset_message">Tutti i documenti salvati e le loro foto verranno cancellati definitivamente.</string>
     <string name="vault_add">Aggiungi</string>
     <string name="vault_empty_title">Nessun documento salvato</string>
     <string name="vault_empty_subtitle">Usa \"Aggiungi\" per salvare passaporti, biglietti e altri documenti.</string>

@@ -232,10 +232,10 @@ private fun CitiesDialog(
             onDismiss()
         }
     }
-    // dismissOnBackPress = false: il back va prima dal dettaglio all'elenco, solo poi chiude il dialogo.
-    BackHandler(onBack = goBack)
-
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false)) {
+        // dismissOnBackPress = false: il back va prima dal dettaglio all'elenco, solo poi chiude il dialogo.
+        // Dentro il Dialog, che ha il suo dispatcher del back: fuori non lo riceverebbe mai.
+        BackHandler(onBack = goBack)
         Scaffold(
             topBar = {
                 TopAppBar(
