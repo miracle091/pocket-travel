@@ -85,12 +85,15 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
             val lat = r["stop_lat"]?.toDoubleOrNull() ?: return@rows
             val lon = r["stop_lon"]?.toDoubleOrNull() ?: return@rows
             val id = r.getValue("stop_id")
+            // Id ripetuto nel feed: vale la prima riga (con size calcolata prima del put due righe avrebbero lo stesso id).
+            if (id in stops) return@rows
             stops[id] = Stop(stops.size, r["stop_code"]?.ifEmpty { null }, r["stop_name"].orEmpty(), lat, lon, r["parent_station"]?.ifEmpty { null })
         }
 
         data class Route(val id: Int, val shortName: String?, val longName: String?, val type: Int, val color: String?, val textColor: String?)
         val routes = LinkedHashMap<String, Route>()
         rows("routes.txt") { r ->
+            if (r.getValue("route_id") in routes) return@rows
             routes[r.getValue("route_id")] = Route(
                 routes.size, r["route_short_name"]?.ifEmpty { null }, r["route_long_name"]?.ifEmpty { null },
                 r["route_type"]?.toIntOrNull() ?: 3, r["route_color"]?.ifEmpty { null }, r["route_text_color"]?.ifEmpty { null },
@@ -102,6 +105,7 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
         rows("trips.txt") { r ->
             val service = serviceIds[r.getValue("service_id")] ?: return@rows
             val route = routes[r.getValue("route_id")]?.id ?: return@rows
+            if (r.getValue("trip_id") in trips) return@rows
             trips[r.getValue("trip_id")] = Trip(trips.size, route, service, r["trip_headsign"]?.ifEmpty { null })
         }
 

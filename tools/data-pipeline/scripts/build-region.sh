@@ -326,7 +326,8 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
         code="$(rd5_head "${BROUTER_BASE}/${tile}.rd5" "$WORKDIR/head.txt")"
         PRECHECKED_TILE_CODE["$tile"]="$code"
         if [ "$code" = "200" ]; then
-          size="$(tr -d '\r' < "$WORKDIR/head.txt" | grep -i '^content-length:' | tail -1 | awk '{print $2}')"
+          # "|| true": una risposta senza content-length (chunked) non deve fermare lo script con pipefail.
+          size="$(tr -d '\r' < "$WORKDIR/head.txt" | { grep -i '^content-length:' || true; } | tail -1 | awk '{print $2}')"
           printf '%s.rd5\t%s\n' "$tile" "${size:-0}" >> "$EXPECTED_TSV"
         elif [ "$code" != "404" ]; then
           echo "ERRORE: HEAD di ${tile}.rd5 fallita (HTTP $code) dopo 4 tentativi, non posso sapere se la tile esiste" >&2

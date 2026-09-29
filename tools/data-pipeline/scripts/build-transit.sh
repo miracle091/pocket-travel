@@ -88,14 +88,16 @@ STATS="$(cd "$REPO_ROOT" && ./gradlew -q :tools:data-pipeline:content:generateTr
   --args="\"$(winpath "$FEED_ZIP")\" \"$(winpath "$DB")\" $FEED_ID $WINDOW_START $TRANSIT_WINDOW_DAYS" | tail -1)"
 IFS=$'\t' read -r STOPS ROUTES TRIPS STOP_TIMES VALID_UNTIL BBOX <<< "$STATS"
 echo "-- $FEED_ID: $STOPS fermate, $ROUTES linee, $TRIPS corse, $STOP_TIMES partenze, valido fino al ${VALID_UNTIL:-?}"
-if [ "${TRIPS:-0}" -eq 0 ] || [ -z "$VALID_UNTIL" ]; then
+# Anche senza partenze (stop_times.txt assente o illeggibile): corse senza orari non servono al tabellone.
+if [ "${TRIPS:-0}" -eq 0 ] || [ "${STOP_TIMES:-0}" -eq 0 ] || [ -z "$VALID_UNTIL" ]; then
   echo "-- $FEED_ID: nessuna corsa nei prossimi $TRANSIT_WINDOW_DAYS giorni, non pubblico" >&2
   exit 1
 fi
 
 ASSET="${FEED_ID}--${VERSION}--transit.db"
 cp "$DB" "$OUTPUT_DIR/$ASSET"
-xz -9 -k -f "$OUTPUT_DIR/$ASSET"
+# Dizionario da 16 MiB come xz_entry (lib.sh): con -9 (64 MiB) il telefono ne userebbe 65 per decomprimere.
+xz -T1 --lzma2=preset=9e,dict=16MiB -k -f "$OUTPUT_DIR/$ASSET"
 file_json() {
   jq -n --arg name "$2" --arg url "$ASSET_BASE_URL/$1" --argjson size "$(stat -c %s "$OUTPUT_DIR/$1")" \
     --arg sha "$(sha256sum "$OUTPUT_DIR/$1" | cut -d' ' -f1)" '{name: $name, url: $url, sizeBytes: $size, sha256: $sha}'

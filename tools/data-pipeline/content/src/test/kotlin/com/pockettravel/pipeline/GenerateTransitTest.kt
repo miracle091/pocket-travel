@@ -120,6 +120,19 @@ class GenerateTransitTest {
     }
 
     @Test
+    fun `fermate, linee e corse ripetute nel feed contano una volta`() {
+        val repeated = feed + mapOf(
+            "stops.txt" to feed.getValue("stops.txt").trimEnd() + "\n            B,Piazza di nuovo,56.9500,24.1300,0,\n",
+            "routes.txt" to feed.getValue("routes.txt").trimEnd() + "\n            R1,1,Doppia,3,FF0000\n",
+            "trips.txt" to feed.getValue("trips.txt").trimEnd() + "\n            R1,FERIALE,T1,Doppia\n",
+        )
+        val stats = generateTransit(gtfs(repeated), tmp.root.resolve("transit.db"), "mdb-1", monday, 7)
+
+        assertEquals(3, stats.stops)
+        assertEquals(3, stats.trips)
+    }
+
+    @Test
     fun `nessun servizio nella finestra, nessuna data di fine`() {
         val db = tmp.root.resolve("transit.db")
         val stats = generateTransit(gtfs(feed), db, "mdb-1", LocalDate.parse("2030-01-01"), 7)

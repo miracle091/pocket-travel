@@ -107,7 +107,8 @@ class HttpSource:
                     self.fetched += len(body)
                     return body
                 error = OSError(f"{self.name}: HTTP {resp.status} per {wanted}")
-                if resp.status < 500:  # 200 = Range ignorato (scaricherebbe tutto), 404, ...: inutile riprovare
+                # 200 = Range ignorato (scaricherebbe tutto), 404, ...: inutile riprovare; 408 e 429 passano.
+                if resp.status < 500 and resp.status not in (408, 429):
                     raise error
             self.conn.close()
             self.conn = None

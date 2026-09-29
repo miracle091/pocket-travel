@@ -21,6 +21,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.request
 from xml.sax.saxutils import quoteattr
 
@@ -129,12 +130,26 @@ def scegli_estratti(index, bbox):
     return [(cid, url) for cid, url, _, _ in chosen]
 
 
-def scarica(url, dest, user_agent):
-    request = urllib.request.Request(url, headers={"User-Agent": user_agent})
-    with urllib.request.urlopen(request, timeout=120) as response, open(dest + ".part", "wb") as out:
-        while chunk := response.read(1 << 20):
-            out.write(chunk)
-    os.replace(dest + ".part", dest)
+def scarica(url, dest, user_agent, attempts=3):
+    """Scarica url in dest, con qualche nuovo tentativo; un file piu' corto del Content-Length e' un errore
+    (urllib non lo segnala: un pbf troncato alla fine di un blocco sembrerebbe valido)."""
+    for attempt in range(1, attempts + 1):
+        try:
+            request = urllib.request.Request(url, headers={"User-Agent": user_agent})
+            with urllib.request.urlopen(request, timeout=120) as response, open(dest + ".part", "wb") as out:
+                expected = response.headers.get("Content-Length")
+                while chunk := response.read(1 << 20):
+                    out.write(chunk)
+            written = os.path.getsize(dest + ".part")
+            if expected is not None and written != int(expected):
+                raise OSError(f"{url}: {written} byte invece di {expected}")
+            os.replace(dest + ".part", dest)
+            return
+        except OSError as error:
+            if attempt == attempts:
+                raise
+            print(f"-- geofabrik: {error}, riprovo ({attempt}/{attempts})", flush=True)
+            time.sleep(10 * attempt)
 
 
 def estratto_ridotto(cid, url, cache, user_agent):
@@ -221,11 +236,18 @@ def main():
         sources = []
         for cid, url in extracts:
             reduced = estratto_ridotto(cid, url, args.cache, args.user_agent)
+            # Prima il ritaglio sul bbox: San Marino esporterebbe altrimenti tutto il nord-est d'Italia.
+            clipped = os.path.join(tmp, f"{cid}.osm.pbf")
+            subprocess.run(["osmium", "extract", "--overwrite", "--no-progress", "-s", "smart",
+                            "-b", ",".join(str(v) for v in bbox), reduced, "-o", clipped], check=True)
             source = os.path.join(tmp, f"{cid}.geojsonseq")
             subprocess.run(["osmium", "export", "--overwrite", "--no-progress", "-f", "geojsonseq",
-                            "-x", "print_record_separator=false", "-a", "type,id", reduced, "-o", source], check=True)
+                            "-x", "print_record_separator=false", "-a", "type,id", clipped, "-o", source], check=True)
             sources.append(source)
         count = scrivi_xml(sources, bbox, args.out)
+    # Nessun oggetto e' quasi certamente un errore (formato di osmium cambiato, filtro sbagliato): meglio Overpass.
+    if count == 0:
+        sys.exit("nessun oggetto POI dagli estratti Geofabrik")
     print(f"-- geofabrik: {count} oggetti POI in {args.out}", flush=True)
 
 
