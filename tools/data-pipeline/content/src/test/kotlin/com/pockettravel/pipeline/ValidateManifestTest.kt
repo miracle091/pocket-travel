@@ -319,4 +319,21 @@ class ValidateManifestTest {
             validateAddressGridJson(addressGridIndex(gridCell("11/1/1"), gridCell("11/1/1")), allowedHosts)
         }
     }
+
+    private fun transitFeed(id: String = "mdb-3502", host: String = "github.com", bbox: String = "[23.9, 56.8, 24.4, 57.1]") = """
+        { "id": "$id", "name": "Riga", "regions": ["lettonia"], "license": "CC0-1.0", "attribution": "Rigas satiksme",
+          "version": "2026.09.29.1", "validUntil": "2026-12-27", "bbox": $bbox,
+          "file": { "name": "transit.db", "url": "https://$host/miracle091/pocket-travel/releases/download/transit-feeds/$id--transit.db", "sizeBytes": 10, "sha256": "${"a".repeat(64)}" } }
+    """.trimIndent()
+
+    @Test
+    fun `indice delle reti valido e i suoi errori`() {
+        validateTransitJson("""{ "version": "2026.09.29.1", "feeds": [${transitFeed()}] }""", allowedHosts)
+        listOf(
+            """{ "version": "2026.09.29.1", "feeds": [${transitFeed()}, ${transitFeed()}] }""",
+            """{ "version": "2026.09.29.1", "feeds": [${transitFeed(host = "evil.example")}] }""",
+            """{ "version": "2026.09.29.1", "feeds": [${transitFeed(bbox = "[25, 56.8, 24.4, 57.1]")}] }""",
+            """{ "version": "2026.09.29.1", "feeds": [${transitFeed(id = "../x")}] }""",
+        ).forEach { json -> assertThrows(ManifestValidationException::class.java) { validateTransitJson(json, allowedHosts) } }
+    }
 }

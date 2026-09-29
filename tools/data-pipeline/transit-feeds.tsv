@@ -1,0 +1,17 @@
+# Reti di mezzi pubblici (GTFS) pubblicate per il tabellone delle partenze: una riga per rete, dal
+# Mobility Database (https://files.mobilitydatabase.org/<id>/latest.zip, copia aggiornata ogni giorno
+# del feed dell'ente). Entrano solo reti con una licenza aperta confermata dal catalogo ufficiale
+# dell'ente (pubblico dominio, attribuzione, attribuzione + stessa licenza); niente licenze "solo uso
+# non commerciale", "non opere derivate" o non dichiarate finche' non si leggono i termini.
+# Verificate il 2026-09-29 dalle API CKAN dei portali: data.gov.lv (CC0 1.0), dati.comune.milano.it
+# (cc-by), dati.comune.roma.it (cc-by-sa).
+#
+# regioni: regionId di pilot-regions.sh separati da virgola (le regioni che propongono la rete).
+# attribuzione: testo per la schermata Licenze e sotto il tabellone.
+#
+# id	regioni	nome	licenza	attribuzione	pagina_licenza
+mdb-992	lettonia	Autobus nazionali (ATD)	CC0-1.0	Valsts SIA Autotransporta direkcija (data.gov.lv, CC0 1.0)	https://data.gov.lv/dati/eng/dataset/atd-gtfs
+mdb-3385	lettonia	Treni (Pasažieru vilciens)	CC0-1.0	AS Pasažieru vilciens (data.gov.lv, CC0 1.0)	https://data.gov.lv/dati/eng/dataset/iekszemes-dzelzcela-vilcienu-kustibas-saraksts-gtfs-formata
+mdb-3502	lettonia	Riga (Rīgas satiksme)	CC0-1.0	Rīgas satiksme (data.gov.lv, CC0 1.0)	https://data.gov.lv/dati/lv/dataset/marsrutu-saraksti-rigas-satiksme-sabiedriskajam-transportam
+mdb-2666	italia	Milano (ATM)	CC-BY	Comune di Milano, ATM - Azienda Trasporti Milanesi (dati.comune.milano.it, CC BY); modificato	https://dati.comune.milano.it/dataset/ds929-orari-del-trasporto-pubblico-locale-nel-comune-di-milano-in-formato-gtfs
+mdb-1294	italia	Roma (Roma Servizi per la Mobilità)	CC-BY-SA	Roma Servizi per la Mobilità (dati.comune.roma.it, CC BY-SA); modificato	https://dati.comune.roma.it/catalog/it/dataset/c_h501-d-9000

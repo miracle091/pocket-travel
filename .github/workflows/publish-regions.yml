@@ -145,6 +145,11 @@ jobs:
           done
           # Release del pacchetto guide unico: stesso prefisso "region-data" cosi' la pulizia degli
           # asset non piu' referenziati nel job "publish" la copre senza casi speciali.
+          # Orari delle reti di mezzi pubblici (job "transit"), referenziati da transit.json su Pages.
+          gh release view "transit-feeds" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+            gh release create "transit-feeds" --repo "${{ github.repository }}" \
+              --title "Orari dei mezzi pubblici" \
+              --notes "Pacchetti transit.db (orari GTFS convertiti) per l'app Pocket Travel, referenziati da transit.json su GitHub Pages. Non e' una release software."
           # Frammenti del manifest salvati da ogni shard subito dopo ogni regione (<VERSION>--<regionId>.json):
           # se il job muore prima di pubblicare, il job "publish" di una run successiva li recupera.
           gh release view "region-fragments" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
@@ -629,6 +634,97 @@ jobs:
           path: ${{ runner.temp }}/address-grid-index/address-grid.json
           retention-days: 1
 
+  # Reti di mezzi pubblici (GTFS) di tools/data-pipeline/transit-feeds.tsv: una per una, dalla copia
+  # del Mobility Database, in transit.db (build-transit.sh), ricostruite solo se il feed e' cambiato o
+  # la voce pubblicata ha piu' di 7 giorni. L'indice (transit.json) e il suo frammento manifest (voce
+  # "transit") vanno al job "publish" come artifact, stesso schema dei civici. Una rete che fallisce
+  # tiene la voce gia' pubblicata. Non gira nelle continuazioni.
+  transit:
+    needs: plan
+    if: ${{ !(github.event.inputs.continuation > 0) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      - name: Costruisci le reti di mezzi pubblici
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          # shellcheck source=./tools/data-pipeline/scripts/lib.sh
+          source tools/data-pipeline/scripts/lib.sh
+          INDEX_URL="${{ env.PAGES_BASE_URL }}/transit.json"
+          PUBLISHED="$RUNNER_TEMP/published-transit.json"
+          PUBLISHED_HTTP="$(fetch_published_manifest "$INDEX_URL" "$PUBLISHED")"
+          if [ "$PUBLISHED_HTTP" = "404" ]; then
+            rm -f "$PUBLISHED"
+          elif [ "$PUBLISHED_HTTP" != "200" ]; then
+            echo "ERRORE: transit.json non scaricabile da $INDEX_URL (HTTP ${PUBLISHED_HTTP:-000})" >&2
+            exit 1
+          fi
+          VERSION="$(date -u +%Y.%m.%d).${{ github.run_number }}.${{ github.run_attempt }}"
+          OUT="$RUNNER_TEMP/transit-out"
+          mkdir -p "$OUT" "$RUNNER_TEMP/fragments" "$RUNNER_TEMP/transit-index"
+          FAILED=()
+          PUBLISHED_ARG=""
+          [ ! -s "$PUBLISHED" ] || PUBLISHED_ARG="$PUBLISHED"
+          for id in $(awk -F'\t' '$0 !~ /^#/ && NF >= 5 { print $1 }' tools/data-pipeline/transit-feeds.tsv); do
+            echo "::group::$id"
+            if ! tools/data-pipeline/scripts/build-transit.sh "$id" "$VERSION" \
+              "https://github.com/${{ github.repository }}/releases/download/transit-feeds" "$OUT" "$PUBLISHED_ARG"; then
+              echo "::warning::rete $id non costruita: resta la voce gia' pubblicata, se c'e'"
+              FAILED+=("$id")
+              [ ! -s "$PUBLISHED" ] || jq -c --arg id "$id" '.feeds[]? | select(.id == $id)' "$PUBLISHED" >> "$OUT/transit-entries.jsonl"
+            fi
+            echo "::endgroup::"
+          done
+          shopt -s nullglob
+          ASSETS=("$OUT"/*--transit.db "$OUT"/*--transit.db.xz)
+          if [ "${#ASSETS[@]}" -gt 0 ]; then
+            gh release upload transit-feeds "${ASSETS[@]}" --repo "${{ github.repository }}" --clobber
+          fi
+          if [ ! -s "$OUT/transit-entries.jsonl" ]; then
+            echo "Nessuna rete da pubblicare" >&2
+            exit 1
+          fi
+          INDEX="$RUNNER_TEMP/transit-index/transit.json"
+          jq -s --arg v "$VERSION" '{version: $v, feeds: (unique_by(.id))}' "$OUT/transit-entries.jsonl" > "$INDEX"
+          jq -n --arg v "$VERSION" --arg url "$INDEX_URL" --argjson size "$(stat -c %s "$INDEX")" \
+            --arg sha "$(sha256sum "$INDEX" | cut -d' ' -f1)" \
+            '{manifestVersion: 2, transit: {version: $v, url: $url, sizeBytes: $size, sha256: $sha}, regions: []}' \
+            > "$RUNNER_TEMP/fragments/transit.json"
+          {
+            echo "### Reti di mezzi pubblici"
+            jq -r '.feeds[] | "- \(.id) \(.name): valido fino al \(.validUntil), versione \(.version)"' "$INDEX"
+            [ "${#FAILED[@]}" -eq 0 ] || echo "Non costruite (resta la voce pubblicata): ${FAILED[*]}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Carica il frammento manifest delle reti
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: manifest-fragments-transit
+          path: ${{ runner.temp }}/fragments/transit.json
+          retention-days: 1
+
+      - name: Carica l'indice delle reti
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: transit-index
+          path: ${{ runner.temp }}/transit-index/transit.json
+          retention-days: 1
+
   # Controllo della lista bianca Overture, una volta per rilascio: le coppie (paese, dataset,
   # licenza) nuove o sparite finirebbero scartate in silenzio dalle celle dei civici. Esito in una
   # issue (etichetta overture-licenze), che arriva per email; il rilascio controllato resta come
@@ -1029,7 +1125,7 @@ jobs:
   # frammento world-map (nessuna rigenerazione in questa run, il caso comune) resta la mappa del
   # mondo gia' pubblicata, se c'e'.
   publish:
-    needs: [guides, world-map, address-grid, build]
+    needs: [guides, world-map, address-grid, transit, build]
     if: ${{ !cancelled() }}
     # Un deploy su Pages (e un merge/pulizia sul manifest) alla volta: vedi il commento sulla concurrency in testa al file.
     concurrency:
@@ -1087,6 +1183,13 @@ jobs:
           path: ${{ runner.temp }}/address-grid-index
         continue-on-error: true
 
+      # transit.json (indice delle reti di mezzi pubblici), stesso trattamento di address-grid.json.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: transit-index
+          path: ${{ runner.temp }}/transit-index
+        continue-on-error: true
+
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
@@ -1137,6 +1240,9 @@ jobs:
           # alla pulizia degli asset (ultimo passo) per lo stesso periodo di grazia.
           curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/address-grid.json" \
             -o "$RUNNER_TEMP/previous-address-grid.json" || rm -f "$RUNNER_TEMP/previous-address-grid.json"
+          # Stesso motivo per transit.json (URL degli orari delle reti).
+          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/transit.json" \
+            -o "$RUNNER_TEMP/previous-transit.json" || rm -f "$RUNNER_TEMP/previous-transit.json"
           # Stesso file anche per il merge (curl legge file://), senza scaricarlo una seconda volta; se
           # il download sopra e' fallito assemble-site.sh riprova dall'URL e decide lui (errore, o
           # BOOTSTRAP=1 alla prima pubblicazione).
@@ -1193,6 +1299,11 @@ jobs:
           elif [ -s "$RUNNER_TEMP/previous-address-grid.json" ]; then
             cp "$RUNNER_TEMP/previous-address-grid.json" "$SITE_DIR/address-grid.json"
           fi
+          if [ -s "$RUNNER_TEMP/transit-index/transit.json" ]; then
+            cp "$RUNNER_TEMP/transit-index/transit.json" "$SITE_DIR/transit.json"
+          elif [ -s "$RUNNER_TEMP/previous-transit.json" ]; then
+            cp "$RUNNER_TEMP/previous-transit.json" "$SITE_DIR/transit.json"
+          fi
 
           echo "site_dir=$SITE_DIR" >> "$GITHUB_OUTPUT"
           echo "pages_host=${{ github.repository_owner }}.github.io" >> "$GITHUB_OUTPUT"
@@ -1204,6 +1315,7 @@ jobs:
           SITE_DIR="${{ steps.assemble.outputs.site_dir }}"
           ARGS="$SITE_DIR/manifest.json ${{ steps.assemble.outputs.pages_host }}"
           [ ! -s "$SITE_DIR/address-grid.json" ] || ARGS="$ARGS $SITE_DIR/address-grid.json"
+          [ ! -s "$SITE_DIR/transit.json" ] || ARGS="$ARGS --transit $SITE_DIR/transit.json"
           ./gradlew -q :tools:data-pipeline:content:validateManifest --args="$ARGS"
 
       # Prima del deploy: ogni regione del manifest precedente deve restare nel nuovo, salvo quelle
@@ -1299,7 +1411,8 @@ jobs:
           # giornaliera nel job "address-grid").
           REFERENCED="$RUNNER_TEMP/referenced.txt"
           SCAN_FILES=("$MANIFEST" "$PREVIOUS_MANIFEST")
-          for f in "${{ steps.assemble.outputs.site_dir }}/address-grid.json" "$RUNNER_TEMP/previous-address-grid.json"; do
+          for f in "${{ steps.assemble.outputs.site_dir }}/address-grid.json" "$RUNNER_TEMP/previous-address-grid.json" \
+            "${{ steps.assemble.outputs.site_dir }}/transit.json" "$RUNNER_TEMP/previous-transit.json"; do
             if [ -s "$f" ]; then SCAN_FILES+=("$f"); fi
           done
           cat "${SCAN_FILES[@]}" \
@@ -1313,7 +1426,7 @@ jobs:
           # un'altra run ancora in corso (vedi il commento sulla concurrency in testa al file), la
           # pulizia della run successiva li togliera'.
           CUTOFF="$(date -u -d '-24 hours' +%Y-%m-%dT%H:%M:%SZ)"
-          for tag in $(gh release list --repo "${{ github.repository }}" --limit 200 --json tagName --jq '.[].tagName' | grep -E '^(region-data|world-map|address-cells-)'); do
+          for tag in $(gh release list --repo "${{ github.repository }}" --limit 200 --json tagName --jq '.[].tagName' | grep -E '^(region-data|world-map|address-cells-|transit-feeds$)'); do
             deleted=0
             total=0
             # Elenco completo a pagine di 100 (quello dentro la release puo' essere troncato).

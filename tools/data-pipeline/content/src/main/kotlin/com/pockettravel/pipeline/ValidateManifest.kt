@@ -65,6 +65,15 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
         if (!isAllowedUrl(url, allowedHosts)) throw ManifestValidationException("addressGrid.url non consentito: $url")
     }
 
+    // Indice delle reti di mezzi pubblici (facoltativo): stesso schema del puntatore "addressGrid".
+    root.optJSONObject("transit")?.let { transit ->
+        validateVersion(transit, "transit")
+        if (transit.getLong("sizeBytes") < 0) throw ManifestValidationException("transit.sizeBytes non valido")
+        if (!transit.getString("sha256").matches(sha256Regex)) throw ManifestValidationException("transit.sha256 non valido")
+        val url = transit.getString("url")
+        if (!isAllowedUrl(url, allowedHosts)) throw ManifestValidationException("transit.url non consentito: $url")
+    }
+
     if (root.has("minAppVersionCode")) {
         val minAppVersionCode = root.getInt("minAppVersionCode")
         if (minAppVersionCode <= 0) throw ManifestValidationException("minAppVersionCode non valido: $minAppVersionCode")
@@ -184,6 +193,37 @@ private fun validateFile(file: JSONObject, owner: String, allowedHosts: Set<Stri
  * discendente di un'altra (isAncestorCell, GenerateAddressGrid.kt), ordinate per id, file/fileXz
  * come le altre voci del manifest, almeno un'attribuzione.
  */
+/** transit.json: reti con id unico, regioni, licenza e attribuzione, file consentiti, data di fine e riquadro validi. */
+fun validateTransitJson(indexJson: String, allowedHosts: Set<String>) {
+    val root = JSONObject(indexJson)
+    if (!root.getString("version").matches(safeSegmentRegex)) throw ManifestValidationException("transit.json: version non valida")
+    val feeds = root.getJSONArray("feeds")
+    val seen = mutableSetOf<String>()
+    for (i in 0 until feeds.length()) {
+        val feed = feeds.getJSONObject(i)
+        val id = feed.getString("id")
+        if (!isSafeSegment(id)) throw ManifestValidationException("transit.json: id di rete non valido: $id")
+        if (!seen.add(id)) throw ManifestValidationException("transit.json: rete duplicata: $id")
+        val regions = feed.getJSONArray("regions")
+        if (regions.length() == 0) throw ManifestValidationException("transit.json: $id senza regioni")
+        for (j in 0 until regions.length()) {
+            if (!isSafeSegment(regions.getString(j))) throw ManifestValidationException("transit.json: regione non valida in $id")
+        }
+        if (feed.getString("license").isBlank() || feed.getString("attribution").isBlank()) {
+            throw ManifestValidationException("transit.json: $id senza licenza o attribuzione")
+        }
+        runCatching { java.time.LocalDate.parse(feed.getString("validUntil")) }
+            .getOrElse { throw ManifestValidationException("transit.json: validUntil non valido per $id") }
+        val bbox = feed.getJSONArray("bbox")
+        if (bbox.length() != 4 || bbox.getDouble(0) > bbox.getDouble(2) || bbox.getDouble(1) > bbox.getDouble(3)) {
+            throw ManifestValidationException("transit.json: bbox non valido per $id")
+        }
+        validateVersion(feed, "transit/$id")
+        validateFile(feed.getJSONObject("file"), "transit/$id", allowedHosts)
+        feed.optJSONObject("fileXz")?.let { validateFile(it, "transit/$id", allowedHosts) }
+    }
+}
+
 fun validateAddressGridJson(indexJson: String, allowedHosts: Set<String>) {
     val root = JSONObject(indexJson)
     if (!root.getString("version").matches(safeSegmentRegex)) throw ManifestValidationException("address-grid.json: version non valida")
@@ -251,8 +291,11 @@ private fun validateMapSource(mapSource: JSONObject, regionId: String, allowedHo
     if (!(minZoom in 0..22 && maxZoom in minZoom..22)) throw ManifestValidationException("zoom non valido per $regionId")
 }
 
-fun main(args: Array<String>) {
-    require(args.size == 2 || args.size == 3) { "Uso: validateManifest <manifest.json> <pagesHost> [<address-grid.json>]" }
+fun main(allArgs: Array<String>) {
+    // --transit <transit.json>: indice delle reti di mezzi pubblici, facoltativo.
+    val transitIndex = allArgs.indexOf("--transit").takeIf { it >= 0 }?.let { allArgs[it + 1] }
+    val args = allArgs.filterIndexed { i, _ -> transitIndex == null || (allArgs[i] != "--transit" && allArgs.getOrNull(i - 1) != "--transit") }
+    require(args.size == 2 || args.size == 3) { "Uso: validateManifest <manifest.json> <pagesHost> [<address-grid.json>] [--transit <transit.json>]" }
     // github.com: guides.db, poi.db e i segmenti .rd5 vivono sugli asset delle release "region-data*"
     // e "address-cells-*", non piu' sotto pagesHost — vedi SyncConfig.ALLOWED_MANIFEST_HOSTS
     // (core/sync), duplicato qui di proposito.
@@ -262,5 +305,9 @@ fun main(args: Array<String>) {
     if (args.size == 3) {
         validateAddressGridJson(File(args[2]).readText(), allowedHosts)
         println("indice civici valido: ${args[2]}")
+    }
+    transitIndex?.let {
+        validateTransitJson(File(it).readText(), allowedHosts)
+        println("indice reti valido: $it")
     }
 }

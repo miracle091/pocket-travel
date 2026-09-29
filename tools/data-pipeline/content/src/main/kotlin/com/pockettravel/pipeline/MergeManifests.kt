@@ -46,6 +46,7 @@ import java.io.File
  * l'ultimo frammento che la contiene (generateAddressGrid ne scrive uno solo, con l'indice appena
  * unito). Le regioni v1/v2 tengono anche la loro vecchia voce "addresses" (congelata, non piu'
  * aggiornata): le app vecchie che non conoscono la griglia continuano a leggere quella.
+ * "transit" (indice delle reti di mezzi pubblici, transit.json) come "addressGrid".
  */
 fun mergeManifestJson(
     manifestJsons: List<String>,
@@ -69,6 +70,7 @@ fun mergeManifestJson(
     var guidesEn: JSONObject? = null
     var worldMap: JSONObject? = null
     var addressGrid: JSONObject? = null
+    var transit: JSONObject? = null
     manifestJsons.forEach { json ->
         val root = JSONObject(json)
         val manifestVersion = root.getInt("manifestVersion")
@@ -77,6 +79,7 @@ fun mergeManifestJson(
         root.optJSONObject("guidesEn")?.let { guidesEn = it }
         root.optJSONObject("worldMap")?.let { worldMap = it }
         root.optJSONObject("addressGrid")?.let { addressGrid = it }
+        root.optJSONObject("transit")?.let { transit = it }
         root.optJSONObject("wikivoyageUrls")?.let { urls -> urls.keySet().forEach { wikivoyageUrls[it] = urls.getString(it) } }
         val regions = root.getJSONArray("regions")
         for (i in 0 until regions.length()) {
@@ -125,6 +128,7 @@ fun mergeManifestJson(
     guidesEn?.let { merged.put("guidesEn", it) }
     worldMap?.let { merged.put("worldMap", it) }
     addressGrid?.let { merged.put("addressGrid", it) }
+    transit?.let { merged.put("transit", it) }
     minAppVersionCode?.let { merged.put("minAppVersionCode", it) }
     merged.put("regions", JSONArray(regionsById.values.toList()))
     if (completed.isNotEmpty()) {

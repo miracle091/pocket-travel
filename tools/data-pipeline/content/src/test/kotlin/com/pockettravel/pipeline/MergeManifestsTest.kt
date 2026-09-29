@@ -255,6 +255,17 @@ class MergeManifestsTest {
     }
 
     @Test
+    fun `l'indice delle reti si porta avanti e l'ultimo frammento lo sostituisce`() {
+        val transit = { version: String ->
+            """{ "manifestVersion": 2, "transit": { "version": "$version", "url": "https://example.org/transit.json", "sizeBytes": 900, "sha256": "${"e".repeat(64)}" }, "regions": [] }"""
+        }
+        val giaPubblicato = mergeManifestJson(listOf(guidesFragment("1"), fragmentFor("san-marino", "San Marino"), transit("2026.09.29.1")))
+
+        assertEquals("2026.09.29.1", JSONObject(mergeManifestJson(listOf(giaPubblicato, fragmentFor("san-marino", "San Marino", "2")))).getJSONObject("transit").getString("version"))
+        assertEquals("2026.09.30.1", JSONObject(mergeManifestJson(listOf(giaPubblicato, transit("2026.09.30.1")))).getJSONObject("transit").getString("version"))
+    }
+
+    @Test
     fun `senza un nuovo frammento l'indice dei civici pubblicato resta com'e'`() {
         val giaPubblicato = mergeManifestJson(listOf(guidesFragment("1"), fragmentFor("san-marino", "San Marino"), addressGridFragment("2026.09.30.1")))
 
