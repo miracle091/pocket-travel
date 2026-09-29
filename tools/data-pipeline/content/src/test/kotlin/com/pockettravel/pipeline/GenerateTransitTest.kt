@@ -109,8 +109,11 @@ class GenerateTransitTest {
             // Partenze: capolinea d'arrivo escluso, T3 senza salita alla prima fermata, T2 dopo mezzanotte (1470).
             assertEquals(
                 listOf(listOf("Stazione Centrale, binario 1", 480), listOf("Stazione Centrale, binario 1", 605), listOf("Stazione Centrale, binario 1", 1470)),
-                query("SELECT s.name, st.minute FROM stop_time st JOIN stop s ON s.id = st.stop ORDER BY st.minute"),
+                query("SELECT s.name, t.start + ps.offset AS minute FROM pattern_stop ps JOIN trip t ON t.pattern = ps.pattern JOIN stop s ON s.id = ps.stop ORDER BY minute"),
             )
+
+            // Le tre corse partono tutte solo da S1 (il resto e' capolinea o senza salita): un solo pattern.
+            assertEquals(listOf(listOf<Any?>(1)), query("SELECT COUNT(DISTINCT pattern) FROM trip"))
 
             // Feriale: lun, mar, gio, ven (mercoledi' 7 tolto); festivo: gio 8 aggiunto, sab, dom.
             val days = query("SELECT days FROM service ORDER BY id").map { it[0] as ByteArray }

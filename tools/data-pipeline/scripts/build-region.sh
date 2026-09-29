@@ -627,7 +627,11 @@ if [ "${#POI_XML_FILES[@]}" -eq 0 ]; then
   echo "ERRORE: nessun chunk Overpass ha prodotto dati validi per $REGION_ID" >&2
   exit 1
 fi
-if [ "$FAILED_CHUNKS" -gt 0 ]; then
+if [ "$FAILED_CHUNKS" -gt 0 ] && [ -n "${PUBLISHED_POI_URL:-}" ]; then
+  # Un poi.db parziale sostituirebbe quello completo gia' pubblicato: meglio fallire e tenere quello.
+  echo "ERRORE: $FAILED_CHUNKS/$chunkIndex chunk Overpass falliti e $REGION_ID ha gia' dei POI pubblicati: li tengo" >&2
+  exit 1
+elif [ "$FAILED_CHUNKS" -gt 0 ]; then
   echo "-- attenzione: $FAILED_CHUNKS/$chunkIndex chunk falliti, alcuni POI di $REGION_ID mancheranno"
 fi
 

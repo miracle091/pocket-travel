@@ -102,6 +102,9 @@ internal interface TransitRow {
     fun bytes(column: Int): ByteArray?
 }
 
+/** Schema di transit.db che l'app legge (GenerateTransit.kt, TRANSIT_DB_FORMAT, in tools/data-pipeline). */
+internal const val TRANSIT_DB_FORMAT = 2
+
 internal interface TransitQuery {
     fun <T> query(sql: String, read: (TransitRow) -> T): List<T>
 }
@@ -109,6 +112,8 @@ internal interface TransitQuery {
 /** Esito per una rete: [board] e' Departures o Expired; null se la rete non ha fermate vicino al punto. */
 internal fun readFeedBoard(db: TransitQuery, feed: TransitFeedInfo?, latitude: Double, longitude: Double, now: Instant): TransitBoard? {
     val meta = db.query("SELECT key, value FROM meta") { it.string(0).orEmpty() to it.string(1).orEmpty() }.toMap()
+    // Un formato diverso da quello che l'app sa leggere: la rete si ignora finche' non si aggiorna.
+    if (meta["format"]?.toIntOrNull() != TRANSIT_DB_FORMAT) return null
     val zone = ZoneId.of(meta.getValue("timezone"))
     val windowStart = LocalDate.parse(meta.getValue("window_start"), BASIC_DATE)
     val validUntil = LocalDate.parse(meta.getValue("valid_until"), BASIC_DATE)
@@ -133,11 +138,13 @@ internal fun readFeedBoard(db: TransitQuery, feed: TransitFeedInfo?, latitude: D
         if (to < from) continue
         val dayIndex = ChronoUnit.DAYS.between(windowStart, today.plusDays(offset.toLong())).toInt()
         if (dayIndex < 0) continue
+        // Formato 2 (GenerateTransit): i pattern della fermata, poi le loro corse per minuto di partenza
+        // (chiave della tabella trip); il passaggio alla fermata e' partenza + offset.
         val rows = db.query(
-            "SELECT st.minute, st.trip, r.short_name, r.long_name, r.type, r.color, r.text_color, h.text, sv.days " +
-                "FROM stop_time st JOIN trip t ON t.id = st.trip JOIN route r ON r.id = t.route " +
-                "JOIN service sv ON sv.id = t.service LEFT JOIN headsign h ON h.id = t.headsign " +
-                "WHERE st.stop IN ($ids) AND st.minute BETWEEN $from AND $to ORDER BY st.minute",
+            "SELECT t.start + ps.offset AS minute, t.id, r.short_name, r.long_name, r.type, r.color, r.text_color, h.text, sv.days " +
+                "FROM pattern_stop ps JOIN trip t ON t.pattern = ps.pattern AND t.start BETWEEN $from - ps.offset AND $to - ps.offset " +
+                "JOIN route r ON r.id = t.route JOIN service sv ON sv.id = t.service LEFT JOIN headsign h ON h.id = t.headsign " +
+                "WHERE ps.stop IN ($ids) ORDER BY minute",
         ) { row ->
             val days = row.bytes(8)
             if (days == null || !isServiceActive(days, dayIndex, windowDays)) return@query null

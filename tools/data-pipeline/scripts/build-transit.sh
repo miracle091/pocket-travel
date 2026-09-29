@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Costruisce (o mantiene) il pacchetto orari di UNA rete di mezzi pubblici (GTFS) della lista
-# tools/data-pipeline/transit-feeds.tsv: scarica la copia del feed dal Mobility Database, la converte
+# tools/data-pipeline/transit-feeds.tsv: scarica la copia del feed dal Mobility Database (o dall'url_feed
+# della riga), la converte
 # in transit.db (generateTransit, schema "calendario", finestra di TRANSIT_WINDOW_DAYS giorni da
 # oggi) e la comprime con xz. Se il feed scaricato ha lo stesso sha256 di quello della voce gia'
 # pubblicata e la voce ha meno di TRANSIT_MAX_AGE_DAYS giorni, tiene la voce pubblicata (nessun
@@ -44,7 +45,19 @@ source "$SCRIPT_DIR/lib.sh"
 [[ "$FEED_ID" =~ ^[a-z0-9-]+$ ]] || { echo "feedId non valido: $FEED_ID" >&2; exit 1; }
 LINE="$(awk -F'\t' -v id="$FEED_ID" '$0 !~ /^#/ && $1 == id' "$TRANSIT_FEEDS")"
 [ -n "$LINE" ] || { echo "$FEED_ID non e' nella lista $TRANSIT_FEEDS" >&2; exit 1; }
-IFS=$'\t' read -r _ REGIONS NAME LICENSE ATTRIBUTION LICENSE_URL <<< "$LINE"
+IFS=$'\t' read -r _ REGIONS NAME LICENSE ATTRIBUTION LICENSE_URL FEED_URL <<< "$LINE"
+# Senza colonna url_feed: la copia del Mobility Database.
+FEED_URL="${FEED_URL:-https://files.mobilitydatabase.org/${FEED_ID}/latest.zip}"
+# {anno} nell'url_feed: l'orario dell'anno (Svizzera: un dataset per anno, cambio orario a meta'
+# dicembre). Dal 10 dicembre si prova quello dell'anno dopo, se e' gia' pubblicato.
+if [[ "$FEED_URL" == *"{anno}"* ]]; then
+  YEAR="$(date -u +%Y)"
+  if [ "$(date -u +%m%d)" -ge 1210 ] && curl -sSfIL -o /dev/null -A "$PIPELINE_USER_AGENT" "${FEED_URL//\{anno\}/$((YEAR + 1))}"; then
+    YEAR=$((YEAR + 1))
+  fi
+  FEED_URL="${FEED_URL//\{anno\}/$YEAR}"
+  echo "-- $FEED_ID: orario $YEAR ($FEED_URL)"
+fi
 
 mkdir -p "$OUTPUT_DIR"
 WORKDIR="$(mktemp -d)"
@@ -55,7 +68,7 @@ echo "-- $FEED_ID ($NAME): scarico il feed..."
 FEED_ZIP="$WORKDIR/feed.zip"
 ok=false
 for attempt in 1 2 3; do
-  if curl -sSfL --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" -o "$FEED_ZIP" "https://files.mobilitydatabase.org/${FEED_ID}/latest.zip"; then
+  if curl -sSfL --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" -o "$FEED_ZIP" "$FEED_URL"; then
     ok=true
     break
   fi

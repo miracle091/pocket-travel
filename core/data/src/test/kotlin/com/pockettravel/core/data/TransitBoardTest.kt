@@ -29,9 +29,9 @@ class TransitBoardTest {
             "CREATE TABLE route(id INTEGER PRIMARY KEY, short_name TEXT, long_name TEXT, type INTEGER, color TEXT, text_color TEXT)",
             "CREATE TABLE headsign(id INTEGER PRIMARY KEY, text TEXT)",
             "CREATE TABLE service(id INTEGER PRIMARY KEY, days BLOB)",
-            "CREATE TABLE trip(id INTEGER PRIMARY KEY, route INTEGER, service INTEGER, headsign INTEGER)",
-            "CREATE TABLE stop_time(stop INTEGER, minute INTEGER, trip INTEGER, PRIMARY KEY (stop, minute, trip)) WITHOUT ROWID",
-            "INSERT INTO meta VALUES ('feed_id','mdb-1'),('format','1'),('timezone','Europe/Riga'),('window_start','20260929')," +
+            "CREATE TABLE trip(pattern INTEGER, start INTEGER, id INTEGER, route INTEGER, service INTEGER, headsign INTEGER, PRIMARY KEY (pattern, start, id)) WITHOUT ROWID",
+            "CREATE TABLE pattern_stop(stop INTEGER, pattern INTEGER, offset INTEGER, PRIMARY KEY (stop, pattern, offset)) WITHOUT ROWID",
+            "INSERT INTO meta VALUES ('feed_id','mdb-1'),('format','2'),('timezone','Europe/Riga'),('window_start','20260929')," +
                 "('window_days','30'),('valid_until','20261028')",
             // 1 e 2: banchine vicine (2 con parent 10); 10: stazione; 3: banchina a ~200 m della stazione; 4: lontana.
             "INSERT INTO stop VALUES (1,'A','Vicina',56950000,24100000,NULL),(2,'B','Banchina',56950300,24100000,10)," +
@@ -54,8 +54,9 @@ class TransitBoardTest {
         connection.prepareStatement("INSERT INTO service VALUES (?, ?)").use { it.setInt(1, id); it.setBytes(2, days); it.execute() }
     }
 
+    // Una corsa con un solo passaggio: pattern proprio (id della corsa), partenza al minuto del passaggio.
     private fun trip(id: Int, route: Int, service: Int, headsign: Int?, stop: Int, minute: Int) {
-        exec("INSERT INTO trip VALUES ($id, $route, $service, ${headsign ?: "NULL"})", "INSERT INTO stop_time VALUES ($stop, $minute, $id)")
+        exec("INSERT INTO trip VALUES ($id, $minute, $id, $route, $service, ${headsign ?: "NULL"})", "INSERT INTO pattern_stop VALUES ($stop, $id, 0)")
     }
 
     private val query = object : TransitQuery {
@@ -94,6 +95,24 @@ class TransitBoardTest {
         assertEquals(listOf(0, 180), items.map { it.inMinutes })
         assertEquals(listOf("Centrs", "Aeroports"), items.map { it.headsign })
         assertEquals(listOf(540, 720), items.map { it.minuteOfDay })
+    }
+
+    @Test
+    fun corseDelloStessoPatternConLOffsetDellaFermata() {
+        // Pattern 50: parte dalla fermata lontana (4) e passa dalla vicina (1) dopo 7 minuti.
+        exec(
+            "INSERT INTO pattern_stop VALUES (4, 50, 0), (1, 50, 7)",
+            "INSERT INTO trip VALUES (50, 530, 1, 1, 1, 1), (50, 560, 2, 1, 1, 1), (50, 720, 3, 1, 1, 1)",
+        )
+        // Alle 09:00: 530+7 = 08:57 gia' passata, 560+7 = 09:27 fra 27 minuti, 720+7 = 12:07 oltre le tre ore.
+        assertEquals(listOf(27), departures("2026-10-01T06:00:00Z").map { it.inMinutes })
+    }
+
+    @Test
+    fun unFormatoDiversoSiIgnora() {
+        trip(1, 1, 1, 1, stop = 1, minute = 545)
+        exec("UPDATE meta SET value = '3' WHERE key = 'format'")
+        assertNull(board("2026-10-01T06:00:00Z"))
     }
 
     @Test

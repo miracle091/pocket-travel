@@ -99,8 +99,18 @@ PUBLISHED_DB=""
 PUBLISHED_URL=""
 PUBLISHED_VERSION=""
 PUBLISHED_XZ_JSON=""
+# Guide pubblicate non lette (errore di rete) mentre alcune pagine Wikivoyage mancano: le regioni di
+# quelle pagine uscirebbero senza guida. Meglio fermarsi e lasciare pubblicate le guide di prima.
+published_unreadable() {
+  if [ "$FAILED" -gt 0 ]; then
+    echo "ERRORE: $1 e $FAILED pagine Wikivoyage non scaricate: non pubblico guide incomplete" >&2
+    exit 1
+  fi
+}
 if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
-  if curl -sSf -o "$WORKDIR/published-manifest.json" "$PUBLISHED_MANIFEST_URL" 2>/dev/null; then
+  if ! curl -sSf --retry 5 --retry-all-errors --retry-delay 5 -o "$WORKDIR/published-manifest.json" "$PUBLISHED_MANIFEST_URL" 2>/dev/null; then
+    published_unreadable "manifest pubblicato non scaricato"
+  else
     PUBLISHED_URL="$(jq -r --arg k "$MANIFEST_KEY" '.[$k].file.url // ""' "$WORKDIR/published-manifest.json")"
     PUBLISHED_VERSION="$(jq -r --arg k "$MANIFEST_KEY" '.[$k].version // ""' "$WORKDIR/published-manifest.json")"
     PUBLISHED_XZ_JSON="$(jq -c --arg k "$MANIFEST_KEY" '.[$k].fileXz // empty' "$WORKDIR/published-manifest.json")"
@@ -111,13 +121,14 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
       # prima di questo .xz) si usa cosi' com'e'.
       DOWNLOAD_TARGET="$WORKDIR/published-guides.db"
       [[ "$PUBLISHED_URL" == *.xz ]] && DOWNLOAD_TARGET="$WORKDIR/published-guides.db.xz"
-      if curl -sSfL -o "$DOWNLOAD_TARGET" "$PUBLISHED_URL"; then
+      if curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o "$DOWNLOAD_TARGET" "$PUBLISHED_URL"; then
         if [[ "$PUBLISHED_URL" == *.xz ]]; then
           xz -dc "$DOWNLOAD_TARGET" > "$WORKDIR/published-guides.db" && PUBLISHED_DB="$WORKDIR/published-guides.db"
         else
           PUBLISHED_DB="$DOWNLOAD_TARGET"
         fi
       fi
+      [ -n "$PUBLISHED_DB" ] || published_unreadable "guide pubblicate non lette ($PUBLISHED_URL)"
     fi
   fi
 fi

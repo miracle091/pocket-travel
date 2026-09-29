@@ -3,7 +3,6 @@ package com.pockettravel.pipeline
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
-import java.sql.Connection
 import java.sql.DriverManager
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -118,7 +117,12 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
                 s.execute("CREATE TABLE route (id INTEGER PRIMARY KEY, short_name TEXT, long_name TEXT, type INTEGER NOT NULL, color TEXT, text_color TEXT)")
                 s.execute("CREATE TABLE headsign (id INTEGER PRIMARY KEY, text TEXT NOT NULL)")
                 s.execute("CREATE TABLE service (id INTEGER PRIMARY KEY, days BLOB NOT NULL)")
-                s.execute("CREATE TABLE trip (id INTEGER PRIMARY KEY, route INTEGER NOT NULL, service INTEGER NOT NULL, headsign INTEGER)")
+                // Formato 2: le corse con le stesse fermate agli stessi intervalli condividono un "pattern"
+                // (pattern_stop: fermata e minuti dalla partenza della corsa); ogni corsa ha solo pattern e
+                // minuto di partenza. Svizzera: 15,3 milioni di righe stop_time del formato 1 contro 1,2
+                // milioni di pattern_stop, 248 MB contro 45 (27 MB contro 6,8 compressi), stesse partenze.
+                // Ordinata per (pattern, partenza): la tabella stessa fa da indice per le partenze di una fermata.
+                s.execute("CREATE TABLE trip (pattern INTEGER NOT NULL, start INTEGER NOT NULL, id INTEGER NOT NULL, route INTEGER NOT NULL, service INTEGER NOT NULL, headsign INTEGER, PRIMARY KEY (pattern, start, id)) WITHOUT ROWID")
                 // Temporanea: con la sequenza, per togliere l'ultima fermata di ogni corsa e ricavare la destinazione.
                 s.execute("CREATE TEMP TABLE raw_time (trip INTEGER NOT NULL, seq INTEGER NOT NULL, stop INTEGER NOT NULL, minute INTEGER NOT NULL, pickup INTEGER NOT NULL)")
             }
@@ -173,21 +177,52 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
             }
             insertAll("INSERT INTO headsign VALUES (?, ?)", headsigns.entries) { (text, id) -> setInt(1, id); setString(2, text) }
             insertAll("INSERT INTO service VALUES (?, ?)", serviceIds.entries) { (serviceId, id) -> setInt(1, id); setBytes(2, dayBits(activeServices.getValue(serviceId))) }
-            insertAll("INSERT INTO trip VALUES (?, ?, ?, ?)", trips.values) { trip ->
-                setInt(1, trip.id); setInt(2, trip.route); setInt(3, trip.service)
-                val h = trip.headsign?.let { headsigns[it] }
-                if (h != null) setInt(4, h) else setNull(4, java.sql.Types.INTEGER)
-            }
-
+            // Pattern di ogni corsa: le fermate dove si sale (non il capolinea d'arrivo, non pickup_type=1)
+            // con i minuti dalla prima; le corse senza fermate utili non danno partenze e non si scrivono.
+            val patterns = HashMap<List<Int>, Int>()
+            val tripPattern = HashMap<Int, IntArray>()
+            var departures = 0
             conn.createStatement().use { s ->
-                s.execute("CREATE TABLE stop_time (stop INTEGER NOT NULL, minute INTEGER NOT NULL, trip INTEGER NOT NULL, PRIMARY KEY (stop, minute, trip)) WITHOUT ROWID")
-                s.execute(
-                    """INSERT OR IGNORE INTO stop_time (stop, minute, trip)
-                       SELECT r.stop, r.minute, r.trip FROM raw_time r
+                s.executeQuery(
+                    """SELECT r.trip, r.stop, r.minute FROM raw_time r
                        JOIN (SELECT trip, MAX(seq) AS seq FROM raw_time GROUP BY trip) l ON r.trip = l.trip
-                       WHERE r.seq < l.seq AND r.pickup = 1""",
-                )
+                       WHERE r.seq < l.seq AND r.pickup = 1 ORDER BY r.trip, r.seq""",
+                ).use { rs ->
+                    var currentTrip = -1
+                    val calls = ArrayList<Int>()
+                    fun flush() {
+                        if (currentTrip < 0 || calls.isEmpty()) return
+                        val start = calls[1]
+                        // Chiave: fermata e minuti dalla partenza, alternati; la stessa fermata allo stesso minuto conta una volta.
+                        val key = calls.chunked(2).map { (stop, minute) -> stop to minute - start }.distinct().flatMap { listOf(it.first, it.second) }
+                        departures += key.size / 2
+                        tripPattern[currentTrip] = intArrayOf(patterns.getOrPut(key) { patterns.size }, start)
+                    }
+                    while (rs.next()) {
+                        val trip = rs.getInt(1)
+                        if (trip != currentTrip) { flush(); currentTrip = trip; calls.clear() }
+                        calls += rs.getInt(2); calls += rs.getInt(3)
+                    }
+                    flush()
+                }
                 s.execute("DROP TABLE raw_time")
+                s.execute("CREATE TABLE pattern_stop (stop INTEGER NOT NULL, pattern INTEGER NOT NULL, offset INTEGER NOT NULL, PRIMARY KEY (stop, pattern, offset)) WITHOUT ROWID")
+            }
+            conn.prepareStatement("INSERT INTO pattern_stop VALUES (?, ?, ?)").use { st ->
+                var batch = 0
+                patterns.forEach { (key, id) ->
+                    for (i in key.indices step 2) {
+                        st.setInt(1, key[i]); st.setInt(2, id); st.setInt(3, key[i + 1]); st.addBatch()
+                        if (++batch % 20_000 == 0) st.executeBatch()
+                    }
+                }
+                st.executeBatch()
+            }
+            insertAll("INSERT INTO trip VALUES (?, ?, ?, ?, ?, ?)", trips.values.filter { it.id in tripPattern }) { trip ->
+                val (pattern, start) = tripPattern.getValue(trip.id)
+                setInt(1, pattern); setInt(2, start); setInt(3, trip.id); setInt(4, trip.route); setInt(5, trip.service)
+                val h = trip.headsign?.let { headsigns[it] }
+                if (h != null) setInt(6, h) else setNull(6, java.sql.Types.INTEGER)
             }
             val validUntil = lastActiveDay?.let { windowStart.plusDays(it.toLong()) }
             insertAll(
@@ -199,22 +234,18 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
                 ),
             ) { (k, v) -> setString(1, k); setString(2, v) }
             conn.commit()
-            val stopTimes = countRows(conn, "stop_time")
             conn.autoCommit = true
             conn.createStatement().use { it.execute("VACUUM") }
 
             val used = stops.values
             val bbox = if (used.isEmpty()) null else doubleArrayOf(used.minOf { it.lon }, used.minOf { it.lat }, used.maxOf { it.lon }, used.maxOf { it.lat })
-            return TransitStats(stops.size, routes.size, trips.size, stopTimes, validUntil, bbox)
+            return TransitStats(stops.size, routes.size, tripPattern.size, departures, validUntil, bbox)
         }
     }
 }
 
 /** Versione dello schema di transit.db: l'app rifiuta un formato piu' nuovo di quello che conosce. */
-const val TRANSIT_DB_FORMAT = 1
-
-private fun countRows(conn: Connection, table: String): Int =
-    conn.createStatement().use { s -> s.executeQuery("SELECT COUNT(*) FROM $table").use { rs -> rs.next(); rs.getInt(1) } }
+const val TRANSIT_DB_FORMAT = 2
 
 /** Bit i acceso se [days][i]: byte i/8, bit i%8 (il meno significativo per primo). */
 internal fun dayBits(days: BooleanArray): ByteArray {
