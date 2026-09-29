@@ -201,7 +201,7 @@
     <string name="navigation_waiting_fix">Waiting for GPS signal… It comes faster outdoors.</string>
     <string name="navigation_off_route">Off route: recalculating…</string>
     <string name="navigation_arrived">You have arrived</string>
-    <string name="navigation_no_routing_data">Routes for this area are missing. Download the region\'s Routes package from the Packages sheet, or you are outside the region.</string>
+    <string name="navigation_no_routing_data">Routes for this area are missing. Download the region\'s Routes from its Contents, or you are outside the region.</string>
     <string name="navigation_not_found">No route found to the destination with your chosen way of getting around.</string>
     <string name="navigation_wheelchair_notice">Otherwise no steps. OSM data is incomplete: obstacles are possible.</string>
     <string name="navigation_allow_steps">Accept a few steps</string>
@@ -252,6 +252,7 @@
     <string name="transit_update">Update</string>
     <string name="transit_download">Download public transport timetables</string>
     <string name="transit_downloading">Downloading public transport timetables…</string>
+    <string name="transit_source_dated">Source: %1$s, data from %2$s</string>
     <string name="transit_source">Source: %1$s</string>
     <string name="transit_in_min">in %1$d min</string>
     <string name="transit_now">now</string>

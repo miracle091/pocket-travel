@@ -117,6 +117,7 @@ fun RegionListScreen(
             onDelete = viewModel::delete,
             onDownloadPackage = viewModel::downloadPackage,
             onDeletePackage = viewModel::deletePackage,
+            onTransitNetworkChange = viewModel::setTransitNetwork,
         ),
         onRegionClick = { item ->
             if (item.status == RegionStatus.NOT_INSTALLED) {
@@ -137,6 +138,8 @@ internal data class RegionRowActions(
     val onDelete: (regionId: String) -> Unit,
     val onDownloadPackage: (regionId: String, kind: PackageKind) -> Unit,
     val onDeletePackage: (regionId: String, kind: PackageKind) -> Unit,
+    // Mezzi pubblici con piu' reti: aggiunge o toglie una rete (foglio Contenuti).
+    val onTransitNetworkChange: (regionId: String, feedId: String, included: Boolean) -> Unit = { _, _, _ -> },
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)

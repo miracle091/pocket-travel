@@ -25,7 +25,7 @@
     <string name="regions_replaced">It\'s now split into smaller regions: choose which ones to download. This one no longer gets updates.</string>
     <string name="regions_replaced_choose">Choose regions</string>
     <string name="regions_replaced_delete">Delete</string>
-    <string name="regions_packages">Packages for %1$s</string>
+    <string name="regions_packages">Contents for %1$s</string>
     <string name="package_map">Map</string>
     <string name="package_routing">Routing</string>
     <string name="package_poi">Points of interest</string>
@@ -49,7 +49,7 @@
     <string name="package_delete_title_addresses">Delete house numbers for %1$s?</string>
     <string name="package_delete_title_cities">Delete city guides for %1$s?</string>
     <string name="package_delete_title_transit">Delete public transport timetables for %1$s?</string>
-    <string name="package_delete_message">The region\'s other packages stay on the device.</string>
+    <string name="package_delete_message">The region\'s other contents stay on the device.</string>
     <string name="map_download">Download the map</string>
     <string name="map_preview_notice">Preview: download the region\'s map and routing for street detail and directions.</string>
     <string name="map_missing_notice">Map not downloaded: download it to see streets and places. Without the map and routing downloaded, directions won\'t work.</string>
@@ -130,7 +130,7 @@
 
     <!-- Anteprima regione -->
     <string name="preview_banner_title">Preview without download</string>
-    <string name="preview_banner_body">Map and offline AI assistant require the full package.</string>
+    <string name="preview_banner_body">Map and offline AI assistant require the full region.</string>
     <string name="preview_download">Download</string>
     <string name="preview_error">Couldn\'t load the preview. Try again later.</string>
 

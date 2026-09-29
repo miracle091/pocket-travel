@@ -40,9 +40,12 @@ data class TransitFeed(
     val downloadFile: RegionManifestFile get() = fileXz ?: file
 }
 
-/** Reti di una regione: vedi [RegionManifestEntry.transit]. */
+/**
+ * Reti di una regione: vedi [RegionManifestEntry.transit]. [feeds] sono quelle da scaricare (scelte
+ * dall'utente), [available] tutte quelle che la regione offre.
+ */
 @Serializable
-data class RegionTransitEntry(val feeds: List<TransitFeed>)
+data class RegionTransitEntry(val feeds: List<TransitFeed>, val available: List<TransitFeed> = feeds)
 
 internal val TransitFeed.stagedFile: RegionManifestFile get() = file.copy(name = "$id.db")
 internal val TransitFeed.stagedFileXz: RegionManifestFile? get() = fileXz?.copy(name = "$id.db.xz")
@@ -93,12 +96,18 @@ fun regionTransitVersion(feeds: List<TransitFeed>): String {
 
 /**
  * Arricchisce [entries] con le reti dei mezzi pubblici: le regioni senza reti restano invariate;
- * [index] null (manifest senza transit, o non scaricato) le lascia tutte invariate.
+ * [index] null (manifest senza transit, o non scaricato) le lascia tutte invariate. [excluded]: le reti
+ * tolte dall'utente per regione; se le toglie tutte restano tutte (l'app non lo permette).
  */
-fun attachTransitFeeds(entries: List<RegionManifestEntry>, index: TransitIndex?): List<RegionManifestEntry> {
+fun attachTransitFeeds(
+    entries: List<RegionManifestEntry>,
+    index: TransitIndex?,
+    excluded: Map<String, Set<String>> = emptyMap(),
+): List<RegionManifestEntry> {
     if (index == null) return entries
     return entries.map { entry ->
-        val feeds = regionTransitFeeds(index, entry.regionId)
-        if (feeds.isEmpty()) entry else entry.copy(transit = RegionTransitEntry(feeds))
+        val all = regionTransitFeeds(index, entry.regionId)
+        val chosen = all.filter { it.id !in excluded[entry.regionId].orEmpty() }.ifEmpty { all }
+        if (all.isEmpty()) entry else entry.copy(transit = RegionTransitEntry(chosen, all))
     }
 }

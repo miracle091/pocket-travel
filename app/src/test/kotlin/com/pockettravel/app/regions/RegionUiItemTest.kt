@@ -13,6 +13,8 @@ import com.pockettravel.core.sync.RegionTransitEntry
 import com.pockettravel.core.sync.ReplacedRegion
 import com.pockettravel.core.sync.RoutingPackageEntry
 import com.pockettravel.core.sync.TransitFeed
+import com.pockettravel.core.sync.TransitIndex
+import com.pockettravel.core.sync.attachTransitFeeds
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -56,11 +58,26 @@ class RegionUiItemTest {
 
         assertEquals(60_000_000L, item.sizeBytes)
         val transit = item.packages.first { it.kind == PackageKind.TRANSIT }
-        assertEquals("Riga, Jurmala", transit.detail)
+        // Piu' reti: una casella ciascuna invece della riga con i nomi.
+        assertEquals(null, transit.detail)
+        assertEquals(
+            listOf(TransitNetworkUi("mdb-1", "Riga", 800_000, true), TransitNetworkUi("mdb-2", "Jurmala", 1_000_000, true)),
+            transit.networks,
+        )
         assertEquals(1_800_000L, transit.downloadBytes)
         assertEquals(RegionStatus.NOT_INSTALLED, transit.status)
         assertEquals("solo i civici sono 'non disponibili'", listOf(PackageKind.ADDRESSES), item.unavailableKinds)
         assertEquals(null, item.packages.first { it.kind == PackageKind.MAP }.detail)
+    }
+
+    @Test
+    fun `una rete tolta non si scarica e la sua casella resta, vuota`() {
+        val index = TransitIndex("v1", withTransit.transit!!.feeds)
+        val chosen = attachTransitFeeds(listOf(remote), index, mapOf("italia" to setOf("mdb-2"))).single()
+        val transit = regionUiItem(chosen, null, noBytes).packages.first { it.kind == PackageKind.TRANSIT }
+
+        assertEquals(800_000L, transit.downloadBytes)
+        assertEquals(listOf(true, false), transit.networks.map { it.selected })
     }
 
     @Test

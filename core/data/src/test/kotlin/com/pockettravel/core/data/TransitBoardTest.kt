@@ -109,6 +109,15 @@ class TransitBoardTest {
     }
 
     @Test
+    fun laFonteHaLaDataDegliOrari() {
+        trip(1, 1, 1, 1, stop = 1, minute = 545)
+        val board = board("2026-10-01T06:00:00Z") as TransitBoard.Departures
+        assertEquals(LocalDate.parse("2026-09-29"), board.feeds.single().dataDate)
+        // Solo in memoria: feeds.json resta com'era.
+        assertEquals(false, TransitFeedInfo.encode(board.feeds).contains("dataDate"))
+    }
+
+    @Test
     fun unFormatoDiversoSiIgnora() {
         trip(1, 1, 1, 1, stop = 1, minute = 545)
         exec("UPDATE meta SET value = '3' WHERE key = 'format'")
@@ -173,8 +182,8 @@ class TransitBoardTest {
     fun oreScadutiOPrimaDellaFinestra() {
         trip(1, 1, 1, 1, stop = 1, minute = 545)
         val expired = LocalDate.of(2026, 10, 28)
-        assertEquals(TransitBoard.Expired(expired, listOf(feed)), board("2026-11-05T06:00:00Z"))
-        assertEquals(TransitBoard.Expired(expired, listOf(feed)), board("2026-09-01T06:00:00Z"))
+        assertEquals(TransitBoard.Expired(expired, listOf(feed.copy(dataDate = LocalDate.of(2026, 9, 29)))), board("2026-11-05T06:00:00Z"))
+        assertEquals(TransitBoard.Expired(expired, listOf(feed.copy(dataDate = LocalDate.of(2026, 9, 29)))), board("2026-09-01T06:00:00Z"))
         // L'ultimo giorno valido c'e' ancora, e i giorni che restano sono zero.
         val last = board("2026-10-28T06:00:00Z") as TransitBoard.Departures
         assertEquals(0, last.daysLeft)

@@ -202,7 +202,7 @@
     <string name="navigation_waiting_fix">In attesa del segnale GPS… All\'aperto arriva prima.</string>
     <string name="navigation_off_route">Fuori percorso: ricalcolo…</string>
     <string name="navigation_arrived">Sei arrivato</string>
-    <string name="navigation_no_routing_data">Mancano i percorsi di questa zona. Scarica il pacchetto Percorsi della regione dal foglio Pacchetti, oppure sei fuori dalla regione.</string>
+    <string name="navigation_no_routing_data">Mancano i percorsi di questa zona. Scarica i Percorsi della regione dai suoi Contenuti, oppure sei fuori dalla regione.</string>
     <string name="navigation_not_found">Nessun percorso trovato fino alla destinazione con il modo di spostarti scelto.</string>
     <string name="navigation_wheelchair_notice">Senza, niente scale. Dati OSM incompleti: possibili ostacoli.</string>
     <string name="navigation_allow_steps">Accetto qualche gradino</string>
@@ -254,6 +254,7 @@
     <string name="transit_download">Scarica gli orari dei mezzi pubblici</string>
     <string name="transit_downloading">Scarico gli orari dei mezzi pubblici…</string>
     <string name="transit_source">Fonte: %1$s</string>
+    <string name="transit_source_dated">Fonte: %1$s, dati del %2$s</string>
     <string name="transit_in_min">tra %1$d min</string>
     <string name="transit_now">ora</string>
     <plurals name="transit_in_minutes_spoken">

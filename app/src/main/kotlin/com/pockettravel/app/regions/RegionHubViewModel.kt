@@ -40,6 +40,7 @@ class RegionHubViewModel @Inject constructor(
     private val manifestClient: ManifestClient,
     private val regionSyncScheduler: RegionSyncScheduler,
     private val transitClient: TransitClient,
+    private val transitNetworkPreferences: TransitNetworkPreferences,
 ) : ViewModel() {
 
     private val _displayName = MutableStateFlow<String?>(null)
@@ -110,7 +111,7 @@ class RegionHubViewModel @Inject constructor(
     private suspend fun entryWithTransit(id: String): RegionManifestEntry {
         val manifest = manifestClient.fetchManifest()
         val index = manifest.transit?.let { transitClient.fetchIndex(it) }
-        return attachTransitFeeds(manifest.regions.filter { it.regionId == id }, index).first()
+        return attachTransitFeeds(manifest.regions.filter { it.regionId == id }, index, transitNetworkPreferences.excluded.value).first()
     }
 
     fun downloadMap() {

@@ -15,6 +15,7 @@ import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.ReplacedRegion
 import com.pockettravel.core.sync.TransitClient
+import com.pockettravel.core.sync.TransitIndex
 import com.pockettravel.core.sync.attachAddressGridCells
 import com.pockettravel.core.sync.attachTransitFeeds
 import com.pockettravel.core.sync.guidesChoice
@@ -48,7 +49,11 @@ data class PackageUiState(
     val installedBytes: Long?,
     // Riga in piu' sotto il nome del pacchetto: le reti dei mezzi pubblici, se e' quello.
     val detail: String? = null,
+    // Mezzi pubblici con piu' reti: ognuna si sceglie a parte (TransitNetworkPreferences).
+    val networks: List<TransitNetworkUi> = emptyList(),
 )
+
+data class TransitNetworkUi(val id: String, val name: String, val downloadBytes: Long, val selected: Boolean)
 
 data class RegionUiItem(
     val regionId: String,
@@ -108,9 +113,13 @@ class RegionListViewModel @Inject constructor(
     private val appUpdateCheckScheduler: AppUpdateCheckScheduler,
     private val llmModelUpdateCheckScheduler: LlmModelUpdateCheckScheduler,
     private val usageModePreferences: UsageModePreferences,
+    private val transitNetworkPreferences: TransitNetworkPreferences,
 ) : ViewModel() {
 
     private val manifestRegions = MutableStateFlow<List<RegionManifestEntry>>(emptyList())
+    // Manifest e indice dei mezzi pubblici come arrivano: manifestRegions li unisce con le reti scelte.
+    private val baseRegions = MutableStateFlow<List<RegionManifestEntry>>(emptyList())
+    private val transitIndex = MutableStateFlow<TransitIndex?>(null)
     private val replacedRegions = MutableStateFlow<List<ReplacedRegion>>(emptyList())
     private val status = MutableStateFlow(LoadStatus())
     private val query = MutableStateFlow("")
@@ -149,6 +158,17 @@ class RegionListViewModel @Inject constructor(
 
     init {
         refresh()
+        // Le reti scelte cambiano versione e dimensione del pacchetto: le regioni si ricalcolano subito.
+        viewModelScope.launch {
+            combine(baseRegions, transitIndex, transitNetworkPreferences.excluded) { regions, index, excluded ->
+                attachTransitFeeds(regions, index, excluded)
+            }.collect { manifestRegions.value = it }
+        }
+    }
+
+    /** Aggiunge o toglie una rete dei mezzi pubblici della regione (foglio Contenuti). */
+    fun setTransitNetwork(regionId: String, feedId: String, included: Boolean) {
+        transitNetworkPreferences.setIncluded(regionId, feedId, included)
     }
 
     fun refresh() {
@@ -162,7 +182,8 @@ class RegionListViewModel @Inject constructor(
                 val addressGridIndex = manifest.addressGrid?.let { entry -> runCatching { addressGridClient.fetchIndex(entry) }.getOrNull() }
                 // Come i civici: senza indice dei mezzi pubblici le regioni restano senza quel pacchetto.
                 val transitIndex = manifest.transit?.let { entry -> runCatching { transitClient.fetchIndex(entry) }.getOrNull() }
-                manifestRegions.value = attachTransitFeeds(attachAddressGridCells(manifest.regions, addressGridIndex), transitIndex)
+                this@RegionListViewModel.transitIndex.value = transitIndex
+                baseRegions.value = attachAddressGridCells(manifest.regions, addressGridIndex)
                 replacedRegions.value = manifest.replacedRegions
                 // Le guide si aggiornano da sole (su Wi-Fi) anche da qui, non solo col controllo periodico.
                 if (regionRepository.installedGuidesVersion() != manifest.guidesChoice().installedVersion) regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = true)
@@ -290,7 +311,8 @@ internal fun regionUiItem(
             },
             downloadBytes = remote.downloadBytes(setOf(kind), addressCellVersions),
             installedBytes = local?.let { installedBytes(it, kind) },
-            detail = if (kind == PackageKind.TRANSIT) remote.transit?.feeds?.joinToString { it.name } else null,
+            detail = if (kind == PackageKind.TRANSIT && remote.transit?.available.orEmpty().size <= 1) remote.transit?.feeds?.joinToString { it.name } else null,
+            networks = if (kind == PackageKind.TRANSIT) remote.transitNetworks() else emptyList(),
         )
     }
     val sizeBytes = when (status) {
@@ -347,3 +369,11 @@ internal fun matchesQuery(displayName: String, query: String): Boolean {
 
 private fun String.foldForSearch(): String =
     Normalizer.normalize(lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
+
+// Le reti da scegliere una per una: solo se la regione ne ha piu' di una.
+private fun RegionManifestEntry.transitNetworks(): List<TransitNetworkUi> {
+    val transit = transit ?: return emptyList()
+    if (transit.available.size <= 1) return emptyList()
+    val chosen = transit.feeds.mapTo(mutableSetOf()) { it.id }
+    return transit.available.map { TransitNetworkUi(it.id, it.name, it.downloadFile.sizeBytes, it.id in chosen) }
+}

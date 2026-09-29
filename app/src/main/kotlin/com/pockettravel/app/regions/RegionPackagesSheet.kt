@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -32,6 +34,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -87,6 +90,14 @@ internal fun RegionPackagesSheet(
                             },
                             onDelete = { pendingDelete = pkg.kind },
                         )
+                        // Una casella per rete: l'ultima scelta non si puo' togliere (niente pacchetto vuoto).
+                        pkg.networks.forEach { network ->
+                            TransitNetworkRow(
+                                network = network,
+                                enabled = !isDownloading && !(network.selected && pkg.networks.count { it.selected } == 1),
+                                onChange = { included -> actions.onTransitNetworkChange(item.regionId, network.id, included) },
+                            )
+                        }
                         if (index < item.packages.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
                     }
                     item.unavailableKinds.forEach { kind ->
@@ -170,6 +181,22 @@ private fun PackageRow(pkg: PackageUiState, enabled: Boolean, onDownload: () -> 
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.fillMaxWidth(),
         content = { Text(name) },
+    )
+}
+
+// Una rete dei mezzi pubblici con la sua dimensione; cambiarla rende il pacchetto da scaricare o aggiornare.
+@Composable
+private fun TransitNetworkRow(network: TransitNetworkUi, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    val size = if (network.downloadBytes > 0) Formatter.formatShortFileSize(LocalContext.current, network.downloadBytes) else null
+    ListItem(
+        headlineContent = { Text(network.name) },
+        supportingContent = size?.let { { Text(it) } },
+        leadingContent = { Checkbox(checked = network.selected, onCheckedChange = null) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = Spacing.xl)
+            .toggleable(value = network.selected, enabled = enabled, role = Role.Checkbox, onValueChange = onChange),
     )
 }
 

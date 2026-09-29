@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitDeparture
+import com.pockettravel.core.data.TransitFeedInfo
 import com.pockettravel.core.data.TransitMode
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
@@ -71,7 +72,7 @@ internal fun TransitDeparturesSection(state: TransitPackageState, board: Transit
                 is TransitBoard.Expired -> {
                     Note(stringResource(R.string.transit_expired, formatDate(board.validUntil)))
                     TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
-                    Sources(board.feeds.map { it.attribution })
+                    Sources(board.feeds)
                 }
                 is TransitBoard.Departures -> {
                     if (board.items.isEmpty()) Note(stringResource(R.string.transit_none_soon))
@@ -88,7 +89,7 @@ internal fun TransitDeparturesSection(state: TransitPackageState, board: Transit
                             TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
                         }
                     }
-                    Sources(board.feeds.map { it.attribution })
+                    Sources(board.feeds)
                 }
             }
         }
@@ -157,9 +158,12 @@ private fun Note(text: String) {
 }
 
 @Composable
-private fun Sources(attributions: List<String>) {
-    attributions.distinct().forEach {
-        Text(stringResource(R.string.transit_source, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun Sources(feeds: List<TransitFeedInfo>) {
+    // Con la data in cui gli orari sono stati presi dalla fonte (Licence Ouverte, Renfe).
+    feeds.distinctBy { it.attribution to it.dataDate }.forEach { feed ->
+        val text = feed.dataDate?.let { stringResource(R.string.transit_source_dated, feed.attribution, formatDate(it)) }
+            ?: stringResource(R.string.transit_source, feed.attribution)
+        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

@@ -375,6 +375,7 @@ private fun RegionsListDetail(
                         onDelete = regionListViewModel::delete,
                         onDownloadPackage = regionListViewModel::downloadPackage,
                         onDeletePackage = regionListViewModel::deletePackage,
+                        onTransitNetworkChange = regionListViewModel::setTransitNetwork,
                     ),
                     onRegionClick = { item ->
                         if (item.status == RegionStatus.NOT_INSTALLED) {

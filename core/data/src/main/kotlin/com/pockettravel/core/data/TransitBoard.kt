@@ -1,6 +1,7 @@
 package com.pockettravel.core.data
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.time.Instant
@@ -54,9 +55,19 @@ data class TransitDeparture(
     val inMinutes: Int,
 )
 
-/** Nome, attribuzione e licenza di una rete installata: TransitRepository li legge da [RegionStorage.TRANSIT_FEEDS_FILE]. */
+/**
+ * Nome, attribuzione e licenza di una rete installata: TransitRepository li legge da [RegionStorage.TRANSIT_FEEDS_FILE].
+ * [dataDate]: il giorno in cui gli orari sono stati presi dalla fonte (window_start di transit.db), mostrato con
+ * la fonte come chiedono Licence Ouverte e Renfe; non sta in feeds.json, lo aggiunge readFeedBoard.
+ */
 @Serializable
-data class TransitFeedInfo(val id: String, val name: String, val attribution: String, val licenseUrl: String? = null) {
+data class TransitFeedInfo(
+    val id: String,
+    val name: String,
+    val attribution: String,
+    val licenseUrl: String? = null,
+    @Transient val dataDate: LocalDate? = null,
+) {
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
         fun encode(feeds: List<TransitFeedInfo>): String = json.encodeToString(ListSerializer(serializer()), feeds)
@@ -120,7 +131,7 @@ internal fun readFeedBoard(db: TransitQuery, feed: TransitFeedInfo?, latitude: D
     val windowDays = meta["window_days"]?.toIntOrNull()
     val stops = nearbyStopIds(db, latitude, longitude)
     if (stops.isEmpty()) return null
-    val feeds = listOfNotNull(feed)
+    val feeds = listOfNotNull(feed?.copy(dataDate = windowStart))
 
     val local = now.atZone(zone)
     val today = local.toLocalDate()
