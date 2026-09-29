@@ -48,7 +48,10 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.Spacing
@@ -105,11 +108,13 @@ fun NavigationScreen(
     wheelchair: Boolean,
     allowSteps: Boolean,
     onAllowStepsChange: (Boolean) -> Unit,
-    // Mappa della schermata: stesso stile della scheda Mappa della regione.
+    // Mappa della schermata: lo stile della scheda Mappa, con una sorgente per ognuna delle regioni del percorso.
     tileSource: OfflineTileSource,
-    regionId: String,
-    // Pacchetto Percorsi della regione: senza, "Scarica i percorsi" invece di un messaggio muto.
+    regionIds: List<String>,
+    // Pacchetto Percorsi da scaricare: senza, "Scarica i percorsi" invece di un messaggio muto. Se e' quello
+    // di un'altra regione (partenza o arrivo fuori dalle regioni con i percorsi) ne arriva il nome.
     routingPackage: RoutingPackageState,
+    missingRegionName: String?,
     onDownloadRouting: () -> Unit,
     onPermissionResult: (Boolean) -> Unit,
     onRetry: () -> Unit,
@@ -151,7 +156,7 @@ fun NavigationScreen(
         ) {
             // Solo con un veicolo (bici e auto; camper e moto usano l'auto): a piedi autovelox e ZTL
             // non contano. In navigazione in una riga: lo spazio serve alla mappa.
-            if (travelMode != TravelMode.WALK) SpeedCameraNotice(compact = navigating)
+            if (travelMode != TravelMode.WALK) SpeedCameraNotice()
             TravelModeSelector(travelMode, onTravelModeChange)
             if (wheelchair) WheelchairOptions(allowSteps, onAllowStepsChange)
             when (state) {
@@ -169,7 +174,10 @@ fun NavigationScreen(
                 )
                 NavigationUiState.WaitingForFix -> Waiting(stringResource(R.string.navigation_waiting_fix))
                 is NavigationUiState.Calculating -> {
-                    Waiting(stringResource(R.string.navigation_calculating_elapsed, state.elapsedSeconds))
+                    Waiting(
+                        stringResource(R.string.navigation_calculating_elapsed, state.elapsedSeconds),
+                        announcement = stringResource(R.string.navigation_calculating),
+                    )
                     // Stima del motore: per i calcoli brevi non serve, compare dopo il primo secondo.
                     if (state.elapsedSeconds >= 1) {
                         LinearProgressIndicator(progress = { state.progress.toFloat() }, modifier = Modifier.fillMaxWidth())
@@ -189,8 +197,10 @@ fun NavigationScreen(
                 )
                 is NavigationUiState.Unavailable if state.result == RouteResult.NoRoutingData -> when (routingPackage) {
                     RoutingPackageState.MISSING -> Message(
-                        text = stringResource(R.string.navigation_routing_missing),
-                        action = stringResource(R.string.navigation_routing_download),
+                        text = if (missingRegionName != null) stringResource(R.string.navigation_routing_missing_region, missingRegionName)
+                        else stringResource(R.string.navigation_routing_missing),
+                        action = if (missingRegionName != null) stringResource(R.string.navigation_routing_download_region, missingRegionName)
+                        else stringResource(R.string.navigation_routing_download),
                         onAction = onDownloadRouting,
                     )
                     RoutingPackageState.DOWNLOADING -> Waiting(stringResource(R.string.navigation_routing_downloading))
@@ -213,14 +223,14 @@ fun NavigationScreen(
                     action = stringResource(R.string.navigation_retry),
                     onAction = onRetry,
                 )
-                is NavigationUiState.Navigating -> Guidance(state, tileSource, regionId)
+                is NavigationUiState.Navigating -> Guidance(state, tileSource, regionIds)
             }
         }
     }
 }
 
 @Composable
-private fun SpeedCameraNotice(compact: Boolean) {
+private fun SpeedCameraNotice() {
     Card(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
@@ -231,8 +241,16 @@ private fun SpeedCameraNotice(compact: Boolean) {
         Row(modifier = Modifier.padding(Spacing.m), verticalAlignment = Alignment.CenterVertically) {
             Icon(AppIcons.Info, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(Spacing.m))
+            // L'invito a rispettare la segnaletica in grassetto, dopo l'elenco di quello che non si segnala.
+            val notShown = stringResource(R.string.navigation_no_speed_cameras)
+            val followSigns = stringResource(R.string.navigation_follow_road_signs)
             Text(
-                stringResource(if (compact) R.string.navigation_no_speed_cameras_short else R.string.navigation_no_speed_cameras),
+                buildAnnotatedString {
+                    append(notShown)
+                    append(' ')
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(followSigns) }
+                    append('.')
+                },
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
@@ -261,9 +279,14 @@ private fun Message(text: String, action: String, onAction: () -> Unit) {
     Button(onClick = onAction) { Text(action) }
 }
 
+// [announcement]: quello che TalkBack legge e annuncia, fisso anche quando [text] cambia ogni secondo
+// (il calcolo del percorso), altrimenti la live region lo ripeterebbe di continuo.
 @Composable
-private fun Waiting(text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
+private fun Waiting(text: String, announcement: String = text) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.clearAndSetSemantics { contentDescription = announcement; liveRegion = LiveRegionMode.Polite },
+    ) {
         CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 3.dp)
         Spacer(modifier = Modifier.width(Spacing.m))
         Text(text, style = MaterialTheme.typography.bodyLarge)
@@ -271,7 +294,7 @@ private fun Waiting(text: String) {
 }
 
 @Composable
-private fun ColumnScope.Guidance(state: NavigationUiState.Navigating, tileSource: OfflineTileSource, regionId: String) {
+private fun ColumnScope.Guidance(state: NavigationUiState.Navigating, tileSource: OfflineTileSource, regionIds: List<String>) {
     val progress = state.progress
     val route = state.route
     // Nomi delle strade per indice del punto della svolta, trovati dalla mappa (NavigationMap).
@@ -316,7 +339,7 @@ private fun ColumnScope.Guidance(state: NavigationUiState.Navigating, tileSource
     }
     NavigationMap(
         tileSource = tileSource,
-        regionId = regionId,
+        regionIds = regionIds,
         route = route,
         pathToNext = progress.pathToNext,
         position = state.position,
@@ -399,13 +422,16 @@ private fun turnIcon(type: TurnType): ImageVector = ImageVector.vectorResource(
 
 // Sotto il chilometro a decine di metri, sopra in km con un decimale nel formato della lingua.
 @Composable
-private fun distanceText(meters: Double): String =
-    if (meters < 1_000) {
-        stringResource(R.string.navigation_meters, ((meters / 10).roundToInt() * 10))
+private fun distanceText(meters: Double): String {
+    // Arrotondato prima del confronto: 996 m sono gia' "1,0 km", non "1000 m".
+    val rounded = (meters / 10).roundToInt() * 10
+    return if (rounded < 1_000) {
+        stringResource(R.string.navigation_meters, rounded)
     } else {
         val format = NumberFormat.getNumberInstance().apply { maximumFractionDigits = 1; minimumFractionDigits = 1 }
         stringResource(R.string.navigation_kilometers, format.format(meters / 1_000))
     }
+}
 
 @Composable
 private fun durationText(seconds: Double): String {
@@ -444,7 +470,7 @@ private fun TravelModeSelector(selected: TravelMode, onSelect: (TravelMode) -> U
 @Composable
 private fun NavigationMap(
     tileSource: OfflineTileSource,
-    regionId: String,
+    regionIds: List<String>,
     route: Route,
     pathToNext: List<RoutePoint>,
     position: RoutePoint,
@@ -458,11 +484,11 @@ private fun NavigationMap(
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val language = LocalLocale.current.platformLocale.language
     // Con worldFallback: se la posizione esce dal riquadro scaricato restano i paesi (e, con la rete, il mondo) invece del vuoto.
-    val styleJson = remember(tileSource, regionId, dark, language) {
-        tileSource.styleJson(regionId, dark = dark, language = language, worldFallback = true)
+    val styleJson = remember(tileSource, regionIds, dark, language) {
+        tileSource.navigationStyleJson(regionIds, dark = dark, language = language)
     }
-    // Letto dall'header della mappa installata: 127 byte, una volta per regione.
-    val regionBounds = remember(tileSource, regionId) { tileSource.regionBounds(regionId) }
+    // Letti dall'header delle mappe installate: 127 byte, una volta per regione.
+    val regionBounds = remember(tileSource, regionIds) { regionIds.mapNotNull(tileSource::regionBounds) }
     val routeColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f).toArgb()
     val nextColor = MaterialTheme.colorScheme.tertiary.toArgb()
     val positionColor = MaterialTheme.colorScheme.primary.toArgb()
@@ -507,7 +533,7 @@ private fun NavigationMap(
         current.next.setGeoJson(lineString(pathToNext))
         current.position.setGeoJson(Point.fromLngLat(position.longitude, position.latitude))
         mapView.getMapAsync { map ->
-            val zoom = followZoom(distanceToNextMeters, insideRegion = regionBounds?.contains(position.latitude, position.longitude) == true)
+            val zoom = followZoom(distanceToNextMeters, insideRegion = regionBounds.any { it.contains(position.latitude, position.longitude) })
             map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(position.latitude, position.longitude), zoom), CAMERA_ANIMATION_MILLIS)
         }
     }
@@ -522,8 +548,9 @@ private fun NavigationMap(
         var attached: MapLibreMap? = null
         val lookup = MapView.OnDidBecomeIdleListener {
             val style = attached?.style?.takeIf { it.isFullyLoaded } ?: return@OnDidBecomeIdleListener
-            val source = style.getSourceAs<VectorSource>(REGION_SOURCE) ?: return@OnDidBecomeIdleListener
-            val roads = source.querySourceFeatures(arrayOf(ROADS_SOURCE_LAYER), null).flatMap { it.toNamedRoads(language) }
+            // Le strade di tutte le regioni del percorso: una sorgente ognuna (REGION_SOURCE_PREFIX).
+            val roads = style.sources.filterIsInstance<VectorSource>().filter { it.id.startsWith(REGION_SOURCE_PREFIX) }
+                .flatMap { it.querySourceFeatures(arrayOf(ROADS_SOURCE_LAYER), null) }.flatMap { it.toNamedRoads(language) }
             if (roads.isEmpty()) return@OnDidBecomeIdleListener
             val found = route.instructions.mapNotNull { instruction ->
                 NavigationTracker.streetProbe(route, instruction)
@@ -559,8 +586,8 @@ private fun Feature.toNamedRoads(language: String): List<NamedRoad> {
 private fun lineString(points: List<RoutePoint>): LineString =
     LineString.fromLngLats(points.map { Point.fromLngLat(it.longitude, it.latitude) })
 
-// Sorgente vettoriale e layer delle strade dello stile della regione (vedi OfflineTileSource).
-private const val REGION_SOURCE = "region"
+// Sorgenti vettoriali delle regioni ("region-<id>") e layer delle strade dello stile (vedi OfflineTileSource).
+private const val REGION_SOURCE_PREFIX = "region"
 private const val ROADS_SOURCE_LAYER = "roads"
 private const val ROUTE_SOURCE = "navigation-route"
 private const val NEXT_SOURCE = "navigation-next"

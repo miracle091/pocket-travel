@@ -192,8 +192,8 @@
     <string name="navigation_title">To %1$s</string>
     <string name="navigation_title_no_name">Navigation</string>
     <string name="navigation_close">End navigation</string>
-    <string name="navigation_no_speed_cameras">Speed cameras are not shown, and neither are speed limits or restricted-access and low-emission zones: follow the road signs.</string>
-    <string name="navigation_no_speed_cameras_short">Speed cameras, limits and restricted zones not shown: follow the signs.</string>
+    <string name="navigation_no_speed_cameras">Speed cameras, speed limits and restricted-access or low-emission zones not shown:</string>
+    <string name="navigation_follow_road_signs">always follow the road signs</string>
     <string name="navigation_permission">Navigation needs your GPS location. It stays on your phone and is used only while this screen is open.</string>
     <string name="navigation_permission_grant">Allow location</string>
     <string name="navigation_gps_disabled">GPS is off. Navigation only works with GPS on: turn it on to start.</string>
@@ -218,8 +218,11 @@
     <string name="usage_mode_directions_body">Also downloads routes with each region (from a few MB to a few hundred) and asks for your GPS location, used only while you navigate.</string>
     <string name="navigation_routing_missing">Navigation needs this region\'s routes.</string>
     <string name="navigation_routing_download">Download routes</string>
+    <string name="navigation_routing_missing_region">To get there you need the routes of %1$s.</string>
+    <string name="navigation_routing_download_region">Download the routes of %1$s</string>
     <string name="navigation_routing_downloading">Downloading routes…</string>
     <string name="navigation_outside_routing">The start or the destination is outside the area of the downloaded routes.</string>
+    <string name="navigation_calculating">Calculating the route…</string>
     <string name="navigation_calculating_elapsed">Calculating the route… %1$d s</string>
     <string name="navigation_calculating_progress">About %1$d%% calculated</string>
     <string name="navigation_calculating_long">By car, long routes can take up to a few minutes.</string>

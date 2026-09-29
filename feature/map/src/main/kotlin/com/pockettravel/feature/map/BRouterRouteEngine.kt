@@ -5,6 +5,7 @@ import btools.router.RoutingContext
 import btools.router.RoutingEngine
 import btools.router.RoutingParamCollector
 import btools.router.TurnInstructions
+import com.pockettravel.core.data.Rd5Merger
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
@@ -40,7 +41,8 @@ class BRouterRouteEngine(
         profileParams: Map<String, String>,
         onProgress: (Double) -> Unit,
     ): RouteResult {
-        if (segmentDir.listFiles { file -> file.extension == "rd5" }.isNullOrEmpty()) return RouteResult.NoRoutingData
+        // Con la cartella dei segmenti uniti (Rd5Merger) le tile possono stare solo nella cartella secondaria.
+        if (segmentDir.listFiles { file -> file.extension == "rd5" || file.name == Rd5Merger.STORAGE_CONFIG_FILE }.isNullOrEmpty()) return RouteResult.NoRoutingData
         val running = AtomicReference<RoutingEngine?>()
         return coroutineScope {
             // BRouter non guarda l'interrupt del thread: se la coroutine viene annullata, terminate()

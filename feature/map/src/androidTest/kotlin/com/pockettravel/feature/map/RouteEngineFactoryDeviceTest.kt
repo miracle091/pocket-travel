@@ -36,9 +36,8 @@ class RouteEngineFactoryDeviceTest {
             context,
             UsageModePreferences(context, MapFilterPreferences(context)),
         )
-        val engine = factory.create(regionId)
-
         val result = runBlocking {
+            val engine = factory.create(listOf(regionId))
             engine.route(
                 from = RoutePoint(45.4642, 9.1900),
                 to = RoutePoint(45.4658, 9.1920),

@@ -205,4 +205,51 @@ class NavigationTest {
     private companion object {
         const val NOW = 1_000_000L
     }
+    private val marino = RoutingRegion("san-marino", MapBounds(12.40, 43.89, 12.52, 43.99))
+    private val italia = RoutingRegion("italia", MapBounds(6.6, 35.5, 18.5, 47.1))
+    private val francia = RoutingRegion("francia", MapBounds(-5.2, 41.3, 9.6, 51.1))
+    private val rimini = RoutePoint(44.059, 12.568)
+    private val cittaDiSanMarino = RoutePoint(43.9356, 12.4473)
+
+    @Test
+    fun `da Rimini a San Marino le regioni della navigazione sono Italia e San Marino, quella di partenza per prima`() {
+        assertEquals(listOf("san-marino", "italia"), navigationRegionIds("san-marino", listOf(italia, marino, francia), rimini, cittaDiSanMarino))
+        assertEquals(listOf("italia", "san-marino"), navigationRegionIds("italia", listOf(marino, italia, francia), rimini, cittaDiSanMarino))
+    }
+
+    @Test
+    fun `dentro una sola regione la navigazione ne usa una sola`() {
+        val bologna = RoutePoint(44.4949, 11.3426)
+        val firenze = RoutePoint(43.7696, 11.2558)
+
+        assertEquals(listOf("italia"), navigationRegionIds("italia", listOf(marino, italia), bologna, firenze))
+    }
+
+    @Test
+    fun `un riquadro vicino al confine, entro il margine, e' della navigazione`() {
+        // A circa 3 km dal bordo est di San Marino (12.52): dentro il margine di 0,05 gradi.
+        val vicino = RoutePoint(43.94, 12.55)
+        val lontano = RoutePoint(43.94, 12.60)
+
+        assertEquals(listOf("san-marino", "italia"), navigationRegionIds("san-marino", listOf(marino, italia), RoutePoint(43.94, 12.45), vicino))
+        assertEquals(listOf("italia"), navigationRegionIds("italia", listOf(marino, italia), lontano, RoutePoint(44.0, 12.65)))
+    }
+
+    @Test
+    fun `se nessun riquadro tocca il percorso resta la regione di partenza, come prima`() {
+        val parigi = RoutePoint(48.8566, 2.3522)
+        val ricerca = listOf(marino, RoutingRegion("senza-mappa", null))
+
+        assertEquals(listOf("italia"), navigationRegionIds("italia", ricerca, parigi, RoutePoint(48.9, 2.4)))
+    }
+
+    @Test
+    fun `la regione di partenza senza riquadro resta anche quando un'altra tocca il percorso`() {
+        val senzaMappa = RoutingRegion("senza-mappa", null)
+
+        assertEquals(
+            listOf("senza-mappa", "san-marino"),
+            navigationRegionIds("senza-mappa", listOf(marino, senzaMappa), RoutePoint(43.94, 12.45), RoutePoint(43.93, 12.44)),
+        )
+    }
 }

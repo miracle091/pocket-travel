@@ -345,7 +345,8 @@ fun MapScreen(
                     Spacer(modifier = Modifier.padding(top = Spacing.l))
                     FilledTonalButton(
                         onClick = {
-                            context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phone".toUri()))
+                            // Tablet solo Wi-Fi o profilo senza telefono: nessuna app per ACTION_DIAL.
+                            runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phone".toUri())) }
                             selectedPinId = null
                         },
                     ) {

@@ -108,3 +108,28 @@ fun shouldRecalculate(progress: NavigationProgress, calculating: Boolean, lastCa
 const val FIX_MAX_AGE_MILLIS = 10_000L
 
 const val RECALCULATION_INTERVAL_MILLIS = 10_000L
+
+/** Regione installata con i Percorsi e riquadro della sua mappa (null se non si legge). */
+data class RoutingRegion(val regionId: String, val bounds: MapBounds?)
+
+/** Attorno a partenza e arrivo, per le regioni vicine al confine: circa 5 km. */
+private const val NAVIGATION_MARGIN_DEGREES = 0.05
+
+/**
+ * Le regioni della navigazione: quelle con i Percorsi installati il cui riquadro tocca il riquadro di
+ * partenza e arrivo, allargato di qualche km. Con una sola il comportamento e' quello di sempre (nessuna
+ * unione dei segmenti). La regione da cui si e' partiti ([regionId]) viene per prima, e resta l'unica
+ * se nessun riquadro tocca: cosi' la mancanza dei dati si vede come prima ("Scarica i percorsi").
+ */
+fun navigationRegionIds(regionId: String, candidates: List<RoutingRegion>, from: RoutePoint, to: RoutePoint): List<String> {
+    val minLon = minOf(from.longitude, to.longitude) - NAVIGATION_MARGIN_DEGREES
+    val maxLon = maxOf(from.longitude, to.longitude) + NAVIGATION_MARGIN_DEGREES
+    val minLat = minOf(from.latitude, to.latitude) - NAVIGATION_MARGIN_DEGREES
+    val maxLat = maxOf(from.latitude, to.latitude) + NAVIGATION_MARGIN_DEGREES
+    val touching = candidates
+        .filter { region -> region.bounds?.let { it.minLon <= maxLon && it.maxLon >= minLon && it.minLat <= maxLat && it.maxLat >= minLat } == true }
+        .map { it.regionId }
+    // La regione di partenza con i percorsi ma senza riquadro leggibile (niente mappa ne' anteprima) resta.
+    val startWithoutBounds = candidates.any { it.regionId == regionId && it.bounds == null }
+    return (if (startWithoutBounds) touching + regionId else touching).ifEmpty { listOf(regionId) }.sortedBy { it != regionId }
+}

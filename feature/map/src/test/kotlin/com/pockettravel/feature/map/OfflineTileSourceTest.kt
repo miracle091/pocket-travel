@@ -98,6 +98,37 @@ class OfflineTileSourceTest {
     }
 
     @Test
+    fun `lo stile con piu' regioni ripete gli strati per ognuna, con id unici e uno strato alla volta`() {
+        val a = RegionSource("region-a", "-a", "pmtiles://file://a.pmtiles", 14, null)
+        val b = RegionSource("region-b", "-b", "pmtiles://file://b.pmtiles", 14, "pmtiles://file://b-addresses.pmtiles")
+        val fallback = worldFallbackStyle("#1", "#2", "#3", "#4", null, 8)
+
+        val style = regionsStyle(listOf(a, b), dark = false, label = labelField("it"), fallback = fallback)
+
+        val ids = Regex(""""id": "([^"]+)"""").findAll(style).map { it.groupValues[1] }.toList()
+        assertEquals("id degli strati unici", ids.size, ids.toSet().size)
+        assertTrue(style.contains("\"region-a\": {") && style.contains("\"region-b\": {") && style.contains("\"addresses-b\": {"))
+        assertFalse(style.contains("addresses-a"))
+        // Prima il ripiego, poi per ogni strato prima A e poi B (le strade di A non finiscono sotto la terra di B).
+        assertTrue(ids.indexOf("fallback_countries") < ids.indexOf("earth-a"))
+        assertTrue(ids.indexOf("earth-b") < ids.indexOf("water-a"))
+        assertTrue(ids.indexOf("water-a") + 1 == ids.indexOf("water-b"))
+        assertTrue(ids.indexOf("roads_labels_minor-b") < ids.indexOf("addresses-b"))
+        assertEquals("addresses-b", ids.last())
+    }
+
+    @Test
+    fun `con una sola regione lo stile e' quello di sempre, con sorgente region e id senza suffisso`() {
+        val only = RegionSource("region", "", "pmtiles://file://map.pmtiles", 14, null)
+
+        val style = regionsStyle(listOf(only), dark = false, label = labelField("it"), fallback = null)
+
+        assertTrue(style.contains("\"region\": {"))
+        assertTrue(style.contains("{ \"id\": \"water\", \"type\": \"fill\", \"source\": \"region\""))
+        assertTrue(style.contains("\"id\": \"roads_labels_minor\""))
+    }
+
+    @Test
     fun `legge il riquadro dai byte 102-117 dell'header PMTiles, anche con longitudini negative`() {
         val header = ByteArray(127)
         java.nio.ByteBuffer.wrap(header, 102, 16).order(java.nio.ByteOrder.LITTLE_ENDIAN)

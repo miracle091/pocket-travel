@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -90,8 +91,10 @@ import com.pockettravel.app.regions.RegionWorldMap
 import com.pockettravel.app.storage.StorageScreen
 import com.pockettravel.core.data.officialSourcesRegistry
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.feature.map.NavigationUiState
 import com.pockettravel.feature.map.NavigationScreen
 import com.pockettravel.feature.map.NavigationViewModel
+import com.pockettravel.feature.map.RouteResult
 import com.pockettravel.feature.map.RoutingPackageState
 import com.pockettravel.feature.sources.OfficialSourcesScreen
 import com.pockettravel.feature.vault.NotesScreen
@@ -272,6 +275,15 @@ fun PocketTravelNavHost(
                 val allowSteps by navigationViewModel.allowSteps.collectAsStateWithLifecycle()
                 val routingViewModel: NavigationRoutingViewModel = hiltViewModel()
                 val routingPackage by routingViewModel.state.collectAsStateWithLifecycle()
+                val missingRegionName by routingViewModel.missingRegionName.collectAsStateWithLifecycle()
+                val regionIds by navigationViewModel.regionIds.collectAsStateWithLifecycle()
+                // Senza dati di percorso: quale regione manca per la partenza o l'arrivo (una volta per volta, non a ogni posizione).
+                val position by navigationViewModel.position.collectAsStateWithLifecycle()
+                val currentPosition by rememberUpdatedState(position)
+                val noRoutingData = (state as? NavigationUiState.Unavailable)?.result == RouteResult.NoRoutingData
+                LaunchedEffect(noRoutingData) {
+                    if (noRoutingData) routingViewModel.findMissingRegion(currentPosition)
+                }
                 // Pacchetto Percorsi appena installato dopo "Scarica i percorsi": si ricalcola da solo.
                 var routingWasDownloading by remember { mutableStateOf(false) }
                 LaunchedEffect(routingPackage) {
@@ -290,8 +302,9 @@ fun PocketTravelNavHost(
                     allowSteps = allowSteps,
                     onAllowStepsChange = navigationViewModel::setAllowSteps,
                     tileSource = navigationViewModel.tileSource,
-                    regionId = navigationViewModel.regionId,
+                    regionIds = regionIds,
                     routingPackage = routingPackage,
+                    missingRegionName = missingRegionName,
                     onDownloadRouting = routingViewModel::download,
                     onPermissionResult = navigationViewModel::onPermissionResult,
                     onRetry = navigationViewModel::retry,

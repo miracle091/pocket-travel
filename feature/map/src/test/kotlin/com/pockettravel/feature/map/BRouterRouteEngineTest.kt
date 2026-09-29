@@ -4,13 +4,18 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import com.pockettravel.core.data.Rd5Merger
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.nio.ByteBuffer
+import java.util.zip.CRC32
 
 /**
  * Verifica il wiring reale (RoutingContext/RoutingParamCollector/RoutingEngine di
@@ -56,6 +61,67 @@ class BRouterRouteEngineTest {
         assertTrue("distanza attesa positiva e plausibile per ~0.006 gradi di longitudine", route.distanceMeters in 100.0..2000.0)
         assertEquals("l'ultima indicazione e' l'arrivo, sull'ultimo punto", TurnInstruction(TurnType.ARRIVE, 0.0, route.points.lastIndex), route.instructions.last().copy(distanceToNextMeters = 0.0))
     }
+
+    // Due "regioni" che hanno ognuna metà del dato: la A ha E5_N45 con la sua via e E10_N45 svuotata, la B
+    // il contrario (stesso formato di un ritaglio che non tocca la tile). Da sole non instradano; con i
+    // segmenti uniti (Rd5Merger) BRouter li legge e attraversa il confine fra le due parti, con lo
+    // stesso percorso delle due tile intere e con la tile unita identica byte per byte all'originale.
+    @Test
+    fun `instrada attraverso il confine fra i segmenti di due regioni uniti`() = runBlocking {
+        val whole = twoTileSegments()
+        val regionA = regionRouting("a", "E5_N45.rd5" to File(whole, "E5_N45.rd5").readBytes(), "E10_N45.rd5" to emptied(File(whole, "E10_N45.rd5").readBytes()))
+        val regionB = regionRouting("b", "E5_N45.rd5" to emptied(File(whole, "E5_N45.rd5").readBytes()), "E10_N45.rd5" to File(whole, "E10_N45.rd5").readBytes())
+        val from = RoutePoint(45.5000, 9.9970)
+        val to = RoutePoint(45.5000, 10.0030)
+        val profiles = profileDir()
+
+        val expected = BRouterRouteEngine(whole, profiles).route(from, to)
+        assertTrue(expected is RouteResult.Found)
+        assertNotEquals("una regione da sola non ha il percorso intero", expected, BRouterRouteEngine(regionA, profiles).route(from, to))
+        assertNotEquals("una regione da sola non ha il percorso intero", expected, BRouterRouteEngine(regionB, profiles).route(from, to))
+        val merged = Rd5Merger.mergedDirectory(tempFolder.newFolder(), listOf(regionA, regionB))
+        val result = BRouterRouteEngine(merged, profiles).route(from, to)
+
+        assertTrue("percorso con i segmenti uniti: $result", result is RouteResult.Found)
+        assertEquals(expected, result)
+        for (name in listOf("E5_N45.rd5", "E10_N45.rd5")) {
+            assertArrayEquals(File(whole, name).readBytes(), File(merged, name).readBytes())
+        }
+    }
+
+    // Con la cartella secondaria (regione piu' grande lasciata dov'e') le tile che mancano nella cartella
+    // unita le trova BRouter li'.
+    @Test
+    fun `una tile presente solo nella regione lasciata dov'e' si trova nella cartella secondaria`() = runBlocking {
+        val whole = twoTileSegments()
+        val big = regionRouting("grande", "E5_N45.rd5" to File(whole, "E5_N45.rd5").readBytes(), "E10_N45.rd5" to File(whole, "E10_N45.rd5").readBytes())
+        val small = regionRouting("piccola", "W5_N45.rd5" to emptied(File(whole, "E5_N45.rd5").readBytes()))
+
+        val merged = Rd5Merger.mergedDirectory(tempFolder.newFolder(), listOf(small, big))
+        val result = BRouterRouteEngine(merged, profileDir()).route(RoutePoint(45.5000, 9.9970), RoutePoint(45.5000, 10.0030))
+
+        assertEquals(setOf("W5_N45.rd5", Rd5Merger.STORAGE_CONFIG_FILE), merged.list()!!.toSet())
+        assertTrue("percorso con la cartella secondaria: $result", result is RouteResult.Found)
+    }
+
+    // Un ritaglio che non tocca la tile: stesse versioni e coda dell'originale, nessun blocco.
+    private fun emptied(original: ByteArray): ByteArray {
+        val source = ByteBuffer.wrap(original)
+        val header = ByteBuffer.allocate(200)
+        repeat(25) { header.putLong(((source.getLong() ushr 48) shl 48) or 200L) }
+        val footerStart = (ByteBuffer.wrap(original).getLong(192) and 0xFFFFFFFFFFFFL).toInt()
+        val footer = ByteBuffer.allocate(112)
+        footer.putLong(ByteBuffer.wrap(original).getLong(footerStart))
+        footer.putInt(crc(header.array()) xor 2) // divisor 32
+        return header.array() + footer.array() + original.copyOfRange(footerStart + 112, original.size)
+    }
+
+    // regions/<id>/routing con i file dati, come RegionStorage.
+    private fun regionRouting(regionId: String, vararg files: Pair<String, ByteArray>): File =
+        File(tempFolder.root, "regions/$regionId/routing").also { dir ->
+            dir.mkdirs()
+            files.forEach { (name, bytes) -> File(dir, name).writeBytes(bytes) }
+        }
 
     @Test
     fun `partenza fuori dai segmenti scaricati`() = runBlocking {
@@ -157,6 +223,8 @@ class BRouterRouteEngineTest {
         assumeTrue("RD5_CLIP_TEST_DIR non impostata", base != null && File(base, "clipped/E10_N40.rd5").exists())
         return base!!
     }
+
+    private fun crc(data: ByteArray): Int = (CRC32().apply { update(data) }.value xor 0xFFFFFFFFL).toInt()
 
     private fun twoTileSegments(): File = tempFolder.newFolder().also { dir ->
         copySegmentResource("E5_N45.rd5", dir)

@@ -193,8 +193,8 @@
     <string name="navigation_title">Verso %1$s</string>
     <string name="navigation_title_no_name">Navigazione</string>
     <string name="navigation_close">Termina la navigazione</string>
-    <string name="navigation_no_speed_cameras">Autovelox e velox non sono segnalati, e nemmeno i limiti di velocità e le zone a traffico limitato o a basse emissioni: rispetta la segnaletica stradale.</string>
-    <string name="navigation_no_speed_cameras_short">Autovelox, limiti e ZTL non segnalati: segui i cartelli.</string>
+    <string name="navigation_no_speed_cameras">Autovelox, velox, i limiti di velocità e zone a traffico limitato o a basse emissioni non segnalati:</string>
+    <string name="navigation_follow_road_signs">rispetta sempre la segnaletica stradale</string>
     <string name="navigation_permission">Per navigare serve la tua posizione dal GPS. Resta sul telefono e si usa solo mentre questa schermata è aperta.</string>
     <string name="navigation_permission_grant">Consenti la posizione</string>
     <string name="navigation_gps_disabled">Il GPS è spento. La navigazione funziona solo con il GPS attivo: accendilo per partire.</string>
@@ -219,8 +219,11 @@
     <string name="usage_mode_directions_body">Con ogni regione scarica anche i percorsi (da pochi MB a qualche centinaio) e chiede la posizione GPS, usata solo mentre navighi.</string>
     <string name="navigation_routing_missing">Per navigare servono i percorsi di questa regione.</string>
     <string name="navigation_routing_download">Scarica i percorsi</string>
+    <string name="navigation_routing_missing_region">Per arrivare fin qui servono i percorsi di %1$s.</string>
+    <string name="navigation_routing_download_region">Scarica i percorsi di %1$s</string>
     <string name="navigation_routing_downloading">Scaricamento dei percorsi…</string>
     <string name="navigation_outside_routing">Partenza o arrivo sono fuori dalla zona dei percorsi scaricati.</string>
+    <string name="navigation_calculating">Calcolo del percorso…</string>
     <string name="navigation_calculating_elapsed">Calcolo del percorso… %1$d s</string>
     <string name="navigation_calculating_progress">Circa il %1$d%% del calcolo</string>
     <string name="navigation_calculating_long">In auto, sui percorsi lunghi, può servire fino a qualche minuto.</string>

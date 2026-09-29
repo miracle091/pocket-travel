@@ -1,5 +1,7 @@
 package com.pockettravel.feature.map
 
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -143,6 +145,9 @@ internal fun rememberMapViewWithLifecycle(): MapView {
     val lifecycleOwner = LocalLifecycleOwner.current
     val mapView = remember { MapView(context) }
     DisposableEffect(lifecycleOwner) {
+        // Ultimo evento passato al MapView: quando la mappa esce dallo schermo (senza GPS in galleria,
+        // cambio di scheda) va portato fino a onDestroy, o mappa nativa e thread di disegno restano vivi.
+        var applied: Lifecycle.Event? = null
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_CREATE -> mapView.onCreate(null)
@@ -151,11 +156,23 @@ internal fun rememberMapViewWithLifecycle(): MapView {
                 Lifecycle.Event.ON_PAUSE -> mapView.onPause()
                 Lifecycle.Event.ON_STOP -> mapView.onStop()
                 Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
-                else -> Unit
+                else -> return@LifecycleEventObserver
             }
+            applied = event
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            val last = applied
+            // Al messaggio successivo: la composizione puo' togliere la mappa nel mezzo di una misura
+            // (transizione della navigazione), e onDestroy toglie viste figlie: "layout state is not
+            // idle before measure starts". Handler e non mapView.post, che da staccata non partirebbe.
+            Handler(Looper.getMainLooper()).post {
+                if (last == Lifecycle.Event.ON_RESUME) mapView.onPause()
+                if (last == Lifecycle.Event.ON_RESUME || last == Lifecycle.Event.ON_PAUSE || last == Lifecycle.Event.ON_START) mapView.onStop()
+                if (last != null && last != Lifecycle.Event.ON_DESTROY) mapView.onDestroy()
+            }
+        }
     }
     return mapView
 }

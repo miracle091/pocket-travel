@@ -4,7 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.pockettravel.core.data.RegionRepository
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -13,23 +15,28 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
 class NavigationViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    routeEngineFactory: RouteEngineFactory,
+    private val routeEngineFactory: RouteEngineFactory,
+    private val regionRepository: RegionRepository,
     private val gps: GpsLocationSource,
-    /** Per la mappa della schermata: lo stesso stile della scheda Mappa. */
+    /** Per la mappa della schermata: lo stesso stile della scheda Mappa, con una sorgente per regione. */
     val tileSource: OfflineTileSource,
     private val usageModePreferences: UsageModePreferences,
 ) : ViewModel() {
+    /** La regione da cui si e' aperta la navigazione (la scheda del punto di interesse). */
     val regionId: String = checkNotNull(savedStateHandle[ARG_REGION_ID])
     private val destination = RoutePoint(
         checkNotNull(savedStateHandle.get<String>(ARG_LATITUDE)).toDouble(),
@@ -37,11 +44,17 @@ class NavigationViewModel @Inject constructor(
     )
     val destinationName: String = savedStateHandle[ARG_NAME] ?: ""
 
-    private val engine by lazy { routeEngineFactory.create(regionId) }
+    // Regioni del percorso in corso (navigationRegionIds), aggiornate a ogni calcolo: la mappa ha una sorgente per ognuna.
+    private val _regionIds = MutableStateFlow(listOf(regionId))
+    val regionIds: StateFlow<List<String>> = _regionIds
 
     private val permissionGranted = MutableStateFlow(gps.hasPermission())
     private val gpsEnabled = gps.gpsEnabled().stateIn(viewModelScope, SharingStarted.Eagerly, false)
     private val lastFix = MutableStateFlow<GpsFix?>(null)
+
+    /** Ultima posizione GPS, per cercare quale regione manca quando non ci sono i dati di percorso. */
+    val position: StateFlow<RoutePoint?> = lastFix.map { fix -> fix?.let { RoutePoint(it.latitude, it.longitude) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     private val calculating = MutableStateFlow(false)
     private val calculationStartedMillis = MutableStateFlow(0L)
     private val calculationProgress = MutableStateFlow(0.0)
@@ -149,15 +162,29 @@ class NavigationViewModel @Inject constructor(
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             val self = coroutineContext[Job]
             try {
-                routeResult.value = engine.route(RoutePoint(from.latitude, from.longitude), destination, choice.profile, choice.params) { progress ->
+                val start = RoutePoint(from.latitude, from.longitude)
+                val regionIds = navigationRegionIds(regionId, routingRegions(), start, destination)
+                _regionIds.value = regionIds
+                val result = routeEngineFactory.create(regionIds).route(start, destination, choice.profile, choice.params) { progress ->
                     if (calculationJob === self) calculationProgress.value = progress
                 }
+                // Un ricalcolo fuori percorso fallito (partenza in un parcheggio, tempo scaduto) non butta
+                // via il percorso buono: si riprova al prossimo intervallo. "Riprova" e il cambio di mezzo
+                // azzerano prima il risultato, quindi li' arriva anche l'errore.
+                if (result is RouteResult.Found || routeResult.value !is RouteResult.Found) routeResult.value = result
             } finally {
                 if (calculationJob === self) calculating.value = false
             }
         }
         calculationJob = job
         job.start()
+    }
+
+    // Regioni installate con i Percorsi e riquadro della loro mappa (127 byte di header ognuna).
+    private suspend fun routingRegions(): List<RoutingRegion> = withContext(Dispatchers.IO) {
+        regionRepository.observeInstalled().first()
+            .filter { it.routingVersion != null }
+            .map { RoutingRegion(it.regionId, tileSource.regionBounds(it.regionId)) }
     }
 
     private data class CalculationInputs(val calculating: Boolean, val startedMillis: Long, val progress: Double, val result: RouteResult?, val arrived: Boolean)
