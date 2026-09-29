@@ -847,6 +847,13 @@ jobs:
           tar -xzf "$RUNNER_TEMP/go-pmtiles.tar.gz" -C "$RUNNER_TEMP/bin" pmtiles
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
+      # osmium estrae i POI dagli estratti Geofabrik (geofabrik_pois.py, build-region.sh); senza,
+      # build-region.sh interroga Overpass come prima. Mai bloccante.
+      - name: Installa osmium-tool
+        continue-on-error: true
+        shell: bash
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
+
       # Dump di Wikivoyage (IT ~50 MB, EN ~130 MB, rifatti una volta al mese) nella cache di Actions,
       # con la chiave dagli sha1 del dump corrente: gli shard e le run del mese non li riscaricano
       # (fetch_wikivoyage_lang_dump in lib.sh, WIKIVOYAGE_DUMP_CACHE). Mai bloccante.
@@ -880,6 +887,8 @@ jobs:
           # Intervalli dei .rd5 gia' scaricati, riusati dalle regioni dopo nello stesso shard (34% dei
           # download .rd5 della run del 2026-09-28 erano tile gia' scaricate nello shard).
           RD5_RANGE_CACHE: ${{ runner.temp }}/rd5-range-cache
+          # Estratti Geofabrik ridotti ai POI, riusati dalle regioni vicine dello stesso shard.
+          GEOFABRIK_CACHE: ${{ runner.temp }}/geofabrik
         run: |
           set -euo pipefail
           source tools/data-pipeline/scripts/pilot-regions.sh

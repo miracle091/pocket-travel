@@ -544,6 +544,21 @@ fetch_overpass_chunk() {
   return 1
 }
 
+# POI dagli estratti Geofabrik quando osmium c'e' (GEOFABRIK_POI=false per non usarli): stessi oggetti
+# della query Overpass (confronto sulla Lettonia: 107.915 oggetti contro 107.934, la differenza sono
+# le modifiche del giorno), in secondi invece che nei minuti di Overpass, che resta il ripiego se
+# qualcosa va storto. GEOFABRIK_CACHE (facoltativa, la imposta il job "build") tiene gli estratti
+# ridotti per le regioni successive dello stesso job.
+GEOFABRIK_XML=""
+if [ "${GEOFABRIK_POI:-true}" = "true" ] && command -v osmium >/dev/null; then
+  echo "-- POI dagli estratti Geofabrik..."
+  if python3 "$SCRIPT_DIR/geofabrik_pois.py" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT"       --out "$WORKDIR/poi-geofabrik.osm.xml" --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT"; then
+    GEOFABRIK_XML="$WORKDIR/poi-geofabrik.osm.xml"
+  else
+    echo "-- estratti Geofabrik non disponibili, interrogo Overpass"
+  fi
+fi
+
 echo "-- risolvo segmenti .rd5 e interrogo Overpass per i POI, tile per tile..."
 ROUTING_TSV="$WORKDIR/routing-rd5.tsv"
 : > "$ROUTING_TSV"
@@ -574,6 +589,10 @@ while [ "$lon" -le "$LON_END" ]; do
         fetch_rd5 "$tile.rd5" "$ROUTING_TSV"
       fi
 
+      if [ -n "$GEOFABRIK_XML" ]; then
+        lat=$(( lat + 5 ))
+        continue
+      fi
       chunkMinLon="$(fmax "$MIN_LON" "$lon")"
       chunkMinLat="$(fmax "$MIN_LAT" "$lat")"
       chunkMaxLon="$(fmin "$MAX_LON" "$((lon + 5))")"
@@ -602,6 +621,7 @@ if [ ! -s "$ROUTING_TSV" ] && [ "$POI_ONLY" != "true" ]; then
   echo "ERRORE: nessun segmento .rd5 trovato per il bbox di $REGION_ID" >&2
   exit 1
 fi
+[ -z "$GEOFABRIK_XML" ] || POI_XML_FILES=("$GEOFABRIK_XML")
 if [ "${#POI_XML_FILES[@]}" -eq 0 ]; then
   echo "ERRORE: nessun chunk Overpass ha prodotto dati validi per $REGION_ID" >&2
   exit 1
