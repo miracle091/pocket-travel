@@ -4,7 +4,11 @@
 # dell'ente (pubblico dominio, attribuzione, attribuzione + stessa licenza); niente licenze "solo uso
 # non commerciale", "non opere derivate" o non dichiarate finche' non si leggono i termini.
 # Verificate il 2026-09-29 dalle API CKAN dei portali: data.gov.lv (CC0 1.0), dati.comune.milano.it
-# (cc-by), dati.comune.roma.it (cc-by-sa).
+# (cc-by), dati.comune.roma.it (cc-by-sa). Svezia, Spagna e Francia il 2026-09-29 dalle pagine delle
+# fonti: Trafiklab GTFS Regional (CC0 1.0), data.renfe.com e opendata.vlci.valencia.es (CC BY 4.0),
+# transport.data.gouv.fr (ODbL 1.0 o Licence Ouverte, per dataset). Escluse per ora le reti del NAP
+# spagnolo e del CRTM (chiedono dati "sempre aggiornati" e un link all'ente), la Svizzera (stessa
+# frequenza di aggiornamento della fonte) e i feed nazionali oltre i 150 MB (Inghilterra, Svezia 3).
 #
 # regioni: regionId di pilot-regions.sh separati da virgola (le regioni che propongono la rete).
 # attribuzione: testo per la schermata Licenze e sotto il tabellone.
@@ -15,3 +19,18 @@ mdb-3385	lettonia	Treni (Pasažieru vilciens)	CC0-1.0	AS Pasažieru vilciens (da
 mdb-3502	lettonia	Riga (Rīgas satiksme)	CC0-1.0	Rīgas satiksme (data.gov.lv, CC0 1.0)	https://data.gov.lv/dati/lv/dataset/marsrutu-saraksti-rigas-satiksme-sabiedriskajam-transportam
 mdb-2666	italia	Milano (ATM)	CC-BY	Comune di Milano, ATM - Azienda Trasporti Milanesi (dati.comune.milano.it, CC BY); modificato	https://dati.comune.milano.it/dataset/ds929-orari-del-trasporto-pubblico-locale-nel-comune-di-milano-in-formato-gtfs
 mdb-1294	italia	Roma (Roma Servizi per la Mobilità)	CC-BY-SA	Roma Servizi per la Mobilità (dati.comune.roma.it, CC BY-SA); modificato	https://dati.comune.roma.it/catalog/it/dataset/c_h501-d-9000
+mdb-3237	svezia	Stoccolma (SL)	CC0-1.0	Storstockholms Lokaltrafik (Trafiklab GTFS Regional, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-regional/
+mdb-3248	svezia	Göteborg e Västra Götaland (Västtrafik)	CC0-1.0	Västtrafik (Trafiklab GTFS Regional, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-regional/
+mdb-3246	svezia	Malmö e Scania (Skånetrafiken)	CC0-1.0	Skånetrafiken (Trafiklab GTFS Regional, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-regional/
+mdb-3273	svezia	Treni SJ	CC0-1.0	SJ (Trafiklab GTFS Regional, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-regional/
+mdb-3277	svezia	Treni Snälltåget	CC0-1.0	Snälltåget (Trafiklab GTFS Regional, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-regional/
+mdb-3259	svezia	Traghetti per Gotland (Destination Gotland)	CC0-1.0	Destination Gotland (Trafiklab GTFS Regional, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-regional/
+mdb-2653	spagna	Treni suburbani (Renfe Cercanías e Rodalies)	CC-BY	Origen de los datos: Renfe Operadora (data.renfe.com, CC BY 4.0); modificato	https://data.renfe.com/dataset/horarios-cercanias
+mdb-795	spagna	Valencia, autobus urbani (EMT València)	CC-BY	Ajuntament de València, EMT València (opendata.vlci.valencia.es, CC BY 4.0); modificato	https://opendata.vlci.valencia.es/dataset/google-transit-lines-stops-bus-schedules
+tdg-83582	francia,francia-alta-francia,francia-alvernia-rodano-alpi,francia-borgogna-franca-contea,francia-bretagna,francia-centro-valle-della-loira,francia-grand-est,francia-ile-de-france,francia-normandia,francia-nuova-aquitania,francia-occitania,francia-paesi-della-loira,francia-provenza-alpi-costa-azzurra	Treni SNCF (TGV, Intercités, TER)	ODbL-1.0	SNCF Voyageurs (transport.data.gouv.fr, ODbL 1.0); modificato	https://transport.data.gouv.fr/datasets/horaires-sncf
+tdg-39589	francia,francia-provenza-alpi-costa-azzurra	Marsiglia (RTM)	etalab-2.0	Métropole d'Aix-Marseille-Provence, RTM (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/reseaux-de-transports-en-commun-de-la-metropole-daix-marseille-provence-et-des-bouches-du-rhone
+tdg-83178	francia,francia-provenza-alpi-costa-azzurra	Nizza (Lignes d'Azur)	etalab-2.0	Métropole Nice Côte d'Azur (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/donnees-statiques-et-dynamiques-du-reseau-de-transport-lignes-dazur
+tdg-83024	francia,francia-nuova-aquitania	Bordeaux (TBM)	Licence-Ouverte-1.0	Bordeaux Métropole (transport.data.gouv.fr, Licence Ouverte 1.0); modificato	https://transport.data.gouv.fr/datasets/offres-de-services-bus-tram-et-scolaire-au-format-gtfs-netex-gtfs-rt-siri-lite
+tdg-81678	francia,francia-occitania	Tolosa (Tisséo)	ODbL-1.0	Toulouse Métropole, Tisséo (transport.data.gouv.fr, ODbL 1.0); modificato	https://transport.data.gouv.fr/datasets/tisseo-reseau-transport-urbain-toulousain
+tdg-79220	francia,francia-grand-est	Strasburgo (CTS)	etalab-2.0	CTS - Compagnie des Transports Strasbourgeois (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/donnees-theoriques-gtfs-et-temps-reel-siri-lite-du-reseau-cts
+tdg-83200	francia,francia-corsica	Corsica, autobus interurbani (Via Strada)	etalab-2.0	Collectivité de Corse, Via Strada (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/gtfs-transport-via-strada
