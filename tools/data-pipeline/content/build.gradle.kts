@@ -63,6 +63,7 @@ registerPipelineTask("mapFingerprint", "com.pockettravel.pipeline.MapFingerprint
 registerPipelineTask("mergeManifests", "com.pockettravel.pipeline.MergeManifestsKt")
 registerPipelineTask("validateManifest", "com.pockettravel.pipeline.ValidateManifestKt")
 registerPipelineTask("selectFragments", "com.pockettravel.pipeline.SelectFragmentsKt")
+registerPipelineTask("generateTransit", "com.pockettravel.pipeline.GenerateTransitKt", maxHeap = "2g")
 
 tasks.test {
     workingDir = pipelineRoot
