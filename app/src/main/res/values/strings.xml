@@ -26,6 +26,9 @@
     <string name="regions_replaced_choose">Scegli le regioni</string>
     <string name="regions_replaced_delete">Elimina</string>
     <string name="regions_packages">Contenuti per %1$s</string>
+    <string name="transit_networks_near">Spuntate le reti entro 50 km dalla tua ultima posizione.</string>
+    <string name="transit_networks_nearest">Nessuna rete entro 50 km dalla tua posizione: spuntata la più vicina.</string>
+    <string name="transit_networks_all">La tua posizione non è nota o è in un\'altra nazione: spuntate tutte le reti, togli quelle che non ti servono.</string>
     <string name="package_map">Mappa</string>
     <string name="package_routing">Percorsi</string>
     <string name="package_poi">Punti di interesse</string>

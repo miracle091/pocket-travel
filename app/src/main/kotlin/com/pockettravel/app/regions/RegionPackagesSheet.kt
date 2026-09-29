@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.pockettravel.app.R
 import com.pockettravel.core.data.PackageKind
+import com.pockettravel.core.sync.TransitDefaultReason
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
@@ -98,6 +99,7 @@ internal fun RegionPackagesSheet(
                                 onChange = { included -> actions.onTransitNetworkChange(item.regionId, network.id, included) },
                             )
                         }
+                        pkg.transitDefaultReason?.let { TransitNetworksNote(it) }
                         if (index < item.packages.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
                     }
                     item.unavailableKinds.forEach { kind ->
@@ -197,6 +199,22 @@ private fun TransitNetworkRow(network: TransitNetworkUi, enabled: Boolean, onCha
             .fillMaxWidth()
             .padding(start = Spacing.xl)
             .toggleable(value = network.selected, enabled = enabled, role = Role.Checkbox, onValueChange = onChange),
+    )
+}
+
+// Sotto le reti, con la scelta di default: perche' sono spuntate quelle.
+@Composable
+private fun TransitNetworksNote(reason: TransitDefaultReason) {
+    val text = when (reason) {
+        TransitDefaultReason.NEAR -> stringResource(R.string.transit_networks_near)
+        TransitDefaultReason.NEAREST -> stringResource(R.string.transit_networks_nearest)
+        TransitDefaultReason.ALL -> stringResource(R.string.transit_networks_all)
+    }
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = Spacing.xl + Spacing.l, end = Spacing.l, bottom = Spacing.s),
     )
 }
 

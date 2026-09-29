@@ -26,6 +26,9 @@
     <string name="regions_replaced_choose">Choose regions</string>
     <string name="regions_replaced_delete">Delete</string>
     <string name="regions_packages">Contents for %1$s</string>
+    <string name="transit_networks_near">Networks within 50 km of your last position are ticked.</string>
+    <string name="transit_networks_nearest">No network within 50 km of your position: the nearest one is ticked.</string>
+    <string name="transit_networks_all">Your position is unknown or in another country: all networks are ticked, untick the ones you don\'t need.</string>
     <string name="package_map">Map</string>
     <string name="package_routing">Routing</string>
     <string name="package_poi">Points of interest</string>

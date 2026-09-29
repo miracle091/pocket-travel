@@ -245,7 +245,8 @@
     <string name="turn_arrive">Arrivo</string>
     <string name="transit_title">Prossime partenze</string>
     <string name="transit_loading">Carico gli orari…</string>
-    <string name="transit_no_stops">Nessun orario per questa fermata</string>
+    <string name="transit_no_stops">Nessun orario per questa fermata: le reti scaricate non la coprono.</string>
+    <string name="transit_not_offered">Per questa zona non ci sono orari dei mezzi pubblici.</string>
     <string name="transit_none_soon">Nessuna partenza nelle prossime 3 ore</string>
     <string name="transit_valid_until">Orari validi fino al %1$s</string>
     <string name="transit_expired">Gli orari sono scaduti (validi fino al %1$s)</string>

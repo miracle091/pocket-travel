@@ -10,8 +10,10 @@ import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.TransitClient
 import com.pockettravel.core.sync.attachTransitFeeds
+import com.pockettravel.core.sync.regionTransitFeeds
 import com.pockettravel.feature.map.TransitPackageState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,6 +25,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 import javax.inject.Inject
 
@@ -42,6 +45,7 @@ class RegionHubViewModel @Inject constructor(
     private val transitClient: TransitClient,
     private val transitNetworkPreferences: TransitNetworkPreferences,
     private val lastKnownPosition: LastKnownPosition,
+    private val countryLocator: CountryLocator,
 ) : ViewModel() {
 
     private val _displayName = MutableStateFlow<String?>(null)
@@ -65,8 +69,9 @@ class RegionHubViewModel @Inject constructor(
         ) { hasMap, work -> mapState(hasMap, work) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RegionMapState.LOADING)
 
-    // La regione ha reti dei mezzi pubblici nel catalogo (letto solo se gli orari non sono ancora installati).
-    private val transitOffered = MutableStateFlow(false)
+    // La regione ha reti dei mezzi pubblici nel catalogo (letto solo se gli orari non sono ancora installati);
+    // null finche' non si sa (offline, catalogo non letto).
+    private val transitOffered = MutableStateFlow<Boolean?>(null)
 
     // Orari dei mezzi pubblici per la scheda delle fermate: installati, in scaricamento, scaricabili o non offerti.
     val transitState: StateFlow<TransitPackageState> = regionId.filterNotNull().flatMapLatest { id ->
@@ -78,7 +83,8 @@ class RegionHubViewModel @Inject constructor(
             when {
                 installed -> TransitPackageState.INSTALLED
                 work?.state == WorkInfo.State.RUNNING || work?.state == WorkInfo.State.ENQUEUED -> TransitPackageState.DOWNLOADING
-                offered -> TransitPackageState.AVAILABLE
+                offered == true -> TransitPackageState.AVAILABLE
+                offered == false -> TransitPackageState.NOT_OFFERED
                 else -> TransitPackageState.UNKNOWN
             }
         }
@@ -95,7 +101,11 @@ class RegionHubViewModel @Inject constructor(
         }
         viewModelScope.launch {
             val installed = regionRepository.installed(regionId)?.transitVersion != null
-            transitOffered.value = !installed && runCatching { entryWithTransit(regionId).transit != null }.getOrDefault(false)
+            // Senza transit.json nel catalogo non si sa ancora: niente "non ci sono orari".
+            transitOffered.value = if (installed) null else runCatching {
+                val manifest = manifestClient.fetchManifest()
+                manifest.transit?.let { regionTransitFeeds(transitClient.fetchIndex(it), regionId).isNotEmpty() }
+            }.getOrNull()
         }
     }
 
@@ -117,8 +127,12 @@ class RegionHubViewModel @Inject constructor(
     private suspend fun entryWithTransit(id: String): RegionManifestEntry {
         val manifest = manifestClient.fetchManifest()
         val index = manifest.transit?.let { transitClient.fetchIndex(it) }
-        val excluded = effectiveTransitExclusions(listOf(id), index, transitNetworkPreferences.excluded.value, lastKnownPosition.get())
-        return attachTransitFeeds(manifest.regions.filter { it.regionId == id }, index, excluded).first()
+        val regions = manifest.regions.filter { it.regionId == id }
+        val place = withContext(Dispatchers.Default) {
+            lastKnownPosition.get()?.let { (lat, lon) -> DevicePlace(lat, lon, countryLocator.countryAt(lat, lon)) }
+        }
+        val choices = effectiveTransitChoices(regions, index, transitNetworkPreferences.excluded.value, place)
+        return attachTransitFeeds(regions, index, choices.excluded, choices.reasons).first()
     }
 
     fun downloadMap() {

@@ -244,7 +244,8 @@
     <string name="turn_arrive">Arrive</string>
     <string name="transit_title">Next departures</string>
     <string name="transit_loading">Loading timetable…</string>
-    <string name="transit_no_stops">No timetable for this stop</string>
+    <string name="transit_no_stops">No timetables for this stop: the downloaded networks don\'t cover it.</string>
+    <string name="transit_not_offered">There are no public transport timetables for this area.</string>
     <string name="transit_none_soon">No departures in the next 3 hours</string>
     <string name="transit_valid_until">Timetable valid until %1$s</string>
     <string name="transit_expired">The timetable has expired (valid until %1$s)</string>

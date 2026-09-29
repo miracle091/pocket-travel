@@ -15,6 +15,7 @@ import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.ReplacedRegion
 import com.pockettravel.core.sync.TransitClient
+import com.pockettravel.core.sync.TransitDefaultReason
 import com.pockettravel.core.sync.TransitIndex
 import com.pockettravel.core.sync.attachAddressGridCells
 import com.pockettravel.core.sync.attachTransitFeeds
@@ -51,6 +52,8 @@ data class PackageUiState(
     val detail: String? = null,
     // Mezzi pubblici con piu' reti: ognuna si sceglie a parte (TransitNetworkPreferences).
     val networks: List<TransitNetworkUi> = emptyList(),
+    // Mezzi pubblici con la scelta di default: come sono state scelte le reti (null se ha scelto l'utente).
+    val transitDefaultReason: TransitDefaultReason? = null,
 )
 
 data class TransitNetworkUi(val id: String, val name: String, val downloadBytes: Long, val selected: Boolean)
@@ -114,11 +117,12 @@ class RegionListViewModel @Inject constructor(
     private val llmModelUpdateCheckScheduler: LlmModelUpdateCheckScheduler,
     private val usageModePreferences: UsageModePreferences,
     private val transitNetworkPreferences: TransitNetworkPreferences,
-    lastKnownPosition: LastKnownPosition,
+    private val lastKnownPosition: LastKnownPosition,
+    private val countryLocator: CountryLocator,
 ) : ViewModel() {
 
-    // Per le reti dei mezzi pubblici vicine (defaultTransitExclusions): letta una volta, senza GPS.
-    private val position = lastKnownPosition.get()
+    // Per le reti dei mezzi pubblici vicine (defaultTransitChoice): ultima posizione nota e il suo paese, senza GPS.
+    private val place = MutableStateFlow<DevicePlace?>(null)
 
     private val manifestRegions = MutableStateFlow<List<RegionManifestEntry>>(emptyList())
     // Manifest e indice dei mezzi pubblici come arrivano: manifestRegions li unisce con le reti scelte.
@@ -145,7 +149,7 @@ class RegionListViewModel @Inject constructor(
         val installedByRegion = installed.associateBy { it.regionId }
         val items = remoteRegions
             .filter { matchesQuery(it.displayName, currentQuery) }
-            .map { remote -> regionUiItem(remote, installedByRegion[remote.regionId], regionRepository::packageBytes, regionRepository::installedAddressCells, wantsDirections) }
+            .map { remote -> regionUiItem(remote, installedByRegion[remote.regionId], regionRepository::packageBytes, regionRepository::installedAddressCells, wantsDirections, transitIndex.value != null) }
         val replaced = replacedItems(installed, remoteRegions, replacedByManifest).filter { matchesQuery(it.displayName, currentQuery) }
         RegionListUiState(
             items = items,
@@ -164,15 +168,20 @@ class RegionListViewModel @Inject constructor(
         refresh()
         // Le reti scelte cambiano versione e dimensione del pacchetto: le regioni si ricalcolano subito.
         viewModelScope.launch {
-            combine(baseRegions, transitIndex, transitNetworkPreferences.excluded) { regions, index, stored ->
-                attachTransitFeeds(regions, index, effectiveTransitExclusions(regions.map { it.regionId }, index, stored, position))
+            combine(baseRegions, transitIndex, transitNetworkPreferences.excluded, place) { regions, index, stored, here ->
+                val choices = effectiveTransitChoices(regions, index, stored, here)
+                attachTransitFeeds(regions, index, choices.excluded, choices.reasons)
             }.collect { manifestRegions.value = it }
+        }
+        viewModelScope.launch(Dispatchers.Default) {
+            place.value = lastKnownPosition.get()?.let { (lat, lon) -> DevicePlace(lat, lon, countryLocator.countryAt(lat, lon)) }
         }
     }
 
     /** Aggiunge o toglie una rete dei mezzi pubblici della regione (foglio Contenuti). */
     fun setTransitNetwork(regionId: String, feedId: String, included: Boolean) {
-        val defaults = effectiveTransitExclusions(listOf(regionId), transitIndex.value, emptyMap(), position)[regionId].orEmpty()
+        val region = baseRegions.value.filter { it.regionId == regionId }
+        val defaults = effectiveTransitChoices(region, transitIndex.value, emptyMap(), place.value).excluded[regionId].orEmpty()
         transitNetworkPreferences.setIncluded(regionId, feedId, included, defaults)
     }
 
@@ -294,6 +303,8 @@ internal fun regionUiItem(
     installedAddressCells: (regionId: String) -> Map<String, String> = { emptyMap() },
     // "Indicazioni" attivo: "Scarica" comprende i percorsi (RegionManifestEntry.downloadKinds).
     withRouting: Boolean = false,
+    // Indice dei mezzi pubblici letto: una regione senza reti le mostra come "non disponibili" (senza indice non si sa).
+    transitKnown: Boolean = false,
 ): RegionUiItem {
     val addressCellVersions = if (remote.addressGrid != null && local != null) installedAddressCells(remote.regionId) else emptyMap()
     val outdated = outdatedKinds(remote, local)
@@ -306,7 +317,7 @@ internal fun regionUiItem(
     // installati. Solo i civici mancanti si segnalano come "non disponibili": i POI extra arrivano man
     // mano che la pipeline rigenera i POI delle regioni.
     val (shown, missing) = PackageKind.entries.partition { it in remote.availableKinds || local?.versionOf(it) != null }
-    val unavailable = missing.filter { it == PackageKind.ADDRESSES }
+    val unavailable = missing.filter { it == PackageKind.ADDRESSES || (it == PackageKind.TRANSIT && transitKnown) }
     val packages = shown.map { kind ->
         PackageUiState(
             kind = kind,
@@ -319,6 +330,7 @@ internal fun regionUiItem(
             installedBytes = local?.let { installedBytes(it, kind) },
             detail = if (kind == PackageKind.TRANSIT && remote.transit?.available.orEmpty().size <= 1) remote.transit?.feeds?.joinToString { it.name } else null,
             networks = if (kind == PackageKind.TRANSIT) remote.transitNetworks() else emptyList(),
+            transitDefaultReason = if (kind == PackageKind.TRANSIT) remote.transit?.defaultReason else null,
         )
     }
     val sizeBytes = when (status) {

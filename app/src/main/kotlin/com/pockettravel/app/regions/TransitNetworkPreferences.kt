@@ -5,7 +5,8 @@ import androidx.core.content.edit
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.TransitIndex
-import com.pockettravel.core.sync.defaultTransitExclusions
+import com.pockettravel.core.sync.TransitDefaultReason
+import com.pockettravel.core.sync.defaultTransitChoice
 import com.pockettravel.core.sync.regionTransitFeeds
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,20 +43,37 @@ class TransitNetworkPreferences @Inject constructor(@ApplicationContext context:
         prefs.all.mapNotNull { (regionId, value) -> (value as? Set<*>)?.filterIsInstance<String>()?.toSet()?.let { regionId to it } }.toMap()
 }
 
+/** Dove si trova il telefono: ultima posizione nota e paese (CountryLocator), null se non nota. */
+internal data class DevicePlace(val latitude: Double, val longitude: Double, val countryCode: String?)
+
+/** Le reti tolte per regione e, per quelle con la scelta di default, il perche'. */
+internal data class TransitChoices(val excluded: Map<String, Set<String>>, val reasons: Map<String, TransitDefaultReason>)
+
 /**
- * Le reti tolte per ogni regione di [regionIds]: la scelta salvata dell'utente o, senza, quella di default
- * (reti vicine a [position] quando la regione ne ha molte).
+ * Per ogni regione di [regions]: la scelta salvata dell'utente o, senza, quella di default (defaultTransitChoice).
+ * La posizione conta solo se e' nella nazione della regione: da Como le reti svizzere non sono "vicine".
  */
-internal fun effectiveTransitExclusions(
-    regionIds: List<String>,
+internal fun effectiveTransitChoices(
+    regions: List<RegionManifestEntry>,
     index: TransitIndex?,
     stored: Map<String, Set<String>>,
-    position: Pair<Double, Double>?,
-): Map<String, Set<String>> {
-    if (index == null) return stored
-    return regionIds.associateWith { id ->
-        stored[id] ?: defaultTransitExclusions(regionTransitFeeds(index, id), position?.first, position?.second)
+    place: DevicePlace?,
+): TransitChoices {
+    if (index == null) return TransitChoices(stored, emptyMap())
+    val excluded = mutableMapOf<String, Set<String>>()
+    val reasons = mutableMapOf<String, TransitDefaultReason>()
+    for (region in regions) {
+        val saved = stored[region.regionId]
+        if (saved != null) {
+            excluded[region.regionId] = saved
+            continue
+        }
+        val here = place?.takeIf { it.countryCode != null && it.countryCode.equals(region.countryCode, ignoreCase = true) }
+        val choice = defaultTransitChoice(regionTransitFeeds(index, region.regionId), here?.latitude, here?.longitude)
+        excluded[region.regionId] = choice.excluded
+        choice.reason?.let { reasons[region.regionId] = it }
     }
+    return TransitChoices(excluded, reasons)
 }
 
 /** Al download degli orari la scelta di default diventa quella salvata: spostandosi non cambia piu'. */

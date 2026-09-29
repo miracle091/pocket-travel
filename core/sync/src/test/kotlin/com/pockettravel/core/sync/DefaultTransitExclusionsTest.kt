@@ -19,24 +19,26 @@ class DefaultTransitExclusionsTest {
 
     @Test
     fun `a Londra resta solo Londra`() {
-        assertEquals(setOf("north-west", "scotland", "wales"), defaultTransitExclusions(uk, 51.5074, -0.1278))
+        assertEquals(setOf("north-west", "scotland", "wales"), defaultTransitChoice(uk, 51.5074, -0.1278).excluded)
+        assertEquals(TransitDefaultReason.NEAR, defaultTransitChoice(uk, 51.5074, -0.1278).reason)
     }
 
     @Test
     fun `fra due aree entro 50 km restano entrambe`() {
         // Chester: nel Nord-ovest e a pochi km dal Galles.
-        assertEquals(setOf("london", "scotland"), defaultTransitExclusions(uk, 53.19, -2.89))
+        assertEquals(setOf("london", "scotland"), defaultTransitChoice(uk, 53.19, -2.89).excluded)
     }
 
     @Test
     fun `lontano da tutte resta la piu' vicina`() {
         // Parigi: Londra e' la piu' vicina.
-        assertEquals(setOf("north-west", "scotland", "wales"), defaultTransitExclusions(uk, 48.85, 2.35))
+        assertEquals(setOf("north-west", "scotland", "wales"), defaultTransitChoice(uk, 48.85, 2.35).excluded)
+        assertEquals(TransitDefaultReason.NEAREST, defaultTransitChoice(uk, 48.85, 2.35).reason)
     }
 
     @Test
     fun `senza posizione o con poche reti si scaricano tutte`() {
-        assertEquals(emptySet<String>(), defaultTransitExclusions(uk, null, null))
-        assertEquals(emptySet<String>(), defaultTransitExclusions(uk.take(3), 51.5074, -0.1278))
+        assertEquals(TransitDefault(emptySet(), TransitDefaultReason.ALL), defaultTransitChoice(uk, null, null))
+        assertEquals(TransitDefault(emptySet(), null), defaultTransitChoice(uk.take(3), 51.5074, -0.1278))
     }
 }

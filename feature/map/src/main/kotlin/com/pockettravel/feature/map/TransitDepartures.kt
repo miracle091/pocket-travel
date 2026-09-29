@@ -40,8 +40,11 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
-/** Stato del pacchetto orari dei mezzi pubblici della regione, per la scheda delle fermate: [UNKNOWN] non mostra nulla. */
-enum class TransitPackageState { UNKNOWN, INSTALLED, AVAILABLE, DOWNLOADING }
+/**
+ * Stato del pacchetto orari dei mezzi pubblici della regione, per la scheda delle fermate: [UNKNOWN] non mostra
+ * nulla (catalogo non letto), [NOT_OFFERED] dice che per questa zona non ci sono orari.
+ */
+enum class TransitPackageState { UNKNOWN, INSTALLED, AVAILABLE, DOWNLOADING, NOT_OFFERED }
 
 /** Le schede di queste categorie hanno la sezione "Prossime partenze". */
 val TRANSIT_CATEGORIES = setOf(PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TRAGHETTO)
@@ -61,6 +64,7 @@ internal fun TransitDeparturesSection(state: TransitPackageState, board: Transit
             modifier = Modifier.semantics { heading() },
         )
         when (state) {
+            TransitPackageState.NOT_OFFERED -> Note(stringResource(R.string.transit_not_offered))
             TransitPackageState.AVAILABLE -> FilledTonalButton(onClick = onDownload) {
                 Icon(AppIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                 Text(stringResource(R.string.transit_download), modifier = Modifier.padding(start = Spacing.s))

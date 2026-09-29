@@ -49,7 +49,12 @@ data class TransitFeed(
  * dall'utente), [available] tutte quelle che la regione offre.
  */
 @Serializable
-data class RegionTransitEntry(val feeds: List<TransitFeed>, val available: List<TransitFeed> = feeds)
+data class RegionTransitEntry(
+    val feeds: List<TransitFeed>,
+    val available: List<TransitFeed> = feeds,
+    // Perche' [feeds] sono quelle di default (l'utente non ha ancora scelto); null se ha scelto o se le reti sono poche.
+    val defaultReason: TransitDefaultReason? = null,
+)
 
 internal val TransitFeed.stagedFile: RegionManifestFile get() = file.copy(name = "$id.db")
 internal val TransitFeed.stagedFileXz: RegionManifestFile? get() = fileXz?.copy(name = "$id.db.xz")
@@ -108,12 +113,13 @@ fun attachTransitFeeds(
     entries: List<RegionManifestEntry>,
     index: TransitIndex?,
     excluded: Map<String, Set<String>> = emptyMap(),
+    defaultReasons: Map<String, TransitDefaultReason> = emptyMap(),
 ): List<RegionManifestEntry> {
     if (index == null) return entries
     return entries.map { entry ->
         val all = regionTransitFeeds(index, entry.regionId)
         val chosen = all.filter { it.id !in excluded[entry.regionId].orEmpty() }.ifEmpty { all }
-        if (all.isEmpty()) entry else entry.copy(transit = RegionTransitEntry(chosen, all))
+        if (all.isEmpty()) entry else entry.copy(transit = RegionTransitEntry(chosen, all, defaultReasons[entry.regionId]))
     }
 }
 
@@ -123,17 +129,38 @@ private const val MANY_TRANSIT_FEEDS = 3
 /** Entro questa distanza dal riquadro delle fermate una rete conta come vicina. */
 private const val NEAR_TRANSIT_KM = 50.0
 
+/** Come sono state scelte le reti di default di una regione con molte reti (mostrato nei Contenuti). */
+@Serializable
+enum class TransitDefaultReason {
+    /** Quelle entro [NEAR_TRANSIT_KM] dalla posizione. */
+    NEAR,
+
+    /** Nessuna entro [NEAR_TRANSIT_KM]: la piu' vicina. */
+    NEAREST,
+
+    /** Posizione non nota o in un'altra nazione: tutte. */
+    ALL,
+}
+
+/** Le reti tolte di default e il perche' ([reason] null con poche reti: si scaricano tutte, niente da spiegare). */
+data class TransitDefault(val excluded: Set<String>, val reason: TransitDefaultReason?)
+
 /**
- * Le reti da togliere di default quando l'utente non ha ancora scelto: con piu' di [MANY_TRANSIT_FEEDS]
- * reti restano quelle entro [NEAR_TRANSIT_KM] dalla posizione, o la piu' vicina se nessuna lo e'. Senza
- * posizione (o con poche reti) nessuna: si scaricano tutte, come per le altre regioni.
+ * La scelta di default quando l'utente non ha ancora scelto: con piu' di [MANY_TRANSIT_FEEDS] reti restano
+ * quelle entro [NEAR_TRANSIT_KM] dalla posizione, o la piu' vicina se nessuna lo e'. La posizione va passata
+ * solo se e' nella nazione della regione: senza (o in un'altra nazione) restano tutte.
  */
-fun defaultTransitExclusions(available: List<TransitFeed>, latitude: Double?, longitude: Double?): Set<String> {
-    if (available.size <= MANY_TRANSIT_FEEDS || latitude == null || longitude == null) return emptySet()
+fun defaultTransitChoice(available: List<TransitFeed>, latitude: Double?, longitude: Double?): TransitDefault {
+    if (available.size <= MANY_TRANSIT_FEEDS) return TransitDefault(emptySet(), null)
+    if (latitude == null || longitude == null) return TransitDefault(emptySet(), TransitDefaultReason.ALL)
     val distances = available.mapNotNull { feed -> feed.bbox?.let { feed.id to distanceToBoxKm(it, latitude, longitude) } }
-    if (distances.isEmpty()) return emptySet()
-    val near = distances.filter { it.second <= NEAR_TRANSIT_KM }.map { it.first }.ifEmpty { listOf(distances.minBy { it.second }.first) }
-    return available.map { it.id }.toSet() - near.toSet()
+    if (distances.isEmpty()) return TransitDefault(emptySet(), TransitDefaultReason.ALL)
+    val near = distances.filter { it.second <= NEAR_TRANSIT_KM }.map { it.first }
+    val kept = near.ifEmpty { listOf(distances.minBy { it.second }.first) }
+    return TransitDefault(
+        available.map { it.id }.toSet() - kept.toSet(),
+        if (near.isEmpty()) TransitDefaultReason.NEAREST else TransitDefaultReason.NEAR,
+    )
 }
 
 // Distanza approssimata (equirettangolare) dal punto al riquadro, 0 se ci sta dentro.
