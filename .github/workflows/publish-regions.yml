@@ -403,10 +403,8 @@ jobs:
   address-grid:
     if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
-    # issues: write per la issue del controllo della lista bianca Overture (ultimi passi).
     permissions:
       contents: write
-      issues: write
     env:
       GH_TOKEN: ${{ github.token }}
       PYTHON_BIN: python3
@@ -625,10 +623,27 @@ jobs:
           path: ${{ runner.temp }}/address-grid-index/address-grid.json
           retention-days: 1
 
-      # Controllo della lista bianca, una volta per rilascio Overture: le coppie (paese, dataset,
-      # licenza) nuove o sparite finirebbero scartate in silenzio dalle celle. Esito in una issue
-      # (etichetta overture-licenze), che arriva per email; il rilascio controllato resta come
-      # chiave della cache di Actions. Mai bloccante: se fallisce si ripete alla run successiva.
+  # Controllo della lista bianca Overture, una volta per rilascio: le coppie (paese, dataset,
+  # licenza) nuove o sparite finirebbero scartate in silenzio dalle celle dei civici. Esito in una
+  # issue (etichetta overture-licenze), che arriva per email; il rilascio controllato resta come
+  # chiave della cache di Actions. Job a parte che nessuno aspetta (la query legge tutto il tema,
+  # decine di minuti) e mai bloccante: se fallisce si ripete alla run successiva.
+  overture-check:
+    if: ${{ !(github.event.inputs.continuation > 0) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Installa duckdb
+        shell: bash
+        run: python3 -m pip install --quiet --disable-pip-version-check duckdb
+
       - name: Rilascio Overture da controllare
         id: overture-release
         continue-on-error: true
