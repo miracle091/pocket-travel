@@ -62,6 +62,18 @@ on:
           oggi. -1 = rigenera anche le celle pubblicate oggi. Vuoto = 30.
         required: false
         default: ""
+      time_budget_minutes:
+        description: >
+          Minuti dopo i quali uno shard non inizia altre regioni e le rimanda a una run successiva
+          (job "build"). Vuoto = 290. Un valore piccolo serve a provare il rinvio.
+        required: false
+        default: ""
+      continuation:
+        description: >
+          Numero della continuazione automatica (la imposta il job "publish" quando rilancia le
+          regioni rimandate; al massimo 4). Da lasciare vuoto nelle run manuali.
+        required: false
+        default: ""
 
 # Minimo a livello di workflow: contents: write solo ai job che creano release o ne caricano/tolgono
 # asset, pages/id-token solo al job "publish" che fa il deploy su Pages.
@@ -187,7 +199,8 @@ jobs:
           # Peso = secondi dell'ultima generazione completa della regione (region-timings.tsv,
           # pubblicato accanto al manifest dal job "publish"): le tile contano poco per i POI,
           # rigenerati ogni settimana e lunghi dove i punti sono tanti (Germania: poche tile, molti
-          # POI). Senza misura: 12 s per tile land, la media della run completa del 2026-09-24.
+          # POI). Senza misura: 50 s per tile land, la media delle regioni mai generate nella run
+          # completa del 2026-09-28 (i 12 s della run del 2026-09-24 le sottostimavano di 4 volte).
           declare -A TIMINGS=()
           if curl -sSfL -A "PocketTravelDataPipeline/1.0" "${{ env.PAGES_BASE_URL }}/region-timings.tsv" -o "$RUNNER_TEMP/region-timings.tsv"; then
             while IFS=$'\t' read -r regionId seconds; do
@@ -198,7 +211,7 @@ jobs:
           IFS=',' read -ra REGION_ARR <<< "$SELECTED"
           SORTED_FILE="$RUNNER_TEMP/sorted-regions.tsv"
           for r in "${REGION_ARR[@]}"; do
-            printf '%d\t%s\n' "${TIMINGS[$r]:-$(( ${WEEKLY_SCHEDULE_TILES[$r]:-1} * 12 ))}" "$r"
+            printf '%d\t%s\n' "${TIMINGS[$r]:-$(( ${WEEKLY_SCHEDULE_TILES[$r]:-1} * 50 ))}" "$r"
           done | sort -t $'\t' -k1,1nr > "$SORTED_FILE"
 
           SHARD_COUNT=3
@@ -221,8 +234,11 @@ jobs:
 
   # Genera il pacchetto guide unico (guides.db) e il suo frammento manifest. Un solo job, non
   # sharded: sono poche centinaia di pagine Wikivoyage di pochi KB ciascuna.
+  # Come "world-map" e "address-grid", non gira nelle continuazioni (input continuation > 0): le ha
+  # gia' fatte la run che ha rimandato le regioni, e il job "publish" tiene le voci pubblicate.
   guides:
     needs: plan
+    if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -287,6 +303,7 @@ jobs:
   # WORLD_MAP_MAX_AGE_DAYS giorni o manca del tutto - altrimenti il job non produce nulla e la voce
   # gia' pubblicata resta (mergeManifests la riporta avanti dal manifest online, come "guides").
   world-map:
+    if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -375,7 +392,9 @@ jobs:
   # release di region_release_tag in pilot-regions.sh) invece che su "region-data*": non sono
   # legate a una regione. L'indice (address-grid.json) e il suo frammento manifest (voce
   # "addressGrid") vanno al job "publish" come artifact, stesso schema di "guides"/"world-map".
+  # Nelle continuazioni (stesso giorno, quindi stesso slot e stesse celle) non gira.
   address-grid:
+    if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -583,6 +602,10 @@ jobs:
   build:
     needs: plan
     runs-on: ubuntu-24.04
+    # Sotto le 6 h di GitHub (che interrompono il passo senza caricare i frammenti, run del
+    # 2026-09-28): budget di TIME_BUDGET_MINUTES (290) + una regione al massimo di
+    # REGION_TIMEOUT_MINUTES (45) + preparazione e upload.
+    timeout-minutes: 350
     permissions:
       contents: write
     strategy:
@@ -594,6 +617,11 @@ jobs:
       # Ogni regione torna in rotazione ogni 7 giorni e si rigenera oltre POI_MAX_AGE_DAYS giorni:
       # 6 rinnova i POI a ogni turno (7 li rinnoverebbe ogni due settimane).
       POI_MAX_AGE_DAYS: ${{ github.event.inputs.poi_max_age_days || '6' }}
+      # Passato il budget lo shard non inizia altre regioni: le rimanda (deferred-<shard>.txt) e il
+      # job "publish" le rilancia in una run nuova. Una regione oltre REGION_TIMEOUT_MINUTES e'
+      # fallita (la piu' lenta misurata, cina-tibet alla prima generazione, 34 min).
+      TIME_BUDGET_MINUTES: ${{ github.event.inputs.time_budget_minutes || '290' }}
+      REGION_TIMEOUT_MINUTES: 45
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
@@ -683,6 +711,15 @@ jobs:
           # script), quindi si continua con le regioni successive.
           FAILED_REGIONS=()
           IFS=',' read -ra SHARD_REGIONS <<< "$SELECTED"
+          # Budget dall'inizio di questo passo (SECONDS), dump delle citta' compreso. Almeno una
+          # regione parte sempre, cosi' ogni continuazione fa qualche progresso.
+          if ! [[ "$TIME_BUDGET_MINUTES" =~ ^[0-9]+$ ]]; then
+            echo "time_budget_minutes non valido: '$TIME_BUDGET_MINUTES' (minuti, intero)" >&2
+            exit 1
+          fi
+          BUDGET_SECONDS=$((TIME_BUDGET_MINUTES * 60))
+          DEFERRED_REGIONS=()
+          startedRegions=0
 
           # Citta' delle regioni: un solo passaggio sul dump di
           # Wikivoyage IT per l'intero shard (build-cities-dump.sh), prima del giro per regione qui
@@ -711,13 +748,20 @@ jobs:
             match=false
             for r in "${SHARD_REGIONS[@]}"; do [ "$r" = "$regionId" ] && match=true && break; done
             [ "$match" = true ] || continue
+            if [ "$startedRegions" -gt 0 ] && [ "$SECONDS" -ge "$BUDGET_SECONDS" ]; then
+              DEFERRED_REGIONS+=("$regionId")
+              continue
+            fi
+            startedRegions=$((startedRegions + 1))
 
             releaseTag="$(region_release_tag "$regionId" "$continent")"
             RELEASE_BASE_URL="$RELEASE_BASE_URL_PREFIX/$releaseTag"
             echo "::group::$regionId"
             regionStart=$SECONDS
             regionOut="$OUTPUT_ROOT/$regionId"
-            if tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
+            # timeout segnala l'intero gruppo di processi (anche java, python e curl lanciati dallo script).
+            if timeout --kill-after=2m "${REGION_TIMEOUT_MINUTES}m" \
+              tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
               "$minLon" "$minLat" "$maxLon" "$maxLat" "$RELEASE_BASE_URL" "$regionOut" \
               "$PUBLISHED_MANIFEST_URL"; then
               # Citta' (facoltative, mai fatali): aggiunge la voce "cities" al frammento e, se il
@@ -786,16 +830,29 @@ jobs:
               # file "manifest-fragment.json" una volta appiattite nella stessa cartella artifact.
               cp "$regionOut/manifest-fragment.json" "$RUNNER_TEMP/fragments/${regionId}.json"
               # Durata della regione, per bilanciare gli shard delle prossime run (region-timings.tsv).
-              # Non quella delle regioni saltate perche' invariate: una settimana dopo non lo saranno.
-              if [ ! -f "$regionOut/.skipped" ]; then
+              # Solo le build complete: non le regioni saltate perche' invariate ne' gli aggiornamenti
+              # incrementali, che abbasserebbero la misura (una settimana dopo la regione puo' dover
+              # ripartire da zero).
+              if [ ! -f "$regionOut/.skipped" ] && [ ! -f "$regionOut/.incremental" ]; then
                 printf '%s\t%d\n' "$regionId" "$((SECONDS - regionStart))" >> "$RUNNER_TEMP/fragments/timings-${{ matrix.shard }}.tsv"
               fi
             else
-              echo "::warning::regione $regionId fallita, salto e continuo con le prossime"
+              rc=$?
+              if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+                echo "::warning::regione $regionId oltre ${REGION_TIMEOUT_MINUTES} min, interrotta: salto e continuo con le prossime"
+              else
+                echo "::warning::regione $regionId fallita, salto e continuo con le prossime"
+              fi
               FAILED_REGIONS+=("$regionId")
             fi
             echo "::endgroup::"
           done
+
+          # Regioni rimandate: le rilancia il job "publish" (continuazione automatica).
+          if [ "${#DEFERRED_REGIONS[@]}" -gt 0 ]; then
+            printf '%s\n' "${DEFERRED_REGIONS[@]}" > "$RUNNER_TEMP/fragments/deferred-${{ matrix.shard }}.txt"
+            echo "::warning::budget di ${TIME_BUDGET_MINUTES} min superato: ${#DEFERRED_REGIONS[@]} regioni rimandate alla continuazione: ${DEFERRED_REGIONS[*]}"
+          fi
 
           # Riepilogo nella pagina del job, per non dover cercare i problemi nel log.
           {
@@ -803,14 +860,22 @@ jobs:
             if [ "${#FAILED_REGIONS[@]}" -gt 0 ]; then
               echo "Regioni fallite (non pubblicate, da rilanciare a parte): ${FAILED_REGIONS[*]}"
               echo
-            else
+            elif [ "${#DEFERRED_REGIONS[@]}" -eq 0 ]; then
               echo "Nessun problema."
+            fi
+            if [ "${#DEFERRED_REGIONS[@]}" -gt 0 ]; then
+              echo "Regioni rimandate (budget di ${TIME_BUDGET_MINUTES} min superato, rilanciate dalla continuazione): ${DEFERRED_REGIONS[*]}"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
           fragmentCount="$(find "$RUNNER_TEMP/fragments" -maxdepth 1 -name '*.json' | wc -l)"
           if [ "$fragmentCount" -eq 0 ]; then
-            echo "has_fragments=false" >> "$GITHUB_OUTPUT"
+            # Con regioni rimandate l'artifact serve comunque, per la continuazione.
+            if [ "${#DEFERRED_REGIONS[@]}" -gt 0 ]; then
+              echo "has_fragments=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "has_fragments=false" >> "$GITHUB_OUTPUT"
+            fi
             echo "Nessuna regione completata con successo in questo shard: $SELECTED" >&2
             exit 1
           fi
@@ -819,14 +884,17 @@ jobs:
           fi
           echo "has_fragments=true" >> "$GITHUB_OUTPUT"
 
+      # !cancelled(): anche quando il passo sopra esce con errore (nessuna regione completata) ma ha
+      # regioni rimandate da passare alla continuazione.
       - name: Carica i frammenti manifest dello shard
-        if: steps.build.outputs.has_fragments == 'true'
+        if: ${{ !cancelled() && steps.build.outputs.has_fragments == 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: manifest-fragments-${{ matrix.shard }}
           path: |
             ${{ runner.temp }}/fragments/*.json
             ${{ runner.temp }}/fragments/*.tsv
+            ${{ runner.temp }}/fragments/*.txt
           retention-days: 1
 
   # Riunisce i frammenti manifest di tutti gli shard (e delle guide, e della mappa del mondo) col
@@ -845,9 +913,11 @@ jobs:
       group: pages
       cancel-in-progress: false
     runs-on: ubuntu-24.04
-    # contents: write per togliere gli asset non piu' referenziati (ultimo passo).
+    # contents: write per togliere gli asset non piu' referenziati; actions: write per rilanciare
+    # le regioni rimandate (ultimi due passi).
     permissions:
       contents: write
+      actions: write
       pages: write
       id-token: write
     environment:
@@ -1071,3 +1141,42 @@ jobs:
               echo "::warning::$tag ha $kept asset: rischia il limite di 1000 durante una rigenerazione completa, valuta di dividerla (region_release_tag in pilot-regions.sh)"
             fi
           done
+
+      # Continuazione automatica: le regioni che gli shard hanno rimandato per il budget di tempo
+      # (deferred-<shard>.txt negli artifact dei frammenti) ripartono in una run nuova, lanciata con
+      # workflow_dispatch (il GITHUB_TOKEN puo' farlo; con gli altri eventi non creerebbe una run).
+      # Al massimo 4 continuazioni in fila. Gira anche se un passo sopra e' fallito: le regioni
+      # rimandate non sono state tentate.
+      - name: Rilancia le regioni rimandate
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTINUATION: ${{ github.event.inputs.continuation }}
+          TIME_BUDGET_INPUT: ${{ github.event.inputs.time_budget_minutes }}
+          POI_MAX_AGE_INPUT: ${{ github.event.inputs.poi_max_age_days }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          DEFERRED_FILES=("$RUNNER_TEMP/fragments"/deferred-*.txt)
+          if [ "${#DEFERRED_FILES[@]}" -eq 0 ]; then
+            echo "-- nessuna regione rimandata"
+            exit 0
+          fi
+          DEFERRED="$(cat "${DEFERRED_FILES[@]}" | grep -E '^[a-z0-9-]+$' | sort -u | paste -sd, -)"
+          if [ -z "$DEFERRED" ]; then
+            echo "-- nessuna regione rimandata"
+            exit 0
+          fi
+          [[ "${CONTINUATION:-}" =~ ^[0-9]+$ ]] || CONTINUATION=0
+          NEXT=$((CONTINUATION + 1))
+          if [ "$NEXT" -gt 4 ]; then
+            echo "::warning::regioni rimandate dopo 4 continuazioni, non rilancio (restano al calendario settimanale): $DEFERRED"
+            exit 0
+          fi
+          ARGS=(-f regions="$DEFERRED" -f continuation="$NEXT")
+          [ -z "${TIME_BUDGET_INPUT:-}" ] || ARGS+=(-f time_budget_minutes="$TIME_BUDGET_INPUT")
+          [ -z "${POI_MAX_AGE_INPUT:-}" ] || ARGS+=(-f poi_max_age_days="$POI_MAX_AGE_INPUT")
+          gh workflow run publish-regions.yml --repo "${{ github.repository }}" --ref "${{ github.ref_name }}" "${ARGS[@]}"
+          echo "-- continuazione $NEXT lanciata con $(tr ',' '\n' <<< "$DEFERRED" | wc -l) regioni"
+          echo "Continuazione $NEXT lanciata con le regioni rimandate: $DEFERRED" >> "$GITHUB_STEP_SUMMARY"

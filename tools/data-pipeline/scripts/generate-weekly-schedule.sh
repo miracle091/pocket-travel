@@ -14,7 +14,8 @@
 #      spezzate in piu' bbox adiacenti), cosi' ogni tile viene richiesta una sola volta.
 #      Se il sito pubblica region-timings.tsv (secondi dell'ultima generazione di ogni regione,
 #      scritto da publish-regions.yml), per le regioni misurate il peso e' quello, in "tile
-#      equivalenti": secondi / 12 (12 s per tile land, media della run completa del 2026-09-24).
+#      equivalenti": secondi / 50 (50 s per tile land, media delle regioni mai generate prima nella
+#      run completa del 2026-09-28).
 #   2. Rank turistico noto solo per una manciata di nazioni (fonte UNWTO/Statista/Wikipedia 2024,
 #      alta confidenza solo sulla top ~12): le altre regioni sono
 #      "senza rank", in coda, nell'ordine di pilot-regions.sh (cioe' per continente). Il rank di
@@ -37,7 +38,7 @@ OUT_FILE="$SCRIPT_DIR/weekly-schedule.sh"
 GIANT_THRESHOLD=50
 CONCURRENCY=8
 REGION_TIMINGS_URL="https://miracle091.github.io/pocket-travel/region-timings.tsv"
-SECONDS_PER_TILE=12
+SECONDS_PER_TILE=50
 
 # shellcheck source=./pilot-regions.sh
 source "$SCRIPT_DIR/pilot-regions.sh"
