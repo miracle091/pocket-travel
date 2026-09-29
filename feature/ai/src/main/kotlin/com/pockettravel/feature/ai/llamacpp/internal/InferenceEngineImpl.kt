@@ -97,8 +97,6 @@ internal class InferenceEngineImpl private constructor(
     @FastNative
     private external fun systemInfo(): String
 
-    private external fun benchModel(pp: Int, tg: Int, pl: Int, nr: Int): String
-
     private external fun processUserPrompt(userPrompt: String, predictLength: Int): Int
 
     private external fun generateNextToken(): String?
@@ -252,18 +250,6 @@ internal class InferenceEngineImpl private constructor(
     /**
      * Benchmark the model
      */
-    override suspend fun bench(pp: Int, tg: Int, pl: Int, nr: Int): String =
-        withContext(llamaDispatcher) {
-            check(_state.value is InferenceEngine.State.ModelReady) {
-                "Benchmark request discarded due to: $state"
-            }
-            Log.i(TAG, "Start benchmark (pp: $pp, tg: $tg, pl: $pl, nr: $nr)")
-            _state.value = InferenceEngine.State.Benchmarking
-            benchModel(pp, tg, pl, nr).also {
-                _state.value = InferenceEngine.State.ModelReady
-            }
-        }
-
     /**
      * Unloads the model and frees resources, or reset error states
      */

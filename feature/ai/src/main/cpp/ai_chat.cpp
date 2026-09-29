@@ -14,16 +14,6 @@
 #include "common.h"
 #include "llama.h"
 
-template<class T>
-static std::string join(const std::vector<T> &values, const std::string &delim) {
-    std::ostringstream str;
-    for (size_t i = 0; i < values.size(); i++) {
-        str << values[i];
-        if (i < values.size() - 1) { str << delim; }
-    }
-    return str.str();
-}
-
 /**
  * LLama resources: context, model, batch and sampler
  */
@@ -133,132 +123,10 @@ static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads) {
     return 0;
 }
 
-static std::string get_backend() {
-    std::vector<std::string> backends;
-    for (size_t i = 0; i < ggml_backend_reg_count(); i++) {
-        auto *reg = ggml_backend_reg_get(i);
-        std::string name = ggml_backend_reg_name(reg);
-        if (name != "CPU") {
-            backends.push_back(ggml_backend_reg_name(reg));
-        }
-    }
-    return backends.empty() ? "CPU" : join(backends, ",");
-}
-
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_systemInfo(JNIEnv *env, jobject /*unused*/) {
     return env->NewStringUTF(llama_print_system_info());
-}
-
-extern "C"
-JNIEXPORT jstring JNICALL
-Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_benchModel(JNIEnv *env, jobject /*unused*/, jint pp, jint tg,
-                                                      jint pl, jint nr) {
-    // g_batch ha capacita' BATCH_SIZE: il loop di prompt processing qui sotto aggiunge pp token allo
-    // stesso batch, e superare BATCH_SIZE farebbe abortire su GGML_ASSERT. bench e' attualmente
-    // inutilizzata da Kotlin, quindi si clampa pp invece di ridimensionare il batch.
-    pp = std::min(pp, BATCH_SIZE);
-    auto *context = init_context(g_model, pp);
-    if (!context) {
-        const auto *const err_msg = "Fail to init_context! Bench aborted.";
-        LOGe(err_msg);
-        return env->NewStringUTF(err_msg);
-    }
-
-    auto pp_avg = 0.0;
-    auto tg_avg = 0.0;
-    auto pp_std = 0.0;
-    auto tg_std = 0.0;
-
-    const uint32_t n_ctx = llama_n_ctx(context);
-    LOGi("n_ctx = %d", n_ctx);
-
-    int i, j;
-    int nri;
-    for (nri = 0; nri < nr; nri++) {
-        LOGi("Benchmark prompt processing (pp = %d)", pp);
-
-        common_batch_clear(g_batch);
-
-        const int n_tokens = pp;
-        for (i = 0; i < n_tokens; i++) {
-            common_batch_add(g_batch, 0, i, {0}, false);
-        }
-
-        g_batch.logits[g_batch.n_tokens - 1] = true;
-        llama_memory_clear(llama_get_memory(context), false);
-
-        const auto t_pp_start = ggml_time_us();
-        if (llama_decode(context, g_batch) != 0) {
-            LOGe("llama_decode() failed during prompt processing");
-        }
-        const auto t_pp_end = ggml_time_us();
-
-        // bench text generation
-
-        LOGi("Benchmark text generation (tg = %d)", tg);
-
-        llama_memory_clear(llama_get_memory(context), false);
-        const auto t_tg_start = ggml_time_us();
-        for (i = 0; i < tg; i++) {
-            common_batch_clear(g_batch);
-            for (j = 0; j < pl; j++) {
-                common_batch_add(g_batch, 0, i, {j}, true);
-            }
-
-            if (llama_decode(context, g_batch) != 0) {
-                LOGe("llama_decode() failed during text generation");
-            }
-        }
-        const auto t_tg_end = ggml_time_us();
-
-        llama_memory_clear(llama_get_memory(context), false);
-
-        const auto t_pp = double(t_pp_end - t_pp_start) / 1000000.0;
-        const auto t_tg = double(t_tg_end - t_tg_start) / 1000000.0;
-
-        const auto speed_pp = double(pp) / t_pp;
-        const auto speed_tg = double(pl * tg) / t_tg;
-
-        pp_avg += speed_pp;
-        tg_avg += speed_tg;
-
-        pp_std += speed_pp * speed_pp;
-        tg_std += speed_tg * speed_tg;
-
-        LOGi("pp %f t/s, tg %f t/s", speed_pp, speed_tg);
-    }
-
-    llama_free(context);
-
-    pp_avg /= double(nr);
-    tg_avg /= double(nr);
-
-    if (nr > 1) {
-        pp_std = sqrt(pp_std / double(nr - 1) - pp_avg * pp_avg * double(nr) / double(nr - 1));
-        tg_std = sqrt(tg_std / double(nr - 1) - tg_avg * tg_avg * double(nr) / double(nr - 1));
-    } else {
-        pp_std = 0;
-        tg_std = 0;
-    }
-
-    char model_desc[128];
-    llama_model_desc(g_model, model_desc, sizeof(model_desc));
-
-    const auto model_size = double(llama_model_size(g_model)) / 1024.0 / 1024.0 / 1024.0;
-    const auto model_n_params = double(llama_model_n_params(g_model)) / 1e9;
-
-    const auto backend = get_backend();
-    std::stringstream result;
-    result << std::setprecision(3);
-    result << "| model | size | params | backend | test | t/s |\n";
-    result << "| --- | --- | --- | --- | --- | --- |\n";
-    result << "| " << model_desc << " | " << model_size << "GiB | " << model_n_params << "B | "
-           << backend << " | pp " << pp << " | " << pp_avg << " ± " << pp_std << " |\n";
-    result << "| " << model_desc << " | " << model_size << "GiB | " << model_n_params << "B | "
-           << backend << " | tg " << tg << " | " << tg_avg << " ± " << tg_std << " |\n";
-    return env->NewStringUTF(result.str().c_str());
 }
 
 

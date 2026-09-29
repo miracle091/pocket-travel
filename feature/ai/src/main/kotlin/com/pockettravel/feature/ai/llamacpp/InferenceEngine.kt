@@ -40,11 +40,6 @@ interface InferenceEngine {
     fun sendUserPrompt(message: String, predictLength: Int = DEFAULT_PREDICT_LENGTH): Flow<String>
 
     /**
-     * Runs a benchmark with the specified parameters.
-     */
-    suspend fun bench(pp: Int, tg: Int, pl: Int, nr: Int = 1): String
-
-    /**
      * Unloads the currently loaded model.
      */
     fun cleanUp()
@@ -70,7 +65,6 @@ interface InferenceEngine {
         object UnloadingModel : State()
         object ModelReady : State()
 
-        object Benchmarking : State()
         object ProcessingUserPrompt : State()
 
         object Generating : State()
@@ -89,16 +83,8 @@ interface InferenceEngine {
     }
 }
 
-val State.isUninterruptible
-    get() = this is State.Initializing ||
-        this is State.LoadingModel ||
-        this is State.UnloadingModel ||
-        this is State.Benchmarking ||
-        this is State.ProcessingUserPrompt
-
 val State.isModelLoaded: Boolean
     get() = this is State.ModelReady ||
-        this is State.Benchmarking ||
         this is State.ProcessingUserPrompt ||
         this is State.Generating
 

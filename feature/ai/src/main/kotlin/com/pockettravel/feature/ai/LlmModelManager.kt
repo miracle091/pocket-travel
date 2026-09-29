@@ -59,10 +59,12 @@ class LlmModelManager @Inject constructor(
         if (definition.sha256 == null) {
             throw ModelNotAvailableException("Il modello «${definition.displayName}» non è ancora disponibile per il download.")
         }
+        // Rete e verifica senza il lock del modello: durano minuti (1-2,5 GB) e lavorano solo sul .part, che
+        // nessun altro tocca; intanto l'assistente puo' rispondere col modello installato. Il lock serve
+        // solo al passaggio finale, per non sostituire un file che il motore sta caricando o liberando.
+        val verified = withContext(Dispatchers.IO) { downloadAndVerify(definition, onProgress) }
         coordinator.withModelLock {
-            withContext(Dispatchers.IO) {
-                downloadAndVerify(definition, onProgress)
-            }
+            withContext(Dispatchers.IO) { check(verified.renameTo(modelFile(definition))) { "Impossibile installare il modello" } }
         }
     }
 
@@ -82,15 +84,14 @@ class LlmModelManager @Inject constructor(
         download(newDefinition, onProgress)
     }
 
-    // internal (non private) cosi' un test puo' esercitare il resume Range/la classificazione
-    // errori senza dover passare per il Mutex di AiModelCoordinator — stesso approccio di
+    // Scarica e verifica il .part e lo restituisce; lo installa download(). internal (non private) cosi'
+    // un test puo' esercitare il resume Range/la classificazione errori — stesso approccio di
     // RegionPackageDownloader.downloadAndVerify.
     internal suspend fun downloadAndVerify(
         definition: LlmModelDefinition,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
-    ) {
+    ): File {
         val partFile = partFile(definition)
-        val modelFile = modelFile(definition)
         val existingBytes = if (partFile.exists()) partFile.length() else 0L
         modelsDir.reserveSpace(storageManager, definition.sizeBytes - existingBytes)
         val requestBuilder = Request.Builder().url(definition.url)
@@ -155,7 +156,7 @@ class LlmModelManager @Inject constructor(
                 "Checksum del modello non valido: atteso ${definition.sha256}, ottenuto $actualSha256",
             )
         }
-        check(partFile.renameTo(modelFile)) { "Impossibile installare il modello" }
+        return partFile
     }
 
     private fun sha256Of(file: File): String {

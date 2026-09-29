@@ -1262,12 +1262,12 @@ jobs:
             gh release download region-fragments --repo "${{ github.repository }}" --pattern '*.json' --dir "$PENDING_DIR" --clobber
           fi
           COUNT="$(find "$PENDING_DIR" -name '*.json' | wc -l)"
-          echo "-- $COUNT frammenti in sospeso scaricati"
-          # La lista degli asset di una release puo' fermarsi a 100: con tanti frammenti alcuni potrebbero
-          # non essere arrivati, e la pulizia cancellerebbe i loro file. Si pubblicano quelli scaricati
-          # (gli altri restano per la prossima run) ma senza pulizia.
-          if [ "$COUNT" -ge 100 ]; then
-            echo "::warning::$COUNT frammenti in sospeso, forse non tutti: niente pulizia degli asset in questa run"
+          EXPECTED="$(grep -c '\.json$' <<< "$NAMES" || true)"
+          echo "-- $COUNT frammenti in sospeso scaricati su $EXPECTED"
+          # gh legge tutti gli asset (verificato: 415 su 415 sulla release europa), ma se ne manca qualcuno la
+          # pulizia cancellerebbe i suoi file: si pubblicano quelli scaricati, senza pulizia.
+          if [ "$COUNT" -ne "$EXPECTED" ]; then
+            echo "::warning::scaricati $COUNT frammenti in sospeso su $EXPECTED: niente pulizia degli asset in questa run"
             echo "ok=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
