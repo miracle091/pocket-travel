@@ -103,6 +103,15 @@ published_entry() {
   jq -c --arg id "$id" '[(.cells // [])[] | select(.id == $id)][0] // empty' "$PUBLISHED_INDEX"
 }
 
+# has_published_descendant <z> <x> <y>: vero se l'indice pubblicato ha una cella dentro z/x/y a uno zoom maggiore.
+has_published_descendant() {
+  [ -s "$PUBLISHED_INDEX" ] || return 1
+  jq -e --argjson z "$1" --argjson x "$2" --argjson y "$3" '
+    any((.cells // [])[] | .id | split("/") | map(tonumber);
+        .[0] > $z and ((.[1] / pow(2; .[0] - $z)) | floor) == $x and ((.[2] / pow(2; .[0] - $z)) | floor) == $y)' \
+    "$PUBLISHED_INDEX" > /dev/null
+}
+
 # Estrae gli indirizzi OSM del bbox (z15 Protomaps, riserva Overpass se sono troppe): scrive in
 # <resultVar> (nameref) il path del .pmtiles o del .tsv da passare a generateAddresses, o "" se la
 # cella non ha civici OSM disponibili (non fatale: si continua con Overture da solo).
@@ -172,6 +181,18 @@ build_cell() {
         return 0
       fi
     fi
+  fi
+
+  # Cella gia' divisa nell'indice pubblicato (ci sono solo le figlie): si passa subito alle 4 figlie,
+  # che riusano o rifanno le proprie voci, invece di rifare estrazione, Overture e generateAddresses
+  # di questa cella solo per riscoprire che supera il tetto. Le celle non si riuniscono mai.
+  if [ -z "$published" ] && [ "$z" -lt 14 ] && has_published_descendant "$z" "$x" "$y"; then
+    echo "-- $id: gia' divisa nell'indice pubblicato, passo alle 4 figlie"
+    build_cell $((z + 1)) $((x * 2)) $((y * 2))
+    build_cell $((z + 1)) $((x * 2 + 1)) $((y * 2))
+    build_cell $((z + 1)) $((x * 2)) $((y * 2 + 1))
+    build_cell $((z + 1)) $((x * 2 + 1)) $((y * 2 + 1))
+    return 0
   fi
 
   local cellWorkdir; cellWorkdir="$(mktemp -d)"

@@ -157,7 +157,10 @@ build_preview() {
   fi
   while true; do
     rm -f "$file" "$file.xz"
-    "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$zoom"
+    # build.protomaps.com a volte non risponde o chiude a meta': tre tentativi, poi l'anteprima si salta
+    # (return 1) e il chiamante tiene quella pubblicata, invece di perdere POI e percorsi gia' fatti.
+    with_retries "anteprima di $REGION_ID" 3 "$file" \
+      "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$zoom" || return 1
     xz -T1 --lzma2=preset=9e,dict=16MiB -c "$file" > "$file.xz"
     local xzSize
     xzSize="$(wc -c < "$file.xz" | tr -d ' ')"
@@ -167,10 +170,13 @@ build_preview() {
       echo "-- anteprima di $REGION_ID a z$zoom: $xzSize byte, sotto meta' del tetto: provo z$((zoom + 1))"
       mv "$file" "$file.down"
       mv "$file.xz" "$file.xz.down"
-      "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$((zoom + 1))"
-      xz -T1 --lzma2=preset=9e,dict=16MiB -c "$file" > "$file.xz"
-      local upSize
-      upSize="$(wc -c < "$file.xz" | tr -d ' ')"
+      local upSize=$((PREVIEW_MAX_XZ_BYTES + 1))
+      # Il tentativo verso l'alto e' facoltativo: se l'estrazione fallisce resta lo zoom pubblicato.
+      if with_retries "anteprima di $REGION_ID a z$((zoom + 1))" 3 "$file" \
+        "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$((zoom + 1))"; then
+        xz -T1 --lzma2=preset=9e,dict=16MiB -c "$file" > "$file.xz"
+        upSize="$(wc -c < "$file.xz" | tr -d ' ')"
+      fi
       if [ "$upSize" -le "$PREVIEW_MAX_XZ_BYTES" ]; then
         zoom=$((zoom + 1))
         xzSize="$upSize"
@@ -222,7 +228,10 @@ update_preview_entry() {
     return 0
   fi
   echo "-- $REGION_ID: (ri)genero l'anteprima"
-  build_preview "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles"
+  if ! build_preview "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles"; then
+    echo "::warning::anteprima di $REGION_ID non estratta (build.protomaps.com): resta quella pubblicata"
+    return 0
+  fi
   local url="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--preview.pmtiles.xz"
   jq -c --argjson entry "$(preview_manifest_entry "$VERSION" "$url")" '.regions |= map(.preview = $entry)' "$fragment" > "$WORKDIR/preview-fragment.json"
   mv "$WORKDIR/preview-fragment.json" "$fragment"
@@ -716,10 +725,18 @@ fi
 # di build_preview, senza ricomprimere (vedi PREVIEW_XZ_SIZE/PREVIEW_XZ_SHA256 piu' sotto).
 PREVIEW_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--preview.pmtiles.xz"
 PREVIEW_SPEC="null"
-if [ -n "$PMTILES_BIN" ]; then
-  build_preview "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles"
+PUBLISHED_PREVIEW="null"
+if [ -n "$PMTILES_BIN" ] && build_preview "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles"; then
   PREVIEW_SPEC="$(jq -n -c --arg path "$(winpath "$OUTPUT_DIR/preview.pmtiles")" --arg url "$PREVIEW_URL" \
     --argjson maxZoom "$PREVIEW_ZOOM_USED" '{path: $path, url: $url, maxZoom: $maxZoom}')"
+elif [ -n "$PMTILES_BIN" ]; then
+  # Protomaps non ha risposto: si tiene l'anteprima pubblicata (il suo asset resta referenziato dal
+  # manifest), o la regione esce senza se non ne aveva una.
+  rm -f "$OUTPUT_DIR/preview.pmtiles" "$OUTPUT_DIR/preview.pmtiles.xz"
+  if [ -n "${PUBLISHED_MANIFEST:-}" ] && [ -s "$PUBLISHED_MANIFEST" ]; then
+    PUBLISHED_PREVIEW="$(jq -c --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id)][0].preview // null' "$PUBLISHED_MANIFEST" 2>/dev/null || echo null)"
+  fi
+  echo "::warning::anteprima di $REGION_ID non estratta (build.protomaps.com): $([ "$PUBLISHED_PREVIEW" = null ] && echo 'regione senza anteprima' || echo 'resta quella pubblicata')"
 else
   echo "::warning::go-pmtiles non trovato: $REGION_ID senza anteprima"
 fi
@@ -761,6 +778,9 @@ if [ -f "$OUTPUT_DIR/preview.pmtiles" ]; then
     '{name: "preview.pmtiles.xz", url: $url, sizeBytes: $size, sha256: $hash}')"
   jq -c --argjson xz "$PREVIEW_XZ_JSON" '.regions |= map(if .preview then .preview.fileXz = $xz else . end)' \
     "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
+  mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
+elif [ "$PUBLISHED_PREVIEW" != "null" ]; then
+  jq -c --argjson preview "$PUBLISHED_PREVIEW" '.regions |= map(.preview = $preview)' "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
   mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
 fi
 # Impronta delle tile della mappa appena pubblicata (riferimento per la prossima versione).
