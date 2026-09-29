@@ -140,12 +140,44 @@ PMTILES_BIN="${PMTILES_BIN:-$(command -v pmtiles || command -v go-pmtiles || tru
 # MiB, un solo thread.
 build_preview() {
   local sourceUrl="$1" zoom="$PREVIEW_MAX_ZOOM" file="$OUTPUT_DIR/preview.pmtiles"
+  # Si parte dallo zoom dell'anteprima gia' pubblicata invece che dal massimo: prima si ripartiva
+  # sempre da z9 e le regioni grandi rifacevano ogni volta le estrazioni scartate (Italia: z9, z8,
+  # poi z7). Se allo zoom pubblicato il file sta sotto meta' del tetto, si prova un livello in piu'
+  # (l'anteprima puo' anche crescere); se non ci sta piu', si scende come prima.
+  local published="" tryUp=false
+  if [ -n "${PUBLISHED_MANIFEST:-}" ] && [ -s "$PUBLISHED_MANIFEST" ]; then
+    published="$(jq -r --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id)][0].preview.maxZoom // empty' "$PUBLISHED_MANIFEST" 2>/dev/null || true)"
+  fi
+  if [[ "$published" =~ ^[0-9]+$ ]] && [ "$published" -ge "$PREVIEW_MIN_ZOOM" ] && [ "$published" -lt "$PREVIEW_MAX_ZOOM" ]; then
+    zoom="$published"
+    tryUp=true
+  fi
   while true; do
     rm -f "$file" "$file.xz"
     "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$zoom"
     xz -T1 --lzma2=preset=9e,dict=16MiB -c "$file" > "$file.xz"
     local xzSize
     xzSize="$(wc -c < "$file.xz" | tr -d ' ')"
+    if [ "$tryUp" = true ] && [ $((xzSize * 2)) -le "$PREVIEW_MAX_XZ_BYTES" ] && [ "$zoom" -lt "$PREVIEW_MAX_ZOOM" ]; then
+      # Un solo tentativo verso l'alto: se non ci sta, si torna qui sotto allo zoom pubblicato.
+      tryUp=false
+      echo "-- anteprima di $REGION_ID a z$zoom: $xzSize byte, sotto meta' del tetto: provo z$((zoom + 1))"
+      mv "$file" "$file.down"
+      mv "$file.xz" "$file.xz.down"
+      "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$((zoom + 1))"
+      xz -T1 --lzma2=preset=9e,dict=16MiB -c "$file" > "$file.xz"
+      local upSize
+      upSize="$(wc -c < "$file.xz" | tr -d ' ')"
+      if [ "$upSize" -le "$PREVIEW_MAX_XZ_BYTES" ]; then
+        zoom=$((zoom + 1))
+        xzSize="$upSize"
+        rm -f "$file.down" "$file.xz.down"
+      else
+        mv -f "$file.down" "$file"
+        mv -f "$file.xz.down" "$file.xz"
+      fi
+    fi
+    tryUp=false
     if [ "$xzSize" -le "$PREVIEW_MAX_XZ_BYTES" ] || [ "$zoom" -le "$PREVIEW_MIN_ZOOM" ]; then
       if [ "$xzSize" -gt "$PREVIEW_MAX_XZ_BYTES" ]; then
         echo "::warning::anteprima di $REGION_ID a z$zoom pesa $xzSize byte (tetto $PREVIEW_MAX_XZ_BYTES), pubblicata comunque (zoom minimo $PREVIEW_MIN_ZOOM raggiunto)"
