@@ -145,6 +145,12 @@ jobs:
           done
           # Release del pacchetto guide unico: stesso prefisso "region-data" cosi' la pulizia degli
           # asset non piu' referenziati nel job "publish" la copre senza casi speciali.
+          # Frammenti del manifest salvati da ogni shard subito dopo ogni regione (<VERSION>--<regionId>.json):
+          # se il job muore prima di pubblicare, il job "publish" di una run successiva li recupera.
+          gh release view "region-fragments" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+            gh release create "region-fragments" --repo "${{ github.repository }}" \
+              --title "Frammenti del manifest in sospeso" \
+              --notes "Frammenti manifest.json delle regioni costruite e non ancora pubblicate, per la pipeline di Pocket Travel. Non e' una release software."
           gh release view "region-data-guide" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
             gh release create "region-data-guide" --repo "${{ github.repository }}" \
               --title "Guide di viaggio" \
@@ -811,6 +817,9 @@ jobs:
           # riconosciute da "set -e" (il comando testato in una condizione if non fa terminare lo
           # script), quindi si continua con le regioni successive.
           FAILED_REGIONS=()
+          # Motivo di ogni regione fallita (stesso ordine di FAILED_REGIONS), per il riepilogo e per il
+          # nuovo tentativo nella continuazione (failed-<shard>.txt).
+          FAILED_REASONS=()
           IFS=',' read -ra SHARD_REGIONS <<< "$SELECTED"
           # Budget dall'inizio di questo passo (SECONDS), dump delle citta' compreso. Almeno una
           # regione parte sempre, cosi' ogni continuazione fa qualche progresso.
@@ -923,6 +932,7 @@ jobs:
                 if [ "$uploadOk" != true ]; then
                   echo "::warning::upload asset di $regionId fallito, salto e continuo con le prossime"
                   FAILED_REGIONS+=("$regionId")
+                  FAILED_REASONS+=("upload degli asset fallito")
                   echo "::endgroup::"
                   continue
                 fi
@@ -930,6 +940,12 @@ jobs:
               # Nome unico per regione: piu' regioni condividerebbero altrimenti lo stesso nome di
               # file "manifest-fragment.json" una volta appiattite nella stessa cartella artifact.
               cp "$regionOut/manifest-fragment.json" "$RUNNER_TEMP/fragments/${regionId}.json"
+              # Copia durevole subito, oltre all'artifact di fine passo: se il job muore dopo (annullato,
+              # runner perso) il job "publish" di una run successiva la recupera (selectFragments).
+              # Non fatale: senza, resta il percorso normale dell'artifact.
+              cp "$regionOut/manifest-fragment.json" "$regionOut/${VERSION}--${regionId}.json"
+              gh release upload region-fragments "$regionOut/${VERSION}--${regionId}.json" --repo "${{ github.repository }}" --clobber \
+                || echo "::warning::frammento di $regionId non salvato su region-fragments (resta l'artifact di fine passo)"
               # Durata della regione, per bilanciare gli shard delle prossime run (region-timings.tsv).
               # Solo le build complete: non le regioni saltate perche' invariate ne' gli aggiornamenti
               # incrementali, che abbasserebbero la misura (una settimana dopo la regione puo' dover
@@ -941,14 +957,20 @@ jobs:
               rc=$?
               if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
                 echo "::warning::regione $regionId oltre ${REGION_TIMEOUT_MINUTES} min, interrotta: salto e continuo con le prossime"
+                FAILED_REASONS+=("oltre ${REGION_TIMEOUT_MINUTES} min")
               else
                 echo "::warning::regione $regionId fallita, salto e continuo con le prossime"
+                FAILED_REASONS+=("build-region.sh uscito con $rc")
               fi
               FAILED_REGIONS+=("$regionId")
             fi
             echo "::endgroup::"
           done
 
+          # Regioni fallite con il motivo: la prima continuazione le riprova una volta (job "publish").
+          for idx in "${!FAILED_REGIONS[@]}"; do
+            printf '%s\t%s\n' "${FAILED_REGIONS[$idx]}" "${FAILED_REASONS[$idx]}" >> "$RUNNER_TEMP/fragments/failed-${{ matrix.shard }}.txt"
+          done
           # Regioni rimandate: le rilancia il job "publish" (continuazione automatica).
           if [ "${#DEFERRED_REGIONS[@]}" -gt 0 ]; then
             printf '%s\n' "${DEFERRED_REGIONS[@]}" > "$RUNNER_TEMP/fragments/deferred-${{ matrix.shard }}.txt"
@@ -971,8 +993,8 @@ jobs:
 
           fragmentCount="$(find "$RUNNER_TEMP/fragments" -maxdepth 1 -name '*.json' | wc -l)"
           if [ "$fragmentCount" -eq 0 ]; then
-            # Con regioni rimandate l'artifact serve comunque, per la continuazione.
-            if [ "${#DEFERRED_REGIONS[@]}" -gt 0 ]; then
+            # Con regioni rimandate o fallite l'artifact serve comunque, per la continuazione.
+            if [ "${#DEFERRED_REGIONS[@]}" -gt 0 ] || [ "${#FAILED_REGIONS[@]}" -gt 0 ]; then
               echo "has_fragments=true" >> "$GITHUB_OUTPUT"
             else
               echo "has_fragments=false" >> "$GITHUB_OUTPUT"
@@ -1072,17 +1094,36 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
 
+      # Frammenti in sospeso (release region-fragments): quelli di questa run, ma anche di run
+      # annullate o morte prima di pubblicare. selectFragments (passo sotto) tiene solo quelli piu'
+      # recenti del pubblicato. Senza questo elenco la pulizia degli asset non gira: cancellerebbe
+      # gli asset di regioni costruite e non ancora pubblicate.
+      - name: Scarica i frammenti in sospeso
+        id: pending
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PENDING_DIR="$RUNNER_TEMP/pending-fragments"
+          mkdir -p "$PENDING_DIR"
+          if ! NAMES="$(gh release view region-fragments --repo "${{ github.repository }}" --json assets --jq '.assets[].name')"; then
+            echo "::warning::release region-fragments non leggibile: niente recupero, e niente pulizia degli asset in questa run"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -n "$NAMES" ]; then
+            gh release download region-fragments --repo "${{ github.repository }}" --pattern '*.json' --dir "$PENDING_DIR" --clobber
+          fi
+          echo "-- $(find "$PENDING_DIR" -name '*.json' | wc -l) frammenti in sospeso scaricati"
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+
       - name: Assembla il sito
         id: assemble
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nullglob
-          FRAGMENT_FILES=("$RUNNER_TEMP/fragments"/*.json)
-          if [ "${#FRAGMENT_FILES[@]}" -eq 0 ]; then
-            echo "Nessuno shard ha prodotto frammenti manifest in questa run, niente da pubblicare" >&2
-            exit 1
-          fi
 
           SITE_DIR="$RUNNER_TEMP/site"
           PAGES_BASE_URL="${{ env.PAGES_BASE_URL }}"
@@ -1101,6 +1142,35 @@ jobs:
           # BOOTSTRAP=1 alla prima pubblicazione).
           MERGE_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
           [ ! -s "$RUNNER_TEMP/previous-manifest.json" ] || MERGE_MANIFEST_URL="file://$RUNNER_TEMP/previous-manifest.json"
+
+          # Frammenti da unire (selectFragments): quelli di questa run validati regione per regione (una
+          # regione non valida si scarta, le altre si pubblicano) e quelli in sospeso di run precedenti
+          # piu' recenti del pubblicato e non piu' vecchi di 7 giorni.
+          RUN_FRAGMENTS=("$RUNNER_TEMP/fragments"/*.json)
+          PENDING_FRAGMENTS=("$RUNNER_TEMP/pending-fragments"/*.json)
+          SELECTED_LIST="$RUNNER_TEMP/selected-fragments.txt"
+          SELECTION_REPORT="$RUNNER_TEMP/fragments-report.tsv"
+          SELECT_ARGS="--pages-host ${{ github.repository_owner }}.github.io --max-age-days 7 --out-list $SELECTED_LIST --out-report $SELECTION_REPORT"
+          [ ! -s "$RUNNER_TEMP/previous-manifest.json" ] || SELECT_ARGS="$SELECT_ARGS --published $RUNNER_TEMP/previous-manifest.json"
+          [ "${#RUN_FRAGMENTS[@]}" -eq 0 ] || SELECT_ARGS="$SELECT_ARGS --run ${RUN_FRAGMENTS[*]}"
+          [ "${#PENDING_FRAGMENTS[@]}" -eq 0 ] || SELECT_ARGS="$SELECT_ARGS --pending ${PENDING_FRAGMENTS[*]}"
+          ./gradlew -q :tools:data-pipeline:content:selectFragments --args="$SELECT_ARGS"
+          mapfile -t FRAGMENT_FILES < "$SELECTED_LIST"
+          {
+            echo "### Frammenti del manifest"
+            echo "| Regione | Esito | Motivo |"
+            echo "|---|---|---|"
+            awk -F'\t' '$3 != "superata" { printf "| %s | %s | %s |\n", ($2 == "" ? $1 : $2), $3, $4 }' "$SELECTION_REPORT"
+            echo
+            echo "Superate (gia' pubblicate o sostituite da un frammento piu' recente): $(awk -F'\t' '$3 == "superata"' "$SELECTION_REPORT" | wc -l)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          while IFS=$'\t' read -r _ regionId outcome reason; do
+            if [ "$outcome" = "scartata" ]; then echo "::warning::frammento di ${regionId:-?} scartato: $reason"; fi
+          done < "$SELECTION_REPORT"
+          if [ "${#FRAGMENT_FILES[@]}" -eq 0 ]; then
+            echo "Nessun frammento manifest da unire (ne' di questa run ne' in sospeso), niente da pubblicare" >&2
+            exit 1
+          fi
           tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$MERGE_MANIFEST_URL" "${FRAGMENT_FILES[@]}"
           # Tempi per regione (peso degli shard nel job "plan"): quelli pubblicati, aggiornati con
           # quelli di questa run. Pages sostituisce l'intero sito, quindi si riportano ogni volta.
@@ -1188,7 +1258,29 @@ jobs:
       # regioni non toccate restano intatte. Periodo di grazia di una generazione: resta anche cio'
       # che referenziava il manifest precedente (le app che l'hanno appena letto scaricano ancora
       # quegli URL).
+      # Dopo il deploy i frammenti in sospeso scaricati sono tutti sistemati: uniti, gia' superati dal
+      # pubblicato, scaduti o non validi. Si tolgono solo quelli scaricati: una run in corso puo'
+      # averne caricati altri nel frattempo.
+      - name: Toglie i frammenti in sospeso gestiti
+        if: steps.pending.outputs.ok == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          removed=0
+          for f in "$RUNNER_TEMP/pending-fragments"/*.json; do
+            if gh release delete-asset region-fragments "$(basename "$f")" --repo "${{ github.repository }}" --yes; then
+              removed=$((removed + 1))
+            fi
+          done
+          echo "-- $removed frammenti tolti da region-fragments"
+
+      # Solo con l'elenco dei frammenti in sospeso: senza, cancellerebbe gli asset di regioni costruite
+      # e non ancora pubblicate (li recupera una run successiva).
       - name: Rimuove gli asset non piu' referenziati dal manifest
+        if: steps.pending.outputs.ok == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -1259,17 +1351,22 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          DEFERRED_FILES=("$RUNNER_TEMP/fragments"/deferred-*.txt)
-          if [ "${#DEFERRED_FILES[@]}" -eq 0 ]; then
-            echo "-- nessuna regione rimandata"
-            exit 0
-          fi
-          DEFERRED="$(cat "${DEFERRED_FILES[@]}" | grep -E '^[a-z0-9-]+$' | sort -u | paste -sd, -)"
-          if [ -z "$DEFERRED" ]; then
-            echo "-- nessuna regione rimandata"
-            exit 0
-          fi
           [[ "${CONTINUATION:-}" =~ ^[0-9]+$ ]] || CONTINUATION=0
+          # Rimandate per il budget, e (solo dalla run iniziale, non dalle continuazioni) le fallite:
+          # un nuovo tentativo, in fondo; se falliscono ancora restano al calendario settimanale.
+          LIST_FILES=("$RUNNER_TEMP/fragments"/deferred-*.txt)
+          if [ "$CONTINUATION" -eq 0 ]; then
+            LIST_FILES+=("$RUNNER_TEMP/fragments"/failed-*.txt)
+          fi
+          if [ "${#LIST_FILES[@]}" -eq 0 ]; then
+            echo "-- nessuna regione rimandata o da riprovare"
+            exit 0
+          fi
+          DEFERRED="$(cut -f1 "${LIST_FILES[@]}" | grep -E '^[a-z0-9-]+$' | sort -u | paste -sd, - || true)"
+          if [ -z "$DEFERRED" ]; then
+            echo "-- nessuna regione rimandata o da riprovare"
+            exit 0
+          fi
           NEXT=$((CONTINUATION + 1))
           if [ "$NEXT" -gt 4 ]; then
             echo "::warning::regioni rimandate dopo 4 continuazioni, non rilancio (restano al calendario settimanale): $DEFERRED"

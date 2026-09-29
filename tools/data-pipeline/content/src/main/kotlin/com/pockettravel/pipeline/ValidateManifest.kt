@@ -77,69 +77,9 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
     val groupNames = mutableSetOf<String>()
     for (i in 0 until regions.length()) {
         val region = regions.getJSONObject(i)
-        val regionId = region.getString("regionId")
-        if (!isSafeSegment(regionId)) throw ManifestValidationException("regionId non valido: $regionId")
+        val regionId = validateRegion(region, allowedHosts)
         if (!seenRegionIds.add(regionId)) throw ManifestValidationException("regionId duplicato: $regionId")
         region.optString("groupName").takeIf { it.isNotBlank() }?.let { groupNames += it }
-
-        val map = region.getJSONObject("map")
-        validateVersion(map, "$regionId/map")
-        validateMapSource(map.getJSONObject("source"), regionId, allowedHosts)
-
-        val routing = region.getJSONObject("routing")
-        validateVersion(routing, "$regionId/routing")
-        val files = routing.getJSONArray("files")
-        if (files.length() == 0) throw ManifestValidationException("Il routing di $regionId non contiene file")
-        val fileNames = mutableSetOf<String>()
-        for (j in 0 until files.length()) {
-            val file = files.getJSONObject(j)
-            if (!fileNames.add(file.getString("name"))) {
-                throw ManifestValidationException("File duplicati nel routing di $regionId: ${file.getString("name")}")
-            }
-            validateFile(file, regionId, allowedHosts)
-        }
-
-        val poi = region.getJSONObject("poi")
-        validateVersion(poi, "$regionId/poi")
-        validateFile(poi.getJSONObject("file"), regionId, allowedHosts)
-        poi.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
-
-        // POI extra: facoltativi (regioni senza, o non ancora rigenerate).
-        region.optJSONObject("poiExtra")?.let { poiExtra ->
-            validateVersion(poiExtra, "$regionId/poiExtra")
-            validateFile(poiExtra.getJSONObject("file"), regionId, allowedHosts)
-            poiExtra.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
-        }
-
-        // Civici per regione: voce legacy, congelata (la pipeline non la genera piu':
-        // i civici si pubblicano ora nella griglia "addressGrid"). Accettata
-        // finche' il manifest pubblicato la porta ancora avanti per le app vecchie.
-        region.optJSONObject("addresses")?.let { addresses ->
-            validateVersion(addresses, "$regionId/addresses")
-            validateFile(addresses.getJSONObject("file"), regionId, allowedHosts)
-            addresses.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
-        }
-
-        // Citta': facoltative (regioni non ancora rigenerate, o senza pagine {{QuickbarCity}}
-        // abbinate su Wikivoyage IT), stesso schema di addresses.
-        // Anche "citiesEn" (citta' di Wikivoyage EN, build-cities.sh ... en).
-        listOf("cities", "citiesEn").forEach { key ->
-            region.optJSONObject(key)?.let { cities ->
-                validateVersion(cities, "$regionId/$key")
-                validateFile(cities.getJSONObject("file"), regionId, allowedHosts)
-                cities.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
-            }
-        }
-
-        // Anteprima offline: facoltativa (regioni non ancora rigenerate da quando esiste, o senza
-        // go-pmtiles in quella run), stesso schema di poi/poiExtra piu' il livello di zoom usato.
-        region.optJSONObject("preview")?.let { preview ->
-            validateVersion(preview, "$regionId/preview")
-            val maxZoom = preview.getInt("maxZoom")
-            if (maxZoom !in 0..22) throw ManifestValidationException("preview.maxZoom non valido per $regionId: $maxZoom")
-            validateFile(preview.getJSONObject("file"), regionId, allowedHosts)
-            preview.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
-        }
     }
 
     // Regioni tolte e sostituite da un gruppo di regioni piu' piccole (facoltativo).
@@ -152,6 +92,76 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
         val groupName = entry.getString("groupName")
         if (groupName !in groupNames) throw ManifestValidationException("Nessuna regione nel gruppo $groupName che sostituisce $regionId")
     }
+}
+
+/**
+ * Controlli di una sola regione (pacchetti, file, URL consentiti, riquadro e zoom della mappa): gli
+ * stessi del manifest intero, usati anche per scartare un frammento non valido senza bloccare le
+ * altre regioni (selectFragments). Restituisce il regionId.
+ */
+internal fun validateRegion(region: JSONObject, allowedHosts: Set<String>): String {
+    val regionId = region.getString("regionId")
+    if (!isSafeSegment(regionId)) throw ManifestValidationException("regionId non valido: $regionId")
+
+    val map = region.getJSONObject("map")
+    validateVersion(map, "$regionId/map")
+    validateMapSource(map.getJSONObject("source"), regionId, allowedHosts)
+
+    val routing = region.getJSONObject("routing")
+    validateVersion(routing, "$regionId/routing")
+    val files = routing.getJSONArray("files")
+    if (files.length() == 0) throw ManifestValidationException("Il routing di $regionId non contiene file")
+    val fileNames = mutableSetOf<String>()
+    for (j in 0 until files.length()) {
+        val file = files.getJSONObject(j)
+        if (!fileNames.add(file.getString("name"))) {
+            throw ManifestValidationException("File duplicati nel routing di $regionId: ${file.getString("name")}")
+        }
+        validateFile(file, regionId, allowedHosts)
+    }
+
+    val poi = region.getJSONObject("poi")
+    validateVersion(poi, "$regionId/poi")
+    validateFile(poi.getJSONObject("file"), regionId, allowedHosts)
+    poi.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
+
+    // POI extra: facoltativi (regioni senza, o non ancora rigenerate).
+    region.optJSONObject("poiExtra")?.let { poiExtra ->
+        validateVersion(poiExtra, "$regionId/poiExtra")
+        validateFile(poiExtra.getJSONObject("file"), regionId, allowedHosts)
+        poiExtra.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
+    }
+
+    // Civici per regione: voce legacy, congelata (la pipeline non la genera piu':
+    // i civici si pubblicano ora nella griglia "addressGrid"). Accettata
+    // finche' il manifest pubblicato la porta ancora avanti per le app vecchie.
+    region.optJSONObject("addresses")?.let { addresses ->
+        validateVersion(addresses, "$regionId/addresses")
+        validateFile(addresses.getJSONObject("file"), regionId, allowedHosts)
+        addresses.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
+    }
+
+    // Citta': facoltative (regioni non ancora rigenerate, o senza pagine {{QuickbarCity}}
+    // abbinate su Wikivoyage IT), stesso schema di addresses.
+    // Anche "citiesEn" (citta' di Wikivoyage EN, build-cities.sh ... en).
+    listOf("cities", "citiesEn").forEach { key ->
+        region.optJSONObject(key)?.let { cities ->
+            validateVersion(cities, "$regionId/$key")
+            validateFile(cities.getJSONObject("file"), regionId, allowedHosts)
+            cities.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
+        }
+    }
+
+    // Anteprima offline: facoltativa (regioni non ancora rigenerate da quando esiste, o senza
+    // go-pmtiles in quella run), stesso schema di poi/poiExtra piu' il livello di zoom usato.
+    region.optJSONObject("preview")?.let { preview ->
+        validateVersion(preview, "$regionId/preview")
+        val maxZoom = preview.getInt("maxZoom")
+        if (maxZoom !in 0..22) throw ManifestValidationException("preview.maxZoom non valido per $regionId: $maxZoom")
+        validateFile(preview.getJSONObject("file"), regionId, allowedHosts)
+        preview.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
+    }
+    return regionId
 }
 
 private fun validateVersion(pkg: JSONObject, label: String) {
