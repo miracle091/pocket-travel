@@ -231,18 +231,15 @@ private fun drawAccessibilityBadge(context: Context, canvas: Canvas, cx: Float, 
     // Blu scuro e bianco: contrasto forte con tutti i colori dei segnalini.
     val accent = 0xFF0D47A1.toInt()
     val filled = badge == AccessibilityBadge.YES
-    canvas.drawCircle(cx, cy, r, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = if (filled) accent else PoiColors.Glyph.toArgb() })
-    canvas.drawCircle(
-        cx, cy, r,
-        Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            strokeWidth = stroke
-            color = if (filled) PoiColors.Glyph.toArgb() else accent
-        },
-    )
+    val white = PoiColors.Glyph.toArgb()
+    // Stesso bordo esterno blu per entrambi, con un alone bianco intorno che lo stacca dalla mappa:
+    // con l'anello bianco sul bordo il distintivo pieno sembrava piu' piccolo di quello vuoto.
+    canvas.drawCircle(cx, cy, r + 1f * density, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = white })
+    canvas.drawCircle(cx, cy, r, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent })
+    if (!filled) canvas.drawCircle(cx, cy, r - stroke, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = white })
     val half = 6.5f * density
     ResourcesCompat.getDrawable(context.resources, UiR.drawable.ms_accessible, context.theme)?.mutate()?.apply {
-        setTint(if (filled) PoiColors.Glyph.toArgb() else accent)
+        setTint(if (filled) white else accent)
         setBounds((cx - half).toInt(), (cy - half).toInt(), (cx + half).toInt(), (cy + half).toInt())
         draw(canvas)
     }
