@@ -280,10 +280,29 @@ private fun cleanBody(raw: String): String {
         }
     }
 
-    return kept.joinToString("\n")
+    return joinWrappedLines(kept).joinToString("\n")
         .replace(blankLinesRegex, "\n\n")
+        .replace(blankAfterSubheadingRegex, "$1\n")
+        .replace(blankBetweenItemsRegex, "$1\n")
         .trim()
 }
+
+// Nel wikitext un solo a capo dentro un paragrafo non va a capo (MediaWiki lo legge come uno spazio): due
+// righe di testo di seguito sono la stessa frase. Elenchi (•) e sottotitoli (▸) restano righe a se'.
+private fun joinWrappedLines(lines: List<String>): List<String> {
+    val joined = mutableListOf<String>()
+    for (line in lines) {
+        val previous = joined.lastOrNull()
+        val isText = line.isNotBlank() && !line.startsWith("• ") && !line.startsWith("▸ ")
+        val previousIsText = previous != null && previous.isNotBlank() && !previous.startsWith("• ") && !previous.startsWith("▸ ")
+        if (isText && previousIsText) joined[joined.lastIndex] = "$previous $line" else joined += line
+    }
+    return joined
+}
+
+// Riga vuota subito dopo un sottotitolo, o fra due voci dello stesso elenco: a capo in piu' nel testo.
+private val blankAfterSubheadingRegex = Regex("""(?m)^(▸ [^\n]*)\n\n+""")
+private val blankBetweenItemsRegex = Regex("""(?m)^(• [^\n]*)\n\n+(?=• )""")
 
 // Campi del {{QuickbarCountry}}/{{QuickbarRegion}} di Wikivoyage IT per la sezione "Fatti rapidi":
 // nomi verificati sui dump reali (es. Italia, Venezuela, Isole

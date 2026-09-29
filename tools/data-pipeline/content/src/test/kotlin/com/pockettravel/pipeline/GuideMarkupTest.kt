@@ -23,7 +23,7 @@ class GuideMarkupTest {
     @Test
     fun `immagini con link nella didascalia, gallerie e tabelle spariscono`() {
         assertEquals(
-            "Prima.\nDopo.",
+            "Prima. Dopo.",
             body(
                 "Prima.[[File:Porto.jpg|thumb|Il porto con la nave [http://example.org Irish Ferries] e il [[Duomo]]]]\n" +
                     "<gallery>\nFile:Pizza.jpg|Pizza\n</gallery>{| class=\"wikitable\"\n|-\n| a || b\n|}Dopo.",
@@ -42,6 +42,14 @@ class GuideMarkupTest {
     @Test
     fun `apostrofo attaccato a corsivo e grassetto resta`() {
         assertEquals("nel 2017 l'Arte dei Pizzaiuoli e l'Opera", body("nel 2017 l'''Arte dei Pizzaiuoli'' e l''''Opera'''"))
+    }
+
+    @Test
+    fun `a capo del wikitext dentro un paragrafo e righe vuote superflue`() {
+        assertEquals(
+            "Una frase spezzata su due righe.\n▸ Titolo\n• Prima voce\n• Seconda voce\n\nNuovo paragrafo.",
+            body("Una frase spezzata\nsu due righe.\n===Titolo===\n\n* Prima voce\n\n* Seconda voce\n\nNuovo paragrafo."),
+        )
     }
 
     @Test
