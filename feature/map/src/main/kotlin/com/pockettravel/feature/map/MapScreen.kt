@@ -145,7 +145,8 @@ fun MapScreen(
             map.addOnCameraMoveListener(update)
             map.addOnCameraIdleListener {
                 update()
-                map.cameraPosition.target?.let { savedCamera = doubleArrayOf(it.latitude, it.longitude, map.cameraPosition.zoom) }
+                // Solo dopo il primo inquadramento: prima la camera e' ancora sulla vista iniziale del mondo.
+                if (cameraFitted) map.cameraPosition.target?.let { savedCamera = doubleArrayOf(it.latitude, it.longitude, map.cameraPosition.zoom) }
             }
             // Tocco su un segnalino: il primo sotto il dito nel layer dei POI.
             map.addOnMapClickListener { latLng ->
