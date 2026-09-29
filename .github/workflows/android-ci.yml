@@ -36,6 +36,9 @@ jobs:
       - name: Test di seed-address-grid.py
         run: python3 tools/data-pipeline/scripts/test_seed_address_grid.py
 
+      - name: Test di overture_addresses.py
+        run: python3 tools/data-pipeline/scripts/test_overture_addresses.py
+
       # weekly-schedule.sh e' generato da pilot-regions.sh (generate-weekly-schedule.sh): se non e'
       # stato rigenerato dopo una modifica all'elenco, una regione nuova non verrebbe mai pubblicata
       # dallo schedule (o una tolta verrebbe ancora chiesta). Ogni regione una e una sola volta.

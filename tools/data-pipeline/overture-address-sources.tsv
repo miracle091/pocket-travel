@@ -8,9 +8,11 @@
 # Michigan (licenza revocabile, modifiche riservate alla contea). Escluse anche (2026-09-29) le
 # fonti la cui licenza non e' confermata da un testo ufficiale: Brasile (IBGE senza licenza
 # esplicita), Mississippi e Minnesota (nessuna licenza pubblicata; in Minnesota i dati di Lake
-# County, "not for use by third parties", sono nel dataset statale), Portogallo e Islanda (licenza
-# non confermata dall'ente), NAD (disclaimer del DOT non letto dalla fonte). Restano ammesse, con
-# basi piu' deboli, Colorado (solo un disclaimer), Estonia e Messico.
+# County, "not for use by third parties", sono nel dataset statale). Confermate invece da un testo
+# ufficiale letto il 2026-09-29: NAD (metadati DCAT del DOT, licenza usa.gov/publicdomain),
+# Portogallo (record INE nel catalogo SNIG, CC-BY-4.0), Islanda (record ISO di HMS nel geoportale,
+# linee guida di riuso anche commerciale con citazione della fonte). Restano ammesse, con basi piu'
+# deboli, Colorado (solo un disclaimer), Estonia e Messico.
 #
 # attribuzione: testo per la schermata Licenze; {anno} e {data} li riempie il workflow con la data
 # del rilascio Overture usato.
@@ -182,7 +184,7 @@ FR	fr/pm/statewide	etalab-2.0	allow	Base Adresse Nationale (adresse.data.gouv.fr
 GL	gl/countrywide	LicenseRef-Proprietary	allow	Contains data from Asiaq, Greenland Survey, addresses, {anno}; link ai termini
 HK	hk/countrywide-en	LicenseRef-Proprietary	exclude	n/a (termini CSDI: nessun diritto di modifica, manleva illimitata)
 HR	hr/countrywide	LicenseRef-Proprietary	allow	Državna geodetska uprava, Registar prostornih jedinica - adrese, {data}; URI del dataset; Otvorena dozvola; modificato
-IS	Stadfangaskrá	LicenseRef-Proprietary	exclude	n/a (licenza HMS del file non confermata; esclusa dall'utente 2026-09-29)
+IS	Stadfangaskrá	LicenseRef-Proprietary	allow	Byggir á upplýsingum frá HMS (Staðfangaskrá); Leiðbeiningar varðandi endurnot opinberra upplýsinga
 IT	it/countrywide	CC-BY-4.0	allow	ANNCSU - Archivio Nazionale dei Numeri Civici delle Strade Urbane (Istat/Agenzia delle Entrate); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
 JP	jp/aichi	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
 JP	jp/akita	CC-BY-4.0	allow	Ministry of Land, Infrastructure, Transport and Tourism (MLIT), Location Reference Information (isj); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
@@ -257,7 +259,7 @@ PL	pl/swietokrzyskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urz�
 PL	pl/warminsko-mazurskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
 PL	pl/wielkopolskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
 PL	pl/zachodniopomorskie	LicenseRef-Public-Domain-PL-Geodesy-Law	allow	Główny Urząd Geodezji i Kartografii (GUGiK), PRG - punkty adresowe (cortesia)
-PT	pt/countrywide	CC-BY-4.0	exclude	n/a (licenza INE non confermata dalla fonte; esclusa dall'utente 2026-09-29)
+PT	pt/countrywide	CC-BY-4.0	allow	Instituto Nacional de Estatística, I.P. (INE), Base Nacional de Moradas; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
 RS	rs/countrywide	LicenseRef-Proprietary	allow	Republički geodetski zavod, Adresni registar, data.gov.rs/sr/datasets/adresni-registar, preuzeto {data}; modificato
 SG	sg/countrywide	LicenseRef-Proprietary	allow	Contains information from OneMap addresses accessed on {data} from Singapore Land Authority which is made available under the terms of the Singapore Open Data Licence version 1.0 (onemap.gov.sg/legal/opendatalicence.html)
 SI	GURS	CC-BY-4.0	allow	Geodetska uprava Republike Slovenije (GURS); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
@@ -280,7 +282,7 @@ TW	tw/tpe/regionwide	CC-BY-4.0	allow	Taipei City Government Civil Affairs Bureau
 TW	tw/ttt/regionwide	CC-BY-4.0	allow	Taitung County Government (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
 TW	tw/txg/regionwide	CC-BY-4.0	allow	Taichung City Government Civil Affairs Bureau (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
 TW	tw/yun/regionwide	CC-BY-4.0	allow	Yunlin County Government (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
-US	NAD	LicenseRef-Public-Domain-US	exclude	n/a (disclaimer del DOT non letto da una fonte ufficiale; esclusa dall'utente 2026-09-29)
+US	NAD	LicenseRef-Public-Domain-US	allow	U.S. Department of Transportation, National Address Database (NAD); pubblico dominio (usa.gov/publicdomain/label/1.0); cortesia: DOT, U.S. Census Bureau Geography Division e partner statali e locali; non usare come mailing list
 US	us/ca/alameda	LicenseRef-Public-Domain-US-CA-Law	allow	Alameda County, California (cortesia; pubblico dominio per il California Public Records Act)
 US	us/ca/alpine	LicenseRef-Public-Domain-US-CA-Law	allow	Alpine County, California (cortesia; pubblico dominio per il California Public Records Act)
 US	us/ca/amador	LicenseRef-Public-Domain-US-CA-Law	allow	Amador County, California (cortesia; pubblico dominio per il California Public Records Act)

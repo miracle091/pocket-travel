@@ -13,6 +13,9 @@ group fuori lista senza scaricarli.
 
 Uso: overture_addresses.py <minLon> <minLat> <maxLon> <maxLat> <whitelist.tsv> <output.tsv>
        [--release latest|2026-09-23.1]
+     overture_addresses.py --check-whitelist <whitelist.tsv> <report.md> [--release ...]
+       confronta tutte le coppie (paese, dataset, licenza) del rilascio con la lista (ammesse ed
+       escluse) e scrive in <report.md> le coppie nuove e quelle sparite; file vuoto se non ce ne sono.
 
 Con "latest" (default) si usa il rilascio piu' recente elencato nel bucket pubblico di Overture;
 il workflow lo risolve una volta per run (--print-release) e lo passa a ogni cella.
@@ -43,6 +46,68 @@ def load_whitelist(path):
             if decision == "allow" and country and dataset and license_id:
                 allowed.append((country, dataset, license_id))
     return allowed
+
+
+def load_reviewed(path):
+    """Tutte le coppie gia' riviste della lista bianca, ammesse ed escluse: {(paese, dataset, licenza)}."""
+    reviewed = set()
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if not line or line.startswith("#"):
+                continue
+            fields = [field.strip() for field in line.split("\t")]
+            if len(fields) >= 4 and all(fields[:3]):
+                reviewed.add(tuple(fields[:3]))
+    return reviewed
+
+
+def compare_with_whitelist(release_pairs, reviewed):
+    """Coppie del rilascio mai riviste e coppie della lista sparite dal rilascio.
+
+    release_pairs: [(paese, dataset, licenza, righe)]. Una fonte che cambia licenza compare in
+    entrambe le liste: nuova con la licenza nuova, sparita con quella vecchia.
+    """
+    in_release = {(c, d, l) for c, d, l, _ in release_pairs}
+    new = sorted((p for p in release_pairs if p[:3] not in reviewed), key=lambda p: (-p[3], p[:3]))
+    missing = sorted(reviewed - in_release)
+    return new, missing
+
+
+def check_report(release, new, missing):
+    """Testo Markdown per la issue e il riepilogo del job; vuoto se non c'e' niente da rivedere."""
+    if not new and not missing:
+        return ""
+    lines = [
+        f"Rilascio Overture `{release}`, tema addresses, confrontato con "
+        "`tools/data-pipeline/overture-address-sources.tsv`.",
+        "",
+        "Le coppie nuove restano fuori dalle celle dei civici finche' non si aggiunge una riga "
+        "`allow` o `exclude` con l'attribuzione, dopo aver letto i termini dell'ente.",
+    ]
+    if new:
+        lines += ["", f"### Coppie nuove ({len(new)}, mai riviste)", "",
+                  "| Paese | Dataset | Licenza | Righe |", "|---|---|---|--:|"]
+        lines += [f"| {c} | {d} | {l} | {n} |" for c, d, l, n in new]
+    if missing:
+        lines += ["", f"### Coppie della lista sparite dal rilascio ({len(missing)})", "",
+                  "Spesso la stessa fonte con una licenza diversa (vedi sopra) o un dataset rinominato.", "",
+                  "| Paese | Dataset | Licenza |", "|---|---|---|"]
+        lines += [f"| {c} | {d} | {l} |" for c, d, l in missing]
+    return "\n".join(lines) + "\n"
+
+
+def fetch_release_pairs(release):
+    """(paese, dataset, licenza, righe) di tutto il tema addresses del rilascio: solo le colonne country e sources."""
+    con = duckdb.connect()
+    con.sql("INSTALL httpfs; LOAD httpfs; SET s3_region='us-west-2';")
+    query = f"""
+        SELECT country, sources[1].dataset, sources[1].license, count(*)
+        FROM read_parquet('s3://overturemaps-us-west-2/release/{release}/theme=addresses/type=address/*.parquet')
+        WHERE country IS NOT NULL AND sources[1].dataset IS NOT NULL AND sources[1].license IS NOT NULL
+        GROUP BY ALL
+    """
+    return [tuple(row) for row in con.sql(query).fetchall()]
 
 
 def sql_string(value):
@@ -90,6 +155,19 @@ def fetch_addresses(release, min_lon, min_lat, max_lon, max_lat, allowed):
 def main():
     if sys.argv[1:] == ["--print-release"]:
         print(latest_release())
+        return
+    if sys.argv[1:2] == ["--check-whitelist"]:
+        check = argparse.ArgumentParser()
+        check.add_argument("--check-whitelist", dest="whitelist", required=True)
+        check.add_argument("report")
+        check.add_argument("--release", default="latest")
+        args = check.parse_args()
+        release = latest_release() if args.release == "latest" else args.release
+        new, missing = compare_with_whitelist(fetch_release_pairs(release), load_reviewed(args.whitelist))
+        with open(args.report, "w", encoding="utf-8") as out:
+            out.write(check_report(release, new, missing))
+        print(f"overture_addresses: rilascio {release}, {len(new)} coppie nuove, {len(missing)} sparite",
+              file=sys.stderr)
         return
     parser = argparse.ArgumentParser()
     parser.add_argument("min_lon", type=float)

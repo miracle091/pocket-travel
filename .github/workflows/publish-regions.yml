@@ -62,6 +62,13 @@ on:
           oggi. -1 = rigenera anche le celle pubblicate oggi. Vuoto = 30.
         required: false
         default: ""
+      address_cells:
+        description: >
+          Celle dei civici da rigenerare al posto della quota di oggi, id z/x/y separati da virgola
+          (es. dopo un cambio della lista bianca Overture). Con questo input, se
+          address_cell_max_age_days e' vuoto vale -1. Vuoto = quota di oggi.
+        required: false
+        default: ""
       time_budget_minutes:
         description: >
           Minuti dopo i quali uno shard non inizia altre regioni e le rimanda a una run successiva
@@ -396,12 +403,16 @@ jobs:
   address-grid:
     if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
+    # issues: write per la issue del controllo della lista bianca Overture (ultimi passi).
     permissions:
       contents: write
+      issues: write
     env:
       GH_TOKEN: ${{ github.token }}
       PYTHON_BIN: python3
-      ADDRESS_CELL_MAX_AGE_DAYS: ${{ github.event.inputs.address_cell_max_age_days || '30' }}
+      ADDRESS_CELL_MAX_AGE_DAYS: ${{ github.event.inputs.address_cell_max_age_days || (github.event.inputs.address_cells && '-1') || '30' }}
+      # Dall'env, non interpolato nello script (niente iniezione di comandi).
+      ADDRESS_CELLS_INPUT: ${{ github.event.inputs.address_cells }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
@@ -489,12 +500,30 @@ jobs:
           TODAY_SLOT=$(( $(date -u +%s) / 86400 % 30 ))
           SELECTED_FILE="$RUNNER_TEMP/selected-cells.txt"
           : > "$SELECTED_FILE"
-          while IFS= read -r id; do
-            [ -n "$id" ] || continue
-            slot=$(( $(printf '%s' "$id" | cksum | cut -d' ' -f1) % 30 ))
-            [ "$slot" -eq "$TODAY_SLOT" ] && echo "$id" >> "$SELECTED_FILE"
-          done < "$IDS_FILE"
-          echo "-- quota di oggi (slot $TODAY_SLOT/30): $(wc -l < "$SELECTED_FILE") celle"
+          if [ -n "$ADDRESS_CELLS_INPUT" ]; then
+            # Celle scelte a mano (input address_cells): solo id della partizione attuale, cosi' una
+            # cella gia' divisa o inesistente non rientra nell'indice.
+            IFS=',' read -ra CHOSEN_CELLS <<< "$(printf '%s' "$ADDRESS_CELLS_INPUT" | tr -d '[:space:]')"
+            for id in "${CHOSEN_CELLS[@]}"; do
+              if ! [[ "$id" =~ ^[0-9]+/[0-9]+/[0-9]+$ ]]; then
+                echo "address_cells non valido: '$id' (id z/x/y separati da virgola)" >&2
+                exit 1
+              fi
+              if ! grep -qxF "$id" "$IDS_FILE"; then
+                echo "address_cells: la cella $id non e' nella partizione attuale" >&2
+                exit 1
+              fi
+              echo "$id" >> "$SELECTED_FILE"
+            done
+            echo "-- celle scelte a mano: $(wc -l < "$SELECTED_FILE")"
+          else
+            while IFS= read -r id; do
+              [ -n "$id" ] || continue
+              slot=$(( $(printf '%s' "$id" | cksum | cut -d' ' -f1) % 30 ))
+              [ "$slot" -eq "$TODAY_SLOT" ] && echo "$id" >> "$SELECTED_FILE"
+            done < "$IDS_FILE"
+            echo "-- quota di oggi (slot $TODAY_SLOT/30): $(wc -l < "$SELECTED_FILE") celle"
+          fi
 
           PROTOMAPS_DATE="$(resolve_protomaps_date)"
           SOURCE_URL="https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles"
@@ -595,6 +624,63 @@ jobs:
           name: address-grid-index
           path: ${{ runner.temp }}/address-grid-index/address-grid.json
           retention-days: 1
+
+      # Controllo della lista bianca, una volta per rilascio Overture: le coppie (paese, dataset,
+      # licenza) nuove o sparite finirebbero scartate in silenzio dalle celle. Esito in una issue
+      # (etichetta overture-licenze), che arriva per email; il rilascio controllato resta come
+      # chiave della cache di Actions. Mai bloccante: se fallisce si ripete alla run successiva.
+      - name: Rilascio Overture da controllare
+        id: overture-release
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "release=$(python3 tools/data-pipeline/scripts/overture_addresses.py --print-release)" >> "$GITHUB_OUTPUT"
+
+      - name: Rilascio gia' controllato?
+        id: overture-checked
+        if: steps.overture-release.outputs.release != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/overture-checked
+          key: overture-check-${{ steps.overture-release.outputs.release }}
+          lookup-only: true
+
+      - name: Controlla le fonti Overture della lista bianca
+        id: overture-check
+        if: steps.overture-release.outputs.release != '' && steps.overture-checked.outputs.cache-hit != 'true'
+        continue-on-error: true
+        shell: bash
+        env:
+          OVERTURE_RELEASE: ${{ steps.overture-release.outputs.release }}
+        run: |
+          set -euo pipefail
+          REPORT="$RUNNER_TEMP/overture-check.md"
+          python3 tools/data-pipeline/scripts/overture_addresses.py \
+            --check-whitelist tools/data-pipeline/overture-address-sources.tsv "$REPORT" --release "$OVERTURE_RELEASE"
+          if [ -s "$REPORT" ]; then
+            cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+            TITLE="Overture $OVERTURE_RELEASE: fonti dei civici da rivedere"
+            echo "::warning::$TITLE (lista bianca tools/data-pipeline/overture-address-sources.tsv, dettagli nel riepilogo)"
+            gh label create overture-licenze --repo "${{ github.repository }}" --color d93f0b \
+              --description "Fonti Overture dei civici da rivedere" --force
+            EXISTING="$(gh issue list --repo "${{ github.repository }}" --label overture-licenze --state all \
+              --search "\"$OVERTURE_RELEASE\" in:title" --json number --jq 'length')"
+            if [ "$EXISTING" -eq 0 ]; then
+              gh issue create --repo "${{ github.repository }}" --title "$TITLE" --label overture-licenze --body-file "$REPORT"
+            fi
+          else
+            echo "-- rilascio $OVERTURE_RELEASE: nessuna fonte nuova o sparita"
+          fi
+          mkdir -p "$RUNNER_TEMP/overture-checked"
+          echo "$OVERTURE_RELEASE" > "$RUNNER_TEMP/overture-checked/release"
+
+      - name: Segna il rilascio come controllato
+        if: steps.overture-check.outcome == 'success'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/overture-checked
+          key: overture-check-${{ steps.overture-release.outputs.release }}
 
   # Genera i pacchetti regionali (poi.db + .rd5) per lo shard assegnato e carica gli asset
   # sulla release "region-data". I frammenti manifest prodotti vanno come artifact al job
