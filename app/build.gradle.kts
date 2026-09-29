@@ -13,8 +13,8 @@ android {
         applicationId = "com.pockettravel.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
-        versionName = "0.8.0"
+        versionCode = 10
+        versionName = "0.9.0"
     }
 
     // Le credenziali arrivano da variabili d'ambiente (secrets del workflow CI, mai committate):
