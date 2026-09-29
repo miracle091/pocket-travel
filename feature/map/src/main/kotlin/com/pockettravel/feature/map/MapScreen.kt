@@ -80,7 +80,8 @@ private const val PARKING_MIN_ZOOM = 15.0
 // Zoom del fit iniziale quando la regione ha un solo pin (niente bounds da inquadrare).
 private const val SINGLE_PIN_ZOOM = 15.0
 
-private fun iconIdFor(category: PoiCategory) = PIN_ICON_PREFIX + category.name
+private fun iconIdFor(category: PoiCategory, badge: AccessibilityBadge? = null) =
+    PIN_ICON_PREFIX + category.name + (badge?.let { "-" + it.imageId } ?: "")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,6 +98,9 @@ fun MapScreen(
     onHiddenCategoriesChange: (Set<PoiCategory>) -> Unit = {},
     // Modalita' "Con disabilità": via i POI che OSM segna come non accessibili in sedia a rotelle.
     hideInaccessible: Boolean = false,
+    // Con "Con disabilita'": solo i posti accessibili (anche in parte) e i parcheggi per disabili.
+    onlyAccessible: Boolean = false,
+    onOnlyAccessibleChange: (Boolean) -> Unit = {},
     // Apre la navigazione verso il punto scelto; null = niente pulsante "Indicazioni".
     onNavigate: ((MapPin) -> Unit)? = null,
 ) {
@@ -134,15 +138,33 @@ fun MapScreen(
             }
         }
     }
+    // Parcheggi per disabili solo con "Con disabilita'" (hideInaccessible), agli stessi zoom degli altri parcheggi.
     val visiblePins = pins.filter {
-        it.category !in hiddenCategories && (it.category != PoiCategory.PARCHEGGIO || parkingZoom) &&
-            !(hideInaccessible && it.wheelchair == "no")
+        it.category !in hiddenCategories &&
+            (it.category != PoiCategory.PARCHEGGIO || parkingZoom) &&
+            (it.category != PoiCategory.PARCHEGGIO_DISABILI || (hideInaccessible && parkingZoom)) &&
+            !(hideInaccessible && it.wheelchair == "no") &&
+            !(hideInaccessible && onlyAccessible && accessibilityBadgeOf(it.wheelchair) == null && it.category != PoiCategory.PARCHEGGIO_DISABILI)
     }
-    val presentCategories = PoiCategory.entries.filter { category -> pins.any { it.category == category } }
+    val presentCategories = PoiCategory.entries.filter { category ->
+        (category != PoiCategory.PARCHEGGIO_DISABILI || hideInaccessible) && pins.any { it.category == category }
+    }
     // Segnalini ridisegnati solo quando cambiano quelli visibili o la sorgente (nuovo stile),
     // non a ogni ricomposizione.
-    LaunchedEffect(pinsSource, visiblePins) {
-        pinsSource?.setGeoJson(pinsFeatureCollection(visiblePins))
+    LaunchedEffect(pinsSource, visiblePins, hideInaccessible) {
+        val source = pinsSource ?: return@LaunchedEffect
+        // Con "Con disabilita'" i segnalini accessibili hanno il distintivo: varianti delle icone
+        // create solo per le combinazioni presenti, non per tutte le categorie in anticipo.
+        val badgeOf = { pin: MapPin -> if (hideInaccessible) accessibilityBadgeOf(pin.wheelchair) else null }
+        mapView.getMapAsync { map ->
+            val style = map.style ?: return@getMapAsync
+            visiblePins.mapNotNullTo(mutableSetOf()) { pin -> badgeOf(pin)?.let { pin.category to it } }
+                .forEach { (category, badge) ->
+                    val id = iconIdFor(category, badge)
+                    if (style.getImage(id) == null) style.addImage(id, poiPinBitmap(context, category, badge))
+                }
+            source.setGeoJson(pinsFeatureCollection(visiblePins, badgeOf))
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -247,6 +269,9 @@ fun MapScreen(
             presentCategories = presentCategories.toSet(),
             hiddenCategories = hiddenCategories,
             onHiddenCategoriesChange = onHiddenCategoriesChange,
+            // Il filtro "Solo posti accessibili" c'e' solo con "Con disabilita'".
+            onlyAccessible = onlyAccessible.takeIf { hideInaccessible },
+            onOnlyAccessibleChange = onOnlyAccessibleChange,
             onDismiss = { showLegend = false },
         )
     }
@@ -428,12 +453,12 @@ private fun wheelchairLabel(value: String?): Int? = when (value) {
 }
 
 // Un punto per segnalino, con l'id del pin (per il tocco) e l'icona della sua categoria.
-private fun pinsFeatureCollection(pins: List<MapPin>): FeatureCollection =
+private fun pinsFeatureCollection(pins: List<MapPin>, badgeOf: (MapPin) -> AccessibilityBadge?): FeatureCollection =
     FeatureCollection.fromFeatures(
         pins.map { pin ->
             Feature.fromGeometry(Point.fromLngLat(pin.longitude, pin.latitude)).apply {
                 addStringProperty(PIN_ID, pin.id)
-                addStringProperty(PIN_ICON, iconIdFor(pin.category))
+                addStringProperty(PIN_ICON, iconIdFor(pin.category, badgeOf(pin)))
             }
         },
     )

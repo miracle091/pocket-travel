@@ -229,4 +229,23 @@ class GeneratePoiTest {
             dir.deleteRecursively()
         }
     }
+
+    @Test
+    fun `stalli per disabili da parking_space=disabled o capacity disabled, gli altri stalli restano generici`() {
+        val dir = kotlin.io.path.createTempDirectory("pocket-travel-poi").toFile()
+        val xml = File(dir, "a.xml")
+        xml.writeText(
+            """<?xml version="1.0"?><osm version="0.6">""" +
+                """<node id="1" lat="43.93" lon="12.44"><tag k="amenity" v="parking_space"/><tag k="parking_space" v="disabled"/></node>""" +
+                """<node id="2" lat="43.93" lon="12.45"><tag k="amenity" v="parking_space"/><tag k="capacity:disabled" v="2"/></node>""" +
+                """<node id="3" lat="43.93" lon="12.46"><tag k="amenity" v="parking_space"/><tag k="capacity:disabled" v="0"/></node>""" +
+                "</osm>",
+        )
+        try {
+            val categories = readPois(listOf(xml), poiTagKeys).map { it.category }
+            assertEquals(listOf("parking_disabled", "parking_disabled", "parking_space"), categories)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
 }

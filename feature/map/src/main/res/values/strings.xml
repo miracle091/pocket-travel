@@ -28,6 +28,9 @@
     <string name="poi_rental">Noleggi</string>
     <string name="poi_parking">Parcheggi</string>
     <string name="poi_parking_private">Parcheggi privati</string>
+    <string name="poi_parking_disabled">Parcheggi per disabili</string>
+    <string name="map_filters_only_accessible">Solo posti accessibili</string>
+    <string name="map_filters_only_accessible_body">Posti segnati come accessibili in sedia a rotelle, anche in parte, e parcheggi per disabili.</string>
     <string name="poi_train">Stazioni dei treni</string>
     <string name="poi_metro">Metro</string>
     <string name="poi_bus">Autobus</string>

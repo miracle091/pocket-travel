@@ -135,6 +135,9 @@ private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagK
     if (tagKey == "amenity" && tagValue == "shelter" && tags["shelter_type"] == "public_transport") return null
     val category = when {
         tagKey == "amenity" && tagValue == "parking" && tags["access"] in PRIVATE_ACCESS -> "parking_private"
+        // Stalli riservati ai disabili: gli altri stalli singoli restano nascosti (PoiRules).
+        tagKey == "amenity" && tagValue == "parking_space" &&
+            (tags["parking_space"] == "disabled" || (tags["capacity:disabled"]?.toIntOrNull() ?: 0) > 0) -> "parking_disabled"
         tagKey == "railway" && (tags["station"] == "subway" || tags["subway"] == "yes") -> "subway_station"
         // Uffici e centri informazioni, non i cartelli e i segnavia (stesso tag tourism=information).
         tagKey == "tourism" && tagValue == "information" && tags["information"] in INFO_OFFICE ->

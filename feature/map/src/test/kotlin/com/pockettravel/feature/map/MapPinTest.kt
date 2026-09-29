@@ -19,4 +19,13 @@ class MapPinTest {
         assertEquals("Da Mario", pin("Da Mario").displayName("en"))
         assertNull(pin(null).displayName("en"))
     }
+
+    @Test
+    fun `distintivo pieno per i posti accessibili, vuoto per quelli in parte, nessuno altrimenti`() {
+        assertEquals(AccessibilityBadge.YES, accessibilityBadgeOf("yes"))
+        assertEquals(AccessibilityBadge.YES, accessibilityBadgeOf("designated"))
+        assertEquals(AccessibilityBadge.LIMITED, accessibilityBadgeOf("limited"))
+        assertEquals(null, accessibilityBadgeOf("no"))
+        assertEquals(null, accessibilityBadgeOf(null))
+    }
 }

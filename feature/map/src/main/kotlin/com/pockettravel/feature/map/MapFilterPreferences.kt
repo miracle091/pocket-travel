@@ -45,6 +45,15 @@ class MapFilterPreferences @Inject constructor(@ApplicationContext context: Cont
     )
     val hiddenCategories: StateFlow<Set<PoiCategory>> = _hiddenCategories.asStateFlow()
 
+    private val _onlyAccessible = MutableStateFlow(prefs.getBoolean(KEY_ONLY_ACCESSIBLE, false))
+    /** Con "Con disabilita'": solo i posti che OSM segna come accessibili, anche in parte (tag wheelchair). */
+    val onlyAccessible: StateFlow<Boolean> = _onlyAccessible.asStateFlow()
+
+    fun setOnlyAccessible(only: Boolean) {
+        prefs.edit { putBoolean(KEY_ONLY_ACCESSIBLE, only) }
+        _onlyAccessible.value = only
+    }
+
     fun setHidden(categories: Set<PoiCategory>) {
         prefs.edit { putStringSet(KEY_HIDDEN, categories.mapTo(mutableSetOf()) { it.name }) }
         _hiddenCategories.value = categories
@@ -52,6 +61,7 @@ class MapFilterPreferences @Inject constructor(@ApplicationContext context: Cont
 
     private companion object {
         const val KEY_HIDDEN = "hidden_categories"
+        const val KEY_ONLY_ACCESSIBLE = "only_accessible"
         const val KEY_SIGHTS_SPLIT = "sights_split"
         const val KEY_AMUSEMENT_SPLIT = "amusement_split"
     }

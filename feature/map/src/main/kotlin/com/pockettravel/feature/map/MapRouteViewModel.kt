@@ -40,6 +40,8 @@ class MapRouteViewModel @Inject constructor(
     val hiddenCategories: StateFlow<Set<PoiCategory>> = filterPreferences.hiddenCategories
 
     fun setHiddenCategories(categories: Set<PoiCategory>) = filterPreferences.setHidden(categories)
+    val onlyAccessible: StateFlow<Boolean> = filterPreferences.onlyAccessible
+    fun setOnlyAccessible(only: Boolean) = filterPreferences.setOnlyAccessible(only)
 
     private val _pins = MutableStateFlow<List<MapPin>>(emptyList())
     val pins: StateFlow<List<MapPin>> = _pins.asStateFlow()

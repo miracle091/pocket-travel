@@ -30,7 +30,7 @@ internal fun PoiCategory.pinColor(): Color = when (this) {
     PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.UFFICIO_POSTALE, PoiCategory.CASSETTA_POSTALE, PoiCategory.INFORMAZIONI ->
         PoiColors.PublicServices
     PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.SERVIZI_CAMPER, PoiCategory.RIPARAZIONE_BICI, PoiCategory.NOLEGGIO, PoiCategory.PARCHEGGIO, PoiCategory.PARCHEGGIO_PRIVATO,
-    PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO,
+    PoiCategory.PARCHEGGIO_DISABILI, PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO,
     PoiCategory.AEROPORTO -> PoiColors.Transport
     PoiCategory.ALTRO -> PoiColors.Other
 }
@@ -79,6 +79,7 @@ internal fun PoiCategory.glyph(): Int? = when (this) {
     PoiCategory.INFORMAZIONI -> UiR.drawable.ms_info
     PoiCategory.NOLEGGIO -> UiR.drawable.ms_car_rental
     PoiCategory.PARCHEGGIO, PoiCategory.PARCHEGGIO_PRIVATO -> UiR.drawable.ms_local_parking
+    PoiCategory.PARCHEGGIO_DISABILI -> UiR.drawable.ms_accessible
     PoiCategory.TRENO -> UiR.drawable.ms_train
     PoiCategory.METRO -> UiR.drawable.ms_subway
     PoiCategory.AUTOBUS -> UiR.drawable.ms_directions_bus
@@ -131,6 +132,7 @@ internal fun PoiCategory.label(): Int = when (this) {
     PoiCategory.NOLEGGIO -> R.string.poi_rental
     PoiCategory.PARCHEGGIO -> R.string.poi_parking
     PoiCategory.PARCHEGGIO_PRIVATO -> R.string.poi_parking_private
+    PoiCategory.PARCHEGGIO_DISABILI -> R.string.poi_parking_disabled
     PoiCategory.TRENO -> R.string.poi_train
     PoiCategory.METRO -> R.string.poi_metro
     PoiCategory.AUTOBUS -> R.string.poi_bus
@@ -145,14 +147,19 @@ internal fun PoiCategory.label(): Int = when (this) {
 // bianco, glifo bianco al centro della testa e una piccola ombra sotto la punta. Dimensioni in dp
 // convertite con la densita' dello schermo. La punta cade esattamente sul bordo inferiore del
 // bitmap (a parte l'ombra, che sborda di poco): con iconAnchor "bottom" indica il punto esatto.
-internal fun poiPinBitmap(context: Context, category: PoiCategory): Bitmap {
+internal fun poiPinBitmap(context: Context, category: PoiCategory, badge: AccessibilityBadge? = null): Bitmap {
     val density = context.resources.displayMetrics.density
     val width = 30f * density
     val headRadius = width / 2f
     val tipY = 40f * density
     val stroke = 2f * density
-    val bitmap = createBitmap(width.toInt(), (tipY + 2f * density).toInt())
+    // Con il distintivo l'immagine si allarga uguale a destra e a sinistra (e in alto), cosi' il
+    // distintivo sporge dalla testa senza essere tagliato e la punta resta al centro in basso,
+    // sul punto del POI (iconAnchor bottom).
+    val pad = if (badge != null) 8f * density else 0f
+    val bitmap = createBitmap((width + 2f * pad).toInt(), (tipY + 2f * density + pad).toInt())
     val canvas = Canvas(bitmap)
+    canvas.translate(pad, pad)
     val cx = width / 2f
     val cy = headRadius
 
@@ -194,5 +201,49 @@ internal fun poiPinBitmap(context: Context, category: PoiCategory): Bitmap {
     } else {
         canvas.drawCircle(cx, cy, 4f * density, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = PoiColors.Glyph.toArgb() })
     }
+    // Centro a 2 dp dal bordo: raggio 9 dp + mezzo anello restano dentro i 8 dp di margine.
+    if (badge != null) drawAccessibilityBadge(context, canvas, width - 2f * density, 2f * density, badge)
     return bitmap
+}
+
+/** Distintivo di accessibilita' sul segnalino, con "Con disabilita'" attivo (tag OSM wheelchair). */
+enum class AccessibilityBadge(val imageId: String) {
+    // Pieno: accessibile. Vuoto: in parte. Diversi anche senza distinguere il colore.
+    YES("badge-accessible"),
+    LIMITED("badge-accessible-limited"),
+}
+
+internal fun accessibilityBadgeOf(wheelchair: String?): AccessibilityBadge? = when (wheelchair) {
+    "yes", "designated" -> AccessibilityBadge.YES
+    "limited" -> AccessibilityBadge.LIMITED
+    else -> null
+}
+
+/**
+ * Cerchio con il simbolo della sedia a rotelle, disegnato nell'angolo in alto a destra del segnalino
+ * (dentro la stessa immagine: se MapLibre nasconde un segnalino sovrapposto, sparisce anche il
+ * distintivo). Pieno per [AccessibilityBadge.YES], vuoto per LIMITED.
+ */
+private fun drawAccessibilityBadge(context: Context, canvas: Canvas, cx: Float, cy: Float, badge: AccessibilityBadge) {
+    val density = context.resources.displayMetrics.density
+    val stroke = 2f * density
+    val r = 9f * density
+    // Blu scuro e bianco: contrasto forte con tutti i colori dei segnalini.
+    val accent = 0xFF0D47A1.toInt()
+    val filled = badge == AccessibilityBadge.YES
+    canvas.drawCircle(cx, cy, r, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = if (filled) accent else PoiColors.Glyph.toArgb() })
+    canvas.drawCircle(
+        cx, cy, r,
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = stroke
+            color = if (filled) PoiColors.Glyph.toArgb() else accent
+        },
+    )
+    val half = 6.5f * density
+    ResourcesCompat.getDrawable(context.resources, UiR.drawable.ms_accessible, context.theme)?.mutate()?.apply {
+        setTint(if (filled) PoiColors.Glyph.toArgb() else accent)
+        setBounds((cx - half).toInt(), (cy - half).toInt(), (cx + half).toInt(), (cy + half).toInt())
+        draw(canvas)
+    }
 }

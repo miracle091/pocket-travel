@@ -43,6 +43,7 @@ enum class PoiCategory {
     NOLEGGIO,
     PARCHEGGIO,
     PARCHEGGIO_PRIVATO,
+    PARCHEGGIO_DISABILI,
     TRENO,
     METRO,
     AUTOBUS,
@@ -121,6 +122,8 @@ fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     osmTag in rentalTags -> PoiCategory.NOLEGGIO
     // "parking_private": access privato, deciso dalla pipeline (GeneratePoi.kt).
     osmTag == "amenity=parking" && category == "parking_private" -> PoiCategory.PARCHEGGIO_PRIVATO
+    // "parking_disabled": stallo riservato ai disabili (parking_space=disabled), deciso dalla pipeline.
+    osmTag == "amenity=parking_space" && category == "parking_disabled" -> PoiCategory.PARCHEGGIO_DISABILI
     osmTag == "amenity=parking" || osmTag == "amenity=parking_entrance" -> PoiCategory.PARCHEGGIO
     // Ogni altro parcheggio (bici, moto...), tranne quelli delle barche.
     osmTag.startsWith("amenity=") && osmTag.endsWith("_parking") && osmTag != "amenity=boat_parking" ->
@@ -168,7 +171,7 @@ private val hiddenOnMapTags = setOf(
 private val namelessOnMapCategories = setOf(
     PoiCategory.BAGNI_PUBBLICI, PoiCategory.BANCOMAT, PoiCategory.PARCHEGGIO, PoiCategory.CARBURANTE,
     PoiCategory.RICARICA, PoiCategory.FARMACIA, PoiCategory.OSPEDALE, PoiCategory.TAXI, PoiCategory.UFFICIO_POSTALE,
-    PoiCategory.SERVIZI_CAMPER, PoiCategory.RIPARI, PoiCategory.RIPARAZIONE_BICI,
+    PoiCategory.SERVIZI_CAMPER, PoiCategory.RIPARI, PoiCategory.RIPARAZIONE_BICI, PoiCategory.PARCHEGGIO_DISABILI,
 )
 
 // Come sopra, per tipi di categorie che hanno anche POI da nascondere senza nome (tavoli da picnic
@@ -199,7 +202,9 @@ fun poiHasName(name: String, osmTag: String): Boolean = name != osmTag.substring
  */
 fun isPoiHiddenOnMap(name: String, category: String, osmTag: String): Boolean {
     val poiCategory = poiCategoryOf(category, osmTag)
-    return osmTag in hiddenOnMapTags ||
+    // Gli stalli per disabili si vedono (con "Con disabilita'", deciso dall'app) anche se amenity=parking_space
+    // e' nascosto: le app vecchie, che non conoscono "parking_disabled", li nascondono ancora.
+    return (osmTag in hiddenOnMapTags && category != "parking_disabled") ||
         poiCategory == PoiCategory.PARCHEGGIO_PRIVATO ||
         (osmTag == "tourism=information" && category != "information_office") ||
         (!poiHasName(name, osmTag) && poiCategory !in namelessOnMapCategories && osmTag !in namelessOnMapTags)

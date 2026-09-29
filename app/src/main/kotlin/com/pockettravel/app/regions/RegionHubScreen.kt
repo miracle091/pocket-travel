@@ -149,6 +149,7 @@ fun RegionHubScreen(
                         val pins by mapViewModel.pins.collectAsStateWithLifecycle()
                         val hiddenCategories by mapViewModel.hiddenCategories.collectAsStateWithLifecycle()
                         val accessible by mapViewModel.accessible.collectAsStateWithLifecycle()
+                        val onlyAccessible by mapViewModel.onlyAccessible.collectAsStateWithLifecycle()
                         val mapSource by mapViewModel.mapSource.collectAsStateWithLifecycle()
                         val sourceKind = mapSource.kind
                         val language = LocalLocale.current.platformLocale.language
@@ -162,6 +163,8 @@ fun RegionHubScreen(
                                     hiddenCategories = hiddenCategories,
                                     onHiddenCategoriesChange = mapViewModel::setHiddenCategories,
                                     hideInaccessible = accessible,
+                                    onlyAccessible = onlyAccessible,
+                                    onOnlyAccessibleChange = mapViewModel::setOnlyAccessible,
                                     onNavigate = { pin ->
                                         onNavigate(pin.latitude, pin.longitude, pin.displayName(language) ?: pin.name.orEmpty())
                                     },

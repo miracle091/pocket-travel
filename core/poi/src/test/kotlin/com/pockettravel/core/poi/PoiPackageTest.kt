@@ -34,6 +34,14 @@ class PoiPackageTest {
     }
 
     @Test
+    fun `gli stalli per disabili si pubblicano con la loro categoria, gli altri stalli no`() {
+        // Senza nome: la pipeline mette il valore del tag ("parking_space") come nome.
+        assertEquals(PoiPackage.BASE, poiPackageOf("parking_space", "parking_disabled", "amenity=parking_space"))
+        assertEquals(PoiCategory.PARCHEGGIO_DISABILI, poiCategoryOf("parking_disabled", "amenity=parking_space"))
+        assertNull(unnamed("amenity=parking_space"))
+    }
+
+    @Test
     fun `gli altri POI nascosti non si pubblicano`() {
         assertNull(unnamed("amenity=bench"))
         assertNull(unnamed("amenity=waste_basket"))

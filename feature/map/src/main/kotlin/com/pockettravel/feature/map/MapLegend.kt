@@ -1,6 +1,10 @@
 package com.pockettravel.feature.map
 
 import androidx.annotation.StringRes
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
+import com.pockettravel.core.ui.R as UiR
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -54,7 +58,7 @@ internal enum class LegendGroup(@StringRes val label: Int, val categories: List<
         R.string.map_legend_group_vehicles,
         listOf(
             PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.SERVIZI_CAMPER, PoiCategory.RIPARAZIONE_BICI, PoiCategory.PARCHEGGIO,
-            PoiCategory.PARCHEGGIO_PRIVATO, PoiCategory.NOLEGGIO,
+            PoiCategory.PARCHEGGIO_PRIVATO, PoiCategory.PARCHEGGIO_DISABILI, PoiCategory.NOLEGGIO,
         ),
     ),
     HEALTH(
@@ -76,6 +80,9 @@ internal fun MapLegendSheet(
     presentCategories: Set<PoiCategory>,
     hiddenCategories: Set<PoiCategory>,
     onHiddenCategoriesChange: (Set<PoiCategory>) -> Unit,
+    // null = filtro non disponibile (casella "Con disabilita'" spenta).
+    onlyAccessible: Boolean?,
+    onOnlyAccessibleChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -94,6 +101,16 @@ internal fun MapLegendSheet(
                         Text(stringResource(R.string.map_legend_show_all))
                     }
                 }
+            }
+            if (onlyAccessible != null) {
+                ListItem(
+                    leadingContent = { Icon(ImageVector.vectorResource(UiR.drawable.ms_accessible), contentDescription = null) },
+                    headlineContent = { Text(stringResource(R.string.map_filters_only_accessible)) },
+                    supportingContent = { Text(stringResource(R.string.map_filters_only_accessible_body)) },
+                    trailingContent = { Switch(checked = onlyAccessible, onCheckedChange = null) },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.toggleable(value = onlyAccessible, role = Role.Switch, onValueChange = onOnlyAccessibleChange),
+                )
             }
             LegendGroup.entries.forEach { group ->
                 val categories = group.categories.filter { it in presentCategories }
