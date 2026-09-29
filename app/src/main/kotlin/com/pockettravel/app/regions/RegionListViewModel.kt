@@ -14,7 +14,9 @@ import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.ReplacedRegion
+import com.pockettravel.core.sync.TransitClient
 import com.pockettravel.core.sync.attachAddressGridCells
+import com.pockettravel.core.sync.attachTransitFeeds
 import com.pockettravel.core.sync.guidesChoice
 import com.pockettravel.core.ui.countryName
 import com.pockettravel.feature.ai.LlmModelUpdateCheckScheduler
@@ -44,6 +46,8 @@ data class PackageUiState(
     val downloadBytes: Long,
     // Byte occupati sul device, null se il pacchetto non e' installato o la dimensione non e' nota.
     val installedBytes: Long?,
+    // Riga in piu' sotto il nome del pacchetto: le reti dei mezzi pubblici, se e' quello.
+    val detail: String? = null,
 )
 
 data class RegionUiItem(
@@ -98,6 +102,7 @@ private data class LoadStatus(
 class RegionListViewModel @Inject constructor(
     private val manifestClient: ManifestClient,
     private val addressGridClient: AddressGridClient,
+    private val transitClient: TransitClient,
     private val regionRepository: RegionRepository,
     private val regionSyncScheduler: RegionSyncScheduler,
     private val appUpdateCheckScheduler: AppUpdateCheckScheduler,
@@ -155,7 +160,9 @@ class RegionListViewModel @Inject constructor(
                 // valido) non deve bloccare l'elenco delle regioni, solo lasciarle senza civici a
                 // griglia per questo aggiornamento — riprovera' al prossimo refresh().
                 val addressGridIndex = manifest.addressGrid?.let { entry -> runCatching { addressGridClient.fetchIndex(entry) }.getOrNull() }
-                manifestRegions.value = attachAddressGridCells(manifest.regions, addressGridIndex)
+                // Come i civici: senza indice dei mezzi pubblici le regioni restano senza quel pacchetto.
+                val transitIndex = manifest.transit?.let { entry -> runCatching { transitClient.fetchIndex(entry) }.getOrNull() }
+                manifestRegions.value = attachTransitFeeds(attachAddressGridCells(manifest.regions, addressGridIndex), transitIndex)
                 replacedRegions.value = manifest.replacedRegions
                 // Le guide si aggiornano da sole (su Wi-Fi) anche da qui, non solo col controllo periodico.
                 if (regionRepository.installedGuidesVersion() != manifest.guidesChoice().installedVersion) regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = true)
@@ -282,6 +289,7 @@ internal fun regionUiItem(
             },
             downloadBytes = remote.downloadBytes(setOf(kind), addressCellVersions),
             installedBytes = local?.let { installedBytes(it, kind) },
+            detail = if (kind == PackageKind.TRANSIT) remote.transit?.feeds?.joinToString { it.name } else null,
         )
     }
     val sizeBytes = when (status) {

@@ -27,6 +27,14 @@ class UsageModeTest {
     }
 
     @Test
+    fun `gli orari dei mezzi si propongono a piedi, in bici, in escursione e coi mezzi, non in auto o camper`() {
+        assertEquals(
+            setOf(UsageMode.A_PIEDI, UsageMode.BICI, UsageMode.ESCURSIONISMO, UsageMode.MEZZI_PUBBLICI),
+            UsageMode.entries.filterTo(mutableSetOf()) { it.proposesTransit },
+        )
+    }
+
+    @Test
     fun `i profili delle modalita' sono negli asset e instradano secondo il mezzo`() {
         // Percorso di prova: un'unica via pedonale (highway=footway) a cavallo di due segmenti .rd5,
         // vedi BRouterRouteEngineTest.

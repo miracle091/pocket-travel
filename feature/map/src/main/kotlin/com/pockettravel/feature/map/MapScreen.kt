@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
+import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PoiColors
@@ -103,6 +104,12 @@ fun MapScreen(
     onOnlyAccessibleChange: (Boolean) -> Unit = {},
     // Apre la navigazione verso il punto scelto; null = niente pulsante "Indicazioni".
     onNavigate: ((MapPin) -> Unit)? = null,
+    // Orari dei mezzi pubblici nella scheda di treni, metro, autobus e traghetti: pacchetto della regione,
+    // tabellone del POI aperto (null finche' si legge), download e il POI di cui leggere le partenze.
+    transitPackage: TransitPackageState = TransitPackageState.UNKNOWN,
+    transitBoard: TransitBoard? = null,
+    onDownloadTransit: () -> Unit = {},
+    onTransitStopChange: (MapPin?) -> Unit = {},
 ) {
     val context = LocalContext.current
     MapLibreInitializer.ensureInitialized(context)
@@ -121,6 +128,11 @@ fun MapScreen(
     // sulla lista pins corrente, invece di riaprire il foglio su un pin ormai stantio.
     var selectedPinId by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedPin = pins.firstOrNull { it.id == selectedPinId }
+    // Le partenze si leggono solo per un POI di trasporto aperto e con gli orari installati; anche quando
+    // il pacchetto finisce di installarsi con la scheda aperta.
+    LaunchedEffect(selectedPin, transitPackage) {
+        onTransitStopChange(selectedPin?.takeIf { it.category in TRANSIT_CATEGORIES && transitPackage == TransitPackageState.INSTALLED })
+    }
     var cameraFitted by remember { mutableStateOf(false) }
     var parkingZoom by remember { mutableStateOf(false) }
     LaunchedEffect(mapView) {
@@ -315,6 +327,7 @@ fun MapScreen(
                 }
                 pin.address?.let { PoiDetailRow(AppIcons.Place, it) }
                 pin.openingHours?.let { OpeningHoursDetail(it) }
+                if (pin.category in TRANSIT_CATEGORIES) TransitDeparturesSection(transitPackage, transitBoard, onDownloadTransit)
                 onNavigate?.let { navigate ->
                     Spacer(modifier = Modifier.padding(top = Spacing.l))
                     Button(

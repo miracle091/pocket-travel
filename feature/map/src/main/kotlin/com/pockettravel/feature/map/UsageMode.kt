@@ -75,6 +75,9 @@ enum class UsageMode(
 
     val visibleCategories: Set<PoiCategory> = ALWAYS + visible
 
+    /** Chi va a piedi, in bici, in escursione o coi mezzi pubblici: al primo avvio gli orari dei mezzi sono spuntati. */
+    val proposesTransit: Boolean get() = this == A_PIEDI || this == BICI || this == ESCURSIONISMO || this == MEZZI_PUBBLICI
+
     /** Le categorie nascoste di default: quelle da salvare nei filtri quando si sceglie la modalita'. */
     val defaultHidden: Set<PoiCategory> get() = PoiCategory.entries.toSet() - visibleCategories
 

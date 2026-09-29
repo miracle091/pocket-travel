@@ -29,4 +29,6 @@ data class InstalledRegionEntity(
     val citiesVersion: String?,
     // Come poiSizeBytes, per il cities.db importato (guide delle citta' in city_sections).
     val citiesSizeBytes: Long?,
+    // Orari dei mezzi pubblici (cartella transit): la dimensione si misura dal disco.
+    val transitVersion: String? = null,
 )

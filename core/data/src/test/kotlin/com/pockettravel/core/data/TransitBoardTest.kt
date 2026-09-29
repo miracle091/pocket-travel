@@ -1,0 +1,243 @@
+package com.pockettravel.core.data
+
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import java.sql.Connection
+import java.sql.DriverManager
+import java.time.Instant
+import java.time.LocalDate
+
+/** Query e logica del tabellone su un transit.db sintetico (sqlite-jdbc al posto di android.database.sqlite). */
+class TransitBoardTest {
+    private lateinit var connection: Connection
+
+    // Punto di riferimento (Riga) e stazione con due banchine: una vicina, una a ~200 m ma col parent della stazione.
+    private val lat = 56.95
+    private val lon = 24.10
+
+    @Before
+    fun setUp() {
+        connection = DriverManager.getConnection("jdbc:sqlite::memory:")
+        exec(
+            "CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT)",
+            "CREATE TABLE stop(id INTEGER PRIMARY KEY, code TEXT, name TEXT, latE6 INTEGER, lonE6 INTEGER, parent INTEGER)",
+            "CREATE TABLE route(id INTEGER PRIMARY KEY, short_name TEXT, long_name TEXT, type INTEGER, color TEXT, text_color TEXT)",
+            "CREATE TABLE headsign(id INTEGER PRIMARY KEY, text TEXT)",
+            "CREATE TABLE service(id INTEGER PRIMARY KEY, days BLOB)",
+            "CREATE TABLE trip(id INTEGER PRIMARY KEY, route INTEGER, service INTEGER, headsign INTEGER)",
+            "CREATE TABLE stop_time(stop INTEGER, minute INTEGER, trip INTEGER, PRIMARY KEY (stop, minute, trip)) WITHOUT ROWID",
+            "INSERT INTO meta VALUES ('feed_id','mdb-1'),('format','1'),('timezone','Europe/Riga'),('window_start','20260929')," +
+                "('window_days','30'),('valid_until','20261028')",
+            // 1 e 2: banchine vicine (2 con parent 10); 10: stazione; 3: banchina a ~200 m della stazione; 4: lontana.
+            "INSERT INTO stop VALUES (1,'A','Vicina',56950000,24100000,NULL),(2,'B','Banchina',56950300,24100000,10)," +
+                "(10,NULL,'Stazione',56950500,24100000,NULL),(3,'C','Banchina lontana',56951800,24100000,10),(4,'D','Lontana',56990000,24200000,NULL)",
+            "INSERT INTO route VALUES (1,'22','Riga - Jurmala',3,'FF0000',NULL),(2,'','Linea lunga',900,'',NULL),(3,'M1','Metro',1,'FFFFFF','000000')",
+            "INSERT INTO headsign VALUES (1,'Centrs'),(2,'Aeroports')",
+        )
+        // Servizi: 1 = solo l'1 ottobre (giorno 2), 2 = solo il 30 settembre (giorno 1), 3 = solo il 2 ottobre (giorno 3).
+        service(1, byteArrayOf(0b0000_0100))
+        service(2, byteArrayOf(0b0000_0010))
+        service(3, byteArrayOf(0b0000_1000))
+    }
+
+    @After
+    fun tearDown() = connection.close()
+
+    private fun exec(vararg sql: String) = connection.createStatement().use { s -> sql.forEach { s.execute(it) } }
+
+    private fun service(id: Int, days: ByteArray) {
+        connection.prepareStatement("INSERT INTO service VALUES (?, ?)").use { it.setInt(1, id); it.setBytes(2, days); it.execute() }
+    }
+
+    private fun trip(id: Int, route: Int, service: Int, headsign: Int?, stop: Int, minute: Int) {
+        exec("INSERT INTO trip VALUES ($id, $route, $service, ${headsign ?: "NULL"})", "INSERT INTO stop_time VALUES ($stop, $minute, $id)")
+    }
+
+    private val query = object : TransitQuery {
+        override fun <T> query(sql: String, read: (TransitRow) -> T): List<T> {
+            val result = mutableListOf<T>()
+            connection.createStatement().use { statement ->
+                statement.executeQuery(sql).use { rs ->
+                    val row = object : TransitRow {
+                        override fun int(column: Int) = rs.getInt(column + 1)
+                        override fun string(column: Int): String? = rs.getString(column + 1)
+                        override fun bytes(column: Int): ByteArray? = rs.getBytes(column + 1)
+                    }
+                    while (rs.next()) result += read(row)
+                }
+            }
+            return result
+        }
+    }
+
+    private val feed = TransitFeedInfo("mdb-1", "Riga", "Rigas satiksme (CC0 1.0)")
+
+    // 1 ottobre 2026, ora di Riga (UTC+3): 09:00 = 06:00Z.
+    private fun at(iso: String) = Instant.parse(iso)
+
+    private fun board(now: String) = readFeedBoard(query, feed, lat, lon, at(now))
+
+    private fun departures(now: String) = (board(now) as TransitBoard.Departures).items
+
+    @Test
+    fun finestraDiTreOreConEstremiInclusi() {
+        trip(1, 1, 1, 1, stop = 1, minute = 539) // 08:59, gia' partito
+        trip(2, 1, 1, 1, stop = 1, minute = 540) // adesso
+        trip(3, 1, 1, 2, stop = 1, minute = 720) // 12:00, esattamente +180
+        trip(4, 1, 1, 1, stop = 1, minute = 721) // fuori dalla finestra
+        val items = departures("2026-10-01T06:00:00Z")
+        assertEquals(listOf(0, 180), items.map { it.inMinutes })
+        assertEquals(listOf("Centrs", "Aeroports"), items.map { it.headsign })
+        assertEquals(listOf(540, 720), items.map { it.minuteOfDay })
+    }
+
+    @Test
+    fun ilFusoDellaReteDecideOggiEAdesso() {
+        trip(1, 1, 1, 1, stop = 1, minute = 545)
+        // 06:00Z e' le 09:00 a Riga: il servizio del 1 ottobre e' attivo, la partenza delle 09:05 c'e'.
+        assertEquals(listOf(5), departures("2026-10-01T06:00:00Z").map { it.inMinutes })
+        // 22:00Z e' l'1:00 del 2 ottobre a Riga: il servizio del 1 ottobre non c'e' piu' oggi.
+        assertTrue(departures("2026-10-01T22:00:00Z").isEmpty())
+    }
+
+    @Test
+    fun ilBitDelGiornoDeiServiziAttiviAdOggi() {
+        trip(1, 1, 3, 1, stop = 1, minute = 545) // servizio del 2 ottobre
+        assertTrue(departures("2026-10-01T06:00:00Z").isEmpty())
+        assertEquals(1, departures("2026-10-02T06:00:00Z").size)
+    }
+
+    @Test
+    fun ilServizioDiIeriOltreMezzanotte() {
+        // 00:10 dell'1 ottobre a Riga = 21:10Z del 30 settembre. Il servizio del 30 settembre parte alle 24:20.
+        trip(1, 1, 2, 1, stop = 1, minute = 1460)
+        trip(2, 1, 2, 1, stop = 1, minute = 1445) // 00:05, gia' partito
+        val items = departures("2026-09-30T21:10:00Z")
+        assertEquals(1, items.size)
+        assertEquals(10, items[0].inMinutes)
+        assertEquals(20, items[0].minuteOfDay) // 00:20 sull'orologio
+    }
+
+    @Test
+    fun laFinestraAttraversaLaMezzanotteFinoAlServizioDiDomani() {
+        // 23:30 dell'1 ottobre a Riga = 20:30Z: la partenza delle 00:10 del 2 ottobre e' del servizio di domani.
+        trip(1, 1, 3, 1, stop = 1, minute = 10)
+        trip(2, 1, 1, 1, stop = 1, minute = 1420) // 23:40 di oggi
+        val items = departures("2026-10-01T20:30:00Z")
+        assertEquals(listOf(10, 40), items.map { it.inMinutes })
+        assertEquals(listOf(1420, 10), items.map { it.minuteOfDay })
+    }
+
+    @Test
+    fun banchineEStazioneSiRaggruppanoPerParent() {
+        // Il punto e' a 55 m dalla stazione (10), a 33 m dalla fermata 2 (parent 10): la banchina 3, a 200 m ma della stessa
+        // stazione, entra; la fermata 4, lontana e senza parent, no.
+        trip(1, 1, 1, 1, stop = 3, minute = 545)
+        trip(2, 1, 1, 1, stop = 4, minute = 546)
+        trip(3, 1, 1, 1, stop = 10, minute = 547)
+        assertEquals(listOf(5, 7), departures("2026-10-01T06:00:00Z").map { it.inMinutes })
+    }
+
+    @Test
+    fun nessunaFermataVicinaDaNull() {
+        trip(1, 1, 1, 1, stop = 4, minute = 545)
+        assertNull(readFeedBoard(query, feed, 57.5, 25.0, at("2026-10-01T06:00:00Z")))
+        assertEquals(TransitBoard.NoStops, combineBoards(emptyList()))
+    }
+
+    @Test
+    fun oreScadutiOPrimaDellaFinestra() {
+        trip(1, 1, 1, 1, stop = 1, minute = 545)
+        val expired = LocalDate.of(2026, 10, 28)
+        assertEquals(TransitBoard.Expired(expired, listOf(feed)), board("2026-11-05T06:00:00Z"))
+        assertEquals(TransitBoard.Expired(expired, listOf(feed)), board("2026-09-01T06:00:00Z"))
+        // L'ultimo giorno valido c'e' ancora, e i giorni che restano sono zero.
+        val last = board("2026-10-28T06:00:00Z") as TransitBoard.Departures
+        assertEquals(0, last.daysLeft)
+        assertTrue(last.expiresSoon)
+    }
+
+    @Test
+    fun colonneDellaLinea() {
+        trip(1, 1, 1, 1, stop = 1, minute = 545) // 22, bus, rosso senza colore del testo
+        trip(2, 2, 1, null, stop = 1, minute = 546) // solo long_name, tram esteso 900, senza colore
+        trip(3, 3, 1, 1, stop = 1, minute = 547) // metro, bianco con testo nero
+        val (bus, tram, metro) = departures("2026-10-01T06:00:00Z")
+        assertEquals("22", bus.line)
+        assertEquals(TransitMode.BUS, bus.mode)
+        assertEquals(0xFFFF0000.toInt(), bus.color)
+        assertEquals(0xFFFFFFFF.toInt(), bus.textColor)
+        assertEquals("Linea lunga", tram.line)
+        assertEquals(TransitMode.TRAM, tram.mode)
+        assertNull(tram.headsign)
+        assertNull(tram.color)
+        assertNull(tram.textColor)
+        assertEquals(TransitMode.METRO, metro.mode)
+        assertEquals(0xFF000000.toInt(), metro.textColor)
+    }
+
+    @Test
+    fun laViaDelleReti() {
+        val soon = TransitBoard.Departures(listOf(dep(20), dep(5)), LocalDate.of(2026, 10, 3), 2, listOf(feed))
+        val late = TransitBoard.Departures(List(12) { dep(it) }, LocalDate.of(2026, 12, 1), 61, emptyList())
+        val combined = combineBoards(listOf(soon, late, TransitBoard.Expired(LocalDate.of(2026, 9, 1), emptyList()))) as TransitBoard.Departures
+        assertEquals(10, combined.items.size)
+        assertEquals(listOf(0, 1, 2, 3, 4, 5, 5, 6, 7, 8), combined.items.map { it.inMinutes })
+        assertEquals(LocalDate.of(2026, 10, 3), combined.validUntil)
+        assertTrue(combined.expiresSoon)
+        // Tutte scadute: la data piu' recente.
+        val expired = combineBoards(listOf(TransitBoard.Expired(LocalDate.of(2026, 9, 1), emptyList()), TransitBoard.Expired(LocalDate.of(2026, 9, 9), emptyList())))
+        assertEquals(LocalDate.of(2026, 9, 9), (expired as TransitBoard.Expired).validUntil)
+    }
+
+    private fun dep(inMinutes: Int) = TransitDeparture("1", TransitMode.BUS, null, null, null, inMinutes, inMinutes)
+
+    @Test
+    fun bitDeiGiorniDelServizio() {
+        val days = byteArrayOf(0x01, 0x80.toByte())
+        assertTrue(isServiceActive(days, 0))
+        assertFalse(isServiceActive(days, 1))
+        assertTrue(isServiceActive(days, 15))
+        assertFalse(isServiceActive(days, 16)) // oltre la maschera
+        assertFalse(isServiceActive(days, -1))
+        assertFalse(isServiceActive(days, 15, windowDays = 10)) // oltre window_days
+    }
+
+    @Test
+    fun tipiDiMezzoGtfsBaseEdEstesi() {
+        assertEquals(TransitMode.TRAM, transitModeOf(0))
+        assertEquals(TransitMode.METRO, transitModeOf(1))
+        assertEquals(TransitMode.TRAIN, transitModeOf(2))
+        assertEquals(TransitMode.BUS, transitModeOf(3))
+        assertEquals(TransitMode.FERRY, transitModeOf(4))
+        assertEquals(TransitMode.TROLLEYBUS, transitModeOf(11))
+        assertEquals(TransitMode.TRAIN, transitModeOf(109))
+        assertEquals(TransitMode.BUS, transitModeOf(204))
+        assertEquals(TransitMode.METRO, transitModeOf(401))
+        assertEquals(TransitMode.BUS, transitModeOf(715))
+        assertEquals(TransitMode.TRAM, transitModeOf(900))
+        assertEquals(TransitMode.FERRY, transitModeOf(1000))
+        assertEquals(TransitMode.OTHER, transitModeOf(1700))
+    }
+
+    @Test
+    fun coloriGtfs() {
+        assertEquals(0xFF00AA11.toInt(), parseGtfsColor("00AA11"))
+        assertEquals(0xFF00AA11.toInt(), parseGtfsColor("#00aa11"))
+        assertNull(parseGtfsColor(""))
+        assertNull(parseGtfsColor("12345"))
+        assertNull(parseGtfsColor("zzzzzz"))
+        assertNull(parseGtfsColor(null))
+    }
+
+    @Test
+    fun informazioniDelleReti() {
+        val feeds = listOf(feed, TransitFeedInfo("mdb-2", "Milano", "ATM", "https://example.org/licenza"))
+        assertEquals(feeds, TransitFeedInfo.decode(TransitFeedInfo.encode(feeds)))
+    }
+}

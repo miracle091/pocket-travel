@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -41,6 +42,7 @@ import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.isOnCellularNetwork
+import com.pockettravel.core.ui.R as UiR
 
 // Dettaglio di una regione installata: mappa, percorsi (routing) e punti di interesse, ciascuno
 // con il proprio stato e scaricabile, aggiornabile o eliminabile senza toccare gli altri.
@@ -144,7 +146,13 @@ private fun PackageRow(pkg: PackageUiState, enabled: Boolean, onDownload: () -> 
         RegionStatus.NOT_INSTALLED -> sizedStatus(R.string.package_status_not_installed, R.string.package_status_not_installed_no_size, pkg.downloadBytes)
     }
     ListItem(
-        supportingContent = { Text(supporting) },
+        supportingContent = {
+            Column {
+                // Le reti dei mezzi pubblici incluse nel pacchetto.
+                pkg.detail?.let { Text(it) }
+                Text(supporting)
+            }
+        },
         leadingContent = { Icon(pkg.kind.icon(), contentDescription = null) },
         trailingContent = {
             when (pkg.status) {
@@ -194,6 +202,7 @@ internal fun PackageKind.label(): Int = when (this) {
     PackageKind.POI_EXTRA -> R.string.package_poi_extra
     PackageKind.ADDRESSES -> R.string.package_addresses
     PackageKind.CITIES -> R.string.package_cities
+    PackageKind.TRANSIT -> R.string.package_transit
 }
 
 @StringRes
@@ -204,6 +213,7 @@ internal fun PackageKind.deleteTitle(): Int = when (this) {
     PackageKind.POI_EXTRA -> R.string.package_delete_title_poi_extra
     PackageKind.ADDRESSES -> R.string.package_delete_title_addresses
     PackageKind.CITIES -> R.string.package_delete_title_cities
+    PackageKind.TRANSIT -> R.string.package_delete_title_transit
 }
 
 @Composable
@@ -214,4 +224,5 @@ internal fun PackageKind.icon(): ImageVector = when (this) {
     PackageKind.POI_EXTRA -> AppIcons.AddLocation
     PackageKind.ADDRESSES -> AppIcons.HomePin
     PackageKind.CITIES -> AppIcons.Cities
+    PackageKind.TRANSIT -> ImageVector.vectorResource(UiR.drawable.ms_directions_bus)
 }

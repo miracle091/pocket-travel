@@ -9,8 +9,10 @@ import com.pockettravel.core.sync.PoiPackageEntry
 import com.pockettravel.core.sync.RegionAddressGridEntry
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionManifestFile
+import com.pockettravel.core.sync.RegionTransitEntry
 import com.pockettravel.core.sync.ReplacedRegion
 import com.pockettravel.core.sync.RoutingPackageEntry
+import com.pockettravel.core.sync.TransitFeed
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -37,7 +39,40 @@ class RegionUiItemTest {
         addressGrid = RegionAddressGridEntry(listOf(AddressGridCell("1/0/0", "a1", file("cell-1-0-0--addresses.pmtiles", 50_000_000)))),
     )
 
+    private val withTransit = remote.copy(
+        transit = RegionTransitEntry(
+            listOf(
+                TransitFeed("mdb-1", "Riga", listOf("italia"), "CC0-1.0", "Riga", null, "v1", file("transit.db", 4_000_000), file("transit.db.xz", 800_000)),
+                TransitFeed("mdb-2", "Jurmala", listOf("italia"), "CC0-1.0", "Jurmala", null, "v1", file("transit.db", 1_000_000)),
+            ),
+        ),
+    )
+
     private val noBytes: (RegionPackage, PackageKind) -> Long? = { _, _ -> null }
+
+    @Test
+    fun `gli orari dei mezzi pubblici sono un pacchetto con i nomi delle reti e il peso, fuori dal download completo`() {
+        val item = regionUiItem(withTransit, null, noBytes)
+
+        assertEquals(60_000_000L, item.sizeBytes)
+        val transit = item.packages.first { it.kind == PackageKind.TRANSIT }
+        assertEquals("Riga, Jurmala", transit.detail)
+        assertEquals(1_800_000L, transit.downloadBytes)
+        assertEquals(RegionStatus.NOT_INSTALLED, transit.status)
+        assertEquals("solo i civici sono 'non disponibili'", listOf(PackageKind.ADDRESSES), item.unavailableKinds)
+        assertEquals(null, item.packages.first { it.kind == PackageKind.MAP }.detail)
+    }
+
+    @Test
+    fun `una regione installata senza gli orari resta installata, con gli orari vecchi e' da aggiornare`() {
+        assertEquals(RegionStatus.INSTALLED, regionUiItem(withTransit, local(map = "m2", routing = "r1", poi = "p2"), noBytes).status)
+
+        val old = local(map = "m2", routing = "r1", poi = "p2").copy(transitVersion = "transit-vecchia")
+        val item = regionUiItem(withTransit, old, noBytes)
+        assertEquals(RegionStatus.UPDATE_AVAILABLE, item.status)
+        assertEquals(1_800_000L, item.sizeBytes)
+        assertEquals(setOf(PackageKind.TRANSIT), outdatedKinds(withTransit, old))
+    }
 
     @Test
     fun `una regione non installata mostra la dimensione del download completo, senza percorsi`() {

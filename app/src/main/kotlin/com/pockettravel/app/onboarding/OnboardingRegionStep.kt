@@ -71,6 +71,7 @@ internal fun OnboardingRegionStep(onboardingViewModel: OnboardingViewModel, view
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val nationality by onboardingViewModel.nationality.collectAsStateWithLifecycle()
     val wantsDirections by onboardingViewModel.wantsDirections.collectAsStateWithLifecycle()
+    val usageMode by onboardingViewModel.usageMode.collectAsStateWithLifecycle()
     // Regione scelta -> pacchetti da scaricare; resta dopo una rotazione.
     val selection = rememberSaveable(saver = selectionSaver) { mutableStateMapOf<String, Set<PackageKind>>() }
     val searching = uiState.query.isNotBlank()
@@ -113,7 +114,7 @@ internal fun OnboardingRegionStep(onboardingViewModel: OnboardingViewModel, view
                         OnboardingRegionRow(
                             item = item,
                             selectedKinds = selection[item.regionId],
-                            defaultKinds = defaultPackageChoice(item, wantsDirections),
+                            defaultKinds = defaultPackageChoice(item, wantsDirections, usageMode?.proposesTransit == true),
                             onSelectionChange = { kinds -> if (kinds.isNullOrEmpty()) selection.remove(item.regionId) else selection[item.regionId] = kinds },
                             viewModel = viewModel,
                         )

@@ -6,6 +6,7 @@ import com.pockettravel.core.data.RegionStorage.Companion.ADDRESSES_FILE
 import com.pockettravel.core.data.RegionStorage.Companion.MAP_FILE
 import com.pockettravel.core.data.RegionStorage.Companion.PREVIEW_FILE
 import com.pockettravel.core.data.RegionStorage.Companion.ROUTING_DIR
+import com.pockettravel.core.data.RegionStorage.Companion.TRANSIT_DIR
 import java.io.File
 import java.io.IOException
 import javax.inject.Inject
@@ -30,8 +31,8 @@ class RegionStorage @Inject constructor(
     fun stagingDirectoryFor(regionId: String, version: String): File = safeChild(safeChild(stagingDir, regionId, "regionId"), version, "version")
 
     /**
-     * Sostituisce un solo pacchetto della regione ([MAP_FILE], [ROUTING_DIR], [ADDRESSES_FILE] o
-     * [PREVIEW_FILE]) con quello in staging, lasciando intatti gli altri. Il precedente resta come backup fino a commit/rollback;
+     * Sostituisce un solo pacchetto della regione ([MAP_FILE], [ROUTING_DIR], [ADDRESSES_FILE],
+     * [PREVIEW_FILE] o [TRANSIT_DIR]) con quello in staging, lasciando intatti gli altri. Il precedente resta come backup fino a commit/rollback;
      * accanto resta anche [version], la versione in attivazione, per [recoverInterruptedActivations].
      */
     fun activatePackage(regionId: String, packageName: String, staged: File, version: String): Activation {
@@ -175,7 +176,12 @@ class RegionStorage @Inject constructor(
         // scritto e attivato accanto ad esso, atomicamente con lo stesso meccanismo di activatePackage.
         // Assente per le regioni installate col percorso di oggi (una sola voce "addresses").
         const val ADDRESSES_CELLS_FILE = "addresses-cells.json"
-        private val PACKAGE_NAMES = setOf(MAP_FILE, ROUTING_DIR, ADDRESSES_FILE, PREVIEW_FILE, ADDRESSES_CELLS_FILE)
+        // Orari dei mezzi pubblici: una transit.db per rete (<feedId>.db) piu' TRANSIT_FEEDS_FILE, attivati
+        // insieme come cartella, cosi' le reti sparite dal manifest spariscono con la sostituzione.
+        const val TRANSIT_DIR = "transit"
+        // Nome, attribuzione e licenza di ogni rete di TRANSIT_DIR (vedi TransitFeedInfo), per la scheda delle partenze.
+        const val TRANSIT_FEEDS_FILE = "feeds.json"
+        private val PACKAGE_NAMES = setOf(MAP_FILE, ROUTING_DIR, ADDRESSES_FILE, PREVIEW_FILE, ADDRESSES_CELLS_FILE, TRANSIT_DIR)
         // Istanze di RegionStorage non condivise: due recuperi della stessa regione non si sovrappongono.
         private val RECOVERY_LOCK = Any()
 

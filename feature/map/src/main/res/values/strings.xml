@@ -240,4 +240,32 @@
     <string name="turn_u_turn">Fai inversione</string>
     <string name="turn_roundabout">Alla rotonda prendi l\'uscita %1$d</string>
     <string name="turn_arrive">Arrivo</string>
+    <string name="transit_title">Prossime partenze</string>
+    <string name="transit_loading">Carico gli orari…</string>
+    <string name="transit_no_stops">Nessun orario per questa fermata</string>
+    <string name="transit_none_soon">Nessuna partenza nelle prossime 3 ore</string>
+    <string name="transit_valid_until">Orari validi fino al %1$s</string>
+    <string name="transit_expired">Gli orari sono scaduti (validi fino al %1$s)</string>
+    <string name="transit_expiring">Gli orari stanno per scadere</string>
+    <string name="transit_update">Aggiorna</string>
+    <string name="transit_download">Scarica gli orari dei mezzi pubblici</string>
+    <string name="transit_downloading">Scarico gli orari dei mezzi pubblici…</string>
+    <string name="transit_source">Fonte: %1$s</string>
+    <string name="transit_in_min">tra %1$d min</string>
+    <string name="transit_now">ora</string>
+    <plurals name="transit_in_minutes_spoken">
+        <item quantity="one">tra %1$d minuto</item>
+        <item quantity="other">tra %1$d minuti</item>
+    </plurals>
+    <string name="transit_departure_description">Linea %1$s, %2$s, direzione %3$s, alle %4$s, %5$s</string>
+    <string name="transit_departure_description_no_headsign">Linea %1$s, %2$s, alle %3$s, %4$s</string>
+    <string name="transit_mode_tram">Tram</string>
+    <string name="transit_mode_metro">Metro</string>
+    <string name="transit_mode_train">Treno</string>
+    <string name="transit_mode_bus">Autobus</string>
+    <string name="transit_mode_trolleybus">Filobus</string>
+    <string name="transit_mode_ferry">Traghetto</string>
+    <string name="transit_mode_cable">Funivia</string>
+    <string name="transit_mode_monorail">Monorotaia</string>
+    <string name="transit_mode_other">Altro mezzo</string>
 </resources>

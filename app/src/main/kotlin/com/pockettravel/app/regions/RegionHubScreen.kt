@@ -151,6 +151,8 @@ fun RegionHubScreen(
                         val accessible by mapViewModel.accessible.collectAsStateWithLifecycle()
                         val onlyAccessible by mapViewModel.onlyAccessible.collectAsStateWithLifecycle()
                         val mapSource by mapViewModel.mapSource.collectAsStateWithLifecycle()
+                        val transitState by viewModel.transitState.collectAsStateWithLifecycle()
+                        val transitBoard by mapViewModel.transitBoard.collectAsStateWithLifecycle()
                         val sourceKind = mapSource.kind
                         val language = LocalLocale.current.platformLocale.language
                         Column(modifier = Modifier.fillMaxSize()) {
@@ -168,6 +170,10 @@ fun RegionHubScreen(
                                     onNavigate = { pin ->
                                         onNavigate(pin.latitude, pin.longitude, pin.displayName(language) ?: pin.name.orEmpty())
                                     },
+                                    transitPackage = transitState,
+                                    transitBoard = transitBoard,
+                                    onDownloadTransit = viewModel::downloadTransit,
+                                    onTransitStopChange = mapViewModel::showDepartures,
                                 )
                             }
                             if (sourceKind != MapSourceKind.FULL) {

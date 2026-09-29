@@ -645,9 +645,9 @@ private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actio
 @StringRes
 private fun RegionUiItem.statusLabel(): Int = when (status) {
     RegionStatus.NOT_INSTALLED -> R.string.regions_status_not_installed
-    // I POI extra si scaricano solo su richiesta: senza, la regione e' comunque completa.
+    // I POI extra e gli orari dei mezzi pubblici si scaricano solo su richiesta: senza, la regione e' comunque completa.
     RegionStatus.INSTALLED ->
-        if (packages.any { it.status == RegionStatus.NOT_INSTALLED && it.kind != PackageKind.POI_EXTRA }) {
+        if (packages.any { it.status == RegionStatus.NOT_INSTALLED && it.kind != PackageKind.POI_EXTRA && it.kind != PackageKind.TRANSIT }) {
             R.string.regions_status_partial
         } else {
             R.string.regions_status_installed

@@ -57,7 +57,8 @@ class RegionSyncScheduler @Inject constructor(
         val data = Data.Builder()
             .putString(
                 RegionPackageDownloadWorker.KEY_MANIFEST_ENTRY,
-                json.encodeToString(RegionManifestEntry.serializer(), entry),
+                // Le reti dei mezzi pubblici pesano nell'input di lavoro (tetto di 10 KB di WorkManager): solo se richieste.
+                json.encodeToString(RegionManifestEntry.serializer(), if (PackageKind.TRANSIT in kinds) entry else entry.copy(transit = null)),
             )
             .putStringArray(RegionPackageDownloadWorker.KEY_PACKAGE_KINDS, kinds.map { it.name }.toTypedArray())
             .build()

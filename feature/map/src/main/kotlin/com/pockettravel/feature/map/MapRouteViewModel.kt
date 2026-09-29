@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.TransitBoard
+import com.pockettravel.core.data.TransitRepository
 import com.pockettravel.core.data.hasName
 import com.pockettravel.core.data.isHiddenOnMap
 import com.pockettravel.core.data.poiCategory
@@ -33,6 +35,7 @@ class MapRouteViewModel @Inject constructor(
     private val poiRepository: PoiRepository,
     regionRepository: RegionRepository,
     private val filterPreferences: MapFilterPreferences,
+    private val transitRepository: TransitRepository,
     usageModePreferences: UsageModePreferences,
     connectivityObserver: ConnectivityObserver,
 ) : ViewModel() {
@@ -49,6 +52,20 @@ class MapRouteViewModel @Inject constructor(
     private var loadPinsJob: Job? = null
 
     private val regionIdFlow = MutableStateFlow<String?>(null)
+
+    // Partenze del POI di trasporto aperto nella scheda: null finche' si leggono o senza POI.
+    private val _transitBoard = MutableStateFlow<TransitBoard?>(null)
+    val transitBoard: StateFlow<TransitBoard?> = _transitBoard.asStateFlow()
+    private var transitJob: Job? = null
+
+    /** Legge le prossime partenze vicino a [pin]; null (scheda chiusa o orari non installati) le azzera. */
+    fun showDepartures(pin: MapPin?) {
+        transitJob?.cancel()
+        _transitBoard.value = null
+        val regionId = regionIdFlow.value
+        if (pin == null || regionId == null) return
+        transitJob = viewModelScope.launch { _transitBoard.value = transitRepository.board(regionId, pin.latitude, pin.longitude) }
+    }
 
     // Versioni installate di mappa, anteprima e civici della regione corrente, dal database: cambiano
     // quando un pacchetto finisce di installarsi, anche in background con la scheda Mappa aperta.

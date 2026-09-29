@@ -46,6 +46,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)
+    // Esegue le query di TransitBoard su un transit.db sintetico (android.database.sqlite non c'e' nei test JVM).
+    testImplementation(libs.sqlite.jdbc)
 
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)

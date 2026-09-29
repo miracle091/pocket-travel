@@ -3,6 +3,7 @@ package com.pockettravel.core.sync
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
+import com.pockettravel.core.data.TransitFeedInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -11,7 +12,7 @@ import javax.inject.Inject
 
 /**
  * Installa (o aggiorna) solo i pacchetti [kinds] di una regione, lasciando intatti gli altri:
- * scarica e verifica i file (poi.db, poi-extra.db, segmenti .rd5, addresses.pmtiles, cities.db), estrae map.pmtiles dalla build Protomaps,
+ * scarica e verifica i file (poi.db, poi-extra.db, segmenti .rd5, addresses.pmtiles, cities.db, transit.db), estrae map.pmtiles dalla build Protomaps,
  * poi sostituisce ogni pacchetto su disco e importa i POI e le guide delle citta'. Se un passo
  * fallisce, i pacchetti gia' sostituiti tornano alla versione precedente. Il chiamante valida [entry].
  */
@@ -45,6 +46,7 @@ class RegionPackageInstaller @Inject constructor(
             if (PackageKind.POI_EXTRA in kinds) add(entry.poiExtra!!.downloadFile)
             if (PackageKind.ADDRESSES in kinds) addAll(addressPlan!!.toDownload.map { it.downloadFile })
             if (PackageKind.CITIES in kinds) add(entry.cities!!.downloadFile)
+            if (PackageKind.TRANSIT in kinds) addAll(entry.transit!!.feeds.map { it.stagedDownloadFile })
             if (installPreview) add(entry.preview.downloadFile)
         }
         // Prima di tutto: un tentativo precedente interrotto da un crash puo' aver lasciato backup da
@@ -64,6 +66,10 @@ class RegionPackageInstaller @Inject constructor(
             }
         }
         if (PackageKind.CITIES in kinds) unpackXz(staging, entry.cities!!.file, entry.cities.fileXz)
+        if (PackageKind.TRANSIT in kinds) {
+            entry.transit!!.feeds.forEach { unpackXz(staging, it.stagedFile, it.stagedFileXz) }
+            withContext(Dispatchers.IO) { assembleTransitDir(staging, entry.transit.feeds) }
+        }
         if (installPreview) unpackXz(staging, entry.preview.file, entry.preview.fileXz)
 
         if (PackageKind.MAP in kinds) {
@@ -104,6 +110,9 @@ class RegionPackageInstaller @Inject constructor(
                 activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_FILE, File(staging, RegionStorage.ADDRESSES_FILE), version)
                 activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_CELLS_FILE, File(staging, RegionStorage.ADDRESSES_CELLS_FILE), version)
             }
+            if (PackageKind.TRANSIT in kinds) {
+                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.TRANSIT_DIR, File(staging, RegionStorage.TRANSIT_DIR), entry.versionOf(PackageKind.TRANSIT)!!)
+            }
             if (installPreview) {
                 activations += regionStorage.activatePackage(entry.regionId, RegionStorage.PREVIEW_FILE, File(staging, entry.preview.file.name), entry.preview.version)
             }
@@ -127,4 +136,20 @@ class RegionPackageInstaller @Inject constructor(
         activations.forEach { it.commit() }
         staging.deleteRecursively()
     }
+}
+
+/**
+ * Prepara la cartella degli orari da attivare: `transit/` in [staging] con una `<id>.db` per rete
+ * (gia' scaricata e decompressa, vedi [stagedFile]) e [RegionStorage.TRANSIT_FEEDS_FILE] con nome e
+ * attribuzione di ciascuna. Attivata come cartella, sostituisce le reti precedenti: quelle sparite dal
+ * manifest spariscono con lei.
+ */
+internal fun assembleTransitDir(staging: File, feeds: List<TransitFeed>) {
+    val dir = File(staging, RegionStorage.TRANSIT_DIR)
+    dir.deleteRecursively()
+    check(dir.mkdirs()) { "Impossibile creare ${RegionStorage.TRANSIT_DIR}" }
+    feeds.forEach { feed ->
+        check(File(staging, feed.stagedFile.name).renameTo(File(dir, feed.stagedFile.name))) { "Impossibile installare la rete ${feed.id}" }
+    }
+    File(dir, RegionStorage.TRANSIT_FEEDS_FILE).writeText(TransitFeedInfo.encode(feeds.map { it.info() }))
 }

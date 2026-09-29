@@ -6,4 +6,5 @@ package com.pockettravel.core.data
  */
 // POI_EXTRA: fontanelle, tavoli da picnic, parchi giochi... (vedi core:poi), solo su richiesta.
 // CITIES: guide delle citta' della regione (city_sections), scaricate col resto nel download completo.
-enum class PackageKind { MAP, ROUTING, POI, POI_EXTRA, ADDRESSES, CITIES }
+// TRANSIT: orari dei mezzi pubblici (una transit.db per rete, GTFS), solo su richiesta come i POI extra.
+enum class PackageKind { MAP, ROUTING, POI, POI_EXTRA, ADDRESSES, CITIES, TRANSIT }

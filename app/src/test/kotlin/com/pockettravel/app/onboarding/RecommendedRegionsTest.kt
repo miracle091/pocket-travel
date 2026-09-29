@@ -47,4 +47,18 @@ class RecommendedRegionsTest {
         assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI), defaultPackageChoice(item, withRouting = true))
         assertEquals(30L, downloadBytes(item, setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI)))
     }
+
+    @Test
+    fun `gli orari dei mezzi pubblici si spuntano solo se la modalita' li propone, e solo se la regione li offre`() {
+        val withTransit = italia.copy(
+            packages = listOf(PackageKind.MAP, PackageKind.POI, PackageKind.TRANSIT)
+                .map { PackageUiState(it, RegionStatus.NOT_INSTALLED, downloadBytes = 10, installedBytes = null) },
+        )
+        val without = italia.copy(packages = withTransit.packages.filter { it.kind != PackageKind.TRANSIT })
+
+        assertEquals(setOf(PackageKind.MAP, PackageKind.POI, PackageKind.TRANSIT), defaultPackageChoice(withTransit, withRouting = false, withTransit = true))
+        assertEquals(setOf(PackageKind.MAP, PackageKind.POI), defaultPackageChoice(withTransit, withRouting = false, withTransit = false))
+        assertEquals(setOf(PackageKind.MAP, PackageKind.POI), defaultPackageChoice(withTransit, withRouting = false))
+        assertEquals(setOf(PackageKind.MAP, PackageKind.POI), defaultPackageChoice(without, withRouting = false, withTransit = true))
+    }
 }

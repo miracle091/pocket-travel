@@ -20,7 +20,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CitySectionFts::class,
         NoteEntity::class,
     ],
-    version = 16,
+    version = 17,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -35,10 +35,10 @@ abstract class RegionDatabase : RoomDatabase() {
 }
 /** Tutte le migrazioni, per Room.databaseBuilder e per i test. */
 val ALL_MIGRATIONS: Array<Migration>
-    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_16)
+    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17)
 
 /** Versioni del database mai uscite in una versione pubblicata dell'app (solo sviluppo). */
-val UNRELEASED_VERSIONS = intArrayOf(1, 2, 4, 7, 8, 10, 12, 13, 14)
+val UNRELEASED_VERSIONS = intArrayOf(1, 2, 4, 7, 8, 10, 12, 13, 14, 16)
 
 // Una migrazione per ogni versione dell'app pubblicata, dal suo database al successivo: chi
 // aggiorna salta le versioni intermedie usate solo durante lo sviluppo. Le versioni 1 e 2 non sono
@@ -241,10 +241,10 @@ val MIGRATION_11_15 = object : Migration(11, 15) {
     }
 }
 
-// Da 15 (v0.8.0) a 16 (prossima versione).
+// Da 15 (v0.8.0) a 17 (prossima versione; la 16 e' stata solo di sviluppo, senza transitVersion).
 // Orari e indirizzo dei POI di cibo, alloggi e ambasciate, sito ed email di alloggi e ambasciate, paese rappresentato dalle ambasciate, nomi in inglese e italiano: vuoti finche' la regione non riscarica
-// i punti di interesse pubblicati con questi dati.
-val MIGRATION_15_16 = object : Migration(15, 16) {
+// i punti di interesse pubblicati con questi dati; versione degli orari dei mezzi pubblici installati.
+val MIGRATION_15_17 = object : Migration(15, 17) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `openingHours` TEXT")
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `address` TEXT")
@@ -253,5 +253,7 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `country` TEXT")
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `nameEn` TEXT")
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `nameIt` TEXT")
+        // Orari dei mezzi pubblici (pacchetto TRANSIT): nessuna regione gia' installata li ha.
+        db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `transitVersion` TEXT")
     }
 }

@@ -7,7 +7,7 @@ import java.net.URI
 /**
  * manifest.json nel formato a pacchetti (manifestVersion 2, generato da tools/data-pipeline):
  * un pacchetto guide unico per tutte le regioni, e per ogni regione i pacchetti mappa, routing,
- * POI e (facoltativi) POI extra e civici, ciascuno con la propria versione, scaricabili e aggiornabili
+ * POI e (facoltativi) POI extra, civici e orari dei mezzi pubblici, ciascuno con la propria versione, scaricabili e aggiornabili
  * separatamente.
  */
 @Serializable
@@ -20,6 +20,9 @@ data class RegionManifest(
     // Pages: assente finche' la pipeline non e' passata alla griglia, o per le app vecchie che non
     // lo sanno leggere (ignoreUnknownKeys = true).
     val addressGrid: AddressGridManifestEntry? = null,
+    // Reti dei mezzi pubblici (transit.json, a fianco di manifest.json): come addressGrid, assente finche'
+    // la pipeline non le pubblica o per le app vecchie.
+    val transit: TransitManifestEntry? = null,
     val regions: List<RegionManifestEntry>,
     // Regioni tolte e divise in regioni piu' piccole (es. "stati-uniti" -> gli stati): l'app le propone
     // a chi ha ancora installata quella vecchia.
@@ -62,6 +65,11 @@ data class RegionManifestEntry(
     // non puo' disallinearsi dalle celle. Null se il manifest non offre [RegionManifest.addressGrid]
     // o se questa regione non ha celle nel suo riquadro.
     val addressGrid: RegionAddressGridEntry? = null,
+    // Reti dei mezzi pubblici che servono questa regione: mai nel manifest, valorizzato dall'app dopo
+    // aver scaricato transit.json (TransitClient + attachTransitFeeds) prima di accodare un download,
+    // come addressGrid. La versione del pacchetto si calcola da qui (regionTransitVersion). Null se il
+    // manifest non offre transit.json o nessuna rete e' di questa regione.
+    val transit: RegionTransitEntry? = null,
     // Guide delle citta' (city_sections di cities.db): assenti per le regioni senza citta' abbinate.
     val cities: CitiesPackageEntry? = null,
     // Citta' di Wikivoyage EN (build-cities.sh ... en). L'app non le legge da qui: con l'interfaccia in
@@ -91,20 +99,22 @@ data class RegionManifestEntry(
         PackageKind.POI_EXTRA -> poiExtra?.version
         PackageKind.ADDRESSES -> addressGrid?.let { regionAddressesGridVersion(it.cells) }
         PackageKind.CITIES -> cities?.version
+        PackageKind.TRANSIT -> transit?.let { regionTransitVersion(it.feeds) }
     }
 
-    /** I pacchetti che il manifest offre per questa regione (tutti tranne, a volte, POI extra e civici). */
+    /** I pacchetti che il manifest offre per questa regione (tutti tranne, a volte, POI extra, civici e mezzi pubblici). */
     val availableKinds: Set<PackageKind>
         get() = PackageKind.entries.filterTo(mutableSetOf()) { versionOf(it) != null }
 
     /**
      * I pacchetti del download completo ("Scarica"): tutti quelli offerti tranne i POI extra e i
      * percorsi, solo su richiesta dal foglio Pacchetti o con [downloadKinds]. I percorsi pesano
-     * (Italia 840 MB) e servono solo alla navigazione. "Aggiorna" riguarda comunque tutti i pacchetti
-     * installati.
+     * (Italia 840 MB) e servono solo alla navigazione. Anche gli orari dei mezzi pubblici si chiedono
+     * a parte (la proposta del primo avvio dipende dalla modalita' d'uso). "Aggiorna" riguarda comunque
+     * tutti i pacchetti installati.
      */
     val defaultKinds: Set<PackageKind>
-        get() = availableKinds - PackageKind.POI_EXTRA - PackageKind.ROUTING
+        get() = availableKinds - PackageKind.POI_EXTRA - PackageKind.ROUTING - PackageKind.TRANSIT
 
     /** Il download di "Scarica": [defaultKinds] piu' i percorsi se l'utente vuole le indicazioni. */
     fun downloadKinds(withRouting: Boolean): Set<PackageKind> =
@@ -123,7 +133,8 @@ data class RegionManifestEntry(
             (if (PackageKind.POI in kinds) poi.downloadFile.sizeBytes else 0L) +
             (if (PackageKind.POI_EXTRA in kinds) poiExtra?.downloadFile?.sizeBytes ?: 0L else 0L) +
             (if (PackageKind.ADDRESSES in kinds) addressesDownloadBytes(installedAddressCells) else 0L) +
-            (if (PackageKind.CITIES in kinds) cities?.downloadFile?.sizeBytes ?: 0L else 0L)
+            (if (PackageKind.CITIES in kinds) cities?.downloadFile?.sizeBytes ?: 0L else 0L) +
+            (if (PackageKind.TRANSIT in kinds) transit?.feeds?.sumOf { it.downloadFile.sizeBytes } ?: 0L else 0L)
 
     private fun addressesDownloadBytes(installedAddressCells: Map<String, String>): Long =
         addressGrid?.cells?.filter { installedAddressCells[it.id] != it.version }?.sumOf { it.downloadFile.sizeBytes } ?: 0L
@@ -240,6 +251,7 @@ fun RegionManifestEntry.validate() {
         it.fileXz?.validate(regionId)
     }
     addressGrid?.cells?.forEach { it.validate(regionId) }
+    transit?.feeds?.forEach { it.validate() }
     listOfNotNull(cities, citiesEn).forEach {
         require(isSafeVersion(it.version)) { "version delle guide di citta' non valida per $regionId" }
         it.file.validate(regionId)
@@ -300,16 +312,16 @@ private fun AddressGridCell.validate(owner: String) {
     fileXz?.validate("$owner/$id")
 }
 
-private fun RegionManifestFile.validate(owner: String) {
+internal fun RegionManifestFile.validate(owner: String) {
     require(isSafeSegment(name)) { "file.name non valido per $owner" }
     require(sizeBytes >= 0) { "Dimensione non valida per $owner/$name" }
     require(sha256.matches(Regex("[0-9a-fA-F]{64}"))) { "SHA-256 non valido per $owner/$name" }
     require(isAllowedManifestUrl(url)) { "URL non consentito per $owner/$name" }
 }
 
-private fun isSafeVersion(version: String): Boolean = version.matches(Regex("[A-Za-z0-9._-]+"))
+internal fun isSafeVersion(version: String): Boolean = version.matches(Regex("[A-Za-z0-9._-]+"))
 
-private fun isAllowedManifestUrl(url: String): Boolean {
+internal fun isAllowedManifestUrl(url: String): Boolean {
     val uri = runCatching { URI(url) }.getOrNull() ?: return false
     val secure = uri.scheme.equals("https", ignoreCase = true) ||
         (uri.scheme == "http" && uri.host != null && uri.host == SyncConfig.CLEARTEXT_MANIFEST_HOST)
@@ -317,5 +329,5 @@ private fun isAllowedManifestUrl(url: String): Boolean {
         uri.host in SyncConfig.ALLOWED_MANIFEST_HOSTS && uri.userInfo == null && uri.fragment == null
 }
 
-private fun isSafeSegment(value: String): Boolean = value.isNotEmpty() && value != "." && value != ".." &&
+internal fun isSafeSegment(value: String): Boolean = value.isNotEmpty() && value != "." && value != ".." &&
     !value.contains('/') && !value.contains('\\') && value.matches(Regex("[A-Za-z0-9._-]+"))

@@ -74,6 +74,7 @@ class RegionRepository @Inject constructor(
                 // (deletePackage torna comunque true) per il percorso di oggi.
                 regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_CELLS_FILE)
             }
+            PackageKind.TRANSIT -> check(regionStorage.deletePackage(regionId, RegionStorage.TRANSIT_DIR)) { "Impossibile eliminare gli orari dei mezzi di $regionId" }
             PackageKind.POI, PackageKind.POI_EXTRA, PackageKind.CITIES -> Unit
         }
         database.withTransaction {
@@ -81,7 +82,7 @@ class RegionRepository @Inject constructor(
                 PackageKind.POI -> poiDao.deletePackageForRegion(regionId, extra = false)
                 PackageKind.POI_EXTRA -> poiDao.deletePackageForRegion(regionId, extra = true)
                 PackageKind.CITIES -> cityDao.deleteForRegion(regionId)
-                PackageKind.MAP, PackageKind.ROUTING, PackageKind.ADDRESSES -> Unit
+                PackageKind.MAP, PackageKind.ROUTING, PackageKind.ADDRESSES, PackageKind.TRANSIT -> Unit
             }
             save(
                 regionId, current.displayName, current.countryCode,
@@ -110,7 +111,7 @@ class RegionRepository @Inject constructor(
         }
         val diskBytes = regionStorage.packageBytes(regionId, RegionStorage.MAP_FILE) + regionStorage.packageBytes(regionId, RegionStorage.ROUTING_DIR) +
             regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_FILE) + regionStorage.packageBytes(regionId, RegionStorage.PREVIEW_FILE) +
-            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_CELLS_FILE)
+            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_CELLS_FILE) + regionStorage.packageBytes(regionId, RegionStorage.TRANSIT_DIR)
         regionPackageDao.upsert(
             InstalledRegionEntity(
                 regionId = regionId,
@@ -128,6 +129,7 @@ class RegionRepository @Inject constructor(
                 installedAt = System.currentTimeMillis(),
                 citiesVersion = versionOf(PackageKind.CITIES),
                 citiesSizeBytes = citiesSizeBytes,
+                transitVersion = versionOf(PackageKind.TRANSIT),
             ),
         )
     }
@@ -156,6 +158,7 @@ class RegionRepository @Inject constructor(
                 RegionStorage.ADDRESSES_FILE -> current?.addressesVersion
                 RegionStorage.ADDRESSES_CELLS_FILE -> current?.addressesVersion
                 RegionStorage.PREVIEW_FILE -> current?.previewVersion
+                RegionStorage.TRANSIT_DIR -> current?.transitVersion
                 else -> null
             }
         }
@@ -172,12 +175,13 @@ class RegionRepository @Inject constructor(
         }
     }
 
-    /** Byte occupati da un pacchetto installato: mappa, routing e civici dal disco, POI (base ed extra) e citta' dalla dimensione registrata. */
+    /** Byte occupati da un pacchetto installato: mappa, routing, civici e orari dei mezzi dal disco, POI (base ed extra) e citta' dalla dimensione registrata. */
     fun packageBytes(region: RegionPackage, kind: PackageKind): Long? = when {
         region.versionOf(kind) == null -> null
         kind == PackageKind.MAP -> regionStorage.packageBytes(region.regionId, RegionStorage.MAP_FILE)
         kind == PackageKind.ROUTING -> regionStorage.packageBytes(region.regionId, RegionStorage.ROUTING_DIR)
         kind == PackageKind.ADDRESSES -> regionStorage.packageBytes(region.regionId, RegionStorage.ADDRESSES_FILE)
+        kind == PackageKind.TRANSIT -> regionStorage.packageBytes(region.regionId, RegionStorage.TRANSIT_DIR)
         kind == PackageKind.POI_EXTRA -> region.poiExtraSizeBytes
         kind == PackageKind.CITIES -> region.citiesSizeBytes
         else -> region.poiSizeBytes
@@ -204,4 +208,5 @@ private fun InstalledRegionEntity.toDomain() = RegionPackage(
     previewVersion = previewVersion,
     citiesVersion = citiesVersion,
     citiesSizeBytes = citiesSizeBytes,
+    transitVersion = transitVersion,
 )

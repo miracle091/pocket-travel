@@ -6,7 +6,11 @@ import androidx.work.WorkInfo
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.sync.ManifestClient
+import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
+import com.pockettravel.core.sync.TransitClient
+import com.pockettravel.core.sync.attachTransitFeeds
+import com.pockettravel.feature.map.TransitPackageState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +38,7 @@ class RegionHubViewModel @Inject constructor(
     private val recentRegionPreferences: RecentRegionPreferences,
     private val manifestClient: ManifestClient,
     private val regionSyncScheduler: RegionSyncScheduler,
+    private val transitClient: TransitClient,
 ) : ViewModel() {
 
     private val _displayName = MutableStateFlow<String?>(null)
@@ -57,6 +62,25 @@ class RegionHubViewModel @Inject constructor(
         ) { hasMap, work -> mapState(hasMap, work) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RegionMapState.LOADING)
 
+    // La regione ha reti dei mezzi pubblici nel catalogo (letto solo se gli orari non sono ancora installati).
+    private val transitOffered = MutableStateFlow(false)
+
+    // Orari dei mezzi pubblici per la scheda delle fermate: installati, in scaricamento, scaricabili o non offerti.
+    val transitState: StateFlow<TransitPackageState> = regionId.filterNotNull().flatMapLatest { id ->
+        combine(
+            regionRepository.observeInstalled().map { regions -> regions.firstOrNull { it.regionId == id }?.transitVersion != null },
+            regionSyncScheduler.observeDownload(id),
+            transitOffered,
+        ) { installed, work, offered ->
+            when {
+                installed -> TransitPackageState.INSTALLED
+                work?.state == WorkInfo.State.RUNNING || work?.state == WorkInfo.State.ENQUEUED -> TransitPackageState.DOWNLOADING
+                offered -> TransitPackageState.AVAILABLE
+                else -> TransitPackageState.UNKNOWN
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TransitPackageState.UNKNOWN)
+
     fun load(regionId: String) {
         this.regionId.value = regionId
         recentRegionPreferences.setLastRegionId(regionId)
@@ -65,6 +89,26 @@ class RegionHubViewModel @Inject constructor(
             _displayName.value = name
             _regionMissing.value = name == null
         }
+        viewModelScope.launch {
+            val installed = regionRepository.installed(regionId)?.transitVersion != null
+            transitOffered.value = !installed && runCatching { entryWithTransit(regionId).transit != null }.getOrDefault(false)
+        }
+    }
+
+    /** Scarica o aggiorna gli orari dei mezzi pubblici della regione (scheda delle fermate). */
+    fun downloadTransit() {
+        val id = regionId.value ?: return
+        viewModelScope.launch {
+            runCatching { entryWithTransit(id) }
+                .onSuccess { if (it.transit != null) regionSyncScheduler.enqueueDownload(it, setOf(PackageKind.TRANSIT)) }
+        }
+    }
+
+    // La voce del manifest della regione con le sue reti (transit.json), come nell'elenco delle regioni.
+    private suspend fun entryWithTransit(id: String): RegionManifestEntry {
+        val manifest = manifestClient.fetchManifest()
+        val index = manifest.transit?.let { transitClient.fetchIndex(it) }
+        return attachTransitFeeds(manifest.regions.filter { it.regionId == id }, index).first()
     }
 
     fun downloadMap() {

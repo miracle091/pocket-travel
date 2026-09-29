@@ -20,6 +20,8 @@ data class RegionPackage(
     // vedi citiesSizeBytes). Default null: come previewVersion, non tocca le costruzioni esistenti.
     val citiesVersion: String? = null,
     val citiesSizeBytes: Long? = null,
+    // Orari dei mezzi pubblici (cartella transit): la dimensione si misura dal disco. Default null come citiesVersion.
+    val transitVersion: String? = null,
 ) {
     fun versionOf(kind: PackageKind): String? = when (kind) {
         PackageKind.MAP -> mapVersion
@@ -28,5 +30,6 @@ data class RegionPackage(
         PackageKind.POI_EXTRA -> poiExtraVersion
         PackageKind.ADDRESSES -> addressesVersion
         PackageKind.CITIES -> citiesVersion
+        PackageKind.TRANSIT -> transitVersion
     }
 }

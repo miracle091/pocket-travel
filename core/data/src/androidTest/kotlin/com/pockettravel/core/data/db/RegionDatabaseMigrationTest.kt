@@ -177,12 +177,12 @@ class RegionDatabaseMigrationTest {
     }
 
     @Test
-    fun migrazione15a16AggiungeIDettagliVuotiAiPoi() {
+    fun migrazione15a17AggiungeIDettagliVuotiAiPoiELaVersioneDegliOrari() {
         helper.createDatabase(DB_NAME, 15).use { db ->
             db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone, extra, wheelchair) VALUES ('italia', 'Da Mario', 'restaurant', 45.0, 9.0, 'amenity=restaurant', NULL, 0, 'yes')")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 16, true, MIGRATION_15_16).use { db ->
+        helper.runMigrationsAndValidate(DB_NAME, 17, true, MIGRATION_15_17).use { db ->
             db.query("SELECT name, wheelchair, openingHours, address, website, email, country FROM poi").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("Da Mario", cursor.getString(0))
@@ -194,7 +194,7 @@ class RegionDatabaseMigrationTest {
 
     // Chi aggiorna dalla prima versione pubblicata (v0.2.0) all'ultima: nessun dato perso.
     @Test
-    fun catenaCompletaDa3a16ConservaCassaforteRegioniPoiEGuide() {
+    fun catenaCompletaDa3a17ConservaCassaforteRegioniPoiEGuide() {
         helper.createDatabase(DB_NAME, 3).use { db ->
             db.execSQL("INSERT INTO passport_vault VALUES ('p1', 'cifrato', 1, 2)")
             db.execSQL("INSERT INTO installed_regions VALUES ('italia', 'Italia', '2026.09.01', 1000, 42)")
@@ -202,7 +202,7 @@ class RegionDatabaseMigrationTest {
             db.execSQL("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES ('italia', 'TRASPORTI', 'In treno', 'corpo', 'https://example.org')")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 16, true, *ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB_NAME, 17, true, *ALL_MIGRATIONS).use { db ->
             db.query("SELECT encryptedPayload FROM passport_vault WHERE id = 'p1'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("cifrato", cursor.getString(0))
