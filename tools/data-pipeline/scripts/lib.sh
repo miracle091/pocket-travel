@@ -224,7 +224,9 @@ fetch_wikivoyage_lang_dump() {
   for attempt in 1 2 3; do
     if wikimedia_curl -o "$outFile" "$baseUrl/$dumpName" 2>/dev/null \
       && wikimedia_curl -o "$sha1File" "$baseUrl/${lang}wikivoyage-latest-sha1sums.txt" 2>/dev/null; then
-      sha1="$(grep -F "$dumpName" "$sha1File" | awk '{print $1}' | head -1)"
+      # Il sha1sums di "latest" elenca i file con la data del dump ("itwikivoyage-20260901-pages-
+      # articles.xml.bz2"), non con "latest": si cerca quel nome, stesso contenuto dell'alias.
+      sha1="$(awk -v re="^${lang}wikivoyage-[0-9]+-pages-articles[.]xml[.]bz2\$" '$2 ~ re {print $1; exit}' "$sha1File")"
       if [ -n "$sha1" ] && printf '%s  %s\n' "$sha1" "$outFile" | sha1sum -c - >/dev/null 2>&1; then
         rm -f "$sha1File"
         return 0
