@@ -72,7 +72,7 @@ on:
       time_budget_minutes:
         description: >
           Minuti dopo i quali uno shard non inizia altre regioni e le rimanda a una run successiva
-          (job "build"). Vuoto = 290. Un valore piccolo serve a provare il rinvio.
+          (job "build"). Vuoto = 280. Un valore piccolo serve a provare il rinvio.
         required: false
         default: ""
       continuation:
@@ -806,7 +806,7 @@ jobs:
     needs: plan
     runs-on: ubuntu-24.04
     # Sotto le 6 h di GitHub (che interrompono il passo senza caricare i frammenti, run del
-    # 2026-09-28): budget di TIME_BUDGET_MINUTES (290) + una regione al massimo di
+    # 2026-09-28): budget di TIME_BUDGET_MINUTES (280) + una regione al massimo di
     # REGION_TIMEOUT_MINUTES (45) + preparazione e upload.
     timeout-minutes: 350
     permissions:
@@ -823,7 +823,7 @@ jobs:
       # Passato il budget lo shard non inizia altre regioni: le rimanda (deferred-<shard>.txt) e il
       # job "publish" le rilancia in una run nuova. Una regione oltre REGION_TIMEOUT_MINUTES e'
       # fallita (la piu' lenta misurata, cina-tibet alla prima generazione, 34 min).
-      TIME_BUDGET_MINUTES: ${{ github.event.inputs.time_budget_minutes || '290' }}
+      TIME_BUDGET_MINUTES: ${{ github.event.inputs.time_budget_minutes || '280' }}
       REGION_TIMEOUT_MINUTES: 45
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -1088,6 +1088,9 @@ jobs:
               if [ ! -f "$regionOut/.skipped" ] && [ ! -f "$regionOut/.incremental" ]; then
                 printf '%s\t%d\n' "$regionId" "$((SECONDS - regionStart))" >> "$RUNNER_TEMP/fragments/timings-${{ matrix.shard }}.tsv"
               fi
+              # File della regione gia' caricati: via dal disco (una copia rinominata per asset li
+              # raddoppiava), cosi' resta posto per le cache di Geofabrik e dei .rd5 dello shard.
+              rm -rf "$regionOut"
             else
               rc=$?
               if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
@@ -1257,7 +1260,16 @@ jobs:
           if [ -n "$NAMES" ]; then
             gh release download region-fragments --repo "${{ github.repository }}" --pattern '*.json' --dir "$PENDING_DIR" --clobber
           fi
-          echo "-- $(find "$PENDING_DIR" -name '*.json' | wc -l) frammenti in sospeso scaricati"
+          COUNT="$(find "$PENDING_DIR" -name '*.json' | wc -l)"
+          echo "-- $COUNT frammenti in sospeso scaricati"
+          # La lista degli asset di una release puo' fermarsi a 100: con tanti frammenti alcuni potrebbero
+          # non essere arrivati, e la pulizia cancellerebbe i loro file. Si pubblicano quelli scaricati
+          # (gli altri restano per la prossima run) ma senza pulizia.
+          if [ "$COUNT" -ge 100 ]; then
+            echo "::warning::$COUNT frammenti in sospeso, forse non tutti: niente pulizia degli asset in questa run"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           echo "ok=true" >> "$GITHUB_OUTPUT"
 
       - name: Assembla il sito
@@ -1497,6 +1509,8 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          # Dall'ambiente e non interpolato nello script: il nome di un ramo puo' contenere $(...).
+          REF_NAME: ${{ github.ref_name }}
           CONTINUATION: ${{ github.event.inputs.continuation }}
           TIME_BUDGET_INPUT: ${{ github.event.inputs.time_budget_minutes }}
           POI_MAX_AGE_INPUT: ${{ github.event.inputs.poi_max_age_days }}
@@ -1527,6 +1541,6 @@ jobs:
           ARGS=(-f regions="$DEFERRED" -f continuation="$NEXT")
           [ -z "${TIME_BUDGET_INPUT:-}" ] || ARGS+=(-f time_budget_minutes="$TIME_BUDGET_INPUT")
           [ -z "${POI_MAX_AGE_INPUT:-}" ] || ARGS+=(-f poi_max_age_days="$POI_MAX_AGE_INPUT")
-          gh workflow run publish-regions.yml --repo "${{ github.repository }}" --ref "${{ github.ref_name }}" "${ARGS[@]}"
+          gh workflow run publish-regions.yml --repo "${{ github.repository }}" --ref "$REF_NAME" "${ARGS[@]}"
           echo "-- continuazione $NEXT lanciata con $(tr ',' '\n' <<< "$DEFERRED" | wc -l) regioni"
           echo "Continuazione $NEXT lanciata con le regioni rimandate: $DEFERRED" >> "$GITHUB_STEP_SUMMARY"

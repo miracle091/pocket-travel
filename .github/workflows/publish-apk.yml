@@ -21,9 +21,17 @@ on:
 permissions:
   contents: write
 
+# Due bump ravvicinati uno dopo l'altro: senza, il job piu' vecchio potrebbe finire per ultimo e
+# riportare app-status.json a un versionCode precedente.
+concurrency:
+  group: publish-apk
+  cancel-in-progress: false
+
 jobs:
   check-version-bump:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     outputs:
       bumped: ${{ steps.check.outputs.bumped }}
     steps:
