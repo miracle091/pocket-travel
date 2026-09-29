@@ -84,26 +84,23 @@ internal class InferenceEngineImpl private constructor(
     /**
      * JNI methods
      * @see ai_chat.cpp
+     *
+     * @FastNative solo sulle chiamate istantanee: un thread dentro una @FastNative non si puo'
+     * sospendere per il GC, e caricamento, prompt e generazione durano secondi (jank o ANR).
      */
-    @FastNative
     private external fun init(nativeLibDir: String)
 
-    @FastNative
     private external fun load(modelPath: String): Int
 
-    @FastNative
     private external fun prepare(topK: Int, topP: Float, nThreads: Int): Int
 
     @FastNative
     private external fun systemInfo(): String
 
-    @FastNative
     private external fun benchModel(pp: Int, tg: Int, pl: Int, nr: Int): String
 
-    @FastNative
     private external fun processUserPrompt(userPrompt: String, predictLength: Int): Int
 
-    @FastNative
     private external fun generateNextToken(): String?
 
     @FastNative
@@ -112,10 +109,8 @@ internal class InferenceEngineImpl private constructor(
     @FastNative
     private external fun cancelGeneration()
 
-    @FastNative
     private external fun unload()
 
-    @FastNative
     private external fun shutdown()
 
     private val _state =

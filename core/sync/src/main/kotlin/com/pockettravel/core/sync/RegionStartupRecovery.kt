@@ -31,8 +31,13 @@ class RegionStartupRecovery @Inject constructor(
 
         val installed = regionRepository.observeInstalled().first().map { it.regionId }.toSet()
         for (stagingId in regionStorage.stagingIds()) {
-            val keep = if (stagingId == GuidesInstaller.STAGING_ID) regionSyncScheduler.isGuidesSyncPending()
-            else stagingId in installed || regionSyncScheduler.isDownloadPending(stagingId)
+            // _transit e _address_grid tengono l'indice scaricato per versione (TransitClient,
+            // AddressGridClient): cancellarli a ogni avvio li farebbe riscaricare.
+            val keep = when (stagingId) {
+                GuidesInstaller.STAGING_ID -> regionSyncScheduler.isGuidesSyncPending()
+                TransitClient.STAGING_ID, AddressGridClient.STAGING_ID -> true
+                else -> stagingId in installed || regionSyncScheduler.isDownloadPending(stagingId)
+            }
             if (!keep) regionStorage.deleteStaging(stagingId)
         }
     }

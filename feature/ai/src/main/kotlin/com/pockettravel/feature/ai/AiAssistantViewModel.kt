@@ -187,8 +187,6 @@ class AiAssistantViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(isBenchmarking = false, benchmarkResult = result, allBenchmarkResults = aiSettingsStore.allBenchmarkResults())
                 }
-            } catch (_: OnlineModelNotFoundException) {
-                _uiState.update { it.copy(isThinking = false, errorMessage = R.string.ai_error_model) }
             } catch (_: Exception) {
                 _uiState.update { it.copy(isBenchmarking = false, errorMessage = R.string.ai_error_benchmark) }
             }

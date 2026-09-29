@@ -7,6 +7,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 /**
@@ -31,7 +32,10 @@ class OnlineLlmClient @Inject constructor(
                 .post(json.encodeToString(OpenAiChatRequest.serializer(), requestBody).toRequestBody(JSON_MEDIA_TYPE))
                 .build()
 
-            okHttpClient.newCall(request).execute().use { response ->
+            // Risposta non in streaming: il server non manda nulla finche' non ha finito, e i 10 s di
+            // default di OkHttp non bastano ai modelli piu' lenti.
+            okHttpClient.newBuilder().readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS).build()
+                .newCall(request).execute().use { response ->
                 val responseBody = response.body.string()
                 if (!response.isSuccessful) {
                     if (response.code == 404 || (response.code == 400 && responseBody.contains("model", ignoreCase = true))) {
@@ -47,6 +51,7 @@ class OnlineLlmClient @Inject constructor(
 
     private companion object {
         const val TEMPERATURE = 0.3
+        const val READ_TIMEOUT_SECONDS = 120L
         val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 }

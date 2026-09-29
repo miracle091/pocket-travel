@@ -69,6 +69,7 @@ class GuideViewModel @Inject constructor(
     // stesso pattern, per coerenza di stile.
     private var loadedForRegionId: String? = null
     private var citiesJob: Job? = null
+    private var loadJob: Job? = null
     private var embassiesJob: Job? = null
     private var loadedCityKey: Pair<String, String>? = null
 
@@ -90,7 +91,10 @@ class GuideViewModel @Inject constructor(
                 _uiState.update { it.copy(embassiesCountry = country, embassies = embassies) }
             }
         }
-        viewModelScope.launch {
+        // Su tablet il ViewModel e' condiviso fra le regioni scelte: il caricamento lento della precedente
+        // non deve arrivare dopo e sovrascrivere quella nuova.
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, loadError = null) }
             try {
                 val sections = guideRepository.sectionsFor(regionId)

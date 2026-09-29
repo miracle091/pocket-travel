@@ -101,6 +101,12 @@ class LlmModelManager @Inject constructor(
 
         okHttpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
+                // .part gia' completo (processo chiuso fra l'ultimo byte e la verifica): il server
+                // risponde 416 al Range, e senza cancellarlo ogni nuovo tentativo fallirebbe uguale.
+                if (response.code == 416 && existingBytes > 0) {
+                    partFile.delete()
+                    throw IOException("Download modello da ricominciare: HTTP 416")
+                }
                 // Stessa classificazione di RegionPackageDownloader: un 4xx (tranne 408/429,
                 // tipicamente transitori) non cambierebbe ritentando la stessa richiesta; un
                 // errore di rete o un 5xx invece sì, il Worker chiamante puo' ritentare.

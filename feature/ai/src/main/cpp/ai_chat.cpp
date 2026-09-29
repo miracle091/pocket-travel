@@ -314,7 +314,8 @@ static std::string chat_add_and_format(const std::string &role, const std::strin
     if (add_ass && g_chat_template_supports_thinking) {
         formatted += "<think>\n\n</think>\n\n";
     }
-    LOGi("%s: Formatted and added %s message: \n%s\n", __func__, role.c_str(), formatted.c_str());
+    // Solo in verbose: il testo contiene domanda, contesto e note dell'utente, da non lasciare nel logcat.
+    LOGv("%s: Formatted and added %s message: \n%s\n", __func__, role.c_str(), formatted.c_str());
     return formatted;
 }
 
