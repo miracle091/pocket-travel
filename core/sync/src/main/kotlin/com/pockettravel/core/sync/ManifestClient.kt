@@ -26,10 +26,12 @@ class ManifestClient @Inject constructor(
                 error("Manifest fetch failed: HTTP ${response.code}")
             }
             val body = response.body.string().ifEmpty { error("Empty manifest response") }
-            json.decodeFromString(RegionManifest.serializer(), body).also { manifest ->
+            // Una regione non valida si scarta: senza, una sola voce rotta fermerebbe elenco e
+            // aggiornamenti di tutte le altre.
+            val parsed = json.decodeFromString(RegionManifest.serializer(), body)
+            parsed.copy(regions = parsed.regions.filter { entry -> runCatching { entry.validate() }.isSuccess }).also { manifest ->
                 manifest.guides.validate()
                 manifest.guidesEn?.validate()
-                manifest.regions.forEach(RegionManifestEntry::validate)
                 manifest.worldMap?.validate()
                 manifest.addressGrid?.validate()
                 manifest.transit?.validate()

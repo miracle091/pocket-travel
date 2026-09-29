@@ -54,16 +54,36 @@ class PoiImporter @Inject constructor(
         }
     }
 
+    /**
+     * Come [replace], ma leggendo [poiDbFile] a blocchi di [CHUNK_SIZE] righe invece che tutto in memoria:
+     * per le regioni grandi (centinaia di migliaia di POI, ognuno con una dozzina di stringhe) la lista
+     * intera rischia l'OutOfMemoryError. Il file si legge dentro la transazione (piu' lunga, ma e' un'installazione).
+     */
+    suspend fun replaceFromFile(regionId: String, poiDbFile: File, extra: Boolean = false) {
+        database.withTransaction {
+            poiDao.deletePackageForRegion(regionId, extra)
+            SQLiteDatabase.openDatabase(poiDbFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+                forEachPoiChunk(regionId, db, extra) { poiDao.insertAll(it) }
+            }
+        }
+    }
+
     // Le colonne facoltative dipendono da quando il file e' stato generato: i content.db v1 (vedi
     // MergeManifests.convertV1Region, tools/data-pipeline) pubblicati prima di "phone" non la hanno, i
     // poi.db pubblicati prima di "wheelchair" nemmeno questa. Selezionare una colonna assente farebbe
     // fallire l'intero download.
-    private fun readPois(regionId: String, db: SQLiteDatabase, extra: Boolean): List<PoiEntity> {
+    private suspend fun readPois(regionId: String, db: SQLiteDatabase, extra: Boolean): List<PoiEntity> {
+        val pois = mutableListOf<PoiEntity>()
+        forEachPoiChunk(regionId, db, extra) { pois += it }
+        return pois
+    }
+
+    private suspend fun forEachPoiChunk(regionId: String, db: SQLiteDatabase, extra: Boolean, onChunk: suspend (List<PoiEntity>) -> Unit) {
         // db.version legge PRAGMA user_version: assente (0) sui file nel vecchio formato, vedi la
         // nota di formato sopra la classe.
         val columns = poiColumns(db)
         val query = if (db.version >= 1) compactPoiQuery(columns) else poiQuery(columns)
-        val pois = mutableListOf<PoiEntity>()
+        var pois = ArrayList<PoiEntity>(CHUNK_SIZE)
         db.rawQuery(query, null).use { cursor ->
             fun optional(name: String): String? {
                 val index = cursor.getColumnIndex(name)
@@ -88,9 +108,13 @@ class PoiImporter @Inject constructor(
                     nameIt = optional("nameIt"),
                     extra = extra,
                 )
+                if (pois.size == CHUNK_SIZE) {
+                    onChunk(pois)
+                    pois = ArrayList(CHUNK_SIZE)
+                }
             }
         }
-        return pois
+        if (pois.isNotEmpty()) onChunk(pois)
     }
 
     private fun poiColumns(db: SQLiteDatabase): Set<String> {
@@ -103,6 +127,8 @@ class PoiImporter @Inject constructor(
     }
 
     companion object {
+        private const val CHUNK_SIZE = 5_000
+
         // Vedi GuidesImporter: eseguita via JDBC da un test JVM contro lo schema della pipeline.
         internal fun poiQuery(columns: Set<String>): String =
             "SELECT name, category, lat, lon, osmTag" + OPTIONAL_COLUMNS.filter { it in columns }.joinToString("") { ", $it" } + " FROM poi"

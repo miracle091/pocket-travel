@@ -81,6 +81,8 @@ class PmtilesExtractor @Inject constructor() {
                         throw error
                     } catch (error: Exception) {
                         if (error === interruption) throw error
+                        // Disco pieno: l'estrazione completa riscaricherebbe tutte le tile per fallire uguale.
+                        if (error is IOException && (error.message.orEmpty().contains("ENOSPC") || directory.usableSpace < LOW_SPACE_BYTES)) throw error
                         // altrimenti ripiego sull'estrazione completa qui sotto
                     }
                 }
@@ -217,5 +219,7 @@ class PmtilesExtractor @Inject constructor() {
 
     private companion object {
         const val ENSURE_ACTIVE_EVERY = 256
+        // Sotto questa soglia un errore di scrittura e' quasi certamente il disco pieno.
+        const val LOW_SPACE_BYTES = 16L * 1024 * 1024
     }
 }

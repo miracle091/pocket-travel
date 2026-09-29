@@ -118,9 +118,7 @@ static common_sampler *new_sampler(float temp, int32_t top_k, float top_p) {
 // top_k/top_p passati da Kotlin (OnDeviceLlmEngine): il resto del riferimento Arm usa solo i
 // default di common_params_sampling, qui invece si vuole lo stesso campionamento gia' in uso
 // con LiteRT-LM prima della migrazione.
-extern "C"
-JNIEXPORT jint JNICALL
-Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_prepare(JNIEnv * /*env*/, jobject /*unused*/, jint top_k, jfloat top_p, jint n_threads) {
+static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads) {
     g_n_threads = n_threads > 0 ? n_threads : DEFAULT_N_THREADS;
     auto *context = init_context(g_model);
     if (!context) { return 1; }
@@ -435,14 +433,7 @@ static std::string jstring_to_utf8(JNIEnv *env, jstring str) {
     return utf8;
 }
 
-extern "C"
-JNIEXPORT jint JNICALL
-Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processUserPrompt(
-        JNIEnv *env,
-        jobject /*unused*/,
-        jstring juser_prompt,
-        jint n_predict
-) {
+static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_predict) {
     // Reset short-term states
     reset_short_term_states();
 
@@ -604,12 +595,7 @@ static jstring utf8_to_jstring(JNIEnv *env, const std::string &utf8) {
     return env->NewString(utf16.data(), (jsize) utf16.size());
 }
 
-extern "C"
-JNIEXPORT jstring JNICALL
-Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_generateNextToken(
-        JNIEnv *env,
-        jobject /*unused*/
-) {
+static jstring generate_next_token_impl(JNIEnv *env) {
     // Infinite text generation via context shifting
     if (current_position >= DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM) {
         LOGw("%s: Context full! Shifting...", __func__);
@@ -687,6 +673,51 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_generateN
     return result;
 }
 
+
+// Le eccezioni C++ (template di chat, tokenizer, bad_alloc) non devono attraversare JNI: il processo
+// terminerebbe con abort. prepare e processUserPrompt rispondono con un codice d'errore come per gli
+// altri fallimenti, generateNextToken con una RuntimeException che Kotlin porta allo stato Error.
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_prepare(JNIEnv * /*env*/, jobject /*unused*/, jint top_k, jfloat top_p, jint n_threads) {
+    try {
+        return prepare_impl(top_k, top_p, n_threads);
+    } catch (const std::exception &e) {
+        LOGe("%s: %s", __func__, e.what());
+        return -100;
+    }
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processUserPrompt(
+        JNIEnv *env,
+        jobject /*unused*/,
+        jstring juser_prompt,
+        jint n_predict
+) {
+    try {
+        return process_user_prompt_impl(env, juser_prompt, n_predict);
+    } catch (const std::exception &e) {
+        LOGe("%s: %s", __func__, e.what());
+        return -100;
+    }
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_generateNextToken(
+        JNIEnv *env,
+        jobject /*unused*/
+) {
+    try {
+        return generate_next_token_impl(env);
+    } catch (const std::exception &e) {
+        LOGe("%s: %s", __func__, e.what());
+        env->ThrowNew(env->FindClass("java/lang/RuntimeException"), e.what());
+        return nullptr;
+    }
+}
 
 extern "C"
 JNIEXPORT void JNICALL

@@ -83,14 +83,10 @@ class RegionPackageInstaller @Inject constructor(
         }
         if (PackageKind.ROUTING in kinds) routingGraphInstaller.install(staging)
 
-        // Lettura e parsing dei POI prima della transazione di scrittura: dentro
-        // regionRepository.inInstallTransaction deve restare solo il delete+insert, non l'IO sul file.
-        val poisToImport = if (PackageKind.POI in kinds) poiImporter.readPois(entry.regionId, File(staging, entry.poi.file.name)) else null
-        val poiExtraToImport = if (PackageKind.POI_EXTRA in kinds) {
-            poiImporter.readPois(entry.regionId, File(staging, entry.poiExtra!!.file.name), extra = true)
-        } else {
-            null
-        }
+        // I POI si leggono a blocchi dentro la transazione (PoiImporter.replaceFromFile): tutti in memoria
+        // prima, per una regione grande, rischiavano l'OutOfMemoryError.
+        val poisToImport = if (PackageKind.POI in kinds) File(staging, entry.poi.file.name) else null
+        val poiExtraToImport = if (PackageKind.POI_EXTRA in kinds) File(staging, entry.poiExtra!!.file.name) else null
         val citySectionsToImport = if (PackageKind.CITIES in kinds) {
             cityImporter.readSections(entry.regionId, File(staging, entry.cities!!.file.name))
         } else {
@@ -117,8 +113,8 @@ class RegionPackageInstaller @Inject constructor(
                 activations += regionStorage.activatePackage(entry.regionId, RegionStorage.PREVIEW_FILE, File(staging, entry.preview.file.name), entry.preview.version)
             }
             regionRepository.inInstallTransaction {
-                poisToImport?.let { poiImporter.replace(entry.regionId, it) }
-                poiExtraToImport?.let { poiImporter.replace(entry.regionId, it, extra = true) }
+                poisToImport?.let { poiImporter.replaceFromFile(entry.regionId, it) }
+                poiExtraToImport?.let { poiImporter.replaceFromFile(entry.regionId, it, extra = true) }
                 citySectionsToImport?.let { cityImporter.replace(entry.regionId, it) }
                 regionRepository.markPackagesInstalled(
                     entry.regionId, entry.displayName, entry.countryCode,

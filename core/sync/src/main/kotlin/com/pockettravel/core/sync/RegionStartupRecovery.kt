@@ -25,11 +25,15 @@ class RegionStartupRecovery @Inject constructor(
         // Staging delle versioni precedenti dell'app, in cacheDir: solo dati temporanei.
         File(context.cacheDir, "regions_staging").deleteRecursively()
 
+        val installed = regionRepository.observeInstalled().first().map { it.regionId }.toSet()
         for (regionId in regionStorage.regionIdsOnDisk()) {
-            if (!regionSyncScheduler.isDownloadPending(regionId)) regionRepository.recoverInterruptedActivations(regionId)
+            if (regionSyncScheduler.isDownloadPending(regionId)) continue
+            regionRepository.recoverInterruptedActivations(regionId)
+            // File di una prima installazione interrotta fra l'attivazione e il database: nessuna riga
+            // li conosce, resterebbero su disco per sempre.
+            if (regionId !in installed) regionStorage.delete(regionId)
         }
 
-        val installed = regionRepository.observeInstalled().first().map { it.regionId }.toSet()
         for (stagingId in regionStorage.stagingIds()) {
             // _transit e _address_grid tengono l'indice scaricato per versione (TransitClient,
             // AddressGridClient): cancellarli a ogni avvio li farebbe riscaricare.
