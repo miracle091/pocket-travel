@@ -28,7 +28,7 @@ class NavigationViewModel @Inject constructor(
     private val gps: GpsLocationSource,
     /** Per la mappa della schermata: lo stesso stile della scheda Mappa. */
     val tileSource: OfflineTileSource,
-    usageModePreferences: UsageModePreferences,
+    private val usageModePreferences: UsageModePreferences,
 ) : ViewModel() {
     val regionId: String = checkNotNull(savedStateHandle[ARG_REGION_ID])
     private val destination = RoutePoint(
@@ -48,6 +48,11 @@ class NavigationViewModel @Inject constructor(
     private var calculationJob: Job? = null
     private val _travelMode = MutableStateFlow(TravelMode.from(usageModePreferences.mode.value))
     val travelMode: StateFlow<TravelMode> = _travelMode
+
+    /** Profilo del percorso: a piedi con "Con disabilita'" quello in sedia a rotelle (routingChoice). */
+    val routing: StateFlow<RoutingChoice> = combine(_travelMode, usageModePreferences.accessible, usageModePreferences.allowSteps, ::routingChoice)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, routingChoice(_travelMode.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value))
+    val allowSteps: StateFlow<Boolean> = usageModePreferences.allowSteps
     private val routeResult = MutableStateFlow<RouteResult?>(null)
     private val arrived = MutableStateFlow(false)
     private var lastCalculationMillis = 0L
@@ -96,6 +101,17 @@ class NavigationViewModel @Inject constructor(
     fun setTravelMode(mode: TravelMode) {
         if (mode == _travelMode.value) return
         _travelMode.value = mode
+        restartCalculation()
+    }
+
+    /** "Accetto qualche gradino" (solo con il profilo in sedia a rotelle): ricalcola come un cambio di mezzo. */
+    fun setAllowSteps(allow: Boolean) {
+        if (allow == usageModePreferences.allowSteps.value) return
+        usageModePreferences.setAllowSteps(allow)
+        restartCalculation()
+    }
+
+    private fun restartCalculation() {
         calculationJob?.cancel()
         calculating.value = false
         routeResult.value = null
@@ -129,11 +145,11 @@ class NavigationViewModel @Inject constructor(
         calculationStartedMillis.value = System.currentTimeMillis()
         calculationProgress.value = 0.0
         calculating.value = true
-        val profile = _travelMode.value.routingProfile
+        val choice = routingChoice(_travelMode.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value)
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             val self = coroutineContext[Job]
             try {
-                routeResult.value = engine.route(RoutePoint(from.latitude, from.longitude), destination, profile) { progress ->
+                routeResult.value = engine.route(RoutePoint(from.latitude, from.longitude), destination, choice.profile, choice.params) { progress ->
                     if (calculationJob === self) calculationProgress.value = progress
                 }
             } finally {

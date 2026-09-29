@@ -17,6 +17,23 @@ enum class TravelMode(val routingProfile: String) {
     }
 }
 
+/** Profilo BRouter e sue variabili (vedi RouteEngine.route) per un percorso. */
+data class RoutingChoice(val profile: String, val params: Map<String, String> = emptyMap()) {
+    val wheelchair: Boolean get() = profile == UsageMode.WHEELCHAIR_ROUTING_PROFILE
+}
+
+/**
+ * A piedi con "Con disabilita'" si usa il profilo in sedia a rotelle: scale vietate, oppure molto
+ * penalizzate se l'utente accetta qualche gradino ([allowSteps], variabile allow_steps del profilo).
+ * Bici e auto restano quelle del mezzo.
+ */
+fun routingChoice(mode: TravelMode, accessible: Boolean, allowSteps: Boolean): RoutingChoice =
+    if (mode == TravelMode.WALK && accessible) {
+        RoutingChoice(UsageMode.WHEELCHAIR_ROUTING_PROFILE, if (allowSteps) mapOf("allow_steps" to "1") else emptyMap())
+    } else {
+        RoutingChoice(mode.routingProfile)
+    }
+
 /** Il pacchetto Percorsi della regione, per il pulsante "Scarica i percorsi" della navigazione. */
 enum class RoutingPackageState { UNKNOWN, INSTALLED, MISSING, DOWNLOADING }
 

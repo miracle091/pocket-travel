@@ -57,8 +57,16 @@ interface RouteEngine {
     /**
      * Calcola il percorso fuori dal thread principale; annullando la coroutine si ferma il calcolo.
      * [profile]: nome del profilo BRouter (vedi [UsageMode.ROUTING_PROFILES]); null = quello del
-     * motore, cioe' della modalita' d'uso quando e' stato creato. [onProgress]: stima 0..1
-     * dell'avanzamento, chiamata piu' volte al secondo durante il calcolo (da un altro thread).
+     * motore, cioe' della modalita' d'uso quando e' stato creato. [profileParams]: variabili del
+     * profilo (in BRouter "profile:<nome>=<valore>"), per esempio allow_steps del profilo wheelchair.
+     * [onProgress]: stima 0..1 dell'avanzamento, chiamata piu' volte al secondo durante il calcolo
+     * (da un altro thread).
      */
-    suspend fun route(from: RoutePoint, to: RoutePoint, profile: String? = null, onProgress: (Double) -> Unit = {}): RouteResult
+    suspend fun route(
+        from: RoutePoint,
+        to: RoutePoint,
+        profile: String? = null,
+        profileParams: Map<String, String> = emptyMap(),
+        onProgress: (Double) -> Unit = {},
+    ): RouteResult
 }

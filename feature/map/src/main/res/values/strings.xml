@@ -191,6 +191,7 @@
     <string name="navigation_title_no_name">Navigazione</string>
     <string name="navigation_close">Termina la navigazione</string>
     <string name="navigation_no_speed_cameras">Autovelox e velox non sono segnalati, e nemmeno i limiti di velocità e le zone a traffico limitato o a basse emissioni: rispetta la segnaletica stradale.</string>
+    <string name="navigation_no_speed_cameras_short">Autovelox, limiti e ZTL non segnalati: segui i cartelli.</string>
     <string name="navigation_permission">Per navigare serve la tua posizione dal GPS. Resta sul telefono e si usa solo mentre questa schermata è aperta.</string>
     <string name="navigation_permission_grant">Consenti la posizione</string>
     <string name="navigation_gps_disabled">Il GPS è spento. La navigazione funziona solo con il GPS attivo: accendilo per partire.</string>
@@ -200,11 +201,12 @@
     <string name="navigation_arrived">Sei arrivato</string>
     <string name="navigation_no_routing_data">Mancano i percorsi di questa zona. Scarica il pacchetto Percorsi della regione dal foglio Pacchetti, oppure sei fuori dalla regione.</string>
     <string name="navigation_not_found">Nessun percorso trovato fino alla destinazione con il modo di spostarti scelto.</string>
+    <string name="navigation_wheelchair_notice">Senza, niente scale. Dati OSM incompleti: possibili ostacoli.</string>
+    <string name="navigation_allow_steps">Accetto qualche gradino</string>
     <string name="navigation_failed">Non è stato possibile calcolare il percorso.</string>
     <string name="navigation_retry">Riprova</string>
     <string name="navigation_remaining">Mancano %1$s · circa %2$s</string>
     <string name="navigation_in_distance">Tra %1$s</string>
-    <string name="navigation_next_turns">Poi</string>
     <string name="navigation_meters">%1$d m</string>
     <string name="navigation_kilometers">%1$s km</string>
     <string name="navigation_minutes">%1$d min</string>
@@ -222,10 +224,10 @@
     <string name="navigation_timed_out">Il percorso è troppo lungo da calcolare sul telefono: scegli una destinazione più vicina o un altro mezzo.</string>
     <string name="navigation_travel_mode">Mezzo</string>
     <string name="turn_continue">Prosegui dritto</string>
-    <string name="turn_slight_left">Tieni leggermente a sinistra</string>
+    <string name="turn_slight_left">Tieni leggermente la sinistra</string>
     <string name="turn_left">Gira a sinistra</string>
     <string name="turn_sharp_left">Gira tutto a sinistra</string>
-    <string name="turn_slight_right">Tieni leggermente a destra</string>
+    <string name="turn_slight_right">Tieni leggermente la destra</string>
     <string name="turn_right">Gira a destra</string>
     <string name="turn_sharp_right">Gira tutto a destra</string>
     <string name="turn_keep_left">Mantieni la sinistra</string>

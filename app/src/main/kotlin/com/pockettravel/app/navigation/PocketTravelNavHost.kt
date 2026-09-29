@@ -268,6 +268,8 @@ fun PocketTravelNavHost(
                 val navigationViewModel: NavigationViewModel = hiltViewModel()
                 val state by navigationViewModel.uiState.collectAsStateWithLifecycle()
                 val travelMode by navigationViewModel.travelMode.collectAsStateWithLifecycle()
+                val routing by navigationViewModel.routing.collectAsStateWithLifecycle()
+                val allowSteps by navigationViewModel.allowSteps.collectAsStateWithLifecycle()
                 val routingViewModel: NavigationRoutingViewModel = hiltViewModel()
                 val routingPackage by routingViewModel.state.collectAsStateWithLifecycle()
                 // Pacchetto Percorsi appena installato dopo "Scarica i percorsi": si ricalcola da solo.
@@ -284,6 +286,9 @@ fun PocketTravelNavHost(
                     destinationName = navigationViewModel.destinationName,
                     travelMode = travelMode,
                     onTravelModeChange = navigationViewModel::setTravelMode,
+                    wheelchair = routing.wheelchair,
+                    allowSteps = allowSteps,
+                    onAllowStepsChange = navigationViewModel::setAllowSteps,
                     tileSource = navigationViewModel.tileSource,
                     regionId = navigationViewModel.regionId,
                     routingPackage = routingPackage,

@@ -33,7 +33,13 @@ class BRouterRouteEngine(
     private val maxRunningTimeMillis: Long = 60_000,
 ) : RouteEngine {
 
-    override suspend fun route(from: RoutePoint, to: RoutePoint, profile: String?, onProgress: (Double) -> Unit): RouteResult {
+    override suspend fun route(
+        from: RoutePoint,
+        to: RoutePoint,
+        profile: String?,
+        profileParams: Map<String, String>,
+        onProgress: (Double) -> Unit,
+    ): RouteResult {
         if (segmentDir.listFiles { file -> file.extension == "rd5" }.isNullOrEmpty()) return RouteResult.NoRoutingData
         val running = AtomicReference<RoutingEngine?>()
         return coroutineScope {
@@ -54,7 +60,7 @@ class BRouterRouteEngine(
                 }
             }
             try {
-                runInterruptible(Dispatchers.Default) { compute(from, to, profile ?: profileName, running) }
+                runInterruptible(Dispatchers.Default) { compute(from, to, profile ?: profileName, profileParams, running) }
             } finally {
                 stopper.cancel()
                 progressPoller.cancel()
@@ -66,6 +72,7 @@ class BRouterRouteEngine(
         from: RoutePoint,
         to: RoutePoint,
         profile: String,
+        profileParams: Map<String, String>,
         running: AtomicReference<RoutingEngine?>,
     ): RouteResult = synchronized(BROUTER_RUNTIME_LOCK) {
         // segmentBaseDir/profileBaseDir sono System property globali (stesso meccanismo usato da
@@ -82,7 +89,9 @@ class BRouterRouteEngine(
         // timode=1: i profili hanno turnInstructionMode = 1 ("scelta automatica da chi chiede"), che per
         // RoutingContext.readGlobalConfig vuol dire tenere il valore della richiesta; senza timode
         // resterebbe 0 e BRouter non calcolerebbe le svolte.
-        val params = paramCollector.getUrlParams("lonlats=$lonlats&profile=$profile&timode=1")
+        // Variabili del profilo come "profile:<nome>=<valore>" (RoutingParamCollector le passa al profilo).
+        val extra = profileParams.entries.joinToString("") { (key, value) -> "&profile:$key=$value" }
+        val params = paramCollector.getUrlParams("lonlats=$lonlats&profile=$profile&timode=1$extra")
         paramCollector.setParams(routingContext, waypoints, params)
 
         val engine = RoutingEngine(null, null, segmentDir, waypoints, routingContext)

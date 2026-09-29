@@ -1,6 +1,12 @@
 package com.pockettravel.feature.map
 
 import android.Manifest
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.graphics.Color
 import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -84,8 +90,9 @@ import java.text.NumberFormat
 import kotlin.math.roundToInt
 
 /**
- * Navigazione passo passo verso un punto, solo con il GPS attivo. L'avviso su autovelox, limiti
- * di velocita' e zone a traffico limitato resta in cima in ogni stato: i dati di percorso (BRouter/OSM) non li hanno.
+ * Navigazione passo passo verso un punto, solo con il GPS attivo. Con bici e auto l'avviso su
+ * autovelox, limiti di velocita' e zone a traffico limitato resta in cima in ogni stato: i dati di
+ * percorso (BRouter/OSM) non li hanno.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,6 +101,10 @@ fun NavigationScreen(
     destinationName: String,
     travelMode: TravelMode,
     onTravelModeChange: (TravelMode) -> Unit,
+    // Profilo in sedia a rotelle (a piedi con "Con disabilita'"): avviso sui dati e "Accetto qualche gradino".
+    wheelchair: Boolean,
+    allowSteps: Boolean,
+    onAllowStepsChange: (Boolean) -> Unit,
     // Mappa della schermata: stesso stile della scheda Mappa della regione.
     tileSource: OfflineTileSource,
     regionId: String,
@@ -138,8 +149,11 @@ fun NavigationScreen(
             modifier = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = Spacing.l),
             verticalArrangement = Arrangement.spacedBy(Spacing.l),
         ) {
-            SpeedCameraNotice()
+            // Solo con un veicolo (bici e auto; camper e moto usano l'auto): a piedi autovelox e ZTL
+            // non contano. In navigazione in una riga: lo spazio serve alla mappa.
+            if (travelMode != TravelMode.WALK) SpeedCameraNotice(compact = navigating)
             TravelModeSelector(travelMode, onTravelModeChange)
+            if (wheelchair) WheelchairOptions(allowSteps, onAllowStepsChange)
             when (state) {
                 NavigationUiState.NeedsPermission -> Message(
                     text = stringResource(R.string.navigation_permission),
@@ -206,7 +220,7 @@ fun NavigationScreen(
 }
 
 @Composable
-private fun SpeedCameraNotice() {
+private fun SpeedCameraNotice(compact: Boolean) {
     Card(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
@@ -217,9 +231,28 @@ private fun SpeedCameraNotice() {
         Row(modifier = Modifier.padding(Spacing.m), verticalAlignment = Alignment.CenterVertically) {
             Icon(AppIcons.Info, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(Spacing.m))
-            Text(stringResource(R.string.navigation_no_speed_cameras), style = MaterialTheme.typography.bodyMedium)
+            Text(
+                stringResource(if (compact) R.string.navigation_no_speed_cameras_short else R.string.navigation_no_speed_cameras),
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
     }
+}
+
+/**
+ * Percorso in sedia a rotelle: i dati OSM su scale, cordoli e fondi sono incompleti, e le scale sono
+ * vietate finche' l'utente non accetta qualche gradino (allow_steps del profilo wheelchair).
+ */
+@Composable
+private fun WheelchairOptions(allowSteps: Boolean, onAllowStepsChange: (Boolean) -> Unit) {
+    // Una riga sola: la mappa sotto prende lo spazio che resta.
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.navigation_allow_steps)) },
+        supportingContent = { Text(stringResource(R.string.navigation_wheelchair_notice), style = MaterialTheme.typography.bodySmall) },
+        trailingContent = { Switch(checked = allowSteps, onCheckedChange = null) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.toggleable(value = allowSteps, role = Role.Switch, onValueChange = onAllowStepsChange),
+    )
 }
 
 @Composable
@@ -289,7 +322,8 @@ private fun ColumnScope.Guidance(state: NavigationUiState.Navigating, tileSource
         position = state.position,
         distanceToNextMeters = progress.distanceToNextMeters,
         onStreetNames = { found -> streetNames = streetNames + found },
-        modifier = Modifier.fillMaxWidth().weight(1f).clip(MaterialTheme.shapes.medium),
+        // Altezza minima: con l'avviso e le opzioni sopra, il solo peso la schiacciava a zero.
+        modifier = Modifier.fillMaxWidth().weight(1f).heightIn(min = 160.dp).clip(MaterialTheme.shapes.medium),
     )
     // Tempo rimasto in proporzione alla distanza rimasta, dalla durata stimata da BRouter.
     val remainingSeconds = if (route.distanceMeters > 0) route.durationSeconds * progress.remainingMeters / route.distanceMeters else 0.0
@@ -299,8 +333,8 @@ private fun ColumnScope.Guidance(state: NavigationUiState.Navigating, tileSource
     )
     val upcoming = route.instructions.drop(progress.nextInstructionIndex + 1)
     if (upcoming.isNotEmpty()) {
-        Text(stringResource(R.string.navigation_next_turns), style = MaterialTheme.typography.titleSmall)
-        LazyColumn(modifier = Modifier.heightIn(max = 180.dp)) {
+        // Due svolte visibili, le altre scorrendo: lo spazio serve alla mappa.
+        LazyColumn(modifier = Modifier.heightIn(max = 128.dp)) {
             itemsIndexed(upcoming) { index, instruction ->
                 if (index > 0) HorizontalDivider()
                 // Metri dalla svolta precedente (per la prima, da quella mostrata sopra).

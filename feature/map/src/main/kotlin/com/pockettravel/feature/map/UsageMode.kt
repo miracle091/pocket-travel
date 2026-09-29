@@ -81,6 +81,10 @@ enum class UsageMode(
     companion object {
         /** Profilo prima che l'utente scelga una modalita': quello usato finora dall'app. */
         const val DEFAULT_ROUTING_PROFILE = "trekking"
-        val ROUTING_PROFILES: Set<String> = entries.mapTo(mutableSetOf()) { it.routingProfile } + DEFAULT_ROUTING_PROFILE
+
+        /** A piedi con "Con disabilita'" (routingChoice): non legato a una modalita'. */
+        const val WHEELCHAIR_ROUTING_PROFILE = "wheelchair"
+        val ROUTING_PROFILES: Set<String> =
+            entries.mapTo(mutableSetOf()) { it.routingProfile } + DEFAULT_ROUTING_PROFILE + WHEELCHAIR_ROUTING_PROFILE
     }
 }

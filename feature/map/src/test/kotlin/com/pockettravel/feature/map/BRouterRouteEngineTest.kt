@@ -67,6 +67,19 @@ class BRouterRouteEngineTest {
     }
 
     @Test
+    fun `il profilo in sedia a rotelle si legge e instrada, anche con allow_steps`() = runBlocking {
+        val engine = BRouterRouteEngine(twoTileSegments(), profileDir("wheelchair.brf"))
+        val from = RoutePoint(45.5000, 9.9970)
+        val to = RoutePoint(45.5000, 10.0030)
+
+        val strict = engine.route(from, to, profile = "wheelchair")
+        val withSteps = engine.route(from, to, profile = "wheelchair", profileParams = mapOf("allow_steps" to "1"))
+
+        assertTrue("profilo wheelchair: $strict", strict is RouteResult.Found)
+        assertTrue("profilo wheelchair con allow_steps: $withSteps", withSteps is RouteResult.Found)
+    }
+
+    @Test
     fun `il profilo si cambia per il singolo percorso`() = runBlocking {
         val profiles = profileDir("car-vario.brf")
         val engine = BRouterRouteEngine(twoTileSegments(), profiles)

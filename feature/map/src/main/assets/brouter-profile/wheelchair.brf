@@ -1,0 +1,173 @@
+# Pocket Travel: a piedi in sedia a rotelle (casella "Con disabilita'" con il mezzo "a piedi").
+# Derivato da shortest.brf (distanza piu' breve a piedi), con i tag di accessibilita' di OSM:
+# scale e wheelchair=no vietati, fondi e pendenze difficili penalizzati, cordoli alti e barriere
+# (tornelli, scalette) evitati. Con allow_steps=1 (opzione dell'utente, passata dal motore come
+# "profile:allow_steps=1") le scale sono molto penalizzate invece che vietate. I dati OSM su scale,
+# cordoli e fondi sono incompleti: il percorso puo' comunque avere ostacoli.
+
+---context:global   # following code refers to global config
+
+# Niente dislivello dai dati di elevazione: la pendenza viene dal tag incline (sotto).
+assign downhillcost 0
+assign downhillcutoff 1.5
+assign uphillcost 0
+assign uphillcutoff 1.5
+
+assign   turnInstructionMode  = 1  # %turnInstructionMode% | Mode for the generated turn instructions | [0=none, 1=auto-choose, 2=locus-style, 3=osmand-style, 4=comment-style, 5=gpsies-style, 6=orux-style, 7=locus-old-style]
+assign   validForFoot        1
+
+assign   allow_steps = false  # %allow_steps% | Accept steps with a strong penalty instead of avoiding them | boolean
+
+---context:way   # following code refers to way-tags
+
+assign turncost 0
+
+assign initialclassifier =
+     if route=ferry then 1
+     else 0
+
+assign initialcost switch route=ferry 10000 0
+
+assign defaultaccess
+       switch access=
+              (
+                    if motorroad=yes then false
+                    else if highway=motorway|motorway_link then false
+                    else true
+              )
+              switch or access=private access=no
+                     false
+                     true
+
+assign footaccess
+       switch foot=
+              defaultaccess
+              not or foot=private or foot=no foot=use_sidepath
+
+# Scale: vietate, salvo una rampa per sedie a rotelle; con allow_steps molto penalizzate
+# (20 volte la lunghezza: una scalinata di 15 m vale una deviazione di 300 m).
+assign stepsfactor
+       if highway=steps then
+          ( if ramp:wheelchair=yes then 1.5
+            else if allow_steps then 20
+            else 100000 )
+       else 1
+
+# Tag wheelchair della strada: "no" vietato, "limited" penalizzato, "yes"/"designated" preferiti.
+assign wheelchairfactor
+       if wheelchair=no then 100000
+       else if wheelchair=limited then 2
+       else if wheelchair=yes|designated then 0.9
+       else 1
+
+# Fondo: sampietrini e ghiaia faticosi, terra, sabbia ed erba quasi impraticabili.
+assign surfacefactor
+       if surface=cobblestone|sett|pebblestone then 3
+       else if surface=gravel|fine_gravel|unpaved then 2.5
+       else if surface=compacted then 1.5
+       else if surface=sand|grass|ground|dirt|earth|mud|rock then 8
+       else 1
+
+assign smoothnessfactor
+       if smoothness=very_bad|horrible|very_horrible|impassable then 10
+       else if smoothness=bad then 2
+       else 1
+
+# Pendenza dal tag incline (valori di lookups.dat): oltre il 6% sempre piu' pesante.
+assign inclinefactor
+       if incline=8%|-8% then 3
+       else if incline=10%|-10% then 6
+       else if incline=15%|-15%|20%|-20%|25%|-25%|30%|-30%|steep then 30
+       else 1
+
+# Sentieri e carrarecce senza un fondo compatto dichiarato: di solito non percorribili.
+assign pathfactor
+       if highway=path|track|bridleway then
+          ( if surface=asphalt|paved|concrete|paving_stones then 1.2 else 4 )
+       else 1
+
+assign accesspenalty switch footaccess 0 100000
+
+assign costfactor
+  add accesspenalty
+
+  switch and highway= not route=ferry  100000
+
+  switch    route=ferry                             5.67
+  switch or highway=motorway highway=motorway_link    100000
+  switch or highway=proposed highway=abandoned        100000
+  multiply stepsfactor
+  multiply wheelchairfactor
+  multiply surfacefactor
+  multiply smoothnessfactor
+  multiply inclinefactor
+           pathfactor
+
+# way priorities used for voice hint generation (come shortest.brf)
+
+assign isresidentialorliving = or highway=residential|living_street living_street=yes
+
+assign priorityclassifier =
+
+  if      ( highway=motorway                       ) then  30
+  else if ( highway=motorway_link                  ) then  29
+  else if ( highway=trunk                          ) then  28
+  else if ( highway=trunk_link                     ) then  27
+  else if ( highway=primary                        ) then  26
+  else if ( highway=primary_link                   ) then  25
+  else if ( highway=secondary                      ) then  24
+  else if ( highway=secondary_link                 ) then  23
+  else if ( highway=tertiary                       ) then  22
+  else if ( highway=tertiary_link                  ) then  21
+  else if ( highway=unclassified                   ) then  20
+  else if ( isresidentialorliving                  ) then  6
+  else if ( highway=service                        ) then  6
+  else if ( highway=cycleway                       ) then  6
+  else if ( highway=track                          ) then if tracktype=grade1 then 6 else 4
+  else if ( highway=bridleway|road|path|footway    ) then  4
+  else if ( highway=steps                          ) then  2
+  else if ( highway=pedestrian                     ) then  2
+  else 0
+
+assign isroundabout = junction=roundabout
+assign islinktype = highway=motorway_link|trunk_link|primary_link|secondary_link|tertiary_link
+assign isgoodforcars = if greater priorityclassifier 6 then true
+                  else if ( or isresidentialorliving highway=service ) then true
+                  else if ( and highway=track tracktype=grade1 ) then true
+                  else false
+
+assign classifiermask add multiply isroundabout   4
+                      add multiply islinktype     8
+                          multiply isgoodforcars 16
+
+---context:node  # following code refers to node tags
+
+assign defaultaccess
+       switch access=
+              1
+              switch or access=private access=no
+                     0
+                     1
+
+assign footaccess
+       switch foot=
+              defaultaccess
+              switch or foot=private foot=no
+                     0
+                     1
+
+# Barriere che una sedia a rotelle non passa (salvo wheelchair=yes sul nodo) e nodi wheelchair=no.
+assign wheelchairblocked
+       if wheelchair=yes|designated then false
+       else if wheelchair=no then true
+       else if barrier=stile|turnstile|full-height_turnstile|kissing_gate|horse_stile|motorcycle_barrier then true
+       else false
+
+# Cordolo alto: penalita' fissa (come circa 200 m in piu'); abbassato o a filo: nessuna.
+assign kerbcost
+       if kerb=raised then 200
+       else 0
+
+assign initialcost
+       if or wheelchairblocked not footaccess then 1000000
+       else kerbcost

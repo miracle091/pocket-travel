@@ -53,10 +53,20 @@ class UsageModePreferences @Inject constructor(
         _accessible.value = accessible
     }
 
+    private val _allowSteps = MutableStateFlow(prefs.getBoolean(KEY_ALLOW_STEPS, false))
+    /** Con "Con disabilita'", percorsi a piedi anche con qualche gradino (spento: scale vietate). */
+    val allowSteps: StateFlow<Boolean> = _allowSteps.asStateFlow()
+
+    fun setAllowSteps(allow: Boolean) {
+        prefs.edit { putBoolean(KEY_ALLOW_STEPS, allow) }
+        _allowSteps.value = allow
+    }
+
     private companion object {
         const val KEY_MODE = "mode"
         const val KEY_ACCESSIBLE = "accessible"
         const val KEY_DIRECTIONS = "directions"
+        const val KEY_ALLOW_STEPS = "allow_steps"
         const val LEGACY_ACCESSIBLE_MODE = "ACCESSIBILITA"
     }
 }

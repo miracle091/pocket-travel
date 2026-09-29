@@ -190,6 +190,7 @@
     <string name="navigation_title_no_name">Navigation</string>
     <string name="navigation_close">End navigation</string>
     <string name="navigation_no_speed_cameras">Speed cameras are not shown, and neither are speed limits or restricted-access and low-emission zones: follow the road signs.</string>
+    <string name="navigation_no_speed_cameras_short">Speed cameras, limits and restricted zones not shown: follow the signs.</string>
     <string name="navigation_permission">Navigation needs your GPS location. It stays on your phone and is used only while this screen is open.</string>
     <string name="navigation_permission_grant">Allow location</string>
     <string name="navigation_gps_disabled">GPS is off. Navigation only works with GPS on: turn it on to start.</string>
@@ -199,11 +200,12 @@
     <string name="navigation_arrived">You have arrived</string>
     <string name="navigation_no_routing_data">Routes for this area are missing. Download the region\'s Routes package from the Packages sheet, or you are outside the region.</string>
     <string name="navigation_not_found">No route found to the destination with your chosen way of getting around.</string>
+    <string name="navigation_wheelchair_notice">Otherwise no steps. OSM data is incomplete: obstacles are possible.</string>
+    <string name="navigation_allow_steps">Accept a few steps</string>
     <string name="navigation_failed">The route could not be calculated.</string>
     <string name="navigation_retry">Try again</string>
     <string name="navigation_remaining">%1$s to go · about %2$s</string>
     <string name="navigation_in_distance">In %1$s</string>
-    <string name="navigation_next_turns">Then</string>
     <string name="navigation_meters">%1$d m</string>
     <string name="navigation_kilometers">%1$s km</string>
     <string name="navigation_minutes">%1$d min</string>
