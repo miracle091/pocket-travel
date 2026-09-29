@@ -40,15 +40,26 @@ private val htmlCommentRegex = Regex("""(?s)<!--.*?-->""")
 // Da tenere prima di htmlTagRegex: quest'ultimo toglie solo i tag <ref>/</ref>, lasciando il
 // testo della citazione come prosa vagante in mezzo al corpo della sezione.
 private val refTagRegex = Regex("""(?is)<ref\b[^>]*?/>|<ref\b[^>]*?>.*?</ref>""")
-private val wikiFileLinkRegex = Regex("""(?is)\[\[(?:File|Image):.*?]]""")
-private val wikiLinkRegex = Regex("""\[\[(?:[^|\]]*\|)?([^\]]+)]]""")
-private val externalLinkWithTextRegex = Regex("""\[https?://\S+\s+([^\]]+)]""")
-private val bareExternalLinkRegex = Regex("""\[https?://\S+]""")
-private val boldItalicRegex = Regex("""'{2,3}""")
+// L'indirizzo finisce alla prima "]" o spazio, il testo sulla stessa riga: con \S+ un link senza testo
+// ("[http://x.al]") si mangiava la "]" e arrivava fino alla riga dopo.
+private val externalLinkWithTextRegex = Regex("""\[https?://[^\s\]]+[ \t]+([^\]\n]+)]""")
+private val bareExternalLinkRegex = Regex("""\[https?://[^\s\]]+]""")
+// Corsivo ('') e grassetto (''') si tolgono, ma un apostrofo attaccato resta: "l'''Arte" e' l' + corsivo,
+// "''''" e' apostrofo + grassetto (come li legge MediaWiki). Prima diventava "lArte".
+private val boldItalicRegex = Regex("""'{2,}""")
+
+private fun stripBoldItalic(text: String): String = boldItalicRegex.replace(text) { match ->
+    val between = text.getOrNull(match.range.first - 1)?.isLetter() == true && text.getOrNull(match.range.last + 1)?.isLetter() == true
+    when (match.value.length) {
+        3 -> if (between) "'" else ""
+        4 -> "'"
+        else -> if (match.value.length > 5) "'".repeat(match.value.length - 5) else ""
+    }
+}
 private val templateRegex = Regex("""\{\{[^}]*}}""")
 // Template di Wikivoyage che portano testo da mostrare: il nome del luogo (marker, see, do, eat...)
 // con la sua descrizione, e il codice dell'aeroporto (IATA). Tolti interi da templateRegex lasciavano
-// frasi rotte come "L' (), situato nel sobborgo di...". Espansi prima di wikiLinkRegex perche' il nome
+// frasi rotte come "L' (), situato nel sobborgo di...". Espansi prima di resolveLinks perche' il nome
 // puo' contenere [[link|testo]] (le | dentro il link non separano i parametri).
 private val iataRegex = Regex("""(?i)\{\{\s*IATA\s*\|\s*([A-Z]{3})\s*}}""")
 private val listingRegex = Regex("""(?is)\{\{\s*(?:marker|see|do|go|eat|drink|sleep|buy|listing)\s*\|([^{}]*)}}""")
@@ -71,6 +82,66 @@ private fun expandListing(params: String): String {
     }
 }
 private val htmlTagRegex = Regex("""<[^>]+>""")
+
+// Gallerie e tabelle: le righe "File:Pizza.jpg|Pizza" di <gallery> e il markup {| ... |} restavano nel
+// testo. Via intere (le tabelle anche annidate, dall'interno).
+private val galleryRegex = Regex("""(?is)<gallery\b[^>]*>.*?</gallery>""")
+private val innermostTableRegex = Regex("""(?s)\{\|(?:(?!\{\|).)*?\|}""")
+
+// Template annidati ({{listing|...|price={{EUR|5}}}}, {{cite|...[[x]]...}}): si risolvono dall'interno. I
+// template di valore diventano testo, gli altri spariscono; listing e IATA restano per expandListing.
+private val innermostTemplateRegex = Regex("""\{\{((?:(?!\{\{|}}).)*)}}""", RegexOption.DOT_MATCHES_ALL)
+private val keptTemplateNames = setOf("marker", "see", "do", "go", "eat", "drink", "sleep", "buy", "listing", "iata")
+// Template che mostrano il loro primo parametro cosi' com'e'.
+private val textTemplateNames = setOf("nowrap", "phone", "tel", "telefono", "lang", "small", "smaller", "big", "nobr", "unbulleted list")
+private val currencyTemplateRegex = Regex("""[A-Z]{3}""")
+
+private fun resolveTemplate(inner: String): String? {
+    val parts = inner.split('|')
+    val name = parts.first().trim()
+    val lower = name.lowercase()
+    if (lower in keptTemplateNames) return null
+    val first = parts.getOrNull(1)?.trim().orEmpty()
+    return when {
+        lower in textTemplateNames -> first.substringAfter('=', first)
+        // Valute ({{EUR|5}}, {{ALL|500}}): "5 EUR", altrimenti restava "almeno ." nel testo.
+        currencyTemplateRegex.matches(name) && first.isNotEmpty() && first.first().isDigit() -> "$first $name"
+        else -> ""
+    }
+}
+
+private fun resolveTemplates(text: String): String {
+    var current = text
+    while (true) {
+        var changed = false
+        val next = innermostTemplateRegex.replace(current) { match ->
+            resolveTemplate(match.groupValues[1])?.also { changed = true } ?: match.value.replace("{{", "\u0001").replace("}}", "\u0002")
+        }
+        current = next
+        if (!changed) return current.replace("\u0001", "{{").replace("\u0002", "}}")
+    }
+}
+
+// Link interni, anche dentro la didascalia di un'immagine ([[File:x.jpg|thumb|Il [[Duomo]] di notte]]):
+// dall'interno, cosi' il link del file resta intero e sparisce.
+private val innermostLinkRegex = Regex("""\[\[([^\[\]]*)]]""")
+private val fileLinkPrefixRegex = Regex("""(?i)^\s*(?:File|Image|Immagine|Media|Categoria|Category)\s*:""")
+
+private fun resolveLinks(text: String): String {
+    var current = text
+    while (true) {
+        val next = innermostLinkRegex.replace(current) { match ->
+            val inner = match.groupValues[1]
+            if (fileLinkPrefixRegex.containsMatchIn(inner)) "" else inner.substringAfterLast('|')
+        }
+        if (next == current) return current
+        current = next
+    }
+}
+
+// Spazi doppi (frequenti nel testo inglese dopo il punto) e spazi rimasti prima della punteggiatura.
+private val repeatedSpacesRegex = Regex("""(?<=\S) {2,}""")
+private val spaceBeforePunctuationRegex = Regex(""" +([,.;:!?)])""")
 private val subHeadingLineRegex = Regex("""^={3,}\s*(.+?)\s*={3,}$""")
 // ";Termine" (lista di definizione wiki): Wikivoyage la usa come sottotitolo dentro un elenco
 // (es. ";Vini rossi" sotto "Bere"), trattato come ===Termine===.
@@ -124,20 +195,60 @@ fun parseWikivoyageDump(dumpText: String, categories: Map<String, String> = head
 // grezzo davanti, e sottotitoli ===Foo=== che — se la sottosezione era solo un template ormai
 // tolto (es. {{Pricerange}} su "Money" in molte pagine paese) — restavano come parola orfana
 // seguita da una riga vuota enorme.
+// Entita' HTML scritte nel wikitext (&mdash;, &nbsp;, &#8211;...): Wikivoyage le mostra come caratteri, nel
+// testo pulito restavano tali e quali ("Roma &mdash; Firenze").
+private val htmlEntityRegex = Regex("""&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA-Z][a-zA-Z0-9]{1,31});""")
+private val namedEntities = mapOf(
+    "amp" to "&", "lt" to "<", "gt" to ">", "quot" to "\"", "apos" to "'",
+    "nbsp" to "\u00A0", "thinsp" to "\u2009", "ensp" to "\u2002", "emsp" to "\u2003", "shy" to "",
+    "mdash" to "—", "ndash" to "–", "minus" to "−", "hellip" to "…", "middot" to "·", "bull" to "•",
+    "laquo" to "«", "raquo" to "»", "lsquo" to "‘", "rsquo" to "’", "ldquo" to "“", "rdquo" to "”", "sbquo" to "‚", "bdquo" to "„",
+    "deg" to "°", "times" to "×", "divide" to "÷", "plusmn" to "±", "frac12" to "½", "frac14" to "¼", "frac34" to "¾",
+    "euro" to "€", "pound" to "£", "yen" to "¥", "cent" to "¢", "copy" to "©", "reg" to "®", "trade" to "™",
+    "sect" to "§", "para" to "¶", "larr" to "←", "rarr" to "→", "uarr" to "↑", "darr" to "↓", "harr" to "↔",
+    "sup2" to "²", "sup3" to "³", "micro" to "µ", "iexcl" to "¡", "iquest" to "¿", "ordm" to "º", "ordf" to "ª",
+    // Lettere accentate per nome: &egrave; &agrave; &ccedil; ...
+    "agrave" to "à", "Agrave" to "À", "aacute" to "á", "Aacute" to "Á", "acirc" to "â", "Acirc" to "Â", "atilde" to "ã", "Atilde" to "Ã", "auml" to "ä", "Auml" to "Ä", "aring" to "å", "Aring" to "Å", "egrave" to "è", "Egrave" to "È", "eacute" to "é", "Eacute" to "É", "ecirc" to "ê", "Ecirc" to "Ê", "euml" to "ë", "Euml" to "Ë", "igrave" to "ì", "Igrave" to "Ì", "iacute" to "í", "Iacute" to "Í", "icirc" to "î", "Icirc" to "Î", "iuml" to "ï", "Iuml" to "Ï", "ograve" to "ò", "Ograve" to "Ò", "oacute" to "ó", "Oacute" to "Ó", "ocirc" to "ô", "Ocirc" to "Ô", "otilde" to "õ", "Otilde" to "Õ", "ouml" to "ö", "Ouml" to "Ö", "oslash" to "ø", "Oslash" to "Ø", "ugrave" to "ù", "Ugrave" to "Ù", "uacute" to "ú", "Uacute" to "Ú", "ucirc" to "û", "Ucirc" to "Û", "uuml" to "ü", "Uuml" to "Ü", "yacute" to "ý", "Yacute" to "Ý", "yuml" to "ÿ", "Yuml" to "Ÿ", "ntilde" to "ñ", "Ntilde" to "Ñ", "ccedil" to "ç", "Ccedil" to "Ç", "szlig" to "ß", "aelig" to "æ", "AElig" to "Æ", "oelig" to "œ", "OElig" to "Œ",
+)
+
+internal fun decodeHtmlEntities(text: String): String = htmlEntityRegex.replace(text) { match ->
+    val name = match.groupValues[1]
+    when {
+        name.startsWith("#x") || name.startsWith("#X") -> name.drop(2).toIntOrNull(16)?.takeIf(Character::isValidCodePoint)?.let { String(Character.toChars(it)) }
+        name.startsWith("#") -> name.drop(1).toIntOrNull()?.takeIf(Character::isValidCodePoint)?.let { String(Character.toChars(it)) }
+        else -> namedEntities[name]
+    } ?: match.value
+}
+
+private fun removeTables(text: String): String {
+    var current = text
+    while (true) {
+        val next = current.replace(innermostTableRegex, "")
+        if (next == current) return current
+        current = next
+    }
+}
+
 private fun cleanBody(raw: String): String {
     val stripped = raw
         .replace(htmlCommentRegex, "")
         .replace(refTagRegex, "")
+        .replace(galleryRegex, "")
+        .let(::removeTables)
+        .let(::resolveTemplates)
         .replace(iataRegex, "$1")
         .replace(listingRegex) { expandListing(it.groupValues[1]) }
-        .replace(wikiFileLinkRegex, "")
+        // Link esterni prima di quelli interni: possono stare nella didascalia di un'immagine.
         .replace(externalLinkWithTextRegex, "$1")
         .replace(bareExternalLinkRegex, "")
-        .replace(wikiLinkRegex, "$1")
-        .replace(boldItalicRegex, "")
+        .let(::resolveLinks)
+        .let(::stripBoldItalic)
         .replace(templateRegex, "")
         .replace(htmlTagRegex, "")
+        .let(::decodeHtmlEntities)
         .replace(emptyParenthesesRegex, "")
+        .replace(repeatedSpacesRegex, " ")
+        .replace(spaceBeforePunctuationRegex, "$1")
 
     val markedLines = stripped.lineSequence().map { rawLine ->
         val line = rawLine.trim()
@@ -198,13 +309,15 @@ private fun cleanQuickFactValue(raw: String): String =
     raw
         .replace(htmlCommentRegex, "")
         .replace(refTagRegex, "")
-        .replace(wikiFileLinkRegex, "")
+        .let(::resolveTemplates)
         .replace(externalLinkWithTextRegex, "$1")
         .replace(bareExternalLinkRegex, "")
-        .replace(wikiLinkRegex, "$1")
-        .replace(boldItalicRegex, "")
+        .let(::resolveLinks)
+        .let(::stripBoldItalic)
         .replace(templateRegex, "")
         .replace(htmlTagRegex, "")
+        .let(::decodeHtmlEntities)
+        .replace(repeatedSpacesRegex, " ")
         .lineSequence()
         .map { listMarkerRegex.replace(it.trim(), "").trim() }
         .filter { it.isNotBlank() }

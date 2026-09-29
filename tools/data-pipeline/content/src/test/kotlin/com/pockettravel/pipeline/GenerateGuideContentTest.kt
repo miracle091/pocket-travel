@@ -272,4 +272,15 @@ class GenerateGuideContentTest {
         assertEquals("Quick facts", section?.title)
         assertEquals("Electricity: 230V/50Hz (European plug)\nTime zone: UTC+1", section?.body)
     }
+
+    @Test
+    fun `le entita' html del wikitext diventano caratteri`() {
+        val sections = parseWikivoyageDump("== Sicurezza ==\nRoma &mdash; Firenze: 30&nbsp;km, &laquo;tranquilla&raquo; &#8211; ok &#x2192; s&igrave;\n")
+        assertEquals("Roma — Firenze: 30\u00A0km, «tranquilla» – ok → sì", sections.single().body)
+    }
+
+    @Test
+    fun `entita' sconosciute o non valide restano com'erano`() {
+        assertEquals("&foo; & &#99999999;", decodeHtmlEntities("&foo; & &#99999999;"))
+    }
 }
