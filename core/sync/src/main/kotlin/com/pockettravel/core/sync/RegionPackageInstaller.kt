@@ -68,8 +68,11 @@ class RegionPackageInstaller @Inject constructor(
 
         if (PackageKind.MAP in kinds) {
             // Estrazione bloccante (HTTP range): su IO e interrompibile se il download viene annullato.
+            // Con una mappa gia' installata (activatePackage la sostituisce solo dopo) scarica solo le
+            // tile cambiate; senza, o se il confronto fallisce, estrae tutto.
+            val installedMap = File(regionStorage.directoryFor(entry.regionId), RegionStorage.MAP_FILE)
             withContext(Dispatchers.IO) {
-                pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE)) { ensureActive() }
+                pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE), installedMap) { ensureActive() }
             }
         }
         if (PackageKind.ROUTING in kinds) routingGraphInstaller.install(staging)

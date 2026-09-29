@@ -27,6 +27,8 @@ import kotlin.io.path.createTempDirectory
  * non controlla il codice di stato, legge solo il corpo).
  */
 private class RangeFileDispatcher(private val file: File) : Dispatcher() {
+    /** Inizio di ogni range richiesto, per verificare quali tile sono state scaricate. */
+    val requestedStarts = java.util.concurrent.CopyOnWriteArrayList<Long>()
     private val rangePattern = Regex("^bytes=([0-9]+)-([0-9]+)")
 
     override fun dispatch(request: RecordedRequest): MockResponse {
@@ -34,6 +36,7 @@ private class RangeFileDispatcher(private val file: File) : Dispatcher() {
         val match = rangePattern.find(rangeHeader) ?: return MockResponse().setResponseCode(416)
         val start = match.groupValues[1].toLong()
         val end = match.groupValues[2].toLong()
+        requestedStarts += start
         val length = (end - start + 1).toInt()
         val buffer = ByteArray(length)
         RandomAccessFile(file, "r").use { raf ->
@@ -211,5 +214,202 @@ class PmtilesExtractorTest {
         )
 
         PmtilesExtractor().extract(mapSource, outputFile)
+    }
+
+    // --- aggiornamento incrementale: mappa installata (old) e build nuova (new), z0-2 su tutto il mondo ---
+
+    private val worldZ0to2 = { url: String ->
+        MapExtractionSource(url, minLon = -180.0, minLat = -85.0, maxLon = 180.0, maxLat = 85.0, minZoom = 0, maxZoom = 2)
+    }
+
+    /** Contenuto unico per tile (marker da z/x/y): tile diverse non condividono mai l'offset nel file. */
+    private fun sizedTile(z: Int, x: Int, y: Int, size: Int): ByteArray = ByteArray(size) { (z * 16 + x * 4 + y + 1).toByte() }
+
+    private fun writePmtiles(file: File, tiles: Map<Triple<Int, Int, Int>, ByteArray>) {
+        PmtilesWriter.write(
+            outputFile = file,
+            entries = tiles.map { (key, data) -> PmtilesEntry(tileId(key.first, key.second, key.third), data) },
+            metadataJson = """{"name":"fake"}""",
+            tileCompression = Constants.COMPRESSION_GZIP,
+            tileType = Constants.TYPE_MVT,
+            minZoom = 0,
+            maxZoom = 2,
+            minLon = -180.0,
+            minLat = -85.0,
+            maxLon = 180.0,
+            maxLat = 85.0,
+        )
+    }
+
+    /** Tutte le tile z0-2 del mondo, tutte da 3 byte: la mappa "installata". x=3 a z2 manca. */
+    private fun oldTiles(): Map<Triple<Int, Int, Int>, ByteArray> {
+        val tiles = LinkedHashMap<Triple<Int, Int, Int>, ByteArray>()
+        for (z in 0..2) for (x in 0 until (1 shl z)) for (y in 0 until (1 shl z)) {
+            if (z == 2 && x == 3) continue
+            tiles[Triple(z, x, y)] = sizedTile(z, x, y, 3)
+        }
+        return tiles
+    }
+
+    /** La build nuova: (1,0,0) e (2,0,0) cambiano lunghezza, (1,1,0) e (2,1,1) spariscono, x=3 a z2 e' nuovo. */
+    private fun newTiles(): Map<Triple<Int, Int, Int>, ByteArray> {
+        val tiles = LinkedHashMap(oldTiles())
+        tiles[Triple(1, 0, 0)] = sizedTile(1, 0, 0, 5)
+        tiles[Triple(2, 0, 0)] = sizedTile(2, 0, 0, 6)
+        tiles.remove(Triple(1, 1, 0))
+        tiles.remove(Triple(2, 1, 1))
+        for (y in 0..3) tiles[Triple(2, 3, y)] = sizedTile(2, 3, y, 4)
+        return tiles
+    }
+
+    private fun assertSameTiles(expectedFile: File, actualFile: File) {
+        Reader(expectedFile).use { expected ->
+            Reader(actualFile).use { actual ->
+                assertEquals(expected.metadata, actual.metadata)
+                for (z in 0..2) for (x in 0 until (1 shl z)) for (y in 0 until (1 shl z)) {
+                    val e = expected.getTile(z, x, y)
+                    val a = actual.getTile(z, x, y)
+                    assertTrue("tile $z/$x/$y diversa", (e == null && a == null) || (e != null && a != null && e.contentEquals(a)))
+                }
+            }
+        }
+    }
+
+    /** Avvia il server sulla build nuova; ritorna il dispatcher che registra i range richiesti. */
+    private fun serveNew(newTiles: Map<Triple<Int, Int, Int>, ByteArray>): RangeFileDispatcher {
+        writePmtiles(sourceFile, newTiles)
+        return RangeFileDispatcher(sourceFile).also {
+            server.dispatcher = it
+            server.start()
+        }
+    }
+
+    @Test
+    fun `l'aggiornamento incrementale scarica solo le tile nuove o cambiate e riusa le altre`() {
+        val installed = File(sourceFile.parentFile, "installed.pmtiles").also { writePmtiles(it, oldTiles()) }
+        val newTiles = newTiles()
+        val dispatcher = serveNew(newTiles)
+        val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
+
+        val stats = PmtilesExtractor().extract(mapSource, outputFile, installed)
+
+        // 2 tile cambiate (5 + 6 byte) e 4 nuove (4 byte l'una)
+        assertTrue(stats.incremental)
+        assertEquals(6, stats.tilesDownloaded)
+        assertEquals(5L + 6 + 4 * 4, stats.bytesDownloaded)
+        assertEquals(newTiles.size - 6, stats.tilesReused)
+        assertEquals((newTiles.size - 6) * 3L, stats.bytesReused)
+
+        // Ogni tile invariata non e' stata richiesta, ogni tile cambiata o nuova si'.
+        val locations = RandomAccessFile(sourceFile, "r").use { raf ->
+            val ids = newTiles.keys.map { tileId(it.first, it.second, it.third) }.sorted().toLongArray()
+            ids.zip(PmtilesTileIndex { position, length -> ByteArray(length).also { raf.seek(position); raf.readFully(it) } }.locate(ids).offsets.toList()).toMap()
+        }
+        val changed = setOf(Triple(1, 0, 0), Triple(2, 0, 0)) + (0..3).map { Triple(2, 3, it) }
+        newTiles.keys.forEach { key ->
+            val requested = locations.getValue(tileId(key.first, key.second, key.third)) in dispatcher.requestedStarts
+            assertEquals("tile $key", key in changed, requested)
+        }
+
+        // Il risultato e' identico a un'estrazione completa dalla build nuova (tile sparite comprese).
+        val full = File(sourceFile.parentFile, "full.pmtiles")
+        PmtilesExtractor().extract(mapSource, full)
+        assertSameTiles(full, outputFile)
+        Reader(outputFile).use {
+            assertNull(it.getTile(1, 1, 0))
+            assertNull(it.getTile(2, 1, 1))
+        }
+        assertFalse("nessun file temporaneo residuo", outputFile.parentFile!!.listFiles()!!.any { it.name.endsWith(".tmp") })
+    }
+
+    @Test
+    fun `l'aggiornamento incrementale fa meno richieste dell'estrazione completa`() {
+        val installed = File(sourceFile.parentFile, "installed.pmtiles").also { writePmtiles(it, oldTiles()) }
+        val dispatcher = serveNew(newTiles())
+        val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
+
+        PmtilesExtractor().extract(mapSource, outputFile, installed)
+        val incrementalRequests = dispatcher.requestedStarts.size
+        dispatcher.requestedStarts.clear()
+        PmtilesExtractor().extract(mapSource, File(sourceFile.parentFile, "full.pmtiles"))
+        val fullRequests = dispatcher.requestedStarts.size
+
+        assertTrue("incrementale $incrementalRequests, completa $fullRequests", incrementalRequests < fullRequests)
+    }
+
+    @Test
+    fun `senza modifiche nella build non scarica nessuna tile`() {
+        val installed = File(sourceFile.parentFile, "installed.pmtiles").also { writePmtiles(it, oldTiles()) }
+        serveNew(oldTiles())
+        val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
+
+        val stats = PmtilesExtractor().extract(mapSource, outputFile, installed)
+
+        assertEquals(0, stats.tilesDownloaded)
+        assertEquals(oldTiles().size, stats.tilesReused)
+        assertSameTiles(sourceFile, outputFile)
+    }
+
+    @Test
+    fun `una tile con la stessa lunghezza ma contenuto diverso resta quella installata`() {
+        // Limite accettato dell'aggiornamento incrementale: il confronto e' sulla lunghezza.
+        val installed = File(sourceFile.parentFile, "installed.pmtiles").also { writePmtiles(it, oldTiles()) }
+        val newTiles = LinkedHashMap(oldTiles()).also { it[Triple(1, 0, 1)] = ByteArray(3) { 99 } }
+        serveNew(newTiles)
+        val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
+
+        val stats = PmtilesExtractor().extract(mapSource, outputFile, installed)
+
+        assertEquals(0, stats.tilesDownloaded)
+        Reader(outputFile).use { assertArrayEquals(sizedTile(1, 0, 1, 3), it.getTile(1, 0, 1)) }
+    }
+
+    @Test
+    fun `con un file installato illeggibile ripiega sull'estrazione completa`() {
+        val corrupt = File(sourceFile.parentFile, "installed.pmtiles").also { it.writeBytes(ByteArray(500) { i -> i.toByte() }) }
+        val newTiles = newTiles()
+        serveNew(newTiles)
+        val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
+
+        val stats = PmtilesExtractor().extract(mapSource, outputFile, corrupt)
+
+        assertFalse(stats.incremental)
+        assertEquals(newTiles.size, stats.tilesDownloaded)
+        assertEquals(0, stats.tilesReused)
+        assertSameTiles(sourceFile, outputFile)
+        assertFalse("nessun file temporaneo residuo", outputFile.parentFile!!.listFiles()!!.any { it.name.endsWith(".tmp") })
+    }
+
+    @Test
+    fun `con un file installato troncato a meta ripiega sull'estrazione completa`() {
+        val installed = File(sourceFile.parentFile, "installed.pmtiles").also { writePmtiles(it, oldTiles()) }
+        installed.writeBytes(installed.readBytes().copyOf((installed.length() / 2).toInt()))
+        val newTiles = newTiles()
+        serveNew(newTiles)
+        val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
+
+        val stats = PmtilesExtractor().extract(mapSource, outputFile, installed)
+
+        assertFalse(stats.incremental)
+        assertSameTiles(sourceFile, outputFile)
+    }
+
+    @Test
+    fun `l'annullamento durante l'aggiornamento incrementale non ripiega sull'estrazione completa`() {
+        val installed = File(sourceFile.parentFile, "installed.pmtiles").also { writePmtiles(it, oldTiles()) }
+        val dispatcher = serveNew(newTiles())
+        val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
+
+        try {
+            PmtilesExtractor().extract(mapSource, outputFile, installed) { throw IllegalStateException("annullato") }
+            fail("l'estrazione doveva essere interrotta")
+        } catch (expected: IllegalStateException) {
+            assertEquals("annullato", expected.message)
+        }
+
+        // solo header e root directory del Reader e header dell'indice: nessuna tile, nessun ripiego
+        assertEquals(3, dispatcher.requestedStarts.size)
+        assertFalse(outputFile.exists())
+        assertTrue(outputFile.parentFile!!.listFiles()!!.none { it.name.endsWith(".tmp") })
     }
 }
