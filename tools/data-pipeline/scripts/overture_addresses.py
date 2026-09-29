@@ -125,17 +125,44 @@ def check_report(release, new, missing):
     return "\n".join(lines) + "\n"
 
 
-def fetch_release_pairs(release):
-    """(paese, dataset, licenza, righe) di tutto il tema addresses del rilascio: solo le colonne country e sources."""
+def merge_pair_counts(totals, rows):
+    """Somma in [totals] le righe (paese, dataset, licenza, righe) di un file del rilascio."""
+    for country, dataset, license_id, count in rows:
+        key = (country, dataset, license_id)
+        totals[key] = totals.get(key, 0) + count
+    return totals
+
+
+def fetch_release_pairs(release, log=lambda message: print(message, file=sys.stderr, flush=True)):
+    """(paese, dataset, licenza, righe) di tutto il tema addresses del rilascio: solo le colonne
+    country e sources. Un file parquet alla volta (64 nel rilascio 2026-09-23.1), con una riga di
+    log per file: la lettura dura decine di minuti e senza log non si capisce a che punto e'."""
+    import time
+
     con = duckdb.connect()
     con.sql("INSTALL httpfs; LOAD httpfs; SET s3_region='us-west-2';")
-    query = f"""
-        SELECT country, sources[1].dataset, sources[1].license, count(*)
-        FROM read_parquet('s3://overturemaps-us-west-2/release/{release}/theme=addresses/type=address/*.parquet')
-        WHERE country IS NOT NULL AND sources[1].dataset IS NOT NULL AND sources[1].license IS NOT NULL
-        GROUP BY ALL
-    """
-    return [tuple(row) for row in con.sql(query).fetchall()]
+    pattern = f"s3://overturemaps-us-west-2/release/{release}/theme=addresses/type=address/*.parquet"
+    files = [row[0] for row in con.sql(f"SELECT file FROM glob({sql_string(pattern)}) ORDER BY file").fetchall()]
+    if not files:
+        raise RuntimeError(f"nessun file parquet per il rilascio {release}")
+    log(f"overture_addresses: rilascio {release}, {len(files)} file da leggere (colonne country e sources)")
+    totals = {}
+    rows_read = 0
+    start = time.monotonic()
+    for index, path in enumerate(files, start=1):
+        rows = con.sql(f"""
+            SELECT country, sources[1].dataset, sources[1].license, count(*)
+            FROM read_parquet({sql_string(path)})
+            WHERE country IS NOT NULL AND sources[1].dataset IS NOT NULL AND sources[1].license IS NOT NULL
+            GROUP BY ALL
+        """).fetchall()
+        merge_pair_counts(totals, rows)
+        rows_read += sum(row[3] for row in rows)
+        elapsed = time.monotonic() - start
+        remaining = elapsed / index * (len(files) - index)
+        log(f"  file {index}/{len(files)} ({path.rsplit('/', 1)[-1][:10]}): {sum(row[3] for row in rows):,} righe;"
+            f" finora {rows_read:,} righe, {len(totals)} coppie, {elapsed / 60:.1f} min, ne mancano circa {remaining / 60:.0f}")
+    return [(c, d, l, n) for (c, d, l), n in totals.items()]
 
 
 def sql_string(value):
@@ -191,7 +218,9 @@ def main():
         check.add_argument("--release", default="latest")
         args = check.parse_args()
         release = latest_release() if args.release == "latest" else args.release
-        new, missing = compare_with_whitelist(fetch_release_pairs(release), load_reviewed(args.whitelist))
+        reviewed = load_reviewed(args.whitelist)
+        print(f"overture_addresses: lista bianca con {len(reviewed)} coppie riviste", file=sys.stderr, flush=True)
+        new, missing = compare_with_whitelist(fetch_release_pairs(release), reviewed)
         with open(args.report, "w", encoding="utf-8") as out:
             out.write(check_report(release, new, missing))
         print(f"overture_addresses: rilascio {release}, {len(new)} coppie nuove, {len(missing)} sparite",

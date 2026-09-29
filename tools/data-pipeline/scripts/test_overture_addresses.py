@@ -71,6 +71,14 @@ class CompareTest(unittest.TestCase):
         self.assertIn("| AT | at/countrywide | CC-BY-4.0 |", report)
 
 
+class MergePairCountsTest(unittest.TestCase):
+    def test_somma_le_stesse_coppie_di_file_diversi(self):
+        totals = {}
+        overture_addresses.merge_pair_counts(totals, [("AT", "at/countrywide", "CC-BY-4.0", 10), ("HK", "hk/x", "L", 1)])
+        overture_addresses.merge_pair_counts(totals, [("AT", "at/countrywide", "CC-BY-4.0", 5)])
+        self.assertEqual(totals, {("AT", "at/countrywide", "CC-BY-4.0"): 15, ("HK", "hk/x", "L"): 1})
+
+
 class ExcludedAreasTest(unittest.TestCase):
     def write(self, text):
         tmp = tempfile.TemporaryDirectory()
