@@ -44,6 +44,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Librerie aggiornate: MapLibre 13 per la mappa, OkHttp 5 per i download, CameraX 1.6 per la fotocamera della cassaforte, oltre a Hilt, WorkManager, coroutine e Gradle 9.8. I segnalini della mappa sono disegnati direttamente da MapLibre, senza il plugin delle annotazioni che non riceve più aggiornamenti.
 
 ### Corretto
+- Guide più pulite: niente più sigle come "&mdash;" o "&nbsp;", pezzi di codice di Wikivoyage ("}}", "]]", tabelle, didascalie delle foto), frasi spezzate a metà, righe vuote in più dopo i sottotitoli e fra le voci degli elenchi, o apostrofi persi ("lArte"); le cifre in valuta ora compaiono ("almeno 500 ALL" invece di "almeno ."). Arrivano con il prossimo aggiornamento delle guide.
 - Documenti: la cassaforte si chiude anche quando l'app va in background (ruotando lo schermo resta aperta), e le foto scattate col telefono in verticale non compaiono più di lato.
 - Primo avvio: se manca spazio, "Scarica" lo dice e le regioni non scaricate restano spuntate, invece di sparire senza scaricare nulla.
 - Mappa della regione: ruotando il telefono resta la vista di prima invece di tornare all'inquadratura iniziale. Con il disco pieno l'aggiornamento della mappa si ferma subito invece di riscaricarla tutta.
