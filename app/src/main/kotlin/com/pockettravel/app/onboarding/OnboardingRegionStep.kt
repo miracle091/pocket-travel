@@ -43,8 +43,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -128,12 +130,20 @@ internal fun OnboardingRegionStep(onboardingViewModel: OnboardingViewModel, view
                 }
             }
         }
+        // "Spazio insufficiente": le regioni non partite restano spuntate, per toglierne qualcuna e riprovare.
+        uiState.message?.let { message ->
+            Text(
+                text = stringResource(message),
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = Spacing.s).semantics { liveRegion = LiveRegionMode.Polite },
+            )
+        }
         if (selection.isNotEmpty()) {
             val totalBytes = selection.entries.sumOf { (id, kinds) -> uiState.items.firstOrNull { it.regionId == id }?.let { downloadBytes(it, kinds) } ?: 0L }
             Button(
                 onClick = {
-                    selection.forEach { (id, kinds) -> viewModel.downloadKinds(id, kinds) }
-                    selection.clear()
+                    viewModel.onMessageShown()
+                    selection.filter { (id, kinds) -> viewModel.downloadKinds(id, kinds) }.keys.forEach { selection.remove(it) }
                 },
                 modifier = Modifier.fillMaxWidth().padding(top = Spacing.s),
             ) {

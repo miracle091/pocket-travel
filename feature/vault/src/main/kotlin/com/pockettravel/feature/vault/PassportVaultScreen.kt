@@ -4,7 +4,9 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -77,6 +79,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import androidx.exifinterface.media.ExifInterface
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -92,6 +95,7 @@ import com.pockettravel.core.ui.Spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayInputStream
 import java.util.UUID
 import com.pockettravel.core.ui.R as UiR
 
@@ -142,12 +146,18 @@ fun PassportVaultScreen(
     // L'utente puo' uscire da qui per impostare il blocco schermo nelle Impostazioni: al ritorno
     // (ON_RESUME) si ricontrolla la biometria, cosi' NOT_ENROLLED non resta bloccato per sempre.
     // Non tocca LOCKED/UNLOCKED gia' impostati, solo NOT_ENROLLED che puo' essere diventato disponibile.
+    // App in background (ON_STOP, non una rotazione): la cassaforte si chiude, al ritorno serve di nuovo
+    // lo sblocco. Il prompt biometrico e il dialogo dei permessi non fermano l'activity.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && gateStatus == GateStatus.NOT_ENROLLED) {
                 val canAuthenticate = BiometricManager.from(context).canAuthenticate(ALLOWED_AUTHENTICATORS)
                 if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) gateStatus = GateStatus.LOCKED
+            }
+            if (event == Lifecycle.Event.ON_STOP && gateStatus == GateStatus.UNLOCKED && (context as? Activity)?.isChangingConfigurations != true) {
+                viewModel.lock()
+                gateStatus = GateStatus.LOCKED
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -520,8 +530,17 @@ private suspend fun decodeSampled(bytes: ByteArray, targetPx: Int): ImageBitmap?
     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
     var sampleSize = 1
     while (minOf(bounds.outWidth, bounds.outHeight) / (sampleSize * 2) >= targetPx) sampleSize *= 2
-    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sampleSize })
-        ?.asImageBitmap()
+    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sampleSize })
+        ?: return@withContext null
+    // CameraX salva la rotazione del telefono nel tag EXIF Orientation, che BitmapFactory ignora: senza,
+    // una foto scattata in verticale comparirebbe di lato.
+    val degrees = runCatching { ExifInterface(ByteArrayInputStream(bytes)).rotationDegrees }.getOrDefault(0)
+    val upright = if (degrees == 0) {
+        bitmap
+    } else {
+        Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, Matrix().apply { postRotate(degrees.toFloat()) }, true)
+    }
+    upright.asImageBitmap()
 }
 
 // existing == null crea un nuovo documento; altrimenti modifica quello passato (stesso id,

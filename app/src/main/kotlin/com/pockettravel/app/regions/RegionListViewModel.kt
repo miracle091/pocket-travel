@@ -201,10 +201,10 @@ class RegionListViewModel @Inject constructor(
         }
     }
 
-    /** Scarica i pacchetti scelti di una regione (primo avvio, selezione multipla). */
-    fun downloadKinds(regionId: String, kinds: Set<PackageKind>) {
-        val entry = manifestRegions.value.firstOrNull { it.regionId == regionId } ?: return
-        enqueue(entry, kinds)
+    /** Scarica i pacchetti scelti di una regione (primo avvio, selezione multipla): false se non e' partito. */
+    fun downloadKinds(regionId: String, kinds: Set<PackageKind>): Boolean {
+        val entry = manifestRegions.value.firstOrNull { it.regionId == regionId } ?: return false
+        return enqueue(entry, kinds)
     }
 
     /** Scarica o aggiorna un solo pacchetto della regione (foglio "Pacchetti"). */
@@ -213,13 +213,14 @@ class RegionListViewModel @Inject constructor(
         enqueue(entry, setOf(kind))
     }
 
-    private fun enqueue(entry: RegionManifestEntry, kinds: Set<PackageKind>) {
-        if (kinds.isEmpty()) return
+    private fun enqueue(entry: RegionManifestEntry, kinds: Set<PackageKind>): Boolean {
+        if (kinds.isEmpty()) return false
         if (regionRepository.availableStorageBytes() < entry.downloadBytes(kinds)) {
             status.update { it.copy(message = R.string.regions_not_enough_space) }
-            return
+            return false
         }
         regionSyncScheduler.enqueueDownload(entry, kinds)
+        return true
     }
 
     fun onMessageShown() {
@@ -318,6 +319,23 @@ internal fun RegionManifestEntry.localizedNames(locale: Locale): RegionManifestE
     } else {
         val label = groupLabelEn?.takeIf { locale.language == "en" } ?: groupLabel
         copy(displayName = label?.let { "$country - $it" } ?: displayName, groupName = country, groupLabel = label)
+    }
+}
+
+/**
+ * Il nome salvato di una regione installata (in italiano, dal catalogo) nella lingua dell'interfaccia,
+ * senza manifest: il nome del paese dal codice quando e' il paese intero ("Francia", "Sint Maarten
+ * (Paesi Bassi)"), il paese tradotto davanti all'etichetta per le regioni di un paese diviso
+ * ("Francia - Bretagna" -> "France - Bretagna"). Altrimenti resta com'e'.
+ */
+internal fun localizedInstalledName(displayName: String, countryCode: String?, locale: Locale): String {
+    if (countryCode == null || locale.language == "it") return displayName
+    val italian = countryName(countryCode, Locale.ITALIAN)
+    val local = countryName(countryCode, locale).takeIf { !it.equals(countryCode, ignoreCase = true) } ?: return displayName
+    return when {
+        displayName == italian || displayName.startsWith("$italian (") -> local
+        displayName.startsWith("$italian - ") -> local + displayName.removePrefix(italian)
+        else -> displayName
     }
 }
 

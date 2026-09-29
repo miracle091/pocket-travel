@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.pockettravel.app.regions.localizedInstalledName
+import java.util.Locale
 import javax.inject.Inject
 
 data class StoragePackageItem(val kind: PackageKind, val sizeBytes: Long?)
@@ -71,7 +73,13 @@ class StorageViewModel @Inject constructor(
                 val packages = PackageKind.entries
                     .filter { region.versionOf(it) != null }
                     .map { StoragePackageItem(it, regionRepository.packageBytes(region, it)) }
-                StorageRegionItem(region.regionId, region.displayName, region.countryCode, region.sizeBytes, packages)
+                StorageRegionItem(
+                    region.regionId,
+                    localizedInstalledName(region.displayName, region.countryCode, Locale.getDefault()),
+                    region.countryCode,
+                    region.sizeBytes,
+                    packages,
+                )
             },
             regionsSizeBytes = regions.sumOf { it.sizeBytes } + (guides?.sizeBytes ?: 0L),
             isModelDownloaded = model.isDownloaded,

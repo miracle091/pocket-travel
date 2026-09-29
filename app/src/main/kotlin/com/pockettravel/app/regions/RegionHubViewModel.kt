@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Locale
 import javax.inject.Inject
 
 /** Stato della mappa della regione aperta: i pacchetti si installano separatamente, puo' mancare. */
@@ -85,7 +86,8 @@ class RegionHubViewModel @Inject constructor(
         this.regionId.value = regionId
         recentRegionPreferences.setLastRegionId(regionId)
         viewModelScope.launch {
-            val name = regionRepository.displayName(regionId)
+            val region = regionRepository.installed(regionId)
+            val name = region?.let { localizedInstalledName(it.displayName, it.countryCode, Locale.getDefault()) }
             _displayName.value = name
             _regionMissing.value = name == null
         }

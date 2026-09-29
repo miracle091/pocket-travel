@@ -134,13 +134,19 @@ fun MapScreen(
         onTransitStopChange(selectedPin?.takeIf { it.category in TRANSIT_CATEGORIES && transitPackage == TransitPackageState.INSTALLED })
     }
     var cameraFitted by remember { mutableStateOf(false) }
+    // Centro e zoom (lat, lon, zoom) dell'ultima vista: una rotazione ricrea la mappa, e senza
+    // si tornerebbe all'inquadratura iniziale su tutti i segnalini.
+    var savedCamera by rememberSaveable { mutableStateOf<DoubleArray?>(null) }
     var parkingZoom by remember { mutableStateOf(false) }
     LaunchedEffect(mapView) {
         mapView.getMapAsync { map ->
             val update = { parkingZoom = map.cameraPosition.zoom >= PARKING_MIN_ZOOM }
             // Move per i gesti, idle anche per gli spostamenti via codice (il fit iniziale).
             map.addOnCameraMoveListener(update)
-            map.addOnCameraIdleListener(update)
+            map.addOnCameraIdleListener {
+                update()
+                map.cameraPosition.target?.let { savedCamera = doubleArrayOf(it.latitude, it.longitude, map.cameraPosition.zoom) }
+            }
             // Tocco su un segnalino: il primo sotto il dito nel layer dei POI.
             map.addOnMapClickListener { latLng ->
                 val id = map.queryRenderedFeatures(map.projection.toScreenLocation(latLng), PINS_LAYER)
@@ -230,12 +236,15 @@ fun MapScreen(
                 // invece di doverci arrivare a mano dalla vista mondo. Una tantum (guardia
                 // cameraFitted): dopo il primo fit l'utente deve restare libero di ripristinare la
                 // vista mondo senza che ogni ricomposizione lo forzi indietro sulla regione.
-                if (!cameraFitted && pins.isNotEmpty()) {
+                val restored = savedCamera
+                if (!cameraFitted && (restored != null || pins.isNotEmpty())) {
                     cameraFitted = true
                     view.getMapAsync { map ->
                         // LatLngBounds.Builder.build() vuole almeno 2 punti: con un solo pin si
-                        // centra la camera su di lui.
-                        val update = if (pins.size == 1) {
+                        // centra la camera su di lui. Dopo una rotazione, la vista di prima.
+                        val update = if (restored != null) {
+                            CameraUpdateFactory.newLatLngZoom(LatLng(restored[0], restored[1]), restored[2])
+                        } else if (pins.size == 1) {
                             CameraUpdateFactory.newLatLngZoom(LatLng(pins[0].latitude, pins[0].longitude), SINGLE_PIN_ZOOM)
                         } else {
                             val boundsBuilder = LatLngBounds.Builder()
