@@ -82,10 +82,13 @@ RD5_CLIP="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT $RD5_CLIP_MARGIN"
 RD5_TSV_TO_JSON='split("\n") | map(select(length > 0) | split("\t") | {name: .[0], url: .[1], sizeBytes: (.[2] | tonumber), sha256: .[3], sourceKey: .[4]})'
 # fetch_rd5 <tile.rd5> <tsv>: scarica in OUTPUT_DIR la parte della tile che serve alla regione e
 # aggiunge la sua riga (nome, url ri-ospitato, dimensione, sha256, sourceKey) al TSV.
+# RD5_RANGE_CACHE (facoltativa, la imposta il job "build"): intervalli gia' scaricati riusati dalle
+# regioni successive dello stesso job, che spesso ritagliano le stesse tile (clip_rd5.py --range-cache).
 fetch_rd5() {
-  local name="$1" dest="$OUTPUT_DIR/$1" sourceSize
+  local name="$1" dest="$OUTPUT_DIR/$1" sourceSize cacheArgs=()
+  [ -z "${RD5_RANGE_CACHE:-}" ] || cacheArgs=(--range-cache "$RD5_RANGE_CACHE")
   sourceSize="$(python3 "$SCRIPT_DIR/clip_rd5.py" "${BROUTER_BASE}/${name}" "$dest" \
-    --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --margin "$RD5_CLIP_MARGIN" --user-agent "$PIPELINE_USER_AGENT")"
+    --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --margin "$RD5_CLIP_MARGIN" --user-agent "$PIPELINE_USER_AGENT" "${cacheArgs[@]}")"
   printf '%s\t%s\t%s\t%s\t%s\n' "$name" "${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${name}" \
     "$(wc -c < "$dest" | tr -d ' ')" "$(sha256sum < "$dest" | awk '{print $1}')" "$sourceSize $RD5_CLIP" >> "$2"
 }

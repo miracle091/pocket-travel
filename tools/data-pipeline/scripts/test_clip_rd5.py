@@ -13,7 +13,7 @@ import threading
 import unittest
 from pathlib import Path
 
-from clip_rd5 import FileSource, HttpSource, brouter_crc, clip, overlaps
+from clip_rd5 import CachedSource, FileSource, HttpSource, brouter_crc, clip, overlaps
 
 DIVISOR = 32
 INDEX_SIZE = DIVISOR * DIVISOR * 4
@@ -145,6 +145,30 @@ class ClipRd5Test(unittest.TestCase):
             RangeHandler.honor_range = False  # server senza Range: errore, non download dell'intera tile
             with self.assertRaises(OSError):
                 clip(HttpSource(f"http://127.0.0.1:{server.server_port}/{self.NAME}", "test"), self.BBOX)
+        finally:
+            server.shutdown()
+
+    def test_cache_degli_intervalli_riusa_le_parti_gia_scaricate(self):
+        # Due regioni vicine sulla stessa tile: la seconda riusa le righe di micro-celle in comune.
+        other = (-8.5, -18.95, -6.9, -18.4)
+        want_first, _ = clip(FileSource(self.dir / self.NAME), self.BBOX)
+        want_second, _ = clip(FileSource(self.dir / self.NAME), other)
+        RangeHandler.data, RangeHandler.honor_range = self.rd5, True
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), RangeHandler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        cache = self.dir / "cache"
+        try:
+            url = f"http://127.0.0.1:{server.server_port}/{self.NAME}"
+            first = CachedSource(HttpSource(url, "test"), cache)
+            self.assertEqual(clip(first, self.BBOX)[0], want_first)
+            second = CachedSource(HttpSource(url, "test"), cache)
+            self.assertEqual(clip(second, other)[0], want_second)
+            self.assertGreater(second.reused, 0)
+            self.assertLess(second.fetched, first.fetched)
+            # Stesso riquadro una terza volta: dalla rete solo l'intestazione.
+            third = CachedSource(HttpSource(url, "test"), cache)
+            self.assertEqual(clip(third, self.BBOX)[0], want_first)
+            self.assertEqual(third.fetched, 200)
         finally:
             server.shutdown()
 

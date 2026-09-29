@@ -22,6 +22,7 @@ Uso: python clip_rd5.py <in.rd5 | URL> <out.rd5> --bbox minLon,minLat,maxLon,max
 Stampa su stdout la dimensione del file originale.
 """
 import argparse
+import hashlib
 import http.client
 import re
 import struct
@@ -114,6 +115,65 @@ class HttpSource:
         raise error
 
 
+class CachedSource:
+    """Intervalli di byte gia' scaricati di un .rd5 remoto, riusati dalle regioni successive dello
+    stesso job (--range-cache): regioni vicine ritagliano la stessa tile (Italia, San Marino, Vaticano
+    su E10_N40) e le loro righe di micro-celle si sovrappongono in parte. Si scaricano solo le parti
+    mancanti. Il file remoto e' identificato da nome, dimensione ed ETag, letti dalla prima richiesta
+    (l'intestazione, sempre dalla rete): un file cambiato su brouter.de ha un'altra cartella."""
+
+    def __init__(self, src, root):
+        self.src, self.root, self.dir, self.cached = src, Path(root), None, []
+        self.name, self.fetched, self.reused = src.name, 0, 0
+
+    @property
+    def size(self):
+        return self.src.size
+
+    def _open(self):
+        etag = hashlib.sha1((self.src.etag or "").encode()).hexdigest()[:12]
+        self.dir = self.root / f"{self.name}-{self.src.size}-{etag}"
+        self.dir.mkdir(parents=True, exist_ok=True)
+        for f in self.dir.glob("*.bin"):
+            start, end = map(int, f.stem.split("-"))
+            self.cached.append((start, end, f))
+
+    def read(self, start, end=None):
+        if self.dir is None:
+            data = self.src.read(start, end)
+            self.fetched += len(data)
+            self._open()
+            return data
+        end = self.size if end is None else end
+        pieces, pos = [], start
+        for a, b, f in sorted(self.cached):
+            if b <= pos or a >= end:
+                continue
+            if a > pos:
+                pieces.append(self._fetch(pos, a))
+            lo, hi = max(a, pos), min(b, end)
+            with open(f, "rb") as fh:
+                fh.seek(lo - a)
+                pieces.append(fh.read(hi - lo))
+            self.reused += hi - lo
+            pos = hi
+            if pos >= end:
+                break
+        if pos < end:
+            pieces.append(self._fetch(pos, end))
+        return b"".join(pieces)
+
+    def _fetch(self, start, end):
+        data = self.src.read(start, end)
+        self.fetched += len(data)
+        f = self.dir / f"{start}-{end}.bin"
+        tmp = f.with_suffix(".tmp")
+        tmp.write_bytes(data)
+        tmp.replace(f)
+        self.cached.append((start, end, f))
+        return data
+
+
 def clip(src, bbox):
     """(nuovo contenuto, micro-celle tenute) del .rd5 letto da src, ritagliato su bbox."""
     head = src.read(0, 200)
@@ -179,15 +239,19 @@ def main():
     ap.add_argument("--bbox", required=True, help="minLon,minLat,maxLon,maxLat della regione")
     ap.add_argument("--margin", type=float, required=True, help="gradi aggiunti al riquadro su ogni lato (0,1 = ~11 km)")
     ap.add_argument("--user-agent", default="PocketTravelDataPipeline clip_rd5.py", help="per le richieste HTTP")
+    ap.add_argument("--range-cache", type=Path, help="cartella degli intervalli gia' scaricati, condivisa tra le regioni di un job (solo con URL)")
     a = ap.parse_args()
     min_lon, min_lat, max_lon, max_lat = map(float, a.bbox.split(","))
     bbox = (min_lon - a.margin, min_lat - a.margin, max_lon + a.margin, max_lat + a.margin)
     remote = a.src.startswith(("http://", "https://"))
     src = HttpSource(a.src, a.user_agent) if remote else FileSource(a.src)
+    if remote and a.range_cache:
+        src = CachedSource(src, a.range_cache)
     out, kept = clip(src, bbox)
     a.dst.write_bytes(out)
+    reused = f", {src.reused / 2**20:.1f} MiB dalla cache" if isinstance(src, CachedSource) else ""
     print(f"{src.name}: {src.size / 2**20:.1f} -> {len(out) / 2**20:.1f} MiB, {kept} micro-celle tenute, "
-          f"{src.fetched / 2**20:.1f} MiB {'scaricati' if remote else 'letti'}", file=sys.stderr)
+          f"{src.fetched / 2**20:.1f} MiB {'scaricati' if remote else 'letti'}{reused}", file=sys.stderr)
     print(src.size)  # dimensione dell'originale, per il sourceKey del manifest (build-region.sh)
 
 

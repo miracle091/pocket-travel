@@ -877,6 +877,9 @@ jobs:
         shell: bash
         env:
           WIKIVOYAGE_DUMP_CACHE: ${{ runner.temp }}/wikivoyage-dumps
+          # Intervalli dei .rd5 gia' scaricati, riusati dalle regioni dopo nello stesso shard (34% dei
+          # download .rd5 della run del 2026-09-28 erano tile gia' scaricate nello shard).
+          RD5_RANGE_CACHE: ${{ runner.temp }}/rd5-range-cache
         run: |
           set -euo pipefail
           source tools/data-pipeline/scripts/pilot-regions.sh
