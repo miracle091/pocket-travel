@@ -221,13 +221,23 @@ fetch_wikivoyage_lang_dump() {
   local baseUrl="https://dumps.wikimedia.org/${lang}wikivoyage/latest"
   local dumpName="${lang}wikivoyage-latest-pages-articles.xml.bz2"
   sha1File="$(mktemp)"
+  # Cache facoltativa (WIKIVOYAGE_DUMP_CACHE, la riempie la cache di Actions nel job "build"): un
+  # dump gia' scaricato con lo sha1 giusto non si riscarica. Lo sha1 si controlla sempre.
+  local cached="${WIKIVOYAGE_DUMP_CACHE:+$WIKIVOYAGE_DUMP_CACHE/$dumpName}"
   for attempt in 1 2 3; do
-    if wikimedia_curl -o "$outFile" "$baseUrl/$dumpName" 2>/dev/null \
-      && wikimedia_curl -o "$sha1File" "$baseUrl/${lang}wikivoyage-latest-sha1sums.txt" 2>/dev/null; then
+    if wikimedia_curl -o "$sha1File" "$baseUrl/${lang}wikivoyage-latest-sha1sums.txt" 2>/dev/null; then
       # Il sha1sums di "latest" elenca i file con la data del dump ("itwikivoyage-20260901-pages-
       # articles.xml.bz2"), non con "latest": si cerca quel nome, stesso contenuto dell'alias.
       sha1="$(awk -v re="^${lang}wikivoyage-[0-9]+-pages-articles[.]xml[.]bz2\$" '$2 ~ re {print $1; exit}' "$sha1File")"
-      if [ -n "$sha1" ] && printf '%s  %s\n' "$sha1" "$outFile" | sha1sum -c - >/dev/null 2>&1; then
+      if [ -n "$sha1" ] && [ -n "$cached" ] && printf '%s  %s\n' "$sha1" "$cached" | sha1sum -c - >/dev/null 2>&1; then
+        echo "-- dump Wikivoyage ${lang}: dalla cache" >&2
+        cp "$cached" "$outFile"
+        rm -f "$sha1File"
+        return 0
+      fi
+      if [ -n "$sha1" ] && wikimedia_curl -o "$outFile" "$baseUrl/$dumpName" 2>/dev/null \
+        && printf '%s  %s\n' "$sha1" "$outFile" | sha1sum -c - >/dev/null 2>&1; then
+        if [ -n "$cached" ]; then mkdir -p "$WIKIVOYAGE_DUMP_CACHE" && cp "$outFile" "$cached"; fi
         rm -f "$sha1File"
         return 0
       fi

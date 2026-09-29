@@ -847,9 +847,36 @@ jobs:
           tar -xzf "$RUNNER_TEMP/go-pmtiles.tar.gz" -C "$RUNNER_TEMP/bin" pmtiles
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
+      # Dump di Wikivoyage (IT ~50 MB, EN ~130 MB, rifatti una volta al mese) nella cache di Actions,
+      # con la chiave dagli sha1 del dump corrente: gli shard e le run del mese non li riscaricano
+      # (fetch_wikivoyage_lang_dump in lib.sh, WIKIVOYAGE_DUMP_CACHE). Mai bloccante.
+      - name: Chiave dei dump di Wikivoyage
+        id: dumps
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          key=""
+          for lang in it en; do
+            sha="$(curl -sSfL --retry 3 -A "PocketTravelDataPipeline/1.0" "https://dumps.wikimedia.org/${lang}wikivoyage/latest/${lang}wikivoyage-latest-sha1sums.txt" \
+              | awk -v re="^${lang}wikivoyage-[0-9]+-pages-articles[.]xml[.]bz2\$" '$2 ~ re {print substr($1, 1, 12); exit}')"
+            key="$key-$lang$sha"
+          done
+          echo "key=wikivoyage-dumps$key" >> "$GITHUB_OUTPUT"
+
+      - name: Cache dei dump di Wikivoyage
+        if: steps.dumps.outputs.key != ''
+        continue-on-error: true
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/wikivoyage-dumps
+          key: ${{ steps.dumps.outputs.key }}
+
       - name: Genera i pacchetti regionali dello shard
         id: build
         shell: bash
+        env:
+          WIKIVOYAGE_DUMP_CACHE: ${{ runner.temp }}/wikivoyage-dumps
         run: |
           set -euo pipefail
           source tools/data-pipeline/scripts/pilot-regions.sh
