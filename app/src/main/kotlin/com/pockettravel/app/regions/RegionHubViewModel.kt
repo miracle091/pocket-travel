@@ -41,6 +41,7 @@ class RegionHubViewModel @Inject constructor(
     private val regionSyncScheduler: RegionSyncScheduler,
     private val transitClient: TransitClient,
     private val transitNetworkPreferences: TransitNetworkPreferences,
+    private val lastKnownPosition: LastKnownPosition,
 ) : ViewModel() {
 
     private val _displayName = MutableStateFlow<String?>(null)
@@ -103,7 +104,12 @@ class RegionHubViewModel @Inject constructor(
         val id = regionId.value ?: return
         viewModelScope.launch {
             runCatching { entryWithTransit(id) }
-                .onSuccess { if (it.transit != null) regionSyncScheduler.enqueueDownload(it, setOf(PackageKind.TRANSIT)) }
+                .onSuccess { entry ->
+                    if (entry.transit != null) {
+                        transitNetworkPreferences.rememberChoice(entry, setOf(PackageKind.TRANSIT))
+                        regionSyncScheduler.enqueueDownload(entry, setOf(PackageKind.TRANSIT))
+                    }
+                }
         }
     }
 
@@ -111,7 +117,8 @@ class RegionHubViewModel @Inject constructor(
     private suspend fun entryWithTransit(id: String): RegionManifestEntry {
         val manifest = manifestClient.fetchManifest()
         val index = manifest.transit?.let { transitClient.fetchIndex(it) }
-        return attachTransitFeeds(manifest.regions.filter { it.regionId == id }, index, transitNetworkPreferences.excluded.value).first()
+        val excluded = effectiveTransitExclusions(listOf(id), index, transitNetworkPreferences.excluded.value, lastKnownPosition.get())
+        return attachTransitFeeds(manifest.regions.filter { it.regionId == id }, index, excluded).first()
     }
 
     fun downloadMap() {

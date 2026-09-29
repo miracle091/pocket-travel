@@ -114,7 +114,11 @@ class RegionListViewModel @Inject constructor(
     private val llmModelUpdateCheckScheduler: LlmModelUpdateCheckScheduler,
     private val usageModePreferences: UsageModePreferences,
     private val transitNetworkPreferences: TransitNetworkPreferences,
+    lastKnownPosition: LastKnownPosition,
 ) : ViewModel() {
+
+    // Per le reti dei mezzi pubblici vicine (defaultTransitExclusions): letta una volta, senza GPS.
+    private val position = lastKnownPosition.get()
 
     private val manifestRegions = MutableStateFlow<List<RegionManifestEntry>>(emptyList())
     // Manifest e indice dei mezzi pubblici come arrivano: manifestRegions li unisce con le reti scelte.
@@ -160,15 +164,16 @@ class RegionListViewModel @Inject constructor(
         refresh()
         // Le reti scelte cambiano versione e dimensione del pacchetto: le regioni si ricalcolano subito.
         viewModelScope.launch {
-            combine(baseRegions, transitIndex, transitNetworkPreferences.excluded) { regions, index, excluded ->
-                attachTransitFeeds(regions, index, excluded)
+            combine(baseRegions, transitIndex, transitNetworkPreferences.excluded) { regions, index, stored ->
+                attachTransitFeeds(regions, index, effectiveTransitExclusions(regions.map { it.regionId }, index, stored, position))
             }.collect { manifestRegions.value = it }
         }
     }
 
     /** Aggiunge o toglie una rete dei mezzi pubblici della regione (foglio Contenuti). */
     fun setTransitNetwork(regionId: String, feedId: String, included: Boolean) {
-        transitNetworkPreferences.setIncluded(regionId, feedId, included)
+        val defaults = effectiveTransitExclusions(listOf(regionId), transitIndex.value, emptyMap(), position)[regionId].orEmpty()
+        transitNetworkPreferences.setIncluded(regionId, feedId, included, defaults)
     }
 
     fun refresh() {
@@ -240,6 +245,7 @@ class RegionListViewModel @Inject constructor(
             status.update { it.copy(message = R.string.regions_not_enough_space) }
             return false
         }
+        transitNetworkPreferences.rememberChoice(entry, kinds)
         regionSyncScheduler.enqueueDownload(entry, kinds)
         return true
     }

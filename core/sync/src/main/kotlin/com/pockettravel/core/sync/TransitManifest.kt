@@ -4,6 +4,8 @@ import com.pockettravel.core.data.TransitFeedInfo
 import kotlinx.serialization.Serializable
 import java.net.URI
 import java.security.MessageDigest
+import kotlin.math.cos
+import kotlin.math.sqrt
 
 /**
  * Voce "transit" in cima al manifest: riferimento a transit.json, scaricato e verificato (sha256)
@@ -36,6 +38,8 @@ data class TransitFeed(
     val version: String,
     val file: RegionManifestFile,
     val fileXz: RegionManifestFile? = null,
+    // Riquadro delle fermate: minLon, minLat, maxLon, maxLat (build-transit.sh); per le reti vicine.
+    val bbox: List<Double>? = null,
 ) {
     val downloadFile: RegionManifestFile get() = fileXz ?: file
 }
@@ -69,6 +73,7 @@ fun TransitIndex.validate() {
 
 internal fun TransitFeed.validate() {
     require(isSafeSegment(id)) { "id di rete non valido: $id" }
+    require(bbox == null || bbox.size == 4) { "riquadro non valido per la rete $id" }
     require(isSafeVersion(version)) { "version non valida per la rete $id" }
     require(name.isNotBlank() && attribution.isNotBlank()) { "nome o attribuzione mancanti per la rete $id" }
     require(regions.all(::isSafeSegment)) { "regione non valida per la rete $id" }
@@ -110,4 +115,30 @@ fun attachTransitFeeds(
         val chosen = all.filter { it.id !in excluded[entry.regionId].orEmpty() }.ifEmpty { all }
         if (all.isEmpty()) entry else entry.copy(transit = RegionTransitEntry(chosen, all))
     }
+}
+
+/** Oltre questo numero di reti in una regione si propongono solo quelle vicine (Regno Unito: 12 aree). */
+private const val MANY_TRANSIT_FEEDS = 3
+
+/** Entro questa distanza dal riquadro delle fermate una rete conta come vicina. */
+private const val NEAR_TRANSIT_KM = 50.0
+
+/**
+ * Le reti da togliere di default quando l'utente non ha ancora scelto: con piu' di [MANY_TRANSIT_FEEDS]
+ * reti restano quelle entro [NEAR_TRANSIT_KM] dalla posizione, o la piu' vicina se nessuna lo e'. Senza
+ * posizione (o con poche reti) nessuna: si scaricano tutte, come per le altre regioni.
+ */
+fun defaultTransitExclusions(available: List<TransitFeed>, latitude: Double?, longitude: Double?): Set<String> {
+    if (available.size <= MANY_TRANSIT_FEEDS || latitude == null || longitude == null) return emptySet()
+    val distances = available.mapNotNull { feed -> feed.bbox?.let { feed.id to distanceToBoxKm(it, latitude, longitude) } }
+    if (distances.isEmpty()) return emptySet()
+    val near = distances.filter { it.second <= NEAR_TRANSIT_KM }.map { it.first }.ifEmpty { listOf(distances.minBy { it.second }.first) }
+    return available.map { it.id }.toSet() - near.toSet()
+}
+
+// Distanza approssimata (equirettangolare) dal punto al riquadro, 0 se ci sta dentro.
+private fun distanceToBoxKm(box: List<Double>, latitude: Double, longitude: Double): Double {
+    val dLat = latitude - latitude.coerceIn(box[1], box[3])
+    val dLon = (longitude - longitude.coerceIn(box[0], box[2])) * cos(Math.toRadians(latitude))
+    return sqrt(dLat * dLat + dLon * dLon) * 111.32
 }
