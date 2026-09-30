@@ -6,7 +6,7 @@ Le cose da sapere per lavorare su Pocket Travel. Il **perché** delle scelte tec
 
 - Android Studio con JDK 17 o successivo (Gradle è già incluso nel repository).
 - Per la pipeline dei dati: bash, `jq`, `xz`, Python 3 (per i civici di Overture anche il pacchetto `duckdb`).
-- Per addestrare i modelli dell'assistente: una GPU (AMD con ROCm o NVIDIA) e Unsloth.
+- Per addestrare i modelli dell'assistente: una GPU (AMD con ROCm o NVIDIA con CUDA) e PyTorch, meglio con Unsloth (senza, si usa peft). Si lancia `tools/data-pipeline/scripts/train_auto.py`, che sceglie da solo GPU e backend; su Linux/WSL con NVIDIA c'è anche `run_train_nvidia.sh`. Su WSL il desktop di Windows occupa parte della memoria della GPU: aggiungi `--max-vram-held 25`.
 
 ## Compilare e provare
 
@@ -33,6 +33,15 @@ Alcuni test dei percorsi usano segmenti BRouter veri, troppo grandi per il repos
 - `RD5_UK_TEST_DIR`: una cartella con `W5_N50.rd5` (rotonde con guida a sinistra, Milton Keynes).
 
 Tempo e memoria del calcolo sul telefono li misura `RouteEngineBenchmarkDeviceTest` (commento in testa al file per come copiare i segmenti sul dispositivo).
+
+La libreria nativa dell'assistente (llama.cpp) la prova `LlamaEngineDeviceTest` con un modello GGUF vero (Qwen3.5 0.8B, ~530 MB): senza il file i test vengono saltati. Copialo come spiega il commento in testa al file, poi usa `installDebugAndroidTest` e `am instrument` invece di `connectedDebugAndroidTest`, che disinstalla l'app di test e cancella il modello:
+
+```bash
+./gradlew :feature:ai:installDebugAndroidTest
+adb shell am instrument -w -e class com.pockettravel.feature.ai.LlamaEngineDeviceTest com.pockettravel.feature.ai.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Sull'emulatore (x86_64) i 4 test durano circa 9 minuti.
 
 ## Provare con dati tuoi
 

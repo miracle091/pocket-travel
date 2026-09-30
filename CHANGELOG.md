@@ -2,6 +2,11 @@
 
 Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versionamento secondo [Semantic Versioning](https://semver.org/lang/it/). Le voci non riportano date: la cronologia dettagliata resta nella storia git del repository.
 
+## [Non rilasciato]
+
+### Corretto
+- Assistente IA online: se il servizio non conosce il modello scelto, l'assistente torna a dirlo ("controlla il nome in Assistente IA → Online, o scegli Automatico") invece di mostrare un errore generico.
+
 ## [0.9.0]
 
 ### Aggiunto
