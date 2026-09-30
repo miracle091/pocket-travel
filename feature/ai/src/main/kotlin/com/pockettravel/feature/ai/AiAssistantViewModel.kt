@@ -236,13 +236,16 @@ class AiAssistantViewModel @Inject constructor(
             try {
                 val answer = travelAssistant.ask(regionId, question, state.mode)
                 _uiState.update { it.copy(isThinking = false, answer = answer) }
-            } catch (_: OnlineModelNotFoundException) {
-                _uiState.update { it.copy(isThinking = false, errorMessage = R.string.ai_error_model) }
-            } catch (_: Exception) {
-                _uiState.update {
-                    it.copy(isThinking = false, errorMessage = R.string.ai_error_answer)
-                }
+            } catch (error: Exception) {
+                _uiState.update { it.copy(isThinking = false, errorMessage = askErrorMessage(error)) }
             }
         }
     }
+}
+
+/** Messaggio per un errore di [AiAssistantViewModel.ask]: il modello online sconosciuto ha il suo, il resto quello generico. */
+@StringRes
+internal fun askErrorMessage(error: Exception): Int = when (error) {
+    is OnlineModelNotFoundException -> R.string.ai_error_model
+    else -> R.string.ai_error_answer
 }
