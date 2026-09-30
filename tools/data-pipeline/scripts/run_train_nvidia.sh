@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Training su GPU NVIDIA (Linux/WSL) tramite train_auto.py (sceglie GPU e backend, Unsloth se installato).
-# Testato solo su Windows nativo con GTX 1660 SUPER (6 GB, Turing): Unsloth fp32, Unsloth --4bit e peft;
-# su Linux/WSL non ancora provato.
+# Testato con GTX 1660 SUPER (6 GB, Turing): su Windows nativo Unsloth fp32, Unsloth --4bit e peft;
+# su WSL2 (Ubuntu, Python 3.12, torch cu124) peft puro, 2 step piu' controllo a campione (CUDA_DEVICE solo con --dry-run).
+# Con il desktop Windows sulla stessa GPU la VRAM occupata supera il 10% di default: serve --max-vram-held 25.
 # Uso: [UNSLOTH_VENV=<venv>] [CUDA_DEVICE=0] ./run_train_nvidia.sh [opzioni di train_lora.py]
 #      es. ./run_train_nvidia.sh --max-steps 30
 #          ./run_train_nvidia.sh --4bit --model <modello piu' grande>   (QLoRA: meno VRAM)
