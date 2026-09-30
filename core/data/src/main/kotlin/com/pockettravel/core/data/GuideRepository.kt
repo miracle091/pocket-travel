@@ -8,8 +8,11 @@ class GuideRepository @Inject constructor(
     private val guideDao: GuideDao,
 ) {
     /**
-     * Solo per i test: non sostituisce le sezioni gia' presenti. L'import reale del pacchetto guide
-     * passa da GuidesImporter (core/sync), che svuota e reimporta tutto in una transazione.
+     * Solo per i test (GuideRepositoryTest la usa per popolare il database prima di provare
+     * [sectionsFor] e [searchInRegion]); il codice dell'app non la chiama. Aggiunge le sezioni senza
+     * togliere quelle gia' presenti, quindi non va usata per aggiornare una guida: l'import reale del
+     * pacchetto guide passa da GuidesImporter (core/sync), che svuota e reimporta tutto in una
+     * transazione.
      */
     suspend fun importSections(sections: List<GuideSection>) {
         guideDao.insertAll(sections.map { it.toEntity() })

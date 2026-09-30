@@ -16,6 +16,11 @@ class PmtilesExtractionException(message: String) : Exception(message)
 /**
  * Esito di [PmtilesExtractor.extract]: quante tile sono state scaricate e quante riusate dalla mappa
  * gia' installata (0 con l'estrazione completa). I byte riusati sono quelli non scaricati.
+ *
+ * Solo diagnostica: RegionPackageInstaller ignora il valore restituito e i campi li legge soltanto
+ * PmtilesExtractorTest, per verificare che
+ * l'aggiornamento incrementale riusi davvero le tile invariate e ricada sull'estrazione completa
+ * quando serve.
  */
 data class PmtilesExtractionStats(
     val incremental: Boolean,

@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """POI di una regione dagli estratti Geofabrik, nello stesso XML che build-region.sh riceve da Overpass.
 
-Uso: geofabrik_pois.py --bbox=minLon,minLat,maxLon,maxLat --out poi.osm.xml --cache DIR [--user-agent UA]
+Uso: geofabrik_pois.py --bbox=minLon,minLat,maxLon,maxLat --out poi.osm.xml --cache DIR [--user-agent UA] [--index FILE]
+
+L'indice index-v1.json viene scaricato una volta in --cache e riusato dalle regioni successive; --index (opzione
+manuale, build-region.sh non la passa) usa invece un indice locale: utile per provare lo script senza rete
+sull'indice o con un indice ritoccato.
 
 1. Sceglie dall'indice di Geofabrik (index-v1.json) gli estratti "foglia" il cui poligono tocca il bbox,
    scartando quelli composti (alps, dach, britain-and-ireland...) che ne contengono altri gia' scelti.
@@ -218,7 +222,7 @@ def main():
     parser.add_argument("--out", required=True)
     parser.add_argument("--cache", required=True, help="cartella degli estratti ridotti, condivisa dalle regioni del job")
     parser.add_argument("--user-agent", default="PocketTravel-pipeline")
-    parser.add_argument("--index", help="index-v1.json locale invece di quello di Geofabrik")
+    parser.add_argument("--index", help="index-v1.json locale, usato al posto di quello scaricato in --cache (opzione manuale, non usata da build-region.sh)")
     args = parser.parse_args()
     bbox = tuple(float(v) for v in args.bbox.split(","))
     os.makedirs(args.cache, exist_ok=True)

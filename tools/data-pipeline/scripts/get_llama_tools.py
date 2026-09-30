@@ -20,6 +20,9 @@ Con una GPU, eval_gguf.py e convert_gguf.py (imatrix) vanno lanciati con --gpu-l
 un training occupa la stessa GPU.
 
 Uso: python get_llama_tools.py <backend> [--dest CARTELLA]
+I binari vanno in <CARTELLA>/<build>-<backend>; senza --dest (l'uso normale: nessuno script o workflow la
+passa) la cartella e' ~/.cache/pocket-travel/llama-tools, e un download gia' fatto non viene ripetuto.
+--dest serve solo a tenere i binari altrove (altro disco, cartella condivisa).
 Stampa la cartella dei binari, da passare a eval_gguf.py --llama-cpp / convert_gguf.py --bin-dir.
 """
 import argparse
@@ -72,7 +75,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("backend", choices=("cpu", "vulkan", "rocm", "cuda-12.4", "cuda-13.4"))
     ap.add_argument("--dest", type=Path, default=Path.home() / ".cache" / "pocket-travel" / "llama-tools",
-                    help="cartella base: i binari finiscono in <dest>/<build>-<backend>")
+                    help="cartella base (predefinita ~/.cache/pocket-travel/llama-tools): i binari finiscono in <dest>/<build>-<backend>")
     a = ap.parse_args()
     asset = "rocm-10.0" if a.backend == "rocm" else a.backend  # nome del pacchetto HIP nella release
     dest = a.dest / f"{LLAMA_BUILD}-{a.backend}"
