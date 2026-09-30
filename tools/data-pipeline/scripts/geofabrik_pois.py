@@ -96,10 +96,22 @@ def tocca_bbox(rings, bbox):
     return False
 
 
+def sul_bordo(x, y, ring, eps=1e-4):
+    """Punto a meno di eps gradi da un lato dell'anello."""
+    for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]):
+        dx, dy = x2 - x1, y2 - y1
+        t = 0 if dx == dy == 0 else max(0, min(1, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy)))
+        if (x - x1 - t * dx) ** 2 + (y - y1 - t * dy) ** 2 <= eps * eps:
+            return True
+    return False
+
+
 def contiene(big, small):
-    """True se almeno l'80% dei vertici (a campione) di small cade in big: big e' un estratto composto."""
+    """True se almeno l'80% dei vertici (a campione) di small cade in big o sul suo bordo: big e' un estratto
+    composto. Il bordo conta perche' un composto puo' condividere il confine con la foglia (us e us-pacific con
+    us/alaska), e il ray casting sui punti del bordo da' un risultato a caso."""
     points = [p for ring in small for p in ring[::max(1, len(ring) // 50)]]
-    inside = sum(1 for x, y in points if any(dentro(x, y, ring) for ring in big))
+    inside = sum(1 for x, y in points if any(dentro(x, y, ring) or sul_bordo(x, y, ring) for ring in big))
     return inside >= 0.8 * len(points)
 
 

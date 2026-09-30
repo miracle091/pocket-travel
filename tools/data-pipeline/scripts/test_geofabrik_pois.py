@@ -35,6 +35,18 @@ class ScegliEstrattiTest(unittest.TestCase):
 
         self.assertEqual(sorted(chosen), ["a", "b"])
 
+    def test_composto_con_il_confine_in_comune(self):
+        # Come us e us-pacific con us/alaska: i vertici della foglia stanno sul bordo del composto.
+        index = {"features": [
+            quadrato("a", 0, 0, 10, 10),
+            quadrato("b", 10, 0, 20, 10),
+            quadrato("a-e-b", 0, 0, 20, 10),
+        ]}
+
+        chosen = [cid for cid, _ in geofabrik_pois.scegli_estratti(index, (5, 5, 15, 8))]
+
+        self.assertEqual(sorted(chosen), ["a", "b"])
+
     def test_bbox_tutto_dentro_un_estratto(self):
         index = {"features": [quadrato("a", 0, 0, 10, 10)]}
 
