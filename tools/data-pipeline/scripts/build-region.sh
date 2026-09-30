@@ -523,10 +523,10 @@ fetch_overpass_chunk() {
   query="${query}way[\"tourism\"=\"information\"][\"information\"~\"^(office|visitor_centre)$\"]${bbox};"
   # Ambasciate e consolati col tag moderno (office=diplomatic), non solo amenity=embassy.
   query="${query}nw[\"office\"=\"diplomatic\"]${bbox};"
-  # Parchi pubblici e a pagamento (parchi a tema e acquatici, zoo) e riserve naturali: quasi sempre aree
+  # Parchi pubblici e a pagamento (parchi a tema e acquatici, zoo), porti turistici e riserve naturali: quasi sempre aree
   # o relazioni. Dei parchi e delle riserve solo quelli con un nome: gli altri parchi sono per lo piu'
   # aiuole e giardinetti.
-  query="${query}wr[\"leisure\"~\"^(park|nature_reserve)$\"][\"name\"]${bbox};wr[\"leisure\"=\"water_park\"]${bbox};wr[\"tourism\"~\"^(theme_park|zoo)$\"]${bbox};"
+  query="${query}wr[\"leisure\"~\"^(park|nature_reserve)$\"][\"name\"]${bbox};wr[\"leisure\"~\"^(water_park|marina)$\"]${bbox};wr[\"tourism\"~\"^(theme_park|zoo)$\"]${bbox};"
   # Trasporti: stazioni (treno e metro), autostazioni, aeroporti con codice IATA (niente aviosuperfici).
   query="${query}nw[\"railway\"~\"^(station|halt)$\"]${bbox};nwr[\"aeroway\"=\"aerodrome\"][\"iata\"]${bbox};"
   query="${query});out center;"

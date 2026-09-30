@@ -37,7 +37,7 @@ TAGS_FILTER = [
     "n/amenity", "n/shop", "n/tourism", "n/leisure", "n/historic",
     "w/amenity=parking,bus_station,hospital,fire_station,place_of_worship,monastery,ferry_terminal",
     "w/tourism=information", "nw/office=diplomatic",
-    "wr/leisure=park,nature_reserve,water_park", "wr/tourism=theme_park,zoo",
+    "wr/leisure=park,nature_reserve,water_park,marina", "wr/tourism=theme_park,zoo",
     "nw/railway=station,halt", "nwr/aeroway=aerodrome",
 ]
 NODE_KEYS = ("amenity", "shop", "tourism", "leisure", "historic")
@@ -55,7 +55,7 @@ def filtro_overpass(kind, tags):
         return True
     if kind in ("way", "relation") and (
             (tags.get("leisure") in ("park", "nature_reserve") and "name" in tags) or
-            tags.get("leisure") == "water_park" or tags.get("tourism") in ("theme_park", "zoo")):
+            tags.get("leisure") in ("water_park", "marina") or tags.get("tourism") in ("theme_park", "zoo")):
         return True
     return tags.get("aeroway") == "aerodrome" and "iata" in tags
 

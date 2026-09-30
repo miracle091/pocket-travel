@@ -63,6 +63,8 @@ class FiltroOverpassTest(unittest.TestCase):
         self.assertTrue(f("node", {"railway": "halt"}))
         self.assertFalse(f("relation", {"leisure": "park"}))
         self.assertTrue(f("relation", {"leisure": "park", "name": "Mezaparks"}))
+        self.assertTrue(f("way", {"leisure": "marina"}))
+        self.assertTrue(f("relation", {"leisure": "marina", "name": "Andrejosta"}))
         self.assertFalse(f("way", {"tourism": "information", "information": "board"}))
         self.assertTrue(f("way", {"tourism": "information", "information": "office"}))
         self.assertFalse(f("node", {"aeroway": "aerodrome"}))
