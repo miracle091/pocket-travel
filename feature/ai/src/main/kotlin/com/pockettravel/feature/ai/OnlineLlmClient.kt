@@ -28,7 +28,7 @@ class OnlineLlmClient @Inject constructor(
             )
             val request = Request.Builder()
                 .url("${baseUrl.trimEnd('/')}/chat/completions")
-                .header(String(charArrayOf(Char(65),Char(117),Char(116),Char(104),Char(111),Char(114),Char(105),Char(122),Char(97),Char(116),Char(105),Char(111),Char(110))), "Bearer ".plus(apiKey))
+                .header("Authorization", "Bearer $apiKey")
                 .post(json.encodeToString(OpenAiChatRequest.serializer(), requestBody).toRequestBody(JSON_MEDIA_TYPE))
                 .build()
 
