@@ -75,6 +75,8 @@ data class RegionUiItem(
     val groupLabel: String? = null,
     // Riquadro geografico della regione (dalla mappa del manifest), per le regioni vicine del primo avvio.
     val bbox: RegionBbox? = null,
+    // La mappa e' tra i pacchetti da scaricare: il suo peso non e' in sizeBytes (si conosce solo estraendola).
+    val includesMap: Boolean = false,
 )
 
 data class RegionBbox(val minLon: Double, val minLat: Double, val maxLon: Double, val maxLat: Double)
@@ -333,15 +335,17 @@ internal fun regionUiItem(
             transitDefaultReason = if (kind == PackageKind.TRANSIT) remote.transit?.defaultReason else null,
         )
     }
-    val sizeBytes = when (status) {
-        RegionStatus.NOT_INSTALLED -> remote.downloadBytes(remote.downloadKinds(withRouting), addressCellVersions)
-        RegionStatus.UPDATE_AVAILABLE -> remote.downloadBytes(outdated, addressCellVersions)
-        RegionStatus.INSTALLED -> local!!.sizeBytes
+    val toDownload = when (status) {
+        RegionStatus.NOT_INSTALLED -> remote.downloadKinds(withRouting)
+        RegionStatus.UPDATE_AVAILABLE -> outdated
+        RegionStatus.INSTALLED -> emptySet()
     }
+    val sizeBytes = if (status == RegionStatus.INSTALLED) local!!.sizeBytes else remote.downloadBytes(toDownload, addressCellVersions)
     return RegionUiItem(
         remote.regionId, remote.displayName, sizeBytes, status, remote.continent, remote.countryCode, packages, unavailable,
         remote.groupName, remote.groupLabel,
         bbox = remote.map.source.let { RegionBbox(it.minLon, it.minLat, it.maxLon, it.maxLat) },
+        includesMap = PackageKind.MAP in toDownload,
     )
 }
 

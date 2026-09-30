@@ -122,6 +122,19 @@ class RegionUiItemTest {
     }
 
     @Test
+    fun `la mappa da scaricare si segnala a parte, il suo peso non e' nei byte`() {
+        assertEquals(true, regionUiItem(remote, null, noBytes).includesMap)
+        // Solo i POI da aggiornare: niente mappa.
+        assertEquals(false, regionUiItem(remote, local(map = "m2", routing = "r1", poi = "p1"), noBytes).includesMap)
+
+        val onlyMap = regionUiItem(remote, local(map = "m1", routing = "r1", poi = "p2"), noBytes)
+        assertEquals(RegionStatus.UPDATE_AVAILABLE, onlyMap.status)
+        assertEquals(true, onlyMap.includesMap)
+        assertEquals(0L, onlyMap.sizeBytes)
+        assertEquals(false, regionUiItem(remote, local(map = "m2", routing = "r1", poi = "p2"), noBytes).includesMap)
+    }
+
+    @Test
     fun `un pacchetto non installato non conta come aggiornamento`() {
         val installed = local(map = null, routing = "r1", poi = "p2")
         val item = regionUiItem(remote, installed, noBytes)

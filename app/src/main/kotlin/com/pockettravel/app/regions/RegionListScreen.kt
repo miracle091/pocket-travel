@@ -553,7 +553,7 @@ internal fun RegionRow(
             if (total > 0) data.getLong(RegionPackageDownloadWorker.KEY_BYTES_DOWNLOADED, 0L) / total.toFloat() else 0f
         }
     } ?: 0f
-    val size = Formatter.formatShortFileSize(LocalContext.current, item.sizeBytes)
+    val size = item.sizeText()
     val installed = item.status != RegionStatus.NOT_INSTALLED
 
     Column(modifier = modifier) {
@@ -604,10 +604,10 @@ private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actio
     val context = LocalContext.current
     var showPackages by rememberSaveable { mutableStateOf(false) }
     var showLargeDownloadWarning by rememberSaveable { mutableStateOf(false) }
-    val size = Formatter.formatShortFileSize(LocalContext.current, item.sizeBytes)
+    val size = item.sizeText()
 
     val startDownload = {
-        if (item.sizeBytes > LARGE_DOWNLOAD_WARNING_BYTES && isOnCellularNetwork(context)) {
+        if ((item.sizeBytes > LARGE_DOWNLOAD_WARNING_BYTES || item.includesMap) && isOnCellularNetwork(context)) {
             showLargeDownloadWarning = true
         } else {
             actions.onDownload(item.regionId)
@@ -652,6 +652,18 @@ private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actio
             onConfirm = { showLargeDownloadWarning = false; actions.onDownload(item.regionId) },
             onDismiss = { showLargeDownloadWarning = false },
         )
+    }
+}
+
+// Peso da scaricare (o installato): con la mappa tra i pacchetti da scaricare si aggiunge "+ mappa",
+// perche' il suo peso si conosce solo estraendola (per la Lettonia 248 MB contro 6,3 MB di file).
+@Composable
+private fun RegionUiItem.sizeText(): String {
+    val bytes = Formatter.formatShortFileSize(LocalContext.current, sizeBytes)
+    return when {
+        !includesMap -> bytes
+        sizeBytes > 0 -> stringResource(R.string.regions_size_plus_map, bytes)
+        else -> stringResource(R.string.regions_size_map_only)
     }
 }
 
