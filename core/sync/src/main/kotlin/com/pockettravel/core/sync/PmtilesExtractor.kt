@@ -41,25 +41,32 @@ data class PmtilesExtractionStats(
  * directory della build nuova e del file locale per le tile del riquadro, e si scaricano solo le
  * tile nuove o con lunghezza diversa; le altre si copiano dal file locale, byte per byte, senza
  * ricompressione. Tra due build una tile con lo stesso contenuto ha la stessa lunghezza; il caso
- * inverso (stessa lunghezza, contenuto diverso) e' raro e accettato: la tile resta quella vecchia
- * fino al prossimo aggiornamento che la cambia di lunghezza. Se qualcosa non torna (file locale
+ * inverso (stessa lunghezza, contenuto diverso) e' accettato: la tile resta quella vecchia fino al
+ * prossimo aggiornamento che la cambia di lunghezza. Non e' raro alle zoom basse, che coprono aree
+ * grandi (su San Marino, tra le build del 24 e del 30 settembre 2026, 3 tile su 75 a z0, z7 e z10):
+ * fino a [alwaysDownloadMaxZoom] le tile si riscaricano sempre, circa 1,7 MB per l'Italia fino a z6
+ * (115 MB fino a z10). Se qualcosa non torna (file locale
  * illeggibile, compressione o tipo di tile diversi, errori di rete) si ripiega sull'estrazione
  * completa; l'annullamento invece si propaga.
  *
  * Chiamato dentro RegionPackageDownloadWorker, non un meccanismo di download separato: dal
  * punto di vista dell'utente resta lo stesso "Scarica" di sempre.
  */
-class PmtilesExtractor @Inject constructor() {
+class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: Int) {
+
+    @Inject constructor() : this(ALWAYS_DOWNLOAD_MAX_ZOOM)
 
     /**
      * Bloccante (richieste HTTP range): va chiamato fuori dal main thread. [ensureActive] e'
-     * invocato prima di ogni colonna di tile e deve lanciare un'eccezione per interrompere
-     * l'estrazione (es. CoroutineScope.ensureActive del worker annullato).
+     * invocato prima di ogni richiesta e deve lanciare un'eccezione per interrompere
+     * l'estrazione (es. CoroutineScope.ensureActive del worker annullato). [onProgress] riceve i
+     * byte di tile scaricati sul totale da scaricare; riparte da 0 se si ripiega sull'estrazione completa.
      */
     fun extract(
         mapSource: MapExtractionSource,
         outputFile: File,
         previousMap: File? = null,
+        onProgress: (bytesDone: Long, bytesTotal: Long) -> Unit = { _, _ -> },
         ensureActive: () -> Unit = {},
     ): PmtilesExtractionStats {
         val directory = requireNotNull(outputFile.absoluteFile.parentFile)
@@ -71,7 +78,7 @@ class PmtilesExtractor @Inject constructor() {
                         // Le tile finiscono subito su un file temporaneo accanto all'output (non in RAM,
                         // vedi PmtilesTileSpool), cancellato alla chiusura anche su errore o annullamento.
                         return PmtilesTileSpool(directory).use { tiles ->
-                            val stats = fetchTilesIncremental(channel, mapSource, previousMap, tiles) {
+                            val stats = fetchTiles(channel, mapSource, previousMap, tiles, onProgress) {
                                 try {
                                     ensureActive()
                                 } catch (error: Throwable) {
@@ -92,9 +99,9 @@ class PmtilesExtractor @Inject constructor() {
                     }
                 }
                 return PmtilesTileSpool(directory).use { tiles ->
-                    val bytes = fetchTiles(reader, mapSource, tiles, ensureActive)
+                    val stats = fetchTiles(channel, mapSource, null, tiles, onProgress, ensureActive)
                     writeArchive(reader, mapSource, tiles, outputFile)
-                    PmtilesExtractionStats(false, tiles.tileCount, bytes, 0, 0L)
+                    stats
                 }
             }
         }
@@ -119,72 +126,115 @@ class PmtilesExtractor @Inject constructor() {
         )
     }
 
-    /** Restituisce i byte scaricati. */
-    private fun fetchTiles(reader: Reader, mapSource: MapExtractionSource, tiles: PmtilesTileSpool, ensureActive: () -> Unit): Long {
-        var bytes = 0L
-        for (zoom in mapSource.minZoom..mapSource.maxZoom) {
-            val range = tileRangeFor(mapSource.minLon, mapSource.minLat, mapSource.maxLon, mapSource.maxLat, zoom)
-            for (x in range.minX..range.maxX) {
-                ensureActive()
-                for (y in range.minY..range.maxY) {
-                    val data = reader.getTile(zoom, x, y) ?: continue
-                    val tileId = zoomOffset(zoom) + Hilbert.zxyToIndex(zoom, x.toLong(), y.toLong())
-                    tiles.add(tileId, data)
-                    bytes += data.size
-                }
-            }
-        }
-        return bytes
-    }
-
-    /** Come [fetchTiles], ma scarica solo le tile assenti o di lunghezza diversa in [previousMap]. */
-    private fun fetchTilesIncremental(
+    /**
+     * Tile del riquadro dalla build remota. Con [previousMap] (aggiornamento incrementale) si scaricano
+     * solo le tile assenti o di lunghezza diversa nella mappa installata, piu' tutte quelle fino a
+     * [alwaysDownloadMaxZoom]; senza, tutte.
+     *
+     * Una richiesta HTTP per tile era lenta (circa 3 MB al minuto sulla Lettonia, limitati dalla
+     * latenza): la build Protomaps e' in ordine di tileId (clustered), quindi le tile vicine del
+     * riquadro stanno quasi sempre una dopo l'altra nel file e si leggono a blocchi, una richiesta
+     * per blocco fino a [MAX_BATCH_BYTES], scaricando anche i buchi tra una tile e l'altra fino a
+     * [MAX_GAP_BYTES]. [onProgress] riceve i byte delle tile da scaricare (buchi esclusi).
+     */
+    private fun fetchTiles(
         channel: FileChannel,
         mapSource: MapExtractionSource,
-        previousMap: File,
+        previousMap: File?,
         tiles: PmtilesTileSpool,
+        onProgress: (Long, Long) -> Unit,
         ensureActive: () -> Unit,
     ): PmtilesExtractionStats {
-        RandomAccessFile(previousMap, "r").use { local ->
+        val local = previousMap?.let { RandomAccessFile(it, "r") }
+        try {
             val remoteIndex = PmtilesTileIndex { position, length -> readRemote(channel, position, length) }
-            val localIndex = PmtilesTileIndex { position, length -> readLocal(local, position, length) }
-            if (remoteIndex.tileCompression != localIndex.tileCompression || remoteIndex.tileType != localIndex.tileType) {
+            val localIndex = local?.let { file -> PmtilesTileIndex { position, length -> readLocal(file, position, length) } }
+            if (localIndex != null && (remoteIndex.tileCompression != localIndex.tileCompression || remoteIndex.tileType != localIndex.tileType)) {
                 throw IOException("Compressione o tipo di tile diversi tra la mappa installata e la build")
             }
             val tileIds = wantedTileIds(mapSource)
             val remote = remoteIndex.locate(tileIds, ensureActive)
-            val installed = localIndex.locate(tileIds, ensureActive)
+            val installed = localIndex?.locate(tileIds, ensureActive)
+
+            // tileId ordinati: le tile fino a alwaysDownloadMaxZoom sono le prime.
+            val firstReusableId = zoomOffset(alwaysDownloadMaxZoom + 1)
+            fun reusable(i: Int) = installed != null && installed.lengths[i] == remote.lengths[i] && tileIds[i] >= firstReusableId
+
+            // Le tile di una stessa voce con runLength > 1 (mare, terra vuota) hanno lo stesso offset:
+            // contano (e si scaricano) una volta sola.
+            var bytesToDownload = 0L
+            var previousOffset = -1L
+            for (i in tileIds.indices) {
+                if (remote.lengths[i] < 0 || reusable(i) || remote.offsets[i] == previousOffset) continue
+                bytesToDownload += remote.lengths[i]
+                previousOffset = remote.offsets[i]
+            }
 
             var downloaded = 0
             var bytesDownloaded = 0L
             var reused = 0
             var bytesReused = 0L
-            // Le tile di una stessa voce con runLength > 1 (mare, terra vuota) hanno lo stesso offset:
-            // scaricate una volta sola, come fa Reader con la sua tile in cache.
-            var lastOffset = -1L
-            var lastData = ByteArray(0)
+            // Blocco letto per ultimo: [bufferStart, bufferStart + buffer.size) nel file remoto.
+            var bufferStart = -1L
+            var buffer = ByteArray(0)
+            // Tile prima del blocco: contenuti condivisi da molte tile (il mare) salvati una volta
+            // sola nella build; letti a parte senza spostare il blocco.
+            val earlier = HashMap<Long, ByteArray>()
+            var lastDownloadedOffset = -1L
             for (i in tileIds.indices) {
                 if (i % ENSURE_ACTIVE_EVERY == 0) ensureActive()
                 val length = remote.lengths[i]
                 if (length < 0) continue
-                val data = if (installed.lengths[i] == length) {
+                if (reusable(i)) {
                     reused++
                     bytesReused += length
-                    readLocal(local, installed.offsets[i], length)
-                } else if (remote.offsets[i] == lastOffset && lastData.size == length) {
-                    lastData
+                    tiles.add(tileIds[i], readLocal(local!!, installed!!.offsets[i], length))
+                    continue
+                }
+                val offset = remote.offsets[i]
+                val data = if (offset >= bufferStart && offset + length <= bufferStart + buffer.size) {
+                    val start = (offset - bufferStart).toInt()
+                    buffer.copyOfRange(start, start + length)
+                } else if (offset < bufferStart) {
+                    earlier.getOrPut(offset) { readRemote(channel, offset, length) }
                 } else {
-                    downloaded++
-                    bytesDownloaded += length
-                    readRemote(channel, remote.offsets[i], length).also {
-                        lastOffset = remote.offsets[i]
-                        lastData = it
-                    }
+                    ensureActive()
+                    val end = batchEnd(i, tileIds.size, offset, remote, ::reusable)
+                    bufferStart = offset
+                    buffer = readRemote(channel, offset, (end - offset).toInt())
+                    buffer.copyOfRange(0, length)
                 }
                 tiles.add(tileIds[i], data)
+                if (offset != lastDownloadedOffset) {
+                    downloaded++
+                    bytesDownloaded += length
+                    lastDownloadedOffset = offset
+                    onProgress(bytesDownloaded, bytesToDownload)
+                }
             }
-            return PmtilesExtractionStats(true, downloaded, bytesDownloaded, reused, bytesReused)
+            return PmtilesExtractionStats(installed != null, downloaded, bytesDownloaded, reused, bytesReused)
+        } finally {
+            local?.close()
         }
+    }
+
+    /**
+     * Fine (esclusa) del blocco da leggere a partire dalla tile [first] all'offset [start]: si
+     * aggiungono le tile successive da scaricare finche' sono dopo la fine attuale con un buco di al
+     * massimo [MAX_GAP_BYTES] e il blocco resta entro [MAX_BATCH_BYTES]. Quelle gia' dentro il blocco
+     * (stesso contenuto) o prima di [start] (lette a parte) non lo allungano.
+     */
+    private fun batchEnd(first: Int, count: Int, start: Long, remote: PmtilesTileLocations, reusable: (Int) -> Boolean): Long {
+        var end = start + remote.lengths[first]
+        for (j in first + 1 until count) {
+            val length = remote.lengths[j]
+            if (length < 0 || reusable(j)) continue
+            val offset = remote.offsets[j]
+            if (offset < start || offset + length <= end) continue
+            if (offset < end || offset - end > MAX_GAP_BYTES || offset + length - start > MAX_BATCH_BYTES) break
+            end = offset + length
+        }
+        return end
     }
 
     private fun readRemote(channel: FileChannel, position: Long, length: Int): ByteArray {
@@ -223,6 +273,9 @@ class PmtilesExtractor @Inject constructor() {
     private fun zoomOffset(zoom: Int): Long = ((1L shl (2 * zoom)) - 1L) / 3L
 
     private companion object {
+        const val ALWAYS_DOWNLOAD_MAX_ZOOM = 6
+        const val MAX_BATCH_BYTES = 16L * 1024 * 1024
+        const val MAX_GAP_BYTES = 256L * 1024
         const val ENSURE_ACTIVE_EVERY = 256
         // Sotto questa soglia un errore di scrittura e' quasi certamente il disco pieno.
         const val LOW_SPACE_BYTES = 16L * 1024 * 1024

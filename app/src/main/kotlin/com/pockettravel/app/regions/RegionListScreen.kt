@@ -542,9 +542,16 @@ internal fun RegionRow(
     val workInfo by remember(item.regionId) { actions.observeProgress(item.regionId) }
         .collectAsStateWithLifecycle(initialValue = null)
     val isDownloading = workInfo?.state == WorkInfo.State.RUNNING || workInfo?.state == WorkInfo.State.ENQUEUED
+    // Due fasi: prima i file (byte), poi l'estrazione della mappa (byte di tile), ognuna da 0 a 100%.
+    val mapBytesTotal = workInfo?.progress?.getLong(RegionPackageDownloadWorker.KEY_MAP_BYTES_TOTAL, 0L) ?: 0L
+    val extractingMap = mapBytesTotal > 0
     val progress = workInfo?.progress?.let { data ->
-        val total = data.getLong(RegionPackageDownloadWorker.KEY_TOTAL_BYTES, 0L)
-        if (total > 0) data.getLong(RegionPackageDownloadWorker.KEY_BYTES_DOWNLOADED, 0L) / total.toFloat() else 0f
+        if (extractingMap) {
+            data.getLong(RegionPackageDownloadWorker.KEY_MAP_BYTES_DONE, 0L) / mapBytesTotal.toFloat()
+        } else {
+            val total = data.getLong(RegionPackageDownloadWorker.KEY_TOTAL_BYTES, 0L)
+            if (total > 0) data.getLong(RegionPackageDownloadWorker.KEY_BYTES_DOWNLOADED, 0L) / total.toFloat() else 0f
+        }
     } ?: 0f
     val size = Formatter.formatShortFileSize(LocalContext.current, item.sizeBytes)
     val installed = item.status != RegionStatus.NOT_INSTALLED
@@ -554,7 +561,10 @@ internal fun RegionRow(
             supportingContent = {
                 Text(
                     if (isDownloading) {
-                        stringResource(R.string.regions_status_downloading, (progress * 100).toInt())
+                        stringResource(
+                            if (extractingMap) R.string.regions_status_extracting_map else R.string.regions_status_downloading,
+                            (progress * 100).toInt(),
+                        )
                     } else {
                         stringResource(item.statusLabel(), size)
                     },

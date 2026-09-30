@@ -32,9 +32,22 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
             val entry = json.decodeFromString(RegionManifestEntry.serializer(), entryJson)
             entry.validate()
             regionId = entry.regionId
-            installer.install(entry, kinds) { bytesDownloaded, totalBytes ->
-                setProgress(workDataOf(KEY_BYTES_DOWNLOADED to bytesDownloaded, KEY_TOTAL_BYTES to totalBytes))
-            }
+            var lastMapPercent = -1L
+            installer.install(
+                entry,
+                kinds,
+                onProgress = { bytesDownloaded, totalBytes ->
+                    setProgress(workDataOf(KEY_BYTES_DOWNLOADED to bytesDownloaded, KEY_TOTAL_BYTES to totalBytes))
+                },
+                onMapProgress = { bytesDone, bytesTotal ->
+                    // Chiamato dal thread bloccante dell'estrazione: setProgressAsync, e solo quando cambia la percentuale.
+                    val percent = if (bytesTotal > 0) bytesDone * 100 / bytesTotal else 100
+                    if (percent != lastMapPercent) {
+                        lastMapPercent = percent
+                        setProgressAsync(workDataOf(KEY_MAP_BYTES_DONE to bytesDone, KEY_MAP_BYTES_TOTAL to bytesTotal))
+                    }
+                },
+            )
             Result.success()
         } catch (error: CancellationException) {
             throw error
@@ -60,6 +73,8 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         const val KEY_PACKAGE_KINDS = "package_kinds"
         const val KEY_BYTES_DOWNLOADED = "bytes_downloaded"
         const val KEY_TOTAL_BYTES = "total_bytes"
+        const val KEY_MAP_BYTES_DONE = "map_bytes_done"
+        const val KEY_MAP_BYTES_TOTAL = "map_bytes_total"
         // Tentativi ripetuti dopo il primo per errori di rete, poi il download si arrende.
         private const val MAX_RETRIES = 5
         private val TAG = RegionPackageDownloadWorker::class.java.simpleName

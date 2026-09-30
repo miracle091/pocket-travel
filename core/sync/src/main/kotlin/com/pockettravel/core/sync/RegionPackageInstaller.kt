@@ -30,6 +30,8 @@ class RegionPackageInstaller @Inject constructor(
         entry: RegionManifestEntry,
         kinds: Set<PackageKind>,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit = { _, _ -> },
+        // Dopo i file: l'estrazione della mappa, in byte di tile (il totale lo dice l'indice della build).
+        onMapProgress: (bytesDone: Long, bytesTotal: Long) -> Unit = { _, _ -> },
     ) {
         require(kinds.isNotEmpty()) { "Nessun pacchetto da installare per ${entry.regionId}" }
         require(entry.availableKinds.containsAll(kinds)) { "Pacchetti non offerti dal manifest per ${entry.regionId}: ${kinds - entry.availableKinds}" }
@@ -78,7 +80,7 @@ class RegionPackageInstaller @Inject constructor(
             // tile cambiate; senza, o se il confronto fallisce, estrae tutto.
             val installedMap = File(regionStorage.directoryFor(entry.regionId), RegionStorage.MAP_FILE)
             withContext(Dispatchers.IO) {
-                pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE), installedMap) { ensureActive() }
+                pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE), installedMap, onMapProgress) { ensureActive() }
             }
         }
         if (PackageKind.ROUTING in kinds) routingGraphInstaller.install(staging)

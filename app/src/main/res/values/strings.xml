@@ -16,6 +16,7 @@
     <string name="regions_status_update">%1$s · da aggiornare</string>
     <string name="regions_status_partial">%1$s · installata in parte</string>
     <string name="regions_status_downloading">Download in corso · %1$d%%</string>
+    <string name="regions_status_extracting_map">Estrazione della mappa · %1$d%%</string>
     <string name="regions_download">Scarica %1$s</string>
     <string name="regions_update">Aggiorna</string>
     <string name="regions_update_region">Aggiorna %1$s</string>

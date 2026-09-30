@@ -29,6 +29,7 @@ import kotlin.io.path.createTempDirectory
 private class RangeFileDispatcher(private val file: File) : Dispatcher() {
     /** Inizio di ogni range richiesto, per verificare quali tile sono state scaricate. */
     val requestedStarts = java.util.concurrent.CopyOnWriteArrayList<Long>()
+    val requestedRanges = java.util.concurrent.CopyOnWriteArrayList<LongRange>()
     private val rangePattern = Regex("^bytes=([0-9]+)-([0-9]+)")
 
     override fun dispatch(request: RecordedRequest): MockResponse {
@@ -37,6 +38,7 @@ private class RangeFileDispatcher(private val file: File) : Dispatcher() {
         val start = match.groupValues[1].toLong()
         val end = match.groupValues[2].toLong()
         requestedStarts += start
+        requestedRanges += start..end
         val length = (end - start + 1).toInt()
         val buffer = ByteArray(length)
         RandomAccessFile(file, "r").use { raf ->
@@ -138,11 +140,11 @@ class PmtilesExtractorTest {
             minZoom = 2, maxZoom = 2,
         )
 
-        var columns = 0
+        var checks = 0
         try {
-            // annullato alla terza colonna: alcune tile sono gia' sul file temporaneo
+            // annullato al terzo controllo, durante la lettura dell'indice o delle tile
             PmtilesExtractor().extract(mapSource, outputFile) {
-                if (++columns == 3) throw IllegalStateException("annullato")
+                if (++checks == 3) throw IllegalStateException("annullato")
             }
             fail("l'estrazione doveva essere interrotta")
         } catch (expected: IllegalStateException) {
@@ -291,7 +293,7 @@ class PmtilesExtractorTest {
         val dispatcher = serveNew(newTiles)
         val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
 
-        val stats = PmtilesExtractor().extract(mapSource, outputFile, installed)
+        val stats = PmtilesExtractor(alwaysDownloadMaxZoom = -1).extract(mapSource, outputFile, installed)
 
         // 2 tile cambiate (5 + 6 byte) e 4 nuove (4 byte l'una)
         assertTrue(stats.incremental)
@@ -300,15 +302,16 @@ class PmtilesExtractorTest {
         assertEquals(newTiles.size - 6, stats.tilesReused)
         assertEquals((newTiles.size - 6) * 3L, stats.bytesReused)
 
-        // Ogni tile invariata non e' stata richiesta, ogni tile cambiata o nuova si'.
+        // Ogni tile cambiata o nuova sta dentro un range richiesto (le tile vicine si leggono a blocchi,
+        // quindi un blocco puo' comprendere anche tile invariate: il riuso lo dicono le statistiche sopra).
         val locations = RandomAccessFile(sourceFile, "r").use { raf ->
             val ids = newTiles.keys.map { tileId(it.first, it.second, it.third) }.sorted().toLongArray()
             ids.zip(PmtilesTileIndex { position, length -> ByteArray(length).also { raf.seek(position); raf.readFully(it) } }.locate(ids).offsets.toList()).toMap()
         }
         val changed = setOf(Triple(1, 0, 0), Triple(2, 0, 0)) + (0..3).map { Triple(2, 3, it) }
-        newTiles.keys.forEach { key ->
-            val requested = locations.getValue(tileId(key.first, key.second, key.third)) in dispatcher.requestedStarts
-            assertEquals("tile $key", key in changed, requested)
+        changed.forEach { key ->
+            val offset = locations.getValue(tileId(key.first, key.second, key.third))
+            assertTrue("tile $key", dispatcher.requestedRanges.any { offset in it })
         }
 
         // Il risultato e' identico a un'estrazione completa dalla build nuova (tile sparite comprese).
@@ -323,18 +326,18 @@ class PmtilesExtractorTest {
     }
 
     @Test
-    fun `l'aggiornamento incrementale fa meno richieste dell'estrazione completa`() {
+    fun `l'aggiornamento incrementale scarica meno byte dell'estrazione completa`() {
         val installed = File(sourceFile.parentFile, "installed.pmtiles").also { writePmtiles(it, oldTiles()) }
         val dispatcher = serveNew(newTiles())
         val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
 
-        PmtilesExtractor().extract(mapSource, outputFile, installed)
-        val incrementalRequests = dispatcher.requestedStarts.size
-        dispatcher.requestedStarts.clear()
+        PmtilesExtractor(alwaysDownloadMaxZoom = -1).extract(mapSource, outputFile, installed)
+        val incrementalBytes = dispatcher.requestedRanges.sumOf { it.last - it.first + 1 }
+        dispatcher.requestedRanges.clear()
         PmtilesExtractor().extract(mapSource, File(sourceFile.parentFile, "full.pmtiles"))
-        val fullRequests = dispatcher.requestedStarts.size
+        val fullBytes = dispatcher.requestedRanges.sumOf { it.last - it.first + 1 }
 
-        assertTrue("incrementale $incrementalRequests, completa $fullRequests", incrementalRequests < fullRequests)
+        assertTrue("incrementale $incrementalBytes, completa $fullBytes", incrementalBytes < fullBytes)
     }
 
     @Test
@@ -343,7 +346,7 @@ class PmtilesExtractorTest {
         serveNew(oldTiles())
         val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
 
-        val stats = PmtilesExtractor().extract(mapSource, outputFile, installed)
+        val stats = PmtilesExtractor(alwaysDownloadMaxZoom = -1).extract(mapSource, outputFile, installed)
 
         assertEquals(0, stats.tilesDownloaded)
         assertEquals(oldTiles().size, stats.tilesReused)
@@ -358,10 +361,63 @@ class PmtilesExtractorTest {
         serveNew(newTiles)
         val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
 
-        val stats = PmtilesExtractor().extract(mapSource, outputFile, installed)
+        val stats = PmtilesExtractor(alwaysDownloadMaxZoom = -1).extract(mapSource, outputFile, installed)
 
         assertEquals(0, stats.tilesDownloaded)
         Reader(outputFile).use { assertArrayEquals(sizedTile(1, 0, 1, 3), it.getTile(1, 0, 1)) }
+    }
+
+    @Test
+    fun `fino alla zoom di soglia le tile si riscaricano anche con la stessa lunghezza`() {
+        val installed = File(sourceFile.parentFile, "installed.pmtiles").also { writePmtiles(it, oldTiles()) }
+        val newTiles = LinkedHashMap(oldTiles()).also {
+            it[Triple(1, 0, 1)] = ByteArray(3) { 99 }
+            it[Triple(2, 0, 1)] = ByteArray(3) { 98 }
+        }
+        serveNew(newTiles)
+        val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
+
+        val stats = PmtilesExtractor(alwaysDownloadMaxZoom = 1).extract(mapSource, outputFile, installed)
+
+        // z0 e z1 (1 + 4 tile) scaricate, z2 riusata: la (2,0,1) cambiata resta quella installata.
+        assertEquals(5, stats.tilesDownloaded)
+        assertEquals(oldTiles().size - 5, stats.tilesReused)
+        Reader(outputFile).use {
+            assertArrayEquals(ByteArray(3) { 99 }, it.getTile(1, 0, 1))
+            assertArrayEquals(sizedTile(2, 0, 1, 3), it.getTile(2, 0, 1))
+        }
+    }
+
+    @Test
+    fun `l'avanzamento arriva al totale delle tile del riquadro`() {
+        val installed = File(sourceFile.parentFile, "installed.pmtiles").also { writePmtiles(it, oldTiles()) }
+        serveNew(newTiles())
+        val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
+        val incremental = mutableListOf<Pair<Long, Long>>()
+        val full = mutableListOf<Pair<Long, Long>>()
+
+        PmtilesExtractor(alwaysDownloadMaxZoom = -1).extract(mapSource, outputFile, installed, onProgress = { done, total -> incremental += done to total })
+        PmtilesExtractor().extract(mapSource, File(sourceFile.parentFile, "full.pmtiles"), onProgress = { done, total -> full += done to total })
+
+        // In byte di tile da scaricare: le 2 cambiate (5 + 6) e le 4 nuove (4 l'una), tutte con l'estrazione completa.
+        assertEquals(27L to 27L, incremental.last())
+        val fullBytes = newTiles().values.sumOf { it.size.toLong() }
+        assertEquals(fullBytes to fullBytes, full.last())
+        assertTrue(full.zipWithNext().all { (a, b) -> a.first <= b.first })
+    }
+
+    @Test
+    fun `le tile vicine si leggono con una sola richiesta`() {
+        serveNew(newTiles()).also { dispatcher ->
+            val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
+            dispatcher.requestedStarts.clear()
+
+            val stats = PmtilesExtractor().extract(mapSource, outputFile)
+
+            // Tile contigue nella build: meno richieste che tile (header, directory e un solo blocco).
+            assertTrue("richieste ${dispatcher.requestedStarts.size}, tile ${stats.tilesDownloaded}", dispatcher.requestedStarts.size < stats.tilesDownloaded)
+            assertSameTiles(sourceFile, outputFile)
+        }
     }
 
     @Test
@@ -388,7 +444,7 @@ class PmtilesExtractorTest {
         serveNew(newTiles)
         val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
 
-        val stats = PmtilesExtractor().extract(mapSource, outputFile, installed)
+        val stats = PmtilesExtractor(alwaysDownloadMaxZoom = -1).extract(mapSource, outputFile, installed)
 
         assertFalse(stats.incremental)
         assertSameTiles(sourceFile, outputFile)
@@ -401,7 +457,7 @@ class PmtilesExtractorTest {
         val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
 
         try {
-            PmtilesExtractor().extract(mapSource, outputFile, installed) { throw IllegalStateException("annullato") }
+            PmtilesExtractor(alwaysDownloadMaxZoom = -1).extract(mapSource, outputFile, installed) { throw IllegalStateException("annullato") }
             fail("l'estrazione doveva essere interrotta")
         } catch (expected: IllegalStateException) {
             assertEquals("annullato", expected.message)
