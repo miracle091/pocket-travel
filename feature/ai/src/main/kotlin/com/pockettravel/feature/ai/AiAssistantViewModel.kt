@@ -236,6 +236,8 @@ class AiAssistantViewModel @Inject constructor(
             try {
                 val answer = travelAssistant.ask(regionId, question, state.mode)
                 _uiState.update { it.copy(isThinking = false, answer = answer) }
+            } catch (_: OnlineModelNotFoundException) {
+                _uiState.update { it.copy(isThinking = false, errorMessage = R.string.ai_error_model) }
             } catch (_: Exception) {
                 _uiState.update {
                     it.copy(isThinking = false, errorMessage = R.string.ai_error_answer)
