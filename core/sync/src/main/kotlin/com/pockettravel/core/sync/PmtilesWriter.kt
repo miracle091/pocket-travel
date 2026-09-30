@@ -16,6 +16,10 @@ import java.util.zip.GZIPOutputStream
  *  Reader.getTile() — compressi o meno a seconda di tileCompression, mai ri-processati qui. */
 data class PmtilesEntry(val tileId: Long, val data: ByteArray)
 
+// Nome dei file temporanei dello spool: PmtilesExtractor cancella quelli rimasti da un processo ucciso.
+internal const val SPOOL_PREFIX = "pmtiles-"
+internal const val SPOOL_SUFFIX = ".tiles.tmp"
+
 /**
  * Accumula le tile su un file temporaneo in [directory] man mano che arrivano, tenendo in
  * memoria solo tileId/offset/lunghezza (~20 byte per tile) invece dei dati: per regioni grandi
@@ -25,7 +29,7 @@ data class PmtilesEntry(val tileId: Long, val data: ByteArray)
  * close() cancella sempre il file temporaneo, anche dopo un errore o un annullamento.
  */
 class PmtilesTileSpool(directory: File) : Closeable {
-    private val tempFile: File = File.createTempFile("pmtiles-", ".tiles.tmp", directory)
+    private val tempFile: File = File.createTempFile(SPOOL_PREFIX, SPOOL_SUFFIX, directory)
     private val out = BufferedOutputStream(FileOutputStream(tempFile))
     private val digest = MessageDigest.getInstance("SHA-256")
     private val offsetByContent = HashMap<ContentKey, Long>()

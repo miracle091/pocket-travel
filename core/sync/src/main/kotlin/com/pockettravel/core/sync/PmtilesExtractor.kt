@@ -70,6 +70,9 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
         ensureActive: () -> Unit = {},
     ): PmtilesExtractionStats {
         val directory = requireNotNull(outputFile.absoluteFile.parentFile)
+        // Spool di un tentativo ucciso dal sistema (il close() non e' mai arrivato): nella cartella di
+        // staging della regione gira una sola estrazione alla volta, quindi i .tmp rimasti sono orfani.
+        directory.listFiles { file -> file.name.startsWith(SPOOL_PREFIX) && file.name.endsWith(SPOOL_SUFFIX) }?.forEach { it.delete() }
         HttpUrlConnectionChannel(URL(mapSource.sourceUrl)).use { channel ->
             Reader(channel).use { reader ->
                 if (previousMap != null && previousMap.isFile) {

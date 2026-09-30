@@ -407,6 +407,18 @@ class PmtilesExtractorTest {
     }
 
     @Test
+    fun `lo spool rimasto da un processo ucciso viene cancellato`() {
+        serveNew(newTiles())
+        val orphan = File(outputFile.parentFile, "pmtiles-123.tiles.tmp").also { it.writeBytes(ByteArray(10)) }
+        val other = File(outputFile.parentFile, "poi.db").also { it.writeBytes(ByteArray(10)) }
+
+        PmtilesExtractor().extract(worldZ0to2(server.url("/planet.pmtiles").toString()), outputFile)
+
+        assertFalse(orphan.exists())
+        assertTrue("gli altri file dello staging restano", other.exists())
+    }
+
+    @Test
     fun `le tile vicine si leggono con una sola richiesta`() {
         serveNew(newTiles()).also { dispatcher ->
             val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
