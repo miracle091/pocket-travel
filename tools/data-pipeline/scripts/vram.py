@@ -55,8 +55,15 @@ def check(total_gib, free_gib, max_pct, label="GPU"):
              "il lavoro finirebbe in memoria condivisa o in out of memory.\n"
              + "".join(f"  PID {pid}: {gib:.1f} GiB, {name or 'processo terminato, memoria trattenuta dal driver'}\n"
                        for pid, gib, name in sorted(held, key=lambda h: -h[1]))
-             + "Chiudi quei processi; per quelli terminati va riavviato il driver della GPU (Windows: Gestione "
-               "dispositivi, disabilita e riabilita la scheda, o pnputil /restart-device da amministratore) o il PC.")
+             + (WSL_HINT if "microsoft" in platform.release().lower() else
+                "Chiudi quei processi; per quelli terminati va riavviato il driver della GPU (Windows: Gestione "
+                "dispositivi, disabilita e riabilita la scheda, o pnputil /restart-device da amministratore) o il PC."))
+
+
+# Su WSL la memoria usata dai programmi di Windows (desktop, browser) conta come occupata ma quei processi
+# non compaiono in nvidia-smi: con la GPU collegata al monitor il solo desktop supera il 10% (visto 16% su 6 GB)
+WSL_HINT = ("Su WSL la VRAM usata da Windows (desktop, browser, giochi) non compare tra i processi: se la GPU e' "
+            "anche quella del monitor alza il limite (es. --max-vram-held 25) o chiudi i programmi di Windows che la usano.")
 
 
 def check_torch(max_pct):
