@@ -32,7 +32,7 @@ enum class UsageMode(
         setOf(
             *SIGHTS, PoiCategory.SVAGO, PoiCategory.NEGOZI, PoiCategory.BANCA, PoiCategory.BANCOMAT,
             PoiCategory.UFFICIO_POSTALE, PoiCategory.ACQUA_POTABILE, PoiCategory.PARCO_GIOCHI, PoiCategory.TRENO,
-            PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO,
+            PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO, PoiCategory.PORTI_TURISTICI,
         ),
     ),
     ESCURSIONISMO(
@@ -53,14 +53,14 @@ enum class UsageMode(
         R.string.usage_mode_car, UiR.drawable.ms_directions_car, "car-vario",
         setOf(
             *SIGHTS, PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.PARCHEGGIO,
-            PoiCategory.NOLEGGIO, PoiCategory.NEGOZI, PoiCategory.BANCOMAT, PoiCategory.AEROPORTO, PoiCategory.TRAGHETTO,
+            PoiCategory.NOLEGGIO, PoiCategory.NEGOZI, PoiCategory.BANCOMAT, PoiCategory.AEROPORTO, PoiCategory.TRAGHETTO, PoiCategory.PORTI_TURISTICI,
         ),
     ),
     CAMPER(
         R.string.usage_mode_camper, UiR.drawable.ms_rv_hookup, "car-vario",
         setOf(
             PoiCategory.SERVIZI_CAMPER, PoiCategory.CARBURANTE, PoiCategory.PARCHEGGIO, PoiCategory.ACQUA_POTABILE,
-            *SIGHTS, PoiCategory.NEGOZI, PoiCategory.BANCOMAT, PoiCategory.TRAGHETTO,
+            *SIGHTS, PoiCategory.NEGOZI, PoiCategory.BANCOMAT, PoiCategory.TRAGHETTO, PoiCategory.PORTI_TURISTICI,
         ),
     ),
     MEZZI_PUBBLICI(

@@ -52,6 +52,7 @@ class PoiCategoryTest {
         assertEquals(PoiCategory.NATURA, poi("park", "leisure=park").poiCategory())
         assertEquals(PoiCategory.NATURA, poi("nature_reserve", "leisure=nature_reserve").poiCategory())
         assertEquals(PoiCategory.PARCHI_ACQUATICI, poi("water_park", "leisure=water_park").poiCategory())
+        assertEquals(PoiCategory.PORTI_TURISTICI, poi("marina", "leisure=marina").poiCategory())
         assertEquals(PoiCategory.ZOO, poi("zoo", "tourism=zoo").poiCategory())
         assertEquals(PoiCategory.PARCHI_DIVERTIMENTO, poi("theme_park", "tourism=theme_park").poiCategory())
         assertEquals(PoiCategory.ATTRAZIONI, poi("attraction", "tourism=attraction").poiCategory())

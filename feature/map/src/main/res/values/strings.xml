@@ -36,6 +36,7 @@
     <string name="poi_bus">Autobus</string>
     <string name="poi_taxi">Taxi</string>
     <string name="poi_ferry">Porti e traghetti</string>
+    <string name="poi_marina">Porti turistici</string>
     <string name="poi_airport">Aeroporti</string>
     <string name="poi_other">Altro</string>
     <string name="poi_vending">Distributori automatici</string>
@@ -107,6 +108,7 @@
     <string name="poi_type_zoo">Zoo</string>
     <string name="poi_type_theme_park">Parco divertimenti</string>
     <string name="poi_type_water_park">Parco acquatico</string>
+    <string name="poi_type_marina">Porto turistico</string>
     <string name="poi_type_park">Parco</string>
     <string name="poi_type_garden">Giardino</string>
     <string name="poi_type_nature_reserve">Riserva naturale</string>

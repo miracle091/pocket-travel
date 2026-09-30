@@ -49,6 +49,7 @@ enum class PoiCategory {
     AUTOBUS,
     TAXI,
     TRAGHETTO,
+    PORTI_TURISTICI,
     AEROPORTO,
     ALTRO,
 }
@@ -134,6 +135,7 @@ fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     osmTag == "amenity=bus_station" -> PoiCategory.AUTOBUS
     osmTag == "amenity=taxi" -> PoiCategory.TAXI
     osmTag == "amenity=ferry_terminal" -> PoiCategory.TRAGHETTO
+    osmTag == "leisure=marina" -> PoiCategory.PORTI_TURISTICI
     osmTag == "aeroway=aerodrome" -> PoiCategory.AEROPORTO
     osmTag in entertainmentTags -> PoiCategory.SVAGO
     osmTag.startsWith("shop=") -> PoiCategory.NEGOZI

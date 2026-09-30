@@ -40,6 +40,7 @@ private val TYPES: Map<String, Int> = mapOf(
     "tourism=zoo" to R.string.poi_type_zoo,
     "tourism=theme_park" to R.string.poi_type_theme_park,
     "leisure=water_park" to R.string.poi_type_water_park,
+    "leisure=marina" to R.string.poi_type_marina,
     "leisure=park" to R.string.poi_type_park,
     "leisure=garden" to R.string.poi_type_garden,
     "leisure=nature_reserve" to R.string.poi_type_nature_reserve,

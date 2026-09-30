@@ -52,7 +52,7 @@ internal enum class LegendGroup(@StringRes val label: Int, val categories: List<
     ),
     TRANSPORT(
         R.string.map_legend_group_transport,
-        listOf(PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO, PoiCategory.AEROPORTO),
+        listOf(PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO, PoiCategory.PORTI_TURISTICI, PoiCategory.AEROPORTO),
     ),
     VEHICLES(
         R.string.map_legend_group_vehicles,

@@ -30,7 +30,7 @@ internal fun PoiCategory.pinColor(): Color = when (this) {
     PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.UFFICIO_POSTALE, PoiCategory.CASSETTA_POSTALE, PoiCategory.INFORMAZIONI ->
         PoiColors.PublicServices
     PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.SERVIZI_CAMPER, PoiCategory.RIPARAZIONE_BICI, PoiCategory.NOLEGGIO, PoiCategory.PARCHEGGIO, PoiCategory.PARCHEGGIO_PRIVATO,
-    PoiCategory.PARCHEGGIO_DISABILI, PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO,
+    PoiCategory.PARCHEGGIO_DISABILI, PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO, PoiCategory.PORTI_TURISTICI,
     PoiCategory.AEROPORTO -> PoiColors.Transport
     PoiCategory.ALTRO -> PoiColors.Other
 }
@@ -85,6 +85,7 @@ internal fun PoiCategory.glyph(): Int? = when (this) {
     PoiCategory.AUTOBUS -> UiR.drawable.ms_directions_bus
     PoiCategory.TAXI -> UiR.drawable.ms_local_taxi
     PoiCategory.TRAGHETTO -> UiR.drawable.ms_directions_boat
+    PoiCategory.PORTI_TURISTICI -> UiR.drawable.ms_sailing
     PoiCategory.AEROPORTO -> UiR.drawable.ms_flight
     PoiCategory.ALTRO -> null
 }
@@ -138,6 +139,7 @@ internal fun PoiCategory.label(): Int = when (this) {
     PoiCategory.AUTOBUS -> R.string.poi_bus
     PoiCategory.TAXI -> R.string.poi_taxi
     PoiCategory.TRAGHETTO -> R.string.poi_ferry
+    PoiCategory.PORTI_TURISTICI -> R.string.poi_marina
     PoiCategory.AEROPORTO -> R.string.poi_airport
     PoiCategory.ALTRO -> R.string.poi_other
 }
