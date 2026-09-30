@@ -48,6 +48,7 @@ class LlmModelManagerTest {
     @After
     fun tearDown() {
         server.shutdown()
+        modelsDir.deleteRecursively()
     }
 
     private fun sha256Hex(bytes: ByteArray): String =
