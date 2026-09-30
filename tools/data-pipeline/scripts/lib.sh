@@ -210,7 +210,6 @@ fetch_wikivoyage_dump() {
 # invece di migliaia di richieste API. "latest" (non una data precisa): dumps.wikimedia.org
 # mantiene un alias sempre aggiornato accanto alla cartella datata, evitando di dover risolvere la
 # data della corsa piu' recente come fa resolve_protomaps_date per le build Protomaps.
-WIKIVOYAGE_IT_DUMP_BASE_URL="https://dumps.wikimedia.org/itwikivoyage/latest"
 WIKIVOYAGE_IT_DUMP_NAME="itwikivoyage-latest-pages-articles.xml.bz2"
 # Dump di Wikivoyage EN (~130 MB compressi): citta' in inglese (build-cities-dump.sh ... en).
 WIKIVOYAGE_EN_DUMP_NAME="enwikivoyage-latest-pages-articles.xml.bz2"

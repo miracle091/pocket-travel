@@ -4,8 +4,7 @@
 #include <android/log.h>
 #include <jni.h>
 #include <algorithm>
-#include <iomanip>
-#include <cmath>
+#include <sstream>
 #include <string>
 #include <sampling.h>
 

@@ -2,7 +2,6 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.ksp)
-    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt.plugin)
 }
 
@@ -41,7 +40,6 @@ dependencies {
     implementation(libs.hilt.android)
     implementation(libs.hilt.lifecycle.viewmodel.compose)
     ksp(libs.hilt.compiler)
-    implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.activity.compose)

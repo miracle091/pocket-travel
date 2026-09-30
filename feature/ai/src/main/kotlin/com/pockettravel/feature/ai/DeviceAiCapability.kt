@@ -46,8 +46,6 @@ class DeviceAiCapability @Inject constructor(
             else -> RamTier.INSUFFICIENTE
         }
 
-        fun isRamSufficient(totalMemBytes: Long): Boolean = ramTierFor(totalMemBytes) != RamTier.INSUFFICIENTE
-
         // Estratta a parte per essere testabile in JVM puro, stesso motivo di ramTierFor.
         fun inferenceThreadCountFor(ramTier: RamTier, availableCores: Int): Int {
             // La RAM non dice quanti core ha il telefono (molti da 4 GB ne hanno 8): sotto i 12 GB

@@ -1,7 +1,6 @@
 package com.pockettravel.feature.ai
 
 import com.pockettravel.feature.ai.DeviceAiCapability.Companion.inferenceThreadCountFor
-import com.pockettravel.feature.ai.DeviceAiCapability.Companion.isRamSufficient
 import com.pockettravel.feature.ai.DeviceAiCapability.Companion.ramTierFor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -10,26 +9,29 @@ import org.junit.Test
 
 private const val GB = 1024L * 1024 * 1024
 
+// Stessa regola di DeviceAiCapability.isOnDeviceAiSupported(), che in JVM puro non si puo' chiamare (serve un Context).
+private fun enablesOnDeviceAi(totalMemBytes: Long) = ramTierFor(totalMemBytes) != RamTier.INSUFFICIENTE
+
 class DeviceAiCapabilityTest {
 
     @Test
     fun `disables on-device AI on a 3 GB device`() {
-        assertFalse(isRamSufficient(3 * GB))
+        assertFalse(enablesOnDeviceAi(3 * GB))
     }
 
     @Test
     fun `disables on-device AI just below the 4 GB threshold`() {
-        assertFalse(isRamSufficient(4 * GB - 1))
+        assertFalse(enablesOnDeviceAi(4 * GB - 1))
     }
 
     @Test
     fun `enables on-device AI at exactly 4 GB`() {
-        assertTrue(isRamSufficient(4 * GB))
+        assertTrue(enablesOnDeviceAi(4 * GB))
     }
 
     @Test
     fun `enables on-device AI above 4 GB`() {
-        assertTrue(isRamSufficient(6 * GB))
+        assertTrue(enablesOnDeviceAi(6 * GB))
     }
 
     @Test
