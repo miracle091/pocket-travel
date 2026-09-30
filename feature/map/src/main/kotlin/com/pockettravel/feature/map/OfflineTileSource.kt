@@ -166,8 +166,11 @@ internal fun regionsStyle(regions: List<RegionSource>, dark: Boolean, label: Str
     //
     // "glyphs": i font per le etichette (nomi di strade/localita') vanno serviti in locale,
     // mai da rete (nessun hosting proprio, vedi CLAUDE.md/memoria progetto) — bundle di un
-    // solo fontstack/range (Klokantech Noto Sans Regular, licenza OFL, solo range 0-255:
-    // ASCII + Latin-1 Supplement, sufficiente per i nomi delle regioni oggi in catalogo).
+    // solo fontstack (Klokantech Noto Sans Regular di openmaptiles/fonts, licenza OFL) con i range
+    // delle scritture che MapLibre disegna senza shaping complesso: latino esteso (lettone, polacco,
+    // turco, vietnamita...), greco, cirillico, armeno, ebraico, arabo, thai, georgiano e la
+    // punteggiatura tipografica (U+2000-21FF). Esclusi CJK (centinaia di range, decine di MB) e le
+    // scritture indiane (MapLibre non ne compone le legature): li' restano name:it/name:en se ci sono.
     // Il template non contiene "{fontstack}" apposta: con un solo font non serve
     // sostituirlo, ed evita ogni dubbio su come MapLibre codifichi gli spazi nel nome del
     // font quando lo inserisce nell'URL "asset://" (asset:// risolve dentro gli assets
