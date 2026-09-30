@@ -4,6 +4,15 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ## [Non rilasciato]
 
+### Aggiunto
+- Porti turistici sulla mappa, con icona (barca a vela) e filtro propri nel gruppo Trasporti; prima erano in "Altro". Con il prossimo aggiornamento dei punti di interesse arrivano anche quelli che OpenStreetMap disegna come aree.
+- Nomi sulla mappa con le lettere di lettone, polacco, ceco, turco, vietnamita e delle altre lingue con l'alfabeto latino esteso, e in greco, cirillico, armeno, ebraico, arabo, thai e georgiano: prima quelle lettere mancavano. Restano fuori cinese, giapponese, coreano e le scritture indiane, dove si vede il nome italiano o inglese quando c'è.
+
+### Modificato
+- Download della mappa molto più veloce: la Lettonia (248 MB) passa da oltre un'ora a circa 3 minuti. Durante l'estrazione la riga della regione mostra "Estrazione della mappa" con la sua percentuale, invece di restare ferma a 0% o 100%.
+- Nell'elenco delle nazioni il peso di un download o di un aggiornamento che comprende la mappa è scritto "6,3 MB + mappa" (il peso della mappa si conosce solo scaricandola); su rete mobile l'app chiede conferma anche per questi.
+- Aggiornamenti della mappa: le parti a bassa risoluzione (vista del paese e del continente) si riscaricano sempre, perché potevano restare quelle vecchie.
+
 ### Corretto
 - Assistente IA online: se il servizio non conosce il modello scelto, l'assistente torna a dirlo ("controlla il nome in Assistente IA → Online, o scegli Automatico") invece di mostrare un errore generico.
 
