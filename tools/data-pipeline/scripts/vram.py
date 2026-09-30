@@ -38,7 +38,9 @@ def held_processes():
                 (l.split(",", 2) for l in out.splitlines() if re.match(r"\s*\d+,\s*\d+,", l))]
     else:
         rows = []
-    return [r for r in rows if r[0] != os.getpid()]
+    # dwm (compositore del desktop) c'e' sempre sulla GPU collegata al monitor (tipico con una sola NVIDIA):
+    # non si puo' chiudere, quindi non conta come VRAM "occupata da altri"
+    return [r for r in rows if r[0] != os.getpid() and r[2] != "dwm"]
 
 
 def check(total_gib, free_gib, max_pct, label="GPU"):

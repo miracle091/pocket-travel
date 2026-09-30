@@ -54,7 +54,6 @@ from transformers.trainer_utils import get_last_checkpoint
 
 # bf16 nativo (stessa regola per NVIDIA e AMD): capability >= 8 (Ampere+; su ROCm gfx9+). Su Turing/Pascal is_bf16_supported() e' vero ma emulato (lento): meglio fp16
 BF16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported() and torch.cuda.get_device_capability()[0] >= 8
-DTYPE = torch.bfloat16 if BF16 else torch.float16
 
 SFT_DIR = Path(__file__).resolve().parent.parent / "data" / "sft"
 LORA = dict(r=16, lora_alpha=32, lora_dropout=0.0,
@@ -78,8 +77,13 @@ ap.add_argument("--out", default=str(SFT_DIR / "run-smollm2-135m"))
 a = ap.parse_args()
 if a.four_bit and not a.unsloth:
     ap.error("--4bit richiede --unsloth")
+# GTX 16xx (Turing senza tensor core): con Unsloth fp32 e' piu' veloce di fp16
+# (misurato su GTX 1660 SUPER, Qwen3-0.6B: 52-55 s/passo in fp32 contro 98-100 in fp16, stessa VRAM di picco).
+# Solo con Unsloth senza --4bit: fp32 con --4bit o col backend peft non e' stato misurato, li' resta fp16
+FP32 = not BF16 and not a.four_bit and a.unsloth and torch.cuda.is_available() and "GTX 16" in torch.cuda.get_device_name()
+DTYPE = torch.bfloat16 if BF16 else torch.float32 if FP32 else torch.float16
 
-phase("caricamento modello", f"{a.model} ({'Unsloth' if a.unsloth else 'peft'}, {'bf16' if BF16 else 'fp16'})")
+phase("caricamento modello", f"{a.model} ({'Unsloth' if a.unsloth else 'peft'}, {'bf16' if BF16 else 'fp32' if FP32 else 'fp16'})")
 if a.unsloth:
     from unsloth import FastLanguageModel
     model, tok = FastLanguageModel.from_pretrained(
@@ -205,7 +209,7 @@ trainer = WeightedTrainer(
     data_collator=WeightedCollator(DataCollatorForSeq2Seq(tok, padding=True, label_pad_token_id=-100)),
     callbacks=[FreeCacheAfterEval(), StatusLine()],
     args=TrainingArguments(
-        bf16=BF16, fp16=not BF16, per_device_train_batch_size=a.batch, gradient_accumulation_steps=16 // a.batch,
+        bf16=BF16, fp16=not BF16 and not FP32, per_device_train_batch_size=a.batch, gradient_accumulation_steps=16 // a.batch,
         # eval con lo stesso batch del training: il default (8) con vocabolari grandi (Qwen3.5 ~248k token)
         # supera la VRAM e Windows riversa in RAM di sistema (picco 17 GB su 12 con Qwen3.5-0.8B)
         per_device_eval_batch_size=a.batch,
