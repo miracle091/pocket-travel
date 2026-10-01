@@ -206,7 +206,7 @@
     <string name="navigation_arrived">Sei arrivato</string>
     <string name="navigation_no_routing_data">Mancano i percorsi di questa zona. Scarica i Percorsi della regione dai suoi Contenuti, oppure sei fuori dalla regione.</string>
     <string name="navigation_not_found">Nessun percorso trovato fino alla destinazione con il modo di spostarti scelto.</string>
-    <string name="navigation_wheelchair_notice">Senza, niente scale. Dati OSM incompleti: possibili ostacoli.</string>
+    <string name="navigation_wheelchair_notice">Se le scale non vengono considerate nei percorsi, è possibile che i percorsi di navigazione siano incompleti.</string>
     <string name="navigation_allow_steps">Accetto qualche gradino</string>
     <string name="navigation_failed">Non è stato possibile calcolare il percorso.</string>
     <string name="navigation_retry">Riprova</string>
