@@ -28,22 +28,23 @@
 
 In viaggio la connessione manca proprio quando serve: in aereo, in montagna, all'estero senza roaming. Pocket Travel scarica prima quello che ti serve e poi lo usa offline.
 
-- **Guida** – le informazioni essenziali di ogni paese e delle sue città (cosa vedere, dove mangiare, come muoversi, soldi, sicurezza), i fatti rapidi (lingua, prese, fuso orario, valuta, trasporti), i numeri di emergenza da chiamare con un tocco e le ambasciate e i consolati del tuo paese.
+- **Guida** – le informazioni essenziali di ogni paese e delle sue città (cosa vedere, dove mangiare, come muoversi, soldi, sicurezza), i fatti rapidi (lingua, prese, fuso orario, valuta, trasporti), i numeri di emergenza da chiamare con un tocco e le ambasciate e i consolati del tuo paese (da OpenStreetMap e Wikidata), con in cima quelli vicini a te.
 - **Mappa** – mappa dettagliata con ristoranti, hotel, farmacie, bancomat e molto altro, con orari, indirizzo e contatti quando ci sono. Scegli come ti sposti e l'app ti mostra i punti che ti servono; i filtri sono divisi in gruppi.
+- **Navigatore** – cerchi la meta per nome o per indirizzo ("Via Roma 12"), vedi percorso, tempo e svolte e parti: la guida passo passo resta nella scheda, continua a schermo spento con una notifica fissa e si vede anche sopra la schermata di blocco. Puoi dire a che ora vuoi arrivare e farti avvisare quando partire.
 - **Mezzi pubblici** – nella scheda di una fermata, di una stazione o di un porto le prossime partenze delle tre ore successive, offline, per le reti con dati aperti (per ora in Lettonia, Italia, Svezia, Spagna, Francia, Svizzera e Regno Unito). Dove una nazione ne ha molte scegli tu quali scaricare; di default quelle vicine a te.
 - **Assistente IA** – chiedi in parole tue quello che ti serve sapere sul paese o sulla città in cui sei ("dove si mangia bene?", "come pago il bus?") e ti risponde in poche frasi, basandosi sulla guida scaricata e sulle tue note di viaggio, e dicendoti quando la guida non basta. Funziona anche senza internet (vedi [più sotto](#assistente-ia)).
 - **Fonti ufficiali** – i siti del ministero degli esteri del tuo paese e quelli internazionali (OMS, CDC), per controllare documenti, sicurezza e salute prima di partire.
 - **Documenti** – una copia del passaporto e dei biglietti, cifrata e sbloccabile solo con la tua impronta o il tuo volto, e le tue note di viaggio (prenotazioni, indirizzi), cifrate e usate dall'assistente IA quando servono.
 
-L'app è in **italiano e in inglese**: interfaccia, guide delle nazioni e delle città e assistente IA. La lingua si sceglie al primo avvio.
+L'app è in **italiano e in inglese**: interfaccia, guide delle nazioni e delle città e assistente IA. La lingua si sceglie al primo avvio e si cambia in **Altro → Impostazioni**, insieme a nazionalità, aspetto, modo di spostarsi, opzioni del Navigatore e assistente IA.
 
-Scegli tu cosa scaricare, anche già al primo avvio: per ogni paese mappa, punti di interesse, numeri civici, percorsi e orari dei mezzi pubblici sono contenuti separati, così non occupi spazio per quello che non usi. Le guide di tutto il mondo pesano pochi megabyte. Con i Percorsi puoi farti guidare fino a un punto della mappa, svolta dopo svolta, con il GPS acceso, anche da un paese a quello vicino se hai scaricato i percorsi di entrambi; autovelox, limiti di velocità e zone a traffico limitato o a basse emissioni non sono segnalati.
+Scegli tu cosa scaricare, anche già al primo avvio: per ogni paese mappa, punti di interesse, numeri civici, percorsi e orari dei mezzi pubblici sono contenuti separati, così non occupi spazio per quello che non usi. Le guide di tutto il mondo pesano pochi megabyte. Con i Percorsi il Navigatore ti guida fino a un punto della mappa o a un indirizzo, svolta dopo svolta, con il GPS acceso, anche da un paese a quello vicino se hai scaricato i percorsi di entrambi; autovelox, limiti di velocità e zone a traffico limitato o a basse emissioni non sono segnalati.
 
 Ci sono 355 paesi e regioni (gli stati più grandi, come Stati Uniti, Canada e Cina, sono divisi in parti), aggiornati ogni settimana.
 
 ## Assistente IA
 
-L'assistente non inventa: cerca nella guida del paese, in quelle delle sue città e nelle tue note, e risponde solo con quello che trova, in massimo tre frasi. Quando la guida non ha la risposta te lo dice; per dogane e salute aggiunge il link alla fonte ufficiale. Si usa in due modi, che scegli in alto nella scheda **Assistente IA**.
+L'assistente non inventa: cerca nella guida del paese, in quelle delle sue città e nelle tue note, e risponde solo con quello che trova, in massimo tre frasi. Quando la guida non ha la risposta te lo dice; per dogane e salute aggiunge il link alla fonte ufficiale. Si usa in due modi, che scegli in **Altro → Impostazioni → Assistente IA**. La scheda **IA** di ogni paese compare quando l'assistente è pronto, cioè con un modello scaricato o una chiave API salvata.
 
 ### Sul dispositivo (offline)
 
@@ -57,7 +58,7 @@ Un piccolo modello di intelligenza artificiale gira direttamente sul telefono: n
 
 I modelli "Pocket Travel" sono addestrati da noi sulle guide di viaggio e rispondono in italiano: ogni nome porta alla sua scheda nel repository (come è stato addestrato, risultati, licenza), pubblicata anche su [huggingface.co/pockettravel](https://huggingface.co/pockettravel). Gli "Ufficiali" sono gli stessi modelli Qwen come li pubblicano i loro autori (qui nella versione quantizzata di Unsloth). Un telefono vede anche i modelli delle fasce più basse. Con l'app in inglese la lista mostra solo i modelli che rispondono in inglese: per ora quelli "Ufficiali", in attesa dei nostri modelli in inglese.
 
-Per iniziare: apri **Assistente IA**, scegli **Sul dispositivo**, tocca il modello e poi **Scarica modello** (meglio col Wi-Fi). Dal menu ⋮ puoi misurare la velocità del modello sul tuo telefono o eliminarlo.
+Per iniziare: in **Impostazioni → Assistente IA** scegli **Sul dispositivo**, tocca il modello e poi **Scarica modello** (meglio col Wi-Fi). Nella scheda **IA**, dal menu ⋮, puoi misurare la velocità del modello sul tuo telefono o eliminarlo.
 
 ### Online (con la tua chiave API)
 
@@ -72,7 +73,7 @@ La chiave resta solo sul telefono, cifrata, e le domande vanno direttamente da t
 | Gemini (Google) | `gemini-flash-latest` | `gemini-2.5-pro` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | inizia con `AIza` |
 | Claude (Anthropic) | `claude-haiku-4-5` | `claude-sonnet-4-6` | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) | inizia con `sk-ant-` |
 
-In tutti i casi, nell'app: apri **Assistente IA**, scegli **Online**, scegli il **Servizio**, incolla la chiave in **Chiave API** (l'icona a forma di occhio la mostra, per controllarla) e tocca **Salva chiave**. Il pulsante **Crea la chiave su …** apre direttamente la pagina giusta del servizio scelto. Cambiando servizio la chiave salvata si cancella, perché è valida solo per il suo servizio. Per toglierla: menu ⋮ → **Rimuovi chiave**.
+In tutti i casi, nell'app: in **Impostazioni → Assistente IA** scegli **Online**, scegli il **Servizio**, incolla la chiave in **Chiave API** (l'icona a forma di occhio la mostra, per controllarla) e tocca **Salva chiave**. Il pulsante **Crea la chiave su …** apre direttamente la pagina giusta del servizio scelto. Cambiando servizio la chiave salvata si cancella, perché è valida solo per il suo servizio. Per toglierla: **Rimuovi chiave** nelle Impostazioni, o menu ⋮ → **Rimuovi chiave** nella scheda IA. Se il servizio rifiuta la chiave (scaduta o revocata) l'assistente lo dice e propone di toglierla.
 
 **Esempio con ChatGPT.** Su [platform.openai.com](https://platform.openai.com) crea un account e aggiungi del credito in **Billing**; in **API keys** tocca **Create new secret key** e copia la chiave (OpenAI la mostra una volta sola: qualcosa come `sk-proj-AbCd…`). Nell'app scegli **ChatGPT (OpenAI)** e incollala.
 
@@ -94,7 +95,7 @@ Il modello in uso si legge sotto il nome di ogni servizio ("Modello: …").
 
 ## Da dove vengono i dati
 
-Tutto viene da progetti aperti e liberi: le guide da [Wikivoyage](https://it.wikivoyage.org) (in italiano e, per l'app in inglese, in [inglese](https://en.wikivoyage.org)) e [Wikipedia](https://it.wikipedia.org), le mappe e i punti di interesse da [OpenStreetMap](https://www.openstreetmap.org) (le mappe nel formato di [Protomaps](https://protomaps.com)), i numeri civici da OpenStreetMap e dai registri ufficiali degli indirizzi raccolti da [Overture Maps](https://overturemaps.org), i percorsi da [BRouter](https://brouter.de). L'app non ha un server suo e non raccoglie dati su di te: la posizione, chiesta solo per la navigazione, resta sul telefono; la chiave dell'assistente IA online, se la usi, resta solo sul telefono.
+Tutto viene da progetti aperti e liberi: le guide da [Wikivoyage](https://it.wikivoyage.org) (in italiano e, per l'app in inglese, in [inglese](https://en.wikivoyage.org)) e [Wikipedia](https://it.wikipedia.org), le mappe e i punti di interesse da [OpenStreetMap](https://www.openstreetmap.org) (le mappe nel formato di [Protomaps](https://protomaps.com)), i numeri civici da OpenStreetMap e dai registri ufficiali degli indirizzi raccolti da [Overture Maps](https://overturemaps.org), i percorsi da [BRouter](https://brouter.de), le ambasciate e i consolati anche da [Wikidata](https://www.wikidata.org). L'app non ha un server suo e non raccoglie dati su di te: la posizione, chiesta solo per la navigazione, resta sul telefono (durante la guida l'app la legge anche a schermo spento, sempre con una notifica fissa che lo mostra); la chiave dell'assistente IA online, se la usi, resta solo sul telefono. Il catalogo dei dati è firmato: l'app controlla la firma con una chiave pubblica incorporata e rifiuta i file non firmati.
 
 ## Per chi sviluppa
 
@@ -104,10 +105,11 @@ L'app è scritta in Kotlin con Jetpack Compose. Il codice è diviso in moduli:
 
 | Cartella | Cosa contiene |
 |---|---|
-| `app/` | schermate principali e navigazione |
+| `app/` | schermate principali (nazioni, Altro, Impostazioni) e navigazione tra le schermate |
 | `core/` | database, download e installazione dei pacchetti, tema grafico, categorie dei punti di interesse |
 | `feature/` | guida, mappa, assistente IA, documenti, fonti ufficiali (ognuna dipende solo da `core`) |
 | `tools/data-pipeline/` | gli script che preparano e pubblicano a turno, ogni notte, guide, mappe, punti di interesse e numeri civici, e quelli per addestrare i modelli dell'assistente IA |
+| `tools/dev/` | strumenti per lo sviluppo, come la simulazione del GPS lungo un percorso sull'emulatore |
 | `third-party/` | copie di BRouter e llama.cpp usate dall'app |
 
 Per aprire il progetto serve Android Studio con JDK 17 o successivo: apri la cartella e Android Studio fa il resto (Gradle è già incluso).
@@ -118,8 +120,12 @@ Per provare l'app con un catalogo di dati tuo invece di quello pubblicato (solo 
 ./gradlew :app:installDebug -PpocketTravel.manifestUrl=http://10.0.2.2:8000/manifest.json
 ```
 
-`10.0.2.2` è il tuo PC visto dall'emulatore.
+`10.0.2.2` è il tuo PC visto dall'emulatore. Con un catalogo tuo l'app non controlla le firme (vedi sotto).
+
+Per provare la guida del Navigatore senza muoverti: in una build di debug apri il Navigatore, scegli la meta e tocca Avvia, poi lancia `node tools/dev/simulate-route.js 12`. Lo script legge il percorso dal log dell'app e muove il GPS dell'emulatore lungo il percorso, a 12 m/s (il numero è la velocità).
+
+Per pubblicare i dati da un tuo fork: i file JSON che l'app scarica (`manifest.json`, `transit.json`, `address-grid.json`, `app-status.json`) sono firmati con ECDSA P-256 nei workflow, con la chiave privata del secret `MANIFEST_SIGNING_KEY`; senza il secret i workflow si fermano invece di pubblicare file non firmati. Come creare la chiave e incorporare la chiave pubblica nell'app è spiegato in [tools/data-pipeline/README.md](tools/data-pipeline/README.md). L'ordine conta: prima una pubblicazione delle regioni con le firme (`publish-regions.yml`), poi la versione dell'app che le richiede, altrimenti l'app rifiuta il catalogo. I numeri civici stanno su 12 release (`address-cells-0` … `address-cells-11`), per restare sotto il limite di 1000 file per release di GitHub.
 
 ## Licenza
 
-Il codice è sotto licenza [MIT](LICENSE). I dati hanno le loro licenze ([CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.it) per Wikivoyage e Wikipedia, [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/) per OpenStreetMap; i civici di Overture Maps hanno la licenza del registro da cui vengono): l'elenco completo, con tutte le fonti dei civici, è nella schermata Licenze dell'app.
+Il codice è sotto licenza [MIT](LICENSE). I dati hanno le loro licenze ([CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.it) per Wikivoyage e Wikipedia, [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/) per OpenStreetMap, [CC0](https://creativecommons.org/publicdomain/zero/1.0/deed.it) per Wikidata; i civici di Overture Maps hanno la licenza del registro da cui vengono): l'elenco completo, con tutte le fonti dei civici, è nella schermata Licenze dell'app.
