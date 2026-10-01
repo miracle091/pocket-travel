@@ -98,6 +98,9 @@ PILOT_REGIONS=(
   "isole-faroe|Isole Faroe (Danimarca)|-7.68|61.40|-6.25|62.40|Faroe_Islands|fo|||Europa"
   "svalbard-jan-mayen|Svalbard e Jan Mayen (Norvegia)|-9.10|70.80|33.50|80.85|Svalbard|sj|||Europa"
   "gibilterra|Gibilterra (Regno Unito)|-5.36|36.10|-5.33|36.16|Gibraltar|gi|||Europa"
+  # Canarie a parte: il bbox della Spagna non arriva cosi' a sud. "ic" e' il codice ISO riservato
+  # alle Canarie: nome ("Isole Canarie", "Canary Islands") e bandiera propri invece di una seconda "Spagna".
+  "isole-canarie|Isole Canarie (Spagna)|-18.20|27.60|-13.30|29.45|Canary_Islands|ic|||Europa"
   # La Russia non ha un unico bbox rettangolare sensato: il territorio attraverserebbe
   # l'antimeridiano (dalla Kaliningrad a ~19E fino alla Chukotka oltre i -169W) e ha l'exclave di
   # Kaliningrad non contigua col resto del paese. Come per gli Stati Uniti (vedi sopra), e' spezzata

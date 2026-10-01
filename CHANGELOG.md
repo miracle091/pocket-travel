@@ -5,6 +5,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 ## [Non rilasciato]
 
 ### Aggiunto
+- Isole Canarie come regione da scaricare (prima non erano in nessuna: la Spagna arriva fino allo stretto di Gibilterra), con gli orari dei traghetti Fred. Olsen fra le isole.
 - Porti turistici sulla mappa, con icona (barca a vela) e filtro propri nel gruppo Trasporti; prima erano in "Altro". Con il prossimo aggiornamento dei punti di interesse arrivano anche quelli che OpenStreetMap disegna come aree.
 - Nomi sulla mappa con le lettere di lettone, polacco, ceco, turco, vietnamita e delle altre lingue con l'alfabeto latino esteso, e in greco, cirillico, armeno, ebraico, arabo, thai e georgiano: prima quelle lettere mancavano. Restano fuori cinese, giapponese, coreano e le scritture indiane, dove si vede il nome italiano o inglese quando c'è.
 
