@@ -219,12 +219,30 @@ fetch_wikivoyage_lang_dump() {
   local lang="$1" outFile="$2" attempt sha1File sha1
   local baseUrl="https://dumps.wikimedia.org/${lang}wikivoyage/latest"
   local dumpName="${lang}wikivoyage-latest-pages-articles.xml.bz2"
+  local sha1Url="$baseUrl/${lang}wikivoyage-latest-sha1sums.txt"
   sha1File="$(mktemp)"
+  # A inizio mese "latest" punta gia' al dump in corso, senza pages-articles (EN il 2026-10-01: sha1sums
+  # di 740 byte): si usa la cartella datata piu' recente che lo ha, stesso file che "latest" darebbe
+  # a dump finito. Il nome nella cache resta quello di "latest": lo sha1 decide comunque.
+  if ! { wikimedia_curl -o "$sha1File" "$sha1Url" 2>/dev/null && grep -qE "^[0-9a-f]+  ${lang}wikivoyage-[0-9]+-pages-articles[.]xml[.]bz2$" "$sha1File"; }; then
+    local date
+    for date in $(wikimedia_curl "https://dumps.wikimedia.org/${lang}wikivoyage/" 2>/dev/null | grep -oE 'href="[0-9]{8}/"' | grep -oE '[0-9]{8}' | sort -r | head -3); do
+      if wikimedia_curl -o "$sha1File" "https://dumps.wikimedia.org/${lang}wikivoyage/$date/${lang}wikivoyage-$date-sha1sums.txt" 2>/dev/null \
+        && grep -qE "  ${lang}wikivoyage-$date-pages-articles[.]xml[.]bz2$" "$sha1File"; then
+        echo "-- dump Wikivoyage ${lang}: latest incompleto, uso quello del $date" >&2
+        baseUrl="https://dumps.wikimedia.org/${lang}wikivoyage/$date"
+        sha1Url="$baseUrl/${lang}wikivoyage-$date-sha1sums.txt"
+        local remoteName="${lang}wikivoyage-$date-pages-articles.xml.bz2"
+        break
+      fi
+    done
+  fi
+  local remoteName="${remoteName:-$dumpName}"
   # Cache facoltativa (WIKIVOYAGE_DUMP_CACHE, la riempie la cache di Actions nel job "build"): un
   # dump gia' scaricato con lo sha1 giusto non si riscarica. Lo sha1 si controlla sempre.
   local cached="${WIKIVOYAGE_DUMP_CACHE:+$WIKIVOYAGE_DUMP_CACHE/$dumpName}"
   for attempt in 1 2 3; do
-    if wikimedia_curl -o "$sha1File" "$baseUrl/${lang}wikivoyage-latest-sha1sums.txt" 2>/dev/null; then
+    if wikimedia_curl -o "$sha1File" "$sha1Url" 2>/dev/null; then
       # Il sha1sums di "latest" elenca i file con la data del dump ("itwikivoyage-20260901-pages-
       # articles.xml.bz2"), non con "latest": si cerca quel nome, stesso contenuto dell'alias.
       sha1="$(awk -v re="^${lang}wikivoyage-[0-9]+-pages-articles[.]xml[.]bz2\$" '$2 ~ re {print $1; exit}' "$sha1File")"
@@ -234,7 +252,7 @@ fetch_wikivoyage_lang_dump() {
         rm -f "$sha1File"
         return 0
       fi
-      if [ -n "$sha1" ] && wikimedia_curl -o "$outFile" "$baseUrl/$dumpName" 2>/dev/null \
+      if [ -n "$sha1" ] && wikimedia_curl -o "$outFile" "$baseUrl/$remoteName" 2>/dev/null \
         && printf '%s  %s\n' "$sha1" "$outFile" | sha1sum -c - >/dev/null 2>&1; then
         if [ -n "$cached" ]; then mkdir -p "$WIKIVOYAGE_DUMP_CACHE" && cp "$outFile" "$cached"; fi
         rm -f "$sha1File"
