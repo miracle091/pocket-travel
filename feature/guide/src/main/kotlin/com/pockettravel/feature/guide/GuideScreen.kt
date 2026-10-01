@@ -3,6 +3,7 @@ package com.pockettravel.feature.guide
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -52,6 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -504,28 +507,40 @@ private fun GuideSectionCard(
     modifier: Modifier = Modifier,
 ) {
     Card(modifier = modifier.fillMaxWidth()) {
+        val (container, onContainer) = section.category.tone()
         Column(modifier = Modifier.padding(Spacing.l)) {
+            // Contenitore dell'icona di dimensione fissa: con il testo molto ingrandito cresce solo la colonna.
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(48.dp).background(container, CircleShape),
+                ) {
                     Icon(
                         imageVector = section.category.icon(),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.padding(6.dp).size(20.dp),
+                        tint = onContainer,
+                        modifier = Modifier.size(24.dp),
                     )
                 }
-                Spacer(modifier = Modifier.width(Spacing.s))
-                Text(
-                    text = stringResource(section.category.displayName()),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Spacer(modifier = Modifier.width(Spacing.m))
+                Column(modifier = Modifier.weight(1f)) {
+                    // Niente etichetta quando ripete il titolo ("Fatti rapidi").
+                    val category = stringResource(section.category.displayName())
+                    if (!category.equals(section.title, ignoreCase = true)) {
+                        Text(
+                            text = category,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        text = section.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.semantics { heading() },
+                    )
+                }
             }
-            Text(
-                text = section.title,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(top = Spacing.m, bottom = Spacing.s).semantics { heading() },
-            )
+            Spacer(modifier = Modifier.height(Spacing.m))
             GuideBody(section.body)
         }
     }
@@ -628,24 +643,45 @@ private fun GuideCategory.displayName(): Int = when (this) {
     GuideCategory.FATTI_RAPIDI -> R.string.category_quick_facts
 }
 
-// Nessuna icona del set copre esattamente "sicurezza"/"trasporti": usate le piu' vicine per
-// significato (autorita' ufficiale per gli avvisi di sicurezza, voli come forma di trasporto).
+// Icona specifica per categoria, usata sia nelle schede sia nei filtri.
 @Composable
-private fun GuideCategory.icon(): ImageVector = when (this) {
-    GuideCategory.USI_COSTUMI -> AppIcons.Checklist
-    GuideCategory.DOGANE -> AppIcons.Customs
-    GuideCategory.SALUTE -> AppIcons.HealthGuidance
-    GuideCategory.SICUREZZA -> AppIcons.OfficialAuthority
-    GuideCategory.TRASPORTI -> AppIcons.Flights
-    GuideCategory.FRASI_UTILI -> AppIcons.Translation
-    GuideCategory.ALLOGGIO -> AppIcons.Accommodation
-    GuideCategory.CIBO_BEVANDE -> AppIcons.FoodDrink
-    GuideCategory.ACQUISTI -> AppIcons.Shopping
-    GuideCategory.CONNETTIVITA -> AppIcons.Connectivity
-    GuideCategory.VITA_QUOTIDIANA -> AppIcons.DailyLife
-    GuideCategory.DA_SAPERE -> AppIcons.Info
-    GuideCategory.COSA_VEDERE -> AppIcons.Attractions
-    GuideCategory.FATTI_RAPIDI -> AppIcons.QuickFacts
+private fun GuideCategory.icon(): ImageVector = ImageVector.vectorResource(
+    when (this) {
+        GuideCategory.USI_COSTUMI -> UiR.drawable.ms_diversity_3
+        GuideCategory.DOGANE -> UiR.drawable.ms_luggage
+        GuideCategory.SALUTE -> UiR.drawable.ms_medical_services
+        GuideCategory.SICUREZZA -> UiR.drawable.ms_shield
+        GuideCategory.TRASPORTI -> UiR.drawable.ms_directions_bus
+        GuideCategory.FRASI_UTILI -> UiR.drawable.ms_translate
+        GuideCategory.ALLOGGIO -> UiR.drawable.ms_bed
+        GuideCategory.CIBO_BEVANDE -> UiR.drawable.ms_restaurant
+        GuideCategory.ACQUISTI -> UiR.drawable.ms_shopping_bag
+        GuideCategory.CONNETTIVITA -> UiR.drawable.ms_wifi
+        GuideCategory.VITA_QUOTIDIANA -> UiR.drawable.ms_home
+        GuideCategory.DA_SAPERE -> UiR.drawable.ms_lightbulb
+        GuideCategory.COSA_VEDERE -> UiR.drawable.ms_attractions
+        GuideCategory.FATTI_RAPIDI -> UiR.drawable.ms_bolt
+    },
+)
+
+// Tre toni dello schema (validi anche con i colori dinamici, in chiaro e scuro) per gruppi di
+// significato: logistica in primary, vita locale e cultura in secondary, attenzione in tertiary.
+// Colori pieni e non i container: con alcuni temi i tre container chiari sembravano uguali. Le coppie
+// colore/onColore garantiscono il contrasto AA; il rosso resta alla scheda emergenze.
+@Composable
+private fun GuideCategory.tone(): Pair<Color, Color> {
+    val colors = MaterialTheme.colorScheme
+    return when (this) {
+        GuideCategory.FATTI_RAPIDI, GuideCategory.TRASPORTI, GuideCategory.ALLOGGIO, GuideCategory.CONNETTIVITA ->
+            colors.primary to colors.onPrimary
+
+        GuideCategory.USI_COSTUMI, GuideCategory.FRASI_UTILI, GuideCategory.VITA_QUOTIDIANA,
+        GuideCategory.CIBO_BEVANDE, GuideCategory.ACQUISTI, GuideCategory.COSA_VEDERE,
+        -> colors.secondary to colors.onSecondary
+
+        GuideCategory.SALUTE, GuideCategory.SICUREZZA, GuideCategory.DOGANE, GuideCategory.DA_SAPERE ->
+            colors.tertiary to colors.onTertiary
+    }
 }
 
 @Preview(widthDp = 360, heightDp = 800)
