@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Punti Overture (tema addresses) di una cella della griglia adattiva,
 filtrati per bbox e per la lista bianca dei dataset
-(tools/data-pipeline/overture-address-sources.tsv): scrive "lat<TAB>lon<TAB>numero<TAB>dataset" per
-ogni indirizzo ammesso in <output>, una riga per indirizzo, per GenerateAddresses (--overture).
+(tools/data-pipeline/overture-address-sources.tsv): scrive
+"lat<TAB>lon<TAB>numero<TAB>dataset<TAB>via<TAB>citta'" per ogni indirizzo ammesso in <output>, una
+riga per indirizzo, per GenerateAddresses (--overture). Via e citta' (postal_city) possono essere
+vuote.
 
 La lista bianca elenca coppie esatte (sources[1].dataset, sources[1].license), una per dataset
 letto a mano: i nomi dei dataset non seguono sempre il
@@ -165,6 +167,20 @@ def fetch_release_pairs(release, log=lambda message: print(message, file=sys.std
     return [(c, d, l, n) for (c, d, l), n in totals.items()]
 
 
+def tsv_field(value):
+    """Testo di una colonna TSV: vuoto se manca, con tab e a capo (che romperebbero le colonne) ridotti a spazi."""
+    if value is None:
+        return ""
+    return " ".join(str(value).split())
+
+
+def format_row(lat, lon, number, dataset, street, city):
+    """Riga del TSV di output; None se mancano punto o numero."""
+    if lat is None or lon is None or number is None:
+        return None
+    return f"{lat}\t{lon}\t{number}\t{dataset}\t{tsv_field(street)}\t{tsv_field(city)}\n"
+
+
 def sql_string(value):
     return "'" + value.replace("'", "''") + "'"
 
@@ -196,7 +212,7 @@ def fetch_addresses(release, min_lon, min_lat, max_lon, max_lat, allowed, exclud
         "/theme=addresses/type=address/*.parquet')"
     )
     query = f"""
-        SELECT ST_Y(geometry), ST_X(geometry), number, sources[1].dataset
+        SELECT ST_Y(geometry), ST_X(geometry), number, sources[1].dataset, street, postal_city
         FROM {src}
         WHERE bbox.xmin BETWEEN {min_lon} AND {max_lon}
           AND bbox.ymin BETWEEN {min_lat} AND {max_lat}
@@ -246,10 +262,10 @@ def main():
     rows = fetch_addresses(release, args.min_lon, args.min_lat, args.max_lon, args.max_lat, allowed,
                            load_excluded_areas(args.whitelist))
     with open(args.output, "w", encoding="utf-8") as out:
-        for lat, lon, number, dataset in rows:
-            if lat is None or lon is None or number is None:
-                continue
-            out.write(f"{lat}\t{lon}\t{number}\t{dataset}\n")
+        for lat, lon, number, dataset, street, city in rows:
+            line = format_row(lat, lon, number, dataset, street, city)
+            if line is not None:
+                out.write(line)
     print(f"overture_addresses: {len(rows)} punti scritti in {args.output}", file=sys.stderr)
 
 

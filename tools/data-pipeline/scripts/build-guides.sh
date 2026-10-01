@@ -21,7 +21,12 @@
 # Una pagina Wikivoyage che non si riesce a scaricare in questa run non fa sparire la guida di
 # quella regione: generateGuides ricopia le sue sezioni dal guides.db pubblicato.
 #
-# Richiede: curl, jq (solo se si passa publishedManifestUrl), xz, gradle wrapper dalla root del repo.
+# Nello stesso file la tabella diplomatic_missions (ambasciate e consolati di tutto il mondo, da
+# Wikidata via wikidata_missions.py; l'app piu' vecchia la ignora). Se Wikidata non risponde si
+# ricopia la tabella dal guides.db pubblicato, e in mancanza anche di quella si pubblica senza,
+# con un avviso: le guide non falliscono mai per questo.
+#
+# Richiede: curl, jq (solo se si passa publishedManifestUrl), xz, python3, gradle wrapper dalla root del repo.
 set -euo pipefail
 
 if [ "$#" -lt 3 ] || [ "$#" -gt 5 ]; then
@@ -108,7 +113,7 @@ published_unreadable() {
   fi
 }
 if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
-  if ! curl -sSf --retry 5 --retry-all-errors --retry-delay 5 -o "$WORKDIR/published-manifest.json" "$PUBLISHED_MANIFEST_URL" 2>/dev/null; then
+  if ! curl -sSf --max-time 120 --speed-limit 1000 --speed-time 30 --retry 5 --retry-all-errors --retry-delay 5 -o "$WORKDIR/published-manifest.json" "$PUBLISHED_MANIFEST_URL" 2>/dev/null; then
     published_unreadable "manifest pubblicato non scaricato"
   else
     PUBLISHED_URL="$(jq -r --arg k "$MANIFEST_KEY" '.[$k].file.url // ""' "$WORKDIR/published-manifest.json")"
@@ -121,7 +126,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
       # prima di questo .xz) si usa cosi' com'e'.
       DOWNLOAD_TARGET="$WORKDIR/published-guides.db"
       [[ "$PUBLISHED_URL" == *.xz ]] && DOWNLOAD_TARGET="$WORKDIR/published-guides.db.xz"
-      if curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o "$DOWNLOAD_TARGET" "$PUBLISHED_URL"; then
+      if curl -sSfL --max-time 900 --speed-limit 1000 --speed-time 60 --retry 5 --retry-all-errors --retry-delay 5 -o "$DOWNLOAD_TARGET" "$PUBLISHED_URL"; then
         if [[ "$PUBLISHED_URL" == *.xz ]]; then
           xz -dc "$DOWNLOAD_TARGET" > "$WORKDIR/published-guides.db" && PUBLISHED_DB="$WORKDIR/published-guides.db"
         else
@@ -133,11 +138,22 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
   fi
 fi
 
+# --- 2b. Missioni diplomatiche da Wikidata ------------------------------------------------------
+# Un unico TSV per le due lingue: la run IT lo scarica, quella EN (cartella gemella, stesso job) riusa il
+# file se e' recente. Sta accanto alla cartella di output, non in un /tmp condiviso tra job e run diverse.
+MISSIONS_TSV="${MISSIONS_TSV:-$(dirname "$OUTPUT_DIR")/pocket-travel-wikidata-missions.tsv}"
+if [ -z "$(find "$MISSIONS_TSV" -mmin -120 -size +0 2>/dev/null)" ]; then
+  rm -f "$MISSIONS_TSV"
+  python3 "$SCRIPT_DIR/wikidata_missions.py" --out "$MISSIONS_TSV" --user-agent "$PIPELINE_USER_AGENT" \
+    || echo "AVVISO: missioni diplomatiche da Wikidata non scaricate, riuso quelle pubblicate se ci sono" >&2
+fi
+
 # --- 3. guides.db ---------------------------------------------------------------------------------
 GUIDES_DB="$OUTPUT_DIR/guides.db"
 rm -f "$GUIDES_DB"
 cd "$REPO_ROOT"
 GUIDES_ARGS="\"$(winpath "$REGIONS_TSV")\" \"$(winpath "$GUIDES_DB")\""
+[ -s "$MISSIONS_TSV" ] && GUIDES_ARGS="--missions \"$(winpath "$MISSIONS_TSV")\" $GUIDES_ARGS"
 [ "$LANG_CODE" = "en" ] && GUIDES_ARGS="--lang en $GUIDES_ARGS"
 [ -n "$PUBLISHED_DB" ] && GUIDES_ARGS="$GUIDES_ARGS \"$(winpath "$PUBLISHED_DB")\""
 ./gradlew -q :tools:data-pipeline:content:generateGuides --args="$GUIDES_ARGS"

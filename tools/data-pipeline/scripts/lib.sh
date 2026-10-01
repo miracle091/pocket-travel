@@ -78,11 +78,13 @@ with_retries() {
       sleep "$wait"
     fi
   done
+  # Anche dopo l'ultimo fallimento: un file parziale non deve restare in giro.
+  [ -z "$cleanupFile" ] || rm -f "$cleanupFile"
   return 1
 }
 
 # Civici da Overpass per un bbox (fonte di riserva quando l'estrazione Protomaps e' troppo
-# grande, vedi build-address-cell.sh): scrive "lat<TAB>lon<TAB>numero" in
+# grande, vedi build-address-cell.sh): scrive "lat<TAB>lon<TAB>numero<TAB>via<TAB>citta'" in
 # <outFile>, solo se il conteggio e' <= <maxCount>. <areaQuery> e' la clausola Overpass della
 # selezione (es. "nwr[\"addr:housenumber\"](minLat,minLon,maxLat,maxLon)"). Scrive l'esito in
 # <noteVar> (nameref): vuoto se riuscito, altrimenti il motivo per il riepilogo del chiamante.
@@ -109,7 +111,11 @@ fetch_overpass_address_points() {
     rm -rf "$workdir"
     return 1
   fi
-  jq -r '.elements[] | [(.lat // .center.lat), (.lon // .center.lon), .tags["addr:housenumber"]] | @tsv' \
+  # Via da addr:street (o addr:place, per i paesi senza strade con nome) e citta' da addr:city; tab e
+  # a capo dentro i valori diventano spazi, per non rompere le colonne.
+  jq -r 'def clean: if . == null then null else gsub("[\\t\\r\\n]+"; " ") end;
+    .elements[] | [(.lat // .center.lat), (.lon // .center.lon), .tags["addr:housenumber"],
+      (.tags["addr:street"] // .tags["addr:place"] | clean), (.tags["addr:city"] | clean)] | @tsv' \
     "$workdir/addresses.json" > "$outFile"
   rm -rf "$workdir"
 }
@@ -148,7 +154,7 @@ fetch_published_manifest() {
     cp "$1" "$2" && echo 200
     return 0
   fi
-  curl -sSf --retry 5 --retry-all-errors -o "$2" -w '%{http_code}' "$1" 2>/dev/null || true
+  curl -sSf --max-time 120 --speed-limit 1000 --speed-time 30 --retry 5 --retry-all-errors -o "$2" -w '%{http_code}' "$1" 2>/dev/null || true
 }
 
 # User-Agent descrittivo della pipeline: richiesto dalla policy di Wikimedia; senza, overpass-api.de
@@ -171,7 +177,7 @@ PIPELINE_USER_AGENT="PocketTravelDataPipeline/1.0 (https://github.com/miracle091
 # pagina, altrimenti la regione esce senza sezioni invece di tenere la guida gia' pubblicata.
 # Lo User-Agent descrittivo e' richiesto dalla policy di Wikimedia.
 # Ritorna 1 (e nessun URL) se anche la pagina EN risulta vuota (titolo errato o errore di rete).
-wikimedia_curl() { curl -sSf --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" "$@"; }
+wikimedia_curl() { curl -sSf --max-time 120 --speed-limit 1000 --speed-time 30 --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" "$@"; }
 
 # Titolo IT Wikivoyage di una pagina (dal suo titolo EN, via langlink interwiki) o vuoto se non
 # esiste una pagina IT - stesso approccio di fetch_wikivoyage_dump piu' sotto, estratto perche'
@@ -252,7 +258,7 @@ fetch_wikivoyage_lang_dump() {
         rm -f "$sha1File"
         return 0
       fi
-      if [ -n "$sha1" ] && wikimedia_curl -o "$outFile" "$baseUrl/$remoteName" 2>/dev/null \
+      if [ -n "$sha1" ] && wikimedia_curl --max-time 1800 -o "$outFile" "$baseUrl/$remoteName" 2>/dev/null \
         && printf '%s  %s\n' "$sha1" "$outFile" | sha1sum -c - >/dev/null 2>&1; then
         if [ -n "$cached" ]; then mkdir -p "$WIKIVOYAGE_DUMP_CACHE" && cp "$outFile" "$cached"; fi
         rm -f "$sha1File"

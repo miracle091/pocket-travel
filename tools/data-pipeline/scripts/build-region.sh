@@ -87,8 +87,12 @@ RD5_TSV_TO_JSON='split("\n") | map(select(length > 0) | split("\t") | {name: .[0
 fetch_rd5() {
   local name="$1" dest="$OUTPUT_DIR/$1" sourceSize cacheArgs=()
   [ -z "${RD5_RANGE_CACHE:-}" ] || cacheArgs=(--range-cache "$RD5_RANGE_CACHE")
+  local rc=0
   sourceSize="$(python3 "$SCRIPT_DIR/clip_rd5.py" "${BROUTER_BASE}/${name}" "$dest" \
-    --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --margin "$RD5_CLIP_MARGIN" --user-agent "$PIPELINE_USER_AGENT" "${cacheArgs[@]}")"
+    --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --margin "$RD5_CLIP_MARGIN" --user-agent "$PIPELINE_USER_AGENT" "${cacheArgs[@]}")" || rc=$?
+  # 3 = la tile non ha strade nel riquadro (costa, mare al bordo): non serve alla regione, si salta.
+  [ "$rc" -ne 3 ] || return 0
+  [ "$rc" -eq 0 ] || return "$rc"
   printf '%s\t%s\t%s\t%s\t%s\n' "$name" "${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${name}" \
     "$(wc -c < "$dest" | tr -d ' ')" "$(sha256sum < "$dest" | awk '{print $1}')" "$sourceSize $RD5_CLIP" >> "$2"
 }
@@ -272,6 +276,8 @@ update_preview_entry() {
 }
 
 mkdir -p "$OUTPUT_DIR"
+# Marcatori di una run precedente sullo stesso outputDir: valgono solo quelli di questa run.
+rm -f "$OUTPUT_DIR/.skipped" "$OUTPUT_DIR/.incremental"
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
@@ -407,8 +413,9 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
 
     # Impronta delle tile della regione nella build corrente e confronto con la mappa pubblicata.
     MAP_FINGERPRINT="$(cd "$REPO_ROOT" && ./gradlew -q :tools:data-pipeline:content:mapFingerprint \
-      --args="https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles $MIN_LON $MIN_LAT $MAX_LON $MAX_LAT $MAP_FINGERPRINT_MIN_ZOOM $MAP_MAX_ZOOM" 2>/dev/null \
+      --args="https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles $MIN_LON $MIN_LAT $MAX_LON $MAX_LAT $MAP_FINGERPRINT_MIN_ZOOM $MAP_MAX_ZOOM" \
       | sed -n 's/.*impronta \([0-9a-f]\{64\}\).*/\1/p' | tail -1 || true)"
+    [ -n "$MAP_FINGERPRINT" ] || echo "::warning::$REGION_ID: impronta delle tile non calcolata (mapFingerprint), la mappa non verra' aggiornata in questa run" >&2
     PUBLISHED_MAP_FINGERPRINT="$(printf '%s' "$PUBLISHED_REGION" | jq -r '.map.fingerprint // ""' 2>/dev/null || true)"
     PUBLISHED_MAP_DATE="$(printf '%s' "$PUBLISHED_REGION" | jq -r '.map.version // ""' 2>/dev/null | sed -n 's/^\([0-9]\{4\}\)\.\([0-9]\{2\}\)\.\([0-9]\{2\}\)\(\.[0-9][0-9.]*\)\?$/\1-\2-\3/p' || true)"
     MAP_DUE=false
@@ -694,7 +701,29 @@ POI_ARGS="\"$REGION_ID\" \"$(winpath "$POI_DB")\" \"$(winpath "$POI_EXTRA_DB")\"
 for f in "${POI_XML_FILES[@]}"; do
   POI_ARGS="$POI_ARGS \"$(winpath "$f")\""
 done
-./gradlew -q :tools:data-pipeline:content:generatePoi --args="$POI_ARGS"
+
+# poi_count <poi.db>: numero di POI del pacchetto.
+poi_count() {
+  python3 -c 'import sqlite3, sys; print(sqlite3.connect(sys.argv[1]).execute("SELECT count(*) FROM poi").fetchone()[0])' "$1"
+}
+# POI base del poi.db gia' pubblicato: generatePoi rifiuta un risultato vuoto o sotto la meta' (un
+# chunk Overpass puo' essere valido ma vuoto: meglio fallire e tenere il pacchetto pubblicato). Viene
+# da poi.count del manifest; le voci pubblicate prima di quel campo si contano sul poi.db pubblicato,
+# che si scarica (una volta, finche' la regione non e' ripubblicata). Se non si riesce a contarli resta
+# solo il controllo sul risultato vuoto.
+PUBLISHED_POI_COUNT="$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.count // empty' 2>/dev/null || true)"
+if [ -z "$PUBLISHED_POI_COUNT" ] && [ -n "${PUBLISHED_POI_URL:-}" ]; then
+  echo "-- conto i POI del poi.db pubblicato ($PUBLISHED_POI_URL)..."
+  if curl -fsSL --retry 3 --max-time 600 -A "$PIPELINE_USER_AGENT" "$PUBLISHED_POI_URL" -o "$WORKDIR/published-poi.db.xz" \
+    && xz -dc "$WORKDIR/published-poi.db.xz" > "$WORKDIR/published-poi.db"; then
+    PUBLISHED_POI_COUNT="$(poi_count "$WORKDIR/published-poi.db" || true)"
+  else
+    echo "::warning::poi.db pubblicato di $REGION_ID non scaricabile: controllo solo che il risultato non sia vuoto"
+  fi
+  rm -f "$WORKDIR/published-poi.db.xz" "$WORKDIR/published-poi.db"
+fi
+POI_PUBLISHED_COUNT="$PUBLISHED_POI_COUNT" ./gradlew -q :tools:data-pipeline:content:generatePoi --args="$POI_ARGS"
+POI_COUNT="$(poi_count "$POI_DB")"
 
 # I pacchetti POI si pubblicano solo compressi con xz (<file>.xz): Spagna 110 MB -> 26 MB, contro i
 # 44 MB di gzip. Nel manifest "file" descrive il database non compresso (nome, dimensione e sha256,
@@ -724,8 +753,9 @@ if [ "$POI_ONLY" = "true" ]; then
       return 0
     fi
     jq -c --arg key "$key" --arg version "$VERSION" --arg name "$name" --arg url "$url" \
-      --argjson size "$(wc -c < "$file" | tr -d ' ')" --arg hash "$hash" --argjson xz "$(xz_entry "$file" "$url")" '
-      .regions |= map(.[$key] = {version: $version, file: {name: $name, url: $url, sizeBytes: $size, sha256: $hash}, fileXz: $xz})' \
+      --argjson size "$(wc -c < "$file" | tr -d ' ')" --arg hash "$hash" --argjson xz "$(xz_entry "$file" "$url")" --argjson count "$POI_COUNT" '
+      .regions |= map(.[$key] = {version: $version, file: {name: $name, url: $url, sizeBytes: $size, sha256: $hash}, fileXz: $xz}
+        + (if $key == "poi" then {count: $count} else {} end))' \
       "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
     mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
   }
@@ -804,8 +834,8 @@ echo "-- genero il frammento manifest..."
 POI_XZ="$(xz_entry "$POI_DB" "$POI_DB_URL")"
 POI_EXTRA_XZ="null"
 [ -f "$POI_EXTRA_DB" ] && POI_EXTRA_XZ="$(xz_entry "$POI_EXTRA_DB" "$POI_EXTRA_DB_URL")"
-jq -c --argjson xz "$POI_XZ" --argjson extraXz "$POI_EXTRA_XZ" \
-  '.regions |= map(.poi.fileXz = $xz | if .poiExtra and $extraXz then .poiExtra.fileXz = $extraXz else . end)' \
+jq -c --argjson xz "$POI_XZ" --argjson extraXz "$POI_EXTRA_XZ" --argjson count "$POI_COUNT" \
+  '.regions |= map(.poi.fileXz = $xz | .poi.count = $count | if .poiExtra and $extraXz then .poiExtra.fileXz = $extraXz else . end)' \
   "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
 mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
 # Anteprima compressa (voce fileXz): dimensione/hash gia' calcolati da build_preview, niente
@@ -823,8 +853,11 @@ fi
 # Impronta delle tile della mappa appena pubblicata (riferimento per la prossima versione).
 if [ -z "${MAP_FINGERPRINT:-}" ]; then
   MAP_FINGERPRINT="$(./gradlew -q :tools:data-pipeline:content:mapFingerprint \
-    --args="https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles $MIN_LON $MIN_LAT $MAX_LON $MAX_LAT $MAP_FINGERPRINT_MIN_ZOOM $MAP_MAX_ZOOM" 2>/dev/null \
+    --args="https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles $MIN_LON $MIN_LAT $MAX_LON $MAX_LAT $MAP_FINGERPRINT_MIN_ZOOM $MAP_MAX_ZOOM" \
     | sed -n 's/.*impronta \([0-9a-f]\{64\}\).*/\1/p' | tail -1 || true)"
+fi
+if [ -z "$MAP_FINGERPRINT" ]; then
+  echo "::warning::$REGION_ID: impronta delle tile non calcolata (mapFingerprint), il manifest esce senza map.fingerprint" >&2
 fi
 if [ -n "$MAP_FINGERPRINT" ]; then
   jq -c --arg fp "$MAP_FINGERPRINT" '.regions |= map(.map.fingerprint = $fp)' "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"

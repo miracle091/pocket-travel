@@ -424,8 +424,12 @@ fun main(rawArgs: Array<String>) {
     // --lang en: guida inglese (guides-en.db). regioni.tsv ha allora "regionId<TAB>dumpEn.txt<TAB>sourceUrlEn",
     // con in piu' "<TAB>dumpIt.txt" (la pagina italiana, solo per i fatti rapidi, vedi englishQuickFactsSection).
     val english = rawArgs.firstOrNull() == "--lang" && rawArgs.getOrNull(1) == "en"
-    val args = if (rawArgs.firstOrNull() == "--lang") rawArgs.drop(2) else rawArgs.toList()
-    require(args.size in 2..3) { "Uso: generateGuides [--lang en] <regioni.tsv> <output guides.db> [guides.db pubblicato]" }
+    val rest = if (rawArgs.firstOrNull() == "--lang") rawArgs.drop(2) else rawArgs.toList()
+    // --missions <tsv>: missioni diplomatiche da Wikidata (wikidata_missions.py), tabella diplomatic_missions.
+    val missionsIndex = rest.indexOf("--missions")
+    val missionsTsv = if (missionsIndex >= 0) rest.getOrNull(missionsIndex + 1)?.let(::File) else null
+    val args = if (missionsIndex >= 0) rest.take(missionsIndex) + rest.drop(missionsIndex + 2) else rest
+    require(args.size in 2..3) { "Uso: generateGuides [--lang en] [--missions <missioni.tsv>] <regioni.tsv> <output guides.db> [guides.db pubblicato]" }
     val outputDb = File(args[1])
     val publishedDb = args.getOrNull(2)?.let(::File)?.takeIf { it.exists() }
 
@@ -446,6 +450,7 @@ fun main(rawArgs: Array<String>) {
 
     outputDb.delete()
     writeGuidesDb(guides, outputDb)
+    writeDiplomaticMissions(missionsTsv, publishedDb, outputDb)
     if (publishedDb != null && sameGuidesContent(outputDb, publishedDb)) {
         outputDb.delete()
         println("guide: contenuto identico a quello pubblicato, nessun nuovo guides.db")
@@ -521,17 +526,18 @@ private fun readRegionGuide(db: File, regionId: String): RegionGuide? =
         }
     }
 
-/** Stesse righe in guide_sections e nelle tabelle dei numeri di emergenza, a prescindere dall'ordine di inserimento. */
+/** Stesse righe in guide_sections e nelle tabelle dei numeri di emergenza e delle missioni diplomatiche, a prescindere dall'ordine di inserimento. */
 fun sameGuidesContent(a: File, b: File): Boolean {
     val queries = listOf(
         "SELECT regionId, category, title, body, sourceUrl FROM guide_sections ORDER BY 1, 2, 3, 4, 5",
         "SELECT regionId, general, police, ambulance, fire FROM emergency_numbers ORDER BY 1",
         "SELECT regionId FROM emergency_numbers_none ORDER BY 1",
+        "SELECT wikidata, sending, host, kind, name, name_en, city, address, phone, website, email, lat, lon FROM diplomatic_missions ORDER BY 1",
     )
     return queries.all { sql -> readRows(a, sql) == readRows(b, sql) }
 }
 
-private fun readRows(db: File, sql: String): List<List<String?>>? =
+internal fun readRows(db: File, sql: String): List<List<String?>>? =
     DriverManager.getConnection("jdbc:sqlite:${db.path}").use { conn ->
         conn.createStatement().use { statement ->
             // Tabella assente (file non generato da questo tool): null, mai uguale a un file valido.

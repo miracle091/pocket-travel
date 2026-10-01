@@ -37,8 +37,11 @@ import kotlin.math.tan
  *
  * Coordinate in microgradi interi (latE6/lonE6): la precisione (~11 cm) e' molto oltre quella che
  * serve per un'etichetta, e il confronto tra indirizzi duplicati resta esatto.
+ *
+ * [street] e [city] vengono dalla fonte (Overture, Overpass) o dalla strada piu' vicina
+ * (assignStreets): non finiscono nel pmtiles, solo nell'indice di ricerca (AddressSearch.kt).
  */
-data class Address(val latE6: Int, val lonE6: Int, val number: String)
+data class Address(val latE6: Int, val lonE6: Int, val number: String, val street: String? = null, val city: String? = null)
 
 private const val ADDRESS_ZOOM = 15
 
@@ -69,8 +72,9 @@ fun extractAddresses(pmtiles: File, minLon: Double, minLat: Double, maxLon: Doub
 }
 
 /**
- * Civici gia' come punti, una riga "lat<TAB>lon<TAB>numero" (fonte di riserva Overpass di
- * build-address-cell.sh, per le celle troppo grandi da estrarre dalle z15), tenendo solo quelli nel bbox.
+ * Civici gia' come punti, una riga "lat<TAB>lon<TAB>numero[<TAB>via<TAB>citta']" (fonte di riserva
+ * Overpass di build-address-cell.sh, per le celle troppo grandi da estrarre dalle z15), tenendo solo
+ * quelli nel bbox.
  */
 fun readAddressPoints(points: File, minLon: Double, minLat: Double, maxLon: Double, maxLat: Double): List<Address> =
     points.readLines().mapNotNull { line ->
@@ -79,8 +83,11 @@ fun readAddressPoints(points: File, minLon: Double, minLat: Double, maxLon: Doub
         val lon = fields.getOrNull(1)?.toDoubleOrNull() ?: return@mapNotNull null
         val number = fields.getOrNull(2)?.trim().orEmpty()
         if (number.isEmpty() || lon !in minLon..maxLon || lat !in minLat..maxLat) return@mapNotNull null
-        Address((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), number)
+        Address((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), number, fields.optionalText(3), fields.optionalText(4))
     }
+
+// Campo TSV facoltativo: assente o vuoto (anche solo spazi) = nessun valore.
+private fun List<String>.optionalText(index: Int): String? = getOrNull(index)?.trim()?.takeIf { it.isNotEmpty() }
 
 /**
  * Punto Overture del tema addresses (griglia adattiva): stessa forma di
@@ -88,11 +95,18 @@ fun readAddressPoints(points: File, minLon: Double, minLat: Double, maxLon: Doub
  * chi genera i punti (lista bianca in overture-address-sources.tsv) - qui non e' piu' necessario,
  * separato da Address per non confondere le due fonti nella deduplica.
  */
-data class OvertureAddress(val latE6: Int, val lonE6: Int, val number: String, val dataset: String)
+data class OvertureAddress(
+    val latE6: Int,
+    val lonE6: Int,
+    val number: String,
+    val dataset: String,
+    val street: String? = null,
+    val city: String? = null,
+)
 
 /**
- * Punti Overture, una riga "lat<TAB>lon<TAB>numero<TAB>dataset" (query DuckDB del tema addresses,
- * vedi scripts/overture_addresses.py), tenendo solo quelli nel bbox.
+ * Punti Overture, una riga "lat<TAB>lon<TAB>numero<TAB>dataset[<TAB>via<TAB>citta']" (query DuckDB del
+ * tema addresses, vedi scripts/overture_addresses.py), tenendo solo quelli nel bbox.
  */
 fun readOvertureAddressPoints(points: File, minLon: Double, minLat: Double, maxLon: Double, maxLat: Double): List<OvertureAddress> =
     points.readLines().mapNotNull { line ->
@@ -102,7 +116,7 @@ fun readOvertureAddressPoints(points: File, minLon: Double, minLat: Double, maxL
         val number = fields.getOrNull(2)?.trim().orEmpty()
         val dataset = fields.getOrNull(3)?.trim().orEmpty()
         if (number.isEmpty() || lon !in minLon..maxLon || lat !in minLat..maxLat) return@mapNotNull null
-        OvertureAddress((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), number, dataset)
+        OvertureAddress((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), number, dataset, fields.optionalText(4), fields.optionalText(5))
     }
 
 private fun normalizedNumber(number: String): String = number.trim().lowercase().filterNot { it.isWhitespace() }
@@ -154,7 +168,7 @@ fun dedupeWithOverture(osm: List<Address>, overture: List<OvertureAddress>): Lis
             }
         }
     }
-    return osmDistinct + newOverture.map { Address(it.latE6, it.lonE6, it.number) }
+    return osmDistinct + newOverture.map { Address(it.latE6, it.lonE6, it.number, it.street, it.city) }
 }
 
 /** Id di una cella della griglia adattiva: nodo z/x/y del quadtree Web Mercator. */
@@ -252,18 +266,20 @@ private fun gzip(bytes: ByteArray): ByteArray =
 fun main(args: Array<String>) {
     require(args.size >= 6) {
         "Uso: generateAddresses <output.pmtiles> <minLon> <minLat> <maxLon> <maxLat> <z15-1.pmtiles | punti.tsv> [...] " +
-            "--cell <z/x/y> [--overture <overture.tsv>]"
+            "--cell <z/x/y> [--overture <overture.tsv>] [--search <addresses-search.db>]"
     }
     val output = File(args[0])
     val (minLon, minLat, maxLon, maxLat) = args.slice(1..4).map { it.toDouble() }
     var overtureFile: File? = null
     var cell: CellId? = null
+    var searchOutput: File? = null
     val inputPaths = mutableListOf<String>()
     var i = 5
     while (i < args.size) {
         when (args[i]) {
             "--overture" -> { overtureFile = File(args[i + 1]); i += 2 }
             "--cell" -> { cell = parseCellId(args[i + 1]); i += 2 }
+            "--search" -> { searchOutput = File(args[i + 1]); i += 2 }
             else -> { inputPaths += args[i]; i += 1 }
         }
     }
@@ -282,4 +298,14 @@ fun main(args: Array<String>) {
         "indirizzi: ${addresses.size} scritti in ${output.path} " +
             "(osm=${osmAddresses.size}, overture=${overtureAddresses.size}, dopo deduplica=${deduped.size})",
     )
+    searchOutput?.let { searchFile ->
+        // Le strade vengono dalle stesse z15 gia' scaricate per i civici; con la riserva Overpass (solo
+        // .tsv) non ci sono e restano le sole vie della fonte.
+        val roads = inputPaths.map(::File).filterNot { it.name.endsWith(".tsv") }.flatMap(::extractRoads)
+        val withStreets = assignStreets(addresses, RoadIndex(roads))
+        val rows = writeAddressSearchDb(withStreets, searchFile)
+        // Nessuna via: niente indice (il chiamante pubblica solo i file che esistono).
+        if (rows == 0) searchFile.delete()
+        println("ricerca: $rows indirizzi con via scritti in ${searchFile.path} (dalla fonte=${addresses.count { it.street != null }}, strade=${roads.size})")
+    }
 }

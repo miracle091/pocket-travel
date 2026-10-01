@@ -97,7 +97,12 @@ class HttpSource:
                 error = e
             else:
                 if resp.status == 206:
-                    size = int(resp.getheader("Content-Range").rsplit("/", 1)[1])
+                    # Senza Content-Range (o con "/*") la dimensione totale non c'e': niente controllo
+                    # sul file cambiato, quindi errore invece di un AttributeError e di un ritaglio alla cieca.
+                    total = (resp.getheader("Content-Range") or "").rsplit("/", 1)[-1]
+                    if not total.isdigit():
+                        raise OSError(f"{self.name}: risposta 206 senza dimensione totale in Content-Range per {wanted}")
+                    size = int(total)
                     etag = resp.getheader("ETag")
                     if self.size is None:
                         self.size, self.etag = size, etag
@@ -233,6 +238,10 @@ def clip(src, bbox):
     return head + b"".join(blocks) + footer, kept
 
 
+# Codice d'uscita di una tile senza strade nel riquadro: non e' un errore, la tile non serve alla regione.
+EMPTY_EXIT = 3
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("src", help="file .rd5 locale o URL (http/https, letto con richieste Range)")
@@ -249,12 +258,18 @@ def main():
     if remote and a.range_cache:
         src = CachedSource(src, a.range_cache)
     out, kept = clip(src, bbox)
+    if kept == 0:
+        # La tile esiste ma nel riquadro non ha strade (costa, mare al bordo della regione): non si scrive
+        # un .rd5 vuoto e il chiamante salta solo questa tile, con EMPTY_EXIT distinto da un errore vero.
+        print(f"-- {src.name}: nessuna micro-cella nel riquadro {bbox}, tile saltata", file=sys.stderr)
+        return EMPTY_EXIT
     a.dst.write_bytes(out)
     reused = f", {src.reused / 2**20:.1f} MiB dalla cache" if isinstance(src, CachedSource) else ""
     print(f"{src.name}: {src.size / 2**20:.1f} -> {len(out) / 2**20:.1f} MiB, {kept} micro-celle tenute, "
           f"{src.fetched / 2**20:.1f} MiB {'scaricati' if remote else 'letti'}{reused}", file=sys.stderr)
     print(src.size)  # dimensione dell'originale, per il sourceKey del manifest (build-region.sh)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -116,6 +116,41 @@ class GenerateAddressesTest {
     }
 
     @Test
+    fun `legge via e citta' dalle colonne facoltative dei punti Overture e Overpass`() {
+        val overture = File.createTempFile("pocket-travel-test", ".tsv")
+        val overpass = File.createTempFile("pocket-travel-test", ".tsv")
+        try {
+            overture.writeText(
+                "43.9424\t12.4578\t10\tit/countrywide\tVia Roma\tSerravalle\n" +
+                    "43.9425\t12.4579\t11\tit/countrywide\t\t\n" +
+                    "43.9426\t12.4580\t12\tit/countrywide\n",
+            )
+            overpass.writeText("43.9424\t12.4578\t10\tVia Roma\tSerravalle\n43.9425\t12.4579\t11\t\t\n43.9426\t12.4580\t12\n")
+
+            val fromOverture = readOvertureAddressPoints(overture, 12.40, 43.89, 12.52, 43.99)
+            val fromOverpass = readAddressPoints(overpass, 12.40, 43.89, 12.52, 43.99)
+
+            assertEquals(
+                listOf("Via Roma" to "Serravalle", null to null, null to null),
+                fromOverture.map { it.street to it.city },
+            )
+            assertEquals(listOf("Via Roma" to "Serravalle", null to null, null to null), fromOverpass.map { it.street to it.city })
+        } finally {
+            overture.delete()
+            overpass.delete()
+        }
+    }
+
+    @Test
+    fun `dedupeWithOverture porta via e citta' del punto Overture tenuto`() {
+        val overture = listOf(OvertureAddress(43_942_400, 12_457_800, "12", "it/countrywide", "Via Roma", "Serravalle"))
+
+        val result = dedupeWithOverture(emptyList(), overture)
+
+        assertEquals(listOf(Address(43_942_400, 12_457_800, "12", "Via Roma", "Serravalle")), result)
+    }
+
+    @Test
     fun `dedupeWithOverture scarta un punto Overture vicino a un OSM con lo stesso numero`() {
         val osm = listOf(Address(43_942_400, 12_457_800, "10"))
         val overture = listOf(

@@ -27,6 +27,10 @@ source "$SCRIPT_DIR/lib.sh"
 
 mkdir -p "$SITE_DIR"
 PREV_MANIFEST="$(mktemp)"
+CONTINENTS_TSV=""
+REPLACED_TSV=""
+# Temporanei rimossi anche in uscita per errore (set -e).
+trap 'rm -f "$PREV_MANIFEST" "$CONTINENTS_TSV" "$REPLACED_TSV"' EXIT
 MANIFEST_INPUTS=()
 
 # Senza il manifest pubblicato il merge conterrebbe solo le regioni di questa run, e la pulizia
@@ -79,7 +83,6 @@ done
 
 cd "$REPO_ROOT"
 ./gradlew -q :tools:data-pipeline:content:mergeManifests --args="$ARGS_STR"
-rm -f "$PREV_MANIFEST" "$CONTINENTS_TSV" "$REPLACED_TSV"
 
 # Pagina minimale per la radice del sito Pages: senza questa, GET / da 404 (nessun file la
 # serve) — solo per verifica manuale, l'app non chiama mai questo URL. Elenca TUTTO il lotto
@@ -87,8 +90,7 @@ rm -f "$PREV_MANIFEST" "$CONTINENTS_TSV" "$REPLACED_TSV"
 # anche quali nazioni sono attualmente non disponibili perche' la loro generazione e' fallita
 # (es. Stati Uniti su un bbox troppo grande per Overpass) - fonte unica pilot-regions.sh, cosi'
 # la pagina resta sincronizzata con l'elenco reale senza doverlo duplicare qui.
-# shellcheck source=./pilot-regions.sh
-source "$SCRIPT_DIR/pilot-regions.sh"
+# (PILOT_REGIONS e REPLACED_REGIONS sono gia' caricati piu' sopra.)
 
 # Bandiere come SVG vettoriali (scripts/assets/flags/, vendorizzate da flag-icons - vedi
 # assets/flags/README.md e LICENSE), non emoji: gli emoji bandiera non si vedono su Windows (il

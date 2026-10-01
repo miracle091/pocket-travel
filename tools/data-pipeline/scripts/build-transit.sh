@@ -52,7 +52,7 @@ FEED_URL="${FEED_URL:-https://files.mobilitydatabase.org/${FEED_ID}/latest.zip}"
 # dicembre). Dal 10 dicembre si prova quello dell'anno dopo, se e' gia' pubblicato.
 if [[ "$FEED_URL" == *"{anno}"* ]]; then
   YEAR="$(date -u +%Y)"
-  if [ "$(date -u +%m%d)" -ge 1210 ] && curl -sSfIL -o /dev/null -A "$PIPELINE_USER_AGENT" "${FEED_URL//\{anno\}/$((YEAR + 1))}"; then
+  if [ "$(date -u +%m%d)" -ge 1210 ] && curl -sSfIL --max-time 60 -o /dev/null -A "$PIPELINE_USER_AGENT" "${FEED_URL//\{anno\}/$((YEAR + 1))}"; then
     YEAR=$((YEAR + 1))
   fi
   FEED_URL="${FEED_URL//\{anno\}/$YEAR}"

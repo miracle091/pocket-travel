@@ -17,3 +17,10 @@ __pycache__/
 
 # Byproduct di Planetiler quando gira da tools/data-pipeline (cerca data/tile_weights.tsv.gz)
 /tools/data-pipeline/data/
+
+# Segreti di firma: mai nel repository
+*.jks
+*.keystore
+*.p12
+*.pem
+keystore.properties

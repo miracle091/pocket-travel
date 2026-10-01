@@ -18,8 +18,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Minimo a livello di workflow: contents: write solo al job che pubblica le release.
 permissions:
-  contents: write
+  contents: read
 
 # Due bump ravvicinati uno dopo l'altro: senza, il job piu' vecchio potrebbe finire per ultimo e
 # riportare app-status.json a un versionCode precedente.
@@ -30,6 +31,7 @@ concurrency:
 jobs:
   check-version-bump:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
     outputs:
@@ -72,6 +74,9 @@ jobs:
     # app-status.json.
     if: needs.check-version-bump.outputs.bumped == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -83,6 +88,13 @@ jobs:
           java-version: '25'
 
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      # Lint e test unitari prima di firmare e pubblicare: un bump di versione su un commit con i test
+      # rossi non deve produrre una release. Qui e non come attesa di android-ci sullo stesso SHA, che
+      # richiederebbe di interrogare le API (e di gestire attese, run annullate e rilanci manuali).
+      - name: Lint e test unitari
+        shell: bash
+        run: ./gradlew lint testDebugUnitTest --no-daemon
 
       - name: Decodifica il keystore di firma
         shell: bash
@@ -151,6 +163,10 @@ jobs:
 
       - name: Pubblica app-status.json (controllo aggiornamenti app/modelli IA sul device)
         shell: bash
+        # Firma ECDSA del file (app-status.json.sig, stessa chiave di manifest.json in
+        # publish-regions.yml): senza il secret il passo fallisce, vedi .github/scripts/sign-files.sh.
+        env:
+          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
         run: |
           set -euo pipefail
           source .github/scripts/retry.sh
@@ -183,4 +199,6 @@ jobs:
             '{appVersion: {versionName: $versionName, versionCode: $versionCode}, aiModels: $aiModels[0]}' \
             > "$APP_STATUS_FILE"
 
-          retry gh release upload app-status "$APP_STATUS_FILE" --repo "${{ github.repository }}" --clobber
+          bash .github/scripts/sign-files.sh "$APP_STATUS_FILE"
+
+          retry gh release upload app-status "$APP_STATUS_FILE" "$APP_STATUS_FILE.sig" --repo "${{ github.repository }}" --clobber

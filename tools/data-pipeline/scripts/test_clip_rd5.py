@@ -71,6 +71,7 @@ def read_cells(rd5):
 class RangeHandler(http.server.BaseHTTPRequestHandler):
     data = b""
     honor_range = True
+    send_content_range = True
     next_data = None  # se impostato, sostituisce data dopo la prima richiesta (file cambiato a meta')
 
     def do_GET(self):
@@ -79,7 +80,7 @@ class RangeHandler(http.server.BaseHTTPRequestHandler):
         a, b = int(a), (int(b) + 1 if b else len(self.data))
         body = self.data[a:b] if self.honor_range else self.data
         self.send_response(206 if self.honor_range else 200)
-        if self.honor_range:
+        if self.honor_range and self.send_content_range:
             self.send_header("Content-Range", f"bytes {a}-{b - 1}/{len(self.data)}")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
@@ -130,6 +131,25 @@ class ClipRd5Test(unittest.TestCase):
     def test_riquadro_senza_dati_da_tile_vuota(self):
         out, kept = clip(FileSource(self.dir / self.NAME), (50, 50, 51, 51))
         self.assertEqual((kept, read_cells(out)), (0, {}))
+
+    def test_riga_di_comando_riquadro_vuoto_fallisce_senza_scrivere(self):
+        # Tile esistente ma senza micro-cella nel riquadro: niente .rd5 vuoto, uscita diversa da zero.
+        out = self.dir / "out.rd5"
+        res = subprocess.run([sys.executable, str(Path(__file__).with_name("clip_rd5.py")), str(self.dir / self.NAME),
+                              str(out), "--bbox=50,50,51,51", "--margin", "0"], capture_output=True)
+        self.assertEqual(res.returncode, 3)  # tile saltata, non errore
+        self.assertFalse(out.exists())
+
+    def test_via_http_senza_content_range_errore(self):
+        RangeHandler.data, RangeHandler.honor_range, RangeHandler.send_content_range = self.rd5, True, False
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), RangeHandler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            with self.assertRaises(OSError):
+                clip(HttpSource(f"http://127.0.0.1:{server.server_port}/{self.NAME}", "test"), self.BBOX)
+        finally:
+            RangeHandler.send_content_range = True
+            server.shutdown()
 
     def test_via_http_uguale_al_file_locale_e_scarica_meno(self):
         local, _ = clip(FileSource(self.dir / self.NAME), self.BBOX)

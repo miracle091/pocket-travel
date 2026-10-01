@@ -271,6 +271,16 @@ class ValidateManifestTest {
           "fileXz": { "name": "cell.pmtiles.xz", "url": "https://github.com/miracle091/pocket-travel/releases/download/address-cells-0/$id/cell.pmtiles.xz", "sizeBytes": 40, "sha256": "${"b".repeat(64)}" } }
     """.trimIndent()
 
+    private fun gridCellWithSearch(
+        id: String,
+        searchXzUrl: String = "https://github.com/miracle091/pocket-travel/releases/download/address-cells-0/$id/cell-search.db.xz",
+        withXz: Boolean = true,
+    ): String {
+        val xz = """, "fileXz": { "name": "cell-search.db.xz", "url": "$searchXzUrl", "sizeBytes": 300, "sha256": "${"d".repeat(64)}" }"""
+        val search = """, "search": { "file": { "name": "cell-search.db", "url": "${searchXzUrl.removeSuffix(".xz")}", "sizeBytes": 900, "sha256": "${"c".repeat(64)}" }${if (withXz) xz else ""} }"""
+        return gridCell(id).removeSuffix("}") + search + " }"
+    }
+
     private val gridAttributions = """[{ "source": "OpenStreetMap", "license": "ODbL-1.0", "url": "https://www.openstreetmap.org/copyright" }]"""
 
     private fun addressGridIndex(vararg cells: String) =
@@ -279,6 +289,19 @@ class ValidateManifestTest {
     @Test
     fun `un indice dei civici valido non lancia eccezioni`() {
         validateAddressGridJson(addressGridIndex(gridCell("11/1/1"), gridCell("12/50/50")), allowedHosts)
+    }
+
+    @Test
+    fun `una cella con indice di ricerca valido non lancia eccezioni, con o senza fileXz`() {
+        validateAddressGridJson(addressGridIndex(gridCellWithSearch("11/1/1"), gridCell("12/50/50")), allowedHosts)
+        validateAddressGridJson(addressGridIndex(gridCellWithSearch("11/1/1", withXz = false)), allowedHosts)
+    }
+
+    @Test
+    fun `rifiuta un indice di ricerca con URL non consentito`() {
+        assertThrows(ManifestValidationException::class.java) {
+            validateAddressGridJson(addressGridIndex(gridCellWithSearch("11/1/1", "https://evil.example.com/cell-search.db.xz")), allowedHosts)
+        }
     }
 
     @Test

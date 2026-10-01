@@ -34,11 +34,28 @@ fun main(args: Array<String>) {
     val byPackage = pois.groupBy { poiPackageOf(it.name, it.category, it.osmTag) }
     val base = byPackage[PoiPackage.BASE].orEmpty()
     val extra = byPackage[PoiPackage.EXTRA].orEmpty()
+    // POI_PUBLISHED_COUNT (facoltativa, la imposta build-region.sh): POI base del poi.db gia' pubblicato.
+    checkPoiCount(base.size, System.getenv("POI_PUBLISHED_COUNT")?.toIntOrNull())
     writePoiDb(base, outputDb)
     // Niente file extra se non c'e' nessun POI: la regione resta senza pacchetto extra.
     extraDb.delete()
     if (extra.isNotEmpty()) writePoiDb(extra, extraDb)
     println("poi: ${base.size} base in ${outputDb.path}, ${extra.size} extra, ${byPackage[null].orEmpty().size} non pubblicati")
+}
+
+// Sotto questa quota dei POI base gia' pubblicati un nuovo poi.db e' quasi certamente un'estrazione
+// incompleta (un chunk Overpass puo' essere valido ma vuoto), non una regione che ha perso POI.
+private const val POI_MIN_PUBLISHED_RATIO = 0.5
+
+/**
+ * Rifiuta un poi.db base vuoto, o sotto la meta' di quello pubblicato ([publishedCount], null se la
+ * regione non ha ancora POI pubblicati): la regione fallisce e il workflow tiene la voce pubblicata.
+ */
+fun checkPoiCount(baseCount: Int, publishedCount: Int?) {
+    check(baseCount > 0) { "nessun POI base nell'estrazione: file vuoto o chunk Overpass vuoti, non lo pubblico" }
+    if (publishedCount != null && baseCount < publishedCount * POI_MIN_PUBLISHED_RATIO) {
+        error("$baseCount POI base contro $publishedCount gia' pubblicati (meno del ${(POI_MIN_PUBLISHED_RATIO * 100).toInt()}%): non lo pubblico")
+    }
 }
 
 /**
@@ -199,7 +216,7 @@ private fun addressOf(tags: Map<String, String>): String? {
  *   regionId (era costante su ogni riga: la regione la passa comunque chi importa il file).
  * - PRAGMA user_version = [POI_DB_FORMAT_VERSION]: marcatore di formato per PoiImporter, che
  *   legge sia questo che il vecchio formato (regionId/category/osmTag/lat/lon in chiaro,
- *   user_version assente cioe' 0 di default) - vedi PoiImporter.readPois.
+ *   user_version assente cioe' 0 di default) - vedi PoiImporter.replaceFromFile.
  *
  * outputDb e' poi.db (o poi-extra.db, stesso formato), un pacchetto POI della regione, scaricato
  * e aggiornato dall'app separatamente da guide (guides.db), mappa e routing.

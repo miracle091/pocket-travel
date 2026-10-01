@@ -1,6 +1,7 @@
 package com.pockettravel.pipeline
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.io.File
 import java.sql.DriverManager
@@ -247,5 +248,16 @@ class GeneratePoiTest {
         } finally {
             dir.deleteRecursively()
         }
+    }
+
+    @Test
+    fun `un poi base vuoto o sotto la meta' di quello pubblicato viene rifiutato`() {
+        // Prima pubblicazione: basta che ci sia qualcosa.
+        checkPoiCount(1, null)
+        checkPoiCount(100, 200)
+        checkPoiCount(500, 200)
+        assertThrows(IllegalStateException::class.java) { checkPoiCount(0, null) }
+        assertThrows(IllegalStateException::class.java) { checkPoiCount(0, 200) }
+        assertThrows(IllegalStateException::class.java) { checkPoiCount(99, 200) }
     }
 }

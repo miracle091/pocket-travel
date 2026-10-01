@@ -106,6 +106,7 @@ jobs:
   # o tutto il lotto) e lo divide in 3 shard per il job a matrice sotto.
   plan:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: write
     outputs:
@@ -255,6 +256,7 @@ jobs:
     needs: plan
     if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 120
     permissions:
       contents: write
     env:
@@ -321,6 +323,7 @@ jobs:
   world-map:
     if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 120
     permissions:
       contents: write
     env:
@@ -329,16 +332,11 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      # go-pmtiles: stessa versione e installazione del job "build" sotto.
+      # go-pmtiles: versione e sha256 fissati in .github/scripts/install-go-pmtiles.sh.
       - name: Installa go-pmtiles
         shell: bash
         run: |
-          set -euo pipefail
-          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o "$RUNNER_TEMP/go-pmtiles.tar.gz" https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_x86_64.tar.gz
-          echo "3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f  $RUNNER_TEMP/go-pmtiles.tar.gz" | sha256sum -c -
-          mkdir -p "$RUNNER_TEMP/bin"
-          tar -xzf "$RUNNER_TEMP/go-pmtiles.tar.gz" -C "$RUNNER_TEMP/bin" pmtiles
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          bash .github/scripts/install-go-pmtiles.sh
 
       - name: Rigenera la mappa del mondo se serve
         id: build
@@ -404,19 +402,25 @@ jobs:
   # controllo d'eta' come le regioni, quindi una quota imprecisa e' innocua, solo un po' di lavoro
   # sprecato. Un solo job (non a matrice): con ~1.640 celle nel seme una quota di 1/30 (circa 55
   # celle) impiega poche decine di minuti, ben sotto il limite di 6h. Le celle vivono sulle release
-  # "address-cells-<n>" (n = hash stabile dell'id mod 6, stesso motivo del limite di 1000 asset per
-  # release di region_release_tag in pilot-regions.sh) invece che su "region-data*": non sono
-  # legate a una regione. L'indice (address-grid.json) e il suo frammento manifest (voce
-  # "addressGrid") vanno al job "publish" come artifact, stesso schema di "guides"/"world-map".
+  # "address-cells-<n>" (n = hash stabile dell'id mod ADDRESS_CELL_RELEASES, stesso motivo del
+  # limite di 1000 asset per release di region_release_tag in pilot-regions.sh) invece che su
+  # "region-data*": non sono legate a una regione. Dalle 6 release iniziali (0..5) a 12: 12 e' un
+  # multiplo di 6, quindi una cella con (hash mod 12) < 6 resta dov'e' e le altre passano alla release
+  # n+6 solo quando si rigenerano; gli URL assoluti di address-grid.json restano validi finche' non
+  # cambiano, e la pulizia finale guarda tutte le release "address-cells-*".
+  # L'indice (address-grid.json) e il suo frammento manifest (voce "addressGrid") vanno al job "publish" come artifact, stesso schema di "guides"/"world-map".
   # Nelle continuazioni (stesso giorno, quindi stesso slot e stesse celle) non gira.
   address-grid:
     if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 180
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
       PYTHON_BIN: python3
+      # Numero di release "address-cells-<n>" su cui si spartiscono le celle (vedi commento sopra al job).
+      ADDRESS_CELL_RELEASES: 12
       ADDRESS_CELL_MAX_AGE_DAYS: ${{ github.event.inputs.address_cell_max_age_days || (github.event.inputs.address_cells && '-1') || '30' }}
       # Dall'env, non interpolato nello script (niente iniezione di comandi).
       ADDRESS_CELLS_INPUT: ${{ github.event.inputs.address_cells }}
@@ -430,33 +434,32 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
 
-      # go-pmtiles: stessa versione e installazione del job "build" sotto.
+      # go-pmtiles: versione e sha256 fissati in .github/scripts/install-go-pmtiles.sh.
       - name: Installa go-pmtiles
         shell: bash
         run: |
-          set -euo pipefail
-          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o "$RUNNER_TEMP/go-pmtiles.tar.gz" https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_x86_64.tar.gz
-          echo "3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f  $RUNNER_TEMP/go-pmtiles.tar.gz" | sha256sum -c -
-          mkdir -p "$RUNNER_TEMP/bin"
-          tar -xzf "$RUNNER_TEMP/go-pmtiles.tar.gz" -C "$RUNNER_TEMP/bin" pmtiles
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          bash .github/scripts/install-go-pmtiles.sh
 
-      # duckdb (con httpfs/spatial, caricate a runtime da overture_addresses.py): niente versione
-      # fissata via hash, e' un pacchetto Python puro installato ad ogni run, come il resto del
-      # toolchain Python di questo job (nessun requirements.txt nel pipeline oggi).
+      # duckdb (con httpfs/spatial, caricate a runtime da overture_addresses.py) con versione e hash
+      # fissati in tools/data-pipeline/requirements-ci.txt: il job ha un token che scrive sulle release, e
+      # pip deve installare solo quei file esatti. Il token non e' nell'ambiente di questo passo.
       - name: Installa duckdb
         shell: bash
-        run: python3 -m pip install --quiet --disable-pip-version-check --retries 10 --timeout 60 duckdb
+        env:
+          GH_TOKEN: ''
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check --retries 10 --timeout 60 \
+            --require-hashes --only-binary :all: -r tools/data-pipeline/requirements-ci.txt
 
       - name: Assicura le release delle celle
         shell: bash
         run: |
           set -euo pipefail
           source .github/scripts/retry.sh
-          for n in 0 1 2 3 4 5; do
+          for n in $(seq 0 $((ADDRESS_CELL_RELEASES - 1))); do
             ensure_release "address-cells-$n" \
-              "Civici a celle ($n/6)" \
-              "Asset binari (celle addresses.pmtiles.xz della griglia adattiva dei civici) per l'app Pocket Travel, referenziati da address-grid.json su GitHub Pages. Non e' una release software."
+              "Civici a celle ($n/$ADDRESS_CELL_RELEASES)" \
+              "Asset binari (celle addresses.pmtiles.xz e indici addresses-search.db.xz della griglia adattiva dei civici) per l'app Pocket Travel, referenziati da address-grid.json su GitHub Pages. Non e' una release software."
           done
 
       - name: Costruisci la quota di celle di oggi
@@ -546,7 +549,7 @@ jobs:
           FAILED_CELLS=()
           while IFS= read -r id; do
             [ -n "$id" ] || continue
-            n=$(( $(printf '%s' "$id" | cksum | cut -d' ' -f1) % 6 ))
+            n=$(( $(printf '%s' "$id" | cksum | cut -d' ' -f1) % ADDRESS_CELL_RELEASES ))
             tag="address-cells-$n"
             CELL_OUT="$RUNNER_TEMP/cell-out"
             rm -rf "$CELL_OUT"
@@ -561,7 +564,8 @@ jobs:
               continue
             fi
             shopt -s nullglob
-            assets=("$CELL_OUT"/cell-*"--${VERSION}--addresses.pmtiles.xz")
+            # Civici e indice di ricerca per via (quest'ultimo solo se nuovo o cambiato).
+            assets=("$CELL_OUT"/cell-*"--${VERSION}--addresses.pmtiles.xz" "$CELL_OUT"/cell-*"--${VERSION}--addresses-search.db.xz")
             if [ "${#assets[@]}" -gt 0 ]; then
               uploadOk=false
               for attempt in 1 2 3; do
@@ -742,9 +746,14 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
+      # Stessa installazione con hash fissati del job address-grid (vedi li'), senza il token nell'ambiente.
       - name: Installa duckdb
         shell: bash
-        run: python3 -m pip install --quiet --disable-pip-version-check --retries 10 --timeout 60 duckdb
+        env:
+          GH_TOKEN: ''
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check --retries 10 --timeout 60 \
+            --require-hashes --only-binary :all: -r tools/data-pipeline/requirements-ci.txt
 
       - name: Rilascio Overture da controllare
         id: overture-release
@@ -836,16 +845,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
 
       # go-pmtiles estrae l'anteprima offline della regione (preview.pmtiles, build-region.sh):
-      # versione e sha256 fissati.
+      # versione e sha256 fissati in .github/scripts/install-go-pmtiles.sh.
       - name: Installa go-pmtiles
         shell: bash
         run: |
-          set -euo pipefail
-          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o "$RUNNER_TEMP/go-pmtiles.tar.gz" https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_x86_64.tar.gz
-          echo "3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f  $RUNNER_TEMP/go-pmtiles.tar.gz" | sha256sum -c -
-          mkdir -p "$RUNNER_TEMP/bin"
-          tar -xzf "$RUNNER_TEMP/go-pmtiles.tar.gz" -C "$RUNNER_TEMP/bin" pmtiles
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          bash .github/scripts/install-go-pmtiles.sh
 
       # osmium estrae i POI dagli estratti Geofabrik (geofabrik_pois.py, build-region.sh); senza,
       # build-region.sh interroga Overpass come prima. Mai bloccante.
@@ -1174,6 +1178,7 @@ jobs:
       group: pages
       cancel-in-progress: false
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     # contents: write per togliere gli asset non piu' referenziati; actions: write per rilanciare
     # le regioni rimandate (ultimi due passi).
     permissions:
@@ -1285,8 +1290,24 @@ jobs:
           mkdir -p "$SITE_DIR"
           # Manifest pubblicato prima di questa run: lo usano il controllo sulle regioni perse (prima
           # del deploy) e la pulizia degli asset (ultimo passo) per il periodo di grazia di una generazione.
-          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/manifest.json" \
-            -o "$RUNNER_TEMP/previous-manifest.json" || rm -f "$RUNNER_TEMP/previous-manifest.json"
+          # Solo un 404 vale come "prima pubblicazione" (segnata da first-publication): ogni altro
+          # esito (rete, 5xx) dopo i tentativi ferma il passo, altrimenti il controllo sulle regioni
+          # perse e la pulizia degli asset verrebbero saltati in silenzio.
+          rm -f "$RUNNER_TEMP/previous-manifest.json" "$RUNNER_TEMP/first-publication"
+          MANIFEST_HTTP="$(curl -sSL --max-time 120 --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/manifest.json" \
+            -o "$RUNNER_TEMP/previous-manifest.json" -w '%{http_code}' || true)"
+          case "$MANIFEST_HTTP" in
+            200) ;;
+            404)
+              rm -f "$RUNNER_TEMP/previous-manifest.json"
+              touch "$RUNNER_TEMP/first-publication"
+              echo "::notice::nessun manifest pubblicato (404): prima pubblicazione"
+              ;;
+            *)
+              echo "::error::manifest pubblicato non scaricabile da $PAGES_BASE_URL/manifest.json (HTTP ${MANIFEST_HTTP:-000}): non pubblico senza il confronto con il precedente" >&2
+              exit 1
+              ;;
+          esac
           # address-grid.json pubblicato prima di questa run: gli URL delle celle non toccate oggi
           # vivono solo li' (non in manifest.json, che ha solo il puntatore "addressGrid"), servono
           # alla pulizia degli asset (ultimo passo) per lo stesso periodo di grazia.
@@ -1382,6 +1403,10 @@ jobs:
           MANIFEST="${{ steps.assemble.outputs.site_dir }}/manifest.json"
           PREVIOUS_MANIFEST="$RUNNER_TEMP/previous-manifest.json"
           if [ ! -s "$PREVIOUS_MANIFEST" ]; then
+            if [ ! -e "$RUNNER_TEMP/first-publication" ]; then
+              echo "::error::manifest precedente mancante senza che sia una prima pubblicazione: confronto sulle regioni impossibile" >&2
+              exit 1
+            fi
             echo "::warning::manifest precedente non disponibile: nessun confronto sulle regioni"
             exit 0
           fi
@@ -1398,6 +1423,24 @@ jobs:
             exit 1
           fi
           echo "-- nessuna regione persa ($(jq '.regions | length' "$PREVIOUS_MANIFEST") prima, $(jq '.regions | length' "$MANIFEST") ora)"
+
+      # Firma ECDSA P-256 / SHA-256 dei JSON che l'app scarica dal sito (<nome>.json.sig accanto, DER):
+      # dopo l'ultima modifica ai file (assemblaggio e validazione sopra non li toccano piu') e prima
+      # del deploy. Senza il secret MANIFEST_SIGNING_KEY il job fallisce, vedi sign-files.sh. La chiave
+      # e' nell'ambiente solo di questo passo.
+      - name: Firma i file JSON del sito
+        shell: bash
+        env:
+          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          SITE_DIR="${{ steps.assemble.outputs.site_dir }}"
+          FILES=("$SITE_DIR/manifest.json")
+          # address-grid.json e transit.json ci sono solo se gia' pubblicati o prodotti da questa run.
+          for name in address-grid.json transit.json; do
+            [ ! -s "$SITE_DIR/$name" ] || FILES+=("$SITE_DIR/$name")
+          done
+          bash .github/scripts/sign-files.sh "${FILES[@]}"
 
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
@@ -1454,6 +1497,10 @@ jobs:
           MANIFEST="${{ steps.assemble.outputs.site_dir }}/manifest.json"
           PREVIOUS_MANIFEST="$RUNNER_TEMP/previous-manifest.json"
           if [ ! -s "$PREVIOUS_MANIFEST" ]; then
+            if [ ! -e "$RUNNER_TEMP/first-publication" ]; then
+              echo "::error::manifest precedente mancante senza che sia una prima pubblicazione: non cancello nulla e fermo il passo" >&2
+              exit 1
+            fi
             echo "::warning::manifest precedente non disponibile: non cancello nulla in questa run"
             exit 0
           fi
@@ -1481,6 +1528,7 @@ jobs:
           CUTOFF="$(date -u -d '-24 hours' +%Y-%m-%dT%H:%M:%SZ)"
           for tag in $(retry gh release list --repo "${{ github.repository }}" --limit 200 --json tagName --jq '.[].tagName' | grep -E '^(region-data|world-map|address-cells-|transit-feeds$)'); do
             deleted=0
+            failed=0
             total=0
             # Elenco completo a pagine di 100 (quello dentro la release puo' essere troncato).
             releaseId="$(retry gh api "repos/${{ github.repository }}/releases/tags/$tag" --jq '.id')"
@@ -1488,16 +1536,22 @@ jobs:
               [ -n "$name" ] || continue
               total=$((total + 1))
               if ! grep -qxF "$tag/$name" "$REFERENCED" && [[ "$createdAt" < "$CUTOFF" ]]; then
-                gh release delete-asset "$tag" "$name" --repo "${{ github.repository }}" --yes
-                deleted=$((deleted + 1))
+                # Con retry e, se fallisce ancora (es. HTTP 502), solo un avviso: l'asset resta e lo
+                # toglie la pulizia della run successiva, non deve far fallire il job dopo il deploy.
+                if retry gh release delete-asset "$tag" "$name" --repo "${{ github.repository }}" --yes; then
+                  deleted=$((deleted + 1))
+                else
+                  failed=$((failed + 1))
+                  echo "::warning::$tag: asset $name non rimosso dopo i tentativi, resta fino alla prossima pulizia"
+                fi
               fi
             done < <(gh api --paginate "repos/${{ github.repository }}/releases/$releaseId/assets?per_page=100" --jq '.[] | [.name, .created_at] | @tsv')
             kept=$((total - deleted))
-            echo "-- $tag: $deleted asset non referenziati rimossi, $kept restano"
+            echo "-- $tag: $deleted asset non referenziati rimossi ($failed non rimovibili), $kept restano"
             # Durante una rigenerazione completa i nuovi asset si sommano ai vecchi: sopra i 500
             # stabili una release rischia di superare il limite di 1000 (vedi region_release_tag).
             if [ "$kept" -gt 500 ]; then
-              echo "::warning::$tag ha $kept asset: rischia il limite di 1000 durante una rigenerazione completa, valuta di dividerla (region_release_tag in pilot-regions.sh)"
+              echo "::warning::$tag ha $kept asset: rischia il limite di 1000 durante una rigenerazione completa, valuta di dividerla (region_release_tag in pilot-regions.sh, ADDRESS_CELL_RELEASES per le celle dei civici)"
             fi
           done
 

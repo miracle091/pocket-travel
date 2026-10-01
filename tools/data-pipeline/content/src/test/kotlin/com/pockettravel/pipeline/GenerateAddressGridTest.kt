@@ -55,6 +55,29 @@ class GenerateAddressGridTest {
         assertEquals("nuova", cells.getJSONObject(0).getString("version"))
     }
 
+    private fun cellEntryWithSearch(id: String, version: String) = cellEntry(id, version).replace(
+        "\"fileXz\":",
+        "\"search\": { \"file\": { \"name\": \"s.db\", \"url\": \"https://example.org/$id/s.db\", \"sizeBytes\": 90, \"sha256\": \"${"c".repeat(64)}\" }, " +
+            "\"fileXz\": { \"name\": \"s.db.xz\", \"url\": \"https://example.org/$id/s.db.xz\", \"sizeBytes\": 30, \"sha256\": \"${"d".repeat(64)}\" } }, \"fileXz\":",
+    )
+
+    @Test
+    fun `il campo search della cella sopravvive al merge e alla riscrittura, e le celle senza search restano senza`() {
+        val published = """{ "version": "0", "tileZoom": 14, "cells": [${cellEntryWithSearch("11/1/1", "v1")}, ${cellEntry("11/2/2", "v1")}], "attributions": [] }"""
+
+        // 11/1/1 non toccata: tiene search. 12/9/9 nuova con search, 11/2/2 sostituita da una voce senza search.
+        val index = mergeAddressGridJson("2", published, listOf(cellEntryWithSearch("12/9/9", "v2"), cellEntry("11/2/2", "v2")), listOf(osmAttribution))
+
+        val cells = JSONObject(index).getJSONArray("cells")
+        val byId = (0 until cells.length()).map { cells.getJSONObject(it) }.associateBy { it.getString("id") }
+        assertEquals("s.db.xz", byId.getValue("11/1/1").getJSONObject("search").getJSONObject("fileXz").getString("name"))
+        assertEquals("c".repeat(64), byId.getValue("11/1/1").getJSONObject("search").getJSONObject("file").getString("sha256"))
+        assertEquals("s.db", byId.getValue("12/9/9").getJSONObject("search").getJSONObject("file").getString("name"))
+        assertTrue(!byId.getValue("11/2/2").has("search"))
+        // Lo stesso JSON riletto dal validatore: indice con e senza search insieme.
+        validateAddressGridJson(index.replace("example.org", "github.com").replace("\"attributions\": []", "\"attributions\": [{\"source\":\"a\",\"license\":\"b\",\"url\":\"c\"}]"), setOf("github.com"))
+    }
+
     @Test
     fun `una cella divisa in figli toglie la voce del genitore pubblicato`() {
         val published = """{ "version": "0", "tileZoom": 14, "cells": [${cellEntry("11/1/1")}], "attributions": [] }"""

@@ -191,7 +191,7 @@ private fun validateFile(file: JSONObject, owner: String, allowedHosts: Set<Stri
  * stesse regole della griglia dell'app (RegionManifest.kt, core/sync), stesso motivo di
  * validateManifestJson sopra. Celle con id valido (z in 0..14, x/y dentro 0..2^z-1), nessuna
  * discendente di un'altra (isAncestorCell, GenerateAddressGrid.kt), ordinate per id, file/fileXz
- * come le altre voci del manifest, almeno un'attribuzione.
+ * come le altre voci del manifest (anche "search", facoltativo), almeno un'attribuzione.
  */
 /** transit.json: reti con id unico, regioni, licenza e attribuzione, file consentiti, data di fine e riquadro validi. */
 fun validateTransitJson(indexJson: String, allowedHosts: Set<String>) {
@@ -258,6 +258,11 @@ fun validateAddressGridJson(indexJson: String, allowedHosts: Set<String>) {
         validateVersion(cell, "addressGrid/$id")
         validateFile(cell.getJSONObject("file"), "addressGrid/$id", allowedHosts)
         cell.optJSONObject("fileXz")?.let { validateFile(it, "addressGrid/$id", allowedHosts) }
+        // Indice di ricerca per via (facoltativo: celle pubblicate prima che esistesse o senza vie), file/fileXz come sopra.
+        cell.optJSONObject("search")?.let { search ->
+            validateFile(search.getJSONObject("file"), "addressGrid/$id/search", allowedHosts)
+            search.optJSONObject("fileXz")?.let { validateFile(it, "addressGrid/$id/search", allowedHosts) }
+        }
     }
     ids.forEach { candidate ->
         if (ids.any { other -> isAncestorCell(candidate, other) }) {
