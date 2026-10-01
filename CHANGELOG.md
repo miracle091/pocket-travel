@@ -11,6 +11,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 ### Modificato
 - Download della mappa molto più veloce: la Lettonia (248 MB) passa da oltre un'ora a circa 3 minuti. Durante l'estrazione la riga della regione mostra "Estrazione della mappa" con la sua percentuale, invece di restare ferma a 0% o 100%.
 - Nell'elenco delle nazioni il peso di un download o di un aggiornamento che comprende la mappa è scritto "6,3 MB + mappa" (il peso della mappa si conosce solo scaricandola); su rete mobile l'app chiede conferma anche per questi.
+- Orari dei mezzi: tolti i traghetti Baleària, perché la fonte ufficiale ha orari solo fino a marzo 2025, e la rete delle corriere britanniche, che non esiste più. Le corriere (National Express, FlixBus, Scottish Citylink, Ember) restano negli orari delle aree del Regno Unito che attraversano.
 - Aggiornamenti della mappa: le parti a bassa risoluzione (vista del paese e del continente) si riscaricano sempre, perché potevano restare quelle vecchie.
 
 ### Corretto

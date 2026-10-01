@@ -13,7 +13,11 @@
 # (fonte citata, dati aggiornati come la fonte): scaricata direttamente, perche' la copia del Mobility
 # Database e' ferma. {anno} nell'url_feed: l'orario dell'anno, scelto da build-transit.sh.
 # Regno Unito: Bus Open Data Service del Department for Transport (Open Government Licence v3.0), il
-# GTFS gia' diviso per area invece del file nazionale da 1,3 GB: una rete per area.
+# GTFS gia' diviso per area invece del file nazionale da 1,3 GB: una rete per area. Le corriere
+# (National Express, FlixBus, Scottish Citylink, Ember) sono nei file delle aree che toccano: l'area
+# "national_coach" non esiste piu' (BODS risponde "Invalid region name", 2026-10-01).
+# Tolto il 2026-10-01 mdb-2814 (traghetti Balearia): il feed del NAP, unica fonte, ha corse solo fino al
+# 2025-03-31; si rimette quando il NAP ne pubblica uno nuovo (stesso id nel Mobility Database).
 #
 # regioni: regionId di pilot-regions.sh separati da virgola (le regioni che propongono la rete).
 # attribuzione: testo per la schermata Licenze e sotto il tabellone.
@@ -44,7 +48,6 @@ mdb-2820	spagna	Madrid, autobus urbani (CRTM)	CRTM	Powered by CRTM, Consorcio Re
 mdb-2832	spagna	Barcellona e Catalogna (ATM, metro, treni e bus)	NAP-MITRAMS	Powered by MITRAMS: Autoritat del Transport Metropolità (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
 mdb-2830	spagna	Valencia, metro e tram (FGV Metrovalencia)	NAP-MITRAMS	Powered by MITRAMS: Ferrocarrils de la Generalitat Valenciana (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
 mdb-2781	spagna	Siviglia, metro (Metro de Sevilla)	NAP-MITRAMS	Powered by MITRAMS: Metro de Sevilla (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
-mdb-2814	spagna	Traghetti Baleària	NAP-MITRAMS	Powered by MITRAMS: Baleària (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
 otd-ch	svizzera	Svizzera, tutti i mezzi pubblici (SKI+)	opentransportdata.swiss-ToU	Fonte: opentransportdata.swiss (Systemaufgaben Kundeninformation SKI+); elaborazione Pocket Travel	https://opentransportdata.swiss/en/terms-of-use/	https://data.opentransportdata.swiss/dataset/timetable-{anno}-gtfs2020/permalink
 bods-london	regno-unito	Londra, autobus e tram (BODS)	OGL-UK-3.0	Department for Transport, Bus Open Data Service: contains public sector information licensed under the Open Government Licence v3.0; modificato	https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/	https://data.bus-data.dft.gov.uk/timetable/download/gtfs-file/london/
 bods-south-east	regno-unito	Sud-est, autobus e tram (BODS)	OGL-UK-3.0	Department for Transport, Bus Open Data Service: contains public sector information licensed under the Open Government Licence v3.0; modificato	https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/	https://data.bus-data.dft.gov.uk/timetable/download/gtfs-file/south_east/
@@ -57,4 +60,3 @@ bods-north-east	regno-unito	Nord-est, autobus e tram (BODS)	OGL-UK-3.0	Departmen
 bods-north-west	regno-unito	Nord-ovest, autobus e tram (BODS)	OGL-UK-3.0	Department for Transport, Bus Open Data Service: contains public sector information licensed under the Open Government Licence v3.0; modificato	https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/	https://data.bus-data.dft.gov.uk/timetable/download/gtfs-file/north_west/
 bods-scotland	regno-unito	Scozia, autobus e tram (BODS)	OGL-UK-3.0	Department for Transport, Bus Open Data Service: contains public sector information licensed under the Open Government Licence v3.0; modificato	https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/	https://data.bus-data.dft.gov.uk/timetable/download/gtfs-file/scotland/
 bods-wales	regno-unito	Galles, autobus e tram (BODS)	OGL-UK-3.0	Department for Transport, Bus Open Data Service: contains public sector information licensed under the Open Government Licence v3.0; modificato	https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/	https://data.bus-data.dft.gov.uk/timetable/download/gtfs-file/wales/
-bods-national-coach	regno-unito	Autobus a lunga percorrenza (BODS)	OGL-UK-3.0	Department for Transport, Bus Open Data Service: contains public sector information licensed under the Open Government Licence v3.0; modificato	https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/	https://data.bus-data.dft.gov.uk/timetable/download/gtfs-file/national_coach/
