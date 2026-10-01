@@ -50,6 +50,35 @@ class ScegliEstrattiTest(unittest.TestCase):
 
         self.assertEqual(sorted(chosen), ["a", "b"])
 
+    def test_composto_scartato_anche_se_le_sue_parti_non_toccano_il_bbox(self):
+        # Come britain-and-ireland per il Belgio: il bbox tocca solo il margine del composto.
+        index = {"features": [
+            quadrato("a", 0, 0, 10, 10),
+            quadrato("a-con-margine", 0, 0, 13, 10),
+            quadrato("b", 14, 0, 20, 10),
+        ]}
+
+        chosen = [cid for cid, _ in geofabrik_pois.scegli_estratti(index, (11, 5, 15, 8))]
+
+        self.assertEqual(chosen, ["b"])
+
+    def test_due_estratti_con_lo_stesso_rettangolo_ne_resta_uno(self):
+        # Come south-africa e south-africa-and-lesotho.
+        index = {"features": [quadrato("paese", 0, 0, 10, 10), quadrato("paese-e-altro", 0, 0, 10, 10)]}
+
+        self.assertEqual([c for c, _ in geofabrik_pois.scegli_estratti(index, (1, 1, 4, 4))], ["paese"])
+
+    def test_un_enclave_non_rende_composto_il_paese(self):
+        # Come Ceuta e Melilla nel poligono del Marocco: il Marocco resta.
+        index = {"features": [
+            quadrato("paese", 0, 0, 10, 10),
+            quadrato("enclave", 2, 2, 3, 3),
+        ]}
+
+        chosen = [cid for cid, _ in geofabrik_pois.scegli_estratti(index, (1, 1, 4, 4))]
+
+        self.assertEqual(sorted(chosen), ["enclave", "paese"])
+
     def test_bbox_tutto_dentro_un_estratto(self):
         index = {"features": [quadrato("a", 0, 0, 10, 10)]}
 

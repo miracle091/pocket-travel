@@ -8,7 +8,7 @@ manuale, build-region.sh non la passa) usa invece un indice locale: utile per pr
 sull'indice o con un indice ritoccato.
 
 1. Sceglie dall'indice di Geofabrik (index-v1.json) gli estratti "foglia" il cui poligono tocca il bbox,
-   scartando quelli composti (alps, dach, britain-and-ireland...) che ne contengono altri gia' scelti.
+   scartando quelli composti (alps, dach, britain-and-ireland...), coperti per lo piu' da estratti piu' piccoli.
 2. Scarica ogni estratto e lo riduce con "osmium tags-filter" ai soli oggetti che la query Overpass
    chiederebbe (piu' i nodi delle way e i membri delle relazioni, per la geometria). Il file ridotto
    resta in --cache: le regioni successive dello stesso job non riscaricano lo stesso estratto.
@@ -98,25 +98,6 @@ def tocca_bbox(rings, bbox):
     return False
 
 
-def sul_bordo(x, y, ring, eps=1e-4):
-    """Punto a meno di eps gradi da un lato dell'anello."""
-    for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]):
-        dx, dy = x2 - x1, y2 - y1
-        t = 0 if dx == dy == 0 else max(0, min(1, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy)))
-        if (x - x1 - t * dx) ** 2 + (y - y1 - t * dy) ** 2 <= eps * eps:
-            return True
-    return False
-
-
-def contiene(big, small):
-    """True se almeno l'80% dei vertici (a campione) di small cade in big o sul suo bordo: big e' un estratto
-    composto. Il bordo conta perche' un composto puo' condividere il confine con la foglia (us e us-pacific con
-    us/alaska), e il ray casting sui punti del bordo da' un risultato a caso."""
-    points = [p for ring in small for p in ring[::max(1, len(ring) // 50)]]
-    inside = sum(1 for x, y in points if any(dentro(x, y, ring) or sul_bordo(x, y, ring) for ring in big))
-    return inside >= 0.8 * len(points)
-
-
 def rettangolo(rings):
     xs = [x for ring in rings for x, _ in ring]
     ys = [y for ring in rings for _, y in ring]
@@ -127,24 +108,36 @@ def area(rect):
     return (rect[2] - rect[0]) * (rect[3] - rect[1])
 
 
-def rettangolo_dentro(big, small):
-    """Il rettangolo small sta (a meno di 0,5 gradi di margine) nel rettangolo big."""
-    return (small[0] >= big[0] - 0.5 and small[1] >= big[1] - 0.5 and
-            small[2] <= big[2] + 0.5 and small[3] <= big[3] + 0.5)
+def copertura(big, leaves, n=20):
+    """Quota dei punti di una griglia n x n interni a big che cadono in un estratto piu' piccolo: vicina a 1
+    per un estratto composto (dach, alps, britain-and-ireland, us), sotto 0,15 per gli altri. Solo punti
+    interni: i vertici stanno nel margine di mare, che le foglie coprono solo in parte."""
+    bid, _, brings, brect = big
+    # A parita' di rettangolo conta l'id: di south-africa e south-africa-and-lesotho (stesso rettangolo)
+    # ne resta uno solo.
+    smaller = [leaf for leaf in leaves if (area(leaf[3]), leaf[0]) < (area(brect), bid)]
+    minx, miny, maxx, maxy = brect
+    points = [(minx + (i + 0.5) * (maxx - minx) / n, miny + (j + 0.5) * (maxy - miny) / n)
+              for i in range(n) for j in range(n)]
+    points = [(x, y) for x, y in points if any(dentro(x, y, ring) for ring in brings)]
+    covered = sum(1 for x, y in points
+                  if any(r[0] <= x <= r[2] and r[1] <= y <= r[3] and any(dentro(x, y, ring) for ring in rings)
+                         for _, _, rings, r in smaller))
+    return covered / len(points) if points else 0.0
 
 
 def scegli_estratti(index, bbox):
     """[(id, url pbf)] degli estratti foglia che toccano il bbox, senza quelli composti."""
     features = [f for f in index["features"] if f.get("geometry") and f["properties"].get("urls", {}).get("pbf")]
     parents = {f["properties"].get("parent") for f in features}
-    candidates = [(f["properties"]["id"], f["properties"]["urls"]["pbf"], anelli(f["geometry"]))
-                  for f in features if f["properties"]["id"] not in parents]
-    candidates = [(*c, rettangolo(c[2])) for c in candidates if tocca_bbox(c[2], bbox)]
-    # Dal piu' grande: un estratto che ne contiene un altro gia' candidato (alps con la Svizzera) e' composto.
-    candidates.sort(key=lambda c: area(c[3]), reverse=True)
-    chosen = [big for i, big in enumerate(candidates)
-              if not any(rettangolo_dentro(big[3], small[3]) and contiene(big[2], small[2])
-                         for small in candidates[i + 1:])]
+    leaves = [(f["properties"]["id"], f["properties"]["urls"]["pbf"], anelli(f["geometry"]))
+              for f in features if f["properties"]["id"] not in parents]
+    leaves = [(*c, rettangolo(c[2])) for c in leaves]
+    # Composto = coperto per meta' o piu' da estratti piu' piccoli di tutto l'indice, non solo da quelli
+    # che toccano il bbox: il bbox del Belgio tocca il mare di britain-and-ireland ma nessuna contea
+    # inglese (si scaricava tutta la Gran Bretagna; us per le Bahamas). Un'enclave non basta: il Marocco
+    # contiene Ceuta e Melilla, il Sudafrica il Lesotho, e prima venivano scartati per questo.
+    chosen = [c for c in leaves if tocca_bbox(c[2], bbox) and copertura(c, leaves) < 0.5]
     return [(cid, url) for cid, url, _, _ in chosen]
 
 
