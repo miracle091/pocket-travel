@@ -201,10 +201,20 @@ def url_datato(url, user_agent):
     finale (urllib: "infinite loop") o un 404, mentre il file datato si scarica."""
     folder, name = url.rsplit("/", 1)
     name = name.removesuffix("-latest.osm.pbf")
-    request = urllib.request.Request(folder + "/", headers={"User-Agent": user_agent})
-    with urllib.request.urlopen(request, timeout=120) as response:
-        listing = response.read().decode("utf-8", "replace")
-    dates = re.findall(rf'href="{re.escape(name)}-(\d{{6}})\.osm\.pbf"', listing)
+    # L'elenco della cartella c'e' solo per le sottocartelle (europe/norway/): per quelle di primo livello
+    # (asia/, la radice) la cartella rimanda ad asia.html, e i file datati li elenca la pagina dell'estratto
+    # (asia/gcc-states.html, central-america.html).
+    dates = []
+    for page in (folder + "/", f"{folder}/{name}.html"):
+        request = urllib.request.Request(page, headers={"User-Agent": user_agent})
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:
+                listing = response.read().decode("utf-8", "replace")
+        except OSError:
+            continue
+        dates = re.findall(rf'href="{re.escape(name)}-(\d{{6}})\.osm\.pbf"', listing)
+        if dates:
+            break
     if not dates:
         raise OSError(f"nessun file datato per {name} in {folder}/")
     return f"{folder}/{name}-{max(dates)}.osm.pbf"

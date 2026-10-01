@@ -208,6 +208,19 @@ class FileDatatoTest(unittest.TestCase):
 
         self.assertEqual(url, "https://d.example/europe/iceland-260930.osm.pbf")
 
+    def test_cartella_di_primo_livello_usa_la_pagina_dell_estratto(self):
+        # asia/ rimanda ad asia.html, senza file datati: si leggono quelli di gcc-states.html.
+        pages = {
+            "https://d.example/asia/": b'<a href="gcc-states-latest.osm.pbf">x</a>',
+            "https://d.example/asia/gcc-states.html":
+                b'<a href="gcc-states-140101.osm.pbf">x</a><a href="gcc-states-260929.osm.pbf">x</a>',
+        }
+        opened = lambda request, timeout: io.BytesIO(pages[request.full_url])
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", side_effect=opened):
+            url = geofabrik_pois.url_datato("https://d.example/asia/gcc-states-latest.osm.pbf", "ua")
+
+        self.assertEqual(url, "https://d.example/asia/gcc-states-260929.osm.pbf")
+
     def test_404_sul_latest_ripiega_sul_datato_con_id_con_la_barra(self):
         url = "https://d.example/north-america/us/alaska-latest.osm.pbf"
         error = urllib.error.HTTPError(url, 404, "Not Found", {}, None)
