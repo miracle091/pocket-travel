@@ -275,4 +275,22 @@
     <string name="transit_mode_cable">Funivia</string>
     <string name="transit_mode_monorail">Monorotaia</string>
     <string name="transit_mode_other">Altro mezzo</string>
+    <string name="planner_where_to">Dove vuoi andare?</string>
+    <string name="planner_from">Partenza</string>
+    <string name="planner_to">Destinazione</string>
+    <string name="planner_my_position">La mia posizione</string>
+    <string name="planner_swap">Scambia partenza e destinazione</string>
+    <string name="planner_recents">Recenti</string>
+    <string name="planner_hint">Cerca un posto per nome tra i punti di interesse delle regioni scaricate: ristoranti, musei, stazioni, hotel…</string>
+    <string name="planner_remove_recent">Togli %1$s dai recenti</string>
+    <string name="planner_permission">Per partire dalla tua posizione serve il permesso di posizione. Resta sul telefono.</string>
+    <string name="planner_no_location">Posizione non trovata: accendi il GPS o scegli un punto di partenza.</string>
+    <string name="planner_no_routing_data">Mancano i percorsi di questa zona: scaricali dai Contenuti della regione.</string>
+    <string name="planner_start">Avvia</string>
+    <string name="planner_preview_only">Partenza da un posto scelto: solo anteprima. La guida passo passo parte dalla tua posizione.</string>
+    <string name="planner_steps">Indicazioni</string>
+    <string name="planner_search_start">Scegli la partenza</string>
+    <string name="planner_back">Indietro</string>
+    <string name="planner_clear">Cancella</string>
+    <string name="planner_no_results">Nessun posto con questo nome nelle regioni scaricate.</string>
 </resources>

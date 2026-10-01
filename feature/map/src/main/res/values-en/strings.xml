@@ -274,4 +274,22 @@
     <string name="transit_mode_cable">Cable car</string>
     <string name="transit_mode_monorail">Monorail</string>
     <string name="transit_mode_other">Other vehicle</string>
+    <string name="planner_where_to">Where to?</string>
+    <string name="planner_from">From</string>
+    <string name="planner_to">To</string>
+    <string name="planner_my_position">Your location</string>
+    <string name="planner_swap">Swap start and destination</string>
+    <string name="planner_recents">Recent</string>
+    <string name="planner_hint">Search a place by name among the points of interest of your downloaded regions: restaurants, museums, stations, hotels…</string>
+    <string name="planner_remove_recent">Remove %1$s from recent</string>
+    <string name="planner_permission">To start from your location the app needs location permission. It stays on your phone.</string>
+    <string name="planner_no_location">Location not found: turn on GPS or choose a starting point.</string>
+    <string name="planner_no_routing_data">Routes for this area are missing: download them from the region\'s Contents.</string>
+    <string name="planner_start">Start</string>
+    <string name="planner_preview_only">Starting from a chosen place: preview only. Turn-by-turn guidance starts from your location.</string>
+    <string name="planner_steps">Directions</string>
+    <string name="planner_search_start">Choose starting point</string>
+    <string name="planner_back">Back</string>
+    <string name="planner_clear">Clear</string>
+    <string name="planner_no_results">No place with this name in your downloaded regions.</string>
 </resources>

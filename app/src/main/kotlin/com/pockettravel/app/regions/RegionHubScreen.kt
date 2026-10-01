@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.platform.LocalLocale
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -49,11 +50,15 @@ import com.pockettravel.feature.guide.GuideScreen
 import com.pockettravel.feature.map.MapRouteViewModel
 import com.pockettravel.feature.map.MapScreen
 import com.pockettravel.feature.map.MapSourceKind
+import com.pockettravel.feature.map.NavigationPlace
+import com.pockettravel.feature.map.NavigationPlannerScreen
+import com.pockettravel.feature.map.NavigationPlannerViewModel
 import com.pockettravel.core.ui.R as UiR
 
 private enum class RegionTab(val key: String, @StringRes val label: Int) {
     GUIDE("guide", R.string.nav_guide),
     MAP("map", R.string.nav_map),
+    NAVIGATION("navigation", R.string.nav_navigation),
     AI("ai", R.string.nav_assistant),
     ;
 
@@ -62,9 +67,9 @@ private enum class RegionTab(val key: String, @StringRes val label: Int) {
     }
 }
 
-// Guida/Mappa/Assistente sono viste sorelle della stessa regione, senza bisogno di un proprio
+// Guida/Mappa/Navigatore/IA sono viste sorelle della stessa regione, senza bisogno di un proprio
 // back-stack indipendente: il tab selezionato e' stato locale (rememberSaveable), non un nested
-// NavHost — un nested graph qui sarebbe un'astrazione non necessaria per tre viste che condividono
+// NavHost — un nested graph qui sarebbe un'astrazione non necessaria per quattro viste che condividono
 // la stessa "torna alla lista regioni".
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +79,7 @@ fun RegionHubScreen(
     onBack: () -> Unit,
     onOpenOfficialSource: (url: String) -> Unit = {},
     onOpenSource: (url: String, title: String) -> Unit = { _, _ -> },
-    // "Indicazioni" nella scheda di un POI della mappa: apre la navigazione verso quel punto.
+    // "Avvia" nella tab Navigatore: apre la guida passo passo verso quel punto.
     onNavigate: (latitude: Double, longitude: Double, name: String) -> Unit = { _, _, _ -> },
     // true quando l'hub e' il pannello di dettaglio accanto all'elenco regioni (schermi larghi):
     // barra in basso invece della rail, che finirebbe in mezzo allo schermo.
@@ -86,6 +91,8 @@ fun RegionHubScreen(
     val regionMissing by viewModel.regionMissing.collectAsStateWithLifecycle()
     val mapState by viewModel.mapState.collectAsStateWithLifecycle()
     LaunchedEffect(regionId) { viewModel.load(regionId) }
+    // Qui e non dentro la tab: "Indicazioni" dalla Mappa le passa la destinazione prima di aprirla.
+    val plannerViewModel: NavigationPlannerViewModel = hiltViewModel()
     LaunchedEffect(regionMissing) { if (regionMissing) onBack() }
 
     val adaptiveInfo = currentWindowAdaptiveInfoV2()
@@ -167,8 +174,11 @@ fun RegionHubScreen(
                                     hideInaccessible = accessible,
                                     onlyAccessible = onlyAccessible,
                                     onOnlyAccessibleChange = mapViewModel::setOnlyAccessible,
+                                    // Prima il percorso nella tab Navigatore (partenza, mezzo, anteprima), poi "Avvia".
                                     onNavigate = { pin ->
-                                        onNavigate(pin.latitude, pin.longitude, pin.displayName(language) ?: pin.name.orEmpty())
+                                        val name = pin.displayName(language) ?: pin.name.orEmpty()
+                                        plannerViewModel.setDestination(NavigationPlace(name, pin.latitude, pin.longitude, regionId))
+                                        selectedTab = RegionTab.NAVIGATION
                                     },
                                     transitPackage = transitState,
                                     transitBoard = transitBoard,
@@ -185,6 +195,11 @@ fun RegionHubScreen(
                             }
                         }
                     }
+                    RegionTab.NAVIGATION -> NavigationPlannerScreen(
+                        regionId = regionId,
+                        viewModel = plannerViewModel,
+                        onStartNavigation = { place -> onNavigate(place.latitude, place.longitude, place.name) },
+                    )
                     RegionTab.AI -> AiAssistantScreen(regionId = regionId, onOpenOfficialSource = onOpenOfficialSource)
                 }
                 }
@@ -197,6 +212,7 @@ fun RegionHubScreen(
 private fun RegionTab.icon(selected: Boolean): ImageVector = when (this) {
     RegionTab.GUIDE -> if (selected) AppIcons.WorldFilled else AppIcons.World
     RegionTab.MAP -> if (selected) AppIcons.MapFilled else AppIcons.Map
+    RegionTab.NAVIGATION -> ImageVector.vectorResource(UiR.drawable.ms_directions)
     RegionTab.AI -> if (selected) AppIcons.AiAssistantFilled else AppIcons.AiAssistant
 }
 

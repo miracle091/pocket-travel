@@ -262,7 +262,7 @@ private fun SpeedCameraNotice() {
  * vietate finche' l'utente non accetta qualche gradino (allow_steps del profilo wheelchair).
  */
 @Composable
-private fun WheelchairOptions(allowSteps: Boolean, onAllowStepsChange: (Boolean) -> Unit) {
+internal fun WheelchairOptions(allowSteps: Boolean, onAllowStepsChange: (Boolean) -> Unit) {
     // Una riga sola: la mappa sotto prende lo spazio che resta.
     ListItem(
         headlineContent = { Text(stringResource(R.string.navigation_allow_steps)) },
@@ -381,7 +381,7 @@ private fun ColumnScope.Guidance(state: NavigationUiState.Navigating, tileSource
 }
 
 @Composable
-private fun turnText(instruction: TurnInstruction): String = when (instruction.type) {
+internal fun turnText(instruction: TurnInstruction): String = when (instruction.type) {
     TurnType.CONTINUE -> stringResource(R.string.turn_continue)
     TurnType.SLIGHT_LEFT -> stringResource(R.string.turn_slight_left)
     TurnType.LEFT -> stringResource(R.string.turn_left)
@@ -400,7 +400,7 @@ private fun turnText(instruction: TurnInstruction): String = when (instruction.t
 
 // Frecce di Material Symbols, come le altre icone dell'app. Uscite = rampe, "mantieni" = biforcazione.
 @Composable
-private fun turnIcon(type: TurnType): ImageVector = ImageVector.vectorResource(
+internal fun turnIcon(type: TurnType): ImageVector = ImageVector.vectorResource(
     when (type) {
         TurnType.CONTINUE -> UiR.drawable.ms_straight
         TurnType.SLIGHT_LEFT -> UiR.drawable.ms_turn_slight_left
@@ -422,7 +422,7 @@ private fun turnIcon(type: TurnType): ImageVector = ImageVector.vectorResource(
 
 // Sotto il chilometro a decine di metri, sopra in km con un decimale nel formato della lingua.
 @Composable
-private fun distanceText(meters: Double): String {
+internal fun distanceText(meters: Double): String {
     // Arrotondato prima del confronto: 996 m sono gia' "1,0 km", non "1000 m".
     val rounded = (meters / 10).roundToInt() * 10
     return if (rounded < 1_000) {
@@ -434,14 +434,14 @@ private fun distanceText(meters: Double): String {
 }
 
 @Composable
-private fun durationText(seconds: Double): String {
+internal fun durationText(seconds: Double): String {
     val minutes = (seconds / 60).roundToInt().coerceAtLeast(1)
     return if (minutes < 60) stringResource(R.string.navigation_minutes, minutes)
     else stringResource(R.string.navigation_hours_minutes, minutes / 60, minutes % 60)
 }
 
 @Composable
-private fun TravelModeSelector(selected: TravelMode, onSelect: (TravelMode) -> Unit) {
+internal fun TravelModeSelector(selected: TravelMode, onSelect: (TravelMode) -> Unit) {
     val label = stringResource(R.string.navigation_travel_mode)
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().semantics { contentDescription = label }) {
         TravelMode.entries.forEachIndexed { index, mode ->

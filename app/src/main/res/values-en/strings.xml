@@ -116,7 +116,8 @@
     <string name="nav_more">More</string>
     <string name="nav_guide">Guide</string>
     <string name="nav_map">Map</string>
-    <string name="nav_assistant">AI assistant</string>
+    <string name="nav_navigation">Navigator</string>
+    <string name="nav_assistant">AI</string>
 
     <!-- Spazio di archiviazione -->
     <string name="storage_title">Storage</string>

@@ -74,6 +74,7 @@ private class NoOpPoiDao : PoiDao {
     override suspend fun poisForRegion(regionId: String): List<PoiEntity> = emptyList()
     override suspend fun transportCounts(regionId: String): List<TransportCount> = emptyList()
     override suspend fun embassiesOf(regionId: String, country: String): List<PoiEntity> = emptyList()
+    override suspend fun searchByName(regionIds: List<String>, pattern: String, limit: Int): List<PoiEntity> = emptyList()
     override suspend fun deleteForRegion(regionId: String) = Unit
     override suspend fun deletePackageForRegion(regionId: String, extra: Boolean) = Unit
 }

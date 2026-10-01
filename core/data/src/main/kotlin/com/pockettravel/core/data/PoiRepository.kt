@@ -12,6 +12,18 @@ class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
     /** Ambasciate e consolati di [country] (ISO alpha-2) nella regione, in ordine di nome. */
     suspend fun embassiesOf(regionId: String, country: String): List<Poi> = poiDao.embassiesOf(regionId, country).map { it.toDomain() }
 
+    /**
+     * POI delle [regionIds] col nome (locale, italiano o inglese) che contiene [query], senza quelli nascosti
+     * sulla mappa: al piu' [limit], senza ordine (lo decide chi chiama, per esempio la distanza). Le maiuscole
+     * contano solo fuori dall'ASCII (LIKE di SQLite): "riga" trova "Riga" ma non "Rīga".
+     */
+    suspend fun searchByName(regionIds: List<String>, query: String, limit: Int): List<Poi> {
+        val text = query.trim()
+        if (text.length < 2 || regionIds.isEmpty()) return emptyList()
+        val pattern = "%" + text.replace("\\", "").replace("%", "").replace("_", "") + "%"
+        return poiDao.searchByName(regionIds, pattern, limit).map { it.toDomain() }.filterNot { it.isHiddenOnMap() }
+    }
+
     /** Quanti treni (stazioni), metro, autostazioni, porti e aeroporti ha la regione, per categoria. */
     suspend fun transportCounts(regionId: String): Map<PoiCategory, Int> =
         poiDao.transportCounts(regionId)
