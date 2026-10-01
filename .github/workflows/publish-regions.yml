@@ -126,6 +126,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          source .github/scripts/retry.sh
           source tools/data-pipeline/scripts/pilot-regions.sh
           # Una release per continente ("region-data-<slug>"): GitHub limita ogni release a 1000
           # asset e la sola release "region-data" con i pacchetti di 254 regioni li ha
@@ -138,28 +139,24 @@ jobs:
             tag="$(region_release_tag "$regionId" "$continent")"
             [ -z "${SEEN[$tag]:-}" ] || continue
             SEEN[$tag]=1
-            gh release view "$tag" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
-              gh release create "$tag" --repo "${{ github.repository }}" \
-                --title "Dati regionali (${tag#region-data-})" \
-                --notes "Asset binari (poi.db + segmenti .rd5) per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
+            ensure_release "$tag" \
+              "Dati regionali (${tag#region-data-})" \
+              "Asset binari (poi.db + segmenti .rd5) per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
           done
           # Release del pacchetto guide unico: stesso prefisso "region-data" cosi' la pulizia degli
           # asset non piu' referenziati nel job "publish" la copre senza casi speciali.
           # Orari delle reti di mezzi pubblici (job "transit"), referenziati da transit.json su Pages.
-          gh release view "transit-feeds" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
-            gh release create "transit-feeds" --repo "${{ github.repository }}" \
-              --title "Orari dei mezzi pubblici" \
-              --notes "Pacchetti transit.db (orari GTFS convertiti) per l'app Pocket Travel, referenziati da transit.json su GitHub Pages. Non e' una release software."
+          ensure_release "transit-feeds" \
+            "Orari dei mezzi pubblici" \
+            "Pacchetti transit.db (orari GTFS convertiti) per l'app Pocket Travel, referenziati da transit.json su GitHub Pages. Non e' una release software."
           # Frammenti del manifest salvati da ogni shard subito dopo ogni regione (<VERSION>--<regionId>.json):
           # se il job muore prima di pubblicare, il job "publish" di una run successiva li recupera.
-          gh release view "region-fragments" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
-            gh release create "region-fragments" --repo "${{ github.repository }}" \
-              --title "Frammenti del manifest in sospeso" \
-              --notes "Frammenti manifest.json delle regioni costruite e non ancora pubblicate, per la pipeline di Pocket Travel. Non e' una release software."
-          gh release view "region-data-guide" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
-            gh release create "region-data-guide" --repo "${{ github.repository }}" \
-              --title "Guide di viaggio" \
-              --notes "guides.db (guide Wikivoyage e numeri di emergenza di tutte le regioni) per l'app Pocket Travel, referenziato da manifest.json su GitHub Pages. Non e' una release software."
+          ensure_release "region-fragments" \
+            "Frammenti del manifest in sospeso" \
+            "Frammenti manifest.json delle regioni costruite e non ancora pubblicate, per la pipeline di Pocket Travel. Non e' una release software."
+          ensure_release "region-data-guide" \
+            "Guide di viaggio" \
+            "guides.db (guide Wikivoyage e numeri di emergenza di tutte le regioni) per l'app Pocket Travel, referenziato da manifest.json su GitHub Pages. Non e' una release software."
 
       - name: Determina le regioni della run e gli shard
         id: plan
@@ -220,7 +217,7 @@ jobs:
           # POI). Senza misura: 50 s per tile land, la media delle regioni mai generate nella run
           # completa del 2026-09-28 (i 12 s della run del 2026-09-24 le sottostimavano di 4 volte).
           declare -A TIMINGS=()
-          if curl -sSfL -A "PocketTravelDataPipeline/1.0" "${{ env.PAGES_BASE_URL }}/region-timings.tsv" -o "$RUNNER_TEMP/region-timings.tsv"; then
+          if curl -sSfL --retry 3 --retry-delay 5 -A "PocketTravelDataPipeline/1.0" "${{ env.PAGES_BASE_URL }}/region-timings.tsv" -o "$RUNNER_TEMP/region-timings.tsv"; then
             while IFS=$'\t' read -r regionId seconds; do
               [[ "$seconds" =~ ^[0-9]+$ ]] && TIMINGS[$regionId]="$seconds"
             done < "$RUNNER_TEMP/region-timings.tsv"
@@ -276,6 +273,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          source .github/scripts/retry.sh
           # Data + numero e tentativo della run: unica per run, come nel job "build" (vedi li').
           VERSION="$(date -u +%Y.%m.%d).${{ github.run_number }}.${{ github.run_attempt }}"
           OUT="$RUNNER_TEMP/guides-out"
@@ -285,7 +283,7 @@ jobs:
           if [ -f "$OUT/guides.db.xz" ]; then
             asset="$OUT/guides--${VERSION}--guides.db.xz"
             cp "$OUT/guides.db.xz" "$asset"
-            gh release upload region-data-guide "$asset" --repo "${{ github.repository }}" --clobber
+            retry gh release upload region-data-guide "$asset" --repo "${{ github.repository }}" --clobber
           fi
           mkdir -p "$RUNNER_TEMP/fragments"
           cp "$OUT/manifest-fragment.json" "$RUNNER_TEMP/fragments/guides.json"
@@ -298,7 +296,7 @@ jobs:
             if [ -f "$OUT_EN/guides.db.xz" ]; then
               asset="$OUT_EN/guides-en--${VERSION}--guides.db.xz"
               cp "$OUT_EN/guides.db.xz" "$asset"
-              gh release upload region-data-guide "$asset" --repo "${{ github.repository }}" --clobber
+              retry gh release upload region-data-guide "$asset" --repo "${{ github.repository }}" --clobber
             fi
             cp "$OUT_EN/manifest-fragment.json" "$RUNNER_TEMP/fragments/guides-en.json"
           else
@@ -336,7 +334,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -sSfL -o "$RUNNER_TEMP/go-pmtiles.tar.gz" https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_x86_64.tar.gz
+          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o "$RUNNER_TEMP/go-pmtiles.tar.gz" https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_x86_64.tar.gz
           echo "3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f  $RUNNER_TEMP/go-pmtiles.tar.gz" | sha256sum -c -
           mkdir -p "$RUNNER_TEMP/bin"
           tar -xzf "$RUNNER_TEMP/go-pmtiles.tar.gz" -C "$RUNNER_TEMP/bin" pmtiles
@@ -347,13 +345,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          source .github/scripts/retry.sh
           # shellcheck source=./tools/data-pipeline/scripts/lib.sh
           source tools/data-pipeline/scripts/lib.sh
           PROTOMAPS_DATE="$(resolve_protomaps_date)"
           echo "-- build Protomaps: ${PROTOMAPS_DATE}.pmtiles"
 
           PUBLISHED_DATE=""
-          if curl -sSfL "${{ env.PAGES_BASE_URL }}/manifest.json" -o "$RUNNER_TEMP/published-manifest.json" 2>/dev/null; then
+          if curl -sSfL --retry 3 --retry-delay 5 "${{ env.PAGES_BASE_URL }}/manifest.json" -o "$RUNNER_TEMP/published-manifest.json" 2>/dev/null; then
             PUBLISHED_DATE="$(jq -r '.worldMap.version // ""' "$RUNNER_TEMP/published-manifest.json")"
           fi
           if [ -n "$PUBLISHED_DATE" ]; then
@@ -365,10 +364,9 @@ jobs:
             fi
           fi
 
-          gh release view world-map --repo "${{ github.repository }}" >/dev/null 2>&1 || \
-            gh release create world-map --repo "${{ github.repository }}" \
-              --title "Mappa del mondo" \
-              --notes "Mappa del mondo a bassa risoluzione (z0-8) per l'app Pocket Travel, letta online a pezzi. Non e' una release software."
+          ensure_release world-map \
+            "Mappa del mondo" \
+            "Mappa del mondo a bassa risoluzione (z0-8) per l'app Pocket Travel, letta online a pezzi. Non e' una release software."
 
           # Estratta direttamente col nome dell'asset: niente copia di un file da ~555 MB
           ASSET_NAME="world-${PROTOMAPS_DATE}-z8.pmtiles"
@@ -382,7 +380,7 @@ jobs:
             echo "-- estrazione della mappa del mondo fallita (tentativo $attempt/3), riprovo tra $((attempt * 60))s"
             sleep $((attempt * 60))
           done
-          gh release upload world-map "$ASSET" --repo "${{ github.repository }}" --clobber
+          retry gh release upload world-map "$ASSET" --repo "${{ github.repository }}" --clobber
 
           SIZE="$(wc -c < "$ASSET" | tr -d ' ')"
           mkdir -p "$RUNNER_TEMP/fragments"
@@ -437,7 +435,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -sSfL -o "$RUNNER_TEMP/go-pmtiles.tar.gz" https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_x86_64.tar.gz
+          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o "$RUNNER_TEMP/go-pmtiles.tar.gz" https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_x86_64.tar.gz
           echo "3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f  $RUNNER_TEMP/go-pmtiles.tar.gz" | sha256sum -c -
           mkdir -p "$RUNNER_TEMP/bin"
           tar -xzf "$RUNNER_TEMP/go-pmtiles.tar.gz" -C "$RUNNER_TEMP/bin" pmtiles
@@ -454,11 +452,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          source .github/scripts/retry.sh
           for n in 0 1 2 3 4 5; do
-            gh release view "address-cells-$n" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
-              gh release create "address-cells-$n" --repo "${{ github.repository }}" \
-                --title "Civici a celle ($n/6)" \
-                --notes "Asset binari (celle addresses.pmtiles.xz della griglia adattiva dei civici) per l'app Pocket Travel, referenziati da address-grid.json su GitHub Pages. Non e' una release software."
+            ensure_release "address-cells-$n" \
+              "Civici a celle ($n/6)" \
+              "Asset binari (celle addresses.pmtiles.xz della griglia adattiva dei civici) per l'app Pocket Travel, referenziati da address-grid.json su GitHub Pages. Non e' una release software."
           done
 
       - name: Costruisci la quota di celle di oggi
@@ -664,6 +662,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          source .github/scripts/retry.sh
           # shellcheck source=./tools/data-pipeline/scripts/lib.sh
           source tools/data-pipeline/scripts/lib.sh
           INDEX_URL="${{ env.PAGES_BASE_URL }}/transit.json"
@@ -694,7 +693,7 @@ jobs:
           shopt -s nullglob
           ASSETS=("$OUT"/*--transit.db "$OUT"/*--transit.db.xz)
           if [ "${#ASSETS[@]}" -gt 0 ]; then
-            gh release upload transit-feeds "${ASSETS[@]}" --repo "${{ github.repository }}" --clobber
+            retry gh release upload transit-feeds "${ASSETS[@]}" --repo "${{ github.repository }}" --clobber
           fi
           if [ ! -s "$OUT/transit-entries.jsonl" ]; then
             echo "Nessuna rete da pubblicare" >&2
@@ -842,7 +841,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -sSfL -o "$RUNNER_TEMP/go-pmtiles.tar.gz" https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_x86_64.tar.gz
+          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o "$RUNNER_TEMP/go-pmtiles.tar.gz" https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_x86_64.tar.gz
           echo "3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f  $RUNNER_TEMP/go-pmtiles.tar.gz" | sha256sum -c -
           mkdir -p "$RUNNER_TEMP/bin"
           tar -xzf "$RUNNER_TEMP/go-pmtiles.tar.gz" -C "$RUNNER_TEMP/bin" pmtiles
@@ -853,7 +852,7 @@ jobs:
       - name: Installa osmium-tool
         continue-on-error: true
         shell: bash
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
+        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq osmium-tool
 
       # Dump di Wikivoyage (IT ~50 MB, EN ~130 MB, rifatti una volta al mese) nella cache di Actions,
       # con la chiave dagli sha1 del dump corrente: gli shard e le run del mese non li riscaricano
@@ -1251,15 +1250,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          source .github/scripts/retry.sh
           PENDING_DIR="$RUNNER_TEMP/pending-fragments"
           mkdir -p "$PENDING_DIR"
-          if ! NAMES="$(gh release view region-fragments --repo "${{ github.repository }}" --json assets --jq '.assets[].name')"; then
+          if ! NAMES="$(retry gh release view region-fragments --repo "${{ github.repository }}" --json assets --jq '.assets[].name')"; then
             echo "::warning::release region-fragments non leggibile: niente recupero, e niente pulizia degli asset in questa run"
             echo "ok=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if [ -n "$NAMES" ]; then
-            gh release download region-fragments --repo "${{ github.repository }}" --pattern '*.json' --dir "$PENDING_DIR" --clobber
+            retry gh release download region-fragments --repo "${{ github.repository }}" --pattern '*.json' --dir "$PENDING_DIR" --clobber
           fi
           COUNT="$(find "$PENDING_DIR" -name '*.json' | wc -l)"
           EXPECTED="$(grep -c '\.json$' <<< "$NAMES" || true)"
@@ -1333,7 +1333,7 @@ jobs:
           # Tempi per regione (peso degli shard nel job "plan"): quelli pubblicati, aggiornati con
           # quelli di questa run. Pages sostituisce l'intero sito, quindi si riportano ogni volta.
           PUBLISHED_TIMINGS="$RUNNER_TEMP/published-timings.tsv"
-          curl -sSfL -A "PocketTravelDataPipeline/1.0" "$PAGES_BASE_URL/region-timings.tsv" -o "$PUBLISHED_TIMINGS" || : > "$PUBLISHED_TIMINGS"
+          curl -sSfL --retry 3 --retry-delay 5 -A "PocketTravelDataPipeline/1.0" "$PAGES_BASE_URL/region-timings.tsv" -o "$PUBLISHED_TIMINGS" || : > "$PUBLISHED_TIMINGS"
           cat "$PUBLISHED_TIMINGS" "$RUNNER_TEMP/fragments"/timings-*.tsv \
             | awk -F'\t' 'NF == 2 && $2 ~ /^[0-9]+$/ { t[$1] = $2 } END { for (r in t) print r "\t" t[r] }' \
             | sort > "$SITE_DIR/region-timings.tsv"
@@ -1450,6 +1450,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          source .github/scripts/retry.sh
           MANIFEST="${{ steps.assemble.outputs.site_dir }}/manifest.json"
           PREVIOUS_MANIFEST="$RUNNER_TEMP/previous-manifest.json"
           if [ ! -s "$PREVIOUS_MANIFEST" ]; then
@@ -1478,11 +1479,11 @@ jobs:
           # un'altra run ancora in corso (vedi il commento sulla concurrency in testa al file), la
           # pulizia della run successiva li togliera'.
           CUTOFF="$(date -u -d '-24 hours' +%Y-%m-%dT%H:%M:%SZ)"
-          for tag in $(gh release list --repo "${{ github.repository }}" --limit 200 --json tagName --jq '.[].tagName' | grep -E '^(region-data|world-map|address-cells-|transit-feeds$)'); do
+          for tag in $(retry gh release list --repo "${{ github.repository }}" --limit 200 --json tagName --jq '.[].tagName' | grep -E '^(region-data|world-map|address-cells-|transit-feeds$)'); do
             deleted=0
             total=0
             # Elenco completo a pagine di 100 (quello dentro la release puo' essere troncato).
-            releaseId="$(gh api "repos/${{ github.repository }}/releases/tags/$tag" --jq '.id')"
+            releaseId="$(retry gh api "repos/${{ github.repository }}/releases/tags/$tag" --jq '.id')"
             while IFS=$'\t' read -r name createdAt; do
               [ -n "$name" ] || continue
               total=$((total + 1))
@@ -1517,6 +1518,7 @@ jobs:
           POI_MAX_AGE_INPUT: ${{ github.event.inputs.poi_max_age_days }}
         run: |
           set -euo pipefail
+          source .github/scripts/retry.sh
           shopt -s nullglob
           [[ "${CONTINUATION:-}" =~ ^[0-9]+$ ]] || CONTINUATION=0
           # Rimandate per il budget, e (solo dalla run iniziale, non dalle continuazioni) le fallite:
@@ -1542,6 +1544,6 @@ jobs:
           ARGS=(-f regions="$DEFERRED" -f continuation="$NEXT")
           [ -z "${TIME_BUDGET_INPUT:-}" ] || ARGS+=(-f time_budget_minutes="$TIME_BUDGET_INPUT")
           [ -z "${POI_MAX_AGE_INPUT:-}" ] || ARGS+=(-f poi_max_age_days="$POI_MAX_AGE_INPUT")
-          gh workflow run publish-regions.yml --repo "${{ github.repository }}" --ref "$REF_NAME" "${ARGS[@]}"
+          retry gh workflow run publish-regions.yml --repo "${{ github.repository }}" --ref "$REF_NAME" "${ARGS[@]}"
           echo "-- continuazione $NEXT lanciata con $(tr ',' '\n' <<< "$DEFERRED" | wc -l) regioni"
           echo "Continuazione $NEXT lanciata con le regioni rimandate: $DEFERRED" >> "$GITHUB_STEP_SUMMARY"

@@ -52,8 +52,10 @@ jobs:
           # Confronto con il commit prima del push (non HEAD~1): un push di piu' commit con il bump
           # in uno intermedio va comunque pubblicato. HEAD~1 solo se manca (primo push del ramo,
           # SHA tutto zeri) o non e' piu' raggiungibile (force push).
+          # retry: un errore di rete non deve far ripiegare su HEAD~1.
+          source .github/scripts/retry.sh
           BASE="${BEFORE_SHA:-}"
-          if [ -z "$BASE" ] || [[ "$BASE" =~ ^0+$ ]] || ! git fetch --no-tags --depth=1 origin "$BASE" 2>/dev/null; then
+          if [ -z "$BASE" ] || [[ "$BASE" =~ ^0+$ ]] || ! retry -n 2 git fetch --no-tags --depth=1 origin "$BASE" 2>/dev/null; then
             BASE="HEAD~1"
           fi
           CURRENT="$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)"
@@ -105,6 +107,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          source .github/scripts/retry.sh
           VERSION="$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
           TAG="v$VERSION"
           APK="app/build/outputs/apk/release/app-release.apk"
@@ -133,28 +136,31 @@ jobs:
           # Un rilancio dello stesso workflow sulla stessa VERSION (es. per correggere un
           # problema nell'APK appena caricato) deve poter riusare la release gia' creata
           # invece di fallire su "release already exists".
-          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            gh release edit "$TAG" --repo "${{ github.repository }}" --notes-file "$NOTES_FILE"
-          else
-            gh release create "$TAG" --repo "${{ github.repository }}" \
-              --target "$GITHUB_SHA" \
-              --title "Pocket Travel $VERSION" \
-              --notes-file "$NOTES_FILE"
-          fi
-          gh release upload "$TAG" "$APK" --repo "${{ github.repository }}" --clobber
+          publish_release() {
+            if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+              gh release edit "$TAG" --repo "${{ github.repository }}" --notes-file "$NOTES_FILE"
+            else
+              gh release create "$TAG" --repo "${{ github.repository }}" \
+                --target "$GITHUB_SHA" \
+                --title "Pocket Travel $VERSION" \
+                --notes-file "$NOTES_FILE"
+            fi
+          }
+          retry publish_release
+          retry gh release upload "$TAG" "$APK" --repo "${{ github.repository }}" --clobber
 
       - name: Pubblica app-status.json (controllo aggiornamenti app/modelli IA sul device)
         shell: bash
         run: |
           set -euo pipefail
+          source .github/scripts/retry.sh
           # Release fissa "app-status" (stesso pattern di "region-data" in publish-regions.yml),
           # non GitHub Pages: appVersion/aiModels devono cambiare solo con un rilascio app, mai
           # insieme all'aggiornamento (settimanale/manuale) dei pacchetti regionali su Pages -
           # vedi SyncConfig.APP_STATUS_URL (core:sync).
-          gh release view app-status --repo "${{ github.repository }}" >/dev/null 2>&1 || \
-            gh release create app-status --repo "${{ github.repository }}" \
-              --title "Stato app" \
-              --notes "app-status.json: versione app e modelli IA on-device correnti, letti da core:sync/AppUpdateCheckWorker e feature:ai/LlmModelUpdateCheckWorker. Non e' una release software."
+          ensure_release app-status \
+            "Stato app" \
+            "app-status.json: versione app e modelli IA on-device correnti, letti da core:sync/AppUpdateCheckWorker e feature:ai/LlmModelUpdateCheckWorker. Non e' una release software."
 
           VERSION="$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
           VERSION_CODE="$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)"
@@ -177,4 +183,4 @@ jobs:
             '{appVersion: {versionName: $versionName, versionCode: $versionCode}, aiModels: $aiModels[0]}' \
             > "$APP_STATUS_FILE"
 
-          gh release upload app-status "$APP_STATUS_FILE" --repo "${{ github.repository }}" --clobber
+          retry gh release upload app-status "$APP_STATUS_FILE" --repo "${{ github.repository }}" --clobber
