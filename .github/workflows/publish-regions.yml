@@ -448,7 +448,7 @@ jobs:
       # toolchain Python di questo job (nessun requirements.txt nel pipeline oggi).
       - name: Installa duckdb
         shell: bash
-        run: python3 -m pip install --quiet --disable-pip-version-check duckdb
+        run: python3 -m pip install --quiet --disable-pip-version-check --retries 10 --timeout 60 duckdb
 
       - name: Assicura le release delle celle
         shell: bash
@@ -745,7 +745,7 @@ jobs:
 
       - name: Installa duckdb
         shell: bash
-        run: python3 -m pip install --quiet --disable-pip-version-check duckdb
+        run: python3 -m pip install --quiet --disable-pip-version-check --retries 10 --timeout 60 duckdb
 
       - name: Rilascio Overture da controllare
         id: overture-release
