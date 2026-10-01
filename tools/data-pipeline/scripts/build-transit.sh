@@ -20,7 +20,7 @@
 #   TRANSIT_MAX_AGE_DAYS (7)   eta' oltre cui una rete si ricostruisce anche con il feed invariato
 #   TRANSIT_FEEDS              lista delle reti (default: tools/data-pipeline/transit-feeds.tsv)
 #
-# Richiede: jq, curl, sha256sum, xz, gradle wrapper dalla root del repo.
+# Richiede: jq, curl, unzip, sha256sum, xz, gradle wrapper dalla root del repo.
 set -euo pipefail
 
 if [ "$#" -lt 4 ] || [ "$#" -gt 5 ]; then
@@ -75,6 +75,12 @@ for attempt in 1 2 3; do
   [ "$attempt" -lt 3 ] && sleep $((attempt * 20))
 done
 [ "$ok" = true ] || { echo "-- $FEED_ID: feed non scaricato" >&2; exit 1; }
+# Un messaggio chiaro invece dell'eccezione di Java ("zip END header not found"): BODS risponde 200 con
+# {"errors":["Invalid region name"]} a una regione che non serve piu'.
+if ! unzip -tqq "$FEED_ZIP" >/dev/null 2>&1; then
+  echo "-- $FEED_ID: il feed scaricato non e' uno zip valido: $(head -c 120 "$FEED_ZIP" | tr -c '[:print:]' ' ')" >&2
+  exit 1
+fi
 SOURCE_SHA="$(sha256sum "$FEED_ZIP" | cut -d' ' -f1)"
 
 # Voce gia' pubblicata: si tiene se il feed non e' cambiato ed e' abbastanza recente.
@@ -99,7 +105,9 @@ WINDOW_START="$(date -u +%Y-%m-%d)"
 echo "-- $FEED_ID: converto (finestra di $TRANSIT_WINDOW_DAYS giorni da $WINDOW_START)..."
 STATS="$(cd "$REPO_ROOT" && ./gradlew -q :tools:data-pipeline:content:generateTransit \
   --args="\"$(winpath "$FEED_ZIP")\" \"$(winpath "$DB")\" $FEED_ID $WINDOW_START $TRANSIT_WINDOW_DAYS" | tail -1)"
-IFS=$'\t' read -r STOPS ROUTES TRIPS STOP_TIMES VALID_UNTIL BBOX <<< "$STATS"
+# Tab -> \x1f prima di leggere: il tab e' uno spazio per IFS, due tab di fila (validUntil vuoto) ne valgono
+# uno e il bbox finirebbe in VALID_UNTIL.
+IFS=$'\x1f' read -r STOPS ROUTES TRIPS STOP_TIMES VALID_UNTIL BBOX <<< "${STATS//$'\t'/$'\x1f'}"
 echo "-- $FEED_ID: $STOPS fermate, $ROUTES linee, $TRIPS corse, $STOP_TIMES partenze, valido fino al ${VALID_UNTIL:-?}"
 # Anche senza partenze (stop_times.txt assente o illeggibile): corse senza orari non servono al tabellone.
 if [ "${TRIPS:-0}" -eq 0 ] || [ "${STOP_TIMES:-0}" -eq 0 ] || [ -z "$VALID_UNTIL" ]; then
