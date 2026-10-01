@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """POI di una regione dagli estratti Geofabrik, nello stesso XML che build-region.sh riceve da Overpass.
 
-Uso: geofabrik_pois.py --bbox=minLon,minLat,maxLon,maxLat --out poi.osm.xml --cache DIR [--user-agent UA] [--index FILE]
+Uso: geofabrik_pois.py --bbox=minLon,minLat,maxLon,maxLat [--iso=XX] --out poi.osm.xml --cache DIR [--user-agent UA] [--index FILE]
 
 L'indice index-v1.json viene scaricato una volta in --cache e riusato dalle regioni successive; --index (opzione
 manuale, build-region.sh non la passa) usa invece un indice locale: utile per provare lo script senza rete
@@ -42,6 +42,10 @@ TAGS_FILTER = [
     "wr/leisure=park,nature_reserve,water_park,marina", "wr/tourism=theme_park,zoo",
     "nw/railway=station,halt", "nwr/aeroway=aerodrome",
 ]
+# Paesi che un estratto contiene ma l'indice non elenca: gcc-states ha anche l'Arabia Saudita, quello
+# dell'Irlanda l'Irlanda del Nord, quello della Malesia Singapore e Brunei.
+PAESI_MANCANTI = {"gcc-states": {"SA"}, "ireland-and-northern-ireland": {"GB"},
+                  "malaysia-singapore-brunei": {"SG", "BN"}}
 NODE_KEYS = ("amenity", "shop", "tourism", "leisure", "historic")
 WAY_AMENITY = {"parking", "bus_station", "hospital", "fire_station", "place_of_worship", "monastery", "ferry_terminal"}
 
@@ -126,8 +130,25 @@ def copertura(big, leaves, n=20):
     return covered / len(points) if points else 0.0
 
 
-def scegli_estratti(index, bbox):
-    """[(id, url pbf)] degli estratti foglia che toccano il bbox, senza quelli composti."""
+def paesi_estratto(props_by_id, cid):
+    """Codici ISO 3166-1 alpha-2 (maiuscoli) dell'estratto cid: i suoi, quelli del prefisso dei suoi codici
+    ISO 3166-2 (us/alaska ha solo US-AK e come genitore north-america) o quelli del genitore piu' vicino che li
+    ha (nord-norge sta sotto norway)."""
+    while cid in props_by_id:
+        props = props_by_id[cid]
+        codes = set(props.get("iso3166-1:alpha2", [])) | {c.split("-")[0] for c in props.get("iso3166-2", [])}
+        codes |= PAESI_MANCANTI.get(cid, set())
+        if codes:
+            return codes
+        cid = props.get("parent")
+    return set()
+
+
+def scegli_estratti(index, bbox, iso=None):
+    """[(id, url pbf)] degli estratti foglia che toccano il bbox, senza quelli composti. Con iso (codice alpha-2
+    della nazione della regione) e almeno un estratto di quella nazione tra i candidati, solo quelli: il bbox
+    di Norvegia o Arabia Saudita contiene paesi interi (Svezia, Finlandia, Egitto, Iran...) che sarebbero
+    scaricati per un pugno di POI al confine."""
     features = [f for f in index["features"] if f.get("geometry") and f["properties"].get("urls", {}).get("pbf")]
     parents = {f["properties"].get("parent") for f in features}
     leaves = [(f["properties"]["id"], f["properties"]["urls"]["pbf"], anelli(f["geometry"]))
@@ -138,6 +159,10 @@ def scegli_estratti(index, bbox):
     # inglese (si scaricava tutta la Gran Bretagna; us per le Bahamas). Un'enclave non basta: il Marocco
     # contiene Ceuta e Melilla, il Sudafrica il Lesotho, e prima venivano scartati per questo.
     chosen = [c for c in leaves if tocca_bbox(c[2], bbox) and copertura(c, leaves) < 0.5]
+    if iso:
+        props_by_id = {f["properties"]["id"]: f["properties"] for f in index["features"]}
+        propri = [c for c in chosen if iso.upper() in paesi_estratto(props_by_id, c[0])]
+        chosen = propri or chosen
     if not chosen:
         # Nessuna foglia tocca il riquadro (Sint Maarten sta solo in central-america e north-america):
         # il piu' piccolo degli estratti che lo toccano, invece di ripiegare su Overpass.
@@ -260,6 +285,7 @@ def scrivi_xml(sources, bbox, out):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--bbox", required=True, help="minLon,minLat,maxLon,maxLat")
+    parser.add_argument("--iso", help="codice ISO 3166-1 alpha-2 della nazione della regione: se qualche estratto candidato e' suo, si scartano quelli di altri paesi")
     parser.add_argument("--out", required=True)
     parser.add_argument("--cache", required=True, help="cartella degli estratti ridotti, condivisa dalle regioni del job")
     parser.add_argument("--user-agent", default="PocketTravel-pipeline")
@@ -272,7 +298,7 @@ def main():
     if not os.path.exists(index_path):
         scarica(INDEX_URL, index_path, args.user_agent)
     with open(index_path, encoding="utf-8") as f:
-        extracts = scegli_estratti(json.load(f), bbox)
+        extracts = scegli_estratti(json.load(f), bbox, args.iso)
     if not extracts:
         sys.exit("nessun estratto Geofabrik tocca il bbox")
     print(f"-- geofabrik: {len(extracts)} estratti per il bbox: {' '.join(cid for cid, _ in extracts)}", flush=True)

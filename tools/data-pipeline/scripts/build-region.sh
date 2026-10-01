@@ -562,7 +562,10 @@ fetch_overpass_chunk() {
 GEOFABRIK_XML=""
 if [ "${GEOFABRIK_POI:-true}" = "true" ] && command -v osmium >/dev/null; then
   echo "-- POI dagli estratti Geofabrik..."
-  if python3 "$SCRIPT_DIR/geofabrik_pois.py" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT"       --out "$WORKDIR/poi-geofabrik.osm.xml" --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT"; then
+  # Nazione della regione (flagCode di pilot-regions.sh): con quella si scartano gli estratti dei paesi
+  # confinanti che il bbox contiene. Vuoto se la regione non e' nell'elenco: si usa solo il bbox.
+  GEOFABRIK_ISO="$(source "$SCRIPT_DIR/pilot-regions.sh" && for spec in "${PILOT_REGIONS[@]}"; do IFS='|' read -r id _ _ _ _ _ _ flag _ <<< "$spec"; [ "$id" = "$REGION_ID" ] && echo "$flag" && break; done || true)"
+  if python3 "$SCRIPT_DIR/geofabrik_pois.py" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --iso="$GEOFABRIK_ISO" --out "$WORKDIR/poi-geofabrik.osm.xml" --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT"; then
     GEOFABRIK_XML="$WORKDIR/poi-geofabrik.osm.xml"
   else
     echo "-- estratti Geofabrik non disponibili, interrogo Overpass"

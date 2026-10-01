@@ -91,6 +91,55 @@ class ScegliEstrattiTest(unittest.TestCase):
 
         self.assertEqual(chosen, ["central-america"])
 
+    def test_con_iso_solo_gli_estratti_della_nazione_figli_compresi(self):
+        # Come la Norvegia: il bbox contiene la Svezia e la Finlandia, e nord-norge sta sotto norway.
+        norvegia = quadrato("norway", 0, 0, 10, 10, "europa")
+        nord = quadrato("nord", 0, 5, 10, 10, "norway")
+        sud = quadrato("sud", 0, 0, 10, 5, "norway")
+        svezia = quadrato("svezia", 10, 0, 20, 10, "europa")
+        for f, iso in ((norvegia, ["NO"]), (svezia, ["SE"])):
+            f["properties"]["iso3166-1:alpha2"] = iso
+        index = {"features": [quadrato("europa", 0, 0, 20, 10), norvegia, nord, sud, svezia]}
+
+        chosen = [cid for cid, _ in geofabrik_pois.scegli_estratti(index, (2, 2, 15, 8), "no")]
+
+        self.assertEqual(sorted(chosen), ["nord", "sud"])
+
+    def test_con_iso_la_sottodivisione_vale_per_il_suo_paese(self):
+        # Come us/alaska: ha solo iso3166-2 e come genitore il continente; yukon e' canadese.
+        alaska = quadrato("us/alaska", 0, 0, 10, 10, "continente")
+        alaska["properties"]["iso3166-2"] = ["US-AK"]
+        yukon = quadrato("yukon", 10, 0, 20, 10, "canada")
+        canada = quadrato("canada", 10, 0, 20, 10, "continente")
+        canada["properties"]["iso3166-1:alpha2"] = ["CA"]
+        index = {"features": [quadrato("continente", 0, 0, 20, 10), alaska, canada, yukon]}
+
+        chosen = [cid for cid, _ in geofabrik_pois.scegli_estratti(index, (2, 2, 15, 8), "us")]
+
+        self.assertEqual(chosen, ["us/alaska"])
+
+    def test_con_iso_senza_estratti_della_nazione_si_usa_solo_il_bbox(self):
+        # Come San Marino: nessun estratto suo, vale l'estratto del paese che lo contiene.
+        italia = quadrato("italia", 0, 0, 10, 10)
+        italia["properties"]["iso3166-1:alpha2"] = ["IT"]
+        index = {"features": [italia]}
+
+        chosen = [cid for cid, _ in geofabrik_pois.scegli_estratti(index, (4, 4, 5, 5), "sm")]
+
+        self.assertEqual(chosen, ["italia"])
+
+    def test_con_iso_paese_mancante_dall_indice(self):
+        # gcc-states contiene l'Arabia Saudita ma l'indice non la elenca.
+        gcc = quadrato("gcc-states", 0, 0, 10, 10)
+        gcc["properties"]["iso3166-1:alpha2"] = ["QA"]
+        iran = quadrato("iran", 10, 0, 20, 10)
+        iran["properties"]["iso3166-1:alpha2"] = ["IR"]
+        index = {"features": [gcc, iran]}
+
+        chosen = [cid for cid, _ in geofabrik_pois.scegli_estratti(index, (2, 2, 15, 8), "sa")]
+
+        self.assertEqual(chosen, ["gcc-states"])
+
     def test_bbox_tutto_dentro_un_estratto(self):
         index = {"features": [quadrato("a", 0, 0, 10, 10)]}
 
