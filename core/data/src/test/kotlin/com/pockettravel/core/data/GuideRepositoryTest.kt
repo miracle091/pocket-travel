@@ -49,7 +49,7 @@ private class FakeGuideDao : GuideDao {
  * Costruisce un blob matchinfo(..., 'pcx') finto: interi a 32 bit little-endian, [phraseCount] e
  * [columnCount] seguiti da una tripla (occorrenze in questa riga, occorrenze totali, righe con
  * almeno un'occorrenza) per ogni coppia frase/colonna — stesso formato letto da
- * GuideRepository.matchScore.
+ * matchScore (FtsRanking.kt).
  */
 private fun matchInfo(phraseCount: Int, columnCount: Int, perPhraseColumnHits: List<Triple<Int, Int, Int>> = emptyList()): ByteArray {
     val ints = mutableListOf(phraseCount, columnCount)
@@ -76,12 +76,14 @@ class GuideRepositoryTest {
         sourceUrl = "https://en.wikivoyage.org/wiki/Test",
     )
 
+    private fun GuideSection.toEntity() = GuideSectionEntity(regionId = regionId, category = category, title = title, body = body, sourceUrl = sourceUrl)
+
     @Test
-    fun `importSections poi sectionsFor ritorna le sezioni della stessa regione`() = runBlocking {
+    fun `sectionsFor ritorna le sezioni della stessa regione`() = runBlocking {
         val dao = FakeGuideDao()
         val repository = GuideRepository(dao)
 
-        repository.importSections(listOf(section("italia", "Dogane"), section("francia", "Douanes")))
+        dao.insertAll(listOf(section("italia", "Dogane"), section("francia", "Douanes")).map { it.toEntity() })
 
         val result = repository.sectionsFor("italia")
 
@@ -91,19 +93,19 @@ class GuideRepositoryTest {
     }
 
     @Test
-    fun `searchInRegion filtra anche per regione`() = runBlocking {
+    fun `searchInRegionScored filtra anche per regione`() = runBlocking {
         val dao = FakeGuideDao()
         val repository = GuideRepository(dao)
-        repository.importSections(listOf(section("italia", "Dogane italiane"), section("francia", "Dogane francesi")))
+        dao.insertAll(listOf(section("italia", "Dogane italiane"), section("francia", "Dogane francesi")).map { it.toEntity() })
 
-        val result = repository.searchInRegion("italia", "dogane", limit = 10)
+        val result = repository.searchInRegionScored("italia", "dogane", limit = 10)
 
         assertEquals(1, result.size)
-        assertEquals("italia", result.single().regionId)
+        assertEquals("italia", result.single().first.regionId)
     }
 
     @Test
-    fun `searchInRegionScored espone lo stesso punteggio usato per ordinare searchInRegion`() = runBlocking {
+    fun `searchInRegionScored espone il punteggio usato per ordinare`() = runBlocking {
         val dao = FakeGuideDao()
         val repository = GuideRepository(dao)
         val entity = GuideSectionEntity(regionId = "italia", category = GuideCategory.DOGANE, title = "Dogane", body = "corpo", sourceUrl = "https://it.wikivoyage.org/wiki/Italia")
@@ -114,12 +116,12 @@ class GuideRepositoryTest {
 
         assertEquals(1, result.size)
         assertEquals("Dogane", result.single().first.title)
-        // Un solo hit nel titolo (peso 3.0), nessun hit nel corpo: stesso matchScore usato da searchInRegion.
+        // Un solo hit nel titolo (peso 3.0), nessun hit nel corpo: punteggio di matchScore.
         assertEquals(3.0, result.single().second, 1e-9)
     }
 
     @Test
-    fun `searchInRegion ordina per rilevanza col matchinfo, non per ordine di inserimento`() = runBlocking {
+    fun `searchInRegionScored ordina per rilevanza col matchinfo, non per ordine di inserimento`() = runBlocking {
         // Caso reale: "Quale valuta si usa a San Marino?" tornava "Come arrivare" (che nomina San
         // Marino piu' volte nel corpo) invece di "Valuta e acquisti", perche' la MATCH non aveva un
         // ordine di rilevanza. "marino" e' quasi rumore (presente in entrambe le sezioni: idf basso),
@@ -163,8 +165,8 @@ class GuideRepositoryTest {
             ),
         )
 
-        val result = repository.searchInRegion("san-marino", "valuta OR marino", limit = 2)
+        val result = repository.searchInRegionScored("san-marino", "valuta OR marino", limit = 2)
 
-        assertEquals(listOf("Valuta e acquisti", "Come arrivare"), result.map { it.title })
+        assertEquals(listOf("Valuta e acquisti", "Come arrivare"), result.map { it.first.title })
     }
 }

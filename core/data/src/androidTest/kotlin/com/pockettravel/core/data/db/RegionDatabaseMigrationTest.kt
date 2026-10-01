@@ -11,8 +11,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Migrazioni tra i database delle versioni pubblicate (3, 5, 6, 9, 11, 15) e la prossima (16), sugli
- * schemi esportati in core/data/schemas, piu' la catena completa da 3 a 16.
+ * Migrazioni tra i database delle versioni pubblicate (3, 5, 6, 9, 11, 15, 17) e quella corrente (18), sugli
+ * schemi esportati in core/data/schemas, piu' la catena completa da 3 a 18.
  */
 @RunWith(AndroidJUnit4::class)
 class RegionDatabaseMigrationTest {
@@ -192,9 +192,35 @@ class RegionDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrazione17a18AggiungeLeRappresentanzeDiplomaticheVuote() {
+        helper.createDatabase(DB_NAME, 17).use { db ->
+            db.execSQL("INSERT INTO emergency_numbers VALUES ('italia', '112', '113', '118', '115')")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 18, true, MIGRATION_17_18).use { db ->
+            db.query("SELECT COUNT(*) FROM diplomatic_missions").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(0, cursor.getInt(0))
+            }
+            db.execSQL(
+                "INSERT INTO diplomatic_missions (wikidata, sending, host, kind, name) VALUES ('Q1', 'it', 'es', 'embassy', 'Embajada de Italia')",
+            )
+            db.query("SELECT name, nameEn, lat FROM diplomatic_missions WHERE sending = 'it' AND host = 'es'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Embajada de Italia", cursor.getString(0))
+                assertTrue(cursor.isNull(1) && cursor.isNull(2))
+            }
+            db.query("SELECT police FROM emergency_numbers WHERE regionId = 'italia'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("113", cursor.getString(0))
+            }
+        }
+    }
+
     // Chi aggiorna dalla prima versione pubblicata (v0.2.0) all'ultima: nessun dato perso.
     @Test
-    fun catenaCompletaDa3a17ConservaCassaforteRegioniPoiEGuide() {
+    fun catenaCompletaDa3a18ConservaCassaforteRegioniPoiEGuide() {
         helper.createDatabase(DB_NAME, 3).use { db ->
             db.execSQL("INSERT INTO passport_vault VALUES ('p1', 'cifrato', 1, 2)")
             db.execSQL("INSERT INTO installed_regions VALUES ('italia', 'Italia', '2026.09.01', 1000, 42)")
@@ -202,7 +228,7 @@ class RegionDatabaseMigrationTest {
             db.execSQL("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES ('italia', 'TRASPORTI', 'In treno', 'corpo', 'https://example.org')")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 17, true, *ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB_NAME, 18, true, *ALL_MIGRATIONS).use { db ->
             db.query("SELECT encryptedPayload FROM passport_vault WHERE id = 'p1'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("cifrato", cursor.getString(0))

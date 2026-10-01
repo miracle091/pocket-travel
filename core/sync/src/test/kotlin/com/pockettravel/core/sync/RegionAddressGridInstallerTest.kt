@@ -84,6 +84,52 @@ class RegionAddressGridInstallerTest {
     }
 
     @Test
+    fun `i database di ricerca, scaricato per la cella nuova, copiato per l'invariata che ce l'ha, assente senza search`() {
+        val (storage, installer) = newStorageAndInstaller()
+        val regionDir = storage.directoryFor("san-marino").apply { mkdirs() }
+        writeFixture(File(regionDir, RegionStorage.ADDRESSES_FILE), mapOf(Triple(14, 1, 1) to byteArrayOf(0xAA.toByte())))
+        File(regionDir, RegionStorage.ADDRESSES_CELLS_FILE).writeText(RegionStorage.encodeAddressCells(mapOf("12/0/0" to "v1", "12/1/0" to "v1")))
+        File(regionDir, RegionStorage.ADDRESSES_SEARCH_DIR).apply { mkdirs() }.resolve(RegionStorage.addressSearchFileName("12/0/0")).writeText("vecchio A")
+
+        fun search(name: String) = AddressSearchEntry(cellFile(name))
+        val cellA = AddressGridCell("12/0/0", "v1", cellFile("cell-a.pmtiles"), search = search("search-a.db")) // invariata, ricerca gia' installata
+        val cellB = AddressGridCell("12/1/0", "v2", cellFile("cell-b.pmtiles"), search = search("search-b.db")) // cambiata
+        val cellC = AddressGridCell("12/0/1", "v1", cellFile("cell-c.pmtiles")) // senza ricerca
+        val cells = listOf(cellA, cellB, cellC)
+        val staging = storage.stagingDirectoryFor("san-marino", "v2").apply { mkdirs() }
+        File(staging, "search-b.db").writeText("nuovo B")
+        writeFixture(File(staging, cellB.file.name), mapOf(Triple(14, 5, 2) to byteArrayOf(0xBB.toByte())))
+        writeFixture(File(staging, cellC.file.name), mapOf(Triple(14, 1, 5) to byteArrayOf(0xCC.toByte())))
+
+        val plan = installer.plan("san-marino", RegionAddressGridEntry(cells))
+        assertEquals(listOf("12/1/0"), plan.searchToDownload.map { it.id })
+        val merged = mutableListOf<Pair<List<String>, File>>()
+        installer.mergeInto("san-marino", mapSource, plan, staging, mergeSearch = { cellFiles, target -> merged += cellFiles.map { it.name } to target })
+
+        val searchDir = File(staging, RegionStorage.ADDRESSES_SEARCH_DIR)
+        assertEquals(listOf("12-0-0.db", "12-1-0.db"), searchDir.list()!!.sorted())
+        // il database unico si costruisce dai soli file per cella, dentro la cartella che si attiva
+        assertEquals(listOf(listOf("12-0-0.db", "12-1-0.db") to File(searchDir, RegionStorage.ADDRESSES_SEARCH_DB)), merged)
+        assertEquals("vecchio A", File(searchDir, "12-0-0.db").readText())
+        assertEquals("nuovo B", File(searchDir, "12-1-0.db").readText())
+        // la copia lascia intatto il file installato (resta il pacchetto attivo fino a activatePackage)
+        assertTrue(File(regionDir, "${RegionStorage.ADDRESSES_SEARCH_DIR}/12-0-0.db").isFile)
+    }
+
+    @Test
+    fun `una cella invariata con search ma senza il database installato lo riscarica`() {
+        val (storage, installer) = newStorageAndInstaller()
+        val regionDir = storage.directoryFor("san-marino").apply { mkdirs() }
+        File(regionDir, RegionStorage.ADDRESSES_CELLS_FILE).writeText(RegionStorage.encodeAddressCells(mapOf("12/0/0" to "v1")))
+        val cell = AddressGridCell("12/0/0", "v1", cellFile("cell-a.pmtiles"), search = AddressSearchEntry(cellFile("search-a.db")))
+
+        val plan = installer.plan("san-marino", RegionAddressGridEntry(listOf(cell)))
+
+        assertEquals(emptyList<AddressGridCell>(), plan.toDownload)
+        assertEquals(listOf(cell), plan.searchToDownload)
+    }
+
+    @Test
     fun `un addresses pmtiles legacy senza sidecar non si legge, tutte le celle si scaricano`() {
         val (storage, installer) = newStorageAndInstaller()
         val regionDir = storage.directoryFor("san-marino").apply { mkdirs() }

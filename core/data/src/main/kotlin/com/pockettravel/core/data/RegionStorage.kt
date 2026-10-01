@@ -130,6 +130,14 @@ class RegionStorage @Inject constructor(
         return if (file.isFile) decodeAddressCells(file.readText()) else emptyMap()
     }
 
+    /** Database di ricerca per cella (sorgente dell'aggiornamento incrementale, vedi [ADDRESSES_SEARCH_DIR]); vuoto se non ce ne sono. */
+    fun addressSearchFiles(regionId: String): List<File> =
+        File(directoryFor(regionId), ADDRESSES_SEARCH_DIR).listFiles { file -> file.isFile && file.extension == "db" && file.name != ADDRESSES_SEARCH_DB }.orEmpty().sortedBy { it.name }
+
+    /** Database di ricerca unico della regione ([ADDRESSES_SEARCH_DB]), null se la regione non ha la ricerca. */
+    fun addressSearchDb(regionId: String): File? =
+        File(directoryFor(regionId), "$ADDRESSES_SEARCH_DIR/$ADDRESSES_SEARCH_DB").takeIf { it.isFile }
+
     fun cleanupStagingExcept(regionId: String, version: String) {
         val regionStaging = safeChild(stagingDir, regionId, "regionId")
         regionStaging.listFiles().orEmpty().filter { it.name != version }.forEach { it.deleteRecursively() }
@@ -176,14 +184,24 @@ class RegionStorage @Inject constructor(
         // scritto e attivato accanto ad esso, atomicamente con lo stesso meccanismo di activatePackage.
         // Assente per le regioni installate col percorso di oggi (una sola voce "addresses").
         const val ADDRESSES_CELLS_FILE = "addresses-cells.json"
+        // Ricerca degli indirizzi: una addresses-search.db per cella (<z>-<x>-<y>.db, vedi addressSearchFileName),
+        // tenute solo per aggiornare la regione scaricando le celle cambiate, piu' ADDRESSES_SEARCH_DB, l'unione di
+        // tutte le celle che AddressSearchRepository apre in sola lettura. Cartella attivata insieme a
+        // ADDRESSES_FILE (stessa versione): le celle sparite dal manifest spariscono con la sostituzione.
+        // Assente per le regioni senza ricerca (manifest vecchi).
+        const val ADDRESSES_SEARCH_DIR = "addresses-search"
+        const val ADDRESSES_SEARCH_DB = "addresses-search.db"
         // Orari dei mezzi pubblici: una transit.db per rete (<feedId>.db) piu' TRANSIT_FEEDS_FILE, attivati
         // insieme come cartella, cosi' le reti sparite dal manifest spariscono con la sostituzione.
         const val TRANSIT_DIR = "transit"
         // Nome, attribuzione e licenza di ogni rete di TRANSIT_DIR (vedi TransitFeedInfo), per la scheda delle partenze.
         const val TRANSIT_FEEDS_FILE = "feeds.json"
-        private val PACKAGE_NAMES = setOf(MAP_FILE, ROUTING_DIR, ADDRESSES_FILE, PREVIEW_FILE, ADDRESSES_CELLS_FILE, TRANSIT_DIR)
+        private val PACKAGE_NAMES = setOf(MAP_FILE, ROUTING_DIR, ADDRESSES_FILE, PREVIEW_FILE, ADDRESSES_CELLS_FILE, ADDRESSES_SEARCH_DIR, TRANSIT_DIR)
         // Istanze di RegionStorage non condivise: due recuperi della stessa regione non si sovrappongono.
         private val RECOVERY_LOCK = Any()
+
+        /** Nome del file di ricerca di una cella in [ADDRESSES_SEARCH_DIR]: l'id "z/x/y" senza barre. */
+        fun addressSearchFileName(cellId: String): String = cellId.replace('/', '-') + ".db"
 
         /**
          * Formato di [ADDRESSES_CELLS_FILE]: un oggetto json id -> version. Id e version sono gia'

@@ -27,6 +27,19 @@ class AccentInsensitiveGlobTest {
     }
 
     @Test
+    fun `cirillico e greco, il testo digitato esatto si trova senza badare alle maiuscole`() {
+        assertEquals(true, matches("Москва", "Москва"))
+        assertEquals(true, matches("Москва", "москва"))
+        assertEquals(true, matches("МОСКВА", "Москва"))
+        assertEquals(true, matches("Гостиница Москва", "моск"))
+        assertEquals(false, matches("Санкт-Петербург", "Москва"))
+        assertEquals(true, matches("Αθήνα", "Αθήνα"))
+        assertEquals(true, matches("ΑΘΗΝΑ", "αθήνα"))
+        assertEquals(true, matches("Αθηνα", "Αθήνα"))
+        assertEquals(false, matches("Θεσσαλονίκη", "Αθήνα"))
+    }
+
+    @Test
     fun `i caratteri speciali di GLOB valgono per se stessi`() {
         assertEquals(true, matches("Bar * stella", "bar *"))
         assertEquals(false, matches("Bar stella", "bar *"))

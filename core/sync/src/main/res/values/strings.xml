@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_update_required_for_download">Aggiorna l\'app per scaricare questi dati: sono in un formato più recente.</string>
+    <string name="sync_download_channel">Download</string>
+    <string name="sync_download_cancel">Annulla</string>
+    <string name="sync_download_progress">%1$s · %2$s di %3$s</string>
+    <string name="sync_download_extracting_map">Estrazione della mappa · %1$d%%</string>
+    <string name="sync_package_map">Mappa</string>
+    <string name="sync_package_routing">Percorsi</string>
+    <string name="sync_package_poi">Punti di interesse</string>
+    <string name="sync_package_poi_extra">Punti di interesse extra</string>
+    <string name="sync_package_addresses">Numeri civici</string>
+    <string name="sync_package_cities">Guide delle città</string>
+    <string name="sync_package_transit">Mezzi pubblici</string>
 </resources>

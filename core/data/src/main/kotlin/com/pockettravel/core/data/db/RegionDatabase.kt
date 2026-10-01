@@ -19,8 +19,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CitySectionEntity::class,
         CitySectionFts::class,
         NoteEntity::class,
+        DiplomaticMissionEntity::class,
     ],
-    version = 17,
+    version = 18,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -32,10 +33,11 @@ abstract class RegionDatabase : RoomDatabase() {
     abstract fun emergencyNumbersDao(): EmergencyNumbersDao
     abstract fun cityDao(): CityDao
     abstract fun noteDao(): NoteDao
+    abstract fun diplomaticMissionDao(): DiplomaticMissionDao
 }
 /** Tutte le migrazioni, per Room.databaseBuilder e per i test. */
 val ALL_MIGRATIONS: Array<Migration>
-    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17)
+    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_18)
 
 /** Versioni del database mai uscite in una versione pubblicata dell'app (solo sviluppo). */
 val UNRELEASED_VERSIONS = intArrayOf(1, 2, 4, 7, 8, 10, 12, 13, 14, 16)
@@ -255,5 +257,33 @@ val MIGRATION_15_17 = object : Migration(15, 17) {
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `nameIt` TEXT")
         // Orari dei mezzi pubblici (pacchetto TRANSIT): nessuna regione gia' installata li ha.
         db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `transitVersion` TEXT")
+    }
+}
+
+// Da 17 a 18: ambasciate e consolati da Wikidata (diplomatic_missions), vuota finche' non si importa un
+// pacchetto guide che la contiene.
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `diplomatic_missions` (
+                `wikidata` TEXT NOT NULL,
+                `sending` TEXT NOT NULL,
+                `host` TEXT NOT NULL,
+                `kind` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `nameEn` TEXT,
+                `city` TEXT,
+                `address` TEXT,
+                `phone` TEXT,
+                `website` TEXT,
+                `email` TEXT,
+                `lat` REAL,
+                `lon` REAL,
+                PRIMARY KEY(`wikidata`)
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_diplomatic_missions_sending_host` ON `diplomatic_missions` (`sending`, `host`)")
     }
 }

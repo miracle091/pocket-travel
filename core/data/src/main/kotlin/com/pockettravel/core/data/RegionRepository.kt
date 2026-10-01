@@ -73,6 +73,9 @@ class RegionRepository @Inject constructor(
                 // Percorso a griglia: elenco delle celle installate accanto ad ADDRESSES_FILE, assente
                 // (deletePackage torna comunque true) per il percorso di oggi.
                 regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_CELLS_FILE)
+                // Database di ricerca degli indirizzi: assente per i manifest senza ricerca. I file aperti da
+                // AddressSearchRepository li chiude lei alla ricerca successiva (file sparito).
+                regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_SEARCH_DIR)
             }
             PackageKind.TRANSIT -> check(regionStorage.deletePackage(regionId, RegionStorage.TRANSIT_DIR)) { "Impossibile eliminare gli orari dei mezzi di $regionId" }
             PackageKind.POI, PackageKind.POI_EXTRA, PackageKind.CITIES -> Unit
@@ -134,7 +137,8 @@ class RegionRepository @Inject constructor(
         }
         val diskBytes = regionStorage.packageBytes(regionId, RegionStorage.MAP_FILE) + regionStorage.packageBytes(regionId, RegionStorage.ROUTING_DIR) +
             regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_FILE) + regionStorage.packageBytes(regionId, RegionStorage.PREVIEW_FILE) +
-            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_CELLS_FILE) + regionStorage.packageBytes(regionId, RegionStorage.TRANSIT_DIR)
+            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_CELLS_FILE) + regionStorage.packageBytes(regionId, RegionStorage.TRANSIT_DIR) +
+            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_SEARCH_DIR)
         regionPackageDao.upsert(
             InstalledRegionEntity(
                 regionId = regionId,
@@ -180,6 +184,7 @@ class RegionRepository @Inject constructor(
                 RegionStorage.ROUTING_DIR -> current?.routingVersion
                 RegionStorage.ADDRESSES_FILE -> current?.addressesVersion
                 RegionStorage.ADDRESSES_CELLS_FILE -> current?.addressesVersion
+                RegionStorage.ADDRESSES_SEARCH_DIR -> current?.addressesVersion
                 RegionStorage.PREVIEW_FILE -> current?.previewVersion
                 RegionStorage.TRANSIT_DIR -> current?.transitVersion
                 else -> null
@@ -203,7 +208,8 @@ class RegionRepository @Inject constructor(
         region.versionOf(kind) == null -> null
         kind == PackageKind.MAP -> regionStorage.packageBytes(region.regionId, RegionStorage.MAP_FILE)
         kind == PackageKind.ROUTING -> regionStorage.packageBytes(region.regionId, RegionStorage.ROUTING_DIR)
-        kind == PackageKind.ADDRESSES -> regionStorage.packageBytes(region.regionId, RegionStorage.ADDRESSES_FILE)
+        kind == PackageKind.ADDRESSES -> regionStorage.packageBytes(region.regionId, RegionStorage.ADDRESSES_FILE) +
+            regionStorage.packageBytes(region.regionId, RegionStorage.ADDRESSES_SEARCH_DIR)
         kind == PackageKind.TRANSIT -> regionStorage.packageBytes(region.regionId, RegionStorage.TRANSIT_DIR)
         kind == PackageKind.POI_EXTRA -> region.poiExtraSizeBytes
         kind == PackageKind.CITIES -> region.citiesSizeBytes

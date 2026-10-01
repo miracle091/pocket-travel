@@ -41,6 +41,7 @@ object AppIcons {
     val MoreFilled: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_more_horiz_fill)
     val Storage: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_storage)
     val Licenses: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_gavel)
+    val Settings: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_settings)
     val Tutorial: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_school)
     val Camera: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_photo_camera)
     val Checklist: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_checklist)

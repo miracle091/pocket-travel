@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.pockettravel.core.data.db.ALL_MIGRATIONS
 import com.pockettravel.core.data.db.CityDao
+import com.pockettravel.core.data.db.DiplomaticMissionDao
 import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.GuideDao
 import com.pockettravel.core.data.db.NoteDao
@@ -38,6 +39,9 @@ object DatabaseModule {
 
     @Provides
     fun provideEmergencyNumbersDao(database: RegionDatabase): EmergencyNumbersDao = database.emergencyNumbersDao()
+
+    @Provides
+    fun provideDiplomaticMissionDao(database: RegionDatabase): DiplomaticMissionDao = database.diplomaticMissionDao()
 
     @Provides
     fun providePoiDao(database: RegionDatabase): PoiDao = database.poiDao()

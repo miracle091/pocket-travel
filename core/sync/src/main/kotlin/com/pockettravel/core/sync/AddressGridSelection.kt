@@ -44,10 +44,13 @@ fun regionGridCells(index: AddressGridIndex, bbox: MapExtractionSource): List<Ad
  * primi 16 esadecimali dello SHA-256 di "id@version" delle celle, uno per riga, ordinati per id —
  * cosi' il confronto di versione gia' esistente (RegionListViewModel.outdatedKinds) vede un
  * aggiornamento ogni volta che una cella cambia, si aggiunge o sparisce (es. divisa in figlie),
- * senza bisogno di un formato di versione diverso.
+ * senza bisogno di un formato di versione diverso. Una cella con [AddressGridCell.search] conta come
+ * un'altra versione ("+search"): chi ha gia' i civici la vede aggiornarsi e prende il database di
+ * ricerca anche se la pipeline non ha cambiato la version della cella. Senza ricerca la stringa
+ * (e quindi la versione) resta quella di prima.
  */
 fun regionAddressesGridVersion(cells: List<AddressGridCell>): String {
-    val lines = cells.map { "${it.id}@${it.version}" }.sorted().joinToString("\n")
+    val lines = cells.map { "${it.id}@${it.version}" + if (it.search != null) "+search" else "" }.sorted().joinToString("\n")
     val digest = MessageDigest.getInstance("SHA-256").digest(lines.toByteArray(Charsets.UTF_8))
     val hex = digest.joinToString("") { "%02x".format(it) }
     return "grid-" + hex.take(16)

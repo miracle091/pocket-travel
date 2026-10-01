@@ -50,7 +50,7 @@ class PackageImporterDeviceTest {
 
     @Test
     fun importaLeGuideDiTutteLeRegioniERegistraLaVersione() = runBlocking {
-        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), repository, db)
+        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), repository, db)
         assertNull(repository.installedGuidesVersion())
 
         val file = copyAsset("guides.db")
@@ -60,6 +60,7 @@ class PackageImporterDeviceTest {
         assertTrue(db.guideDao().sectionsForRegion("lettonia").isNotEmpty())
         assertEquals("113", db.emergencyNumbersDao().forRegion("san-marino")?.police)
         assertEquals("2026.09.23", repository.installedGuidesVersion())
+        assertTrue("senza la tabella nel guides.db non ci sono rappresentanze", db.diplomaticMissionDao().missions("it", "es").isEmpty())
         assertFalse("guides.db va cancellato dopo l'import", file.exists())
 
         // Un secondo import sostituisce, non accoda.
@@ -67,6 +68,27 @@ class PackageImporterDeviceTest {
         importer.import(copyAsset("guides.db"), "2026.09.30")
         assertEquals(sanMarinoSections, db.guideDao().sectionsForRegion("san-marino").size)
         assertEquals("2026.09.30", repository.installedGuidesVersion())
+    }
+
+    @Test
+    fun importaLeRappresentanzeDiplomaticheSeLaTabellaCeESostituisceLePrecedenti() = runBlocking {
+        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), repository, db)
+        importer.import(guidesDbWithMissions("guides-missions.db", "Q1", "Q2"), "2026.10.01")
+
+        val missions = db.diplomaticMissionDao().missions("it", "es")
+        assertEquals(setOf("Q1", "Q2"), missions.map { it.wikidata }.toSet())
+        val first = missions.single { it.wikidata == "Q1" }
+        assertEquals("Embassy of Italy", first.nameEn)
+        assertNull(first.address)
+        assertEquals(40.4, first.lat!!, 1e-9)
+
+        // Un secondo import sostituisce, non accoda.
+        importer.import(guidesDbWithMissions("guides-missions-2.db", "Q3"), "2026.10.08")
+        assertEquals(listOf("Q3"), db.diplomaticMissionDao().missions("it", "es").map { it.wikidata })
+
+        // Un guides.db senza la tabella svuota quelle importate: il dato e' sempre quello del pacchetto.
+        importer.import(copyAsset("guides.db"), "2026.10.15")
+        assertTrue(db.diplomaticMissionDao().missions("it", "es").isEmpty())
     }
 
     @Test
@@ -150,6 +172,26 @@ class PackageImporterDeviceTest {
             )
             poi.execSQL("INSERT INTO poi VALUES ('Ambasciata', 0, 45464600, 9190800, '+39 06 1234567', NULL)")
             poi.version = 1
+        }
+        return file
+    }
+
+    /** Crea un guides.db minimo con la sola tabella diplomatic_missions (schema di tools/data-pipeline) e le rappresentanze [wikidataIds]. */
+    private fun guidesDbWithMissions(name: String, vararg wikidataIds: String): File {
+        val file = File(workDir, name)
+        SQLiteDatabase.openOrCreateDatabase(file, null).use { guides ->
+            guides.execSQL("CREATE TABLE guide_sections (regionId TEXT NOT NULL, category TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, sourceUrl TEXT NOT NULL)")
+            guides.execSQL("CREATE TABLE emergency_numbers (regionId TEXT NOT NULL, general TEXT, police TEXT NOT NULL, ambulance TEXT NOT NULL, fire TEXT NOT NULL)")
+            guides.execSQL(
+                "CREATE TABLE diplomatic_missions (wikidata TEXT NOT NULL PRIMARY KEY, sending TEXT NOT NULL, host TEXT NOT NULL, kind TEXT NOT NULL, " +
+                    "name TEXT NOT NULL, name_en TEXT, city TEXT, address TEXT, phone TEXT, website TEXT, email TEXT, lat REAL, lon REAL)",
+            )
+            for (id in wikidataIds) {
+                guides.execSQL(
+                    "INSERT INTO diplomatic_missions VALUES ('$id', 'it', 'es', 'embassy', 'Embajada de Italia', 'Embassy of Italy', 'Madrid', NULL, " +
+                        "'+34 91 1234567', 'https://amb.esteri.it', NULL, 40.4, -3.7)",
+                )
+            }
         }
         return file
     }

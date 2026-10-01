@@ -137,7 +137,7 @@ data class RegionManifestEntry(
             (if (PackageKind.TRANSIT in kinds) transit?.feeds?.sumOf { it.downloadFile.sizeBytes } ?: 0L else 0L)
 
     private fun addressesDownloadBytes(installedAddressCells: Map<String, String>): Long =
-        addressGrid?.cells?.filter { installedAddressCells[it.id] != it.version }?.sumOf { it.downloadFile.sizeBytes } ?: 0L
+        addressGrid?.cells?.filter { installedAddressCells[it.id] != it.version }?.sumOf { it.downloadFile.sizeBytes + (it.search?.downloadFile?.sizeBytes ?: 0L) } ?: 0L
 }
 
 /** map.pmtiles non e' un file scaricato: viene estratto sul device dalle tile di [source]. */
@@ -183,10 +183,24 @@ data class AddressGridIndex(
 
 /**
  * Una cella (nodo z/x/y del quadtree Web Mercator, z <= 14 = tileZoom): stesso schema di
- * [PoiPackageEntry], [fileXz] se c'e' e' il file da scaricare, compresso con xz.
+ * [PoiPackageEntry], [fileXz] se c'e' e' il file da scaricare, compresso con xz. [search], se c'e',
+ * e' il database per la ricerca degli indirizzi della cella (addresses-search.db), assente nei manifest
+ * pubblicati prima: senza, la cella funziona come sempre ma non si cerca per indirizzo.
  */
 @Serializable
-data class AddressGridCell(val id: String, val version: String, val file: RegionManifestFile, val fileXz: RegionManifestFile? = null) {
+data class AddressGridCell(
+    val id: String, val version: String, val file: RegionManifestFile, val fileXz: RegionManifestFile? = null,
+    val search: AddressSearchEntry? = null,
+) {
+    val downloadFile: RegionManifestFile get() = fileXz ?: file
+}
+
+/**
+ * addresses-search.db di una cella, stesso schema di [AddressGridCell]: [fileXz], se c'e', e' il file da
+ * scaricare, compresso con xz, il cui risultato decompresso deve avere dimensione e sha256 di [file].
+ */
+@Serializable
+data class AddressSearchEntry(val file: RegionManifestFile, val fileXz: RegionManifestFile? = null) {
     val downloadFile: RegionManifestFile get() = fileXz ?: file
 }
 
@@ -297,9 +311,14 @@ fun AddressGridIndex.validate() {
     require(cells == cells.sortedBy { it.id }) { "cells non ordinato per id" }
     require(cells.map { it.id }.toSet().size == cells.size) { "id di cella duplicati" }
     val ids = cells.map { requireNotNull(parseCellId(it.id)) { "id di cella non valido: ${it.id}" } }
-    for (i in ids.indices) {
-        for (j in ids.indices) {
-            require(i == j || !ids[i].isSameOrDescendantOf(ids[j])) { "cella discendente di un'altra: ${cells[i].id} di ${cells[j].id}" }
+    // Id diversi come testo ma uguali una volta interpretati ("1/01/0" e "1/1/0") sono la stessa cella.
+    val idSet = ids.toHashSet()
+    require(idSet.size == ids.size) { "id di cella duplicati" }
+    // O(n * zoom): per ogni cella si risalgono gli antenati, nessun confronto a coppie.
+    ids.forEachIndexed { i, id ->
+        for (shift in 1..id.z) {
+            val ancestor = CellId(id.z - shift, id.x shr shift, id.y shr shift)
+            require(ancestor !in idSet) { "cella discendente di un'altra: ${cells[i].id} di ${ancestor.z}/${ancestor.x}/${ancestor.y}" }
         }
     }
     cells.forEach { it.validate("address-grid") }
@@ -310,6 +329,10 @@ private fun AddressGridCell.validate(owner: String) {
     require(isSafeVersion(version)) { "version di cella non valida per $id" }
     file.validate("$owner/$id")
     fileXz?.validate("$owner/$id")
+    search?.let {
+        it.file.validate("$owner/$id/search")
+        it.fileXz?.validate("$owner/$id/search")
+    }
 }
 
 internal fun RegionManifestFile.validate(owner: String) {

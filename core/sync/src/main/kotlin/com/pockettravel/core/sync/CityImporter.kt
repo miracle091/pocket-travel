@@ -21,6 +21,10 @@ class CityImporter @Inject constructor(
     private val cityDao: CityDao,
     private val database: RegionDatabase,
 ) {
+    /**
+     * Solo per i test (PackageImporterDeviceTest): legge, sostituisce e cancella [citiesDbFile]. L'installazione
+     * vera usa [readSections] fuori dalla transazione e [replace] dentro RegionRepository.inInstallTransaction.
+     */
     suspend fun import(regionId: String, citiesDbFile: File) = withContext(Dispatchers.IO) {
         val sections = readSections(regionId, citiesDbFile)
         replace(regionId, sections)
@@ -29,7 +33,7 @@ class CityImporter @Inject constructor(
 
     /**
      * Legge e fa il parsing del file senza toccare region.db: va chiamata fuori da
-     * RegionRepository.inInstallTransaction, come PoiImporter.readPois.
+     * RegionRepository.inInstallTransaction, per non tenere occupato il lock di scrittura del database durante l'IO sul file.
      */
     suspend fun readSections(regionId: String, citiesDbFile: File): List<CitySectionEntity> =
         withContext(Dispatchers.IO) {

@@ -8,7 +8,7 @@ import androidx.room.Query
 
 /**
  * Candidato di ricerca con il matchinfo FTS4 grezzo (formato 'pcx'), per ordinare per rilevanza
- * lato Kotlin: FTS4 non ha bm25() come FTS5. Vedi GuideRepository.searchInRegion per la lettura
+ * lato Kotlin: FTS4 non ha bm25() come FTS5. Vedi GuideRepository.searchInRegionScored e matchScore per la lettura
  * del blob.
  */
 class GuideSectionMatch(
@@ -25,7 +25,7 @@ interface GuideDao {
     suspend fun sectionsForRegion(regionId: String): List<GuideSectionEntity>
 
     // Nessun ORDER BY per rilevanza: FTS4 non ha bm25(), quindi si prendono fino a candidateLimit
-    // candidati (in ordine di rowid) col loro matchinfo, e GuideRepository.searchInRegion li
+    // candidati (in ordine di rowid) col loro matchinfo, e GuideRepository.searchInRegionScored li
     // riordina in Kotlin prima di tagliare al limite richiesto dal chiamante.
     @Query(
         """

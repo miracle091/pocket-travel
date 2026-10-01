@@ -1,1 +1,6 @@
-<manifest />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- LastKnownPosition.kt legge l'ultima posizione nota solo se uno dei due permessi e' concesso: li
+         chiede l'app, qui servono al lint del modulo per vedere il controllo -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+</manifest>

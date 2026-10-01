@@ -10,10 +10,21 @@ import java.text.Normalizer
  */
 internal fun accentInsensitiveGlob(query: String): String = buildString {
     append('*')
-    for (char in baseLetters(query)) {
+    for (original in query) {
+        // Un carattere alla volta: senza segni diacritici ne resta uno solo, o nessuno se era un segno combinante.
+        val base = baseLetters(original.toString())
+        if (base.length != 1) {
+            if (base.isNotEmpty()) append(original)
+            continue
+        }
+        val char = base[0]
         val variants = LETTER_VARIANTS[char]
+        // Lettere senza varianti (cirillico, greco...): maiuscola, minuscola, base senza accento e lettera
+        // originale, cosi' il testo digitato esatto trova sempre se stesso, anche con l'accento (ή).
+        val forms = linkedSetOf(original, original.lowercaseChar(), original.uppercaseChar(), char, char.uppercaseChar())
         when {
             variants != null -> append('[').append(variants).append(']')
+            forms.size > 1 -> append('[').append(forms.joinToString("")).append(']')
             // Caratteri speciali di GLOB come gruppo di un solo carattere: valgono per se stessi.
             char == '*' || char == '?' || char == '[' -> append('[').append(char).append(']')
             else -> append(char)

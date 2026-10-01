@@ -10,6 +10,7 @@ import javax.inject.Inject
 class AppStatusClient @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val json: Json,
+    private val signatureVerifier: ManifestSignatureVerifier,
 ) {
     suspend fun fetchAppStatus(): AppStatus = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(SyncConfig.APP_STATUS_URL).build()
@@ -17,7 +18,10 @@ class AppStatusClient @Inject constructor(
             if (!response.isSuccessful) {
                 error("App status fetch failed: HTTP ${response.code}")
             }
-            val body = response.body.string().ifEmpty { error("Empty app status response") }
+            val bodyBytes = response.body.bytes()
+            if (bodyBytes.isEmpty()) error("Empty app status response")
+            signatureVerifier.verify(SyncConfig.APP_STATUS_URL, bodyBytes)
+            val body = bodyBytes.decodeToString()
             json.decodeFromString(AppStatus.serializer(), body).also { status ->
                 status.appVersion?.validate()
                 status.aiModels.forEach { it.validate() }

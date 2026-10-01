@@ -191,6 +191,19 @@ class TransitBoardTest {
     }
 
     @Test
+    fun laFinestraCheInizieDomaniNonEScaduta() {
+        // Fuso della rete avanti rispetto a chi ha costruito: window_start (29 settembre) e' domani. Alle 23:30 del
+        // 28 settembre a Riga (20:30Z) oggi non c'e' servizio, ma la partenza delle 00:10 del 29 si vede.
+        service(4, byteArrayOf(0b0000_0001))
+        trip(1, 1, 4, 1, stop = 1, minute = 10)
+        trip(2, 1, 4, 1, stop = 1, minute = 1420)
+        val board = board("2026-09-28T20:30:00Z") as TransitBoard.Departures
+        assertEquals(listOf(40), board.items.map { it.inMinutes })
+        // Da piu' di un giorno prima dell'inizio resta Expired.
+        assertTrue(board("2026-09-27T20:30:00Z") is TransitBoard.Expired)
+    }
+
+    @Test
     fun colonneDellaLinea() {
         trip(1, 1, 1, 1, stop = 1, minute = 545) // 22, bus, rosso senza colore del testo
         trip(2, 2, 1, null, stop = 1, minute = 546) // solo long_name, tram esteso 900, senza colore

@@ -28,34 +28,17 @@ class PoiImporter @Inject constructor(
     private val poiDao: PoiDao,
     private val database: RegionDatabase,
 ) {
+    /**
+     * Solo per i test (PackageImporterDeviceTest): sostituisce i POI e cancella [poiDbFile]. L'installazione
+     * vera passa da [replaceFromFile] dentro RegionRepository.inInstallTransaction e lascia il file allo staging.
+     */
     suspend fun import(regionId: String, poiDbFile: File, extra: Boolean = false) = withContext(Dispatchers.IO) {
-        val pois = readPois(regionId, poiDbFile, extra)
-        replace(regionId, pois, extra)
+        replaceFromFile(regionId, poiDbFile, extra)
         poiDbFile.delete()
     }
 
     /**
-     * Legge e fa il parsing del file senza toccare region.db: va chiamata fuori da
-     * RegionRepository.inInstallTransaction, cosi' l'IO sul file non tiene occupato il lock di
-     * scrittura del database (RegionPackageInstaller).
-     */
-    suspend fun readPois(regionId: String, poiDbFile: File, extra: Boolean = false): List<PoiEntity> =
-        withContext(Dispatchers.IO) {
-            SQLiteDatabase.openDatabase(poiDbFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-                readPois(regionId, db, extra)
-            }
-        }
-
-    /** Sostituisce i POI del pacchetto: va chiamata dentro RegionRepository.inInstallTransaction. */
-    suspend fun replace(regionId: String, pois: List<PoiEntity>, extra: Boolean = false) {
-        database.withTransaction {
-            poiDao.deletePackageForRegion(regionId, extra)
-            poiDao.insertAll(pois)
-        }
-    }
-
-    /**
-     * Come [replace], ma leggendo [poiDbFile] a blocchi di [CHUNK_SIZE] righe invece che tutto in memoria:
+     * Sostituisce i POI del pacchetto leggendo [poiDbFile] a blocchi di [CHUNK_SIZE] righe invece che tutto in memoria:
      * per le regioni grandi (centinaia di migliaia di POI, ognuno con una dozzina di stringhe) la lista
      * intera rischia l'OutOfMemoryError. Il file si legge dentro la transazione (piu' lunga, ma e' un'installazione).
      */
@@ -72,12 +55,6 @@ class PoiImporter @Inject constructor(
     // MergeManifests.convertV1Region, tools/data-pipeline) pubblicati prima di "phone" non la hanno, i
     // poi.db pubblicati prima di "wheelchair" nemmeno questa. Selezionare una colonna assente farebbe
     // fallire l'intero download.
-    private suspend fun readPois(regionId: String, db: SQLiteDatabase, extra: Boolean): List<PoiEntity> {
-        val pois = mutableListOf<PoiEntity>()
-        forEachPoiChunk(regionId, db, extra) { pois += it }
-        return pois
-    }
-
     private suspend fun forEachPoiChunk(regionId: String, db: SQLiteDatabase, extra: Boolean, onChunk: suspend (List<PoiEntity>) -> Unit) {
         // db.version legge PRAGMA user_version: assente (0) sui file nel vecchio formato, vedi la
         // nota di formato sopra la classe.
@@ -134,7 +111,7 @@ class PoiImporter @Inject constructor(
             "SELECT name, category, lat, lon, osmTag" + OPTIONAL_COLUMNS.filter { it in columns }.joinToString("") { ", $it" } + " FROM poi"
 
         // Formato compatto (GeneratePoi.kt, POI_DB_FORMAT_VERSION): stesso ordine di colonne di
-        // poiQuery (name, category, lat, lon, osmTag, poi le facoltative) cosi' readPois legge le
+        // poiQuery (name, category, lat, lon, osmTag, poi le facoltative) cosi' forEachPoiChunk legge le
         // prime cinque per posizione in entrambi i casi. Anche qui le facoltative dipendono dal file:
         // i poi.db pubblicati prima di orari e indirizzo non le hanno.
         internal fun compactPoiQuery(columns: Set<String>): String =

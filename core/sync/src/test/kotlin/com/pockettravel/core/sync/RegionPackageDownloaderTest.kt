@@ -119,6 +119,21 @@ class RegionPackageDownloaderTest {
     }
 
     @Test
+    fun `un flusso piu' lungo del manifest si ferma subito e cancella il part file`() = runBlocking {
+        val bytes = "abc".toByteArray()
+        server.enqueue(MockResponse().setResponseCode(200).setBody("abc".repeat(100_000)))
+
+        try {
+            downloader.downloadAndVerify(manifestFile(bytes), File(targetDir, "content.db"))
+            fail("piu' byte del manifest devono far fallire il download")
+        } catch (_: PermanentRegionPackageException) {
+            // atteso
+        }
+        assertFalse(File(targetDir, "content.db.part").exists())
+        assertFalse(File(targetDir, "content.db").exists())
+    }
+
+    @Test
     fun `un errore 404 e' permanente`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(404))
         val bytes = "x".toByteArray()

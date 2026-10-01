@@ -2,6 +2,7 @@ package com.pockettravel.core.sync
 
 import ch.poole.geo.pmtiles.Constants
 import com.pockettravel.core.data.RegionStorage
+import com.pockettravel.core.data.mergeAddressSearchOnDevice
 import java.io.File
 import javax.inject.Inject
 
@@ -27,12 +28,23 @@ class RegionAddressGridInstaller @Inject constructor(
     private val regionStorage: RegionStorage,
 ) {
     /** Celle da scaricare (nuove o con version diversa) e celle invariate (da tenere dal file installato). */
-    data class Plan(val allCells: List<AddressGridCell>, val toDownload: List<AddressGridCell>, val unchanged: List<AddressGridCell>)
+    data class Plan(
+        val allCells: List<AddressGridCell>,
+        val toDownload: List<AddressGridCell>,
+        val unchanged: List<AddressGridCell>,
+        // Celle di cui scaricare anche il database di ricerca: quelle da scaricare e quelle invariate che non
+        // ce l'hanno ancora su disco (installate prima della ricerca). Solo celle con AddressGridCell.search.
+        val searchToDownload: List<AddressGridCell> = emptyList(),
+    )
 
     fun plan(regionId: String, addressGrid: RegionAddressGridEntry): Plan {
         val installed = regionStorage.installedAddressCells(regionId)
         val (unchanged, toDownload) = addressGrid.cells.partition { installed[it.id] == it.version }
-        return Plan(addressGrid.cells, toDownload, unchanged)
+        val installedSearch = regionStorage.addressSearchFiles(regionId).map { it.name }.toSet()
+        val searchToDownload = addressGrid.cells.filter {
+            it.search != null && (it in toDownload || RegionStorage.addressSearchFileName(it.id) !in installedSearch)
+        }
+        return Plan(addressGrid.cells, toDownload, unchanged, searchToDownload)
     }
 
     /**
@@ -41,8 +53,17 @@ class RegionAddressGridInstaller @Inject constructor(
      * pacchetti richiesti. Bloccante (letture di file): va chiamato fuori dal main thread.
      * [ensureActive] e' invocato piu' volte durante la copia delle tile e deve lanciare un'eccezione
      * per interrompere l'operazione (es. CoroutineScope.ensureActive del worker annullato).
+     * [mergeSearch] unisce i database di ricerca per cella nel database unico della regione (e' un parametro
+     * solo perche' i test JVM non hanno android.database, vedi [assembleSearchDir]).
      */
-    fun mergeInto(regionId: String, mapSource: MapExtractionSource, plan: Plan, staging: File, ensureActive: () -> Unit = {}) {
+    fun mergeInto(
+        regionId: String,
+        mapSource: MapExtractionSource,
+        plan: Plan,
+        staging: File,
+        mergeSearch: (cells: List<File>, target: File) -> Unit = ::mergeAddressSearchOnDevice,
+        ensureActive: () -> Unit = {},
+    ) {
         require(plan.allCells.isNotEmpty()) { "Nessuna cella dei civici per $regionId" }
         val installedAddresses = File(regionStorage.directoryFor(regionId), RegionStorage.ADDRESSES_FILE)
         var metadataJson: String? = null
@@ -98,6 +119,35 @@ class RegionAddressGridInstaller @Inject constructor(
         File(staging, RegionStorage.ADDRESSES_CELLS_FILE).writeText(
             RegionStorage.encodeAddressCells(plan.allCells.associate { it.id to it.version }),
         )
+        assembleSearchDir(regionId, plan, staging, mergeSearch)
+    }
+
+    /**
+     * Prepara [RegionStorage.ADDRESSES_SEARCH_DIR] in [staging], pronta da attivare: per ogni cella con
+     * ricerca il database appena scaricato (in [staging] col nome del manifest, vedi [Plan.searchToDownload])
+     * o, per le celle invariate, la copia di quello gia' installato. Le celle senza ricerca restano fuori:
+     * la cartella puo' essere vuota (manifest senza ricerca) e sostituisce comunque quella precedente.
+     * Ai database per cella (che servono solo a scaricare in seguito le sole celle cambiate) si aggiunge
+     * [RegionStorage.ADDRESSES_SEARCH_DB], l'unione di tutte le celle con cui l'app cerca: costruita qui, prima
+     * dell'attivazione, cosi' file per cella e file unito cambiano insieme, con la stessa sostituzione della cartella.
+     */
+    private fun assembleSearchDir(regionId: String, plan: Plan, staging: File, mergeSearch: (List<File>, File) -> Unit) {
+        val dir = File(staging, RegionStorage.ADDRESSES_SEARCH_DIR)
+        dir.deleteRecursively()
+        check(dir.mkdirs()) { "Impossibile creare ${RegionStorage.ADDRESSES_SEARCH_DIR}" }
+        val installedDir = File(regionStorage.directoryFor(regionId), RegionStorage.ADDRESSES_SEARCH_DIR)
+        plan.allCells.forEach { cell ->
+            val search = cell.search ?: return@forEach
+            val target = File(dir, RegionStorage.addressSearchFileName(cell.id))
+            val downloaded = File(staging, search.file.name)
+            val installed = File(installedDir, target.name)
+            when {
+                cell in plan.searchToDownload -> check(downloaded.renameTo(target)) { "Impossibile installare la ricerca della cella ${cell.id}" }
+                installed.isFile -> installed.copyTo(target)
+            }
+        }
+        val cellFiles = dir.listFiles().orEmpty().filter { it.isFile }.sortedBy { it.name }
+        if (cellFiles.isNotEmpty()) mergeSearch(cellFiles, File(dir, RegionStorage.ADDRESSES_SEARCH_DB))
     }
 
     /** Intervallo (in coordinate x/y a zoom 14) delle tile discendenti di una cella. */

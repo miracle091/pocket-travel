@@ -46,7 +46,7 @@ class RegionPackageInstaller @Inject constructor(
             if (PackageKind.ROUTING in kinds) addAll(entry.routing.files)
             if (PackageKind.POI in kinds) add(entry.poi.downloadFile)
             if (PackageKind.POI_EXTRA in kinds) add(entry.poiExtra!!.downloadFile)
-            if (PackageKind.ADDRESSES in kinds) addAll(addressPlan!!.toDownload.map { it.downloadFile })
+            if (PackageKind.ADDRESSES in kinds) addAll(addressPlan!!.toDownload.map { it.downloadFile } + addressPlan.searchToDownload.map { it.search!!.downloadFile })
             if (PackageKind.CITIES in kinds) add(entry.cities!!.downloadFile)
             if (PackageKind.TRANSIT in kinds) addAll(entry.transit!!.feeds.map { it.stagedDownloadFile })
             if (installPreview) add(entry.preview.downloadFile)
@@ -63,8 +63,9 @@ class RegionPackageInstaller @Inject constructor(
         if (PackageKind.POI_EXTRA in kinds) unpackXz(staging, entry.poiExtra!!.file, entry.poiExtra.fileXz)
         if (PackageKind.ADDRESSES in kinds) {
             addressPlan!!.toDownload.forEach { unpackXz(staging, it.file, it.fileXz) }
+            addressPlan.searchToDownload.forEach { unpackXz(staging, it.search!!.file, it.search.fileXz) }
             withContext(Dispatchers.IO) {
-                addressGridInstaller.mergeInto(entry.regionId, entry.map.source, addressPlan, staging) { ensureActive() }
+                addressGridInstaller.mergeInto(entry.regionId, entry.map.source, addressPlan, staging, ensureActive = { ensureActive() })
             }
         }
         if (PackageKind.CITIES in kinds) unpackXz(staging, entry.cities!!.file, entry.cities.fileXz)
@@ -107,6 +108,7 @@ class RegionPackageInstaller @Inject constructor(
                 val version = entry.versionOf(PackageKind.ADDRESSES)!!
                 activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_FILE, File(staging, RegionStorage.ADDRESSES_FILE), version)
                 activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_CELLS_FILE, File(staging, RegionStorage.ADDRESSES_CELLS_FILE), version)
+                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_SEARCH_DIR, File(staging, RegionStorage.ADDRESSES_SEARCH_DIR), version)
             }
             if (PackageKind.TRANSIT in kinds) {
                 activations += regionStorage.activatePackage(entry.regionId, RegionStorage.TRANSIT_DIR, File(staging, RegionStorage.TRANSIT_DIR), entry.versionOf(PackageKind.TRANSIT)!!)

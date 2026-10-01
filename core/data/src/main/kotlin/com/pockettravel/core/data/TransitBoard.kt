@@ -80,7 +80,7 @@ sealed interface TransitBoard {
     /** Nessuna rete installata ha fermate vicino al punto. */
     data object NoStops : TransitBoard
 
-    /** Orari fuori dalla finestra di validita' (prima dell'inizio o dopo la fine): nessuna partenza. */
+    /** Orari fuori dalla finestra di validita' (oltre un giorno prima dell'inizio, o dopo la fine): nessuna partenza. */
     data class Expired(val validUntil: LocalDate, val feeds: List<TransitFeedInfo>) : TransitBoard
 
     /** Le prossime partenze (anche nessuna), con l'ultimo giorno valido e i giorni che restano (0 = scade oggi). */
@@ -135,7 +135,10 @@ internal fun readFeedBoard(db: TransitQuery, feed: TransitFeedInfo?, latitude: D
 
     val local = now.atZone(zone)
     val today = local.toLocalDate()
-    if (today < windowStart || today > validUntil) return TransitBoard.Expired(validUntil, feeds)
+    // window_start e' la data di costruzione nel fuso della rete: con un fuso avanti rispetto a chi ha
+    // costruito puo' essere domani. Quel giorno di scarto non e' scaduto: nessuna partenza oggi (dayIndex < 0
+    // sotto), ma quelle dopo mezzanotte si vedono.
+    if (today.plusDays(1) < windowStart || today > validUntil) return TransitBoard.Expired(validUntil, feeds)
     val nowMinute = local.hour * 60 + local.minute
 
     val ids = stops.joinToString(",")

@@ -10,6 +10,12 @@ object SyncConfig {
     // BuildConfig.MANIFEST_URL_OVERRIDE e' vuoto nelle build di release (vedi build.gradle.kts).
     val MANIFEST_URL: String = BuildConfig.MANIFEST_URL_OVERRIDE.ifEmpty { PUBLISHED_MANIFEST_URL }
 
+    // Chiave pubblica ECDSA P-256 (X.509 SubjectPublicKeyInfo, base64) con cui si verificano le firme
+    // `<url>.sig` di manifest.json, transit.json, address-grid.json e app-status.json (vedi
+    // ManifestSignatureVerifier).
+    const val MANIFEST_PUBLIC_KEY =
+        "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQvTHdjgRhQviaUGMXeJgQ698ZGiIGjbK6iMPmjvend3tqHsvICoVlPHl+FnnjMwjKEOVai3BWWbmOuCSDkz1cw=="
+
     // Host di un manifest alternativo servito in chiaro (http, server locale in debug): l'unico
     // per cui RegionManifest accetta URL non https. null col manifest pubblicato.
     val CLEARTEXT_MANIFEST_HOST: String? = URI(MANIFEST_URL).takeIf { it.scheme == "http" }?.host

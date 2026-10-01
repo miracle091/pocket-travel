@@ -1,9 +1,12 @@
 package com.pockettravel.core.sync
 
 import android.content.Context
+import android.content.pm.ServiceInfo
+import android.os.SystemClock
 import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.pockettravel.core.data.PackageKind
@@ -33,11 +36,29 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
             entry.validate()
             regionId = entry.regionId
             var lastMapPercent = -1L
+            // Download in primo piano (tipo dataSync): notifica con avanzamento e "Annulla", e il sistema non lo
+            // ferma a schermo spento. Gli aggiornamenti dopo il primo sono asincroni e al massimo uno al secondo.
+            val notification = RegionDownloadNotification(applicationContext)
+            val throttle = UpdateThrottle()
+            fun foregroundInfo(phase: DownloadPhase) = ForegroundInfo(
+                notification.notificationId(entry.regionId),
+                notification.build(id, entry.displayName, kinds, phase),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+            )
+            try {
+                setForeground(foregroundInfo(DownloadPhase.Files(0, 0)))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                // Da Android 12 un nuovo tentativo partito da sfondo non puo' avviare il servizio: si scarica comunque, senza notifica.
+                Log.w(TAG, "Notifica di download non mostrata", error)
+            }
             installer.install(
                 entry,
                 kinds,
                 onProgress = { bytesDownloaded, totalBytes ->
                     setProgress(workDataOf(KEY_BYTES_DOWNLOADED to bytesDownloaded, KEY_TOTAL_BYTES to totalBytes))
+                    if (throttle.tryAcquire(SystemClock.elapsedRealtime())) setForegroundAsync(foregroundInfo(DownloadPhase.Files(bytesDownloaded, totalBytes)))
                 },
                 onMapProgress = { bytesDone, bytesTotal ->
                     // Chiamato dal thread bloccante dell'estrazione: setProgressAsync, e solo quando cambia la percentuale.
@@ -45,6 +66,7 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
                     if (percent != lastMapPercent) {
                         lastMapPercent = percent
                         setProgressAsync(workDataOf(KEY_MAP_BYTES_DONE to bytesDone, KEY_MAP_BYTES_TOTAL to bytesTotal))
+                        if (throttle.tryAcquire(SystemClock.elapsedRealtime())) setForegroundAsync(foregroundInfo(DownloadPhase.ExtractingMap(bytesDone, bytesTotal)))
                     }
                 },
             )

@@ -35,7 +35,10 @@ class GuidesSyncWorker @AssistedInject constructor(
         } catch (_: PermanentRegionPackageException) {
             Result.failure()
         } catch (_: IOException) {
-            Result.retry()
+            // Errore di rete: si riprova, ma non all'infinito (un errore persistente terrebbe il lavoro in
+            // attesa per sempre e lo staging delle guide non verrebbe mai ripulito). Il prossimo controllo
+            // periodico del manifest lo riaccoda.
+            if (shouldRetryGuidesSync(runAttemptCount)) Result.retry() else Result.failure()
         } catch (error: Exception) {
             Log.w(TAG, "Sync guide fallita", error)
             Result.failure()
@@ -46,3 +49,8 @@ class GuidesSyncWorker @AssistedInject constructor(
         private val TAG = GuidesSyncWorker::class.java.simpleName
     }
 }
+
+// Tentativi ripetuti dopo il primo per errori di rete, come per i pacchetti delle regioni.
+private const val GUIDES_SYNC_MAX_RETRIES = 5
+
+internal fun shouldRetryGuidesSync(runAttemptCount: Int): Boolean = runAttemptCount < GUIDES_SYNC_MAX_RETRIES

@@ -4,6 +4,8 @@ import com.pockettravel.core.data.RegionStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -12,6 +14,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.security.DigestInputStream
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
 class PermanentRegionPackageException(message: String) : Exception(message)
@@ -32,26 +35,31 @@ class RegionPackageDownloader @Inject constructor(
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit = { _, _ -> },
     ): File =
         withContext(Dispatchers.IO) {
-            regionStorage.cleanupStagingExcept(regionId, stagingVersion)
-            val staging = regionStorage.stagingDirectoryFor(regionId, stagingVersion)
-            staging.mkdirs()
-            val installedRouting = File(regionStorage.directoryFor(regionId), RegionStorage.ROUTING_DIR)
-            val totalBytes = files.sumOf { it.sizeBytes }
-            regionStorage.reserveSpace(totalBytes)
-            var bytesBeforeCurrentFile = 0L
-            files.forEach { file ->
-                val baseBytes = bytesBeforeCurrentFile
-                val target = File(staging, file.name)
-                if (reuseLocalCopy(file, target, File(installedRouting, file.name))) {
-                    onProgress(baseBytes + file.sizeBytes, totalBytes)
-                } else {
-                    downloadAndVerify(file, target) { fileBytesDownloaded ->
-                        onProgress(baseBytes + fileBytesDownloaded, totalBytes)
+            // Chiamate concorrenti sullo stesso id (piu' ViewModel che chiedono lo stesso indice, due lavori sulla
+            // stessa regione) si accodano: altrimenti scriverebbero lo stesso .part e cleanupStagingExcept
+            // cancellerebbe lo staging dell'altra. La seconda trova i file gia' completi e li riusa.
+            locks.getOrPut(regionId) { Mutex() }.withLock {
+                regionStorage.cleanupStagingExcept(regionId, stagingVersion)
+                val staging = regionStorage.stagingDirectoryFor(regionId, stagingVersion)
+                staging.mkdirs()
+                val installedRouting = File(regionStorage.directoryFor(regionId), RegionStorage.ROUTING_DIR)
+                val totalBytes = files.sumOf { it.sizeBytes }
+                regionStorage.reserveSpace(totalBytes)
+                var bytesBeforeCurrentFile = 0L
+                files.forEach { file ->
+                    val baseBytes = bytesBeforeCurrentFile
+                    val target = File(staging, file.name)
+                    if (reuseLocalCopy(file, target, File(installedRouting, file.name))) {
+                        onProgress(baseBytes + file.sizeBytes, totalBytes)
+                    } else {
+                        downloadAndVerify(file, target) { fileBytesDownloaded ->
+                            onProgress(baseBytes + fileBytesDownloaded, totalBytes)
+                        }
                     }
+                    bytesBeforeCurrentFile += file.sizeBytes
                 }
-                bytesBeforeCurrentFile += file.sizeBytes
+                staging
             }
-            staging
         }
 
     /**
@@ -107,21 +115,31 @@ class RegionPackageDownloader @Inject constructor(
             }
             var downloaded = if (append) existingBytes else 0L
             var lastReported = downloaded
-            FileOutputStream(partFile, append).use { output ->
-                body.byteStream().use { input ->
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    var read: Int
-                    while (input.read(buffer).also { read = it } != -1) {
-                        // Annullare il download (es. regione eliminata) lo ferma subito, non al prossimo onProgress.
-                        currentCoroutineContext().ensureActive()
-                        output.write(buffer, 0, read)
-                        downloaded += read
-                        if (downloaded - lastReported >= PROGRESS_STEP_BYTES) {
-                            lastReported = downloaded
-                            onProgress(downloaded)
+            try {
+                FileOutputStream(partFile, append).use { output ->
+                    body.byteStream().use { input ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        var read: Int
+                        while (input.read(buffer).also { read = it } != -1) {
+                            // Annullare il download (es. regione eliminata) lo ferma subito, non al prossimo onProgress.
+                            currentCoroutineContext().ensureActive()
+                            downloaded += read
+                            // Un server che manda piu' byte del manifest (anche col resume: conta il totale del
+                            // file) non riempie il disco: ci si ferma subito, senza aspettare l'EOF.
+                            if (downloaded > file.sizeBytes) {
+                                throw PermanentRegionPackageException("Dimensione non valida per ${file.name}: superiore ai ${file.sizeBytes} byte attesi")
+                            }
+                            output.write(buffer, 0, read)
+                            if (downloaded - lastReported >= PROGRESS_STEP_BYTES) {
+                                lastReported = downloaded
+                                onProgress(downloaded)
+                            }
                         }
                     }
                 }
+            } catch (e: PermanentRegionPackageException) {
+                partFile.delete()
+                throw e
             }
             onProgress(downloaded)
         }
@@ -153,6 +171,8 @@ class RegionPackageDownloader @Inject constructor(
     }
 
     private companion object {
+        // Un lock per id di staging, condiviso tra le istanze (il downloader non e' un singleton).
+        val locks = ConcurrentHashMap<String, Mutex>()
         const val PROGRESS_STEP_BYTES = 1_000_000L
     }
 }

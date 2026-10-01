@@ -92,6 +92,37 @@ class PackageImporterSchemaTest {
     }
 
     @Test
+    fun `diplomatic_missions si legge solo se guides db ha la tabella`() = withDb { conn ->
+        conn.createStatement().use { statement ->
+            assertEquals(false, statement.executeQuery(GuidesImporter.DIPLOMATIC_MISSIONS_TABLE_QUERY).next())
+            statement.execute(
+                "CREATE TABLE diplomatic_missions (wikidata TEXT NOT NULL PRIMARY KEY, sending TEXT NOT NULL, host TEXT NOT NULL, " +
+                    "kind TEXT NOT NULL, name TEXT NOT NULL, name_en TEXT, city TEXT, address TEXT, phone TEXT, website TEXT, " +
+                    "email TEXT, lat REAL, lon REAL)",
+            )
+            statement.execute(
+                "INSERT INTO diplomatic_missions VALUES ('Q1', 'it', 'es', 'embassy', 'Embajada de Italia', 'Embassy of Italy', 'Madrid', " +
+                    "NULL, '+34 91 1234567', 'https://amb.esteri.it', NULL, 40.4, -3.7)",
+            )
+        }
+        conn.createStatement().use { statement ->
+            assertEquals(true, statement.executeQuery(GuidesImporter.DIPLOMATIC_MISSIONS_TABLE_QUERY).next())
+            val rs = statement.executeQuery(GuidesImporter.DIPLOMATIC_MISSIONS_QUERY)
+            assertEquals(true, rs.next())
+            assertEquals("Q1", rs.getString("wikidata"))
+            assertEquals("it", rs.getString("sending"))
+            assertEquals("es", rs.getString("host"))
+            assertEquals("embassy", rs.getString("kind"))
+            assertEquals("Embassy of Italy", rs.getString("name_en"))
+            assertEquals("Madrid", rs.getString("city"))
+            assertEquals(null, rs.getString("address"))
+            assertEquals("https://amb.esteri.it", rs.getString("website"))
+            assertEquals(40.4, rs.getDouble("lat"), 1e-9)
+            assertEquals(false, rs.next())
+        }
+    }
+
+    @Test
     fun `la query poi legacy legge i content db v1 senza colonna phone`() = withDb { conn ->
         conn.createStatement().use { statement ->
             statement.execute("CREATE TABLE poi (regionId TEXT, name TEXT, category TEXT, lat REAL, lon REAL, osmTag TEXT)")

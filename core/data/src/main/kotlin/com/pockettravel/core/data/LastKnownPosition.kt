@@ -1,4 +1,4 @@
-package com.pockettravel.app.regions
+package com.pockettravel.core.data
 
 import android.Manifest
 import android.content.Context
@@ -10,7 +10,7 @@ import javax.inject.Inject
 
 /**
  * L'ultima posizione nota al telefono (GPS o rete), senza accendere nulla: per proporre le reti dei mezzi
- * pubblici vicine. Null senza permesso di posizione o se il telefono non ne conosce una.
+ * pubblici vicine e le ambasciate piu' vicine nella guida. Null senza permesso di posizione o se il telefono non ne conosce una.
  */
 class LastKnownPosition @Inject constructor(@ApplicationContext private val context: Context) {
     fun get(): Pair<Double, Double>? {

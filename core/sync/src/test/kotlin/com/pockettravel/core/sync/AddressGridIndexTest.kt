@@ -2,6 +2,7 @@ package com.pockettravel.core.sync
 
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -51,6 +52,58 @@ class AddressGridIndexTest {
     fun `attributions e' facoltativo`() {
         val withoutAttributions = parse("""{ "version": "v1", "tileZoom": 14, "cells": [] }""")
         assertEquals(emptyList<AddressGridAttribution>(), withoutAttributions.attributions)
+    }
+
+    // ---- search (database di ricerca degli indirizzi, facoltativo) ----
+
+    private val searchJson = """
+        "search": {
+          "file":   { "name": "cell-12-2178-1500--addresses-search.db", "url": "https://github.com/o/r/releases/download/address-cells-1/cell-12-2178-1500--addresses-search.db", "sizeBytes": 3000000, "sha256": "$sha" },
+          "fileXz": { "name": "cell-12-2178-1500--addresses-search.db.xz", "url": "https://github.com/o/r/releases/download/address-cells-1/cell-12-2178-1500--addresses-search.db.xz", "sizeBytes": 1000000, "sha256": "$sha" }
+        }
+    """.trimIndent()
+
+    private fun sampleWithSearch(search: String = searchJson) =
+        sampleIndex.replace("""{ "id": "12/2178/1500",""", """{ "id": "12/2178/1500", $search,""")
+
+    @Test
+    fun `un manifest senza search resta valido, la cella non ha ricerca`() {
+        val index = parse()
+        index.validate()
+        assertEquals(null, index.cells.single().search)
+    }
+
+    @Test
+    fun `legge search e la scarica compressa se c'e' fileXz`() {
+        val index = parse(sampleWithSearch())
+        index.validate()
+        val search = index.cells.single().search!!
+        assertEquals("cell-12-2178-1500--addresses-search.db", search.file.name)
+        assertEquals("cell-12-2178-1500--addresses-search.db.xz", search.downloadFile.name)
+    }
+
+    @Test
+    fun `search senza fileXz si scarica cosi' com'e'`() {
+        val index = parse(sampleWithSearch("""
+            "search": { "file": { "name": "s.db", "url": "https://github.com/o/r/releases/download/address-cells-1/s.db", "sizeBytes": 10, "sha256": "$sha" } }
+        """.trimIndent()))
+        index.validate()
+        assertEquals("s.db", index.cells.single().search!!.downloadFile.name)
+    }
+
+    @Test
+    fun `la convalida rifiuta un search con host non consentito o sha256 non valido`() {
+        val badHost = parse(sampleWithSearch(searchJson.replace("https://github.com/o/r/releases/download/address-cells-1/cell-12-2178-1500--addresses-search.db\"", "https://evil.example.com/s.db\"")))
+        assertThrows(IllegalArgumentException::class.java) { badHost.validate() }
+        val badSha = parse(sampleWithSearch(searchJson.replace(sha, "zz")))
+        assertThrows(IllegalArgumentException::class.java) { badSha.validate() }
+    }
+
+    @Test
+    fun `la versione dei civici cambia con la ricerca e resta quella di prima senza`() {
+        val without = cell("12/0/0")
+        val withSearch = without.copy(search = AddressSearchEntry(file("s.db")))
+        assertNotEquals(regionAddressesGridVersion(listOf(without)), regionAddressesGridVersion(listOf(withSearch)))
     }
 
     @Test

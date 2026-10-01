@@ -6,6 +6,8 @@ import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.poi.poiCategoryOf
 import javax.inject.Inject
 
+private const val HIDDEN_OVERFETCH = 4
+
 class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
     suspend fun forRegion(regionId: String): List<Poi> = poiDao.poisForRegion(regionId).map { it.toDomain() }
 
@@ -20,7 +22,10 @@ class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
     suspend fun searchByName(regionIds: List<String>, query: String, limit: Int): List<Poi> {
         val text = query.trim()
         if (text.length < 2 || regionIds.isEmpty()) return emptyList()
-        return poiDao.searchByName(regionIds, accentInsensitiveGlob(text), limit).map { it.toDomain() }.filterNot { it.isHiddenOnMap() }
+        // Il LIMIT di SQL viene prima del filtro sui nascosti (regola in Kotlin, non esprimibile in SQL): si
+        // chiede di piu' e si taglia dopo, cosi' i nascosti non svuotano il risultato.
+        return poiDao.searchByName(regionIds, accentInsensitiveGlob(text), limit * HIDDEN_OVERFETCH)
+            .map { it.toDomain() }.filterNot { it.isHiddenOnMap() }.take(limit)
     }
 
     /** Quanti treni (stazioni), metro, autostazioni, porti e aeroporti ha la regione, per categoria. */

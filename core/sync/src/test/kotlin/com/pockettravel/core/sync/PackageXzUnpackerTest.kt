@@ -1,5 +1,6 @@
 package com.pockettravel.core.sync
 
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -48,7 +49,7 @@ class PackageXzUnpackerTest {
     }.toByteArray()
 
     @Test
-    fun `decomprime e verifica un file xz`() {
+    fun `decomprime e verifica un file xz`() = runBlocking {
         val original = "contenuto delle guide".toByteArray()
         val compressed = xzOf(original)
         File(staging, "guides.db.xz").writeBytes(compressed)
@@ -59,14 +60,14 @@ class PackageXzUnpackerTest {
     }
 
     @Test
-    fun `senza fileXz non fa nulla`() {
+    fun `senza fileXz non fa nulla`() = runBlocking {
         unpackXz(staging, manifestFile("guides.db", "x".toByteArray()), null)
 
         assertFalse(File(staging, "guides.db").exists())
     }
 
     @Test
-    fun `un risultato decompresso diverso dal manifest fa fallire e cancella i file temporanei`() {
+    fun `un risultato decompresso diverso dal manifest fa fallire e cancella i file temporanei`() = runBlocking {
         val original = "contenuto vero".toByteArray()
         val compressed = xzOf(original)
         File(staging, "guides.db.xz").writeBytes(compressed)
@@ -80,6 +81,24 @@ class PackageXzUnpackerTest {
         }
         assertFalse(File(staging, "guides.db").exists())
         assertFalse(File(staging, "guides.db.xz").exists())
-        assertFalse(File(staging, "guides.db.unpack").exists())
+        assertEquals(emptyList<String>(), staging.list()!!.filter { it.endsWith(".unpack") })
+    }
+
+    @Test
+    fun `un risultato decompresso piu' grande del manifest si ferma e cancella i file temporanei`() = runBlocking {
+        val original = ByteArray(200_000) { 'a'.code.toByte() }
+        val compressed = xzOf(original)
+        File(staging, "guides.db.xz").writeBytes(compressed)
+        val smaller = manifestFile("guides.db", original).copy(sizeBytes = 1_000)
+
+        try {
+            unpackXz(staging, smaller, manifestFile("guides.db.xz", compressed))
+            fail("un output oltre la dimensione attesa deve far fallire")
+        } catch (_: PermanentRegionPackageException) {
+            // atteso
+        }
+        assertFalse(File(staging, "guides.db").exists())
+        assertFalse(File(staging, "guides.db.xz").exists())
+        assertEquals(emptyList<String>(), staging.list()!!.filter { it.endsWith(".unpack") })
     }
 }
