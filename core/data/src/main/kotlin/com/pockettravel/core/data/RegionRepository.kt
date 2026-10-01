@@ -95,6 +95,29 @@ class RegionRepository @Inject constructor(
         }
     }
 
+    /**
+     * Toglie dal database i pacchetti su file (mappa, percorsi, civici, orari dei mezzi) registrati ma
+     * senza file su disco: restano cosi' se l'app si chiude fra la cancellazione dei file e la
+     * transazione di [removePackage], e l'app li crederebbe installati ("Installato · 0 B") invece di
+     * proporre di scaricarli. Ritorna i pacchetti tolti.
+     */
+    suspend fun forgetMissingPackages(regionId: String): Set<PackageKind> {
+        val current = installed(regionId) ?: return emptySet()
+        val missing = FILE_PACKAGES.filter { (kind, packageName) ->
+            current.versionOf(kind) != null && regionStorage.packageBytes(regionId, packageName) == 0L
+        }.keys
+        if (missing.isEmpty()) return missing
+        save(
+            regionId, current.displayName, current.countryCode,
+            versionOf = { if (it in missing) null else current.versionOf(it) },
+            poiSizeBytes = current.poiSizeBytes,
+            poiExtraSizeBytes = current.poiExtraSizeBytes,
+            previewVersion = current.previewVersion,
+            citiesSizeBytes = current.citiesSizeBytes,
+        )
+        return missing
+    }
+
     private suspend fun save(
         regionId: String,
         displayName: String,
@@ -192,6 +215,13 @@ class RegionRepository @Inject constructor(
     /** Celle dei civici a griglia gia' installate (id -> version), per la dimensione da scaricare (RegionListViewModel). */
     fun installedAddressCells(regionId: String): Map<String, String> = regionStorage.installedAddressCells(regionId)
 }
+
+private val FILE_PACKAGES = mapOf(
+    PackageKind.MAP to RegionStorage.MAP_FILE,
+    PackageKind.ROUTING to RegionStorage.ROUTING_DIR,
+    PackageKind.ADDRESSES to RegionStorage.ADDRESSES_FILE,
+    PackageKind.TRANSIT to RegionStorage.TRANSIT_DIR,
+)
 
 private fun InstalledRegionEntity.toDomain() = RegionPackage(
     regionId = regionId,

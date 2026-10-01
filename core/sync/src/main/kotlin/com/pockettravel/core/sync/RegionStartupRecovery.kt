@@ -11,8 +11,8 @@ import java.io.File
 import javax.inject.Inject
 
 /**
- * All'avvio dell'app: chiude le attivazioni di pacchetti interrotte da un crash e toglie lo
- * staging che nessun download usera' piu'. Le regioni con un download in coda o in corso restano
+ * All'avvio dell'app: chiude le attivazioni di pacchetti interrotte da un crash, dimentica i
+ * pacchetti registrati i cui file non ci sono piu' e toglie lo staging che nessun download usera' piu'. Le regioni con un download in coda o in corso restano
  * al loro worker (RegionPackageInstaller recupera da se' prima di attivare).
  */
 class RegionStartupRecovery @Inject constructor(
@@ -32,6 +32,10 @@ class RegionStartupRecovery @Inject constructor(
             // File di una prima installazione interrotta fra l'attivazione e il database: nessuna riga
             // li conosce, resterebbero su disco per sempre.
             if (regionId !in installed) regionStorage.delete(regionId)
+        }
+        // Dopo il recupero delle attivazioni, che puo' rimettere a posto un pacchetto dal backup.
+        for (regionId in installed) {
+            if (!regionSyncScheduler.isDownloadPending(regionId)) regionRepository.forgetMissingPackages(regionId)
         }
 
         for (stagingId in regionStorage.stagingIds()) {
