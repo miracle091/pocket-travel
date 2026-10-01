@@ -14,14 +14,13 @@ class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
 
     /**
      * POI delle [regionIds] col nome (locale, italiano o inglese) che contiene [query], senza quelli nascosti
-     * sulla mappa: al piu' [limit], senza ordine (lo decide chi chiama, per esempio la distanza). Le maiuscole
-     * contano solo fuori dall'ASCII (LIKE di SQLite): "riga" trova "Riga" ma non "Rīga".
+     * sulla mappa: al piu' [limit], senza ordine (lo decide chi chiama, per esempio la distanza). Maiuscole e
+     * accenti non contano: "riga" trova "Rīga" e "Rīga" trova "Riga".
      */
     suspend fun searchByName(regionIds: List<String>, query: String, limit: Int): List<Poi> {
         val text = query.trim()
         if (text.length < 2 || regionIds.isEmpty()) return emptyList()
-        val pattern = "%" + text.replace("\\", "").replace("%", "").replace("_", "") + "%"
-        return poiDao.searchByName(regionIds, pattern, limit).map { it.toDomain() }.filterNot { it.isHiddenOnMap() }
+        return poiDao.searchByName(regionIds, accentInsensitiveGlob(text), limit).map { it.toDomain() }.filterNot { it.isHiddenOnMap() }
     }
 
     /** Quanti treni (stazioni), metro, autostazioni, porti e aeroporti ha la regione, per categoria. */

@@ -25,11 +25,12 @@ interface PoiDao {
     @Query("SELECT * FROM poi WHERE regionId = :regionId AND category = 'embassy' AND country = :country ORDER BY name")
     suspend fun embassiesOf(regionId: String, country: String): List<PoiEntity>
 
-    // Destinazioni della navigazione: nome locale, italiano o inglese che contiene [pattern] (gia' con i %).
-    // LIKE senza indice: una scansione della tabella, accettabile con il limite e una ricerca ogni tanto.
+    // Destinazioni della navigazione: nome locale, italiano o inglese che corrisponde a [pattern] (GLOB, vedi
+    // accentInsensitiveGlob). Senza indice: una scansione della tabella, accettabile con il limite e una
+    // ricerca ogni tanto.
     @Query(
         "SELECT * FROM poi WHERE regionId IN (:regionIds) AND extra = 0 " +
-            "AND (name LIKE :pattern OR nameIt LIKE :pattern OR nameEn LIKE :pattern) LIMIT :limit",
+            "AND (name GLOB :pattern OR nameIt GLOB :pattern OR nameEn GLOB :pattern) LIMIT :limit",
     )
     suspend fun searchByName(regionIds: List<String>, pattern: String, limit: Int): List<PoiEntity>
 
