@@ -79,6 +79,18 @@ class ScegliEstrattiTest(unittest.TestCase):
 
         self.assertEqual(sorted(chosen), ["enclave", "paese"])
 
+    def test_senza_foglie_il_composto_piu_piccolo(self):
+        # Come Sint Maarten: solo central-america (che ha figli altrove) e north-america lo coprono.
+        index = {"features": [
+            quadrato("north-america", 0, 0, 30, 30),
+            quadrato("central-america", 0, 0, 10, 10, "north-america"),
+            quadrato("cuba", 0, 0, 2, 2, "central-america"),
+        ]}
+
+        chosen = [cid for cid, _ in geofabrik_pois.scegli_estratti(index, (6, 6, 7, 7))]
+
+        self.assertEqual(chosen, ["central-america"])
+
     def test_bbox_tutto_dentro_un_estratto(self):
         index = {"features": [quadrato("a", 0, 0, 10, 10)]}
 

@@ -138,6 +138,12 @@ def scegli_estratti(index, bbox):
     # inglese (si scaricava tutta la Gran Bretagna; us per le Bahamas). Un'enclave non basta: il Marocco
     # contiene Ceuta e Melilla, il Sudafrica il Lesotho, e prima venivano scartati per questo.
     chosen = [c for c in leaves if tocca_bbox(c[2], bbox) and copertura(c, leaves) < 0.5]
+    if not chosen:
+        # Nessuna foglia tocca il riquadro (Sint Maarten sta solo in central-america e north-america):
+        # il piu' piccolo degli estratti che lo toccano, invece di ripiegare su Overpass.
+        touching = [(f["properties"]["id"], f["properties"]["urls"]["pbf"], anelli(f["geometry"])) for f in features]
+        touching = [(*c, rettangolo(c[2])) for c in touching if tocca_bbox(c[2], bbox)]
+        chosen = sorted(touching, key=lambda c: area(c[3]))[:1]
     return [(cid, url) for cid, url, _, _ in chosen]
 
 
