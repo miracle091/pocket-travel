@@ -107,6 +107,53 @@ class LlmModelManagerTest {
     }
 
     @Test
+    fun `un download oltre la dimensione attesa si interrompe e cancella il parziale`() = runBlocking {
+        val content = "0123456789".repeat(20)
+        val definition = testDefinition.copy(
+            url = server.url("/model").toString(),
+            sha256 = sha256Hex(content.toByteArray()),
+            sizeBytes = content.length - 1L,
+        )
+        server.enqueue(MockResponse().setResponseCode(200).setBody(content))
+
+        try {
+            modelManager.download(definition) { _, _ -> }
+            fail("un file piu' grande di sizeBytes deve interrompere il download")
+        } catch (_: ModelDownloadFailedException) {
+            // atteso
+        }
+
+        assertFalse(File(modelsDir, "${definition.fileName}.part").exists())
+        assertFalse(modelManager.isDownloaded(definition))
+    }
+
+    @Test
+    fun `il limite di dimensione conta anche i byte del parziale ripreso`() = runBlocking {
+        val fullText = "0123456789ABCDEF".repeat(10)
+        val definition = testDefinition.copy(
+            url = server.url("/model").toString(),
+            sha256 = sha256Hex(fullText.toByteArray()),
+            sizeBytes = fullText.length - 1L,
+        )
+        File(modelsDir, "${definition.fileName}.part").writeBytes(fullText.substring(0, 60).toByteArray())
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(206)
+                .setHeader("Content-Range", "bytes 60-${fullText.length - 1}/${fullText.length}")
+                .setBody(fullText.substring(60)),
+        )
+
+        try {
+            modelManager.download(definition) { _, _ -> }
+            fail("parziale + risposta oltre sizeBytes deve interrompere il download")
+        } catch (_: ModelDownloadFailedException) {
+            // atteso
+        }
+
+        assertFalse(File(modelsDir, "${definition.fileName}.part").exists())
+    }
+
+    @Test
     fun `un errore 404 e' permanente`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(404))
         val definition = testDefinition.copy(url = server.url("/model").toString())

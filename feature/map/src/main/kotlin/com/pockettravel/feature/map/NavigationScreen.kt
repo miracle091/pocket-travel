@@ -1,6 +1,31 @@
 package com.pockettravel.feature.map
 
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.FilledTonalIconButton
+import kotlin.math.ceil
+import androidx.compose.runtime.SideEffect
+import androidx.activity.compose.LocalActivity
+import android.view.WindowManager
+import android.os.Build
+import android.app.Activity
 import android.Manifest
+import androidx.annotation.PluralsRes
+import androidx.compose.ui.res.pluralStringResource
+import java.time.ZoneId
+import java.time.LocalDateTime
+import android.text.format.DateFormat
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.ZeroCornerSize
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.text.style.TextAlign
+import com.pockettravel.core.ui.DownloadProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Switch
@@ -23,18 +48,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
@@ -56,18 +74,13 @@ import androidx.compose.ui.unit.dp
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.R as UiR
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalLocale
@@ -80,6 +93,7 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
@@ -93,72 +107,70 @@ import java.text.NumberFormat
 import kotlin.math.roundToInt
 
 /**
- * Navigazione passo passo verso un punto, solo con il GPS attivo. Con bici e auto l'avviso su
- * autovelox, limiti di velocita' e zone a traffico limitato resta in cima in ogni stato: i dati di
- * percorso (BRouter/OSM) non li hanno.
+ * Guida passo passo dentro la scheda Navigatore, come nelle app di navigazione: la mappa a tutto
+ * schermo che segue la posizione, in alto il riquadro con la prossima svolta (e quella dopo), in basso
+ * tempo e distanza rimasti, ora di arrivo e "Termina"; toccando il pannello si vedono le svolte
+ * successive. Gli altri stati (permesso, GPS, calcolo, errori) prendono lo stesso schermo.
+ * Con bici e auto l'avviso su autovelox, limiti e zone a traffico limitato resta nel pannello: i
+ * dati di percorso (BRouter/OSM) non li hanno.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NavigationScreen(
+fun NavigationGuidance(
     state: NavigationUiState,
     destinationName: String,
     travelMode: TravelMode,
-    onTravelModeChange: (TravelMode) -> Unit,
-    // Profilo in sedia a rotelle (a piedi con "Con disabilita'"): avviso sui dati e "Accetto qualche gradino".
-    wheelchair: Boolean,
-    allowSteps: Boolean,
-    onAllowStepsChange: (Boolean) -> Unit,
-    // Mappa della schermata: lo stile della scheda Mappa, con una sorgente per ognuna delle regioni del percorso.
+    // Ora a cui si vuole arrivare ("Arriva alle…"), null se non scelta: il pannello dice se si e' in ritardo.
+    arriveBy: LocalDateTime?,
+    // Mappa della guida: lo stile della scheda Mappa, con una sorgente per ognuna delle regioni del percorso.
     tileSource: OfflineTileSource,
     regionIds: List<String>,
-    // Pacchetto Percorsi da scaricare: senza, "Scarica i percorsi" invece di un messaggio muto. Se e' quello
-    // di un'altra regione (partenza o arrivo fuori dalle regioni con i percorsi) ne arriva il nome.
-    routingPackage: RoutingPackageState,
-    missingRegionName: String?,
-    onDownloadRouting: () -> Unit,
     onPermissionResult: (Boolean) -> Unit,
     onRetry: () -> Unit,
     onClose: () -> Unit,
+    // Vibrazione a piedi (Impostazioni) e nomi delle strade trovati dalla mappa, per la notifica della guida.
+    walkingHaptics: Boolean = true,
+    onStreetNames: (Map<Int, String>) -> Unit = {},
+    // In auto, il lato di guida del paese se diverso da quello di casa: un avviso sempre visibile.
+    drivingSide: DrivingSide? = null,
 ) {
     val context = LocalContext.current
     // Il GPS vuole la posizione precisa: con la sola approssimativa si resta senza navigazione.
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         onPermissionResult(result[Manifest.permission.ACCESS_FINE_LOCATION] == true)
     }
-    // Schermo acceso mentre si naviga, come in ogni navigatore.
+    // Schermo acceso mentre si naviga, come in ogni navigatore, e guida visibile anche sopra la schermata
+    // di blocco: col telefono bloccato si vede la svolta senza sbloccarlo (il resto dell'app resta protetto).
     val view = LocalView.current
+    val activity = LocalActivity.current
     val navigating = state is NavigationUiState.Navigating
     DisposableEffect(navigating) {
         view.keepScreenOn = navigating
-        onDispose { view.keepScreenOn = false }
+        activity?.showWhenLocked(navigating)
+        onDispose {
+            view.keepScreenOn = false
+            activity?.showWhenLocked(false)
+        }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        if (destinationName.isBlank()) stringResource(R.string.navigation_title_no_name)
-                        else stringResource(R.string.navigation_title, destinationName),
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onClose) {
-                        Icon(AppIcons.Close, contentDescription = stringResource(R.string.navigation_close))
-                    }
-                },
-            )
-        },
-    ) { innerPadding ->
+    if (state is NavigationUiState.Navigating) {
+        Guidance(state, destinationName, travelMode, arriveBy, tileSource, regionIds, onClose, walkingHaptics, onStreetNames, drivingSide)
+        return
+    }
+    // Senza percorso da seguire: un messaggio al centro, con la meta in cima e sempre "Termina".
+    Surface(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = Spacing.l),
-            verticalArrangement = Arrangement.spacedBy(Spacing.l),
+            modifier = Modifier.fillMaxSize().padding(Spacing.l),
+            verticalArrangement = Arrangement.spacedBy(Spacing.l, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Solo con un veicolo (bici e auto; camper e moto usano l'auto): a piedi autovelox e ZTL
-            // non contano. In navigazione in una riga: lo spazio serve alla mappa.
-            if (travelMode != TravelMode.WALK) SpeedCameraNotice()
-            TravelModeSelector(travelMode, onTravelModeChange)
-            if (wheelchair) WheelchairOptions(allowSteps, onAllowStepsChange)
+            if (destinationName.isNotBlank()) {
+                Text(
+                    stringResource(R.string.navigation_title, destinationName),
+                    style = MaterialTheme.typography.titleLarge,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.semantics { heading() },
+                )
+            }
             when (state) {
                 NavigationUiState.NeedsPermission -> Message(
                     text = stringResource(R.string.navigation_permission),
@@ -174,47 +186,26 @@ fun NavigationScreen(
                 )
                 NavigationUiState.WaitingForFix -> Waiting(stringResource(R.string.navigation_waiting_fix))
                 is NavigationUiState.Calculating -> {
-                    Waiting(
-                        stringResource(R.string.navigation_calculating_elapsed, state.elapsedSeconds),
-                        announcement = stringResource(R.string.navigation_calculating),
-                    )
+                    Waiting(stringResource(R.string.navigation_calculating))
                     // Stima del motore: per i calcoli brevi non serve, compare dopo il primo secondo.
                     if (state.elapsedSeconds >= 1) {
-                        LinearProgressIndicator(progress = { state.progress.toFloat() }, modifier = Modifier.fillMaxWidth())
+                        DownloadProgressIndicator(progress = { state.progress.toFloat() }, modifier = Modifier.fillMaxWidth())
                         Text(
                             stringResource(R.string.navigation_calculating_progress, (state.progress * 100).roundToInt()),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
                     if (state.elapsedSeconds >= LONG_CALCULATION_SECONDS) {
-                        Text(stringResource(R.string.navigation_calculating_long), style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.navigation_calculating_long), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
                     }
                 }
-                NavigationUiState.Arrived -> Message(
-                    text = stringResource(R.string.navigation_arrived),
-                    action = stringResource(R.string.navigation_close),
-                    onAction = onClose,
-                )
-                is NavigationUiState.Unavailable if state.result == RouteResult.NoRoutingData -> when (routingPackage) {
-                    RoutingPackageState.MISSING -> Message(
-                        text = if (missingRegionName != null) stringResource(R.string.navigation_routing_missing_region, missingRegionName)
-                        else stringResource(R.string.navigation_routing_missing),
-                        action = if (missingRegionName != null) stringResource(R.string.navigation_routing_download_region, missingRegionName)
-                        else stringResource(R.string.navigation_routing_download),
-                        onAction = onDownloadRouting,
-                    )
-                    RoutingPackageState.DOWNLOADING -> Waiting(stringResource(R.string.navigation_routing_downloading))
-                    // Percorsi installati ma dati mancanti: partenza o arrivo fuori dalla loro zona.
-                    RoutingPackageState.INSTALLED, RoutingPackageState.UNKNOWN -> Message(
-                        text = stringResource(R.string.navigation_outside_routing),
-                        action = stringResource(R.string.navigation_retry),
-                        onAction = onRetry,
-                    )
-                }
+                // L'arrivo lo chiude il Navigatore (snackbar e vibrazione, o in silenzio): qui non si resta.
+                NavigationUiState.Arrived -> Unit
+                // Percorsi mancanti a meta' strada: partenza o arrivo fuori dalla zona dei percorsi scaricati.
                 is NavigationUiState.Unavailable -> Message(
                     text = stringResource(
                         when (state.result) {
-                            RouteResult.NoRoutingData -> R.string.navigation_no_routing_data
+                            RouteResult.NoRoutingData -> R.string.navigation_outside_routing
                             RouteResult.NotFound -> R.string.navigation_not_found
                             RouteResult.TimedOut -> R.string.navigation_timed_out
                             else -> R.string.navigation_failed
@@ -223,37 +214,31 @@ fun NavigationScreen(
                     action = stringResource(R.string.navigation_retry),
                     onAction = onRetry,
                 )
-                is NavigationUiState.Navigating -> Guidance(state, tileSource, regionIds)
+                is NavigationUiState.Navigating -> Unit
             }
+            TextButton(onClick = onClose) { Text(stringResource(R.string.navigation_close)) }
         }
     }
 }
 
 @Composable
 private fun SpeedCameraNotice() {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-        ),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(modifier = Modifier.padding(Spacing.m), verticalAlignment = Alignment.CenterVertically) {
-            Icon(AppIcons.Info, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(Spacing.m))
-            // L'invito a rispettare la segnaletica in grassetto, dopo l'elenco di quello che non si segnala.
-            val notShown = stringResource(R.string.navigation_no_speed_cameras)
-            val followSigns = stringResource(R.string.navigation_follow_road_signs)
-            Text(
-                buildAnnotatedString {
-                    append(notShown)
-                    append(' ')
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(followSigns) }
-                    append('.')
-                },
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(AppIcons.Info, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(modifier = Modifier.width(Spacing.s))
+        // L'invito a rispettare la segnaletica in grassetto, dopo l'elenco di quello che non si segnala.
+        val notShown = stringResource(R.string.navigation_no_speed_cameras)
+        val followSigns = stringResource(R.string.navigation_follow_road_signs)
+        Text(
+            buildAnnotatedString {
+                append(notShown)
+                append(' ')
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(followSigns) }
+                append('.')
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -294,90 +279,269 @@ private fun Waiting(text: String, announcement: String = text) {
 }
 
 @Composable
-private fun ColumnScope.Guidance(state: NavigationUiState.Navigating, tileSource: OfflineTileSource, regionIds: List<String>) {
+private fun Guidance(
+    state: NavigationUiState.Navigating,
+    destinationName: String,
+    travelMode: TravelMode,
+    arriveBy: LocalDateTime?,
+    tileSource: OfflineTileSource,
+    regionIds: List<String>,
+    onClose: () -> Unit,
+    walkingHaptics: Boolean,
+    onStreetNames: (Map<Int, String>) -> Unit,
+    drivingSide: DrivingSide?,
+) {
     val progress = state.progress
     val route = state.route
     // Nomi delle strade per indice del punto della svolta, trovati dalla mappa (NavigationMap).
     var streetNames by remember(route) { mutableStateOf<Map<Int, String>>(emptyMap()) }
     val tracker = remember(route) { NavigationTracker(route) }
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(Spacing.l)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // Decorativa: il testo accanto dice gia' la svolta.
-                Icon(turnIcon(progress.nextInstruction.type), contentDescription = null, modifier = Modifier.size(56.dp))
-                Spacer(modifier = Modifier.width(Spacing.l))
-                // liveRegion: TalkBack legge la nuova indicazione quando cambia.
-                Text(
-                    text = turnText(progress.nextInstruction),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.semantics {
-                        heading()
-                        liveRegion = LiveRegionMode.Polite
-                    },
-                )
-            }
-            streetNames[progress.nextInstruction.pointIndex]?.let { street ->
-                Text(street, style = MaterialTheme.typography.titleMedium)
-            }
-            if (progress.nextInstruction.type != TurnType.ARRIVE || progress.distanceToNextMeters > 0) {
-                Text(
-                    // Sotto i 10 m la svolta e' adesso: "Ora" invece di "Tra 10 m".
-                    text = if (progress.distanceToNextMeters < NOW_METERS) stringResource(R.string.navigation_now)
-                    else stringResource(R.string.navigation_in_distance, distanceText(progress.distanceToNextMeters)),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-            }
-            if (progress.offRoute) {
-                Text(
-                    text = stringResource(R.string.navigation_off_route),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
+    var showSteps by rememberSaveable { mutableStateOf(false) }
+    val upcoming = route.instructions.drop(progress.nextInstructionIndex + 1)
+    // A piedi una vibrazione leggera quando la svolta e' "Ora", una volta per svolta (l'arrivo ha la sua):
+    // con il GPS che oscilla attorno ai 10 m la stessa svolta tornerebbe "Ora" piu' volte.
+    val context = LocalContext.current
+    val turnNow = progress.distanceToNextMeters < NOW_METERS && progress.nextInstruction.type != TurnType.ARRIVE
+    var lastVibratedIndex by remember(route) { mutableStateOf(-1) }
+    LaunchedEffect(progress.nextInstructionIndex, turnNow) {
+        if (turnNow && travelMode == TravelMode.WALK && walkingHaptics && progress.nextInstructionIndex != lastVibratedIndex) {
+            lastVibratedIndex = progress.nextInstructionIndex
+            NavigationHaptics.turn(context)
         }
     }
-    NavigationMap(
-        tileSource = tileSource,
-        regionIds = regionIds,
-        route = route,
-        pathToNext = progress.pathToNext,
-        position = state.position,
-        distanceToNextMeters = progress.distanceToNextMeters,
-        onStreetNames = { found -> streetNames = streetNames + found },
-        // Altezza minima: con l'avviso e le opzioni sopra, il solo peso la schiacciava a zero.
-        modifier = Modifier.fillMaxWidth().weight(1f).heightIn(min = 160.dp).clip(MaterialTheme.shapes.medium),
-    )
-    // Tempo rimasto in proporzione alla distanza rimasta, dalla durata stimata da BRouter.
-    val remainingSeconds = if (route.distanceMeters > 0) route.durationSeconds * progress.remainingMeters / route.distanceMeters else 0.0
-    Text(
-        text = stringResource(R.string.navigation_remaining, distanceText(progress.remainingMeters), durationText(remainingSeconds)),
-        style = MaterialTheme.typography.bodyLarge,
-    )
-    val upcoming = route.instructions.drop(progress.nextInstructionIndex + 1)
-    if (upcoming.isNotEmpty()) {
-        // Due svolte visibili, le altre scorrendo: lo spazio serve alla mappa.
-        LazyColumn(modifier = Modifier.heightIn(max = 128.dp)) {
-            itemsIndexed(upcoming) { index, instruction ->
-                if (index > 0) HorizontalDivider()
-                // Metri dalla svolta precedente (per la prima, da quella mostrata sopra).
-                val previous = if (index == 0) progress.nextInstruction else upcoming[index - 1]
-                val legMeters = tracker.distanceBetween(previous.pointIndex, instruction.pointIndex)
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = Spacing.m)) {
-                    Icon(turnIcon(instruction.type), contentDescription = null, modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.width(Spacing.m))
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        NavigationMap(
+            tileSource = tileSource,
+            regionIds = regionIds,
+            route = route,
+            pathToNext = progress.pathToNext,
+            position = state.position,
+            distanceToNextMeters = progress.distanceToNextMeters,
+            onStreetNames = { found ->
+                streetNames = streetNames + found
+                onStreetNames(found)
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+        Column(modifier = Modifier.fillMaxWidth().padding(Spacing.s)) {
+            TurnBanner(progress, streetNames[progress.nextInstruction.pointIndex], rememberSpeedMps(progress.remainingMeters, travelMode))
+            if (drivingSide != null && travelMode == TravelMode.CAR) DrivingSideNotice(drivingSide)
+            // "Poi": la svolta dopo, in piccolo sotto il riquadro, come nelle app di navigazione.
+            upcoming.firstOrNull()?.takeIf { progress.nextInstruction.type != TurnType.ARRIVE }?.let { then ->
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.padding(top = Spacing.xs),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = Spacing.m, vertical = Spacing.s)) {
+                        Text(stringResource(R.string.navigation_then), style = MaterialTheme.typography.labelLarge)
+                        Spacer(modifier = Modifier.width(Spacing.s))
+                        Icon(turnIcon(then.type), contentDescription = turnText(then), modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
+            if (progress.offRoute) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.padding(top = Spacing.xs),
+                ) {
+                    Text(
+                        stringResource(R.string.navigation_off_route),
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(horizontal = Spacing.m, vertical = Spacing.s).semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                }
+            }
+        }
+        // Pannello in basso: tempo rimasto in grande, distanza e ora di arrivo, "Termina"; toccandolo le svolte.
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge.copy(bottomStart = ZeroCornerSize, bottomEnd = ZeroCornerSize),
+            shadowElevation = 6.dp,
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+        ) {
+            Column(modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.m)) {
+                // Tempo rimasto in proporzione alla distanza rimasta, dalla durata stimata da BRouter.
+                val remainingSeconds = if (route.distanceMeters > 0) route.durationSeconds * progress.remainingMeters / route.distanceMeters else 0.0
+                // Con un'ora di arrivo scelta, il tempo rimasto diventa rosso quando non ci si arriva piu'.
+                val late = arriveBy?.let { minutesLate(it, remainingSeconds) }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.navigation_show_steps)) { showSteps = !showSteps },
+                ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(text = turnText(instruction), style = MaterialTheme.typography.bodyLarge)
-                        streetNames[instruction.pointIndex]?.let { street ->
-                            Text(street, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            durationText(remainingSeconds),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (late != null && late > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            stringResource(R.string.navigation_distance_arrival, distanceText(progress.remainingMeters), arrivalTime(remainingSeconds)),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    // Un pulsante tondo con la X, come nelle app di navigazione: il nome lo legge TalkBack.
+                    FilledTonalIconButton(
+                        onClick = onClose,
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        ),
+                        modifier = Modifier.size(56.dp),
+                    ) {
+                        Icon(AppIcons.Close, contentDescription = stringResource(R.string.navigation_close))
+                    }
+                }
+                if (arriveBy != null && late != null) ArrivalStatus(arriveBy, late)
+                if (travelMode != TravelMode.WALK) {
+                    Spacer(modifier = Modifier.height(Spacing.s))
+                    SpeedCameraNotice()
+                }
+                AnimatedVisibility(visible = showSteps && upcoming.isNotEmpty()) {
+                    LazyColumn(modifier = Modifier.heightIn(max = 280.dp).padding(top = Spacing.s)) {
+                        itemsIndexed(upcoming) { index, instruction ->
+                            if (index > 0) HorizontalDivider()
+                            // Metri dalla svolta precedente (per la prima, da quella nel riquadro in alto).
+                            val previous = if (index == 0) progress.nextInstruction else upcoming[index - 1]
+                            val legMeters = tracker.distanceBetween(previous.pointIndex, instruction.pointIndex)
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = Spacing.m)) {
+                                Icon(turnIcon(instruction.type), contentDescription = null, modifier = Modifier.size(24.dp))
+                                Spacer(modifier = Modifier.width(Spacing.m))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(text = turnText(instruction), style = MaterialTheme.typography.bodyLarge)
+                                    streetNames[instruction.pointIndex]?.let { street ->
+                                        Text(street, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(Spacing.m))
+                                Text(distanceText(legMeters), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
-                    Spacer(modifier = Modifier.width(Spacing.m))
-                    Text(distanceText(legMeters), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
     }
+}
+
+// In orario o in ritardo sull'ora scelta con "Arriva alle…": verde o rosso. TalkBack annuncia solo il
+// passaggio fra i due stati (l'icona, con una descrizione fissa per stato), non i minuti che cambiano:
+// il testo completo resta da leggere al focus.
+@Composable
+private fun ArrivalStatus(arriveBy: LocalDateTime, minutesLate: Long) {
+    val context = LocalContext.current
+    val time = remember(arriveBy) { DateFormat.getTimeFormat(context).format(java.util.Date.from(arriveBy.atZone(ZoneId.systemDefault()).toInstant())) }
+    val isLate = minutesLate > 0
+    Surface(
+        color = if (isLate) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = if (isLate) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.padding(top = Spacing.s),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = Spacing.m, vertical = Spacing.s)) {
+            Icon(
+                ImageVector.vectorResource(if (isLate) UiR.drawable.ms_error else UiR.drawable.ms_schedule),
+                contentDescription = if (isLate) stringResource(R.string.navigation_running_late) else stringResource(R.string.navigation_on_time, time),
+                modifier = Modifier.size(18.dp).semantics { liveRegion = LiveRegionMode.Polite },
+            )
+            Spacer(modifier = Modifier.width(Spacing.s))
+            Text(
+                if (isLate) {
+                    minutesPlural(R.plurals.navigation_late, minutesLate)
+                } else {
+                    stringResource(R.string.navigation_on_time, time)
+                },
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+    }
+}
+
+// Sempre visibile in auto dove si guida dall'altro lato rispetto a casa: subito sotto la svolta, dove si guarda.
+@Composable
+private fun DrivingSideNotice(side: DrivingSide) {
+    Surface(
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        shape = MaterialTheme.shapes.medium,
+        shadowElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = Spacing.m, vertical = Spacing.s)) {
+            Icon(ImageVector.vectorResource(UiR.drawable.ms_directions_car), contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(Spacing.s))
+            // "Paese con guida a" e il lato in grassetto: e' la parola che conta.
+            val prefix = stringResource(R.string.navigation_drive_side)
+            val sideText = stringResource(if (side == DrivingSide.LEFT) R.string.navigation_drive_left else R.string.navigation_drive_right)
+            Text(
+                buildAnnotatedString {
+                    append(prefix)
+                    append(' ')
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(sideText) }
+                },
+                style = MaterialTheme.typography.labelLarge,
+                // Letto da TalkBack quando compare, poi resta fisso.
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            )
+        }
+    }
+}
+
+// Il riquadro della prossima svolta: freccia grande, distanza in grande, poi la svolta e la strada.
+@Composable
+private fun TurnBanner(progress: NavigationProgress, street: String?, speedMps: Double) {
+    Surface(
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        shape = MaterialTheme.shapes.large,
+        shadowElevation = 4.dp,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(Spacing.l)) {
+            // Decorativa: il testo accanto dice gia' la svolta.
+            Icon(turnIcon(progress.nextInstruction.type), contentDescription = null, modifier = Modifier.size(56.dp))
+            Spacer(modifier = Modifier.width(Spacing.l))
+            Column(modifier = Modifier.weight(1f)) {
+                // La distanza a schermo cambia a ogni posizione GPS; TalkBack invece la annuncia solo alle soglie
+                // (ogni 100 m, poi 50-40-30-20-10 m, allargate con la velocita'): ogni metro sarebbe rumore.
+                if (progress.nextInstruction.type != TurnType.ARRIVE || progress.distanceToNextMeters > 0) {
+                    val now = stringResource(R.string.navigation_now)
+                    val threshold = distanceAnnouncement(progress.distanceToNextMeters, speedMps)
+                    val announcement = if (threshold == null) now else distanceText(threshold.toDouble())
+                    Text(
+                        // Sotto i 10 m la svolta e' adesso: "Ora" invece di "10 m".
+                        text = if (progress.distanceToNextMeters < NOW_METERS) now else distanceText(progress.distanceToNextMeters),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clearAndSetSemantics { contentDescription = announcement; liveRegion = LiveRegionMode.Polite },
+                    )
+                }
+                // liveRegion: TalkBack legge la nuova indicazione (svolta e strada, stabili per ogni svolta) quando cambia.
+                Column(modifier = Modifier.semantics(mergeDescendants = true) { heading(); liveRegion = LiveRegionMode.Polite }) {
+                    Text(turnText(progress.nextInstruction), style = MaterialTheme.typography.titleMedium)
+                    street?.let { Text(it, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
+                }
+            }
+        }
+    }
+}
+
+// "1 minuto", "2 minuti": 0 e 1 al singolare, mentre la regola di Android per l'italiano mette lo 0 al plurale.
+@Composable
+internal fun minutesPlural(@PluralsRes id: Int, minutes: Long): String =
+    pluralStringResource(id, if (minutes <= 1) 1 else minutes.toInt(), minutes.toInt())
+
+// Ora di arrivo nel formato del telefono (24 ore o AM/PM), da adesso piu' il tempo rimasto.
+@Composable
+private fun arrivalTime(remainingSeconds: Double): String {
+    val context = LocalContext.current
+    val minute = System.currentTimeMillis() / 60_000 + (remainingSeconds / 60).roundToInt()
+    return remember(minute) { DateFormat.getTimeFormat(context).format(java.util.Date(minute * 60_000)) }
 }
 
 @Composable
@@ -440,28 +604,6 @@ internal fun durationText(seconds: Double): String {
     else stringResource(R.string.navigation_hours_minutes, minutes / 60, minutes % 60)
 }
 
-@Composable
-internal fun TravelModeSelector(selected: TravelMode, onSelect: (TravelMode) -> Unit) {
-    val label = stringResource(R.string.navigation_travel_mode)
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().semantics { contentDescription = label }) {
-        TravelMode.entries.forEachIndexed { index, mode ->
-            val (icon, text) = when (mode) {
-                TravelMode.WALK -> UiR.drawable.ms_directions_walk to R.string.usage_mode_walk
-                TravelMode.BIKE -> UiR.drawable.ms_directions_bike to R.string.usage_mode_bike
-                TravelMode.CAR -> UiR.drawable.ms_directions_car to R.string.usage_mode_car
-            }
-            SegmentedButton(
-                selected = mode == selected,
-                onClick = { onSelect(mode) },
-                shape = SegmentedButtonDefaults.itemShape(index, TravelMode.entries.size),
-                icon = {},
-            ) {
-                Icon(ImageVector.vectorResource(icon), contentDescription = stringResource(text), modifier = Modifier.size(20.dp))
-            }
-        }
-    }
-}
-
 /**
  * Mappa della navigazione: il percorso intero, il tratto fino alla prossima svolta piu' marcato e
  * la posizione GPS, con la camera che la segue. Nascosta a TalkBack: le indicazioni sono nel
@@ -493,6 +635,7 @@ private fun NavigationMap(
     val nextColor = MaterialTheme.colorScheme.tertiary.toArgb()
     val positionColor = MaterialTheme.colorScheme.primary.toArgb()
     val positionStroke = MaterialTheme.colorScheme.surface.toArgb()
+    val destinationColor = MaterialTheme.colorScheme.error.toArgb()
     // Sorgenti dello stile corrente: null durante un cambio di stile (tema, lingua).
     var sources by remember { mutableStateOf<NavigationSources?>(null) }
 
@@ -503,6 +646,7 @@ private fun NavigationMap(
                 val routeSource = GeoJsonSource(ROUTE_SOURCE).also(style::addSource)
                 val nextSource = GeoJsonSource(NEXT_SOURCE).also(style::addSource)
                 val positionSource = GeoJsonSource(POSITION_SOURCE).also(style::addSource)
+                val destinationSource = GeoJsonSource(DESTINATION_SOURCE).also(style::addSource)
                 style.addLayer(
                     LineLayer(ROUTE_SOURCE, ROUTE_SOURCE).withProperties(
                         PropertyFactory.lineColor(routeColor), PropertyFactory.lineWidth(6f),
@@ -515,18 +659,22 @@ private fun NavigationMap(
                         PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
                     ),
                 )
+                // Arrivo sotto la posizione: vicino alla meta il punto blu resta sopra la bandiera.
+                style.addImage(DESTINATION_PIN_IMAGE, pinBitmap(context, destinationColor, UiR.drawable.ms_flag, scale = DESTINATION_PIN_SCALE))
+                style.addLayer(destinationPinLayer(DESTINATION_SOURCE))
                 style.addLayer(
                     CircleLayer(POSITION_SOURCE, POSITION_SOURCE).withProperties(
                         PropertyFactory.circleColor(positionColor), PropertyFactory.circleRadius(8f),
                         PropertyFactory.circleStrokeColor(positionStroke), PropertyFactory.circleStrokeWidth(3f),
                     ),
                 )
-                sources = NavigationSources(routeSource, nextSource, positionSource)
+                sources = NavigationSources(routeSource, nextSource, positionSource, destinationSource)
             }
         }
     }
     LaunchedEffect(sources, route) {
         sources?.route?.setGeoJson(lineString(route.points))
+        route.points.lastOrNull()?.let { end -> sources?.destination?.setGeoJson(Point.fromLngLat(end.longitude, end.latitude)) }
     }
     LaunchedEffect(sources, pathToNext, position) {
         val current = sources ?: return@LaunchedEffect
@@ -567,7 +715,7 @@ private fun NavigationMap(
     AndroidView(factory = { mapView }, modifier = modifier.clearAndSetSemantics {})
 }
 
-private class NavigationSources(val route: GeoJsonSource, val next: GeoJsonSource, val position: GeoJsonSource)
+private class NavigationSources(val route: GeoJsonSource, val next: GeoJsonSource, val position: GeoJsonSource, val destination: GeoJsonSource)
 
 // Nome nella lingua dell'app come le etichette della mappa (labelField): in italiano name:it ->
 // name:en -> name, in inglese name:en -> name. Una MultiLineString diventa piu' linee.
@@ -590,6 +738,7 @@ private fun lineString(points: List<RoutePoint>): LineString =
 private const val REGION_SOURCE_PREFIX = "region"
 private const val ROADS_SOURCE_LAYER = "roads"
 private const val ROUTE_SOURCE = "navigation-route"
+private const val DESTINATION_SOURCE = "navigation-destination"
 private const val NEXT_SOURCE = "navigation-next"
 private const val POSITION_SOURCE = "navigation-position"
 private const val CAMERA_ANIMATION_MILLIS = 500
@@ -617,5 +766,82 @@ internal fun followZoom(distanceToNextMeters: Double, insideRegion: Boolean): Do
 /** Sotto questa distanza dalla svolta si dice "Ora". */
 private const val NOW_METERS = 10.0
 
+/**
+ * Velocita' effettiva lungo il percorso (m/s), dalla distanza rimasta che cala nel tempo, smussata perche' il
+ * GPS salta. Finche' non c'e' una misura (primi secondi, fermi al semaforo) vale quella tipica del mezzo.
+ */
+@Composable
+private fun rememberSpeedMps(remainingMeters: Double, travelMode: TravelMode): Double {
+    val holder = remember { SpeedEstimate() }
+    SideEffect { holder.update(remainingMeters, System.nanoTime()) }
+    return holder.speed ?: when (travelMode) {
+        TravelMode.WALK -> 1.4
+        TravelMode.BIKE -> 4.5
+        TravelMode.CAR -> 12.0
+    }
+}
+
+internal class SpeedEstimate {
+    var speed: Double? = null
+        private set
+    private var lastMeters = Double.NaN
+    private var lastNanos = 0L
+
+    fun update(remainingMeters: Double, nanos: Long) {
+        if (!lastMeters.isNaN() && nanos > lastNanos) {
+            val seconds = (nanos - lastNanos) / 1e9
+            // Solo misure di almeno mezzo secondo e plausibili (ricalcoli e salti indietro si scartano).
+            val measured = (lastMeters - remainingMeters) / seconds
+            if (seconds >= 0.5 && measured in 0.0..70.0) {
+                speed = speed?.let { it * 0.7 + measured * 0.3 } ?: measured
+            }
+        }
+        lastMeters = remainingMeters
+        lastNanos = nanos
+    }
+}
+
+/**
+ * La soglia (in metri) che TalkBack annuncia a [distanceMeters] dalla svolta: ogni 100 m, poi 50, 40, 30, 20,
+ * 10 m; null sotto l'ultima (la svolta e' "Ora"). A [speedMps] piu' alte le soglie si moltiplicano (x2 in bici,
+ * x5 in citta' in auto, x10 in strada veloce), cosi' l'annuncio arriva con un anticipo simile in secondi. Il
+ * valore cambia solo al passaggio di una soglia: e' quello il momento in cui TalkBack lo rilegge.
+ */
+internal fun distanceAnnouncement(distanceMeters: Double, speedMps: Double): Int? {
+    val scale = when {
+        speedMps <= 2.5 -> 1
+        speedMps <= 7.0 -> 2
+        speedMps <= 20.0 -> 5
+        else -> 10
+    }
+    val near = 10 * scale
+    if (distanceMeters < near) return null
+    val step = if (distanceMeters <= 50 * scale) near else 100 * scale
+    return (ceil(distanceMeters / step) * step).toInt()
+}
+
+// API 27+ ha il metodo dell'attivita'; su Android 8.0 c'e' solo il flag della finestra.
+private fun Activity.showWhenLocked(show: Boolean) {
+    if (Build.VERSION.SDK_INT >= 27) {
+        setShowWhenLocked(show)
+    } else {
+        @Suppress("DEPRECATION")
+        if (show) window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED) else window.clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
+    }
+}
+
 /** Da quanti secondi di calcolo avvisare che un percorso lungo in auto puo' richiedere minuti. */
 private const val LONG_CALCULATION_SECONDS = 5L
+
+// Segnalino d'arrivo comune a Navigatore e navigazione: goccia rossa con la bandiera (pinBitmap),
+// sempre visibile anche sopra etichette e altri segnalini, appoggiata con la punta sul punto.
+internal const val DESTINATION_PIN_IMAGE = "route-destination-pin"
+internal const val DESTINATION_PIN_SCALE = 1.4f
+
+internal fun destinationPinLayer(sourceId: String): SymbolLayer =
+    SymbolLayer("$sourceId-pin", sourceId).withProperties(
+        PropertyFactory.iconImage(DESTINATION_PIN_IMAGE),
+        PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+        PropertyFactory.iconAllowOverlap(true),
+        PropertyFactory.iconIgnorePlacement(true),
+    )

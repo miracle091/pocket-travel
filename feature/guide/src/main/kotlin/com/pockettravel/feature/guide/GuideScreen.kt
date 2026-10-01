@@ -1,5 +1,8 @@
 package com.pockettravel.feature.guide
 
+import kotlin.math.roundToInt
+import java.util.Locale
+import com.pockettravel.core.data.nearbyEmbassies
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
@@ -69,7 +72,10 @@ import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSection
 import com.pockettravel.core.data.Poi
-import com.pockettravel.core.data.displayName
+import com.pockettravel.core.data.DiplomaticMission
+import com.pockettravel.core.data.EmbassyEntry
+import com.pockettravel.core.data.MissionKind
+import com.pockettravel.core.data.mergeEmbassies
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.countryName
@@ -77,6 +83,7 @@ import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.safeWebUrl
 import com.pockettravel.core.ui.R as UiR
 
 @Composable
@@ -89,7 +96,7 @@ fun GuideScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showCities by rememberSaveable(regionId) { mutableStateOf(false) }
 
-    GuideContent(uiState = uiState, onOpenSource = onOpenSource, onOpenCities = { showCities = true })
+    GuideContent(uiState = uiState, onOpenSource = onOpenSource, onOpenCities = { showCities = true }, excludedTransit = excludedTransitNotes(regionId))
 
     if (showCities) {
         CitiesDialog(
@@ -107,6 +114,7 @@ internal fun GuideContent(
     uiState: GuideUiState,
     onOpenSource: (url: String, title: String) -> Unit,
     onOpenCities: () -> Unit = {},
+    excludedTransit: List<Int> = emptyList(),
 ) {
     when {
         uiState.isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -126,14 +134,19 @@ internal fun GuideContent(
             modifier = Modifier.fillMaxSize(),
         )
 
-        else -> GuideSectionsList(uiState, onOpenSource, onOpenCities)
+        else -> GuideSectionsList(uiState, onOpenSource, onOpenCities, excludedTransit)
     }
 }
 
 // FATTI_RAPIDI (lingua, elettricita', fuso orario, valuta, numeri di emergenza) in cima alla
 // guida non filtrata: sortedBy e' stabile, le altre sezioni restano nel loro ordine.
 @Composable
-private fun GuideSectionsList(uiState: GuideUiState, onOpenSource: (url: String, title: String) -> Unit, onOpenCities: () -> Unit) {
+private fun GuideSectionsList(
+    uiState: GuideUiState,
+    onOpenSource: (url: String, title: String) -> Unit,
+    onOpenCities: () -> Unit,
+    excludedTransit: List<Int>,
+) {
     var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
     val transport = transportSummary(uiState.transportCounts)
     val uiLanguage = LocalLocale.current.platformLocale.language
@@ -169,12 +182,38 @@ private fun GuideSectionsList(uiState: GuideUiState, onOpenSource: (url: String,
                         numbers = uiState.emergencyNumbers,
                         embassiesCountry = uiState.embassiesCountry,
                         embassies = uiState.embassies,
+                        missions = uiState.missions,
+                        position = uiState.position,
+                        cities = uiState.cities,
+                        onOpenLink = onOpenSource,
                         modifier = Modifier.padding(horizontal = Spacing.l),
                     )
                 }
             }
+            if (excludedTransit.isNotEmpty()) {
+                item(key = "excluded_transit") {
+                    ExcludedTransitCard(excludedTransit, modifier = Modifier.padding(horizontal = Spacing.l))
+                }
+            }
         },
     )
+}
+
+// Reti senza orari per la licenza (excludedTransitNotes): detto chiaramente, non lasciato al silenzio.
+@Composable
+private fun ExcludedTransitCard(notes: List<Int>, modifier: Modifier = Modifier) {
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(Spacing.l)) {
+            Text(
+                stringResource(R.string.transit_excluded_title),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() },
+            )
+            notes.forEach { note ->
+                Text(stringResource(note), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = Spacing.s))
+            }
+        }
+    }
 }
 
 // "treno (12 stazioni), autobus (3 autostazioni)": i mezzi con piu' punti di partenza per primi.
@@ -373,7 +412,16 @@ private fun SectionsWithFilters(
 
 // numbers nullo: la regione non ha un numero di emergenza centralizzato, e la scheda lo dichiara.
 @Composable
-private fun EmergencyNumbersCard(numbers: EmergencyNumbers?, embassiesCountry: String?, embassies: List<Poi>, modifier: Modifier = Modifier) {
+private fun EmergencyNumbersCard(
+    numbers: EmergencyNumbers?,
+    embassiesCountry: String?,
+    embassies: List<Poi>,
+    missions: List<DiplomaticMission>,
+    position: Pair<Double, Double>?,
+    cities: List<String>,
+    onOpenLink: (url: String, title: String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -410,70 +458,158 @@ private fun EmergencyNumbersCard(numbers: EmergencyNumbers?, embassiesCountry: S
                         .fillMaxWidth()
                         .heightIn(min = 56.dp)
                         .clickable(onClickLabel = callLabel) {
-                            context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$number".toUri()))
+                            // Senza app telefono (tablet solo Wi-Fi) l'intent non ha destinatari: niente crash.
+                            runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$number".toUri())) }
                         }
-                        .padding(horizontal = Spacing.l, vertical = Spacing.s),
+                        .padding(start = Spacing.l, end = Spacing.s, top = Spacing.s, bottom = Spacing.s),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(text = label, style = MaterialTheme.typography.bodyMedium)
                         Text(text = number, style = MaterialTheme.typography.headlineSmall)
                     }
-                    Icon(imageVector = AppIcons.Call, contentDescription = null)
+                    // Nel riquadro da 48dp dei pulsanti delle ambasciate: tutte le icone della scheda in colonna.
+                    Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                        Icon(imageVector = AppIcons.Call, contentDescription = null)
+                    }
                 }
             }
-            embassiesCountry?.let { country -> EmbassiesSection(country, embassies) }
+            embassiesCountry?.let { country -> EmbassiesSection(country, embassies, missions, position, cities, onOpenLink) }
         }
     }
 }
 
-// Ambasciate e consolati del paese di chi viaggia nella regione (NationalityPreferences): la riga chiama
-// se OSM ha il telefono. Senza rappresentanze nei dati lo dice, invece di non mostrare nulla.
+// Ambasciate e consolati del paese di chi viaggia nella regione (NationalityPreferences), dai POI OSM e da
+// Wikidata fusi: la riga chiama se c'e' il telefono, sito ed email sono azioni a parte. Senza rappresentanze
+// nei dati lo dice, invece di non mostrare nulla. Per chi e' italiano c'e' anche il link alla Farnesina.
 @Composable
-private fun EmbassiesSection(country: String, embassies: List<Poi>) {
-    val context = LocalContext.current
+private fun EmbassiesSection(
+    country: String,
+    embassies: List<Poi>,
+    missions: List<DiplomaticMission>,
+    position: Pair<Double, Double>?,
+    cities: List<String>,
+    onOpenLink: (url: String, title: String) -> Unit,
+) {
+    val language = LocalLocale.current.platformLocale.language
+    val entries = remember(embassies, missions, cities, language) { mergeEmbassies(embassies, missions, cities, language) }
+    val nearby = remember(entries, position) { position?.let { (lat, lon) -> nearbyEmbassies(entries, lat, lon) }.orEmpty() }
     HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.s), color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.2f))
     Text(
         text = stringResource(R.string.emergency_embassies_title, countryName(country)),
         style = MaterialTheme.typography.titleSmall,
         modifier = Modifier.padding(horizontal = Spacing.l).semantics { heading() },
     )
-    if (embassies.isEmpty()) {
+    if (entries.isEmpty()) {
         Text(
             text = stringResource(R.string.emergency_embassies_none),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.s),
         )
     }
-    val language = LocalLocale.current.platformLocale.language
-    embassies.forEach { embassy ->
-        val phone = embassy.phone
-        val name = embassy.displayName(language)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 56.dp)
-                .then(
-                    if (phone != null) {
-                        Modifier.clickable(onClickLabel = stringResource(R.string.emergency_call, name, phone)) {
-                            context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phone".toUri()))
-                        }
-                    } else {
-                        Modifier
-                    },
-                )
-                .padding(horizontal = Spacing.l, vertical = Spacing.s),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = name, style = MaterialTheme.typography.bodyMedium)
-                phone?.let { Text(text = it, style = MaterialTheme.typography.titleMedium) }
-                embassy.address?.let { Text(text = it, style = MaterialTheme.typography.bodySmall) }
+    if (nearby.isEmpty()) {
+        entries.forEach { entry -> EmbassyRow(entry, onOpenLink) }
+    } else {
+        // Le piu' vicine alla posizione del telefono, con la distanza, poi tutte le altre del paese.
+        EmbassiesSubheading(stringResource(R.string.emergency_embassies_nearby))
+        nearby.forEach { (entry, km) -> EmbassyRow(entry, onOpenLink, distanceKm = km) }
+        val others = entries - nearby.map { it.first }.toSet()
+        if (others.isNotEmpty()) {
+            EmbassiesSubheading(stringResource(R.string.emergency_embassies_others))
+            others.forEach { entry -> EmbassyRow(entry, onOpenLink) }
+        }
+    }
+    if (country.equals("IT", ignoreCase = true)) FarnesinaRow(onOpenLink)
+}
+
+@Composable
+private fun EmbassiesSubheading(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.m).semantics { heading() },
+    )
+}
+
+@Composable
+private fun EmbassyRow(entry: EmbassyEntry, onOpenLink: (url: String, title: String) -> Unit, distanceKm: Double? = null) {
+    val context = LocalContext.current
+    val phone = entry.phone
+    val website = entry.website
+    val email = entry.email
+    // Chiamata, sito ed email come tre pulsanti uguali in fila, allineati alle icone delle altre righe.
+    val url = website?.let(::webUrl)
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = Spacing.l, end = Spacing.s),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(vertical = Spacing.s)) {
+            val kind = entry.kind?.let { stringResource(it.label()) }
+            val distance = distanceKm?.let { distanceText(it) }
+            listOfNotNull(kind, distance).takeIf { it.isNotEmpty() }?.let {
+                Text(text = it.joinToString(" · "), style = MaterialTheme.typography.labelMedium)
             }
-            if (phone != null) Icon(imageVector = AppIcons.Call, contentDescription = null)
+            Text(text = entry.name, style = MaterialTheme.typography.bodyMedium)
+            entry.address?.let { Text(text = it, style = MaterialTheme.typography.bodySmall) }
+        }
+        if (phone != null) {
+            IconButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phone".toUri())) } }) {
+                Icon(imageVector = AppIcons.Call, contentDescription = stringResource(R.string.emergency_call, entry.name, phone))
+            }
+        }
+        if (url != null) {
+            IconButton(onClick = { onOpenLink(url, entry.name) }) {
+                Icon(imageVector = AppIcons.Web, contentDescription = stringResource(R.string.emergency_embassy_website, entry.name))
+            }
+        }
+        if (email != null) {
+            IconButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, "mailto:$email".toUri())) } }) {
+                Icon(imageVector = AppIcons.Mail, contentDescription = stringResource(R.string.emergency_embassy_email, entry.name))
+            }
         }
     }
 }
+
+// Il sito arriva da Wikidata, modificabile da chiunque: solo http(s), senza schema si assume https.
+private fun webUrl(website: String): String? = safeWebUrl(website)
+
+// "800 m", "2,3 km", "45 km": decimali solo sotto i 10 km, nel formato della lingua.
+private fun distanceText(km: Double): String = when {
+    km < 1 -> "${(km * 1000).roundToInt()} m"
+    km < 10 -> String.format(Locale.getDefault(), "%.1f km", km)
+    else -> "${km.roundToInt()} km"
+}
+
+private fun MissionKind.label(): Int = when (this) {
+    MissionKind.EMBASSY -> R.string.emergency_kind_embassy
+    MissionKind.CONSULATE_GENERAL -> R.string.emergency_kind_consulate_general
+    MissionKind.CONSULATE -> R.string.emergency_kind_consulate
+}
+
+// Solo il link: i contenuti di Viaggiare Sicuri non hanno una licenza aperta, quindi non si copiano nell'app
+// e non c'e' un numero dell'Unita' di Crisi tra i dati del progetto da mostrare come riga da chiamare.
+@Composable
+private fun FarnesinaRow(onOpenLink: (url: String, title: String) -> Unit) {
+    val title = stringResource(R.string.emergency_farnesina)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable(onClickLabel = stringResource(R.string.emergency_farnesina_open)) { onOpenLink(FARNESINA_URL, title) }
+            .padding(start = Spacing.l, end = Spacing.s, top = Spacing.s, bottom = Spacing.s),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.bodyMedium)
+            Text(text = stringResource(R.string.emergency_farnesina_description), style = MaterialTheme.typography.bodySmall)
+        }
+        Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            Icon(imageVector = AppIcons.OpenExternal, contentDescription = null)
+        }
+    }
+}
+
+private const val FARNESINA_URL = "https://www.viaggiaresicuri.it"
 
 // Se il numero generale coincide con tutti gli altri (es. 911 negli Stati Uniti, 112 in
 // Andorra) mostra una sola riga invece di quattro identiche; altrimenti raggruppa per numero

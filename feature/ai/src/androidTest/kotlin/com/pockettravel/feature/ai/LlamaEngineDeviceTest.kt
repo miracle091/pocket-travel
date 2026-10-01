@@ -47,7 +47,7 @@ class LlamaEngineDeviceTest {
     }
 
     @After
-    fun tearDown() {
+    fun tearDown() = runBlocking<Unit> {
         // Singleton di processo condiviso tra i test: ogni test riparte da Initialized.
         if (::engine.isInitialized) {
             val state = engine.state.value

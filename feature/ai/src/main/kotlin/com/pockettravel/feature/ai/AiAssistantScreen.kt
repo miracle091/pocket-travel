@@ -1,5 +1,7 @@
 package com.pockettravel.feature.ai
 
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.FilledTonalButton
 import android.text.format.Formatter
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
@@ -127,7 +129,7 @@ internal fun AiAssistantContent(uiState: AiUiState, actions: AiActions, onOpenOf
     Column(modifier = Modifier.fillMaxSize()) {
         AssistantHeader(uiState = uiState, isReady = isReady, actions = actions)
         if (isReady) {
-            Conversation(uiState = uiState, onOpenOfficialSource = onOpenOfficialSource, modifier = Modifier.weight(1f))
+            Conversation(uiState = uiState, onOpenOfficialSource = onOpenOfficialSource, onClearApiKey = actions.onClearApiKey, modifier = Modifier.weight(1f))
             QuestionBar(uiState = uiState, actions = actions)
         } else {
             Column(
@@ -137,7 +139,11 @@ internal fun AiAssistantContent(uiState: AiUiState, actions: AiActions, onOpenOf
                     .padding(horizontal = Spacing.l, vertical = Spacing.s),
             ) {
                 when (uiState.mode) {
-                    AiEngineMode.ON_DEVICE -> ModelList(uiState, actions)
+                    AiEngineMode.ON_DEVICE -> {
+                        if (uiState.isApiKeyConfigured) SavedKeyReminder(uiState, actions)
+                        downloadedAlternative(uiState)?.let { other -> DownloadedModelChoice(uiState, other, actions) }
+                        ModelList(uiState, actions)
+                    }
                     AiEngineMode.ONLINE -> ApiKeySetup(uiState, actions)
                 }
             }
@@ -162,17 +168,7 @@ private fun AssistantHeader(uiState: AiUiState, isReady: Boolean, actions: AiAct
         // Sotto i 4 GB di RAM l'assistente e' solo Online (vedi AiAssistantViewModel: mode e'
         // gia' forzato a ONLINE li'): niente selettore da mostrare, un solo modo esiste.
         if (uiState.isDeviceCapable) {
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.weight(1f)) {
-                AiEngineMode.entries.forEachIndexed { index, candidate ->
-                    SegmentedButton(
-                        selected = candidate == uiState.mode,
-                        onClick = { actions.onModeChanged(candidate) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = AiEngineMode.entries.size),
-                    ) {
-                        Text(stringResource(if (candidate == AiEngineMode.ON_DEVICE) R.string.ai_mode_on_device else R.string.ai_mode_online))
-                    }
-                }
-            }
+            ModeSelector(uiState, actions, modifier = Modifier.weight(1f))
         } else {
             Text(
                 text = stringResource(R.string.ai_title),
@@ -231,8 +227,131 @@ private fun AssistantHeader(uiState: AiUiState, isReady: Boolean, actions: AiAct
     }
 }
 
+/** Un modello gia' sul telefono e utilizzabile, diverso da quello scelto (che non e' scaricato); null se non c'e'. */
+internal fun downloadedAlternative(uiState: AiUiState): LlmModelDefinition? =
+    if (uiState.downloadProgress != null) null
+    else uiState.availableModels.firstOrNull { it.id != uiState.selectedModelId && it.id in uiState.downloadedModelIds }
+
+// Il modello scelto non e' scaricato ma un altro si': usare quello subito, o scaricare quello scelto.
 @Composable
-private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String) -> Unit, modifier: Modifier = Modifier) {
+private fun DownloadedModelChoice(uiState: AiUiState, other: LlmModelDefinition, actions: AiActions) {
+    val selected = uiState.availableModels.firstOrNull { it.id == uiState.selectedModelId }?.displayName ?: uiState.selectedModelId
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.m),
+    ) {
+        Column(modifier = Modifier.padding(Spacing.l)) {
+            Text(stringResource(R.string.ai_downloaded_model_choice, other.displayName, selected), style = MaterialTheme.typography.bodyMedium)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.padding(top = Spacing.s)) {
+                FilledTonalButton(onClick = { actions.onModelSelected(other.id) }) { Text(stringResource(R.string.ai_use_model, other.displayName)) }
+                TextButton(onClick = actions.onDownloadModel) { Text(stringResource(R.string.ai_download_selected, selected)) }
+            }
+        }
+    }
+}
+
+// La scheda IA c'e' perche' una chiave e' salvata, ma il modo scelto e' "sul telefono" senza modello:
+// si ricorda la chiave, per usarla subito, e la si puo' togliere se e' scaduta.
+@Composable
+private fun SavedKeyReminder(uiState: AiUiState, actions: AiActions) {
+    var confirmRemove by rememberSaveable { mutableStateOf(false) }
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.m),
+    ) {
+        Column(modifier = Modifier.padding(Spacing.l)) {
+            Text(stringResource(R.string.ai_saved_key_reminder, uiState.onlineProvider.displayName), style = MaterialTheme.typography.bodyMedium)
+            Row(modifier = Modifier.padding(top = Spacing.s)) {
+                FilledTonalButton(onClick = { actions.onModeChanged(AiEngineMode.ONLINE) }) { Text(stringResource(R.string.ai_use_online)) }
+                Spacer(modifier = Modifier.width(Spacing.s))
+                TextButton(onClick = { confirmRemove = true }) { Text(stringResource(R.string.ai_remove_key)) }
+            }
+        }
+    }
+    if (confirmRemove) {
+        ConfirmationDialog(
+            title = stringResource(R.string.ai_remove_key_title),
+            message = stringResource(R.string.ai_remove_key_message),
+            onConfirm = {
+                confirmRemove = false
+                actions.onClearApiKey()
+            },
+            onDismiss = { confirmRemove = false },
+        )
+    }
+}
+
+@Composable
+private fun ModeSelector(uiState: AiUiState, actions: AiActions, modifier: Modifier = Modifier) {
+    SingleChoiceSegmentedButtonRow(modifier = modifier) {
+        AiEngineMode.entries.forEachIndexed { index, candidate ->
+            SegmentedButton(
+                selected = candidate == uiState.mode,
+                onClick = { actions.onModeChanged(candidate) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = AiEngineMode.entries.size),
+            ) {
+                Text(stringResource(if (candidate == AiEngineMode.ON_DEVICE) R.string.ai_mode_on_device else R.string.ai_mode_online))
+            }
+        }
+    }
+}
+
+/**
+ * Configurazione dell'assistente per le Impostazioni: modo (solo quelli che il dispositivo regge), modelli
+ * on-device con download/eliminazione, oppure servizio, chiave e modello online. Il ViewModel e' lo stesso
+ * della chat: fuori da una regione non serve altro, la regione conta solo quando si fa una domanda.
+ */
+@Composable
+fun AiSettingsSection(viewModel: AiAssistantViewModel = hiltViewModel()) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    AiSettingsContent(uiState = uiState, actions = viewModel.toActions(regionId = ""))
+}
+
+@Composable
+internal fun AiSettingsContent(uiState: AiUiState, actions: AiActions) {
+    var showRemoveKeyConfirm by rememberSaveable { mutableStateOf(false) }
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.s),
+        verticalArrangement = Arrangement.spacedBy(Spacing.m),
+    ) {
+        Text(
+            stringResource(R.string.ai_settings_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        // Sotto i 4 GB di RAM esiste solo Online (vedi AssistantHeader): niente selettore.
+        if (uiState.isDeviceCapable) ModeSelector(uiState, actions, modifier = Modifier.fillMaxWidth())
+        when (uiState.mode) {
+            AiEngineMode.ON_DEVICE -> ModelList(uiState, actions)
+            AiEngineMode.ONLINE -> {
+                ApiKeySetup(uiState, actions)
+                if (uiState.isApiKeyConfigured) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(AppIcons.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(Spacing.s))
+                        Text(stringResource(R.string.ai_api_key_saved), modifier = Modifier.weight(1f))
+                        TextButton(onClick = { showRemoveKeyConfirm = true }) { Text(stringResource(R.string.ai_remove_key)) }
+                    }
+                }
+            }
+        }
+    }
+    if (showRemoveKeyConfirm) {
+        ConfirmationDialog(
+            title = stringResource(R.string.ai_remove_key_title),
+            message = stringResource(R.string.ai_remove_key_message),
+            onConfirm = { showRemoveKeyConfirm = false; actions.onClearApiKey() },
+            onDismiss = { showRemoveKeyConfirm = false },
+        )
+    }
+}
+
+@Composable
+private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String) -> Unit, onClearApiKey: () -> Unit, modifier: Modifier = Modifier) {
     val asked = uiState.askedQuestion
     if (asked == null && !uiState.isThinking && uiState.errorMessage == null) {
         EmptyState(
@@ -283,11 +402,17 @@ private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String)
                         Spacer(modifier = Modifier.width(Spacing.m))
                         Text(stringResource(R.string.ai_thinking), style = MaterialTheme.typography.bodyLarge)
                     }
-                    error != null -> Text(
-                        stringResource(error),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+                    error != null -> Column {
+                        Text(
+                            stringResource(error),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        // Chiave scaduta o revocata: si toglie da qui e se ne inserisce una nuova.
+                        if (error == R.string.ai_error_key_rejected) {
+                            TextButton(onClick = onClearApiKey) { Text(stringResource(R.string.ai_remove_key)) }
+                        }
+                    }
                     answer != null -> {
                         Text(answer.text, style = MaterialTheme.typography.bodyLarge)
                         answer.sourceCitations.forEach { citation ->
@@ -392,6 +517,7 @@ private fun ModelList(uiState: AiUiState, actions: AiActions) {
 private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiState: AiUiState, actions: AiActions) {
     val context = LocalContext.current
     var showLargeDownloadWarning by rememberSaveable { mutableStateOf(false) }
+    var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
     val size = Formatter.formatShortFileSize(context, definition.sizeBytes)
     val available = definition.sha256 != null
 
@@ -422,7 +548,15 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
                     Text(text = stringResource(it), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = Spacing.s))
                 }
                 val downloadProgress = uiState.downloadProgress
-                if (downloadProgress != null) {
+                if (uiState.isModelDownloaded) {
+                    // Gia' installato (la lista si vede anche dalle Impostazioni, non solo prima del download).
+                    Text(stringResource(R.string.ai_model_downloaded), style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { showDeleteConfirm = true }) {
+                        Icon(AppIcons.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(Spacing.s))
+                        Text(stringResource(R.string.ai_delete_model))
+                    }
+                } else if (downloadProgress != null) {
                     Text(
                         stringResource(R.string.ai_model_downloading, (downloadProgress * 100).toInt()),
                         style = MaterialTheme.typography.bodySmall,
@@ -445,6 +579,15 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
                 }
             }
         }
+    }
+
+    if (showDeleteConfirm) {
+        ConfirmationDialog(
+            title = stringResource(R.string.ai_delete_model_title),
+            message = stringResource(R.string.ai_delete_model_message),
+            onConfirm = { showDeleteConfirm = false; actions.onDeleteModel() },
+            onDismiss = { showDeleteConfirm = false },
+        )
     }
 
     if (showLargeDownloadWarning) {

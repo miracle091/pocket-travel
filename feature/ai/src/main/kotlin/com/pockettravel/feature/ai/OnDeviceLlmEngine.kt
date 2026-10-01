@@ -67,14 +67,15 @@ class OnDeviceLlmEngine @Inject constructor(
 
     /** Da chiamare quando il modello viene eliminato dall'utente, per rilasciare la memoria nativa. */
     // Su IO: liberare un modello da qualche GB blocca il thread per il tempo della free (chiamate dal main).
-    suspend fun release() = coordinator.withModelLock { withContext(Dispatchers.IO) { releaseWithoutLock() } }
+    // cleanUp() e' suspend e passa da solo al dispatcher nativo: nessun withContext(IO) qui.
+    suspend fun release() = coordinator.withModelLock { releaseWithoutLock() }
 
     suspend fun releaseAndDelete(): Boolean = coordinator.withModelLock {
-        withContext(Dispatchers.IO) { releaseWithoutLock() }
+        releaseWithoutLock()
         modelManager.deleteWithoutLock(aiSettingsStore.selectedModelDefinition())
     }
 
-    fun releaseWithoutLock() {
+    suspend fun releaseWithoutLock() {
         val state = engine.state.value
         // cleanUp() lancia IllegalStateException fuori da ModelReady/Error (es. nessun modello
         // ancora caricato): va chiamata solo se c'e' davvero qualcosa da scaricare.

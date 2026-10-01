@@ -5,6 +5,9 @@ import androidx.core.content.edit
 import com.pockettravel.core.data.crypto.KeystoreCipher
 import com.pockettravel.core.sync.currentGuidesLanguage
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -29,9 +32,20 @@ class AiSettingsStore @Inject constructor(@ApplicationContext private val contex
 
     fun apiKey(): String? = apiKeyStore.read()
 
-    fun setApiKey(key: String) = apiKeyStore.write(key)
+    // Segue setApiKey/clearApiKey (cambiare servizio passa da clearApiKey): serve a sapere subito
+    // se l'assistente e' configurato (vedi AiAvailability).
+    private val _hasApiKeyFlow = MutableStateFlow(hasApiKey())
+    val hasApiKeyFlow: StateFlow<Boolean> = _hasApiKeyFlow.asStateFlow()
 
-    fun clearApiKey() = apiKeyStore.clear()
+    fun setApiKey(key: String) {
+        apiKeyStore.write(key)
+        _hasApiKeyFlow.value = hasApiKey()
+    }
+
+    fun clearApiKey() {
+        apiKeyStore.clear()
+        _hasApiKeyFlow.value = false
+    }
 
     /** Servizio della modalita' "Online" (ChatGPT se mai scelto, come prima che si potesse scegliere). */
     fun onlineProvider(): OnlineProvider =

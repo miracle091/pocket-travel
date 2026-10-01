@@ -16,6 +16,8 @@ android {
 
     buildFeatures {
         compose = true
+        // BuildConfig.DEBUG: il percorso nel log solo in debug, per la simulazione GPS sull'emulatore.
+        buildConfig = true
     }
 
     compileOptions {

@@ -5,6 +5,9 @@ import com.pockettravel.core.data.allocatableBytes
 import com.pockettravel.core.data.reserveSpace
 import com.pockettravel.feature.ai.di.AiModelsDir
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -14,6 +17,7 @@ import java.io.IOException
 import java.security.DigestInputStream
 import java.security.MessageDigest
 import javax.inject.Inject
+import javax.inject.Singleton
 
 class ModelIntegrityException(message: String) : Exception(message)
 
@@ -32,6 +36,7 @@ class ModelNotAvailableException(message: String) : Exception(message)
  * chiamante (risolto da AiSettingsStore.selectedModelId) resta l'unica fonte di verita' su
  * quale modello e' "quello attivo" — nessuno stato duplicato qui dentro.
  */
+@Singleton
 class LlmModelManager @Inject constructor(
     private val okHttpClient: OkHttpClient,
     @AiModelsDir private val modelsDir: File,
@@ -43,6 +48,14 @@ class LlmModelManager @Inject constructor(
     private fun partFile(definition: LlmModelDefinition): File = File(modelsDir, "${definition.fileName}.part")
 
     fun isDownloaded(definition: LlmModelDefinition): Boolean = modelFile(definition).exists()
+
+    // Id dei modelli del catalogo presenti su disco, aggiornato a ogni installazione/eliminazione
+    // (per questo la classe e' un singleton: una sola copia dello stato).
+    private val _downloadedModelIds = MutableStateFlow(scanDownloadedModelIds())
+    val downloadedModelIds: StateFlow<Set<String>> = _downloadedModelIds.asStateFlow()
+
+    private fun scanDownloadedModelIds(): Set<String> =
+        LlmModelCatalog.ALL.filter { isDownloaded(it) }.map { it.id }.toSet()
 
     fun sizeOnDisk(definition: LlmModelDefinition): Long =
         modelFile(definition).let { if (it.exists()) it.length() else 0L }
@@ -65,6 +78,7 @@ class LlmModelManager @Inject constructor(
         val verified = withContext(Dispatchers.IO) { downloadAndVerify(definition, onProgress) }
         coordinator.withModelLock {
             withContext(Dispatchers.IO) { check(verified.renameTo(modelFile(definition))) { "Impossibile installare il modello" } }
+            _downloadedModelIds.value = scanDownloadedModelIds()
         }
     }
 
@@ -136,6 +150,16 @@ class LlmModelManager @Inject constructor(
                     while (input.read(buffer).also { read = it } != -1) {
                         output.write(buffer, 0, read)
                         downloaded += read
+                        // downloaded include gia' i byte del .part ripreso: sizeBytes e' la dimensione
+                        // del file intero. Oltre quella il server sta mandando altro (file cambiato,
+                        // risposta sbagliata): si interrompe subito invece di riempire il disco fino a EOF.
+                        if (definition.sizeBytes > 0 && downloaded > definition.sizeBytes) {
+                            output.close()
+                            partFile.delete()
+                            throw ModelDownloadFailedException(
+                                "Download modello interrotto: oltre i ${definition.sizeBytes} byte attesi",
+                            )
+                        }
                         if (downloaded - lastReported >= PROGRESS_STEP_BYTES) {
                             lastReported = downloaded
                             onProgress(downloaded, total)
@@ -172,7 +196,8 @@ class LlmModelManager @Inject constructor(
 
     suspend fun delete(definition: LlmModelDefinition): Boolean = coordinator.withModelLock { deleteWithoutLock(definition) }
 
-    internal fun deleteWithoutLock(definition: LlmModelDefinition): Boolean = modelFile(definition).delete()
+    internal fun deleteWithoutLock(definition: LlmModelDefinition): Boolean =
+        modelFile(definition).delete().also { _downloadedModelIds.value = scanDownloadedModelIds() }
 
     /**
      * Elimina da [modelsDir] ogni file che non e' un modello del catalogo attuale ne' il suo `.part`:
@@ -183,6 +208,7 @@ class LlmModelManager @Inject constructor(
     fun deleteOrphanedFiles() {
         val keep = LlmModelCatalog.ALL.flatMap { listOf(it.fileName, "${it.fileName}.part") }.toSet()
         modelsDir.listFiles()?.filter { it.isFile && it.name !in keep }?.forEach { it.delete() }
+        _downloadedModelIds.value = scanDownloadedModelIds()
     }
 
     private companion object {

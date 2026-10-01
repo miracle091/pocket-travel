@@ -38,6 +38,9 @@ class OnlineLlmClient @Inject constructor(
                 .newCall(request).execute().use { response ->
                 val responseBody = response.body.string()
                 if (!response.isSuccessful) {
+                    if (response.code == 401 || response.code == 403) {
+                        throw OnlineApiKeyRejectedException("Chiave API rifiutata (HTTP ${response.code})")
+                    }
                     if (response.code == 404 || (response.code == 400 && responseBody.contains("model", ignoreCase = true))) {
                         throw OnlineModelNotFoundException("Modello \"$model\" non disponibile (HTTP ${response.code})")
                     }

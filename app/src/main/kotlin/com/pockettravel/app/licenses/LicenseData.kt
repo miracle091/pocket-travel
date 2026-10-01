@@ -58,6 +58,11 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
         note = "Attribuzione visibile obbligatoria; i contenuti derivati restano CC BY-SA.",
     ),
     LicenseEntry(
+        component = "Wikidata (ambasciate e consolati)",
+        license = "CC0 1.0",
+        note = "Dominio pubblico: l'attribuzione non è obbligatoria, ma la fonte è Wikidata.",
+    ),
+    LicenseEntry(
         component = "Numeri di emergenza: Travel.gc.ca (Governo del Canada)",
         license = "Open Government Licence - Canada 2.0",
         note = "Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert - Canada. Confrontati con Wikipedia (CC BY-SA 4.0) e Wikidata (CC0).",

@@ -32,7 +32,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -53,10 +52,9 @@ import androidx.window.core.layout.WindowSizeClass
 import com.pockettravel.app.R
 import com.pockettravel.app.browser.InAppBrowserScreen
 import com.pockettravel.app.licenses.LicensesScreen
+import com.pockettravel.app.settings.SettingsScreen
+import com.pockettravel.app.settings.SettingsViewModel
 import com.pockettravel.app.more.MoreScreen
-import com.pockettravel.app.more.MoreViewModel
-import com.pockettravel.app.navigation.PocketTravelDestinations.ARG_LATITUDE
-import com.pockettravel.app.navigation.PocketTravelDestinations.ARG_LONGITUDE
 import com.pockettravel.app.navigation.PocketTravelDestinations.ARG_NAME
 import com.pockettravel.app.navigation.PocketTravelDestinations.ARG_REGION_ID
 import com.pockettravel.app.navigation.PocketTravelDestinations.ARG_TAB
@@ -64,8 +62,8 @@ import com.pockettravel.app.navigation.PocketTravelDestinations.ARG_TITLE
 import com.pockettravel.app.navigation.PocketTravelDestinations.ARG_URL
 import com.pockettravel.app.navigation.PocketTravelDestinations.IN_APP_BROWSER_PATTERN
 import com.pockettravel.app.navigation.PocketTravelDestinations.LICENSES
+import com.pockettravel.app.navigation.PocketTravelDestinations.SETTINGS
 import com.pockettravel.app.navigation.PocketTravelDestinations.MORE
-import com.pockettravel.app.navigation.PocketTravelDestinations.NAVIGATION_PATTERN
 import com.pockettravel.app.navigation.PocketTravelDestinations.NOTES
 import com.pockettravel.app.navigation.PocketTravelDestinations.ONBOARDING
 import com.pockettravel.app.navigation.PocketTravelDestinations.REGIONS
@@ -76,7 +74,6 @@ import com.pockettravel.app.navigation.PocketTravelDestinations.STORAGE
 import com.pockettravel.app.navigation.PocketTravelDestinations.TUTORIAL
 import com.pockettravel.app.navigation.PocketTravelDestinations.VAULT
 import com.pockettravel.app.navigation.PocketTravelDestinations.inAppBrowser
-import com.pockettravel.app.navigation.PocketTravelDestinations.navigation
 import com.pockettravel.app.navigation.PocketTravelDestinations.regionHub
 import com.pockettravel.app.navigation.PocketTravelDestinations.regionPreview
 import com.pockettravel.app.onboarding.OnboardingScreen
@@ -91,11 +88,6 @@ import com.pockettravel.app.regions.RegionWorldMap
 import com.pockettravel.app.storage.StorageScreen
 import com.pockettravel.core.data.officialSourcesRegistry
 import com.pockettravel.core.ui.AppIcons
-import com.pockettravel.feature.map.NavigationUiState
-import com.pockettravel.feature.map.NavigationScreen
-import com.pockettravel.feature.map.NavigationViewModel
-import com.pockettravel.feature.map.RouteResult
-import com.pockettravel.feature.map.RoutingPackageState
 import com.pockettravel.feature.sources.OfficialSourcesScreen
 import com.pockettravel.feature.vault.NotesScreen
 import com.pockettravel.feature.vault.PassportVaultScreen
@@ -208,11 +200,15 @@ fun PocketTravelNavHost(
             }
             composable(MORE, enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
                 MoreScreen(
+                    onOpenSettings = { navController.navigate(SETTINGS) },
                     onOpenSources = { navController.navigate(SOURCES) },
                     onOpenStorage = { navController.navigate(STORAGE) },
                     onOpenTutorial = { navController.navigate(TUTORIAL) },
                     onOpenLicenses = { navController.navigate(LICENSES) },
                 )
+            }
+            composable(SETTINGS) {
+                SettingsScreen(onBack = { navController.popBackStack() })
             }
             composable(TUTORIAL) {
                 OnboardingScreen(
@@ -224,8 +220,8 @@ fun PocketTravelNavHost(
                 StorageScreen(onBack = { navController.popBackStack() })
             }
             composable(SOURCES) {
-                // Stesse preferenze di Altro, da cui si arriva: la nazionalita' sceglie le fonti del proprio paese.
-                val nationality by hiltViewModel<MoreViewModel>().nationality.collectAsStateWithLifecycle()
+                // Stesse preferenze delle Impostazioni: la nazionalita' sceglie le fonti del proprio paese.
+                val nationality by hiltViewModel<SettingsViewModel>().nationality.collectAsStateWithLifecycle()
                 OfficialSourcesScreen(
                     nationality = nationality,
                     onBack = { navController.popBackStack() },
@@ -255,61 +251,8 @@ fun PocketTravelNavHost(
                         onBack = { if (!navController.popBackStack()) navController.navigate(REGIONS) },
                         onOpenOfficialSource = { url -> navController.navigateToOfficialSource(url) },
                         onOpenSource = { url, title -> navController.navigate(inAppBrowser(url, title)) },
-                        onNavigate = { lat, lon, name -> navController.navigate(navigation(regionId, lat, lon, name)) },
                     )
                 }
-            }
-            composable(
-                route = NAVIGATION_PATTERN,
-                arguments = listOf(
-                    navArgument(ARG_REGION_ID) { type = NavType.StringType },
-                    navArgument(ARG_LATITUDE) { type = NavType.StringType },
-                    navArgument(ARG_LONGITUDE) { type = NavType.StringType },
-                    navArgument(ARG_NAME) { type = NavType.StringType; defaultValue = "" },
-                ),
-            ) {
-                val navigationViewModel: NavigationViewModel = hiltViewModel()
-                val state by navigationViewModel.uiState.collectAsStateWithLifecycle()
-                val travelMode by navigationViewModel.travelMode.collectAsStateWithLifecycle()
-                val routing by navigationViewModel.routing.collectAsStateWithLifecycle()
-                val allowSteps by navigationViewModel.allowSteps.collectAsStateWithLifecycle()
-                val routingViewModel: NavigationRoutingViewModel = hiltViewModel()
-                val routingPackage by routingViewModel.state.collectAsStateWithLifecycle()
-                val missingRegionName by routingViewModel.missingRegionName.collectAsStateWithLifecycle()
-                val regionIds by navigationViewModel.regionIds.collectAsStateWithLifecycle()
-                // Senza dati di percorso: quale regione manca per la partenza o l'arrivo (una volta per volta, non a ogni posizione).
-                val position by navigationViewModel.position.collectAsStateWithLifecycle()
-                val currentPosition by rememberUpdatedState(position)
-                val noRoutingData = (state as? NavigationUiState.Unavailable)?.result == RouteResult.NoRoutingData
-                LaunchedEffect(noRoutingData) {
-                    if (noRoutingData) routingViewModel.findMissingRegion(currentPosition)
-                }
-                // Pacchetto Percorsi appena installato dopo "Scarica i percorsi": si ricalcola da solo.
-                var routingWasDownloading by remember { mutableStateOf(false) }
-                LaunchedEffect(routingPackage) {
-                    if (routingPackage == RoutingPackageState.DOWNLOADING) routingWasDownloading = true
-                    if (routingPackage == RoutingPackageState.INSTALLED && routingWasDownloading) {
-                        routingWasDownloading = false
-                        navigationViewModel.retry()
-                    }
-                }
-                NavigationScreen(
-                    state = state,
-                    destinationName = navigationViewModel.destinationName,
-                    travelMode = travelMode,
-                    onTravelModeChange = navigationViewModel::setTravelMode,
-                    wheelchair = routing.wheelchair,
-                    allowSteps = allowSteps,
-                    onAllowStepsChange = navigationViewModel::setAllowSteps,
-                    tileSource = navigationViewModel.tileSource,
-                    regionIds = regionIds,
-                    routingPackage = routingPackage,
-                    missingRegionName = missingRegionName,
-                    onDownloadRouting = routingViewModel::download,
-                    onPermissionResult = navigationViewModel::onPermissionResult,
-                    onRetry = navigationViewModel::retry,
-                    onClose = { navController.popBackStack() },
-                )
             }
             composable(
                 route = REGION_PREVIEW_PATTERN,
@@ -393,7 +336,6 @@ private fun RegionsListDetail(
                         onBack = { selectedRegionId = null },
                         onOpenOfficialSource = { url -> navController.navigateToOfficialSource(url) },
                         onOpenSource = { url, title -> navController.navigate(inAppBrowser(url, title)) },
-                        onNavigate = { lat, lon, name -> navController.navigate(navigation(regionId, lat, lon, name)) },
                         compactNavigation = true,
                     )
                 }

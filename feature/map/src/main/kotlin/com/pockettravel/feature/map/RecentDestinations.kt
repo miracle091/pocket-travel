@@ -1,6 +1,7 @@
 package com.pockettravel.feature.map
 
 import android.content.Context
+import android.os.Bundle
 import androidx.core.content.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +14,17 @@ import javax.inject.Singleton
 data class NavigationPlace(val name: String, val latitude: Double, val longitude: Double, val regionId: String) {
     val point: RoutePoint get() = RoutePoint(latitude, longitude)
 }
+
+// Per lo stato salvato dei ViewModel del Navigatore (SavedStateHandle).
+internal fun NavigationPlace.toBundle() = Bundle().apply {
+    putString("name", name)
+    putDouble("latitude", latitude)
+    putDouble("longitude", longitude)
+    putString("regionId", regionId)
+}
+
+internal fun Bundle.toPlace(): NavigationPlace? =
+    getString("name")?.let { NavigationPlace(it, getDouble("latitude"), getDouble("longitude"), getString("regionId").orEmpty()) }
 
 /**
  * Ultime destinazioni scelte nella tab Navigazione, la piu' recente per prima, di tutte le regioni
@@ -36,6 +48,11 @@ class RecentDestinations @Inject constructor(@ApplicationContext context: Contex
         val updated = _places.value - place
         prefs.edit { putString(KEY_PLACES, encode(updated)) }
         _places.value = updated
+    }
+
+    fun clear() {
+        prefs.edit { remove(KEY_PLACES) }
+        _places.value = emptyList()
     }
 
     internal companion object {

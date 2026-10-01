@@ -149,8 +149,15 @@ internal fun PoiCategory.label(): Int = when (this) {
 // bianco, glifo bianco al centro della testa e una piccola ombra sotto la punta. Dimensioni in dp
 // convertite con la densita' dello schermo. La punta cade esattamente sul bordo inferiore del
 // bitmap (a parte l'ombra, che sborda di poco): con iconAnchor "bottom" indica il punto esatto.
-internal fun poiPinBitmap(context: Context, category: PoiCategory, badge: AccessibilityBadge? = null): Bitmap {
-    val density = context.resources.displayMetrics.density
+internal fun poiPinBitmap(context: Context, category: PoiCategory, badge: AccessibilityBadge? = null): Bitmap =
+    pinBitmap(context, category.pinColor().toArgb(), category.glyph(), badge)
+
+/**
+ * Lo stesso segnalino a goccia con colore, glifo e scala scelti: partenza e arrivo del percorso
+ * (Navigatore e navigazione) piu' grandi dei POI, per riconoscerli a colpo d'occhio.
+ */
+internal fun pinBitmap(context: Context, fill: Int, glyphRes: Int?, badge: AccessibilityBadge? = null, scale: Float = 1f): Bitmap {
+    val density = context.resources.displayMetrics.density * scale
     val width = 30f * density
     val headRadius = width / 2f
     val tipY = 40f * density
@@ -182,7 +189,7 @@ internal fun poiPinBitmap(context: Context, category: PoiCategory, badge: Access
         }
         op(tip, Path.Op.UNION)
     }
-    canvas.drawPath(shape, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = category.pinColor().toArgb() })
+    canvas.drawPath(shape, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = fill })
     canvas.drawPath(
         shape,
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -192,7 +199,6 @@ internal fun poiPinBitmap(context: Context, category: PoiCategory, badge: Access
         },
     )
 
-    val glyphRes = category.glyph()
     if (glyphRes != null) {
         val half = 9f * density
         ResourcesCompat.getDrawable(context.resources, glyphRes, context.theme)?.mutate()?.apply {

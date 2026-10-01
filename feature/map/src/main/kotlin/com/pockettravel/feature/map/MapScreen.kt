@@ -54,6 +54,7 @@ import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PoiColors
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.safeWebUrl
 import java.time.LocalDate
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -369,9 +370,11 @@ fun MapScreen(
                     Spacer(modifier = Modifier.padding(top = Spacing.s))
                     FilledTonalButton(
                         onClick = {
-                            // In OSM il sito c'e' spesso senza schema ("www.esempio.it").
-                            val url = if (website.contains("://")) website else "https://$website"
-                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
+                            // In OSM il sito c'e' spesso senza schema ("www.esempio.it"), ed e' modificabile da
+                            // chiunque: si apre solo http/https, tutto il resto si scarta.
+                            safeWebUrl(website)?.let { url ->
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
+                            }
                         },
                     ) {
                         Icon(AppIcons.Web, contentDescription = null, modifier = Modifier.size(18.dp))

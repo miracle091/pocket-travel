@@ -1,4 +1,32 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Connectivity.kt: mondo online solo con rete (arriva anche da core/ui, ma il lint del modulo non lo vede) -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- NavigationHaptics.kt: vibrazione leggera alle svolte e all'arrivo nella guida a piedi -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- DepartureReminder.kt: riprogramma l'avviso di partenza dopo il riavvio del telefono -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- NavigationService.kt: la guida resta in primo piano (tipo posizione) per ricevere il GPS a schermo spento -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- NavigationService: la notifica della guida come "Live Update" di Android 16 (schermata di blocco, chip in barra) -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <!-- Il servizio di tipo location richiede anche i permessi di posizione (li dichiara gia' l'app: qui per il lint del modulo) -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <application>
+        <service
+            android:name=".NavigationService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+        <!-- DepartureReminder.kt: la notifica "e' ora di partire" all'ora programmata con AlarmManager -->
+        <receiver android:name=".DepartureReminderReceiver" android:exported="false" />
+        <!-- Non esportato: BOOT_COMPLETED arriva dal sistema, che puo' raggiungere anche i receiver privati -->
+        <receiver android:name=".DepartureReminderBootReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+    </application>
 </manifest>

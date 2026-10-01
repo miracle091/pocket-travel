@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.provider.Settings
+import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
@@ -76,6 +77,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.SecureFlagPolicy
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
@@ -170,6 +172,20 @@ fun PassportVaultScreen(
     DisposableEffect(Unit) {
         onDispose { if (activity?.isChangingConfigurations != true) viewModel.lock() }
     }
+
+    // FLAG_SECURE finche' la schermata e' in composizione: niente dati del passaporto nella miniatura
+    // delle app recenti (scattata a onPause, prima del blocco a ON_STOP), negli screenshot e nelle
+    // registrazioni. I dialoghi hanno una finestra propria e lo chiedono con securePolicy. Si toglie
+    // all'uscita, ma solo se non c'era gia' prima (non si tocca un flag impostato da altri).
+    DisposableEffect(activity) {
+        val window = activity?.window
+        val alreadySecure = window != null && (window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE) != 0
+        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose { if (!alreadySecure) window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+    }
+
+    // Scatti temporanei rimasti in chiaro se il processo e' morto durante uno scatto.
+    LaunchedEffect(Unit) { withContext(Dispatchers.IO) { wipeCameraTmp(context) } }
 
     // Dentro NavigationSuiteScaffold: gli inset di sistema li gestiscono la barra/rail e la top app bar,
     // applicarli anche qui lascerebbe una fascia vuota sopra la barra di navigazione.
@@ -514,6 +530,7 @@ private fun PhotoViewerDialog(viewModel: PassportVaultViewModel, fileName: Strin
     }
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn),
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.vault_close)) } },
         text = {
             bitmap?.let { image ->
@@ -611,7 +628,7 @@ private fun PassportEditDialog(
 
     Dialog(
         onDismissRequest = cancel,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.SecureOn),
     ) {
         Scaffold(
             topBar = {

@@ -34,9 +34,6 @@ fun routingChoice(mode: TravelMode, accessible: Boolean, allowSteps: Boolean): R
         RoutingChoice(mode.routingProfile)
     }
 
-/** Il pacchetto Percorsi della regione, per il pulsante "Scarica i percorsi" della navigazione. */
-enum class RoutingPackageState { UNKNOWN, INSTALLED, MISSING, DOWNLOADING }
-
 /** Cosa mostra la schermata di navigazione. */
 sealed interface NavigationUiState {
     /** Manca il permesso di posizione: senza, niente navigazione. */
@@ -108,6 +105,13 @@ fun shouldRecalculate(progress: NavigationProgress, calculating: Boolean, lastCa
 const val FIX_MAX_AGE_MILLIS = 10_000L
 
 const val RECALCULATION_INTERVAL_MILLIS = 10_000L
+
+/** Un arrivo piu' vecchio di cosi' non si annuncia piu' (snackbar, vibrazione): nessuno e' li' a sentirlo. */
+const val RECENT_ARRIVAL_MILLIS = 2 * 60_000L
+
+/** [arrivedAtMillis]: quando la guida ha visto la meta (null se mai): vero se e' successo da poco. */
+fun isRecentArrival(arrivedAtMillis: Long?, nowMillis: Long): Boolean =
+    arrivedAtMillis != null && nowMillis - arrivedAtMillis in 0..RECENT_ARRIVAL_MILLIS
 
 /** Regione installata con i Percorsi e riquadro della sua mappa (null se non si legge). */
 data class RoutingRegion(val regionId: String, val bounds: MapBounds?)

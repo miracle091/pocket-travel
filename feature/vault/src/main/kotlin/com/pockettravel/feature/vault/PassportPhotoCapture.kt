@@ -1,5 +1,6 @@
 package com.pockettravel.feature.vault
 
+import android.content.Context
 import android.util.Size
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.SecureFlagPolicy
 import androidx.core.content.ContextCompat
 import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -65,7 +67,10 @@ internal fun DocumentCameraCaptureScreen(
     onCaptured: (ByteArray) -> Unit,
     onClose: () -> Unit,
 ) {
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.SecureOn),
+    ) {
         val context = LocalContext.current
         val lifecycleOwner = LocalLifecycleOwner.current
         val imageCapture = remember { ImageCapture.Builder().build() }
@@ -209,6 +214,13 @@ internal fun DocumentCameraCaptureScreen(
             )
         }
     }
+}
+
+// Resta la cattura su file (con rimozione dell'EXIF su disco) invece di quella in memoria: ExifInterface
+// non riscrive in modo affidabile un JPEG in un ByteArray. Per il caso di processo morto tra scatto e
+// cancellazione la cartella si svuota all'apertura della cassaforte e all'avvio dell'app (PocketTravelApp).
+fun wipeCameraTmp(context: Context) {
+    File(context.cacheDir, "camera_tmp").listFiles()?.forEach { it.delete() }
 }
 
 // Riquadro guida con angoli, colorato in base al segnale di inquadratura (vedi

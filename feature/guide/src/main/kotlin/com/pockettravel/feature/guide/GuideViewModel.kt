@@ -1,10 +1,13 @@
 package com.pockettravel.feature.guide
 
+import com.pockettravel.core.data.LastKnownPosition
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.CityRepository
 import com.pockettravel.core.data.CitySection
+import com.pockettravel.core.data.DiplomaticMission
+import com.pockettravel.core.data.DiplomaticMissionRepository
 import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.EmergencyNumbersRepository
 import com.pockettravel.core.data.GuideRepository
@@ -34,6 +37,10 @@ data class GuideUiState(
     // ambasciate e i suoi consolati nella regione.
     val embassiesCountry: String? = null,
     val embassies: List<Poi> = emptyList(),
+    // Le rappresentanze Wikidata dello stesso paese nel paese della regione: la scheda le fonde con i POI OSM.
+    val missions: List<DiplomaticMission> = emptyList(),
+    // Ultima posizione nota del telefono (null senza permesso): le rappresentanze piu' vicine in cima.
+    val position: Pair<Double, Double>? = null,
     // La regione non ha un numero di emergenza centralizzato: la scheda lo dice al posto dei numeri.
     val noCentralEmergencyNumber: Boolean = false,
     // Nomi delle citta' della regione (CityRepository.citiesFor): entry point "Città" nascosto se vuoto.
@@ -55,7 +62,9 @@ class GuideViewModel @Inject constructor(
     private val cityRepository: CityRepository,
     private val regionRepository: RegionRepository,
     private val poiRepository: PoiRepository,
+    private val diplomaticMissionRepository: DiplomaticMissionRepository,
     private val nationalityPreferences: NationalityPreferences,
+    private val lastKnownPosition: LastKnownPosition,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GuideUiState())
@@ -86,9 +95,17 @@ class GuideViewModel @Inject constructor(
         embassiesJob = viewModelScope.launch {
             val regionCountry = regionRepository.installed(regionId)?.countryCode
             nationalityPreferences.nationality.collect { nationality ->
-                val country = nationality?.takeIf { it != regionCountry }
+                // Il paese della regione e' minuscolo (manifest), la nazionalita' maiuscola.
+                val country = nationality?.takeIf { !it.equals(regionCountry, ignoreCase = true) }
                 val embassies = country?.let { poiRepository.embassiesOf(regionId, it) }.orEmpty()
-                _uiState.update { it.copy(embassiesCountry = country, embassies = embassies) }
+                // Senza paese per la regione (manifest non ancora letto) niente rappresentanze Wikidata.
+                val missions = if (country != null && regionCountry != null) {
+                    diplomaticMissionRepository.missions(country, regionCountry)
+                } else {
+                    emptyList()
+                }
+                val position = if (country != null) lastKnownPosition.get() else null
+                _uiState.update { it.copy(embassiesCountry = country, embassies = embassies, missions = missions, position = position) }
             }
         }
         // Su tablet il ViewModel e' condiviso fra le regioni scelte: il caricamento lento della precedente

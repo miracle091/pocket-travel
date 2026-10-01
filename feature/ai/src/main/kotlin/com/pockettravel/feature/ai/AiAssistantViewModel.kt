@@ -19,6 +19,8 @@ data class AiUiState(
     val availableModels: List<LlmModelDefinition> = emptyList(),
     val selectedModelId: String = "",
     val isModelDownloaded: Boolean,
+    // Modelli gia' sul telefono: se quello scelto non c'e', se ne propone uno di questi.
+    val downloadedModelIds: Set<String> = emptySet(),
     val downloadProgress: Float? = null,
     val isApiKeyConfigured: Boolean,
     val onlineProvider: OnlineProvider = OnlineProvider.CHATGPT,
@@ -62,6 +64,7 @@ class AiAssistantViewModel @Inject constructor(
             availableModels = LlmModelCatalog.visibleFor(deviceAiCapability.ramTier(), currentGuidesLanguage()),
             selectedModelId = aiSettingsStore.selectedModelId(),
             isModelDownloaded = modelManager.isDownloaded(aiSettingsStore.selectedModelDefinition()),
+            downloadedModelIds = modelManager.downloadedModelIds.value,
             isApiKeyConfigured = aiSettingsStore.hasApiKey(),
             onlineProvider = aiSettingsStore.onlineProvider(),
             onlineModelSetting = aiSettingsStore.onlineModelSetting(),
@@ -73,6 +76,7 @@ class AiAssistantViewModel @Inject constructor(
     val uiState: StateFlow<AiUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch { modelManager.downloadedModelIds.collect { ids -> _uiState.update { it.copy(downloadedModelIds = ids) } } }
         observeModelDownload()
     }
 
@@ -247,5 +251,6 @@ class AiAssistantViewModel @Inject constructor(
 @StringRes
 internal fun askErrorMessage(error: Exception): Int = when (error) {
     is OnlineModelNotFoundException -> R.string.ai_error_model
+    is OnlineApiKeyRejectedException -> R.string.ai_error_key_rejected
     else -> R.string.ai_error_answer
 }

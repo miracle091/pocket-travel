@@ -42,7 +42,7 @@ interface InferenceEngine {
     /**
      * Unloads the currently loaded model.
      */
-    fun cleanUp()
+    suspend fun cleanUp()
 
     /**
      * Frees the native GGML backend (llama_backend_free), on top of what [cleanUp] already frees.
@@ -51,7 +51,7 @@ interface InferenceEngine {
      * permanently break the engine for the rest of the process. Process death is the real shutdown
      * path here; kept for completeness / instrumented tests that create their own instance.
      */
-    fun destroy()
+    suspend fun destroy()
 
     /**
      * States of the inference engine

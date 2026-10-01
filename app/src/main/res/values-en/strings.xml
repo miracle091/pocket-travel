@@ -182,7 +182,7 @@
         <item quantity="other">Download %1$d regions · %2$s</item>
     </plurals>
     <string name="onboarding_model_title">Download the AI model</string>
-    <string name="onboarding_model_body">Optional: you can download it here or anytime later, from the AI assistant screen.</string>
+    <string name="onboarding_model_body">Optional: you can download it here or anytime later, from Settings. Until you do, the AI tab doesn\'t appear in countries.</string>
     <string name="onboarding_step">Step %1$d of %2$d</string>
     <string name="onboarding_skip">Skip</string>
     <string name="onboarding_back">Back</string>
@@ -192,4 +192,14 @@
         <item quantity="one">%d region</item>
         <item quantity="other">%d regions</item>
     </plurals>
+    <string name="settings_title">Settings</string>
+    <string name="more_settings_subtitle">Language, nationality, appearance and Navigator</string>
+    <string name="settings_section_general">General</string>
+    <string name="settings_section_navigation">Map and Navigator</string>
+    <string name="settings_section_ai">AI assistant</string>
+    <string name="settings_stop_gps_on_arrival">Turn off GPS on arrival</string>
+    <string name="settings_stop_gps_on_arrival_subtitle">When you reach the destination the guidance closes by itself, even with the app in the background, to save battery. When off, guidance stays active until you close it</string>
+    <string name="settings_walking_haptics">Vibration when walking</string>
+    <string name="settings_walking_haptics_subtitle">A light vibration at each turn and two on arrival, to follow the guidance without looking at the screen</string>
+    <string name="regions_offline_installed">Catalog unreachable: only the countries already downloaded are shown.</string>
 </resources>

@@ -53,6 +53,7 @@ import com.pockettravel.feature.map.MapSourceKind
 import com.pockettravel.feature.map.NavigationPlace
 import com.pockettravel.feature.map.NavigationPlannerScreen
 import com.pockettravel.feature.map.NavigationPlannerViewModel
+import com.pockettravel.feature.map.NavigationViewModel
 import com.pockettravel.core.ui.R as UiR
 
 private enum class RegionTab(val key: String, @StringRes val label: Int) {
@@ -79,8 +80,6 @@ fun RegionHubScreen(
     onBack: () -> Unit,
     onOpenOfficialSource: (url: String) -> Unit = {},
     onOpenSource: (url: String, title: String) -> Unit = { _, _ -> },
-    // "Avvia" nella tab Navigatore: apre la guida passo passo verso quel punto.
-    onNavigate: (latitude: Double, longitude: Double, name: String) -> Unit = { _, _, _ -> },
     // true quando l'hub e' il pannello di dettaglio accanto all'elenco regioni (schermi larghi):
     // barra in basso invece della rail, che finirebbe in mezzo allo schermo.
     compactNavigation: Boolean = false,
@@ -90,17 +89,34 @@ fun RegionHubScreen(
     val displayName by viewModel.displayName.collectAsStateWithLifecycle()
     val regionMissing by viewModel.regionMissing.collectAsStateWithLifecycle()
     val mapState by viewModel.mapState.collectAsStateWithLifecycle()
+    val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
+    val downloadFailed by viewModel.downloadFailed.collectAsStateWithLifecycle()
+    val aiAvailable by viewModel.aiAvailable.collectAsStateWithLifecycle()
+    val uiLanguage = LocalLocale.current.platformLocale.language
+    LaunchedEffect(uiLanguage) { viewModel.refreshAiAvailability() }
+    // Tab IA salvata (o richiesta con tab=ai) ma non disponibile, o diventata tale (modello o chiave
+    // eliminati): si torna alla Guida. Per il disegno vale subito la tab effettiva, senza un fotogramma
+    // con la tab IA; lo stato salvato lo corregge l'effetto qui sotto.
+    val currentTab = if (selectedTab == RegionTab.AI && !aiAvailable) RegionTab.GUIDE else selectedTab
+    LaunchedEffect(aiAvailable, selectedTab) { if (!aiAvailable && selectedTab == RegionTab.AI) selectedTab = RegionTab.GUIDE }
     LaunchedEffect(regionId) { viewModel.load(regionId) }
     // Qui e non dentro la tab: "Indicazioni" dalla Mappa le passa la destinazione prima di aprirla.
     val plannerViewModel: NavigationPlannerViewModel = hiltViewModel()
+    // Come il pianificatore: qui per ricevere la notifica della guida, che riporta in primo piano il Navigatore.
+    val navigationViewModel: NavigationViewModel = hiltViewModel()
+    LaunchedEffect(navigationViewModel) {
+        navigationViewModel.openNavigatorRequests.collect {
+            if (navigationViewModel.target.value != null) selectedTab = RegionTab.NAVIGATION
+        }
+    }
     LaunchedEffect(regionMissing) { if (regionMissing) onBack() }
 
     val adaptiveInfo = currentWindowAdaptiveInfoV2()
     NavigationSuiteScaffold(
         modifier = Modifier.regionContainer(regionId),
         navigationSuiteItems = {
-            RegionTab.entries.forEach { tab ->
-                val selected = tab == selectedTab
+            RegionTab.entries.filter { it != RegionTab.AI || aiAvailable }.forEach { tab ->
+                val selected = tab == currentTab
                 item(
                     selected = selected,
                     onClick = { selectedTab = tab },
@@ -140,7 +156,7 @@ fun RegionHubScreen(
                     .imePadding(),
             ) {
                 // Motion M3 "fade through" tra le tab sorelle.
-                Crossfade(targetState = selectedTab, animationSpec = tween(250), label = "regionTab") { tab ->
+                Crossfade(targetState = currentTab, animationSpec = tween(250), label = "regionTab") { tab ->
                 when (tab) {
                     RegionTab.GUIDE -> GuideScreen(regionId = regionId, onOpenSource = onOpenSource)
                     RegionTab.MAP -> if (mapState == RegionMapState.LOADING) {
@@ -198,7 +214,10 @@ fun RegionHubScreen(
                     RegionTab.NAVIGATION -> NavigationPlannerScreen(
                         regionId = regionId,
                         viewModel = plannerViewModel,
-                        onStartNavigation = { place -> onNavigate(place.latitude, place.longitude, place.name) },
+                        navigationViewModel = navigationViewModel,
+                        onDownloadRouting = viewModel::downloadRouting,
+                        downloadProgress = downloadProgress,
+                        downloadFailed = downloadFailed,
                     )
                     RegionTab.AI -> AiAssistantScreen(regionId = regionId, onOpenOfficialSource = onOpenOfficialSource)
                 }

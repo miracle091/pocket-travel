@@ -1,5 +1,6 @@
 package com.pockettravel.app
 
+import com.pockettravel.feature.vault.wipeCameraTmp
 import android.app.Application
 import android.content.Context
 import android.util.Log
@@ -46,6 +47,8 @@ class PocketTravelApp : Application(), Configuration.Provider {
             runCatching { llmModelManager.deleteOrphanedFiles() }
                 .onFailure { Log.w("PocketTravelApp", "Pulizia dei modelli orfani fallita", it) }
         }
+        // Foto del passaporto rimaste in chiaro nella cache se l'app e' stata chiusa durante uno scatto.
+        CoroutineScope(Dispatchers.IO).launch { runCatching { wipeCameraTmp(this@PocketTravelApp) } }
         // Attivazioni di pacchetti interrotte da un crash e staging abbandonato (vedi RegionStartupRecovery).
         CoroutineScope(Dispatchers.IO).launch {
             runCatching { regionStartupRecovery.run() }

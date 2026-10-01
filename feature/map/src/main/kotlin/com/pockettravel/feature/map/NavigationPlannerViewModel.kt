@@ -1,12 +1,20 @@
 package com.pockettravel.feature.map
 
+import android.content.Context
+import android.os.Bundle
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pockettravel.core.data.AddressResult
+import com.pockettravel.core.data.AddressSearchRepository
 import com.pockettravel.core.data.Poi
 import com.pockettravel.core.data.PoiRepository
+import com.pockettravel.core.data.parseAddressQuery
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.displayName
+import com.pockettravel.core.data.poiCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -18,11 +26,15 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import javax.inject.Inject
 import kotlin.math.cos
 import kotlin.math.sqrt
@@ -30,8 +42,14 @@ import kotlin.math.sqrt
 /** Quale dei due campi della tab si sta scegliendo con la ricerca. */
 enum class PlannerField { FROM, TO }
 
-/** Un risultato della ricerca: il posto, il suo tipo (stringa di PoiTypes) e la regione se non e' quella aperta. */
-data class PlannerResult(val place: NavigationPlace, val typeLabel: Int?, val otherRegionName: String?, val distanceMeters: Double?)
+/**
+ * Un risultato della ricerca: il posto, il suo tipo (stringa di PoiTypes) e la regione se non e' quella aperta.
+ * [isAddress]: un indirizzo (via e civico) e non un punto di interesse.
+ */
+data class PlannerResult(
+    val place: NavigationPlace, val typeLabel: Int?, val otherRegionName: String?, val distanceMeters: Double?,
+    val isAddress: Boolean = false,
+)
 
 /** Anteprima del percorso prima di partire. */
 sealed interface PlannerPreview {
@@ -54,11 +72,16 @@ sealed interface PlannerPreview {
 /**
  * Tab Navigazione dell'hub: partenza (la propria posizione o un posto), destinazione cercata per nome
  * tra i punti di interesse delle regioni installate, mezzo e anteprima del percorso. La guida passo
- * passo resta NavigationScreen, aperta da "Avvia" quando si parte dalla propria posizione.
+ * passo e' NavigationGuidance, nella stessa scheda: "Avvia" la fa partire (NavigationViewModel) quando
+ * si parte dalla propria posizione. Partenza, arrivo, mezzo, ora di arrivo e avviso di partenza stanno
+ * in [SavedStateHandle]: se il sistema chiude l'app, tornando si ritrova lo stesso Navigatore.
  */
 @HiltViewModel
 class NavigationPlannerViewModel @Inject constructor(
+    private val savedStateHandle: SavedStateHandle,
+    @ApplicationContext private val context: Context,
     private val poiRepository: PoiRepository,
+    private val addressSearchRepository: AddressSearchRepository,
     private val regionRepository: RegionRepository,
     private val routeEngineFactory: RouteEngineFactory,
     private val gps: GpsLocationSource,
@@ -74,10 +97,10 @@ class NavigationPlannerViewModel @Inject constructor(
         .map { regions -> regions.associate { it.regionId to it.displayName } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
-    private val _from = MutableStateFlow<NavigationPlace?>(null)
+    private val _from = MutableStateFlow(savedStateHandle.get<Bundle>(KEY_FROM)?.toPlace())
     /** null = la propria posizione. */
     val from: StateFlow<NavigationPlace?> = _from.asStateFlow()
-    private val _to = MutableStateFlow<NavigationPlace?>(null)
+    private val _to = MutableStateFlow(savedStateHandle.get<Bundle>(KEY_TO)?.toPlace())
     val to: StateFlow<NavigationPlace?> = _to.asStateFlow()
 
     private val _searching = MutableStateFlow<PlannerField?>(null)
@@ -85,7 +108,9 @@ class NavigationPlannerViewModel @Inject constructor(
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
-    private val _travelMode = MutableStateFlow(TravelMode.from(usageModePreferences.mode.value))
+    private val _travelMode = MutableStateFlow(
+        savedStateHandle.get<String>(KEY_MODE)?.let(TravelMode::valueOf) ?: TravelMode.from(usageModePreferences.mode.value),
+    )
     val travelMode: StateFlow<TravelMode> = _travelMode.asStateFlow()
     val routing: StateFlow<RoutingChoice> = combine(_travelMode, usageModePreferences.accessible, usageModePreferences.allowSteps, ::routingChoice)
         .stateIn(viewModelScope, SharingStarted.Eagerly, routingChoice(_travelMode.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value))
@@ -104,26 +129,111 @@ class NavigationPlannerViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     @OptIn(FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val results: StateFlow<List<PlannerResult>> = combine(_query.debounce(SEARCH_DEBOUNCE_MILLIS), regionId, installed, ::Triple)
-        .mapLatest { (text, current, regions) -> search(text, current, regions) }
+    val results: StateFlow<List<PlannerResult>> = combine(_query.debounce(SEARCH_DEBOUNCE_MILLIS), regionId, installed, lastPosition) { text, current, regions, _ ->
+        SearchInput(text, current, regions)
+    }.mapLatest { (text, current, regions) -> search(text, current, regions) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * La regione aperta ha i Percorsi installati. Se mancano, "nessun dato di percorso" vuol dire
+     * "scaricali"; se ci sono, partenza o arrivo sono fuori dalle zone scaricate e riscaricare non serve.
+     */
+    val routingInstalled: StateFlow<Boolean> = combine(regionRepository.observeInstalled(), regionId) { regions, id ->
+        id == null || regions.any { it.regionId == id && it.routingVersion != null }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    private val _arriveBy = MutableStateFlow(savedStateHandle.get<Long>(KEY_ARRIVE_BY)?.let(::minuteToDateTime))
+    /** L'ora a cui si vuole arrivare ("Arriva alle..."), null se si parte subito. */
+    val arriveBy: StateFlow<LocalDateTime?> = _arriveBy.asStateFlow()
+
+    private val _reminder = MutableStateFlow(savedStateHandle.get<Long>(KEY_REMINDER)?.let(::minuteToDateTime))
+    /** L'ora di partenza per cui c'e' un avviso programmato, null se nessuno. */
+    val reminder: StateFlow<LocalDateTime?> = _reminder.asStateFlow()
+
+    init {
+        _from.onEach { savedStateHandle[KEY_FROM] = it?.toBundle() }.launchIn(viewModelScope)
+        _to.onEach { savedStateHandle[KEY_TO] = it?.toBundle() }.launchIn(viewModelScope)
+        _travelMode.onEach { savedStateHandle[KEY_MODE] = it.name }.launchIn(viewModelScope)
+        _arriveBy.onEach { savedStateHandle[KEY_ARRIVE_BY] = it?.let(::dateTimeToMinute) }.launchIn(viewModelScope)
+        _reminder.onEach { savedStateHandle[KEY_REMINDER] = it?.let(::dateTimeToMinute) }.launchIn(viewModelScope)
+        // Percorsi appena installati dopo "Scarica i percorsi": l'anteprima si ricalcola da sola.
+        viewModelScope.launch {
+            var hadRouting: Boolean? = null
+            routingInstalled.collect { has ->
+                if (hadRouting == false && has) refreshPreview()
+                hadRouting = has
+            }
+        }
+        // Ripreso dopo la chiusura del processo: l'anteprima si ricalcola dalla meta salvata.
+        if (_to.value != null) refreshPreview()
+    }
 
     fun load(regionId: String) {
         this.regionId.value = regionId
     }
 
+    /** Meta raggiunta: si torna alla ricerca, partendo di nuovo dalla propria posizione. */
+    fun clearDestination() {
+        cancelReminder()
+        setTo(null)
+        setFrom(null)
+        _arriveBy.value = null
+        refreshPreview()
+    }
+
+    // L'avviso e' per un percorso preciso: se cambia la partenza, l'arrivo, il mezzo o l'ora si toglie.
+    private fun setFrom(place: NavigationPlace?) {
+        if (place != _from.value) cancelReminder()
+        _from.value = place
+    }
+
+    private fun setTo(place: NavigationPlace?) {
+        if (place != _to.value) cancelReminder()
+        _to.value = place
+    }
+
+    /** Cambia l'ora di arrivo (null la toglie); l'avviso della partenza precedente non vale piu'. */
+    fun setArriveBy(time: LocalDateTime?) {
+        if (time == _arriveBy.value) return
+        cancelReminder()
+        _arriveBy.value = time
+    }
+
+    /** "Avvisami quando partire": una notifica all'ora di [departure], che sostituisce l'eventuale precedente. */
+    fun setReminder(departure: LocalDateTime) {
+        DepartureReminder.schedule(context, departure, _to.value?.name.orEmpty())
+        _reminder.value = departure
+    }
+
+    /** Toglie l'avviso programmato: all'avvio della guida, all'arrivo e a ogni cambio del percorso. */
+    fun cancelReminder() {
+        if (_reminder.value == null) return
+        DepartureReminder.cancel(context)
+        _reminder.value = null
+    }
+
     /** "Indicazioni" dalla scheda di un punto della mappa: destinazione pronta, partenza dalla propria posizione. */
     fun setDestination(place: NavigationPlace) {
-        _to.value = place
-        _from.value = null
+        setTo(place)
+        setFrom(null)
         _searching.value = null
         recentDestinations.add(place)
         refreshPreview()
     }
 
+    // Richiesta di posizione della ricerca in corso: aprendo e chiudendo la ricerca non se ne accumulano altre.
+    private var positionJob: Job? = null
+
     fun startSearch(field: PlannerField) {
         _query.value = ""
         _searching.value = field
+        // Una posizione per ordinare i risultati per distanza, se il permesso c'e' gia': senza, in ordine di regione.
+        if (lastPosition.value == null && gps.hasPermission() && positionJob?.isActive != true) {
+            positionJob = viewModelScope.launch {
+                withTimeoutOrNull(LOCATION_TIMEOUT_MILLIS) { gps.fixes().first() }
+                    ?.let { lastPosition.value = RoutePoint(it.latitude, it.longitude) }
+            }
+        }
     }
 
     fun cancelSearch() {
@@ -137,9 +247,9 @@ class NavigationPlannerViewModel @Inject constructor(
     /** Scelta dalla ricerca o dai recenti per il campo che si sta modificando. */
     fun choose(place: NavigationPlace) {
         when (_searching.value ?: PlannerField.TO) {
-            PlannerField.FROM -> _from.value = place
+            PlannerField.FROM -> setFrom(place)
             PlannerField.TO -> {
-                _to.value = place
+                setTo(place)
                 recentDestinations.add(place)
             }
         }
@@ -149,7 +259,7 @@ class NavigationPlannerViewModel @Inject constructor(
 
     /** "La mia posizione" come partenza. */
     fun useMyPosition() {
-        _from.value = null
+        setFrom(null)
         _searching.value = null
         refreshPreview()
     }
@@ -157,21 +267,26 @@ class NavigationPlannerViewModel @Inject constructor(
     /** Scambia partenza e arrivo; con la propria posizione come arrivo non si puo' (resterebbe senza meta). */
     fun swap() {
         val from = _from.value ?: return
-        _from.value = _to.value
-        _to.value = from
+        setFrom(_to.value)
+        setTo(from)
         refreshPreview()
     }
 
     fun removeRecent(place: NavigationPlace) = recentDestinations.remove(place)
 
+    fun clearRecents() = recentDestinations.clear()
+
     fun setTravelMode(mode: TravelMode) {
         if (mode == _travelMode.value) return
+        cancelReminder()
         _travelMode.value = mode
         refreshPreview()
     }
 
     fun setAllowSteps(allow: Boolean) {
         if (allow == usageModePreferences.allowSteps.value) return
+        // Le scale cambiano la durata del percorso, e con lei l'ora di partenza.
+        cancelReminder()
         usageModePreferences.setAllowSteps(allow)
         refreshPreview()
     }
@@ -213,14 +328,29 @@ class NavigationPlannerViewModel @Inject constructor(
         val language = java.util.Locale.getDefault().language
         val reference = lastPosition.value ?: _from.value?.point
         val pois = withContext(Dispatchers.IO) { poiRepository.searchByName(ids, text, SEARCH_LIMIT) }
-        return pois.map { poi -> poi.toResult(language, current, regions, reference) }
-            .sortedWith(compareBy<PlannerResult> { it.otherRegionName != null }.thenBy { it.distanceMeters ?: Double.MAX_VALUE })
-            .take(RESULTS_SHOWN)
+        // Indirizzi solo dove sono installati i database di ricerca dei civici: altrimenti nessun risultato in piu'.
+        val addresses = addressSearchRepository.search(ids, text)
+        val byProximity = compareBy<PlannerResult> { it.otherRegionName != null }.thenBy { it.distanceMeters ?: Double.MAX_VALUE }
+        val addressResults = addresses.map { it.toResult(current, regions, reference) }.sortedWith(byProximity).take(ADDRESS_RESULTS_SHOWN)
+        val poiResults = pois.map { poi -> poi.toResult(language, current, regions, reference) }
+            .sortedWith(byProximity)
+            .take(RESULTS_SHOWN - addressResults.size)
+        // Con un civico nella ricerca gli indirizzi esatti vengono per primi, altrimenti i punti di interesse.
+        return if (parseAddressQuery(text).number != null) addressResults + poiResults else poiResults + addressResults
     }
+
+    private fun AddressResult.toResult(current: String?, regions: Map<String, String>, reference: RoutePoint?) = PlannerResult(
+        place = NavigationPlace(displayName, latitude, longitude, regionId),
+        typeLabel = R.string.planner_type_address,
+        otherRegionName = regions[regionId]?.takeIf { regionId != current },
+        distanceMeters = reference?.let { approximateDistance(it, RoutePoint(latitude, longitude)) },
+        isAddress = true,
+    )
 
     private fun Poi.toResult(language: String, current: String?, regions: Map<String, String>, reference: RoutePoint?) = PlannerResult(
         place = NavigationPlace(displayName(language), latitude, longitude, regionId),
-        typeLabel = poiTypeLabel(osmTag),
+        // Senza un tipo preciso (stazioni, autostazioni) il nome della categoria della mappa.
+        typeLabel = poiTypeLabel(osmTag) ?: poiCategory().label(),
         otherRegionName = regions[regionId]?.takeIf { regionId != current },
         distanceMeters = reference?.let { approximateDistance(it, RoutePoint(latitude, longitude)) },
     )
@@ -233,12 +363,20 @@ class NavigationPlannerViewModel @Inject constructor(
     }
 
     private companion object {
+        const val KEY_FROM = "from"
+        const val KEY_TO = "to"
+        const val KEY_MODE = "mode"
+        const val KEY_ARRIVE_BY = "arriveBy"
+        const val KEY_REMINDER = "reminder"
         const val SEARCH_DEBOUNCE_MILLIS = 300L
         const val SEARCH_LIMIT = 200
         const val RESULTS_SHOWN = 30
+        const val ADDRESS_RESULTS_SHOWN = 10
         const val LOCATION_TIMEOUT_MILLIS = 20_000L
     }
 }
+
+private data class SearchInput(val text: String, val current: String?, val regions: Map<String, String>)
 
 // Distanza in linea d'aria per ordinare i risultati: l'approssimazione equirettangolare basta a pochi km.
 private fun approximateDistance(a: RoutePoint, b: RoutePoint): Double {
@@ -246,3 +384,8 @@ private fun approximateDistance(a: RoutePoint, b: RoutePoint): Double {
     val y = Math.toRadians(b.latitude - a.latitude)
     return sqrt(x * x + y * y) * 6_371_000.0
 }
+
+// Gli orari si salvano come minuti dall'epoca (locale): un Long entra nello stato salvato senza altro.
+private fun minuteToDateTime(minute: Long): LocalDateTime = LocalDateTime.ofEpochSecond(minute * 60, 0, ZoneOffset.UTC)
+
+private fun dateTimeToMinute(time: LocalDateTime): Long = time.toEpochSecond(ZoneOffset.UTC) / 60

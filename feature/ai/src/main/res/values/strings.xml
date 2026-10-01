@@ -32,6 +32,9 @@
     <string name="ai_remove_key">Rimuovi chiave</string>
     <string name="ai_delete_model_title">Eliminare il modello IA?</string>
     <string name="ai_delete_model_message">Dovrai riscaricarlo per tornare a usare l\'assistente IA sul dispositivo.</string>
+    <string name="ai_settings_hint">La scheda IA compare in ogni paese quando hai scaricato un modello o inserito una chiave API.</string>
+    <string name="ai_api_key_saved">Chiave API salvata</string>
+    <string name="ai_model_downloaded">Scaricato</string>
     <string name="ai_remove_key_title">Rimuovere la chiave API?</string>
     <string name="ai_remove_key_message">Dovrai reinserirla per tornare a usare l\'assistente IA online.</string>
     <string name="ai_benchmark_run">Esegui benchmark</string>
@@ -63,4 +66,10 @@
     <string name="ai_online_model_other">Altro modello</string>
     <string name="ai_online_model_other_desc">Scrivi il nome esatto di un altro modello del servizio.</string>
     <string name="ai_online_model_label">Nome del modello</string>
+    <string name="ai_error_key_rejected">Il servizio ha rifiutato la chiave API: potrebbe essere scaduta o revocata. Rimuovila e inseriscine una nuova.</string>
+    <string name="ai_saved_key_reminder">Hai una chiave API di %1$s salvata: puoi usare subito l\'assistente online, senza scaricare un modello.</string>
+    <string name="ai_use_online">Usa online</string>
+    <string name="ai_downloaded_model_choice">Sul telefono c\'è già %1$s. Vuoi usarlo subito o continuare con %2$s, il modello che avevi scelto, scaricandolo?</string>
+    <string name="ai_use_model">Usa %1$s</string>
+    <string name="ai_download_selected">Scarica %1$s</string>
 </resources>

@@ -182,7 +182,7 @@
         <item quantity="other">Scarica %1$d nazioni · %2$s</item>
     </plurals>
     <string name="onboarding_model_title">Scarica il modello IA</string>
-    <string name="onboarding_model_body">Facoltativo: puoi scaricarlo qui o in qualsiasi momento dopo, dalla schermata Assistente IA.</string>
+    <string name="onboarding_model_body">Facoltativo: puoi scaricarlo qui o in qualsiasi momento dopo, da Impostazioni. Finché non lo scarichi, la scheda IA non compare nei paesi.</string>
     <string name="onboarding_step">Passo %1$d di %2$d</string>
     <string name="onboarding_skip">Salta</string>
     <string name="onboarding_back">Indietro</string>
@@ -192,4 +192,14 @@
         <item quantity="one">%d regione</item>
         <item quantity="other">%d regioni</item>
     </plurals>
+    <string name="settings_title">Impostazioni</string>
+    <string name="more_settings_subtitle">Lingua, nazionalità, aspetto e Navigatore</string>
+    <string name="settings_section_general">Generale</string>
+    <string name="settings_section_navigation">Mappa e Navigatore</string>
+    <string name="settings_section_ai">Assistente IA</string>
+    <string name="settings_stop_gps_on_arrival">Spegni il GPS all\'arrivo</string>
+    <string name="settings_stop_gps_on_arrival_subtitle">Arrivati alla meta la guida si chiude da sola, anche con l\'app in background, per risparmiare batteria. Spento, la guida resta attiva finché non la chiudi</string>
+    <string name="settings_walking_haptics">Vibrazione a piedi</string>
+    <string name="settings_walking_haptics_subtitle">Una vibrazione leggera a ogni svolta e due all\'arrivo, per seguire la guida senza guardare lo schermo</string>
+    <string name="regions_offline_installed">Catalogo non raggiungibile: qui ci sono solo le nazioni già scaricate.</string>
 </resources>

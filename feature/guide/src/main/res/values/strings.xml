@@ -52,5 +52,19 @@
     </plurals>
     <string name="emergency_embassies_title">Ambasciate e consolati del tuo paese (%1$s)</string>
     <string name="emergency_embassies_none">Nei dati di questa regione non ci sono ambasciate o consolati del tuo paese: controlla sul sito del tuo ministero degli esteri.</string>
+    <string name="emergency_kind_embassy">Ambasciata</string>
+    <string name="emergency_kind_consulate_general">Consolato generale</string>
+    <string name="emergency_kind_consulate">Consolato</string>
+    <string name="emergency_embassy_website">Apri il sito di %1$s</string>
+    <string name="emergency_embassy_email">Scrivi a %1$s</string>
+    <string name="emergency_farnesina">Viaggiare Sicuri – Farnesina</string>
+    <string name="emergency_farnesina_description">Avvisi e schede paese del Ministero degli Esteri</string>
+    <string name="emergency_farnesina_open">Apri Viaggiare Sicuri</string>
     <string name="guide_sources_title">Fonti</string>
+    <string name="transit_excluded_title">Orari dei mezzi pubblici non inclusi</string>
+    <string name="transit_excluded_tmb">TMB (metro e bus di Barcellona): la licenza vale solo per l\'app che la richiede e non ne consente la ridistribuzione.</string>
+    <string name="transit_excluded_idfm">Île-de-France Mobilités (metro, RER e bus di Parigi): la licenza (Licence Mobilités) richiede che chi riusa i dati si registri, condizione che un file pubblico non può rispettare.</string>
+    <string name="transit_excluded_tcl">TCL (rete di Lione): la licenza (Licence Mobilités) richiede che chi riusa i dati si registri, condizione che un file pubblico non può rispettare.</string>
+    <string name="emergency_embassies_nearby">Vicino a te</string>
+    <string name="emergency_embassies_others">Nel resto del paese</string>
 </resources>

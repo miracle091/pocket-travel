@@ -52,5 +52,19 @@
     </plurals>
     <string name="emergency_embassies_title">Your country\'s embassies &amp; consulates (%1$s)</string>
     <string name="emergency_embassies_none">This region\'s data doesn\'t include any embassies or consulates of your country: check your foreign ministry\'s website.</string>
+    <string name="emergency_kind_embassy">Embassy</string>
+    <string name="emergency_kind_consulate_general">Consulate general</string>
+    <string name="emergency_kind_consulate">Consulate</string>
+    <string name="emergency_embassy_website">Open the website of %1$s</string>
+    <string name="emergency_embassy_email">Email %1$s</string>
+    <string name="emergency_farnesina">Viaggiare Sicuri – Farnesina</string>
+    <string name="emergency_farnesina_description">Travel alerts and country pages from the Italian Foreign Ministry (in Italian)</string>
+    <string name="emergency_farnesina_open">Open Viaggiare Sicuri</string>
     <string name="guide_sources_title">Sources</string>
+    <string name="transit_excluded_title">Public transport timetables not included</string>
+    <string name="transit_excluded_tmb">TMB (Barcelona metro and buses): the licence is limited to the requesting app and does not allow redistribution.</string>
+    <string name="transit_excluded_idfm">Île-de-France Mobilités (Paris metro, RER and buses): their licence (Licence Mobilités) requires every reuser to register, which a public file cannot ensure.</string>
+    <string name="transit_excluded_tcl">TCL (Lyon network): their licence (Licence Mobilités) requires every reuser to register, which a public file cannot ensure.</string>
+    <string name="emergency_embassies_nearby">Near you</string>
+    <string name="emergency_embassies_others">Elsewhere in the country</string>
 </resources>

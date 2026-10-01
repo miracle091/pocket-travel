@@ -233,14 +233,35 @@ internal fun RegionListContent(
                     modifier = Modifier.fillMaxSize(),
                 )
 
-                else -> RegionGroupedList(
+                else -> Column {
+                    // Catalogo irraggiungibile ma nazioni installate: si aprono lo stesso, il catalogo torna con "Riprova".
+                    if (uiState.loadError != null) OfflineCatalogNotice(onRetry)
+                    RegionGroupedList(
                     items = uiState.items,
                     replaced = uiState.replaced,
                     searching = uiState.query.isNotBlank(),
                     rowActions = rowActions,
                     onRegionClick = onRegionClick,
-                )
+                    )
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun OfflineCatalogNotice(onRetry: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.s),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = Spacing.l, end = Spacing.s, top = Spacing.s, bottom = Spacing.s)) {
+            Icon(AppIcons.OfflineWifi, contentDescription = null)
+            Spacer(modifier = Modifier.width(Spacing.m))
+            Text(stringResource(R.string.regions_offline_installed), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            IconButton(onClick = onRetry) { Icon(AppIcons.Refresh, contentDescription = stringResource(R.string.regions_retry)) }
         }
     }
 }

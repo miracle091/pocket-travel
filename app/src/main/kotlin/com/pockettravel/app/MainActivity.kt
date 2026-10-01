@@ -1,6 +1,7 @@
 package com.pockettravel.app
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.SystemBarStyle
@@ -24,6 +25,8 @@ import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.currentGuidesLanguage
 import com.pockettravel.core.sync.isEnglishGuidesVersion
 import com.pockettravel.core.ui.PocketTravelTheme
+import com.pockettravel.feature.map.NavigationService
+import com.pockettravel.feature.map.NavigationSession
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -35,6 +38,14 @@ class MainActivity : FragmentActivity() {
     @Inject lateinit var themePreferences: ThemePreferences
     @Inject lateinit var regionRepository: RegionRepository
     @Inject lateinit var regionSyncScheduler: RegionSyncScheduler
+
+    @Inject lateinit var navigationSession: NavigationSession
+
+    // Notifica della guida toccata con l'app gia' aperta: l'hub della regione porta in primo piano il Navigatore.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra(NavigationService.EXTRA_OPEN_NAVIGATOR, false)) navigationSession.requestOpen()
+    }
 
     // Fino ad Android 12 la lingua scelta nell'app si applica qui (da 13 ci pensa il sistema).
     override fun attachBaseContext(newBase: Context) {

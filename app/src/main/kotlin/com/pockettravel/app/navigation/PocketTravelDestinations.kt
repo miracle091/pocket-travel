@@ -12,6 +12,7 @@ object PocketTravelDestinations {
     const val VAULT = "vault"
     const val NOTES = "notes"
     const val MORE = "more"
+    const val SETTINGS = "settings"
 
     const val ARG_REGION_ID = "regionId"
     const val ARG_TAB = "tab"
@@ -33,13 +34,4 @@ object PocketTravelDestinations {
 
     fun regionPreview(regionId: String, displayName: String) =
         "region-preview/$regionId?$ARG_NAME=${Uri.encode(displayName)}"
-
-    // lat/lon come stringhe: un Float di Navigation perderebbe precisione (metri) sulle coordinate.
-    // Stessi nomi degli argomenti letti da NavigationViewModel (SavedStateHandle).
-    const val ARG_LATITUDE = "lat"
-    const val ARG_LONGITUDE = "lon"
-    const val NAVIGATION_PATTERN = "navigation/{$ARG_REGION_ID}?$ARG_LATITUDE={$ARG_LATITUDE}&$ARG_LONGITUDE={$ARG_LONGITUDE}&$ARG_NAME={$ARG_NAME}"
-
-    fun navigation(regionId: String, latitude: Double, longitude: Double, name: String) =
-        "navigation/$regionId?$ARG_LATITUDE=$latitude&$ARG_LONGITUDE=$longitude&$ARG_NAME=${Uri.encode(name)}"
 }

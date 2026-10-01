@@ -33,3 +33,6 @@ internal fun supportsTemperature(model: String): Boolean =
 
 /** Il servizio non conosce il modello scritto dall'utente (HTTP 404, o 400 che parla del modello). */
 class OnlineModelNotFoundException(message: String) : IllegalStateException(message)
+
+/** Il servizio rifiuta la chiave (HTTP 401/403): scaduta, revocata o sbagliata. */
+class OnlineApiKeyRejectedException(message: String) : IllegalStateException(message)

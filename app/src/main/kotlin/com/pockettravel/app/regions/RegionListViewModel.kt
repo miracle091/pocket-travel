@@ -1,5 +1,6 @@
 package com.pockettravel.app.regions
 
+import com.pockettravel.core.data.LastKnownPosition
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -149,9 +150,14 @@ class RegionListViewModel @Inject constructor(
         replacedRegions,
     ) { remoteRegions, (installed, wantsDirections), currentStatus, currentQuery, replacedByManifest ->
         val installedByRegion = installed.associateBy { it.regionId }
-        val items = remoteRegions
-            .filter { matchesQuery(it.displayName, currentQuery) }
-            .map { remote -> regionUiItem(remote, installedByRegion[remote.regionId], regionRepository::packageBytes, regionRepository::installedAddressCells, wantsDirections, transitIndex.value != null) }
+        // Senza catalogo (offline, o non ancora letto) le nazioni installate restano apribili: i loro dati sono sul telefono.
+        val items = if (remoteRegions.isEmpty()) {
+            installed.filter { matchesQuery(it.displayName, currentQuery) }.map { offlineRegionItem(it, regionRepository::packageBytes) }
+        } else {
+            remoteRegions
+                .filter { matchesQuery(it.displayName, currentQuery) }
+                .map { remote -> regionUiItem(remote, installedByRegion[remote.regionId], regionRepository::packageBytes, regionRepository::installedAddressCells, wantsDirections, transitIndex.value != null) }
+        }
         val replaced = replacedItems(installed, remoteRegions, replacedByManifest).filter { matchesQuery(it.displayName, currentQuery) }
         RegionListUiState(
             items = items,
@@ -277,6 +283,22 @@ class RegionListViewModel @Inject constructor(
     fun observeDownloadProgress(regionId: String): Flow<WorkInfo?> =
         regionSyncScheduler.observeDownload(regionId)
 }
+
+/**
+ * Una nazione installata quando il catalogo non c'e': solo i pacchetti sul telefono, tutti "installati" (senza
+ * catalogo non si sa se ci sono aggiornamenti) e senza nulla da scaricare.
+ */
+internal fun offlineRegionItem(local: RegionPackage, installedBytes: (RegionPackage, PackageKind) -> Long?): RegionUiItem =
+    RegionUiItem(
+        regionId = local.regionId,
+        displayName = local.displayName,
+        sizeBytes = local.sizeBytes,
+        status = RegionStatus.INSTALLED,
+        countryCode = local.countryCode,
+        packages = PackageKind.entries.filter { local.versionOf(it) != null }.map { kind ->
+            PackageUiState(kind = kind, status = RegionStatus.INSTALLED, downloadBytes = 0, installedBytes = installedBytes(local, kind))
+        },
+    )
 
 /** Regioni installate che il manifest non offre piu' perche' divise in regioni piu' piccole. */
 internal fun replacedItems(

@@ -20,9 +20,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
@@ -64,20 +64,17 @@ internal class InferenceEngineImpl private constructor(
          *
          * @param Context for obtaining native library directory
          * @throws IllegalArgumentException if native library path is invalid
-         * @throws UnsatisfiedLinkError if library failed to load
+         *
+         * Il caricamento della libreria nativa e' asincrono (vedi `init` della classe): un suo
+         * fallimento non arriva qui ma porta lo stato a [InferenceEngine.State.Error].
          */
         internal fun getInstance(context: Context) =
             instance ?: synchronized(this) {
                 val nativeLibDir = context.applicationInfo.nativeLibraryDir
                 require(nativeLibDir.isNotBlank()) { "Expected a valid native library path!" }
 
-                try {
-                    Log.i(TAG, "Instantiating InferenceEngineImpl,,,")
-                    InferenceEngineImpl(nativeLibDir).also { instance = it }
-                } catch (e: UnsatisfiedLinkError) {
-                    Log.e(TAG, "Failed to load native library from $nativeLibDir", e)
-                    throw e
-                }
+                Log.i(TAG, "Instantiating InferenceEngineImpl,,,")
+                InferenceEngineImpl(nativeLibDir).also { instance = it }
             }
     }
 
@@ -118,6 +115,12 @@ internal class InferenceEngineImpl private constructor(
     @Volatile
     private var _cancelGeneration = false
 
+    // Valorizzato se System.loadLibrary/init() falliscono: e' un errore definitivo (ABI non
+    // supportata, backend .so mancante), a differenza di un Error dopo un loadModel/generazione, da
+    // cui cleanUp() recupera. Senza libreria nemmeno le chiamate native di unload() sono possibili.
+    @Volatile
+    private var nativeInitError: Exception? = null
+
     /**
      * Single-threaded coroutine dispatcher & scope for LLama asynchronous operations
      */
@@ -138,9 +141,14 @@ internal class InferenceEngineImpl private constructor(
                 _state.value = InferenceEngine.State.Initialized
                 Log.i(TAG, "Native library loaded! System info: \n${systemInfo()}")
 
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                // Dentro il launch: fuori da qui l'eccezione (anche UnsatisfiedLinkError, che e' un
+                // Error) uscirebbe dallo scope e farebbe terminare il processo, oppure lo stato
+                // resterebbe Initializing per sempre.
                 Log.e(TAG, "Failed to load native library", e)
-                throw e
+                val error = e as? Exception ?: IllegalStateException("Native library failed to load", e)
+                nativeInitError = error
+                _state.value = InferenceEngine.State.Error(error)
             }
         }
     }
@@ -148,7 +156,17 @@ internal class InferenceEngineImpl private constructor(
     /**
      * Load the LLM
      */
-    override suspend fun loadModel(pathToModel: String, topK: Int, topP: Float, nThreads: Int) =
+    override suspend fun loadModel(pathToModel: String, topK: Int, topP: Float, nThreads: Int) {
+        // L'init della libreria nativa parte alla creazione e finisce in modo asincrono: se loadModel
+        // arriva prima, aspetta invece di fallire il check sullo stato Initializing.
+        _state.first { it !is InferenceEngine.State.Uninitialized && it !is InferenceEngine.State.Initializing }
+        nativeInitError?.let {
+            throw IllegalStateException("Motore IA non disponibile: libreria nativa non caricata (${it.message})", it)
+        }
+        loadModelOnDispatcher(pathToModel, topK, topP, nThreads)
+    }
+
+    private suspend fun loadModelOnDispatcher(pathToModel: String, topK: Int, topP: Float, nThreads: Int) =
         withContext(llamaDispatcher) {
             check(_state.value is InferenceEngine.State.Initialized) {
                 "Cannot load model in ${_state.value.javaClass.simpleName}!"
@@ -248,14 +266,11 @@ internal class InferenceEngineImpl private constructor(
     }.flowOn(llamaDispatcher)
 
     /**
-     * Benchmark the model
-     */
-    /**
      * Unloads the model and frees resources, or reset error states
      */
-    override fun cleanUp() {
+    override suspend fun cleanUp() {
         _cancelGeneration = true
-        runBlocking(llamaDispatcher) {
+        withContext(llamaDispatcher) {
             when (val state = _state.value) {
                 is InferenceEngine.State.ModelReady -> {
                     Log.i(TAG, "Unloading model and free resources...")
@@ -269,6 +284,9 @@ internal class InferenceEngineImpl private constructor(
                 }
 
                 is InferenceEngine.State.Error -> {
+                    // Errore di init della libreria: niente da scaricare ne' da resettare, le
+                    // chiamate native non sono possibili e lo stato Error e' definitivo.
+                    if (nativeInitError != null) return@withContext
                     // Il riferimento Arm qui resettava solo lo stato: se l'errore arrivava dopo il
                     // caricamento (prepare() o generazione), il modello restava in memoria nativa e
                     // il loadModel() successivo lo sovrascriveva, perdendo GB di RAM. unload() e'
@@ -288,11 +306,13 @@ internal class InferenceEngineImpl private constructor(
     /**
      * Cancel all ongoing coroutines and free GGML backends
      */
-    override fun destroy() {
+    override suspend fun destroy() {
         _cancelGeneration = true
-        runBlocking(llamaDispatcher) {
+        withContext(llamaDispatcher) {
             when(_state.value) {
                 is InferenceEngine.State.Uninitialized -> {}
+                // Dopo un errore di init non ci sono chiamate native possibili.
+                is InferenceEngine.State.Error -> if (nativeInitError == null) { unload(); shutdown() } else Unit
                 is InferenceEngine.State.Initialized -> shutdown()
                 else -> { unload(); shutdown() }
             }

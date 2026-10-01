@@ -32,6 +32,9 @@
     <string name="ai_remove_key">Remove key</string>
     <string name="ai_delete_model_title">Delete the AI model?</string>
     <string name="ai_delete_model_message">You\'ll need to download it again to use the on-device AI assistant.</string>
+    <string name="ai_settings_hint">The AI tab appears in each country once you have downloaded a model or entered an API key.</string>
+    <string name="ai_api_key_saved">API key saved</string>
+    <string name="ai_model_downloaded">Downloaded</string>
     <string name="ai_remove_key_title">Remove the API key?</string>
     <string name="ai_remove_key_message">You\'ll need to enter it again to use the online AI assistant.</string>
     <string name="ai_benchmark_run">Run benchmark</string>
@@ -63,4 +66,10 @@
     <string name="ai_online_model_other">Other model</string>
     <string name="ai_online_model_other_desc">Type the exact name of another model from the service.</string>
     <string name="ai_online_model_label">Model name</string>
+    <string name="ai_error_key_rejected">The service rejected the API key: it may have expired or been revoked. Remove it and enter a new one.</string>
+    <string name="ai_saved_key_reminder">You have a saved %1$s API key: you can use the online assistant right away, without downloading a model.</string>
+    <string name="ai_use_online">Use online</string>
+    <string name="ai_downloaded_model_choice">%1$s is already on your phone. Use it now, or continue with %2$s, the model you chose, by downloading it?</string>
+    <string name="ai_use_model">Use %1$s</string>
+    <string name="ai_download_selected">Download %1$s</string>
 </resources>

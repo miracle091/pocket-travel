@@ -1,6 +1,7 @@
 package com.pockettravel.app.browser
 
 import android.annotation.SuppressLint
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -26,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.viewinterop.AndroidView
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.isSafeWebUrl
 import com.pockettravel.core.ui.R as UiR
 
 // Sostituisce le Chrome Custom Tabs per le fonti ufficiali del registro (Farnesina, OMS, Agenzia
@@ -72,14 +74,23 @@ fun InAppBrowserScreen(url: String, title: String, onBack: () -> Unit) {
                     WebView(context).apply {
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
+                        // Le pagine non devono leggere file locali ne' content provider dell'app.
+                        settings.allowFileAccess = false
+                        settings.allowContentAccess = false
                         webViewClient = object : WebViewClient() {
+                            // Blocca ogni schema diverso da http/https (intent:, market:, content:, file:,
+                            // javascript:...), anche nei reindirizzamenti: l'indirizzo iniziale viene da
+                            // database scaricati e dai siti, non e' fidato.
+                            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+                                !isSafeWebUrl(request.url.toString())
+
                             override fun onPageFinished(view: WebView, loadedUrl: String) {
                                 isLoading = false
                                 currentUrl = loadedUrl
                                 view.title?.takeIf { it.isNotBlank() }?.let { pageTitle = it }
                             }
                         }
-                        loadUrl(currentUrl)
+                        if (isSafeWebUrl(currentUrl)) loadUrl(currentUrl) else isLoading = false
                         webView = this
                     }
                 },
