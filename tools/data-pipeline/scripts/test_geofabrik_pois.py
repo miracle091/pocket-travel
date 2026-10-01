@@ -3,11 +3,14 @@
 
 Uso: python test_geofabrik_pois.py
 """
+import io
 import json
 import os
 import sys
 import tempfile
 import unittest
+import urllib.error
+from unittest import mock
 from xml.etree import ElementTree
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -102,6 +105,39 @@ class ScriviXmlTest(unittest.TestCase):
         self.assertEqual(name, 'Kafe & "Rīga"')
         self.assertIn('<way id="2"><center lat="56.2000000" lon="24.1000000"/>', xml)
         self.assertEqual(xml.count("<way "), 1)
+
+
+class FileDatatoTest(unittest.TestCase):
+    def test_il_piu_recente_della_cartella(self):
+        listing = (b'<a href="iceland-260929.osm.pbf">x</a><a href="iceland-260930.osm.pbf">x</a>'
+                   b'<a href="iceland-260930.osm.pbf.md5">x</a><a href="iceland-latest.osm.pbf">x</a>'
+                   b'<a href="ireland-261001.osm.pbf">x</a>')
+        response = io.BytesIO(listing)
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", return_value=response):
+            url = geofabrik_pois.url_datato("https://d.example/europe/iceland-latest.osm.pbf", "ua")
+
+        self.assertEqual(url, "https://d.example/europe/iceland-260930.osm.pbf")
+
+    def test_404_sul_latest_ripiega_sul_datato_con_id_con_la_barra(self):
+        url = "https://d.example/north-america/us/alaska-latest.osm.pbf"
+        error = urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+        calls = []
+
+        def scarica(u, dest, _ua):
+            calls.append((u, dest))
+            if u == url:
+                raise error
+
+        with tempfile.TemporaryDirectory() as cache, \
+                mock.patch.object(geofabrik_pois, "scarica", side_effect=scarica), \
+                mock.patch.object(geofabrik_pois, "url_datato", return_value=url.replace("latest", "260930")), \
+                mock.patch.object(geofabrik_pois.subprocess, "run"), \
+                mock.patch.object(geofabrik_pois.os, "replace"), mock.patch.object(geofabrik_pois.os, "remove"):
+            reduced = geofabrik_pois.estratto_ridotto("us/alaska", url, cache, "ua")
+
+        self.assertEqual([u for u, _ in calls], [url, url.replace("latest", "260930")])
+        self.assertEqual(os.path.dirname(calls[0][1]), cache)
+        self.assertEqual(os.path.basename(reduced), "us-alaska-poi.osm.pbf")
 
 
 if __name__ == "__main__":

@@ -22,10 +22,12 @@ Esce con codice 1 se qualcosa non va (download, osmium): build-region.sh ripiega
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from xml.sax.saxutils import quoteattr
 
@@ -162,21 +164,44 @@ def scarica(url, dest, user_agent, attempts=3):
             os.replace(dest + ".part", dest)
             return
         except OSError as error:
-            if attempt == attempts:
+            # Un 4xx non passa riprovando subito (lo ripara il file datato, vedi estratto_ridotto).
+            if attempt == attempts or (isinstance(error, urllib.error.HTTPError) and error.code < 500):
                 raise
             print(f"-- geofabrik: {error}, riprovo ({attempt}/{attempts})", flush=True)
             time.sleep(10 * attempt)
 
 
+def url_datato(url, user_agent):
+    """URL del file datato piu' recente (nome-AAMMGG.osm.pbf) accanto a nome-latest.osm.pbf, dall'elenco della
+    cartella. Il proxy di Geofabrik a volte tiene in cache per il -latest un 301 verso se stesso con la barra
+    finale (urllib: "infinite loop") o un 404, mentre il file datato si scarica."""
+    folder, name = url.rsplit("/", 1)
+    name = name.removesuffix("-latest.osm.pbf")
+    request = urllib.request.Request(folder + "/", headers={"User-Agent": user_agent})
+    with urllib.request.urlopen(request, timeout=120) as response:
+        listing = response.read().decode("utf-8", "replace")
+    dates = re.findall(rf'href="{re.escape(name)}-(\d{{6}})\.osm\.pbf"', listing)
+    if not dates:
+        raise OSError(f"nessun file datato per {name} in {folder}/")
+    return f"{folder}/{name}-{max(dates)}.osm.pbf"
+
+
 def estratto_ridotto(cid, url, cache, user_agent):
     """Percorso dell'estratto ridotto ai soli POI, dalla cache o scaricato e filtrato ora."""
-    reduced = os.path.join(cache, f"{cid}-poi.osm.pbf")
+    reduced = os.path.join(cache, f"{nome_file(cid)}-poi.osm.pbf")
     if os.path.exists(reduced):
         print(f"-- geofabrik: {cid} dalla cache", flush=True)
         return reduced
-    full = os.path.join(cache, f"{cid}.osm.pbf")
+    full = os.path.join(cache, f"{nome_file(cid)}.osm.pbf")
     print(f"-- geofabrik: scarico {url}", flush=True)
-    scarica(url, full, user_agent)
+    try:
+        scarica(url, full, user_agent)
+    except urllib.error.HTTPError as error:
+        if error.code >= 500:
+            raise
+        url = url_datato(url, user_agent)
+        print(f"-- geofabrik: {error}, provo il file datato {url}", flush=True)
+        scarica(url, full, user_agent)
     try:
         subprocess.run(["osmium", "tags-filter", "--overwrite", "--no-progress", full, *TAGS_FILTER,
                         "-o", reduced + ".part.osm.pbf"], check=True)
@@ -184,6 +209,11 @@ def estratto_ridotto(cid, url, cache, user_agent):
     finally:
         os.remove(full)
     return reduced
+
+
+def nome_file(cid):
+    """Nome di file per l'id di un estratto: quelli con la barra (us/alaska) chiederebbero una sottocartella."""
+    return cid.replace("/", "-")
 
 
 def centro(geometry):
@@ -253,10 +283,10 @@ def main():
         for cid, url in extracts:
             reduced = estratto_ridotto(cid, url, args.cache, args.user_agent)
             # Prima il ritaglio sul bbox: San Marino esporterebbe altrimenti tutto il nord-est d'Italia.
-            clipped = os.path.join(tmp, f"{cid}.osm.pbf")
+            clipped = os.path.join(tmp, f"{nome_file(cid)}.osm.pbf")
             subprocess.run(["osmium", "extract", "--overwrite", "--no-progress", "-s", "smart",
                             "-b", ",".join(str(v) for v in bbox), reduced, "-o", clipped], check=True)
-            source = os.path.join(tmp, f"{cid}.geojsonseq")
+            source = os.path.join(tmp, f"{nome_file(cid)}.geojsonseq")
             subprocess.run(["osmium", "export", "--overwrite", "--no-progress", "-f", "geojsonseq",
                             "-x", "print_record_separator=false", "-a", "type,id", clipped, "-o", source], check=True)
             sources.append(source)
