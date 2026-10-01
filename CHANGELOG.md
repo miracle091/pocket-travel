@@ -14,6 +14,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Aggiornamenti della mappa: le parti a bassa risoluzione (vista del paese e del continente) si riscaricano sempre, perché potevano restare quelle vecchie.
 
 ### Corretto
+- Aggiornamenti dei punti di interesse: Norvegia, Alaska, Siberia, Iran, Arabia Saudita, Ucraina, Georgia, Camerun e altre regioni restavano con quelli vecchi, perché il server degli estratti OpenStreetMap a volte non dava il file e la pipeline passava a una fonte molto più lenta. Si aggiornano dalla prossima pubblicazione.
 - Assistente IA online: se il servizio non conosce il modello scelto, l'assistente torna a dirlo ("controlla il nome in Assistente IA → Online, o scegli Automatico") invece di mostrare un errore generico.
 
 ## [0.9.0]
