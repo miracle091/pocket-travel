@@ -18,6 +18,8 @@
 # "national_coach" non esiste piu' (BODS risponde "Invalid region name", 2026-10-01).
 # Tolto il 2026-10-01 mdb-2814 (traghetti Balearia): il feed del NAP, unica fonte, ha corse solo fino al
 # 2025-03-31; si rimette quando il NAP ne pubblica uno nuovo (stesso id nel Mobility Database).
+# Renfe alta velocita', lunga e media distanza (2026-10-01): stessa licenza e condizioni di Cercanias; il
+# feed del Mobility Database (mdb-2620) e' fermo, si scarica direttamente da ssl.renfe.com.
 #
 # regioni: regionId di pilot-regions.sh separati da virgola (le regioni che propongono la rete).
 # attribuzione: testo per la schermata Licenze e sotto il tabellone.
@@ -36,6 +38,7 @@ mdb-3273	svezia	Treni SJ	CC0-1.0	SJ (Trafiklab GTFS Regional, CC0 1.0)	https://w
 mdb-3277	svezia	Treni Snälltåget	CC0-1.0	Snälltåget (Trafiklab GTFS Regional, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-regional/
 mdb-3259	svezia	Traghetti per Gotland (Destination Gotland)	CC0-1.0	Destination Gotland (Trafiklab GTFS Regional, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-regional/
 mdb-2653	spagna	Treni suburbani (Renfe Cercanías e Rodalies)	CC-BY	Origen de los datos: Renfe Operadora (data.renfe.com, CC BY 4.0); modificato	https://data.renfe.com/dataset/horarios-cercanias
+renfe-avld	spagna	Treni alta velocità, lunga e media distanza (Renfe)	CC-BY	Origen de los datos: Renfe Operadora (data.renfe.com, CC BY 4.0); modificato	https://data.renfe.com/dataset/horarios-de-alta-velocidad-larga-distancia-y-media-distancia	https://ssl.renfe.com/gtransit/Fichero_AV_LD/google_transit.zip
 mdb-795	spagna	Valencia, autobus urbani (EMT València)	CC-BY	Ajuntament de València, EMT València (opendata.vlci.valencia.es, CC BY 4.0); modificato	https://opendata.vlci.valencia.es/dataset/google-transit-lines-stops-bus-schedules
 tdg-83582	francia,francia-alta-francia,francia-alvernia-rodano-alpi,francia-borgogna-franca-contea,francia-bretagna,francia-centro-valle-della-loira,francia-grand-est,francia-ile-de-france,francia-normandia,francia-nuova-aquitania,francia-occitania,francia-paesi-della-loira,francia-provenza-alpi-costa-azzurra	Treni SNCF (TGV, Intercités, TER)	ODbL-1.0	SNCF Voyageurs (transport.data.gouv.fr, ODbL 1.0); modificato	https://transport.data.gouv.fr/datasets/horaires-sncf
 tdg-39589	francia,francia-provenza-alpi-costa-azzurra	Marsiglia (RTM)	etalab-2.0	Métropole d'Aix-Marseille-Provence, RTM (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/reseaux-de-transports-en-commun-de-la-metropole-daix-marseille-provence-et-des-bouches-du-rhone
