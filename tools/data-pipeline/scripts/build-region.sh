@@ -135,6 +135,31 @@ PREVIEW_MAX_XZ_BYTES=$((10 * 1024 * 1024))
 # go-pmtiles: stesso binario e stessa installazione di build-address-cell.sh (vedi publish-regions.yml).
 # Mancante = niente anteprima, mai fatale per la regione (solo un avviso).
 PMTILES_BIN="${PMTILES_BIN:-$(command -v pmtiles || command -v go-pmtiles || true)}"
+# Limite per tentativo di estrazione: un'anteprima nei limiti scarica pochi MB in qualche secondo, ma
+# build.protomaps.com a volte rallenta a ~20 kB/s o risponde 524 dopo 15 minuti (norvegia, run del
+# 2026-09-30: due tentativi da ~18 minuti hanno fatto scadere il limite di 45 minuti della regione).
+PREVIEW_ATTEMPT_TIMEOUT=180
+PREVIEW_ATTEMPTS=2
+
+# preview_over_cap <sourceUrl> <zoom>: successo se la stima della dimensione a quello zoom e'
+# chiaramente sopra il tetto, cosi' non si scarica un'estrazione destinata a essere scartata
+# (norvegia: 112 MB a z9 e 43 MB a z8 prima di arrivare a z6). La stima viene da "extract --dry-run",
+# che legge solo le directory dell'archivio (pochi secondi, nessuna tile) e stampa la dimensione
+# dell'archivio risultante, arrotondata (es. "113 MB"). L'.xz pesa tra il 95% e il 100% del
+# pmtiles (le tile sono gia' compresse, run del 2026-09-30), quindi si scarta solo sopra
+# tetto/0,85: nei casi dubbi si scarica e si misura. Qualunque errore = non sopra il tetto.
+preview_over_cap() {
+  local sourceUrl="$1" zoom="$2" out
+  out="$(timeout 120 "$PMTILES_BIN" extract "$sourceUrl" "$OUTPUT_DIR/preview.dry-run.pmtiles" \
+    --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$zoom" --dry-run 2>&1)" || return 1
+  printf '%s\n' "$out" | awk -v cap="$PREVIEW_MAX_XZ_BYTES" '
+    match($0, /archive size of [0-9.]+ [kMG]?B/) {
+      split(substr($0, RSTART + 16, RLENGTH - 16), a, " ")
+      mult = (a[2] == "GB") ? 1e9 : (a[2] == "MB") ? 1e6 : (a[2] == "kB") ? 1e3 : 1
+      found = 1; over = (a[1] * mult * 0.85 > cap)
+    }
+    END { exit !(found && over) }'
+}
 
 # build_preview <sourceUrl>: scrive $OUTPUT_DIR/preview.pmtiles e preview.pmtiles.xz, impostando
 # PREVIEW_ZOOM_USED e le dimensioni/hash (PREVIEW_SIZE, PREVIEW_SHA256, PREVIEW_XZ_SIZE,
@@ -157,10 +182,18 @@ build_preview() {
   fi
   while true; do
     rm -f "$file" "$file.xz"
-    # build.protomaps.com a volte non risponde o chiude a meta': tre tentativi, poi l'anteprima si salta
-    # (return 1) e il chiamante tiene quella pubblicata, invece di perdere POI e percorsi gia' fatti.
-    with_retries "anteprima di $REGION_ID" 3 "$file" \
-      "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$zoom" || return 1
+    # Sopra lo zoom minimo, uno zoom la cui stima e' gia' oltre il tetto non si scarica nemmeno.
+    if [ "$zoom" -gt "$PREVIEW_MIN_ZOOM" ] && preview_over_cap "$sourceUrl" "$zoom"; then
+      echo "-- anteprima di $REGION_ID a z$zoom: stima oltre il tetto ($PREVIEW_MAX_XZ_BYTES), salto il download e provo z$((zoom - 1))"
+      zoom=$((zoom - 1))
+      tryUp=false
+      continue
+    fi
+    # build.protomaps.com a volte non risponde o chiude a meta': due tentativi (ciascuno con un limite
+    # di tempo), poi l'anteprima si salta (return 1) e il chiamante tiene quella pubblicata, invece di
+    # perdere POI e percorsi gia' fatti.
+    with_retries "anteprima di $REGION_ID" "$PREVIEW_ATTEMPTS" "$file" \
+      timeout "$PREVIEW_ATTEMPT_TIMEOUT" "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$zoom" || return 1
     xz -T1 --lzma2=preset=9e,dict=16MiB -c "$file" > "$file.xz"
     local xzSize
     xzSize="$(wc -c < "$file.xz" | tr -d ' ')"
@@ -172,8 +205,9 @@ build_preview() {
       mv "$file.xz" "$file.xz.down"
       local upSize=$((PREVIEW_MAX_XZ_BYTES + 1))
       # Il tentativo verso l'alto e' facoltativo: se l'estrazione fallisce resta lo zoom pubblicato.
-      if with_retries "anteprima di $REGION_ID a z$((zoom + 1))" 3 "$file" \
-        "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$((zoom + 1))"; then
+      if ! preview_over_cap "$sourceUrl" "$((zoom + 1))" \
+        && with_retries "anteprima di $REGION_ID a z$((zoom + 1))" "$PREVIEW_ATTEMPTS" "$file" \
+        timeout "$PREVIEW_ATTEMPT_TIMEOUT" "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$((zoom + 1))"; then
         xz -T1 --lzma2=preset=9e,dict=16MiB -c "$file" > "$file.xz"
         upSize="$(wc -c < "$file.xz" | tr -d ' ')"
       fi
