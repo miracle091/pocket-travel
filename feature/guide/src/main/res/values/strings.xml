@@ -57,9 +57,9 @@
     <string name="emergency_kind_consulate">Consolato</string>
     <string name="emergency_embassy_website">Apri il sito di %1$s</string>
     <string name="emergency_embassy_email">Scrivi a %1$s</string>
-    <string name="emergency_farnesina">Viaggiare Sicuri – Farnesina</string>
-    <string name="emergency_farnesina_description">Avvisi e schede paese del Ministero degli Esteri</string>
-    <string name="emergency_farnesina_open">Apri Viaggiare Sicuri</string>
+    <string name="emergency_travel_advice_description">Avvisi e schede paese del ministero degli Esteri del tuo paese</string>
+    <string name="emergency_travel_advice_fallback_description">Avvisi del governo britannico, in inglese: sicurezza e salute valgono per tutti, i requisiti d\'ingresso sono quelli per i cittadini britannici</string>
+    <string name="emergency_travel_advice_open">Apri %1$s</string>
     <string name="guide_sources_title">Fonti</string>
     <string name="transit_excluded_title">Orari dei mezzi pubblici non inclusi</string>
     <string name="transit_excluded_tmb">TMB (metro e bus di Barcellona): la licenza vale solo per l\'app che la richiede e non ne consente la ridistribuzione.</string>

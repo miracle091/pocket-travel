@@ -12,4 +12,13 @@
     <string name="sync_package_addresses">Numeri civici</string>
     <string name="sync_package_cities">Guide delle città</string>
     <string name="sync_package_transit">Mezzi pubblici</string>
+    <string name="sync_updates_regions_channel">Aggiornamenti regioni</string>
+    <string name="sync_updates_app_channel">Aggiornamenti app</string>
+    <string name="sync_updates_ai_model_channel">Aggiornamenti modello IA</string>
+    <string name="sync_update_region_title">Aggiornamento disponibile</string>
+    <string name="sync_update_region_text">%1$s, %2$d MB</string>
+    <string name="sync_update_app_title">Aggiornamento app disponibile</string>
+    <string name="sync_update_app_text">Versione %1$s</string>
+    <string name="sync_update_ai_model_title">Aggiornamento modello IA disponibile</string>
+    <string name="sync_update_ai_model_text">%1$s, %2$d MB</string>
 </resources>

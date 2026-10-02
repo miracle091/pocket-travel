@@ -38,6 +38,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -192,11 +194,13 @@ internal fun DocumentCameraCaptureScreen(
                 Icon(imageVector = AppIcons.Close, contentDescription = stringResource(R.string.vault_camera_close), tint = Color.White)
             }
 
+            val countDescription = stringResource(R.string.vault_camera_count, photoCount, maxPhotos)
             Text(
                 text = "$photoCount/$maxPhotos",
                 color = Color.White,
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
+                // "5/50" letto da TalkBack sarebbe "5 barra 50".
+                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).semantics { contentDescription = countDescription },
             )
 
             Box(

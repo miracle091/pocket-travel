@@ -28,38 +28,52 @@ class RegionPackageDownloader @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val regionStorage: RegionStorage,
 ) {
+    /**
+     * Sezione critica per id di staging: chiamate concorrenti sullo stesso id (piu' ViewModel che chiedono
+     * lo stesso indice, due lavori sulla stessa regione) si accodano: altrimenti scriverebbero lo stesso
+     * .part e cleanupStagingExcept cancellerebbe lo staging dell'altra. Chi scarica, decomprime e installa
+     * la tiene per tutto il percorso (download + unpackXz + pulizia), non solo per il download. Il Mutex
+     * non e' rientrante: dentro il blocco si usa [downloadLocked], mai [download].
+     */
+    suspend fun <T> withStagingLock(stagingId: String, block: suspend () -> T): T =
+        locks.getOrPut(stagingId) { Mutex() }.withLock { block() }
+
     suspend fun download(
+        regionId: String,
+        stagingVersion: String,
+        files: List<RegionManifestFile>,
+        onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit = { _, _ -> },
+    ): File = withStagingLock(regionId) { downloadLocked(regionId, stagingVersion, files, onProgress) }
+
+    /** Come [download], ma senza prendere il lock: il chiamante e' gia' dentro [withStagingLock] per [regionId]. */
+    suspend fun downloadLocked(
         regionId: String,
         stagingVersion: String,
         files: List<RegionManifestFile>,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit = { _, _ -> },
     ): File =
         withContext(Dispatchers.IO) {
-            // Chiamate concorrenti sullo stesso id (piu' ViewModel che chiedono lo stesso indice, due lavori sulla
-            // stessa regione) si accodano: altrimenti scriverebbero lo stesso .part e cleanupStagingExcept
-            // cancellerebbe lo staging dell'altra. La seconda trova i file gia' completi e li riusa.
-            locks.getOrPut(regionId) { Mutex() }.withLock {
-                regionStorage.cleanupStagingExcept(regionId, stagingVersion)
-                val staging = regionStorage.stagingDirectoryFor(regionId, stagingVersion)
-                staging.mkdirs()
-                val installedRouting = File(regionStorage.directoryFor(regionId), RegionStorage.ROUTING_DIR)
-                val totalBytes = files.sumOf { it.sizeBytes }
-                regionStorage.reserveSpace(totalBytes)
-                var bytesBeforeCurrentFile = 0L
-                files.forEach { file ->
-                    val baseBytes = bytesBeforeCurrentFile
-                    val target = File(staging, file.name)
-                    if (reuseLocalCopy(file, target, File(installedRouting, file.name))) {
-                        onProgress(baseBytes + file.sizeBytes, totalBytes)
-                    } else {
-                        downloadAndVerify(file, target) { fileBytesDownloaded ->
-                            onProgress(baseBytes + fileBytesDownloaded, totalBytes)
-                        }
+            // Una seconda richiesta accodata dopo la prima trova i file gia' completi e li riusa.
+            regionStorage.cleanupStagingExcept(regionId, stagingVersion)
+            val staging = regionStorage.stagingDirectoryFor(regionId, stagingVersion)
+            staging.mkdirs()
+            val installedRouting = File(regionStorage.directoryFor(regionId), RegionStorage.ROUTING_DIR)
+            val totalBytes = files.sumOf { it.sizeBytes }
+            regionStorage.reserveSpace(totalBytes)
+            var bytesBeforeCurrentFile = 0L
+            files.forEach { file ->
+                val baseBytes = bytesBeforeCurrentFile
+                val target = File(staging, file.name)
+                if (reuseLocalCopy(file, target, File(installedRouting, file.name))) {
+                    onProgress(baseBytes + file.sizeBytes, totalBytes)
+                } else {
+                    downloadAndVerify(file, target) { fileBytesDownloaded ->
+                        onProgress(baseBytes + fileBytesDownloaded, totalBytes)
                     }
-                    bytesBeforeCurrentFile += file.sizeBytes
                 }
-                staging
+                bytesBeforeCurrentFile += file.sizeBytes
             }
+            staging
         }
 
     /**

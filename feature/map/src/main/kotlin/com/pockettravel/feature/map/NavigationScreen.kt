@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import android.content.Intent
 import android.provider.Settings
+import android.view.View
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -132,6 +133,10 @@ fun NavigationGuidance(
     onStreetNames: (Map<Int, String>) -> Unit = {},
     // In auto, il lato di guida del paese se diverso da quello di casa: un avviso sempre visibile.
     drivingSide: DrivingSide? = null,
+    // Percorsi mancanti a meta' strada: la regione del catalogo da scaricare (null se non si sa) e il suo avanzamento 0..1.
+    missingRegion: MissingRegion? = null,
+    downloadProgress: Float? = null,
+    onDownloadRouting: () -> Unit = {},
 ) {
     val context = LocalContext.current
     // Il GPS vuole la posizione precisa: con la sola approssimativa si resta senza navigazione.
@@ -202,18 +207,31 @@ fun NavigationGuidance(
                 // L'arrivo lo chiude il Navigatore (snackbar e vibrazione, o in silenzio): qui non si resta.
                 NavigationUiState.Arrived -> Unit
                 // Percorsi mancanti a meta' strada: partenza o arrivo fuori dalla zona dei percorsi scaricati.
-                is NavigationUiState.Unavailable -> Message(
-                    text = stringResource(
-                        when (state.result) {
-                            RouteResult.NoRoutingData -> R.string.navigation_outside_routing
-                            RouteResult.NotFound -> R.string.navigation_not_found
-                            RouteResult.TimedOut -> R.string.navigation_timed_out
-                            else -> R.string.navigation_failed
-                        },
-                    ),
-                    action = stringResource(R.string.navigation_retry),
-                    onAction = onRetry,
-                )
+                is NavigationUiState.Unavailable -> if (state.result == RouteResult.NoRoutingData && missingRegion != null) {
+                    if (downloadProgress != null) {
+                        Waiting(stringResource(R.string.planner_routing_progress, (downloadProgress * 100).toInt()))
+                        DownloadProgressIndicator(progress = { downloadProgress }, modifier = Modifier.fillMaxWidth())
+                    } else {
+                        Message(
+                            text = stringResource(R.string.navigation_missing_routing),
+                            action = stringResource(R.string.navigation_routing_download_region, missingRegion.name),
+                            onAction = onDownloadRouting,
+                        )
+                    }
+                } else {
+                    Message(
+                        text = stringResource(
+                            when (state.result) {
+                                RouteResult.NoRoutingData -> R.string.navigation_outside_routing
+                                RouteResult.NotFound -> R.string.navigation_not_found
+                                RouteResult.TimedOut -> R.string.navigation_timed_out
+                                else -> R.string.navigation_failed
+                            },
+                        ),
+                        action = stringResource(R.string.navigation_retry),
+                        onAction = onRetry,
+                    )
+                }
                 is NavigationUiState.Navigating -> Unit
             }
             TextButton(onClick = onClose) { Text(stringResource(R.string.navigation_close)) }
@@ -712,7 +730,12 @@ private fun NavigationMap(
         onDispose { mapView.removeOnDidBecomeIdleListener(lookup) }
     }
 
-    AndroidView(factory = { mapView }, modifier = modifier.clearAndSetSemantics {})
+    // Mappa solo visiva, il percorso sta nel testo: clearAndSetSemantics non basta per la View Android di
+    // MapLibre, che TalkBack leggerebbe comunque (e per prima, prima dei campi).
+    AndroidView(
+        factory = { mapView.apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS } },
+        modifier = modifier.clearAndSetSemantics {},
+    )
 }
 
 private class NavigationSources(val route: GeoJsonSource, val next: GeoJsonSource, val position: GeoJsonSource, val destination: GeoJsonSource)

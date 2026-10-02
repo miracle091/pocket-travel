@@ -19,6 +19,10 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Guida: le reti di mezzi pubblici lasciate fuori per la loro licenza (TMB a Barcellona, Île-de-France Mobilités, TCL a Lione) sono elencate nella guida della regione, con il motivo.
 - Download delle regioni con una notifica: avanzamento, estrazione della mappa e il pulsante "Annulla"; il download non si ferma a schermo spento.
 - Nomi sulla mappa con le lettere di lettone, polacco, ceco, turco, vietnamita e delle altre lingue con l'alfabeto latino esteso, e in greco, cirillico, armeno, ebraico, arabo, thai e georgiano: prima quelle lettere mancavano. Restano fuori cinese, giapponese, coreano e le scritture indiane, dove si vede il nome italiano o inglese quando c'è.
+- Guida, emergenze: sotto ambasciate e consolati c'è il link agli avvisi di viaggio ufficiali del ministero degli esteri della tua nazionalità (scelta in Impostazioni), non più solo Viaggiare Sicuri per chi è italiano: 47 nazionalità, tra cui gran parte dell'Europa, Stati Uniti, Canada, Messico, Australia, Nuova Zelanda, Giappone, Corea del Sud, Cina, Taiwan, Singapore, Thailandia, Indonesia ed Emirati Arabi Uniti. San Marino, Liechtenstein, Monaco e Lussemburgo hanno il servizio a cui rimandano i loro governi. Per chi non ne ha uno con una scheda per ogni destinazione c'è GOV.UK, con scritto che i requisiti d'ingresso sono quelli per i cittadini britannici. Gli stessi siti compaiono in Fonti ufficiali e nel banner dell'assistente.
+- Mappa con "Con disabilità": nella scheda di un posto ci sono anche i bagni accessibili in sedia a rotelle e il numero di posti auto per disabili, quando OpenStreetMap li indica; "Solo posti accessibili" mostra anche i posti con il bagno accessibile, con il distintivo sul segnalino. Arrivano con il prossimo aggiornamento dei punti di interesse.
+- Orari dei mezzi con "Con disabilità": se la rete lo indica, la scheda di una fermata dice se è accessibile in sedia a rotelle e ogni partenza ha il simbolo della carrozzina (barrato se la corsa non è accessibile, così si distingue anche senza colori). Arriva con il prossimo aggiornamento degli orari.
+- Navigatore: se la partenza o la meta sono in una regione di cui non hai scaricato i percorsi compare "Navigazione impossibile. Mancano i percorsi." con il pulsante per scaricare quelli della regione giusta (per esempio "Scarica i percorsi di Estonia").
 
 ### Modificato
 - Download della mappa molto più veloce: la Lettonia (248 MB) passa da oltre un'ora a circa 3 minuti. Durante l'estrazione la riga della regione mostra "Estrazione della mappa" con la sua percentuale, invece di restare ferma a 0% o 100%.
@@ -31,6 +35,8 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Elenco delle nazioni senza connessione: se il catalogo non si raggiunge, le nazioni già scaricate si vedono e si aprono, con un avviso e il pulsante per riprovare.
 - Punti di interesse: ogni regione prende solo quelli della propria nazione, non più quelli dei paesi confinanti che entravano nel suo riquadro (restano nelle regioni di quei paesi). La pubblicazione delle regioni grandi è molto più leggera.
 - Aggiornamenti della mappa: le parti a bassa risoluzione (vista del paese e del continente) si riscaricano sempre, perché potevano restare quelle vecchie.
+- TalkBack: la mappa si annuncia in italiano o in inglese invece che con il testo inglese di MapLibre; nel Navigatore la mappa non viene più letta (prima era il primo elemento, prima dei campi partenza e destinazione); nelle partenze la destinazione non si ripete quando coincide con il nome della linea; il contatore della fotocamera del Vault si legge "Foto 5 di 50"; nelle Licenze i titoli delle sezioni sono intestazioni; al primo avvio il passaggio da "download in corso" a guide scaricate viene annunciato.
+- Orari delle partenze nel formato del telefono (24 ore o AM/PM), anche nella lettura di TalkBack.
 
 ### Corretto
 - Bandiere delle Isole Cook e di Montserrat schiacciate ai lati nell'elenco delle nazioni (e di poco quelle di Lussemburgo e San Marino).
@@ -41,6 +47,10 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Punti di interesse: una regione non si ripubblica più con un elenco vuoto o con meno della metà dei punti di quello già pubblicato (succede quando una fonte risponde senza dati): resta quello di prima.
 - Numeri civici: se una delle due fonti (OpenStreetMap o Overture) non risponde, una cella già pubblicata resta com'era invece di essere ripubblicata con i civici di una fonte sola.
 - Percorsi: le parti dei segmenti di BRouter senza strade nel riquadro della regione (mare, coste) si saltano e non fanno più fallire la regione.
+- App in inglese: le notifiche degli aggiornamenti (regioni, app, modello IA) e i nomi dei loro canali erano sempre in italiano.
+- Cambiando lingua, la guida già aperta restava nella lingua precedente fino al riavvio dell'app; ora passa alle guide nella nuova lingua appena sono scaricate.
+- Primo avvio, scelta della lingua: il testo diceva che guide e assistente restano in italiano; le guide seguono la lingua dell'app quando esistono in quella lingua, e solo l'assistente sul telefono risponde in italiano.
+- Due installazioni dello stesso pacchetto avviate insieme (per esempio un aggiornamento automatico e uno a mano) potevano estrarre i file nello stesso momento; ora la seconda aspetta la prima.
 
 ### Sicurezza
 - Catalogo firmato: il catalogo delle regioni, l'indice dei mezzi pubblici, quello dei numeri civici e il file che annuncia gli aggiornamenti dell'app hanno una firma digitale, che l'app controlla con la chiave pubblica incorporata: un file senza firma o con una firma sbagliata viene rifiutato.

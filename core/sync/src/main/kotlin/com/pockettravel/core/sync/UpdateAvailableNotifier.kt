@@ -21,28 +21,43 @@ class UpdateAvailableNotifier @Inject constructor(
     init {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Aggiornamenti regioni", NotificationManager.IMPORTANCE_DEFAULT),
+            NotificationChannel(CHANNEL_ID, context.getString(R.string.sync_updates_regions_channel), NotificationManager.IMPORTANCE_DEFAULT),
         )
         manager.createNotificationChannel(
-            NotificationChannel(APP_CHANNEL_ID, "Aggiornamenti app", NotificationManager.IMPORTANCE_DEFAULT),
+            NotificationChannel(APP_CHANNEL_ID, context.getString(R.string.sync_updates_app_channel), NotificationManager.IMPORTANCE_DEFAULT),
         )
         manager.createNotificationChannel(
-            NotificationChannel(AI_MODEL_CHANNEL_ID, "Aggiornamenti modello IA", NotificationManager.IMPORTANCE_DEFAULT),
+            NotificationChannel(AI_MODEL_CHANNEL_ID, context.getString(R.string.sync_updates_ai_model_channel), NotificationManager.IMPORTANCE_DEFAULT),
         )
     }
 
     fun notifyUpdateAvailable(entry: RegionManifestEntry, kinds: Set<PackageKind>) {
         val sizeMb = entry.downloadBytes(kinds) / (1024 * 1024)
-        notify(CHANNEL_ID, entry.regionId.hashCode(), "Aggiornamento disponibile", "${entry.displayName}, $sizeMb MB")
+        notify(
+            CHANNEL_ID,
+            entry.regionId.hashCode(),
+            context.getString(R.string.sync_update_region_title),
+            context.getString(R.string.sync_update_region_text, entry.displayName, sizeMb),
+        )
     }
 
     fun notifyAppUpdateAvailable(entry: AppVersionEntry) {
-        notify(APP_CHANNEL_ID, APP_NOTIFICATION_ID, "Aggiornamento app disponibile", "Versione ${entry.versionName}")
+        notify(
+            APP_CHANNEL_ID,
+            APP_NOTIFICATION_ID,
+            context.getString(R.string.sync_update_app_title),
+            context.getString(R.string.sync_update_app_text, entry.versionName),
+        )
     }
 
     fun notifyAiModelUpdateAvailable(entry: AiModelManifestEntry) {
         val sizeMb = entry.sizeBytes / (1024 * 1024)
-        notify(AI_MODEL_CHANNEL_ID, AI_MODEL_NOTIFICATION_ID, "Aggiornamento modello IA disponibile", "${entry.modelVersion}, $sizeMb MB")
+        notify(
+            AI_MODEL_CHANNEL_ID,
+            AI_MODEL_NOTIFICATION_ID,
+            context.getString(R.string.sync_update_ai_model_title),
+            context.getString(R.string.sync_update_ai_model_text, entry.modelVersion, sizeMb),
+        )
     }
 
     @SuppressLint("MissingPermission")

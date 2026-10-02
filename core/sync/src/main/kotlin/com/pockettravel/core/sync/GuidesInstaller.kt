@@ -15,10 +15,13 @@ class GuidesInstaller @Inject constructor(
     /** [installedVersion]: la versione da registrare, vedi [GuidesChoice]. */
     suspend fun install(guides: GuidesManifestEntry, installedVersion: String = guides.version) {
         guides.validate()
-        val staging = downloader.download(STAGING_ID, guides.version, listOf(guides.downloadFile))
-        unpackXz(staging, guides.file, guides.fileXz)
-        guidesImporter.import(File(staging, guides.file.name), installedVersion)
-        staging.deleteRecursively()
+        // Download, decompressione e import sotto lo stesso lock dello staging: un altro lavoro non lo svuota a meta'.
+        downloader.withStagingLock(STAGING_ID) {
+            val staging = downloader.downloadLocked(STAGING_ID, guides.version, listOf(guides.downloadFile))
+            unpackXz(staging, guides.file, guides.fileXz)
+            guidesImporter.import(File(staging, guides.file.name), installedVersion)
+            staging.deleteRecursively()
+        }
     }
 
     internal companion object {

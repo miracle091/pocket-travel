@@ -95,6 +95,7 @@ class MapRouteViewModel @Inject constructor(
                     poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.osmTag, poi.phone, poi.wheelchair,
                     openingHours = poi.openingHours, address = poi.address, website = poi.website, email = poi.email,
                     nameEn = poi.nameEn, nameIt = poi.nameIt,
+                    toiletsWheelchair = poi.toiletsWheelchair, capacityDisabled = poi.capacityDisabled,
                 )
             }
         }

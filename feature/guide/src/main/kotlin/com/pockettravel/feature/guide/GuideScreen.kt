@@ -76,6 +76,9 @@ import com.pockettravel.core.data.DiplomaticMission
 import com.pockettravel.core.data.EmbassyEntry
 import com.pockettravel.core.data.MissionKind
 import com.pockettravel.core.data.mergeEmbassies
+import com.pockettravel.core.data.OfficialSource
+import com.pockettravel.core.data.fallbackTravelAdviceSource
+import com.pockettravel.core.data.travelAdviceSourceFor
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.countryName
@@ -481,7 +484,7 @@ private fun EmergencyNumbersCard(
 
 // Ambasciate e consolati del paese di chi viaggia nella regione (NationalityPreferences), dai POI OSM e da
 // Wikidata fusi: la riga chiama se c'e' il telefono, sito ed email sono azioni a parte. Senza rappresentanze
-// nei dati lo dice, invece di non mostrare nulla. Per chi e' italiano c'e' anche il link alla Farnesina.
+// nei dati lo dice, invece di non mostrare nulla. In fondo il link agli avvisi di viaggio del ministero degli esteri del suo paese, o a quelli britannici se non lo abbiamo.
 @Composable
 private fun EmbassiesSection(
     country: String,
@@ -519,7 +522,13 @@ private fun EmbassiesSection(
             others.forEach { entry -> EmbassyRow(entry, onOpenLink) }
         }
     }
-    if (country.equals("IT", ignoreCase = true)) FarnesinaRow(onOpenLink)
+    // Senza un servizio del proprio paese, quello britannico: meglio di nessun avviso, e la riga dice per chi e' scritto.
+    val ownAdvice = travelAdviceSourceFor(country.uppercase())
+    TravelAdviceRow(
+        source = ownAdvice ?: fallbackTravelAdviceSource,
+        description = stringResource(if (ownAdvice != null) R.string.emergency_travel_advice_description else R.string.emergency_travel_advice_fallback_description),
+        onOpenLink = onOpenLink,
+    )
 }
 
 @Composable
@@ -586,30 +595,28 @@ private fun MissionKind.label(): Int = when (this) {
     MissionKind.CONSULATE -> R.string.emergency_kind_consulate
 }
 
-// Solo il link: i contenuti di Viaggiare Sicuri non hanno una licenza aperta, quindi non si copiano nell'app
-// e non c'e' un numero dell'Unita' di Crisi tra i dati del progetto da mostrare come riga da chiamare.
+// Solo il link: i contenuti dei siti dei ministeri (Viaggiare Sicuri e gli altri) non hanno una licenza aperta,
+// quindi non si copiano nell'app; il nome del servizio resta quello ufficiale, nella sua lingua.
 @Composable
-private fun FarnesinaRow(onOpenLink: (url: String, title: String) -> Unit) {
-    val title = stringResource(R.string.emergency_farnesina)
+private fun TravelAdviceRow(source: OfficialSource, description: String, onOpenLink: (url: String, title: String) -> Unit) {
+    val title = source.name
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
-            .clickable(onClickLabel = stringResource(R.string.emergency_farnesina_open)) { onOpenLink(FARNESINA_URL, title) }
+            .clickable(onClickLabel = stringResource(R.string.emergency_travel_advice_open, title)) { onOpenLink(source.url, title) }
             .padding(start = Spacing.l, end = Spacing.s, top = Spacing.s, bottom = Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(text = title, style = MaterialTheme.typography.bodyMedium)
-            Text(text = stringResource(R.string.emergency_farnesina_description), style = MaterialTheme.typography.bodySmall)
+            Text(text = description, style = MaterialTheme.typography.bodySmall)
         }
         Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
             Icon(imageVector = AppIcons.OpenExternal, contentDescription = null)
         }
     }
 }
-
-private const val FARNESINA_URL = "https://www.viaggiaresicuri.it"
 
 // Se il numero generale coincide con tutti gli altri (es. 911 negli Stati Uniti, 112 in
 // Andorra) mostra una sola riga invece di quattro identiche; altrimenti raggruppa per numero

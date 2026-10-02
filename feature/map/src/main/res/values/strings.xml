@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="poi_lodging">Hotel</string>
     <string name="poi_food">Ristoranti e bar</string>
     <string name="poi_shopping">Negozi</string>
@@ -30,7 +30,7 @@
     <string name="poi_parking_private">Parcheggi privati</string>
     <string name="poi_parking_disabled">Parcheggi per disabili</string>
     <string name="map_filters_only_accessible">Solo posti accessibili</string>
-    <string name="map_filters_only_accessible_body">Posti segnati come accessibili in sedia a rotelle, anche in parte, e parcheggi per disabili.</string>
+    <string name="map_filters_only_accessible_body">Posti segnati come accessibili in sedia a rotelle, anche in parte, bagni accessibili e parcheggi per disabili.</string>
     <string name="poi_train">Stazioni dei treni</string>
     <string name="poi_metro">Metro</string>
     <string name="poi_bus">Autobus</string>
@@ -80,6 +80,14 @@
     <string name="poi_wheelchair_yes">Accessibile in sedia a rotelle</string>
     <string name="poi_wheelchair_limited">Accessibile in parte in sedia a rotelle</string>
     <string name="poi_wheelchair_no">Non accessibile in sedia a rotelle</string>
+    <string name="poi_toilets_wheelchair_yes">Bagno accessibile in sedia a rotelle</string>
+    <string name="poi_toilets_wheelchair_limited">Bagno accessibile in parte in sedia a rotelle</string>
+    <string name="poi_toilets_wheelchair_no">Bagno non accessibile in sedia a rotelle</string>
+    <string name="poi_disabled_parking">Posti auto per disabili: %1$d</string>
+    <string name="transit_stop_wheelchair_yes">Fermata accessibile in sedia a rotelle</string>
+    <string name="transit_stop_wheelchair_no">Fermata non accessibile in sedia a rotelle</string>
+    <string name="transit_departure_wheelchair_yes">Accessibile in sedia a rotelle</string>
+    <string name="transit_departure_wheelchair_no">Non accessibile in sedia a rotelle</string>
     <string name="poi_call">Chiama %1$s</string>
     <string name="poi_website">Apri il sito</string>
     <string name="poi_email">Scrivi a %1$s</string>
@@ -215,6 +223,8 @@
     <string name="usage_mode_directions">Indicazioni per arrivare nei posti</string>
     <string name="usage_mode_directions_body">Con ogni regione scarica anche i percorsi (da pochi MB a qualche centinaio) e chiede la posizione GPS, usata solo mentre navighi.</string>
     <string name="navigation_routing_download">Scarica i percorsi</string>
+    <string name="navigation_missing_routing">Navigazione impossibile. Mancano i percorsi.</string>
+    <string name="navigation_routing_download_region">Scarica i percorsi di %1$s</string>
     <string name="navigation_outside_routing">Partenza o arrivo sono fuori dalla zona dei percorsi scaricati.</string>
     <string name="navigation_calculating">Calcolo del percorso…</string>
     <string name="navigation_calculating_progress">Circa il %1$d%% del calcolo</string>
@@ -328,4 +338,9 @@
     <string name="navigation_drive_left">sinistra</string>
     <string name="navigation_drive_right">destra</string>
     <string name="navigation_drive_side">Paese con guida a</string>
+    <!-- Testi di MapLibre letti da TalkBack, che la libreria ha solo in inglese: stesse chiavi, tradotte. -->
+    <string name="maplibre_mapActionDescription" tools:ignore="PrivateResource">Mappa. Spostala trascinando con due dita, ingrandisci allargando due dita.</string>
+    <string name="maplibre_attributionsIconContentDescription" tools:ignore="PrivateResource">Crediti della mappa. Attiva per vederli.</string>
+    <string name="maplibre_compassContentDescription" tools:ignore="PrivateResource">Bussola della mappa. Attiva per riportare il nord in alto.</string>
+    <string name="maplibre_myLocationViewContentDescription" tools:ignore="PrivateResource">La tua posizione sulla mappa.</string>
 </resources>

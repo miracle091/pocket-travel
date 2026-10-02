@@ -93,7 +93,7 @@
     <string name="more_nationality">Nazionalità</string>
     <string name="more_language">Lingua</string>
     <string name="onboarding_language_title">Lingua · Language</string>
-    <string name="onboarding_language_body">La lingua dell\'app: puoi cambiarla quando vuoi da Altro. Guide e assistente IA restano in italiano.</string>
+    <string name="onboarding_language_body">La lingua dell\'app: puoi cambiarla quando vuoi da Altro. Le guide la seguono quando esistono in quella lingua; l\'assistente IA sul telefono risponde in italiano.</string>
     <string name="more_nationality_none">Non scelta</string>
     <string name="more_usage_mode_none">Non scelto: la mappa mostra tutte le categorie</string>
     <string name="more_usage_mode_with_accessible">%1$s, con disabilità</string>

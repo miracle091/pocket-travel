@@ -218,6 +218,7 @@ fun RegionHubScreen(
                         onDownloadRouting = viewModel::downloadRouting,
                         downloadProgress = downloadProgress,
                         downloadFailed = downloadFailed,
+                        findMissingRegion = viewModel::missingRoutingRegion,
                     )
                     RegionTab.AI -> AiAssistantScreen(regionId = regionId, onOpenOfficialSource = onOpenOfficialSource)
                 }

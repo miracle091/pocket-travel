@@ -104,7 +104,7 @@
       },
       {
         "tableName": "poi",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `regionId` TEXT NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `lat` REAL NOT NULL, `lon` REAL NOT NULL, `osmTag` TEXT NOT NULL, `phone` TEXT, `wheelchair` TEXT, `openingHours` TEXT, `address` TEXT, `website` TEXT, `email` TEXT, `country` TEXT, `nameEn` TEXT, `nameIt` TEXT, `extra` INTEGER NOT NULL DEFAULT 0)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `regionId` TEXT NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `lat` REAL NOT NULL, `lon` REAL NOT NULL, `osmTag` TEXT NOT NULL, `phone` TEXT, `wheelchair` TEXT, `openingHours` TEXT, `address` TEXT, `website` TEXT, `email` TEXT, `country` TEXT, `nameEn` TEXT, `nameIt` TEXT, `toiletsWheelchair` TEXT, `capacityDisabled` INTEGER, `extra` INTEGER NOT NULL DEFAULT 0)",
         "fields": [
           {
             "fieldPath": "id",
@@ -192,6 +192,16 @@
             "fieldPath": "nameIt",
             "columnName": "nameIt",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "toiletsWheelchair",
+            "columnName": "toiletsWheelchair",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "capacityDisabled",
+            "columnName": "capacityDisabled",
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "extra",

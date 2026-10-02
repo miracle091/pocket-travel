@@ -23,6 +23,9 @@ data class MapPin(
     // Nomi in inglese e in italiano (OSM name:en, name:it), se diversi da [name].
     val nameEn: String? = null,
     val nameIt: String? = null,
+    // Bagni accessibili (OSM "toilets:wheelchair": yes, limited, no...) e posti auto per disabili, se indicati.
+    val toiletsWheelchair: String? = null,
+    val capacityDisabled: Int? = null,
 ) {
     /** Nome nella lingua dell'interfaccia se OSM lo ha, altrimenti [name] (null senza nome). */
     fun displayName(language: String): String? = name?.let { (if (language == "en") nameEn else nameIt ?: nameEn) ?: it }

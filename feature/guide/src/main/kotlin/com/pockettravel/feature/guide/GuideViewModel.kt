@@ -23,6 +23,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -113,28 +116,36 @@ class GuideViewModel @Inject constructor(
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, loadError = null) }
-            try {
-                val sections = guideRepository.sectionsFor(regionId)
-                val emergencyNumbers = emergencyNumbersRepository.forRegion(regionId)
-                val noCentralEmergencyNumber = emergencyNumbers == null && emergencyNumbersRepository.hasNoCentralNumber(regionId)
-                val countryCode = regionRepository.installed(regionId)?.countryCode
-                val transportCounts = poiRepository.transportCounts(regionId)
-                _uiState.update {
-                    it.copy(
-                        sections = sections,
-                        emergencyNumbers = emergencyNumbers,
-                        countryCode = countryCode,
-                        transportCounts = transportCounts,
-                        noCentralEmergencyNumber = noCentralEmergencyNumber,
-                        isLoading = false,
-                    )
-                }
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (error: Exception) {
-                loadedForRegionId = null
-                _uiState.update { it.copy(isLoading = false, loadError = R.string.guide_load_error) }
+            // Di nuovo a ogni cambio del pacchetto guide: dopo un cambio di lingua le guide giuste arrivano
+            // pochi secondi dopo, e la schermata gia' aperta resterebbe nella lingua precedente.
+            regionRepository.observeInstalledGuides().map { it?.version }.distinctUntilChanged().collectLatest {
+                loadSections(regionId)
             }
+        }
+    }
+
+    private suspend fun loadSections(regionId: String) {
+        try {
+            val sections = guideRepository.sectionsFor(regionId)
+            val emergencyNumbers = emergencyNumbersRepository.forRegion(regionId)
+            val noCentralEmergencyNumber = emergencyNumbers == null && emergencyNumbersRepository.hasNoCentralNumber(regionId)
+            val countryCode = regionRepository.installed(regionId)?.countryCode
+            val transportCounts = poiRepository.transportCounts(regionId)
+            _uiState.update {
+                it.copy(
+                    sections = sections,
+                    emergencyNumbers = emergencyNumbers,
+                    countryCode = countryCode,
+                    transportCounts = transportCounts,
+                    noCentralEmergencyNumber = noCentralEmergencyNumber,
+                    isLoading = false,
+                )
+            }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            loadedForRegionId = null
+            _uiState.update { it.copy(isLoading = false, loadError = R.string.guide_load_error) }
         }
     }
 

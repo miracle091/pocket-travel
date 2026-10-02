@@ -53,6 +53,8 @@ data class TransitDeparture(
     val headsign: String?,
     val minuteOfDay: Int,
     val inMinutes: Int,
+    // wheelchair_accessible GTFS della corsa: true accessibile, false no, null se la rete non lo indica.
+    val wheelchair: Boolean? = null,
 )
 
 /**
@@ -89,6 +91,9 @@ sealed interface TransitBoard {
         val validUntil: LocalDate,
         val daysLeft: Int,
         val feeds: List<TransitFeedInfo>,
+        // wheelchair_boarding GTFS delle fermate vicine: true se almeno una e' accessibile, false se nessuna lo e'
+        // e almeno una no, null se la rete non lo indica.
+        val stopWheelchair: Boolean? = null,
     ) : TransitBoard {
         /** Gli orari scadono entro una settimana: il tabellone propone di aggiornarli. */
         val expiresSoon: Boolean get() = daysLeft <= 7
@@ -132,6 +137,8 @@ internal fun readFeedBoard(db: TransitQuery, feed: TransitFeedInfo?, latitude: D
     val stops = nearbyStopIds(db, latitude, longitude)
     if (stops.isEmpty()) return null
     val feeds = listOfNotNull(feed?.copy(dataDate = windowStart))
+    // Colonne wheelchair di stop e trip: solo nei transit.db costruiti dopo che la pipeline le ha aggiunte, vedi meta.
+    val hasWheelchair = meta["wheelchair"] == "1"
 
     val local = now.atZone(zone)
     val today = local.toLocalDate()
@@ -155,7 +162,7 @@ internal fun readFeedBoard(db: TransitQuery, feed: TransitFeedInfo?, latitude: D
         // Formato 2 (GenerateTransit): i pattern della fermata, poi le loro corse per minuto di partenza
         // (chiave della tabella trip); il passaggio alla fermata e' partenza + offset.
         val rows = db.query(
-            "SELECT t.start + ps.offset AS minute, t.id, r.short_name, r.long_name, r.type, r.color, r.text_color, h.text, sv.days " +
+            "SELECT t.start + ps.offset AS minute, t.id, r.short_name, r.long_name, r.type, r.color, r.text_color, h.text, sv.days, ${if (hasWheelchair) "t.wheelchair" else "NULL"} " +
                 "FROM pattern_stop ps JOIN trip t ON t.pattern = ps.pattern AND t.start BETWEEN $from - ps.offset AND $to - ps.offset " +
                 "JOIN route r ON r.id = t.route JOIN service sv ON sv.id = t.service LEFT JOIN headsign h ON h.id = t.headsign " +
                 "WHERE ps.stop IN ($ids) ORDER BY minute",
@@ -174,12 +181,26 @@ internal fun readFeedBoard(db: TransitQuery, feed: TransitFeedInfo?, latitude: D
                 headsign = row.string(7)?.takeIf { it.isNotBlank() },
                 minuteOfDay = Math.floorMod(absolute, MINUTES_PER_DAY),
                 inMinutes = absolute - nowMinute,
+                wheelchair = wheelchairOf(row.string(9)),
             )
         }
         found += rows.filterNotNull()
     }
     val daysLeft = ChronoUnit.DAYS.between(today, validUntil).toInt()
-    return TransitBoard.Departures(found.sortedBy { it.inMinutes }, validUntil, daysLeft, feeds)
+    val stopWheelchair = if (hasWheelchair) {
+        val values = db.query("SELECT wheelchair FROM stop WHERE id IN ($ids)") { wheelchairOf(it.string(0)) }
+        if (true in values) true else if (false in values) false else null
+    } else {
+        null
+    }
+    return TransitBoard.Departures(found.sortedBy { it.inMinutes }, validUntil, daysLeft, feeds, stopWheelchair)
+}
+
+/** wheelchair_boarding / wheelchair_accessible come li scrive la pipeline: 1 si', 2 no, altro (NULL) non indicato. */
+internal fun wheelchairOf(value: String?): Boolean? = when (value) {
+    "1" -> true
+    "2" -> false
+    else -> null
 }
 
 /**
@@ -251,6 +272,7 @@ internal fun combineBoards(boards: List<TransitBoard>): TransitBoard {
         validUntil = active.minOf { it.validUntil },
         daysLeft = active.minOf { it.daysLeft },
         feeds = active.flatMap { it.feeds },
+        stopWheelchair = active.map { it.stopWheelchair }.let { if (true in it) true else if (false in it) false else null },
     )
 }
 

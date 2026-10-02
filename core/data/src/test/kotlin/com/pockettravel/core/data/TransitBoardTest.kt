@@ -56,7 +56,7 @@ class TransitBoardTest {
 
     // Una corsa con un solo passaggio: pattern proprio (id della corsa), partenza al minuto del passaggio.
     private fun trip(id: Int, route: Int, service: Int, headsign: Int?, stop: Int, minute: Int) {
-        exec("INSERT INTO trip VALUES ($id, $minute, $id, $route, $service, ${headsign ?: "NULL"})", "INSERT INTO pattern_stop VALUES ($stop, $id, 0)")
+        exec("INSERT INTO trip (pattern, start, id, route, service, headsign) VALUES ($id, $minute, $id, $route, $service, ${headsign ?: "NULL"})", "INSERT INTO pattern_stop VALUES ($stop, $id, 0)")
     }
 
     private val query = object : TransitQuery {
@@ -223,6 +223,35 @@ class TransitBoardTest {
     }
 
     @Test
+    fun accessibilitaDiFermateECorseSoloSeIlFileLaHa() {
+        trip(1, 1, 1, 1, stop = 1, minute = 545)
+        // transit.db senza le colonne wheelchair (meta senza la chiave): niente da leggere, e nessun errore.
+        val old = board("2026-10-01T06:00:00Z") as TransitBoard.Departures
+        assertNull(old.stopWheelchair)
+        assertNull(old.items.single().wheelchair)
+
+        exec(
+            "ALTER TABLE stop ADD COLUMN wheelchair INTEGER",
+            "ALTER TABLE trip ADD COLUMN wheelchair INTEGER",
+            "INSERT INTO meta VALUES ('wheelchair','1')",
+            "UPDATE trip SET wheelchair = 1 WHERE id = 1",
+        )
+        trip(2, 1, 1, 1, stop = 1, minute = 546)
+        exec("UPDATE trip SET wheelchair = 2 WHERE id = 2")
+        trip(3, 1, 1, 1, stop = 1, minute = 547) // NULL: non indicato
+        val known = board("2026-10-01T06:00:00Z") as TransitBoard.Departures
+        assertEquals(listOf(true, false, null), known.items.map { it.wheelchair })
+        // Nessuna fermata del gruppo indica l'accessibilita'.
+        assertNull(known.stopWheelchair)
+
+        // Una banchina inaccessibile e la stazione accessibile: il gruppo ha almeno una fermata accessibile.
+        exec("UPDATE stop SET wheelchair = 2 WHERE id = 1")
+        assertEquals(false, (board("2026-10-01T06:00:00Z") as TransitBoard.Departures).stopWheelchair)
+        exec("UPDATE stop SET wheelchair = 1 WHERE id = 10")
+        assertEquals(true, (board("2026-10-01T06:00:00Z") as TransitBoard.Departures).stopWheelchair)
+    }
+
+    @Test
     fun laViaDelleReti() {
         val soon = TransitBoard.Departures(listOf(dep(20), dep(5)), LocalDate.of(2026, 10, 3), 2, listOf(feed))
         val late = TransitBoard.Departures(List(12) { dep(it) }, LocalDate.of(2026, 12, 1), 61, emptyList())
@@ -231,6 +260,15 @@ class TransitBoardTest {
         assertEquals(listOf(0, 1, 2, 3, 4, 5, 5, 6, 7, 8), combined.items.map { it.inMinutes })
         assertEquals(LocalDate.of(2026, 10, 3), combined.validUntil)
         assertTrue(combined.expiresSoon)
+        // Fermate: basta una rete che dice si' per dire si'; un no vale solo se nessuna dice si'.
+        val no = soon.copy(stopWheelchair = false)
+        val yes = late.copy(stopWheelchair = true)
+        assertNull((combineBoards(listOf(soon, late)) as TransitBoard.Departures).stopWheelchair)
+        assertEquals(false, (combineBoards(listOf(no, late)) as TransitBoard.Departures).stopWheelchair)
+        assertEquals(true, (combineBoards(listOf(no, yes)) as TransitBoard.Departures).stopWheelchair)
+        assertEquals(wheelchairOf("1"), true)
+        assertEquals(wheelchairOf("2"), false)
+        assertNull(wheelchairOf("0"))
         // Tutte scadute: la data piu' recente.
         val expired = combineBoards(listOf(TransitBoard.Expired(LocalDate.of(2026, 9, 1), emptyList()), TransitBoard.Expired(LocalDate.of(2026, 9, 9), emptyList())))
         assertEquals(LocalDate.of(2026, 9, 9), (expired as TransitBoard.Expired).validUntil)

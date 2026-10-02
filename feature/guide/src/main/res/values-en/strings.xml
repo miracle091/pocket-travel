@@ -57,9 +57,9 @@
     <string name="emergency_kind_consulate">Consulate</string>
     <string name="emergency_embassy_website">Open the website of %1$s</string>
     <string name="emergency_embassy_email">Email %1$s</string>
-    <string name="emergency_farnesina">Viaggiare Sicuri – Farnesina</string>
-    <string name="emergency_farnesina_description">Travel alerts and country pages from the Italian Foreign Ministry (in Italian)</string>
-    <string name="emergency_farnesina_open">Open Viaggiare Sicuri</string>
+    <string name="emergency_travel_advice_description">Travel advice and country pages from your country\'s foreign ministry</string>
+    <string name="emergency_travel_advice_fallback_description">UK government advice: safety and health apply to everyone, entry requirements are those for British citizens</string>
+    <string name="emergency_travel_advice_open">Open %1$s</string>
     <string name="guide_sources_title">Sources</string>
     <string name="transit_excluded_title">Public transport timetables not included</string>
     <string name="transit_excluded_tmb">TMB (Barcelona metro and buses): the licence is limited to the requesting app and does not allow redistribution.</string>

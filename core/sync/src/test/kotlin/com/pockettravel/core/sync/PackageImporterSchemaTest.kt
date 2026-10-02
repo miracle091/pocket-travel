@@ -214,6 +214,30 @@ class PackageImporterSchemaTest {
     }
 
     @Test
+    fun `la query poi compatta legge bagni accessibili e posti per disabili solo se il file li ha`() = withDb { conn ->
+        val old = PoiImporter.compactPoiQuery(setOf("name", "code", "latE6", "lonE6", "phone", "wheelchair"))
+        assertEquals(false, old.contains("toiletsWheelchair") || old.contains("capacityDisabled"))
+        conn.createStatement().use { statement ->
+            statement.execute("CREATE TABLE poi_code (code INTEGER NOT NULL PRIMARY KEY, category TEXT NOT NULL, osmTag TEXT NOT NULL)")
+            statement.execute("INSERT INTO poi_code VALUES (0, 'parking', 'amenity=parking')")
+            statement.execute(
+                "CREATE TABLE poi (name TEXT NOT NULL, code INTEGER NOT NULL, latE6 INTEGER NOT NULL, lonE6 INTEGER NOT NULL, " +
+                    "toiletsWheelchair TEXT, capacityDisabled INTEGER)"
+            )
+            statement.execute("INSERT INTO poi VALUES ('P1', 0, 45464600, 9190800, 'yes', 3), ('P2', 0, 45464700, 9190900, NULL, NULL)")
+        }
+        conn.createStatement().use { statement ->
+            val rs = statement.executeQuery(PoiImporter.compactPoiQuery(setOf("name", "code", "latE6", "lonE6", "toiletsWheelchair", "capacityDisabled")) + " ORDER BY poi.name")
+            assertEquals(true, rs.next())
+            assertEquals("yes", rs.getString("toiletsWheelchair"))
+            assertEquals(3, rs.getInt("capacityDisabled"))
+            assertEquals(true, rs.next())
+            assertEquals(null, rs.getString("toiletsWheelchair"))
+            assertEquals(null, rs.getString("capacityDisabled"))
+        }
+    }
+
+    @Test
     fun `la query poi seleziona solo le colonne facoltative presenti nel file`() {
         assertEquals(
             "SELECT name, category, lat, lon, osmTag, phone FROM poi",

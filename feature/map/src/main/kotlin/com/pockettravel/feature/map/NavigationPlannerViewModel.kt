@@ -51,6 +51,9 @@ data class PlannerResult(
     val isAddress: Boolean = false,
 )
 
+/** La regione del catalogo senza Percorsi che copre la partenza o l'arrivo: il Navigatore ne propone il download. */
+data class MissingRegion(val regionId: String, val name: String)
+
 /** Anteprima del percorso prima di partire. */
 sealed interface PlannerPreview {
     /** Manca la destinazione (o la partenza scelta). */
@@ -142,6 +145,14 @@ class NavigationPlannerViewModel @Inject constructor(
         id == null || regions.any { it.regionId == id && it.routingVersion != null }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
+    /** Le regioni con i Percorsi installati, di qualunque regione: serve a rileggere quale regione manca. */
+    val routingRegionIds: StateFlow<Set<String>> = regionRepository.observeInstalled()
+        .map { regions -> regions.filter { it.routingVersion != null }.map { it.regionId }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    /** La partenza del percorso: il posto scelto o l'ultima posizione nota, null se ancora ignota. */
+    fun startPoint(): RoutePoint? = _from.value?.point ?: lastPosition.value
+
     private val _arriveBy = MutableStateFlow(savedStateHandle.get<Long>(KEY_ARRIVE_BY)?.let(::minuteToDateTime))
     /** L'ora a cui si vuole arrivare ("Arriva alle..."), null se si parte subito. */
     val arriveBy: StateFlow<LocalDateTime?> = _arriveBy.asStateFlow()
@@ -156,11 +167,13 @@ class NavigationPlannerViewModel @Inject constructor(
         _travelMode.onEach { savedStateHandle[KEY_MODE] = it.name }.launchIn(viewModelScope)
         _arriveBy.onEach { savedStateHandle[KEY_ARRIVE_BY] = it?.let(::dateTimeToMinute) }.launchIn(viewModelScope)
         _reminder.onEach { savedStateHandle[KEY_REMINDER] = it?.let(::dateTimeToMinute) }.launchIn(viewModelScope)
-        // Percorsi appena installati dopo "Scarica i percorsi": l'anteprima si ricalcola da sola.
+        // Percorsi appena installati dopo "Scarica i percorsi" (della regione aperta o di un'altra che copre
+        // partenza o arrivo): l'anteprima si ricalcola da sola.
         viewModelScope.launch {
-            var hadRouting: Boolean? = null
-            routingInstalled.collect { has ->
-                if (hadRouting == false && has) refreshPreview()
+            var hadRouting: Set<String>? = null
+            regionRepository.observeInstalled().map { regions -> regions.filter { it.routingVersion != null }.map { it.regionId }.toSet() }.collect { has ->
+                val before = hadRouting
+                if (before != null && (has - before).isNotEmpty()) refreshPreview()
                 hadRouting = has
             }
         }

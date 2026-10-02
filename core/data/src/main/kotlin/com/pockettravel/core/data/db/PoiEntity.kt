@@ -29,6 +29,10 @@ data class PoiEntity(
     // Nome in inglese e in italiano (OSM name:en, name:it), solo se diverso da name: vedi Poi.displayName.
     val nameEn: String? = null,
     val nameIt: String? = null,
+    // Tag OSM "toilets:wheelchair" (yes, limited, no...): bagni accessibili di un POI che ha dei bagni.
+    val toiletsWheelchair: String? = null,
+    // Tag OSM "capacity:disabled": posti auto per disabili di un parcheggio, null se non indicati.
+    val capacityDisabled: Int? = null,
     // true per i POI del pacchetto extra (poi-extra.db): si importano e si eliminano a parte.
     @ColumnInfo(defaultValue = "0") val extra: Boolean = false,
 )

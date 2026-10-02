@@ -1,5 +1,6 @@
 package com.pockettravel.feature.map
 
+import android.text.format.DateFormat
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,12 +16,18 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -36,9 +43,12 @@ import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.R as UiR
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.Date
+import java.util.TimeZone
 
 /**
  * Stato del pacchetto orari dei mezzi pubblici della regione, per la scheda delle fermate: [UNKNOWN] non mostra
@@ -55,7 +65,7 @@ val TRANSIT_CATEGORIES = setOf(PoiCategory.TRENO, PoiCategory.METRO, PoiCategory
  * finche' si legge. [onDownload] scarica o aggiorna il pacchetto orari della regione.
  */
 @Composable
-internal fun TransitDeparturesSection(state: TransitPackageState, board: TransitBoard?, onDownload: () -> Unit) {
+internal fun TransitDeparturesSection(state: TransitPackageState, board: TransitBoard?, showAccessibility: Boolean, onDownload: () -> Unit) {
     if (state == TransitPackageState.UNKNOWN) return
     Column(modifier = Modifier.fillMaxWidth().padding(top = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
         Text(
@@ -79,8 +89,14 @@ internal fun TransitDeparturesSection(state: TransitPackageState, board: Transit
                     Sources(board.feeds)
                 }
                 is TransitBoard.Departures -> {
+                    // Accessibilita' solo con "Con disabilita'", e solo se la rete la indica.
+                    if (showAccessibility) {
+                        board.stopWheelchair?.let { accessible ->
+                            AccessibilityRow(accessible, if (accessible) R.string.transit_stop_wheelchair_yes else R.string.transit_stop_wheelchair_no)
+                        }
+                    }
                     if (board.items.isEmpty()) Note(stringResource(R.string.transit_none_soon))
-                    board.items.forEach { DepartureRow(it) }
+                    board.items.forEach { DepartureRow(it, showAccessibility) }
                     Note(stringResource(R.string.transit_valid_until, formatDate(board.validUntil)))
                     if (board.expiresSoon) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -101,8 +117,15 @@ internal fun TransitDeparturesSection(state: TransitPackageState, board: Transit
 }
 
 @Composable
-private fun DepartureRow(departure: TransitDeparture) {
-    val clock = "%02d:%02d".format(departure.minuteOfDay / 60, departure.minuteOfDay % 60)
+private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean) {
+    // Ora della rete nel formato del telefono (24 h o AM/PM, anche per TalkBack). Il formatter va in UTC: minuteOfDay e'
+    // gia' un orario locale della rete e non va spostato col fuso del telefono; GTFS supera le 24 h dopo mezzanotte.
+    val context = LocalContext.current
+    val clock = remember(departure.minuteOfDay, context) {
+        DateFormat.getTimeFormat(context)
+            .apply { timeZone = TimeZone.getTimeZone("UTC") }
+            .format(Date(departure.minuteOfDay % (24 * 60) * 60_000L))
+    }
     val relative = if (departure.inMinutes <= 0) stringResource(R.string.transit_now) else stringResource(R.string.transit_in_min, departure.inMinutes)
     val relativeSpoken = if (departure.inMinutes <= 0) {
         stringResource(R.string.transit_now)
@@ -111,13 +134,16 @@ private fun DepartureRow(departure: TransitDeparture) {
     }
     val mode = stringResource(departure.mode.label())
     // Una sola voce per TalkBack: linea, mezzo, direzione e ora, senza leggere i pezzi a uno a uno.
-    val description = departure.headsign?.let {
+    // Senza "direzione" quando ripete la linea (reti che usano il percorso come sigla): TalkBack lo direbbe due volte.
+    val description = departure.headsign?.takeIf { it != departure.line }?.let {
         stringResource(R.string.transit_departure_description, departure.line, mode, it, clock, relativeSpoken)
     } ?: stringResource(R.string.transit_departure_description_no_headsign, departure.line, mode, clock, relativeSpoken)
+    val accessible = departure.wheelchair.takeIf { showAccessibility }
+    val accessibleText = accessible?.let { stringResource(if (it) R.string.transit_departure_wheelchair_yes else R.string.transit_departure_wheelchair_no) }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.m),
-        modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = description },
+        modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = accessibleText?.let { "$description, $it" } ?: description },
     ) {
         // Il colore della linea e' solo decorazione: sigla, mezzo e destinazione stanno in chiaro.
         Surface(
@@ -141,10 +167,35 @@ private fun DepartureRow(departure: TransitDeparture) {
                 Text(text = mode, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        if (accessible != null) AccessibilityIcon(accessible)
         Column(horizontalAlignment = Alignment.End) {
             Text(text = clock, style = MaterialTheme.typography.titleMedium)
             Text(text = relative, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+// Carrozzina: nel colore del testo se accessibile, barrata e in quello di errore se no (la barra la distingue
+// anche senza colori). Il significato sta anche nel testo (fermata) e nella descrizione per TalkBack (partenza).
+@Composable
+private fun AccessibilityIcon(accessible: Boolean) {
+    val tint = if (accessible) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error
+    Icon(
+        ImageVector.vectorResource(UiR.drawable.ms_accessible),
+        contentDescription = null,
+        tint = tint,
+        modifier = Modifier.size(18.dp).drawWithContent {
+            drawContent()
+            if (!accessible) drawLine(tint, Offset(0f, 0f), Offset(size.width, size.height), strokeWidth = 2.dp.toPx())
+        },
+    )
+}
+
+@Composable
+private fun AccessibilityRow(accessible: Boolean, @StringRes label: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+        AccessibilityIcon(accessible)
+        Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
     }
 }
 

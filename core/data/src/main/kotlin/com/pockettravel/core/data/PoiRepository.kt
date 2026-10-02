@@ -54,10 +54,16 @@ data class Poi(
     val nameIt: String? = null,
     // Dal pacchetto extra: la mappa li mostra anche se isHiddenOnMap() li nasconderebbe.
     val extra: Boolean = false,
+    // Bagni accessibili (OSM "toilets:wheelchair") e posti auto per disabili ("capacity:disabled"), null se non indicati.
+    val toiletsWheelchair: String? = null,
+    val capacityDisabled: Int? = null,
 )
 
 private fun PoiEntity.toDomain() =
-    Poi(id, regionId, name, category, lat, lon, osmTag, phone, wheelchair, openingHours, address, website, email, country, nameEn, nameIt, extra)
+    Poi(
+        id, regionId, name, category, lat, lon, osmTag, phone, wheelchair, openingHours, address, website, email, country, nameEn, nameIt, extra,
+        toiletsWheelchair, capacityDisabled,
+    )
 
 /** Nome nella lingua dell'interfaccia ("en"/"it") se OSM lo ha, altrimenti quello locale. */
 fun Poi.displayName(language: String): String = (if (language == "en") nameEn else nameIt ?: nameEn) ?: name

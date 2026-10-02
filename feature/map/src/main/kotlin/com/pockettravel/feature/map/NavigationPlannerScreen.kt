@@ -6,6 +6,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.text.format.DateFormat
+import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -123,11 +124,15 @@ fun NavigationPlannerScreen(
     // La guida passo passo, nella stessa scheda: "Avvia" la fa partire, "Termina" torna qui.
     navigationViewModel: NavigationViewModel,
     // Senza i Percorsi della regione: avvia il download (l'hub lo sa fare), il ricalcolo poi e' automatico.
-    onDownloadRouting: () -> Unit,
-    // Avanzamento 0..1 del download della regione in corso, null se nessuno: la barra come nell'elenco delle regioni.
+    // Con l'id di un'altra regione: quella del catalogo che copre partenza o arrivo (null = la regione aperta).
+    onDownloadRouting: (regionId: String?) -> Unit,
+    // Avanzamento 0..1 del download in corso, null se nessuno: la barra come nell'elenco delle regioni.
     downloadProgress: Float?,
-    // Il download della regione e' fallito (lavoro finito in errore o catalogo non raggiungibile): si puo' riprovare.
+    // Il download e' fallito (lavoro finito in errore o catalogo non raggiungibile): si puo' riprovare.
     downloadFailed: Boolean,
+    // La regione senza Percorsi che copre i punti (partenza, arrivo), dal catalogo che il Navigatore non vede (core:sync);
+    // null se non se ne trova una (anche offline).
+    findMissingRegion: suspend (List<RoutePoint>) -> MissingRegion?,
 ) {
     LaunchedEffect(regionId) { viewModel.load(regionId) }
     val from by viewModel.from.collectAsStateWithLifecycle()
@@ -141,6 +146,13 @@ fun NavigationPlannerScreen(
     val routingInstalled by viewModel.routingInstalled.collectAsStateWithLifecycle()
     val arriveBy by viewModel.arriveBy.collectAsStateWithLifecycle()
     val reminder by viewModel.reminder.collectAsStateWithLifecycle()
+    // Se partenza o arrivo cadono fuori dalle zone dei Percorsi: quale regione manca. Si rilegge quando se ne installa una.
+    val routingRegionIds by viewModel.routingRegionIds.collectAsStateWithLifecycle()
+    val noRoutingData = (preview as? PlannerPreview.Unavailable)?.result == RouteResult.NoRoutingData
+    var missingRegion by remember { mutableStateOf<MissingRegion?>(null) }
+    LaunchedEffect(noRoutingData, routingRegionIds, to, from) {
+        missingRegion = if (noRoutingData) findMissingRegion(listOfNotNull(viewModel.startPoint(), to?.point)) else null
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         viewModel.onPermissionResult(result.values.any { it })
@@ -188,6 +200,17 @@ fun NavigationPlannerScreen(
             }
         }
         BackHandler(onBack = navigationViewModel::stop)
+        // Percorsi mancanti a meta' strada: come nell'anteprima, la regione da scaricare; a download finito si riprova da soli.
+        val guidanceNoRouting = (navigationState as? NavigationUiState.Unavailable)?.result == RouteResult.NoRoutingData
+        var guidanceMissing by remember { mutableStateOf<MissingRegion?>(null) }
+        LaunchedEffect(guidanceNoRouting, routingRegionIds) {
+            guidanceMissing = if (guidanceNoRouting) findMissingRegion(listOfNotNull(viewModel.startPoint(), guidingTarget.point)) else null
+        }
+        var seenRoutingRegionIds by remember { mutableStateOf(routingRegionIds) }
+        LaunchedEffect(routingRegionIds) {
+            if (guidanceNoRouting && (routingRegionIds - seenRoutingRegionIds).isNotEmpty()) navigationViewModel.retry()
+            seenRoutingRegionIds = routingRegionIds
+        }
         LaunchedEffect(navigationState) {
             if (navigationState == NavigationUiState.Arrived) {
                 // L'arrivo puo' essere avvenuto mentre la scheda non era aperta (il GPS lo ascolta il ViewModel):
@@ -214,6 +237,9 @@ fun NavigationPlannerScreen(
             walkingHaptics = walkingHaptics,
             onStreetNames = navigationViewModel::onStreetNames,
             drivingSide = drivingSide,
+            missingRegion = guidanceMissing,
+            downloadProgress = downloadProgress,
+            onDownloadRouting = { guidanceMissing?.let { onDownloadRouting(it.regionId) } },
         )
         return
     }
@@ -268,7 +294,8 @@ fun NavigationPlannerScreen(
                 downloadProgress = downloadProgress,
                 downloadFailed = downloadFailed,
                 travelMode = travelMode,
-                onDownloadRouting = onDownloadRouting,
+                missingRegion = missingRegion,
+                onDownloadRouting = { onDownloadRouting(missingRegion?.regionId) },
                 wheelchairOptions = if (routing.wheelchair && to != null) {
                     { WheelchairOptions(allowSteps = allowSteps, onAllowStepsChange = viewModel::setAllowSteps) }
                 } else {
@@ -432,15 +459,17 @@ private fun PlannerSheet(
     downloadFailed: Boolean,
     onDownloadRouting: () -> Unit,
     travelMode: TravelMode,
+    // La regione del catalogo senza Percorsi che copre partenza o arrivo, se si e' trovata.
+    missingRegion: MissingRegion?,
     wheelchairOptions: (@Composable () -> Unit)?,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l).padding(bottom = Spacing.l)) {
         when {
             to == null -> Recents(recents, onRecent, onRemoveRecent, onClearRecents)
             preview is PlannerPreview.Ready -> RouteSummary(preview.route, startsFromMe, onStart, wheelchairOptions, arriveBy, reminder, onArriveByChange, onSetReminder)
-            // Il download si propone solo se la regione aperta non ha i Percorsi: con i Percorsi installati
-            // "nessun dato" vuol dire partenza o arrivo fuori dalle zone scaricate, e riscaricare non cambierebbe nulla.
-            preview is PlannerPreview.Unavailable && preview.result == RouteResult.NoRoutingData && !routingInstalled -> {
+            // Il download si propone se la regione aperta non ha i Percorsi o se il catalogo dice quale regione manca
+            // per partenza o arrivo; altrimenti "nessun dato" vuol dire fuori dalle zone scaricate, e riscaricare non cambierebbe nulla.
+            preview is PlannerPreview.Unavailable && preview.result == RouteResult.NoRoutingData && (missingRegion != null || !routingInstalled) -> {
                 if (downloadProgress != null) {
                     Text(
                         stringResource(R.string.planner_routing_progress, (downloadProgress * 100).toInt()),
@@ -450,8 +479,12 @@ private fun PlannerSheet(
                     DownloadProgressIndicator(progress = { downloadProgress }, modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.m))
                 } else {
                     SheetMessage(
-                        stringResource(if (downloadFailed) R.string.planner_routing_failed else R.string.planner_no_routing_data),
-                        stringResource(R.string.navigation_routing_download),
+                        when {
+                            downloadFailed -> stringResource(R.string.planner_routing_failed)
+                            missingRegion != null -> stringResource(R.string.navigation_missing_routing)
+                            else -> stringResource(R.string.planner_no_routing_data)
+                        },
+                        if (missingRegion != null) stringResource(R.string.navigation_routing_download_region, missingRegion.name) else stringResource(R.string.navigation_routing_download),
                         onDownloadRouting,
                     )
                 }
@@ -950,7 +983,12 @@ private fun PlannerMap(
             }
         }
     }
-    AndroidView(factory = { mapView }, modifier = modifier.clearAndSetSemantics {})
+    // Mappa solo visiva, il percorso sta nel testo: clearAndSetSemantics non basta per la View Android di
+    // MapLibre, che TalkBack leggerebbe comunque (e per prima, prima dei campi).
+    AndroidView(
+        factory = { mapView.apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS } },
+        modifier = modifier.clearAndSetSemantics {},
+    )
 }
 
 private class PlannerSources(val route: GeoJsonSource, val start: GeoJsonSource, val end: GeoJsonSource)

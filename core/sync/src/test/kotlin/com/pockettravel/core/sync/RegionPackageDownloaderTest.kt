@@ -1,6 +1,10 @@
 package com.pockettravel.core.sync
 
 import com.pockettravel.core.data.RegionStorage
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -8,12 +12,14 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import java.util.Collections
 import kotlin.io.path.createTempDirectory
 
 // downloadAndVerify() e' internal apposta (vedi commento nella classe di produzione): qui si
@@ -213,5 +219,39 @@ class RegionPackageDownloaderTest {
         }
         assertEquals("bytes=5-", server.takeRequest().getHeader("Range"))
         assertFalse(partFile.exists())
+    }
+
+    @Test
+    fun `due installazioni sullo stesso id di staging con versioni diverse sono serializzate`() = runBlocking {
+        val inFirst = CompletableDeferred<Unit>()
+        val events = Collections.synchronizedList(mutableListOf<String>())
+        var firstMarkerSurvived = false
+
+        // Come RegionPackageInstaller: download + uso dei file dentro lo stesso lock, poi pulizia.
+        val first = launch(Dispatchers.Default) {
+            downloader.withStagingLock("it") {
+                val staging = downloader.downloadLocked("it", "v1", emptyList())
+                val marker = File(staging, "poi.db").apply { writeText("v1") }
+                events += "first-start"
+                inFirst.complete(Unit)
+                delay(300)
+                // Se la seconda fosse entrata, cleanupStagingExcept avrebbe cancellato lo staging di v1.
+                firstMarkerSurvived = marker.exists()
+                events += "first-end"
+            }
+        }
+        val second = launch(Dispatchers.Default) {
+            inFirst.await()
+            downloader.withStagingLock("it") {
+                events += "second-start"
+                downloader.downloadLocked("it", "v2", emptyList())
+                events += "second-end"
+            }
+        }
+        first.join()
+        second.join()
+
+        assertTrue(firstMarkerSurvived)
+        assertEquals(listOf("first-start", "first-end", "second-start", "second-end"), events.toList())
     }
 }

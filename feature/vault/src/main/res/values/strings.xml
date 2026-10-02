@@ -44,6 +44,7 @@
     <string name="vault_camera_ok">Documento inquadrato bene</string>
     <string name="vault_camera_hint">Inquadra il documento nel riquadro, ben illuminato e senza riflessi</string>
     <string name="vault_camera_close">Chiudi fotocamera</string>
+    <string name="vault_camera_count">Foto %1$d di %2$d</string>
     <string name="vault_camera_capture">Scatta la foto</string>
     <string name="vault_camera_permission_denied">Permesso fotocamera negato: non è possibile scattare foto ai documenti.</string>
     <string name="vault_open_app_settings">Impostazioni</string>

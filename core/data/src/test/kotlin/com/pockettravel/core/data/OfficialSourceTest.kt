@@ -23,7 +23,23 @@ class OfficialSourceTest {
         assertEquals("Farnesina — Viaggiare Sicuri", officialSourceFor(GuideCategory.SICUREZZA, "IT")?.name)
         assertEquals("GOV.UK — Foreign travel advice", officialSourceFor(GuideCategory.ALLOGGIO, "GB")?.name)
         // Senza una fonte per quel paese, niente link invece di quello di un altro paese.
-        assertNull(officialSourceFor(GuideCategory.SICUREZZA, "JP"))
+        assertNull(officialSourceFor(GuideCategory.SICUREZZA, "BR"))
+    }
+
+    @Test
+    fun `every country has at most one travel advice source`() {
+        val advice = officialSourcesRegistry.filter { it.topic == OfficialSourceTopic.TRAVEL_ADVICE }
+        assertTrue(advice.all { it.countries.isNotEmpty() && it.url.startsWith("https://") })
+        val countries = advice.flatMap { it.countries }
+        assertEquals(countries.size, countries.toSet().size)
+        // Microstati che rimandano al servizio di un vicino.
+        assertEquals("Farnesina — Viaggiare Sicuri", travelAdviceSourceFor("SM")?.name)
+        assertEquals("DFAE — Consigli di viaggio", travelAdviceSourceFor("LI")?.name)
+        assertEquals("Farnesina — Viaggiare Sicuri", travelAdviceSourceFor("IT")?.name)
+        assertEquals("外務省 海外安全ホームページ", travelAdviceSourceFor("JP")?.name)
+        assertNull(travelAdviceSourceFor("BR"))
+        assertNull(travelAdviceSourceFor(null))
+        assertEquals("GOV.UK — Foreign travel advice", fallbackTravelAdviceSource.name)
     }
 
     @Test

@@ -12,4 +12,13 @@
     <string name="sync_package_addresses">House numbers</string>
     <string name="sync_package_cities">City guides</string>
     <string name="sync_package_transit">Public transport</string>
+    <string name="sync_updates_regions_channel">Region updates</string>
+    <string name="sync_updates_app_channel">App updates</string>
+    <string name="sync_updates_ai_model_channel">AI model updates</string>
+    <string name="sync_update_region_title">Update available</string>
+    <string name="sync_update_region_text">%1$s, %2$d MB</string>
+    <string name="sync_update_app_title">App update available</string>
+    <string name="sync_update_app_text">Version %1$s</string>
+    <string name="sync_update_ai_model_title">AI model update available</string>
+    <string name="sync_update_ai_model_text">%1$s, %2$d MB</string>
 </resources>

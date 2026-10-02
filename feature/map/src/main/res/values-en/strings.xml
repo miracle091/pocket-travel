@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="poi_lodging">Hotels</string>
     <string name="poi_food">Restaurants &amp; bars</string>
     <string name="poi_shopping">Shops</string>
@@ -30,7 +30,7 @@
     <string name="poi_parking_private">Private parking</string>
     <string name="poi_parking_disabled">Disabled parking</string>
     <string name="map_filters_only_accessible">Accessible places only</string>
-    <string name="map_filters_only_accessible_body">Places marked as wheelchair accessible, even partly, and disabled parking.</string>
+    <string name="map_filters_only_accessible_body">Places marked as wheelchair accessible, even partly, accessible toilets and disabled parking.</string>
     <string name="poi_train">Train stations</string>
     <string name="poi_metro">Metro</string>
     <string name="poi_bus">Buses</string>
@@ -80,6 +80,14 @@
     <string name="poi_wheelchair_yes">Wheelchair accessible</string>
     <string name="poi_wheelchair_limited">Partially wheelchair accessible</string>
     <string name="poi_wheelchair_no">Not wheelchair accessible</string>
+    <string name="poi_toilets_wheelchair_yes">Wheelchair accessible toilets</string>
+    <string name="poi_toilets_wheelchair_limited">Partially wheelchair accessible toilets</string>
+    <string name="poi_toilets_wheelchair_no">Toilets not wheelchair accessible</string>
+    <string name="poi_disabled_parking">Disabled parking spaces: %1$d</string>
+    <string name="transit_stop_wheelchair_yes">Wheelchair accessible stop</string>
+    <string name="transit_stop_wheelchair_no">Stop not wheelchair accessible</string>
+    <string name="transit_departure_wheelchair_yes">Wheelchair accessible</string>
+    <string name="transit_departure_wheelchair_no">Not wheelchair accessible</string>
     <string name="poi_call">Call %1$s</string>
     <string name="poi_website">Open website</string>
     <string name="poi_email">Email %1$s</string>
@@ -214,6 +222,8 @@
     <string name="usage_mode_directions">Directions to places</string>
     <string name="usage_mode_directions_body">Also downloads routes with each region (from a few MB to a few hundred) and asks for your GPS location, used only while you navigate.</string>
     <string name="navigation_routing_download">Download routes</string>
+    <string name="navigation_missing_routing">Navigation unavailable. Routes are missing.</string>
+    <string name="navigation_routing_download_region">Download routes for %1$s</string>
     <string name="navigation_outside_routing">The start or the destination is outside the area of the downloaded routes.</string>
     <string name="navigation_calculating">Calculating the route…</string>
     <string name="navigation_calculating_progress">About %1$d%% calculated</string>
@@ -327,4 +337,8 @@
     <string name="navigation_drive_left">left</string>
     <string name="navigation_drive_right">right</string>
     <string name="navigation_drive_side">Country driving on the</string>
+    <string name="maplibre_mapActionDescription" tools:ignore="PrivateResource">Map. Move it by dragging with two fingers, zoom by spreading two fingers.</string>
+    <string name="maplibre_attributionsIconContentDescription" tools:ignore="PrivateResource">Map credits. Activate to show them.</string>
+    <string name="maplibre_compassContentDescription" tools:ignore="PrivateResource">Map compass. Activate to turn north back up.</string>
+    <string name="maplibre_myLocationViewContentDescription" tools:ignore="PrivateResource">Your location on the map.</string>
 </resources>

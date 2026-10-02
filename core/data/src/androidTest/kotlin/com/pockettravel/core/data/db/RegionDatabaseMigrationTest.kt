@@ -193,12 +193,19 @@ class RegionDatabaseMigrationTest {
     }
 
     @Test
-    fun migrazione17a18AggiungeLeRappresentanzeDiplomaticheVuote() {
+    fun migrazione17a18AggiungeLeRappresentanzeDiplomaticheVuoteEIDatiDiAccessibilitaDeiPoi() {
         helper.createDatabase(DB_NAME, 17).use { db ->
             db.execSQL("INSERT INTO emergency_numbers VALUES ('italia', '112', '113', '118', '115')")
+            db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone, extra, wheelchair) VALUES ('italia', 'Da Mario', 'restaurant', 45.0, 9.0, 'amenity=restaurant', NULL, 0, 'yes')")
         }
 
         helper.runMigrationsAndValidate(DB_NAME, 18, true, MIGRATION_17_18).use { db ->
+            db.query("SELECT name, wheelchair, toiletsWheelchair, capacityDisabled FROM poi").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Da Mario", cursor.getString(0))
+                assertEquals("yes", cursor.getString(1))
+                assertTrue(cursor.isNull(2) && cursor.isNull(3))
+            }
             db.query("SELECT COUNT(*) FROM diplomatic_missions").use { cursor ->
                 cursor.moveToFirst()
                 assertEquals(0, cursor.getInt(0))

@@ -21,6 +21,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -77,7 +79,7 @@ fun LicensesScreen(onBack: () -> Unit, viewModel: LicensesViewModel = hiltViewMo
                     Text(
                         text = stringResource(R.string.licenses_address_sources_title),
                         style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(start = Spacing.l, top = Spacing.l, bottom = Spacing.s),
+                        modifier = Modifier.padding(start = Spacing.l, top = Spacing.l, bottom = Spacing.s).semantics { heading() },
                     )
                 }
                 items(addressAttributions, key = { "address-grid-source-${it.source}" }) { attribution ->
@@ -90,7 +92,7 @@ fun LicensesScreen(onBack: () -> Unit, viewModel: LicensesViewModel = hiltViewMo
                     Text(
                         text = stringResource(R.string.licenses_transit_sources_title),
                         style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(start = Spacing.l, top = Spacing.l, bottom = Spacing.s),
+                        modifier = Modifier.padding(start = Spacing.l, top = Spacing.l, bottom = Spacing.s).semantics { heading() },
                     )
                 }
                 items(transitFeeds, key = { "transit-source-${it.id}" }) { feed ->

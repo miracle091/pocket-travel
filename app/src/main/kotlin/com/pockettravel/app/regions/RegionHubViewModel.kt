@@ -14,16 +14,20 @@ import com.pockettravel.core.sync.TransitClient
 import com.pockettravel.core.sync.attachTransitFeeds
 import com.pockettravel.core.sync.regionTransitFeeds
 import com.pockettravel.feature.ai.AiAvailability
+import com.pockettravel.feature.map.MissingRegion
+import com.pockettravel.feature.map.RoutePoint
 import com.pockettravel.feature.map.TransitPackageState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -79,8 +83,12 @@ class RegionHubViewModel @Inject constructor(
         ) { hasMap, work -> mapState(hasMap, work) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RegionMapState.LOADING)
 
+    // La regione di cui il Navigatore segue il download dei Percorsi: un'altra, se e' quella che copre partenza o arrivo.
+    private val routingTarget = MutableStateFlow<String?>(null)
+    private val downloadId: Flow<String> = combine(regionId.filterNotNull(), routingTarget) { id, target -> target ?: id }
+
     /** Avanzamento 0..1 del download in corso della regione (per esempio i Percorsi dal Navigatore), null se nessuno. */
-    val downloadProgress: StateFlow<Float?> = regionId.filterNotNull().flatMapLatest { id ->
+    val downloadProgress: StateFlow<Float?> = downloadId.flatMapLatest { id ->
         regionSyncScheduler.observeDownload(id).map { work ->
             if (work?.state != WorkInfo.State.RUNNING && work?.state != WorkInfo.State.ENQUEUED) return@map null
             val total = work.progress.getLong(RegionPackageDownloadWorker.KEY_TOTAL_BYTES, 0L)
@@ -92,7 +100,7 @@ class RegionHubViewModel @Inject constructor(
     private val manifestFailed = MutableStateFlow(false)
 
     /** L'ultimo download della regione e' finito in errore (lavoro fallito o catalogo non raggiungibile): si puo' riprovare. */
-    val downloadFailed: StateFlow<Boolean> = regionId.filterNotNull().flatMapLatest { id ->
+    val downloadFailed: StateFlow<Boolean> = downloadId.flatMapLatest { id ->
         combine(regionSyncScheduler.observeDownload(id), manifestFailed) { work, noManifest ->
             noManifest || work?.state == WorkInfo.State.FAILED
         }
@@ -121,6 +129,7 @@ class RegionHubViewModel @Inject constructor(
 
     fun load(regionId: String) {
         this.regionId.value = regionId
+        routingTarget.value = null
         recentRegionPreferences.setLastRegionId(regionId)
         viewModelScope.launch {
             val region = regionRepository.installed(regionId)
@@ -166,12 +175,26 @@ class RegionHubViewModel @Inject constructor(
 
     fun downloadMap() = downloadPackage(PackageKind.MAP)
 
-    /** "Scarica i percorsi" dal Navigatore, quando la regione non li ha. */
-    fun downloadRouting() = downloadPackage(PackageKind.ROUTING)
+    /** "Scarica i percorsi" dal Navigatore: della regione aperta, o di [targetId] se e' quella che copre partenza o arrivo. */
+    fun downloadRouting(targetId: String? = null) {
+        routingTarget.value = targetId
+        downloadPackage(PackageKind.ROUTING, targetId)
+    }
+
+    /**
+     * La regione del catalogo senza Percorsi che copre partenza o arrivo ([points]), col nome nella lingua dell'app.
+     * Null se il catalogo non si legge (offline) o tutto e' coperto: il Navigatore resta col messaggio generico.
+     */
+    suspend fun missingRoutingRegion(points: List<RoutePoint>): MissingRegion? {
+        val regions = runCatching { manifestClient.fetchManifest().regions }.getOrNull() ?: return null
+        val installed = regionRepository.observeInstalled().first().filter { it.routingVersion != null }.map { it.regionId }.toSet()
+        val missing = missingRoutingRegion(regions, installed, points) ?: return null
+        return MissingRegion(missing.regionId, missing.localizedNames(Locale.getDefault()).displayName)
+    }
 
     // Un errore del catalogo non si butta: il Navigatore lo mostra e lascia riprovare, invece di restare fermo.
-    private fun downloadPackage(kind: PackageKind) {
-        val id = regionId.value ?: return
+    private fun downloadPackage(kind: PackageKind, targetId: String? = null) {
+        val id = targetId ?: regionId.value ?: return
         viewModelScope.launch {
             manifestFailed.value = false
             runCatching { manifestClient.fetchManifest().regions.first { it.regionId == id } }
@@ -185,4 +208,19 @@ class RegionHubViewModel @Inject constructor(
         work?.state == WorkInfo.State.RUNNING || work?.state == WorkInfo.State.ENQUEUED -> RegionMapState.DOWNLOADING
         else -> RegionMapState.MISSING
     }
+}
+
+/**
+ * La regione del manifest da cui scaricare i percorsi per il primo dei [points] che nessuna regione con i
+ * percorsi installati ([installedRoutingIds]) copre col suo riquadro: fra quelle senza percorsi che lo
+ * contengono, la piu' piccola (l'Italia contiene San Marino). Null se tutti i punti sono coperti o
+ * nessuna regione ne contiene uno scoperto.
+ */
+internal fun missingRoutingRegion(regions: List<RegionManifestEntry>, installedRoutingIds: Set<String>, points: List<RoutePoint>): RegionManifestEntry? {
+    fun RegionManifestEntry.contains(point: RoutePoint): Boolean = map.source.let {
+        point.longitude in it.minLon..it.maxLon && point.latitude in it.minLat..it.maxLat
+    }
+    val uncovered = points.firstOrNull { point -> regions.none { it.regionId in installedRoutingIds && it.contains(point) } } ?: return null
+    return regions.filter { it.regionId !in installedRoutingIds && it.contains(uncovered) }
+        .minByOrNull { (it.map.source.maxLon - it.map.source.minLon) * (it.map.source.maxLat - it.map.source.minLat) }
 }

@@ -58,83 +58,87 @@ class RegionPackageInstaller @Inject constructor(
         // riprende dai file .part della stessa richiesta, una richiesta diversa riparte da zero.
         val stagingVersion = PackageKind.entries.filter { it in kinds }.joinToString("_") { "${it.name.lowercase()}-${entry.versionOf(it)}" } +
             (if (installPreview) "_preview-${entry.preview.version}" else "")
-        val staging = downloader.download(entry.regionId, stagingVersion, files, onProgress)
-        if (PackageKind.POI in kinds) unpackXz(staging, entry.poi.file, entry.poi.fileXz)
-        if (PackageKind.POI_EXTRA in kinds) unpackXz(staging, entry.poiExtra!!.file, entry.poiExtra.fileXz)
-        if (PackageKind.ADDRESSES in kinds) {
-            addressPlan!!.toDownload.forEach { unpackXz(staging, it.file, it.fileXz) }
-            addressPlan.searchToDownload.forEach { unpackXz(staging, it.search!!.file, it.search.fileXz) }
-            withContext(Dispatchers.IO) {
-                addressGridInstaller.mergeInto(entry.regionId, entry.map.source, addressPlan, staging, ensureActive = { ensureActive() })
-            }
-        }
-        if (PackageKind.CITIES in kinds) unpackXz(staging, entry.cities!!.file, entry.cities.fileXz)
-        if (PackageKind.TRANSIT in kinds) {
-            entry.transit!!.feeds.forEach { unpackXz(staging, it.stagedFile, it.stagedFileXz) }
-            withContext(Dispatchers.IO) { assembleTransitDir(staging, entry.transit.feeds) }
-        }
-        if (installPreview) unpackXz(staging, entry.preview.file, entry.preview.fileXz)
-
-        if (PackageKind.MAP in kinds) {
-            // Estrazione bloccante (HTTP range): su IO e interrompibile se il download viene annullato.
-            // Con una mappa gia' installata (activatePackage la sostituisce solo dopo) scarica solo le
-            // tile cambiate; senza, o se il confronto fallisce, estrae tutto.
-            val installedMap = File(regionStorage.directoryFor(entry.regionId), RegionStorage.MAP_FILE)
-            withContext(Dispatchers.IO) {
-                pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE), installedMap, onMapProgress) { ensureActive() }
-            }
-        }
-        if (PackageKind.ROUTING in kinds) routingGraphInstaller.install(staging)
-
-        // I POI si leggono a blocchi dentro la transazione (PoiImporter.replaceFromFile): tutti in memoria
-        // prima, per una regione grande, rischiavano l'OutOfMemoryError.
-        val poisToImport = if (PackageKind.POI in kinds) File(staging, entry.poi.file.name) else null
-        val poiExtraToImport = if (PackageKind.POI_EXTRA in kinds) File(staging, entry.poiExtra!!.file.name) else null
-        val citySectionsToImport = if (PackageKind.CITIES in kinds) {
-            cityImporter.readSections(entry.regionId, File(staging, entry.cities!!.file.name))
-        } else {
-            null
-        }
-
-        val activations = mutableListOf<RegionStorage.Activation>()
-        try {
-            if (PackageKind.MAP in kinds) {
-                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.MAP_FILE, File(staging, RegionStorage.MAP_FILE), entry.map.version)
-            }
-            if (PackageKind.ROUTING in kinds) {
-                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ROUTING_DIR, File(staging, RegionStorage.ROUTING_DIR), entry.routing.version)
-            }
+        // Download, decompressione, attivazione e pulizia sotto lo stesso lock dello staging della regione: un altro
+        // lavoro con una versione diversa non cancella (cleanupStagingExcept) i file mentre questo li usa.
+        downloader.withStagingLock(entry.regionId) {
+            val staging = downloader.downloadLocked(entry.regionId, stagingVersion, files, onProgress)
+            if (PackageKind.POI in kinds) unpackXz(staging, entry.poi.file, entry.poi.fileXz)
+            if (PackageKind.POI_EXTRA in kinds) unpackXz(staging, entry.poiExtra!!.file, entry.poiExtra.fileXz)
             if (PackageKind.ADDRESSES in kinds) {
-                val version = entry.versionOf(PackageKind.ADDRESSES)!!
-                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_FILE, File(staging, RegionStorage.ADDRESSES_FILE), version)
-                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_CELLS_FILE, File(staging, RegionStorage.ADDRESSES_CELLS_FILE), version)
-                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_SEARCH_DIR, File(staging, RegionStorage.ADDRESSES_SEARCH_DIR), version)
+                addressPlan!!.toDownload.forEach { unpackXz(staging, it.file, it.fileXz) }
+                addressPlan.searchToDownload.forEach { unpackXz(staging, it.search!!.file, it.search.fileXz) }
+                withContext(Dispatchers.IO) {
+                    addressGridInstaller.mergeInto(entry.regionId, entry.map.source, addressPlan, staging, ensureActive = { ensureActive() })
+                }
             }
+            if (PackageKind.CITIES in kinds) unpackXz(staging, entry.cities!!.file, entry.cities.fileXz)
             if (PackageKind.TRANSIT in kinds) {
-                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.TRANSIT_DIR, File(staging, RegionStorage.TRANSIT_DIR), entry.versionOf(PackageKind.TRANSIT)!!)
+                entry.transit!!.feeds.forEach { unpackXz(staging, it.stagedFile, it.stagedFileXz) }
+                withContext(Dispatchers.IO) { assembleTransitDir(staging, entry.transit.feeds) }
             }
-            if (installPreview) {
-                activations += regionStorage.activatePackage(entry.regionId, RegionStorage.PREVIEW_FILE, File(staging, entry.preview.file.name), entry.preview.version)
+            if (installPreview) unpackXz(staging, entry.preview.file, entry.preview.fileXz)
+
+            if (PackageKind.MAP in kinds) {
+                // Estrazione bloccante (HTTP range): su IO e interrompibile se il download viene annullato.
+                // Con una mappa gia' installata (activatePackage la sostituisce solo dopo) scarica solo le
+                // tile cambiate; senza, o se il confronto fallisce, estrae tutto.
+                val installedMap = File(regionStorage.directoryFor(entry.regionId), RegionStorage.MAP_FILE)
+                withContext(Dispatchers.IO) {
+                    pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE), installedMap, onMapProgress) { ensureActive() }
+                }
             }
-            regionRepository.inInstallTransaction {
-                poisToImport?.let { poiImporter.replaceFromFile(entry.regionId, it) }
-                poiExtraToImport?.let { poiImporter.replaceFromFile(entry.regionId, it, extra = true) }
-                citySectionsToImport?.let { cityImporter.replace(entry.regionId, it) }
-                regionRepository.markPackagesInstalled(
-                    entry.regionId, entry.displayName, entry.countryCode,
-                    versions = kinds.associateWith { entry.versionOf(it)!! },
-                    poiSizeBytes = if (PackageKind.POI in kinds) entry.poi.file.sizeBytes else null,
-                    poiExtraSizeBytes = if (PackageKind.POI_EXTRA in kinds) entry.poiExtra!!.file.sizeBytes else null,
-                    previewVersion = if (installPreview) entry.preview.version else null,
-                    citiesSizeBytes = if (PackageKind.CITIES in kinds) entry.cities!!.file.sizeBytes else null,
-                )
+            if (PackageKind.ROUTING in kinds) routingGraphInstaller.install(staging)
+
+            // I POI si leggono a blocchi dentro la transazione (PoiImporter.replaceFromFile): tutti in memoria
+            // prima, per una regione grande, rischiavano l'OutOfMemoryError.
+            val poisToImport = if (PackageKind.POI in kinds) File(staging, entry.poi.file.name) else null
+            val poiExtraToImport = if (PackageKind.POI_EXTRA in kinds) File(staging, entry.poiExtra!!.file.name) else null
+            val citySectionsToImport = if (PackageKind.CITIES in kinds) {
+                cityImporter.readSections(entry.regionId, File(staging, entry.cities!!.file.name))
+            } else {
+                null
             }
-        } catch (error: Exception) {
-            activations.forEach { it.rollback() }
-            throw error
+
+            val activations = mutableListOf<RegionStorage.Activation>()
+            try {
+                if (PackageKind.MAP in kinds) {
+                    activations += regionStorage.activatePackage(entry.regionId, RegionStorage.MAP_FILE, File(staging, RegionStorage.MAP_FILE), entry.map.version)
+                }
+                if (PackageKind.ROUTING in kinds) {
+                    activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ROUTING_DIR, File(staging, RegionStorage.ROUTING_DIR), entry.routing.version)
+                }
+                if (PackageKind.ADDRESSES in kinds) {
+                    val version = entry.versionOf(PackageKind.ADDRESSES)!!
+                    activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_FILE, File(staging, RegionStorage.ADDRESSES_FILE), version)
+                    activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_CELLS_FILE, File(staging, RegionStorage.ADDRESSES_CELLS_FILE), version)
+                    activations += regionStorage.activatePackage(entry.regionId, RegionStorage.ADDRESSES_SEARCH_DIR, File(staging, RegionStorage.ADDRESSES_SEARCH_DIR), version)
+                }
+                if (PackageKind.TRANSIT in kinds) {
+                    activations += regionStorage.activatePackage(entry.regionId, RegionStorage.TRANSIT_DIR, File(staging, RegionStorage.TRANSIT_DIR), entry.versionOf(PackageKind.TRANSIT)!!)
+                }
+                if (installPreview) {
+                    activations += regionStorage.activatePackage(entry.regionId, RegionStorage.PREVIEW_FILE, File(staging, entry.preview.file.name), entry.preview.version)
+                }
+                regionRepository.inInstallTransaction {
+                    poisToImport?.let { poiImporter.replaceFromFile(entry.regionId, it) }
+                    poiExtraToImport?.let { poiImporter.replaceFromFile(entry.regionId, it, extra = true) }
+                    citySectionsToImport?.let { cityImporter.replace(entry.regionId, it) }
+                    regionRepository.markPackagesInstalled(
+                        entry.regionId, entry.displayName, entry.countryCode,
+                        versions = kinds.associateWith { entry.versionOf(it)!! },
+                        poiSizeBytes = if (PackageKind.POI in kinds) entry.poi.file.sizeBytes else null,
+                        poiExtraSizeBytes = if (PackageKind.POI_EXTRA in kinds) entry.poiExtra!!.file.sizeBytes else null,
+                        previewVersion = if (installPreview) entry.preview.version else null,
+                        citiesSizeBytes = if (PackageKind.CITIES in kinds) entry.cities!!.file.sizeBytes else null,
+                    )
+                }
+            } catch (error: Exception) {
+                activations.forEach { it.rollback() }
+                throw error
+            }
+            activations.forEach { it.commit() }
+            staging.deleteRecursively()
         }
-        activations.forEach { it.commit() }
-        staging.deleteRecursively()
     }
 }
 

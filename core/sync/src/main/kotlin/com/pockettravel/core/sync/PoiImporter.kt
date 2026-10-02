@@ -83,6 +83,8 @@ class PoiImporter @Inject constructor(
                     country = optional("country"),
                     nameEn = optional("nameEn"),
                     nameIt = optional("nameIt"),
+                    toiletsWheelchair = optional("toiletsWheelchair"),
+                    capacityDisabled = optional("capacityDisabled")?.toIntOrNull(),
                     extra = extra,
                 )
                 if (pois.size == CHUNK_SIZE) {
@@ -119,6 +121,6 @@ class PoiImporter @Inject constructor(
                 OPTIONAL_COLUMNS.filter { it in columns }.joinToString("") { ", poi.$it" } +
                 " FROM poi JOIN poi_code ON poi.code = poi_code.code"
 
-        private val OPTIONAL_COLUMNS = listOf("phone", "wheelchair", "openingHours", "address", "website", "email", "country", "nameEn", "nameIt")
+        private val OPTIONAL_COLUMNS = listOf("phone", "wheelchair", "openingHours", "address", "website", "email", "country", "nameEn", "nameIt", "toiletsWheelchair", "capacityDisabled")
     }
 }

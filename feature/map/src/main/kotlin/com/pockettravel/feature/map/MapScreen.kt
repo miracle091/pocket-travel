@@ -164,7 +164,7 @@ fun MapScreen(
             (it.category != PoiCategory.PARCHEGGIO || parkingZoom) &&
             (it.category != PoiCategory.PARCHEGGIO_DISABILI || (hideInaccessible && parkingZoom)) &&
             !(hideInaccessible && it.wheelchair == "no") &&
-            !(hideInaccessible && onlyAccessible && accessibilityBadgeOf(it.wheelchair) == null && it.category != PoiCategory.PARCHEGGIO_DISABILI)
+            !(hideInaccessible && onlyAccessible && pinBadgeOf(it) == null && it.category != PoiCategory.PARCHEGGIO_DISABILI)
     }
     val presentCategories = PoiCategory.entries.filter { category ->
         (category != PoiCategory.PARCHEGGIO_DISABILI || hideInaccessible) && pins.any { it.category == category }
@@ -175,7 +175,7 @@ fun MapScreen(
         val source = pinsSource ?: return@LaunchedEffect
         // Con "Con disabilita'" i segnalini accessibili hanno il distintivo: varianti delle icone
         // create solo per le combinazioni presenti, non per tutte le categorie in anticipo.
-        val badgeOf = { pin: MapPin -> if (hideInaccessible) accessibilityBadgeOf(pin.wheelchair) else null }
+        val badgeOf = { pin: MapPin -> if (hideInaccessible) pinBadgeOf(pin) else null }
         mapView.getMapAsync { map ->
             val style = map.style ?: return@getMapAsync
             visiblePins.mapNotNullTo(mutableSetOf()) { pin -> badgeOf(pin)?.let { pin.category to it } }
@@ -336,9 +336,15 @@ fun MapScreen(
                 wheelchairLabel(pin.wheelchair)?.let { label ->
                     PoiDetailRow(ImageVector.vectorResource(UiR.drawable.ms_accessible), stringResource(label))
                 }
+                toiletsWheelchairLabel(pin.toiletsWheelchair)?.let { label ->
+                    PoiDetailRow(ImageVector.vectorResource(UiR.drawable.ms_accessible), stringResource(label))
+                }
+                pin.capacityDisabled?.let { count ->
+                    PoiDetailRow(ImageVector.vectorResource(UiR.drawable.ms_accessible), stringResource(R.string.poi_disabled_parking, count))
+                }
                 pin.address?.let { PoiDetailRow(AppIcons.Place, it) }
                 pin.openingHours?.let { OpeningHoursDetail(it) }
-                if (pin.category in TRANSIT_CATEGORIES) TransitDeparturesSection(transitPackage, transitBoard, onDownloadTransit)
+                if (pin.category in TRANSIT_CATEGORIES) TransitDeparturesSection(transitPackage, transitBoard, hideInaccessible, onDownloadTransit)
                 onNavigate?.let { navigate ->
                     Spacer(modifier = Modifier.padding(top = Spacing.l))
                     Button(
@@ -476,6 +482,19 @@ private fun wheelchairLabel(value: String?): Int? = when (value) {
     "yes", "designated" -> R.string.poi_wheelchair_yes
     "limited" -> R.string.poi_wheelchair_limited
     "no" -> R.string.poi_wheelchair_no
+    else -> null
+}
+
+// Badge del segnalino: dal tag wheelchair del posto o, se manca, da quello dei suoi bagni.
+private fun pinBadgeOf(pin: MapPin): AccessibilityBadge? =
+    accessibilityBadgeOf(pin.wheelchair) ?: accessibilityBadgeOf(pin.toiletsWheelchair)
+
+// Come wheelchairLabel, per il tag OSM "toilets:wheelchair".
+@StringRes
+private fun toiletsWheelchairLabel(value: String?): Int? = when (value) {
+    "yes", "designated" -> R.string.poi_toilets_wheelchair_yes
+    "limited" -> R.string.poi_toilets_wheelchair_limited
+    "no" -> R.string.poi_toilets_wheelchair_no
     else -> null
 }
 

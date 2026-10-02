@@ -54,7 +54,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -348,25 +350,28 @@ private fun GuidesDownloadStepContent(viewModel: GuidesDownloadViewModel = hiltV
             title = stringResource(R.string.onboarding_guides_title),
             body = stringResource(R.string.onboarding_guides_body),
         )
-        when {
-            uiState.isInstalled -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(AppIcons.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.width(Spacing.s))
-                Text(stringResource(R.string.onboarding_guides_done), style = MaterialTheme.typography.bodyLarge)
-            }
-            uiState.isDownloading -> Row(verticalAlignment = Alignment.CenterVertically) {
-                PocketTravelLoadingIndicator(modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(Spacing.m))
-                Text(stringResource(R.string.onboarding_guides_downloading), style = MaterialTheme.typography.bodyLarge)
-            }
-            else -> FilledTonalButton(onClick = viewModel::download) {
-                Icon(AppIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(Spacing.s))
-                Text(
-                    uiState.downloadBytes
-                        ?.let { stringResource(R.string.onboarding_guides_download, Formatter.formatShortFileSize(context, it)) }
-                        ?: stringResource(R.string.onboarding_guides_download_no_size),
-                )
+        // Live region: TalkBack annuncia da solo "in corso" e poi "scaricate" senza dover tornare sulla riga.
+        Box(modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
+            when {
+                uiState.isInstalled -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(AppIcons.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(Spacing.s))
+                    Text(stringResource(R.string.onboarding_guides_done), style = MaterialTheme.typography.bodyLarge)
+                }
+                uiState.isDownloading -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    PocketTravelLoadingIndicator(modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(Spacing.m))
+                    Text(stringResource(R.string.onboarding_guides_downloading), style = MaterialTheme.typography.bodyLarge)
+                }
+                else -> FilledTonalButton(onClick = viewModel::download) {
+                    Icon(AppIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(Spacing.s))
+                    Text(
+                        uiState.downloadBytes
+                            ?.let { stringResource(R.string.onboarding_guides_download, Formatter.formatShortFileSize(context, it)) }
+                            ?: stringResource(R.string.onboarding_guides_download_no_size),
+                    )
+                }
             }
         }
     }

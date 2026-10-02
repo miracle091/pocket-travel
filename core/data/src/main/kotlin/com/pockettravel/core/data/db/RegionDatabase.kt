@@ -261,9 +261,12 @@ val MIGRATION_15_17 = object : Migration(15, 17) {
 }
 
 // Da 17 a 18: ambasciate e consolati da Wikidata (diplomatic_missions), vuota finche' non si importa un
-// pacchetto guide che la contiene.
+// pacchetto guide che la contiene; bagni accessibili e posti auto per disabili dei POI (toiletsWheelchair,
+// capacityDisabled), vuoti finche' la regione non riscarica i punti di interesse che li contengono.
 val MIGRATION_17_18 = object : Migration(17, 18) {
     override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `poi` ADD COLUMN `toiletsWheelchair` TEXT")
+        db.execSQL("ALTER TABLE `poi` ADD COLUMN `capacityDisabled` INTEGER")
         db.execSQL(
             """
             CREATE TABLE IF NOT EXISTS `diplomatic_missions` (
