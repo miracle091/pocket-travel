@@ -15,6 +15,9 @@ node_modules/
 unsloth_compiled_cache/
 __pycache__/
 
+# Piani di lavoro locali di Claude Code (comando /dev-docs)
+/dev/
+
 # Byproduct di Planetiler quando gira da tools/data-pipeline (cerca data/tile_weights.tsv.gz)
 /tools/data-pipeline/data/
 
