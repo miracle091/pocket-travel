@@ -119,7 +119,25 @@ fun readOvertureAddressPoints(points: File, minLon: Double, minLat: Double, maxL
         OvertureAddress((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), number, dataset, fields.optionalText(4), fields.optionalText(5))
     }
 
-private fun normalizedNumber(number: String): String = number.trim().lowercase().filterNot { it.isWhitespace() }
+private val RANGE_NUMBER = Regex("""(\d+[a-z]?)-(\d+[a-z]?)""")
+private val LATIN_SUFFIX_NUMBER = Regex("""(?<=\d)(bis|ter|quater)$""")
+
+// Chiave di confronto del civico (non cambia quello salvato): minuscolo, senza spazi, e bis/ter/quater
+// dopo una cifra scritti come b/t/q. In Francia Overture (BAN) scrive "12B" dove OSM ha "12 bis",
+// "12bis" o "12b"; "12" e "12A" restano civici diversi.
+private fun normalizedNumber(number: String): String =
+    number.trim().lowercase().filterNot { it.isWhitespace() }
+        .replace(LATIN_SUFFIX_NUMBER) { it.value.take(1) }
+
+// Chiavi con cui un civico OSM puo' coincidere con uno Overture: OSM scrive piu' civici in un punto
+// ("12;14") o un intervallo ("12-14"), mentre Overture ha un punto per civico, quindi valgono
+// ogni voce della lista, l'intero intervallo e i suoi due estremi (non i numeri in mezzo).
+private fun matchingNumbers(osmNumber: String): Set<String> =
+    osmNumber.split(';').flatMapTo(mutableSetOf()) { part ->
+        val key = normalizedNumber(part)
+        val range = RANGE_NUMBER.matchEntire(key)
+        if (range == null) listOf(key) else listOf(key, range.groupValues[1], range.groupValues[2])
+    }
 
 // Chiave della deduplica (a): punto arrotondato a ~1 m (latE6/lonE6 sono gia' a ~0,11 m, arrotondare
 // alla decina li porta a ~1,1 m) + numero normalizzato.
@@ -144,22 +162,23 @@ private fun dedupGridKey(latE6: Int, lonE6: Int): Pair<Int, Int> {
  * Deduplica indirizzi OSM + Overture (passo 1 della pipeline):
  * (a) distinct per fonte su punto arrotondato a ~1 m + numero normalizzato (toglie i doppioni
  * interni, es. il catasto portoghese con piu' righe sullo stesso punto);
- * (b) un punto Overture si scarta se entro 30 m c'e' un civico OSM con lo stesso numero normalizzato
- * (priorita' a OSM, unica fonte con licenza ODbL gia' accettata per l'intera mappa).
+ * (b) un punto Overture si scarta se entro 30 m c'e' un civico OSM con lo stesso numero normalizzato,
+ * o che lo contiene in una lista o in un intervallo (vedi [matchingNumbers]) (priorita' a OSM, unica
+ * fonte con licenza ODbL gia' accettata per l'intera mappa).
  * Non filtra per cella: quello e' un passo successivo (vedi [addressCellContains]).
  */
 fun dedupeWithOverture(osm: List<Address>, overture: List<OvertureAddress>): List<Address> {
     val osmDistinct = osm.distinctBy { roundedPointKey(it.latE6, it.lonE6, it.number) }
     val overtureDistinct = overture.distinctBy { roundedPointKey(it.latE6, it.lonE6, it.number) }
-    val osmGrid = osmDistinct.groupBy { dedupGridKey(it.latE6, it.lonE6) }
+    val osmGrid = osmDistinct.map { it to matchingNumbers(it.number) }.groupBy { dedupGridKey(it.first.latE6, it.first.lonE6) }
     val newOverture = overtureDistinct.filterNot { candidate ->
         val (gx, gy) = dedupGridKey(candidate.latE6, candidate.lonE6)
         val number = normalizedNumber(candidate.number)
         val (kx, ky) = metersPerDegree(candidate.latE6)
         (-1..1).any { dx ->
             (-1..1).any { dy ->
-                osmGrid[(gx + dx) to (gy + dy)].orEmpty().any { osmAddress ->
-                    normalizedNumber(osmAddress.number) == number &&
+                osmGrid[(gx + dx) to (gy + dy)].orEmpty().any { (osmAddress, osmNumbers) ->
+                    number in osmNumbers &&
                         hypot(
                             (candidate.lonE6 - osmAddress.lonE6) / 1e6 * kx,
                             (candidate.latE6 - osmAddress.latE6) / 1e6 * ky,

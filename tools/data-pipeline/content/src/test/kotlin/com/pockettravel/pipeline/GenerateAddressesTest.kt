@@ -171,6 +171,52 @@ class GenerateAddressesTest {
     }
 
     @Test
+    fun `dedupeWithOverture considera uguali bis ter e quater scritti per esteso o con la lettera`() {
+        val osm = listOf(
+            Address(43_942_400, 12_457_800, "12 bis"),
+            Address(43_942_400, 12_457_900, "7bis"),
+            Address(43_942_400, 12_458_000, "5 Ter"),
+            Address(43_942_400, 12_458_100, "3 quater"),
+        )
+        val overture = listOf(
+            OvertureAddress(43_942_400, 12_457_800, "12B", "fr/statewide"),
+            OvertureAddress(43_942_400, 12_457_900, "7B", "fr/statewide"),
+            OvertureAddress(43_942_400, 12_458_000, "5T", "fr/statewide"),
+            OvertureAddress(43_942_400, 12_458_100, "3Q", "fr/statewide"),
+        )
+
+        assertEquals(osm, dedupeWithOverture(osm, overture))
+    }
+
+    @Test
+    fun `dedupeWithOverture tiene i civici che differiscono per la sola lettera o per bis contro ter`() {
+        val osm = listOf(Address(43_942_400, 12_457_800, "12"), Address(43_942_400, 12_457_800, "12 bis"))
+        val overture = listOf(
+            OvertureAddress(43_942_400, 12_457_800, "12A", "nl/bag"),
+            OvertureAddress(43_942_400, 12_457_800, "12T", "fr/statewide"),
+        )
+
+        val result = dedupeWithOverture(osm, overture)
+
+        assertEquals(setOf("12", "12 bis", "12A", "12T"), result.map { it.number }.toSet())
+    }
+
+    @Test
+    fun `dedupeWithOverture scarta un punto Overture contenuto in una lista o in un intervallo OSM`() {
+        val osm = listOf(Address(43_942_400, 12_457_800, "12;14 bis"), Address(43_942_400, 12_458_000, "20-24"))
+        val overture = listOf(
+            OvertureAddress(43_942_400, 12_457_800, "12", "fr/statewide"), // voce della lista
+            OvertureAddress(43_942_400, 12_457_800, "14B", "fr/statewide"), // altra voce, scritta diversamente
+            OvertureAddress(43_942_400, 12_458_000, "24", "nl/bag"), // estremo dell'intervallo
+            OvertureAddress(43_942_400, 12_458_000, "22", "nl/bag"), // numero in mezzo: tenuto
+        )
+
+        val result = dedupeWithOverture(osm, overture)
+
+        assertEquals(osm + Address(43_942_400, 12_458_000, "22"), result)
+    }
+
+    @Test
     fun `dedupeWithOverture toglie i doppioni interni sullo stesso punto e numero`() {
         val overture = listOf(
             OvertureAddress(43_942_400, 12_457_800, "10", "pt/countrywide"),

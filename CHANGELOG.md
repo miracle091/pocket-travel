@@ -37,6 +37,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Aggiornamenti della mappa: le parti a bassa risoluzione (vista del paese e del continente) si riscaricano sempre, perché potevano restare quelle vecchie.
 - TalkBack: la mappa si annuncia in italiano o in inglese invece che con il testo inglese di MapLibre; nel Navigatore la mappa non viene più letta (prima era il primo elemento, prima dei campi partenza e destinazione); nelle partenze la destinazione non si ripete quando coincide con il nome della linea; il contatore della fotocamera del Vault si legge "Foto 5 di 50"; nelle Licenze i titoli delle sezioni sono intestazioni; al primo avvio il passaggio da "download in corso" a guide scaricate viene annunciato.
 - Orari delle partenze nel formato del telefono (24 ore o AM/PM), anche nella lettura di TalkBack.
+- Civici: meno indirizzi doppi quando OpenStreetMap e Overture scrivono lo stesso numero in modo diverso ("12 bis" e "12B", "12;14", "20-24"); a Parigi i civici aggiunti da Overture passano dal 23% al 18%. Arriva con il prossimo aggiornamento dei civici.
 
 ### Corretto
 - Bandiere delle Isole Cook e di Montserrat schiacciate ai lati nell'elenco delle nazioni (e di poco quelle di Lussemburgo e San Marino).
