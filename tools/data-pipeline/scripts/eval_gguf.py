@@ -25,7 +25,7 @@ from pathlib import Path
 from gguf import GGUFReader
 
 import vram
-from eval_common import DEFAULT_DATASET, find_llama_bin, llama_env, load_test_rows, print_report, refusal_summary, score
+from eval_common import DEFAULT_DATASET, find_llama_bin, llama_env, load_test_rows, print_report, question_of, refusal_summary, score
 from status import Progress, phase
 
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -40,7 +40,8 @@ ap.add_argument("--device", help="GPU da usare, come in `llama-server --list-dev
 ap.add_argument("--max-vram-held", type=float, default=vram.DEFAULT_MAX_HELD_PCT, help=vram.HELP + ", con --gpu-layers")
 ap.add_argument("--empty-think", action="store_true",
                 help="forza il blocco <think> vuoto (di default: aggiunto se il chat template del GGUF usa enable_thinking, come ai_chat.cpp)")
-ap.add_argument("--dataset", default=DEFAULT_DATASET, help="file in data/sft/ usato nel training (test base: sue regioni di test)")
+ap.add_argument("--dataset", default=DEFAULT_DATASET, help="file in data/sft/ usato nel training (test base: sue regioni di test; "
+                                                         "con pocket_travel_sft.en.jsonl il test esteso e' eval_extended.en.jsonl)")
 ap.add_argument("--answers", type=Path, help="salva domanda, risposta attesa e ottenuta (JSONL) per leggerle a mano")
 a = ap.parse_args()
 
@@ -105,7 +106,7 @@ try:
         progress.update(n, refusal_summary(stats))
         if answers:
             answers.write(json.dumps({"kind": r["kind"], "region": r["region"], "category": r.get("category"),
-                                      "question": r["messages"][0]["content"].rsplit("DOMANDA:", 1)[1].strip(),
+                                      "question": question_of(r).strip(),
                                       "want": r["messages"][1]["content"], "got": got}, ensure_ascii=False) + "\n")
 finally:
     server.kill()

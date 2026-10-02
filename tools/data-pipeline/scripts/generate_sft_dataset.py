@@ -191,13 +191,13 @@ NOTE_SAMPLES = [
      ["Che numero chiamo per l'assicurazione?", "Qual e' il numero di assistenza dell'assicurazione?"], "Assicurazione di viaggio con numero di assistenza +39 02 1234 5678, attivo giorno e notte."),
 ]
 
-def load_quick_facts(guides_db):
-    """{regionId: {campo: riga}} dalla sezione FATTI_RAPIDI di guides.db (solo i campi di QUICK_FACT_QUESTIONS)."""
+def load_quick_facts(guides_db, questions=QUICK_FACT_QUESTIONS):
+    """{regionId: {campo: riga}} dalla sezione FATTI_RAPIDI di guides.db (solo i campi di `questions`)."""
     import sqlite3
     out = {}
     with sqlite3.connect(guides_db) as db:
         for rid, body in db.execute("SELECT regionId, body FROM guide_sections WHERE category = 'FATTI_RAPIDI'"):
-            fields = {line.split(":", 1)[0]: line for line in body.splitlines() if line.split(":", 1)[0] in QUICK_FACT_QUESTIONS}
+            fields = {line.split(":", 1)[0]: line for line in body.splitlines() if line.split(":", 1)[0] in questions}
             if fields:
                 out[rid] = (body, fields)
     return out
@@ -339,7 +339,9 @@ def parse_sections(text, headings=HEADING_TO_CATEGORY):
     flush()
     return out
 
-def sentences(text):
+SENTENCE_END = r"(?<=[.!?])\s+"
+
+def sentences(text, split=SENTENCE_END):
     """Frasi del testo riga per riga (le guide dell'app vanno a capo): i sottotitoli "▸" non sono frasi, il segno
     "•" delle voci di elenco si toglie."""
     out = []
@@ -347,13 +349,13 @@ def sentences(text):
         line = line.strip()
         if not line or line.startswith("▸ "):
             continue
-        out += [x.strip() for x in re.split(r"(?<=[.!?])\s+", line.removeprefix("• ")) if len(x.strip()) > 1]
+        out += [x.strip() for x in re.split(split, line.removeprefix("• ")) if len(x.strip()) > 1]
     return out
 
-def covers(cat, text):
+def covers(cat, text, keywords=KEYWORDS):
     """True se il testo tratta davvero la categoria (le sezioni Wikivoyage a volte coprono altro)."""
     t = text.lower()
-    return any(k in t for k in KEYWORDS[cat])
+    return any(k in t for k in keywords[cat])
 
 def make_context(rng, bodies):
     """Come l'app: sezioni in ordine qualunque unite da riga vuota, troncate a MAX_CONTEXT."""
@@ -361,14 +363,14 @@ def make_context(rng, bodies):
     rng.shuffle(parts)
     return "\n\n".join(parts)[:MAX_CONTEXT]
 
-def pick_answer(context, body, question, cat, name):
+def pick_answer(context, body, question, cat, name, keywords=KEYWORDS, split=SENTENCE_END):
     """Fino a 3 frasi del corpo presenti per intero nel contesto: quelle piu' vicine alla domanda
     (parole in comune, escluso il nome della regione) o alla categoria; in ordine di testo. Solo frasi
     pertinenti (punteggio > 0) se ce ne sono, senza link, e al massimo MAX_ANSWER caratteri in tutto."""
     stems = {w[:5] for w in re.findall(r"\w{4,}", question.lower())} - {w[:5] for w in re.findall(r"\w{4,}", name.lower())}
-    cand = [(i, x) for i, x in enumerate(sentences(body))
+    cand = [(i, x) for i, x in enumerate(sentences(body, split))
             if x in context and not URL.search(x) and len(x) <= MAX_ANSWER]  # frasi-elenco lunghissime: fuori
-    score = lambda x: 2 * sum(st in x.lower() for st in stems) + any(k in x.lower() for k in KEYWORDS[cat])
+    score = lambda x: 2 * sum(st in x.lower() for st in stems) + any(k in x.lower() for k in keywords[cat])
     ranked = sorted(cand, key=lambda t: (-score(t[1]), t[0]))
     best = [t for t in ranked if score(t[1]) > 0][:3] or ranked[:1]
     while len(best) > 1 and sum(len(x) + 1 for _, x in best) > MAX_ANSWER:
@@ -488,11 +490,11 @@ def load_regions():
     rows = re.findall(r'^\s*"([^"]+\|[^"]+)"\s*$', src, re.M)
     return [(f[0], f[1], f[6]) for f in (r.split("|") for r in rows) if len(f) >= 7]
 
-def fetch_off_topic():
-    """{fonte: [domande]} dai dataset di OFF_TOPIC_SOURCES, in cache in raw/offtopic_<fonte>.txt (una per
+def fetch_off_topic(sources=OFF_TOPIC_SOURCES, keywords=KEYWORDS, travel_stems=TRAVEL_STEMS):
+    """{fonte: [domande]} dai dataset di `sources`, in cache in raw/offtopic_<fonte>.txt (una per
     riga). Solo domande brevi, a riga singola e senza temi di viaggio."""
     out = {}
-    for name, (dataset, config, split, column, _, keep) in OFF_TOPIC_SOURCES.items():
+    for name, (dataset, config, split, column, _, keep) in sources.items():
         cache = OUT / "raw" / f"offtopic_{name}.txt"
         if not cache.exists():
             qs, offset = [], 0
@@ -516,7 +518,7 @@ def fetch_off_topic():
                         continue  # alpaca: niente istruzioni con un testo di input a parte
                     if not 10 <= len(q) <= 160 or "\n" in q:
                         continue
-                    if any(s in low for s in TRAVEL_STEMS) or any(k in low for ks in KEYWORDS.values() for k in ks):
+                    if any(s in low for s in travel_stems) or any(k in low for ks in keywords.values() for k in ks):
                         continue
                     qs.append(q)
                 offset += 100; time.sleep(2)

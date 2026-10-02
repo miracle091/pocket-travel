@@ -38,7 +38,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from eval_common import TEST_REGIONS, chat_prompt_and_answer
+from eval_common import TEST_REGIONS, chat_prompt_and_answer, question_of
 from status import Progress, phase
 
 try:
@@ -260,7 +260,7 @@ for kind in ("pos", "pos", "neg", "neg"):
               return_tensors="pt").to(model.device)
     with torch.no_grad():
         out = model.generate(**ids, max_new_tokens=120, do_sample=False)
-    print(f"\n[{kind}] {r['messages'][0]['content'].rsplit('DOMANDA:', 1)[1].strip()}")
+    print(f"\n[{kind}] {question_of(r).strip()}")
     print("  atteso:", r["messages"][1]["content"][:160])
     print("  ottenuto:", tok.decode(out[0][ids["input_ids"].shape[1]:], skip_special_tokens=True)[:160])
 print("LoRA salvato in", a.out + "/lora")

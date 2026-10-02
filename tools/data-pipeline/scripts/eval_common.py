@@ -55,6 +55,9 @@ def llama_env(exe):
 SFT_DIR = Path(__file__).resolve().parent.parent / "data" / "sft"
 DEFAULT_DATASET = "pocket_travel_sft.jsonl"
 REFUSAL = "Il contesto non contiene informazioni"
+# Dataset inglese (generate_sft_dataset_en.py): stesso criterio con il rifiuto inglese, riconosciuto dal prompt
+REFUSAL_EN = "The context does not contain information"
+EN_PROMPT = "You are an offline travel guide."
 # Regioni di test, fisse: erano il campione casuale (seed 42, 1/20) delle 251 regioni del dataset v5 e
 # restano le stesse anche quando l'elenco regioni cambia (es. paesi divisi per stato), cosi' i risultati
 # restano confrontabili. generate_sft_dataset.py esclude anche le loro sottoregioni (es. canada-*).
@@ -71,11 +74,27 @@ def run_dataset(model_dir):
     return DEFAULT_DATASET
 
 
+def extended_file(dataset=None):
+    """Test esteso del dataset: eval_extended.en.jsonl per quello inglese (*.en.jsonl), altrimenti eval_extended.jsonl."""
+    return "eval_extended.en.jsonl" if (dataset or "").endswith(".en.jsonl") else "eval_extended.jsonl"
+
+
+def refusal_prefix(row):
+    """Inizio del rifiuto atteso nella lingua del prompt della riga."""
+    return REFUSAL_EN if row["messages"][0]["content"].startswith(EN_PROMPT) else REFUSAL
+
+
+def question_of(row):
+    """La domanda della riga (dopo "DOMANDA: " o "QUESTION: ")."""
+    content = row["messages"][0]["content"]
+    return content.rsplit("QUESTION: " if content.startswith(EN_PROMPT) else "DOMANDA: ", 1)[1]
+
+
 def load_test_rows(extended, dataset=None):
-    """(righe di test, regioni di test). Se extended, le righe vengono da eval_extended.jsonl,
+    """(righe di test, regioni di test). Se extended, le righe vengono dal test esteso del dataset (extended_file),
     altrimenti dalle regioni di test del dataset di training (default DEFAULT_DATASET)."""
     held_out = set(TEST_REGIONS)
-    path = SFT_DIR / ("eval_extended.jsonl" if extended else dataset or DEFAULT_DATASET)
+    path = SFT_DIR / (extended_file(dataset) if extended else dataset or DEFAULT_DATASET)
     rows = [json.loads(l) for l in open(path, encoding="utf-8")]
     return (rows if extended else [r for r in rows if r["region"] in held_out]), held_out
 
@@ -86,7 +105,7 @@ def score(stats, row, got):
     # positivi: stesso inizio; negativi: stesso tema del rifiuto (la parte dopo ":" e' una di 4 code
     # scelte a caso da generate_sft_dataset.py, confrontarla abbasserebbe la metrica a ~25%)
     same = got[:60] == want[:60] if row["kind"].startswith("pos") else got.split(":")[0] == want.split(":")[0]
-    stats.setdefault(row["kind"], []).append((got.startswith(REFUSAL), same))
+    stats.setdefault(row["kind"], []).append((got.startswith(refusal_prefix(row)), same))
 
 
 def refusal_summary(stats):

@@ -17,7 +17,8 @@ import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForImageTextToText, AutoTokenizer
 
 import vram
-from eval_common import REFUSAL, SFT_DIR, chat_prompt_and_answer, load_test_rows, print_report, refusal_summary, run_dataset, score
+from eval_common import (SFT_DIR, chat_prompt_and_answer, load_test_rows, print_report, question_of, refusal_prefix, refusal_summary,
+                         run_dataset, score)
 from status import Progress, phase
 
 ap = argparse.ArgumentParser()
@@ -55,8 +56,8 @@ for i in range(0, len(test), a.batch):
     for r, o in zip(batch, out):
         got = tok.decode(o[enc["input_ids"].shape[1]:], skip_special_tokens=True).strip()
         score(stats, r, got)
-        if a.errors and r["kind"].startswith("pos") and got.startswith(REFUSAL):
-            print("RIFIUTO SBAGLIATO", r["category"], "|", r["messages"][0]["content"].rsplit("DOMANDA: ", 1)[1])
+        if a.errors and r["kind"].startswith("pos") and got.startswith(refusal_prefix(r)):
+            print("RIFIUTO SBAGLIATO", r["category"], "|", question_of(r))
     progress.update(i + len(batch), refusal_summary(stats))
 
 print_report(stats, test, held_out, a.extended)
