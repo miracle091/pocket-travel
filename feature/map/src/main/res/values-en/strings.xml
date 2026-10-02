@@ -212,7 +212,7 @@
     <string name="navigation_not_found">No route found to the destination with your chosen way of getting around.</string>
     <string name="navigation_wheelchair_notice">If stairs are left out of routes, navigation routes may be incomplete.</string>
     <string name="navigation_allow_steps">Accept a few steps</string>
-    <string name="navigation_failed">The route could not be calculated.</string>
+    <string name="navigation_failed">The route could not be calculated</string>
     <string name="navigation_retry">Try again</string>
     <string name="navigation_meters">%1$d m</string>
     <string name="navigation_kilometers">%1$s km</string>
@@ -222,9 +222,10 @@
     <string name="usage_mode_directions">Directions to places</string>
     <string name="usage_mode_directions_body">Also downloads routes with each region (from a few MB to a few hundred) and asks for your GPS location, used only while you navigate.</string>
     <string name="navigation_routing_download">Download routes</string>
-    <string name="navigation_missing_routing">Navigation unavailable. Routes are missing.</string>
-    <string name="navigation_routing_download_region">Download routes for %1$s</string>
-    <string name="navigation_outside_routing">The start or the destination is outside the area of the downloaded routes.</string>
+    <string name="navigation_missing_routing_list">Routes are missing for these regions, from start to destination</string>
+    <string name="navigation_routing_download_all">Download all routes (%1$s)</string>
+    <string name="navigation_routing_progress_all">Downloading routes · %1$d%%</string>
+    <string name="navigation_outside_routing">The route leaves the area of the downloaded routes.</string>
     <string name="navigation_calculating">Calculating the route…</string>
     <string name="navigation_calculating_progress">About %1$d%% calculated</string>
     <string name="navigation_calculating_long">By car, long routes can take up to a few minutes.</string>
@@ -282,7 +283,7 @@
     <string name="planner_hint">Search a place by name or an address in your downloaded regions: restaurants, museums, stations, hotels…</string>
     <string name="planner_remove_recent">Remove %1$s from recent</string>
     <string name="planner_permission">To start from your location the app needs location permission. It stays on your phone.</string>
-    <string name="planner_no_location">Location not found: turn on GPS or choose a starting point.</string>
+    <string name="planner_no_location">No GPS signal: turn on GPS or choose a starting point</string>
     <string name="planner_no_routing_data">To calculate the route you need this region\'s Routes (downloaded once, then they stay on your phone).</string>
     <string name="planner_start">Start</string>
     <string name="planner_preview_only">Starting from a chosen place: preview only. Turn-by-turn guidance starts from your location.</string>

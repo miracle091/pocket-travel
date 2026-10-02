@@ -1,6 +1,7 @@
 package com.pockettravel.app.regions
 
 import android.content.Context
+import com.pockettravel.feature.map.RoutePoint
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -18,6 +19,34 @@ class CountryLocator @Inject constructor(@ApplicationContext private val context
 
     fun countryAt(latitude: Double, longitude: Double): String? =
         countries.firstOrNull { (_, polygons) -> polygons.any { rings -> contains(rings, longitude, latitude) } }?.first
+
+    /**
+     * I paesi confinanti via terra: quelli che hanno un vertice in comune (i confini Natural Earth sono coerenti, i
+     * vicini condividono i vertici del confine). La Svezia non confina con la Lettonia, l'Italia si' con l'Austria.
+     */
+    val neighbours: Map<String, Set<String>> by lazy {
+        val owners = HashMap<Long, MutableSet<String>>()
+        countries.forEach { (iso, polygons) ->
+            polygons.forEach { rings ->
+                rings.forEach { ring ->
+                    for (k in ring.indices step 2) owners.getOrPut(vertexKey(ring[k], ring[k + 1])) { mutableSetOf() } += iso
+                }
+            }
+        }
+        val result = HashMap<String, MutableSet<String>>()
+        owners.values.filter { it.size > 1 }.forEach { shared -> shared.forEach { a -> result.getOrPut(a) { mutableSetOf() } += shared - a } }
+        result
+    }
+
+    /** Il centro del riquadro della parte piu' grande di ogni paese (per la Russia non Kaliningrad): per le distanze fra paesi. */
+    val centres: Map<String, RoutePoint> by lazy {
+        countries.associate { (iso, polygons) ->
+            val outer = polygons.map { it[0] }.maxBy { ring -> boxArea(ring) }
+            val lons = outer.filterIndexed { i, _ -> i % 2 == 0 }
+            val lats = outer.filterIndexed { i, _ -> i % 2 == 1 }
+            iso to RoutePoint((lats.min() + lats.max()) / 2, (lons.min() + lons.max()) / 2)
+        }
+    }
 
     private fun load(): List<Pair<String, List<List<DoubleArray>>>> {
         val text = context.assets.open(ASSET).bufferedReader().use { it.readText() }
@@ -43,6 +72,15 @@ class CountryLocator @Inject constructor(@ApplicationContext private val context
 
     private companion object {
         const val ASSET = "world/countries.geojson"
+
+        // Vertice arrotondato a 10^-4 gradi (circa 10 m): lo stesso punto di confine nei due paesi.
+        fun vertexKey(lon: Double, lat: Double): Long = Math.round(lon * 10_000) * 4_000_000L + Math.round(lat * 10_000)
+
+        fun boxArea(ring: DoubleArray): Double {
+            val lons = ring.filterIndexed { i, _ -> i % 2 == 0 }
+            val lats = ring.filterIndexed { i, _ -> i % 2 == 1 }
+            return (lons.max() - lons.min()) * (lats.max() - lats.min())
+        }
 
         // Ray casting sull'anello esterno meno i buchi; ring = lon, lat alternati.
         fun contains(rings: List<DoubleArray>, x: Double, y: Double): Boolean =

@@ -130,9 +130,11 @@ fun NavigationGuidance(
     onStreetNames: (Map<Int, String>) -> Unit = {},
     // In auto, il lato di guida del paese se diverso da quello di casa: un avviso sempre visibile.
     drivingSide: DrivingSide? = null,
-    // Percorsi mancanti a meta' strada: la regione del catalogo da scaricare (null se non si sa) e il suo avanzamento 0..1.
-    missingRegion: MissingRegion? = null,
+    // Percorsi mancanti a meta' strada: le regioni del catalogo da scaricare, in ordine (vuota se non si sa), l'avanzamento
+    // 0..1 e l'esito del download.
+    missingRegions: List<MissingRegion> = emptyList(),
     downloadProgress: Float? = null,
+    downloadFailed: Boolean = false,
     onDownloadRouting: () -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -204,19 +206,10 @@ fun NavigationGuidance(
                 // L'arrivo lo chiude il Navigatore (snackbar e vibrazione, o in silenzio): qui non si resta.
                 NavigationUiState.Arrived -> Unit
                 // Percorsi mancanti a meta' strada: partenza o arrivo fuori dalla zona dei percorsi scaricati.
-                is NavigationUiState.Unavailable -> if (state.result == RouteResult.NoRoutingData && missingRegion != null) {
-                    if (downloadProgress != null) {
-                        Waiting(stringResource(R.string.planner_routing_progress, (downloadProgress * 100).toInt()))
-                        DownloadProgressIndicator(progress = { downloadProgress }, modifier = Modifier.fillMaxWidth())
-                    } else {
-                        Message(
-                            text = stringResource(R.string.navigation_missing_routing),
-                            action = stringResource(R.string.navigation_routing_download_region, missingRegion.name),
-                            onAction = onDownloadRouting,
-                        )
-                    }
+                is NavigationUiState.Unavailable -> if (state.result == RouteResult.NoRoutingData && missingRegions.isNotEmpty()) {
+                    MissingRoutingCard(missingRegions, downloadProgress, downloadFailed, onDownloadRouting)
                 } else {
-                    Message(
+                    RetryMessage(
                         text = stringResource(
                             when (state.result) {
                                 RouteResult.NoRoutingData -> R.string.navigation_outside_routing
@@ -225,8 +218,7 @@ fun NavigationGuidance(
                                 else -> R.string.navigation_failed
                             },
                         ),
-                        action = stringResource(R.string.navigation_retry),
-                        onAction = onRetry,
+                        onRetry = onRetry,
                     )
                 }
                 is NavigationUiState.Navigating -> Unit
@@ -289,6 +281,18 @@ internal fun WheelchairOptions(allowSteps: Boolean, onAllowStepsChange: (Boolean
 private fun Message(text: String, action: String, onAction: () -> Unit) {
     Text(text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
     Button(onClick = onAction) { Text(action) }
+}
+
+// Errore con "Riprova" come icona sulla stessa riga del messaggio, a destra.
+@Composable
+private fun RetryMessage(text: String, onRetry: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite })
+        Spacer(modifier = Modifier.width(Spacing.m))
+        FilledTonalIconButton(onClick = onRetry) {
+            Icon(AppIcons.Refresh, contentDescription = stringResource(R.string.navigation_retry))
+        }
+    }
 }
 
 // [announcement]: quello che TalkBack legge e annuncia, fisso anche quando [text] cambia ogni secondo

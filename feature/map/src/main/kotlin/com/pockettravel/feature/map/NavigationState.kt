@@ -1,5 +1,8 @@
 package com.pockettravel.feature.map
 
+import kotlin.math.abs
+import kotlin.math.ceil
+
 /** Mezzo scelto nella schermata di navigazione: stessi profili BRouter delle modalita' d'uso. */
 enum class TravelMode(val routingProfile: String) {
     WALK("shortest"),
@@ -136,4 +139,32 @@ fun navigationRegionIds(regionId: String, candidates: List<RoutingRegion>, from:
     // La regione di partenza con i percorsi ma senza riquadro leggibile (niente mappa ne' anteprima) resta.
     val startWithoutBounds = candidates.any { it.regionId == regionId && it.bounds == null }
     return (if (startWithoutBounds) touching + regionId else touching).ifEmpty { listOf(regionId) }.sortedBy { it != regionId }
+}
+
+/**
+ * Punti sulla linea retta da [from] a [to], estremi compresi, a passi non piu' lunghi del margine (circa 5 km):
+ * per trovare dove un percorso lungo esce dalle regioni scaricate e quale regione del catalogo ci sta in mezzo.
+ */
+fun straightLinePoints(from: RoutePoint, to: RoutePoint): List<RoutePoint> {
+    val span = maxOf(abs(to.latitude - from.latitude), abs(to.longitude - from.longitude))
+    val steps = ceil(span / NAVIGATION_MARGIN_DEGREES).toInt().coerceAtLeast(1)
+    return (0..steps).map { i ->
+        val t = i.toDouble() / steps
+        RoutePoint(from.latitude + (to.latitude - from.latitude) * t, from.longitude + (to.longitude - from.longitude) * t)
+    }
+}
+
+/**
+ * La linea da partenza ad arrivo esce dai riquadri delle regioni con i Percorsi ([candidates], allargati del
+ * margine): mancano i percorsi dei paesi in mezzo, e BRouter fallirebbe dopo un lungo calcolo con un errore
+ * generico. Con una regione senza riquadro non si giudica (false) e decide BRouter.
+ */
+fun leavesRoutingRegions(candidates: List<RoutingRegion>, from: RoutePoint, to: RoutePoint): Boolean {
+    val bounds = candidates.map { it.bounds ?: return false }
+    return straightLinePoints(from, to).any { point ->
+        bounds.none {
+            point.longitude in it.minLon - NAVIGATION_MARGIN_DEGREES..it.maxLon + NAVIGATION_MARGIN_DEGREES &&
+                point.latitude in it.minLat - NAVIGATION_MARGIN_DEGREES..it.maxLat + NAVIGATION_MARGIN_DEGREES
+        }
+    }
 }

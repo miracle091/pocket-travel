@@ -51,8 +51,8 @@ data class PlannerResult(
     val isAddress: Boolean = false,
 )
 
-/** La regione del catalogo senza Percorsi che copre la partenza o l'arrivo: il Navigatore ne propone il download. */
-data class MissingRegion(val regionId: String, val name: String)
+/** Una regione del catalogo senza Percorsi tra partenza e arrivo, col peso dei Percorsi: il Navigatore ne propone il download. */
+data class MissingRegion(val regionId: String, val name: String, val routingBytes: Long)
 
 /** Anteprima del percorso prima di partire. */
 sealed interface PlannerPreview {
@@ -326,9 +326,15 @@ class NavigationPlannerViewModel @Inject constructor(
                 RoutePoint(fix.latitude, fix.longitude).also { lastPosition.value = it }
             }
             _preview.value = PlannerPreview.Calculating(0.0)
-            val regionIds = navigationRegionIds(current, routingRegions(), start, destination.point)
-            val result = routeEngineFactory.create(regionIds).route(start, destination.point, choice.profile, choice.params) { progress ->
-                _preview.value = PlannerPreview.Calculating(progress)
+            val candidates = routingRegions()
+            val regionIds = navigationRegionIds(current, candidates, start, destination.point)
+            // Paesi in mezzo senza Percorsi: "mancano i percorsi" subito, invece di un errore generico dopo il calcolo.
+            val result = if (leavesRoutingRegions(candidates, start, destination.point)) {
+                RouteResult.NoRoutingData
+            } else {
+                routeEngineFactory.create(regionIds).route(start, destination.point, choice.profile, choice.params) { progress ->
+                    _preview.value = PlannerPreview.Calculating(progress)
+                }
             }
             _preview.value = if (result is RouteResult.Found) PlannerPreview.Ready(result.route, regionIds) else PlannerPreview.Unavailable(result)
         }

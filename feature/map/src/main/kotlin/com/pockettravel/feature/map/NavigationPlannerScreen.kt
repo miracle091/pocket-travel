@@ -2,6 +2,7 @@ package com.pockettravel.feature.map
 
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalIconButton
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -125,15 +126,15 @@ fun NavigationPlannerScreen(
     // La guida passo passo, nella stessa scheda: "Avvia" la fa partire, "Termina" torna qui.
     navigationViewModel: NavigationViewModel,
     // Senza i Percorsi della regione: avvia il download (l'hub lo sa fare), il ricalcolo poi e' automatico.
-    // Con l'id di un'altra regione: quella del catalogo che copre partenza o arrivo (null = la regione aperta).
-    onDownloadRouting: (regionId: String?) -> Unit,
+    // Con gli id di altre regioni: quelle del catalogo tra partenza e arrivo (vuota = la regione aperta).
+    onDownloadRouting: (regionIds: List<String>) -> Unit,
     // Avanzamento 0..1 del download in corso, null se nessuno: la barra come nell'elenco delle regioni.
     downloadProgress: Float?,
     // Il download e' fallito (lavoro finito in errore o catalogo non raggiungibile): si puo' riprovare.
     downloadFailed: Boolean,
-    // La regione senza Percorsi che copre i punti (partenza, arrivo), dal catalogo che il Navigatore non vede (core:sync);
-    // null se non se ne trova una (anche offline).
-    findMissingRegion: suspend (List<RoutePoint>) -> MissingRegion?,
+    // Le regioni senza Percorsi che coprono i punti (partenza, linea in mezzo, arrivo), in ordine, dal catalogo che il
+    // Navigatore non vede (core:sync); vuota se non se ne trova nessuna (anche offline).
+    findMissingRegions: suspend (List<RoutePoint>) -> List<MissingRegion>,
 ) {
     LaunchedEffect(regionId) { viewModel.load(regionId) }
     val from by viewModel.from.collectAsStateWithLifecycle()
@@ -147,12 +148,12 @@ fun NavigationPlannerScreen(
     val routingInstalled by viewModel.routingInstalled.collectAsStateWithLifecycle()
     val arriveBy by viewModel.arriveBy.collectAsStateWithLifecycle()
     val reminder by viewModel.reminder.collectAsStateWithLifecycle()
-    // Se partenza o arrivo cadono fuori dalle zone dei Percorsi: quale regione manca. Si rilegge quando se ne installa una.
+    // Se partenza, arrivo o la linea in mezzo escono dalle zone dei Percorsi: quali regioni mancano. Si rilegge quando se ne installa una.
     val routingRegionIds by viewModel.routingRegionIds.collectAsStateWithLifecycle()
     val noRoutingData = (preview as? PlannerPreview.Unavailable)?.result == RouteResult.NoRoutingData
-    var missingRegion by remember { mutableStateOf<MissingRegion?>(null) }
+    var missingRegions by remember { mutableStateOf(emptyList<MissingRegion>()) }
     LaunchedEffect(noRoutingData, routingRegionIds, to, from) {
-        missingRegion = if (noRoutingData) findMissingRegion(listOfNotNull(viewModel.startPoint(), to?.point)) else null
+        missingRegions = if (noRoutingData) findMissingRegions(routePoints(viewModel.startPoint(), to?.point)) else emptyList()
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -203,9 +204,9 @@ fun NavigationPlannerScreen(
         BackHandler(onBack = navigationViewModel::stop)
         // Percorsi mancanti a meta' strada: come nell'anteprima, la regione da scaricare; a download finito si riprova da soli.
         val guidanceNoRouting = (navigationState as? NavigationUiState.Unavailable)?.result == RouteResult.NoRoutingData
-        var guidanceMissing by remember { mutableStateOf<MissingRegion?>(null) }
+        var guidanceMissing by remember { mutableStateOf(emptyList<MissingRegion>()) }
         LaunchedEffect(guidanceNoRouting, routingRegionIds) {
-            guidanceMissing = if (guidanceNoRouting) findMissingRegion(listOfNotNull(viewModel.startPoint(), guidingTarget.point)) else null
+            guidanceMissing = if (guidanceNoRouting) findMissingRegions(routePoints(viewModel.startPoint(), guidingTarget.point)) else emptyList()
         }
         var seenRoutingRegionIds by remember { mutableStateOf(routingRegionIds) }
         LaunchedEffect(routingRegionIds) {
@@ -238,9 +239,10 @@ fun NavigationPlannerScreen(
             walkingHaptics = walkingHaptics,
             onStreetNames = navigationViewModel::onStreetNames,
             drivingSide = drivingSide,
-            missingRegion = guidanceMissing,
+            missingRegions = guidanceMissing,
+            downloadFailed = downloadFailed,
             downloadProgress = downloadProgress,
-            onDownloadRouting = { guidanceMissing?.let { onDownloadRouting(it.regionId) } },
+            onDownloadRouting = { onDownloadRouting(guidanceMissing.map { it.regionId }) },
         )
         return
     }
@@ -295,8 +297,8 @@ fun NavigationPlannerScreen(
                 downloadProgress = downloadProgress,
                 downloadFailed = downloadFailed,
                 travelMode = travelMode,
-                missingRegion = missingRegion,
-                onDownloadRouting = { onDownloadRouting(missingRegion?.regionId) },
+                missingRegions = missingRegions,
+                onDownloadRouting = { onDownloadRouting(missingRegions.map { it.regionId }) },
                 wheelchairOptions = if (routing.wheelchair && to != null) {
                     { WheelchairOptions(allowSteps = allowSteps, onAllowStepsChange = viewModel::setAllowSteps) }
                 } else {
@@ -460,17 +462,19 @@ private fun PlannerSheet(
     downloadFailed: Boolean,
     onDownloadRouting: () -> Unit,
     travelMode: TravelMode,
-    // La regione del catalogo senza Percorsi che copre partenza o arrivo, se si e' trovata.
-    missingRegion: MissingRegion?,
+    // Le regioni del catalogo senza Percorsi tra partenza e arrivo, in ordine (vuota se non si sono trovate).
+    missingRegions: List<MissingRegion>,
     wheelchairOptions: (@Composable () -> Unit)?,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l).padding(bottom = Spacing.l)) {
         when {
             to == null -> Recents(recents, onRecent, onRemoveRecent, onClearRecents)
             preview is PlannerPreview.Ready -> RouteSummary(preview.route, startsFromMe, onStart, wheelchairOptions, arriveBy, reminder, onArriveByChange, onSetReminder)
-            // Il download si propone se la regione aperta non ha i Percorsi o se il catalogo dice quale regione manca
-            // per partenza o arrivo; altrimenti "nessun dato" vuol dire fuori dalle zone scaricate, e riscaricare non cambierebbe nulla.
-            preview is PlannerPreview.Unavailable && preview.result == RouteResult.NoRoutingData && (missingRegion != null || !routingInstalled) -> {
+            // Il download si propone se il catalogo dice quali regioni mancano tra partenza e arrivo, o se la regione aperta
+            // non ha i Percorsi; altrimenti "nessun dato" vuol dire fuori dalle zone scaricate, e riscaricare non cambierebbe nulla.
+            preview is PlannerPreview.Unavailable && preview.result == RouteResult.NoRoutingData && missingRegions.isNotEmpty() ->
+                MissingRoutingCard(missingRegions, downloadProgress, downloadFailed, onDownloadRouting)
+            preview is PlannerPreview.Unavailable && preview.result == RouteResult.NoRoutingData && !routingInstalled -> {
                 if (downloadProgress != null) {
                     Text(
                         stringResource(R.string.planner_routing_progress, (downloadProgress * 100).toInt()),
@@ -482,10 +486,9 @@ private fun PlannerSheet(
                     SheetMessage(
                         when {
                             downloadFailed -> stringResource(R.string.planner_routing_failed)
-                            missingRegion != null -> stringResource(R.string.navigation_missing_routing)
                             else -> stringResource(R.string.planner_no_routing_data)
                         },
-                        if (missingRegion != null) stringResource(R.string.navigation_routing_download_region, missingRegion.name) else stringResource(R.string.navigation_routing_download),
+                        stringResource(R.string.navigation_routing_download),
                         onDownloadRouting,
                     )
                 }
@@ -496,8 +499,8 @@ private fun PlannerSheet(
             preview is PlannerPreview.NeedsPermission ->
                 SheetMessage(stringResource(R.string.planner_permission), stringResource(R.string.navigation_permission_grant), onRequestPermission)
             preview is PlannerPreview.NoLocation ->
-                SheetMessage(stringResource(R.string.planner_no_location), stringResource(R.string.navigation_retry), onRetry)
-            preview is PlannerPreview.Unavailable -> SheetMessage(
+                RetryMessage(stringResource(R.string.planner_no_location), onRetry)
+            preview is PlannerPreview.Unavailable -> RetryMessage(
                 stringResource(
                     when (preview.result) {
                         RouteResult.NotFound -> R.string.navigation_not_found
@@ -505,7 +508,6 @@ private fun PlannerSheet(
                         else -> R.string.navigation_failed
                     },
                 ),
-                stringResource(R.string.navigation_retry),
                 onRetry,
             )
             else -> Unit
@@ -814,6 +816,18 @@ private fun SheetMessage(text: String, action: String? = null, onAction: () -> U
     if (action != null) OutlinedButton(onClick = onAction) { Text(action) }
 }
 
+// Errore con "Riprova" come icona sulla stessa riga del messaggio, a destra.
+@Composable
+private fun RetryMessage(text: String, onRetry: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = Spacing.s)) {
+        Text(text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite })
+        Spacer(modifier = Modifier.width(Spacing.m))
+        FilledTonalIconButton(onClick = onRetry) {
+            Icon(AppIcons.Refresh, contentDescription = stringResource(R.string.navigation_retry))
+        }
+    }
+}
+
 // Ricerca a tutto schermo: campo in alto, sotto "La mia posizione" (solo per la partenza), i recenti a
 // campo vuoto e poi i risultati con tipo, distanza e regione.
 @Composable
@@ -1016,3 +1030,8 @@ private fun lineString(points: List<RoutePoint>): LineString =
 private const val PLANNER_ROUTE_SOURCE = "planner-route"
 private const val PLANNER_START_SOURCE = "planner-start"
 private const val PLANNER_END_SOURCE = "planner-end"
+
+// Partenza, arrivo e la linea retta in mezzo, dalla partenza: la prima regione senza Percorsi e' la piu' vicina
+// (da San Marino a Riga l'Italia, poi l'Austria...). Senza partenza nota solo l'arrivo.
+private fun routePoints(start: RoutePoint?, destination: RoutePoint?): List<RoutePoint> =
+    if (start != null && destination != null) straightLinePoints(start, destination) else listOfNotNull(start, destination)

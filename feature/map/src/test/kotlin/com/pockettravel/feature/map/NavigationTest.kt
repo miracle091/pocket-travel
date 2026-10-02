@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.abs
 
 class NavigationTest {
 
@@ -251,5 +252,37 @@ class NavigationTest {
             listOf("senza-mappa", "san-marino"),
             navigationRegionIds("senza-mappa", listOf(marino, senzaMappa), RoutePoint(43.94, 12.45), RoutePoint(43.93, 12.44)),
         )
+    }
+
+    @Test
+    fun `da San Marino a Riga senza i paesi in mezzo il percorso esce dalle regioni scaricate`() {
+        val lettonia = RoutingRegion("lettonia", MapBounds(20.9, 55.6, 28.3, 58.1))
+        val riga = RoutePoint(56.952, 24.1147)
+
+        assertTrue(leavesRoutingRegions(listOf(marino, lettonia), cittaDiSanMarino, riga))
+    }
+
+    @Test
+    fun `da Rimini a San Marino con Italia e San Marino il percorso resta nelle regioni scaricate`() {
+        assertFalse(leavesRoutingRegions(listOf(marino, italia), rimini, cittaDiSanMarino))
+        // Rimini e' fuori da San Marino di qualche km, oltre il margine: senza l'Italia esce.
+        assertTrue(leavesRoutingRegions(listOf(marino), RoutePoint(44.059, 12.65), cittaDiSanMarino))
+    }
+
+    @Test
+    fun `una regione senza riquadro non permette di giudicare`() {
+        assertFalse(leavesRoutingRegions(listOf(marino, RoutingRegion("senza-mappa", null)), cittaDiSanMarino, RoutePoint(56.952, 24.1147)))
+    }
+
+    @Test
+    fun `i punti della linea partono dalla partenza e arrivano all'arrivo, a passi entro il margine`() {
+        val riga = RoutePoint(56.952, 24.1147)
+        val points = straightLinePoints(cittaDiSanMarino, riga)
+
+        assertEquals(cittaDiSanMarino, points.first())
+        assertEquals(riga, points.last())
+        points.zipWithNext().forEach { (a, b) ->
+            assertTrue(maxOf(abs(a.latitude - b.latitude), abs(a.longitude - b.longitude)) <= 0.05 + 1e-9)
+        }
     }
 }
