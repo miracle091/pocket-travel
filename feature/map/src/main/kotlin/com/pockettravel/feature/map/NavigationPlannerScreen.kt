@@ -111,6 +111,11 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 import com.pockettravel.core.ui.R as UiR
+import org.maplibre.android.style.layers.SymbolLayer
+import org.maplibre.android.style.expressions.Expression
+import com.pockettravel.core.data.NearbyPois
+import com.pockettravel.core.data.poiCategory
+import kotlin.math.cos
 
 /**
  * Tab Navigazione dell'hub, sul modello delle app di navigazione: la mappa a tutto schermo, in alto
@@ -121,7 +126,8 @@ import com.pockettravel.core.ui.R as UiR
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NavigationPlannerScreen(
-    regionId: String,
+    // La regione della tab che ospita il Navigatore (per prima nella ricerca), null nel Navigatore della barra principale.
+    regionId: String?,
     viewModel: NavigationPlannerViewModel,
     // La guida passo passo, nella stessa scheda: "Avvia" la fa partire, "Termina" torna qui.
     navigationViewModel: NavigationViewModel,
@@ -145,6 +151,9 @@ fun NavigationPlannerScreen(
     val routing by viewModel.routing.collectAsStateWithLifecycle()
     val allowSteps by viewModel.allowSteps.collectAsStateWithLifecycle()
     val recents by viewModel.recents.collectAsStateWithLifecycle()
+    val mapRegionIds by viewModel.mapRegionIds.collectAsStateWithLifecycle()
+    val idlePosition by viewModel.idlePosition.collectAsStateWithLifecycle()
+    val nearbyPois by viewModel.nearbyPois.collectAsStateWithLifecycle()
     val routingInstalled by viewModel.routingInstalled.collectAsStateWithLifecycle()
     val arriveBy by viewModel.arriveBy.collectAsStateWithLifecycle()
     val reminder by viewModel.reminder.collectAsStateWithLifecycle()
@@ -232,7 +241,7 @@ fun NavigationPlannerScreen(
             travelMode = navigationMode,
             arriveBy = navigationArriveBy,
             tileSource = navigationViewModel.tileSource,
-            regionIds = navigationRegions.ifEmpty { listOf(regionId) },
+            regionIds = navigationRegions.ifEmpty { mapRegionIds },
             onPermissionResult = navigationViewModel::onPermissionResult,
             onRetry = navigationViewModel::retry,
             onClose = navigationViewModel::stop,
@@ -269,7 +278,8 @@ fun NavigationPlannerScreen(
     val ready = preview as? PlannerPreview.Ready
     BottomSheetScaffold(
         scaffoldState = sheetState,
-        sheetPeekHeight = if (to == null) 220.dp else 180.dp,
+        // Senza meta i recenti restano nascosti: si vede solo il titolo "Recenti", si trascina su per aprirli.
+        sheetPeekHeight = if (to == null) RECENTS_PEEK_HEIGHT else 180.dp,
         sheetContent = {
             PlannerSheet(
                 to = to,
@@ -285,7 +295,7 @@ fun NavigationPlannerScreen(
                     if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                         notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
-                    to?.let { navigationViewModel.start(regionId, it, travelMode, arriveBy) }
+                    to?.let { navigationViewModel.start(regionId ?: it.regionId, it, travelMode, arriveBy) }
                 },
                 arriveBy = arriveBy,
                 reminder = reminder,
@@ -308,14 +318,18 @@ fun NavigationPlannerScreen(
         },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
-            PlannerMap(
+            // Senza regioni note (elenco delle installate non ancora letto) nessuna mappa: lo stile ne vuole almeno una.
+            val mapRegions = ready?.regionIds ?: mapRegionIds
+            if (mapRegions.isNotEmpty()) PlannerMap(
                 tileSource = viewModel.tileSource,
-                regionIds = ready?.regionIds ?: listOf(regionId),
+                regionIds = mapRegions,
                 route = ready?.route,
                 from = from?.point,
                 to = to?.point,
+                position = idlePosition,
+                nearby = nearbyPois,
                 topPaddingPx = overlayHeightPx.toFloat(),
-                bottomPaddingPx = 220 * LocalContext.current.resources.displayMetrics.density,
+                bottomPaddingPx = (if (to == null) RECENTS_PEEK_HEIGHT.value else 220f) * LocalContext.current.resources.displayMetrics.density,
                 modifier = Modifier.fillMaxSize(),
             )
             Column(modifier = Modifier.fillMaxWidth().onSizeChanged { overlayHeightPx = it.height }) {
@@ -584,18 +598,20 @@ private fun Recents(recents: List<NavigationPlace>, onRecent: (NavigationPlace) 
         Text(stringResource(R.string.planner_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         return
     }
+    // Righe larghe quanto la scheda: l'icona allineata al titolo "Recenti", la X al cestino (un ListItem aggiungerebbe
+    // il suo margine a quello della scheda).
     recents.forEach { place ->
-        ListItem(
-            headlineContent = { Text(place.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            leadingContent = { Icon(ImageVector.vectorResource(UiR.drawable.ms_history), contentDescription = null) },
-            trailingContent = {
-                IconButton(onClick = { onRemove(place) }) {
-                    Icon(AppIcons.Close, contentDescription = stringResource(R.string.planner_remove_recent, place.name))
-                }
-            },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            modifier = Modifier.clickable { onRecent(place) },
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { onRecent(place) },
+        ) {
+            Icon(ImageVector.vectorResource(UiR.drawable.ms_history), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.width(Spacing.l))
+            Text(place.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            IconButton(onClick = { onRemove(place) }) {
+                Icon(AppIcons.Close, contentDescription = stringResource(R.string.planner_remove_recent, place.name))
+            }
+        }
     }
 }
 
@@ -936,6 +952,9 @@ private fun PlannerMap(
     route: Route?,
     from: RoutePoint?,
     to: RoutePoint?,
+    // Senza meta: la propria posizione e i POI attorno (null = niente), inquadrati sul raggio della ricerca.
+    position: RoutePoint?,
+    nearby: NearbyPois?,
     topPaddingPx: Float,
     bottomPaddingPx: Float,
     modifier: Modifier = Modifier,
@@ -950,6 +969,7 @@ private fun PlannerMap(
     val routeColor = MaterialTheme.colorScheme.primary.toArgb()
     val startColor = MaterialTheme.colorScheme.surface.toArgb()
     val endColor = MaterialTheme.colorScheme.error.toArgb()
+    val positionStroke = MaterialTheme.colorScheme.surface.toArgb()
     var sources by remember { mutableStateOf<PlannerSources?>(null) }
 
     LaunchedEffect(styleJson) {
@@ -959,6 +979,15 @@ private fun PlannerMap(
                 val routeSource = GeoJsonSource(PLANNER_ROUTE_SOURCE).also(style::addSource)
                 val startSource = GeoJsonSource(PLANNER_START_SOURCE).also(style::addSource)
                 val endSource = GeoJsonSource(PLANNER_END_SOURCE).also(style::addSource)
+                val poiSource = GeoJsonSource(PLANNER_POI_SOURCE).also(style::addSource)
+                val positionSource = GeoJsonSource(PLANNER_POSITION_SOURCE).also(style::addSource)
+                // POI vicini sotto percorso e segnalini: icone come nella scheda Mappa, una per categoria presente.
+                style.addLayer(
+                    SymbolLayer(PLANNER_POI_SOURCE, PLANNER_POI_SOURCE).withProperties(
+                        PropertyFactory.iconImage(Expression.get(PLANNER_POI_ICON)),
+                        PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+                    ),
+                )
                 style.addLayer(
                     LineLayer(PLANNER_ROUTE_SOURCE, PLANNER_ROUTE_SOURCE).withProperties(
                         PropertyFactory.lineColor(routeColor), PropertyFactory.lineWidth(7f),
@@ -980,11 +1009,37 @@ private fun PlannerMap(
                 // Arrivo: segnalino rosso con la bandiera, piu' grande di quelli dei POI, punta sul punto.
                 style.addImage(DESTINATION_PIN_IMAGE, pinBitmap(context, endColor, UiR.drawable.ms_flag, scale = DESTINATION_PIN_SCALE))
                 style.addLayer(destinationPinLayer(PLANNER_END_SOURCE))
-                sources = PlannerSources(routeSource, startSource, endSource)
+                // Posizione come nella guida: punto pieno nel colore del percorso con il bordo chiaro, sopra tutto.
+                style.addLayer(
+                    CircleLayer(PLANNER_POSITION_SOURCE, PLANNER_POSITION_SOURCE).withProperties(
+                        PropertyFactory.circleColor(routeColor), PropertyFactory.circleRadius(8f),
+                        PropertyFactory.circleStrokeColor(positionStroke), PropertyFactory.circleStrokeWidth(3f),
+                    ),
+                )
+                sources = PlannerSources(routeSource, startSource, endSource, poiSource, positionSource)
             }
         }
     }
-    LaunchedEffect(sources, route, from, to, topPaddingPx) {
+    LaunchedEffect(sources, position, nearby) {
+        val current = sources ?: return@LaunchedEffect
+        current.position.setGeoJson(pointCollection(position))
+        val pois = nearby?.pois.orEmpty()
+        mapView.getMapAsync { map ->
+            val style = map.style ?: return@getMapAsync
+            pois.map { it.poiCategory() }.toSet().forEach { category ->
+                val id = PLANNER_POI_ICON_PREFIX + category.name
+                if (style.getImage(id) == null) style.addImage(id, poiPinBitmap(context, category))
+            }
+            current.pois.setGeoJson(
+                FeatureCollection.fromFeatures(
+                    pois.map { poi ->
+                        Feature.fromGeometry(Point.fromLngLat(poi.longitude, poi.latitude)).apply { addStringProperty(PLANNER_POI_ICON, PLANNER_POI_ICON_PREFIX + poi.poiCategory().name) }
+                    },
+                ),
+            )
+        }
+    }
+    LaunchedEffect(sources, route, from, to, topPaddingPx, nearby) {
         val current = sources ?: return@LaunchedEffect
         val points = route?.points.orEmpty()
         current.route.setGeoJson(FeatureCollection.fromFeatures(listOfNotNull(points.takeIf { it.size >= 2 }?.let { Feature.fromGeometry(lineString(it)) })))
@@ -1001,6 +1056,16 @@ private fun PlannerMap(
                     map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, margin.toInt(), topPaddingPx.toInt() + margin.toInt(), margin.toInt(), bottomPaddingPx.toInt() + margin.toInt()))
                 }
                 framed.size == 1 -> map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(framed[0].latitude, framed[0].longitude), 15.0))
+                // Senza meta, con la posizione: il cerchio dei POI vicini (150, 300 o 600 m), cioe' lo zoom adatto alla distanza.
+                nearby != null && position != null -> {
+                    val dLat = nearby.radiusMeters / METERS_PER_DEGREE
+                    val dLon = dLat / cos(Math.toRadians(position.latitude))
+                    val bounds = LatLngBounds.Builder()
+                        .include(LatLng(position.latitude - dLat, position.longitude - dLon))
+                        .include(LatLng(position.latitude + dLat, position.longitude + dLon))
+                        .build()
+                    map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0, topPaddingPx.toInt(), 0, bottomPaddingPx.toInt()))
+                }
                 regionBounds != null -> {
                     val bounds = LatLngBounds.Builder()
                         .include(LatLng(regionBounds.minLat, regionBounds.minLon))
@@ -1019,7 +1084,9 @@ private fun PlannerMap(
     )
 }
 
-private class PlannerSources(val route: GeoJsonSource, val start: GeoJsonSource, val end: GeoJsonSource)
+private class PlannerSources(
+    val route: GeoJsonSource, val start: GeoJsonSource, val end: GeoJsonSource, val pois: GeoJsonSource, val position: GeoJsonSource,
+)
 
 private fun pointCollection(point: RoutePoint?): FeatureCollection =
     FeatureCollection.fromFeatures(listOfNotNull(point?.let { Feature.fromGeometry(Point.fromLngLat(it.longitude, it.latitude)) }))
@@ -1028,8 +1095,16 @@ private fun lineString(points: List<RoutePoint>): LineString =
     LineString.fromLngLats(points.map { Point.fromLngLat(it.longitude, it.latitude) })
 
 private const val PLANNER_ROUTE_SOURCE = "planner-route"
+
+// Maniglia della scheda e riga "Recenti": quanto resta visibile della scheda senza meta.
+private val RECENTS_PEEK_HEIGHT = 112.dp
 private const val PLANNER_START_SOURCE = "planner-start"
 private const val PLANNER_END_SOURCE = "planner-end"
+private const val PLANNER_POI_SOURCE = "planner-poi"
+private const val PLANNER_POSITION_SOURCE = "planner-position"
+private const val PLANNER_POI_ICON = "icon"
+private const val PLANNER_POI_ICON_PREFIX = "planner-poi-"
+private const val METERS_PER_DEGREE = 111_320.0
 
 // Partenza, arrivo e la linea retta in mezzo, dalla partenza: la prima regione senza Percorsi e' la piu' vicina
 // (da San Marino a Riga l'Italia, poi l'Austria...). Senza partenza nota solo l'arrivo.

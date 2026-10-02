@@ -5,6 +5,8 @@ import com.pockettravel.core.data.db.PoiEntity
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.poi.poiCategoryOf
 import javax.inject.Inject
+import kotlin.math.cos
+import kotlin.math.hypot
 
 private const val HIDDEN_OVERFETCH = 4
 
@@ -26,6 +28,24 @@ class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
         // chiede di piu' e si taglia dopo, cosi' i nascosti non svuotano il risultato.
         return poiDao.searchByName(regionIds, accentInsensitiveGlob(text), limit * HIDDEN_OVERFETCH)
             .map { it.toDomain() }.filterNot { it.isHiddenOnMap() }.take(limit)
+    }
+
+    /**
+     * I POI attorno a ([lat], [lon]) per il Navigatore senza meta: entro 150 m, o 300 o 600 se piu' vicino ce ne sono
+     * meno di 5 (in campagna la mappa non resta vuota); al massimo 30, i piu' vicini. Il raggio usato torna con i POI:
+     * la mappa lo inquadra.
+     */
+    suspend fun nearby(regionIds: List<String>, lat: Double, lon: Double): NearbyPois {
+        if (regionIds.isEmpty()) return NearbyPois(emptyList(), NEARBY_RADII_METERS.first())
+        val maxRadius = NEARBY_RADII_METERS.last()
+        val lonScale = cos(Math.toRadians(lat)).let { it * it }
+        val dLat = maxRadius / METERS_PER_DEGREE
+        val dLon = dLat / cos(Math.toRadians(lat)).coerceAtLeast(0.01)
+        val found = poiDao.nearest(regionIds, lat, lon, lonScale, lat - dLat, lat + dLat, lon - dLon, lon + dLon, NEARBY_LIMIT * HIDDEN_OVERFETCH)
+            .map { it.toDomain() }.filterNot { it.isHiddenOnMap() }
+            .map { it to hypot(it.latitude - lat, (it.longitude - lon) * cos(Math.toRadians(lat))) * METERS_PER_DEGREE }
+        val radius = nearbyRadius(found.map { it.second })
+        return NearbyPois(found.filter { it.second <= radius }.take(NEARBY_LIMIT).map { it.first }, radius)
     }
 
     /** Quanti treni (stazioni), metro, autostazioni, porti e aeroporti ha la regione, per categoria. */
@@ -67,3 +87,15 @@ private fun PoiEntity.toDomain() =
 
 /** Nome nella lingua dell'interfaccia ("en"/"it") se OSM lo ha, altrimenti quello locale. */
 fun Poi.displayName(language: String): String = (if (language == "en") nameEn else nameIt ?: nameEn) ?: name
+
+/** I POI attorno alla posizione e il raggio in cui sono stati cercati (metri). */
+data class NearbyPois(val pois: List<Poi>, val radiusMeters: Int)
+
+private val NEARBY_RADII_METERS = listOf(150, 300, 600)
+private const val NEARBY_MIN_COUNT = 5
+private const val NEARBY_LIMIT = 30
+private const val METERS_PER_DEGREE = 111_320.0
+
+/** Il raggio piu' piccolo con almeno 5 POI ([distancesMeters] dalla posizione), altrimenti il piu' grande. */
+internal fun nearbyRadius(distancesMeters: List<Double>): Int =
+    NEARBY_RADII_METERS.firstOrNull { radius -> distancesMeters.count { it <= radius } >= NEARBY_MIN_COUNT } ?: NEARBY_RADII_METERS.last()

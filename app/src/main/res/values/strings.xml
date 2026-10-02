@@ -2,7 +2,6 @@
     <string name="app_name">Pocket Travel</string>
 
     <!-- Elenco regioni -->
-    <string name="regions_title">Nazioni</string>
     <string name="regions_check_updates">Controlla aggiornamenti</string>
     <string name="regions_search_hint">Cerca una nazione</string>
     <string name="regions_search_clear">Cancella ricerca</string>
@@ -83,12 +82,12 @@
     <string name="continent_collapse">Nascondi le nazioni</string>
 
     <!-- Altro -->
-    <string name="more_title">Altro</string>
     <string name="more_sources">Fonti ufficiali</string>
     <string name="more_sources_subtitle">Ministeri, ambasciate e OMS</string>
     <string name="more_storage">Spazio di archiviazione</string>
     <string name="more_storage_subtitle">Nazioni e modelli IA scaricati</string>
     <string name="more_tutorial">Rivedi tutorial</string>
+    <string name="more_tutorial_subtitle">Guida, mappa, Navigatore e documenti</string>
     <string name="more_usage_mode">Come ti sposti</string>
     <string name="more_nationality">Nazionalità</string>
     <string name="more_language">Lingua</string>
@@ -114,6 +113,9 @@
     <string name="nav_regions">Nazioni</string>
     <string name="nav_documents">Documenti</string>
     <string name="nav_more">Altro</string>
+    <string name="nav_navigator">Navigatore</string>
+    <string name="navigator_no_regions">Scarica una nazione per cercare mete e navigare, anche tra più nazioni</string>
+    <string name="navigator_open_countries">Vai alle nazioni</string>
     <string name="nav_guide">Guida</string>
     <string name="nav_map">Mappa</string>
     <string name="nav_navigation">Navigatore</string>

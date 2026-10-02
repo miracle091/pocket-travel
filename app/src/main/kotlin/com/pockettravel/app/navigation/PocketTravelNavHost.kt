@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -64,7 +65,7 @@ import com.pockettravel.app.navigation.PocketTravelDestinations.IN_APP_BROWSER_P
 import com.pockettravel.app.navigation.PocketTravelDestinations.LICENSES
 import com.pockettravel.app.navigation.PocketTravelDestinations.SETTINGS
 import com.pockettravel.app.navigation.PocketTravelDestinations.MORE
-import com.pockettravel.app.navigation.PocketTravelDestinations.NOTES
+import com.pockettravel.app.navigation.PocketTravelDestinations.NAVIGATOR
 import com.pockettravel.app.navigation.PocketTravelDestinations.ONBOARDING
 import com.pockettravel.app.navigation.PocketTravelDestinations.REGIONS
 import com.pockettravel.app.navigation.PocketTravelDestinations.REGION_HUB_PATTERN
@@ -78,6 +79,7 @@ import com.pockettravel.app.navigation.PocketTravelDestinations.regionHub
 import com.pockettravel.app.navigation.PocketTravelDestinations.regionPreview
 import com.pockettravel.app.onboarding.OnboardingScreen
 import com.pockettravel.app.onboarding.OnboardingViewModel
+import com.pockettravel.app.regions.GlobalNavigatorScreen
 import com.pockettravel.app.regions.RegionHubScreen
 import com.pockettravel.app.regions.RegionListScreen
 import com.pockettravel.app.regions.RegionListViewModel
@@ -85,18 +87,20 @@ import com.pockettravel.app.regions.RegionPreviewScreen
 import com.pockettravel.app.regions.RegionRowActions
 import com.pockettravel.app.regions.RegionStatus
 import com.pockettravel.app.regions.RegionWorldMap
+import com.pockettravel.app.regions.navigatorViewModels
 import com.pockettravel.app.storage.StorageScreen
 import com.pockettravel.core.data.officialSourcesRegistry
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.R as UiR
 import com.pockettravel.feature.sources.OfficialSourcesScreen
-import com.pockettravel.feature.vault.NotesScreen
-import com.pockettravel.feature.vault.PassportVaultScreen
+import com.pockettravel.feature.vault.DocumentsScreen
 
-// Le tre destinazioni principali della barra/rail di navigazione (M3: il menu laterale modale e'
-// sconsigliato, sostituito dalla navigation suite). La barra compare solo su queste tre: le
+// Le destinazioni principali della barra/rail di navigazione (M3: il menu laterale modale e'
+// sconsigliato, sostituito dalla navigation suite). La barra compare solo su queste: le
 // schermate di dettaglio (hub regione, fonti, licenze...) occupano tutto lo spazio.
 private enum class TopLevelDestination(val route: String, @StringRes val label: Int) {
     REGIONS(PocketTravelDestinations.REGIONS, R.string.nav_regions),
+    NAVIGATOR(PocketTravelDestinations.NAVIGATOR, R.string.nav_navigator),
     VAULT(PocketTravelDestinations.VAULT, R.string.nav_documents),
     MORE(PocketTravelDestinations.MORE, R.string.nav_more),
 }
@@ -104,6 +108,7 @@ private enum class TopLevelDestination(val route: String, @StringRes val label: 
 @Composable
 private fun TopLevelDestination.icon(selected: Boolean): ImageVector = when (this) {
     TopLevelDestination.REGIONS -> if (selected) AppIcons.WorldFilled else AppIcons.World
+    TopLevelDestination.NAVIGATOR -> ImageVector.vectorResource(UiR.drawable.ms_directions)
     TopLevelDestination.VAULT -> if (selected) AppIcons.DocumentsFilled else AppIcons.Documents
     TopLevelDestination.MORE -> if (selected) AppIcons.MoreFilled else AppIcons.More
 }
@@ -127,6 +132,17 @@ fun PocketTravelNavHost(
     val currentTopLevel = TopLevelDestination.entries.firstOrNull { it.route == currentRoute }
     val adaptiveInfo = currentWindowAdaptiveInfoV2()
     val isExpanded = adaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
+
+    // Notifica della guida toccata con l'app aperta: fuori dall'hub di una regione (che passa da solo alla sua tab) si
+    // apre il Navigatore della barra, che mostra la stessa guida.
+    val (_, navigationViewModel) = navigatorViewModels()
+    LaunchedEffect(navigationViewModel) {
+        navigationViewModel.openNavigatorRequests.collect {
+            if (navigationViewModel.target.value != null && navController.currentDestination?.route != REGION_HUB_PATTERN) {
+                navController.navigateTopLevel(NAVIGATOR)
+            }
+        }
+    }
 
     // App gia' in uso: riparte dalla mappa dell'ultima regione, impilata sopra l'elenco regioni
     // (una volta sola, non dopo una ricreazione dell'activity: il back stack e' gia' ripristinato).
@@ -192,11 +208,11 @@ fun PocketTravelNavHost(
                     }
                 }
             }
-            composable(VAULT, enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
-                PassportVaultScreen(onOpenNotes = { navController.navigate(NOTES) })
+            composable(NAVIGATOR, enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
+                GlobalNavigatorScreen(onOpenCountries = { navController.navigateTopLevel(REGIONS) })
             }
-            composable(NOTES) {
-                NotesScreen(onBack = { navController.popBackStack() })
+            composable(VAULT, enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
+                DocumentsScreen()
             }
             composable(MORE, enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
                 MoreScreen(

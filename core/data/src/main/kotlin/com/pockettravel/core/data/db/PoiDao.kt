@@ -34,6 +34,18 @@ interface PoiDao {
     )
     suspend fun searchByName(regionIds: List<String>, pattern: String, limit: Int): List<PoiEntity>
 
+    // I POI del pacchetto base piu' vicini a un punto, dentro il riquadro dato: per il Navigatore senza meta. Senza
+    // indice su lat/lon (una scansione, come searchByName): una ricerca solo quando la posizione si sposta.
+    @Query(
+        "SELECT * FROM poi WHERE regionId IN (:regionIds) AND extra = 0 " +
+            "AND lat BETWEEN :minLat AND :maxLat AND lon BETWEEN :minLon AND :maxLon " +
+            "ORDER BY (lat - :lat) * (lat - :lat) + (lon - :lon) * (lon - :lon) * :lonScale LIMIT :limit",
+    )
+    suspend fun nearest(
+        regionIds: List<String>, lat: Double, lon: Double, lonScale: Double,
+        minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, limit: Int,
+    ): List<PoiEntity>
+
     @Query("DELETE FROM poi WHERE regionId = :regionId")
     suspend fun deleteForRegion(regionId: String)
 

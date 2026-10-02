@@ -51,9 +51,6 @@ import com.pockettravel.feature.map.MapRouteViewModel
 import com.pockettravel.feature.map.MapScreen
 import com.pockettravel.feature.map.MapSourceKind
 import com.pockettravel.feature.map.NavigationPlace
-import com.pockettravel.feature.map.NavigationPlannerScreen
-import com.pockettravel.feature.map.NavigationPlannerViewModel
-import com.pockettravel.feature.map.NavigationViewModel
 import com.pockettravel.core.ui.R as UiR
 
 private enum class RegionTab(val key: String, @StringRes val label: Int) {
@@ -89,8 +86,6 @@ fun RegionHubScreen(
     val displayName by viewModel.displayName.collectAsStateWithLifecycle()
     val regionMissing by viewModel.regionMissing.collectAsStateWithLifecycle()
     val mapState by viewModel.mapState.collectAsStateWithLifecycle()
-    val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
-    val downloadFailed by viewModel.downloadFailed.collectAsStateWithLifecycle()
     val aiAvailable by viewModel.aiAvailable.collectAsStateWithLifecycle()
     val uiLanguage = LocalLocale.current.platformLocale.language
     LaunchedEffect(uiLanguage) { viewModel.refreshAiAvailability() }
@@ -100,10 +95,9 @@ fun RegionHubScreen(
     val currentTab = if (selectedTab == RegionTab.AI && !aiAvailable) RegionTab.GUIDE else selectedTab
     LaunchedEffect(aiAvailable, selectedTab) { if (!aiAvailable && selectedTab == RegionTab.AI) selectedTab = RegionTab.GUIDE }
     LaunchedEffect(regionId) { viewModel.load(regionId) }
-    // Qui e non dentro la tab: "Indicazioni" dalla Mappa le passa la destinazione prima di aprirla.
-    val plannerViewModel: NavigationPlannerViewModel = hiltViewModel()
-    // Come il pianificatore: qui per ricevere la notifica della guida, che riporta in primo piano il Navigatore.
-    val navigationViewModel: NavigationViewModel = hiltViewModel()
+    // Qui e non dentro la tab: "Indicazioni" dalla Mappa le passa la destinazione prima di aprirla, e la notifica della
+    // guida riporta in primo piano il Navigatore. Uno solo per l'app, come quello della barra principale.
+    val (plannerViewModel, navigationViewModel) = navigatorViewModels()
     LaunchedEffect(navigationViewModel) {
         navigationViewModel.openNavigatorRequests.collect {
             if (navigationViewModel.target.value != null) selectedTab = RegionTab.NAVIGATION
@@ -211,15 +205,7 @@ fun RegionHubScreen(
                             }
                         }
                     }
-                    RegionTab.NAVIGATION -> NavigationPlannerScreen(
-                        regionId = regionId,
-                        viewModel = plannerViewModel,
-                        navigationViewModel = navigationViewModel,
-                        onDownloadRouting = viewModel::downloadRouting,
-                        downloadProgress = downloadProgress,
-                        downloadFailed = downloadFailed,
-                        findMissingRegions = viewModel::missingRoutingRegions,
-                    )
+                    RegionTab.NAVIGATION -> NavigatorScreen(regionId = regionId, plannerViewModel = plannerViewModel, navigationViewModel = navigationViewModel)
                     RegionTab.AI -> AiAssistantScreen(regionId = regionId, onOpenOfficialSource = onOpenOfficialSource)
                 }
                 }

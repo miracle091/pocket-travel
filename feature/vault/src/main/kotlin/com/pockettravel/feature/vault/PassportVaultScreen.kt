@@ -126,10 +126,6 @@ private enum class GateStatus { CHECKING, NOT_ENROLLED, LOCKED, UNLOCKED }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PassportVaultScreen(
-    onBack: (() -> Unit)? = null,
-    // Le note non passano dal gate biometrico di questa schermata (vedi NotesScreen): l'azione
-    // in barra e' sempre visibile, qualunque sia gateStatus.
-    onOpenNotes: () -> Unit = {},
     viewModel: PassportVaultViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -187,28 +183,9 @@ fun PassportVaultScreen(
     // Scatti temporanei rimasti in chiaro se il processo e' morto durante uno scatto.
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { wipeCameraTmp(context) } }
 
-    // Dentro NavigationSuiteScaffold: gli inset di sistema li gestiscono la barra/rail e la top app bar,
-    // applicarli anche qui lascerebbe una fascia vuota sopra la barra di navigazione.
+    // Senza barra in alto: la ospita DocumentsScreen, sotto il selettore Documenti | Note.
     Scaffold(
         contentWindowInsets = WindowInsets(0),
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.vault_title)) },
-                navigationIcon = {
-                    // Destinazione principale della barra di navigazione: nessuna freccia indietro.
-                    if (onBack != null) {
-                        IconButton(onClick = onBack) {
-                            Icon(imageVector = AppIcons.Back, contentDescription = stringResource(UiR.string.back))
-                        }
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onOpenNotes) {
-                        Icon(imageVector = AppIcons.Notes, contentDescription = stringResource(R.string.vault_open_notes))
-                    }
-                },
-            )
-        },
         floatingActionButton = {
             if (gateStatus == GateStatus.UNLOCKED) {
                 ExtendedFloatingActionButton(

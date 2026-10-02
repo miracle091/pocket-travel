@@ -1,5 +1,6 @@
 package com.pockettravel.feature.vault
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,23 +56,13 @@ import com.pockettravel.core.ui.R as UiR
 // senza chiedere l'impronta, come da contratto in NoteRepository.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotesScreen(onBack: (() -> Unit)? = null, viewModel: NotesViewModel = hiltViewModel()) {
+fun NotesScreen(viewModel: NotesViewModel = hiltViewModel()) {
     val notes by viewModel.notes.collectAsStateWithLifecycle()
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
 
+    // Senza barra in alto: la ospita DocumentsScreen, sotto il selettore Documenti | Note.
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.notes_title)) },
-                navigationIcon = {
-                    if (onBack != null) {
-                        IconButton(onClick = onBack) {
-                            Icon(imageVector = AppIcons.Back, contentDescription = stringResource(UiR.string.back))
-                        }
-                    }
-                },
-            )
-        },
+        contentWindowInsets = WindowInsets(0),
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },

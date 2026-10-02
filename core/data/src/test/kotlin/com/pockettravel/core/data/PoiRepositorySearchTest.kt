@@ -17,6 +17,10 @@ class PoiRepositorySearchTest {
             requestedLimit = limit
             return rows.take(limit)
         }
+        override suspend fun nearest(
+            regionIds: List<String>, lat: Double, lon: Double, lonScale: Double,
+            minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, limit: Int,
+        ): List<PoiEntity> = emptyList()
 
         override suspend fun insertAll(pois: List<PoiEntity>) = Unit
         override suspend fun poisForRegion(regionId: String): List<PoiEntity> = emptyList()

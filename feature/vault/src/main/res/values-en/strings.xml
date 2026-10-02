@@ -48,7 +48,6 @@
     <string name="vault_camera_capture">Take photo</string>
     <string name="vault_camera_permission_denied">Camera permission denied: can\'t take photos of documents.</string>
     <string name="vault_open_app_settings">Settings</string>
-    <string name="vault_open_notes">Notes</string>
     <string name="notes_title">Notes</string>
     <string name="notes_add">Add</string>
     <string name="notes_empty_title">No notes saved</string>

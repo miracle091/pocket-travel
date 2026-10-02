@@ -1,5 +1,12 @@
 package com.pockettravel.app.regions
 
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.ExtendedFloatingActionButton
 import android.text.format.Formatter
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
@@ -30,7 +37,6 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -42,7 +48,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,7 +63,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
@@ -164,50 +168,47 @@ internal fun RegionListContent(
         }
     }
 
-    // Top app bar grande che si comprime scorrendo l'elenco.
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    // Dentro NavigationSuiteScaffold: gli inset di sistema li gestiscono la barra/rail e la top app bar,
-    // applicarli anche qui lascerebbe una fascia vuota sopra la barra di navigazione.
+    // Senza barra in alto: la voce "Nazioni" della barra in basso dice gia' dove si e'. Mappa ed elenco si scambiano con
+    // il pulsante in basso al centro, il controllo degli aggiornamenti e' il trascinamento in giu' dell'elenco (e
+    // un'azione di TalkBack). Dentro NavigationSuiteScaffold gli inset in basso li gestisce la barra: qui solo quello
+    // della barra di stato.
+    val checkUpdatesLabel = stringResource(R.string.regions_check_updates)
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         contentWindowInsets = WindowInsets(0),
-        topBar = {
-            LargeFlexibleTopAppBar(
-                title = { Text(stringResource(R.string.regions_title)) },
-                scrollBehavior = scrollBehavior,
-                actions = {
-                    if (showMapToggle) {
-                        IconButton(
-                            onClick = {
-                                // La mappa mostra tutto il catalogo: una ricerca in corso filtrerebbe i paesi.
-                                if (!showMap) onQueryChange("")
-                                showMap = !showMap
-                            },
-                        ) {
-                            Icon(
-                                imageVector = if (showMap) AppIcons.ListView else AppIcons.Map,
-                                contentDescription = stringResource(if (showMap) R.string.regions_show_list else R.string.regions_show_map),
-                            )
-                        }
-                    }
-                    IconButton(onClick = onCheckUpdates) {
-                        Icon(imageVector = AppIcons.Refresh, contentDescription = stringResource(R.string.regions_check_updates))
-                    }
-                },
-            )
+        floatingActionButton = {
+            if (showMapToggle) {
+                ExtendedFloatingActionButton(
+                    onClick = {
+                        // La mappa mostra tutto il catalogo: una ricerca in corso filtrerebbe i paesi.
+                        if (!showMap) onQueryChange("")
+                        showMap = !showMap
+                    },
+                    icon = { Icon(if (showMap) AppIcons.ListView else AppIcons.Map, contentDescription = null) },
+                    text = { Text(stringResource(if (showMap) R.string.regions_show_list else R.string.regions_show_map)) },
+                )
+            }
         },
+        floatingActionButtonPosition = FabPosition.Center,
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
+        val contentModifier = Modifier.fillMaxSize().padding(innerPadding).windowInsetsPadding(WindowInsets.statusBars)
         if (showMap && showMapToggle) {
             RegionWorldMap(
                 items = uiState.items,
                 rowActions = rowActions,
                 onRegionClick = onRegionClick,
-                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                modifier = contentModifier,
             )
             return@Scaffold
         }
-        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        PullToRefreshBox(
+            isRefreshing = uiState.isLoading && uiState.items.isNotEmpty(),
+            onRefresh = onCheckUpdates,
+            modifier = contentModifier.semantics {
+                customActions = listOf(CustomAccessibilityAction(checkUpdatesLabel) { onCheckUpdates(); true })
+            },
+        ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             RegionSearchField(
                 query = uiState.query,
                 onQueryChange = onQueryChange,
@@ -245,6 +246,7 @@ internal fun RegionListContent(
                     )
                 }
             }
+        }
         }
     }
 }

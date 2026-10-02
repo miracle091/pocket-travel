@@ -48,7 +48,6 @@
     <string name="vault_camera_capture">Scatta la foto</string>
     <string name="vault_camera_permission_denied">Permesso fotocamera negato: non è possibile scattare foto ai documenti.</string>
     <string name="vault_open_app_settings">Impostazioni</string>
-    <string name="vault_open_notes">Note</string>
     <string name="notes_title">Note</string>
     <string name="notes_add">Aggiungi</string>
     <string name="notes_empty_title">Nessuna nota salvata</string>

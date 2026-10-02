@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.AddressResult
 import com.pockettravel.core.data.AddressSearchRepository
+import com.pockettravel.core.data.NearbyPois
 import com.pockettravel.core.data.Poi
 import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.parseAddressQuery
@@ -24,6 +25,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.launchIn
@@ -126,6 +130,38 @@ class NavigationPlannerViewModel @Inject constructor(
     /** Posizione nota (dall'ultimo calcolo da "La mia posizione"): ordina i risultati per distanza. */
     private val lastPosition = MutableStateFlow<RoutePoint?>(null)
 
+    /**
+     * Le regioni della mappa prima del percorso: quella della tab, poi quelle di partenza e arrivo (una meta a Riga
+     * dalla tab di San Marino mostra Riga). Senza nessuna delle tre (Navigatore della barra, nessuna meta) tutte quelle
+     * installate.
+     */
+    val mapRegionIds: StateFlow<List<String>> = combine(regionId, _from, _to, installed) { id, from, to, regions ->
+        listOfNotNull(id, from?.regionId, to?.regionId).filter { it in regions }.distinct().ifEmpty { regions.keys.toList() }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // Permesso di posizione, riletto quando l'utente risponde (onPermissionResult).
+    private val locationAllowed = MutableStateFlow(gps.hasPermission())
+
+    /**
+     * Senza meta, con permesso e GPS acceso: la propria posizione sulla mappa, null altrimenti. Il GPS si ascolta solo
+     * mentre la scheda e' aperta (WhileSubscribed).
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val idlePosition: StateFlow<RoutePoint?> = combine(_to, locationAllowed, gps.gpsEnabled()) { to, allowed, enabled -> to == null && allowed && enabled }
+        .distinctUntilChanged()
+        .flatMapLatest { active -> if (active) gps.fixes().map { RoutePoint(it.latitude, it.longitude) } else flowOf(null) }
+        .onEach { position -> if (position != null) lastPosition.value = position }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** I POI attorno alla posizione senza meta (PoiRepository.nearby), ricercati dopo ogni spostamento di 50 m. */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val nearbyPois: StateFlow<NearbyPois?> = combine(idlePosition, installed) { position, regions -> position to regions.keys.toList() }
+        .distinctUntilChanged { old, new ->
+            old.second == new.second && old.first?.let { a -> new.first?.let { b -> NavigationTracker.distanceMeters(a, b) < NEARBY_REFRESH_METERS } } ?: (old.first == new.first)
+        }
+        .mapLatest { (position, regions) -> position?.let { poiRepository.nearby(regions, it.latitude, it.longitude) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     /** Recenti delle regioni installate. */
     val recents: StateFlow<List<NavigationPlace>> = combine(recentDestinations.places, installed) { places, regions ->
         places.filter { it.regionId in regions }
@@ -181,7 +217,7 @@ class NavigationPlannerViewModel @Inject constructor(
         if (_to.value != null) refreshPreview()
     }
 
-    fun load(regionId: String) {
+    fun load(regionId: String?) {
         this.regionId.value = regionId
     }
 
@@ -305,6 +341,7 @@ class NavigationPlannerViewModel @Inject constructor(
     }
 
     fun onPermissionResult(granted: Boolean) {
+        locationAllowed.value = granted || gps.hasPermission()
         if (granted || gps.hasPermission()) refreshPreview()
     }
 
@@ -392,6 +429,7 @@ class NavigationPlannerViewModel @Inject constructor(
         const val RESULTS_SHOWN = 30
         const val ADDRESS_RESULTS_SHOWN = 10
         const val LOCATION_TIMEOUT_MILLIS = 20_000L
+        const val NEARBY_REFRESH_METERS = 50.0
     }
 }
 
