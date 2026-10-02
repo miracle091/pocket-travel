@@ -16,10 +16,14 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/regions.png" width="200" alt="Elenco delle nazioni divise per continente">
+  <img src="docs/images/regions.png" width="200" alt="Nazioni scaricate e le altre divise per continente, con la ricerca in cima e il pulsante per la mappa del mondo">
   <img src="docs/images/guide.png" width="200" alt="Guida di San Marino con i numeri di emergenza, le ambasciate del proprio paese e i fatti rapidi">
   <img src="docs/images/map.png" width="200" alt="Mappa offline di San Marino con i punti di interesse e il pulsante dei filtri">
   <img src="docs/images/filters.png" width="200" alt="Filtri della mappa divisi in gruppi, ognuno con i suoi interruttori">
+  <img src="docs/images/navigator.png" width="200" alt="Navigatore senza meta: la propria posizione e i punti di interesse vicini, con la ricerca Dove vuoi andare?">
+  <img src="docs/images/route.png" width="200" alt="Navigatore con il percorso a piedi fino a un bar di San Marino: tempo, distanza e il pulsante per partire">
+  <img src="docs/images/missing-routes.png" width="200" alt="Navigatore da San Marino alla Lettonia: l'elenco delle nazioni di cui mancano i percorsi, in ordine lungo la strada, con il peso di ciascuna e il pulsante per scaricarle tutte">
+  <img src="docs/images/notes.png" width="200" alt="Documenti con il selettore Documenti e Note, sulle note di viaggio">
   <img src="docs/images/ai.png" width="200" alt="Assistente IA online: scelta del servizio (ChatGPT, Mistral AI, Gemini, Claude) e del modello">
   <img src="docs/images/packages.png" width="200" alt="Contenuti scaricabili per San Marino">
 </p>
@@ -34,7 +38,7 @@ In viaggio la connessione manca proprio quando serve: in aereo, in montagna, all
 - **Mezzi pubblici** – nella scheda di una fermata, di una stazione o di un porto le prossime partenze delle tre ore successive, offline, per le reti con dati aperti (per ora in Lettonia, Italia, Svezia, Spagna, Francia, Svizzera e Regno Unito). Dove una nazione ne ha molte scegli tu quali scaricare; di default quelle vicine a te.
 - **Assistente IA** – chiedi in parole tue quello che ti serve sapere sul paese o sulla città in cui sei ("dove si mangia bene?", "come pago il bus?") e ti risponde in poche frasi, basandosi sulla guida scaricata e sulle tue note di viaggio, e dicendoti quando la guida non basta. Funziona anche senza internet (vedi [più sotto](#assistente-ia)).
 - **Fonti ufficiali** – i siti del ministero degli esteri del tuo paese e quelli internazionali (OMS, CDC), per controllare documenti, sicurezza e salute prima di partire.
-- **Documenti** – una copia del passaporto e dei biglietti, cifrata e sbloccabile solo con la tua impronta o il tuo volto, e le tue note di viaggio (prenotazioni, indirizzi), cifrate e usate dall'assistente IA quando servono.
+- **Documenti** – una copia del passaporto e dei biglietti, cifrata e sbloccabile solo con la tua impronta o il tuo volto, e accanto, con il selettore Documenti | Note, le tue note di viaggio (prenotazioni, indirizzi), cifrate e usate dall'assistente IA quando servono.
 
 L'app è in **italiano e in inglese**: interfaccia, guide delle nazioni e delle città e assistente IA. La lingua si sceglie al primo avvio e si cambia in **Altro → Impostazioni**, insieme a nazionalità, aspetto, modo di spostarsi, opzioni del Navigatore e assistente IA.
 
@@ -95,7 +99,7 @@ Il modello in uso si legge sotto il nome di ogni servizio ("Modello: …").
 
 ## Da dove vengono i dati
 
-Tutto viene da progetti aperti e liberi: le guide da [Wikivoyage](https://it.wikivoyage.org) (in italiano e, per l'app in inglese, in [inglese](https://en.wikivoyage.org)) e [Wikipedia](https://it.wikipedia.org), le mappe e i punti di interesse da [OpenStreetMap](https://www.openstreetmap.org) (le mappe nel formato di [Protomaps](https://protomaps.com)), i numeri civici da OpenStreetMap e dai registri ufficiali degli indirizzi raccolti da [Overture Maps](https://overturemaps.org), i percorsi da [BRouter](https://brouter.de), le ambasciate e i consolati anche da [Wikidata](https://www.wikidata.org). L'app non ha un server suo e non raccoglie dati su di te: la posizione, chiesta solo per la navigazione, resta sul telefono (durante la guida l'app la legge anche a schermo spento, sempre con una notifica fissa che lo mostra); la chiave dell'assistente IA online, se la usi, resta solo sul telefono. Il catalogo dei dati è firmato: l'app controlla la firma con una chiave pubblica incorporata e rifiuta i file non firmati.
+Tutto viene da progetti aperti e liberi: le guide da [Wikivoyage](https://it.wikivoyage.org) (in italiano e, per l'app in inglese, in [inglese](https://en.wikivoyage.org)) e [Wikipedia](https://it.wikipedia.org), le mappe e i punti di interesse da [OpenStreetMap](https://www.openstreetmap.org) (le mappe nel formato di [Protomaps](https://protomaps.com)), i numeri civici da OpenStreetMap e dai registri ufficiali degli indirizzi raccolti da [Overture Maps](https://overturemaps.org), i percorsi da [BRouter](https://brouter.de), le ambasciate e i consolati anche da [Wikidata](https://www.wikidata.org). L'app non ha un server suo e non raccoglie dati su di te: la posizione, chiesta solo per il Navigatore, resta sul telefono e si usa solo lì: per la guida (anche a schermo spento, sempre con una notifica fissa che lo mostra), per i percorsi che partono da dove sei e, con il Navigatore aperto senza meta, per mostrarti i posti vicini; la chiave dell'assistente IA online, se la usi, resta solo sul telefono. Il catalogo dei dati è firmato: l'app controlla la firma con una chiave pubblica incorporata e rifiuta i file non firmati.
 
 ## Per chi sviluppa
 
@@ -105,9 +109,9 @@ L'app è scritta in Kotlin con Jetpack Compose. Il codice è diviso in moduli:
 
 | Cartella | Cosa contiene |
 |---|---|
-| `app/` | schermate principali (nazioni, Altro, Impostazioni) e navigazione tra le schermate |
+| `app/` | schermate principali (Nazioni, Navigatore, Altro, Impostazioni) e navigazione tra le schermate |
 | `core/` | database, download e installazione dei pacchetti, tema grafico, categorie dei punti di interesse |
-| `feature/` | guida, mappa, assistente IA, documenti, fonti ufficiali (ognuna dipende solo da `core`) |
+| `feature/` | guida, mappa e Navigatore, assistente IA, documenti e note, fonti ufficiali (ognuna dipende solo da `core`) |
 | `tools/data-pipeline/` | gli script che preparano e pubblicano a turno, ogni notte, guide, mappe, punti di interesse e numeri civici, e quelli per addestrare i modelli dell'assistente IA |
 | `tools/dev/` | strumenti per lo sviluppo, come la simulazione del GPS lungo un percorso sull'emulatore |
 | `third-party/` | copie di BRouter e llama.cpp usate dall'app |

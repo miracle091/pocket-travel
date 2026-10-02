@@ -64,7 +64,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -201,9 +200,15 @@ internal fun RegionListContent(
             )
             return@Scaffold
         }
+        // La rotella solo dopo un trascinamento: all'avvio il catalogo si carica da solo, senza rotella sopra la ricerca.
+        var pulled by rememberSaveable { mutableStateOf(false) }
+        LaunchedEffect(uiState.isLoading) { if (!uiState.isLoading) pulled = false }
         PullToRefreshBox(
-            isRefreshing = uiState.isLoading && uiState.items.isNotEmpty(),
-            onRefresh = onCheckUpdates,
+            isRefreshing = pulled && uiState.isLoading,
+            onRefresh = {
+                pulled = true
+                onCheckUpdates()
+            },
             modifier = contentModifier.semantics {
                 customActions = listOf(CustomAccessibilityAction(checkUpdatesLabel) { onCheckUpdates(); true })
             },
@@ -643,16 +648,10 @@ private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actio
         }
         RegionStatus.UPDATE_AVAILABLE, RegionStatus.INSTALLED -> Row(verticalAlignment = Alignment.CenterVertically) {
             if (item.status == RegionStatus.UPDATE_AVAILABLE) {
-                // Con il testo molto grande il pulsante con l'etichetta schiaccerebbe il nome della
-                // regione fino a spezzarlo lettera per lettera: solo icona, come "Scarica".
-                if (LocalDensity.current.fontScale >= 1.5f) {
-                    FilledTonalIconButton(onClick = startDownload, enabled = !isDownloading) {
-                        Icon(AppIcons.Download, contentDescription = stringResource(R.string.regions_update_region, item.displayName))
-                    }
-                } else {
-                    FilledTonalButton(onClick = startDownload, enabled = !isDownloading) {
-                        Text(stringResource(R.string.regions_update))
-                    }
+                // Solo icona, come "Scarica": un'etichetta schiaccerebbe il nome della regione (col testo grande fino a
+                // spezzarlo lettera per lettera). TalkBack legge "Aggiorna <regione>".
+                FilledTonalIconButton(onClick = startDownload, enabled = !isDownloading) {
+                    Icon(AppIcons.Download, contentDescription = stringResource(R.string.regions_update_region, item.displayName))
                 }
             }
             // Mappa, percorsi e POI uno per uno, ed "Elimina tutto": vedi RegionPackagesSheet.
