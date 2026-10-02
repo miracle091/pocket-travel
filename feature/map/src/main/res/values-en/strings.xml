@@ -299,7 +299,7 @@
     <string name="navigation_end">Exit</string>
     <string name="navigation_distance_arrival">%1$s · arrive at %2$s</string>
     <string name="navigation_show_steps">Show or hide the turns</string>
-    <string name="planner_arrive_by">Arrive by…</string>
+    <string name="planner_arrive_by">Set an arrival time</string>
     <string name="planner_arrive_by_title">When do you want to arrive?</string>
     <string name="planner_arrive_by_clear">Remove arrival time</string>
     <string name="planner_leave_at">Leave at %1$s</string>

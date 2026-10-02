@@ -26,12 +26,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.text.style.TextAlign
 import com.pockettravel.core.ui.DownloadProgressIndicator
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.graphics.Color
 import android.content.Intent
 import android.provider.Settings
 import android.view.View
@@ -266,14 +263,26 @@ private fun SpeedCameraNotice() {
  */
 @Composable
 internal fun WheelchairOptions(allowSteps: Boolean, onAllowStepsChange: (Boolean) -> Unit) {
-    // Una riga sola: la mappa sotto prende lo spazio che resta.
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.navigation_allow_steps)) },
-        supportingContent = { Text(stringResource(R.string.navigation_wheelchair_notice), style = MaterialTheme.typography.bodySmall) },
-        trailingContent = { Switch(checked = allowSteps, onCheckedChange = null) },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.toggleable(value = allowSteps, role = Role.Switch, onValueChange = onAllowStepsChange),
-    )
+    // Una riga sola: la mappa sotto prende lo spazio che resta. Row invece di ListItem, senza il suo
+    // margine laterale, cosi' testo e interruttore si allineano al tempo e al pulsante Avvia sopra.
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(value = allowSteps, role = Role.Switch, onValueChange = onAllowStepsChange)
+            .padding(vertical = Spacing.s),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(stringResource(R.string.navigation_allow_steps), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                stringResource(R.string.navigation_wheelchair_notice),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(modifier = Modifier.width(Spacing.m))
+        Switch(checked = allowSteps, onCheckedChange = null)
+    }
 }
 
 @Composable

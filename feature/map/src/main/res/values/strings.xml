@@ -300,7 +300,7 @@
     <string name="navigation_end">Termina</string>
     <string name="navigation_distance_arrival">%1$s · arrivo alle %2$s</string>
     <string name="navigation_show_steps">Mostra o nascondi le svolte</string>
-    <string name="planner_arrive_by">Arriva alle…</string>
+    <string name="planner_arrive_by">Programma un orario di arrivo</string>
     <string name="planner_arrive_by_title">A che ora vuoi arrivare?</string>
     <string name="planner_arrive_by_clear">Togli l\'ora di arrivo</string>
     <string name="planner_leave_at">Parti alle %1$s</string>

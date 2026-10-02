@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -632,21 +633,33 @@ private fun RouteSummary(
         style = MaterialTheme.typography.titleMedium,
         modifier = Modifier.padding(vertical = Spacing.s).semantics { heading() },
     )
+    // Row invece di ListItem, senza il suo margine laterale: le svolte si allineano al tempo e al titolo sopra.
     route.instructions.forEach { instruction ->
-        ListItem(
-            headlineContent = { Text(turnText(instruction)) },
-            supportingContent = if (instruction.distanceToNextMeters > 0) {
-                { Text(distanceText(instruction.distanceToNextMeters)) }
-            } else {
-                null
-            },
-            leadingContent = { Icon(turnIcon(instruction.type), contentDescription = null) },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .padding(vertical = Spacing.s)
+                .semantics(mergeDescendants = true) {},
+        ) {
+            Icon(turnIcon(instruction.type), contentDescription = null)
+            Spacer(modifier = Modifier.width(Spacing.l))
+            Column {
+                Text(turnText(instruction), style = MaterialTheme.typography.bodyLarge)
+                if (instruction.distanceToNextMeters > 0) {
+                    Text(
+                        distanceText(instruction.distanceToNextMeters),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
     }
 }
 
-// "Arriva alle…": invece di partire subito si sceglie l'ora di arrivo, il Navigatore dice quando partire
+// "Programma un orario di arrivo": invece di partire subito si sceglie l'ora di arrivo, il Navigatore dice quando partire
 // (durata del percorso con il mezzo scelto) e, se si vuole, avvisa con una notifica a quell'ora. Il
 // riquadro cambia colore col tempo: neutro, poi "parti tra poco" a 5 minuti dalla partenza, rosso con i
 // minuti di ritardo quando partendo adesso non si arriva piu' in tempo. TalkBack annuncia solo il cambio
@@ -675,7 +688,8 @@ private fun ArriveBy(
     }
 
     if (arrival == null) {
-        TextButton(onClick = { picking = true }) {
+        // Senza il margine sinistro del TextButton l'icona si allinea al tempo e alla distanza sopra.
+        TextButton(onClick = { picking = true }, contentPadding = PaddingValues(end = 16.dp, top = 8.dp, bottom = 8.dp)) {
             Icon(ImageVector.vectorResource(UiR.drawable.ms_schedule), contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(Spacing.s))
             Text(stringResource(R.string.planner_arrive_by))
