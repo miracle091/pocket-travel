@@ -121,6 +121,10 @@ internal fun RegionPackagesSheet(
                             }
                             pkg.transitDefaultReason?.let { TransitNetworksNote(it) }
                         }
+                        if (pkg.kind == PackageKind.ROUTING && item.routingCarAvailable) {
+                            val carOnly by remember(item.regionId) { actions.observeRoutingCarOnly(item.regionId) }.collectAsStateWithLifecycle(false)
+                            RoutingCarOnlyRow(carOnly = carOnly, enabled = !isDownloading, onChange = { actions.onRoutingCarOnlyChange(item.regionId, it) })
+                        }
                         if (pkg.kind == PackageKind.MAP) {
                             val light by remember(item.regionId) { actions.observeMapLight(item.regionId) }.collectAsStateWithLifecycle(false)
                             MapLightRow(light = light, enabled = !isDownloading, onChange = { actions.onMapLightChange(item.regionId, it) })
@@ -267,6 +271,21 @@ private fun MapLightRow(light: Boolean, enabled: Boolean, onChange: (Boolean) ->
         modifier = Modifier
             .fillMaxWidth()
             .toggleable(value = light, enabled = enabled, role = Role.Switch, onValueChange = onChange),
+    )
+}
+
+// Sotto i percorsi: solo le strade per l'auto (circa il 43% del peso). Cambiarla con i percorsi installati li riscarica.
+@Composable
+private fun RoutingCarOnlyRow(carOnly: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    ListItem(
+        content = { Text(stringResource(R.string.package_routing_car_only)) },
+        supportingContent = { Text(stringResource(R.string.package_routing_car_only_detail)) },
+        leadingContent = { Icon(AppIcons.Car, contentDescription = null) },
+        trailingContent = { Switch(checked = carOnly, onCheckedChange = null, enabled = enabled, modifier = Modifier.padding(end = Spacing.xs)) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(value = carOnly, enabled = enabled, role = Role.Switch, onValueChange = onChange),
     )
 }
 

@@ -54,6 +54,9 @@ data class RegionManifestEntry(
     val regionId: String, val displayName: String, val updatedAt: String,
     val map: MapPackageEntry,
     val routing: RoutingPackageEntry,
+    // Variante "solo auto" degli stessi segmenti (circa il 43% del peso): l'app la scarica al posto di [routing] se
+    // l'utente sceglie "Percorsi solo per l'auto" (withRoutingVariant). Assente nelle regioni non ancora rigenerate.
+    val routingCar: RoutingPackageEntry? = null,
     val poi: PoiPackageEntry,
     // POI extra (fontanelle, tavoli da picnic...): assenti per le regioni senza o non ancora rigenerate.
     val poiExtra: PoiPackageEntry? = null,
@@ -257,6 +260,12 @@ fun RegionManifestEntry.validate() {
     require(routing.files.isNotEmpty()) { "Il routing di $regionId non contiene file" }
     require(routing.files.map { it.name }.toSet().size == routing.files.size) { "File duplicati nel routing di $regionId" }
     routing.files.forEach { it.validate(regionId) }
+    routingCar?.let { car ->
+        require(isSafeVersion(car.version)) { "version non valida per $regionId" }
+        require(car.files.isNotEmpty()) { "Il routingCar di $regionId non contiene file" }
+        require(car.files.map { it.name }.toSet().size == car.files.size) { "File duplicati nel routingCar di $regionId" }
+        car.files.forEach { it.validate(regionId) }
+    }
     poi.file.validate(regionId)
     poi.fileXz?.validate(regionId)
     poiExtra?.let {

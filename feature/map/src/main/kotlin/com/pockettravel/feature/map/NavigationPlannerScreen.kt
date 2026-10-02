@@ -140,7 +140,7 @@ fun NavigationPlannerScreen(
     downloadFailed: Boolean,
     // Le regioni senza Percorsi che coprono i punti (partenza, linea in mezzo, arrivo), in ordine, dal catalogo che il
     // Navigatore non vede (core:sync); vuota se non se ne trova nessuna (anche offline).
-    findMissingRegions: suspend (List<RoutePoint>) -> List<MissingRegion>,
+    findMissingRegions: suspend (points: List<RoutePoint>, usableRouting: Set<String>) -> List<MissingRegion>,
 ) {
     LaunchedEffect(regionId) { viewModel.load(regionId) }
     val from by viewModel.from.collectAsStateWithLifecycle()
@@ -162,7 +162,7 @@ fun NavigationPlannerScreen(
     val noRoutingData = (preview as? PlannerPreview.Unavailable)?.result == RouteResult.NoRoutingData
     var missingRegions by remember { mutableStateOf(emptyList<MissingRegion>()) }
     LaunchedEffect(noRoutingData, routingRegionIds, to, from) {
-        missingRegions = if (noRoutingData) findMissingRegions(routePoints(viewModel.startPoint(), to?.point)) else emptyList()
+        missingRegions = if (noRoutingData) findMissingRegions(routePoints(viewModel.startPoint(), to?.point), routingRegionIds) else emptyList()
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -215,7 +215,7 @@ fun NavigationPlannerScreen(
         val guidanceNoRouting = (navigationState as? NavigationUiState.Unavailable)?.result == RouteResult.NoRoutingData
         var guidanceMissing by remember { mutableStateOf(emptyList<MissingRegion>()) }
         LaunchedEffect(guidanceNoRouting, routingRegionIds) {
-            guidanceMissing = if (guidanceNoRouting) findMissingRegions(routePoints(viewModel.startPoint(), guidingTarget.point)) else emptyList()
+            guidanceMissing = if (guidanceNoRouting) findMissingRegions(routePoints(viewModel.startPoint(), guidingTarget.point), routingRegionIds) else emptyList()
         }
         var seenRoutingRegionIds by remember { mutableStateOf(routingRegionIds) }
         LaunchedEffect(routingRegionIds) {

@@ -4,6 +4,7 @@ import com.pockettravel.core.data.LastKnownPosition
 import com.pockettravel.core.data.MapDetailPreferences
 import com.pockettravel.core.data.RegionZone
 import com.pockettravel.core.data.RegionZonePreferences
+import com.pockettravel.core.data.RoutingVariantPreferences
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -23,6 +24,7 @@ import com.pockettravel.core.sync.TransitDefaultReason
 import com.pockettravel.core.sync.TransitIndex
 import com.pockettravel.core.sync.attachAddressGridCells
 import com.pockettravel.core.sync.restrictedTo
+import com.pockettravel.core.sync.withRoutingVariant
 import com.pockettravel.core.sync.attachTransitFeeds
 import com.pockettravel.core.sync.guidesChoice
 import com.pockettravel.core.ui.countryName
@@ -37,6 +39,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -83,6 +86,8 @@ data class RegionUiItem(
     val bbox: RegionBbox? = null,
     // Zona scelta dall'utente (RegionZonePreferences): mappa, percorsi e civici solo li'; null = tutta la regione.
     val zone: RegionZone? = null,
+    // Il manifest offre i percorsi "solo auto" (routingCar): nel foglio Contenuti c'e' l'interruttore.
+    val routingCarAvailable: Boolean = false,
     // La mappa e' tra i pacchetti da scaricare: il suo peso non e' in sizeBytes (si conosce solo estraendola).
     val includesMap: Boolean = false,
 )
@@ -129,6 +134,7 @@ class RegionListViewModel @Inject constructor(
     private val transitNetworkPreferences: TransitNetworkPreferences,
     private val mapDetailPreferences: MapDetailPreferences,
     private val regionZonePreferences: RegionZonePreferences,
+    private val routingVariantPreferences: RoutingVariantPreferences,
     private val lastKnownPosition: LastKnownPosition,
     private val countryLocator: CountryLocator,
 ) : ViewModel() {
@@ -152,8 +158,9 @@ class RegionListViewModel @Inject constructor(
 
     val uiState = combine(
         // Ogni regione con la sua zona: dimensioni e versioni (quella dei civici dipende dalle celle) sono quelle della zona.
-        combine(manifestRegions, locale, regionZonePreferences.zones) { regions, currentLocale, zones ->
-            regions.map { it.localizedNames(currentLocale) to zones[it.regionId] }
+        // Con i percorsi "solo auto" scelti, anche la dimensione e la versione dei percorsi sono quelle della variante.
+        combine(manifestRegions, locale, regionZonePreferences.zones, routingVariantPreferences.carOnly) { regions, currentLocale, zones, carOnly ->
+            regions.map { it.localizedNames(currentLocale).withRoutingVariant(it.regionId in carOnly) to zones[it.regionId] }
         },
         // Con "Indicazioni" la dimensione di "Scarica" comprende i percorsi.
         combine(regionRepository.observeInstalled(), usageModePreferences.wantsDirections, ::Pair),
@@ -171,7 +178,7 @@ class RegionListViewModel @Inject constructor(
                 .filter { (remote, _) -> matchesQuery(remote.displayName, currentQuery) }
                 .map { (remote, zone) ->
                     regionUiItem(remote.restrictedTo(zone), installedByRegion[remote.regionId], regionRepository::packageBytes, regionRepository::installedAddressCells, wantsDirections, transitIndex.value != null)
-                        .copy(bbox = remote.map.source.let { RegionBbox(it.minLon, it.minLat, it.maxLon, it.maxLat) }, zone = zone)
+                        .copy(bbox = remote.map.source.let { RegionBbox(it.minLon, it.minLat, it.maxLon, it.maxLat) }, zone = zone, routingCarAvailable = remote.routingCar != null)
                 }
         }
         val replaced = replacedItems(installed, remoteRegions, replacedByManifest).filter { matchesQuery(it.displayName, currentQuery) }
@@ -317,7 +324,8 @@ class RegionListViewModel @Inject constructor(
     // La voce del manifest limitata alla zona scelta: anche il worker la limita, ma dimensioni, spazio libero e versioni
     // da confrontare devono essere gia' quelle della zona.
     private fun zonedEntry(regionId: String, zone: RegionZone? = regionZonePreferences.zone(regionId)): RegionManifestEntry? =
-        manifestRegions.value.firstOrNull { it.regionId == regionId }?.restrictedTo(zone)
+        manifestRegions.value.firstOrNull { it.regionId == regionId }
+            ?.withRoutingVariant(regionId in routingVariantPreferences.carOnly.value)?.restrictedTo(zone)
 
     /**
      * Sceglie la zona della regione (null = tutta). Con la regione installata mappa, percorsi e civici si rifanno subito:
@@ -344,6 +352,16 @@ class RegionListViewModel @Inject constructor(
                 regionRepository.removePackage(regionId, PackageKind.ADDRESSES)
             }
             enqueue(entry, installedKinds.filterTo(mutableSetOf()) { it in entry.availableKinds })
+        }
+    }
+
+    fun observeRoutingCarOnly(regionId: String): Flow<Boolean> = routingVariantPreferences.carOnly.map { regionId in it }
+
+    /** Percorsi "solo auto" o completi; con i percorsi gia' installati si riscaricano subito nella nuova variante. */
+    fun setRoutingCarOnly(regionId: String, carOnly: Boolean) {
+        routingVariantPreferences.setCarOnly(regionId, carOnly)
+        viewModelScope.launch {
+            if (regionRepository.installed(regionId)?.versionOf(PackageKind.ROUTING) != null) downloadPackage(regionId, PackageKind.ROUTING)
         }
     }
 

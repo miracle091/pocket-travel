@@ -30,6 +30,14 @@ data class RoutingChoice(val profile: String, val params: Map<String, String> = 
  * penalizzate se l'utente accetta qualche gradino ([allowSteps], variabile allow_steps del profilo).
  * Bici e auto restano quelle del mezzo.
  */
+/**
+ * Le regioni con i Percorsi utili per [mode]: quelle con i soli percorsi per l'auto ([carOnly], RoutingVariantPreferences)
+ * valgono solo in auto; a piedi, in bici e in carrozzina contano come regioni senza Percorsi (il Navigatore le propone
+ * da scaricare complete).
+ */
+fun usableRoutingRegions(withRouting: Set<String>, carOnly: Set<String>, mode: TravelMode): Set<String> =
+    if (mode == TravelMode.CAR) withRouting else withRouting - carOnly
+
 fun routingChoice(mode: TravelMode, accessible: Boolean, allowSteps: Boolean): RoutingChoice =
     if (mode == TravelMode.WALK && accessible) {
         RoutingChoice(UsageMode.WHEELCHAIR_ROUTING_PROFILE, if (allowSteps) mapOf("allow_steps" to "1") else emptyMap())

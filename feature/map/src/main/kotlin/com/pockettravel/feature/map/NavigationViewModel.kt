@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.RoutingVariantPreferences
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import kotlinx.coroutines.CoroutineStart
@@ -54,6 +55,7 @@ class NavigationViewModel @Inject constructor(
     /** Ponte con il servizio in primo piano e la sua notifica (vedi [NavigationService]). */
     private val session: NavigationSession,
     private val navigationPreferences: NavigationPreferences,
+    private val routingVariantPreferences: RoutingVariantPreferences,
     nationalityPreferences: NationalityPreferences,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
@@ -322,10 +324,17 @@ class NavigationViewModel @Inject constructor(
         job.start()
     }
 
-    // Regioni installate con i Percorsi e riquadro della loro mappa (127 byte di header ognuna).
+    // Regioni installate con i Percorsi utili al mezzo (usableRoutingRegions) e riquadro della loro mappa (127 byte di
+    // header ognuna).
     private suspend fun routingRegions(): List<RoutingRegion> = withContext(Dispatchers.IO) {
-        regionRepository.observeInstalled().first()
-            .filter { it.routingVersion != null }
+        val regions = regionRepository.observeInstalled().first()
+        val usable = usableRoutingRegions(
+            regions.filter { it.routingVersion != null }.map { it.regionId }.toSet(),
+            routingVariantPreferences.installedCarOnly.value,
+            _travelMode.value,
+        )
+        regions
+            .filter { it.regionId in usable }
             .map { RoutingRegion(it.regionId, tileSource.regionBounds(it.regionId)) }
     }
 

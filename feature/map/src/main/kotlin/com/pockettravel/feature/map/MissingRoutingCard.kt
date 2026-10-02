@@ -42,7 +42,14 @@ internal fun MissingRoutingCard(
         Column(modifier = Modifier.padding(Spacing.m)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    stringResource(if (downloadFailed) R.string.planner_routing_failed else R.string.navigation_missing_routing_list),
+                    stringResource(
+                        when {
+                            downloadFailed -> R.string.planner_routing_failed
+                            // Solo regioni con i percorsi per l'auto: a piedi o in bici servono quelli completi.
+                            regions.all { it.carOnly } -> R.string.navigation_car_only_routing_list
+                            else -> R.string.navigation_missing_routing_list
+                        },
+                    ),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
                 )

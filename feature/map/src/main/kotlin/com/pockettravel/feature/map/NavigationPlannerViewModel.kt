@@ -12,6 +12,7 @@ import com.pockettravel.core.data.Poi
 import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.parseAddressQuery
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.core.data.displayName
 import com.pockettravel.core.data.poiCategory
 import com.pockettravel.core.poi.PoiCategory
@@ -78,7 +79,8 @@ private val COMBINING_MARKS = Regex("\\p{Mn}+")
 private val SPACES = Regex("\\s+")
 
 /** Una regione del catalogo senza Percorsi tra partenza e arrivo, col peso dei Percorsi: il Navigatore ne propone il download. */
-data class MissingRegion(val regionId: String, val name: String, val routingBytes: Long)
+// carOnly: ci sono gia' i percorsi solo per l'auto, mancano quelli completi per il mezzo scelto.
+data class MissingRegion(val regionId: String, val name: String, val routingBytes: Long, val carOnly: Boolean = false)
 
 /** Anteprima del percorso prima di partire. */
 sealed interface PlannerPreview {
@@ -116,6 +118,7 @@ class NavigationPlannerViewModel @Inject constructor(
     private val gps: GpsLocationSource,
     private val recentDestinations: RecentDestinations,
     private val usageModePreferences: UsageModePreferences,
+    private val routingVariantPreferences: RoutingVariantPreferences,
     /** Per la mappa dell'anteprima: lo stesso stile della scheda Mappa. */
     val tileSource: OfflineTileSource,
 ) : ViewModel() {
@@ -199,14 +202,18 @@ class NavigationPlannerViewModel @Inject constructor(
      * La regione aperta ha i Percorsi installati. Se mancano, "nessun dato di percorso" vuol dire
      * "scaricali"; se ci sono, partenza o arrivo sono fuori dalle zone scaricate e riscaricare non serve.
      */
-    val routingInstalled: StateFlow<Boolean> = combine(regionRepository.observeInstalled(), regionId) { regions, id ->
-        id == null || regions.any { it.regionId == id && it.routingVersion != null }
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val routingInstalled: StateFlow<Boolean> = combine(usableRouting(), regionId) { ids, id -> id == null || id in ids }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
-    /** Le regioni con i Percorsi installati, di qualunque regione: serve a rileggere quale regione manca. */
-    val routingRegionIds: StateFlow<Set<String>> = regionRepository.observeInstalled()
-        .map { regions -> regions.filter { it.routingVersion != null }.map { it.regionId }.toSet() }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+    /**
+     * Le regioni con i Percorsi installati utili al mezzo scelto (usableRoutingRegions), di qualunque regione: serve a
+     * rileggere quale regione manca.
+     */
+    val routingRegionIds: StateFlow<Set<String>> = usableRouting().stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    private fun usableRouting() = combine(regionRepository.observeInstalled(), routingVariantPreferences.installedCarOnly, _travelMode) { regions, carOnly, mode ->
+        usableRoutingRegions(regions.filter { it.routingVersion != null }.map { it.regionId }.toSet(), carOnly, mode)
+    }
 
     /** La partenza del percorso: il posto scelto o l'ultima posizione nota, null se ancora ignota. */
     fun startPoint(): RoutePoint? = _from.value?.point ?: lastPosition.value
@@ -229,7 +236,7 @@ class NavigationPlannerViewModel @Inject constructor(
         // partenza o arrivo): l'anteprima si ricalcola da sola.
         viewModelScope.launch {
             var hadRouting: Set<String>? = null
-            regionRepository.observeInstalled().map { regions -> regions.filter { it.routingVersion != null }.map { it.regionId }.toSet() }.collect { has ->
+            usableRouting().collect { has ->
                 val before = hadRouting
                 if (before != null && (has - before).isNotEmpty()) refreshPreview()
                 hadRouting = has
@@ -446,10 +453,11 @@ class NavigationPlannerViewModel @Inject constructor(
         distanceMeters = reference?.let { approximateDistance(it, RoutePoint(latitude, longitude)) },
     )
 
-    // Regioni installate con i Percorsi e riquadro della loro mappa, come in NavigationViewModel.
+    // Regioni installate con i Percorsi utili al mezzo scelto e riquadro della loro mappa, come in NavigationViewModel.
     private suspend fun routingRegions(): List<RoutingRegion> = withContext(Dispatchers.IO) {
+        val usable = usableRouting().first()
         regionRepository.observeInstalled().first()
-            .filter { it.routingVersion != null }
+            .filter { it.regionId in usable }
             .map { RoutingRegion(it.regionId, tileSource.regionBounds(it.regionId)) }
     }
 

@@ -41,6 +41,8 @@
     <string name="package_cities">Guide delle città</string>
     <string name="package_map_light">Mappa leggera</string>
     <string name="package_map_light_detail">Mappa meno dettagliata, occupa circa il 40% di spazio in meno</string>
+    <string name="package_routing_car_only">Percorsi solo per l\'auto</string>
+    <string name="package_routing_car_only_detail">Solo le strade per l\'auto, circa il 55% di spazio in meno: a piedi e in bici non si calcolano percorsi</string>
     <string name="zone_row">Zona</string>
     <string name="zone_whole_region">Tutto il paese</string>
     <string name="zone_area">Solo una zona, circa %1$d × %2$d km</string>

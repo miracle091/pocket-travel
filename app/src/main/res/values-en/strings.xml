@@ -40,6 +40,8 @@
     <string name="package_addresses">House numbers</string>
     <string name="package_map_light">Light map</string>
     <string name="package_map_light_detail">Less detailed map, takes about 40% less space</string>
+    <string name="package_routing_car_only">Routes for cars only</string>
+    <string name="package_routing_car_only_detail">Only roads for cars, about 55% less space: no walking or cycling routes</string>
     <string name="zone_row">Area</string>
     <string name="zone_whole_region">Whole country</string>
     <string name="zone_area">One area only, about %1$d × %2$d km</string>

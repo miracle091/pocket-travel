@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionPackageDownloadWorker
 import com.pockettravel.core.sync.RegionSyncScheduler
@@ -40,6 +41,7 @@ class RoutingDownloadViewModel @Inject constructor(
     private val manifestClient: ManifestClient,
     private val regionSyncScheduler: RegionSyncScheduler,
     private val countryLocator: CountryLocator,
+    private val routingVariantPreferences: RoutingVariantPreferences,
 ) : ViewModel() {
     private val regionId = MutableStateFlow<String?>(null)
 
@@ -94,6 +96,8 @@ class RoutingDownloadViewModel @Inject constructor(
     fun downloadRouting(targetIds: List<String> = emptyList()) {
         targets.value = targetIds
         val ids = targetIds.ifEmpty { listOfNotNull(regionId.value) }
+        // Percorsi solo per l'auto proposti da scaricare (a piedi, in bici): si scaricano quelli completi.
+        ids.filter { it in routingVariantPreferences.installedCarOnly.value }.forEach { routingVariantPreferences.setCarOnly(it, false) }
         viewModelScope.launch {
             manifestFailed.value = false
             // Un errore del catalogo non si butta: il Navigatore lo mostra e lascia riprovare, invece di restare fermo.
@@ -108,13 +112,13 @@ class RoutingDownloadViewModel @Inject constructor(
      * ordine, col nome nella lingua dell'app e il peso dei Percorsi. Vuota se il catalogo non si legge (offline) o
      * tutto e' coperto: il Navigatore resta col messaggio generico.
      */
-    suspend fun missingRoutingRegions(points: List<RoutePoint>): List<MissingRegion> {
+    suspend fun missingRoutingRegions(points: List<RoutePoint>, usableRouting: Set<String>): List<MissingRegion> {
         val regions = runCatching { manifestClient.fetchManifest().regions }.getOrNull() ?: return emptyList()
-        val installed = regionRepository.observeInstalled().first().filter { it.routingVersion != null }.map { it.regionId }.toSet()
+        val carOnly = routingVariantPreferences.installedCarOnly.value
         return withContext(Dispatchers.Default) {
-            missingRoutingRegions(regions, installed, points, { countryLocator.countryAt(it.latitude, it.longitude) }, countryLocator.neighbours, countryLocator.centres)
+            missingRoutingRegions(regions, usableRouting, points, { countryLocator.countryAt(it.latitude, it.longitude) }, countryLocator.neighbours, countryLocator.centres)
         }.map { missing ->
-            MissingRegion(missing.regionId, missing.localizedNames(Locale.getDefault()).displayName, missing.routing.files.sumOf { it.sizeBytes })
+            MissingRegion(missing.regionId, missing.localizedNames(Locale.getDefault()).displayName, missing.routing.files.sumOf { it.sizeBytes }, carOnly = missing.regionId in carOnly)
         }
     }
 }

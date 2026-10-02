@@ -224,6 +224,7 @@
     <string name="usage_mode_directions_body">Con ogni regione scarica anche i percorsi (da pochi MB a qualche centinaio) e chiede la posizione GPS, usata solo mentre navighi.</string>
     <string name="navigation_routing_download">Scarica i percorsi</string>
     <string name="navigation_missing_routing_list">Mancano i percorsi di queste regioni, dalla partenza all\'arrivo</string>
+    <string name="navigation_car_only_routing_list">Qui hai solo i percorsi per l\'auto: per andare a piedi o in bici scarica quelli completi</string>
     <string name="navigation_routing_download_all">Scarica tutti i percorsi (%1$s)</string>
     <string name="navigation_routing_progress_all">Scarico i percorsi · %1$d%%</string>
     <string name="navigation_outside_routing">Il percorso esce dalla zona dei percorsi scaricati.</string>

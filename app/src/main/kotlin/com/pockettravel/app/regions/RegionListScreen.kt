@@ -127,6 +127,8 @@ fun RegionListScreen(
             onMapLightChange = viewModel::setMapLight,
             onZoneChange = viewModel::setZone,
             regionsInZone = viewModel::regionsInZone,
+            observeRoutingCarOnly = viewModel::observeRoutingCarOnly,
+            onRoutingCarOnlyChange = viewModel::setRoutingCarOnly,
         ),
         onRegionClick = { item ->
             if (item.status == RegionStatus.NOT_INSTALLED) {
@@ -156,6 +158,9 @@ internal data class RegionRowActions(
     val onZoneChange: (regionId: String, zone: RegionZone?, download: Boolean) -> Unit = { _, _, _ -> },
     // Regioni del catalogo dentro una zona (id, nome), dalla piu' presente: per le zone che prendono altri paesi.
     val regionsInZone: suspend (zone: RegionZone) -> List<Pair<String, String>> = { emptyList() },
+    // Percorsi "solo auto" (foglio Contenuti, sotto Percorsi).
+    val observeRoutingCarOnly: (regionId: String) -> Flow<Boolean> = { flowOf(false) },
+    val onRoutingCarOnlyChange: (regionId: String, carOnly: Boolean) -> Unit = { _, _ -> },
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)

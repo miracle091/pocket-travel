@@ -223,6 +223,7 @@
     <string name="usage_mode_directions_body">Also downloads routes with each region (from a few MB to a few hundred) and asks for your GPS location, used only while you navigate.</string>
     <string name="navigation_routing_download">Download routes</string>
     <string name="navigation_missing_routing_list">Routes are missing for these regions, from start to destination</string>
+    <string name="navigation_car_only_routing_list">You only have routes for cars here: download the full routes to walk or cycle</string>
     <string name="navigation_routing_download_all">Download all routes (%1$s)</string>
     <string name="navigation_routing_progress_all">Downloading routes · %1$d%%</string>
     <string name="navigation_outside_routing">The route leaves the area of the downloaded routes.</string>
