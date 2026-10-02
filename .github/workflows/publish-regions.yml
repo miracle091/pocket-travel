@@ -113,6 +113,9 @@ jobs:
       shard0: ${{ steps.plan.outputs.shard0 }}
       shard1: ${{ steps.plan.outputs.shard1 }}
       shard2: ${{ steps.plan.outputs.shard2 }}
+      shard0_extra: ${{ steps.plan.outputs.shard0_extra }}
+      shard1_extra: ${{ steps.plan.outputs.shard1_extra }}
+      shard2_extra: ${{ steps.plan.outputs.shard2_extra }}
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -159,6 +162,7 @@ jobs:
         # L'input arriva da env, non interpolato nello script (niente iniezione di comandi).
         env:
           REGIONS_INPUT: ${{ github.event.inputs.regions }}
+          POI_MAX_AGE_INPUT: ${{ github.event.inputs.poi_max_age_days }}
         run: |
           set -euo pipefail
           source tools/data-pipeline/scripts/pilot-regions.sh
@@ -184,6 +188,7 @@ jobs:
             varName="WEEKLY_SCHEDULE_DAY_${DOW}"
             SELECTED="${!varName}"
             echo "-- trigger schedule ($SCHEDULE): bucket del giorno $DOW"
+            ADAPTIVE_DOW="$DOW"
           fi
           if [ -z "$SELECTED" ]; then
             # workflow_dispatch senza regions esplicite (fuori da uno schedule): tutto il lotto,
@@ -238,6 +243,64 @@ jobs:
           done < "$SORTED_FILE"
           echo "-- carico stimato per shard (secondi): ${SHARD_LOAD[0]}, ${SHARD_LOAD[1]}, ${SHARD_LOAD[2]}"
 
+          # Quota adattiva (solo nelle run del calendario): dopo le regioni del giorno, ogni shard riceve
+          # una coda di regioni "in piu'" da fare solo se gli resta tempo (il job build le avvia solo se
+          # la stima ci sta nel budget, e non le rimanda mai alla continuazione). In ordine:
+          #   1. regioni in ritardo: POI pubblicati da piu' di POI_MAX_AGE_DAYS giorni o mai pubblicati
+          #      (fallite, rimandate oltre le continuazioni, nuove), dalla piu' vecchia;
+          #   2. le regioni di domani, cosi' una giornata tranquilla alleggerisce quella dopo.
+          # Una regione fatta in anticipo il suo giorno ha i POI giovani e si salta in fretta; se slitta
+          # oltre il limite d'eta' rientra nella coda 1. Le giornate troppo piene restano gestite dal
+          # budget e dalla continuazione.
+          declare -a EXTRAS=("" "" "")
+          if [ -n "${ADAPTIVE_DOW:-}" ]; then
+            POI_MAX_AGE="${POI_MAX_AGE_INPUT:-6}"
+            declare -A TODAY=()
+            for r in "${REGION_ARR[@]}"; do TODAY[$r]=1; done
+            # Eta' dei POI pubblicati, dal nome dell'asset (regionId--YYYY.MM.DD[.run.tentativo]--poi.db...).
+            declare -A POI_AGE=()
+            if curl -sSfL --retry 3 --retry-delay 5 --max-time 120 -A "PocketTravelDataPipeline/1.0" "${{ env.PAGES_BASE_URL }}/manifest.json" -o "$RUNNER_TEMP/plan-manifest.json"; then
+              NOW_EPOCH="$(date -u +%s)"
+              while IFS=$'\t' read -r regionId url; do
+                d="$(printf '%s' "$url" | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)\(\.[0-9][0-9.]*\)\?--\(poi\|content\)\.db\(\.xz\)\?$#\1#p')"
+                [ -n "$d" ] || continue
+                POI_AGE[$regionId]=$(( (NOW_EPOCH - $(date -u -d "${d//./-}" +%s)) / 86400 ))
+              done < <(jq -r '.regions[] | [.regionId, (.poi.file.url // "")] | @tsv' "$RUNNER_TEMP/plan-manifest.json")
+            else
+              echo "::warning::manifest pubblicato non leggibile: niente regioni in ritardo nella quota adattiva"
+            fi
+            EXTRA_FILE="$RUNNER_TEMP/extra-regions.tsv"
+            : > "$EXTRA_FILE"
+            if [ "${#POI_AGE[@]}" -gt 0 ]; then
+              for spec in "${PILOT_REGIONS[@]}"; do
+                IFS='|' read -r regionId _ <<< "$spec"
+                [ -z "${TODAY[$regionId]:-}" ] || continue
+                age="${POI_AGE[$regionId]:-9999}"
+                if [ "$age" -gt "$POI_MAX_AGE" ]; then printf '%d\t%s\n' "$age" "$regionId"; fi
+              done | sort -t $'\t' -k1,1nr | cut -f2 >> "$EXTRA_FILE"
+            fi
+            OVERDUE_COUNT="$(wc -l < "$EXTRA_FILE")"
+            nextVar="WEEKLY_SCHEDULE_DAY_$(( ADAPTIVE_DOW % 7 + 1 ))"
+            IFS=',' read -ra TOMORROW <<< "${!nextVar}"
+            for r in "${TOMORROW[@]}"; do
+              if [ -n "$r" ] && [ -z "${TODAY[$r]:-}" ] && ! grep -qxF "$r" "$EXTRA_FILE"; then echo "$r" >> "$EXTRA_FILE"; fi
+            done
+            echo "-- quota adattiva: $OVERDUE_COUNT regioni in ritardo e $(( $(wc -l < "$EXTRA_FILE") - OVERDUE_COUNT )) di domani in coda, se resta tempo"
+            # Stessa spartizione golosa, con il carico gia' assegnato: "id:secondi stimati", in ordine di priorita'.
+            while read -r regionId; do
+              [ -n "$regionId" ] || continue
+              weight="${TIMINGS[$regionId]:-$(( ${WEEKLY_SCHEDULE_TILES[$regionId]:-1} * 50 ))}"
+              lightest=0
+              for ((n = 1; n < SHARD_COUNT; n++)); do
+                [ "${SHARD_LOAD[$n]}" -lt "${SHARD_LOAD[$lightest]}" ] && lightest=$n
+              done
+              EXTRAS[$lightest]="${EXTRAS[$lightest]:+${EXTRAS[$lightest]},}$regionId:$weight"
+              SHARD_LOAD[$lightest]=$((SHARD_LOAD[$lightest] + weight))
+            done < "$EXTRA_FILE"
+          fi
+          echo "shard0_extra=${EXTRAS[0]}" >> "$GITHUB_OUTPUT"
+          echo "shard1_extra=${EXTRAS[1]}" >> "$GITHUB_OUTPUT"
+          echo "shard2_extra=${EXTRAS[2]}" >> "$GITHUB_OUTPUT"
           echo "shard0=${SHARDS[0]}" >> "$GITHUB_OUTPUT"
           echo "shard1=${SHARDS[1]}" >> "$GITHUB_OUTPUT"
           echo "shard2=${SHARDS[2]}" >> "$GITHUB_OUTPUT"
@@ -894,11 +957,11 @@ jobs:
           source tools/data-pipeline/scripts/lib.sh
 
           case "${{ matrix.shard }}" in
-            0) SELECTED="${{ needs.plan.outputs.shard0 }}" ;;
-            1) SELECTED="${{ needs.plan.outputs.shard1 }}" ;;
-            2) SELECTED="${{ needs.plan.outputs.shard2 }}" ;;
+            0) SELECTED="${{ needs.plan.outputs.shard0 }}"; EXTRA="${{ needs.plan.outputs.shard0_extra }}" ;;
+            1) SELECTED="${{ needs.plan.outputs.shard1 }}"; EXTRA="${{ needs.plan.outputs.shard1_extra }}" ;;
+            2) SELECTED="${{ needs.plan.outputs.shard2 }}"; EXTRA="${{ needs.plan.outputs.shard2_extra }}" ;;
           esac
-          if [ -z "$SELECTED" ]; then
+          if [ -z "$SELECTED" ] && [ -z "$EXTRA" ]; then
             echo "-- shard ${{ matrix.shard }} vuoto, nulla da fare"
             echo "has_fragments=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -954,6 +1017,21 @@ jobs:
           # nuovo tentativo nella continuazione (failed-<shard>.txt).
           FAILED_REASONS=()
           IFS=',' read -ra SHARD_REGIONS <<< "$SELECTED"
+          # Coda della quota adattiva ("id:secondi stimati", vedi il job plan): dopo le regioni del giorno,
+          # ognuna solo se la sua stima ci sta ancora nel budget; quelle che non ci stanno non si rimandano.
+          declare -A EXTRA_ESTIMATE=()
+          EXTRA_REGIONS=()
+          if [ -n "${EXTRA:-}" ]; then
+            IFS=',' read -ra EXTRA_ITEMS <<< "$EXTRA"
+            for item in "${EXTRA_ITEMS[@]}"; do
+              EXTRA_REGIONS+=("${item%%:*}")
+              EXTRA_ESTIMATE[${item%%:*}]="${item##*:}"
+            done
+          fi
+          EXTRA_DONE=()
+          EXTRA_SKIPPED=0
+          declare -A SPEC_BY_ID=()
+          for spec in "${PILOT_REGIONS[@]}"; do SPEC_BY_ID[${spec%%|*}]="$spec"; done
           # Budget dall'inizio di questo passo (SECONDS), dump delle citta' compreso. Almeno una
           # regione parte sempre, cosi' ogni continuazione fa qualche progresso.
           if ! [[ "$TIME_BUDGET_MINUTES" =~ ^[0-9]+$ ]]; then
@@ -972,7 +1050,7 @@ jobs:
           : > "$CITIES_REGIONS_TSV"
           for spec in "${PILOT_REGIONS[@]}"; do
             IFS='|' read -r regionId _displayName _minLon _minLat _maxLon _maxLat wikiTitle _flag _groupName _groupLabel _continent <<< "$spec"
-            for r in "${SHARD_REGIONS[@]}"; do
+            for r in "${SHARD_REGIONS[@]}" "${EXTRA_REGIONS[@]}"; do
               [ "$r" = "$regionId" ] || continue
               printf '%s\t%s\n' "$regionId" "$wikiTitle" >> "$CITIES_REGIONS_TSV"
               break
@@ -986,12 +1064,24 @@ jobs:
           tools/data-pipeline/scripts/build-cities-dump.sh "$CITIES_REGIONS_TSV" "$CITIES_JSONL_DIR" en \
             || echo "::warning::dump citta' EN non generato per questo shard, regioni senza citta' inglesi nuove"
 
+          # Prima le regioni del giorno (nell'ordine di pilot-regions.sh), poi la coda della quota adattiva.
+          ORDERED_REGIONS=()
           for spec in "${PILOT_REGIONS[@]}"; do
+            id="${spec%%|*}"
+            for r in "${SHARD_REGIONS[@]}"; do [ "$r" = "$id" ] && ORDERED_REGIONS+=("$id") && break; done
+          done
+          ORDERED_REGIONS+=("${EXTRA_REGIONS[@]}")
+          for regionId in "${ORDERED_REGIONS[@]}"; do
+            spec="${SPEC_BY_ID[$regionId]:-}"
+            [ -n "$spec" ] || continue
             IFS='|' read -r regionId displayName minLon minLat maxLon maxLat _wikiTitle flag groupName groupLabel continent <<< "$spec"
-            match=false
-            for r in "${SHARD_REGIONS[@]}"; do [ "$r" = "$regionId" ] && match=true && break; done
-            [ "$match" = true ] || continue
-            if [ "$startedRegions" -gt 0 ] && [ "$SECONDS" -ge "$BUDGET_SECONDS" ]; then
+            if [ -n "${EXTRA_ESTIMATE[$regionId]:-}" ]; then
+              if [ $((SECONDS + EXTRA_ESTIMATE[$regionId])) -gt "$BUDGET_SECONDS" ]; then
+                EXTRA_SKIPPED=$((EXTRA_SKIPPED + 1))
+                continue
+              fi
+              EXTRA_DONE+=("$regionId")
+            elif [ "$startedRegions" -gt 0 ] && [ "$SECONDS" -ge "$BUDGET_SECONDS" ]; then
               DEFERRED_REGIONS+=("$regionId")
               continue
             fi
@@ -1108,6 +1198,9 @@ jobs:
             printf '%s\t%s\n' "${FAILED_REGIONS[$idx]}" "${FAILED_REASONS[$idx]}" >> "$RUNNER_TEMP/fragments/failed-${{ matrix.shard }}.txt"
           done
           # Regioni rimandate: le rilancia il job "publish" (continuazione automatica).
+          if [ "${#EXTRA_REGIONS[@]}" -gt 0 ]; then
+            echo "-- quota adattiva: ${#EXTRA_DONE[@]} regioni in piu' avviate (${EXTRA_DONE[*]:-nessuna}), $EXTRA_SKIPPED non entrate nel budget"
+          fi
           if [ "${#DEFERRED_REGIONS[@]}" -gt 0 ]; then
             printf '%s\n' "${DEFERRED_REGIONS[@]}" > "$RUNNER_TEMP/fragments/deferred-${{ matrix.shard }}.txt"
             echo "::warning::budget di ${TIME_BUDGET_MINUTES} min superato: ${#DEFERRED_REGIONS[@]} regioni rimandate alla continuazione: ${DEFERRED_REGIONS[*]}"
