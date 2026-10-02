@@ -27,21 +27,26 @@ internal suspend fun unpackXz(staging: File, file: RegionManifestFile, fileXz: R
         val digest = MessageDigest.getInstance("SHA-256")
         var written = 0L
         try {
-            XZInputStream(File(staging, xz.name).inputStream().buffered()).use { input ->
-                part.outputStream().buffered().use { output ->
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    var read: Int
-                    while (input.read(buffer).also { read = it } != -1) {
-                        ensureActive()
-                        written += read
-                        if (written > file.sizeBytes) {
-                            File(staging, xz.name).delete()
-                            throw PermanentRegionPackageException("${file.name} decompresso supera la dimensione del manifest")
+            try {
+                XZInputStream(File(staging, xz.name).inputStream().buffered()).use { input ->
+                    part.outputStream().buffered().use { output ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        var read: Int
+                        while (input.read(buffer).also { read = it } != -1) {
+                            ensureActive()
+                            written += read
+                            if (written > file.sizeBytes) {
+                                throw PermanentRegionPackageException("${file.name} decompresso supera la dimensione del manifest")
+                            }
+                            digest.update(buffer, 0, read)
+                            output.write(buffer, 0, read)
                         }
-                        digest.update(buffer, 0, read)
-                        output.write(buffer, 0, read)
                     }
                 }
+            } catch (e: PermanentRegionPackageException) {
+                // Cancellato qui, a flusso chiuso: Windows (test sul JVM) non cancella un file ancora aperto.
+                File(staging, xz.name).delete()
+                throw e
             }
             val sha256 = digest.digest().joinToString("") { "%02x".format(it) }
             if (written != file.sizeBytes || !sha256.equals(file.sha256, ignoreCase = true)) {
