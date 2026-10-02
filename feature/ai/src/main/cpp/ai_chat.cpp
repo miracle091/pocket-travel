@@ -95,11 +95,19 @@ static llama_context *init_context(llama_model *model, const int n_threads, cons
     return context;
 }
 
-static common_sampler *new_sampler(float temp, int32_t top_k, float top_p) {
+// Valori di prepare(), riusati da setGrammar per ricreare il sampler con o senza grammatica.
+static int32_t g_top_k;
+static float g_top_p;
+
+// grammar GBNF vuota = campionamento libero; altrimenti l'output resta dentro la grammatica (regola "root").
+static common_sampler *new_sampler(float temp, int32_t top_k, float top_p, const std::string &grammar = "") {
     common_params_sampling sparams;
     sparams.temp = temp;
     sparams.top_k = top_k;
     sparams.top_p = top_p;
+    if (!grammar.empty()) {
+        sparams.grammar = common_grammar(COMMON_GRAMMAR_TYPE_USER, grammar);
+    }
     return common_sampler_init(g_model, sparams);
 }
 
@@ -116,6 +124,8 @@ static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads) {
     // solo a sapere se il template e' del tipo Qwen3 con blocco <think>, per forzarlo vuoto in
     // chat_add_and_format come faceva il vecchio export LiteRT-LM (training con enable_thinking=False).
     g_chat_template_supports_thinking = common_chat_templates_support_enable_thinking(g_chat_templates.get());
+    g_top_k = top_k;
+    g_top_p = top_p;
     g_sampler = new_sampler(DEFAULT_SAMPLER_TEMP, top_k, top_p);
     return 0;
 }
@@ -632,6 +642,32 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_generateN
             env->ThrowNew(exception_class, e.what());
         }
         return nullptr;
+    }
+}
+
+// Sostituisce il sampler: con una grammatica GBNF per le estrazioni strutturate (navigazione), vuota per
+// tornare al campionamento normale. Se la grammatica non si compila resta il sampler di prima e si
+// risponde 1; common_sampler_init in quel caso lancia o restituisce null, a seconda del punto in cui fallisce.
+static jint set_grammar_impl(JNIEnv *env, jstring jgrammar) {
+    const std::string grammar = jstring_to_utf8(env, jgrammar);
+    auto *sampler = new_sampler(DEFAULT_SAMPLER_TEMP, g_top_k, g_top_p, grammar);
+    if (!sampler) {
+        LOGe("%s: Invalid grammar", __func__);
+        return 1;
+    }
+    common_sampler_free(g_sampler);
+    g_sampler = sampler;
+    return 0;
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_setGrammarNative(JNIEnv *env, jobject /*unused*/, jstring jgrammar) {
+    try {
+        return set_grammar_impl(env, jgrammar);
+    } catch (const std::exception &e) {
+        LOGe("%s: %s", __func__, e.what());
+        return -100;
     }
 }
 

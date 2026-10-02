@@ -25,6 +25,17 @@ class NavigationRequestTest {
     }
 
     @Test
+    fun `altri modi di dire il mezzo e parole di contorno`() {
+        assertEquals(NavigationRequest("Torre Eiffel", NavigationRequestMode.WALK), parseNavigationRequest("voglio andare alla Torre Eiffel camminando"))
+        assertEquals(NavigationRequest("spiaggia di Jurmala", NavigationRequestMode.CAR), parseNavigationRequest("andiamo alla spiaggia di Jurmala con la macchina"))
+        assertEquals(NavigationRequest("Basilica di San Pietro", NavigationRequestMode.BIKE), parseNavigationRequest("come vado alla Basilica di San Pietro con la bici"))
+        assertEquals(NavigationRequest("Colosseo", NavigationRequestMode.WALK), parseNavigationRequest("portami al Colosseo, vado a piedi"))
+        assertEquals(NavigationRequest("British Museum", NavigationRequestMode.WALK), parseNavigationRequest("guide me to the British Museum, I'm walking"))
+        assertEquals(NavigationRequest("Piazza del Campo", NavigationRequestMode.CAR), parseNavigationRequest("indicazioni stradali per Piazza del Campo in auto"))
+        assertEquals(NavigationRequest("farmacia", null), parseNavigationRequest("portami subito alla farmacia"))
+    }
+
+    @Test
     fun `domande sulla guida non sono richieste di navigazione`() {
         assertNull(parseNavigationRequest("Come arrivare a Roma dall'Italia?"))
         assertNull(parseNavigationRequest("Come si arriva in centro?"))

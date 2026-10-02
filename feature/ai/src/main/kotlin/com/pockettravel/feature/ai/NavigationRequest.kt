@@ -32,16 +32,19 @@ private val TRIGGER = Regex(
     RegexOption.IGNORE_CASE,
 )
 
+// Il mezzo con il verbo davanti, se c'e' ("vado a piedi", "I'm walking"): si toglie tutto dalla meta.
+private const val MODE_VERB = "(?:,?\\s*\\b(?:vado|andiamo|vengo|i'm|i am|we're|we are)\\s+)?"
+
 private val MODES = listOf(
-    Regex("\\b(?:a piedi|on foot|walking)\\b", RegexOption.IGNORE_CASE) to NavigationRequestMode.WALK,
-    Regex("\\b(?:in bici(?:cletta)?|by (?:bike|bicycle)|cycling)\\b", RegexOption.IGNORE_CASE) to NavigationRequestMode.BIKE,
-    Regex("\\b(?:in (?:auto|macchina|automobile)|by car|driving)\\b", RegexOption.IGNORE_CASE) to NavigationRequestMode.CAR,
+    Regex("$MODE_VERB\\b(?:a piedi|camminando|on foot|walking)\\b", RegexOption.IGNORE_CASE) to NavigationRequestMode.WALK,
+    Regex("$MODE_VERB\\b(?:(?:in|con la) bici(?:cletta)?|by (?:bike|bicycle)|cycling)\\b", RegexOption.IGNORE_CASE) to NavigationRequestMode.BIKE,
+    Regex("$MODE_VERB\\b(?:in (?:auto|macchina|automobile)|con (?:la macchina|l'auto|l’auto)|by car|driving)\\b", RegexOption.IGNORE_CASE) to NavigationRequestMode.CAR,
 )
 
 private val POLITENESS = Regex(",?\\s*\\b(?:per favore|please)\\b", RegexOption.IGNORE_CASE)
 
 // Preposizioni e articoli davanti alla meta, tolti uno alla volta: "fino alla stazione" -> "stazione".
 private val LEADING_WORD = Regex(
-    "^\\s*(?:(?:verso|fino|per|a|ad|al|allo|alla|ai|agli|alle|in|il|lo|la|i|gli|le|to|towards?|for|the)(?:\\s+|$)|(?:all|dall|l)['’])",
+    "^\\s*(?:(?:subito|stradali|verso|fino|per|a|ad|al|allo|alla|ai|agli|alle|in|il|lo|la|i|gli|le|to|towards?|for|the)(?:\\s+|$)|(?:all|dall|l)['’])",
     RegexOption.IGNORE_CASE,
 )

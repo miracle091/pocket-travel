@@ -6,6 +6,7 @@ import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl
 import com.pockettravel.feature.ai.llamacpp.isModelLoaded
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -61,6 +62,26 @@ class OnDeviceLlmEngine @Inject constructor(
                 // singolo.
                 engine.resetConversation()
                 engine.sendUserPrompt(prompt).toList().joinToString(separator = "")
+            }
+        }
+    }
+
+    /**
+     * Come [generate], ma con l'output vincolato alla grammatica GBNF [grammar] e al massimo [maxTokens]
+     * token; la grammatica si toglie sempre alla fine, anche dopo un errore o una cancellazione.
+     */
+    suspend fun generateWithGrammar(prompt: String, grammar: String, maxTokens: Int): String = withContext(Dispatchers.IO) {
+        coordinator.withModelLock {
+            mutex.withLock {
+                loadModelIfNeeded()
+                engine.resetConversation()
+                engine.setGrammar(grammar)
+                try {
+                    engine.sendUserPrompt(prompt, maxTokens).toList().joinToString(separator = "")
+                } finally {
+                    // NonCancellable: dopo una cancellazione il sampler con la grammatica resterebbe per le domande normali.
+                    withContext(NonCancellable) { if (engine.state.value is InferenceEngine.State.ModelReady) engine.setGrammar("") }
+                }
             }
         }
     }

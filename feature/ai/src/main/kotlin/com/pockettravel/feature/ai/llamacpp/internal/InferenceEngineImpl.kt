@@ -94,6 +94,8 @@ internal class InferenceEngineImpl private constructor(
     @FastNative
     private external fun systemInfo(): String
 
+    private external fun setGrammarNative(grammar: String): Int
+
     private external fun processUserPrompt(userPrompt: String, predictLength: Int): Int
 
     private external fun generateNextToken(): String?
@@ -205,6 +207,15 @@ internal class InferenceEngineImpl private constructor(
                 "Cannot reset conversation in ${_state.value.javaClass.simpleName}!"
             }
             resetConversationNative()
+        }
+
+    override suspend fun setGrammar(grammar: String) =
+        withContext(llamaDispatcher) {
+            check(_state.value is InferenceEngine.State.ModelReady) {
+                "Cannot set grammar in ${_state.value.javaClass.simpleName}!"
+            }
+            val result = setGrammarNative(grammar)
+            require(result == 0) { "Invalid grammar: $result" }
         }
 
     /**

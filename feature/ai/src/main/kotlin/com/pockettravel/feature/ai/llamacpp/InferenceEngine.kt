@@ -35,6 +35,14 @@ interface InferenceEngine {
     suspend fun resetConversation()
 
     /**
+     * Vincola le risposte successive a una grammatica GBNF (regola "root"); "" torna al campionamento
+     * libero. Resta attiva finche' non la si cambia.
+     *
+     * @throws IllegalArgumentException se la grammatica non si compila (il sampler precedente resta)
+     */
+    suspend fun setGrammar(grammar: String)
+
+    /**
      * Sends a user prompt to the loaded model and returns a Flow of generated tokens.
      */
     fun sendUserPrompt(message: String, predictLength: Int = DEFAULT_PREDICT_LENGTH): Flow<String>
