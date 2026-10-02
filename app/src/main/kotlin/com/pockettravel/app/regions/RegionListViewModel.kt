@@ -282,9 +282,11 @@ class RegionListViewModel @Inject constructor(
         viewModelScope.launch { regionRepository.removePackage(regionId, kind) }
     }
 
-    /** Mappa leggera: la scelta dell'utente o, senza (automatica), com'e' venuta la mappa installata. */
+    /** Mappa leggera: la scelta dell'utente o, senza, com'e' la mappa installata; senza mappa leggera (il default). */
     fun observeMapLight(regionId: String): Flow<Boolean> =
-        combine(mapDetailPreferences.choices, mapDetailPreferences.installedLight) { choices, installed -> choices[regionId] ?: (regionId in installed) }
+        combine(mapDetailPreferences.choices, mapDetailPreferences.installedLight, regionRepository.observeInstalled()) { choices, light, installed ->
+            choices[regionId] ?: (regionId in light || installed.none { it.regionId == regionId && it.versionOf(PackageKind.MAP) != null })
+        }
 
     /**
      * Sceglie la mappa leggera o dettagliata. Con la mappa gia' installata la si estrae di nuovo subito: le tile si

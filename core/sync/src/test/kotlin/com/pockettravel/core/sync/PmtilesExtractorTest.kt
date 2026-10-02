@@ -498,19 +498,6 @@ class PmtilesExtractorTest {
     }
 
     @Test
-    fun `in automatico la mappa e' leggera solo oltre la soglia di peso`() {
-        serveNew(oldTiles())
-        val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
-        // 17 tile da 3 byte: 51 byte la mappa completa.
-        val heavy = PmtilesExtractor(alwaysDownloadMaxZoom = 6, autoLightBytes = 40).extract(mapSource, outputFile, detail = MapDetail.AUTO)
-        val light = File(sourceFile.parentFile, "light.pmtiles")
-        val small = PmtilesExtractor(alwaysDownloadMaxZoom = 6, autoLightBytes = 100).extract(mapSource, light, detail = MapDetail.AUTO)
-
-        assertEquals(1, heavy.maxZoom)
-        assertEquals(2, small.maxZoom)
-    }
-
-    @Test
     fun `da leggera a dettagliata si scarica solo l'ultimo zoom`() {
         serveNew(oldTiles())
         val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())

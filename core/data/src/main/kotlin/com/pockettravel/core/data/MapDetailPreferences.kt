@@ -11,8 +11,8 @@ import javax.inject.Singleton
 
 /**
  * Mappa leggera (senza la z14) per regione: [choices] la scelta dell'utente (true leggera, false dettagliata; assente =
- * automatica, leggera solo se la mappa completa e' molto pesante), [installedLight] le regioni la cui mappa installata
- * e' leggera, scritto dopo ogni estrazione: con la scelta automatica l'interruttore mostra com'e' andata.
+ * leggera per una mappa nuova, com'e' per una gia' installata), [installedLight] le regioni la cui mappa installata e'
+ * leggera, scritto dopo ogni estrazione.
  */
 @Singleton
 class MapDetailPreferences @Inject constructor(@ApplicationContext context: Context) {

@@ -87,12 +87,11 @@ class RegionPackageInstaller @Inject constructor(
                 // Con una mappa gia' installata (activatePackage la sostituisce solo dopo) scarica solo le
                 // tile cambiate; senza, o se il confronto fallisce, estrae tutto.
                 val installedMap = File(regionStorage.directoryFor(entry.regionId), RegionStorage.MAP_FILE)
-                // Leggera o dettagliata come ha scelto l'utente; senza scelta decide il peso (MapDetail.AUTO).
-                val detail = when (mapDetailPreferences.choice(entry.regionId)) {
-                    true -> MapDetail.LIGHT
-                    false -> MapDetail.FULL
-                    null -> MapDetail.AUTO
-                }
+                // Leggera o dettagliata come ha scelto l'utente. Senza scelta leggera, ma una mappa dettagliata gia'
+                // installata (scaricata prima della mappa leggera) resta dettagliata anche agli aggiornamenti.
+                val light = mapDetailPreferences.choice(entry.regionId)
+                    ?: (!installedMap.isFile || entry.regionId in mapDetailPreferences.installedLight.value)
+                val detail = if (light) MapDetail.LIGHT else MapDetail.FULL
                 val stats = withContext(Dispatchers.IO) {
                     pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE), installedMap, detail, onMapProgress) { ensureActive() }
                 }

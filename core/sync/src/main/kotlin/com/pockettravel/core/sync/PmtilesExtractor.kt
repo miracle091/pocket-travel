@@ -34,10 +34,9 @@ data class PmtilesExtractionStats(
 
 /**
  * Dettaglio della mappa: [FULL] tutti gli zoom della sorgente, [LIGHT] senza l'ultimo (la z14, circa il 40%
- * del peso: si perdono gli edifici piccoli e i nomi di molte vie minori, MapLibre ingrandisce la z13), [AUTO]
- * leggera solo se la mappa completa supera [PmtilesExtractor.autoLightBytes].
+ * del peso: si perdono gli edifici piccoli e i nomi di molte vie minori, MapLibre ingrandisce la z13).
  */
-enum class MapDetail { AUTO, FULL, LIGHT }
+enum class MapDetail { FULL, LIGHT }
 
 /**
  * Estrae, lato device, solo le tile dentro il bounding box di una regione dalla build
@@ -61,10 +60,7 @@ enum class MapDetail { AUTO, FULL, LIGHT }
  * Chiamato dentro RegionPackageDownloadWorker, non un meccanismo di download separato: dal
  * punto di vista dell'utente resta lo stesso "Scarica" di sempre.
  */
-class PmtilesExtractor internal constructor(
-    private val alwaysDownloadMaxZoom: Int,
-    private val autoLightBytes: Long = AUTO_LIGHT_BYTES,
-) {
+class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: Int) {
 
     @Inject constructor() : this(ALWAYS_DOWNLOAD_MAX_ZOOM)
 
@@ -173,13 +169,8 @@ class PmtilesExtractor internal constructor(
             val remote = remoteIndex.locate(tileIds, ensureActive)
             val installed = localIndex?.locate(tileIds, ensureActive)
 
-            // Mappa leggera: solo le tile sotto l'ultimo zoom, cioe' un prefisso dei tileId ordinati. In automatico
-            // lo si decide sul peso della mappa completa, letto dalle directory prima di scaricare qualsiasi tile.
-            val light = mapSource.maxZoom > mapSource.minZoom && when (detail) {
-                MapDetail.FULL -> false
-                MapDetail.LIGHT -> true
-                MapDetail.AUTO -> uniqueBytes(remote, tileIds.size) > autoLightBytes
-            }
+            // Mappa leggera: solo le tile sotto l'ultimo zoom, cioe' un prefisso dei tileId ordinati.
+            val light = detail == MapDetail.LIGHT && mapSource.maxZoom > mapSource.minZoom
             val count = if (light) tileIds.indexOfFirst { it >= zoomOffset(mapSource.maxZoom) }.let { if (it < 0) tileIds.size else it } else tileIds.size
 
             // tileId ordinati: le tile fino a alwaysDownloadMaxZoom sono le prime.
@@ -263,18 +254,6 @@ class PmtilesExtractor internal constructor(
         return end
     }
 
-    /** Byte delle prime [count] tile, contando una volta sola quelle che condividono l'offset (mare, terra vuota). */
-    private fun uniqueBytes(remote: PmtilesTileLocations, count: Int): Long {
-        var bytes = 0L
-        var previousOffset = -1L
-        for (i in 0 until count) {
-            if (remote.lengths[i] < 0 || remote.offsets[i] == previousOffset) continue
-            bytes += remote.lengths[i]
-            previousOffset = remote.offsets[i]
-        }
-        return bytes
-    }
-
     private fun readRemote(channel: FileChannel, position: Long, length: Int): ByteArray {
         if (length == 0) return ByteArray(0)
         val buffer = ByteBuffer.allocate(length)
@@ -312,8 +291,6 @@ class PmtilesExtractor internal constructor(
 
     private companion object {
         const val ALWAYS_DOWNLOAD_MAX_ZOOM = 6
-        // Oltre 1 GB (Italia ~2,3 GB, Lettonia 254 MB) la mappa automatica e' leggera: z14 = 40-45% del peso.
-        const val AUTO_LIGHT_BYTES = 1_000_000_000L
         const val MAX_BATCH_BYTES = 16L * 1024 * 1024
         const val MAX_GAP_BYTES = 256L * 1024
         const val ENSURE_ACTIVE_EVERY = 256
