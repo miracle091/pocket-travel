@@ -25,6 +25,8 @@ dependencies {
     implementation(libs.sqlite.jdbc)
     // Lettura PMTiles locali e decodifica dei tile vettoriali per GenerateAddresses.kt.
     implementation(libs.planetiler.core)
+    // Lettura e scrittura dei segmenti .rd5 per la variante "solo auto" dei percorsi (FilterRd5.kt).
+    implementation(project(":third-party:brouter-core"))
 
     testImplementation(libs.junit)
     // Usato anche da MergeManifests.kt (parsing/merge di manifest.json reali), non solo dai
@@ -57,6 +59,7 @@ registerPipelineTask("generateCities", "com.pockettravel.pipeline.GenerateCities
 registerPipelineTask("generatePoi", "com.pockettravel.pipeline.GeneratePoiKt", maxHeap = "4g", usesSqlite = true)
 registerPipelineTask("generateAddresses", "com.pockettravel.pipeline.GenerateAddressesKt", maxHeap = "4g", usesSqlite = true)
 registerPipelineTask("generateWorldMap", "com.pockettravel.pipeline.GenerateWorldMapKt")
+registerPipelineTask("filterRd5", "com.pockettravel.pipeline.FilterRd5Kt", maxHeap = "2g")
 registerPipelineTask("generateManifest", "com.pockettravel.pipeline.GenerateManifestKt")
 registerPipelineTask("generateAddressGrid", "com.pockettravel.pipeline.GenerateAddressGridKt")
 registerPipelineTask("mapFingerprint", "com.pockettravel.pipeline.MapFingerprintKt", maxHeap = "2g")
