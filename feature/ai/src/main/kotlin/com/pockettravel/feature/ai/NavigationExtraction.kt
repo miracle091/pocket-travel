@@ -8,8 +8,9 @@ import kotlinx.serialization.json.jsonObject
  * Pulizia della meta di una richiesta di navigazione (gia' riconosciuta da parseNavigationRequest) col modello sul
  * telefono, con l'output vincolato a NAVIGATION_GRAMMAR (OnDeviceLlmEngine.generateWithGrammar). Non e' ancora usata
  * dall'assistente: con i modelli di oggi (addestrati per domande e risposte) non migliorava le sole regole (misure in
- * NavigationGrammarDeviceTest: 32/34 con le regole, 32/34 col modello da 0,8B, 31/34 con quello da 2B). Da riprovare
- * con esempi di addestramento per questo compito. Il mezzo resta comunque alle regole: i modelli lo inventavano.
+ * NavigationGrammarDeviceTest: 32/34 con le regole e 32/34 con ognuno dei modelli da 0,8B, 2B e 4B; da solo il 4B
+ * trova 31/34 mete, ma sbaglia proprio le 2 che le regole non risolvono). Da riprovare con esempi di addestramento per
+ * questo compito. Il mezzo resta comunque alle regole: i modelli lo inventavano.
  */
 
 // JSON a forma fissa: niente spazi liberi, cosi' il modello piccolo non puo' divagare.
