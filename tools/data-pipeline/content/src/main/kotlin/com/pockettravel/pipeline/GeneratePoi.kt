@@ -140,6 +140,12 @@ data class Poi(
     // quello della lingua dell'interfaccia, utile soprattutto con alfabeti diversi ("清水寺" -> "Kiyomizu-dera").
     val nameEn: String? = null,
     val nameIt: String? = null,
+    // Tag OSM "toilets:wheelchair" (yes, limited, no...): i bagni accessibili di un POI che ha dei bagni
+    // (ristoranti, bar, stazioni...), anche se il POI in se' non e' segnato come accessibile.
+    val toiletsWheelchair: String? = null,
+    // Tag OSM "capacity:disabled": posti auto per disabili di un parcheggio, solo se e' un numero
+    // ("yes" senza numero non dice quanti sono).
+    val capacityDisabled: Int? = null,
 )
 
 private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagKeys: List<String>): Poi? {
@@ -185,6 +191,8 @@ private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagK
         country = if (category == "embassy") representedCountry(tags["country"]) else null,
         nameEn = translatedName(tags, "name:en"),
         nameIt = translatedName(tags, "name:it"),
+        toiletsWheelchair = tags["toilets:wheelchair"],
+        capacityDisabled = tags["capacity:disabled"]?.trim()?.toIntOrNull()?.takeIf { it > 0 },
     )
 }
 
@@ -211,8 +219,8 @@ private fun addressOf(tags: Map<String, String>): String? {
  *   stringhe identiche a ogni riga ma un solo intero.
  * - "poi": name, il code di poi_code, le coordinate come interi in microgradi (lat/lon * 1e6,
  *   precisione ~0,11 m, piu' che sufficiente per un segnalino) invece di REAL a 8 byte, phone e
- *   wheelchair facoltativi, openingHours e address per cibo, alloggi, ambasciate, farmacie, ospedali e negozi, website ed email per alloggi e ambasciate, country (paese rappresentato) per le ambasciate (colonne
- *   aggiunte dopo: le versioni dell'app che non le conoscono non le selezionano). Niente colonna
+ *   wheelchair facoltativi, openingHours e address per cibo, alloggi, ambasciate, farmacie, ospedali e negozi, website ed email per alloggi e ambasciate, country (paese rappresentato) per le ambasciate, toiletsWheelchair (bagni accessibili, qualunque POI) e
+ *   capacityDisabled (posti auto per disabili, parcheggi) (colonne aggiunte dopo: le versioni dell'app che non le conoscono non le selezionano). Niente colonna
  *   regionId (era costante su ogni riga: la regione la passa comunque chi importa il file).
  * - PRAGMA user_version = [POI_DB_FORMAT_VERSION]: marcatore di formato per PoiImporter, che
  *   legge sia questo che il vecchio formato (regionId/category/osmTag/lat/lon in chiaro,
@@ -262,10 +270,12 @@ fun writePoiDb(pois: List<Poi>, outputDb: File) {
                 email TEXT,
                 country TEXT,
                 nameEn TEXT,
-                nameIt TEXT
+                nameIt TEXT,
+                toiletsWheelchair TEXT,
+                capacityDisabled INTEGER
             )
             """.trimIndent(),
-        insertSql = "INSERT INTO poi (name, code, latE6, lonE6, phone, wheelchair, openingHours, address, website, email, country, nameEn, nameIt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        insertSql = "INSERT INTO poi (name, code, latE6, lonE6, phone, wheelchair, openingHours, address, website, email, country, nameEn, nameIt, toiletsWheelchair, capacityDisabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         rows = pois,
     ) { insert, poi ->
         insert.setString(1, poi.name)
@@ -281,6 +291,8 @@ fun writePoiDb(pois: List<Poi>, outputDb: File) {
         insert.setString(11, poi.country)
         insert.setString(12, poi.nameEn)
         insert.setString(13, poi.nameIt)
+        insert.setString(14, poi.toiletsWheelchair)
+        if (poi.capacityDisabled != null) insert.setInt(15, poi.capacityDisabled) else insert.setNull(15, java.sql.Types.INTEGER)
     }
 
     // A parte (non e' una tabella): writeSqliteTable ricrea una tabella per volta, il marcatore di

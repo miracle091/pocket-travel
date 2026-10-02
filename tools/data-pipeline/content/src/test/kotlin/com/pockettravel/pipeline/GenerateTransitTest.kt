@@ -100,6 +100,9 @@ class GenerateTransitTest {
             assertEquals("20261005", meta["window_start"])
             assertEquals("20261011", meta["valid_until"])
 
+            // Feed senza colonne wheelchair_*: tutto NULL.
+            assertEquals(listOf(listOf<Any?>(0, 0)), query("SELECT (SELECT COUNT(wheelchair) FROM stop), (SELECT COUNT(wheelchair) FROM trip)"))
+
             // La banchina ha come parent la stazione.
             assertEquals(listOf(listOf("Stazione Centrale, binario 1", 0)), query("SELECT name, parent FROM stop WHERE parent IS NOT NULL"))
 
@@ -119,6 +122,41 @@ class GenerateTransitTest {
             val days = query("SELECT days FROM service ORDER BY id").map { it[0] as ByteArray }
             assertArrayEquals(byteArrayOf(0b0011011), days[0])
             assertArrayEquals(byteArrayOf(0b1101000), days[1])
+        }
+    }
+
+    @Test
+    fun `accessibilita' in sedia a rotelle di fermate e corse, null se non indicata`() {
+        val accessible = feed + mapOf(
+            "stops.txt" to """
+                stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station,wheelchair_boarding
+                S,Stazione Centrale,56.9460,24.1210,1,,0
+                S1,Binario 1,56.9461,24.1211,0,S,1
+                B,Piazza,56.9500,24.1300,0,,2
+            """,
+            "trips.txt" to """
+                route_id,service_id,trip_id,trip_headsign,wheelchair_accessible
+                R1,FERIALE,T1,Piazza,1
+                R1,FERIALE,T2,Piazza,2
+                R1,FESTIVO,T3,Piazza,0
+                R1,VECCHIO,T4,Piazza,1
+            """,
+        )
+        val db = tmp.root.resolve("transit.db")
+        generateTransit(gtfs(accessible), db, "mdb-1", monday, 7)
+
+        DriverManager.getConnection("jdbc:sqlite:${db.path}").use { conn ->
+            fun query(sql: String): List<List<Any?>> = conn.createStatement().use { s ->
+                s.executeQuery(sql).use { rs -> buildList { while (rs.next()) add((1..rs.metaData.columnCount).map { rs.getObject(it) }) } }
+            }
+            // 0 e vuoto = nessuna informazione: NULL, non "no".
+            assertEquals(
+                listOf(listOf<Any?>("Binario 1", 1), listOf<Any?>("Piazza", 2), listOf<Any?>("Stazione Centrale", null)),
+                query("SELECT name, wheelchair FROM stop ORDER BY name"),
+            )
+            assertEquals(listOf<List<Any?>>(listOf(1), listOf(2), listOf(null)), query("SELECT wheelchair FROM trip ORDER BY service, id"))
+            assertEquals("1", query("SELECT value FROM meta WHERE key = 'wheelchair'").single()[0])
+            assertEquals("2", query("SELECT value FROM meta WHERE key = 'format'").single()[0])
         }
     }
 

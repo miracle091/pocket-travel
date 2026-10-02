@@ -232,6 +232,40 @@ class GeneratePoiTest {
     }
 
     @Test
+    fun `bagni accessibili e posti per disabili finiscono in colonne facoltative di poi db`() {
+        val dir = kotlin.io.path.createTempDirectory("pocket-travel-poi").toFile()
+        val xml = File(dir, "a.xml")
+        val outputDb = File(dir, "poi.db")
+        xml.writeText(
+            """<?xml version="1.0"?><osm version="0.6">""" +
+                """<node id="1" lat="43.93" lon="12.44"><tag k="amenity" v="restaurant"/><tag k="name" v="Da Mario"/><tag k="toilets:wheelchair" v="yes"/></node>""" +
+                """<node id="2" lat="43.93" lon="12.45"><tag k="amenity" v="parking"/><tag k="name" v="P1"/><tag k="capacity:disabled" v="3"/></node>""" +
+                """<node id="3" lat="43.93" lon="12.46"><tag k="amenity" v="parking"/><tag k="name" v="P2"/><tag k="capacity:disabled" v="yes"/></node>""" +
+                """<node id="4" lat="43.93" lon="12.47"><tag k="amenity" v="cafe"/><tag k="name" v="Bar"/></node>""" +
+                "</osm>",
+        )
+        try {
+            val pois = readPois(listOf(xml), poiTagKeys)
+            assertEquals(listOf("yes", null, null, null), pois.map { it.toiletsWheelchair })
+            // "yes" non e' un numero: posti per disabili ignoti, non zero.
+            assertEquals(listOf(null, 3, null, null), pois.map { it.capacityDisabled })
+            writePoiDb(pois, outputDb)
+            DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
+                conn.createStatement().use { statement ->
+                    val rs = statement.executeQuery("SELECT name, toiletsWheelchair, capacityDisabled FROM poi ORDER BY name")
+                    val rows = generateSequence { if (rs.next()) Triple(rs.getString(1), rs.getString(2), rs.getObject(3)) else null }.toList()
+                    assertEquals(
+                        listOf(Triple("Bar", null, null), Triple("Da Mario", "yes", null), Triple("P1", null, 3), Triple("P2", null, null)),
+                        rows,
+                    )
+                }
+            }
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `stalli per disabili da parking_space=disabled o capacity disabled, gli altri stalli restano generici`() {
         val dir = kotlin.io.path.createTempDirectory("pocket-travel-poi").toFile()
         val xml = File(dir, "a.xml")

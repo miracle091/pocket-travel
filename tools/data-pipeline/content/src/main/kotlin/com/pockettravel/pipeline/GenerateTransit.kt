@@ -17,15 +17,19 @@ import kotlin.math.roundToInt
  * partenza (lo schema "espanso" pesava anche dieci volte tanto).
  *
  * - meta(key, value): feed_id, format, timezone (agency_timezone: gli orari sono nell'ora locale
- *   della rete), window_start e valid_until (AAAAMMGG), window_days;
- * - stop(id, code, name, latE6, lonE6, parent): fermate e stazioni (location_type 0 e 1), parent =
- *   la stazione di una banchina, per raggruppare le partenze della stessa stazione;
+ *   della rete), window_start e valid_until (AAAAMMGG), window_days, wheelchair = 1 se stop e trip
+ *   hanno la colonna wheelchair (aggiunta senza cambiare format: l'app che non la conosce non la
+ *   seleziona, quella che la conosce controlla questa chiave sui transit.db piu' vecchi);
+ * - stop(id, code, name, latE6, lonE6, parent, wheelchair): fermate e stazioni (location_type 0 e 1), parent =
+ *   la stazione di una banchina, per raggruppare le partenze della stessa stazione; wheelchair =
+ *   wheelchair_boarding (1 accessibile, 2 no, NULL non indicato);
  * - route(id, short_name, long_name, type, color, text_color): route_type GTFS (0 tram, 1 metro,
  *   2 treno, 3 bus, 4 traghetto...);
  * - headsign(id, text): destinazioni, condivise tra le corse;
  * - service(id, days): days = bit i (byte i/8, bit i%8) acceso se il servizio c'e' il giorno
  *   window_start + i;
- * - trip(id, route, service, headsign): solo le corse con almeno un giorno nella finestra;
+ * - trip(id, route, service, headsign, wheelchair): solo le corse con almeno un giorno nella finestra;
+ *   wheelchair = wheelchair_accessible (1 accessibile, 2 no, NULL non indicato);
  * - stop_time(stop, minute, trip), chiave (stop, minute, trip) senza rowid: minuti dalla mezzanotte
  *   del giorno di servizio (oltre 1440 dopo mezzanotte, come in GTFS). Solo le partenze: niente
  *   capolinea d'arrivo (ultima fermata della corsa) ne' fermate con pickup_type = 1.
@@ -76,7 +80,7 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
         var timezone = ""
         rows("agency.txt") { r -> if (timezone.isEmpty()) timezone = r["agency_timezone"].orEmpty() }
 
-        data class Stop(val id: Int, val code: String?, val name: String, val lat: Double, val lon: Double, val parent: String?)
+        data class Stop(val id: Int, val code: String?, val name: String, val lat: Double, val lon: Double, val parent: String?, val wheelchair: Int?)
         val stops = LinkedHashMap<String, Stop>()
         rows("stops.txt") { r ->
             val type = r["location_type"].orEmpty().ifEmpty { "0" }
@@ -86,7 +90,7 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
             val id = r.getValue("stop_id")
             // Id ripetuto nel feed: vale la prima riga (con size calcolata prima del put due righe avrebbero lo stesso id).
             if (id in stops) return@rows
-            stops[id] = Stop(stops.size, r["stop_code"]?.ifEmpty { null }, r["stop_name"].orEmpty(), lat, lon, r["parent_station"]?.ifEmpty { null })
+            stops[id] = Stop(stops.size, r["stop_code"]?.ifEmpty { null }, r["stop_name"].orEmpty(), lat, lon, r["parent_station"]?.ifEmpty { null }, gtfsWheelchair(r["wheelchair_boarding"]))
         }
 
         data class Route(val id: Int, val shortName: String?, val longName: String?, val type: Int, val color: String?, val textColor: String?)
@@ -99,13 +103,13 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
             )
         }
 
-        data class Trip(val id: Int, val route: Int, val service: Int, var headsign: String?)
+        data class Trip(val id: Int, val route: Int, val service: Int, var headsign: String?, val wheelchair: Int?)
         val trips = HashMap<String, Trip>()
         rows("trips.txt") { r ->
             val service = serviceIds[r.getValue("service_id")] ?: return@rows
             val route = routes[r.getValue("route_id")]?.id ?: return@rows
             if (r.getValue("trip_id") in trips) return@rows
-            trips[r.getValue("trip_id")] = Trip(trips.size, route, service, r["trip_headsign"]?.ifEmpty { null })
+            trips[r.getValue("trip_id")] = Trip(trips.size, route, service, r["trip_headsign"]?.ifEmpty { null }, gtfsWheelchair(r["wheelchair_accessible"]))
         }
 
         DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
@@ -113,7 +117,7 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
             conn.createStatement().use { s ->
                 s.execute("PRAGMA page_size = 4096")
                 s.execute("CREATE TABLE meta (key TEXT NOT NULL PRIMARY KEY, value TEXT NOT NULL)")
-                s.execute("CREATE TABLE stop (id INTEGER PRIMARY KEY, code TEXT, name TEXT NOT NULL, latE6 INTEGER NOT NULL, lonE6 INTEGER NOT NULL, parent INTEGER)")
+                s.execute("CREATE TABLE stop (id INTEGER PRIMARY KEY, code TEXT, name TEXT NOT NULL, latE6 INTEGER NOT NULL, lonE6 INTEGER NOT NULL, parent INTEGER, wheelchair INTEGER)")
                 s.execute("CREATE TABLE route (id INTEGER PRIMARY KEY, short_name TEXT, long_name TEXT, type INTEGER NOT NULL, color TEXT, text_color TEXT)")
                 s.execute("CREATE TABLE headsign (id INTEGER PRIMARY KEY, text TEXT NOT NULL)")
                 s.execute("CREATE TABLE service (id INTEGER PRIMARY KEY, days BLOB NOT NULL)")
@@ -122,7 +126,7 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
                 // minuto di partenza. Svizzera: 15,3 milioni di righe stop_time del formato 1 contro 1,2
                 // milioni di pattern_stop, 248 MB contro 45 (27 MB contro 6,8 compressi), stesse partenze.
                 // Ordinata per (pattern, partenza): la tabella stessa fa da indice per le partenze di una fermata.
-                s.execute("CREATE TABLE trip (pattern INTEGER NOT NULL, start INTEGER NOT NULL, id INTEGER NOT NULL, route INTEGER NOT NULL, service INTEGER NOT NULL, headsign INTEGER, PRIMARY KEY (pattern, start, id)) WITHOUT ROWID")
+                s.execute("CREATE TABLE trip (pattern INTEGER NOT NULL, start INTEGER NOT NULL, id INTEGER NOT NULL, route INTEGER NOT NULL, service INTEGER NOT NULL, headsign INTEGER, wheelchair INTEGER, PRIMARY KEY (pattern, start, id)) WITHOUT ROWID")
                 // Temporanea: con la sequenza, per togliere l'ultima fermata di ogni corsa e ricavare la destinazione.
                 s.execute("CREATE TEMP TABLE raw_time (trip INTEGER NOT NULL, seq INTEGER NOT NULL, stop INTEGER NOT NULL, minute INTEGER NOT NULL, pickup INTEGER NOT NULL)")
             }
@@ -165,11 +169,12 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
                     items.forEach { st.bind(it); st.addBatch() }
                     st.executeBatch()
                 }
-            insertAll("INSERT INTO stop VALUES (?, ?, ?, ?, ?, ?)", stops.values) { stop ->
+            insertAll("INSERT INTO stop VALUES (?, ?, ?, ?, ?, ?, ?)", stops.values) { stop ->
                 setInt(1, stop.id); setString(2, stop.code); setString(3, stop.name)
                 setInt(4, (stop.lat * 1_000_000).roundToInt()); setInt(5, (stop.lon * 1_000_000).roundToInt())
                 val parent = stop.parent?.let { stops[it]?.id }
                 if (parent != null) setInt(6, parent) else setNull(6, java.sql.Types.INTEGER)
+                if (stop.wheelchair != null) setInt(7, stop.wheelchair) else setNull(7, java.sql.Types.INTEGER)
             }
             insertAll("INSERT INTO route VALUES (?, ?, ?, ?, ?, ?)", routes.values) { route ->
                 setInt(1, route.id); setString(2, route.shortName); setString(3, route.longName); setInt(4, route.type)
@@ -218,11 +223,12 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
                 }
                 st.executeBatch()
             }
-            insertAll("INSERT INTO trip VALUES (?, ?, ?, ?, ?, ?)", trips.values.filter { it.id in tripPattern }) { trip ->
+            insertAll("INSERT INTO trip VALUES (?, ?, ?, ?, ?, ?, ?)", trips.values.filter { it.id in tripPattern }) { trip ->
                 val (pattern, start) = tripPattern.getValue(trip.id)
                 setInt(1, pattern); setInt(2, start); setInt(3, trip.id); setInt(4, trip.route); setInt(5, trip.service)
                 val h = trip.headsign?.let { headsigns[it] }
                 if (h != null) setInt(6, h) else setNull(6, java.sql.Types.INTEGER)
+                if (trip.wheelchair != null) setInt(7, trip.wheelchair) else setNull(7, java.sql.Types.INTEGER)
             }
             val validUntil = lastActiveDay?.let { windowStart.plusDays(it.toLong()) }
             insertAll(
@@ -230,6 +236,7 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
                 listOfNotNull(
                     "feed_id" to feedId, "format" to TRANSIT_DB_FORMAT.toString(), "timezone" to timezone,
                     "window_start" to windowStart.format(GTFS_DATE), "window_days" to windowDays.toString(),
+                    "wheelchair" to "1",
                     validUntil?.let { "valid_until" to it.format(GTFS_DATE) },
                 ),
             ) { (k, v) -> setString(1, k); setString(2, v) }
@@ -246,6 +253,9 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
 
 /** Versione dello schema di transit.db: l'app rifiuta un formato piu' nuovo di quello che conosce. */
 const val TRANSIT_DB_FORMAT = 2
+
+/** wheelchair_boarding / wheelchair_accessible GTFS: 1 = si', 2 = no; vuoto o 0 (nessuna informazione) e altri valori = null. */
+internal fun gtfsWheelchair(value: String?): Int? = value?.trim()?.toIntOrNull()?.takeIf { it == 1 || it == 2 }
 
 /** Bit i acceso se [days][i]: byte i/8, bit i%8 (il meno significativo per primo). */
 internal fun dayBits(days: BooleanArray): ByteArray {
