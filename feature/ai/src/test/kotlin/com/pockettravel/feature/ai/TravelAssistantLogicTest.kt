@@ -123,6 +123,7 @@ class TravelAssistantLogicTest {
         val context = buildOnDeviceContext(sections, note)
 
         assertEquals("corpo dogane\n\nNota personale: Volo di ritorno\nMartedi alle 18", context)
+        assertEquals("corpo dogane\n\nPersonal note: Volo di ritorno\nMartedi alle 18", buildOnDeviceContext(sections, note, language = "en"))
     }
 
     @Test

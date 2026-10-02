@@ -65,7 +65,7 @@ class TravelAssistant @Inject constructor(
         // Ricerca sulla domanda in linguaggio naturale, non sulla ftsQuery (sintassi OR specifica
         // delle guide): NoteRepository.search fa la sua tokenizzazione, vedi rankNotesByQuery.
         val note = noteRepository.search(question, limit = 1).firstOrNull()
-        val context = buildOnDeviceContext(sections, note)
+        val context = buildOnDeviceContext(sections, note, language = language)
         val prompt = PromptTemplates.onDevicePrompt(
             context = context.ifBlank { PromptTemplates.emptyContext(language) },
             question = question,
@@ -144,8 +144,10 @@ internal fun mergeBestSections(
 // un contesto lungo la tagliava via tutta, proprio l'informazione piu' personale.
 private const val NOTE_MAX_CHARS = 500
 
-internal fun buildOnDeviceContext(sections: List<AssistantSection>, note: Note?, maxChars: Int = 2_000): String {
-    val noteText = note?.let { truncateContext("Nota personale: ${it.title}\n${it.body}", NOTE_MAX_CHARS) }
+internal fun buildOnDeviceContext(sections: List<AssistantSection>, note: Note?, maxChars: Int = 2_000, language: String = "it"): String {
+    // Etichetta nella lingua del prompt: i modelli inglesi la vedono cosi' nel training (generate_sft_dataset_en.py).
+    val label = if (language == "en") "Personal note" else "Nota personale"
+    val noteText = note?.let { truncateContext("$label: ${it.title}\n${it.body}", NOTE_MAX_CHARS) }
     val sectionsBudget = maxChars - (noteText?.let { it.length + 2 } ?: 0)
     val sectionsText = truncateContext(sections.joinToString("\n\n") { it.body }, sectionsBudget.coerceAtLeast(0))
     return listOfNotNull(sectionsText.takeIf { it.isNotBlank() }, noteText).joinToString("\n\n")
