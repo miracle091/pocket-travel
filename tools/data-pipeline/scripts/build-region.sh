@@ -713,8 +713,11 @@ poi_count() {
 # solo il controllo sul risultato vuoto.
 PUBLISHED_POI_COUNT="$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.count // empty' 2>/dev/null || true)"
 if [ -z "$PUBLISHED_POI_COUNT" ] && [ -n "${PUBLISHED_POI_URL:-}" ]; then
-  echo "-- conto i POI del poi.db pubblicato ($PUBLISHED_POI_URL)..."
-  if curl -fsSL --retry 3 --max-time 600 -A "$PIPELINE_USER_AGENT" "$PUBLISHED_POI_URL" -o "$WORKDIR/published-poi.db.xz" \
+  echo "-- conto i POI del poi.db pubblicato..."
+  # Il file compresso (fileXz): nelle voci meno recenti file.url punta al database non compresso, che
+  # non e' tra gli asset pubblicati.
+  PUBLISHED_POI_XZ_URL="$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.fileXz.url // .poi.file.url // ""' 2>/dev/null || true)"
+  if curl -fsSL --retry 3 --max-time 600 -A "$PIPELINE_USER_AGENT" "$PUBLISHED_POI_XZ_URL" -o "$WORKDIR/published-poi.db.xz" \
     && xz -dc "$WORKDIR/published-poi.db.xz" > "$WORKDIR/published-poi.db"; then
     PUBLISHED_POI_COUNT="$(poi_count "$WORKDIR/published-poi.db" || true)"
   else
