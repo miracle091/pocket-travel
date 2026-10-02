@@ -409,46 +409,20 @@ PILOT_REGIONS=(
   "isole-marianne-settentrionali|Isole Marianne Settentrionali (Stati Uniti)|144.90|14.10|146.10|20.60|Northern_Mariana_Islands|mp|||Oceania"
 )
 
-# Release GitHub che ospita gli asset (poi.db, .rd5) di una regione: una per continente,
-# "region-data-<continente>", perche' ogni release e' limitata a 1000 asset. Durante una run i
-# nuovi asset si aggiungono ai vecchi, che la pulizia post-deploy toglie solo alla fine: una
-# release deve reggere il doppio dei suoi asset stabili. L'Asia (760 asset al 2026-09-24, oltre
-# 1500 durante una rigenerazione completa) e' divisa in due: le 5 regioni piu' grandi (367 asset)
-# stanno in "region-data-asia-grandi". Gli asset gia' pubblicati restano dove sono finche' la
-# regione non li rigenera: il manifest ha URL assoluti, quindi una regione puo' averli su tutte e due.
-# I paesi divisi in regioni piu' piccole hanno una release propria, perche' le tile .rd5 di confine si
-# ripetono tra regioni vicine (stima per eccesso: USA ~190, Canada ~250, Cina ~190, Russia europea
-# ~110) e nella release del continente supererebbero il limite durante una rigenerazione. La
-# Francia (13 regioni, ~26 tile) resta in quella dell'Europa.
-# Dal 2026-09-25 (POI compressi ed extra: fino a 4 file POI per regione, aggiornati ogni settimana)
-# anche Asia e Africa sono divise in due per longitudine del centro del bbox: a ovest di 75° E
-# (Medio Oriente, Caucaso, Asia centrale, Pakistan) "region-data-asia-ovest", a ovest di 20° E
-# "region-data-africa-ovest"; il resto resta in "region-data-asia" e "region-data-africa".
+# Release GitHub che ospita gli asset (poi.db, .rd5) di una regione. Ogni release e' limitata a 1000
+# asset e durante una run i nuovi asset si aggiungono ai vecchi, che la pulizia post-deploy toglie solo alla
+# fine: una release deve reggere il doppio dei suoi asset stabili. Fino al 2026-10 c'era una release per
+# continente, divisa a mano quando si riempiva (Europa a 810 asset il 2026-10-01). Ora le regioni si
+# spartiscono su REGION_RELEASES release "region-data-rNN" in base al regionId (cksum, stabile e senza
+# dipendenze): ~4400 asset su 32 release fanno ~140 asset per release (la piu' piena ~240), cioe' meno di
+# 500 anche durante una rigenerazione completa e spazio per il doppio delle regioni prima del primo
+# avviso a 500. Aggiungere regioni non richiede di toccare nulla; cambiare REGION_RELEASES sposta le
+# regioni alla prossima rigenerazione. Gli asset gia' pubblicati restano dove sono finche' la regione non
+# li rigenera: il manifest ha URL assoluti, e la pulizia toglie le vecchie release una volta vuote.
+REGION_RELEASES=32
 region_release_tag() {
-  local regionId="$1" continent="$2"
-  case "$regionId" in
-    russia-siberia|russia-estremo-oriente|indonesia|india) echo "region-data-asia-grandi" ;;
-    stati-uniti-*) echo "region-data-stati-uniti" ;;
-    canada-*) echo "region-data-canada" ;;
-    cina-*) echo "region-data-cina" ;;
-    russia-caucaso-settentrionale|russia-centro|russia-nord-europeo|russia-nord-ovest|russia-terra-nera-centrale|russia-urali-europei|russia-volga|russia-volga-vjatka)
-      echo "region-data-russia-europea" ;;
-    *)
-      local tag spec lon
-      tag="region-data-$(echo "$continent" | tr 'A-Z' 'a-z' | tr ' ' '-')"
-      case "$tag" in
-        region-data-asia|region-data-africa)
-          for spec in "${PILOT_REGIONS[@]}"; do
-            [ "${spec%%|*}" = "$regionId" ] || continue
-            lon="$(echo "$spec" | awk -F'|' '{print ($3 + $5) / 2}')"
-            if awk -v lon="$lon" -v max="$([ "$tag" = region-data-asia ] && echo 75 || echo 20)" 'BEGIN{exit !(lon < max)}'; then
-              tag="$tag-ovest"
-            fi
-            break
-          done ;;
-      esac
-      echo "$tag" ;;
-  esac
+  local regionId="$1"
+  printf 'region-data-r%02d' "$(( $(printf '%s' "$regionId" | cksum | cut -d' ' -f1) % REGION_RELEASES ))"
 }
 
 # Regioni divise in regioni piu' piccole: regionId della vecchia regione | groupName delle nuove.

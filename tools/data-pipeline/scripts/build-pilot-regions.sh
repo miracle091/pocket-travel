@@ -41,7 +41,7 @@ for spec in "${REGIONS[@]}"; do
   IFS='|' read -r regionId displayName minLon minLat maxLon maxLat _wikiTitle _flag _group _groupLabel continent <<< "$spec"
   regionOut="$OUTPUT_ROOT/$regionId"
   "$SCRIPT_DIR/build-region.sh" "$regionId" "$displayName" "$VERSION" \
-    "$minLon" "$minLat" "$maxLon" "$maxLat" "$RELEASE_BASE_URL_PREFIX/$(region_release_tag "$regionId" "$continent")" "$regionOut"
+    "$minLon" "$minLat" "$maxLon" "$maxLat" "$RELEASE_BASE_URL_PREFIX/$(region_release_tag "$regionId")" "$regionOut"
   FRAGMENT_FILES+=("$regionOut/manifest-fragment.json")
 done
 
@@ -56,7 +56,7 @@ mkdir -p "$SITE_DIR" "$RELEASE_ASSETS_DIR/region-data-guide"
 cp "$OUTPUT_ROOT/guides/guides.db.xz" "$RELEASE_ASSETS_DIR/region-data-guide/guides--${VERSION}--guides.db.xz"
 for spec in "${REGIONS[@]}"; do
   IFS='|' read -r regionId _ _ _ _ _ _ _ _ _ continent <<< "$spec"
-  tagDir="$RELEASE_ASSETS_DIR/$(region_release_tag "$regionId" "$continent")"
+  tagDir="$RELEASE_ASSETS_DIR/$(region_release_tag "$regionId")"
   mkdir -p "$tagDir"
   # poi-extra.db.xz e preview.pmtiles.xz solo se build-region.sh li ha prodotti.
   for xz in poi.db.xz poi-extra.db.xz preview.pmtiles.xz; do

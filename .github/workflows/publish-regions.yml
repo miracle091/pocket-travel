@@ -129,19 +129,13 @@ jobs:
           set -euo pipefail
           source .github/scripts/retry.sh
           source tools/data-pipeline/scripts/pilot-regions.sh
-          # Una release per continente ("region-data-<slug>"): GitHub limita ogni release a 1000
-          # asset e la sola release "region-data" con i pacchetti di 254 regioni li ha
-          # sforati (HTTP 422 "file_count limited to 1000 assets per release"). Le regioni gia'
-          # pubblicate restano raggiungibili sulla vecchia release "region-data" (URL nel manifest).
-          # Asia e Africa sono divise in piu' release, vedi region_release_tag in pilot-regions.sh.
-          declare -A SEEN=()
-          for spec in "${PILOT_REGIONS[@]}"; do
-            IFS='|' read -r regionId _ _ _ _ _ _ _ _ _ continent <<< "$spec"
-            tag="$(region_release_tag "$regionId" "$continent")"
-            [ -z "${SEEN[$tag]:-}" ] || continue
-            SEEN[$tag]=1
+          # Le regioni si spartiscono su REGION_RELEASES release "region-data-rNN" (region_release_tag in
+          # pilot-regions.sh): GitHub limita ogni release a 1000 asset (HTTP 422 "file_count limited to 1000
+          # assets per release"). Le si creano tutte, anche quelle che oggi non hanno ancora regioni.
+          for n in $(seq 0 $((REGION_RELEASES - 1))); do
+            tag="$(printf 'region-data-r%02d' "$n")"
             ensure_release "$tag" \
-              "Dati regionali (${tag#region-data-})" \
+              "Dati regionali ($((n + 1))/$REGION_RELEASES)" \
               "Asset binari (poi.db + segmenti .rd5) per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
           done
           # Release del pacchetto guide unico: stesso prefisso "region-data" cosi' la pulizia degli
@@ -1003,7 +997,7 @@ jobs:
             fi
             startedRegions=$((startedRegions + 1))
 
-            releaseTag="$(region_release_tag "$regionId" "$continent")"
+            releaseTag="$(region_release_tag "$regionId")"
             RELEASE_BASE_URL="$RELEASE_BASE_URL_PREFIX/$releaseTag"
             echo "::group::$regionId"
             regionStart=$SECONDS
@@ -1548,10 +1542,20 @@ jobs:
             done < <(gh api --paginate "repos/${{ github.repository }}/releases/$releaseId/assets?per_page=100" --jq '.[] | [.name, .created_at] | @tsv')
             kept=$((total - deleted))
             echo "-- $tag: $deleted asset non referenziati rimossi ($failed non rimovibili), $kept restano"
+            # Vecchie release per continente (prima di region-data-rNN), vuote dopo che le loro regioni si sono
+            # rigenerate: si tolgono, cosi' non restano release vuote ne' serve farlo a mano.
+            if [ "$kept" -eq 0 ] && [[ "$tag" == region-data-* ]] && ! [[ "$tag" =~ ^region-data-(r[0-9]{2}|guide)$ ]]; then
+              if retry gh release delete "$tag" --repo "${{ github.repository }}" --yes --cleanup-tag; then
+                echo "-- $tag: release vuota rimossa"
+              else
+                echo "::warning::$tag: release vuota non rimossa, ci riprova la prossima pulizia"
+              fi
+              continue
+            fi
             # Durante una rigenerazione completa i nuovi asset si sommano ai vecchi: sopra i 500
-            # stabili una release rischia di superare il limite di 1000 (vedi region_release_tag).
+            # stabili una release rischia di superare il limite di 1000 (vedi REGION_RELEASES e region_release_tag).
             if [ "$kept" -gt 500 ]; then
-              echo "::warning::$tag ha $kept asset: rischia il limite di 1000 durante una rigenerazione completa, valuta di dividerla (region_release_tag in pilot-regions.sh, ADDRESS_CELL_RELEASES per le celle dei civici)"
+              echo "::warning::$tag ha $kept asset: rischia il limite di 1000 durante una rigenerazione completa, aumenta REGION_RELEASES in pilot-regions.sh (ADDRESS_CELL_RELEASES per le celle dei civici)"
             fi
           done
 
