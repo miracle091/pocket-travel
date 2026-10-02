@@ -300,7 +300,7 @@ private fun CitiesDialog(
                 } else {
                     LaunchedEffect(regionId, city) { viewModel.loadCity(regionId, city) }
                     val cityUiState by viewModel.cityUiState.collectAsStateWithLifecycle()
-                    CityGuideContent(uiState = cityUiState, onOpenSource = onOpenSource)
+                    CityGuideContent(uiState = cityUiState, onOpenSource = onOpenSource, excludedTransit = excludedTransitCityNotes(city))
                 }
             }
         }
@@ -322,7 +322,7 @@ private fun CityListContent(cities: List<String>, onCityClick: (String) -> Unit)
 }
 
 @Composable
-private fun CityGuideContent(uiState: CityGuideUiState, onOpenSource: (url: String, title: String) -> Unit) {
+private fun CityGuideContent(uiState: CityGuideUiState, onOpenSource: (url: String, title: String) -> Unit, excludedTransit: List<Int>) {
     var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
     when {
         uiState.isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -346,6 +346,11 @@ private fun CityGuideContent(uiState: CityGuideUiState, onOpenSource: (url: Stri
             selectedCategory = selectedCategory,
             onSelectedCategoryChange = { selectedCategory = it },
             onOpenSource = onOpenSource,
+            extraContent = if (excludedTransit.isEmpty()) {
+                null
+            } else {
+                { item(key = "excluded_transit") { ExcludedTransitCard(excludedTransit, modifier = Modifier.padding(horizontal = Spacing.l)) } }
+            },
         )
     }
 }

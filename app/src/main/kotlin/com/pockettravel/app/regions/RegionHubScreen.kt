@@ -46,11 +46,13 @@ import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.feature.ai.AiAssistantScreen
+import com.pockettravel.feature.ai.NavigationRequestMode
 import com.pockettravel.feature.guide.GuideScreen
 import com.pockettravel.feature.map.MapRouteViewModel
 import com.pockettravel.feature.map.MapScreen
 import com.pockettravel.feature.map.MapSourceKind
 import com.pockettravel.feature.map.NavigationPlace
+import com.pockettravel.feature.map.TravelMode
 import com.pockettravel.core.ui.R as UiR
 
 private enum class RegionTab(val key: String, @StringRes val label: Int) {
@@ -206,7 +208,16 @@ fun RegionHubScreen(
                         }
                     }
                     RegionTab.NAVIGATION -> NavigatorScreen(regionId = regionId, plannerViewModel = plannerViewModel, navigationViewModel = navigationViewModel)
-                    RegionTab.AI -> AiAssistantScreen(regionId = regionId, onOpenOfficialSource = onOpenOfficialSource)
+                    RegionTab.AI -> AiAssistantScreen(
+                        regionId = regionId,
+                        onOpenOfficialSource = onOpenOfficialSource,
+                        // "Portami a ...": il Navigatore cerca la meta (tutte le regioni installate) col mezzo chiesto.
+                        onNavigationRequest = { request ->
+                            request.mode?.let { plannerViewModel.setTravelMode(it.toTravelMode()) }
+                            plannerViewModel.searchDestination(request.destination)
+                            selectedTab = RegionTab.NAVIGATION
+                        },
+                    )
                 }
                 }
             }
@@ -252,4 +263,10 @@ private fun MapDownloadBar(sourceKind: MapSourceKind, downloading: Boolean, onDo
             }
         }
     }
+}
+
+private fun NavigationRequestMode.toTravelMode(): TravelMode = when (this) {
+    NavigationRequestMode.WALK -> TravelMode.WALK
+    NavigationRequestMode.BIKE -> TravelMode.BIKE
+    NavigationRequestMode.CAR -> TravelMode.CAR
 }

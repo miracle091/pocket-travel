@@ -14,3 +14,11 @@ internal fun excludedTransitNotes(regionId: String): List<Int> = when (regionId)
     "francia" -> listOf(R.string.transit_excluded_idfm, R.string.transit_excluded_tcl)
     else -> emptyList()
 }
+
+/** Le stesse note nella guida della citta' servita dalla rete: [city] e' il titolo Wikivoyage, italiano o inglese. */
+internal fun excludedTransitCityNotes(city: String): List<Int> = when (city.lowercase()) {
+    "barcellona", "barcelona" -> listOf(R.string.transit_excluded_tmb)
+    "parigi", "paris" -> listOf(R.string.transit_excluded_idfm)
+    "lione", "lyon" -> listOf(R.string.transit_excluded_tcl)
+    else -> emptyList()
+}

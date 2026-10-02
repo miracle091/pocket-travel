@@ -5,7 +5,7 @@
 # non commerciale", "non opere derivate" o non dichiarate finche' non si leggono i termini.
 # Verificate il 2026-09-29 dalle API CKAN dei portali: data.gov.lv (CC0 1.0), dati.comune.milano.it
 # (cc-by), dati.comune.roma.it (cc-by-sa). Svezia, Spagna e Francia il 2026-09-29 dalle pagine delle
-# fonti: Trafiklab GTFS Regional (CC0 1.0), data.renfe.com e opendata.vlci.valencia.es (CC BY 4.0),
+# fonti: Trafiklab (CC0 1.0), data.renfe.com e opendata.vlci.valencia.es (CC BY 4.0),
 # transport.data.gouv.fr (ODbL 1.0 o Licence Ouverte, per dataset). Reti del NAP spagnolo
 # (nap.transportes.gob.es/licencia-datos) e del CRTM (crtm.es/licencia-de-uso): riuso libero con
 # "Powered by MITRAMS/CRTM" e un link al sito dell'ente (per questo pagina_licenza punta al sito), dati
@@ -20,6 +20,10 @@
 # 2025-03-31; si rimette quando il NAP ne pubblica uno nuovo (stesso id nel Mobility Database).
 # Renfe alta velocita', lunga e media distanza (2026-10-01): stessa licenza e condizioni di Cercanias; il
 # feed del Mobility Database (mdb-2620) e' fermo, si scarica direttamente da ssl.renfe.com.
+# Svezia (2026-10-02): la rete nazionale GTFS Sverige 2 (tutti i 72 operatori, CC0 1.0, zip da 58 MB)
+# al posto delle 6 reti di GTFS Regional, che coprivano solo SL, Vasttrafik, Skanetrafiken e tre
+# operatori nazionali. Non GTFS Sweden 3 (mdb-2939, 694 MB): Trafiklab stessa scrive che non contiene
+# ancora tutti i mezzi della Svezia e consiglia Sverige 2 per la copertura completa.
 #
 # regioni: regionId di pilot-regions.sh separati da virgola (le regioni che propongono la rete).
 # attribuzione: testo per la schermata Licenze e sotto il tabellone.
@@ -31,12 +35,7 @@ mdb-3385	lettonia	Treni (Pasažieru vilciens)	CC0-1.0	AS Pasažieru vilciens (da
 mdb-3502	lettonia	Riga (Rīgas satiksme)	CC0-1.0	Rīgas satiksme (data.gov.lv, CC0 1.0)	https://data.gov.lv/dati/lv/dataset/marsrutu-saraksti-rigas-satiksme-sabiedriskajam-transportam
 mdb-2666	italia	Milano (ATM)	CC-BY	Comune di Milano, ATM - Azienda Trasporti Milanesi (dati.comune.milano.it, CC BY); modificato	https://dati.comune.milano.it/dataset/ds929-orari-del-trasporto-pubblico-locale-nel-comune-di-milano-in-formato-gtfs
 mdb-1294	italia	Roma (Roma Servizi per la Mobilità)	CC-BY-SA	Roma Servizi per la Mobilità (dati.comune.roma.it, CC BY-SA); modificato	https://dati.comune.roma.it/catalog/it/dataset/c_h501-d-9000
-mdb-3237	svezia	Stoccolma (SL)	CC0-1.0	Storstockholms Lokaltrafik (Trafiklab GTFS Regional, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-regional/
-mdb-3248	svezia	Göteborg e Västra Götaland (Västtrafik)	CC0-1.0	Västtrafik (Trafiklab GTFS Regional, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-regional/
-mdb-3246	svezia	Malmö e Scania (Skånetrafiken)	CC0-1.0	Skånetrafiken (Trafiklab GTFS Regional, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-regional/
-mdb-3273	svezia	Treni SJ	CC0-1.0	SJ (Trafiklab GTFS Regional, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-regional/
-mdb-3277	svezia	Treni Snälltåget	CC0-1.0	Snälltåget (Trafiklab GTFS Regional, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-regional/
-mdb-3259	svezia	Traghetti per Gotland (Destination Gotland)	CC0-1.0	Destination Gotland (Trafiklab GTFS Regional, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-regional/
+mdb-2661	svezia	Svezia, tutti i mezzi pubblici (Samtrafiken)	CC0-1.0	Samtrafiken i Sverige AB (Trafiklab GTFS Sverige 2, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-sverige-2/
 mdb-2653	spagna	Treni suburbani (Renfe Cercanías e Rodalies)	CC-BY	Origen de los datos: Renfe Operadora (data.renfe.com, CC BY 4.0); modificato	https://data.renfe.com/dataset/horarios-cercanias
 renfe-avld	spagna	Treni alta velocità, lunga e media distanza (Renfe)	CC-BY	Origen de los datos: Renfe Operadora (data.renfe.com, CC BY 4.0); modificato	https://data.renfe.com/dataset/horarios-de-alta-velocidad-larga-distancia-y-media-distancia	https://ssl.renfe.com/gtransit/Fichero_AV_LD/google_transit.zip
 mdb-795	spagna	Valencia, autobus urbani (EMT València)	CC-BY	Ajuntament de València, EMT València (opendata.vlci.valencia.es, CC BY 4.0); modificato	https://opendata.vlci.valencia.es/dataset/google-transit-lines-stops-bus-schedules

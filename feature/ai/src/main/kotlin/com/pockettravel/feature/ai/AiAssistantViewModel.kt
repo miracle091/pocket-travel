@@ -6,9 +6,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pockettravel.core.sync.currentGuidesLanguage
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -230,10 +233,20 @@ class AiAssistantViewModel @Inject constructor(
         }
     }
 
+    // Richieste "portami a ..." per il Navigatore: un evento solo, consumato da chi apre la scheda.
+    private val _navigationRequests = Channel<NavigationRequest>(Channel.BUFFERED)
+    val navigationRequests: Flow<NavigationRequest> = _navigationRequests.receiveAsFlow()
+
     fun ask(regionId: String) {
         val state = _uiState.value
         val question = state.question.trim()
         if (question.isBlank() || state.isThinking) return
+        // Riconosciuta sul telefono con regole, anche in modalita' online: meta e posizione non escono mai.
+        parseNavigationRequest(question)?.let { request ->
+            _uiState.update { it.copy(question = "", errorMessage = null) }
+            _navigationRequests.trySend(request)
+            return
+        }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isThinking = true, errorMessage = null, askedQuestion = question, question = "", answer = null) }

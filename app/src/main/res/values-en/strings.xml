@@ -56,7 +56,7 @@
     <string name="package_delete_title_transit">Delete public transport timetables for %1$s?</string>
     <string name="package_delete_message">The region\'s other contents stay on the device.</string>
     <string name="map_download">Download the map</string>
-    <string name="map_preview_notice">Preview: download the region\'s map and routing for street detail and directions.</string>
+    <string name="map_preview_notice">Preview: download the region\'s map and routing for street detail and directions</string>
     <string name="map_missing_notice">Map not downloaded: download it to see streets and places. Without the map and routing downloaded, directions won\'t work.</string>
     <string name="regions_large_download_title">Large download</string>
     <string name="regions_large_download_message">%1$s is %2$s and you\'re on mobile data. Continue?</string>

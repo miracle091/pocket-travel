@@ -285,6 +285,12 @@ class NavigationPlannerViewModel @Inject constructor(
         }
     }
 
+    /** "Portami al Colosseo" dall'assistente: ricerca della meta gia' compilata, la scelta resta all'utente. */
+    fun searchDestination(text: String) {
+        startSearch(PlannerField.TO)
+        _query.value = text
+    }
+
     fun cancelSearch() {
         _searching.value = null
     }

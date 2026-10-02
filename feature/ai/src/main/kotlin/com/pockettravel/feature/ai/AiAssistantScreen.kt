@@ -43,6 +43,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -80,8 +81,10 @@ fun AiAssistantScreen(
     regionId: String,
     viewModel: AiAssistantViewModel = hiltViewModel(),
     onOpenOfficialSource: (url: String) -> Unit = {},
+    onNavigationRequest: (NavigationRequest) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(viewModel) { viewModel.navigationRequests.collect(onNavigationRequest) }
     AiAssistantContent(uiState = uiState, actions = viewModel.toActions(regionId), onOpenOfficialSource = onOpenOfficialSource)
 }
 
