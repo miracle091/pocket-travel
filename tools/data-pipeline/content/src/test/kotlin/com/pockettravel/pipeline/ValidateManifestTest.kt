@@ -92,6 +92,16 @@ class ValidateManifestTest {
     }
 
     @Test
+    fun `accetta la variante auto facoltativa dei percorsi e ne controlla i file`() {
+        val carFile = """{ "name": "E10_N40.rd5", "url": "https://github.com/miracle091/pocket-travel/releases/download/region-data-car-r03/san-marino--2026.09.14--car-E10_N40.rd5", "sizeBytes": 90, "sha256": "${"d".repeat(64)}" }"""
+        val withCar = { files: String -> validManifest().replace("\"poi\": {", "\"routingCar\": { \"version\": \"2026.09.14\", \"files\": [$files] },\n  \"poi\": {") }
+        validateManifestJson(withCar(carFile), allowedHosts)
+        assertThrows(ManifestValidationException::class.java) { validateManifestJson(withCar(""), allowedHosts) }
+        assertThrows(ManifestValidationException::class.java) { validateManifestJson(withCar("$carFile, $carFile"), allowedHosts) }
+        assertThrows(ManifestValidationException::class.java) { validateManifestJson(withCar(carFile.replace("https://github.com", "https://evil.example.com")), allowedHosts) }
+    }
+
+    @Test
     fun `accetta la copia compressa facoltativa delle guide e ne controlla l'host`() {
         fun withGuidesXz(url: String) = validManifest().replace(
             "--guides.db\", \"sizeBytes\": 900000, \"sha256\": \"${"c".repeat(64)}\" }",

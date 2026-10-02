@@ -96,6 +96,30 @@ fetch_rd5() {
   printf '%s\t%s\t%s\t%s\t%s\n' "$name" "${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${name}" \
     "$(wc -c < "$dest" | tr -d ' ')" "$(sha256sum < "$dest" | awk '{print $1}')" "$sourceSize $RD5_CLIP" >> "$2"
 }
+# Variante "solo auto" dei segmenti (voce routingCar del manifest, interruttore "Percorsi solo per l'auto"
+# nell'app): filterRd5 (Rd5CarFilter, circa il 43% del file intero) sulle tile appena scaricate, in
+# OUTPUT_DIR/car con lo stesso nome. Asset "<regione>--<versione>--car-<tile>.rd5" su CAR_ASSET_BASE_URL: la
+# release region-data-car-rNN accanto a region-data-rNN (le release reggono 1.000 asset), o la stessa base per
+# gli URL che non seguono quello schema (esecuzioni locali).
+CAR_ASSET_BASE_URL="${CAR_ASSET_BASE_URL:-${ASSET_BASE_URL/\/region-data-r//region-data-car-r}}"
+# build_car_variant <tsvIn> <tsvOut>: una riga per tile di <tsvIn> (scritto da fetch_rd5), stesso sourceKey.
+build_car_variant() {
+  local name sourceKey inputs=() f
+  : > "$2"
+  while IFS=$'\t' read -r name _; do
+    [ -n "$name" ] && inputs+=("$(winpath "$OUTPUT_DIR/$name")")
+  done < "$1"
+  [ "${#inputs[@]}" -gt 0 ] || return 0
+  mkdir -p "$OUTPUT_DIR/car"
+  (cd "$REPO_ROOT" && ./gradlew -q :tools:data-pipeline:content:filterRd5 \
+    --args="$(winpath "$REPO_ROOT/feature/map/src/main/assets/brouter-profile/lookups.dat") $(winpath "$OUTPUT_DIR/car") ${inputs[*]}")
+  while IFS=$'\t' read -r name _ _ _ sourceKey; do
+    [ -n "$name" ] || continue
+    f="$OUTPUT_DIR/car/$name"
+    printf '%s\t%s\t%s\t%s\t%s\n' "$name" "${CAR_ASSET_BASE_URL}/${REGION_ID}--${VERSION}--car-${name}" \
+      "$(wc -c < "$f" | tr -d ' ')" "$(sha256sum < "$f" | awk '{print $1}')" "$sourceKey" >> "$2"
+  done < "$1"
+}
 # rd5_head <url> <headersFile>: HEAD della tile con fino a 4 tentativi, scrive gli header nel file e
 # stampa il codice HTTP (000 = nessuna risposta). Solo 200 e 404 sono esiti definitivi: 404 e' una
 # tile senza strade (oceano), un timeout o un 5xx si ritenta e non va scambiato per oceano.
@@ -439,7 +463,8 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
       POI_STALE=true
     fi
 
-    if [ -n "$EXPECTED_SORTED" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$PUBLISHED_SORTED" = "$EXPECTED_SORTED" ] && [ "$POI_STALE" != "true" ] && [ "$MAP_DUE" != "true" ]; then
+    if [ -n "$EXPECTED_SORTED" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$PUBLISHED_SORTED" = "$EXPECTED_SORTED" ] && [ "$POI_STALE" != "true" ] && [ "$MAP_DUE" != "true" ] \
+      && [ "$(printf '%s' "$PUBLISHED_REGION" | jq 'has("routingCar")')" = "true" ]; then
       echo "== [$REGION_ID] invariata rispetto al manifest pubblicato (stesse tile .rd5, stesse dimensioni): salto la rigenerazione =="
       : > "$OUTPUT_DIR/.skipped"
       # manifestVersion quella del manifest pubblicato: una regione ancora v1 viene convertita da
@@ -467,8 +492,9 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
     # delle due cambia versione se non e' cambiata nessuna tile, altrimenti l'app riscaricherebbe
     # per niente). I POI non dipendono dalle tile di routing: il poi.db pubblicato resta com'e' se
     # ha al piu' POI_MAX_AGE_DAYS giorni, altrimenti si rigenera solo lui (sezione 3 in modalita'
-    # POI_ONLY). Una regione ancora v1 (senza "routing") viene rigenerata per intero.
-    if [ -n "$PUBLISHED_REGION" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$(printf '%s' "$PUBLISHED_REGION" | jq 'has("routing")')" = "true" ]; then
+    # POI_ONLY). Una regione ancora v1 (senza "routing"), o senza la variante auto (routingCar, che va
+    # ricavata da tutte le tile, non solo da quelle cambiate), viene rigenerata per intero.
+    if [ -n "$PUBLISHED_REGION" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$(printf '%s' "$PUBLISHED_REGION" | jq 'has("routing") and has("routingCar")')" = "true" ]; then
       SAME_TILES="$(jq -n --argjson a "$EXPECTED_SORTED" --argjson b "$PUBLISHED_SORTED" '($a | map(.name)) == ($b | map(.name))')"
       if [ "$SAME_TILES" = "true" ] && [ -n "$POI_AGE_DAYS" ]; then
         if [ "$POI_STALE" = "true" ]; then
@@ -486,12 +512,15 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
           fetch_rd5 "$tileFile" "$UPDATED_TSV"
         done <<< "$CHANGED_TILES"
         jq -R -s -c "$RD5_TSV_TO_JSON" "$UPDATED_TSV" > "$WORKDIR/updated-rd5.json"
+        build_car_variant "$UPDATED_TSV" "$WORKDIR/updated-car.tsv"
+        jq -R -s -c "$RD5_TSV_TO_JSON" "$WORKDIR/updated-car.tsv" > "$WORKDIR/updated-car.json"
         # Mappa e routing hanno versioni indipendenti: una tile .rd5 cambiata non fa piu' ri-estrarre
         # la mappa (prima map.version cambiava con routing.version).
         jq -c --arg id "$REGION_ID" --arg version "$VERSION" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-          --arg src "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" --slurpfile upd "$WORKDIR/updated-rd5.json" \
+          --arg src "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" --slurpfile upd "$WORKDIR/updated-rd5.json" --slurpfile updCar "$WORKDIR/updated-car.json" \
           --arg fp "$MAP_FINGERPRINT" --argjson mapdue "$MAP_DUE" '
           ($upd[0] | map({key: .name, value: .}) | from_entries) as $u
+          | ($updCar[0] | map({key: .name, value: .}) | from_entries) as $uc
           | {manifestVersion: 2, regions: [(.regions // [])[] | select(.regionId == $id)
               | .updatedAt = $now
               | .map.source.sourceUrl = $src
@@ -500,6 +529,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
                 else . end
               | if ($u | length) > 0 then
                   .routing.version = $version | .routing.files |= map(if $u[.name] then $u[.name] else . end)
+                  | .routingCar.version = $version | .routingCar.files |= map(if $uc[.name] then $uc[.name] else . end)
                 else . end]}' \
           "$PUBLISHED_MANIFEST" > "$OUTPUT_DIR/manifest-fragment.json"
         # Anteprima: si rigenera solo se la mappa e' davvero cambiata (MAP_DUE, non solo qualche
@@ -794,6 +824,8 @@ if [ "$POI_ONLY" = "true" ]; then
   echo "== [$REGION_ID] fatto (incrementale: POI rigenerati) =="
   exit 0
 fi
+ROUTING_CAR_TSV="$WORKDIR/routing-car.tsv"
+build_car_variant "$ROUTING_TSV" "$ROUTING_CAR_TSV"
 POI_EXTRA_SPEC="null"
 if [ -f "$POI_EXTRA_DB" ]; then
   POI_EXTRA_SPEC="$(jq -n -c --arg path "$(winpath "$POI_EXTRA_DB")" --arg url "$POI_EXTRA_DB_URL" '{path: $path, url: $url}')"
@@ -863,6 +895,10 @@ elif [ "$PUBLISHED_PREVIEW" != "null" ]; then
   jq -c --argjson preview "$PUBLISHED_PREVIEW" '.regions |= map(.preview = $preview)' "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
   mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
 fi
+# Variante "solo auto" dei percorsi: stessa versione e stesse tile di "routing".
+jq -c --arg version "$VERSION" --argjson files "$(jq -R -s -c "$RD5_TSV_TO_JSON" "$ROUTING_CAR_TSV")" \
+  '.regions |= map(.routingCar = {version: $version, files: $files})' "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
+mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
 # Impronta delle tile della mappa appena pubblicata (riferimento per la prossima versione).
 if [ -z "${MAP_FINGERPRINT:-}" ]; then
   MAP_FINGERPRINT="$(./gradlew -q :tools:data-pipeline:content:mapFingerprint \

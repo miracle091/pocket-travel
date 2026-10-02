@@ -108,6 +108,20 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
  * stessi del manifest intero, usati anche per scartare un frammento non valido senza bloccare le
  * altre regioni (selectFragments). Restituisce il regionId.
  */
+private fun validateRouting(routing: JSONObject, key: String, regionId: String, allowedHosts: Set<String>) {
+    validateVersion(routing, "$regionId/$key")
+    val files = routing.getJSONArray("files")
+    if (files.length() == 0) throw ManifestValidationException("Il $key di $regionId non contiene file")
+    val fileNames = mutableSetOf<String>()
+    for (j in 0 until files.length()) {
+        val file = files.getJSONObject(j)
+        if (!fileNames.add(file.getString("name"))) {
+            throw ManifestValidationException("File duplicati nel $key di $regionId: ${file.getString("name")}")
+        }
+        validateFile(file, regionId, allowedHosts)
+    }
+}
+
 internal fun validateRegion(region: JSONObject, allowedHosts: Set<String>): String {
     val regionId = region.getString("regionId")
     if (!isSafeSegment(regionId)) throw ManifestValidationException("regionId non valido: $regionId")
@@ -116,18 +130,9 @@ internal fun validateRegion(region: JSONObject, allowedHosts: Set<String>): Stri
     validateVersion(map, "$regionId/map")
     validateMapSource(map.getJSONObject("source"), regionId, allowedHosts)
 
-    val routing = region.getJSONObject("routing")
-    validateVersion(routing, "$regionId/routing")
-    val files = routing.getJSONArray("files")
-    if (files.length() == 0) throw ManifestValidationException("Il routing di $regionId non contiene file")
-    val fileNames = mutableSetOf<String>()
-    for (j in 0 until files.length()) {
-        val file = files.getJSONObject(j)
-        if (!fileNames.add(file.getString("name"))) {
-            throw ManifestValidationException("File duplicati nel routing di $regionId: ${file.getString("name")}")
-        }
-        validateFile(file, regionId, allowedHosts)
-    }
+    validateRouting(region.getJSONObject("routing"), "routing", regionId, allowedHosts)
+    // Variante "solo auto" dei segmenti (build-region.sh): facoltativa, assente nelle regioni non ancora rigenerate.
+    region.optJSONObject("routingCar")?.let { validateRouting(it, "routingCar", regionId, allowedHosts) }
 
     val poi = region.getJSONObject("poi")
     validateVersion(poi, "$regionId/poi")

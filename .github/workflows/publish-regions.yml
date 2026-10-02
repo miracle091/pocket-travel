@@ -140,6 +140,11 @@ jobs:
             ensure_release "$tag" \
               "Dati regionali ($((n + 1))/$REGION_RELEASES)" \
               "Asset binari (poi.db + segmenti .rd5) per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
+            # Variante "solo auto" dei segmenti (routingCar, build-region.sh): stessa ripartizione, release a parte
+            # per non sforare i 1000 asset di region-data-rNN.
+            ensure_release "$(printf 'region-data-car-r%02d' "$n")" \
+              "Percorsi solo auto ($((n + 1))/$REGION_RELEASES)" \
+              "Segmenti .rd5 con le sole strade per l'auto, per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
           done
           # Release del pacchetto guide unico: stesso prefisso "region-data" cosi' la pulizia degli
           # asset non piu' referenziati nel job "publish" la copre senza casi speciali.
@@ -1136,6 +1141,14 @@ jobs:
                   cp "$rd5" "$rd5Asset"
                   uploads+=("$rd5Asset")
                 done
+                # Variante "solo auto" (build-region.sh, cartella car/): sulla release region-data-car-rNN.
+                carUploads=()
+                for rd5 in "$regionOut"/car/*.rd5; do
+                  [ -e "$rd5" ] || continue
+                  carAsset="$regionOut/car/${regionId}--${VERSION}--car-$(basename "$rd5")"
+                  cp "$rd5" "$carAsset"
+                  carUploads+=("$carAsset")
+                done
                 # Fino a 3 tentativi: l'API a volte risponde "release not found" su una release che
                 # esiste (tanzania, run del 2026-09-24). --clobber rende sicuro il ricaricamento.
                 # Nessun file (es. la regione ha perso solo i POI extra): cambia solo il manifest.
@@ -1150,6 +1163,19 @@ jobs:
                   if [ "$attempt" -lt 3 ]; then
                     echo "-- upload di $regionId fallito (tentativo $attempt/3), riprovo tra $((attempt * 30))s"
                     sleep $((attempt * 30))
+                  fi
+                done
+                carReleaseTag="${releaseTag/region-data-r/region-data-car-r}"
+                for attempt in 1 2 3; do
+                  [ "$uploadOk" = true ] && [ "${#carUploads[@]}" -gt 0 ] || break
+                  if gh release upload "$carReleaseTag" "${carUploads[@]}" --repo "${{ github.repository }}" --clobber; then
+                    break
+                  fi
+                  if [ "$attempt" -lt 3 ]; then
+                    echo "-- upload dei percorsi auto di $regionId fallito (tentativo $attempt/3), riprovo tra $((attempt * 30))s"
+                    sleep $((attempt * 30))
+                  else
+                    uploadOk=false
                   fi
                 done
                 if [ "$uploadOk" != true ]; then
@@ -1653,7 +1679,7 @@ jobs:
             echo "-- $tag: $deleted asset non referenziati rimossi ($failed non rimovibili), $kept restano"
             # Vecchie release per continente (prima di region-data-rNN), vuote dopo che le loro regioni si sono
             # rigenerate: si tolgono, cosi' non restano release vuote ne' serve farlo a mano.
-            if [ "$kept" -eq 0 ] && [[ "$tag" == region-data-* ]] && ! [[ "$tag" =~ ^region-data-(r[0-9]{2}|guide)$ ]]; then
+            if [ "$kept" -eq 0 ] && [[ "$tag" == region-data-* ]] && ! [[ "$tag" =~ ^region-data-((car-)?r[0-9]{2}|guide)$ ]]; then
               if retry gh release delete "$tag" --repo "${{ github.repository }}" --yes --cleanup-tag; then
                 echo "-- $tag: release vuota rimossa"
               else
