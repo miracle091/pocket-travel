@@ -229,7 +229,7 @@ private fun removeTables(text: String): String {
     }
 }
 
-private fun cleanBody(raw: String): String {
+internal fun cleanBody(raw: String): String {
     val stripped = raw
         .replace(htmlCommentRegex, "")
         .replace(refTagRegex, "")

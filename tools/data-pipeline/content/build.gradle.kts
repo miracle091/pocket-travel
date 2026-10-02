@@ -71,3 +71,15 @@ registerPipelineTask("generateTransit", "com.pockettravel.pipeline.GenerateTrans
 tasks.test {
     workingDir = pipelineRoot
 }
+
+// Java e classpath per lanciare CleanWikitextKt da generate_sft_dataset.py (una riga ciascuno): il processo resta
+// aperto per tutta la generazione, una sezione per riga.
+tasks.register("cleanWikitextCommand") {
+    group = "data-pipeline"
+    dependsOn("classes")
+    val classpath = sourceSets["main"].runtimeClasspath
+    doLast {
+        println(File(System.getProperty("java.home"), "bin/java").absolutePath)
+        println(classpath.asPath)
+    }
+}

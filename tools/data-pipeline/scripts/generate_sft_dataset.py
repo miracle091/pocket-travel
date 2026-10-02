@@ -32,7 +32,7 @@ Wikivoyage spesso non tratta a fondo (vedi bilanciamento nel dev doc). L'articol
 si tengono solo i piu' pertinenti (WP_MAX_PARAGRAPHS): lunghi come una sezione Wikivoyage, non l'intro
 enciclopedica troncata a 2000 caratteri.
 """
-import argparse, html, json, random, re, sys, time, urllib.error, urllib.parse, urllib.request
+import argparse, html, json, os, random, re, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
 from collections import Counter
 from pathlib import Path
 
@@ -42,7 +42,7 @@ import wiki_dump
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parent / "data" / "sft"
-UA = {"User-Agent": "pocket-travel-sft/0.6 (https://github.com/miracle091/pocket-travel)"}
+UA = {"User-Agent": "pocket-travel-sft/0.7 (https://github.com/miracle091/pocket-travel)"}
 # Con --dump-dir: titolo della pagina di ogni fonte per regione (regionId, fonte, titolo), versionato cosi'
 # che dump + questo file bastino a rifare lo stesso dataset. Le regioni nuove si risolvono via API e si
 # aggiungono qui.
@@ -148,6 +148,60 @@ TOPIC = {  # per la risposta negativa: gia' con preposizione articolata
     "ARRIVARE": "su come arrivare", "COSA_VEDERE": "su cosa vedere", "ALLOGGIO": "su dove dormire", "SHOPPING": "sugli acquisti",
 }
 
+# Fatti rapidi del paese (sezione FATTI_RAPIDI di guides.db, "Campo: valore" per riga, come l'assistente li trova nel
+# contesto): domande per campo, la risposta e' la riga del campo. Con --guides-db.
+QUICK_FACT_QUESTIONS = {
+    "Lingua": ["Che lingua si parla in {r}?", "Quali lingue parlano in {r}?", "In {r} che lingua usano?"],
+    "Elettricità": ["Che prese elettriche ci sono in {r}?", "Serve un adattatore per le prese in {r}?", "Che tensione ha la corrente in {r}?"],
+    "Fuso orario": ["Che fuso orario ha {r}?", "Quante ore di differenza ci sono con {r}?", "Qual e' il fuso orario di {r}?"],
+    "Numeri di emergenza": ["Qual e' il numero dell'ambulanza in {r}?", "Che numero chiamo per un'emergenza in {r}?", "Qual e' il numero della polizia in {r}?"],
+}
+QUICK_FACT_TOPIC = {"Lingua": "sulla lingua", "Elettricità": "sulle prese elettriche", "Fuso orario": "sul fuso orario",
+                    "Numeri di emergenza": "sui numeri di emergenza"}
+# Radici che, se presenti in una sezione, ne fanno un contesto che risponde al campo: fuori dai negativi.
+QUICK_FACT_KEYWORDS = {"Lingua": ("lingu",), "Elettricità": ("prese", "presa", "volt", "elettric"),
+                       "Fuso orario": ("fuso", "utc", "gmt"), "Numeri di emergenza": ("emergenz", "ambulanz", "112", "polizia")}
+
+# Note personali inventate (nessun dato vero): l'app mette la nota piu' pertinente in fondo al contesto come
+# "Nota personale: <titolo>\n<testo>" (buildOnDeviceContext). (titolo, testo, domande, risposta: una frase del testo).
+NOTE_SAMPLES = [
+    ("Albergo", "Prenotazione all'Hotel Aurora, camera 214. Il check-in e' dalle 14 alle 22. La colazione e' inclusa.",
+     ["A che ora posso fare il check-in?", "Da che ora entro in albergo?"], "Il check-in e' dalle 14 alle 22."),
+    ("Albergo", "Prenotazione all'Hotel Aurora, camera 214. Il check-in e' dalle 14 alle 22. La colazione e' inclusa.",
+     ["La colazione e' compresa?", "In albergo ho la colazione?"], "La colazione e' inclusa."),
+    ("Volo di ritorno", "Volo AZ 611 del 14 maggio, partenza alle 18:40 dal terminal 3. Bagaglio da stiva di 23 kg.",
+     ["A che ora parte il mio volo di ritorno?", "Quando riparto?"], "Volo AZ 611 del 14 maggio, partenza alle 18:40 dal terminal 3."),
+    ("Volo di ritorno", "Volo AZ 611 del 14 maggio, partenza alle 18:40 dal terminal 3. Bagaglio da stiva di 23 kg.",
+     ["Quanto bagaglio da stiva posso portare?", "Che peso ha il bagaglio incluso?"], "Bagaglio da stiva di 23 kg."),
+    ("Auto a noleggio", "Ritiro dell'auto al banco Rent Easy dell'aeroporto. Restituzione con il pieno entro le 10 di domenica.",
+     ["Dove ritiro l'auto a noleggio?", "Dove prendo la macchina?"], "Ritiro dell'auto al banco Rent Easy dell'aeroporto."),
+    ("Auto a noleggio", "Ritiro dell'auto al banco Rent Easy dell'aeroporto. Restituzione con il pieno entro le 10 di domenica.",
+     ["Quando devo restituire l'auto?", "Entro quando riporto la macchina?"], "Restituzione con il pieno entro le 10 di domenica."),
+    ("Museo", "Biglietti per il museo nazionale prenotati per giovedi' alle 11. Il codice della prenotazione e' K7Q2.",
+     ["A che ora e' la visita al museo?", "Quando vado al museo?"], "Biglietti per il museo nazionale prenotati per giovedi' alle 11."),
+    ("Museo", "Biglietti per il museo nazionale prenotati per giovedi' alle 11. Il codice della prenotazione e' K7Q2.",
+     ["Qual e' il codice della prenotazione del museo?", "Che codice devo mostrare al museo?"], "Il codice della prenotazione e' K7Q2."),
+    ("Farmaci", "Portare sempre le pastiglie per la pressione, una al mattino. La ricetta e' nella tasca interna dello zaino.",
+     ["Dove ho messo la ricetta?", "Dov'e' la ricetta dei farmaci?"], "La ricetta e' nella tasca interna dello zaino."),
+    ("Treno", "Treno per la costa il 9 giugno alle 7:55, carrozza 6, posto 42. Il biglietto e' nell'app delle ferrovie.",
+     ["Che posto ho sul treno?", "In che carrozza sono sul treno?"], "Treno per la costa il 9 giugno alle 7:55, carrozza 6, posto 42."),
+    ("Ristorante", "Tavolo prenotato da Trattoria del Porto sabato alle 20:30 per quattro persone.",
+     ["A che ora e' la cena di sabato?", "Per quando ho prenotato al ristorante?"], "Tavolo prenotato da Trattoria del Porto sabato alle 20:30 per quattro persone."),
+    ("Assicurazione", "Assicurazione di viaggio con numero di assistenza +39 02 1234 5678, attivo giorno e notte. Polizza n. 55-0192.",
+     ["Che numero chiamo per l'assicurazione?", "Qual e' il numero di assistenza dell'assicurazione?"], "Assicurazione di viaggio con numero di assistenza +39 02 1234 5678, attivo giorno e notte."),
+]
+
+def load_quick_facts(guides_db):
+    """{regionId: {campo: riga}} dalla sezione FATTI_RAPIDI di guides.db (solo i campi di QUICK_FACT_QUESTIONS)."""
+    import sqlite3
+    out = {}
+    with sqlite3.connect(guides_db) as db:
+        for rid, body in db.execute("SELECT regionId, body FROM guide_sections WHERE category = 'FATTI_RAPIDI'"):
+            fields = {line.split(":", 1)[0]: line for line in body.splitlines() if line.split(":", 1)[0] in QUICK_FACT_QUESTIONS}
+            if fields:
+                out[rid] = (body, fields)
+    return out
+
 # Pagine delle citta' di Wikivoyage IT (solo con --dump-dir): sezioni diverse da quelle dei paesi, domande
 # pensate per una citta'. Allargano i contesti oltre le ~330 guide dei paesi.
 CITY_HEADING_TO_CATEGORY = {
@@ -250,11 +304,30 @@ def clean(raw):
     text = re.sub(r"\]\]|\[\[", "", " ".join(lines))
     return re.sub(r"\s+", " ", re.sub(r"\s*\(\s*[,;]?\s*\)", "", text)).strip()  # "()" dei template tolti
 
+_app_cleaner = None
+
+def app_clean(raw):
+    """La pulizia delle guide dell'app (cleanBody di GenerateGuideContent.kt, via CleanWikitext.kt): stesso testo,
+    con sottotitoli "▸", elenchi "•" e a capo, che l'assistente si trova nel contesto. Un solo processo JVM per tutta
+    la generazione, una sezione per riga."""
+    global _app_cleaner
+    if _app_cleaner is None:
+        root = HERE.parents[2]
+        gradlew = root / ("gradlew.bat" if os.name == "nt" else "gradlew")
+        lines = subprocess.run([str(gradlew), "-q", ":tools:data-pipeline:content:cleanWikitextCommand"], cwd=root,
+                               capture_output=True, text=True, check=True).stdout.strip().splitlines()
+        java, classpath = lines[-2], lines[-1]
+        _app_cleaner = subprocess.Popen([java, "-cp", classpath, "com.pockettravel.pipeline.CleanWikitextKt"],
+                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, encoding="utf-8")
+    _app_cleaner.stdin.write(json.dumps({"raw": raw}) + "\n")
+    _app_cleaner.stdin.flush()
+    return json.loads(_app_cleaner.stdout.readline())["text"]
+
 def parse_sections(text, headings=HEADING_TO_CATEGORY):
     out, cur, body = [], None, []
     def flush():
         cat = headings.get((cur or "").lower())
-        c = html.unescape(clean("\n".join(body)))
+        c = app_clean("\n".join(body))
         if cat and c and not LEFTOVER.search(c):
             out.append((cat, c))
     for line in text.splitlines():
@@ -267,7 +340,15 @@ def parse_sections(text, headings=HEADING_TO_CATEGORY):
     return out
 
 def sentences(text):
-    return [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if len(s.strip()) > 1]
+    """Frasi del testo riga per riga (le guide dell'app vanno a capo): i sottotitoli "▸" non sono frasi, il segno
+    "•" delle voci di elenco si toglie."""
+    out = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("▸ "):
+            continue
+        out += [x.strip() for x in re.split(r"(?<=[.!?])\s+", line.removeprefix("• ")) if len(x.strip()) > 1]
+    return out
 
 def covers(cat, text):
     """True se il testo tratta davvero la categoria (le sezioni Wikivoyage a volte coprono altro)."""
@@ -479,6 +560,8 @@ def main():
     ap.add_argument("--dump-date", help="data dei dump (AAAAMMGG), di default il nome della cartella")
     ap.add_argument("--cities", type=int, default=0,
                     help="con --dump-dir: quante citta' di Wikivoyage IT usare (0 = nessuna)")
+    ap.add_argument("--guides-db", type=Path,
+                    help="guides.db pubblicato: domande sui fatti rapidi (lingua, prese, fuso, numeri di emergenza)")
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
     rng = random.Random(a.seed)
@@ -685,6 +768,49 @@ def main():
                     seen.add((context, q))
                     ans = f"Il contesto non contiene informazioni {TOPIC[cat]}: {rng.choice(REFUSAL_TAILS)}"
                     rows.append(row("neg", rid, cat, context, q, ans)); city_neg += 1
+    # Fatti rapidi (--guides-db): due domande per campo con la sezione nel contesto (tra 0 e 2 sezioni del paese), e
+    # un rifiuto ogni 1/negatives circa con le sole altre sezioni, se nessuna tratta il campo. Fuori le regioni di test,
+    # che restano per misurare queste domande su paesi mai visti.
+    quick_pos = quick_neg = 0
+    if a.guides_db:
+        phase("fatti rapidi", str(a.guides_db))
+        for rid, (qf_body, fields) in sorted(load_quick_facts(a.guides_db).items()):
+            if rid not in data or rid in TEST_REGIONS:
+                continue
+            name, langs = data[rid]
+            others = [b for _, b in langs.get("it", [])]
+            for field, line in fields.items():
+                for q in rng.sample(QUICK_FACT_QUESTIONS[field], 2):
+                    q = q.format(r=name)
+                    context = make_context(rng, [qf_body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))))
+                    if line not in context or (context, q) in seen:
+                        continue
+                    seen.add((context, q))
+                    rows.append(row("pos", rid, "FATTI_RAPIDI", context, q, line)); quick_pos += 1
+                unrelated = [b for b in others if not any(k in b.lower() for k in QUICK_FACT_KEYWORDS[field])]
+                if unrelated and rng.random() < a.negatives * 2:
+                    q = rng.choice(QUICK_FACT_QUESTIONS[field]).format(r=name)
+                    context = make_context(rng, rng.sample(unrelated, min(len(unrelated), rng.randint(1, 3))))
+                    if (context, q) not in seen:
+                        seen.add((context, q))
+                        ans = f"Il contesto non contiene informazioni {QUICK_FACT_TOPIC[field]}: {rng.choice(REFUSAL_TAILS)}"
+                        rows.append(row("neg", rid, "FATTI_RAPIDI", context, q, ans)); quick_neg += 1
+    # Note personali (con --guides-db, insieme ai fatti rapidi): ogni nota in contesti di qualche regione, dopo 0-2
+    # sezioni del paese come nell'app. Nessun rifiuto in piu': i negativi senza nota ci sono gia'.
+    note_pos = 0
+    if a.guides_db:
+        note_regions = [rid for rid in data if rid not in TEST_REGIONS and data[rid][1].get("it")]
+        for title, body, questions, answer in NOTE_SAMPLES:
+            for rid in rng.sample(note_regions, min(len(note_regions), 8)):
+                secs = [b for _, b in data[rid][1]["it"]]
+                sections = make_context(rng, rng.sample(secs, min(len(secs), rng.choice([0, 1, 2]))))
+                note = f"Nota personale: {title}\n{body}"
+                context = "\n\n".join(x for x in (sections[: MAX_CONTEXT - len(note) - 2], note) if x)
+                q = rng.choice(questions)
+                if (context, q) in seen:
+                    continue
+                seen.add((context, q))
+                rows.append(row("pos", rid, "NOTE", context, q, answer)); note_pos += 1
     rng.shuffle(rows)
 
     # nomi distinti per --vs: il default (pubblicabile, senza VS) resta pocket_travel_sft.jsonl/ATTRIBUTION.tsv
@@ -709,6 +835,8 @@ def main():
     print(f"domande fuori tema distinte usate: {len(off_topic_uses)} (max {max(off_topic_uses.values(), default=0)} volte l'una)")
     if a.dump_dir:
         print(f"fonti: dump del {a.dump_date or a.dump_dir.name}, titoli in {SOURCES_TSV}")
+    if a.guides_db:
+        print(f"fatti rapidi: {quick_pos} positivi, {quick_neg} rifiuti; note personali: {note_pos} positivi")
     print(f"scritto {data_out}")
     print("SOLO USO LOCALE (--vs: include Viaggiare Sicuri, licenza non verificata, non pubblicare su HuggingFace)" if a.vs
           else "PUBBLICABILE (nessuna riga Viaggiare Sicuri)")
