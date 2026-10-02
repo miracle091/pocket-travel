@@ -1398,11 +1398,27 @@ jobs:
           # address-grid.json pubblicato prima di questa run: gli URL delle celle non toccate oggi
           # vivono solo li' (non in manifest.json, che ha solo il puntatore "addressGrid"), servono
           # alla pulizia degli asset (ultimo passo) per lo stesso periodo di grazia.
-          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/address-grid.json" \
-            -o "$RUNNER_TEMP/previous-address-grid.json" || rm -f "$RUNNER_TEMP/previous-address-grid.json"
-          # Stesso motivo per transit.json (URL degli orari delle reti).
-          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/transit.json" \
-            -o "$RUNNER_TEMP/previous-transit.json" || rm -f "$RUNNER_TEMP/previous-transit.json"
+          # Stesso motivo per transit.json (URL degli orari delle reti). Come per il manifest, solo
+          # un 404 vale come "indice non ancora pubblicato": ogni altro esito dopo i tentativi ferma
+          # il passo, altrimenti il sito si ripubblicherebbe senza l'indice precedente e le sue voci
+          # sparirebbero (e la pulizia degli asset cancellerebbe i file a cui puntavano).
+          for index_name in address-grid transit; do
+            INDEX_FILE="$RUNNER_TEMP/previous-$index_name.json"
+            rm -f "$INDEX_FILE"
+            INDEX_HTTP="$(curl -sSL --max-time 120 --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/$index_name.json" \
+              -o "$INDEX_FILE" -w '%{http_code}' || true)"
+            case "$INDEX_HTTP" in
+              200) ;;
+              404)
+                rm -f "$INDEX_FILE"
+                echo "::notice::nessun $index_name.json pubblicato (404)"
+                ;;
+              *)
+                echo "::error::$index_name.json pubblicato non scaricabile da $PAGES_BASE_URL/$index_name.json (HTTP ${INDEX_HTTP:-000}): non pubblico senza l'indice precedente" >&2
+                exit 1
+                ;;
+            esac
+          done
           # Stesso file anche per il merge (curl legge file://), senza scaricarlo una seconda volta; se
           # il download sopra e' fallito assemble-site.sh riprova dall'URL e decide lui (errore, o
           # BOOTSTRAP=1 alla prima pubblicazione).

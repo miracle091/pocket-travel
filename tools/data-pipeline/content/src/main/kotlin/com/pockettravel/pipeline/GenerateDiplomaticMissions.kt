@@ -2,6 +2,8 @@ package com.pockettravel.pipeline
 
 import java.io.File
 import java.sql.DriverManager
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 /**
  * Tabella diplomatic_missions di guides.db (e guides-en.db): ambasciate e consolati di tutto il mondo
@@ -43,8 +45,16 @@ fun readMissionsTsv(tsv: File): List<List<String?>> =
         values.toMutableList().also { it[9] = website; it[11] = lat; it[12] = lon }
     }
 
-fun writeDiplomaticMissions(missionsTsv: File?, publishedDb: File?, outputDb: File) {
+/**
+ * Wikidata cambia ogni giorno: le sole missioni non bastano a pubblicare un nuovo guides.db (tutti
+ * gli utenti lo riscaricherebbero), a meno che quelle pubblicate abbiano piu' di questi giorni.
+ * La data delle missioni sta nella tabella guides_meta di guides.db.
+ */
+const val MISSIONS_MAX_AGE_DAYS = 14L
+
+fun writeDiplomaticMissions(missionsTsv: File?, publishedDb: File?, outputDb: File, today: LocalDate = LocalDate.now(ZoneOffset.UTC)) {
     var rows = missionsTsv?.takeIf { it.length() > 0 }?.let(::readMissionsTsv)
+    var date: LocalDate? = today
     if (rows == null) {
         rows = publishedDb?.let { readRows(it, "SELECT ${missionColumns.joinToString()} FROM diplomatic_missions") }
         if (rows == null) {
@@ -52,8 +62,36 @@ fun writeDiplomaticMissions(missionsTsv: File?, publishedDb: File?, outputDb: Fi
             return
         }
         println("guide: missioni diplomatiche di Wikidata non lette in questa run, ricopio le ${rows.size} pubblicate")
+        // Le missioni ricopiate restano vecchie quanto erano: la data non si rinfresca.
+        date = publishedDb?.let(::readMissionsDate)
     }
     writeDiplomaticMissionsTable(rows, outputDb)
+    if (date != null) {
+        writeSqliteTable(
+            outputDb = outputDb,
+            tableName = "guides_meta",
+            createTableSql = "CREATE TABLE guides_meta (missions_date TEXT NOT NULL)",
+            insertSql = "INSERT INTO guides_meta (missions_date) VALUES (?)",
+            rows = listOf(date),
+        ) { insert, value -> insert.setString(1, value.toString()) }
+    }
+}
+
+/** Data (ISO) delle missioni di un guides.db; null se manca la tabella guides_meta o la data non e' leggibile. */
+fun readMissionsDate(db: File): LocalDate? =
+    readRows(db, "SELECT missions_date FROM guides_meta")?.firstOrNull()?.firstOrNull()
+        ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+/**
+ * True se il guides.db appena generato non va pubblicato: identico al pubblicato, oppure
+ * differente solo per le missioni diplomatiche e con le pubblicate piu' giovani di
+ * MISSIONS_MAX_AGE_DAYS (senza data nel file pubblicato si considerano vecchie).
+ */
+fun keepPublishedGuides(outputDb: File, publishedDb: File, today: LocalDate = LocalDate.now(ZoneOffset.UTC)): Boolean {
+    if (sameGuidesContent(outputDb, publishedDb)) return true
+    if (!sameGuidesContent(outputDb, publishedDb, includeMissions = false)) return false
+    val publishedDate = readMissionsDate(publishedDb) ?: return false
+    return !publishedDate.isBefore(today.minusDays(MISSIONS_MAX_AGE_DAYS))
 }
 
 fun writeDiplomaticMissionsTable(rows: List<List<String?>>, outputDb: File) {

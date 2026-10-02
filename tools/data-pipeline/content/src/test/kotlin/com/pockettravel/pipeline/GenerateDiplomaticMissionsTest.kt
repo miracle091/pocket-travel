@@ -5,6 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import java.io.File
 import java.sql.DriverManager
+import java.time.LocalDate
 
 class GenerateDiplomaticMissionsTest {
     private val tsvLine = listOf("Q1", "it", "fr", "embassy", "Ambasciata d'Italia", "Embassy of Italy", "Parigi", "", "", "https://x.example", "", "48.85", "2.35")
@@ -102,6 +103,64 @@ class GenerateDiplomaticMissionsTest {
             }
         } finally {
             listOf(tsv, db).forEach { it.delete() }
+        }
+    }
+
+    @Test
+    fun `solo le missioni cambiate non pubblicano un nuovo guides db prima di 14 giorni`() {
+        val tsv = tempFile(".tsv")
+        val published = tempFile(".published.db")
+        val fresh = tempFile(".guides.db")
+        val guides = listOf(RegionGuide("italia", "https://it.wikivoyage.org/wiki/Italia", listOf(GuideSectionRow("SICUREZZA", "Sicurezza", "testo"))))
+        val day0 = LocalDate.of(2026, 10, 1)
+        fun build(db: File, today: LocalDate, tsvText: String, base: File? = null, list: List<RegionGuide> = guides) {
+            tsv.writeText(tsvText)
+            writeGuidesDb(list, db)
+            writeDiplomaticMissions(tsv, base, db, today)
+        }
+        try {
+            build(published, day0, tsvLine + "\n")
+            assertEquals(day0, readMissionsDate(published))
+
+            // Missioni diverse, guide uguali: entro 14 giorni si tiene il pubblicato, il 15esimo no.
+            val changed = tsvLine.replace("Parigi", "Lione") + "\n"
+            build(fresh, day0.plusDays(14), changed, published)
+            assertEquals(true, keepPublishedGuides(fresh, published, day0.plusDays(14)))
+            assertEquals(false, keepPublishedGuides(fresh, published, day0.plusDays(15)))
+
+            // Guide cambiate: si pubblica subito, con le missioni fresche.
+            fresh.delete()
+            build(fresh, day0.plusDays(1), changed, published, listOf(guides[0].copy(sections = listOf(GuideSectionRow("SICUREZZA", "Sicurezza", "nuovo")))))
+            assertEquals(false, keepPublishedGuides(fresh, published, day0.plusDays(1)))
+            assertEquals(day0.plusDays(1), readMissionsDate(fresh))
+
+            // Contenuto identico (missioni comprese): si tiene sempre il pubblicato, anche se vecchio.
+            fresh.delete()
+            build(fresh, day0.plusDays(60), tsvLine + "\n", published)
+            assertEquals(true, keepPublishedGuides(fresh, published, day0.plusDays(60)))
+
+            // Pubblicato senza data (guides.db precedente): si considera vecchio.
+            DriverManager.getConnection("jdbc:sqlite:${published.path}").use { it.createStatement().use { s -> s.execute("DROP TABLE guides_meta") } }
+            fresh.delete()
+            build(fresh, day0.plusDays(1), changed, published)
+            assertEquals(false, keepPublishedGuides(fresh, published, day0.plusDays(1)))
+        } finally {
+            listOf(tsv, published, fresh).forEach { it.delete() }
+        }
+    }
+
+    @Test
+    fun `le missioni ricopiate dal pubblicato ne mantengono la data`() {
+        val tsv = tempFile(".tsv")
+        val published = tempFile(".published.db")
+        val copy = tempFile(".guides.db")
+        try {
+            tsv.writeText(tsvLine + "\n")
+            writeDiplomaticMissions(tsv, null, published, LocalDate.of(2026, 9, 1))
+            writeDiplomaticMissions(null, published, copy, LocalDate.of(2026, 10, 1))
+            assertEquals(LocalDate.of(2026, 9, 1), readMissionsDate(copy))
+        } finally {
+            listOf(tsv, published, copy).forEach { it.delete() }
         }
     }
 

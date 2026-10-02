@@ -24,7 +24,9 @@
 # Nello stesso file la tabella diplomatic_missions (ambasciate e consolati di tutto il mondo, da
 # Wikidata via wikidata_missions.py; l'app piu' vecchia la ignora). Se Wikidata non risponde si
 # ricopia la tabella dal guides.db pubblicato, e in mancanza anche di quella si pubblica senza,
-# con un avviso: le guide non falliscono mai per questo.
+# con un avviso: le guide non falliscono mai per questo. Wikidata cambia ogni giorno: le sole
+# missioni cambiate non producono un nuovo guides.db se quelle pubblicate hanno meno di 14 giorni
+# (data nella tabella guides_meta); una modifica alle guide lo pubblica subito, con missioni fresche.
 #
 # Richiede: curl, jq (solo se si passa publishedManifestUrl), xz, python3, gradle wrapper dalla root del repo.
 set -euo pipefail

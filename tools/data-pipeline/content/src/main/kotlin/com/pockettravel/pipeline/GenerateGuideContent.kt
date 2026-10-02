@@ -451,9 +451,9 @@ fun main(rawArgs: Array<String>) {
     outputDb.delete()
     writeGuidesDb(guides, outputDb)
     writeDiplomaticMissions(missionsTsv, publishedDb, outputDb)
-    if (publishedDb != null && sameGuidesContent(outputDb, publishedDb)) {
+    if (publishedDb != null && keepPublishedGuides(outputDb, publishedDb)) {
         outputDb.delete()
-        println("guide: contenuto identico a quello pubblicato, nessun nuovo guides.db")
+        println("guide: contenuto identico a quello pubblicato (o cambiate solo le missioni da meno di $MISSIONS_MAX_AGE_DAYS giorni), nessun nuovo guides.db")
         return
     }
     println("guide: ${guides.sumOf { it.sections.size }} sezioni di ${guides.size} regioni scritte in ${outputDb.path}")
@@ -527,12 +527,13 @@ private fun readRegionGuide(db: File, regionId: String): RegionGuide? =
     }
 
 /** Stesse righe in guide_sections e nelle tabelle dei numeri di emergenza e delle missioni diplomatiche, a prescindere dall'ordine di inserimento. */
-fun sameGuidesContent(a: File, b: File): Boolean {
-    val queries = listOf(
+fun sameGuidesContent(a: File, b: File, includeMissions: Boolean = true): Boolean {
+    val queries = listOfNotNull(
         "SELECT regionId, category, title, body, sourceUrl FROM guide_sections ORDER BY 1, 2, 3, 4, 5",
         "SELECT regionId, general, police, ambulance, fire FROM emergency_numbers ORDER BY 1",
         "SELECT regionId FROM emergency_numbers_none ORDER BY 1",
-        "SELECT wikidata, sending, host, kind, name, name_en, city, address, phone, website, email, lat, lon FROM diplomatic_missions ORDER BY 1",
+        "SELECT wikidata, sending, host, kind, name, name_en, city, address, phone, website, email, lat, lon FROM diplomatic_missions ORDER BY 1"
+            .takeIf { includeMissions },
     )
     return queries.all { sql -> readRows(a, sql) == readRows(b, sql) }
 }
