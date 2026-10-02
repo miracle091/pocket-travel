@@ -315,3 +315,11 @@ overpass_json() {
   done
   return 1
 }
+
+# pmtiles_log: filtro dell'output di "pmtiles extract" per il log della CI. go-pmtiles disegna barre di
+# avanzamento con \r e righe vuote (migliaia di righe per una run delle celle dei civici): restano solo
+# le righe utili (dimensioni, tile, tempo totale, errori). Si usa in coda: cmd 2>&1 | pmtiles_log (con
+# pipefail l'esito resta quello di cmd).
+pmtiles_log() {
+  tr '\r' '\n' | awk 'NF && !/fetching chunks|^[[:space:]]*[0-9]+%/'
+}

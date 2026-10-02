@@ -197,7 +197,7 @@ build_preview() {
     # di tempo), poi l'anteprima si salta (return 1) e il chiamante tiene quella pubblicata, invece di
     # perdere POI e percorsi gia' fatti.
     with_retries "anteprima di $REGION_ID" "$PREVIEW_ATTEMPTS" "$file" \
-      timeout "$PREVIEW_ATTEMPT_TIMEOUT" "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$zoom" || return 1
+      timeout "$PREVIEW_ATTEMPT_TIMEOUT" "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$zoom" 2>&1 | pmtiles_log || return 1
     xz -T1 --lzma2=preset=9e,dict=16MiB -c "$file" > "$file.xz"
     local xzSize
     xzSize="$(wc -c < "$file.xz" | tr -d ' ')"
@@ -211,7 +211,7 @@ build_preview() {
       # Il tentativo verso l'alto e' facoltativo: se l'estrazione fallisce resta lo zoom pubblicato.
       if ! preview_over_cap "$sourceUrl" "$((zoom + 1))" \
         && with_retries "anteprima di $REGION_ID a z$((zoom + 1))" "$PREVIEW_ATTEMPTS" "$file" \
-        timeout "$PREVIEW_ATTEMPT_TIMEOUT" "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$((zoom + 1))"; then
+        timeout "$PREVIEW_ATTEMPT_TIMEOUT" "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$((zoom + 1))" 2>&1 | pmtiles_log; then
         xz -T1 --lzma2=preset=9e,dict=16MiB -c "$file" > "$file.xz"
         upSize="$(wc -c < "$file.xz" | tr -d ' ')"
       fi
@@ -292,7 +292,6 @@ download_with_progress() {
   shift 2
   curl "$@" &
   local pid=$!
-  local last_kb=-1
   local elapsed=0
   # Overpass elabora la query lato server prima di iniziare a rispondere: i byte scaricati
   # restano a 0 per gran parte dell'attesa (anche 10+ minuti su un bbox nazionale), quindi il
@@ -301,14 +300,24 @@ download_with_progress() {
   while kill -0 "$pid" 2>/dev/null; do
     sleep 2
     elapsed=$((elapsed + 2))
-    local size_kb=0
-    [ -f "$out" ] && size_kb=$(( $(wc -c < "$out" | tr -d ' ') / 1024 ))
-    if [ "$size_kb" -ne "$last_kb" ] || [ $((elapsed % 30)) -eq 0 ]; then
+    # Una riga ogni 30 s, anche a 0 byte (Overpass sta ancora calcolando): abbastanza per vedere che
+    # avanza, senza le centinaia di righe di un aggiornamento a ogni cambio di dimensione.
+    if [ $((elapsed % 30)) -eq 0 ]; then
+      local size_kb=0
+      [ -f "$out" ] && size_kb=$(( $(wc -c < "$out" | tr -d ' ') / 1024 ))
       echo "-- $label: ${size_kb} KB scaricati (${elapsed}s trascorsi)..."
-      last_kb=$size_kb
     fi
   done
-  wait "$pid"
+  local rc=0
+  wait "$pid" || rc=$?
+  local total_kb=0
+  [ -f "$out" ] && total_kb=$(( $(wc -c < "$out" | tr -d ' ') / 1024 ))
+  if [ "$rc" -eq 0 ]; then
+    echo "-- $label: ${total_kb} KB in ${elapsed}s"
+  else
+    echo "-- $label: curl uscito con $rc dopo ${elapsed}s (${total_kb} KB)"
+  fi
+  return "$rc"
 }
 
 echo "== [$REGION_ID] bbox: $MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT =="
@@ -474,7 +483,6 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
           '$a[] as $e | ($b[] | select(.name == $e.name)) as $p | select($p.sourceKey != $e.sourceKey) | $e.name')"
         while read -r tileFile; do
           [ -n "$tileFile" ] || continue
-          echo "-- scarico $tileFile (cambiata)..."
           fetch_rd5 "$tileFile" "$UPDATED_TSV"
         done <<< "$CHANGED_TILES"
         jq -R -s -c "$RD5_TSV_TO_JSON" "$UPDATED_TSV" > "$WORKDIR/updated-rd5.json"
@@ -639,7 +647,6 @@ while [ "$lon" -le "$LON_END" ]; do
     fi
     if [ "$code" = "200" ]; then
       if [ "$POI_ONLY" != "true" ]; then
-        echo "-- scarico $tile.rd5 (ri-ospitato insieme a poi.db, vedi commento in testa al file)..."
         fetch_rd5 "$tile.rd5" "$ROUTING_TSV"
       fi
 

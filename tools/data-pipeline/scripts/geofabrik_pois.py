@@ -180,12 +180,22 @@ def scarica(url, dest, user_agent, attempts=3):
             request = urllib.request.Request(url, headers={"User-Agent": user_agent})
             with urllib.request.urlopen(request, timeout=120) as response, open(dest + ".part", "wb") as out:
                 expected = response.headers.get("Content-Length")
+                # Una riga al minuto: i file grandi (Canada, Stati Uniti) restavano fino a 20 minuti senza log.
+                start = last = time.monotonic()
+                done = 0
                 while chunk := response.read(1 << 20):
                     out.write(chunk)
+                    done += len(chunk)
+                    if time.monotonic() - last >= 60:
+                        last = time.monotonic()
+                        total = f" di {int(expected) / 2**20:.0f}" if expected else ""
+                        rate = done / 2**20 / max(last - start, 1)
+                        print(f"-- geofabrik: {done / 2**20:.0f}{total} MB ({rate:.1f} MB/s)", flush=True)
             written = os.path.getsize(dest + ".part")
             if expected is not None and written != int(expected):
                 raise OSError(f"{url}: {written} byte invece di {expected}")
             os.replace(dest + ".part", dest)
+            print(f"-- geofabrik: {written / 2**20:.0f} MB in {time.monotonic() - start:.0f}s", flush=True)
             return
         except OSError as error:
             # Un 4xx non passa riprovando subito (lo ripara il file datato, vedi estratto_ridotto).

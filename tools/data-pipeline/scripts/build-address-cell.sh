@@ -136,7 +136,7 @@ extract_osm_points() {
     extractMb="$(printf '%s' "$dryRun" | sed -n 's/.*archive size of \([0-9.]*\) \([kMG]\{0,1\}B\).*/\1 \2/p' | tail -1 \
       | awk '{ f = ($2 == "GB") ? 1024 : ($2 == "MB") ? 1 : ($2 == "kB") ? 1 / 1024 : 1 / 1048576; printf "%d", $1 * f + 0.5 }')"
     if [ -n "$extractMb" ] && [ "$extractMb" -le "$ADDRESS_CELL_MAX_EXTRACT_MB" ]; then
-      if with_retries "$label" "$ADDRESSES_ATTEMPTS" "$z15" "$PMTILES_BIN" extract "$SOURCE_URL" "$z15" --bbox="$bbox" --minzoom=15 --maxzoom=15; then
+      if with_retries "$label" "$ADDRESSES_ATTEMPTS" "$z15" "$PMTILES_BIN" extract "$SOURCE_URL" "$z15" --bbox="$bbox" --minzoom=15 --maxzoom=15 2>&1 | pmtiles_log; then
         result_ref="$z15"
         return 0
       fi
