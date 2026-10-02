@@ -212,14 +212,17 @@ private fun TransitNetworkRow(network: TransitNetworkUi, enabled: Boolean, onCha
 // Sotto la mappa: leggera (senza la z14) o dettagliata. Cambiarla con la mappa installata la riestrae subito.
 @Composable
 private fun MapLightRow(light: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    // Stessa variante di ListItem di PackageRow (content al posto di headlineContent), con la stessa spaziatura:
+    // icona e testo allineati alla riga della mappa sopra.
     ListItem(
-        headlineContent = { Text(stringResource(R.string.package_map_light)) },
+        content = { Text(stringResource(R.string.package_map_light)) },
         supportingContent = { Text(stringResource(R.string.package_map_light_detail)) },
-        trailingContent = { Switch(checked = light, onCheckedChange = null, enabled = enabled) },
+        leadingContent = { Icon(AppIcons.MapLight, contentDescription = null) },
+        // Un poco rientrato, verso le icone delle altre righe (al centro di un IconButton da 48 dp).
+        trailingContent = { Switch(checked = light, onCheckedChange = null, enabled = enabled, modifier = Modifier.padding(end = Spacing.xs)) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = Spacing.xl)
             .toggleable(value = light, enabled = enabled, role = Role.Switch, onValueChange = onChange),
     )
 }

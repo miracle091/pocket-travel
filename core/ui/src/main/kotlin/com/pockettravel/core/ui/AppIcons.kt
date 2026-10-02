@@ -33,6 +33,7 @@ object AppIcons {
     val Compass: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_explore)
     val Map: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_map)
     val MapFilled: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_map_fill)
+    val MapLight: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_compress)
     val AiAssistant: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_auto_awesome)
     val AiAssistantFilled: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_auto_awesome_fill)
     val Documents: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_description)
