@@ -13,6 +13,23 @@ interface PoiDao {
     @Query("SELECT * FROM poi WHERE regionId = :regionId")
     suspend fun poisForRegion(regionId: String): List<PoiEntity>
 
+    // I POI dell'area inquadrata dalla mappa, per i segnalini: tutti i POI di un paese grande (Italia, ~70 MB) non stanno
+    // in memoria. Senza indice su lat/lon, come nearest: una scansione a ogni fermo della mappa.
+    @Query("SELECT COUNT(*) FROM poi WHERE regionId = :regionId AND lat BETWEEN :minLat AND :maxLat AND lon BETWEEN :minLon AND :maxLon")
+    suspend fun countInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): Int
+
+    @Query("SELECT * FROM poi WHERE regionId = :regionId AND lat BETWEEN :minLat AND :maxLat AND lon BETWEEN :minLon AND :maxLon")
+    suspend fun poisInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): List<PoiEntity>
+
+    // Un POI per cella di una griglia sull'area (celle di cellLat x cellLon gradi), quando sono troppi: sparsi su tutta
+    // l'area invece dei primi della tabella. GROUP BY e MIN(rowid), non le window function (SQLite 3.25, da API 30).
+    @Query(
+        "SELECT * FROM poi WHERE rowid IN (SELECT MIN(rowid) FROM poi WHERE regionId = :regionId " +
+            "AND lat BETWEEN :minLat AND :maxLat AND lon BETWEEN :minLon AND :maxLon " +
+            "GROUP BY CAST((lat - :minLat) / :cellLat AS INTEGER), CAST((lon - :minLon) / :cellLon AS INTEGER))",
+    )
+    suspend fun spreadInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, cellLat: Double, cellLon: Double): List<PoiEntity>
+
     // Stazioni, autostazioni, porti e aeroporti della regione, per i fatti rapidi della guida.
     @Query(
         "SELECT osmTag, category, COUNT(*) AS count FROM poi WHERE regionId = :regionId " +

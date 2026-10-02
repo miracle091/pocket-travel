@@ -39,6 +39,16 @@
     <string name="package_cities">Guide delle città</string>
     <string name="package_map_light">Mappa leggera</string>
     <string name="package_map_light_detail">Mappa meno dettagliata, occupa circa il 40% di spazio in meno</string>
+    <string name="zone_row">Zona</string>
+    <string name="zone_whole_region">Tutto il paese</string>
+    <string name="zone_area">Solo una zona, circa %1$d × %2$d km</string>
+    <string name="zone_choice_title">%1$s: tutto il paese o una zona?</string>
+    <string name="zone_choice_message">È un paese grande. Puoi scaricare solo la zona che ti serve: mappa, percorsi e numeri civici di quella zona. Punti di interesse e guide restano di tutto il paese.</string>
+    <string name="zone_choice_pick">Scegli una zona</string>
+    <string name="zone_hint">Scarica solo la sezione di mappa che vedi, compresa di percorsi e numeri civici</string>
+    <string name="zone_size">Circa %1$d × %2$d km</string>
+    <string name="zone_use">Seleziona area</string>
+    <string name="zone_download">Scarica questa zona</string>
     <string name="package_transit">Mezzi pubblici</string>
     <string name="package_status_installed">Installato · %1$s</string>
     <string name="package_status_installed_no_size">Installato</string>

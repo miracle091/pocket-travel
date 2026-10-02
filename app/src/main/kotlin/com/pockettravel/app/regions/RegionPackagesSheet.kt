@@ -2,6 +2,7 @@ package com.pockettravel.app.regions
 
 import android.text.format.Formatter
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
 import com.pockettravel.core.data.PackageKind
+import com.pockettravel.core.data.RegionZone
 import com.pockettravel.core.sync.TransitDefaultReason
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
@@ -64,6 +66,7 @@ internal fun RegionPackagesSheet(
     val context = LocalContext.current
     var pendingDelete by rememberSaveable { mutableStateOf<PackageKind?>(null) }
     var pendingLargeDownload by rememberSaveable { mutableStateOf<PackageKind?>(null) }
+    var pickingZone by rememberSaveable { mutableStateOf(false) }
     var showDeleteAll by rememberSaveable { mutableStateOf(false) }
 
     // Sempre aperto per intero: a meta' altezza (tablet in orizzontale) "Elimina tutto" restava sotto il bordo.
@@ -106,6 +109,9 @@ internal fun RegionPackagesSheet(
                         if (pkg.kind == PackageKind.MAP) {
                             val light by remember(item.regionId) { actions.observeMapLight(item.regionId) }.collectAsStateWithLifecycle(false)
                             MapLightRow(light = light, enabled = !isDownloading, onChange = { actions.onMapLightChange(item.regionId, it) })
+                            if (item.bbox != null && (item.bbox.isLarge() || item.zone != null)) {
+                                ZoneRow(zone = item.zone, enabled = !isDownloading, onClick = { pickingZone = true })
+                            }
                         }
                         if (index < item.packages.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
                     }
@@ -123,6 +129,17 @@ internal fun RegionPackagesSheet(
                 Text(stringResource(R.string.regions_delete_all), color = MaterialTheme.colorScheme.error)
             }
         }
+    }
+
+    if (pickingZone && item.bbox != null) {
+        ZonePickerDialog(
+            regionId = item.regionId,
+            regionBbox = item.bbox,
+            zone = item.zone,
+            download = false,
+            onConfirm = { zone -> pickingZone = false; actions.onZoneChange(item.regionId, zone, false) },
+            onDismiss = { pickingZone = false },
+        )
     }
 
     pendingDelete?.let { kind ->
@@ -224,6 +241,18 @@ private fun MapLightRow(light: Boolean, enabled: Boolean, onChange: (Boolean) ->
         modifier = Modifier
             .fillMaxWidth()
             .toggleable(value = light, enabled = enabled, role = Role.Switch, onValueChange = onChange),
+    )
+}
+
+// Sotto la mappa leggera, solo nei paesi grandi: la zona scaricata di mappa, percorsi e civici.
+@Composable
+private fun ZoneRow(zone: RegionZone?, enabled: Boolean, onClick: () -> Unit) {
+    ListItem(
+        content = { Text(stringResource(R.string.zone_row)) },
+        supportingContent = { Text(zoneLabel(zone)) },
+        leadingContent = { Icon(AppIcons.Zone, contentDescription = null) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
     )
 }
 

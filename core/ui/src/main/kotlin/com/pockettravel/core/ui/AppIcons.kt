@@ -12,6 +12,7 @@ import androidx.compose.ui.res.vectorResource
 object AppIcons {
     val Back: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_arrow_back)
     val Add: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_add)
+    val Remove: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_remove)
     val Close: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_close)
     val Send: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_send)
     val Refresh: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_refresh)
@@ -34,6 +35,7 @@ object AppIcons {
     val Map: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_map)
     val MapFilled: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_map_fill)
     val MapLight: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_compress)
+    val Zone: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_crop_free)
     val AiAssistant: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_auto_awesome)
     val AiAssistantFilled: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_auto_awesome_fill)
     val Documents: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_description)

@@ -79,6 +79,7 @@ import androidx.work.WorkInfo
 import com.pockettravel.app.R
 import com.pockettravel.app.navigation.regionContainer
 import com.pockettravel.core.data.PackageKind
+import com.pockettravel.core.data.RegionZone
 import com.pockettravel.core.sync.RegionPackageDownloadWorker
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
@@ -123,6 +124,7 @@ fun RegionListScreen(
             onTransitNetworkChange = viewModel::setTransitNetwork,
             observeMapLight = viewModel::observeMapLight,
             onMapLightChange = viewModel::setMapLight,
+            onZoneChange = viewModel::setZone,
         ),
         onRegionClick = { item ->
             if (item.status == RegionStatus.NOT_INSTALLED) {
@@ -148,6 +150,8 @@ internal data class RegionRowActions(
     // Mappa leggera (senza la z14): scelta dell'utente o, senza, com'e' la mappa installata (foglio Contenuti).
     val observeMapLight: (regionId: String) -> Flow<Boolean> = { flowOf(false) },
     val onMapLightChange: (regionId: String, light: Boolean) -> Unit = { _, _ -> },
+    // Zona di un paese grande (null = tutto); con download la regione non installata si scarica subito.
+    val onZoneChange: (regionId: String, zone: RegionZone?, download: Boolean) -> Unit = { _, _, _ -> },
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -637,6 +641,8 @@ private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actio
     val context = LocalContext.current
     var showPackages by rememberSaveable { mutableStateOf(false) }
     var showLargeDownloadWarning by rememberSaveable { mutableStateOf(false) }
+    var showZoneChoice by rememberSaveable { mutableStateOf(false) }
+    var pickingZone by rememberSaveable { mutableStateOf(false) }
     val size = item.sizeText()
 
     val startDownload = {
@@ -648,7 +654,11 @@ private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actio
     }
 
     when (item.status) {
-        RegionStatus.NOT_INSTALLED -> FilledTonalIconButton(onClick = startDownload, enabled = !isDownloading) {
+        // Paese grande non ancora scaricato: prima la scelta fra tutto il paese e una zona.
+        RegionStatus.NOT_INSTALLED -> FilledTonalIconButton(
+            onClick = { if (item.bbox?.isLarge() == true) showZoneChoice = true else startDownload() },
+            enabled = !isDownloading,
+        ) {
             Icon(AppIcons.Download, contentDescription = stringResource(R.string.regions_download, item.displayName))
         }
         RegionStatus.UPDATE_AVAILABLE, RegionStatus.INSTALLED -> Row(verticalAlignment = Alignment.CenterVertically) {
@@ -668,6 +678,25 @@ private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actio
 
     if (showPackages) {
         RegionPackagesSheet(item = item, isDownloading = isDownloading, actions = actions, onDismiss = { showPackages = false })
+    }
+
+    if (showZoneChoice) {
+        ZoneChoiceDialog(
+            displayName = item.displayName,
+            onWholeRegion = { showZoneChoice = false; actions.onZoneChange(item.regionId, null, false); startDownload() },
+            onPickZone = { showZoneChoice = false; pickingZone = true },
+            onDismiss = { showZoneChoice = false },
+        )
+    }
+    if (pickingZone && item.bbox != null) {
+        ZonePickerDialog(
+            regionId = item.regionId,
+            regionBbox = item.bbox,
+            zone = item.zone,
+            download = true,
+            onConfirm = { zone -> pickingZone = false; actions.onZoneChange(item.regionId, zone, true) },
+            onDismiss = { pickingZone = false },
+        )
     }
 
     if (showLargeDownloadWarning) {

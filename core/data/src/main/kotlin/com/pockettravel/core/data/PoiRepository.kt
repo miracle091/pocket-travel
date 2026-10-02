@@ -7,11 +7,24 @@ import com.pockettravel.core.poi.poiCategoryOf
 import javax.inject.Inject
 import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.sqrt
 
 private const val HIDDEN_OVERFETCH = 4
 
 class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
-    suspend fun forRegion(regionId: String): List<Poi> = poiDao.poisForRegion(regionId).map { it.toDomain() }
+    /**
+     * I POI della regione dentro il riquadro, per i segnalini della mappa: tutti se sono al massimo [maxPois], altrimenti
+     * circa [maxPois] sparsi sull'area (uno per cella di una griglia).
+     */
+    suspend fun inBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, maxPois: Int): List<Poi> {
+        val entities = if (poiDao.countInBounds(regionId, minLat, maxLat, minLon, maxLon) <= maxPois) {
+            poiDao.poisInBounds(regionId, minLat, maxLat, minLon, maxLon)
+        } else {
+            val side = sqrt(maxPois.toDouble())
+            poiDao.spreadInBounds(regionId, minLat, maxLat, minLon, maxLon, (maxLat - minLat) / side, (maxLon - minLon) / side)
+        }
+        return entities.map { it.toDomain() }
+    }
 
     /** Ambasciate e consolati di [country] (ISO alpha-2) nella regione, in ordine di nome. */
     suspend fun embassiesOf(regionId: String, country: String): List<Poi> = poiDao.embassiesOf(regionId, country).map { it.toDomain() }

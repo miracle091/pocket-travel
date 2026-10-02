@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.RegionZonePreferences
 import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitRepository
 import com.pockettravel.core.data.hasName
@@ -33,6 +34,7 @@ import javax.inject.Inject
 class MapRouteViewModel @Inject constructor(
     val tileSource: OfflineTileSource,
     private val poiRepository: PoiRepository,
+    private val regionZonePreferences: RegionZonePreferences,
     regionRepository: RegionRepository,
     private val filterPreferences: MapFilterPreferences,
     private val transitRepository: TransitRepository,
@@ -84,13 +86,42 @@ class MapRouteViewModel @Inject constructor(
     ) { regionId, _, versions -> MapSourceState(tileSource.sourceKind(regionId), versions) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MapSourceState(MapSourceKind.NONE, null))
 
+    // Area inquadrata dalla mappa (MapScreen la segnala a ogni fermo); null prima del primo fermo.
+    private var viewport: MapBounds? = null
+
     fun loadPins(regionId: String) {
         regionIdFlow.value = regionId
-        // Annulla il caricamento precedente: una regione lenta non deve sovrascrivere i segnalini.
+        viewport = null
+        reloadPins()
+    }
+
+    fun setViewport(bounds: MapBounds) {
+        viewport = bounds
+        reloadPins()
+    }
+
+    /**
+     * Solo i POI dell'area inquadrata, dentro la zona scaricata se c'e', al massimo [MAX_PINS]: tutti quelli di un paese
+     * grande (Italia, ~70 MB) mandavano l'app in OutOfMemoryError. Prima del primo fermo della mappa, quelli del
+     * riquadro della mappa installata (o della zona).
+     */
+    private fun reloadPins() {
+        val regionId = regionIdFlow.value ?: return
+        // Annulla il caricamento precedente: una regione o un'area lenta non deve sovrascrivere i segnalini.
         loadPinsJob?.cancel()
         loadPinsJob = viewModelScope.launch {
+            val zone = regionZonePreferences.zone(regionId)
+            val area = viewport ?: zone?.let { MapBounds(it.minLon, it.minLat, it.maxLon, it.maxLat) } ?: tileSource.regionBounds(regionId) ?: WORLD
+            val minLon = maxOf(area.minLon, zone?.minLon ?: -180.0)
+            val minLat = maxOf(area.minLat, zone?.minLat ?: -90.0)
+            val maxLon = minOf(area.maxLon, zone?.maxLon ?: 180.0)
+            val maxLat = minOf(area.maxLat, zone?.maxLat ?: 90.0)
+            if (minLon > maxLon || minLat > maxLat) {
+                _pins.value = emptyList()
+                return@launch
+            }
             // I POI extra li ha scaricati l'utente apposta: si mostrano anche se di solito nascosti.
-            _pins.value = poiRepository.forRegion(regionId).filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
+            _pins.value = poiRepository.inBounds(regionId, minLat, maxLat, minLon, maxLon, MAX_PINS).filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
                 MapPin(
                     poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.osmTag, poi.phone, poi.wheelchair,
                     openingHours = poi.openingHours, address = poi.address, website = poi.website, email = poi.email,
@@ -101,6 +132,11 @@ class MapRouteViewModel @Inject constructor(
         }
     }
 }
+
+// Segnalini al massimo sulla mappa, sparsi sull'area se sono di piu': oltre si sovrappongono comunque (MapLibre nasconde
+// quelli che si coprono).
+private const val MAX_PINS = 3_000
+private val WORLD = MapBounds(-180.0, -90.0, 180.0, 90.0)
 
 /** Sorgente della mappa in uso e versioni dei pacchetti locali da cui dipende lo stile. */
 data class MapSourceState(val kind: MapSourceKind, val installedVersions: List<String?>?)

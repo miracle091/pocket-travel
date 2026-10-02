@@ -344,4 +344,6 @@
     <string name="maplibre_attributionsIconContentDescription" tools:ignore="PrivateResource">Crediti della mappa. Attiva per vederli.</string>
     <string name="maplibre_compassContentDescription" tools:ignore="PrivateResource">Bussola della mappa. Attiva per riportare il nord in alto.</string>
     <string name="maplibre_myLocationViewContentDescription" tools:ignore="PrivateResource">La tua posizione sulla mappa.</string>
+    <string name="map_zoom_in">Ingrandisci</string>
+    <string name="map_zoom_out">Riduci</string>
 </resources>

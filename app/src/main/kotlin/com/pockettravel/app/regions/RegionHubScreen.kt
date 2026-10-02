@@ -196,6 +196,7 @@ fun RegionHubScreen(
                                     transitBoard = transitBoard,
                                     onDownloadTransit = viewModel::downloadTransit,
                                     onTransitStopChange = mapViewModel::showDepartures,
+                                    onViewportChange = mapViewModel::setViewport,
                                 )
                             }
                             if (sourceKind != MapSourceKind.FULL) {

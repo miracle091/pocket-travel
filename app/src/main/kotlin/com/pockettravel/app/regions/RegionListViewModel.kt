@@ -2,6 +2,8 @@ package com.pockettravel.app.regions
 
 import com.pockettravel.core.data.LastKnownPosition
 import com.pockettravel.core.data.MapDetailPreferences
+import com.pockettravel.core.data.RegionZone
+import com.pockettravel.core.data.RegionZonePreferences
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,6 +22,7 @@ import com.pockettravel.core.sync.TransitClient
 import com.pockettravel.core.sync.TransitDefaultReason
 import com.pockettravel.core.sync.TransitIndex
 import com.pockettravel.core.sync.attachAddressGridCells
+import com.pockettravel.core.sync.restrictedTo
 import com.pockettravel.core.sync.attachTransitFeeds
 import com.pockettravel.core.sync.guidesChoice
 import com.pockettravel.core.ui.countryName
@@ -75,8 +78,10 @@ data class RegionUiItem(
     // Paese diviso in piu' regioni e nome breve della regione nel gruppo (dal manifest).
     val groupName: String? = null,
     val groupLabel: String? = null,
-    // Riquadro geografico della regione (dalla mappa del manifest), per le regioni vicine del primo avvio.
+    // Riquadro geografico della regione (dalla mappa del manifest), per le regioni vicine del primo avvio e la scelta della zona.
     val bbox: RegionBbox? = null,
+    // Zona scelta dall'utente (RegionZonePreferences): mappa, percorsi e civici solo li'; null = tutta la regione.
+    val zone: RegionZone? = null,
     // La mappa e' tra i pacchetti da scaricare: il suo peso non e' in sizeBytes (si conosce solo estraendola).
     val includesMap: Boolean = false,
 )
@@ -122,6 +127,7 @@ class RegionListViewModel @Inject constructor(
     private val usageModePreferences: UsageModePreferences,
     private val transitNetworkPreferences: TransitNetworkPreferences,
     private val mapDetailPreferences: MapDetailPreferences,
+    private val regionZonePreferences: RegionZonePreferences,
     private val lastKnownPosition: LastKnownPosition,
     private val countryLocator: CountryLocator,
 ) : ViewModel() {
@@ -144,21 +150,28 @@ class RegionListViewModel @Inject constructor(
     }
 
     val uiState = combine(
-        combine(manifestRegions, locale) { regions, currentLocale -> regions.map { it.localizedNames(currentLocale) } },
+        // Ogni regione con la sua zona: dimensioni e versioni (quella dei civici dipende dalle celle) sono quelle della zona.
+        combine(manifestRegions, locale, regionZonePreferences.zones) { regions, currentLocale, zones ->
+            regions.map { it.localizedNames(currentLocale) to zones[it.regionId] }
+        },
         // Con "Indicazioni" la dimensione di "Scarica" comprende i percorsi.
         combine(regionRepository.observeInstalled(), usageModePreferences.wantsDirections, ::Pair),
         status,
         query,
         replacedRegions,
-    ) { remoteRegions, (installed, wantsDirections), currentStatus, currentQuery, replacedByManifest ->
+    ) { zonedRegions, (installed, wantsDirections), currentStatus, currentQuery, replacedByManifest ->
+        val remoteRegions = zonedRegions.map { it.first }
         val installedByRegion = installed.associateBy { it.regionId }
         // Senza catalogo (offline, o non ancora letto) le nazioni installate restano apribili: i loro dati sono sul telefono.
         val items = if (remoteRegions.isEmpty()) {
             installed.filter { matchesQuery(it.displayName, currentQuery) }.map { offlineRegionItem(it, regionRepository::packageBytes) }
         } else {
-            remoteRegions
-                .filter { matchesQuery(it.displayName, currentQuery) }
-                .map { remote -> regionUiItem(remote, installedByRegion[remote.regionId], regionRepository::packageBytes, regionRepository::installedAddressCells, wantsDirections, transitIndex.value != null) }
+            zonedRegions
+                .filter { (remote, _) -> matchesQuery(remote.displayName, currentQuery) }
+                .map { (remote, zone) ->
+                    regionUiItem(remote.restrictedTo(zone), installedByRegion[remote.regionId], regionRepository::packageBytes, regionRepository::installedAddressCells, wantsDirections, transitIndex.value != null)
+                        .copy(bbox = remote.map.source.let { RegionBbox(it.minLon, it.minLat, it.maxLon, it.maxLat) }, zone = zone)
+                }
         }
         val replaced = replacedItems(installed, remoteRegions, replacedByManifest).filter { matchesQuery(it.displayName, currentQuery) }
         RegionListUiState(
@@ -239,7 +252,7 @@ class RegionListViewModel @Inject constructor(
 
     /** Non installata: scarica tutti i pacchetti. Installata: aggiorna solo quelli cambiati. */
     fun download(regionId: String) {
-        val entry = manifestRegions.value.firstOrNull { it.regionId == regionId } ?: return
+        val entry = zonedEntry(regionId) ?: return
         viewModelScope.launch {
             val local = regionRepository.installed(regionId)
             enqueue(entry, if (local == null) entry.downloadKinds(usageModePreferences.wantsDirections.value) else outdatedKinds(entry, local))
@@ -248,13 +261,13 @@ class RegionListViewModel @Inject constructor(
 
     /** Scarica i pacchetti scelti di una regione (primo avvio, selezione multipla): false se non e' partito. */
     fun downloadKinds(regionId: String, kinds: Set<PackageKind>): Boolean {
-        val entry = manifestRegions.value.firstOrNull { it.regionId == regionId } ?: return false
+        val entry = zonedEntry(regionId) ?: return false
         return enqueue(entry, kinds)
     }
 
     /** Scarica o aggiorna un solo pacchetto della regione (foglio "Pacchetti"). */
     fun downloadPackage(regionId: String, kind: PackageKind) {
-        val entry = manifestRegions.value.firstOrNull { it.regionId == regionId } ?: return
+        val entry = zonedEntry(regionId) ?: return
         enqueue(entry, setOf(kind))
     }
 
@@ -275,6 +288,7 @@ class RegionListViewModel @Inject constructor(
 
     fun delete(regionId: String) {
         regionSyncScheduler.cancelDownload(regionId)
+        regionZonePreferences.setZone(regionId, null)
         viewModelScope.launch { regionRepository.remove(regionId) }
     }
 
@@ -296,6 +310,33 @@ class RegionListViewModel @Inject constructor(
         mapDetailPreferences.setChoice(regionId, light)
         viewModelScope.launch {
             if (regionRepository.installed(regionId)?.versionOf(PackageKind.MAP) != null) downloadPackage(regionId, PackageKind.MAP)
+        }
+    }
+
+    // La voce del manifest limitata alla zona scelta: anche il worker la limita, ma dimensioni, spazio libero e versioni
+    // da confrontare devono essere gia' quelle della zona.
+    private fun zonedEntry(regionId: String, zone: RegionZone? = regionZonePreferences.zone(regionId)): RegionManifestEntry? =
+        manifestRegions.value.firstOrNull { it.regionId == regionId }?.restrictedTo(zone)
+
+    /**
+     * Sceglie la zona della regione (null = tutta). Con la regione installata mappa, percorsi e civici si rifanno subito:
+     * la mappa riusa le tile gia' installate, i percorsi i segmenti gia' scaricati, i civici le celle invariate; i civici
+     * senza celle nella zona si tolgono. Con [download] e la regione non installata parte il download di tutta la regione.
+     */
+    fun setZone(regionId: String, zone: RegionZone?, download: Boolean = false) {
+        regionZonePreferences.setZone(regionId, zone)
+        val entry = zonedEntry(regionId, zone) ?: return
+        viewModelScope.launch {
+            val local = regionRepository.installed(regionId)
+            if (local == null) {
+                if (download) enqueue(entry, entry.downloadKinds(usageModePreferences.wantsDirections.value))
+                return@launch
+            }
+            val installedKinds = setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.ADDRESSES).filter { local.versionOf(it) != null }
+            if (PackageKind.ADDRESSES in installedKinds && PackageKind.ADDRESSES !in entry.availableKinds) {
+                regionRepository.removePackage(regionId, PackageKind.ADDRESSES)
+            }
+            enqueue(entry, installedKinds.filterTo(mutableSetOf()) { it in entry.availableKinds })
         }
     }
 

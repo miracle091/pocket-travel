@@ -30,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -111,6 +112,8 @@ fun MapScreen(
     transitBoard: TransitBoard? = null,
     onDownloadTransit: () -> Unit = {},
     onTransitStopChange: (MapPin?) -> Unit = {},
+    // Area inquadrata a ogni fermo della mappa, dopo il primo inquadramento: i segnalini si leggono solo li'.
+    onViewportChange: (MapBounds) -> Unit = {},
 ) {
     val context = LocalContext.current
     MapLibreInitializer.ensureInitialized(context)
@@ -139,6 +142,7 @@ fun MapScreen(
     // si tornerebbe all'inquadratura iniziale su tutti i segnalini.
     var savedCamera by rememberSaveable { mutableStateOf<DoubleArray?>(null) }
     var parkingZoom by remember { mutableStateOf(false) }
+    val currentOnViewportChange by rememberUpdatedState(onViewportChange)
     LaunchedEffect(mapView) {
         mapView.getMapAsync { map ->
             val update = { parkingZoom = map.cameraPosition.zoom >= PARKING_MIN_ZOOM }
@@ -147,7 +151,11 @@ fun MapScreen(
             map.addOnCameraIdleListener {
                 update()
                 // Solo dopo il primo inquadramento: prima la camera e' ancora sulla vista iniziale del mondo.
-                if (cameraFitted) map.cameraPosition.target?.let { savedCamera = doubleArrayOf(it.latitude, it.longitude, map.cameraPosition.zoom) }
+                if (cameraFitted) {
+                    map.cameraPosition.target?.let { savedCamera = doubleArrayOf(it.latitude, it.longitude, map.cameraPosition.zoom) }
+                    val visible = map.projection.visibleRegion.latLngBounds
+                    currentOnViewportChange(MapBounds(visible.longitudeWest, visible.latitudeSouth, visible.longitudeEast, visible.latitudeNorth))
+                }
             }
             // Tocco su un segnalino: il primo sotto il dito nel layer dei POI.
             map.addOnMapClickListener { latLng ->
@@ -238,14 +246,22 @@ fun MapScreen(
                 // invece di doverci arrivare a mano dalla vista mondo. Una tantum (guardia
                 // cameraFitted): dopo il primo fit l'utente deve restare libero di ripristinare la
                 // vista mondo senza che ogni ricomposizione lo forzi indietro sulla regione.
+                // Con la mappa installata si inquadra il suo riquadro (la zona scelta, per i paesi grandi): i segnalini
+                // sono solo quelli dell'area visibile, non piu' tutti quelli della regione.
                 val restored = savedCamera
-                if (!cameraFitted && (restored != null || pins.isNotEmpty())) {
+                val mapBounds = if (!cameraFitted && restored == null) tileSource.regionBounds(regionId) else null
+                if (!cameraFitted && (restored != null || mapBounds != null || pins.isNotEmpty())) {
                     cameraFitted = true
                     view.getMapAsync { map ->
                         // LatLngBounds.Builder.build() vuole almeno 2 punti: con un solo pin si
                         // centra la camera su di lui. Dopo una rotazione, la vista di prima.
                         val update = if (restored != null) {
                             CameraUpdateFactory.newLatLngZoom(LatLng(restored[0], restored[1]), restored[2])
+                        } else if (mapBounds != null) {
+                            CameraUpdateFactory.newLatLngBounds(
+                                LatLngBounds.Builder().include(LatLng(mapBounds.maxLat, mapBounds.minLon)).include(LatLng(mapBounds.minLat, mapBounds.maxLon)).build(),
+                                0,
+                            )
                         } else if (pins.size == 1) {
                             CameraUpdateFactory.newLatLngZoom(LatLng(pins[0].latitude, pins[0].longitude), SINGLE_PIN_ZOOM)
                         } else {

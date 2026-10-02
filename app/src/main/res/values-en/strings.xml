@@ -38,6 +38,16 @@
     <string name="package_addresses">House numbers</string>
     <string name="package_map_light">Light map</string>
     <string name="package_map_light_detail">Less detailed map, takes about 40% less space</string>
+    <string name="zone_row">Area</string>
+    <string name="zone_whole_region">Whole country</string>
+    <string name="zone_area">One area only, about %1$d × %2$d km</string>
+    <string name="zone_choice_title">%1$s: whole country or one area?</string>
+    <string name="zone_choice_message">This is a large country. You can download just the area you need: map, routes and house numbers of that area. Points of interest and guides stay for the whole country.</string>
+    <string name="zone_choice_pick">Choose an area</string>
+    <string name="zone_hint">Download only the part of the map you see, including routes and house numbers</string>
+    <string name="zone_size">About %1$d × %2$d km</string>
+    <string name="zone_use">Select area</string>
+    <string name="zone_download">Download this area</string>
     <string name="package_cities">City guides</string>
     <string name="package_transit">Public transport</string>
     <string name="package_status_installed">Installed · %1$s</string>

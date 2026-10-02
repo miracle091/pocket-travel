@@ -11,6 +11,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionStorage
+import com.pockettravel.core.data.RegionZonePreferences
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
@@ -24,6 +25,7 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val installer: RegionPackageInstaller,
     private val regionStorage: RegionStorage,
+    private val regionZonePreferences: RegionZonePreferences,
     private val json: Json,
 ) : CoroutineWorker(context, params) {
 
@@ -31,10 +33,15 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         var regionId: String? = null
         val result = try {
             val entryJson = inputData.getString(KEY_MANIFEST_ENTRY) ?: return Result.failure()
-            val kinds = inputData.getNullableStringArray(KEY_PACKAGE_KINDS)?.filterNotNull()?.map(PackageKind::valueOf)?.toSet() ?: return Result.failure()
-            val entry = json.decodeFromString(RegionManifestEntry.serializer(), entryJson)
-            entry.validate()
-            regionId = entry.regionId
+            val requestedKinds = inputData.getNullableStringArray(KEY_PACKAGE_KINDS)?.filterNotNull()?.map(PackageKind::valueOf)?.toSet() ?: return Result.failure()
+            val manifestEntry = json.decodeFromString(RegionManifestEntry.serializer(), entryJson)
+            manifestEntry.validate()
+            regionId = manifestEntry.regionId
+            // Qui e non da chi accoda: qualunque schermata avvii il download, mappa, percorsi e civici restano nella zona
+            // scelta. Una zona senza celle dei civici toglie i civici dai pacchetti da scaricare.
+            val entry = manifestEntry.restrictedTo(regionZonePreferences.zone(manifestEntry.regionId))
+            val kinds = requestedKinds.filterTo(mutableSetOf()) { it in entry.availableKinds }
+            if (kinds.isEmpty()) return Result.success()
             var lastMapPercent = -1L
             // Download in primo piano (tipo dataSync): notifica con avanzamento e "Annulla", e il sistema non lo
             // ferma a schermo spento. Gli aggiornamenti dopo il primo sono asincroni e al massimo uno al secondo.
