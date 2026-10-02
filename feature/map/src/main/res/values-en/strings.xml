@@ -280,7 +280,6 @@
     <string name="planner_my_position">Your location</string>
     <string name="planner_swap">Swap start and destination</string>
     <string name="planner_recents">Recent</string>
-    <string name="planner_hint">Search a place by name or an address in your downloaded regions: restaurants, museums, stations, hotels…</string>
     <string name="planner_remove_recent">Remove %1$s from recent</string>
     <string name="planner_permission">To start from your location the app needs location permission. It stays on your phone.</string>
     <string name="planner_no_location">No GPS signal: turn on GPS or choose a starting point</string>
@@ -342,6 +341,4 @@
     <string name="maplibre_attributionsIconContentDescription" tools:ignore="PrivateResource">Map credits. Activate to show them.</string>
     <string name="maplibre_compassContentDescription" tools:ignore="PrivateResource">Map compass. Activate to turn north back up.</string>
     <string name="maplibre_myLocationViewContentDescription" tools:ignore="PrivateResource">Your location on the map.</string>
-    <string name="map_zoom_in">Zoom in</string>
-    <string name="map_zoom_out">Zoom out</string>
 </resources>

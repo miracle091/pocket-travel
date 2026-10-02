@@ -16,6 +16,7 @@
     <string name="regions_status_partial">%1$s · installata in parte</string>
     <string name="regions_status_downloading">Download in corso · %1$d%%</string>
     <string name="regions_status_extracting_map">Estrazione della mappa · %1$d%%</string>
+    <string name="regions_status_installing">Installazione…</string>
     <string name="regions_size_plus_map">%1$s + mappa</string>
     <string name="regions_size_map_only">Mappa</string>
     <string name="regions_download">Scarica %1$s</string>
@@ -28,6 +29,7 @@
     <string name="regions_replaced_choose">Scegli le regioni</string>
     <string name="regions_replaced_delete">Elimina</string>
     <string name="regions_packages">Contenuti per %1$s</string>
+    <string name="transit_networks_selected">%1$d di %2$d reti scelte</string>
     <string name="transit_networks_near">Spuntate le reti entro 50 km dalla tua ultima posizione.</string>
     <string name="transit_networks_nearest">Nessuna rete entro 50 km dalla tua posizione: spuntata la più vicina.</string>
     <string name="transit_networks_all">La tua posizione non è nota o è in un\'altra nazione: spuntate tutte le reti, togli quelle che non ti servono.</string>
@@ -49,6 +51,9 @@
     <string name="zone_size">Circa %1$d × %2$d km</string>
     <string name="zone_use">Seleziona area</string>
     <string name="zone_download">Scarica questa zona</string>
+    <string name="zone_cross_message">La zona selezionata comprende più di una nazione. Vuoi scaricare tutta la selezione?</string>
+    <string name="zone_cross_all">Scarica tutto</string>
+    <string name="zone_cross_top_only">Solo %1$s</string>
     <string name="package_transit">Mezzi pubblici</string>
     <string name="package_status_installed">Installato · %1$s</string>
     <string name="package_status_installed_no_size">Installato</string>

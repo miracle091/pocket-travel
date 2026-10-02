@@ -34,6 +34,9 @@ class RegionPackageInstaller @Inject constructor(
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit = { _, _ -> },
         // Dopo i file: l'estrazione della mappa, in byte di tile (il totale lo dice l'indice della build).
         onMapProgress: (bytesDone: Long, bytesTotal: Long) -> Unit = { _, _ -> },
+        // File scaricati e mappa estratta: resta l'installazione (percorsi, import dei POI e delle guide, attivazione),
+        // che per un paese grande dura minuti senza una percentuale da mostrare.
+        onInstalling: () -> Unit = {},
     ) {
         require(kinds.isNotEmpty()) { "Nessun pacchetto da installare per ${entry.regionId}" }
         require(entry.availableKinds.containsAll(kinds)) { "Pacchetti non offerti dal manifest per ${entry.regionId}: ${kinds - entry.availableKinds}" }
@@ -97,6 +100,7 @@ class RegionPackageInstaller @Inject constructor(
                 }
                 extractedLight = stats.maxZoom < entry.map.source.maxZoom
             }
+            onInstalling()
             if (PackageKind.ROUTING in kinds) routingGraphInstaller.install(staging)
 
             // I POI si leggono a blocchi dentro la transazione (PoiImporter.replaceFromFile): tutti in memoria

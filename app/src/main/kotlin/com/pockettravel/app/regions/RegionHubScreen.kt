@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -131,8 +132,9 @@ fun RegionHubScreen(
         // applicarli anche qui lascerebbe una fascia vuota sopra la barra di navigazione.
         Scaffold(
             contentWindowInsets = WindowInsets(0),
+            // La Guida non ha la barra del titolo: Indietro e' sulla riga dei filtri (GuideScreen).
             topBar = {
-                TopAppBar(
+                if (currentTab != RegionTab.GUIDE) TopAppBar(
                     title = { Text(displayName ?: regionId) },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
@@ -154,7 +156,7 @@ fun RegionHubScreen(
                 // Motion M3 "fade through" tra le tab sorelle.
                 Crossfade(targetState = currentTab, animationSpec = tween(250), label = "regionTab") { tab ->
                 when (tab) {
-                    RegionTab.GUIDE -> GuideScreen(regionId = regionId, onOpenSource = onOpenSource)
+                    RegionTab.GUIDE -> Box(modifier = Modifier.statusBarsPadding()) { GuideScreen(regionId = regionId, onOpenSource = onOpenSource, onBack = onBack) }
                     RegionTab.MAP -> if (mapState == RegionMapState.LOADING) {
                         // Stato della mappa non ancora noto: nessun contenuto finche' non arriva.
                     } else {

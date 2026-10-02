@@ -1,11 +1,13 @@
 package com.pockettravel.app.regions
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -13,18 +15,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +41,7 @@ import com.pockettravel.core.ui.Spacing
 import com.pockettravel.feature.map.MapBounds
 import com.pockettravel.feature.map.ZonePickerMap
 import com.pockettravel.feature.map.ZonePickerMapViewModel
+import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import com.pockettravel.core.ui.R as UiR
@@ -88,7 +91,6 @@ internal fun ZoneChoiceDialog(displayName: String, onWholeRegion: () -> Unit, on
  * Scelta della zona a schermo intero: la zona e' tutta la mappa visibile, limitata alla regione (per tornare a tutta la
  * regione basta inquadrarla intera). [download]: la regione non e' ancora installata e il pulsante la scarica.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ZonePickerDialog(
     regionId: String,
@@ -104,44 +106,135 @@ internal fun ZonePickerDialog(
             ?: MapBounds(regionBbox.minLon, regionBbox.minLat, regionBbox.maxLon, regionBbox.maxLat)
     }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        // Senza barra in alto: solo la spiegazione; si esce col tasto Indietro.
+        // Senza titolo: in alto solo Indietro e la spiegazione.
         Scaffold { innerPadding ->
             Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-                Text(
-                    stringResource(R.string.zone_hint),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.m),
-                )
+                Row(
+                    // Alta come le barre dell'app (barra del titolo e barra di navigazione, 64 dp), come la barra in basso.
+                    modifier = Modifier.fillMaxWidth().heightIn(min = TopAppBarDefaults.TopAppBarExpandedHeight).padding(start = Spacing.xs, end = Spacing.l),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = onDismiss) { Icon(AppIcons.Back, contentDescription = stringResource(UiR.string.back)) }
+                    Text(
+                        stringResource(R.string.zone_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
                 ZonePickerMap(
                     tileSource = hiltViewModel<ZonePickerMapViewModel>().tileSource,
                     regionId = regionId,
                     initialBounds = initial,
-                    // Solo la parte dentro la regione: fuori non c'e' niente da scaricare.
-                    onZoneChange = { current = it.clampedTo(regionBbox) },
+                    onZoneChange = { current = it },
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                 )
-                Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(Spacing.l)) {
-                    current?.let { bounds ->
-                        val (w, h) = boundsSizeKm(bounds.minLon, bounds.minLat, bounds.maxLon, bounds.maxLat)
-                        Text(stringResource(R.string.zone_size, w, h), style = MaterialTheme.typography.bodyLarge)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = Spacing.s),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.s, Alignment.End),
-                    ) {
-                        Button(
-                            onClick = { current?.let { onConfirm(RegionZone(it.minLon, it.minLat, it.maxLon, it.maxLat)) } },
-                            enabled = current != null,
-                            contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
-                        ) {
-                            Icon(if (download) AppIcons.Download else AppIcons.Zone, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-                            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                            Text(stringResource(if (download) R.string.zone_download else R.string.zone_use))
+                // Misura della zona e pulsante sulla stessa riga.
+                Row(
+                    modifier = Modifier.fillMaxWidth().navigationBarsPadding().heightIn(min = TopAppBarDefaults.TopAppBarExpandedHeight).padding(horizontal = Spacing.l),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        // La misura e' della parte dentro la regione; la zona confermata e' tutta l'area (puo' prendere altri paesi).
+                        current?.clampedTo(regionBbox)?.let { bounds ->
+                            val (w, h) = boundsSizeKm(bounds.minLon, bounds.minLat, bounds.maxLon, bounds.maxLat)
+                            Text(stringResource(R.string.zone_size, w, h), style = MaterialTheme.typography.bodyLarge)
                         }
+                    }
+                    Button(
+                        onClick = { current?.let { onConfirm(RegionZone(it.minLon, it.minLat, it.maxLon, it.maxLat)) } },
+                        enabled = current != null,
+                        contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+                    ) {
+                        Icon(if (download) AppIcons.Download else AppIcons.Zone, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                        Text(stringResource(if (download) R.string.zone_download else R.string.zone_use))
                     }
                 }
             }
         }
     }
+}
+
+/**
+ * Scelta della zona con la domanda per le zone che prendono anche altri paesi del catalogo: scaricare anche quelli, o
+ * solo il paese piu' presente sullo schermo. [download]: la regione non e' ancora installata.
+ */
+@Composable
+internal fun ZoneSelection(item: RegionUiItem, download: Boolean, actions: RegionRowActions, onDone: () -> Unit) {
+    val bbox = item.bbox ?: return
+    val scope = rememberCoroutineScope()
+    var crossBorder by remember { mutableStateOf<Pair<RegionZone, List<Pair<String, String>>>?>(null) }
+    // Si scarica quella aperta come richiesto, le altre sempre (sono nuove o vanno rifatte con la zona).
+    fun apply(zone: RegionZone, regionIds: List<String>) {
+        regionIds.forEach { id -> actions.onZoneChange(id, zone, id != item.regionId || download) }
+        onDone()
+    }
+    val pending = crossBorder
+    if (pending == null) {
+        ZonePickerDialog(
+            regionId = item.regionId,
+            regionBbox = bbox,
+            zone = item.zone,
+            download = download,
+            onConfirm = { zone ->
+                scope.launch {
+                    val regions = actions.regionsInZone(zone)
+                    if (regions.none { it.first != item.regionId }) apply(zone, listOf(item.regionId)) else crossBorder = zone to regions
+                }
+            },
+            onDismiss = onDone,
+        )
+    } else {
+        val (zone, regions) = pending
+        AlertDialog(
+            onDismissRequest = { crossBorder = null },
+            icon = { Icon(AppIcons.Zone, contentDescription = null) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    Text(stringResource(R.string.zone_cross_message))
+                    // I paesi toccati oltre a quello principale, uno per riga.
+                    regions.filter { it.first != item.regionId }.forEach { (_, name) -> Text("•  $name", style = MaterialTheme.typography.bodyLarge) }
+                }
+            },
+            // "Solo <paese>" nell'angolo a sinistra, "Scarica tutto" a destra: un solo slot a tutta larghezza.
+            confirmButton = {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    TextButton(onClick = { apply(zone, listOf(regions.first().first)) }) { Text(stringResource(R.string.zone_cross_top_only, regions.first().second)) }
+                    TextButton(onClick = { apply(zone, regions.map { it.first }) }) { Text(stringResource(R.string.zone_cross_all)) }
+                }
+            },
+        )
+    }
+}
+
+/** Una regione del catalogo per [zoneShares]: paese e riquadro. */
+internal data class ZoneCandidate(val regionId: String, val countryCode: String, val bbox: RegionBbox)
+
+/**
+ * Quanta parte della zona cade in ogni regione del catalogo: una griglia di [samples] x [samples] punti, ognuno assegnato
+ * alla regione del suo paese ([countryAt]) che lo contiene (la piu' piccola, se piu' d'una); mare e paesi fuori dal
+ * catalogo non contano. Ordinate dalla piu' presente.
+ */
+internal fun zoneShares(
+    zone: RegionZone,
+    candidates: List<ZoneCandidate>,
+    countryAt: (latitude: Double, longitude: Double) -> String?,
+    samples: Int = 20,
+): List<Pair<String, Int>> {
+    val counts = HashMap<String, Int>()
+    for (i in 0 until samples) {
+        val lat = zone.minLat + (i + 0.5) * (zone.maxLat - zone.minLat) / samples
+        for (j in 0 until samples) {
+            val lon = zone.minLon + (j + 0.5) * (zone.maxLon - zone.minLon) / samples
+            val country = countryAt(lat, lon) ?: continue
+            val region = candidates
+                .filter { it.countryCode.equals(country, ignoreCase = true) && lat in it.bbox.minLat..it.bbox.maxLat && lon in it.bbox.minLon..it.bbox.maxLon }
+                .minByOrNull { (it.bbox.maxLat - it.bbox.minLat) * (it.bbox.maxLon - it.bbox.minLon) }
+                ?: continue
+            counts[region.regionId] = (counts[region.regionId] ?: 0) + 1
+        }
+    }
+    return counts.entries.sortedByDescending { it.value }.map { it.key to it.value }
 }

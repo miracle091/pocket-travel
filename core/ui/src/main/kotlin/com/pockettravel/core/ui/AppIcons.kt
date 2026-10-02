@@ -12,7 +12,6 @@ import androidx.compose.ui.res.vectorResource
 object AppIcons {
     val Back: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_arrow_back)
     val Add: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_add)
-    val Remove: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_remove)
     val Close: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_close)
     val Send: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_send)
     val Refresh: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_refresh)

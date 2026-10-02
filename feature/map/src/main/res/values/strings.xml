@@ -281,7 +281,6 @@
     <string name="planner_my_position">La mia posizione</string>
     <string name="planner_swap">Scambia partenza e destinazione</string>
     <string name="planner_recents">Recenti</string>
-    <string name="planner_hint">Cerca un posto per nome o un indirizzo delle regioni scaricate: ristoranti, musei, stazioni, hotel…</string>
     <string name="planner_remove_recent">Togli %1$s dai recenti</string>
     <string name="planner_permission">Per partire dalla tua posizione serve il permesso di posizione. Resta sul telefono.</string>
     <string name="planner_no_location">Segnale GPS assente: accendi il GPS o scegli un punto di partenza</string>
@@ -344,6 +343,4 @@
     <string name="maplibre_attributionsIconContentDescription" tools:ignore="PrivateResource">Crediti della mappa. Attiva per vederli.</string>
     <string name="maplibre_compassContentDescription" tools:ignore="PrivateResource">Bussola della mappa. Attiva per riportare il nord in alto.</string>
     <string name="maplibre_myLocationViewContentDescription" tools:ignore="PrivateResource">La tua posizione sulla mappa.</string>
-    <string name="map_zoom_in">Ingrandisci</string>
-    <string name="map_zoom_out">Riduci</string>
 </resources>

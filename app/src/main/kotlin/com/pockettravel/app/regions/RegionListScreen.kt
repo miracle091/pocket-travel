@@ -85,6 +85,7 @@ import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.CountryFlag
 import com.pockettravel.core.ui.DownloadProgressIndicator
+import com.pockettravel.core.ui.IndeterminateDownloadProgressIndicator
 import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
@@ -125,6 +126,7 @@ fun RegionListScreen(
             observeMapLight = viewModel::observeMapLight,
             onMapLightChange = viewModel::setMapLight,
             onZoneChange = viewModel::setZone,
+            regionsInZone = viewModel::regionsInZone,
         ),
         onRegionClick = { item ->
             if (item.status == RegionStatus.NOT_INSTALLED) {
@@ -152,6 +154,8 @@ internal data class RegionRowActions(
     val onMapLightChange: (regionId: String, light: Boolean) -> Unit = { _, _ -> },
     // Zona di un paese grande (null = tutto); con download la regione non installata si scarica subito.
     val onZoneChange: (regionId: String, zone: RegionZone?, download: Boolean) -> Unit = { _, _, _ -> },
+    // Regioni del catalogo dentro una zona (id, nome), dalla piu' presente: per le zone che prendono altri paesi.
+    val regionsInZone: suspend (zone: RegionZone) -> List<Pair<String, String>> = { emptyList() },
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -582,6 +586,7 @@ internal fun RegionRow(
     // Due fasi: prima i file (byte), poi l'estrazione della mappa (byte di tile), ognuna da 0 a 100%.
     val mapBytesTotal = workInfo?.progress?.getLong(RegionPackageDownloadWorker.KEY_MAP_BYTES_TOTAL, 0L) ?: 0L
     val extractingMap = mapBytesTotal > 0
+    val installing = workInfo?.progress?.getBoolean(RegionPackageDownloadWorker.KEY_INSTALLING, false) == true
     val progress = workInfo?.progress?.let { data ->
         if (extractingMap) {
             data.getLong(RegionPackageDownloadWorker.KEY_MAP_BYTES_DONE, 0L) / mapBytesTotal.toFloat()
@@ -597,7 +602,9 @@ internal fun RegionRow(
         ListItem(
             supportingContent = {
                 Text(
-                    if (isDownloading) {
+                    if (isDownloading && installing) {
+                        stringResource(R.string.regions_status_installing)
+                    } else if (isDownloading) {
                         stringResource(
                             if (extractingMap) R.string.regions_status_extracting_map else R.string.regions_status_downloading,
                             (progress * 100).toInt(),
@@ -627,7 +634,9 @@ internal fun RegionRow(
             modifier = Modifier.clickable(onClick = onClick),
             content = { Text(title) },
         )
-        if (isDownloading) {
+        if (isDownloading && installing) {
+            IndeterminateDownloadProgressIndicator(modifier = Modifier.fillMaxWidth().padding(start = 72.dp, end = Spacing.l, bottom = Spacing.m))
+        } else if (isDownloading) {
             DownloadProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth().padding(start = 72.dp, end = Spacing.l, bottom = Spacing.m),
@@ -689,14 +698,7 @@ private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actio
         )
     }
     if (pickingZone && item.bbox != null) {
-        ZonePickerDialog(
-            regionId = item.regionId,
-            regionBbox = item.bbox,
-            zone = item.zone,
-            download = true,
-            onConfirm = { zone -> pickingZone = false; actions.onZoneChange(item.regionId, zone, true) },
-            onDismiss = { pickingZone = false },
-        )
+        ZoneSelection(item = item, download = true, actions = actions, onDone = { pickingZone = false })
     }
 
     if (showLargeDownloadWarning) {

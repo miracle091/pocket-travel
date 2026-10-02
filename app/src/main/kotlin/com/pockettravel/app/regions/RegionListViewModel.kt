@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.Normalizer
 import javax.inject.Inject
 
@@ -324,8 +325,14 @@ class RegionListViewModel @Inject constructor(
      * senza celle nella zona si tolgono. Con [download] e la regione non installata parte il download di tutta la regione.
      */
     fun setZone(regionId: String, zone: RegionZone?, download: Boolean = false) {
-        regionZonePreferences.setZone(regionId, zone)
-        val entry = zonedEntry(regionId, zone) ?: return
+        // Solo la parte dentro la regione (la zona inquadrata puo' prendere anche paesi vicini, vedi regionsInZone).
+        val source = manifestRegions.value.firstOrNull { it.regionId == regionId }?.map?.source ?: return
+        if (zone != null && (zone.maxLon <= source.minLon || zone.minLon >= source.maxLon || zone.maxLat <= source.minLat || zone.minLat >= source.maxLat)) return
+        val clamped = zone?.let {
+            RegionZone(maxOf(it.minLon, source.minLon), maxOf(it.minLat, source.minLat), minOf(it.maxLon, source.maxLon), minOf(it.maxLat, source.maxLat))
+        }
+        regionZonePreferences.setZone(regionId, clamped)
+        val entry = zonedEntry(regionId, clamped) ?: return
         viewModelScope.launch {
             val local = regionRepository.installed(regionId)
             if (local == null) {
@@ -337,6 +344,17 @@ class RegionListViewModel @Inject constructor(
                 regionRepository.removePackage(regionId, PackageKind.ADDRESSES)
             }
             enqueue(entry, installedKinds.filterTo(mutableSetOf()) { it in entry.availableKinds })
+        }
+    }
+
+    /** Le regioni del catalogo dentro [zone], dalla piu' presente (terra, non mare): id e nome nella lingua dell'interfaccia. */
+    suspend fun regionsInZone(zone: RegionZone): List<Pair<String, String>> = withContext(Dispatchers.Default) {
+        val regions = manifestRegions.value
+        val candidates = regions.mapNotNull { region ->
+            region.countryCode?.let { code -> region.map.source.let { ZoneCandidate(region.regionId, code, RegionBbox(it.minLon, it.minLat, it.maxLon, it.maxLat)) } }
+        }
+        zoneShares(zone, candidates, countryLocator::countryAt).map { (id, _) ->
+            id to regions.first { it.regionId == id }.localizedNames(locale.value).displayName
         }
     }
 

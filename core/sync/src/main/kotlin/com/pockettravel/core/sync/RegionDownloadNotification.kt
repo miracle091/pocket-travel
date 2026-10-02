@@ -10,10 +10,12 @@ import androidx.work.WorkManager
 import com.pockettravel.core.data.PackageKind
 import java.util.UUID
 
-/** Cosa mostra la notifica del download: i file (byte) o, dopo, l'estrazione della mappa (byte di tile). */
+/** Cosa mostra la notifica del download: i file (byte), l'estrazione della mappa (byte di tile), poi l'installazione. */
 internal sealed interface DownloadPhase {
     data class Files(val bytesDownloaded: Long, val totalBytes: Long) : DownloadPhase
     data class ExtractingMap(val bytesDone: Long, val bytesTotal: Long) : DownloadPhase
+    // Senza percentuale (barra indeterminata): l'import dei POI non sa quanto manca.
+    data object Installing : DownloadPhase
 }
 
 /** Percentuale 0..100 della barra; null (barra indeterminata) se il totale non e' ancora noto. */
@@ -68,6 +70,10 @@ internal class RegionDownloadNotification(private val context: Context) {
             is DownloadPhase.ExtractingMap -> {
                 percent = downloadPercent(phase.bytesDone, phase.bytesTotal)
                 text = context.getString(R.string.sync_download_extracting_map, percent ?: 0)
+            }
+            DownloadPhase.Installing -> {
+                percent = null
+                text = context.getString(R.string.sync_download_installing)
             }
         }
         return NotificationCompat.Builder(context, CHANNEL_ID)

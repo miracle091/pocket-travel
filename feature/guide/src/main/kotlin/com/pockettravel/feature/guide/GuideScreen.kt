@@ -93,13 +93,15 @@ import com.pockettravel.core.ui.R as UiR
 fun GuideScreen(
     regionId: String,
     onOpenSource: (url: String, title: String) -> Unit = { _, _ -> },
+    // Senza barra del titolo (hub della regione): Indietro sulla riga dei filtri.
+    onBack: (() -> Unit)? = null,
     viewModel: GuideViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(regionId) { viewModel.load(regionId) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showCities by rememberSaveable(regionId) { mutableStateOf(false) }
 
-    GuideContent(uiState = uiState, onOpenSource = onOpenSource, onOpenCities = { showCities = true }, excludedTransit = excludedTransitNotes(regionId))
+    GuideContent(uiState = uiState, onOpenSource = onOpenSource, onOpenCities = { showCities = true }, excludedTransit = excludedTransitNotes(regionId), onBack = onBack)
 
     if (showCities) {
         CitiesDialog(
@@ -118,26 +120,40 @@ internal fun GuideContent(
     onOpenSource: (url: String, title: String) -> Unit,
     onOpenCities: () -> Unit = {},
     excludedTransit: List<Int> = emptyList(),
+    onBack: (() -> Unit)? = null,
 ) {
     when {
         uiState.isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             PocketTravelLoadingIndicator()
         }
 
-        uiState.loadError != null -> EmptyState(
-            icon = AppIcons.Error,
-            title = stringResource(uiState.loadError),
-            modifier = Modifier.fillMaxSize(),
-        )
+        uiState.loadError != null -> Column {
+            onBack?.let { GuideBackButton(it) }
+            EmptyState(
+                icon = AppIcons.Error,
+                title = stringResource(uiState.loadError),
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
 
-        uiState.sections.isEmpty() && uiState.emergencyNumbers == null && !uiState.noCentralEmergencyNumber && uiState.cities.isEmpty() -> EmptyState(
-            icon = AppIcons.Compass,
-            title = stringResource(R.string.guide_empty_title),
-            subtitle = stringResource(R.string.guide_empty_subtitle),
-            modifier = Modifier.fillMaxSize(),
-        )
+        uiState.sections.isEmpty() && uiState.emergencyNumbers == null && !uiState.noCentralEmergencyNumber && uiState.cities.isEmpty() -> Column {
+            onBack?.let { GuideBackButton(it) }
+            EmptyState(
+                icon = AppIcons.Compass,
+                title = stringResource(R.string.guide_empty_title),
+                subtitle = stringResource(R.string.guide_empty_subtitle),
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
 
-        else -> GuideSectionsList(uiState, onOpenSource, onOpenCities, excludedTransit)
+        else -> GuideSectionsList(uiState, onOpenSource, onOpenCities, excludedTransit, onBack)
+    }
+}
+
+@Composable
+private fun GuideBackButton(onBack: () -> Unit) {
+    IconButton(onClick = onBack) {
+        Icon(imageVector = AppIcons.Back, contentDescription = stringResource(UiR.string.back))
     }
 }
 
@@ -149,6 +165,7 @@ private fun GuideSectionsList(
     onOpenSource: (url: String, title: String) -> Unit,
     onOpenCities: () -> Unit,
     excludedTransit: List<Int>,
+    onBack: (() -> Unit)?,
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
     val transport = transportSummary(uiState.transportCounts)
@@ -173,6 +190,7 @@ private fun GuideSectionsList(
         selectedCategory = selectedCategory,
         onSelectedCategoryChange = { selectedCategory = it },
         onOpenSource = onOpenSource,
+        onBack = onBack,
         extraContent = {
             if (uiState.cities.isNotEmpty()) {
                 item(key = "cities") {
@@ -364,6 +382,7 @@ private fun SectionsWithFilters(
     onSelectedCategoryChange: (GuideCategory?) -> Unit,
     onOpenSource: (url: String, title: String) -> Unit,
     extraContent: (LazyListScope.() -> Unit)? = null,
+    onBack: (() -> Unit)? = null,
 ) {
     val categories = sections.map { it.category }.distinct()
     val visibleSections = sections.filter { selectedCategory == null || it.category == selectedCategory }
@@ -376,12 +395,15 @@ private fun SectionsWithFilters(
             contentPadding = PaddingValues(bottom = Spacing.l),
             verticalArrangement = Arrangement.spacedBy(Spacing.m),
         ) {
-            if (categories.size > 1) {
+            if (categories.size > 1 || onBack != null) {
                 item(key = "filters") {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = Spacing.l),
+                    // Indietro a sinistra, fuori dallo scorrimento dei filtri.
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = Spacing.s)) {
+                    onBack?.let { Box(modifier = Modifier.padding(start = Spacing.xs)) { GuideBackButton(it) } }
+                    if (categories.size > 1) LazyRow(
+                        contentPadding = PaddingValues(start = if (onBack != null) Spacing.xs else Spacing.l, end = Spacing.l),
                         horizontalArrangement = Arrangement.spacedBy(Spacing.s),
-                        modifier = Modifier.padding(top = Spacing.s),
+                        modifier = Modifier.weight(1f),
                     ) {
                         item {
                             FilterChip(
@@ -398,6 +420,7 @@ private fun SectionsWithFilters(
                                 leadingIcon = { Icon(category.icon(), contentDescription = null, modifier = Modifier.size(18.dp)) },
                             )
                         }
+                    }
                     }
                 }
             }

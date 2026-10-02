@@ -26,6 +26,13 @@ fun DownloadProgressIndicator(progress: () -> Float, modifier: Modifier = Modifi
     LinearWavyProgressIndicator(progress = progress, modifier = modifier)
 }
 
+// Come DownloadProgressIndicator, senza percentuale: per le fasi di cui non si sa quanto manca (installazione).
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun IndeterminateDownloadProgressIndicator(modifier: Modifier = Modifier) {
+    LinearWavyProgressIndicator(modifier = modifier)
+}
+
 // Forma degli elementi hero (icona delle pagine dell'onboarding).
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 val HeroShape: Shape

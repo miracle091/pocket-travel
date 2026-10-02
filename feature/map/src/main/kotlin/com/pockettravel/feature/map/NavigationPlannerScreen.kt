@@ -594,10 +594,7 @@ private fun Recents(recents: List<NavigationPlace>, onRecent: (NavigationPlace) 
             dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(stringResource(android.R.string.cancel)) } },
         )
     }
-    if (recents.isEmpty()) {
-        Text(stringResource(R.string.planner_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        return
-    }
+    if (recents.isEmpty()) return
     // Righe larghe quanto la scheda: l'icona allineata al titolo "Recenti", la X al cestino (un ListItem aggiungerebbe
     // il suo margine a quello della scheda).
     recents.forEach { place ->

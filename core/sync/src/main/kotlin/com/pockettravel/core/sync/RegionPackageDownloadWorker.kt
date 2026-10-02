@@ -76,6 +76,11 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
                         if (throttle.tryAcquire(SystemClock.elapsedRealtime())) setForegroundAsync(foregroundInfo(DownloadPhase.ExtractingMap(bytesDone, bytesTotal)))
                     }
                 },
+                onInstalling = {
+                    // Sempre, senza throttle: e' un cambio di fase, non un avanzamento.
+                    setProgressAsync(workDataOf(KEY_INSTALLING to true))
+                    setForegroundAsync(foregroundInfo(DownloadPhase.Installing))
+                },
             )
             Result.success()
         } catch (error: CancellationException) {
@@ -99,6 +104,8 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
 
     companion object {
         const val KEY_MANIFEST_ENTRY = "manifest_entry"
+        // true dopo download ed estrazione: la riga della regione mostra "Installazione…" senza percentuale.
+        const val KEY_INSTALLING = "installing"
         const val KEY_PACKAGE_KINDS = "package_kinds"
         const val KEY_BYTES_DOWNLOADED = "bytes_downloaded"
         const val KEY_TOTAL_BYTES = "total_bytes"

@@ -16,6 +16,7 @@
     <string name="regions_status_partial">%1$s · partially installed</string>
     <string name="regions_status_downloading">Downloading · %1$d%%</string>
     <string name="regions_status_extracting_map">Extracting the map · %1$d%%</string>
+    <string name="regions_status_installing">Installing…</string>
     <string name="regions_size_plus_map">%1$s + map</string>
     <string name="regions_size_map_only">Map</string>
     <string name="regions_download">Download %1$s</string>
@@ -28,6 +29,7 @@
     <string name="regions_replaced_choose">Choose regions</string>
     <string name="regions_replaced_delete">Delete</string>
     <string name="regions_packages">Contents for %1$s</string>
+    <string name="transit_networks_selected">%1$d of %2$d networks selected</string>
     <string name="transit_networks_near">Networks within 50 km of your last position are ticked.</string>
     <string name="transit_networks_nearest">No network within 50 km of your position: the nearest one is ticked.</string>
     <string name="transit_networks_all">Your position is unknown or in another country: all networks are ticked, untick the ones you don\'t need.</string>
@@ -48,6 +50,9 @@
     <string name="zone_size">About %1$d × %2$d km</string>
     <string name="zone_use">Select area</string>
     <string name="zone_download">Download this area</string>
+    <string name="zone_cross_message">The selected area covers more than one country. Do you want to download the whole selection?</string>
+    <string name="zone_cross_all">Download all</string>
+    <string name="zone_cross_top_only">Only %1$s</string>
     <string name="package_cities">City guides</string>
     <string name="package_transit">Public transport</string>
     <string name="package_status_installed">Installed · %1$s</string>

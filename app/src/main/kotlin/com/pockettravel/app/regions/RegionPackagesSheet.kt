@@ -1,5 +1,8 @@
 package com.pockettravel.app.regions
 
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.draw.rotate
+import androidx.compose.animation.core.animateFloatAsState
 import android.text.format.Formatter
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
@@ -67,6 +70,7 @@ internal fun RegionPackagesSheet(
     var pendingDelete by rememberSaveable { mutableStateOf<PackageKind?>(null) }
     var pendingLargeDownload by rememberSaveable { mutableStateOf<PackageKind?>(null) }
     var pickingZone by rememberSaveable { mutableStateOf(false) }
+    var showNetworks by rememberSaveable { mutableStateOf(false) }
     var showDeleteAll by rememberSaveable { mutableStateOf(false) }
 
     // Sempre aperto per intero: a meta' altezza (tablet in orizzontale) "Elimina tutto" restava sotto il bordo.
@@ -97,15 +101,26 @@ internal fun RegionPackagesSheet(
                             },
                             onDelete = { pendingDelete = pkg.kind },
                         )
-                        // Una casella per rete: l'ultima scelta non si puo' togliere (niente pacchetto vuoto).
-                        pkg.networks.forEach { network ->
-                            TransitNetworkRow(
-                                network = network,
-                                enabled = !isDownloading && !(network.selected && pkg.networks.count { it.selected } == 1),
-                                onChange = { included -> actions.onTransitNetworkChange(item.regionId, network.id, included) },
+                        // Piu' reti: a scomparsa sotto "N di M reti scelte", chiuse di default. Una sola: la sua casella.
+                        if (pkg.networks.size > 1) {
+                            TransitNetworksToggle(
+                                selected = pkg.networks.count { it.selected },
+                                total = pkg.networks.size,
+                                expanded = showNetworks,
+                                onToggle = { showNetworks = !showNetworks },
                             )
                         }
-                        pkg.transitDefaultReason?.let { TransitNetworksNote(it) }
+                        if (pkg.networks.size == 1 || showNetworks) {
+                            // Una casella per rete: l'ultima scelta non si puo' togliere (niente pacchetto vuoto).
+                            pkg.networks.forEach { network ->
+                                TransitNetworkRow(
+                                    network = network,
+                                    enabled = !isDownloading && !(network.selected && pkg.networks.count { it.selected } == 1),
+                                    onChange = { included -> actions.onTransitNetworkChange(item.regionId, network.id, included) },
+                                )
+                            }
+                            pkg.transitDefaultReason?.let { TransitNetworksNote(it) }
+                        }
                         if (pkg.kind == PackageKind.MAP) {
                             val light by remember(item.regionId) { actions.observeMapLight(item.regionId) }.collectAsStateWithLifecycle(false)
                             MapLightRow(light = light, enabled = !isDownloading, onChange = { actions.onMapLightChange(item.regionId, it) })
@@ -132,14 +147,7 @@ internal fun RegionPackagesSheet(
     }
 
     if (pickingZone && item.bbox != null) {
-        ZonePickerDialog(
-            regionId = item.regionId,
-            regionBbox = item.bbox,
-            zone = item.zone,
-            download = false,
-            onConfirm = { zone -> pickingZone = false; actions.onZoneChange(item.regionId, zone, false) },
-            onDismiss = { pickingZone = false },
-        )
+        ZoneSelection(item = item, download = false, actions = actions, onDone = { pickingZone = false })
     }
 
     pendingDelete?.let { kind ->
@@ -207,6 +215,24 @@ private fun PackageRow(pkg: PackageUiState, enabled: Boolean, onDownload: () -> 
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.fillMaxWidth(),
         content = { Text(name) },
+    )
+}
+
+// Apre e chiude le reti dei mezzi pubblici, come la riga di un paese diviso in regioni nell'elenco delle nazioni.
+@Composable
+private fun TransitNetworksToggle(selected: Int, total: Int, expanded: Boolean, onToggle: () -> Unit) {
+    val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "networksChevron")
+    val stateText = stringResource(if (expanded) R.string.continent_expanded else R.string.continent_collapsed)
+    val actionLabel = stringResource(if (expanded) R.string.continent_collapse else R.string.continent_expand)
+    ListItem(
+        trailingContent = { Icon(AppIcons.ExpandMore, contentDescription = null, modifier = Modifier.rotate(rotation)) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = Spacing.xl)
+            .clickable(onClickLabel = actionLabel, role = Role.Button, onClick = onToggle)
+            .semantics(mergeDescendants = true) { stateDescription = stateText },
+        content = { Text(stringResource(R.string.transit_networks_selected, selected, total)) },
     )
 }
 
