@@ -576,6 +576,9 @@ fetch_overpass_chunk() {
   # o relazioni. Dei parchi e delle riserve solo quelli con un nome: gli altri parchi sono per lo piu'
   # aiuole e giardinetti.
   query="${query}wr[\"leisure\"~\"^(park|nature_reserve)$\"][\"name\"]${bbox};wr[\"leisure\"~\"^(water_park|marina)$\"]${bbox};wr[\"tourism\"~\"^(theme_park|zoo)$\"]${bbox};"
+  # Musei e monumenti disegnati come edifici o complessi (Tour Eiffel, Louvre, Colosseo): da soli punti
+  # mancavano proprio i piu' famosi. Solo con un nome, come i parchi.
+  query="${query}wr[\"tourism\"~\"^(museum|gallery|attraction)$\"][\"name\"]${bbox};wr[\"historic\"~\"^(castle|monument|ruins|archaeological_site|fort|city_gate)$\"][\"name\"]${bbox};"
   # Trasporti: stazioni (treno e metro), autostazioni, aeroporti con codice IATA (niente aviosuperfici).
   query="${query}nw[\"railway\"~\"^(station|halt)$\"]${bbox};nwr[\"aeroway\"=\"aerodrome\"][\"iata\"]${bbox};"
   query="${query});out center;"

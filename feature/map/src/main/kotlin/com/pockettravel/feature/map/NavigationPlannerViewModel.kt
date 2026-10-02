@@ -14,6 +14,7 @@ import com.pockettravel.core.data.parseAddressQuery
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.displayName
 import com.pockettravel.core.data.poiCategory
+import com.pockettravel.core.poi.PoiCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +38,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.text.Normalizer
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import javax.inject.Inject
@@ -54,6 +56,26 @@ data class PlannerResult(
     val place: NavigationPlace, val typeLabel: Int?, val otherRegionName: String?, val distanceMeters: Double?,
     val isAddress: Boolean = false,
 )
+
+// Posti da visitare: in una ricerca per nome vengono prima di hotel, negozi e parcheggi che ne portano il nome.
+private val SIGHTS = setOf(
+    PoiCategory.MUSEI_ARTE, PoiCategory.LUOGHI_STORICI, PoiCategory.ATTRAZIONI, PoiCategory.LUOGHI_DI_CULTO,
+    PoiCategory.PARCHI_DIVERTIMENTO, PoiCategory.ZOO, PoiCategory.PARCHI_ACQUATICI,
+)
+
+/** 0 il piu' pertinente: posto da visitare col nome uguale alla ricerca, poi posto da visitare, poi nome uguale, poi il resto. */
+internal fun searchRelevance(poi: Poi, query: String): Int {
+    val wanted = foldForSearch(query)
+    val exact = listOfNotNull(poi.name, poi.nameIt, poi.nameEn).any { foldForSearch(it) == wanted }
+    return (if (poi.poiCategory() in SIGHTS) 0 else 2) + (if (exact) 0 else 1)
+}
+
+// Senza maiuscole, accenti e spazi in piu': "tour  eiffel" e' uguale a "Tour Eiffel".
+private fun foldForSearch(text: String): String =
+    Normalizer.normalize(text.trim().lowercase(), Normalizer.Form.NFD).replace(COMBINING_MARKS, "").replace(SPACES, " ")
+
+private val COMBINING_MARKS = Regex("\\p{Mn}+")
+private val SPACES = Regex("\\s+")
 
 /** Una regione del catalogo senza Percorsi tra partenza e arrivo, col peso dei Percorsi: il Navigatore ne propone il download. */
 data class MissingRegion(val regionId: String, val name: String, val routingBytes: Long)
@@ -394,8 +416,15 @@ class NavigationPlannerViewModel @Inject constructor(
         val addresses = addressSearchRepository.search(ids, text)
         val byProximity = compareBy<PlannerResult> { it.otherRegionName != null }.thenBy { it.distanceMeters ?: Double.MAX_VALUE }
         val addressResults = addresses.map { it.toResult(current, regions, reference) }.sortedWith(byProximity).take(ADDRESS_RESULTS_SHOWN)
-        val poiResults = pois.map { poi -> poi.toResult(language, current, regions, reference) }
-            .sortedWith(byProximity)
+        // Tra i punti di interesse prima i posti da visitare e i nomi uguali alla ricerca: "Louvre" trova il museo, non
+        // gli hotel col suo nome piu' vicini.
+        val poiResults = pois.map { poi -> poi to poi.toResult(language, current, regions, reference) }
+            .sortedWith(
+                compareBy<Pair<Poi, PlannerResult>> { it.second.otherRegionName != null }
+                    .thenBy { searchRelevance(it.first, text) }
+                    .thenBy { it.second.distanceMeters ?: Double.MAX_VALUE },
+            )
+            .map { it.second }
             .take(RESULTS_SHOWN - addressResults.size)
         // Con un civico nella ricerca gli indirizzi esatti vengono per primi, altrimenti i punti di interesse.
         return if (parseAddressQuery(text).number != null) addressResults + poiResults else poiResults + addressResults

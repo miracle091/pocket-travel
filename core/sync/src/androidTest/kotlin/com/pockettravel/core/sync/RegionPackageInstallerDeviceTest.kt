@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import ch.poole.geo.pmtiles.Constants
 import ch.poole.geo.pmtiles.Hilbert
 import ch.poole.geo.pmtiles.Reader
+import com.pockettravel.core.data.MapDetailPreferences
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
@@ -95,6 +96,7 @@ class RegionPackageInstallerDeviceTest {
             PmtilesExtractor(),
             CityImporter(db.cityDao(), db),
             RegionAddressGridInstaller(storage),
+            MapDetailPreferences(context),
         )
     }
 

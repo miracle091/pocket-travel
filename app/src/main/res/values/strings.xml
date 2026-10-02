@@ -37,6 +37,8 @@
     <string name="package_poi_extra">Punti di interesse extra</string>
     <string name="package_addresses">Numeri civici</string>
     <string name="package_cities">Guide delle città</string>
+    <string name="package_map_light">Mappa leggera</string>
+    <string name="package_map_light_detail">Mappa meno dettagliata, occupa circa il 40% di spazio in meno</string>
     <string name="package_transit">Mezzi pubblici</string>
     <string name="package_status_installed">Installato · %1$s</string>
     <string name="package_status_installed_no_size">Installato</string>

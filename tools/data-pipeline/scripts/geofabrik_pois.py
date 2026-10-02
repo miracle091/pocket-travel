@@ -39,7 +39,8 @@ TAGS_FILTER = [
     "n/amenity", "n/shop", "n/tourism", "n/leisure", "n/historic",
     "w/amenity=parking,bus_station,hospital,fire_station,place_of_worship,monastery,ferry_terminal",
     "w/tourism=information", "nw/office=diplomatic",
-    "wr/leisure=park,nature_reserve,water_park,marina", "wr/tourism=theme_park,zoo",
+    "wr/leisure=park,nature_reserve,water_park,marina", "wr/tourism=theme_park,zoo,museum,gallery,attraction",
+    "wr/historic=castle,monument,ruins,archaeological_site,fort,city_gate",
     "nw/railway=station,halt", "nwr/aeroway=aerodrome",
 ]
 # Paesi che un estratto contiene ma l'indice non elenca: gcc-states ha anche l'Arabia Saudita, quello
@@ -47,6 +48,9 @@ TAGS_FILTER = [
 PAESI_MANCANTI = {"gcc-states": {"SA"}, "ireland-and-northern-ireland": {"GB"},
                   "malaysia-singapore-brunei": {"SG", "BN"}}
 NODE_KEYS = ("amenity", "shop", "tourism", "leisure", "historic")
+# Musei e monumenti come aree o relazioni (Tour Eiffel, Louvre), solo con un nome: query di build-region.sh.
+WR_TOURISM_NAMED = {"museum", "gallery", "attraction"}
+WR_HISTORIC_NAMED = {"castle", "monument", "ruins", "archaeological_site", "fort", "city_gate"}
 WAY_AMENITY = {"parking", "bus_station", "hospital", "fire_station", "place_of_worship", "monastery", "ferry_terminal"}
 
 
@@ -61,7 +65,8 @@ def filtro_overpass(kind, tags):
         return True
     if kind in ("way", "relation") and (
             (tags.get("leisure") in ("park", "nature_reserve") and "name" in tags) or
-            tags.get("leisure") in ("water_park", "marina") or tags.get("tourism") in ("theme_park", "zoo")):
+            tags.get("leisure") in ("water_park", "marina") or tags.get("tourism") in ("theme_park", "zoo") or
+            ("name" in tags and (tags.get("tourism") in WR_TOURISM_NAMED or tags.get("historic") in WR_HISTORIC_NAMED))):
         return True
     return tags.get("aeroway") == "aerodrome" and "iata" in tags
 

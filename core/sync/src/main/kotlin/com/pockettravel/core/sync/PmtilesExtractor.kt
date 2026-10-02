@@ -28,7 +28,16 @@ data class PmtilesExtractionStats(
     val bytesDownloaded: Long,
     val tilesReused: Int,
     val bytesReused: Long,
+    // Zoom massimo scritto nel file: quello della sorgente, o uno in meno per la mappa leggera.
+    val maxZoom: Int,
 )
+
+/**
+ * Dettaglio della mappa: [FULL] tutti gli zoom della sorgente, [LIGHT] senza l'ultimo (la z14, circa il 40%
+ * del peso: si perdono gli edifici piccoli e i nomi di molte vie minori, MapLibre ingrandisce la z13), [AUTO]
+ * leggera solo se la mappa completa supera [PmtilesExtractor.autoLightBytes].
+ */
+enum class MapDetail { AUTO, FULL, LIGHT }
 
 /**
  * Estrae, lato device, solo le tile dentro il bounding box di una regione dalla build
@@ -52,7 +61,10 @@ data class PmtilesExtractionStats(
  * Chiamato dentro RegionPackageDownloadWorker, non un meccanismo di download separato: dal
  * punto di vista dell'utente resta lo stesso "Scarica" di sempre.
  */
-class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: Int) {
+class PmtilesExtractor internal constructor(
+    private val alwaysDownloadMaxZoom: Int,
+    private val autoLightBytes: Long = AUTO_LIGHT_BYTES,
+) {
 
     @Inject constructor() : this(ALWAYS_DOWNLOAD_MAX_ZOOM)
 
@@ -66,6 +78,7 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
         mapSource: MapExtractionSource,
         outputFile: File,
         previousMap: File? = null,
+        detail: MapDetail = MapDetail.FULL,
         onProgress: (bytesDone: Long, bytesTotal: Long) -> Unit = { _, _ -> },
         ensureActive: () -> Unit = {},
     ): PmtilesExtractionStats {
@@ -81,7 +94,7 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
                         // Le tile finiscono subito su un file temporaneo accanto all'output (non in RAM,
                         // vedi PmtilesTileSpool), cancellato alla chiusura anche su errore o annullamento.
                         return PmtilesTileSpool(directory).use { tiles ->
-                            val stats = fetchTiles(channel, mapSource, previousMap, tiles, onProgress) {
+                            val stats = fetchTiles(channel, mapSource, previousMap, detail, tiles, onProgress) {
                                 try {
                                     ensureActive()
                                 } catch (error: Throwable) {
@@ -89,7 +102,7 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
                                     throw error
                                 }
                             }
-                            writeArchive(reader, mapSource, tiles, outputFile)
+                            writeArchive(reader, mapSource, stats.maxZoom, tiles, outputFile)
                             stats
                         }
                     } catch (error: PmtilesExtractionException) {
@@ -102,15 +115,15 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
                     }
                 }
                 return PmtilesTileSpool(directory).use { tiles ->
-                    val stats = fetchTiles(channel, mapSource, null, tiles, onProgress, ensureActive)
-                    writeArchive(reader, mapSource, tiles, outputFile)
+                    val stats = fetchTiles(channel, mapSource, null, detail, tiles, onProgress, ensureActive)
+                    writeArchive(reader, mapSource, stats.maxZoom, tiles, outputFile)
                     stats
                 }
             }
         }
     }
 
-    private fun writeArchive(reader: Reader, mapSource: MapExtractionSource, tiles: PmtilesTileSpool, outputFile: File) {
+    private fun writeArchive(reader: Reader, mapSource: MapExtractionSource, maxZoom: Int, tiles: PmtilesTileSpool, outputFile: File) {
         if (tiles.tileCount == 0) {
             throw PmtilesExtractionException("Nessuna tile trovata per il bounding box richiesto")
         }
@@ -121,7 +134,7 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
             tileCompression = reader.tileCompression,
             tileType = reader.tileType,
             minZoom = mapSource.minZoom,
-            maxZoom = mapSource.maxZoom,
+            maxZoom = maxZoom,
             minLon = mapSource.minLon,
             minLat = mapSource.minLat,
             maxLon = mapSource.maxLon,
@@ -144,6 +157,7 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
         channel: FileChannel,
         mapSource: MapExtractionSource,
         previousMap: File?,
+        detail: MapDetail,
         tiles: PmtilesTileSpool,
         onProgress: (Long, Long) -> Unit,
         ensureActive: () -> Unit,
@@ -159,6 +173,15 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
             val remote = remoteIndex.locate(tileIds, ensureActive)
             val installed = localIndex?.locate(tileIds, ensureActive)
 
+            // Mappa leggera: solo le tile sotto l'ultimo zoom, cioe' un prefisso dei tileId ordinati. In automatico
+            // lo si decide sul peso della mappa completa, letto dalle directory prima di scaricare qualsiasi tile.
+            val light = mapSource.maxZoom > mapSource.minZoom && when (detail) {
+                MapDetail.FULL -> false
+                MapDetail.LIGHT -> true
+                MapDetail.AUTO -> uniqueBytes(remote, tileIds.size) > autoLightBytes
+            }
+            val count = if (light) tileIds.indexOfFirst { it >= zoomOffset(mapSource.maxZoom) }.let { if (it < 0) tileIds.size else it } else tileIds.size
+
             // tileId ordinati: le tile fino a alwaysDownloadMaxZoom sono le prime.
             val firstReusableId = zoomOffset(alwaysDownloadMaxZoom + 1)
             fun reusable(i: Int) = installed != null && installed.lengths[i] == remote.lengths[i] && tileIds[i] >= firstReusableId
@@ -167,7 +190,7 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
             // contano (e si scaricano) una volta sola.
             var bytesToDownload = 0L
             var previousOffset = -1L
-            for (i in tileIds.indices) {
+            for (i in 0 until count) {
                 if (remote.lengths[i] < 0 || reusable(i) || remote.offsets[i] == previousOffset) continue
                 bytesToDownload += remote.lengths[i]
                 previousOffset = remote.offsets[i]
@@ -184,7 +207,7 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
             // sola nella build; letti a parte senza spostare il blocco.
             val earlier = HashMap<Long, ByteArray>()
             var lastDownloadedOffset = -1L
-            for (i in tileIds.indices) {
+            for (i in 0 until count) {
                 if (i % ENSURE_ACTIVE_EVERY == 0) ensureActive()
                 val length = remote.lengths[i]
                 if (length < 0) continue
@@ -202,7 +225,7 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
                     earlier.getOrPut(offset) { readRemote(channel, offset, length) }
                 } else {
                     ensureActive()
-                    val end = batchEnd(i, tileIds.size, offset, remote, ::reusable)
+                    val end = batchEnd(i, count, offset, remote, ::reusable)
                     bufferStart = offset
                     buffer = readRemote(channel, offset, (end - offset).toInt())
                     buffer.copyOfRange(0, length)
@@ -215,7 +238,7 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
                     onProgress(bytesDownloaded, bytesToDownload)
                 }
             }
-            return PmtilesExtractionStats(installed != null, downloaded, bytesDownloaded, reused, bytesReused)
+            return PmtilesExtractionStats(installed != null, downloaded, bytesDownloaded, reused, bytesReused, if (light) mapSource.maxZoom - 1 else mapSource.maxZoom)
         } finally {
             local?.close()
         }
@@ -238,6 +261,18 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
             end = offset + length
         }
         return end
+    }
+
+    /** Byte delle prime [count] tile, contando una volta sola quelle che condividono l'offset (mare, terra vuota). */
+    private fun uniqueBytes(remote: PmtilesTileLocations, count: Int): Long {
+        var bytes = 0L
+        var previousOffset = -1L
+        for (i in 0 until count) {
+            if (remote.lengths[i] < 0 || remote.offsets[i] == previousOffset) continue
+            bytes += remote.lengths[i]
+            previousOffset = remote.offsets[i]
+        }
+        return bytes
     }
 
     private fun readRemote(channel: FileChannel, position: Long, length: Int): ByteArray {
@@ -277,6 +312,8 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
 
     private companion object {
         const val ALWAYS_DOWNLOAD_MAX_ZOOM = 6
+        // Oltre 1 GB (Italia ~2,3 GB, Lettonia 254 MB) la mappa automatica e' leggera: z14 = 40-45% del peso.
+        const val AUTO_LIGHT_BYTES = 1_000_000_000L
         const val MAX_BATCH_BYTES = 16L * 1024 * 1024
         const val MAX_GAP_BYTES = 256L * 1024
         const val ENSURE_ACTIVE_EVERY = 256

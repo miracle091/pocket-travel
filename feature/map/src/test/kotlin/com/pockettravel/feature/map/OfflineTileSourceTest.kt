@@ -28,6 +28,21 @@ class OfflineTileSourceTest {
     }
 
     @Test
+    fun `la mappa completa leggera dichiara lo zoom del suo header, MapLibre ingrandisce la z13`() {
+        val resolved = selectSource(
+            fullMapUrl = "pmtiles://file://map.pmtiles",
+            fullMapMaxZoom = 13,
+            previewUrl = null,
+            previewMaxZoom = 0,
+            worldMapUrl = null,
+            worldMapMaxZoom = 8,
+            online = false,
+        )
+        assertEquals(MapSourceKind.FULL, resolved.kind)
+        assertEquals(13, resolved.maxZoom)
+    }
+
+    @Test
     fun `senza mappa completa sceglie l'anteprima, con il suo maxzoom`() {
         val resolved = selectSource(
             fullMapUrl = null,

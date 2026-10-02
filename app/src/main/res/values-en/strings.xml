@@ -36,6 +36,8 @@
     <string name="package_poi">Points of interest</string>
     <string name="package_poi_extra">Extra points of interest</string>
     <string name="package_addresses">House numbers</string>
+    <string name="package_map_light">Light map</string>
+    <string name="package_map_light_detail">Less detailed map, takes about 40% less space</string>
     <string name="package_cities">City guides</string>
     <string name="package_transit">Public transport</string>
     <string name="package_status_installed">Installed · %1$s</string>

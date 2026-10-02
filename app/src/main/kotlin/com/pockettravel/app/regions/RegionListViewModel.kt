@@ -1,6 +1,7 @@
 package com.pockettravel.app.regions
 
 import com.pockettravel.core.data.LastKnownPosition
+import com.pockettravel.core.data.MapDetailPreferences
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -120,6 +121,7 @@ class RegionListViewModel @Inject constructor(
     private val llmModelUpdateCheckScheduler: LlmModelUpdateCheckScheduler,
     private val usageModePreferences: UsageModePreferences,
     private val transitNetworkPreferences: TransitNetworkPreferences,
+    private val mapDetailPreferences: MapDetailPreferences,
     private val lastKnownPosition: LastKnownPosition,
     private val countryLocator: CountryLocator,
 ) : ViewModel() {
@@ -278,6 +280,21 @@ class RegionListViewModel @Inject constructor(
 
     fun deletePackage(regionId: String, kind: PackageKind) {
         viewModelScope.launch { regionRepository.removePackage(regionId, kind) }
+    }
+
+    /** Mappa leggera: la scelta dell'utente o, senza (automatica), com'e' venuta la mappa installata. */
+    fun observeMapLight(regionId: String): Flow<Boolean> =
+        combine(mapDetailPreferences.choices, mapDetailPreferences.installedLight) { choices, installed -> choices[regionId] ?: (regionId in installed) }
+
+    /**
+     * Sceglie la mappa leggera o dettagliata. Con la mappa gia' installata la si estrae di nuovo subito: le tile si
+     * riusano da quella installata, quindi verso la leggera non si scarica niente e verso la dettagliata solo la z14.
+     */
+    fun setMapLight(regionId: String, light: Boolean) {
+        mapDetailPreferences.setChoice(regionId, light)
+        viewModelScope.launch {
+            if (regionRepository.installed(regionId)?.versionOf(PackageKind.MAP) != null) downloadPackage(regionId, PackageKind.MAP)
+        }
     }
 
     fun observeDownloadProgress(regionId: String): Flow<WorkInfo?> =

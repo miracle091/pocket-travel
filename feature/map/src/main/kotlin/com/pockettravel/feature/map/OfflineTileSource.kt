@@ -47,6 +47,7 @@ class PmtilesTileSource(
         val preview = regionStorage.versionedPmtiles(regionId, RegionStorage.PREVIEW_FILE)
         return selectSource(
             fullMapUrl = fullMap?.let(::pmtilesUrl),
+            fullMapMaxZoom = fullMap?.let { pmtilesHeaderMaxZoom(it) } ?: FULL_MAP_MAX_ZOOM,
             previewUrl = preview?.let(::pmtilesUrl),
             previewMaxZoom = preview?.let { pmtilesHeaderMaxZoom(it) } ?: 0,
             worldMapUrl = worldMapStore.worldMapUrl(),
@@ -270,7 +271,9 @@ internal class RegionSource(val sourceId: String, val layerSuffix: String, val u
 // WorldMapStore/ConnectivityChecker veri.
 internal data class ResolvedSource(val kind: MapSourceKind, val url: String?, val maxZoom: Int)
 
-// DEVE combaciare con MAP_MAX_ZOOM di build-region.sh (0/14), vedi il commento in styleJson.
+// DEVE combaciare con MAP_MAX_ZOOM di build-region.sh (0/14), vedi il commento in styleJson; la mappa leggera
+// dichiara 13 nel suo header. Le mappe sotto questo zoom stanno nella pila delle anteprime (regionsStyle): dove si
+// sovrappongono a una mappa completa dettagliata, quella le copre.
 private const val FULL_MAP_MAX_ZOOM = 14
 
 // Nome da mostrare per localita' e strade: in italiano name:it -> name:en -> name, in inglese name:en -> name.
@@ -279,13 +282,15 @@ internal fun labelField(language: String): String =
 
 internal fun selectSource(
     fullMapUrl: String?,
+    // Dall'header del file: 14, o 13 per la mappa leggera (MapDetail.LIGHT di PmtilesExtractor).
+    fullMapMaxZoom: Int = FULL_MAP_MAX_ZOOM,
     previewUrl: String?,
     previewMaxZoom: Int,
     worldMapUrl: String?,
     worldMapMaxZoom: Int,
     online: Boolean,
 ): ResolvedSource = when {
-    fullMapUrl != null -> ResolvedSource(MapSourceKind.FULL, fullMapUrl, FULL_MAP_MAX_ZOOM)
+    fullMapUrl != null -> ResolvedSource(MapSourceKind.FULL, fullMapUrl, fullMapMaxZoom)
     previewUrl != null -> ResolvedSource(MapSourceKind.PREVIEW, previewUrl, previewMaxZoom)
     online && worldMapUrl != null -> ResolvedSource(MapSourceKind.ONLINE_WORLD, "pmtiles://$worldMapUrl", worldMapMaxZoom)
     else -> ResolvedSource(MapSourceKind.NONE, null, 0)

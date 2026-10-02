@@ -121,6 +121,8 @@ fun RegionListScreen(
             onDownloadPackage = viewModel::downloadPackage,
             onDeletePackage = viewModel::deletePackage,
             onTransitNetworkChange = viewModel::setTransitNetwork,
+            observeMapLight = viewModel::observeMapLight,
+            onMapLightChange = viewModel::setMapLight,
         ),
         onRegionClick = { item ->
             if (item.status == RegionStatus.NOT_INSTALLED) {
@@ -143,6 +145,9 @@ internal data class RegionRowActions(
     val onDeletePackage: (regionId: String, kind: PackageKind) -> Unit,
     // Mezzi pubblici con piu' reti: aggiunge o toglie una rete (foglio Contenuti).
     val onTransitNetworkChange: (regionId: String, feedId: String, included: Boolean) -> Unit = { _, _, _ -> },
+    // Mappa leggera (senza la z14): scelta dell'utente o, senza, com'e' la mappa installata (foglio Contenuti).
+    val observeMapLight: (regionId: String) -> Flow<Boolean> = { flowOf(false) },
+    val onMapLightChange: (regionId: String, light: Boolean) -> Unit = { _, _ -> },
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)

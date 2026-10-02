@@ -1,5 +1,6 @@
 package com.pockettravel.core.sync
 
+import com.pockettravel.core.data.MapDetailPreferences
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
@@ -25,6 +26,7 @@ class RegionPackageInstaller @Inject constructor(
     private val pmtilesExtractor: PmtilesExtractor,
     private val cityImporter: CityImporter,
     private val addressGridInstaller: RegionAddressGridInstaller,
+    private val mapDetailPreferences: MapDetailPreferences,
 ) {
     suspend fun install(
         entry: RegionManifestEntry,
@@ -78,14 +80,23 @@ class RegionPackageInstaller @Inject constructor(
             }
             if (installPreview) unpackXz(staging, entry.preview.file, entry.preview.fileXz)
 
+            var extractedLight: Boolean? = null
+
             if (PackageKind.MAP in kinds) {
                 // Estrazione bloccante (HTTP range): su IO e interrompibile se il download viene annullato.
                 // Con una mappa gia' installata (activatePackage la sostituisce solo dopo) scarica solo le
                 // tile cambiate; senza, o se il confronto fallisce, estrae tutto.
                 val installedMap = File(regionStorage.directoryFor(entry.regionId), RegionStorage.MAP_FILE)
-                withContext(Dispatchers.IO) {
-                    pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE), installedMap, onMapProgress) { ensureActive() }
+                // Leggera o dettagliata come ha scelto l'utente; senza scelta decide il peso (MapDetail.AUTO).
+                val detail = when (mapDetailPreferences.choice(entry.regionId)) {
+                    true -> MapDetail.LIGHT
+                    false -> MapDetail.FULL
+                    null -> MapDetail.AUTO
                 }
+                val stats = withContext(Dispatchers.IO) {
+                    pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE), installedMap, detail, onMapProgress) { ensureActive() }
+                }
+                extractedLight = stats.maxZoom < entry.map.source.maxZoom
             }
             if (PackageKind.ROUTING in kinds) routingGraphInstaller.install(staging)
 
@@ -137,6 +148,7 @@ class RegionPackageInstaller @Inject constructor(
                 throw error
             }
             activations.forEach { it.commit() }
+            extractedLight?.let { mapDetailPreferences.setInstalledLight(entry.regionId, it) }
             staging.deleteRecursively()
         }
     }
