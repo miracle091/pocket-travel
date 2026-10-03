@@ -1,7 +1,7 @@
 <resources>
     <string name="guide_load_error">Impossibile caricare la guida per questa regione</string>
-    <string name="guide_empty_title">Nessun contenuto guida disponibile</string>
-    <string name="guide_empty_subtitle">Non ci sono ancora sezioni guida pubblicate per questa regione</string>
+    <string name="guide_empty_title">Nessun contenuto della guida disponibile</string>
+    <string name="guide_empty_subtitle">Nessuna sezione della guida ancora pubblicata per questa regione</string>
     <string name="guide_filter_all">Tutte</string>
     <string name="guide_source_title">Wikivoyage</string>
     <string name="emergency_title">Numeri di emergenza</string>
@@ -37,7 +37,7 @@
         <item quantity="one">%d guida</item>
         <item quantity="other">%d guide</item>
     </plurals>
-    <string name="guide_city_empty_title">Nessun contenuto guida disponibile per questa città</string>
+    <string name="guide_city_empty_title">Nessun contenuto della guida disponibile per questa città</string>
     <string name="guide_city_load_error">Impossibile caricare la guida per questa città</string>
     <plurals name="quick_facts_train">
         <item quantity="one">treno (%d stazione)</item>
@@ -60,13 +60,13 @@
         <item quantity="other">aereo (%d aeroporti)</item>
     </plurals>
     <string name="emergency_embassies_title">Ambasciate e consolati del tuo paese (%1$s)</string>
-    <string name="emergency_embassies_none">Nei dati di questa regione non ci sono ambasciate o consolati del tuo paese: controlla sul sito del tuo ministero degli esteri</string>
+    <string name="emergency_embassies_none">Nessuna ambasciata o consolato del tuo paese nei dati di questa regione: consulta il sito del ministero degli esteri del tuo paese</string>
     <string name="emergency_kind_embassy">Ambasciata</string>
     <string name="emergency_kind_consulate_general">Consolato generale</string>
     <string name="emergency_kind_consulate">Consolato</string>
     <string name="emergency_embassy_website">Apri il sito di %1$s</string>
     <string name="emergency_embassy_email">Scrivi a %1$s</string>
-    <string name="emergency_travel_advice_description">Avvisi e schede paese del ministero degli Esteri del tuo paese</string>
+    <string name="emergency_travel_advice_description">Avvisi e schede paese del ministero degli esteri del tuo paese</string>
     <string name="emergency_travel_advice_fallback_description">Avvisi del governo britannico, in inglese: sicurezza e salute valgono per tutti, i requisiti d\'ingresso sono quelli per i cittadini britannici</string>
     <string name="emergency_travel_advice_open">Apri %1$s</string>
     <string name="guide_sources_title">Fonti</string>
@@ -84,8 +84,8 @@
     <string name="vacc_card_required_exit">%1$s: richiesto all\'uscita</string>
     <string name="vacc_card_more">Informazioni sulle vaccinazioni</string>
     <string name="vacc_choose_departure">Scegli un paese di partenza diverso dalla destinazione per vedere i risultati</string>
-    <string name="vacc_none_found">Nei nostri dati (verificati il %1$s) nessun certificato risulta richiesto per questo percorso. Non è una garanzia: verifica i requisiti</string>
-    <string name="vacc_none_found_no_date">Nei nostri dati nessun certificato risulta richiesto per questo percorso. Non è una garanzia: verifica i requisiti</string>
+    <string name="vacc_none_found">Nei nostri dati (verificati il %1$s) nessun certificato risulta richiesto per questo viaggio. Non è una garanzia: verifica i requisiti</string>
+    <string name="vacc_none_found_no_date">Nei nostri dati nessun certificato risulta richiesto per questo viaggio. Non è una garanzia: verifica i requisiti</string>
     <string name="vacc_disclaimer_title">Informazioni generali</string>
     <string name="vacc_disclaimer">Gli obblighi possono cambiare velocemente, verifica sempre con l\'ambasciata e le fonti ufficiali degli stati interessati</string>
     <string name="vacc_disclaimer_doctor">Consulta un medico dalle 4 alle 6 settimane prima di partire</string>
@@ -93,8 +93,8 @@
     <string name="vacc_links_english">In inglese</string>
     <string name="vacc_stale">Dati sulla polio forse non aggiornati (%1$s)</string>
     <string name="vacc_stale_no_date">Dati sulla polio forse non aggiornati</string>
-    <string name="vacc_from">Da dove parti</string>
-    <string name="vacc_to">Dove vai</string>
+    <string name="vacc_from">Paese di partenza</string>
+    <string name="vacc_to">Paese di destinazione</string>
     <string name="vacc_change_country">Cambia paese</string>
     <string name="vacc_transits">Scali</string>
     <string name="vacc_add_transit">Aggiungi uno scalo</string>
@@ -103,9 +103,9 @@
     <string name="vacc_transit_choose_country">Scegli il paese</string>
     <string name="vacc_transit_hours">Ore di scalo</string>
     <string name="vacc_transit_over_12h">Più di 12 ore</string>
-    <string name="vacc_left_airport">Esco dall\'aeroporto</string>
+    <string name="vacc_left_airport">Uscita dall\'aeroporto</string>
     <string name="vacc_previous">Paesi visitati prima</string>
-    <string name="vacc_previous_hint">Dove sei stato di recente prima di partire (facoltativo)</string>
+    <string name="vacc_previous_hint">Paesi visitati di recente prima della partenza (facoltativo)</string>
     <string name="vacc_previous_expand">Mostra</string>
     <string name="vacc_previous_collapse">Nascondi</string>
     <string name="vacc_add_country">Aggiungi un paese</string>
@@ -124,15 +124,15 @@
     <string name="vacc_level_consider">Da valutare</string>
     <string name="vacc_level_below_age">Non richiesta per l\'età indicata</string>
     <string name="vacc_reason_yf_all">Richiesto a tutti i viaggiatori in arrivo</string>
-    <string name="vacc_reason_from_risk">Perché arrivi da %1$s, paese a rischio febbre gialla</string>
-    <string name="vacc_reason_from_list">Perché arrivi da %1$s, nell\'elenco dei paesi per cui la destinazione chiede il certificato</string>
+    <string name="vacc_reason_from_risk">Perché arrivi da %1$s, paese a rischio di febbre gialla</string>
+    <string name="vacc_reason_from_list">Perché arrivi da %1$s, nell\'elenco dei paesi per cui la destinazione richiede il certificato</string>
     <string name="vacc_reason_transit">Per lo scalo di %1$d ore in %2$s</string>
     <string name="vacc_reason_yf_exit">Richiesto all\'uscita da %1$s</string>
     <string name="vacc_reason_yf_destination">%1$s ha aree a rischio di febbre gialla</string>
     <string name="vacc_reason_yf_destination_partial">Solo in alcune aree di %1$s</string>
     <string name="vacc_reason_polio_exit">Perché parti da %1$s, dove circola il poliovirus, dopo un soggiorno di più di 4 settimane</string>
     <string name="vacc_reason_polio_encouraged">Perché parti da %1$s, dove è stato rilevato poliovirus di tipo 2 derivato dal vaccino</string>
-    <string name="vacc_reason_polio_entry">Perché arrivi da %1$s: la destinazione chiede la prova di vaccinazione antipolio</string>
+    <string name="vacc_reason_polio_entry">Perché arrivi da %1$s: la destinazione richiede la prova di vaccinazione antipolio</string>
     <string name="vacc_reason_hajj">Obbligatorio per i pellegrini di Hajj e Umrah</string>
     <string name="vacc_reason_destination_most">Consigliata alla maggior parte dei viaggiatori verso %1$s</string>
     <string name="vacc_reason_destination_some">Per alcuni viaggiatori verso %1$s, secondo durata, attività e zone</string>

@@ -1,7 +1,7 @@
 <resources>
     <string name="sources_title">Fonti ufficiali</string>
-    <string name="sources_external">Siti ufficiali esterni all\'app: servono la connessione a internet</string>
+    <string name="sources_external">Siti ufficiali esterni all\'app: richiedono una connessione a internet</string>
     <string name="sources_national">Del tuo paese (%1$s)</string>
-    <string name="sources_national_none">Per il tuo paese non abbiamo ancora fonti ufficiali: cerca i consigli di viaggio sul sito del tuo ministero degli esteri</string>
+    <string name="sources_national_none">Nessuna fonte ufficiale ancora disponibile per il tuo paese: cerca i consigli di viaggio sul sito del ministero degli esteri del tuo paese</string>
     <string name="sources_global">Internazionali</string>
 </resources>

@@ -3,11 +3,11 @@
 
     <!-- Elenco regioni -->
     <string name="regions_check_updates">Check for updates</string>
-    <string name="regions_search_hint">Search regions</string>
+    <string name="regions_search_hint">Search for a country</string>
     <string name="regions_search_clear">Clear search</string>
-    <string name="regions_search_empty_title">No regions found</string>
-    <string name="regions_search_empty_subtitle">No region matches \"%1$s\"</string>
-    <string name="regions_load_error">Couldn\'t reach the region catalog. Try again later</string>
+    <string name="regions_search_empty_title">No countries found</string>
+    <string name="regions_search_empty_subtitle">No country matches \"%1$s\"</string>
+    <string name="regions_load_error">Couldn\'t reach the country catalog. Try again later</string>
     <string name="regions_retry">Retry</string>
     <string name="regions_not_enough_space">Not enough space to download this region</string>
     <string name="regions_status_not_installed">%1$s · not installed</string>
@@ -25,34 +25,34 @@
     <string name="regions_delete_title">Delete %1$s?</string>
     <string name="regions_delete_message">Downloaded content for this region will be removed from the device</string>
     <string name="regions_delete_all">Delete all</string>
-    <string name="regions_replaced">It\'s now split into smaller regions: choose which ones to download. This one no longer gets updates</string>
-    <string name="regions_replaced_choose">Choose regions</string>
+    <string name="regions_replaced">This region is now split into smaller regions: choose which ones to download. This region no longer receives updates</string>
+    <string name="regions_replaced_choose">Choose the regions</string>
     <string name="regions_replaced_delete">Delete</string>
     <string name="regions_packages">Contents for %1$s</string>
     <string name="transit_networks_selected">%1$d of %2$d networks selected</string>
-    <string name="transit_networks_near">Networks within 50 km of your last position are ticked</string>
-    <string name="transit_networks_nearest">No network within 50 km of your position: the nearest one is ticked</string>
-    <string name="transit_networks_all">Your position is unknown or in another country: all networks are ticked, untick the ones you don\'t need</string>
+    <string name="transit_networks_near">Networks within 50 km of the last known position are selected</string>
+    <string name="transit_networks_nearest">No network within 50 km of the last known position: the nearest one is selected</string>
+    <string name="transit_networks_all">Position unknown or in another country: all networks are selected. Deselect the ones not needed</string>
     <string name="package_map">Map</string>
     <string name="package_routing">Routing</string>
     <string name="package_poi">Points of interest</string>
     <string name="package_poi_extra">Extra points of interest</string>
     <string name="package_addresses">House numbers</string>
     <string name="package_map_light">Light map</string>
-    <string name="package_map_light_detail">Less detailed map, takes about 40% less space</string>
+    <string name="package_map_light_detail">Less detailed map that takes about 40% less space</string>
     <string name="package_routing_car_only">Routes for cars only</string>
-    <string name="package_routing_car_only_detail">Only roads for cars, about 55% less space: no walking or cycling routes</string>
+    <string name="package_routing_car_only_detail">Only roads open to cars, about 55% less space: no walking or cycling routes</string>
     <string name="zone_row">Area</string>
     <string name="zone_whole_region">Whole country</string>
     <string name="zone_area">One area only, about %1$d × %2$d km</string>
     <string name="zone_choice_title">%1$s: whole country or one area?</string>
-    <string name="zone_choice_message">This is a large country. You can download just the area you need: map, routes and house numbers of that area. Points of interest and guides stay for the whole country</string>
+    <string name="zone_choice_message">This country is very large. You can download only the area you need: map, routes and house numbers of that area. Points of interest and guides cover the whole country</string>
     <string name="zone_choice_pick">Choose an area</string>
-    <string name="zone_hint">Download only the part of the map you see, including routes and house numbers</string>
+    <string name="zone_hint">Download only the visible part of the map, with routes and house numbers</string>
     <string name="zone_size">About %1$d × %2$d km</string>
-    <string name="zone_use">Select area</string>
+    <string name="zone_use">Select the area</string>
     <string name="zone_download">Download this area</string>
-    <string name="zone_cross_message">The selected area covers more than one country. Do you want to download the whole selection?</string>
+    <string name="zone_cross_message">The selected area covers more than one country. Download the whole selection?</string>
     <string name="zone_cross_all">Download all</string>
     <string name="zone_cross_top_only">Only %1$s</string>
     <string name="package_cities">City guides</string>
@@ -75,10 +75,10 @@
     <string name="package_delete_title_transit">Delete public transport timetables for %1$s?</string>
     <string name="package_delete_message">The region\'s other contents stay on the device</string>
     <string name="map_download">Download the map</string>
-    <string name="map_preview_notice">Preview: download the region\'s map and routing for street detail and directions</string>
-    <string name="map_missing_notice">Map not downloaded: download it to see streets and places. Without the map and routing downloaded, directions won\'t work</string>
+    <string name="map_preview_notice">Preview: for street detail and routes, download the region\'s map and routing</string>
+    <string name="map_missing_notice">Map not downloaded: download it to see streets and places. Route calculation requires the downloaded map and routing</string>
     <string name="regions_large_download_title">Large download</string>
-    <string name="regions_large_download_message">%1$s is %2$s and you\'re on mobile data. Continue?</string>
+    <string name="regions_large_download_message">%1$s is %2$s and the phone is on mobile data. Continue?</string>
     <string name="regions_large_download_confirm">Download</string>
     <string name="continent_other">Other</string>
     <string name="continent_europe">Europe</string>
@@ -104,27 +104,27 @@
     <string name="more_sources">Official sources</string>
     <string name="more_sources_subtitle">Ministries, embassies and WHO</string>
     <string name="more_storage">Storage</string>
-    <string name="more_storage_subtitle">Downloaded regions and AI models</string>
-    <string name="more_tutorial">Replay tutorial</string>
+    <string name="more_storage_subtitle">Downloaded countries and AI models</string>
+    <string name="more_tutorial">Replay the tutorial</string>
     <string name="more_tutorial_subtitle">Guide, map, Navigator and documents</string>
     <string name="more_usage_mode">How you travel</string>
     <string name="more_nationality">Nationality</string>
     <string name="more_language">Language</string>
     <string name="onboarding_language_title">Lingua · Language</string>
-    <string name="onboarding_language_body">The app\'s language: you can change it anytime from More. Guides follow it when they exist in that language; the on-device AI assistant answers in Italian</string>
+    <string name="onboarding_language_body">The app language, which can be changed at any time from More. Guides use this language when they are available in it; the on-device AI assistant answers in the app language</string>
     <string name="more_nationality_none">Not set</string>
     <string name="more_usage_mode_none">Not set: the map shows all categories</string>
-    <string name="more_usage_mode_with_accessible">%1$s, wheelchair accessible</string>
-    <string name="more_usage_mode_accessible_only">Wheelchair accessible: the map shows all categories</string>
-    <string name="more_usage_mode_body">The map shows the points useful for this way of traveling first. Choosing it resets the map filters to their defaults</string>
+    <string name="more_usage_mode_with_accessible">%1$s, in a wheelchair</string>
+    <string name="more_usage_mode_accessible_only">In a wheelchair: the map shows all categories</string>
+    <string name="more_usage_mode_body">The map shows the points useful for this way of traveling first. This choice resets the map filters to their defaults</string>
     <string name="more_licenses">Licenses</string>
     <string name="more_appearance">Appearance</string>
     <string name="more_appearance_system">Phone theme</string>
     <string name="more_appearance_dark">Dark theme</string>
-    <string name="more_appearance_with_dynamic_color">%1$s, colors from wallpaper</string>
+    <string name="more_appearance_with_dynamic_color">%1$s, colors from the wallpaper</string>
     <string name="more_force_dark">Dark theme</string>
     <string name="more_force_dark_subtitle">Always dark, even when the phone uses the light theme</string>
-    <string name="more_dynamic_color">Colors from wallpaper</string>
+    <string name="more_dynamic_color">Colors from the wallpaper</string>
     <string name="more_dynamic_color_subtitle">Use the phone\'s wallpaper colors instead of the app\'s</string>
     <string name="more_licenses_subtitle">Third-party components and data</string>
 
@@ -142,12 +142,12 @@
 
     <!-- Spazio di archiviazione -->
     <string name="storage_title">Storage</string>
-    <string name="storage_summary">Pocket Travel is using %1$s · %2$s free on device</string>
-    <string name="storage_regions">Installed regions</string>
-    <string name="storage_no_regions">No regions installed</string>
+    <string name="storage_summary">Pocket Travel uses %1$s · %2$s free on the device</string>
+    <string name="storage_regions">Installed countries</string>
+    <string name="storage_no_regions">No countries installed</string>
     <string name="storage_guides">Guides</string>
     <string name="storage_guides_title">Guides for all countries</string>
-    <string name="storage_guides_auto">%1$s · updates itself over Wi-Fi</string>
+    <string name="storage_guides_auto">%1$s · updates automatically over Wi-Fi</string>
     <string name="storage_no_guides">Guides not downloaded yet</string>
     <string name="storage_guides_download">Download the guides</string>
     <string name="storage_model">Local AI model</string>
@@ -158,7 +158,7 @@
 
     <!-- Anteprima regione -->
     <string name="preview_banner_title">Preview without download</string>
-    <string name="preview_banner_body">Map and offline AI assistant require the full region</string>
+    <string name="preview_banner_body">The map and the offline AI assistant require the full region</string>
     <string name="preview_download">Download</string>
     <string name="preview_error">Couldn\'t load the preview. Try again later</string>
 
@@ -171,39 +171,39 @@
 
     <!-- Onboarding -->
     <string name="onboarding_welcome_title">Welcome to Pocket Travel</string>
-    <string name="onboarding_welcome_body">A travel guide that works even offline: local customs, border rules, vaccinations, maps and a built-in AI assistant. No account, no personal data collected</string>
+    <string name="onboarding_welcome_body">A travel guide that works even offline: culture and etiquette, customs, vaccinations, maps and a built-in AI assistant. No account, no personal data collected</string>
     <string name="onboarding_ai_title">The AI assistant has two modes</string>
-    <string name="onboarding_ai_body">\"On device\" works even without internet: a small model downloaded to the phone (at least 4 GB of RAM) answers using the guide and your notes. \"Online\" uses a service of your choice (ChatGPT, Mistral, Gemini or Claude) with your own API key, which stays on the phone</string>
-    <string name="onboarding_ai_online_title">The AI assistant is available Online</string>
-    <string name="onboarding_ai_online_body">Your phone has less than 4 GB of RAM, so \"On device\" mode isn\'t available. The AI assistant works in Online mode, with a service of your choice (ChatGPT, Mistral, Gemini or Claude) and your own API key, which stays on the phone</string>
+    <string name="onboarding_ai_body">\"On device\" works even without internet: a small model downloaded to the phone (requires at least 4 GB of RAM) answers using the guide and your personal notes. \"Online\" uses a service of your choice (ChatGPT, Mistral, Gemini or Claude) with your own API key, which stays on the phone</string>
+    <string name="onboarding_ai_online_title">The AI assistant is available in Online mode</string>
+    <string name="onboarding_ai_online_body">This phone has less than 4 GB of RAM, so \"On device\" mode isn\'t available. The AI assistant works in Online mode, with a service of your choice (ChatGPT, Mistral, Gemini or Claude) and your own API key, which stays on the phone</string>
     <string name="onboarding_vault_title">Your documents stay safe</string>
     <string name="onboarding_vault_body">Passport and vaccination certificates are kept in \"Documents\", protected by biometrics or screen lock and never sent off the device</string>
     <string name="onboarding_sources_title">Official sources open online</string>
     <string name="onboarding_sources_body">Embassies, ministries and WHO open in a browser tab and require a connection: the app never saves them offline, so they stay up to date</string>
     <string name="onboarding_usage_mode_title">How do you travel?</string>
-    <string name="onboarding_usage_mode_body">The map will show the points useful to you first. You can change it anytime from More, or skip this step</string>
-    <string name="onboarding_nationality_title">What country are you from?</string>
-    <string name="onboarding_nationality_body">Each region\'s guide has contacts for your country\'s embassies and consulates, along with emergency numbers. You can change it anytime from More</string>
+    <string name="onboarding_usage_mode_body">The map shows the points useful for this way of getting around first. You can change it at any time from More, or skip this step</string>
+    <string name="onboarding_nationality_title">What is your nationality?</string>
+    <string name="onboarding_nationality_body">Each region\'s guide lists the contacts of your country\'s embassies and consulates, along with emergency numbers. You can change it at any time from More</string>
     <string name="onboarding_nationality_change">Change</string>
     <string name="onboarding_guides_title">Guides for all countries</string>
-    <string name="onboarding_guides_body">Optional: local customs, safety and emergency numbers for every country, so you can check them even before choosing a region. If you skip this step, they\'ll download automatically the next time you\'re on Wi-Fi</string>
+    <string name="onboarding_guides_body">Optional: culture and etiquette, safety and emergency numbers for every country, available even before choosing a country. If you skip this step, the guides download automatically the first time the phone connects to Wi-Fi</string>
     <string name="onboarding_guides_download">Download the guides (%1$s)</string>
     <string name="onboarding_guides_download_no_size">Download the guides</string>
     <string name="onboarding_guides_downloading">Downloading guides…</string>
     <string name="onboarding_guides_done">Guides downloaded</string>
-    <string name="onboarding_region_title">Download a region to get started</string>
-    <string name="onboarding_region_body">Optional: choose one or more regions and, for each, what to download. Your country and nearby countries are at the top. You can also do this later from the Regions screen</string>
-    <string name="onboarding_region_search">Search for a region</string>
+    <string name="onboarding_region_title">Download a country to get started</string>
+    <string name="onboarding_region_body">Optional: choose one or more countries and, for each, what to download. Your country and nearby countries appear at the top. You can also do this later from the Countries screen</string>
+    <string name="onboarding_region_search">Search for a country</string>
     <string name="onboarding_region_recommended">Recommended for you</string>
-    <string name="onboarding_region_all">All regions</string>
+    <string name="onboarding_region_all">All countries</string>
     <string name="onboarding_region_installed">Already downloaded</string>
     <string name="onboarding_region_downloading">Downloading…</string>
     <plurals name="onboarding_region_download">
-        <item quantity="one">Download %1$d region · %2$s</item>
-        <item quantity="other">Download %1$d regions · %2$s</item>
+        <item quantity="one">Download %1$d country · %2$s</item>
+        <item quantity="other">Download %1$d countries · %2$s</item>
     </plurals>
     <string name="onboarding_model_title">Download the AI model</string>
-    <string name="onboarding_model_body">Optional: you can download it here or anytime later, from Settings. Until you do, the AI tab doesn\'t appear in countries</string>
+    <string name="onboarding_model_body">Optional: you can download it now or later from Settings. Until the model is downloaded, the AI tab doesn\'t appear in countries</string>
     <string name="onboarding_step">Step %1$d of %2$d</string>
     <string name="onboarding_skip">Skip</string>
     <string name="onboarding_back">Back</string>
@@ -219,8 +219,8 @@
     <string name="settings_section_navigation">Map and Navigator</string>
     <string name="settings_section_ai">AI assistant</string>
     <string name="settings_stop_gps_on_arrival">Turn off GPS on arrival</string>
-    <string name="settings_stop_gps_on_arrival_subtitle">When you reach the destination, guidance closes automatically, even with the app in the background, to save battery. When turned off, guidance stays active until you close it</string>
+    <string name="settings_stop_gps_on_arrival_subtitle">On arrival at the destination, navigation closes automatically, even with the app in the background, to save battery. With this option off, navigation stays active until it is closed</string>
     <string name="settings_walking_haptics">Vibration when walking</string>
-    <string name="settings_walking_haptics_subtitle">A light vibration at each turn and two on arrival, to follow the guidance without looking at the screen</string>
+    <string name="settings_walking_haptics_subtitle">A light vibration at each turn and two on arrival, to follow navigation without looking at the screen</string>
     <string name="regions_offline_installed">Catalog unreachable: only the countries already downloaded are shown</string>
 </resources>
