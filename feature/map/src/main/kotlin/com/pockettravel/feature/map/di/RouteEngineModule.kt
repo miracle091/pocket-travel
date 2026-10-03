@@ -64,8 +64,8 @@ object RouteEngineModule {
         }
     }
 
-    // Una regione: la sua cartella di oggi, nessun costo in piu'. Piu' regioni: i segmenti uniti; se non
-    // si riesce a unirli (file rovinato, disco pieno) si naviga con la prima, come prima delle unioni.
+    // Una regione: la sua cartella, nessun costo in piu'. Piu' regioni: i segmenti uniti; se non
+    // si riesce a unirli (file rovinato, disco pieno) si naviga con la sola prima regione.
     private suspend fun segmentDirFor(regionIds: List<String>, regionsDir: File, mergedDir: File): File {
         val dirs = regionIds.map { File(regionsDir, "$it/$ROUTING_DIR_NAME") }
         if (dirs.size == 1) return dirs.single()

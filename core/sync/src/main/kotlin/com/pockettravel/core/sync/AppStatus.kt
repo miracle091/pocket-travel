@@ -14,12 +14,12 @@ data class AppStatus(val appVersion: AppVersionEntry? = null, val aiModels: List
 @Serializable
 data class AppVersionEntry(val versionName: String, val versionCode: Int)
 
-// Una entry per modello del catalogo (LlmModelCatalog.ALL), non piu' un singolo aiModel: modelId
+// Una entry per modello del catalogo (LlmModelCatalog.ALL): modelId
 // e' il discriminante per sapere a quale modello installato si riferisce l'entry (vedi
 // LlmModelUpdateCheckWorker, che cerca quella con modelId == modello selezionato). sha256 resta
 // il discriminante di versione all'interno di uno stesso modelId, non modelVersion (etichetta
 // leggibile, stesso ruolo di displayName per una regione). Niente campo url: questo controllo si
-// limita a rilevare/notificare un aggiornamento, non a riscaricare il modello (fuori scope).
+// limita a rilevare e notificare un aggiornamento, non riscarica il modello.
 @Serializable
 data class AiModelManifestEntry(val modelId: String, val modelVersion: String, val sha256: String, val sizeBytes: Long)
 

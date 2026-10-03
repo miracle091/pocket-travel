@@ -31,8 +31,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.launch
 
-// FragmentActivity (sottoclasse di ComponentActivity) invece di ComponentActivity: richiesto da
-// BiometricPrompt (feature:vault, cassaforte documenti) — nessun altro cambio di comportamento.
+// FragmentActivity (sottoclasse di ComponentActivity) invece di ComponentActivity: richiesta da
+// BiometricPrompt (feature:vault, cassaforte documenti).
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     @Inject lateinit var themePreferences: ThemePreferences

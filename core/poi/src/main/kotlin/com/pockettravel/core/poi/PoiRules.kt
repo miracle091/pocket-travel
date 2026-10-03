@@ -84,8 +84,8 @@ val SIGHT_CATEGORIES: Set<PoiCategory> = setOf(
 /**
  * Raggruppa il tag OSM grezzo di un POI (Poi.category/osmTag, uno dei tanti valori possibili di
  * amenity/shop/tourism/leisure/historic/railway/aeroway — vedi poiTagKeys in GeneratePoi.kt) in una manciata di
- * macro-categorie per la mappa (icona + filtro), sullo stesso spirito delle 5 GuideCategory
- * pratiche già in uso per le guide testuali.
+ * macro-categorie per la mappa (icona + filtro), con lo stesso criterio delle GuideCategory
+ * delle guide testuali.
  */
 fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     category == "embassy" -> PoiCategory.AMBASCIATA_CONSOLATO
@@ -215,8 +215,8 @@ fun isPoiHiddenOnMap(name: String, category: String, osmTag: String): Boolean {
 /** Pacchetto in cui la pipeline pubblica un POI (vedi [poiPackageOf]). */
 enum class PoiPackage { BASE, EXTRA }
 
-// POI nascosti sulla mappa ma utili a chi li vuole: pacchetto "extra", scaricato solo su richiesta
-// (scelta dell'utente, 2026-09-25). Tutti gli altri POI nascosti non si pubblicano.
+// POI nascosti sulla mappa ma utili a chi li vuole: pacchetto "extra", scaricato solo su richiesta.
+// Tutti gli altri POI nascosti non si pubblicano.
 private val extraTags = setOf(
     "amenity=drinking_water", "leisure=picnic_table", "leisure=playground", "amenity=vending_machine",
     "amenity=post_box",

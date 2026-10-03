@@ -201,7 +201,7 @@ awk -F'\t' -v giantsFile="$GIANTS_FILE" -v nonGiantFile="$NONGIANT_FILE" '
 ' < /dev/null > "$ASSIGN_FILE"
 # colonne: regionId, day, orderIndex
 
-# --- passo 6: scrivo weekly-schedule.sh, un giorno per regione nell'ordine di pilot-regions.sh --
+# --- passo 6: scrittura di weekly-schedule.sh, un giorno per regione nell'ordine di pilot-regions.sh --
 {
   echo "#!/usr/bin/env bash"
   echo "# Generato da generate-weekly-schedule.sh il $(date -u +%Y-%m-%d) — NON MODIFICARE A MANO."

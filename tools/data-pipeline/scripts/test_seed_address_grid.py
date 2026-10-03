@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Test di seed-address-grid.py sulla logica pura (quadtree, proiezione, righe Overture): nessuna
-rete, nessun PMTiles remoto (quello lo copre solo un test manuale, vedi il report della pipeline).
+rete, nessun PMTiles remoto (quello lo copre solo una prova manuale).
 
 Uso: python test_seed_address_grid.py
 """

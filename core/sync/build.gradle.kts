@@ -49,7 +49,7 @@ dependencies {
     implementation(libs.okhttp)
     // Decompressione dei pacchetti POI .xz (xz-java, 0BSD, Java puro).
     implementation(libs.xz)
-    // Lettura PMTiles via HTTP range request (BSD-3, verificato) per estrarre lato device solo
+    // Lettura PMTiles via HTTP range request (BSD-3) per estrarre lato device solo
     // le tile della bounding box di una regione dalla build pubblica Protomaps — vedi
     // PmtilesExtractor. Compatibile Android (dichiarato dal progetto fino ad API 16).
     implementation(libs.pmtiles.reader)

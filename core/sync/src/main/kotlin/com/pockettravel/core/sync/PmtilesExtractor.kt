@@ -57,8 +57,8 @@ enum class MapDetail { FULL, LIGHT }
  * illeggibile, compressione o tipo di tile diversi, errori di rete) si ripiega sull'estrazione
  * completa; l'annullamento invece si propaga.
  *
- * Chiamato dentro RegionPackageDownloadWorker, non un meccanismo di download separato: dal
- * punto di vista dell'utente resta lo stesso "Scarica" di sempre.
+ * Chiamato dentro RegionPackageDownloadWorker, non un meccanismo di download separato: per
+ * l'utente e' lo stesso "Scarica" degli altri pacchetti.
  */
 class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: Int) {
 
@@ -143,7 +143,7 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
      * solo le tile assenti o di lunghezza diversa nella mappa installata, piu' tutte quelle fino a
      * [alwaysDownloadMaxZoom]; senza, tutte.
      *
-     * Una richiesta HTTP per tile era lenta (circa 3 MB al minuto sulla Lettonia, limitati dalla
+     * Una richiesta HTTP per tile sarebbe lenta (circa 3 MB al minuto sulla Lettonia, limitati dalla
      * latenza): la build Protomaps e' in ordine di tileId (clustered), quindi le tile vicine del
      * riquadro stanno quasi sempre una dopo l'altra nel file e si leggono a blocchi, una richiesta
      * per blocco fino a [MAX_BATCH_BYTES], scaricando anche i buchi tra una tile e l'altra fino a

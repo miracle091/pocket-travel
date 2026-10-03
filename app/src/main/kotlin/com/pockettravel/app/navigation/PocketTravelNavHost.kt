@@ -113,10 +113,9 @@ private fun TopLevelDestination.icon(selected: Boolean): ImageVector = when (thi
     TopLevelDestination.MORE -> if (selected) AppIcons.MoreFilled else AppIcons.More
 }
 
-// Un solo NavHost per l'intera app (attività singola, vedi AndroidManifest): sostituisce
-// il vecchio if/else hardcoded in MainActivity. Lo start destination si decide una volta
-// sola in modo sincrono (StartDestinationViewModel) — non reattivamente, perche' una volta
-// scelta la rotta iniziale non deve piu' cambiare per la vita del NavHost.
+// Un solo NavHost per l'intera app (attivita' singola, vedi AndroidManifest). Lo start destination si
+// decide una volta sola in modo sincrono (StartDestinationViewModel), non reattivamente: una volta
+// scelta, la rotta iniziale non cambia piu' per la vita del NavHost.
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PocketTravelNavHost(

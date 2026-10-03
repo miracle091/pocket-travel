@@ -24,11 +24,11 @@ name: Publish regions
 # Il lavoro e' spalmato su piu' giorni (bucket) E, dentro ogni bucket, su piu' shard in parallelo
 # (matrice a 3 vie) per due limiti concreti, non teorici:
 #   1. limite di 6h per job di GitHub Actions
-#   2. fair use dei mirror Overpass pubblici (infrastruttura gratuita condivisa, non nostra)
+#   2. fair use dei mirror Overpass pubblici (infrastruttura gratuita condivisa, non del progetto)
 # Lo split fra shard e' bilanciato per peso (i secondi dell'ultima generazione di ogni regione,
 # region-timings.tsv sul sito; senza misura le tile land di WEEKLY_SCHEDULE_TILES) e non un semplice round-robin per indice: senza bilanciamento, piu'
 # regioni "gigante" (canada, stati-uniti, russia, brasile, cina, india, ...) capitate per caso nello
-# stesso bucket-giorno potevano finire nello stesso shard, rischiando di sforare il limite di 6h
+# stesso bucket-giorno potrebbero finire nello stesso shard, rischiando di sforare il limite di 6h
 # mentre gli altri shard restavano quasi vuoti.
 on:
   schedule:
@@ -89,7 +89,7 @@ permissions:
 
 # Nessuna concurrency a livello di workflow: un gruppo tiene al massimo una run in corso e UNA in
 # attesa, e una nuova run in coda annulla quella gia' in attesa (anche con cancel-in-progress:
-# false). Con run che durano ore, una run manuale lanciata durante uno schedule poteva far annullare
+# false). Con run che durano ore, una run manuale lanciata durante uno schedule potrebbe far annullare
 # il bucket del giorno successivo rimasto in coda. Il gruppo "pages" sta solo sul job "publish"
 # (pochi minuti: la finestra in cui una terza run puo' scavalcarne una in attesa e' minima). I job
 # di generazione di run diverse possono quindi sovrapporsi: gli asset non si scontrano (VERSION
@@ -97,8 +97,7 @@ permissions:
 # meno di 24 ore, che possono appartenere a una run ancora in corso.
 
 env:
-  # Unica per tutta la run, riusata dai job "build" e "publish" (prima ricostruita identica in
-  # entrambi da github.repository_owner/github.event.repository.name).
+  # Unica per tutta la run, riusata dai job "build" e "publish".
   PAGES_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
 
 jobs:
@@ -196,8 +195,7 @@ jobs:
             ADAPTIVE_DOW="$DOW"
           fi
           if [ -z "$SELECTED" ]; then
-            # workflow_dispatch senza regions esplicite (fuori da uno schedule): tutto il lotto,
-            # comportamento storico prima dell'introduzione dei bucket.
+            # workflow_dispatch senza regions esplicite (fuori da uno schedule): tutto il lotto.
             ids=()
             for spec in "${PILOT_REGIONS[@]}"; do
               IFS='|' read -r regionId _ <<< "$spec"
@@ -220,7 +218,7 @@ jobs:
           # pubblicato accanto al manifest dal job "publish"): le tile contano poco per i POI,
           # rigenerati ogni settimana e lunghi dove i punti sono tanti (Germania: poche tile, molti
           # POI). Senza misura: 50 s per tile land, la media delle regioni mai generate nella run
-          # completa del 2026-09-28 (i 12 s della run del 2026-09-24 le sottostimavano di 4 volte).
+          # completa del 2026-09-28.
           declare -A TIMINGS=()
           if curl -sSfL --retry 3 --retry-delay 5 -A "PocketTravelDataPipeline/1.0" "${{ env.PAGES_BASE_URL }}/region-timings.tsv" -o "$RUNNER_TEMP/region-timings.tsv"; then
             while IFS=$'\t' read -r regionId seconds; do
@@ -378,7 +376,7 @@ jobs:
 
   # Mappa del mondo online a bassa risoluzione (z0-8, ~555 MB), sulla release "world-map": letta
   # dall'app a pezzi con richieste Range quando la mappa di una regione non e' scaricata ma c'e'
-  # rete (decisione del 2026-09-27). Un solo job,
+  # rete. Un solo job,
   # non sharded: un solo file per l'intero pianeta. Si rigenera solo se quella pubblicata ha piu' di
   # WORLD_MAP_MAX_AGE_DAYS giorni o manca del tutto - altrimenti il job non produce nulla e la voce
   # gia' pubblicata resta (mergeManifests la riporta avanti dal manifest online, come "guides").
@@ -537,7 +535,7 @@ jobs:
           # Partizione attuale: le celle dell'indice pubblicato (fonte di verita', include le celle
           # divise da run precedenti) piu' le celle del seme versionato nel repo non ancora coperte,
           # cioe' ne' pubblicate ne' antenate di una cella pubblicata (divisa). Senza il seme la
-          # partizione restava ferma alle celle della prima quota pubblicata. Alla primissima
+          # partizione resterebbe ferma alle celle della prima quota pubblicata. Alla primissima
           # pubblicazione (404) e' il solo seme.
           IDS_FILE="$RUNNER_TEMP/all-cell-ids.txt"
           PUBLISHED_INDEX_FILE="$RUNNER_TEMP/published-index.json"
@@ -914,7 +912,7 @@ jobs:
           bash .github/scripts/install-go-pmtiles.sh
 
       # osmium estrae i POI dagli estratti Geofabrik (geofabrik_pois.py, build-region.sh); senza,
-      # build-region.sh interroga Overpass come prima. Mai bloccante.
+      # build-region.sh interroga Overpass. Mai bloccante.
       - name: Installa osmium-tool
         continue-on-error: true
         shell: bash
@@ -983,7 +981,7 @@ jobs:
           RELEASE_BASE_URL_PREFIX="https://github.com/${{ github.repository }}/releases/download"
           PUBLISHED_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
           # Data + numero e tentativo della run (YYYY.MM.DD.<run>.<tentativo>): con la sola data una
-          # seconda run nello stesso giorno ricaricava con --clobber asset con lo stesso nome (e byte
+          # seconda run nello stesso giorno ricaricherebbe con --clobber asset con lo stesso nome (e byte
           # diversi) gia' referenziati dal manifest online. Gli script leggono la data dai nomi degli
           # asset ignorando il suffisso (vedi POI_DATE in build-region.sh).
           VERSION="$(date -u +%Y.%m.%d).${{ github.run_number }}.${{ github.run_attempt }}"
@@ -1011,10 +1009,8 @@ jobs:
 
           # Una regione che fallisce (es. query Overpass troppo pesante per un bbox enorme) non
           # deve far perdere il lavoro gia' fatto per le regioni precedenti nello stesso shard: con
-          # "set -e" un fallimento non protetto da if/else avrebbe interrotto subito lo script,
-          # saltando le regioni successive anche se gia' completate con successo (visto: San
-          # Marino/Italia/Giappone generati correttamente ma mai pubblicati perche' gli Stati Uniti
-          # sono falliti dopo, nella stessa run). L'if/else qui sotto e' una delle eccezioni
+          # "set -e" un fallimento non protetto da if/else interromperebbe subito lo script, e le
+          # regioni gia' completate non verrebbero pubblicate. L'if/else qui sotto e' una delle eccezioni
           # riconosciute da "set -e" (il comando testato in una condizione if non fa terminare lo
           # script), quindi si continua con le regioni successive.
           FAILED_REGIONS=()
@@ -1203,7 +1199,7 @@ jobs:
                 printf '%s\t%d\n' "$regionId" "$((SECONDS - regionStart))" >> "$RUNNER_TEMP/fragments/timings-${{ matrix.shard }}.tsv"
               fi
               # File della regione gia' caricati: via dal disco (una copia rinominata per asset li
-              # raddoppiava), cosi' resta posto per le cache di Geofabrik e dei .rd5 dello shard.
+              # raddoppierebbe), cosi' resta posto per le cache di Geofabrik e dei .rd5 dello shard.
               rm -rf "$regionOut"
             else
               rc=$?
@@ -1382,7 +1378,7 @@ jobs:
           COUNT="$(find "$PENDING_DIR" -name '*.json' | wc -l)"
           EXPECTED="$(grep -c '\.json$' <<< "$NAMES" || true)"
           echo "-- $COUNT frammenti in sospeso scaricati su $EXPECTED"
-          # gh legge tutti gli asset (verificato: 415 su 415 sulla release europa), ma se ne manca qualcuno la
+          # gh legge tutti gli asset, ma se ne manca qualcuno la
           # pulizia cancellerebbe i suoi file: si pubblicano quelli scaricati, senza pulizia.
           if [ "$COUNT" -ne "$EXPECTED" ]; then
             echo "::warning::scaricati $COUNT frammenti in sospeso su $EXPECTED: niente pulizia degli asset in questa run"

@@ -15,7 +15,7 @@ fun main(args: Array<String>) {
     require(args.size >= 5) {
         "Uso: generatePoi <regionId> <output poi.db> <output poi-extra.db> <poiTagKeys separate da virgola> <input1.osm.xml> [input2.osm.xml ...]"
     }
-    // regionId non finisce piu' nel file (era una colonna costante su ogni riga, vedi writePoiDb):
+    // regionId non finisce nel file (sarebbe una colonna costante su ogni riga, vedi writePoiDb):
     // resta come argomento posizionale per compatibilita' con build-region.sh, non altrimenti usato qui.
     val outputDb = File(args[1])
     val extraDb = File(args[2])
@@ -61,7 +61,7 @@ fun checkPoiCount(baseCount: Int, publishedCount: Int?) {
 /**
  * Legge i POI dagli XML Overpass in streaming, tenendo in memoria solo i [Poi] (pochi campi) e
  * non ogni nodo con tutti i suoi tag come parseOsmXml: con tutti i nodi della Germania in
- * memoria generatePoi esauriva lo heap di 4g (OutOfMemoryError nel build del 2026-09-23).
+ * memoria generatePoi esaurisce lo heap di 4g (OutOfMemoryError).
  * Un nodo esattamente sul confine tra due chunk puo' comparire in entrambi i file: conta una
  * volta sola.
  */
@@ -220,8 +220,8 @@ private fun addressOf(tags: Map<String, String>): String? {
  * - "poi": name, il code di poi_code, le coordinate come interi in microgradi (lat/lon * 1e6,
  *   precisione ~0,11 m, piu' che sufficiente per un segnalino) invece di REAL a 8 byte, phone e
  *   wheelchair facoltativi, openingHours e address per cibo, alloggi, ambasciate, farmacie, ospedali e negozi, website ed email per alloggi e ambasciate, country (paese rappresentato) per le ambasciate, toiletsWheelchair (bagni accessibili, qualunque POI) e
- *   capacityDisabled (posti auto per disabili, parcheggi) (colonne aggiunte dopo: le versioni dell'app che non le conoscono non le selezionano). Niente colonna
- *   regionId (era costante su ogni riga: la regione la passa comunque chi importa il file).
+ *   capacityDisabled (posti auto per disabili, parcheggi) (colonne aggiunte in seguito: le versioni dell'app che non le conoscono non le selezionano). Niente colonna
+ *   regionId (sarebbe costante su ogni riga: la regione la passa comunque chi importa il file).
  * - PRAGMA user_version = [POI_DB_FORMAT_VERSION]: marcatore di formato per PoiImporter, che
  *   legge sia questo che il vecchio formato (regionId/category/osmTag/lat/lon in chiaro,
  *   user_version assente cioe' 0 di default) - vedi PoiImporter.replaceFromFile.

@@ -122,8 +122,8 @@ class GuideRepositoryTest {
 
     @Test
     fun `searchInRegionScored ordina per rilevanza col matchinfo, non per ordine di inserimento`() = runBlocking {
-        // Caso reale: "Quale valuta si usa a San Marino?" tornava "Come arrivare" (che nomina San
-        // Marino piu' volte nel corpo) invece di "Valuta e acquisti", perche' la MATCH non aveva un
+        // Caso reale: per "Quale valuta si usa a San Marino?" deve vincere "Valuta e acquisti", non
+        // "Come arrivare" (che nomina San Marino piu' volte nel corpo): la MATCH da sola non ha un
         // ordine di rilevanza. "marino" e' quasi rumore (presente in entrambe le sezioni: idf basso),
         // mentre "valuta" e' raro e compare anche nel titolo di "Valuta e acquisti" (peso maggiore).
         val dao = FakeGuideDao()

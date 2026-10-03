@@ -239,7 +239,7 @@ private fun RegionTab.icon(selected: Boolean): ImageVector = when (this) {
 // Sotto la mappa, non sopra: cosi' non copre mai il pulsante dei filtri
 // (Modifier.align in MapScreen li posiziona dentro il suo stesso Box, che qui occupa lo spazio
 // restante sopra la barra). Niente navigationBarsPadding: la barra sta sopra la navigazione della
-// regione, che gestisce gia' gli inset di sistema (con il padding restava una fascia vuota).
+// regione, che gestisce gia' gli inset di sistema (con il padding resterebbe una fascia vuota).
 @Composable
 private fun MapDownloadBar(sourceKind: MapSourceKind, downloading: Boolean, onDownload: () -> Unit) {
     Surface(

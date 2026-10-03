@@ -41,9 +41,9 @@ import java.io.IOException
  * 4. Generate responses as token streams
  * 5. Perform [cleanUp] when done with a model
  *
- * This is a process-lifetime singleton (see [getInstance]): [destroy] is intentionally never
- * called by app code, since it would free the native backend with no way to reload it — see its
- * KDoc on [com.pockettravel.feature.ai.llamacpp.InferenceEngine].
+ * Singleton di processo (vedi [getInstance]): il codice dell'app non chiama mai [destroy], che
+ * libererebbe il backend nativo senza modo di ricaricarlo; vedi il suo KDoc in
+ * [com.pockettravel.feature.ai.llamacpp.InferenceEngine].
  *
  * State transitions are managed automatically and validated at each operation.
  *

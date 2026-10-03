@@ -9,7 +9,7 @@ Scarica (con cache su disco) il JSON open data di ogni paese e ne estrae dal cam
 Produce, nella cartella di output, vaccinations-draft.json (i blocchi in chiaro, per la revisione a
 mano) e le bozze yf-entry.draft.tsv, polio-status.draft.tsv, recommended.draft.tsv.
 Le bozze NON vanno copiate cosi' nel repository: i TSV in content/src/main/resources/vaccinations/
-sono curati a mano (note con parole nostre) dopo il confronto con TravelHealthPro (OGL v3) e, solo
+sono curati a mano (note riformulate) dopo il confronto con TravelHealthPro (OGL v3) e, solo
 come controllo, con OMS e CDC.
 
 Uso: python vaccinations_draft.py <cartella-cache> <cartella-output>

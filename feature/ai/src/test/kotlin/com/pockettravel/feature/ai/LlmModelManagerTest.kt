@@ -18,8 +18,7 @@ import kotlin.io.path.createTempDirectory
 
 // download() prende un LlmModelDefinition intero (non solo url/sha256 sciolti) apposta per poter
 // costruire qui una definizione di test che punta al MockWebServer, verificando il checksum reale
-// senza scaricare centinaia di MB da un repo HuggingFace vero — chiude il gap "nessuna verifica
-// di integrita' del modello scaricato" segnalato nel log di sviluppo.
+// senza scaricare centinaia di MB da un repo HuggingFace vero.
 class LlmModelManagerTest {
 
     private val server = MockWebServer()

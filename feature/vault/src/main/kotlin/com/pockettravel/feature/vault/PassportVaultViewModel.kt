@@ -21,7 +21,7 @@ class PassportVaultViewModel @Inject constructor(
 
     // Nessuno stato di sblocco persistito qui: la schermata ripresenta sempre il prompt
     // biometrico quando viene aperta (vedi PassportVaultScreen), coerente col gating
-    // "a livello di schermata" scelto per la v1. La chiave di sessione ottenuta dallo sblocco
+    // "a livello di schermata". La chiave di sessione ottenuta dallo sblocco
     // vive solo in repository (in memoria) finche' PassportVaultScreen non chiama lock().
     val passports: StateFlow<List<Passport>> = repository.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

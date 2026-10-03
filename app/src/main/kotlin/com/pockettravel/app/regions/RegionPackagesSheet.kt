@@ -73,7 +73,7 @@ internal fun RegionPackagesSheet(
     var showNetworks by rememberSaveable { mutableStateOf(false) }
     var showDeleteAll by rememberSaveable { mutableStateOf(false) }
 
-    // Sempre aperto per intero: a meta' altezza (tablet in orizzontale) "Elimina tutto" restava sotto il bordo.
+    // Sempre aperto per intero: a meta' altezza (tablet in orizzontale) "Elimina tutto" resterebbe sotto il bordo.
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))) {
         Column(
             modifier = Modifier

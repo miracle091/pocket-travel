@@ -22,8 +22,8 @@ import btools.util.Crc32;
  * file si riscrive con indici e CRC come l'originale. Nel package btools.codec perche' usa campi e metodi di
  * MicroCache visibili solo qui. Senza filtro (carOnly = false) la riscrittura e' identica byte per byte all'originale.
  *
- * Misura del 2026-10-02 su E10_N45.rd5 (199 MB): variante auto 86 MB (-57%), stessi percorsi in auto (car-vario) di
- * prima. Il filtro tiene tutte le chiavi dei tag (isLookupIdxUsed sempre true): servono ai profili e alle svolte.
+ * Misura del 2026-10-02 su E10_N45.rd5 (199 MB): variante auto 86 MB (-57%), stessi percorsi in auto (car-vario) del
+ * file completo. Il filtro tiene tutte le chiavi dei tag (isLookupIdxUsed sempre true): servono ai profili e alle svolte.
  */
 public final class Rd5CarFilter {
 

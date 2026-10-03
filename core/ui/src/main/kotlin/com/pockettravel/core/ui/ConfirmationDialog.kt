@@ -10,8 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 
 // Conferma condivisa per azioni distruttive (elimina regione/modello, rimuovi chiave API, ecc.):
-// prima di questa, ogni eliminazione nell'app scattava al primo tap, senza possibilità di
-// annullare per errore. destructive = true (default): icona e azione di conferma in colore error,
+// nessuna eliminazione scatta al primo tap. destructive = true (default): icona e azione di conferma in colore error,
 // come prevede M3 per le azioni irreversibili.
 @Composable
 fun ConfirmationDialog(

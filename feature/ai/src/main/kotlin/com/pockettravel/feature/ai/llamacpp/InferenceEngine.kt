@@ -28,9 +28,9 @@ interface InferenceEngine {
     )
 
     /**
-     * Clears KV-cache and chat history: use before a fresh, stateless prompt so it doesn't inherit
-     * context from a previous [sendUserPrompt]. There is no system prompt: the training data never
-     * has a "system" turn.
+     * Svuota KV-cache e history della chat: da usare prima di un prompt nuovo e senza stato, perche' non
+     * erediti il contesto di un [sendUserPrompt] precedente. Non c'e' system prompt: i dati di training
+     * non hanno mai un turno "system".
      */
     suspend fun resetConversation()
 
@@ -53,11 +53,11 @@ interface InferenceEngine {
     suspend fun cleanUp()
 
     /**
-     * Frees the native GGML backend (llama_backend_free), on top of what [cleanUp] already frees.
-     * Not called by app code today: the implementation is a process-lifetime singleton with no way
-     * to run [loadModel]'s underlying native `init()` again afterwards, so calling this would
-     * permanently break the engine for the rest of the process. Process death is the real shutdown
-     * path here; kept for completeness / instrumented tests that create their own instance.
+     * Libera il backend GGML nativo (llama_backend_free), oltre a quanto libera gia' [cleanUp].
+     * Il codice dell'app non la chiama: l'implementazione e' un singleton di processo e non puo'
+     * rieseguire l'`init()` nativo di [loadModel], quindi chiamarla romperebbe il motore per il resto
+     * del processo. Lo spegnimento vero e' la fine del processo; resta per completezza e per i test
+     * strumentati che creano una propria istanza.
      */
     suspend fun destroy()
 

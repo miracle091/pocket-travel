@@ -146,8 +146,8 @@ internal fun validateRegion(region: JSONObject, allowedHosts: Set<String>): Stri
         poiExtra.optJSONObject("fileXz")?.let { validateFile(it, regionId, allowedHosts) }
     }
 
-    // Civici per regione: voce legacy, congelata (la pipeline non la genera piu':
-    // i civici si pubblicano ora nella griglia "addressGrid"). Accettata
+    // Civici per regione: voce legacy, congelata (la pipeline non la genera:
+    // i civici si pubblicano nella griglia "addressGrid"). Accettata
     // finche' il manifest pubblicato la porta ancora avanti per le app vecchie.
     region.optJSONObject("addresses")?.let { addresses ->
         validateVersion(addresses, "$regionId/addresses")
@@ -307,7 +307,7 @@ fun main(allArgs: Array<String>) {
     val args = allArgs.filterIndexed { i, _ -> transitIndex == null || (allArgs[i] != "--transit" && allArgs.getOrNull(i - 1) != "--transit") }
     require(args.size == 2 || args.size == 3) { "Uso: validateManifest <manifest.json> <pagesHost> [<address-grid.json>] [--transit <transit.json>]" }
     // github.com: guides.db, poi.db e i segmenti .rd5 vivono sugli asset delle release "region-data*"
-    // e "address-cells-*", non piu' sotto pagesHost — vedi SyncConfig.ALLOWED_MANIFEST_HOSTS
+    // e "address-cells-*", non sotto pagesHost — vedi SyncConfig.ALLOWED_MANIFEST_HOSTS
     // (core/sync), duplicato qui di proposito.
     val allowedHosts = setOf(args[1], "brouter.de", "build.protomaps.com", "github.com")
     validateManifestJson(File(args[0]).readText(), allowedHosts)

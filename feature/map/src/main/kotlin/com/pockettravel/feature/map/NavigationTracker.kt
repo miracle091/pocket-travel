@@ -10,7 +10,7 @@ data class NamedRoad(val name: String, val points: List<RoutePoint>)
 data class GpsFix(val latitude: Double, val longitude: Double, val accuracyMeters: Float, val timeMillis: Long)
 
 /**
- * Dove si e' lungo il percorso. [nextInstruction]: la prossima indicazione davanti a noi (l'arrivo
+ * Dove si e' lungo il percorso. [nextInstruction]: la prossima indicazione davanti (l'arrivo
  * se non ci sono piu' svolte); [offRoute]: la posizione e' lontana dal percorso, va ricalcolato.
  */
 data class NavigationProgress(

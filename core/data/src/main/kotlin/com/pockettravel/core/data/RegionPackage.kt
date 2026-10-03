@@ -14,10 +14,10 @@ data class RegionPackage(
     val poiExtraSizeBytes: Long?,
     val sizeBytes: Long,
     // Anteprima offline installata (preview.pmtiles): non e' un PackageKind, vedi InstalledRegionEntity.
-    // Default null: non tocca le costruzioni esistenti (test in app/) che non la conoscono ancora.
+    // Default null: le costruzioni che non la indicano (test in app/) restano valide.
     val previewVersion: String? = null,
     // Guide delle citta' (city_sections in region.db, non misurabili dal disco come mappa e routing,
-    // vedi citiesSizeBytes). Default null: come previewVersion, non tocca le costruzioni esistenti.
+    // vedi citiesSizeBytes). Default null, come previewVersion.
     val citiesVersion: String? = null,
     val citiesSizeBytes: Long? = null,
     // Orari dei mezzi pubblici (cartella transit): la dimensione si misura dal disco. Default null come citiesVersion.

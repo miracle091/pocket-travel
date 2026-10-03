@@ -9,15 +9,15 @@
 # routing (.rd5), POI e anteprima (preview, facoltativa), ciascuno con la propria versione. Le
 # guide non sono qui: un solo pacchetto per tutte le regioni, generato da build-guides.sh.
 #
-# I .rd5 sono ri-ospitati (non solo hashati e scartati come in origine) perche' brouter.de
+# I .rd5 sono ri-ospitati perche' brouter.de
 # rigenera periodicamente i propri segmenti: la stessa tile scaricata a poche ore di distanza
 # ha gia' dato dimensioni diverse (visto su E10_N40.rd5: 80062379, poi 80071670, poi 79989750
 # byte in meno di un giorno). RegionPackageDownloader.downloadAndVerify() confronta la
-# dimensione scaricata con quella pinnata nel manifest al momento della pubblicazione e la
+# dimensione scaricata con quella fissata nel manifest al momento della pubblicazione e la
 # rigetta come PermanentRegionPackageException se non combacia piu' — un manifest che punta
 # dritto a brouter.de si rompe quindi da solo ad ogni rigenerazione a monte, senza modo per
-# l'app di saperlo in anticipo. Ospitando la nostra copia, dimensione/hash restano quelli del
-# file che l'utente scarica davvero, stabili finche' non ripubblichiamo la regione.
+# l'app di saperlo in anticipo. Con una copia ospitata dal progetto, dimensione/hash restano quelli
+# del file che l'utente scarica davvero, stabili finche' la regione non viene ripubblicata.
 #
 # Uso:
 #   build-region.sh <regionId> <displayName> <version> <minLon> <minLat> <maxLon> <maxLat> \
@@ -29,7 +29,7 @@
 #                    /tmp/out/san-marino
 #
 # <assetBaseUrl> e' la base a cui poi.db/i .rd5 saranno raggiungibili una volta caricati
-# (oggi gli asset della release "region-data", vedi publish-regions.yml): questo script calcola
+# (gli asset della release "region-data", vedi publish-regions.yml): questo script calcola
 # solo gli URL da scrivere nel manifest, non carica nulla.
 #
 # <publishedManifestUrl> (opzionale, es. https://.../manifest.json): se presente, prima di fare
@@ -39,7 +39,7 @@
 # viene saltata del tutto (vedi sezione "2bis." sotto).
 # Omesso (come per
 # l'esecuzione locale via build-pilot-regions.sh, sempre "tutto fresco") = nessun controllo,
-# rigenerazione completa come sempre. Quando la regione viene saltata, <outputDir>/.skipped viene
+# rigenerazione completa. Quando la regione viene saltata, <outputDir>/.skipped viene
 # creato (vuoto) invece di poi.db/i .rd5 - il chiamante lo usa per capire che non c'e' nulla
 # di nuovo da ricaricare (vedi publish-regions.yml).
 #
@@ -150,8 +150,7 @@ MAP_FINGERPRINT_MIN_ZOOM=12
 POI_MAX_AGE_DAYS="${POI_MAX_AGE_DAYS:-30}"
 
 # Anteprima offline della regione (preview.pmtiles): pochi livelli di zoom della stessa build
-# Protomaps della mappa, con un tetto di peso sul file compresso - decisione dell'utente del
-# 2026-09-27. Si parte da PREVIEW_MAX_ZOOM:
+# Protomaps della mappa, con un tetto di peso sul file compresso. Si parte da PREVIEW_MAX_ZOOM:
 # se il .xz supera PREVIEW_MAX_XZ_BYTES si rifa' con uno zoom in meno, fino a PREVIEW_MIN_ZOOM
 # incluso - se anche li' resta sopra il tetto si pubblica comunque (e' il minimo scelto) con un
 # avviso, invece di lasciare la regione senza anteprima. Si rigenera solo quando la mappa cambia o
@@ -196,10 +195,10 @@ preview_over_cap() {
 # MiB, un solo thread.
 build_preview() {
   local sourceUrl="$1" zoom="$PREVIEW_MAX_ZOOM" file="$OUTPUT_DIR/preview.pmtiles"
-  # Si parte dallo zoom dell'anteprima gia' pubblicata invece che dal massimo: prima si ripartiva
-  # sempre da z9 e le regioni grandi rifacevano ogni volta le estrazioni scartate (Italia: z9, z8,
+  # Si parte dallo zoom dell'anteprima gia' pubblicata invece che dal massimo: ripartendo
+  # sempre da z9 le regioni grandi rifarebbero ogni volta le estrazioni scartate (Italia: z9, z8,
   # poi z7). Se allo zoom pubblicato il file sta sotto meta' del tetto, si prova un livello in piu'
-  # (l'anteprima puo' anche crescere); se non ci sta piu', si scende come prima.
+  # (l'anteprima puo' anche crescere); se non ci sta piu', si scende di un livello alla volta.
   local published="" tryUp=false
   if [ -n "${PUBLISHED_MANIFEST:-}" ] && [ -s "$PUBLISHED_MANIFEST" ]; then
     published="$(jq -r --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id)][0].preview.maxZoom // empty' "$PUBLISHED_MANIFEST" 2>/dev/null || true)"
@@ -381,8 +380,8 @@ LAT_END="$(floor5 "$MAX_LAT")"
 # pratica, non una garanzia crittografica come lo sha256 gia' usato altrove per l'integrita' del
 # download. Un confronto per sha256 richiederebbe scaricare comunque il file, annullando il
 # risparmio che questo controllo vuole ottenere. Nessun $PUBLISHED_MANIFEST_URL o jq mancante =
-# nessun controllo, si procede sempre con la rigenerazione completa (comportamento storico, usato
-# anche dall'esecuzione locale via build-pilot-regions.sh).
+# nessun controllo, si procede sempre con la rigenerazione completa (come
+# nell'esecuzione locale via build-pilot-regions.sh).
 if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
   echo "-- controllo se $REGION_ID e' gia' aggiornata rispetto a $PUBLISHED_MANIFEST_URL..."
   PUBLISHED_MANIFEST="$WORKDIR/published-manifest.json"
@@ -514,8 +513,8 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
         jq -R -s -c "$RD5_TSV_TO_JSON" "$UPDATED_TSV" > "$WORKDIR/updated-rd5.json"
         build_car_variant "$UPDATED_TSV" "$WORKDIR/updated-car.tsv"
         jq -R -s -c "$RD5_TSV_TO_JSON" "$WORKDIR/updated-car.tsv" > "$WORKDIR/updated-car.json"
-        # Mappa e routing hanno versioni indipendenti: una tile .rd5 cambiata non fa piu' ri-estrarre
-        # la mappa (prima map.version cambiava con routing.version).
+        # Mappa e routing hanno versioni indipendenti: una tile .rd5 cambiata non fa ri-estrarre
+        # la mappa.
         jq -c --arg id "$REGION_ID" --arg version "$VERSION" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
           --arg src "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" --slurpfile upd "$WORKDIR/updated-rd5.json" --slurpfile updCar "$WORKDIR/updated-car.json" \
           --arg fp "$MAP_FINGERPRINT" --argjson mapdue "$MAP_DUE" '
@@ -553,16 +552,16 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
 fi
 
 # --- 3. Segmenti .rd5 + POI Overpass, tile per tile (stessa griglia 5x5 gradi) -------------------
-# Le due cose sono unite in un solo giro sulla griglia (non due giri separati come prima):
+# Le due cose sono unite in un solo giro sulla griglia:
 # interrogare Overpass anche per una tile senza .rd5 (nessuna strada estratta, quasi certamente
-# oceano aperto) e' puro spreco - trovato sul Giappone (arcipelago, fino a 42 tile nella griglia
-# rettangolare che ne racchiude il territorio, la maggior parte mare) dove ogni tile oceanica
-# pagava comunque il balzello di backoff sui mirror morti sotto (vedi OVERPASS_ENDPOINTS) prima di
-# scoprire l'ovvio: zero POI in mezzo al mare.
+# oceano aperto) e' tempo perso - es. il Giappone (arcipelago, fino a 42 tile nella griglia
+# rettangolare che ne racchiude il territorio, la maggior parte mare), dove ogni tile oceanica
+# attenderebbe i ritentativi sui mirror non raggiungibili (vedi OVERPASS_ENDPOINTS) per
+# ottenere zero POI.
 #
 # Una singola query Overpass sull'intero bbox non regge invece per una nazione grande: gli Stati
 # Uniti (bbox contiguo, 48 stati) hanno fatto scadere tutti i mirror pubblici, l'ultimo con un 504
-# Gateway Timeout del reverse proxy anche dopo 900s pieni - non e' un timeout nostro ritentabile,
+# Gateway Timeout del reverse proxy anche dopo 900s pieni - non e' un timeout locale ritentabile,
 # il server si arrende prima di finire di elaborare un'area cosi' grande. Si spezza quindi anche
 # la query POI nella stessa griglia usata per i segmenti .rd5: per un paese piccolo come San
 # Marino resta un solo chunk/una sola query, per uno grande diventano N query piu' leggere.
@@ -774,7 +773,7 @@ POI_COUNT="$(poi_count "$POI_DB")"
 # l'URL del .xz. xz_entry (dizionario da 16 MiB, un solo thread) e' in lib.sh: stessa convenzione
 # per guides.db (build-guides.sh).
 
-# --- 5. Frammento manifest.json (poi.db e poi-extra.db nostri + rd5 ri-ospitati + sorgente mappa)
+# --- 5. Frammento manifest.json (poi.db e poi-extra.db generati qui + rd5 ri-ospitati + sorgente mappa)
 POI_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi.db.xz"
 POI_EXTRA_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi-extra.db.xz"
 if [ "$POI_ONLY" = "true" ]; then

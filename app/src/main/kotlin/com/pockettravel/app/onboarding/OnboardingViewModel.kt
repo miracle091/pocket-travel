@@ -31,8 +31,8 @@ class OnboardingViewModel @Inject constructor(
 
     fun setNationality(countryCode: String) = nationalityPreferences.setNationality(countryCode)
 
-    // Fascia di RAM statica per la durata della sessione: nessun bisogno di un Flow, un val letto
-    // una volta all'apertura dell'onboarding basta (vedi RAM-aware step in OnboardingScreen).
+    // Supporto all'IA locale letto una volta all'apertura dell'onboarding: la fascia di RAM non cambia
+    // durante la sessione, quindi basta un val invece di un Flow.
     val isOnDeviceAiSupported: Boolean = deviceAiCapability.isOnDeviceAiSupported()
 
     fun complete() {

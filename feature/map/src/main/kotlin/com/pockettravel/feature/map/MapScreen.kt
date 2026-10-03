@@ -99,7 +99,7 @@ fun MapScreen(
     // Categorie nascoste, salvate per tutte le regioni (MapFilterPreferences): le cambia il foglio dei filtri.
     hiddenCategories: Set<PoiCategory> = emptySet(),
     onHiddenCategoriesChange: (Set<PoiCategory>) -> Unit = {},
-    // Modalita' "Con disabilità": via i POI che OSM segna come non accessibili in sedia a rotelle.
+    // Modalita' "Con disabilita'": via i POI che OSM segna come non accessibili in sedia a rotelle.
     hideInaccessible: Boolean = false,
     // Con "Con disabilita'": solo i posti accessibili (anche in parte) e i parcheggi per disabili.
     onlyAccessible: Boolean = false,
@@ -232,22 +232,15 @@ fun MapScreen(
                     }
                 }
 
-                // PmtilesExtractor scarica solo le tile che intersecano il bounding box della
-                // regione (vedi core:sync/PmtilesExtractor.tileRangeFor), per tenere piccolo il
-                // pacchetto — ai livelli di zoom bassi una singola tile copre un'area enorme, e le
-                // tile "vicine" che non toccano il bbox non vengono mai scaricate. La mappa parte
-                // pero' sempre dalla vista mondo (nessun fit iniziale): zoomando manualmente da li'
-                // verso la regione si attraversa una fascia di zoom bassa dove meta' schermo mostra
-                // il solo "background" (bug osservato: "carica sempre a sezioni quando faccio lo
-                // zoom" — non tile che arrivano in ritardo, tile che semplicemente non esistono
-                // nel pacchetto scaricato). Il fix reale e' non passarci mai: centrare/zoomare la
-                // camera sui pin della regione (gia' ben dentro il bbox estratto) non appena sono
-                // disponibili, cosi' l'utente apre la mappa gia' inquadrato sull'area completa
-                // invece di doverci arrivare a mano dalla vista mondo. Una tantum (guardia
-                // cameraFitted): dopo il primo fit l'utente deve restare libero di ripristinare la
-                // vista mondo senza che ogni ricomposizione lo forzi indietro sulla regione.
+                // PmtilesExtractor scarica solo le tile che intersecano il bounding box della regione (vedi
+                // core:sync/PmtilesExtractor.tileRangeFor), per tenere piccolo il pacchetto: ai livelli di zoom
+                // bassi le tile vicine che non toccano il bbox non esistono, e zoomando a mano dalla vista mondo
+                // meta' schermo mostrerebbe solo il "background". Per questo la camera si inquadra sui pin della
+                // regione (gia' ben dentro il bbox estratto) appena sono disponibili. Una tantum (guardia
+                // cameraFitted): dopo il primo fit l'utente resta libero di tornare alla vista mondo senza che ogni
+                // ricomposizione lo riporti sulla regione.
                 // Con la mappa installata si inquadra il suo riquadro (la zona scelta, per i paesi grandi): i segnalini
-                // sono solo quelli dell'area visibile, non piu' tutti quelli della regione.
+                // sono solo quelli dell'area visibile, non tutti quelli della regione.
                 val restored = savedCamera
                 val mapBounds = if (!cameraFitted && restored == null) tileSource.regionBounds(regionId) else null
                 if (!cameraFitted && (restored != null || mapBounds != null || pins.isNotEmpty())) {
@@ -275,8 +268,8 @@ fun MapScreen(
             },
         )
 
-        // Filtri nel foglio a gruppi che si apre dal pulsante in basso, non piu' in una fila sopra la
-        // mappa: con 20 e piu' categorie la fila copriva la mappa e ne mostrava solo tre o quattro.
+        // Filtri nel foglio a gruppi che si apre dal pulsante in basso: con 20 e piu' categorie una fila
+        // sopra la mappa la coprirebbe e ne mostrerebbe solo tre o quattro.
         // Il numero sul pulsante dice quante categorie della regione sono nascoste.
         if (presentCategories.isNotEmpty()) {
             val hiddenCount = presentCategories.count { it in hiddenCategories }

@@ -32,11 +32,11 @@ class OnDeviceLlmEngine @Inject constructor(
     private val engine: InferenceEngine by lazy { InferenceEngineImpl.getInstance(context) }
 
     /**
-     * Carica il modello se non è già in memoria, restituendo quanto è durato il caricamento — 0
-     * se era già caricato. Usata dal benchmark per non confondere il tempo di caricamento (una
-     * tantum, secondi) con la velocità di generazione: senza questo, il primo prompt dopo un
+     * Carica il modello se non e' gia' in memoria, restituendo quanto e' durato il caricamento — 0
+     * se era gia' caricato. Usata dal benchmark per non confondere il tempo di caricamento (una
+     * tantum, secondi) con la velocita' di generazione: senza questo, il primo prompt dopo un
      * cambio di modello includerebbe silenziosamente `loadModel()` nel suo tempo, facendo
-     * sembrare un modello appena cambiato più lento di uno già in uso nella sessione.
+     * sembrare un modello appena cambiato piu' lento di uno gia' in uso nella sessione.
      */
     suspend fun ensureLoaded(): Long = withContext(Dispatchers.IO) {
         coordinator.withModelLock {
@@ -56,7 +56,7 @@ class OnDeviceLlmEngine @Inject constructor(
         coordinator.withModelLock {
             mutex.withLock {
                 loadModelIfNeeded()
-                // Reset esplicito: i dati di training (pocket_travel_sft.jsonl) non hanno mai
+                // Reset esplicito: i dati di training (generate_sft_dataset.py) non hanno mai
                 // un turno "system", solo user+assistant — senza reset, sendUserPrompt
                 // accumulerebbe la history tra una domanda e l'altra invece di restare un turno
                 // singolo.

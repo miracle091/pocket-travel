@@ -16,9 +16,9 @@ import java.util.zip.GZIPInputStream
 import kotlin.io.path.createTempDirectory
 
 // Verificato via round-trip con ch.poole.geo.pmtiles.Reader, la stessa libreria indipendente
-// (BSD-3) gia' usata per leggere la sorgente remota in PmtilesExtractor — nessuna libreria
+// (BSD-3) gia' usata per leggere la sorgente remota in PmtilesExtractor: nessuna libreria
 // scrive questo formato, quindi la compatibilita' col reader indipendente e' la garanzia di
-// correttezza qui, non un device/emulatore reale (non sempre disponibile in ogni ambiente).
+// correttezza.
 class PmtilesWriterTest {
 
     private fun tempFile(): File {
@@ -72,7 +72,7 @@ class PmtilesWriterTest {
     @Test
     fun `un archivio con molte tile forza le leaf directory e resta leggibile`() {
         val output = tempFile()
-        // zoom 8 ha 65536 tile possibili: ne scriviamo abbastanza da superare il limite della
+        // zoom 8 ha 65536 tile possibili: se ne scrivono abbastanza da superare il limite della
         // root directory (16 KiB compressi) e forzare almeno una leaf directory.
         val zoom = 8
         val entries = (0 until 6000).map { index ->
@@ -133,7 +133,7 @@ class PmtilesWriterTest {
         val leafDirOffset = header.getLong(40)
         val tileDataOffset = header.getLong(56)
         val tileDataLength = header.getLong(64)
-        // Sezioni contigue nello stesso ordine di prima: header, root, metadata, leaf, dati.
+        // Sezioni contigue, in ordine: header, root, metadata, leaf, dati.
         assertEquals(127L, rootDirOffset)
         assertEquals(rootDirOffset + rootDirLength, metadataOffset)
         assertEquals(metadataOffset + metadataLength, leafDirOffset)

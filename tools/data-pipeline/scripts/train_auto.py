@@ -10,7 +10,7 @@ Cosa decide, ad ogni lancio:
 - backend: --unsloth se Unsloth e' installato e, su Windows, il compilatore MSVC e' disponibile
   (Triton compila con clang-cl e gli servono INCLUDE/LIB); altrimenti peft puro;
 - variabili d'ambiente per il figlio: CUDA_VISIBLE_DEVICES / HIP_VISIBLE_DEVICES, ambiente MSVC.
-Non passa --4bit da solo: sceglilo tu (solo NVIDIA).
+Non passa --4bit da solo: va scelto a mano (solo NVIDIA).
 """
 import argparse
 import importlib.util

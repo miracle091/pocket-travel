@@ -12,8 +12,8 @@ private const val BODY_WEIGHT = 1.0
  * di colonne (title, body), poi per ogni coppia frase/colonna una tripla (occorrenze in questa riga,
  * occorrenze totali, righe con almeno un'occorrenza). Il titolo pesa piu' del corpo, e i termini presenti
  * in quasi tutte le sezioni contano poco (idf-like: 1/righe-con-match) — cosi' un token generico come il
- * nome della regione (es. "marino" per San Marino, presente in ogni sezione) non decide piu' da
- * solo quale sezione vince.
+ * nome della regione (es. "marino" per San Marino, presente in ogni sezione) non decide da solo
+ * quale sezione vince.
  */
 internal fun matchScore(matchinfo: ByteArray): Double {
     val ints = IntArray(matchinfo.size / 4) { i -> readLittleEndianInt(matchinfo, i * 4) }

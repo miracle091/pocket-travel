@@ -48,7 +48,7 @@ class PassportPhotoStoreTest {
         assertFalse(notYetCreated.exists())
 
         // La directory viene creata dal provider Hilt (StorageModule), non dal costruttore:
-        // qui la simuliamo esplicitamente, coerente con come viene davvero usata la classe.
+        // qui si crea esplicitamente, come nell'uso reale della classe.
         notYetCreated.mkdirs()
         val store = PassportPhotoStore(notYetCreated)
         store.write("foto.jpg.enc", byteArrayOf(9))

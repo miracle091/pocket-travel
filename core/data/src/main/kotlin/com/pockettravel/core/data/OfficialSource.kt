@@ -98,11 +98,11 @@ val officialSourcesRegistry = listOf(
 /** Fonti internazionali: nel registro per chiunque, qualunque sia la nazionalita'. */
 val globalOfficialSources: List<OfficialSource> = officialSourcesRegistry.filter { it.countries.isEmpty() }
 
-/** Fonti del paese di chi viaggia (comprese quelle dell'UE per i cittadini europei); vuota se non ne abbiamo. */
+/** Fonti del paese di chi viaggia (comprese quelle dell'UE per i cittadini europei); vuota se non ce ne sono. */
 fun nationalOfficialSources(nationality: String?): List<OfficialSource> =
     officialSourcesRegistry.filter { nationality != null && nationality in it.countries }
 
-/** Consigli di viaggio del ministero degli esteri del paese di chi viaggia, null se non ne abbiamo. */
+/** Consigli di viaggio del ministero degli esteri del paese di chi viaggia, null se mancano. */
 fun travelAdviceSourceFor(nationality: String?): OfficialSource? =
     nationalOfficialSources(nationality).firstOrNull { it.topic == OfficialSourceTopic.TRAVEL_ADVICE }
 
@@ -116,7 +116,7 @@ val fallbackTravelAdviceSource: OfficialSource =
 
 /**
  * Fonte più pertinente da citare nel banner "Verifica sempre sulla fonte ufficiale": salute sempre
- * dall'OMS; dogane e il resto dal paese di chi viaggia (null se non ne abbiamo una per quel tema).
+ * dall'OMS; dogane e il resto dal paese di chi viaggia (null se manca una fonte per quel tema).
  */
 fun officialSourceFor(category: GuideCategory, nationality: String?): OfficialSource? {
     val national = nationalOfficialSources(nationality)

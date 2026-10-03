@@ -16,7 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 // Unico punto in cui l'app dichiara il proprio tema. Typography e Shapes restano quelli di
 // default di material3, che coincidono con la type scale e la shape scale M3 (4/8/12/16/28 dp):
 // le schermate li usano solo tramite MaterialTheme.typography / MaterialTheme.shapes.
-// Tema Expressive con motion a molla (MotionScheme.expressive), come da piano M3.
+// Tema Expressive con motion a molla (MotionScheme.expressive), come prevede M3 Expressive.
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PocketTravelTheme(

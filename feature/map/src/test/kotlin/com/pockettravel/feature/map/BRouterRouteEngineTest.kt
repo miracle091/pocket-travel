@@ -39,7 +39,7 @@ class BRouterRouteEngineTest {
         assertEquals(RouteResult.NoRoutingData, result)
     }
 
-    // Gap segnalato nel log di sviluppo: il routing non era mai stato verificato con 2+ segmenti .rd5
+    // Routing con 2+ segmenti .rd5
     // adiacenti nella stessa cartella. E5_N45.rd5/E10_N45.rd5 in
     // src/test/resources/multi-tile-segments/ sono stati generati una tantum con la pipeline
     // del progetto (tools/data-pipeline/routing, task generateRoutingGraph, rimosso il 2026-09-27:
@@ -62,7 +62,7 @@ class BRouterRouteEngineTest {
         assertEquals("l'ultima indicazione e' l'arrivo, sull'ultimo punto", TurnInstruction(TurnType.ARRIVE, 0.0, route.points.lastIndex), route.instructions.last().copy(distanceToNextMeters = 0.0))
     }
 
-    // Due "regioni" che hanno ognuna metà del dato: la A ha E5_N45 con la sua via e E10_N45 svuotata, la B
+    // Due "regioni" che hanno ognuna meta' del dato: la A ha E5_N45 con la sua via e E10_N45 svuotata, la B
     // il contrario (stesso formato di un ritaglio che non tocca la tile). Da sole non instradano; con i
     // segmenti uniti (Rd5Merger) BRouter li legge e attraversa il confine fra le due parti, con lo
     // stesso percorso delle due tile intere e con la tile unita identica byte per byte all'originale.

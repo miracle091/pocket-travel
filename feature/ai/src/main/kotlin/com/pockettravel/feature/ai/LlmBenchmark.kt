@@ -6,8 +6,8 @@ import javax.inject.Singleton
 /**
  * Punteggio approssimato, non un vero eval linguistico: confronta la risposta con parole chiave
  * attese e una lunghezza minima plausibile per prompt, non un giudizio semantico. Nessun modello
- * giudice disponibile on-device per valutare la qualità in modo piu' rigoroso — serve solo a dare
- * un'idea relativa (questo modello risponde più a tema di quell'altro, su questo device), non un
+ * giudice disponibile on-device per valutare la qualita' in modo piu' rigoroso — serve solo a dare
+ * un'idea relativa (questo modello risponde piu' a tema di quell'altro, su questo device), non un
  * voto assoluto.
  */
 internal data class BenchmarkPrompt(val prompt: String, val expectedKeywords: List<String>, val minAnswerLength: Int)
@@ -15,8 +15,7 @@ internal data class BenchmarkPrompt(val prompt: String, val expectedKeywords: Li
 data class BenchmarkResult(
     val modelId: String,
     // Non un vero conteggio di token (OnDeviceLlmEngine/llama.cpp non lo espone qui): parole
-    // separate da spazi, un proxy piu' onesto da nominare "wordsPerSecond" che far finta di
-    // precisione con "tokensPerSecond".
+    // separate da spazi, per questo il campo si chiama wordsPerSecond e non tokensPerSecond.
     val wordsPerSecond: Float,
     val totalLatencyMs: Long,
     // Tempo di Engine.initialize() (una tantum, non ripetuto se il modello e' gia' in memoria)
@@ -45,8 +44,8 @@ class LlmBenchmark @Inject constructor(
         // benchmark valuta il modello grezzo via OnDeviceLlmEngine.generate(), non la
         // pipeline RAG di TravelAssistant (che dipende dai contenuti di una regione scaricata).
         // Sei categorie diverse (documenti, fuso orario, sicurezza, visti, aritmetica breve,
-        // usi e costumi) invece di tre simili, per un segnale di qualita' un po' piu' robusto —
-        // resta comunque un'euristica su parole chiave, non un eval semantico vero.
+        // usi e costumi) per un segnale di qualita' un po' piu' robusto: resta comunque
+        // un'euristica su parole chiave, non un eval semantico vero.
         val PROMPTS = listOf(
             BenchmarkPrompt(
                 prompt = "Quali documenti servono di solito per attraversare una frontiera internazionale?",

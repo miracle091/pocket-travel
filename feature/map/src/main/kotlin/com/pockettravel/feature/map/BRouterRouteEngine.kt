@@ -17,12 +17,11 @@ import java.io.File
 import kotlin.math.abs
 import java.util.concurrent.atomic.AtomicReference
 
-// BRouter e' stato verificato funzionare su Android ART reale; il suo sorgente e' vendorizzato
-// in :third-party:brouter-core.
+// BRouter funziona su Android ART; il suo sorgente e' vendorizzato in :third-party:brouter-core.
 //
 // API di btools.router.RoutingEngine/RoutingContext/RoutingParamCollector non documentata per uso
-// embedded: ricostruita leggendo il bytecode di btools.server.BRouter.main() (il comando CLI
-// standalone ufficiale), stessa metodologia javap gia' in uso nel progetto.
+// embedded: ricostruita leggendo il bytecode (javap) di btools.server.BRouter.main(), il comando CLI
+// standalone ufficiale.
 //
 // segmentDir: cartella con uno o piu' file .rd5 (segmenti BRouter per la regione). profileDir:
 // cartella con "<profileName>.brf" + lookups.dat — bundlati nell'app (asset, non dati per-regione:
@@ -134,7 +133,7 @@ class BRouterRouteEngine(
                     TurnInstruction(type, turn.distanceToNext, turn.indexInTrack, if (type.isRoundabout) abs(turn.roundaboutExit) else 0)
                 }
             }
-            // Il post-processing di BRouter toglie l'indicazione di arrivo (END): la rimettiamo
+            // Il post-processing di BRouter toglie l'indicazione di arrivo (END): si rimette
             // sull'ultimo punto, cosi' l'elenco finisce sempre con l'arrivo, anche senza svolte.
             val arrive = TurnInstruction(TurnType.ARRIVE, 0.0, nodes.lastIndex)
             return Route(

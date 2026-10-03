@@ -39,8 +39,8 @@ fun httpRangeReader(url: String): RangeReader {
             .header("User-Agent", "PocketTravelDataPipeline/1.0 (https://github.com/miracle091/pocket-travel)")
             .timeout(Duration.ofSeconds(120))
             .build()
-        // Fino a 3 tentativi: senza timeout ne' ritentativi una connessione bloccata fermava
-        // build-region.sh per sempre, e un errore passeggero dava un'impronta vuota.
+        // Fino a 3 tentativi: senza timeout ne' ritentativi una connessione bloccata fermerebbe
+        // build-region.sh per sempre, e un errore passeggero darebbe un'impronta vuota.
         withRetries(attempts = 3) {
             val response = client.send(request, HttpResponse.BodyHandlers.ofByteArray())
             // Solo 206: un 200 e' il file intero (il server ha ignorato il Range), non i byte chiesti.

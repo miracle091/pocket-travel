@@ -6,7 +6,7 @@ Metodo "template + negativi sintetici":
 - negativi: domanda su una categoria che il contesto NON copre -> "il contesto non basta".
 
 Uso: python generate_sft_dataset.py [--limit N] [--negatives 0.2] [--seed 42] [--vs]
-     [--dump-dir D:/.../20260901 --cities 3000]
+     [--dump-dir <cartella dei dump> --cities 3000]
 Con --dump-dir i testi vengono dai dump di dumps.wikimedia.org (Wikivoyage IT/EN, Wikipedia IT: vedi
 DUMP_FILES e wiki_dump.py) invece che dall'API, i titoli da sft-sources.tsv: stesso dump e stesso seed
 danno lo stesso dataset. --cities aggiunge le pagine delle citta' di Wikivoyage IT (escluse quelle delle
@@ -28,7 +28,7 @@ su un repo HuggingFace pubblico (upload_hf.py rifiuta --public se rileva righe V
 --vs, VS viene incluso per un dataset/modello di uso locale o personale: mai per la pubblicazione.
 Wikipedia IT (CC BY-SA 4.0, via langlink dall'articolo tematico EN: "Cuisine of X", "Culture of X", ecc.)
 alimenta i positivi di CIBO_BEVANDE, CONNETTIVITA, USI_COSTUMI, VITA_QUOTIDIANA: sono le categorie che
-Wikivoyage spesso non tratta a fondo (vedi bilanciamento nel dev doc). L'articolo si divide in paragrafi e
+Wikivoyage spesso non tratta a fondo. L'articolo si divide in paragrafi e
 si tengono solo i piu' pertinenti (WP_MAX_PARAGRAPHS): lunghi come una sezione Wikivoyage, non l'intro
 enciclopedica troncata a 2000 caratteri.
 """
@@ -272,7 +272,7 @@ HEADING = re.compile(r"^==(?!=)\s*(.+?)\s*(?<!=)==$")
 SUBHEADING = re.compile(r"^={3,}.*={3,}$")
 
 # Template di Wikivoyage che contengono testo da tenere (nome del luogo, descrizione): senza questa
-# espansione la pulizia li toglieva interi e restavano frasi come "L' (), situato nel sobborgo di...".
+# espansione la pulizia li toglierebbe interi e resterebbero frasi come "L' (), situato nel sobborgo di...".
 IATA = re.compile(r"\{\{\s*IATA\s*\|\s*([A-Z]{3})\s*\}\}", re.I)
 LISTING = re.compile(r"\{\{\s*(?:marker|see|do|go|eat|drink|sleep|buy|listing)\s*\|([^{}]*)\}\}", re.I | re.S)
 PARAM_SPLIT = re.compile(r"\|(?![^\[]*\]\])")  # le | dentro [[link|testo]] non separano i parametri
@@ -299,7 +299,7 @@ def clean(raw):
             continue
         item = re.sub(r"^[*#:]+\s*", "", l)
         if item != l and item and item[-1] not in ".!?:;":
-            item += "."  # voce di elenco: senza, le voci si fondevano in un'unica frase
+            item += "."  # voce di elenco: senza, le voci si fonderebbero in un'unica frase
         lines.append(item)
     text = re.sub(r"\]\]|\[\[", "", " ".join(lines))
     return re.sub(r"\s+", " ", re.sub(r"\s*\(\s*[,;]?\s*\)", "", text)).strip()  # "()" dei template tolti
@@ -610,7 +610,7 @@ def main():
         texts["wp"] = wiki_dump.load_multistream(files["wp"], files["wp_index"], wp_titles)
 
     def load_source(rid, lang, title):
-        """(testo, url): dal dump con --dump-dir, altrimenti come prima (cache in raw/ o rete)."""
+        """(testo, url): dal dump con --dump-dir, altrimenti dalla cache in raw/ o dalla rete."""
         if not a.dump_dir or lang == "vs":
             return load_page(rid, lang, title)
         page = sources.get((rid, lang), "-")
@@ -652,7 +652,7 @@ def main():
         return rng.choice(pool).format(r=name)
 
     # Fuori tema: le liste scritte a mano piu' le domande dei dataset italiani, ognuna al massimo
-    # OFF_TOPIC_MAX_USES volte (prima una stessa domanda compariva decine di volte).
+    # OFF_TOPIC_MAX_USES volte.
     extra_off_topic = fetch_off_topic()
     off_topic_pool = OFF_TOPIC_TRAIN + OFF_TOPIC_TRAIN_EN + [q for qs in extra_off_topic.values() for q in qs]
     off_topic_uses = Counter()

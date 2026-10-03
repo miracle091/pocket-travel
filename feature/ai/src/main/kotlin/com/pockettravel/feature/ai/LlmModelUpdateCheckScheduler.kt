@@ -18,7 +18,7 @@ class LlmModelUpdateCheckScheduler @Inject constructor(
     private val workManager get() = WorkManager.getInstance(context)
 
     // Anche su dati cellulari: manifest.json e' pochi KB, non il modello IA vero e proprio
-    // (~584 MB, quello si' mai su rete a consumo) — il download resta sempre esplicito e su
+    // (centinaia di MB o qualche GB, quello si' mai su rete a consumo) — il download resta sempre esplicito e su
     // richiesta dell'utente (vedi LlmModelDownloadScheduler), qui si controlla solo se c'e' una
     // versione piu' recente.
     /** Controllo periodico del manifest, qualunque rete — mai un download automatico. */

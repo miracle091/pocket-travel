@@ -47,7 +47,7 @@ fun regionGridCells(index: AddressGridIndex, bbox: MapExtractionSource): List<Ad
  * senza bisogno di un formato di versione diverso. Una cella con [AddressGridCell.search] conta come
  * un'altra versione ("+search"): chi ha gia' i civici la vede aggiornarsi e prende il database di
  * ricerca anche se la pipeline non ha cambiato la version della cella. Senza ricerca la stringa
- * (e quindi la versione) resta quella di prima.
+ * (e quindi la versione) non cambia.
  */
 fun regionAddressesGridVersion(cells: List<AddressGridCell>): String {
     val lines = cells.map { "${it.id}@${it.version}" + if (it.search != null) "+search" else "" }.sorted().joinToString("\n")

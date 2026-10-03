@@ -618,7 +618,7 @@ private fun EmergencyNumbersCard(
 
 // Ambasciate e consolati del paese di chi viaggia nella regione (NationalityPreferences), dai POI OSM e da
 // Wikidata fusi: la riga chiama se c'e' il telefono, sito ed email sono azioni a parte. Senza rappresentanze
-// nei dati lo dice, invece di non mostrare nulla. In fondo il link agli avvisi di viaggio del ministero degli esteri del suo paese, o a quelli britannici se non lo abbiamo.
+// nei dati lo dice, invece di non mostrare nulla. In fondo il link agli avvisi di viaggio del ministero degli esteri del suo paese, o a quelli britannici se il suo paese non ne ha.
 @Composable
 private fun EmbassiesSection(
     country: String,
@@ -837,7 +837,7 @@ internal fun sourcePageTitle(url: String): String =
         ?: url
 
 // Le sottosezioni arrivano nel body come righe "▸ Titolo" (===Titolo=== di Wikivoyage, vedi
-// cleanBody in GenerateGuideContent) oppure, nei pacchetti generati prima del fix, come ";Titolo"
+// cleanBody in GenerateGuideContent) oppure, nei pacchetti meno recenti, come ";Titolo"
 // (lista di definizione wiki): entrambe mostrate come titolo, senza il simbolo davanti.
 private val subheadingLineRegex = Regex("""^[▸;]\s*(.+)$""")
 
@@ -920,7 +920,7 @@ private fun GuideCategory.icon(): ImageVector = ImageVector.vectorResource(
 
 // Tre toni dello schema (validi anche con i colori dinamici, in chiaro e scuro) per gruppi di
 // significato: logistica in primary, vita locale e cultura in secondary, attenzione in tertiary.
-// Colori pieni e non i container: con alcuni temi i tre container chiari sembravano uguali. Le coppie
+// Colori pieni e non i container: con alcuni temi i tre container chiari sembrano uguali. Le coppie
 // colore/onColore garantiscono il contrasto AA; il rosso resta alla scheda emergenze.
 @Composable
 private fun GuideCategory.tone(): Pair<Color, Color> {

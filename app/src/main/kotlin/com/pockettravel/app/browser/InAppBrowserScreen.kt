@@ -31,9 +31,9 @@ import com.pockettravel.core.ui.isSafeWebUrl
 import com.pockettravel.core.ui.R as UiR
 
 // Sostituisce le Chrome Custom Tabs per le fonti ufficiali del registro (Farnesina, OMS, Agenzia
-// delle Dogane) e per la sorgente Wikivoyage di ogni sezione guida: l'utente ha chiesto
-// esplicitamente di restare dentro l'app per questi link. Il tasto Indietro di sistema torna alla
-// pagina precedente DENTRO il sito se possibile, prima di uscire dalla schermata.
+// delle Dogane) e per la sorgente Wikivoyage di ogni sezione guida, cosi' questi link restano
+// dentro l'app. Il tasto Indietro di sistema torna alla pagina precedente dentro il sito, se
+// possibile, prima di uscire dalla schermata.
 // JavaScript serve ai siti delle fonti; nessuna addJavascriptInterface, quindi le pagine non
 // raggiungono codice dell'app.
 @SuppressLint("SetJavaScriptEnabled")

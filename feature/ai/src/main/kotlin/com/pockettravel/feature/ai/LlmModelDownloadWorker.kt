@@ -11,11 +11,9 @@ import kotlinx.coroutines.CancellationException
 import java.io.IOException
 
 /**
- * Download del modello IA richiesto dall'utente — mai automatico. Il token HuggingFace non
- * viaggia mai come input data del Worker (persistito in chiaro nel database interno di
- * WorkManager): viene letto qui direttamente da AiSettingsStore, che lo tiene cifrato in
- * Android Keystore — vedi RegionPackageDownloadWorker per lo stesso pattern di persistenza
- * del download applicato ai pacchetti regionali.
+ * Download del modello IA richiesto dall'utente, mai automatico: i modelli del catalogo non
+ * richiedono un token HuggingFace. Stesso pattern di persistenza del download di
+ * RegionPackageDownloadWorker per i pacchetti regionali.
  */
 @HiltWorker
 class LlmModelDownloadWorker @AssistedInject constructor(

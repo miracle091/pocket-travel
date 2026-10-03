@@ -133,8 +133,8 @@ class RegionAddressGridInstallerTest {
     fun `un addresses pmtiles legacy senza sidecar non si legge, tutte le celle si scaricano`() {
         val (storage, installer) = newStorageAndInstaller()
         val regionDir = storage.directoryFor("san-marino").apply { mkdirs() }
-        // Percorso di oggi installato prima del passaggio alla griglia: addresses.pmtiles c'e' ma senza
-        // addresses-cells.json (mai scritto da quel percorso) — il primo giro a griglia deve scaricare
+        // Civici installati prima del passaggio alla griglia: addresses.pmtiles c'e' ma senza
+        // addresses-cells.json (mai scritto senza griglia) — il primo giro a griglia deve scaricare
         // tutte le celle e ricostruire il file, non leggere tile da quello vecchio.
         writeFixture(File(regionDir, RegionStorage.ADDRESSES_FILE), mapOf(Triple(14, 1, 1) to byteArrayOf(0xAA.toByte())))
 

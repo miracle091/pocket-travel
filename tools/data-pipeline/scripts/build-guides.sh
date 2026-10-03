@@ -80,7 +80,7 @@ for spec in "${PILOT_REGIONS[@]}"; do
   fi
   if sourceUrl="$(fetch_wikivoyage_dump "$wikiTitle" "$dump")"; then
     # Pagina italiana molto corta (una vera pagina paese e' 20-130 KB; la Siberia, solo titoli, 4
-    # KB): scarico anche quella inglese, e generateGuides la usa se l'italiana non da' sezioni.
+    # KB): si scarica anche quella inglese, e generateGuides la usa se l'italiana non da' sezioni.
     # Solo sotto soglia, per non raddoppiare le richieste a Wikimedia.
     dumpEn="$WORKDIR/$regionId.en.txt"
     if [[ "$sourceUrl" == https://it.* ]] && [ "$(wc -c < "$dump")" -lt 8000 ] \
@@ -107,7 +107,7 @@ PUBLISHED_URL=""
 PUBLISHED_VERSION=""
 PUBLISHED_XZ_JSON=""
 # Guide pubblicate non lette (errore di rete) mentre alcune pagine Wikivoyage mancano: le regioni di
-# quelle pagine uscirebbero senza guida. Meglio fermarsi e lasciare pubblicate le guide di prima.
+# quelle pagine uscirebbero senza guida. Meglio fermarsi e lasciare le guide gia' pubblicate.
 published_unreadable() {
   if [ "$FAILED" -gt 0 ]; then
     echo "ERRORE: $1 e $FAILED pagine Wikivoyage non scaricate: non pubblico guide incomplete" >&2

@@ -1,5 +1,5 @@
 # Requisito del certificato di febbre gialla all'ingresso, una riga per OGNI paese (anche NONE: nessun obbligo e' un dato verificato) (vedi GenerateVaccinations.kt).
-# Fonti (sigle usate nella colonna fonti, separate da +; fatti riscritti con parole nostre; OMS e CDC solo per controllo, mai copiati; verificato = data ISO del confronto tra le fonti):
+# Fonti (sigle usate nella colonna fonti, separate da +; fatti riformulati; OMS e CDC solo per controllo, mai copiati; verificato = data ISO del confronto tra le fonti):
 # F6 = Travel.gc.ca, Country Travel Advice and Advisories, scheda "Health" (Governo del Canada, dati aperti), Open Government Licence - Canada
 # F7 = TravelHealthPro (NaTHNaC / UKHSA), pagine paese e scheda Hajj e Umrah, Open Government Licence v3.0
 # iso2	rule (NONE|FROM_RISK|ALL|FROM_LIST)	min_age_months	transit (NONE|ANY|GT4H|GT12H|GT24H)	from_list	exit_required (0|1)	nota_it	nota_en	fonti	verificato

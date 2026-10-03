@@ -161,8 +161,8 @@ def scegli_estratti(index, bbox, iso=None):
     leaves = [(*c, rettangolo(c[2])) for c in leaves]
     # Composto = coperto per meta' o piu' da estratti piu' piccoli di tutto l'indice, non solo da quelli
     # che toccano il bbox: il bbox del Belgio tocca il mare di britain-and-ireland ma nessuna contea
-    # inglese (si scaricava tutta la Gran Bretagna; us per le Bahamas). Un'enclave non basta: il Marocco
-    # contiene Ceuta e Melilla, il Sudafrica il Lesotho, e prima venivano scartati per questo.
+    # inglese (si scaricherebbe tutta la Gran Bretagna; us per le Bahamas). Un'enclave non basta: il Marocco
+    # contiene Ceuta e Melilla, il Sudafrica il Lesotho, e non per questo vanno scartati.
     chosen = [c for c in leaves if tocca_bbox(c[2], bbox) and copertura(c, leaves) < 0.5]
     if iso:
         props_by_id = {f["properties"]["id"]: f["properties"] for f in index["features"]}
@@ -185,7 +185,7 @@ def scarica(url, dest, user_agent, attempts=3):
             request = urllib.request.Request(url, headers={"User-Agent": user_agent})
             with urllib.request.urlopen(request, timeout=120) as response, open(dest + ".part", "wb") as out:
                 expected = response.headers.get("Content-Length")
-                # Una riga al minuto: i file grandi (Canada, Stati Uniti) restavano fino a 20 minuti senza log.
+                # Una riga al minuto: i file grandi (Canada, Stati Uniti) resterebbero fino a 20 minuti senza log.
                 start = last = time.monotonic()
                 done = 0
                 while chunk := response.read(1 << 20):

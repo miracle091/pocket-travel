@@ -11,7 +11,7 @@ import androidx.core.content.edit
 import java.util.Locale
 
 /**
- * Lingua dell'interfaccia (le guide e l'assistente restano in italiano). Finche' non se ne sceglie una:
+ * Lingua dell'interfaccia (le guide installate la seguono). Finche' non se ne sceglie una:
  * italiano se il telefono e' in italiano, inglese altrimenti ([systemDefault]). Da Android 13 e' la lingua per
  * app di sistema (LocaleManager, la stessa delle impostazioni del telefono); prima si salva qui e la
  * applicano [wrap] in attachBaseContext di app e activity.

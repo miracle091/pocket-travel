@@ -23,7 +23,7 @@ internal const val SPOOL_SUFFIX = ".tiles.tmp"
 /**
  * Accumula le tile su un file temporaneo in [directory] man mano che arrivano, tenendo in
  * memoria solo tileId/offset/lunghezza (~20 byte per tile) invece dei dati: per regioni grandi
- * a z14-15 tenere tutte le ByteArray in RAM (piu' le copie fatte dal writer) portava a
+ * a z14-15 tenere tutte le ByteArray in RAM (piu' le copie fatte dal writer) porterebbe a
  * OutOfMemoryError. Le tile identiche (mare, terra vuota: frequentissime) sono scritte una sola
  * volta e poi riusate per offset, riconosciute da SHA-256 (primi 128 bit) + lunghezza.
  * close() cancella sempre il file temporaneo, anche dopo un errore o un annullamento.
@@ -153,14 +153,13 @@ class PmtilesTileSpool(directory: File) : Closeable {
  * libreria pronta offre un writer (solo lettura, vedi PmtilesExtractor): implementato da zero
  * seguendo lo spec ufficiale (github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md) e
  * verificato via round-trip nei test con la stessa libreria di lettura indipendente
- * (ch.poole.geo.pmtiles.Reader) usata per leggere la sorgente remota — non c'e' un device/
- * emulatore disponibile in ogni contesto di sviluppo per una verifica visiva, quindi la
- * compatibilita' col reader indipendente e' la garanzia di correttezza qui.
+ * (ch.poole.geo.pmtiles.Reader) usata per leggere la sorgente remota: la compatibilita' col
+ * reader indipendente e' la garanzia di correttezza.
  *
  * Il file prodotto riusa compressione/tipo tile e metadata della sorgente cosi' come sono
  * (nessuna ri-decodifica): lo schema dei layer vettoriali (nomi/campi) resta quello della
  * sorgente, che deve gia' corrispondere a quanto atteso dallo style MapLibre lato app
- * (vedi PmtilesTileSource — schema basemap Protomaps ufficiale, non il nostro Shortbread).
+ * (vedi PmtilesTileSource: schema basemap ufficiale di Protomaps, non Shortbread).
  */
 object PmtilesWriter {
 
@@ -183,8 +182,7 @@ object PmtilesWriter {
         maxLat: Double,
     ) {
         require(entries.isNotEmpty()) { "Nessuna tile da scrivere" }
-        // In ordine di tileId: dati "clustered" e, senza tile ripetute, file identico byte per
-        // byte a quello del writer precedente (tutto in memoria).
+        // In ordine di tileId: dati "clustered" nel senso dello spec.
         PmtilesTileSpool(requireNotNull(outputFile.absoluteFile.parentFile)).use { tiles ->
             entries.sortedBy { it.tileId }.forEach { tiles.add(it.tileId, it.data) }
             write(

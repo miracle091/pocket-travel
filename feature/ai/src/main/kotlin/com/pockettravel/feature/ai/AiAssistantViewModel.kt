@@ -181,7 +181,7 @@ class AiAssistantViewModel @Inject constructor(
         }
     }
 
-    /** Solo per il modello on-device attualmente scaricato — nessun senso di misurare un modello
+    /** Solo per il modello on-device attualmente scaricato: non ha senso misurare un modello
      *  non ancora presente sul device. */
     fun runBenchmark() {
         if (_uiState.value.isBenchmarking) return

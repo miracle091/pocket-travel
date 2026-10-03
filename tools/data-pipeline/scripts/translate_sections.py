@@ -26,7 +26,7 @@ MARKERS = ("▸ ", "• ")
 # Fine frase: punto, ! o ? seguiti da spazio e da una maiuscola, una cifra o una virgoletta
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-ZÀ-Ý0-9\"«(])")
 NUMBER = re.compile(r"\d+(?:[.,:]\d+)*")
-POOR_CHARS = 300  # sotto questa lunghezza una sezione e' "povera" (soglia della fase 2 delle guide)
+POOR_CHARS = 300  # sotto questa lunghezza una sezione e' "povera"
 
 
 def needs_translation(own, other):

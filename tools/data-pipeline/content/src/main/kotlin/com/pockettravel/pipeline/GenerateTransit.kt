@@ -11,7 +11,7 @@ import kotlin.math.roundToInt
 
 /**
  * Converte un feed GTFS (zip) in transit.db, il pacchetto degli orari di una rete per il tabellone
- * delle partenze dell'app. Schema "calendario" della ricerca GTFS del 2026-09-27 (circa il 14%
+ * delle partenze dell'app. Schema "calendario" (circa il 14%
  * dello zip, compresso con xz): i giorni di servizio sono una maschera di bit su una finestra di
  * [windowDays] giorni da [windowStart], le corse si tengono una volta sola, non una riga per
  * partenza (lo schema "espanso" pesava anche dieci volte tanto).

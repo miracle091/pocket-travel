@@ -48,7 +48,7 @@ data class GuideUiState(
     val position: Pair<Double, Double>? = null,
     // La regione non ha un numero di emergenza centralizzato: la scheda lo dice al posto dei numeri.
     val noCentralEmergencyNumber: Boolean = false,
-    // Nomi delle citta' della regione (CityRepository.citiesFor): entry point "Città" nascosto se vuoto.
+    // Nomi delle citta' della regione (CityRepository.citiesFor): entry point "Citta'" nascosto se vuoto.
     val cities: List<String> = emptyList(),
     // Le citta' principali per abitanti (CityRepository.mainCitiesFor), in evidenza nella scheda Citta'.
     val mainCities: List<MainCity> = emptyList(),

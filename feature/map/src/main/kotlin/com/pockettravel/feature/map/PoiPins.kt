@@ -241,7 +241,7 @@ private fun drawAccessibilityBadge(context: Context, canvas: Canvas, cx: Float, 
     val filled = badge == AccessibilityBadge.YES
     val white = PoiColors.Glyph.toArgb()
     // Stesso bordo esterno blu per entrambi, con un alone bianco intorno che lo stacca dalla mappa:
-    // con l'anello bianco sul bordo il distintivo pieno sembrava piu' piccolo di quello vuoto.
+    // con l'anello bianco sul bordo il distintivo pieno sembrerebbe piu' piccolo di quello vuoto.
     canvas.drawCircle(cx, cy, r + 1f * density, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = white })
     canvas.drawCircle(cx, cy, r, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent })
     if (!filled) canvas.drawCircle(cx, cy, r - stroke, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = white })

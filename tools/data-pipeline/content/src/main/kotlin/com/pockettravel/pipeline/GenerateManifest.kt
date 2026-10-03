@@ -34,7 +34,7 @@ fun sha256Of(file: File): String {
     return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) }
 }
 
-/** Per un file generato/ospitato da noi (poi.db, guides.db): hash calcolato sul file locale. */
+/** Per un file generato e ospitato dal progetto (poi.db, guides.db): hash calcolato sul file locale. */
 fun localFileEntry(file: File, name: String, url: String): ManifestFileEntry =
     ManifestFileEntry(name = name, url = url, sizeBytes = file.length(), sha256 = sha256Of(file))
 
@@ -61,7 +61,7 @@ private fun MapSourceInput.toJson(): JSONObject = JSONObject()
  * locali per QUESTO tool (a differenza di poi.db) — il chiamante li passa gia' come
  * ManifestFileEntry con sha256/sizeBytes calcolati scaricandoli e hashandoli una volta (vedi
  * tools/data-pipeline/scripts/build-region.sh), che li scrive anche su disco perche' vengano
- * ri-ospitati: url punta quindi al nostro host, non a brouter.de.
+ * ri-ospitati: url punta quindi all'host del progetto, non a brouter.de.
  */
 fun buildRegionFragmentJson(
     regionId: String,

@@ -251,7 +251,7 @@ val MIGRATION_11_15 = object : Migration(11, 15) {
     }
 }
 
-// Da 15 (v0.8.0) a 17 (prossima versione; la 16 e' stata solo di sviluppo, senza transitVersion).
+// Da 15 (v0.8.0) a 17 (la 16 e' solo di sviluppo, senza transitVersion).
 // Orari e indirizzo dei POI di cibo, alloggi e ambasciate, sito ed email di alloggi e ambasciate, paese rappresentato dalle ambasciate, nomi in inglese e italiano: vuoti finche' la regione non riscarica
 // i punti di interesse pubblicati con questi dati; versione degli orari dei mezzi pubblici installati.
 val MIGRATION_15_17 = object : Migration(15, 17) {

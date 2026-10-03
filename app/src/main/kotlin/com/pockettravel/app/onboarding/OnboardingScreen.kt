@@ -271,7 +271,7 @@ internal fun StepHeader(icon: ImageVector, title: String, body: String) {
     )
 }
 
-// Passo facoltativo: senza una scelta la mappa mostra tutte le categorie, come prima delle modalita'.
+// Passo facoltativo: senza una scelta la mappa mostra tutte le categorie.
 @Composable
 private fun UsageModeStepContent(viewModel: OnboardingViewModel) {
     val usageMode by viewModel.usageMode.collectAsStateWithLifecycle()
@@ -377,9 +377,9 @@ private fun GuidesDownloadStepContent(viewModel: GuidesDownloadViewModel = hiltV
     }
 }
 
-// Riusa AiAssistantViewModel/ModelListCard di :feature:ai: stessa logica di selezione/download/
-// download della schermata "Assistente IA" vera. Mostrato solo quando isOnDeviceAiSupported
-// (vedi OnboardingScreen), quindi il catalogo qui non e' mai vuoto.
+// Riusa AiAssistantViewModel/ModelListCard di :feature:ai: stessa logica di selezione e download
+// della schermata "Assistente IA". Mostrato solo quando isOnDeviceAiSupported (vedi
+// OnboardingScreen), quindi il catalogo qui non e' mai vuoto.
 @Composable
 private fun AiModelDownloadStepContent(viewModel: AiAssistantViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()

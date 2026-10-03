@@ -82,7 +82,7 @@ enum class UsageMode(
     val defaultHidden: Set<PoiCategory> get() = PoiCategory.entries.toSet() - visibleCategories
 
     companion object {
-        /** Profilo prima che l'utente scelga una modalita': quello usato finora dall'app. */
+        /** Profilo prima che l'utente scelga una modalita'. */
         const val DEFAULT_ROUTING_PROFILE = "trekking"
 
         /** A piedi con "Con disabilita'" (routingChoice): non legato a una modalita'. */

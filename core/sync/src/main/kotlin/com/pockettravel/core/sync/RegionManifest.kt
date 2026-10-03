@@ -17,8 +17,8 @@ data class RegionManifest(
     // Guide in inglese (build-guides.sh ... en): assenti finche' la pipeline non le pubblica. Vedi guidesChoice.
     val guidesEn: GuidesManifestEntry? = null,
     // Indice dei civici a griglia, a fianco di manifest.json su GitHub
-    // Pages: assente finche' la pipeline non e' passata alla griglia, o per le app vecchie che non
-    // lo sanno leggere (ignoreUnknownKeys = true).
+    // Pages: assente nei manifest senza griglia; le app vecchie che non lo sanno leggere lo ignorano
+    // (ignoreUnknownKeys = true).
     val addressGrid: AddressGridManifestEntry? = null,
     // Reti dei mezzi pubblici (transit.json, a fianco di manifest.json): come addressGrid, assente finche'
     // la pipeline non le pubblica o per le app vecchie.
@@ -27,7 +27,7 @@ data class RegionManifest(
     // Regioni tolte e divise in regioni piu' piccole (es. "stati-uniti" -> gli stati): l'app le propone
     // a chi ha ancora installata quella vecchia.
     val replacedRegions: List<ReplacedRegion> = emptyList(),
-    // Mondo online a bassa risoluzione (z0-8), nostro: assente finche' la release GitHub "world-map"
+    // Mondo online a bassa risoluzione (z0-8) del progetto: assente finche' la release GitHub "world-map"
     // non e' pubblicata. core/sync lo salva in WorldMapStore (core/data) ad ogni sync riuscita.
     val worldMap: WorldMapEntry? = null,
     // Versione minima dell'app (versionCode) che sa leggere questi dati: vedi AppCompatibility.
@@ -126,7 +126,7 @@ data class RegionManifestEntry(
     /**
      * Byte da scaricare per questi pacchetti. La mappa non ha una dimensione nota in anticipo:
      * map.pmtiles viene estratto sul device dalla build Protomaps (vedi PmtilesExtractor), quindi
-     * conta zero come prima della separazione in pacchetti. Per i civici a griglia [installedAddressCells]
+     * conta zero. Per i civici a griglia [installedAddressCells]
      * (id di cella -> version gia' installata, RegionStorage.installedAddressCells) fa contare solo le
      * celle nuove o cambiate, come verra' davvero scaricato: vuoto (default) conta tutte le celle,
      * corretto per una prima installazione.
@@ -188,7 +188,7 @@ data class AddressGridIndex(
  * Una cella (nodo z/x/y del quadtree Web Mercator, z <= 14 = tileZoom): stesso schema di
  * [PoiPackageEntry], [fileXz] se c'e' e' il file da scaricare, compresso con xz. [search], se c'e',
  * e' il database per la ricerca degli indirizzi della cella (addresses-search.db), assente nei manifest
- * pubblicati prima: senza, la cella funziona come sempre ma non si cerca per indirizzo.
+ * pubblicati prima: senza, la cella funziona ma non si cerca per indirizzo.
  */
 @Serializable
 data class AddressGridCell(
@@ -231,7 +231,7 @@ data class PreviewPackageEntry(val version: String, val maxZoom: Int, val file: 
 }
 
 /**
- * Mondo online a bassa risoluzione, nostro, pubblicato sulla release GitHub "world-map": non
+ * Mondo online a bassa risoluzione del progetto, pubblicato sulla release GitHub "world-map": non
  * compresso, letto a pezzi con richieste range (pmtiles://https://...) quando la mappa della regione
  * non e' scaricata — niente sha256 da verificare, il file non si scarica per intero.
  */

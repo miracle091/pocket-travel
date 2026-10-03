@@ -103,7 +103,7 @@ import com.pockettravel.core.ui.R as UiR
 
 // Solo BIOMETRIC_STRONG: il BiometricPrompt qui e' legato a un CryptoObject (vedi showPrompt),
 // e androidx.biometric non supporta CryptoObject insieme a DEVICE_CREDENTIAL (IllegalArgumentException
-// a runtime) — niente piu' fallback PIN/sequenza dentro questo prompt (il dispositivo resta comunque
+// a runtime): nessun fallback PIN/sequenza dentro questo prompt (il dispositivo resta comunque
 // protetto dal proprio blocco schermo a monte).
 private const val ALLOWED_AUTHENTICATORS = BIOMETRIC_STRONG
 

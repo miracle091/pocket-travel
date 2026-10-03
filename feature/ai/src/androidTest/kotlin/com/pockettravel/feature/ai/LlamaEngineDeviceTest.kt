@@ -90,8 +90,8 @@ class LlamaEngineDeviceTest {
         assertTrue(ask("Hello").isNotBlank())
     }
 
-    // Regressione: prima del fix unload() non azzerava g_model, e un load() fallito non lo
-    // sovrascriveva: il cleanUp() dello stato Error rifaceva llama_model_free sullo stesso puntatore.
+    // Regressione: unload() deve azzerare g_model e un load() fallito deve sovrascriverlo, altrimenti il
+    // cleanUp() dello stato Error rifarebbe llama_model_free sullo stesso puntatore.
     @Test
     fun unloadDueVolteDiSeguitoNonFaDoubleFree() = runBlocking<Unit> {
         engine.loadModel(modelPath)

@@ -11,7 +11,7 @@ import javax.inject.Inject
  */
 enum class RamTier { INSUFFICIENTE, MINIMO, CONFORTEVOLE, AMPIA }
 
-/** Vincolo tecnico: almeno 4 GB di RAM per abilitare l'AI locale, altrimenti va disattivata. */
+/** Vincolo tecnico: almeno 4 GB di RAM per abilitare l'IA locale, altrimenti va disattivata. */
 class DeviceAiCapability @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
@@ -49,7 +49,7 @@ class DeviceAiCapability @Inject constructor(
         // Estratta a parte per essere testabile in JVM puro, stesso motivo di ramTierFor.
         fun inferenceThreadCountFor(ramTier: RamTier, availableCores: Int): Int {
             // La RAM non dice quanti core ha il telefono (molti da 4 GB ne hanno 8): sotto i 12 GB
-            // resta il tetto di 4 di prima, solo la fascia AMPIA (telefoni di punta) sale a 6.
+            // il tetto resta 4, solo la fascia AMPIA (telefoni di punta) sale a 6.
             val cap = when (ramTier) {
                 RamTier.AMPIA -> 6
                 RamTier.CONFORTEVOLE, RamTier.MINIMO, RamTier.INSUFFICIENTE -> 4

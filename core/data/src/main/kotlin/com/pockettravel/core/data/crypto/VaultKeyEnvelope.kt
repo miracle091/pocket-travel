@@ -13,7 +13,7 @@ import javax.inject.Inject
 // crittografica del vault passaporti legata a un BiometricPrompt.CryptoObject, quindi soddisfa
 // la verifica CodeQL java/android/insecure-local-authentication. I singoli record restano cifrati
 // con la DEK in memoria (SessionAesCipher, vedi PassportRepository), senza un nuovo prompt a ogni
-// operazione: un solo unlock per apertura della schermata, come nella UX precedente.
+// operazione: un solo sblocco per apertura della schermata.
 class VaultKeyEnvelope @Inject constructor(@ApplicationContext context: Context) {
     private val kek = KeystoreCipher(keyAlias = KEK_ALIAS, requireUserAuthentication = true, authValiditySeconds = 0)
     private val prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)

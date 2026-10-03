@@ -2,13 +2,12 @@
 # Assembla il sito da pubblicare (site/) unendo i frammenti manifest appena generati con il
 # manifest.json gia' pubblicato online (se esiste). Serve solo a unire il JSON: guides.db, poi.db e
 # i .rd5 non toccati in questa run non vanno ri-copiati da nessuna parte, perche' non
-# vivono piu' sul sito Pages ma sugli asset della release "region-data" (vedi
+# vivono sul sito Pages ma sugli asset della release "region-data" (vedi
 # tools/data-pipeline/scripts/build-region.sh e .github/workflows/publish-regions.yml) - a
 # differenza di actions/deploy-pages, che sostituisce l'intero sito ad ogni pubblicazione, gli
 # asset di una release restano raggiungibili da soli finche' non vengono cancellati esplicitamente.
-# (Prima della migrazione a Releases, questo script li ri-scaricava e ri-copiava nel nuovo sito ad
-# ogni run: con la copertura mondiale di pilot-regions.sh, 254 regioni, il sito cumulativo aveva
-# superato il limite di 1GB di GitHub Pages.)
+# (Copiati nel sito, i file delle 254 regioni di pilot-regions.sh supererebbero il limite di 1 GB di
+# GitHub Pages.)
 #
 # Uso: assemble-site.sh <siteDir> <publishedManifestUrl> <fragmentFile1> [fragmentFile2 ...]
 # Richiede jq (per la sezione "Ultimi aggiornamenti" della pagina, derivata dalle versioni dei
@@ -115,7 +114,7 @@ is_present() {
 # Nome nazione collegato alla propria pagina Wikivoyage: riusa l'URL gia' risolto e salvato nel
 # manifest da build-region.sh (edizione italiana preferita, fallback su quella inglese se manca
 # il langlink - vedi il commento li'), nessuna nuova risoluzione di lingua lato sito. Facoltativo
-# come jq sopra ("Ultimi aggiornamenti"): senza jq i nomi restano semplice testo, come prima.
+# come jq sopra ("Ultimi aggiornamenti"): senza jq i nomi restano semplice testo.
 WIKIVOYAGE_URLS=""
 if command -v jq >/dev/null 2>&1; then
   WIKIVOYAGE_URLS="$(jq -r '.regions[] | select(.wikivoyageUrl != null) | [.regionId, .wikivoyageUrl] | @tsv' "$FINAL_MANIFEST")"
@@ -143,7 +142,7 @@ status_html() {
   [ -n "$wikiUrl" ] && text="<a href=\"$wikiUrl\">$text</a>"
   if is_present "$regionId"; then
     # L'href sopra e' verso Wikivoyage (guida testuale), non verso i dati della regione: poi.db/
-    # i .rd5 non vivono piu' sotto site/ (vedi il commento in testa al file) e non hanno una singola
+    # i .rd5 non vivono sotto site/ (vedi il commento in testa al file) e non hanno una singola
     # pagina browsable a cui linkare - il download vero e proprio passa dagli URL in manifest.json.
     echo "<span class=\"entry\">$text $STATUS_OK_SVG</span>"
   else

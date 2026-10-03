@@ -132,9 +132,9 @@ private const val NAVIGATION_MARGIN_DEGREES = 0.05
 
 /**
  * Le regioni della navigazione: quelle con i Percorsi installati il cui riquadro tocca il riquadro di
- * partenza e arrivo, allargato di qualche km. Con una sola il comportamento e' quello di sempre (nessuna
- * unione dei segmenti). La regione da cui si e' partiti ([regionId]) viene per prima, e resta l'unica
- * se nessun riquadro tocca: cosi' la mancanza dei dati si vede come prima ("Scarica i percorsi").
+ * partenza e arrivo, allargato di qualche km. Con una sola non si uniscono segmenti. La regione da cui
+ * si e' partiti ([regionId]) viene per prima, e resta l'unica se nessun riquadro tocca: cosi' la
+ * mancanza dei dati si vede come "Scarica i percorsi".
  */
 fun navigationRegionIds(regionId: String, candidates: List<RoutingRegion>, from: RoutePoint, to: RoutePoint): List<String> {
     val minLon = minOf(from.longitude, to.longitude) - NAVIGATION_MARGIN_DEGREES

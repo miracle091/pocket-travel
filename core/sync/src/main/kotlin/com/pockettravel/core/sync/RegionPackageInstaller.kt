@@ -103,8 +103,8 @@ class RegionPackageInstaller @Inject constructor(
             onInstalling()
             if (PackageKind.ROUTING in kinds) routingGraphInstaller.install(staging)
 
-            // I POI si leggono a blocchi dentro la transazione (PoiImporter.replaceFromFile): tutti in memoria
-            // prima, per una regione grande, rischiavano l'OutOfMemoryError.
+            // I POI si leggono a blocchi dentro la transazione (PoiImporter.replaceFromFile): caricarli tutti in
+            // memoria prima, per una regione grande, rischierebbe l'OutOfMemoryError.
             val poisToImport = if (PackageKind.POI in kinds) File(staging, entry.poi.file.name) else null
             val poiExtraToImport = if (PackageKind.POI_EXTRA in kinds) File(staging, entry.poiExtra!!.file.name) else null
             val citySectionsToImport = if (PackageKind.CITIES in kinds) {

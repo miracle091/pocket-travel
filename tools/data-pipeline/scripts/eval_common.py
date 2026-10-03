@@ -18,8 +18,8 @@ def chat_prompt_and_answer(tok, messages):
     utente, piu' il blocco <think> vuoto se il chat template supporta enable_thinking. La risposta (da
     imparare) non contiene mai quel blocco: alcuni template (il Qwen3 ibrido, anche la copia di Unsloth di
     Qwen3-4B-Instruct-2507) lo mettono nel turno assistente completo ma non nel prompt di generazione,
-    e il modello imparava a scriverlo lui (visto: il 4B rispondeva "<think>..." e nessun rifiuto veniva
-    riconosciuto). Con un solo messaggio si ottiene solo il prompt (risposta vuota)."""
+    e il modello imparerebbe a scriverlo da solo (con il 4B le risposte iniziavano con "<think>..." e nessun
+    rifiuto veniva riconosciuto). Con un solo messaggio si ottiene solo il prompt (risposta vuota)."""
     prompt = tok.apply_chat_template(messages[:1], add_generation_prompt=True, tokenize=False, enable_thinking=False)
     if "enable_thinking" in (tok.chat_template or "") and not prompt.endswith(EMPTY_THINK):
         prompt += EMPTY_THINK

@@ -295,8 +295,8 @@ private fun OfflineCatalogNotice(onRetry: () -> Unit) {
 @Composable
 private fun RegionSearchField(query: String, onQueryChange: (String) -> Unit, modifier: Modifier = Modifier) {
     // Testo tenuto qui e non riletto da uiState.query: lo stato del ViewModel arriva in ritardo
-    // (combine su Dispatchers.IO) e, usato come valore del campo, faceva perdere caratteri e
-    // riportava il cursore all'inizio mentre si scriveva.
+    // (combine su Dispatchers.IO) e, usato come valore del campo, farebbe perdere caratteri e
+    // riporterebbe il cursore all'inizio durante la scrittura.
     val textFieldState = rememberTextFieldState(query)
     val currentOnQueryChange by rememberUpdatedState(onQueryChange)
     LaunchedEffect(textFieldState) {

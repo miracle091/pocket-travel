@@ -35,8 +35,8 @@ import javax.inject.Inject
 // LOADING: stato non ancora noto, per non mostrare la mappa (o il suo stato vuoto) prima del primo valore.
 enum class RegionMapState { LOADING, INSTALLED, MISSING, DOWNLOADING }
 
-// Prima di questo, RegionHubScreen mostrava il regionId grezzo (es. "italia") nella TopAppBar
-// invece del nome regione reale.
+// Tra l'altro fornisce a RegionHubScreen il nome reale della regione per la TopAppBar, invece del
+// regionId grezzo (es. "italia").
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class RegionHubViewModel @Inject constructor(

@@ -5,7 +5,7 @@
 # disallinearsi.
 #
 # Gli Stati Uniti sono pubblicati come una regione per stato (48 stati contigui + Distretto di
-# Columbia, dal 2026-09-25) piu' Alaska e Hawaii: un'unica regione per i 48 stati era troppo grande
+# Columbia, dal 2026-09-25) piu' Alaska e Hawaii: un'unica regione per i 48 stati sarebbe troppo grande
 # (civici impossibili da estrarre, download di gigabyte per visitare una citta'). Le righe degli
 # stati vengono da generate-subregion-rows.py (confini Natural Earth); la vecchia regione
 # "stati-uniti" e' in REPLACED_REGIONS, piu' sotto. Allo stesso modo, sempre dal 2026-09-25: Canada
@@ -377,8 +377,7 @@ PILOT_REGIONS=(
   "isole-falkland|Isole Falkland (Regno Unito)|-61.35|-52.35|-57.70|-51.00|Falkland_Islands|fk|||Sud America"
   "australia|Australia|113.34|-43.63|153.57|-10.67|Australia|au|||Oceania"
   "nuova-zelanda|Nuova Zelanda|166.51|-46.64|178.52|-34.45|New_Zealand|nz|||Oceania"
-  # Figi e Kiribati attraversano davvero l'antimeridiano (non e' un artefatto della fonte dati come
-  # per la Russia iniziale): sono spezzate in due region con lo stesso flag, stesso schema usato
+  # Figi e Kiribati attraversano davvero l'antimeridiano: sono spezzate in due region con lo stesso flag, stesso schema usato
   # sopra per Russia/Stati Uniti.
   "figi-occidentali|Figi - Isole occidentali|177.00|-20.70|180.00|-15.50|Fiji|fj|Figi|Isole occidentali (Viti Levu, Vanua Levu)|Oceania"
   "figi-lau|Figi - Isole Lau|-179.90|-21.05|-178.00|-15.60|Fiji|fj|Figi|Isole Lau|Oceania"
@@ -411,8 +410,7 @@ PILOT_REGIONS=(
 
 # Release GitHub che ospita gli asset (poi.db, .rd5) di una regione. Ogni release e' limitata a 1000
 # asset e durante una run i nuovi asset si aggiungono ai vecchi, che la pulizia post-deploy toglie solo alla
-# fine: una release deve reggere il doppio dei suoi asset stabili. Fino al 2026-10 c'era una release per
-# continente, divisa a mano quando si riempiva (Europa a 810 asset il 2026-10-01). Ora le regioni si
+# fine: una release deve reggere il doppio dei suoi asset stabili. Le regioni si
 # spartiscono su REGION_RELEASES release "region-data-rNN" in base al regionId (cksum, stabile e senza
 # dipendenze): ~4400 asset su 32 release fanno ~140 asset per release (la piu' piena ~240), cioe' meno di
 # 500 anche durante una rigenerazione completa e spazio per il doppio delle regioni prima del primo

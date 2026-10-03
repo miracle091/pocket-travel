@@ -10,14 +10,13 @@ android {
     namespace = "com.pockettravel.feature.ai"
     compileSdk = 37
 
-    // NDK 29 stabile (non l'rc1 usato da examples/llama.android): verificato su sdkmanager --list
-    // a settembre 2026, l'rc e' stato superato da una release finale con lo stesso major.
+    // NDK 29 stabile, non l'rc1 usato da examples/llama.android: la release finale ha sostituito l'rc
+    // con lo stesso major.
     ndkVersion = "29.0.14206865"
 
     defaultConfig {
-        // Il riferimento (examples/llama.android, com.arm.aichat) richiede minSdk 33; qui si
-        // tenta 26 per restare allineati al resto del progetto, verificando la build per davvero
-        // (rischio accettato: puo' darsi che qualche API NDK/Kotlin non funzioni sotto API 33).
+        // Il riferimento (examples/llama.android, com.arm.aichat) richiede minSdk 33; qui resta 26, come
+        // il resto del progetto: qualche API NDK/Kotlin potrebbe non funzionare sotto API 33.
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

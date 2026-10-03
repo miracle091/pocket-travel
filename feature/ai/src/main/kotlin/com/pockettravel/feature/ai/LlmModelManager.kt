@@ -68,7 +68,7 @@ class LlmModelManager @Inject constructor(
     ) {
         // Fallisce prima di aprire la connessione (non dopo centinaia di MB scaricati e
         // scartati): un sha256 nullo qui indica un modello non ancora pubblicato, non un
-        // problema di rete o di integrità del file.
+        // problema di rete o di integrita' del file.
         if (definition.sha256 == null) {
             throw ModelNotAvailableException("Il modello «${definition.displayName}» non è ancora disponibile per il download.")
         }
@@ -124,7 +124,7 @@ class LlmModelManager @Inject constructor(
                 }
                 // Stessa classificazione di RegionPackageDownloader: un 4xx (tranne 408/429,
                 // tipicamente transitori) non cambierebbe ritentando la stessa richiesta; un
-                // errore di rete o un 5xx invece sì, il Worker chiamante puo' ritentare.
+                // errore di rete o un 5xx invece si', il Worker chiamante puo' ritentare.
                 if (response.code in 400..499 && response.code != 408 && response.code != 429) {
                     throw ModelDownloadFailedException("Download modello fallito: HTTP ${response.code}")
                 }

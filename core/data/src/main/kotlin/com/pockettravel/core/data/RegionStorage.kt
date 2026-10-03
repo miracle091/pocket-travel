@@ -20,7 +20,7 @@ annotation class RegionsDir
 @Retention(AnnotationRetention.BINARY)
 annotation class RegionsStagingDir
 
-/** Owns the on-disk layout for regional packages (`map.pmtiles`, one or more `.rd5` routing segments, `addresses.pmtiles`; `poi.db` only until imported). */
+/** Struttura su disco dei pacchetti regionali (`map.pmtiles`, uno o piu' segmenti `.rd5` dei percorsi, `addresses.pmtiles`; `poi.db` solo fino all'import). */
 class RegionStorage @Inject constructor(
     @param:RegionsDir private val regionsDir: File,
     @param:RegionsStagingDir private val stagingDir: File,
@@ -122,8 +122,7 @@ class RegionStorage @Inject constructor(
 
     /**
      * Celle dei civici a griglia attive nell'ultimo [ADDRESSES_CELLS_FILE] installato (id di cella ->
-     * version), vuoto se la regione non li usa (percorso di oggi, o
-     * civici non installati).
+     * version), vuoto se la regione non li usa (civici senza griglia o non installati).
      */
     fun installedAddressCells(regionId: String): Map<String, String> {
         val file = File(directoryFor(regionId), ADDRESSES_CELLS_FILE)
@@ -182,7 +181,7 @@ class RegionStorage @Inject constructor(
         const val PREVIEW_FILE = "preview.pmtiles"
         // Civici a griglia: elenco delle celle in ADDRESSES_FILE (id -> version),
         // scritto e attivato accanto ad esso, atomicamente con lo stesso meccanismo di activatePackage.
-        // Assente per le regioni installate col percorso di oggi (una sola voce "addresses").
+        // Assente per le regioni con i civici senza griglia (una sola voce "addresses").
         const val ADDRESSES_CELLS_FILE = "addresses-cells.json"
         // Ricerca degli indirizzi: una addresses-search.db per cella (<z>-<x>-<y>.db, vedi addressSearchFileName),
         // tenute solo per aggiornare la regione scaricando le celle cambiate, piu' ADDRESSES_SEARCH_DB, l'unione di
@@ -207,7 +206,7 @@ class RegionStorage @Inject constructor(
          * Formato di [ADDRESSES_CELLS_FILE]: un oggetto json id -> version. Id e version sono gia'
          * limitati a caratteri sicuri prima di arrivare qui (un id di cella e' sempre "z/x/y",
          * RegionManifest.isSafeVersion per le version): non serve una libreria json per un formato
-         * cosi' semplice e interamente sotto il nostro controllo.
+         * cosi' semplice e interamente definito dall'app.
          */
         fun encodeAddressCells(cells: Map<String, String>): String =
             cells.entries.sortedBy { it.key }.joinToString(prefix = "{", postfix = "}", separator = ",") { (id, version) -> "\"$id\":\"$version\"" }

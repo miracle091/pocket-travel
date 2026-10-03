@@ -40,7 +40,7 @@ data class TransitInput(
 )
 
 /**
- * Stato della scheda e della schermata delle vaccinazioni. I paesi sono ISO alpha-2 maiuscoli (come li dà il
+ * Stato della scheda e della schermata delle vaccinazioni. I paesi sono ISO alpha-2 maiuscoli (come li da' il
  * selettore); [result] e' null quando il percorso non e' valido (partenza mancante o uguale alla destinazione).
  */
 data class VaccinationUiState(

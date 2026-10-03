@@ -6,7 +6,7 @@ import java.text.Normalizer
  * Pattern GLOB di SQLite che trova [query] dentro un testo senza badare a maiuscole e accenti: ogni
  * lettera diventa il gruppo delle sue varianti ("riga" -> "*[rRŕŘ...][iIīí...][gGģ...][aAā...]*"), cosi'
  * "riga" trova "Rīgas" e "Rīga" trova "Riga". LIKE di SQLite ignora le maiuscole solo nell'ASCII e non
- * conosce gli accenti; un indice o una colonna senza accenti vorrebbero una migrazione di poi.
+ * conosce gli accenti; un indice o una colonna senza accenti richiederebbero una migrazione della tabella poi.
  */
 internal fun accentInsensitiveGlob(query: String): String = buildString {
     append('*')

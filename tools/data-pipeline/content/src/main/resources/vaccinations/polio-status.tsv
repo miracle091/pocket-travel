@@ -1,5 +1,5 @@
 # Categorie polio OMS per paese (la piu' severa per i paesi in piu' elenchi) (vedi GenerateVaccinations.kt).
-# Fonti (sigle usate nella colonna fonti, separate da +; fatti riscritti con parole nostre; OMS e CDC solo per controllo, mai copiati; verificato = data ISO del confronto tra le fonti):
+# Fonti (sigle usate nella colonna fonti, separate da +; fatti riformulati; OMS e CDC solo per controllo, mai copiati; verificato = data ISO del confronto tra le fonti):
 # F3 = OMS, Polio IHR Emergency Committee, 45a riunione, raccomandazioni in vigore dal 2026-08-21: solo gli elenchi di Stati (fatti), nessun testo copiato (il testo OMS e' CC BY-NC-SA 3.0 IGO)
 # F6 = Travel.gc.ca, Country Travel Advice and Advisories, scheda "Health" (Governo del Canada, dati aperti), Open Government Licence - Canada
 # iso2	category (WPV1_CVDPV1_CVDPV3|CVDPV2|PREVIOUSLY_INFECTED)	statement	fonti	verificato

@@ -91,7 +91,7 @@ internal fun OnboardingRegionStep(onboardingViewModel: OnboardingViewModel, view
             body = stringResource(R.string.onboarding_region_body),
         )
         // Testo nel TextFieldState locale e passato al ViewModel, come nella schermata Regioni: legato
-        // direttamente allo stato del ViewModel (aggiornato in modo asincrono) il campo perdeva caratteri.
+        // direttamente allo stato del ViewModel (aggiornato in modo asincrono) il campo perderebbe caratteri.
         val textFieldState = rememberTextFieldState(uiState.query)
         LaunchedEffect(textFieldState) {
             snapshotFlow { textFieldState.text.toString() }.collect(viewModel::onQueryChange)

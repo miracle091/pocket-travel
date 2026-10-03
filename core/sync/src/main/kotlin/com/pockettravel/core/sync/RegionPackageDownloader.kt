@@ -20,9 +20,9 @@ import javax.inject.Inject
 class PermanentRegionPackageException(message: String) : Exception(message)
 
 /**
- * Downloads the given manifest files (poi.db, .rd5 routing segments, guides.db) into a staging
- * directory with HTTP range resume and verifies each against its manifest SHA-256; the caller
- * validates the manifest entry first and then moves the staged files into place.
+ * Scarica i file del manifest indicati (poi.db, segmenti .rd5 dei percorsi, guides.db) in una
+ * cartella di staging, con ripresa tramite HTTP range, e verifica lo SHA-256 di ciascuno rispetto al
+ * manifest; il chiamante convalida prima la voce del manifest e poi sposta i file al loro posto.
  */
 class RegionPackageDownloader @Inject constructor(
     private val okHttpClient: OkHttpClient,
@@ -178,7 +178,7 @@ class RegionPackageDownloader @Inject constructor(
         DigestInputStream(file.inputStream(), digest).use { stream ->
             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
             while (stream.read(buffer) != -1) {
-                // digest updates as a side effect of DigestInputStream.read
+                // DigestInputStream.read aggiorna il digest a ogni lettura
             }
         }
         return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) }

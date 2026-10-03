@@ -117,7 +117,7 @@ def main():
     args = ap.parse_args()
     rng = random.Random(42)
     held_out = sorted(TEST_REGIONS)  # come train_lora.py
-    # le regioni sostituite da sottoregioni (es. canada) non sono piu' in pilot-regions.sh: nome dall'id
+    # le regioni sostituite da sottoregioni (es. canada) non sono in pilot-regions.sh: nome dall'id
     names = {rid: rid.replace("-", " ").title() for rid in held_out} | {rid: name for rid, name, _ in load_regions()}
     langs = {}  # rid -> {"it": [(cat, corpo)], "en": [...]}
     for rid in held_out:

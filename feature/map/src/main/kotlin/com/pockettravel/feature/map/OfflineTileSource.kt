@@ -31,7 +31,7 @@ enum class MapSourceKind { FULL, PREVIEW, ONLINE_WORLD, NONE }
 // MapLibre Native gestisce il protocollo pmtiles:// nativamente su Android (nessun parser
 // o server locale da scrivere): basta un url "pmtiles://file://<percorso-assoluto>" in una
 // source vettoriale dello style. Richiede un file reale su storage privato dell'app —
-// pmtiles://asset:// (file in assets/) non è supportato perché l'asset manager di Android
+// pmtiles://asset:// (file in assets/) non e' supportato perche' l'asset manager di Android
 // non offre letture a range di byte, che il formato PMTiles richiede.
 class PmtilesTileSource(
     private val regionStorage: RegionStorage,
@@ -138,26 +138,22 @@ class PmtilesTileSource(
 internal fun regionsStyle(regions: List<RegionSource>, dark: Boolean, label: String, fallback: WorldFallbackStyle?): String {
     val palette = if (dark) MapPalette.Dark else MapPalette.Light
     // I nomi dei source-layer ("water", "roads", "buildings", "places") sono quelli dello
-    // schema "basemap" ufficiale Protomaps (docs.protomaps.com/basemaps/layers), non piu'
-    // quelli del nostro Shortbread profile (tools/data-pipeline/maptiles,
-    // ShortbreadProfile.kt) — il map.pmtiles installato oggi e' estratto lato device dalla
-    // build whole-planet Protomaps (PmtilesExtractor, core:sync), non generato dalla nostra
-    // pipeline Planetiler. La pipeline locale resta solo per i suoi test, con uno schema
-    // diverso. Stesso schema per l'anteprima regionale e per il mondo online: entrambi
+    // schema "basemap" ufficiale Protomaps (docs.protomaps.com/basemaps/layers): il map.pmtiles
+    // installato e' estratto lato device dalla build whole-planet Protomaps (PmtilesExtractor,
+    // core:sync). Stesso schema per l'anteprima regionale e per il mondo online: entrambi
     // estratti dalla stessa build Protomaps.
     //
     // "attribution" sulla source: l'ODbL 1.0 impone di attribuire i dati
-    // OpenStreetMap. Essendo tile locali (pmtiles://), non c'è un TileJSON remoto da cui
+    // OpenStreetMap. Essendo tile locali (pmtiles://), non c'e' un TileJSON remoto da cui
     // MapLibre potrebbe altrimenti leggerla: va dichiarata qui. Il controllo attribuzioni
-    // di MapLibre Android è attivo di default e la mostra automaticamente (icona "i").
+    // di MapLibre Android e' attivo di default e la mostra automaticamente (icona "i").
     //
     // "minzoom"/"maxzoom" sulla source: per la mappa completa DEVONO combaciare con
     // MAP_MIN_ZOOM/MAP_MAX_ZOOM di build-region.sh (0/14), lo stesso range con cui
     // PmtilesExtractor scarica le tile sul device. Senza dichiararli qui, MapLibre assume che
     // esistano tile fino a z22 e le richiede davvero quando l'utente zooma oltre 14;
-    // PmtilesExtractor non le ha mai scaricate, quindi tornano vuote e la mappa mostra un buco
-    // (bug osservato: pezzi di mappa "spariscono" zoomando, pur essendo visibili a livello
-    // globale). Dichiarare maxzoom=14 dice a MapLibre di fermare le richieste li' e ri-scalare
+    // PmtilesExtractor non le ha mai scaricate, quindi tornano vuote e pezzi di mappa sparirebbero
+    // zoomando. Dichiarare maxzoom=14 dice a MapLibre di fermare le richieste li' e ri-scalare
     // (overzoom) l'ultima tile disponibile, come fa Google Maps quando non ha piu' dettaglio.
     // Per l'anteprima e per il mondo online il maxzoom e' piu' basso e viene letto dall'header
     // PMTiles (byte 101, vedi pmtilesHeaderMaxZoom) o da WorldMapStore.worldMapMaxZoom().
@@ -166,7 +162,7 @@ internal fun regionsStyle(regions: List<RegionSource>, dark: Boolean, label: Str
     // nazionali (<= 2) continui e piu' marcati, regionali/provinciali (3-4) tratteggiati da z5.
     //
     // "glyphs": i font per le etichette (nomi di strade/localita') vanno serviti in locale,
-    // mai da rete (nessun hosting proprio, vedi CLAUDE.md/memoria progetto) — bundle di un
+    // mai da rete (il progetto non ha un server proprio): bundle di un
     // solo fontstack (Klokantech Noto Sans Regular di openmaptiles/fonts, licenza OFL) con i range
     // delle scritture che MapLibre disegna senza shaping complesso: latino esteso (lettone, polacco,
     // turco, vietnamita...), greco, cirillico, armeno, ebraico, arabo, thai, georgiano e la
@@ -189,10 +185,10 @@ internal fun regionsStyle(regions: List<RegionSource>, dark: Boolean, label: Str
     // su Google Maps in italiano) — l'unica localizzazione sensata e' preferire la variante
     // gia' mappata su OSM (rara per name:it, molto piu' comune name:en, es. la
     // romanizzazione dei nomi giapponesi) e usare il nome locale solo come ultima risorsa.
-    // Per le regioni a caratteri latini (Italia, San Marino, Andorra, Stati Uniti) il
-    // risultato e' identico a prima: name:it/name:en quasi mai presenti su strade locali,
-    // si ricade sempre su "name". Per il Giappone conta di piu': i caratteri kanji non
-    // renderizzerebbero comunque (il font bundlato copre solo il range latino), quindi senza
+    // Per le regioni a caratteri latini (Italia, San Marino, Andorra, Stati Uniti) name:it e
+    // name:en mancano quasi sempre sulle strade locali, quindi si ricade su "name". Per il
+    // Giappone conta di piu': i caratteri kanji non
+    // renderizzerebbero comunque (il font incluso non copre le scritture CJK), quindi senza
     // questo fallback quelle etichette sarebbero vuote anche quando OSM ha gia' la
     // romanizzazione pronta in name:en.
     //
@@ -379,7 +375,7 @@ internal fun pmtilesHeaderBounds(header: ByteArray): MapBounds {
     return MapBounds(buffer.int / e7, buffer.int / e7, buffer.int / e7, buffer.int / e7)
 }
 
-// Colori dello stile. Light: la palette storica in stile Google Maps. Dark: stessa gerarchia
+// Colori dello stile. Light: la palette in stile Google Maps. Dark: stessa gerarchia
 // (strade principali ambrate, minori piu' chiare dello sfondo, acqua blu scuro) su fondo scuro,
 // per non abbagliare quando l'app e' in tema scuro; etichette chiare con alone dello sfondo.
 private data class MapPalette(

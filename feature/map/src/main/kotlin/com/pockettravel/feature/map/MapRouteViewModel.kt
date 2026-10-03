@@ -102,7 +102,7 @@ class MapRouteViewModel @Inject constructor(
 
     /**
      * Solo i POI dell'area inquadrata, dentro la zona scaricata se c'e', al massimo [MAX_PINS]: tutti quelli di un paese
-     * grande (Italia, ~70 MB) mandavano l'app in OutOfMemoryError. Prima del primo fermo della mappa, quelli del
+     * grande (Italia, ~70 MB) manderebbero l'app in OutOfMemoryError. Prima del primo fermo della mappa, quelli del
      * riquadro della mappa installata (o della zona).
      */
     private fun reloadPins() {

@@ -16,7 +16,7 @@ E = "http://www.wikidata.org/entity/"
 
 
 def finto_endpoint(query, user_agent):
-    """Risposte canned, scelte dal testo della query (stessa forma dei binding di Wikidata, valori gia' estratti)."""
+    """Risposte fisse, scelte dal testo della query (stessa forma dei binding di Wikidata, valori gia' estratti)."""
     if "wdt:P279*" in query:
         return [{"root": E + "Q372690", "c": E + "Q372690"}, {"root": E + "Q7843791", "c": E + "Q7843791"},
                 {"root": E + "Q3917681", "c": E + "Q3917681"}, {"root": E + "Q3917681", "c": E + "Q12143816"}]

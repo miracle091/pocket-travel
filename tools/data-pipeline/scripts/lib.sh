@@ -164,14 +164,14 @@ PIPELINE_USER_AGENT="PocketTravelDataPipeline/1.0 (https://github.com/miracle091
 # Scarica il wikitext grezzo della pagina Wikivoyage di una regione in <outFile> e stampa l'URL
 # della pagina usata (per il campo sourceUrl delle sezioni). Preferisce l'edizione italiana:
 # Wikivoyage IT e' scritto da editor italiani, non una traduzione automatica — piu' "tradotto" e
-# "leggibile" di qualunque pipeline di traduzione aggiunta qui, senza dipendenze nuove (vedi "no
-# hosting infra" nella memoria di progetto). Il titolo IT non si puo' indovinare dal titolo EN
+# "leggibile" di qualunque pipeline di traduzione aggiunta qui, senza dipendenze nuove ne' servizi
+# da ospitare. Il titolo IT non si puo' indovinare dal titolo EN
 # (es. "Giappone" per "Japan", "Palau (stato)" per "Palau"): si risolve dai langlinks interwiki
 # della pagina EN via l'API MediaWiki, gia' tenuti allineati da Wikivoyage stesso — evita di
 # mantenere a mano una seconda colonna di titoli IT in pilot-regions.sh, che si disallineerebbe
 # silenziosamente ad ogni rinomina di pagina. La risposta si parsa con sed per non rendere jq
 # obbligatorio: utf8=1 fa arrivare il titolo in UTF-8 invece che con gli escape \uXXXX (con gli
-# escape "Faer Oer" diventava un titolo non valido), e --data-urlencode lo codifica per l'URL.
+# escape "Faer Oer" diventerebbe un titolo non valido), e --data-urlencode lo codifica per l'URL.
 # Nessun langlink IT (o pagina IT vuota): fallback sull'originale inglese.
 # -f: una risposta HTTP di errore (400, 403, 429) non deve finire in <outFile> come se fosse la
 # pagina, altrimenti la regione esce senza sezioni invece di tenere la guida gia' pubblicata.
@@ -289,7 +289,7 @@ fetch_wikivoyage_en_dump() {
 # Istanze gratuite e senza chiave con copertura mondiale (wiki OSM, "Overpass API - Instances
 # with global data coverage", verificato il 2026-09-24): prima quelle senza limiti dichiarati
 # (VK Maps, private.coffee), poi le due FOSSGIS, che chiedono meno di 10.000 richieste al giorno.
-# overpass.openstreetmap.fr tolto: dal 2026-09 risponde solo a usi autorizzati. La disponibilita'
+# overpass.openstreetmap.fr escluso: dal 2026-09 risponde solo a usi autorizzati. La disponibilita'
 # cambia di ora in ora (stesso giorno: una istanza in timeout, un'altra con 504), quindi
 # ATTEMPTS = numero di istanze, cosi' ogni chunk le prova tutte.
 OVERPASS_ENDPOINTS=(

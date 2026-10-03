@@ -6,8 +6,7 @@ la pipeline stessa divide ulteriormente le celle davvero troppo pesanti fino a z
 costruisce (build-address-cell.sh); il seme e' solo il punto di partenza, non il tetto vero della
 griglia (quello e' z<=14, vedi ValidateManifest).
 
-Porta qui le misure del 2026-09-27, fatte con script di prova fuori dal repo, in un unico script
-senza dipendenze esterne:
+Stima la dimensione di ogni cella senza dipendenze esterne:
   1. civici gia' pubblicati: la directory del PMTiles di ogni regione con "addresses.file.url" nel
      manifest si legge via richieste HTTP Range (solo intestazione e indici, mai il file intero,
      vedi tiles()) per il peso di ogni tile z14; il massimo tra regioni diverse toglie i doppioni ai
@@ -36,7 +35,7 @@ from collections import defaultdict
 USER_AGENT = "pocket-travel-seed-address-grid/1.0"
 
 
-# --- Lettura della directory di un PMTiles remoto via richieste HTTP Range (porta pmdir.py) --------
+# --- Lettura della directory di un PMTiles remoto via richieste HTTP Range --------
 
 def _http_range(url, start, length):
     req = urllib.request.Request(url, headers={"Range": f"bytes={start}-{start + length - 1}", "User-Agent": USER_AGENT})
@@ -129,7 +128,7 @@ def tile_id_to_zxy(tile_id):
     return z, x, y
 
 
-# --- Proiezione Web Mercator (stessa di GenerateAddresses.kt/simulate.py) ---------------------------
+# --- Proiezione Web Mercator (stessa di GenerateAddresses.kt) ---------------------------
 
 def lon_to_x(lon, zoom):
     return int((lon + 180) / 360 * (1 << zoom))

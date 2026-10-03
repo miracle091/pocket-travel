@@ -44,7 +44,7 @@ class RegionRoutingGraphInstallerTest {
             RegionRoutingGraphInstaller().install(packageDir)
             fail("un pacchetto senza rd5 non e' installabile")
         } catch (_: IllegalStateException) {
-            // expected permanent package failure
+            // atteso: errore definitivo del pacchetto
         }
     }
     @Test

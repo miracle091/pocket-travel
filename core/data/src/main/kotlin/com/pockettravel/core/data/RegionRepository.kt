@@ -71,7 +71,7 @@ class RegionRepository @Inject constructor(
             PackageKind.ADDRESSES -> {
                 check(regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_FILE)) { "Impossibile eliminare i civici di $regionId" }
                 // Percorso a griglia: elenco delle celle installate accanto ad ADDRESSES_FILE, assente
-                // (deletePackage torna comunque true) per il percorso di oggi.
+                // (deletePackage torna comunque true) per i civici senza griglia.
                 regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_CELLS_FILE)
                 // Database di ricerca degli indirizzi: assente per i manifest senza ricerca. I file aperti da
                 // AddressSearchRepository li chiude lei alla ricerca successiva (file sparito).

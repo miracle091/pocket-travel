@@ -36,8 +36,7 @@ import com.pockettravel.core.ui.R as UiR
 // Anteprima della guida Wikivoyage per una regione non ancora installata: legge il pacchetto guide
 // (scaricato qui se manca, vedi RegionPreviewViewModel), niente mappa/routing/POI — quelli restano dietro al
 // download completo, avviabile da qui col banner in alto. Riusa GuideScreen cosi' com'e': legge
-// da Room esattamente come farebbe per una regione installata, non sa (ne' le importa) la
-// differenza tra "installata" e "solo anteprima".
+// da Room come per una regione installata, senza distinguere tra "installata" e "solo anteprima".
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegionPreviewScreen(

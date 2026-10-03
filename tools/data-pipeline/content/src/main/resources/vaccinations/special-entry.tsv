@@ -1,5 +1,5 @@
 # Requisiti legati allo scopo del viaggio (per ora Hajj e Umrah) (vedi GenerateVaccinations.kt).
-# Fonti (sigle usate nella colonna fonti, separate da +; fatti riscritti con parole nostre; OMS e CDC solo per controllo, mai copiati; verificato = data ISO del confronto tra le fonti):
+# Fonti (sigle usate nella colonna fonti, separate da +; fatti riformulati; OMS e CDC solo per controllo, mai copiati; verificato = data ISO del confronto tra le fonti):
 # F7 = TravelHealthPro (NaTHNaC / UKHSA), pagine paese e scheda Hajj e Umrah, Open Government Licence v3.0
 # iso2	purpose (HAJJ_UMRAH)	vaccine (MENACWY)	min_age_months	min_days_before	validity_years	nota_it	nota_en	fonti	verificato
 sa	HAJJ_UMRAH	MENACWY	12	10	5	Meningococco ACWY obbligatorio per pellegrini Hajj/Umrah e lavoratori stagionali, almeno 10 giorni prima dell'arrivo. Vale 5 anni se coniugato, 3 se polisaccaridico o se il tipo non e' indicato	MenACWY meningococcal vaccine required for Hajj/Umrah pilgrims and seasonal workers, at least 10 days before arrival. Valid 5 years if conjugate, 3 if polysaccharide or if the type is not stated	F7	2026-10-03

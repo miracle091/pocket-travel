@@ -15,7 +15,7 @@ fun File.allocatableBytes(storageManager: StorageManager?): Long =
 /**
  * Prima di scrivere [bytes] nella cartella, chiede al sistema di liberare la cache che conta in
  * [allocatableBytes] (StorageManager.allocateBytes). Best effort: se non basta, la scrittura
- * fallira' per spazio esaurito come prima. Bloccante, da chiamare fuori dal main thread.
+ * fallisce per spazio esaurito. Bloccante, da chiamare fuori dal main thread.
  */
 fun File.reserveSpace(storageManager: StorageManager?, bytes: Long) {
     if (storageManager == null || bytes <= 0) return

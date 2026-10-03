@@ -15,9 +15,8 @@ import java.io.File
  * RoutingEngine tramite RouteEngineModule — funzioni su Android ART reale: il risultato atteso e'
  * pulito, nessuna eccezione.
  *
- * Non verifica un percorso reale (richiederebbe un vero segmento .rd5, non bundlato qui per non
- * appesantire il repo con un file di 12 MB — verifica manuale fatta
- * con un segmento scaricato da brouter.de).
+ * Non verifica un percorso reale: servirebbe un segmento .rd5 vero (12 MB), non incluso nel repo;
+ * il calcolo con segmenti veri e' in RouteEngineBenchmarkDeviceTest.
  */
 @RunWith(AndroidJUnit4::class)
 class RouteEngineFactoryDeviceTest {

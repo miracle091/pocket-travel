@@ -102,7 +102,7 @@ KEYWORDS = {  # radici che il contesto deve contenere perche' la categoria sia d
     "ACQUISTI": ["currency", "money", "cash", "card", " atm", "price", "exchange", "dollar", "euros", "€", "pay", "shop"],
     "CONNETTIVITA": ["internet", "wifi", "wi-fi", "phone", "cellular", "sim card", "roaming", "4g", "5g", "telecom"],
     # solo notizie e media: "Cope" parla anche di consolati, lavanderie, elettricita', e le domande sulle notizie
-    # ricevevano risposte su quelli
+    # riceverebbero risposte su quelli
     "VITA_QUOTIDIANA": ["news", "radio", "televis", "media", "magazine", "broadcast"],
     "ARRIVARE": ["airport", "station", "train", " bus", "flight", "highway", "motorway", "ferry", "road", "harbour", "harbor"],
     "COSA_VEDERE": ["museum", "church", "palace", "castle", "square", "monument", "cathedral", "bridge", "park", "gallery", "temple", "ruins"],
@@ -175,7 +175,7 @@ NOTE_SAMPLES = [
 
 
 # Fine frase come SENTENCE_END, ma non dopo le abbreviazioni frequenti nelle pagine EN ("U.S. Route", "e.g. the")
-# ne' prima di una minuscola: altrimenti la risposta conteneva frammenti come "or Polynesian peoples, ...".
+# ne' prima di una minuscola: altrimenti la risposta conterrebbe frammenti come "or Polynesian peoples, ...".
 SENTENCE_END = r"(?<!\bU\.S\.)(?<!\bSt\.)(?<!\bMt\.)(?<!\bDr\.)(?<!\bNo\.)(?<!\bvs\.)(?<!\be\.g\.)(?<!\bi\.e\.)(?<=[.!?])\s+(?![a-z])"
 # Parole della domanda che non dicono nulla sul tema: pick_answer sceglie le frasi con le parole in comune con la
 # domanda, e "there", "which", "where" sono in quasi ogni frase.
@@ -207,7 +207,7 @@ def refusal(topic, tail):
 
 def page_title(rid, sources):
     """Titolo della pagina EN di una regione: da sft-sources.tsv, altrimenti dalla cache raw/<rid>.en.url di
-    generate_sft_dataset.py (canada e antartide non sono piu' tra le regioni pilota), altrimenti None."""
+    generate_sft_dataset.py (canada e antartide non sono tra le regioni pilota), altrimenti None."""
     title = sources.get((rid, "en"), "-")
     if title != "-":
         return wiki_dump.norm_title(title)
@@ -336,7 +336,7 @@ def main():
         else:
             # Categoria qualsiasi, contesto dalle sole sezioni di altre categorie che non la trattano: le pagine EN
             # hanno quasi tutte le sezioni, e con le sole categorie assenti dalla pagina (come nel dataset italiano)
-            # i rifiuti erano per ~40% su VITA_QUOTIDIANA ("Cope" manca spesso).
+            # i rifiuti sarebbero per ~40% su VITA_QUOTIDIANA ("Cope" manca spesso).
             cat = rng.choice(list(QUESTIONS))
             q, ans = question(cat, name), refusal(TOPIC[cat], tail)
             if x < a.off_topic + a.empty:

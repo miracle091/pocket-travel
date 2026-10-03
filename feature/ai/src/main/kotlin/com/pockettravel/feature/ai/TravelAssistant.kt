@@ -174,8 +174,8 @@ internal fun mergeBestSections(
  * domanda, etichettata "Nota personale:" — nello stesso limite di caratteri del contesto, non in
  * aggiunta (vedi truncateContext).
  */
-// La nota ha uno spazio suo (fino a NOTE_MAX_CHARS) dentro maxChars: prima veniva dopo le sezioni e
-// un contesto lungo la tagliava via tutta, proprio l'informazione piu' personale.
+// La nota ha uno spazio suo (fino a NOTE_MAX_CHARS) dentro maxChars: messa dopo le sezioni, un
+// contesto lungo la taglierebbe via tutta, proprio l'informazione piu' personale.
 private const val NOTE_MAX_CHARS = 500
 
 internal fun buildOnDeviceContext(sections: List<AssistantSection>, note: Note?, maxChars: Int = 2_000, language: String = "it"): String {

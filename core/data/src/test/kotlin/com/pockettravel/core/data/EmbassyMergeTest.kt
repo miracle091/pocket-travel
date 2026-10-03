@@ -99,7 +99,7 @@ class EmbassyMergeTest {
             mission("Q5", "Omega", MissionKind.EMBASSY, city = "Madrid"),
         )
         val result = mergeEmbassies(emptyList(), missions, listOf("Barcelona", "Girona"), "it")
-        // Embassy, poi consolato generale, poi i consolati: quelli della regione (nome) prima di Valencia.
+        // Ambasciata, poi consolato generale, poi i consolati: quelli della regione (nome) prima di Valencia.
         assertEquals(listOf("Omega", "Gamma", "Beta", "Zeta", "Alfa"), result.map { it.name })
     }
 

@@ -70,7 +70,7 @@ class PoiPackageTest {
         assertEquals(PoiCategory.SERVIZI_CAMPER, poiCategoryOf("water_point", "amenity=water_point"))
         assertEquals(PoiCategory.RIPARI, poiCategoryOf("shelter", "amenity=shelter"))
         assertEquals(PoiCategory.TAVOLI_PICNIC, poiCategoryOf("picnic_site", "tourism=picnic_site"))
-        // Gli altri tipi delle stesse categorie restano come prima.
+        // Gli altri tipi delle stesse categorie seguono le regole comuni dei POI senza nome.
         assertEquals(PoiPackage.EXTRA, unnamed("leisure=picnic_table"))
         assertNull(unnamed("amenity=car_rental"))
     }

@@ -1,6 +1,6 @@
 name: Publish APK
 
-# Builda un APK di release (mai debug, e mai come artifact di workflow) firmato con
+# Compila un APK di release (mai debug, e mai come artifact di workflow) firmato con
 # la upload key e lo pubblica come asset di una GitHub Release, taggata con
 # versionName da app/build.gradle.kts.
 # Su push a main parte solo se versionCode e' cambiato rispetto al commit precedente
@@ -184,8 +184,8 @@ jobs:
           APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
           AI_MODELS_FILE="$RUNNER_TEMP/ai-models.json"
 
-          # Un jq/grep sul singolo AiModelConfig bastava per un modello solo; con LlmModelCatalog
-          # (una lista di LlmModelDefinition, una entry per modello) serve un parser vero - vedi
+          # LlmModelCatalog e' una lista di LlmModelDefinition (una entry per modello): jq/grep non
+          # bastano, serve un parser vero - vedi
           # scripts/generate_ai_models_manifest.py per il perche' non e' inline qui (heredoc
           # bash e indentazione block scalar YAML sono incompatibili in questo caso).
           python3 scripts/generate_ai_models_manifest.py \

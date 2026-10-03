@@ -4,8 +4,8 @@ import java.io.File
 import java.sql.DriverManager
 import java.util.Locale
 
-// Unico parser delle guide Wikivoyage (il vecchio core/content, mai usato dall'app, e' stato tolto).
-// Titoli IT (build-region.sh preferisce ora la pagina Wikivoyage italiana quando esiste, vedi
+// Unico parser delle guide Wikivoyage.
+// Titoli IT (build-region.sh preferisce la pagina Wikivoyage italiana quando esiste, vedi
 // quel file): stesso schema di sezioni delle voci EN sul template di pagina-nazione, titoli
 // diversi. "Tenersi informati" mappa su VITA_QUOTIDIANA come il piu' vicino equivalente di "cope"
 // (entrambe sezioni "vita pratica in loco" generiche) — non e' una traduzione letterale.
@@ -42,11 +42,11 @@ private val htmlCommentRegex = Regex("""(?s)<!--.*?-->""")
 // testo della citazione come prosa vagante in mezzo al corpo della sezione.
 private val refTagRegex = Regex("""(?is)<ref\b[^>]*?/>|<ref\b[^>]*?>.*?</ref>""")
 // L'indirizzo finisce alla prima "]" o spazio, il testo sulla stessa riga: con \S+ un link senza testo
-// ("[http://x.al]") si mangiava la "]" e arrivava fino alla riga dopo.
+// ("[http://x.al]") includerebbe la "]" e arriverebbe fino alla riga dopo.
 private val externalLinkWithTextRegex = Regex("""\[https?://[^\s\]]+[ \t]+([^\]\n]+)]""")
 private val bareExternalLinkRegex = Regex("""\[https?://[^\s\]]+]""")
 // Corsivo ('') e grassetto (''') si tolgono, ma un apostrofo attaccato resta: "l'''Arte" e' l' + corsivo,
-// "''''" e' apostrofo + grassetto (come li legge MediaWiki). Prima diventava "lArte".
+// "''''" e' apostrofo + grassetto (come li legge MediaWiki), cosi' non diventa "lArte".
 private val boldItalicRegex = Regex("""'{2,}""")
 
 private fun stripBoldItalic(text: String): String = boldItalicRegex.replace(text) { match ->
@@ -59,7 +59,7 @@ private fun stripBoldItalic(text: String): String = boldItalicRegex.replace(text
 }
 private val templateRegex = Regex("""\{\{[^}]*}}""")
 // Template di Wikivoyage che portano testo da mostrare: il nome del luogo (marker, see, do, eat...)
-// con la sua descrizione, e il codice dell'aeroporto (IATA). Tolti interi da templateRegex lasciavano
+// con la sua descrizione, e il codice dell'aeroporto (IATA). Tolti interi da templateRegex lascerebbero
 // frasi rotte come "L' (), situato nel sobborgo di...". Espansi prima di resolveLinks perche' il nome
 // puo' contenere [[link|testo]] (le | dentro il link non separano i parametri).
 private val iataRegex = Regex("""(?i)\{\{\s*IATA\s*\|\s*([A-Z]{3})\s*}}""")
@@ -84,8 +84,8 @@ private fun expandListing(params: String): String {
 }
 private val htmlTagRegex = Regex("""<[^>]+>""")
 
-// Gallerie e tabelle: le righe "File:Pizza.jpg|Pizza" di <gallery> e il markup {| ... |} restavano nel
-// testo. Via intere (le tabelle anche annidate, dall'interno).
+// Gallerie e tabelle: le righe "File:Pizza.jpg|Pizza" di <gallery> e il markup {| ... |} resterebbero nel
+// testo. Si tolgono intere (le tabelle anche annidate, dall'interno).
 private val galleryRegex = Regex("""(?is)<gallery\b[^>]*>.*?</gallery>""")
 private val innermostTableRegex = Regex("""(?s)\{\|(?:(?!\{\|).)*?\|}""")
 
@@ -105,7 +105,7 @@ private fun resolveTemplate(inner: String): String? {
     val first = parts.getOrNull(1)?.trim().orEmpty()
     return when {
         lower in textTemplateNames -> first.substringAfter('=', first)
-        // Valute ({{EUR|5}}, {{ALL|500}}): "5 EUR", altrimenti restava "almeno ." nel testo.
+        // Valute ({{EUR|5}}, {{ALL|500}}): "5 EUR", altrimenti resterebbe "almeno ." nel testo.
         currencyTemplateRegex.matches(name) && first.isNotEmpty() && first.first().isDigit() -> "$first $name"
         else -> ""
     }
@@ -192,12 +192,12 @@ fun parseWikivoyageDump(dumpText: String, categories: Map<String, String> = head
 
 // Il wikitext grezzo di Wikivoyage porta sintassi che non ha senso mostrare cosi' com'e' in una
 // Text semplice (nessun renderer markdown lato app, vedi GuideScreen): citazioni <ref> il cui
-// contenuto restava come prosa vagante, elenchi puntati/numerati con l'asterisco/cancelletto
-// grezzo davanti, e sottotitoli ===Foo=== che — se la sottosezione era solo un template ormai
-// tolto (es. {{Pricerange}} su "Money" in molte pagine paese) — restavano come parola orfana
+// contenuto resterebbe come prosa vagante, elenchi puntati/numerati con l'asterisco/cancelletto
+// grezzo davanti, e sottotitoli ===Foo=== che — se la sottosezione e' solo un template gia'
+// tolto (es. {{Pricerange}} su "Money" in molte pagine paese) — resterebbero come parola orfana
 // seguita da una riga vuota enorme.
 // Entita' HTML scritte nel wikitext (&mdash;, &nbsp;, &#8211;...): Wikivoyage le mostra come caratteri, nel
-// testo pulito restavano tali e quali ("Roma &mdash; Firenze").
+// testo pulito resterebbero tali e quali ("Roma &mdash; Firenze").
 private val htmlEntityRegex = Regex("""&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA-Z][a-zA-Z0-9]{1,31});""")
 private val namedEntities = mapOf(
     "amp" to "&", "lt" to "<", "gt" to ">", "quot" to "\"", "apos" to "'",
@@ -230,7 +230,7 @@ private fun removeTables(text: String): String {
     }
 }
 
-// Sottosezioni inutili a chi viaggia (richiesta dell'utente, 2026-10-03): "Costo della vita" parla di stipendi e
+// Sottosezioni inutili a chi viaggia: "Costo della vita" parla di stipendi e
 // spese delle famiglie del posto. Si toglie il sottotitolo con tutto il suo testo, fino al titolo successivo dello
 // stesso livello o superiore; vale per guide, citta' e dataset di training (che usano tutti cleanBody).
 private val skippedSubsections = setOf("costo della vita", "cost of living")
@@ -325,15 +325,14 @@ private val blankAfterSubheadingRegex = Regex("""(?m)^(▸ [^\n]*)\n\n+""")
 private val blankBetweenItemsRegex = Regex("""(?m)^(• [^\n]*)\n\n+(?=• )""")
 
 // Campi del {{QuickbarCountry}}/{{QuickbarRegion}} di Wikivoyage IT per la sezione "Fatti rapidi":
-// nomi verificati sui dump reali (es. Italia, Venezuela, Isole
-// Fær Øer in tools/data-pipeline/data/sft/raw). Cercato solo nei primi QUICKBAR_SCAN_CHARS
-// caratteri, dove sta sempre il riquadro: evita di raccogliere per sbagliato un "Valuta =" che
+// nomi verificati sulle pagine reali (es. Italia, Venezuela, Isole Fær Øer). Cercato solo nei
+// primi QUICKBAR_SCAN_CHARS caratteri, dove sta sempre il riquadro: evita di raccogliere per sbaglio un "Valuta =" che
 // comparisse molto piu' in basso nella pagina. Il valore di un campo puo' andare su piu' righe
 // (es. Valuta del Venezuela, un elenco puntato con tre voci): si ferma al campo successivo o alla
 // chiusura "}}" del template.
 private val quickFactFieldRegex = Regex(
     // Il valore si ferma anche a un "| Campo =" sulla stessa riga: con un campo vuoto ("|Elettricità= | Fuso
-    // orario = UTC-3") il valore diventava "| Fuso orario = UTC-3".
+    // orario = UTC-3") il valore diventerebbe "| Fuso orario = UTC-3".
     """(?m)(?:^|(?<=\s))\|\s*(Lingua|Elettricità|Fuso orario|Valuta)\s*=\s*(.*?)(?=\n\s*\|[^|\n]*=|\s*\|\s*[^|\[\]{}=\n]+=|\n\s*}}|\z)""",
     RegexOption.DOT_MATCHES_ALL,
 )

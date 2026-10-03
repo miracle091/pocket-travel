@@ -10,10 +10,9 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-// Cifratura AES-256-GCM con chiave Android Keystore non esportabile — generalizzata da quella
-// che era una classe privata dentro feature/ai/AiSettingsStore (un solo segreto, un solo alias).
-// Qui una chiave cifra N record indipendenti: ogni encrypt() genera un IV nuovo (requisito GCM
-// gia' soddisfatto da Cipher.init), quindi non serve una chiave per record.
+// Cifratura AES-256-GCM con chiave Android Keystore non esportabile, condivisa dai moduli che
+// cifrano dati locali. Una chiave cifra N record indipendenti: ogni encrypt() genera un IV nuovo
+// (requisito GCM gia' soddisfatto da Cipher.init), quindi non serve una chiave per record.
 //
 // requireUserAuthentication=true lega l'usabilita' della chiave allo stato di autenticazione del
 // dispositivo a livello di crittografia, non solo a livello di UI: la chiave diventa inutilizzabile

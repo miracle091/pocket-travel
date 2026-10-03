@@ -11,7 +11,7 @@ tradotta con MarianMT; lo stesso per i paragrafi di Wikipedia IT nel dataset ing
 hanno "translated": true e ATTRIBUTION indica la traduzione automatica (CC BY-SA 4.0, opera derivata).
 
 - positivi: sezione giusta + 0-2 sezioni distraenti, risposta = frasi della sezione (estrattivo); una risposta senza
-  parole chiave della categoria o della domanda si scarta (prima, in italiano, si ripiegava sulla prima frase);
+  parole chiave della categoria o della domanda si scarta;
 - negativi: categoria qualsiasi con le sole sezioni di altre categorie che non la trattano (bilanciati tra le
   categorie), domanda fuori tema, contesto di fallback dell'app; una quota con il contesto nell'altra lingua;
 - citta': --cities pagine della lingua del dataset, fino a --city-questions sezioni per citta';

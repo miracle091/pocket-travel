@@ -159,7 +159,7 @@ class WeightedTrainer(Trainer):
         shift_labels = labels[:, 1:]
         mask = shift_labels.ne(-100)
         # Cross-entropy solo sui token della risposta (~20%): il prompt e' mascherato, calcolarla su tutte
-        # le posizioni (vocabolario Qwen3.5 ~248k) e poi azzerarla costava ~5 volte il necessario, piu' una
+        # le posizioni (vocabolario Qwen3.5 ~248k) e poi azzerarla costerebbe ~5 volte il necessario, piu' una
         # copia intera dei logits (.contiguous()). Stesso risultato: loss per token sommata nella sua riga.
         per_token = torch.nn.functional.cross_entropy(logits[:, :-1, :][mask], shift_labels[mask], reduction="none")
         rows = mask.nonzero(as_tuple=True)[0]  # riga di ogni token di risposta, nello stesso ordine di [mask]
@@ -284,7 +284,7 @@ if a.merge:
     if result.returncode != 0:
         print("-- eval automatico fallito (training comunque completato)", file=sys.stderr)
 # Uscita senza la chiusura di Python (atexit, distruttori di torch/HIP), dove con ROCm su Windows il
-# processo restava appeso: chi lo lancia (train_auto.py, una catena di training) aspetterebbe per sempre.
+# processo a volte resta appeso: chi lo lancia (train_auto.py, una catena di training) aspetterebbe per sempre.
 sys.stdout.flush()
 sys.stderr.flush()
 os._exit(0)

@@ -1,9 +1,8 @@
 package com.pockettravel.app.licenses
 
 // Registro delle licenze di terze parti: solo componenti realmente in uso nell'app, tenuto
-// sincronizzato a mano con gradle/libs.versions.toml e i moduli che li dichiarano. Nessuna nota
-// di verifica/sviluppo qui — quella resta nel log di sviluppo interno, non in un file distribuito
-// con l'app.
+// sincronizzato a mano con gradle/libs.versions.toml e i moduli che li dichiarano. Contiene solo
+// i dati mostrati nell'app, senza note di verifica.
 data class LicenseEntry(
     val component: String,
     val license: String,

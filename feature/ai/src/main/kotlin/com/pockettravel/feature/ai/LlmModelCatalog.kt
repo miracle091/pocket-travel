@@ -113,15 +113,15 @@ object LlmModelCatalog {
     /**
      * Modello predefinito per la fascia di RAM del dispositivo: il nostro addestrato scaricabile della
      * fascia (4 GB -> 0.8B, 8 GB -> 2B, 12 GB -> 4B), o il piu' grande tra quelli che la fascia regge;
-     * con RAM insufficiente (IA locale disattivata) il piu' leggero. Addestrati invece degli ufficiali
-     * (utente, 2026-09-27): rifiutano molto meglio le domande a cui la guida non risponde. Solo quelli
+     * con RAM insufficiente (IA locale disattivata) il piu' leggero. Gli addestrati hanno la precedenza
+     * sugli ufficiali perche' rifiutano molto meglio le domande a cui la guida non risponde. Solo quelli
      * addestrati nella lingua dell'interfaccia [language]: senza (oggi per l'inglese) gli ufficiali,
      * con la stessa regola delle fasce.
      */
     /**
      * Modelli da mostrare nella lista: quelli che la fascia di RAM regge, senza gli addestrati in una
-     * lingua diversa da quella dell'interfaccia (utente, 2026-09-28: in inglese solo quelli con supporto
-     * all'inglese, oggi nessuno, quindi il gruppo "Addestrati da noi" non compare).
+     * lingua diversa da quella dell'interfaccia (in inglese solo quelli con supporto all'inglese, oggi
+     * nessuno, quindi il gruppo "Addestrati da noi" non compare).
      */
     fun visibleFor(tier: RamTier, language: String): List<LlmModelDefinition> =
         ALL.filter { tier.ordinal >= it.minRamTier.ordinal && isUsableIn(it, language) }

@@ -111,9 +111,8 @@ static common_sampler *new_sampler(float temp, int32_t top_k, float top_p, const
     return common_sampler_init(g_model, sparams);
 }
 
-// top_k/top_p passati da Kotlin (OnDeviceLlmEngine): il resto del riferimento Arm usa solo i
-// default di common_params_sampling, qui invece si vuole lo stesso campionamento gia' in uso
-// con LiteRT-LM prima della migrazione.
+// top_k/top_p passati da Kotlin (OnDeviceLlmEngine): il riferimento Arm usa solo i default di
+// common_params_sampling, qui il campionamento lo sceglie il chiamante.
 static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads) {
     auto *context = init_context(g_model, n_threads > 0 ? n_threads : DEFAULT_N_THREADS);
     if (!context) { return 1; }
@@ -122,7 +121,7 @@ static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads) {
     g_chat_templates = common_chat_templates_init(g_model, "");
     // Rilevato passando dal parser jinja del GGUF (indipendente da use_jinja=false qui sotto): serve
     // solo a sapere se il template e' del tipo Qwen3 con blocco <think>, per forzarlo vuoto in
-    // chat_add_and_format come faceva il vecchio export LiteRT-LM (training con enable_thinking=False).
+    // chat_add_and_format, perche' il training usa enable_thinking=False.
     g_chat_template_supports_thinking = common_chat_templates_support_enable_thinking(g_chat_templates.get());
     g_top_k = top_k;
     g_top_p = top_p;
@@ -159,8 +158,8 @@ static void reset_long_term_states(const bool clear_kv_cache = true) {
 }
 
 /**
- * Context shifting by discarding the older half of the tokens appended after the first
- * [system_prompt_position] tokens (che restano sempre: vedi process_user_prompt_impl).
+ * Shift del contesto: scarta la meta' piu' vecchia dei token aggiunti dopo i primi
+ * [system_prompt_position] token (che restano sempre: vedi process_user_prompt_impl).
  * Restituisce false, senza toccare ne' la cache ne' current_position, se la memoria non supporta lo
  * shift (es. modelli con memoria ricorrente/ibrida) o se la rimozione fallisce: il chiamante deve
  * fermare la generazione invece di proseguire con posizioni non coerenti con la KV cache.
@@ -192,7 +191,7 @@ static std::string chat_add_and_format(const std::string &role, const std::strin
     auto formatted = common_chat_format_single(
             g_chat_templates.get(), chat_msgs, new_msg, add_ass, /* use_jinja */ false);
     chat_msgs.push_back(new_msg);
-    // Il formatter CHATML hardcoded (use_jinja=false) non inserisce mai un blocco "think": lo forziamo
+    // Il formatter CHATML hardcoded (use_jinja=false) non inserisce mai un blocco "think": lo si forza
     // vuoto qui, dopo l'apertura del turno assistente, per i template Qwen3 che lo supportano, perche'
     // il training (enable_thinking=False) lo assume sempre presente nel prefisso del turno assistente.
     if (add_ass && g_chat_template_supports_thinking) {
@@ -222,12 +221,11 @@ static void reset_short_term_states() {
     generation_start_position = 0;
 }
 
-// Pulisce KV-cache e history. Niente system prompt (l'esempio llama.android ne aveva uno, tolto):
-// i dati di training (pocket_travel_sft.jsonl) non hanno mai un turno "system", solo
+// Pulisce KV-cache e history. Niente system prompt (l'esempio llama.android ne ha uno):
+// i dati di training (generate_sft_dataset.py) non hanno mai un turno "system", solo
 // user+assistant, quindi formattarne uno aggiungerebbe al modello un contesto mai visto in
 // training. Chiamata da OnDeviceLlmEngine prima di ogni generate(): senza, sendUserPrompt
-// accumulerebbe la history tra una domanda e l'altra invece di restare un turno singolo come
-// con LiteRT-LM.
+// accumulerebbe la history tra una domanda e l'altra invece di restare un turno singolo.
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_resetConversationNative(JNIEnv * /*env*/, jobject /*unused*/) {
@@ -252,7 +250,7 @@ static int decode_tokens_in_batches(
         // > e non >=: un prompt lungo esattamente quanto il massimo ammesso (vedi max_new_tokens) ci sta senza shift.
         if (start_pos + i + cur_batch_size > DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM) {
             LOGw("%s: Current batch won't fit into context! Shifting...", __func__);
-            // current_position deve riflettere gli i token gia' decodificati da questa chiamata
+            // current_position deve includere i primi i token gia' decodificati da questa chiamata
             // prima dello shift: start_pos e' catturato all'inizio della funzione e non segue lo
             // shift da solo, altrimenti i batch successivi userebbero posizioni non aggiornate.
             current_position = start_pos + i;
@@ -345,7 +343,7 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
         LOGv("token: `%s`\t -> `%d`", common_token_to_piece(g_context, id).c_str(), id);
     }
 
-    // Ensure user prompt doesn't exceed the remaining context, truncating if necessary. Il budget
+    // Il prompt utente non deve superare il contesto rimasto: se serve si tronca. Il budget
     // tiene conto dei token gia' occupati da current_position (system prompt/turni precedenti),
     // non solo della dimensione assoluta del contesto.
     const int max_new_tokens = std::max(0, DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM - current_position);
@@ -514,7 +512,7 @@ static size_t utf8_to_utf16(const std::string &utf8, std::vector<jchar> &utf16, 
 }
 
 static jstring generate_next_token_impl(JNIEnv *env) {
-    // Infinite text generation via context shifting. Se lo shift non e' possibile la generazione si
+    // Generazione illimitata grazie allo shift del contesto. Se lo shift non e' possibile la generazione si
     // ferma qui, come a n_predict (la risposta resta troncata ma la cache e le posizioni coerenti).
     bool context_exhausted = false;
     if (current_position >= DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM) {
@@ -522,7 +520,7 @@ static jstring generate_next_token_impl(JNIEnv *env) {
         context_exhausted = !shift_context();
     }
 
-    // Stop if reaching the marked position. Come su EOG, il turno assistente va chiuso sia nella KV
+    // Ci si ferma alla posizione segnata. Come su EOG, il turno assistente va chiuso sia nella KV
     // cache (token di fine turno, che qui il modello non ha generato) sia in chat_msgs: altrimenti il
     // prossimo processUserPrompt formatterebbe la history senza questo turno, disallineata dalla cache.
     if (context_exhausted || current_position >= stop_generation_position) {
@@ -571,7 +569,7 @@ static jstring generate_next_token_impl(JNIEnv *env) {
     auto new_token_chars = common_token_to_piece(g_context, new_token_id);
     cached_token_chars += new_token_chars;
 
-    // Create and return a valid UTF-8 Java string. Un carattere spezzato tra due token resta in cache
+    // Restituisce una stringa Java da UTF-8 valido. Un carattere spezzato tra due token resta in cache
     // (al massimo 3 byte) fino al token successivo; i byte non validi diventano U+FFFD subito, quindi
     // la cache non cresce oltre quei 3 byte.
     std::vector<jchar> utf16;
@@ -676,7 +674,7 @@ static void unload_impl() {
     reset_long_term_states();
     reset_short_term_states();
 
-    // Free up resources. Puntatori azzerati dopo il free (il riferimento Arm non lo faceva):
+    // Libera le risorse. Puntatori azzerati dopo il free (il riferimento Arm non lo fa):
     // unload() viene chiamata anche per uscire dallo stato Error (InferenceEngineImpl.cleanUp),
     // dove il modello puo' essere caricato del tutto, a meta' (prepare() fallita) o per niente —
     // tutte le funzioni di free qui sotto accettano null, quindi resta sicura in ogni caso e non
