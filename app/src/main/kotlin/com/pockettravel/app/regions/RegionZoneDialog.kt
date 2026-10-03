@@ -166,10 +166,14 @@ internal fun ZoneSelection(item: RegionUiItem, download: Boolean, actions: Regio
     val bbox = item.bbox ?: return
     val scope = rememberCoroutineScope()
     var crossBorder by remember { mutableStateOf<Pair<RegionZone, List<Pair<String, String>>>?>(null) }
-    // Si scarica quella aperta come richiesto, le altre sempre (sono nuove o vanno rifatte con la zona).
-    fun apply(zone: RegionZone, regionIds: List<String>) {
-        regionIds.forEach { id -> actions.onZoneChange(id, zone, id != item.regionId || download) }
-        onDone()
+    // Si scarica quella aperta come richiesto, le altre sempre (sono nuove o vanno rifatte con la zona). Con "Scarica tutto"
+    // ([keepWhole]) i paesi vicini gia' installati per intero restano com'erano; "Solo <paese>" e' una scelta esplicita.
+    fun apply(zone: RegionZone, regionIds: List<String>, keepWhole: Boolean = false) {
+        scope.launch {
+            val whole = if (keepWhole) regionIds.filter { it != item.regionId && actions.isInstalledWhole(it) }.toSet() else emptySet()
+            zoneTargets(item.regionId, regionIds, whole).forEach { id -> actions.onZoneChange(id, zone, id != item.regionId || download) }
+            onDone()
+        }
     }
     val pending = crossBorder
     if (pending == null) {
@@ -202,12 +206,19 @@ internal fun ZoneSelection(item: RegionUiItem, download: Boolean, actions: Regio
             confirmButton = {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     TextButton(onClick = { apply(zone, listOf(regions.first().first)) }) { Text(stringResource(R.string.zone_cross_top_only, regions.first().second)) }
-                    TextButton(onClick = { apply(zone, regions.map { it.first }) }) { Text(stringResource(R.string.zone_cross_all)) }
+                    TextButton(onClick = { apply(zone, regions.map { it.first }, keepWhole = true) }) { Text(stringResource(R.string.zone_cross_all)) }
                 }
             },
         )
     }
 }
+
+/**
+ * Le regioni a cui applicare la zona scelta da [openedId]: quella aperta sempre, le altre tranne quelle gia' installate
+ * per intero ([installedWhole]), che la zona ridurrebbe (mappa e percorsi rifatti solo li').
+ */
+internal fun zoneTargets(openedId: String, regionIds: List<String>, installedWhole: Set<String>): List<String> =
+    regionIds.filter { it == openedId || it !in installedWhole }
 
 /** Una regione del catalogo per [zoneShares]: paese e riquadro. */
 internal data class ZoneCandidate(val regionId: String, val countryCode: String, val bbox: RegionBbox)

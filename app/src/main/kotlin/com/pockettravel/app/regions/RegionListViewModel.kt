@@ -373,6 +373,10 @@ class RegionListViewModel @Inject constructor(
         }
     }
 
+    /** La regione e' installata e senza zona: la si ha per intero. */
+    suspend fun isInstalledWhole(regionId: String): Boolean =
+        regionRepository.installed(regionId) != null && regionZonePreferences.zone(regionId) == null
+
     fun observeDownloadProgress(regionId: String): Flow<WorkInfo?> =
         regionSyncScheduler.observeDownload(regionId)
 }

@@ -21,6 +21,18 @@ class RegionZoneDialogTest {
         assertFalse(RegionBbox(12.4, 43.89, 12.52, 43.99).isLarge()) // San Marino
     }
 
+    @Test
+    fun `la zona non tocca i paesi vicini installati per intero`() {
+        // Aperto dall'Italia: la Svizzera e' installata intera, la Francia no (o ha gia' una zona).
+        val targets = zoneTargets("italia", listOf("italia", "svizzera", "francia"), installedWhole = setOf("svizzera"))
+        assertEquals(listOf("italia", "francia"), targets)
+    }
+
+    @Test
+    fun `la regione aperta riceve sempre la zona anche se installata per intero`() {
+        assertEquals(listOf("italia"), zoneTargets("italia", listOf("italia"), installedWhole = setOf("italia")))
+    }
+
     // Confine finto a 10 gradi est: a ovest 'fr', a est 'it'; sotto i 44 gradi nord e' mare.
     private val countryAt = { lat: Double, lon: Double -> if (lat < 44.0) null else if (lon < 10.0) "fr" else "it" }
     private val candidates = listOf(
