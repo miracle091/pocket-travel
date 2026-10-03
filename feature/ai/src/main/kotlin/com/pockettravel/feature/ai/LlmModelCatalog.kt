@@ -73,14 +73,14 @@ object LlmModelCatalog {
             minRamTier = RamTier.AMPIA,
         ),
         // Addestrati da noi (uno per fascia di RAM), pubblicati sull'organizzazione HuggingFace
-        // pockettravel (upload_hf.py, 2026-09-27): sha256 e dimensioni ricontrollati via API tree dopo
+        // pockettravel (upload_hf.py, versione v8 del 2026-10-03): sha256 e dimensioni ricontrollati via API tree dopo
         // l'upload. Sono i predefiniti delle loro fasce (vedi defaultFor).
         LlmModelDefinition(
             id = "pt-qwen3.5-0.8b",
             displayName = "Pocket Travel 0.8B (Qwen3.5)",
             url = "https://huggingface.co/pockettravel/qwen3.5-0.8b-travel-it-GGUF/resolve/main/qwen3.5-0.8b-travel-it-Q4_K_M.gguf",
             fileName = "qwen3.5-0.8b-travel-it-Q4_K_M.gguf",
-            sha256 = "3b6c895e9f07f20de02dc9ce62041f299f43ad756a62ce72be94213a9426dc44",
+            sha256 = "1075df70c55939e7a7e7faf2099f053eacbda098513d8ca189498f739d395aa9",
             sizeBytes = 529_297_120L,
             minRamTier = RamTier.MINIMO,
             origin = ModelOrigin.ADDESTRATO,
@@ -91,7 +91,7 @@ object LlmModelCatalog {
             displayName = "Pocket Travel 2B (Qwen3.5)",
             url = "https://huggingface.co/pockettravel/qwen3.5-2b-travel-it-GGUF/resolve/main/qwen3.5-2b-travel-it-Q4_K_M.gguf",
             fileName = "qwen3.5-2b-travel-it-Q4_K_M.gguf",
-            sha256 = "4b600b1b43ec6e7abeadee0eed5aaa5117d6af06d77f9bc9f64b0d315b8d1610",
+            sha256 = "b9d00974f72318c4e5937a2e5d7f526415ba1fb9baec268f6022eb1d65af4c95",
             sizeBytes = 1_274_396_384L,
             minRamTier = RamTier.CONFORTEVOLE,
             origin = ModelOrigin.ADDESTRATO,
@@ -102,7 +102,7 @@ object LlmModelCatalog {
             displayName = "Pocket Travel 4B (Qwen3)",
             url = "https://huggingface.co/pockettravel/qwen3-4b-instruct-2507-travel-it-GGUF/resolve/main/qwen3-4b-instruct-2507-travel-it-Q4_K_M.gguf",
             fileName = "qwen3-4b-instruct-2507-travel-it-Q4_K_M.gguf",
-            sha256 = "4908a060fe5474a2cf38da98b017f819f3c7ac4d5cdb126ea51aec6a853ad9d9",
+            sha256 = "e2b82d838e6498bc98057d4cc01b0933600abfe32c8397345abfcd800ae35c15",
             sizeBytes = 2_497_280_416L,
             minRamTier = RamTier.AMPIA,
             origin = ModelOrigin.ADDESTRATO,
