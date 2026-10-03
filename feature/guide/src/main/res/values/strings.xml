@@ -165,4 +165,21 @@
     <string name="vacc_vaccine_dengue">Dengue</string>
     <string name="vacc_vaccine_chik">Chikungunya</string>
     <string name="vacc_vaccine_routine">Vaccinazioni di routine</string>
+
+    <!-- Scheda meteo (WeatherCard): dati Open-Meteo, CC BY 4.0 -->
+    <string name="weather_near_you">Vicino a te</string>
+    <string name="weather_today">Oggi</string>
+    <string name="weather_footer">%1$s · Dati meteo Open-Meteo.com</string>
+    <string name="weather_updated_today">Aggiornato alle %1$s</string>
+    <string name="weather_updated_on">Aggiornato il %1$s</string>
+    <string name="weather_source_open">apri Open-Meteo.com</string>
+    <string name="weather_day_description">%1$s: %2$s, massima %3$s, minima %4$s</string>
+    <string name="weather_rain_description">, pioggia %1$d%%</string>
+    <string name="weather_clear">Sereno</string>
+    <string name="weather_partly_cloudy">Poco nuvoloso</string>
+    <string name="weather_cloudy">Nuvoloso</string>
+    <string name="weather_fog">Nebbia</string>
+    <string name="weather_rain">Pioggia</string>
+    <string name="weather_snow">Neve</string>
+    <string name="weather_thunderstorm">Temporale</string>
 </resources>

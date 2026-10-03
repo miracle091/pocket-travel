@@ -62,6 +62,11 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
         note = "Dominio pubblico: l'attribuzione non è obbligatoria, ma la fonte è Wikidata.",
     ),
     LicenseEntry(
+        component = "Meteo: Open-Meteo.com (previsioni) e GeoNames (posizione delle città)",
+        license = "CC BY 4.0",
+        note = "Weather data by Open-Meteo.com, uso non commerciale. Coordinate delle città dal geocoding di Open-Meteo, basato su GeoNames.",
+    ),
+    LicenseEntry(
         component = "Numeri di emergenza: Travel.gc.ca (Governo del Canada)",
         license = "Open Government Licence - Canada 2.0",
         note = "Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert - Canada. Confrontati con Wikipedia (CC BY-SA 4.0) e Wikidata (CC0).",

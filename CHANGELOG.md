@@ -5,6 +5,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 ## [Non rilasciato]
 
 ### Aggiunto
+- Meteo nella Guida: in cima alla guida della nazione una scheda con il tempo di adesso e le previsioni di 7 giorni (massima, minima, probabilità di pioggia). Se sei nella regione è il meteo di dove ti trovi ("Vicino a te"), altrimenti quello della capitale; ogni guida di città ha la sua. Senza rete resta l'ultimo meteo scaricato, con l'ora dell'aggiornamento. I dati vengono da Open-Meteo.com (CC BY 4.0, senza chiave né account) e sono nella schermata Licenze.
 - Orari dei treni Renfe ad alta velocità, lunga e media distanza in Spagna, nel pacchetto "Mezzi pubblici" come rete a sé accanto ai treni suburbani. La fonte e la licenza (CC BY 4.0) sono nella schermata Licenze.
 - Isole Canarie come regione da scaricare (prima non erano in nessuna: la Spagna arriva fino allo stretto di Gibilterra), con gli orari dei traghetti Fred. Olsen fra le isole.
 - Porti turistici sulla mappa, con icona (barca a vela) e filtro propri nel gruppo Trasporti; prima erano in "Altro". Con il prossimo aggiornamento dei punti di interesse arrivano anche quelli che OpenStreetMap disegna come aree.

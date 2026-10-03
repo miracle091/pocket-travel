@@ -224,6 +224,11 @@ private fun GuideSectionsList(
         onOpenSource = onOpenSource,
         onBack = onBack,
         extraContent = {
+            uiState.weather?.let { weather ->
+                item(key = "weather") {
+                    WeatherCard(weather, onOpenSource = onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l))
+                }
+            }
             if (uiState.emergencyNumbers != null || uiState.noCentralEmergencyNumber || uiState.embassiesCountry != null) {
                 item(key = "emergency_numbers") {
                     EmergencyNumbersCard(
@@ -478,10 +483,17 @@ private fun CityGuideContent(uiState: CityGuideUiState, onOpenSource: (url: Stri
             selectedCategory = selectedCategory,
             onSelectedCategoryChange = { selectedCategory = it },
             onOpenSource = onOpenSource,
-            extraContent = if (excludedTransit.isEmpty()) {
+            extraContent = if (excludedTransit.isEmpty() && uiState.weather == null) {
                 null
             } else {
-                { item(key = "excluded_transit") { ExcludedTransitCard(excludedTransit, modifier = Modifier.padding(horizontal = Spacing.l)) } }
+                {
+                    uiState.weather?.let { weather ->
+                        item(key = "weather") { WeatherCard(weather, onOpenSource = onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l)) }
+                    }
+                    if (excludedTransit.isNotEmpty()) {
+                        item(key = "excluded_transit") { ExcludedTransitCard(excludedTransit, modifier = Modifier.padding(horizontal = Spacing.l)) }
+                    }
+                }
             },
         )
     }

@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -52,15 +53,21 @@ data class GuideUiState(
     val cities: List<String> = emptyList(),
     // Le citta' principali per abitanti (CityRepository.mainCitiesFor), in evidenza nella scheda Citta'.
     val mainCities: List<MainCity> = emptyList(),
+    // Meteo della posizione (se dentro la regione) o della capitale; null finche' non c'e' o senza rete e cache.
+    val weather: PlaceWeather? = null,
     val isLoading: Boolean = true,
     @StringRes val loadError: Int? = null,
 )
 
 data class CityGuideUiState(
     val sections: List<CitySection> = emptyList(),
+    val weather: PlaceWeather? = null,
     val isLoading: Boolean = true,
     @StringRes val loadError: Int? = null,
 )
+
+/** Meteo di un luogo: [place] e' il nome della citta', null per la posizione del telefono. */
+data class PlaceWeather(val place: String?, val result: WeatherResult)
 
 @HiltViewModel
 class GuideViewModel @Inject constructor(
@@ -72,6 +79,7 @@ class GuideViewModel @Inject constructor(
     private val diplomaticMissionRepository: DiplomaticMissionRepository,
     private val nationalityPreferences: NationalityPreferences,
     private val lastKnownPosition: LastKnownPosition,
+    private val weatherRepository: WeatherRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GuideUiState())
@@ -87,6 +95,8 @@ class GuideViewModel @Inject constructor(
     private var citiesJob: Job? = null
     private var loadJob: Job? = null
     private var embassiesJob: Job? = null
+    private var weatherJob: Job? = null
+    private var cityWeatherJob: Job? = null
     private var loadedCityKey: Pair<String, String>? = null
 
     fun load(regionId: String) {
@@ -116,6 +126,12 @@ class GuideViewModel @Inject constructor(
                 val position = if (country != null) lastKnownPosition.get() else null
                 _uiState.update { it.copy(embassiesCountry = country, embassies = embassies, missions = missions, position = position) }
             }
+        }
+        weatherJob?.cancel()
+        _uiState.update { it.copy(weather = null) }
+        weatherJob = viewModelScope.launch {
+            val weather = regionWeather(regionId)
+            _uiState.update { it.copy(weather = weather) }
         }
         // Su tablet il ViewModel e' condiviso fra le regioni scelte: il caricamento lento della precedente
         // non deve arrivare dopo e sovrascrivere quella nuova.
@@ -160,6 +176,12 @@ class GuideViewModel @Inject constructor(
         if (loadedCityKey == key) return
         loadedCityKey = key
         _cityUiState.value = CityGuideUiState()
+        cityWeatherJob?.cancel()
+        cityWeatherJob = viewModelScope.launch {
+            val country = regionRepository.installed(regionId)?.countryCode ?: return@launch
+            val result = weatherRepository.weather("city|$country|$city") { weatherRepository.coordinatesOf(city, country) }
+            _cityUiState.update { it.copy(weather = result?.let { PlaceWeather(city, it) }) }
+        }
         viewModelScope.launch {
             try {
                 val sections = cityRepository.sectionsFor(regionId, city)
@@ -177,9 +199,39 @@ class GuideViewModel @Inject constructor(
     // di mostrare per un istante le sezioni della citta' lasciata.
     fun clearCity() {
         loadedCityKey = null
+        cityWeatherJob?.cancel()
         _cityUiState.value = CityGuideUiState()
+    }
+
+    // Il meteo della posizione se il telefono e' nella regione (POI del pacchetto attorno a una posizione recente),
+    // altrimenti della capitale o, senza, della citta' principale.
+    private suspend fun regionWeather(regionId: String): PlaceWeather? = positionWeather(regionId) ?: capitalWeather(regionId)
+
+    private suspend fun positionWeather(regionId: String): PlaceWeather? {
+        val position = lastKnownPosition.get(POSITION_MAX_AGE_MILLIS)?.takeIf { (lat, lon) ->
+            poiRepository.inBounds(regionId, lat - NEAR_DEGREES, lat + NEAR_DEGREES, lon - NEAR_DEGREES, lon + NEAR_DEGREES, 1).isNotEmpty()
+        } ?: return null
+        // A Open-Meteo va solo la zona (0,1 gradi, circa 10 km), non il punto preciso: per il meteo basta.
+        val area = position.let { (lat, lon) -> lat.roundToTenth() to lon.roundToTenth() }
+        return weatherRepository.weather("position|$regionId") { area }?.let { PlaceWeather(null, it) }
+    }
+
+    private suspend fun capitalWeather(regionId: String): PlaceWeather? {
+        val country = regionRepository.installed(regionId)?.countryCode
+        val city = cityRepository.mainCitiesFor(regionId, MAIN_CITIES).first()
+            .let { cities -> cities.firstOrNull { it.capital } ?: cities.firstOrNull() }?.name
+        if (country == null || city == null) return null
+        return weatherRepository.weather("city|$country|$city") { weatherRepository.coordinatesOf(city, country) }
+            ?.let { PlaceWeather(city, it) }
     }
 }
 
 // Scorciatoie della scheda Citta' (CitiesEntryCard)
 internal const val MAIN_CITIES = 5
+
+// Posizione per il meteo "vicino a te": recente (3 ore) e con POI della regione entro ~5 km.
+private const val POSITION_MAX_AGE_MILLIS = 3 * 60 * 60 * 1000L
+private const val NEAR_DEGREES = 0.05
+private const val TENTHS = 10.0
+
+private fun Double.roundToTenth(): Double = Math.round(this * TENTHS) / TENTHS
