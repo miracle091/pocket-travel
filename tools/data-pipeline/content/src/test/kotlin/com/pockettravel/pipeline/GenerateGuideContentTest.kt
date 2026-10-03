@@ -1,6 +1,8 @@
 package com.pockettravel.pipeline
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.sql.DriverManager
@@ -268,9 +270,36 @@ class GenerateGuideContentTest {
         assertEquals("UTC+5:30", englishTimeZone("UTC+5:30"))
         assertEquals("UTC-3, UTC-4", englishTimeZone("UTC-3 (costa orientale) e UTC-4 (costa occidentale)"))
         val dump = "{{QuickbarCountry\n|Lingua=Italiano\n|Elettricità=230V/50Hz (presa europea)\n|Fuso orario=UTC+1\n}}"
-        val section = englishQuickFactsSection(dump)
+        val section = englishQuickFactsSection("italia", dump)
         assertEquals("Quick facts", section?.title)
-        assertEquals("Electricity: 230V/50Hz (European plug)\nTime zone: UTC+1", section?.body)
+        assertEquals(
+            "Language: Italian\nElectricity: 230V/50Hz (European plug)\nTime zone: UTC+1\n" +
+                "Emergency numbers: General 112, Police 113, Ambulance 118, Fire 115",
+            section?.body,
+        )
+        assertEquals("Emergency numbers: General 112, Police 113, Ambulance 118, Fire 115", englishQuickFactsSection("italia", "")?.body)
+        assertEquals(null, englishQuickFactsSection("iraq", ""))
+    }
+
+    @Test
+    fun `la sottosezione Costo della vita sparisce con tutto il suo testo`() {
+        val raw = "Si paga in euro.\n=== Costo della vita ===\nGli stipendi sono bassi.\n==== Dettagli ====\nAffitti alti.\n" +
+            "=== Acquisti ===\nNegozi aperti fino alle 20."
+        val body = cleanBody(raw)
+        assertTrue(body.contains("Si paga in euro."))
+        assertTrue(body.contains("Negozi aperti fino alle 20."))
+        assertFalse(body.contains("stipendi"))
+        assertFalse(body.contains("Affitti"))
+        assertFalse(body.contains("Costo della vita"))
+        assertEquals("▸ Costs\nPrices.", cleanBody("=== Cost of living ===\nRent is high.\n=== Costs ===\nPrices."))
+    }
+
+    @Test
+    fun `lingua inglese dai nomi italiani del Quickbar`() {
+        assertEquals("Italian, German, French, Slovenian", englishLanguage("Italiano, Tedesco (Trentino-Alto Adige), Francese (Valle d'Aosta), Sloveno (Friuli-Venezia Giulia)"))
+        assertEquals("Dutch, French, German", englishLanguage("Olandese, Francese, Tedesco"))
+        assertEquals("German", englishLanguage("Tedesco, regionale: croato, sloveno e ungherese"))
+        assertEquals(null, englishLanguage("lingua locale"))
     }
 
     @Test

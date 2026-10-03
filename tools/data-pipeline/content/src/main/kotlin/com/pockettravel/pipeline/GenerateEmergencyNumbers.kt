@@ -35,17 +35,23 @@ private val regionsWithoutCentralNumber: Set<String> by lazy {
  * "Numeri di emergenza: Generale 112, Polizia 113, Ambulanza 118, Vigili del fuoco 115" per la
  * sezione "Fatti rapidi" di una regione (vedi quickFactsSection in GenerateGuideContent.kt), o
  * null se la regione non ha numeri mappati (assente da emergency-numbers.tsv, o senza numero
- * centralizzato).
+ * centralizzato). Con [english] "Emergency numbers: General 112, Police 113, Ambulance 118, Fire 115"
+ * per la guida inglese.
  */
-fun emergencyNumbersLine(regionId: String): String? {
+fun emergencyNumbersLine(regionId: String, english: Boolean = false): String? {
     val numbers = emergencyNumbersByRegion[regionId] ?: return null
-    val parts = buildList {
-        numbers.general?.let { add("Generale $it") }
-        add("Polizia ${numbers.police}")
-        add("Ambulanza ${numbers.ambulance}")
-        add("Vigili del fuoco ${numbers.fire}")
+    val (title, general, police, ambulance, fire) = if (english) {
+        listOf("Emergency numbers", "General", "Police", "Ambulance", "Fire")
+    } else {
+        listOf("Numeri di emergenza", "Generale", "Polizia", "Ambulanza", "Vigili del fuoco")
     }
-    return "Numeri di emergenza: " + parts.joinToString(", ")
+    val parts = buildList {
+        numbers.general?.let { add("$general $it") }
+        add("$police ${numbers.police}")
+        add("$ambulance ${numbers.ambulance}")
+        add("$fire ${numbers.fire}")
+    }
+    return "$title: " + parts.joinToString(", ")
 }
 
 /**

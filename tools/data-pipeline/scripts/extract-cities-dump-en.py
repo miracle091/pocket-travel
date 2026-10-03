@@ -16,6 +16,7 @@ import re
 import sys
 from pathlib import Path
 
+import city_population
 import wiki_dump
 
 IS_PART_OF = re.compile(r"\{\{\s*isPartOf\s*\|\s*([^}|]+)", re.I)
@@ -79,6 +80,10 @@ def main():
             f.close()
 
     print(f"cities (en): {sum(counts.values())} pagine di {len(counts)} regioni scritte in {out_dir}")
+    # popolazione da Wikidata (le pagine EN non la riportano) per le citta' principali della scheda Citta' dell'app
+    title_of = {region_id: title for title, region_id in region_id_by_title.items()}
+    city_population.annotate([out_dir / f"{r}.cities-en.jsonl" for r in counts], "en",
+                             {out_dir / f"{r}.cities-en.jsonl": title_of[r] for r in counts})
 
 
 if __name__ == "__main__":

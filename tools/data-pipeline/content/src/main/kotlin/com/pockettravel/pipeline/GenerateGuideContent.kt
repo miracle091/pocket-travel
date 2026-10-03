@@ -2,6 +2,7 @@ package com.pockettravel.pipeline
 
 import java.io.File
 import java.sql.DriverManager
+import java.util.Locale
 
 // Unico parser delle guide Wikivoyage (il vecchio core/content, mai usato dall'app, e' stato tolto).
 // Titoli IT (build-region.sh preferisce ora la pagina Wikivoyage italiana quando esiste, vedi
@@ -229,8 +230,27 @@ private fun removeTables(text: String): String {
     }
 }
 
+// Sottosezioni inutili a chi viaggia (richiesta dell'utente, 2026-10-03): "Costo della vita" parla di stipendi e
+// spese delle famiglie del posto. Si toglie il sottotitolo con tutto il suo testo, fino al titolo successivo dello
+// stesso livello o superiore; vale per guide, citta' e dataset di training (che usano tutti cleanBody).
+private val skippedSubsections = setOf("costo della vita", "cost of living")
+private val subsectionHeadingRegex = Regex("""^(={2,6})\s*(.+?)\s*\1\s*$""")
+
+internal fun dropSkippedSubsections(raw: String): String {
+    var skipLevel = 0
+    return raw.lineSequence().filter { line ->
+        val heading = subsectionHeadingRegex.find(line.trim())
+        if (heading != null) {
+            val level = heading.groupValues[1].length
+            if (skipLevel != 0 && level <= skipLevel) skipLevel = 0
+            if (skipLevel == 0 && heading.groupValues[2].lowercase() in skippedSubsections) skipLevel = level
+        }
+        skipLevel == 0
+    }.joinToString("\n")
+}
+
 internal fun cleanBody(raw: String): String {
-    val stripped = raw
+    val stripped = dropSkippedSubsections(raw)
         .replace(htmlCommentRegex, "")
         .replace(refTagRegex, "")
         .replace(galleryRegex, "")
@@ -359,9 +379,10 @@ fun quickFactsSection(regionId: String, dumpText: String): GuideSectionRow? {
 }
 
 // Fatti rapidi in inglese: le pagine di Wikivoyage EN non li hanno nel testo ({{quickbar}} li prende da
-// Wikidata quando la pagina si apre), quindi vengono dal Quickbar della pagina italiana, solo per i campi
-// che non dipendono dalla lingua (elettricita' e fuso orario). Lingua e valuta le ricava l'app dal codice
-// paese, nella lingua dell'interfaccia.
+// Wikidata quando la pagina si apre), quindi vengono dal Quickbar della pagina italiana: elettricita' e
+// fuso orario (valori quasi neutri) e la lingua tradotta coi nomi delle lingue del JDK, piu' i numeri di
+// emergenza come nella guida italiana. Cosi' l'assistente in inglese vede gli stessi fatti dell'italiano.
+// La valuta, quasi mai nel Quickbar, la ricava l'app dal codice paese.
 private val plugWords = mapOf(
     "presa" to "plug", "prese" to "plugs", "europea" to "European", "britannica" to "British",
     "americana" to "American", "australiana" to "Australian", "tedesca" to "German", "francese" to "French",
@@ -387,19 +408,34 @@ internal fun englishElectricity(value: String): String? {
     return "$base ($list " + (if (plural) "plugs" else "plug") + ")"
 }
 
+private val englishLanguageNames: Map<String, String> by lazy {
+    Locale.getISOLanguages().map(::Locale).associate { it.getDisplayLanguage(Locale.ITALIAN).lowercase() to it.getDisplayLanguage(Locale.ENGLISH) }
+}
+
+// "Italiano, Tedesco (Trentino-Alto Adige)" -> "Italian, German": tolte le parentesi, ogni nome tradotto; dal
+// primo nome sconosciuto in poi ("Tedesco, regionale: croato" -> "German") si tiene solo quello che precede,
+// null se nemmeno il primo e' noto.
+internal fun englishLanguage(value: String): String? =
+    value.replace(Regex("""\([^)]*\)"""), "").split(Regex("""\s*(?:,|;|:|/|\be\b|\bed\b)\s*"""))
+        .map { it.trim().lowercase() }.filter { it.isNotBlank() }
+        .map { englishLanguageNames[it] }.takeWhile { it != null }.filterNotNull().distinct()
+        .takeIf { it.isNotEmpty() }?.joinToString(", ")
+
 // "UTC+1" resta com'e'; con testo italiano ("UTC-3 (costa orientale)...") solo se, tolte le parentesi, resta un valore neutro.
 internal fun englishTimeZone(value: String): String? =
     value.takeIf { neutralValueRegex.matches(it) }
         ?: value.replace(Regex("""\([^)]*\)"""), "").replace(Regex("""\s+e\s+"""), ", ").trim().takeIf { neutralValueRegex.matches(it) && it.isNotBlank() }
 
-/** Sezione "Quick facts" della guida inglese dal Quickbar italiano (vedi sopra); null senza dati. */
-fun englishQuickFactsSection(dumpIt: String): GuideSectionRow? {
+/** Sezione "Quick facts" della guida inglese dal Quickbar italiano e dai numeri di emergenza (vedi sopra); null senza dati. */
+fun englishQuickFactsSection(regionId: String, dumpIt: String): GuideSectionRow? {
     val fields = quickFactFieldRegex.findAll(dumpIt.take(QUICKBAR_SCAN_CHARS))
         .associate { it.groupValues[1] to cleanQuickFactValue(it.groupValues[2]) }
         .filterValues { it.isNotBlank() }
     val lines = listOfNotNull(
+        fields["Lingua"]?.let(::englishLanguage)?.let { "Language: $it" },
         fields["Elettricità"]?.let(::englishElectricity)?.let { "Electricity: $it" },
         fields["Fuso orario"]?.let(::englishTimeZone)?.let { "Time zone: $it" },
+        emergencyNumbersLine(regionId, english = true),
     )
     return lines.takeIf { it.isNotEmpty() }?.let { GuideSectionRow(category = "FATTI_RAPIDI", title = "Quick facts", body = it.joinToString("\n")) }
 }
@@ -439,7 +475,7 @@ fun main(rawArgs: Array<String>) {
         val dump = dumpPath.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.length() > 0 }
         val dumpOther = columns.getOrNull(3)?.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.length() > 0 }
         if (dump != null && english) {
-            RegionGuide(regionId, sourceUrl, listOfNotNull(dumpOther?.readText()?.let(::englishQuickFactsSection)) + parseWikivoyageDump(dump.readText()))
+            RegionGuide(regionId, sourceUrl, listOfNotNull(englishQuickFactsSection(regionId, dumpOther?.readText().orEmpty())) + parseWikivoyageDump(dump.readText()))
         } else if (dump != null) {
             regionGuideFromDumps(regionId, dump.readText(), sourceUrl, dumpOther?.readText(), columns.getOrNull(4).orEmpty())
         } else {
@@ -509,6 +545,7 @@ fun writeGuidesDb(guides: List<RegionGuide>, outputDb: File) {
         insert.setString(5, guide.sourceUrl)
     }
     writeEmergencyNumbersTable(guides.map { it.regionId }, outputDb)
+    writeVaccinationsTables(outputDb)
 }
 
 private fun readRegionGuide(db: File, regionId: String): RegionGuide? =
@@ -526,12 +563,19 @@ private fun readRegionGuide(db: File, regionId: String): RegionGuide? =
         }
     }
 
-/** Stesse righe in guide_sections e nelle tabelle dei numeri di emergenza e delle missioni diplomatiche, a prescindere dall'ordine di inserimento. */
+/** Stesse righe in guide_sections e nelle tabelle dei numeri di emergenza, vaccinali (vacc_*) e delle missioni diplomatiche, a prescindere dall'ordine di inserimento. */
 fun sameGuidesContent(a: File, b: File, includeMissions: Boolean = true): Boolean {
     val queries = listOfNotNull(
         "SELECT regionId, category, title, body, sourceUrl FROM guide_sections ORDER BY 1, 2, 3, 4, 5",
         "SELECT regionId, general, police, ambulance, fire FROM emergency_numbers ORDER BY 1",
         "SELECT regionId FROM emergency_numbers_none ORDER BY 1",
+        "SELECT * FROM vacc_yf_risk ORDER BY 1, 2, 3",
+        "SELECT * FROM vacc_yf_entry ORDER BY 1, 2, 3",
+        "SELECT * FROM vacc_polio_status ORDER BY 1, 2, 3",
+        "SELECT * FROM vacc_polio_entry ORDER BY 1, 2, 3",
+        "SELECT * FROM vacc_special ORDER BY 1, 2, 3",
+        "SELECT * FROM vacc_recommended ORDER BY 1, 2, 3",
+        "SELECT * FROM vacc_meta ORDER BY 1",
         "SELECT wikidata, sending, host, kind, name, name_en, city, address, phone, website, email, lat, lon FROM diplomatic_missions ORDER BY 1"
             .takeIf { includeMissions },
     )

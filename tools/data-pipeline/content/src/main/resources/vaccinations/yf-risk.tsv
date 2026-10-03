@@ -1,0 +1,53 @@
+# Paesi con rischio di trasmissione della febbre gialla (vedi GenerateVaccinations.kt).
+# Fonti (sigle usate nella colonna fonti, separate da +; fatti riscritti con parole nostre; OMS e CDC solo per controllo, mai copiati; verificato = data ISO del confronto tra le fonti):
+# F6 = Travel.gc.ca, Country Travel Advice and Advisories, scheda "Health" (Governo del Canada, dati aperti), Open Government Licence - Canada
+# F7 = TravelHealthPro (NaTHNaC / UKHSA), pagine paese e scheda Hajj e Umrah, Open Government Licence v3.0
+# iso2	scope (WHOLE|PARTIAL)	aree_it	aree_en	fonti	verificato
+ao	WHOLE			F6+F7	2026-10-03
+ar	PARTIAL	Province di Corrientes e Misiones (con le cascate dell'Iguazu'); basso rischio in Formosa e in parti di Chaco, Jujuy e Salta	Corrientes and Misiones provinces (including Iguazu Falls); low risk in Formosa and parts of Chaco, Jujuy and Salta	F6+F7	2026-10-03
+bf	WHOLE			F6+F7	2026-10-03
+bi	WHOLE			F6+F7	2026-10-03
+bj	WHOLE			F6+F7	2026-10-03
+bo	PARTIAL	Aree sotto i 2.300 m a est delle Ande (tutti i dipartimenti di Beni, Pando e Santa Cruz, parti di Chuquisaca, Cochabamba, La Paz e Tarija); non La Paz citta' ne' Sucre	Areas below 2,300 m east of the Andes (all of Beni, Pando and Santa Cruz, parts of Chuquisaca, Cochabamba, La Paz and Tarija); not La Paz city or Sucre	F6+F7	2026-10-03
+br	PARTIAL	Gran parte del paese, tra cui Brasilia, San Paolo, Rio de Janeiro e l'Amazzonia; non Fortaleza e Recife	Most of the country, including Brasilia, Sao Paulo, Rio de Janeiro and the Amazon; not Fortaleza or Recife	F6+F7	2026-10-03
+cd	WHOLE			F6+F7	2026-10-03
+cf	WHOLE			F6+F7	2026-10-03
+cg	WHOLE			F6+F7	2026-10-03
+ci	WHOLE			F6+F7	2026-10-03
+cm	WHOLE			F6+F7	2026-10-03
+co	PARTIAL	Aree sotto i 2.300 m; non Bogota' ne' San Andres e Providencia; basso rischio a Barranquilla, Cali, Cartagena e Medellin	Areas below 2,300 m; not Bogota or San Andres and Providencia; low risk in Barranquilla, Cali, Cartagena and Medellin	F6+F7	2026-10-03
+ec	PARTIAL	Province orientali sotto i 2.300 m (Morona-Santiago, Napo, Orellana, Pastaza, Sucumbios, Zamora-Chinchipe) ed Esmeraldas; basso rischio in parte delle province occidentali	Eastern provinces below 2,300 m (Morona-Santiago, Napo, Orellana, Pastaza, Sucumbios, Zamora-Chinchipe) and Esmeraldas; low risk in part of the western provinces	F6+F7	2026-10-03
+er	PARTIAL	Potenziale basso, negli stati di Anseba, Debub, Gash Barka, Mae Kel e Semenawi Keih Bahri	Low potential, in the states of Anseba, Debub, Gash Barka, Mae Kel and Semenawi Keih Bahri	F6+F7	2026-10-03
+et	PARTIAL	Quasi tutto il paese; basso rischio nelle regioni di Afar e Somali	Most of the country; low risk in the Afar and Somali regions	F6+F7	2026-10-03
+ga	WHOLE			F6+F7	2026-10-03
+gf	WHOLE			F6+F7	2026-10-03
+gh	WHOLE			F6+F7	2026-10-03
+gm	WHOLE			F6+F7	2026-10-03
+gn	WHOLE			F6+F7	2026-10-03
+gq	WHOLE			F6+F7	2026-10-03
+gw	WHOLE			F6+F7	2026-10-03
+gy	WHOLE			F6+F7	2026-10-03
+ke	PARTIAL	Quasi tutto il paese (compresi i parchi di Tsavo e Masai Mara); basso rischio nel nord-est e in parte della costa	Most of the country (including the Tsavo and Masai Mara parks); low risk in the north-east and part of the coast	F6+F7	2026-10-03
+lr	WHOLE			F6+F7	2026-10-03
+ml	PARTIAL	Zone a sud del Sahara; non il deserto	Areas south of the Sahara; not the desert	F6+F7	2026-10-03
+mr	PARTIAL	Zone a sud del Sahara; non il deserto	Areas south of the Sahara; not the desert	F6+F7	2026-10-03
+ne	PARTIAL	Zone a sud del Sahara; non il deserto	Areas south of the Sahara; not the desert	F6+F7	2026-10-03
+ng	WHOLE			F6+F7	2026-10-03
+pa	PARTIAL	Aree continentali a est del Canale (Darien', Guna Yala, Embera' e parte di Colon e Panama); non la citta' di Panama ne' le isole	Mainland areas east of the Canal (Darien, Guna Yala, Embera and part of Colon and Panama provinces); not Panama City or the islands	F6+F7	2026-10-03
+pe	PARTIAL	Regioni amazzoniche e di foresta sotto i 2.300 m (Loreto, Madre de Dios, Ucayali, San Martin, Junin, Puno e altre); per Cusco e Machu Picchu controlla la fonte	Amazon and forest regions below 2,300 m (Loreto, Madre de Dios, Ucayali, San Martin, Junin, Puno and others); check the source for Cusco and Machu Picchu	F6+F7	2026-10-03
+py	PARTIAL	Tutto il paese; basso rischio nella sola citta' di Asuncion	The whole country; low risk in Asuncion city only	F6+F7	2026-10-03
+rw	WHOLE	Potenziale basso di esposizione in tutto il paese	Low potential for exposure throughout the country	F6+F7	2026-10-03
+sd	PARTIAL	Zone a sud del Sahara; non il deserto ne' Khartoum	Areas south of the Sahara; not the desert or Khartoum	F6+F7	2026-10-03
+sl	WHOLE			F6+F7	2026-10-03
+sn	WHOLE			F6+F7	2026-10-03
+so	PARTIAL	Potenziale basso, nelle regioni centro-meridionali (Bakool, Banaadir, Bay, Gedo, Galgaduud, Hiraan, Basso e Medio Giuba, Basso e Medio Scebeli)	Low potential, in the south-central regions (Bakool, Banaadir, Bay, Gedo, Galgaduud, Hiraan, Lower and Middle Juba, Lower and Middle Shabelle)	F6+F7	2026-10-03
+sr	WHOLE			F6+F7	2026-10-03
+ss	WHOLE			F6+F7	2026-10-03
+st	WHOLE	Potenziale basso di esposizione in tutto il paese	Low potential for exposure throughout the country	F6+F7	2026-10-03
+td	PARTIAL	Zone a sud del Sahara; non il deserto	Areas south of the Sahara; not the desert	F6+F7	2026-10-03
+tg	WHOLE			F6+F7	2026-10-03
+tt	PARTIAL	Aree boscose dell'isola di Trinidad; non Tobago	Wooded areas of the island of Trinidad; not Tobago	F6+F7	2026-10-03
+tz	WHOLE	Potenziale basso di esposizione in tutto il paese	Low potential for exposure throughout the country	F6+F7	2026-10-03
+ug	WHOLE			F6+F7	2026-10-03
+ve	PARTIAL	Gran parte del paese; basso rischio negli stati di Aragua, Carabobo, Miranda, Vargas, Yaracuy e nel Distrito Federal	Most of the country; low risk in the states of Aragua, Carabobo, Miranda, Vargas, Yaracuy and in the Distrito Federal	F6+F7	2026-10-03
+zm	PARTIAL	Potenziale basso, nelle province Nord-Occidentale e Occidentale	Low potential, in the North-Western and Western provinces	F6+F7	2026-10-03

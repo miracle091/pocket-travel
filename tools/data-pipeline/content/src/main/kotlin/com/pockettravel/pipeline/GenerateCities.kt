@@ -38,7 +38,19 @@ private val cityHeadingToCategoryEn = mapOf(
     "cope" to "VITA_QUOTIDIANA",
 )
 
-data class CitySectionRow(val city: String, val category: String, val title: String, val body: String, val sourceUrl: String)
+/**
+ * [population]: abitanti della citta' (city_population.py: Abitanti del QuickbarCity o Wikidata), null se ignota;
+ * [capital]: e' la capitale della regione (Wikidata P36).
+ */
+data class CitySectionRow(
+    val city: String,
+    val category: String,
+    val title: String,
+    val body: String,
+    val sourceUrl: String,
+    val population: Long? = null,
+    val capital: Boolean = false,
+)
 
 /**
  * Righe di un <regionId>.cities.jsonl (una per citta': {"city": titolo, "text": wikitext grezzo}),
@@ -49,15 +61,17 @@ fun parseCitiesJsonl(jsonl: String, english: Boolean = false): List<CitySectionR
     jsonl.lineSequence().filter { it.isNotBlank() }.flatMap { line ->
         val obj = JSONObject(line)
         val city = obj.getString("city")
+        val population = if (obj.isNull("population")) null else obj.optLong("population").takeIf { it > 0 }
+        val capital = obj.optBoolean("capital", false)
         val sourceUrl = (if (english) "https://en.wikivoyage.org/wiki/" else "https://it.wikivoyage.org/wiki/") + city.replace(" ", "_")
         parseWikivoyageDump(obj.getString("text"), if (english) cityHeadingToCategoryEn else cityHeadingToCategory).map { section ->
-            CitySectionRow(city = city, category = section.category, title = section.title, body = section.body, sourceUrl = sourceUrl)
+            CitySectionRow(city = city, category = section.category, title = section.title, body = section.body, sourceUrl = sourceUrl, population = population, capital = capital)
         }
     }.toList()
 
 /**
  * Schema minimo (non lo schema Room di CitySectionEntity, niente FTS4): una tabella
- * "city_sections" con le stesse colonne meno l'id autogenerato, come guide_sections in
+ * "city_sections" con le stesse colonne meno l'id autogenerato (population ripetuta su ogni sezione della citta'), come guide_sections in
  * GenerateGuideContent.kt — l'app importa riga per riga in region.db via CityDao.insertAll().
  */
 fun writeCitiesDb(sections: List<CitySectionRow>, outputDb: File) {
@@ -70,10 +84,12 @@ fun writeCitiesDb(sections: List<CitySectionRow>, outputDb: File) {
                 category TEXT NOT NULL,
                 title TEXT NOT NULL,
                 body TEXT NOT NULL,
-                sourceUrl TEXT NOT NULL
+                sourceUrl TEXT NOT NULL,
+                population INTEGER,
+                capital INTEGER NOT NULL DEFAULT 0
             )
             """.trimIndent(),
-        insertSql = "INSERT INTO city_sections (city, category, title, body, sourceUrl) VALUES (?, ?, ?, ?, ?)",
+        insertSql = "INSERT INTO city_sections (city, category, title, body, sourceUrl, population, capital) VALUES (?, ?, ?, ?, ?, ?, ?)",
         rows = sections,
     ) { insert, section ->
         insert.setString(1, section.city)
@@ -81,6 +97,8 @@ fun writeCitiesDb(sections: List<CitySectionRow>, outputDb: File) {
         insert.setString(3, section.title)
         insert.setString(4, section.body)
         insert.setString(5, section.sourceUrl)
+        section.population?.let { insert.setLong(6, it) } ?: insert.setNull(6, java.sql.Types.INTEGER)
+        insert.setInt(7, if (section.capital) 1 else 0)
     }
 }
 
