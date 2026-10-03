@@ -1,0 +1,41 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:AiAssistantScreen.kt:isReady &amp;&amp; isOnDevice &amp;&amp; result != null &amp;&amp; result.modelId == uiState.selectedModelId</ID>
+    <ID>CyclomaticComplexMethod:AiAssistantScreen.kt:@Composable private fun ModelRow</ID>
+    <ID>CyclomaticComplexMethod:AiAssistantScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun AssistantHeader</ID>
+    <ID>CyclomaticComplexMethod:LlmModelManager.kt:LlmModelManager$internal suspend fun downloadAndVerify: File</ID>
+    <ID>CyclomaticComplexMethod:TravelAssistant.kt:private fun TransitMode.promptName: String</ID>
+    <ID>LongMethod:LlmModelManager.kt:LlmModelManager$internal suspend fun downloadAndVerify: File</ID>
+    <ID>MagicNumber:AiAssistantScreen.kt:100</ID>
+    <ID>MagicNumber:AiAssistantScreen.kt:1000f</ID>
+    <ID>MagicNumber:LlmModelManager.kt:LlmModelManager$0xFF</ID>
+    <ID>MagicNumber:LlmModelManager.kt:LlmModelManager$206</ID>
+    <ID>MagicNumber:LlmModelManager.kt:LlmModelManager$400</ID>
+    <ID>MagicNumber:LlmModelManager.kt:LlmModelManager$408</ID>
+    <ID>MagicNumber:LlmModelManager.kt:LlmModelManager$416</ID>
+    <ID>MagicNumber:LlmModelManager.kt:LlmModelManager$429</ID>
+    <ID>MagicNumber:LlmModelManager.kt:LlmModelManager$499</ID>
+    <ID>MagicNumber:OnlineLlmClient.kt:OnlineLlmClient$400</ID>
+    <ID>MagicNumber:OnlineLlmClient.kt:OnlineLlmClient$401</ID>
+    <ID>MagicNumber:OnlineLlmClient.kt:OnlineLlmClient$403</ID>
+    <ID>MagicNumber:OnlineLlmClient.kt:OnlineLlmClient$404</ID>
+    <ID>MagicNumber:TravelAssistant.kt:4</ID>
+    <ID>NestedBlockDepth:LlmModelManager.kt:LlmModelManager$internal suspend fun downloadAndVerify: File</ID>
+    <ID>ReturnCount:AiAssistantViewModel.kt:AiAssistantViewModel$fun downloadModel</ID>
+    <ID>ReturnCount:TravelAssistant.kt:TravelAssistant$private suspend fun nearbyPoiSection: AssistantSection?</ID>
+    <ID>ReturnCount:TravelAssistant.kt:TravelAssistant$private suspend fun transitSection: AssistantSection?</ID>
+    <ID>ReturnCount:TravelAssistant.kt:TravelAssistant$private suspend fun vaccinationSection: AssistantSection?</ID>
+    <ID>ThrowsCount:LlmModelManager.kt:LlmModelManager$internal suspend fun downloadAndVerify: File</ID>
+    <ID>TooGenericExceptionCaught:AiAssistantViewModel.kt:AiAssistantViewModel$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:InferenceEngineImpl.kt:InferenceEngineImpl$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:InferenceEngineImpl.kt:InferenceEngineImpl$e: Throwable</ID>
+    <ID>TooManyFunctions:AiAssistantScreen.kt:com.pockettravel.feature.ai.AiAssistantScreen.kt</ID>
+    <ID>TooManyFunctions:AiAssistantViewModel.kt:AiAssistantViewModel : ViewModel</ID>
+    <ID>TooManyFunctions:AiSettingsStore.kt:AiSettingsStore</ID>
+    <ID>TooManyFunctions:InferenceEngineImpl.kt:InferenceEngineImpl : InferenceEngine</ID>
+    <ID>TooManyFunctions:LlmModelManager.kt:LlmModelManager</ID>
+    <ID>TooManyFunctions:TravelAssistant.kt:com.pockettravel.feature.ai.TravelAssistant.kt</ID>
+  </CurrentIssues>
+</SmellBaseline>

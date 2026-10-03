@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:Flags.kt:@DrawableRes fun flagRes: Int?</ID>
+    <ID>CyclomaticComplexMethod:PoiLabels.kt:@StringRes fun PoiCategory.label: Int</ID>
+    <ID>LongMethod:Flags.kt:@DrawableRes fun flagRes: Int?</ID>
+    <ID>MagicNumber:Flags.kt:0.5f</ID>
+    <ID>MagicNumber:PocketTravelTheme.kt:0.33f</ID>
+    <ID>MagicNumber:PocketTravelTheme.kt:0.66f</ID>
+    <ID>MatchingDeclarationName:InfoCard.kt:InfoCardDefaults</ID>
+    <ID>ReturnCount:LargeDownloadWarning.kt:fun isOnCellularNetwork: Boolean</ID>
+  </CurrentIssues>
+</SmellBaseline>

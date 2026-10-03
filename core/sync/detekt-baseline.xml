@@ -1,0 +1,116 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:PmtilesExtractor.kt:PmtilesExtractor$fun extract: PmtilesExtractionStats</ID>
+    <ID>CyclomaticComplexMethod:PmtilesExtractor.kt:PmtilesExtractor$private fun fetchTiles: PmtilesExtractionStats</ID>
+    <ID>CyclomaticComplexMethod:RegionManifest.kt:fun RegionManifestEntry.validate</ID>
+    <ID>CyclomaticComplexMethod:RegionPackageDownloadWorker.kt:RegionPackageDownloadWorker$override suspend fun doWork: Result</ID>
+    <ID>CyclomaticComplexMethod:RegionPackageDownloader.kt:RegionPackageDownloader$internal suspend fun downloadAndVerify</ID>
+    <ID>CyclomaticComplexMethod:RegionPackageInstaller.kt:RegionPackageInstaller$suspend fun install</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:RegionZoneRestriction.kt:val (ew, lon, ns, lat) = match.destructured</ID>
+    <ID>LongMethod:PmtilesExtractor.kt:PmtilesExtractor$private fun fetchTiles: PmtilesExtractionStats</ID>
+    <ID>LongMethod:PmtilesWriter.kt:PmtilesWriter$fun write</ID>
+    <ID>LongMethod:RegionPackageDownloader.kt:RegionPackageDownloader$internal suspend fun downloadAndVerify</ID>
+    <ID>LongMethod:RegionPackageInstaller.kt:RegionPackageInstaller$suspend fun install</ID>
+    <ID>LoopWithTooManyJumpStatements:PmtilesExtractor.kt:PmtilesExtractor$for</ID>
+    <ID>MagicNumber:AddressGridSelection.kt:16</ID>
+    <ID>MagicNumber:AddressGridSelection.kt:3</ID>
+    <ID>MagicNumber:CityImporter.kt:CityImporter$3</ID>
+    <ID>MagicNumber:CityImporter.kt:CityImporter$4</ID>
+    <ID>MagicNumber:CityImporter.kt:CityImporter$5</ID>
+    <ID>MagicNumber:CityImporter.kt:CityImporter$6</ID>
+    <ID>MagicNumber:GuidesImporter.kt:GuidesImporter$10</ID>
+    <ID>MagicNumber:GuidesImporter.kt:GuidesImporter$11</ID>
+    <ID>MagicNumber:GuidesImporter.kt:GuidesImporter$12</ID>
+    <ID>MagicNumber:GuidesImporter.kt:GuidesImporter$3</ID>
+    <ID>MagicNumber:GuidesImporter.kt:GuidesImporter$4</ID>
+    <ID>MagicNumber:GuidesImporter.kt:GuidesImporter$5</ID>
+    <ID>MagicNumber:GuidesImporter.kt:GuidesImporter$6</ID>
+    <ID>MagicNumber:GuidesImporter.kt:GuidesImporter$7</ID>
+    <ID>MagicNumber:GuidesImporter.kt:GuidesImporter$8</ID>
+    <ID>MagicNumber:GuidesImporter.kt:GuidesImporter$9</ID>
+    <ID>MagicNumber:ManifestClient.kt:ManifestClient$408</ID>
+    <ID>MagicNumber:ManifestClient.kt:ManifestClient$429</ID>
+    <ID>MagicNumber:ManifestClient.kt:ManifestClient$500</ID>
+    <ID>MagicNumber:ManifestSignatureVerifier.kt:ManifestSignatureVerifier$408</ID>
+    <ID>MagicNumber:ManifestSignatureVerifier.kt:ManifestSignatureVerifier$429</ID>
+    <ID>MagicNumber:ManifestSignatureVerifier.kt:ManifestSignatureVerifier$500</ID>
+    <ID>MagicNumber:PmtilesDirectoryReader.kt:PmtilesDirectoryReader$0x7F</ID>
+    <ID>MagicNumber:PmtilesDirectoryReader.kt:PmtilesDirectoryReader$0x80</ID>
+    <ID>MagicNumber:PmtilesDirectoryReader.kt:PmtilesDirectoryReader$0xFF</ID>
+    <ID>MagicNumber:PmtilesDirectoryReader.kt:PmtilesDirectoryReader$100</ID>
+    <ID>MagicNumber:PmtilesDirectoryReader.kt:PmtilesDirectoryReader$101</ID>
+    <ID>MagicNumber:PmtilesDirectoryReader.kt:PmtilesDirectoryReader$16</ID>
+    <ID>MagicNumber:PmtilesDirectoryReader.kt:PmtilesDirectoryReader$24</ID>
+    <ID>MagicNumber:PmtilesDirectoryReader.kt:PmtilesDirectoryReader$32</ID>
+    <ID>MagicNumber:PmtilesDirectoryReader.kt:PmtilesDirectoryReader$40</ID>
+    <ID>MagicNumber:PmtilesDirectoryReader.kt:PmtilesDirectoryReader$56</ID>
+    <ID>MagicNumber:PmtilesDirectoryReader.kt:PmtilesDirectoryReader$7</ID>
+    <ID>MagicNumber:PmtilesDirectoryReader.kt:PmtilesDirectoryReader$8</ID>
+    <ID>MagicNumber:PmtilesDirectoryReader.kt:PmtilesDirectoryReader$98</ID>
+    <ID>MagicNumber:PmtilesDirectoryReader.kt:PmtilesDirectoryReader$99</ID>
+    <ID>MagicNumber:PmtilesExtractor.kt:PmtilesExtractor$3L</ID>
+    <ID>MagicNumber:PmtilesTileIndex.kt:PmtilesTileIndex$0x7F</ID>
+    <ID>MagicNumber:PmtilesTileIndex.kt:PmtilesTileIndex$0x80</ID>
+    <ID>MagicNumber:PmtilesTileIndex.kt:PmtilesTileIndex$16</ID>
+    <ID>MagicNumber:PmtilesTileIndex.kt:PmtilesTileIndex$3</ID>
+    <ID>MagicNumber:PmtilesTileIndex.kt:PmtilesTileIndex$40</ID>
+    <ID>MagicNumber:PmtilesTileIndex.kt:PmtilesTileIndex$56</ID>
+    <ID>MagicNumber:PmtilesTileIndex.kt:PmtilesTileIndex$7</ID>
+    <ID>MagicNumber:PmtilesTileIndex.kt:PmtilesTileIndex$8</ID>
+    <ID>MagicNumber:PmtilesTileIndex.kt:PmtilesTileIndex$98</ID>
+    <ID>MagicNumber:PmtilesTileIndex.kt:PmtilesTileIndex$99</ID>
+    <ID>MagicNumber:PmtilesWriter.kt:PmtilesWriter$0x7F</ID>
+    <ID>MagicNumber:PmtilesWriter.kt:PmtilesWriter$0x80</ID>
+    <ID>MagicNumber:PmtilesWriter.kt:PmtilesWriter$10_000_000.0</ID>
+    <ID>MagicNumber:PmtilesWriter.kt:PmtilesWriter$7</ID>
+    <ID>MagicNumber:PoiImporter.kt:PoiImporter$3</ID>
+    <ID>MagicNumber:PoiImporter.kt:PoiImporter$4</ID>
+    <ID>MagicNumber:RegionAddressGridInstaller.kt:4</ID>
+    <ID>MagicNumber:RegionAddressGridInstaller.kt:RegionAddressGridInstaller$3L</ID>
+    <ID>MagicNumber:RegionDownloadNotification.kt:100</ID>
+    <ID>MagicNumber:RegionDownloadNotification.kt:RegionDownloadNotification$0xFFFF</ID>
+    <ID>MagicNumber:RegionDownloadNotification.kt:RegionDownloadNotification$100</ID>
+    <ID>MagicNumber:RegionManifest.kt:180.0</ID>
+    <ID>MagicNumber:RegionManifest.kt:22</ID>
+    <ID>MagicNumber:RegionManifest.kt:90.0</ID>
+    <ID>MagicNumber:RegionPackageDownloader.kt:RegionPackageDownloader$0xFF</ID>
+    <ID>MagicNumber:RegionPackageDownloader.kt:RegionPackageDownloader$206</ID>
+    <ID>MagicNumber:RegionPackageDownloader.kt:RegionPackageDownloader$400</ID>
+    <ID>MagicNumber:RegionPackageDownloader.kt:RegionPackageDownloader$408</ID>
+    <ID>MagicNumber:RegionPackageDownloader.kt:RegionPackageDownloader$416</ID>
+    <ID>MagicNumber:RegionPackageDownloader.kt:RegionPackageDownloader$429</ID>
+    <ID>MagicNumber:RegionPackageDownloader.kt:RegionPackageDownloader$499</ID>
+    <ID>MagicNumber:SlippyTile.kt:180.0</ID>
+    <ID>MagicNumber:SlippyTile.kt:360.0</ID>
+    <ID>MagicNumber:TransitManifest.kt:111.32</ID>
+    <ID>MagicNumber:TransitManifest.kt:16</ID>
+    <ID>MagicNumber:TransitManifest.kt:4</ID>
+    <ID>MatchingDeclarationName:AddressGridSelection.kt:CellId</ID>
+    <ID>MatchingDeclarationName:RegionZoneRestriction.kt:TileBounds</ID>
+    <ID>MatchingDeclarationName:SlippyTile.kt:TileRange</ID>
+    <ID>NestedBlockDepth:PmtilesExtractor.kt:PmtilesExtractor$fun extract: PmtilesExtractionStats</ID>
+    <ID>NestedBlockDepth:PmtilesExtractorTest.kt:PmtilesExtractorTest$private fun assertSameTiles</ID>
+    <ID>NestedBlockDepth:RegionPackageDownloader.kt:RegionPackageDownloader$internal suspend fun downloadAndVerify</ID>
+    <ID>ReturnCount:AddressGridSelection.kt:internal fun parseCellId: CellId?</ID>
+    <ID>ReturnCount:ManifestClient.kt:fun &lt;T&gt; optional: T?</ID>
+    <ID>ReturnCount:PmtilesExtractorTest.kt:RangeFileDispatcher$override fun dispatch: MockResponse</ID>
+    <ID>ReturnCount:RegionPackageDownloadWorker.kt:RegionPackageDownloadWorker$override suspend fun doWork: Result</ID>
+    <ID>ReturnCount:RegionPackageDownloader.kt:RegionPackageDownloader$private fun reuseLocalCopy: Boolean</ID>
+    <ID>ReturnCount:RegionZoneRestriction.kt:fun RegionManifestEntry.restrictedTo: RegionManifestEntry</ID>
+    <ID>ReturnCount:TransitManifest.kt:fun defaultTransitChoice: TransitDefault</ID>
+    <ID>SwallowedException:ManifestSignatureVerifier.kt:error: SignatureException</ID>
+    <ID>ThrowsCount:ManifestSignatureVerifier.kt:internal fun verifyManifestSignature</ID>
+    <ID>ThrowsCount:PackageXzUnpacker.kt:internal suspend fun unpackXz</ID>
+    <ID>ThrowsCount:PmtilesExtractor.kt:PmtilesExtractor$fun extract: PmtilesExtractionStats</ID>
+    <ID>ThrowsCount:RegionPackageDownloader.kt:RegionPackageDownloader$internal suspend fun downloadAndVerify</ID>
+    <ID>TooGenericExceptionCaught:AppUpdateCheckWorker.kt:AppUpdateCheckWorker$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:GuidesSyncWorker.kt:GuidesSyncWorker$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:PmtilesExtractor.kt:PmtilesExtractor$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:PmtilesExtractor.kt:PmtilesExtractor$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:RegionManifestSyncWorker.kt:RegionManifestSyncWorker$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:RegionPackageDownloadWorker.kt:RegionPackageDownloadWorker$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:RegionPackageInstaller.kt:RegionPackageInstaller$error: Exception</ID>
+  </CurrentIssues>
+</SmellBaseline>

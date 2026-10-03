@@ -1,17 +1,13 @@
 plugins {
-    alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.ksp)
+    id("pockettravel.android.library")
+    id("pockettravel.hilt")
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.hilt.plugin)
 }
 
 android {
     namespace = "com.pockettravel.core.sync"
-    compileSdk = 37
 
     defaultConfig {
-        minSdk = 26
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "MANIFEST_URL_OVERRIDE", "\"\"")
     }
 
@@ -26,17 +22,6 @@ android {
 
     buildFeatures {
         buildConfig = true
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -54,9 +39,7 @@ dependencies {
     // PmtilesExtractor. Compatibile Android (dichiarato dal progetto fino ad API 16).
     implementation(libs.pmtiles.reader)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.hilt.android)
     implementation(libs.hilt.work)
-    ksp(libs.hilt.compiler)
     ksp(libs.hilt.work.compiler)
 
     testImplementation(libs.junit)

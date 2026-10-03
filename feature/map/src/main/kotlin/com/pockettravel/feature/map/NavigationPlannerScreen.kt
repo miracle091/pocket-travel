@@ -57,6 +57,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -256,26 +257,164 @@ fun NavigationPlannerScreen(
         return
     }
 
-    val field = searching
+    // Query e risultati si leggono solo con la ricerca aperta: i risultati partono a ricercare quando li si osserva.
+    val query = if (searching != null) viewModel.query.collectAsStateWithLifecycle().value else ""
+    val results = if (searching != null) viewModel.results.collectAsStateWithLifecycle().value else emptyList()
+    NavigationPlannerContent(
+        state = NavigationPlannerState(
+            from = from,
+            to = to,
+            searching = searching,
+            query = query,
+            results = results,
+            preview = preview,
+            travelMode = travelMode,
+            wheelchair = routing.wheelchair,
+            allowSteps = allowSteps,
+            recents = recents,
+            mapRegionIds = mapRegionIds,
+            routingInstalled = routingInstalled,
+            arriveBy = arriveBy,
+            reminder = reminder,
+            missingRegions = missingRegions,
+            downloadProgress = downloadProgress,
+            downloadFailed = downloadFailed,
+            arrivedAt = arrivedAt,
+        ),
+        actions = NavigationPlannerActions(
+            onStartSearch = viewModel::startSearch,
+            onCancelSearch = viewModel::cancelSearch,
+            onSetQuery = viewModel::setQuery,
+            onChoose = viewModel::choose,
+            onUseMyPosition = viewModel::useMyPosition,
+            onRecent = viewModel::setDestination,
+            onRemoveRecent = viewModel::removeRecent,
+            onClearRecents = viewModel::clearRecents,
+            onStart = {
+                // Si parte adesso: l'avviso "e' ora di partire" non serve piu'.
+                viewModel.cancelReminder()
+                if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+                to?.let { navigationViewModel.start(regionId ?: it.regionId, it, travelMode, arriveBy) }
+            },
+            onSwap = viewModel::swap,
+            onTravelModeChange = viewModel::setTravelMode,
+            onArriveByChange = viewModel::setArriveBy,
+            onSetReminder = viewModel::setReminder,
+            onRetry = viewModel::refreshPreview,
+            onRequestPermission = requestPermission,
+            onDownloadRouting = { onDownloadRouting(missingRegions.map { it.regionId }) },
+            onAllowStepsChange = viewModel::setAllowSteps,
+            onArrivalAnnounced = { arrivedAt = null },
+        ),
+        map = { regionIds, route, topPaddingPx, bottomPaddingPx, modifier ->
+            PlannerMap(
+                tileSource = viewModel.tileSource,
+                regionIds = regionIds,
+                route = route,
+                from = from?.point,
+                to = to?.point,
+                position = idlePosition,
+                nearby = nearbyPois,
+                topPaddingPx = topPaddingPx,
+                bottomPaddingPx = bottomPaddingPx,
+                modifier = modifier,
+            )
+        },
+    )
+}
+
+/** Lo stato che il Navigatore mostra, senza il ViewModel: la scheda si prova (anteprime, test) passandolo a mano. */
+internal data class NavigationPlannerState(
+    val from: NavigationPlace? = null,
+    val to: NavigationPlace? = null,
+    val searching: PlannerField? = null,
+    val query: String = "",
+    val results: List<PlannerResult> = emptyList(),
+    val preview: PlannerPreview = PlannerPreview.Idle,
+    val travelMode: TravelMode = TravelMode.WALK,
+    // Percorso in sedia a rotelle: sotto tempo e distanza si offre "Accetta qualche gradino".
+    val wheelchair: Boolean = false,
+    val allowSteps: Boolean = false,
+    val recents: List<NavigationPlace> = emptyList(),
+    val mapRegionIds: List<String> = emptyList(),
+    val routingInstalled: Boolean = true,
+    val arriveBy: LocalDateTime? = null,
+    val reminder: LocalDateTime? = null,
+    // Le regioni del catalogo senza Percorsi tra partenza e arrivo, in ordine (vuota se non si sono trovate).
+    val missingRegions: List<MissingRegion> = emptyList(),
+    val downloadProgress: Float? = null,
+    val downloadFailed: Boolean = false,
+    // Meta appena raggiunta: se non e' null se ne mostra l'avviso, poi si chiama onArrivalAnnounced.
+    val arrivedAt: String? = null,
+)
+
+internal class NavigationPlannerActions(
+    val onStartSearch: (PlannerField) -> Unit = {},
+    val onCancelSearch: () -> Unit = {},
+    val onSetQuery: (String) -> Unit = {},
+    val onChoose: (NavigationPlace) -> Unit = {},
+    val onUseMyPosition: () -> Unit = {},
+    val onRecent: (NavigationPlace) -> Unit = {},
+    val onRemoveRecent: (NavigationPlace) -> Unit = {},
+    val onClearRecents: () -> Unit = {},
+    val onStart: () -> Unit = {},
+    val onSwap: () -> Unit = {},
+    val onTravelModeChange: (TravelMode) -> Unit = {},
+    val onArriveByChange: (LocalDateTime?) -> Unit = {},
+    val onSetReminder: (LocalDateTime) -> Unit = {},
+    val onRetry: () -> Unit = {},
+    val onRequestPermission: () -> Unit = {},
+    val onDownloadRouting: () -> Unit = {},
+    val onAllowStepsChange: (Boolean) -> Unit = {},
+    val onArrivalAnnounced: () -> Unit = {},
+)
+
+/**
+ * Il Navigatore fuori dalla guida: la ricerca a tutto schermo o la mappa con il pannello in alto e la scheda in
+ * basso. La mappa MapLibre e' uno slot ([map]: regioni, percorso, margini in pixel e modificatore), cosi' i test
+ * non creano una vista GL.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun NavigationPlannerContent(
+    state: NavigationPlannerState,
+    actions: NavigationPlannerActions,
+    map: @Composable (regionIds: List<String>, route: Route?, topPaddingPx: Float, bottomPaddingPx: Float, modifier: Modifier) -> Unit,
+) {
+    val field = state.searching
     if (field != null) {
-        BackHandler(onBack = viewModel::cancelSearch)
-        PlannerSearch(field = field, viewModel = viewModel, recents = recents)
+        BackHandler(onBack = actions.onCancelSearch)
+        PlannerSearch(
+            field = field,
+            query = state.query,
+            results = state.results,
+            recents = state.recents,
+            onQueryChange = actions.onSetQuery,
+            onBack = actions.onCancelSearch,
+            onUseMyPosition = actions.onUseMyPosition,
+            onChoose = actions.onChoose,
+        )
         return
     }
 
+    val to = state.to
     val sheetState = rememberBottomSheetScaffoldState()
     // arrivedAt si azzera prima di mostrare l'avviso, senza annullare l'effetto: con showSnackbar prima, una
     // ricomposizione durante l'avviso lo mostrerebbe una seconda volta.
     val resources = LocalResources.current
+    val arrivedAt = rememberUpdatedState(state.arrivedAt)
+    val onArrivalAnnounced = rememberUpdatedState(actions.onArrivalAnnounced)
     LaunchedEffect(Unit) {
-        snapshotFlow { arrivedAt }.filterNotNull().collect { name ->
-            arrivedAt = null
+        snapshotFlow { arrivedAt.value }.filterNotNull().collect { name ->
+            onArrivalAnnounced.value()
             sheetState.snackbarHostState.showSnackbar(resources.getString(R.string.navigation_arrived_at, name))
         }
     }
     // Altezza della scheda in alto: la mappa inquadra il percorso nello spazio libero sotto.
     var overlayHeightPx by remember { mutableStateOf(0) }
-    val ready = preview as? PlannerPreview.Ready
+    val ready = state.preview as? PlannerPreview.Ready
     BottomSheetScaffold(
         scaffoldState = sheetState,
         // Senza meta i recenti restano nascosti: si vede solo il titolo "Recenti", si trascina su per aprirli.
@@ -283,34 +422,27 @@ fun NavigationPlannerScreen(
         sheetContent = {
             PlannerSheet(
                 to = to,
-                startsFromMe = from == null,
-                preview = preview,
-                recents = recents,
-                onRecent = viewModel::setDestination,
-                onRemoveRecent = viewModel::removeRecent,
-                onClearRecents = viewModel::clearRecents,
-                onStart = {
-                    // Si parte adesso: l'avviso "e' ora di partire" non serve piu'.
-                    viewModel.cancelReminder()
-                    if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    }
-                    to?.let { navigationViewModel.start(regionId ?: it.regionId, it, travelMode, arriveBy) }
-                },
-                arriveBy = arriveBy,
-                reminder = reminder,
-                onArriveByChange = viewModel::setArriveBy,
-                onSetReminder = viewModel::setReminder,
-                onRetry = viewModel::refreshPreview,
-                onRequestPermission = requestPermission,
-                routingInstalled = routingInstalled,
-                downloadProgress = downloadProgress,
-                downloadFailed = downloadFailed,
-                travelMode = travelMode,
-                missingRegions = missingRegions,
-                onDownloadRouting = { onDownloadRouting(missingRegions.map { it.regionId }) },
-                wheelchairOptions = if (routing.wheelchair && to != null) {
-                    { WheelchairOptions(allowSteps = allowSteps, onAllowStepsChange = viewModel::setAllowSteps) }
+                startsFromMe = state.from == null,
+                preview = state.preview,
+                recents = state.recents,
+                onRecent = actions.onRecent,
+                onRemoveRecent = actions.onRemoveRecent,
+                onClearRecents = actions.onClearRecents,
+                onStart = actions.onStart,
+                arriveBy = state.arriveBy,
+                reminder = state.reminder,
+                onArriveByChange = actions.onArriveByChange,
+                onSetReminder = actions.onSetReminder,
+                onRetry = actions.onRetry,
+                onRequestPermission = actions.onRequestPermission,
+                routingInstalled = state.routingInstalled,
+                downloadProgress = state.downloadProgress,
+                downloadFailed = state.downloadFailed,
+                travelMode = state.travelMode,
+                missingRegions = state.missingRegions,
+                onDownloadRouting = actions.onDownloadRouting,
+                wheelchairOptions = if (state.wheelchair && to != null) {
+                    { WheelchairOptions(allowSteps = state.allowSteps, onAllowStepsChange = actions.onAllowStepsChange) }
                 } else {
                     null
                 },
@@ -319,32 +451,26 @@ fun NavigationPlannerScreen(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
             // Senza regioni note (elenco delle installate non ancora letto) nessuna mappa: lo stile ne vuole almeno una.
-            val mapRegions = ready?.regionIds ?: mapRegionIds
-            if (mapRegions.isNotEmpty()) PlannerMap(
-                tileSource = viewModel.tileSource,
-                regionIds = mapRegions,
-                route = ready?.route,
-                from = from?.point,
-                to = to?.point,
-                position = idlePosition,
-                nearby = nearbyPois,
-                topPaddingPx = overlayHeightPx.toFloat(),
-                bottomPaddingPx = (if (to == null) RECENTS_PEEK_HEIGHT.value else 220f) * LocalContext.current.resources.displayMetrics.density,
-                modifier = Modifier.fillMaxSize(),
+            val mapRegions = ready?.regionIds ?: state.mapRegionIds
+            if (mapRegions.isNotEmpty()) map(
+                mapRegions,
+                ready?.route,
+                overlayHeightPx.toFloat(),
+                (if (to == null) RECENTS_PEEK_HEIGHT.value else 220f) * LocalContext.current.resources.displayMetrics.density,
+                Modifier.fillMaxSize(),
             )
             Column(modifier = Modifier.fillMaxWidth().onSizeChanged { overlayHeightPx = it.height }) {
-                val destination = to
-                if (destination == null) {
-                    SearchPill(onClick = { viewModel.startSearch(PlannerField.TO) }, modifier = Modifier.padding(Spacing.m))
+                if (to == null) {
+                    SearchPill(onClick = { actions.onStartSearch(PlannerField.TO) }, modifier = Modifier.padding(Spacing.m))
                 } else {
                     RoutePanel(
-                        from = from,
-                        to = destination,
-                        onEditFrom = { viewModel.startSearch(PlannerField.FROM) },
-                        onEditTo = { viewModel.startSearch(PlannerField.TO) },
-                        onSwap = viewModel::swap,
-                        travelMode = travelMode,
-                        onTravelModeChange = viewModel::setTravelMode,
+                        from = state.from,
+                        to = to,
+                        onEditFrom = { actions.onStartSearch(PlannerField.FROM) },
+                        onEditTo = { actions.onStartSearch(PlannerField.TO) },
+                        onSwap = actions.onSwap,
+                        travelMode = state.travelMode,
+                        onTravelModeChange = actions.onTravelModeChange,
                     )
                 }
             }
@@ -844,26 +970,33 @@ private fun RetryMessage(text: String, onRetry: () -> Unit) {
 // Ricerca a tutto schermo: campo in alto, sotto "La mia posizione" (solo per la partenza), i recenti a
 // campo vuoto e poi i risultati con tipo, distanza e regione.
 @Composable
-private fun PlannerSearch(field: PlannerField, viewModel: NavigationPlannerViewModel, recents: List<NavigationPlace>) {
-    val query by viewModel.query.collectAsStateWithLifecycle()
-    val results by viewModel.results.collectAsStateWithLifecycle()
+private fun PlannerSearch(
+    field: PlannerField,
+    query: String,
+    results: List<PlannerResult>,
+    recents: List<NavigationPlace>,
+    onQueryChange: (String) -> Unit,
+    onBack: () -> Unit,
+    onUseMyPosition: () -> Unit,
+    onChoose: (NavigationPlace) -> Unit,
+) {
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
     Surface(modifier = Modifier.fillMaxSize()) {
         Column {
             TextField(
                 value = query,
-                onValueChange = viewModel::setQuery,
+                onValueChange = onQueryChange,
                 placeholder = {
                     Text(stringResource(if (field == PlannerField.FROM) R.string.planner_search_start else R.string.planner_where_to))
                 },
                 leadingIcon = {
-                    IconButton(onClick = viewModel::cancelSearch) {
+                    IconButton(onClick = onBack) {
                         Icon(ImageVector.vectorResource(UiR.drawable.ms_arrow_back), contentDescription = stringResource(R.string.planner_back))
                     }
                 },
                 trailingIcon = if (query.isNotEmpty()) {
-                    { IconButton(onClick = { viewModel.setQuery("") }) { Icon(AppIcons.Close, contentDescription = stringResource(R.string.planner_clear)) } }
+                    { IconButton(onClick = { onQueryChange("") }) { Icon(AppIcons.Close, contentDescription = stringResource(R.string.planner_clear)) } }
                 } else {
                     null
                 },
@@ -883,7 +1016,7 @@ private fun PlannerSearch(field: PlannerField, viewModel: NavigationPlannerViewM
                         ListItem(
                             headlineContent = { Text(stringResource(R.string.planner_my_position)) },
                             leadingContent = { Icon(ImageVector.vectorResource(UiR.drawable.ms_my_location), contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                            modifier = Modifier.clickable(onClick = viewModel::useMyPosition),
+                            modifier = Modifier.clickable(onClick = onUseMyPosition),
                         )
                     }
                 }
@@ -892,7 +1025,7 @@ private fun PlannerSearch(field: PlannerField, viewModel: NavigationPlannerViewM
                         ListItem(
                             headlineContent = { Text(place.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             leadingContent = { Icon(ImageVector.vectorResource(UiR.drawable.ms_history), contentDescription = null) },
-                            modifier = Modifier.clickable { viewModel.choose(place) },
+                            modifier = Modifier.clickable { onChoose(place) },
                         )
                     }
                 } else if (results.isEmpty()) {
@@ -905,7 +1038,7 @@ private fun PlannerSearch(field: PlannerField, viewModel: NavigationPlannerViewM
                         )
                     }
                 } else {
-                    items(results) { result -> ResultRow(result, onClick = { viewModel.choose(result.place) }) }
+                    items(results) { result -> ResultRow(result, onClick = { onChoose(result.place) }) }
                 }
             }
         }

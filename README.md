@@ -116,6 +116,7 @@ L'app è scritta in Kotlin con Jetpack Compose. Il codice è diviso in moduli:
 | `tools/data-pipeline/` | gli script che preparano e pubblicano a turno, ogni notte, guide, mappe, punti di interesse e numeri civici, e quelli per generare i dataset e addestrare i modelli dell'assistente IA |
 | `tools/dev/` | strumenti per lo sviluppo, come la simulazione del GPS lungo un percorso sull'emulatore |
 | `third-party/` | copie di BRouter e llama.cpp usate dall'app |
+| `build-logic/` | configurazione Gradle comune ai moduli Android (SDK, Java, Compose, Hilt, detekt) |
 
 Per aprire il progetto serve Android Studio con JDK 17 o successivo: basta aprire la cartella (Gradle è già incluso).
 

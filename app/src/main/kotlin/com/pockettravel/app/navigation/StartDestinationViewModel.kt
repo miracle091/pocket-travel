@@ -18,8 +18,8 @@ class StartDestinationViewModel @Inject constructor(
 ) : ViewModel() {
     private val onboardingCompleted = onboardingPreferences.isCompleted()
 
-    val startDestination: String =
-        if (onboardingCompleted) PocketTravelDestinations.REGIONS else PocketTravelDestinations.ONBOARDING
+    val startDestination: Any =
+        if (onboardingCompleted) RegionsRoute else OnboardingRoute
 
     val initialRegionId: String? = if (onboardingCompleted) recentRegionPreferences.lastRegionId() else null
 }

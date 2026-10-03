@@ -17,9 +17,20 @@ Le cose da sapere per lavorare su Pocket Travel. Il **perché** delle scelte tec
 Prima di ogni commit, lancia gli stessi controlli della CI (`.github/workflows/android-ci.yml`):
 
 ```bash
-./gradlew assembleDebug lint testDebugUnitTest :core:poi:test :tools:data-pipeline:content:test --continue
+./gradlew assembleDebug lint detekt testDebugUnitTest :core:poi:test :tools:data-pipeline:content:test --continue
 for t in tools/data-pipeline/scripts/test_*.py; do python "$t" || break; done
 ```
+
+detekt segnala solo i problemi nuovi: quelli già presenti stanno nel `detekt-baseline.xml` di ogni modulo. Rigenera il baseline di un modulo (`./gradlew :feature:map:detektBaseline`) solo quando sposti codice che contiene già un problema registrato, non per far passare codice nuovo.
+
+I test di interfaccia (`src/androidTest`, con `createComposeRule`) girano sull'emulatore: installa l'APK dei test del modulo e lancia la classe, per esempio:
+
+```bash
+./gradlew :feature:guide:installDebugAndroidTest --no-parallel
+adb shell am instrument -w -e class com.pockettravel.feature.guide.GuideContentDeviceTest com.pockettravel.feature.guide.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+`--no-parallel` evita che più APK di test, compilati insieme, esauriscano la memoria di Gradle.
 
 I test sul dispositivo (migrazioni del database, installazione dei pacchetti) girano con un emulatore acceso:
 

@@ -1,6 +1,6 @@
 package com.pockettravel.core.sync
 
-import java.util.Locale
+import com.pockettravel.core.data.currentGuidesLanguage
 
 /**
  * Pacchetto guide da installare e versione con cui registrarlo in installed_guides. Le guide inglesi
@@ -9,9 +9,6 @@ import java.util.Locale
  * farebbe riscaricare nulla.
  */
 data class GuidesChoice(val entry: GuidesManifestEntry, val installedVersion: String)
-
-/** "en" se l'interfaccia e' in inglese, "it" altrimenti (le guide esistono solo in queste due lingue). */
-fun currentGuidesLanguage(): String = if (Locale.getDefault().language == "en") "en" else "it"
 
 fun RegionManifest.guidesChoice(language: String = currentGuidesLanguage()): GuidesChoice {
     val english = guidesEn?.takeIf { language == "en" }

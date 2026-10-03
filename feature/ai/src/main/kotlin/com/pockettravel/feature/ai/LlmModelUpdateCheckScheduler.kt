@@ -1,6 +1,7 @@
 package com.pockettravel.feature.ai
 
 import android.content.Context
+import com.pockettravel.core.data.UpdateCheck
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
@@ -14,7 +15,7 @@ import javax.inject.Inject
 
 class LlmModelUpdateCheckScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
-) {
+) : UpdateCheck {
     private val workManager get() = WorkManager.getInstance(context)
 
     // Anche su dati cellulari: manifest.json e' pochi KB, non il modello IA vero e proprio
@@ -33,7 +34,7 @@ class LlmModelUpdateCheckScheduler @Inject constructor(
     }
 
     /** Controllo manuale immediato (es. tasto "Controlla aggiornamenti"), in aggiunta a quello periodico sopra. */
-    fun checkNow() {
+    override fun checkNow() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()

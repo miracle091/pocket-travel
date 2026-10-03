@@ -160,6 +160,20 @@ internal fun VaccinationCard(state: VaccinationUiState, onClick: () -> Unit, mod
     }
 }
 
+// Azioni del contenuto, raccolte per separarlo dal ViewModel (come AiActions): i test le sostituiscono con lambda.
+internal class VaccinationActions(
+    val setDeparture: (String) -> Unit,
+    val addRecentCountry: (String) -> Unit,
+    val removeRecentCountry: (String) -> Unit,
+    val addTransit: () -> Unit,
+    val updateTransit: (id: Int, change: (TransitInput) -> TransitInput) -> Unit,
+    val removeTransit: (Int) -> Unit,
+    val setChildUnderOne: (Boolean) -> Unit,
+    val setChildMonths: (Int?) -> Unit,
+    val setStayOverFourWeeks: (Boolean) -> Unit,
+    val setHajj: (Boolean) -> Unit,
+)
+
 // Schermata a tutto schermo sopra la scheda Guida, come l'elenco delle citta' (CitiesDialog): nessuna rotta
 // del NavHost, il back chiude il dialogo.
 @OptIn(ExperimentalMaterial3Api::class)
@@ -170,6 +184,20 @@ internal fun VaccinationDialog(
     onDismiss: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val actions = remember(viewModel) {
+        VaccinationActions(
+            setDeparture = viewModel::setDeparture,
+            addRecentCountry = viewModel::addRecentCountry,
+            removeRecentCountry = viewModel::removeRecentCountry,
+            addTransit = viewModel::addTransit,
+            updateTransit = viewModel::updateTransit,
+            removeTransit = viewModel::removeTransit,
+            setChildUnderOne = viewModel::setChildUnderOne,
+            setChildMonths = viewModel::setChildMonths,
+            setStayOverFourWeeks = viewModel::setStayOverFourWeeks,
+            setHajj = viewModel::setHajj,
+        )
+    }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(
             topBar = {
@@ -184,16 +212,16 @@ internal fun VaccinationDialog(
             },
         ) { innerPadding ->
             Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.TopCenter) {
-                VaccinationContent(state, viewModel, onOpenSource)
+                VaccinationContent(state, actions, onOpenSource)
             }
         }
     }
 }
 
 @Composable
-private fun VaccinationContent(
+internal fun VaccinationContent(
     state: VaccinationUiState,
-    viewModel: VaccinationViewModel,
+    actions: VaccinationActions,
     onOpenSource: (url: String, title: String) -> Unit,
 ) {
     var picking by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -205,7 +233,7 @@ private fun VaccinationContent(
     ) {
         // L'avviso viene prima di tutto, anche del percorso: e' la prima cosa che si legge.
         item(key = "disclaimer") { DisclaimerCard() }
-        item(key = "route") { RouteCard(state, viewModel, onPick = { picking = it }) }
+        item(key = "route") { RouteCard(state, actions, onPick = { picking = it }) }
         if (result == null) {
             // senza partenza basta il "Scegli il paese" del percorso; con partenza uguale alla destinazione lo si dice
             if (state.departure != null) {
@@ -239,9 +267,9 @@ private fun VaccinationContent(
             selected = selected,
             onSelect = { country ->
                 when (target) {
-                    PICK_DEPARTURE -> viewModel.setDeparture(country)
-                    PICK_RECENT -> viewModel.addRecentCountry(country)
-                    else -> viewModel.updateTransit(target) { it.copy(country = country) }
+                    PICK_DEPARTURE -> actions.setDeparture(country)
+                    PICK_RECENT -> actions.addRecentCountry(country)
+                    else -> actions.updateTransit(target) { it.copy(country = country) }
                 }
                 picking = null
             },
@@ -254,7 +282,7 @@ private fun VaccinationContent(
 // default) e le domande che cambiano il risultato.
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun RouteCard(state: VaccinationUiState, viewModel: VaccinationViewModel, onPick: (Int) -> Unit) {
+private fun RouteCard(state: VaccinationUiState, actions: VaccinationActions, onPick: (Int) -> Unit) {
     var previousExpanded by rememberSaveable { mutableStateOf(false) }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(vertical = Spacing.s)) {
@@ -271,12 +299,12 @@ private fun RouteCard(state: VaccinationUiState, viewModel: VaccinationViewModel
                 TransitEditor(
                     transit = transit,
                     onPickCountry = { onPick(transit.id) },
-                    onChange = { change -> viewModel.updateTransit(transit.id, change) },
-                    onRemove = { viewModel.removeTransit(transit.id) },
+                    onChange = { change -> actions.updateTransit(transit.id, change) },
+                    onRemove = { actions.removeTransit(transit.id) },
                 )
             }
             TextButton(
-                onClick = viewModel::addTransit,
+                onClick = actions.addTransit,
                 modifier = Modifier.padding(horizontal = Spacing.s),
             ) {
                 Icon(AppIcons.Add, contentDescription = null)
@@ -315,7 +343,7 @@ private fun RouteCard(state: VaccinationUiState, viewModel: VaccinationViewModel
                             val name = countryName(code)
                             InputChip(
                                 selected = false,
-                                onClick = { viewModel.removeRecentCountry(code) },
+                                onClick = { actions.removeRecentCountry(code) },
                                 label = { Text(name) },
                                 trailingIcon = {
                                     Icon(
@@ -336,15 +364,15 @@ private fun RouteCard(state: VaccinationUiState, viewModel: VaccinationViewModel
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.s))
 
-            SwitchRow(stringResource(R.string.vacc_child), state.childUnderOne, viewModel::setChildUnderOne)
+            SwitchRow(stringResource(R.string.vacc_child), state.childUnderOne, actions.setChildUnderOne)
             AnimatedVisibility(visible = state.childUnderOne) {
-                ChildMonthsField(state.childMonths, viewModel::setChildMonths)
+                ChildMonthsField(state.childMonths, actions.setChildMonths)
             }
             if (state.polioRelevant) {
-                SwitchRow(stringResource(R.string.vacc_stay_4w), state.stayOverFourWeeks, viewModel::setStayOverFourWeeks)
+                SwitchRow(stringResource(R.string.vacc_stay_4w), state.stayOverFourWeeks, actions.setStayOverFourWeeks)
             }
             if (state.destination.equals("SA", ignoreCase = true)) {
-                SwitchRow(stringResource(R.string.vacc_hajj), state.hajj, viewModel::setHajj)
+                SwitchRow(stringResource(R.string.vacc_hajj), state.hajj, actions.setHajj)
             }
         }
     }

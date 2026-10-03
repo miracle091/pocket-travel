@@ -1,0 +1,24 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:GuideScreen.kt:generalNumber != null &amp;&amp; generalNumber == police &amp;&amp; generalNumber == ambulance &amp;&amp; generalNumber == fire</ID>
+    <ID>CyclomaticComplexMethod:GuideScreen.kt:@Composable private fun GuideCategory.icon: ImageVector</ID>
+    <ID>CyclomaticComplexMethod:GuideScreen.kt:@StringRes private fun GuideCategory.displayName: Int</ID>
+    <ID>CyclomaticComplexMethod:VaccinationScreen.kt:@Composable private fun VaccinationItem.reasonText: String?</ID>
+    <ID>MagicNumber:GuideScreen.kt:10</ID>
+    <ID>MagicNumber:GuideScreen.kt:1000</ID>
+    <ID>MagicNumber:GuideScreen.kt:1_000_000</ID>
+    <ID>MagicNumber:VaccinationScreen.kt:11</ID>
+    <ID>MagicNumber:VaccinationScreen.kt:180f</ID>
+    <ID>MagicNumber:VaccinationScreen.kt:3</ID>
+    <ID>ReturnCount:VaccinationViewModel.kt:VaccinationViewModel$private fun recompute: VaccinationUiState</ID>
+    <ID>SwallowedException:GuideViewModel.kt:GuideViewModel$error: Exception</ID>
+    <ID>SwallowedException:VaccinationViewModel.kt:VaccinationViewModel$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:GuideViewModel.kt:GuideViewModel$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:VaccinationViewModel.kt:VaccinationViewModel$error: Exception</ID>
+    <ID>TooManyFunctions:GuideScreen.kt:com.pockettravel.feature.guide.GuideScreen.kt</ID>
+    <ID>TooManyFunctions:VaccinationScreen.kt:com.pockettravel.feature.guide.VaccinationScreen.kt</ID>
+    <ID>TooManyFunctions:VaccinationViewModel.kt:VaccinationViewModel : ViewModel</ID>
+  </CurrentIssues>
+</SmellBaseline>

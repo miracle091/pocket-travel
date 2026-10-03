@@ -1,0 +1,97 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:Rd5Merger.kt:Rd5Merger$private fun write</ID>
+    <ID>CyclomaticComplexMethod:RegionRepository.kt:RegionRepository$suspend fun removePackage</ID>
+    <ID>CyclomaticComplexMethod:TransitBoard.kt:fun transitModeOf: TransitMode</ID>
+    <ID>CyclomaticComplexMethod:TransitBoard.kt:internal fun readFeedBoard: TransitBoard?</ID>
+    <ID>CyclomaticComplexMethod:VaccinationEngine.kt:fun evaluateVaccinations: VaccinationResult</ID>
+    <ID>CyclomaticComplexMethod:VaccinationRepository.kt:internal fun vaccinationDataFrom: VaccinationData</ID>
+    <ID>CyclomaticComplexMethod:VaccinationSummary.kt:fun VaccinationResult.toSummaryText: String</ID>
+    <ID>CyclomaticComplexMethod:VaccinationSummary.kt:private fun itemLine: String</ID>
+    <ID>CyclomaticComplexMethod:VaccinationSummary.kt:private fun vaccineName: String</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:RegionZonePreferences.kt:RegionZone.Companion$(minLon, minLat, maxLon, maxLat)</ID>
+    <ID>EmptyElseBlock:RegionStorage.kt:RegionStorage$if (hadPrevious) { backup.renameTo(live); pending.delete() }</ID>
+    <ID>EmptyElseBlock:RegionStorage.kt:RegionStorage.Activation$if (hadPrevious) backup.renameTo(live)</ID>
+    <ID>EmptyFunctionBlock:GuideRepositoryTest.kt:FakeGuideDao${}</ID>
+    <ID>LongMethod:Migrations.kt:&lt;no name provided&gt;$override fun migrate</ID>
+    <ID>LongMethod:Rd5Merger.kt:Rd5Merger$private fun write</ID>
+    <ID>LongMethod:VaccinationEngine.kt:fun evaluateVaccinations: VaccinationResult</ID>
+    <ID>LongMethod:VaccinationRepository.kt:internal fun vaccinationDataFrom: VaccinationData</ID>
+    <ID>LongMethod:VaccinationSummary.kt:fun VaccinationResult.toSummaryText: String</ID>
+    <ID>LoopWithTooManyJumpStatements:AddressSearchRepository.kt:AddressSearchRepository$for</ID>
+    <ID>LoopWithTooManyJumpStatements:TransitBoard.kt:for</ID>
+    <ID>MagicNumber:AddressSearch.kt:1e6</ID>
+    <ID>MagicNumber:DiplomaticMissionRepository.kt:6371.0</ID>
+    <ID>MagicNumber:DiplomaticMissionRepository.kt:7</ID>
+    <ID>MagicNumber:DiplomaticMissionRepository.kt:8</ID>
+    <ID>MagicNumber:FtsRanking.kt:0xFF</ID>
+    <ID>MagicNumber:FtsRanking.kt:16</ID>
+    <ID>MagicNumber:FtsRanking.kt:24</ID>
+    <ID>MagicNumber:FtsRanking.kt:3</ID>
+    <ID>MagicNumber:FtsRanking.kt:8</ID>
+    <ID>MagicNumber:KeystoreCipher.kt:KeystoreCipher$256</ID>
+    <ID>MagicNumber:NoteRepository.kt:3</ID>
+    <ID>MagicNumber:Rd5Merger.kt:Rd5Merger$32</ID>
+    <ID>MagicNumber:Rd5Merger.kt:Rd5Merger$48</ID>
+    <ID>MagicNumber:Rd5Merger.kt:Rd5Merger.Rd5$0xFFFFFFFFFFFFL</ID>
+    <ID>MagicNumber:Rd5Merger.kt:Rd5Merger.Rd5$32</ID>
+    <ID>MagicNumber:Rd5Merger.kt:Rd5Merger.Rd5$48</ID>
+    <ID>MagicNumber:Rd5Merger.kt:Rd5Merger.Rd5$80</ID>
+    <ID>MagicNumber:RegionZonePreferences.kt:RegionZone.Companion$4</ID>
+    <ID>MagicNumber:TransitBoard.kt:0.114</ID>
+    <ID>MagicNumber:TransitBoard.kt:0.299</ID>
+    <ID>MagicNumber:TransitBoard.kt:0.587</ID>
+    <ID>MagicNumber:TransitBoard.kt:100</ID>
+    <ID>MagicNumber:TransitBoard.kt:1000</ID>
+    <ID>MagicNumber:TransitBoard.kt:1099</ID>
+    <ID>MagicNumber:TransitBoard.kt:11</ID>
+    <ID>MagicNumber:TransitBoard.kt:12</ID>
+    <ID>MagicNumber:TransitBoard.kt:1300</ID>
+    <ID>MagicNumber:TransitBoard.kt:1499</ID>
+    <ID>MagicNumber:TransitBoard.kt:150</ID>
+    <ID>MagicNumber:TransitBoard.kt:16</ID>
+    <ID>MagicNumber:TransitBoard.kt:199</ID>
+    <ID>MagicNumber:TransitBoard.kt:1e6</ID>
+    <ID>MagicNumber:TransitBoard.kt:200</ID>
+    <ID>MagicNumber:TransitBoard.kt:299</ID>
+    <ID>MagicNumber:TransitBoard.kt:3</ID>
+    <ID>MagicNumber:TransitBoard.kt:4</ID>
+    <ID>MagicNumber:TransitBoard.kt:400</ID>
+    <ID>MagicNumber:TransitBoard.kt:499</ID>
+    <ID>MagicNumber:TransitBoard.kt:5</ID>
+    <ID>MagicNumber:TransitBoard.kt:6</ID>
+    <ID>MagicNumber:TransitBoard.kt:7</ID>
+    <ID>MagicNumber:TransitBoard.kt:700</ID>
+    <ID>MagicNumber:TransitBoard.kt:799</ID>
+    <ID>MagicNumber:TransitBoard.kt:8</ID>
+    <ID>MagicNumber:TransitBoard.kt:800</ID>
+    <ID>MagicNumber:TransitBoard.kt:899</ID>
+    <ID>MagicNumber:TransitBoard.kt:900</ID>
+    <ID>MagicNumber:TransitBoard.kt:999</ID>
+    <ID>MagicNumber:VaccinationModel.kt:TransitRule.GT12H$12</ID>
+    <ID>MagicNumber:VaccinationModel.kt:TransitRule.GT24H$24</ID>
+    <ID>MagicNumber:VaccinationModel.kt:TransitRule.GT4H$4</ID>
+    <ID>MatchingDeclarationName:AddressSearchMerger.kt:MergeDb</ID>
+    <ID>ReturnCount:AddressSearch.kt:fun parseAddressQuery: AddressQuery</ID>
+    <ID>ReturnCount:AddressSearch.kt:internal fun readAddressOrigin: AddressOrigin?</ID>
+    <ID>ReturnCount:AddressSearch.kt:internal fun searchAddressDb: List&lt;AddressResult&gt;</ID>
+    <ID>ReturnCount:DiplomaticMissionRepository.kt:private fun sameName: Boolean</ID>
+    <ID>ReturnCount:KeystoreCipher.kt:KeystoreCipher$fun decrypt: String?</ID>
+    <ID>ReturnCount:LastKnownPosition.kt:LastKnownPosition$fun get: Pair&lt;Double, Double&gt;?</ID>
+    <ID>ReturnCount:NoteRepository.kt:NoteRepository$private fun NoteEntity.toDomainOrNull: Note?</ID>
+    <ID>ReturnCount:RegionRepository.kt:RegionRepository$suspend fun forgetMissingPackages: Set&lt;PackageKind&gt;</ID>
+    <ID>ReturnCount:RegionStorage.kt:RegionStorage$fun versionedPmtiles: File?</ID>
+    <ID>ReturnCount:SessionAesCipher.kt:SessionAesCipher$fun decrypt: String?</ID>
+    <ID>ReturnCount:TransitBoard.kt:internal fun parseGtfsColor: Int?</ID>
+    <ID>ReturnCount:TransitBoard.kt:internal fun readFeedBoard: TransitBoard?</ID>
+    <ID>TooGenericExceptionCaught:Rd5Merger.kt:Rd5Merger$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:Rd5Merger.kt:Rd5Merger.Rd5$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:RegionStorage.kt:RegionStorage$error: Exception</ID>
+    <ID>TooManyFunctions:DiplomaticMissionRepository.kt:com.pockettravel.core.data.DiplomaticMissionRepository.kt</ID>
+    <ID>TooManyFunctions:RegionRepository.kt:RegionRepository</ID>
+    <ID>TooManyFunctions:RegionStorage.kt:RegionStorage</ID>
+    <ID>TooManyFunctions:VaccinationDao.kt:VaccinationDao</ID>
+  </CurrentIssues>
+</SmellBaseline>

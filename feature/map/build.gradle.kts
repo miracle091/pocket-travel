@@ -1,34 +1,15 @@
 plugins {
-    alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.ksp)
-    alias(libs.plugins.hilt.plugin)
+    id("pockettravel.android.library")
+    id("pockettravel.android.compose")
+    id("pockettravel.hilt")
 }
 
 android {
     namespace = "com.pockettravel.feature.map"
-    compileSdk = 37
-
-    defaultConfig {
-        minSdk = 26
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
 
     buildFeatures {
-        compose = true
         // BuildConfig.DEBUG: il percorso nel log solo in debug, per la simulazione GPS sull'emulatore.
         buildConfig = true
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -37,15 +18,10 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":third-party:brouter-core"))
     implementation(libs.maplibre.android.sdk)
-    implementation(platform(libs.compose.bom))
-    implementation(libs.compose.ui)
-    implementation(libs.compose.material3)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     // Richiesta del permesso di posizione dalla schermata di navigazione.
     implementation(libs.androidx.activity.compose)
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit)
 

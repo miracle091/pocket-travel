@@ -21,8 +21,8 @@ import com.pockettravel.app.navigation.PocketTravelNavHost
 import com.pockettravel.app.settings.AppLanguage
 import com.pockettravel.app.settings.ThemePreferences
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.currentGuidesLanguage
 import com.pockettravel.core.sync.RegionSyncScheduler
-import com.pockettravel.core.sync.currentGuidesLanguage
 import com.pockettravel.core.sync.isEnglishGuidesVersion
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.feature.map.NavigationService

@@ -1,37 +1,32 @@
 package com.pockettravel.app.navigation
 
-import android.net.Uri
+import kotlinx.serialization.Serializable
 
-object PocketTravelDestinations {
-    const val ONBOARDING = "onboarding"
-    const val TUTORIAL = "tutorial"
-    const val REGIONS = "regions"
-    const val STORAGE = "storage"
-    const val SOURCES = "sources"
-    const val LICENSES = "licenses"
-    const val VAULT = "vault"
-    const val MORE = "more"
-    const val NAVIGATOR = "navigator"
-    const val SETTINGS = "settings"
+// Rotte type-safe di Navigation Compose: gli argomenti sono proprieta' tipizzate e la libreria li
+// codifica da sola nella rotta (url e titolo del browser contengono ':' '/' '?' '&').
 
-    const val ARG_REGION_ID = "regionId"
-    const val ARG_TAB = "tab"
-    const val REGION_HUB_PATTERN = "region/{$ARG_REGION_ID}?tab={$ARG_TAB}"
+@Serializable data object OnboardingRoute
 
-    fun regionHub(regionId: String, tab: String = "guide") = "region/$regionId?tab=$tab"
+@Serializable data object TutorialRoute
 
-    const val ARG_URL = "url"
-    const val ARG_TITLE = "title"
-    const val IN_APP_BROWSER_PATTERN = "browser?$ARG_URL={$ARG_URL}&$ARG_TITLE={$ARG_TITLE}"
+@Serializable data object RegionsRoute
 
-    // url/title vanno con URL-encoding esplicito: contengono ':' '/' '?' '&', tutti caratteri che
-    // altrimenti spezzerebbero il parsing della rotta di Navigation Compose.
-    fun inAppBrowser(url: String, title: String) =
-        "browser?$ARG_URL=${Uri.encode(url)}&$ARG_TITLE=${Uri.encode(title)}"
+@Serializable data object StorageRoute
 
-    const val ARG_NAME = "name"
-    const val REGION_PREVIEW_PATTERN = "region-preview/{$ARG_REGION_ID}?$ARG_NAME={$ARG_NAME}"
+@Serializable data object SourcesRoute
 
-    fun regionPreview(regionId: String, displayName: String) =
-        "region-preview/$regionId?$ARG_NAME=${Uri.encode(displayName)}"
-}
+@Serializable data object LicensesRoute
+
+@Serializable data object VaultRoute
+
+@Serializable data object MoreRoute
+
+@Serializable data object NavigatorRoute
+
+@Serializable data object SettingsRoute
+
+@Serializable data class RegionHubRoute(val regionId: String, val tab: String = "guide")
+
+@Serializable data class RegionPreviewRoute(val regionId: String, val name: String = "")
+
+@Serializable data class InAppBrowserRoute(val url: String, val title: String = "")

@@ -13,8 +13,8 @@ import com.pockettravel.app.R
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionPackage
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.UpdateCheck
 import com.pockettravel.core.sync.AddressGridClient
-import com.pockettravel.core.sync.AppUpdateCheckScheduler
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
@@ -28,7 +28,6 @@ import com.pockettravel.core.sync.withRoutingVariant
 import com.pockettravel.core.sync.attachTransitFeeds
 import com.pockettravel.core.sync.guidesChoice
 import com.pockettravel.core.ui.countryName
-import com.pockettravel.feature.ai.LlmModelUpdateCheckScheduler
 import com.pockettravel.feature.map.UsageModePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
@@ -128,8 +127,7 @@ class RegionListViewModel @Inject constructor(
     private val transitClient: TransitClient,
     private val regionRepository: RegionRepository,
     private val regionSyncScheduler: RegionSyncScheduler,
-    private val appUpdateCheckScheduler: AppUpdateCheckScheduler,
-    private val llmModelUpdateCheckScheduler: LlmModelUpdateCheckScheduler,
+    private val updateChecks: Set<@JvmSuppressWildcards UpdateCheck>,
     private val usageModePreferences: UsageModePreferences,
     private val transitNetworkPreferences: TransitNetworkPreferences,
     private val mapDetailPreferences: MapDetailPreferences,
@@ -250,8 +248,7 @@ class RegionListViewModel @Inject constructor(
      *  + versione app e modello IA (in background, notificano se c'e' un aggiornamento). */
     fun checkForUpdatesNow() {
         refresh()
-        appUpdateCheckScheduler.checkNow()
-        llmModelUpdateCheckScheduler.checkNow()
+        updateChecks.forEach { it.checkNow() }
     }
 
     fun onQueryChange(newQuery: String) {

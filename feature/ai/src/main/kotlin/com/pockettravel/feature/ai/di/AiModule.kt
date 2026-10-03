@@ -1,11 +1,16 @@
 package com.pockettravel.feature.ai.di
 
 import android.content.Context
+import com.pockettravel.core.data.AppInitializer
+import com.pockettravel.core.data.UpdateCheck
+import com.pockettravel.feature.ai.AiInitializer
+import com.pockettravel.feature.ai.LlmModelUpdateCheckScheduler
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
 import java.io.File
 import javax.inject.Qualifier
 import javax.inject.Singleton
@@ -26,4 +31,12 @@ object AiModule {
     @AiModelsDir
     fun provideAiModelsDir(@ApplicationContext context: Context): File =
         File(context.filesDir, "models").apply { mkdirs() }
+
+    @Provides
+    @IntoSet
+    fun provideAiInitializer(initializer: AiInitializer): AppInitializer = initializer
+
+    @Provides
+    @IntoSet
+    fun provideModelUpdateCheck(scheduler: LlmModelUpdateCheckScheduler): UpdateCheck = scheduler
 }

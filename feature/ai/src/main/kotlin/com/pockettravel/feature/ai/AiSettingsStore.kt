@@ -3,7 +3,7 @@ package com.pockettravel.feature.ai
 import android.content.Context
 import androidx.core.content.edit
 import com.pockettravel.core.data.crypto.KeystoreCipher
-import com.pockettravel.core.sync.currentGuidesLanguage
+import com.pockettravel.core.data.currentGuidesLanguage
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

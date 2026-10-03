@@ -1,18 +1,16 @@
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.ksp)
-    alias(libs.plugins.hilt.plugin)
+    id("pockettravel.android.application")
+    id("pockettravel.android.compose")
+    id("pockettravel.hilt")
+    // Rotte type-safe di Navigation Compose (PocketTravelDestinations).
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
     namespace = "com.pockettravel.app"
-    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.pockettravel.app"
-        minSdk = 26
-        targetSdk = 36
         versionCode = 10
         versionName = "0.9.0"
     }
@@ -39,10 +37,6 @@ android {
         }
     }
 
-    buildFeatures {
-        compose = true
-    }
-
     // La lingua si sceglie dentro l'app (AppLanguage): un bundle diviso per lingua non avrebbe le
     // stringhe delle lingue diverse da quella del telefono.
     bundle {
@@ -60,21 +54,10 @@ android {
         }
     }
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
     // Timber arriva solo come dipendenza transitiva di MapLibre, insieme al suo controllo lint:
     // il progetto usa android.util.Log ovunque, quindi "usa Timber" non si applica.
     lint {
         disable += "LogNotTimber"
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -94,21 +77,25 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.compose.bom))
-    implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
-    implementation(libs.compose.material3)
     implementation(libs.compose.material3.adaptive.navigation.suite)
     implementation(libs.compose.material3.adaptive)
     implementation(libs.navigation.compose)
-    implementation(libs.hilt.android)
     implementation(libs.hilt.lifecycle.viewmodel.compose)
     implementation(libs.work.runtime.ktx)
     implementation(libs.hilt.work)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.fragment.ktx)
-    ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit)
+
+    androidTestImplementation(libs.navigation.testing)
+    // L'APK dei test usa le stesse versioni dell'app (consistent resolution di AGP): ui-test-junit4 e
+    // navigation-testing chiedono versioni un po' piu' recenti di queste due librerie, quindi l'app le alza.
+    constraints {
+        implementation("androidx.concurrent:concurrent-futures:1.2.0")
+        implementation("androidx.concurrent:concurrent-futures-ktx:1.2.0")
+        implementation("com.google.errorprone:error_prone_annotations:2.30.0")
+    }
 }

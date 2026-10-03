@@ -9,12 +9,12 @@ import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.Note
 import com.pockettravel.core.data.NoteRepository
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.currentGuidesLanguage
 import com.pockettravel.core.data.officialSourceFor
 import com.pockettravel.core.data.vaccination.Trip
 import com.pockettravel.core.data.vaccination.VaccinationPreferences
 import com.pockettravel.core.data.vaccination.VaccinationRepository
 import com.pockettravel.core.data.vaccination.toSummaryText
-import com.pockettravel.core.sync.currentGuidesLanguage
 import javax.inject.Inject
 
 data class AssistantAnswer(

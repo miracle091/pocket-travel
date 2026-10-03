@@ -1,0 +1,20 @@
+# Regole di detekt sopra la configurazione di default (buildUponDefaultConfig), adattate a Compose:
+# le funzioni @Composable si chiamano in PascalCase e ricevono molti parametri (stato e callback)
+# per scelta. I problemi gia' presenti stanno nel detekt-baseline.xml di ogni modulo: la CI fallisce
+# solo sui nuovi.
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']
+
+complexity:
+  LongParameterList:
+    ignoreAnnotated: ['Composable']
+  LongMethod:
+    ignoreAnnotated: ['Composable']
+
+style:
+  # Il progetto non fissa una lunghezza massima delle righe (molte superano i 120 caratteri).
+  MaxLineLength:
+    active: false
+  UnusedPrivateFunction:
+    ignoreAnnotated: ['Preview']

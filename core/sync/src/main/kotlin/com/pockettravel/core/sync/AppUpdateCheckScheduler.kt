@@ -1,6 +1,7 @@
 package com.pockettravel.core.sync
 
 import android.content.Context
+import com.pockettravel.core.data.UpdateCheck
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
@@ -14,7 +15,7 @@ import javax.inject.Inject
 
 class AppUpdateCheckScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
-) {
+) : UpdateCheck {
     private val workManager get() = WorkManager.getInstance(context)
 
     // Anche su dati cellulari: app-status.json e' pochi byte, non l'APK vero e proprio - il
@@ -31,7 +32,7 @@ class AppUpdateCheckScheduler @Inject constructor(
     }
 
     /** Controllo manuale immediato (es. tasto "Controlla aggiornamenti"), in aggiunta a quello periodico sopra. */
-    fun checkNow() {
+    override fun checkNow() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()

@@ -1,0 +1,53 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:RegionListViewModel.kt:RegionListViewModel$zone != null &amp;&amp; (zone.maxLon &lt;= source.minLon || zone.minLon &gt;= source.maxLon || zone.maxLat &lt;= source.minLat || zone.minLat &gt;= source.maxLat)</ID>
+    <ID>CyclomaticComplexMethod:MissingRoutingRegions.kt:internal fun landPath: List&lt;String&gt;?</ID>
+    <ID>CyclomaticComplexMethod:MissingRoutingRegions.kt:internal fun missingRoutingRegions: List&lt;RegionManifestEntry&gt;</ID>
+    <ID>CyclomaticComplexMethod:OnboardingRegionStep.kt:@Composable internal fun OnboardingRegionStep</ID>
+    <ID>CyclomaticComplexMethod:OnboardingRegionStep.kt:@OptIn(ExperimentalLayoutApi::class) @Composable private fun OnboardingRegionRow</ID>
+    <ID>CyclomaticComplexMethod:OnboardingScreen.kt:@Composable fun OnboardingScreen</ID>
+    <ID>CyclomaticComplexMethod:RegionHubScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun RegionHubScreen</ID>
+    <ID>CyclomaticComplexMethod:RegionListScreen.kt:@Composable internal fun RegionRow</ID>
+    <ID>CyclomaticComplexMethod:RegionListScreen.kt:@Composable private fun RegionGroupedList</ID>
+    <ID>CyclomaticComplexMethod:RegionListScreen.kt:@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class) @Composable internal fun RegionListContent</ID>
+    <ID>CyclomaticComplexMethod:RegionListViewModel.kt:internal fun regionUiItem: RegionUiItem</ID>
+    <ID>CyclomaticComplexMethod:RegionPackagesSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun RegionPackagesSheet</ID>
+    <ID>LoopWithTooManyJumpStatements:MissingRoutingRegions.kt:for</ID>
+    <ID>LoopWithTooManyJumpStatements:MissingRoutingRegions.kt:while</ID>
+    <ID>LoopWithTooManyJumpStatements:RegionZoneDialog.kt:for</ID>
+    <ID>MagicNumber:CountryLocator.kt:CountryLocator.Companion$10_000</ID>
+    <ID>MagicNumber:CountryLocator.kt:CountryLocator.Companion$4_000_000L</ID>
+    <ID>MagicNumber:MainActivity.kt:MainActivity$0x1b</ID>
+    <ID>MagicNumber:MainActivity.kt:MainActivity$0x80</ID>
+    <ID>MagicNumber:MainActivity.kt:MainActivity$0xe6</ID>
+    <ID>MagicNumber:MainActivity.kt:MainActivity$0xff</ID>
+    <ID>MagicNumber:OnboardingScreen.kt:200</ID>
+    <ID>MagicNumber:OnboardingScreen.kt:300</ID>
+    <ID>MagicNumber:OnboardingScreen.kt:6</ID>
+    <ID>MagicNumber:OnboardingScreen.kt:75</ID>
+    <ID>MagicNumber:PocketTravelNavHost.kt:3</ID>
+    <ID>MagicNumber:PocketTravelNavHost.kt:4</ID>
+    <ID>MagicNumber:RegionHubScreen.kt:250</ID>
+    <ID>MagicNumber:RegionListScreen.kt:100</ID>
+    <ID>MagicNumber:RegionListScreen.kt:114L</ID>
+    <ID>MagicNumber:RegionListScreen.kt:20</ID>
+    <ID>MagicNumber:RegionListScreen.kt:566L</ID>
+    <ID>MagicNumber:RegionListScreen.kt:76L</ID>
+    <ID>MagicNumber:RegionListScreen.kt:940L</ID>
+    <ID>MatchingDeclarationName:LicenseData.kt:LicenseEntry</ID>
+    <ID>ReturnCount:MissingRoutingRegions.kt:internal fun landPath: List&lt;String&gt;?</ID>
+    <ID>ReturnCount:RecommendedRegions.kt:internal fun recommendedRegions: List&lt;RegionUiItem&gt;</ID>
+    <ID>ReturnCount:RegionContainerTransform.kt:@Composable internal fun Modifier.regionContainer: Modifier</ID>
+    <ID>ReturnCount:RegionListViewModel.kt:RegionListViewModel$fun setZone</ID>
+    <ID>ReturnCount:RegionListViewModel.kt:RegionListViewModel$private fun enqueue: Boolean</ID>
+    <ID>ReturnCount:RegionListViewModel.kt:internal fun RegionManifestEntry.localizedNames: RegionManifestEntry</ID>
+    <ID>ReturnCount:RegionListViewModel.kt:internal fun localizedInstalledName: String</ID>
+    <ID>ReturnCount:RegionListViewModel.kt:private fun RegionManifestEntry.transitNetworks: List&lt;TransitNetworkUi&gt;</ID>
+    <ID>TooManyFunctions:PocketTravelNavHost.kt:com.pockettravel.app.navigation.PocketTravelNavHost.kt</ID>
+    <ID>TooManyFunctions:RegionListScreen.kt:com.pockettravel.app.regions.RegionListScreen.kt</ID>
+    <ID>TooManyFunctions:RegionListViewModel.kt:RegionListViewModel : ViewModel</ID>
+    <ID>TooManyFunctions:RegionPackagesSheet.kt:com.pockettravel.app.regions.RegionPackagesSheet.kt</ID>
+  </CurrentIssues>
+</SmellBaseline>
