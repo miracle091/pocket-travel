@@ -51,7 +51,13 @@ class WeatherRepository @Inject constructor(
                     // Salvata solo se si legge: una risposta rotta non sostituisce l'ultima buona.
                     parseForecast(json, body, Instant.now())
                     cacheDir.mkdirs()
-                    file.writeText(body)
+                    // Prima in un file a parte, poi al suo posto: una scrittura interrotta non lascia una risposta troncata.
+                    val partial = File.createTempFile("weather", ".part", cacheDir)
+                    partial.writeText(body)
+                    if (!partial.renameTo(file)) {
+                        partial.delete()
+                        throw IOException("Meteo non salvato")
+                    }
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -65,15 +71,17 @@ class WeatherRepository @Inject constructor(
     suspend fun coordinatesOf(city: String, countryCode: String): Pair<Double, Double>? = withContext(Dispatchers.IO) {
         val key = "${countryCode.uppercase(Locale.ROOT)}|$city"
         places.getString(key, null)?.split(',')?.let { (lat, lon) -> return@withContext lat.toDouble() to lon.toDouble() }
-        val result = geocodingCandidates(city).firstNotNullOfOrNull { name ->
+        val (name, result) = geocodingCandidates(city).firstNotNullOfOrNull { name ->
             val url = GEOCODING_URL.toHttpUrl().newBuilder()
                 .addQueryParameter("name", name)
                 .addQueryParameter("count", "1")
                 .addQueryParameter("countryCode", countryCode.uppercase(Locale.ROOT))
                 .build().toString()
-            json.decodeFromString(GeocodingResponse.serializer(), get(url)).results.firstOrNull()
+            json.decodeFromString(GeocodingResponse.serializer(), get(url)).results.firstOrNull()?.let { name to it }
         } ?: return@withContext null
-        places.edit { putString(key, "${result.latitude},${result.longitude}") }
+        // Si salvano solo le coordinate trovate col nome intero: un ripiego senza le prime parole ("Rotondo" per
+        // "San Giovanni Rotondo") puo' essere un altro luogo, e si riprova alla volta successiva.
+        if (name == city.trim() || name == withoutDisambiguator(city)) places.edit { putString(key, "${result.latitude},${result.longitude}") }
         result.latitude to result.longitude
     }
 
@@ -110,9 +118,12 @@ class WeatherRepository @Inject constructor(
  * ("Citta' di San Marino" e' "San Marino"); la ricerca resta limitata al paese.
  */
 internal fun geocodingCandidates(city: String): List<String> {
-    val words = city.replace(Regex("\\s*\\(.*?\\)"), "").trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    val words = withoutDisambiguator(city).split(Regex("\\s+")).filter { it.isNotEmpty() }
     return (listOf(city.trim()) + words.indices.map { words.drop(it).joinToString(" ") }).distinct()
 }
+
+// "Frankfurt (Oder)" -> "Frankfurt": senza il disambiguatore di Wikivoyage tra parentesi.
+private fun withoutDisambiguator(city: String): String = city.replace(Regex("\\s*\\(.*?\\)"), "").trim()
 
 // Nome di file sicuro per qualunque nome di citta' (spazi, apostrofi, alfabeti non latini).
 private fun String.toFileName(): String =
