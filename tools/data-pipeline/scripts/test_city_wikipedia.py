@@ -99,6 +99,16 @@ class WikipediaSectionsTest(unittest.TestCase):
         self.assertEqual({"Citta 0"}, set(result))
         self.assertIn("tempo esaurito, 1 voci", err.getvalue())
 
+    def test_un_lotto_fallito_non_fa_perdere_gli_altri(self):
+        titles = [f"Citta {i}" for i in range(city_wikipedia.CONTENT_BATCH + 1)]
+        page = {"title": "Citta 0", "revisions": [{"slots": {"main": {"content": "== Storia ==\nx"}}}]}
+        with mock.patch("city_wikipedia.city_population._get", side_effect=[{"query": {"pages": [page]}}, OSError("rete")]), \
+                mock.patch("city_wikipedia.time.sleep"), \
+                redirect_stderr(io.StringIO()) as err:
+            result = city_wikipedia.wikipedia_sections(titles, "it")
+        self.assertEqual({"Citta 0"}, set(result))
+        self.assertIn("lotto di voci saltato", err.getvalue())
+
 
 class AnnotateTest(unittest.TestCase):
     def test_aggiunge_wikipedia_solo_alle_citta_con_sezioni(self):

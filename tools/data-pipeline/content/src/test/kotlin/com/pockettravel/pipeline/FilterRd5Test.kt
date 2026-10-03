@@ -26,10 +26,11 @@ class FilterRd5Test {
     }
 
     @Test
-    fun `la variante auto si rilegge e non e' piu' grande`() {
+    fun `la variante auto si rilegge ed e' piu' piccola`() {
         val car = temp.newFile("car.rd5")
         Rd5CarFilter.rewrite(lookups, tile, car, true)
-        assertTrue(car.length() in 1..tile.length())
+        // Strettamente piu' piccola: il segmento di prova ha sentieri e marciapiedi, che il filtro deve togliere.
+        assertTrue("${car.length()} >= ${tile.length()}", car.length() in 1 until tile.length())
         // Rileggerla senza filtro la riscrive uguale: indici e CRC sono validi per il lettore di BRouter.
         val again = temp.newFile("again.rd5")
         Rd5CarFilter.rewrite(lookups, car, again, false)

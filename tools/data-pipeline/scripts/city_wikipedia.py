@@ -66,7 +66,13 @@ def wikipedia_titles(titles, lang, deadline=None):
             break
         url = (f"https://www.wikidata.org/w/api.php?action=wbgetentities&props=sitelinks&sitefilter={lang}wiki"
                "&format=json&ids=" + "|".join(ids[i:i + city_population.BATCH]))
-        for q, entity in city_population._get(url).get("entities", {}).items():
+        try:
+            entities = city_population._get(url).get("entities", {})
+        except Exception as e:
+            # Un lotto perso dopo i tentativi di _get non fa perdere gli altri.
+            print(f"-- Wikidata: lotto di sitelink saltato ({e})", file=sys.stderr)
+            continue
+        for q, entity in entities.items():
             if link := entity.get("sitelinks", {}).get(f"{lang}wiki"):
                 title_of_item[q] = link["title"]
         time.sleep(0.2)
@@ -84,7 +90,12 @@ def wikipedia_sections(titles, lang, deadline=None):
         params = {"action": "query", "prop": "revisions", "rvprop": "content", "rvslots": "main", "format": "json",
                   "formatversion": "2", "titles": "|".join(titles[i:i + CONTENT_BATCH])}
         while True:
-            data = city_population._get(f"https://{lang}.wikipedia.org/w/api.php?" + urllib.parse.urlencode(params))
+            try:
+                data = city_population._get(f"https://{lang}.wikipedia.org/w/api.php?" + urllib.parse.urlencode(params))
+            except Exception as e:
+                # Un lotto perso dopo i tentativi di _get non fa perdere le voci gia' lette.
+                print(f"-- Wikipedia: lotto di voci saltato ({e})", file=sys.stderr)
+                break
             for page in data.get("query", {}).get("pages", []):
                 if revisions := page.get("revisions"):
                     if text := sections(revisions[0]["slots"]["main"]["content"], SECTIONS[lang]):

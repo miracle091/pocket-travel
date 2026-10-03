@@ -59,6 +59,9 @@ llama-server -m qwen3-4b-instruct-2507-travel-it-Q4_K_M.gguf -c 8192
 Held-out test set of 428 hand-written questions over 11 countries never seen in training, phrased outside
 the training templates and with contexts shaped exactly like the app's (same text cleaning, line breaks and
 subheadings): 358 about the countries' guides and 70 about their cities (city pages of Italian Wikivoyage).
+Caveat: one of the 11 test countries, Fiji (Lau Islands), shares its Wikivoyage page with a training region
+(Western Fiji), so about 50 of its test rows had a paragraph also seen in training and its scores are slightly
+optimistic. The dataset generator now excludes regions that share a page with a test region.
 The previous version was measured again on this same set. GGUF evaluated with llama.cpp. Refusal rates (higher is better on negatives, lower is better
 on positives) and answer overlap with the expected extract (token F1, 0-1, higher is better):
 
