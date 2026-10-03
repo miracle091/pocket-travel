@@ -11,6 +11,9 @@ import kotlin.math.sqrt
 
 private const val HIDDEN_OVERFETCH = 4
 
+/** Il filtro "Con disabilita'" della mappa: tutti, senza i POI non accessibili, solo quelli accessibili. */
+enum class MapAccessibility { ALL, NO_INACCESSIBLE, ONLY_ACCESSIBLE }
+
 class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
     /**
      * I POI della regione dentro il riquadro, per i segnalini della mappa, senza le categorie [hiddenCategories]: tutti se
@@ -24,17 +27,18 @@ class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
      */
     suspend fun inBounds(
         regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, maxPois: Int, hiddenCategories: Set<PoiCategory> = emptySet(),
+        accessibility: MapAccessibility = MapAccessibility.ALL,
     ): AreaPois {
-        val tags = poiDao.categoryTagsInBounds(regionId, minLat, maxLat, minLon, maxLon)
+        val tags = poiDao.categoryTagsInBounds(regionId, minLat, maxLat, minLon, maxLon, accessibility.ordinal)
         val present = tags.mapTo(mutableSetOf()) { poiCategoryOf(it.category, it.osmTag) }
         val excluded = tags.filter { poiCategoryOf(it.category, it.osmTag) in hiddenCategories }.map { "${it.category}|${it.osmTag}" }
         // I POI non filtrati: dalle stesse righe per categoria, senza un'altra query di conteggio.
         val shown = tags.filter { poiCategoryOf(it.category, it.osmTag) !in hiddenCategories }.sumOf { it.count }
         val entities = if (shown <= maxPois) {
-            poiDao.poisInBounds(regionId, minLat, maxLat, minLon, maxLon, excluded)
+            poiDao.poisInBounds(regionId, minLat, maxLat, minLon, maxLon, excluded, accessibility.ordinal)
         } else {
             val side = sqrt(maxPois.toDouble())
-            poiDao.spreadInBounds(regionId, minLat, maxLat, minLon, maxLon, (maxLat - minLat) / side, (maxLon - minLon) / side, excluded)
+            poiDao.spreadInBounds(regionId, minLat, maxLat, minLon, maxLon, (maxLat - minLat) / side, (maxLon - minLon) / side, excluded, accessibility.ordinal)
         }
         return AreaPois(entities.map { it.toDomain() }, present)
     }

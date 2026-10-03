@@ -2,6 +2,7 @@ package com.pockettravel.feature.map
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pockettravel.core.data.MapAccessibility
 import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionZonePreferences
@@ -12,6 +13,7 @@ import com.pockettravel.core.data.isHiddenOnMap
 import com.pockettravel.core.data.poiCategory
 import com.pockettravel.core.poi.PoiCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,11 +22,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 // Holder minimo per far arrivare OfflineTileSource (fornito da RouteEngineModule), i segnalini e i
@@ -50,7 +54,15 @@ class MapRouteViewModel @Inject constructor(
         reloadPins()
     }
     val onlyAccessible: StateFlow<Boolean> = filterPreferences.onlyAccessible
-    fun setOnlyAccessible(only: Boolean) = filterPreferences.setOnlyAccessible(only)
+    fun setOnlyAccessible(only: Boolean) {
+        filterPreferences.setOnlyAccessible(only)
+        reloadPins()
+    }
+
+    init {
+        // "Con disabilita'" si cambia nelle Impostazioni: anche quello sceglie i segnalini a campione.
+        viewModelScope.launch { accessible.drop(1).collect { reloadPins() } }
+    }
 
     private val _pins = MutableStateFlow<List<MapPin>>(emptyList())
     val pins: StateFlow<List<MapPin>> = _pins.asStateFlow()
@@ -119,7 +131,15 @@ class MapRouteViewModel @Inject constructor(
         loadPinsJob?.cancel()
         loadPinsJob = viewModelScope.launch {
             val zone = regionZonePreferences.zone(regionId)
-            val area = viewport ?: zone?.let { MapBounds(it.minLon, it.minLat, it.maxLon, it.maxLat) } ?: tileSource.regionBounds(regionId) ?: WORLD
+            val inView = viewport ?: zone?.let { MapBounds(it.minLon, it.minLat, it.maxLon, it.maxLat) }
+                ?: withContext(Dispatchers.IO) { tileSource.regionBounds(regionId) } ?: WORLD
+            // Vista a cavallo dei 180 gradi (Nuova Zelanda, Estremo Oriente russo, Alaska): ovest oltre est o fuori da
+            // -180..180. Si prende tutta la fascia di latitudine invece di non mostrare nessun segnalino.
+            val area = if (inView.minLon > inView.maxLon || inView.minLon < -180.0 || inView.maxLon > 180.0) {
+                inView.copy(minLon = -180.0, maxLon = 180.0)
+            } else {
+                inView
+            }
             val minLon = maxOf(area.minLon, zone?.minLon ?: -180.0)
             val minLat = maxOf(area.minLat, zone?.minLat ?: -90.0)
             val maxLon = minOf(area.maxLon, zone?.maxLon ?: 180.0)
@@ -129,7 +149,12 @@ class MapRouteViewModel @Inject constructor(
                 return@launch
             }
             // I POI extra li ha scaricati l'utente apposta: si mostrano anche se di solito nascosti.
-            val inArea = poiRepository.inBounds(regionId, minLat, maxLat, minLon, maxLon, MAX_PINS, filterPreferences.hiddenCategories.value)
+            val accessibility = when {
+                !accessible.value -> MapAccessibility.ALL
+                onlyAccessible.value -> MapAccessibility.ONLY_ACCESSIBLE
+                else -> MapAccessibility.NO_INACCESSIBLE
+            }
+            val inArea = poiRepository.inBounds(regionId, minLat, maxLat, minLon, maxLon, MAX_PINS, filterPreferences.hiddenCategories.value, accessibility)
             _presentCategories.value = inArea.categories
             _pins.value = inArea.pois.filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
                 MapPin(

@@ -29,32 +29,33 @@ class PoiRepositoryBoundsTest {
     fun setUp() {
         connection = DriverManager.getConnection("jdbc:sqlite::memory:")
         connection.createStatement().use {
-            it.execute("CREATE TABLE poi(id INTEGER PRIMARY KEY AUTOINCREMENT, regionId TEXT, name TEXT, category TEXT, lat REAL, lon REAL, osmTag TEXT)")
+            it.execute("CREATE TABLE poi(id INTEGER PRIMARY KEY AUTOINCREMENT, regionId TEXT, name TEXT, category TEXT, lat REAL, lon REAL, osmTag TEXT, wheelchair TEXT, toiletsWheelchair TEXT)")
         }
     }
 
     @After
     fun tearDown() = connection.close()
 
-    private fun insert(name: String, category: String, osmTag: String, lat: Double, lon: Double) {
-        connection.prepareStatement("INSERT INTO poi(regionId, name, category, lat, lon, osmTag) VALUES ('roma', ?, ?, ?, ?, ?)").use {
+    private fun insert(name: String, category: String, osmTag: String, lat: Double, lon: Double, wheelchair: String? = null) {
+        connection.prepareStatement("INSERT INTO poi(regionId, name, category, lat, lon, osmTag, wheelchair) VALUES ('roma', ?, ?, ?, ?, ?, ?)").use {
             it.setString(1, name)
             it.setString(2, category)
             it.setDouble(3, lat)
             it.setDouble(4, lon)
             it.setString(5, osmTag)
+            it.setString(6, wheelchair)
             it.executeUpdate()
         }
     }
 
     // Esegue la query del DAO: `(:excluded)` diventa un parametro per elemento (come fa Room) e i parametri con nome
-    // prendono l'indice della prima comparsa (come in SQLite).
+    // diventano ?NNN con l'indice della prima comparsa (come in SQLite), anche quando si ripetono.
     private fun <T> run(sql: String, params: Map<String, Any>, excluded: List<String>, read: (ResultSet) -> T): List<T> {
         val placeholders = excluded.indices.joinToString(",") { ":excluded$it" }
         val expanded = sql.replace("(:excluded)", "($placeholders)")
         val names = Regex(":(\\w+)").findAll(expanded).map { it.groupValues[1] }.distinct().toList()
         val values = params + excluded.mapIndexed { i, tag -> "excluded$i" to tag }
-        return connection.prepareStatement(Regex(":\\w+").replace(expanded, "?")).use { statement ->
+        return connection.prepareStatement(Regex(":(\\w+)").replace(expanded) { "?" + (names.indexOf(it.groupValues[1]) + 1) }).use { statement ->
             names.forEachIndexed { i, name -> statement.setObject(i + 1, values.getValue(name)) }
             statement.executeQuery().use { rs -> buildList { while (rs.next()) add(read(rs)) } }
         }
@@ -69,16 +70,23 @@ class PoiRepositoryBoundsTest {
             lat = rs.getDouble("lat"), lon = rs.getDouble("lon"), osmTag = rs.getString("osmTag"),
         )
 
-        override suspend fun poisInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, excluded: List<String>): List<PoiEntity> =
-            run(POIS_IN_BOUNDS, area(regionId, minLat, maxLat, minLon, maxLon), excluded, ::entity)
+        override suspend fun poisInBounds(
+            regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, excluded: List<String>, accessibility: Int,
+        ): List<PoiEntity> =
+            run(POIS_IN_BOUNDS, area(regionId, minLat, maxLat, minLon, maxLon) + ("accessibility" to accessibility), excluded, ::entity)
 
         override suspend fun spreadInBounds(
             regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, cellLat: Double, cellLon: Double, excluded: List<String>,
-        ): List<PoiEntity> =
-            run(SPREAD_IN_BOUNDS, area(regionId, minLat, maxLat, minLon, maxLon) + mapOf("cellLat" to cellLat, "cellLon" to cellLon), excluded, ::entity)
+            accessibility: Int,
+        ): List<PoiEntity> = run(
+            SPREAD_IN_BOUNDS,
+            area(regionId, minLat, maxLat, minLon, maxLon) + mapOf("cellLat" to cellLat, "cellLon" to cellLon, "accessibility" to accessibility),
+            excluded,
+            ::entity,
+        )
 
-        override suspend fun categoryTagsInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): List<CategoryTag> =
-            run(CATEGORY_TAGS_IN_BOUNDS, area(regionId, minLat, maxLat, minLon, maxLon), emptyList()) {
+        override suspend fun categoryTagsInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, accessibility: Int): List<CategoryTag> =
+            run(CATEGORY_TAGS_IN_BOUNDS, area(regionId, minLat, maxLat, minLon, maxLon) + ("accessibility" to accessibility), emptyList()) {
                 CategoryTag(it.getString("category"), it.getString("osmTag"), it.getInt("count"))
             }
 
@@ -119,5 +127,20 @@ class PoiRepositoryBoundsTest {
         assertTrue(repo.inBounds("roma", 41.0, 42.0, 12.0, 13.0, 4).pois.size <= 4)
         val filtered = repo.inBounds("roma", 41.0, 42.0, 12.0, 13.0, 4, setOf(PoiCategory.CIBO_BEVANDE))
         assertEquals(setOf(PoiCategory.CIBO_BEVANDE, PoiCategory.FARMACIA), filtered.categories)
+    }
+
+    @Test
+    fun `con solo accessibili il campione si sceglie fra i POI accessibili`() = runBlocking {
+        // 30 ristoranti senza dati di accessibilita' nella cella della farmacia accessibile, con i rowid piu' bassi.
+        repeat(30) { insert("Ristorante $it", "restaurant", "amenity=restaurant", 41.10 + it * 0.001, 12.10) }
+        insert("Farmacia accessibile", "pharmacy", "amenity=pharmacy", 41.12, 12.12, wheelchair = "yes")
+        insert("Bar non accessibile", "bar", "amenity=bar", 41.70, 12.70, wheelchair = "no")
+        val repo = PoiRepository(JdbcPoiDao())
+
+        val only = repo.inBounds("roma", 41.0, 42.0, 12.0, 13.0, 4, accessibility = MapAccessibility.ONLY_ACCESSIBLE)
+        assertEquals(listOf("Farmacia accessibile"), only.pois.map { it.name })
+        val noInaccessible = repo.inBounds("roma", 41.0, 42.0, 12.0, 13.0, 40, accessibility = MapAccessibility.NO_INACCESSIBLE)
+        assertTrue(noInaccessible.pois.none { it.name == "Bar non accessibile" })
+        assertEquals(31, noInaccessible.pois.size)
     }
 }
