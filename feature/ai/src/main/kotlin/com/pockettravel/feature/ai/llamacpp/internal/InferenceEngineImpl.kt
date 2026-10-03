@@ -1,4 +1,4 @@
-// Adattato da examples/llama.android (com.arm.aichat) di ggml-org/llama.cpp, git tag v0.4.1 —
+// Adattato da examples/llama.android (com.arm.aichat) di ggml-org/llama.cpp, git tag v0.5.0 —
 // vedi third-party/llama-cpp/LICENSE-LLAMA-CPP.txt. Solo package e nome della libreria nativa
 // (System.loadLibrary) sono cambiati, per restare allineati ai simboli JNI di ai_chat.cpp.
 package com.pockettravel.feature.ai.llamacpp.internal

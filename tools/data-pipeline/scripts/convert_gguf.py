@@ -6,7 +6,7 @@ e' l'alternativa riproducibile alle quant "Dynamic 2.0" di Unsloth, la cui ricet
 Provato anche su Windows con l'ambiente Python di Unsloth Studio e --bin-dir verso una build di llama.cpp.
 
 Uso (Linux/WSL o Windows, richiede un clone separato di llama.cpp allo stesso tag vendorizzato in
-third-party/llama-cpp — v0.4.1, vedi feature/ai/src/main/cpp/CMakeLists.txt — con le dipendenze
+third-party/llama-cpp — v0.5.0, vedi feature/ai/src/main/cpp/CMakeLists.txt — con le dipendenze
 Python installate: `pip install -r <llama.cpp>/requirements/requirements-convert_hf_to_gguf.txt`,
 e llama-quantize compilato: `cmake -B build && cmake --build build --target llama-quantize`):
   python convert_gguf.py <cartella merged> <file .gguf di output> \
@@ -39,7 +39,7 @@ from status import duration, phase
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 ap.add_argument("merged", type=Path)
 ap.add_argument("output", type=Path)
-ap.add_argument("--llama-cpp", type=Path, required=True, help="cartella del clone locale di llama.cpp (tag v0.4.1)")
+ap.add_argument("--llama-cpp", type=Path, required=True, help="cartella del clone locale di llama.cpp (tag v0.5.0)")
 ap.add_argument("--quantize", default="Q4_K_M", help='tipo llama-quantize (es. Q4_K_M, Q8_0), "none" per tenere il f16')
 ap.add_argument("--bin-dir", type=Path, help="cartella con llama-quantize/llama-imatrix (get_llama_tools.py), se non sono nel clone o nel PATH")
 ap.add_argument("--gpu-layers", type=int, default=0,
@@ -77,7 +77,7 @@ def write_calibration(path):
 
 convert_script = a.llama_cpp / "convert_hf_to_gguf.py"
 if not convert_script.exists():
-    sys.exit(f"convert_hf_to_gguf.py non trovato in {a.llama_cpp} (e' un clone di llama.cpp aggiornato al tag v0.4.1?)")
+    sys.exit(f"convert_hf_to_gguf.py non trovato in {a.llama_cpp} (e' un clone di llama.cpp aggiornato al tag v0.5.0?)")
 
 def step(name, detail, cmd):
     """Esegue una fase e ne stampa inizio e durata (l'output degli strumenti di llama.cpp resta sotto)."""

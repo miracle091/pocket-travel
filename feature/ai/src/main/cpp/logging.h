@@ -1,4 +1,4 @@
-// Adattato da examples/llama.android (com.arm.aichat) di ggml-org/llama.cpp, git tag v0.4.1.
+// Adattato da examples/llama.android (com.arm.aichat) di ggml-org/llama.cpp, git tag v0.5.0.
 #pragma once
 #include <android/log.h>
 
