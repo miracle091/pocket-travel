@@ -66,15 +66,17 @@ def fingerprints_of(iso2: str, health: str) -> dict[tuple[str, str], str]:
     }
 
 
-def download(url: str) -> bytes | None:
+def download(url: str) -> bytes | str:
+    """Il contenuto, o il motivo per cui non si e' potuto scaricare: un rifiuto di OMS o del sito saudita
+    finisce nel resoconto invece di far perdere il confronto con Travel.gc.ca."""
     request = urllib.request.Request(url, headers={"User-Agent": vd.USER_AGENT})
     try:
         with urllib.request.urlopen(request, timeout=120) as response:
             return response.read()
     except urllib.error.HTTPError as error:
-        if error.code == 404:
-            return None
-        raise
+        return f"HTTP {error.code}"
+    except urllib.error.URLError as error:
+        return f"errore di rete ({error.reason})"
 
 
 def collect(cache: Path) -> dict[tuple[str, str], str]:
@@ -85,7 +87,7 @@ def collect(cache: Path) -> dict[tuple[str, str], str]:
         if body:
             result.update(fingerprints_of(iso2, json.loads(body)["data"]["eng"].get("health") or ""))
     pdf = download(HAJJ_PDF)
-    result[("hajj-pdf", "sa")] = hashlib.sha256(pdf).hexdigest() if pdf is not None else "HTTP 404"
+    result[("hajj-pdf", "sa")] = hashlib.sha256(pdf).hexdigest() if isinstance(pdf, bytes) else pdf
     return result
 
 
@@ -107,7 +109,7 @@ def write_baseline(path: Path, values: dict[tuple[str, str], str]) -> None:
         "# tipo\tchiave\tvalore",
     ]
     lines += [f"{kind}\t{key}\t{value}" for (kind, key), value in sorted(values.items())]
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
 def compare(old: dict[tuple[str, str], str], new: dict[tuple[str, str], str]) -> list[str]:
@@ -172,10 +174,11 @@ def main(argv: list[str]) -> int:
     report = []
     statement = current_statement(POLIO_STATUS)
     page = download(WHO_COMMITTEE)
-    newer = sorted(n for n in meeting_numbers(page.decode("utf-8", "replace")) if n > statement) if page else []
-    if page is None:
-        report.append(f"- **Statement polio**: la pagina del comitato OMS non risponde ({WHO_COMMITTEE})")
-    elif newer:
+    if isinstance(page, str):
+        report.append(f"- **Statement polio**: la pagina del comitato OMS non risponde, {page} ({WHO_COMMITTEE})")
+        page = b""
+    newer = sorted(n for n in meeting_numbers(page.decode("utf-8", "replace")) if n > statement)
+    if newer:
         report.append(f"- **Statement polio**: la pagina del comitato OMS cita la riunione {newer[-1]}, polio-status.tsv "
                       f"e' allo statement {statement}: rifare gli elenchi di polio-status.tsv ({WHO_COMMITTEE})")
     report += compare(read_baseline(BASELINE), current)

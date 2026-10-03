@@ -611,8 +611,12 @@ def main():
     rng = random.Random(a.seed)
     (OUT / "raw").mkdir(parents=True, exist_ok=True)
 
-    # niente sottoregioni delle regioni di test (es. canada-*): il test resterebbe dentro il training
-    regions = [r for r in load_regions() if r[0] in TEST_REGIONS or not any(r[0].startswith(f"{t}-") for t in TEST_REGIONS)]
+    # niente sottoregioni delle regioni di test (es. canada-*) ne' regioni con la stessa pagina (figi-occidentali e
+    # figi-lau sono entrambe "Figi"): il test resterebbe dentro il training
+    all_regions = load_regions()
+    test_titles = {r[2] for r in all_regions if r[0] in TEST_REGIONS}
+    regions = [r for r in all_regions if r[0] in TEST_REGIONS
+               or not (any(r[0].startswith(f"{t}-") for t in TEST_REGIONS) or r[2] in test_titles)]
     regions = regions[: a.limit or None]
     def load_page(rid, lang, title):
         """(testo, url) dalla cache o da Wikivoyage, o None."""

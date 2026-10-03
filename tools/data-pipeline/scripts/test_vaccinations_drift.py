@@ -121,11 +121,13 @@ class MainTest(unittest.TestCase):
             self.assertIn("riunione 46", report)
             self.assertIn("hajj-pdf `sa`", report)
 
-    def test_pdf_sparito(self):
+    def test_pdf_sparito_e_oms_irraggiungibile(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.run_main(tmp, b"", update=True)
-            self.assertEqual(2, self.run_main(tmp, b"", pdf=None))
-            self.assertIn("ora: HTTP 404", (Path(tmp) / "report.md").read_text(encoding="utf-8"))
+            self.assertEqual(2, self.run_main(tmp, "HTTP 403", pdf="HTTP 404"))
+            report = (Path(tmp) / "report.md").read_text(encoding="utf-8")
+            self.assertIn("ora: HTTP 404", report)
+            self.assertIn("non risponde, HTTP 403", report)
 
 
 if __name__ == "__main__":
