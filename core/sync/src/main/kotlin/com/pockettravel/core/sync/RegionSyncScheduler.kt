@@ -56,9 +56,11 @@ class RegionSyncScheduler @Inject constructor(
         if (appCompatibility.requiresAppUpdate()) return appCompatibility.showUpdateRequiredMessage()
         val data = Data.Builder()
             .putString(
-                RegionPackageDownloadWorker.KEY_MANIFEST_ENTRY,
-                // Le reti dei mezzi pubblici pesano nell'input di lavoro (tetto di 10 KB di WorkManager): solo se richieste.
-                json.encodeToString(RegionManifestEntry.serializer(), if (PackageKind.TRANSIT in kinds) entry else entry.copy(transit = null)),
+                RegionPackageDownloadWorker.KEY_MANIFEST_ENTRY_FILE,
+                // In un file, non nei dati di lavoro (tetto di 10 KB di WorkManager, superato dalle regioni con molte tile .rd5).
+                RegionPackageDownloadWorker.requestFiles(context).write(
+                    json.encodeToString(RegionManifestEntry.serializer(), if (PackageKind.TRANSIT in kinds) entry else entry.copy(transit = null)),
+                ),
             )
             .putStringArray(RegionPackageDownloadWorker.KEY_PACKAGE_KINDS, kinds.map { it.name }.toTypedArray())
             .build()

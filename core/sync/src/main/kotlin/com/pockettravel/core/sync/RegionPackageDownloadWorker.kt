@@ -17,6 +17,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
+import java.io.File
 import java.io.IOException
 
 /** Download dei pacchetti di una regione richiesti dall'utente — mai automatico. */
@@ -33,8 +34,9 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         var regionId: String? = null
+        val requestFile = inputData.getString(KEY_MANIFEST_ENTRY_FILE)
         val result = try {
-            val entryJson = inputData.getString(KEY_MANIFEST_ENTRY) ?: return Result.failure()
+            val entryJson = entryJson(requestFile) ?: return Result.failure()
             val requestedKinds = inputData.getNullableStringArray(KEY_PACKAGE_KINDS)?.filterNotNull()?.map(PackageKind::valueOf)?.toSet() ?: return Result.failure()
             val manifestEntry = json.decodeFromString(RegionManifestEntry.serializer(), entryJson)
             manifestEntry.validate()
@@ -104,12 +106,22 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         // fallimento definitivo: lo staging (file .part compresi) non serve piu'. Solo un nuovo
         // tentativo lo riusa. Confronto con Result.retry() (Retry.equals vale per ogni Retry): la
         // classe Result.Retry e' API riservata a WorkManager e il lint (RestrictedApi) la rifiuta.
-        if (result != Result.retry()) regionId?.let(regionStorage::deleteStaging)
+        if (result != Result.retry()) cleanUp(regionId, requestFile)
         return result
     }
 
+    private fun cleanUp(regionId: String?, requestFile: String?) {
+        regionId?.let(regionStorage::deleteStaging)
+        requestFile?.let { requestFiles(applicationContext).delete(it) }
+    }
+
+    // KEY_MANIFEST_ENTRY: lavori accodati prima che la voce passasse da un file, ancora in coda dopo l'aggiornamento.
+    private fun entryJson(requestFile: String?): String? =
+        requestFile?.let { requestFiles(applicationContext).read(it) } ?: inputData.getString(KEY_MANIFEST_ENTRY)
+
     companion object {
         const val KEY_MANIFEST_ENTRY = "manifest_entry"
+        const val KEY_MANIFEST_ENTRY_FILE = "manifest_entry_file"
         // true dopo download ed estrazione: la riga della regione mostra "Installazione…" senza percentuale.
         const val KEY_INSTALLING = "installing"
         const val KEY_PACKAGE_KINDS = "package_kinds"
@@ -120,5 +132,7 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         // Tentativi ripetuti dopo il primo per errori di rete, poi il download si arrende.
         private const val MAX_RETRIES = 5
         private val TAG = RegionPackageDownloadWorker::class.java.simpleName
+
+        internal fun requestFiles(context: Context) = DownloadRequestFiles(File(context.noBackupFilesDir, "download-requests"))
     }
 }
