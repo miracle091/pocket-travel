@@ -15,6 +15,7 @@ import java.io.IOException
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 /** Meteo con l'ora in cui e' stato scaricato: senza rete la scheda mostra l'ultimo salvato e da quando. */
@@ -27,11 +28,15 @@ data class WeatherResult(val weather: Weather, val updatedAtMillis: Long)
  */
 class WeatherRepository @Inject constructor(
     @ApplicationContext context: Context,
-    private val okHttpClient: OkHttpClient,
+    okHttpClient: OkHttpClient,
     private val json: Json,
 ) {
     private val cacheDir = File(context.filesDir, "weather")
     private val places = context.getSharedPreferences("weather_places", Context.MODE_PRIVATE)
+
+    // Tetto per chiamata: con una rete lenta la scheda non resta vuota per decine di secondi prima di mostrare
+    // il meteo salvato (i timeout di connessione e lettura non limitano la chiamata intera).
+    private val client = okHttpClient.newBuilder().callTimeout(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS).build()
 
     /**
      * Il meteo salvato come [cacheKey], aggiornato dalla rete quando [coordinates] le trova. Null senza rete e
@@ -77,7 +82,7 @@ class WeatherRepository @Inject constructor(
     }.getOrNull()
 
     private fun get(url: String): String =
-        okHttpClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
+        client.newCall(Request.Builder().url(url).build()).execute().use { response ->
             if (!response.isSuccessful) throw IOException("Open-Meteo: HTTP ${response.code}")
             response.body.string()
         }
@@ -95,6 +100,7 @@ class WeatherRepository @Inject constructor(
         const val FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
         const val GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
         const val FORECAST_DAYS = 7
+        const val CALL_TIMEOUT_SECONDS = 10L
     }
 }
 
