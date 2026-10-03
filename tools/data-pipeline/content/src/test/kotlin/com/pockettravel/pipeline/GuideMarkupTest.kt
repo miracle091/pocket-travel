@@ -56,4 +56,19 @@ class GuideMarkupTest {
     fun `spazi doppi e spazi prima della punteggiatura`() {
         assertEquals("Due spazi. Poi una virgola, fine.", body("Due  spazi.  Poi una virgola {{nota}} , fine."))
     }
+
+    @Test
+    fun `testo vuoto, senza intestazioni o con sezioni vuote non da' sezioni`() {
+        assertEquals(emptyList<GuideSectionRow>(), parseWikivoyageDump(""))
+        assertEquals(emptyList<GuideSectionRow>(), parseWikivoyageDump("Solo testo senza intestazioni.\n"))
+        assertEquals(emptyList<GuideSectionRow>(), parseWikivoyageDump("== Sicurezza ==\n{{template}}\n<!-- niente -->\n"))
+    }
+
+    @Test
+    fun `un'intestazione con tre uguali e' un sottotitolo e non apre una sezione`() {
+        val sections = parseWikivoyageDump("== Sicurezza ==\nPrima.\n=== Dettagli ===\nDopo.\n")
+
+        assertEquals(1, sections.size)
+        assertEquals("Prima.\n▸ Dettagli\nDopo.", sections.single().body)
+    }
 }

@@ -17,8 +17,8 @@ Le cose da sapere per lavorare su Pocket Travel. Il **perché** delle scelte tec
 Prima di ogni commit, lancia gli stessi controlli della CI (`.github/workflows/android-ci.yml`):
 
 ```bash
-./gradlew assembleDebug lint testDebugUnitTest :tools:data-pipeline:content:test --continue
-python tools/data-pipeline/scripts/test_clip_rd5.py
+./gradlew assembleDebug lint testDebugUnitTest :core:poi:test :tools:data-pipeline:content:test --continue
+for t in tools/data-pipeline/scripts/test_*.py; do python "$t" || break; done
 ```
 
 I test sul dispositivo (migrazioni del database, installazione dei pacchetti) girano con un emulatore acceso:

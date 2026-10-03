@@ -29,7 +29,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
 
-      - run: ./gradlew assembleDebug lint testDebugUnitTest :tools:data-pipeline:content:test --no-daemon
+      - run: ./gradlew assembleDebug lint testDebugUnitTest :core:poi:test :tools:data-pipeline:content:test --no-daemon
 
       - name: Test di clip_rd5.py
         run: python3 tools/data-pipeline/scripts/test_clip_rd5.py
@@ -45,6 +45,27 @@ jobs:
 
       - name: Test di wikidata_missions.py
         run: python3 tools/data-pipeline/scripts/test_wikidata_missions.py
+
+      - name: Test di city_population.py
+        run: python3 tools/data-pipeline/scripts/test_city_population.py
+
+      - name: Test di wiki_dump.py
+        run: python3 tools/data-pipeline/scripts/test_wiki_dump.py
+
+      - name: Test di extract-cities-dump.py ed extract-cities-dump-en.py
+        run: python3 tools/data-pipeline/scripts/test_extract_cities_dump.py
+
+      - name: Test di generate-subregion-rows.py
+        run: python3 tools/data-pipeline/scripts/test_generate_subregion_rows.py
+
+      - name: Test di vaccinations_draft.py
+        run: python3 tools/data-pipeline/scripts/test_vaccinations_draft.py
+
+      - name: Test di translate_sections.py
+        run: python3 tools/data-pipeline/scripts/test_translate_sections.py
+
+      - name: Test di status.py
+        run: python3 tools/data-pipeline/scripts/test_status.py
 
       # weekly-schedule.sh e' generato da pilot-regions.sh (generate-weekly-schedule.sh): se non e'
       # stato rigenerato dopo una modifica all'elenco, una regione nuova non verrebbe mai pubblicata

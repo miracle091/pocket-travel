@@ -43,6 +43,28 @@ class GenerateEmergencyNumbersTest {
     }
 
     @Test
+    fun `senza regioni le due tabelle esistono e sono vuote`() {
+        val outputDb = File.createTempFile("pocket-travel-test", ".guides.db")
+        outputDb.delete()
+
+        try {
+            writeEmergencyNumbersTable(emptyList(), outputDb)
+
+            DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
+                conn.createStatement().use { statement ->
+                    for (table in listOf("emergency_numbers", "emergency_numbers_none")) {
+                        val rs = statement.executeQuery("SELECT COUNT(*) FROM $table")
+                        assertEquals(true, rs.next())
+                        assertEquals(0, rs.getInt(1))
+                    }
+                }
+            }
+        } finally {
+            outputDb.delete()
+        }
+    }
+
+    @Test
     fun `emergencyNumbersLine salta Generale se la regione non ha un numero unico`() {
         assertEquals("Numeri di emergenza: Polizia 110, Ambulanza 119, Vigili del fuoco 119", emergencyNumbersLine("giappone"))
     }
