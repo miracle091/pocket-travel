@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.MapAccessibility
 import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.RegionZone
 import com.pockettravel.core.data.RegionZonePreferences
 import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitRepository
@@ -133,29 +134,16 @@ class MapRouteViewModel @Inject constructor(
             val zone = regionZonePreferences.zone(regionId)
             val inView = viewport ?: zone?.let { MapBounds(it.minLon, it.minLat, it.maxLon, it.maxLat) }
                 ?: withContext(Dispatchers.IO) { tileSource.regionBounds(regionId) } ?: WORLD
-            // Vista a cavallo dei 180 gradi (Nuova Zelanda, Estremo Oriente russo, Alaska): ovest oltre est o fuori da
-            // -180..180. Si prende tutta la fascia di latitudine invece di non mostrare nessun segnalino.
-            val area = if (inView.minLon > inView.maxLon || inView.minLon < -180.0 || inView.maxLon > 180.0) {
-                inView.copy(minLon = -180.0, maxLon = 180.0)
-            } else {
-                inView
-            }
-            val minLon = maxOf(area.minLon, zone?.minLon ?: -180.0)
-            val minLat = maxOf(area.minLat, zone?.minLat ?: -90.0)
-            val maxLon = minOf(area.maxLon, zone?.maxLon ?: 180.0)
-            val maxLat = minOf(area.maxLat, zone?.maxLat ?: 90.0)
-            if (minLon > maxLon || minLat > maxLat) {
+            val area = pinsArea(inView, zone)
+            if (area == null) {
                 _pins.value = emptyList()
                 return@launch
             }
-            // I POI extra li ha scaricati l'utente apposta: si mostrano anche se di solito nascosti.
-            val accessibility = when {
-                !accessible.value -> MapAccessibility.ALL
-                onlyAccessible.value -> MapAccessibility.ONLY_ACCESSIBLE
-                else -> MapAccessibility.NO_INACCESSIBLE
-            }
-            val inArea = poiRepository.inBounds(regionId, minLat, maxLat, minLon, maxLon, MAX_PINS, filterPreferences.hiddenCategories.value, accessibility)
+            val inArea = poiRepository.inBounds(
+                regionId, area.minLat, area.maxLat, area.minLon, area.maxLon, MAX_PINS, filterPreferences.hiddenCategories.value, accessibility(),
+            )
             _presentCategories.value = inArea.categories
+            // I POI extra li ha scaricati l'utente apposta: si mostrano anche se di solito nascosti.
             _pins.value = inArea.pois.filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
                 MapPin(
                     poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.osmTag, poi.phone, poi.wheelchair,
@@ -166,6 +154,30 @@ class MapRouteViewModel @Inject constructor(
             }
         }
     }
+
+    // Il filtro "Con disabilita'" della mappa, come lo applica MapScreen ("solo accessibili" vale solo con quello acceso).
+    private fun accessibility(): MapAccessibility = when {
+        !accessible.value -> MapAccessibility.ALL
+        onlyAccessible.value -> MapAccessibility.ONLY_ACCESSIBLE
+        else -> MapAccessibility.NO_INACCESSIBLE
+    }
+}
+
+/**
+ * L'area dei segnalini: [inView] dentro la zona scaricata, null se non si sovrappongono. Una vista a cavallo dei 180 gradi
+ * (Nuova Zelanda, Estremo Oriente russo, Alaska: ovest oltre est o fuori da -180..180) prende tutta la fascia di
+ * latitudine invece di non mostrare nessun segnalino.
+ */
+internal fun pinsArea(inView: MapBounds, zone: RegionZone?): MapBounds? {
+    val crossesDateLine = inView.minLon > inView.maxLon || inView.minLon < -180.0 || inView.maxLon > 180.0
+    val area = if (crossesDateLine) inView.copy(minLon = -180.0, maxLon = 180.0) else inView
+    val clamped = MapBounds(
+        minLon = maxOf(area.minLon, zone?.minLon ?: -180.0),
+        minLat = maxOf(area.minLat, zone?.minLat ?: -90.0),
+        maxLon = minOf(area.maxLon, zone?.maxLon ?: 180.0),
+        maxLat = minOf(area.maxLat, zone?.maxLat ?: 90.0),
+    )
+    return clamped.takeIf { it.minLon <= it.maxLon && it.minLat <= it.maxLat }
 }
 
 // Segnalini al massimo sulla mappa, sparsi sull'area se sono di piu': oltre si sovrappongono comunque (MapLibre nasconde
