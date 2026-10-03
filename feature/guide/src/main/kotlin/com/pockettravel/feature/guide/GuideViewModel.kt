@@ -209,11 +209,12 @@ class GuideViewModel @Inject constructor(
 
     private suspend fun positionWeather(regionId: String): PlaceWeather? {
         val position = lastKnownPosition.get(POSITION_MAX_AGE_MILLIS)?.takeIf { (lat, lon) ->
-            poiRepository.inBounds(regionId, lat - NEAR_DEGREES, lat + NEAR_DEGREES, lon - NEAR_DEGREES, lon + NEAR_DEGREES, 1).isNotEmpty()
+            poiRepository.inBounds(regionId, lat - NEAR_DEGREES, lat + NEAR_DEGREES, lon - NEAR_DEGREES, lon + NEAR_DEGREES, 1).pois.isNotEmpty()
         } ?: return null
         // A Open-Meteo va solo la zona (0,1 gradi, circa 10 km), non il punto preciso: per il meteo basta.
         val area = position.let { (lat, lon) -> lat.roundToTenth() to lon.roundToTenth() }
-        return weatherRepository.weather("position|$regionId") { area }?.let { PlaceWeather(null, it) }
+        // Una voce per zona: senza rete, "Vicino a te" non mostra le previsioni di dove si era ieri nella stessa regione.
+        return weatherRepository.weather("position|$regionId|${area.first}|${area.second}") { area }?.let { PlaceWeather(null, it) }
     }
 
     private suspend fun capitalWeather(regionId: String): PlaceWeather? {

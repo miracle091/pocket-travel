@@ -44,12 +44,20 @@ class MapRouteViewModel @Inject constructor(
     val accessible: StateFlow<Boolean> = usageModePreferences.accessible
     val hiddenCategories: StateFlow<Set<PoiCategory>> = filterPreferences.hiddenCategories
 
-    fun setHiddenCategories(categories: Set<PoiCategory>) = filterPreferences.setHidden(categories)
+    fun setHiddenCategories(categories: Set<PoiCategory>) {
+        filterPreferences.setHidden(categories)
+        // I segnalini a campione si scelgono senza le categorie nascoste: cambiate quelle, si rileggono.
+        reloadPins()
+    }
     val onlyAccessible: StateFlow<Boolean> = filterPreferences.onlyAccessible
     fun setOnlyAccessible(only: Boolean) = filterPreferences.setOnlyAccessible(only)
 
     private val _pins = MutableStateFlow<List<MapPin>>(emptyList())
     val pins: StateFlow<List<MapPin>> = _pins.asStateFlow()
+
+    // Categorie presenti nell'area, comprese quelle filtrate: il foglio dei filtri deve poterle riattivare.
+    private val _presentCategories = MutableStateFlow<Set<PoiCategory>>(emptySet())
+    val presentCategories: StateFlow<Set<PoiCategory>> = _presentCategories.asStateFlow()
 
     private var loadPinsJob: Job? = null
 
@@ -121,7 +129,9 @@ class MapRouteViewModel @Inject constructor(
                 return@launch
             }
             // I POI extra li ha scaricati l'utente apposta: si mostrano anche se di solito nascosti.
-            _pins.value = poiRepository.inBounds(regionId, minLat, maxLat, minLon, maxLon, MAX_PINS).filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
+            val inArea = poiRepository.inBounds(regionId, minLat, maxLat, minLon, maxLon, MAX_PINS, filterPreferences.hiddenCategories.value)
+            _presentCategories.value = inArea.categories
+            _pins.value = inArea.pois.filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
                 MapPin(
                     poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.osmTag, poi.phone, poi.wheelchair,
                     openingHours = poi.openingHours, address = poi.address, website = poi.website, email = poi.email,

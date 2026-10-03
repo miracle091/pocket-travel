@@ -64,7 +64,11 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 ### Corretto
 - Il download delle nazioni con molti percorsi (Russia - Siberia, Brasile, Australia, Canada - Nunavut e altre, 22 in tutto) chiudeva l'app al tocco di "Scarica".
 - Vaccinazioni: per un bambino sotto i 9 mesi la febbre gialla compariva anche tra le consigliate; ora resta solo "da valutare con il medico". L'assistente IA, alle domande su Hajj e Umrah, ora riporta il vaccino contro il meningococco obbligatorio per i pellegrini.
-- Meteo: con una rete lenta la scheda restava vuota a lungo prima di mostrare le ultime previsioni salvate.
+- Meteo: con una rete lenta la scheda restava vuota a lungo prima di mostrare le ultime previsioni salvate. Senza rete, "Vicino a te" poteva mostrare le previsioni di un'altra zona della stessa nazione.
+- Mappa: con molti punti di interesse nell'area inquadrata i filtri si applicavano dopo aver scelto quali mostrare, così con "solo farmacie" le farmacie quasi sparivano. Ora si sceglie fra quelli visibili, e una categoria nascosta resta nei filtri per poterla riattivare.
+- Navigatore: a piedi o in bici "Scarica" scaricava di nuovo i percorsi solo per l'auto, se scelti nei Contenuti. Passare fra percorsi completi e solo per l'auto dopo un download annullato non fallisce più.
+- Zona su più paesi: "Scarica tutto" non riduce più alla zona i paesi vicini già scaricati per intero.
+- Assistente IA: parole comuni come "mobile", "nice" o "male" non vengono più scambiate per le città omonime.
 - La scheda Mappa di un paese grande scaricato per intero (Italia) chiudeva l'app per memoria esaurita: caricava tutti i punti di interesse insieme. Ora carica solo quelli dell'area inquadrata, al massimo circa 3.000, sparsi su tutta l'area.
 - Bandiere delle Isole Cook e di Montserrat schiacciate ai lati nell'elenco delle nazioni (e di poco quelle di Lussemburgo e San Marino).
 - Punti di interesse di Ucraina, Messico, Marocco, Sudafrica, Texas, Virginia, Pechino e altre regioni: dall'ultimo aggiornamento c'erano quasi solo quelli dei paesi vicini. Tornano completi con la prossima pubblicazione.

@@ -169,6 +169,8 @@ fun RegionHubScreen(
                         // ne accorgerebbe da solo (non osserva il file system).
                         val pins by mapViewModel.pins.collectAsStateWithLifecycle()
                         val hiddenCategories by mapViewModel.hiddenCategories.collectAsStateWithLifecycle()
+                        // Categorie dell'area inquadrata, filtrate comprese: i segnalini non contengono quelle nascoste.
+                        val presentCategories by mapViewModel.presentCategories.collectAsStateWithLifecycle()
                         val accessible by mapViewModel.accessible.collectAsStateWithLifecycle()
                         val onlyAccessible by mapViewModel.onlyAccessible.collectAsStateWithLifecycle()
                         val mapSource by mapViewModel.mapSource.collectAsStateWithLifecycle()
@@ -184,6 +186,7 @@ fun RegionHubScreen(
                                     mapSource = mapSource,
                                     pins = pins,
                                     hiddenCategories = hiddenCategories,
+                                    areaCategories = presentCategories,
                                     onHiddenCategoriesChange = mapViewModel::setHiddenCategories,
                                     hideInaccessible = accessible,
                                     onlyAccessible = onlyAccessible,

@@ -1,6 +1,7 @@
 package com.pockettravel.core.data
 
 import androidx.room.InvalidationTracker
+import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.CitySectionEntity
 import com.pockettravel.core.data.db.CitySectionMatch
@@ -74,9 +75,9 @@ private class NoOpGuideDao : GuideDao {
 private class NoOpPoiDao : PoiDao {
     override suspend fun insertAll(pois: List<PoiEntity>) = Unit
     override suspend fun poisForRegion(regionId: String): List<PoiEntity> = emptyList()
-    override suspend fun countInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): Int = 0
-    override suspend fun poisInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): List<PoiEntity> = emptyList()
-    override suspend fun spreadInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, cellLat: Double, cellLon: Double): List<PoiEntity> = emptyList()
+    override suspend fun poisInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, excluded: List<String>): List<PoiEntity> = emptyList()
+    override suspend fun spreadInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, cellLat: Double, cellLon: Double, excluded: List<String>): List<PoiEntity> = emptyList()
+    override suspend fun categoryTagsInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): List<CategoryTag> = emptyList()
     override suspend fun transportCounts(regionId: String): List<TransportCount> = emptyList()
     override suspend fun embassiesOf(regionId: String, country: String): List<PoiEntity> = emptyList()
     override suspend fun searchByName(regionIds: List<String>, pattern: String, limit: Int): List<PoiEntity> = emptyList()

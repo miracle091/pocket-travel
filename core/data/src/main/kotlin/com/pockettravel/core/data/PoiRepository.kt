@@ -13,17 +13,30 @@ private const val HIDDEN_OVERFETCH = 4
 
 class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
     /**
-     * I POI della regione dentro il riquadro, per i segnalini della mappa: tutti se sono al massimo [maxPois], altrimenti
-     * circa [maxPois] sparsi sull'area (uno per cella di una griglia).
+     * I POI della regione dentro il riquadro, per i segnalini della mappa, senza le categorie [hiddenCategories]: tutti se
+     * sono al massimo [maxPois], altrimenti circa [maxPois] sparsi sull'area (uno per cella di una griglia). Le categorie
+     * filtrate si escludono nella query, prima del conteggio e della scelta per cella: dopo, le celle avrebbero scelto
+     * altri POI e quelli della categoria rimasta visibile sarebbero quasi spariti. Con i POI tornano le categorie presenti
+     * nell'area, anche quelle filtrate: l'utente deve poterle riattivare.
+     *
+     * I POI nascosti sulla mappa (isHiddenOnMap) non servono nella query: la pipeline non pubblica quelli nascosti, i
+     * "base" non lo sono mai e gli "extra" si mostrano comunque. Il filtro in Kotlin resta per i dati vecchi.
      */
-    suspend fun inBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, maxPois: Int): List<Poi> {
-        val entities = if (poiDao.countInBounds(regionId, minLat, maxLat, minLon, maxLon) <= maxPois) {
-            poiDao.poisInBounds(regionId, minLat, maxLat, minLon, maxLon)
+    suspend fun inBounds(
+        regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, maxPois: Int, hiddenCategories: Set<PoiCategory> = emptySet(),
+    ): AreaPois {
+        val tags = poiDao.categoryTagsInBounds(regionId, minLat, maxLat, minLon, maxLon)
+        val present = tags.mapTo(mutableSetOf()) { poiCategoryOf(it.category, it.osmTag) }
+        val excluded = tags.filter { poiCategoryOf(it.category, it.osmTag) in hiddenCategories }.map { "${it.category}|${it.osmTag}" }
+        // I POI non filtrati: dalle stesse righe per categoria, senza un'altra query di conteggio.
+        val shown = tags.filter { poiCategoryOf(it.category, it.osmTag) !in hiddenCategories }.sumOf { it.count }
+        val entities = if (shown <= maxPois) {
+            poiDao.poisInBounds(regionId, minLat, maxLat, minLon, maxLon, excluded)
         } else {
             val side = sqrt(maxPois.toDouble())
-            poiDao.spreadInBounds(regionId, minLat, maxLat, minLon, maxLon, (maxLat - minLat) / side, (maxLon - minLon) / side)
+            poiDao.spreadInBounds(regionId, minLat, maxLat, minLon, maxLon, (maxLat - minLat) / side, (maxLon - minLon) / side, excluded)
         }
-        return entities.map { it.toDomain() }
+        return AreaPois(entities.map { it.toDomain() }, present)
     }
 
     /** Ambasciate e consolati di [country] (ISO alpha-2) nella regione, in ordine di nome. */
@@ -67,6 +80,9 @@ class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
             .groupBy({ poiCategoryOf(it.category, it.osmTag) }, { it.count })
             .mapValues { (_, counts) -> counts.sum() }
 }
+
+/** I POI di un'area per i segnalini e le categorie che l'area contiene (anche quelle filtrate). */
+data class AreaPois(val pois: List<Poi>, val categories: Set<PoiCategory>)
 
 data class Poi(
     val id: Long,

@@ -99,6 +99,8 @@ fun MapScreen(
     pins: List<MapPin> = emptyList(),
     // Categorie nascoste, salvate per tutte le regioni (MapFilterPreferences): le cambia il foglio dei filtri.
     hiddenCategories: Set<PoiCategory> = emptySet(),
+    // Categorie presenti nell'area, filtrate comprese: i segnalini non hanno quelle filtrate. null = quelle dei segnalini.
+    areaCategories: Set<PoiCategory>? = null,
     onHiddenCategoriesChange: (Set<PoiCategory>) -> Unit = {},
     // Modalita' "Con disabilita'": via i POI che OSM segna come non accessibili in sedia a rotelle.
     hideInaccessible: Boolean = false,
@@ -176,7 +178,8 @@ fun MapScreen(
             !(hideInaccessible && onlyAccessible && pinBadgeOf(it) == null && it.category != PoiCategory.PARCHEGGIO_DISABILI)
     }
     val presentCategories = PoiCategory.entries.filter { category ->
-        (category != PoiCategory.PARCHEGGIO_DISABILI || hideInaccessible) && pins.any { it.category == category }
+        (category != PoiCategory.PARCHEGGIO_DISABILI || hideInaccessible) &&
+            (if (areaCategories != null) category in areaCategories else pins.any { it.category == category })
     }
     // Segnalini ridisegnati solo quando cambiano quelli visibili o la sorgente (nuovo stile),
     // non a ogni ricomposizione.

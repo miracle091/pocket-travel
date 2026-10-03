@@ -1,5 +1,6 @@
 package com.pockettravel.core.data
 
+import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiEntity
 import com.pockettravel.core.data.db.TransportCount
@@ -24,9 +25,9 @@ class PoiRepositorySearchTest {
 
         override suspend fun insertAll(pois: List<PoiEntity>) = Unit
         override suspend fun poisForRegion(regionId: String): List<PoiEntity> = emptyList()
-        override suspend fun countInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): Int = 0
-        override suspend fun poisInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): List<PoiEntity> = emptyList()
-        override suspend fun spreadInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, cellLat: Double, cellLon: Double): List<PoiEntity> = emptyList()
+        override suspend fun poisInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, excluded: List<String>): List<PoiEntity> = emptyList()
+        override suspend fun spreadInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, cellLat: Double, cellLon: Double, excluded: List<String>): List<PoiEntity> = emptyList()
+        override suspend fun categoryTagsInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): List<CategoryTag> = emptyList()
         override suspend fun transportCounts(regionId: String): List<TransportCount> = emptyList()
         override suspend fun embassiesOf(regionId: String, country: String): List<PoiEntity> = emptyList()
         override suspend fun deleteForRegion(regionId: String) = Unit
