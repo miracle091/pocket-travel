@@ -1,0 +1,693 @@
+# Istantanea delle fonti dei dati vaccinali all'ultima curatela dei TSV in content/src/main/resources/vaccinations/,
+# letta da scripts/vaccinations_drift.py (job vaccinations-check di publish-regions). Generata, non modificare a mano: dopo aver
+# aggiornato i TSV rilanciare `python scripts/vaccinations_drift.py --update`.
+# Testi da Travel.gc.ca, Country Travel Advice and Advisories, Governo del Canada, Open Government Licence - Canada.
+# tipo	chiave	valore
+hajj-pdf	sa	e1e3d4bc2888bd84d29982cba0ab603bb6b849d4799c3dbabb2963ec6fa643f4
+polio	ad	
+polio	ae	
+polio	af	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Wild poliovirus (WPV1) and/or circulating vaccine-derived poliovirus (cVDPV1 or cVDPV3)) is/are present in this destination.
+polio	ag	
+polio	ai	
+polio	al	
+polio	am	
+polio	ao	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	aq	
+polio	ar	
+polio	as	
+polio	at	
+polio	au	
+polio	aw	
+polio	az	
+polio	ba	
+polio	bb	
+polio	bd	
+polio	be	
+polio	bf	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	bg	
+polio	bh	
+polio	bi	
+polio	bj	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	bl	
+polio	bm	
+polio	bn	
+polio	bo	
+polio	bq	
+polio	br	
+polio	bs	
+polio	bt	
+polio	bw	
+polio	by	
+polio	bz	
+polio	cd	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Wild poliovirus (WPV1) and/or circulating vaccine-derived poliovirus (cVDPV1 or cVDPV3)) is/are present in this destination.
+polio	cf	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	cg	
+polio	ch	
+polio	ci	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	ck	
+polio	cl	
+polio	cm	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Wild poliovirus (WPV1) and/or circulating vaccine-derived poliovirus (cVDPV1 or cVDPV3)) is/are present in this destination.
+polio	cn	
+polio	co	
+polio	cr	
+polio	cu	
+polio	cv	
+polio	cw	
+polio	cy	
+polio	cz	
+polio	de	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Wild poliovirus (WPV1) and/or circulating vaccine-derived poliovirus (cVDPV1 or cVDPV3)) is/are present in this destination.
+polio	dj	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Wild poliovirus (WPV1) and/or circulating vaccine-derived poliovirus (cVDPV1 or cVDPV3)) is/are present in this destination.
+polio	dk	
+polio	dm	
+polio	do	
+polio	dz	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	ec	
+polio	ee	
+polio	eg	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	er	
+polio	es	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	et	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	fi	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	fj	
+polio	fk	
+polio	fm	
+polio	fr	
+polio	ga	
+polio	gb	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	gd	
+polio	ge	
+polio	gf	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	gh	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	gi	
+polio	gl	
+polio	gm	
+polio	gn	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	gp	
+polio	gq	
+polio	gr	
+polio	gt	
+polio	gu	
+polio	gw	
+polio	gy	
+polio	hk	
+polio	hn	
+polio	hr	
+polio	ht	
+polio	hu	
+polio	ic	
+polio	id	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	ie	
+polio	il	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Wild poliovirus (WPV1) and/or circulating vaccine-derived poliovirus (cVDPV1 or cVDPV3)) is/are present in this destination.
+polio	in	
+polio	iq	
+polio	ir	
+polio	is	
+polio	it	
+polio	jm	
+polio	jo	
+polio	jp	
+polio	ke	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	kg	
+polio	kh	
+polio	ki	
+polio	km	
+polio	kn	
+polio	kp	
+polio	kr	
+polio	kw	
+polio	ky	
+polio	kz	
+polio	la	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Wild poliovirus (WPV1) and/or circulating vaccine-derived poliovirus (cVDPV1 or cVDPV3)) is/are present in this destination.
+polio	lb	
+polio	lc	
+polio	li	
+polio	lk	
+polio	lr	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	ls	
+polio	lt	
+polio	lu	
+polio	lv	
+polio	ly	
+polio	ma	
+polio	mc	
+polio	md	
+polio	me	
+polio	mf	
+polio	mg	
+polio	mh	
+polio	mk	
+polio	ml	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	mm	
+polio	mn	
+polio	mo	
+polio	mp	
+polio	mq	
+polio	mr	
+polio	ms	
+polio	mt	
+polio	mu	
+polio	mv	
+polio	mw	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	mx	
+polio	my	
+polio	mz	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	na	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	nc	
+polio	ne	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	ng	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Wild poliovirus (WPV1) and/or circulating vaccine-derived poliovirus (cVDPV1 or cVDPV3)) is/are present in this destination.
+polio	ni	
+polio	nl	
+polio	no	
+polio	np	
+polio	nr	
+polio	nu	
+polio	nz	
+polio	om	
+polio	pa	
+polio	pe	
+polio	pf	
+polio	pg	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	ph	
+polio	pk	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Wild poliovirus (WPV1) and/or circulating vaccine-derived poliovirus (cVDPV1 or cVDPV3)) is/are present in this destination.
+polio	pl	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	pm	
+polio	pr	
+polio	pt	
+polio	pw	
+polio	py	
+polio	qa	
+polio	re	
+polio	ro	
+polio	rs	
+polio	ru	
+polio	rw	
+polio	sa	
+polio	sb	
+polio	sc	
+polio	sd	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	se	
+polio	sg	
+polio	si	
+polio	sk	
+polio	sl	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	sm	
+polio	sn	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	so	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	sr	
+polio	ss	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Wild poliovirus (WPV1) and/or circulating vaccine-derived poliovirus (cVDPV1 or cVDPV3)) is/are present in this destination.
+polio	st	
+polio	sv	
+polio	sx	
+polio	sy	
+polio	sz	
+polio	tc	
+polio	td	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Wild poliovirus (WPV1) and/or circulating vaccine-derived poliovirus (cVDPV1 or cVDPV3)) is/are present in this destination.
+polio	tg	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	th	
+polio	tj	
+polio	tk	
+polio	tl	
+polio	tm	
+polio	tn	
+polio	to	
+polio	tr	
+polio	tt	
+polio	tv	
+polio	tw	
+polio	tz	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	ua	
+polio	ug	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+polio	us	
+polio	uy	
+polio	uz	
+polio	vc	
+polio	ve	
+polio	vg	
+polio	vi	
+polio	vn	
+polio	vu	
+polio	ws	
+polio	xk	
+polio	ye	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	yt	
+polio	za	
+polio	zm	Polio (poliomyelitis) is an infectious disease that can be prevented by vaccination. It is caused by poliovirus type 1, 2 or 3. Circulating vaccine-derived poliovirus 2 (cVDPV2) is present in this country.
+polio	zw	The World Health Organization (WHO), at the time of their last report, identified this country as no longer poliovirus-infected, but as having been previously infected within the last 24 months.
+vaccini	ad	HEPB RABIES
+vaccini	ae	HEPA HEPB RABIES TYPHOID
+vaccini	af	CHOLERA DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	ag	CHIK DENGUE HEPA HEPB RABIES
+vaccini	ai	CHIK DENGUE HEPA HEPB RABIES
+vaccini	al	HEPA HEPB RABIES
+vaccini	am	HEPA HEPB RABIES
+vaccini	ao	CHIK CHOLERA DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	aq	HEPB
+vaccini	ar	CHIK DENGUE HEPA HEPB RABIES
+vaccini	as	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	at	HEPB RABIES TBE
+vaccini	au	DENGUE HEPB JE RABIES
+vaccini	aw	CHIK DENGUE HEPA HEPB RABIES
+vaccini	az	HEPA HEPB RABIES
+vaccini	ba	HEPA HEPB RABIES TBE
+vaccini	bb	CHIK DENGUE HEPA HEPB RABIES
+vaccini	bd	CHIK CHOLERA DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	be	HEPB RABIES TBE
+vaccini	bf	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	bg	HEPA HEPB RABIES TBE
+vaccini	bh	HEPA HEPB RABIES TYPHOID
+vaccini	bi	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	bj	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	bl	CHIK DENGUE HEPA HEPB RABIES
+vaccini	bm	DENGUE HEPA HEPB RABIES
+vaccini	bn	CHIK DENGUE HEPA HEPB JE RABIES
+vaccini	bo	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	bq	DENGUE HEPA HEPB RABIES
+vaccini	br	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	bs	CHIK DENGUE HEPA HEPB RABIES
+vaccini	bt	CHIK DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	bw	CHIK HEPA HEPB RABIES
+vaccini	by	HEPA HEPB RABIES TBE
+vaccini	bz	CHIK DENGUE HEPA HEPB RABIES
+vaccini	cd	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	cf	CHIK DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	cg	CHIK CHOLERA DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	ch	HEPB RABIES TBE
+vaccini	ci	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	ck	CHIK DENGUE HEPA HEPB RABIES
+vaccini	cl	CHIK DENGUE HEPA HEPB RABIES
+vaccini	cm	CHOLERA HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	cn	CHIK DENGUE HEPA HEPB JE RABIES TBE TYPHOID
+vaccini	co	CHIK DENGUE HEPA HEPB RABIES
+vaccini	cr	CHIK DENGUE HEPA HEPB RABIES
+vaccini	cu	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	cv	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	cw	CHIK DENGUE HEPA HEPB RABIES
+vaccini	cy	HEPA HEPB RABIES
+vaccini	cz	HEPA HEPB RABIES TBE
+vaccini	de	HEPB RABIES TBE
+vaccini	dj	CHIK CHOLERA DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	dk	HEPB RABIES TBE
+vaccini	dm	CHIK DENGUE HEPA HEPB RABIES
+vaccini	do	CHIK CHOLERA DENGUE HEPA HEPB RABIES
+vaccini	dz	CHOLERA HEPA HEPB RABIES TYPHOID
+vaccini	ec	CHIK DENGUE HEPA HEPB RABIES
+vaccini	ee	HEPA HEPB RABIES TBE
+vaccini	eg	DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	er	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	es	DENGUE HEPB RABIES
+vaccini	et	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	fi	HEPB RABIES TBE
+vaccini	fj	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	fk	HEPA HEPB RABIES
+vaccini	fm	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	fr	CHIK DENGUE HEPB RABIES TBE
+vaccini	ga	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	gb	HEPB RABIES TBE
+vaccini	gd	CHIK DENGUE HEPA HEPB RABIES
+vaccini	ge	HEPA HEPB RABIES
+vaccini	gf	CHIK DENGUE HEPA HEPB RABIES
+vaccini	gh	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	gi	HEPB RABIES
+vaccini	gl	HEPB RABIES
+vaccini	gm	CHIK DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	gn	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	gp	CHIK DENGUE HEPA HEPB RABIES
+vaccini	gq	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	gr	HEPB RABIES
+vaccini	gt	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	gu	DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	gw	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	gy	CHIK DENGUE HEPA HEPB RABIES
+vaccini	hk	CHIK DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	hn	CHIK DENGUE HEPA HEPB RABIES
+vaccini	hr	HEPA HEPB RABIES TBE
+vaccini	ht	CHIK CHOLERA DENGUE HEPA HEPB RABIES
+vaccini	hu	HEPA HEPB RABIES TBE
+vaccini	ic	HEPB RABIES
+vaccini	id	CHIK DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	ie	HEPB RABIES
+vaccini	il	HEPA HEPB RABIES TYPHOID
+vaccini	in	CHIK CHOLERA DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	iq	CHOLERA HEPA HEPB RABIES TYPHOID
+vaccini	ir	CHIK CHOLERA DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	is	HEPB RABIES
+vaccini	it	CHIK DENGUE HEPB RABIES TBE
+vaccini	jm	CHIK DENGUE HEPA HEPB RABIES
+vaccini	jo	HEPA HEPB RABIES TYPHOID
+vaccini	jp	DENGUE HEPB JE RABIES TBE
+vaccini	ke	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	kg	HEPA HEPB RABIES TBE
+vaccini	kh	CHIK DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	ki	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	km	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	kn	CHIK DENGUE HEPA HEPB RABIES
+vaccini	kp	DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	kr	HEPA HEPB JE RABIES TBE
+vaccini	kw	HEPA HEPB RABIES TYPHOID
+vaccini	ky	CHIK DENGUE HEPA HEPB RABIES
+vaccini	kz	HEPA HEPB RABIES TBE
+vaccini	la	CHIK DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	lb	CHOLERA HEPA HEPB RABIES TYPHOID
+vaccini	lc	CHIK DENGUE HEPA HEPB RABIES
+vaccini	li	HEPB RABIES TBE
+vaccini	lk	CHIK DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	lr	CHIK CHOLERA DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	ls	HEPA HEPB RABIES
+vaccini	lt	HEPA HEPB RABIES TBE
+vaccini	lu	HEPB RABIES
+vaccini	lv	HEPA HEPB RABIES TBE
+vaccini	ly	HEPA HEPB RABIES TYPHOID
+vaccini	ma	HEPA HEPB RABIES TYPHOID
+vaccini	mc	HEPB RABIES
+vaccini	md	HEPA HEPB RABIES TBE
+vaccini	me	HEPA HEPB RABIES
+vaccini	mf	CHIK DENGUE HEPA HEPB RABIES
+vaccini	mg	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	mh	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	mk	HEPA HEPB RABIES
+vaccini	ml	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	mm	CHIK CHOLERA DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	mn	HEPA HEPB RABIES TBE
+vaccini	mo	CHIK DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	mp	DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	mq	CHIK DENGUE HEPA HEPB RABIES
+vaccini	mr	DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	ms	CHIK DENGUE HEPA HEPB RABIES
+vaccini	mt	HEPB RABIES
+vaccini	mu	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	mv	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	mw	CHIK CHOLERA DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	mx	CHIK DENGUE HEPA HEPB RABIES
+vaccini	my	CHIK CHOLERA DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	mz	CHIK CHOLERA DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	na	CHOLERA DENGUE HEPA HEPB RABIES
+vaccini	nc	DENGUE HEPA HEPB RABIES
+vaccini	ne	CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	ng	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	ni	CHIK DENGUE HEPA HEPB RABIES
+vaccini	nl	HEPB RABIES TBE
+vaccini	no	HEPB RABIES TBE
+vaccini	np	CHIK CHOLERA DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	nr	DENGUE HEPA HEPB RABIES
+vaccini	nu	DENGUE HEPA HEPB RABIES
+vaccini	nz	HEPB RABIES
+vaccini	om	DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	pa	CHIK DENGUE HEPA HEPB RABIES
+vaccini	pe	CHIK DENGUE HEPA HEPB RABIES
+vaccini	pf	DENGUE HEPA HEPB RABIES
+vaccini	pg	CHIK CHOLERA DENGUE HEPA HEPB JE RABIES
+vaccini	ph	CHIK CHOLERA DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	pk	CHIK CHOLERA DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	pl	HEPA HEPB RABIES TBE
+vaccini	pm	HEPB RABIES
+vaccini	pr	CHIK DENGUE HEPA HEPB RABIES
+vaccini	pt	HEPB RABIES
+vaccini	pw	DENGUE HEPA HEPB RABIES
+vaccini	py	CHIK DENGUE HEPA HEPB RABIES
+vaccini	qa	HEPA HEPB RABIES TYPHOID
+vaccini	re	CHIK DENGUE HEPA HEPB RABIES
+vaccini	ro	HEPA HEPB RABIES TBE
+vaccini	rs	HEPA HEPB RABIES TBE
+vaccini	ru	HEPA HEPB JE RABIES TBE
+vaccini	rw	CHIK DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	sa	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	sb	DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	sc	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	sd	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	se	HEPB RABIES TBE
+vaccini	sg	CHIK DENGUE HEPA HEPB JE RABIES
+vaccini	si	HEPA HEPB RABIES TBE
+vaccini	sk	HEPA HEPB RABIES TBE
+vaccini	sl	CHIK CHOLERA DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	sm	HEPB RABIES
+vaccini	sn	CHIK DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	so	CHIK CHOLERA DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	sr	CHIK DENGUE HEPA HEPB RABIES
+vaccini	ss	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	st	DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	sv	CHIK DENGUE HEPA HEPB RABIES
+vaccini	sx	CHIK HEPA HEPB RABIES
+vaccini	sy	CHOLERA HEPA HEPB RABIES TYPHOID
+vaccini	sz	CHIK HEPA HEPB RABIES
+vaccini	tc	CHIK DENGUE HEPA HEPB RABIES
+vaccini	td	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	tg	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	th	CHIK CHOLERA DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	tj	HEPA HEPB RABIES
+vaccini	tk	CHIK DENGUE HEPA HEPB RABIES
+vaccini	tl	CHIK DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	tm	HEPA HEPB RABIES
+vaccini	tn	HEPA HEPB RABIES TBE TYPHOID
+vaccini	to	CHIK DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	tr	HEPA HEPB RABIES TBE TYPHOID
+vaccini	tt	CHIK DENGUE HEPA HEPB RABIES
+vaccini	tv	DENGUE HEPA HEPB RABIES
+vaccini	tw	CHIK DENGUE HEPA HEPB JE RABIES
+vaccini	tz	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	ua	HEPA HEPB RABIES TBE
+vaccini	ug	CHIK CHOLERA DENGUE HEPA HEPB MENACWY RABIES TYPHOID
+vaccini	us	CHIK DENGUE HEPB RABIES
+vaccini	uy	CHIK DENGUE HEPA HEPB RABIES
+vaccini	uz	HEPA HEPB RABIES
+vaccini	vc	CHIK DENGUE HEPA HEPB RABIES
+vaccini	ve	CHIK DENGUE HEPA HEPB RABIES
+vaccini	vg	CHIK DENGUE HEPA HEPB RABIES
+vaccini	vi	CHIK DENGUE HEPA HEPB RABIES
+vaccini	vn	CHIK DENGUE HEPA HEPB JE RABIES TYPHOID
+vaccini	vu	DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	ws	CHIK DENGUE HEPA HEPB RABIES
+vaccini	xk	HEPA HEPB RABIES
+vaccini	ye	CHIK CHOLERA DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	yt	CHIK DENGUE HEPA HEPB RABIES
+vaccini	za	CHIK HEPA HEPB RABIES
+vaccini	zm	CHIK CHOLERA DENGUE HEPA HEPB RABIES TYPHOID
+vaccini	zw	CHIK CHOLERA DENGUE HEPA HEPB RABIES
+yf	ad	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ae	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	af	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ag	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	ai	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	al	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	am	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ao	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	aq	There is no risk of yellow fever in this country. | This territory has not stated its yellow fever vaccination certificate requirements.
+yf	ar	There is a risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	as	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	at	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	au	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	aw	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	az	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ba	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	bb	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	bd	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	be	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	bf	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	bg	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	bh	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	bi	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	bj	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	bl	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	bm	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	bn	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	bo	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	bq	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	br	There is a risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	bs	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	bt	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	bw	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	by	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	bz	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	cd	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	cf	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	cg	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	ch	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ci	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	ck	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	cl	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	cm	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	cn	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	co	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are arriving from Angola, Brazil, Democratic Republic of the Congo, or Uganda, or have transited through an airport in one of these countries.
+yf	cr	There is no risk of yellow fever in this country. | Proof of yellow fever vaccination is required if you are coming from a country where yellow fever occurs, with the addition of Rwanda, Tanzania and Zambia in the African region and the exception of Argentina and Panama in the Americas. / Please note: The Ministry of Health of Costa Rica has published updates to the entry requirements, which are not yet available from the World Health Organization. With this update, regional exemptions for countries where yellow fever occurs are no longer in place, and the entire country is now considered an at risk country by the Ministry of Health of Costa Rica. See the Ministry of Health website for details. / Ministerio de Salud Zonas Geográficas en Riesgo de Transmisión de Fiebre Amarilla (in Spanish only)
+yf	cu	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	cv	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	cw	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	cy	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	cz	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	de	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	dj	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	dk	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	dm	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	do	There is no risk of yellow fever in this country. | Proof of vaccination is required if arriving from some states in Brazil, including travellers having transited for more than 12 hours through an airport in those same states.
+yf	dz	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	ec	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination is required if you are arriving from Democratic Republic of the Congo, or Uganda, or have transited through an airport in one of these countries.
+yf	ee	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	eg	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	er	There is low potential for yellow fever exposure in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	es	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	et	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are arriving from Brazil, Bolivia, Peru, or Venezuela or have transited through an airport in one of these countries.
+yf	fi	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	fj	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	fk	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	fm	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	fr	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ga	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	gb	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	gd	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	ge	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	gf	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	gh	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	gi	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	gl	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	gm	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	gn	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	gp	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	gq	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	gr	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	gt	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	gu	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	gw	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	gy	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	hk	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	hn	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	hr	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ht	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	hu	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ic	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	id	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	ie	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	il	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	in	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	iq	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ir	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	is	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	it	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	jm	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	jo	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	jp	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ke	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	kg	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	kh	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	ki	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	km	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	kn	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	kp	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	kr	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	kw	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ky	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	kz	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	la	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	lb	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	lc	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	li	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	lk	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	lr	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	ls	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	lt	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	lu	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	lv	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ly	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ma	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	mc	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	md	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	me	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	mf	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	mg	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	mh	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	mk	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ml	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	mm	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	mn	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	mo	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	mp	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	mq	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	mr	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	ms	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	mt	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	mu	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	mv	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	mw	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	mx	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	my	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	mz	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	na	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	nc	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	ne	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	ng	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	ni	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	nl	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	no	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	np	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	nr	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	nu	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	nz	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	om	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs. Proof of vaccination is also required for travellers coming from or having transited through, Rwanda and Tanzania.
+yf	pa	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	pe	There is a risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	pf	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	pg	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	ph	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	pk	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	pl	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	pm	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	pr	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	pt	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	pw	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	py	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are arriving from Brazil, Bolivia, Peru, or Venezuela or have transited through an airport in one of these countries.
+yf	qa	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	re	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ro	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	rs	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ru	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	rw	There is low potential for yellow fever exposure in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	sa	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	sb	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	sc	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	sd	There is a risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	se	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	sg	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs in the past six days prior to arrival in Singapore. See the Ministry of Health website for details. / Singapore Ministry of Health - Yellow fever vaccination
+yf	si	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	sk	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	sl	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	sm	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	sn	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	so	There is low potential for yellow fever exposure in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	sr	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	ss	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	st	There is low potential for yellow fever exposure in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	sv	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	sx	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	sy	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	sz	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	tc	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	td	There is a risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	tg	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	th	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	tj	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	tk	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	tl	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	tm	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	tn	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	to	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	tr	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	tt	There is a risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	tv	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	tw	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	tz	There is low potential for yellow fever exposure in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	ua	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ug	There is a risk of yellow fever in this country. | Proof of yellow fever vaccination for travellers from all countries.
+yf	us	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	uy	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	uz	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	vc	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from a country where yellow fever occurs.
+yf	ve	There is a risk of yellow fever in this country. | Proof of vaccination is required if arriving from Brazil, including travellers having transited for more than 12 hours through an airport in Brazil.
+yf	vg	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	vi	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	vn	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	vu	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	ws	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	xk	There is no risk of yellow fever in this country. | This territory has not stated its yellow fever vaccination certificate requirements.
+yf	ye	There is no risk of yellow fever in this country. | Proof of vaccination is not required to enter this country.
+yf	yt	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	za	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	zm	There is low potential for yellow fever exposure in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.
+yf	zw	There is no risk of yellow fever in this country. | Proof of vaccination is required if you are coming from or have transited through an airport of a country where yellow fever occurs.

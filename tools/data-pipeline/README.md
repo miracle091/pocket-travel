@@ -102,6 +102,14 @@ regioni pubblicate, perché partenza e scali di un viaggio possono essere paesi 
 `GenerateVaccinationsTest`. `scripts/vaccinations_draft.py` scarica i dati di Travel.gc.ca e produce solo bozze da
 rivedere a mano: non vanno copiate nel repository così come sono.
 
+Il controllo deriva `scripts/vaccinations_drift.py` confronta le fonti con l'istantanea `vaccinations-drift.tsv`
+(per ogni paese, le frasi di Travel.gc.ca su febbre gialla e polio e l'elenco dei vaccini, più l'hash del PDF
+saudita per Hajj e Umrah) e controlla che l'OMS non abbia pubblicato uno statement polio più recente di quello di
+`polio-status.tsv`. Gira nel job `vaccinations-check` di publish-regions, col bucket del lunedì e nelle run manuali:
+se qualcosa è cambiato lascia un warning e il resoconto nel riepilogo della run, senza toccare i TSV e senza
+bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istantanea con
+`python scripts/vaccinations_drift.py --update` e si committano insieme.
+
 ## Città, guide e dataset di addestramento
 
 - **Popolazione e capitale delle città**: `scripts/city_population.py` è usato da `extract-cities-dump.py` e

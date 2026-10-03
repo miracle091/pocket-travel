@@ -868,6 +868,35 @@ jobs:
           path: ${{ runner.temp }}/overture-checked
           key: overture-check-${{ steps.overture-release.outputs.release }}
 
+  # Controllo deriva dei dati vaccinali (TSV curati a mano in content/src/main/resources/vaccinations/),
+  # una volta a settimana col bucket del lunedi' e nelle run manuali: confronta Travel.gc.ca, il PDF
+  # Hajj saudita e l'ultimo statement del comitato polio OMS con l'istantanea vaccinations-drift.tsv.
+  # Se qualcosa e' cambiato lascia un warning e il resoconto nel riepilogo della run; non tocca i TSV
+  # e non blocca la pubblicazione (nessuno lo aspetta, gli errori di rete diventano un warning).
+  vaccinations-check:
+    if: ${{ github.event.schedule == '0 2 * * 1' || (github.event_name == 'workflow_dispatch' && !(github.event.inputs.continuation > 0)) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Controlla le fonti dei dati vaccinali
+        shell: bash
+        run: |
+          set -uo pipefail
+          REPORT="$RUNNER_TEMP/vaccinations-drift.md"
+          python3 tools/data-pipeline/scripts/vaccinations_drift.py --report "$REPORT"
+          case $? in
+            0) ;;
+            2)
+              cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+              echo "::warning::dati vaccinali da ricontrollare: le fonti sono cambiate dall'ultima curatela (dettagli nel riepilogo della run)"
+              ;;
+            *) echo "::warning::controllo deriva dei dati vaccinali non riuscito (fonte non raggiungibile?), si ripete la settimana prossima" ;;
+          esac
+
   # Genera i pacchetti regionali (poi.db + .rd5) per lo shard assegnato e carica gli asset
   # sulla release "region-data". I frammenti manifest prodotti vanno come artifact al job
   # "publish" sotto (job diversi non condividono il filesystem).
