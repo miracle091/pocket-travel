@@ -25,6 +25,13 @@ dependencies {
     implementation(libs.sqlite.jdbc)
     // Lettura PMTiles locali e decodifica dei tile vettoriali per GenerateAddresses.kt.
     implementation(libs.planetiler.core)
+    // planetiler-core 0.10.2 (l'ultima) tira dentro jackson 2.21.2, log4j 2.25.3, aircompressor 2.0.2 e
+    // lz4-java 1.8.0, tutte con CVE note (OSV, ottobre 2026): si alzano alle versioni corrette.
+    implementation(platform(libs.jackson.bom))
+    implementation(platform(libs.log4j.bom))
+    constraints {
+        implementation(libs.aircompressor)
+    }
     // Lettura e scrittura dei segmenti .rd5 per la variante "solo auto" dei percorsi (FilterRd5.kt).
     implementation(project(":third-party:brouter-core"))
 
@@ -32,6 +39,15 @@ dependencies {
     // Usato anche da MergeManifests.kt (parsing/merge di manifest.json reali), non solo dai
     // test — senza tirare dentro il plugin kotlinx.serialization solo per questo.
     implementation(libs.org.json)
+}
+
+// lz4-java dalla 1.8.1 in poi esce con il gruppo at.yawk.lz4 (stesse classi net.jpountz.lz4): le
+// versioni corrette non sono raggiungibili con un vincolo su org.lz4, serve una sostituzione.
+configurations.configureEach {
+    resolutionStrategy.dependencySubstitution {
+        substitute(module("org.lz4:lz4-java"))
+            .using(module("at.yawk.lz4:lz4-java:${libs.versions.lz4Java.get()}"))
+    }
 }
 
 val pipelineRoot: File = projectDir.parentFile
