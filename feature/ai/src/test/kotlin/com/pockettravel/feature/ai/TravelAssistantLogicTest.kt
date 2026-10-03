@@ -9,6 +9,7 @@ import com.pockettravel.core.data.Poi
 import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitDeparture
 import com.pockettravel.core.data.TransitMode
+import com.pockettravel.core.data.vaccination.TripPurpose
 import com.pockettravel.core.poi.PoiCategory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -286,6 +287,13 @@ class TravelAssistantLogicTest {
         assertTrue(isVaccinationQuestion("Polio requirements for Pakistan?"))
         assertFalse(isVaccinationQuestion("Com'e' la cucina in Kenya?"))
         assertFalse(isVaccinationQuestion("Is tap water safe to drink?"))
+    }
+
+    @Test
+    fun `una domanda su Hajj o Umrah calcola i vaccini per il pellegrinaggio`() {
+        assertEquals(TripPurpose.HAJJ_UMRAH, tripPurposeOf("Che vaccini servono per l'Umrah?"))
+        assertEquals(TripPurpose.HAJJ_UMRAH, tripPurposeOf("Vaccines for the Hajj?"))
+        assertNull(tripPurposeOf("Servono vaccinazioni per il Kenya?"))
     }
 
     @Test

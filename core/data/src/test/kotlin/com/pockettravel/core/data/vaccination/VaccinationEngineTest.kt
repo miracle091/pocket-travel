@@ -271,10 +271,13 @@ class VaccinationEngineTest {
 
     @Test
     fun `sotto i 9 mesi la febbre gialla per destinazione a rischio e' da valutare, non consigliata`() {
-        val infant = evaluate(Trip(departure = "it", destination = "ke", travellerAgeMonths = 4)).item(Vaccine.YELLOW_FEVER, VaccinationReason.YF_DESTINATION_RISK)!!
+        val infantResult = evaluate(Trip(departure = "it", destination = "ke", travellerAgeMonths = 4))
+        val infant = infantResult.item(Vaccine.YELLOW_FEVER, VaccinationReason.YF_DESTINATION_RISK)!!
         assertEquals(VaccinationLevel.CONSIDER, infant.level)
         assertEquals(AgeNote.BELOW_AGE, infant.ageNote)
         assertEquals(9, infant.minAgeMonths)
+        // La riga YF delle raccomandate non deve riportarla tra le consigliate.
+        assertEquals(listOf(infant), infantResult.items.filter { it.vaccine == Vaccine.YELLOW_FEVER })
 
         val adult = evaluate(Trip(departure = "it", destination = "ke")).item(Vaccine.YELLOW_FEVER, VaccinationReason.YF_DESTINATION_RISK)!!
         assertEquals(VaccinationLevel.RECOMMENDED, adult.level)

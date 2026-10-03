@@ -26,6 +26,7 @@ import com.pockettravel.core.data.displayName
 import com.pockettravel.core.data.officialSourceFor
 import com.pockettravel.core.data.poiCategory
 import com.pockettravel.core.data.vaccination.Trip
+import com.pockettravel.core.data.vaccination.TripPurpose
 import com.pockettravel.core.data.vaccination.VaccinationPreferences
 import com.pockettravel.core.data.vaccination.VaccinationRepository
 import com.pockettravel.core.data.vaccination.toSummaryText
@@ -136,7 +137,7 @@ class TravelAssistant @Inject constructor(
         val destination = regionRepository.installed(regionId)?.countryCode ?: return null
         val departure = vaccinationPreferences.departure ?: nationalityPreferences.nationality.value ?: return null
         if (departure.equals(destination, ignoreCase = true)) return null
-        val trip = Trip(departure = departure, destination = destination)
+        val trip = Trip(departure = departure, destination = destination, purpose = tripPurposeOf(question))
         val result = vaccinationRepository.evaluate(trip) ?: return null
         return AssistantSection(
             body = result.toSummaryText(trip, language),
@@ -214,6 +215,12 @@ private val vaccinationWords = Regex("""vaccin|febbre gialla|yellow fever|polio|
 
 /** True se la domanda parla di vaccini o certificati sanitari (italiano o inglese). */
 internal fun isVaccinationQuestion(question: String): Boolean = vaccinationWords.containsMatchIn(question)
+
+private val pilgrimageWords = Regex("""hajj|umrah""", RegexOption.IGNORE_CASE)
+
+/** Hajj o Umrah nella domanda: senza lo scopo del viaggio il motore non mostra il MenACWY obbligatorio per i pellegrini. */
+internal fun tripPurposeOf(question: String): TripPurpose? =
+    if (pilgrimageWords.containsMatchIn(question)) TripPurpose.HAJJ_UMRAH else null
 
 // "vicino a <luogo>" no: chiede di un altro posto, non della posizione dell'utente.
 private val nearbyWords = Regex(

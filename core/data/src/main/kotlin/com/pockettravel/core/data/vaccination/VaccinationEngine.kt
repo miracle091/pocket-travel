@@ -127,9 +127,13 @@ fun evaluateVaccinations(trip: Trip, data: VaccinationData, today: LocalDate = L
 
     // Raccomandate per destinazione: MOST = consigliate, SOME = da valutare. Una riga che ripete un vaccino
     // gia' presente (febbre gialla a rischio, MenACWY dell'Hajj) si salta, salvo che la voce sia solo
-    // "non richiesto per l'eta'".
+    // "non richiesto per l'eta'". La febbre gialla si salta sempre: la voce "destinazione a rischio" tiene gia'
+    // conto dell'eta' (sotto i 9 mesi e' da valutare, non consigliata).
     data.recommended.filter { it.iso2 == destination }.forEach { row ->
-        if (items.any { it.vaccine == row.vaccine && it.ageNote != AgeNote.BELOW_AGE }) return@forEach
+        val duplicate = items.any {
+            it.vaccine == row.vaccine && (it.ageNote != AgeNote.BELOW_AGE || it.vaccine == Vaccine.YELLOW_FEVER)
+        }
+        if (duplicate) return@forEach
         val most = row.level == RecommendedLevel.MOST
         items += VaccinationItem(
             vaccine = row.vaccine,
