@@ -6,7 +6,7 @@ Le cose da sapere per lavorare su Pocket Travel. Il **perché** delle scelte tec
 
 - Android Studio con JDK 17 o successivo (Gradle è già incluso nel repository).
 - Per la pipeline dei dati: bash, `jq`, `xz`, Python 3 (per i civici di Overture anche il pacchetto `duckdb`).
-- Per addestrare i modelli dell'assistente: una GPU (AMD con ROCm o NVIDIA con CUDA) e PyTorch, meglio con Unsloth (senza, si usa peft). Si lancia `tools/data-pipeline/scripts/train_auto.py`, che sceglie da solo GPU e backend; su Linux/WSL con NVIDIA c'è anche `run_train_nvidia.sh`. Su WSL il desktop di Windows occupa parte della memoria della GPU: aggiungi `--max-vram-held 25`.
+- Per addestrare i modelli dell'assistente: una GPU (AMD con ROCm o NVIDIA con CUDA) e PyTorch, meglio con Unsloth (senza, si usa peft). Si lancia `tools/data-pipeline/scripts/train_auto.py`, che sceglie da solo GPU e backend; su Linux/WSL con NVIDIA c'è anche `run_train_nvidia.sh`. Su WSL il desktop di Windows occupa parte della memoria della GPU: si aggiunge `--max-vram-held 25`. Il dataset di addestramento (v9, in italiano o in inglese) si genera con `generate_sft.py --lang it|en`; le sezioni mancanti in una lingua si traducono dall'altra con `translate_sections.py` (MarianMT, anche su GPU).
 
 ## Compilare e provare
 
@@ -74,14 +74,17 @@ adb shell cmd locale set-app-locales com.pockettravel.app --locales en   # o it
 | i modelli dell'assistente | `feature/ai/.../LlmModelCatalog.kt` (ogni modello addestrato ha la sua lingua) e gli script `train_*.py` / `eval_*.py` |
 | percorsi e navigazione | `feature/map/.../BRouterRouteEngine.kt`, `NavigationScreen.kt`, `NavigationTracker.kt`; le aggiunte a BRouter sono segnate "Pocket Travel" in `third-party/brouter-core` |
 | i testi dell'app | `res/values/strings.xml` (italiano) e `res/values-en/strings.xml` (inglese) di ogni modulo |
+| le vaccinazioni | dati in `tools/data-pipeline/content/src/main/resources/vaccinations/` (TSV curati, bozza con `vaccinations_draft.py`), regole in `core/data/.../vaccination/`, schermata in `feature/guide/.../VaccinationScreen.kt` |
+| popolazione e capitale delle città | `tools/data-pipeline/scripts/city_population.py`, usato da `extract-cities-dump.py` e `extract-cities-dump-en.py` |
+| il dataset di addestramento | `tools/data-pipeline/scripts/generate_sft.py` e `translate_sections.py` (le tabelle per lingua stanno in `generate_sft_dataset.py` e `generate_sft_dataset_en.py`) |
 | le guide e le città in inglese | `build-guides.sh … en`, `build-cities.sh … en`, `extract-cities-dump-en.py`; nell'app `core/sync/.../GuidesChoice.kt` |
 
 ## Rilasciare una versione
 
-1. Aggiorna `versionCode` e `versionName` in `app/build.gradle.kts`.
-2. Nel `CHANGELOG.md` rinomina "Non rilasciato" con il numero di versione.
-3. Se i nuovi dati richiedono questa versione dell'app, aggiorna `tools/data-pipeline/min-app-version-code`.
-4. Fai il push su `main`: `publish-apk.yml` firma l'APK e crea la release. La pipeline dei dati pubblicherà i dati nuovi solo dopo.
+1. Aggiornare `versionCode` e `versionName` in `app/build.gradle.kts`.
+2. Nel `CHANGELOG.md` rinominare "Non rilasciato" con il numero di versione.
+3. Se i nuovi dati richiedono questa versione dell'app, aggiornare `tools/data-pipeline/min-app-version-code`.
+4. Fare il push su `main`: `publish-apk.yml` firma l'APK e crea la release. La pipeline dei dati pubblicherà i dati nuovi solo dopo.
 
 ## Regole della casa
 

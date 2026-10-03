@@ -90,3 +90,29 @@ Indice, firmato come gli altri JSON e puntato dalla voce `"addressGrid": { "vers
   `addresses.pmtiles` locale e usa come versione dei civici `grid-` + i primi 16 esadecimali dello sha256
   degli `id@version` delle celle ordinati (`+search` per le celle con l'indice di ricerca;
   `AddressGridSelection.kt`).
+
+## Vaccinazioni (tabelle `vacc_*` di `guides.db`)
+
+I dati vaccinali sono file TSV curati a mano in `content/src/main/resources/vaccinations/` (febbre gialla in
+ingresso, in uscita e per rischio, polio, requisiti speciali come Hajj e Umrah, vaccini consigliati per
+destinazione). Le fonti sono Travel.gc.ca (Open Government Licence - Canada 2.0) e TravelHealthPro (Open
+Government Licence v3.0): i fatti sono riscritti con parole proprie e le fonti sono indicate nelle righe `#` di ogni
+file. `GenerateVaccinations.kt` li scrive in `guides.db` come tabelle `vacc_*`, tutte le righe e non solo quelle delle
+regioni pubblicate, perché partenza e scali di un viaggio possono essere paesi senza regione; la validazione è in
+`GenerateVaccinationsTest`. `scripts/vaccinations_draft.py` scarica i dati di Travel.gc.ca e produce solo bozze da
+rivedere a mano: non vanno copiate nel repository così come sono.
+
+## Città, guide e dataset di addestramento
+
+- **Popolazione e capitale delle città**: `scripts/city_population.py` è usato da `extract-cities-dump.py` e
+  `extract-cities-dump-en.py`. La popolazione viene dal campo "Abitanti" di Wikivoyage, in alternativa da Wikidata
+  (P1082); la capitale della regione da Wikidata (P36). Finiscono nelle colonne `population` e `capital` di
+  `cities.db`; senza dati la città resta senza popolazione.
+- **Guide**: la sottosezione "Costo della vita" ("Cost of living" in inglese) viene omessa da guide e città. I fatti
+  rapidi delle guide inglesi comprendono anche la lingua e i numeri di emergenza, come quelli italiani.
+- **Dataset SFT v9**: `scripts/generate_sft.py --lang it|en` genera il dataset dei due modelli linguistici con le
+  stesse fonti, la stessa composizione e gli stessi tipi di domanda. Con `--vaccinations` aggiunge domande sui
+  vaccini, con il riassunto che l'app inserisce nel contesto dell'assistente. `scripts/translate_sections.py` traduce
+  con MarianMT (`opus-mt-tc-big`, CC BY 4.0) le sezioni assenti o molto più brevi in una lingua; scarta le
+  traduzioni con numeri diversi dall'originale e conserva le frasi tradotte in una cache. Le tabelle per lingua
+  stanno in `generate_sft_dataset.py` e `generate_sft_dataset_en.py`, che servono ancora per rigenerare il dataset v8.
