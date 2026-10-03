@@ -15,12 +15,16 @@ import javax.inject.Inject
  */
 class RegionRoutingGraphInstaller @Inject constructor() {
 
-    suspend fun install(packageDir: File) = withContext(Dispatchers.IO) {
+    /**
+     * [names]: i segmenti della richiesta. Lo staging puo' contenere .rd5 completati da un tentativo precedente
+     * (un'altra zona): solo questi si installano. Null = tutti.
+     */
+    suspend fun install(packageDir: File, names: Set<String>? = null) = withContext(Dispatchers.IO) {
         val routingDir = File(packageDir, ROUTING_DIR_NAME)
         routingDir.deleteRecursively()
         routingDir.mkdirs()
 
-        val segments = packageDir.listFiles { file -> file.isFile && file.extension == "rd5" }.orEmpty()
+        val segments = packageDir.listFiles { file -> file.isFile && file.extension == "rd5" && (names == null || file.name in names) }.orEmpty()
         check(segments.isNotEmpty()) { "Il pacchetto non contiene segmenti routing" }
         segments.forEach { rd5File ->
                 check(rd5File.renameTo(File(routingDir, rd5File.name))) {

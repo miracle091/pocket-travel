@@ -57,4 +57,16 @@ class RegionRoutingGraphInstallerTest {
 
         assertTrue("content.db non e' un .rd5, deve restare dov'era", File(packageDir, "content.db").exists())
     }
+
+    @Test
+    fun `con l'elenco dei segmenti installa solo quelli della richiesta`() = runBlocking {
+        val packageDir = createTempDirectory("pocket-travel-test").toFile()
+        File(packageDir, "E5_N45.rd5").writeBytes(byteArrayOf(1))
+        // Completato da un tentativo precedente con un'altra zona: non fa parte di questa richiesta.
+        File(packageDir, "E10_N45.rd5").writeBytes(byteArrayOf(2))
+
+        RegionRoutingGraphInstaller().install(packageDir, setOf("E5_N45.rd5"))
+
+        assertEquals(setOf("E5_N45.rd5"), File(packageDir, RegionRoutingGraphInstaller.ROUTING_DIR_NAME).list()?.toSet())
+    }
 }

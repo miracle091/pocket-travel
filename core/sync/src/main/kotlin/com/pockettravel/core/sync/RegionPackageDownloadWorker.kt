@@ -89,7 +89,7 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
                 },
             )
             // Il Navigatore lo legge per avvisare che a piedi o in bici questi percorsi non bastano.
-            if (PackageKind.ROUTING in kinds) routingVariantPreferences.setInstalledCarOnly(entry.regionId, carOnly)
+            if (PackageKind.ROUTING in kinds) routingVariantPreferences.setInstalledCarOnly(entry.regionId, entry.hasCarOnlyRouting)
             Result.success()
         } catch (error: CancellationException) {
             throw error

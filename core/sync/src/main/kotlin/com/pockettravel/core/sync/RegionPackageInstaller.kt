@@ -60,8 +60,11 @@ class RegionPackageInstaller @Inject constructor(
         // chiudere, che activatePackage sovrascriverebbe (RegionStartupRecovery salta le regioni in download).
         withContext(Dispatchers.IO) { regionRepository.recoverInterruptedActivations(entry.regionId) }
         // Una cartella di staging per combinazione di pacchetti e versioni: un download interrotto
-        // riprende dai file .part della stessa richiesta, una richiesta diversa riparte da zero.
-        val stagingVersion = PackageKind.entries.filter { it in kinds }.joinToString("_") { "${it.name.lowercase()}-${entry.versionOf(it)}" } +
+        // riprende dai file .part della stessa richiesta, una richiesta diversa riparte da zero. I percorsi
+        // "solo auto" hanno la stessa versione e gli stessi nomi di quelli completi: "car" li tiene separati.
+        val routingVariant = if (entry.hasCarOnlyRouting) "car-" else ""
+        val stagingVersion = PackageKind.entries.filter { it in kinds }
+            .joinToString("_") { "${it.name.lowercase()}-${if (it == PackageKind.ROUTING) routingVariant else ""}${entry.versionOf(it)}" } +
             (if (installPreview) "_preview-${entry.preview.version}" else "")
         // Download, decompressione, attivazione e pulizia sotto lo stesso lock dello staging della regione: un altro
         // lavoro con una versione diversa non cancella (cleanupStagingExcept) i file mentre questo li usa.
@@ -101,7 +104,7 @@ class RegionPackageInstaller @Inject constructor(
                 extractedLight = stats.maxZoom < entry.map.source.maxZoom
             }
             onInstalling()
-            if (PackageKind.ROUTING in kinds) routingGraphInstaller.install(staging)
+            if (PackageKind.ROUTING in kinds) routingGraphInstaller.install(staging, entry.routing.files.mapTo(HashSet()) { it.name })
 
             // I POI si leggono a blocchi dentro la transazione (PoiImporter.replaceFromFile): caricarli tutti in
             // memoria prima, per una regione grande, rischierebbe l'OutOfMemoryError.

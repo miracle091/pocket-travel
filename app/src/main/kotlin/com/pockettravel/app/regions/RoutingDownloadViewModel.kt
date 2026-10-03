@@ -92,12 +92,15 @@ class RoutingDownloadViewModel @Inject constructor(
         targets.value = emptyList()
     }
 
-    /** "Scarica i percorsi" dal Navigatore: della regione aperta, o di [targetIds] se sono quelle tra partenza e arrivo. */
-    fun downloadRouting(targetIds: List<String> = emptyList()) {
+    /**
+     * "Scarica i percorsi" dal Navigatore: della regione aperta, o di [targetIds] se sono quelle tra partenza e arrivo.
+     * Senza [carOnlyAllowed] (a piedi, in bici) si scaricano i percorsi completi anche dove l'utente aveva scelto quelli
+     * solo per l'auto: altrimenti il download non basterebbe e il Navigatore lo riproporrebbe.
+     */
+    fun downloadRouting(targetIds: List<String> = emptyList(), carOnlyAllowed: Boolean = false) {
         targets.value = targetIds
         val ids = targetIds.ifEmpty { listOfNotNull(regionId.value) }
-        // Percorsi solo per l'auto proposti da scaricare (a piedi, in bici): si scaricano quelli completi.
-        ids.filter { it in routingVariantPreferences.installedCarOnly.value }.forEach { routingVariantPreferences.setCarOnly(it, false) }
+        if (!carOnlyAllowed) ids.filter { it in routingVariantPreferences.carOnly.value }.forEach { routingVariantPreferences.setCarOnly(it, false) }
         viewModelScope.launch {
             manifestFailed.value = false
             // Un errore del catalogo non si butta: il Navigatore lo mostra e lascia riprovare, invece di restare fermo.

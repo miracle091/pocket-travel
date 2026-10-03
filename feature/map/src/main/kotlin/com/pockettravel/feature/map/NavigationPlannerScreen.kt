@@ -134,7 +134,8 @@ fun NavigationPlannerScreen(
     navigationViewModel: NavigationViewModel,
     // Senza i Percorsi della regione: avvia il download (l'hub lo sa fare), il ricalcolo poi e' automatico.
     // Con gli id di altre regioni: quelle del catalogo tra partenza e arrivo (vuota = la regione aperta).
-    onDownloadRouting: (regionIds: List<String>) -> Unit,
+    // carOnlyAllowed: il mezzo e' l'auto, quindi bastano i percorsi "solo auto" se l'utente li ha scelti.
+    onDownloadRouting: (regionIds: List<String>, carOnlyAllowed: Boolean) -> Unit,
     // Avanzamento 0..1 del download in corso, null se nessuno: la barra come nell'elenco delle regioni.
     downloadProgress: Float?,
     // Il download e' fallito (lavoro finito in errore o catalogo non raggiungibile): si puo' riprovare.
@@ -252,7 +253,7 @@ fun NavigationPlannerScreen(
             missingRegions = guidanceMissing,
             downloadFailed = downloadFailed,
             downloadProgress = downloadProgress,
-            onDownloadRouting = { onDownloadRouting(guidanceMissing.map { it.regionId }) },
+            onDownloadRouting = { onDownloadRouting(guidanceMissing.map { it.regionId }, navigationMode == TravelMode.CAR) },
         )
         return
     }
@@ -304,7 +305,7 @@ fun NavigationPlannerScreen(
             onSetReminder = viewModel::setReminder,
             onRetry = viewModel::refreshPreview,
             onRequestPermission = requestPermission,
-            onDownloadRouting = { onDownloadRouting(missingRegions.map { it.regionId }) },
+            onDownloadRouting = { onDownloadRouting(missingRegions.map { it.regionId }, travelMode == TravelMode.CAR) },
             onAllowStepsChange = viewModel::setAllowSteps,
             onArrivalAnnounced = { arrivedAt = null },
         ),

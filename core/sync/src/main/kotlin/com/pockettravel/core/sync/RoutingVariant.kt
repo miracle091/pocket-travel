@@ -6,3 +6,11 @@ package com.pockettravel.core.sync
  */
 fun RegionManifestEntry.withRoutingVariant(carOnly: Boolean): RegionManifestEntry =
     if (carOnly && routingCar != null) copy(routing = routingCar) else this
+
+/**
+ * I percorsi della voce sono la variante "solo auto": i segmenti hanno lo sha256 di quelli di [RegionManifestEntry.routingCar]
+ * (vale anche dopo restrictedTo, che toglie tile ma non cambia variante).
+ */
+val RegionManifestEntry.hasCarOnlyRouting: Boolean
+    get() = routingCar != null && routing.files.isNotEmpty() &&
+        routing.files.all { file -> routingCar.files.any { it.sha256 == file.sha256 } }

@@ -1,7 +1,9 @@
 package com.pockettravel.core.sync
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RoutingVariantTest {
@@ -35,5 +37,19 @@ class RoutingVariantTest {
     fun `la zona si applica dopo, anche alla variante auto`() {
         val zoned = entry.withRoutingVariant(true).restrictedTo(com.pockettravel.core.data.RegionZone(12.2, 41.7, 12.8, 42.1))
         assertEquals(listOf("E10_N40.rd5" to 430L), zoned.routing.files.map { it.name to it.sizeBytes })
+    }
+
+    @Test
+    fun `la variante auto si riconosce dallo sha256, anche dopo la zona`() {
+        fun file(name: String, sha: Char) = RegionManifestFile(name, "https://github.com/o/r/releases/download/x/$name", 10, sha.toString().repeat(64))
+        val distinct = entry.copy(
+            routing = RoutingPackageEntry("r1", listOf(file("E10_N40.rd5", 'a'), file("E10_N45.rd5", 'b'))),
+            routingCar = RoutingPackageEntry("r1", listOf(file("E10_N40.rd5", 'c'), file("E10_N45.rd5", 'd'))),
+        )
+        assertFalse(distinct.hasCarOnlyRouting)
+        assertTrue(distinct.withRoutingVariant(true).hasCarOnlyRouting)
+        val zoned = distinct.withRoutingVariant(true).restrictedTo(com.pockettravel.core.data.RegionZone(12.2, 41.7, 12.8, 42.1))
+        assertTrue(zoned.hasCarOnlyRouting)
+        assertFalse(distinct.copy(routingCar = null).hasCarOnlyRouting)
     }
 }
