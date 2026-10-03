@@ -40,7 +40,12 @@
     <string name="package_addresses">House numbers</string>
     <string name="package_map_light">Light map</string>
     <string name="package_map_light_detail">Less detailed map that takes about 40% less space</string>
-    <string name="package_routing_car_only">Routes for cars only</string>
+    <string name="package_routing_for">Routes for</string>
+    <string name="package_routing_car">Car</string>
+    <string name="package_routing_bike_foot">Bike &amp; foot</string>
+    <string name="package_routing_all">All</string>
+    <string name="package_routing_bike_foot_detail">All roads and paths: the full package, which also works for cars</string>
+    <string name="package_routing_all_detail">All roads and paths, for every mode of transport</string>
     <string name="package_routing_car_only_detail">Only roads open to cars, about 55% less space: no walking or cycling routes</string>
     <string name="zone_row">Area</string>
     <string name="zone_whole_region">Whole country</string>

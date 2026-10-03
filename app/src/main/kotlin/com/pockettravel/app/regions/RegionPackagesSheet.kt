@@ -22,7 +22,10 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -122,8 +125,9 @@ internal fun RegionPackagesSheet(
                             pkg.transitDefaultReason?.let { TransitNetworksNote(it) }
                         }
                         if (pkg.kind == PackageKind.ROUTING && item.routingCarAvailable) {
-                            val carOnly by remember(item.regionId) { actions.observeRoutingCarOnly(item.regionId) }.collectAsStateWithLifecycle(false)
-                            RoutingCarOnlyRow(carOnly = carOnly, enabled = !isDownloading, onChange = { actions.onRoutingCarOnlyChange(item.regionId, it) })
+                            val choice by remember(item.regionId) { actions.observeRoutingChoice(item.regionId) }
+                                .collectAsStateWithLifecycle(RoutingChoice.ALL)
+                            RoutingChoiceRow(choice = choice, enabled = !isDownloading, onChange = { actions.onRoutingChoiceChange(item.regionId, it) })
                         }
                         if (pkg.kind == PackageKind.MAP) {
                             val light by remember(item.regionId) { actions.observeMapLight(item.regionId) }.collectAsStateWithLifecycle(false)
@@ -274,19 +278,39 @@ private fun MapLightRow(light: Boolean, enabled: Boolean, onChange: (Boolean) ->
     )
 }
 
-// Sotto i percorsi: solo le strade per l'auto (circa il 43% del peso). Cambiarla con i percorsi installati li riscarica.
+// Sotto i percorsi: per quali mezzi. Auto = solo le strade per l'auto (circa il 43% del peso); bici e piedi e tutti i
+// mezzi = il pacchetto completo (uno solo per bici e piedi peserebbe quasi uguale). Cambiare pacchetto con i percorsi
+// installati li riscarica.
 @Composable
-private fun RoutingCarOnlyRow(carOnly: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+private fun RoutingChoiceRow(choice: RoutingChoice, enabled: Boolean, onChange: (RoutingChoice) -> Unit) {
     ListItem(
-        content = { Text(stringResource(R.string.package_routing_car_only)) },
-        supportingContent = { Text(stringResource(R.string.package_routing_car_only_detail)) },
+        content = { Text(stringResource(R.string.package_routing_for)) },
+        supportingContent = {
+            Column {
+                Text(stringResource(choice.detail))
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(top = Spacing.s)) {
+                    RoutingChoice.entries.forEachIndexed { index, candidate ->
+                        SegmentedButton(
+                            selected = candidate == choice,
+                            onClick = { onChange(candidate) },
+                            enabled = enabled,
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = RoutingChoice.entries.size),
+                        ) { Text(stringResource(candidate.label)) }
+                    }
+                }
+            }
+        },
         leadingContent = { Icon(AppIcons.Car, contentDescription = null) },
-        trailingContent = { Switch(checked = carOnly, onCheckedChange = null, enabled = enabled, modifier = Modifier.padding(end = Spacing.xs)) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier
-            .fillMaxWidth()
-            .toggleable(value = carOnly, enabled = enabled, role = Role.Switch, onValueChange = onChange),
+        modifier = Modifier.fillMaxWidth(),
     )
+}
+
+/** Per quali mezzi sono i percorsi di una regione: solo [CAR] scarica la variante "solo auto". */
+enum class RoutingChoice(@StringRes val label: Int, @StringRes val detail: Int) {
+    CAR(R.string.package_routing_car, R.string.package_routing_car_only_detail),
+    BIKE_FOOT(R.string.package_routing_bike_foot, R.string.package_routing_bike_foot_detail),
+    ALL(R.string.package_routing_all, R.string.package_routing_all_detail),
 }
 
 // Sotto la mappa leggera, solo nei paesi grandi: la zona scaricata di mappa, percorsi e civici.

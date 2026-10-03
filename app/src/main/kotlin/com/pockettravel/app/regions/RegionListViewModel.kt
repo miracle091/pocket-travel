@@ -352,11 +352,25 @@ class RegionListViewModel @Inject constructor(
         }
     }
 
-    fun observeRoutingCarOnly(regionId: String): Flow<Boolean> = routingVariantPreferences.carOnly.map { regionId in it }
+    fun observeRoutingChoice(regionId: String): Flow<RoutingChoice> =
+        combine(routingVariantPreferences.carOnly, routingVariantPreferences.bikeFoot) { car, bikeFoot ->
+            when (regionId) {
+                in car -> RoutingChoice.CAR
+                in bikeFoot -> RoutingChoice.BIKE_FOOT
+                else -> RoutingChoice.ALL
+            }
+        }
 
-    /** Percorsi "solo auto" o completi; con i percorsi gia' installati si riscaricano subito nella nuova variante. */
-    fun setRoutingCarOnly(regionId: String, carOnly: Boolean) {
+    /**
+     * Percorsi per l'auto (variante "solo auto") o per bici e piedi / tutti i mezzi (pacchetto completo); se cambia il
+     * pacchetto e i percorsi sono gia' installati, si riscaricano subito.
+     */
+    fun setRoutingChoice(regionId: String, choice: RoutingChoice) {
+        val carOnly = choice == RoutingChoice.CAR
+        val packageChanged = carOnly != (regionId in routingVariantPreferences.carOnly.value)
         routingVariantPreferences.setCarOnly(regionId, carOnly)
+        routingVariantPreferences.setBikeFoot(regionId, choice == RoutingChoice.BIKE_FOOT)
+        if (!packageChanged) return
         viewModelScope.launch {
             if (regionRepository.installed(regionId)?.versionOf(PackageKind.ROUTING) != null) downloadPackage(regionId, PackageKind.ROUTING)
         }

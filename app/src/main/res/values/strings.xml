@@ -41,7 +41,12 @@
     <string name="package_cities">Guide delle città</string>
     <string name="package_map_light">Mappa leggera</string>
     <string name="package_map_light_detail">Mappa meno dettagliata che occupa circa il 40% di spazio in meno</string>
-    <string name="package_routing_car_only">Percorsi solo per l\'auto</string>
+    <string name="package_routing_for">Percorsi per</string>
+    <string name="package_routing_car">Auto</string>
+    <string name="package_routing_bike_foot">Bici e piedi</string>
+    <string name="package_routing_all">Tutti</string>
+    <string name="package_routing_bike_foot_detail">Tutte le strade e i sentieri: è il pacchetto completo, che vale anche per l\'auto</string>
+    <string name="package_routing_all_detail">Tutte le strade e i sentieri, per ogni mezzo</string>
     <string name="package_routing_car_only_detail">Solo le strade percorribili in auto, circa il 55% di spazio in meno: nessun percorso a piedi o in bici</string>
     <string name="zone_row">Zona</string>
     <string name="zone_whole_region">Tutto il paese</string>

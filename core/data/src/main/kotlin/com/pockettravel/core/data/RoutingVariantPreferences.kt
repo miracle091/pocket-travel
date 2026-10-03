@@ -12,7 +12,8 @@ import javax.inject.Singleton
 /**
  * Percorsi "solo auto" per regione: [carOnly] le regioni in cui l'utente li ha scelti (si scaricano al posto di quelli
  * completi), [installedCarOnly] quelle i cui percorsi installati sono solo per l'auto, scritto dopo ogni installazione:
- * con quelli il Navigatore non calcola percorsi a piedi, in bici o in carrozzina.
+ * con quelli il Navigatore non calcola percorsi a piedi, in bici o in carrozzina. [bikeFoot]: le regioni in cui l'utente
+ * ha scelto "Bici e piedi" nei Contenuti; si scaricano i percorsi completi come con "Tutti", cambia solo la scelta mostrata.
  */
 @Singleton
 class RoutingVariantPreferences @Inject constructor(@ApplicationContext context: Context) {
@@ -22,10 +23,17 @@ class RoutingVariantPreferences @Inject constructor(@ApplicationContext context:
     private val _installedCarOnly = MutableStateFlow(read(INSTALLED_PREFIX))
     val carOnly: StateFlow<Set<String>> = _carOnly.asStateFlow()
     val installedCarOnly: StateFlow<Set<String>> = _installedCarOnly.asStateFlow()
+    private val _bikeFoot = MutableStateFlow(read(BIKE_FOOT_PREFIX))
+    val bikeFoot: StateFlow<Set<String>> = _bikeFoot.asStateFlow()
 
     fun setCarOnly(regionId: String, carOnly: Boolean) {
         prefs.edit { putBoolean(CHOICE_PREFIX + regionId, carOnly) }
         _carOnly.value = if (carOnly) _carOnly.value + regionId else _carOnly.value - regionId
+    }
+
+    fun setBikeFoot(regionId: String, bikeFoot: Boolean) {
+        prefs.edit { putBoolean(BIKE_FOOT_PREFIX + regionId, bikeFoot) }
+        _bikeFoot.value = if (bikeFoot) _bikeFoot.value + regionId else _bikeFoot.value - regionId
     }
 
     fun setInstalledCarOnly(regionId: String, carOnly: Boolean) {
@@ -39,5 +47,6 @@ class RoutingVariantPreferences @Inject constructor(@ApplicationContext context:
     private companion object {
         const val CHOICE_PREFIX = "choice:"
         const val INSTALLED_PREFIX = "installed:"
+        const val BIKE_FOOT_PREFIX = "bikefoot:"
     }
 }

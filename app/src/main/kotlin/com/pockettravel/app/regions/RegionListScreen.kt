@@ -128,8 +128,8 @@ fun RegionListScreen(
             onZoneChange = viewModel::setZone,
             regionsInZone = viewModel::regionsInZone,
             isInstalledWhole = viewModel::isInstalledWhole,
-            observeRoutingCarOnly = viewModel::observeRoutingCarOnly,
-            onRoutingCarOnlyChange = viewModel::setRoutingCarOnly,
+            observeRoutingChoice = viewModel::observeRoutingChoice,
+            onRoutingChoiceChange = viewModel::setRoutingChoice,
         ),
         onRegionClick = { item ->
             if (item.status == RegionStatus.NOT_INSTALLED) {
@@ -161,9 +161,9 @@ internal data class RegionRowActions(
     val regionsInZone: suspend (zone: RegionZone) -> List<Pair<String, String>> = { emptyList() },
     // La regione e' installata per intero (senza zona): una zona scelta da un altro paese non deve ridurla.
     val isInstalledWhole: suspend (regionId: String) -> Boolean = { false },
-    // Percorsi "solo auto" (foglio Contenuti, sotto Percorsi).
-    val observeRoutingCarOnly: (regionId: String) -> Flow<Boolean> = { flowOf(false) },
-    val onRoutingCarOnlyChange: (regionId: String, carOnly: Boolean) -> Unit = { _, _ -> },
+    // Per quali mezzi sono i percorsi (foglio Contenuti, sotto Percorsi).
+    val observeRoutingChoice: (regionId: String) -> Flow<RoutingChoice> = { flowOf(RoutingChoice.ALL) },
+    val onRoutingChoiceChange: (regionId: String, choice: RoutingChoice) -> Unit = { _, _ -> },
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
