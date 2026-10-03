@@ -298,10 +298,10 @@ def main():
             others = [b for c, b, _ in secs if c != cat and not covers(cat, b)]
             for _ in range(a.per_section):
                 q = question(cat, name)
-                context = it.make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 0, 1, 1, 2]))))
+                context = it.make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 0, 1, 1, 2]))), q, name)
                 answer = answer_for(context, body, q, cat, name)
                 if len(answer) < 40:  # la sezione giusta e' stata troncata: riprova da sola
-                    context = it.make_context(rng, [body])
+                    context = it.make_context(rng, [body], q, name)
                     answer = answer_for(context, body, q, cat, name)
                 if len(answer) < 40 or (context, q) in seen:
                     continue
@@ -318,7 +318,7 @@ def main():
         x = rng.random()
         if x < a.off_topic:
             q, cat, ans = off_topic_question(), "OFF", refusal(L["off_topic_topic"])
-            context = it.make_context(rng, rng.sample([b for _, b in bodies_all], min(len(bodies_all), rng.randint(1, 3))))
+            context = it.make_context(rng, rng.sample([b for _, b in bodies_all], min(len(bodies_all), rng.randint(1, 3))), q, name)
         else:
             cat = rng.choice(list(L["questions"]))
             q, ans = question(cat, name), refusal(L["topic"][cat])
@@ -328,7 +328,7 @@ def main():
                 bodies = [b for c, b in bodies_all if c != cat and not covers(cat, b) and not it.covers(cat, b, LANGS[other]["keywords"])]
                 if not bodies:
                     continue
-                context = it.make_context(rng, rng.sample(bodies, min(len(bodies), rng.randint(1, 3))))
+                context = it.make_context(rng, rng.sample(bodies, min(len(bodies), rng.randint(1, 3))), q, name)
         if (context, q) in seen:
             continue
         seen.add((context, q))
@@ -365,7 +365,7 @@ def main():
             for cat, body in chosen:
                 q = question(cat, name, city=True)
                 others = [b for c, b in secs if c != cat and not covers(cat, b)]
-                context = it.make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))))
+                context = it.make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))), q, name)
                 answer = answer_for(context, body, q, cat, name)
                 if len(answer) < 40 or (context, q) in seen:
                     continue
@@ -375,7 +375,7 @@ def main():
             if missing and rng.random() < a.negatives * 2:  # ~1 rifiuto ogni 2-3 domande della citta'
                 cat = rng.choice(missing)
                 q = question(cat, name, city=True)
-                context = it.make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))))
+                context = it.make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))), q, name)
                 if (context, q) not in seen:
                     seen.add((context, q))
                     rows.append(row("neg", rid, cat, context, q, refusal(L["topic"][cat]))); city_neg += 1
@@ -393,7 +393,7 @@ def main():
             for field, line in fields.items():
                 for q in rng.sample(qq[field], 2):
                     q = q.format(r=name)
-                    context = it.make_context(rng, [qf_body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))))
+                    context = it.make_context(rng, [qf_body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))), q, name)
                     if line not in context or (context, q) in seen:
                         continue
                     seen.add((context, q))
@@ -401,7 +401,7 @@ def main():
                 unrelated = [b for b in others if not any(k in b.lower() for k in qk[field])]
                 if unrelated and rng.random() < a.negatives * 2:
                     q = rng.choice(qq[field]).format(r=name)
-                    context = it.make_context(rng, rng.sample(unrelated, min(len(unrelated), rng.randint(1, 3))))
+                    context = it.make_context(rng, rng.sample(unrelated, min(len(unrelated), rng.randint(1, 3))), q, name)
                     if (context, q) not in seen:
                         seen.add((context, q))
                         rows.append(row("neg", rid, "FATTI_RAPIDI", context, q, refusal(L["quick_topic"][field]))); quick_neg += 1
@@ -409,10 +409,11 @@ def main():
         for title, body, questions, answer in L["notes"]:
             for rid in rng.sample(note_regions, min(len(note_regions), 8)):
                 secs = [b for _, b, _ in data[rid][1]]
-                sections = it.make_context(rng, rng.sample(secs, min(len(secs), rng.choice([0, 1, 2]))))
-                note = f"{L['note_label']}: {title}\n{body}"  # etichetta di buildOnDeviceContext
-                context = "\n\n".join(x for x in (sections[: it.MAX_CONTEXT - len(note) - 2], note) if x)
                 q = rng.choice(questions)
+                note = f"{L['note_label']}: {title}\n{body}"  # etichetta di buildOnDeviceContext
+                sections = it.make_context(rng, rng.sample(secs, min(len(secs), rng.choice([0, 1, 2]))), q, data[rid][0],
+                                           max_chars=it.MAX_CONTEXT - len(note) - 2)
+                context = "\n\n".join(x for x in (sections, note) if x)
                 if (context, q) in seen:
                     continue
                 seen.add((context, q))
@@ -434,7 +435,7 @@ def main():
             others = [b for _, b, _ in secs]
             for kind, answer in vaccination_answers(s["text"], lang).items():
                 q = rng.choice(vq[kind]).format(r=name)
-                context = it.make_context(rng, [s["text"]] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))))
+                context = it.make_context(rng, [s["text"]] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))), q, name)
                 if s["text"] not in context or (context, q) in seen:
                     continue
                 seen.add((context, q))
@@ -442,7 +443,7 @@ def main():
             unrelated = [b for b in others if not VACC_WORDS.search(b)]
             if unrelated and rng.random() < a.negatives * 2:
                 q = rng.choice(vq["any"]).format(r=name)
-                context = it.make_context(rng, rng.sample(unrelated, min(len(unrelated), rng.randint(1, 3))))
+                context = it.make_context(rng, rng.sample(unrelated, min(len(unrelated), rng.randint(1, 3))), q, name)
                 if (context, q) not in seen:
                     seen.add((context, q))
                     rows.append(row("neg", rid, "VACCINAZIONI", context, q, refusal(VACC_TOPIC[lang]))); vacc_neg += 1

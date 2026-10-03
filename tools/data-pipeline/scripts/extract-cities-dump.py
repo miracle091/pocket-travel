@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 import city_population
+import city_wikipedia
 import wiki_dump
 
 # Stessa regola di city_parents in generate_sft_dataset.py: Stato/Stato federato/Regione/Territorio
@@ -64,6 +65,8 @@ def main():
     title_of = {region_id: title for title, region_id in region_id_by_title.items()}
     city_population.annotate([out_dir / f"{r}.cities.jsonl" for r in counts], "it",
                              {out_dir / f"{r}.cities.jsonl": title_of[r] for r in counts})
+    # Storia e Clima dalla voce di Wikipedia IT della citta' (sezioni STORIA e CLIMA della guida)
+    city_wikipedia.annotate([out_dir / f"{r}.cities.jsonl" for r in counts], "it")
 
 
 if __name__ == "__main__":

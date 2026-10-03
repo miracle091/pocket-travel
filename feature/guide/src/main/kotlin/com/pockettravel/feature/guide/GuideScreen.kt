@@ -812,15 +812,17 @@ private fun GuideSectionCard(
     }
 }
 
-// Scheda finale con le pagine Wikivoyage da cui vengono le sezioni mostrate: titolo della pagina
-// (dall'URL) e sito, ognuna apribile. La licenza sta nella schermata Licenze.
+// Scheda finale con le pagine Wikivoyage (e Wikipedia, per Storia e Clima delle citta') da cui vengono
+// le sezioni mostrate: titolo della pagina (dall'URL) e sito, ognuna apribile. La licenza sta nella
+// schermata Licenze.
 @Composable
 private fun GuideSourcesCard(
     sourceUrls: List<String>,
     onOpenSource: (url: String, title: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val sourceTitle = stringResource(R.string.guide_source_title)
+    val wikivoyageTitle = stringResource(R.string.guide_source_title)
+    val wikipediaTitle = stringResource(R.string.guide_source_title_wikipedia)
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(vertical = Spacing.l)) {
             Text(
@@ -829,8 +831,10 @@ private fun GuideSourcesCard(
                 modifier = Modifier.padding(horizontal = Spacing.l).semantics { heading() },
             )
             sourceUrls.forEach { url ->
+                val host = url.toUri().host.orEmpty()
+                val sourceTitle = if (host.endsWith("wikipedia.org")) wikipediaTitle else wikivoyageTitle
                 ListItem(
-                    supportingContent = { Text(url.toUri().host.orEmpty()) },
+                    supportingContent = { Text(host) },
                     trailingContent = { Icon(AppIcons.OpenExternal, contentDescription = null) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable { onOpenSource(url, sourceTitle) },
@@ -907,6 +911,8 @@ private fun GuideCategory.displayName(): Int = when (this) {
     GuideCategory.DA_SAPERE -> R.string.category_good_to_know
     GuideCategory.COSA_VEDERE -> R.string.category_see_do
     GuideCategory.FATTI_RAPIDI -> R.string.category_quick_facts
+    GuideCategory.STORIA -> R.string.category_history
+    GuideCategory.CLIMA -> R.string.category_climate
 }
 
 // Icona specifica per categoria, usata sia nelle schede sia nei filtri.
@@ -927,6 +933,8 @@ private fun GuideCategory.icon(): ImageVector = ImageVector.vectorResource(
         GuideCategory.DA_SAPERE -> UiR.drawable.ms_lightbulb
         GuideCategory.COSA_VEDERE -> UiR.drawable.ms_attractions
         GuideCategory.FATTI_RAPIDI -> UiR.drawable.ms_bolt
+        GuideCategory.STORIA -> UiR.drawable.ms_history_edu
+        GuideCategory.CLIMA -> UiR.drawable.ms_partly_cloudy_day
     },
 )
 
@@ -938,11 +946,12 @@ private fun GuideCategory.icon(): ImageVector = ImageVector.vectorResource(
 private fun GuideCategory.tone(): Pair<Color, Color> {
     val colors = MaterialTheme.colorScheme
     return when (this) {
-        GuideCategory.FATTI_RAPIDI, GuideCategory.TRASPORTI, GuideCategory.ALLOGGIO, GuideCategory.CONNETTIVITA ->
-            colors.primary to colors.onPrimary
+        GuideCategory.FATTI_RAPIDI, GuideCategory.TRASPORTI, GuideCategory.ALLOGGIO, GuideCategory.CONNETTIVITA,
+        GuideCategory.CLIMA,
+        -> colors.primary to colors.onPrimary
 
         GuideCategory.USI_COSTUMI, GuideCategory.FRASI_UTILI, GuideCategory.VITA_QUOTIDIANA,
-        GuideCategory.CIBO_BEVANDE, GuideCategory.ACQUISTI, GuideCategory.COSA_VEDERE,
+        GuideCategory.CIBO_BEVANDE, GuideCategory.ACQUISTI, GuideCategory.COSA_VEDERE, GuideCategory.STORIA,
         -> colors.secondary to colors.onSecondary
 
         GuideCategory.SALUTE, GuideCategory.SICUREZZA, GuideCategory.DOGANE, GuideCategory.DA_SAPERE ->

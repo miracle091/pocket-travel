@@ -32,7 +32,7 @@ Wikivoyage spesso non tratta a fondo. L'articolo si divide in paragrafi e
 si tengono solo i piu' pertinenti (WP_MAX_PARAGRAPHS): lunghi come una sezione Wikivoyage, non l'intro
 enciclopedica troncata a 2000 caratteri.
 """
-import argparse, html, json, os, random, re, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
+import argparse, html, json, os, random, re, subprocess, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
 from collections import Counter
 from pathlib import Path
 
@@ -131,7 +131,7 @@ KEYWORDS = {  # radici che il contesto deve contenere perche' la categoria sia d
     "CONNETTIVITA": ["internet", "wifi", "wi-fi", "telefon", "cellular", "sim", "rete mobile", "4g", "5g", "roaming"],
     "VITA_QUOTIDIANA": ["giornal", "notizie", "informazion", "sito", "radio", "televisi", "stamp", "media"],
 }
-# Come TravelAssistant.kt: fino a 3 sezioni unite da riga vuota, contesto troncato a 2000 caratteri, oppure
+# Come TravelAssistant.kt: fino a 3 sezioni unite da riga vuota entro 2000 caratteri (make_context), oppure
 # il testo di fallback quando la ricerca non trova nulla.
 FALLBACK_CONTEXT = "Nessuna informazione disponibile per questa regione."
 MAX_CONTEXT = 2000
@@ -357,11 +357,53 @@ def covers(cat, text, keywords=KEYWORDS):
     t = text.lower()
     return any(k in t for k in keywords[cat])
 
-def make_context(rng, bodies):
-    """Come l'app: sezioni in ordine qualunque unite da riga vuota, troncate a MAX_CONTEXT."""
+# Come TravelAssistant.kt (focusStems, selectContext, relevantParagraphs): radici di 5 lettere, e sotto questo spazio
+# residuo una sezione in piu' sarebbe solo un frammento.
+STEM_CHARS = 5
+MIN_SECTION_CHARS = 50
+
+def _folded(text):
+    """Minuscolo e senza accenti, come folded in TravelAssistant.kt."""
+    return "".join(ch for ch in unicodedata.normalize("NFD", text.lower()) if unicodedata.category(ch) != "Mn")
+
+def question_stems(question, name=""):
+    """Come buildFtsQuery + focusStems dell'app: parole divise su tutto cio' che non e' lettera o cifra ("dell'isola" ->
+    "dell", "isola"), di almeno 4 caratteri, prime 5 lettere senza accenti; senza quelle di [name] (la regione, che
+    l'app toglie dalla query, o la citta' nominata)."""
+    words = lambda text: (w for w in re.split(r"[^\w]+|_", text) if w)
+    name_stems = {_folded(w)[:STEM_CHARS] for w in words(name) if len(w) >= 4}
+    return {_folded(w)[:STEM_CHARS] for w in words(question) if len(w) >= 4} - name_stems
+
+def relevant_paragraphs(body, stems, budget):
+    """Come relevantParagraphs dell'app: [body] se sta in [budget]; altrimenti i paragrafi con piu' radici [stems]
+    (a parita' i primi) finche' ci stanno, nell'ordine del testo; un solo paragrafo troppo lungo, il suo inizio."""
+    if len(body) <= budget:
+        return body
+    paragraphs = [p for p in body.split("\n") if p.strip()]
+    hits = [sum(s in _folded(p) for s in stems) for p in paragraphs]
+    kept, used = [], 0
+    for i in sorted(range(len(paragraphs)), key=lambda i: (-hits[i], i)):
+        if used + len(paragraphs[i]) + 1 <= budget:
+            kept.append(i)
+            used += len(paragraphs[i]) + 1
+    return "\n".join(paragraphs[i] for i in sorted(kept)) if kept else body[:budget]
+
+def make_context(rng, bodies, question="", name="", max_chars=MAX_CONTEXT):
+    """Come l'app (selectContext): sezioni unite da riga vuota entro [max_chars], ognuna intera se ci sta nello spazio
+    rimasto, altrimenti i suoi paragrafi con piu' parole di [question]. In ordine qualunque: l'app le mette per
+    rilevanza, ma la sezione giusta non e' sempre la prima."""
     parts = list(bodies)
     rng.shuffle(parts)
-    return "\n\n".join(parts)[:MAX_CONTEXT]
+    stems = question_stems(question, name)
+    out, remaining = [], max_chars
+    for body in parts:
+        if remaining < MIN_SECTION_CHARS:
+            break
+        part = relevant_paragraphs(body, stems, remaining)
+        if part.strip():
+            out.append(part)
+            remaining -= len(part) + 2
+    return "\n\n".join(out)[:max_chars]
 
 def pick_answer(context, body, question, cat, name, keywords=KEYWORDS, split=SENTENCE_END):
     """Fino a 3 frasi del corpo presenti per intero nel contesto: quelle piu' vicine alla domanda
@@ -680,10 +722,10 @@ def main():
             for _ in range(3):
                 q = question(cat, name)
                 extra = rng.sample(others, min(len(others), rng.choice([0, 0, 1, 1, 2])))
-                context = make_context(rng, [body] + extra)
+                context = make_context(rng, [body] + extra, q, name)
                 answer = pick_answer(context, body, q, cat, name)
                 if len(answer) < 40:  # la sezione giusta e' stata troncata: riprova da sola
-                    context = make_context(rng, [body])
+                    context = make_context(rng, [body], q, name)
                     answer = pick_answer(context, body, q, cat, name)
                 if len(answer) < 40 or (context, q) in seen:
                     continue
@@ -704,7 +746,7 @@ def main():
         if x < a.off_topic:
             q = off_topic_question()
             cat, ans = "OFF", f"Il contesto non contiene informazioni utili a rispondere: {tail}"
-            context = make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))))
+            context = make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))), q, name)
         else:
             present = {c for c, _ in secs}
             missing = [c for c in QUESTIONS if c not in present]
@@ -718,7 +760,7 @@ def main():
                 bodies = [b for _, b in secs if not covers(cat, b)]
                 if not bodies:
                     continue
-                context = make_context(rng, rng.sample(bodies, min(len(bodies), rng.randint(1, 3))))
+                context = make_context(rng, rng.sample(bodies, min(len(bodies), rng.randint(1, 3))), q, name)
         if (context, q) in seen:
             continue
         seen.add((context, q))
@@ -755,7 +797,7 @@ def main():
             for cat, body in chosen:
                 q = question(cat, name, city=True)
                 others = [b for c, b in secs if c != cat and not covers(cat, b)]
-                context = make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))))
+                context = make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))), q, name)
                 answer = pick_answer(context, body, q, cat, name)
                 if len(answer) < 40 or (context, q) in seen:
                     continue
@@ -765,7 +807,7 @@ def main():
             if missing and rng.random() < a.negatives * 2:  # ~1 rifiuto ogni 2-3 domande della citta'
                 cat = rng.choice(missing)
                 q = question(cat, name, city=True)
-                context = make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))))
+                context = make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))), q, name)
                 if (context, q) not in seen:
                     seen.add((context, q))
                     ans = f"Il contesto non contiene informazioni {TOPIC[cat]}: {rng.choice(REFUSAL_TAILS)}"
@@ -784,7 +826,7 @@ def main():
             for field, line in fields.items():
                 for q in rng.sample(QUICK_FACT_QUESTIONS[field], 2):
                     q = q.format(r=name)
-                    context = make_context(rng, [qf_body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))))
+                    context = make_context(rng, [qf_body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))), q, name)
                     if line not in context or (context, q) in seen:
                         continue
                     seen.add((context, q))
@@ -792,7 +834,7 @@ def main():
                 unrelated = [b for b in others if not any(k in b.lower() for k in QUICK_FACT_KEYWORDS[field])]
                 if unrelated and rng.random() < a.negatives * 2:
                     q = rng.choice(QUICK_FACT_QUESTIONS[field]).format(r=name)
-                    context = make_context(rng, rng.sample(unrelated, min(len(unrelated), rng.randint(1, 3))))
+                    context = make_context(rng, rng.sample(unrelated, min(len(unrelated), rng.randint(1, 3))), q, name)
                     if (context, q) not in seen:
                         seen.add((context, q))
                         ans = f"Il contesto non contiene informazioni {QUICK_FACT_TOPIC[field]}: {rng.choice(REFUSAL_TAILS)}"
@@ -805,10 +847,11 @@ def main():
         for title, body, questions, answer in NOTE_SAMPLES:
             for rid in rng.sample(note_regions, min(len(note_regions), 8)):
                 secs = [b for _, b in data[rid][1]["it"]]
-                sections = make_context(rng, rng.sample(secs, min(len(secs), rng.choice([0, 1, 2]))))
-                note = f"Nota personale: {title}\n{body}"
-                context = "\n\n".join(x for x in (sections[: MAX_CONTEXT - len(note) - 2], note) if x)
                 q = rng.choice(questions)
+                note = f"Nota personale: {title}\n{body}"
+                sections = make_context(rng, rng.sample(secs, min(len(secs), rng.choice([0, 1, 2]))), q, data[rid][0],
+                                        max_chars=MAX_CONTEXT - len(note) - 2)
+                context = "\n\n".join(x for x in (sections, note) if x)
                 if (context, q) in seen:
                     continue
                 seen.add((context, q))

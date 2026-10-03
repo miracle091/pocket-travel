@@ -7,8 +7,8 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 
 /**
- * Candidato di ricerca con il matchinfo FTS4 grezzo (formato 'pcx'), per ordinare per rilevanza
- * lato Kotlin: FTS4 non ha bm25() come FTS5. Vedi GuideRepository.searchInRegionScored e matchScore per la lettura
+ * Candidato di ricerca con il matchinfo FTS4 grezzo (formato 'pcxnal'), per ordinare per rilevanza
+ * lato Kotlin: FTS4 non ha bm25() come FTS5. Vedi FtsMatchInfo e bm25Score (FtsRanking.kt) per la lettura
  * del blob.
  */
 class GuideSectionMatch(
@@ -25,11 +25,11 @@ interface GuideDao {
     suspend fun sectionsForRegion(regionId: String): List<GuideSectionEntity>
 
     // Nessun ORDER BY per rilevanza: FTS4 non ha bm25(), quindi si prendono fino a candidateLimit
-    // candidati (in ordine di rowid) col loro matchinfo, e GuideRepository.searchInRegionScored li
-    // riordina in Kotlin prima di tagliare al limite richiesto dal chiamante.
+    // candidati (in ordine di rowid) col loro matchinfo, e TravelAssistant li riordina in Kotlin
+    // insieme a quelli delle citta' (bm25Score).
     @Query(
         """
-        SELECT guide_sections.*, matchinfo(guide_sections_fts, 'pcx') AS matchinfo FROM guide_sections
+        SELECT guide_sections.*, matchinfo(guide_sections_fts, 'pcxnal') AS matchinfo FROM guide_sections
         JOIN guide_sections_fts ON guide_sections.id = guide_sections_fts.rowid
         WHERE guide_sections_fts MATCH :query AND guide_sections.regionId = :regionId
         LIMIT :candidateLimit

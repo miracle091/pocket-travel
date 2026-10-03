@@ -95,7 +95,7 @@ private class NoOpCityDao : CityDao {
     override fun citiesForRegion(regionId: String) = throw UnsupportedOperationException()
     override fun mainCitiesForRegion(regionId: String, limit: Int) = throw UnsupportedOperationException()
     override suspend fun sectionsFor(regionId: String, city: String): List<CitySectionEntity> = emptyList()
-    override suspend fun searchInRegionRanked(regionId: String, query: String, candidateLimit: Int): List<CitySectionMatch> = emptyList()
+    override suspend fun searchInRegionRanked(regionId: String, query: String, city: String?, candidateLimit: Int): List<CitySectionMatch> = emptyList()
     override suspend fun deleteForRegion(regionId: String) { deletedRegions += regionId }
     override suspend fun optimizeFts() = Unit
 }

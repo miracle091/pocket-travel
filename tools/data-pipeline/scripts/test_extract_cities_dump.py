@@ -47,8 +47,11 @@ def write_dump(directory, pages):
 def run_main(module, argv):
     with mock.patch.object(sys, "argv", ["x"] + argv), \
             mock.patch.object(module.city_population, "annotate") as annotate, \
+            mock.patch.object(module.city_wikipedia, "annotate") as annotate_wikipedia, \
             redirect_stdout(io.StringIO()) as out:
         module.main()
+    # Storia e Clima per gli stessi file e nella stessa lingua della popolazione
+    assert annotate_wikipedia.call_args[0] == annotate.call_args[0][:2], annotate_wikipedia.call_args
     return annotate, out.getvalue()
 
 

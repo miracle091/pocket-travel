@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 import city_population
+import city_wikipedia
 import wiki_dump
 
 IS_PART_OF = re.compile(r"\{\{\s*isPartOf\s*\|\s*([^}|]+)", re.I)
@@ -84,6 +85,8 @@ def main():
     title_of = {region_id: title for title, region_id in region_id_by_title.items()}
     city_population.annotate([out_dir / f"{r}.cities-en.jsonl" for r in counts], "en",
                              {out_dir / f"{r}.cities-en.jsonl": title_of[r] for r in counts})
+    # History e Climate dalla voce di Wikipedia EN della citta' (sezioni STORIA e CLIMA della guida)
+    city_wikipedia.annotate([out_dir / f"{r}.cities-en.jsonl" for r in counts], "en")
 
 
 if __name__ == "__main__":

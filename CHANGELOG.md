@@ -6,6 +6,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ### Aggiunto
 - Meteo nella Guida: in cima alla guida della nazione una scheda con il tempo di adesso e le previsioni di 7 giorni (massima, minima, probabilità di pioggia). Se sei nella regione è il meteo di dove ti trovi ("Vicino a te"), altrimenti quello della capitale; ogni guida di città ha la sua. Senza rete resta l'ultimo meteo scaricato, con l'ora dell'aggiornamento. I dati vengono da Open-Meteo.com (CC BY 4.0, senza chiave né account) e sono nella schermata Licenze.
+- Guide delle città: le sezioni Storia e Clima, dalla voce di Wikipedia della città (in italiano o in inglese, come la guida). Stanno in fondo alla guida della città, dopo le sezioni di Wikivoyage. Della Storia c'è la parte iniziale; la voce intera si apre dalle Fonti. L'assistente IA le trova quando cerca nelle guide delle città e le cita come Wikipedia. Arrivano man mano che le nazioni vengono rigenerate.
 - Orari dei treni Renfe ad alta velocità, lunga e media distanza in Spagna, nel pacchetto "Mezzi pubblici" come rete a sé accanto ai treni suburbani. La fonte e la licenza (CC BY 4.0) sono nella schermata Licenze.
 - Isole Canarie come regione da scaricare (prima non erano in nessuna: la Spagna arriva fino allo stretto di Gibilterra), con gli orari dei traghetti Fred. Olsen fra le isole.
 - Porti turistici sulla mappa, con icona (barca a vela) e filtro propri nel gruppo Trasporti; prima erano in "Altro". Con il prossimo aggiornamento dei punti di interesse arrivano anche quelli che OpenStreetMap disegna come aree.
@@ -42,6 +43,7 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Guide in inglese: i fatti rapidi comprendono anche la lingua e i numeri di emergenza, come quelli delle guide in italiano.
 
 ### Modificato
+- Assistente IA sul dispositivo: trova molto più spesso la sezione giusta delle guide delle città. Se la domanda nomina una città cerca solo fra le sue sezioni, altrimenti mette prima la guida della nazione; le sezioni lunghe non vincono più solo perché ripetono le parole della domanda, Storia e Clima contano solo quando la domanda parla di storia o di clima, e di una sezione troppo lunga per il contesto passano i paragrafi che parlano della domanda invece del solo inizio.
 - Guida: intestazioni e descrizioni delle schede uniformi, "Trasporti principali" come elenco e testi brevi senza punto finale.
 - Assistente IA: i tre modelli "Pocket Travel" in italiano sono stati riaddestrati su guide pulite come nell'app, con fatti rapidi e note personali; hanno lo stesso peso dei precedenti e i risultati sono nelle loro schede.
 - Guida: la sottosezione "Costo della vita" non compare più nelle guide delle nazioni e delle città, in italiano e in inglese.

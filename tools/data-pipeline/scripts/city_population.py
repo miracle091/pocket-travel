@@ -59,11 +59,16 @@ def _latest_population(claims):
     return best[1] if best else None
 
 
-def wikidata_populations(titles, lang):
-    """{titolo: popolazione} da Wikidata per le pagine di Wikivoyage [lang] in [titles]."""
+def wikibase_items(titles, lang, deadline=None):
+    """{titolo richiesto: elemento Wikidata} delle pagine di Wikivoyage [lang] in [titles], seguendo normalizzazioni e
+    redirect fino al titolo richiesto (usato anche da city_wikipedia.py, che passa [deadline]: dopo, in time.monotonic(),
+    non inizia altri lotti)."""
     titles = sorted(set(titles))
     item_of = {}
     for i in range(0, len(titles), BATCH):
+        if deadline is not None and time.monotonic() > deadline:
+            print(f"-- Wikidata: tempo esaurito, {len(titles) - i} pagine non cercate", file=sys.stderr)
+            break
         chunk = titles[i:i + BATCH]
         url = (f"https://{lang}.wikivoyage.org/w/api.php?action=query&prop=pageprops&ppprop=wikibase_item"
                f"&redirects=1&format=json&titles=" + urllib.parse.quote("|".join(chunk)))
@@ -76,6 +81,12 @@ def wikidata_populations(titles, lang):
                     title = alias[title]
                 item_of[title] = q
         time.sleep(0.2)
+    return item_of
+
+
+def wikidata_populations(titles, lang):
+    """{titolo: popolazione} da Wikidata per le pagine di Wikivoyage [lang] in [titles]."""
+    item_of = wikibase_items(titles, lang)
     ids = sorted(set(item_of.values()))
     pop_of_item = {}
     for i in range(0, len(ids), BATCH):
@@ -90,20 +101,7 @@ def wikidata_populations(titles, lang):
 
 def capital_titles(region_titles, lang):
     """{titolo della regione: nomi possibili della sua capitale (titolo su Wikivoyage [lang], etichetta)} da Wikidata (P36)."""
-    titles = sorted(set(region_titles))
-    item_of = {}
-    for i in range(0, len(titles), BATCH):
-        url = (f"https://{lang}.wikivoyage.org/w/api.php?action=query&prop=pageprops&ppprop=wikibase_item"
-               f"&redirects=1&format=json&titles=" + urllib.parse.quote("|".join(titles[i:i + BATCH])))
-        data = _get(url)["query"]
-        alias = {n["to"]: n["from"] for k in ("normalized", "redirects") for n in data.get(k, [])}
-        for page in data.get("pages", {}).values():
-            if q := page.get("pageprops", {}).get("wikibase_item"):
-                title = page["title"]
-                while title in alias:
-                    title = alias[title]
-                item_of[title] = q
-        time.sleep(0.2)
+    item_of = wikibase_items(region_titles, lang)
     region_items = sorted(set(item_of.values()))
     capitals_of = {}
     for i in range(0, len(region_items), BATCH):

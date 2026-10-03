@@ -49,6 +49,15 @@ jobs:
       - name: Test di city_population.py
         run: python3 tools/data-pipeline/scripts/test_city_population.py
 
+      - name: Test di city_wikipedia.py
+        run: python3 tools/data-pipeline/scripts/test_city_wikipedia.py
+
+      - name: Test di eval_retrieval.py
+        run: python3 tools/data-pipeline/scripts/test_eval_retrieval.py
+
+      - name: Test di make_context (contesto dei dataset SFT come nell'app)
+        run: python3 tools/data-pipeline/scripts/test_make_context.py
+
       - name: Test di wiki_dump.py
         run: python3 tools/data-pipeline/scripts/test_wiki_dump.py
 

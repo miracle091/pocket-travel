@@ -108,6 +108,22 @@ rivedere a mano: non vanno copiate nel repository così come sono.
   `extract-cities-dump-en.py`. La popolazione viene dal campo "Abitanti" di Wikivoyage, in alternativa da Wikidata
   (P1082); la capitale della regione da Wikidata (P36). Finiscono nelle colonne `population` e `capital` di
   `cities.db`; senza dati la città resta senza popolazione.
+- **Storia e clima delle città**: `scripts/city_wikipedia.py`, usato dagli stessi due script, trova la voce di
+  Wikipedia (IT o EN) della città dal sitelink dell'elemento Wikidata della pagina di Wikivoyage e ne prende le sezioni
+  Storia e Clima (History e Climate in inglese) dall'API di Wikipedia, a lotti: i dump completi (IT ~5 GB, EN ~24 GB)
+  non stanno nei runner. `GenerateCities.kt` le pulisce come le guide e le scrive in `cities.db` come categorie
+  `STORIA` e `CLIMA`, con la voce come `sourceUrl`; la Storia si ferma all'ultimo paragrafo entro 4.000 caratteri.
+  Le versioni dell'app che non conoscono le due categorie le saltano all'import. Mai fatale: un errore di rete lascia
+  le città senza le due sezioni. Il tempo è limitato a 20 minuti per shard e lingua (`MAX_SECONDS`); l'Italia in
+  italiano, ~2.700 città, ne richiede circa 4, in inglese circa uno.
+- **Misura della ricerca dell'assistente**: `scripts/eval_retrieval.py` replica in Python la ricerca di
+  `TravelAssistant.kt` e `FtsRanking.kt` (BM25, città nominata nella domanda, paragrafi del contesto) e la misura sulle
+  guide pubblicate di alcune regioni, con Storia e Clima da Wikipedia se i `cities.db` pubblicati non li hanno ancora,
+  e domande costruite da modelli fissi (pratiche sulle città, sul paese, storia e clima). Stampa quante volte la sezione
+  attesa entra nel contesto e quante volte la risposta ci sta dentro. Va aggiornato insieme alla ricerca dell'app;
+  `--lang en` misura le guide e le domande inglesi, `--no-wikipedia` misura senza le due sezioni. Anche `make_context`
+  (`generate_sft_dataset.py`), che costruisce il contesto dei dataset SFT e dei set di valutazione, sceglie i paragrafi
+  come l'app (`test_make_context.py` lo confronta con la replica di `eval_retrieval.py`).
 - **Guide**: la sottosezione "Costo della vita" ("Cost of living" in inglese) viene omessa da guide e città. I fatti
   rapidi delle guide inglesi comprendono anche la lingua e i numeri di emergenza, come quelli italiani.
 - **Dataset SFT v9**: `scripts/generate_sft.py --lang it|en` genera il dataset dei due modelli linguistici con le

@@ -38,6 +38,48 @@ private val cityHeadingToCategoryEn = mapOf(
     "cope" to "VITA_QUOTIDIANA",
 )
 
+// Sezioni della voce di Wikipedia della citta' (city_wikipedia.py le estrae gia' come "== Titolo ==", anche
+// quando nella voce sono sottosezioni, es. "=== Clima ===" sotto "Geografia fisica").
+private val wikipediaHeadingToCategory = mapOf(
+    "storia" to "STORIA",
+    "clima" to "CLIMA",
+)
+private val wikipediaHeadingToCategoryEn = mapOf(
+    "history" to "STORIA",
+    "climate" to "CLIMA",
+)
+
+// La Storia di Wikipedia e' lunga (15-30 KB per una citta' media): se ne tiene l'inizio, il resto e' sulla
+// voce collegata tra le fonti. Il Clima resta intero (pochi KB, le tabelle climatiche sono gia' tolte).
+private const val STORIA_MAX_CHARS = 4000
+private val sentenceEndRegex = Regex("""[.!?](?=\s|$)""")
+
+/**
+ * [body] accorciato a [maxChars]: alla fine dell'ultimo paragrafo (riga) che ci sta intero, senza un
+ * sottotitolo "▸" rimasto in fondo; con un solo paragrafo troppo lungo, all'ultima frase intera.
+ */
+internal fun truncateSection(body: String, maxChars: Int = STORIA_MAX_CHARS): String {
+    if (body.length <= maxChars) return body
+    val window = body.take(maxChars + 1)
+    val lines = window.substring(0, window.lastIndexOf('\n').coerceAtLeast(0)).trimEnd().lines()
+        .dropLastWhile { it.isBlank() || it.startsWith("▸ ") }
+    if (lines.isNotEmpty()) return lines.joinToString("\n").trimEnd()
+    val lastSentenceEnd = sentenceEndRegex.findAll(window.take(maxChars)).lastOrNull()
+    return (lastSentenceEnd?.let { window.substring(0, it.range.last + 1) } ?: window.take(maxChars)).trimEnd()
+}
+
+/**
+ * [body] senza le frasi che chiudono un paragrafo con ":" (Wikipedia: "Here are climate normals for ...:"):
+ * introducevano una tabella o un elenco che cleanBody ha tolto. Il paragrafo fatto solo di quella frase sparisce.
+ */
+internal fun dropDanglingIntros(body: String): String =
+    body.lines().mapNotNull { line ->
+        val trimmed = line.trimEnd()
+        if (!trimmed.endsWith(':')) return@mapNotNull line
+        val lastSentenceEnd = sentenceEndRegex.findAll(trimmed).lastOrNull() ?: return@mapNotNull null
+        trimmed.substring(0, lastSentenceEnd.range.last + 1)
+    }.joinToString("\n").replace(Regex("""\n{3,}"""), "\n\n").trim()
+
 /**
  * [population]: abitanti della citta' (city_population.py: Abitanti del QuickbarCity o Wikidata), null se ignota;
  * [capital]: e' la capitale della regione (Wikidata P36).
@@ -55,7 +97,9 @@ data class CitySectionRow(
 /**
  * Righe di un <regionId>.cities.jsonl (una per citta': {"city": titolo, "text": wikitext grezzo}),
  * scritto da extract-cities-dump.py (build-cities-dump.sh) con un solo passaggio sul dump di
- * Wikivoyage IT per tutte le regioni -> le sue city_sections.
+ * Wikivoyage IT per tutte le regioni -> le sue city_sections. Il campo facoltativo "wikipedia"
+ * ({"title": voce, "text": sezioni Storia/Clima in wikitext}, city_wikipedia.py) aggiunge le sezioni
+ * STORIA e CLIMA dopo quelle di Wikivoyage, pulite con la stessa cleanBody.
  */
 fun parseCitiesJsonl(jsonl: String, english: Boolean = false): List<CitySectionRow> =
     jsonl.lineSequence().filter { it.isNotBlank() }.flatMap { line ->
@@ -63,10 +107,21 @@ fun parseCitiesJsonl(jsonl: String, english: Boolean = false): List<CitySectionR
         val city = obj.getString("city")
         val population = if (obj.isNull("population")) null else obj.optLong("population").takeIf { it > 0 }
         val capital = obj.optBoolean("capital", false)
-        val sourceUrl = (if (english) "https://en.wikivoyage.org/wiki/" else "https://it.wikivoyage.org/wiki/") + city.replace(" ", "_")
-        parseWikivoyageDump(obj.getString("text"), if (english) cityHeadingToCategoryEn else cityHeadingToCategory).map { section ->
+        val lang = if (english) "en" else "it"
+        val sourceUrl = "https://$lang.wikivoyage.org/wiki/" + city.replace(" ", "_")
+        val wikivoyage = parseWikivoyageDump(obj.getString("text"), if (english) cityHeadingToCategoryEn else cityHeadingToCategory).map { section ->
             CitySectionRow(city = city, category = section.category, title = section.title, body = section.body, sourceUrl = sourceUrl, population = population, capital = capital)
         }
+        val wikipedia = obj.optJSONObject("wikipedia")?.let { wp ->
+            val wpUrl = "https://$lang.wikipedia.org/wiki/" + wp.getString("title").replace(" ", "_")
+            parseWikivoyageDump(wp.getString("text"), if (english) wikipediaHeadingToCategoryEn else wikipediaHeadingToCategory).mapNotNull { section ->
+                val cleaned = dropDanglingIntros(section.body)
+                val body = if (section.category == "STORIA") truncateSection(cleaned) else cleaned
+                if (body.isEmpty()) return@mapNotNull null
+                CitySectionRow(city = city, category = section.category, title = section.title, body = body, sourceUrl = wpUrl, population = population, capital = capital)
+            }
+        }.orEmpty()
+        wikivoyage + wikipedia
     }.toList()
 
 /**

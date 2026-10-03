@@ -4,6 +4,7 @@
     <string name="guide_empty_subtitle">There are no guide sections published for this region yet</string>
     <string name="guide_filter_all">All</string>
     <string name="guide_source_title">Wikivoyage</string>
+    <string name="guide_source_title_wikipedia">Wikipedia</string>
     <string name="emergency_title">Emergency numbers</string>
     <string name="emergency_general">General</string>
     <string name="emergency_single">Emergency</string>
@@ -26,6 +27,8 @@
     <string name="category_good_to_know">Good to know</string>
     <string name="category_see_do">See &amp; do</string>
     <string name="category_quick_facts">Quick facts</string>
+    <string name="category_history">History</string>
+    <string name="category_climate">Climate</string>
     <string name="guide_cities_title">Cities</string>
     <string name="guide_cities_subtitle">City guides</string>
     <string name="guide_cities_all">See all</string>

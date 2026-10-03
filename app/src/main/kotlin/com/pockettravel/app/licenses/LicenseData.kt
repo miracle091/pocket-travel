@@ -57,6 +57,11 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
         note = "Attribuzione visibile obbligatoria; i contenuti derivati restano CC BY-SA.",
     ),
     LicenseEntry(
+        component = "Wikipedia (storia e clima delle città)",
+        license = "CC BY-SA 4.0",
+        note = "Sezioni Storia (accorciata) e Clima della voce di ogni città, con il link alla voce tra le fonti della guida.",
+    ),
+    LicenseEntry(
         component = "Wikidata (ambasciate e consolati)",
         license = "CC0 1.0",
         note = "Dominio pubblico: l'attribuzione non è obbligatoria, ma la fonte è Wikidata.",

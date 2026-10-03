@@ -4,7 +4,7 @@
 Il test base usa le stesse domande e la stessa forma di negativo del training: misura se il modello ha
 imparato quel criterio, non se generalizza. Qui le domande sono scritte a mano e NON sono nei template
 di training (QUESTIONS* in generate_sft_dataset.py), e il contesto e' composto come nell'app
-(make_context: fino a 3 sezioni unite, troncate a 2000 caratteri; oppure il testo di fallback). Tipi:
+(make_context: fino a 3 sezioni unite entro 2000 caratteri, come l'app; oppure il testo di fallback). Tipi:
   pos_para    positivo, domanda riformulata (IT o EN), sezione giusta + sezioni distraenti;
   neg_para    negativo (categoria assente dal contesto), domanda riformulata (IT o EN);
   neg_empty   negativo con il contesto di fallback (la ricerca dell'app non trova nulla);
@@ -95,15 +95,16 @@ def city_rows(rng, dump_dir, dump_date, row, refusal):
                 break
             others = [b for c, b in secs if c != cat and not covers(cat, b)]
             q = rng.choice(PARA_CITY[cat]).format(r=name)
-            context = make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))))
+            context = make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))), q, name)
             answer = pick_answer(context, body, q, cat, name)
             if len(answer) >= 40:
                 pos.append(row("pos_city", rid, cat, context, q, answer))
         missing = [c for c in PARA_CITY if c not in {c for c, _ in secs}]
         if missing and len(neg) < CITY_NEG:
             cat = rng.choice(missing)
-            context = make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))))
-            neg.append(row("neg_city", rid, cat, context, rng.choice(PARA_CITY[cat]).format(r=name), refusal(cat)))
+            q = rng.choice(PARA_CITY[cat]).format(r=name)
+            context = make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))), q, name)
+            neg.append(row("neg_city", rid, cat, context, q, refusal(cat)))
         if len(pos) >= CITY_POS and len(neg) >= CITY_NEG:
             break
     print(f"citta' delle regioni di test: {len(cities)} con sezioni utili, righe pos {len(pos)} neg {len(neg)}")
@@ -153,7 +154,7 @@ def main():
             others = [b for c, b in secs_it if c != cat and not covers(cat, b)]
             for i in range(3):
                 q = question(cat, name, i)
-                context = make_context(rng, [body] + rng.sample(others, min(len(others), i)))  # 0, 1 o 2 distrattori
+                context = make_context(rng, [body] + rng.sample(others, min(len(others), i)), q, name)  # 0, 1 o 2 distrattori
                 answer = pick_answer(context, body, q, cat, name)
                 if len(answer) >= 40:
                     out.append(row("pos_para", rid, cat, context, q, answer))
@@ -163,12 +164,13 @@ def main():
                 bodies = [b for _, b in secs if not covers(mc, b)]
                 if not bodies:
                     continue
-                context = make_context(rng, rng.sample(bodies, min(len(bodies), rng.randint(1, 3))))
-                out.append(row("neg_para", rid, mc, context, question(mc, name, rng.randint(0, 2)), refusal(mc)))
+                q = question(mc, name, rng.randint(0, 2))
+                context = make_context(rng, rng.sample(bodies, min(len(bodies), rng.randint(1, 3))), q, name)
+                out.append(row("neg_para", rid, mc, context, q, refusal(mc)))
                 out.append(row("neg_empty", rid, mc, FALLBACK_CONTEXT, question(mc, name, rng.randint(0, 2)), refusal(mc)))
         pool = [b for _, b in (secs_it or next(iter(langs[rid].values())))]
         for q in OFF_TOPIC:
-            out.append(row("neg_off", rid, "OFF", make_context(rng, rng.sample(pool, min(len(pool), rng.randint(1, 3)))),
+            out.append(row("neg_off", rid, "OFF", make_context(rng, rng.sample(pool, min(len(pool), rng.randint(1, 3))), q, name),
                            q, refusal("VITA_QUOTIDIANA")))
     rng.shuffle(out)
     if args.dump_dir:  # in coda, dopo il mescolamento: le righe dei paesi restano quelle di prima

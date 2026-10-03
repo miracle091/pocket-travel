@@ -312,10 +312,10 @@ def main():
             for _ in range(3):
                 q = question(cat, name)
                 extra = rng.sample(others, min(len(others), rng.choice([0, 0, 1, 1, 2])))
-                context = make_context(rng, [body] + extra)
+                context = make_context(rng, [body] + extra, q, name)
                 answer = answer_for(context, body, q, cat, name)
                 if len(answer) < 40:  # la sezione giusta e' stata troncata: riprova da sola
-                    context = make_context(rng, [body])
+                    context = make_context(rng, [body], q, name)
                     answer = answer_for(context, body, q, cat, name)
                 if len(answer) < 40 or (context, q) in seen:
                     continue
@@ -332,7 +332,7 @@ def main():
         if x < a.off_topic:
             q = off_topic_question()
             cat, ans = "OFF", refusal("useful to answer the question", tail)
-            context = make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))))
+            context = make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))), q, name)
         else:
             # Categoria qualsiasi, contesto dalle sole sezioni di altre categorie che non la trattano: le pagine EN
             # hanno quasi tutte le sezioni, e con le sole categorie assenti dalla pagina (come nel dataset italiano)
@@ -345,7 +345,7 @@ def main():
                 bodies = [b for c, b in secs if c != cat and not covers(cat, b, KEYWORDS)]
                 if not bodies:
                     continue
-                context = make_context(rng, rng.sample(bodies, min(len(bodies), rng.randint(1, 3))))
+                context = make_context(rng, rng.sample(bodies, min(len(bodies), rng.randint(1, 3))), q, name)
         if (context, q) in seen:
             continue
         seen.add((context, q))
@@ -376,7 +376,7 @@ def main():
             for cat, body in chosen:
                 q = question(cat, name, city=True)
                 others = [b for c, b in secs if c != cat and not covers(cat, b, KEYWORDS)]
-                context = make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))))
+                context = make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))), q, name)
                 answer = answer_for(context, body, q, cat, name)
                 if len(answer) < 40 or (context, q) in seen:
                     continue
@@ -386,7 +386,7 @@ def main():
             if missing and rng.random() < a.negatives * 2:
                 cat = rng.choice(missing)
                 q = question(cat, name, city=True)
-                context = make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))))
+                context = make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))), q, name)
                 if (context, q) not in seen:
                     seen.add((context, q))
                     rows.append(row("neg", rid, cat, context, q, refusal(TOPIC[cat], rng.choice(REFUSAL_TAILS)))); city_neg += 1
@@ -403,7 +403,7 @@ def main():
             for field, line in fields.items():
                 for q in rng.sample(QUICK_FACT_QUESTIONS[field], 2):
                     q = q.format(r=name)
-                    context = make_context(rng, [qf_body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))))
+                    context = make_context(rng, [qf_body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))), q, name)
                     if line not in context or (context, q) in seen:
                         continue
                     seen.add((context, q))
@@ -411,7 +411,7 @@ def main():
                 unrelated = [b for b in others if not any(k in b.lower() for k in QUICK_FACT_KEYWORDS[field])]
                 if unrelated and rng.random() < a.negatives * 2:
                     q = rng.choice(QUICK_FACT_QUESTIONS[field]).format(r=name)
-                    context = make_context(rng, rng.sample(unrelated, min(len(unrelated), rng.randint(1, 3))))
+                    context = make_context(rng, rng.sample(unrelated, min(len(unrelated), rng.randint(1, 3))), q, name)
                     if (context, q) not in seen:
                         seen.add((context, q))
                         rows.append(row("neg", rid, "FATTI_RAPIDI", context, q,
@@ -420,10 +420,11 @@ def main():
         for title, body, questions, answer in NOTE_SAMPLES:
             for rid in rng.sample(note_regions, min(len(note_regions), 8)):
                 secs = [b for _, b in data[rid][1]]
-                sections = make_context(rng, rng.sample(secs, min(len(secs), rng.choice([0, 1, 2]))))
-                note = f"Personal note: {title}\n{body}"  # etichetta di buildOnDeviceContext in inglese
-                context = "\n\n".join(x for x in (sections[: MAX_CONTEXT - len(note) - 2], note) if x)
                 q = rng.choice(questions)
+                note = f"Personal note: {title}\n{body}"  # etichetta di buildOnDeviceContext in inglese
+                sections = make_context(rng, rng.sample(secs, min(len(secs), rng.choice([0, 1, 2]))), q, data[rid][0],
+                                        max_chars=MAX_CONTEXT - len(note) - 2)
+                context = "\n\n".join(x for x in (sections, note) if x)
                 if (context, q) in seen:
                     continue
                 seen.add((context, q))

@@ -36,9 +36,9 @@ private class FakeCityDao : CityDao {
 
     // Come FakeGuideDao.searchInRegionRanked: filtra solo per regione e ritorna il matchinfo
     // impostato con setMatchInfo, i test si concentrano sul merge/ranking fatto dal chiamante.
-    override suspend fun searchInRegionRanked(regionId: String, query: String, candidateLimit: Int): List<CitySectionMatch> =
+    override suspend fun searchInRegionRanked(regionId: String, query: String, city: String?, candidateLimit: Int): List<CitySectionMatch> =
         stored
-            .filter { it.regionId == regionId }
+            .filter { it.regionId == regionId && (city == null || it.city == city) }
             .take(candidateLimit)
             .map { CitySectionMatch(it, matchInfoBySection[it] ?: NO_MATCH_INFO) }
 
@@ -53,28 +53,18 @@ private class FakeCityDao : CityDao {
     override suspend fun optimizeFts() = Unit
 }
 
-/** Blob matchinfo(..., 'pcx') finto, stesso formato di GuideRepositoryTest.matchInfo. */
-private fun matchInfo(phraseCount: Int, columnCount: Int, perPhraseColumnHits: List<Triple<Int, Int, Int>> = emptyList()): ByteArray {
-    val ints = mutableListOf(phraseCount, columnCount)
-    perPhraseColumnHits.forEach { (hits, total, docs) -> ints += listOf(hits, total, docs) }
-    val bytes = ByteArray(ints.size * 4)
-    ints.forEachIndexed { i, value ->
-        bytes[i * 4] = (value and 0xFF).toByte()
-        bytes[i * 4 + 1] = ((value shr 8) and 0xFF).toByte()
-        bytes[i * 4 + 2] = ((value shr 16) and 0xFF).toByte()
-        bytes[i * 4 + 3] = ((value shr 24) and 0xFF).toByte()
-    }
-    return bytes
-}
-
-private val NO_MATCH_INFO = matchInfo(phraseCount = 0, columnCount = 0)
-
 class CityRepositoryTest {
 
-    private fun section(regionId: String, city: String, title: String, body: String = "corpo") = CitySectionEntity(
+    private fun section(
+        regionId: String,
+        city: String,
+        title: String,
+        body: String = "corpo",
+        category: GuideCategory = GuideCategory.COSA_VEDERE,
+    ) = CitySectionEntity(
         regionId = regionId,
         city = city,
-        category = GuideCategory.COSA_VEDERE,
+        category = category,
         title = title,
         body = body,
         sourceUrl = "https://it.wikivoyage.org/wiki/$city",
@@ -102,17 +92,53 @@ class CityRepositoryTest {
     }
 
     @Test
-    fun `searchInRegionScored ordina per rilevanza col matchinfo`() = runBlocking {
+    fun `sectionsFor mette Storia e Clima di Wikipedia dopo le sezioni di Wikivoyage`() = runBlocking {
         val dao = FakeCityDao()
+        // Ordine del DAO (ORDER BY category): CLIMA, COSA_VEDERE, DA_SAPERE, STORIA, TRASPORTI.
+        dao.stored += listOf(
+            section("italia", "Roma", "Clima", category = GuideCategory.CLIMA),
+            section("italia", "Roma", "Cosa vedere", category = GuideCategory.COSA_VEDERE),
+            section("italia", "Roma", "Da sapere", category = GuideCategory.DA_SAPERE),
+            section("italia", "Roma", "Storia", category = GuideCategory.STORIA),
+            section("italia", "Roma", "Trasporti", category = GuideCategory.TRASPORTI),
+        )
         val repository = CityRepository(dao)
-        val comeArrivare = section("san-marino", "Citta di San Marino", "Come arrivare", "corpo arrivare")
+
+        val result = repository.sectionsFor("italia", "Roma")
+
+        assertEquals(listOf("Cosa vedere", "Da sapere", "Trasporti", "Storia", "Clima"), result.map { it.title })
+    }
+
+    @Test
+    fun `searchCandidates con la citta' tiene solo le sue sezioni`() = runBlocking {
+        val dao = FakeCityDao()
+        dao.stored += listOf(section("italia", "Roma", "Cosa vedere"), section("italia", "Bologna", "Cosa vedere"), section("francia", "Parigi", "Cosa vedere"))
+        val repository = CityRepository(dao)
+
+        assertEquals(listOf("Roma", "Bologna"), repository.searchCandidates("italia", "vedere").map { it.first.city })
+        assertEquals(listOf("Bologna"), repository.searchCandidates("italia", "vedere", city = "Bologna").map { it.first.city })
+    }
+
+    @Test
+    fun `searchCandidates legge il matchinfo di ogni candidato`() = runBlocking {
+        val dao = FakeCityDao()
         val cosaVedere = section("san-marino", "Citta di San Marino", "Cosa vedere", "corpo vedere")
-        dao.stored += listOf(comeArrivare, cosaVedere)
-        dao.setMatchInfo(comeArrivare, matchInfo(phraseCount = 1, columnCount = 2, perPhraseColumnHits = listOf(Triple(0, 0, 1), Triple(1, 2, 2))))
-        dao.setMatchInfo(cosaVedere, matchInfo(phraseCount = 1, columnCount = 2, perPhraseColumnHits = listOf(Triple(1, 1, 1), Triple(0, 0, 2))))
+        dao.stored += cosaVedere
+        dao.setMatchInfo(cosaVedere, matchInfoBlob(phrases = 1, hits = listOf(Hits(1), Hits(0, 0, 2)), rowCount = 7, averageLength = listOf(2, 80), length = listOf(2, 40)))
+        val repository = CityRepository(dao)
 
-        val result = repository.searchInRegionScored("san-marino", "vedere", limit = 2)
+        val info = repository.searchCandidates("san-marino", "vedere").single().second
 
-        assertEquals(listOf("Cosa vedere", "Come arrivare"), result.map { it.first.title })
+        assertEquals(1, info.hitsInRow(0, 0))
+        assertEquals(7, info.rowCount)
+        assertEquals(40, info.length[1])
+    }
+
+    @Test
+    fun `cityNamesFor ritorna i nomi delle citta' della regione`() = runBlocking {
+        val dao = FakeCityDao()
+        dao.stored += listOf(section("italia", "Roma", "Cosa vedere"), section("italia", "Bologna", "Cosa vedere"))
+
+        assertEquals(listOf("Bologna", "Roma"), CityRepository(dao).cityNamesFor("italia"))
     }
 }

@@ -45,27 +45,6 @@ private class FakeGuideDao : GuideDao {
     override suspend fun optimizeFts() {}
 }
 
-/**
- * Costruisce un blob matchinfo(..., 'pcx') finto: interi a 32 bit little-endian, [phraseCount] e
- * [columnCount] seguiti da una tripla (occorrenze in questa riga, occorrenze totali, righe con
- * almeno un'occorrenza) per ogni coppia frase/colonna — stesso formato letto da
- * matchScore (FtsRanking.kt).
- */
-private fun matchInfo(phraseCount: Int, columnCount: Int, perPhraseColumnHits: List<Triple<Int, Int, Int>> = emptyList()): ByteArray {
-    val ints = mutableListOf(phraseCount, columnCount)
-    perPhraseColumnHits.forEach { (hits, total, docs) -> ints += listOf(hits, total, docs) }
-    val bytes = ByteArray(ints.size * 4)
-    ints.forEachIndexed { i, value ->
-        bytes[i * 4] = (value and 0xFF).toByte()
-        bytes[i * 4 + 1] = ((value shr 8) and 0xFF).toByte()
-        bytes[i * 4 + 2] = ((value shr 16) and 0xFF).toByte()
-        bytes[i * 4 + 3] = ((value shr 24) and 0xFF).toByte()
-    }
-    return bytes
-}
-
-private val NO_MATCH_INFO = matchInfo(phraseCount = 0, columnCount = 0)
-
 class GuideRepositoryTest {
 
     private fun section(regionId: String, title: String, body: String = "corpo") = GuideSection(
@@ -93,80 +72,30 @@ class GuideRepositoryTest {
     }
 
     @Test
-    fun `searchInRegionScored filtra anche per regione`() = runBlocking {
+    fun `searchCandidates filtra anche per regione`() = runBlocking {
         val dao = FakeGuideDao()
         val repository = GuideRepository(dao)
         dao.insertAll(listOf(section("italia", "Dogane italiane"), section("francia", "Dogane francesi")).map { it.toEntity() })
 
-        val result = repository.searchInRegionScored("italia", "dogane", limit = 10)
+        val result = repository.searchCandidates("italia", "dogane")
 
         assertEquals(1, result.size)
         assertEquals("italia", result.single().first.regionId)
     }
 
     @Test
-    fun `searchInRegionScored espone il punteggio usato per ordinare`() = runBlocking {
+    fun `searchCandidates legge il matchinfo di ogni candidato`() = runBlocking {
         val dao = FakeGuideDao()
         val repository = GuideRepository(dao)
         val entity = GuideSectionEntity(regionId = "italia", category = GuideCategory.DOGANE, title = "Dogane", body = "corpo", sourceUrl = "https://it.wikivoyage.org/wiki/Italia")
         dao.stored += entity
-        dao.setMatchInfo(entity, matchInfo(phraseCount = 1, columnCount = 2, perPhraseColumnHits = listOf(Triple(1, 1, 1), Triple(0, 0, 1))))
+        dao.setMatchInfo(entity, matchInfoBlob(phrases = 1, hits = listOf(Hits(1), Hits(0, 0, 1)), rowCount = 12))
 
-        val result = repository.searchInRegionScored("italia", "dogane", limit = 10)
+        val (section, info) = repository.searchCandidates("italia", "dogane").single()
 
-        assertEquals(1, result.size)
-        assertEquals("Dogane", result.single().first.title)
-        // Un solo hit nel titolo (peso 3.0), nessun hit nel corpo: punteggio di matchScore.
-        assertEquals(3.0, result.single().second, 1e-9)
-    }
-
-    @Test
-    fun `searchInRegionScored ordina per rilevanza col matchinfo, non per ordine di inserimento`() = runBlocking {
-        // Caso reale: per "Quale valuta si usa a San Marino?" deve vincere "Valuta e acquisti", non
-        // "Come arrivare" (che nomina San Marino piu' volte nel corpo): la MATCH da sola non ha un
-        // ordine di rilevanza. "marino" e' quasi rumore (presente in entrambe le sezioni: idf basso),
-        // mentre "valuta" e' raro e compare anche nel titolo di "Valuta e acquisti" (peso maggiore).
-        val dao = FakeGuideDao()
-        val repository = GuideRepository(dao)
-        val comeArrivare = GuideSectionEntity(
-            regionId = "san-marino",
-            category = GuideCategory.TRASPORTI,
-            title = "Come arrivare",
-            body = "Si arriva a San Marino in autobus da Rimini; l'aeroporto piu' vicino e' quello di Rimini.",
-            sourceUrl = "https://it.wikivoyage.org/wiki/San_Marino",
-        )
-        val valutaAcquisti = GuideSectionEntity(
-            regionId = "san-marino",
-            category = GuideCategory.ACQUISTI,
-            title = "Valuta e acquisti",
-            body = "A San Marino si usa l'euro, come in Italia. Si puo' pagare in contanti o con carta.",
-            sourceUrl = "https://it.wikivoyage.org/wiki/San_Marino",
-        )
-        dao.stored += listOf(comeArrivare, valutaAcquisti)
-        // Frase 0 = "valuta", frase 1 = "marino"; colonne title (indice 0) poi body (indice 1).
-        dao.setMatchInfo(
-            comeArrivare,
-            matchInfo(
-                phraseCount = 2, columnCount = 2,
-                perPhraseColumnHits = listOf(
-                    Triple(0, 0, 1), Triple(0, 0, 1), // "valuta": nessuna occorrenza
-                    Triple(0, 0, 2), Triple(5, 7, 2), // "marino": 5 volte nel corpo, in entrambe le sezioni
-                ),
-            ),
-        )
-        dao.setMatchInfo(
-            valutaAcquisti,
-            matchInfo(
-                phraseCount = 2, columnCount = 2,
-                perPhraseColumnHits = listOf(
-                    Triple(1, 3, 1), Triple(2, 3, 1), // "valuta": nel titolo e due volte nel corpo, solo qui
-                    Triple(0, 0, 2), Triple(1, 7, 2), // "marino": una volta nel corpo, in entrambe le sezioni
-                ),
-            ),
-        )
-
-        val result = repository.searchInRegionScored("san-marino", "valuta OR marino", limit = 2)
-
-        assertEquals(listOf("Valuta e acquisti", "Come arrivare"), result.map { it.first.title })
+        assertEquals("Dogane", section.title)
+        assertEquals(1, info.hitsInRow(0, 0))
+        assertEquals(12, info.rowCount)
+        assertEquals("dogane", dao.lastSearchQuery)
     }
 }

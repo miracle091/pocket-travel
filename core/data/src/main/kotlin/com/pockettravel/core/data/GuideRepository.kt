@@ -11,16 +11,13 @@ class GuideRepository @Inject constructor(
         guideDao.sectionsForRegion(regionId).map { it.toDomain() }
 
     /**
-     * FTS4 non ha bm25() (arrivato solo con FTS5): si prendono fino a CANDIDATE_CAP candidati col loro
-     * matchinfo e si riordinano per rilevanza in Kotlin (vedi matchScore) prima di tagliare a [limit],
-     * invece di affidarsi al semplice ordine per rowid della MATCH. Usata da TravelAssistant per unire i
-     * candidati con quelli di CityRepository.searchInRegionScored, che usa lo stesso schema di ranking.
+     * Fino a CANDIDATE_CAP sezioni che corrispondono a [query] (espressione FTS4 MATCH gia' pulita dal chiamante),
+     * col loro matchinfo letto e senza ordine di rilevanza: FTS4 non ha bm25() (arrivato solo con FTS5), quindi
+     * TravelAssistant le ordina in Kotlin insieme a quelle di CityRepository.searchCandidates (bm25Score).
      */
-    suspend fun searchInRegionScored(regionId: String, query: String, limit: Int): List<Pair<GuideSection, Double>> =
-        guideDao.searchInRegionRanked(regionId, query, maxOf(limit, CANDIDATE_CAP))
-            .map { it.section.toDomain() to matchScore(it.matchinfo) }
-            .sortedByDescending { it.second }
-            .take(limit)
+    suspend fun searchCandidates(regionId: String, query: String): List<Pair<GuideSection, FtsMatchInfo>> =
+        guideDao.searchInRegionRanked(regionId, query, CANDIDATE_CAP)
+            .map { it.section.toDomain() to FtsMatchInfo.parse(it.matchinfo) }
 
     private companion object {
         const val CANDIDATE_CAP = 30

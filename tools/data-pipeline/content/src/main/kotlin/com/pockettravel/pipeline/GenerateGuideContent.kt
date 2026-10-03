@@ -94,8 +94,29 @@ private val innermostTableRegex = Regex("""(?s)\{\|(?:(?!\{\|).)*?\|}""")
 private val innermostTemplateRegex = Regex("""\{\{((?:(?!\{\{|}}).)*)}}""", RegexOption.DOT_MATCHES_ALL)
 private val keptTemplateNames = setOf("marker", "see", "do", "go", "eat", "drink", "sleep", "buy", "listing", "iata")
 // Template che mostrano il loro primo parametro cosi' com'e'.
-private val textTemplateNames = setOf("nowrap", "phone", "tel", "telefono", "lang", "small", "smaller", "big", "nobr", "unbulleted list")
+private val textTemplateNames = setOf("nowrap", "phone", "tel", "telefono", "lang", "small", "smaller", "big", "nobr", "unbulleted list", "ta")
 private val currencyTemplateRegex = Regex("""[A-Z]{3}""")
+
+// Misure delle voci di Wikipedia (Storia e Clima delle citta'): {{convert|641|mm|in}}, {{cvt|15|and|25|°C}} (EN) e
+// {{M|23.1|u=°C}} (IT). Tolte intere resterebbero frasi senza numeri ("temperature medie tra in luglio").
+private val convertTemplateNames = setOf("convert", "cvt")
+private val convertRangeWords = setOf("and", "to", "or", "-", "–")
+private val unitSymbols = mapOf("C" to "°C", "F" to "°F", "km2" to "km²", "m2" to "m²", "m3" to "m³", "sqmi" to "sq mi")
+
+private fun convertMeasure(params: List<String>): String {
+    val positional = params.filter { '=' !in it }
+    val isRange = positional.getOrNull(1) in convertRangeWords
+    val value = if (isRange) positional.take(3).joinToString(" ") else positional.firstOrNull().orEmpty()
+    val unit = positional.getOrNull(if (isRange) 3 else 1).orEmpty()
+    return "$value ${unitSymbols[unit] ?: unit}".trim()
+}
+
+// {{M|valore|u=unita'}} di Wikipedia IT: il punto decimale si mostra come virgola.
+private fun italianMeasure(params: List<String>): String {
+    val value = params.firstOrNull { '=' !in it }.orEmpty().replace('.', ',')
+    val unit = params.firstOrNull { it.startsWith("u=") || it.startsWith("ul=") }?.substringAfter('=').orEmpty()
+    return "$value ${unitSymbols[unit] ?: unit}".trim()
+}
 
 private fun resolveTemplate(inner: String): String? {
     val parts = inner.split('|')
@@ -103,10 +124,16 @@ private fun resolveTemplate(inner: String): String? {
     val lower = name.lowercase()
     if (lower in keptTemplateNames) return null
     val first = parts.getOrNull(1)?.trim().orEmpty()
+    val params = parts.drop(1).map { it.trim() }
     return when {
         lower in textTemplateNames -> first.substringAfter('=', first)
         // Valute ({{EUR|5}}, {{ALL|500}}): "5 EUR", altrimenti resterebbe "almeno ." nel testo.
         currencyTemplateRegex.matches(name) && first.isNotEmpty() && first.first().isDigit() -> "$first $name"
+        lower in convertTemplateNames -> convertMeasure(params)
+        lower == "m" -> italianMeasure(params)
+        // Link a una voce in un'altra lingua di Wikipedia EN: il testo (lt=) o il titolo.
+        lower == "interlanguage link" || lower == "ill" ->
+            params.firstOrNull { it.startsWith("lt=") }?.substringAfter('=')?.takeIf { it.isNotEmpty() } ?: first
         else -> ""
     }
 }

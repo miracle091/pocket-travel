@@ -41,6 +41,19 @@ class CleanWikitextTest {
     }
 
     @Test
+    fun `le misure dei template di Wikipedia restano nel testo con la loro unita'`() {
+        assertEquals("Tra 15 and 25 °C, 641 mm di pioggia, 105.4 km².", cleanBody("Tra {{cvt|15|and|25|°C|°F}}, {{convert|641|mm|in|1}} di pioggia, {{convert|105.4|km2|sqmi|abbr=on}}."))
+        assertEquals("Massima 32 °C.", cleanBody("Massima {{cvt|32|C}}."))
+        assertEquals("Luglio 23,1 °C, 128500 ettari, anno 1100.", cleanBody("Luglio {{M|23.1|u=°C}}, {{M|128500|ul=ettari}}, anno {{M|1100}}."))
+        assertEquals("Abitanti: 25 990.", cleanBody("Abitanti: {{TA|25 990}}."))
+    }
+
+    @Test
+    fun `un link ad altra lingua mostra il testo o il titolo della voce`() {
+        assertEquals("Il parco Fiabilandia e Rimini Centrale.", cleanBody("Il parco {{Interlanguage link|Fiabilandia|lt=|it|}} e {{ill|Stazione di Rimini Centrale|lt=Rimini Centrale|it}}."))
+    }
+
+    @Test
     fun `un template non chiuso resta nel testo`() {
         assertEquals("Testo {{non chiuso", cleanBody("Testo {{non chiuso"))
     }

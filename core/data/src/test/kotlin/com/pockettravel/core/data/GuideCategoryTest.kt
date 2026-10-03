@@ -11,6 +11,8 @@ class GuideCategoryTest {
         assertEquals(GuideCategory.DA_SAPERE, guideCategoryOrNull("DA_SAPERE"))
         assertEquals(GuideCategory.COSA_VEDERE, guideCategoryOrNull("COSA_VEDERE"))
         assertEquals(GuideCategory.FATTI_RAPIDI, guideCategoryOrNull("FATTI_RAPIDI"))
+        assertEquals(GuideCategory.STORIA, guideCategoryOrNull("STORIA"))
+        assertEquals(GuideCategory.CLIMA, guideCategoryOrNull("CLIMA"))
     }
 
     @Test

@@ -80,15 +80,16 @@ def city_rows(rng, dump_dir, dump_date, row, test_titles):
                 break
             others = [b for c, b in secs if c != cat and not covers(cat, b, KEYWORDS)]
             q = rng.choice(PARA_CITY_EN[cat]).format(r=name)
-            context = make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))))
+            context = make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))), q, name)
             answer = answer_for(context, body, q, cat, name)
             if len(answer) >= 40:
                 pos.append(row("pos_city", rid, cat, context, q, answer))
         missing = [c for c in PARA_CITY_EN if c not in {c for c, _ in secs}]
         if missing and len(neg) < CITY_NEG:
             cat = rng.choice(missing)
-            context = make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))))
-            neg.append(row("neg_city", rid, cat, context, rng.choice(PARA_CITY_EN[cat]).format(r=name), refusal(TOPIC[cat], TAIL)))
+            q = rng.choice(PARA_CITY_EN[cat]).format(r=name)
+            context = make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))), q, name)
+            neg.append(row("neg_city", rid, cat, context, q, refusal(TOPIC[cat], TAIL)))
         if len(pos) >= CITY_POS and len(neg) >= CITY_NEG:
             break
     print(f"citta' delle regioni di test: {len(cities)} con sezioni utili, righe pos {len(pos)} neg {len(neg)}")
@@ -123,20 +124,21 @@ def main():
             others = [b for c, b in secs if c != cat and not covers(cat, b, KEYWORDS)]
             for i in range(3):
                 q = PARA[cat][i].format(r=name)
-                context = make_context(rng, [body] + rng.sample(others, min(len(others), i)))  # 0, 1 o 2 distrattori
+                context = make_context(rng, [body] + rng.sample(others, min(len(others), i)), q, name)  # 0, 1 o 2 distrattori
                 answer = answer_for(context, body, q, cat, name)
                 if len(answer) >= 40:
                     out.append(row("pos_para", rid, cat, context, q, answer))
         for cat in rng.sample(list(QUESTIONS), NEG_CATEGORIES):
             bodies = [b for c, b in secs if c != cat and not covers(cat, b, KEYWORDS)]
             if bodies:
-                context = make_context(rng, rng.sample(bodies, min(len(bodies), rng.randint(1, 3))))
-                out.append(row("neg_para", rid, cat, context, rng.choice(PARA[cat]).format(r=name), refusal(TOPIC[cat], TAIL)))
+                q = rng.choice(PARA[cat]).format(r=name)
+                context = make_context(rng, rng.sample(bodies, min(len(bodies), rng.randint(1, 3))), q, name)
+                out.append(row("neg_para", rid, cat, context, q, refusal(TOPIC[cat], TAIL)))
         for cat in rng.sample(list(QUESTIONS), NEG_CATEGORIES):
             out.append(row("neg_empty", rid, cat, FALLBACK_CONTEXT, rng.choice(PARA[cat]).format(r=name), refusal(TOPIC[cat], TAIL)))
         pool = [b for _, b in secs]
         for q in OFF_TOPIC:
-            out.append(row("neg_off", rid, "OFF", make_context(rng, rng.sample(pool, min(len(pool), rng.randint(1, 3)))),
+            out.append(row("neg_off", rid, "OFF", make_context(rng, rng.sample(pool, min(len(pool), rng.randint(1, 3))), q, name),
                            q, refusal("useful to answer the question", TAIL)))
     rng.shuffle(out)
     if args.dump_dir:  # in coda, dopo il mescolamento: le righe dei paesi restano quelle di prima

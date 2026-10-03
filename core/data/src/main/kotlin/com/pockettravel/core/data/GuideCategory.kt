@@ -16,6 +16,9 @@ enum class GuideCategory {
     DA_SAPERE,
     COSA_VEDERE,
     FATTI_RAPIDI,
+    // Sezioni Storia e Clima della voce di Wikipedia della citta' (solo in cities.db).
+    STORIA,
+    CLIMA,
 }
 
 /**

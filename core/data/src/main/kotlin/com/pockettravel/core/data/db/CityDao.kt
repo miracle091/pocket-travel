@@ -8,7 +8,7 @@ import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Candidato di ricerca con il matchinfo FTS4 grezzo (formato 'pcx'), per ordinare per rilevanza
+ * Candidato di ricerca con il matchinfo FTS4 grezzo (formato 'pcxnal'), per ordinare per rilevanza
  * lato Kotlin come GuideSectionMatch: FTS4 non ha bm25() come FTS5.
  */
 data class CitySectionMatch(
@@ -36,17 +36,18 @@ interface CityDao {
     suspend fun sectionsFor(regionId: String, city: String): List<CitySectionEntity>
 
     // Nessun ORDER BY per rilevanza, come GuideDao.searchInRegionRanked: si prendono fino a
-    // candidateLimit candidati col loro matchinfo, e CityRepository.searchInRegionScored li
-    // riordina in Kotlin.
+    // candidateLimit candidati col loro matchinfo, e TravelAssistant li riordina in Kotlin. Con [city]
+    // solo le sezioni di quella citta': senza, i primi candidati in ordine di rowid sono di citta' qualunque.
     @Query(
         """
-        SELECT city_sections.*, matchinfo(city_sections_fts, 'pcx') AS matchinfo FROM city_sections
+        SELECT city_sections.*, matchinfo(city_sections_fts, 'pcxnal') AS matchinfo FROM city_sections
         JOIN city_sections_fts ON city_sections.id = city_sections_fts.rowid
         WHERE city_sections_fts MATCH :query AND city_sections.regionId = :regionId
+            AND (:city IS NULL OR city_sections.city = :city)
         LIMIT :candidateLimit
         """
     )
-    suspend fun searchInRegionRanked(regionId: String, query: String, candidateLimit: Int): List<CitySectionMatch>
+    suspend fun searchInRegionRanked(regionId: String, query: String, city: String?, candidateLimit: Int): List<CitySectionMatch>
 
     @Query("DELETE FROM city_sections WHERE regionId = :regionId")
     suspend fun deleteForRegion(regionId: String)
