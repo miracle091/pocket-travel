@@ -20,8 +20,15 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CitySectionFts::class,
         NoteEntity::class,
         DiplomaticMissionEntity::class,
+        VaccYfRiskEntity::class,
+        VaccYfEntryEntity::class,
+        VaccPolioStatusEntity::class,
+        VaccPolioEntryEntity::class,
+        VaccSpecialEntity::class,
+        VaccRecommendedEntity::class,
+        VaccMetaEntity::class,
     ],
-    version = 18,
+    version = 20,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -34,10 +41,11 @@ abstract class RegionDatabase : RoomDatabase() {
     abstract fun cityDao(): CityDao
     abstract fun noteDao(): NoteDao
     abstract fun diplomaticMissionDao(): DiplomaticMissionDao
+    abstract fun vaccinationDao(): VaccinationDao
 }
 /** Tutte le migrazioni, per Room.databaseBuilder e per i test. */
 val ALL_MIGRATIONS: Array<Migration>
-    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_18)
+    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
 
 /** Versioni del database mai uscite in una versione pubblicata dell'app (solo sviluppo). */
 val UNRELEASED_VERSIONS = intArrayOf(1, 2, 4, 7, 8, 10, 12, 13, 14, 16)
@@ -288,5 +296,110 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
             """.trimIndent()
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_diplomatic_missions_sending_host` ON `diplomatic_missions` (`sending`, `host`)")
+    }
+}
+
+// Da 18 a 19: dati vaccinali per il viaggio (vacc_*, dal guides.db), vuoti finche' non si importa un pacchetto
+// guide che li contiene. Una tabella per file curato della pipeline, con le stesse colonne.
+val MIGRATION_18_19 = object : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `vacc_yf_risk` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `iso2` TEXT NOT NULL,
+                `scope` TEXT NOT NULL,
+                `areasIt` TEXT NOT NULL,
+                `areasEn` TEXT NOT NULL,
+                `sources` TEXT NOT NULL,
+                `verified` TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `vacc_yf_entry` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `iso2` TEXT NOT NULL,
+                `rule` TEXT NOT NULL,
+                `minAgeMonths` INTEGER,
+                `transit` TEXT NOT NULL,
+                `fromList` TEXT NOT NULL,
+                `exitRequired` INTEGER NOT NULL,
+                `noteIt` TEXT NOT NULL,
+                `noteEn` TEXT NOT NULL,
+                `sources` TEXT NOT NULL,
+                `verified` TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `vacc_polio_status` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `iso2` TEXT NOT NULL,
+                `category` TEXT NOT NULL,
+                `statement` TEXT NOT NULL,
+                `sources` TEXT NOT NULL,
+                `verified` TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `vacc_polio_entry` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `iso2` TEXT NOT NULL,
+                `origin` TEXT NOT NULL,
+                `vaccine` TEXT NOT NULL,
+                `timeWindow` TEXT NOT NULL,
+                `applies` TEXT NOT NULL,
+                `noteIt` TEXT NOT NULL,
+                `noteEn` TEXT NOT NULL,
+                `sources` TEXT NOT NULL,
+                `verified` TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `vacc_special` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `iso2` TEXT NOT NULL,
+                `purpose` TEXT NOT NULL,
+                `vaccine` TEXT NOT NULL,
+                `minAgeMonths` INTEGER,
+                `minDaysBefore` INTEGER,
+                `validityYears` INTEGER,
+                `noteIt` TEXT NOT NULL,
+                `noteEn` TEXT NOT NULL,
+                `sources` TEXT NOT NULL,
+                `verified` TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `vacc_recommended` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `iso2` TEXT NOT NULL,
+                `vaccine` TEXT NOT NULL,
+                `level` TEXT NOT NULL,
+                `conditionIt` TEXT NOT NULL,
+                `conditionEn` TEXT NOT NULL,
+                `sources` TEXT NOT NULL,
+                `verified` TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE TABLE IF NOT EXISTS `vacc_meta` (`key` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`key`))")
+    }
+}
+
+/** Popolazione e capitale delle citta' (CitySectionEntity.population, capital): le citta' principali della scheda Citta'. */
+val MIGRATION_19_20 = object : Migration(19, 20) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `population` INTEGER")
+        db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `capital` INTEGER NOT NULL DEFAULT 0")
     }
 }

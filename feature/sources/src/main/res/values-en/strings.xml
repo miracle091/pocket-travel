@@ -1,7 +1,7 @@
 <resources>
     <string name="sources_title">Official sources</string>
-    <string name="sources_external">External official websites: they need an internet connection.</string>
+    <string name="sources_external">External official websites: they need an internet connection</string>
     <string name="sources_national">From your country (%1$s)</string>
-    <string name="sources_national_none">We don\'t have official sources for your country yet: check your foreign ministry\'s website for travel advice.</string>
+    <string name="sources_national_none">We don\'t have official sources for your country yet: check your foreign ministry\'s website for travel advice</string>
     <string name="sources_global">International</string>
 </resources>

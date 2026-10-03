@@ -1,5 +1,6 @@
 package com.pockettravel.core.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -16,4 +17,8 @@ data class CitySectionEntity(
     val title: String,
     val body: String,
     val sourceUrl: String,
+    // Abitanti della citta' (pipeline: Abitanti di Wikivoyage o Wikidata), null se ignoti o da un cities.db vecchio.
+    val population: Long? = null,
+    // Capitale della regione (pipeline: Wikidata P36), false da un cities.db vecchio.
+    @ColumnInfo(defaultValue = "0") val capital: Boolean = false,
 )

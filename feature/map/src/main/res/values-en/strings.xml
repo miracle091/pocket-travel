@@ -30,7 +30,7 @@
     <string name="poi_parking_private">Private parking</string>
     <string name="poi_parking_disabled">Disabled parking</string>
     <string name="map_filters_only_accessible">Accessible places only</string>
-    <string name="map_filters_only_accessible_body">Places marked as wheelchair accessible, even partly, accessible toilets and disabled parking.</string>
+    <string name="map_filters_only_accessible_body">Places marked as wheelchair accessible, even partly, accessible toilets and disabled parking</string>
     <string name="poi_train">Train stations</string>
     <string name="poi_metro">Metro</string>
     <string name="poi_bus">Buses</string>
@@ -203,14 +203,14 @@
     <string name="navigation_close">End navigation</string>
     <string name="navigation_no_speed_cameras">Speed cameras, speed limits and restricted-access or low-emission zones not shown:</string>
     <string name="navigation_follow_road_signs">always follow the road signs</string>
-    <string name="navigation_permission">Navigation needs your GPS location. It stays on your phone and is used only while this screen is open.</string>
+    <string name="navigation_permission">Navigation needs your GPS location. It stays on your phone and is used only while this screen is open</string>
     <string name="navigation_permission_grant">Allow location</string>
-    <string name="navigation_gps_disabled">GPS is off. Navigation only works with GPS on: turn it on to start.</string>
+    <string name="navigation_gps_disabled">GPS is off. Navigation only works with GPS on: turn it on to start</string>
     <string name="navigation_gps_settings">Turn on GPS</string>
     <string name="navigation_waiting_fix">Waiting for GPS signal…</string>
     <string name="navigation_off_route">Off route: recalculating…</string>
-    <string name="navigation_not_found">No route found to the destination with your chosen way of getting around.</string>
-    <string name="navigation_wheelchair_notice">If stairs are left out of routes, navigation routes may be incomplete.</string>
+    <string name="navigation_not_found">No route found to the destination with your chosen way of getting around</string>
+    <string name="navigation_wheelchair_notice">If stairs are left out of routes, navigation routes may be incomplete</string>
     <string name="navigation_allow_steps">Accept a few steps</string>
     <string name="navigation_failed">The route could not be calculated</string>
     <string name="navigation_retry">Try again</string>
@@ -220,17 +220,17 @@
     <string name="navigation_hours_minutes">%1$d h %2$d min</string>
     <string name="navigation_now">Now</string>
     <string name="usage_mode_directions">Directions to places</string>
-    <string name="usage_mode_directions_body">Also downloads routes with each region (from a few MB to a few hundred) and asks for your GPS location, used only while you navigate.</string>
+    <string name="usage_mode_directions_body">Also downloads routes with each region (from a few MB to a few hundred) and asks for your GPS location, used only while you navigate</string>
     <string name="navigation_routing_download">Download routes</string>
     <string name="navigation_missing_routing_list">Routes are missing for these regions, from start to destination</string>
     <string name="navigation_car_only_routing_list">You only have routes for cars here: download the full routes to walk or cycle</string>
     <string name="navigation_routing_download_all">Download all routes (%1$s)</string>
     <string name="navigation_routing_progress_all">Downloading routes · %1$d%%</string>
-    <string name="navigation_outside_routing">The route leaves the area of the downloaded routes.</string>
+    <string name="navigation_outside_routing">The route leaves the area of the downloaded routes</string>
     <string name="navigation_calculating">Calculating the route…</string>
     <string name="navigation_calculating_progress">About %1$d%% calculated</string>
-    <string name="navigation_calculating_long">By car, long routes can take up to a few minutes.</string>
-    <string name="navigation_timed_out">The route is too long to calculate on the phone: choose a closer destination or another way of travelling.</string>
+    <string name="navigation_calculating_long">By car, long routes can take up to a few minutes</string>
+    <string name="navigation_timed_out">The route is too long to calculate on the phone: choose a closer destination or another way of travelling</string>
     <string name="turn_continue">Continue straight</string>
     <string name="turn_slight_left">Bear left</string>
     <string name="turn_left">Turn left</string>
@@ -247,8 +247,8 @@
     <string name="turn_arrive">Arrive</string>
     <string name="transit_title">Next departures</string>
     <string name="transit_loading">Loading timetable…</string>
-    <string name="transit_no_stops">No timetables for this stop: the downloaded networks don\'t cover it.</string>
-    <string name="transit_not_offered">There are no public transport timetables for this area.</string>
+    <string name="transit_no_stops">No timetables for this stop: the downloaded networks don\'t cover it</string>
+    <string name="transit_not_offered">There are no public transport timetables for this area</string>
     <string name="transit_none_soon">No departures in the next 3 hours</string>
     <string name="transit_valid_until">Timetable valid until %1$s</string>
     <string name="transit_expired">The timetable has expired (valid until %1$s)</string>
@@ -282,16 +282,16 @@
     <string name="planner_swap">Swap start and destination</string>
     <string name="planner_recents">Recent</string>
     <string name="planner_remove_recent">Remove %1$s from recent</string>
-    <string name="planner_permission">To start from your location the app needs location permission. It stays on your phone.</string>
+    <string name="planner_permission">To start from your location the app needs location permission. It stays on your phone</string>
     <string name="planner_no_location">No GPS signal: turn on GPS or choose a starting point</string>
-    <string name="planner_no_routing_data">To calculate the route you need this region\'s Routes (downloaded once, then they stay on your phone).</string>
+    <string name="planner_no_routing_data">To calculate the route you need this region\'s Routes (downloaded once, then they stay on your phone)</string>
     <string name="planner_start">Start</string>
-    <string name="planner_preview_only">Starting from a chosen place: preview only. Turn-by-turn guidance starts from your location.</string>
+    <string name="planner_preview_only">Starting from a chosen place: preview only. Turn-by-turn guidance starts from your location</string>
     <string name="planner_steps">Directions</string>
     <string name="planner_search_start">Choose starting point</string>
     <string name="planner_back">Back</string>
     <string name="planner_clear">Clear</string>
-    <string name="planner_no_results">No place with this name in your downloaded regions.</string>
+    <string name="planner_no_results">No place with this name in your downloaded regions</string>
     <string name="planner_type_address">Address</string>
     <string name="planner_routing_progress">Region routes · %1$d%%</string>
     <string name="planner_calculating">Finding the best route</string>
@@ -323,23 +323,23 @@
     <string name="navigation_arrived_at">You have arrived: %1$s</string>
     <string name="planner_leave_soon">Leave soon</string>
     <string name="navigation_running_late">You are running late</string>
-    <string name="planner_routing_failed">Routes download failed. Check your connection and try again.</string>
-    <string name="planner_notifications_off">Notifications are off: turn them on in the app settings to get the reminder.</string>
+    <string name="planner_routing_failed">Routes download failed. Check your connection and try again</string>
+    <string name="planner_notifications_off">Notifications are off: turn them on in the app settings to get the reminder</string>
     <string name="navigation_channel">Navigation</string>
     <string name="navigation_notification_stop">End</string>
     <string name="navigation_resume_title">Resume navigation?</string>
-    <string name="navigation_resume_text">The guidance to %1$s stopped because the app was closed.</string>
+    <string name="navigation_resume_text">The guidance to %1$s stopped because the app was closed</string>
     <string name="navigation_resume">Resume</string>
     <string name="navigation_resume_no">No</string>
     <string name="planner_recents_clear">Clear recent searches</string>
     <string name="planner_recents_clear_title">Clear recent searches?</string>
-    <string name="planner_recents_clear_text">All recent destinations will be removed from this list.</string>
+    <string name="planner_recents_clear_text">All recent destinations will be removed from this list</string>
     <string name="planner_recents_clear_confirm">Clear</string>
     <string name="navigation_drive_left">left</string>
     <string name="navigation_drive_right">right</string>
     <string name="navigation_drive_side">Country driving on the</string>
-    <string name="maplibre_mapActionDescription" tools:ignore="PrivateResource">Map. Move it by dragging with two fingers, zoom by spreading two fingers.</string>
-    <string name="maplibre_attributionsIconContentDescription" tools:ignore="PrivateResource">Map credits. Activate to show them.</string>
-    <string name="maplibre_compassContentDescription" tools:ignore="PrivateResource">Map compass. Activate to turn north back up.</string>
-    <string name="maplibre_myLocationViewContentDescription" tools:ignore="PrivateResource">Your location on the map.</string>
+    <string name="maplibre_mapActionDescription" tools:ignore="PrivateResource">Map. Move it by dragging with two fingers, zoom by spreading two fingers</string>
+    <string name="maplibre_attributionsIconContentDescription" tools:ignore="PrivateResource">Map credits. Activate to show them</string>
+    <string name="maplibre_compassContentDescription" tools:ignore="PrivateResource">Map compass. Activate to turn north back up</string>
+    <string name="maplibre_myLocationViewContentDescription" tools:ignore="PrivateResource">Your location on the map</string>
 </resources>

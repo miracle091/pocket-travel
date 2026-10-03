@@ -8,6 +8,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.db.RegionDatabase
+import com.pockettravel.core.data.vaccination.PolioCategory
+import com.pockettravel.core.data.vaccination.TransitRule
+import com.pockettravel.core.data.vaccination.VaccinationRepository
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -50,7 +53,7 @@ class PackageImporterDeviceTest {
 
     @Test
     fun importaLeGuideDiTutteLeRegioniERegistraLaVersione() = runBlocking {
-        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), repository, db)
+        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), db.vaccinationDao(), repository, db)
         assertNull(repository.installedGuidesVersion())
 
         val file = copyAsset("guides.db")
@@ -72,7 +75,7 @@ class PackageImporterDeviceTest {
 
     @Test
     fun importaLeRappresentanzeDiplomaticheSeLaTabellaCeESostituisceLePrecedenti() = runBlocking {
-        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), repository, db)
+        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), db.vaccinationDao(), repository, db)
         importer.import(guidesDbWithMissions("guides-missions.db", "Q1", "Q2"), "2026.10.01")
 
         val missions = db.diplomaticMissionDao().missions("it", "es")
@@ -89,6 +92,25 @@ class PackageImporterDeviceTest {
         // Un guides.db senza la tabella svuota quelle importate: il dato e' sempre quello del pacchetto.
         importer.import(copyAsset("guides.db"), "2026.10.15")
         assertTrue(db.diplomaticMissionDao().missions("it", "es").isEmpty())
+    }
+
+    @Test
+    fun importaIDatiVaccinaliSeLeTabelleCeranoESenzaDiLoroNonLasciaNulla() = runBlocking {
+        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), db.vaccinationDao(), repository, db)
+        assertNull("senza import non ci sono dati vaccinali", VaccinationRepository(db.vaccinationDao()).load())
+
+        importer.import(guidesDbWithVaccinations("guides-vacc.db"), "2026.10.01")
+        val data = VaccinationRepository(db.vaccinationDao()).load()!!
+        assertEquals(listOf("br"), data.yfRisk.map { it.iso2 })
+        assertEquals(setOf("ke", "ug"), data.yfEntry.single { it.iso2 == "in" }.fromList)
+        assertEquals(TransitRule.GT12H, data.yfEntry.single { it.iso2 == "in" }.transit)
+        assertEquals(PolioCategory.WPV1_CVDPV1_CVDPV3, data.polioEntry.single().originCategory)
+        assertEquals(12, data.special.single().minAgeMonths)
+        assertEquals("2026-10-03", data.meta.lastReview)
+
+        // Un guides.db vecchio, senza le tabelle, svuota quelle importate.
+        importer.import(copyAsset("guides.db"), "2026.10.08")
+        assertNull(VaccinationRepository(db.vaccinationDao()).load())
     }
 
     @Test
@@ -192,6 +214,38 @@ class PackageImporterDeviceTest {
                         "'+34 91 1234567', 'https://amb.esteri.it', NULL, 40.4, -3.7)",
                 )
             }
+        }
+        return file
+    }
+
+    private fun guidesDbWithVaccinations(name: String): File {
+        val file = File(workDir, name)
+        SQLiteDatabase.openOrCreateDatabase(file, null).use { guides ->
+            guides.execSQL("CREATE TABLE guide_sections (regionId TEXT NOT NULL, category TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, sourceUrl TEXT NOT NULL)")
+            guides.execSQL("CREATE TABLE emergency_numbers (regionId TEXT NOT NULL, general TEXT, police TEXT NOT NULL, ambulance TEXT NOT NULL, fire TEXT NOT NULL)")
+            guides.execSQL("CREATE TABLE vacc_yf_risk (iso2 TEXT NOT NULL, scope TEXT NOT NULL, areasIt TEXT NOT NULL, areasEn TEXT NOT NULL, sources TEXT NOT NULL, verified TEXT NOT NULL)")
+            guides.execSQL("INSERT INTO vacc_yf_risk VALUES ('br', 'PARTIAL', 'Gran parte', 'Most of the country', 'F6+F7', '2026-10-03')")
+            guides.execSQL(
+                "CREATE TABLE vacc_yf_entry (iso2 TEXT NOT NULL, rule TEXT NOT NULL, minAgeMonths INTEGER, transit TEXT NOT NULL, fromList TEXT NOT NULL, " +
+                    "exitRequired INTEGER NOT NULL, noteIt TEXT NOT NULL, noteEn TEXT NOT NULL, sources TEXT NOT NULL, verified TEXT NOT NULL)",
+            )
+            guides.execSQL("INSERT INTO vacc_yf_entry VALUES ('in', 'FROM_LIST', 9, 'GT12H', 'ke,ug', 0, '', '', 'F7', '2026-10-03')")
+            guides.execSQL("CREATE TABLE vacc_polio_status (iso2 TEXT NOT NULL, category TEXT NOT NULL, statement TEXT NOT NULL, sources TEXT NOT NULL, verified TEXT NOT NULL)")
+            guides.execSQL("INSERT INTO vacc_polio_status VALUES ('af', 'WPV1_CVDPV1_CVDPV3', 'IHR EC 45, 2026-08-21', 'F3', '2026-10-03')")
+            guides.execSQL(
+                "CREATE TABLE vacc_polio_entry (iso2 TEXT NOT NULL, origin TEXT NOT NULL, vaccine TEXT NOT NULL, timeWindow TEXT NOT NULL, applies TEXT NOT NULL, " +
+                    "noteIt TEXT NOT NULL, noteEn TEXT NOT NULL, sources TEXT NOT NULL, verified TEXT NOT NULL)",
+            )
+            guides.execSQL("INSERT INTO vacc_polio_entry VALUES ('sa', 'CAT:WPV1_CVDPV1_CVDPV3', 'BOPV_OR_IPV', 'ANY', 'HAJJ_UMRAH', '', '', 'F7', '2026-10-03')")
+            guides.execSQL(
+                "CREATE TABLE vacc_special (iso2 TEXT NOT NULL, purpose TEXT NOT NULL, vaccine TEXT NOT NULL, minAgeMonths INTEGER, minDaysBefore INTEGER, " +
+                    "validityYears INTEGER, noteIt TEXT NOT NULL, noteEn TEXT NOT NULL, sources TEXT NOT NULL, verified TEXT NOT NULL)",
+            )
+            guides.execSQL("INSERT INTO vacc_special VALUES ('sa', 'HAJJ_UMRAH', 'MENACWY', 12, 10, NULL, '', '', 'F7', '2026-10-03')")
+            guides.execSQL("CREATE TABLE vacc_recommended (iso2 TEXT NOT NULL, vaccine TEXT NOT NULL, level TEXT NOT NULL, conditionIt TEXT NOT NULL, conditionEn TEXT NOT NULL, sources TEXT NOT NULL, verified TEXT NOT NULL)")
+            guides.execSQL("INSERT INTO vacc_recommended VALUES ('ke', 'YF', 'MOST', '', '', 'F7', '2026-10-03')")
+            guides.execSQL("CREATE TABLE vacc_meta (key TEXT NOT NULL, value TEXT NOT NULL)")
+            guides.execSQL("INSERT INTO vacc_meta VALUES ('last_review', '2026-10-03'), ('polio_verified', '2026-10-03'), ('polio_statement', 'IHR EC 45, 2026-08-21')")
         }
         return file
     }

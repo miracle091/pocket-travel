@@ -27,15 +27,16 @@ internal data class QuickFactsLabels(
     val order get() = listOf(language, electricity, timeZone, currency, transport)
 
     companion object {
-        val ITALIAN = QuickFactsLabels("Lingua", "Elettricità", "Fuso orario", "Valuta", "Trasporti", "Numeri di emergenza", Locale.ITALIAN)
-        val ENGLISH = QuickFactsLabels("Language", "Electricity", "Time zone", "Currency", "Transport", "Emergency numbers", Locale.ENGLISH)
+        val ITALIAN = QuickFactsLabels("Lingua", "Elettricità", "Fuso orario", "Valuta", "Trasporti principali", "Numeri di emergenza", Locale.ITALIAN)
+        val ENGLISH = QuickFactsLabels("Language", "Electricity", "Time zone", "Currency", "Main transport", "Emergency numbers", Locale.ENGLISH)
 
         /** Dai campi del testo pubblicato; senza campi riconoscibili, dalla lingua dell'interfaccia. */
         fun of(body: String, uiLanguage: String): QuickFactsLabels {
             val keys = body.lines().map { it.substringBefore(": ") }.toSet()
             return when {
-                keys.any { it in ENGLISH.order } -> ENGLISH
-                keys.any { it in ITALIAN.order } -> ITALIAN
+                // anche i soli numeri di emergenza (guide inglesi senza Quickbar italiano) bastano a riconoscere la lingua
+                keys.any { it in ENGLISH.order || it == ENGLISH.emergency } -> ENGLISH
+                keys.any { it in ITALIAN.order || it == ITALIAN.emergency } -> ITALIAN
                 uiLanguage == "en" -> ENGLISH
                 else -> ITALIAN
             }
@@ -56,8 +57,10 @@ internal fun quickFactsBody(body: String, extra: QuickFactsExtra, labels: QuickF
     if (labels.language !in fields) extra.language?.let { fields[labels.language] = it }
     if (labels.currency !in fields) extra.currency?.let { fields[labels.currency] = it }
     extra.transport?.let { fields[labels.transport] = it }
-    val ordered = labels.order.mapNotNull { key -> fields[key]?.let { "$key: $it" } }
-    val others = fields.filterKeys { it !in labels.order }.map { (key, value) -> "$key: $value" }
+    // un valore su piu' righe (l'elenco dei trasporti) va a capo dopo l'etichetta
+    val line = { key: String, value: String -> if ('\n' in value) "$key:\n$value" else "$key: $value" }
+    val ordered = labels.order.mapNotNull { key -> fields[key]?.let { line(key, it) } }
+    val others = fields.filterKeys { it !in labels.order }.map { (key, value) -> line(key, value) }
     return (ordered + others + loose).joinToString("\n")
 }
 

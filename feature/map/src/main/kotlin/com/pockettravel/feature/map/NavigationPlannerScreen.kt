@@ -704,7 +704,7 @@ private fun ArriveBy(
 
     if (arrival == null) {
         // Senza il margine sinistro del TextButton l'icona si allinea al tempo e alla distanza sopra.
-        TextButton(onClick = { picking = true }, contentPadding = PaddingValues(end = 16.dp, top = 8.dp, bottom = 8.dp)) {
+        TextButton(onClick = { picking = true }, contentPadding = PaddingValues(end = Spacing.l, top = Spacing.s, bottom = Spacing.s)) {
             Icon(ImageVector.vectorResource(UiR.drawable.ms_schedule), contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(Spacing.s))
             Text(stringResource(R.string.planner_arrive_by))

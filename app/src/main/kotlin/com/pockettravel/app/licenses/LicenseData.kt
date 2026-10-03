@@ -72,4 +72,14 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
         license = "Open Government Licence v3.0",
         note = "Contains public sector information licensed under the Open Government Licence v3.0.",
     ),
+    LicenseEntry(
+        component = "Vaccinazioni: Travel.gc.ca (Governo del Canada)",
+        license = "Open Government Licence - Canada 2.0",
+        note = "Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert - Canada. Fatti riscritti con parole nostre e confrontati con altre fonti.",
+    ),
+    LicenseEntry(
+        component = "Vaccinazioni: TravelHealthPro (UKHSA / NaTHNaC)",
+        license = "Open Government Licence v3.0",
+        note = "Contains public sector information published by the UK Health Security Agency (UKHSA) and the National Travel Health Network and Centre (NaTHNaC), licensed under the Open Government Licence v3.0. Facts rewritten in our own words.",
+    ),
 )

@@ -11,8 +11,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Migrazioni tra i database delle versioni pubblicate (3, 5, 6, 9, 11, 15, 17) e quella corrente (18), sugli
- * schemi esportati in core/data/schemas, piu' la catena completa da 3 a 18.
+ * Migrazioni tra i database delle versioni pubblicate (3, 5, 6, 9, 11, 15, 17, 18) e quella corrente (19), sugli
+ * schemi esportati in core/data/schemas, piu' la catena completa da 3 a 19.
  */
 @RunWith(AndroidJUnit4::class)
 class RegionDatabaseMigrationTest {
@@ -225,9 +225,53 @@ class RegionDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrazione18a19AggiungeLeTabelleVaccinaliVuoteSenzaToccareIDatiEsistenti() {
+        helper.createDatabase(DB_NAME, 18).use { db ->
+            db.execSQL("INSERT INTO emergency_numbers VALUES ('italia', '112', '113', '118', '115')")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 19, true, MIGRATION_18_19).use { db ->
+            listOf("vacc_yf_risk", "vacc_yf_entry", "vacc_polio_status", "vacc_polio_entry", "vacc_special", "vacc_recommended", "vacc_meta")
+                .forEach { table ->
+                    db.query("SELECT COUNT(*) FROM $table").use { cursor ->
+                        cursor.moveToFirst()
+                        assertEquals(table, 0, cursor.getInt(0))
+                    }
+                }
+            db.execSQL("INSERT INTO vacc_yf_entry (iso2, rule, minAgeMonths, transit, fromList, exitRequired, noteIt, noteEn, sources, verified) VALUES ('in', 'FROM_LIST', NULL, 'GT12H', 'ke,ug', 0, '', '', 'F7', '2026-10-03')")
+            db.execSQL("INSERT INTO vacc_polio_entry (iso2, origin, vaccine, timeWindow, applies, noteIt, noteEn, sources, verified) VALUES ('sa', 'CAT:CVDPV2', 'BOPV_OR_IPV', 'ANY', 'HAJJ_UMRAH', '', '', 'F7', '2026-10-03')")
+            db.execSQL("INSERT INTO vacc_meta (key, value) VALUES ('last_review', '2026-10-03')")
+            db.query("SELECT fromList, minAgeMonths FROM vacc_yf_entry WHERE iso2 = 'in'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("ke,ug", cursor.getString(0))
+                assertTrue(cursor.isNull(1))
+            }
+            db.query("SELECT police FROM emergency_numbers WHERE regionId = 'italia'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("113", cursor.getString(0))
+            }
+        }
+    }
+
+    @Test
+    fun migrazione19a20AggiungeLaPopolazioneDelleCittaSenzaToccareLeSezioni() {
+        helper.createDatabase(DB_NAME, 19).use { db ->
+            db.execSQL("INSERT INTO city_sections (regionId, city, category, title, body, sourceUrl) VALUES ('italia', 'Roma', 'COSA_VEDERE', 'Cosa vedere', 'Colosseo', 'u')")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 20, true, MIGRATION_19_20).use { db ->
+            db.query("SELECT city, population FROM city_sections").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Roma", cursor.getString(0))
+                assertTrue(cursor.isNull(1))
+            }
+        }
+    }
+
     // Chi aggiorna dalla prima versione pubblicata (v0.2.0) all'ultima: nessun dato perso.
     @Test
-    fun catenaCompletaDa3a18ConservaCassaforteRegioniPoiEGuide() {
+    fun catenaCompletaDa3a20ConservaCassaforteRegioniPoiEGuide() {
         helper.createDatabase(DB_NAME, 3).use { db ->
             db.execSQL("INSERT INTO passport_vault VALUES ('p1', 'cifrato', 1, 2)")
             db.execSQL("INSERT INTO installed_regions VALUES ('italia', 'Italia', '2026.09.01', 1000, 42)")
@@ -235,7 +279,7 @@ class RegionDatabaseMigrationTest {
             db.execSQL("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES ('italia', 'TRASPORTI', 'In treno', 'corpo', 'https://example.org')")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 18, true, *ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB_NAME, 20, true, *ALL_MIGRATIONS).use { db ->
             db.query("SELECT encryptedPayload FROM passport_vault WHERE id = 'p1'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("cifrato", cursor.getString(0))

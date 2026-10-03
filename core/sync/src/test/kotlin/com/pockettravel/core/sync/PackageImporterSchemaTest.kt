@@ -123,6 +123,55 @@ class PackageImporterSchemaTest {
     }
 
     @Test
+    fun `le tabelle vacc si leggono solo se guides db le ha e con le colonne scritte dalla pipeline`() = withDb { conn ->
+        conn.createStatement().use { statement ->
+            assertEquals(false, statement.executeQuery(GuidesImporter.tableQuery("vacc_yf_entry")).next())
+            statement.execute(
+                "CREATE TABLE vacc_yf_entry (iso2 TEXT NOT NULL, rule TEXT NOT NULL, minAgeMonths INTEGER, transit TEXT NOT NULL, fromList TEXT NOT NULL, " +
+                    "exitRequired INTEGER NOT NULL, noteIt TEXT NOT NULL, noteEn TEXT NOT NULL, sources TEXT NOT NULL, verified TEXT NOT NULL)",
+            )
+            statement.execute("INSERT INTO vacc_yf_entry VALUES ('in', 'FROM_LIST', NULL, 'GT12H', 'ke,ug', 1, '', 'Quarantine', 'F7', '2026-10-03')")
+            statement.execute(
+                "CREATE TABLE vacc_polio_entry (iso2 TEXT NOT NULL, origin TEXT NOT NULL, vaccine TEXT NOT NULL, timeWindow TEXT NOT NULL, applies TEXT NOT NULL, " +
+                    "noteIt TEXT NOT NULL, noteEn TEXT NOT NULL, sources TEXT NOT NULL, verified TEXT NOT NULL)",
+            )
+            statement.execute("INSERT INTO vacc_polio_entry VALUES ('sa', 'CAT:CVDPV2', 'BOPV_OR_IPV', 'ANY', 'HAJJ_UMRAH', '', '', 'F7', '2026-10-03')")
+            statement.execute("CREATE TABLE vacc_meta (key TEXT NOT NULL, value TEXT NOT NULL)")
+            statement.execute("INSERT INTO vacc_meta VALUES ('last_review', '2026-10-03')")
+            statement.execute("CREATE TABLE vacc_yf_risk (iso2 TEXT NOT NULL, scope TEXT NOT NULL, areasIt TEXT NOT NULL, areasEn TEXT NOT NULL, sources TEXT NOT NULL, verified TEXT NOT NULL)")
+            statement.execute("CREATE TABLE vacc_polio_status (iso2 TEXT NOT NULL, category TEXT NOT NULL, statement TEXT NOT NULL, sources TEXT NOT NULL, verified TEXT NOT NULL)")
+            statement.execute(
+                "CREATE TABLE vacc_special (iso2 TEXT NOT NULL, purpose TEXT NOT NULL, vaccine TEXT NOT NULL, minAgeMonths INTEGER, minDaysBefore INTEGER, " +
+                    "validityYears INTEGER, noteIt TEXT NOT NULL, noteEn TEXT NOT NULL, sources TEXT NOT NULL, verified TEXT NOT NULL)",
+            )
+            statement.execute("CREATE TABLE vacc_recommended (iso2 TEXT NOT NULL, vaccine TEXT NOT NULL, level TEXT NOT NULL, conditionIt TEXT NOT NULL, conditionEn TEXT NOT NULL, sources TEXT NOT NULL, verified TEXT NOT NULL)")
+        }
+        conn.createStatement().use { statement ->
+            assertEquals(true, statement.executeQuery(GuidesImporter.tableQuery("vacc_yf_entry")).next())
+            val yf = statement.executeQuery(GuidesImporter.VACC_YF_ENTRY_QUERY)
+            assertEquals(true, yf.next())
+            assertEquals("ke,ug", yf.getString("fromList"))
+            yf.getInt("minAgeMonths")
+            assertEquals(true, yf.wasNull())
+            assertEquals(1, yf.getInt("exitRequired"))
+            val polio = statement.executeQuery(GuidesImporter.VACC_POLIO_ENTRY_QUERY)
+            assertEquals(true, polio.next())
+            assertEquals("CAT:CVDPV2", polio.getString("origin"))
+            assertEquals("ANY", polio.getString("timeWindow"))
+            val meta = statement.executeQuery(GuidesImporter.VACC_META_QUERY)
+            assertEquals(true, meta.next())
+            assertEquals("last_review", meta.getString("key"))
+            // Le altre query si limitano a compilare contro lo schema (tabelle vuote).
+            listOf(
+                GuidesImporter.VACC_YF_RISK_QUERY,
+                GuidesImporter.VACC_POLIO_STATUS_QUERY,
+                GuidesImporter.VACC_SPECIAL_QUERY,
+                GuidesImporter.VACC_RECOMMENDED_QUERY,
+            ).forEach { assertEquals(false, statement.executeQuery(it).next()) }
+        }
+    }
+
+    @Test
     fun `la query poi legacy legge i content db v1 senza colonna phone`() = withDb { conn ->
         conn.createStatement().use { statement ->
             statement.execute("CREATE TABLE poi (regionId TEXT, name TEXT, category TEXT, lat REAL, lon REAL, osmTag TEXT)")

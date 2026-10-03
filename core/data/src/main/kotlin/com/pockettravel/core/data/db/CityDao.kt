@@ -24,6 +24,14 @@ interface CityDao {
     @Query("SELECT DISTINCT city FROM city_sections WHERE regionId = :regionId ORDER BY city")
     fun citiesForRegion(regionId: String): Flow<List<String>>
 
+    // Le citta' principali: per popolazione, e senza popolazione (cities.db vecchio o dato assente) per
+    // lunghezza della guida, dopo quelle con la popolazione.
+    @Query(
+        "SELECT city, MAX(population) AS population, MAX(capital) AS capital FROM city_sections WHERE regionId = :regionId GROUP BY city " +
+            "ORDER BY MAX(population) IS NULL, MAX(population) DESC, SUM(LENGTH(body)) DESC LIMIT :limit",
+    )
+    fun mainCitiesForRegion(regionId: String, limit: Int): Flow<List<CityPopulation>>
+
     @Query("SELECT * FROM city_sections WHERE regionId = :regionId AND city = :city ORDER BY category")
     suspend fun sectionsFor(regionId: String, city: String): List<CitySectionEntity>
 
@@ -47,3 +55,6 @@ interface CityDao {
     @Query("INSERT INTO city_sections_fts(city_sections_fts) VALUES('optimize')")
     suspend fun optimizeFts()
 }
+
+/** Citta' con i suoi abitanti (null se ignoti) e se e' la capitale, per CityDao.mainCitiesForRegion. */
+data class CityPopulation(val city: String, val population: Long?, val capital: Boolean = false)

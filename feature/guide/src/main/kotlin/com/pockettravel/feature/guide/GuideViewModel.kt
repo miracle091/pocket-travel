@@ -12,6 +12,7 @@ import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.EmergencyNumbersRepository
 import com.pockettravel.core.data.GuideRepository
 import com.pockettravel.core.data.GuideSection
+import com.pockettravel.core.data.MainCity
 import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.Poi
 import com.pockettravel.core.data.PoiRepository
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -48,6 +50,8 @@ data class GuideUiState(
     val noCentralEmergencyNumber: Boolean = false,
     // Nomi delle citta' della regione (CityRepository.citiesFor): entry point "Città" nascosto se vuoto.
     val cities: List<String> = emptyList(),
+    // Le citta' principali per abitanti (CityRepository.mainCitiesFor), in evidenza nella scheda Citta'.
+    val mainCities: List<MainCity> = emptyList(),
     val isLoading: Boolean = true,
     @StringRes val loadError: Int? = null,
 )
@@ -90,8 +94,10 @@ class GuideViewModel @Inject constructor(
         loadedForRegionId = regionId
         citiesJob?.cancel()
         citiesJob = viewModelScope.launch {
-            cityRepository.citiesFor(regionId).collect { cities ->
-                _uiState.update { it.copy(cities = cities) }
+            combine(cityRepository.citiesFor(regionId), cityRepository.mainCitiesFor(regionId, MAIN_CITIES)) { cities, main ->
+                cities to main
+            }.collect { (cities, main) ->
+                _uiState.update { it.copy(cities = cities, mainCities = main) }
             }
         }
         embassiesJob?.cancel()
@@ -174,3 +180,6 @@ class GuideViewModel @Inject constructor(
         _cityUiState.value = CityGuideUiState()
     }
 }
+
+// Scorciatoie della scheda Citta' (CitiesEntryCard)
+internal const val MAIN_CITIES = 5

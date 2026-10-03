@@ -5,6 +5,7 @@ import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSection
 import com.pockettravel.core.data.Note
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -143,5 +144,15 @@ class TravelAssistantLogicTest {
         assertEquals(2000, context.length)
         // la nota resta (accorciata al suo tetto), sono le sezioni a cedere spazio
         assertTrue(context.contains("Nota personale: t"))
+    }
+
+    @Test
+    fun `le domande sui vaccini in italiano e inglese aggiungono l'esito delle vaccinazioni`() {
+        assertTrue(isVaccinationQuestion("Servono vaccinazioni per il Kenya?"))
+        assertTrue(isVaccinationQuestion("Mi chiedono il certificato della febbre gialla?"))
+        assertTrue(isVaccinationQuestion("Do I need a yellow fever vaccine?"))
+        assertTrue(isVaccinationQuestion("Polio requirements for Pakistan?"))
+        assertFalse(isVaccinationQuestion("Com'e' la cucina in Kenya?"))
+        assertFalse(isVaccinationQuestion("Is tap water safe to drink?"))
     }
 }

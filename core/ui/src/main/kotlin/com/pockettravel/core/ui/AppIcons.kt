@@ -11,6 +11,8 @@ import androidx.compose.ui.res.vectorResource
 // della navigazione, come prevede M3.
 object AppIcons {
     val Back: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_arrow_back)
+    val Open: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_chevron_right)
+    val Capital: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_star)
     val Add: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_add)
     val Close: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_close)
     val Send: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_send)
@@ -79,4 +81,5 @@ object AppIcons {
     val QuickFacts: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_bolt)
     val Cities: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_location_city)
     val Notes: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_sticky_note_2)
+    val Vaccinations: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_vaccines)
 }

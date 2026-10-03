@@ -1,6 +1,7 @@
 package com.pockettravel.core.data
 
 import com.pockettravel.core.data.db.CityDao
+import com.pockettravel.core.data.db.CityPopulation
 import com.pockettravel.core.data.db.CitySectionEntity
 import com.pockettravel.core.data.db.CitySectionMatch
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +23,13 @@ private class FakeCityDao : CityDao {
 
     override fun citiesForRegion(regionId: String): Flow<List<String>> =
         MutableStateFlow(stored.filter { it.regionId == regionId }.map { it.city }.distinct().sorted())
+
+    override fun mainCitiesForRegion(regionId: String, limit: Int): Flow<List<CityPopulation>> =
+        MutableStateFlow(
+            stored.filter { it.regionId == regionId }.groupBy { it.city }
+                .entries.sortedByDescending { (_, sections) -> sections.sumOf { it.body.length } }
+                .take(limit).map { (city, sections) -> CityPopulation(city, sections.mapNotNull { it.population }.maxOrNull()) },
+        )
 
     override suspend fun sectionsFor(regionId: String, city: String): List<CitySectionEntity> =
         stored.filter { it.regionId == regionId && it.city == city }

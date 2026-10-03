@@ -8,7 +8,12 @@ import com.pockettravel.core.data.GuideSection
 import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.Note
 import com.pockettravel.core.data.NoteRepository
+import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.officialSourceFor
+import com.pockettravel.core.data.vaccination.Trip
+import com.pockettravel.core.data.vaccination.VaccinationPreferences
+import com.pockettravel.core.data.vaccination.VaccinationRepository
+import com.pockettravel.core.data.vaccination.toSummaryText
 import com.pockettravel.core.sync.currentGuidesLanguage
 import javax.inject.Inject
 
@@ -35,6 +40,9 @@ class TravelAssistant @Inject constructor(
     private val onlineLlmClient: OnlineLlmClient,
     private val aiSettingsStore: AiSettingsStore,
     private val nationalityPreferences: NationalityPreferences,
+    private val regionRepository: RegionRepository,
+    private val vaccinationRepository: VaccinationRepository,
+    private val vaccinationPreferences: VaccinationPreferences,
 ) {
     suspend fun ask(regionId: String, question: String, mode: AiEngineMode): AssistantAnswer {
         // Lingua dell'interfaccia: prompt, testo di ripiego e citazioni (le guide installate la seguono).
@@ -53,7 +61,7 @@ class TravelAssistant @Inject constructor(
         val regulatedMatch = sections.firstOrNull { it.isRegulatedTopic() }
 
         return when (mode) {
-            AiEngineMode.ON_DEVICE -> askOnDevice(question, sections, language)
+            AiEngineMode.ON_DEVICE -> askOnDevice(question, listOfNotNull(vaccinationSection(regionId, question, language)) + sections, language)
             AiEngineMode.ONLINE -> askOnline(question, language)
         }.copy(
             showOfficialSourceBanner = regulatedMatch != null,
@@ -78,6 +86,27 @@ class TravelAssistant @Inject constructor(
         )
     }
 
+    /**
+     * Per una domanda sui vaccini, l'esito calcolato per il viaggio verso il paese della regione dalla partenza
+     * scelta nella schermata Vaccinazioni (altrimenti dalla nazionalita')
+     * (stesso testo che il dataset di training mette nel contesto), prima delle sezioni della guida: cosi' il
+     * modello locale non deve indovinare obblighi e consigli. Null se la domanda non parla di vaccini, se mancano
+     * la partenza o il codice paese della regione, se coincidono, o se il pacchetto guide non ha i dati delle vaccinazioni.
+     */
+    private suspend fun vaccinationSection(regionId: String, question: String, language: String): AssistantSection? {
+        if (!isVaccinationQuestion(question)) return null
+        val destination = regionRepository.installed(regionId)?.countryCode ?: return null
+        val departure = vaccinationPreferences.departure ?: nationalityPreferences.nationality.value ?: return null
+        if (departure.equals(destination, ignoreCase = true)) return null
+        val trip = Trip(departure = departure, destination = destination)
+        val result = vaccinationRepository.evaluate(trip) ?: return null
+        return AssistantSection(
+            body = result.toSummaryText(trip, language),
+            category = GuideCategory.SALUTE,
+            citation = if (language == "en") "Source: Travel.gc.ca, TravelHealthPro (vaccinations)" else "Fonte: Travel.gc.ca, TravelHealthPro (vaccinazioni)",
+        )
+    }
+
     private suspend fun askOnline(question: String, language: String): AssistantAnswer {
         val apiKey = aiSettingsStore.apiKey() ?: error("Nessuna chiave API online configurata")
         val text = onlineLlmClient.generate(
@@ -93,6 +122,11 @@ class TravelAssistant @Inject constructor(
         const val MAX_SECTIONS = 3
     }
 }
+
+private val vaccinationWords = Regex("""vaccin|febbre gialla|yellow fever|polio|meningococc|meningitis|profilassi|certificat|hajj|umrah""", RegexOption.IGNORE_CASE)
+
+/** True se la domanda parla di vaccini o certificati sanitari (italiano o inglese). */
+internal fun isVaccinationQuestion(question: String): Boolean = vaccinationWords.containsMatchIn(question)
 
 /** Sezione di contesto per il prompt, dalla guida del paese o da quella di una città. */
 internal data class AssistantSection(

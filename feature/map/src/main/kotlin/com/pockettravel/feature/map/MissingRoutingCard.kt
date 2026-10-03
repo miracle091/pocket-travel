@@ -39,7 +39,7 @@ internal fun MissingRoutingCard(
 ) {
     val context = LocalContext.current
     Card(modifier = modifier.fillMaxWidth().padding(vertical = Spacing.s)) {
-        Column(modifier = Modifier.padding(Spacing.m)) {
+        Column(modifier = Modifier.padding(Spacing.l)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     stringResource(

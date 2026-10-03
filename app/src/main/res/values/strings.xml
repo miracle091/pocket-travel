@@ -6,10 +6,10 @@
     <string name="regions_search_hint">Cerca una nazione</string>
     <string name="regions_search_clear">Cancella ricerca</string>
     <string name="regions_search_empty_title">Nessuna nazione trovata</string>
-    <string name="regions_search_empty_subtitle">Nessuna nazione corrisponde a \"%1$s\".</string>
-    <string name="regions_load_error">Impossibile contattare il catalogo delle nazioni. Riprova più tardi.</string>
+    <string name="regions_search_empty_subtitle">Nessuna nazione corrisponde a \"%1$s\"</string>
+    <string name="regions_load_error">Impossibile contattare il catalogo delle nazioni. Riprova più tardi</string>
     <string name="regions_retry">Riprova</string>
-    <string name="regions_not_enough_space">Spazio insufficiente per scaricare questa regione.</string>
+    <string name="regions_not_enough_space">Spazio insufficiente per scaricare questa regione</string>
     <string name="regions_status_not_installed">%1$s · non installata</string>
     <string name="regions_status_installed">%1$s · installata</string>
     <string name="regions_status_update">%1$s · da aggiornare</string>
@@ -23,16 +23,16 @@
     <string name="regions_update">Aggiorna</string>
     <string name="regions_update_region">Aggiorna %1$s</string>
     <string name="regions_delete_title">Eliminare %1$s?</string>
-    <string name="regions_delete_message">I contenuti scaricati per questa regione verranno rimossi dal dispositivo.</string>
+    <string name="regions_delete_message">I contenuti scaricati per questa regione verranno rimossi dal dispositivo</string>
     <string name="regions_delete_all">Elimina tutto</string>
-    <string name="regions_replaced">Ora è divisa in regioni più piccole: scegli quali scaricare. Questa non si aggiorna più.</string>
+    <string name="regions_replaced">Ora è divisa in regioni più piccole: scegli quali scaricare. Questa non si aggiorna più</string>
     <string name="regions_replaced_choose">Scegli le regioni</string>
     <string name="regions_replaced_delete">Elimina</string>
     <string name="regions_packages">Contenuti per %1$s</string>
     <string name="transit_networks_selected">%1$d di %2$d reti scelte</string>
-    <string name="transit_networks_near">Spuntate le reti entro 50 km dalla tua ultima posizione.</string>
-    <string name="transit_networks_nearest">Nessuna rete entro 50 km dalla tua posizione: spuntata la più vicina.</string>
-    <string name="transit_networks_all">La tua posizione non è nota o è in un\'altra nazione: spuntate tutte le reti, togli quelle che non ti servono.</string>
+    <string name="transit_networks_near">Spuntate le reti entro 50 km dalla tua ultima posizione</string>
+    <string name="transit_networks_nearest">Nessuna rete entro 50 km dalla tua posizione: spuntata la più vicina</string>
+    <string name="transit_networks_all">La tua posizione non è nota o è in un\'altra nazione: spuntate tutte le reti, togli quelle che non ti servono</string>
     <string name="package_map">Mappa</string>
     <string name="package_routing">Percorsi</string>
     <string name="package_poi">Punti di interesse</string>
@@ -47,7 +47,7 @@
     <string name="zone_whole_region">Tutto il paese</string>
     <string name="zone_area">Solo una zona, circa %1$d × %2$d km</string>
     <string name="zone_choice_title">%1$s: tutto il paese o una zona?</string>
-    <string name="zone_choice_message">È un paese grande. Puoi scaricare solo la zona che ti serve: mappa, percorsi e numeri civici di quella zona. Punti di interesse e guide restano di tutto il paese.</string>
+    <string name="zone_choice_message">È un paese grande. Puoi scaricare solo la zona che ti serve: mappa, percorsi e numeri civici di quella zona. Punti di interesse e guide restano di tutto il paese</string>
     <string name="zone_choice_pick">Scegli una zona</string>
     <string name="zone_hint">Scarica solo la sezione di mappa che vedi, compresa di percorsi e numeri civici</string>
     <string name="zone_size">Circa %1$d × %2$d km</string>
@@ -73,10 +73,10 @@
     <string name="package_delete_title_addresses">Eliminare i numeri civici di %1$s?</string>
     <string name="package_delete_title_cities">Eliminare le guide delle città di %1$s?</string>
     <string name="package_delete_title_transit">Eliminare gli orari dei mezzi pubblici di %1$s?</string>
-    <string name="package_delete_message">Gli altri contenuti della regione restano sul dispositivo.</string>
+    <string name="package_delete_message">Gli altri contenuti della regione restano sul dispositivo</string>
     <string name="map_download">Scarica la mappa</string>
     <string name="map_preview_notice">Anteprima: per il dettaglio delle strade e per i percorsi scarica la mappa e i percorsi della regione</string>
-    <string name="map_missing_notice">Mappa non scaricata: scaricala per vedere strade e luoghi. Senza mappa e percorsi scaricati i percorsi non funzionano.</string>
+    <string name="map_missing_notice">Mappa non scaricata: scaricala per vedere strade e luoghi. Senza mappa e percorsi scaricati i percorsi non funzionano</string>
     <string name="regions_large_download_title">Download di grandi dimensioni</string>
     <string name="regions_large_download_message">%1$s pesa %2$s e sei su rete mobile. Continuare?</string>
     <string name="regions_large_download_confirm">Scarica</string>
@@ -90,7 +90,7 @@
     <string name="regions_downloaded">Nazioni scaricate</string>
     <string name="regions_show_map">Mostra la mappa del mondo</string>
     <string name="regions_show_list">Mostra l\'elenco</string>
-    <string name="world_map_not_available">Questa nazione non è ancora disponibile nel catalogo.</string>
+    <string name="world_map_not_available">Questa nazione non è ancora disponibile nel catalogo</string>
     <plurals name="continent_count">
         <item quantity="one">%1$d nazione</item>
         <item quantity="other">%1$d nazioni</item>
@@ -111,12 +111,12 @@
     <string name="more_nationality">Nazionalità</string>
     <string name="more_language">Lingua</string>
     <string name="onboarding_language_title">Lingua · Language</string>
-    <string name="onboarding_language_body">La lingua dell\'app: puoi cambiarla quando vuoi da Altro. Le guide la seguono quando esistono in quella lingua; l\'assistente IA sul telefono risponde in italiano.</string>
+    <string name="onboarding_language_body">La lingua dell\'app: puoi cambiarla quando vuoi da Altro. Le guide la seguono quando esistono in quella lingua; l\'assistente IA sul telefono risponde in italiano</string>
     <string name="more_nationality_none">Non scelta</string>
     <string name="more_usage_mode_none">Non scelto: la mappa mostra tutte le categorie</string>
     <string name="more_usage_mode_with_accessible">%1$s, con disabilità</string>
     <string name="more_usage_mode_accessible_only">Con disabilità: la mappa mostra tutte le categorie</string>
-    <string name="more_usage_mode_body">La mappa mostra per primi i punti utili per questo modo di viaggiare. Scegliendolo, i filtri della mappa tornano a quelli predefiniti.</string>
+    <string name="more_usage_mode_body">La mappa mostra per primi i punti utili per questo modo di viaggiare. Scegliendolo, i filtri della mappa tornano a quelli predefiniti</string>
     <string name="more_licenses">Licenze</string>
     <string name="more_appearance">Aspetto</string>
     <string name="more_appearance_system">Tema del telefono</string>
@@ -144,23 +144,23 @@
     <string name="storage_title">Spazio di archiviazione</string>
     <string name="storage_summary">Pocket Travel occupa %1$s · %2$s liberi sul dispositivo</string>
     <string name="storage_regions">Nazioni installate</string>
-    <string name="storage_no_regions">Nessuna nazione installata.</string>
+    <string name="storage_no_regions">Nessuna nazione installata</string>
     <string name="storage_guides">Guide</string>
     <string name="storage_guides_title">Guide di tutte le nazioni</string>
     <string name="storage_guides_auto">%1$s · si aggiornano da sole su Wi-Fi</string>
-    <string name="storage_no_guides">Guide non ancora scaricate.</string>
+    <string name="storage_no_guides">Guide non ancora scaricate</string>
     <string name="storage_guides_download">Scarica le guide</string>
     <string name="storage_model">Modello IA locale</string>
-    <string name="storage_no_model">Nessun modello IA scaricato.</string>
+    <string name="storage_no_model">Nessun modello IA scaricato</string>
     <string name="storage_delete">Elimina %1$s</string>
     <string name="storage_delete_title">Eliminare %1$s?</string>
-    <string name="storage_delete_message">Questo spazio verrà liberato rimuovendo i dati salvati localmente.</string>
+    <string name="storage_delete_message">Questo spazio verrà liberato rimuovendo i dati salvati localmente</string>
 
     <!-- Anteprima regione -->
     <string name="preview_banner_title">Anteprima senza download</string>
-    <string name="preview_banner_body">Mappa e assistente IA offline richiedono la regione completa.</string>
+    <string name="preview_banner_body">Mappa e assistente IA offline richiedono la regione completa</string>
     <string name="preview_download">Scarica</string>
-    <string name="preview_error">Impossibile caricare l\'anteprima. Riprova più tardi.</string>
+    <string name="preview_error">Impossibile caricare l\'anteprima. Riprova più tardi</string>
 
     <!-- Licenze -->
     <string name="licenses_title">Licenze</string>
@@ -171,28 +171,28 @@
 
     <!-- Onboarding -->
     <string name="onboarding_welcome_title">Benvenuto in Pocket Travel</string>
-    <string name="onboarding_welcome_body">Una guida di viaggio che funziona anche senza connessione: usi e costumi, dogane, vaccinazioni, mappe e un assistente IA a bordo. Nessun account, nessuna raccolta di dati personali.</string>
+    <string name="onboarding_welcome_body">Una guida di viaggio che funziona anche senza connessione: usi e costumi, dogane, vaccinazioni, mappe e un assistente IA a bordo. Nessun account, nessuna raccolta di dati personali</string>
     <string name="onboarding_ai_title">L\'assistente IA ha due modalità</string>
-    <string name="onboarding_ai_body">\"Sul dispositivo\" funziona anche senza internet: un piccolo modello scaricato sul telefono (serve almeno 4 GB di RAM) risponde usando la guida e le tue note. \"Online\" usa un servizio a tua scelta (ChatGPT, Mistral, Gemini o Claude) con una tua chiave API, che resta sul telefono.</string>
+    <string name="onboarding_ai_body">\"Sul dispositivo\" funziona anche senza internet: un piccolo modello scaricato sul telefono (serve almeno 4 GB di RAM) risponde usando la guida e le tue note. \"Online\" usa un servizio a tua scelta (ChatGPT, Mistral, Gemini o Claude) con una tua chiave API, che resta sul telefono</string>
     <string name="onboarding_ai_online_title">L\'assistente IA è disponibile Online</string>
-    <string name="onboarding_ai_online_body">Il tuo telefono ha meno di 4 GB di RAM, quindi la modalità \"Sul dispositivo\" non è disponibile. L\'assistente IA funziona in modalità Online, con un servizio a tua scelta (ChatGPT, Mistral, Gemini o Claude) e una tua chiave API, che resta sul telefono.</string>
+    <string name="onboarding_ai_online_body">Il tuo telefono ha meno di 4 GB di RAM, quindi la modalità \"Sul dispositivo\" non è disponibile. L\'assistente IA funziona in modalità Online, con un servizio a tua scelta (ChatGPT, Mistral, Gemini o Claude) e una tua chiave API, che resta sul telefono</string>
     <string name="onboarding_vault_title">I documenti restano al sicuro</string>
-    <string name="onboarding_vault_body">Passaporto e certificati di vaccinazione si trovano in \"Documenti\", protetti da biometria o blocco schermo e mai inviati fuori dal dispositivo.</string>
+    <string name="onboarding_vault_body">Passaporto e certificati di vaccinazione si trovano in \"Documenti\", protetti da biometria o blocco schermo e mai inviati fuori dal dispositivo</string>
     <string name="onboarding_sources_title">Le fonti ufficiali restano esterne</string>
-    <string name="onboarding_sources_body">Ambasciate, ministeri e OMS si aprono in una scheda del browser e richiedono una connessione: l\'app non li salva mai offline, per restare sempre aggiornati.</string>
+    <string name="onboarding_sources_body">Ambasciate, ministeri e OMS si aprono in una scheda del browser e richiedono una connessione: l\'app non li salva mai offline, per restare sempre aggiornati</string>
     <string name="onboarding_usage_mode_title">Come ti sposti?</string>
-    <string name="onboarding_usage_mode_body">La mappa mostrerà per primi i punti utili per te. Puoi cambiarlo quando vuoi da Altro, o saltare questo passo.</string>
+    <string name="onboarding_usage_mode_body">La mappa mostrerà per primi i punti utili per te. Puoi cambiarlo quando vuoi da Altro, o saltare questo passo</string>
     <string name="onboarding_nationality_title">Di che paese sei?</string>
-    <string name="onboarding_nationality_body">Nella guida di ogni regione trovi i contatti di ambasciate e consolati del tuo paese, insieme ai numeri di emergenza. Puoi cambiarlo quando vuoi da Altro.</string>
+    <string name="onboarding_nationality_body">Nella guida di ogni regione trovi i contatti di ambasciate e consolati del tuo paese, insieme ai numeri di emergenza. Puoi cambiarlo quando vuoi da Altro</string>
     <string name="onboarding_nationality_change">Cambia</string>
     <string name="onboarding_guides_title">Guide di tutte le nazioni</string>
-    <string name="onboarding_guides_body">Facoltativo: usi e costumi, sicurezza e numeri di emergenza di ogni paese, per consultarli anche prima di scegliere una nazione. Se salti questo passo si scaricano da sole alla prima connessione Wi-Fi.</string>
+    <string name="onboarding_guides_body">Facoltativo: usi e costumi, sicurezza e numeri di emergenza di ogni paese, per consultarli anche prima di scegliere una nazione. Se salti questo passo si scaricano da sole alla prima connessione Wi-Fi</string>
     <string name="onboarding_guides_download">Scarica le guide (%1$s)</string>
     <string name="onboarding_guides_download_no_size">Scarica le guide</string>
     <string name="onboarding_guides_downloading">Download delle guide in corso…</string>
     <string name="onboarding_guides_done">Guide scaricate</string>
     <string name="onboarding_region_title">Scarica una nazione per iniziare</string>
-    <string name="onboarding_region_body">Facoltativo: scegli una o più nazioni e, per ognuna, cosa scaricare. In cima quelle del tuo paese e dei paesi vicini. Puoi farlo anche dopo dalla schermata Nazioni.</string>
+    <string name="onboarding_region_body">Facoltativo: scegli una o più nazioni e, per ognuna, cosa scaricare. In cima quelle del tuo paese e dei paesi vicini. Puoi farlo anche dopo dalla schermata Nazioni</string>
     <string name="onboarding_region_search">Cerca una nazione</string>
     <string name="onboarding_region_recommended">Consigliate per te</string>
     <string name="onboarding_region_all">Tutte le nazioni</string>
@@ -203,7 +203,7 @@
         <item quantity="other">Scarica %1$d nazioni · %2$s</item>
     </plurals>
     <string name="onboarding_model_title">Scarica il modello IA</string>
-    <string name="onboarding_model_body">Facoltativo: puoi scaricarlo qui o in qualsiasi momento dopo, da Impostazioni. Finché non lo scarichi, la scheda IA non compare nei paesi.</string>
+    <string name="onboarding_model_body">Facoltativo: puoi scaricarlo qui o in qualsiasi momento dopo, da Impostazioni. Finché non lo scarichi, la scheda IA non compare nei paesi</string>
     <string name="onboarding_step">Passo %1$d di %2$d</string>
     <string name="onboarding_skip">Salta</string>
     <string name="onboarding_back">Indietro</string>
@@ -222,5 +222,5 @@
     <string name="settings_stop_gps_on_arrival_subtitle">Arrivati alla meta la guida si chiude da sola, anche con l\'app in background, per risparmiare batteria. Spento, la guida resta attiva finché non la chiudi</string>
     <string name="settings_walking_haptics">Vibrazione a piedi</string>
     <string name="settings_walking_haptics_subtitle">Una vibrazione leggera a ogni svolta e due all\'arrivo, per seguire la guida senza guardare lo schermo</string>
-    <string name="regions_offline_installed">Catalogo non raggiungibile: qui ci sono solo le nazioni già scaricate.</string>
+    <string name="regions_offline_installed">Catalogo non raggiungibile: qui ci sono solo le nazioni già scaricate</string>
 </resources>

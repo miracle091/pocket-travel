@@ -17,10 +17,10 @@ class QuickFactsTest {
     @Test
     fun `valuta, trasporti e lingua mancante aggiunti in ordine fisso`() {
         val body = "Fuso orario: UTC-4:30\nElettricità: 120V/60Hz"
-        val extra = QuickFactsExtra(language = "Spagnolo", currency = "bolívar venezuelano (VES)", transport = "autobus (3 autostazioni), aereo (1 aeroporto)")
+        val extra = QuickFactsExtra(language = "Spagnolo", currency = "bolívar venezuelano (VES)", transport = "• autobus (3 autostazioni)\n• aereo (1 aeroporto)")
         assertEquals(
             "Lingua: Spagnolo\nElettricità: 120V/60Hz\nFuso orario: GMT-4:30\nValuta: bolívar venezuelano (VES)\n" +
-                "Trasporti: autobus (3 autostazioni), aereo (1 aeroporto)",
+                "Trasporti principali:\n• autobus (3 autostazioni)\n• aereo (1 aeroporto)",
             quickFactsBody(body, extra),
         )
     }
@@ -48,5 +48,7 @@ class QuickFactsTest {
     fun `senza campi riconoscibili vale la lingua dell'interfaccia`() {
         assertEquals(QuickFactsLabels.ENGLISH, QuickFactsLabels.of("", "en"))
         assertEquals(QuickFactsLabels.ITALIAN, QuickFactsLabels.of("Lingua: Italiano", "en"))
+        // guida inglese con i soli numeri di emergenza: etichette inglesi anche con l'interfaccia in italiano
+        assertEquals(QuickFactsLabels.ENGLISH, QuickFactsLabels.of("Emergency numbers: General 112", "it"))
     }
 }

@@ -18,6 +18,7 @@ import com.pockettravel.core.data.db.PoiEntity
 import com.pockettravel.core.data.db.RegionDatabase
 import com.pockettravel.core.data.db.RegionPackageDao
 import com.pockettravel.core.data.db.TransportCount
+import com.pockettravel.core.data.db.VaccinationDao
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -92,6 +93,7 @@ private class NoOpCityDao : CityDao {
 
     override suspend fun insertAll(sections: List<CitySectionEntity>) = Unit
     override fun citiesForRegion(regionId: String) = throw UnsupportedOperationException()
+    override fun mainCitiesForRegion(regionId: String, limit: Int) = throw UnsupportedOperationException()
     override suspend fun sectionsFor(regionId: String, city: String): List<CitySectionEntity> = emptyList()
     override suspend fun searchInRegionRanked(regionId: String, query: String, candidateLimit: Int): List<CitySectionMatch> = emptyList()
     override suspend fun deleteForRegion(regionId: String) { deletedRegions += regionId }
@@ -113,6 +115,7 @@ private class UnusedRegionDatabase(
     override fun cityDao(): CityDao = throw UnsupportedOperationException()
     override fun noteDao(): NoteDao = throw UnsupportedOperationException()
     override fun diplomaticMissionDao(): DiplomaticMissionDao = throw UnsupportedOperationException()
+    override fun vaccinationDao(): VaccinationDao = throw UnsupportedOperationException()
 
     // Mai chiamati nei test: qui RegionDatabase non e' mai inizializzata da Room, serve solo
     // come valore-tipo per il costruttore di RegionRepository.

@@ -53,7 +53,11 @@ class CityImporter @Inject constructor(
 
     private fun readSections(regionId: String, db: SQLiteDatabase): List<CitySectionEntity> {
         val sections = mutableListOf<CitySectionEntity>()
-        db.rawQuery(CITY_SECTIONS_QUERY, null).use { cursor ->
+        // population e capital ci sono solo nei cities.db generati dopo il 2026-10-03
+        val hasPopulation = db.rawQuery("PRAGMA table_info(city_sections)", null).use { cursor ->
+            generateSequence { if (cursor.moveToNext()) cursor.getString(1) else null }.any { it == "population" }
+        }
+        db.rawQuery(if (hasPopulation) CITY_SECTIONS_WITH_POPULATION_QUERY else CITY_SECTIONS_QUERY, null).use { cursor ->
             while (cursor.moveToNext()) {
                 val category = guideCategoryOrNull(cursor.getString(1)) ?: continue
                 sections += CitySectionEntity(
@@ -63,6 +67,8 @@ class CityImporter @Inject constructor(
                     title = cursor.getString(2),
                     body = cursor.getString(3),
                     sourceUrl = cursor.getString(4),
+                    population = if (hasPopulation && !cursor.isNull(5)) cursor.getLong(5) else null,
+                    capital = hasPopulation && cursor.getInt(6) == 1,
                 )
             }
         }
@@ -73,5 +79,6 @@ class CityImporter @Inject constructor(
         // Costante (invece che inline) cosi' un test JVM puro puo' eseguirla via JDBC contro un
         // file prodotto dalla pipeline dati, senza android.database.sqlite — vedi PackageImporterSchemaTest.
         internal const val CITY_SECTIONS_QUERY = "SELECT city, category, title, body, sourceUrl FROM city_sections"
+        internal const val CITY_SECTIONS_WITH_POPULATION_QUERY = "SELECT city, category, title, body, sourceUrl, population, capital FROM city_sections"
     }
 }

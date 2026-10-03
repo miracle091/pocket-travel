@@ -1,12 +1,8 @@
 package com.pockettravel.feature.guide
 
-import kotlin.math.roundToInt
-import java.util.Locale
-import com.pockettravel.core.data.nearbyEmbassies
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,7 +23,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -59,7 +56,9 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -68,26 +67,33 @@ import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.CitySection
+import com.pockettravel.core.data.DiplomaticMission
+import com.pockettravel.core.data.EmbassyEntry
 import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSection
-import com.pockettravel.core.data.Poi
-import com.pockettravel.core.data.DiplomaticMission
-import com.pockettravel.core.data.EmbassyEntry
+import com.pockettravel.core.data.MainCity
 import com.pockettravel.core.data.MissionKind
-import com.pockettravel.core.data.mergeEmbassies
 import com.pockettravel.core.data.OfficialSource
+import com.pockettravel.core.data.Poi
 import com.pockettravel.core.data.fallbackTravelAdviceSource
+import com.pockettravel.core.data.mergeEmbassies
+import com.pockettravel.core.data.nearbyEmbassies
 import com.pockettravel.core.data.travelAdviceSourceFor
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
-import com.pockettravel.core.ui.countryName
+import com.pockettravel.core.ui.CardDescription
 import com.pockettravel.core.ui.EmptyState
+import com.pockettravel.core.ui.InfoCardDefaults
+import com.pockettravel.core.ui.InfoCardHeader
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
-import com.pockettravel.core.ui.Spacing
-import com.pockettravel.core.ui.safeWebUrl
 import com.pockettravel.core.ui.R as UiR
+import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.countryName
+import com.pockettravel.core.ui.safeWebUrl
+import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun GuideScreen(
@@ -96,17 +102,39 @@ fun GuideScreen(
     // Senza barra del titolo (hub della regione): Indietro sulla riga dei filtri.
     onBack: (() -> Unit)? = null,
     viewModel: GuideViewModel = hiltViewModel(),
+    vaccinationViewModel: VaccinationViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(regionId) { viewModel.load(regionId) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showCities by rememberSaveable(regionId) { mutableStateOf(false) }
+    // citta' aperta direttamente da un chip della scheda Citta' (null = si apre l'elenco)
+    var initialCity by rememberSaveable(regionId) { mutableStateOf<String?>(null) }
+    LaunchedEffect(regionId) { vaccinationViewModel.load(regionId) }
+    val vaccinationState by vaccinationViewModel.uiState.collectAsStateWithLifecycle()
+    var showVaccinations by rememberSaveable(regionId) { mutableStateOf(false) }
 
-    GuideContent(uiState = uiState, onOpenSource = onOpenSource, onOpenCities = { showCities = true }, excludedTransit = excludedTransitNotes(regionId), onBack = onBack)
+    GuideContent(
+        uiState = uiState,
+        onOpenSource = onOpenSource,
+        onOpenCities = { city ->
+            initialCity = city
+            showCities = true
+        },
+        vaccination = vaccinationState,
+        onOpenVaccination = { showVaccinations = true },
+        excludedTransit = excludedTransitNotes(regionId),
+        onBack = onBack,
+    )
+
+    if (showVaccinations && vaccinationState.available) {
+        VaccinationDialog(viewModel = vaccinationViewModel, onOpenSource = onOpenSource, onDismiss = { showVaccinations = false })
+    }
 
     if (showCities) {
         CitiesDialog(
             regionId = regionId,
             cities = uiState.cities,
+            initialCity = initialCity,
             viewModel = viewModel,
             onOpenSource = onOpenSource,
             onDismiss = { showCities = false },
@@ -118,7 +146,9 @@ fun GuideScreen(
 internal fun GuideContent(
     uiState: GuideUiState,
     onOpenSource: (url: String, title: String) -> Unit,
-    onOpenCities: () -> Unit = {},
+    onOpenCities: (city: String?) -> Unit = {},
+    vaccination: VaccinationUiState = VaccinationUiState(),
+    onOpenVaccination: () -> Unit = {},
     excludedTransit: List<Int> = emptyList(),
     onBack: (() -> Unit)? = null,
 ) {
@@ -146,7 +176,7 @@ internal fun GuideContent(
             )
         }
 
-        else -> GuideSectionsList(uiState, onOpenSource, onOpenCities, excludedTransit, onBack)
+        else -> GuideSectionsList(uiState, onOpenSource, onOpenCities, vaccination, onOpenVaccination, excludedTransit, onBack)
     }
 }
 
@@ -163,7 +193,9 @@ private fun GuideBackButton(onBack: () -> Unit) {
 private fun GuideSectionsList(
     uiState: GuideUiState,
     onOpenSource: (url: String, title: String) -> Unit,
-    onOpenCities: () -> Unit,
+    onOpenCities: (city: String?) -> Unit,
+    vaccination: VaccinationUiState,
+    onOpenVaccination: () -> Unit,
     excludedTransit: List<Int>,
     onBack: (() -> Unit)?,
 ) {
@@ -192,11 +224,6 @@ private fun GuideSectionsList(
         onOpenSource = onOpenSource,
         onBack = onBack,
         extraContent = {
-            if (uiState.cities.isNotEmpty()) {
-                item(key = "cities") {
-                    CitiesEntryCard(onClick = onOpenCities, modifier = Modifier.padding(horizontal = Spacing.l))
-                }
-            }
             if (uiState.emergencyNumbers != null || uiState.noCentralEmergencyNumber || uiState.embassiesCountry != null) {
                 item(key = "emergency_numbers") {
                     EmergencyNumbersCard(
@@ -209,6 +236,17 @@ private fun GuideSectionsList(
                         onOpenLink = onOpenSource,
                         modifier = Modifier.padding(horizontal = Spacing.l),
                     )
+                }
+            }
+            // Senza dati vaccinali (pacchetto guide vecchio) la scheda non compare.
+            if (vaccination.available) {
+                item(key = "vaccinations") {
+                    VaccinationCard(vaccination, onClick = onOpenVaccination, modifier = Modifier.padding(horizontal = Spacing.l))
+                }
+            }
+            if (uiState.cities.isNotEmpty()) {
+                item(key = "cities") {
+                    CitiesEntryCard(uiState.cities, uiState.mainCities, onOpen = onOpenCities, modifier = Modifier.padding(horizontal = Spacing.l))
                 }
             }
             if (excludedTransit.isNotEmpty()) {
@@ -231,7 +269,7 @@ private fun ExcludedTransitCard(notes: List<Int>, modifier: Modifier = Modifier)
                 modifier = Modifier.semantics { heading() },
             )
             notes.forEach { note ->
-                Text(stringResource(note), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = Spacing.s))
+                CardDescription(stringResource(note), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = Spacing.s))
             }
         }
     }
@@ -250,29 +288,100 @@ private fun transportSummary(counts: Map<PoiCategory, Int>): String? =
             else -> return@mapNotNull null
         }
         pluralStringResource(plural, count, count)
-    }.joinToString(", ").ifEmpty { null }
+    }.let { modes ->
+        // breve elenco puntato dal mezzo piu' diffuso; un solo mezzo resta sulla riga dell'etichetta
+        modes.singleOrNull() ?: modes.joinToString("\n") { "• $it" }.ifEmpty { null }
+    }
 
+// Scheda delle guide delle citta': titolo con il numero di guide, le 5 citta' principali (per popolazione) in un
+// breve elenco che apre subito la loro guida, e "Vedi tutte" (o il tocco sulla scheda) per l'elenco completo.
 @Composable
-private fun CitiesEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun CitiesEntryCard(cities: List<String>, mainCities: List<MainCity>, onOpen: (city: String?) -> Unit, modifier: Modifier = Modifier) {
     Card(modifier = modifier.fillMaxWidth()) {
-        ListItem(
-            supportingContent = { Text(stringResource(R.string.guide_cities_subtitle)) },
-            leadingContent = {
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-                    Icon(
-                        AppIcons.Cities,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.padding(6.dp).size(20.dp),
+        Column(
+            modifier = Modifier
+                .clickable(onClickLabel = stringResource(R.string.guide_cities_all), onClick = { onOpen(null) })
+                .padding(Spacing.l),
+        ) {
+            InfoCardHeader(
+                icon = AppIcons.Cities,
+                title = stringResource(R.string.guide_cities_title),
+                trailing = {
+                    Text(
+                        text = pluralStringResource(R.plurals.guide_cities_count, cities.size, cities.size),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                },
+            )
+            CardDescription(
+                text = stringResource(R.string.guide_cities_subtitle),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = Spacing.xs),
+            )
+            // Citta' principali (per abitanti) come riquadri separati da un filo di spazio, con gli angoli piu' tondi in
+            // cima e in fondo al gruppo: nome (con una stella se e' la capitale), abitanti e freccia a destra, il segno di "apri".
+            val openLabel = stringResource(R.string.guide_city_open)
+            val shown = mainCities.ifEmpty { cities.take(MAIN_CITIES).map { MainCity(it, null) } }
+            Column(
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.m),
+            ) {
+                shown.forEachIndexed { index, city ->
+                    val big = 16.dp
+                    val small = 4.dp
+                    val shape = RoundedCornerShape(
+                        topStart = if (index == 0) big else small,
+                        topEnd = if (index == 0) big else small,
+                        bottomStart = if (index == shown.lastIndex) big else small,
+                        bottomEnd = if (index == shown.lastIndex) big else small,
+                    )
+                    Surface(
+                        onClick = { onOpen(city.name) },
+                        shape = shape,
+                        color = MaterialTheme.colorScheme.surface,
+                        modifier = Modifier.fillMaxWidth().semantics { onClick(label = openLabel, action = null) },
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.heightIn(min = 64.dp).padding(horizontal = Spacing.m, vertical = Spacing.s),
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(start = Spacing.xs, end = Spacing.m)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(text = city.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                                    if (city.capital) {
+                                        // stella accanto al nome della capitale, letta da TalkBack come "Capitale"
+                                        Spacer(modifier = Modifier.width(Spacing.s))
+                                        Icon(
+                                            imageVector = AppIcons.Capital,
+                                            contentDescription = stringResource(R.string.guide_city_capital),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
+                                }
+                                city.population?.let { population ->
+                                    Text(
+                                        text = populationText(population),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            Icon(imageVector = AppIcons.Open, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
                 }
-            },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            modifier = Modifier.clickable(onClick = onClick),
-            content = { Text(stringResource(R.string.guide_cities_title)) },
-        )
+            }
+            if (cities.size > MAIN_CITIES) {
+                TextButton(onClick = { onOpen(null) }, modifier = Modifier.align(Alignment.End)) {
+                    Text(stringResource(R.string.guide_cities_all))
+                }
+            }
+        }
     }
 }
+
 
 // Elenco delle citta' della regione (CityRepository.citiesFor) e dettaglio di una citta', in un
 // dialogo a schermo intero sopra la scheda Guida — non una rotta separata del NavHost, come i
@@ -282,13 +391,18 @@ private fun CitiesEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) 
 private fun CitiesDialog(
     regionId: String,
     cities: List<String>,
+    initialCity: String?,
     viewModel: GuideViewModel,
     onOpenSource: (url: String, title: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var selectedCity by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedCity by rememberSaveable { mutableStateOf(initialCity) }
     val goBack = {
-        if (selectedCity != null) {
+        // Una citta' aperta da una scorciatoia della scheda: indietro torna alla guida della nazione, non all'elenco.
+        if (selectedCity != null && initialCity != null) {
+            viewModel.clearCity()
+            onDismiss()
+        } else if (selectedCity != null) {
             viewModel.clearCity()
             selectedCity = null
         } else {
@@ -393,7 +507,7 @@ private fun SectionsWithFilters(
         LazyColumn(
             modifier = Modifier.widthIn(max = 720.dp).fillMaxSize(),
             contentPadding = PaddingValues(bottom = Spacing.l),
-            verticalArrangement = Arrangement.spacedBy(Spacing.m),
+            verticalArrangement = Arrangement.spacedBy(InfoCardDefaults.CardGap),
         ) {
             if (categories.size > 1 || onBack != null) {
                 item(key = "filters") {
@@ -462,22 +576,14 @@ private fun EmergencyNumbersCard(
         ),
     ) {
         Column(modifier = Modifier.padding(vertical = Spacing.l)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+            InfoCardHeader(
+                icon = AppIcons.Emergency,
+                title = stringResource(R.string.emergency_title),
                 modifier = Modifier.padding(horizontal = Spacing.l),
-            ) {
-                Icon(imageVector = AppIcons.Emergency, contentDescription = null)
-                Spacer(modifier = Modifier.width(Spacing.s))
-                Text(
-                    text = stringResource(R.string.emergency_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.semantics { heading() },
-                )
-            }
+            )
             if (numbers == null) {
-                Text(
+                CardDescription(
                     text = stringResource(R.string.emergency_no_central_number),
-                    style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.s),
                 )
             }
@@ -563,7 +669,7 @@ private fun EmbassiesSection(
 private fun EmbassiesSubheading(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.labelLarge,
+        style = MaterialTheme.typography.titleSmall,
         modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.m).semantics { heading() },
     )
 }
@@ -586,8 +692,8 @@ private fun EmbassyRow(entry: EmbassyEntry, onOpenLink: (url: String, title: Str
             listOfNotNull(kind, distance).takeIf { it.isNotEmpty() }?.let {
                 Text(text = it.joinToString(" · "), style = MaterialTheme.typography.labelMedium)
             }
-            Text(text = entry.name, style = MaterialTheme.typography.bodyMedium)
-            entry.address?.let { Text(text = it, style = MaterialTheme.typography.bodySmall) }
+            Text(text = entry.name, style = MaterialTheme.typography.bodyLarge)
+            entry.address?.let { Text(text = it, style = MaterialTheme.typography.bodyMedium) }
         }
         if (phone != null) {
             IconButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phone".toUri())) } }) {
@@ -637,8 +743,8 @@ private fun TravelAdviceRow(source: OfficialSource, description: String, onOpenL
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.bodyMedium)
-            Text(text = description, style = MaterialTheme.typography.bodySmall)
+            Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            Text(text = description, style = MaterialTheme.typography.bodyMedium)
         }
         Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
             Icon(imageVector = AppIcons.OpenExternal, contentDescription = null)
@@ -678,39 +784,16 @@ private fun GuideSectionCard(
     modifier: Modifier = Modifier,
 ) {
     Card(modifier = modifier.fillMaxWidth()) {
-        val (container, onContainer) = section.category.tone()
+        val (container, _) = section.category.tone()
         Column(modifier = Modifier.padding(Spacing.l)) {
-            // Contenitore dell'icona di dimensione fissa: con il testo molto ingrandito cresce solo la colonna.
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(48.dp).background(container, CircleShape),
-                ) {
-                    Icon(
-                        imageVector = section.category.icon(),
-                        contentDescription = null,
-                        tint = onContainer,
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-                Spacer(modifier = Modifier.width(Spacing.m))
-                Column(modifier = Modifier.weight(1f)) {
-                    // Niente etichetta quando ripete il titolo ("Fatti rapidi").
-                    val category = stringResource(section.category.displayName())
-                    if (!category.equals(section.title, ignoreCase = true)) {
-                        Text(
-                            text = category,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Text(
-                        text = section.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.semantics { heading() },
-                    )
-                }
-            }
+            // Niente etichetta della categoria quando ripete il titolo ("Fatti rapidi").
+            val category = stringResource(section.category.displayName())
+            InfoCardHeader(
+                icon = section.category.icon(),
+                title = section.title,
+                iconTint = container,
+                overline = category.takeUnless { it.equals(section.title, ignoreCase = true) },
+            )
             Spacer(modifier = Modifier.height(Spacing.m))
             GuideBody(section.body)
         }
@@ -787,7 +870,7 @@ private fun GuideBody(body: String) {
         if (block.isSubheading) {
             Text(
                 text = block.text,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.padding(top = Spacing.l, bottom = Spacing.xs).semantics { heading() },
             )
         } else {
@@ -891,5 +974,18 @@ private fun GuideNoCentralEmergencyNumberPreview() {
                 onOpenSource = { _, _ -> },
             )
         }
+    }
+}
+
+// "2,8 milioni di abitanti" sopra il milione, altrimenti "360.000 abitanti" (arrotondato alle migliaia sopra i 10.000).
+@Composable
+private fun populationText(population: Long): String {
+    val locale = LocalLocale.current.platformLocale
+    return if (population >= 1_000_000) {
+        val millions = java.text.NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 1 }.format(population / 1_000_000.0)
+        stringResource(R.string.guide_city_population_millions, millions)
+    } else {
+        val rounded = if (population >= 10_000) (population + 500) / 1_000 * 1_000 else population
+        stringResource(R.string.guide_city_population, java.text.NumberFormat.getIntegerInstance(locale).format(rounded))
     }
 }
