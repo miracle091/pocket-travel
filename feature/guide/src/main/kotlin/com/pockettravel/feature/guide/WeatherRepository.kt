@@ -40,12 +40,14 @@ class WeatherRepository @Inject constructor(
 
     /**
      * Il meteo salvato come [cacheKey], aggiornato dalla rete quando [coordinates] le trova. Null senza rete e
-     * senza una risposta salvata ancora valida.
+     * senza una risposta salvata ancora valida. Con una risposta di meno di [WEATHER_MIN_REFRESH_MILLIS] niente rete:
+     * ne' l'apertura della guida ne' il pulsante "Aggiorna" interrogano Open-Meteo piu' spesso di cosi'.
      */
     suspend fun weather(cacheKey: String, coordinates: suspend () -> Pair<Double, Double>?): WeatherResult? =
         withContext(Dispatchers.IO) {
             val file = File(cacheDir, cacheKey.toFileName())
-            try {
+            val fresh = System.currentTimeMillis() - file.lastModified() < WEATHER_MIN_REFRESH_MILLIS && cached(file) != null
+            if (!fresh) try {
                 coordinates()?.let { (lat, lon) ->
                     val body = get(forecastUrl(lat, lon))
                     // Salvata solo se si legge: una risposta rotta non sostituisce l'ultima buona.
@@ -111,6 +113,9 @@ class WeatherRepository @Inject constructor(
         const val CALL_TIMEOUT_SECONDS = 10L
     }
 }
+
+/** Intervallo minimo fra due richieste del meteo dello stesso luogo (il pulsante "Aggiorna" resta spento prima). */
+internal const val WEATHER_MIN_REFRESH_MILLIS = 10 * 60 * 1000L
 
 /**
  * I nomi da cercare per una citta' della guida, dal piu' preciso: il nome intero, poi senza le parentesi

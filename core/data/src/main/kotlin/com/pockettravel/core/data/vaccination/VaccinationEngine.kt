@@ -4,8 +4,11 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
-/** Un paese da cui il viaggiatore "proviene", con le ore di scalo se ci e' solo passato. */
-private data class Origin(val country: String, val transitHours: Int?)
+/**
+ * Un paese da cui il viaggiatore "proviene": [stopover] = ci e' solo passato in aeroporto, con le ore di
+ * scalo in [transitHours] se indicate (null = durata ignota o oltre 12 ore).
+ */
+private data class Origin(val country: String, val transitHours: Int?, val stopover: Boolean = false)
 
 /**
  * Calcola, offline e senza Android, cosa serve per [trip] secondo [data]. Mai un'eccezione per dati
@@ -54,6 +57,7 @@ fun evaluateVaccinations(trip: Trip, data: VaccinationData, today: LocalDate = L
                 },
                 country = if (yfEntry.rule == YfRule.ALL) null else trigger.country,
                 transitHours = trigger.transitHours,
+                stopover = trigger.stopover,
                 minAgeMonths = yfEntry.minAgeMonths,
                 ageNote = ageNote,
                 noteIt = yfEntry.noteIt,
@@ -170,7 +174,7 @@ private fun String.iso(): String = trim().lowercase(Locale.ROOT)
 private fun yfOrigins(trip: Trip, stays: List<Origin>, rule: TransitRule, destination: String): List<Origin> {
     val passing = trip.transits
         .filter { !it.leftAirport && transitCounts(rule, it.transitHours) }
-        .map { Origin(it.country.iso(), it.transitHours) }
+        .map { Origin(it.country.iso(), it.transitHours, stopover = true) }
         .filter { it.country != destination }
     return (stays + passing).distinctBy { it.country }
 }
@@ -191,7 +195,7 @@ private fun applyAge(level: VaccinationLevel, minAgeMonths: Int?, ageMonths: Int
     else -> level to AgeNote.NONE
 }
 
-/** Uscita (RSI): obbligo da paesi WPV1/cVDPV1/cVDPV3 con soggiorno oltre 4 settimane, altrimenti dose incoraggiata per cVDPV2. */
+/** Uscita (RSI): obbligo da paesi WPV1/cVDPV1/cVDPV3 per chi vi risiede o resta oltre 4 settimane, altrimenti dose incoraggiata per cVDPV2. */
 private fun polioExit(trip: Trip, data: VaccinationData, departure: String): VaccinationItem? {
     val statuses = data.polioStatus.filter { it.iso2 == departure }
     val severe = statuses.firstOrNull { it.category == PolioCategory.WPV1_CVDPV1_CVDPV3 }

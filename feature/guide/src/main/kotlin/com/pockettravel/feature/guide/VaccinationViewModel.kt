@@ -41,7 +41,8 @@ data class TransitInput(
 
 /**
  * Stato della scheda e della schermata delle vaccinazioni. I paesi sono ISO alpha-2 maiuscoli (come li da' il
- * selettore); [result] e' null quando il percorso non e' valido (partenza mancante o uguale alla destinazione).
+ * selettore); [result] e' null quando il percorso non e' valido (partenza mancante, o uguale alla destinazione senza scopo:
+ * con lo scopo Hajj il motore vale anche per chi parte dal paese stesso).
  */
 data class VaccinationUiState(
     // false: pacchetto guide senza dati vaccinali o paese della regione ignoto, la scheda non compare.
@@ -151,25 +152,33 @@ class VaccinationViewModel @Inject constructor(
 
     private fun edit(change: (VaccinationUiState) -> VaccinationUiState) = _uiState.update { recompute(change(it)) }
 
-    private fun recompute(state: VaccinationUiState): VaccinationUiState {
-        val data = data ?: return state.copy(polioRelevant = false, result = null)
-        val departure = state.departure
-        val destination = state.destination
-        val polioRelevant = departure != null && data.polioStatus.any {
-            it.iso2.equals(departure, ignoreCase = true) && it.category == PolioCategory.WPV1_CVDPV1_CVDPV3
-        }
-        if (departure == null || destination == null || departure.equals(destination, ignoreCase = true)) {
-            return state.copy(polioRelevant = polioRelevant, result = null)
-        }
-        val trip = Trip(
-            departure = departure,
-            recentCountries = state.recentCountries.toSet(),
-            transits = state.transits.mapNotNull { leg -> leg.country?.let { TripLeg(it, leg.hours.takeUnless { leg.overTwelveHours }, leg.leftAirport) } },
-            destination = destination,
-            travellerAgeMonths = if (state.childUnderOne) state.childMonths else ADULT_AGE_MONTHS,
-            stayOverFourWeeksInDeparture = polioRelevant && state.stayOverFourWeeks,
-            purpose = if (state.hajj && destination.equals("SA", ignoreCase = true)) TripPurpose.HAJJ_UMRAH else null,
-        )
-        return state.copy(polioRelevant = polioRelevant, result = evaluateVaccinations(trip, data))
+    private fun recompute(state: VaccinationUiState): VaccinationUiState = recomputeVaccinations(state, data)
+}
+
+// Logica pura di recompute, fuori dal ViewModel per poterla provare senza Android ne' repository.
+internal fun recomputeVaccinations(state: VaccinationUiState, data: VaccinationData?): VaccinationUiState {
+    if (data == null) return state.copy(polioRelevant = false, result = null)
+    val departure = state.departure
+    val destination = state.destination
+    val polioRelevant = departure != null && data.polioStatus.any {
+        it.iso2.equals(departure, ignoreCase = true) && it.category == PolioCategory.WPV1_CVDPV1_CVDPV3
     }
+    val trip = if (departure != null && destination != null) tripOf(state, departure, destination, polioRelevant) else null
+    return state.copy(polioRelevant = polioRelevant, result = trip?.let { evaluateVaccinations(it, data) })
+}
+
+// Il viaggio da calcolare, null se partenza = destinazione senza scopo: non c'e' nulla da calcolare. Con l'Hajj il
+// MenACWY vale anche per chi vive nel paese.
+private fun tripOf(state: VaccinationUiState, departure: String, destination: String, polioRelevant: Boolean): Trip? {
+    val purpose = if (state.hajj && destination.equals("SA", ignoreCase = true)) TripPurpose.HAJJ_UMRAH else null
+    if (departure.equals(destination, ignoreCase = true) && purpose == null) return null
+    return Trip(
+        departure = departure,
+        recentCountries = state.recentCountries.toSet(),
+        transits = state.transits.mapNotNull { leg -> leg.country?.let { TripLeg(it, leg.hours.takeUnless { leg.overTwelveHours }, leg.leftAirport) } },
+        destination = destination,
+        travellerAgeMonths = if (state.childUnderOne) state.childMonths else ADULT_AGE_MONTHS,
+        stayOverFourWeeksInDeparture = polioRelevant && state.stayOverFourWeeks,
+        purpose = purpose,
+    )
 }

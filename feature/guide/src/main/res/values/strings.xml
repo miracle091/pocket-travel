@@ -115,7 +115,7 @@
     <string name="vacc_remove_country">Rimuovi %1$s</string>
     <string name="vacc_child">Viaggi con un bambino sotto 1 anno?</string>
     <string name="vacc_child_months">Età del bambino (mesi)</string>
-    <string name="vacc_stay_4w">Soggiorni più di 4 settimane nel paese di partenza?</string>
+    <string name="vacc_stay_4w">Vivi nel paese di partenza o ci resti più di 4 settimane?</string>
     <string name="vacc_hajj">Pellegrinaggio Hajj o Umrah</string>
     <string name="vacc_required">Obbligatorie</string>
     <string name="vacc_recommended">Raccomandate</string>
@@ -130,6 +130,7 @@
     <string name="vacc_reason_from_risk">Perché arrivi da %1$s, paese a rischio di febbre gialla</string>
     <string name="vacc_reason_from_list">Perché arrivi da %1$s, nell\'elenco dei paesi per cui la destinazione richiede il certificato</string>
     <string name="vacc_reason_transit">Per lo scalo di %1$d ore in %2$s</string>
+    <string name="vacc_reason_transit_unknown">Per lo scalo in %1$s (durata non indicata o superiore a 12 ore)</string>
     <string name="vacc_reason_yf_exit">Richiesto all\'uscita da %1$s</string>
     <string name="vacc_reason_yf_destination">%1$s ha aree a rischio di febbre gialla</string>
     <string name="vacc_reason_yf_destination_partial">Solo in alcune aree di %1$s</string>
@@ -176,6 +177,7 @@
     <string name="weather_updated_today">Aggiornato alle %1$s</string>
     <string name="weather_updated_on">Aggiornato il %1$s</string>
     <string name="weather_source_open">apri Open-Meteo.com</string>
+    <string name="weather_refresh">Aggiorna il meteo</string>
     <string name="weather_day_description">%1$s: %2$s, massima %3$s, minima %4$s</string>
     <string name="weather_rain_description">, pioggia %1$d%%</string>
     <string name="weather_clear">Sereno</string>

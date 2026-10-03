@@ -11,11 +11,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -28,10 +32,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.InfoCardHeader
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.R as UiR
 import com.pockettravel.core.ui.Spacing
+import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.format.TextStyle
 import kotlin.math.roundToInt
@@ -39,9 +45,15 @@ import kotlin.math.roundToInt
 private const val OPEN_METEO_URL = "https://open-meteo.com/"
 
 // Meteo di un luogo: condizione e temperatura attuali, poi un giorno per colonna con minima, massima e
-// probabilita' di pioggia. In fondo l'ora dell'ultimo aggiornamento e la fonte (attribuzione CC BY 4.0).
+// probabilita' di pioggia. In fondo l'ora dell'ultimo aggiornamento e la fonte (attribuzione CC BY 4.0), con "Aggiorna"
+// ([onRefresh]) acceso solo WEATHER_MIN_REFRESH_MILLIS dopo l'ultimo aggiornamento.
 @Composable
-internal fun WeatherCard(state: PlaceWeather, onOpenSource: (url: String, title: String) -> Unit, modifier: Modifier = Modifier) {
+internal fun WeatherCard(
+    state: PlaceWeather,
+    onOpenSource: (url: String, title: String) -> Unit,
+    modifier: Modifier = Modifier,
+    onRefresh: (() -> Unit)? = null,
+) {
     val weather = state.result.weather
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(top = Spacing.l, start = Spacing.l, end = Spacing.l, bottom = Spacing.xs)) {
@@ -56,16 +68,29 @@ internal fun WeatherCard(state: PlaceWeather, onOpenSource: (url: String, title:
                     WeatherDayColumn(day, isToday = day.date == weather.today, modifier = Modifier.weight(1f))
                 }
             }
-            Text(
-                text = stringResource(R.string.weather_footer, updatedText(state.result.updatedAtMillis)),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .clickable(onClickLabel = stringResource(R.string.weather_source_open)) { onOpenSource(OPEN_METEO_URL, "Open-Meteo") }
-                    .padding(top = Spacing.m),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = Spacing.s)) {
+                Text(
+                    text = stringResource(R.string.weather_footer, updatedText(state.result.updatedAtMillis)),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .clickable(onClickLabel = stringResource(R.string.weather_source_open)) { onOpenSource(OPEN_METEO_URL, "Open-Meteo") }
+                        .wrapContentHeight(Alignment.CenterVertically),
+                )
+                if (onRefresh != null) {
+                    // Si riaccende da solo allo scadere dell'intervallo, senza dover riaprire la guida.
+                    val canRefresh by produceState(false, state.result.updatedAtMillis) {
+                        val wait = state.result.updatedAtMillis + WEATHER_MIN_REFRESH_MILLIS - System.currentTimeMillis()
+                        if (wait > 0) delay(wait)
+                        value = true
+                    }
+                    IconButton(onClick = onRefresh, enabled = canRefresh) {
+                        Icon(AppIcons.Refresh, contentDescription = stringResource(R.string.weather_refresh))
+                    }
+                }
+            }
         }
     }
 }

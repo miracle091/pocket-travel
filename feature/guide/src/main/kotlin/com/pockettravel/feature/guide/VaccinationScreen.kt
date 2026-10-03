@@ -730,6 +730,7 @@ private fun VaccinationItem.reasonText(): String? {
         VaccinationReason.YF_ENTRY_ALL -> stringResource(R.string.vacc_reason_yf_all)
         VaccinationReason.YF_ENTRY_FROM_RISK, VaccinationReason.YF_ENTRY_FROM_LIST -> when {
             hours != null -> stringResource(R.string.vacc_reason_transit, hours, place)
+            stopover -> stringResource(R.string.vacc_reason_transit_unknown, place)
             reason == VaccinationReason.YF_ENTRY_FROM_RISK -> stringResource(R.string.vacc_reason_from_risk, place)
             else -> stringResource(R.string.vacc_reason_from_list, place)
         }

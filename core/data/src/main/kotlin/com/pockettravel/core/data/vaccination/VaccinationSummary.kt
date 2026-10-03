@@ -91,6 +91,7 @@ private fun itemLine(item: VaccinationItem, en: Boolean, country: (String) -> St
         VaccinationReason.YF_ENTRY_ALL -> pick("richiesto a tutti i viaggiatori in arrivo", "required of all arriving travellers")
         VaccinationReason.YF_ENTRY_FROM_RISK, VaccinationReason.YF_ENTRY_FROM_LIST -> when {
             item.transitHours != null -> pick("richiesto per lo scalo di ${item.transitHours} ore in $where", "required because of the ${item.transitHours}-hour stopover in $where")
+            item.stopover -> pick("richiesto per lo scalo in $where", "required because of the stopover in $where")
             else -> pick("richiesto perché arrivi da $where", "required because you are arriving from $where")
         }
         VaccinationReason.YF_EXIT -> pick("richiesto all'uscita da $where", "required when leaving $where")

@@ -184,6 +184,7 @@ data class Trip(
     val destination: String,
     /** null = non chiesta: le soglie di eta' si mostrano senza decidere. */
     val travellerAgeMonths: Int? = null,
+    /** Residente nel paese di partenza o li' per oltre 4 settimane (soglia dell'obbligo polio in uscita). */
     val stayOverFourWeeksInDeparture: Boolean = false,
     val purpose: TripPurpose? = null,
 )
@@ -194,7 +195,7 @@ data class PolioDose(val vaccine: PolioVaccine, val window: PolioWindow, val app
 /**
  * Una voce del risultato. [country] e' il paese che fa scattare la regola (provenienza, partenza o
  * destinazione secondo [reason]); [transitHours] solo se a farla scattare e' stato uno scalo senza uscita
- * dall'aeroporto. [noteIt] e [noteEn] sono le note della riga di dati (vuote se non ce ne sono).
+ * dall'aeroporto ([stopover] e' true anche quando la durata e' ignota e [transitHours] resta null). [noteIt] e [noteEn] sono le note della riga di dati (vuote se non ce ne sono).
  */
 data class VaccinationItem(
     val vaccine: Vaccine,
@@ -202,6 +203,7 @@ data class VaccinationItem(
     val reason: VaccinationReason,
     val country: String? = null,
     val transitHours: Int? = null,
+    val stopover: Boolean = false,
     val minAgeMonths: Int? = null,
     val ageNote: AgeNote = AgeNote.NONE,
     val minDaysBefore: Int? = null,

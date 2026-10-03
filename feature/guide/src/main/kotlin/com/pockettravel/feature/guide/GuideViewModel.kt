@@ -178,9 +178,7 @@ class GuideViewModel @Inject constructor(
         _cityUiState.value = CityGuideUiState()
         cityWeatherJob?.cancel()
         cityWeatherJob = viewModelScope.launch {
-            val country = regionRepository.installed(regionId)?.countryCode ?: return@launch
-            val result = weatherRepository.weather("city|$country|$city") { weatherRepository.coordinatesOf(city, country) }
-            _cityUiState.update { it.copy(weather = result?.let { PlaceWeather(city, it) }) }
+            _cityUiState.update { it.copy(weather = cityWeather(regionId, city)) }
         }
         viewModelScope.launch {
             try {
@@ -193,6 +191,30 @@ class GuideViewModel @Inject constructor(
                 _cityUiState.update { it.copy(isLoading = false, loadError = R.string.guide_city_load_error) }
             }
         }
+    }
+
+    /** "Aggiorna" della scheda meteo della nazione: niente se un aggiornamento e' gia' in corso. */
+    fun refreshWeather() {
+        val regionId = loadedForRegionId ?: return
+        if (weatherJob?.isActive == true) return
+        weatherJob = viewModelScope.launch {
+            regionWeather(regionId)?.let { weather -> _uiState.update { it.copy(weather = weather) } }
+        }
+    }
+
+    /** "Aggiorna" della scheda meteo della citta' aperta. */
+    fun refreshCityWeather() {
+        val (regionId, city) = loadedCityKey ?: return
+        if (cityWeatherJob?.isActive == true) return
+        cityWeatherJob = viewModelScope.launch {
+            cityWeather(regionId, city)?.let { weather -> _cityUiState.update { it.copy(weather = weather) } }
+        }
+    }
+
+    private suspend fun cityWeather(regionId: String, city: String): PlaceWeather? {
+        val country = regionRepository.installed(regionId)?.countryCode ?: return null
+        return weatherRepository.weather("city|$country|$city") { weatherRepository.coordinatesOf(city, country) }
+            ?.let { PlaceWeather(city, it) }
     }
 
     // Chiamata quando si torna alla lista citta': la prossima loadCity() ricarica sempre, invece

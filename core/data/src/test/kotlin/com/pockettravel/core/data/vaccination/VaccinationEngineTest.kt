@@ -291,6 +291,39 @@ class VaccinationEngineTest {
     }
 
     @Test
+    fun `scalo senza uscita e' marcato come tale anche con durata ignota`() {
+        fun yfItem(leg: TripLeg) = evaluate(Trip(departure = "it", destination = "tz", transits = listOf(leg))).item(Vaccine.YELLOW_FEVER)!!
+
+        val unknown = yfItem(TripLeg("ke", transitHours = null, leftAirport = false))
+        assertTrue(unknown.stopover)
+        assertNull(unknown.transitHours)
+        assertEquals("ke", unknown.country)
+
+        val known = yfItem(TripLeg("ke", transitHours = 30, leftAirport = false))
+        assertTrue(known.stopover)
+        assertEquals(30, known.transitHours)
+    }
+
+    @Test
+    fun `chi esce dall'aeroporto o parte dal paese a rischio non e' uno scalo`() {
+        val left = evaluate(Trip(departure = "it", destination = "tz", transits = listOf(TripLeg("ke", transitHours = null, leftAirport = true))))
+        assertFalse(left.item(Vaccine.YELLOW_FEVER)!!.stopover)
+
+        val fromRisk = evaluate(Trip(departure = "ke", destination = "tz"))
+        assertFalse(fromRisk.item(Vaccine.YELLOW_FEVER)!!.stopover)
+    }
+
+    @Test
+    fun `MenACWY dell'Hajj vale anche per chi parte dall'Arabia Saudita`() {
+        val result = evaluate(Trip(departure = "sa", destination = "sa", purpose = TripPurpose.HAJJ_UMRAH))
+        val item = result.item(Vaccine.MENACWY)!!
+        assertEquals(VaccinationLevel.REQUIRED, item.level)
+        assertEquals(VaccinationReason.HAJJ_UMRAH, item.reason)
+        assertFalse(result.noCertificateFound)
+        assertNull(result.item(Vaccine.POLIO))
+    }
+
+    @Test
     fun `destinazione a rischio parziale riporta le aree`() {
         val item = evaluate(Trip(departure = "it", destination = "br")).item(Vaccine.YELLOW_FEVER)!!
         assertTrue(item.partialArea)

@@ -115,7 +115,7 @@
     <string name="vacc_remove_country">Remove %1$s</string>
     <string name="vacc_child">Traveling with a child under 1?</string>
     <string name="vacc_child_months">Child\'s age (months)</string>
-    <string name="vacc_stay_4w">Staying more than 4 weeks in the departure country?</string>
+    <string name="vacc_stay_4w">Do you live in the departure country or are you staying there more than 4 weeks?</string>
     <string name="vacc_hajj">Hajj or Umrah pilgrimage</string>
     <string name="vacc_required">Required</string>
     <string name="vacc_recommended">Recommended</string>
@@ -130,6 +130,7 @@
     <string name="vacc_reason_from_risk">Because you are arriving from %1$s, a yellow fever risk country</string>
     <string name="vacc_reason_from_list">Because you are arriving from %1$s, on the list of countries for which the destination requires the certificate</string>
     <string name="vacc_reason_transit">Because of your %1$d-hour stopover in %2$s</string>
+    <string name="vacc_reason_transit_unknown">Because of your stopover in %1$s (duration not given or over 12 hours)</string>
     <string name="vacc_reason_yf_exit">Required when leaving %1$s</string>
     <string name="vacc_reason_yf_destination">%1$s has yellow fever risk areas</string>
     <string name="vacc_reason_yf_destination_partial">Only in some areas of %1$s</string>
@@ -176,6 +177,7 @@
     <string name="weather_updated_today">Updated at %1$s</string>
     <string name="weather_updated_on">Updated on %1$s</string>
     <string name="weather_source_open">open Open-Meteo.com</string>
+    <string name="weather_refresh">Refresh the weather</string>
     <string name="weather_day_description">%1$s: %2$s, high %3$s, low %4$s</string>
     <string name="weather_rain_description">, rain %1$d%%</string>
     <string name="weather_clear">Clear</string>

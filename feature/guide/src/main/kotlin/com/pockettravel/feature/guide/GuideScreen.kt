@@ -124,6 +124,7 @@ fun GuideScreen(
         onOpenVaccination = { showVaccinations = true },
         excludedTransit = excludedTransitNotes(regionId),
         onBack = onBack,
+        onRefreshWeather = viewModel::refreshWeather,
     )
 
     if (showVaccinations && vaccinationState.available) {
@@ -151,6 +152,7 @@ internal fun GuideContent(
     onOpenVaccination: () -> Unit = {},
     excludedTransit: List<Int> = emptyList(),
     onBack: (() -> Unit)? = null,
+    onRefreshWeather: () -> Unit = {},
 ) {
     when {
         uiState.isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -176,7 +178,7 @@ internal fun GuideContent(
             )
         }
 
-        else -> GuideSectionsList(uiState, onOpenSource, onOpenCities, vaccination, onOpenVaccination, excludedTransit, onBack)
+        else -> GuideSectionsList(uiState, onOpenSource, onOpenCities, vaccination, onOpenVaccination, excludedTransit, onBack, onRefreshWeather)
     }
 }
 
@@ -198,6 +200,7 @@ private fun GuideSectionsList(
     onOpenVaccination: () -> Unit,
     excludedTransit: List<Int>,
     onBack: (() -> Unit)?,
+    onRefreshWeather: () -> Unit,
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
     val transport = transportSummary(uiState.transportCounts)
@@ -226,7 +229,7 @@ private fun GuideSectionsList(
         extraContent = {
             uiState.weather?.let { weather ->
                 item(key = "weather") {
-                    WeatherCard(weather, onOpenSource = onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l))
+                    WeatherCard(weather, onOpenSource = onOpenSource, onRefresh = onRefreshWeather, modifier = Modifier.padding(horizontal = Spacing.l))
                 }
             }
             if (uiState.emergencyNumbers != null || uiState.noCentralEmergencyNumber || uiState.embassiesCountry != null) {
@@ -437,7 +440,12 @@ private fun CitiesDialog(
                 } else {
                     LaunchedEffect(regionId, city) { viewModel.loadCity(regionId, city) }
                     val cityUiState by viewModel.cityUiState.collectAsStateWithLifecycle()
-                    CityGuideContent(uiState = cityUiState, onOpenSource = onOpenSource, excludedTransit = excludedTransitCityNotes(city))
+                    CityGuideContent(
+                        uiState = cityUiState,
+                        onOpenSource = onOpenSource,
+                        excludedTransit = excludedTransitCityNotes(city),
+                        onRefreshWeather = viewModel::refreshCityWeather,
+                    )
                 }
             }
         }
@@ -459,7 +467,12 @@ private fun CityListContent(cities: List<String>, onCityClick: (String) -> Unit)
 }
 
 @Composable
-private fun CityGuideContent(uiState: CityGuideUiState, onOpenSource: (url: String, title: String) -> Unit, excludedTransit: List<Int>) {
+private fun CityGuideContent(
+    uiState: CityGuideUiState,
+    onOpenSource: (url: String, title: String) -> Unit,
+    excludedTransit: List<Int>,
+    onRefreshWeather: () -> Unit,
+) {
     var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
     when {
         uiState.isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -488,7 +501,9 @@ private fun CityGuideContent(uiState: CityGuideUiState, onOpenSource: (url: Stri
             } else {
                 {
                     uiState.weather?.let { weather ->
-                        item(key = "weather") { WeatherCard(weather, onOpenSource = onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l)) }
+                        item(key = "weather") {
+                            WeatherCard(weather, onOpenSource = onOpenSource, onRefresh = onRefreshWeather, modifier = Modifier.padding(horizontal = Spacing.l))
+                        }
                     }
                     if (excludedTransit.isNotEmpty()) {
                         item(key = "excluded_transit") { ExcludedTransitCard(excludedTransit, modifier = Modifier.padding(horizontal = Spacing.l)) }
