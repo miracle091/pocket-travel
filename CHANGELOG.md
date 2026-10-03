@@ -62,6 +62,9 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Civici: meno indirizzi doppi quando OpenStreetMap e Overture scrivono lo stesso numero in modo diverso ("12 bis" e "12B", "12;14", "20-24"); a Parigi i civici aggiunti da Overture passano dal 23% al 18%. Arriva con il prossimo aggiornamento dei civici.
 
 ### Corretto
+- Il download delle nazioni con molti percorsi (Russia - Siberia, Brasile, Australia, Canada - Nunavut e altre, 22 in tutto) chiudeva l'app al tocco di "Scarica".
+- Vaccinazioni: per un bambino sotto i 9 mesi la febbre gialla compariva anche tra le consigliate; ora resta solo "da valutare con il medico". L'assistente IA, alle domande su Hajj e Umrah, ora riporta il vaccino contro il meningococco obbligatorio per i pellegrini.
+- Meteo: con una rete lenta la scheda restava vuota a lungo prima di mostrare le ultime previsioni salvate.
 - La scheda Mappa di un paese grande scaricato per intero (Italia) chiudeva l'app per memoria esaurita: caricava tutti i punti di interesse insieme. Ora carica solo quelli dell'area inquadrata, al massimo circa 3.000, sparsi su tutta l'area.
 - Bandiere delle Isole Cook e di Montserrat schiacciate ai lati nell'elenco delle nazioni (e di poco quelle di Lussemburgo e San Marino).
 - Punti di interesse di Ucraina, Messico, Marocco, Sudafrica, Texas, Virginia, Pechino e altre regioni: dall'ultimo aggiornamento c'erano quasi solo quelli dei paesi vicini. Tornano completi con la prossima pubblicazione.
