@@ -15,11 +15,13 @@ hanno "translated": true e ATTRIBUTION indica la traduzione automatica (CC BY-SA
 - negativi: categoria qualsiasi con le sole sezioni di altre categorie che non la trattano (bilanciati tra le
   categorie), domanda fuori tema, contesto di fallback dell'app; una quota con il contesto nell'altra lingua;
 - citta': --cities pagine della lingua del dataset, fino a --city-questions sezioni per citta';
-- fatti rapidi e note personali con --guides-db (guides.db per l'italiano, guides-en.db per l'inglese).
+- fatti rapidi e note personali con --guides-db (guides.db per l'italiano, guides-en.db per l'inglese);
+- con --nearby, domande su cosa c'e' qui vicino e sulle prossime partenze con i blocchi di contesto dell'app
+  (sft_nearby.py, dati sintetici), per una quota del dataset finale.
 Fuori dal training le regioni di test e quelle la cui pagina (IT o EN) e' la pagina di una regione di test o vi
 appartiene (es. figi-occidentali ha la pagina "Figi"/"Fiji" di figi-lau): restano nel file solo le regioni di test.
 
-Uso: python generate_sft.py --lang it|en --dump-dir <cartella dei dump> [--cities 4500] [--guides-db <db>] [--seed 42]
+Uso: python generate_sft.py --lang it|en --dump-dir <cartella dei dump> [--cities 4500] [--guides-db <db>] [--nearby 0.03] [--seed 42]
 Output in data/sft/: pocket_travel_sft.v9.<lang>.jsonl e ATTRIBUTION.v9.<lang>.tsv; traduzioni in cache in
 raw/translations.<src>-<tgt>.jsonl.
 """
@@ -33,6 +35,7 @@ from pathlib import Path
 
 import generate_sft_dataset as it
 import generate_sft_dataset_en as en
+import sft_nearby
 import wiki_dump
 from eval_common import TEST_REGIONS
 from status import Progress, phase
@@ -130,6 +133,22 @@ def flag_regions():
     return out
 
 
+def nearby_context(rng, block, q, name, bodies, L, transport=False, empty=0.1):
+    """Contesto di una domanda --nearby come in TravelAssistant: il blocco "qui vicino" o "prossime partenze" prima di 0-2
+    sezioni della guida, che prendono lo spazio rimasto (selectContext). Senza blocco (nessuna posizione o fermata) 1-3
+    sezioni che non hanno parole della domanda (ne' trattano i trasporti, se [transport]), o il contesto di fallback."""
+    if block:
+        sections = it.make_context(rng, rng.sample(bodies, min(len(bodies), rng.choice([0, 1, 1, 2]))), q, name,
+                                   max_chars=it.MAX_CONTEXT - len(block) - 2)
+        return "\n\n".join(x for x in (block, sections) if x)
+    stems = it.question_stems(" ".join(w for w in re.findall(r"\w+", q) if w.lower() not in L["stopwords"]), name)
+    unrelated = [b for b in bodies if not any(s in it._folded(b) for s in stems)
+                 and not (transport and it.covers("TRASPORTI", b, L["keywords"]))]
+    if not unrelated or rng.random() < empty:
+        return L["fallback"]
+    return it.make_context(rng, rng.sample(unrelated, min(len(unrelated), rng.randint(1, 3))), q, name)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lang", choices=("it", "en"), required=True)
@@ -148,6 +167,8 @@ def main():
     ap.add_argument("--guides-db", help="guides.db (it) o guides-en.db (en) pubblicato: fatti rapidi e note personali")
     ap.add_argument("--vaccinations", type=Path,
                     help="riassunti di VaccinationSummaryExport (JSONL): domande sui vaccini col riassunto nel contesto")
+    ap.add_argument("--nearby", type=float, default=0,
+                    help="quota del dataset finale (es. 0.03) con domande su cosa c'e' qui vicino e sulle prossime partenze")
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
     L, lang, other = LANGS[a.lang], a.lang, OTHER[a.lang]
@@ -447,6 +468,24 @@ def main():
                 if (context, q) not in seen:
                     seen.add((context, q))
                     rows.append(row("neg", rid, "VACCINAZIONI", context, q, refusal(VACC_TOPIC[lang]))); vacc_neg += 1
+    # Qui vicino e prossime partenze (--nearby): meta' e meta', con le sezioni di una regione qualunque dopo il blocco
+    near = Counter()
+    if a.nearby:
+        target = round(len(rows) * a.nearby / (1 - a.nearby))
+        phase("qui vicino", f"{target} righe")
+        rids, tries = [r for r in data if r not in TEST_REGIONS], 0
+        while sum(near.values()) < target and tries < target * 5:
+            tries += 1
+            cat = ("VICINO", "PARTENZE")[tries % 2]
+            make = sft_nearby.poi_example if cat == "VICINO" else sft_nearby.transit_example
+            block, q, ans, kind = make(rng, lang, refusal)
+            rid = rng.choice(rids)
+            name, secs, _ = data[rid]
+            context = nearby_context(rng, block, q, name, [b for _, b, _ in secs], L, cat == "PARTENZE", a.empty)
+            if (context, q) in seen:
+                continue
+            seen.add((context, q))
+            rows.append(row(kind, rid, cat, context, q, ans)); near[cat, kind] += 1
     rng.shuffle(rows)
 
     for name, (dataset, *_, lic, _) in L["off_topic_sources"].items():  # solo domande, con rifiuto come risposta
@@ -461,7 +500,8 @@ def main():
             f.write(f"{rid}\t{name}\t{url}\t{lic}\n")
     print(f"regioni con testo: {len(data)}; sezioni tradotte {other}->{lang}: {n_tr['sezioni']}, paragrafi Wikipedia: {n_tr['wikipedia']}")
     print(f"positivi={pos} negativi={neg} citta' positivi={city_pos} negativi={city_neg} "
-          f"fatti rapidi {quick_pos}/{quick_neg} note {note_pos} vaccinazioni {vacc_pos}/{vacc_neg} totale={len(rows)} "
+          f"fatti rapidi {quick_pos}/{quick_neg} note {note_pos} vaccinazioni {vacc_pos}/{vacc_neg} "
+          f"vicino {near['VICINO', 'pos']}/{near['VICINO', 'neg']} partenze {near['PARTENZE', 'pos']}/{near['PARTENZE', 'neg']} totale={len(rows)} "
           f"(rifiuti {sum(r['kind'] == 'neg' for r in rows) / max(len(rows), 1):.1%}, tradotte {sum(r['translated'] for r in rows)})")
     cats, refs = Counter(r["category"] for r in rows), Counter(r["category"] for r in rows if r["kind"] == "neg")
     print("per categoria (righe/rifiuti):", {c: f"{n}/{refs[c]}" for c, n in cats.most_common()})

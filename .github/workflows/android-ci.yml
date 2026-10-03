@@ -73,6 +73,9 @@ jobs:
       - name: Test di vaccinations_drift.py
         run: python3 tools/data-pipeline/scripts/test_vaccinations_drift.py
 
+      - name: Test di sft_nearby.py
+        run: python3 tools/data-pipeline/scripts/test_sft_nearby.py
+
       - name: Test di translate_sections.py
         run: python3 tools/data-pipeline/scripts/test_translate_sections.py
 
