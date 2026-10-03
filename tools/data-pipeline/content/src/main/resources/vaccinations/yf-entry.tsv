@@ -19,7 +19,7 @@ au	FROM_RISK	12	GT12H		0	Le Galapagos (Ecuador) non contano come area a rischio	
 aw	FROM_RISK	9	GT12H		0	Senza certificato valido l'ingresso puo' essere negato	Entry can be refused without a valid certificate	F6+F7	2026-10-03
 az	NONE		NONE		0			F6+F7	2026-10-03
 ba	NONE		NONE		0			F6+F7	2026-10-03
-bb	FROM_RISK	12	NONE		0	Eccezione per Guyana e Trinidad, salvo focolai	Guyana and Trinidad are excluded unless an outbreak is under way	F6+F7	2026-10-03
+bb	FROM_RISK	12	NONE		0	Eccezione per Guyana e Trinidad, salvo focolai	Guyana and Trinidad are excluded unless an outbreak is under way	F6+F7	2026-10-04
 bd	FROM_RISK	12	ANY		0			F6+F7	2026-10-03
 be	NONE		NONE		0			F6+F7	2026-10-03
 bf	ALL	9	NONE		0			F6+F7	2026-10-03
@@ -31,7 +31,7 @@ bl	FROM_RISK	12	GT12H		0			F6+F7	2026-10-03
 bm	NONE		NONE		0			F6+F7	2026-10-03
 bn	FROM_RISK	9	GT12H		0			F6+F7	2026-10-03
 bo	FROM_RISK	12	NONE		0			F6+F7	2026-10-03
-bq	FROM_RISK	9	GT12H		0	Regola di Bonaire; Sint Eustatius chiede il certificato da 6 mesi e senza soglia di transito, Saba non lo chiede	Bonaire's rule; Sint Eustatius asks for it from 6 months with no transit threshold, Saba does not ask for it	F6+F7	2026-10-03
+bq	FROM_RISK	9	GT12H		0	Regola di Bonaire. Sint Eustatius lo chiede gia' dai 6 mesi a chi arriva da un paese a rischio (le fonti non parlano di transiti); Saba non lo chiede	Bonaire's rule. Sint Eustatius asks for it from 6 months of age from arrivals from a risk country (the sources say nothing about transits); Saba does not ask for it	F6+F7	2026-10-04
 br	NONE		NONE		0			F6+F7	2026-10-03
 bs	FROM_RISK	12	GT12H		0			F6+F7	2026-10-03
 bt	NONE		NONE		0			F6+F7	2026-10-03
@@ -39,7 +39,7 @@ bw	FROM_RISK	12	ANY		0			F6+F7	2026-10-03
 by	NONE		NONE		0			F6+F7	2026-10-03
 bz	NONE		NONE		0			F6+F7	2026-10-03
 ca	NONE		NONE		0			F7	2026-10-03
-cc	FROM_RISK	12	GT12H		0	Territorio australiano: nessuna fonte lo elenca a parte, si assume la regola dell'Australia	Australian territory: no source lists it separately, Australia's rule is assumed	F7	2026-10-03
+cc	FROM_RISK	12	GT12H		0	Territorio australiano: nessuna fonte lo elenca a parte, si assume la regola dell'Australia (la stessa che vale per l'Isola di Natale); le Galapagos (Ecuador) non contano come area a rischio	Australian territory: no source lists it separately, Australia's rule is assumed (the same that applies to Christmas Island); the Galapagos Islands (Ecuador) do not count as a risk area	F7	2026-10-04
 cd	ALL	9	NONE		0			F6+F7	2026-10-03
 cf	ALL	9	NONE		0			F6+F7	2026-10-03
 cg	ALL	9	NONE		0			F6+F7	2026-10-03
@@ -50,7 +50,7 @@ cl	NONE		NONE		0			F6+F7	2026-10-03
 cm	ALL	12	NONE		0			F6+F7	2026-10-03
 cn	FROM_RISK	9	GT12H		0			F6+F7	2026-10-03
 co	FROM_LIST	12	GT12H	ao,br,cd,ug	0	Elenco proprio della Colombia. Per il focolaio in corso il certificato puo' essere controllato anche negli spostamenti interni	Colombia's own list. Because of the ongoing outbreak the certificate may be checked during domestic travel too	F6+F7	2026-10-03
-cr	FROM_RISK	9	NONE		0	Oltre ai paesi a rischio conta chi arriva da Ruanda, Tanzania e Zambia; eccezione per Argentina e Panama. Chi resta nell'area transiti dell'aeroporto non ne ha bisogno	Besides risk countries it applies to arrivals from Rwanda, Tanzania and Zambia; Argentina and Panama are excluded. People who stay in the airport transit area do not need it	F6+F7	2026-10-03
+cr	FROM_RISK	9	NONE		0	Oltre ai paesi a rischio conta chi arriva da Ruanda, Tanzania e Zambia; esclusi Argentina e Panama. Chi resta nell'area transiti dell'aeroporto non ne ha bisogno. Una fonte segnala che il ministero della salute ora considera a rischio l'intero paese di provenienza, non solo le sue zone a rischio: verifica sul sito del ministero	Besides risk countries it applies to arrivals from Rwanda, Tanzania and Zambia; Argentina and Panama are excluded. People who stay in the airport transit area do not need it. One source reports that the health ministry now treats the whole country of origin as a risk area, not only its risk zones: check the ministry website	F6+F7	2026-10-04
 cu	FROM_RISK	9	GT12H		0			F6+F7	2026-10-03
 cv	FROM_RISK	12	NONE		0			F6+F7	2026-10-03
 cw	FROM_RISK	9	GT12H		0	Isola olandese dei Caraibi: stessa regola di Aruba e Bonaire	Dutch Caribbean island: same rule as Aruba and Bonaire	F6+F7	2026-10-03
@@ -63,12 +63,12 @@ dk	NONE		NONE		0			F6+F7	2026-10-03
 dm	FROM_RISK	12	GT12H		0			F6+F7	2026-10-03
 do	FROM_LIST	12	GT12H	br	0	Solo per chi arriva dagli stati brasiliani di Minas Gerais, Espirito Santo, San Paolo e Rio de Janeiro	Only for arrivals from the Brazilian states of Minas Gerais, Espirito Santo, Sao Paulo and Rio de Janeiro	F6+F7	2026-10-03
 dz	FROM_RISK	9	GT12H		0			F6+F7	2026-10-03
-ec	FROM_LIST	12	GT12H	br,cd,ug	0	Elenco proprio dell'Ecuador; una fonte non cita il Brasile. Dal 28 agosto 2025 non serve piu' a chi arriva da Peru, Colombia e Bolivia	Ecuador's own list; one source does not mention Brazil. Since 28 August 2025 arrivals from Peru, Colombia and Bolivia no longer need it	F6+F7	2026-10-03
+ec	FROM_LIST	12	GT12H	br,cd,ug	0	Elenco proprio dell'Ecuador; una fonte non cita il Brasile, che per prudenza resta nell'elenco. Dal 28 agosto 2025 non serve piu' a chi arriva da Peru, Colombia e Bolivia	Ecuador's own list; one source does not mention Brazil, which is kept on the list to be safe. Since 28 August 2025 arrivals from Peru, Colombia and Bolivia no longer need it	F6+F7	2026-10-04
 ee	NONE		NONE		0			F6+F7	2026-10-03
 eg	FROM_RISK	9	GT12H		0			F6+F7	2026-10-03
 er	FROM_RISK	9	NONE		0			F6+F7	2026-10-03
 es	NONE		NONE		0			F6+F7	2026-10-03
-et	FROM_RISK	9	GT12H		0	Una fonte canadese indica solo chi arriva da Brasile, Bolivia, Peru e Venezuela: verifica con l'ambasciata	One Canadian source lists only arrivals from Brazil, Bolivia, Peru and Venezuela: check with the embassy	F6+F7	2026-10-03
+et	FROM_RISK	9	GT12H		0	Le fonti non concordano: una lo chiede solo a chi arriva da Brasile, Bolivia, Peru e Venezuela, l'altra a chi arriva da qualunque paese a rischio. Per prudenza si usa la regola piu' ampia	The sources disagree: one asks for it only from arrivals from Brazil, Bolivia, Peru and Venezuela, the other from arrivals from any risk country. To be safe the broader rule is used	F6+F7	2026-10-04
 fi	NONE		NONE		0			F6+F7	2026-10-03
 fj	FROM_RISK	12	GT12H		0			F6+F7	2026-10-03
 fk	NONE		NONE		0			F6+F7	2026-10-03
@@ -92,8 +92,8 @@ gt	FROM_RISK	12	GT12H		0			F6+F7	2026-10-03
 gu	NONE		NONE		0			F6+F7	2026-10-03
 gw	ALL	12	NONE		0			F6+F7	2026-10-03
 gy	FROM_RISK	12	GT4H		0			F6+F7	2026-10-03
-hk	FROM_RISK	9	GT12H		0	Le fonti non riportano una regola propria: si presume quella della Cina continentale; una fonte canadese non segnala obblighi	The sources give no rule of its own: the mainland China rule is presumed; one Canadian source shows no requirement	F6+F7	2026-10-03
-hn	FROM_RISK	12	GT12H		0	Richiesto solo tra 1 e 60 anni	Required only between 1 and 60 years of age	F6+F7	2026-10-03
+hk	FROM_RISK	9	GT12H		0	Le fonti non concordano: una non segnala obblighi, l'altra presume la regola della Cina continentale perche' Hong Kong non ha comunicato la sua. Per prudenza si tiene quella della Cina	The sources disagree: one shows no requirement, the other presumes the mainland China rule because Hong Kong has not reported its own. To be safe the China rule is kept	F6+F7	2026-10-04
+hn	FROM_RISK	12	GT12H		0	Richiesto solo tra 1 e 60 anni	Required only between 1 and 60 years of age	F6+F7	2026-10-04
 hr	NONE		NONE		0			F6+F7	2026-10-03
 ht	FROM_RISK	12	NONE		0			F6+F7	2026-10-03
 hu	NONE		NONE		0			F6+F7	2026-10-03
@@ -101,13 +101,13 @@ ic	NONE		NONE		0			F6+F7	2026-10-03
 id	FROM_RISK	9	NONE		0			F6+F7	2026-10-03
 ie	NONE		NONE		0			F6+F7	2026-10-03
 il	NONE		NONE		0			F6+F7	2026-10-03
-in	FROM_LIST	9	ANY	ao,bj,bf,bi,cm,cf,td,cg,ci,cd,gq,et,ga,gm,gh,gn,gw,ke,lr,ml,mr,ne,ng,rw,sn,sl,sd,ss,tg,ug,ar,bo,br,co,ec,gf,gy,pa,py,pe,sr,tt,ve	0	Elenco proprio dell'India, che aggiunge ogni paese che segnala un caso di febbre gialla. Chi arriva senza certificato entro 6 giorni da un'area a rischio puo' essere isolato fino a 6 giorni. Il transito in aeroporto conta, salvo restare nell'area del terminal	India's own list, which adds any country that reports a yellow fever case. Arriving without a certificate within 6 days of leaving a risk area can mean up to 6 days of isolation. Transit counts, unless you stay inside the airport	F6+F7	2026-10-03
+in	FROM_LIST	9	ANY	ao,bj,bf,bi,cm,cf,td,cg,ci,cd,gq,et,ga,gm,gh,gn,gw,ke,lr,ml,mr,ne,ng,rw,sn,sl,sd,ss,tg,ug,ar,bo,br,co,ec,gf,gy,pa,py,pe,sr,tt,ve	0	Elenco proprio dell'India, che aggiunge ogni paese che segnala un caso di febbre gialla. Chi arriva senza certificato entro 6 giorni da un'area a rischio puo' essere isolato fino a 6 giorni. Il transito in aeroporto conta, salvo restare nell'area del terminal	India's own list, which adds any country that reports a yellow fever case. Arriving without a certificate within 6 days of leaving a risk area can mean up to 6 days of isolation. Transit counts, unless you stay inside the airport	F6+F7	2026-10-04
 iq	NONE		NONE		0			F6+F7	2026-10-03
 ir	FROM_RISK	9	GT12H		0			F6+F7	2026-10-03
 is	NONE		NONE		0			F6+F7	2026-10-03
 it	NONE		NONE		0			F6+F7	2026-10-03
 jm	FROM_RISK	12	GT12H		0			F6+F7	2026-10-03
-jo	FROM_RISK		GT12H		0	Le fonti non concordano (una indica un obbligo, l'altra nessuno): verifica con l'ambasciata	The sources disagree (one lists a requirement, the other none): check with the embassy	F6+F7	2026-10-03
+jo	FROM_RISK		ANY		0	Le fonti non concordano: una non indica obblighi, l'altra chiede il certificato a chi arriva da un paese a rischio o vi e' passato in aeroporto. Per prudenza si tiene l'obbligo, anche per i transiti: verifica con l'ambasciata	The sources disagree: one shows no requirement, the other asks for the certificate from anyone arriving from, or changing planes in, a risk country. To be safe the requirement is kept, transits included: check with the embassy	F6+F7	2026-10-04
 jp	NONE		NONE		0			F6+F7	2026-10-03
 ke	FROM_RISK	12	NONE		0			F6+F7	2026-10-03
 kg	NONE		NONE		0			F6+F7	2026-10-03
@@ -119,10 +119,10 @@ kp	FROM_RISK	12	NONE		0			F6+F7	2026-10-03
 kr	NONE		NONE		0			F6+F7	2026-10-03
 kw	NONE		NONE		0			F6+F7	2026-10-03
 ky	NONE		NONE		0			F6+F7	2026-10-03
-kz	FROM_RISK		ANY		0			F6+F7	2026-10-03
+kz	FROM_RISK		ANY		0			F6+F7	2026-10-04
 la	NONE		NONE		0			F6+F7	2026-10-03
 lb	NONE		NONE		0			F6+F7	2026-10-03
-lc	FROM_RISK	9	NONE		0	Dal marzo 2023 non serve a chi arriva da Trinidad e Tobago e Guyana	Since March 2023 arrivals from Trinidad and Tobago and Guyana do not need it	F6+F7	2026-10-03
+lc	FROM_RISK	9	NONE		0	Dal marzo 2023 non serve a chi arriva da Trinidad e Tobago e Guyana	Since March 2023 arrivals from Trinidad and Tobago and Guyana do not need it	F6+F7	2026-10-04
 li	NONE		NONE		0			F6+F7	2026-10-03
 lk	FROM_RISK	9	GT12H		0			F6+F7	2026-10-03
 lr	FROM_RISK	9	NONE		0			F6+F7	2026-10-03
@@ -142,31 +142,31 @@ mk	NONE		NONE		0			F6+F7	2026-10-03
 ml	ALL	9	NONE		0			F6+F7	2026-10-03
 mm	FROM_RISK	12	GT12H		0			F6+F7	2026-10-03
 mn	NONE		NONE		0			F6+F7	2026-10-03
-mo	FROM_RISK	9	GT12H		0	Le fonti non riportano una regola propria: si presume quella della Cina continentale; una fonte canadese non segnala obblighi	The sources give no rule of its own: the mainland China rule is presumed; one Canadian source shows no requirement	F6+F7	2026-10-03
+mo	FROM_RISK	9	GT12H		0	Le fonti non concordano: una non segnala obblighi, l'altra presume la regola della Cina continentale perche' Macao non ha comunicato la sua. Per prudenza si tiene quella della Cina	The sources disagree: one shows no requirement, the other presumes the mainland China rule because Macao has not reported its own. To be safe the China rule is kept	F6+F7	2026-10-04
 mp	NONE		NONE		0			F6+F7	2026-10-03
 mq	FROM_RISK	12	GT12H		0			F6+F7	2026-10-03
 mr	FROM_RISK	12	NONE		0			F6+F7	2026-10-03
 ms	FROM_RISK	12	ANY		0			F6+F7	2026-10-03
 mt	FROM_RISK	9	GT12H		0			F6+F7	2026-10-03
-mu	FROM_RISK	12	NONE		0	Mauritius usa un proprio elenco di paesi a rischio, diverso da quello dell'OMS (agosto 2025); una fonte canadese non segnala obblighi: controlla il sito del governo	Mauritius uses its own list of risk countries, different from the WHO one (August 2025); one Canadian source shows no requirement: check the government website	F6+F7	2026-10-03
+mu	FROM_RISK	12	NONE		0	Mauritius usa un proprio elenco di paesi a rischio, diverso da quello dell'OMS (aggiornamento di agosto 2025); una fonte canadese non segnala obblighi, si tiene quello piu' severo: controlla l'elenco sul sito del governo	Mauritius uses its own list of risk countries, different from the WHO one (August 2025 update); one Canadian source shows no requirement, the stricter rule is kept: check the list on the government website	F6+F7	2026-10-04
 mv	FROM_RISK	9	GT12H		0			F6+F7	2026-10-03
 mw	FROM_RISK	12	GT12H		0			F6+F7	2026-10-03
 mx	NONE		NONE		0			F6+F7	2026-10-03
 my	FROM_RISK	12	GT12H		0			F6+F7	2026-10-03
-mz	FROM_RISK		ANY		0	Contano anche Ruanda, Somalia, Sao Tome e Principe, Tanzania e Polinesia, secondo il ministero degli esteri del Mozambico	Rwanda, Somalia, Sao Tome and Principe, Tanzania and Polynesia also count, according to Mozambique's foreign ministry	F6+F7	2026-10-03
+mz	FROM_RISK		ANY		0	Contano anche Ruanda, Somalia, Sao Tome e Principe, Tanzania e Polinesia, secondo il ministero degli esteri del Mozambico	Rwanda, Somalia, Sao Tome and Principe, Tanzania and Polynesia also count, according to Mozambique's foreign ministry	F6+F7	2026-10-04
 na	FROM_RISK	9	GT12H		0			F6+F7	2026-10-03
 nc	FROM_RISK	12	GT12H		0	In caso di minaccia epidemica puo' essere chiesto un certificato specifico	In case of an epidemic threat a specific certificate may be required	F6+F7	2026-10-03
 ne	ALL	9	NONE		0			F6+F7	2026-10-03
-nf	FROM_RISK	12	GT12H		0	Territorio australiano: nessuna fonte lo elenca a parte, si assume la regola dell'Australia	Australian territory: no source lists it separately, Australia's rule is assumed	F7	2026-10-03
-ng	ALL	9	NONE		1	Dal 2025 il certificato serve a tutti in ingresso e in uscita; esenti i bambini sotto i 9 mesi e gli over 60. La fonte canadese riporta ancora la regola per paesi a rischio: vale quella piu' recente	Since 2025 the certificate is required of everyone entering and leaving; children under 9 months and people over 60 are exempt. The Canadian source still shows the risk-country rule: the more recent one is used	F6+F7	2026-10-03
+nf	FROM_RISK	12	GT12H		0	Territorio australiano: nessuna fonte lo elenca a parte, si assume la regola dell'Australia (la stessa che vale per l'Isola di Natale); le Galapagos (Ecuador) non contano come area a rischio	Australian territory: no source lists it separately, Australia's rule is assumed (the same that applies to Christmas Island); the Galapagos Islands (Ecuador) do not count as a risk area	F7	2026-10-04
+ng	ALL	9	NONE		1	Dal 2025 il certificato serve a tutti in ingresso e in uscita; esenti i bambini sotto i 9 mesi e gli over 60. La fonte canadese riporta ancora la sola regola per chi arriva da paesi a rischio: si usa quella piu' recente e piu' severa	Since 2025 the certificate is required of everyone entering and leaving; children under 9 months and people over 60 are exempt. The Canadian source still shows only the rule for arrivals from risk countries: the more recent and stricter one is used	F6+F7	2026-10-04
 ni	FROM_RISK	12	NONE		0			F6+F7	2026-10-03
 nl	NONE		NONE		0			F6+F7	2026-10-03
 no	NONE		NONE		0			F6+F7	2026-10-03
 np	FROM_RISK	9	GT12H		0			F6+F7	2026-10-03
 nr	NONE		NONE		0			F6+F7	2026-10-03
-nu	FROM_RISK	9	NONE		0	Vale per Niue; le Isole Cook e Tokelau non lo richiedono	Applies to Niue; the Cook Islands and Tokelau do not require it	F6+F7	2026-10-03
+nu	FROM_RISK	9	NONE		0	Vale per Niue; le Isole Cook e Tokelau non lo richiedono	Applies to Niue; the Cook Islands and Tokelau do not require it	F6+F7	2026-10-04
 nz	NONE		NONE		0			F6+F7	2026-10-03
-om	FROM_RISK	9	GT12H		0	Conta anche chi arriva da Ruanda e Tanzania	Arrivals from Rwanda and Tanzania also count	F6+F7	2026-10-03
+om	FROM_RISK	9	GT12H		0	Conta anche chi arriva da Ruanda e Tanzania	Arrivals from Rwanda and Tanzania also count	F6+F7	2026-10-04
 pa	FROM_RISK	12	NONE		0			F6+F7	2026-10-03
 pe	NONE		NONE		0			F6+F7	2026-10-03
 pf	FROM_RISK	12	GT12H		0			F6+F7	2026-10-03
@@ -189,21 +189,21 @@ ru	NONE		NONE		0			F6+F7	2026-10-03
 rw	FROM_RISK	12	NONE		0			F6+F7	2026-10-03
 sa	FROM_RISK	9	GT12H		0			F6+F7	2026-10-03
 sb	FROM_RISK	9	NONE		0			F6+F7	2026-10-03
-sc	FROM_RISK	12	GT12H		0	Dal maggio 2025 il sistema elettronico di frontiera esenta chi ha 60 anni o piu' e chi e' in transito meno di 12 ore	Since May 2025 the electronic border system exempts people aged 60 or over and those in transit for under 12 hours	F6+F7	2026-10-03
+sc	FROM_RISK	12	GT12H		0	Dal maggio 2025 il sistema elettronico di frontiera esenta chi ha 60 anni o piu' e chi e' in transito meno di 12 ore	Since May 2025 the electronic border system exempts people aged 60 or over and those in transit for under 12 hours	F6+F7	2026-10-04
 sd	NONE		NONE		0			F6+F7	2026-10-03
 se	NONE		NONE		0			F6+F7	2026-10-03
 sg	FROM_RISK	12	GT12H		0	Conta essere stati in un paese a rischio nei 6 giorni prima dell'arrivo	It counts if you were in a risk country in the 6 days before arrival	F6+F7	2026-10-03
 si	NONE		NONE		0			F6+F7	2026-10-03
 sj	NONE		NONE		0			F7	2026-10-03
 sk	NONE		NONE		0			F6+F7	2026-10-03
-sl	ALL		NONE		0			F6+F7	2026-10-03
+sl	ALL		NONE		0			F6+F7	2026-10-04
 sm	NONE		NONE		0			F6+F7	2026-10-03
 sn	FROM_RISK	9	ANY		0			F6+F7	2026-10-03
-so	FROM_RISK		NONE		0	Le fonti non concordano (una indica un obbligo, l'altra nessuno): verifica con l'ambasciata	The sources disagree (one lists a requirement, the other none): check with the embassy	F6+F7	2026-10-03
+so	FROM_RISK		NONE		0	Le fonti non concordano: una non indica obblighi, l'altra chiede il certificato a chi arriva da un paese a rischio. Per prudenza si tiene l'obbligo: verifica con l'ambasciata	The sources disagree: one shows no requirement, the other asks for the certificate from anyone arriving from a risk country. To be safe the requirement is kept: check with the embassy	F6+F7	2026-10-04
 sr	FROM_RISK	12	GT12H		0			F6+F7	2026-10-03
 ss	ALL	9	NONE		0			F6+F7	2026-10-03
 st	FROM_RISK	12	ANY		0			F6+F7	2026-10-03
-sv	NONE		NONE		0	Dal maggio 2024 il ministero della salute salvadoregno non chiede piu' il certificato; una fonte canadese lo riporta ancora	Since May 2024 El Salvador's health ministry no longer requires the certificate; one Canadian source still lists it	F6+F7	2026-10-03
+sv	FROM_RISK		ANY		0	Le fonti non concordano: una riporta che dal maggio 2024 il ministero della salute salvadoregno non chiede piu' il certificato, l'altra lo chiede ancora a chi arriva da un paese a rischio o vi e' passato in aeroporto. Per prudenza si tiene l'obbligo: verifica con l'ambasciata	The sources disagree: one reports that since May 2024 El Salvador's health ministry no longer asks for the certificate, the other still requires it of anyone arriving from, or changing planes in, a risk country. To be safe the requirement is kept: check with the embassy	F6+F7	2026-10-04
 sx	FROM_RISK	9	NONE		0			F6+F7	2026-10-03
 sy	NONE		NONE		0	Il paese non ha dichiarato i suoi requisiti nelle fonti consultate: verifica con l'ambasciata	The country has not declared its requirements in the sources consulted: check with the embassy	F6+F7	2026-10-03
 sz	FROM_RISK	9	ANY		0			F6+F7	2026-10-03
@@ -227,8 +227,8 @@ ug	ALL	12	NONE		0			F6+F7	2026-10-03
 us	NONE		NONE		0			F6+F7	2026-10-03
 uy	NONE		NONE		0			F6+F7	2026-10-03
 uz	NONE		NONE		0			F6+F7	2026-10-03
-va	NONE		NONE		0	Nessuna fonte lo elenca a parte: si assume come l'Italia (nessun obbligo)	No source lists it separately: assumed like Italy (no requirement)	F7	2026-10-03
-vc	FROM_RISK	12	GT12H		0	Esclusi Guyana e Trinidad e Tobago (conferma di settembre 2025)	Guyana and Trinidad and Tobago are excluded (confirmed September 2025)	F6+F7	2026-10-03
+va	NONE		NONE		0	Nessuna fonte lo elenca a parte: si assume come l'Italia (nessun obbligo)	No source lists it separately: assumed like Italy (no requirement)	F7	2026-10-04
+vc	FROM_RISK	12	GT12H		0	Esclusi Guyana e Trinidad e Tobago (conferma di settembre 2025)	Guyana and Trinidad and Tobago are excluded (confirmed September 2025)	F6+F7	2026-10-04
 ve	FROM_LIST	12	GT12H	br	0			F6+F7	2026-10-03
 vg	NONE		NONE		0			F6+F7	2026-10-03
 vi	NONE		NONE		0			F6+F7	2026-10-03

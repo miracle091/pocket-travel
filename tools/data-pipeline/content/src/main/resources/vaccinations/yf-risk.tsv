@@ -16,9 +16,9 @@ cg	WHOLE			F6+F7	2026-10-03
 ci	WHOLE			F6+F7	2026-10-03
 cm	WHOLE			F6+F7	2026-10-03
 co	PARTIAL	Aree sotto i 2.300 m; non Bogota' ne' San Andres e Providencia; basso rischio a Barranquilla, Cali, Cartagena e Medellin	Areas below 2,300 m; not Bogota or San Andres and Providencia; low risk in Barranquilla, Cali, Cartagena and Medellin	F6+F7	2026-10-03
-ec	PARTIAL	Province orientali sotto i 2.300 m (Morona-Santiago, Napo, Orellana, Pastaza, Sucumbios, Zamora-Chinchipe) ed Esmeraldas; basso rischio in parte delle province occidentali	Eastern provinces below 2,300 m (Morona-Santiago, Napo, Orellana, Pastaza, Sucumbios, Zamora-Chinchipe) and Esmeraldas; low risk in part of the western provinces	F6+F7	2026-10-03
+ec	PARTIAL	Province orientali sotto i 2.300 m (Morona-Santiago, Napo, Orellana, Pastaza, Sucumbios, Zamora-Chinchipe) ed Esmeraldas; basso potenziale a ovest delle Ande (Guayas, Los Rios, Santa Elena, Santo Domingo de los Tsachilas e parte di altre province). Nessun rischio sopra i 2.300 m, a Quito, a Guayaquil e alle Galapagos	Eastern provinces below 2,300 m (Morona-Santiago, Napo, Orellana, Pastaza, Sucumbios, Zamora-Chinchipe) and Esmeraldas; low potential west of the Andes (Guayas, Los Rios, Santa Elena, Santo Domingo de los Tsachilas and parts of other provinces). No risk above 2,300 m, in Quito, in Guayaquil or on the Galapagos	F6+F7	2026-10-04
 er	PARTIAL	Potenziale basso, negli stati di Anseba, Debub, Gash Barka, Mae Kel e Semenawi Keih Bahri	Low potential, in the states of Anseba, Debub, Gash Barka, Mae Kel and Semenawi Keih Bahri	F6+F7	2026-10-03
-et	PARTIAL	Quasi tutto il paese; basso rischio nelle regioni di Afar e Somali	Most of the country; low risk in the Afar and Somali regions	F6+F7	2026-10-03
+et	PARTIAL	Quasi tutto il paese; basso rischio nelle regioni di Afar e Somali	Most of the country; low risk in the Afar and Somali regions	F6+F7	2026-10-04
 ga	WHOLE			F6+F7	2026-10-03
 gf	WHOLE			F6+F7	2026-10-03
 gh	WHOLE			F6+F7	2026-10-03
@@ -32,15 +32,15 @@ lr	WHOLE			F6+F7	2026-10-03
 ml	PARTIAL	Zone a sud del Sahara; non il deserto	Areas south of the Sahara; not the desert	F6+F7	2026-10-03
 mr	PARTIAL	Zone a sud del Sahara; non il deserto	Areas south of the Sahara; not the desert	F6+F7	2026-10-03
 ne	PARTIAL	Zone a sud del Sahara; non il deserto	Areas south of the Sahara; not the desert	F6+F7	2026-10-03
-ng	WHOLE			F6+F7	2026-10-03
+ng	WHOLE			F6+F7	2026-10-04
 pa	PARTIAL	Aree continentali a est del Canale (Darien', Guna Yala, Embera' e parte di Colon e Panama); non la citta' di Panama ne' le isole	Mainland areas east of the Canal (Darien, Guna Yala, Embera and part of Colon and Panama provinces); not Panama City or the islands	F6+F7	2026-10-03
 pe	PARTIAL	Regioni amazzoniche e di foresta sotto i 2.300 m (Loreto, Madre de Dios, Ucayali, San Martin, Junin, Puno e altre); per Cusco e Machu Picchu controlla la fonte	Amazon and forest regions below 2,300 m (Loreto, Madre de Dios, Ucayali, San Martin, Junin, Puno and others); check the source for Cusco and Machu Picchu	F6+F7	2026-10-03
 py	PARTIAL	Tutto il paese; basso rischio nella sola citta' di Asuncion	The whole country; low risk in Asuncion city only	F6+F7	2026-10-03
 rw	WHOLE	Potenziale basso di esposizione in tutto il paese	Low potential for exposure throughout the country	F6+F7	2026-10-03
 sd	PARTIAL	Zone a sud del Sahara; non il deserto ne' Khartoum	Areas south of the Sahara; not the desert or Khartoum	F6+F7	2026-10-03
-sl	WHOLE			F6+F7	2026-10-03
+sl	WHOLE			F6+F7	2026-10-04
 sn	WHOLE			F6+F7	2026-10-03
-so	PARTIAL	Potenziale basso, nelle regioni centro-meridionali (Bakool, Banaadir, Bay, Gedo, Galgaduud, Hiraan, Basso e Medio Giuba, Basso e Medio Scebeli)	Low potential, in the south-central regions (Bakool, Banaadir, Bay, Gedo, Galgaduud, Hiraan, Lower and Middle Juba, Lower and Middle Shabelle)	F6+F7	2026-10-03
+so	PARTIAL	Potenziale basso, nelle regioni centro-meridionali (Bakool, Banaadir, Bay, Gedo, Galgaduud, Hiraan, Basso e Medio Giuba, Basso e Medio Scebeli)	Low potential, in the south-central regions (Bakool, Banaadir, Bay, Gedo, Galgaduud, Hiraan, Lower and Middle Juba, Lower and Middle Shabelle)	F6+F7	2026-10-04
 sr	WHOLE			F6+F7	2026-10-03
 ss	WHOLE			F6+F7	2026-10-03
 st	WHOLE	Potenziale basso di esposizione in tutto il paese	Low potential for exposure throughout the country	F6+F7	2026-10-03
