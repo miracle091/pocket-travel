@@ -138,6 +138,13 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # android-emulator-runner installa la sua versione dei cmdline-tools con un mkdir che fallisce se la cartella c'e'
+      # gia' (immagine ubuntu-24.04); adb nel PATH serve anche alla sua pulizia finale.
+      - name: Prepara l'SDK per l'emulatore
+        run: |
+          sudo rm -rf "$ANDROID_HOME/cmdline-tools"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+
       - uses: reactivecircus/android-emulator-runner@e93c997dcab69054e999e3924af3d21c4a736e13 # v2.9.0
         with:
           api-level: 34
