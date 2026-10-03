@@ -8,6 +8,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:poi"))
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)

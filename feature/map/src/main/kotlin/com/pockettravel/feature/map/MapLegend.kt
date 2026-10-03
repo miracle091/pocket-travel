@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.label
 
 /** Gruppi della legenda: ogni categoria sta in uno e un solo gruppo (vedi MapLegendTest). */
 internal enum class LegendGroup(@StringRes val label: Int, val categories: List<PoiCategory>) {

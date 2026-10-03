@@ -16,6 +16,7 @@ import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.core.data.displayName
 import com.pockettravel.core.data.poiCategory
 import com.pockettravel.core.poi.PoiCategory
+import com.pockettravel.core.ui.label
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers

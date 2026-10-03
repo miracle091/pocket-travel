@@ -55,6 +55,7 @@ import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PoiColors
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.label
 import com.pockettravel.core.ui.safeWebUrl
 import java.time.LocalDate
 import org.maplibre.android.camera.CameraUpdateFactory
