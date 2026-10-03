@@ -24,6 +24,11 @@ class ReplicaTest(unittest.TestCase):
         self.assertEqual(ev.named_city("Dove dormire a forli?", cities), "Forlì")
         self.assertEqual(ev.named_city("Musei di Braga", cities), "Braga")
         self.assertIsNone(ev.named_city("Quanti ne servono?", cities))
+        homonyms = ["Nice", "Mobile", "Split", "Malé"]
+        self.assertIsNone(ev.named_city("Is there a nice beach?", homonyms, "en"))
+        self.assertIsNone(ev.named_city("Mi sento male, dove trovo un medico?", homonyms))
+        self.assertEqual(ev.named_city("Beaches in nice?", homonyms, "en"), "Nice")
+        self.assertEqual(ev.named_city("Cosa vedere a male?", homonyms), "Malé")
 
     def test_focus_stems_senza_la_citta(self):
         self.assertEqual(ev.focus_stems("estate OR piove OR rimini", "Rimini"), {"estat", "piove"})

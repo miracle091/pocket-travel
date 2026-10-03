@@ -75,7 +75,7 @@ class TravelAssistant @Inject constructor(
         val language = currentGuidesLanguage()
         val ftsQuery = buildFtsQuery(question, regionId)
         // La citta' nominata nella domanda: le sezioni delle citta' candidate sono solo le sue.
-        val city = if (ftsQuery.isBlank()) null else namedCity(question, cityRepository.cityNamesFor(regionId))
+        val city = if (ftsQuery.isBlank()) null else namedCity(question, cityRepository.cityNamesFor(regionId), language)
         val sections = if (ftsQuery.isBlank()) {
             emptyList()
         } else {
@@ -395,12 +395,30 @@ private fun normalizedWords(text: String): String =
 // Nomi piu' corti (es. "Ne", "Lu") sono quasi sempre parole comuni nella domanda, non la citta'.
 private const val MIN_CITY_NAME_CHARS = 3
 
-/** La citta' di [cities] nominata in [question] (il nome piu' lungo che vi compare come parole intere), o null. */
-internal fun namedCity(question: String, cities: List<String>): String? {
+// Prima del nome di una citta' scritto in minuscolo ("a forli", "to porto"). Senza, una parola comune uguale al nome
+// di una citta' di una sola parola non e' la citta': "mobile data" (Mobile), "mi sento male" (Male'), "split the bill".
+// In inglese niente "a": e' l'articolo ("a nice beach").
+private val placePrepositions = mapOf(
+    "it" to setOf("a", "ad", "di", "da", "in", "per", "verso", "vicino"),
+    "en" to setOf("in", "to", "from", "near", "around", "at", "of", "visit", "visiting"),
+)
+
+/**
+ * La citta' di [cities] nominata in [question] (il nome piu' lungo che vi compare come parole intere), o null. Un nome
+ * di una sola parola conta solo con l'iniziale maiuscola o dopo una preposizione di luogo della lingua [language].
+ */
+internal fun namedCity(question: String, cities: List<String>, language: String = "it"): String? {
     val words = normalizedWords(question)
-    return cities
-        .filter { spokenCityName(it).length >= MIN_CITY_NAME_CHARS && normalizedWords(spokenCityName(it)) in words }
-        .maxByOrNull { spokenCityName(it).length }
+    val tokens = question.split(nonWord).filter { it.isNotEmpty() }
+    val foldedTokens = tokens.map(::folded)
+    val prepositions = placePrepositions[language] ?: placePrepositions.getValue("en")
+    fun namedAsPlace(name: String) = foldedTokens.indices.any { i ->
+        foldedTokens[i] == name && (tokens[i].first().isUpperCase() || foldedTokens.getOrNull(i - 1) in prepositions)
+    }
+    return cities.filter { city ->
+        val name = normalizedWords(spokenCityName(city)).trim()
+        spokenCityName(city).length >= MIN_CITY_NAME_CHARS && " $name " in words && (' ' in name || namedAsPlace(name))
+    }.maxByOrNull { spokenCityName(it).length }
 }
 
 private const val STEM_CHARS = 5

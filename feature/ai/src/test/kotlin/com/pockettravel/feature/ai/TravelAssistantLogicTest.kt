@@ -212,6 +212,14 @@ class TravelAssistantLogicTest {
         assertEquals("Braga", namedCity("Musei di Braga", cities))
         assertNull(namedCity("Quanti ne servono per entrare?", cities))
         assertNull(namedCity("Serve il passaporto?", cities))
+        // Parole comuni uguali a una citta' di una sola parola: non sono la citta'.
+        val homonyms = listOf("Nice", "Mobile", "Split", "Malé")
+        assertNull(namedCity("Is there a nice beach?", homonyms, "en"))
+        assertNull(namedCity("How do I get mobile data?", homonyms, "en"))
+        assertNull(namedCity("Mi sento male, dove trovo un medico?", homonyms))
+        assertEquals("Nice", namedCity("Beaches in nice?", homonyms, "en"))
+        assertEquals("Split", namedCity("Ferry to Split", homonyms, "en"))
+        assertEquals("Malé", namedCity("Cosa vedere a male?", homonyms))
     }
 
     @Test

@@ -136,11 +136,29 @@ def normalized_words(text):
     return " " + " ".join(w for w in re.split(r"[^\w]+|_", folded(text)) if w) + " "
 
 
-def named_city(question, cities):
-    """namedCity: la citta' nominata nella domanda (il nome piu' lungo, a parole intere), o None."""
+PLACE_PREPOSITIONS = {
+    "it": {"a", "ad", "di", "da", "in", "per", "verso", "vicino"},
+    "en": {"in", "to", "from", "near", "around", "at", "of", "visit", "visiting"},
+}
+
+
+def named_city(question, cities, lang="it"):
+    """namedCity: la citta' nominata nella domanda (il nome piu' lungo, a parole intere), o None. Un nome di una
+    sola parola conta solo con l'iniziale maiuscola o dopo una preposizione di luogo (PLACE_PREPOSITIONS)."""
     words = normalized_words(question)
-    found = [c for c in cities
-             if len(spoken_city_name(c)) >= MIN_CITY_NAME_CHARS and normalized_words(spoken_city_name(c)) in words]
+    tokens = [w for w in re.split(r"[^\w]+|_", question) if w]
+    folded_tokens = [folded(t) for t in tokens]
+    prepositions = PLACE_PREPOSITIONS.get(lang, PLACE_PREPOSITIONS["en"])
+
+    def named_as_place(name):
+        return any(t == name and (tokens[i][0].isupper() or (i > 0 and folded_tokens[i - 1] in prepositions))
+                   for i, t in enumerate(folded_tokens))
+
+    found = []
+    for c in cities:
+        name = normalized_words(spoken_city_name(c)).strip()
+        if len(spoken_city_name(c)) >= MIN_CITY_NAME_CHARS and f" {name} " in words and (" " in name or named_as_place(name)):
+            found.append(c)
     return max(found, key=lambda c: len(spoken_city_name(c)), default=None)
 
 
@@ -246,12 +264,12 @@ def build_db(guides_db, region, city_rows):
     return db
 
 
-def search(db, region, question, cities):
+def search(db, region, question, cities, lang="it"):
     """TravelAssistant.ask fino alle sezioni del contesto: (sezioni, radici della domanda)."""
     fts = fts_query(question, region)
     if not fts:
         return [], set()
-    city = named_city(question, cities)
+    city = named_city(question, cities, lang)
     guide = [({"city": None, "category": k, "body": b}, parse_matchinfo(mi)) for k, b, mi in db.execute(
         "SELECT s.category, s.body, matchinfo(guide_sections_fts, 'pcxnal') FROM guide_sections s "
         "JOIN guide_sections_fts ON s.id = guide_sections_fts.rowid "
@@ -357,7 +375,7 @@ def main():
         db = build_db(a.cache / f"guides{LANGS[a.lang]['suffix']}.db", region, rows)
         cities = sorted({r[0] for r in rows})
         for kind, cat, city, q in plan:
-            top, stems = search(db, region, q, cities)
+            top, stems = search(db, region, q, cities, a.lang)
             r = res[kind]
             r["n"] += 1
             match = [s for s in top if s["category"] == cat and (city is None or s["city"] == city)]
