@@ -120,7 +120,7 @@ class TravelAssistant @Inject constructor(
         )
         return AssistantAnswer(
             text = engine.generate(prompt),
-            sourceCitations = sections.map { it.citation },
+            sourceCitations = citedSections(sections, context).map { it.citation },
             showOfficialSourceBanner = false,
         )
     }
@@ -242,8 +242,27 @@ private val historyClimateWords = Regex(
  */
 internal fun isHistoryOrClimateQuestion(question: String): Boolean = historyClimateWords.containsMatchIn(question)
 
+// "piu' vicina a Roma", "nearest pharmacy to the station": il riferimento e' un altro posto. "a me", "to me" restano vicino.
+private val nearOtherPlace = Regex(
+    """(pi(ù|u'|u) vicin\p{L}*|nearest|closest)(\s+\p{L}+){0,2}?\s+(a|ad|al|alla|allo|all'|ai|agli|alle|da|to|from)\s+(?!(me|noi|us|here|qui)\b)\p{L}""",
+    RegexOption.IGNORE_CASE,
+)
+
 /** True se la domanda chiede cosa c'è attorno alla posizione dell'utente (italiano o inglese). */
-internal fun isNearbyQuestion(question: String): Boolean = nearbyWords.containsMatchIn(question)
+internal fun isNearbyQuestion(question: String): Boolean =
+    nearbyWords.containsMatchIn(question) && (nearOtherPlace.find(question) == null || hereWords.containsMatchIn(question))
+
+// Parole che legano comunque la domanda alla posizione dell'utente, anche con un altro posto nominato.
+private val hereWords = Regex("""qui vicino|vicino a me|qui intorno|qui attorno|near me|around here""", RegexOption.IGNORE_CASE)
+
+/**
+ * Le sezioni entrate nel contesto (selectContext ne lascia fuori quando lo spazio finisce): solo di quelle si citano le
+ * fonti. Una sezione c'e' se l'inizio di uno dei suoi paragrafi compare nel contesto.
+ */
+internal fun citedSections(sections: List<AssistantSection>, context: String): List<AssistantSection> =
+    sections.filter { section -> section.body.lines().any { it.isNotBlank() && it.take(CITATION_PROBE_CHARS) in context } }
+
+private const val CITATION_PROBE_CHARS = 60
 
 /**
  * Testo dei POI vicini per il contesto: un'intestazione col raggio di ricerca, poi una riga per categoria ([label], al
@@ -273,7 +292,8 @@ internal fun isTransitQuestion(question: String): Boolean = transitWords.contain
 /**
  * Testo del tabellone delle fermate vicine per il contesto: le prossime partenze (ora della rete, minuti da adesso, mezzo,
  * linea e direzione), oppure che non ce ne sono o che gli orari sono scaduti. Null se vicino non c'è nessuna fermata. I
- * nomi dei mezzi sono il vocabolario del prompt (lo stesso del dataset di training), non le etichette della mappa.
+ * nomi dei mezzi sono il vocabolario del prompt, non le etichette della mappa: gli esempi di training di generate_sft.py
+ * --nearby (tools/data-pipeline/scripts/sft_nearby.py) copiano questo testo, da cambiare insieme.
  */
 internal fun transitContext(board: TransitBoard, language: String): String? {
     val en = language == "en"

@@ -313,6 +313,20 @@ class TravelAssistantLogicTest {
         assertTrue(isNearbyQuestion("Where is the nearest pharmacy?"))
         assertFalse(isNearbyQuestion("C'e' un aeroporto vicino a Riga?"))
         assertFalse(isNearbyQuestion("Serve il visto per il Giappone?"))
+        // "Piu' vicino a <luogo>": il riferimento e' un altro posto, non la posizione dell'utente.
+        assertFalse(isNearbyQuestion("Qual è la farmacia più vicina a Roma?"))
+        assertFalse(isNearbyQuestion("Where is the nearest pharmacy to the station?"))
+        assertFalse(isNearbyQuestion("La stazione più vicina a Merano?"))
+        assertTrue(isNearbyQuestion("Qual è la farmacia più vicina a me?"))
+        assertTrue(isNearbyQuestion("What's the closest ATM to me?"))
+    }
+
+    @Test
+    fun `si citano solo le fonti delle sezioni entrate nel contesto`() {
+        val dentro = AssistantSection("Primo paragrafo della guida sulla dogana", GuideCategory.DOGANE, "Fonte A")
+        val fuori = AssistantSection("Paragrafo rimasto fuori per spazio", GuideCategory.DOGANE, "Fonte B")
+        val context = buildOnDeviceContext(listOf(dentro), note = null)
+        assertEquals(listOf("Fonte A"), citedSections(listOf(dentro, fuori), context).map { it.citation })
     }
 
     @Test
