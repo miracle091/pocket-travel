@@ -76,10 +76,16 @@ internal fun readAddressOrigin(db: AddressQueryRunner): AddressOrigin? {
 }
 
 // street.key e' fatta solo di lettere, cifre e spazi (streetKey): niente % o _ da proteggere nel LIKE.
-// Prima le vie che iniziano per la chiave, poi quelle in cui una parola inizia cosi' (es. "rivoli" per "rue de rivoli").
-// La tabella delle vie e' piccola (una riga per via e citta'): una scansione basta, gli indirizzi si cercano poi per chiave primaria.
-private const val STREETS_QUERY =
-    "SELECT id, name, city FROM street WHERE key LIKE ? OR key LIKE ? ORDER BY CASE WHEN key LIKE ? THEN 0 ELSE 1 END, key, id LIMIT "
+// Prima le vie che iniziano per la chiave, con un intervallo sull'indice street_key (un LIKE non lo userebbe: e'
+// insensibile alle maiuscole); poi, solo se mancano risultati, quelle in cui una parola inizia cosi' (es. "rivoli"
+// per "rue de rivoli"), con una scansione della tabella (una riga per via e citta'). Gli indirizzi si cercano poi per chiave primaria.
+private const val STREETS_PREFIX_QUERY =
+    "SELECT id, name, city FROM street WHERE key >= ? AND key < ? ORDER BY key, id LIMIT "
+private const val STREETS_WORD_QUERY =
+    "SELECT id, name, city FROM street WHERE key LIKE ? AND NOT (key >= ? AND key < ?) ORDER BY key, id LIMIT "
+
+// Fine (esclusa) dell'intervallo delle chiavi che iniziano per [key]: chiavi e confronto sono binari su UTF-8.
+private fun prefixUpperBound(key: String) = key + '￿'
 
 // Con il civico si guardano piu' vie di [limit]: non tutte hanno quel civico.
 private const val MAX_STREET_CANDIDATES = 500
@@ -99,10 +105,16 @@ internal fun searchAddressDb(db: AddressQueryRunner, origin: AddressOrigin, regi
     val key = streetKey(query.street)
     if (key.isEmpty()) return emptyList()
     val number = query.number
-    val streets = db.query(
-        STREETS_QUERY + (if (number != null) MAX_STREET_CANDIDATES else limit),
-        listOf("$key%", "% $key%", "$key%"),
-    ) { FoundStreet(it.long(0), it.string(1).orEmpty(), it.string(2)) }
+    val maxStreets = if (number != null) MAX_STREET_CANDIDATES else limit
+    val upperBound = prefixUpperBound(key)
+    val streets = db.query(STREETS_PREFIX_QUERY + maxStreets, listOf(key, upperBound)) {
+        FoundStreet(it.long(0), it.string(1).orEmpty(), it.string(2))
+    }.let { byPrefix ->
+        if (byPrefix.size >= maxStreets) byPrefix
+        else byPrefix + db.query(STREETS_WORD_QUERY + (maxStreets - byPrefix.size), listOf("% $key%", key, upperBound)) {
+            FoundStreet(it.long(0), it.string(1).orEmpty(), it.string(2))
+        }
+    }
     if (streets.isEmpty()) return emptyList()
     if (number != null) {
         // Gli id sono interi letti dal database: niente da proteggere nell'elenco.

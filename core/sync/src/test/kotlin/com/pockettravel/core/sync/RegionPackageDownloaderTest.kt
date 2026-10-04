@@ -111,17 +111,40 @@ class RegionPackageDownloaderTest {
     }
 
     @Test
-    fun `dimensione diversa da quella dichiarata fa fallire il download`() = runBlocking {
+    fun `un flusso piu' corto del manifest e' ritentabile e tiene il part file`() = runBlocking {
         val bytes = "abc".toByteArray()
         server.enqueue(MockResponse().setResponseCode(200).setBody("abc"))
         val manifest = manifestFile(bytes).copy(sizeBytes = 999)
 
         try {
             downloader.downloadAndVerify(manifest, File(targetDir, "content.db"))
-            fail("una dimensione sbagliata deve far fallire il download")
+            fail("un flusso troncato deve far fallire il tentativo")
         } catch (_: PermanentRegionPackageException) {
-            // atteso
+            fail("un flusso troncato non deve essere trattato come permanente")
+        } catch (_: IOException) {
+            // atteso: al prossimo tentativo si riprende dal .part
         }
+        assertEquals("abc", File(targetDir, "content.db.part").readText())
+    }
+
+    @Test
+    fun `un Content-Range inatteso cancella il part file ed e' ritentabile`() = runBlocking {
+        val fullText = "0123456789"
+        val partFile = File(targetDir, "content.db.part")
+        partFile.writeBytes("01234".toByteArray())
+        server.enqueue(
+            MockResponse().setResponseCode(206).setHeader("Content-Range", "bytes 0-9/10").setBody(fullText),
+        )
+
+        try {
+            downloader.downloadAndVerify(manifestFile(fullText.toByteArray()), File(targetDir, "content.db"))
+            fail("un Content-Range inatteso deve far fallire il tentativo")
+        } catch (_: PermanentRegionPackageException) {
+            fail("un Content-Range inatteso non deve essere permanente")
+        } catch (_: IOException) {
+            // atteso: al prossimo tentativo si riparte da zero
+        }
+        assertFalse(partFile.exists())
     }
 
     @Test
@@ -173,6 +196,37 @@ class RegionPackageDownloaderTest {
         assertEquals("tile cambiata", File(staging, "E10_N45.rd5").readText())
         // Il segmento installato resta al suo posto per il rollback.
         assertEquals("tile invariata", File(installedRouting, "E10_N40.rd5").readText())
+    }
+
+    @Test
+    fun `un segmento rd5 gia' spostato in staging-routing da un'installazione annullata si riusa`() = runBlocking {
+        val moved = "tile gia' scaricata".toByteArray()
+        val stagingRouting = File(regionStorage.stagingDirectoryFor("italia", "routing-2"), RegionStorage.ROUTING_DIR).apply { mkdirs() }
+        File(stagingRouting, "E10_N40.rd5").writeBytes(moved)
+
+        val staging = downloader.download("italia", "routing-2", listOf(manifestFile(moved, "E10_N40.rd5")))
+
+        assertEquals(0, server.requestCount)
+        assertEquals("tile gia' scaricata", File(staging, "E10_N40.rd5").readText())
+    }
+
+    @Test
+    fun `un segmento rd5 installato con lo SHA diverso non si copia in staging`() = runBlocking {
+        val installedRouting = File(regionStorage.directoryFor("italia"), RegionStorage.ROUTING_DIR).apply { mkdirs() }
+        File(installedRouting, "E10_N45.rd5").writeBytes("tile vecchia!".toByteArray())
+        val changed = "tile cambiata".toByteArray()
+        // Il download si ferma subito (500): quello che conta e' che in staging non sia stato copiato il vecchio file.
+        server.enqueue(MockResponse().setResponseCode(500))
+
+        try {
+            downloader.download("italia", "routing-2", listOf(manifestFile(changed, "E10_N45.rd5")))
+            fail("il download doveva fallire")
+        } catch (_: IOException) {
+            // atteso
+        }
+
+        assertFalse(File(regionStorage.stagingDirectoryFor("italia", "routing-2"), "E10_N45.rd5").exists())
+        assertEquals(1, server.requestCount)
     }
 
     @Test

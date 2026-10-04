@@ -482,6 +482,33 @@ class PmtilesExtractorTest {
     }
 
     @Test
+    fun `un errore di rete durante l'aggiornamento incrementale si propaga senza ripiegare`() {
+        val installed = File(sourceFile.parentFile, "installed.pmtiles").also { writePmtiles(it, oldTiles()) }
+        writePmtiles(sourceFile, newTiles())
+        val inner = RangeFileDispatcher(sourceFile)
+        val failures = java.util.concurrent.atomic.AtomicInteger()
+        // Header e root directory del Reader e header dell'indice rispondono, poi il server cade.
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                if (inner.requestedStarts.size < 3) inner.dispatch(request) else MockResponse().setResponseCode(503).also { failures.incrementAndGet() }
+        }
+        server.start()
+        val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())
+
+        try {
+            PmtilesExtractor(alwaysDownloadMaxZoom = -1).extract(mapSource, outputFile, installed)
+            fail("l'errore di rete doveva propagarsi")
+        } catch (expected: java.io.IOException) {
+            // atteso: il worker ritenta
+        }
+
+        // nessun ripiego: l'estrazione completa farebbe almeno una seconda richiesta, anch'essa fallita
+        assertEquals(1, failures.get())
+        assertFalse(outputFile.exists())
+        assertTrue(outputFile.parentFile!!.listFiles()!!.none { it.name.endsWith(".tmp") })
+    }
+
+    @Test
     fun `la mappa leggera non ha l'ultimo zoom e lo dichiara nell'header`() {
         serveNew(oldTiles())
         val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())

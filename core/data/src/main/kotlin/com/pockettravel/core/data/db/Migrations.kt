@@ -5,7 +5,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 /** Tutte le migrazioni, per Room.databaseBuilder e per i test. */
 val ALL_MIGRATIONS: Array<Migration>
-    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
+    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
 
 /** Versioni del database mai uscite in una versione pubblicata dell'app (solo sviluppo). */
 val UNRELEASED_VERSIONS = intArrayOf(1, 2, 4, 7, 8, 10, 12, 13, 14, 16)
@@ -361,5 +361,12 @@ val MIGRATION_19_20 = object : Migration(19, 20) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `population` INTEGER")
         db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `capital` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** Indice dei POI su (regionId, lat): i segnalini e i piu' vicini non scandiscono piu' tutta la regione. */
+val MIGRATION_20_21 = object : Migration(20, 21) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionId_lat` ON `poi` (`regionId`, `lat`)")
     }
 }

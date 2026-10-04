@@ -13,6 +13,9 @@ import javax.inject.Inject
 
 class PmtilesExtractionException(message: String) : Exception(message)
 
+/** Errore di lettura dalla build remota (rete): l'aggiornamento incrementale non ripiega, il worker ritenta. */
+private class RemoteReadException(cause: IOException) : IOException(cause.message, cause)
+
 /**
  * Esito di [PmtilesExtractor.extract]: quante tile sono state scaricate e quante riusate dalla mappa
  * gia' installata (0 con l'estrazione completa). I byte riusati sono quelli non scaricati.
@@ -54,8 +57,8 @@ enum class MapDetail { FULL, LIGHT }
  * grandi (su San Marino, tra le build del 24 e del 30 settembre 2026, 3 tile su 75 a z0, z7 e z10):
  * fino a [alwaysDownloadMaxZoom] le tile si riscaricano sempre, circa 1,7 MB per l'Italia fino a z6
  * (115 MB fino a z10). Se qualcosa non torna (file locale
- * illeggibile, compressione o tipo di tile diversi, errori di rete) si ripiega sull'estrazione
- * completa; l'annullamento invece si propaga.
+ * illeggibile, compressione o tipo di tile diversi) si ripiega sull'estrazione completa; gli errori
+ * di rete e l'annullamento invece si propagano (il worker ritenta).
  *
  * Chiamato dentro RegionPackageDownloadWorker, non un meccanismo di download separato: per
  * l'utente e' lo stesso "Scarica" degli altri pacchetti.
@@ -102,6 +105,9 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
                             stats
                         }
                     } catch (error: PmtilesExtractionException) {
+                        throw error
+                    } catch (error: RemoteReadException) {
+                        // Rete: l'estrazione completa fallirebbe uguale e scaricherebbe tutto da capo.
                         throw error
                     } catch (error: Exception) {
                         if (error === interruption) throw error
@@ -257,8 +263,12 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
     private fun readRemote(channel: FileChannel, position: Long, length: Int): ByteArray {
         if (length == 0) return ByteArray(0)
         val buffer = ByteBuffer.allocate(length)
-        val count = channel.read(buffer, position)
-        if (count != length) throw IOException("Lettura incompleta: $count byte di $length")
+        try {
+            val count = channel.read(buffer, position)
+            if (count != length) throw IOException("Lettura incompleta: $count byte di $length")
+        } catch (error: IOException) {
+            throw RemoteReadException(error)
+        }
         return buffer.array()
     }
 

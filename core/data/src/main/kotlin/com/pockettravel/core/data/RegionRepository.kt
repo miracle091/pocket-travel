@@ -7,8 +7,10 @@ import com.pockettravel.core.data.db.InstalledRegionEntity
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.RegionDatabase
 import com.pockettravel.core.data.db.RegionPackageDao
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 class RegionRepository @Inject constructor(
@@ -65,20 +67,22 @@ class RegionRepository @Inject constructor(
             return
         }
         // File su disco fuori dalla transazione (come in remove()); prima di save(), che ne legge le dimensioni.
-        when (kind) {
-            PackageKind.MAP -> check(regionStorage.deletePackage(regionId, RegionStorage.MAP_FILE)) { "Impossibile eliminare la mappa di $regionId" }
-            PackageKind.ROUTING -> check(regionStorage.deletePackage(regionId, RegionStorage.ROUTING_DIR)) { "Impossibile eliminare il routing di $regionId" }
-            PackageKind.ADDRESSES -> {
-                check(regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_FILE)) { "Impossibile eliminare i civici di $regionId" }
-                // Percorso a griglia: elenco delle celle installate accanto ad ADDRESSES_FILE, assente
-                // (deletePackage torna comunque true) per i civici senza griglia.
-                regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_CELLS_FILE)
-                // Database di ricerca degli indirizzi: assente per i manifest senza ricerca. I file aperti da
-                // AddressSearchRepository li chiude lei alla ricerca successiva (file sparito).
-                regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_SEARCH_DIR)
+        withContext(Dispatchers.IO) {
+            when (kind) {
+                PackageKind.MAP -> check(regionStorage.deletePackage(regionId, RegionStorage.MAP_FILE)) { "Impossibile eliminare la mappa di $regionId" }
+                PackageKind.ROUTING -> check(regionStorage.deletePackage(regionId, RegionStorage.ROUTING_DIR)) { "Impossibile eliminare il routing di $regionId" }
+                PackageKind.ADDRESSES -> {
+                    check(regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_FILE)) { "Impossibile eliminare i civici di $regionId" }
+                    // Percorso a griglia: elenco delle celle installate accanto ad ADDRESSES_FILE, assente
+                    // (deletePackage torna comunque true) per i civici senza griglia.
+                    regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_CELLS_FILE)
+                    // Database di ricerca degli indirizzi: assente per i manifest senza ricerca. I file aperti da
+                    // AddressSearchRepository li chiude lei alla ricerca successiva (file sparito).
+                    regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_SEARCH_DIR)
+                }
+                PackageKind.TRANSIT -> check(regionStorage.deletePackage(regionId, RegionStorage.TRANSIT_DIR)) { "Impossibile eliminare gli orari dei mezzi di $regionId" }
+                PackageKind.POI, PackageKind.POI_EXTRA, PackageKind.CITIES -> Unit
             }
-            PackageKind.TRANSIT -> check(regionStorage.deletePackage(regionId, RegionStorage.TRANSIT_DIR)) { "Impossibile eliminare gli orari dei mezzi di $regionId" }
-            PackageKind.POI, PackageKind.POI_EXTRA, PackageKind.CITIES -> Unit
         }
         database.withTransaction {
             when (kind) {
@@ -106,9 +110,11 @@ class RegionRepository @Inject constructor(
      */
     suspend fun forgetMissingPackages(regionId: String): Set<PackageKind> {
         val current = installed(regionId) ?: return emptySet()
-        val missing = FILE_PACKAGES.filter { (kind, packageName) ->
-            current.versionOf(kind) != null && regionStorage.packageBytes(regionId, packageName) == 0L
-        }.keys
+        val missing = withContext(Dispatchers.IO) {
+            FILE_PACKAGES.filter { (kind, packageName) ->
+                current.versionOf(kind) != null && !regionStorage.hasPackageFiles(regionId, packageName)
+            }.keys
+        }
         if (missing.isEmpty()) return missing
         save(
             regionId, current.displayName, current.countryCode,
@@ -194,8 +200,10 @@ class RegionRepository @Inject constructor(
 
     // Le guide restano: sono un pacchetto unico per tutte le regioni, non di questa regione.
     suspend fun remove(regionId: String) {
-        check(regionStorage.delete(regionId)) { "Impossibile eliminare la regione $regionId" }
-        regionStorage.deleteStaging(regionId)
+        withContext(Dispatchers.IO) {
+            check(regionStorage.delete(regionId)) { "Impossibile eliminare la regione $regionId" }
+            regionStorage.deleteStaging(regionId)
+        }
         database.withTransaction {
             regionPackageDao.deleteById(regionId)
             poiDao.deleteForRegion(regionId)

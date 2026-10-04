@@ -36,8 +36,9 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         var regionId: String? = null
         val requestFile = inputData.getString(KEY_MANIFEST_ENTRY_FILE)
         val result = try {
-            val entryJson = entryJson(requestFile) ?: return Result.failure()
-            val requestedKinds = inputData.getNullableStringArray(KEY_PACKAGE_KINDS)?.filterNotNull()?.map(PackageKind::valueOf)?.toSet() ?: return Result.failure()
+            val entryJson = entryJson(requestFile) ?: return finish(Result.failure(), regionId, requestFile)
+            val requestedKinds = inputData.getNullableStringArray(KEY_PACKAGE_KINDS)?.filterNotNull()?.map(PackageKind::valueOf)?.toSet()
+                ?: return finish(Result.failure(), regionId, requestFile)
             val manifestEntry = json.decodeFromString(RegionManifestEntry.serializer(), entryJson)
             manifestEntry.validate()
             regionId = manifestEntry.regionId
@@ -47,7 +48,7 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
             val carOnly = manifestEntry.regionId in routingVariantPreferences.carOnly.value && manifestEntry.routingCar != null
             val entry = manifestEntry.withRoutingVariant(carOnly).restrictedTo(regionZonePreferences.zone(manifestEntry.regionId))
             val kinds = requestedKinds.filterTo(mutableSetOf()) { it in entry.availableKinds }
-            if (kinds.isEmpty()) return Result.success()
+            if (kinds.isEmpty()) return finish(Result.success(), regionId, requestFile)
             var lastMapPercent = -1L
             // Download in primo piano (tipo dataSync): notifica con avanzamento e "Annulla", e il sistema non lo
             // ferma a schermo spento. Gli aggiornamenti dopo il primo sono asincroni e al massimo uno al secondo.
@@ -107,6 +108,12 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         // tentativo lo riusa. Confronto con Result.retry() (Retry.equals vale per ogni Retry): la
         // classe Result.Retry e' API riservata a WorkManager e il lint (RestrictedApi) la rifiuta.
         if (result != Result.retry()) cleanUp(regionId, requestFile)
+        return result
+    }
+
+    // Uscite anticipate di doWork: anche loro lasciano il file della richiesta (e lo staging) a posto.
+    private fun finish(result: Result, regionId: String?, requestFile: String?): Result {
+        cleanUp(regionId, requestFile)
         return result
     }
 

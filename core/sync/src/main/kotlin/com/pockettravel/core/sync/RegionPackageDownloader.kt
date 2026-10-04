@@ -58,13 +58,15 @@ class RegionPackageDownloader @Inject constructor(
             val staging = regionStorage.stagingDirectoryFor(regionId, stagingVersion)
             staging.mkdirs()
             val installedRouting = File(regionStorage.directoryFor(regionId), RegionStorage.ROUTING_DIR)
+            // Un'installazione annullata dopo lo spostamento dei .rd5 in staging/routing (RegionRoutingGraphInstaller).
+            val stagedRouting = File(staging, RegionStorage.ROUTING_DIR)
             val totalBytes = files.sumOf { it.sizeBytes }
             regionStorage.reserveSpace(totalBytes)
             var bytesBeforeCurrentFile = 0L
             files.forEach { file ->
                 val baseBytes = bytesBeforeCurrentFile
                 val target = File(staging, file.name)
-                if (reuseLocalCopy(file, target, File(installedRouting, file.name))) {
+                if (reuseLocalCopy(file, target, listOf(File(stagedRouting, file.name), File(installedRouting, file.name)))) {
                     onProgress(baseBytes + file.sizeBytes, totalBytes)
                 } else {
                     downloadAndVerify(file, target) { fileBytesDownloaded ->
@@ -79,13 +81,18 @@ class RegionPackageDownloader @Inject constructor(
     /**
      * Evita di riscaricare un file che c'e' gia': un segmento .rd5 installato con lo stesso nome,
      * dimensione e SHA-256 (tile non cambiata tra due versioni del routing, la pipeline ricarica
-     * solo quelle cambiate), o un file gia' completo in staging da un tentativo precedente. Il
-     * segmento installato si copia, non si sposta: serve ancora per il rollback
-     * (RegionStorage.activatePackage).
+     * solo quelle cambiate), o un file gia' completo in staging da un tentativo precedente
+     * (anche gia' spostato in staging/routing da un'installazione annullata). La sorgente si
+     * copia, non si sposta, e solo se lo SHA-256 coincide: il segmento installato serve ancora per
+     * il rollback (RegionStorage.activatePackage).
      */
-    private fun reuseLocalCopy(file: RegionManifestFile, target: File, installed: File): Boolean {
-        if (!target.exists() && installed.isFile && installed.length() == file.sizeBytes) {
-            installed.copyTo(target)
+    private fun reuseLocalCopy(file: RegionManifestFile, target: File, sources: List<File>): Boolean {
+        if (!target.exists()) {
+            val source = sources.firstOrNull { it.isFile && it.length() == file.sizeBytes && sha256Of(it).equals(file.sha256, ignoreCase = true) }
+            if (source != null) {
+                source.copyTo(target)
+                return true
+            }
         }
         if (!target.exists()) return false
         if (target.length() == file.sizeBytes && sha256Of(target).equals(file.sha256, ignoreCase = true)) return true
@@ -125,7 +132,11 @@ class RegionPackageDownloader @Inject constructor(
             val body = response.body
             val append = response.code == 206 && existingBytes > 0
             if (existingBytes > 0 && response.code == 206) {
-                require(response.header("Content-Range")?.startsWith("bytes $existingBytes-", ignoreCase = true) == true) { "Risposta range non valida per ${file.name}" }
+                if (response.header("Content-Range")?.startsWith("bytes $existingBytes-", ignoreCase = true) != true) {
+                    // Come per il 416: .part non coerente con la risposta, si riparte da zero.
+                    partFile.delete()
+                    throw IOException("Risposta range non valida per ${file.name}: riscarico da capo")
+                }
             }
             var downloaded = if (append) existingBytes else 0L
             var lastReported = downloaded
@@ -158,8 +169,10 @@ class RegionPackageDownloader @Inject constructor(
             onProgress(downloaded)
         }
 
-        if (partFile.length() != file.sizeBytes) {
-            val actual = partFile.length()
+        val actual = partFile.length()
+        // Flusso chiuso in anticipo senza errore: di rete, si riprende dal .part al prossimo tentativo.
+        if (actual < file.sizeBytes) throw IOException("Download interrotto per ${file.name}: $actual byte di ${file.sizeBytes}")
+        if (actual != file.sizeBytes) {
             partFile.delete()
             throw PermanentRegionPackageException("Dimensione non valida per ${file.name}: attesa ${file.sizeBytes}, ottenuta $actual")
         }
@@ -187,6 +200,6 @@ class RegionPackageDownloader @Inject constructor(
     private companion object {
         // Un lock per id di staging, condiviso tra le istanze (il downloader non e' un singleton).
         val locks = ConcurrentHashMap<String, Mutex>()
-        const val PROGRESS_STEP_BYTES = 1_000_000L
+        const val PROGRESS_STEP_BYTES = 4_000_000L
     }
 }

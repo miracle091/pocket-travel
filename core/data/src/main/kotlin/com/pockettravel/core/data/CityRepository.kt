@@ -35,7 +35,7 @@ class CityRepository @Inject constructor(
             .map { it.section.toDomain() to FtsMatchInfo.parse(it.matchinfo) }
 
     private companion object {
-        const val CANDIDATE_CAP = 30
+        const val CANDIDATE_CAP = 100
         const val CITY_CANDIDATE_CAP = 100
 
         // In coda alla guida della citta', in quest'ordine; indexOf = -1 lascia le altre in testa nel loro ordine.

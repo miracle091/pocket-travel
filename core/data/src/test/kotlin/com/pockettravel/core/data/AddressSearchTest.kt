@@ -189,6 +189,13 @@ class AddressSearchTest {
     }
 
     @Test
+    fun `una via che inizia e contiene la chiave come parola compare una volta sola`() {
+        address("Rivoli Rue Rivoli", "1", "Paris", 1.0, 1.0)
+        address("Rue de Rivoli", "1", "Paris", 2.0, 2.0)
+        assertEquals(listOf("Rivoli Rue Rivoli", "Rue de Rivoli"), search("Rivoli 1").map { it.street })
+    }
+
+    @Test
     fun `una parte di parola nel mezzo non basta`() {
         address("Via Gioberti", "3", "Torino", 1.0, 1.0)
         assertTrue(search("berti 3").isEmpty())

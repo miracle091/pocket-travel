@@ -62,10 +62,19 @@ class PoiImporter @Inject constructor(
         val query = if (db.version >= 1) compactPoiQuery(columns) else poiQuery(columns)
         var pois = ArrayList<PoiEntity>(CHUNK_SIZE)
         db.rawQuery(query, null).use { cursor ->
-            fun optional(name: String): String? {
-                val index = cursor.getColumnIndex(name)
-                return if (index >= 0 && !cursor.isNull(index)) cursor.getString(index) else null
-            }
+            // Indici calcolati una volta sola, non a ogni riga (-1: colonna assente dal file).
+            val phone = cursor.getColumnIndex("phone")
+            val wheelchair = cursor.getColumnIndex("wheelchair")
+            val openingHours = cursor.getColumnIndex("openingHours")
+            val address = cursor.getColumnIndex("address")
+            val website = cursor.getColumnIndex("website")
+            val email = cursor.getColumnIndex("email")
+            val country = cursor.getColumnIndex("country")
+            val nameEn = cursor.getColumnIndex("nameEn")
+            val nameIt = cursor.getColumnIndex("nameIt")
+            val toiletsWheelchair = cursor.getColumnIndex("toiletsWheelchair")
+            val capacityDisabled = cursor.getColumnIndex("capacityDisabled")
+            fun optional(index: Int): String? = if (index >= 0 && !cursor.isNull(index)) cursor.getString(index) else null
             while (cursor.moveToNext()) {
                 pois += PoiEntity(
                     regionId = regionId,
@@ -74,17 +83,17 @@ class PoiImporter @Inject constructor(
                     lat = cursor.getDouble(2),
                     lon = cursor.getDouble(3),
                     osmTag = cursor.getString(4),
-                    phone = optional("phone"),
-                    wheelchair = optional("wheelchair"),
-                    openingHours = optional("openingHours"),
-                    address = optional("address"),
-                    website = optional("website"),
-                    email = optional("email"),
-                    country = optional("country"),
-                    nameEn = optional("nameEn"),
-                    nameIt = optional("nameIt"),
-                    toiletsWheelchair = optional("toiletsWheelchair"),
-                    capacityDisabled = optional("capacityDisabled")?.toIntOrNull(),
+                    phone = optional(phone),
+                    wheelchair = optional(wheelchair),
+                    openingHours = optional(openingHours),
+                    address = optional(address),
+                    website = optional(website),
+                    email = optional(email),
+                    country = optional(country),
+                    nameEn = optional(nameEn),
+                    nameIt = optional(nameIt),
+                    toiletsWheelchair = optional(toiletsWheelchair),
+                    capacityDisabled = optional(capacityDisabled)?.toIntOrNull(),
                     extra = extra,
                 )
                 if (pois.size == CHUNK_SIZE) {

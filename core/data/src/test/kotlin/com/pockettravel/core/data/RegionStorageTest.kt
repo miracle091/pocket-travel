@@ -173,6 +173,52 @@ class RegionStorageTest {
     }
 
     @Test
+    fun `recupero di una prima installazione mai registrata cancella il pacchetto`() {
+        val (storage, _) = newStorage()
+        // Crash dopo l'attivazione, prima della transazione: nessun pacchetto precedente, il database non sa nulla.
+        storage.activatePackage("italia", RegionStorage.MAP_FILE, stagedFile(storage, "v1", RegionStorage.MAP_FILE, "nuova"), "v1")
+
+        storage.recoverInterruptedActivations("italia") { null }
+
+        assertFalse(File(storage.directoryFor("italia"), RegionStorage.MAP_FILE).exists())
+        assertEquals(emptySet<String>(), leftovers(storage))
+    }
+
+    @Test
+    fun `recupero di una prima installazione registrata dal database tiene il pacchetto`() {
+        val (storage, _) = newStorage()
+        storage.activatePackage("italia", RegionStorage.MAP_FILE, stagedFile(storage, "v1", RegionStorage.MAP_FILE, "nuova"), "v1")
+
+        storage.recoverInterruptedActivations("italia") { if (it == RegionStorage.MAP_FILE) "v1" else null }
+
+        assertEquals("nuova", File(storage.directoryFor("italia"), RegionStorage.MAP_FILE).readText())
+        assertEquals(emptySet<String>(), leftovers(storage))
+    }
+
+    @Test
+    fun `commit e rollback di una prima installazione non lasciano la versione in attivazione`() {
+        val (storage, _) = newStorage()
+        storage.activatePackage("italia", RegionStorage.MAP_FILE, stagedFile(storage, "v1", RegionStorage.MAP_FILE, "nuova"), "v1").commit()
+        assertEquals(emptySet<String>(), leftovers(storage))
+        storage.deletePackage("italia", RegionStorage.MAP_FILE)
+        storage.activatePackage("italia", RegionStorage.MAP_FILE, stagedFile(storage, "v2", RegionStorage.MAP_FILE, "scartata"), "v2").rollback()
+        assertFalse(File(storage.directoryFor("italia"), RegionStorage.MAP_FILE).exists())
+        assertEquals(emptySet<String>(), leftovers(storage))
+    }
+
+    @Test
+    fun `hasPackageFiles e' vero solo con almeno un file non vuoto`() {
+        val (storage, _) = newStorage()
+        assertFalse(storage.hasPackageFiles("italia", RegionStorage.ROUTING_DIR))
+        val routing = File(storage.stagingDirectoryFor("italia", "v1"), RegionStorage.ROUTING_DIR).apply { mkdirs() }
+        File(routing, "vuoto.rd5").writeText("")
+        storage.activatePackage("italia", RegionStorage.ROUTING_DIR, routing, "v1").commit()
+        assertFalse(storage.hasPackageFiles("italia", RegionStorage.ROUTING_DIR))
+        File(storage.directoryFor("italia"), "${RegionStorage.ROUTING_DIR}/a.rd5").writeText("x")
+        assertTrue(storage.hasPackageFiles("italia", RegionStorage.ROUTING_DIR))
+    }
+
+    @Test
     fun `regionIdsOnDisk e stagingIds elencano le cartelle presenti`() {
         val (storage, _) = newStorage()
         storage.activatePackage("italia", RegionStorage.MAP_FILE, stagedFile(storage, "v1", RegionStorage.MAP_FILE, "mappa"), "v1").commit()

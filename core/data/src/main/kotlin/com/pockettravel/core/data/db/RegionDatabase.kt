@@ -26,7 +26,7 @@ import androidx.room.TypeConverters
         VaccRecommendedEntity::class,
         VaccMetaEntity::class,
     ],
-    version = 20,
+    version = 21,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

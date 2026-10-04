@@ -45,13 +45,16 @@ class RegionStorage @Inject constructor(
         val pending = File(regionDir, ".$packageName.pending")
         backup.deleteRecursively()
         val hadPrevious = live.exists()
-        if (hadPrevious) {
-            // Solo se ci sara' un backup: la versione in attivazione, scritta prima di toccare il pacchetto attivo.
-            pending.writeText(version)
-            check(live.renameTo(backup)) { "Impossibile preparare l'aggiornamento $regionId/$packageName" }
-        }
+        // La versione in attivazione, scritta prima di toccare il pacchetto attivo; senza pacchetto
+        // precedente porta in coda il segno FIRST_INSTALL_MARK, per cancellare un'installazione mai registrata.
+        pending.writeText(if (hadPrevious) version else "$version\n$FIRST_INSTALL_MARK")
+        if (hadPrevious) check(live.renameTo(backup)) { "Impossibile preparare l'aggiornamento $regionId/$packageName" }
         try { check(staged.renameTo(live)) { "Impossibile installare $regionId/$packageName" } }
-        catch (error: Exception) { if (hadPrevious) { backup.renameTo(live); pending.delete() }; throw error }
+        catch (error: Exception) {
+            if (hadPrevious) backup.renameTo(live)
+            pending.delete()
+            throw error
+        }
         return Activation(live, backup, pending, hadPrevious)
     }
 
@@ -67,7 +70,8 @@ class RegionStorage @Inject constructor(
             val live = File(regionDir, packageName)
             val backup = File(regionDir, ".$packageName.backup")
             val pending = File(regionDir, ".$packageName.pending")
-            val activating = pending.takeIf { it.exists() }?.readText()
+            val pendingLines = pending.takeIf { it.exists() }?.readText()?.lines()
+            val activating = pendingLines?.first()
             if (activating != null && activating == installedVersion(packageName) && live.exists()) {
                 // Il database registra gia' la versione nuova: mancava solo commit().
                 backup.deleteRecursively()
@@ -76,9 +80,12 @@ class RegionStorage @Inject constructor(
                 // (lasciato da una versione precedente dell'app): il backup e' il pacchetto registrato.
                 live.deleteRecursively()
                 check(backup.renameTo(live)) { "Impossibile ripristinare $regionId/$packageName" }
+            } else if (pendingLines?.getOrNull(1) == FIRST_INSTALL_MARK) {
+                // Prima installazione mai registrata dal database: nessun precedente a cui tornare.
+                live.deleteRecursively()
             }
-            // Senza backup il pacchetto attivo e' ancora il precedente: l'attivazione si e' fermata
-            // prima di spostarlo, o il rollback l'aveva gia' rimesso al suo posto.
+            // Senza backup ne' segno di prima installazione il pacchetto attivo e' ancora il precedente:
+            // l'attivazione si e' fermata prima di spostarlo, o il rollback l'aveva gia' rimesso al suo posto.
             pending.delete()
         }
     }
@@ -119,6 +126,10 @@ class RegionStorage @Inject constructor(
     /** Byte occupati sul disco da un pacchetto della regione, 0 se assente. */
     fun packageBytes(regionId: String, packageName: String): Long =
         File(directoryFor(regionId), packageName).walkBottomUp().filter { it.isFile }.sumOf { it.length() }
+
+    /** Vero se il pacchetto ha almeno un file non vuoto (come `packageBytes > 0`, senza sommare tutto). */
+    fun hasPackageFiles(regionId: String, packageName: String): Boolean =
+        File(directoryFor(regionId), packageName).walk().any { it.isFile && it.length() > 0 }
 
     /**
      * Celle dei civici a griglia attive nell'ultimo [ADDRESSES_CELLS_FILE] installato (id di cella ->
@@ -198,6 +209,8 @@ class RegionStorage @Inject constructor(
         private val PACKAGE_NAMES = setOf(MAP_FILE, ROUTING_DIR, ADDRESSES_FILE, PREVIEW_FILE, ADDRESSES_CELLS_FILE, ADDRESSES_SEARCH_DIR, TRANSIT_DIR)
         // Istanze di RegionStorage non condivise: due recuperi della stessa regione non si sovrappongono.
         private val RECOVERY_LOCK = Any()
+        // Seconda riga di .pending quando l'attivazione non sostituisce nessun pacchetto.
+        private const val FIRST_INSTALL_MARK = "nuovo"
 
         /** Nome del file di ricerca di una cella in [ADDRESSES_SEARCH_DIR]: l'id "z/x/y" senza barre. */
         fun addressSearchFileName(cellId: String): String = cellId.replace('/', '-') + ".db"

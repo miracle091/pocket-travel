@@ -5,8 +5,9 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-// Indice su regionId: ogni query e ogni eliminazione dei POI filtra per regione.
-@Entity(tableName = "poi", indices = [Index("regionId")])
+// Indice su regionId: ogni query e ogni eliminazione dei POI filtra per regione. Quello su (regionId, lat)
+// serve ai segnalini e ai piu' vicini, che oltre alla regione limitano la latitudine.
+@Entity(tableName = "poi", indices = [Index("regionId"), Index("regionId", "lat")])
 data class PoiEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val regionId: String,

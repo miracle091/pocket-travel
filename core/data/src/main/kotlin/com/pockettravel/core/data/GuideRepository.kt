@@ -20,7 +20,7 @@ class GuideRepository @Inject constructor(
             .map { it.section.toDomain() to FtsMatchInfo.parse(it.matchinfo) }
 
     private companion object {
-        const val CANDIDATE_CAP = 30
+        const val CANDIDATE_CAP = 100
     }
 }
 

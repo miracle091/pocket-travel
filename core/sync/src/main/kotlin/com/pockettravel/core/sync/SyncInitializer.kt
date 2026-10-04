@@ -14,11 +14,12 @@ class SyncInitializer @Inject constructor(
 ) : AppInitializer {
 
     override fun onAppCreate() {
-        regionSyncScheduler.schedulePeriodicManifestCheck()
-        appUpdateCheckScheduler.schedulePeriodicCheck()
-        // Attivazioni di pacchetti interrotte da un crash e staging abbandonato (vedi RegionStartupRecovery).
-        // runCatching: un'eccezione non gestita in questo scope farebbe chiudere l'app all'avvio.
+        // Fuori dal thread principale: WorkManager apre il suo database anche solo per accodare un lavoro.
         CoroutineScope(Dispatchers.IO).launch {
+            regionSyncScheduler.schedulePeriodicManifestCheck()
+            appUpdateCheckScheduler.schedulePeriodicCheck()
+            // Attivazioni di pacchetti interrotte da un crash e staging abbandonato (vedi RegionStartupRecovery).
+            // runCatching: un'eccezione non gestita in questo scope farebbe chiudere l'app all'avvio.
             runCatching { regionStartupRecovery.run() }
                 .onFailure { Log.w("SyncInitializer", "Recupero dei pacchetti regionali fallito", it) }
         }

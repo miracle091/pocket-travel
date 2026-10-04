@@ -11,8 +11,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Migrazioni tra i database delle versioni pubblicate (3, 5, 6, 9, 11, 15, 17, 18) e quella corrente (19), sugli
- * schemi esportati in core/data/schemas, piu' la catena completa da 3 a 19.
+ * Migrazioni tra i database delle versioni pubblicate (3, 5, 6, 9, 11, 15, 17, 18) e quella corrente (21), sugli
+ * schemi esportati in core/data/schemas, piu' la catena completa da 3 a 21.
  */
 @RunWith(AndroidJUnit4::class)
 class RegionDatabaseMigrationTest {
@@ -269,9 +269,28 @@ class RegionDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrazione20a21AggiungeLIndicePoiRegioneLatitudineSenzaToccareIPoi() {
+        helper.createDatabase(DB_NAME, 20).use { db ->
+            db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag) VALUES ('italia', 'Da Mario', 'restaurant', 45.0, 9.0, 'amenity=restaurant')")
+        }
+
+        helper.runMigrationsAndValidate(DB_NAME, 21, true, MIGRATION_20_21).use { db ->
+            db.query("SELECT name FROM poi WHERE regionId = 'italia' AND lat BETWEEN 44.0 AND 46.0").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("Da Mario", cursor.getString(0))
+            }
+            db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'poi'").use { cursor ->
+                val indexes = generateSequence { if (cursor.moveToNext()) cursor.getString(0) else null }.toSet()
+                assertTrue(indexes.contains("index_poi_regionId_lat"))
+                assertTrue(indexes.contains("index_poi_regionId"))
+            }
+        }
+    }
+
     // Chi aggiorna dalla prima versione pubblicata (v0.2.0) all'ultima: nessun dato perso.
     @Test
-    fun catenaCompletaDa3a20ConservaCassaforteRegioniPoiEGuide() {
+    fun catenaCompletaDa3a21ConservaCassaforteRegioniPoiEGuide() {
         helper.createDatabase(DB_NAME, 3).use { db ->
             db.execSQL("INSERT INTO passport_vault VALUES ('p1', 'cifrato', 1, 2)")
             db.execSQL("INSERT INTO installed_regions VALUES ('italia', 'Italia', '2026.09.01', 1000, 42)")
@@ -279,7 +298,7 @@ class RegionDatabaseMigrationTest {
             db.execSQL("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES ('italia', 'TRASPORTI', 'In treno', 'corpo', 'https://example.org')")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 20, true, *ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB_NAME, 21, true, *ALL_MIGRATIONS).use { db ->
             db.query("SELECT encryptedPayload FROM passport_vault WHERE id = 'p1'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("cifrato", cursor.getString(0))
