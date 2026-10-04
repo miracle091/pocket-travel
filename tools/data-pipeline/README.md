@@ -139,7 +139,12 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   vaccini, con il riassunto che l'app inserisce nel contesto dell'assistente. Con `--nearby <quota>` (per esempio 0.03)
   aggiunge esempi con i blocchi "Punti di interesse entro…" e "Prossime partenze…" che l'app mette nel contesto per le
   domande su cosa c'è vicino e sui mezzi, nello stesso formato (`scripts/sft_nearby.py`, dati sintetici, circa un quarto
-  di rifiuti); senza il flag l'output resta quello del v9. `scripts/translate_sections.py` traduce
+  di rifiuti); senza il flag l'output resta quello del v9. I file di output sono
+  `pocket_travel_sft.<versione>.<lang>.jsonl` e `ATTRIBUTION.<versione>.<lang>.tsv`: la versione è v9 senza `--nearby`,
+  v10 con `--nearby` (così il v9 non viene sovrascritto) oppure quella data con `--version`. I test estesi
+  (`generate_eval_set.py`, `generate_eval_set_en.py`) hanno in fondo le righe `pos_near`/`neg_near` e
+  `pos_dep`/`neg_dep` sugli stessi blocchi, con domande, nomi e seme diversi da quelli del training; le righe
+  precedenti restano identiche. `scripts/translate_sections.py` traduce
   con MarianMT (`opus-mt-tc-big`, CC BY 4.0) le sezioni assenti o molto più brevi in una lingua; scarta le
   traduzioni con numeri diversi dall'originale e conserva le frasi tradotte in una cache. Le tabelle per lingua
   stanno in `generate_sft_dataset.py` e `generate_sft_dataset_en.py`, che servono ancora per rigenerare il dataset v8.

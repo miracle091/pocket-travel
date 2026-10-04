@@ -1,0 +1,67 @@
+name: Prepara la traduzione delle guide
+description: >
+  Motore (CTranslate2), modelli opus-mt-tc-big-en-it e opus-mt-tc-big-it-en convertiti e cache delle frasi gia' tradotte,
+  per translate_guides.py (vedi tools/data-pipeline/scripts/translate_guides.py). Imposta le variabili TRANSLATE_*
+  lette da translate_overlay in lib.sh; senza di esse la pipeline pubblica le guide senza traduzioni. Da usare con
+  continue-on-error: una traduzione che non parte non deve fermare la pubblicazione. Chi lo usa salva la cache delle frasi a
+  fine job (actions/cache/save, chiave translations-<cache-name>-<run>) se esiste il file translate-grown.flag.
+inputs:
+  cache-name:
+    description: Nome della cache delle frasi tradotte di questo job (guides, cities-<shard>).
+    required: true
+runs:
+  using: composite
+  steps:
+    # Modelli gia' convertiti (~230 MB l'uno): la chiave cambia con le revisioni dei modelli e le dipendenze, cioe' con
+    # gli script che li producono. Senza cache si convertono qui sotto (torch e transformers servono solo a questo).
+    - name: Cache dei modelli convertiti
+      id: models
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/translation-models
+        key: translation-models-${{ hashFiles('tools/data-pipeline/scripts/convert-translation-model.sh', 'tools/data-pipeline/requirements-translate.txt', 'tools/data-pipeline/requirements-translate-convert.txt') }}
+
+    - name: Installa CTranslate2 e SentencePiece
+      shell: bash
+      run: |
+        set -euo pipefail
+        python3 -m venv "$RUNNER_TEMP/translate-venv"
+        "$RUNNER_TEMP/translate-venv/bin/python" -m pip install --disable-pip-version-check --no-input \
+          --require-hashes --only-binary :all: -r tools/data-pipeline/requirements-translate.txt
+
+    - name: Converti i modelli di traduzione
+      if: steps.models.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        python3 -m venv "$RUNNER_TEMP/convert-venv"
+        "$RUNNER_TEMP/convert-venv/bin/python" -m pip install --disable-pip-version-check --no-input \
+          --require-hashes --only-binary :all: -r tools/data-pipeline/requirements-translate-convert.txt
+        for pair in en-it it-en; do
+          PYTHON="$RUNNER_TEMP/convert-venv/bin/python" HF_HUB_DISABLE_PROGRESS_BARS=1 \
+            tools/data-pipeline/scripts/convert-translation-model.sh "$pair" "$RUNNER_TEMP/translation-models/$pair"
+        done
+
+    # La cache delle frasi: chiave mai esistente + restore-keys sul prefisso, cosi' si ripristina l'ultima salvata
+    # (le cache di Actions non si aggiornano, se ne salva una nuova a ogni run che ha tradotto frasi nuove).
+    - name: Ripristina le frasi gia' tradotte
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ github.workspace }}/translate-cache
+        key: translations-${{ inputs.cache-name }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: translations-${{ inputs.cache-name }}-
+
+    - name: Attiva la traduzione
+      shell: bash
+      run: |
+        set -euo pipefail
+        test -s "$RUNNER_TEMP/translation-models/en-it/model.bin"
+        test -s "$RUNNER_TEMP/translation-models/it-en/model.bin"
+        mkdir -p "${{ github.workspace }}/translate-cache"
+        {
+          echo "TRANSLATE_PYTHON=$RUNNER_TEMP/translate-venv/bin/python"
+          echo "TRANSLATE_MODEL_EN_IT=$RUNNER_TEMP/translation-models/en-it"
+          echo "TRANSLATE_MODEL_IT_EN=$RUNNER_TEMP/translation-models/it-en"
+          echo "TRANSLATE_CACHE_DIR=${{ github.workspace }}/translate-cache"
+          echo "TRANSLATE_GROWN_MARKER=${{ github.workspace }}/translate-grown.flag"
+        } >> "$GITHUB_ENV"

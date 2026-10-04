@@ -323,3 +323,29 @@ overpass_json() {
 pmtiles_log() {
   tr '\r' '\n' | awk 'NF && !/fetching chunks|^[[:space:]]*[0-9]+%/'
 }
+
+# translate_overlay <guides|cities> <db da arricchire> <db nell'altra lingua> <overlay.jsonl> <en|it> [maxSecondi]:
+# sezioni povere tradotte dall'altra lingua (translate_guides.py, <en|it> e' la lingua d'origine), scritte in <overlay.jsonl>
+# per generateGuides/generateCities --translated. Ritorna 1, senza scrivere nulla, se la traduzione non e' attiva (senza la
+# cache TRANSLATE_CACHE_DIR e il modello di quella direzione, TRANSLATE_MODEL_EN_IT / TRANSLATE_MODEL_IT_EN, preparati dal
+# passo setup-translation del workflow) o non riesce: il chiamante tiene allora la guida com'e'. TRANSLATE_PYTHON e' il
+# python con ctranslate2; TRANSLATE_DEADLINE (secondi dal 1970) e' un tetto comune a piu' chiamate.
+translate_overlay() {
+  local kind="$1" own="$2" source="$3" overlay="$4" from="$5" maxSeconds="${6:-${TRANSLATE_MAX_SECONDS:-3600}}" model
+  case "$from" in
+    en) model="${TRANSLATE_MODEL_EN_IT:-}" ;;
+    it) model="${TRANSLATE_MODEL_IT_EN:-}" ;;
+    *) return 1 ;;
+  esac
+  [ -n "${TRANSLATE_CACHE_DIR:-}" ] && [ -d "$model" ] && [ -s "$own" ] && [ -s "$source" ] || return 1
+  rm -f "$overlay"
+  if ! "${TRANSLATE_PYTHON:-python3}" "$(dirname "${BASH_SOURCE[0]}")/translate_guides.py" "$kind" \
+    "$(winpath "$own")" "$(winpath "$source")" "$(winpath "$overlay")" --from "$from" \
+    --cache-dir "$(winpath "$TRANSLATE_CACHE_DIR")" --model-dir "$(winpath "$model")" --max-seconds "$maxSeconds" \
+    ${TRANSLATE_DEADLINE:+--deadline "$TRANSLATE_DEADLINE"}; then
+    echo "::warning::traduzione $from ($kind) non riuscita, resta il contenuto originale" >&2
+    rm -f "$overlay"
+    return 1
+  fi
+  [ -s "$overlay" ]
+}

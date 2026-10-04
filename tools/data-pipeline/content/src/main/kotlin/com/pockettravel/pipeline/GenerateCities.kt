@@ -92,6 +92,7 @@ data class CitySectionRow(
     val sourceUrl: String,
     val population: Long? = null,
     val capital: Boolean = false,
+    val translated: Boolean = false,
 )
 
 /**
@@ -141,10 +142,11 @@ fun writeCitiesDb(sections: List<CitySectionRow>, outputDb: File) {
                 body TEXT NOT NULL,
                 sourceUrl TEXT NOT NULL,
                 population INTEGER,
-                capital INTEGER NOT NULL DEFAULT 0
+                capital INTEGER NOT NULL DEFAULT 0,
+                translated INTEGER NOT NULL DEFAULT 0
             )
             """.trimIndent(),
-        insertSql = "INSERT INTO city_sections (city, category, title, body, sourceUrl, population, capital) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        insertSql = "INSERT INTO city_sections (city, category, title, body, sourceUrl, population, capital, translated) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         rows = sections,
     ) { insert, section ->
         insert.setString(1, section.city)
@@ -154,6 +156,7 @@ fun writeCitiesDb(sections: List<CitySectionRow>, outputDb: File) {
         insert.setString(5, section.sourceUrl)
         section.population?.let { insert.setLong(6, it) } ?: insert.setNull(6, java.sql.Types.INTEGER)
         insert.setInt(7, if (section.capital) 1 else 0)
+        insert.setInt(8, if (section.translated) 1 else 0)
     }
 }
 
@@ -170,12 +173,18 @@ fun main(rawArgs: Array<String>) {
     // --lang en: pagine di Wikivoyage EN (<regionId>.cities-en.jsonl, extract-cities-dump-en.py).
     val english = rawArgs.firstOrNull() == "--lang" && rawArgs.getOrNull(1) == "en"
     val args = if (rawArgs.firstOrNull() == "--lang") rawArgs.drop(2) else rawArgs.toList()
-    require(args.size == 2) { "Uso: generateCities [--lang en] <cities.jsonl> <output cities.db>" }
-    val jsonlFile = File(args[0])
-    val outputDb = File(args[1])
+    // --translated <jsonl>: sezioni tradotte dall'altra lingua (translate_guides.py cities), al posto di quelle povere.
+    val translatedIndex = args.indexOf("--translated")
+    val translatedFile = if (translatedIndex >= 0) args.getOrNull(translatedIndex + 1)?.let(::File) else null
+    val positional = if (translatedIndex >= 0) args.take(translatedIndex) + args.drop(translatedIndex + 2) else args
+    require(positional.size == 2) { "Uso: generateCities [--lang en] [--translated <tradotte.jsonl>] <cities.jsonl> <output cities.db>" }
+    val jsonlFile = File(positional[0])
+    val outputDb = File(positional[1])
     outputDb.delete()
 
-    val sections = if (jsonlFile.exists() && jsonlFile.length() > 0) parseCitiesJsonl(jsonlFile.readText(), english) else emptyList()
+    val translated = translatedFile?.takeIf { it.exists() }?.let { parseTranslatedSections(it.readText()) }.orEmpty()
+    val sections = (if (jsonlFile.exists() && jsonlFile.length() > 0) parseCitiesJsonl(jsonlFile.readText(), english) else emptyList())
+        .withCityTranslations(translated)
     if (sections.isEmpty()) {
         println("citta': nessuna sezione, cities.db non generato")
         return

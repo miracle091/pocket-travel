@@ -183,7 +183,17 @@ private val blankLinesRegex = Regex("""\n{3,}""")
 // (vedi commento su cleanBody).
 private const val SUBHEADING_MARKER = ""
 
-data class GuideSectionRow(val category: String, val title: String, val body: String)
+/**
+ * [sourceUrl] solo per le sezioni che non vengono dalla pagina della guida (tradotte dall'inglese): null = quella della
+ * regione. [translated]: sezione tradotta dall'inglese da translate_guides.py, colonna "translated" di guide_sections.
+ */
+data class GuideSectionRow(
+    val category: String,
+    val title: String,
+    val body: String,
+    val sourceUrl: String? = null,
+    val translated: Boolean = false,
+)
 
 // categories di default: le guide di regione (headingToCategory sopra). GenerateCities.kt passa la
 // propria mappa (titoli di sezione delle pagine citta', diversi da quelli delle pagine nazione) per
@@ -490,11 +500,16 @@ fun main(rawArgs: Array<String>) {
     // --missions <tsv>: missioni diplomatiche da Wikidata (wikidata_missions.py), tabella diplomatic_missions.
     val missionsIndex = rest.indexOf("--missions")
     val missionsTsv = if (missionsIndex >= 0) rest.getOrNull(missionsIndex + 1)?.let(::File) else null
-    val args = if (missionsIndex >= 0) rest.take(missionsIndex) + rest.drop(missionsIndex + 2) else rest
-    require(args.size in 2..3) { "Uso: generateGuides [--lang en] [--missions <missioni.tsv>] <regioni.tsv> <output guides.db> [guides.db pubblicato]" }
+    val withoutMissions = if (missionsIndex >= 0) rest.take(missionsIndex) + rest.drop(missionsIndex + 2) else rest
+    // --translated <jsonl>: sezioni tradotte dall'altra lingua (translate_guides.py), al posto di quelle povere.
+    val translatedIndex = withoutMissions.indexOf("--translated")
+    val translatedJsonl = if (translatedIndex >= 0) withoutMissions.getOrNull(translatedIndex + 1)?.let(::File) else null
+    val args = if (translatedIndex >= 0) withoutMissions.take(translatedIndex) + withoutMissions.drop(translatedIndex + 2) else withoutMissions
+    require(args.size in 2..3) { "Uso: generateGuides [--lang en] [--missions <missioni.tsv>] [--translated <tradotte.jsonl>] <regioni.tsv> <output guides.db> [guides.db pubblicato]" }
     val outputDb = File(args[1])
     val publishedDb = args.getOrNull(2)?.let(::File)?.takeIf { it.exists() }
 
+    val translated = translatedJsonl?.takeIf { it.exists() }?.let { parseTranslatedSections(it.readText()) }.orEmpty()
     val guides = File(args[0]).readLines().filter { it.isNotBlank() }.map { line ->
         val columns = line.split('\t')
         val (regionId, dumpPath, sourceUrl) = columns
@@ -508,7 +523,7 @@ fun main(rawArgs: Array<String>) {
             println("guide: $regionId senza dump in questa run, ricopio le sezioni pubblicate")
             publishedDb?.let { readRegionGuide(it, regionId) } ?: RegionGuide(regionId, sourceUrl, emptyList())
         }
-    }
+    }.withTranslations(translated)
 
     outputDb.delete()
     writeGuidesDb(guides, outputDb)
@@ -545,7 +560,8 @@ fun regionGuideFromDumps(regionId: String, dump: String, sourceUrl: String, dump
  * Schema minimo (non lo schema Room di GuideSectionEntity, niente FTS4): una tabella
  * "guide_sections" con le stesse colonne meno l'id autogenerato. L'app importa riga per
  * riga in region.db via GuideDao.insertAll(), che ripopola anche la shadow table FTS
- * come effetto collaterale dell'insert Room. Nello stesso file la tabella emergency_numbers
+ * come effetto collaterale dell'insert Room. La colonna "translated" (sezione tradotta dall'inglese) la ignorano le
+ * app che non la conoscono: l'importer legge le colonne per nome. Nello stesso file la tabella emergency_numbers
  * (vedi GenerateEmergencyNumbers.kt).
  */
 fun writeGuidesDb(guides: List<RegionGuide>, outputDb: File) {
@@ -558,17 +574,19 @@ fun writeGuidesDb(guides: List<RegionGuide>, outputDb: File) {
                 category TEXT NOT NULL,
                 title TEXT NOT NULL,
                 body TEXT NOT NULL,
-                sourceUrl TEXT NOT NULL
+                sourceUrl TEXT NOT NULL,
+                translated INTEGER NOT NULL DEFAULT 0
             )
             """.trimIndent(),
-        insertSql = "INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES (?, ?, ?, ?, ?)",
+        insertSql = "INSERT INTO guide_sections (regionId, category, title, body, sourceUrl, translated) VALUES (?, ?, ?, ?, ?, ?)",
         rows = guides.flatMap { guide -> guide.sections.map { guide to it } },
     ) { insert, (guide, section) ->
         insert.setString(1, guide.regionId)
         insert.setString(2, section.category)
         insert.setString(3, section.title)
         insert.setString(4, section.body)
-        insert.setString(5, guide.sourceUrl)
+        insert.setString(5, section.sourceUrl ?: guide.sourceUrl)
+        insert.setInt(6, if (section.translated) 1 else 0)
     }
     writeEmergencyNumbersTable(guides.map { it.regionId }, outputDb)
     writeVaccinationsTables(outputDb)
@@ -576,23 +594,31 @@ fun writeGuidesDb(guides: List<RegionGuide>, outputDb: File) {
 
 private fun readRegionGuide(db: File, regionId: String): RegionGuide? =
     DriverManager.getConnection("jdbc:sqlite:${db.path}").use { conn ->
-        conn.prepareStatement("SELECT category, title, body, sourceUrl FROM guide_sections WHERE regionId = ?").use { query ->
+        // I guides.db pubblicati prima delle sezioni tradotte non hanno la colonna translated.
+        val hasTranslated = conn.createStatement().use { s ->
+            s.executeQuery("PRAGMA table_info(guide_sections)").use { rs ->
+                generateSequence { if (rs.next()) rs.getString("name") else null }.any { it == "translated" }
+            }
+        }
+        val translatedColumn = if (hasTranslated) "translated" else "0"
+        conn.prepareStatement("SELECT category, title, body, sourceUrl, $translatedColumn FROM guide_sections WHERE regionId = ?").use { query ->
             query.setString(1, regionId)
             val rs = query.executeQuery()
             var sourceUrl: String? = null
             val sections = mutableListOf<GuideSectionRow>()
             while (rs.next()) {
-                sections += GuideSectionRow(rs.getString(1), rs.getString(2), rs.getString(3))
-                sourceUrl = rs.getString(4)
+                // Le tradotte hanno l'url della pagina inglese: ognuna tiene il proprio.
+                sections += GuideSectionRow(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getInt(5) != 0)
+                if (rs.getInt(5) == 0) sourceUrl = rs.getString(4)
             }
-            sourceUrl?.let { RegionGuide(regionId, it, sections) }
+            (sourceUrl ?: sections.firstOrNull()?.sourceUrl)?.let { RegionGuide(regionId, it, sections) }
         }
     }
 
 /** Stesse righe in guide_sections e nelle tabelle dei numeri di emergenza, vaccinali (vacc_*) e delle missioni diplomatiche, a prescindere dall'ordine di inserimento. */
 fun sameGuidesContent(a: File, b: File, includeMissions: Boolean = true): Boolean {
     val queries = listOfNotNull(
-        "SELECT regionId, category, title, body, sourceUrl FROM guide_sections ORDER BY 1, 2, 3, 4, 5",
+        "SELECT regionId, category, title, body, sourceUrl, translated FROM guide_sections ORDER BY 1, 2, 3, 4, 5, 6",
         "SELECT regionId, general, police, ambulance, fire FROM emergency_numbers ORDER BY 1",
         "SELECT regionId FROM emergency_numbers_none ORDER BY 1",
         "SELECT * FROM vacc_yf_risk ORDER BY 1, 2, 3",

@@ -28,6 +28,13 @@
 # missioni cambiate non producono un nuovo guides.db se quelle pubblicate hanno meno di 14 giorni
 # (data nella tabella guides_meta); una modifica alle guide lo pubblica subito, con missioni fresche.
 #
+# Sezioni tradotte dall'altra lingua (sezione 3a): con TRANSLATE_CACHE_DIR e i modelli attivi (vedi translate_overlay in
+# lib.sh) le categorie assenti o molto piu' povere di quelle dell'altra lingua (translate_sections.needs_translation) sono
+# sostituite da quelle tradotte (translate_guides.py), con translated = 1 in guide_sections e l'url della pagina
+# d'origine. La passata "en" va lanciata prima di quella italiana, con GUIDES_PLAIN_COPY=<file> (dove lascia la guida
+# inglese non arricchita) e poi GUIDES_SOURCE_DB=<lo stesso file> per l'italiana; GUIDES_TRANSLATE_SECONDS e' il tempo
+# massimo di traduzione della passata. Senza o se qualcosa non riesce, guide come prima.
+#
 # Richiede: curl, jq (solo se si passa publishedManifestUrl), xz, python3, gradle wrapper dalla root del repo.
 set -euo pipefail
 
@@ -61,6 +68,8 @@ trap 'rm -rf "$WORKDIR"' EXIT
 # --- 1. Pagine Wikivoyage di tutte le regioni ---------------------------------------------------
 REGIONS_TSV="$WORKDIR/regions.tsv"
 : > "$REGIONS_TSV"
+REGIONS_IT_TSV="$WORKDIR/regions-it.tsv"
+: > "$REGIONS_IT_TSV"
 FAILED=0
 for spec in "${PILOT_REGIONS[@]}"; do
   IFS='|' read -r regionId _ _ _ _ _ wikiTitle _ <<< "$spec"
@@ -69,7 +78,10 @@ for spec in "${PILOT_REGIONS[@]}"; do
     # Pagina inglese per le sezioni, quella italiana solo per i fatti rapidi (vedi englishQuickFactsSection).
     dumpIt="$WORKDIR/$regionId.it.txt"
     if sourceUrl="$(fetch_wikivoyage_en_dump "$wikiTitle" "$dump")"; then
-      fetch_wikivoyage_dump "$wikiTitle" "$dumpIt" >/dev/null || : > "$dumpIt"
+      sourceUrlIt="$(fetch_wikivoyage_dump "$wikiTitle" "$dumpIt")" || { : > "$dumpIt"; sourceUrlIt=""; }
+      # La stessa pagina italiana, per la guida italiana "semplice" che serve a tradurre l'inglese povero (sezione 3a).
+      printf '%s	%s	%s
+' "$regionId" "$(winpath "$dumpIt")" "$sourceUrlIt" >> "$REGIONS_IT_TSV"
       printf '%s\t%s\t%s\t%s\n' "$regionId" "$(winpath "$dump")" "$sourceUrl" "$(winpath "$dumpIt")" >> "$REGIONS_TSV"
     else
       echo "-- $regionId: pagina Wikivoyage EN $wikiTitle non scaricata, tengo la guida gia' pubblicata" >&2
@@ -155,6 +167,36 @@ GUIDES_DB="$OUTPUT_DIR/guides.db"
 rm -f "$GUIDES_DB"
 cd "$REPO_ROOT"
 GUIDES_ARGS="\"$(winpath "$REGIONS_TSV")\" \"$(winpath "$GUIDES_DB")\""
+# --- 3a. Sezioni povere tradotte dall'altra lingua ------------------------------------------------
+# Solo con la traduzione attiva (translate_overlay in lib.sh). La guida "semplice" della lingua (senza guide pubblicate,
+# cosi' non si confronta con quelle gia' arricchite) si confronta con quella dell'altra lingua, sempre non arricchita:
+# per l'italiano la inglese semplice della passata "en" (GUIDES_SOURCE_DB, la passata inglese gira per prima), per
+# l'inglese la italiana costruita qui dalle stesse pagine italiane scaricate per i fatti rapidi (regions-it.tsv).
+# Tempo massimo di questa passata: GUIDES_TRANSLATE_SECONDS. Se qualcosa non riesce si pubblica la guida com'e'.
+if [ -n "${TRANSLATE_CACHE_DIR:-}" ]; then
+  PLAIN_DB="$WORKDIR/plain-guides.db"
+  PLAIN_ARGS="\"$(winpath "$REGIONS_TSV")\" \"$(winpath "$PLAIN_DB")\""
+  [ "$LANG_CODE" = "en" ] && PLAIN_ARGS="--lang en $PLAIN_ARGS"
+  if (cd "$REPO_ROOT" && ./gradlew -q :tools:data-pipeline:content:generateGuides --args="$PLAIN_ARGS" >/dev/null); then
+    [ -n "${GUIDES_PLAIN_COPY:-}" ] && cp "$PLAIN_DB" "$GUIDES_PLAIN_COPY"
+    SOURCE_DB=""
+    if [ "$LANG_CODE" = "en" ]; then
+      SOURCE_DB="$WORKDIR/plain-guides-it.db"
+      SOURCE_LANG="it"
+      (cd "$REPO_ROOT" && ./gradlew -q :tools:data-pipeline:content:generateGuides \
+        --args="\"$(winpath "$REGIONS_IT_TSV")\" \"$(winpath "$SOURCE_DB")\"" >/dev/null) || SOURCE_DB=""
+    else
+      SOURCE_DB="${GUIDES_SOURCE_DB:-}"
+      SOURCE_LANG="en"
+    fi
+    if [ -n "$SOURCE_DB" ] && translate_overlay guides "$PLAIN_DB" "$SOURCE_DB" "$WORKDIR/translated.jsonl" "$SOURCE_LANG" \
+      "${GUIDES_TRANSLATE_SECONDS:-3600}"; then
+      GUIDES_ARGS="--translated \"$(winpath "$WORKDIR/translated.jsonl")\" $GUIDES_ARGS"
+    fi
+  else
+    echo "::warning::guida semplice non generata, niente traduzioni in questa run" >&2
+  fi
+fi
 [ -s "$MISSIONS_TSV" ] && GUIDES_ARGS="--missions \"$(winpath "$MISSIONS_TSV")\" $GUIDES_ARGS"
 [ "$LANG_CODE" = "en" ] && GUIDES_ARGS="--lang en $GUIDES_ARGS"
 [ -n "$PUBLISHED_DB" ] && GUIDES_ARGS="$GUIDES_ARGS \"$(winpath "$PUBLISHED_DB")\""

@@ -25,6 +25,10 @@
 # Con "en": <citiesJsonlDir>/<regionId>.cities-en.jsonl (build-cities-dump.sh ... en), voce "citiesEn"
 # del frammento, cities-en.db(.xz) in <outputDir> accanto a quello italiano.
 #
+# Con TRANSLATE_CACHE_DIR e i modelli attivi (translate_overlay in lib.sh) le categorie assenti o molto piu' povere di
+# quelle della stessa citta' nell'altra lingua (stesso jsonl dell'altra lingua, omologhi da Wikidata) sono sostituite
+# da quelle tradotte (translate_guides.py cities), con translated = 1 in city_sections.
+#
 # Richiede: jq, curl, sha256sum, xz, gradle wrapper dalla root del repo.
 set -euo pipefail
 
@@ -108,6 +112,30 @@ if [ -z "$GENERATED" ] || [ "$GENERATED" -eq 0 ] || [ ! -f "$CITIES_FILE" ]; the
   rm -f "$CITIES_FILE"
   keep_published "nessuna sezione nelle citta' della regione"
   exit 0
+fi
+
+# Sezioni povere o assenti sostituite da quelle tradotte dall'altra lingua (translate_overlay in lib.sh): le citta' nell'altra
+# lingua si generano qui dal suo jsonl, solo per il confronto. Senza traduzione attiva, jsonl dell'altra lingua o
+# traduzioni nuove (nessun file) resta il cities.db appena generato.
+if [ -n "${TRANSLATE_CACHE_DIR:-}" ]; then
+  if [ "$LANG_CODE" = "en" ]; then SOURCE_LANG="it"; SOURCE_JSONL="$CITIES_JSONL_DIR/${REGION_ID}.cities.jsonl"; SOURCE_GEN_LANG=""
+  else SOURCE_LANG="en"; SOURCE_JSONL="$CITIES_JSONL_DIR/${REGION_ID}.cities-en.jsonl"; SOURCE_GEN_LANG="--lang en "; fi
+  SOURCE_DB="$WORKDIR/cities-source.db"
+  OVERLAY="$WORKDIR/cities-translated.jsonl"
+  ENRICHED_DB="$WORKDIR/cities-enriched.db"
+  if [ -s "$SOURCE_JSONL" ] \
+    && ./gradlew -q :tools:data-pipeline:content:generateCities \
+      --args="$SOURCE_GEN_LANG\"$(winpath "$SOURCE_JSONL")\" \"$(winpath "$SOURCE_DB")\"" >/dev/null \
+    && translate_overlay cities "$CITIES_FILE" "$SOURCE_DB" "$OVERLAY" "$SOURCE_LANG"; then
+    if ENRICHED="$(./gradlew -q :tools:data-pipeline:content:generateCities \
+      --args="$GEN_LANG--translated \"$(winpath "$OVERLAY")\" \"$(winpath "$JSONL")\" \"$(winpath "$ENRICHED_DB")\"" | tee /dev/stderr | sed -n 's/.*citta.: \([0-9]*\) .*/\1/p')" \
+      && [ -n "$ENRICHED" ] && [ "$ENRICHED" -gt 0 ] && [ -f "$ENRICHED_DB" ]; then
+      mv "$ENRICHED_DB" "$CITIES_FILE"
+      GENERATED="$ENRICHED"
+    else
+      echo "::warning::cities.db con le traduzioni non generato per $REGION_ID, resta quello senza" >&2
+    fi
+  fi
 fi
 
 HASH="$(sha256sum < "$CITIES_FILE" | awk '{print $1}')"

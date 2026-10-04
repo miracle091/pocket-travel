@@ -79,6 +79,9 @@ jobs:
       - name: Test di translate_sections.py
         run: python3 tools/data-pipeline/scripts/test_translate_sections.py
 
+      - name: Test di translate_guides.py
+        run: python3 tools/data-pipeline/scripts/test_translate_guides.py
+
       - name: Test di status.py
         run: python3 tools/data-pipeline/scripts/test_status.py
 

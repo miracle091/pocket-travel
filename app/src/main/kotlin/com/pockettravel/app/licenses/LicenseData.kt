@@ -54,12 +54,17 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
     LicenseEntry(
         component = "Wikivoyage",
         license = "CC BY-SA 4.0",
-        note = "Attribuzione visibile obbligatoria; i contenuti derivati restano CC BY-SA.",
+        note = "Attribuzione visibile obbligatoria; i contenuti derivati restano CC BY-SA. " +
+            "Alcune sezioni in italiano sono tradotte automaticamente dall'inglese (opus-mt-tc-big-en-it, Helsinki-NLP, CC BY 4.0) " +
+            "e alcune in inglese dall'italiano (opus-mt-tc-big-it-en, CC BY 4.0): sono opere derivate modificate rispetto all'originale.\n" +
+            "Some sections in English are machine-translated from Italian (opus-mt-tc-big-it-en, Helsinki-NLP, CC BY 4.0) " +
+            "and some in Italian from English (opus-mt-tc-big-en-it, CC BY 4.0): they are derivative works, modified from the original.",
     ),
     LicenseEntry(
         component = "Wikipedia (storia e clima delle città)",
         license = "CC BY-SA 4.0",
-        note = "Sezioni Storia (accorciata) e Clima della voce di ogni città, con il link alla voce tra le fonti della guida.",
+        note = "Sezioni Storia (accorciata) e Clima della voce di ogni città, con il link alla voce tra le fonti della guida. " +
+            "Se la voce è in un'altra lingua, il testo è tradotto automaticamente (vedi Wikivoyage).",
     ),
     LicenseEntry(
         component = "Wikidata (ambasciate e consolati)",

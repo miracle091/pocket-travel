@@ -102,8 +102,15 @@ class Translator:
             self.model = self.model.half()
         print(f"[traduzione] {name} su {self.device}", file=sys.stderr)
 
-    def _run(self, sentences):
+    def _decode(self, batch):
+        """Traduzioni di un lotto di frasi (stesso ordine); le sottoclassi con un altro motore le sostituiscono."""
         import torch
+        enc = self.tokenizer(batch, return_tensors="pt", padding=True, truncation=True, max_length=512).to(self.device)
+        with torch.no_grad():
+            gen = self.model.generate(**enc, num_beams=4, max_new_tokens=512)
+        return self.tokenizer.batch_decode(gen, skip_special_tokens=True)
+
+    def _run(self, sentences):
         if self.model is None:
             self._load()
         out = []
@@ -112,11 +119,7 @@ class Translator:
         done = [None] * len(sentences)
         for start in range(0, len(order), self.batch):
             idx = order[start:start + self.batch]
-            enc = self.tokenizer([sentences[i] for i in idx], return_tensors="pt", padding=True, truncation=True,
-                                 max_length=512).to(self.device)
-            with torch.no_grad():
-                gen = self.model.generate(**enc, num_beams=4, max_new_tokens=512)
-            for i, text in zip(idx, self.tokenizer.batch_decode(gen, skip_special_tokens=True)):
+            for i, text in zip(idx, self._decode([sentences[i] for i in idx])):
                 done[i] = text.strip()
             if (start // self.batch) % 20 == 0:
                 print(f"[traduzione] {min(start + self.batch, len(order))}/{len(order)} frasi", file=sys.stderr)

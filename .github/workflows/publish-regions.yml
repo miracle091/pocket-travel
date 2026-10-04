@@ -316,7 +316,9 @@ jobs:
     needs: plan
     if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    # 240: scaricare le pagine e generare le guide richiede pochi minuti, il resto e' il tetto di traduzione (75 minuti in
+    # tutto, vedi GUIDES_TRANSLATE_SECONDS sotto) con la conversione dei modelli alla prima run.
+    timeout-minutes: 240
     permissions:
       contents: write
     env:
@@ -331,6 +333,22 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
+      # Traduzione delle sezioni povere dall'altra lingua (translate_guides.py): motore, modelli e cache delle frasi
+      # gia' tradotte (setup-translation). Mai bloccante: senza, le guide escono come prima. Accesa solo con la variabile
+      # del repository TRANSLATE_GUIDES = true, dopo una revisione a campione delle traduzioni (sostituiscono gran parte
+      # delle sezioni italiane): senza, nessuna traduzione e guide come prima.
+      - name: Prepara la traduzione
+        if: ${{ vars.TRANSLATE_GUIDES == 'true' }}
+        continue-on-error: true
+        uses: ./.github/actions/setup-translation
+        with:
+          cache-name: guides
+
+      # La passata inglese gira per prima: la sua guida "semplice" serve all'italiana per tradurre le sezioni povere
+      # dall'inglese (GUIDES_SOURCE_DB), e la passata inglese ricava da sola quella italiana per tradurre le sue.
+      # GUIDES_TRANSLATE_SECONDS: tempo massimo di traduzione di ciascuna passata (60 minuti per l'italiano, che parte
+      # da molto piu' testo inglese da tradurre, 15 per l'inglese), cosi' una direzione non toglie tempo all'altra; il
+      # job pubblica comunque quello che e' pronto, il resto segue nelle run dopo grazie alla cache.
       - name: Genera guides.db e guides-en.db
         shell: bash
         run: |
@@ -338,23 +356,12 @@ jobs:
           source .github/scripts/retry.sh
           # Data + numero e tentativo della run: unica per run, come nel job "build" (vedi li').
           VERSION="$(date -u +%Y.%m.%d).${{ github.run_number }}.${{ github.run_attempt }}"
-          OUT="$RUNNER_TEMP/guides-out"
-          tools/data-pipeline/scripts/build-guides.sh "$VERSION" \
-            "https://github.com/${{ github.repository }}/releases/download/region-data-guide" "$OUT" \
-            "${{ env.PAGES_BASE_URL }}/manifest.json"
-          if [ -f "$OUT/guides.db.xz" ]; then
-            asset="$OUT/guides--${VERSION}--guides.db.xz"
-            cp "$OUT/guides.db.xz" "$asset"
-            retry gh release upload region-data-guide "$asset" --repo "${{ github.repository }}" --clobber
-          fi
           mkdir -p "$RUNNER_TEMP/fragments"
-          cp "$OUT/manifest-fragment.json" "$RUNNER_TEMP/fragments/guides.json"
           # Guida inglese (voce "guidesEn", asset guides-en--...): stessa release, cartella a parte. Se
           # fallisce non blocca quella italiana: il manifest tiene la voce guidesEn gia' pubblicata.
           OUT_EN="$RUNNER_TEMP/guides-en-out"
-          if tools/data-pipeline/scripts/build-guides.sh "$VERSION" \
-            "https://github.com/${{ github.repository }}/releases/download/region-data-guide" "$OUT_EN" \
-            "${{ env.PAGES_BASE_URL }}/manifest.json" en; then
+          EN_PLAIN="$RUNNER_TEMP/guides-en-plain.db"
+          if GUIDES_TRANSLATE_SECONDS=900 GUIDES_PLAIN_COPY="$EN_PLAIN" tools/data-pipeline/scripts/build-guides.sh "$VERSION"             "https://github.com/${{ github.repository }}/releases/download/region-data-guide" "$OUT_EN"             "${{ env.PAGES_BASE_URL }}/manifest.json" en; then
             if [ -f "$OUT_EN/guides.db.xz" ]; then
               asset="$OUT_EN/guides-en--${VERSION}--guides.db.xz"
               cp "$OUT_EN/guides.db.xz" "$asset"
@@ -364,6 +371,23 @@ jobs:
           else
             echo "::warning::guida inglese non generata in questa run, resta quella pubblicata"
           fi
+          OUT="$RUNNER_TEMP/guides-out"
+          GUIDES_TRANSLATE_SECONDS=3600 GUIDES_SOURCE_DB="$EN_PLAIN" tools/data-pipeline/scripts/build-guides.sh "$VERSION"             "https://github.com/${{ github.repository }}/releases/download/region-data-guide" "$OUT"             "${{ env.PAGES_BASE_URL }}/manifest.json"
+          if [ -f "$OUT/guides.db.xz" ]; then
+            asset="$OUT/guides--${VERSION}--guides.db.xz"
+            cp "$OUT/guides.db.xz" "$asset"
+            retry gh release upload region-data-guide "$asset" --repo "${{ github.repository }}" --clobber
+          fi
+          cp "$OUT/manifest-fragment.json" "$RUNNER_TEMP/fragments/guides.json"
+
+      # Nuova cache delle frasi solo se questa run ne ha tradotte di nuove (translate-grown.flag).
+      - name: Salva le frasi tradotte
+        if: ${{ always() && hashFiles('translate-grown.flag') != '' }}
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ github.workspace }}/translate-cache
+          key: translations-guides-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Carica il frammento manifest delle guide
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -923,6 +947,12 @@ jobs:
       # fallita (la piu' lenta misurata, cina-tibet alla prima generazione, 34 min).
       TIME_BUDGET_MINUTES: ${{ github.event.inputs.time_budget_minutes || '280' }}
       REGION_TIMEOUT_MINUTES: 45
+      # Traduzione delle sezioni povere delle citta' dall'altra lingua (translate_guides.py cities), tolta al budget di sopra:
+      # al massimo 120 secondi per ogni cities.db (italiano e inglese ciascuno) e 40 minuti in tutto per lo shard
+      # (TRANSLATE_DEADLINE, fissato all'inizio del passo "Genera i pacchetti regionali dello shard"); passati questi
+      # tempi le citta' restano com'erano e il resto segue alla prossima rotazione della regione, la cache tiene il lavoro fatto.
+      TRANSLATE_MAX_SECONDS: 120
+      TRANSLATE_TOTAL_MINUTES: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -972,6 +1002,15 @@ jobs:
           path: ${{ runner.temp }}/wikivoyage-dumps
           key: ${{ steps.dumps.outputs.key }}
 
+      # Motore, modelli e cache delle frasi gia' tradotte di questo shard (setup-translation). Mai bloccante. La cache e'
+      # per shard: una regione che cambia shard ritraduce le sue citta' (le frasi sono per hash del testo, nessun danno).
+      - name: Prepara la traduzione delle citta'
+        if: ${{ vars.TRANSLATE_GUIDES == 'true' }}
+        continue-on-error: true
+        uses: ./.github/actions/setup-translation
+        with:
+          cache-name: cities-${{ matrix.shard }}
+
       - name: Genera i pacchetti regionali dello shard
         id: build
         shell: bash
@@ -987,6 +1026,9 @@ jobs:
           source tools/data-pipeline/scripts/pilot-regions.sh
           # shellcheck source=./tools/data-pipeline/scripts/lib.sh
           source tools/data-pipeline/scripts/lib.sh
+          # Tetto comune di traduzione delle citta' per l'intero shard (translate_overlay in lib.sh).
+          TRANSLATE_DEADLINE=$(( $(date +%s) + TRANSLATE_TOTAL_MINUTES * 60 ))
+          export TRANSLATE_DEADLINE
 
           case "${{ matrix.shard }}" in
             0) SELECTED="${{ needs.plan.outputs.shard0 }}"; EXTRA="${{ needs.plan.outputs.shard0_extra }}" ;;
@@ -1286,6 +1328,15 @@ jobs:
             echo "::warning::regioni fallite in questo shard (non pubblicate, da rilanciare a parte): ${FAILED_REGIONS[*]}"
           fi
           echo "has_fragments=true" >> "$GITHUB_OUTPUT"
+
+      # Nuova cache delle frasi di questo shard solo se il passo sopra ne ha tradotte di nuove (translate-grown.flag).
+      - name: Salva le frasi tradotte delle citta'
+        if: ${{ always() && hashFiles('translate-grown.flag') != '' }}
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ github.workspace }}/translate-cache
+          key: translations-cities-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       # !cancelled(): anche quando il passo sopra esce con errore (nessuna regione completata) ma ha
       # regioni rimandate da passare alla continuazione.
