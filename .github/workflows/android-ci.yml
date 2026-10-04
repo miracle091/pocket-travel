@@ -53,6 +53,9 @@ jobs:
             exit 1
           fi
 
+      # APK di debug per le prove: e' debuggabile (adb run-as, debugger), quindi chi ha accesso al telefono puo' leggere
+      # dall'interno dell'app note e chiave API. Il nome lo dice, e l'artifact resta solo 7 giorni; per l'uso vero c'e'
+      # l'APK di release firmato (publish-apk).
       - name: Carica l'APK di debug come artifact con nome eloquente
         if: github.event_name == 'push'
         shell: bash
@@ -60,7 +63,7 @@ jobs:
           set -euo pipefail
           VERSION="$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
           SHA="${GITHUB_SHA::7}"
-          NAME="pocket-travel-debug-v${VERSION}-${SHA}.apk"
+          NAME="pocket-travel-debug-v${VERSION}-${SHA}-SOLO-PROVE-non-usare-con-dati-veri.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/$NAME"
           echo "DEBUG_APK_NAME=$NAME" >> "$GITHUB_ENV"
           echo "DEBUG_APK_PATH=$RUNNER_TEMP/$NAME" >> "$GITHUB_ENV"
@@ -70,6 +73,7 @@ jobs:
         with:
           name: ${{ env.DEBUG_APK_NAME }}
           path: ${{ env.DEBUG_APK_PATH }}
+          retention-days: 7
 
   # Test su emulatore (Compose, rotte di navigazione, migrazioni Room, installazione dei pacchetti), in parallelo al job
   # "build". Quelli che chiedono file sul dispositivo (modello GGUF, segmenti .rd5) qui si saltano da soli (assumeTrue).
