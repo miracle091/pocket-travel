@@ -148,3 +148,11 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   con MarianMT (`opus-mt-tc-big`, CC BY 4.0) le sezioni assenti o molto più brevi in una lingua; scarta le
   traduzioni con numeri diversi dall'originale e conserva le frasi tradotte in una cache. Le tabelle per lingua
   stanno in `generate_sft_dataset.py` e `generate_sft_dataset_en.py`, che servono ancora per rigenerare il dataset v8.
+- **Guide arricchite dall'altra lingua**: `scripts/translate_guides.py` confronta, per regione o città e categoria, la
+  sezione con quella dell'altra lingua (assente, sotto 300 caratteri o lunga meno della metà) e traduce la più ricca con
+  MarianMT (`opus-mt-tc-big-en-it` e `-it-en`, CC BY 4.0, CTranslate2 int8 su CPU): l'italiano dall'inglese e l'inglese
+  dall'italiano. `generateGuides` e `generateCities` con `--translated` sostituiscono la sezione povera e segnano la
+  riga con `translated = 1`, che le app vecchie ignorano. In publish-regions i passi girano solo con la variabile del
+  repository `TRANSLATE_GUIDES` uguale a `true`, quindi per ora le guide escono come prima: va accesa dopo una revisione
+  a campione, perché sui dati attuali sostituirebbe circa 2.000 sezioni italiane. Mai bloccante: se il motore o il
+  modello mancano, o il tempo finisce, la guida esce originale; la cache delle frasi tradotte tiene il lavoro fatto.
