@@ -36,6 +36,15 @@ class GenerateAddressGridTest {
     }
 
     @Test
+    fun `scrive publishedAt e non eredita quello dell'indice pubblicato`() {
+        val published = """{ "version": "0", "publishedAt": 5, "tileZoom": 14, "cells": [], "attributions": [] }"""
+
+        assertEquals(1_700_000_000L, JSONObject(mergeAddressGridJson("2", published, listOf(cellEntry("11/1/1")), listOf(osmAttribution), 1_700_000_000L)).getLong("publishedAt"))
+        // Senza valore esplicito: l'ora corrente in secondi, non zero.
+        assertTrue(JSONObject(mergeAddressGridJson("2", null, listOf(cellEntry("11/1/1")), listOf(osmAttribution))).getLong("publishedAt") > 1_700_000_000L)
+    }
+
+    @Test
     fun `tiene le celle pubblicate non toccate in questa run`() {
         val published = """{ "version": "0", "tileZoom": 14, "cells": [${cellEntry("11/1/1")}], "attributions": [] }"""
 

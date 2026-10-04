@@ -833,7 +833,9 @@ jobs:
             exit 1
           fi
           INDEX="$RUNNER_TEMP/transit-index/transit.json"
-          jq -s --arg v "$VERSION" '{version: $v, feeds: (unique_by(.id))}' "$OUT/transit-entries.jsonl" > "$INDEX"
+          # publishedAt (secondi Unix) dentro i byte firmati e coperti dallo sha256 del frammento: l'app rifiuta
+          # un valore piu' basso dell'ultimo accettato (niente ritorno a una vecchia coppia file + .sig).
+          jq -s --arg v "$VERSION" --argjson at "$(date +%s)" '{version: $v, publishedAt: $at, feeds: (unique_by(.id))}' "$OUT/transit-entries.jsonl" > "$INDEX"
           jq -n --arg v "$VERSION" --arg url "$INDEX_URL" --argjson size "$(stat -c %s "$INDEX")" \
             --arg sha "$(sha256sum "$INDEX" | cut -d' ' -f1)" \
             '{manifestVersion: 2, transit: {version: $v, url: $url, sizeBytes: $size, sha256: $sha}, regions: []}' \
@@ -1727,6 +1729,11 @@ jobs:
         run: |
           set -euo pipefail
           SITE_DIR="${{ steps.assemble.outputs.site_dir }}"
+          # publishedAt (secondi Unix) nel manifest, prima della firma: l'app rifiuta un valore piu' basso
+          # dell'ultimo accettato (niente ritorno a una vecchia coppia file + .sig). address-grid.json e
+          # transit.json lo hanno gia' dalla generazione (il loro sha256 e' nel manifest, non si toccano qui).
+          jq --argjson at "$(date +%s)" '.publishedAt = $at' "$SITE_DIR/manifest.json" > "$RUNNER_TEMP/manifest-stamped.json"
+          mv "$RUNNER_TEMP/manifest-stamped.json" "$SITE_DIR/manifest.json"
           FILES=("$SITE_DIR/manifest.json")
           # address-grid.json e transit.json ci sono solo se gia' pubblicati o prodotti da questa run.
           for name in address-grid.json transit.json; do

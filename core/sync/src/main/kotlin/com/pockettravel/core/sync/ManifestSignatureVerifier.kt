@@ -46,15 +46,18 @@ internal fun verifyManifestSignature(publicKeyBase64: String, content: ByteArray
  * interpretati: accanto a ogni file il sito pubblica `<stesso url>.sig`, scaricata con lo stesso OkHttpClient e
  * ammessa solo sugli host di [SyncConfig.ALLOWED_MANIFEST_HOSTS]. Con un manifest alternativo
  * (BuildConfig.MANIFEST_URL_OVERRIDE, solo debug) non si verifica nulla, cosi' un server locale continua a funzionare.
+ * Dopo la firma controlla anche `publishedAt` (vedi [checkPublishedAt]): niente ritorno a file piu' vecchi.
  */
 @Singleton
 class ManifestSignatureVerifier @Inject constructor(
     private val okHttpClient: OkHttpClient,
+    private val publishedAtStore: PublishedAtStore,
 ) {
     /** Scarica `<url>.sig` e verifica [content]; IOException se il sito non risponde, [ManifestSignatureException] se la firma non va. */
     suspend fun verify(url: String, content: ByteArray) {
         if (!enabled()) return
         verifyManifestSignature(SyncConfig.MANIFEST_PUBLIC_KEY, content, fetchSignature(url))
+        checkPublishedAt(publishedAtStore, fileKind(url), content)
     }
 
     /**
@@ -65,14 +68,22 @@ class ManifestSignatureVerifier @Inject constructor(
         if (!enabled()) return
         val content = withContext(Dispatchers.IO) { file.readBytes() }
         val cached = File(file.path + ".sig")
-        if (cached.isFile && runCatching { verifyManifestSignature(SyncConfig.MANIFEST_PUBLIC_KEY, content, cached.readBytes()) }.isSuccess) return
+        if (cached.isFile && runCatching { verifyManifestSignature(SyncConfig.MANIFEST_PUBLIC_KEY, content, cached.readBytes()) }.isSuccess) {
+            checkPublishedAt(publishedAtStore, fileKind(url), content)
+            return
+        }
         val signature = fetchSignature(url)
         verifyManifestSignature(SyncConfig.MANIFEST_PUBLIC_KEY, content, signature)
+        // Prima di tenere la firma in cache: un file troppo vecchio non deve restare accanto alla sua firma.
+        checkPublishedAt(publishedAtStore, fileKind(url), content)
         withContext(Dispatchers.IO) { cached.writeBytes(signature) }
     }
 
     // Solo con un manifest alternativo (debug) non si verifica; altrimenti ogni errore (chiave illeggibile
     // compresa) e' un'eccezione, mai un "via libera".
+    // Nome del file nell'url (manifest.json, ...): chiave dell'ultimo publishedAt accettato.
+    private fun fileKind(url: String): String = URI(url).path.substringAfterLast('/')
+
     private fun enabled(): Boolean = BuildConfig.MANIFEST_URL_OVERRIDE.isEmpty()
 
     private suspend fun fetchSignature(url: String): ByteArray = withContext(Dispatchers.IO) {

@@ -194,11 +194,14 @@ jobs:
             "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/LlmModelCatalog.kt" \
             > "$AI_MODELS_FILE"
 
+          # publishedAt (secondi Unix) prima della firma: l'app rifiuta un valore piu' basso dell'ultimo
+          # accettato (niente ritorno a una vecchia coppia file + .sig che nasconda l'aggiornamento).
           jq -n \
             --arg versionName "$VERSION" \
             --argjson versionCode "$VERSION_CODE" \
             --slurpfile aiModels "$AI_MODELS_FILE" \
-            '{appVersion: {versionName: $versionName, versionCode: $versionCode}, aiModels: $aiModels[0]}' \
+            --argjson publishedAt "$(date +%s)" \
+            '{publishedAt: $publishedAt, appVersion: {versionName: $versionName, versionCode: $versionCode}, aiModels: $aiModels[0]}' \
             > "$APP_STATUS_FILE"
 
           bash .github/scripts/sign-files.sh "$APP_STATUS_FILE"

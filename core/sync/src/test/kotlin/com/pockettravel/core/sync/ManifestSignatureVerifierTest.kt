@@ -46,6 +46,7 @@ class ManifestSignatureVerifierTest {
                     .body(body.toResponseBody()).build()
             },
         ).build(),
+        FakePublishedAtStore(),
     )
 
     private fun tempFile(): File =

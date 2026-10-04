@@ -3,6 +3,8 @@ package com.pockettravel.core.sync.di
 import com.pockettravel.core.data.AppInitializer
 import com.pockettravel.core.data.UpdateCheck
 import com.pockettravel.core.sync.AppUpdateCheckScheduler
+import com.pockettravel.core.sync.PublishedAtStore
+import com.pockettravel.core.sync.SharedPrefsPublishedAtStore
 import com.pockettravel.core.sync.SyncInitializer
 import dagger.Module
 import dagger.Provides
@@ -24,6 +26,9 @@ object SyncModule {
     @Provides
     @Singleton
     fun provideJson(): Json = Json { ignoreUnknownKeys = true }
+
+    @Provides
+    fun providePublishedAtStore(store: SharedPrefsPublishedAtStore): PublishedAtStore = store
 
     @Provides
     @IntoSet

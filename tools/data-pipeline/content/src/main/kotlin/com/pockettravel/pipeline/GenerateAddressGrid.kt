@@ -31,13 +31,15 @@ internal fun isAncestorCell(ancestor: String, descendant: String): Boolean {
  * quelle con lo stesso id o si aggiungono. Quando una cella si e' divisa i suoi figli compaiono tra
  * le voci nuove: la voce del genitore, ancora nell'indice pubblicato, va tolta - le celle non si
  * fondono mai, quindi non serve il caso contrario. Risultato ordinato per id
- * (z, x, y): stesso ordine richiesto da ValidateManifest.
+ * (z, x, y): stesso ordine richiesto da ValidateManifest. [publishedAt] (secondi Unix) e' il campo anti-rollback
+ * letto dall'app dopo la verifica della firma.
  */
 fun mergeAddressGridJson(
     version: String,
     publishedIndexJson: String?,
     newEntryJsons: List<String>,
     attributions: List<GridAttribution>,
+    publishedAt: Long = System.currentTimeMillis() / 1000,
 ): String {
     val cells = LinkedHashMap<String, JSONObject>()
     publishedIndexJson?.let { json ->
@@ -64,6 +66,9 @@ fun mergeAddressGridJson(
 
     return JSONObject()
         .put("version", version)
+        // Secondi Unix alla generazione, dentro i byte firmati: l'app rifiuta un indice con un valore piu' basso
+        // dell'ultimo accettato (niente ritorno a una vecchia coppia file + .sig). Non e' ereditato dall'indice pubblicato.
+        .put("publishedAt", publishedAt)
         .put("tileZoom", CELL_MAX_ZOOM)
         .put("cells", JSONArray(sortedCells))
         .put(
