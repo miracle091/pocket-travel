@@ -34,11 +34,17 @@ class LlmModelDownloadWorker @AssistedInject constructor(
             val currentlyInstalled = LlmModelCatalog.ALL.firstOrNull {
                 it.id != definition.id && modelManager.isDownloaded(it)
             }
+            // Solo quando cambia la percentuale: ogni setProgress e' una scrittura nel database di WorkManager.
+            var lastPercent = -1L
             modelManager.selectAndDownload(
                 newDefinition = definition,
                 currentlyInstalled = currentlyInstalled,
             ) { downloaded, total ->
-                setProgress(workDataOf(KEY_BYTES_DOWNLOADED to downloaded, KEY_TOTAL_BYTES to total))
+                val percent = if (total > 0) downloaded * PERCENT / total else PERCENT
+                if (percent != lastPercent) {
+                    lastPercent = percent
+                    setProgress(workDataOf(KEY_BYTES_DOWNLOADED to downloaded, KEY_TOTAL_BYTES to total))
+                }
             }
             Result.success()
         } catch (error: CancellationException) {
