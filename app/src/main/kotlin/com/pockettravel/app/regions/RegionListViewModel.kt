@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pockettravel.app.R
+import com.pockettravel.app.runCatchingCancellable
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionPackage
 import com.pockettravel.core.data.RegionRepository
@@ -31,6 +32,7 @@ import com.pockettravel.core.ui.countryName
 import com.pockettravel.feature.map.UsageModePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -114,6 +116,9 @@ data class RegionListUiState(
     @StringRes val message: Int? = null,
 )
 
+/** Le righe dell'elenco senza il filtro della ricerca. */
+private data class RegionCatalog(val items: List<RegionUiItem>, val replaced: List<ReplacedRegionItem>)
+
 private data class LoadStatus(
     val isLoading: Boolean = true,
     @StringRes val loadError: Int? = null,
@@ -154,7 +159,9 @@ class RegionListViewModel @Inject constructor(
         locale.value = newLocale
     }
 
-    val uiState = combine(
+    // Elenco senza il filtro di ricerca: dimensioni e stati (packageBytes legge dal disco, installedAddressCells il database)
+    // si ricalcolano solo se cambia il catalogo, non a ogni tasto della ricerca.
+    private val catalog = combine(
         // Ogni regione con la sua zona: dimensioni e versioni (quella dei civici dipende dalle celle) sono quelle della zona.
         // Con i percorsi "solo auto" scelti, anche la dimensione e la versione dei percorsi sono quelle della variante.
         combine(manifestRegions, locale, regionZonePreferences.zones, routingVariantPreferences.carOnly) { regions, currentLocale, zones, carOnly ->
@@ -162,36 +169,34 @@ class RegionListViewModel @Inject constructor(
         },
         // Con "Indicazioni" la dimensione di "Scarica" comprende i percorsi.
         combine(regionRepository.observeInstalled(), usageModePreferences.wantsDirections, ::Pair),
-        status,
-        query,
         replacedRegions,
-    ) { zonedRegions, (installed, wantsDirections), currentStatus, currentQuery, replacedByManifest ->
+    ) { zonedRegions, (installed, wantsDirections), replacedByManifest ->
         val remoteRegions = zonedRegions.map { it.first }
         val installedByRegion = installed.associateBy { it.regionId }
         // Senza catalogo (offline, o non ancora letto) le nazioni installate restano apribili: i loro dati sono sul telefono.
         val items = if (remoteRegions.isEmpty()) {
-            installed.filter { matchesQuery(it.displayName, currentQuery) }.map { offlineRegionItem(it, regionRepository::packageBytes) }
+            installed.map { offlineRegionItem(it, regionRepository::packageBytes) }
         } else {
-            zonedRegions
-                .filter { (remote, _) -> matchesQuery(remote.displayName, currentQuery) }
-                .map { (remote, zone) ->
-                    regionUiItem(remote.restrictedTo(zone), installedByRegion[remote.regionId], regionRepository::packageBytes, regionRepository::installedAddressCells, wantsDirections, transitIndex.value != null)
-                        .copy(bbox = remote.map.source.let { RegionBbox(it.minLon, it.minLat, it.maxLon, it.maxLat) }, zone = zone, routingCarAvailable = remote.routingCar != null)
-                }
+            zonedRegions.map { (remote, zone) ->
+                regionUiItem(remote.restrictedTo(zone), installedByRegion[remote.regionId], regionRepository::packageBytes, regionRepository::installedAddressCells, wantsDirections, transitIndex.value != null)
+                    .copy(bbox = remote.map.source.let { RegionBbox(it.minLon, it.minLat, it.maxLon, it.maxLat) }, zone = zone, routingCarAvailable = remote.routingCar != null)
+            }
         }
-        val replaced = replacedItems(installed, remoteRegions, replacedByManifest).filter { matchesQuery(it.displayName, currentQuery) }
+        RegionCatalog(items, replacedItems(installed, remoteRegions, replacedByManifest))
+    }
+        // packageBytes legge le dimensioni di mappa e routing dal disco.
+        .flowOn(Dispatchers.IO)
+
+    val uiState = combine(catalog, status, query) { currentCatalog, currentStatus, currentQuery ->
         RegionListUiState(
-            items = items,
-            replaced = replaced,
+            items = currentCatalog.items.filter { matchesQuery(it.displayName, currentQuery) },
+            replaced = currentCatalog.replaced.filter { matchesQuery(it.displayName, currentQuery) },
             query = currentQuery,
             isLoading = currentStatus.isLoading,
             loadError = currentStatus.loadError,
             message = currentStatus.message,
         )
-    }
-        // packageBytes legge le dimensioni di mappa e routing dal disco.
-        .flowOn(Dispatchers.IO)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RegionListUiState())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RegionListUiState())
 
     init {
         refresh()
@@ -222,9 +227,9 @@ class RegionListViewModel @Inject constructor(
                 // Civici a griglia: un errore qui (rete, indice non
                 // valido) non deve bloccare l'elenco delle regioni, solo lasciarle senza civici a
                 // griglia per questo aggiornamento — riprovera' al prossimo refresh().
-                val addressGridIndex = manifest.addressGrid?.let { entry -> runCatching { addressGridClient.fetchIndex(entry) }.getOrNull() }
+                val addressGridIndex = manifest.addressGrid?.let { entry -> runCatchingCancellable { addressGridClient.fetchIndex(entry) }.getOrNull() }
                 // Come i civici: senza indice dei mezzi pubblici le regioni restano senza quel pacchetto.
-                val transitIndex = manifest.transit?.let { entry -> runCatching { transitClient.fetchIndex(entry) }.getOrNull() }
+                val transitIndex = manifest.transit?.let { entry -> runCatchingCancellable { transitClient.fetchIndex(entry) }.getOrNull() }
                 this@RegionListViewModel.transitIndex.value = transitIndex
                 baseRegions.value = attachAddressGridCells(manifest.regions, addressGridIndex)
                 replacedRegions.value = manifest.replacedRegions
@@ -236,6 +241,8 @@ class RegionListViewModel @Inject constructor(
                     remote.countryCode?.let { regionRepository.fillCountryCode(remote.regionId, it) }
                 }
                 status.update { it.copy(loadError = null) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 status.update { it.copy(loadError = R.string.regions_load_error) }
             } finally {
@@ -265,7 +272,7 @@ class RegionListViewModel @Inject constructor(
     }
 
     /** Scarica i pacchetti scelti di una regione (primo avvio, selezione multipla): false se non e' partito. */
-    fun downloadKinds(regionId: String, kinds: Set<PackageKind>): Boolean {
+    suspend fun downloadKinds(regionId: String, kinds: Set<PackageKind>): Boolean {
         val entry = zonedEntry(regionId) ?: return false
         return enqueue(entry, kinds)
     }
@@ -273,18 +280,31 @@ class RegionListViewModel @Inject constructor(
     /** Scarica o aggiorna un solo pacchetto della regione (foglio "Pacchetti"). */
     fun downloadPackage(regionId: String, kind: PackageKind) {
         val entry = zonedEntry(regionId) ?: return
-        enqueue(entry, setOf(kind))
+        viewModelScope.launch { enqueue(entry, setOf(kind)) }
     }
 
-    private fun enqueue(entry: RegionManifestEntry, kinds: Set<PackageKind>): Boolean {
+    private suspend fun enqueue(entry: RegionManifestEntry, kinds: Set<PackageKind>): Boolean {
         if (kinds.isEmpty()) return false
-        if (regionRepository.availableStorageBytes() < entry.downloadBytes(kinds)) {
+        // StorageManager.getAllocatableBytes puo' bloccare: fuori dal thread principale.
+        val enoughSpace = withContext(Dispatchers.IO) { regionRepository.availableStorageBytes() } >= entry.downloadBytes(kinds)
+        if (enoughSpace) {
+            transitNetworkPreferences.rememberChoice(entry, kinds)
+            regionSyncScheduler.enqueueDownload(entry, kinds)
+        } else {
             status.update { it.copy(message = R.string.regions_not_enough_space) }
-            return false
         }
-        transitNetworkPreferences.rememberChoice(entry, kinds)
-        regionSyncScheduler.enqueueDownload(entry, kinds)
-        return true
+        return enoughSpace
+    }
+
+    // L'eliminazione dei file puo' fallire (check nel repository): un messaggio invece del crash.
+    private suspend fun removeOrReport(remove: suspend () -> Unit) {
+        try {
+            remove()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: IllegalStateException) {
+            status.update { it.copy(message = R.string.regions_delete_error) }
+        }
     }
 
     fun onMessageShown() {
@@ -294,11 +314,11 @@ class RegionListViewModel @Inject constructor(
     fun delete(regionId: String) {
         regionSyncScheduler.cancelDownload(regionId)
         regionZonePreferences.setZone(regionId, null)
-        viewModelScope.launch { regionRepository.remove(regionId) }
+        viewModelScope.launch { removeOrReport { regionRepository.remove(regionId) } }
     }
 
     fun deletePackage(regionId: String, kind: PackageKind) {
-        viewModelScope.launch { regionRepository.removePackage(regionId, kind) }
+        viewModelScope.launch { removeOrReport { regionRepository.removePackage(regionId, kind) } }
     }
 
     /** Mappa leggera: la scelta dell'utente o, senza, com'e' la mappa installata; senza mappa leggera (il default). */
@@ -346,7 +366,7 @@ class RegionListViewModel @Inject constructor(
             }
             val installedKinds = setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.ADDRESSES).filter { local.versionOf(it) != null }
             if (PackageKind.ADDRESSES in installedKinds && PackageKind.ADDRESSES !in entry.availableKinds) {
-                regionRepository.removePackage(regionId, PackageKind.ADDRESSES)
+                removeOrReport { regionRepository.removePackage(regionId, PackageKind.ADDRESSES) }
             }
             enqueue(entry, installedKinds.filterTo(mutableSetOf()) { it in entry.availableKinds })
         }
@@ -522,8 +542,11 @@ internal fun matchesQuery(displayName: String, query: String): Boolean {
     return displayName.foldForSearch().contains(query.trim().foldForSearch())
 }
 
+// Segni diacritici dopo la scomposizione NFD; compilata una volta sola (la ricerca la usa a ogni tasto).
+private val DIACRITICS = Regex("\\p{Mn}+")
+
 private fun String.foldForSearch(): String =
-    Normalizer.normalize(lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
+    Normalizer.normalize(lowercase(), Normalizer.Form.NFD).replace(DIACRITICS, "")
 
 // Le reti da scegliere una per una: solo se la regione ne ha piu' di una.
 private fun RegionManifestEntry.transitNetworks(): List<TransitNetworkUi> {

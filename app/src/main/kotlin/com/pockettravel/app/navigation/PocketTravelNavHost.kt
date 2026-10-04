@@ -63,10 +63,10 @@ import com.pockettravel.app.regions.RegionHubScreen
 import com.pockettravel.app.regions.RegionListScreen
 import com.pockettravel.app.regions.RegionListViewModel
 import com.pockettravel.app.regions.RegionPreviewScreen
-import com.pockettravel.app.regions.RegionRowActions
 import com.pockettravel.app.regions.RegionStatus
 import com.pockettravel.app.regions.RegionWorldMap
 import com.pockettravel.app.regions.navigatorViewModels
+import com.pockettravel.app.regions.rowActions
 import com.pockettravel.app.storage.StorageScreen
 import com.pockettravel.core.data.officialSourcesRegistry
 import com.pockettravel.core.ui.AppIcons
@@ -98,6 +98,8 @@ private fun TopLevelDestination.icon(selected: Boolean): ImageVector = when (thi
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PocketTravelNavHost(
+    // Activity creata dal tocco sulla notifica della guida (non gia' aperta): parte dal Navigatore.
+    openNavigatorOnStart: Boolean = false,
     onboardingViewModel: OnboardingViewModel = hiltViewModel(),
     startDestinationViewModel: StartDestinationViewModel = hiltViewModel(),
 ) {
@@ -128,6 +130,14 @@ fun PocketTravelNavHost(
         if (!initialRegionOpened && initialRegionId != null) {
             initialRegionOpened = true
             navController.navigate(RegionHubRoute(initialRegionId, tab = "map"))
+        }
+    }
+
+    // Dopo la regione iniziale, che altrimenti resterebbe in cima: i collector di openNavigatorRequests non c'erano ancora
+    // quando l'activity ha letto l'intent, quindi qui si naviga direttamente (solo se una guida e' in corso).
+    LaunchedEffect(Unit) {
+        if (openNavigatorOnStart && startDestination != OnboardingRoute && navigationViewModel.target.value != null) {
+            navController.navigateTopLevel(NavigatorRoute)
         }
     }
 
@@ -244,10 +254,15 @@ fun PocketTravelNavHost(
             }
             composable<RegionPreviewRoute> { backStackEntry ->
                 val route = backStackEntry.toRoute<RegionPreviewRoute>()
+                // Lo stesso ViewModel dell'elenco (sta nella voce RegionsRoute sotto): il download parte dal suo percorso.
+                val listViewModel: RegionListViewModel = hiltViewModel(remember(backStackEntry) { navController.getBackStackEntry(RegionsRoute) })
+                val listState by listViewModel.uiState.collectAsStateWithLifecycle()
                 RegionPreviewScreen(
                     regionId = route.regionId,
                     displayName = route.name.ifBlank { route.regionId },
                     onBack = { navController.popBackStack() },
+                    item = listState.items.firstOrNull { it.regionId == route.regionId },
+                    rowActions = listViewModel.rowActions(),
                     // Il download completo si segue dalla lista Regioni (barra di avanzamento gia'
                     // presente li'), non duplicata qui: torna semplicemente indietro.
                     onDownloadFull = { navController.popBackStack() },
@@ -286,14 +301,7 @@ private fun RegionsListDetail(
                 val uiState by regionListViewModel.uiState.collectAsStateWithLifecycle()
                 RegionWorldMap(
                     items = uiState.items,
-                    rowActions = RegionRowActions(
-                        observeProgress = regionListViewModel::observeDownloadProgress,
-                        onDownload = regionListViewModel::download,
-                        onDelete = regionListViewModel::delete,
-                        onDownloadPackage = regionListViewModel::downloadPackage,
-                        onDeletePackage = regionListViewModel::deletePackage,
-                        onTransitNetworkChange = regionListViewModel::setTransitNetwork,
-                    ),
+                    rowActions = regionListViewModel.rowActions(),
                     onRegionClick = { item ->
                         if (item.status == RegionStatus.NOT_INSTALLED) {
                             onPreviewClick(item.regionId, item.displayName)

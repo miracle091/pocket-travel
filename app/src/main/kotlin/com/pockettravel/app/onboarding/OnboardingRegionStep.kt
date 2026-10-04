@@ -35,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateMap
@@ -62,6 +63,7 @@ import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.CountryFlag
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
+import kotlinx.coroutines.launch
 
 /**
  * Passo "Scarica le regioni" del primo avvio: regioni consigliate (proprio paese e vicini), ricerca,
@@ -70,6 +72,7 @@ import com.pockettravel.core.ui.Spacing
  */
 @Composable
 internal fun OnboardingRegionStep(onboardingViewModel: OnboardingViewModel, viewModel: RegionListViewModel = hiltViewModel()) {
+    val scope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val nationality by onboardingViewModel.nationality.collectAsStateWithLifecycle()
     val wantsDirections by onboardingViewModel.wantsDirections.collectAsStateWithLifecycle()
@@ -143,7 +146,9 @@ internal fun OnboardingRegionStep(onboardingViewModel: OnboardingViewModel, view
             Button(
                 onClick = {
                     viewModel.onMessageShown()
-                    selection.filter { (id, kinds) -> viewModel.downloadKinds(id, kinds) }.keys.forEach { selection.remove(it) }
+                    scope.launch {
+                        selection.filter { (id, kinds) -> viewModel.downloadKinds(id, kinds) }.keys.forEach { selection.remove(it) }
+                    }
                 },
                 modifier = Modifier.fillMaxWidth().padding(top = Spacing.s),
             ) {

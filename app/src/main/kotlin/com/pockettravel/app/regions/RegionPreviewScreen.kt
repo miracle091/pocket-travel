@@ -20,6 +20,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -39,16 +40,30 @@ import com.pockettravel.core.ui.R as UiR
 // da Room come per una regione installata, senza distinguere tra "installata" e "solo anteprima".
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegionPreviewScreen(
+internal fun RegionPreviewScreen(
     regionId: String,
     displayName: String,
     onBack: () -> Unit,
+    // La riga della regione nell'elenco e le sue azioni: il download completo passa dallo stesso percorso dell'elenco
+    // (civici, spazio libero, avviso su rete cellulare, scelta della zona). item e' null finche' l'elenco non l'ha.
+    item: RegionUiItem?,
+    rowActions: RegionRowActions,
     onDownloadFull: () -> Unit,
     onOpenSource: (url: String, title: String) -> Unit = { _, _ -> },
     viewModel: RegionPreviewViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    LaunchedEffect(regionId) { viewModel.load(regionId) }
+    LaunchedEffect(regionId) { viewModel.load() }
+    // Si torna all'elenco (dove si segue l'avanzamento) solo quando il download e' davvero partito, non alla prima pressione.
+    val downloadActions = remember(rowActions, onDownloadFull) {
+        rowActions.copy(
+            onDownload = { id -> rowActions.onDownload(id); onDownloadFull() },
+            onZoneChange = { id, zone, download ->
+                rowActions.onZoneChange(id, zone, download)
+                if (download && id == regionId) onDownloadFull()
+            },
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -77,9 +92,15 @@ fun RegionPreviewScreen(
                         Text(stringResource(R.string.preview_banner_body), style = MaterialTheme.typography.bodyMedium)
                     }
                     Spacer(modifier = Modifier.width(Spacing.s))
-                    // Solo col manifest arrivato: prima downloadFull non farebbe nulla ma la schermata si chiuderebbe.
-                    FilledTonalButton(onClick = { viewModel.downloadFull(); onDownloadFull() }, enabled = state == RegionPreviewState.Ready) {
-                        Text(stringResource(R.string.preview_download))
+                    // Solo con la guida pronta e la regione nell'elenco: prima non ci sarebbe nulla da scaricare.
+                    if (item != null) {
+                        RegionDownloadFlow(item = item, actions = downloadActions) { _, onDownloadClick ->
+                            FilledTonalButton(onClick = onDownloadClick, enabled = state == RegionPreviewState.Ready) {
+                                Text(stringResource(R.string.preview_download))
+                            }
+                        }
+                    } else {
+                        FilledTonalButton(onClick = {}, enabled = false) { Text(stringResource(R.string.preview_download)) }
                     }
                 }
             }

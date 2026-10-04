@@ -43,6 +43,7 @@ class MainActivity : FragmentActivity() {
 
     // Notifica della guida toccata con l'app gia' aperta: l'hub della regione porta in primo piano il Navigatore.
     override fun onNewIntent(intent: Intent) {
+        intent.removeNavigationDeepLinkExtras()
         super.onNewIntent(intent)
         if (intent.getBooleanExtra(NavigationService.EXTRA_OPEN_NAVIGATOR, false)) navigationSession.requestOpen()
     }
@@ -57,6 +58,9 @@ class MainActivity : FragmentActivity() {
         AppLanguage.applyDefault(this)
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        intent.removeNavigationDeepLinkExtras()
+        // Activity ricreata dal tocco sulla notifica (non gia' aperta): onNewIntent non scatta, lo legge il NavHost.
+        val openNavigator = savedInstanceState == null && intent.getBooleanExtra(NavigationService.EXTRA_OPEN_NAVIGATOR, false)
         // Guide installate in una lingua diversa da quella dell'interfaccia (lingua appena cambiata):
         // si scaricano subito quelle giuste. Se il manifest non offre guide inglesi il worker non fa nulla.
         lifecycleScope.launch {
@@ -79,9 +83,15 @@ class MainActivity : FragmentActivity() {
             }
             PocketTravelTheme(darkTheme = darkTheme, dynamicColor = useDynamicColor) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    PocketTravelNavHost()
+                    PocketTravelNavHost(openNavigatorOnStart = openNavigator)
                 }
             }
         }
     }
+}
+
+// Navigation Compose legge dall'intent degli extra "android-support-nav:*" come deep link impliciti: l'app non ha
+// deep link, ma un'altra app potrebbe cosi' aprire una rotta (es. il browser interno) con argomenti a piacere.
+private fun Intent.removeNavigationDeepLinkExtras() {
+    extras?.keySet()?.filter { it.startsWith("android-support-nav:") }?.forEach { removeExtra(it) }
 }

@@ -2,6 +2,7 @@ package com.pockettravel.app.licenses
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pockettravel.app.runCatchingCancellable
 import com.pockettravel.core.sync.AddressGridAttribution
 import com.pockettravel.core.sync.AddressGridClient
 import com.pockettravel.core.sync.ManifestClient
@@ -33,16 +34,20 @@ class LicensesViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val attributions = runCatching {
-                manifestClient.fetchManifest().addressGrid?.let { addressGridClient.fetchIndex(it).attributions }
-            }.getOrNull()
-            if (attributions != null) _addressAttributions.value = attributions
-        }
-        viewModelScope.launch {
-            val feeds = runCatching {
-                manifestClient.fetchManifest().transit?.let { transitClient.fetchIndex(it).feeds }
-            }.getOrNull()
-            if (feeds != null) _transitFeeds.value = feeds
+            // Un solo manifest per entrambe le liste.
+            val manifest = runCatchingCancellable { manifestClient.fetchManifest() }.getOrNull() ?: return@launch
+            launch {
+                val attributions = runCatchingCancellable {
+                    manifest.addressGrid?.let { addressGridClient.fetchIndex(it).attributions }
+                }.getOrNull()
+                if (attributions != null) _addressAttributions.value = attributions
+            }
+            launch {
+                val feeds = runCatchingCancellable {
+                    manifest.transit?.let { transitClient.fetchIndex(it).feeds }
+                }.getOrNull()
+                if (feeds != null) _transitFeeds.value = feeds
+            }
         }
     }
 }

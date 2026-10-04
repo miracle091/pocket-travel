@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -167,7 +168,13 @@ internal fun RegionPackagesSheet(
         )
     }
     pendingLargeDownload?.let { kind ->
-        val size = Formatter.formatShortFileSize(context, item.packages.first { it.kind == kind }.downloadBytes)
+        // Dopo un ripristino lo stato salvato puo' riferirsi a un pacchetto che non c'e' piu': si chiude il dialogo.
+        val pkg = item.packages.firstOrNull { it.kind == kind }
+        if (pkg == null) {
+            SideEffect { pendingLargeDownload = null }
+            return@let
+        }
+        val size = Formatter.formatShortFileSize(context, pkg.downloadBytes)
         ConfirmationDialog(
             title = stringResource(R.string.regions_large_download_title),
             message = stringResource(R.string.regions_large_download_message, stringResource(kind.label()), size),

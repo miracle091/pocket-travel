@@ -4,6 +4,7 @@ import com.pockettravel.core.data.LastKnownPosition
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
+import com.pockettravel.app.runCatchingCancellable
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.sync.ManifestClient
@@ -100,21 +101,31 @@ class RegionHubViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TransitPackageState.UNKNOWN)
 
     fun load(regionId: String) {
+        // Sui tablet lo stesso ViewModel serve tutte le regioni scelte nel pannello: rientrando nella stessa non si rifa'
+        // nulla (niente manifest e transit.json riscaricati); cambiando, si riparte da uno stato vuoto.
+        // (Se era risultata mancante si ricontrolla: nel frattempo puo' essere stata scaricata di nuovo.)
+        if (this.regionId.value == regionId && !_regionMissing.value) return
         this.regionId.value = regionId
+        _displayName.value = null
+        _regionMissing.value = false
+        transitOffered.value = null
         recentRegionPreferences.setLastRegionId(regionId)
         viewModelScope.launch {
             val region = regionRepository.installed(regionId)
             val name = region?.let { localizedInstalledName(it.displayName, it.countryCode, Locale.getDefault()) }
+            // Nel frattempo il pannello puo' essere passato a un'altra regione.
+            if (this@RegionHubViewModel.regionId.value != regionId) return@launch
             _displayName.value = name
             _regionMissing.value = name == null
         }
         viewModelScope.launch {
             val installed = regionRepository.installed(regionId)?.transitVersion != null
             // Senza transit.json nel catalogo non si sa ancora: niente "non ci sono orari".
-            transitOffered.value = if (installed) null else runCatching {
+            val offered = if (installed) null else runCatchingCancellable {
                 val manifest = manifestClient.fetchManifest()
                 manifest.transit?.let { regionTransitFeeds(transitClient.fetchIndex(it), regionId).isNotEmpty() }
             }.getOrNull()
+            if (this@RegionHubViewModel.regionId.value == regionId) transitOffered.value = offered
         }
     }
 
@@ -122,7 +133,7 @@ class RegionHubViewModel @Inject constructor(
     fun downloadTransit() {
         val id = regionId.value ?: return
         viewModelScope.launch {
-            runCatching { entryWithTransit(id) }
+            runCatchingCancellable { entryWithTransit(id) }
                 .onSuccess { entry ->
                     if (entry.transit != null) {
                         transitNetworkPreferences.rememberChoice(entry, setOf(PackageKind.TRANSIT))
@@ -149,7 +160,7 @@ class RegionHubViewModel @Inject constructor(
     private fun downloadPackage(kind: PackageKind) {
         val id = regionId.value ?: return
         viewModelScope.launch {
-            runCatching { manifestClient.fetchManifest().regions.first { it.regionId == id } }
+            runCatchingCancellable { manifestClient.fetchManifest().regions.first { it.regionId == id } }
                 .onSuccess { regionSyncScheduler.enqueueDownload(it, setOf(kind)) }
         }
     }

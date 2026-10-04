@@ -3,6 +3,7 @@ package com.pockettravel.app.onboarding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
+import com.pockettravel.app.runCatchingCancellable
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionSyncScheduler
@@ -47,7 +48,7 @@ class GuidesDownloadViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            downloadBytes.value = runCatching { manifestClient.fetchManifest().guides.downloadFile.sizeBytes }.getOrNull()
+            downloadBytes.value = runCatchingCancellable { manifestClient.fetchManifest().guides.downloadFile.sizeBytes }.getOrNull()
         }
     }
 

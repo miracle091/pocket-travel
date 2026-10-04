@@ -10,6 +10,7 @@
     <string name="regions_load_error">Couldn\'t reach the country catalog. Try again later</string>
     <string name="regions_retry">Retry</string>
     <string name="regions_not_enough_space">Not enough space to download this region</string>
+    <string name="regions_delete_error">Could not delete the data, try again</string>
     <string name="regions_status_not_installed">%1$s · not installed</string>
     <string name="regions_status_installed">%1$s · installed</string>
     <string name="regions_status_update">%1$s · update available</string>

@@ -116,21 +116,7 @@ fun RegionListScreen(
         onCheckUpdates = viewModel::checkForUpdatesNow,
         onRetry = viewModel::refresh,
         onMessageShown = viewModel::onMessageShown,
-        rowActions = RegionRowActions(
-            observeProgress = viewModel::observeDownloadProgress,
-            onDownload = viewModel::download,
-            onDelete = viewModel::delete,
-            onDownloadPackage = viewModel::downloadPackage,
-            onDeletePackage = viewModel::deletePackage,
-            onTransitNetworkChange = viewModel::setTransitNetwork,
-            observeMapLight = viewModel::observeMapLight,
-            onMapLightChange = viewModel::setMapLight,
-            onZoneChange = viewModel::setZone,
-            regionsInZone = viewModel::regionsInZone,
-            isInstalledWhole = viewModel::isInstalledWhole,
-            observeRoutingChoice = viewModel::observeRoutingChoice,
-            onRoutingChoiceChange = viewModel::setRoutingChoice,
-        ),
+        rowActions = viewModel.rowActions(),
         onRegionClick = { item ->
             if (item.status == RegionStatus.NOT_INSTALLED) {
                 onPreviewClick(item.regionId, item.displayName)
@@ -140,6 +126,23 @@ fun RegionListScreen(
         },
     )
 }
+
+// Tutte le azioni di una riga regione, dal ViewModel dell'elenco: le usano l'elenco, la mappa del mondo dei tablet e l'anteprima.
+internal fun RegionListViewModel.rowActions() = RegionRowActions(
+    observeProgress = ::observeDownloadProgress,
+    onDownload = ::download,
+    onDelete = ::delete,
+    onDownloadPackage = ::downloadPackage,
+    onDeletePackage = ::deletePackage,
+    onTransitNetworkChange = ::setTransitNetwork,
+    observeMapLight = ::observeMapLight,
+    onMapLightChange = ::setMapLight,
+    onZoneChange = ::setZone,
+    regionsInZone = ::regionsInZone,
+    isInstalledWhole = ::isInstalledWhole,
+    observeRoutingChoice = ::observeRoutingChoice,
+    onRoutingChoiceChange = ::setRoutingChoice,
+)
 
 // Azioni di una riga regione, raccolte per poter essere fornite dal ViewModel (schermata e step
 // di onboarding) o da valori finti (@Preview). Data class: i riferimenti a metodi del ViewModel sono
@@ -655,8 +658,46 @@ internal fun RegionRow(
 
 @Composable
 private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actions: RegionRowActions) {
-    val context = LocalContext.current
     var showPackages by rememberSaveable { mutableStateOf(false) }
+    RegionDownloadFlow(item = item, actions = actions) { startDownload, onDownloadClick ->
+        when (item.status) {
+            // Paese grande non ancora scaricato: prima la scelta fra tutto il paese e una zona.
+            RegionStatus.NOT_INSTALLED -> FilledTonalIconButton(onClick = onDownloadClick, enabled = !isDownloading) {
+                Icon(AppIcons.Download, contentDescription = stringResource(R.string.regions_download, item.displayName))
+            }
+            RegionStatus.UPDATE_AVAILABLE, RegionStatus.INSTALLED -> Row(verticalAlignment = Alignment.CenterVertically) {
+                if (item.status == RegionStatus.UPDATE_AVAILABLE) {
+                    // Solo icona, come "Scarica": un'etichetta schiaccerebbe il nome della regione (col testo grande fino a
+                    // spezzarlo lettera per lettera). TalkBack legge "Aggiorna <regione>".
+                    FilledTonalIconButton(onClick = startDownload, enabled = !isDownloading) {
+                        Icon(AppIcons.Download, contentDescription = stringResource(R.string.regions_update_region, item.displayName))
+                    }
+                }
+                // Mappa, percorsi e POI uno per uno, ed "Elimina tutto": vedi RegionPackagesSheet.
+                IconButton(onClick = { showPackages = true }) {
+                    Icon(AppIcons.MoreVert, contentDescription = stringResource(R.string.regions_packages, item.displayName))
+                }
+            }
+        }
+    }
+
+    if (showPackages) {
+        RegionPackagesSheet(item = item, isDownloading = isDownloading, actions = actions, onDismiss = { showPackages = false })
+    }
+}
+
+/**
+ * Il percorso di download di una regione, comune all'elenco e all'anteprima: avviso per i download grandi su rete
+ * cellulare, scelta fra tutto il paese e una zona per i paesi grandi. [content] riceve [startDownload] (download
+ * diretto, con l'avviso) e [onDownloadClick], il gesto "Scarica" di una regione non installata (con la scelta della zona).
+ */
+@Composable
+internal fun RegionDownloadFlow(
+    item: RegionUiItem,
+    actions: RegionRowActions,
+    content: @Composable (startDownload: () -> Unit, onDownloadClick: () -> Unit) -> Unit,
+) {
+    val context = LocalContext.current
     var showLargeDownloadWarning by rememberSaveable { mutableStateOf(false) }
     var showZoneChoice by rememberSaveable { mutableStateOf(false) }
     var pickingZone by rememberSaveable { mutableStateOf(false) }
@@ -669,33 +710,7 @@ private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actio
             actions.onDownload(item.regionId)
         }
     }
-
-    when (item.status) {
-        // Paese grande non ancora scaricato: prima la scelta fra tutto il paese e una zona.
-        RegionStatus.NOT_INSTALLED -> FilledTonalIconButton(
-            onClick = { if (item.bbox?.isLarge() == true) showZoneChoice = true else startDownload() },
-            enabled = !isDownloading,
-        ) {
-            Icon(AppIcons.Download, contentDescription = stringResource(R.string.regions_download, item.displayName))
-        }
-        RegionStatus.UPDATE_AVAILABLE, RegionStatus.INSTALLED -> Row(verticalAlignment = Alignment.CenterVertically) {
-            if (item.status == RegionStatus.UPDATE_AVAILABLE) {
-                // Solo icona, come "Scarica": un'etichetta schiaccerebbe il nome della regione (col testo grande fino a
-                // spezzarlo lettera per lettera). TalkBack legge "Aggiorna <regione>".
-                FilledTonalIconButton(onClick = startDownload, enabled = !isDownloading) {
-                    Icon(AppIcons.Download, contentDescription = stringResource(R.string.regions_update_region, item.displayName))
-                }
-            }
-            // Mappa, percorsi e POI uno per uno, ed "Elimina tutto": vedi RegionPackagesSheet.
-            IconButton(onClick = { showPackages = true }) {
-                Icon(AppIcons.MoreVert, contentDescription = stringResource(R.string.regions_packages, item.displayName))
-            }
-        }
-    }
-
-    if (showPackages) {
-        RegionPackagesSheet(item = item, isDownloading = isDownloading, actions = actions, onDismiss = { showPackages = false })
-    }
+    content(startDownload) { if (item.bbox?.isLarge() == true) showZoneChoice = true else startDownload() }
 
     if (showZoneChoice) {
         ZoneChoiceDialog(

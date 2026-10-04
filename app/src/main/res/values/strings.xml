@@ -10,6 +10,7 @@
     <string name="regions_load_error">Impossibile contattare il catalogo delle nazioni. Riprova più tardi</string>
     <string name="regions_retry">Riprova</string>
     <string name="regions_not_enough_space">Spazio insufficiente per scaricare questa regione</string>
+    <string name="regions_delete_error">Impossibile eliminare i dati, riprova</string>
     <string name="regions_status_not_installed">%1$s · non installata</string>
     <string name="regions_status_installed">%1$s · installata</string>
     <string name="regions_status_update">%1$s · da aggiornare</string>
