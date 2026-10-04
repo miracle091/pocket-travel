@@ -5,6 +5,7 @@ package com.pockettravel.feature.ai.llamacpp.internal
 
 import android.content.Context
 import android.util.Log
+import com.pockettravel.feature.ai.llamacpp.ContextUsage
 import com.pockettravel.feature.ai.llamacpp.InferenceEngine
 import com.pockettravel.feature.ai.llamacpp.UnsupportedArchitectureException
 import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl.Companion.getInstance
@@ -55,6 +56,7 @@ internal class InferenceEngineImpl private constructor(
 
     companion object {
         private val TAG = InferenceEngineImpl::class.java.simpleName
+        private const val CONTEXT_SIZE_INDEX = 3
 
         @Volatile
         private var instance: InferenceEngine? = null
@@ -106,6 +108,9 @@ internal class InferenceEngineImpl private constructor(
     @FastNative
     private external fun cancelGeneration()
 
+    // {token del prompt, token generati, posizione nella KV cache, dimensione del contesto}
+    private external fun contextUsageNative(): IntArray?
+
     private external fun unload()
 
     private external fun shutdown()
@@ -113,6 +118,9 @@ internal class InferenceEngineImpl private constructor(
     private val _state =
         MutableStateFlow<InferenceEngine.State>(InferenceEngine.State.Uninitialized)
     override val state: StateFlow<InferenceEngine.State> = _state.asStateFlow()
+
+    private val _contextUsage = MutableStateFlow<ContextUsage?>(null)
+    override val contextUsage: StateFlow<ContextUsage?> = _contextUsage.asStateFlow()
 
     @Volatile
     private var _cancelGeneration = false
@@ -245,6 +253,7 @@ internal class InferenceEngineImpl private constructor(
                 throw IOException("Failed to process user prompt: $result")
             }
         }
+        publishContextUsage()
 
         try {
             Log.i(TAG, "User prompt processed. Generating assistant prompt...")
@@ -254,6 +263,8 @@ internal class InferenceEngineImpl private constructor(
                     if (utf8token.isNotEmpty()) emit(utf8token)
                 } ?: break
             }
+            // Prima di cancelGeneration, che riporta la KV cache alla posizione precedente al turno.
+            publishContextUsage()
             if (_cancelGeneration) {
                 Log.i(TAG, "Assistant generation aborted per requested.")
                 // Riallinea la KV cache nativa alla posizione precedente al turno interrotto: senza
@@ -266,6 +277,7 @@ internal class InferenceEngineImpl private constructor(
             _state.value = InferenceEngine.State.ModelReady
         } catch (e: CancellationException) {
             Log.i(TAG, "Assistant generation's flow collection cancelled.")
+            publishContextUsage()
             cancelGeneration()
             _state.value = InferenceEngine.State.ModelReady
             throw e
@@ -275,6 +287,16 @@ internal class InferenceEngineImpl private constructor(
             throw e
         }
     }.flowOn(llamaDispatcher)
+
+    private fun publishContextUsage() {
+        val values = contextUsageNative() ?: return
+        _contextUsage.value = ContextUsage(
+            promptTokens = values[0],
+            generatedTokens = values[1],
+            usedTokens = values[2],
+            contextSize = values[CONTEXT_SIZE_INDEX],
+        )
+    }
 
     /**
      * Unloads the model and frees resources, or reset error states

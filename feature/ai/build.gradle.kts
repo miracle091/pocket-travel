@@ -54,6 +54,7 @@ dependencies {
     implementation(project(":core:sync"))
     implementation(project(":core:ui"))
     implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)

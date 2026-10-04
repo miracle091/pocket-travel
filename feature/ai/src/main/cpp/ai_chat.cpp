@@ -217,6 +217,11 @@ static std::string cached_token_chars;
 static std::ostringstream assistant_ss;
 static llama_pos generation_start_position;
 
+// Solo misure per il task manager di debug (contextUsage): token del prompt e token campionati
+// nell'ultimo turno. Non le azzerano i reset, cosi' si leggono anche a turno finito.
+static int last_prompt_tokens = 0;
+static int last_generated_tokens = 0;
+
 static void reset_short_term_states() {
     stop_generation_position = 0;
     cached_token_chars.clear();
@@ -411,6 +416,8 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
 
     // Update position
     current_position += user_prompt_size;
+    last_prompt_tokens = user_prompt_size;
+    last_generated_tokens = 0;
     // Posizione della KV cache subito prima del primo token generato dall'assistente: se il turno
     // viene cancellato a meta' (vedi cancelGeneration), e' il punto a cui tornare.
     generation_start_position = current_position;
@@ -560,6 +567,7 @@ static jstring generate_next_token_impl(JNIEnv *env) {
 
     // Update position
     current_position++;
+    last_generated_tokens++;
 
     // Stop if next token is EOG
     if (llama_vocab_is_eog(llama_model_get_vocab(g_model), new_token_id)) {
@@ -707,4 +715,17 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_shutdown(JNIEnv *, jobject /*unused*/) {
     llama_backend_free();
+}
+
+// Uso del contesto per il task manager di debug (contextUsageNative): {token del prompt, token generati, posizione nella KV
+// cache, dimensione del contesto}. Da chiamare sul thread del motore, come le altre funzioni.
+extern "C"
+JNIEXPORT jintArray JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_contextUsageNative(JNIEnv *env, jobject /*unused*/) {
+    const jint values[] = {last_prompt_tokens, last_generated_tokens, (jint) current_position, DEFAULT_CONTEXT_SIZE};
+    constexpr jsize count = sizeof(values) / sizeof(values[0]);
+    jintArray result = env->NewIntArray(count);
+    if (result == nullptr) return nullptr;  // OutOfMemoryError gia' pendente in Java
+    env->SetIntArrayRegion(result, 0, count, values);
+    return result;
 }

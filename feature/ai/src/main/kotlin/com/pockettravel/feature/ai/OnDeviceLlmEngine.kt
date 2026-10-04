@@ -7,7 +7,14 @@ import com.pockettravel.feature.ai.llamacpp.isModelLoaded
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -34,6 +41,11 @@ class OnDeviceLlmEngine @Inject constructor(
     // File del modello oggi in memoria (null se nessuno): senza, dopo un cambio di modello scelto
     // il motore resterebbe sul precedente, perche' isModelLoaded non dice quale sia.
     private var loadedModelPath: String? = null
+
+    private val _stats = MutableStateFlow(LlmRuntimeStats())
+
+    /** Modello in memoria, tempo di caricamento e ultima generazione, per il task manager di debug. */
+    val stats: StateFlow<LlmRuntimeStats> = _stats.asStateFlow()
 
     /**
      * Carica il modello se non e' gia' in memoria, restituendo quanto e' durato il caricamento — 0
@@ -73,14 +85,20 @@ class OnDeviceLlmEngine @Inject constructor(
                 val start = System.currentTimeMillis()
                 val answers = prompts.map {
                     engine.resetConversation()
-                    engine.sendUserPrompt(it).toList().joinToString(separator = "")
+                    _stats.collectTimed(engine.sendUserPrompt(it), { engine.contextUsage.value }) { }
                 }
                 GenerationBatch(loadTimeMs, System.currentTimeMillis() - start, answers)
             }
         }
     }
 
-    suspend fun generate(prompt: String): String = withContext(Dispatchers.IO) {
+    suspend fun generate(prompt: String): String = generateStream(prompt).toList().joinToString(separator = "")
+
+    /**
+     * I token della risposta man mano che il modello li produce. Il lock del modello resta preso finche' il
+     * flusso e' in corso: cancellare il collector interrompe la generazione e lo rilascia.
+     */
+    fun generateStream(prompt: String): Flow<String> = flow {
         coordinator.withModelLock {
             mutex.withLock {
                 loadModelIfNeeded()
@@ -89,10 +107,10 @@ class OnDeviceLlmEngine @Inject constructor(
                 // accumulerebbe la history tra una domanda e l'altra invece di restare un turno
                 // singolo.
                 engine.resetConversation()
-                engine.sendUserPrompt(prompt).toList().joinToString(separator = "")
+                _stats.collectTimed(engine.sendUserPrompt(prompt), { engine.contextUsage.value }) { emit(it) }
             }
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     /**
      * Come [generate], ma con l'output vincolato alla grammatica GBNF [grammar] e al massimo [maxTokens]
@@ -105,7 +123,7 @@ class OnDeviceLlmEngine @Inject constructor(
                 engine.resetConversation()
                 engine.setGrammar(grammar)
                 try {
-                    engine.sendUserPrompt(prompt, maxTokens).toList().joinToString(separator = "")
+                    _stats.collectTimed(engine.sendUserPrompt(prompt, maxTokens), { engine.contextUsage.value }) { }
                 } finally {
                     // NonCancellable: dopo una cancellazione il sampler con la grammatica resterebbe per le domande normali.
                     withContext(NonCancellable) { if (engine.state.value is InferenceEngine.State.ModelReady) engine.setGrammar("") }
@@ -126,6 +144,7 @@ class OnDeviceLlmEngine @Inject constructor(
 
     suspend fun releaseWithoutLock() {
         loadedModelPath = null
+        _stats.update { it.copy(loadedModelId = null) }
         val state = engine.state.value
         // cleanUp() lancia IllegalStateException fuori da ModelReady/Error (es. nessun modello
         // ancora caricato): va chiamata solo se c'e' davvero qualcosa da scaricare.
@@ -152,6 +171,7 @@ class OnDeviceLlmEngine @Inject constructor(
         val definition = aiSettingsStore.selectedModelDefinition()
         check(modelManager.isDownloaded(definition)) { "Modello IA non scaricato" }
         val path = modelManager.modelFile(definition).absolutePath
+        val loadStart = System.nanoTime()
         engine.loadModel(
             path,
             topK = TOP_K,
@@ -159,6 +179,7 @@ class OnDeviceLlmEngine @Inject constructor(
             nThreads = deviceAiCapability.inferenceThreadCount(),
         )
         loadedModelPath = path
+        _stats.update { it.copy(loadedModelId = definition.id, loadTimeMs = (System.nanoTime() - loadStart) / NANOS_PER_MS) }
     }
 
     private companion object {

@@ -1,5 +1,6 @@
 package com.pockettravel.feature.ai
 
+import android.content.pm.ApplicationInfo
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.FilledTonalButton
 import android.text.format.Formatter
@@ -46,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -164,7 +166,10 @@ internal fun AiAssistantContent(uiState: AiUiState, actions: AiActions, onOpenOf
 @Composable
 private fun AssistantHeader(uiState: AiUiState, isReady: Boolean, actions: AiActions) {
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
+    // Benchmark e confronto tra modelli: strumenti di sviluppo, solo nelle build di debug.
+    val debugBuild = isDebugBuild()
     var showRemoveConfirm by rememberSaveable { mutableStateOf(false) }
+    var showTaskManager by rememberSaveable { mutableStateOf(false) }
     val isOnDevice = uiState.mode == AiEngineMode.ON_DEVICE
 
     Row(
@@ -188,7 +193,7 @@ private fun AssistantHeader(uiState: AiUiState, isReady: Boolean, actions: AiAct
                     Icon(AppIcons.More, contentDescription = stringResource(R.string.ai_more_actions))
                 }
                 DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                    if (isOnDevice) {
+                    if (isOnDevice && debugBuild) {
                         DropdownMenuItem(
                             text = { Text(stringResource(if (uiState.isBenchmarking) R.string.ai_benchmark_running else R.string.ai_benchmark_run)) },
                             enabled = !uiState.isBenchmarking,
@@ -197,6 +202,10 @@ private fun AssistantHeader(uiState: AiUiState, isReady: Boolean, actions: AiAct
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.ai_benchmark_compare)) },
                             onClick = { menuExpanded = false; actions.onShowBenchmarkComparison() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.ai_taskmgr_title)) },
+                            onClick = { menuExpanded = false; showTaskManager = true },
                         )
                     }
                     DropdownMenuItem(
@@ -210,7 +219,8 @@ private fun AssistantHeader(uiState: AiUiState, isReady: Boolean, actions: AiAct
     }
 
     val result = uiState.benchmarkResult
-    if (isReady && isOnDevice && result != null && result.modelId == uiState.selectedModelId) {
+    val showBenchmark = debugBuild && isReady && isOnDevice
+    if (showBenchmark && result != null && result.modelId == uiState.selectedModelId) {
         val base = stringResource(R.string.ai_benchmark_result, result.wordsPerSecond.toInt(), result.qualityScore)
         Text(
             text = if (result.loadTimeMs > 0) stringResource(R.string.ai_benchmark_load_time, base, result.loadTimeMs / 1000f) else base,
@@ -219,6 +229,8 @@ private fun AssistantHeader(uiState: AiUiState, isReady: Boolean, actions: AiAct
             modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs),
         )
     }
+
+    if (showTaskManager && debugBuild) LlmTaskManagerDialog(onDismiss = { showTaskManager = false })
 
     if (showRemoveConfirm) {
         ConfirmationDialog(
@@ -788,4 +800,11 @@ private fun AiConversationPreview() {
             )
         }
     }
+}
+
+// Build di debug (debuggable): il benchmark dei modelli si mostra solo li', non nelle versioni stabili.
+@Composable
+private fun isDebugBuild(): Boolean {
+    val context = LocalContext.current
+    return remember(context) { context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 }
 }

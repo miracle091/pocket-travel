@@ -15,6 +15,9 @@ interface InferenceEngine {
      */
     val state: StateFlow<State>
 
+    /** Uso del contesto nell'ultimo turno, per il task manager di debug; null prima del primo prompt. */
+    val contextUsage: StateFlow<ContextUsage?>
+
     /**
      * Load a model from the given path.
      *
@@ -97,3 +100,9 @@ val State.isModelLoaded: Boolean
         this is State.Generating
 
 class UnsupportedArchitectureException : Exception()
+
+/**
+ * Token del prompt e generati nell'ultimo turno, posizione occupata nella KV cache (turni precedenti
+ * compresi) e dimensione del contesto, letti dal motore nativo.
+ */
+data class ContextUsage(val promptTokens: Int, val generatedTokens: Int, val usedTokens: Int, val contextSize: Int)
