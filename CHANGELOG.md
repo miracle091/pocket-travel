@@ -7,6 +7,7 @@ La sezione "Cambiamenti incompatibili" elenca, per ogni versione, cosa smette di
 ## [Non rilasciato]
 
 ### Cambiamenti incompatibili
+- Le versioni fino alla 0.9.0 conoscono solo le impronte (sha256) dei modelli IA scritte nel loro APK. Da questa versione l'app le legge anche dal file firmato `app-status.json`, che può cambiare senza un nuovo rilascio: quando un modello addestrato viene ricaricato, le versioni precedenti ricevono l'avviso di aggiornamento del modello ma ne rifiutano il download, finché l'app non viene aggiornata.
 - Chi pubblica i dati da un fork deve firmarli: da questa versione l'app rifiuta il catalogo delle regioni, l'indice dei mezzi pubblici, quello dei numeri civici e `app-status.json` senza una firma valida (chiave e procedura in `tools/data-pipeline/README.md`).
 - Le altre app non possono più aprire la navigazione o il browser interno con un intent implicito: i deep link impliciti di navigazione sono stati tolti.
 

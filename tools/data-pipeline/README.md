@@ -21,6 +21,19 @@ La firma si fa nel workflow (`.github/scripts/sign-files.sh`) con la chiave priv
 `MANIFEST_SIGNING_KEY`, solo nel passo che la usa; se il secret manca il job fallisce, per non pubblicare
 file non firmati.
 
+`app-status.json` si aggiorna in tre modi, tutti in `publish-apk.yml`:
+- al rilascio dell'app (bump di `versionCode`): versione dal catalogo di main; per ogni modello l'impronta
+  che coincide con il file su HuggingFace, presa dal catalogo o dal file online se la sua firma è valida
+  (`scripts/resolve_ai_models.py`). Se nessuna coincide il job si ferma prima di compilare: una release che
+  rifiuterebbe i download non esce;
+- lancio manuale con `update_models`, avviato da `scripts/upload_hf.py --update-app-status` dopo il
+  caricamento di un GGUF con lo stesso nome file: cambia solo sha256 e dimensione di quei modelli, dopo aver
+  verificato la firma del file online e le impronte su HuggingFace. Le app dalla 0.9.1 verificano il
+  download con queste impronte, quindi il modello nuovo si scarica senza rilasciare l'app; lo script poi
+  aggiorna anche `LlmModelCatalog.kt`, che resta la riserva quando l'app non raggiunge `app-status.json`;
+- lancio manuale con `resign_app_status`: lo ricostruisce dal tag della versione rilasciata, con le stesse
+  regole del rilascio per le impronte, e lo firma.
+
 Impostazione della chiave (una volta sola; la chiave privata non va mai committata):
 
 ```bash

@@ -13,6 +13,9 @@ name: Publish APK
 # feature:ai/LlmModelUpdateCheckWorker) lo legge da li', volutamente separato da manifest.json
 # (pacchetti regionali, publish-regions.yml) — versione app/modello cambiano solo con un
 # rilascio, mai insieme all'aggiornamento dati regionali.
+# Nome del run con l'identificativo di upload_hf.py --update-app-status, che cosi' segue il proprio run e
+# non un altro lancio manuale; vuoto negli altri casi, e GitHub usa il nome predefinito.
+run-name: ${{ inputs.request_id != '' && format('Impronte dei modelli {0}', inputs.request_id) || '' }}
 on:
   push:
     branches: [main]
@@ -22,6 +25,14 @@ on:
         description: "Solo app-status.json: lo ricostruisce dal tag della versione rilasciata e lo firma, senza APK"
         type: boolean
         default: false
+      update_models:
+        description: 'Solo impronte dei modelli in app-status.json (da upload_hf.py --update-app-status): JSON [{"modelId","sha256","sizeBytes"}]'
+        type: string
+        default: ""
+      request_id:
+        description: "Identificativo del lancio, nel nome del run (lo imposta upload_hf.py)"
+        type: string
+        default: ""
 
 # Minimo a livello di workflow: contents: write solo al job che pubblica le release.
 permissions:
@@ -71,7 +82,7 @@ jobs:
     needs: check-version-bump
     # Solo da main: un workflow_dispatch lanciato da un altro ramo non deve pubblicare release ne'
     # app-status.json.
-    if: needs.check-version-bump.outputs.bumped == 'true' && github.ref == 'refs/heads/main' && !inputs.resign_app_status
+    if: needs.check-version-bump.outputs.bumped == 'true' && github.ref == 'refs/heads/main' && !inputs.resign_app_status && !inputs.update_models
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -95,6 +106,17 @@ jobs:
           java-version: '25'
 
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      # Prima di compilare: una release con impronte dei modelli diverse dai file su HuggingFace
+      # rifiuterebbe i download, quindi il job si ferma qui.
+      - name: Impronte dei modelli IA per app-status.json
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          bash .github/scripts/resolve-ai-models.sh \
+            feature/ai/src/main/kotlin/com/pockettravel/feature/ai/LlmModelCatalog.kt "$RUNNER_TEMP/ai-models.json"
 
       - name: Decodifica il keystore di firma
         shell: bash
@@ -189,15 +211,8 @@ jobs:
           VERSION_CODE="$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)"
 
           APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
+          # Scritto dal passo "Impronte dei modelli IA per app-status.json", prima della compilazione.
           AI_MODELS_FILE="$RUNNER_TEMP/ai-models.json"
-
-          # LlmModelCatalog e' una lista di LlmModelDefinition (una entry per modello): jq/grep non
-          # bastano, serve un parser vero - vedi
-          # scripts/generate_ai_models_manifest.py per il perche' non e' inline qui (heredoc
-          # bash e indentazione block scalar YAML sono incompatibili in questo caso).
-          python3 scripts/generate_ai_models_manifest.py \
-            "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/LlmModelCatalog.kt" \
-            > "$AI_MODELS_FILE"
 
           # publishedAt (secondi Unix) prima della firma: l'app rifiuta un valore piu' basso dell'ultimo
           # accettato (niente ritorno a una vecchia coppia file + .sig che nasconda l'aggiornamento).
@@ -216,8 +231,8 @@ jobs:
   # Ripubblica app-status.json ricostruito dai sorgenti del tag della versione rilasciata (v<versionName>
   # di main), con publishedAt nuovo e firmato: per un file caricato prima che si firmasse, che le build
   # recenti rifiutano. Mai firmare il file online cosi' com'e': un asset manomesso diventerebbe firmato.
-  # Il catalogo dei modelli e' quello del tag, non di main: le app rilasciate verificano i download con
-  # gli sha256 del loro APK.
+  # Il catalogo dei modelli e' quello del tag, non di main; le impronte sono quelle che coincidono con i file su
+  # HuggingFace (resolve-ai-models.sh), cosi' quelle pubblicate da update-app-status-models non vanno perse.
   resign-app-status:
     if: github.event_name == 'workflow_dispatch' && inputs.resign_app_status && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -248,7 +263,7 @@ jobs:
           VERSION_CODE="$(grep -oP 'versionCode = \K[0-9]+' "$RUNNER_TEMP/build.gradle.kts")"
           APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
           AI_MODELS_FILE="$RUNNER_TEMP/ai-models.json"
-          python3 scripts/generate_ai_models_manifest.py "$RUNNER_TEMP/LlmModelCatalog.kt" > "$AI_MODELS_FILE"
+          bash .github/scripts/resolve-ai-models.sh "$RUNNER_TEMP/LlmModelCatalog.kt" "$AI_MODELS_FILE"
           jq -n \
             --arg versionName "$VERSION" \
             --argjson versionCode "$VERSION_CODE" \
@@ -256,5 +271,89 @@ jobs:
             --argjson publishedAt "$(date +%s)" \
             '{publishedAt: $publishedAt, appVersion: {versionName: $versionName, versionCode: $versionCode}, aiModels: $aiModels[0]}' \
             > "$APP_STATUS_FILE"
+          bash .github/scripts/sign-files.sh "$APP_STATUS_FILE"
+          retry gh release upload app-status "$APP_STATUS_FILE" "$APP_STATUS_FILE.sig" --repo "${{ github.repository }}" --clobber
+
+  # Aggiorna in app-status.json le impronte (sha256, dimensione) dei modelli appena ricaricati su HuggingFace
+  # con lo stesso nome file, senza rilasciare l'app: le build che leggono le impronte da qui (dalla 0.9.1)
+  # verificano il download con queste. Lanciato da upload_hf.py --update-app-status. Parte dal file online
+  # solo dopo averne verificato la firma (mai firmare un asset manomesso) e accetta un'impronta solo se
+  # coincide con quella che HuggingFace riporta per il file del catalogo.
+  update-app-status-models:
+    if: github.event_name == 'workflow_dispatch' && inputs.update_models != '' && !inputs.resign_app_status && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-apk
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Aggiorna, firma e ripubblica app-status.json
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
+          # Dall'ambiente e non interpolato nello script: il testo dell'input non diventa codice.
+          UPDATE_MODELS: ${{ inputs.update_models }}
+        run: |
+          set -euo pipefail
+          source .github/scripts/retry.sh
+          CATALOG="feature/ai/src/main/kotlin/com/pockettravel/feature/ai/LlmModelCatalog.kt"
+          ONLINE="$RUNNER_TEMP/online.json"
+          UPDATES="$RUNNER_TEMP/updates.json"
+          APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
+
+          printf '%s' "$UPDATE_MODELS" > "$UPDATES"
+          jq -e 'type == "array" and length > 0 and all(.[];
+              (keys == ["modelId", "sha256", "sizeBytes"])
+              and (.modelId | type == "string" and test("^[A-Za-z0-9._-]+$"))
+              and (.sha256 | type == "string" and test("^[0-9a-f]{64}$"))
+              and (.sizeBytes | type == "number" and . > 0 and floor == .))' "$UPDATES" > /dev/null \
+            || { echo "::error::update_models non valido" >&2; exit 1; }
+
+          retry gh release download app-status --pattern 'app-status.json*' --dir "$RUNNER_TEMP/online" \
+            --repo "${{ github.repository }}" --clobber
+          bash .github/scripts/verify-app-status.sh "$RUNNER_TEMP/online/app-status.json"
+          mv "$RUNNER_TEMP/online/app-status.json" "$ONLINE"
+
+          # URL dal catalogo del tag rilasciato, cercato per id: e' quello da cui scaricano le app in circolazione.
+          TAG="v$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
+          git show "$TAG:$CATALOG" > "$RUNNER_TEMP/LlmModelCatalog.kt"
+
+          mapfile -t ROWS < <(jq -c '.[]' "$UPDATES")
+          for row in "${ROWS[@]}"; do
+            ID="$(jq -r '.modelId' <<< "$row")"
+            SHA="$(jq -r '.sha256' <<< "$row")"
+            SIZE="$(jq -r '.sizeBytes' <<< "$row")"
+            FILE="$(jq -r --arg id "$ID" '.aiModels[] | select(.modelId == $id) | .modelVersion' "$ONLINE")"
+            [ -n "$FILE" ] || { echo "::error::$ID non e' in app-status.json" >&2; exit 1; }
+            URL="$(awk -v id="id = \"$ID\"" '
+              index($0, id) { found = 1 }
+              found && match($0, /url = "[^"]+"/) { print substr($0, RSTART + 7, RLENGTH - 8); exit }
+              /^ *\),/ { found = 0 }' "$RUNNER_TEMP/LlmModelCatalog.kt")"
+            [ "${URL##*/}" = "$FILE" ] || { echo "::error::nel catalogo di $TAG $ID non scarica $FILE ($URL)" >&2; exit 1; }
+            # Senza seguire il redirect: X-Linked-ETag e X-Linked-Size sono lo sha256 e la dimensione del file LFS.
+            HEADERS="$(retry curl -sSfI "$URL" | tr -d '\r')"
+            REMOTE_SHA="$(grep -i '^x-linked-etag:' <<< "$HEADERS" | grep -oE '[0-9a-f]{64}' || true)"
+            REMOTE_SIZE="$(grep -i '^x-linked-size:' <<< "$HEADERS" | grep -oE '[0-9]+' || true)"
+            if [ "$REMOTE_SHA" != "$SHA" ] || [ "$REMOTE_SIZE" != "$SIZE" ]; then
+              echo "::error::$FILE su HuggingFace ha sha256 $REMOTE_SHA e $REMOTE_SIZE byte, non quelli richiesti" >&2
+              exit 1
+            fi
+            echo "-- $ID ($FILE): $SHA, $SIZE byte"
+          done
+
+          jq --slurpfile updates "$UPDATES" --argjson publishedAt "$(date +%s)" '
+            .publishedAt = $publishedAt
+            | .aiModels |= map(. as $m
+                | (first($updates[0][] | select(.modelId == $m.modelId)) // null) as $u
+                | if $u == null then . else .sha256 = $u.sha256 | .sizeBytes = $u.sizeBytes end)' \
+            "$ONLINE" > "$APP_STATUS_FILE"
           bash .github/scripts/sign-files.sh "$APP_STATUS_FILE"
           retry gh release upload app-status "$APP_STATUS_FILE" "$APP_STATUS_FILE.sig" --repo "${{ github.repository }}" --clobber
