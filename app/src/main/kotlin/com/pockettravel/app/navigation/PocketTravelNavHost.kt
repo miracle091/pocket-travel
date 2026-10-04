@@ -14,10 +14,15 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
@@ -70,6 +75,7 @@ import com.pockettravel.app.regions.rowActions
 import com.pockettravel.app.storage.StorageScreen
 import com.pockettravel.core.data.officialSourcesRegistry
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.ContextualHint
 import com.pockettravel.core.ui.R as UiR
 import com.pockettravel.feature.sources.OfficialSourcesScreen
 import com.pockettravel.feature.vault.DocumentsScreen
@@ -200,7 +206,16 @@ fun PocketTravelNavHost(
                 GlobalNavigatorScreen(onOpenCountries = { navController.navigateTopLevel(RegionsRoute) })
             }
             composable<VaultRoute>(enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
-                DocumentsScreen()
+                // Il suggerimento sta sotto la barra di stato (inset consumato, DocumentsScreen non lo ripete).
+                Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
+                    ContextualHint(
+                        hintId = "vault",
+                        icon = AppIcons.Passport,
+                        title = stringResource(R.string.hint_vault_title),
+                        body = stringResource(R.string.hint_vault_body),
+                    )
+                    Box(modifier = Modifier.weight(1f)) { DocumentsScreen() }
+                }
             }
             composable<MoreRoute>(enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
                 MoreScreen(
@@ -226,11 +241,21 @@ fun PocketTravelNavHost(
             composable<SourcesRoute> {
                 // Stesse preferenze delle Impostazioni: la nazionalita' sceglie le fonti del proprio paese.
                 val nationality by hiltViewModel<SettingsViewModel>().nationality.collectAsStateWithLifecycle()
-                OfficialSourcesScreen(
-                    nationality = nationality,
-                    onBack = { navController.popBackStack() },
-                    onOpenSource = { url, title -> navController.navigate(InAppBrowserRoute(url, title)) },
-                )
+                Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        OfficialSourcesScreen(
+                            nationality = nationality,
+                            onBack = { navController.popBackStack() },
+                            onOpenSource = { url, title -> navController.navigate(InAppBrowserRoute(url, title)) },
+                        )
+                    }
+                    ContextualHint(
+                        hintId = "sources",
+                        icon = AppIcons.OfficialAuthority,
+                        title = stringResource(R.string.hint_sources_title),
+                        body = stringResource(R.string.hint_sources_body),
+                    )
+                }
             }
             composable<LicensesRoute> {
                 LicensesScreen(onBack = { navController.popBackStack() })

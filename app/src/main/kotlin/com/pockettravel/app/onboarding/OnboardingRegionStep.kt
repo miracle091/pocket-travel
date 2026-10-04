@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -35,9 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,7 +47,6 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.work.WorkInfo
 import com.pockettravel.app.R
@@ -63,22 +59,23 @@ import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.CountryFlag
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
-import kotlinx.coroutines.launch
+import com.pockettravel.feature.map.proposesTransit
 
 /**
- * Passo "Scarica le regioni" del primo avvio: regioni consigliate (proprio paese e vicini), ricerca,
- * piu' regioni insieme e, per ciascuna, i pacchetti da scaricare. Facoltativo: si puo' fare dopo
- * dalla schermata Regioni.
+ * Passo "Scegli dove vai": nazioni consigliate (proprio paese e vicini), ricerca, piu' nazioni insieme e, per ciascuna,
+ * i pacchetti da scaricare. Facoltativo. La selezione ([selection]) sta nel wizard: con "Avanti" i download partono in
+ * background ([downloadSelection]) senza attendere la fine.
  */
 @Composable
-internal fun OnboardingRegionStep(onboardingViewModel: OnboardingViewModel, viewModel: RegionListViewModel = hiltViewModel()) {
-    val scope = rememberCoroutineScope()
+internal fun OnboardingRegionStep(
+    onboardingViewModel: OnboardingViewModel,
+    selection: SnapshotStateMap<String, Set<PackageKind>>,
+    viewModel: RegionListViewModel,
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val nationality by onboardingViewModel.nationality.collectAsStateWithLifecycle()
     val wantsDirections by onboardingViewModel.wantsDirections.collectAsStateWithLifecycle()
-    val usageMode by onboardingViewModel.usageMode.collectAsStateWithLifecycle()
-    // Regione scelta -> pacchetti da scaricare; resta dopo una rotazione.
-    val selection = rememberSaveable(saver = selectionSaver) { mutableStateMapOf<String, Set<PackageKind>>() }
+    val usageModes by onboardingViewModel.usageModes.collectAsStateWithLifecycle()
     val searching = uiState.query.isNotBlank()
     // Senza nazionalita' (per esempio lingua dell'app scelta senza paese) il paese delle impostazioni di
     // sistema: da Android 13, con una lingua per l'app, lo da' solo LocaleManager.systemLocales.
@@ -93,19 +90,7 @@ internal fun OnboardingRegionStep(onboardingViewModel: OnboardingViewModel, view
             title = stringResource(R.string.onboarding_region_title),
             body = stringResource(R.string.onboarding_region_body),
         )
-        // Testo nel TextFieldState locale e passato al ViewModel, come nella schermata Regioni: legato
-        // direttamente allo stato del ViewModel (aggiornato in modo asincrono) il campo perderebbe caratteri.
-        val textFieldState = rememberTextFieldState(uiState.query)
-        LaunchedEffect(textFieldState) {
-            snapshotFlow { textFieldState.text.toString() }.collect(viewModel::onQueryChange)
-        }
-        OutlinedTextField(
-            state = textFieldState,
-            leadingIcon = { Icon(AppIcons.Search, contentDescription = null) },
-            placeholder = { Text(stringResource(R.string.onboarding_region_search)) },
-            lineLimits = TextFieldLineLimits.SingleLine,
-            modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.s),
-        )
+        RegionSearchField(uiState.query, viewModel::onQueryChange)
         when {
             uiState.isLoading && uiState.items.isEmpty() -> PocketTravelLoadingIndicator()
             uiState.loadError != null -> Text(text = stringResource(uiState.loadError!!), color = MaterialTheme.colorScheme.error)
@@ -119,7 +104,7 @@ internal fun OnboardingRegionStep(onboardingViewModel: OnboardingViewModel, view
                         OnboardingRegionRow(
                             item = item,
                             selectedKinds = selection[item.regionId],
-                            defaultKinds = defaultPackageChoice(item, wantsDirections, usageMode?.proposesTransit == true),
+                            defaultKinds = defaultPackageChoice(item, wantsDirections, usageModes.proposesTransit()),
                             onSelectionChange = { kinds -> if (kinds.isNullOrEmpty()) selection.remove(item.regionId) else selection[item.regionId] = kinds },
                             viewModel = viewModel,
                         )
@@ -141,21 +126,54 @@ internal fun OnboardingRegionStep(onboardingViewModel: OnboardingViewModel, view
                 modifier = Modifier.padding(top = Spacing.s).semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
-        if (selection.isNotEmpty()) {
-            val totalBytes = selection.entries.sumOf { (id, kinds) -> uiState.items.firstOrNull { it.regionId == id }?.let { downloadBytes(it, kinds) } ?: 0L }
-            Button(
-                onClick = {
-                    viewModel.onMessageShown()
-                    scope.launch {
-                        selection.filter { (id, kinds) -> viewModel.downloadKinds(id, kinds) }.keys.forEach { selection.remove(it) }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().padding(top = Spacing.s),
-            ) {
-                Text(pluralStringResource(R.plurals.onboarding_region_download, selection.size, selection.size, Formatter.formatShortFileSize(context, totalBytes)))
-            }
-        }
+        if (selection.isNotEmpty()) SelectionSummary(selection, uiState.items)
     }
+}
+
+// Testo nel TextFieldState locale e passato al ViewModel, come nella schermata Regioni: legato
+// direttamente allo stato del ViewModel (aggiornato in modo asincrono) il campo perderebbe caratteri.
+@Composable
+private fun RegionSearchField(query: String, onQueryChange: (String) -> Unit) {
+    val textFieldState = rememberTextFieldState(query)
+    LaunchedEffect(textFieldState) {
+        snapshotFlow { textFieldState.text.toString() }.collect(onQueryChange)
+    }
+    OutlinedTextField(
+        state = textFieldState,
+        leadingIcon = { Icon(AppIcons.Search, contentDescription = null) },
+        placeholder = { Text(stringResource(R.string.onboarding_region_search)) },
+        lineLimits = TextFieldLineLimits.SingleLine,
+        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.s),
+    )
+}
+
+// Quante nazioni partono con "Avanti" e quanto pesano: il download continua in background (WorkManager, con la
+// notifica di avanzamento) mentre il wizard va avanti. Per non scaricare basta togliere la spunta.
+@Composable
+private fun SelectionSummary(selection: Map<String, Set<PackageKind>>, items: List<RegionUiItem>) {
+    val totalBytes = selection.entries.sumOf { (id, kinds) -> items.firstOrNull { it.regionId == id }?.let { downloadBytes(it, kinds) } ?: 0L }
+    Text(
+        text = pluralStringResource(
+            R.plurals.onboarding_region_summary,
+            selection.size,
+            selection.size,
+            Formatter.formatShortFileSize(LocalContext.current, totalBytes),
+        ),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = Spacing.s).semantics { liveRegion = LiveRegionMode.Polite },
+    )
+}
+
+/**
+ * Avvia in background i download della selezione e toglie dalla selezione quelli partiti; restano quelli non partiti
+ * (spazio insufficiente, il messaggio e' nello stato del ViewModel). Restituisce quanti ne ha avviati.
+ */
+internal suspend fun RegionListViewModel.downloadSelection(selection: MutableMap<String, Set<PackageKind>>): Int {
+    onMessageShown()
+    val started = selection.filter { (id, kinds) -> downloadKinds(id, kinds) }.keys
+    started.forEach { selection.remove(it) }
+    return started.size
 }
 
 @Composable
@@ -240,7 +258,7 @@ private fun systemCountry(context: Context): String? {
     return locales.takeIf { !it.isEmpty }?.get(0)?.country?.takeIf { it.length == 2 }
 }
 
-private val selectionSaver = listSaver<SnapshotStateMap<String, Set<PackageKind>>, String>(
+internal val selectionSaver = listSaver<SnapshotStateMap<String, Set<PackageKind>>, String>(
     save = { map -> map.flatMap { (id, kinds) -> listOf(id, kinds.joinToString(",") { it.name }) } },
     restore = { saved ->
         mutableStateMapOf<String, Set<PackageKind>>().apply {

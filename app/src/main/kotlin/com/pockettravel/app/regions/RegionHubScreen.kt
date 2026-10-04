@@ -44,6 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
 import com.pockettravel.app.navigation.regionContainer
 import com.pockettravel.core.ui.AppIcons
+import com.pockettravel.core.ui.ContextualHint
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.feature.ai.AiAssistantScreen
@@ -215,16 +216,27 @@ fun RegionHubScreen(
                         }
                     }
                     RegionTab.NAVIGATION -> NavigatorScreen(regionId = regionId, plannerViewModel = plannerViewModel, navigationViewModel = navigationViewModel)
-                    RegionTab.AI -> AiAssistantScreen(
-                        regionId = regionId,
-                        onOpenOfficialSource = onOpenOfficialSource,
-                        // "Portami a ...": il Navigatore cerca la meta (tutte le regioni installate) col mezzo chiesto.
-                        onNavigationRequest = { request ->
-                            request.mode?.let { plannerViewModel.setTravelMode(it.toTravelMode()) }
-                            plannerViewModel.searchDestination(request.destination)
-                            selectedTab = RegionTab.NAVIGATION
-                        },
-                    )
+                    RegionTab.AI -> Column(modifier = Modifier.fillMaxSize()) {
+                        ContextualHint(
+                            hintId = "ai",
+                            icon = AppIcons.AiAssistant,
+                            title = stringResource(R.string.hint_ai_title),
+                            body = stringResource(R.string.hint_ai_body),
+                        )
+                        Box(modifier = Modifier.weight(1f)) {
+                            AiAssistantScreen(
+                                regionId = regionId,
+                                splitCountry = splitCountry,
+                                onOpenOfficialSource = onOpenOfficialSource,
+                                // "Portami a ...": il Navigatore cerca la meta (tutte le regioni installate) col mezzo chiesto.
+                                onNavigationRequest = { request ->
+                                    request.mode?.let { plannerViewModel.setRouteProfile(it.toRouteProfile()) }
+                                    plannerViewModel.searchDestination(request.destination)
+                                    selectedTab = RegionTab.NAVIGATION
+                                },
+                            )
+                        }
+                    }
                 }
                 }
             }

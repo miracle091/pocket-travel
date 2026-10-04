@@ -1,27 +1,29 @@
 package com.pockettravel.app.onboarding
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.pockettravel.core.data.NationalityPreferences
-import com.pockettravel.feature.ai.DeviceAiCapability
+import com.pockettravel.core.ui.ContextualHints
 import com.pockettravel.feature.map.UsageMode
 import com.pockettravel.feature.map.UsageModePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     private val onboardingPreferences: OnboardingPreferences,
-    deviceAiCapability: DeviceAiCapability,
+    @ApplicationContext private val context: Context,
     private val usageModePreferences: UsageModePreferences,
     private val nationalityPreferences: NationalityPreferences,
 ) : ViewModel() {
 
-    val usageMode: StateFlow<UsageMode?> = usageModePreferences.mode
+    val usageModes: StateFlow<Set<UsageMode>> = usageModePreferences.modes
     val accessible: StateFlow<Boolean> = usageModePreferences.accessible
     val wantsDirections: StateFlow<Boolean> = usageModePreferences.wantsDirections
 
-    fun setUsageMode(mode: UsageMode) = usageModePreferences.setMode(mode)
+    fun setUsageModes(modes: Set<UsageMode>) = usageModePreferences.setModes(modes)
 
     fun setAccessible(accessible: Boolean) = usageModePreferences.setAccessible(accessible)
 
@@ -31,11 +33,9 @@ class OnboardingViewModel @Inject constructor(
 
     fun setNationality(countryCode: String) = nationalityPreferences.setNationality(countryCode)
 
-    // Supporto all'IA locale letto una volta all'apertura dell'onboarding: la fascia di RAM non cambia
-    // durante la sessione, quindi basta un val invece di un Flow.
-    val isOnDeviceAiSupported: Boolean = deviceAiCapability.isOnDeviceAiSupported()
-
     fun complete() {
         onboardingPreferences.markCompleted()
+        // Anche con "Rivedi il tutorial": i suggerimenti delle schede tornano a comparire alla prima apertura.
+        ContextualHints.reset(context)
     }
 }
