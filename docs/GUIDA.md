@@ -77,12 +77,12 @@ adb shell cmd locale set-app-locales com.pockettravel.app --locales en   # o it
 |---|---|
 | una schermata | `app/` o il modulo `feature/` corrispondente |
 | il download o l'installazione dei pacchetti | `core/sync/` |
-| il database | `core/data/` (ogni cambio di schema vuole una migrazione e il suo test) |
+| il database | `core/data/` (ogni cambio di schema vuole una migrazione e il suo test in `RegionDatabaseMigrationTest`: una migrazione per ogni versione del database uscita in una release, i passi successivi uniti in una sola al rilascio, l'ultima separata finché non esce) |
 | cosa finisce nei pacchetti | `tools/data-pipeline/scripts/` e `tools/data-pipeline/content/` |
 | l'elenco delle regioni | `tools/data-pipeline/scripts/regions.sh`, poi `generate-weekly-schedule.sh` |
 | i numeri civici (celle da ~10 MB) | `tools/data-pipeline/scripts/build-address-cell.sh` e il seme `tools/data-pipeline/address-grid-seed.tsv` |
 | le fonti Overture dei civici | `tools/data-pipeline/overture-address-sources.tsv` (una fonte nuova resta fuori finché non la si rivede) |
-| i modelli dell'assistente | `feature/ai/.../LlmModelCatalog.kt` (ogni modello addestrato ha la sua lingua) e gli script `train_*.py` / `eval_*.py` |
+| i modelli dell'assistente | `feature/ai/.../LlmModelCatalog.kt` (ogni modello addestrato ha la sua lingua) e gli script `train_*.py` / `eval_*.py`; un GGUF ricaricato con lo stesso nome si pubblica con `upload_hf.py --push --update-app-status`, che aggiorna le impronte in `app-status.json` senza rilasciare l'app. Nelle build di debug il menu ⋮ della scheda IA ha il benchmark e il task manager dei modelli (memoria, CPU, contesto, velocità, log esportabili) |
 | percorsi e navigazione | `feature/map/.../BRouterRouteEngine.kt`, `NavigationScreen.kt`, `NavigationTracker.kt`; le aggiunte a BRouter sono segnate "Pocket Travel" in `third-party/brouter-core` |
 | i testi dell'app | `res/values/strings.xml` (italiano) e `res/values-en/strings.xml` (inglese) di ogni modulo |
 | le vaccinazioni | dati in `tools/data-pipeline/content/src/main/resources/vaccinations/` (TSV curati, bozza con `vaccinations_draft.py`), regole in `core/data/.../vaccination/`, schermata in `feature/guide/.../VaccinationScreen.kt` |
