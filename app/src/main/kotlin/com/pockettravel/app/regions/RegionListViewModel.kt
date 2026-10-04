@@ -180,7 +180,11 @@ class RegionListViewModel @Inject constructor(
         val installedByRegion = installed.associateBy { it.regionId }
         // Senza catalogo (offline, o non ancora letto) le nazioni installate restano apribili: i loro dati sono sul telefono.
         val items = if (remoteRegions.isEmpty()) {
-            installed.map { offlineRegionItem(it, regionRepository::packageBytes) }
+            // Con il nome nella lingua dell'interfaccia, come quando arriva il catalogo (niente "Italia" che diventa "Italy").
+            installed.map {
+                offlineRegionItem(it, regionRepository::packageBytes)
+                    .copy(displayName = localizedInstalledName(it.displayName, it.countryCode, currentLocale))
+            }
         } else {
             zonedRegions.map { (remote, zone) ->
                 regionUiItem(remote.restrictedTo(zone), installedByRegion[remote.regionId], regionRepository::packageBytes, regionRepository::installedAddressCells, wantsDirections, transitIndex.value != null)
