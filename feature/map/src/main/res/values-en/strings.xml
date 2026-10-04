@@ -28,6 +28,7 @@
     <string name="map_legend_group_health">Health &amp; emergencies</string>
     <string name="map_legend_group_other">Other</string>
     <string name="map_legend_show_all">Show all</string>
+    <string name="map_legend_hide_all">Hide all</string>
     <string name="poi_wheelchair_yes">Wheelchair accessible</string>
     <string name="poi_wheelchair_limited">Partially wheelchair accessible</string>
     <string name="poi_wheelchair_no">Not wheelchair accessible</string>

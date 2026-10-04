@@ -2,6 +2,7 @@ package com.pockettravel.feature.map
 
 import androidx.annotation.StringRes
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import com.pockettravel.core.ui.R as UiR
@@ -20,7 +21,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,7 +73,8 @@ internal enum class LegendGroup(@StringRes val label: Int, val categories: List<
 }
 
 // Filtri della mappa: tutte le categorie presenti nella regione, a gruppi, ciascuna con il suo
-// interruttore e ogni gruppo con "Mostra tutti"/"Nascondi tutti"; scelte salvate per tutte le regioni
+// interruttore, ogni gruppo con "Mostra tutti"/"Nascondi tutti" e in alto "Mostra tutto"/"Nascondi tutto" per
+// tutte le categorie; scelte salvate per tutte le regioni
 // (MapFilterPreferences).
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,7 +82,7 @@ internal fun MapLegendSheet(
     presentCategories: Set<PoiCategory>,
     hiddenCategories: Set<PoiCategory>,
     onHiddenCategoriesChange: (Set<PoiCategory>) -> Unit,
-    // null = filtro non disponibile (casella "Con disabilita'" spenta).
+    // null = filtro non disponibile (casella "In sedia a rotelle" spenta).
     onlyAccessible: Boolean?,
     onOnlyAccessibleChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
@@ -89,7 +90,7 @@ internal fun MapLegendSheet(
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = Spacing.l)) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xl),
+                modifier = Modifier.fillMaxWidth().padding(start = Spacing.xl, end = Spacing.m),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -98,8 +99,13 @@ internal fun MapLegendSheet(
                     modifier = Modifier.weight(1f).semantics { heading() },
                 )
                 if (hiddenCategories.any { it in presentCategories }) {
-                    TextButton(onClick = { onHiddenCategoriesChange(hiddenCategories - presentCategories) }) {
-                        Text(stringResource(R.string.map_legend_show_all))
+                    VisibilityButton(show = true, label = stringResource(R.string.map_legend_show_all)) {
+                        onHiddenCategoriesChange(hiddenCategories - presentCategories)
+                    }
+                }
+                if (!hiddenCategories.containsAll(presentCategories)) {
+                    VisibilityButton(show = false, label = stringResource(R.string.map_legend_hide_all)) {
+                        onHiddenCategoriesChange(hiddenCategories + presentCategories)
                     }
                 }
             }
@@ -127,12 +133,11 @@ internal fun MapLegendSheet(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f).semantics { heading() },
                     )
-                    TextButton(
-                        onClick = {
-                            onHiddenCategoriesChange(if (allVisible) hiddenCategories + categories else hiddenCategories - categories.toSet())
-                        },
+                    VisibilityButton(
+                        show = !allVisible,
+                        label = stringResource(if (allVisible) R.string.map_filters_group_hide else R.string.map_filters_group_show),
                     ) {
-                        Text(stringResource(if (allVisible) R.string.map_filters_group_hide else R.string.map_filters_group_show))
+                        onHiddenCategoriesChange(if (allVisible) hiddenCategories + categories else hiddenCategories - categories.toSet())
                     }
                 }
                 categories.forEach { category ->
@@ -151,5 +156,16 @@ internal fun MapLegendSheet(
                 }
             }
         }
+    }
+}
+
+/** Occhio per mostrare ([show]) o occhio barrato per nascondere un gruppo di categorie; [label] e' letto da TalkBack. */
+@Composable
+private fun VisibilityButton(show: Boolean, label: String, onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Icon(
+            ImageVector.vectorResource(if (show) UiR.drawable.ms_visibility else UiR.drawable.ms_visibility_off),
+            contentDescription = label,
+        )
     }
 }
