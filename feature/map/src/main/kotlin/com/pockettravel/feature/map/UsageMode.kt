@@ -34,6 +34,7 @@ enum class UsageMode(
             *SIGHTS, PoiCategory.SVAGO, PoiCategory.NEGOZI, PoiCategory.BANCA, PoiCategory.BANCOMAT,
             PoiCategory.UFFICIO_POSTALE, PoiCategory.ACQUA_POTABILE, PoiCategory.PARCO_GIOCHI, PoiCategory.TRENO,
             PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO, PoiCategory.PORTI_TURISTICI,
+            PoiCategory.INTERNET_CAFE,
         ),
     ),
     ESCURSIONISMO(
@@ -69,7 +70,7 @@ enum class UsageMode(
         setOf(
             PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO,
             PoiCategory.AEROPORTO, PoiCategory.NOLEGGIO, *SIGHTS, PoiCategory.SVAGO, PoiCategory.NEGOZI,
-            PoiCategory.BANCOMAT,
+            PoiCategory.BANCOMAT, PoiCategory.INTERNET_CAFE,
         ),
     ),
     ;

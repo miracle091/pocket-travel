@@ -29,6 +29,14 @@ class UsageModeTest {
     }
 
     @Test
+    fun `gli internet cafe si vedono solo a piedi e con i mezzi pubblici`() {
+        assertEquals(
+            setOf(UsageMode.A_PIEDI, UsageMode.MEZZI_PUBBLICI),
+            UsageMode.entries.filter { PoiCategory.INTERNET_CAFE in it.visibleCategories }.toSet(),
+        )
+    }
+
+    @Test
     fun `gli orari dei mezzi si propongono a piedi, in bici, in escursione e coi mezzi, non in auto o camper`() {
         assertEquals(
             setOf(UsageMode.A_PIEDI, UsageMode.BICI, UsageMode.ESCURSIONISMO, UsageMode.MEZZI_PUBBLICI),

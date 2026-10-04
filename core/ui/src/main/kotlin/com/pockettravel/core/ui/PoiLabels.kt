@@ -15,6 +15,7 @@ fun PoiCategory.label(): Int = when (this) {
     PoiCategory.RIPARI -> R.string.poi_shelter
     PoiCategory.SPORT -> R.string.poi_sport
     PoiCategory.BIBLIOTECHE -> R.string.poi_library
+    PoiCategory.INTERNET_CAFE -> R.string.poi_internet_cafe
     PoiCategory.MUNICIPIO -> R.string.poi_townhall
     PoiCategory.AMBULATORI -> R.string.poi_clinic
     PoiCategory.RIPARAZIONE_BICI -> R.string.poi_bike_repair

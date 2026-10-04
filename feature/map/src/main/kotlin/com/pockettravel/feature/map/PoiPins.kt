@@ -24,7 +24,7 @@ internal fun PoiCategory.pinColor(): Color = when (this) {
     PoiCategory.TAVOLI_PICNIC, PoiCategory.RIPARI ->
         PoiColors.Attractions
     PoiCategory.SVAGO, PoiCategory.SPORT -> PoiColors.Entertainment
-    PoiCategory.AMBASCIATA_CONSOLATO, PoiCategory.BIBLIOTECHE, PoiCategory.POLIZIA, PoiCategory.MUNICIPIO, PoiCategory.AMBULATORI, PoiCategory.BAGNI_PUBBLICI, PoiCategory.ACQUA_POTABILE,
+    PoiCategory.AMBASCIATA_CONSOLATO, PoiCategory.BIBLIOTECHE, PoiCategory.INTERNET_CAFE, PoiCategory.POLIZIA, PoiCategory.MUNICIPIO, PoiCategory.AMBULATORI, PoiCategory.BAGNI_PUBBLICI, PoiCategory.ACQUA_POTABILE,
     PoiCategory.FARMACIA, PoiCategory.OSPEDALE, PoiCategory.VIGILI_DEL_FUOCO, PoiCategory.VETERINARIO,
     PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.CAMBIO_VALUTA, PoiCategory.UFFICIO_POSTALE, PoiCategory.CASSETTA_POSTALE, PoiCategory.INFORMAZIONI ->
         PoiColors.PublicServices
@@ -60,6 +60,7 @@ internal fun PoiCategory.glyph(): Int? = when (this) {
     PoiCategory.SVAGO -> UiR.drawable.ms_theater_comedy
     PoiCategory.SPORT -> UiR.drawable.ms_fitness_center
     PoiCategory.BIBLIOTECHE -> UiR.drawable.ms_local_library
+    PoiCategory.INTERNET_CAFE -> UiR.drawable.ms_computer
     PoiCategory.MUNICIPIO -> UiR.drawable.ms_location_city
     PoiCategory.AMBULATORI -> UiR.drawable.ms_medical_services
     PoiCategory.RIPARAZIONE_BICI -> UiR.drawable.ms_home_repair_service

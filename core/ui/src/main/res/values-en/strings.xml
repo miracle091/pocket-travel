@@ -43,6 +43,7 @@
     <string name="poi_bank">Banks</string>
     <string name="poi_atm">ATMs</string>
     <string name="poi_currency_exchange">Currency exchange</string>
+    <string name="poi_internet_cafe">Internet cafes</string>
     <string name="poi_post_office">Post offices</string>
     <string name="poi_information">Tourist offices</string>
     <string name="poi_rental">Rentals</string>

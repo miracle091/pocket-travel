@@ -22,6 +22,7 @@ enum class PoiCategory {
     RIPARI,
     AMBASCIATA_CONSOLATO,
     BIBLIOTECHE,
+    INTERNET_CAFE,
     POLIZIA,
     MUNICIPIO,
     BAGNI_PUBBLICI,
@@ -118,6 +119,8 @@ fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     osmTag == "amenity=townhall" -> PoiCategory.MUNICIPIO
     osmTag in sportTags -> PoiCategory.SPORT
     osmTag == "amenity=library" -> PoiCategory.BIBLIOTECHE
+    // Postazioni PC per stampare la carta d'imbarco o chiamare: frequenti in Asia, Africa e Sud America.
+    osmTag == "amenity=internet_cafe" -> PoiCategory.INTERNET_CAFE
     // Lavatoi pubblici storici, spesso senza tag historic.
     osmTag == "amenity=lavoir" || osmTag in cemeteryTags -> PoiCategory.LUOGHI_STORICI
     osmTag in natureTags -> PoiCategory.NATURA

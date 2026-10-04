@@ -76,7 +76,7 @@ class PoiRulesTest {
         assertEquals(PoiCategory.ALTRO, poiCategoryOf("xyz", "foo=xyz"))
         listOf(
             "amenity=community_centre", "amenity=college", "amenity=courthouse", "amenity=public_building",
-            "amenity=coworking_space", "amenity=internet_cafe",
+            "amenity=coworking_space",
         ).forEach { tag ->
             assertEquals(tag, PoiCategory.ALTRO, poiCategoryOf(tag.substringAfter("="), tag))
             assertTrue(tag, isPoiHiddenOnMap("Con un nome", tag.substringAfter("="), tag))
@@ -100,6 +100,7 @@ class PoiRulesTest {
             "leisure=slipway" to PoiCategory.PORTI_TURISTICI, "amenity=bbq" to PoiCategory.TAVOLI_PICNIC,
             "amenity=ranger_station" to PoiCategory.INFORMAZIONI, "leisure=bathing_place" to PoiCategory.NATURA,
             "amenity=grave_yard" to PoiCategory.LUOGHI_STORICI, "amenity=cemetery" to PoiCategory.LUOGHI_STORICI,
+            "amenity=internet_cafe" to PoiCategory.INTERNET_CAFE,
         ).forEach { (tag, expected) -> assertEquals(tag, expected, poiCategoryOf(tag.substringAfter("="), tag)) }
     }
 

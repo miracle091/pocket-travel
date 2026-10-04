@@ -49,7 +49,7 @@ internal enum class LegendGroup(@StringRes val label: Int, val categories: List<
     ),
     USEFUL(
         R.string.map_legend_group_useful,
-        listOf(PoiCategory.BAGNI_PUBBLICI, PoiCategory.ACQUA_POTABILE, PoiCategory.INFORMAZIONI, PoiCategory.BIBLIOTECHE, PoiCategory.AMBASCIATA_CONSOLATO),
+        listOf(PoiCategory.BAGNI_PUBBLICI, PoiCategory.ACQUA_POTABILE, PoiCategory.INFORMAZIONI, PoiCategory.BIBLIOTECHE, PoiCategory.INTERNET_CAFE, PoiCategory.AMBASCIATA_CONSOLATO),
     ),
     TRANSPORT(
         R.string.map_legend_group_transport,
