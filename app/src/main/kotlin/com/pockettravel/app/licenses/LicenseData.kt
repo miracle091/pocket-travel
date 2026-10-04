@@ -32,6 +32,12 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
         note = "Dati 1:50m, ridotti a confini, codice ISO e nome del paese (feature:map/src/main/assets/world).",
     ),
     LicenseEntry(
+        component = "OurAirports (aeroporti) e Wikidata (compagnie aeree, nomi delle città)",
+        license = "Pubblico dominio (OurAirports), CC0 (Wikidata)",
+        note = "Suggerimenti di aeroporti e compagnie nei biglietti dei documenti (feature:vault/src/main/assets). " +
+            "I dati di OurAirports sono forniti senza garanzie.",
+    ),
+    LicenseEntry(
         component = "Bandiere nazionali (westnordost/flags-vector-drawables-android, core:ui/src/main/res/drawable/ic_flag_*)",
         license = "Licenza di ciascuna bandiera su Wikipedia/Wikimedia Commons, in gran parte pubblico dominio",
         note = "Vettoriali esportati dalle bandiere di Wikipedia (Timeline of national flags).",

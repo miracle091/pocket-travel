@@ -60,6 +60,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -70,6 +71,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -197,14 +199,24 @@ fun VaultScreen(
             }
         },
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            when (gateStatus) {
-                GateStatus.NOT_ENROLLED -> NoLockScreenSetUp()
-                GateStatus.LOCKED -> LockedContent(
-                    viewModel = viewModel,
-                    onUnlock = { gateStatus = GateStatus.UNLOCKED },
-                )
-                GateStatus.UNLOCKED -> PassportList(viewModel)
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            // Blocco immediato, con lo stesso effetto di quello automatico (chiave scartata, lista e miniature svuotate).
+            if (gateStatus == GateStatus.UNLOCKED) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.s), horizontalArrangement = Arrangement.End) {
+                    IconButton(onClick = { viewModel.lock(); gateStatus = GateStatus.LOCKED }) {
+                        Icon(AppIcons.Lock, contentDescription = stringResource(R.string.vault_lock))
+                    }
+                }
+            }
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                when (gateStatus) {
+                    GateStatus.NOT_ENROLLED -> NoLockScreenSetUp()
+                    GateStatus.LOCKED -> LockedContent(
+                        viewModel = viewModel,
+                        onUnlock = { gateStatus = GateStatus.UNLOCKED },
+                    )
+                    GateStatus.UNLOCKED -> PassportList(viewModel)
+                }
             }
         }
     }
@@ -400,7 +412,10 @@ private fun PassportCard(viewModel: VaultViewModel, passport: Passport, onDelete
                     )
                     if (passport.expiryDate.isNotBlank()) {
                         Text(
-                            text = stringResource(R.string.vault_expiry, passport.expiryDate),
+                            text = stringResource(
+                                if (passport.documentType == DocumentType.TICKET) R.string.vault_ticket_date else R.string.vault_expiry,
+                                passport.expiryDate,
+                            ),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -623,7 +638,12 @@ private fun PassportEditDialog(
         (photoFileNames - initialPhotoFileNames.toSet()).forEach { viewModel.discardPhoto(it) }
         onDismiss()
     }
-    val canSave = fullName.isNotBlank() && documentNumber.isNotBlank()
+    val canSave = canSaveDocument(documentType, fullName, documentNumber)
+    val fields = documentType.fields()
+    // Gli elenchi di aeroporti e compagnie si caricano solo se il documento e' un biglietto.
+    val travelData by produceState<TravelData?>(null, documentType) {
+        if (documentType == DocumentType.TICKET) value = TravelDataLoader.load(context)
+    }
 
     Dialog(
         onDismissRequest = cancel,
@@ -656,7 +676,7 @@ private fun PassportEditDialog(
                                         note = note,
                                         photoFileNames = photoFileNames,
                                         documentType = documentType,
-                                    ),
+                                    ).withoutHiddenFields(existing?.documentType),
                                 )
                             },
                         ) { Text(stringResource(R.string.vault_save)) }
@@ -683,11 +703,29 @@ private fun PassportEditDialog(
                         )
                     }
                 }
-                OutlinedTextField(value = fullName, onValueChange = { fullName = it }, label = { Text(stringResource(R.string.vault_field_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = documentNumber, onValueChange = { documentNumber = it }, label = { Text(stringResource(R.string.vault_field_number)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = nationality, onValueChange = { nationality = it }, label = { Text(stringResource(R.string.vault_field_nationality)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = expiryDate, onValueChange = { expiryDate = it }, label = { Text(stringResource(R.string.vault_field_expiry)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text(stringResource(R.string.vault_field_note)) }, modifier = Modifier.fillMaxWidth())
+                SuggestionField(
+                    value = fullName,
+                    onValueChange = { fullName = it },
+                    label = stringResource(fields.name),
+                    index = if (documentType == DocumentType.TICKET) travelData?.airlines else null,
+                )
+                OutlinedTextField(value = documentNumber, onValueChange = { documentNumber = it }, label = { Text(stringResource(fields.number)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                fields.nationality?.let { label ->
+                    if (documentType == DocumentType.TICKET) {
+                        RouteFields(
+                            value = nationality,
+                            onValueChange = { nationality = it },
+                            airports = travelData?.airports,
+                            italian = LocalConfiguration.current.locales[0].language == "it",
+                        )
+                    } else {
+                        OutlinedTextField(value = nationality, onValueChange = { nationality = it }, label = { Text(stringResource(label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+                fields.expiry?.let { label ->
+                    OutlinedTextField(value = expiryDate, onValueChange = { expiryDate = it }, label = { Text(stringResource(label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+                OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text(stringResource(fields.note)) }, modifier = Modifier.fillMaxWidth())
                 if (photoFileNames.isNotEmpty()) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         items(photoFileNames, key = { it }) { fileName ->

@@ -37,6 +37,17 @@
     <string name="vault_field_nationality">Nationality</string>
     <string name="vault_field_expiry">Expiration date (YYYY-MM-DD)</string>
     <string name="vault_field_note">Note</string>
+    <string name="vault_field_ticket_carrier">Carrier or company</string>
+    <string name="vault_field_ticket_code">Booking code</string>
+    <string name="vault_field_ticket_route">Route (from – to)</string>
+    <string name="vault_field_ticket_from">Departure</string>
+    <string name="vault_field_ticket_to">Arrival</string>
+    <string name="vault_field_ticket_date">Date and time (YYYY-MM-DD HH:MM)</string>
+    <string name="vault_field_ticket_note">Seat and notes</string>
+    <string name="vault_field_other_title">Title</string>
+    <string name="vault_field_other_number">Number or code (optional)</string>
+    <string name="vault_ticket_date">Date and time: %1$s</string>
+    <string name="vault_lock">Lock the documents</string>
     <string name="vault_add_photo">Add photo</string>
     <string name="vault_photo_limit">Limit of %1$d photos reached</string>
     <string name="vault_save">Save</string>
