@@ -1,9 +1,9 @@
 package com.pockettravel.core.data
 
 import android.content.Context
+import android.content.res.Resources
 import androidx.core.content.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +26,10 @@ class NationalityPreferences @Inject constructor(@ApplicationContext context: Co
         _nationality.value = countryCode
     }
 
-    private fun deviceCountry(): String? = Locale.getDefault().country.takeIf { it.length == 2 }
+    // Paese delle impostazioni di sistema: Locale.getDefault() segue la lingua scelta nell'app ("it", "en"),
+    // che non ha paese.
+    private fun deviceCountry(): String? =
+        Resources.getSystem().configuration.locales[0].country.takeIf { it.length == 2 }
 
     private companion object {
         const val KEY_NATIONALITY = "nationality"
