@@ -22,6 +22,9 @@ object SyncConfig {
 
     const val PERIODIC_SYNC_WORK_NAME = "region-manifest-sync"
     const val DOWNLOAD_WORK_NAME_PREFIX = "region-download-"
+
+    // Tag dei download delle regioni; con "$DOWNLOAD_TAG:<regionId>" l'elenco sa quali sono in corso.
+    const val DOWNLOAD_TAG = "region-download"
     const val GUIDES_SYNC_WORK_NAME = "guides-sync"
 
     // Asset di una release GitHub fissa ("app-status", sovrascritta ad ogni pubblicazione APK -

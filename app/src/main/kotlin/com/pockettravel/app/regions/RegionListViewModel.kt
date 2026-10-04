@@ -38,6 +38,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
@@ -414,6 +415,10 @@ class RegionListViewModel @Inject constructor(
     /** La regione e' installata e senza zona: la si ha per intero. */
     suspend fun isInstalledWhole(regionId: String): Boolean =
         regionRepository.installed(regionId) != null && regionZonePreferences.zone(regionId) == null
+
+    /** Le regioni in download o in coda: nell'elenco salgono subito tra le nazioni scaricate. */
+    val downloadingRegions: StateFlow<Set<String>> = regionSyncScheduler.observeDownloadingRegions()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     fun observeDownloadProgress(regionId: String): Flow<WorkInfo?> =
         regionSyncScheduler.observeDownload(regionId)

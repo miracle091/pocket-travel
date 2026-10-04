@@ -107,6 +107,7 @@ fun RegionListScreen(
     viewModel: RegionListViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val downloadingRegions by viewModel.downloadingRegions.collectAsStateWithLifecycle()
     val locale = LocalLocale.current.platformLocale
     LaunchedEffect(locale) { viewModel.setLocale(locale) }
     RegionListContent(
@@ -117,6 +118,7 @@ fun RegionListScreen(
         onRetry = viewModel::refresh,
         onMessageShown = viewModel::onMessageShown,
         rowActions = viewModel.rowActions(),
+        downloadingRegions = downloadingRegions,
         onRegionClick = { item ->
             if (item.status == RegionStatus.NOT_INSTALLED) {
                 onPreviewClick(item.regionId, item.displayName)
@@ -180,6 +182,8 @@ internal fun RegionListContent(
     onMessageShown: () -> Unit,
     rowActions: RegionRowActions,
     onRegionClick: (RegionUiItem) -> Unit,
+    // Regioni in download o in coda: stanno gia' con le nazioni scaricate.
+    downloadingRegions: Set<String> = emptySet(),
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var showMap by rememberSaveable { mutableStateOf(false) }
@@ -268,6 +272,7 @@ internal fun RegionListContent(
                     if (uiState.loadError != null) OfflineCatalogNotice(onRetry)
                     RegionGroupedList(
                     items = uiState.items,
+                    downloading = downloadingRegions,
                     replaced = uiState.replaced,
                     searching = uiState.query.isNotBlank(),
                     rowActions = rowActions,
@@ -338,14 +343,15 @@ private fun RegionSearchField(query: String, onQueryChange: (String) -> Unit, mo
 @Composable
 private fun RegionGroupedList(
     items: List<RegionUiItem>,
+    downloading: Set<String>,
     replaced: List<ReplacedRegionItem>,
     searching: Boolean,
     rowActions: RegionRowActions,
     onRegionClick: (RegionUiItem) -> Unit,
 ) {
     // Le regioni sostituite stanno in cima alle nazioni scaricate, anche se non ce ne sono altre.
-    val groups = remember(items, replaced) {
-        groupRegions(items).let { grouped ->
+    val groups = remember(items, replaced, downloading) {
+        groupRegions(items, downloading).let { grouped ->
             if (replaced.isNotEmpty() && grouped.none { it.first == RegionGroup.Downloaded }) listOf(RegionGroup.Downloaded to emptyList<RegionUiItem>()) + grouped else grouped
         }
     }
@@ -845,10 +851,11 @@ internal fun visibleRows(entries: List<RegionListEntry>, isExpanded: (String) ->
     }
 }
 
-internal fun groupRegions(items: List<RegionUiItem>): List<Pair<RegionGroup, List<RegionUiItem>>> {
+/** [downloading]: le regioni con un download in corso o in coda, che stanno gia' con le nazioni scaricate. */
+internal fun groupRegions(items: List<RegionUiItem>, downloading: Set<String> = emptySet()): List<Pair<RegionGroup, List<RegionUiItem>>> {
     val collator = Collator.getInstance(Locale.getDefault()).apply { strength = Collator.PRIMARY }
     val byName = compareBy(collator) { item: RegionUiItem -> item.displayName }
-    val (downloaded, others) = items.partition { it.status != RegionStatus.NOT_INSTALLED }
+    val (downloaded, others) = items.partition { it.status != RegionStatus.NOT_INSTALLED || it.regionId in downloading }
     val downloadedGroup = downloaded
         // Da aggiornare prima delle gia' aggiornate, poi per nome.
         .sortedWith(compareBy<RegionUiItem> { it.status != RegionStatus.UPDATE_AVAILABLE }.then(byName))

@@ -68,6 +68,8 @@ class RegionSyncScheduler @Inject constructor(
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setInputData(data)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .addTag(SyncConfig.DOWNLOAD_TAG)
+            .addTag("${SyncConfig.DOWNLOAD_TAG}:${entry.regionId}")
             .build()
         // APPEND_OR_REPLACE, non KEEP: se un download di questa regione e' gia' in coda o in corso,
         // una richiesta di altri pacchetti (es. routing mentre scarica map) si accoda invece di
@@ -115,6 +117,15 @@ class RegionSyncScheduler @Inject constructor(
     fun observeDownload(regionId: String): Flow<WorkInfo?> =
         workManager.getWorkInfosForUniqueWorkFlow(workNameFor(regionId))
             .map { infos -> infos.firstOrNull { !it.state.isFinished } ?: infos.lastOrNull() }
+
+    /** Le regioni con un download in coda o in corso: nell'elenco stanno con le nazioni scaricate. */
+    fun observeDownloadingRegions(): Flow<Set<String>> =
+        workManager.getWorkInfosByTagFlow(SyncConfig.DOWNLOAD_TAG).map { infos ->
+            infos.filter { !it.state.isFinished }
+                .flatMap { it.tags }
+                .filter { it.startsWith("${SyncConfig.DOWNLOAD_TAG}:") }
+                .mapTo(mutableSetOf()) { it.removePrefix("${SyncConfig.DOWNLOAD_TAG}:") }
+        }
 
     /** Vero se il download della regione e' in coda, in attesa di un nuovo tentativo o in corso. */
     suspend fun isDownloadPending(regionId: String): Boolean = isPending(workNameFor(regionId))

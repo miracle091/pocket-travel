@@ -78,4 +78,15 @@ class RegionGroupingTest {
             visibleRows(entries) { true }.drop(1).map { it.key },
         )
     }
+
+    @Test
+    fun `una nazione in download sale subito tra le scaricate`() {
+        val groups = groupRegions(
+            listOf(region("Andorra", "Europa"), region("Belgio", "Europa"), region("San Marino", "Europa", RegionStatus.INSTALLED)),
+            downloading = setOf("andorra"),
+        )
+        assertEquals(RegionGroup.Downloaded, groups[0].first)
+        assertEquals(listOf("Andorra", "San Marino"), groups[0].second.map { it.displayName })
+        assertEquals(listOf("Belgio"), groups[1].second.map { it.displayName })
+    }
 }
