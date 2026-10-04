@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pockettravel.core.data.currentGuidesLanguage
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,7 +80,17 @@ class AiAssistantViewModel @Inject constructor(
     val uiState: StateFlow<AiUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch { modelManager.downloadedModelIds.collect { ids -> _uiState.update { it.copy(downloadedModelIds = ids) } } }
+        // Il modello scaricato o eliminato da fuori (worker di download, pulizia dei file) aggiorna anche
+        // isModelDownloaded, non solo la lista: letto una volta sola in costruzione resterebbe vecchio.
+        viewModelScope.launch {
+            modelManager.downloadedModelIds.collect { ids ->
+                _uiState.update { it.copy(downloadedModelIds = ids, isModelDownloaded = aiSettingsStore.selectedModelId() in ids) }
+            }
+        }
+        // La chiave puo' cambiare anche fuori da questa schermata (es. Impostazioni).
+        viewModelScope.launch {
+            aiSettingsStore.hasApiKeyFlow.collect { configured -> _uiState.update { it.copy(isApiKeyConfigured = configured) } }
+        }
         observeModelDownload()
     }
 
@@ -194,6 +205,8 @@ class AiAssistantViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(isBenchmarking = false, benchmarkResult = result, allBenchmarkResults = aiSettingsStore.allBenchmarkResults())
                 }
+            } catch (error: CancellationException) {
+                throw error
             } catch (_: Exception) {
                 _uiState.update { it.copy(isBenchmarking = false, errorMessage = R.string.ai_error_benchmark) }
             }
@@ -253,6 +266,8 @@ class AiAssistantViewModel @Inject constructor(
             try {
                 val answer = travelAssistant.ask(regionId, question, state.mode)
                 _uiState.update { it.copy(isThinking = false, answer = answer) }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 _uiState.update { it.copy(isThinking = false, errorMessage = askErrorMessage(error)) }
             }

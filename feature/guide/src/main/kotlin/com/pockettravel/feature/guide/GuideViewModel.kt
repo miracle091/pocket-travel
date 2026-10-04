@@ -97,6 +97,7 @@ class GuideViewModel @Inject constructor(
     private var embassiesJob: Job? = null
     private var weatherJob: Job? = null
     private var cityWeatherJob: Job? = null
+    private var citySectionsJob: Job? = null
     private var loadedCityKey: Pair<String, String>? = null
 
     fun load(regionId: String) {
@@ -180,7 +181,10 @@ class GuideViewModel @Inject constructor(
         cityWeatherJob = viewModelScope.launch {
             _cityUiState.update { it.copy(weather = cityWeather(regionId, city)) }
         }
-        viewModelScope.launch {
+        // Annullabile: tornando alla lista o aprendo un'altra citta' il caricamento lento della precedente
+        // non deve arrivare dopo e sovrascrivere lo stato.
+        citySectionsJob?.cancel()
+        citySectionsJob = viewModelScope.launch {
             try {
                 val sections = cityRepository.sectionsFor(regionId, city)
                 _cityUiState.update { it.copy(sections = sections, isLoading = false) }
@@ -222,6 +226,7 @@ class GuideViewModel @Inject constructor(
     fun clearCity() {
         loadedCityKey = null
         cityWeatherJob?.cancel()
+        citySectionsJob?.cancel()
         _cityUiState.value = CityGuideUiState()
     }
 

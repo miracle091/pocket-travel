@@ -35,13 +35,13 @@ class LlmModelUpdateCheckWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         return try {
             val definition = aiSettingsStore.selectedModelDefinition()
-            // sha256 non nullo per costruzione qui: un modello senza sha256 non puo' essere
-            // stato scaricato (vedi LlmModelManager.download), quindi isDownloaded() sarebbe
-            // gia' false — lo smart-cast serve solo a soddisfare il compilatore.
-            val installedSha256 = definition.sha256
-            if (installedSha256 != null && modelManager.isDownloaded(definition)) {
+            if (modelManager.isDownloaded(definition)) {
                 val remote = appStatusClient.fetchAppStatus().aiModels.firstOrNull { it.modelId == definition.id }
-                if (remote != null && isAiModelUpdateAvailable(installedSha256, remote)) {
+                // Lo sha del file su disco, non quello del catalogo dell'APK: chi ha scaricato la versione
+                // precedente con lo stesso id (cambia solo lo sha256) altrimenti non verrebbe mai avvisato.
+                // Calcolato (una volta sola) solo se serve, cioe' se c'e' una entry remota da confrontare.
+                val installedSha256 = remote?.let { modelManager.installedSha256(definition) }
+                if (remote != null && installedSha256 != null && isAiModelUpdateAvailable(installedSha256, remote)) {
                     notifier.notifyAiModelUpdateAvailable(remote)
                 }
             }

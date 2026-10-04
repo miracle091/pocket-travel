@@ -19,7 +19,7 @@ data class BenchmarkResult(
     val wordsPerSecond: Float,
     val totalLatencyMs: Long,
     // Tempo di Engine.initialize() (una tantum, non ripetuto se il modello e' gia' in memoria)
-    // separato dalla generazione — vedi OnDeviceLlmEngine.ensureLoaded(). 0 se il motore era
+    // separato dalla generazione — vedi OnDeviceLlmEngine.generateAll(). 0 se il motore era
     // gia' caricato al momento del run (es. un secondo benchmark sullo stesso modello nella
     // stessa sessione).
     val loadTimeMs: Long,
@@ -32,11 +32,10 @@ class LlmBenchmark @Inject constructor(
     private val engine: OnDeviceLlmEngine,
 ) {
     suspend fun run(modelId: String): BenchmarkResult {
-        val loadTimeMs = engine.ensureLoaded()
-        val start = System.currentTimeMillis()
-        val answers = PROMPTS.map { engine.generate(it.prompt).trim() }
-        val elapsedMs = (System.currentTimeMillis() - start).coerceAtLeast(1L)
-        return scoreBenchmarkAnswers(modelId, PROMPTS, answers, elapsedMs, loadTimeMs)
+        // Caricamento e generazioni sotto un unico lock: tutte le risposte vengono dallo stesso modello.
+        val batch = engine.generateAll(PROMPTS.map { it.prompt })
+        val answers = batch.answers.map { it.trim() }
+        return scoreBenchmarkAnswers(modelId, PROMPTS, answers, batch.generationTimeMs.coerceAtLeast(1L), batch.loadTimeMs)
     }
 
     internal companion object {

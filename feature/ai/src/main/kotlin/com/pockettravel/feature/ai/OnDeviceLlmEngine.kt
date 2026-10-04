@@ -31,6 +31,10 @@ class OnDeviceLlmEngine @Inject constructor(
     private val mutex = Mutex()
     private val engine: InferenceEngine by lazy { InferenceEngineImpl.getInstance(context) }
 
+    // File del modello oggi in memoria (null se nessuno): senza, dopo un cambio di modello scelto
+    // il motore resterebbe sul precedente, perche' isModelLoaded non dice quale sia.
+    private var loadedModelPath: String? = null
+
     /**
      * Carica il modello se non e' gia' in memoria, restituendo quanto e' durato il caricamento — 0
      * se era gia' caricato. Usata dal benchmark per non confondere il tempo di caricamento (una
@@ -41,13 +45,37 @@ class OnDeviceLlmEngine @Inject constructor(
     suspend fun ensureLoaded(): Long = withContext(Dispatchers.IO) {
         coordinator.withModelLock {
             mutex.withLock {
-                if (engine.state.value.isModelLoaded) {
+                if (isSelectedModelLoaded()) {
                     0L
                 } else {
                     val start = System.currentTimeMillis()
                     loadModelIfNeeded()
                     System.currentTimeMillis() - start
                 }
+            }
+        }
+    }
+
+    /** Esito di [generateAll]: tempo di caricamento (0 se gia' in memoria), tempo delle sole generazioni e risposte. */
+    class GenerationBatch(val loadTimeMs: Long, val generationTimeMs: Long, val answers: List<String>)
+
+    /**
+     * Come [ensureLoaded] + [generate] per ogni prompt, ma sotto un unico lock: il benchmark misura
+     * un solo modello, anche se nel frattempo l'utente ne sceglie un altro.
+     */
+    suspend fun generateAll(prompts: List<String>): GenerationBatch = withContext(Dispatchers.IO) {
+        coordinator.withModelLock {
+            mutex.withLock {
+                val loadStart = System.currentTimeMillis()
+                val wasLoaded = isSelectedModelLoaded()
+                loadModelIfNeeded()
+                val loadTimeMs = if (wasLoaded) 0L else System.currentTimeMillis() - loadStart
+                val start = System.currentTimeMillis()
+                val answers = prompts.map {
+                    engine.resetConversation()
+                    engine.sendUserPrompt(it).toList().joinToString(separator = "")
+                }
+                GenerationBatch(loadTimeMs, System.currentTimeMillis() - start, answers)
             }
         }
     }
@@ -97,6 +125,7 @@ class OnDeviceLlmEngine @Inject constructor(
     }
 
     suspend fun releaseWithoutLock() {
+        loadedModelPath = null
         val state = engine.state.value
         // cleanUp() lancia IllegalStateException fuori da ModelReady/Error (es. nessun modello
         // ancora caricato): va chiamata solo se c'e' davvero qualcosa da scaricare.
@@ -105,20 +134,31 @@ class OnDeviceLlmEngine @Inject constructor(
         }
     }
 
+    private fun selectedModelPath(): String =
+        modelManager.modelFile(aiSettingsStore.selectedModelDefinition()).absolutePath
+
+    private fun isSelectedModelLoaded(): Boolean =
+        engine.state.value.isModelLoaded && loadedModelPath == selectedModelPath()
+
     private suspend fun loadModelIfNeeded() {
-        if (engine.state.value.isModelLoaded) return
+        if (isSelectedModelLoaded()) return
+        // Un altro modello in memoria (scelta cambiata): va scaricato prima di caricare quello nuovo.
+        if (engine.state.value is InferenceEngine.State.ModelReady) engine.cleanUp()
+        loadedModelPath = null
         // Un errore precedente (caricamento o generazione) lascia il motore in Error, da cui
         // loadModel() rifiuta di partire: senza questo reset ogni richiesta successiva fallirebbe
         // fino al riavvio dell'app. cleanUp() libera anche l'eventuale modello rimasto in memoria.
         if (engine.state.value is InferenceEngine.State.Error) engine.cleanUp()
         val definition = aiSettingsStore.selectedModelDefinition()
         check(modelManager.isDownloaded(definition)) { "Modello IA non scaricato" }
+        val path = modelManager.modelFile(definition).absolutePath
         engine.loadModel(
-            modelManager.modelFile(definition).absolutePath,
+            path,
             topK = TOP_K,
             topP = TOP_P,
             nThreads = deviceAiCapability.inferenceThreadCount(),
         )
+        loadedModelPath = path
     }
 
     private companion object {

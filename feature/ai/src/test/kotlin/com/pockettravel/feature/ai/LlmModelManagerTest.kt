@@ -1,5 +1,6 @@
 package com.pockettravel.feature.ai
 
+import com.pockettravel.core.sync.AiModelManifestEntry
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -7,6 +8,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -201,18 +203,127 @@ class LlmModelManagerTest {
     }
 
     @Test
-    fun `deleteOrphanedFiles elimina i file fuori catalogo e conserva modelli e download in corso`() {
+    fun `deleteOrphanedFiles elimina i file fuori catalogo e conserva modelli e il download del modello scelto`() {
         val catalogModel = LlmModelCatalog.ALL.first()
+        val selected = LlmModelCatalog.ALL.last()
         val installed = File(modelsDir, catalogModel.fileName).apply { writeText("modello installato") }
-        val partial = File(modelsDir, "${LlmModelCatalog.ALL.last().fileName}.part").apply { writeText("download a meta'") }
+        val installedSha = File(modelsDir, "${catalogModel.fileName}.sha256").apply { writeText("a".repeat(64)) }
+        val partial = File(modelsDir, "${selected.fileName}.part").apply { writeText("download a meta'") }
         val oldLiteRt = File(modelsDir, "qwen3_0_6b_mixed_int4.litertlm").apply { writeText("vecchio formato") }
         val oldLiteRtPart = File(modelsDir, "qwen3_4b_mixed_int4.litertlm.part").apply { writeText("vecchio parziale") }
 
-        modelManager.deleteOrphanedFiles()
+        modelManager.deleteOrphanedFiles(selected)
 
         assertTrue(installed.exists())
+        assertTrue(installedSha.exists())
         assertTrue(partial.exists())
         assertFalse(oldLiteRt.exists())
         assertFalse(oldLiteRtPart.exists())
+    }
+
+    @Test
+    fun `deleteOrphanedFiles elimina il parziale di un modello abbandonato`() {
+        val selected = LlmModelCatalog.ALL.last()
+        val abandoned = LlmModelCatalog.ALL.first { it.id != selected.id }
+        val abandonedPart = File(modelsDir, "${abandoned.fileName}.part").apply { writeText("parziale abbandonato") }
+
+        modelManager.deleteOrphanedFiles(selected)
+
+        assertFalse(abandonedPart.exists())
+    }
+
+    @Test
+    fun `download elimina il parziale di un altro modello e salva lo sha256 verificato`() = runBlocking {
+        val content = "nuovo modello"
+        server.enqueue(MockResponse().setResponseCode(200).setBody(content))
+        val definition = testDefinition.copy(url = server.url("/model").toString(), sha256 = sha256Hex(content.toByteArray()))
+        val abandoned = LlmModelCatalog.ALL.first()
+        val abandonedPart = File(modelsDir, "${abandoned.fileName}.part").apply { writeText("parziale abbandonato") }
+
+        modelManager.download(definition) { _, _ -> }
+
+        assertFalse(abandonedPart.exists())
+        assertEquals(definition.sha256, modelManager.installedSha256(definition))
+        assertEquals(definition.sha256, File(modelsDir, "${definition.fileName}.sha256").readText())
+    }
+
+    @Test
+    fun `installedSha256 e' nullo senza modello`() = runBlocking {
+        assertNull(modelManager.installedSha256(testDefinition))
+    }
+
+    @Test
+    fun `installedSha256 di un'installazione senza sha salvato lo calcola e lo salva`() = runBlocking {
+        val content = "modello scaricato da una versione precedente"
+        File(modelsDir, testDefinition.fileName).writeText(content)
+
+        val sha = modelManager.installedSha256(testDefinition)
+
+        assertEquals(sha256Hex(content.toByteArray()), sha)
+        assertEquals(sha, File(modelsDir, "${testDefinition.fileName}.sha256").readText())
+    }
+
+    @Test
+    fun `chi ha la versione precedente con lo stesso id vede l'aggiornamento anche se cambia solo lo sha256`() = runBlocking {
+        val oldContent = "modello v7"
+        val newContent = "modello v8"
+        val definition = testDefinition.copy(url = server.url("/model").toString(), sha256 = sha256Hex(oldContent.toByteArray()))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(oldContent))
+        modelManager.download(definition) { _, _ -> }
+
+        val installed = requireNotNull(modelManager.installedSha256(definition))
+        val remote = AiModelManifestEntry(definition.id, definition.id, sha256Hex(newContent.toByteArray()), newContent.length.toLong())
+
+        assertTrue(isAiModelUpdateAvailable(installed, remote))
+    }
+
+    @Test
+    fun `delete elimina anche lo sha256 salvato`() = runBlocking {
+        val content = "modello"
+        server.enqueue(MockResponse().setResponseCode(200).setBody(content))
+        val definition = testDefinition.copy(url = server.url("/model").toString(), sha256 = sha256Hex(content.toByteArray()))
+        modelManager.download(definition) { _, _ -> }
+
+        modelManager.delete(definition)
+
+        assertFalse(File(modelsDir, "${definition.fileName}.sha256").exists())
+        assertNull(modelManager.installedSha256(definition))
+    }
+
+    @Test
+    fun `un parziale gia' completo non fa nessuna richiesta e viene solo verificato`() = runBlocking {
+        val content = "0123456789ABCDEF".repeat(10)
+        val definition = testDefinition.copy(
+            url = server.url("/model").toString(),
+            sha256 = sha256Hex(content.toByteArray()),
+            sizeBytes = content.length.toLong(),
+        )
+        File(modelsDir, "${definition.fileName}.part").writeBytes(content.toByteArray())
+
+        modelManager.download(definition) { _, _ -> }
+
+        assertEquals(0, server.requestCount)
+        assertEquals(content, modelManager.modelFile(definition).readText())
+    }
+
+    @Test
+    fun `un parziale completo ma corrotto viene scartato col checksum non valido`() = runBlocking {
+        val content = "0123456789ABCDEF".repeat(10)
+        val definition = testDefinition.copy(
+            url = server.url("/model").toString(),
+            sha256 = sha256Hex("altro contenuto".toByteArray()),
+            sizeBytes = content.length.toLong(),
+        )
+        File(modelsDir, "${definition.fileName}.part").writeBytes(content.toByteArray())
+
+        try {
+            modelManager.download(definition) { _, _ -> }
+            fail("un parziale completo con sha256 sbagliato deve dare ModelIntegrityException")
+        } catch (_: ModelIntegrityException) {
+            // atteso
+        }
+
+        assertEquals(0, server.requestCount)
+        assertFalse(File(modelsDir, "${definition.fileName}.part").exists())
     }
 }

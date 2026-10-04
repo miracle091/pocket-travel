@@ -22,7 +22,10 @@
 // sicurezza se arrivasse un valore non valido (<= 0).
 constexpr int   DEFAULT_N_THREADS       = 4;
 
-constexpr int   DEFAULT_CONTEXT_SIZE    = 8192;
+// Bastano ~3k token: contesto RAG (<= 2000 caratteri, ~500-1000 token) + domanda + template +
+// risposta (1024 token, InferenceEngine.DEFAULT_PREDICT_LENGTH). Un contesto piu' grande
+// occuperebbe solo KV cache in piu'. Troncamento e shift usano questa stessa costante.
+constexpr int   DEFAULT_CONTEXT_SIZE    = 4096;
 constexpr int   OVERFLOW_HEADROOM       = 4;
 constexpr int   BATCH_SIZE              = 512;
 constexpr float DEFAULT_SAMPLER_TEMP    = 0.3f;

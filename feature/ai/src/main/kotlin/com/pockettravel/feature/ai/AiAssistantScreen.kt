@@ -60,6 +60,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -652,6 +653,8 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
             label = { Text(stringResource(R.string.ai_api_key_label)) },
             placeholder = provider.keyPrefix?.let { prefix -> { Text(stringResource(R.string.ai_api_key_placeholder, prefix)) } },
             visualTransformation = if (isKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            // Password e senza correzione: la tastiera non deve memorizzare ne' suggerire la chiave.
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
             trailingIcon = {
                 IconButton(onClick = { isKeyVisible = !isKeyVisible }) {
                     Icon(

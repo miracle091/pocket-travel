@@ -568,7 +568,8 @@ private fun SectionsWithFilters(
             if (selectedCategory == null && extraContent != null) {
                 extraContent()
             }
-            items(visibleSections, key = { "${it.category}_${it.title}" }) { section ->
+            // L'indice nella chiave: categoria e titolo non sono garantiti unici, e una chiave doppia manda in crash la LazyColumn.
+            itemsIndexed(visibleSections, key = { index, section -> "${section.category}_${section.title}_$index" }) { _, section ->
                 GuideSectionCard(section, modifier = Modifier.padding(horizontal = Spacing.l))
             }
             // Le fonti una volta sola, in fondo, invece che sotto ogni scheda (attribuzione CC BY-SA).
