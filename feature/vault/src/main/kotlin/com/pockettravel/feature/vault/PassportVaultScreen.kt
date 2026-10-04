@@ -90,6 +90,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.DocumentType
 import com.pockettravel.core.data.Passport
+import com.pockettravel.core.data.crypto.VaultKeyEnvelope
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.EmptyState
@@ -116,7 +117,7 @@ private fun DocumentType.label(): Int = when (this) {
     DocumentType.OTHER -> R.string.vault_type_other
 }
 
-private enum class GateStatus { CHECKING, NOT_ENROLLED, LOCKED, UNLOCKED }
+private enum class GateStatus { NOT_ENROLLED, LOCKED, UNLOCKED }
 
 // Passaporto proprio e di altri, cifrati con una chiave di sessione (SessionAesCipher) sbloccata
 // tramite BiometricPrompt.CryptoObject: la vera operazione biometrica avviene una volta sola
@@ -199,9 +200,9 @@ fun PassportVaultScreen(
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             when (gateStatus) {
                 GateStatus.NOT_ENROLLED -> NoLockScreenSetUp()
-                GateStatus.CHECKING, GateStatus.LOCKED -> LockedContent(
+                GateStatus.LOCKED -> LockedContent(
                     viewModel = viewModel,
-                    onUnlock = { gateStatus = it },
+                    onUnlock = { gateStatus = GateStatus.UNLOCKED },
                 )
                 GateStatus.UNLOCKED -> PassportList(viewModel)
             }
@@ -236,7 +237,7 @@ private fun NoLockScreenSetUp() {
 }
 
 @Composable
-private fun LockedContent(viewModel: PassportVaultViewModel, onUnlock: (GateStatus) -> Unit) {
+private fun LockedContent(viewModel: PassportVaultViewModel, onUnlock: () -> Unit) {
     val context = LocalContext.current
     var errorMessage by remember { mutableStateOf<String?>(null) }
     // Impronte aggiunte o tolte dopo aver creato la cassaforte: la chiave non c'e' piu'.
@@ -270,13 +271,20 @@ private fun LockedContent(viewModel: PassportVaultViewModel, onUnlock: (GateStat
                         errorMessage = unlockFailed
                         return
                     }
-                    // Chiave di sessione avvolta rovinata: doFinal lancia, meglio un messaggio che un crash.
+                    // Chiave di sessione avvolta rovinata o KEK sparita dal Keystore (ne e' stata creata una
+                    // nuova, che non apre la vecchia): doFinal lancia, meglio un messaggio che un crash.
                     if (runCatching { viewModel.completeUnlock(unlockIntent, authenticatedCipher) }.isFailure) {
-                        errorMessage = unlockFailed
+                        if (unlockIntent is VaultKeyEnvelope.UnlockCipher.Unwrap) {
+                            // Riprovare darebbe sempre lo stesso errore: si offre il reset.
+                            errorMessage = null
+                            keyInvalidated = true
+                        } else {
+                            errorMessage = unlockFailed
+                        }
                         return
                     }
                     errorMessage = null
-                    onUnlock(GateStatus.UNLOCKED)
+                    onUnlock()
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
@@ -457,10 +465,12 @@ private fun PhotoThumbnail(
     onClick: (() -> Unit)? = null,
     onRemove: (() -> Unit)? = null,
 ) {
-    var bitmap by remember(fileName) { mutableStateOf<ImageBitmap?>(null) }
+    var bitmap by remember(fileName) { mutableStateOf(viewModel.cachedThumbnail(fileName)) }
     val thumbnailPx = with(LocalDensity.current) { 72.dp.roundToPx() }
     LaunchedEffect(fileName) {
+        if (bitmap != null) return@LaunchedEffect
         bitmap = viewModel.loadPhoto(fileName)?.let { bytes -> decodeSampled(bytes, thumbnailPx) }
+            ?.also { viewModel.cacheThumbnail(fileName, it) }
     }
     Box(modifier = Modifier.size(72.dp)) {
         Surface(
@@ -597,7 +607,19 @@ private fun PassportEditDialog(
         }
     }
 
+    // Chiusa con Annulla o Salva: il resto e' un'uscita dalla composizione (es. blocco a ON_STOP) che
+    // lascerebbe orfane le foto gia' salvate in questa sessione di dialogo. Non vale per la rotazione.
+    var closed by remember { mutableStateOf(false) }
+    val activity = context as? Activity
+    DisposableEffect(Unit) {
+        onDispose {
+            if (!closed && activity?.isChangingConfigurations != true) {
+                (photoFileNames - initialPhotoFileNames.toSet()).forEach { viewModel.discardPhoto(it) }
+            }
+        }
+    }
     val cancel = {
+        closed = true
         (photoFileNames - initialPhotoFileNames.toSet()).forEach { viewModel.discardPhoto(it) }
         onDismiss()
     }
@@ -620,6 +642,7 @@ private fun PassportEditDialog(
                         TextButton(
                             enabled = canSave,
                             onClick = {
+                                closed = true
                                 (initialPhotoFileNames - photoFileNames.toSet()).forEach { viewModel.discardPhoto(it) }
                                 onSave(
                                     Passport(
@@ -701,7 +724,8 @@ private fun PassportEditDialog(
             maxPhotos = MAX_PHOTOS_PER_DOCUMENT,
             onCaptured = { jpegBytes ->
                 coroutineScope.launch {
-                    photoFileNames = photoFileNames + viewModel.savePhoto(jpegBytes)
+                    val savedFileName = viewModel.savePhoto(jpegBytes)
+                    photoFileNames = photoFileNames + savedFileName
                 }
             },
             onClose = { showCamera = false },

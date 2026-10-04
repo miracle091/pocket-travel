@@ -1,5 +1,6 @@
 package com.pockettravel.core.data.crypto
 
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.security.GeneralSecurityException
@@ -20,7 +21,7 @@ import javax.crypto.spec.GCMParameterSpec
 //
 // authValiditySeconds controlla la finestra: > 0 e' una chiave "time-bound" (utilizzabile per N
 // secondi dopo un qualunque sblocco biometrico/PIN del dispositivo, senza legare l'operazione a un
-// preciso BiometricPrompt.CryptoObject); 0 richiede invece l'autenticazione per-operazione, quindi
+// preciso BiometricPrompt.CryptoObject); 0 (o meno) richiede invece l'autenticazione per-operazione, quindi
 // la chiave e' utilizzabile solo passando il Cipher qui creato dentro un BiometricPrompt.CryptoObject
 // (vedi VaultKeyEnvelope, che usa questa modalita' per la KEK che avvolge la chiave di sessione).
 class KeystoreCipher(
@@ -74,10 +75,11 @@ class KeystoreCipher(
         KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }.deleteEntry(keyAlias)
     }
 
-    // setUserAuthenticationValidityDurationSeconds e' deprecata dall'API 30 in favore di
-    // setUserAuthenticationParameters(timeout, authTypes) — non usabile qui perche' minSdk=26.
-    // Il valore 0 ha pero' un significato speciale mantenuto anche dalla API deprecata: richiede
-    // autenticazione per ogni singola operazione, tramite CryptoObject.
+    // Autenticazione per-operazione (authValiditySeconds == 0), tramite CryptoObject: dall'API 30
+    // setUserAuthenticationParameters(0, AUTH_BIOMETRIC_STRONG), che la lega alla sola biometria forte.
+    // Sotto l'API 30 (minSdk=26) esiste solo setUserAuthenticationValidityDurationSeconds, dove la
+    // per-operazione si chiede con -1: 0 non e' documentato come tale. I parametri sono fissati alla
+    // creazione: una chiave gia' presente nel Keystore resta com'e', non viene rigenerata.
     @Suppress("DEPRECATION")
     private fun secretKey(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
@@ -94,7 +96,13 @@ class KeystoreCipher(
                         .apply {
                             if (requireUserAuthentication) {
                                 setUserAuthenticationRequired(true)
-                                setUserAuthenticationValidityDurationSeconds(authValiditySeconds)
+                                if (authValiditySeconds > 0) {
+                                    setUserAuthenticationValidityDurationSeconds(authValiditySeconds)
+                                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                    setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+                                } else {
+                                    setUserAuthenticationValidityDurationSeconds(-1)
+                                }
                                 setInvalidatedByBiometricEnrollment(true)
                             }
                         }

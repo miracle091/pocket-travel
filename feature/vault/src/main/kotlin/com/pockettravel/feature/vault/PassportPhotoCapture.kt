@@ -55,6 +55,7 @@ import kotlinx.coroutines.asExecutor
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 
 // Fotocamera interna (CameraX) invece dell'app fotocamera di sistema: serve per disegnare
@@ -82,8 +83,12 @@ internal fun DocumentCameraCaptureScreen(
         var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
         val canCapture = photoCount < maxPhotos
 
+        // Chiuso prima che ProcessCameraProvider sia pronto: il listener non deve piu' agganciare la fotocamera.
+        val disposed = remember { AtomicBoolean(false) }
+
         DisposableEffect(Unit) {
             onDispose {
+                disposed.set(true)
                 cameraProvider?.unbindAll()
                 analysisExecutor.shutdown()
             }
@@ -154,6 +159,7 @@ internal fun DocumentCameraCaptureScreen(
                     val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
                     cameraProviderFuture.addListener(
                         {
+                            if (disposed.get()) return@addListener
                             val provider = cameraProviderFuture.get()
                             cameraProvider = provider
                             val preview = Preview.Builder().build()
