@@ -17,6 +17,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      resign_app_status:
+        description: "Solo app-status.json: ripubblica il file gia' online con publishedAt e firma, senza APK"
+        type: boolean
+        default: false
 
 # Minimo a livello di workflow: contents: write solo al job che pubblica le release.
 permissions:
@@ -66,7 +71,7 @@ jobs:
     needs: check-version-bump
     # Solo da main: un workflow_dispatch lanciato da un altro ramo non deve pubblicare release ne'
     # app-status.json.
-    if: needs.check-version-bump.outputs.bumped == 'true' && github.ref == 'refs/heads/main'
+    if: needs.check-version-bump.outputs.bumped == 'true' && github.ref == 'refs/heads/main' && !inputs.resign_app_status
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -206,4 +211,36 @@ jobs:
 
           bash .github/scripts/sign-files.sh "$APP_STATUS_FILE"
 
+          retry gh release upload app-status "$APP_STATUS_FILE" "$APP_STATUS_FILE.sig" --repo "${{ github.repository }}" --clobber
+
+  # Ripubblica app-status.json cosi' com'e' online, con publishedAt aggiornato e firmato: per un file
+  # caricato prima che si firmasse (senza .sig le build recenti lo rifiutano). Non rigenera aiModels
+  # dal catalogo di main: le app gia' rilasciate devono continuare a vedere i modelli del loro rilascio.
+  resign-app-status:
+    if: github.event_name == 'workflow_dispatch' && inputs.resign_app_status && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-apk
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Firma e ripubblica app-status.json
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          source .github/scripts/retry.sh
+          APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
+          retry gh release download app-status --pattern app-status.json --output "$RUNNER_TEMP/online.json" \
+            --repo "${{ github.repository }}" --clobber
+          jq --argjson publishedAt "$(date +%s)" '.publishedAt = $publishedAt' "$RUNNER_TEMP/online.json" > "$APP_STATUS_FILE"
+          bash .github/scripts/sign-files.sh "$APP_STATUS_FILE"
           retry gh release upload app-status "$APP_STATUS_FILE" "$APP_STATUS_FILE.sig" --repo "${{ github.repository }}" --clobber
