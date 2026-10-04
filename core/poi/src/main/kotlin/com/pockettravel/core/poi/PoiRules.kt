@@ -37,6 +37,7 @@ enum class PoiCategory {
     VETERINARIO,
     BANCA,
     BANCOMAT,
+    CAMBIO_VALUTA,
     UFFICIO_POSTALE,
     CASSETTA_POSTALE,
     INFORMAZIONI,
@@ -51,6 +52,7 @@ enum class PoiCategory {
     TRAGHETTO,
     PORTI_TURISTICI,
     AEROPORTO,
+    // Tag senza una categoria precisa: nascosti e non pubblicati (isPoiHiddenOnMap). Resta per i filtri gia' salvati.
     ALTRO,
 }
 
@@ -59,16 +61,31 @@ enum class PoiCategory {
 private val accommodationValues = setOf(
     "hotel", "guest_house", "hostel", "motel", "apartment", "camp_site", "caravan_site", "chalet", "alpine_hut", "camp_pitch",
 )
-private val foodDrinkValues = setOf("restaurant", "cafe", "bar", "pub", "fast_food", "food_court", "ice_cream", "biergarten")
+private val foodDrinkValues = setOf(
+    "restaurant", "cafe", "bar", "pub", "fast_food", "food_court", "ice_cream", "biergarten", "juice_bar",
+)
 private val rentalTags = setOf(
     "amenity=car_rental", "amenity=bicycle_rental", "amenity=motorcycle_rental", "amenity=scooter_rental",
-    "amenity=boat_rental", "amenity=ski_rental",
+    "amenity=boat_rental", "amenity=ski_rental", "amenity=car_sharing",
 )
 private val entertainmentTags = setOf(
     "amenity=cinema", "amenity=theatre", "amenity=nightclub", "amenity=casino", "leisure=bowling_alley",
-    "leisure=amusement_arcade", "amenity=arts_centre", "amenity=events_venue",
+    "leisure=amusement_arcade", "amenity=arts_centre", "amenity=events_venue", "amenity=conference_centre",
+    "leisure=dance", "leisure=escape_game", "amenity=gambling", "amenity=karaoke_box", "leisure=karaoke",
+    "amenity=hookah_lounge", "amenity=exhibition_centre", "amenity=music_venue",
 )
-private val sportTags = setOf("leisure=sports_centre", "leisure=fitness_centre", "leisure=ski_resort", "leisure=spa")
+// Anche impianti sportivi, piscine, saune e terme.
+private val sportTags = setOf(
+    "leisure=sports_centre", "leisure=fitness_centre", "leisure=ski_resort", "leisure=spa", "leisure=pitch",
+    "leisure=sports_hall", "leisure=stadium", "leisure=swimming_pool", "leisure=ice_rink", "leisure=golf_course",
+    "leisure=miniature_golf", "leisure=disc_golf_course", "leisure=track", "leisure=horse_riding",
+    "leisure=fitness_station", "leisure=trampoline_park", "leisure=sauna", "amenity=dojo", "amenity=dive_centre",
+    "amenity=public_bath", "amenity=spa", "amenity=kneipp_water_cure",
+)
+// Luoghi dove fare il bagno all'aperto e capanni per osservare gli uccelli.
+private val natureTags = setOf("leisure=bathing_place", "leisure=swimming_area", "leisure=bird_hide")
+// Cimiteri con un nome (Pere-Lachaise, Staglieno): quelli senza nome restano nascosti come gli altri POI.
+private val cemeteryTags = setOf("amenity=grave_yard", "amenity=cemetery")
 private val worshipValues = setOf("place_of_worship", "monastery")
 private val museumArtValues = setOf("museum", "gallery", "artwork")
 private val natureValues = setOf("park", "garden", "nature_reserve")
@@ -93,23 +110,39 @@ fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     osmTag == "amenity=toilets" -> PoiCategory.BAGNI_PUBBLICI
     osmTag == "amenity=fuel" -> PoiCategory.CARBURANTE
     osmTag == "amenity=charging_station" -> PoiCategory.RICARICA
-    osmTag == "amenity=pharmacy" -> PoiCategory.FARMACIA
+    // Dispensari: farmacie di base, frequenti in Africa e Asia.
+    osmTag == "amenity=pharmacy" || osmTag == "amenity=dispensary" -> PoiCategory.FARMACIA
     osmTag == "amenity=hospital" -> PoiCategory.OSPEDALE
-    osmTag == "amenity=clinic" || osmTag == "amenity=doctors" || osmTag == "amenity=dentist" -> PoiCategory.AMBULATORI
+    osmTag == "amenity=clinic" || osmTag == "amenity=doctors" || osmTag == "amenity=dentist" ||
+        osmTag == "amenity=health_post" -> PoiCategory.AMBULATORI
     osmTag == "amenity=townhall" -> PoiCategory.MUNICIPIO
     osmTag in sportTags -> PoiCategory.SPORT
     osmTag == "amenity=library" -> PoiCategory.BIBLIOTECHE
     // Lavatoi pubblici storici, spesso senza tag historic.
-    osmTag == "amenity=lavoir" -> PoiCategory.LUOGHI_STORICI
+    osmTag == "amenity=lavoir" || osmTag in cemeteryTags -> PoiCategory.LUOGHI_STORICI
+    osmTag in natureTags -> PoiCategory.NATURA
+    osmTag == "tourism=aquarium" -> PoiCategory.ZOO
+    osmTag == "amenity=planetarium" -> PoiCategory.MUSEI_ARTE
+    // Moschee e chiese taggate col valore sbagliato (amenity=mosque invece di place_of_worship).
+    osmTag == "amenity=mosque" || osmTag == "amenity=church" -> PoiCategory.LUOGHI_DI_CULTO
+    osmTag == "amenity=shower" -> PoiCategory.BAGNI_PUBBLICI
+    osmTag == "amenity=ranger_station" -> PoiCategory.INFORMAZIONI
+    osmTag == "leisure=indoor_play" -> PoiCategory.PARCO_GIOCHI
+    osmTag == "leisure=slipway" -> PoiCategory.PORTI_TURISTICI
     osmTag == "amenity=bicycle_repair_station" -> PoiCategory.RIPARAZIONE_BICI
     osmTag == "amenity=fire_station" -> PoiCategory.VIGILI_DEL_FUOCO
     osmTag == "amenity=veterinary" -> PoiCategory.VETERINARIO
-    osmTag == "amenity=bank" -> PoiCategory.BANCA
+    // Anche i money transfer (Western Union...), gli agenti di mobile money (contanti in Africa) e gli sportelli dove
+    // pagare le bollette.
+    osmTag == "amenity=bank" || osmTag == "amenity=money_transfer" || osmTag == "amenity=mobile_money_agent" ||
+        osmTag == "amenity=payment_centre" -> PoiCategory.BANCA
     osmTag == "amenity=atm" -> PoiCategory.BANCOMAT
+    osmTag == "amenity=bureau_de_change" -> PoiCategory.CAMBIO_VALUTA
     osmTag == "amenity=post_office" -> PoiCategory.UFFICIO_POSTALE
     // Tipi del pacchetto POI extra (vedi poiPackageOf); i parchi giochi con nome sono nel base.
     osmTag == "amenity=drinking_water" -> PoiCategory.ACQUA_POTABILE
-    osmTag == "leisure=picnic_table" || osmTag == "tourism=picnic_site" -> PoiCategory.TAVOLI_PICNIC
+    osmTag == "leisure=picnic_table" || osmTag == "tourism=picnic_site" || osmTag == "amenity=bbq" ||
+        osmTag == "leisure=firepit" -> PoiCategory.TAVOLI_PICNIC
     // Bivacchi, capanne e tettoie (le pensiline delle fermate le scarta la pipeline, vedi GeneratePoi.kt).
     osmTag == "amenity=shelter" || osmTag == "tourism=wilderness_hut" || osmTag == "tourism=lean_to" -> PoiCategory.RIPARI
     // Scarico dei serbatoi e rifornimento d'acqua per camper e caravan.
@@ -133,7 +166,7 @@ fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     osmTag == "railway=station" && category == "subway_station" -> PoiCategory.METRO
     osmTag == "railway=station" || osmTag == "railway=halt" -> PoiCategory.TRENO
     osmTag == "amenity=bus_station" -> PoiCategory.AUTOBUS
-    osmTag == "amenity=taxi" -> PoiCategory.TAXI
+    osmTag == "amenity=taxi" || osmTag == "amenity=shared_taxi" -> PoiCategory.TAXI
     osmTag == "amenity=ferry_terminal" -> PoiCategory.TRAGHETTO
     osmTag == "leisure=marina" -> PoiCategory.PORTI_TURISTICI
     osmTag == "aeroway=aerodrome" -> PoiCategory.AEROPORTO
@@ -143,8 +176,9 @@ fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     osmTag == "amenity=marketplace" -> PoiCategory.NEGOZI
     osmTag == "historic=church" || osmTag == "historic=monastery" -> PoiCategory.LUOGHI_DI_CULTO
     osmTag.startsWith("historic=") -> PoiCategory.LUOGHI_STORICI
-    // Villaggi turistici e residence (leisure=resort): ci si dorme, non sono "Altro".
-    category in accommodationValues || osmTag == "leisure=resort" -> PoiCategory.ALLOGGIO
+    // Villaggi turistici e residence (leisure=resort), capanne e love hotel: ci si dorme, non sono "Altro".
+    category in accommodationValues || osmTag == "leisure=resort" || osmTag == "tourism=cabin" ||
+        osmTag == "amenity=love_hotel" -> PoiCategory.ALLOGGIO
     category in foodDrinkValues -> PoiCategory.CIBO_BEVANDE
     category in worshipValues -> PoiCategory.LUOGHI_DI_CULTO
     category in museumArtValues -> PoiCategory.MUSEI_ARTE
@@ -202,14 +236,18 @@ fun poiHasContacts(category: String, osmTag: String): Boolean = poiCategoryOf(ca
 fun poiHasName(name: String, osmTag: String): Boolean = name != osmTag.substringAfter("=")
 
 /**
- * true per i POI da non mostrare sulla mappa: i tipi sopra, i parcheggi privati, i cartelli
- * informativi e quelli senza nome, tranne i servizi di namelessOnMapCategories e i tipi di namelessOnMapTags.
+ * true per i POI da non mostrare sulla mappa: i tipi sopra, quelli senza una categoria precisa (ALTRO), i parcheggi
+ * privati, i cartelli informativi e quelli senza nome, tranne i servizi di namelessOnMapCategories e i tipi di
+ * namelessOnMapTags.
  */
 fun isPoiHiddenOnMap(name: String, category: String, osmTag: String): Boolean {
     val poiCategory = poiCategoryOf(category, osmTag)
     // Gli stalli per disabili si vedono (con "In sedia a rotelle", deciso dall'app) anche se amenity=parking_space
     // e' nascosto: le app vecchie, che non conoscono "parking_disabled", li nascondono ancora.
     return (osmTag in hiddenOnMapTags && category != "parking_disabled") ||
+        // Lista bianca: OSM ha centinaia di tipi rari (centri civici, tribunali, college...), ogni regione ne porta di
+        // nuovi; si mostra solo quello che ha una categoria, il resto non si pubblica.
+        poiCategory == PoiCategory.ALTRO ||
         poiCategory == PoiCategory.PARCHEGGIO_PRIVATO ||
         (osmTag == "tourism=information" && category != "information_office") ||
         (!poiHasName(name, osmTag) && poiCategory !in namelessOnMapCategories && osmTag !in namelessOnMapTags)

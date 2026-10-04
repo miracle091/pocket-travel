@@ -61,8 +61,9 @@ class PoiCategoryTest {
     }
 
     @Test
-    fun `il resto va in ALTRO`() {
+    fun `il resto va in ALTRO, nascosto sulla mappa`() {
         assertEquals(PoiCategory.ALTRO, poi("community_centre", "amenity=community_centre").poiCategory())
+        assertTrue(poi("community_centre", "amenity=community_centre").copy(name = "Centro civico").isHiddenOnMap())
     }
 
     @Test

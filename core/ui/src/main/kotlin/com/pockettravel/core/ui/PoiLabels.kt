@@ -42,6 +42,7 @@ fun PoiCategory.label(): Int = when (this) {
     PoiCategory.VETERINARIO -> R.string.poi_veterinary
     PoiCategory.BANCA -> R.string.poi_bank
     PoiCategory.BANCOMAT -> R.string.poi_atm
+    PoiCategory.CAMBIO_VALUTA -> R.string.poi_currency_exchange
     PoiCategory.UFFICIO_POSTALE -> R.string.poi_post_office
     PoiCategory.INFORMAZIONI -> R.string.poi_information
     PoiCategory.NOLEGGIO -> R.string.poi_rental

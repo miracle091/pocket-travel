@@ -71,9 +71,42 @@ class PoiRulesTest {
     }
 
     @Test
-    fun `i tag sconosciuti finiscono in ALTRO`() {
+    fun `i tag sconosciuti finiscono in ALTRO, che non si mostra e non si pubblica`() {
         assertEquals(PoiCategory.ALTRO, poiCategoryOf("", ""))
         assertEquals(PoiCategory.ALTRO, poiCategoryOf("xyz", "foo=xyz"))
+        listOf(
+            "amenity=community_centre", "amenity=college", "amenity=courthouse", "amenity=public_building",
+            "amenity=coworking_space", "amenity=internet_cafe",
+        ).forEach { tag ->
+            assertEquals(tag, PoiCategory.ALTRO, poiCategoryOf(tag.substringAfter("="), tag))
+            assertTrue(tag, isPoiHiddenOnMap("Con un nome", tag.substringAfter("="), tag))
+            assertEquals(tag, null, poiPackageOf("Con un nome", tag.substringAfter("="), tag))
+        }
+    }
+
+    @Test
+    fun `i tipi rari utili hanno una categoria`() {
+        mapOf(
+            "leisure=pitch" to PoiCategory.SPORT, "leisure=swimming_pool" to PoiCategory.SPORT,
+            "amenity=public_bath" to PoiCategory.SPORT, "leisure=dance" to PoiCategory.SVAGO,
+            "amenity=gambling" to PoiCategory.SVAGO, "amenity=music_venue" to PoiCategory.SVAGO,
+            "leisure=indoor_play" to PoiCategory.PARCO_GIOCHI, "tourism=aquarium" to PoiCategory.ZOO,
+            "amenity=planetarium" to PoiCategory.MUSEI_ARTE, "amenity=mosque" to PoiCategory.LUOGHI_DI_CULTO,
+            "tourism=cabin" to PoiCategory.ALLOGGIO, "amenity=juice_bar" to PoiCategory.CIBO_BEVANDE,
+            "amenity=health_post" to PoiCategory.AMBULATORI, "amenity=dispensary" to PoiCategory.FARMACIA,
+            "amenity=shower" to PoiCategory.BAGNI_PUBBLICI, "amenity=money_transfer" to PoiCategory.BANCA,
+            "amenity=mobile_money_agent" to PoiCategory.BANCA, "amenity=bureau_de_change" to PoiCategory.CAMBIO_VALUTA,
+            "amenity=car_sharing" to PoiCategory.NOLEGGIO, "amenity=shared_taxi" to PoiCategory.TAXI,
+            "leisure=slipway" to PoiCategory.PORTI_TURISTICI, "amenity=bbq" to PoiCategory.TAVOLI_PICNIC,
+            "amenity=ranger_station" to PoiCategory.INFORMAZIONI, "leisure=bathing_place" to PoiCategory.NATURA,
+            "amenity=grave_yard" to PoiCategory.LUOGHI_STORICI, "amenity=cemetery" to PoiCategory.LUOGHI_STORICI,
+        ).forEach { (tag, expected) -> assertEquals(tag, expected, poiCategoryOf(tag.substringAfter("="), tag)) }
+    }
+
+    @Test
+    fun `i cimiteri con nome sono sulla mappa, senza nome no`() {
+        assertFalse(isPoiHiddenOnMap("Cimitero monumentale di Staglieno", "grave_yard", "amenity=grave_yard"))
+        assertTrue(isPoiHiddenOnMap("grave_yard", "grave_yard", "amenity=grave_yard"))
     }
 
     @Test

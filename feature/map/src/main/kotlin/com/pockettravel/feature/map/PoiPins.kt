@@ -26,7 +26,7 @@ internal fun PoiCategory.pinColor(): Color = when (this) {
     PoiCategory.SVAGO, PoiCategory.SPORT -> PoiColors.Entertainment
     PoiCategory.AMBASCIATA_CONSOLATO, PoiCategory.BIBLIOTECHE, PoiCategory.POLIZIA, PoiCategory.MUNICIPIO, PoiCategory.AMBULATORI, PoiCategory.BAGNI_PUBBLICI, PoiCategory.ACQUA_POTABILE,
     PoiCategory.FARMACIA, PoiCategory.OSPEDALE, PoiCategory.VIGILI_DEL_FUOCO, PoiCategory.VETERINARIO,
-    PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.UFFICIO_POSTALE, PoiCategory.CASSETTA_POSTALE, PoiCategory.INFORMAZIONI ->
+    PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.CAMBIO_VALUTA, PoiCategory.UFFICIO_POSTALE, PoiCategory.CASSETTA_POSTALE, PoiCategory.INFORMAZIONI ->
         PoiColors.PublicServices
     PoiCategory.CARBURANTE, PoiCategory.RICARICA, PoiCategory.SERVIZI_CAMPER, PoiCategory.RIPARAZIONE_BICI, PoiCategory.NOLEGGIO, PoiCategory.PARCHEGGIO, PoiCategory.PARCHEGGIO_PRIVATO,
     PoiCategory.PARCHEGGIO_DISABILI, PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TAXI, PoiCategory.TRAGHETTO, PoiCategory.PORTI_TURISTICI,
@@ -74,6 +74,7 @@ internal fun PoiCategory.glyph(): Int? = when (this) {
     PoiCategory.VETERINARIO -> UiR.drawable.ms_pets
     PoiCategory.BANCA -> UiR.drawable.ms_savings
     PoiCategory.BANCOMAT -> UiR.drawable.ms_local_atm
+    PoiCategory.CAMBIO_VALUTA -> UiR.drawable.ms_currency_exchange
     PoiCategory.UFFICIO_POSTALE -> UiR.drawable.ms_local_post_office
     PoiCategory.INFORMAZIONI -> UiR.drawable.ms_info
     PoiCategory.NOLEGGIO -> UiR.drawable.ms_car_rental

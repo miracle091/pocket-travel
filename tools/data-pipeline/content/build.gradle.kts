@@ -83,6 +83,7 @@ registerPipelineTask("mergeManifests", "com.pockettravel.pipeline.MergeManifests
 registerPipelineTask("validateManifest", "com.pockettravel.pipeline.ValidateManifestKt")
 registerPipelineTask("selectFragments", "com.pockettravel.pipeline.SelectFragmentsKt")
 registerPipelineTask("generateTransit", "com.pockettravel.pipeline.GenerateTransitKt", maxHeap = "2g")
+registerPipelineTask("poiCategoryReport", "com.pockettravel.pipeline.PoiCategoryReportKt", usesSqlite = true)
 
 tasks.test {
     workingDir = pipelineRoot

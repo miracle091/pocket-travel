@@ -7,9 +7,10 @@ import org.junit.Test
 class MapLegendTest {
 
     @Test
-    fun `ogni categoria sta in uno e un solo gruppo della legenda`() {
+    fun `ogni categoria tranne ALTRO sta in uno e un solo gruppo della legenda`() {
         val grouped = LegendGroup.entries.flatMap { it.categories }
 
-        assertEquals(PoiCategory.entries.sorted(), grouped.sorted())
+        // ALTRO non e' mai sulla mappa (isPoiHiddenOnMap): niente filtro.
+        assertEquals((PoiCategory.entries - PoiCategory.ALTRO).sorted(), grouped.sorted())
     }
 }

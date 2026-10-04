@@ -26,7 +26,6 @@
     <string name="map_legend_group_vehicles">Veicoli e parcheggi</string>
     <string name="map_legend_group_transport">Trasporti</string>
     <string name="map_legend_group_health">Salute ed emergenze</string>
-    <string name="map_legend_group_other">Altro</string>
     <string name="map_legend_show_all">Mostra tutto</string>
     <string name="map_legend_hide_all">Nascondi tutto</string>
     <string name="poi_wheelchair_yes">Accessibile in sedia a rotelle</string>

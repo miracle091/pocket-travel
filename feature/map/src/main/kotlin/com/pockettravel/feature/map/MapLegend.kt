@@ -45,7 +45,7 @@ internal enum class LegendGroup(@StringRes val label: Int, val categories: List<
     SHOPS(R.string.map_legend_group_shops, listOf(PoiCategory.NEGOZI, PoiCategory.DISTRIBUTORI)),
     MONEY_POST(
         R.string.map_legend_group_money_post,
-        listOf(PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.UFFICIO_POSTALE, PoiCategory.CASSETTA_POSTALE),
+        listOf(PoiCategory.BANCA, PoiCategory.BANCOMAT, PoiCategory.CAMBIO_VALUTA, PoiCategory.UFFICIO_POSTALE, PoiCategory.CASSETTA_POSTALE),
     ),
     USEFUL(
         R.string.map_legend_group_useful,
@@ -69,7 +69,6 @@ internal enum class LegendGroup(@StringRes val label: Int, val categories: List<
             PoiCategory.MUNICIPIO, PoiCategory.VETERINARIO,
         ),
     ),
-    OTHER(R.string.map_legend_group_other, listOf(PoiCategory.ALTRO)),
 }
 
 // Filtri della mappa: tutte le categorie presenti nella regione, a gruppi, ciascuna con il suo

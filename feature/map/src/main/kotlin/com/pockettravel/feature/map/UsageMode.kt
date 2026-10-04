@@ -10,11 +10,11 @@ import com.pockettravel.core.ui.R as UiR
 // "Da vedere" intera (SIGHT_CATEGORIES), dove una modalita' la mostra.
 private val SIGHTS = SIGHT_CATEGORIES.toTypedArray()
 
-// In ogni modalita': dove dormire e mangiare, emergenze e i POI senza categoria precisa.
+// In ogni modalita': dove dormire e mangiare, emergenze e dove cambiare i soldi.
 private val ALWAYS = setOf(
     PoiCategory.ALLOGGIO, PoiCategory.CIBO_BEVANDE, PoiCategory.BAGNI_PUBBLICI, PoiCategory.FARMACIA, PoiCategory.OSPEDALE,
     PoiCategory.POLIZIA, PoiCategory.VIGILI_DEL_FUOCO, PoiCategory.AMBASCIATA_CONSOLATO, PoiCategory.INFORMAZIONI,
-    PoiCategory.ALTRO,
+    PoiCategory.CAMBIO_VALUTA,
 )
 
 /**
