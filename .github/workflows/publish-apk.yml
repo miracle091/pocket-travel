@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       resign_app_status:
-        description: "Solo app-status.json: ripubblica il file gia' online con publishedAt e firma, senza APK"
+        description: "Solo app-status.json: lo ricostruisce dal tag della versione rilasciata e lo firma, senza APK"
         type: boolean
         default: false
 
@@ -213,9 +213,11 @@ jobs:
 
           retry gh release upload app-status "$APP_STATUS_FILE" "$APP_STATUS_FILE.sig" --repo "${{ github.repository }}" --clobber
 
-  # Ripubblica app-status.json cosi' com'e' online, con publishedAt aggiornato e firmato: per un file
-  # caricato prima che si firmasse (senza .sig le build recenti lo rifiutano). Non rigenera aiModels
-  # dal catalogo di main: le app gia' rilasciate devono continuare a vedere i modelli del loro rilascio.
+  # Ripubblica app-status.json ricostruito dai sorgenti del tag della versione rilasciata (v<versionName>
+  # di main), con publishedAt nuovo e firmato: per un file caricato prima che si firmasse, che le build
+  # recenti rifiutano. Mai firmare il file online cosi' com'e': un asset manomesso diventerebbe firmato.
+  # Il catalogo dei modelli e' quello del tag, non di main: le app rilasciate verificano i download con
+  # gli sha256 del loro APK.
   resign-app-status:
     if: github.event_name == 'workflow_dispatch' && inputs.resign_app_status && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -229,8 +231,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
 
-      - name: Firma e ripubblica app-status.json
+      - name: Ricostruisci, firma e ripubblica app-status.json
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -238,9 +241,20 @@ jobs:
         run: |
           set -euo pipefail
           source .github/scripts/retry.sh
+          TAG="v$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
+          git show "$TAG:app/build.gradle.kts" > "$RUNNER_TEMP/build.gradle.kts"
+          git show "$TAG:feature/ai/src/main/kotlin/com/pockettravel/feature/ai/LlmModelCatalog.kt" > "$RUNNER_TEMP/LlmModelCatalog.kt"
+          VERSION="$(grep -oP 'versionName = "\K[^"]+' "$RUNNER_TEMP/build.gradle.kts")"
+          VERSION_CODE="$(grep -oP 'versionCode = \K[0-9]+' "$RUNNER_TEMP/build.gradle.kts")"
           APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
-          retry gh release download app-status --pattern app-status.json --output "$RUNNER_TEMP/online.json" \
-            --repo "${{ github.repository }}" --clobber
-          jq --argjson publishedAt "$(date +%s)" '.publishedAt = $publishedAt' "$RUNNER_TEMP/online.json" > "$APP_STATUS_FILE"
+          AI_MODELS_FILE="$RUNNER_TEMP/ai-models.json"
+          python3 scripts/generate_ai_models_manifest.py "$RUNNER_TEMP/LlmModelCatalog.kt" > "$AI_MODELS_FILE"
+          jq -n \
+            --arg versionName "$VERSION" \
+            --argjson versionCode "$VERSION_CODE" \
+            --slurpfile aiModels "$AI_MODELS_FILE" \
+            --argjson publishedAt "$(date +%s)" \
+            '{publishedAt: $publishedAt, appVersion: {versionName: $versionName, versionCode: $versionCode}, aiModels: $aiModels[0]}' \
+            > "$APP_STATUS_FILE"
           bash .github/scripts/sign-files.sh "$APP_STATUS_FILE"
           retry gh release upload app-status "$APP_STATUS_FILE" "$APP_STATUS_FILE.sig" --repo "${{ github.repository }}" --clobber
