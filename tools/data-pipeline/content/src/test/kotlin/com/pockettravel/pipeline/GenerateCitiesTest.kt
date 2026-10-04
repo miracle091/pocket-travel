@@ -73,6 +73,34 @@ class GenerateCitiesTest {
     }
 
     @Test
+    fun `le coordinate della citta' vanno su ogni sezione e in cities db, null se mancano`() {
+        val jsonl = listOf(
+            org.json.JSONObject().put("city", "Torino").put("text", "== Cosa vedere ==\nLa Mole.").put("lat", 45.07034).put("lon", 7.68686),
+            org.json.JSONObject().put("city", "Asti").put("text", "== Cosa vedere ==\nIl Palio.").put("lat", org.json.JSONObject.NULL),
+        ).joinToString("\n")
+        val rows = parseCitiesJsonl(jsonl)
+        assertEquals(listOf(45.07034 to 7.68686, null to null), rows.map { it.latitude to it.longitude })
+
+        val outputDb = File.createTempFile("pocket-travel-test", ".cities.db")
+        outputDb.delete()
+        try {
+            writeCitiesDb(rows, outputDb)
+            DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
+                conn.createStatement().use { statement ->
+                    val rs = statement.executeQuery("SELECT latitude, longitude FROM city_sections ORDER BY city")
+                    assertEquals(true, rs.next())
+                    assertEquals(null, rs.getObject("latitude"))
+                    assertEquals(true, rs.next())
+                    assertEquals(45.07034, rs.getDouble("latitude"), 0.0)
+                    assertEquals(7.68686, rs.getDouble("longitude"), 0.0)
+                }
+            }
+        } finally {
+            outputDb.delete()
+        }
+    }
+
+    @Test
     fun `citta' di Wikivoyage EN con i titoli di sezione inglesi`() {
         val text = "{{isPartOf|Rimini (province)}}\n==Understand==\nA seaside town.\n==See==\nThe arch.\n==Go next==\nSan Marino.\n{{usablecity}}"
         val jsonl = org.json.JSONObject().put("city", "Rimini").put("text", text).toString()

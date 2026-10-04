@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
+import com.pockettravel.core.data.db.CityCoordinates
 import com.pockettravel.core.data.db.RegionDatabase
 import com.pockettravel.core.data.vaccination.PolioCategory
 import com.pockettravel.core.data.vaccination.StopoverRule
@@ -181,6 +182,29 @@ class PackageImporterDeviceTest {
         val sectionsAfterUpdate = db.cityDao().sectionsFor("san-marino", "Citta di San Marino")
         assertEquals(1, sectionsAfterUpdate.size)
         assertEquals("corpo aggiornato", sectionsAfterUpdate.single().body)
+    }
+
+    @Test
+    fun importaPopolazioneCapitaleECoordinateDalFormatoNuovoDelCitiesDb() = runBlocking {
+        // Schema di writeCitiesDb in tools/data-pipeline (GenerateCities.kt), con translated in fondo.
+        val file = File(workDir, "cities-piemonte.db")
+        SQLiteDatabase.openOrCreateDatabase(file, null).use { cities ->
+            cities.execSQL(
+                "CREATE TABLE city_sections (city TEXT NOT NULL, category TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, " +
+                    "sourceUrl TEXT NOT NULL, population INTEGER, capital INTEGER NOT NULL DEFAULT 0, latitude REAL, longitude REAL, " +
+                    "translated INTEGER NOT NULL DEFAULT 0)",
+            )
+            cities.execSQL("INSERT INTO city_sections VALUES ('Torino', 'COSA_VEDERE', 'Cosa vedere', 'La Mole.', 'u', 850000, 1, 45.07917, 7.67611, 0)")
+            cities.execSQL("INSERT INTO city_sections VALUES ('Asti', 'COSA_VEDERE', 'Cosa vedere', 'Il Palio.', 'u', NULL, 0, NULL, NULL, 0)")
+        }
+
+        CityImporter(db.cityDao(), db).import("italia", file)
+
+        assertEquals(CityCoordinates(45.07917, 7.67611), db.cityDao().coordinatesFor("italia", "Torino"))
+        assertNull(db.cityDao().coordinatesFor("italia", "Asti"))
+        val torino = db.cityDao().sectionsFor("italia", "Torino").single()
+        assertEquals(850000L, torino.population)
+        assertTrue(torino.capital)
     }
 
     /** Crea un poi.db minimo nel formato compatto (poi_code + poi, PRAGMA user_version=1), vedi GeneratePoi.kt. */

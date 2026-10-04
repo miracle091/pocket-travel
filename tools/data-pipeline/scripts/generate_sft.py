@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera il dataset SFT v9 (v10 con --nearby) in italiano o in inglese con lo stesso metodo, cosi' i due dataset restano equivalenti:
+"""Genera il dataset SFT v9 (v10 con --nearby e --distances) in italiano o in inglese con lo stesso metodo, cosi' i due dataset restano equivalenti:
 stesse fonti (Wikivoyage IT ed EN dello stesso dump, Wikipedia IT per le categorie deboli, fatti rapidi e note), stessa
 composizione per categoria, stessi tipi di domanda, stesso rapporto di rifiuti. Cambiano solo le tabelle della lingua
 (domande, parole chiave, rifiuto, prompt dell'app), prese da generate_sft_dataset.py (italiano) e
@@ -17,24 +17,28 @@ hanno "translated": true e ATTRIBUTION indica la traduzione automatica (CC BY-SA
 - citta': --cities pagine della lingua del dataset, fino a --city-questions sezioni per citta';
 - fatti rapidi e note personali con --guides-db (guides.db per l'italiano, guides-en.db per l'inglese);
 - con --nearby, domande su cosa c'e' qui vicino e sulle prossime partenze con i blocchi di contesto dell'app
-  (sft_nearby.py, dati sintetici), per una quota del dataset finale.
+  (sft_nearby.py, dati sintetici), per una quota del dataset finale;
+- con --distances (e --cities), domande sulla distanza tra due citta' con le sezioni di entrambe nel contesto: la
+  frase della guida con i km o il tempo di viaggio, o il rifiuto quando le guide non li riportano.
 Fuori dal training le regioni di test e quelle la cui pagina (IT o EN) e' la pagina di una regione di test o vi
 appartiene (es. figi-occidentali ha la pagina "Figi"/"Fiji" di figi-lau): restano nel file solo le regioni di test.
 
 Uso: python generate_sft.py --lang it|en --dump-dir <cartella dei dump> [--cities 4500] [--guides-db <db>] [--nearby 0.03]
-     [--version v10] [--seed 42]
+     [--distances 0.02] [--version v10] [--seed 42]
 Output in data/sft/: pocket_travel_sft.<versione>.<lang>.jsonl e ATTRIBUTION.<versione>.<lang>.tsv; traduzioni in cache in
-raw/translations.<src>-<tgt>.jsonl. La versione di default e' v9 senza --nearby (l'output del v9) e v10 con --nearby,
-cosi' un dataset con gli esempi --nearby non sovrascrive mai il v9.
+raw/translations.<src>-<tgt>.jsonl. La versione di default e' v9 senza --nearby e --distances (l'output del v9), altrimenti v10,
+cosi' un dataset con gli esempi nuovi non sovrascrive mai il v9.
 """
 import argparse
 import json
+import math
 import random
 import re
 import urllib.parse
 from collections import Counter, defaultdict
 from pathlib import Path
 
+import city_population
 import generate_sft_dataset as it
 import generate_sft_dataset_en as en
 import sft_nearby
@@ -125,6 +129,131 @@ def vaccination_answers(text, lang):
     return out
 
 
+# Distanze tra citta' (--distances): "Quanto dista X da Y?" con nel contesto le sezioni delle due citta', come le cerca
+# l'app quando la domanda nomina due citta' (namedCities in TravelAssistant.kt). Se l'app ha le coordinate delle due
+# citta', il contesto si apre con la distanza calcolata (cityDistanceContext): in linea d'aria e, con la rete stradale
+# scaricata, il percorso in auto; la risposta e' quel testo. Senza, le guide danno km o tempi solo per alcune coppie,
+# spesso non tra le grandi citta': risposta estrattiva quando una frase del contesto nomina l'altra citta' con una
+# distanza o un tempo, altrimenti il rifiuto. Domande disgiunte da DISTANCE_Q di eval_retrieval.py.
+DIST_QUESTIONS = {
+    "it": {"distance": ["Quanti chilometri ci sono da {o} a {c}?", "Qual e' la distanza tra {c} e {o}?",
+                        "Quanto e' lontana {c} da {o}?"],
+           "time": ["Quanto ci si mette da {o} a {c}?", "Quanto tempo serve per andare da {o} a {c}?"]},
+    "en": {"distance": ["What is the distance between {c} and {o}?", "How many kilometres is {c} from {o}?",
+                        "Is {c} far from {o}?"],
+           "time": ["How long is the trip from {o} to {c}?", "How long does the drive from {o} to {c} take?"]},
+}
+DIST_TOPIC = {"it": "sulla distanza tra {c} e {o}", "en": "about the distance between {c} and {o}"}
+DIST_CATS = ("ARRIVARE", "TRASPORTI")  # Come arrivare e Come spostarsi delle pagine delle citta'
+# Una distanza o un tempo di viaggio ("72 km", "3 h 30", "20 minuti", "2 hours"): TRAVEL_FIGURE di eval_retrieval.py
+# piu' le unita' scritte per esteso.
+TRAVEL_FIGURE = re.compile(r"\d+\s*(km|chilometri|kilomet(?:er|re)s?|miglia|miles?|h|ore|minuti|min|hours?|minutes?)\b", re.I)
+# Quota degli esempi con la distanza calcolata nel contesto: percorso in auto (rete stradale scaricata), sola linea
+# d'aria, nessun blocco (cities.db senza coordinate: guide o rifiuto).
+DIST_VARIANTS = (("car", 0.3), ("air", 0.3), ("none", 0.4))
+# Percorso in auto sintetico per il training, dalla distanza in linea d'aria vera (coordinate di Wikidata): il modello
+# deve solo riportare i numeri del contesto, che sul telefono calcola BRouter.
+ROAD_FACTOR = (1.15, 1.45)
+CAR_KMH = (55, 95)
+
+
+def _round(x):
+    """Arrotondamento come Math.round di Kotlin (meta' verso l'alto), non quello bancario di Python."""
+    return math.floor(x + 0.5)
+
+
+def travel_time(seconds):
+    """Come travelTime in TravelAssistant.kt: "45 min", "2 h", "1 h 35 min"."""
+    minutes = max(1, _round(seconds / 60))
+    hours, rest = divmod(minutes, 60)
+    return f"{rest} min" if hours == 0 else f"{hours} h" if rest == 0 else f"{hours} h {rest} min"
+
+
+def distance_context(a, b, straight_m, car, lang):
+    """Come cityDistanceContext in TravelAssistant.kt: [car] e' (metri, secondi) o None."""
+    a, b = en.display_name(a), en.display_name(b)
+    km = lambda m: max(1, _round(m / 1000))
+    air = (f"{a} and {b} are {km(straight_m)} km apart in a straight line." if lang == "en"
+           else f"{a} e {b} distano {km(straight_m)} km in linea d'aria.")
+    if car is None:
+        road = "By road the distance is longer." if lang == "en" else "Su strada la distanza è maggiore."
+    elif lang == "en":
+        road = f"By car the route is {km(car[0])} km, about {travel_time(car[1])}."
+    else:
+        road = f"In auto il percorso è di {km(car[0])} km, circa {travel_time(car[1])}."
+    return f"{air} {road}"
+
+
+def haversine_m(p, q):
+    """Distanza in metri sulla sfera tra (lat, lon) [p] e [q]: l'app usa l'ellissoide (Location.distanceBetween), la
+    differenza e' sotto l'1%."""
+    la1, lo1, la2, lo2 = map(math.radians, (*p, *q))
+    h = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
+    return 2 * 6_371_000 * math.asin(math.sqrt(h))
+
+
+def distance_sentences(body, other, split=it.SENTENCE_END):
+    """Frasi di [body] che nominano [other] (parola intera) con una distanza o un tempo di viaggio."""
+    name = re.compile(rf"\b{re.escape(other)}\b")
+    return [s for s in it.sentences(body, split) if name.search(s) and TRAVEL_FIGURE.search(s)]
+
+
+def distance_pairs(by_name, split=it.SENTENCE_END):
+    """{(citta', altra citta'): con distanza} per ogni citta' di [by_name] ({nome: [(categoria, corpo)]}) nominata nelle
+    sezioni DIST_CATS di un'altra (nome di una parola di almeno 5 lettere, come distance_pairs di eval_retrieval.py);
+    con distanza se una di quelle frasi la nomina con km o tempi di viaggio."""
+    names = {n for n in by_name if " " not in n and len(n) >= 5}
+    pairs = {}
+    for city, secs in by_name.items():
+        for cat, body in secs:
+            if cat in DIST_CATS:
+                for other in names & set(re.findall(r"\w+", body)) - {city}:
+                    pairs[city, other] = pairs.get((city, other), False) or bool(distance_sentences(body, other, split))
+    return pairs
+
+
+def distance_example(rng, city, other, by_name, lang, refusal, split=it.SENTENCE_END, coords=None):
+    """(contesto, domanda, risposta, tipo, con la distanza calcolata) sulla distanza tra [city] e [other], o None senza
+    sezioni DIST_CATS. Contesto: le sezioni DIST_CATS delle due citta', con davanti la distanza calcolata
+    (distance_context) se [coords] ({nome: (lat, lon)}) ha le due citta' e la variante estratta (DIST_VARIANTS) la
+    prevede; la risposta e' allora quel testo.
+    Altrimenti fino a 2 frasi del contesto che danno la distanza (dalle pagine delle due citta', ognuna che nomina
+    l'altra), o il rifiuto. Come l'app, niente blocco in linea d'aria per una domanda sul solo tempo di viaggio."""
+    own = [(b, other) for c, b in by_name[city] if c in DIST_CATS]
+    oth = [(b, city) for c, b in by_name.get(other, []) if c in DIST_CATS]
+    if not own:
+        return None
+    coords = coords or {}
+    variant = "none"
+    if city in coords and other in coords:
+        names, weights = zip(*DIST_VARIANTS)
+        variant = rng.choices(names, weights)[0]
+    kind = "distance" if variant == "air" else rng.choice(["distance", "time"])
+    q = rng.choice(DIST_QUESTIONS[lang][kind]).format(c=city, o=other)
+    bodies = [b for b, _ in own + rng.sample(oth, min(len(oth), 1))]
+    if variant != "none":
+        straight = haversine_m(coords[city], coords[other])
+        car = None
+        if variant == "car":
+            road = straight * rng.uniform(*ROAD_FACTOR)
+            car = (road, road / 1000 / rng.uniform(*CAR_KMH) * 3600)
+        a, b = (city, other) if rng.random() < 0.5 else (other, city)
+        block = distance_context(a, b, straight, car, lang)
+        sections = it.make_context(rng, bodies, q, max_chars=it.MAX_CONTEXT - len(block) - 2)
+        return "\n\n".join(x for x in (block, sections) if x), q, block, "pos", True
+    context = it.make_context(rng, bodies, q)
+    named = [other] * len(own) + [city] * (len(bodies) - len(own))
+    found = [s for body, n in zip(bodies, named) for s in distance_sentences(body, n, split)
+             if s in context and not it.URL.search(s) and len(s) <= it.MAX_ANSWER]
+    answer = []
+    for s in dict.fromkeys(found):
+        if len(answer) < 2 and sum(len(x) + 1 for x in answer) + len(s) <= it.MAX_ANSWER:
+            answer.append(s)
+    if answer:
+        return context, q, " ".join(answer), "pos", False
+    return context, q, refusal(DIST_TOPIC[lang].format(c=city, o=other)), "neg", False
+
+
 def flag_regions():
     """{codice paese: [regionId]} da regions.sh (flagCode, ottavo campo)."""
     src = (it.HERE / "regions.sh").read_text(encoding="utf-8")
@@ -171,10 +300,15 @@ def main():
                     help="riassunti di VaccinationSummaryExport (JSONL): domande sui vaccini col riassunto nel contesto")
     ap.add_argument("--nearby", type=float, default=0,
                     help="quota del dataset finale (es. 0.03) con domande su cosa c'e' qui vicino e sulle prossime partenze")
-    ap.add_argument("--version", help="versione nel nome dei file di output (default: v10 con --nearby, altrimenti v9)")
+    ap.add_argument("--distances", type=float, default=0,
+                    help="quota del dataset finale (es. 0.02) con domande sulla distanza tra due citta' (richiede --cities)")
+    ap.add_argument("--version", help="versione nel nome dei file di output (default: v10 con --nearby o --distances, "
+                                      "altrimenti v9)")
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
-    version = a.version or ("v10" if a.nearby else "v9")
+    if a.distances and not a.cities:
+        ap.error("--distances richiede --cities")
+    version = a.version or ("v10" if a.nearby or a.distances else "v9")
     L, lang, other = LANGS[a.lang], a.lang, OTHER[a.lang]
     rng = random.Random(a.seed)
     (it.OUT / "raw").mkdir(parents=True, exist_ok=True)
@@ -472,6 +606,37 @@ def main():
                 if (context, q) not in seen:
                     seen.add((context, q))
                     rows.append(row("neg", rid, "VACCINAZIONI", context, q, refusal(VACC_TOPIC[lang]))); vacc_neg += 1
+    # Distanze tra citta' (--distances): meta' coppie che una guida collega con km o tempi, meta' coppie che si nominano
+    # senza; con le coordinate di Wikidata parte degli esempi ha davanti la distanza calcolata come nell'app (il tipo
+    # finale lo decide il contesto, vedi distance_example)
+    dist = Counter()
+    if a.distances:
+        target = round(len(rows) * a.distances / (1 - a.distances))
+        phase("distanze", f"{target} righe")
+        by_name = {en.display_name(t): (t, secs) for t, secs in cities}
+        secs_by_name = {n: secs for n, (_, secs) in by_name.items()}
+        pairs = distance_pairs(secs_by_name, L["split"])
+        named = {n for pair in pairs for n in pair}
+        try:
+            found = city_population.wikidata_coordinates({by_name[n][0] for n in named}, lang)
+        except Exception as e:  # senza rete restano gli esempi senza blocco: guide o rifiuto
+            print(f"-- coordinate da Wikidata non disponibili ({e})")
+            found = {}
+        coords = {n: found[by_name[n][0]] for n in named if by_name[n][0] in found}
+        pools = [[p for p, figure in sorted(pairs.items()) if figure], [p for p, figure in sorted(pairs.items()) if not figure]]
+        for pool in pools:
+            rng.shuffle(pool)
+        for city, other in (p for pair in zip(*pools) for p in pair):
+            if sum(dist[k] for k in ("pos", "neg")) >= target:
+                break
+            example = distance_example(rng, city, other, secs_by_name, lang, refusal, L["split"], coords)
+            if example is None or (example[0], example[1]) in seen:
+                continue
+            context, q, ans, kind, computed = example
+            seen.add((context, q))
+            rows.append(row(kind, f"citta:{by_name[city][0]}", "DISTANZE", context, q, ans)); dist[kind] += 1
+            dist["blocco"] += computed
+        print(f"distanze: coordinate per {len(coords)}/{len(named)} citta', {dist['blocco']} esempi con la distanza calcolata")
     # Qui vicino e prossime partenze (--nearby): meta' e meta', con le sezioni di una regione qualunque dopo il blocco
     near = Counter()
     if a.nearby:
@@ -505,7 +670,7 @@ def main():
     print(f"regioni con testo: {len(data)}; sezioni tradotte {other}->{lang}: {n_tr['sezioni']}, paragrafi Wikipedia: {n_tr['wikipedia']}")
     print(f"positivi={pos} negativi={neg} citta' positivi={city_pos} negativi={city_neg} "
           f"fatti rapidi {quick_pos}/{quick_neg} note {note_pos} vaccinazioni {vacc_pos}/{vacc_neg} "
-          f"vicino {near['VICINO', 'pos']}/{near['VICINO', 'neg']} partenze {near['PARTENZE', 'pos']}/{near['PARTENZE', 'neg']} totale={len(rows)} "
+          f"distanze {dist['pos']}/{dist['neg']} vicino {near['VICINO', 'pos']}/{near['VICINO', 'neg']} partenze {near['PARTENZE', 'pos']}/{near['PARTENZE', 'neg']} totale={len(rows)} "
           f"(rifiuti {sum(r['kind'] == 'neg' for r in rows) / max(len(rows), 1):.1%}, tradotte {sum(r['translated'] for r in rows)})")
     cats, refs = Counter(r["category"] for r in rows), Counter(r["category"] for r in rows if r["kind"] == "neg")
     print("per categoria (righe/rifiuti):", {c: f"{n}/{refs[c]}" for c, n in cats.most_common()})

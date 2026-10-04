@@ -82,7 +82,8 @@ internal fun dropDanglingIntros(body: String): String =
 
 /**
  * [population]: abitanti della citta' (city_population.py: Abitanti del QuickbarCity o Wikidata), null se ignota;
- * [capital]: e' la capitale della regione (Wikidata P36).
+ * [capital]: e' la capitale della regione (Wikidata P36); [latitude], [longitude]: coordinate della citta' (Wikidata P625),
+ * null se ignote, per la distanza tra due citta' dell'assistente.
  */
 data class CitySectionRow(
     val city: String,
@@ -92,6 +93,8 @@ data class CitySectionRow(
     val sourceUrl: String,
     val population: Long? = null,
     val capital: Boolean = false,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
     val translated: Boolean = false,
 )
 
@@ -108,10 +111,12 @@ fun parseCitiesJsonl(jsonl: String, english: Boolean = false): List<CitySectionR
         val city = obj.getString("city")
         val population = if (obj.isNull("population")) null else obj.optLong("population").takeIf { it > 0 }
         val capital = obj.optBoolean("capital", false)
+        val latitude = if (obj.isNull("lat")) null else obj.optDouble("lat").takeUnless { it.isNaN() }
+        val longitude = if (obj.isNull("lon")) null else obj.optDouble("lon").takeUnless { it.isNaN() }
         val lang = if (english) "en" else "it"
         val sourceUrl = "https://$lang.wikivoyage.org/wiki/" + city.replace(" ", "_")
         val wikivoyage = parseWikivoyageDump(obj.getString("text"), if (english) cityHeadingToCategoryEn else cityHeadingToCategory).map { section ->
-            CitySectionRow(city = city, category = section.category, title = section.title, body = section.body, sourceUrl = sourceUrl, population = population, capital = capital)
+            CitySectionRow(city = city, category = section.category, title = section.title, body = section.body, sourceUrl = sourceUrl, population = population, capital = capital, latitude = latitude, longitude = longitude)
         }
         val wikipedia = obj.optJSONObject("wikipedia")?.let { wp ->
             val wpUrl = "https://$lang.wikipedia.org/wiki/" + wp.getString("title").replace(" ", "_")
@@ -119,7 +124,7 @@ fun parseCitiesJsonl(jsonl: String, english: Boolean = false): List<CitySectionR
                 val cleaned = dropDanglingIntros(section.body)
                 val body = if (section.category == "STORIA") truncateSection(cleaned) else cleaned
                 if (body.isEmpty()) return@mapNotNull null
-                CitySectionRow(city = city, category = section.category, title = section.title, body = body, sourceUrl = wpUrl, population = population, capital = capital)
+                CitySectionRow(city = city, category = section.category, title = section.title, body = body, sourceUrl = wpUrl, population = population, capital = capital, latitude = latitude, longitude = longitude)
             }
         }.orEmpty()
         wikivoyage + wikipedia
@@ -143,10 +148,12 @@ fun writeCitiesDb(sections: List<CitySectionRow>, outputDb: File) {
                 sourceUrl TEXT NOT NULL,
                 population INTEGER,
                 capital INTEGER NOT NULL DEFAULT 0,
+                latitude REAL,
+                longitude REAL,
                 translated INTEGER NOT NULL DEFAULT 0
             )
             """.trimIndent(),
-        insertSql = "INSERT INTO city_sections (city, category, title, body, sourceUrl, population, capital, translated) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        insertSql = "INSERT INTO city_sections (city, category, title, body, sourceUrl, population, capital, latitude, longitude, translated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         rows = sections,
     ) { insert, section ->
         insert.setString(1, section.city)
@@ -156,7 +163,9 @@ fun writeCitiesDb(sections: List<CitySectionRow>, outputDb: File) {
         insert.setString(5, section.sourceUrl)
         section.population?.let { insert.setLong(6, it) } ?: insert.setNull(6, java.sql.Types.INTEGER)
         insert.setInt(7, if (section.capital) 1 else 0)
-        insert.setInt(8, if (section.translated) 1 else 0)
+        section.latitude?.let { insert.setDouble(8, it) } ?: insert.setNull(8, java.sql.Types.REAL)
+        section.longitude?.let { insert.setDouble(9, it) } ?: insert.setNull(9, java.sql.Types.REAL)
+        insert.setInt(10, if (section.translated) 1 else 0)
     }
 }
 

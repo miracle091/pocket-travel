@@ -1,5 +1,6 @@
 package com.pockettravel.feature.ai
 
+import com.pockettravel.core.data.CarRoute
 import com.pockettravel.core.data.CitySection
 import com.pockettravel.core.data.FtsMatchInfo
 import com.pockettravel.core.data.GuideCategory
@@ -254,6 +255,49 @@ class TravelAssistantLogicTest {
 
         assertEquals(listOf("Firenze", "Siena"), namedCities("Quanto dista Siena da Firenze?", cities))
         assertEquals(listOf("Firenze", "Roma"), namedCities("Quanti km ci sono tra Roma e Firenze?", cities))
+    }
+
+    @Test
+    fun `domande sulla distanza e sul tempo di viaggio`() {
+        listOf(
+            "Quanto dista Siena da Firenze?", "Quanti km ci sono tra Roma e Firenze?", "Qual e' la distanza tra Torino e Milano?",
+            "Asti e' lontana da Torino?", "How far is Turin from Milan?", "How many kilometres is Pisa from Lucca?",
+            "Quanto è distante Siena da Firenze?", "Siena e Firenze sono distanti?", "Is Lucca distant from Pisa?",
+        ).forEach { assertTrue(it, isDistanceQuestion(it)) }
+        listOf(
+            "Quanto ci vuole da Torino a Milano?", "Quanto ci si mette da Pisa a Lucca?", "Quanto tempo serve per andare da Pisa a Lucca?",
+            "How long does it take from Pisa to Lucca?", "How long is the trip from Pisa to Lucca?", "How long does the drive from Pisa to Lucca take?",
+        ).forEach { assertTrue(it, isTravelTimeQuestion(it)) }
+        // Quanto restare o visitare, non il viaggio tra le due citta'.
+        listOf(
+            "Cosa vedere a Firenze e Siena?", "Distillerie a Firenze?", "Is Turin farther north?",
+            "Quanto tempo serve per visitare Roma e Firenze?", "How long should I stay in Rome and Florence?",
+        ).forEach { assertFalse(it, isDistanceQuestion(it) || isTravelTimeQuestion(it)) }
+    }
+
+    // Stessi testi attesi di test_sft_distances.py (DistanceContextTest): il training copia questo blocco.
+    @Test
+    fun `testo della distanza tra due citta', con e senza percorso in auto`() {
+        assertEquals(
+            "Torino e Milano distano 126 km in linea d'aria. Su strada la distanza è maggiore.",
+            cityDistanceContext("Torino", "Milano", 125_640.0, null, "it"),
+        )
+        assertEquals(
+            "Torino e Milano distano 126 km in linea d'aria. In auto il percorso è di 142 km, circa 1 h 35 min.",
+            cityDistanceContext("Torino", "Milano", 125_640.0, CarRoute(141_800.0, 5_710.0), "it"),
+        )
+        assertEquals(
+            "Porto and Braga are 49 km apart in a straight line. By car the route is 55 km, about 45 min.",
+            cityDistanceContext("Porto (Portugal)", "Braga", 48_700.0, CarRoute(55_200.0, 2_690.0), "en"),
+        )
+        assertEquals(
+            "Pisa and Lucca are 1 km apart in a straight line. By road the distance is longer.",
+            cityDistanceContext("Pisa", "Lucca", 300.0, null, "en"),
+        )
+        assertEquals(
+            "Torino e Milano distano 126 km in linea d'aria. In auto il percorso è di 142 km, circa 2 h.",
+            cityDistanceContext("Torino", "Milano", 125_640.0, CarRoute(141_800.0, 7_190.0), "it"),
+        )
     }
 
     @Test

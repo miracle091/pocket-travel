@@ -1,13 +1,18 @@
 package com.pockettravel.feature.map
 
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import com.pockettravel.core.data.Rd5Merger
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
@@ -15,7 +20,10 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.nio.ByteBuffer
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.locks.ReentrantLock
 import java.util.zip.CRC32
+import kotlin.concurrent.thread
 
 /**
  * Verifica il wiring reale (RoutingContext/RoutingParamCollector/RoutingEngine di
@@ -29,6 +37,32 @@ class BRouterRouteEngineTest {
 
     @get:Rule
     val tempFolder = TemporaryFolder()
+
+    // L'assistente IA chiede un percorso con un tempo massimo: se il Navigatore sta calcolando, deve smettere di
+    // aspettare il motore allo scadere, non quando il Navigatore finisce.
+    @Test
+    fun `chi aspetta il motore occupato smette di aspettare quando viene annullato`() = runBlocking {
+        val lock = ReentrantLock()
+        val held = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val holder = thread {
+            lock.withInterruptibleLock {
+                held.countDown()
+                release.await()
+            }
+        }
+        held.await()
+        val started = System.nanoTime()
+
+        val result = withTimeoutOrNull(200) { runInterruptible(Dispatchers.IO) { lock.withInterruptibleLock { "calcolato" } } }
+
+        val waitedMillis = (System.nanoTime() - started) / 1_000_000
+        release.countDown()
+        holder.join()
+        assertNull(result)
+        assertTrue("ha aspettato $waitedMillis ms", waitedMillis < 2_000)
+        assertFalse("il lock non resta preso da chi ha rinunciato", lock.isLocked)
+    }
 
     @Test
     fun `senza segmenti mancano i dati di percorso, senza eccezioni`() = runBlocking {

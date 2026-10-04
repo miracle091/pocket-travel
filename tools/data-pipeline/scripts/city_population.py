@@ -8,6 +8,7 @@ Fonti, nell'ordine:
 Senza nessuna delle due la citta' resta senza popolazione e l'app ripiega sulla lunghezza della guida.
 Capitale: la proprieta' P36 (capitale) dell'elemento Wikidata della regione (stato, o stato federato per le regioni che
 lo sono, es. il Texas), risolta nel titolo della sua pagina di Wikivoyage nella stessa lingua.
+Coordinate: la proprieta' P625 dello stesso elemento Wikidata, per la distanza tra due citta' dell'assistente.
 
 Mai fatale: un errore di rete lascia le citta' interessate senza popolazione.
 """
@@ -84,19 +85,44 @@ def wikibase_items(titles, lang, deadline=None):
     return item_of
 
 
-def wikidata_populations(titles, lang):
-    """{titolo: popolazione} da Wikidata per le pagine di Wikivoyage [lang] in [titles]."""
+def _wikidata_values(titles, lang, value_of):
+    """{titolo: value_of(claims)} per le pagine di Wikivoyage [lang] in [titles], senza quelle dove vale None."""
     item_of = wikibase_items(titles, lang)
     ids = sorted(set(item_of.values()))
-    pop_of_item = {}
+    value_of_item = {}
     for i in range(0, len(ids), BATCH):
         url = ("https://www.wikidata.org/w/api.php?action=wbgetentities&props=claims&format=json&ids="
                + "|".join(ids[i:i + BATCH]))
         for q, entity in _get(url).get("entities", {}).items():
-            if (pop := _latest_population(entity.get("claims", {}))) is not None:
-                pop_of_item[q] = pop
+            if (value := value_of(entity.get("claims", {}))) is not None:
+                value_of_item[q] = value
         time.sleep(0.2)
-    return {t: pop_of_item[q] for t, q in item_of.items() if q in pop_of_item}
+    return {t: value_of_item[q] for t, q in item_of.items() if q in value_of_item}
+
+
+def wikidata_populations(titles, lang):
+    """{titolo: popolazione} da Wikidata per le pagine di Wikivoyage [lang] in [titles]."""
+    return _wikidata_values(titles, lang, _latest_population)
+
+
+EARTH = "http://www.wikidata.org/entity/Q2"
+
+
+def _coordinates(claims):
+    """(latitudine, longitudine) di P625 (coordinate), quella di rango preferito se c'e', altrimenti la prima non
+    deprecata; None senza coordinate sulla Terra."""
+    usable = [c for c in claims.get("P625", []) if c.get("rank") != "deprecated"]
+    for c in sorted(usable, key=lambda c: c.get("rank") != "preferred"):
+        value = c.get("mainsnak", {}).get("datavalue", {}).get("value", {})
+        if value.get("globe", EARTH).endswith("/Q2") and "latitude" in value and "longitude" in value:
+            return round(value["latitude"], 5), round(value["longitude"], 5)
+    return None
+
+
+def wikidata_coordinates(titles, lang):
+    """{titolo: (latitudine, longitudine)} da Wikidata (P625) per le pagine di Wikivoyage [lang] in [titles]: l'assistente
+    ne calcola la distanza tra due citta' (in linea d'aria, o su strada con la rete stradale scaricata)."""
+    return _wikidata_values(titles, lang, _coordinates)
 
 
 def capital_titles(region_titles, lang):
@@ -137,7 +163,8 @@ def _current_values(claims):
 
 def annotate(paths, lang, region_titles=None):
     """Aggiunge "population" a ogni riga dei JSONL [paths]: Abitanti (solo IT), poi Wikidata per le mancanti; con
-    [region_titles] ({percorso: titolo della regione}) anche "capital" (true per la capitale della regione)."""
+    [region_titles] ({percorso: titolo della regione}) anche "capital" (true per la capitale della regione); "lat" e
+    "lon" da Wikidata (null se mancano)."""
     rows = {p: [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()] for p in paths}
     capital_of = {}
     if region_titles:
@@ -154,13 +181,21 @@ def annotate(paths, lang, region_titles=None):
     except Exception as e:
         print(f"-- popolazione da Wikidata non disponibile ({e}): le citta' senza Abitanti restano senza", file=sys.stderr)
         found = {}
+    try:
+        coordinates = wikidata_coordinates({r["city"] for lines in rows.values() for r in lines}, lang)
+    except Exception as e:
+        print(f"-- coordinate da Wikidata non disponibili ({e}): le citta' restano senza", file=sys.stderr)
+        coordinates = {}
     for path, lines in rows.items():
         for r in lines:
             if r["population"] is None:
                 r["population"] = found.get(r["city"])
             r["capital"] = r["city"] in capital_of.get((region_titles or {}).get(path), set())
+            # come la popolazione: senza rete restano quelle gia' nel file
+            r["lat"], r["lon"] = coordinates.get(r["city"], (r.get("lat"), r.get("lon")))
         path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in lines), encoding="utf-8")
     total = sum(len(lines) for lines in rows.values())
     with_pop = sum(r["population"] is not None for lines in rows.values() for r in lines)
     capitals = sum(r["capital"] for lines in rows.values() for r in lines)
-    print(f"citta': popolazione per {with_pop}/{total} (Wikidata: {len(found)}), capitali {capitals}")
+    print(f"citta': popolazione per {with_pop}/{total} (Wikidata: {len(found)}), capitali {capitals}, "
+          f"coordinate per {sum(r['lat'] is not None for lines in rows.values() for r in lines)}/{total}")

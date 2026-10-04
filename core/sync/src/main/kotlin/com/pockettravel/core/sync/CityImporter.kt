@@ -1,5 +1,6 @@
 package com.pockettravel.core.sync
 
+import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.withTransaction
 import com.pockettravel.core.data.db.CityDao
@@ -53,11 +54,12 @@ class CityImporter @Inject constructor(
 
     private fun readSections(regionId: String, db: SQLiteDatabase): List<CitySectionEntity> {
         val sections = mutableListOf<CitySectionEntity>()
-        // population e capital ci sono solo nei cities.db generati dopo il 2026-10-03
-        val hasPopulation = db.rawQuery("PRAGMA table_info(city_sections)", null).use { cursor ->
-            generateSequence { if (cursor.moveToNext()) cursor.getString(1) else null }.any { it == "population" }
-        }
-        db.rawQuery(if (hasPopulation) CITY_SECTIONS_WITH_POPULATION_QUERY else CITY_SECTIONS_QUERY, null).use { cursor ->
+        db.rawQuery(queryFor(db), null).use { cursor ->
+            // -1 per le colonne che la query non legge (cities.db vecchio): valori assenti
+            val population = cursor.getColumnIndex("population")
+            val capital = cursor.getColumnIndex("capital")
+            val latitude = cursor.getColumnIndex("latitude")
+            val longitude = cursor.getColumnIndex("longitude")
             while (cursor.moveToNext()) {
                 val category = guideCategoryOrNull(cursor.getString(1)) ?: continue
                 sections += CitySectionEntity(
@@ -67,18 +69,38 @@ class CityImporter @Inject constructor(
                     title = cursor.getString(2),
                     body = cursor.getString(3),
                     sourceUrl = cursor.getString(4),
-                    population = if (hasPopulation && !cursor.isNull(5)) cursor.getLong(5) else null,
-                    capital = hasPopulation && cursor.getInt(6) == 1,
+                    population = cursor.longOrNull(population),
+                    capital = cursor.longOrNull(capital) == 1L,
+                    latitude = cursor.doubleOrNull(latitude),
+                    longitude = cursor.doubleOrNull(longitude),
                 )
             }
         }
         return sections
     }
 
+    // population e capital ci sono solo nei cities.db generati dopo il 2026-10-03, latitude e longitude dopo il 2026-10-04
+    private fun queryFor(db: SQLiteDatabase): String {
+        val columns = db.rawQuery("PRAGMA table_info(city_sections)", null).use { cursor ->
+            generateSequence { if (cursor.moveToNext()) cursor.getString(1) else null }.toSet()
+        }
+        return when {
+            "population" in columns && "latitude" in columns -> CITY_SECTIONS_WITH_COORDINATES_QUERY
+            "population" in columns -> CITY_SECTIONS_WITH_POPULATION_QUERY
+            else -> CITY_SECTIONS_QUERY
+        }
+    }
+
+    private fun Cursor.longOrNull(index: Int): Long? = if (index < 0 || isNull(index)) null else getLong(index)
+
+    private fun Cursor.doubleOrNull(index: Int): Double? = if (index < 0 || isNull(index)) null else getDouble(index)
+
     companion object {
         // Costante (invece che inline) cosi' un test JVM puro puo' eseguirla via JDBC contro un
         // file prodotto dalla pipeline dati, senza android.database.sqlite — vedi PackageImporterSchemaTest.
         internal const val CITY_SECTIONS_QUERY = "SELECT city, category, title, body, sourceUrl FROM city_sections"
         internal const val CITY_SECTIONS_WITH_POPULATION_QUERY = "SELECT city, category, title, body, sourceUrl, population, capital FROM city_sections"
+        internal const val CITY_SECTIONS_WITH_COORDINATES_QUERY =
+            "SELECT city, category, title, body, sourceUrl, population, capital, latitude, longitude FROM city_sections"
     }
 }

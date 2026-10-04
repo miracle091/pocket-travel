@@ -32,6 +32,13 @@ interface CityDao {
     )
     fun mainCitiesForRegion(regionId: String, limit: Int): Flow<List<CityPopulation>>
 
+    // Le coordinate sono ripetute su ogni sezione della citta' (o assenti, da un cities.db vecchio): ne basta una.
+    @Query(
+        "SELECT latitude, longitude FROM city_sections WHERE regionId = :regionId AND city = :city " +
+            "AND latitude IS NOT NULL AND longitude IS NOT NULL LIMIT 1",
+    )
+    suspend fun coordinatesFor(regionId: String, city: String): CityCoordinates?
+
     @Query("SELECT * FROM city_sections WHERE regionId = :regionId AND city = :city ORDER BY category")
     suspend fun sectionsFor(regionId: String, city: String): List<CitySectionEntity>
 
@@ -56,6 +63,9 @@ interface CityDao {
     @Query("INSERT INTO city_sections_fts(city_sections_fts) VALUES('optimize')")
     suspend fun optimizeFts()
 }
+
+/** Coordinate di una citta' (Wikidata P625), per CityDao.coordinatesFor. */
+data class CityCoordinates(val latitude: Double, val longitude: Double)
 
 /** Citta' con i suoi abitanti (null se ignoti) e se e' la capitale, per CityDao.mainCitiesForRegion. */
 data class CityPopulation(val city: String, val population: Long?, val capital: Boolean = false)

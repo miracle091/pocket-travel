@@ -48,7 +48,7 @@ ALL_REGIONS=(
   "bosnia-erzegovina|Bosnia ed Erzegovina|15.75|42.65|19.60|45.23|Bosnia_and_Herzegovina|ba|||Europa"
   "bulgaria|Bulgaria|22.38|41.23|28.56|44.23|Bulgaria|bg|||Europa"
   "cipro|Cipro|32.26|34.57|34.00|35.17|Cyprus|cy|||Europa"
-  "citta-del-vaticano|Citta' del Vaticano|12.445|41.900|12.458|41.908|Vatican_City|va|||Europa"
+  "citta-del-vaticano|Città del Vaticano|12.445|41.900|12.458|41.908|Vatican_City|va|||Europa"
   "croazia|Croazia|13.66|42.48|19.39|46.50|Croatia|hr|||Europa"
   "danimarca|Danimarca|8.09|54.80|12.69|57.73|Denmark|dk|||Europa"
   "estonia|Estonia|23.34|57.47|28.13|59.61|Estonia|ee|||Europa"

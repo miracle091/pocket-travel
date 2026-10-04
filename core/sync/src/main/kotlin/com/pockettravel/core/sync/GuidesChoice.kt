@@ -35,5 +35,13 @@ fun RegionManifest.forLanguage(language: String = currentGuidesLanguage()): Regi
         )
     }
 
+/**
+ * true se le citta' della voce (letta da un manifest passato per [forLanguage]) sono quelle per [language]: false se
+ * la voce e' stata letta nell'altra lingua, e allora va presa di nuovo dal manifest. In inglese, per una regione
+ * senza citta' inglesi, risulta false anche se non c'e' altro da prendere: rileggerla non cambia niente.
+ */
+fun RegionManifestEntry.hasCitiesIn(language: String): Boolean =
+    cities == null || isEnglishGuidesVersion(cities.version) == (language == "en")
+
 // "-" e non "/": le versioni dei pacchetti di regione finiscono nei percorsi di staging (isSafeVersion).
 private const val ENGLISH_PREFIX = "en-"

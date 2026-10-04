@@ -1,5 +1,6 @@
 package com.pockettravel.core.data
 
+import com.pockettravel.core.data.db.CityCoordinates
 import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.CityPopulation
 import com.pockettravel.core.data.db.CitySectionEntity
@@ -30,6 +31,10 @@ private class FakeCityDao : CityDao {
                 .entries.sortedByDescending { (_, sections) -> sections.sumOf { it.body.length } }
                 .take(limit).map { (city, sections) -> CityPopulation(city, sections.mapNotNull { it.population }.maxOrNull()) },
         )
+
+    override suspend fun coordinatesFor(regionId: String, city: String): CityCoordinates? =
+        stored.firstOrNull { it.regionId == regionId && it.city == city && it.latitude != null && it.longitude != null }
+            ?.let { CityCoordinates(checkNotNull(it.latitude), checkNotNull(it.longitude)) }
 
     override suspend fun sectionsFor(regionId: String, city: String): List<CitySectionEntity> =
         stored.filter { it.regionId == regionId && it.city == city }

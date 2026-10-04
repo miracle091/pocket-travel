@@ -16,6 +16,7 @@ import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.UpdateCheck
+import com.pockettravel.core.data.currentGuidesLanguage
 import com.pockettravel.core.sync.AddressGridClient
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionManifestEntry
@@ -29,6 +30,7 @@ import com.pockettravel.core.sync.restrictedTo
 import com.pockettravel.core.sync.withRoutingVariant
 import com.pockettravel.core.sync.attachTransitFeeds
 import com.pockettravel.core.sync.guidesChoice
+import com.pockettravel.core.sync.hasCitiesIn
 import com.pockettravel.core.ui.countryName
 import com.pockettravel.feature.map.UsageModePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -161,7 +163,11 @@ class RegionListViewModel @Inject constructor(
 
     /** Lingua dell'interfaccia, per i nomi dei paesi (vedi [localizedNames]); la passa la schermata. */
     fun setLocale(newLocale: Locale) {
+        val languageChanged = newLocale.language != locale.value.language
         locale.value = newLocale
+        // Lingua cambiata dalle Impostazioni con l'elenco gia' letto: le citta' (italiane o inglesi), le loro dimensioni e
+        // versioni vengono dal manifest della lingua di prima, che resterebbe in memoria fino al prossimo avvio.
+        if (languageChanged && baseRegions.value.isNotEmpty()) refresh()
     }
 
     // Elenco senza il filtro di ricerca: dimensioni e stati (packageBytes legge dal disco, installedAddressCells il database)
@@ -296,8 +302,9 @@ class RegionListViewModel @Inject constructor(
         viewModelScope.launch { enqueue(entry, setOf(kind)) }
     }
 
-    private suspend fun enqueue(entry: RegionManifestEntry, kinds: Set<PackageKind>): Boolean {
+    private suspend fun enqueue(listed: RegionManifestEntry, kinds: Set<PackageKind>): Boolean {
         if (kinds.isEmpty()) return false
+        val entry = if (PackageKind.CITIES in kinds) withCitiesInCurrentLanguage(listed) else listed
         // StorageManager.getAllocatableBytes puo' bloccare: fuori dal thread principale.
         val enoughSpace = withContext(Dispatchers.IO) { regionRepository.availableStorageBytes() } >= entry.downloadBytes(kinds)
         if (enoughSpace) {
@@ -353,6 +360,18 @@ class RegionListViewModel @Inject constructor(
 
     // La voce del manifest limitata alla zona scelta: anche il worker la limita, ma dimensioni, spazio libero e versioni
     // da confrontare devono essere gia' quelle della zona.
+    /**
+     * [entry] con le guide delle citta' nella lingua di adesso: se l'elenco e' stato letto nell'altra lingua (cambiata
+     * mentre era aperto, prima che setLocale lo rileggesse) si prendono dal manifest, letto ora nella lingua giusta.
+     * Senza rete restano quelle dell'elenco.
+     */
+    private suspend fun withCitiesInCurrentLanguage(entry: RegionManifestEntry): RegionManifestEntry {
+        if (entry.hasCitiesIn(currentGuidesLanguage())) return entry
+        val current = runCatchingCancellable { manifestClient.recentManifest() }.getOrNull()
+            ?.regions?.firstOrNull { it.regionId == entry.regionId }
+        return current?.let { entry.copy(cities = it.cities) } ?: entry
+    }
+
     private fun zonedEntry(regionId: String, zone: RegionZone? = regionZonePreferences.zone(regionId)): RegionManifestEntry? =
         manifestRegions.value.firstOrNull { it.regionId == regionId }
             ?.withRoutingVariant(routingVariantPreferences.choices.value.isCarOnly(regionId))?.restrictedTo(zone)

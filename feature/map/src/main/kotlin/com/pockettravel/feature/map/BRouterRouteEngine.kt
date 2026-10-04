@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.abs
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.locks.ReentrantLock
 
 // BRouter funziona su Android ART; il suo sorgente e' vendorizzato in :third-party:brouter-core.
 //
@@ -80,7 +81,7 @@ class BRouterRouteEngine(
         profile: String,
         profileParams: Map<String, String>,
         running: AtomicReference<RoutingEngine?>,
-    ): RouteResult = synchronized(BROUTER_RUNTIME_LOCK) {
+    ): RouteResult = BROUTER_RUNTIME_LOCK.withInterruptibleLock {
         // segmentBaseDir/profileBaseDir sono System property globali (stesso meccanismo usato da
         // btools.server.BRouter.main()), non parametri del costruttore — impostate ad ogni
         // chiamata perche' regionId (quindi segmentDir) puo' cambiare tra una route() e l'altra
@@ -123,7 +124,9 @@ class BRouterRouteEngine(
     }
 
     private companion object {
-        private val BROUTER_RUNTIME_LOCK = Any()
+        // Un calcolo alla volta (System property globali): un ReentrantLock e non synchronized, cosi' chi viene
+        // annullato mentre aspetta (l'assistente IA al suo tempo massimo, col Navigatore che calcola) smette subito.
+        private val BROUTER_RUNTIME_LOCK = ReentrantLock()
         private const val PROGRESS_INTERVAL_MILLIS = 250L
 
         // Formato punto fisso di BRouter per lat/lon (verificato in RoutingParamCollector:
@@ -168,5 +171,15 @@ class BRouterRouteEngine(
             TurnInstructions.END -> TurnType.ARRIVE
             else -> null
         }
+    }
+}
+
+/** [block] con il lock preso con lockInterruptibly: un thread interrotto mentre aspetta (runInterruptible annullato) esce subito. */
+internal inline fun <T> ReentrantLock.withInterruptibleLock(block: () -> T): T {
+    lockInterruptibly()
+    try {
+        return block()
+    } finally {
+        unlock()
     }
 }

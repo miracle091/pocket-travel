@@ -141,7 +141,7 @@ internal fun RegionPackagesSheet(
                     }
                     item.unavailableKinds.forEach { kind ->
                         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-                        UnavailablePackageRow(kind)
+                        UnavailablePackageRow(kind, item.splitCountry)
                     }
                 }
             }
@@ -348,11 +348,14 @@ private fun TransitNetworksNote(reason: TransitDefaultReason) {
     )
 }
 
-// Pacchetto che il manifest non offre per la regione: nessuna azione, solo il motivo.
+// Pacchetto che il manifest non offre per la regione: nessuna azione, solo il motivo. "regione" solo per una parte di
+// una nazione divisa, come in zoneLabel; altrimenti "nazione" (es. San Marino).
 @Composable
-private fun UnavailablePackageRow(kind: PackageKind) {
+private fun UnavailablePackageRow(kind: PackageKind, splitCountry: Boolean) {
     ListItem(
-        supportingContent = { Text(stringResource(R.string.package_status_unavailable)) },
+        supportingContent = {
+            Text(stringResource(if (splitCountry) R.string.package_status_unavailable else R.string.package_status_unavailable_country))
+        },
         leadingContent = { Icon(kind.icon(), contentDescription = null) },
         colors = ListItemDefaults.colors(
             containerColor = Color.Transparent,

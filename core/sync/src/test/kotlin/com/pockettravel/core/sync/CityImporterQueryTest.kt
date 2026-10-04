@@ -10,9 +10,9 @@ import java.sql.DriverManager
 import kotlin.io.path.createTempDirectory
 
 /**
- * CityImporter legge le colonne per posizione (indici 0-6): come PackageImporterSchemaTest, si esegue
+ * CityImporter legge le colonne per posizione (indici 0-8): come PackageImporterSchemaTest, si esegue
  * la query via JDBC (android.database.sqlite non gira nei test JVM) e si controlla l'ordine delle colonne.
- * Il caso con population e capital (cities.db recenti) non e' coperto da PackageImporterSchemaTest.
+ * I casi con population e capital, e con le coordinate (cities.db recenti), non sono coperti da PackageImporterSchemaTest.
  */
 class CityImporterQueryTest {
 
@@ -53,6 +53,37 @@ class CityImporterQueryTest {
             rs.getLong(6)
             assertTrue("population NULL deve restare nulla", rs.wasNull())
             assertEquals(0, rs.getInt(7))
+        }
+    }
+
+    @Test
+    fun `la query con le coordinate legge latitude e longitude dopo population e capital`() = withDb { conn ->
+        conn.createStatement().use { statement ->
+            // Schema di writeCitiesDb (tools/data-pipeline), con translated in fondo.
+            statement.execute(
+                """
+                CREATE TABLE city_sections (
+                    city TEXT NOT NULL, category TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL,
+                    sourceUrl TEXT NOT NULL, population INTEGER, capital INTEGER NOT NULL DEFAULT 0,
+                    latitude REAL, longitude REAL, translated INTEGER NOT NULL DEFAULT 0
+                )
+                """.trimIndent(),
+            )
+            statement.execute("INSERT INTO city_sections VALUES ('Torino', 'VEDERE', 'Mole', 'b', 'https://e.org/1', 850000, 0, 45.07034, 7.68686, 0)")
+            statement.execute("INSERT INTO city_sections VALUES ('Borgo', 'VEDERE', 'Piazza', 'b', 'https://e.org/2', NULL, 0, NULL, NULL, 0)")
+        }
+        conn.createStatement().use { statement ->
+            val rs = statement.executeQuery(CityImporter.CITY_SECTIONS_WITH_COORDINATES_QUERY + " ORDER BY city DESC")
+            assertEquals(
+                listOf("city", "category", "title", "body", "sourceUrl", "population", "capital", "latitude", "longitude"),
+                columnNames(rs),
+            )
+            assertTrue(rs.next())
+            assertEquals(45.07034, rs.getDouble(8), 0.0)
+            assertEquals(7.68686, rs.getDouble(9), 0.0)
+            assertTrue(rs.next())
+            rs.getDouble(8)
+            assertTrue("latitude NULL deve restare nulla", rs.wasNull())
         }
     }
 

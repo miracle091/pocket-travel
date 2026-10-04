@@ -3,6 +3,8 @@ package com.pockettravel.feature.ai
 import android.content.Context
 import android.content.res.Configuration
 import android.location.Location
+import com.pockettravel.core.data.CarRoute
+import com.pockettravel.core.data.CarRouteCalculator
 import com.pockettravel.core.data.CityRepository
 import com.pockettravel.core.data.FtsCorpusStats
 import com.pockettravel.core.data.FtsMatchInfo
@@ -21,6 +23,7 @@ import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitMode
 import com.pockettravel.core.data.TransitRepository
 import com.pockettravel.core.data.bm25Score
+import com.pockettravel.core.data.db.CityCoordinates
 import com.pockettravel.core.data.currentGuidesLanguage
 import com.pockettravel.core.data.displayName
 import com.pockettravel.core.data.officialSourceFor
@@ -35,6 +38,7 @@ import com.pockettravel.core.ui.label
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withTimeoutOrNull
 import java.text.Normalizer
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -57,7 +61,8 @@ sealed interface AssistantProgress {
  * Orchestrazione dell'assistente nelle due modalità: "Sul dispositivo" usa il RAG semplice sulle
  * guide del paese e delle città in region.db (ricerca full-text come CONTESTO del prompt locale),
  * più la nota personale più pertinente se ce n'è una e, per le domande su cosa c'è "qui vicino" o sui mezzi
- * pubblici, i POI e le prossime partenze attorno all'ultima posizione nota; "Online" invia solo la domanda a un servizio
+ * pubblici, i POI e le prossime partenze attorno all'ultima posizione nota, e per la distanza tra due citta' quella
+ * calcolata dalle coordinate (e su strada con la rete stradale scaricata); "Online" invia solo la domanda a un servizio
  * esterno con la chiave personale dell'utente, senza contesto RAG e senza note — per questo non
  * produce citazioni di sezione. In entrambe le modalità, le sezioni trovate su dogane/salute
  * attivano il banner "Verifica sempre sulla fonte ufficiale" con link diretto alla fonte pertinente.
@@ -76,6 +81,7 @@ class TravelAssistant @Inject constructor(
     private val poiRepository: PoiRepository,
     private val lastKnownPosition: LastKnownPosition,
     private val transitRepository: TransitRepository,
+    private val carRouteCalculator: CarRouteCalculator,
     @param:ApplicationContext private val context: Context,
 ) {
     /**
@@ -120,6 +126,7 @@ class TravelAssistant @Inject constructor(
                 val plan = planOnDevice(
                     question,
                     listOfNotNull(
+                        cityDistanceSection(regionId, cities, question, language),
                         vaccinationSection(regionId, question, language),
                         nearbyPoiSection(regionId, question, language),
                         transitSection(regionId, question, language),
@@ -156,6 +163,42 @@ class TravelAssistant @Inject constructor(
             language = language,
         )
         return OnDevicePlan(prompt, citedSections(sections, context).map { it.citation })
+    }
+
+    /**
+     * Per una domanda sulla distanza o sul tempo di viaggio tra due citta' nominate ([cities]), la distanza in linea
+     * d'aria dalle loro coordinate e, con la rete stradale della regione scaricata, il percorso in auto calcolato sul
+     * telefono (al massimo CAR_ROUTE_TIMEOUT_MILLIS, poi solo la linea d'aria). Le guide riportano i km solo per
+     * alcune coppie. Null senza le coordinate di una delle due (cities.db vecchio), e per il solo tempo di viaggio
+     * senza percorso in auto: la linea d'aria non lo dice.
+     */
+    private suspend fun cityDistanceSection(regionId: String, cities: List<String>, question: String, language: String): AssistantSection? {
+        val distance = isDistanceQuestion(question)
+        val coordinates = if (cities.size == 2 && (distance || isTravelTimeQuestion(question))) {
+            cities.mapNotNull { cityRepository.coordinatesFor(regionId, it) }
+        } else {
+            emptyList()
+        }
+        if (coordinates.size != 2) return null
+        val (a, b) = coordinates
+        val car = withTimeoutOrNull(CAR_ROUTE_TIMEOUT_MILLIS) { carRouteCalculator.carRoute(regionId, a, b) }
+        return if (car == null && !distance) null else distanceSection(cities[0], cities[1], a, b, car, language)
+    }
+
+    private fun distanceSection(from: String, to: String, a: CityCoordinates, b: CityCoordinates, car: CarRoute?, language: String): AssistantSection {
+        val straight = FloatArray(1)
+        Location.distanceBetween(a.latitude, a.longitude, b.latitude, b.longitude, straight)
+        val en = language == "en"
+        return AssistantSection(
+            body = cityDistanceContext(from, to, straight[0].toDouble(), car, language),
+            category = GuideCategory.TRASPORTI,
+            citation = when {
+                car != null && en -> "Source: route calculated on the phone with BRouter, © OpenStreetMap contributors"
+                car != null -> "Fonte: percorso calcolato sul telefono con BRouter, © contributori di OpenStreetMap"
+                en -> "Source: coordinates of the cities from Wikidata (straight-line distance)"
+                else -> "Fonte: coordinate delle città da Wikidata (distanza in linea d'aria)"
+            },
+        )
     }
 
     /**
@@ -243,6 +286,9 @@ class TravelAssistant @Inject constructor(
         const val NEARBY_MAX_AGE_MILLIS = 15 * 60 * 1_000L
         // I più vicini: 30 POI con nome e orari supererebbero da soli il limite del contesto.
         const val NEARBY_CONTEXT_MAX = 12
+        // Il percorso in auto tra due citta' lontane puo' richiedere minuti sul telefono (Milano-Roma 45 s sull'emulatore):
+        // oltre questo tempo l'assistente risponde con la sola distanza in linea d'aria.
+        const val CAR_ROUTE_TIMEOUT_MILLIS = 30_000L
     }
 }
 
@@ -352,6 +398,62 @@ internal fun transitContext(board: TransitBoard, language: String): String? {
         }
     }
 }
+
+// "dista", "distante", "distanza", "lontana", "km", "how far", "miles"; il tempo di viaggio a parte (travelTimeWords).
+private val distanceWords = Regex(
+    """\b(dist(a|ano|ante|anti|anza|anze)|distance|distant|lontan\p{L}*|chilometri|km|far|kilomet\p{L}*|miles?)\b""",
+    RegexOption.IGNORE_CASE,
+)
+
+// Solo il viaggio: "quanto tempo serve per visitare", "how long should I stay" chiedono quanto restare.
+private val travelTimeWords = Regex(
+    """quanto ci (si )?(vuole|mette)|quanto tempo (serve|ci vuole|ci si mette) per (andare|arrivare)|""" +
+        """how long (does|is|will) (it take|the (trip|drive|journey))""",
+    RegexOption.IGNORE_CASE,
+)
+
+/** True se la domanda chiede quanto e' lontano un posto (italiano o inglese). */
+internal fun isDistanceQuestion(question: String): Boolean = distanceWords.containsMatchIn(question)
+
+/** True se la domanda chiede quanto dura il viaggio (italiano o inglese). */
+internal fun isTravelTimeQuestion(question: String): Boolean = travelTimeWords.containsMatchIn(question)
+
+/**
+ * Testo della distanza tra due citta' per il contesto: in linea d'aria dalle coordinate ([straightMeters]) e, se c'e',
+ * il percorso in auto calcolato con la rete stradale scaricata ([car]); senza percorso, che su strada e' di piu'. Gli
+ * esempi di training di generate_sft.py --distances (distance_context) copiano questo testo, da cambiare insieme.
+ */
+internal fun cityDistanceContext(from: String, to: String, straightMeters: Double, car: CarRoute?, language: String): String {
+    val en = language == "en"
+    val a = spokenCityName(from)
+    val b = spokenCityName(to)
+    val air = if (en) "$a and $b are ${kilometres(straightMeters)} km apart in a straight line." else "$a e $b distano ${kilometres(straightMeters)} km in linea d'aria."
+    val road = when {
+        car != null && en -> "By car the route is ${kilometres(car.distanceMeters)} km, about ${travelTime(car.durationSeconds)}."
+        car != null -> "In auto il percorso è di ${kilometres(car.distanceMeters)} km, circa ${travelTime(car.durationSeconds)}."
+        en -> "By road the distance is longer."
+        else -> "Su strada la distanza è maggiore."
+    }
+    return "$air $road"
+}
+
+private fun kilometres(meters: Double): Long = maxOf(1L, Math.round(meters / METERS_PER_KM))
+
+// "45 min", "2 h", "1 h 35 min": uguale in italiano e in inglese.
+private fun travelTime(seconds: Double): String {
+    val minutes = maxOf(1L, Math.round(seconds / SECONDS_PER_MINUTE))
+    val hours = minutes / MINUTES_PER_HOUR
+    val rest = minutes % MINUTES_PER_HOUR
+    return when {
+        hours == 0L -> "$rest min"
+        rest == 0L -> "$hours h"
+        else -> "$hours h $rest min"
+    }
+}
+
+private const val METERS_PER_KM = 1000.0
+private const val SECONDS_PER_MINUTE = 60.0
+private const val MINUTES_PER_HOUR = 60L
 
 private fun TransitMode.promptName(en: Boolean): String = when (this) {
     TransitMode.TRAM -> "Tram"

@@ -1,5 +1,6 @@
 package com.pockettravel.core.data
 
+import com.pockettravel.core.data.db.CityCoordinates
 import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.CitySectionEntity
 import kotlinx.coroutines.flow.Flow
@@ -21,6 +22,9 @@ class CityRepository @Inject constructor(
     suspend fun sectionsFor(regionId: String, city: String): List<CitySection> =
         cityDao.sectionsFor(regionId, city).map { it.toDomain() }
             .sortedBy { WIKIPEDIA_CATEGORIES.indexOf(it.category) }
+
+    /** Coordinate della citta', null se il cities.db installato non le ha (per la distanza tra due citta' dell'assistente). */
+    suspend fun coordinatesFor(regionId: String, city: String): CityCoordinates? = cityDao.coordinatesFor(regionId, city)
 
     /** I nomi delle citta' della regione, una volta sola (per riconoscerle nelle domande dell'assistente). */
     suspend fun cityNamesFor(regionId: String): List<String> = cityDao.citiesForRegion(regionId).first()

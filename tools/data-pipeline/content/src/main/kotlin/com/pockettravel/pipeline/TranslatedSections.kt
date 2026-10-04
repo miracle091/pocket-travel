@@ -50,15 +50,19 @@ fun List<RegionGuide>.withTranslations(translated: List<TranslatedCategory>): Li
     }
 }
 
-/** Come per le guide, per citta'; popolazione e capitale restano quelle della citta' (le sezioni tradotte non le hanno). */
+/** Come per le guide, per citta'; popolazione, capitale e coordinate restano quelle della citta' (le sezioni tradotte non le hanno). */
 fun List<CitySectionRow>.withCityTranslations(translated: List<TranslatedCategory>): List<CitySectionRow> {
     val byCity = translated.groupBy { it.owner }
     return groupBy { it.city }.flatMap { (city, rows) ->
         val replacements = byCity[city]?.associate { it.category to it.sections } ?: return@flatMap rows
-        val population = rows.first().population
-        val capital = rows.first().capital
+        val first = rows.first()
         val asCityRows = replacements.mapValues { (_, sections) ->
-            sections.map { CitySectionRow(city, it.category, it.title, it.body, it.sourceUrl.orEmpty(), population, capital, translated = true) }
+            sections.map {
+                CitySectionRow(
+                    city, it.category, it.title, it.body, it.sourceUrl.orEmpty(), first.population, first.capital,
+                    latitude = first.latitude, longitude = first.longitude, translated = true,
+                )
+            }
         }
         replaceCategories(rows, { it.category }, asCityRows)
     }

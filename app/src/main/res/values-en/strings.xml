@@ -73,6 +73,7 @@
     <string name="package_status_not_installed">Not downloaded · %1$s</string>
     <string name="package_status_not_installed_no_size">Not downloaded</string>
     <string name="package_status_unavailable">Not available for this region</string>
+    <string name="package_status_unavailable_country">Not available for this country</string>
     <string name="package_download">Download %1$s</string>
     <string name="package_delete">Delete %1$s</string>
     <string name="package_delete_title_map">Delete the map for %1$s?</string>

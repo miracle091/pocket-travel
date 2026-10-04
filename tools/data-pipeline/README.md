@@ -128,7 +128,8 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
 - **Popolazione e capitale delle città**: `scripts/city_population.py` è usato da `extract-cities-dump.py` e
   `extract-cities-dump-en.py`. La popolazione viene dal campo "Abitanti" di Wikivoyage, in alternativa da Wikidata
   (P1082); la capitale della regione da Wikidata (P36). Finiscono nelle colonne `population` e `capital` di
-  `cities.db`; senza dati la città resta senza popolazione.
+  `cities.db`; senza dati la città resta senza popolazione. Le coordinate (Wikidata P625) finiscono nelle colonne
+  `latitude` e `longitude`: con queste l'assistente calcola la distanza tra due città nominate in una domanda.
 - **Storia e clima delle città**: `scripts/city_wikipedia.py`, usato dagli stessi due script, trova la voce di
   Wikipedia (IT o EN) della città dal sitelink dell'elemento Wikidata della pagina di Wikivoyage e ne prende le sezioni
   Storia e Clima (History e Climate in inglese) dall'API di Wikipedia, a lotti: i dump completi (IT ~5 GB, EN ~24 GB)
@@ -152,9 +153,16 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   vaccini, con il riassunto che l'app inserisce nel contesto dell'assistente. Con `--nearby <quota>` (per esempio 0.03)
   aggiunge esempi con i blocchi "Punti di interesse entro…" e "Prossime partenze…" che l'app mette nel contesto per le
   domande su cosa c'è vicino e sui mezzi, nello stesso formato (`scripts/sft_nearby.py`, dati sintetici, circa un quarto
-  di rifiuti); senza il flag l'output resta quello del v9. I file di output sono
-  `pocket_travel_sft.<versione>.<lang>.jsonl` e `ATTRIBUTION.<versione>.<lang>.tsv`: la versione è v9 senza `--nearby`,
-  v10 con `--nearby` (così il v9 non viene sovrascritto) oppure quella data con `--version`. I test estesi
+  di rifiuti); senza il flag l'output resta quello del v9. Con `--distances <quota>` (per esempio 0.02, insieme a
+  `--cities`) aggiunge domande sulla distanza tra due città con le sezioni "Come arrivare" e "Come spostarsi" di
+  entrambe nel contesto: metà coppie che una guida collega con km o tempi di viaggio, metà coppie che si nominano
+  senza. Con le coordinate di Wikidata delle due città (scaricate durante la generazione) circa sei esempi su dieci
+  hanno in testa al contesto la distanza calcolata come nell'app, in linea d'aria o con il percorso in auto (lunghezza
+  e tempo sintetici, ricavati dalla distanza vera in linea d'aria), e la risposta è quel testo; negli altri la risposta
+  è la frase della guida con i km, o il rifiuto se manca. I file di output sono
+  `pocket_travel_sft.<versione>.<lang>.jsonl` e `ATTRIBUTION.<versione>.<lang>.tsv`: la versione è v9 senza `--nearby` e `--distances`,
+  v10 con `--nearby` o `--distances` (così il v9 non viene sovrascritto) oppure quella data con
+  `--version`. I test estesi
   (`generate_eval_set.py`, `generate_eval_set_en.py`) hanno in fondo le righe `pos_near`/`neg_near` e
   `pos_dep`/`neg_dep` sugli stessi blocchi, con domande, nomi e seme diversi da quelli del training; le righe
   precedenti restano identiche. `scripts/translate_dataset.py` traduce

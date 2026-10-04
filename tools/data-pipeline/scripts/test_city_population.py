@@ -123,6 +123,32 @@ class WikidataPopulationsTest(unittest.TestCase):
             self.assertEqual({}, city_population.wikidata_populations(["Villa"], "it"))
 
 
+def coord(lat, lon, rank="normal", globe=city_population.EARTH):
+    return {"rank": rank, "mainsnak": {"datavalue": {"value": {"latitude": lat, "longitude": lon, "globe": globe}}}}
+
+
+class CoordinatesTest(unittest.TestCase):
+    def test_nessuna_coordinata(self):
+        self.assertIsNone(city_population._coordinates({}))
+
+    def test_la_preferita_batte_la_prima_e_si_arrotonda(self):
+        claims = {"P625": [coord(45.0, 7.0), coord(45.0703393, 7.686864, rank="preferred")]}
+        self.assertEqual((45.07034, 7.68686), city_population._coordinates(claims))
+
+    def test_deprecate_e_fuori_dalla_terra_ignorate(self):
+        claims = {"P625": [coord(1.0, 2.0, rank="deprecated"), coord(3.0, 4.0, globe="http://www.wikidata.org/entity/Q405"),
+                           {"mainsnak": {}}, coord(5.0, 6.0)]}
+        self.assertEqual((5.0, 6.0), city_population._coordinates(claims))
+
+    def test_wikidata_coordinates_dal_titolo_della_pagina(self):
+        responses = [
+            {"query": {"pages": {"1": {"title": "Torino", "pageprops": {"wikibase_item": "Q495"}}}}},
+            {"entities": {"Q495": {"claims": {"P625": [coord(45.07, 7.68)]}}}},
+        ]
+        with mock.patch("city_population._get", side_effect=responses), mock.patch("city_population.time.sleep"):
+            self.assertEqual({"Torino": (45.07, 7.68)}, city_population.wikidata_coordinates(["Torino"], "it"))
+
+
 class CapitalTitlesTest(unittest.TestCase):
     def test_capitale_con_titolo_della_pagina_e_etichetta(self):
         responses = [
@@ -153,6 +179,7 @@ class AnnotateTest(unittest.TestCase):
                 {"city": "Rieti", "text": "nulla"},
             ])
             with mock.patch("city_population.wikidata_populations", return_value={"Viterbo": 67000}) as wp, \
+                    mock.patch("city_population.wikidata_coordinates", return_value={"Roma": (41.89306, 12.48278)}) as wc, \
                     mock.patch("city_population.capital_titles", return_value={"Lazio": {"Roma"}}), \
                     redirect_stdout(io.StringIO()) as out:
                 city_population.annotate([path], "it", {path: "Lazio"})
@@ -160,12 +187,17 @@ class AnnotateTest(unittest.TestCase):
         self.assertEqual({"Viterbo", "Rieti"}, set(wp.call_args[0][0]))
         self.assertEqual([2800000, 67000, None], [r["population"] for r in rows])
         self.assertEqual([True, False, False], [r["capital"] for r in rows])
+        # coordinate per tutte le citta', non solo per quelle senza Abitanti
+        self.assertEqual({"Roma", "Viterbo", "Rieti"}, set(wc.call_args[0][0]))
+        self.assertEqual([(41.89306, 12.48278), (None, None), (None, None)], [(r["lat"], r["lon"]) for r in rows])
         self.assertIn("popolazione per 2/3", out.getvalue())
+        self.assertIn("coordinate per 1/3", out.getvalue())
 
     def test_en_ignora_abitanti(self):
         with tempfile.TemporaryDirectory() as d:
             path = self._write(d, "x.jsonl", [{"city": "A", "text": "| Abitanti = 5\n"}])
             with mock.patch("city_population.wikidata_populations", return_value={"A": 9}) as wp, \
+                    mock.patch("city_population.wikidata_coordinates", return_value={}), \
                     redirect_stdout(io.StringIO()):
                 city_population.annotate([path], "en")
             rows = self._read(path)
@@ -177,13 +209,25 @@ class AnnotateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = self._write(d, "x.jsonl", [{"city": "A", "text": "| Abitanti = 5\n"}, {"city": "B", "text": ""}])
             with mock.patch("city_population.wikidata_populations", side_effect=OSError("rete")), \
+                    mock.patch("city_population.wikidata_coordinates", side_effect=OSError("rete")), \
                     mock.patch("city_population.capital_titles", side_effect=OSError("rete")), \
                     redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
                 city_population.annotate([path], "it", {path: "Regione"})
             rows = self._read(path)
         self.assertEqual([5, None], [r["population"] for r in rows])
         self.assertEqual([False, False], [r["capital"] for r in rows])
+        self.assertEqual([None, None], [r["lat"] for r in rows])
         self.assertIn("non disponibile", err.getvalue())
+
+    def test_senza_rete_restano_le_coordinate_gia_nel_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = self._write(d, "x.jsonl", [{"city": "A", "text": "", "lat": 45.1, "lon": 7.6}])
+            with mock.patch("city_population.wikidata_populations", return_value={}), \
+                    mock.patch("city_population.wikidata_coordinates", side_effect=OSError("rete")), \
+                    redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                city_population.annotate([path], "en")
+            rows = self._read(path)
+        self.assertEqual((45.1, 7.6), (rows[0]["lat"], rows[0]["lon"]))
 
 
 if __name__ == "__main__":

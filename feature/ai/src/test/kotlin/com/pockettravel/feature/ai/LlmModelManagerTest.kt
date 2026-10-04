@@ -108,6 +108,26 @@ class LlmModelManagerTest {
     }
 
     @Test
+    fun `il parziale di un'altra versione del file non viene ripreso ma riscaricato da zero`() = runBlocking {
+        val oldText = "vecchia versione del modello"
+        val newText = "nuova versione del modello, ricaricata con lo stesso nome"
+        val oldDefinition = testDefinition.copy(url = server.url("/model").toString(), sha256 = sha256Hex(oldText.toByteArray()))
+        // Download della versione vecchia interrotto a meta'.
+        server.enqueue(MockResponse().setResponseCode(500))
+        runCatching { modelManager.download(oldDefinition) { _, _ -> } }
+        File(modelsDir, "${oldDefinition.fileName}.part").writeBytes(oldText.substring(0, 10).toByteArray())
+        server.takeRequest()
+
+        val newDefinition = oldDefinition.copy(sha256 = sha256Hex(newText.toByteArray()))
+        server.enqueue(MockResponse().setBody(newText))
+
+        modelManager.download(newDefinition) { _, _ -> }
+
+        assertEquals(newText, modelManager.modelFile(newDefinition).readText())
+        assertEquals(null, server.takeRequest().getHeader("Range"))
+    }
+
+    @Test
     fun `un download oltre la dimensione attesa si interrompe e cancella il parziale`() = runBlocking {
         val content = "0123456789".repeat(20)
         val definition = testDefinition.copy(

@@ -11,8 +11,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Migrazioni tra i database delle versioni pubblicate (3, 5, 6, 9, 11, 15, 17), la 21 e quella corrente (22),
- * sugli schemi esportati in core/data/schemas, piu' la catena completa da 3 a 22.
+ * Migrazioni tra i database delle versioni pubblicate (3, 5, 6, 9, 11, 15, 17), la 22 e quella corrente (23),
+ * sugli schemi esportati in core/data/schemas, piu' la catena completa da 3 a 23.
  */
 @RunWith(AndroidJUnit4::class)
 class RegionDatabaseMigrationTest {
@@ -193,14 +193,14 @@ class RegionDatabaseMigrationTest {
     }
 
     @Test
-    fun migrazione17a21AggiungeMissioniDiplomaticheVacciniPopolazioneEIndiceSenzaToccareIDati() {
+    fun migrazione17a22AggiungeMissioniDiplomaticheVacciniPopolazioneEIndiciSenzaToccareIDati() {
         helper.createDatabase(DB_NAME, 17).use { db ->
             db.execSQL("INSERT INTO emergency_numbers VALUES ('italia', '112', '113', '118', '115')")
             db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone, extra, wheelchair) VALUES ('italia', 'Da Mario', 'restaurant', 45.0, 9.0, 'amenity=restaurant', NULL, 0, 'yes')")
             db.execSQL("INSERT INTO city_sections (regionId, city, category, title, body, sourceUrl) VALUES ('italia', 'Roma', 'COSA_VEDERE', 'Cosa vedere', 'Colosseo', 'u')")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 21, true, MIGRATION_17_21).use { db ->
+        helper.runMigrationsAndValidate(DB_NAME, 22, true, MIGRATION_17_22).use { db ->
             // 17 -> 18: accessibilita' dei POI e rappresentanze diplomatiche vuote.
             db.query("SELECT name, wheelchair, toiletsWheelchair, capacityDisabled FROM poi").use { cursor ->
                 assertTrue(cursor.moveToFirst())
@@ -243,11 +243,18 @@ class RegionDatabaseMigrationTest {
                 assertTrue(cursor.isNull(1))
                 assertEquals(0, cursor.getInt(2))
             }
-            // 20 -> 21: indice dei POI per regione e latitudine.
+            // 20 -> 21 e 21 -> 22: indici dei POI per regione e latitudine, e per regione, categoria e tag.
             db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'poi'").use { cursor ->
                 val indexes = generateSequence { if (cursor.moveToNext()) cursor.getString(0) else null }.toSet()
                 assertTrue(indexes.contains("index_poi_regionId_lat"))
+                assertTrue(indexes.contains("index_poi_regionId_category_osmTag"))
+                // Con INDEXED BY: PoiDao.searchByName e la lettura a righe in sequenza dei segnalini sulle aree larghe.
                 assertTrue(indexes.contains("index_poi_regionId"))
+            }
+            db.query("SELECT DISTINCT category, osmTag FROM poi WHERE regionId = 'italia'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("restaurant", cursor.getString(0))
+                assertEquals("amenity=restaurant", cursor.getString(1))
             }
             db.query("SELECT police FROM emergency_numbers WHERE regionId = 'italia'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
@@ -257,30 +264,25 @@ class RegionDatabaseMigrationTest {
     }
 
     @Test
-    fun migrazione21a22AggiungeLIndicePoiRegioneCategoriaTagSenzaToccareIPoi() {
-        helper.createDatabase(DB_NAME, 21).use { db ->
-            db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag) VALUES ('italia', 'Da Mario', 'restaurant', 45.0, 9.0, 'amenity=restaurant')")
+    fun migrazione22a23AggiungeLeCoordinateVuoteAlleCitta() {
+        helper.createDatabase(DB_NAME, 22).use { db ->
+            db.execSQL("INSERT INTO city_sections (regionId, city, category, title, body, sourceUrl, population, capital) VALUES ('italia', 'Roma', 'COSA_VEDERE', 't', 'b', 'u', 2800000, 1)")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 22, true, MIGRATION_21_22).use { db ->
-            db.query("SELECT DISTINCT category, osmTag FROM poi WHERE regionId = 'italia'").use { cursor ->
+        helper.runMigrationsAndValidate(DB_NAME, 23, true, MIGRATION_22_23).use { db ->
+            db.query("SELECT city, population, capital, latitude, longitude FROM city_sections").use { cursor ->
                 assertTrue(cursor.moveToFirst())
-                assertEquals("restaurant", cursor.getString(0))
-                assertEquals("amenity=restaurant", cursor.getString(1))
-            }
-            db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'poi'").use { cursor ->
-                val indexes = generateSequence { if (cursor.moveToNext()) cursor.getString(0) else null }.toSet()
-                assertTrue(indexes.contains("index_poi_regionId_category_osmTag"))
-                assertTrue(indexes.contains("index_poi_regionId_lat"))
-                // Con INDEXED BY: PoiDao.searchByName e la lettura a righe in sequenza dei segnalini sulle aree larghe.
-                assertTrue(indexes.contains("index_poi_regionId"))
+                assertEquals("Roma", cursor.getString(0))
+                assertEquals(2800000L, cursor.getLong(1))
+                assertEquals(1, cursor.getInt(2))
+                assertTrue("le citta' gia' importate non hanno coordinate", cursor.isNull(3) && cursor.isNull(4))
             }
         }
     }
 
     // Chi aggiorna dalla prima versione pubblicata (v0.2.0) all'ultima: nessun dato perso.
     @Test
-    fun catenaCompletaDa3a22ConservaCassaforteRegioniPoiEGuide() {
+    fun catenaCompletaDa3a23ConservaCassaforteRegioniPoiEGuide() {
         helper.createDatabase(DB_NAME, 3).use { db ->
             db.execSQL("INSERT INTO passport_vault VALUES ('p1', 'cifrato', 1, 2)")
             db.execSQL("INSERT INTO installed_regions VALUES ('italia', 'Italia', '2026.09.01', 1000, 42)")
@@ -288,7 +290,7 @@ class RegionDatabaseMigrationTest {
             db.execSQL("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES ('italia', 'TRASPORTI', 'In treno', 'corpo', 'https://example.org')")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 22, true, *ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB_NAME, 23, true, *ALL_MIGRATIONS).use { db ->
             db.query("SELECT encryptedPayload FROM passport_vault WHERE id = 'p1'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("cifrato", cursor.getString(0))

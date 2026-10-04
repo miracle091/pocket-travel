@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pockettravel.core.data.currentGuidesLanguage
+import com.pockettravel.core.sync.AppStatusClient
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -56,6 +57,7 @@ class AiAssistantViewModel @Inject constructor(
     private val aiSettingsStore: AiSettingsStore,
     private val modelDownloadScheduler: LlmModelDownloadScheduler,
     private val llmBenchmark: LlmBenchmark,
+    private val appStatusClient: AppStatusClient,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -95,6 +97,18 @@ class AiAssistantViewModel @Inject constructor(
             aiSettingsStore.hasApiKeyFlow.collect { configured -> _uiState.update { it.copy(isApiKeyConfigured = configured) } }
         }
         observeModelDownload()
+        // Dimensione mostrata e spazio richiesto come quelli che il download verifichera' (LlmModelDownloadWorker):
+        // un modello ricaricato con lo stesso nome puo' pesare diversamente da quanto scritto nell'APK.
+        viewModelScope.launch {
+            val published = try {
+                appStatusClient.fetchAppStatus().aiModels
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                return@launch
+            }
+            _uiState.update { state -> state.copy(availableModels = state.availableModels.map { it.withPublishedFingerprint(published) }) }
+        }
     }
 
     // Osservato dall'init, non solo dopo aver premuto "Scarica": cosi' un download in corso
@@ -238,7 +252,9 @@ class AiAssistantViewModel @Inject constructor(
             _uiState.update { it.copy(errorMessage = R.string.ai_error_not_available) }
             return
         }
-        if (modelManager.availableStorageBytes() < definition.sizeBytes) {
+        // Dimensione pubblicata in app-status.json, se gia' letta (vedi init).
+        val sizeBytes = _uiState.value.availableModels.firstOrNull { it.id == definition.id }?.sizeBytes ?: definition.sizeBytes
+        if (modelManager.availableStorageBytes() < sizeBytes) {
             _uiState.update { it.copy(errorMessage = R.string.ai_error_space) }
             return
         }

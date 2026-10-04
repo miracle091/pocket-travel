@@ -48,6 +48,10 @@ class LlmModelManager @Inject constructor(
     fun modelFile(definition: LlmModelDefinition): File = File(modelsDir, definition.fileName)
     private fun partFile(definition: LlmModelDefinition): File = File(modelsDir, "${definition.fileName}.part")
 
+    // sha256 atteso quando il .part e' stato iniziato: se il file viene ricaricato con lo stesso nome (impronta nuova in
+    // app-status.json), il parziale della versione vecchia non va ripreso, darebbe un file misto che fallisce la verifica.
+    private fun partShaFile(definition: LlmModelDefinition): File = File(modelsDir, "${definition.fileName}.part.sha256")
+
     // sha256 verificato al momento dell'installazione: isDownloaded guarda solo l'esistenza del file, e
     // senza questo non si saprebbe se il modello su disco e' la versione pubblicata oggi (vedi installedSha256).
     private fun shaFile(definition: LlmModelDefinition): File = File(modelsDir, "${definition.fileName}.sha256")
@@ -91,6 +95,7 @@ class LlmModelManager @Inject constructor(
                 shaFile(definition).delete()
                 check(verified.renameTo(modelFile(definition))) { "Impossibile installare il modello" }
                 shaFile(definition).writeText(requireNotNull(definition.sha256).lowercase())
+                partShaFile(definition).delete()
             }
             _downloadedModelIds.value = scanDownloadedModelIds()
         }
@@ -120,6 +125,10 @@ class LlmModelManager @Inject constructor(
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     ): File {
         val partFile = partFile(definition)
+        val partShaFile = partShaFile(definition)
+        val expectedSha256 = definition.sha256.orEmpty().lowercase()
+        if (partShaFile.exists() && partShaFile.readText().trim() != expectedSha256) partFile.delete()
+        partShaFile.writeText(expectedSha256)
         val existingBytes = if (partFile.exists()) partFile.length() else 0L
         // .part gia' completo (processo chiuso fra l'ultimo byte e la verifica): niente richiesta, il server
         // risponderebbe 416 e si riscaricherebbe tutto da zero; basta verificare lo sha256.
@@ -270,13 +279,16 @@ class LlmModelManager @Inject constructor(
      */
     fun deleteOrphanedFiles(selected: LlmModelDefinition) {
         val keep = LlmModelCatalog.ALL.flatMap { listOf(it.fileName, "${it.fileName}.sha256") }.toSet() +
-            partFile(selected).name
+            partFile(selected).name + partShaFile(selected).name
         modelsDir.listFiles()?.filter { it.isFile && it.name !in keep }?.forEach { it.delete() }
         _downloadedModelIds.value = scanDownloadedModelIds()
     }
 
     private fun deletePartFilesExcept(keep: LlmModelDefinition) {
-        LlmModelCatalog.ALL.filter { it.id != keep.id }.forEach { partFile(it).delete() }
+        LlmModelCatalog.ALL.filter { it.id != keep.id }.forEach {
+            partFile(it).delete()
+            partShaFile(it).delete()
+        }
     }
 
     private companion object {

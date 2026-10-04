@@ -21,4 +21,7 @@ data class CitySectionEntity(
     val population: Long? = null,
     // Capitale della regione (pipeline: Wikidata P36), false da un cities.db vecchio.
     @ColumnInfo(defaultValue = "0") val capital: Boolean = false,
+    // Coordinate della citta' (pipeline: Wikidata P625), null se ignote o da un cities.db vecchio.
+    val latitude: Double? = null,
+    val longitude: Double? = null,
 )

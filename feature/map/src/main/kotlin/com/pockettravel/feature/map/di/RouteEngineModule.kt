@@ -2,12 +2,14 @@ package com.pockettravel.feature.map.di
 
 import android.content.Context
 import android.net.ConnectivityManager
+import com.pockettravel.core.data.CarRouteCalculator
 import com.pockettravel.core.data.Rd5Merger
 import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.RegionsDir
 import com.pockettravel.core.data.WorldMapStore
 import com.pockettravel.feature.map.AndroidConnectivityChecker
 import com.pockettravel.feature.map.AndroidGpsLocationSource
+import com.pockettravel.feature.map.BRouterCarRouteCalculator
 import com.pockettravel.feature.map.GpsLocationSource
 import com.pockettravel.feature.map.BRouterRouteEngine
 import com.pockettravel.feature.map.ConnectivityChecker
@@ -69,6 +71,11 @@ object RouteEngineModule {
             )
         }
     }
+
+    // Per l'assistente IA (feature:ai), che non vede feature:map: la distanza su strada tra due citta'.
+    @Provides
+    fun provideCarRouteCalculator(routeEngineFactory: RouteEngineFactory): CarRouteCalculator =
+        BRouterCarRouteCalculator(routeEngineFactory)
 
     // Una regione: la sua cartella, nessun costo in piu'. Piu' regioni: i segmenti uniti; se non
     // si riesce a unirli (file rovinato, disco pieno) si naviga con la sola prima regione.
