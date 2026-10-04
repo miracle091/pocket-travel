@@ -749,9 +749,12 @@ poi_count() {
 # chunk Overpass puo' essere valido ma vuoto: meglio fallire e tenere il pacchetto pubblicato). Viene
 # da poi.count del manifest; le voci pubblicate prima di quel campo si contano sul poi.db pubblicato,
 # che si scarica (una volta, finche' la regione non e' ripubblicata). Se non si riesce a contarli resta
-# solo il controllo sul risultato vuoto.
+# solo il controllo sul risultato vuoto. Quei poi.db vengono da Overpass sull'intero bbox, paesi
+# confinanti compresi (Eritrea: 5117 POI, quasi meta' in Arabia Saudita, Yemen ed Etiopia), mentre gli
+# estratti Geofabrik tengono la sola nazione: con Geofabrik non si confrontano, resta il controllo sul
+# risultato vuoto (un estratto incompleto fa gia' fallire geofabrik_pois.py).
 PUBLISHED_POI_COUNT="$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.count // empty' 2>/dev/null || true)"
-if [ -z "$PUBLISHED_POI_COUNT" ] && [ -n "${PUBLISHED_POI_URL:-}" ]; then
+if [ -z "$PUBLISHED_POI_COUNT" ] && [ -n "${PUBLISHED_POI_URL:-}" ] && [ -z "$GEOFABRIK_XML" ]; then
   echo "-- conto i POI del poi.db pubblicato..."
   # Il file compresso (fileXz): nelle voci meno recenti file.url punta al database non compresso, che
   # non e' tra gli asset pubblicati.
