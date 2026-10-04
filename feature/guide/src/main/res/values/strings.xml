@@ -12,7 +12,7 @@
     <string name="emergency_ambulance">Ambulanza</string>
     <string name="emergency_fire">Vigili del fuoco</string>
     <string name="emergency_call">Chiama %1$s, %2$s</string>
-    <string name="emergency_no_central_number">Il paese non ha un numero di emergenza nazionale. Prima di partire, annota i contatti della polizia e delle strutture sanitarie della zona</string>
+    <string name="emergency_no_central_number">Questa nazione non ha un numero di emergenza unico. Prima di partire, annota i contatti della polizia e delle strutture sanitarie della zona</string>
     <string name="category_customs_usages">Usi e costumi</string>
     <string name="category_customs">Dogane</string>
     <string name="category_health">Salute</string>
@@ -99,13 +99,13 @@
     <string name="vacc_from">Paese di partenza</string>
     <string name="vacc_to">Paese di destinazione</string>
     <string name="vacc_change_country">Cambia paese</string>
-    <string name="vacc_transits">Scali</string>
+    <string name="vacc_stopovers">Scali</string>
     <string name="vacc_add_transit">Aggiungi uno scalo</string>
     <string name="vacc_remove_transit">Rimuovi lo scalo</string>
-    <string name="vacc_transit_country">Paese dello scalo</string>
-    <string name="vacc_transit_choose_country">Scegli il paese</string>
-    <string name="vacc_transit_hours">Ore di scalo</string>
-    <string name="vacc_transit_over_12h">Più di 12 ore</string>
+    <string name="vacc_stopover_country">Paese dello scalo</string>
+    <string name="vacc_stopover_choose_country">Scegli il paese</string>
+    <string name="vacc_stopover_hours">Ore di scalo</string>
+    <string name="vacc_stopover_over_12h">Più di 12 ore</string>
     <string name="vacc_left_airport">Uscita dall\'aeroporto</string>
     <string name="vacc_previous">Paesi visitati prima</string>
     <string name="vacc_previous_hint">Paesi visitati di recente prima della partenza (facoltativo)</string>
@@ -123,7 +123,7 @@
     <string name="vacc_level_required">Obbligatoria all\'ingresso</string>
     <string name="vacc_level_required_exit">Obbligatoria all\'uscita</string>
     <string name="vacc_level_encouraged">Incoraggiata, non obbligatoria</string>
-    <string name="vacc_level_recommended">Consigliata</string>
+    <string name="vacc_level_recommended">Raccomandata</string>
     <string name="vacc_level_consider">Da valutare</string>
     <string name="vacc_level_below_age">Non richiesta per l\'età indicata</string>
     <string name="vacc_reason_yf_all">Richiesto a tutti i viaggiatori in arrivo</string>
@@ -138,7 +138,7 @@
     <string name="vacc_reason_polio_encouraged">Perché parti da %1$s, dove è stato rilevato poliovirus di tipo 2 derivato dal vaccino</string>
     <string name="vacc_reason_polio_entry">Perché arrivi da %1$s: la destinazione richiede la prova di vaccinazione antipolio</string>
     <string name="vacc_reason_hajj">Obbligatorio per i pellegrini di Hajj e Umrah</string>
-    <string name="vacc_reason_destination_most">Consigliata alla maggior parte dei viaggiatori verso %1$s</string>
+    <string name="vacc_reason_destination_most">Raccomandata alla maggior parte dei viaggiatori verso %1$s</string>
     <string name="vacc_reason_destination_some">Per alcuni viaggiatori verso %1$s, secondo durata, attività e zone</string>
     <string name="vacc_reason_routine">Verifica di essere in regola con il calendario vaccinale del tuo paese (per esempio morbillo, tetano, difterite, pertosse, polio)</string>
     <string name="vacc_polio_exit">Dose di antipolio tra 4 settimane e 12 mesi prima di partire, registrata sul certificato internazionale</string>

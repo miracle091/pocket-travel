@@ -54,8 +54,9 @@ data class RegionManifestEntry(
     val regionId: String, val displayName: String, val updatedAt: String,
     val map: MapPackageEntry,
     val routing: RoutingPackageEntry,
-    // Variante "solo auto" degli stessi segmenti (circa il 43% del peso): l'app la scarica al posto di [routing] se
-    // l'utente sceglie "Percorsi solo per l'auto" (withRoutingVariant). Assente nelle regioni non ancora rigenerate.
+    // Variante "solo auto" degli stessi segmenti: pesa circa il 60% della rete completa (catalogo del 2026-10-04,
+    // 90 regioni: dal 24% all'89%, mediana 57%). L'app la scarica al posto di [routing] se l'utente sceglie la rete
+    // stradale solo per l'auto (withRoutingVariant). Assente nelle regioni non ancora rigenerate.
     val routingCar: RoutingPackageEntry? = null,
     val poi: PoiPackageEntry,
     // POI extra (fontanelle, tavoli da picnic...): assenti per le regioni senza o non ancora rigenerate.
@@ -82,7 +83,7 @@ data class RegionManifestEntry(
     // della regione (RegionPackageInstaller), non e' un PackageKind. Assente per le regioni non ancora
     // rigenerate.
     val preview: PreviewPackageEntry? = null,
-    // Continente (da pilot-regions.sh, aggiunto dal merge della pipeline): assente, l'app ricade
+    // Continente (da regions.sh, aggiunto dal merge della pipeline): assente, l'app ricade
     // sul gruppo "Altro".
     val continent: String? = null,
     // Codice ISO 3166-1 alpha-2 minuscolo del paese (piu' regioni possono condividerlo, es. "us").

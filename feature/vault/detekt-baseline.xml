@@ -2,8 +2,8 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>CyclomaticComplexMethod:PassportVaultScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun PassportVaultScreen</ID>
-    <ID>CyclomaticComplexMethod:PassportVaultScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun PassportEditDialog</ID>
+    <ID>CyclomaticComplexMethod:VaultScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun VaultScreen</ID>
+    <ID>CyclomaticComplexMethod:VaultScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun PassportEditDialog</ID>
     <ID>ReturnCount:PassportPhotoCapture.kt:private fun isDocumentWellFramed: Boolean</ID>
   </CurrentIssues>
 </SmellBaseline>

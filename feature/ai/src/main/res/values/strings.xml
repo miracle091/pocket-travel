@@ -23,6 +23,7 @@
     <string name="ai_api_key_show">Mostra la chiave</string>
     <string name="ai_api_key_hide">Nascondi la chiave</string>
     <string name="ai_question_hint">Fai una domanda sulla regione</string>
+    <string name="ai_question_hint_country">Fai una domanda sulla nazione</string>
     <string name="ai_send">Invia domanda</string>
     <string name="ai_thinking">Elaborazione della risposta…</string>
     <string name="ai_empty_title">Fai una domanda sul viaggio</string>
@@ -32,7 +33,7 @@
     <string name="ai_remove_key">Rimuovi la chiave</string>
     <string name="ai_delete_model_title">Eliminare il modello IA?</string>
     <string name="ai_delete_model_message">Per usare di nuovo l\'assistente IA sul dispositivo bisogna scaricare di nuovo il modello</string>
-    <string name="ai_settings_hint">La scheda IA compare in ogni paese dopo aver scaricato un modello o inserito una chiave API</string>
+    <string name="ai_settings_hint">La scheda IA compare nella pagina di ogni regione dopo aver scaricato un modello o inserito una chiave API</string>
     <string name="ai_api_key_saved">Chiave API salvata</string>
     <string name="ai_model_downloaded">Scaricato</string>
     <string name="ai_remove_key_title">Rimuovere la chiave API?</string>

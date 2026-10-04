@@ -10,7 +10,7 @@ import javax.inject.Inject
 
 // Avvolge una DEK (data encryption key) di sessione, 256 bit casuali, con una KEK Keystore che
 // richiede autenticazione per-operazione (authValiditySeconds = 0): e' l'unica operazione
-// crittografica del vault passaporti legata a un BiometricPrompt.CryptoObject, quindi soddisfa
+// crittografica della cassaforte legata a un BiometricPrompt.CryptoObject, quindi soddisfa
 // la verifica CodeQL java/android/insecure-local-authentication. I singoli record restano cifrati
 // con la DEK in memoria (SessionAesCipher, vedi PassportRepository), senza un nuovo prompt a ogni
 // operazione: un solo sblocco per apertura della schermata.

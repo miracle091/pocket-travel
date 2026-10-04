@@ -65,25 +65,41 @@ private fun MapBounds.clampedTo(bbox: RegionBbox): MapBounds? {
 /** Regione grande: si puo' scaricarne solo una zona (mappa, percorsi e civici). */
 internal fun RegionBbox.isLarge(): Boolean = boundsSizeKm(minLon, minLat, maxLon, maxLat).let { (w, h) -> w.toDouble() * h > LARGE_REGION_KM2 }
 
-/** "Tutto il paese" o "Solo una zona, circa 60 × 45 km" per il foglio Contenuti. */
+/**
+ * "Tutta la nazione" (o "Tutta la regione" per una parte di una nazione divisa, [splitCountry]) oppure
+ * "Solo una zona, circa 60 × 45 km", per il foglio Contenuti.
+ */
 @Composable
-internal fun zoneLabel(zone: RegionZone?): String = if (zone == null) {
-    stringResource(R.string.zone_whole_region)
+internal fun zoneLabel(zone: RegionZone?, splitCountry: Boolean = false): String = if (zone == null) {
+    stringResource(if (splitCountry) R.string.zone_whole_region else R.string.zone_whole_country)
 } else {
     val (w, h) = boundsSizeKm(zone.minLon, zone.minLat, zone.maxLon, zone.maxLat)
     stringResource(R.string.zone_area, w, h)
 }
 
-/** Prima di scaricare una regione grande: tutta o solo una zona. Toccare fuori chiude senza scaricare. */
+/**
+ * Prima di scaricare una regione grande: tutta o solo una zona. Toccare fuori chiude senza scaricare.
+ * [splitCountry]: la regione e' una parte di una nazione divisa (groupName), e i testi dicono "regione" invece di "nazione".
+ */
 @Composable
-internal fun ZoneChoiceDialog(displayName: String, onWholeRegion: () -> Unit, onPickZone: () -> Unit, onDismiss: () -> Unit) {
+internal fun ZoneChoiceDialog(
+    displayName: String,
+    onWholeRegion: () -> Unit,
+    onPickZone: () -> Unit,
+    onDismiss: () -> Unit,
+    splitCountry: Boolean = false,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(AppIcons.Zone, contentDescription = null) },
-        title = { Text(stringResource(R.string.zone_choice_title, displayName)) },
-        text = { Text(stringResource(R.string.zone_choice_message)) },
+        title = { Text(stringResource(if (splitCountry) R.string.zone_choice_title else R.string.zone_choice_title_country, displayName)) },
+        text = { Text(stringResource(if (splitCountry) R.string.zone_choice_message else R.string.zone_choice_message_country)) },
         confirmButton = { TextButton(onClick = onPickZone) { Text(stringResource(R.string.zone_choice_pick)) } },
-        dismissButton = { TextButton(onClick = onWholeRegion) { Text(stringResource(R.string.zone_whole_region)) } },
+        dismissButton = {
+            TextButton(onClick = onWholeRegion) {
+                Text(stringResource(if (splitCountry) R.string.zone_whole_region else R.string.zone_whole_country))
+            }
+        },
     )
 }
 

@@ -20,15 +20,15 @@ import javax.crypto.Cipher
 import javax.inject.Inject
 
 @HiltViewModel
-class PassportVaultViewModel @Inject constructor(
+class VaultViewModel @Inject constructor(
     private val repository: PassportRepository,
     private val keyEnvelope: VaultKeyEnvelope,
 ) : ViewModel() {
 
     // Nessuno stato di sblocco persistito qui: la schermata ripresenta sempre il prompt
-    // biometrico quando viene aperta (vedi PassportVaultScreen), coerente col gating
+    // biometrico quando viene aperta (vedi VaultScreen), coerente col gating
     // "a livello di schermata". La chiave di sessione ottenuta dallo sblocco
-    // vive solo in repository (in memoria) finche' PassportVaultScreen non chiama lock().
+    // vive solo in repository (in memoria) finche' VaultScreen non chiama lock().
     //
     // Da bloccata emette la lista vuota (niente dati decifrati in memoria); allo sblocco rilegge dal
     // database con la chiave nuova.

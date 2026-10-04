@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Lancia build-region.sh per l'intero lotto pilota — vedi
-# pilot-regions.sh per l'elenco e le note su bbox/Stati Uniti non contigui. Esecuzione locale
-# "tutto fresco"; il workflow publish-regions.yml usa lo stesso pilot-regions.sh ma permette di
+# Lancia build-region.sh per tutte le regioni dell'elenco — vedi
+# regions.sh per l'elenco e le note su bbox/Stati Uniti non contigui. Esecuzione locale
+# "tutto fresco"; il workflow publish-regions.yml usa lo stesso regions.sh ma permette di
 # selezionare un sottoinsieme e unisce col manifest gia' pubblicato (assemble-site.sh).
 #
 # guides.db, poi.db e i .rd5 non vivono su GitHub Pages (limite di 1GB per l'intero sito, sforato
-# con la copertura mondiale di pilot-regions.sh) ma sugli asset delle release "region-data*" —
+# con la copertura mondiale di regions.sh) ma sugli asset delle release "region-data*" —
 # vedi il commento in testa a publish-regions.yml. releaseBaseUrl e' il prefisso degli URL di
 # download delle release: come nel workflow, le guide vanno su "region-data-guide" e ogni regione
-# sulla release data da region_release_tag (pilot-regions.sh). Default: le release di questo repo.
+# sulla release data da region_release_tag (regions.sh). Default: le release di questo repo.
 #
-# Uso: build-pilot-regions.sh <outputDir> [releaseBaseUrl]
+# Uso: build-all-regions.sh <outputDir> [releaseBaseUrl]
 set -euo pipefail
 
 OUTPUT_ROOT="${1:?Uso: $0 <outputDir> [releaseBaseUrl]}"
@@ -22,11 +22,11 @@ VERSION="$(date -u +%Y.%m.%d.%H%M)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
-# shellcheck source=./pilot-regions.sh
-source "$SCRIPT_DIR/pilot-regions.sh"
+# shellcheck source=./regions.sh
+source "$SCRIPT_DIR/regions.sh"
 # shellcheck source=./lib.sh
 source "$SCRIPT_DIR/lib.sh"
-REGIONS=("${PILOT_REGIONS[@]}")
+REGIONS=("${ALL_REGIONS[@]}")
 
 # Risolta una volta sola per l'intero lotto (non da ogni build-region.sh, vedi lib.sh): stessa
 # build Protomaps per tutte le regioni della stessa run.
@@ -79,7 +79,7 @@ done
 cd "$REPO_ROOT"
 ./gradlew -q :tools:data-pipeline:content:mergeManifests --args="$ARGS_STR"
 
-echo "== Lotto pilota completo =="
+echo "== Elenco delle regioni completo =="
 echo "   manifest.json (da pubblicare su Pages): $SITE_DIR"
 echo "   asset per release (da caricare con 'gh release upload <tag> $RELEASE_ASSETS_DIR/<tag>/*'): $RELEASE_ASSETS_DIR"
 echo "   vedi .github/workflows/publish-regions.yml per il flusso automatico completo (genera anche index.html)"

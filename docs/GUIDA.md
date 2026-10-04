@@ -6,7 +6,7 @@ Le cose da sapere per lavorare su Pocket Travel. Il **perché** delle scelte tec
 
 - Android Studio con JDK 17 o successivo (Gradle è già incluso nel repository).
 - Per la pipeline dei dati: bash, `jq`, `xz`, Python 3 (per i civici di Overture anche il pacchetto `duckdb`).
-- Per addestrare i modelli dell'assistente: una GPU (AMD con ROCm o NVIDIA con CUDA) e PyTorch, meglio con Unsloth (senza, si usa peft). Si lancia `tools/data-pipeline/scripts/train_auto.py`, che sceglie da solo GPU e backend; su Linux/WSL con NVIDIA c'è anche `run_train_nvidia.sh`. Su WSL il desktop di Windows occupa parte della memoria della GPU: si aggiunge `--max-vram-held 25`. Il dataset di addestramento (v9, o v10 con `--nearby` per gli esempi sui punti di interesse vicini e sulle partenze; in italiano o in inglese) si genera con `generate_sft.py --lang it|en`; le sezioni mancanti in una lingua si traducono dall'altra con `translate_sections.py` (MarianMT, anche su GPU).
+- Per addestrare i modelli dell'assistente: una GPU (AMD con ROCm o NVIDIA con CUDA) e PyTorch, meglio con Unsloth (senza, si usa peft). Si lancia `tools/data-pipeline/scripts/train_auto.py`, che sceglie da solo GPU e backend; su Linux/WSL con NVIDIA c'è anche `run_train_nvidia.sh`. Su WSL il desktop di Windows occupa parte della memoria della GPU: si aggiunge `--max-vram-held 25`. Il dataset di addestramento (v9, o v10 con `--nearby` per gli esempi sui punti di interesse vicini e sulle partenze; in italiano o in inglese) si genera con `generate_sft.py --lang it|en`; le sezioni mancanti in una lingua si traducono dall'altra con `translate_dataset.py` (MarianMT, anche su GPU).
 
 ## Compilare e provare
 
@@ -79,7 +79,7 @@ adb shell cmd locale set-app-locales com.pockettravel.app --locales en   # o it
 | il download o l'installazione dei pacchetti | `core/sync/` |
 | il database | `core/data/` (ogni cambio di schema vuole una migrazione e il suo test) |
 | cosa finisce nei pacchetti | `tools/data-pipeline/scripts/` e `tools/data-pipeline/content/` |
-| l'elenco delle regioni | `tools/data-pipeline/scripts/pilot-regions.sh`, poi `generate-weekly-schedule.sh` |
+| l'elenco delle regioni | `tools/data-pipeline/scripts/regions.sh`, poi `generate-weekly-schedule.sh` |
 | i numeri civici (celle da ~10 MB) | `tools/data-pipeline/scripts/build-address-cell.sh` e il seme `tools/data-pipeline/address-grid-seed.tsv` |
 | le fonti Overture dei civici | `tools/data-pipeline/overture-address-sources.tsv` (una fonte nuova resta fuori finché non la si rivede) |
 | i modelli dell'assistente | `feature/ai/.../LlmModelCatalog.kt` (ogni modello addestrato ha la sua lingua) e gli script `train_*.py` / `eval_*.py` |
@@ -87,7 +87,7 @@ adb shell cmd locale set-app-locales com.pockettravel.app --locales en   # o it
 | i testi dell'app | `res/values/strings.xml` (italiano) e `res/values-en/strings.xml` (inglese) di ogni modulo |
 | le vaccinazioni | dati in `tools/data-pipeline/content/src/main/resources/vaccinations/` (TSV curati, bozza con `vaccinations_draft.py`), regole in `core/data/.../vaccination/`, schermata in `feature/guide/.../VaccinationScreen.kt` |
 | popolazione e capitale delle città | `tools/data-pipeline/scripts/city_population.py`, usato da `extract-cities-dump.py` e `extract-cities-dump-en.py` |
-| il dataset di addestramento | `tools/data-pipeline/scripts/generate_sft.py` e `translate_sections.py` (le tabelle per lingua stanno in `generate_sft_dataset.py` e `generate_sft_dataset_en.py`) |
+| il dataset di addestramento | `tools/data-pipeline/scripts/generate_sft.py` e `translate_dataset.py` (le tabelle per lingua stanno in `generate_sft_dataset.py` e `generate_sft_dataset_en.py`) |
 | le guide e le città in inglese | `build-guides.sh … en`, `build-cities.sh … en`, `extract-cities-dump-en.py`; nell'app `core/sync/.../GuidesChoice.kt` |
 
 ## Rilasciare una versione

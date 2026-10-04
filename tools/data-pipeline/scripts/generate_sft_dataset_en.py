@@ -207,7 +207,7 @@ def refusal(topic, tail):
 
 def page_title(rid, sources):
     """Titolo della pagina EN di una regione: da sft-sources.tsv, altrimenti dalla cache raw/<rid>.en.url di
-    generate_sft_dataset.py (canada e antartide non sono tra le regioni pilota), altrimenti None."""
+    generate_sft_dataset.py (canada e antartide non sono nell'elenco delle regioni), altrimenti None."""
     title = sources.get((rid, "en"), "-")
     if title != "-":
         return wiki_dump.norm_title(title)

@@ -104,7 +104,7 @@ sealed interface PlannerPreview {
 /**
  * Tab Navigazione dell'hub: partenza (la propria posizione o un posto), destinazione cercata per nome
  * tra i punti di interesse delle regioni installate, mezzo e anteprima del percorso. La guida passo
- * passo e' NavigationGuidance, nella stessa scheda: "Avvia" la fa partire (NavigationViewModel) quando
+ * passo e' NavigationInstructions, nella stessa scheda: "Avvia" la fa partire (NavigationViewModel) quando
  * si parte dalla propria posizione. Partenza, arrivo, mezzo, ora di arrivo e avviso di partenza stanno
  * in [SavedStateHandle]: se il sistema chiude l'app, tornando si ritrova lo stesso Navigatore.
  */
@@ -141,12 +141,12 @@ class NavigationPlannerViewModel @Inject constructor(
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
-    private val _travelMode = MutableStateFlow(
-        savedStateHandle.get<String>(KEY_MODE)?.let(TravelMode::valueOf) ?: TravelMode.from(usageModePreferences.mode.value),
+    private val _routeProfile = MutableStateFlow(
+        savedStateHandle.get<String>(KEY_MODE)?.let(RouteProfile::valueOf) ?: RouteProfile.from(usageModePreferences.modes.value),
     )
-    val travelMode: StateFlow<TravelMode> = _travelMode.asStateFlow()
-    val routing: StateFlow<RoutingChoice> = combine(_travelMode, usageModePreferences.accessible, usageModePreferences.allowSteps, ::routingChoice)
-        .stateIn(viewModelScope, SharingStarted.Eagerly, routingChoice(_travelMode.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value))
+    val routeProfile: StateFlow<RouteProfile> = _routeProfile.asStateFlow()
+    val routing: StateFlow<RoutingChoice> = combine(_routeProfile, usageModePreferences.accessible, usageModePreferences.allowSteps, ::routingChoice)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, routingChoice(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value))
     val allowSteps: StateFlow<Boolean> = usageModePreferences.allowSteps
 
     private val _preview = MutableStateFlow<PlannerPreview>(PlannerPreview.Idle)
@@ -212,7 +212,7 @@ class NavigationPlannerViewModel @Inject constructor(
      */
     val routingRegionIds: StateFlow<Set<String>> = usableRouting().stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
-    private fun usableRouting() = combine(regionRepository.observeInstalled(), routingVariantPreferences.installedCarOnly, _travelMode) { regions, carOnly, mode ->
+    private fun usableRouting() = combine(regionRepository.observeInstalled(), routingVariantPreferences.installedCarOnly, _routeProfile) { regions, carOnly, mode ->
         usableRoutingRegions(regions.filter { it.routingVersion != null }.map { it.regionId }.toSet(), carOnly, mode)
     }
 
@@ -230,7 +230,7 @@ class NavigationPlannerViewModel @Inject constructor(
     init {
         _from.onEach { savedStateHandle[KEY_FROM] = it?.toBundle() }.launchIn(viewModelScope)
         _to.onEach { savedStateHandle[KEY_TO] = it?.toBundle() }.launchIn(viewModelScope)
-        _travelMode.onEach { savedStateHandle[KEY_MODE] = it.name }.launchIn(viewModelScope)
+        _routeProfile.onEach { savedStateHandle[KEY_MODE] = it.name }.launchIn(viewModelScope)
         _arriveBy.onEach { savedStateHandle[KEY_ARRIVE_BY] = it?.let(::dateTimeToMinute) }.launchIn(viewModelScope)
         _reminder.onEach { savedStateHandle[KEY_REMINDER] = it?.let(::dateTimeToMinute) }.launchIn(viewModelScope)
         // Percorsi appena installati dopo "Scarica i percorsi" (della regione aperta o di un'altra che copre
@@ -361,10 +361,10 @@ class NavigationPlannerViewModel @Inject constructor(
 
     fun clearRecents() = recentDestinations.clear()
 
-    fun setTravelMode(mode: TravelMode) {
-        if (mode == _travelMode.value) return
+    fun setRouteProfile(mode: RouteProfile) {
+        if (mode == _routeProfile.value) return
         cancelReminder()
-        _travelMode.value = mode
+        _routeProfile.value = mode
         refreshPreview()
     }
 

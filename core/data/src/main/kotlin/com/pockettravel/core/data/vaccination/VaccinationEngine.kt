@@ -171,7 +171,7 @@ fun evaluateVaccinations(trip: Trip, data: VaccinationData, today: LocalDate = L
 private fun String.iso(): String = trim().lowercase(Locale.ROOT)
 
 /** Soggiorni piu' gli scali senza uscita che superano la soglia di ore della destinazione. */
-private fun yfOrigins(trip: Trip, stays: List<Origin>, rule: TransitRule, destination: String): List<Origin> {
+private fun yfOrigins(trip: Trip, stays: List<Origin>, rule: StopoverRule, destination: String): List<Origin> {
     val passing = trip.transits
         .filter { !it.leftAirport && transitCounts(rule, it.transitHours) }
         .map { Origin(it.country.iso(), it.transitHours, stopover = true) }
@@ -179,9 +179,9 @@ private fun yfOrigins(trip: Trip, stays: List<Origin>, rule: TransitRule, destin
     return (stays + passing).distinctBy { it.country }
 }
 
-private fun transitCounts(rule: TransitRule, hours: Int?): Boolean = when (rule) {
-    TransitRule.NONE -> false
-    TransitRule.ANY -> true
+private fun transitCounts(rule: StopoverRule, hours: Int?): Boolean = when (rule) {
+    StopoverRule.NONE -> false
+    StopoverRule.ANY -> true
     else -> hours == null || hours > rule.hours!!
 }
 

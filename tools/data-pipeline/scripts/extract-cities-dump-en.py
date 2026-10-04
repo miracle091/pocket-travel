@@ -9,7 +9,7 @@ dump: il primo raccoglie isPartOf di tutte le pagine e quali sono citta', il sec
 delle citta' che, risalendo la catena, arrivano a una delle regioni passate.
 
 Uso: extract-cities-dump-en.py <dump.xml.bz2> <regioni.tsv> <outDir>
-regioni.tsv: righe "regionId<TAB>wikiTitle" (titolo EN Wikivoyage, da pilot-regions.sh).
+regioni.tsv: righe "regionId<TAB>wikiTitle" (titolo EN Wikivoyage, da regions.sh).
 """
 import json
 import re

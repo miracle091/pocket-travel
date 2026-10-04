@@ -9,7 +9,7 @@ import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.db.RegionDatabase
 import com.pockettravel.core.data.vaccination.PolioCategory
-import com.pockettravel.core.data.vaccination.TransitRule
+import com.pockettravel.core.data.vaccination.StopoverRule
 import com.pockettravel.core.data.vaccination.VaccinationRepository
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -103,7 +103,7 @@ class PackageImporterDeviceTest {
         val data = VaccinationRepository(db.vaccinationDao()).load()!!
         assertEquals(listOf("br"), data.yfRisk.map { it.iso2 })
         assertEquals(setOf("ke", "ug"), data.yfEntry.single { it.iso2 == "in" }.fromList)
-        assertEquals(TransitRule.GT12H, data.yfEntry.single { it.iso2 == "in" }.transit)
+        assertEquals(StopoverRule.GT12H, data.yfEntry.single { it.iso2 == "in" }.transit)
         assertEquals(PolioCategory.WPV1_CVDPV1_CVDPV3, data.polioEntry.single().originCategory)
         assertEquals(12, data.special.single().minAgeMonths)
         assertEquals("2026-10-03", data.meta.lastReview)

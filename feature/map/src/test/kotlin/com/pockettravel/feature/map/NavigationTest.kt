@@ -10,13 +10,13 @@ class NavigationTest {
 
     @Test
     fun `a piedi con disabilita' il profilo in sedia a rotelle, gradini solo se accettati`() {
-        assertEquals(RoutingChoice("wheelchair"), routingChoice(TravelMode.WALK, accessible = true, allowSteps = false))
-        assertEquals(RoutingChoice("wheelchair", mapOf("allow_steps" to "1")), routingChoice(TravelMode.WALK, accessible = true, allowSteps = true))
-        assertTrue(routingChoice(TravelMode.WALK, accessible = true, allowSteps = false).wheelchair)
-        assertEquals(RoutingChoice("shortest"), routingChoice(TravelMode.WALK, accessible = false, allowSteps = true))
+        assertEquals(RoutingChoice("wheelchair"), routingChoice(RouteProfile.WALK, accessible = true, allowSteps = false))
+        assertEquals(RoutingChoice("wheelchair", mapOf("allow_steps" to "1")), routingChoice(RouteProfile.WALK, accessible = true, allowSteps = true))
+        assertTrue(routingChoice(RouteProfile.WALK, accessible = true, allowSteps = false).wheelchair)
+        assertEquals(RoutingChoice("shortest"), routingChoice(RouteProfile.WALK, accessible = false, allowSteps = true))
         // Bici e auto restano quelle del mezzo anche con la casella.
-        assertEquals(RoutingChoice("trekking"), routingChoice(TravelMode.BIKE, accessible = true, allowSteps = true))
-        assertEquals(RoutingChoice("car-vario"), routingChoice(TravelMode.CAR, accessible = true, allowSteps = false))
+        assertEquals(RoutingChoice("trekking"), routingChoice(RouteProfile.BIKE, accessible = true, allowSteps = true))
+        assertEquals(RoutingChoice("car-vario"), routingChoice(RouteProfile.CAR, accessible = true, allowSteps = false))
     }
 
     // Percorso a L: verso est lungo il parallelo 45 (circa 393 m), poi a sinistra verso nord (circa 445 m).

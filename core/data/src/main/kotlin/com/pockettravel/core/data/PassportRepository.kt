@@ -18,7 +18,7 @@ import javax.inject.Inject
 // da Passport.photoFileNames.
 //
 // La chiave e' una DEK di sessione (SessionAesCipher), non una chiave Keystore diretta: la UI
-// (PassportVaultScreen) la ottiene tramite VaultKeyEnvelope dietro un BiometricPrompt legato a
+// (VaultScreen) la ottiene tramite VaultKeyEnvelope dietro un BiometricPrompt legato a
 // CryptoObject e la passa qui con unlock(); lock() la scarta quando la schermata si chiude.
 class PassportRepository @Inject constructor(
     private val passportDao: PassportDao,

@@ -70,9 +70,9 @@
     <ID>MagicNumber:TransitBoard.kt:899</ID>
     <ID>MagicNumber:TransitBoard.kt:900</ID>
     <ID>MagicNumber:TransitBoard.kt:999</ID>
-    <ID>MagicNumber:VaccinationModel.kt:TransitRule.GT12H$12</ID>
-    <ID>MagicNumber:VaccinationModel.kt:TransitRule.GT24H$24</ID>
-    <ID>MagicNumber:VaccinationModel.kt:TransitRule.GT4H$4</ID>
+    <ID>MagicNumber:VaccinationModel.kt:StopoverRule.GT12H$12</ID>
+    <ID>MagicNumber:VaccinationModel.kt:StopoverRule.GT24H$24</ID>
+    <ID>MagicNumber:VaccinationModel.kt:StopoverRule.GT4H$4</ID>
     <ID>MatchingDeclarationName:AddressSearchMerger.kt:MergeDb</ID>
     <ID>ReturnCount:AddressSearch.kt:fun parseAddressQuery: AddressQuery</ID>
     <ID>ReturnCount:AddressSearch.kt:internal fun readAddressOrigin: AddressOrigin?</ID>

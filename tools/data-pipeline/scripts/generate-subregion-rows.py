@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Righe di pilot-regions.sh per le suddivisioni di un paese (stati, province...), dai confini
+"""Righe di regions.sh per le suddivisioni di un paese (stati, province...), dai confini
 Natural Earth "admin 1" (dominio pubblico), per dividere una regione troppo grande.
 
-Si lancia a mano quando si divide un paese; l'output si incolla in pilot-regions.sh al posto della
+Si lancia a mano quando si divide un paese; l'output si incolla in regions.sh al posto della
 regione intera. Solo libreria standard.
 
 Uso:
@@ -13,7 +13,7 @@ Uso:
       --name "District of Columbia=Distretto di Columbia" \
       --wiki "Georgia=Georgia_(U.S._state)" [--check-wikivoyage]
 
-Formato della riga (vedi pilot-regions.sh):
+Formato della riga (vedi regions.sh):
   regionId|displayName|minLon|minLat|maxLon|maxLat|wikivoyagePageTitle|flagCode|groupName|groupLabel|continent
 """
 import argparse

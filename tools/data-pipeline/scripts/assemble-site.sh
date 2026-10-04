@@ -6,7 +6,7 @@
 # tools/data-pipeline/scripts/build-region.sh e .github/workflows/publish-regions.yml) - a
 # differenza di actions/deploy-pages, che sostituisce l'intero sito ad ogni pubblicazione, gli
 # asset di una release restano raggiungibili da soli finche' non vengono cancellati esplicitamente.
-# (Copiati nel sito, i file delle 254 regioni di pilot-regions.sh supererebbero il limite di 1 GB di
+# (Copiati nel sito, i file delle 254 regioni di regions.sh supererebbero il limite di 1 GB di
 # GitHub Pages.)
 #
 # Uso: assemble-site.sh <siteDir> <publishedManifestUrl> <fragmentFile1> [fragmentFile2 ...]
@@ -47,13 +47,13 @@ fi
 
 MANIFEST_INPUTS+=("${FRAGMENT_FILES[@]}")
 
-# Continente e codice paese di ogni regione (campi continent e flagCode di PILOT_REGIONS), scritti
+# Continente e codice paese di ogni regione (campi continent e flagCode di ALL_REGIONS), scritti
 # dal merge nei campi "continent" e "countryCode" di tutte le regioni del manifest, anche quelle non
 # ricostruite in questa run: l'app raggruppa l'elenco per continente e rende cliccabili i paesi
 # sulla mappa del mondo, e non ha altra fonte per saperlo.
-source "$SCRIPT_DIR/pilot-regions.sh"
+source "$SCRIPT_DIR/regions.sh"
 CONTINENTS_TSV="$(mktemp)"
-for spec in "${PILOT_REGIONS[@]}"; do
+for spec in "${ALL_REGIONS[@]}"; do
   IFS='|' read -r regionId _ _ _ _ _ wikiTitle flagCode groupName groupLabel continent <<< "$spec"
   # Il titolo Wikivoyage EN da' il nome inglese delle regioni di un paese diviso (groupLabelEn).
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$regionId" "$continent" "$flagCode" "$groupName" "$groupLabel" "$wikiTitle" >> "$CONTINENTS_TSV"
@@ -84,18 +84,18 @@ cd "$REPO_ROOT"
 ./gradlew -q :tools:data-pipeline:content:mergeManifests --args="$ARGS_STR"
 
 # Pagina minimale per la radice del sito Pages: senza questa, GET / da 404 (nessun file la
-# serve) — solo per verifica manuale, l'app non chiama mai questo URL. Elenca TUTTO il lotto
-# pilota (non solo le regioni di questa run/gia' pubblicate), cosi' si vede a colpo d'occhio
+# serve) — solo per verifica manuale, l'app non chiama mai questo URL. Elenca TUTTE le regioni
+# dell'elenco (non solo le regioni di questa run/gia' pubblicate), cosi' si vede a colpo d'occhio
 # anche quali nazioni sono attualmente non disponibili perche' la loro generazione e' fallita
-# (es. Stati Uniti su un bbox troppo grande per Overpass) - fonte unica pilot-regions.sh, cosi'
+# (es. Stati Uniti su un bbox troppo grande per Overpass) - fonte unica regions.sh, cosi'
 # la pagina resta sincronizzata con l'elenco reale senza doverlo duplicare qui.
-# (PILOT_REGIONS e REPLACED_REGIONS sono gia' caricati piu' sopra.)
+# (ALL_REGIONS e REPLACED_REGIONS sono gia' caricati piu' sopra.)
 
 # Bandiere come SVG vettoriali (scripts/assets/flags/, vendorizzate da flag-icons - vedi
 # assets/flags/README.md e LICENSE), non emoji: gli emoji bandiera non si vedono su Windows (il
 # font di sistema non li renderizza, mostra solo il codice testuale) - un <img> verso un vero
 # file SVG e' vettoriale ed e' identico su ogni piattaforma. Copertura completa ISO 3166-1
-# alpha-2 gia' pronta all'uso per qualunque nazione futura, non solo il lotto pilota attuale.
+# alpha-2 gia' pronta all'uso per qualunque nazione futura, non solo l'elenco attuale delle regioni.
 mkdir -p "$SITE_DIR/assets/flags"
 cp "$SCRIPT_DIR"/assets/flags/*.svg "$SITE_DIR/assets/flags/"
 
@@ -150,10 +150,10 @@ status_html() {
   fi
 }
 
-# L'elenco dei continenti e' esplicito e completo (non dedotto da PILOT_REGIONS): la pagina mostra
+# L'elenco dei continenti e' esplicito e completo (non dedotto da ALL_REGIONS): la pagina mostra
 # fin da subito tutti i continenti, anche quelli senza ancora nessuna nazione pubblicata, cosi' si
-# vede a colpo d'occhio la copertura mondiale prevista (tutte le nazioni), non solo il
-# lotto pilota attuale.
+# vede a colpo d'occhio la copertura mondiale prevista (tutte le nazioni), non solo le
+# regioni dell'elenco attuale.
 CONTINENTS=("Europa" "Asia" "Africa" "Nord America" "Sud America" "Oceania")
 
 # Solo caratteri ASCII nei nomi qui sopra (nessun accento): un tr basta per l'id di ancora del
@@ -171,10 +171,10 @@ for continent in "${CONTINENTS[@]}"; do
   groupFlagImg=""
   groupSubRows=""
 
-  # Due livelli di raggruppamento dentro questo continente, un solo passaggio su PILOT_REGIONS
+  # Due livelli di raggruppamento dentro questo continente, un solo passaggio su ALL_REGIONS
   # filtrato: apre/chiude un gruppo quando groupName cambia rispetto alla riga precedente (le
   # region non contigue della stessa nazione, oggi solo le 3 USA, vanno tenute consecutive in
-  # PILOT_REGIONS perche' questo funzioni).
+  # ALL_REGIONS perche' questo funzioni).
   flush_group() {
     if [ -n "$currentGroup" ]; then
       card="<div class=\"card\"><div class=\"card-head\">$groupFlagImg<span class=\"card-title\">$currentGroup</span></div><ul class=\"subgroup\">$groupSubRows</ul></div>"
@@ -185,7 +185,7 @@ for continent in "${CONTINENTS[@]}"; do
     groupSubRows=""
   }
 
-  for spec in "${PILOT_REGIONS[@]}"; do
+  for spec in "${ALL_REGIONS[@]}"; do
     IFS='|' read -r regionId displayName _ _ _ _ _ flag groupName groupLabel regionContinent <<< "$spec"
     [ "$regionContinent" = "$continent" ] || continue
     if [ -n "$groupName" ]; then

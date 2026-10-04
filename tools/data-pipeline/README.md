@@ -144,7 +144,7 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   v10 con `--nearby` (così il v9 non viene sovrascritto) oppure quella data con `--version`. I test estesi
   (`generate_eval_set.py`, `generate_eval_set_en.py`) hanno in fondo le righe `pos_near`/`neg_near` e
   `pos_dep`/`neg_dep` sugli stessi blocchi, con domande, nomi e seme diversi da quelli del training; le righe
-  precedenti restano identiche. `scripts/translate_sections.py` traduce
+  precedenti restano identiche. `scripts/translate_dataset.py` traduce
   con MarianMT (`opus-mt-tc-big`, CC BY 4.0) le sezioni assenti o molto più brevi in una lingua; scarta le
   traduzioni con numeri diversi dall'originale e conserva le frasi tradotte in una cache. Le tabelle per lingua
   stanno in `generate_sft_dataset.py` e `generate_sft_dataset_en.py`, che servono ancora per rigenerare il dataset v8.

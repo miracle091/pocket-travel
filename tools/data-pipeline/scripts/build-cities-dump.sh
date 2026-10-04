@@ -12,7 +12,7 @@
 # (build-cities.sh tiene la voce "cities" gia' pubblicata, se c'e').
 #
 # Uso: build-cities-dump.sh <regioni.tsv> <outDir> [it|en]
-# regioni.tsv: righe "regionId<TAB>wikiTitle" (titolo EN Wikivoyage, da pilot-regions.sh).
+# regioni.tsv: righe "regionId<TAB>wikiTitle" (titolo EN Wikivoyage, da regions.sh).
 # Con "en": dump di Wikivoyage EN, <outDir>/<regionId>.cities-en.jsonl (extract-cities-dump-en.py, le
 # citta' si trovano risalendo {{isPartOf}} fino al titolo EN della regione, senza pagine IT).
 #

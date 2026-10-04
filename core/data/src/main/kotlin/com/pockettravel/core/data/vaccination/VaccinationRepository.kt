@@ -52,7 +52,7 @@ internal fun vaccinationDataFrom(
                 iso2 = r.iso2,
                 rule = enumOrNull<YfRule>(r.rule) ?: return@mapNotNull null,
                 minAgeMonths = r.minAgeMonths,
-                transit = enumOrNull<TransitRule>(r.transit) ?: return@mapNotNull null,
+                transit = enumOrNull<StopoverRule>(r.transit) ?: return@mapNotNull null,
                 fromList = r.fromList.countries(),
                 exitRequired = r.exitRequired,
                 noteIt = r.noteIt,

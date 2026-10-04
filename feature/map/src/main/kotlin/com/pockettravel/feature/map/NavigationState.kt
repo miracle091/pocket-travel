@@ -4,7 +4,7 @@ import kotlin.math.abs
 import kotlin.math.ceil
 
 /** Mezzo scelto nella schermata di navigazione: stessi profili BRouter delle modalita' d'uso. */
-enum class TravelMode(val routingProfile: String) {
+enum class RouteProfile(val routingProfile: String) {
     WALK("shortest"),
     BIKE("trekking"),
     CAR("car-vario"),
@@ -26,7 +26,7 @@ data class RoutingChoice(val profile: String, val params: Map<String, String> = 
 }
 
 /**
- * A piedi con "Con disabilita'" si usa il profilo in sedia a rotelle: scale vietate, oppure molto
+ * A piedi con "In sedia a rotelle" si usa il profilo in sedia a rotelle: scale vietate, oppure molto
  * penalizzate se l'utente accetta qualche gradino ([allowSteps], variabile allow_steps del profilo).
  * Bici e auto restano quelle del mezzo.
  */
@@ -35,11 +35,11 @@ data class RoutingChoice(val profile: String, val params: Map<String, String> = 
  * valgono solo in auto; a piedi, in bici e in carrozzina contano come regioni senza Percorsi (il Navigatore le propone
  * da scaricare complete).
  */
-fun usableRoutingRegions(withRouting: Set<String>, carOnly: Set<String>, mode: TravelMode): Set<String> =
-    if (mode == TravelMode.CAR) withRouting else withRouting - carOnly
+fun usableRoutingRegions(withRouting: Set<String>, carOnly: Set<String>, mode: RouteProfile): Set<String> =
+    if (mode == RouteProfile.CAR) withRouting else withRouting - carOnly
 
-fun routingChoice(mode: TravelMode, accessible: Boolean, allowSteps: Boolean): RoutingChoice =
-    if (mode == TravelMode.WALK && accessible) {
+fun routingChoice(mode: RouteProfile, accessible: Boolean, allowSteps: Boolean): RoutingChoice =
+    if (mode == RouteProfile.WALK && accessible) {
         RoutingChoice(UsageMode.WHEELCHAIR_ROUTING_PROFILE, if (allowSteps) mapOf("allow_steps" to "1") else emptyMap())
     } else {
         RoutingChoice(mode.routingProfile)

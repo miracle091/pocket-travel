@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Test di translate_sections.py sulle parti senza modello: needs_translation, controllo di plausibilita', divisione
+"""Test di translate_dataset.py sulle parti senza modello: needs_translation, controllo di plausibilita', divisione
 in frasi e cache. Il modello MarianMT (torch/transformers, importati solo in _load) non viene mai caricato: Translator
 usa una cache gia' piena o un _run sostituito.
 
-Uso: python test_translate_sections.py
+Uso: python test_translate_dataset.py
 """
 import json
 import tempfile
@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import translate_sections as ts
+import translate_dataset as ts
 
 
 class NeedsTranslationTest(unittest.TestCase):

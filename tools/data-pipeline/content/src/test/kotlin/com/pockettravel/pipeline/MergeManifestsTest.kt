@@ -50,7 +50,7 @@ class MergeManifestsTest {
     }
 
     @Test
-    fun `scarta le regioni gia' pubblicate che non sono piu' nel lotto pilota`() {
+    fun `scarta le regioni gia' pubblicate che non sono piu' nell'elenco`() {
         val merged = JSONObject(
             mergeManifestJson(
                 listOf(fragmentFor("san-marino", "San Marino"), fragmentFor("antartide", "Antartide"), guidesFragment("1")),

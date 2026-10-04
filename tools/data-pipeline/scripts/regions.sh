@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Elenco del lotto pilota — sorgente unica condivisa da
-# build-pilot-regions.sh (esecuzione locale, tutte le regioni) e dal workflow publish-regions.yml
+# Elenco delle regioni — sorgente unica condivisa da
+# build-all-regions.sh (esecuzione locale, tutte le regioni) e dal workflow publish-regions.yml
 # (esecuzione selettiva via input workflow_dispatch), per evitare due copie che possono
 # disallinearsi.
 #
@@ -37,7 +37,7 @@
 #
 # Formato per riga:
 #   regionId|displayName|minLon|minLat|maxLon|maxLat|wikivoyagePageTitle|flagCode|groupName|groupLabel|continent
-PILOT_REGIONS=(
+ALL_REGIONS=(
   "san-marino|San Marino|12.40|43.89|12.52|43.99|San_Marino|sm|||Europa"
   "italia|Italia|6.60|35.29|18.60|47.10|Italy|it|||Europa"
   "albania|Albania|19.30|39.62|21.02|42.69|Albania|al|||Europa"
@@ -424,7 +424,7 @@ region_release_tag() {
 }
 
 # Regioni divise in regioni piu' piccole: regionId della vecchia regione | groupName delle nuove.
-# Tolta da PILOT_REGIONS, la vecchia regione sparisce dal manifest; mergeManifests scrive questo
+# Tolta da ALL_REGIONS, la vecchia regione sparisce dal manifest; mergeManifests scrive questo
 # elenco nel campo "replacedRegions" del manifest, cosi' l'app propone le regioni del gruppo a chi
 # ha ancora installata quella vecchia.
 REPLACED_REGIONS=(

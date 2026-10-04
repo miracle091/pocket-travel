@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Helper condivisi dagli script della pipeline publish-region (build-region.sh, build-guides.sh,
-# build-address-cell.sh, assemble-site.sh, build-pilot-regions.sh, generate-weekly-schedule.sh). Solo
+# build-address-cell.sh, assemble-site.sh, build-all-regions.sh, generate-weekly-schedule.sh). Solo
 # funzioni, nessun effetto collaterale:
 # sourcing sicuro da qualunque script con "set -euo pipefail" gia' attivo.
 # shellcheck shell=bash
@@ -42,7 +42,7 @@ tile_name() {
 }
 
 # Data (YYYYMMDD) della build Protomaps whole-planet piu' recente disponibile, stessa per l'intera
-# giornata: chi genera piu' regioni nella stessa run (build-pilot-regions.sh, publish-regions.yml)
+# giornata: chi genera piu' regioni nella stessa run (build-all-regions.sh, publish-regions.yml)
 # la risolve una volta sola e la passa alle chiamate di build-region.sh via PROTOMAPS_DATE_OVERRIDE,
 # invece di rifare fino a 4 richieste HEAD identiche per ogni singola regione.
 resolve_protomaps_date() {
@@ -168,7 +168,7 @@ PIPELINE_USER_AGENT="PocketTravelDataPipeline/1.0 (https://github.com/miracle091
 # da ospitare. Il titolo IT non si puo' indovinare dal titolo EN
 # (es. "Giappone" per "Japan", "Palau (stato)" per "Palau"): si risolve dai langlinks interwiki
 # della pagina EN via l'API MediaWiki, gia' tenuti allineati da Wikivoyage stesso — evita di
-# mantenere a mano una seconda colonna di titoli IT in pilot-regions.sh, che si disallineerebbe
+# mantenere a mano una seconda colonna di titoli IT in regions.sh, che si disallineerebbe
 # silenziosamente ad ogni rinomina di pagina. La risposta si parsa con sed per non rendere jq
 # obbligatorio: utf8=1 fa arrivare il titolo in UTF-8 invece che con gli escape \uXXXX (con gli
 # escape "Faer Oer" diventerebbe un titolo non valido), e --data-urlencode lo codifica per l'URL.

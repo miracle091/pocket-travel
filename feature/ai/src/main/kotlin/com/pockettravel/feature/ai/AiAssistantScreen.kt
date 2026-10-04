@@ -80,13 +80,15 @@ import com.pockettravel.core.ui.isOnCellularNetwork
 @Composable
 fun AiAssistantScreen(
     regionId: String,
+    // Regione di una nazione divisa: il campo dice "regione" invece di "nazione".
+    splitCountry: Boolean = false,
     viewModel: AiAssistantViewModel = hiltViewModel(),
     onOpenOfficialSource: (url: String) -> Unit = {},
     onNavigationRequest: (NavigationRequest) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(viewModel) { viewModel.navigationRequests.collect(onNavigationRequest) }
-    AiAssistantContent(uiState = uiState, actions = viewModel.toActions(regionId), onOpenOfficialSource = onOpenOfficialSource)
+    AiAssistantContent(uiState = uiState, actions = viewModel.toActions(regionId), onOpenOfficialSource = onOpenOfficialSource, splitCountry = splitCountry)
 }
 
 // Azioni della schermata, raccolte per separare la UI dal ViewModel (@Preview, onboarding).
@@ -125,7 +127,7 @@ private fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
 )
 
 @Composable
-internal fun AiAssistantContent(uiState: AiUiState, actions: AiActions, onOpenOfficialSource: (url: String) -> Unit) {
+internal fun AiAssistantContent(uiState: AiUiState, actions: AiActions, onOpenOfficialSource: (url: String) -> Unit, splitCountry: Boolean = false) {
     val isReady = when (uiState.mode) {
         AiEngineMode.ON_DEVICE -> uiState.isModelDownloaded
         AiEngineMode.ONLINE -> uiState.isApiKeyConfigured
@@ -134,7 +136,7 @@ internal fun AiAssistantContent(uiState: AiUiState, actions: AiActions, onOpenOf
         AssistantHeader(uiState = uiState, isReady = isReady, actions = actions)
         if (isReady) {
             Conversation(uiState = uiState, onOpenOfficialSource = onOpenOfficialSource, onClearApiKey = actions.onClearApiKey, modifier = Modifier.weight(1f))
-            QuestionBar(uiState = uiState, actions = actions)
+            QuestionBar(uiState = uiState, actions = actions, splitCountry = splitCountry)
         } else {
             Column(
                 modifier = Modifier
@@ -445,7 +447,7 @@ private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String)
 }
 
 @Composable
-private fun QuestionBar(uiState: AiUiState, actions: AiActions) {
+private fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: Boolean) {
     val canSend = uiState.question.isNotBlank() && !uiState.isThinking
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = Spacing.l, end = Spacing.s, top = Spacing.s, bottom = Spacing.s),
@@ -455,7 +457,7 @@ private fun QuestionBar(uiState: AiUiState, actions: AiActions) {
             value = uiState.question,
             onValueChange = actions.onQuestionChanged,
             modifier = Modifier.weight(1f),
-            placeholder = { Text(stringResource(R.string.ai_question_hint)) },
+            placeholder = { Text(stringResource(if (splitCountry) R.string.ai_question_hint else R.string.ai_question_hint_country)) },
             shape = MaterialTheme.shapes.extraLarge,
             maxLines = 4,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),

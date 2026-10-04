@@ -261,7 +261,7 @@ internal fun VaccinationContent(
                 when (target) {
                     PICK_DEPARTURE -> R.string.vacc_from
                     PICK_RECENT -> R.string.vacc_add_country
-                    else -> R.string.vacc_transit_country
+                    else -> R.string.vacc_stopover_country
                 },
             ),
             selected = selected,
@@ -294,7 +294,7 @@ private fun RouteCard(state: VaccinationUiState, actions: VaccinationActions, on
             state.destination?.let { CountryRow(label = stringResource(R.string.vacc_to), country = it, onClick = null) }
             HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.s))
 
-            SectionLabel(stringResource(R.string.vacc_transits))
+            SectionLabel(stringResource(R.string.vacc_stopovers))
             state.transits.forEach { transit ->
                 TransitEditor(
                     transit = transit,
@@ -404,7 +404,7 @@ private fun CountryRow(label: String, country: String?, onClick: (() -> Unit)?) 
         Column(modifier = Modifier.weight(1f)) {
             Text(text = label, style = MaterialTheme.typography.labelMedium)
             Text(
-                text = country?.let { countryName(it) } ?: stringResource(R.string.vacc_transit_choose_country),
+                text = country?.let { countryName(it) } ?: stringResource(R.string.vacc_stopover_choose_country),
                 style = MaterialTheme.typography.bodyLarge,
             )
         }
@@ -423,7 +423,7 @@ private fun TransitEditor(
     Column(modifier = Modifier.padding(vertical = Spacing.xs)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = Spacing.s)) {
             Box(modifier = Modifier.weight(1f)) {
-                CountryRow(label = stringResource(R.string.vacc_transit_country), country = transit.country, onClick = onPickCountry)
+                CountryRow(label = stringResource(R.string.vacc_stopover_country), country = transit.country, onClick = onPickCountry)
             }
             IconButton(onClick = onRemove) {
                 Icon(AppIcons.Delete, contentDescription = stringResource(R.string.vacc_remove_transit))
@@ -437,7 +437,7 @@ private fun TransitEditor(
             OutlinedTextField(
                 value = transit.hours?.toString().orEmpty(),
                 onValueChange = { text -> onChange { it.copy(hours = text.filter(Char::isDigit).take(3).toIntOrNull(), overTwelveHours = false) } },
-                label = { Text(stringResource(R.string.vacc_transit_hours)) },
+                label = { Text(stringResource(R.string.vacc_stopover_hours)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 // larghezza minima, non fissa: con il testo ingrandito l'etichetta non si taglia
@@ -446,7 +446,7 @@ private fun TransitEditor(
             FilterChip(
                 selected = transit.overTwelveHours,
                 onClick = { onChange { it.copy(hours = null, overTwelveHours = !it.overTwelveHours) } },
-                label = { Text(stringResource(R.string.vacc_transit_over_12h)) },
+                label = { Text(stringResource(R.string.vacc_stopover_over_12h)) },
             )
             FilterChip(
                 selected = transit.leftAirport,

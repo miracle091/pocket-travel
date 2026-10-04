@@ -53,7 +53,7 @@ import com.pockettravel.feature.map.MapRouteViewModel
 import com.pockettravel.feature.map.MapScreen
 import com.pockettravel.feature.map.MapSourceKind
 import com.pockettravel.feature.map.NavigationPlace
-import com.pockettravel.feature.map.TravelMode
+import com.pockettravel.feature.map.RouteProfile
 import com.pockettravel.core.ui.R as UiR
 
 private enum class RegionTab(val key: String, @StringRes val label: Int) {
@@ -87,6 +87,7 @@ fun RegionHubScreen(
 ) {
     var selectedTab by rememberSaveable(regionId) { mutableStateOf(RegionTab.fromKey(initialTab)) }
     val displayName by viewModel.displayName.collectAsStateWithLifecycle()
+    val splitCountry by viewModel.splitCountry.collectAsStateWithLifecycle()
     val regionMissing by viewModel.regionMissing.collectAsStateWithLifecycle()
     val mapState by viewModel.mapState.collectAsStateWithLifecycle()
     val aiAvailable by viewModel.aiAvailable.collectAsStateWithLifecycle()
@@ -271,8 +272,8 @@ private fun MapDownloadBar(sourceKind: MapSourceKind, downloading: Boolean, onDo
     }
 }
 
-private fun NavigationRequestMode.toTravelMode(): TravelMode = when (this) {
-    NavigationRequestMode.WALK -> TravelMode.WALK
-    NavigationRequestMode.BIKE -> TravelMode.BIKE
-    NavigationRequestMode.CAR -> TravelMode.CAR
+private fun NavigationRequestMode.toRouteProfile(): RouteProfile = when (this) {
+    NavigationRequestMode.WALK -> RouteProfile.WALK
+    NavigationRequestMode.BIKE -> RouteProfile.BIKE
+    NavigationRequestMode.CAR -> RouteProfile.CAR
 }

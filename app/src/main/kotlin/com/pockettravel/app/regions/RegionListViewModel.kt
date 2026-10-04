@@ -12,7 +12,7 @@ import androidx.work.WorkInfo
 import com.pockettravel.app.R
 import com.pockettravel.app.runCatchingCancellable
 import com.pockettravel.core.data.PackageKind
-import com.pockettravel.core.data.RegionPackage
+import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.UpdateCheck
 import com.pockettravel.core.sync.AddressGridClient
@@ -91,7 +91,10 @@ data class RegionUiItem(
     val routingCarAvailable: Boolean = false,
     // La mappa e' tra i pacchetti da scaricare: il suo peso non e' in sizeBytes (si conosce solo estraendola).
     val includesMap: Boolean = false,
-)
+) {
+    // Parte di una nazione divisa: "Tutta la regione" invece di "Tutta la nazione" (senza manifest, dal nome).
+    val splitCountry: Boolean get() = groupName != null || isSplitCountryName(displayName, countryCode)
+}
 
 data class RegionBbox(val minLon: Double, val minLat: Double, val maxLon: Double, val maxLat: Double)
 
@@ -419,7 +422,7 @@ class RegionListViewModel @Inject constructor(
  * Una nazione installata quando il catalogo non c'e': solo i pacchetti sul telefono, tutti "installati" (senza
  * catalogo non si sa se ci sono aggiornamenti) e senza nulla da scaricare.
  */
-internal fun offlineRegionItem(local: RegionPackage, installedBytes: (RegionPackage, PackageKind) -> Long?): RegionUiItem =
+internal fun offlineRegionItem(local: InstalledRegion, installedBytes: (InstalledRegion, PackageKind) -> Long?): RegionUiItem =
     RegionUiItem(
         regionId = local.regionId,
         displayName = local.displayName,
@@ -433,7 +436,7 @@ internal fun offlineRegionItem(local: RegionPackage, installedBytes: (RegionPack
 
 /** Regioni installate che il manifest non offre piu' perche' divise in regioni piu' piccole. */
 internal fun replacedItems(
-    installed: List<RegionPackage>,
+    installed: List<InstalledRegion>,
     remoteRegions: List<RegionManifestEntry>,
     replacedRegions: List<ReplacedRegion>,
 ): List<ReplacedRegionItem> {
@@ -445,13 +448,13 @@ internal fun replacedItems(
 }
 
 /** Pacchetti installati la cui versione nel manifest e' cambiata (tra quelli che il manifest offre ancora). */
-internal fun outdatedKinds(remote: RegionManifestEntry, local: RegionPackage?): Set<PackageKind> =
+internal fun outdatedKinds(remote: RegionManifestEntry, local: InstalledRegion?): Set<PackageKind> =
     remote.availableKinds.filterTo(mutableSetOf()) { kind -> local?.versionOf(kind)?.let { it != remote.versionOf(kind) } == true }
 
 internal fun regionUiItem(
     remote: RegionManifestEntry,
-    local: RegionPackage?,
-    installedBytes: (RegionPackage, PackageKind) -> Long?,
+    local: InstalledRegion?,
+    installedBytes: (InstalledRegion, PackageKind) -> Long?,
     // Civici a griglia: celle gia' installate (id -> version), per
     // contare solo quelle nuove o cambiate nella dimensione da scaricare. Non serve per le regioni
     // senza griglia: il default basta a tutti i test.
@@ -535,6 +538,10 @@ internal fun localizedInstalledName(displayName: String, countryCode: String?, l
         else -> displayName
     }
 }
+
+/** Il nome di una regione di una nazione divisa ("Francia - Bretagna", anche col paese tradotto da [localizedInstalledName]). */
+internal fun isSplitCountryName(displayName: String, countryCode: String?, locale: Locale = Locale.getDefault()): Boolean =
+    countryCode != null && listOf(Locale.ITALIAN, locale).any { displayName.startsWith("${countryName(countryCode, it)} - ") }
 
 // Ricerca senza distinzione di maiuscole e accenti ("cina" trova "Cina", "sao" trova "São Tomé").
 internal fun matchesQuery(displayName: String, query: String): Boolean {

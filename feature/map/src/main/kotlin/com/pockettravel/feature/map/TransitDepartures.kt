@@ -89,7 +89,7 @@ internal fun TransitDeparturesSection(state: TransitPackageState, board: Transit
                     Sources(board.feeds)
                 }
                 is TransitBoard.Departures -> {
-                    // Accessibilita' solo con "Con disabilita'", e solo se la rete la indica.
+                    // Accessibilita' solo con "In sedia a rotelle", e solo se la rete la indica.
                     if (showAccessibility) {
                         board.stopWheelchair?.let { accessible ->
                             AccessibilityRow(accessible, if (accessible) R.string.transit_stop_wheelchair_yes else R.string.transit_stop_wheelchair_no)

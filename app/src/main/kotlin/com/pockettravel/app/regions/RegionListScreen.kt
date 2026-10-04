@@ -715,6 +715,7 @@ internal fun RegionDownloadFlow(
     if (showZoneChoice) {
         ZoneChoiceDialog(
             displayName = item.displayName,
+            splitCountry = item.splitCountry,
             onWholeRegion = { showZoneChoice = false; actions.onZoneChange(item.regionId, null, false); startDownload() },
             onPickZone = { showZoneChoice = false; pickingZone = true },
             onDismiss = { showZoneChoice = false },
@@ -761,7 +762,7 @@ private fun RegionUiItem.statusLabel(): Int = when (status) {
     RegionStatus.UPDATE_AVAILABLE -> R.string.regions_status_update
 }
 
-// Ordine dei continenti come in pilot-regions.sh/assemble-site.sh; un continente sconosciuto va in
+// Ordine dei continenti come in regions.sh/assemble-site.sh; un continente sconosciuto va in
 // coda, le regioni senza continente (manifest pubblicati prima del campo) nel gruppo "Altro".
 private val CONTINENT_ORDER = listOf("Europa", "Asia", "Africa", "Nord America", "Sud America", "Oceania")
 

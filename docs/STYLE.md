@@ -62,11 +62,23 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 
 | Concetto | Italiano | Inglese |
 |---|---|---|
-| Paese o territorio scaricabile | nazione (elenco), regione (pacchetto) | country, region |
+| Paese o territorio scaricabile | nazione (elenco), regione (unita' che si scarica) | country, region |
+| Pagina con le schede Guida, Mappa, Navigatore, IA | pagina della regione | region page |
 | Testo di Wikivoyage di un paese | guida | guide |
 | Testo di Wikivoyage di una citta' | guida della citta' | city guide |
+| Indicazioni durante il viaggio | navigazione | navigation |
 | Riquadro con un contenuto | scheda | card |
-| Assistente con il modello locale | assistente | assistant |
+| Parte scaricabile di una regione (mappa, guide, mezzi pubblici...) | contenuto | content |
+| Assistente, con il modello sul dispositivo o online | assistente | assistant |
+| Dove gira l'assistente | motore (sul dispositivo, online) | engine (on device, online) |
 | Modello scaricabile | modello | model |
-| Calcolo del percorso | percorso | route |
-| Pacchetto dei percorsi | percorsi | routing |
+| Percorso calcolato | percorso | route |
+| Contenuto con strade e sentieri per calcolare i percorsi | rete stradale | road network |
+| Mappa a bassa risoluzione installata da sola | mappa d'insieme | overview map |
+| Mappa per scegliere la nazione | mappa delle nazioni | country map |
+| Spazio cifrato con la biometria per i documenti | cassaforte | vault |
+| Livello di una vaccinazione non obbligatoria | raccomandata | recommended |
+| Scalo aereo nelle regole delle vaccinazioni | scalo | stopover |
+
+"Paese" resta per i paesi del mondo che non si scaricano: nazionalita', partenza e destinazione delle vaccinazioni
+("Paese di partenza", "del tuo paese").

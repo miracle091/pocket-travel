@@ -122,7 +122,7 @@ import kotlin.math.cos
  * Tab Navigazione dell'hub, sul modello delle app di navigazione: la mappa a tutto schermo, in alto
  * la ricerca della meta (poi partenza, arrivo e mezzo), in basso un pannello con i recenti o con
  * tempo, distanza, "Avvia" e le svolte del percorso. La ricerca occupa tutto lo schermo, come in
- * Google Maps. In navigazione la scheda mostra la guida passo passo (NavigationGuidance).
+ * Google Maps. In navigazione la scheda mostra la navigazione passo passo (NavigationInstructions).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,7 +130,7 @@ fun NavigationPlannerScreen(
     // La regione della tab che ospita il Navigatore (per prima nella ricerca), null nel Navigatore della barra principale.
     regionId: String?,
     viewModel: NavigationPlannerViewModel,
-    // La guida passo passo, nella stessa scheda: "Avvia" la fa partire, "Termina" torna qui.
+    // La navigazione passo passo, nella stessa scheda: "Avvia" la fa partire, "Termina" torna qui.
     navigationViewModel: NavigationViewModel,
     // Senza i Percorsi della regione: avvia il download (l'hub lo sa fare), il ricalcolo poi e' automatico.
     // Con gli id di altre regioni: quelle del catalogo tra partenza e arrivo (vuota = la regione aperta).
@@ -149,7 +149,7 @@ fun NavigationPlannerScreen(
     val to by viewModel.to.collectAsStateWithLifecycle()
     val searching by viewModel.searching.collectAsStateWithLifecycle()
     val preview by viewModel.preview.collectAsStateWithLifecycle()
-    val travelMode by viewModel.travelMode.collectAsStateWithLifecycle()
+    val routeProfile by viewModel.routeProfile.collectAsStateWithLifecycle()
     val routing by viewModel.routing.collectAsStateWithLifecycle()
     val allowSteps by viewModel.allowSteps.collectAsStateWithLifecycle()
     val recents by viewModel.recents.collectAsStateWithLifecycle()
@@ -193,7 +193,7 @@ fun NavigationPlannerScreen(
     // senza bloccare la partenza se viene negato.
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
-    // In navigazione la scheda e' il navigatore: mappa a tutto schermo e indicazioni (NavigationGuidance).
+    // In navigazione la scheda e' il navigatore: mappa a tutto schermo e indicazioni (NavigationInstructions).
     val guiding by navigationViewModel.target.collectAsStateWithLifecycle()
     // Meta appena raggiunta: la guida si chiude da sola e il Navigatore lo dice con un avviso.
     var arrivedAt by rememberSaveable { mutableStateOf<String?>(null) }
@@ -202,7 +202,7 @@ fun NavigationPlannerScreen(
     if (guidingTarget != null) {
         val navigationState by navigationViewModel.uiState.collectAsStateWithLifecycle()
         val navigationRegions by navigationViewModel.regionIds.collectAsStateWithLifecycle()
-        val navigationMode by navigationViewModel.travelMode.collectAsStateWithLifecycle()
+        val navigationMode by navigationViewModel.routeProfile.collectAsStateWithLifecycle()
         val navigationArriveBy by navigationViewModel.arriveBy.collectAsStateWithLifecycle()
         val walkingHaptics by navigationViewModel.walkingHaptics.collectAsStateWithLifecycle()
         val drivingSide by navigationViewModel.drivingSideWarning.collectAsStateWithLifecycle()
@@ -210,7 +210,7 @@ fun NavigationPlannerScreen(
         // Con "Spegni il GPS all'arrivo" tolto la guida resta aperta: all'arrivo solo la vibrazione.
         LaunchedEffect(arrivedAtMillis) {
             if (navigationState != NavigationUiState.Arrived && isRecentArrival(arrivedAtMillis, System.currentTimeMillis())) {
-                if (navigationMode == TravelMode.WALK && walkingHaptics) NavigationHaptics.arrived(context)
+                if (navigationMode == RouteProfile.WALK && walkingHaptics) NavigationHaptics.arrived(context)
             }
         }
         BackHandler(onBack = navigationViewModel::stop)
@@ -231,17 +231,17 @@ fun NavigationPlannerScreen(
                 // dopo qualche minuto non si annuncia piu', la guida si chiude e basta.
                 if (isRecentArrival(navigationViewModel.arrivedAtMillis.value, System.currentTimeMillis())) {
                     arrivedAt = guidingTarget.name
-                    if (navigationMode == TravelMode.WALK && walkingHaptics) NavigationHaptics.arrived(context)
+                    if (navigationMode == RouteProfile.WALK && walkingHaptics) NavigationHaptics.arrived(context)
                 }
                 // Viaggio concluso: il Navigatore riparte da "Dove vuoi andare?", senza il percorso ormai vecchio.
                 viewModel.clearDestination()
                 navigationViewModel.stop()
             }
         }
-        NavigationGuidance(
+        NavigationInstructions(
             state = navigationState,
             destinationName = guidingTarget.name,
-            travelMode = navigationMode,
+            routeProfile = navigationMode,
             arriveBy = navigationArriveBy,
             tileSource = navigationViewModel.tileSource,
             regionIds = navigationRegions.ifEmpty { mapRegionIds },
@@ -254,7 +254,7 @@ fun NavigationPlannerScreen(
             missingRegions = guidanceMissing,
             downloadFailed = downloadFailed,
             downloadProgress = downloadProgress,
-            onDownloadRouting = { onDownloadRouting(guidanceMissing.map { it.regionId }, navigationMode == TravelMode.CAR) },
+            onDownloadRouting = { onDownloadRouting(guidanceMissing.map { it.regionId }, navigationMode == RouteProfile.CAR) },
         )
         return
     }
@@ -270,7 +270,7 @@ fun NavigationPlannerScreen(
             query = query,
             results = results,
             preview = preview,
-            travelMode = travelMode,
+            routeProfile = routeProfile,
             wheelchair = routing.wheelchair,
             allowSteps = allowSteps,
             recents = recents,
@@ -299,15 +299,15 @@ fun NavigationPlannerScreen(
                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
                 // Il percorso gia' calcolato nell'anteprima non si ricalcola da zero (se la posizione e' sul percorso).
-                to?.let { navigationViewModel.start(regionId ?: it.regionId, it, travelMode, arriveBy, preview as? PlannerPreview.Ready) }
+                to?.let { navigationViewModel.start(regionId ?: it.regionId, it, routeProfile, arriveBy, preview as? PlannerPreview.Ready) }
             },
             onSwap = viewModel::swap,
-            onTravelModeChange = viewModel::setTravelMode,
+            onRouteProfileChange = viewModel::setRouteProfile,
             onArriveByChange = viewModel::setArriveBy,
             onSetReminder = viewModel::setReminder,
             onRetry = viewModel::refreshPreview,
             onRequestPermission = requestPermission,
-            onDownloadRouting = { onDownloadRouting(missingRegions.map { it.regionId }, travelMode == TravelMode.CAR) },
+            onDownloadRouting = { onDownloadRouting(missingRegions.map { it.regionId }, routeProfile == RouteProfile.CAR) },
             onAllowStepsChange = viewModel::setAllowSteps,
             onArrivalAnnounced = { arrivedAt = null },
         ),
@@ -336,7 +336,7 @@ internal data class NavigationPlannerState(
     val query: String = "",
     val results: List<PlannerResult> = emptyList(),
     val preview: PlannerPreview = PlannerPreview.Idle,
-    val travelMode: TravelMode = TravelMode.WALK,
+    val routeProfile: RouteProfile = RouteProfile.WALK,
     // Percorso in sedia a rotelle: sotto tempo e distanza si offre "Accetta qualche gradino".
     val wheelchair: Boolean = false,
     val allowSteps: Boolean = false,
@@ -364,7 +364,7 @@ internal class NavigationPlannerActions(
     val onClearRecents: () -> Unit = {},
     val onStart: () -> Unit = {},
     val onSwap: () -> Unit = {},
-    val onTravelModeChange: (TravelMode) -> Unit = {},
+    val onRouteProfileChange: (RouteProfile) -> Unit = {},
     val onArriveByChange: (LocalDateTime?) -> Unit = {},
     val onSetReminder: (LocalDateTime) -> Unit = {},
     val onRetry: () -> Unit = {},
@@ -441,7 +441,7 @@ internal fun NavigationPlannerContent(
                 routingInstalled = state.routingInstalled,
                 downloadProgress = state.downloadProgress,
                 downloadFailed = state.downloadFailed,
-                travelMode = state.travelMode,
+                routeProfile = state.routeProfile,
                 missingRegions = state.missingRegions,
                 onDownloadRouting = actions.onDownloadRouting,
                 wheelchairOptions = if (state.wheelchair && to != null) {
@@ -472,8 +472,8 @@ internal fun NavigationPlannerContent(
                         onEditFrom = { actions.onStartSearch(PlannerField.FROM) },
                         onEditTo = { actions.onStartSearch(PlannerField.TO) },
                         onSwap = actions.onSwap,
-                        travelMode = state.travelMode,
-                        onTravelModeChange = actions.onTravelModeChange,
+                        routeProfile = state.routeProfile,
+                        onRouteProfileChange = actions.onRouteProfileChange,
                     )
                 }
             }
@@ -508,8 +508,8 @@ private fun RoutePanel(
     onEditFrom: () -> Unit,
     onEditTo: () -> Unit,
     onSwap: () -> Unit,
-    travelMode: TravelMode,
-    onTravelModeChange: (TravelMode) -> Unit,
+    routeProfile: RouteProfile,
+    onRouteProfileChange: (RouteProfile) -> Unit,
 ) {
     Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(start = Spacing.m, top = Spacing.s, bottom = Spacing.s)) {
@@ -537,17 +537,17 @@ private fun RoutePanel(
             }
             // Solo il mezzo scelto ha anche il nome: tre chip con l'icona stanno in una riga stretta.
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.padding(top = Spacing.xs)) {
-                TravelMode.entries.forEach { mode ->
+                RouteProfile.entries.forEach { mode ->
                     val (icon, text) = when (mode) {
-                        TravelMode.WALK -> UiR.drawable.ms_directions_walk to R.string.usage_mode_walk
-                        TravelMode.BIKE -> UiR.drawable.ms_directions_bike to R.string.usage_mode_bike
-                        TravelMode.CAR -> UiR.drawable.ms_directions_car to R.string.usage_mode_car
+                        RouteProfile.WALK -> UiR.drawable.ms_directions_walk to R.string.usage_mode_walk
+                        RouteProfile.BIKE -> UiR.drawable.ms_directions_bike to R.string.usage_mode_bike
+                        RouteProfile.CAR -> UiR.drawable.ms_directions_car to R.string.usage_mode_car
                     }
-                    val selected = mode == travelMode
+                    val selected = mode == routeProfile
                     val name = stringResource(text)
                     FilterChip(
                         selected = selected,
-                        onClick = { onTravelModeChange(mode) },
+                        onClick = { onRouteProfileChange(mode) },
                         label = {
                             if (selected) {
                                 Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -604,7 +604,7 @@ private fun PlannerSheet(
     downloadProgress: Float?,
     downloadFailed: Boolean,
     onDownloadRouting: () -> Unit,
-    travelMode: TravelMode,
+    routeProfile: RouteProfile,
     // Le regioni del catalogo senza Percorsi tra partenza e arrivo, in ordine (vuota se non si sono trovate).
     missingRegions: List<MissingRegion>,
     wheelchairOptions: (@Composable () -> Unit)?,
@@ -638,7 +638,7 @@ private fun PlannerSheet(
             }
             preview is PlannerPreview.Unavailable && preview.result == RouteResult.NoRoutingData ->
                 SheetMessage(stringResource(R.string.navigation_outside_routing))
-            preview is PlannerPreview.Calculating -> Calculating(preview.progress, travelMode)
+            preview is PlannerPreview.Calculating -> Calculating(preview.progress, routeProfile)
             preview is PlannerPreview.NeedsPermission ->
                 SheetMessage(stringResource(R.string.planner_permission), stringResource(R.string.navigation_permission_grant), onRequestPermission)
             preview is PlannerPreview.NoLocation ->
@@ -662,12 +662,12 @@ private fun PlannerSheet(
 // un calcolo in auto puo' durare minuti, una scritta ferma sembrerebbe un blocco. TalkBack legge solo il
 // titolo, non ogni cambio di percentuale.
 @Composable
-private fun Calculating(progress: Double, travelMode: TravelMode) {
+private fun Calculating(progress: Double, routeProfile: RouteProfile) {
     val mode = stringResource(
-        when (travelMode) {
-            TravelMode.WALK -> R.string.usage_mode_walk
-            TravelMode.BIKE -> R.string.usage_mode_bike
-            TravelMode.CAR -> R.string.usage_mode_car
+        when (routeProfile) {
+            RouteProfile.WALK -> R.string.usage_mode_walk
+            RouteProfile.BIKE -> R.string.usage_mode_bike
+            RouteProfile.CAR -> R.string.usage_mode_car
         },
     )
     val title = stringResource(R.string.planner_calculating)

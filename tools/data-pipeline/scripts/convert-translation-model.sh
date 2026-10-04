@@ -27,7 +27,7 @@ trap 'rm -rf "$WORKDIR"' EXIT
 
 # Il modello va letto e salvato in locale prima di convertirlo: transformers 5 non lega lm_head agli embedding quando i
 # pesi sono solo in pytorch_model.bin (opus-mt-tc-big-it-en) e senza il legame il modello genera parole a caso (stessa
-# correzione di translate_sections.py).
+# correzione di translate_dataset.py).
 "$PYTHON" - "$MODEL" "$REVISION" "$WORKDIR/hf" <<'PY'
 import sys
 from transformers import MarianMTModel, MarianTokenizer

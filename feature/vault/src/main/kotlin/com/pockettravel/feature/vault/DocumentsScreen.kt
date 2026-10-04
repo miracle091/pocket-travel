@@ -49,7 +49,7 @@ fun DocumentsScreen() {
             )
         }
         Box(modifier = Modifier.weight(1f)) {
-            if (selected == 0) PassportVaultScreen() else NotesScreen()
+            if (selected == 0) VaultScreen() else NotesScreen()
         }
     }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Genera guides.db, il pacchetto guide unico per tutte le regioni di pilot-regions.sh (sezioni
+# Genera guides.db, il pacchetto guide unico per tutte le regioni di regions.sh (sezioni
 # Wikivoyage + numeri di emergenza, via il tool Kotlin generateGuides), e il suo frammento
 # manifest.json (voce "guides"). L'app lo scarica una volta per tutte le nazioni, separato dai
 # pacchetti per regione (mappa, POI, routing) di build-region.sh, e lo aggiorna da solo: pesa
@@ -29,7 +29,7 @@
 # (data nella tabella guides_meta); una modifica alle guide lo pubblica subito, con missioni fresche.
 #
 # Sezioni tradotte dall'altra lingua (sezione 3a): con TRANSLATE_CACHE_DIR e i modelli attivi (vedi translate_overlay in
-# lib.sh) le categorie assenti o molto piu' povere di quelle dell'altra lingua (translate_sections.needs_translation) sono
+# lib.sh) le categorie assenti o molto piu' povere di quelle dell'altra lingua (translate_dataset.needs_translation) sono
 # sostituite da quelle tradotte (translate_guides.py), con translated = 1 in guide_sections e l'url della pagina
 # d'origine. La passata "en" va lanciata prima di quella italiana, con GUIDES_PLAIN_COPY=<file> (dove lascia la guida
 # inglese non arricchita) e poi GUIDES_SOURCE_DB=<lo stesso file> per l'italiana; GUIDES_TRANSLATE_SECONDS e' il tempo
@@ -58,8 +58,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 # shellcheck source=./lib.sh
 source "$SCRIPT_DIR/lib.sh"
-# shellcheck source=./pilot-regions.sh
-source "$SCRIPT_DIR/pilot-regions.sh"
+# shellcheck source=./regions.sh
+source "$SCRIPT_DIR/regions.sh"
 
 mkdir -p "$OUTPUT_DIR"
 WORKDIR="$(mktemp -d)"
@@ -71,7 +71,7 @@ REGIONS_TSV="$WORKDIR/regions.tsv"
 REGIONS_IT_TSV="$WORKDIR/regions-it.tsv"
 : > "$REGIONS_IT_TSV"
 FAILED=0
-for spec in "${PILOT_REGIONS[@]}"; do
+for spec in "${ALL_REGIONS[@]}"; do
   IFS='|' read -r regionId _ _ _ _ _ wikiTitle _ <<< "$spec"
   dump="$WORKDIR/$regionId.txt"
   if [ "$LANG_CODE" = "en" ]; then
@@ -106,11 +106,11 @@ for spec in "${PILOT_REGIONS[@]}"; do
     FAILED=$((FAILED + 1))
   fi
 done
-if [ "$FAILED" -eq "${#PILOT_REGIONS[@]}" ]; then
+if [ "$FAILED" -eq "${#ALL_REGIONS[@]}" ]; then
   echo "ERRORE: nessuna pagina Wikivoyage scaricata" >&2
   exit 1
 fi
-echo "-- pagine Wikivoyage: $(( ${#PILOT_REGIONS[@]} - FAILED ))/${#PILOT_REGIONS[@]} scaricate"
+echo "-- pagine Wikivoyage: $(( ${#ALL_REGIONS[@]} - FAILED ))/${#ALL_REGIONS[@]} scaricate"
 
 # --- 2. guides.db pubblicato (per il confronto e per le regioni non scaricate) ------------------
 PUBLISHED_DB=""

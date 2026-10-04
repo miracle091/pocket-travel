@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test di generate-subregion-rows.py (riquadri, slug, righe di pilot-regions.sh) su un GeoJSON sintetico: nessuna
+"""Test di generate-subregion-rows.py (riquadri, slug, righe di regions.sh) su un GeoJSON sintetico: nessuna
 rete (--check-wikivoyage non e' coperto).
 
 Uso: python test_generate_subregion_rows.py

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Script una tantum (NON eseguito in CI): genera weekly-schedule.sh, l'assegnazione statica delle
-# regioni di pilot-regions.sh ai 7 giorni della settimana usata da publish-regions.yml per
+# regioni di regions.sh ai 7 giorni della settimana usata da publish-regions.yml per
 # spalmare la ripubblicazione automatica.
-# Va rilanciato a mano quando pilot-regions.sh cambia (regione
+# Va rilanciato a mano quando regions.sh cambia (regione
 # aggiunta/rimossa/bbox modificato) o quando si vuole aggiornare il peso misurato delle regioni
 # (la copertura .rd5 di BRouter puo' cambiare nel tempo) — nessun automatismo lo richiama da solo.
 #
@@ -18,7 +18,7 @@
 #      run completa del 2026-09-28).
 #   2. Rank turistico noto solo per una manciata di nazioni (fonte UNWTO/Statista/Wikipedia 2024,
 #      alta confidenza solo sulla top ~12): le altre regioni sono
-#      "senza rank", in coda, nell'ordine di pilot-regions.sh (cioe' per continente). Il rank di
+#      "senza rank", in coda, nell'ordine di regions.sh (cioe' per continente). Il rank di
 #      una nazione divisa in regioni (es. "stati-uniti") vale per tutte le sue ("stati-uniti-*").
 #   3. Le regioni "gigante" (>50 tile land) vengono spalmate un giorno diverso a testa (ordine
 #      decrescente per tile land, giorno = indice a rotazione sui 7 giorni) finche' i 7 giorni non
@@ -40,8 +40,8 @@ CONCURRENCY=8
 REGION_TIMINGS_URL="https://miracle091.github.io/pocket-travel/region-timings.tsv"
 SECONDS_PER_TILE=50
 
-# shellcheck source=./pilot-regions.sh
-source "$SCRIPT_DIR/pilot-regions.sh"
+# shellcheck source=./regions.sh
+source "$SCRIPT_DIR/regions.sh"
 # shellcheck source=./lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
@@ -49,11 +49,11 @@ WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
 # --- passo 1: tile per regione + insieme globale deduplicato -----------------------------------
-echo "== calcolo la griglia di tile per ${#PILOT_REGIONS[@]} regioni ==" >&2
+echo "== calcolo la griglia di tile per ${#ALL_REGIONS[@]} regioni ==" >&2
 declare -A REGION_TILES
 ALL_TILES_FILE="$WORKDIR/all-tiles.txt"
 : > "$ALL_TILES_FILE"
-for spec in "${PILOT_REGIONS[@]}"; do
+for spec in "${ALL_REGIONS[@]}"; do
   IFS='|' read -r regionId _ minLon minLat maxLon maxLat _ _ _ _ _ <<< "$spec"
   lonStart="$(floor5 "$minLon")"; lonEnd="$(floor5 "$maxLon")"
   latStart="$(floor5 "$minLat")"; latEnd="$(floor5 "$maxLat")"
@@ -104,7 +104,7 @@ while IFS=$'\t' read -r tile status; do
   TILE_STATUS["$tile"]="$status"
 done < "$TILE_STATUS_FILE"
 
-# --- passo 3: peso per regione (tile land o tempo misurato), nell'ordine di pilot-regions.sh ----
+# --- passo 3: peso per regione (tile land o tempo misurato), nell'ordine di regions.sh ----
 declare -A TIMINGS=()
 if curl -sSfL -A "$PIPELINE_USER_AGENT" "$REGION_TIMINGS_URL" -o "$WORKDIR/timings.tsv"; then
   while IFS=$'\t' read -r regionId seconds; do
@@ -116,7 +116,7 @@ LOADS_FILE="$WORKDIR/loads.tsv"
 : > "$LOADS_FILE"
 orderIndex=0
 totalLand=0
-for spec in "${PILOT_REGIONS[@]}"; do
+for spec in "${ALL_REGIONS[@]}"; do
   IFS='|' read -r regionId _ <<< "$spec"
   landCount=0
   for tile in ${REGION_TILES["$regionId"]}; do
@@ -130,10 +130,10 @@ for spec in "${PILOT_REGIONS[@]}"; do
   orderIndex=$((orderIndex + 1))
   totalLand=$((totalLand + landCount))
 done
-echo "== $totalLand tile land totali su ${#PILOT_REGIONS[@]} regioni ==" >&2
+echo "== $totalLand tile land totali su ${#ALL_REGIONS[@]} regioni ==" >&2
 
 # --- passo 4: rank turistico noto (fonte UNWTO/Statista/Wikipedia 2024 — solo la top ~12 ad alta confidenza,
-# il resto resta "senza rank" e va in coda nell'ordine di pilot-regions.sh) ---------------------
+# il resto resta "senza rank" e va in coda nell'ordine di regions.sh) ---------------------
 RANKS_FILE="$WORKDIR/ranks.tsv"
 cat > "$RANKS_FILE" <<'RANKS'
 francia	1
@@ -201,12 +201,12 @@ awk -F'\t' -v giantsFile="$GIANTS_FILE" -v nonGiantFile="$NONGIANT_FILE" '
 ' < /dev/null > "$ASSIGN_FILE"
 # colonne: regionId, day, orderIndex
 
-# --- passo 6: scrittura di weekly-schedule.sh, un giorno per regione nell'ordine di pilot-regions.sh --
+# --- passo 6: scrittura di weekly-schedule.sh, un giorno per regione nell'ordine di regions.sh --
 {
   echo "#!/usr/bin/env bash"
   echo "# Generato da generate-weekly-schedule.sh il $(date -u +%Y-%m-%d) — NON MODIFICARE A MANO."
   echo "# Rilancia generate-weekly-schedule.sh per rigenerarlo (es. dopo una modifica a"
-  echo "# pilot-regions.sh). Ogni WEEKLY_SCHEDULE_DAY_N e' l'elenco regionId, separati da virgola,"
+  echo "# regions.sh). Ogni WEEKLY_SCHEDULE_DAY_N e' l'elenco regionId, separati da virgola,"
   echo "# da processare nel giorno N (1=lunedi ... 7=domenica)."
   echo "#"
   echo "# Carico misurato (tile land) per giorno al momento della generazione:"

@@ -1,7 +1,7 @@
 package com.pockettravel.app.regions
 
 import com.pockettravel.core.data.PackageKind
-import com.pockettravel.core.data.RegionPackage
+import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.sync.AddressGridCell
 import com.pockettravel.core.sync.MapExtractionSource
 import com.pockettravel.core.sync.MapPackageEntry
@@ -16,7 +16,10 @@ import com.pockettravel.core.sync.TransitFeed
 import com.pockettravel.core.sync.TransitIndex
 import com.pockettravel.core.sync.attachTransitFeeds
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Locale
 
 class RegionUiItemTest {
 
@@ -32,7 +35,7 @@ class RegionUiItemTest {
     )
 
     private fun local(map: String?, routing: String?, poi: String?, addresses: String? = null, poiExtra: String? = null) =
-        RegionPackage(
+        InstalledRegion(
             "italia", "Italia", "it", mapVersion = map, routingVersion = routing, poiVersion = poi, poiExtraVersion = poiExtra,
             addressesVersion = addresses, poiSizeBytes = poi?.let { 60_000_000L }, poiExtraSizeBytes = poiExtra?.let { 1_000_000L }, sizeBytes = 123,
         )
@@ -50,7 +53,7 @@ class RegionUiItemTest {
         ),
     )
 
-    private val noBytes: (RegionPackage, PackageKind) -> Long? = { _, _ -> null }
+    private val noBytes: (InstalledRegion, PackageKind) -> Long? = { _, _ -> null }
 
     @Test
     fun `gli orari dei mezzi pubblici sono un pacchetto con i nomi delle reti e il peso, fuori dal download completo`() {
@@ -227,7 +230,7 @@ class RegionUiItemTest {
 
     @Test
     fun `una regione installata e sostituita nel manifest viene proposta con il suo gruppo`() {
-        val oldRegion = RegionPackage(
+        val oldRegion = InstalledRegion(
             "stati-uniti", "Stati Uniti (contigui)", "us", mapVersion = "m1", routingVersion = "r1", poiVersion = "p1",
             poiExtraVersion = null, addressesVersion = null, poiSizeBytes = 1, poiExtraSizeBytes = null, sizeBytes = 2_000,
         )
@@ -238,5 +241,16 @@ class RegionUiItemTest {
         assertEquals(listOf(ReplacedRegionItem("stati-uniti", "Stati Uniti (contigui)", "us", "Stati Uniti d'America", 2_000)), items)
         // Ancora nel manifest (o non sostituita): nessuna proposta.
         assertEquals(emptyList<ReplacedRegionItem>(), replacedItems(listOf(local("m2", "r1", "p2")), listOf(remote), listOf(ReplacedRegion("italia", "x"))))
+    }
+
+    @Test
+    fun `una regione di una nazione divisa si riconosce dal nome, anche tradotto`() {
+        assertTrue(isSplitCountryName("Francia - Bretagna", "fr", Locale.ITALIAN))
+        assertTrue(isSplitCountryName("France - Bretagna", "fr", Locale.ENGLISH))
+        assertTrue(isSplitCountryName("Stati Uniti - Alaska", "us", Locale.ITALIAN))
+        assertFalse(isSplitCountryName("Francia", "fr", Locale.ITALIAN))
+        assertFalse(isSplitCountryName("Sint Maarten (Paesi Bassi)", "sx", Locale.ITALIAN))
+        assertFalse(isSplitCountryName("Francia - Bretagna", null, Locale.ITALIAN))
+        assertTrue(RegionUiItem("x", "Qualsiasi", 0, RegionStatus.INSTALLED, groupName = "Francia").splitCountry)
     }
 }

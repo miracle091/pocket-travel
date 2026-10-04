@@ -25,7 +25,7 @@
 # operatori nazionali. Non GTFS Sweden 3 (mdb-2939, 694 MB): Trafiklab stessa scrive che non contiene
 # ancora tutti i mezzi della Svezia e consiglia Sverige 2 per la copertura completa.
 #
-# regioni: regionId di pilot-regions.sh separati da virgola (le regioni che propongono la rete).
+# regioni: regionId di regions.sh separati da virgola (le regioni che propongono la rete).
 # attribuzione: testo per la schermata Licenze e sotto il tabellone.
 # url_feed (facoltativa): dove scaricare il feed, se non dalla copia del Mobility Database.
 #

@@ -10,12 +10,12 @@ class UsableRoutingRegionsTest {
 
     @Test
     fun `in auto valgono anche i percorsi solo per l'auto`() {
-        assertEquals(withRouting, usableRoutingRegions(withRouting, carOnly, TravelMode.CAR))
+        assertEquals(withRouting, usableRoutingRegions(withRouting, carOnly, RouteProfile.CAR))
     }
 
     @Test
     fun `a piedi e in bici i percorsi solo per l'auto non valgono`() {
-        assertEquals(setOf("francia"), usableRoutingRegions(withRouting, carOnly, TravelMode.WALK))
-        assertEquals(setOf("francia"), usableRoutingRegions(withRouting, carOnly, TravelMode.BIKE))
+        assertEquals(setOf("francia"), usableRoutingRegions(withRouting, carOnly, RouteProfile.WALK))
+        assertEquals(setOf("francia"), usableRoutingRegions(withRouting, carOnly, RouteProfile.BIKE))
     }
 }

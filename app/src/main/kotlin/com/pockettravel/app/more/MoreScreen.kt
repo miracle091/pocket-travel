@@ -19,7 +19,7 @@ import androidx.compose.ui.res.stringResource
 import com.pockettravel.app.R
 import com.pockettravel.core.ui.AppIcons
 
-// Terza destinazione principale ("Altro"): le Impostazioni (lingua, nazionalita', aspetto, Navigatore) e
+// Quarta destinazione principale ("Altro"): le Impostazioni (lingua, nazionalita', aspetto, Navigatore) e
 // le voci di servizio (Fonti ufficiali, Spazio, Tutorial, Licenze).
 @Composable
 fun MoreScreen(

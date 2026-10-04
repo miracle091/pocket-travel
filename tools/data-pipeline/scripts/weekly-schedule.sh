@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Generato da generate-weekly-schedule.sh il 2026-09-25 — NON MODIFICARE A MANO.
 # Rilancia generate-weekly-schedule.sh per rigenerarlo (es. dopo una modifica a
-# pilot-regions.sh). Ogni WEEKLY_SCHEDULE_DAY_N e' l'elenco regionId, separati da virgola,
+# regions.sh). Ogni WEEKLY_SCHEDULE_DAY_N e' l'elenco regionId, separati da virgola,
 # da processare nel giorno N (1=lunedi ... 7=domenica).
 #
 # Carico misurato (tile land) per giorno al momento della generazione:

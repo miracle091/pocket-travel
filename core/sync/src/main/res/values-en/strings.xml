@@ -7,7 +7,7 @@
     <string name="sync_download_extracting_map">Extracting the map · %1$d%%</string>
     <string name="sync_download_installing">Installing…</string>
     <string name="sync_package_map">Map</string>
-    <string name="sync_package_routing">Routing</string>
+    <string name="sync_package_routing">Road network</string>
     <string name="sync_package_poi">Points of interest</string>
     <string name="sync_package_poi_extra">Extra points of interest</string>
     <string name="sync_package_addresses">House numbers</string>

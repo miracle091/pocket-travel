@@ -38,7 +38,7 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
- * Guida passo passo dentro la scheda Navigatore: "Avvia" chiama [start] con la meta e il mezzo
+ * Navigazione passo passo dentro la scheda Navigatore: "Avvia" chiama [start] con la meta e il mezzo
  * scelti, "Termina" (o l'arrivo, chiuso dal Navigatore) [stop]. Il GPS si ascolta solo mentre si naviga.
  * Meta, mezzo e ora di arrivo stanno in [SavedStateHandle]: se il sistema chiude l'app, tornando il
  * Navigatore chiede se riprendere la guida ([resumeOffer]) invece di ripartire da solo.
@@ -65,7 +65,7 @@ class NavigationViewModel @Inject constructor(
     /** La meta della guida in corso, null se non si sta navigando. */
     val target: StateFlow<NavigationPlace?> = destination.asStateFlow()
     // Guida interrotta: dallo stato salvato da Android (app riaperta dalle recenti) o dal disco (riaperta dall'icona).
-    private val savedGuidance = navigationPreferences.activeGuidance()
+    private val savedGuidance = navigationPreferences.activeNavigation()
     private val _resumeOffer = MutableStateFlow(savedStateHandle.get<Bundle>(KEY_DESTINATION)?.toPlace() ?: savedGuidance?.place)
     /** Guida interrotta perche' il sistema ha chiuso l'app: il Navigatore chiede se riprenderla, null altrimenti. */
     val resumeOffer: StateFlow<NavigationPlace?> = _resumeOffer.asStateFlow()
@@ -100,10 +100,10 @@ class NavigationViewModel @Inject constructor(
     private val calculationStartedMillis = MutableStateFlow(0L)
     private val calculationProgress = MutableStateFlow(0.0)
     private var calculationJob: Job? = null
-    private val _travelMode = MutableStateFlow(
-        savedStateHandle.get<String>(KEY_MODE)?.let(TravelMode::valueOf) ?: TravelMode.from(usageModePreferences.mode.value),
+    private val _routeProfile = MutableStateFlow(
+        savedStateHandle.get<String>(KEY_MODE)?.let(RouteProfile::valueOf) ?: RouteProfile.from(usageModePreferences.modes.value),
     )
-    val travelMode: StateFlow<TravelMode> = _travelMode
+    val routeProfile: StateFlow<RouteProfile> = _routeProfile
     private val routeResult = MutableStateFlow<RouteResult?>(null)
     private val arrived = MutableStateFlow(false)
     private val _arrivedAtMillis = MutableStateFlow<Long?>(null)
@@ -169,7 +169,7 @@ class NavigationViewModel @Inject constructor(
         start(
             regionId = fromDisk?.regionId ?: regionId,
             place = place,
-            mode = fromDisk?.mode ?: _travelMode.value,
+            mode = fromDisk?.mode ?: _routeProfile.value,
             arriveBy = fromDisk?.arriveByEpochMinute?.let { LocalDateTime.ofEpochSecond(it * 60, 0, ZoneOffset.UTC) } ?: arrival.value,
         )
     }
@@ -179,7 +179,7 @@ class NavigationViewModel @Inject constructor(
         _resumeOffer.value = null
         arrival.value = null
         savedStateHandle.remove<Bundle>(KEY_DESTINATION)
-        navigationPreferences.clearActiveGuidance()
+        navigationPreferences.clearActiveNavigation()
     }
 
     // Il servizio in primo piano parte con la guida (dal primo piano: da sfondo Android 12+ non puo'): senza,
@@ -218,7 +218,7 @@ class NavigationViewModel @Inject constructor(
      * Parte la guida verso [place] con il mezzo scelto nel Navigatore: il percorso si ricalcola dalla posizione GPS.
      * Con [preview] (il percorso gia' calcolato nell'anteprima) si riparte da quello, se la prima posizione e' sul percorso.
      */
-    fun start(regionId: String, place: NavigationPlace, mode: TravelMode, arriveBy: LocalDateTime? = null, preview: PlannerPreview.Ready? = null) {
+    fun start(regionId: String, place: NavigationPlace, mode: RouteProfile, arriveBy: LocalDateTime? = null, preview: PlannerPreview.Ready? = null) {
         this.regionId = regionId
         _resumeOffer.value = null
         _regionIds.value = preview?.regionIds ?: listOf(regionId)
@@ -226,7 +226,7 @@ class NavigationViewModel @Inject constructor(
         // Anche la stessa anteprima riavviata riparte da capo: il tracker ricorda quanto si e' avanzati.
         tracker = null
         trackerRoute = null
-        _travelMode.value = mode
+        _routeProfile.value = mode
         calculationJob?.cancel()
         calculating.value = false
         routeResult.value = null
@@ -243,8 +243,8 @@ class NavigationViewModel @Inject constructor(
         savedStateHandle[KEY_MODE] = mode.name
         savedStateHandle[KEY_ARRIVE_BY] = arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / 60 }
         savedStateHandle[KEY_DESTINATION] = place.toBundle()
-        navigationPreferences.saveActiveGuidance(
-            ActiveGuidance(regionId, place, mode, arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / 60 }, System.currentTimeMillis()),
+        navigationPreferences.saveActiveNavigation(
+            ActiveNavigation(regionId, place, mode, arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / 60 }, System.currentTimeMillis()),
         )
     }
 
@@ -259,7 +259,7 @@ class NavigationViewModel @Inject constructor(
         arrived.value = false
         _arrivedAtMillis.value = null
         savedStateHandle.remove<Bundle>(KEY_DESTINATION)
-        navigationPreferences.clearActiveGuidance()
+        navigationPreferences.clearActiveNavigation()
         // Snapshot null: il servizio in primo piano si ferma da solo.
         session.clear()
         lastProgress = null
@@ -304,7 +304,7 @@ class NavigationViewModel @Inject constructor(
                     _arrivedAtMillis.value = System.currentTimeMillis()
                     arrived.value = true
                     session.clear()
-                    navigationPreferences.clearActiveGuidance()
+                    navigationPreferences.clearActiveNavigation()
                 } else {
                     // Con "Spegni il GPS all'arrivo" tolto la guida resta aperta: l'arrivo si segna una volta sola
                     // (per l'avviso), poi si continua a seguire la posizione finche' non si chiude.
@@ -329,7 +329,7 @@ class NavigationViewModel @Inject constructor(
         calculating.value = true
         // Prima posizione arrivata: la notifica passa da "In attesa del segnale GPS…" a "Calcolo del percorso".
         if (routeResult.value !is RouteResult.Found) session.update(NavigationSnapshot(target.name, null, 0.0, 0.0, 0.0))
-        val choice = routingChoice(_travelMode.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value)
+        val choice = routingChoice(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value)
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             val self = coroutineContext[Job]
             try {
@@ -361,7 +361,7 @@ class NavigationViewModel @Inject constructor(
         val usable = usableRoutingRegions(
             regions.filter { it.routingVersion != null }.map { it.regionId }.toSet(),
             routingVariantPreferences.installedCarOnly.value,
-            _travelMode.value,
+            _routeProfile.value,
         )
         regions
             .filter { it.regionId in usable }

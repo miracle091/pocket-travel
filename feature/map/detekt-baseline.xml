@@ -3,7 +3,7 @@
   <ManuallySuppressedIssues/>
   <CurrentIssues>
     <ID>ComplexCondition:MapScreen.kt:!cameraFitted &amp;&amp; (restored != null || mapBounds != null || pins.isNotEmpty())</ID>
-    <ID>ComplexCondition:NavigationScreen.kt:turnNow &amp;&amp; travelMode == TravelMode.WALK &amp;&amp; walkingHaptics &amp;&amp; progress.nextInstructionIndex != lastVibratedIndex</ID>
+    <ID>ComplexCondition:NavigationScreen.kt:turnNow &amp;&amp; routeProfile == RouteProfile.WALK &amp;&amp; walkingHaptics &amp;&amp; progress.nextInstructionIndex != lastVibratedIndex</ID>
     <ID>ComplexCondition:OfflineTileSource.kt:(kind == MapSourceKind.FULL || kind == MapSourceKind.PREVIEW) &amp;&amp; online &amp;&amp; worldMapUrl != null</ID>
     <ID>CyclomaticComplexMethod:BRouterRouteEngine.kt:BRouterRouteEngine.Companion$fun turnType: TurnType?</ID>
     <ID>CyclomaticComplexMethod:MapScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun MapScreen</ID>
@@ -11,7 +11,7 @@
     <ID>CyclomaticComplexMethod:NavigationPlannerScreen.kt:@Composable private fun PlannerSheet</ID>
     <ID>CyclomaticComplexMethod:NavigationPlannerScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun NavigationPlannerScreen</ID>
     <ID>CyclomaticComplexMethod:NavigationPlannerScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun ArriveBy</ID>
-    <ID>CyclomaticComplexMethod:NavigationScreen.kt:@Composable fun NavigationGuidance</ID>
+    <ID>CyclomaticComplexMethod:NavigationScreen.kt:@Composable fun NavigationInstructions</ID>
     <ID>CyclomaticComplexMethod:NavigationScreen.kt:@Composable internal fun turnIcon: ImageVector</ID>
     <ID>CyclomaticComplexMethod:NavigationScreen.kt:@Composable internal fun turnText: String</ID>
     <ID>CyclomaticComplexMethod:NavigationScreen.kt:@Composable private fun Guidance</ID>
@@ -81,7 +81,7 @@
     <ID>MatchingDeclarationName:WorldMap.kt:CountryStatus</ID>
     <ID>MatchingDeclarationName:ZonePickerMap.kt:ZonePickerMapViewModel : ViewModel</ID>
     <ID>ReturnCount:Connectivity.kt:AndroidConnectivityChecker$override fun isOnline: Boolean</ID>
-    <ID>ReturnCount:NavigationPreferences.kt:NavigationPreferences$fun activeGuidance: ActiveGuidance?</ID>
+    <ID>ReturnCount:NavigationPreferences.kt:NavigationPreferences$fun activeNavigation: ActiveNavigation?</ID>
     <ID>ReturnCount:NavigationService.kt:NavigationService$override fun onStartCommand: Int</ID>
     <ID>ReturnCount:NavigationState.kt:fun navigationUiState: NavigationUiState</ID>
     <ID>ReturnCount:OfflineTileSource.kt:PmtilesTileSource$override fun styleJson: String</ID>

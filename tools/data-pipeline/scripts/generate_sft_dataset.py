@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera il dataset SFT (formato onDevicePrompt) dalle guide Wikivoyage IT delle regioni pilota.
+"""Genera il dataset SFT (formato onDevicePrompt) dalle guide Wikivoyage IT dell'elenco delle regioni.
 
 Metodo "template + negativi sintetici":
 - positivi: domanda per categoria (template), risposta = prime frasi della sezione (estrattivo);

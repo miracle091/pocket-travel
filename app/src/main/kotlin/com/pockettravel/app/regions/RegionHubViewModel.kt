@@ -61,6 +61,10 @@ class RegionHubViewModel @Inject constructor(
     private val _displayName = MutableStateFlow<String?>(null)
     val displayName: StateFlow<String?> = _displayName.asStateFlow()
 
+    // Regione di una nazione divisa ("Francia - Bretagna"): l'assistente dice "regione", altrimenti "nazione".
+    private val _splitCountry = MutableStateFlow(false)
+    val splitCountry: StateFlow<Boolean> = _splitCountry.asStateFlow()
+
     // true solo dopo che il caricamento ha escluso la regione dal database (mai installata, o
     // installata in una sessione precedente e poi eliminata) — RegionHubScreen ci naviga via in
     // automatico invece di mostrare guida/mappa vuote per un regionId ormai inesistente. Serve
@@ -107,6 +111,7 @@ class RegionHubViewModel @Inject constructor(
         if (this.regionId.value == regionId && !_regionMissing.value) return
         this.regionId.value = regionId
         _displayName.value = null
+        _splitCountry.value = false
         _regionMissing.value = false
         transitOffered.value = null
         recentRegionPreferences.setLastRegionId(regionId)
@@ -116,6 +121,7 @@ class RegionHubViewModel @Inject constructor(
             // Nel frattempo il pannello puo' essere passato a un'altra regione.
             if (this@RegionHubViewModel.regionId.value != regionId) return@launch
             _displayName.value = name
+            _splitCountry.value = region?.let { isSplitCountryName(it.displayName, it.countryCode) } == true
             _regionMissing.value = name == null
         }
         viewModelScope.launch {

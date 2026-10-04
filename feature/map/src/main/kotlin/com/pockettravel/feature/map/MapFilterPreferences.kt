@@ -46,7 +46,7 @@ class MapFilterPreferences @Inject constructor(@ApplicationContext context: Cont
     val hiddenCategories: StateFlow<Set<PoiCategory>> = _hiddenCategories.asStateFlow()
 
     private val _onlyAccessible = MutableStateFlow(prefs.getBoolean(KEY_ONLY_ACCESSIBLE, false))
-    /** Con "Con disabilita'": solo i posti che OSM segna come accessibili, anche in parte (tag wheelchair). */
+    /** Con "In sedia a rotelle": solo i posti che OSM segna come accessibili, anche in parte (tag wheelchair). */
     val onlyAccessible: StateFlow<Boolean> = _onlyAccessible.asStateFlow()
 
     fun setOnlyAccessible(only: Boolean) {

@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// A differenza del vault dei documenti (PassportVaultViewModel), nessuno sblocco biometrico:
+// A differenza del vault dei documenti (VaultViewModel), nessuno sblocco biometrico:
 // le note sono cifrate a riposo (KeystoreCipher, vedi NoteRepository) ma leggibili subito, cosi'
 // l'assistente IA puo' cercarci dentro senza chiedere l'impronta.
 @HiltViewModel

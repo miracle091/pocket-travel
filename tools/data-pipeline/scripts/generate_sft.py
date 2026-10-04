@@ -5,7 +5,7 @@ composizione per categoria, stessi tipi di domanda, stesso rapporto di rifiuti. 
 (domande, parole chiave, rifiuto, prompt dell'app), prese da generate_sft_dataset.py (italiano) e
 generate_sft_dataset_en.py (inglese), che restano per rifare i dataset v8.
 
-Traduzione incrociata (translate_sections.py): per ogni regione e categoria, se la sezione nella lingua del dataset
+Traduzione incrociata (translate_dataset.py): per ogni regione e categoria, se la sezione nella lingua del dataset
 manca o e' molto piu' povera di quella nell'altra lingua (needs_translation), si usa la sezione dell'altra lingua
 tradotta con MarianMT; lo stesso per i paragrafi di Wikipedia IT nel dataset inglese. Le righe con una sezione tradotta
 hanno "translated": true e ATTRIBUTION indica la traduzione automatica (CC BY-SA 4.0, opera derivata).
@@ -41,7 +41,7 @@ import sft_nearby
 import wiki_dump
 from eval_common import TEST_REGIONS
 from status import Progress, phase
-from translate_sections import LICENSE as MT_LICENSE, MODELS as MT_MODELS, Translator, needs_translation
+from translate_dataset import LICENSE as MT_LICENSE, MODELS as MT_MODELS, Translator, needs_translation
 
 # Parole delle domande che non dicono nulla sul tema (vedi en.answer_for): "come", "dove", "quali" sono in quasi ogni frase
 IT_STOPWORDS = {"quali", "quale", "come", "dove", "quando", "sono", "devo", "posso", "cosa", "serve", "servono", "sapere",
@@ -126,8 +126,8 @@ def vaccination_answers(text, lang):
 
 
 def flag_regions():
-    """{codice paese: [regionId]} da pilot-regions.sh (flagCode, ottavo campo)."""
-    src = (it.HERE / "pilot-regions.sh").read_text(encoding="utf-8")
+    """{codice paese: [regionId]} da regions.sh (flagCode, ottavo campo)."""
+    src = (it.HERE / "regions.sh").read_text(encoding="utf-8")
     out = defaultdict(list)
     for f in (r.split("|") for r in re.findall(r'^\s*"([^"]+\|[^"]+)"\s*$', src, re.M)):
         if len(f) > 7 and f[7]:

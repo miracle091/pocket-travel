@@ -140,7 +140,7 @@ class AiAssistantContentDeviceTest {
         compose.onNodeWithText(context.getString(R.string.ai_choose_model)).assertIsDisplayed()
         compose.onNodeWithText("Modello di prova").assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.ai_model_download)).assertExists()
-        compose.onNodeWithText(context.getString(R.string.ai_question_hint)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.ai_question_hint_country)).assertDoesNotExist()
         compose.onNodeWithContentDescription(context.getString(R.string.ai_send)).assertDoesNotExist()
     }
 
@@ -157,7 +157,7 @@ class AiAssistantContentDeviceTest {
             }
         }
 
-        compose.onNodeWithText(context.getString(R.string.ai_question_hint)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.ai_question_hint_country)).assertDoesNotExist()
         compose.onNodeWithText(context.getString(R.string.ai_api_key_save)).performScrollTo().performClick()
 
         assertEquals(1, saved)

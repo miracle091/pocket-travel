@@ -109,8 +109,8 @@ class GenerateVaccinationsTest {
     }
 
     @Test
-    fun `ogni paese delle regioni pilota ha una riga in yf-entry`() {
-        val script = File("../scripts/pilot-regions.sh").takeIf { it.exists() } ?: File("scripts/pilot-regions.sh")
+    fun `ogni paese dell'elenco delle regioni ha una riga in yf-entry`() {
+        val script = File("../scripts/regions.sh").takeIf { it.exists() } ?: File("scripts/regions.sh")
         // Righe "regionId|displayName|minLon|minLat|maxLon|maxLat|wikivoyagePageTitle|flagCode|...": flagCode e' l'ottavo campo.
         val flagCodes = script.readLines()
             .map { it.trim() }

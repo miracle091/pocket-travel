@@ -160,6 +160,6 @@ class Translator:
         return result
 
 
-if __name__ == "__main__":  # prova: python translate_sections.py it en "Testo da tradurre."
+if __name__ == "__main__":  # prova: python translate_dataset.py it en "Testo da tradurre."
     t = Translator(sys.argv[1], sys.argv[2], Path(__file__).resolve().parent.parent / "data" / "sft" / "raw")
     print(t.translate_many([" ".join(sys.argv[3:])])[0])

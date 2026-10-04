@@ -134,7 +134,7 @@ internal fun RegionPackagesSheet(
                             val light by remember(item.regionId) { actions.observeMapLight(item.regionId) }.collectAsStateWithLifecycle(false)
                             MapLightRow(light = light, enabled = !isDownloading, onChange = { actions.onMapLightChange(item.regionId, it) })
                             if (item.bbox != null && (item.bbox.isLarge() || item.zone != null)) {
-                                ZoneRow(zone = item.zone, enabled = !isDownloading, onClick = { pickingZone = true })
+                                ZoneRow(zone = item.zone, splitCountry = item.splitCountry, enabled = !isDownloading, onClick = { pickingZone = true })
                             }
                         }
                         if (index < item.packages.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
@@ -285,7 +285,7 @@ private fun MapLightRow(light: Boolean, enabled: Boolean, onChange: (Boolean) ->
     )
 }
 
-// Sotto i percorsi: per quali mezzi. Auto = solo le strade per l'auto (circa il 43% del peso); bici e piedi e tutti i
+// Sotto la rete stradale: per quali mezzi. Auto = solo le strade per l'auto (circa il 60% del peso); bici e piedi e tutti i
 // mezzi = il pacchetto completo (uno solo per bici e piedi peserebbe quasi uguale). Cambiare pacchetto con i percorsi
 // installati li riscarica.
 @Composable
@@ -322,10 +322,10 @@ enum class RoutingChoice(@StringRes val label: Int, @StringRes val detail: Int) 
 
 // Sotto la mappa leggera, solo nei paesi grandi: la zona scaricata di mappa, percorsi e civici.
 @Composable
-private fun ZoneRow(zone: RegionZone?, enabled: Boolean, onClick: () -> Unit) {
+private fun ZoneRow(zone: RegionZone?, splitCountry: Boolean, enabled: Boolean, onClick: () -> Unit) {
     ListItem(
         content = { Text(stringResource(R.string.zone_row)) },
-        supportingContent = { Text(zoneLabel(zone)) },
+        supportingContent = { Text(zoneLabel(zone, splitCountry)) },
         leadingContent = { Icon(AppIcons.Zone, contentDescription = null) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),

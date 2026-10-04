@@ -126,8 +126,8 @@ private enum class GateStatus { NOT_ENROLLED, LOCKED, UNLOCKED }
 // (repository.lock()) quando questa schermata viene chiusa.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PassportVaultScreen(
-    viewModel: PassportVaultViewModel = hiltViewModel(),
+fun VaultScreen(
+    viewModel: VaultViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     var gateStatus by remember {
@@ -237,7 +237,7 @@ private fun NoLockScreenSetUp() {
 }
 
 @Composable
-private fun LockedContent(viewModel: PassportVaultViewModel, onUnlock: () -> Unit) {
+private fun LockedContent(viewModel: VaultViewModel, onUnlock: () -> Unit) {
     val context = LocalContext.current
     var errorMessage by remember { mutableStateOf<String?>(null) }
     // Impronte aggiunte o tolte dopo aver creato la cassaforte: la chiave non c'e' piu'.
@@ -345,7 +345,7 @@ private fun LockedContent(viewModel: PassportVaultViewModel, onUnlock: () -> Uni
 }
 
 @Composable
-private fun PassportList(viewModel: PassportVaultViewModel) {
+private fun PassportList(viewModel: VaultViewModel) {
     val passports by viewModel.passports.collectAsStateWithLifecycle()
     if (passports.isEmpty()) {
         EmptyState(
@@ -369,7 +369,7 @@ private fun PassportList(viewModel: PassportVaultViewModel) {
 }
 
 @Composable
-private fun PassportCard(viewModel: PassportVaultViewModel, passport: Passport, onDelete: () -> Unit) {
+private fun PassportCard(viewModel: VaultViewModel, passport: Passport, onDelete: () -> Unit) {
     var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
     var showEditDialog by rememberSaveable { mutableStateOf(false) }
     var viewerFileName by rememberSaveable { mutableStateOf<String?>(null) }
@@ -460,7 +460,7 @@ private fun PassportCard(viewModel: PassportVaultViewModel, passport: Passport, 
 // resta una superficie vuota invece di mostrare un placeholder.
 @Composable
 private fun PhotoThumbnail(
-    viewModel: PassportVaultViewModel,
+    viewModel: VaultViewModel,
     fileName: String,
     onClick: (() -> Unit)? = null,
     onRemove: (() -> Unit)? = null,
@@ -509,7 +509,7 @@ private fun PhotoThumbnail(
 }
 
 @Composable
-private fun PhotoViewerDialog(viewModel: PassportVaultViewModel, fileName: String, onDismiss: () -> Unit) {
+private fun PhotoViewerDialog(viewModel: VaultViewModel, fileName: String, onDismiss: () -> Unit) {
     var bitmap by remember(fileName) { mutableStateOf<ImageBitmap?>(null) }
     val screenWidthPx = LocalWindowInfo.current.containerSize.width
     LaunchedEffect(fileName) {
@@ -556,7 +556,7 @@ private suspend fun decodeSampled(bytes: ByteArray, targetPx: Int): ImageBitmap?
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PassportEditDialog(
-    viewModel: PassportVaultViewModel,
+    viewModel: VaultViewModel,
     existing: Passport?,
     onSave: (Passport) -> Unit,
     onDismiss: () -> Unit,

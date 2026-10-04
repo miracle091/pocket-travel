@@ -19,8 +19,8 @@ class VaccinationSummaryTest {
     private val data = VaccinationData(
         yfRisk = listOf(YfRiskRow("ke", false, "", "", listOf("F6", "F7"), "2026-10-03")),
         yfEntry = listOf(
-            YfEntryRow("eg", YfRule.FROM_RISK, 9, TransitRule.GT12H, emptySet(), false, "", "", listOf("F6", "F7"), "2026-10-03"),
-            YfEntryRow("it", YfRule.NONE, null, TransitRule.NONE, emptySet(), false, "", "", listOf("F6"), "2026-10-03"),
+            YfEntryRow("eg", YfRule.FROM_RISK, 9, StopoverRule.GT12H, emptySet(), false, "", "", listOf("F6", "F7"), "2026-10-03"),
+            YfEntryRow("it", YfRule.NONE, null, StopoverRule.NONE, emptySet(), false, "", "", listOf("F6"), "2026-10-03"),
         ),
         polioStatus = listOf(PolioStatusRow("af", PolioCategory.WPV1_CVDPV1_CVDPV3, "IHR EC 45", listOf("F3"), "2026-10-03")),
         recommended = listOf(
@@ -108,7 +108,7 @@ class VaccinationSummaryTest {
         assertEquals(listOf("F6", "F7"), mapped.yfRisk.single().sources)
         assertEquals(listOf("in"), mapped.yfEntry.map { it.iso2 })
         assertEquals(setOf("ke", "ug"), mapped.yfEntry.single().fromList)
-        assertEquals(TransitRule.GT12H, mapped.yfEntry.single().transit)
+        assertEquals(StopoverRule.GT12H, mapped.yfEntry.single().transit)
         assertEquals(PolioCategory.CVDPV2, mapped.polioEntry.first().originCategory)
         assertEquals(setOf("pk", "af"), mapped.polioEntry[1].originCountries)
         assertEquals(2, mapped.polioEntry.size)

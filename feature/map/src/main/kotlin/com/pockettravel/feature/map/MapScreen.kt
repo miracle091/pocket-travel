@@ -105,9 +105,9 @@ fun MapScreen(
     // Categorie presenti nell'area, filtrate comprese: i segnalini non hanno quelle filtrate. null = quelle dei segnalini.
     areaCategories: Set<PoiCategory>? = null,
     onHiddenCategoriesChange: (Set<PoiCategory>) -> Unit = {},
-    // Modalita' "Con disabilita'": via i POI che OSM segna come non accessibili in sedia a rotelle.
+    // Modalita' "In sedia a rotelle": via i POI che OSM segna come non accessibili in sedia a rotelle.
     hideInaccessible: Boolean = false,
-    // Con "Con disabilita'": solo i posti accessibili (anche in parte) e i parcheggi per disabili.
+    // Con "In sedia a rotelle": solo i posti accessibili (anche in parte) e i parcheggi per disabili.
     onlyAccessible: Boolean = false,
     onOnlyAccessibleChange: (Boolean) -> Unit = {},
     // Apre la navigazione verso il punto scelto; null = niente pulsante "Indicazioni".
@@ -172,7 +172,7 @@ fun MapScreen(
             }
         }
     }
-    // Parcheggi per disabili solo con "Con disabilita'" (hideInaccessible), agli stessi zoom degli altri parcheggi.
+    // Parcheggi per disabili solo con "In sedia a rotelle" (hideInaccessible), agli stessi zoom degli altri parcheggi.
     // In remember: una ricomposizione senza cambi (anche con 3000 segnalini) non rifiltra, e la lista resta la
     // stessa istanza, cosi' l'effetto sotto non riparte.
     val visiblePins = remember(pins, hiddenCategories, parkingZoom, hideInaccessible, onlyAccessible) {
@@ -194,7 +194,7 @@ fun MapScreen(
     // non a ogni ricomposizione.
     LaunchedEffect(pinsSource, visiblePins, hideInaccessible) {
         val source = pinsSource ?: return@LaunchedEffect
-        // Con "Con disabilita'" i segnalini accessibili hanno il distintivo: varianti delle icone
+        // Con "In sedia a rotelle" i segnalini accessibili hanno il distintivo: varianti delle icone
         // create solo per le combinazioni presenti, non per tutte le categorie in anticipo.
         val badgeOf = { pin: MapPin -> if (hideInaccessible) pinBadgeOf(pin) else null }
         // Distintivi presenti e punti GeoJSON su Default: sul main restano solo lo stile e setGeoJson.
@@ -318,7 +318,7 @@ fun MapScreen(
             presentCategories = presentCategories.toSet(),
             hiddenCategories = hiddenCategories,
             onHiddenCategoriesChange = onHiddenCategoriesChange,
-            // Il filtro "Solo posti accessibili" c'e' solo con "Con disabilita'".
+            // Il filtro "Solo posti accessibili" c'e' solo con "In sedia a rotelle".
             onlyAccessible = onlyAccessible.takeIf { hideInaccessible },
             onOnlyAccessibleChange = onOnlyAccessibleChange,
             onDismiss = { showLegend = false },

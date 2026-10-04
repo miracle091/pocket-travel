@@ -17,7 +17,7 @@ class VaccinationEngineTest {
         iso2: String,
         rule: YfRule,
         minAge: Int? = 9,
-        transit: TransitRule = TransitRule.NONE,
+        transit: StopoverRule = StopoverRule.NONE,
         fromList: Set<String> = emptySet(),
         exit: Boolean = false,
     ) = YfEntryRow(iso2, rule, minAge, transit, fromList, exit, "", "", listOf("F6", "F7"), "2026-10-03")
@@ -31,14 +31,14 @@ class VaccinationEngineTest {
     private val data = VaccinationData(
         yfRisk = listOf(risk("ke"), risk("br", partial = true), risk("sn"), risk("et")),
         yfEntry = listOf(
-            yf("eg", YfRule.FROM_RISK, transit = TransitRule.GT12H),
+            yf("eg", YfRule.FROM_RISK, transit = StopoverRule.GT12H),
             yf("ao", YfRule.ALL),
-            yf("sn", YfRule.FROM_RISK, transit = TransitRule.ANY),
-            yf("np", YfRule.FROM_RISK, transit = TransitRule.GT4H),
-            yf("in", YfRule.FROM_LIST, transit = TransitRule.GT12H, fromList = setOf("ke", "ug")),
+            yf("sn", YfRule.FROM_RISK, transit = StopoverRule.ANY),
+            yf("np", YfRule.FROM_RISK, transit = StopoverRule.GT4H),
+            yf("in", YfRule.FROM_LIST, transit = StopoverRule.GT12H, fromList = setOf("ke", "ug")),
             yf("it", YfRule.NONE, minAge = null),
             yf("fr", YfRule.NONE, minAge = null),
-            yf("tz", YfRule.FROM_RISK, minAge = null, transit = TransitRule.GT24H),
+            yf("tz", YfRule.FROM_RISK, minAge = null, transit = StopoverRule.GT24H),
             yf("ng", YfRule.NONE, minAge = 9, exit = true),
         ),
         polioStatus = listOf(
@@ -373,7 +373,7 @@ class VaccinationEngineTest {
             yfRisk = countries.filterIndexed { i, _ -> i % 4 == 0 }.map { risk(it, partial = it.hashCode() % 2 == 0) },
             yfEntry = countries.mapIndexed { i, c ->
                 val rule = YfRule.values()[i % YfRule.values().size]
-                yf(c, rule, minAge = if (i % 3 == 0) null else 9, transit = TransitRule.values()[i % TransitRule.values().size],
+                yf(c, rule, minAge = if (i % 3 == 0) null else 9, transit = StopoverRule.values()[i % StopoverRule.values().size],
                     fromList = if (rule == YfRule.FROM_LIST) setOf("ke", "br") else emptySet(), exit = i % 17 == 0)
             },
             polioStatus = countries.filterIndexed { i, _ -> i % 5 == 0 }.mapIndexed { i, c -> polioStatus(c, PolioCategory.values()[i % 3]) },

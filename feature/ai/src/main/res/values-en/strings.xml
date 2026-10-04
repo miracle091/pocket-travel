@@ -23,6 +23,7 @@
     <string name="ai_api_key_show">Show key</string>
     <string name="ai_api_key_hide">Hide key</string>
     <string name="ai_question_hint">Ask a question about the region</string>
+    <string name="ai_question_hint_country">Ask a question about the country</string>
     <string name="ai_send">Send question</string>
     <string name="ai_thinking">Generating the answer…</string>
     <string name="ai_empty_title">Ask a question about the trip</string>
@@ -32,7 +33,7 @@
     <string name="ai_remove_key">Remove key</string>
     <string name="ai_delete_model_title">Delete the AI model?</string>
     <string name="ai_delete_model_message">The model must be downloaded again to use the on-device AI assistant</string>
-    <string name="ai_settings_hint">The AI tab appears in each country after a model is downloaded or an API key is entered</string>
+    <string name="ai_settings_hint">The AI tab appears on every region page after a model is downloaded or an API key is entered</string>
     <string name="ai_api_key_saved">API key saved</string>
     <string name="ai_model_downloaded">Downloaded</string>
     <string name="ai_remove_key_title">Remove the API key?</string>

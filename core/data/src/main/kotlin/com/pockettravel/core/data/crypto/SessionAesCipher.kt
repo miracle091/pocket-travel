@@ -7,7 +7,7 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 // Stessa cifratura AES-256-GCM di KeystoreCipher, ma con una SecretKey in RAM (mai nel Keystore)
-// invece che per-alias: usata per la chiave di sessione del vault passaporti, sbloccata una volta
+// invece che per-alias: usata per la chiave di sessione della cassaforte, sbloccata una volta
 // tramite VaultKeyEnvelope e tenuta in memoria finche' la schermata resta sbloccata (vedi
 // PassportRepository.unlock/lock).
 class SessionAesCipher(key: ByteArray) {

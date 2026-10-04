@@ -150,7 +150,7 @@ class AiSettingsStore @Inject constructor(@ApplicationContext private val contex
 }
 
 // Delega a KeystoreCipher (core:data), la stessa cifratura AES-256-GCM/Keystore generalizzata
-// per servire anche il vault passaporti — vedi KeystoreCipher per il ragionamento completo.
+// per servire anche la cassaforte — vedi KeystoreCipher per il ragionamento completo.
 private class AndroidKeystoreSecretStore(
     private val context: Context,
     keyAlias: String,

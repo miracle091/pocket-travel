@@ -42,7 +42,7 @@ class NavigationPreferences @Inject constructor(@ApplicationContext context: Con
      * La guida in corso, salvata su disco finche' non si chiude: se il sistema chiude l'app (anche a schermo
      * spento), alla riapertura il Navigatore propone di riprenderla, sia dalle app recenti sia dall'icona.
      */
-    fun saveActiveGuidance(guidance: ActiveGuidance) {
+    fun saveActiveNavigation(guidance: ActiveNavigation) {
         prefs.edit {
             putString(KEY_GUIDANCE_PLACE, RecentDestinations.encode(listOf(guidance.place)))
             putString(KEY_GUIDANCE_REGION, guidance.regionId)
@@ -53,23 +53,23 @@ class NavigationPreferences @Inject constructor(@ApplicationContext context: Con
     }
 
     /** La guida salvata, se c'e' e non e' troppo vecchia (dopo [ACTIVE_GUIDANCE_MAX_AGE_MILLIS] non ha piu' senso riprenderla). */
-    fun activeGuidance(now: Long = System.currentTimeMillis()): ActiveGuidance? {
+    fun activeNavigation(now: Long = System.currentTimeMillis()): ActiveNavigation? {
         val place = RecentDestinations.decode(prefs.getString(KEY_GUIDANCE_PLACE, null)).firstOrNull() ?: return null
         val started = prefs.getLong(KEY_GUIDANCE_STARTED, 0L)
         if (now - started > ACTIVE_GUIDANCE_MAX_AGE_MILLIS) {
-            clearActiveGuidance()
+            clearActiveNavigation()
             return null
         }
-        return ActiveGuidance(
+        return ActiveNavigation(
             regionId = prefs.getString(KEY_GUIDANCE_REGION, null) ?: place.regionId,
             place = place,
-            mode = prefs.getString(KEY_GUIDANCE_MODE, null)?.let { name -> TravelMode.entries.firstOrNull { it.name == name } } ?: TravelMode.WALK,
+            mode = prefs.getString(KEY_GUIDANCE_MODE, null)?.let { name -> RouteProfile.entries.firstOrNull { it.name == name } } ?: RouteProfile.WALK,
             arriveByEpochMinute = prefs.getLong(KEY_GUIDANCE_ARRIVE_BY, -1L).takeIf { it >= 0 },
             startedAtMillis = started,
         )
     }
 
-    fun clearActiveGuidance() = prefs.edit {
+    fun clearActiveNavigation() = prefs.edit {
         remove(KEY_GUIDANCE_PLACE)
         remove(KEY_GUIDANCE_REGION)
         remove(KEY_GUIDANCE_MODE)
@@ -89,11 +89,11 @@ class NavigationPreferences @Inject constructor(@ApplicationContext context: Con
     }
 }
 
-/** Una guida avviata e non ancora chiusa (vedi [NavigationPreferences.saveActiveGuidance]). */
-data class ActiveGuidance(
+/** Una guida avviata e non ancora chiusa (vedi [NavigationPreferences.saveActiveNavigation]). */
+data class ActiveNavigation(
     val regionId: String,
     val place: NavigationPlace,
-    val mode: TravelMode,
+    val mode: RouteProfile,
     // Ora di arrivo scelta, in minuti dall'epoca come ora locale (null se si e' partiti senza).
     val arriveByEpochMinute: Long?,
     val startedAtMillis: Long,

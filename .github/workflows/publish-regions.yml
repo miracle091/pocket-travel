@@ -3,7 +3,7 @@ name: Publish regions
 # Pubblica manifest.json su GitHub Pages; i pacchetti (guides.db unico per tutte le
 # regioni, poi.db e segmenti .rd5 per regione: il grosso dei dati) vanno invece sugli asset delle
 # release "region-data*" - GitHub Pages ha un limite fisso di 1GB per l'intero sito, sforato con la
-# copertura mondiale di pilot-regions.sh (254 regioni), gli asset di una release no. map.pmtiles
+# copertura mondiale di regions.sh (254 regioni), gli asset di una release no. map.pmtiles
 # non e' mai un file da ospitare (estratto lato device dalla build Protomaps, vedi
 # PmtilesExtractor); i segmenti .rd5 invece sono ri-ospitati insieme a poi.db (non solo
 # referenziati su brouter.de) perche' quel file cambia dimensione/hash nel tempo — vedi il
@@ -44,8 +44,8 @@ on:
       regions:
         description: >
           regionId da (ri)generare in questa run, separati da virgola (vedi
-          tools/data-pipeline/scripts/pilot-regions.sh per l'elenco completo).
-          Vuoto = tutto il lotto pilota.
+          tools/data-pipeline/scripts/regions.sh per l'elenco completo).
+          Vuoto = tutte le regioni.
         required: false
         default: ""
       poi_max_age_days:
@@ -134,7 +134,7 @@ jobs:
         run: |
           set -euo pipefail
           source .github/scripts/retry.sh
-          source tools/data-pipeline/scripts/pilot-regions.sh
+          source tools/data-pipeline/scripts/regions.sh
           # Un solo elenco delle release esistenti invece di un "gh release view" per ognuna (~70): ensure_release
           # solo per le mancanti. Elenco non leggibile o troncato dal limite: restano vuote/mancanti e si ricade su
           # ensure_release, che controlla da se'.
@@ -144,7 +144,7 @@ jobs:
             ensure_release "$@"
           }
           # Le regioni si spartiscono su REGION_RELEASES release "region-data-rNN" (region_release_tag in
-          # pilot-regions.sh): GitHub limita ogni release a 1000 asset (HTTP 422 "file_count limited to 1000
+          # regions.sh): GitHub limita ogni release a 1000 asset (HTTP 422 "file_count limited to 1000
           # assets per release"). Le si creano tutte, anche quelle che oggi non hanno ancora regioni.
           for n in $(seq 0 $((REGION_RELEASES - 1))); do
             tag="$(printf 'region-data-r%02d' "$n")"
@@ -181,7 +181,7 @@ jobs:
           POI_MAX_AGE_INPUT: ${{ github.event.inputs.poi_max_age_days }}
         run: |
           set -euo pipefail
-          source tools/data-pipeline/scripts/pilot-regions.sh
+          source tools/data-pipeline/scripts/regions.sh
           # Serve sempre (non solo nel ramo schedule sotto): WEEKLY_SCHEDULE_TILES e' il peso per
           # regione riusato piu' in basso per bilanciare gli shard.
           source tools/data-pipeline/scripts/weekly-schedule.sh
@@ -209,7 +209,7 @@ jobs:
           if [ -z "$SELECTED" ]; then
             # workflow_dispatch senza regions esplicite (fuori da uno schedule): tutto il lotto.
             ids=()
-            for spec in "${PILOT_REGIONS[@]}"; do
+            for spec in "${ALL_REGIONS[@]}"; do
               IFS='|' read -r regionId _ <<< "$spec"
               ids+=("$regionId")
             done
@@ -223,7 +223,7 @@ jobs:
           # pesante alla piu' leggera, allo shard con il carico cumulativo piu' basso al momento
           # (bin-packing goloso, stesso principio di generate-weekly-schedule.sh ma sui 3 shard
           # invece che sui 7 giorni). Regioni non presenti in WEEKLY_SCHEDULE_TILES (non dovrebbe
-          # succedere: e' generato dallo stesso pilot-regions.sh) pesano 0. Per run piccole/manuali
+          # succedere: e' generato dallo stesso regions.sh) pesano 0. Per run piccole/manuali
           # uno o due shard possono restare vuoti - il job "build" per quello shard non fa nulla e
           # termina subito (vedi sotto), non e' un errore.
           # Peso = secondi dell'ultima generazione completa della regione (region-timings.tsv,
@@ -287,7 +287,7 @@ jobs:
             EXTRA_FILE="$RUNNER_TEMP/extra-regions.tsv"
             : > "$EXTRA_FILE"
             if [ "${#POI_AGE[@]}" -gt 0 ]; then
-              for spec in "${PILOT_REGIONS[@]}"; do
+              for spec in "${ALL_REGIONS[@]}"; do
                 IFS='|' read -r regionId _ <<< "$spec"
                 [ -z "${TODAY[$regionId]:-}" ] || continue
                 age="${POI_AGE[$regionId]:-9999}"
@@ -528,7 +528,7 @@ jobs:
   # sprecato. Un solo job (non a matrice): con ~1.640 celle nel seme una quota di 1/30 (circa 55
   # celle) impiega poche decine di minuti, ben sotto il limite di 6h. Le celle vivono sulle release
   # "address-cells-<n>" (n = hash stabile dell'id mod ADDRESS_CELL_RELEASES, stesso motivo del
-  # limite di 1000 asset per release di region_release_tag in pilot-regions.sh) invece che su
+  # limite di 1000 asset per release di region_release_tag in regions.sh) invece che su
   # "region-data*": non sono legate a una regione. Dalle 6 release iniziali (0..5) a 12: 12 e' un
   # multiplo di 6, quindi una cella con (hash mod 12) < 6 resta dov'e' e le altre passano alla release
   # n+6 solo quando si rigenerano; gli URL assoluti di address-grid.json restano validi finche' non
@@ -1080,7 +1080,7 @@ jobs:
           GEOFABRIK_CACHE: ${{ runner.temp }}/geofabrik
         run: |
           set -euo pipefail
-          source tools/data-pipeline/scripts/pilot-regions.sh
+          source tools/data-pipeline/scripts/regions.sh
           # shellcheck source=./tools/data-pipeline/scripts/lib.sh
           source tools/data-pipeline/scripts/lib.sh
           # Tetto comune di traduzione delle citta' per l'intero shard (translate_overlay in lib.sh).
@@ -1104,7 +1104,7 @@ jobs:
           # della release "region-data": a differenza di Pages, che sostituisce l'intero sito ad
           # ogni deploy, gli asset di una release non spariscono mai da soli - vedi il commento in
           # testa a assemble-site.sh per il problema che questo risolve (sito cumulativo sopra
-          # 1GB con 254 regioni pilota).
+          # 1GB con 254 regioni).
           PAGES_BASE_URL="${{ env.PAGES_BASE_URL }}"
           RELEASE_BASE_URL_PREFIX="https://github.com/${{ github.repository }}/releases/download"
           PUBLISHED_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
@@ -1160,7 +1160,7 @@ jobs:
           EXTRA_DONE=()
           EXTRA_SKIPPED=0
           declare -A SPEC_BY_ID=()
-          for spec in "${PILOT_REGIONS[@]}"; do SPEC_BY_ID[${spec%%|*}]="$spec"; done
+          for spec in "${ALL_REGIONS[@]}"; do SPEC_BY_ID[${spec%%|*}]="$spec"; done
           # Budget dall'inizio del job (JOB_START), dump delle citta' compreso. SECONDS conta dall'inizio di
           # questo passo: il tempo gia' passato prima si toglie dal budget. Almeno una regione parte sempre,
           # cosi' ogni continuazione fa qualche progresso.
@@ -1178,7 +1178,7 @@ jobs:
           # (build-cities.sh, piu' sotto, tiene la voce gia' pubblicata).
           CITIES_REGIONS_TSV="$RUNNER_TEMP/cities-regions.tsv"
           : > "$CITIES_REGIONS_TSV"
-          for spec in "${PILOT_REGIONS[@]}"; do
+          for spec in "${ALL_REGIONS[@]}"; do
             IFS='|' read -r regionId _displayName _minLon _minLat _maxLon _maxLat wikiTitle _flag _groupName _groupLabel _continent <<< "$spec"
             for r in "${SHARD_REGIONS[@]}" "${EXTRA_REGIONS[@]}"; do
               [ "$r" = "$regionId" ] || continue
@@ -1194,9 +1194,9 @@ jobs:
           tools/data-pipeline/scripts/build-cities-dump.sh "$CITIES_REGIONS_TSV" "$CITIES_JSONL_DIR" en \
             || echo "::warning::dump citta' EN non generato per questo shard, regioni senza citta' inglesi nuove"
 
-          # Prima le regioni del giorno (nell'ordine di pilot-regions.sh), poi la coda della quota adattiva.
+          # Prima le regioni del giorno (nell'ordine di regions.sh), poi la coda della quota adattiva.
           ORDERED_REGIONS=()
-          for spec in "${PILOT_REGIONS[@]}"; do
+          for spec in "${ALL_REGIONS[@]}"; do
             id="${spec%%|*}"
             for r in "${SHARD_REGIONS[@]}"; do [ "$r" = "$id" ] && ORDERED_REGIONS+=("$id") && break; done
           done
@@ -1686,7 +1686,7 @@ jobs:
           done
 
       # Prima del deploy: ogni regione del manifest precedente deve restare nel nuovo, salvo quelle
-      # che il merge toglie di proposito (fuori da pilot-regions.sh, o sostituite da un gruppo ormai
+      # che il merge toglie di proposito (fuori da regions.sh, o sostituite da un gruppo ormai
       # completo e quindi in "replacedRegions", vedi knownRegionIds/replacedRegions in
       # MergeManifests.kt). Altrimenti e' quasi certamente un merge incompleto: pubblicarlo farebbe
       # sparire regioni dall'app e la pulizia ne cancellerebbe gli asset.
@@ -1704,16 +1704,16 @@ jobs:
             echo "::warning::manifest precedente non disponibile: nessun confronto sulle regioni"
             exit 0
           fi
-          source tools/data-pipeline/scripts/pilot-regions.sh
+          source tools/data-pipeline/scripts/regions.sh
           KNOWN="$RUNNER_TEMP/known-regions.txt"
-          for spec in "${PILOT_REGIONS[@]}" "${REPLACED_REGIONS[@]}"; do echo "${spec%%|*}"; done | sort -u > "$KNOWN"
+          for spec in "${ALL_REGIONS[@]}" "${REPLACED_REGIONS[@]}"; do echo "${spec%%|*}"; done | sort -u > "$KNOWN"
           MISSING="$(jq -r --rawfile known "$KNOWN" --slurpfile new "$MANIFEST" '
             ($known | split("\n") | map(select(length > 0))) as $k
             | ([$new[0].regions[].regionId] + [($new[0].replacedRegions // [])[].regionId]) as $kept
             | [(.regions // [])[].regionId | select(IN($k[]) and (IN($kept[]) | not))] | join(" ")
           ' "$PREVIOUS_MANIFEST")"
           if [ -n "$MISSING" ]; then
-            echo "Il nuovo manifest ha perso regioni ancora nel lotto pilota: $MISSING. Non pubblico" >&2
+            echo "Il nuovo manifest ha perso regioni ancora nell'elenco: $MISSING. Non pubblico" >&2
             exit 1
           fi
           echo "-- nessuna regione persa ($(jq '.regions | length' "$PREVIOUS_MANIFEST") prima, $(jq '.regions | length' "$MANIFEST") ora)"
@@ -1922,6 +1922,6 @@ jobs:
             # Durante una rigenerazione completa i nuovi asset si sommano ai vecchi: sopra i 500
             # stabili una release rischia di superare il limite di 1000 (vedi REGION_RELEASES e region_release_tag).
             if [ "$kept" -gt 500 ]; then
-              echo "::warning::$tag ha $kept asset: rischia il limite di 1000 durante una rigenerazione completa, aumenta REGION_RELEASES in pilot-regions.sh (ADDRESS_CELL_RELEASES per le celle dei civici)"
+              echo "::warning::$tag ha $kept asset: rischia il limite di 1000 durante una rigenerazione completa, aumenta REGION_RELEASES in regions.sh (ADDRESS_CELL_RELEASES per le celle dei civici)"
             fi
           done

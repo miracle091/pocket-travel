@@ -39,9 +39,9 @@ class VaccinationModelTest {
 
     @Test
     fun `le soglie dei transiti crescono e NONE e ANY non ne hanno`() {
-        assertNull(TransitRule.NONE.hours)
-        assertNull(TransitRule.ANY.hours)
-        assertEquals(listOf(4, 12, 24), listOf(TransitRule.GT4H, TransitRule.GT12H, TransitRule.GT24H).map { it.hours })
+        assertNull(StopoverRule.NONE.hours)
+        assertNull(StopoverRule.ANY.hours)
+        assertEquals(listOf(4, 12, 24), listOf(StopoverRule.GT4H, StopoverRule.GT12H, StopoverRule.GT24H).map { it.hours })
     }
 
     @Test

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Orchestratore batch: per UNA regione (una nazione o una sua sotto-area, per le
-# nazioni non contigue — vedi build-pilot-regions.sh per Stati Uniti), genera poi.db (POI
+# nazioni non contigue — vedi build-all-regions.sh per Stati Uniti), genera poi.db (POI
 # Overpass, via il tool Kotlin generatePoi), scarica e ri-ospita i segmenti BRouter .rd5 che
 # intersecano il bbox (stesso host di poi.db, vedi manifest-fragment.json), estrae con go-pmtiles
 # un'anteprima offline a pochi zoom della mappa (preview.pmtiles, vedi PREVIEW_MAX_ZOOM piu' sotto),
@@ -38,7 +38,7 @@
 # POI_MAX_AGE_DAYS giorni, la regione e' considerata invariata questa settimana e la rigenerazione
 # viene saltata del tutto (vedi sezione "2bis." sotto).
 # Omesso (come per
-# l'esecuzione locale via build-pilot-regions.sh, sempre "tutto fresco") = nessun controllo,
+# l'esecuzione locale via build-all-regions.sh, sempre "tutto fresco") = nessun controllo,
 # rigenerazione completa. Quando la regione viene saltata, <outputDir>/.skipped viene
 # creato (vuoto) invece di poi.db/i .rd5 - il chiamante lo usa per capire che non c'e' nulla
 # di nuovo da ricaricare (vedi publish-regions.yml).
@@ -47,7 +47,7 @@
 # root del repo. go-pmtiles (PMTILES_BIN, vedi publish-regions.yml) e' facoltativo: senza, la
 # regione resta senza anteprima (mai fatale). I segmenti .rd5 restano in <outputDir> insieme a
 # poi.db e preview.pmtiles(.xz), pronti per essere copiati nel sito da pubblicare (vedi
-# build-pilot-regions.sh/publish-regions.yml).
+# build-all-regions.sh/publish-regions.yml).
 set -euo pipefail
 
 if [ "$#" -lt 9 ] || [ "$#" -gt 10 ]; then
@@ -97,7 +97,7 @@ fetch_rd5() {
     "$(wc -c < "$dest" | tr -d ' ')" "$(sha256sum < "$dest" | awk '{print $1}')" "$sourceSize $RD5_CLIP" >> "$2"
 }
 # Variante "solo auto" dei segmenti (voce routingCar del manifest, interruttore "Percorsi solo per l'auto"
-# nell'app): filterRd5 (Rd5CarFilter, circa il 43% del file intero) sulle tile appena scaricate, in
+# nell'app): filterRd5 (Rd5CarFilter, circa il 60% del file intero) sulle tile appena scaricate, in
 # OUTPUT_DIR/car con lo stesso nome. Asset "<regione>--<versione>--car-<tile>.rd5" su CAR_ASSET_BASE_URL: la
 # release region-data-car-rNN accanto a region-data-rNN (le release reggono 1.000 asset), o la stessa base per
 # gli URL che non seguono quello schema (esecuzioni locali).
@@ -381,7 +381,7 @@ LAT_END="$(floor5 "$MAX_LAT")"
 # download. Un confronto per sha256 richiederebbe scaricare comunque il file, annullando il
 # risparmio che questo controllo vuole ottenere. Nessun $PUBLISHED_MANIFEST_URL o jq mancante =
 # nessun controllo, si procede sempre con la rigenerazione completa (come
-# nell'esecuzione locale via build-pilot-regions.sh).
+# nell'esecuzione locale via build-all-regions.sh).
 if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
   echo "-- controllo se $REGION_ID e' gia' aggiornata rispetto a $PUBLISHED_MANIFEST_URL..."
   PUBLISHED_MANIFEST="$WORKDIR/published-manifest.json"
@@ -643,9 +643,9 @@ fetch_overpass_chunk() {
 GEOFABRIK_XML=""
 if [ "${GEOFABRIK_POI:-true}" = "true" ] && command -v osmium >/dev/null; then
   echo "-- POI dagli estratti Geofabrik..."
-  # Nazione della regione (flagCode di pilot-regions.sh): con quella si scartano gli estratti dei paesi
+  # Nazione della regione (flagCode di regions.sh): con quella si scartano gli estratti dei paesi
   # confinanti che il bbox contiene. Vuoto se la regione non e' nell'elenco: si usa solo il bbox.
-  GEOFABRIK_ISO="$(source "$SCRIPT_DIR/pilot-regions.sh" && for spec in "${PILOT_REGIONS[@]}"; do IFS='|' read -r id _ _ _ _ _ _ flag _ <<< "$spec"; [ "$id" = "$REGION_ID" ] && echo "$flag" && break; done || true)"
+  GEOFABRIK_ISO="$(source "$SCRIPT_DIR/regions.sh" && for spec in "${ALL_REGIONS[@]}"; do IFS='|' read -r id _ _ _ _ _ _ flag _ <<< "$spec"; [ "$id" = "$REGION_ID" ] && echo "$flag" && break; done || true)"
   if python3 "$SCRIPT_DIR/geofabrik_pois.py" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --iso="$GEOFABRIK_ISO" --out "$WORKDIR/poi-geofabrik.osm.xml" --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT"; then
     GEOFABRIK_XML="$WORKDIR/poi-geofabrik.osm.xml"
   else

@@ -160,7 +160,7 @@ internal fun pinBitmap(context: Context, fill: Int, glyphRes: Int?, badge: Acces
     return bitmap
 }
 
-/** Distintivo di accessibilita' sul segnalino, con "Con disabilita'" attivo (tag OSM wheelchair). */
+/** Distintivo di accessibilita' sul segnalino, con "In sedia a rotelle" attivo (tag OSM wheelchair). */
 enum class AccessibilityBadge(val imageId: String) {
     // Pieno: accessibile. Vuoto: in parte. Diversi anche senza distinguere il colore.
     YES("badge-accessible"),

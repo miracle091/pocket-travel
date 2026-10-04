@@ -19,12 +19,12 @@ import java.io.File
  * rigenerare tutte nella stessa run. Le loro guide arrivano invece da guides.db.
  *
  * continents e countryCodes (regionId -> continente / codice ISO 3166-1 alpha-2 minuscolo, da
- * pilot-regions.sh) vengono scritti nei campi "continent" e "countryCode" di ogni regione presente,
+ * regions.sh) vengono scritti nei campi "continent" e "countryCode" di ogni regione presente,
  * anche di quelle non ricostruite in questa run: l'app raggruppa l'elenco per continente e trova le
  * regioni di un paese toccato sulla mappa del mondo, e non ha altra fonte per saperlo. Allo stesso
  * modo i "wikivoyageUrls" del frammento guide finiscono nel campo "wikivoyageUrl" delle regioni.
  *
- * groups (regionId -> groupName, groupLabel, da pilot-regions.sh) finisce nei campi "groupName" e
+ * groups (regionId -> groupName, groupLabel, da regions.sh) finisce nei campi "groupName" e
  * "groupLabel": l'app raccoglie sotto un'unica voce le regioni dello stesso paese (es. gli stati USA).
  * groupLabelsEn (regionId -> nome inglese della regione nel gruppo, dal titolo della pagina di Wikivoyage
  * inglese, vedi [englishLabelOf]) finisce in "groupLabelEn": l'app lo mostra quando e' in inglese.
@@ -32,8 +32,8 @@ import java.io.File
  * tolta resta finche' tutte le regioni del gruppo sono nel manifest, poi sparisce e finisce nel campo
  * "replacedRegions", con cui l'app propone le regioni nuove a chi ha ancora installata quella vecchia.
  *
- * knownRegionIds (le regioni di pilot-regions.sh), se indicato, scarta le regioni che non ne fanno
- * piu' parte: senza, una regione tolta dal lotto pilota resterebbe per sempre nel manifest,
+ * knownRegionIds (le regioni di regions.sh), se indicato, scarta le regioni che non ne fanno
+ * piu' parte: senza, una regione tolta dall'elenco resterebbe per sempre nel manifest,
  * ricopiata a ogni run da quello gia' pubblicato.
  *
  * "worldMap" (mappa del mondo online) e' come "guides": non una
@@ -200,7 +200,7 @@ fun main(args: Array<String>) {
     val inputFiles = rest.drop(1).map { File(it) }
     inputFiles.forEach { require(it.exists()) { "Manifest non trovato: ${it.path}" } }
 
-    // La tabella --continents elenca tutte le regioni di pilot-regions.sh: chi non c'e' e' stata tolta.
+    // La tabella --continents elenca tutte le regioni di regions.sh: chi non c'e' e' stata tolta.
     val knownRegionIds = continentsFile?.let { rows.map { it[0] }.toSet() }?.takeIf { it.isNotEmpty() }
     val merged = mergeManifestJson(inputFiles.map { it.readText() }, continents, countryCodes, knownRegionIds, groups, replaced, mapSourceUrl, minAppVersionCode, groupLabelsEn)
     outputFile.writeText(merged)

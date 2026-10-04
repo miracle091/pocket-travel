@@ -20,13 +20,13 @@ class RegionRepository @Inject constructor(
     private val database: RegionDatabase,
     private val cityDao: CityDao,
 ) {
-    fun observeInstalled(): Flow<List<RegionPackage>> =
+    fun observeInstalled(): Flow<List<InstalledRegion>> =
         regionPackageDao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
     suspend fun displayName(regionId: String): String? =
         regionPackageDao.findById(regionId)?.displayName
 
-    suspend fun installed(regionId: String): RegionPackage? = regionPackageDao.findById(regionId)?.toDomain()
+    suspend fun installed(regionId: String): InstalledRegion? = regionPackageDao.findById(regionId)?.toDomain()
 
     /**
      * Registra i pacchetti appena installati ([versions]), conservando gli altri gia' presenti.
@@ -212,7 +212,7 @@ class RegionRepository @Inject constructor(
     }
 
     /** Byte occupati da un pacchetto installato: mappa, routing, civici e orari dei mezzi dal disco, POI (base ed extra) e citta' dalla dimensione registrata. */
-    fun packageBytes(region: RegionPackage, kind: PackageKind): Long? = when {
+    fun packageBytes(region: InstalledRegion, kind: PackageKind): Long? = when {
         region.versionOf(kind) == null -> null
         kind == PackageKind.MAP -> regionStorage.packageBytes(region.regionId, RegionStorage.MAP_FILE)
         kind == PackageKind.ROUTING -> regionStorage.packageBytes(region.regionId, RegionStorage.ROUTING_DIR)
@@ -237,7 +237,7 @@ private val FILE_PACKAGES = mapOf(
     PackageKind.TRANSIT to RegionStorage.TRANSIT_DIR,
 )
 
-private fun InstalledRegionEntity.toDomain() = RegionPackage(
+private fun InstalledRegionEntity.toDomain() = InstalledRegion(
     regionId = regionId,
     displayName = displayName,
     countryCode = countryCode,

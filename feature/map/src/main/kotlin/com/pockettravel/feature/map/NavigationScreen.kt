@@ -110,7 +110,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 /**
- * Guida passo passo dentro la scheda Navigatore, come nelle app di navigazione: la mappa a tutto
+ * Navigazione passo passo dentro la scheda Navigatore, come nelle app di navigazione: la mappa a tutto
  * schermo che segue la posizione, in alto il riquadro con la prossima svolta (e quella dopo), in basso
  * tempo e distanza rimasti, ora di arrivo e "Termina"; toccando il pannello si vedono le svolte
  * successive. Gli altri stati (permesso, GPS, calcolo, errori) prendono lo stesso schermo.
@@ -118,10 +118,10 @@ import kotlin.math.roundToInt
  * dati di percorso (BRouter/OSM) non li hanno.
  */
 @Composable
-fun NavigationGuidance(
+fun NavigationInstructions(
     state: NavigationUiState,
     destinationName: String,
-    travelMode: TravelMode,
+    routeProfile: RouteProfile,
     // Ora a cui si vuole arrivare ("Arriva alle…"), null se non scelta: il pannello dice se si e' in ritardo.
     arriveBy: LocalDateTime?,
     // Mappa della guida: lo stile della scheda Mappa, con una sorgente per ognuna delle regioni del percorso.
@@ -162,7 +162,7 @@ fun NavigationGuidance(
     }
 
     if (state is NavigationUiState.Navigating) {
-        Guidance(state, destinationName, travelMode, arriveBy, tileSource, regionIds, onClose, walkingHaptics, onStreetNames, drivingSide)
+        Guidance(state, destinationName, routeProfile, arriveBy, tileSource, regionIds, onClose, walkingHaptics, onStreetNames, drivingSide)
         return
     }
     // Senza percorso da seguire: un messaggio al centro, con la meta in cima e sempre "Termina".
@@ -318,7 +318,7 @@ private fun Waiting(text: String, announcement: String = text) {
 private fun Guidance(
     state: NavigationUiState.Navigating,
     destinationName: String,
-    travelMode: TravelMode,
+    routeProfile: RouteProfile,
     arriveBy: LocalDateTime?,
     tileSource: OfflineTileSource,
     regionIds: List<String>,
@@ -340,7 +340,7 @@ private fun Guidance(
     val turnNow = progress.distanceToNextMeters < NOW_METERS && progress.nextInstruction.type != TurnType.ARRIVE
     var lastVibratedIndex by remember(route) { mutableStateOf(-1) }
     LaunchedEffect(progress.nextInstructionIndex, turnNow) {
-        if (turnNow && travelMode == TravelMode.WALK && walkingHaptics && progress.nextInstructionIndex != lastVibratedIndex) {
+        if (turnNow && routeProfile == RouteProfile.WALK && walkingHaptics && progress.nextInstructionIndex != lastVibratedIndex) {
             lastVibratedIndex = progress.nextInstructionIndex
             NavigationHaptics.turn(context)
         }
@@ -361,8 +361,8 @@ private fun Guidance(
             modifier = Modifier.fillMaxSize(),
         )
         Column(modifier = Modifier.fillMaxWidth().padding(Spacing.s)) {
-            TurnBanner(progress, streetNames[progress.nextInstruction.pointIndex], rememberSpeedMps(progress.remainingMeters, travelMode))
-            if (drivingSide != null && travelMode == TravelMode.CAR) DrivingSideNotice(drivingSide)
+            TurnBanner(progress, streetNames[progress.nextInstruction.pointIndex], rememberSpeedMps(progress.remainingMeters, routeProfile))
+            if (drivingSide != null && routeProfile == RouteProfile.CAR) DrivingSideNotice(drivingSide)
             // "Poi": la svolta dopo, in piccolo sotto il riquadro, come nelle app di navigazione.
             upcoming.firstOrNull()?.takeIf { progress.nextInstruction.type != TurnType.ARRIVE }?.let { then ->
                 Surface(
@@ -436,7 +436,7 @@ private fun Guidance(
                     }
                 }
                 if (arriveBy != null && late != null) ArrivalStatus(arriveBy, late)
-                if (travelMode != TravelMode.WALK) {
+                if (routeProfile != RouteProfile.WALK) {
                     Spacer(modifier = Modifier.height(Spacing.s))
                     SpeedCameraNotice()
                 }
@@ -834,13 +834,13 @@ private const val NOW_METERS = 10.0
  * GPS salta. Finche' non c'e' una misura (primi secondi, fermi al semaforo) vale quella tipica del mezzo.
  */
 @Composable
-private fun rememberSpeedMps(remainingMeters: Double, travelMode: TravelMode): Double {
+private fun rememberSpeedMps(remainingMeters: Double, routeProfile: RouteProfile): Double {
     val holder = remember { SpeedEstimate() }
     SideEffect { holder.update(remainingMeters, System.nanoTime()) }
-    return holder.speed ?: when (travelMode) {
-        TravelMode.WALK -> 1.4
-        TravelMode.BIKE -> 4.5
-        TravelMode.CAR -> 12.0
+    return holder.speed ?: when (routeProfile) {
+        RouteProfile.WALK -> 1.4
+        RouteProfile.BIKE -> 4.5
+        RouteProfile.CAR -> 12.0
     }
 }
 

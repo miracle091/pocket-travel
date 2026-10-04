@@ -1,7 +1,7 @@
 package com.pockettravel.core.data
 
 /** Una regione con almeno un pacchetto installato; la versione e' null per un pacchetto assente. */
-data class RegionPackage(
+data class InstalledRegion(
     val regionId: String,
     val displayName: String,
     val countryCode: String?,

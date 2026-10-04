@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Guide arricchite dall'altra lingua, italiano dall'inglese o inglese dall'italiano (--from): per ogni regione (o
 citta') e categoria si confronta la sezione della guida con quella nell'altra lingua
-(translate_sections.needs_translation: assente, sotto 300 caratteri o lunga meno della meta') e, dove l'altra e' molto
+(translate_dataset.needs_translation: assente, sotto 300 caratteri o lunga meno della meta') e, dove l'altra e' molto
 piu' ricca, la si traduce. Scrive un file di sezioni tradotte (una riga JSON per regione e categoria) che
 generateGuides / generateCities (--translated) mettono al posto di quelle povere, segnandole con translated = 1 nel
 database.
@@ -12,7 +12,7 @@ Con --from en (default) il database da arricchire e' quello italiano, con --from
 
 Motore: CTranslate2 (int8, CPU) sui modelli Helsinki-NLP/opus-mt-tc-big-en-it e opus-mt-tc-big-it-en (CC BY 4.0),
 convertiti da convert-translation-model.sh (--model-dir e' quello della direzione); la divisione in frasi, la cache delle
-frasi (un file per direzione in --cache-dir) e lo scarto delle frasi sospette sono quelli di translate_sections.py. Il
+frasi (un file per direzione in --cache-dir) e lo scarto delle frasi sospette sono quelli di translate_dataset.py. Il
 testo tradotto e' un'opera derivata di Wikivoyage (CC BY-SA 4.0): l'app lo dichiara tra le licenze.
 
 Tetto di tempo: --max-seconds per questa chiamata e --deadline (secondi dal 1970) per un tetto comune a piu'
@@ -35,7 +35,7 @@ import urllib.parse
 from pathlib import Path
 
 import city_population
-import translate_sections as ts
+import translate_dataset as ts
 
 # Dai fatti rapidi in inglese non si traduce: li costruisce la pipeline dal Quickbar italiano.
 SKIP_CATEGORIES = {"FATTI_RAPIDI"}
@@ -45,7 +45,7 @@ CHUNK_CHARS = 40_000  # testo inglese per chiamata al modello: tra un lotto e l'
 
 
 class Ct2Translator(ts.Translator):
-    """translate_sections.Translator con CTranslate2 al posto di torch: stessa cache e stessi controlli."""
+    """translate_dataset.Translator con CTranslate2 al posto di torch: stessa cache e stessi controlli."""
 
     def __init__(self, src, tgt, cache_dir, model_dir):
         Path(cache_dir).mkdir(parents=True, exist_ok=True)

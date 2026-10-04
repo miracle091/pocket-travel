@@ -61,7 +61,7 @@ enum class TripPurpose { HAJJ_UMRAH }
 enum class YfRule { NONE, FROM_RISK, ALL, FROM_LIST }
 
 /** Transiti che contano come "provenienza" per la febbre gialla: [hours] e' la soglia (esclusa), null = nessuna. */
-enum class TransitRule(val hours: Int?) {
+enum class StopoverRule(val hours: Int?) {
     NONE(null),
     ANY(null),
     GT4H(4),
@@ -94,7 +94,7 @@ data class YfEntryRow(
     val iso2: String,
     val rule: YfRule,
     val minAgeMonths: Int?,
-    val transit: TransitRule,
+    val transit: StopoverRule,
     val fromList: Set<String>,
     val exitRequired: Boolean,
     val noteIt: String,
