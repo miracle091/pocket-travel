@@ -13,6 +13,13 @@ Un positivo/negativo si tiene solo se il contesto tratta (o non tratta) davvero 
 le sezioni Wikivoyage a volte coprono altro (es. 'restare in contatto' = posta).
 Con --dump-dir (i dump di generate_sft_dataset.py) aggiunge in coda righe sulle citta' delle regioni di test,
 che il training esclude: pos_city (domande riformulate, PARA_CITY) e neg_city (categoria assente dalla pagina).
+In fondo, con un seme proprio (le righe precedenti non cambiano), domande su cosa c'e' qui vicino e sui mezzi con i
+blocchi di contesto dell'app (nearby_rows, come generate_sft.py --nearby ma con domande, nomi e seme diversi):
+  pos_near    il blocco "Punti di interesse entro..." ha la categoria chiesta (o la domanda e' generica);
+  neg_near    il blocco non ha la categoria chiesta, o non c'e' (nessuna posizione): solo la guida;
+  pos_dep     il blocco "Prossime partenze..." ha il mezzo o la linea chiesti, oppure dice che gli orari sono
+              scaduti o che non ci sono partenze nelle prossime ore (si risponde con quello, non si rifiuta);
+  neg_dep     il tabellone non ha il mezzo chiesto, o non c'e' (nessuna fermata vicina): solo la guida.
 Legge solo la cache di generate_sft_dataset.py (data/sft/raw) e i dump: niente rete.
 Uso: python generate_eval_set.py [--dump-dir <cartella dei dump> [--dump-date AAAAMMGG]]
 """
@@ -25,6 +32,8 @@ from pathlib import Path
 
 from eval_common import TEST_REGIONS
 
+import generate_sft
+import sft_nearby
 import wiki_dump
 from generate_sft_dataset import (CITY_HEADING_TO_CATEGORY, CITY_MIN_SECTION, DUMP_FILES, EN_HEADING_TO_CATEGORY,
                                   FALLBACK_CONTEXT, HEADING_TO_CATEGORY, OUT, QUESTIONS, TOPIC, city_parents, covers,
@@ -67,6 +76,124 @@ OFF_TOPIC = ["Qual e' la capitale della Francia?", "Come si prepara la carbonara
              "Quanto fa 17 per 23?", "Scrivimi una poesia sul mare.", "Chi ha scritto la Divina Commedia?",
              "Come si installa Python su Windows?", "Qual e' il senso della vita?",
              "What is the capital of Spain?", "How do I cook pasta?"]
+
+# Domande su cosa c'e' qui vicino (per categoria dei POI, None = generica) e sui mezzi (generiche, per mezzo, per linea {l}),
+# con le chiavi di ASK e TRANSIT_ASK di sft_nearby.py, da cui si prendono l'inizio della risposta e l'argomento del rifiuto.
+# Scritte in altro modo rispetto al training (test_sft_nearby.py controlla che non abbiano 4 parole di fila in comune con
+# quelle di training) e con le parole che in TravelAssistant.kt attivano lo stesso blocco (nearbyWords, transitWords).
+NEAR_QUESTIONS = {
+    "it": {
+        None: ["Che posti ci sono qui attorno?", "Elencami i luoghi utili nelle vicinanze."],
+        "FARMACIA": ["Sto cercando una farmacia nei dintorni, ce n'è una?"],
+        "BANCOMAT": ["Devo prelevare contanti: c'è uno sportello nelle vicinanze?"],
+        "CIBO_BEVANDE": ["Ho fame, dove trovo da mangiare qui attorno?"],
+        "BAGNI_PUBBLICI": ["Dove trovo una toilette pubblica qui attorno?"],
+        "OSPEDALE": ["Mi sono fatto male, quanto dista il pronto soccorso più vicino?"],
+        "UFFICIO_POSTALE": ["Devo spedire una cartolina: ci sono le poste nei dintorni?"],
+        "INFORMAZIONI": ["Mi servono delle mappe, c'è un punto informazioni nei dintorni?"],
+        "PARCHEGGIO": ["Devo lasciare la macchina, c'è un posteggio qui attorno?"],
+        "ALLOGGIO": ["Cerco un albergo nelle vicinanze, ne vedi qualcuno?"],
+        "NEGOZI": ["Devo comprare qualcosa, ci sono botteghe qui attorno?"],
+        "POLIZIA": ["Devo sporgere denuncia: dov'è il commissariato più vicino a me?"],
+        "MUSEI_ARTE": ["Ci sono mostre o gallerie da visitare qui attorno?"],
+        "ACQUA_POTABILE": ["Posso riempire la borraccia da qualche parte qui attorno?"],
+        "CARBURANTE": ["Ho la riserva accesa: c'è un distributore nei dintorni?"],
+    },
+    "en": {
+        None: ["Which places are close by?", "Give me a list of useful spots around here."],
+        "FARMACIA": ["Can you find me a chemist close by?"],
+        "BANCOMAT": ["I need cash, is there a cash machine close by?"],
+        "CIBO_BEVANDE": ["I'm hungry, where can I grab a bite close by?"],
+        "BAGNI_PUBBLICI": ["Is there a restroom I can use around here?"],
+        "OSPEDALE": ["How far away is the closest hospital?"],
+        "UFFICIO_POSTALE": ["I have to mail a postcard, which post office is closest?"],
+        "INFORMAZIONI": ["I need a map, is there a visitor information point close by?"],
+        "PARCHEGGIO": ["I have to leave the car somewhere, any car park close by?"],
+        "ALLOGGIO": ["Can you find me a place to stay close by?"],
+        "NEGOZI": ["I need to buy a few things, any stores close by?"],
+        "POLIZIA": ["I have to report a theft, which police station is closest?"],
+        "MUSEI_ARTE": ["Are there any galleries or exhibitions around here?"],
+        "ACQUA_POTABILE": ["Where can I refill my water bottle close by?"],
+        "CARBURANTE": ["I'm low on fuel, is there a petrol station close by?"],
+    },
+}
+DEP_QUESTIONS = {
+    "it": {
+        "any": ["Che partenze ci sono a breve?", "Fra quanto c'è la prima partenza utile?"],
+        "mode": {"BUS": ["Fra quanto arriva un autobus?"], "TRAM": ["Tra quanti minuti arriva il tram?"],
+                 "METRO": ["Fra quanto arriva una metropolitana?"], "TRAIN": ["C'è un treno in partenza a breve?"],
+                 "TROLLEYBUS": ["Fra quanto arriva il filobus?"], "FERRY": ["Fra quanto salpa un traghetto?"]},
+        "line": {"BUS": ["Tra quanto arriva l'autobus {l}?"], "TRAM": ["Il tram {l} fra quanto arriva?"],
+                 "METRO": ["Fra quanto arriva la metro {l}?"], "TRAIN": ["Fra quanto si parte col treno {l}?"],
+                 "FERRY": ["Il traghetto {l} fra quanto salpa?"]},
+    },
+    "en": {
+        "any": ["Which departures are coming up soon?", "Show me the upcoming departures."],
+        "mode": {"BUS": ["How long until a bus arrives?"], "TRAM": ["How many minutes until a tram comes?"],
+                 "METRO": ["How long must I wait for the metro?"], "TRAIN": ["Is there a train leaving soon?"],
+                 "TROLLEYBUS": ["Is a trolleybus departure coming up soon?"], "FERRY": ["How long until a ferry sails?"]},
+        "line": {"BUS": ["How long until bus {l} gets here?"], "TRAM": ["How soon will tram {l} arrive?"],
+                 "METRO": ["How long until metro {l} arrives?"], "TRAIN": ["Is train {l} leaving soon?"],
+                 "FERRY": ["How soon does ferry {l} sail?"]},
+    },
+}
+# Nomi e direzioni dei dati sintetici, per lingua locale, diversi da SURNAMES, PLACES e HEADSIGNS di sft_nearby.py
+NEAR_SURNAMES = {"it": ["Romano", "Costa", "Giordano", "Mancini", "Lombardi", "Barbieri", "Moretti"],
+                 "es": ["Fernández", "González", "Díaz", "Moreno", "Jiménez", "Álvarez"],
+                 "fr": ["Petit", "Durand", "Leroy", "Girard", "Bonnet", "Mercier"],
+                 "de": ["Meyer", "Koch", "Richter", "Klein", "Wolf", "Neumann"],
+                 "en": ["Johnson", "Roberts", "Davies", "Thompson", "Green", "Clarke"]}
+NEAR_PLACES = {"it": ["Cavour", "Verdi", "Dante", "Sant'Anna", "Porta Romana", "Belvedere", "Marina"],
+               "es": ["de la Paz", "San Miguel", "del Sol", "la Merced", "Santa Cruz", "del Río"],
+               "fr": ["de la Poste", "Saint-Jean", "du Pont", "des Lilas", "de l'Église", "du Moulin"],
+               "de": ["Anger", "Kloster", "Mühlen", "Wiesen", "Burg", "Garten"],
+               "en": ["Mill", "Abbey", "Quay", "Meadow", "Chapel", "Victoria"]}
+DEP_HEADSIGNS = {"it": ["Fiera", "Policlinico", "Lungomare", "Piazza Grande", "Zona Industriale", "Parco Nord"],
+                 "es": ["Ciudad Universitaria", "Feria", "Polígono", "Barrio Alto", "Parque Norte", "Muelle"],
+                 "fr": ["Gare Routière", "Zone Industrielle", "Parc des Expositions", "Mairie", "Lycée", "Quai Sud"],
+                 "de": ["Messe", "Zoo", "Westfriedhof", "Gewerbegebiet", "Nordbad", "Kliniken"],
+                 "en": ["Showground", "Industrial Estate", "Seafront", "Park and Ride", "College", "Riverside"]}
+NEAR_SEED = 2610  # diverso dal --seed di generate_sft.py (42)
+# Righe per lingua, per tipo e caso: "blocco" con la risposta (tabellone con il mezzo o la linea, per pos_dep), "scaduti"
+# e "vuoto" (orari scaduti, nessuna partenza), "manca" (blocco senza la categoria o il mezzo chiesti), "assente" (nessun blocco)
+NEAR_QUOTAS = {("pos_near", "blocco"): 14, ("neg_near", "manca"): 6, ("neg_near", "assente"): 4,
+               ("pos_dep", "blocco"): 9, ("pos_dep", "scaduti"): 3, ("pos_dep", "vuoto"): 2,
+               ("neg_dep", "manca"): 6, ("neg_dep", "assente"): 4}
+
+
+def nearby_rows(lang, guides, row, refusal):
+    """Righe pos_near/neg_near e pos_dep/neg_dep fino a NEAR_QUOTAS: blocchi e risposte di sft_nearby.py con le domande e i
+    nomi qui sopra, poi le sezioni della guida di una regione di test come nel training (generate_sft.nearby_context).
+    [guides]: [(regionId, nome, [corpi delle sezioni])]; [refusal]: argomento -> rifiuto."""
+    if not guides:
+        return []
+    rng, L = random.Random(NEAR_SEED), generate_sft.LANGS[lang]
+    asks = {c: (qs, *sft_nearby.ASK[lang][c][1:]) for c, qs in NEAR_QUESTIONS[lang].items()}
+    transit_asks = {**sft_nearby.TRANSIT_ASK[lang], **DEP_QUESTIONS[lang]}
+    no_departures = sft_nearby.transit_context(("departures", []), lang)
+    done, out, seen = Counter(), [], set()
+    for i in range(5000):
+        if sum(done.values()) == sum(NEAR_QUOTAS.values()):
+            break
+        transit = i % 2 == 1
+        if transit:
+            block, q, answer, kind = sft_nearby.transit_example(rng, lang, refusal, transit_asks, DEP_HEADSIGNS)
+        else:
+            block, q, answer, kind = sft_nearby.poi_example(rng, lang, refusal, asks, NEAR_SURNAMES, NEAR_PLACES)
+        kind += "_dep" if transit else "_near"
+        case = ("assente" if block is None else "manca" if kind.startswith("neg") else "blocco" if "\n" in block
+                else "vuoto" if block == no_departures else "scaduti")
+        if done[kind, case] >= NEAR_QUOTAS[kind, case]:
+            continue
+        rid, name, bodies = guides[len(out) % len(guides)]
+        context = generate_sft.nearby_context(rng, block, q, name, bodies, L, transit)
+        if (context, q) in seen:
+            continue
+        seen.add((context, q))
+        done[kind, case] += 1
+        out.append(row(kind, rid, "PARTENZE" if transit else "VICINO", context, q, answer))
+    rng.shuffle(out)
+    return out
 
 
 def city_rows(rng, dump_dir, dump_date, row, refusal):
@@ -129,8 +256,11 @@ def main():
             if secs:
                 langs[rid][lang] = secs
 
+    def refusal_on(topic):
+        return f"Il contesto non contiene informazioni {topic}: per dettagli affidabili consulta una fonte ufficiale."
+
     def refusal(cat):
-        return f"Il contesto non contiene informazioni {TOPIC[cat]}: per dettagli affidabili consulta una fonte ufficiale."
+        return refusal_on(TOPIC[cat])
 
     def question(cat, name, i):  # a rotazione: 2 IT e 1 EN ogni 3, cosi' il test e' stabile
         pool = PARA_EN[cat] if i % 3 == 2 else PARA[cat]
@@ -141,7 +271,7 @@ def main():
                              {"role": "assistant", "content": answer}],
                 "kind": kind, "region": rid, "category": cat}
 
-    out = []
+    out, guides = [], []
     for rid in held_out:
         if not langs[rid]:
             print(f"{rid}: nessuna sezione in {OUT / 'raw'} (ne' IT ne' EN), regione saltata", file=sys.stderr)
@@ -169,12 +299,14 @@ def main():
                 out.append(row("neg_para", rid, mc, context, q, refusal(mc)))
                 out.append(row("neg_empty", rid, mc, FALLBACK_CONTEXT, question(mc, name, rng.randint(0, 2)), refusal(mc)))
         pool = [b for _, b in (secs_it or next(iter(langs[rid].values())))]
+        guides.append((rid, name, pool))
         for q in OFF_TOPIC:
             out.append(row("neg_off", rid, "OFF", make_context(rng, rng.sample(pool, min(len(pool), rng.randint(1, 3))), q, name),
                            q, refusal("VITA_QUOTIDIANA")))
     rng.shuffle(out)
     if args.dump_dir:  # in coda, dopo il mescolamento: le righe dei paesi restano quelle di prima
         out += city_rows(rng, args.dump_dir, args.dump_date or args.dump_dir.name, row, refusal)
+    out += nearby_rows("it", guides, row, refusal_on)
     with open(OUT / "eval_extended.jsonl", "w", encoding="utf-8") as f:
         for r in out:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera il dataset SFT v9 in italiano o in inglese con lo stesso metodo, cosi' i due dataset restano equivalenti:
+"""Genera il dataset SFT v9 (v10 con --nearby) in italiano o in inglese con lo stesso metodo, cosi' i due dataset restano equivalenti:
 stesse fonti (Wikivoyage IT ed EN dello stesso dump, Wikipedia IT per le categorie deboli, fatti rapidi e note), stessa
 composizione per categoria, stessi tipi di domanda, stesso rapporto di rifiuti. Cambiano solo le tabelle della lingua
 (domande, parole chiave, rifiuto, prompt dell'app), prese da generate_sft_dataset.py (italiano) e
@@ -21,9 +21,11 @@ hanno "translated": true e ATTRIBUTION indica la traduzione automatica (CC BY-SA
 Fuori dal training le regioni di test e quelle la cui pagina (IT o EN) e' la pagina di una regione di test o vi
 appartiene (es. figi-occidentali ha la pagina "Figi"/"Fiji" di figi-lau): restano nel file solo le regioni di test.
 
-Uso: python generate_sft.py --lang it|en --dump-dir <cartella dei dump> [--cities 4500] [--guides-db <db>] [--nearby 0.03] [--seed 42]
-Output in data/sft/: pocket_travel_sft.v9.<lang>.jsonl e ATTRIBUTION.v9.<lang>.tsv; traduzioni in cache in
-raw/translations.<src>-<tgt>.jsonl.
+Uso: python generate_sft.py --lang it|en --dump-dir <cartella dei dump> [--cities 4500] [--guides-db <db>] [--nearby 0.03]
+     [--version v10] [--seed 42]
+Output in data/sft/: pocket_travel_sft.<versione>.<lang>.jsonl e ATTRIBUTION.<versione>.<lang>.tsv; traduzioni in cache in
+raw/translations.<src>-<tgt>.jsonl. La versione di default e' v9 senza --nearby (l'output del v9) e v10 con --nearby,
+cosi' un dataset con gli esempi --nearby non sovrascrive mai il v9.
 """
 import argparse
 import json
@@ -169,8 +171,10 @@ def main():
                     help="riassunti di VaccinationSummaryExport (JSONL): domande sui vaccini col riassunto nel contesto")
     ap.add_argument("--nearby", type=float, default=0,
                     help="quota del dataset finale (es. 0.03) con domande su cosa c'e' qui vicino e sulle prossime partenze")
+    ap.add_argument("--version", help="versione nel nome dei file di output (default: v10 con --nearby, altrimenti v9)")
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
+    version = a.version or ("v10" if a.nearby else "v9")
     L, lang, other = LANGS[a.lang], a.lang, OTHER[a.lang]
     rng = random.Random(a.seed)
     (it.OUT / "raw").mkdir(parents=True, exist_ok=True)
@@ -490,7 +494,7 @@ def main():
 
     for name, (dataset, *_, lic, _) in L["off_topic_sources"].items():  # solo domande, con rifiuto come risposta
         attribution.append(("-", f"off-topic ({name})", f"https://huggingface.co/datasets/{dataset}", lic))
-    data_out, attr_out = it.OUT / f"pocket_travel_sft.v9.{lang}.jsonl", it.OUT / f"ATTRIBUTION.v9.{lang}.tsv"
+    data_out, attr_out = it.OUT / f"pocket_travel_sft.{version}.{lang}.jsonl", it.OUT / f"ATTRIBUTION.{version}.{lang}.tsv"
     with open(data_out, "w", encoding="utf-8") as f:
         for r in rows:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")

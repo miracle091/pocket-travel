@@ -6,7 +6,8 @@ domande inglesi scritte a mano che NON sono nei template di training (controllat
   neg_para    negativo: contesto con sole sezioni di altre categorie che non trattano quella chiesta;
   neg_empty   negativo con il contesto di fallback inglese dell'app;
   neg_off     domanda che non c'entra con la guida;
-  pos_city / neg_city (con --dump-dir) sulle citta' delle regioni di test, che il training esclude.
+  pos_city / neg_city (con --dump-dir) sulle citta' delle regioni di test, che il training esclude;
+  pos_near / neg_near / pos_dep / neg_dep in fondo, con il seme e le domande inglesi di nearby_rows (generate_eval_set.py).
 Le pagine EN dei paesi vengono dalla cache di generate_sft_dataset.py (data/sft/raw/<regionId>.en.txt), come per il
 test italiano; le citta' dal dump EN. Nei negativi le categorie sono 4 a caso per regione (le pagine EN hanno quasi
 tutte le sezioni: con le sole categorie assenti, come nel test italiano, i negativi sarebbero pochissimi).
@@ -20,7 +21,7 @@ from collections import Counter
 from pathlib import Path
 
 from eval_common import TEST_REGIONS
-from generate_eval_set import CITY_NEG, CITY_POS, PARA_CITY, PARA_EN
+from generate_eval_set import CITY_NEG, CITY_POS, PARA_CITY, PARA_EN, nearby_rows
 from generate_sft_dataset import CITY_MIN_SECTION, DUMP_FILES, EN_HEADING_TO_CATEGORY, OUT, covers, load_sources, make_context, parse_sections
 from generate_sft_dataset_en import (CITY_HEADING_TO_CATEGORY, CITY_QUESTIONS, FALLBACK_CONTEXT, KEYWORDS, OFF_TOPIC_TRAIN, QUESTIONS,
                                      TOPIC, answer_for, cities_en, display_name, load_en_dump, on_device_prompt, page_title,
@@ -110,7 +111,7 @@ def main():
                              {"role": "assistant", "content": answer}],
                 "kind": kind, "region": rid, "category": cat}
 
-    out = []
+    out, guides = [], []
     for rid in sorted(TEST_REGIONS):
         f = OUT / "raw" / f"{rid}.en.txt"
         secs = parse_sections(f.read_text(encoding="utf-8"), EN_HEADING_TO_CATEGORY) if f.exists() and rid in titles else []
@@ -137,12 +138,14 @@ def main():
         for cat in rng.sample(list(QUESTIONS), NEG_CATEGORIES):
             out.append(row("neg_empty", rid, cat, FALLBACK_CONTEXT, rng.choice(PARA[cat]).format(r=name), refusal(TOPIC[cat], TAIL)))
         pool = [b for _, b in secs]
+        guides.append((rid, name, pool))
         for q in OFF_TOPIC:
             out.append(row("neg_off", rid, "OFF", make_context(rng, rng.sample(pool, min(len(pool), rng.randint(1, 3))), q, name),
                            q, refusal("useful to answer the question", TAIL)))
     rng.shuffle(out)
     if args.dump_dir:  # in coda, dopo il mescolamento: le righe dei paesi restano quelle di prima
         out += city_rows(rng, args.dump_dir, args.dump_date or args.dump_dir.name, row, set(titles.values()))
+    out += nearby_rows("en", guides, row, lambda topic: refusal(topic, TAIL))
     with open(OUT / "eval_extended.en.jsonl", "w", encoding="utf-8") as f:
         for r in out:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")

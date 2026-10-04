@@ -12,10 +12,12 @@ import unittest
 from datetime import date
 from pathlib import Path
 
+import generate_eval_set
 import generate_sft
 import generate_sft_dataset as it
-from sft_nearby import (ASK, CATS, MODES, NEARBY_CONTEXT_MAX, NEARBY_WORDS, TRANSIT_ASK, TRANSIT_WORDS, nearby_pois,
-                        nearby_radius, poi_context, poi_example, transit_context, transit_example)
+import generate_sft_dataset_en
+from sft_nearby import (ASK, CATS, HEADSIGNS, MODES, NEARBY_CONTEXT_MAX, NEARBY_WORDS, PLACES, SURNAMES, TRANSIT_ASK,
+                        TRANSIT_WORDS, nearby_pois, nearby_radius, poi_context, poi_example, transit_context, transit_example)
 
 RES = Path(__file__).resolve().parents[3] / "core" / "ui" / "src" / "main" / "res"
 REFUSAL = {"it": "Il contesto non contiene informazioni", "en": "The context does not contain information"}
@@ -138,6 +140,86 @@ class ExamplesTest(unittest.TestCase):
             self.assertNotIn("autobus", transit)  # tratta i trasporti: fuori anche se non nomina il tram
         self.assertEqual(generate_sft.nearby_context(random.Random(1), None, "Dov'è la farmacia più vicina?", "Italia", bodies[:1], L),
                          L["fallback"])
+
+
+def _transit_questions(T):
+    return T["any"] + [q for qs in T["mode"].values() for q in qs] + [q for qs in T["line"].values() for q in qs]
+
+
+def _ngrams(text, n=4):
+    words = re.findall(r"\{l\}|\w+", text.lower())
+    return {tuple(words[i:i + n]) for i in range(len(words) - n + 1)}
+
+
+class EvalSetTest(unittest.TestCase):
+    """Righe pos_near/neg_near/pos_dep/neg_dep del test esteso (nearby_rows di generate_eval_set.py)."""
+    GUIDES = {"it": [("germania", "Germania", ["Le farmacie sono aperte fino alle 20.", "Gli autobus passano ogni dieci minuti.",
+                                               "Il clima e' continentale, con inverni freddi."]),
+                     ("palau", "Palau", ["La valuta e' il dollaro americano.", "Le immersioni sono il motivo principale del viaggio."])],
+              "en": [("germania", "Germany", ["Pharmacies open until 8 pm.", "Buses run every ten minutes.", "The climate is continental."]),
+                     ("palau", "Palau", ["The currency is the US dollar.", "Diving is the main reason to visit."])]}
+    PROMPT = {"it": it.on_device_prompt, "en": generate_sft_dataset_en.on_device_prompt}
+
+    def rows(self, lang):
+        def row(kind, rid, cat, context, q, answer):
+            return {"messages": [{"role": "user", "content": self.PROMPT[lang](context, q)}, {"role": "assistant", "content": answer}],
+                    "kind": kind, "region": rid, "category": cat, "context": context, "question": q}
+        return generate_eval_set.nearby_rows(lang, self.GUIDES[lang], row, refusal(lang))
+
+    def test_domande_diverse_dal_training_e_che_attivano_il_blocco(self):
+        for lang in ("it", "en"):
+            near, dep = generate_eval_set.NEAR_QUESTIONS[lang], generate_eval_set.DEP_QUESTIONS[lang]
+            self.assertLessEqual(set(near), set(ASK[lang]))
+            for key in ("mode", "line"):
+                self.assertEqual(set(dep[key]), set(TRANSIT_ASK[lang][key]), key)
+            train = [q for qs, *_ in ASK[lang].values() for q in qs] + _transit_questions(TRANSIT_ASK[lang])
+            train_grams = set().union(*(_ngrams(q) for q in train))
+            norm = lambda q: " ".join(re.findall(r"\{l\}|\w+", q.lower()))
+            for q in [q for qs in near.values() for q in qs]:
+                self.assertTrue(NEARBY_WORDS.search(q), q)
+                self.assertFalse(TRANSIT_WORDS.search(q), q)
+            for q in _transit_questions(dep):
+                self.assertTrue(TRANSIT_WORDS.search(q.format(l="22")), q)
+                self.assertFalse(NEARBY_WORDS.search(q.format(l="22")), q)
+            for q in [q for qs in near.values() for q in qs] + _transit_questions(dep):
+                self.assertFalse(_ngrams(q) & train_grams, f"{q}: {_ngrams(q) & train_grams}")
+                self.assertFalse(any(norm(q) in norm(t) or norm(t) in norm(q) for t in train), q)
+
+    def test_nomi_sintetici_diversi_dal_training(self):
+        for ev, tr in ((generate_eval_set.NEAR_SURNAMES, SURNAMES), (generate_eval_set.NEAR_PLACES, PLACES),
+                       (generate_eval_set.DEP_HEADSIGNS, HEADSIGNS)):
+            self.assertEqual(set(ev), set(tr))  # stesse lingue locali (NAMES e i nomi delle fermate sono per lingua)
+            for locale in tr:
+                self.assertFalse(set(ev[locale]) & set(tr[locale]), locale)
+        self.assertNotEqual(generate_eval_set.NEAR_SEED, 42)
+
+    def test_righe_per_tipo_stabili_e_coerenti_col_blocco(self):
+        prefixes = {"it": ("Punti di interesse entro", "Prossime partenze", "Gli orari dei mezzi", "Nessuna partenza"),
+                    "en": ("Points of interest within", "Next departures", "The installed public transport", "No departures")}
+        for lang in ("it", "en"):
+            rows = self.rows(lang)
+            self.assertEqual(rows, self.rows(lang))  # seme fisso
+            self.assertTrue(30 <= len(rows) <= 60, len(rows))
+            kinds = {k: sum(r["kind"] == k for r in rows) for k in ("pos_near", "neg_near", "pos_dep", "neg_dep")}
+            self.assertEqual(kinds, {"pos_near": 14, "neg_near": 10, "pos_dep": 14, "neg_dep": 10})
+            near_qs = {q for qs in generate_eval_set.NEAR_QUESTIONS[lang].values() for q in qs}
+            no_block = 0
+            for r in rows:
+                context, q, answer = r["context"], r["question"], r["messages"][1]["content"]
+                self.assertIn(q, r["messages"][0]["content"])
+                if r["kind"].endswith("_near"):
+                    self.assertIn(q, near_qs)
+                has_block = context.startswith(prefixes[lang])
+                no_block += not has_block
+                self.assertLessEqual(len(context), it.MAX_CONTEXT)
+                if r["kind"].startswith("neg"):
+                    self.assertTrue(answer.startswith(REFUSAL[lang]), answer)
+                    continue
+                self.assertTrue(has_block, context)
+                self.assertFalse(answer.startswith(REFUSAL[lang]), answer)
+                for fact in re.findall(r"\d+ m\b|\d\d:\d\d|\d+ min", answer):
+                    self.assertIn(fact, context, f"{answer}\n{context}")
+            self.assertEqual(no_block, 8)  # 4 senza posizione + 4 senza fermate
 
 
 if __name__ == "__main__":

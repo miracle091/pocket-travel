@@ -206,25 +206,25 @@ ASK = {
 }
 
 
-def _poi_name(rng, cat, locale):
+def _poi_name(rng, cat, locale, surnames, places):
     if CATS[cat][4] and rng.random() < 0.4:
         return CATS[cat][4]  # senza nome in OSM: GeneratePoi usa il valore del tag
-    return rng.choice(NAMES[cat][locale]).format(s=rng.choice(SURNAMES[locale]), p=rng.choice(PLACES[locale]))
+    return rng.choice(NAMES[cat][locale]).format(s=rng.choice(surnames[locale]), p=rng.choice(places[locale]))
 
 
-def nearby_pois(rng, must=None, avoid=None):
+def nearby_pois(rng, must=None, avoid=None, surnames=SURNAMES, places=PLACES):
     """POI sintetici attorno a un punto come li vede nearbyPoiContext: (raggio, [(categoria, nome, metri, orari)]) con il
     raggio e il taglio di PoiRepository.nearby e NEARBY_CONTEXT_MAX. [must]: una categoria che deve esserci; [avoid]: una
-    che non deve esserci."""
+    che non deve esserci. [surnames] e [places]: altri nomi per lingua locale (il test esteso usa nomi fuori dal training)."""
     cats, weights = list(CAT_WEIGHTS), list(CAT_WEIGHTS.values())
     while True:
-        locale = rng.choice(list(SURNAMES))
+        locale = rng.choice(list(surnames))
         count = rng.choice([rng.randint(8, 30), rng.randint(3, 15), rng.randint(1, 6)])  # centro, quartiere, campagna
         pois, names = [], set()
         for cat in rng.choices(cats, weights, k=count) + ([must] if must else []):
             if cat == avoid:
                 continue
-            name = _poi_name(rng, cat, locale)
+            name = _poi_name(rng, cat, locale, surnames, places)
             if name in names and name != CATS[cat][4]:
                 continue
             names.add(name)
@@ -243,9 +243,10 @@ def _poi_ref(poi, lang):
     return CATS[cat][3 if lang == "en" else 2] if name == CATS[cat][4] else name
 
 
-def poi_example(rng, lang, refusal):
-    """(blocco di contesto o None, domanda, risposta, "pos"/"neg") per una domanda su cosa c'e' qui vicino."""
-    en, asks = lang == "en", ASK[lang]
+def poi_example(rng, lang, refusal, asks=None, surnames=SURNAMES, places=PLACES):
+    """(blocco di contesto o None, domanda, risposta, "pos"/"neg") per una domanda su cosa c'e' qui vicino. [asks]: altre
+    domande con la struttura di ASK[lang]; [surnames] e [places] come in nearby_pois."""
+    en, asks = lang == "en", asks or ASK[lang]
     cat = rng.choice([None, None] + [c for c in asks if c])
     questions, lead, topic = asks[cat]
     q = rng.choice(questions)
@@ -253,9 +254,9 @@ def poi_example(rng, lang, refusal):
     if x < 0.15:  # nessuna posizione recente o nessun POI: il blocco non c'e'
         return None, q, refusal(topic), "neg"
     if x < 0.3 and cat:  # il blocco c'e' ma senza la categoria chiesta
-        radius, pois = nearby_pois(rng, avoid=cat)
+        radius, pois = nearby_pois(rng, avoid=cat, surnames=surnames, places=places)
         return poi_context(pois, radius, lang), q, refusal(topic), "neg"
-    radius, pois = nearby_pois(rng, must=cat)
+    radius, pois = nearby_pois(rng, must=cat, surnames=surnames, places=places)
     block = poi_context(pois, radius, lang)
     if cat is None:
         refs = [f"{_poi_ref(p, lang)} ({p[2]} m)" for p in pois[:3]]
@@ -299,10 +300,10 @@ def _line(rng, mode):
             "TRAIN": rng.choice(["S", "R", "RE", "RB"]) + str(n % 30 + 1), "FERRY": f"F{n % 6 + 1}"}.get(mode, str(n % 12 + 1))
 
 
-def departures(rng):
+def departures(rng, headsigns=HEADSIGNS):
     """Partenze sintetiche delle fermate vicine come le restituisce TransitBoard (ordinate per minuti d'attesa, al
     massimo 10 nella finestra di 180 minuti): [(minuto del giorno, tra minuti, mezzo, linea, direzione o None)]."""
-    locale = rng.choice(list(HEADSIGNS))
+    locale = rng.choice(list(headsigns))
     now = rng.randint(0, 1439)
     modes, weights = list(MODES), [m[2] for m in MODES.values()]
     items, lines = [], set()
@@ -313,7 +314,7 @@ def departures(rng):
             continue
         lines.add((mode, line))
         lo, hi = MODES[mode][3]
-        for head in rng.sample(HEADSIGNS[locale], rng.randint(1, 2)):
+        for head in rng.sample(headsigns[locale], rng.randint(1, 2)):
             head = head if rng.random() < 0.85 else None
             every = rng.randint(lo, hi)
             items += [((now + t) % 1440, t, mode, line, head) for t in range(rng.randint(0, every - 1), TRANSIT_WINDOW + 1, every)]
@@ -363,9 +364,10 @@ def _dep(d, lang, with_mode=True):
     return f"{what}{to} " + (f"at {clock(m)} (in {n} min)" if en else f"alle {clock(m)} (tra {n} min)")
 
 
-def transit_example(rng, lang, refusal):
-    """(blocco di contesto o None, domanda, risposta, "pos"/"neg") per una domanda sui mezzi pubblici."""
-    en, T = lang == "en", TRANSIT_ASK[lang]
+def transit_example(rng, lang, refusal, asks=None, headsigns=HEADSIGNS):
+    """(blocco di contesto o None, domanda, risposta, "pos"/"neg") per una domanda sui mezzi pubblici. [asks]: altre
+    domande con la struttura di TRANSIT_ASK[lang]; [headsigns]: altre direzioni per lingua locale."""
+    en, T = lang == "en", asks or TRANSIT_ASK[lang]
     x = rng.random()
     if x < 0.12:  # nessuna fermata vicina o nessuna posizione: il blocco non c'e'
         mode = rng.choice([None, None] + list(T["mode"]))
@@ -382,7 +384,7 @@ def transit_example(rng, lang, refusal):
         answer = ("There are no departures in the next hours from the stops nearby." if en else
                   "Dalle fermate qui vicino non ci sono partenze nelle prossime ore.")
         return transit_context(("departures", []), lang), q, answer, "pos"
-    items = departures(rng)
+    items = departures(rng, headsigns)
     block = transit_context(("departures", items), lang)
     present = {d[2] for d in items}
     if x < 0.37:  # mezzo chiesto che nel tabellone non c'e'
