@@ -8,7 +8,7 @@ import random
 import unittest
 
 import eval_retrieval
-from generate_sft_dataset import MAX_CONTEXT, make_context, question_stems
+from generate_sft_dataset import MAX_CONTEXT, STOPWORDS, make_context, question_stems
 
 CLIMA = "Il clima e' temperato.\nIn inverno nevica spesso in collina.\nLe estati sono calde e afose."
 
@@ -22,6 +22,10 @@ class MakeContextTest(unittest.TestCase):
             region = name.lower().replace(" ", "-")
             app = eval_retrieval.focus_stems(eval_retrieval.fts_query(question, region), name)
             self.assertEqual(question_stems(question, name), app)
+
+    def test_parole_della_domanda_che_l_app_non_cerca(self):
+        self.assertEqual(STOPWORDS, eval_retrieval.STOPWORDS)
+        self.assertEqual(question_stems("Quali sono i piatti tipici della Puglia?"), {"piatt", "tipic", "pugli"})
 
     def test_sezioni_corte_intere_unite_da_riga_vuota(self):
         context = make_context(random.Random(1), ["uno", "due"])

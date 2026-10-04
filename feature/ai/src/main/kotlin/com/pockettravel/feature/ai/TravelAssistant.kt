@@ -87,17 +87,22 @@ class TravelAssistant @Inject constructor(
     fun ask(regionId: String, question: String, mode: AiEngineMode): Flow<AssistantProgress> = flow {
         // Lingua dell'interfaccia: prompt, testo di ripiego e citazioni (le guide installate la seguono).
         val language = currentGuidesLanguage()
-        val ftsQuery = buildFtsQuery(question, regionId)
-        // La citta' nominata nella domanda: le sezioni delle citta' candidate sono solo le sue.
-        val city = if (ftsQuery.isBlank()) null else namedCity(question, cityRepository.cityNamesFor(regionId), language)
+        // Le citta' nominate nella domanda: le sezioni delle citta' candidate sono solo le loro (due per "quanto dista X da Y").
+        val cities = namedCities(question, cityRepository.cityNamesFor(regionId), language)
+        val city = cities.singleOrNull()
+        val topicQuery = buildFtsQuery(question, regionId, city)
+        val topicMatches = if (topicQuery.isBlank()) emptyList() else cityCandidates(regionId, topicQuery, cities)
+        // Nessuna sezione della citta' nominata con le parole della domanda: si cerca anche il suo nome.
+        val withCityName = city != null && topicQuery.isNotBlank() && topicMatches.isEmpty()
+        val ftsQuery = if (withCityName) buildFtsQuery(question, regionId) else topicQuery
         val sections = if (ftsQuery.isBlank()) {
             emptyList()
         } else {
             rankSections(
                 guideRepository.searchCandidates(regionId, ftsQuery),
-                cityRepository.searchCandidates(regionId, ftsQuery, city),
+                if (withCityName) cityCandidates(regionId, ftsQuery, cities) else topicMatches,
                 MAX_SECTIONS,
-                countryFirst = city == null,
+                countryFirst = cities.isEmpty(),
                 historyOrClimate = isHistoryOrClimateQuestion(question),
                 language = language,
             )
@@ -132,6 +137,10 @@ class TravelAssistant @Inject constructor(
             AiEngineMode.ONLINE -> emit(AssistantProgress.Done(withSource(askOnline(question, language))))
         }
     }
+
+    /** Candidati delle guide delle citta' [cities] (di ognuna, per "quanto dista X da Y"), o di tutte se e' vuota. */
+    private suspend fun cityCandidates(regionId: String, ftsQuery: String, cities: List<String>) =
+        cities.ifEmpty { listOf(null) }.flatMap { cityRepository.searchCandidates(regionId, ftsQuery, it) }
 
     /** Prompt per il modello locale e fonti da citare: calcolati dal contesto, non dalla risposta. */
     private class OnDevicePlan(val prompt: String, val citations: List<String>)
@@ -388,16 +397,18 @@ private fun CitySection.toAssistantSection(language: String): AssistantSection {
  * Unisce i candidati della guida del paese e delle guide delle città in un'unica classifica BM25 con le statistiche
  * delle due tabelle sommate (FtsCorpusStats: con quelle di ognuna una parola qualunque varrebbe molto di più nelle
  * poche sezioni del paese che nelle centinaia delle città), tenendo solo le [limit] sezioni migliori in totale.
- * Con [countryFirst] (la domanda non nomina una città) le sezioni del paese vengono prima di quelle delle città;
- * senza [historyOrClimate] (isHistoryOrClimateQuestion) Storia e Clima valgono WIKIPEDIA_OFF_TOPIC_WEIGHT.
- * La ricerca (con namedCity, focusStems e selectContext) e' replicata in tools/data-pipeline/scripts/eval_retrieval.py,
- * che la misura su dati pubblicati: va cambiata insieme.
+ * Con [countryFirst] true (la domanda non nomina una città) le sezioni del paese vengono prima di quelle delle città,
+ * con false (la nomina) dopo: senza il nome della città nella query (buildFtsQuery) le sezioni del paese
+ * scavalcherebbero le sue con le parole generiche della domanda ("treno", "musei"); con null conta solo il punteggio.
+ * Senza [historyOrClimate] (isHistoryOrClimateQuestion) Storia e Clima valgono WIKIPEDIA_OFF_TOPIC_WEIGHT.
+ * La ricerca (con buildFtsQuery, namedCities, focusStems e selectContext) e' replicata in
+ * tools/data-pipeline/scripts/eval_retrieval.py, che la misura su dati pubblicati: va cambiata insieme.
  */
 internal fun rankSections(
     guideMatches: List<Pair<GuideSection, FtsMatchInfo>>,
     cityMatches: List<Pair<CitySection, FtsMatchInfo>>,
     limit: Int,
-    countryFirst: Boolean = false,
+    countryFirst: Boolean? = null,
     historyOrClimate: Boolean = true,
     language: String = "it",
 ): List<AssistantSection> {
@@ -412,7 +423,7 @@ internal fun rankSections(
             RankedSection(section.toAssistantSection(language), bm25Score(info, stats) * cityWeight(section.category), fromCountry = false)
         }
     return ranked
-        .sortedWith(compareBy<RankedSection> { countryFirst && !it.fromCountry }.thenByDescending { it.score })
+        .sortedWith(compareBy<RankedSection> { countryFirst != null && it.fromCountry != countryFirst }.thenByDescending { it.score })
         .take(limit)
         .map { it.section }
 }
@@ -450,10 +461,11 @@ private val placePrepositions = mapOf(
 )
 
 /**
- * La citta' di [cities] nominata in [question] (il nome piu' lungo che vi compare come parole intere), o null. Un nome
- * di una sola parola conta solo con l'iniziale maiuscola o dopo una preposizione di luogo della lingua [language].
+ * Le citta' di [cities] nominate in [question] come parole intere, dal nome piu' lungo; un nome compreso in uno piu'
+ * lungo gia' trovato non conta ("Porto" in "Porto Santo"). Un nome di una sola parola conta solo con l'iniziale
+ * maiuscola o dopo una preposizione di luogo della lingua [language].
  */
-internal fun namedCity(question: String, cities: List<String>, language: String = "it"): String? {
+internal fun namedCities(question: String, cities: List<String>, language: String = "it"): List<String> {
     val words = normalizedWords(question)
     val tokens = question.split(nonWord).filter { it.isNotEmpty() }
     val foldedTokens = tokens.map(::folded)
@@ -461,10 +473,14 @@ internal fun namedCity(question: String, cities: List<String>, language: String 
     fun namedAsPlace(name: String) = foldedTokens.indices.any { i ->
         foldedTokens[i] == name && (tokens[i].first().isUpperCase() || foldedTokens.getOrNull(i - 1) in prepositions)
     }
-    return cities.filter { city ->
+    val found = cities.filter { city ->
         val name = normalizedWords(spokenCityName(city)).trim()
         spokenCityName(city).length >= MIN_CITY_NAME_CHARS && " $name " in words && (' ' in name || namedAsPlace(name))
-    }.maxByOrNull { spokenCityName(it).length }
+    }.sortedByDescending { spokenCityName(it).length }
+    return found.fold(emptyList()) { kept, city ->
+        val name = normalizedWords(spokenCityName(city))
+        if (kept.any { name in normalizedWords(spokenCityName(it)) }) kept else kept + city
+    }
 }
 
 private const val STEM_CHARS = 5
@@ -475,7 +491,7 @@ private const val STEM_CHARS = 5
  */
 internal fun focusStems(ftsQuery: String, city: String?): Set<String> {
     val cityStems = city?.let { normalizedWords(spokenCityName(it)).split(' ').filter { w -> w.length >= 4 }.map { w -> w.take(STEM_CHARS) } }.orEmpty()
-    return ftsQuery.split(" OR ").filter { it.isNotBlank() }.map { folded(it).take(STEM_CHARS) }.toSet() - cityStems.toSet()
+    return ftsQuery.split(" OR ").filter { it.isNotBlank() }.map { folded(it.removeSuffix("*")).take(STEM_CHARS) }.toSet() - cityStems.toSet()
 }
 
 /**
@@ -550,19 +566,52 @@ internal fun relevantParagraphs(body: String, focusStems: Set<String>, budget: I
  * lettere/cifre, uniti con OR per allargare il richiamo invece di richiederli tutti. Si scartano
  * anche i token che fanno parte del nome della regione (es. "marino" per "san-marino"): il filtro
  * per regionId in searchInRegion restringe gia' alla regione giusta, quindi in query sono solo
- * rumore che compare in ogni sezione e confonde il ranking per rilevanza.
+ * rumore che compare in ogni sezione e confonde il ranking per rilevanza. Per la stessa ragione si
+ * scartano le parole della citta' nominata [city] (le sezioni candidate sono gia' solo sue: rara
+ * nella tabella, peserebbe piu' della domanda), salvo che restino solo quelle, e le parole
+ * interrogative o di servizio (questionStopwords). Le parole di almeno 5 lettere si cercano per
+ * prefisso (ftsPrefix): l'indice non ha radici, e "mangia" deve trovare "Dove mangiare".
  */
-internal fun buildFtsQuery(question: String, regionId: String): String {
+internal fun buildFtsQuery(question: String, regionId: String, city: String? = null): String {
     val regionNameTokens = regionId.split(Regex("[^\\p{L}\\p{N}]+")).map { it.lowercase() }.toSet()
-    return question
+    val words = question
         // Parole divise come le divide l'indice (unicode61): "dell'isola" e' "dell" e "isola", non "dellisola".
         .split(nonWord)
         // minuscolo: FTS riconosce AND/OR/NOT/NEAR come operatori solo in maiuscolo, e il confronto dei
         // termini ignora comunque maiuscole e minuscole
         .map { it.lowercase() }
-        .filter { it.length >= 4 && it !in regionNameTokens }
+        .filter { it.length >= 4 && it !in regionNameTokens && folded(it) !in questionStopwords }
+    val cityWords = city?.let { normalizedWords(spokenCityName(it)).split(' ').toSet() }.orEmpty()
+    return words.filter { folded(it) !in cityWords }.ifEmpty { words }
+        .map(::ftsPrefix)
+        .distinct()
         .joinToString(" OR ")
 }
+
+/**
+ * [word] come prefisso FTS ("piatti" -> "piatt*", che trova anche "piatto"): le prime 5 lettere, 6 dalle parole di
+ * 8 ("passaporto" -> "passap*", non "passa*" che trova "passare"); intera sotto le 5 ("roma" non trova "romantico").
+ */
+private fun ftsPrefix(word: String): String = when {
+    word.length < STEM_CHARS -> word
+    word.length < LONG_WORD_CHARS -> word.take(STEM_CHARS) + "*"
+    else -> word.take(STEM_CHARS + 1) + "*"
+}
+
+private const val LONG_WORD_CHARS = 8
+
+// Parole della domanda (senza accenti) che compaiono in quasi ogni sezione e non dicono di cosa si parla. "cosa",
+// "dove" e "come" restano: sono nei titoli delle sezioni ("Cosa vedere", "Dove mangiare", "Come arrivare").
+private val questionStopwords = setOf(
+    "quale", "quali", "quanto", "quanta", "quanti", "quante", "quando", "perche", "sono", "della", "delle", "dello",
+    "degli", "dell", "nella", "nelle", "nello", "negli", "nell", "alla", "alle", "allo", "agli", "dalla", "dalle", "dallo",
+    "dagli", "sulla", "sulle", "sullo", "sugli", "questo", "questa", "questi", "queste", "quello", "quella", "quelli",
+    "quelle", "anche", "molto", "molti", "molte", "posso", "puoi", "possono", "devo", "deve", "devono", "serve", "servono",
+    "essere", "fatto", "avere", "hanno", "ogni", "tutto", "tutti", "tutte", "altro", "altri", "loro", "dire", "cosi",
+    "ancora", "oppure", "mentre",
+    "what", "which", "where", "when", "does", "there", "with", "from", "that", "this", "have", "should", "about", "much",
+    "many", "could", "would", "your", "some", "into", "they", "them", "were", "been", "will", "also", "very", "need",
+)
 
 // maxChars di default ~2000 = ~500 token (stima 4 caratteri/token) per il chunk RAG.
 internal fun truncateContext(context: String, maxChars: Int = 2_000): String =

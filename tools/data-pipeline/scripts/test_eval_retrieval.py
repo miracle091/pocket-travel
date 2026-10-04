@@ -4,6 +4,7 @@ database FTS4 in memoria, senza rete.
 
 Uso: python test_eval_retrieval.py
 """
+import re
 import sqlite3
 import tempfile
 import unittest
@@ -14,24 +15,39 @@ import eval_retrieval as ev
 
 class ReplicaTest(unittest.TestCase):
     def test_fts_query_come_build_fts_query(self):
-        self.assertEqual(ev.fts_query("Quale valuta si usa a San Marino?", "san-marino"), "quale OR valuta")
+        self.assertEqual(ev.fts_query("Quale valuta si usa a San Marino?", "san-marino"), "valut*")
         self.assertEqual(ev.fts_query("hi to a in", "italia"), "")
+        self.assertEqual(ev.fts_query("Quali sono i piatti tipici della Puglia?", "italia"), "piatt* OR tipic* OR pugli*")
+        self.assertEqual(ev.fts_query("Serve il passaporto per entrare?", "italia"), "passap* OR entra*")
+        self.assertEqual(ev.fts_query("What are the typical dishes?", "italia"), "typic* OR dishe*")
 
-    def test_named_city_senza_disambiguatore_e_accenti(self):
+    def test_fts_query_senza_la_citta_nominata(self):
+        self.assertEqual(ev.fts_query("Cosa si mangia a Napoli?", "italia", "Napoli"), "cosa OR mangi*")
+        self.assertEqual(ev.fts_query("Cosa vedere a Forli?", "italia", "Forlì"), "cosa OR veder*")
+        self.assertEqual(ev.fts_query("Napoli?", "italia", "Napoli"), "napol*")
+
+    def test_stopwords_come_l_app(self):
+        kotlin = (Path(__file__).resolve().parents[3] / "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/TravelAssistant.kt")
+        block = kotlin.read_text(encoding="utf-8").split("private val questionStopwords = setOf(")[1].split(")")[0]
+        self.assertEqual(set(re.findall(r'"(\w+)"', block)), ev.STOPWORDS)
+
+    def test_named_cities_senza_disambiguatore_e_accenti(self):
         cities = ["Porto (Portogallo)", "Porto Santo", "Forlì", "Bra", "Braga", "Ne"]
-        self.assertEqual(ev.named_city("Cosa vedere a Porto?", cities), "Porto (Portogallo)")
-        self.assertEqual(ev.named_city("Come arrivare a Porto Santo?", cities), "Porto Santo")
-        self.assertEqual(ev.named_city("Dove dormire a forli?", cities), "Forlì")
-        self.assertEqual(ev.named_city("Musei di Braga", cities), "Braga")
-        self.assertIsNone(ev.named_city("Quanti ne servono?", cities))
+        self.assertEqual(ev.named_cities("Cosa vedere a Porto?", cities), ["Porto (Portogallo)"])
+        self.assertEqual(ev.named_cities("Come arrivare a Porto Santo?", cities), ["Porto Santo"])
+        self.assertEqual(ev.named_cities("Dove dormire a forli?", cities), ["Forlì"])
+        self.assertEqual(ev.named_cities("Musei di Braga", cities), ["Braga"])
+        self.assertEqual(ev.named_cities("Quanti ne servono?", cities), [])
         homonyms = ["Nice", "Mobile", "Split", "Malé"]
-        self.assertIsNone(ev.named_city("Is there a nice beach?", homonyms, "en"))
-        self.assertIsNone(ev.named_city("Mi sento male, dove trovo un medico?", homonyms))
-        self.assertEqual(ev.named_city("Beaches in nice?", homonyms, "en"), "Nice")
-        self.assertEqual(ev.named_city("Cosa vedere a male?", homonyms), "Malé")
+        self.assertEqual(ev.named_cities("Is there a nice beach?", homonyms, "en"), [])
+        self.assertEqual(ev.named_cities("Mi sento male, dove trovo un medico?", homonyms), [])
+        self.assertEqual(ev.named_cities("Beaches in nice?", homonyms, "en"), ["Nice"])
+        self.assertEqual(ev.named_cities("Cosa vedere a male?", homonyms), ["Malé"])
+        self.assertEqual(ev.named_cities("Quanto dista Siena da Firenze?", ["Firenze", "Roma", "Siena"]), ["Firenze", "Siena"])
 
     def test_focus_stems_senza_la_citta(self):
         self.assertEqual(ev.focus_stems("estate OR piove OR rimini", "Rimini"), {"estat", "piove"})
+        self.assertEqual(ev.focus_stems("cosa OR mangi* OR passap*", "Napoli"), {"cosa", "mangi", "passa"})
 
     def test_relevant_paragraphs_e_select_context(self):
         clima = "Il clima e' temperato.\nIn inverno nevica spesso in collina.\nLe estati sono calde e afose."
@@ -84,9 +100,30 @@ class SearchTest(unittest.TestCase):
         top, _ = ev.search(self.db, "italia", "Storia di treni e alberghi a Rimini?", self.cities)
         self.assertEqual(top[0]["category"], "STORIA")
 
+    def test_cibo_della_citta_nominata_prima_delle_altre_sezioni(self):
+        # Il nome "Rimini" non conta nella classifica: vince la sezione con "dormire", non quella che nomina di piu' Rimini.
+        top, stems = ev.search(self.db, "italia", "Dove dormire a Rimini?", self.cities)
+        self.assertEqual([(s["city"], s["category"]) for s in top][:1], [("Rimini", "ALLOGGIO")])
+        self.assertEqual(stems, {"dove", "dormi"})
+
     def test_parole_di_storia_e_clima(self):
         self.assertTrue(ev.HISTORY_CLIMATE_WORDS.search("Does it rain a lot in Porto?"))
         self.assertFalse(ev.HISTORY_CLIMATE_WORDS.search("How do I get to Porto by train?"))
+
+    def test_due_citta_nominate_e_ripiego_sul_nome(self):
+        rows = [
+            ("Siena", "TRASPORTI", "Come arrivare", "Da Firenze (72 km) con la Chiantigiana.", "u"),
+            ("Siena", "COSA_VEDERE", "Cosa vedere", "Piazza del Campo, cuore di Siena.", "u"),
+            ("Firenze", "TRASPORTI", "Come arrivare", "Aeroporto a 5 km dal centro di Firenze.", "u"),
+        ]
+        db = ev.build_db(Path(self.tmp.name) / "guides.db", "italia", rows)
+        top, _ = ev.search(db, "italia", "Quanto dista Siena da Firenze?", ["Firenze", "Siena"])
+        self.assertIn(rows[0][3], [s["body"] for s in top])
+        self.assertEqual({s["city"] for s in top}, {"Firenze", "Siena"})
+        # Nessuna sezione di Siena parla di musei: si cerca anche "siena", e le sue sezioni vengono prima del paese.
+        top, _ = ev.search(db, "italia", "Quali musei ci sono a Siena?", ["Firenze", "Siena"])
+        self.assertEqual([(s["city"], s["category"]) for s in top], [("Siena", "COSA_VEDERE")])
+        db.close()
 
     def test_matchinfo_pcxnal_letto(self):
         blob = self.db.execute("SELECT matchinfo(city_sections_fts, 'pcxnal') FROM city_sections_fts "

@@ -24,27 +24,27 @@ class TravelAssistantLogicTest {
     fun `builds an OR query from words of at least four characters`() {
         val query = buildFtsQuery("Posso portare farmaci da banco in Giappone?", "giappone")
 
-        assertEquals("posso OR portare OR farmaci OR banco", query)
+        assertEquals("porta* OR farma* OR banco*", query)
     }
 
     @Test
     fun `operatori FTS scritti in maiuscolo nella domanda restano parole`() {
         val query = buildFtsQuery("Hotel NEAR stazione OR aeroporto", "italia")
 
-        assertEquals("hotel OR near OR stazione OR aeroporto", query)
+        assertEquals("hotel* OR near OR stazio* OR aeropo*", query)
     }
 
     @Test
     fun `le parole con l'apostrofo si dividono come nell'indice`() {
-        assertEquals("caldo OR rimini OR estate", buildFtsQuery("Fa caldo a Rimini d'estate?", "italia"))
-        assertEquals("musei OR dell OR isola", buildFtsQuery("Musei dell'isola", "italia"))
+        assertEquals("caldo* OR rimin* OR estat*", buildFtsQuery("Fa caldo a Rimini d'estate?", "italia"))
+        assertEquals("musei* OR isola*", buildFtsQuery("Musei dell'isola", "italia"))
     }
 
     @Test
     fun `drops punctuation from each token`() {
         val query = buildFtsQuery("vaccini, dogana; normativa?!", "italia")
 
-        assertEquals("vaccini OR dogana OR normativa", query)
+        assertEquals("vacci* OR dogan* OR normat*", query)
     }
 
     @Test
@@ -58,7 +58,24 @@ class TravelAssistantLogicTest {
     fun `drops tokens that are part of the region's display name`() {
         val query = buildFtsQuery("Quale valuta si usa a San Marino?", "san-marino")
 
-        assertEquals("quale OR valuta", query)
+        assertEquals("valut*", query)
+    }
+
+    @Test
+    fun `senza parole interrogative e con le parole lunghe per prefisso`() {
+        assertEquals("piatt* OR tipic* OR pugli*", buildFtsQuery("Quali sono i piatti tipici della Puglia?", "italia"))
+        assertEquals("typic* OR dishe*", buildFtsQuery("What are the typical dishes?", "italia"))
+        // "passaporto" -> "passap*": con 5 lettere troverebbe anche "passare".
+        assertEquals("passap* OR entra*", buildFtsQuery("Serve il passaporto per entrare?", "italia"))
+        assertEquals("dista* OR roma OR firen*", buildFtsQuery("Quanto dista Roma da Firenze?", "italia"))
+    }
+
+    @Test
+    fun `la citta' nominata esce dalla query, salvo che resti solo lei`() {
+        assertEquals("cosa OR mangi*", buildFtsQuery("Cosa si mangia a Napoli?", "italia", "Napoli"))
+        assertEquals("dove OR dormi*", buildFtsQuery("Dove dormire a Porto Santo?", "portogallo", "Porto Santo"))
+        assertEquals("cosa OR veder*", buildFtsQuery("Cosa vedere a Forli?", "italia", "Forlì"))
+        assertEquals("napol*", buildFtsQuery("Napoli?", "italia", "Napoli"))
     }
 
     @Test
@@ -175,6 +192,15 @@ class TravelAssistantLogicTest {
     }
 
     @Test
+    fun `con una citta' nominata le sue sezioni vengono prima di quelle del paese`() {
+        val guide = listOf(guideSection("Trasporti", "corpo paese") to info(titleHits = 1, bodyHits = 4))
+        val city = listOf(citySection("Roma", "Trasporti", "corpo roma") to info(bodyHits = 1))
+
+        assertEquals(listOf("corpo paese", "corpo roma"), rankSections(guide, city, limit = 3).map { it.body })
+        assertEquals(listOf("corpo roma", "corpo paese"), rankSections(guide, city, limit = 3, countryFirst = false).map { it.body })
+    }
+
+    @Test
     fun `rankSections senza candidati non trova nulla`() {
         assertTrue(rankSections(emptyList(), emptyList(), limit = 3).isEmpty())
     }
@@ -203,29 +229,38 @@ class TravelAssistantLogicTest {
     }
 
     @Test
-    fun `namedCity riconosce la citta' nominata, senza disambiguatore e accenti`() {
+    fun `namedCities riconosce le citta' nominate, senza disambiguatore e accenti`() {
         val cities = listOf("Porto (Portogallo)", "Porto Santo", "Forlì", "Bra", "Braga", "Ne")
 
-        assertEquals("Porto (Portogallo)", namedCity("Cosa vedere a Porto?", cities))
-        assertEquals("Porto Santo", namedCity("Come arrivare a Porto Santo in traghetto?", cities))
-        assertEquals("Forlì", namedCity("Dove dormire a forli?", cities))
-        assertEquals("Braga", namedCity("Musei di Braga", cities))
-        assertNull(namedCity("Quanti ne servono per entrare?", cities))
-        assertNull(namedCity("Serve il passaporto?", cities))
+        assertEquals(listOf("Porto (Portogallo)"), namedCities("Cosa vedere a Porto?", cities))
+        assertEquals(listOf("Porto Santo"), namedCities("Come arrivare a Porto Santo in traghetto?", cities))
+        assertEquals(listOf("Forlì"), namedCities("Dove dormire a forli?", cities))
+        assertEquals(listOf("Braga"), namedCities("Musei di Braga", cities))
+        assertTrue(namedCities("Quanti ne servono per entrare?", cities).isEmpty())
+        assertTrue(namedCities("Serve il passaporto?", cities).isEmpty())
         // Parole comuni uguali a una citta' di una sola parola: non sono la citta'.
         val homonyms = listOf("Nice", "Mobile", "Split", "Malé")
-        assertNull(namedCity("Is there a nice beach?", homonyms, "en"))
-        assertNull(namedCity("How do I get mobile data?", homonyms, "en"))
-        assertNull(namedCity("Mi sento male, dove trovo un medico?", homonyms))
-        assertEquals("Nice", namedCity("Beaches in nice?", homonyms, "en"))
-        assertEquals("Split", namedCity("Ferry to Split", homonyms, "en"))
-        assertEquals("Malé", namedCity("Cosa vedere a male?", homonyms))
+        assertTrue(namedCities("Is there a nice beach?", homonyms, "en").isEmpty())
+        assertTrue(namedCities("How do I get mobile data?", homonyms, "en").isEmpty())
+        assertTrue(namedCities("Mi sento male, dove trovo un medico?", homonyms).isEmpty())
+        assertEquals(listOf("Nice"), namedCities("Beaches in nice?", homonyms, "en"))
+        assertEquals(listOf("Split"), namedCities("Ferry to Split", homonyms, "en"))
+        assertEquals(listOf("Malé"), namedCities("Cosa vedere a male?", homonyms))
+    }
+
+    @Test
+    fun `namedCities trova entrambe le citta' di una domanda sulla distanza`() {
+        val cities = listOf("Firenze", "Roma", "Siena")
+
+        assertEquals(listOf("Firenze", "Siena"), namedCities("Quanto dista Siena da Firenze?", cities))
+        assertEquals(listOf("Firenze", "Roma"), namedCities("Quanti km ci sono tra Roma e Firenze?", cities))
     }
 
     @Test
     fun `focusStems tiene le radici della domanda senza la citta'`() {
         assertEquals(setOf("estat", "piove"), focusStems("estate OR piove OR rimini", "Rimini"))
         assertEquals(setOf("clima", "rimini".take(5)), focusStems("clima OR rimini", null))
+        assertEquals(setOf("cosa", "mangi", "passa"), focusStems("cosa OR mangi* OR passap*", "Napoli"))
     }
 
     @Test

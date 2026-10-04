@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Misura la ricerca dell'assistente sul dispositivo (RAG sulle guide) su dati pubblicati, senza modello e senza app.
 
-Replica in Python TravelAssistant.kt (buildFtsQuery, namedCity, rankSections, focusStems, selectContext) e
+Replica in Python TravelAssistant.kt (buildFtsQuery, namedCities, rankSections, focusStems, selectContext) e
 FtsRanking.kt (BM25 su matchinfo 'pcxnal' con le statistiche delle due tabelle sommate): se cambiano li', va cambiato
 anche qui. Per ogni regione scarica guides.db e il cities.db pubblicati (manifest), aggiunge Storia e Clima da
 Wikipedia (city_wikipedia.py + generateCities, come build-cities.sh) se il cities.db pubblicato non li ha ancora,
 e fa domande costruite da modelli fissi:
-- citta', domande pratiche ("Dove dormire a {citta'}?"): attesa la sezione della categoria di quella citta';
+- citta', domande pratiche ("Dove dormire a {citta'}?", "Cosa si mangia a {citta'}?"): attesa la sezione della
+  categoria di quella citta';
+- distanze ("Quanto dista {citta'} da {altra}?"): attesa la sezione TRASPORTI della prima citta' e nel contesto il
+  suo paragrafo che nomina l'altra con km o tempi di viaggio;
 - citta', storia e clima ("Com'e' il clima a {citta'}?"): attesa la sezione STORIA o CLIMA di quella citta';
 - paese ("Serve il passaporto per entrare?"): attesa la sezione della categoria nella guida del paese.
 Metriche: sezione attesa tra le 3 del contesto ("trovata") e al primo posto, Storia/Clima tra le 3 quando la domanda
@@ -45,12 +48,24 @@ DEFAULT_CITIES = 15
 
 # --- costanti dell'app ---------------------------------------------------------------------------------------------
 MAX_SECTIONS = 3                 # TravelAssistant.MAX_SECTIONS
-CANDIDATE_CAP = 30               # GuideRepository/CityRepository.CANDIDATE_CAP
+CANDIDATE_CAP = 100              # GuideRepository/CityRepository.CANDIDATE_CAP
 CITY_CANDIDATE_CAP = 100         # CityRepository.CITY_CANDIDATE_CAP
 MAX_CONTEXT = 2000               # buildOnDeviceContext(maxChars)
 MIN_SECTION_CHARS = 50           # TravelAssistant.MIN_SECTION_CHARS
 MIN_CITY_NAME_CHARS = 3          # TravelAssistant.MIN_CITY_NAME_CHARS
 STEM_CHARS = 5                   # TravelAssistant.STEM_CHARS
+LONG_WORD_CHARS = 8              # TravelAssistant.LONG_WORD_CHARS
+# TravelAssistant.questionStopwords
+STOPWORDS = {
+    "quale", "quali", "quanto", "quanta", "quanti", "quante", "quando", "perche", "sono", "della", "delle", "dello",
+    "degli", "dell", "nella", "nelle", "nello", "negli", "nell", "alla", "alle", "allo", "agli", "dalla", "dalle", "dallo",
+    "dagli", "sulla", "sulle", "sullo", "sugli", "questo", "questa", "questi", "queste", "quello", "quella", "quelli",
+    "quelle", "anche", "molto", "molti", "molte", "posso", "puoi", "possono", "devo", "deve", "devono", "serve", "servono",
+    "essere", "fatto", "avere", "hanno", "ogni", "tutto", "tutti", "tutte", "altro", "altri", "loro", "dire", "cosi",
+    "ancora", "oppure", "mentre",
+    "what", "which", "where", "when", "does", "there", "with", "from", "that", "this", "have", "should", "about", "much",
+    "many", "could", "would", "your", "some", "into", "they", "them", "were", "been", "will", "also", "very", "need",
+}
 TITLE_WEIGHT, BODY_WEIGHT = 3.0, 1.0
 BM25_K1, BM25_B, BM25_IDF_SMOOTHING = 1.2, 0.75, 0.5
 WIKI = {"STORIA", "CLIMA"}
@@ -65,9 +80,11 @@ CITY_Q = {
     "COSA_VEDERE": ["Cosa vedere a {c}?", "Quali monumenti visitare a {c}?", "Quali musei ci sono a {c}?"],
     "TRASPORTI": ["Come arrivare a {c} in treno?", "Come muoversi a {c} con l'autobus?"],
     "ALLOGGIO": ["Dove dormire a {c}?", "Quali alberghi ci sono a {c}?"],
-    "CIBO_BEVANDE": ["Dove mangiare a {c}?", "Quali ristoranti consigli a {c}?"],
+    "CIBO_BEVANDE": ["Dove mangiare a {c}?", "Quali ristoranti consigli a {c}?", "Cosa si mangia a {c}?",
+                     "Quali sono i piatti tipici di {c}?"],
     "ACQUISTI": ["Dove fare acquisti a {c}?"],
 }
+DISTANCE_Q = ["Quanto dista {c} da {o}?", "Quanti km ci sono tra {o} e {c}?", "Quanto ci vuole da {o} a {c}?"]
 WIKI_Q = {
     "STORIA": ["Qual è la storia di {c}?", "Chi ha fondato {c}?", "Cosa è successo a {c} durante la seconda guerra mondiale?",
                "{c} era una città romana?"],
@@ -86,9 +103,11 @@ CITY_Q_EN = {
     "COSA_VEDERE": ["What to see in {c}?", "Which monuments should I visit in {c}?", "What museums are there in {c}?"],
     "TRASPORTI": ["How do I get to {c} by train?", "How do I get around {c} by bus?"],
     "ALLOGGIO": ["Where to stay in {c}?", "Which hotels are there in {c}?"],
-    "CIBO_BEVANDE": ["Where to eat in {c}?", "Which restaurants do you recommend in {c}?"],
+    "CIBO_BEVANDE": ["Where to eat in {c}?", "Which restaurants do you recommend in {c}?", "What is the local food in {c}?",
+                     "What are the typical dishes of {c}?"],
     "ACQUISTI": ["Where to go shopping in {c}?"],
 }
+DISTANCE_Q_EN = ["How far is {c} from {o}?", "How many km from {o} to {c}?", "How long does it take from {o} to {c}?"]
 WIKI_Q_EN = {
     "STORIA": ["What is the history of {c}?", "Who founded {c}?", "What happened in {c} during the Second World War?",
                "Was {c} a Roman town?"],
@@ -104,21 +123,36 @@ COUNTRY_Q_EN = {
     "TRASPORTI": ["How do trains work in the country?", "Is it worth renting a car?"],
     "CIBO_BEVANDE": ["Which typical dishes should I try?"],
 }
-# Per lingua: domande (citta', storia e clima, paese), chiavi del manifest e suffisso dei file in cache.
+# Per lingua: domande (citta', storia e clima, paese, distanze), chiavi del manifest e suffisso dei file in cache.
 LANGS = {
-    "it": {"questions": (CITY_Q, WIKI_Q, COUNTRY_Q), "guides": "guides", "cities": "cities", "suffix": ""},
-    "en": {"questions": (CITY_Q_EN, WIKI_Q_EN, COUNTRY_Q_EN), "guides": "guidesEn", "cities": "citiesEn", "suffix": "-en"},
+    "it": {"questions": (CITY_Q, WIKI_Q, COUNTRY_Q, DISTANCE_Q), "guides": "guides", "cities": "cities", "suffix": ""},
+    "en": {"questions": (CITY_Q_EN, WIKI_Q_EN, COUNTRY_Q_EN, DISTANCE_Q_EN), "guides": "guidesEn", "cities": "citiesEn",
+           "suffix": "-en"},
 }
-KINDS = ["citta', domande pratiche", "paese", "citta', storia e clima"]
+KINDS = ["citta', domande pratiche", "paese", "citta', storia e clima", "distanze"]
+# Un paragrafo con una distanza o un tempo di viaggio ("72 km", "3 h 30", "20 minuti", "2 hours").
+TRAVEL_FIGURE = re.compile(r"\d+\s*(km|h|ore|minuti|min|hours?|minutes?)\b")
+DISTANCE_PAIRS = 20
 
 
 # --- replica dell'app ------------------------------------------------------------------------------------------------
-def fts_query(question, region_id):
+def fts_prefix(word):
+    """ftsPrefix: le prime 5 lettere con l'asterisco, 6 dalle parole di 8; intera sotto le 5."""
+    if len(word) < STEM_CHARS:
+        return word
+    return word[:STEM_CHARS if len(word) < LONG_WORD_CHARS else STEM_CHARS + 1] + "*"
+
+
+def fts_query(question, region_id, city=None):
     """buildFtsQuery: parole (divise su tutto cio' che non e' lettera o cifra, come l'indice) di almeno 4 caratteri in
-    minuscolo, senza quelle del nome della regione, in OR."""
+    minuscolo, senza quelle del nome della regione e senza STOPWORDS; senza quelle della citta' [city] salvo che
+    restino solo quelle; per prefisso (fts_prefix), senza doppioni, in OR."""
     region_tokens = {t.lower() for t in re.split(r"[^\w]+", region_id) if t}
     tokens = [t.lower() for t in re.split(r"[^\w]+|_", question) if t]
-    return " OR ".join(t for t in tokens if len(t) >= 4 and t not in region_tokens)
+    words = [t for t in tokens if len(t) >= 4 and t not in region_tokens and folded(t) not in STOPWORDS]
+    city_words = set(normalized_words(spoken_city_name(city)).split()) if city else set()
+    topic = [t for t in words if folded(t) not in city_words] or words
+    return " OR ".join(dict.fromkeys(fts_prefix(t) for t in topic))
 
 
 def spoken_city_name(city):
@@ -142,9 +176,10 @@ PLACE_PREPOSITIONS = {
 }
 
 
-def named_city(question, cities, lang="it"):
-    """namedCity: la citta' nominata nella domanda (il nome piu' lungo, a parole intere), o None. Un nome di una
-    sola parola conta solo con l'iniziale maiuscola o dopo una preposizione di luogo (PLACE_PREPOSITIONS)."""
+def named_cities(question, cities, lang="it"):
+    """namedCities: le citta' nominate nella domanda (a parole intere), dal nome piu' lungo, senza quelle comprese in un
+    nome piu' lungo gia' trovato. Un nome di una sola parola conta solo con l'iniziale maiuscola o dopo una
+    preposizione di luogo (PLACE_PREPOSITIONS)."""
     words = normalized_words(question)
     tokens = [w for w in re.split(r"[^\w]+|_", question) if w]
     folded_tokens = [folded(t) for t in tokens]
@@ -159,13 +194,17 @@ def named_city(question, cities, lang="it"):
         name = normalized_words(spoken_city_name(c)).strip()
         if len(spoken_city_name(c)) >= MIN_CITY_NAME_CHARS and f" {name} " in words and (" " in name or named_as_place(name)):
             found.append(c)
-    return max(found, key=lambda c: len(spoken_city_name(c)), default=None)
+    kept = []
+    for c in sorted(found, key=lambda c: -len(spoken_city_name(c))):
+        if not any(normalized_words(spoken_city_name(c)) in normalized_words(spoken_city_name(k)) for k in kept):
+            kept.append(c)
+    return kept
 
 
 def focus_stems(fts, city):
     """focusStems: prime 5 lettere delle parole della query, senza quelle della citta' nominata."""
     city_stems = {w[:STEM_CHARS] for w in normalized_words(spoken_city_name(city)).split() if len(w) >= 4} if city else set()
-    return {folded(t)[:STEM_CHARS] for t in fts.split(" OR ") if t} - city_stems
+    return {folded(t.rstrip("*"))[:STEM_CHARS] for t in fts.split(" OR ") if t} - city_stems
 
 
 def parse_matchinfo(blob):
@@ -208,14 +247,15 @@ def bm25(info, stats):
 
 
 def rank_sections(guide, city, country_first, history_or_climate=True):
-    """rankSections: [(sezione, matchinfo)] della guida del paese e delle citta' -> le MAX_SECTIONS migliori."""
+    """rankSections: [(sezione, matchinfo)] della guida del paese e delle citta' -> le MAX_SECTIONS migliori; prima
+    quelle del paese con [country_first] True, quelle delle citta' con False, solo per punteggio con None."""
     tables = [rows[0][1] for rows in (guide, city) if rows]
     if not tables:
         return []
     stats = corpus_stats(tables)
     weight = lambda s: WIKIPEDIA_OFF_TOPIC_WEIGHT if not history_or_climate and s["category"] in WIKI else 1.0
     ranked = [(bm25(info, stats), True, s) for s, info in guide] + [(bm25(info, stats) * weight(s), False, s) for s, info in city]
-    ranked.sort(key=lambda r: (country_first and not r[1], -r[0]))
+    ranked.sort(key=lambda r: (country_first is not None and r[1] != country_first, -r[0]))
     return [s for _, _, s in ranked[:MAX_SECTIONS]]
 
 
@@ -264,23 +304,34 @@ def build_db(guides_db, region, city_rows):
     return db
 
 
+def city_candidates(db, region, fts, named):
+    """CityRepository.searchCandidates per ogni citta' di [named] ("quanto dista X da Y"), o per tutte se e' vuota."""
+    return [({"city": c, "category": k, "body": b}, parse_matchinfo(mi)) for name in (named or [None])
+            for c, k, b, mi in db.execute(
+        "SELECT s.city, s.category, s.body, matchinfo(city_sections_fts, 'pcxnal') FROM city_sections s "
+        "JOIN city_sections_fts ON s.id = city_sections_fts.rowid "
+        "WHERE city_sections_fts MATCH ? AND s.regionId = ? AND (? IS NULL OR s.city = ?) LIMIT ?",
+        (fts, region, name, name, CITY_CANDIDATE_CAP if name else CANDIDATE_CAP))]
+
+
 def search(db, region, question, cities, lang="it"):
     """TravelAssistant.ask fino alle sezioni del contesto: (sezioni, radici della domanda)."""
-    fts = fts_query(question, region)
+    named = named_cities(question, cities, lang)
+    city = named[0] if len(named) == 1 else None
+    fts = fts_query(question, region, city)
     if not fts:
         return [], set()
-    city = named_city(question, cities, lang)
+    city_rows = city_candidates(db, region, fts, named)
+    if city and not city_rows:
+        # Nessuna sezione della citta' con le parole della domanda: si cerca anche il suo nome.
+        fts = fts_query(question, region)
+        city_rows = city_candidates(db, region, fts, named)
     guide = [({"city": None, "category": k, "body": b}, parse_matchinfo(mi)) for k, b, mi in db.execute(
         "SELECT s.category, s.body, matchinfo(guide_sections_fts, 'pcxnal') FROM guide_sections s "
         "JOIN guide_sections_fts ON s.id = guide_sections_fts.rowid "
         f"WHERE guide_sections_fts MATCH ? AND s.regionId = ? LIMIT {CANDIDATE_CAP}", (fts, region))]
-    city_rows = [({"city": c, "category": k, "body": b}, parse_matchinfo(mi)) for c, k, b, mi in db.execute(
-        "SELECT s.city, s.category, s.body, matchinfo(city_sections_fts, 'pcxnal') FROM city_sections s "
-        "JOIN city_sections_fts ON s.id = city_sections_fts.rowid "
-        "WHERE city_sections_fts MATCH ? AND s.regionId = ? AND (? IS NULL OR s.city = ?) LIMIT ?",
-        (fts, region, city, city, CITY_CANDIDATE_CAP if city else CANDIDATE_CAP))]
     history_or_climate = bool(HISTORY_CLIMATE_WORDS.search(question))
-    return rank_sections(guide, city_rows, country_first=city is None, history_or_climate=history_or_climate), focus_stems(fts, city)
+    return rank_sections(guide, city_rows, country_first=not named, history_or_climate=history_or_climate), focus_stems(fts, city)
 
 
 def answer_paragraph(body, stems):
@@ -338,9 +389,24 @@ def city_rows_of(cache, region, with_wikipedia, lang="it"):
     return [r for city_rows in rows.values() for r in city_rows]
 
 
+def distance_pairs(city_rows):
+    """(citta', altra citta', paragrafo): paragrafi delle sezioni TRASPORTI che nominano un'altra citta' della regione
+    (nome di una parola, almeno 5 lettere) con km o tempi di viaggio."""
+    names = {c for c, *_ in city_rows if " " not in c and len(c) >= 5}
+    pairs = {}
+    for city, cat, _, body, _ in city_rows:
+        if cat != "TRASPORTI" or city not in names:
+            continue
+        for paragraph in body.split("\n"):
+            if TRAVEL_FIGURE.search(paragraph):
+                for other in names & set(re.findall(r"\w+", paragraph)) - {city}:
+                    pairs.setdefault((city, other), paragraph)
+    return [(c, o, p) for (c, o), p in sorted(pairs.items())]
+
+
 def make_plan(region, city_rows, rng, lang="it"):
-    """(tipo, categoria attesa, citta' attesa o None, domanda) per la regione."""
-    city_q, wiki_q, country_q = LANGS[lang]["questions"]
+    """(tipo, categoria attesa, citta' attesa o None, domanda, paragrafo atteso o None) per la regione."""
+    city_q, wiki_q, country_q, distance_q = LANGS[lang]["questions"]
     cats = defaultdict(set)
     for city, cat, *_ in city_rows:
         cats[city].add(cat)
@@ -349,12 +415,15 @@ def make_plan(region, city_rows, rng, lang="it"):
     for c in rng.sample(eligible, min(len(eligible), CITIES_PER_REGION.get(region, DEFAULT_CITIES))):
         for cat, qs in city_q.items():
             if cat in cats[c]:
-                plan.append((KINDS[0], cat, c, rng.choice(qs).format(c=spoken_city_name(c))))
+                plan.append((KINDS[0], cat, c, rng.choice(qs).format(c=spoken_city_name(c)), None))
         for cat, qs in wiki_q.items():
             if cat in cats[c]:
-                plan.append((KINDS[2], cat, c, rng.choice(qs).format(c=spoken_city_name(c))))
+                plan.append((KINDS[2], cat, c, rng.choice(qs).format(c=spoken_city_name(c)), None))
     for cat, qs in country_q.items():
-        plan += [(KINDS[1], cat, None, q) for q in qs]
+        plan += [(KINDS[1], cat, None, q, None) for q in qs]
+    pairs = distance_pairs(city_rows)
+    for c, o, paragraph in rng.sample(pairs, min(len(pairs), DISTANCE_PAIRS)):
+        plan.append((KINDS[3], "TRASPORTI", c, rng.choice(distance_q).format(c=c, o=o), paragraph))
     return plan
 
 
@@ -374,7 +443,7 @@ def main():
         rows = city_rows_of(a.cache, region, not a.no_wikipedia, a.lang)
         db = build_db(a.cache / f"guides{LANGS[a.lang]['suffix']}.db", region, rows)
         cities = sorted({r[0] for r in rows})
-        for kind, cat, city, q in plan:
+        for kind, cat, city, q, paragraph in plan:
             top, stems = search(db, region, q, cities, a.lang)
             r = res[kind]
             r["n"] += 1
@@ -383,7 +452,8 @@ def main():
             r["prima"] += bool(top) and top[0] in match
             r["Storia/Clima di troppo"] += kind != KINDS[2] and any(s["category"] in WIKI for s in top)
             if match:
-                r["risposta nel contesto"] += answer_paragraph(match[0]["body"], stems)[:150] in select_context([s["body"] for s in top], stems)
+                expected = paragraph or answer_paragraph(match[0]["body"], stems)
+                r["risposta nel contesto"] += expected[:150] in select_context([s["body"] for s in top], stems)
     for kind in KINDS:
         r = res[kind]
         n = max(r["n"], 1)

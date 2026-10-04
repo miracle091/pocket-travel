@@ -42,7 +42,7 @@ import wiki_dump
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parent / "data" / "sft"
-UA = {"User-Agent": "pocket-travel-sft/0.8 (https://github.com/miracle091/pocket-travel)"}
+UA = {"User-Agent": "pocket-travel-sft/0.9 (https://github.com/miracle091/pocket-travel)"}
 # Con --dump-dir: titolo della pagina di ogni fonte per regione (regionId, fonte, titolo), versionato cosi'
 # che dump + questo file bastino a rifare lo stesso dataset. Le regioni nuove si risolvono via API e si
 # aggiungono qui.
@@ -361,6 +361,17 @@ def covers(cat, text, keywords=KEYWORDS):
 # residuo una sezione in piu' sarebbe solo un frammento.
 STEM_CHARS = 5
 MIN_SECTION_CHARS = 50
+# Come questionStopwords in TravelAssistant.kt: parole della domanda che l'app non cerca.
+STOPWORDS = {
+    "quale", "quali", "quanto", "quanta", "quanti", "quante", "quando", "perche", "sono", "della", "delle", "dello",
+    "degli", "dell", "nella", "nelle", "nello", "negli", "nell", "alla", "alle", "allo", "agli", "dalla", "dalle", "dallo",
+    "dagli", "sulla", "sulle", "sullo", "sugli", "questo", "questa", "questi", "queste", "quello", "quella", "quelli",
+    "quelle", "anche", "molto", "molti", "molte", "posso", "puoi", "possono", "devo", "deve", "devono", "serve", "servono",
+    "essere", "fatto", "avere", "hanno", "ogni", "tutto", "tutti", "tutte", "altro", "altri", "loro", "dire", "cosi",
+    "ancora", "oppure", "mentre",
+    "what", "which", "where", "when", "does", "there", "with", "from", "that", "this", "have", "should", "about", "much",
+    "many", "could", "would", "your", "some", "into", "they", "them", "were", "been", "will", "also", "very", "need",
+}
 
 def _folded(text):
     """Minuscolo e senza accenti, come folded in TravelAssistant.kt."""
@@ -368,11 +379,11 @@ def _folded(text):
 
 def question_stems(question, name=""):
     """Come buildFtsQuery + focusStems dell'app: parole divise su tutto cio' che non e' lettera o cifra ("dell'isola" ->
-    "dell", "isola"), di almeno 4 caratteri, prime 5 lettere senza accenti; senza quelle di [name] (la regione, che
-    l'app toglie dalla query, o la citta' nominata)."""
+    "dell", "isola"), di almeno 4 caratteri e non in STOPWORDS, prime 5 lettere senza accenti; senza quelle di [name]
+    (la regione, che l'app toglie dalla query, o la citta' nominata)."""
     words = lambda text: (w for w in re.split(r"[^\w]+|_", text) if w)
     name_stems = {_folded(w)[:STEM_CHARS] for w in words(name) if len(w) >= 4}
-    return {_folded(w)[:STEM_CHARS] for w in words(question) if len(w) >= 4} - name_stems
+    return {_folded(w)[:STEM_CHARS] for w in words(question) if len(w) >= 4 and _folded(w) not in STOPWORDS} - name_stems
 
 def relevant_paragraphs(body, stems, budget):
     """Come relevantParagraphs dell'app: [body] se sta in [budget]; altrimenti i paragrafi con piu' radici [stems]
@@ -522,13 +533,13 @@ def parse_vs(raw):
 def vs_codes(regions):
     """regionId -> codice ISO3 della scheda VS. Solo regioni con bandiera propria (non condivisa con altre
     regioni, non in un gruppo): altrimenti la scheda del paese non descriverebbe la regione."""
-    rows = [r.split("|") for r in re.findall(r'^\s*"([^"]+\|[^"]+)"\s*$', (HERE / "pilot-regions.sh").read_text(encoding="utf-8"), re.M)]
+    rows = [r.split("|") for r in re.findall(r'^\s*"([^"]+\|[^"]+)"\s*$', (HERE / "regions.sh").read_text(encoding="utf-8"), re.M)]
     flags = Counter(f[7] for f in rows if len(f) > 8)
     iso3 = {n["Codice-2"].lower(): n["Codice-3"] for n in json.loads(get(f"{VS_BASE}/schede_paese/lista_nazioni.json"))}
     return {f[0]: iso3[f[7]] for f in rows if len(f) > 8 and flags[f[7]] == 1 and not f[8] and f[7] in iso3}
 
 def load_regions():
-    src = (HERE / "pilot-regions.sh").read_text(encoding="utf-8")
+    src = (HERE / "regions.sh").read_text(encoding="utf-8")
     rows = re.findall(r'^\s*"([^"]+\|[^"]+)"\s*$', src, re.M)
     return [(f[0], f[1], f[6]) for f in (r.split("|") for r in rows) if len(f) >= 7]
 
