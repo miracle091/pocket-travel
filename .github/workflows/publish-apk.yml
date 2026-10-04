@@ -22,12 +22,6 @@ on:
 permissions:
   contents: read
 
-# Due bump ravvicinati uno dopo l'altro: senza, il job piu' vecchio potrebbe finire per ultimo e
-# riportare app-status.json a un versionCode precedente.
-concurrency:
-  group: publish-apk
-  cancel-in-progress: false
-
 jobs:
   check-version-bump:
     runs-on: ubuntu-24.04
@@ -77,10 +71,18 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
+    # Due bump ravvicinati uno dopo l'altro: senza, il job piu' vecchio potrebbe finire per ultimo e
+    # riportare app-status.json a un versionCode precedente. Qui e non a livello di workflow: un push
+    # senza bump (che salta questo job) non deve annullare la run in attesa di un bump.
+    concurrency:
+      group: publish-apk
+      cancel-in-progress: false
     steps:
+      # Niente credenziali git nel checkout: il job non fa operazioni git autenticate e il token di
+      # scrittura non deve restare leggibile dal codice di build.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -88,13 +90,6 @@ jobs:
           java-version: '25'
 
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
-
-      # Lint e test unitari prima di firmare e pubblicare: un bump di versione su un commit con i test
-      # rossi non deve produrre una release. Qui e non come attesa di android-ci sullo stesso SHA, che
-      # richiederebbe di interrogare le API (e di gestire attese, run annullate e rilanci manuali).
-      - name: Lint e test unitari
-        shell: bash
-        run: ./gradlew lint testDebugUnitTest --no-daemon
 
       - name: Decodifica il keystore di firma
         shell: bash
@@ -104,7 +99,11 @@ jobs:
           set -euo pipefail
           printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
 
-      - name: Build APK di release firmato
+      # Lint e test unitari prima di firmare e pubblicare: un bump di versione su un commit con i test
+      # rossi non deve produrre una release. Qui e non come attesa di android-ci sullo stesso SHA, che
+      # richiederebbe di interrogare le API (e di gestire attese, run annullate e rilanci manuali).
+      # Una sola invocazione Gradle: un solo avvio e una sola configurazione dei progetti.
+      - name: Lint, test unitari e build APK di release firmato
         shell: bash
         env:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
@@ -113,10 +112,12 @@ jobs:
         run: |
           set -euo pipefail
           export RELEASE_KEYSTORE_PATH="$RUNNER_TEMP/release.jks"
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew lint testDebugUnitTest assembleRelease --no-daemon
 
       - name: Pubblica la release su GitHub
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           source .github/scripts/retry.sh
@@ -166,6 +167,7 @@ jobs:
         # Firma ECDSA del file (app-status.json.sig, stessa chiave di manifest.json in
         # publish-regions.yml): senza il secret il passo fallisce, vedi .github/scripts/sign-files.sh.
         env:
+          GH_TOKEN: ${{ github.token }}
           MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
         run: |
           set -euo pipefail

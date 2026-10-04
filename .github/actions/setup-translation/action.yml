@@ -43,7 +43,8 @@ runs:
         done
 
     # La cache delle frasi: chiave mai esistente + restore-keys sul prefisso, cosi' si ripristina l'ultima salvata
-    # (le cache di Actions non si aggiornano, se ne salva una nuova a ogni run che ha tradotto frasi nuove).
+    # (le cache di Actions non si aggiornano, se ne salva una nuova a ogni run che ha tradotto frasi nuove; chi
+    # salva elimina poi quelle piu' vecchie con lo stesso prefisso, per non far sfrattare modelli, dump e Gradle).
     - name: Ripristina le frasi gia' tradotte
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:

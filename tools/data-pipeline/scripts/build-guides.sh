@@ -80,8 +80,7 @@ for spec in "${PILOT_REGIONS[@]}"; do
     if sourceUrl="$(fetch_wikivoyage_en_dump "$wikiTitle" "$dump")"; then
       sourceUrlIt="$(fetch_wikivoyage_dump "$wikiTitle" "$dumpIt")" || { : > "$dumpIt"; sourceUrlIt=""; }
       # La stessa pagina italiana, per la guida italiana "semplice" che serve a tradurre l'inglese povero (sezione 3a).
-      printf '%s	%s	%s
-' "$regionId" "$(winpath "$dumpIt")" "$sourceUrlIt" >> "$REGIONS_IT_TSV"
+      printf '%s\t%s\t%s\n' "$regionId" "$(winpath "$dumpIt")" "$sourceUrlIt" >> "$REGIONS_IT_TSV"
       printf '%s\t%s\t%s\t%s\n' "$regionId" "$(winpath "$dump")" "$sourceUrl" "$(winpath "$dumpIt")" >> "$REGIONS_TSV"
     else
       echo "-- $regionId: pagina Wikivoyage EN $wikiTitle non scaricata, tengo la guida gia' pubblicata" >&2

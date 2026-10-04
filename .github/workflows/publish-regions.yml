@@ -83,7 +83,9 @@ on:
         default: ""
 
 # Minimo a livello di workflow: contents: write solo ai job che creano release o ne caricano/tolgono
-# asset, pages/id-token solo al job "publish" che fa il deploy su Pages.
+# asset, pages/id-token solo al job "publish" che fa il deploy su Pages. Nessun job fa operazioni git
+# autenticate: i checkout hanno persist-credentials: false, cosi' il token di scrittura non resta
+# nella configurazione git leggibile dal codice di build.
 permissions:
   contents: read
 
@@ -119,6 +121,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # Gira qui (una volta, prima della matrice) e non dentro il job "build": se lo shard 0/1/2
       # eseguissero tutti "gh release view || gh release create" in parallelo, alla primissima run
@@ -131,32 +135,40 @@ jobs:
           set -euo pipefail
           source .github/scripts/retry.sh
           source tools/data-pipeline/scripts/pilot-regions.sh
+          # Un solo elenco delle release esistenti invece di un "gh release view" per ognuna (~70): ensure_release
+          # solo per le mancanti. Elenco non leggibile o troncato dal limite: restano vuote/mancanti e si ricade su
+          # ensure_release, che controlla da se'.
+          EXISTING_TAGS="$(retry gh release list --repo "${{ github.repository }}" --limit 300 --json tagName --jq '.[].tagName')" || EXISTING_TAGS=""
+          ensure_release_if_missing() {
+            if grep -qxF "$1" <<< "$EXISTING_TAGS"; then return 0; fi
+            ensure_release "$@"
+          }
           # Le regioni si spartiscono su REGION_RELEASES release "region-data-rNN" (region_release_tag in
           # pilot-regions.sh): GitHub limita ogni release a 1000 asset (HTTP 422 "file_count limited to 1000
           # assets per release"). Le si creano tutte, anche quelle che oggi non hanno ancora regioni.
           for n in $(seq 0 $((REGION_RELEASES - 1))); do
             tag="$(printf 'region-data-r%02d' "$n")"
-            ensure_release "$tag" \
+            ensure_release_if_missing "$tag" \
               "Dati regionali ($((n + 1))/$REGION_RELEASES)" \
               "Asset binari (poi.db + segmenti .rd5) per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
             # Variante "solo auto" dei segmenti (routingCar, build-region.sh): stessa ripartizione, release a parte
             # per non sforare i 1000 asset di region-data-rNN.
-            ensure_release "$(printf 'region-data-car-r%02d' "$n")" \
+            ensure_release_if_missing "$(printf 'region-data-car-r%02d' "$n")" \
               "Percorsi solo auto ($((n + 1))/$REGION_RELEASES)" \
               "Segmenti .rd5 con le sole strade per l'auto, per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
           done
           # Release del pacchetto guide unico: stesso prefisso "region-data" cosi' la pulizia degli
           # asset non piu' referenziati nel job "publish" la copre senza casi speciali.
           # Orari delle reti di mezzi pubblici (job "transit"), referenziati da transit.json su Pages.
-          ensure_release "transit-feeds" \
+          ensure_release_if_missing "transit-feeds" \
             "Orari dei mezzi pubblici" \
             "Pacchetti transit.db (orari GTFS convertiti) per l'app Pocket Travel, referenziati da transit.json su GitHub Pages. Non e' una release software."
           # Frammenti del manifest salvati da ogni shard subito dopo ogni regione (<VERSION>--<regionId>.json):
           # se il job muore prima di pubblicare, il job "publish" di una run successiva li recupera.
-          ensure_release "region-fragments" \
+          ensure_release_if_missing "region-fragments" \
             "Frammenti del manifest in sospeso" \
             "Frammenti manifest.json delle regioni costruite e non ancora pubblicate, per la pipeline di Pocket Travel. Non e' una release software."
-          ensure_release "region-data-guide" \
+          ensure_release_if_missing "region-data-guide" \
             "Guide di viaggio" \
             "guides.db (guide Wikivoyage e numeri di emergenza di tutte le regioni) per l'app Pocket Travel, referenziato da manifest.json su GitHub Pages. Non e' una release software."
 
@@ -319,12 +331,16 @@ jobs:
     # 240: scaricare le pagine e generare le guide richiede pochi minuti, il resto e' il tetto di traduzione (75 minuti in
     # tutto, vedi GUIDES_TRANSLATE_SECONDS sotto) con la conversione dei modelli alla prima run.
     timeout-minutes: 240
+    # actions: write per togliere le cache delle frasi tradotte piu' vecchie (passo dopo il salvataggio).
     permissions:
       contents: write
+      actions: write
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -382,6 +398,7 @@ jobs:
 
       # Nuova cache delle frasi solo se questa run ne ha tradotte di nuove (translate-grown.flag).
       - name: Salva le frasi tradotte
+        id: save-translations
         if: ${{ always() && hashFiles('translate-grown.flag') != '' }}
         continue-on-error: true
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -389,7 +406,22 @@ jobs:
           path: ${{ github.workspace }}/translate-cache
           key: translations-guides-${{ github.run_id }}-${{ github.run_attempt }}
 
+      # Una cache nuova per run riempie il limite di 10 GB del repository e fa sfrattare modelli, dump e Gradle:
+      # salvata la nuova, si tolgono quelle piu' vecchie con lo stesso prefisso (la nuova contiene gia' le loro frasi).
+      - name: Elimina le cache delle frasi piu' vecchie
+        if: ${{ always() && steps.save-translations.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW_KEY="translations-guides-${{ github.run_id }}-${{ github.run_attempt }}"
+          gh cache list --repo "${{ github.repository }}" --key translations-guides- --sort created_at --order desc --limit 100 --json key --jq '.[].key' \
+            | awk -v new="$NEW_KEY" 'found { print } $0 == new { found = 1 }' \
+            | while read -r key; do gh cache delete "$key" --repo "${{ github.repository }}"; done
+
+      # !cancelled(): anche se la guida italiana fallisce, il frammento della guida inglese (guides-en.json) va al job "publish".
       - name: Carica il frammento manifest delle guide
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: manifest-fragments-guides
@@ -415,6 +447,8 @@ jobs:
       WORLD_MAP_MAX_AGE_DAYS: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # go-pmtiles: versione e sha256 fissati in .github/scripts/install-go-pmtiles.sh.
       - name: Installa go-pmtiles
@@ -433,9 +467,16 @@ jobs:
           PROTOMAPS_DATE="$(resolve_protomaps_date)"
           echo "-- build Protomaps: ${PROTOMAPS_DATE}.pmtiles"
 
+          # Si rigenera (550 MB) solo con un 404 (nessun manifest) o se la mappa pubblicata e' vecchia: un errore
+          # di rete sul manifest non deve farla rigenerare, si riprova alla prossima run.
           PUBLISHED_DATE=""
-          if curl -sSfL --retry 3 --retry-delay 5 "${{ env.PAGES_BASE_URL }}/manifest.json" -o "$RUNNER_TEMP/published-manifest.json" 2>/dev/null; then
+          PUBLISHED_HTTP="$(fetch_published_manifest "${{ env.PAGES_BASE_URL }}/manifest.json" "$RUNNER_TEMP/published-manifest.json")"
+          if [ "$PUBLISHED_HTTP" = "200" ]; then
             PUBLISHED_DATE="$(jq -r '.worldMap.version // ""' "$RUNNER_TEMP/published-manifest.json")"
+          elif [ "$PUBLISHED_HTTP" != "404" ]; then
+            echo "::warning::manifest pubblicato non scaricabile (HTTP ${PUBLISHED_HTTP:-000}): non rigenero la mappa del mondo in questa run"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           if [ -n "$PUBLISHED_DATE" ]; then
             AGE_DAYS="$(( ($(date -u +%s) - $(date -u -d "$PUBLISHED_DATE" +%s)) / 86400 ))"
@@ -510,6 +551,8 @@ jobs:
       ADDRESS_CELLS_INPUT: ${{ github.event.inputs.address_cells }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -737,6 +780,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -931,8 +976,10 @@ jobs:
     # 2026-09-28): budget di TIME_BUDGET_MINUTES (280) + una regione al massimo di
     # REGION_TIMEOUT_MINUTES (45) + preparazione e upload.
     timeout-minutes: 350
+    # actions: write per togliere le cache delle frasi tradotte piu' vecchie (passo dopo il salvataggio).
     permissions:
       contents: write
+      actions: write
     strategy:
       fail-fast: false
       matrix:
@@ -954,7 +1001,15 @@ jobs:
       TRANSLATE_MAX_SECONDS: 120
       TRANSLATE_TOTAL_MINUTES: 40
     steps:
+      # Inizio del job (epoca): il budget di tempo dello shard si conta da qui, non dall'inizio del passo che
+      # genera le regioni, dopo checkout, Gradle, traduzione e cache.
+      - name: Segna l'inizio del job
+        shell: bash
+        run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -1104,13 +1159,14 @@ jobs:
           EXTRA_SKIPPED=0
           declare -A SPEC_BY_ID=()
           for spec in "${PILOT_REGIONS[@]}"; do SPEC_BY_ID[${spec%%|*}]="$spec"; done
-          # Budget dall'inizio di questo passo (SECONDS), dump delle citta' compreso. Almeno una
-          # regione parte sempre, cosi' ogni continuazione fa qualche progresso.
+          # Budget dall'inizio del job (JOB_START), dump delle citta' compreso. SECONDS conta dall'inizio di
+          # questo passo: il tempo gia' passato prima si toglie dal budget. Almeno una regione parte sempre,
+          # cosi' ogni continuazione fa qualche progresso.
           if ! [[ "$TIME_BUDGET_MINUTES" =~ ^[0-9]+$ ]]; then
             echo "time_budget_minutes non valido: '$TIME_BUDGET_MINUTES' (minuti, intero)" >&2
             exit 1
           fi
-          BUDGET_SECONDS=$((TIME_BUDGET_MINUTES * 60))
+          BUDGET_SECONDS=$((TIME_BUDGET_MINUTES * 60 - ($(date +%s) - JOB_START)))
           DEFERRED_REGIONS=()
           startedRegions=0
 
@@ -1249,6 +1305,7 @@ jobs:
                   echo "::warning::upload asset di $regionId fallito, salto e continuo con le prossime"
                   FAILED_REGIONS+=("$regionId")
                   FAILED_REASONS+=("upload degli asset fallito")
+                  rm -rf "$regionOut"
                   echo "::endgroup::"
                   continue
                 fi
@@ -1282,6 +1339,7 @@ jobs:
                 FAILED_REASONS+=("build-region.sh uscito con $rc")
               fi
               FAILED_REGIONS+=("$regionId")
+              rm -rf "$regionOut"
             fi
             echo "::endgroup::"
           done
@@ -1331,12 +1389,25 @@ jobs:
 
       # Nuova cache delle frasi di questo shard solo se il passo sopra ne ha tradotte di nuove (translate-grown.flag).
       - name: Salva le frasi tradotte delle citta'
+        id: save-translations
         if: ${{ always() && hashFiles('translate-grown.flag') != '' }}
         continue-on-error: true
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ github.workspace }}/translate-cache
           key: translations-cities-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      # Come nel job "guides": salvata la cache nuova, si tolgono le piu' vecchie dello stesso shard.
+      - name: Elimina le cache delle frasi piu' vecchie
+        if: ${{ always() && steps.save-translations.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW_KEY="translations-cities-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}"
+          gh cache list --repo "${{ github.repository }}" --key translations-cities-${{ matrix.shard }}- --sort created_at --order desc --limit 100 --json key --jq '.[].key' \
+            | awk -v new="$NEW_KEY" 'found { print } $0 == new { found = 1 }' \
+            | while read -r key; do gh cache delete "$key" --repo "${{ github.repository }}"; done
 
       # !cancelled(): anche quando il passo sopra esce con errore (nessuna regione completata) ma ha
       # regioni rimandate da passare alla continuazione.
@@ -1369,7 +1440,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     # contents: write per togliere gli asset non piu' referenziati; actions: write per rilanciare
-    # le regioni rimandate (ultimi due passi).
+    # le regioni rimandate (passo subito dopo il deploy).
     permissions:
       contents: write
       actions: write
@@ -1380,6 +1451,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # I dati che richiedono un'app piu' recente (min-app-version-code, vedi assemble-site.sh) non
       # si pubblicano prima di quell'app: le installazioni esistenti bloccherebbero i download
@@ -1595,6 +1668,20 @@ jobs:
           [ ! -s "$SITE_DIR/address-grid.json" ] || ARGS="$ARGS $SITE_DIR/address-grid.json"
           [ ! -s "$SITE_DIR/transit.json" ] || ARGS="$ARGS --transit $SITE_DIR/transit.json"
           ./gradlew -q :tools:data-pipeline:content:validateManifest --args="$ARGS"
+          # Indice e voce del manifest vengono da download diversi (artifact, in continue-on-error, o indice
+          # gia' pubblicato) e potrebbero non corrispondere: l'app scarterebbe l'indice per lo sha256 diverso.
+          for entry in addressGrid:address-grid.json transit:transit.json; do
+            key="${entry%%:*}"
+            file="$SITE_DIR/${entry#*:}"
+            [ -s "$file" ] || continue
+            expected="$(jq -r --arg key "$key" '.[$key].sha256 // empty' "$SITE_DIR/manifest.json")"
+            [ -n "$expected" ] || continue
+            actual="$(sha256sum "$file" | cut -d' ' -f1)"
+            if [ "$expected" != "$actual" ]; then
+              echo "::error::${entry#*:} ($actual) non corrisponde a $key.sha256 del manifest ($expected): non pubblico" >&2
+              exit 1
+            fi
+          done
 
       # Prima del deploy: ogni regione del manifest precedente deve restare nel nuovo, salvo quelle
       # che il merge toglie di proposito (fuori da pilot-regions.sh, o sostituite da un gruppo ormai
@@ -1661,6 +1748,54 @@ jobs:
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
         with:
           artifact_name: github-pages-${{ github.run_attempt }}
+
+      # Continuazione automatica: le regioni che gli shard hanno rimandato per il budget di tempo
+      # (deferred-<shard>.txt negli artifact dei frammenti) ripartono in una run nuova, lanciata con
+      # workflow_dispatch (il GITHUB_TOKEN puo' farlo; con gli altri eventi non creerebbe una run).
+      # Al massimo 4 continuazioni in fila. Gira anche se un passo sopra e' fallito: le regioni
+      # rimandate non sono state tentate. Subito dopo il deploy e prima della pulizia degli asset, che
+      # puo' durare a lungo (fino al timeout del job) e non deve ritardare o far perdere la continuazione.
+      - name: Rilancia le regioni rimandate
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Dall'ambiente e non interpolato nello script: il nome di un ramo puo' contenere $(...).
+          REF_NAME: ${{ github.ref_name }}
+          CONTINUATION: ${{ github.event.inputs.continuation }}
+          TIME_BUDGET_INPUT: ${{ github.event.inputs.time_budget_minutes }}
+          POI_MAX_AGE_INPUT: ${{ github.event.inputs.poi_max_age_days }}
+        run: |
+          set -euo pipefail
+          source .github/scripts/retry.sh
+          shopt -s nullglob
+          [[ "${CONTINUATION:-}" =~ ^[0-9]+$ ]] || CONTINUATION=0
+          # Rimandate per il budget, e (solo dalla run iniziale, non dalle continuazioni) le fallite:
+          # un nuovo tentativo, in fondo; se falliscono ancora restano al calendario settimanale.
+          LIST_FILES=("$RUNNER_TEMP/fragments"/deferred-*.txt)
+          if [ "$CONTINUATION" -eq 0 ]; then
+            LIST_FILES+=("$RUNNER_TEMP/fragments"/failed-*.txt)
+          fi
+          if [ "${#LIST_FILES[@]}" -eq 0 ]; then
+            echo "-- nessuna regione rimandata o da riprovare"
+            exit 0
+          fi
+          DEFERRED="$(cut -f1 "${LIST_FILES[@]}" | grep -E '^[a-z0-9-]+$' | sort -u | paste -sd, - || true)"
+          if [ -z "$DEFERRED" ]; then
+            echo "-- nessuna regione rimandata o da riprovare"
+            exit 0
+          fi
+          NEXT=$((CONTINUATION + 1))
+          if [ "$NEXT" -gt 4 ]; then
+            echo "::warning::regioni rimandate dopo 4 continuazioni, non rilancio (restano al calendario settimanale): $DEFERRED"
+            exit 0
+          fi
+          ARGS=(-f regions="$DEFERRED" -f continuation="$NEXT")
+          [ -z "${TIME_BUDGET_INPUT:-}" ] || ARGS+=(-f time_budget_minutes="$TIME_BUDGET_INPUT")
+          [ -z "${POI_MAX_AGE_INPUT:-}" ] || ARGS+=(-f poi_max_age_days="$POI_MAX_AGE_INPUT")
+          retry gh workflow run publish-regions.yml --repo "${{ github.repository }}" --ref "$REF_NAME" "${ARGS[@]}"
+          echo "-- continuazione $NEXT lanciata con $(tr ',' '\n' <<< "$DEFERRED" | wc -l) regioni"
+          echo "Continuazione $NEXT lanciata con le regioni rimandate: $DEFERRED" >> "$GITHUB_STEP_SUMMARY"
 
       # Gli asset si chiamano regionId--VERSION--file: ogni rigenerazione ne aggiunge di nuovi
       # senza togliere i vecchi, e ogni release e' limitata a 1000 asset. Dopo il deploy (i vecchi
@@ -1735,22 +1870,36 @@ jobs:
             deleted=0
             failed=0
             total=0
-            # Elenco completo a pagine di 100 (quello dentro la release puo' essere troncato).
-            releaseId="$(retry gh api "repos/${{ github.repository }}/releases/tags/$tag" --jq '.id')"
-            while IFS=$'\t' read -r name createdAt; do
+            # Elenco completo a pagine di 100 (quello dentro la release puo' essere troncato), scritto prima su
+            # file e con retry: letto direttamente dall'API, un errore darebbe un elenco vuoto (total=0, kept=0)
+            # e una release legacy verrebbe cancellata con i suoi asset. Elenco non leggibile: si salta il tag.
+            if ! releaseId="$(retry gh api "repos/${{ github.repository }}/releases/tags/$tag" --jq '.id')"; then
+              echo "::warning::$tag: release non leggibile dopo i tentativi, la salto fino alla prossima pulizia"
+              continue
+            fi
+            ASSETS_FILE="$RUNNER_TEMP/assets-$tag.tsv"
+            list_assets() {
+              gh api --paginate "repos/${{ github.repository }}/releases/$releaseId/assets?per_page=100" --jq '.[] | [.name, .created_at, .id] | @tsv' > "$ASSETS_FILE"
+            }
+            if ! retry list_assets; then
+              echo "::warning::$tag: elenco degli asset non leggibile dopo i tentativi, salto la release fino alla prossima pulizia"
+              continue
+            fi
+            while IFS=$'\t' read -r name createdAt assetId; do
               [ -n "$name" ] || continue
               total=$((total + 1))
               if ! grep -qxF "$tag/$name" "$REFERENCED" && [[ "$createdAt" < "$CUTOFF" ]]; then
-                # Con retry e, se fallisce ancora (es. HTTP 502), solo un avviso: l'asset resta e lo
-                # toglie la pulizia della run successiva, non deve far fallire il job dopo il deploy.
-                if retry gh release delete-asset "$tag" "$name" --repo "${{ github.repository }}" --yes; then
+                # Per id e non per nome (una release puo' avere piu' asset con lo stesso nome). Con retry e, se
+                # fallisce ancora (es. HTTP 502), solo un avviso: l'asset resta e lo toglie la pulizia della
+                # run successiva, non deve far fallire il job dopo il deploy.
+                if retry gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$assetId" --silent; then
                   deleted=$((deleted + 1))
                 else
                   failed=$((failed + 1))
                   echo "::warning::$tag: asset $name non rimosso dopo i tentativi, resta fino alla prossima pulizia"
                 fi
               fi
-            done < <(gh api --paginate "repos/${{ github.repository }}/releases/$releaseId/assets?per_page=100" --jq '.[] | [.name, .created_at] | @tsv')
+            done < "$ASSETS_FILE"
             kept=$((total - deleted))
             echo "-- $tag: $deleted asset non referenziati rimossi ($failed non rimovibili), $kept restano"
             # Vecchie release per continente (prima di region-data-rNN), vuote dopo che le loro regioni si sono
@@ -1769,50 +1918,3 @@ jobs:
               echo "::warning::$tag ha $kept asset: rischia il limite di 1000 durante una rigenerazione completa, aumenta REGION_RELEASES in pilot-regions.sh (ADDRESS_CELL_RELEASES per le celle dei civici)"
             fi
           done
-
-      # Continuazione automatica: le regioni che gli shard hanno rimandato per il budget di tempo
-      # (deferred-<shard>.txt negli artifact dei frammenti) ripartono in una run nuova, lanciata con
-      # workflow_dispatch (il GITHUB_TOKEN puo' farlo; con gli altri eventi non creerebbe una run).
-      # Al massimo 4 continuazioni in fila. Gira anche se un passo sopra e' fallito: le regioni
-      # rimandate non sono state tentate.
-      - name: Rilancia le regioni rimandate
-        if: ${{ !cancelled() }}
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          # Dall'ambiente e non interpolato nello script: il nome di un ramo puo' contenere $(...).
-          REF_NAME: ${{ github.ref_name }}
-          CONTINUATION: ${{ github.event.inputs.continuation }}
-          TIME_BUDGET_INPUT: ${{ github.event.inputs.time_budget_minutes }}
-          POI_MAX_AGE_INPUT: ${{ github.event.inputs.poi_max_age_days }}
-        run: |
-          set -euo pipefail
-          source .github/scripts/retry.sh
-          shopt -s nullglob
-          [[ "${CONTINUATION:-}" =~ ^[0-9]+$ ]] || CONTINUATION=0
-          # Rimandate per il budget, e (solo dalla run iniziale, non dalle continuazioni) le fallite:
-          # un nuovo tentativo, in fondo; se falliscono ancora restano al calendario settimanale.
-          LIST_FILES=("$RUNNER_TEMP/fragments"/deferred-*.txt)
-          if [ "$CONTINUATION" -eq 0 ]; then
-            LIST_FILES+=("$RUNNER_TEMP/fragments"/failed-*.txt)
-          fi
-          if [ "${#LIST_FILES[@]}" -eq 0 ]; then
-            echo "-- nessuna regione rimandata o da riprovare"
-            exit 0
-          fi
-          DEFERRED="$(cut -f1 "${LIST_FILES[@]}" | grep -E '^[a-z0-9-]+$' | sort -u | paste -sd, - || true)"
-          if [ -z "$DEFERRED" ]; then
-            echo "-- nessuna regione rimandata o da riprovare"
-            exit 0
-          fi
-          NEXT=$((CONTINUATION + 1))
-          if [ "$NEXT" -gt 4 ]; then
-            echo "::warning::regioni rimandate dopo 4 continuazioni, non rilancio (restano al calendario settimanale): $DEFERRED"
-            exit 0
-          fi
-          ARGS=(-f regions="$DEFERRED" -f continuation="$NEXT")
-          [ -z "${TIME_BUDGET_INPUT:-}" ] || ARGS+=(-f time_budget_minutes="$TIME_BUDGET_INPUT")
-          [ -z "${POI_MAX_AGE_INPUT:-}" ] || ARGS+=(-f poi_max_age_days="$POI_MAX_AGE_INPUT")
-          retry gh workflow run publish-regions.yml --repo "${{ github.repository }}" --ref "$REF_NAME" "${ARGS[@]}"
-          echo "-- continuazione $NEXT lanciata con $(tr ',' '\n' <<< "$DEFERRED" | wc -l) regioni"
-          echo "Continuazione $NEXT lanciata con le regioni rimandate: $DEFERRED" >> "$GITHUB_STEP_SUMMARY"
