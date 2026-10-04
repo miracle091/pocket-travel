@@ -139,9 +139,12 @@ fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     osmTag == "aeroway=aerodrome" -> PoiCategory.AEROPORTO
     osmTag in entertainmentTags -> PoiCategory.SVAGO
     osmTag.startsWith("shop=") -> PoiCategory.NEGOZI
+    // Mercati all'aperto ("Mercato del Sabato"): si fanno acquisti, non sono "Altro".
+    osmTag == "amenity=marketplace" -> PoiCategory.NEGOZI
     osmTag == "historic=church" || osmTag == "historic=monastery" -> PoiCategory.LUOGHI_DI_CULTO
     osmTag.startsWith("historic=") -> PoiCategory.LUOGHI_STORICI
-    category in accommodationValues -> PoiCategory.ALLOGGIO
+    // Villaggi turistici e residence (leisure=resort): ci si dorme, non sono "Altro".
+    category in accommodationValues || osmTag == "leisure=resort" -> PoiCategory.ALLOGGIO
     category in foodDrinkValues -> PoiCategory.CIBO_BEVANDE
     category in worshipValues -> PoiCategory.LUOGHI_DI_CULTO
     category in museumArtValues -> PoiCategory.MUSEI_ARTE
@@ -204,7 +207,7 @@ fun poiHasName(name: String, osmTag: String): Boolean = name != osmTag.substring
  */
 fun isPoiHiddenOnMap(name: String, category: String, osmTag: String): Boolean {
     val poiCategory = poiCategoryOf(category, osmTag)
-    // Gli stalli per disabili si vedono (con "Con disabilita'", deciso dall'app) anche se amenity=parking_space
+    // Gli stalli per disabili si vedono (con "In sedia a rotelle", deciso dall'app) anche se amenity=parking_space
     // e' nascosto: le app vecchie, che non conoscono "parking_disabled", li nascondono ancora.
     return (osmTag in hiddenOnMapTags && category != "parking_disabled") ||
         poiCategory == PoiCategory.PARCHEGGIO_PRIVATO ||

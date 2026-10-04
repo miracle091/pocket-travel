@@ -55,6 +55,10 @@ class PoiRulesTest {
     fun `le categorie "da vedere" dipendono dal valore di categoria`() {
         assertEquals(PoiCategory.ALLOGGIO, poiCategoryOf("hotel", "tourism=hotel"))
         assertEquals(PoiCategory.ALLOGGIO, poiCategoryOf("alpine_hut", "tourism=alpine_hut"))
+        // "Residence Capo Grosso", "Limone Beach": leisure=resort su OSM.
+        assertEquals(PoiCategory.ALLOGGIO, poiCategoryOf("resort", "leisure=resort"))
+        // "Mercato del Sabato": amenity=marketplace su OSM.
+        assertEquals(PoiCategory.NEGOZI, poiCategoryOf("marketplace", "amenity=marketplace"))
         assertEquals(PoiCategory.CIBO_BEVANDE, poiCategoryOf("cafe", "amenity=cafe"))
         assertEquals(PoiCategory.LUOGHI_DI_CULTO, poiCategoryOf("place_of_worship", "amenity=place_of_worship"))
         assertEquals(PoiCategory.MUSEI_ARTE, poiCategoryOf("museum", "tourism=museum"))
