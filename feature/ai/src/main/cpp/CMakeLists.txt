@@ -30,6 +30,18 @@ endif()
 
 # third-party/llama-cpp e' 5 livelli sopra questo file: feature/ai/src/main/cpp -> feature/ai -> feature -> root
 set(LLAMA_SRC ${CMAKE_CURRENT_LIST_DIR}/../../../../../third-party/llama-cpp)
+
+# ccache, solo se presente: gli oggetti si riusano anche tra worktree git in percorsi diversi.
+# CCACHE_BASEDIR rende relativi i percorsi sotto la root di questo checkout, CCACHE_NOHASHDIR
+# toglie la cwd dall'hash (finisce nelle info di debug). Va impostato prima di add_subdirectory.
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+    get_filename_component(POCKET_TRAVEL_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../../../.." ABSOLUTE)
+    set(CCACHE_LAUNCHER ${CMAKE_COMMAND} -E env
+            CCACHE_BASEDIR=${POCKET_TRAVEL_ROOT} CCACHE_NOHASHDIR=1 ${CCACHE_PROGRAM})
+    set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_LAUNCHER})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_LAUNCHER})
+endif()
 add_subdirectory(${LLAMA_SRC} build-llama)
 
 add_library(${CMAKE_PROJECT_NAME} SHARED
