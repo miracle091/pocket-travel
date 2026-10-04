@@ -54,6 +54,12 @@ class AndroidGpsLocationSource @Inject constructor(
     // Il chiamante raccoglie questo flusso solo dopo hasPermission(): il lint non puo' saperlo.
     @SuppressLint("MissingPermission")
     override fun fixes(): Flow<GpsFix> = callbackFlow {
+        // Senza GPS nel dispositivo (tablet solo Wi-Fi) requestLocationUpdates lancia IllegalArgumentException:
+        // il flusso si chiude senza emettere posizioni.
+        if (LocationManager.GPS_PROVIDER !in locationManager.allProviders) {
+            close()
+            return@callbackFlow
+        }
         val listener = LocationListener { location ->
             trySend(GpsFix(location.latitude, location.longitude, location.accuracy, System.currentTimeMillis()))
         }

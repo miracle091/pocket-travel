@@ -1,6 +1,7 @@
 package com.pockettravel.feature.map
 
 import android.content.Intent
+import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,6 +59,8 @@ import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.label
 import com.pockettravel.core.ui.safeWebUrl
 import java.time.LocalDate
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
@@ -170,16 +173,22 @@ fun MapScreen(
         }
     }
     // Parcheggi per disabili solo con "Con disabilita'" (hideInaccessible), agli stessi zoom degli altri parcheggi.
-    val visiblePins = pins.filter {
-        it.category !in hiddenCategories &&
-            (it.category != PoiCategory.PARCHEGGIO || parkingZoom) &&
-            (it.category != PoiCategory.PARCHEGGIO_DISABILI || (hideInaccessible && parkingZoom)) &&
-            !(hideInaccessible && it.wheelchair == "no") &&
-            !(hideInaccessible && onlyAccessible && pinBadgeOf(it) == null && it.category != PoiCategory.PARCHEGGIO_DISABILI)
+    // In remember: una ricomposizione senza cambi (anche con 3000 segnalini) non rifiltra, e la lista resta la
+    // stessa istanza, cosi' l'effetto sotto non riparte.
+    val visiblePins = remember(pins, hiddenCategories, parkingZoom, hideInaccessible, onlyAccessible) {
+        pins.filter {
+            it.category !in hiddenCategories &&
+                (it.category != PoiCategory.PARCHEGGIO || parkingZoom) &&
+                (it.category != PoiCategory.PARCHEGGIO_DISABILI || (hideInaccessible && parkingZoom)) &&
+                !(hideInaccessible && it.wheelchair == "no") &&
+                !(hideInaccessible && onlyAccessible && pinBadgeOf(it) == null && it.category != PoiCategory.PARCHEGGIO_DISABILI)
+        }
     }
-    val presentCategories = PoiCategory.entries.filter { category ->
-        (category != PoiCategory.PARCHEGGIO_DISABILI || hideInaccessible) &&
-            (if (areaCategories != null) category in areaCategories else pins.any { it.category == category })
+    val presentCategories = remember(pins, areaCategories, hideInaccessible) {
+        PoiCategory.entries.filter { category ->
+            (category != PoiCategory.PARCHEGGIO_DISABILI || hideInaccessible) &&
+                (if (areaCategories != null) category in areaCategories else pins.any { it.category == category })
+        }
     }
     // Segnalini ridisegnati solo quando cambiano quelli visibili o la sorgente (nuovo stile),
     // non a ogni ricomposizione.
@@ -188,14 +197,18 @@ fun MapScreen(
         // Con "Con disabilita'" i segnalini accessibili hanno il distintivo: varianti delle icone
         // create solo per le combinazioni presenti, non per tutte le categorie in anticipo.
         val badgeOf = { pin: MapPin -> if (hideInaccessible) pinBadgeOf(pin) else null }
+        // Distintivi presenti e punti GeoJSON su Default: sul main restano solo lo stile e setGeoJson.
+        val (badges, collection) = withContext(Dispatchers.Default) {
+            visiblePins.mapNotNullTo(mutableSetOf()) { pin -> badgeOf(pin)?.let { pin.category to it } } to
+                pinsFeatureCollection(visiblePins, badgeOf)
+        }
         mapView.getMapAsync { map ->
             val style = map.style ?: return@getMapAsync
-            visiblePins.mapNotNullTo(mutableSetOf()) { pin -> badgeOf(pin)?.let { pin.category to it } }
-                .forEach { (category, badge) ->
-                    val id = iconIdFor(category, badge)
-                    if (style.getImage(id) == null) style.addImage(id, poiPinBitmap(context, category, badge))
-                }
-            source.setGeoJson(pinsFeatureCollection(visiblePins, badgeOf))
+            badges.forEach { (category, badge) ->
+                val id = iconIdFor(category, badge)
+                if (style.getImage(id) == null) style.addImage(id, poiPinBitmap(context, category, badge))
+            }
+            source.setGeoJson(collection)
         }
     }
 
@@ -376,7 +389,8 @@ fun MapScreen(
                     FilledTonalButton(
                         onClick = {
                             // Tablet solo Wi-Fi o profilo senza telefono: nessuna app per ACTION_DIAL.
-                            runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phone".toUri())) }
+                            // Uri.fromParts codifica il testo (che viene da OSM, modificabile da chiunque): "tel:$phone" no.
+                            runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", phone, null))) }
                             selectedPinId = null
                         },
                     ) {
@@ -404,7 +418,7 @@ fun MapScreen(
                 pin.email?.let { email ->
                     Spacer(modifier = Modifier.padding(top = Spacing.s))
                     FilledTonalButton(
-                        onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, "mailto:$email".toUri())) } },
+                        onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.fromParts("mailto", email, null))) } },
                     ) {
                         Icon(AppIcons.Mail, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(Spacing.s))

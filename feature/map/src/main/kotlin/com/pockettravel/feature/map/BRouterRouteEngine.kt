@@ -13,6 +13,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.abs
 import java.util.concurrent.atomic.AtomicReference
@@ -41,7 +42,10 @@ class BRouterRouteEngine(
         onProgress: (Double) -> Unit,
     ): RouteResult {
         // Con la cartella dei segmenti uniti (Rd5Merger) le tile possono stare solo nella cartella secondaria.
-        if (segmentDir.listFiles { file -> file.extension == "rd5" || file.name == Rd5Merger.STORAGE_CONFIG_FILE }.isNullOrEmpty()) return RouteResult.NoRoutingData
+        val noSegments = withContext(Dispatchers.IO) {
+            segmentDir.listFiles { file -> file.extension == "rd5" || file.name == Rd5Merger.STORAGE_CONFIG_FILE }.isNullOrEmpty()
+        }
+        if (noSegments) return RouteResult.NoRoutingData
         val running = AtomicReference<RoutingEngine?>()
         return coroutineScope {
             // BRouter non guarda l'interrupt del thread: se la coroutine viene annullata, terminate()
@@ -61,7 +65,8 @@ class BRouterRouteEngine(
                 }
             }
             try {
-                runInterruptible(Dispatchers.Default) { compute(from, to, profile ?: profileName, profileParams, running) }
+                // Calcolo bloccante di minuti (anche in auto): su IO, per non occupare i thread di Default.
+                runInterruptible(Dispatchers.IO) { compute(from, to, profile ?: profileName, profileParams, running) }
             } finally {
                 stopper.cancel()
                 progressPoller.cancel()

@@ -51,6 +51,16 @@ class NavigationService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onCreate() {
+        super.onCreate()
+        // Importanza bassa: aggiornata di continuo, non deve suonare ne' comparire come avviso sopra le app.
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(CHANNEL_ID, applicationContext.getString(R.string.navigation_channel), NotificationManager.IMPORTANCE_LOW).apply {
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            },
+        )
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             // "Termina" dalla notifica: il ViewModel chiude la guida; la sessione si svuota anche se non c'e' piu'.
@@ -123,13 +133,6 @@ class NavigationService : Service() {
 
     private fun build(text: NotificationText): Notification {
         val context = applicationContext
-        val manager = getSystemService(NotificationManager::class.java)
-        // Importanza bassa: aggiornata di continuo, non deve suonare ne' comparire come avviso sopra le app.
-        manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, context.getString(R.string.navigation_channel), NotificationManager.IMPORTANCE_LOW).apply {
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-            },
-        )
         // Con l'app gia' aperta la riporta in primo piano (onNewIntent di MainActivity) invece di aprirne un'altra.
         val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
             ?.putExtra(EXTRA_OPEN_NAVIGATOR, true)

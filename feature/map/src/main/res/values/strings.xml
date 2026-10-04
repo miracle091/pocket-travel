@@ -160,6 +160,7 @@
     <string name="navigation_gps_settings">Attiva il GPS</string>
     <string name="navigation_waiting_fix">In attesa del segnale GPS…</string>
     <string name="navigation_off_route">Fuori percorso: ricalcolo…</string>
+    <string name="navigation_signal_lost">Segnale GPS perso: ultima posizione nota</string>
     <string name="navigation_not_found">Nessun percorso trovato fino alla destinazione con la modalità di spostamento scelta</string>
     <string name="navigation_wheelchair_notice">Escludendo le scale, i percorsi possono risultare incompleti</string>
     <string name="navigation_allow_steps">Consenti alcuni gradini</string>

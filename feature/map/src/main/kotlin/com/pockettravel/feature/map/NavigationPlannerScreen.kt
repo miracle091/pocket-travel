@@ -168,7 +168,8 @@ fun NavigationPlannerScreen(
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        viewModel.onPermissionResult(result.values.any { it })
+        // L'anteprima da "La mia posizione" e il GPS vogliono la posizione precisa: con la sola approssimativa no.
+        viewModel.onPermissionResult(result[Manifest.permission.ACCESS_FINE_LOCATION] == true)
     }
     val requestPermission = {
         permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
@@ -297,7 +298,8 @@ fun NavigationPlannerScreen(
                 if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
-                to?.let { navigationViewModel.start(regionId ?: it.regionId, it, travelMode, arriveBy) }
+                // Il percorso gia' calcolato nell'anteprima non si ricalcola da zero (se la posizione e' sul percorso).
+                to?.let { navigationViewModel.start(regionId ?: it.regionId, it, travelMode, arriveBy, preview as? PlannerPreview.Ready) }
             },
             onSwap = viewModel::swap,
             onTravelModeChange = viewModel::setTravelMode,
@@ -1151,9 +1153,12 @@ private fun PlannerMap(
             }
         }
     }
-    LaunchedEffect(sources, position, nearby) {
+    // La posizione cambia a ogni fix, i POI vicini solo dopo 50 m: effetti separati.
+    LaunchedEffect(sources, position) {
+        sources?.position?.setGeoJson(pointCollection(position))
+    }
+    LaunchedEffect(sources, nearby) {
         val current = sources ?: return@LaunchedEffect
-        current.position.setGeoJson(pointCollection(position))
         val pois = nearby?.pois.orEmpty()
         mapView.getMapAsync { map ->
             val style = map.style ?: return@getMapAsync

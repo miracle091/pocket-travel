@@ -62,8 +62,16 @@ sealed interface NavigationUiState {
      */
     data class Calculating(val elapsedSeconds: Long, val progress: Double = 0.0) : NavigationUiState
 
-    /** [position]: l'ultima posizione GPS, per il punto sulla mappa. */
-    data class Navigating(val route: Route, val progress: NavigationProgress, val position: RoutePoint) : NavigationUiState
+    /**
+     * [position]: l'ultima posizione GPS, per il punto sulla mappa; [signalLost]: la posizione e' vecchia (galleria,
+     * segnale perso), si resta sull'ultima nota in attesa di una nuova.
+     */
+    data class Navigating(
+        val route: Route,
+        val progress: NavigationProgress,
+        val position: RoutePoint,
+        val signalLost: Boolean = false,
+    ) : NavigationUiState
 
     data object Arrived : NavigationUiState
 
@@ -74,7 +82,10 @@ sealed interface NavigationUiState {
 /**
  * Stato della navigazione dagli ingressi, senza Android: il GPS e' obbligatorio. Senza permesso,
  * con il GPS spento o senza una posizione GPS recente non si naviga, anche con un percorso gia'
- * calcolato. [routeResult]: l'ultimo calcolo concluso (null se non c'e' ancora).
+ * calcolato. [routeResult]: l'ultimo calcolo concluso (null se non c'e' ancora). L'arrivo lo decide solo
+ * [arrived], che il ViewModel segna secondo "Spegni il GPS all'arrivo". Con un percorso trovato e una
+ * posizione scaduta (galleria) si resta in navigazione sull'ultima posizione, con [NavigationUiState.Navigating.signalLost].
+ * [trackerFor]: il tracker del percorso, che chi chiama puo' tenere in cache (costruirlo costa O(punti)).
  */
 fun navigationUiState(
     permissionGranted: Boolean,
@@ -86,12 +97,15 @@ fun navigationUiState(
     arrived: Boolean,
     calculationStartedMillis: Long = nowMillis,
     calculationProgress: Double = 0.0,
+    trackerFor: (Route) -> NavigationTracker = ::NavigationTracker,
 ): NavigationUiState {
     if (!permissionGranted) return NavigationUiState.NeedsPermission
     if (!gpsEnabled) return NavigationUiState.GpsDisabled
     if (arrived) return NavigationUiState.Arrived
-    if (lastFix == null || nowMillis - lastFix.timeMillis > FIX_MAX_AGE_MILLIS) return NavigationUiState.WaitingForFix
+    if (lastFix == null) return NavigationUiState.WaitingForFix
+    val signalLost = nowMillis - lastFix.timeMillis > FIX_MAX_AGE_MILLIS
     val found = routeResult as? RouteResult.Found
+    if (signalLost && found == null) return NavigationUiState.WaitingForFix
     if (found == null) {
         if (calculating || routeResult == null) {
             val elapsed = if (calculating) ((nowMillis - calculationStartedMillis) / 1_000).coerceAtLeast(0) else 0
@@ -100,17 +114,25 @@ fun navigationUiState(
         return NavigationUiState.Unavailable(routeResult)
     }
     val position = RoutePoint(lastFix.latitude, lastFix.longitude)
-    val progress = NavigationTracker(found.route).progress(position)
-    return if (progress.arrived) NavigationUiState.Arrived else NavigationUiState.Navigating(found.route, progress, position)
+    val progress = trackerFor(found.route).progress(position)
+    return NavigationUiState.Navigating(found.route, progress, position, signalLost)
 }
 
 /**
  * Se ricalcolare il percorso: fuori strada, nessun calcolo in corso e l'ultimo avviato da almeno
  * [RECALCULATION_INTERVAL_MILLIS] (con un segnale che oscilla attorno alla soglia non si ricalcola
- * a ogni posizione).
+ * a ogni posizione). Con una precisione ([accuracyMeters]) peggiore della soglia di fuori strada la posizione
+ * non dice se si e' usciti dal percorso (canyon urbani, gallerie): non si ricalcola.
  */
-fun shouldRecalculate(progress: NavigationProgress, calculating: Boolean, lastCalculationMillis: Long, nowMillis: Long): Boolean =
-    progress.offRoute && !calculating && nowMillis - lastCalculationMillis >= RECALCULATION_INTERVAL_MILLIS
+fun shouldRecalculate(
+    progress: NavigationProgress,
+    calculating: Boolean,
+    lastCalculationMillis: Long,
+    nowMillis: Long,
+    accuracyMeters: Float = 0f,
+): Boolean =
+    progress.offRoute && !calculating && accuracyMeters <= NavigationTracker.OFF_ROUTE_METERS &&
+        nowMillis - lastCalculationMillis >= RECALCULATION_INTERVAL_MILLIS
 
 /** Una posizione piu' vecchia di cosi' non vale: il segnale GPS e' perso. */
 const val FIX_MAX_AGE_MILLIS = 10_000L

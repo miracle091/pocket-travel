@@ -25,6 +25,7 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import javax.inject.Singleton
 import kotlin.coroutines.cancellation.CancellationException
 
 @Module
@@ -42,18 +43,22 @@ object RouteEngineModule {
     // un telefono e' piu' lento. Oltre, RouteResult.TimedOut ("destinazione troppo lontana").
     private const val ROUTE_TIMEOUT_MILLIS = 180_000L
 
+    // Singleton: i profili si sincronizzano una volta sola, non a ogni ViewModel che riceve la factory.
     @Provides
+    @Singleton
     fun provideRouteEngineFactory(
         @RegionsDir regionsDir: File,
         @ApplicationContext context: Context,
         usageModePreferences: UsageModePreferences,
     ): RouteEngineFactory {
         val profileDir = File(context.filesDir, PROFILE_ASSET_DIR)
-        syncProfileAssets(context, profileDir)
+        // Copia dei profili al primo calcolo, su IO (legge e scrive file): se fallisce si riprova al successivo.
+        val profilesSynced = lazy { syncProfileAssets(context, profileDir) }
 
         val mergedDir = File(context.cacheDir, MERGED_DIR_NAME)
 
         return RouteEngineFactory { regionIds ->
+            withContext(Dispatchers.IO) { profilesSynced.value }
             BRouterRouteEngine(
                 segmentDir = segmentDirFor(regionIds, regionsDir, mergedDir),
                 profileDir = profileDir,

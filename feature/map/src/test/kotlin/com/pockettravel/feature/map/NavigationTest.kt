@@ -85,12 +85,18 @@ class NavigationTest {
     }
 
     @Test
-    fun `lontano dall'inizio del percorso si sta andando verso la partenza, non fuori strada`() {
-        // 300 m a ovest della partenza, prima del primo tratto: come una partenza in zona pedonale.
-        val progress = tracker.progress(RoutePoint(45.0, 9.996))
+    fun `vicino all'inizio del percorso si sta andando verso la partenza, non fuori strada`() {
+        // Circa 100 m a ovest della partenza, prima del primo tratto: come una partenza in zona pedonale.
+        val progress = tracker.progress(RoutePoint(45.0, 9.9987))
 
         assertFalse(progress.offRoute)
         assertEquals(TurnType.LEFT, progress.nextInstruction.type)
+    }
+
+    @Test
+    fun `partendo nella direzione sbagliata, oltre il margine dall'inizio, si e' fuori strada`() {
+        // Circa 300 m a ovest della partenza: troppo per una zona pedonale, si ricalcola.
+        assertTrue(tracker.progress(RoutePoint(45.0, 9.996)).offRoute)
     }
 
     @Test
@@ -112,7 +118,7 @@ class NavigationTest {
     @Test
     fun `senza una posizione GPS recente si aspetta il segnale`() {
         assertEquals(NavigationUiState.WaitingForFix, state(fix = null))
-        assertEquals(NavigationUiState.WaitingForFix, state(fix = fix(start, timeMillis = NOW - FIX_MAX_AGE_MILLIS - 1)))
+        assertEquals(NavigationUiState.WaitingForFix, state(fix = fix(start, timeMillis = NOW - FIX_MAX_AGE_MILLIS - 1), result = null))
     }
 
     @Test
@@ -128,8 +134,41 @@ class NavigationTest {
         assertEquals(NavigationUiState.Calculating(0), state(calculating = true, result = null))
         assertEquals(NavigationUiState.Calculating(0), state(result = null))
         assertEquals(NavigationUiState.Unavailable(RouteResult.NoRoutingData), state(result = RouteResult.NoRoutingData))
-        assertEquals(NavigationUiState.Arrived, state(fix = fix(end)))
         assertEquals(NavigationUiState.Arrived, state(fix = null, arrived = true))
+    }
+
+    @Test
+    fun `l'arrivo lo decide solo il flag, vicino alla meta senza flag si continua a navigare`() {
+        // Con "Spegni il GPS all'arrivo" tolto il ViewModel non segna l'arrivo e la guida resta aperta.
+        val atEnd = state(fix = fix(end)) as NavigationUiState.Navigating
+
+        assertTrue(atEnd.progress.arrived)
+        assertEquals(NavigationUiState.Arrived, state(fix = fix(end), arrived = true))
+    }
+
+    @Test
+    fun `senza posizione recente, con il percorso trovato, si resta sull'ultima posizione con il segnale perso`() {
+        val stale = fix(RoutePoint(45.0, 10.0025), timeMillis = NOW - FIX_MAX_AGE_MILLIS - 1)
+
+        val lost = state(fix = stale) as NavigationUiState.Navigating
+
+        assertTrue(lost.signalLost)
+        assertEquals(RoutePoint(45.0, 10.0025), lost.position)
+        assertFalse((state(fix = fix(RoutePoint(45.0, 10.0025))) as NavigationUiState.Navigating).signalLost)
+        // Senza percorso (calcolo in corso o errore) non c'e' nulla da seguire: si aspetta il segnale.
+        assertEquals(NavigationUiState.WaitingForFix, state(fix = stale, result = null))
+    }
+
+    @Test
+    fun `il tracker del percorso lo fornisce chi chiama, per non ricostruirlo a ogni posizione`() {
+        var requested = 0
+        val shared = NavigationTracker(route)
+        val result = navigationUiState(
+            true, true, fix(start), NOW, false, RouteResult.Found(route), false, trackerFor = { requested++; shared },
+        ) as NavigationUiState.Navigating
+
+        assertEquals(1, requested)
+        assertEquals(shared.progress(start), result.progress)
     }
 
     @Test
@@ -141,6 +180,48 @@ class NavigationTest {
         assertFalse(shouldRecalculate(offRoute, calculating = false, lastCalculationMillis = NOW - 1_000, nowMillis = NOW))
         assertFalse(shouldRecalculate(offRoute, calculating = true, lastCalculationMillis = 0, nowMillis = NOW))
         assertFalse(shouldRecalculate(onRoute, calculating = false, lastCalculationMillis = 0, nowMillis = NOW))
+    }
+
+    @Test
+    fun `con la precisione del GPS peggiore della soglia non si ricalcola`() {
+        val offRoute = tracker.progress(RoutePoint(44.999, 10.0025))
+        val sinceLong = NOW - RECALCULATION_INTERVAL_MILLIS
+
+        assertTrue(shouldRecalculate(offRoute, false, sinceLong, NOW, accuracyMeters = 30f))
+        assertFalse(shouldRecalculate(offRoute, false, sinceLong, NOW, accuracyMeters = 80f))
+    }
+
+    @Test
+    fun `dopo un'inversione a U la posizione resta sul tratto di ritorno, non su quello d'andata`() {
+        // Strada senza uscita: si va a est per 400 m (punti ogni 8 m circa) e si torna sugli stessi punti.
+        val out = (0..50).map { RoutePoint(45.0, 10.0 + it * 0.0001) }
+        val back = (49 downTo 25).map { RoutePoint(45.0, 10.0 + it * 0.0001) }
+        val uTurnRoute = Route(
+            out + back, 0.0, 0.0,
+            listOf(TurnInstruction(TurnType.U_TURN, 0.0, 50), TurnInstruction(TurnType.ARRIVE, 0.0, out.size + back.size - 1)),
+        )
+        val uTurnTracker = NavigationTracker(uTurnRoute)
+        out.forEach { uTurnTracker.progress(it) }
+
+        back.forEachIndexed { i, point ->
+            // Il primo punto dopo la svolta coincide con l'andata entro il margine all'indietro: da li' in poi, il ritorno.
+            if (i == 0) return@forEachIndexed
+            // Rimane il tratto di ritorno fino all'ultimo punto, non quello dell'andata.
+            val expected = NavigationTracker.distanceMeters(point, back.last())
+            assertEquals("punto $i del ritorno", expected, uTurnTracker.progress(point).remainingMeters, 1.5)
+        }
+    }
+
+    @Test
+    fun `tornando indietro oltre il margine si cerca su tutto il percorso`() {
+        val out = (0..50).map { RoutePoint(45.0, 10.0 + it * 0.0001) }
+        val longTracker = NavigationTracker(Route(out, 0.0, 0.0, listOf(TurnInstruction(TurnType.ARRIVE, 0.0, out.lastIndex))))
+        longTracker.progress(out[45])
+
+        // Dieci punti (80 m) indietro: oltre il margine, vicino all'ultimo tratto non c'e' nulla; si cerca su tutto il percorso.
+        val back = longTracker.progress(out[35])
+
+        assertEquals(NavigationTracker.distanceMeters(out[35], out.last()), back.remainingMeters, 1.0)
     }
 
     @Test

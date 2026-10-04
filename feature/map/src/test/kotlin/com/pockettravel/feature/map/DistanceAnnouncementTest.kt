@@ -38,4 +38,16 @@ class DistanceAnnouncementTest {
         estimate.update(1200.0, 3_000_000_000)
         assertEquals(8.5, estimate.speed!!, 0.001)
     }
+
+    @Test
+    fun `senza una distanza rimasta diversa la stima non cambia`() {
+        val estimate = SpeedEstimate()
+        estimate.update(1000.0, 0)
+        estimate.update(990.0, 1_000_000_000)
+        // Una ricomposizione senza una nuova posizione non e' una misura di velocita' zero.
+        estimate.update(990.0, 2_000_000_000)
+        estimate.update(990.0, 3_000_000_000)
+
+        assertEquals(10.0, estimate.speed!!, 0.001)
+    }
 }

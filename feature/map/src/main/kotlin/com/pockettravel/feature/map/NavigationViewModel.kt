@@ -120,6 +120,14 @@ class NavigationViewModel @Inject constructor(
         }
     }
 
+    // Un tracker per percorso (costruirlo e' O(punti), e tiene la posizione piu' avanti raggiunta): lo usano sia
+    // le posizioni GPS sia il calcolo dello stato ogni secondo. Il percorso si riconosce per identita'.
+    private var tracker: NavigationTracker? = null
+    private var trackerRoute: Route? = null
+
+    private fun trackerFor(route: Route): NavigationTracker =
+        tracker?.takeIf { trackerRoute === route } ?: NavigationTracker(route).also { tracker = it; trackerRoute = route }
+
     val uiState: StateFlow<NavigationUiState> = combine(
         combine(permissionGranted, gpsEnabled, lastFix, ::Triple),
         combine(calculating, calculationStartedMillis, calculationProgress, routeResult, arrived) { isCalculating, started, progress, result, hasArrived ->
@@ -127,12 +135,15 @@ class NavigationViewModel @Inject constructor(
         },
         clock,
     ) { (permission, enabled, fix), calc, now ->
-        navigationUiState(permission, enabled, fix, now, calc.calculating, calc.result, calc.arrived, calc.startedMillis, calc.progress)
+        navigationUiState(permission, enabled, fix, now, calc.calculating, calc.result, calc.arrived, calc.startedMillis, calc.progress, ::trackerFor)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NavigationUiState.WaitingForFix)
 
     // Strade del percorso in corso, per punto della svolta: le trova la mappa della guida, che le passa a onStreetNames.
     private val streetNames = mutableMapOf<Int, String>()
     private var lastProgress: Pair<Route, NavigationProgress>? = null
+
+    // L'anteprima del Navigatore da cui e' partita la guida: si usa alla prima posizione, se e' sul percorso.
+    private var previewToUse: PlannerPreview.Ready? = null
 
     init {
         // Posizioni raccolte solo navigando, con permesso e GPS acceso: spegnendo il GPS il flusso si
@@ -203,11 +214,18 @@ class NavigationViewModel @Inject constructor(
         )
     }
 
-    /** Parte la guida verso [place] con il mezzo scelto nel Navigatore: il percorso si ricalcola dalla posizione GPS. */
-    fun start(regionId: String, place: NavigationPlace, mode: TravelMode, arriveBy: LocalDateTime? = null) {
+    /**
+     * Parte la guida verso [place] con il mezzo scelto nel Navigatore: il percorso si ricalcola dalla posizione GPS.
+     * Con [preview] (il percorso gia' calcolato nell'anteprima) si riparte da quello, se la prima posizione e' sul percorso.
+     */
+    fun start(regionId: String, place: NavigationPlace, mode: TravelMode, arriveBy: LocalDateTime? = null, preview: PlannerPreview.Ready? = null) {
         this.regionId = regionId
         _resumeOffer.value = null
-        _regionIds.value = listOf(regionId)
+        _regionIds.value = preview?.regionIds ?: listOf(regionId)
+        previewToUse = preview
+        // Anche la stessa anteprima riavviata riparte da capo: il tracker ricorda quanto si e' avanzati.
+        tracker = null
+        trackerRoute = null
         _travelMode.value = mode
         calculationJob?.cancel()
         calculating.value = false
@@ -234,6 +252,7 @@ class NavigationViewModel @Inject constructor(
     fun stop() {
         calculationJob?.cancel()
         calculating.value = false
+        previewToUse = null
         destination.value = null
         arrival.value = null
         routeResult.value = null
@@ -267,9 +286,20 @@ class NavigationViewModel @Inject constructor(
         lastFix.value = fix
         if (arrived.value) return
         when (val result = routeResult.value) {
-            null -> if (!calculating.value) calculate(fix)
+            null -> if (!calculating.value) {
+                // "Avvia" dall'anteprima: il percorso c'e' gia', si ricalcola solo se la posizione e' fuori percorso.
+                val preview = previewToUse?.takeIf { !trackerFor(it.route).progress(RoutePoint(fix.latitude, fix.longitude)).offRoute }
+                previewToUse = null
+                if (preview != null) {
+                    logRouteForSimulation(preview.route)
+                    routeResult.value = RouteResult.Found(preview.route)
+                    onFix(fix)
+                } else {
+                    calculate(fix)
+                }
+            }
             is RouteResult.Found -> {
-                val progress = NavigationTracker(result.route).progress(RoutePoint(fix.latitude, fix.longitude))
+                val progress = trackerFor(result.route).progress(RoutePoint(fix.latitude, fix.longitude))
                 if (progress.arrived && navigationPreferences.stopGpsOnArrival.value) {
                     _arrivedAtMillis.value = System.currentTimeMillis()
                     arrived.value = true
@@ -280,7 +310,7 @@ class NavigationViewModel @Inject constructor(
                     // (per l'avviso), poi si continua a seguire la posizione finche' non si chiude.
                     if (progress.arrived && _arrivedAtMillis.value == null) _arrivedAtMillis.value = System.currentTimeMillis()
                     publish(result.route, progress)
-                    if (shouldRecalculate(progress, calculating.value, lastCalculationMillis, fix.timeMillis)) calculate(fix)
+                    if (shouldRecalculate(progress, calculating.value, lastCalculationMillis, fix.timeMillis, fix.accuracyMeters)) calculate(fix)
                 }
             }
             else -> Unit

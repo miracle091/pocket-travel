@@ -7,6 +7,8 @@ import android.net.NetworkRequest
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 /** Per la mappa del mondo online: letta solo se c'e' rete davvero utilizzabile, non solo un
  * Wi-Fi senza Internet dietro un captive portal. */
@@ -23,12 +25,15 @@ class AndroidConnectivityChecker(private val connectivityManager: ConnectivityMa
     }
 }
 
-/** Segnala ogni cambio di rete (persa, ottenuta, o le sue capacita' cambiate, es. dopo la
- * convalida di un captive portal) per far ricalcolare la sorgente della mappa (MapRouteViewModel)
- * mentre la scheda Mappa resta aperta. Un solo valore ("qualcosa e' cambiato"): chi osserva rilegge
- * lo stato vero con [ConnectivityChecker.isOnline]. */
+/** Segnala ogni cambio dello stato di rete utilizzabile (persa, ottenuta, o le sue capacita' cambiate,
+ * es. dopo la convalida di un captive portal) per far ricalcolare la sorgente della mappa
+ * (MapRouteViewModel) mentre la scheda Mappa resta aperta. Il valore e' [ConnectivityChecker.isOnline]:
+ * le callback di Android arrivano anche quando cambia altro (intensita' del segnale, banda) e restano
+ * senza effetto qui. */
 class ConnectivityObserver(private val connectivityManager: ConnectivityManager) {
-    fun changes(): Flow<Unit> = callbackFlow {
+    private val checker = AndroidConnectivityChecker(connectivityManager)
+
+    fun changes(): Flow<Boolean> = callbackFlow<Unit> {
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) { trySend(Unit) }
             override fun onLost(network: Network) { trySend(Unit) }
@@ -38,5 +43,5 @@ class ConnectivityObserver(private val connectivityManager: ConnectivityManager)
         connectivityManager.registerNetworkCallback(request, callback)
         trySend(Unit)
         awaitClose { connectivityManager.unregisterNetworkCallback(callback) }
-    }
+    }.map { checker.isOnline() }.distinctUntilChanged()
 }

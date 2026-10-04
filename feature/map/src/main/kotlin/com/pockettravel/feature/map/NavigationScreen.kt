@@ -77,6 +77,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.luminance
@@ -102,6 +103,10 @@ import org.maplibre.geojson.LineString
 import org.maplibre.geojson.MultiLineString
 import org.maplibre.geojson.Point
 import java.text.NumberFormat
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 /**
@@ -373,7 +378,9 @@ private fun Guidance(
                     }
                 }
             }
-            if (progress.offRoute) {
+            // Senza posizione recente (galleria) la posizione sulla mappa e' l'ultima nota: lo si dice, e non si
+            // parla di fuori percorso, che con la posizione ferma non si puo' sapere.
+            if (progress.offRoute || state.signalLost) {
                 Surface(
                     color = MaterialTheme.colorScheme.errorContainer,
                     contentColor = MaterialTheme.colorScheme.onErrorContainer,
@@ -381,7 +388,7 @@ private fun Guidance(
                     modifier = Modifier.padding(top = Spacing.xs),
                 ) {
                     Text(
-                        stringResource(R.string.navigation_off_route),
+                        stringResource(if (state.signalLost) R.string.navigation_signal_lost else R.string.navigation_off_route),
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.padding(horizontal = Spacing.m, vertical = Spacing.s).semantics { liveRegion = LiveRegionMode.Polite },
                     )
@@ -722,25 +729,45 @@ private fun NavigationMap(
     // cui si entra; le svolte lontane restano senza nome finche' le loro tile non vengono caricate.
     // OnDidBecomeIdle e non la fine del movimento della camera: querySourceFeatures prima che il
     // renderer esista manda in crash MapLibre (SIGSEGV in MapRenderer::actor, visto sull'emulatore).
+    // Sul main resta solo querySourceFeatures: la conversione delle strade e l'abbinamento alle svolte (O(svolte x
+    // segmenti)) si fanno su Default, e solo per le svolte ancora senza nome; finite quelle, a ogni idle non si fa piu' nulla.
     val currentOnStreetNames by rememberUpdatedState(onStreetNames)
+    val scope = rememberCoroutineScope()
     DisposableEffect(mapView, route, language) {
         var attached: MapLibreMap? = null
+        var lookupJob: Job? = null
+        val resolved = mutableSetOf<Int>()
+        val probes = route.instructions.mapNotNull { instruction ->
+            NavigationTracker.streetProbe(route, instruction)?.let { probe -> instruction.pointIndex to probe }
+        }
         val lookup = MapView.OnDidBecomeIdleListener {
+            if (lookupJob?.isActive == true) return@OnDidBecomeIdleListener
+            val pending = probes.filter { (pointIndex, _) -> pointIndex !in resolved }
+            if (pending.isEmpty()) return@OnDidBecomeIdleListener
             val style = attached?.style?.takeIf { it.isFullyLoaded } ?: return@OnDidBecomeIdleListener
             // Le strade di tutte le regioni del percorso: una sorgente ognuna (REGION_SOURCE_PREFIX).
-            val roads = style.sources.filterIsInstance<VectorSource>().filter { it.id.startsWith(REGION_SOURCE_PREFIX) }
-                .flatMap { it.querySourceFeatures(arrayOf(ROADS_SOURCE_LAYER), null) }.flatMap { it.toNamedRoads(language) }
-            if (roads.isEmpty()) return@OnDidBecomeIdleListener
-            val found = route.instructions.mapNotNull { instruction ->
-                NavigationTracker.streetProbe(route, instruction)
-                    ?.let { probe -> NavigationTracker.nearestRoadName(probe, roads) }
-                    ?.let { name -> instruction.pointIndex to name }
-            }.toMap()
-            if (found.isNotEmpty()) currentOnStreetNames(found)
+            val features = style.sources.filterIsInstance<VectorSource>().filter { it.id.startsWith(REGION_SOURCE_PREFIX) }
+                .flatMap { it.querySourceFeatures(arrayOf(ROADS_SOURCE_LAYER), null) }
+            if (features.isEmpty()) return@OnDidBecomeIdleListener
+            lookupJob = scope.launch {
+                val found = withContext(Dispatchers.Default) {
+                    val roads = features.flatMap { it.toNamedRoads(language) }
+                    pending.mapNotNull { (pointIndex, probe) ->
+                        NavigationTracker.nearestRoadName(probe, roads)?.let { name -> pointIndex to name }
+                    }.toMap()
+                }
+                if (found.isNotEmpty()) {
+                    resolved += found.keys
+                    currentOnStreetNames(found)
+                }
+            }
         }
         mapView.getMapAsync { map -> attached = map }
         mapView.addOnDidBecomeIdleListener(lookup)
-        onDispose { mapView.removeOnDidBecomeIdleListener(lookup) }
+        onDispose {
+            mapView.removeOnDidBecomeIdleListener(lookup)
+            lookupJob?.cancel()
+        }
     }
 
     // Mappa solo visiva, il percorso sta nel testo: clearAndSetSemantics non basta per la View Android di
@@ -824,6 +851,8 @@ internal class SpeedEstimate {
     private var lastNanos = 0L
 
     fun update(remainingMeters: Double, nanos: Long) {
+        // Chiamata a ogni ricomposizione: senza una nuova posizione (stessa distanza rimasta) non e' una misura.
+        if (remainingMeters == lastMeters) return
         if (!lastMeters.isNaN() && nanos > lastNanos) {
             val seconds = (nanos - lastNanos) / 1e9
             // Solo misure di almeno mezzo secondo e plausibili (ricalcoli e salti indietro si scartano).

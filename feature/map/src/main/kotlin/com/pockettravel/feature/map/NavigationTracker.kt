@@ -40,22 +40,61 @@ class NavigationTracker(private val route: Route) {
     fun distanceBetween(fromPointIndex: Int, toPointIndex: Int): Double =
         (cumulative.getOrElse(toPointIndex) { totalMeters } - cumulative.getOrElse(fromPointIndex) { totalMeters }).coerceAtLeast(0.0)
 
-    fun progress(position: RoutePoint): NavigationProgress {
+    // Il tratto e la distanza piu' avanti raggiunti finora: la ricerca riparte da li' (vedi progress).
+    private var frontSegment = 0
+    private var maxTravelled = 0.0
+
+    private class Projection(val segment: Int, val fraction: Double, val distance: Double)
+
+    // Il tratto piu' vicino a [position] da [from] in avanti, tra quelli con la posizione proiettata oltre
+    // [minTravelled] metri dalla partenza (a parita' di distanza vince il primo); null se nessuno.
+    private fun nearestSegment(position: RoutePoint, from: Int, minTravelled: Double): Projection? {
         val points = route.points
-        var bestSegment = 0
-        var bestFraction = 0.0
+        var best: Projection? = null
         var bestDistance = Double.MAX_VALUE
-        if (points.size == 1) {
-            bestDistance = distanceMeters(position, points[0])
-        }
-        for (i in 0 until points.size - 1) {
+        for (i in from until points.size - 1) {
             val (fraction, distance) = projectOnSegment(position, points[i], points[i + 1])
-            if (distance < bestDistance) {
+            val ahead = cumulative[i] + fraction * (cumulative[i + 1] - cumulative[i]) >= minTravelled
+            if (distance < bestDistance && ahead) {
                 bestDistance = distance
-                bestSegment = i
-                bestFraction = fraction
+                best = Projection(i, fraction, distance)
             }
         }
+        return best
+    }
+
+    // Il tratto di [position] (vedi progress), e aggiorna il punto piu' avanti raggiunto. Con un solo punto o senza tratti:
+    // la distanza dall'unico punto, tratto 0.
+    private fun locate(position: RoutePoint): Projection {
+        val points = route.points
+        if (points.size < 2) return Projection(0, 0.0, points.firstOrNull()?.let { distanceMeters(position, it) } ?: Double.MAX_VALUE)
+        val minTravelled = maxTravelled - BACK_MARGIN_METERS
+        var from = frontSegment
+        while (from > 0 && cumulative[from] > minTravelled) from--
+        val ahead = nearestSegment(position, from, minTravelled)
+        val overall = if (ahead == null || ahead.distance > OFF_ROUTE_METERS) nearestSegment(position, 0, Double.NEGATIVE_INFINITY) else null
+        val restarted = overall != null && (ahead == null || overall.distance < ahead.distance)
+        val best = (if (restarted) overall else ahead) ?: Projection(0, 0.0, Double.MAX_VALUE)
+        val travelled = cumulative[best.segment] + best.fraction * (cumulative[best.segment + 1] - cumulative[best.segment])
+        if (restarted || travelled >= maxTravelled) {
+            maxTravelled = travelled
+            frontSegment = best.segment
+        }
+        return best
+    }
+
+    /**
+     * Un tracker segue un solo percorso con la sua posizione: la ricerca del tratto parte da quello piu' avanti
+     * raggiunto, con un margine all'indietro ([BACK_MARGIN_METERS]), e passa a tutto il percorso solo se li' la
+     * posizione e' lontana. Dopo un'inversione a U la posizione resta cosi' sul tratto di ritorno, non su quello
+     * d'andata (che passa per gli stessi punti); e il costo per posizione non cresce con la lunghezza del percorso.
+     */
+    fun progress(position: RoutePoint): NavigationProgress {
+        val points = route.points
+        val best = locate(position)
+        val bestSegment = best.segment
+        val bestFraction = best.fraction
+        val bestDistance = best.distance
         val travelled = if (points.size < 2) 0.0 else
             cumulative[bestSegment] + bestFraction * (cumulative[bestSegment + 1] - cumulative[bestSegment])
         val remaining = (totalMeters - travelled).coerceAtLeast(0.0)
@@ -75,8 +114,9 @@ class NavigationTracker(private val route: Route) {
 
         // Se il punto piu' vicino e' l'inizio del percorso si sta ancora andando verso la strada da
         // cui parte (partenza in una zona pedonale, in un parcheggio, a piu' di 40 m dalla strada):
-        // non e' un'uscita dal percorso, altrimenti si ricalcolerebbe di continuo.
-        val approachingStart = bestSegment == 0 && bestFraction == 0.0
+        // non e' un'uscita dal percorso, altrimenti si ricalcolerebbe di continuo. Solo entro
+        // [APPROACH_START_MAX_METERS]: partendo nella direzione sbagliata si e' fuori strada e si ricalcola.
+        val approachingStart = bestSegment == 0 && bestFraction == 0.0 && bestDistance <= APPROACH_START_MAX_METERS
         val offRoute = bestDistance > OFF_ROUTE_METERS && !approachingStart
         return NavigationProgress(
             nextInstruction = next,
@@ -93,6 +133,12 @@ class NavigationTracker(private val route: Route) {
     companion object {
         /** Oltre questa distanza dal percorso si e' fuori strada e si ricalcola. */
         const val OFF_ROUTE_METERS = 40.0
+
+        /** Dall'inizio del percorso fino a questa distanza si sta ancora raggiungendo la partenza, senza ricalcolare. */
+        const val APPROACH_START_MAX_METERS = 150.0
+
+        /** Quanto la posizione puo' tornare indietro lungo il percorso rispetto al punto piu' avanti raggiunto. */
+        private const val BACK_MARGIN_METERS = 10.0
 
         /** A meno di questa distanza dalla fine del percorso si e' arrivati. */
         const val ARRIVAL_METERS = 20.0

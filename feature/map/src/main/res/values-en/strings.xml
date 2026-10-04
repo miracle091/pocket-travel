@@ -159,6 +159,7 @@
     <string name="navigation_gps_settings">Turn on GPS</string>
     <string name="navigation_waiting_fix">Waiting for GPS signal…</string>
     <string name="navigation_off_route">Off route: recalculating…</string>
+    <string name="navigation_signal_lost">GPS signal lost: showing last known position</string>
     <string name="navigation_not_found">No route found to the destination with the chosen travel mode</string>
     <string name="navigation_wheelchair_notice">With stairs excluded, routes may be incomplete</string>
     <string name="navigation_allow_steps">Allow a few steps</string>

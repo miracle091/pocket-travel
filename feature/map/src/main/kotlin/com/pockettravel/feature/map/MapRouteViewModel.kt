@@ -17,6 +17,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -81,13 +82,21 @@ class MapRouteViewModel @Inject constructor(
     val transitBoard: StateFlow<TransitBoard?> = _transitBoard.asStateFlow()
     private var transitJob: Job? = null
 
-    /** Legge le prossime partenze vicino a [pin]; null (scheda chiusa o orari non installati) le azzera. */
+    /**
+     * Legge le prossime partenze vicino a [pin] e le rilegge ogni minuto finche' la scheda e' aperta (le partenze
+     * passano); null (scheda chiusa o orari non installati) le azzera.
+     */
     fun showDepartures(pin: MapPin?) {
         transitJob?.cancel()
         _transitBoard.value = null
         val regionId = regionIdFlow.value
         if (pin == null || regionId == null) return
-        transitJob = viewModelScope.launch { _transitBoard.value = transitRepository.board(regionId, pin.latitude, pin.longitude) }
+        transitJob = viewModelScope.launch {
+            while (true) {
+                _transitBoard.value = transitRepository.board(regionId, pin.latitude, pin.longitude)
+                delay(DEPARTURES_REFRESH_MILLIS)
+            }
+        }
     }
 
     // Versioni installate di mappa, anteprima e civici della regione corrente, dal database: cambiano
@@ -183,6 +192,9 @@ internal fun pinsArea(inView: MapBounds, zone: RegionZone?): MapBounds? {
 // Segnalini al massimo sulla mappa, sparsi sull'area se sono di piu': oltre si sovrappongono comunque (MapLibre nasconde
 // quelli che si coprono).
 private const val MAX_PINS = 3_000
+
+// Ogni quanto si rilegge il tabellone delle partenze con la scheda aperta.
+private const val DEPARTURES_REFRESH_MILLIS = 60_000L
 private val WORLD = MapBounds(-180.0, -90.0, 180.0, 90.0)
 
 /** Sorgente della mappa in uso e versioni dei pacchetti locali da cui dipende lo stile. */
