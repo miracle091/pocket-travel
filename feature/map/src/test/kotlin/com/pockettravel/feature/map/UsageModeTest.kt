@@ -1,8 +1,10 @@
 package com.pockettravel.feature.map
 
+import com.pockettravel.core.data.RoutingVariantChoice
 import com.pockettravel.core.poi.PoiCategory
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -32,6 +34,61 @@ class UsageModeTest {
             setOf(UsageMode.A_PIEDI, UsageMode.BICI, UsageMode.ESCURSIONISMO, UsageMode.MEZZI_PUBBLICI),
             UsageMode.entries.filterTo(mutableSetOf()) { it.proposesTransit },
         )
+    }
+
+    @Test
+    fun `con piu' modalita' si vede l'unione delle categorie e si nasconde il resto`() {
+        val modes = setOf(UsageMode.CAMPER, UsageMode.BICI)
+        val visible = modes.visibleCategories()
+        assertEquals(UsageMode.CAMPER.visibleCategories + UsageMode.BICI.visibleCategories, visible)
+        assertTrue(PoiCategory.SERVIZI_CAMPER in visible && PoiCategory.RIPARAZIONE_BICI in visible)
+        assertEquals(PoiCategory.entries.toSet(), visible + modes.defaultHidden())
+        assertTrue((visible intersect modes.defaultHidden()).isEmpty())
+        // Una sola modalita': come prima.
+        assertEquals(UsageMode.AUTO.defaultHidden, setOf(UsageMode.AUTO).defaultHidden())
+    }
+
+    @Test
+    fun `senza modalita' scelte non si nasconde nessuna categoria`() {
+        assertTrue(emptySet<UsageMode>().defaultHidden().isEmpty())
+    }
+
+    @Test
+    fun `gli orari dei mezzi si propongono se almeno una modalita' li propone`() {
+        assertTrue(setOf(UsageMode.CAMPER, UsageMode.A_PIEDI).proposesTransit())
+        assertFalse(setOf(UsageMode.CAMPER, UsageMode.AUTO).proposesTransit())
+        assertFalse(emptySet<UsageMode>().proposesTransit())
+    }
+
+    @Test
+    fun `il profilo di default segue il mezzo iniziale`() {
+        assertEquals("trekking", emptySet<UsageMode>().defaultRoutingProfile())
+        assertEquals("car-vario", setOf(UsageMode.BICI, UsageMode.CAMPER).defaultRoutingProfile())
+        assertEquals("trekking", setOf(UsageMode.BICI, UsageMode.MEZZI_PUBBLICI).defaultRoutingProfile())
+        assertEquals("shortest", setOf(UsageMode.A_PIEDI, UsageMode.MEZZI_PUBBLICI).defaultRoutingProfile())
+        assertEquals("hiking-mountain", setOf(UsageMode.ESCURSIONISMO).defaultRoutingProfile())
+        // Con una sola modalita' e' il suo profilo, come prima della scelta multipla.
+        UsageMode.entries.forEach { assertEquals(it.name, it.routingProfile, setOf(it).defaultRoutingProfile()) }
+    }
+
+    @Test
+    fun `i percorsi di default sono solo auto con auto e camper, completi senza mezzi a motore, tutti se misti o nessuna modalita'`() {
+        assertEquals(RoutingVariantChoice.CAR, setOf(UsageMode.AUTO).routingDefault())
+        assertEquals(RoutingVariantChoice.CAR, setOf(UsageMode.AUTO, UsageMode.CAMPER).routingDefault())
+        assertEquals(RoutingVariantChoice.BIKE_FOOT, setOf(UsageMode.A_PIEDI, UsageMode.MEZZI_PUBBLICI).routingDefault())
+        assertEquals(RoutingVariantChoice.BIKE_FOOT, setOf(UsageMode.BICI).routingDefault())
+        assertEquals(RoutingVariantChoice.ALL, setOf(UsageMode.CAMPER, UsageMode.BICI).routingDefault())
+        assertEquals(RoutingVariantChoice.ALL, emptySet<UsageMode>().routingDefault())
+    }
+
+    @Test
+    fun `la modalita' singola salvata diventa un insieme di un elemento`() {
+        assertEquals(setOf(UsageMode.CAMPER), legacyUsageModes("CAMPER"))
+        // "Con disabilita'" era una modalita' a parte con il profilo di A piedi.
+        assertEquals(setOf(UsageMode.A_PIEDI), legacyUsageModes("ACCESSIBILITA"))
+        assertTrue(legacyUsageModes("SCONOSCIUTA").isEmpty())
+        assertTrue(legacyUsageModes(null).isEmpty())
+        assertEquals(setOf(UsageMode.BICI, UsageMode.AUTO), usageModesFromNames(listOf("AUTO", "BICI", "SCONOSCIUTA")))
     }
 
     @Test

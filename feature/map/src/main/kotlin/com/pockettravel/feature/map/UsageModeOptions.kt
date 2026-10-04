@@ -6,15 +6,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
 import android.Manifest
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.RadioButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -22,17 +20,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.semantics.Role
 import com.pockettravel.core.ui.R as UiR
+import com.pockettravel.core.ui.Spacing
 
 /**
- * Le modalita' d'uso come elenco a scelta singola (onboarding e Altro), piu' la casella
- * "Con disabilita'" che si somma a qualsiasi modalita'.
+ * Le modalita' d'uso come elenco a scelta multipla (onboarding e Altro), piu' la casella
+ * "In sedia a rotelle" che si somma a qualsiasi modalita'.
  */
 @Composable
 fun UsageModeOptions(
-    selected: UsageMode?,
-    onSelect: (UsageMode) -> Unit,
+    selected: Set<UsageMode>,
+    onSelectedChange: (Set<UsageMode>) -> Unit,
     accessible: Boolean,
     onAccessibleChange: (Boolean) -> Unit,
     directions: Boolean,
@@ -43,15 +43,24 @@ fun UsageModeOptions(
     // chi rifiuta lo concede dopo dalla schermata di navigazione.
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
     Column(modifier = modifier) {
-        Column(modifier = Modifier.selectableGroup()) {
+        Text(
+            text = stringResource(R.string.usage_mode_multiple),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs),
+        )
+        Column {
             // "Escursionismo" nascosto finche' non ha contenuti suoi (cammini a tappe): resta solo per
             // chi l'aveva gia' scelto, per non lasciarlo senza modalita' selezionata.
-            UsageMode.entries.filter { it != UsageMode.ESCURSIONISMO || it == selected }.forEach { mode ->
+            UsageMode.entries.filter { it != UsageMode.ESCURSIONISMO || it in selected }.forEach { mode ->
+                val checked = mode in selected
                 ListItem(
                     leadingContent = { Icon(ImageVector.vectorResource(mode.icon), contentDescription = null) },
-                    trailingContent = { RadioButton(selected = mode == selected, onClick = null) },
+                    trailingContent = { Checkbox(checked = checked, onCheckedChange = null) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    modifier = Modifier.selectable(selected = mode == selected, role = Role.RadioButton) { onSelect(mode) },
+                    modifier = Modifier.toggleable(value = checked, role = Role.Checkbox) { on ->
+                        onSelectedChange(if (on) selected + mode else selected - mode)
+                    },
                     content = { Text(stringResource(mode.label)) },
                 )
             }

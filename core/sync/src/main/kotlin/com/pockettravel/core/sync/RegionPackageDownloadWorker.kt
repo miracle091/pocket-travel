@@ -45,7 +45,7 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
             // Qui e non da chi accoda: qualunque schermata avvii il download, mappa, percorsi e civici restano nella zona
             // scelta. Una zona senza celle dei civici toglie i civici dai pacchetti da scaricare.
             // Percorsi "solo auto" al posto di quelli completi, se scelti e offerti dal manifest.
-            val carOnly = manifestEntry.regionId in routingVariantPreferences.carOnly.value && manifestEntry.routingCar != null
+            val carOnly = routingVariantPreferences.choices.value.isCarOnly(manifestEntry.regionId) && manifestEntry.routingCar != null
             val entry = manifestEntry.withRoutingVariant(carOnly).restrictedTo(regionZonePreferences.zone(manifestEntry.regionId))
             val kinds = requestedKinds.filterTo(mutableSetOf()) { it in entry.availableKinds }
             if (kinds.isEmpty()) return finish(Result.success(), regionId, requestFile)

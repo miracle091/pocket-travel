@@ -19,7 +19,7 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
     val useDynamicColor: StateFlow<Boolean> = themePreferences.useDynamicColor
     val forceDark: StateFlow<Boolean> = themePreferences.forceDark
-    val usageMode: StateFlow<UsageMode?> = usageModePreferences.mode
+    val usageModes: StateFlow<Set<UsageMode>> = usageModePreferences.modes
     val accessible: StateFlow<Boolean> = usageModePreferences.accessible
     val wantsDirections: StateFlow<Boolean> = usageModePreferences.wantsDirections
 
@@ -31,7 +31,7 @@ class SettingsViewModel @Inject constructor(
 
     fun setNationality(countryCode: String) = nationalityPreferences.setNationality(countryCode)
 
-    fun setUsageMode(mode: UsageMode) = usageModePreferences.setMode(mode)
+    fun setUsageModes(modes: Set<UsageMode>) = usageModePreferences.setModes(modes)
 
     fun setAccessible(accessible: Boolean) = usageModePreferences.setAccessible(accessible)
 

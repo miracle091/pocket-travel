@@ -11,10 +11,10 @@ enum class RouteProfile(val routingProfile: String) {
     ;
 
     companion object {
-        /** Il mezzo iniziale segue la modalita' d'uso: auto e camper in auto, bici in bici, il resto a piedi. */
-        fun from(usageMode: UsageMode?): TravelMode = when (usageMode) {
-            UsageMode.AUTO, UsageMode.CAMPER -> CAR
-            UsageMode.BICI -> BIKE
+        /** Il mezzo iniziale segue le modalita' d'uso: con auto o camper in auto, altrimenti con la bici in bici, il resto a piedi. */
+        fun from(usageModes: Set<UsageMode>): RouteProfile = when {
+            UsageMode.AUTO in usageModes || UsageMode.CAMPER in usageModes -> CAR
+            UsageMode.BICI in usageModes -> BIKE
             else -> WALK
         }
     }

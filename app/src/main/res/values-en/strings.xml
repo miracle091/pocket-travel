@@ -125,7 +125,7 @@
     <string name="more_usage_mode_none">Not set: the map shows all categories</string>
     <string name="more_usage_mode_with_accessible">%1$s, in a wheelchair</string>
     <string name="more_usage_mode_accessible_only">In a wheelchair: the map shows all categories</string>
-    <string name="more_usage_mode_body">The map shows the points useful for this way of traveling first. This choice resets the map filters to their defaults</string>
+    <string name="more_usage_mode_body">The map shows the points useful for the ways of traveling you pick first, and the suitable routes are offered for download. This choice resets the map filters to their defaults</string>
     <string name="more_licenses">Licenses</string>
     <string name="more_appearance">Appearance</string>
     <string name="more_appearance_system">Phone theme</string>

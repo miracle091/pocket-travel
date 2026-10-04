@@ -2,6 +2,7 @@ package com.pockettravel.feature.map
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import com.pockettravel.core.data.RoutingVariantChoice
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.poi.SIGHT_CATEGORIES
 import com.pockettravel.core.ui.R as UiR
@@ -85,9 +86,47 @@ enum class UsageMode(
         /** Profilo prima che l'utente scelga una modalita'. */
         const val DEFAULT_ROUTING_PROFILE = "trekking"
 
-        /** A piedi con "Con disabilita'" (routingChoice): non legato a una modalita'. */
+        /** A piedi con "In sedia a rotelle" (routingChoice): non legato a una modalita'. */
         const val WHEELCHAIR_ROUTING_PROFILE = "wheelchair"
         val ROUTING_PROFILES: Set<String> =
             entries.mapTo(mutableSetOf()) { it.routingProfile } + DEFAULT_ROUTING_PROFILE + WHEELCHAIR_ROUTING_PROFILE
     }
 }
+
+/** Le categorie mostrate con piu' modalita': l'unione di quelle di ciascuna. */
+fun Set<UsageMode>.visibleCategories(): Set<PoiCategory> = flatMapTo(mutableSetOf()) { it.visibleCategories }
+
+/** Le categorie da nascondere nei filtri scegliendo le modalita'; senza modalita' (non scelto) nessuna. */
+fun Set<UsageMode>.defaultHidden(): Set<PoiCategory> =
+    if (isEmpty()) emptySet() else PoiCategory.entries.toSet() - visibleCategories()
+
+/** Gli orari dei mezzi si propongono se almeno una modalita' li propone. */
+fun Set<UsageMode>.proposesTransit(): Boolean = any { it.proposesTransit }
+
+/**
+ * Profilo BRouter di default: quello del mezzo iniziale del Navigatore ([RouteProfile.from]); solo con Escursionismo
+ * da solo quello dei sentieri, senza modalita' scelte quello di prima della scelta.
+ */
+fun Set<UsageMode>.defaultRoutingProfile(): String = when {
+    isEmpty() -> UsageMode.DEFAULT_ROUTING_PROFILE
+    this == setOf(UsageMode.ESCURSIONISMO) -> UsageMode.ESCURSIONISMO.routingProfile
+    else -> RouteProfile.from(this).routingProfile
+}
+
+/**
+ * Percorsi da scaricare per le nazioni senza una scelta nei Contenuti: solo auto o camper bastano quelli per l'auto,
+ * senza mezzi a motore il pacchetto completo (bici e piedi), con modalita' miste o nessuna tutti.
+ */
+fun Set<UsageMode>.routingDefault(): RoutingVariantChoice {
+    val motorised = count { it == UsageMode.AUTO || it == UsageMode.CAMPER }
+    return when {
+        isEmpty() -> RoutingVariantChoice.ALL
+        motorised == size -> RoutingVariantChoice.CAR
+        motorised == 0 -> RoutingVariantChoice.BIKE_FOOT
+        else -> RoutingVariantChoice.ALL
+    }
+}
+
+/** Le modalita' dai nomi salvati; i nomi sconosciuti (di una versione diversa) si scartano. */
+internal fun usageModesFromNames(names: Collection<String>): Set<UsageMode> =
+    UsageMode.entries.filterTo(mutableSetOf()) { it.name in names }

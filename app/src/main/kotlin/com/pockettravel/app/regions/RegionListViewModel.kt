@@ -4,6 +4,7 @@ import com.pockettravel.core.data.LastKnownPosition
 import com.pockettravel.core.data.MapDetailPreferences
 import com.pockettravel.core.data.RegionZone
 import com.pockettravel.core.data.RegionZonePreferences
+import com.pockettravel.core.data.RoutingVariantChoice
 import com.pockettravel.core.data.RoutingVariantPreferences
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
@@ -167,13 +168,13 @@ class RegionListViewModel @Inject constructor(
     private val catalog = combine(
         // Ogni regione con la sua zona: dimensioni e versioni (quella dei civici dipende dalle celle) sono quelle della zona.
         // Con i percorsi "solo auto" scelti, anche la dimensione e la versione dei percorsi sono quelle della variante.
-        combine(manifestRegions, locale, regionZonePreferences.zones, routingVariantPreferences.carOnly) { regions, currentLocale, zones, carOnly ->
-            regions.map { it.localizedNames(currentLocale).withRoutingVariant(it.regionId in carOnly) to zones[it.regionId] }
+        combine(manifestRegions, locale, regionZonePreferences.zones, routingVariantPreferences.choices) { regions, currentLocale, zones, choices ->
+            regions.map { it.localizedNames(currentLocale).withRoutingVariant(choices.isCarOnly(it.regionId)) to zones[it.regionId] } to currentLocale
         },
         // Con "Indicazioni" la dimensione di "Scarica" comprende i percorsi.
         combine(regionRepository.observeInstalled(), usageModePreferences.wantsDirections, ::Pair),
         replacedRegions,
-    ) { zonedRegions, (installed, wantsDirections), replacedByManifest ->
+    ) { (zonedRegions, currentLocale), (installed, wantsDirections), replacedByManifest ->
         val remoteRegions = zonedRegions.map { it.first }
         val installedByRegion = installed.associateBy { it.regionId }
         // Senza catalogo (offline, o non ancora letto) le nazioni installate restano apribili: i loro dati sono sul telefono.
@@ -345,7 +346,7 @@ class RegionListViewModel @Inject constructor(
     // da confrontare devono essere gia' quelle della zona.
     private fun zonedEntry(regionId: String, zone: RegionZone? = regionZonePreferences.zone(regionId)): RegionManifestEntry? =
         manifestRegions.value.firstOrNull { it.regionId == regionId }
-            ?.withRoutingVariant(regionId in routingVariantPreferences.carOnly.value)?.restrictedTo(zone)
+            ?.withRoutingVariant(routingVariantPreferences.choices.value.isCarOnly(regionId))?.restrictedTo(zone)
 
     /**
      * Sceglie la zona della regione (null = tutta). Con la regione installata mappa, percorsi e civici si rifanno subito:
@@ -376,11 +377,11 @@ class RegionListViewModel @Inject constructor(
     }
 
     fun observeRoutingChoice(regionId: String): Flow<RoutingChoice> =
-        combine(routingVariantPreferences.carOnly, routingVariantPreferences.bikeFoot) { car, bikeFoot ->
-            when (regionId) {
-                in car -> RoutingChoice.CAR
-                in bikeFoot -> RoutingChoice.BIKE_FOOT
-                else -> RoutingChoice.ALL
+        routingVariantPreferences.choices.map { choices ->
+            when (choices.choiceFor(regionId)) {
+                RoutingVariantChoice.CAR -> RoutingChoice.CAR
+                RoutingVariantChoice.BIKE_FOOT -> RoutingChoice.BIKE_FOOT
+                RoutingVariantChoice.ALL -> RoutingChoice.ALL
             }
         }
 
@@ -390,7 +391,7 @@ class RegionListViewModel @Inject constructor(
      */
     fun setRoutingChoice(regionId: String, choice: RoutingChoice) {
         val carOnly = choice == RoutingChoice.CAR
-        val packageChanged = carOnly != (regionId in routingVariantPreferences.carOnly.value)
+        val packageChanged = carOnly != routingVariantPreferences.choices.value.isCarOnly(regionId)
         routingVariantPreferences.setCarOnly(regionId, carOnly)
         routingVariantPreferences.setBikeFoot(regionId, choice == RoutingChoice.BIKE_FOOT)
         if (!packageChanged) return

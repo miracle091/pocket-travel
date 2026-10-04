@@ -125,7 +125,7 @@
     <string name="more_usage_mode_none">Non scelto: la mappa mostra tutte le categorie</string>
     <string name="more_usage_mode_with_accessible">%1$s, in sedia a rotelle</string>
     <string name="more_usage_mode_accessible_only">In sedia a rotelle: la mappa mostra tutte le categorie</string>
-    <string name="more_usage_mode_body">La mappa mostra per primi i punti utili per questo modo di viaggiare. La scelta riporta i filtri della mappa ai valori predefiniti</string>
+    <string name="more_usage_mode_body">La mappa mostra per primi i punti utili per i modi di viaggiare scelti e sono proposti i percorsi da scaricare adatti. La scelta riporta i filtri della mappa ai valori predefiniti</string>
     <string name="more_licenses">Licenze</string>
     <string name="more_appearance">Aspetto</string>
     <string name="more_appearance_system">Tema del telefono</string>

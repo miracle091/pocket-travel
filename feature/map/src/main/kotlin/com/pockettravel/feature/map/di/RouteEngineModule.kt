@@ -16,6 +16,7 @@ import com.pockettravel.feature.map.OfflineTileSource
 import com.pockettravel.feature.map.PmtilesTileSource
 import com.pockettravel.feature.map.RouteEngineFactory
 import com.pockettravel.feature.map.UsageMode
+import com.pockettravel.feature.map.defaultRoutingProfile
 import com.pockettravel.feature.map.UsageModePreferences
 import dagger.Module
 import dagger.Provides
@@ -63,7 +64,7 @@ object RouteEngineModule {
                 segmentDir = segmentDirFor(regionIds, regionsDir, mergedDir),
                 profileDir = profileDir,
                 // Il profilo della modalita' d'uso scelta, letto a ogni motore creato.
-                profileName = usageModePreferences.mode.value?.routingProfile ?: UsageMode.DEFAULT_ROUTING_PROFILE,
+                profileName = usageModePreferences.modes.value.defaultRoutingProfile(),
                 maxRunningTimeMillis = ROUTE_TIMEOUT_MILLIS,
             )
         }

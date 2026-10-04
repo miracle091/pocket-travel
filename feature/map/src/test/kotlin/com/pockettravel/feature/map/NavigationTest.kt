@@ -249,10 +249,18 @@ class NavigationTest {
     @Test
     fun `tempo scaduto e mezzo iniziale dalla modalita' d'uso`() {
         assertEquals(NavigationUiState.Unavailable(RouteResult.TimedOut), state(result = RouteResult.TimedOut))
-        assertEquals(TravelMode.CAR, TravelMode.from(UsageMode.CAMPER))
-        assertEquals(TravelMode.BIKE, TravelMode.from(UsageMode.BICI))
-        assertEquals(TravelMode.WALK, TravelMode.from(UsageMode.ESCURSIONISMO))
-        assertEquals(TravelMode.WALK, TravelMode.from(null))
+        assertEquals(RouteProfile.CAR, RouteProfile.from(setOf(UsageMode.CAMPER)))
+        assertEquals(RouteProfile.BIKE, RouteProfile.from(setOf(UsageMode.BICI)))
+        assertEquals(RouteProfile.WALK, RouteProfile.from(setOf(UsageMode.ESCURSIONISMO)))
+        assertEquals(RouteProfile.WALK, RouteProfile.from(emptySet()))
+    }
+
+    @Test
+    fun `con piu' modalita' il mezzo iniziale e' l'auto se c'e' auto o camper, poi la bici, poi a piedi`() {
+        assertEquals(RouteProfile.CAR, RouteProfile.from(setOf(UsageMode.BICI, UsageMode.CAMPER)))
+        assertEquals(RouteProfile.CAR, RouteProfile.from(setOf(UsageMode.A_PIEDI, UsageMode.AUTO)))
+        assertEquals(RouteProfile.BIKE, RouteProfile.from(setOf(UsageMode.A_PIEDI, UsageMode.BICI, UsageMode.MEZZI_PUBBLICI)))
+        assertEquals(RouteProfile.WALK, RouteProfile.from(setOf(UsageMode.A_PIEDI, UsageMode.MEZZI_PUBBLICI)))
     }
 
     @Test

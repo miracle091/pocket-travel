@@ -100,7 +100,7 @@ class RoutingDownloadViewModel @Inject constructor(
     fun downloadRouting(targetIds: List<String> = emptyList(), carOnlyAllowed: Boolean = false) {
         targets.value = targetIds
         val ids = targetIds.ifEmpty { listOfNotNull(regionId.value) }
-        if (!carOnlyAllowed) ids.filter { it in routingVariantPreferences.carOnly.value }.forEach { routingVariantPreferences.setCarOnly(it, false) }
+        if (!carOnlyAllowed) ids.filter { routingVariantPreferences.choices.value.isCarOnly(it) }.forEach { routingVariantPreferences.setCarOnly(it, false) }
         viewModelScope.launch {
             manifestFailed.value = false
             // Un errore del catalogo non si butta: il Navigatore lo mostra e lascia riprovare, invece di restare fermo.

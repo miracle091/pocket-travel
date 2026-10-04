@@ -53,7 +53,7 @@ import com.pockettravel.core.ui.R as UiR
 fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
     val forceDark by viewModel.forceDark.collectAsStateWithLifecycle()
-    val usageMode by viewModel.usageMode.collectAsStateWithLifecycle()
+    val usageModes by viewModel.usageModes.collectAsStateWithLifecycle()
     val accessible by viewModel.accessible.collectAsStateWithLifecycle()
     val wantsDirections by viewModel.wantsDirections.collectAsStateWithLifecycle()
     val nationality by viewModel.nationality.collectAsStateWithLifecycle()
@@ -89,9 +89,9 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
 
             SectionHeader(stringResource(R.string.settings_section_navigation))
             SettingsItem(
-                ImageVector.vectorResource((usageMode ?: UsageMode.A_PIEDI).icon),
+                ImageVector.vectorResource((UsageMode.entries.firstOrNull { it in usageModes } ?: UsageMode.A_PIEDI).icon),
                 stringResource(R.string.more_usage_mode),
-                usageModeSummary(usageMode, accessible),
+                usageModeSummary(usageModes, accessible),
             ) { showUsageModes = true }
             SwitchItem(
                 icon = ImageVector.vectorResource(UiR.drawable.ms_my_location),
@@ -130,8 +130,8 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                     modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s),
                 )
                 UsageModeOptions(
-                    selected = usageMode,
-                    onSelect = viewModel::setUsageMode,
+                    selected = usageModes,
+                    onSelectedChange = viewModel::setUsageModes,
                     accessible = accessible,
                     onAccessibleChange = viewModel::setAccessible,
                     directions = wantsDirections,
@@ -236,8 +236,10 @@ private fun appearanceSummary(forceDark: Boolean, useDynamicColor: Boolean): Str
 }
 
 @Composable
-private fun usageModeSummary(mode: UsageMode?, accessible: Boolean): String {
-    val label = mode?.let { stringResource(it.label) }
+private fun usageModeSummary(modes: Set<UsageMode>, accessible: Boolean): String {
+    // Nell'ordine dell'elenco, non in quello in cui sono state scelte.
+    val label = UsageMode.entries.filter { it in modes }.map { stringResource(it.label) }
+        .takeIf { it.isNotEmpty() }?.joinToString(", ")
     return when {
         label == null && accessible -> stringResource(R.string.more_usage_mode_accessible_only)
         label == null -> stringResource(R.string.more_usage_mode_none)
