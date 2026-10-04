@@ -2,7 +2,13 @@
 
 Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versionamento secondo [Semantic Versioning](https://semver.org/lang/it/). Le voci non riportano date: la cronologia dettagliata resta nella storia git del repository.
 
+La sezione "Cambiamenti incompatibili" elenca, per ogni versione, cosa smette di funzionare nelle versioni precedenti o richiede un intervento, anche quando il problema è emerso dopo il rilascio.
+
 ## [Non rilasciato]
+
+### Cambiamenti incompatibili
+- Chi pubblica i dati da un fork deve firmarli: da questa versione l'app rifiuta il catalogo delle regioni, l'indice dei mezzi pubblici, quello dei numeri civici e `app-status.json` senza una firma valida (chiave e procedura in `tools/data-pipeline/README.md`).
+- Le altre app non possono più aprire la navigazione o il browser interno con un intent implicito: i deep link impliciti di navigazione sono stati tolti.
 
 ### Aggiunto
 - Meteo nella Guida: in cima alla guida della nazione una scheda con il tempo di adesso e le previsioni di 7 giorni (massima, minima, probabilità di pioggia). Se sei nella regione è il meteo di dove ti trovi ("Vicino a te"), altrimenti quello della capitale; ogni guida di città ha la sua. Senza rete resta l'ultimo meteo scaricato, con l'ora dell'aggiornamento; il pulsante "Aggiorna" lo richiede di nuovo, al massimo ogni 10 minuti. I dati vengono da Open-Meteo.com (CC BY 4.0, senza chiave né account) e sono nella schermata Licenze.
@@ -105,6 +111,9 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ## [0.9.0]
 
+### Cambiamenti incompatibili
+- Dopo il rilascio i modelli addestrati da noi (Pocket Travel 0.8B, 2B e 4B) sono stati sostituiti su HuggingFace dalla versione v8, con lo stesso nome file e un'impronta diversa. La 0.9.0 controlla il download con l'impronta scritta nel suo APK e lo rifiuta con un errore di integrità. Si risolve aggiornando l'app alla versione successiva; i modelli "Ufficiali" non sono coinvolti.
+
 ### Aggiunto
 - Orari dei mezzi pubblici, offline: nella scheda di una fermata, di una stazione o di un porto ci sono le prossime partenze delle tre ore successive (linea con il suo colore, destinazione, ora e minuti che mancano), con la data fino a cui gli orari valgono e la fonte. Gli orari sono un pacchetto "Mezzi pubblici" della regione, da scaricare dai Contenuti della regione o dalla scheda della fermata; nel primo avvio è già spuntato se ti sposti a piedi, in bici o con i mezzi. All'inizio ci sono le reti della Lettonia (autobus nazionali, treni, Riga), di Milano (ATM) e di Roma, della Svezia (Stoccolma, Göteborg, Malmö, treni SJ e Snälltåget, traghetti per Gotland), della Spagna (treni suburbani Renfe, Madrid, Barcellona e Catalogna, Valencia, Siviglia, traghetti Baleària), della Francia (treni SNCF, Marsiglia, Nizza, Bordeaux, Tolosa, Strasburgo, autobus della Corsica), della Svizzera (tutti i mezzi pubblici) e del Regno Unito (autobus e tram, area per area); altre arriveranno quando ne avremo verificato la licenza. Dove ci sono più reti (il Regno Unito ne ha 12, una per area) nei Contenuti della regione c'è una casella per ciascuna, per scaricare solo quelle che servono; di default sono spuntate quelle vicine alla tua ultima posizione nota (entro 50 km, o la più vicina), e la scelta si ricorda dal primo download. Accanto alla fonte c'è il giorno in cui gli orari sono stati presi. Gli orari occupano circa un sesto dello spazio che servirebbe a una tabella di tutte le partenze: le corse con le stesse fermate agli stessi intervalli si salvano una volta sola. Le fonti sono nella schermata Licenze.
 - Navigazione verso un punto della mappa: nella scheda di un punto di interesse c'è "Indicazioni", che apre una schermata con la prossima svolta e la sua distanza, le svolte successive e quanto manca (distanza e tempo), e ricalcola il percorso se esci di strada. Funziona solo con il GPS acceso e il permesso di posizione, chiesto la prima volta; la posizione resta sul telefono. Autovelox, limiti di velocità e zone a traffico limitato o a basse emissioni non sono segnalati: in bici e in auto la schermata lo ricorda sempre, con l'invito a rispettare la segnaletica. Serve il pacchetto Percorsi della regione: se manca, la schermata lo scarica con un tocco; attivando "Indicazioni per arrivare nei posti" (primo avvio o Altro → Come ti sposti) i percorsi arrivano con ogni regione scaricata. La mappa della navigazione si avvicina quando la svolta è vicina e si allontana sulle strade lunghe; fuori dalla regione scaricata mostra i confini dei paesi e, con la rete, la mappa del mondo, invece di restare vuota. Se partenza e arrivo sono in due regioni vicine con i percorsi scaricati (per esempio Italia e San Marino) il percorso passa il confine; se manca quella dell'arrivo o della partenza, la schermata propone di scaricare i percorsi di quella regione.
@@ -161,6 +170,10 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 
 ## [0.8.0]
 
+### Cambiamenti incompatibili
+- Guide e numeri civici sono pubblicati solo compressi e il catalogo richiede almeno la 0.8.0 (`minAppVersionCode` 9): le versioni fino alla 0.7.0 non scaricano più guide, numeri civici e aggiornamenti delle regioni pubblicati dopo questa versione. Dalla 0.8.0 l'app mostra un messaggio che invita ad aggiornarla; le versioni precedenti falliscono senza spiegazione.
+- Tolti i modelli "Ufficiali" precedenti, tra cui SmolLM2: chi ne aveva scelto uno torna al modello predefinito della sua fascia di memoria e deve scaricarlo.
+
 ### Aggiunto
 - Numeri civici molto più completi: oltre a OpenStreetMap arrivano quelli dei registri ufficiali degli indirizzi di decine di paesi, raccolti da Overture Maps (per esempio a Roma circa 8 volte quelli di prima, nelle zone di campagna anche 70 volte), senza doppioni. Si scaricano a zone di al massimo 10 MB circa: una regione prende solo le zone che la coprono e gli aggiornamenti riscaricano solo quelle cambiate. Le fonti di ogni indirizzo sono elencate nella schermata Licenze. Le versioni precedenti dell'app tengono i civici già scaricati ma non ne ricevono più di nuovi: per averli serve questa versione.
 - Guide delle città: con ogni regione arrivano anche le pagine delle sue città (da sapere, come muoversi, cosa vedere, dove mangiare e dormire…), leggibili dalla scheda Guida e usate dall'assistente IA per rispondere.
@@ -199,6 +212,9 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Pubblicazione dei dati più sicura: un problema di rete non può più far cancellare i pacchetti delle altre regioni né far pubblicare una regione senza una parte dei percorsi.
 
 ## [0.7.0]
+
+### Cambiamenti incompatibili
+- I punti di interesse delle regioni pubblicate da questa versione in poi sono solo compressi (xz): le versioni fino alla 0.6.0 non riescono più a scaricarli né ad aggiornarli.
 
 ### Aggiunto
 - Paesi grandi divisi in regioni da scaricare una per una, ognuna con i numeri civici: Stati Uniti (48 stati e il Distretto di Columbia, oltre ad Alaska e Hawaii), Canada (13 province e territori), Russia europea (8 regioni), Cina (31 province e municipalità) e Francia (13 regioni). Una vecchia regione resta scaricabile finché tutte le sue regioni nuove non sono pubblicate; chi l'ha già scaricata la trova ancora tra le nazioni scaricate, utilizzabile ma senza più aggiornamenti, con "Scegli le regioni" per passare a quelle nuove. Le regioni con un territorio enorme e pochi indirizzi (es. il Nunavut, 1.569 civici) li prendono direttamente da OpenStreetMap invece di scaricare gigabyte di mappa.
@@ -247,6 +263,12 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Punti di interesse: una regione con i segmenti di percorso invariati non aggiornava mai i propri POI. Ora vengono rigenerati quando hanno più di 30 giorni, senza riscaricare mappa e percorsi, e l'app li riscarica solo se sono davvero cambiati.
 
 ## [0.5.0]
+
+### Cambiamenti incompatibili
+- Nuovo catalogo con pacchetti separati per guide, mappa, percorsi e punti di interesse: le versioni fino alla 0.4.0 non lo leggono e, dopo la sua pubblicazione, non scaricano più regioni. Le regioni già installate restano utilizzabili; le guide vanno riscaricate una volta.
+- Motore IA on-device passato da LiteRT-LM a llama.cpp: i modelli già scaricati nel vecchio formato `.litertlm` vengono eliminati al primo avvio e vanno scaricati di nuovo.
+- Tolti dal catalogo i modelli Gemma (chi li aveva scelti torna al predefinito), DeepSeek R1 Distill Qwen 1.5B e il campo per il token HuggingFace.
+- Tolti dal catalogo i territori senza popolazione permanente: chi ne aveva scaricato uno non riceve più aggiornamenti e può solo eliminarlo da Spazio di archiviazione.
 
 ### Aggiunto
 - Interfaccia completamente ridisegnata su Material Design 3: tema con colori dal wallpaper (Android 12+, disattivabile da Altro → "Colori dal wallpaper") o palette del brand, in tre livelli di contrasto; icone Material Symbols; tema scuro anche per la mappa. Navigazione con barra in basso (Regioni, Documenti, Altro) al posto del menu laterale, che su tablet e pieghevoli diventa una barra laterale con elenco regioni e dettaglio affiancati. L'app va a tutto schermo (edge-to-edge) e supporta il gesto Indietro predittivo, con animazioni di transizione.
