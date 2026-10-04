@@ -24,9 +24,12 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         tools:targetApi="33">
 
+        <!-- locale|layoutDirection: il cambio di lingua (da Android 13 via LocaleManager) non ricrea l'activity, Compose
+             ridisegna i testi con la nuova configurazione; ricrearla lasciava circa un secondo di schermo nero. -->
         <activity
             android:name=".MainActivity"
             android:theme="@style/Theme.PocketTravel.Splash"
+            android:configChanges="locale|layoutDirection"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

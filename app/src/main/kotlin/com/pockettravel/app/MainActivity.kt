@@ -2,6 +2,7 @@ package com.pockettravel.app
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.SystemBarStyle
@@ -48,6 +49,24 @@ class MainActivity : FragmentActivity() {
         if (intent.getBooleanExtra(NavigationService.EXTRA_OPEN_NAVIGATOR, false)) navigationSession.requestOpen()
     }
 
+    // Lingua cambiata senza ricreare l'activity (configChanges nel manifest): Compose segue da solo la nuova
+    // configurazione, le guide vanno riscaricate nella lingua nuova.
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        syncGuidesLanguage()
+    }
+
+    // Guide installate in una lingua diversa da quella dell'interfaccia (lingua appena cambiata):
+    // si scaricano subito quelle giuste. Se il manifest non offre guide inglesi il worker non fa nulla.
+    private fun syncGuidesLanguage() {
+        lifecycleScope.launch {
+            val installed = regionRepository.installedGuidesVersion()
+            if (installed != null && isEnglishGuidesVersion(installed) != (currentGuidesLanguage() == "en")) {
+                regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = false)
+            }
+        }
+    }
+
     // Fino ad Android 12 la lingua scelta nell'app si applica qui (da 13 ci pensa il sistema).
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLanguage.wrap(newBase))
@@ -61,14 +80,7 @@ class MainActivity : FragmentActivity() {
         intent.removeNavigationDeepLinkExtras()
         // Activity ricreata dal tocco sulla notifica (non gia' aperta): onNewIntent non scatta, lo legge il NavHost.
         val openNavigator = savedInstanceState == null && intent.getBooleanExtra(NavigationService.EXTRA_OPEN_NAVIGATOR, false)
-        // Guide installate in una lingua diversa da quella dell'interfaccia (lingua appena cambiata):
-        // si scaricano subito quelle giuste. Se il manifest non offre guide inglesi il worker non fa nulla.
-        lifecycleScope.launch {
-            val installed = regionRepository.installedGuidesVersion()
-            if (installed != null && isEnglishGuidesVersion(installed) != (currentGuidesLanguage() == "en")) {
-                regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = false)
-            }
-        }
+        syncGuidesLanguage()
         setContent {
             val useDynamicColor by themePreferences.useDynamicColor.collectAsStateWithLifecycle()
             val forceDark by themePreferences.forceDark.collectAsStateWithLifecycle()

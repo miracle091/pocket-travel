@@ -28,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
@@ -64,7 +65,8 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
     var showNationality by rememberSaveable { mutableStateOf(false) }
     var showLanguage by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
-    val language = remember { AppLanguage.current(context) }
+    // Chiave sulla configurazione: la lingua cambia senza ricreare l'activity (configChanges nel manifest).
+    val language = remember(LocalConfiguration.current) { AppLanguage.current(context) }
     Scaffold(
         topBar = {
             TopAppBar(
