@@ -36,4 +36,17 @@ class PromptTemplatesTest {
             PromptTemplates.onDevicePrompt(context = "c", question = "q"),
         )
     }
+
+    // Il contesto vero ha piu' righe (sezioni, paragrafi, nota): il rientro del sorgente non deve finire nel prompt.
+    @Test
+    fun `multi-line context keeps the training prompt without indentation`() {
+        val context = "prima riga\n\nseconda sezione\nNota personale: x"
+        assertEquals(
+            "Sei una guida turistica offline.\nRispondi in massimo 3 frasi, in italiano, usando solo le informazioni nel CONTESTO.\n" +
+                "Se il contesto non basta, dillo esplicitamente.\n\nCONTESTO: $context\n\nDOMANDA: q",
+            PromptTemplates.onDevicePrompt(context = context, question = "q"),
+        )
+        assertTrue(PromptTemplates.onDevicePrompt(context = context, question = "q", language = "en").startsWith("You are an offline travel guide.\n"))
+        assertTrue(OnlinePromptTemplates.onlinePrompt("riga 1\nriga 2").startsWith("Sei un assistente di viaggio.\n"))
+    }
 }
