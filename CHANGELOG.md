@@ -62,6 +62,12 @@ Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); ver
 - Civici: meno indirizzi doppi quando OpenStreetMap e Overture scrivono lo stesso numero in modo diverso ("12 bis" e "12B", "12;14", "20-24"); a Parigi i civici aggiunti da Overture passano dal 23% al 18%. Arriva con il prossimo aggiornamento dei civici.
 
 ### Corretto
+- Assistente IA sul telefono: le domande arrivavano al modello con un'impaginazione diversa da quella su cui è stato addestrato (righe rientrate), con risposte meno precise. Chi ha già un modello riceve ora l'avviso quando ne esce una versione migliorata, e i download di modelli abbandonati non occupano più spazio nascosto.
+- Navigatore: con "Spegni il GPS all'arrivo" disattivata la guida non si chiude più all'arrivo; partendo nella direzione sbagliata il percorso si ricalcola; dopo un'inversione a U la posizione non torna indietro; in galleria la mappa resta e lo schermo acceso; posizioni GPS imprecise in città non fanno ricalcolare di continuo. Su tablet senza GPS l'app non si chiude più aprendo il Navigatore.
+- Tablet: dalla mappa del mondo "Scegli zona", "Mappa leggera" e "Percorsi per" funzionano anche nel layout a due colonne.
+- "Scarica" dall'anteprima di una nazione scarica anche i numeri civici e controlla lo spazio libero come dall'elenco.
+- Documenti: le foto di un documento non salvato non restano sul telefono se l'app va in background, e la fotocamera non resta accesa chiudendo subito lo scatto.
+- Mappa più veloce nelle nazioni grandi (indice dei punti di interesse) e aggiornamenti della mappa che, con una rete instabile, riprovano invece di riscaricare tutto.
 - Il download delle nazioni con molti percorsi (Russia - Siberia, Brasile, Australia, Canada - Nunavut e altre, 22 in tutto) chiudeva l'app al tocco di "Scarica".
 - Vaccinazioni: per un bambino sotto i 9 mesi la febbre gialla compariva anche tra le consigliate; ora resta solo "da valutare con il medico". L'assistente IA, alle domande su Hajj e Umrah, ora riporta il vaccino contro il meningococco obbligatorio per i pellegrini.
 - Meteo: con una rete lenta la scheda restava vuota a lungo prima di mostrare le ultime previsioni salvate. Senza rete, "Vicino a te" poteva mostrare le previsioni di un'altra zona della stessa nazione.
