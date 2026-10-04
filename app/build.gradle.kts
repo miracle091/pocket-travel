@@ -34,6 +34,10 @@ android {
             if (System.getenv("RELEASE_KEYSTORE_PATH") != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
+            // R8: codice e risorse non usati tolti, classi ottimizzate (avvio piu' rapido, APK piu' piccolo).
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 
