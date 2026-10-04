@@ -56,8 +56,9 @@ HERE = Path(__file__).resolve().parent
 
 
 def find_bin(name):
-    """Eseguibile di llama.cpp: --bin-dir, le cartelle di build del clone, poi il PATH."""
-    return find_llama_bin(name, a.bin_dir, a.llama_cpp)
+    """Eseguibile di llama.cpp: --bin-dir, le cartelle di build del clone, poi il PATH. Assoluto: le fasi di
+    quantizzazione girano nella cartella temporanea."""
+    return str(Path(find_llama_bin(name, a.bin_dir, a.llama_cpp)).resolve())
 
 
 def write_calibration(path):
@@ -79,11 +80,11 @@ convert_script = a.llama_cpp / "convert_hf_to_gguf.py"
 if not convert_script.exists():
     sys.exit(f"convert_hf_to_gguf.py non trovato in {a.llama_cpp} (e' un clone di llama.cpp aggiornato al tag v0.5.0?)")
 
-def step(name, detail, cmd):
+def step(name, detail, cmd, cwd=None):
     """Esegue una fase e ne stampa inizio e durata (l'output degli strumenti di llama.cpp resta sotto)."""
     phase(name, detail)
     start = time.monotonic()
-    subprocess.run(cmd, check=True, env=llama_env(cmd[0]))
+    subprocess.run(cmd, check=True, env=llama_env(cmd[0]), cwd=cwd)
     phase(f"{name} completata", f"in {duration(time.monotonic() - start)}")
 
 
@@ -107,13 +108,15 @@ with tempfile.TemporaryDirectory() as tmp:
     else:
         imatrix = []
         if a.imatrix_rows:
-            calib, imatrix_path = Path(tmp) / "calibration.txt", Path(tmp) / "imatrix.gguf"
-            write_calibration(calib)
+            # Nomi relativi alla cartella temporanea: llama-quantize scrive nei metadati del GGUF pubblicato
+            # (quantize.imatrix.file/dataset) i percorsi passati, che altrimenti rivelerebbero quelli locali.
+            calib, imatrix_path = "calibration.txt", "imatrix.gguf"
+            write_calibration(Path(tmp) / calib)
             step("calcolo imatrix", f"{a.imatrix_rows} righe del dataset di training",
-                 [find_bin("llama-imatrix"), "-m", str(f16_path), "-f", str(calib), "-o", str(imatrix_path), "-c", "512",
-                  "-ngl", str(a.gpu_layers), *(["--device", a.device] if a.device else [])])
-            imatrix = ["--imatrix", str(imatrix_path)]
+                 [find_bin("llama-imatrix"), "-m", str(f16_path), "-f", calib, "-o", imatrix_path, "-c", "512",
+                  "-ngl", str(a.gpu_layers), *(["--device", a.device] if a.device else [])], cwd=tmp)
+            imatrix = ["--imatrix", imatrix_path]
         step("quantizzazione", a.quantize + (" con imatrix" if imatrix else ""),
-             [find_bin("llama-quantize"), *imatrix, str(f16_path), str(a.output), a.quantize])
+             [find_bin("llama-quantize"), *imatrix, str(f16_path), str(a.output.resolve()), a.quantize], cwd=tmp)
 
 phase("fatto", f"{a.output} ({a.output.stat().st_size / 2**20:.1f} MiB)")
