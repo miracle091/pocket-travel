@@ -1,8 +1,11 @@
 package com.pockettravel.core.sync
 
+import android.os.SystemClock
 import android.util.Log
 import com.pockettravel.core.data.WorldMapStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
@@ -17,7 +20,19 @@ class ManifestClient @Inject constructor(
     private val appCompatibility: AppCompatibility,
     private val signatureVerifier: ManifestSignatureVerifier,
 ) {
-    suspend fun fetchManifest(): RegionManifest = withContext(Dispatchers.IO) {
+    private val recent = RecentFetch<RegionManifest>(SystemClock::elapsedRealtime)
+
+    /** Il manifest scaricato adesso, sempre: per i controlli di aggiornamento e prima di scaricare un pacchetto. */
+    suspend fun fetchManifest(): RegionManifest = recent.get(maxAgeMillis = 0) { download() }.forLanguage()
+
+    /**
+     * Il manifest scaricato negli ultimi [RECENT_MANIFEST_MILLIS] se c'e' (lo stesso tempo di Cache-Control del sito), altrimenti
+     * uno nuovo: per chi lo legge solo per mostrarlo (elenco, hub, licenze). Pesa 2,5 MB e va scaricato, verificato e letto per
+     * intero: all'avvio lo chiedevano insieme l'elenco delle regioni e l'hub, poi ogni apertura di un hub.
+     */
+    suspend fun recentManifest(): RegionManifest = recent.get(RECENT_MANIFEST_MILLIS) { download() }.forLanguage()
+
+    private suspend fun download(): RegionManifest = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(SyncConfig.MANIFEST_URL).build()
         okHttpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
@@ -37,12 +52,32 @@ class ManifestClient @Inject constructor(
                 // Ad ogni sync riuscita: feature/map legge solo WorldMapStore, non dipende da core/sync.
                 worldMapStore.save(manifest.worldMap?.url, manifest.worldMap?.maxZoom ?: worldMapStore.worldMapMaxZoom())
                 appCompatibility.update(manifest.minAppVersionCode)
-            }.forLanguage()
+            }
         }
     }
 
     private companion object {
         private val TAG = ManifestClient::class.java.simpleName
+        const val RECENT_MANIFEST_MILLIS = 10 * 60 * 1_000L
+    }
+}
+
+/**
+ * L'ultimo valore letto da [get] e quando ([now], in millisecondi): una richiesta lo riusa se ha meno di `maxAgeMillis`, altrimenti lo
+ * rilegge con `load`. Le richieste sono una alla volta: chi arriva mentre un'altra sta scaricando aspetta e trova il valore nuovo.
+ * Un errore di `load` non cambia il valore.
+ */
+internal class RecentFetch<T : Any>(private val now: () -> Long) {
+    private val lock = Mutex()
+    private var value: T? = null
+    private var readAt = 0L
+
+    suspend fun get(maxAgeMillis: Long, load: suspend () -> T): T = lock.withLock {
+        value?.takeIf { now() - readAt < maxAgeMillis }?.let { return it }
+        load().also {
+            value = it
+            readAt = now()
+        }
     }
 }
 

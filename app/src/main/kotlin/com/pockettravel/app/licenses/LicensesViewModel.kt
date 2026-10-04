@@ -35,7 +35,7 @@ class LicensesViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             // Un solo manifest per entrambe le liste.
-            val manifest = runCatchingCancellable { manifestClient.fetchManifest() }.getOrNull() ?: return@launch
+            val manifest = runCatchingCancellable { manifestClient.recentManifest() }.getOrNull() ?: return@launch
             launch {
                 val attributions = runCatchingCancellable {
                     manifest.addressGrid?.let { addressGridClient.fetchIndex(it).attributions }

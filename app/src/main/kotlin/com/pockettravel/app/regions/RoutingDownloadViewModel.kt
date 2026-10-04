@@ -116,7 +116,7 @@ class RoutingDownloadViewModel @Inject constructor(
      * tutto e' coperto: il Navigatore resta col messaggio generico.
      */
     suspend fun missingRoutingRegions(points: List<RoutePoint>, usableRouting: Set<String>): List<MissingRegion> {
-        val regions = runCatching { manifestClient.fetchManifest().regions }.getOrNull() ?: return emptyList()
+        val regions = runCatching { manifestClient.recentManifest().regions }.getOrNull() ?: return emptyList()
         val carOnly = routingVariantPreferences.installedCarOnly.value
         return withContext(Dispatchers.Default) {
             missingRoutingRegions(regions, usableRouting, points, { countryLocator.countryAt(it.latitude, it.longitude) }, countryLocator.neighbours, countryLocator.centres)

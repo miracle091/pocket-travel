@@ -1,11 +1,12 @@
 package com.pockettravel.core.data
 
-import com.pockettravel.core.data.db.CATEGORY_TAGS_IN_BOUNDS
+import com.pockettravel.core.data.db.CATEGORY_TAGS_IN_REGION
 import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.db.POIS_IN_BOUNDS
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiEntity
 import com.pockettravel.core.data.db.SPREAD_IN_BOUNDS
+import com.pockettravel.core.data.db.SPREAD_IN_WIDE_BOUNDS
 import com.pockettravel.core.data.db.TransportCount
 import com.pockettravel.core.poi.PoiCategory
 import kotlinx.coroutines.runBlocking
@@ -30,6 +31,8 @@ class PoiRepositoryBoundsTest {
         connection = DriverManager.getConnection("jdbc:sqlite::memory:")
         connection.createStatement().use {
             it.execute("CREATE TABLE poi(id INTEGER PRIMARY KEY AUTOINCREMENT, regionId TEXT, name TEXT, category TEXT, lat REAL, lon REAL, osmTag TEXT, wheelchair TEXT, toiletsWheelchair TEXT)")
+            // Lo stesso nome dell'indice di PoiEntity: SPREAD_IN_WIDE_BOUNDS lo impone con INDEXED BY.
+            it.execute("CREATE INDEX index_poi_regionId ON poi(regionId)")
         }
     }
 
@@ -71,9 +74,9 @@ class PoiRepositoryBoundsTest {
         )
 
         override suspend fun poisInBounds(
-            regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, excluded: List<String>, accessibility: Int,
+            regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, excluded: List<String>, accessibility: Int, limit: Int,
         ): List<PoiEntity> =
-            run(POIS_IN_BOUNDS, area(regionId, minLat, maxLat, minLon, maxLon) + ("accessibility" to accessibility), excluded, ::entity)
+            run(POIS_IN_BOUNDS, area(regionId, minLat, maxLat, minLon, maxLon) + mapOf("accessibility" to accessibility, "limit" to limit), excluded, ::entity)
 
         override suspend fun spreadInBounds(
             regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, cellLat: Double, cellLon: Double, excluded: List<String>,
@@ -85,10 +88,18 @@ class PoiRepositoryBoundsTest {
             ::entity,
         )
 
-        override suspend fun categoryTagsInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, accessibility: Int): List<CategoryTag> =
-            run(CATEGORY_TAGS_IN_BOUNDS, area(regionId, minLat, maxLat, minLon, maxLon) + ("accessibility" to accessibility), emptyList()) {
-                CategoryTag(it.getString("category"), it.getString("osmTag"), it.getInt("count"))
-            }
+        override suspend fun spreadInWideBounds(
+            regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, cellLat: Double, cellLon: Double, excluded: List<String>,
+            accessibility: Int,
+        ): List<PoiEntity> = run(
+            SPREAD_IN_WIDE_BOUNDS,
+            area(regionId, minLat, maxLat, minLon, maxLon) + mapOf("cellLat" to cellLat, "cellLon" to cellLon, "accessibility" to accessibility),
+            excluded,
+            ::entity,
+        )
+
+        override suspend fun categoryTagsInRegion(regionId: String): List<CategoryTag> =
+            run(CATEGORY_TAGS_IN_REGION, mapOf("regionId" to regionId), emptyList()) { CategoryTag(it.getString("category"), it.getString("osmTag")) }
 
         override suspend fun insertAll(pois: List<PoiEntity>) = Unit
         override suspend fun poisForRegion(regionId: String): List<PoiEntity> = emptyList()
@@ -99,8 +110,7 @@ class PoiRepositoryBoundsTest {
             regionIds: List<String>, lat: Double, lon: Double, lonScale: Double,
             minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, limit: Int,
         ): List<PoiEntity> = emptyList()
-        override suspend fun deleteForRegion(regionId: String) = Unit
-        override suspend fun deletePackageForRegion(regionId: String, extra: Boolean) = Unit
+        override suspend fun deleteForRegion(regionId: String, extra: Boolean?) = Unit
     }
 
     // Area di 1 x 1 grado, maxPois = 4 (celle da 0,5 gradi): 30 ristoranti con i rowid piu' bassi, tutti nella cella
@@ -115,7 +125,7 @@ class PoiRepositoryBoundsTest {
     @Test
     fun `con una categoria filtrata le altre non spariscono dalle celle`() = runBlocking {
         fill()
-        val result = PoiRepository(JdbcPoiDao()).inBounds("roma", 41.0, 42.0, 12.0, 13.0, 4, setOf(PoiCategory.CIBO_BEVANDE))
+        val result = PoiRepository(JdbcPoiDao()).let { it.inBounds("roma", 41.0, 42.0, 12.0, 13.0, 4, setOf(PoiCategory.CIBO_BEVANDE), tags = it.categoryTags("roma")) }
         // Prima: le 33 righe superano la soglia, la cella della Farmacia A sceglie un ristorante e la farmacia sparisce.
         assertEquals(listOf("Farmacia A", "Farmacia B", "Farmacia C"), result.pois.map { it.name }.sorted())
     }
@@ -125,8 +135,20 @@ class PoiRepositoryBoundsTest {
         fill()
         val repo = PoiRepository(JdbcPoiDao())
         assertTrue(repo.inBounds("roma", 41.0, 42.0, 12.0, 13.0, 4).pois.size <= 4)
-        val filtered = repo.inBounds("roma", 41.0, 42.0, 12.0, 13.0, 4, setOf(PoiCategory.CIBO_BEVANDE))
+        val filtered = repo.inBounds("roma", 41.0, 42.0, 12.0, 13.0, 4, setOf(PoiCategory.CIBO_BEVANDE), tags = repo.categoryTags("roma"))
         assertEquals(setOf(PoiCategory.CIBO_BEVANDE, PoiCategory.FARMACIA), filtered.categories)
+    }
+
+    @Test
+    fun `il campione per cella vale sia per le aree larghe sia per quelle strette`() = runBlocking {
+        fill()
+        val repo = PoiRepository(JdbcPoiDao())
+        // Sopra WIDE_AREA_DEGREES (0,5 gradi di latitudine) le righe si leggono in ordine di rowid, sotto per fascia di latitudine:
+        // stesso risultato. Fascia stretta (41,0-41,4): 31 righe, tutte nella stessa cella (0,2 x 0,5 gradi) del primo ristorante.
+        val wide = repo.inBounds("roma", 41.0, 42.0, 12.0, 13.0, 4, setOf(PoiCategory.CIBO_BEVANDE), tags = repo.categoryTags("roma"))
+        val narrow = repo.inBounds("roma", 41.0, 41.4, 12.0, 13.0, 4)
+        assertEquals(listOf("Farmacia A", "Farmacia B", "Farmacia C"), wide.pois.map { it.name }.sorted())
+        assertEquals(listOf("Ristorante 0"), narrow.pois.map { it.name })
     }
 
     @Test

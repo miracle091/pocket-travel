@@ -44,7 +44,7 @@ class PoiImporter @Inject constructor(
      */
     suspend fun replaceFromFile(regionId: String, poiDbFile: File, extra: Boolean = false) {
         database.withTransaction {
-            poiDao.deletePackageForRegion(regionId, extra)
+            poiDao.deleteForRegion(regionId, extra)
             SQLiteDatabase.openDatabase(poiDbFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
                 forEachPoiChunk(regionId, db, extra) { poiDao.insertAll(it) }
             }

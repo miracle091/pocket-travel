@@ -2,8 +2,10 @@ package com.pockettravel.feature.map
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pockettravel.core.data.AreaPois
 import com.pockettravel.core.data.MapAccessibility
 import com.pockettravel.core.data.PoiRepository
+import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionZone
 import com.pockettravel.core.data.RegionZonePreferences
@@ -62,7 +64,7 @@ class MapRouteViewModel @Inject constructor(
     }
 
     init {
-        // "Con disabilita'" si cambia nelle Impostazioni: anche quello sceglie i segnalini a campione.
+        // "In sedia a rotelle" si cambia nelle Impostazioni: anche quello sceglie i segnalini a campione.
         viewModelScope.launch { accessible.drop(1).collect { reloadPins() } }
     }
 
@@ -73,9 +75,19 @@ class MapRouteViewModel @Inject constructor(
     private val _presentCategories = MutableStateFlow<Set<PoiCategory>>(emptySet())
     val presentCategories: StateFlow<Set<PoiCategory>> = _presentCategories.asStateFlow()
 
-    private var loadPinsJob: Job? = null
-
     private val regionIdFlow = MutableStateFlow<String?>(null)
+
+    // Richieste di ricaricare i segnalini (regione, area, filtri). Un solo raccoglitore, conflato: un caricamento
+    // iniziato finisce sempre e poi si legge lo stato piu' recente. Annullarlo a ogni fermo della mappa, con una
+    // nazione grande (query di secondi sul telefono), lasciava la mappa senza segnalini.
+    private val pinRequests = MutableStateFlow(0L)
+
+    // Le coppie categoria/tag della regione aperta, lette una volta (PoiRepository.categoryTags).
+    private var regionTags: Pair<String, List<CategoryTag>>? = null
+
+    init {
+        viewModelScope.launch { pinRequests.collect { loadPinsNow() } }
+    }
 
     // Partenze del POI di trasporto aperto nella scheda: null finche' si leggono o senza POI.
     private val _transitBoard = MutableStateFlow<TransitBoard?>(null)
@@ -122,6 +134,8 @@ class MapRouteViewModel @Inject constructor(
     fun loadPins(regionId: String) {
         regionIdFlow.value = regionId
         viewport = null
+        // Riaperta la regione si rileggono le categorie: un aggiornamento dei POI puo' averle cambiate.
+        regionTags = null
         reloadPins()
     }
 
@@ -136,35 +150,40 @@ class MapRouteViewModel @Inject constructor(
      * riquadro della mappa installata (o della zona).
      */
     private fun reloadPins() {
+        pinRequests.value += 1
+    }
+
+    private suspend fun loadPinsNow() {
         val regionId = regionIdFlow.value ?: return
-        // Annulla il caricamento precedente: una regione o un'area lenta non deve sovrascrivere i segnalini.
-        loadPinsJob?.cancel()
-        loadPinsJob = viewModelScope.launch {
-            val zone = regionZonePreferences.zone(regionId)
-            val inView = viewport ?: zone?.let { MapBounds(it.minLon, it.minLat, it.maxLon, it.maxLat) }
-                ?: withContext(Dispatchers.IO) { tileSource.regionBounds(regionId) } ?: WORLD
-            val area = pinsArea(inView, zone)
-            if (area == null) {
-                _pins.value = emptyList()
-                return@launch
-            }
-            val inArea = poiRepository.inBounds(
-                regionId, area.minLat, area.maxLat, area.minLon, area.maxLon, MAX_PINS, filterPreferences.hiddenCategories.value, accessibility(),
+        val zone = regionZonePreferences.zone(regionId)
+        val inView = viewport ?: zone?.let { MapBounds(it.minLon, it.minLat, it.maxLon, it.maxLat) }
+            ?: withContext(Dispatchers.IO) { tileSource.regionBounds(regionId) } ?: WORLD
+        val area = pinsArea(inView, zone)
+        val inArea = area?.let {
+            val tags = regionTags?.takeIf { cached -> cached.first == regionId }?.second
+                ?: poiRepository.categoryTags(regionId).also { read -> regionTags = regionId to read }
+            poiRepository.inBounds(
+                regionId, it.minLat, it.maxLat, it.minLon, it.maxLon, MAX_PINS, filterPreferences.hiddenCategories.value, accessibility(), tags,
             )
-            _presentCategories.value = inArea.categories
-            // I POI extra li ha scaricati l'utente apposta: si mostrano anche se di solito nascosti.
-            _pins.value = inArea.pois.filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
-                MapPin(
-                    poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.osmTag, poi.phone, poi.wheelchair,
-                    openingHours = poi.openingHours, address = poi.address, website = poi.website, email = poi.email,
-                    nameEn = poi.nameEn, nameIt = poi.nameIt,
-                    toiletsWheelchair = poi.toiletsWheelchair, capacityDisabled = poi.capacityDisabled,
-                )
-            }
+        }
+        // Regione cambiata durante il caricamento: questi segnalini non sono piu' suoi.
+        if (regionIdFlow.value == regionId) publishPins(inArea)
+    }
+
+    private fun publishPins(inArea: AreaPois?) {
+        if (inArea != null) _presentCategories.value = inArea.categories
+        // I POI extra li ha scaricati l'utente apposta: si mostrano anche se di solito nascosti.
+        _pins.value = inArea?.pois.orEmpty().filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
+            MapPin(
+                poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.osmTag, poi.phone, poi.wheelchair,
+                openingHours = poi.openingHours, address = poi.address, website = poi.website, email = poi.email,
+                nameEn = poi.nameEn, nameIt = poi.nameIt,
+                toiletsWheelchair = poi.toiletsWheelchair, capacityDisabled = poi.capacityDisabled,
+            )
         }
     }
 
-    // Il filtro "Con disabilita'" della mappa, come lo applica MapScreen ("solo accessibili" vale solo con quello acceso).
+    // Il filtro "In sedia a rotelle" della mappa, come lo applica MapScreen ("solo accessibili" vale solo con quello acceso).
     private fun accessibility(): MapAccessibility = when {
         !accessible.value -> MapAccessibility.ALL
         onlyAccessible.value -> MapAccessibility.ONLY_ACCESSIBLE

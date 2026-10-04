@@ -5,10 +5,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 /** Tutte le migrazioni, per Room.databaseBuilder e per i test. */
 val ALL_MIGRATIONS: Array<Migration>
-    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
+    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_21, MIGRATION_21_22)
 
 /** Versioni del database mai uscite in una versione pubblicata dell'app (solo sviluppo). */
-val UNRELEASED_VERSIONS = intArrayOf(1, 2, 4, 7, 8, 10, 12, 13, 14, 16)
+val UNRELEASED_VERSIONS = intArrayOf(1, 2, 4, 7, 8, 10, 12, 13, 14, 16, 18, 19, 20)
 
 // Una migrazione per ogni versione dell'app pubblicata, dal suo database al successivo: chi
 // aggiorna salta le versioni intermedie usate solo durante lo sviluppo. Le versioni 1 e 2 non sono
@@ -228,11 +228,12 @@ val MIGRATION_15_17 = object : Migration(15, 17) {
     }
 }
 
-// Da 17 a 18: ambasciate e consolati da Wikidata (diplomatic_missions), vuota finche' non si importa un
-// pacchetto guide che la contiene; bagni accessibili e posti auto per disabili dei POI (toiletsWheelchair,
-// capacityDisabled), vuoti finche' la regione non riscarica i punti di interesse che li contengono.
-val MIGRATION_17_18 = object : Migration(17, 18) {
+// Da 17 (v0.9.0) a 21. Dentro, i passi originali nello stesso ordine.
+val MIGRATION_17_21 = object : Migration(17, 21) {
     override fun migrate(db: SupportSQLiteDatabase) {
+        // 17 -> 18: ambasciate e consolati da Wikidata (diplomatic_missions), vuota finche' non si
+        // importa un pacchetto guide che la contiene; bagni accessibili e posti auto per disabili dei
+        // POI, vuoti finche' la regione non riscarica i punti di interesse.
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `toiletsWheelchair` TEXT")
         db.execSQL("ALTER TABLE `poi` ADD COLUMN `capacityDisabled` INTEGER")
         db.execSQL(
@@ -256,13 +257,10 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
             """.trimIndent()
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_diplomatic_missions_sending_host` ON `diplomatic_missions` (`sending`, `host`)")
-    }
-}
 
-// Da 18 a 19: dati vaccinali per il viaggio (vacc_*, dal guides.db), vuoti finche' non si importa un pacchetto
-// guide che li contiene. Una tabella per file curato della pipeline, con le stesse colonne.
-val MIGRATION_18_19 = object : Migration(18, 19) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+        // 18 -> 19: dati vaccinali per il viaggio (vacc_*, dal guides.db), vuoti finche' non si importa
+        // un pacchetto guide che li contiene. Una tabella per file curato della pipeline, con le stesse
+        // colonne.
         db.execSQL(
             """
             CREATE TABLE IF NOT EXISTS `vacc_yf_risk` (
@@ -353,20 +351,22 @@ val MIGRATION_18_19 = object : Migration(18, 19) {
             """.trimIndent()
         )
         db.execSQL("CREATE TABLE IF NOT EXISTS `vacc_meta` (`key` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`key`))")
-    }
-}
 
-/** Popolazione e capitale delle citta' (CitySectionEntity.population, capital): le citta' principali della scheda Citta'. */
-val MIGRATION_19_20 = object : Migration(19, 20) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+        // 19 -> 20: popolazione e capitale delle citta' (CitySectionEntity.population, capital), per le
+        // citta' principali della scheda Citta'.
         db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `population` INTEGER")
         db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `capital` INTEGER NOT NULL DEFAULT 0")
+
+        // 20 -> 21: indice dei POI su (regionId, lat), cosi' i segnalini e i piu' vicini non scandiscono
+        // tutta la regione.
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionId_lat` ON `poi` (`regionId`, `lat`)")
     }
 }
 
-/** Indice dei POI su (regionId, lat): i segnalini e i piu' vicini non scandiscono piu' tutta la regione. */
-val MIGRATION_20_21 = object : Migration(20, 21) {
+// Ultima migrazione, separata dalle altre finche' la sua versione non esce in una release.
+/** Indice dei POI su (regionId, category, osmTag): le coppie categoria/tag e i conteggi dei trasporti si leggono dall'indice. */
+val MIGRATION_21_22 = object : Migration(21, 22) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionId_lat` ON `poi` (`regionId`, `lat`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionId_category_osmTag` ON `poi` (`regionId`, `category`, `osmTag`)")
     }
 }

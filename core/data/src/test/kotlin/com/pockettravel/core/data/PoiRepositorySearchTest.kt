@@ -25,13 +25,13 @@ class PoiRepositorySearchTest {
 
         override suspend fun insertAll(pois: List<PoiEntity>) = Unit
         override suspend fun poisForRegion(regionId: String): List<PoiEntity> = emptyList()
-        override suspend fun poisInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, excluded: List<String>, accessibility: Int): List<PoiEntity> = emptyList()
+        override suspend fun poisInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, excluded: List<String>, accessibility: Int, limit: Int): List<PoiEntity> = emptyList()
         override suspend fun spreadInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, cellLat: Double, cellLon: Double, excluded: List<String>, accessibility: Int): List<PoiEntity> = emptyList()
-        override suspend fun categoryTagsInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, accessibility: Int): List<CategoryTag> = emptyList()
+    override suspend fun spreadInWideBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, cellLat: Double, cellLon: Double, excluded: List<String>, accessibility: Int): List<PoiEntity> = emptyList()
+        override suspend fun categoryTagsInRegion(regionId: String): List<CategoryTag> = emptyList()
         override suspend fun transportCounts(regionId: String): List<TransportCount> = emptyList()
         override suspend fun embassiesOf(regionId: String, country: String): List<PoiEntity> = emptyList()
-        override suspend fun deleteForRegion(regionId: String) = Unit
-        override suspend fun deletePackageForRegion(regionId: String, extra: Boolean) = Unit
+        override suspend fun deleteForRegion(regionId: String, extra: Boolean?) = Unit
     }
 
     private fun poi(id: Long, name: String, category: String = "restaurant", osmTag: String = "amenity=restaurant") =

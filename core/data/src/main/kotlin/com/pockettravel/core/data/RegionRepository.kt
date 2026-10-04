@@ -86,8 +86,8 @@ class RegionRepository @Inject constructor(
         }
         database.withTransaction {
             when (kind) {
-                PackageKind.POI -> poiDao.deletePackageForRegion(regionId, extra = false)
-                PackageKind.POI_EXTRA -> poiDao.deletePackageForRegion(regionId, extra = true)
+                PackageKind.POI -> poiDao.deleteForRegion(regionId, extra = false)
+                PackageKind.POI_EXTRA -> poiDao.deleteForRegion(regionId, extra = true)
                 PackageKind.CITIES -> cityDao.deleteForRegion(regionId)
                 PackageKind.MAP, PackageKind.ROUTING, PackageKind.ADDRESSES, PackageKind.TRANSIT -> Unit
             }
@@ -206,7 +206,7 @@ class RegionRepository @Inject constructor(
         }
         database.withTransaction {
             regionPackageDao.deleteById(regionId)
-            poiDao.deleteForRegion(regionId)
+            poiDao.deleteForRegion(regionId, extra = null)
             cityDao.deleteForRegion(regionId)
         }
     }

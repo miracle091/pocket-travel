@@ -224,11 +224,15 @@ class RegionListViewModel @Inject constructor(
         transitNetworkPreferences.setIncluded(regionId, feedId, included, defaults)
     }
 
-    fun refresh() {
+    fun refresh() = load(fresh = false)
+
+    // [fresh]: il controllo manuale scarica sempre; all'apertura e al "Riprova" va bene il manifest scaricato da poco (l'hub lo
+    // chiede insieme all'elenco: ManifestClient.recentManifest).
+    private fun load(fresh: Boolean) {
         viewModelScope.launch {
             status.update { it.copy(isLoading = true) }
             try {
-                val manifest = manifestClient.fetchManifest()
+                val manifest = if (fresh) manifestClient.fetchManifest() else manifestClient.recentManifest()
                 // Civici a griglia: un errore qui (rete, indice non
                 // valido) non deve bloccare l'elenco delle regioni, solo lasciarle senza civici a
                 // griglia per questo aggiornamento — riprovera' al prossimo refresh().
@@ -259,7 +263,7 @@ class RegionListViewModel @Inject constructor(
     /** Controllo manuale immediato, in aggiunta a quello periodico: manifest regioni (qui, sincrono)
      *  + versione app e modello IA (in background, notificano se c'e' un aggiornamento). */
     fun checkForUpdatesNow() {
-        refresh()
+        load(fresh = true)
         updateChecks.forEach { it.checkNow() }
     }
 

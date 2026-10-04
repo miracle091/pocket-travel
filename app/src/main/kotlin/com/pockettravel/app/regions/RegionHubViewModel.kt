@@ -128,7 +128,7 @@ class RegionHubViewModel @Inject constructor(
             val installed = regionRepository.installed(regionId)?.transitVersion != null
             // Senza transit.json nel catalogo non si sa ancora: niente "non ci sono orari".
             val offered = if (installed) null else runCatchingCancellable {
-                val manifest = manifestClient.fetchManifest()
+                val manifest = manifestClient.recentManifest()
                 manifest.transit?.let { regionTransitFeeds(transitClient.fetchIndex(it), regionId).isNotEmpty() }
             }.getOrNull()
             if (this@RegionHubViewModel.regionId.value == regionId) transitOffered.value = offered

@@ -1,5 +1,6 @@
 package com.pockettravel.core.data
 
+import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiEntity
 import com.pockettravel.core.poi.PoiCategory
@@ -11,7 +12,12 @@ import kotlin.math.sqrt
 
 private const val HIDDEN_OVERFETCH = 4
 
-/** Il filtro "Con disabilita'" della mappa: tutti, senza i POI non accessibili, solo quelli accessibili. */
+// Altezza dell'area (gradi di latitudine) oltre la quale i segnalini a campione si scelgono leggendo la regione in ordine di
+// rowid (PoiDao.spreadInWideBounds) invece che per fascia di latitudine: a questa altezza la fascia di un paese grande ha
+// gia' decine di migliaia di righe sparse sul disco, piu' costose da leggere della tabella intera in sequenza.
+private const val WIDE_AREA_DEGREES = 0.5
+
+/** Il filtro "In sedia a rotelle" della mappa: tutti, senza i POI non accessibili, solo quelli accessibili. */
 enum class MapAccessibility { ALL, NO_INACCESSIBLE, ONLY_ACCESSIBLE }
 
 class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
@@ -19,8 +25,10 @@ class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
      * I POI della regione dentro il riquadro, per i segnalini della mappa, senza le categorie [hiddenCategories]: tutti se
      * sono al massimo [maxPois], altrimenti circa [maxPois] sparsi sull'area (uno per cella di una griglia). Le categorie
      * filtrate si escludono nella query, prima del conteggio e della scelta per cella: dopo, le celle avrebbero scelto
-     * altri POI e quelli della categoria rimasta visibile sarebbero quasi spariti. Con i POI tornano le categorie presenti
-     * nell'area, anche quelle filtrate: l'utente deve poterle riattivare.
+     * altri POI e quelli della categoria rimasta visibile sarebbero quasi spariti. [tags] sono le coppie della regione
+     * ([categoryTags], lette una volta per regione da chi chiama): con i POI tornano le categorie presenti, anche quelle
+     * filtrate, perche' l'utente possa riattivarle. Si chiede una riga in piu' di [maxPois]: se arrivano tutte, le celle;
+     * cosi' non si conta tutta l'area (su una nazione grande, secondi a ogni fermo della mappa).
      *
      * I POI nascosti sulla mappa (isHiddenOnMap) non servono nella query: la pipeline non pubblica quelli nascosti, i
      * "base" non lo sono mai e gli "extra" si mostrano comunque. Il filtro in Kotlin resta per i dati vecchi.
@@ -28,20 +36,23 @@ class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
     suspend fun inBounds(
         regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, maxPois: Int, hiddenCategories: Set<PoiCategory> = emptySet(),
         accessibility: MapAccessibility = MapAccessibility.ALL,
+        tags: List<CategoryTag> = emptyList(),
     ): AreaPois {
-        val tags = poiDao.categoryTagsInBounds(regionId, minLat, maxLat, minLon, maxLon, accessibility.ordinal)
         val present = tags.mapTo(mutableSetOf()) { poiCategoryOf(it.category, it.osmTag) }
         val excluded = tags.filter { poiCategoryOf(it.category, it.osmTag) in hiddenCategories }.map { "${it.category}|${it.osmTag}" }
-        // I POI non filtrati: dalle stesse righe per categoria, senza un'altra query di conteggio.
-        val shown = tags.filter { poiCategoryOf(it.category, it.osmTag) !in hiddenCategories }.sumOf { it.count }
-        val entities = if (shown <= maxPois) {
-            poiDao.poisInBounds(regionId, minLat, maxLat, minLon, maxLon, excluded, accessibility.ordinal)
+        val firstRows = poiDao.poisInBounds(regionId, minLat, maxLat, minLon, maxLon, excluded, accessibility.ordinal, maxPois + 1)
+        val entities = if (firstRows.size <= maxPois) {
+            firstRows
         } else {
             val side = sqrt(maxPois.toDouble())
-            poiDao.spreadInBounds(regionId, minLat, maxLat, minLon, maxLon, (maxLat - minLat) / side, (maxLon - minLon) / side, excluded, accessibility.ordinal)
+            val spread = if (maxLat - minLat > WIDE_AREA_DEGREES) poiDao::spreadInWideBounds else poiDao::spreadInBounds
+            spread(regionId, minLat, maxLat, minLon, maxLon, (maxLat - minLat) / side, (maxLon - minLon) / side, excluded, accessibility.ordinal)
         }
         return AreaPois(entities.map { it.toDomain() }, present)
     }
+
+    /** Le coppie (category, osmTag) della regione, per [inBounds]: da leggere una volta per regione. */
+    suspend fun categoryTags(regionId: String): List<CategoryTag> = poiDao.categoryTagsInRegion(regionId)
 
     /** Ambasciate e consolati di [country] (ISO alpha-2) nella regione, in ordine di nome. */
     suspend fun embassiesOf(regionId: String, country: String): List<Poi> = poiDao.embassiesOf(regionId, country).map { it.toDomain() }

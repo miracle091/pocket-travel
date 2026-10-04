@@ -5,9 +5,12 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-// Indice su regionId: ogni query e ogni eliminazione dei POI filtra per regione. Quello su (regionId, lat)
-// serve ai segnalini e ai piu' vicini, che oltre alla regione limitano la latitudine.
-@Entity(tableName = "poi", indices = [Index("regionId"), Index("regionId", "lat")])
+// Indice su regionId: ogni query e ogni eliminazione dei POI filtra per regione, e le ricerche che leggono tutta la regione
+// (INDEXED BY in PoiDao) la scorrono in ordine di rowid, in sequenza sul disco. Quello su (regionId, lat) serve ai segnalini
+// e ai piu' vicini, che oltre alla regione limitano la latitudine. Quello su (regionId, category, osmTag) contiene tutte le
+// colonne di categoryTagsInRegion e transportCounts e la prima di embassiesOf: senza, a ogni apertura della mappa e della
+// guida di una nazione grande (un milione di POI) SQLite leggeva tutta la tabella.
+@Entity(tableName = "poi", indices = [Index("regionId"), Index("regionId", "lat"), Index("regionId", "category", "osmTag")])
 data class PoiEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val regionId: String,
