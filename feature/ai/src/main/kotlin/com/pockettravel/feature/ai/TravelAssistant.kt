@@ -33,6 +33,8 @@ import com.pockettravel.core.data.vaccination.toSummaryText
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.label
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import java.text.Normalizer
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -44,6 +46,12 @@ data class AssistantAnswer(
     val showOfficialSourceBanner: Boolean,
     val officialSourceUrl: String? = null,
 )
+
+/** Avanzamento di una risposta: il testo scritto finora, poi la risposta definitiva. */
+sealed interface AssistantProgress {
+    data class Partial(val text: String) : AssistantProgress
+    data class Done(val answer: AssistantAnswer) : AssistantProgress
+}
 
 /**
  * Orchestrazione dell'assistente nelle due modalità: "Sul dispositivo" usa il RAG semplice sulle
@@ -70,7 +78,13 @@ class TravelAssistant @Inject constructor(
     private val transitRepository: TransitRepository,
     @param:ApplicationContext private val context: Context,
 ) {
-    suspend fun ask(regionId: String, question: String, mode: AiEngineMode): AssistantAnswer {
+    /**
+     * La risposta come flusso: sul dispositivo una serie di [AssistantProgress.Partial] (testo accumulato, al massimo
+     * uno ogni PARTIAL_INTERVAL_MS) e in fondo [AssistantProgress.Done] con citazioni e banner; online solo il Done.
+     * Gli errori escono dal flusso (anche a meta': il chiamante decide che farne del parziale); la cancellazione
+     * del collector ferma la generazione.
+     */
+    fun ask(regionId: String, question: String, mode: AiEngineMode): Flow<AssistantProgress> = flow {
         // Lingua dell'interfaccia: prompt, testo di ripiego e citazioni (le guide installate la seguono).
         val language = currentGuidesLanguage()
         val ftsQuery = buildFtsQuery(question, regionId)
@@ -90,25 +104,39 @@ class TravelAssistant @Inject constructor(
         }
         val regulatedMatch = sections.firstOrNull { it.isRegulatedTopic() }
 
-        return when (mode) {
-            AiEngineMode.ON_DEVICE -> askOnDevice(
-                question,
-                listOfNotNull(
-                    vaccinationSection(regionId, question, language),
-                    nearbyPoiSection(regionId, question, language),
-                    transitSection(regionId, question, language),
-                ) + sections,
-                language,
-                focusStems(ftsQuery, city),
+        val withSource = { answer: AssistantAnswer ->
+            answer.copy(
+                showOfficialSourceBanner = regulatedMatch != null,
+                officialSourceUrl = regulatedMatch?.let { officialSourceFor(it.category, nationalityPreferences.nationality.value)?.url },
             )
-            AiEngineMode.ONLINE -> askOnline(question, language)
-        }.copy(
-            showOfficialSourceBanner = regulatedMatch != null,
-            officialSourceUrl = regulatedMatch?.let { officialSourceFor(it.category, nationalityPreferences.nationality.value)?.url },
-        )
+        }
+        when (mode) {
+            AiEngineMode.ON_DEVICE -> {
+                val plan = planOnDevice(
+                    question,
+                    listOfNotNull(
+                        vaccinationSection(regionId, question, language),
+                        nearbyPoiSection(regionId, question, language),
+                        transitSection(regionId, question, language),
+                    ) + sections,
+                    language,
+                    focusStems(ftsQuery, city),
+                )
+                var text = ""
+                engine.generateStream(plan.prompt).accumulated(PARTIAL_INTERVAL_MS).collect {
+                    text = it
+                    emit(AssistantProgress.Partial(it))
+                }
+                emit(AssistantProgress.Done(withSource(AssistantAnswer(text, plan.citations, showOfficialSourceBanner = false))))
+            }
+            AiEngineMode.ONLINE -> emit(AssistantProgress.Done(withSource(askOnline(question, language))))
+        }
     }
 
-    private suspend fun askOnDevice(question: String, sections: List<AssistantSection>, language: String, focusStems: Set<String>): AssistantAnswer {
+    /** Prompt per il modello locale e fonti da citare: calcolati dal contesto, non dalla risposta. */
+    private class OnDevicePlan(val prompt: String, val citations: List<String>)
+
+    private suspend fun planOnDevice(question: String, sections: List<AssistantSection>, language: String, focusStems: Set<String>): OnDevicePlan {
         // Ricerca sulla domanda in linguaggio naturale, non sulla ftsQuery (sintassi OR specifica
         // delle guide): NoteRepository.search fa la sua tokenizzazione, vedi rankNotesByQuery.
         val note = noteRepository.search(question, limit = 1).firstOrNull()
@@ -118,11 +146,7 @@ class TravelAssistant @Inject constructor(
             question = question,
             language = language,
         )
-        return AssistantAnswer(
-            text = engine.generate(prompt),
-            sourceCitations = citedSections(sections, context).map { it.citation },
-            showOfficialSourceBanner = false,
-        )
+        return OnDevicePlan(prompt, citedSections(sections, context).map { it.citation })
     }
 
     /**
@@ -205,6 +229,8 @@ class TravelAssistant @Inject constructor(
 
     private companion object {
         const val MAX_SECTIONS = 3
+        // Un aggiornamento del testo parziale ogni ~80 ms (~12 al secondo): fluido, senza ricomporre a ogni token.
+        const val PARTIAL_INTERVAL_MS = 80L
         const val NEARBY_MAX_AGE_MILLIS = 15 * 60 * 1_000L
         // I più vicini: 30 POI con nome e orari supererebbero da soli il limite del contesto.
         const val NEARBY_CONTEXT_MAX = 12

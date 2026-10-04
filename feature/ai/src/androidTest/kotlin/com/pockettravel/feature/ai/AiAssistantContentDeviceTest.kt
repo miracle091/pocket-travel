@@ -77,6 +77,22 @@ class AiAssistantContentDeviceTest {
     }
 
     @Test
+    fun streamingTextReplacesTheSpinnerWhileTheModelWrites() {
+        compose.setContent {
+            PocketTravelTheme(dynamicColor = false) {
+                AiAssistantContent(
+                    uiState = readyState().copy(askedQuestion = "Serve il visto?", isThinking = true, streamingText = "No, non serve"),
+                    actions = noOpActions,
+                    onOpenOfficialSource = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("No, non serve").assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.ai_thinking)).assertDoesNotExist()
+    }
+
+    @Test
     fun officialSourceChipOpensItsUrl() {
         var opened: String? = null
         compose.setContent {

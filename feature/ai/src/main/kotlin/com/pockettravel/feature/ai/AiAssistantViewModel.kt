@@ -7,6 +7,7 @@ import androidx.work.WorkInfo
 import com.pockettravel.core.data.currentGuidesLanguage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +40,8 @@ data class AiUiState(
     val showBenchmarkComparison: Boolean = false,
     val question: String = "",
     val isThinking: Boolean = false,
+    // Testo della risposta scritto finora dal modello (con isThinking): vuoto prima del primo token.
+    val streamingText: String = "",
     val answer: AssistantAnswer? = null,
     val askedQuestion: String? = null,
     @StringRes val errorMessage: Int? = null,
@@ -130,6 +133,7 @@ class AiAssistantViewModel @Inject constructor(
     }
 
     fun onModeChanged(mode: AiEngineMode) {
+        cancelAsk()
         aiSettingsStore.setEngineMode(mode)
         _uiState.update { it.copy(mode = mode, answer = null, askedQuestion = null, errorMessage = null) }
     }
@@ -151,6 +155,7 @@ class AiAssistantViewModel @Inject constructor(
 
     /** Cambiare servizio cancella la chiave salvata (vedi AiSettingsStore.setOnlineProvider). */
     fun onProviderSelected(provider: OnlineProvider) {
+        cancelAsk()
         aiSettingsStore.setOnlineProvider(provider)
         _uiState.update {
             it.copy(onlineProvider = provider, onlineModelSetting = aiSettingsStore.onlineModelSetting(provider), isApiKeyConfigured = aiSettingsStore.hasApiKey(), answer = null)
@@ -165,6 +170,7 @@ class AiAssistantViewModel @Inject constructor(
     }
 
     fun clearApiKey() {
+        cancelAsk()
         aiSettingsStore.clearApiKey()
         _uiState.update { it.copy(isApiKeyConfigured = false, answer = null) }
     }
@@ -172,6 +178,7 @@ class AiAssistantViewModel @Inject constructor(
     /** Cambia il modello selezionato senza scaricarlo: la UI mostra poi il pulsante di download
      *  per quello scelto. */
     fun onModelSelected(modelId: String) {
+        cancelAsk()
         val previousId = _uiState.value.selectedModelId
         aiSettingsStore.setSelectedModelId(modelId)
         if (previousId != modelId) {
@@ -240,6 +247,8 @@ class AiAssistantViewModel @Inject constructor(
     }
 
     fun deleteModel() {
+        // Prima di tutto: la generazione in corso tiene il lock del modello che releaseAndDelete aspetta.
+        cancelAsk()
         viewModelScope.launch {
             engine.releaseAndDelete()
             _uiState.update { it.copy(isModelDownloaded = false, answer = null, askedQuestion = null) }
@@ -261,17 +270,35 @@ class AiAssistantViewModel @Inject constructor(
             return
         }
 
-        viewModelScope.launch {
-            _uiState.update { it.copy(isThinking = true, errorMessage = null, askedQuestion = question, question = "", answer = null) }
+        askJob = viewModelScope.launch {
+            _uiState.update { it.copy(isThinking = true, errorMessage = null, askedQuestion = question, question = "", answer = null, streamingText = "") }
             try {
-                val answer = travelAssistant.ask(regionId, question, state.mode)
-                _uiState.update { it.copy(isThinking = false, answer = answer) }
+                travelAssistant.ask(regionId, question, state.mode).collect { progress ->
+                    when (progress) {
+                        is AssistantProgress.Partial -> _uiState.update { it.copy(streamingText = progress.text) }
+                        is AssistantProgress.Done -> _uiState.update { it.copy(isThinking = false, streamingText = "", answer = progress.answer) }
+                    }
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                _uiState.update { it.copy(isThinking = false, errorMessage = askErrorMessage(error)) }
+                // Errore a meta': il parziale si scarta, come l'errore sostituisce la risposta nella UI.
+                _uiState.update { it.copy(isThinking = false, streamingText = "", errorMessage = askErrorMessage(error)) }
             }
         }
+    }
+
+    // La domanda in corso (generazione o richiesta online).
+    private var askJob: Job? = null
+
+    /**
+     * Interrompe la domanda in corso, se c'e': chi la chiama sta per azzerare o cambiare la risposta, e
+     * senza questo il testo parziale (o la risposta finale) ricomparirebbe dopo.
+     */
+    private fun cancelAsk() {
+        askJob?.cancel()
+        askJob = null
+        _uiState.update { it.copy(isThinking = false, streamingText = "") }
     }
 }
 

@@ -384,10 +384,16 @@ private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String)
         )
         return
     }
+    val scrollState = rememberScrollState()
+    val streaming = uiState.isThinking && uiState.streamingText.isNotEmpty()
+    // Mentre il testo cresce la vista ne segue la fine; a risposta completa l'utente scorre da solo.
+    LaunchedEffect(uiState.streamingText) {
+        if (streaming) scrollState.scrollTo(scrollState.maxValue)
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(Spacing.l),
         verticalArrangement = Arrangement.spacedBy(Spacing.m),
     ) {
@@ -404,55 +410,69 @@ private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String)
             }
         }
         // Risposta: bolla a sinistra su superficie tonale; liveRegion perche' TalkBack annunci la
-        // risposta (o l'errore) quando arriva, senza dover cercare dove e' comparsa.
+        // risposta (o l'errore) quando arriva, senza dover cercare dove e' comparsa. Non durante lo
+        // streaming: ogni aggiornamento del testo parziale verrebbe riletto, la risposta si annuncia una
+        // volta sola quando e' completa.
         Surface(
             shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+            modifier = Modifier.fillMaxWidth().semantics { if (!streaming) liveRegion = LiveRegionMode.Polite },
         ) {
             // animateContentSize: la bolla cresce con morbidezza da "Sto pensando…" alla risposta.
             Column(modifier = Modifier.animateContentSize().padding(Spacing.l)) {
-                val answer = uiState.answer
-                val error = uiState.errorMessage
-                when {
-                    uiState.isThinking -> Row(verticalAlignment = Alignment.CenterVertically) {
-                        PocketTravelLoadingIndicator(modifier = Modifier.size(24.dp))
-                        Spacer(modifier = Modifier.width(Spacing.m))
-                        Text(stringResource(R.string.ai_thinking), style = MaterialTheme.typography.bodyLarge)
-                    }
-                    error != null -> Column {
-                        Text(
-                            stringResource(error),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        // Chiave scaduta o revocata: si toglie da qui e se ne inserisce una nuova.
-                        if (error == R.string.ai_error_key_rejected) {
-                            TextButton(onClick = onClearApiKey) { Text(stringResource(R.string.ai_remove_key)) }
-                        }
-                    }
-                    answer != null -> {
-                        Text(answer.text, style = MaterialTheme.typography.bodyLarge)
-                        answer.sourceCitations.forEach { citation ->
-                            Text(
-                                citation,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = Spacing.xs),
-                            )
-                        }
-                        if (answer.showOfficialSourceBanner) {
-                            val url = answer.officialSourceUrl
-                            AssistChip(
-                                onClick = { url?.let(onOpenOfficialSource) },
-                                enabled = url != null,
-                                label = { Text(stringResource(R.string.ai_verify_official)) },
-                                leadingIcon = { Icon(AppIcons.VerifiedLink, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                                modifier = Modifier.padding(top = Spacing.s),
-                            )
-                        }
-                    }
-                }
+                AnswerContent(uiState, streaming, onOpenOfficialSource, onClearApiKey)
+            }
+        }
+    }
+}
+
+// Il contenuto della bolla della risposta: testo in arrivo, attesa, errore o risposta con fonti.
+@Composable
+private fun AnswerContent(
+    uiState: AiUiState,
+    streaming: Boolean,
+    onOpenOfficialSource: (url: String) -> Unit,
+    onClearApiKey: () -> Unit,
+) {
+    val answer = uiState.answer
+    val error = uiState.errorMessage
+    when {
+        streaming -> Text(uiState.streamingText, style = MaterialTheme.typography.bodyLarge)
+        uiState.isThinking -> Row(verticalAlignment = Alignment.CenterVertically) {
+            PocketTravelLoadingIndicator(modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.width(Spacing.m))
+            Text(stringResource(R.string.ai_thinking), style = MaterialTheme.typography.bodyLarge)
+        }
+        error != null -> Column {
+            Text(
+                stringResource(error),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.error,
+            )
+            // Chiave scaduta o revocata: si toglie da qui e se ne inserisce una nuova.
+            if (error == R.string.ai_error_key_rejected) {
+                TextButton(onClick = onClearApiKey) { Text(stringResource(R.string.ai_remove_key)) }
+            }
+        }
+        answer != null -> {
+            Text(answer.text, style = MaterialTheme.typography.bodyLarge)
+            answer.sourceCitations.forEach { citation ->
+                Text(
+                    citation,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Spacing.xs),
+                )
+            }
+            if (answer.showOfficialSourceBanner) {
+                val url = answer.officialSourceUrl
+                AssistChip(
+                    onClick = { url?.let(onOpenOfficialSource) },
+                    enabled = url != null,
+                    label = { Text(stringResource(R.string.ai_verify_official)) },
+                    leadingIcon = { Icon(AppIcons.VerifiedLink, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    modifier = Modifier.padding(top = Spacing.s),
+                )
             }
         }
     }
