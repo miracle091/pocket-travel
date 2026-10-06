@@ -208,70 +208,111 @@ fetch_wikivoyage_dump() {
   fetch_wikivoyage_en_dump "$wikiTitle" "$outFile"
 }
 
-# Scarica l'ultimo dump completo di Wikivoyage IT (pages-articles, ~50 MB compressi) in <outFile> e
-# ne verifica lo sha1 dal file sha1sums pubblicato accanto, con fino a 3 tentativi (stesso motivo
-# del ritentativo su build.protomaps.com in build-address-cell.sh: un download cosi' grande puo'
-# interrompersi a meta'). Usato da build-cities-dump.sh (guide
-# delle citta') per trovare con un solo passaggio le pagine {{QuickbarCity}} di tutte le regioni,
-# invece di migliaia di richieste API. "latest" (non una data precisa): dumps.wikimedia.org
-# mantiene un alias sempre aggiornato accanto alla cartella datata, evitando di dover risolvere la
-# data della corsa piu' recente come fa resolve_protomaps_date per le build Protomaps.
-WIKIVOYAGE_IT_DUMP_NAME="itwikivoyage-latest-pages-articles.xml.bz2"
-# Dump di Wikivoyage EN (~130 MB compressi): citta' in inglese (build-cities-dump.sh ... en).
-WIKIVOYAGE_EN_DUMP_NAME="enwikivoyage-latest-pages-articles.xml.bz2"
-fetch_wikivoyage_it_dump() { fetch_wikivoyage_lang_dump it "$1"; }
-fetch_wikivoyage_en_full_dump() { fetch_wikivoyage_lang_dump en "$1"; }
-fetch_wikivoyage_lang_dump() {
-  local lang="$1" outFile="$2" attempt sha1File sha1
-  local baseUrl="https://dumps.wikimedia.org/${lang}wikivoyage/latest"
-  local dumpName="${lang}wikivoyage-latest-pages-articles.xml.bz2"
-  local sha1Url="$baseUrl/${lang}wikivoyage-latest-sha1sums.txt"
-  sha1File="$(mktemp)"
-  # A inizio mese "latest" punta gia' al dump in corso, senza pages-articles (EN il 2026-10-01: sha1sums
-  # di 740 byte): si usa la cartella datata piu' recente che lo ha, stesso file che "latest" darebbe
-  # a dump finito. Il nome nella cache resta quello di "latest": lo sha1 decide comunque.
-  if ! { wikimedia_curl -o "$sha1File" "$sha1Url" 2>/dev/null && grep -qE "^[0-9a-f]+  ${lang}wikivoyage-[0-9]+-pages-articles[.]xml[.]bz2$" "$sha1File"; }; then
-    local date
-    for date in $(wikimedia_curl "https://dumps.wikimedia.org/${lang}wikivoyage/" 2>/dev/null | grep -oE 'href="[0-9]{8}/"' | grep -oE '[0-9]{8}' | sort -r | head -3); do
-      if wikimedia_curl -o "$sha1File" "https://dumps.wikimedia.org/${lang}wikivoyage/$date/${lang}wikivoyage-$date-sha1sums.txt" 2>/dev/null \
-        && grep -qE "  ${lang}wikivoyage-$date-pages-articles[.]xml[.]bz2$" "$sha1File"; then
-        echo "-- dump Wikivoyage ${lang}: latest incompleto, uso quello del $date" >&2
-        baseUrl="https://dumps.wikimedia.org/${lang}wikivoyage/$date"
-        sha1Url="$baseUrl/${lang}wikivoyage-$date-sha1sums.txt"
-        local remoteName="${lang}wikivoyage-$date-pages-articles.xml.bz2"
-        break
-      fi
-    done
-  fi
-  local remoteName="${remoteName:-$dumpName}"
-  # Cache facoltativa (WIKIVOYAGE_DUMP_CACHE, la riempie la cache di Actions nel job "build"): un
-  # dump gia' scaricato con lo sha1 giusto non si riscarica. Lo sha1 si controlla sempre.
-  local cached="${WIKIVOYAGE_DUMP_CACHE:+$WIKIVOYAGE_DUMP_CACHE/$dumpName}"
-  for attempt in 1 2 3; do
-    if wikimedia_curl -o "$sha1File" "$sha1Url" 2>/dev/null; then
-      # Il sha1sums di "latest" elenca i file con la data del dump ("itwikivoyage-20260901-pages-
-      # articles.xml.bz2"), non con "latest": si cerca quel nome, stesso contenuto dell'alias.
-      sha1="$(awk -v re="^${lang}wikivoyage-[0-9]+-pages-articles[.]xml[.]bz2\$" '$2 ~ re {print $1; exit}' "$sha1File")"
-      if [ -n "$sha1" ] && [ -n "$cached" ] && printf '%s  %s\n' "$sha1" "$cached" | sha1sum -c - >/dev/null 2>&1; then
-        echo "-- dump Wikivoyage ${lang}: dalla cache" >&2
-        cp "$cached" "$outFile"
-        rm -f "$sha1File"
-        return 0
-      fi
-      if [ -n "$sha1" ] && wikimedia_curl --max-time 1800 -o "$outFile" "$baseUrl/$remoteName" 2>/dev/null \
-        && printf '%s  %s\n' "$sha1" "$outFile" | sha1sum -c - >/dev/null 2>&1; then
-        if [ -n "$cached" ]; then mkdir -p "$WIKIVOYAGE_DUMP_CACHE" && cp "$outFile" "$cached"; fi
-        rm -f "$sha1File"
-        return 0
-      fi
-    fi
-    if [ "$attempt" -lt 3 ]; then
-      echo "-- dump Wikivoyage ${lang}: tentativo $attempt/3 fallito (download o sha1), riprovo tra $((attempt * 30))s" >&2
-      sleep $((attempt * 30))
+# Dump di Wikivoyage dai MediaWiki Content File Exports di Wikimedia (contenuto attuale, uno al mese il 1°):
+# https://dumps.wikimedia.org/other/mediawiki_content_current/<wiki>/<AAAA-MM-GG>/xml/bzip2/, con una o piu' parti
+# <wiki>-<AAAA-MM-GG>-p<da>p<a>.xml.bz2 e i loro sha256 in SHA256SUMS, scritto per ultimo a export finito. Usati da
+# build-cities-dump.sh (guide delle citta') per trovare con un solo passaggio le pagine citta' di tutte le regioni,
+# invece di migliaia di richieste API.
+WIKIMEDIA_EXPORTS_URL="https://dumps.wikimedia.org/other/mediawiki_content_current"
+
+# latest_wikimedia_export <wiki>: data (AAAA-MM-GG) dell'export completo piu' recente di <wiki>, l'ultima cartella con
+# un SHA256SUMS non vuoto: il 1° del mese quella nuova puo' essere ancora in corso, e si usa quella del mese prima.
+# Non _SUCCESS: l'export del 2026-10-01 non lo ha, pur completo.
+latest_wikimedia_export() {
+  local wiki="$1" date sums
+  for date in $(wikimedia_curl "$WIKIMEDIA_EXPORTS_URL/$wiki/" 2>/dev/null | grep -oE 'href="[0-9]{4}-[0-9]{2}-[0-9]{2}/"' \
+      | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | sort -r | head -3); do
+    # prima in una variabile: "curl | grep -q" con pipefail fallisce se grep esce prima che curl finisca di scrivere
+    sums="$(wikimedia_curl "$WIKIMEDIA_EXPORTS_URL/$wiki/$date/xml/bzip2/SHA256SUMS" 2>/dev/null)" || continue
+    if grep -qE "^[0-9a-f]{64}  $wiki-$date-p[0-9]+p[0-9]+[.]xml[.]bz2$" <<< "$sums"; then
+      echo "$date"
+      return 0
     fi
   done
-  rm -f "$sha1File" "$outFile"
   return 1
+}
+
+# normalize_dump_date <data>: la data di un export (AAAA-MM-GG) da MM-AAAA o AAAA-MM (separatori -, / o .; il giorno e'
+# sempre il 1°), oppure da AAAA-MM-GG per sperimentare. Come normalize_date in wiki_dump.py. 1 se il formato, il mese o
+# il giorno non valgono.
+normalize_dump_date() {
+  local d="$1" y m day=01
+  if [[ "$d" =~ ^([0-9]{1,2})[-/.]([0-9]{4})$ ]]; then m="${BASH_REMATCH[1]}"; y="${BASH_REMATCH[2]}"
+  elif [[ "$d" =~ ^([0-9]{4})[-/.]([0-9]{1,2})$ ]]; then y="${BASH_REMATCH[1]}"; m="${BASH_REMATCH[2]}"
+  elif [[ "$d" =~ ^([0-9]{4})-([0-9]{2})-([0-9]{2})$ ]]; then y="${BASH_REMATCH[1]}"; m="${BASH_REMATCH[2]}"; day="${BASH_REMATCH[3]}"
+  else m=0; fi
+  m="$(printf '%02d' "$((10#$m))")"
+  if [ "$m" = 00 ] || ! date -d "$y-$m-$day" >/dev/null 2>&1; then
+    echo "data non valida: $d (formati: MM-AAAA o AAAA-MM, separati da - / o ., oppure AAAA-MM-GG)" >&2
+    return 1
+  fi
+  echo "$y-$m-$day"
+}
+
+# wikivoyage_dumps_key: chiave della cache di Actions dei dump di Wikivoyage IT ed EN (publish-regions.yml), dagli
+# SHA256SUMS degli export correnti: cambia solo quando esce un export nuovo.
+wikivoyage_dumps_key() {
+  local key="wikivoyage-dumps" lang date sums
+  for lang in it en; do
+    date="$(latest_wikimedia_export "${lang}wikivoyage")" || return 1
+    sums="$(wikimedia_curl "$WIKIMEDIA_EXPORTS_URL/${lang}wikivoyage/$date/xml/bzip2/SHA256SUMS")" || return 1
+    key="$key-$lang$(printf '%s' "$sums" | sha256sum | cut -c1-12)"
+  done
+  echo "$key"
+}
+
+# fetch_wikivoyage_dump_parts <it|en> <outDir>: scarica in <outDir> le parti dell'ultimo export completo di Wikivoyage
+# (IT ~57 MB, EN ~190 MB compressi) e ne verifica lo sha256, con fino a 3 tentativi per parte (un download cosi' grande
+# puo' interrompersi a meta'). Cache facoltativa WIKIVOYAGE_DUMP_CACHE (la riempie la cache di Actions nel job
+# "build"): una parte gia' scaricata con lo sha256 giusto non si riscarica. Senza tutte le parti verificate, 1 e
+# nessuna parte in <outDir>.
+fetch_wikivoyage_dump_parts() {
+  local lang="$1" outDir="$2" wiki="${1}wikivoyage" date sums sha file cached attempt ok
+  mkdir -p "$outDir"
+  if ! date="$(latest_wikimedia_export "$wiki")"; then
+    echo "-- dump Wikivoyage ${lang}: nessun export completo" >&2
+    return 1
+  fi
+  sums="$(wikimedia_curl "$WIKIMEDIA_EXPORTS_URL/$wiki/$date/xml/bzip2/SHA256SUMS" 2>/dev/null)" || return 1
+  [ -n "$sums" ] || return 1
+  local part_re="^$wiki-$date-p[0-9]+p[0-9]+[.]xml[.]bz2$"
+  while read -r sha file; do
+    [ -n "$file" ] || continue
+    # i nomi vengono da un file remoto: solo parti di questo export, mai un percorso (finirebbe fuori da <outDir>)
+    [[ "$sha" =~ ^[0-9a-f]{64}$ && "$file" =~ $part_re ]] || { rm -f "$outDir"/*.xml.bz2; return 1; }
+    cached="${WIKIVOYAGE_DUMP_CACHE:+$WIKIVOYAGE_DUMP_CACHE/$file}"
+    if [ -n "$cached" ] && printf '%s  %s\n' "$sha" "$cached" | sha256sum -c - >/dev/null 2>&1; then
+      echo "-- dump Wikivoyage ${lang}: $file dalla cache" >&2
+      # chiamata da "if !": set -e qui non vale, e una copia fallita (disco pieno) lascerebbe una parte mancante
+      cp "$cached" "$outDir/$file" || { rm -f "$outDir"/*.xml.bz2; return 1; }
+      continue
+    fi
+    ok=""
+    for attempt in 1 2 3; do
+      if wikimedia_curl --max-time 1800 -o "$outDir/$file" "$WIKIMEDIA_EXPORTS_URL/$wiki/$date/xml/bzip2/$file" 2>/dev/null \
+        && printf '%s  %s\n' "$sha" "$outDir/$file" | sha256sum -c - >/dev/null 2>&1; then
+        ok=1
+        break
+      fi
+      if [ "$attempt" -lt 3 ]; then
+        echo "-- dump Wikivoyage ${lang}: $file, tentativo $attempt/3 fallito (download o sha256), riprovo tra $((attempt * 30))s" >&2
+        sleep $((attempt * 30))
+      fi
+    done
+    if [ -z "$ok" ]; then
+      rm -f "$outDir"/*.xml.bz2
+      return 1
+    fi
+    if [ -n "$cached" ]; then mkdir -p "$WIKIVOYAGE_DUMP_CACHE" && cp "$outDir/$file" "$cached"; fi
+  done <<< "$sums"
+  # le parti degli export vecchi non servono piu': fuori dalla cache, che altrimenti crescerebbe a ogni export
+  if [ -n "${WIKIVOYAGE_DUMP_CACHE:-}" ] && [ -d "$WIKIVOYAGE_DUMP_CACHE" ]; then
+    for cached in "$WIKIVOYAGE_DUMP_CACHE/$wiki"-*.xml.bz2; do
+      [ -e "$cached" ] || continue
+      grep -qF "  $(basename "$cached")" <<< "$sums" || rm -f "$cached"
+    done
+  fi
+  echo "-- dump Wikivoyage ${lang}: export del $date" >&2
 }
 
 # Solo la pagina inglese: stesso contratto di fetch_wikivoyage_dump (URL su stdout, 1 se vuota).

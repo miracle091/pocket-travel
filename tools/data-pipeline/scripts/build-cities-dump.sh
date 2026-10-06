@@ -6,8 +6,9 @@
 # federato/Regione/Territorio), lette poi da build-cities.sh (una regione alla volta) per generare
 # cities.db.
 #
-# Mai fatale per il chiamante (vedi publish-regions.yml): se il dump non si scarica o non passa la
-# verifica sha1 (fetch_wikivoyage_it_dump in lib.sh), o se nessuna pagina IT si risolve, esce 1
+# Mai fatale per il chiamante (vedi publish-regions.yml): se il dump (l'ultimo export del 1° del mese, una cartella
+# di parti) non si scarica o non passa la verifica sha256 (fetch_wikivoyage_dump_parts in lib.sh), o se nessuna pagina
+# IT si risolve, esce 1
 # senza scrivere nulla in <outDir> - le regioni di questo run restano senza citta' nuove
 # (build-cities.sh tiene la voce "cities" gia' pubblicata, se c'e').
 #
@@ -37,9 +38,9 @@ WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
 if [ "$LANG_CODE" = "en" ]; then
-  DUMP="$WORKDIR/$WIKIVOYAGE_EN_DUMP_NAME"
+  DUMP="$WORKDIR/dump-en"
   echo "-- cities (en): scarico il dump di Wikivoyage EN..."
-  if ! fetch_wikivoyage_en_full_dump "$DUMP"; then
+  if ! fetch_wikivoyage_dump_parts en "$DUMP"; then
     echo "::warning::cities (en): dump Wikivoyage EN non scaricato/verificato"
     exit 1
   fi
@@ -62,9 +63,9 @@ if [ ! -s "$RESOLVED_TSV" ]; then
   exit 1
 fi
 
-DUMP="$WORKDIR/$WIKIVOYAGE_IT_DUMP_NAME"
+DUMP="$WORKDIR/dump-it"
 echo "-- citta': scarico il dump di Wikivoyage IT..."
-if ! fetch_wikivoyage_it_dump "$DUMP"; then
+if ! fetch_wikivoyage_dump_parts it "$DUMP"; then
   echo "::warning::citta': dump Wikivoyage IT non scaricato/verificato"
   exit 1
 fi

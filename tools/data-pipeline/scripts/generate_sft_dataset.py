@@ -8,12 +8,14 @@ Metodo "template + negativi sintetici":
 Uso: python generate_sft_dataset.py [--limit N] [--negatives 0.2] [--seed 42] [--vs]
      [--dump-dir <cartella dei dump> --cities 3000]
 Con --dump-dir i testi vengono dai dump di dumps.wikimedia.org (Wikivoyage IT/EN, Wikipedia IT: vedi
-DUMP_FILES e wiki_dump.py) invece che dall'API, i titoli da sft-sources.tsv: stesso dump e stesso seed
+DUMP_WIKIS e wiki_dump.py) invece che dall'API, i titoli da sft-sources.tsv: stesso dump e stesso seed
 danno lo stesso dataset. --cities aggiunge le pagine delle citta' di Wikivoyage IT (escluse quelle delle
 regioni di test). Le domande fuori tema includono quelle di truthful_qa_italian e alpaca-cleaned-italian
 (solo le domande, la risposta e' sempre il rifiuto).
+--recheck-missing cerca di nuovo le pagine date per inesistenti ("-" in sft-sources.tsv, cache vuote in raw/).
 Output (in tools/data-pipeline/data/sft/, git-ignored): pocket_travel_sft.jsonl + ATTRIBUTION.tsv di default
-(pubblicabile, senza VS) oppure pocket_travel_sft.with-vs.jsonl + ATTRIBUTION.with-vs.tsv (con --vs) — nomi
+(pubblicabile, senza VS) oppure pocket_travel_sft.with-vs.jsonl + ATTRIBUTION.with-vs.tsv (con --vs), piu'
+EXCLUDED[.with-vs].tsv, le fonti e le sezioni rimaste fuori e perche' (vedi write_excluded) — nomi
 distinti apposta, cosi' le due varianti convivono sul disco senza sovrascriversi; raw/<regionId>[.en].txt
 (cache, condivisa tra le due varianti). Positivi solo dalle pagine IT (la risposta estrattiva EN sarebbe in
 inglese, contro "rispondi in italiano"); le pagine EN servono da contesto per una quota minore dei negativi
@@ -32,12 +34,13 @@ Wikivoyage spesso non tratta a fondo. L'articolo si divide in paragrafi e
 si tengono solo i piu' pertinenti (WP_MAX_PARAGRAPHS): lunghi come una sezione Wikivoyage, non l'intro
 enciclopedica troncata a 2000 caratteri.
 """
-import argparse, html, json, os, random, re, subprocess, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
+import argparse, functools, html, json, os, random, re, subprocess, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
 from collections import Counter
 from pathlib import Path
 
 from eval_common import TEST_REGIONS
 from status import Progress, phase
+from travel_questions import require_revision
 import wiki_dump
 
 HERE = Path(__file__).resolve().parent
@@ -47,11 +50,12 @@ UA = {"User-Agent": "pocket-travel-sft/0.9 (https://github.com/miracle091/pocket
 # che dump + questo file bastino a rifare lo stesso dataset. Le regioni nuove si risolvono via API e si
 # aggiungono qui.
 SOURCES_TSV = HERE.parent / "sft-sources.tsv"
-DUMP_FILES = {"it": "itwikivoyage-{d}-pages-articles.xml.bz2", "en": "enwikivoyage-{d}-pages-articles.xml.bz2",
-              "wp": "itwiki-{d}-pages-articles-multistream.xml.bz2",
-              "wp_index": "itwiki-{d}-pages-articles-multistream-index.txt.bz2"}
+# Wiki dei dump per fonte: le parti in --dump-dir le trova wiki_dump.dump_files (MediaWiki Content File Exports del
+# 1° del mese, https://dumps.wikimedia.org/other/mediawiki_content_current/, download-wikimedia-dumps.sh). wp_en: gli
+# articoli tematici originali del dataset inglese (generate_sft.py --lang en).
+DUMP_WIKIS = {"it": "itwikivoyage", "en": "enwikivoyage", "wp": "itwiki", "wp_en": "enwiki"}
 SOURCE_URL = {"it": "https://it.wikivoyage.org/wiki/", "en": "https://en.wikivoyage.org/wiki/",
-              "wp": "https://it.wikipedia.org/wiki/"}
+              "wp": "https://it.wikipedia.org/wiki/", "wp_en": "https://en.wikipedia.org/wiki/"}
 
 # Stessa mappa (voci IT) di GenerateGuideContent.kt
 HEADING_TO_CATEGORY = {
@@ -146,6 +150,7 @@ TOPIC = {  # per la risposta negativa: gia' con preposizione articolata
     "SICUREZZA": "sulla sicurezza", "TRASPORTI": "sugli spostamenti", "CIBO_BEVANDE": "su cibo e bevande",
     "ACQUISTI": "su valuta e acquisti", "CONNETTIVITA": "su telefono e internet", "VITA_QUOTIDIANA": "sulle informazioni pratiche",
     "ARRIVARE": "su come arrivare", "COSA_VEDERE": "su cosa vedere", "ALLOGGIO": "su dove dormire", "SHOPPING": "sugli acquisti",
+    "STORIA": "sulla storia", "CLIMA": "sul clima",
 }
 
 # Fatti rapidi del paese (sezione FATTI_RAPIDI di guides.db, "Campo: valore" per riga, come l'assistente li trova nel
@@ -235,6 +240,28 @@ KEYWORDS.update({
     "ALLOGGIO": ["hotel", "albergh", "ostell", "campegg", "b&b", "pension", "alloggi", "camere", "agriturism"],
     "SHOPPING": ["negozi", "mercat", "acquist", "centro commerciale", "souvenir", "boutique", "compr"],
 })
+# Storia e Clima delle citta' (sezioni di Wikipedia di cities.db, generate_sft.py --cities-db). Radici a parte e non in
+# KEYWORDS, che filtra anche le domande fuori tema. Ogni domanda ha una parola di historyClimateWords (TravelAssistant.kt):
+# solo cosi' l'app porta in alto queste sezioni, che altrimenti pesano poco nella classifica.
+WIKI_QUESTIONS = {
+    # domande generiche, come quelle delle altre categorie: la risposta estrattiva e' un riassunto della sezione, e una
+    # domanda puntuale ("Chi ha fondato X?") insegnerebbe a rispondere anche quando la sezione non ne parla
+    "STORIA": ["Qual e' la storia di {r}?", "Raccontami la storia di {r}.",
+               "Quali eventi storici hanno segnato {r}?", "Cosa e' successo a {r} nel corso dei secoli?"],
+    "CLIMA": ["Che clima c'e' a {r}?", "Com'e' il clima di {r}?",
+              "Che temperature ci sono a {r} durante l'anno?", "Com'e' il meteo a {r} nelle varie stagioni?"],
+}
+WIKI_QUESTIONS_EN = {
+    "STORIA": ["What is the history of {r}?", "Tell me about the history of {r}."],
+    "CLIMA": ["What is the climate like in {r}?", "What is the weather like in {r} across the seasons?"],
+}
+WIKI_KEYWORDS = {
+    # radici abbastanza lunghe da non trovarsi nelle sezioni pratiche ("centro storico", "imperdibile", "antico")
+    "STORIA": ["storia", "fondat", "fondaz", "secol", "guerr", "antich", "romani", "mediev", "impero", "imperator", "regno",
+               "dominazion"],
+    "CLIMA": ["clima", "climat", "temperatur", "piogg", "piov", "neve", "nevic", "inverno", "estate", "estati", "gradi c",
+              "°c", "stagion", "precipitazion"],
+}
 # Quante domande (una per sezione trattata) prendere da ogni citta' e da quante citta' al massimo: le
 # citta' sono ~5.000, senza tetto soffocherebbero le guide dei paesi (il contesto reale dell'app).
 CITY_MAX_QUESTIONS = 3
@@ -244,11 +271,22 @@ CITY_MIN_SECTION = 250
 # Domande fuori tema da dataset italiani pubblicati (vedi fetch_off_topic): ognuna al massimo due volte,
 # per non far imparare al modello poche frasi a memoria invece del concetto di "fuori tema".
 # (dataset, config, split, colonna della domanda, licenza, quante righe tenere)
+# Le copie "cleaned" di Alpaca si dichiarano CC BY 4.0, ma i dati originali di Stanford Alpaca sono CC BY-NC 4.0 (solo
+# ricerca): la riga di ATTRIBUTION riporta la licenza d'origine. Se ne usano solo le domande, con il rifiuto come risposta.
+ALPACA_LICENSE = "CC BY-NC 4.0 (dati originali di Stanford Alpaca; la copia dichiara CC BY 4.0)"
 OFF_TOPIC_SOURCES = {
     "truthful_qa_italian": ("sapienzanlp/truthful_qa_italian", "default", "validation", "input_translation", "Apache 2.0", 800),
-    "alpaca_cleaned_italian": ("DanielSc4/alpaca-cleaned-italian", "it", "train", "instruction", "CC BY 4.0", 1500),
+    "alpaca_cleaned_italian": ("DanielSc4/alpaca-cleaned-italian", "it", "train", "instruction", ALPACA_LICENSE, 1500),
 }
 OFF_TOPIC_MAX_USES = 2
+# Revisioni dei dataset delle domande fuori tema (italiani e inglesi), controllate da fetch_off_topic prima di
+# riempire la cache (travel_questions.require_revision)
+OFF_TOPIC_REVISIONS = {
+    "sapienzanlp/truthful_qa_italian": "b4b40c1dfd28c48ed5f3094de9172e56a7b222ca",
+    "DanielSc4/alpaca-cleaned-italian": "87525b0178ba16266de4fee61dc39525354a1ab7",
+    "truthfulqa/truthful_qa": "741b8276f2d1982aa3d5b832d3ee81ed3b896490",
+    "yahma/alpaca-cleaned": "12567cabf869d7c92e573c7c783905fc160e9639",
+}
 # Una domanda "fuori tema" che tocca i temi di viaggio (es. "consigli per restare in salute") non lo e'
 # davvero: si scarta se contiene una radice di KEYWORDS o una di queste.
 TRAVEL_STEMS = ("viagg", "turis", "vacanz", "citta'", "città", "paese", "paesi", "nazion")
@@ -260,49 +298,9 @@ def on_device_prompt(context, question):
             "Se il contesto non basta, dillo esplicitamente.\n\n"
             f"CONTESTO: {context}\n\nDOMANDA: {question}")
 
-# --- pulizia wikitext (port ridotto di cleanBody in GenerateGuideContent.kt) ---
-RX = [(re.compile(p, re.S | re.I), r) for p, r in [
-    (r"\{\|.*?\|\}", ""), (r"<!--.*?-->", ""), (r"<ref\b[^>]*?/>|<ref\b[^>]*?>.*?</ref>", ""),
-    (r"\[\[(?:File|Image|Immagine):.*?\]\]", ""), (r"\[https?://\S+\s+([^\]]+)\]", r"\1"),
-    (r"\[https?://\S+\]", ""), (r"\[\[(?:[^|\]]*\|)?([^\]]+)\]\]", r"\1"), (r"'{2,3}", ""),
-    (r"\{\{[^}]*\}\}", ""), (r"<[^>]+>", "")]]
 # Markup wiki sopravvissuto alla pulizia (tabelle/template spezzati): la sezione si scarta intera
 LEFTOVER = re.compile(r"\{\||\|\}|\|-|\{\{|\}\}|valign")
 HEADING = re.compile(r"^==(?!=)\s*(.+?)\s*(?<!=)==$")
-SUBHEADING = re.compile(r"^={3,}.*={3,}$")
-
-# Template di Wikivoyage che contengono testo da tenere (nome del luogo, descrizione): senza questa
-# espansione la pulizia li toglierebbe interi e resterebbero frasi come "L' (), situato nel sobborgo di...".
-IATA = re.compile(r"\{\{\s*IATA\s*\|\s*([A-Z]{3})\s*\}\}", re.I)
-LISTING = re.compile(r"\{\{\s*(?:marker|see|do|go|eat|drink|sleep|buy|listing)\s*\|([^{}]*)\}\}", re.I | re.S)
-PARAM_SPLIT = re.compile(r"\|(?![^\[]*\]\])")  # le | dentro [[link|testo]] non separano i parametri
-
-def expand_listing(m):
-    params = {}
-    for part in PARAM_SPLIT.split(m.group(1)):
-        k, _, v = part.partition("=")
-        params[k.strip().lower()] = v.strip()
-    name = params.get("nome") or params.get("name") or ""
-    desc = params.get("descrizione") or params.get("content") or ""
-    if name and desc:  # "...del {{see|nome=X|descrizione=, l'attrazione...}}" continua la frase
-        return name + (desc[0] + " " + desc[1:].lstrip() if desc[0] in ",.;:" else ": " + desc)
-    return name or desc
-
-def clean(raw):
-    raw = LISTING.sub(expand_listing, IATA.sub(r"\1", raw))
-    for rx, rep in RX:
-        raw = rx.sub(rep, raw)
-    lines = []
-    for l in raw.splitlines():
-        l = l.strip()
-        if not l or SUBHEADING.match(l):
-            continue
-        item = re.sub(r"^[*#:]+\s*", "", l)
-        if item != l and item and item[-1] not in ".!?:;":
-            item += "."  # voce di elenco: senza, le voci si fonderebbero in un'unica frase
-        lines.append(item)
-    text = re.sub(r"\]\]|\[\[", "", " ".join(lines))
-    return re.sub(r"\s+", " ", re.sub(r"\s*\(\s*[,;]?\s*\)", "", text)).strip()  # "()" dei template tolti
 
 _app_cleaner = None
 
@@ -323,13 +321,17 @@ def app_clean(raw):
     _app_cleaner.stdin.flush()
     return json.loads(_app_cleaner.stdout.readline())["text"]
 
-def parse_sections(text, headings=HEADING_TO_CATEGORY):
+def parse_sections(text, headings=HEADING_TO_CATEGORY, dropped=None):
+    """[(categoria, corpo)] delle sezioni di [headings]; le categorie delle sezioni scartate per markup residuo
+    finiscono in [dropped], se data."""
     out, cur, body = [], None, []
     def flush():
         cat = headings.get((cur or "").lower())
         c = app_clean("\n".join(body))
         if cat and c and not LEFTOVER.search(c):
             out.append((cat, c))
+        elif cat and c and dropped is not None:
+            dropped.append(cat)
     for line in text.splitlines():
         m = HEADING.match(line.strip())
         if m:
@@ -341,21 +343,35 @@ def parse_sections(text, headings=HEADING_TO_CATEGORY):
 
 SENTENCE_END = r"(?<=[.!?])\s+"
 
-def sentences(text, split=SENTENCE_END):
-    """Frasi del testo riga per riga (le guide dell'app vanno a capo): i sottotitoli "▸" non sono frasi, il segno
-    "•" delle voci di elenco si toglie."""
+def line_sentences(text, split=SENTENCE_END):
+    """[(numero di riga, frase)] del testo riga per riga (le guide dell'app vanno a capo): i sottotitoli "▸" non sono
+    frasi, il segno "•" delle voci di elenco si toglie."""
     out = []
-    for line in text.splitlines():
+    for n, line in enumerate(text.splitlines()):
         line = line.strip()
         if not line or line.startswith("▸ "):
             continue
-        out += [x.strip() for x in re.split(split, line.removeprefix("• ")) if len(x.strip()) > 1]
+        out += [(n, x.strip()) for x in re.split(split, line.removeprefix("• ")) if len(x.strip()) > 1]
     return out
+
+def sentences(text, split=SENTENCE_END):
+    """Le frasi di line_sentences, senza il numero di riga."""
+    return [x for _, x in line_sentences(text, split)]
+
+@functools.lru_cache(maxsize=None)
+def keyword_rx(kws):
+    """Le radici di [kws] (tupla) all'inizio di una parola, come travel_questions.py: "media" non vale in
+    "immediately", "cultur" non in "agriculture", "dress" non in "address". Una radice che comincia con uno spazio
+    (" bus") resta com'e'."""
+    return re.compile("|".join(re.escape(k) if k[0] == " " else r"(?<![^\W\d_])" + re.escape(k) for k in kws))
+
+def keyword_hits(cat, text, keywords=KEYWORDS):
+    """Le radici di keywords[cat] nel testo (keyword_rx); "respectively" non conta come "respect"."""
+    return set(keyword_rx(tuple(keywords[cat])).findall(text.lower().replace("respectively", "")))
 
 def covers(cat, text, keywords=KEYWORDS):
     """True se il testo tratta davvero la categoria (le sezioni Wikivoyage a volte coprono altro)."""
-    t = text.lower()
-    return any(k in t for k in keywords[cat])
+    return bool(keyword_hits(cat, text, keywords))
 
 # Come TravelAssistant.kt (focusStems, selectContext, relevantParagraphs): radici di 5 lettere, e sotto questo spazio
 # residuo una sezione in piu' sarebbe solo un frammento.
@@ -399,12 +415,13 @@ def relevant_paragraphs(body, stems, budget):
             used += len(paragraphs[i]) + 1
     return "\n".join(paragraphs[i] for i in sorted(kept)) if kept else body[:budget]
 
-def make_context(rng, bodies, question="", name="", max_chars=MAX_CONTEXT):
+def make_context(rng, bodies, question="", name="", max_chars=MAX_CONTEXT, ordered=False):
     """Come l'app (selectContext): sezioni unite da riga vuota entro [max_chars], ognuna intera se ci sta nello spazio
     rimasto, altrimenti i suoi paragrafi con piu' parole di [question]. In ordine qualunque: l'app le mette per
-    rilevanza, ma la sezione giusta non e' sempre la prima."""
+    rilevanza, ma la sezione giusta non e' sempre la prima; con [ordered] nell'ordine di [bodies]."""
     parts = list(bodies)
-    rng.shuffle(parts)
+    if not ordered:
+        rng.shuffle(parts)
     stems = question_stems(question, name)
     out, remaining = [], max_chars
     for body in parts:
@@ -419,16 +436,18 @@ def make_context(rng, bodies, question="", name="", max_chars=MAX_CONTEXT):
 def pick_answer(context, body, question, cat, name, keywords=KEYWORDS, split=SENTENCE_END):
     """Fino a 3 frasi del corpo presenti per intero nel contesto: quelle piu' vicine alla domanda
     (parole in comune, escluso il nome della regione) o alla categoria; in ordine di testo. Solo frasi
-    pertinenti (punteggio > 0) se ce ne sono, senza link, e al massimo MAX_ANSWER caratteri in tutto."""
+    pertinenti (punteggio > 0) se ce ne sono, senza link, e al massimo MAX_ANSWER caratteri in tutto. Frasi di righe
+    diverse (voci di elenco, sottosezioni) separate da un a capo come nella guida, quelle della stessa riga da uno spazio."""
     stems = {w[:5] for w in re.findall(r"\w{4,}", question.lower())} - {w[:5] for w in re.findall(r"\w{4,}", name.lower())}
-    cand = [(i, x) for i, x in enumerate(sentences(body, split))
+    cand = [(i, n, x) for i, (n, x) in enumerate(line_sentences(body, split))
             if x in context and not URL.search(x) and len(x) <= MAX_ANSWER]  # frasi-elenco lunghissime: fuori
-    score = lambda x: 2 * sum(st in x.lower() for st in stems) + any(k in x.lower() for k in keywords[cat])
-    ranked = sorted(cand, key=lambda t: (-score(t[1]), t[0]))
-    best = [t for t in ranked if score(t[1]) > 0][:3] or ranked[:1]
-    while len(best) > 1 and sum(len(x) + 1 for _, x in best) > MAX_ANSWER:
+    score = lambda x: 2 * sum(st in x.lower() for st in stems) + covers(cat, x, keywords)
+    ranked = sorted(cand, key=lambda t: (-score(t[2]), t[0]))
+    best = [t for t in ranked if score(t[2]) > 0][:3] or ranked[:1]
+    while len(best) > 1 and sum(len(x) + 1 for _, _, x in best) > MAX_ANSWER:
         best.pop()  # toglie la meno pertinente
-    return " ".join(x for _, x in sorted(best))
+    best.sort()
+    return "".join(("" if k == 0 else " " if n == best[k - 1][1] else "\n") + x for k, (_, n, x) in enumerate(best))
 
 def get(url):
     req = urllib.request.Request(url, headers=UA)
@@ -457,8 +476,9 @@ def fetch_en(title):
 # Wikivoyage spesso non tratta a fondo (CIBO_BEVANDE, CONNETTIVITA, USI_COSTUMI, VITA_QUOTIDIANA).
 # Piu' di un pattern per categoria: se il primo manca, MediaWiki spesso lo rinvia a un titolo piu' ampio
 # (es. "Cuisine of Guyana" -> "Culture of Guyana"), quindi il secondo pattern raramente serve davvero.
+# "{n} cuisine" serve alle cucine regionali, che su Wikipedia EN hanno solo quel titolo ("Fujian cuisine").
 WP_TITLE_PATTERNS = {
-    "CIBO_BEVANDE": ["Cuisine of {n}"],
+    "CIBO_BEVANDE": ["Cuisine of {n}", "{n} cuisine"],
     "CONNETTIVITA": ["Telecommunications in {n}", "Communications in {n}"],
     "USI_COSTUMI": ["Culture of {n}"],
     "VITA_QUOTIDIANA": ["Mass media in {n}", "Media of {n}"],
@@ -466,18 +486,29 @@ WP_TITLE_PATTERNS = {
 WP_LANG_SUFFIX = {"CIBO_BEVANDE": "wp_cibo", "CONNETTIVITA": "wp_conn",
                   "USI_COSTUMI": "wp_usi", "VITA_QUOTIDIANA": "wp_vita"}
 
+def wp_candidate_titles(en_title, cat):
+    """Titoli Wikipedia EN da provare per il tema `cat` del paese, nell'ordine di WP_TITLE_PATTERNS. L'articolo
+    iniziale va minuscolo a meta' titolo ("Cuisine of the Bahamas", non "of The Bahamas", che non esiste)."""
+    n = en_title.replace("_", " ")
+    mid = "the " + n[4:] if n.startswith("The ") else n
+    return [p.format(n=n if p.startswith("{n}") else mid) for p in WP_TITLE_PATTERNS[cat]]
+
+def topic_word(title, en_title):
+    """La parola del tema in un titolo di wp_candidate_titles, minuscola: "cuisine" per "Cuisine of the Bahamas"."""
+    place = set(en_title.replace("_", " ").lower().split())
+    return next(w for w in title.lower().split() if w not in place | {"of", "in", "the"})
+
 def fetch_wp_it(en_title, cat):
     """(testo_raw, url) della pagina Wikipedia IT sul tema `cat` del paese, via langlink dal titolo EN
     (stesso meccanismo di fetch_it, ma su Wikipedia: serve la versione IT per un positivo estrattivo,
-    l'estratto EN sarebbe in inglese)."""
-    n = en_title.replace("_", " ")
-    for pattern in WP_TITLE_PATTERNS[cat]:
-        title = pattern.format(n=n)
+    l'estratto EN sarebbe in inglese). Un titolo che rinvia alla voce del paese ("Vatican City cuisine" -> "Vatican
+    City") non vale: la pagina finale deve avere nel titolo la parola del tema (topic_word)."""
+    for title in wp_candidate_titles(en_title, cat):
         q = (f"https://en.wikipedia.org/w/api.php?action=query&titles={urllib.parse.quote(title)}"
              "&prop=langlinks&lllang=it&redirects=1&format=json")
         page = next(iter(json.loads(get(q))["query"]["pages"].values()))
         links = page.get("langlinks")
-        if "missing" in page or not links:
+        if "missing" in page or not links or topic_word(title, en_title) not in page["title"].lower():
             continue
         it_title = urllib.parse.quote(links[0]["*"].replace(" ", "_"))
         text = get(f"https://it.wikipedia.org/w/index.php?title={it_title}&action=raw")
@@ -487,22 +518,37 @@ def fetch_wp_it(en_title, cat):
 WP_MAX_PARAGRAPHS = 2
 WP_MIN_PARAGRAPH = 150
 WP_SKIP_SECTIONS = {"note", "bibliografia", "voci correlate", "collegamenti esterni", "altri progetti", "galleria d'immagini"}
+WP_SKIP_SECTIONS_EN = {"references", "see also", "external links", "further reading", "notes", "bibliography",
+                       "sources", "works cited", "citations", "footnotes", "gallery"}
+# Negli articoli di Wikipedia "cultur", "tradizion" e "religio" prendono paragrafi su monumenti, statistiche religiose
+# o letteratura: per USI_COSTUMI solo parole di comportamento ("rispettare", non "rispett": prenderebbe "rispettivamente"
+# e "rispetto alla media")
+WP_KEYWORDS = {**KEYWORDS, "USI_COSTUMI": ["usanz", "rispettare", "rispettos", "comport", "mancia", "mance", "galateo", "buone maniere", "abbigliament", "tabù", "saluta", "costum"]}
+# radici diverse che un paragrafo deve avere: una sola parola su usanze o abbigliamento capita anche nella storia
+WP_MIN_HITS = {"USI_COSTUMI": 2}
+WP_HEADING = re.compile(r"(={2,})\s*(.+?)\s*\1\s*(?:\n|$)")
 
-def parse_wp_it(raw, cat):
-    """[(cat, paragrafo)]: i WP_MAX_PARAGRAPHS paragrafi dell'articolo che toccano piu' parole chiave della
-    categoria (puliti come le sezioni Wikivoyage), nell'ordine dell'articolo; niente incipit enciclopedico
-    (tutto cio' che precede il primo titolo), note e bibliografia."""
-    paras, skip = [], True
-    for block in re.split(r"\n\s*\n", raw):
-        if (m := HEADING.match(block.strip()) or re.match(r"^={2,}\s*(.+?)\s*={2,}", block.strip())):
-            skip = m.group(1).lower() in WP_SKIP_SECTIONS
-            block = block.split("\n", 1)[1] if "\n" in block else ""
-        if skip:
+def parse_wp(raw, cat, keywords=WP_KEYWORDS, skip_sections=WP_SKIP_SECTIONS):
+    """[(cat, paragrafo)]: i WP_MAX_PARAGRAPHS paragrafi dell'articolo di Wikipedia che toccano piu' [keywords] della
+    categoria (puliti come le sezioni Wikivoyage, con app_clean), nell'ordine dell'articolo; niente incipit
+    enciclopedico (tutto cio' che precede il primo titolo) ne' [skip_sections] (note, bibliografia): le apre o le chiude
+    solo un titolo di livello 2, non i sottotitoli. Per Wikipedia EN: WP_KEYWORDS_EN di generate_sft_dataset_en.py e
+    WP_SKIP_SECTIONS_EN."""
+    paras, skip, lead = [], True, True
+    for block in re.split(r"\n\s*\n|\n(?==)", raw):  # anche un titolo senza riga vuota prima apre un blocco
+        block = block.strip()
+        if m := WP_HEADING.match(block):
+            if len(m.group(1)) == 2 or lead:
+                skip = m.group(2).lower() in skip_sections
+            lead = False
+            block = block[m.end():]
+        if skip or not block:
             continue
-        body = html.unescape(clean(block))
-        if len(body) >= WP_MIN_PARAGRAPH and not LEFTOVER.search(body) and covers(cat, body):
+        body = app_clean(block)
+        if (len(body) >= WP_MIN_PARAGRAPH and not LEFTOVER.search(body)
+                and len(keyword_hits(cat, body, keywords)) >= WP_MIN_HITS.get(cat, 1)):
             paras.append(body)
-    hits = lambda p: sum(k in p.lower() for k in KEYWORDS[cat])
+    hits = lambda p: len(keyword_hits(cat, p, keywords))
     best = sorted(sorted(range(len(paras)), key=lambda i: -hits(paras[i]))[:WP_MAX_PARAGRAPHS])
     return [(cat, paras[i]) for i in best]
 
@@ -550,6 +596,7 @@ def fetch_off_topic(sources=OFF_TOPIC_SOURCES, keywords=KEYWORDS, travel_stems=T
     for name, (dataset, config, split, column, _, keep) in sources.items():
         cache = OUT / "raw" / f"offtopic_{name}.txt"
         if not cache.exists():
+            require_revision(dataset, OFF_TOPIC_REVISIONS[dataset])
             qs, offset = [], 0
             while len(qs) < keep:
                 url = ("https://datasets-server.huggingface.co/rows?" + urllib.parse.urlencode(
@@ -592,6 +639,57 @@ def save_sources(sources):
         for (rid, src), title in sorted(sources.items()):
             f.write(f"{rid}\t{src}\t{title}\n")
 
+def raw_cache(rid, src):
+    """(testo, url) della cache in raw/ di una fonte della regione: testo vuoto = pagina inesistente."""
+    suffix = "" if src == "it" else f".{src}"
+    return OUT / "raw" / f"{rid}{suffix}.txt", OUT / "raw" / f"{rid}{suffix}.url"
+
+def forget_missing(regions, srcs, sources):
+    """Toglie i "-" di [sources] e le cache vuote delle fonti [srcs] delle regioni: le pagine date per inesistenti si
+    cercano di nuovo (un langlink mancante puo' essere stato aggiunto, o il "-" veniva da un vecchio errore di rete)."""
+    for rid, _, _ in regions:
+        for src in srcs:
+            if sources.get((rid, src)) == "-":
+                del sources[(rid, src)]
+            cache, meta = raw_cache(rid, src)
+            if cache.exists() and not cache.read_text(encoding="utf-8"):
+                cache.unlink()
+                meta.unlink(missing_ok=True)
+
+def resolve_titles(regions, srcs, sources, load_page):
+    """Completa [sources] con il titolo di ogni (regione, fonte) di [srcs] che manca, via [load_page]. "-" solo se la
+    pagina non esiste (load_page ne ha scritto la cache vuota): dopo un errore di rete la coppia resta senza titolo,
+    cosi' non finisce in SOURCES_TSV come assente e la prossima esecuzione la riprova."""
+    for rid, _, title in regions:
+        for src in srcs:
+            if (rid, src) in sources:
+                continue
+            if res := load_page(rid, src, title):
+                sources[(rid, src)] = urllib.parse.unquote(res[1].rsplit("/wiki/", 1)[1]).replace("_", " ")
+            elif raw_cache(rid, src)[0].exists():
+                sources[(rid, src)] = "-"
+
+def dump_text(pages, redirects, title):
+    """Testo della pagina [title] di un dump ({titolo: testo}), anche se [title] e' un redirect ({titolo: destinazione}):
+    in sft-sources.tsv ci sono titoli come "The Bahamas" o "Curacao", redirect di "Bahamas" e "Curaçao"."""
+    t = wiki_dump.norm_title(title)
+    return pages.get(redirects.get(t, t))
+
+def write_excluded(path, excluded):
+    """Scrive le fonti escluse, [(regionId, fonte, categoria, motivo)], in un TSV e ne stampa il conteggio per fonte e
+    motivo. Motivi: regione-di-test (sottoregione o stessa pagina di una regione di test, voluto), pagina-condivisa
+    (pagina gia' usata da un'altra regione, generate_sft.drop_shared_pages), pagina-assente,
+    nessuna-sezione (pagina senza sezioni utili), markup-residuo (sezione con tabelle o template rimasti dopo la
+    pulizia), fuori-categoria (la sezione non tratta la sua categoria), nessuna-risposta (nessuna frase scelta). Fonte "tradotta":
+    sezione tradotta dall'altra lingua; "wp-citta": Storia o Clima di Wikipedia di una citta' di cities.db (generate_sft.py)."""
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write("regionId\tsource\tcategory\treason\n")
+        for row in excluded:
+            f.write("\t".join(row) + "\n")
+    by_source = Counter((src, reason) for _, src, _, reason in excluded)
+    print("escluse (fonte/motivo: quante):", ", ".join(f"{s}/{r}: {n}" for (s, r), n in sorted(by_source.items())))
+    print(f"elenco delle esclusioni in {path}")
+
 QUICKBAR_FIELD = re.compile(r"^\|\s*(Stato|Stato federato|Regione|Territorio)\s*=\s*\[\[([^\]|#]+)", re.M)
 
 def city_parents(text):
@@ -611,12 +709,14 @@ def main():
     ap.add_argument("--vs", action="store_true",
                     help="include Viaggiare Sicuri (Farnesina): licenza non verificata, SOLO uso locale/personale, mai pubblicare")
     ap.add_argument("--dump-dir", type=Path,
-                    help="cartella con i dump di dumps.wikimedia.org (vedi DUMP_FILES): testi dai dump invece che dall'API")
-    ap.add_argument("--dump-date", help="data dei dump (AAAAMMGG), di default il nome della cartella")
+                    help="cartella con i dump di dumps.wikimedia.org (vedi DUMP_WIKIS): testi dai dump invece che dall'API")
+    ap.add_argument("--dump-date", help="data dei dump (MM-AAAA, AAAA-MM o AAAA-MM-GG), di default il nome della cartella")
     ap.add_argument("--cities", type=int, default=0,
                     help="con --dump-dir: quante citta' di Wikivoyage IT usare (0 = nessuna)")
     ap.add_argument("--guides-db", type=Path,
                     help="guides.db pubblicato: domande sui fatti rapidi (lingua, prese, fuso, numeri di emergenza)")
+    ap.add_argument("--recheck-missing", action="store_true",
+                    help="cerca di nuovo le pagine date per inesistenti (\"-\" in sft-sources.tsv, cache vuote in raw/)")
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
     rng = random.Random(a.seed)
@@ -628,11 +728,11 @@ def main():
     test_titles = {r[2] for r in all_regions if r[0] in TEST_REGIONS}
     regions = [r for r in all_regions if r[0] in TEST_REGIONS
                or not (any(r[0].startswith(f"{t}-") for t in TEST_REGIONS) or r[2] in test_titles)]
+    excluded = [(r[0], "-", "-", "regione-di-test") for r in all_regions if r not in regions]
     regions = regions[: a.limit or None]
     def load_page(rid, lang, title):
         """(testo, url) dalla cache o da Wikivoyage, o None."""
-        suffix = "" if lang == "it" else f".{lang}"
-        cache, meta = OUT / "raw" / f"{rid}{suffix}.txt", OUT / "raw" / f"{rid}{suffix}.url"
+        cache, meta = raw_cache(rid, lang)
         try:
             if cache.exists():  # file vuoto = pagina inesistente (per riprovare basta cancellarlo)
                 text = cache.read_text(encoding="utf-8")
@@ -649,22 +749,25 @@ def main():
             print(f"-- {rid}: errore {lang.upper()} {e}", file=sys.stderr); return None
 
     # Con --dump-dir: titoli da SOURCES_TSV (i mancanti via API, poi salvati), testi dai dump.
-    sources, texts = load_sources(), {}
+    sources, texts, redirects = load_sources(), {}, {"wp": {}}  # wp: load_titles segue gia' i redirect
+    wiki_sources = ("it", "en", *WP_LANG_SUFFIX.values())
+    if a.recheck_missing:
+        forget_missing(regions, wiki_sources, sources)
     if a.dump_dir:
-        date = a.dump_date or a.dump_dir.name
-        files = {k: a.dump_dir / v.format(d=date) for k, v in DUMP_FILES.items()}
+        date = wiki_dump.normalize_date(a.dump_date or a.dump_dir.name)
         phase("titoli", f"{len(regions)} regioni (da {SOURCES_TSV.name}, i mancanti via API)")
-        for rid, _, title in regions:
-            for src in ("it", "en", *WP_LANG_SUFFIX.values()):
-                if (rid, src) not in sources:
-                    res = load_page(rid, src, title)
-                    sources[(rid, src)] = urllib.parse.unquote(res[1].rsplit("/wiki/", 1)[1]).replace("_", " ") if res else "-"
+        resolve_titles(regions, wiki_sources, sources, load_page)
         save_sources(sources)
         phase("dump", f"Wikivoyage IT/EN e Wikipedia IT del {date}")
         for lang in ("it", "en"):
-            texts[lang] = {t: x for t, x, redirect in wiki_dump.iter_pages(files[lang]) if not redirect}
+            texts[lang], redirects[lang] = {}, {}
+            for t, x, redirect in wiki_dump.iter_pages(wiki_dump.dump_files(a.dump_dir, DUMP_WIKIS[lang], date)):
+                if redirect:
+                    redirects[lang][t] = redirect
+                else:
+                    texts[lang][t] = x
         wp_titles = {t for (_, src), t in sources.items() if src.startswith("wp_") and t != "-"}
-        texts["wp"] = wiki_dump.load_multistream(files["wp"], files["wp_index"], wp_titles)
+        texts["wp"] = {t: x for t, (_, x) in wiki_dump.load_titles(a.dump_dir, DUMP_WIKIS["wp"], date, wp_titles).items()}
 
     def load_source(rid, lang, title):
         """(testo, url): dal dump con --dump-dir, altrimenti dalla cache in raw/ o dalla rete."""
@@ -672,7 +775,7 @@ def main():
             return load_page(rid, lang, title)
         page = sources.get((rid, lang), "-")
         group = "wp" if lang.startswith("wp_") else lang
-        text = texts[group].get(wiki_dump.norm_title(page)) if page != "-" else None
+        text = dump_text(texts[group], redirects[group], page) if page != "-" else None
         return (text, SOURCE_URL[group] + urllib.parse.quote(page.replace(" ", "_"))) if text else None
 
     # data: regionId -> (nome, {"it": [(cat, corpo)], "en": [...]}). I positivi usano solo "it":
@@ -681,23 +784,38 @@ def main():
     vs = vs_codes(regions) if a.vs else {}
     phase("fonti", f"{len(regions)} regioni" + ("" if a.dump_dir else " (pagine dalla cache in raw/, le mancanti dalla rete)"))
     progress = Progress("fonti", len(regions), "regione", every=20)
+    origin = {}  # (regionId, corpo) -> fonte della sezione, per l'elenco delle esclusioni
+
+    def no_text(rid, src, cat, page):
+        excluded.append((rid, src, cat, "nessuna-sezione" if page else "pagina-assente"))
+
     for n, (rid, name, title) in enumerate(regions, 1):
         progress.update(n - 1, rid)
         by_lang = {}
         for lang, headings in (("it", HEADING_TO_CATEGORY), ("en", EN_HEADING_TO_CATEGORY)):
-            page = load_source(rid, lang, title)
-            if page and (secs := parse_sections(page[0], headings)):
+            page, dropped = load_source(rid, lang, title), []
+            if page and (secs := parse_sections(page[0], headings, dropped)):
                 by_lang[lang] = secs
+                origin.update(((rid, body), lang) for _, body in secs)
                 attribution.append((rid, name, page[1], "CC BY-SA 4.0"))
+            else:
+                no_text(rid, lang, "-", page)
+            excluded.extend((rid, lang, cat, "markup-residuo") for cat in dropped)
         page = load_page(rid, "vs", vs[rid]) if rid in vs else None
         if page and (secs := parse_vs(page[0])):  # italiano: alimenta anche i positivi
             by_lang["it"] = by_lang.get("it", []) + secs
+            origin.update(((rid, body), "vs") for _, body in secs)
             attribution.append((rid, name, page[1], "licenza non verificata (Farnesina)"))
+        elif rid in vs:
+            no_text(rid, "vs", "-", page)
         for cat, suffix in WP_LANG_SUFFIX.items():  # italiano: alimenta anche i positivi (categorie deboli)
             page = load_source(rid, suffix, title)
-            if page and (secs := parse_wp_it(page[0], cat)):
+            if page and (secs := parse_wp(page[0], cat)):
                 by_lang["it"] = by_lang.get("it", []) + secs
+                origin.update(((rid, body), suffix) for _, body in secs)
                 attribution.append((rid, name, page[1], "CC BY-SA 4.0 (Wikipedia)"))
+            else:
+                no_text(rid, suffix, cat, page)
         if by_lang:
             data[rid] = (name, by_lang)
 
@@ -732,7 +850,9 @@ def main():
         secs_it = langs.get("it", [])
         for cat, body in secs_it:
             if not covers(cat, body):
+                excluded.append((rid, origin[(rid, body)], cat, "fuori-categoria"))
                 continue
+            pos_before = pos
             others = [b for c, b in secs_it if c != cat and not covers(cat, b)]
             for _ in range(3):
                 q = question(cat, name)
@@ -746,6 +866,8 @@ def main():
                     continue
                 seen.add((context, q))
                 rows.append(row("pos", rid, cat, context, q, answer)); pos += 1
+            if pos == pos_before:
+                excluded.append((rid, origin[(rid, body)], cat, "nessuna-risposta"))
     # negativi: categoria assente dal contesto (1-3 sezioni che non la trattano), domanda fuori tema,
     # oppure contesto di fallback
     n_neg = int(pos * a.negatives)
@@ -877,7 +999,11 @@ def main():
     # (stesso nome atteso di default da train_lora.py); --vs (locale) scrive su file .with-vs a parte, cosi'
     # le due varianti convivono sul disco senza sovrascriversi a vicenda
     for name, (dataset, *_, lic, _) in OFF_TOPIC_SOURCES.items():  # solo domande, con rifiuto come risposta
-        attribution.append(("-", f"domande fuori tema ({name})", f"https://huggingface.co/datasets/{dataset}", lic))
+        attribution.append(("-", f"domande fuori tema ({name})", f"https://huggingface.co/datasets/{dataset}/tree/{OFF_TOPIC_REVISIONS[dataset]}", lic))
+    if a.dump_dir:  # la data del dump resta accanto al dataset
+        for wiki in ("itwikivoyage", "enwikivoyage", "itwiki"):
+            attribution.append(("-", f"export {wiki} del {date}", wiki_dump.export_url(wiki, date),
+                                "CC BY-SA 4.0 (testo delle pagine elencate sopra)"))
     suffix = ".with-vs" if a.vs else ""
     data_out, attr_out = OUT / f"pocket_travel_sft{suffix}.jsonl", OUT / f"ATTRIBUTION{suffix}.tsv"
     with open(data_out, "w", encoding="utf-8") as f:
@@ -894,10 +1020,11 @@ def main():
     print("per categoria:", dict(Counter(r["category"] for r in rows)))
     print(f"domande fuori tema distinte usate: {len(off_topic_uses)} (max {max(off_topic_uses.values(), default=0)} volte l'una)")
     if a.dump_dir:
-        print(f"fonti: dump del {a.dump_date or a.dump_dir.name}, titoli in {SOURCES_TSV}")
+        print(f"fonti: dump del {date}, titoli in {SOURCES_TSV}")
     if a.guides_db:
         print(f"fatti rapidi: {quick_pos} positivi, {quick_neg} rifiuti; note personali: {note_pos} positivi")
     print(f"scritto {data_out}")
+    write_excluded(OUT / f"EXCLUDED{suffix}.tsv", excluded)
     print("SOLO USO LOCALE (--vs: include Viaggiare Sicuri, licenza non verificata, non pubblicare su HuggingFace)" if a.vs
           else "PUBBLICABILE (nessuna riga Viaggiare Sicuri)")
 

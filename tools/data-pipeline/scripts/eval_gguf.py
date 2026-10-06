@@ -41,7 +41,7 @@ ap.add_argument("--max-vram-held", type=float, default=vram.DEFAULT_MAX_HELD_PCT
 ap.add_argument("--empty-think", action="store_true",
                 help="forza il blocco <think> vuoto (di default: aggiunto se il chat template del GGUF usa enable_thinking, come ai_chat.cpp)")
 ap.add_argument("--dataset", default=DEFAULT_DATASET, help="file in data/sft/ usato nel training (test base: sue regioni di test; "
-                                                         "con pocket_travel_sft.en.jsonl il test esteso e' eval_extended.en.jsonl)")
+                                                         "con un dataset *.en.jsonl il test esteso e' eval_extended.en.jsonl)")
 ap.add_argument("--answers", type=Path, help="salva domanda, risposta attesa e ottenuta (JSONL) per leggerle a mano")
 a = ap.parse_args()
 

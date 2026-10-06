@@ -33,8 +33,10 @@ anguilla	en	Anguilla
 anguilla	it	Anguilla (isola)
 anguilla	wp_cibo	-
 anguilla	wp_conn	-
-anguilla	wp_usi	Anguilla (Territorio d'oltremare britannico)
+anguilla	wp_usi	-
 anguilla	wp_vita	-
+antartide	en	Antarctica
+antartide	it	Antartide
 antigua-barbuda	en	Antigua and Barbuda
 antigua-barbuda	it	Antigua e Barbuda
 antigua-barbuda	wp_cibo	Cucina di Antigua e Barbuda
@@ -84,8 +86,8 @@ azerbaigian	wp_conn	-
 azerbaigian	wp_usi	Cultura dell'Azerbaigian
 azerbaigian	wp_vita	-
 bahamas	en	The Bahamas
-bahamas	it	-
-bahamas	wp_cibo	-
+bahamas	it	Bahamas
+bahamas	wp_cibo	Cucina bahamense
 bahamas	wp_conn	-
 bahamas	wp_usi	-
 bahamas	wp_vita	-
@@ -123,7 +125,7 @@ benin	en	Benin
 benin	it	Benin
 benin	wp_cibo	Cucina beninese
 benin	wp_conn	-
-benin	wp_usi	Benin
+benin	wp_usi	-
 benin	wp_vita	-
 bermuda	en	Bermuda
 bermuda	it	Bermuda
@@ -166,13 +168,13 @@ botswana	it	Botswana
 botswana	wp_cibo	Cucina botswana
 botswana	wp_conn	-
 botswana	wp_usi	-
-botswana	wp_vita	Botswana
+botswana	wp_vita	-
 brasile	en	Brazil
 brasile	it	Brasile
 brasile	wp_cibo	Cucina brasiliana
 brasile	wp_conn	-
 brasile	wp_usi	-
-brasile	wp_vita	Brasile
+brasile	wp_vita	-
 brunei	en	Brunei
 brunei	it	Brunei
 brunei	wp_cibo	Cucina bruneiana
@@ -209,6 +211,8 @@ camerun	wp_cibo	Cucina camerunense
 camerun	wp_conn	-
 camerun	wp_usi	-
 camerun	wp_vita	-
+canada	en	Canada
+canada	it	Canada
 capo-verde	en	Cape Verde
 capo-verde	it	Capo Verde
 capo-verde	wp_cibo	Cucina capoverdiana
@@ -219,7 +223,7 @@ ciad	en	Chad
 ciad	it	Ciad
 ciad	wp_cibo	Cucina ciadiana
 ciad	wp_conn	-
-ciad	wp_usi	Ciad
+ciad	wp_usi	-
 ciad	wp_vita	-
 cile	en	Chile
 cile	it	Cile
@@ -235,13 +239,13 @@ cina-anhui	wp_usi	-
 cina-anhui	wp_vita	-
 cina-chongqing	en	Chongqing
 cina-chongqing	it	-
-cina-chongqing	wp_cibo	Chongqing
+cina-chongqing	wp_cibo	-
 cina-chongqing	wp_conn	-
 cina-chongqing	wp_usi	-
 cina-chongqing	wp_vita	-
 cina-fujian	en	Fujian
 cina-fujian	it	Fujian
-cina-fujian	wp_cibo	-
+cina-fujian	wp_cibo	Cucina del Fujian
 cina-fujian	wp_conn	-
 cina-fujian	wp_usi	-
 cina-fujian	wp_vita	-
@@ -253,7 +257,7 @@ cina-gansu	wp_usi	-
 cina-gansu	wp_vita	-
 cina-guangdong	en	Guangdong
 cina-guangdong	it	Guangdong
-cina-guangdong	wp_cibo	-
+cina-guangdong	wp_cibo	Cucina cantonese
 cina-guangdong	wp_conn	-
 cina-guangdong	wp_usi	-
 cina-guangdong	wp_vita	-
@@ -313,7 +317,7 @@ cina-jiangsu	wp_usi	-
 cina-jiangsu	wp_vita	-
 cina-jiangxi	en	Jiangxi
 cina-jiangxi	it	Jiangxi
-cina-jiangxi	wp_cibo	-
+cina-jiangxi	wp_cibo	Cucina del Jiangxi
 cina-jiangxi	wp_conn	-
 cina-jiangxi	wp_usi	-
 cina-jiangxi	wp_vita	-
@@ -337,13 +341,13 @@ cina-mongolia-interna	wp_usi	-
 cina-mongolia-interna	wp_vita	-
 cina-ningxia	en	Ningxia
 cina-ningxia	it	Ningxia
-cina-ningxia	wp_cibo	Cucina dell'Anhui
+cina-ningxia	wp_cibo	-
 cina-ningxia	wp_conn	-
 cina-ningxia	wp_usi	-
 cina-ningxia	wp_vita	-
 cina-pechino	en	Beijing
 cina-pechino	it	Pechino
-cina-pechino	wp_cibo	-
+cina-pechino	wp_cibo	Cucina pechinese
 cina-pechino	wp_conn	-
 cina-pechino	wp_usi	-
 cina-pechino	wp_vita	-
@@ -361,13 +365,13 @@ cina-shaanxi	wp_usi	-
 cina-shaanxi	wp_vita	-
 cina-shandong	en	Shandong
 cina-shandong	it	Shandong
-cina-shandong	wp_cibo	-
+cina-shandong	wp_cibo	Cucina dello Shandong
 cina-shandong	wp_conn	-
 cina-shandong	wp_usi	-
 cina-shandong	wp_vita	-
 cina-shanghai	en	Shanghai
 cina-shanghai	it	Shanghai
-cina-shanghai	wp_cibo	-
+cina-shanghai	wp_cibo	Cucina di Shanghai
 cina-shanghai	wp_conn	-
 cina-shanghai	wp_usi	-
 cina-shanghai	wp_vita	-
@@ -399,13 +403,13 @@ cina-xinjiang	en	Xinjiang
 cina-xinjiang	it	Xinjiang
 cina-xinjiang	wp_cibo	-
 cina-xinjiang	wp_conn	-
-cina-xinjiang	wp_usi	Xinjiang
+cina-xinjiang	wp_usi	-
 cina-xinjiang	wp_vita	-
 cina-yunnan	en	Yunnan
 cina-yunnan	it	Yunnan
 cina-yunnan	wp_cibo	-
 cina-yunnan	wp_conn	-
-cina-yunnan	wp_usi	Yunnan
+cina-yunnan	wp_usi	-
 cina-yunnan	wp_vita	-
 cina-zhejiang	en	Zhejiang
 cina-zhejiang	it	Zhejiang
@@ -417,13 +421,13 @@ cipro	en	Cyprus
 cipro	it	Cipro
 cipro	wp_cibo	Cucina cipriota
 cipro	wp_conn	-
-cipro	wp_usi	Cipro
+cipro	wp_usi	-
 cipro	wp_vita	-
 citta-del-vaticano	en	Vatican City
-citta-del-vaticano	it	-
+citta-del-vaticano	it	Città del Vaticano
 citta-del-vaticano	wp_cibo	-
-citta-del-vaticano	wp_conn	Città del Vaticano
-citta-del-vaticano	wp_usi	Città del Vaticano
+citta-del-vaticano	wp_conn	-
+citta-del-vaticano	wp_usi	-
 citta-del-vaticano	wp_vita	-
 colombia	en	Colombia
 colombia	it	Colombia
@@ -432,16 +436,16 @@ colombia	wp_conn	-
 colombia	wp_usi	-
 colombia	wp_vita	-
 colombia-san-andres	en	San Andres and Providencia
-colombia-san-andres	it	-
+colombia-san-andres	it	Regione insulare della Colombia
 colombia-san-andres	wp_cibo	-
 colombia-san-andres	wp_conn	-
 colombia-san-andres	wp_usi	-
 colombia-san-andres	wp_vita	-
 comore	en	Comoros
 comore	it	Comore
-comore	wp_cibo	-
+comore	wp_cibo	Cucina comoriana
 comore	wp_conn	-
-comore	wp_usi	Comore
+comore	wp_usi	-
 comore	wp_vita	-
 congo	en	Republic of the Congo
 congo	it	Repubblica del Congo
@@ -468,7 +472,7 @@ corea-del-sud	wp_conn	-
 corea-del-sud	wp_usi	-
 corea-del-sud	wp_vita	-
 costa-avorio	en	Ivory Coast
-costa-avorio	it	-
+costa-avorio	it	Costa d'Avorio
 costa-avorio	wp_cibo	Cucina ivoriana
 costa-avorio	wp_conn	-
 costa-avorio	wp_usi	-
@@ -492,17 +496,17 @@ cuba	wp_conn	-
 cuba	wp_usi	-
 cuba	wp_vita	-
 curacao	en	Curacao
-curacao	it	-
+curacao	it	Curaçao
 curacao	wp_cibo	-
 curacao	wp_conn	-
-curacao	wp_usi	Curaçao
+curacao	wp_usi	-
 curacao	wp_vita	-
 danimarca	en	Denmark
 danimarca	it	Danimarca
 danimarca	wp_cibo	Cucina danese
 danimarca	wp_conn	-
 danimarca	wp_usi	-
-danimarca	wp_vita	Danimarca
+danimarca	wp_vita	-
 dominica	en	Dominica
 dominica	it	Dominica
 dominica	wp_cibo	-
@@ -615,7 +619,7 @@ francia-corsica	en	Corsica
 francia-corsica	it	Corsica
 francia-corsica	wp_cibo	Cucina corsa
 francia-corsica	wp_conn	-
-francia-corsica	wp_usi	Corsica
+francia-corsica	wp_usi	-
 francia-corsica	wp_vita	-
 francia-grand-est	en	Grand Est
 francia-grand-est	it	-
@@ -669,7 +673,7 @@ gambia	en	Gambia
 gambia	it	Gambia
 gambia	wp_cibo	Cucina gambiana
 gambia	wp_conn	-
-gambia	wp_usi	Gambia
+gambia	wp_usi	-
 gambia	wp_vita	-
 georgia	en	Georgia
 georgia	it	Georgia
@@ -741,7 +745,7 @@ guadalupa	en	Guadeloupe
 guadalupa	it	Guadalupa
 guadalupa	wp_cibo	-
 guadalupa	wp_conn	-
-guadalupa	wp_usi	Guadalupa
+guadalupa	wp_usi	-
 guadalupa	wp_vita	-
 guam	en	Guam
 guam	it	Guam
@@ -759,13 +763,13 @@ guinea	en	Guinea
 guinea	it	Guinea
 guinea	wp_cibo	Cucina guineana
 guinea	wp_conn	-
-guinea	wp_usi	Guinea
+guinea	wp_usi	-
 guinea	wp_vita	-
 guinea-bissau	en	Guinea-Bissau
 guinea-bissau	it	Guinea-Bissau
 guinea-bissau	wp_cibo	Cucina guineense
 guinea-bissau	wp_conn	-
-guinea-bissau	wp_usi	Guinea-Bissau
+guinea-bissau	wp_usi	-
 guinea-bissau	wp_vita	-
 guinea-equatoriale	en	Equatorial Guinea
 guinea-equatoriale	it	Guinea Equatoriale
@@ -782,8 +786,8 @@ guyana	wp_vita	-
 guyana-francese	en	French Guiana
 guyana-francese	it	Guyana francese
 guyana-francese	wp_cibo	-
-guyana-francese	wp_conn	Guyana francese
-guyana-francese	wp_usi	Guyana francese
+guyana-francese	wp_conn	-
+guyana-francese	wp_usi	-
 guyana-francese	wp_vita	-
 haiti	en	Haiti
 haiti	it	Haiti
@@ -842,14 +846,14 @@ islanda	wp_vita	-
 isola-christmas	en	Christmas Island
 isola-christmas	it	Isola di Natale
 isola-christmas	wp_cibo	-
-isola-christmas	wp_conn	Isola di Natale
-isola-christmas	wp_usi	Isola di Natale
+isola-christmas	wp_conn	-
+isola-christmas	wp_usi	-
 isola-christmas	wp_vita	-
 isola-norfolk	en	Norfolk Island
 isola-norfolk	it	Isola Norfolk
 isola-norfolk	wp_cibo	-
-isola-norfolk	wp_conn	Isola Norfolk
-isola-norfolk	wp_usi	Isola Norfolk
+isola-norfolk	wp_conn	-
+isola-norfolk	wp_usi	-
 isola-norfolk	wp_vita	-
 isole-canarie	en	Canary Islands
 isole-canarie	it	Isole Canarie
@@ -864,7 +868,7 @@ isole-cayman	wp_conn	-
 isole-cayman	wp_usi	-
 isole-cayman	wp_vita	-
 isole-cocos	en	Cocos Islands
-isole-cocos	it	-
+isole-cocos	it	Isole Cocos (Keeling)
 isole-cocos	wp_cibo	-
 isole-cocos	wp_conn	-
 isole-cocos	wp_usi	-
@@ -912,7 +916,7 @@ isole-salomone	wp_conn	-
 isole-salomone	wp_usi	-
 isole-salomone	wp_vita	-
 isole-vergini-americane	en	United States Virgin Islands
-isole-vergini-americane	it	-
+isole-vergini-americane	it	Isole Vergini Americane
 isole-vergini-americane	wp_cibo	-
 isole-vergini-americane	wp_conn	-
 isole-vergini-americane	wp_usi	-
@@ -921,7 +925,7 @@ isole-vergini-britanniche	en	British Virgin Islands
 isole-vergini-britanniche	it	Isole Vergini Britanniche
 isole-vergini-britanniche	wp_cibo	-
 isole-vergini-britanniche	wp_conn	-
-isole-vergini-britanniche	wp_usi	Isole Vergini Britanniche
+isole-vergini-britanniche	wp_usi	-
 isole-vergini-britanniche	wp_vita	-
 israele	en	Israel
 israele	it	Israele
@@ -956,19 +960,19 @@ kirghizistan	wp_vita	-
 kiribati-gilbert	en	Kiribati
 kiribati-gilbert	it	Kiribati
 kiribati-gilbert	wp_cibo	-
-kiribati-gilbert	wp_conn	Kiribati
+kiribati-gilbert	wp_conn	-
 kiribati-gilbert	wp_usi	-
 kiribati-gilbert	wp_vita	-
 kiribati-line	en	Kiribati
 kiribati-line	it	Kiribati
 kiribati-line	wp_cibo	-
-kiribati-line	wp_conn	Kiribati
+kiribati-line	wp_conn	-
 kiribati-line	wp_usi	-
 kiribati-line	wp_vita	-
 kosovo	en	Kosovo
 kosovo	it	Kosovo
 kosovo	wp_cibo	Cucina kosovara
-kosovo	wp_conn	Kosovo
+kosovo	wp_conn	-
 kosovo	wp_usi	-
 kosovo	wp_vita	Media in Kosovo
 kuwait	en	Kuwait
@@ -987,7 +991,7 @@ lesotho	en	Lesotho
 lesotho	it	Lesotho
 lesotho	wp_cibo	Cucina lesothiana
 lesotho	wp_conn	-
-lesotho	wp_usi	Lesotho
+lesotho	wp_usi	-
 lesotho	wp_vita	-
 lettonia	en	Latvia
 lettonia	it	Lettonia
@@ -1015,10 +1019,10 @@ libia	wp_usi	-
 libia	wp_vita	-
 liechtenstein	en	Liechtenstein
 liechtenstein	it	Liechtenstein
-liechtenstein	wp_cibo	-
+liechtenstein	wp_cibo	Cucina liechtensteinese
 liechtenstein	wp_conn	-
-liechtenstein	wp_usi	Liechtenstein
-liechtenstein	wp_vita	Liechtenstein
+liechtenstein	wp_usi	-
+liechtenstein	wp_vita	-
 lituania	en	Lithuania
 lituania	it	Lituania
 lituania	wp_cibo	Cucina lituana
@@ -1053,14 +1057,14 @@ malawi	en	Malawi
 malawi	it	Malawi
 malawi	wp_cibo	Cucina malawiana
 malawi	wp_conn	-
-malawi	wp_usi	Malawi
+malawi	wp_usi	-
 malawi	wp_vita	-
 maldive	en	Maldives
 maldive	it	Maldive
 maldive	wp_cibo	Cucina maldiviana
 maldive	wp_conn	-
 maldive	wp_usi	-
-maldive	wp_vita	Maldive
+maldive	wp_vita	-
 malesia	en	Malaysia
 malesia	it	Malesia
 malesia	wp_cibo	Cucina malaysiana
@@ -1087,7 +1091,7 @@ marocco	wp_usi	-
 marocco	wp_vita	-
 martinica	en	Martinique
 martinica	it	Martinica
-martinica	wp_cibo	Martinica
+martinica	wp_cibo	-
 martinica	wp_conn	-
 martinica	wp_usi	-
 martinica	wp_vita	-
@@ -1095,7 +1099,7 @@ mauritania	en	Mauritania
 mauritania	it	Mauritania
 mauritania	wp_cibo	Cucina mauritana
 mauritania	wp_conn	-
-mauritania	wp_usi	Mauritania
+mauritania	wp_usi	-
 mauritania	wp_vita	-
 mauritius	en	Mauritius
 mauritius	it	Mauritius
@@ -1106,7 +1110,7 @@ mauritius	wp_vita	-
 mayotte	en	Mayotte
 mayotte	it	Mayotte
 mayotte	wp_cibo	-
-mayotte	wp_conn	Mayotte
+mayotte	wp_conn	-
 mayotte	wp_usi	-
 mayotte	wp_vita	-
 messico	en	Mexico
@@ -1114,7 +1118,7 @@ messico	it	Messico
 messico	wp_cibo	Cucina messicana
 messico	wp_conn	-
 messico	wp_usi	-
-messico	wp_vita	Messico
+messico	wp_vita	-
 micronesia	en	Federated States of Micronesia
 micronesia	it	Stati Federati di Micronesia
 micronesia	wp_cibo	-
@@ -1130,9 +1134,9 @@ moldavia	wp_vita	-
 monaco	en	Monaco
 monaco	it	Principato di Monaco
 monaco	wp_cibo	Cucina monegasca
-monaco	wp_conn	Principato di Monaco
-monaco	wp_usi	Principato di Monaco
-monaco	wp_vita	Principato di Monaco
+monaco	wp_conn	-
+monaco	wp_usi	-
+monaco	wp_vita	-
 mongolia	en	Mongolia
 mongolia	it	Mongolia
 mongolia	wp_cibo	Cucina mongola
@@ -1149,7 +1153,7 @@ montserrat	en	Montserrat
 montserrat	it	Montserrat (isola)
 montserrat	wp_cibo	-
 montserrat	wp_conn	-
-montserrat	wp_usi	Montserrat (isola)
+montserrat	wp_usi	-
 montserrat	wp_vita	-
 mozambico	en	Mozambique
 mozambico	it	Mozambico
@@ -1203,7 +1207,7 @@ niue	en	Niue
 niue	it	Niue
 niue	wp_cibo	-
 niue	wp_conn	-
-niue	wp_usi	Niue
+niue	wp_usi	-
 niue	wp_vita	-
 norvegia	en	Norway
 norvegia	it	Norvegia
@@ -1213,9 +1217,9 @@ norvegia	wp_usi	-
 norvegia	wp_vita	-
 nuova-caledonia	en	New Caledonia
 nuova-caledonia	it	Nuova Caledonia
-nuova-caledonia	wp_cibo	Nuova Caledonia
+nuova-caledonia	wp_cibo	-
 nuova-caledonia	wp_conn	-
-nuova-caledonia	wp_usi	Nuova Caledonia
+nuova-caledonia	wp_usi	-
 nuova-caledonia	wp_vita	-
 nuova-zelanda	en	New Zealand
 nuova-zelanda	it	Nuova Zelanda
@@ -1243,12 +1247,12 @@ pakistan	wp_usi	-
 pakistan	wp_vita	-
 palau	en	Palau
 palau	it	Palau (stato)
-palau	wp_cibo	Palau (stato)
+palau	wp_cibo	-
 palau	wp_conn	-
-palau	wp_usi	Palau (stato)
+palau	wp_usi	-
 palau	wp_vita	-
 palestina	en	Palestinian Territories
-palestina	it	-
+palestina	it	Stato di Palestina
 palestina	wp_cibo	-
 palestina	wp_conn	-
 palestina	wp_usi	-
@@ -1281,7 +1285,7 @@ polinesia-francese	en	French Polynesia
 polinesia-francese	it	Polinesia francese
 polinesia-francese	wp_cibo	-
 polinesia-francese	wp_conn	-
-polinesia-francese	wp_usi	Polinesia francese
+polinesia-francese	wp_usi	-
 polinesia-francese	wp_vita	-
 polonia	en	Poland
 polonia	it	Polonia
@@ -1321,7 +1325,7 @@ repubblica-ceca	wp_usi	-
 repubblica-ceca	wp_vita	-
 repubblica-centrafricana	en	Central African Republic
 repubblica-centrafricana	it	Repubblica Centrafricana
-repubblica-centrafricana	wp_cibo	-
+repubblica-centrafricana	wp_cibo	Cucina centrafricana
 repubblica-centrafricana	wp_conn	-
 repubblica-centrafricana	wp_usi	-
 repubblica-centrafricana	wp_vita	-
@@ -1332,7 +1336,7 @@ repubblica-dominicana	wp_conn	-
 repubblica-dominicana	wp_usi	-
 repubblica-dominicana	wp_vita	-
 riunione	en	Reunion
-riunione	it	-
+riunione	it	La Riunione
 riunione	wp_cibo	Cucina della Riunione
 riunione	wp_conn	-
 riunione	wp_usi	-
@@ -1369,7 +1373,7 @@ russia-estremo-oriente	wp_usi	-
 russia-estremo-oriente	wp_vita	-
 russia-kaliningrad	en	Kaliningrad
 russia-kaliningrad	it	Kaliningrad
-russia-kaliningrad	wp_cibo	Kaliningrad
+russia-kaliningrad	wp_cibo	-
 russia-kaliningrad	wp_conn	-
 russia-kaliningrad	wp_usi	-
 russia-kaliningrad	wp_vita	-
@@ -1416,9 +1420,9 @@ russia-volga-vjatka	wp_conn	-
 russia-volga-vjatka	wp_usi	-
 russia-volga-vjatka	wp_vita	-
 saint-barthelemy	en	Saint Barthelemy
-saint-barthelemy	it	-
+saint-barthelemy	it	Saint-Barthélemy (collettività d'oltremare)
 saint-barthelemy	wp_cibo	-
-saint-barthelemy	wp_conn	Saint-Barthélemy (collettività d'oltremare)
+saint-barthelemy	wp_conn	-
 saint-barthelemy	wp_usi	-
 saint-barthelemy	wp_vita	-
 saint-kitts-nevis	en	Saint Kitts and Nevis
@@ -1437,19 +1441,19 @@ saint-martin	en	Saint Martin
 saint-martin	it	Saint Martin
 saint-martin	wp_cibo	-
 saint-martin	wp_conn	-
-saint-martin	wp_usi	Saint Martin
+saint-martin	wp_usi	-
 saint-martin	wp_vita	-
 saint-pierre-miquelon	en	Saint Pierre and Miquelon
 saint-pierre-miquelon	it	Saint-Pierre e Miquelon
 saint-pierre-miquelon	wp_cibo	-
 saint-pierre-miquelon	wp_conn	-
-saint-pierre-miquelon	wp_usi	Saint-Pierre e Miquelon
+saint-pierre-miquelon	wp_usi	-
 saint-pierre-miquelon	wp_vita	-
 saint-vincent-grenadine	en	Saint Vincent and the Grenadines
 saint-vincent-grenadine	it	Saint Vincent e Grenadine
 saint-vincent-grenadine	wp_cibo	-
 saint-vincent-grenadine	wp_conn	-
-saint-vincent-grenadine	wp_usi	Saint Vincent e Grenadine
+saint-vincent-grenadine	wp_usi	-
 saint-vincent-grenadine	wp_vita	-
 samoa	en	Samoa
 samoa	it	Samoa
@@ -1461,16 +1465,16 @@ samoa-americane	en	American Samoa
 samoa-americane	it	Samoa Americane
 samoa-americane	wp_cibo	-
 samoa-americane	wp_conn	-
-samoa-americane	wp_usi	Samoa Americane
+samoa-americane	wp_usi	-
 samoa-americane	wp_vita	-
 san-marino	en	San Marino
 san-marino	it	San Marino
 san-marino	wp_cibo	Cucina sammarinese
 san-marino	wp_conn	Comunicazioni a San Marino
-san-marino	wp_usi	San Marino
-san-marino	wp_vita	Comunicazioni a San Marino
+san-marino	wp_usi	-
+san-marino	wp_vita	-
 sao-tome-principe	en	Sao Tome and Principe
-sao-tome-principe	it	-
+sao-tome-principe	it	São Tomé e Príncipe
 sao-tome-principe	wp_cibo	Cucina saotomense
 sao-tome-principe	wp_conn	-
 sao-tome-principe	wp_usi	-
@@ -1479,7 +1483,7 @@ senegal	en	Senegal
 senegal	it	Senegal
 senegal	wp_cibo	Cucina senegalese
 senegal	wp_conn	-
-senegal	wp_usi	Senegal
+senegal	wp_usi	-
 senegal	wp_vita	-
 serbia	en	Serbia
 serbia	it	Serbia
@@ -1491,13 +1495,13 @@ seychelles	en	Seychelles
 seychelles	it	Seychelles
 seychelles	wp_cibo	Cucina seychellese
 seychelles	wp_conn	-
-seychelles	wp_usi	Seychelles
+seychelles	wp_usi	-
 seychelles	wp_vita	-
 sierra-leone	en	Sierra Leone
 sierra-leone	it	Sierra Leone
 sierra-leone	wp_cibo	Cucina sierraleonese
 sierra-leone	wp_conn	-
-sierra-leone	wp_usi	Sierra Leone
+sierra-leone	wp_usi	-
 sierra-leone	wp_vita	-
 singapore	en	Singapore
 singapore	it	Singapore
@@ -1511,11 +1515,11 @@ sint-eustatius-saba	wp_cibo	-
 sint-eustatius-saba	wp_conn	-
 sint-eustatius-saba	wp_usi	-
 sint-eustatius-saba	wp_vita	-
-sint-maarten	en	Sint Maarten
-sint-maarten	it	-
+sint-maarten	en	Saint Martin
+sint-maarten	it	Saint Martin
 sint-maarten	wp_cibo	-
 sint-maarten	wp_conn	-
-sint-maarten	wp_usi	Saint Martin
+sint-maarten	wp_usi	-
 sint-maarten	wp_vita	-
 siria	en	Syria
 siria	it	Siria
@@ -1557,19 +1561,19 @@ stati-uniti-alabama	en	Alabama
 stati-uniti-alabama	it	Alabama
 stati-uniti-alabama	wp_cibo	-
 stati-uniti-alabama	wp_conn	-
-stati-uniti-alabama	wp_usi	Alabama
+stati-uniti-alabama	wp_usi	-
 stati-uniti-alabama	wp_vita	-
 stati-uniti-alaska	en	Alaska
 stati-uniti-alaska	it	Alaska
 stati-uniti-alaska	wp_cibo	-
 stati-uniti-alaska	wp_conn	-
-stati-uniti-alaska	wp_usi	Alaska
+stati-uniti-alaska	wp_usi	-
 stati-uniti-alaska	wp_vita	-
 stati-uniti-arizona	en	Arizona
 stati-uniti-arizona	it	Arizona
 stati-uniti-arizona	wp_cibo	-
 stati-uniti-arizona	wp_conn	-
-stati-uniti-arizona	wp_usi	Arizona
+stati-uniti-arizona	wp_usi	-
 stati-uniti-arizona	wp_vita	-
 stati-uniti-arkansas	en	Arkansas
 stati-uniti-arkansas	it	Arkansas
@@ -1593,25 +1597,25 @@ stati-uniti-carolina-del-sud	en	South Carolina
 stati-uniti-carolina-del-sud	it	Carolina del Sud
 stati-uniti-carolina-del-sud	wp_cibo	-
 stati-uniti-carolina-del-sud	wp_conn	-
-stati-uniti-carolina-del-sud	wp_usi	Carolina del Sud
+stati-uniti-carolina-del-sud	wp_usi	-
 stati-uniti-carolina-del-sud	wp_vita	-
 stati-uniti-colorado	en	Colorado
 stati-uniti-colorado	it	Colorado
-stati-uniti-colorado	wp_cibo	Colorado
+stati-uniti-colorado	wp_cibo	-
 stati-uniti-colorado	wp_conn	-
-stati-uniti-colorado	wp_usi	Colorado
+stati-uniti-colorado	wp_usi	-
 stati-uniti-colorado	wp_vita	-
 stati-uniti-connecticut	en	Connecticut
 stati-uniti-connecticut	it	Connecticut
 stati-uniti-connecticut	wp_cibo	-
 stati-uniti-connecticut	wp_conn	-
-stati-uniti-connecticut	wp_usi	Connecticut
+stati-uniti-connecticut	wp_usi	-
 stati-uniti-connecticut	wp_vita	-
 stati-uniti-dakota-del-nord	en	North Dakota
 stati-uniti-dakota-del-nord	it	Dakota del Nord
 stati-uniti-dakota-del-nord	wp_cibo	-
 stati-uniti-dakota-del-nord	wp_conn	-
-stati-uniti-dakota-del-nord	wp_usi	Dakota del Nord
+stati-uniti-dakota-del-nord	wp_usi	-
 stati-uniti-dakota-del-nord	wp_vita	-
 stati-uniti-dakota-del-sud	en	South Dakota
 stati-uniti-dakota-del-sud	it	Dakota del Sud
@@ -1623,7 +1627,7 @@ stati-uniti-delaware	en	Delaware
 stati-uniti-delaware	it	Delaware
 stati-uniti-delaware	wp_cibo	-
 stati-uniti-delaware	wp_conn	-
-stati-uniti-delaware	wp_usi	Delaware
+stati-uniti-delaware	wp_usi	-
 stati-uniti-delaware	wp_vita	-
 stati-uniti-distretto-di-columbia	en	Washington, D.C.
 stati-uniti-distretto-di-columbia	it	Washington
@@ -1638,7 +1642,7 @@ stati-uniti-florida	wp_conn	-
 stati-uniti-florida	wp_usi	-
 stati-uniti-florida	wp_vita	-
 stati-uniti-georgia	en	Georgia (U.S. state)
-stati-uniti-georgia	it	-
+stati-uniti-georgia	it	Georgia (Stati Uniti d'America)
 stati-uniti-georgia	wp_cibo	-
 stati-uniti-georgia	wp_conn	-
 stati-uniti-georgia	wp_usi	-
@@ -1647,37 +1651,37 @@ stati-uniti-hawaii	en	Hawaii
 stati-uniti-hawaii	it	Hawaii
 stati-uniti-hawaii	wp_cibo	Cucina hawaiana
 stati-uniti-hawaii	wp_conn	-
-stati-uniti-hawaii	wp_usi	Hawaii
+stati-uniti-hawaii	wp_usi	-
 stati-uniti-hawaii	wp_vita	-
 stati-uniti-idaho	en	Idaho
 stati-uniti-idaho	it	Idaho
 stati-uniti-idaho	wp_cibo	-
 stati-uniti-idaho	wp_conn	-
-stati-uniti-idaho	wp_usi	Idaho
+stati-uniti-idaho	wp_usi	-
 stati-uniti-idaho	wp_vita	-
 stati-uniti-illinois	en	Illinois
 stati-uniti-illinois	it	Illinois
 stati-uniti-illinois	wp_cibo	-
 stati-uniti-illinois	wp_conn	-
-stati-uniti-illinois	wp_usi	Illinois
+stati-uniti-illinois	wp_usi	-
 stati-uniti-illinois	wp_vita	-
 stati-uniti-indiana	en	Indiana
 stati-uniti-indiana	it	Indiana
 stati-uniti-indiana	wp_cibo	-
 stati-uniti-indiana	wp_conn	-
-stati-uniti-indiana	wp_usi	Indiana
+stati-uniti-indiana	wp_usi	-
 stati-uniti-indiana	wp_vita	-
 stati-uniti-iowa	en	Iowa
 stati-uniti-iowa	it	Iowa
 stati-uniti-iowa	wp_cibo	-
 stati-uniti-iowa	wp_conn	-
-stati-uniti-iowa	wp_usi	Iowa
+stati-uniti-iowa	wp_usi	-
 stati-uniti-iowa	wp_vita	-
 stati-uniti-kansas	en	Kansas
 stati-uniti-kansas	it	Kansas
 stati-uniti-kansas	wp_cibo	-
 stati-uniti-kansas	wp_conn	-
-stati-uniti-kansas	wp_usi	Kansas
+stati-uniti-kansas	wp_usi	-
 stati-uniti-kansas	wp_vita	-
 stati-uniti-kentucky	en	Kentucky
 stati-uniti-kentucky	it	Kentucky
@@ -1687,7 +1691,7 @@ stati-uniti-kentucky	wp_usi	-
 stati-uniti-kentucky	wp_vita	-
 stati-uniti-louisiana	en	Louisiana
 stati-uniti-louisiana	it	Louisiana
-stati-uniti-louisiana	wp_cibo	-
+stati-uniti-louisiana	wp_cibo	Cucina creola della Louisiana
 stati-uniti-louisiana	wp_conn	-
 stati-uniti-louisiana	wp_usi	-
 stati-uniti-louisiana	wp_vita	-
@@ -1695,25 +1699,25 @@ stati-uniti-maine	en	Maine
 stati-uniti-maine	it	Maine
 stati-uniti-maine	wp_cibo	-
 stati-uniti-maine	wp_conn	-
-stati-uniti-maine	wp_usi	Maine
+stati-uniti-maine	wp_usi	-
 stati-uniti-maine	wp_vita	-
 stati-uniti-maryland	en	Maryland
 stati-uniti-maryland	it	Maryland
 stati-uniti-maryland	wp_cibo	-
 stati-uniti-maryland	wp_conn	-
 stati-uniti-maryland	wp_usi	-
-stati-uniti-maryland	wp_vita	Maryland
+stati-uniti-maryland	wp_vita	-
 stati-uniti-massachusetts	en	Massachusetts
 stati-uniti-massachusetts	it	Massachusetts
 stati-uniti-massachusetts	wp_cibo	-
 stati-uniti-massachusetts	wp_conn	-
-stati-uniti-massachusetts	wp_usi	Massachusetts
+stati-uniti-massachusetts	wp_usi	-
 stati-uniti-massachusetts	wp_vita	-
 stati-uniti-michigan	en	Michigan
 stati-uniti-michigan	it	Michigan
 stati-uniti-michigan	wp_cibo	-
 stati-uniti-michigan	wp_conn	-
-stati-uniti-michigan	wp_usi	Michigan
+stati-uniti-michigan	wp_usi	-
 stati-uniti-michigan	wp_vita	-
 stati-uniti-minnesota	en	Minnesota
 stati-uniti-minnesota	it	Minnesota
@@ -1725,49 +1729,49 @@ stati-uniti-mississippi	en	Mississippi
 stati-uniti-mississippi	it	Mississippi
 stati-uniti-mississippi	wp_cibo	-
 stati-uniti-mississippi	wp_conn	-
-stati-uniti-mississippi	wp_usi	Mississippi (stato)
+stati-uniti-mississippi	wp_usi	-
 stati-uniti-mississippi	wp_vita	-
 stati-uniti-missouri	en	Missouri
 stati-uniti-missouri	it	Missouri
 stati-uniti-missouri	wp_cibo	-
 stati-uniti-missouri	wp_conn	-
-stati-uniti-missouri	wp_usi	Missouri
+stati-uniti-missouri	wp_usi	-
 stati-uniti-missouri	wp_vita	-
 stati-uniti-montana	en	Montana
 stati-uniti-montana	it	Montana
 stati-uniti-montana	wp_cibo	-
 stati-uniti-montana	wp_conn	-
-stati-uniti-montana	wp_usi	Montana
+stati-uniti-montana	wp_usi	-
 stati-uniti-montana	wp_vita	-
 stati-uniti-nebraska	en	Nebraska
 stati-uniti-nebraska	it	Nebraska
 stati-uniti-nebraska	wp_cibo	-
 stati-uniti-nebraska	wp_conn	-
-stati-uniti-nebraska	wp_usi	Nebraska
+stati-uniti-nebraska	wp_usi	-
 stati-uniti-nebraska	wp_vita	-
 stati-uniti-nevada	en	Nevada
 stati-uniti-nevada	it	Nevada
 stati-uniti-nevada	wp_cibo	-
 stati-uniti-nevada	wp_conn	-
-stati-uniti-nevada	wp_usi	Nevada
+stati-uniti-nevada	wp_usi	-
 stati-uniti-nevada	wp_vita	-
 stati-uniti-new-hampshire	en	New Hampshire
 stati-uniti-new-hampshire	it	New Hampshire
 stati-uniti-new-hampshire	wp_cibo	-
 stati-uniti-new-hampshire	wp_conn	-
-stati-uniti-new-hampshire	wp_usi	New Hampshire
-stati-uniti-new-hampshire	wp_vita	New Hampshire
+stati-uniti-new-hampshire	wp_usi	-
+stati-uniti-new-hampshire	wp_vita	-
 stati-uniti-new-jersey	en	New Jersey
 stati-uniti-new-jersey	it	New Jersey
 stati-uniti-new-jersey	wp_cibo	-
 stati-uniti-new-jersey	wp_conn	-
-stati-uniti-new-jersey	wp_usi	New Jersey
-stati-uniti-new-jersey	wp_vita	New Jersey
+stati-uniti-new-jersey	wp_usi	-
+stati-uniti-new-jersey	wp_vita	-
 stati-uniti-new-york	en	New York (state)
 stati-uniti-new-york	it	New York (stato)
 stati-uniti-new-york	wp_cibo	-
 stati-uniti-new-york	wp_conn	-
-stati-uniti-new-york	wp_usi	New York (stato)
+stati-uniti-new-york	wp_usi	-
 stati-uniti-new-york	wp_vita	-
 stati-uniti-nuovo-messico	en	New Mexico
 stati-uniti-nuovo-messico	it	Nuovo Messico
@@ -1779,13 +1783,13 @@ stati-uniti-ohio	en	Ohio
 stati-uniti-ohio	it	Ohio
 stati-uniti-ohio	wp_cibo	-
 stati-uniti-ohio	wp_conn	-
-stati-uniti-ohio	wp_usi	Ohio
+stati-uniti-ohio	wp_usi	-
 stati-uniti-ohio	wp_vita	-
 stati-uniti-oklahoma	en	Oklahoma
 stati-uniti-oklahoma	it	Oklahoma
 stati-uniti-oklahoma	wp_cibo	-
 stati-uniti-oklahoma	wp_conn	-
-stati-uniti-oklahoma	wp_usi	Oklahoma
+stati-uniti-oklahoma	wp_usi	-
 stati-uniti-oklahoma	wp_vita	-
 stati-uniti-oregon	en	Oregon
 stati-uniti-oregon	it	Oregon
@@ -1795,21 +1799,21 @@ stati-uniti-oregon	wp_usi	-
 stati-uniti-oregon	wp_vita	-
 stati-uniti-pennsylvania	en	Pennsylvania
 stati-uniti-pennsylvania	it	Pennsylvania
-stati-uniti-pennsylvania	wp_cibo	Pennsylvania
+stati-uniti-pennsylvania	wp_cibo	-
 stati-uniti-pennsylvania	wp_conn	-
-stati-uniti-pennsylvania	wp_usi	Pennsylvania
+stati-uniti-pennsylvania	wp_usi	-
 stati-uniti-pennsylvania	wp_vita	-
 stati-uniti-rhode-island	en	Rhode Island
 stati-uniti-rhode-island	it	Rhode Island
-stati-uniti-rhode-island	wp_cibo	Rhode Island
+stati-uniti-rhode-island	wp_cibo	-
 stati-uniti-rhode-island	wp_conn	-
-stati-uniti-rhode-island	wp_usi	Rhode Island
+stati-uniti-rhode-island	wp_usi	-
 stati-uniti-rhode-island	wp_vita	-
 stati-uniti-tennessee	en	Tennessee
 stati-uniti-tennessee	it	Tennessee
 stati-uniti-tennessee	wp_cibo	Cucina degli Stati Uniti meridionali
 stati-uniti-tennessee	wp_conn	-
-stati-uniti-tennessee	wp_usi	Tennessee
+stati-uniti-tennessee	wp_usi	-
 stati-uniti-tennessee	wp_vita	-
 stati-uniti-texas	en	Texas
 stati-uniti-texas	it	Texas
@@ -1821,13 +1825,13 @@ stati-uniti-utah	en	Utah
 stati-uniti-utah	it	Utah
 stati-uniti-utah	wp_cibo	-
 stati-uniti-utah	wp_conn	-
-stati-uniti-utah	wp_usi	Utah
+stati-uniti-utah	wp_usi	-
 stati-uniti-utah	wp_vita	-
 stati-uniti-vermont	en	Vermont
 stati-uniti-vermont	it	Vermont
 stati-uniti-vermont	wp_cibo	-
 stati-uniti-vermont	wp_conn	-
-stati-uniti-vermont	wp_usi	Vermont
+stati-uniti-vermont	wp_usi	-
 stati-uniti-vermont	wp_vita	-
 stati-uniti-virginia	en	Virginia
 stati-uniti-virginia	it	Virginia
@@ -1839,26 +1843,26 @@ stati-uniti-virginia-occidentale	en	West Virginia
 stati-uniti-virginia-occidentale	it	Virginia Occidentale
 stati-uniti-virginia-occidentale	wp_cibo	-
 stati-uniti-virginia-occidentale	wp_conn	-
-stati-uniti-virginia-occidentale	wp_usi	Virginia Occidentale
+stati-uniti-virginia-occidentale	wp_usi	-
 stati-uniti-virginia-occidentale	wp_vita	-
 stati-uniti-washington	en	Washington (state)
 stati-uniti-washington	it	Washington (stato)
 stati-uniti-washington	wp_cibo	-
 stati-uniti-washington	wp_conn	-
-stati-uniti-washington	wp_usi	Washington (stato)
+stati-uniti-washington	wp_usi	-
 stati-uniti-washington	wp_vita	-
 stati-uniti-wisconsin	en	Wisconsin
 stati-uniti-wisconsin	it	Wisconsin
 stati-uniti-wisconsin	wp_cibo	-
 stati-uniti-wisconsin	wp_conn	-
-stati-uniti-wisconsin	wp_usi	Wisconsin
+stati-uniti-wisconsin	wp_usi	-
 stati-uniti-wisconsin	wp_vita	-
 stati-uniti-wyoming	en	Wyoming
 stati-uniti-wyoming	it	Wyoming
 stati-uniti-wyoming	wp_cibo	-
 stati-uniti-wyoming	wp_conn	-
-stati-uniti-wyoming	wp_usi	Wyoming
-stati-uniti-wyoming	wp_vita	Wyoming
+stati-uniti-wyoming	wp_usi	-
+stati-uniti-wyoming	wp_vita	-
 sud-sudan	en	South Sudan
 sud-sudan	it	Sudan del Sud
 sud-sudan	wp_cibo	Cucina sudsudanese
@@ -1875,7 +1879,7 @@ sudan	en	Sudan
 sudan	it	Sudan
 sudan	wp_cibo	Cucina sudanese
 sudan	wp_conn	-
-sudan	wp_usi	Sudan
+sudan	wp_usi	-
 sudan	wp_vita	Media in Sudan
 suriname	en	Suriname
 suriname	it	Suriname
@@ -1886,7 +1890,7 @@ suriname	wp_vita	-
 svalbard-jan-mayen	en	Svalbard
 svalbard-jan-mayen	it	Isole Svalbard
 svalbard-jan-mayen	wp_cibo	-
-svalbard-jan-mayen	wp_conn	Svalbard
+svalbard-jan-mayen	wp_conn	-
 svalbard-jan-mayen	wp_usi	-
 svalbard-jan-mayen	wp_vita	-
 svezia	en	Sweden
@@ -1926,7 +1930,7 @@ thailandia	wp_conn	-
 thailandia	wp_usi	-
 thailandia	wp_vita	-
 timor-est	en	East Timor
-timor-est	it	-
+timor-est	it	Timor Est
 timor-est	wp_cibo	Cucina di Timor Est
 timor-est	wp_conn	-
 timor-est	wp_usi	-
@@ -1940,8 +1944,8 @@ togo	wp_vita	-
 tokelau	en	Tokelau
 tokelau	it	Tokelau
 tokelau	wp_cibo	-
-tokelau	wp_conn	Tokelau
-tokelau	wp_usi	Tokelau
+tokelau	wp_conn	-
+tokelau	wp_usi	-
 tokelau	wp_vita	-
 tonga	en	Tonga
 tonga	it	Tonga
@@ -1983,8 +1987,8 @@ tuvalu	en	Tuvalu
 tuvalu	it	Tuvalu
 tuvalu	wp_cibo	-
 tuvalu	wp_conn	-
-tuvalu	wp_usi	Tuvalu
-tuvalu	wp_vita	Tuvalu
+tuvalu	wp_usi	-
+tuvalu	wp_vita	-
 ucraina	en	Ukraine
 ucraina	it	Ucraina
 ucraina	wp_cibo	Cucina ucraina
@@ -2008,7 +2012,7 @@ uruguay	it	Uruguay
 uruguay	wp_cibo	Cucina uruguaiana
 uruguay	wp_conn	-
 uruguay	wp_usi	-
-uruguay	wp_vita	Uruguay
+uruguay	wp_vita	-
 uzbekistan	en	Uzbekistan
 uzbekistan	it	Uzbekistan
 uzbekistan	wp_cibo	Cucina uzbeka
@@ -2036,7 +2040,7 @@ vietnam	wp_vita	-
 wallis-futuna	en	Wallis and Futuna
 wallis-futuna	it	Wallis e Futuna
 wallis-futuna	wp_cibo	-
-wallis-futuna	wp_conn	Wallis e Futuna
+wallis-futuna	wp_conn	-
 wallis-futuna	wp_usi	-
 wallis-futuna	wp_vita	-
 yemen	en	Yemen
@@ -2049,11 +2053,11 @@ zambia	en	Zambia
 zambia	it	Zambia
 zambia	wp_cibo	Cucina zambiana
 zambia	wp_conn	-
-zambia	wp_usi	Zambia
+zambia	wp_usi	-
 zambia	wp_vita	-
 zimbabwe	en	Zimbabwe
 zimbabwe	it	Zimbabwe
-zimbabwe	wp_cibo	Zimbabwe
+zimbabwe	wp_cibo	-
 zimbabwe	wp_conn	-
 zimbabwe	wp_usi	-
 zimbabwe	wp_vita	-

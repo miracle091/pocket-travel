@@ -7,11 +7,12 @@ domande inglesi scritte a mano che NON sono nei template di training (controllat
   neg_empty   negativo con il contesto di fallback inglese dell'app;
   neg_off     domanda che non c'entra con la guida;
   pos_city / neg_city (con --dump-dir) sulle citta' delle regioni di test, che il training esclude;
-  pos_near / neg_near / pos_dep / neg_dep in fondo, con il seme e le domande inglesi di nearby_rows (generate_eval_set.py).
+  pos_near / neg_near / pos_dep / neg_dep in fondo, con il seme e le domande inglesi di nearby_rows (generate_eval_set.py);
+  pos_wiki / neg_wiki (con --cities-db, cities-en.db delle regioni di test) ancora dopo, come wikipedia_rows di generate_eval_set.py.
 Le pagine EN dei paesi vengono dalla cache di generate_sft_dataset.py (data/sft/raw/<regionId>.en.txt), come per il
 test italiano; le citta' dal dump EN. Nei negativi le categorie sono 4 a caso per regione (le pagine EN hanno quasi
 tutte le sezioni: con le sole categorie assenti, come nel test italiano, i negativi sarebbero pochissimi).
-Uso: python generate_eval_set_en.py [--dump-dir <cartella dei dump> [--dump-date AAAAMMGG]]
+Uso: python generate_eval_set_en.py [--dump-dir <cartella dei dump> [--dump-date MM-AAAA]] [--cities-db <cities-en.db> ...]
 """
 import argparse
 import json
@@ -21,8 +22,9 @@ from collections import Counter
 from pathlib import Path
 
 from eval_common import TEST_REGIONS
-from generate_eval_set import CITY_NEG, CITY_POS, PARA_CITY, PARA_EN, nearby_rows
-from generate_sft_dataset import CITY_MIN_SECTION, DUMP_FILES, EN_HEADING_TO_CATEGORY, OUT, covers, load_sources, make_context, parse_sections
+from generate_eval_set import CITY_NEG, CITY_POS, PARA_CITY, PARA_EN, nearby_rows, wikipedia_rows
+import wiki_dump
+from generate_sft_dataset import CITY_MIN_SECTION, DUMP_WIKIS, EN_HEADING_TO_CATEGORY, OUT, covers, load_sources, make_context, parse_sections
 from generate_sft_dataset_en import (CITY_HEADING_TO_CATEGORY, CITY_QUESTIONS, FALLBACK_CONTEXT, KEYWORDS, OFF_TOPIC_TRAIN, QUESTIONS,
                                      TOPIC, answer_for, cities_en, display_name, load_en_dump, on_device_prompt, page_title,
                                      refusal, with_article)
@@ -62,7 +64,7 @@ assert not train & ({q for qs in (*PARA.values(), *PARA_CITY_EN.values()) for q 
 
 def city_rows(rng, dump_dir, dump_date, row, test_titles):
     """Come city_rows di generate_eval_set.py, sulle citta' EN la cui catena {{IsPartOf}} arriva a una regione di test."""
-    pages, parent, city_titles = load_en_dump(dump_dir / DUMP_FILES["en"].format(d=dump_date))
+    pages, parent, city_titles = load_en_dump(wiki_dump.dump_files(dump_dir, DUMP_WIKIS["en"], dump_date))
     by_title = {t: t for t in test_titles}
     cities = []
     for title in sorted(city_titles):
@@ -100,7 +102,10 @@ def city_rows(rng, dump_dir, dump_date, row, test_titles):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dump-dir", type=Path, help="cartella dei dump (come generate_sft_dataset_en.py): aggiunge le citta'")
-    ap.add_argument("--dump-date", help="data dei dump (AAAAMMGG), di default il nome della cartella")
+    ap.add_argument("--dump-date", help="data dei dump (MM-AAAA, AAAA-MM o AAAA-MM-GG), di default il nome della cartella")
+    ap.add_argument("--cities-db", nargs="+", metavar="DB",
+                    help="cities-en.db pubblicati (<regionId>--<versione>--cities-en.db o <regionId>=<file>): aggiunge storia e "
+                         "clima delle citta' delle regioni di test")
     args = ap.parse_args()
     rng = random.Random(42)
     sources = load_sources()
@@ -115,9 +120,8 @@ def main():
     for rid in sorted(TEST_REGIONS):
         f = OUT / "raw" / f"{rid}.en.txt"
         secs = parse_sections(f.read_text(encoding="utf-8"), EN_HEADING_TO_CATEGORY) if f.exists() and rid in titles else []
-        if not secs:
-            print(f"{rid}: nessuna sezione EN in {OUT / 'raw'}, regione saltata", file=sys.stderr)
-            continue
+        if not secs:  # un test senza una regione non e' confrontabile con i precedenti: meglio fermarsi
+            sys.exit(f"{rid}: nessuna sezione EN in {OUT / 'raw'}: riempi la cache con generate_sft_dataset.py")
         name = with_article(display_name(titles[rid]))
         for cat, body in secs:
             if not covers(cat, body, KEYWORDS):
@@ -144,8 +148,12 @@ def main():
                            q, refusal("useful to answer the question", TAIL)))
     rng.shuffle(out)
     if args.dump_dir:  # in coda, dopo il mescolamento: le righe dei paesi restano quelle di prima
-        out += city_rows(rng, args.dump_dir, args.dump_date or args.dump_dir.name, row, set(titles.values()))
+        date = wiki_dump.normalize_date(args.dump_date or args.dump_dir.name)
+        # le righe delle citta' dicono da quale dump vengono: un test e un training di mesi diversi si vedono
+        out += [{**r, "dump": date} for r in city_rows(rng, args.dump_dir, date, row, set(titles.values()))]
     out += nearby_rows("en", guides, row, lambda topic: refusal(topic, TAIL))
+    if args.cities_db:
+        out += wikipedia_rows("en", args.cities_db, row, lambda topic: refusal(topic, TAIL))
     with open(OUT / "eval_extended.en.jsonl", "w", encoding="utf-8") as f:
         for r in out:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Ciclo eval completo su un modello fuso: rigenera il test esteso se manca, poi lancia
 eval_behavior.py sia in modalita' base che estesa (generate_eval_set.py), in un solo comando.
-Per un modello addestrato sul dataset inglese (run.json con pocket_travel_sft.en.jsonl) il test esteso e'
+Per un modello addestrato sul dataset inglese (run.json con un dataset *.en.jsonl) il test esteso e'
 eval_extended.en.jsonl, di generate_eval_set_en.py.
 
 Uso: python run_eval.py [<cartella merged>] [opzioni di eval_behavior.py, es. --errors]

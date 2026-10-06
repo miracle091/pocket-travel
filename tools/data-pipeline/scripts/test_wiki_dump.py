@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Test di wiki_dump.py su piccoli dump XML sintetici (bz2 e multistream) creati in una cartella temporanea:
-nessuna rete.
+"""Test di wiki_dump.py su piccoli dump XML sintetici nel formato dei MediaWiki Content File Exports (parti
+<wiki>-AAAA-MM-GG-p<da>p<a>.xml.bz2) creati in una cartella temporanea: nessuna rete.
 
 Uso: python test_wiki_dump.py
 """
@@ -47,47 +47,98 @@ class IterPagesTest(unittest.TestCase):
                    page("Roma Capitale", redirect="roma_(citta)"))
         self.assertEqual([("Roma", "testo & altro", None), ("Roma Capitale", "", "Roma (citta)")], self._iter(xml))
 
+    def test_redirect_a_una_sezione_porta_alla_pagina(self):
+        self.assertEqual([("Cuisine of Guyana", "", "Culture of Guyana")],
+                         self._iter(dump(page("Cuisine of Guyana", redirect="Culture_of_Guyana#Cuisine"))))
+
     def test_senza_namespace_xml(self):
         self.assertEqual([("Rimini", "t", None)], self._iter(dump(page("Rimini", "t", namespace=False))))
 
 
-class LoadMultistreamTest(unittest.TestCase):
-    def _build(self, directory, blocks):
-        """blocks: lista di liste di pagine XML; un flusso bz2 per blocco. Indice con offset:pageid:titolo."""
-        xml, index, offset = b"", [], 0
-        for n, pages in enumerate(blocks):
-            body = "".join(pages).encode("utf-8")
-            chunk = bz2.compress(body)
-            titles = [t for t in _titles(pages)]
-            index += [f"{offset}:{n * 10 + i}:{t}" for i, t in enumerate(titles)]
-            xml += chunk
-            offset += len(chunk)
-        xml_path, index_path = Path(directory) / "dump.xml.bz2", Path(directory) / "index.txt.bz2"
-        xml_path.write_bytes(xml)
-        index_path.write_bytes(bz2.compress("\n".join(index).encode("utf-8")))
-        return xml_path, index_path
+class ContentFileExportTest(unittest.TestCase):
+    def _parts(self, directory, wiki="itwiki"):
+        parts = {f"{wiki}-2026-09-01-p100p200.xml.bz2": dump(page("Torino", "t"), page("Alias", redirect="Destinazione")),
+                 f"{wiki}-2026-09-01-p2p99.xml.bz2": dump(page("Roma", "r"), page("Vuota", "")),
+                 f"{wiki}-2026-09-01-p201p300.xml.bz2": dump(page("Destinazione", "ok"))}
+        for name, xml in parts.items():
+            (Path(directory) / name).write_bytes(bz2.compress(xml))
 
-    def test_trova_le_pagine_richieste_in_blocchi_diversi(self):
+    def test_parti_in_ordine_di_pagina(self):
         with tempfile.TemporaryDirectory() as d:
-            xml, idx = self._build(d, [[page("Roma", "r"), page("Milano", "m")], [page("Torino", "t")]])
-            result = wiki_dump.load_multistream(xml, idx, ["torino", "Roma", "Assente"])
-        self.assertEqual({"Torino": "t", "Roma": "r"}, result)
+            self._parts(d)
+            self._parts(d, "itwikivoyage")  # un'altra wiki nella stessa cartella non si mescola
+            parts = wiki_dump.dump_files(d, "itwiki", "2026-09-01")
+            self.assertEqual(["itwiki-2026-09-01-p2p99.xml.bz2", "itwiki-2026-09-01-p100p200.xml.bz2",
+                              "itwiki-2026-09-01-p201p300.xml.bz2"], [p.name for p in parts])
+            self.assertEqual(["Roma", "Vuota", "Torino", "Alias", "Destinazione"], [t for t, _, _ in wiki_dump.iter_pages(parts)])
 
-    def test_segue_un_livello_di_redirect(self):
+    def test_cartella_di_una_sola_wiki_senza_data(self):
         with tempfile.TemporaryDirectory() as d:
-            xml, idx = self._build(d, [[page("Alias", redirect="Destinazione")], [page("Destinazione", "ok")]])
-            result = wiki_dump.load_multistream(xml, idx, ["Alias"])
-        self.assertEqual({"Alias": "ok"}, result)
+            self._parts(d, "enwikivoyage")
+            self.assertEqual(3, len(wiki_dump.dump_files(d)))
 
-    def test_pagina_vuota_non_e_restituita(self):
+    def test_senza_parti_errore(self):
         with tempfile.TemporaryDirectory() as d:
-            xml, idx = self._build(d, [[page("Vuota", "")]])
-            self.assertEqual({}, wiki_dump.load_multistream(xml, idx, ["Vuota"]))
+            (Path(d) / "itwikivoyage-20260901-pages-articles.xml.bz2").write_bytes(bz2.compress(dump()))
+            with self.assertRaises(FileNotFoundError):
+                wiki_dump.dump_files(d, "itwikivoyage", "2026-09-01")
+
+    def test_pagine_richieste_dalle_parti_con_redirect_e_cache(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._parts(d)
+            self.assertEqual({"Torino": ("Torino", "t"), "Alias": ("Destinazione", "ok")},
+                             wiki_dump.load_titles(d, "itwiki", "2026-09-01", ["torino", "Alias", "Vuota", "Assente"]))
+            self.assertTrue((Path(d) / "itwiki-2026-09-01.pages.json").exists())
+            for part in Path(d).glob("*.xml.bz2"):  # dalla cache, senza rileggere le parti
+                part.unlink()
+            self.assertEqual({"Alias": ("Destinazione", "ok")}, wiki_dump.load_titles(d, "itwiki", "09-2026", ["Alias"]))
+
+    def test_cache_rovinata_si_rifa(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._parts(d)
+            (Path(d) / "itwiki-2026-09-01.pages.json").write_text('{"titles": ["Torino"', encoding="utf-8")
+            self.assertEqual({"Torino": ("Torino", "t")}, wiki_dump.load_titles(d, "itwiki", "2026-09-01", ["Torino"]))
+
+    def test_cache_senza_titolo_finale_si_rifa(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._parts(d)
+            (Path(d) / "itwiki-2026-09-01.pages.json").write_text('{"titles": ["Alias"], "pages": {"Alias": "ok"}}',
+                                                                  encoding="utf-8")
+            self.assertEqual({"Alias": ("Destinazione", "ok")}, wiki_dump.load_titles(d, "itwiki", "2026-09-01", ["Alias"]))
+
+    def test_export_incompleto_errore(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._parts(d)
+            names = [p.name for p in wiki_dump.dump_files(d, "itwiki", "2026-09-01")]
+            sums = Path(d) / "itwiki.SHA256SUMS"
+            sums.write_text("".join(f"{'0' * 64}  {n}\n" for n in names), encoding="utf-8")
+            self.assertEqual(3, len(wiki_dump.dump_files(d, "itwiki", "2026-09-01")))
+            (Path(d) / names[1]).unlink()  # download a meta'
+            with self.assertRaisesRegex(FileNotFoundError, names[1]):
+                wiki_dump.load_titles(d, "itwiki", "2026-09-01", ["Torino"])
+            self.assertFalse((Path(d) / "itwiki-2026-09-01.pages.json").exists())
+
+    def test_data_come_mese_e_anno(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._parts(d)
+            self.assertEqual(3, len(wiki_dump.dump_files(d, "itwiki", "2026/09")))
 
 
-def _titles(pages):
-    import re
-    return [re.search(r"<title>(.*?)</title>", p).group(1) for p in pages]
+class NormalizeDateTest(unittest.TestCase):
+    def test_mese_e_anno_col_giorno_al_primo(self):
+        self.assertEqual("2026-10-01", wiki_dump.normalize_date("10-2026"))
+        self.assertEqual("2026-10-01", wiki_dump.normalize_date("2026/10"))
+        self.assertEqual("2026-10-01", wiki_dump.normalize_date("2026.10"))
+        self.assertEqual("2026-09-01", wiki_dump.normalize_date("9-2026"))
+
+    def test_data_completa_per_sperimentare(self):
+        self.assertEqual("2026-10-01", wiki_dump.normalize_date("2026-10-01"))
+        self.assertEqual("2026-10-15", wiki_dump.normalize_date("2026-10-15"))
+
+    def test_formati_e_date_non_validi(self):
+        for text in ("13-2026", "01-10-2026", "2026-02-30", "2026-00", "ottobre 2026", ""):
+            with self.subTest(text=text), self.assertRaisesRegex(ValueError, "MM-AAAA"):
+                wiki_dump.normalize_date(text)
 
 
 if __name__ == "__main__":

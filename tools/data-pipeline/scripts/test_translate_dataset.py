@@ -70,6 +70,14 @@ class TranslatorTest(unittest.TestCase):
             t.cache[t._key(sentence)] = translated
         return t
 
+    def test_parentesi_svuotate_dalla_traduzione_tolte(self):
+        # MarianMT perde i caratteri cinesi o arabi: "Yu Cai (豫菜)" -> "Yu Cai ()"
+        with tempfile.TemporaryDirectory() as d:
+            t = self._translator(d, {"Lo Henan è la patria di Yu Cai (豫菜).": "Henan is home to Yu Cai ().",
+                                     "I Bai (白族, Baizu) vivono qui.": "The Bai (, Baizu) live here."})
+            self.assertEqual(["Henan is home to Yu Cai.\nThe Bai (Baizu) live here."],
+                             t.translate_many(["Lo Henan è la patria di Yu Cai (豫菜).\nI Bai (白族, Baizu) vivono qui."]))
+
     def test_chiave_dipende_dalla_direzione(self):
         with tempfile.TemporaryDirectory() as d:
             a = ts.Translator("it", "en", d)

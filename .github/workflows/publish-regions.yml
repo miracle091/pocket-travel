@@ -1034,22 +1034,18 @@ jobs:
         shell: bash
         run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq osmium-tool
 
-      # Dump di Wikivoyage (IT ~50 MB, EN ~130 MB, rifatti una volta al mese) nella cache di Actions,
-      # con la chiave dagli sha1 del dump corrente: gli shard e le run del mese non li riscaricano
-      # (fetch_wikivoyage_lang_dump in lib.sh, WIKIVOYAGE_DUMP_CACHE). Mai bloccante.
+      # Dump di Wikivoyage (MediaWiki Content File Exports, IT ~57 MB, EN ~190 MB, uno al mese il 1°) nella cache di
+      # Actions, con la chiave dagli SHA256SUMS dell'export corrente: gli shard e le run del mese non li riscaricano
+      # (fetch_wikivoyage_dump_parts e wikivoyage_dumps_key in lib.sh, WIKIVOYAGE_DUMP_CACHE). Mai bloccante.
       - name: Chiave dei dump di Wikivoyage
         id: dumps
         continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
-          key=""
-          for lang in it en; do
-            sha="$(curl -sSfL --retry 3 -A "PocketTravelDataPipeline/1.0" "https://dumps.wikimedia.org/${lang}wikivoyage/latest/${lang}wikivoyage-latest-sha1sums.txt" \
-              | awk -v re="^${lang}wikivoyage-[0-9]+-pages-articles[.]xml[.]bz2\$" '$2 ~ re {print substr($1, 1, 12); exit}')"
-            key="$key-$lang$sha"
-          done
-          echo "key=wikivoyage-dumps$key" >> "$GITHUB_OUTPUT"
+          source tools/data-pipeline/scripts/lib.sh
+          key="$(wikivoyage_dumps_key)" || echo "::warning::dump di Wikivoyage: chiave della cache non calcolata, cache saltata"
+          echo "key=${key:-}" >> "$GITHUB_OUTPUT"
 
       - name: Cache dei dump di Wikivoyage
         if: steps.dumps.outputs.key != ''

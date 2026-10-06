@@ -25,8 +25,8 @@ ATTRIBUTION.tsv usato per il controllo e per l'upload: quello dentro <cartella m
 da train_lora.py, riflette il dataset usato per QUESTO training) — altrimenti quello di data/sft/, con un
 avviso (riflette solo l'ultimo dataset generato, non necessariamente quello di questi pesi).
 
-Model card generata: elenca le fonti che alimentano le risposte (Wikivoyage IT, Wikipedia IT: CC BY-SA 4.0)
-separate da quelle usate solo come contesto per i rifiuti (mai riprodotte nell'output). Licenza dichiarata
+Model card generata: elenca le fonti che alimentano le risposte (Wikivoyage e Wikipedia IT/EN, traduzioni MarianMT,
+dati Open Government Licence) separate da quelle usate solo per le domande. Licenza dichiarata
 cc-by-sa-4.0 di default (modificabile con --license); ATTRIBUTION.tsv viene caricato accanto ai pesi.
 Prima di --public conviene comunque una verifica legale.
 """
@@ -62,20 +62,25 @@ tags:
 # {name}
 
 Fine-tuning LoRA (fuso nei pesi) di [{base_model}](https://huggingface.co/{base_model}) come assistente
-di viaggio offline per l'app Pocket Travel: risposte brevi in italiano ancorate al CONTESTO fornito e
-rifiuto esplicito quando il contesto non basta.
+di viaggio offline per l'app Pocket Travel: risposte brevi nella lingua del dataset (italiano o inglese)
+ancorate al CONTESTO fornito e rifiuto esplicito quando il contesto non basta.
 
 ## Dati di addestramento
 
-Fonti che alimentano le risposte (il modello puo' riprodurne frasi letterali):
-- Wikivoyage IT — CC BY-SA 4.0
-- Wikipedia IT, paragrafi degli articoli tematici per paese (cucina/cultura/telecomunicazioni/media) — CC BY-SA 4.0
+Fonti che alimentano le risposte (il modello puo' riprodurne frasi letterali), estratte dai testi e ripulite
+dal markup (modificate rispetto all'originale):
+- Wikivoyage IT ed EN — [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+- Wikipedia IT ed EN, paragrafi degli articoli tematici per paese e Storia e Clima delle citta' — CC BY-SA 4.0
+- sezioni tradotte automaticamente dall'altra lingua con MarianMT (Helsinki-NLP opus-mt-tc-big, CC BY 4.0),
+  indicate come tali in `ATTRIBUTION.tsv`
+- numeri di emergenza e riassunti delle vaccinazioni da Travel.gc.ca (Open Government Licence - Canada 2.0) e
+  gov.uk / TravelHealthPro (Open Government Licence v3.0), con Wikipedia e Wikidata (CC0)
 
-Fonti usate solo come contesto per i rifiuti (mai riprodotte: il target e' sempre la frase di rifiuto, non
-il testo della fonte): Wikivoyage EN (CC BY-SA 4.0).
+Fonti usate solo per le domande (le risposte sono estratte dal contesto o sono la frase di rifiuto): domande di
+viaggio reali (UltraChat, MIT) e domande fuori tema da dataset pubblici, elencati con la loro licenza.
 
-Elenco completo delle pagine sorgente in `ATTRIBUTION.tsv`, incluso in questo repo. Questa build non
-include Viaggiare Sicuri (Farnesina): licenza non verificata, esclusa dai pesi pubblici.
+Elenco completo delle pagine sorgente e delle licenze in `ATTRIBUTION.tsv`, incluso in questo repo. Questa build
+non include Viaggiare Sicuri (Farnesina): licenza non verificata, esclusa dai pesi pubblici.
 
 ## Licenza
 - Modello base: `{base_license}` (vedi la sua scheda; l'avviso di licenza originale resta valido).
@@ -101,6 +106,8 @@ def check_no_vs(attribution, push_public):
     il dataset di default (generate_sft_dataset.py senza --vs) e' pubblicabile. In locale/privato resta
     comunque possibile: qui si avvisa soltanto."""
     if not attribution.exists():
+        if push_public:  # senza l'elenco delle fonti un repo pubblico non rispetterebbe le attribuzioni
+            sys.exit(f"{attribution} non esiste: niente --public senza l'elenco delle fonti")
         return
     vs_rows = sum(1 for line in attribution.read_text(encoding="utf-8").splitlines() if VS_LICENSE in line)
     if not vs_rows:

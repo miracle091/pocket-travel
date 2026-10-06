@@ -54,6 +54,13 @@ class CleanWikitextTest {
     }
 
     @Test
+    fun `un testo in un'altra lingua mostra il testo, non il codice della lingua`() {
+        assertEquals("Called Vieux-Port in French.", cleanBody("Called {{lang|fr|Vieux-Port}} in French."))
+        assertEquals("Called Vieux-Port in French.", cleanBody("Called {{Lang|fr|Vieux-Port|italic=no}} in French."))
+        assertEquals("Known as Le Panier.", cleanBody("Known as {{lang-fr|Le Panier}}."))
+    }
+
+    @Test
     fun `un template non chiuso resta nel testo`() {
         assertEquals("Testo {{non chiuso", cleanBody("Testo {{non chiuso"))
     }

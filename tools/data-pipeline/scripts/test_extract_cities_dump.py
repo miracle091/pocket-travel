@@ -39,9 +39,12 @@ def page(title, text, redirect=None):
 
 
 def write_dump(directory, pages):
-    path = Path(directory) / "dump.xml.bz2"
-    path.write_bytes(bz2.compress(f"<mediawiki>{''.join(pages)}</mediawiki>".encode("utf-8")))
-    return path
+    """Cartella del dump con una parte del Content File Export, come la scarica fetch_wikivoyage_dump_parts."""
+    dump_dir = Path(directory) / "dump"
+    dump_dir.mkdir()
+    (dump_dir / "itwikivoyage-2026-09-01-p1p999.xml.bz2").write_bytes(
+        bz2.compress(f"<mediawiki>{''.join(pages)}</mediawiki>".encode("utf-8")))
+    return dump_dir
 
 
 def run_main(module, argv):

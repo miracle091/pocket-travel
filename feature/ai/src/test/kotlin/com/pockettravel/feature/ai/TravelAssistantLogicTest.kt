@@ -2,6 +2,7 @@ package com.pockettravel.feature.ai
 
 import com.pockettravel.core.data.CarRoute
 import com.pockettravel.core.data.CitySection
+import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.FtsMatchInfo
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSection
@@ -374,6 +375,39 @@ class TravelAssistantLogicTest {
         assertTrue(isVaccinationQuestion("Polio requirements for Pakistan?"))
         assertFalse(isVaccinationQuestion("Com'e' la cucina in Kenya?"))
         assertFalse(isVaccinationQuestion("Is tap water safe to drink?"))
+    }
+
+    @Test
+    fun `le domande sulle emergenze in italiano e inglese aggiungono i numeri di emergenza`() {
+        assertTrue(isEmergencyQuestion("Qual è il numero dell'ambulanza?"))
+        assertTrue(isEmergencyQuestion("Che numero chiamo in caso di emergenza?"))
+        assertTrue(isEmergencyQuestion("How do I call the police?"))
+        assertFalse(isEmergencyQuestion("Dove mangio a Roma?"))
+        assertFalse(isEmergencyQuestion("Is Lisbon safe?"))
+    }
+
+    @Test
+    fun `i numeri di emergenza nel contesto sono la riga dei Fatti rapidi`() {
+        val withGeneral = EmergencyNumbers(general = "112", police = "113", ambulance = "118", fire = "115")
+        val withoutGeneral = EmergencyNumbers(general = null, police = "110", ambulance = "119", fire = "119")
+
+        assertEquals("Numeri di emergenza: Generale 112, Polizia 113, Ambulanza 118, Vigili del fuoco 115", emergencyNumbersContext(withGeneral, "it"))
+        assertEquals("Emergency numbers: General 112, Police 113, Ambulance 118, Fire 115", emergencyNumbersContext(withGeneral, "en"))
+        assertEquals("Numeri di emergenza: Polizia 110, Ambulanza 119, Vigili del fuoco 119", emergencyNumbersContext(withoutGeneral, "it"))
+        assertEquals("Emergency numbers: Police 110, Ambulance 119, Fire 119", emergencyNumbersContext(withoutGeneral, "en"))
+    }
+
+    @Test
+    fun `la riga dei numeri di emergenza in testa al contesto non si ripete nei Fatti rapidi`() {
+        val line = "Numeri di emergenza: Generale 112, Polizia 113, Ambulanza 118, Vigili del fuoco 115"
+        val facts = AssistantSection("Lingua: italiano\n$line\nFuso orario: UTC+1", GuideCategory.FATTI_RAPIDI, "Fatti rapidi")
+        val other = AssistantSection(line, GuideCategory.SICUREZZA, "Sicurezza")
+
+        val result = withoutEmergencyLine(listOf(facts, other), line)
+
+        assertEquals("Lingua: italiano\nFuso orario: UTC+1", result[0].body)
+        assertEquals(other, result[1])
+        assertEquals(emptyList<AssistantSection>(), withoutEmergencyLine(listOf(facts.copy(body = line)), line))
     }
 
     @Test

@@ -53,12 +53,12 @@ def llama_env(exe):
     return env
 
 SFT_DIR = Path(__file__).resolve().parent.parent / "data" / "sft"
-DEFAULT_DATASET = "pocket_travel_sft.jsonl"
+DEFAULT_DATASET = "pocket_travel_sft.v10.it.jsonl"
 REFUSAL = "Il contesto non contiene informazioni"
-# Dataset inglese (generate_sft_dataset_en.py): stesso criterio con il rifiuto inglese, riconosciuto dal prompt
+# Dataset inglese (generate_sft.py --lang en): stesso criterio con il rifiuto inglese, riconosciuto dal prompt
 REFUSAL_EN = "The context does not contain information"
 EN_PROMPT = "You are an offline travel guide."
-# Regioni di test, fisse: erano il campione casuale (seed 42, 1/20) delle 251 regioni del dataset v5 e
+# Regioni di test, fisse: erano il campione casuale (seed 42, 1/20) delle 251 regioni di un dataset precedente e
 # restano le stesse anche quando l'elenco regioni cambia (es. paesi divisi per stato), cosi' i risultati
 # restano confrontabili. generate_sft_dataset.py esclude anche le loro sottoregioni (es. canada-*).
 TEST_REGIONS = frozenset({"antartide", "bosnia-erzegovina", "brasile", "canada", "emirati-arabi-uniti", "figi-lau",

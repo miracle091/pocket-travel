@@ -6,7 +6,8 @@ shard nel workflow), invece di uno per regione: letto poi da GenerateCities.kt (
 una regione alla volta) per generare cities.db, che pulisce il wikitext con la stessa cleanBody
 delle guide - questo script non duplica quella pulizia.
 
-Uso: extract-cities-dump.py <dump.xml.bz2> <regioni.tsv> <outDir>
+Uso: extract-cities-dump.py <cartella del dump> <regioni.tsv> <outDir>
+cartella del dump: le parti dell'export di Wikivoyage IT (fetch_wikivoyage_dump_parts in lib.sh, wiki_dump.py).
 regioni.tsv: righe "regionId<TAB>itTitle" (titolo IT Wikivoyage gia' risolto via langlink, vedi
 resolve_it_wikivoyage_title in lib.sh), una per regione.
 """
@@ -34,9 +35,9 @@ def city_parents(text):
 
 def main():
     if len(sys.argv) != 4:
-        print(f"Uso: {sys.argv[0]} <dump.xml.bz2> <regioni.tsv> <outDir>", file=sys.stderr)
+        print(f"Uso: {sys.argv[0]} <cartella del dump> <regioni.tsv> <outDir>", file=sys.stderr)
         sys.exit(1)
-    dump_path, regions_tsv, out_dir = sys.argv[1], Path(sys.argv[2]), Path(sys.argv[3])
+    dump_path, regions_tsv, out_dir = wiki_dump.dump_files(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
     out_dir.mkdir(parents=True, exist_ok=True)
 
     rows = [line.split("\t") for line in regions_tsv.read_text(encoding="utf-8").splitlines() if line.strip()]

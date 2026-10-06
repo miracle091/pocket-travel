@@ -4,7 +4,7 @@ piu' povera dell'altra (vedi needs_translation). Solo per il training: le guide 
 Wikivoyage nella loro lingua.
 
 Modelli MarianMT di Helsinki-NLP (OPUS-MT, CC BY 4.0): opus-mt-tc-big-en-it e opus-mt-tc-big-it-en. Il testo
-tradotto e' un'opera derivata di Wikivoyage (CC BY-SA 4.0, con l'indicazione "tradotto automaticamente" in
+tradotto e' un'opera derivata di Wikivoyage o Wikipedia (CC BY-SA 4.0, con l'indicazione "tradotto automaticamente" in
 ATTRIBUTION). Si traduce riga per riga e frase per frase, tenendo i segni dell'app all'inizio della riga
 ("▸ " sottotitolo, "• " elenco); una sezione con una frase sospetta (numeri diversi dall'originale, lunghezza
 fuori misura) si scarta intera invece di finire nel dataset con un errore.
@@ -21,12 +21,23 @@ import sys
 from pathlib import Path
 
 MODELS = {("en", "it"): "Helsinki-NLP/opus-mt-tc-big-en-it", ("it", "en"): "Helsinki-NLP/opus-mt-tc-big-it-en"}
+# Revisioni fissate, le stesse di convert-translation-model.sh: un modello aggiornato cambierebbe le traduzioni del
+# dataset (e la cache delle frasi, che non sa da quale revisione vengono)
+REVISIONS = {"Helsinki-NLP/opus-mt-tc-big-en-it": "592d2cfb0797867f1dd223e49141de051faa65c7",
+             "Helsinki-NLP/opus-mt-tc-big-it-en": "5009c4525f89c23e195873e918ba6827777d1a27"}
 LICENSE = "CC BY 4.0"
 MARKERS = ("▸ ", "• ")
 # Fine frase: punto, ! o ? seguiti da spazio e da una maiuscola, una cifra o una virgoletta
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-ZÀ-Ý0-9\"«(])")
 NUMBER = re.compile(r"\d+(?:[.,:]\d+)*")
 POOR_CHARS = 300  # sotto questa lunghezza una sezione e' "povera"
+# MarianMT perde i caratteri di altri alfabeti: "Yu Cai (豫菜)" -> "Yu Cai ()", "(白族, Baizu)" -> "(, Baizu)"
+EMPTY_PARENS = re.compile(r"\s*\(\s*[,;]?\s*\)")
+PARENS_LEADING_COMMA = re.compile(r"\(\s*[,;]\s*")
+
+
+def drop_empty_parens(text):
+    return PARENS_LEADING_COMMA.sub("(", EMPTY_PARENS.sub("", text))
 
 
 def needs_translation(own, other):
@@ -91,8 +102,8 @@ class Translator:
         from transformers import MarianMTModel, MarianTokenizer
         name = MODELS[(self.src, self.tgt)]
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.tokenizer = MarianTokenizer.from_pretrained(name)
-        model = MarianMTModel.from_pretrained(name)
+        self.tokenizer = MarianTokenizer.from_pretrained(name, revision=REVISIONS[name])
+        model = MarianMTModel.from_pretrained(name, revision=REVISIONS[name])
         # transformers 5 non lega lm_head agli embedding quando i pesi sono solo in pytorch_model.bin
         # (opus-mt-tc-big-it-en): senza, il modello genera parole a caso
         if model.config.tie_word_embeddings:
@@ -155,7 +166,7 @@ class Translator:
                 if not all(_plausible(s, t) for s, t in zip(ss, outs)):
                     ok = False
                     break
-                lines.append(marker + " ".join(outs))
+                lines.append(marker + drop_empty_parens(" ".join(outs)))
             result.append("\n".join(lines) if ok else None)
         return result
 

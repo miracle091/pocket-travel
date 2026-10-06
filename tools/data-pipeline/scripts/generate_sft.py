@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Genera il dataset SFT v9 (v10 con --nearby e --distances) in italiano o in inglese con lo stesso metodo, cosi' i due dataset restano equivalenti:
-stesse fonti (Wikivoyage IT ed EN dello stesso dump, Wikipedia IT per le categorie deboli, fatti rapidi e note), stessa
+"""Genera il dataset SFT v10 (v9 con --real-questions 0 e senza le altre opzioni nuove) in italiano o in inglese con lo stesso metodo, cosi' i due dataset restano equivalenti:
+stesse fonti (Wikivoyage IT ed EN dello stesso dump, Wikipedia IT o EN per le categorie deboli, fatti rapidi e note), stessa
 composizione per categoria, stessi tipi di domanda, stesso rapporto di rifiuti. Cambiano solo le tabelle della lingua
 (domande, parole chiave, rifiuto, prompt dell'app), prese da generate_sft_dataset.py (italiano) e
-generate_sft_dataset_en.py (inglese), che restano per rifare i dataset v8.
+generate_sft_dataset_en.py (inglese).
 
 Traduzione incrociata (translate_dataset.py): per ogni regione e categoria, se la sezione nella lingua del dataset
 manca o e' molto piu' povera di quella nell'altra lingua (needs_translation), si usa la sezione dell'altra lingua
-tradotta con MarianMT; lo stesso per i paragrafi di Wikipedia IT nel dataset inglese. Le righe con una sezione tradotta
+tradotta con MarianMT. Il dataset inglese usa gli articoli originali di Wikipedia EN (enwiki) e traduce quelli di
+Wikipedia IT solo per i temi senza articolo inglese. Le righe con una sezione tradotta
 hanno "translated": true e ATTRIBUTION indica la traduzione automatica (CC BY-SA 4.0, opera derivata).
 
 - positivi: sezione giusta + 0-2 sezioni distraenti, risposta = frasi della sezione (estrattivo); una risposta senza
@@ -19,29 +20,45 @@ hanno "translated": true e ATTRIBUTION indica la traduzione automatica (CC BY-SA
 - con --nearby, domande su cosa c'e' qui vicino e sulle prossime partenze con i blocchi di contesto dell'app
   (sft_nearby.py, dati sintetici), per una quota del dataset finale;
 - con --distances (e --cities), domande sulla distanza tra due citta' con le sezioni di entrambe nel contesto: la
-  frase della guida con i km o il tempo di viaggio, o il rifiuto quando le guide non li riportano.
+  frase della guida con i km o il tempo di viaggio, o il rifiuto quando le guide non li riportano;
+- con --cities-db, Storia e Clima delle citta' da Wikipedia (sezioni STORIA e CLIMA dei cities.db pubblicati): domande
+  di storia e clima con la sezione nel contesto, rifiuti quando la citta' non le ha, e domande pratiche con Storia o
+  Clima in coda al contesto (distrattori), per al massimo --wikipedia-cities citta';
+- con --emergency, domande sui numeri di emergenza con la riga dell'app (emergencyNumbersContext) in testa al contesto
+  per le regioni con numeri in emergency-numbers.tsv, il rifiuto per le altre, per una quota del dataset finale;
+- di default (--real-questions 0.2), nelle categorie di REAL_QUESTION_CATS una domanda su cinque e' una domanda di
+  viaggio reale (travel_questions.py, UltraChat MIT, tradotta in italiano per il dataset italiano) invece di un modello.
 Fuori dal training le regioni di test e quelle la cui pagina (IT o EN) e' la pagina di una regione di test o vi
 appartiene (es. figi-occidentali ha la pagina "Figi"/"Fiji" di figi-lau): restano nel file solo le regioni di test.
 
 Uso: python generate_sft.py --lang it|en --dump-dir <cartella dei dump> [--cities 4500] [--guides-db <db>] [--nearby 0.03]
-     [--distances 0.02] [--version v10] [--seed 42]
-Output in data/sft/: pocket_travel_sft.<versione>.<lang>.jsonl e ATTRIBUTION.<versione>.<lang>.tsv; traduzioni in cache in
-raw/translations.<src>-<tgt>.jsonl. La versione di default e' v9 senza --nearby e --distances (l'output del v9), altrimenti v10,
-cosi' un dataset con gli esempi nuovi non sovrascrive mai il v9.
+     [--distances 0.02] [--cities-db <cities.db> ...] [--wikipedia-cities 1500] [--emergency 0.01] [--real-questions 0.2] [--version v10] [--seed 42]
+--cities-db: i cities.db pubblicati della lingua del dataset (cities.db per l'italiano, cities-en.db per l'inglese), uno
+per regione; la regione e' il nome del file fino al primo "--" (<regionId>--<versione>--cities.db, come gli asset delle
+release) oppure si scrive <regionId>=<file>.
+Output in data/sft/: pocket_travel_sft.<versione>.<lang>.jsonl, ATTRIBUTION.<versione>.<lang>.tsv ed EXCLUDED.<versione>.<lang>.tsv
+(le fonti e le sezioni rimaste fuori e perche', vedi write_excluded di generate_sft_dataset.py); traduzioni in cache in
+raw/translations.<src>-<tgt>.jsonl. Senza --version: v10 con --nearby, --distances, --cities-db, --emergency o
+--real-questions diverso da 0 (il default), altrimenti v9; il v9, che usano i training, si sovrascrive solo dando
+--version v9. Fonti e pulizia sono cambiate dal v9 generato: gli stessi argomenti non ridanno quel file.
 """
 import argparse
 import json
 import math
 import random
 import re
+import sqlite3
+import sys
 import urllib.parse
 from collections import Counter, defaultdict
+from contextlib import closing
 from pathlib import Path
 
 import city_population
 import generate_sft_dataset as it
 import generate_sft_dataset_en as en
 import sft_nearby
+import travel_questions
 import wiki_dump
 from eval_common import TEST_REGIONS
 from status import Progress, phase
@@ -63,7 +80,8 @@ LANGS = {
         travel_stems=it.TRAVEL_STEMS, quick_questions=it.QUICK_FACT_QUESTIONS, quick_topic=it.QUICK_FACT_TOPIC,
         quick_keywords=it.QUICK_FACT_KEYWORDS, notes=it.NOTE_SAMPLES, note_label="Nota personale",
         headings=it.HEADING_TO_CATEGORY, city_headings=it.CITY_HEADING_TO_CATEGORY, split=it.SENTENCE_END,
-        stopwords=IT_STOPWORDS, translated="tradotta automaticamente dall'inglese"),
+        stopwords=IT_STOPWORDS, translated="tradotta automaticamente dall'inglese",
+        wiki_questions=it.WIKI_QUESTIONS, other_wiki_questions=it.WIKI_QUESTIONS_EN, wiki_keywords=it.WIKI_KEYWORDS),
     "en": dict(
         prompt=en.on_device_prompt, fallback=en.FALLBACK_CONTEXT,
         questions=en.QUESTIONS, other_questions=it.QUESTIONS,
@@ -74,7 +92,8 @@ LANGS = {
         travel_stems=en.TRAVEL_STEMS, quick_questions=en.QUICK_FACT_QUESTIONS, quick_topic=en.QUICK_FACT_TOPIC,
         quick_keywords=en.QUICK_FACT_KEYWORDS, notes=en.NOTE_SAMPLES, note_label="Personal note",
         headings=it.EN_HEADING_TO_CATEGORY, city_headings=en.CITY_HEADING_TO_CATEGORY, split=en.SENTENCE_END,
-        stopwords=en.STOPWORDS, translated="machine-translated from Italian"),
+        stopwords=en.STOPWORDS, translated="machine-translated from Italian",
+        wiki_questions=en.WIKI_QUESTIONS, other_wiki_questions=it.WIKI_QUESTIONS, wiki_keywords=en.WIKI_KEYWORDS),
 }
 OTHER = {"it": "en", "en": "it"}
 
@@ -118,15 +137,24 @@ def vaccination_answers(text, lang):
     else:
         required = lines[1]
     rec = next((sentence(l) for head in rec_heads for l in lines if l.startswith(head)), None)
-    out = {"any": " ".join(x for x in (required, rec, check) if x)}
+
+    def fit(main, extra):
+        """[main], [extra] e la riga di verifica entro MAX_ANSWER; senza [extra] se non ci sta, None se nemmeno cosi'
+        (i certificati non si tagliano: la domanda di quel tipo non si fa)."""
+        for parts in ((main, extra, check), (main, check)):
+            if len(text := " ".join(x for x in parts if x)) <= it.MAX_ANSWER:
+                return text
+        return None
+
+    out = {"any": fit(required, rec)}
     if rec:
-        out["rec"] = f"{rec} {check}"
+        out["rec"] = fit(rec, None)
     yf = next((sentence(l) for l in lines if l.startswith("- " + VACC_YF[lang])), None)
     if yf or required_head not in lines:
         # febbre gialla non richiesta ma consigliata (paese a rischio): anche la riga dei consigliati
         rec_yf = rec if not yf and rec and VACC_YF[lang] in rec else None
-        out["yf"] = " ".join(x for x in (yf or required, rec_yf, check) if x)
-    return out
+        out["yf"] = fit(yf or required, rec_yf)
+    return {k: v for k, v in out.items() if v}
 
 
 # Distanze tra citta' (--distances): "Quanto dista X da Y?" con nel contesto le sezioni delle due citta', come le cerca
@@ -280,11 +308,313 @@ def nearby_context(rng, block, q, name, bodies, L, transport=False, empty=0.1):
     return it.make_context(rng, rng.sample(unrelated, min(len(unrelated), rng.randint(1, 3))), q, name)
 
 
+# Righe positive con la stessa domanda e la stessa risposta (cambiano solo i distrattori del contesto): due insegnano a
+# ignorarli, di piu' ripetono la stessa coppia (nel v9 c'erano gruppi fino a 6).
+SAME_ANSWER_MAX = 2
+
+
+def question_of(content, prompt):
+    """La domanda di un prompt costruito con [prompt] (on_device_prompt di una lingua)."""
+    probe = prompt("\x00", "\x01")
+    sep, tail = probe[probe.index("\x00") + 1:probe.index("\x01")], probe[probe.index("\x01") + 1:]
+    return content[content.rindex(sep) + len(sep):len(content) - len(tail)]
+
+
+def cap_repeats(rows, prompt, limit=SAME_ANSWER_MAX):
+    """[rows] senza le righe positive oltre la [limit]-esima con la stessa domanda e la stessa risposta."""
+    uses, out = Counter(), []
+    for r in rows:
+        if r["kind"] == "pos":
+            key = (question_of(r["messages"][0]["content"], prompt), r["messages"][1]["content"])
+            uses[key] += 1
+            if uses[key] > limit:
+                continue
+        out.append(r)
+    return out
+
+
+def cached_coordinates(titles, lang, cache_path, fetch=city_population.wikidata_coordinates):
+    """{titolo: (lat, lon)} delle pagine [titles] di Wikivoyage [lang], da [cache_path] (JSON, anche i titoli senza
+    coordinate, come null) e da Wikidata per quelli che la cache non ha ancora. Un errore di rete si propaga e la cache
+    resta com'era: senza coordinate lo stesso seme darebbe un altro dataset."""
+    cache = json.loads(cache_path.read_text(encoding="utf-8")) if cache_path.exists() else {}
+    if missing := sorted(set(titles) - cache.keys()):
+        found = fetch(missing, lang)
+        cache.update({t: found.get(t) for t in missing})
+        cache_path.write_text(json.dumps(cache, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+    return {t: tuple(cache[t]) for t in titles if cache.get(t)}
+
+
+def wp_en_sections(pages, en_title, cat, keywords):
+    """(titolo finale, [(cat, paragrafo)]) dell'articolo di Wikipedia EN sul tema [cat] del paese [en_title], il primo di
+    wp_candidate_titles che c'e' in [pages] ({titolo: (titolo finale, testo)} di wiki_dump.load_titles), oppure
+    (None, []). Come per Wikipedia IT (fetch_wp_it), un titolo che rinvia a un articolo senza la parola del tema
+    ("Vatican City cuisine" -> "Vatican City") non vale."""
+    for title in it.wp_candidate_titles(en_title, cat):
+        final, text = pages.get(wiki_dump.norm_title(title), (None, None))
+        if text and it.topic_word(title, en_title) in final.lower():
+            return final, it.parse_wp(text, cat, keywords, it.WP_SKIP_SECTIONS_EN)
+    return None, []
+
+
+def wp_fallback(secs):
+    """I paragrafi di Wikipedia IT ([(cat, corpo, titolo)] in secs["wp"]) dei temi senza un articolo di Wikipedia EN in
+    secs["wp_en"]: nel dataset inglese si traducono."""
+    have = {c for c, _, _ in secs["wp_en"]}
+    return [s for s in secs["wp"] if s[0] not in have]
+
+
+# Fonti dei riassunti delle vaccinazioni (--vaccinations), con le dichiarazioni richieste dalle licenze (come nella
+# schermata delle licenze dell'app)
+VACC_ATTRIBUTION = [
+    ("-", "vaccinazioni: Travel.gc.ca (Governo del Canada)", "https://travel.gc.ca/travelling/advisories",
+     "Open Government Licence - Canada 2.0: contains information licensed under the Open Government Licence - Canada"),
+    ("-", "vaccinazioni: TravelHealthPro (UKHSA / NaTHNaC)", "https://travelhealthpro.org.uk/countries",
+     "Open Government Licence v3.0: contains public sector information published by UKHSA and NaTHNaC, licensed under the "
+     "Open Government Licence v3.0"),
+]
+
+
+def drop_shared_wp(raw, test_regions):
+    """Toglie da [raw] ({regionId: (nome, secs, ...)}) i paragrafi di Wikipedia (secs["wp"], secs["wp_en"]: [(cat, corpo,
+    titolo)]) di un articolo gia' usato da un'altra regione, e le regioni rimaste senza testo; [(regionId, fonte, cat,
+    motivo)] di quelli tolti. Prima le regioni di test: un articolo che hanno anche loro resta nel test e non entra nel
+    training. Come drop_shared_pages, ma per gli articoli: due regioni con lo stesso titolo inglese (kiribati-gilbert e
+    kiribati-line, "Kiribati") o titoli diversi che rinviano allo stesso articolo ("Cuisine of X" -> "Caribbean cuisine")."""
+    owner, dropped = {"wp": {}, "wp_en": {}}, []
+    for rid in sorted(raw, key=lambda r: r not in test_regions):  # sorted e' stabile: le altre restano in ordine
+        secs = raw[rid][1]
+        for src in ("wp", "wp_en"):
+            kept = []
+            for cat, body, title in secs[src]:
+                first = owner[src].setdefault(title, rid)
+                if first == rid:
+                    kept.append((cat, body, title))
+                else:
+                    dropped.append((rid, src, cat, "regione-di-test" if first in test_regions else "pagina-condivisa"))
+            secs[src] = kept
+        if not any(secs.values()):
+            del raw[rid]
+    return dropped
+
+
+def drop_shared_pages(regions):
+    """([(regionId, nome, titolo IT, titolo EN)] con None al posto di una pagina gia' usata da una regione precedente,
+    [(regionId, lingua)] delle pagine tolte). In sft-sources.tsv alcune regioni hanno la pagina di un'altra ("Saint
+    Martin" per saint-martin e sint-maarten, "Regione del Volga" per due regioni russe): le stesse sezioni entrerebbero
+    due volte con nomi diversi. Senza la pagina in una lingua, la traduzione incrociata parte da quella dell'altra."""
+    used, kept, dropped = {"it": set(), "en": set()}, [], []
+    for rid, name, t_it, t_en in regions:
+        titles = {"it": t_it, "en": t_en}
+        for lang, t in titles.items():
+            if t and t in used[lang]:
+                titles[lang] = None
+                dropped.append((rid, lang))
+            elif t:
+                used[lang].add(t)
+        kept.append((rid, name, titles["it"], titles["en"]))
+    return kept, dropped
+
+
+def all_keywords(L):
+    """Le radici di una lingua con quelle di Storia e Clima, che stanno a parte (WIKI_KEYWORDS)."""
+    return {**L["keywords"], **L["wiki_keywords"]}
+
+
+def make_answer_for(L):
+    """answer_for di una lingua: frasi della sezione piu' vicine alla domanda; "" se nessuna ha una parola chiave della
+    categoria o della domanda."""
+    keywords, split, stop = all_keywords(L), L["split"], L["stopwords"]
+
+    def answer_for(context, body, q, cat, name):
+        words = [w for w in re.findall(r"\w+", q) if w.lower() not in stop]
+        answer = it.pick_answer(context, body, " ".join(words), cat, name, keywords, split)
+        stems = {w.lower()[:5] for w in words if len(w) >= 4} - {w[:5] for w in re.findall(r"\w{4,}", name.lower())}
+        low = answer.lower()
+        return answer if it.covers(cat, low, keywords) or any(s in low for s in stems) else ""
+    return answer_for
+
+
+# Storia e Clima delle citta' (--cities-db): sezioni di Wikipedia di cities.db, nel contesto come le mostra l'app. Positivo:
+# la sezione giusta e 0-2 sezioni della citta'; rifiuto: la categoria manca alla citta' e il contesto ha solo sezioni che
+# non la trattano; distrattore: domanda pratica con la Storia o il Clima dopo la sezione giusta (rankSections li tiene in
+# coda, ma buildOnDeviceContext li include se nel contesto c'e' spazio).
+WIKI_CATS = ("STORIA", "CLIMA")
+WIKI_LICENSE = "CC BY-SA 4.0 (Wikipedia)"
+# Categorie di cities.db -> categorie di CITY_QUESTIONS (Come arrivare e Come spostarsi sono entrambe TRASPORTI)
+DB_QUESTION_CATS = {"TRASPORTI": ("ARRIVARE", "TRASPORTI"), "COSA_VEDERE": ("COSA_VEDERE",), "CIBO_BEVANDE": ("CIBO_BEVANDE",),
+                    "ALLOGGIO": ("ALLOGGIO",), "SICUREZZA": ("SICUREZZA",), "CONNETTIVITA": ("CONNETTIVITA",),
+                    "ACQUISTI": ("SHOPPING",)}
+# Copia di historyClimateWords in TravelAssistant.kt (da cambiare insieme): con una di queste parole nella domanda le
+# sezioni Storia e Clima pesano come le altre nella classifica dell'app
+HISTORY_CLIMATE_WORDS = re.compile(
+    r"\b(stori|fondat|fondò|secol|guerr|antic|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|"
+    r"invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season)",
+    re.I)
+
+
+def city_db_region(spec):
+    """(regionId, file) di un argomento di --cities-db: <regionId>=<file>, oppure il solo file, la cui regione e' il nome
+    fino al primo "--" (<regionId>--<versione>--cities.db, come gli asset delle release)."""
+    region, sep, path = spec.partition("=")
+    if sep and re.fullmatch(r"[a-z0-9-]+", region):
+        return region, Path(path)
+    path = Path(spec)
+    if "--" not in path.name:
+        raise ValueError(f"{spec}: la regione non si ricava dal nome del file, scrivere <regionId>=<file>")
+    return path.name.split("--")[0], path
+
+
+def load_city_sections(specs):
+    """{regionId: {citta': [(categoria, corpo, sourceUrl, tradotta)]}} dai cities.db di [specs] (city_sections). I cities.db
+    pubblicati prima della colonna translated hanno solo sezioni non tradotte."""
+    out = {}
+    for spec in specs:
+        region, path = city_db_region(spec)
+        with closing(sqlite3.connect(path)) as db:
+            has_translated = any(col[1] == "translated" for col in db.execute("PRAGMA table_info(city_sections)"))
+            for city, cat, body, url, translated in db.execute(
+                    f"SELECT city, category, body, sourceUrl, {'translated' if has_translated else '0'} "
+                    "FROM city_sections ORDER BY city, rowid"):
+                out.setdefault(region, {}).setdefault(city, []).append((cat, body, url, bool(translated)))
+    return out
+
+
+def wikipedia_positive(rng, lang, name, sec, secs, ask, answer_for):
+    """(categoria, contesto, domanda, risposta, sezioni usate) di una domanda di storia o clima sulla sezione [sec] di una
+    citta' ([secs]: [(categoria, corpo, sourceUrl, tradotta)]), con 0-2 sezioni della citta' che non la trattano; la
+    risposta sono frasi della sezione. [ask] sceglie la domanda. None se la risposta e' troppo corta."""
+    cat, body = sec[0], sec[1]
+    keywords = all_keywords(LANGS[lang])
+    others = [s for s in secs if s is not sec and not it.covers(cat, s[1], keywords)]
+    q = ask(cat, name, wiki=True)
+    chosen = rng.sample(others, min(len(others), rng.choice([0, 0, 1, 1, 2])))
+    context = it.make_context(rng, [body] + [s[1] for s in chosen], q, name)
+    answer = answer_for(context, body, q, cat, name)
+    if len(answer) < 40:  # la sezione giusta e' stata troncata: riprova da sola
+        chosen = []
+        context = it.make_context(rng, [body], q, name)
+        answer = answer_for(context, body, q, cat, name)
+    return (cat, context, q, answer, [sec, *chosen]) if len(answer) >= 40 else None
+
+
+def wikipedia_distractor(rng, lang, name, secs, ask, answer_for):
+    """Come wikipedia_positive, ma per una domanda pratica sulla citta' (CITY_QUESTIONS): nel contesto la sezione giusta e
+    dopo la Storia o il Clima, e la risposta viene dalla prima. None senza una sezione pratica che tratta una categoria
+    (di almeno CITY_MIN_SECTION caratteri), senza Storia ne' Clima, o se la domanda nomina storia o clima."""
+    keywords = all_keywords(LANGS[lang])
+    wiki = [s for s in secs if s[0] in WIKI_CATS]
+    options = [(s, c) for s in secs for c in DB_QUESTION_CATS.get(s[0], ())
+               if len(s[1]) >= it.CITY_MIN_SECTION and it.covers(c, s[1], keywords)]
+    if not wiki or not options:
+        return None
+    right, cat = rng.choice(options)
+    q = ask(cat, name, city=True)
+    if HISTORY_CLIMATE_WORDS.search(q):
+        return None
+    tail = rng.choice(wiki)
+    context = it.make_context(rng, [right[1], tail[1]], q, name, ordered=True)
+    answer = answer_for(context, right[1], q, cat, name)
+    if len(answer) < 40 or not any(p in context for p in tail[1].split("\n") if p.strip()):  # niente coda: non e' un distrattore
+        return None
+    return cat, context, q, answer, [right, tail]
+
+
+def wikipedia_refusal(rng, lang, name, secs, ask, refuse):
+    """Come wikipedia_positive, ma per Storia o Clima che la citta' non ha: contesto con 1-3 sezioni della citta' che non la
+    trattano (in nessuna delle due lingue, la domanda puo' essere nell'altra), risposta [refuse](argomento). None se la
+    citta' ha entrambe o non ha sezioni adatte."""
+    L = LANGS[lang]
+    keywords, other_keywords = all_keywords(L), all_keywords(LANGS[OTHER[lang]])
+    missing = [c for c in WIKI_CATS if c not in {s[0] for s in secs}]
+    if not missing:
+        return None
+    cat = rng.choice(missing)
+    bodies = [s for s in secs if not it.covers(cat, s[1], keywords) and not it.covers(cat, s[1], other_keywords)]
+    if not bodies:
+        return None
+    q = ask(cat, name, wiki=True)
+    chosen = rng.sample(bodies, min(len(bodies), rng.randint(1, 3)))
+    return cat, it.make_context(rng, [s[1] for s in chosen], q, name), q, refuse(L["topic"][cat]), chosen
+
+
+# Numeri di emergenza (--emergency): per le domande che attivano isEmergencyQuestion in TravelAssistant.kt l'app mette in
+# testa al contesto la riga dei Fatti rapidi (emergencyNumbersContext, uguale a emergencyNumbersLine della pipeline dei
+# contenuti: da cambiare insieme), poi le sezioni della guida. Positivo: la risposta e' la riga; rifiuto: la regione non ha
+# numeri (assente da emergency-numbers.tsv o senza numero centralizzato), nessun blocco e sezioni che non ne parlano.
+EMERGENCY_TSV = it.HERE.parent / "content" / "src" / "main" / "resources" / "emergency-numbers.tsv"
+# Copia di emergencyWords in TravelAssistant.kt
+EMERGENCY_WORDS = re.compile(
+    r"emergenz|ambulanz|polizia|pompier|vigili del fuoco|soccors|emergency|ambulance|police|fire brigade|fire department", re.I)
+EMERGENCY_LABELS = {"it": ("Numeri di emergenza", "Generale", "Polizia", "Ambulanza", "Vigili del fuoco"),
+                    "en": ("Emergency numbers", "General", "Police", "Ambulance", "Fire")}
+EMERGENCY_FIELD = {"it": "Numeri di emergenza", "en": "Emergency numbers"}  # campo di QUICK_FACT_TOPIC e QUICK_FACT_KEYWORDS
+EMERGENCY_QUESTIONS = {
+    "it": {"general": ["Qual e' il numero di emergenza in {r}?", "Chi chiamo in caso di emergenza in {r}?",
+                       "Mi servono i numeri di emergenza per {r}.", "Se ho un'emergenza in {r}, che numero compongo?"],
+           "ambulance": ["Come chiamo un'ambulanza in {r}?", "A che numero risponde l'ambulanza in {r}?",
+                         "Mi sento male: che numero chiamo per il soccorso sanitario in {r}?"],
+           "police": ["Come chiamo la polizia in {r}?", "Devo denunciare un furto: che numero ha la polizia in {r}?",
+                      "Se mi rubano il portafoglio in {r}, a che numero chiamo la polizia?"],
+           "fire": ["Qual e' il numero dei vigili del fuoco in {r}?", "Come chiamo i pompieri in {r}?",
+                    "Che numero hanno i pompieri in {r}?"]},
+    "en": {"general": ["What is the emergency number in {r}?", "Who do I call in an emergency in {r}?",
+                       "What number do I dial if there is an emergency in {r}?"],
+          "ambulance": ["How do I call an ambulance in {r}?", "What number reaches an ambulance in {r}?",
+                        "I need an ambulance: which number do I call in {r}?"],
+          "police": ["How do I call the police in {r}?", "What number do I dial for the police in {r}?",
+                     "I want to report a theft: which number reaches the police in {r}?"],
+          "fire": ["What is the number of the fire department in {r}?", "How do I call the fire brigade in {r}?",
+                   "Which number do I dial for the fire department in {r}?"]},
+}
+
+
+def load_emergency_numbers(path=EMERGENCY_TSV):
+    """{regionId: (generale, polizia, ambulanza, vigili del fuoco)} da emergency-numbers.tsv, per le regioni con un numero
+    centralizzato (polizia non vuota, come emergencyNumbersByRegion della pipeline dei contenuti); "" se manca il generale."""
+    rows = [l.split("\t") for l in path.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
+    return {r[0]: tuple(r[1:5]) for r in rows if r[2]}
+
+
+def emergency_line(numbers, lang):
+    """La riga dei numeri di emergenza come emergencyNumbersContext in TravelAssistant.kt: "Generale" solo se c'e' un
+    numero unico."""
+    title, general, police, ambulance, fire = EMERGENCY_LABELS[lang]
+    g, p, a, f = numbers
+    parts = ([f"{general} {g}"] if g else []) + [f"{police} {p}", f"{ambulance} {a}", f"{fire} {f}"]
+    return f"{title}: " + ", ".join(parts)
+
+
+def emergency_example(rng, lang, line, name, bodies, L, refusal, other_lang=0.2, empty=0.1):
+    """(contesto, domanda, risposta, tipo) di una domanda sui numeri di emergenza di una regione con [bodies] come sezioni.
+    Con la riga [line]: in testa al contesto (come nearby_context) e la risposta e' la riga; senza (regione senza numeri):
+    1-3 sezioni che non parlano di emergenze, o il contesto di fallback, e il rifiuto. Una quota [other_lang] delle
+    domande e' nell'altra lingua."""
+    kind = rng.choice(list(EMERGENCY_QUESTIONS[lang]))
+    questions = EMERGENCY_QUESTIONS[OTHER[lang] if rng.random() < other_lang else lang][kind]
+    q = rng.choice(questions).format(r=name)
+    if line:
+        return nearby_context(rng, line, q, name, bodies, L), q, line, "pos"
+    field = EMERGENCY_FIELD[lang]
+    unrelated = [b for b in bodies if not EMERGENCY_WORDS.search(b) and not any(k in b.lower() for k in L["quick_keywords"][field])]
+    if not unrelated or rng.random() < empty:
+        context = L["fallback"]
+    else:
+        context = it.make_context(rng, rng.sample(unrelated, min(len(unrelated), rng.randint(1, 3))), q, name)
+    return context, q, refusal(L["quick_topic"][field]), "neg"
+
+
+# Categorie con domande reali (travel_questions.py) abbastanza numerose e classificate bene: nelle altre le parole chiave
+# sbagliano spesso ("water" mette gli sport acquatici in SALUTE, "dress" un matrimonio in ACQUISTI) o le domande sono
+# poche decine; una domanda nella categoria sbagliata insegnerebbe a rispondere con una sezione che non c'entra.
+REAL_QUESTION_CATS = ("COSA_VEDERE", "ALLOGGIO", "SICUREZZA", "TRASPORTI", "USI_COSTUMI")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lang", choices=("it", "en"), required=True)
     ap.add_argument("--dump-dir", type=Path, required=True)
-    ap.add_argument("--dump-date", help="data dei dump (AAAAMMGG), di default il nome della cartella")
+    ap.add_argument("--dump-date", help="data dei dump (MM-AAAA, AAAA-MM o AAAA-MM-GG), di default il nome della cartella")
     ap.add_argument("--negatives", type=float, default=0.33, help="negativi per positivo (0.33 = ~25%% del totale)")
     ap.add_argument("--off-topic", type=float, default=0.25, help="quota di negativi con domanda fuori tema")
     ap.add_argument("--empty", type=float, default=0.1, help="quota di negativi con il contesto di fallback")
@@ -302,25 +632,51 @@ def main():
                     help="quota del dataset finale (es. 0.03) con domande su cosa c'e' qui vicino e sulle prossime partenze")
     ap.add_argument("--distances", type=float, default=0,
                     help="quota del dataset finale (es. 0.02) con domande sulla distanza tra due citta' (richiede --cities)")
-    ap.add_argument("--version", help="versione nel nome dei file di output (default: v10 con --nearby o --distances, "
-                                      "altrimenti v9)")
+    ap.add_argument("--cities-db", nargs="+", metavar="DB",
+                    help="cities.db (it) o cities-en.db (en) pubblicati, uno per regione: Storia e Clima delle citta' da Wikipedia; "
+                         "la regione e' il nome del file fino al primo '--' (<regionId>--<versione>--cities.db) oppure <regionId>=<file>")
+    ap.add_argument("--wikipedia-cities", type=int, default=1500, help="con --cities-db: al massimo quante citta' usare")
+    ap.add_argument("--emergency", type=float, default=0,
+                    help="quota del dataset finale (es. 0.01) con domande sui numeri di emergenza, la riga dell'app in testa al "
+                         "contesto (da emergency-numbers.tsv) o il rifiuto per le regioni senza numeri")
+    ap.add_argument("--real-questions", type=float, default=0.2,
+                    help="quota delle domande di REAL_QUESTION_CATS presa dalle domande reali di travel_questions.py "
+                         "(0 = solo i modelli, come il v9)")
+    ap.add_argument("--version", help="versione nel nome dei file di output (default: v10 con --nearby, --distances, "
+                                      "--cities-db, --emergency o --real-questions diverso da 0, altrimenti v9); "
+                                      "serve per sovrascrivere un v9 che esiste gia'")
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
     if a.distances and not a.cities:
         ap.error("--distances richiede --cities")
-    version = a.version or ("v10" if a.nearby or a.distances else "v9")
+    if not all(0 <= q < 1 for q in (a.distances, a.nearby, a.emergency)):  # quote del dataset finale: 1 darebbe /0
+        ap.error("--distances, --nearby ed --emergency sono quote: tra 0 e 1 escluso")
+    if missing := [p for _, p in map(city_db_region, a.cities_db or []) if not Path(p).is_file()]:
+        ap.error(f"--cities-db: file inesistenti: {', '.join(map(str, missing))}")
+    version = a.version or ("v10" if a.nearby or a.distances or a.cities_db or a.emergency or a.real_questions else "v9")
+    if version == "v9" and not a.version and (it.OUT / f"pocket_travel_sft.v9.{a.lang}.jsonl").exists():
+        ap.error(f"pocket_travel_sft.v9.{a.lang}.jsonl esiste gia' (lo usano i training): per sovrascriverlo dai --version v9")
     L, lang, other = LANGS[a.lang], a.lang, OTHER[a.lang]
     rng = random.Random(a.seed)
     (it.OUT / "raw").mkdir(parents=True, exist_ok=True)
 
     sources = it.load_sources()
-    date = a.dump_date or a.dump_dir.name
-    phase("dump", f"Wikivoyage IT/EN e Wikipedia IT del {date}")
-    texts_it = {t: x for t, x, redirect in wiki_dump.iter_pages(a.dump_dir / it.DUMP_FILES["it"].format(d=date)) if not redirect}
-    pages_en, parent_en, cities_en = en.load_en_dump(a.dump_dir / it.DUMP_FILES["en"].format(d=date))
+    date = wiki_dump.normalize_date(a.dump_date or a.dump_dir.name)
+    for src in ("it", "en", "wp") + (("wp_en",) if lang == "en" else ()):  # subito, non dopo minuti di lettura dei dump
+        try:
+            wiki_dump.dump_files(a.dump_dir, it.DUMP_WIKIS[src], date)
+        except FileNotFoundError as e:
+            sys.exit(f"dump mancante o incompleto: {e} (download-wikimedia-dumps.sh)")
+    phase("dump", f"Wikivoyage IT/EN e Wikipedia IT{'/EN' if lang == 'en' else ''} del {date}")
+    texts_it, redirects_it = {}, {}  # i redirect a parte: texts_it da' anche le citta', che non vanno contate due volte
+    for t, x, redirect in wiki_dump.iter_pages(wiki_dump.dump_files(a.dump_dir, it.DUMP_WIKIS["it"], date)):
+        if redirect:
+            redirects_it[t] = redirect
+        else:
+            texts_it[t] = x
+    pages_en, parent_en, cities_en = en.load_en_dump(wiki_dump.dump_files(a.dump_dir, it.DUMP_WIKIS["en"], date))
     wp_titles = {t for (_, src), t in sources.items() if src.startswith("wp_") and t != "-"}
-    texts_wp = wiki_dump.load_multistream(a.dump_dir / it.DUMP_FILES["wp"].format(d=date),
-                                          a.dump_dir / it.DUMP_FILES["wp_index"].format(d=date), wp_titles)
+    texts_wp = wiki_dump.load_titles(a.dump_dir, it.DUMP_WIKIS["wp"], date, wp_titles)  # {titolo: (titolo finale, testo)}
 
     def title_of(rid, src):
         if src == "en":
@@ -332,34 +688,61 @@ def main():
     test_it = {t for r in TEST_REGIONS if (t := title_of(r, "it"))}
     test_en = {t for r in TEST_REGIONS if (t := title_of(r, "en"))}
     in_test_en = lambda t: t in test_en or bool(en.cities_en.regions_of(t, parent_en, {x: x for x in test_en}))
-    regions, skipped = [], []
+    regions, skipped, excluded, wiki_title_of = [], [], [], {}
     for rid, name_it, wiki_title in it.load_regions():
+        wiki_title_of[rid] = wiki_title
         t_it, t_en = title_of(rid, "it"), title_of(rid, "en")
         if rid not in TEST_REGIONS and (any(rid.startswith(f"{t}-") for t in TEST_REGIONS) or t_it in test_it
                                         or (t_en and in_test_en(t_en))):
             skipped.append(rid)
+            excluded.append((rid, "-", "-", "regione-di-test"))
             continue
         name_en = en.with_article(en.display_name(t_en or wiki_title))
-        regions.append((rid, name_it if lang == "it" else name_en, t_it, t_en))
+        # "Stati Uniti - Hawaii" -> "Hawaii": nelle domande il nome che scriverebbe un utente, come in inglese
+        regions.append((rid, name_it.rsplit(" - ", 1)[-1] if lang == "it" else name_en, t_it, t_en))
     print(f"regioni escluse perche' dentro una regione di test: {', '.join(skipped)}")
+    regions, shared = drop_shared_pages(regions)
+    excluded.extend((rid, src, "-", "pagina-condivisa") for rid, src in shared)
 
-    # Sezioni per regione nelle due lingue: {regionId: {"it": [(cat, corpo)], "en": [...], "wp": [...]}}
+    # Dataset inglese: gli articoli tematici di Wikipedia EN originali (wp_en_sections), da enwiki
+    texts_wp_en = {}
+    if lang == "en":
+        phase("wikipedia en", f"articoli tematici di {len(regions)} regioni da {it.DUMP_WIKIS['wp_en']} del {date}")
+        wp_en_titles = {t for rid, *_ in regions for cat in it.WP_LANG_SUFFIX
+                        for t in it.wp_candidate_titles(wiki_title_of[rid], cat)}
+        texts_wp_en = wiki_dump.load_titles(a.dump_dir, it.DUMP_WIKIS["wp_en"], date, wp_en_titles)
+
+    # Sezioni per regione: {regionId: {"it": [(cat, corpo)], "en": [...], "wp": [(cat, corpo, titolo)], "wp_en": [...]}}
     phase("fonti", f"{len(regions)} regioni")
     raw, attribution = {}, []
     progress = Progress("fonti", len(regions), "regione", every=20)
     for n, (rid, name, t_it, t_en) in enumerate(regions, 1):
         progress.update(n - 1, rid)
-        secs = {"it": [], "en": [], "wp": []}
-        if t_it and t_it in texts_it:
-            secs["it"] = it.parse_sections(texts_it[t_it], it.HEADING_TO_CATEGORY)
-        if t_en and t_en in pages_en:
-            secs["en"] = it.parse_sections(pages_en[t_en], it.EN_HEADING_TO_CATEGORY)
+        secs = {"it": [], "en": [], "wp": [], "wp_en": []}
+        pages = {"it": it.dump_text(texts_it, redirects_it, t_it) if t_it else None, "en": pages_en.get(t_en)}
+        for src, headings in (("it", it.HEADING_TO_CATEGORY), ("en", it.EN_HEADING_TO_CATEGORY)):
+            dropped = []
+            if pages[src]:
+                secs[src] = it.parse_sections(pages[src], headings, dropped)
+            if not secs[src]:
+                excluded.append((rid, src, "-", "nessuna-sezione" if pages[src] else "pagina-assente"))
+            excluded.extend((rid, src, cat, "markup-residuo") for cat in dropped)
         for cat, suffix in it.WP_LANG_SUFFIX.items():
             t_wp = title_of(rid, suffix)
-            if t_wp and (page := texts_wp.get(t_wp)):
-                secs["wp"] += [(c, b, t_wp) for c, b in it.parse_wp_it(page, cat)]
+            # il titolo finale dopo il redirect: drop_shared_wp riconosce cosi' due titoli che portano allo stesso articolo
+            final_wp, page = texts_wp.get(t_wp, (None, None)) if t_wp else (None, None)
+            found = [(c, b, final_wp) for c, b in it.parse_wp(page, cat)] if page else []
+            if not found:
+                excluded.append((rid, suffix, cat, "nessuna-sezione" if page else "pagina-assente"))
+            secs["wp"] += found
+            if lang == "en":
+                t_wp_en, found = wp_en_sections(texts_wp_en, wiki_title_of[rid], cat, keywords=en.WP_KEYWORDS_EN)
+                if not found:
+                    excluded.append((rid, "wp_en", cat, "nessuna-sezione" if t_wp_en else "pagina-assente"))
+                secs["wp_en"] += [(c, b, t_wp_en) for c, b in found]
         if any(secs.values()):
             raw[rid] = (name, secs, t_it, t_en)
+    excluded.extend(drop_shared_wp(raw, TEST_REGIONS))
     progress.update(len(regions), f"{len(raw)} regioni con testo")
 
     # Traduzione incrociata: per categoria, la sezione dell'altra lingua se quella del dataset manca o e' povera
@@ -374,8 +757,8 @@ def main():
         for cat in set(own) | set(oth):
             if needs_translation("\n\n".join(own.get(cat, [])), "\n\n".join(oth.get(cat, []))):
                 plan.append((rid, cat, oth[cat]))
-        if lang == "en" and secs["wp"]:
-            plan.append((rid, "wp", [b for _, b, _ in secs["wp"]]))
+        if lang == "en" and (fallback := wp_fallback(secs)):
+            plan.append((rid, "wp", [b for _, b, _ in fallback]))
     translated = {}
     if plan and not a.no_translate:
         phase("traduzione", f"{len(plan)} gruppi di sezioni {other}->{lang}")
@@ -387,21 +770,30 @@ def main():
 
     # data: {regionId: (nome, [(cat, corpo, tradotto)], [(cat, corpo) nell'altra lingua])}
     data, n_tr = {}, Counter()
+    # per la fonte nell'elenco delle esclusioni
+    wp_bodies = {src: {b for _, secs, _, _ in raw.values() for _, b, _ in secs[src]} for src in ("wp", "wp_en")}
+    source_of = lambda body, tr: ("tradotta" if tr else "wp" if body in wp_bodies["wp"]
+                                  else "wp_en" if body in wp_bodies["wp_en"] else lang)
     for rid, (name, secs, t_it, t_en) in raw.items():
         own = by_cat(secs[lang])
-        final = []
+        final, wv_own, wv_tr = [], False, False  # usate sezioni di Wikivoyage nella lingua del dataset / tradotte
         for cat in set(own) | {c for (r, c) in translated if r == rid and c != "wp"}:
             tr = translated.get((rid, cat))
             if tr and all(t is not None for t in tr):
-                final += [(cat, t, True) for t in tr]; n_tr["sezioni"] += len(tr)
+                final += [(cat, t, True) for t in tr]; n_tr["sezioni"] += len(tr); wv_tr = True
             else:
-                final += [(cat, b, False) for b in own.get(cat, [])]
+                final += [(cat, b, False) for b in own.get(cat, [])]; wv_own = wv_own or bool(own.get(cat))
+        wp_used = []  # [(titolo, tradotto)] degli articoli di Wikipedia usati, per l'attribuzione
         if lang == "it":
             final += [(c, b, False) for c, b, _ in secs["wp"]]
-        else:
-            for (c, _, _), t in zip(secs["wp"], translated.get((rid, "wp"), [])):
+            wp_used += [(t_wp, False) for _, _, t_wp in secs["wp"]]
+        else:  # gli articoli inglesi originali; per i temi senza, la traduzione di quelli italiani
+            final += [(c, b, False) for c, b, _ in secs["wp_en"]]; n_tr["wikipedia_en"] += len(secs["wp_en"])
+            wp_used += [(t_wp, False) for _, _, t_wp in secs["wp_en"]]
+            for (c, _, t_wp), t in zip(wp_fallback(secs), translated.get((rid, "wp"), [])):
                 if t is not None:
                     final.append((c, t, True)); n_tr["wikipedia"] += 1
+                    wp_used.append((t_wp, True))
         final = [(c, b, t) for c, b, t in final if b]
         if not final:
             continue
@@ -409,27 +801,43 @@ def main():
         page_lang = {"it": (t_it, "it"), "en": (t_en, "en")}
         for src in ("it", "en"):
             title, url_lang = page_lang[src]
-            used = (src == lang and any(not t for c, b, t in final)) or (src == other and any(t for c, b, t in final))
+            # la pagina dell'altra lingua anche se non tradotta: le sue sezioni fanno da contesto nei rifiuti (--other-context)
+            used = wv_own if src == lang else bool(secs[other]) or wv_tr
             if title and used:
-                lic = "CC BY-SA 4.0" + ("" if src == lang else f" ({L['translated']}, {MT_MODELS[(other, lang)]}, {MT_LICENSE})")
+                lic = "CC BY-SA 4.0" + (f" ({L['translated']}, {MT_MODELS[(other, lang)]}, {MT_LICENSE})" if src == other and wv_tr else "")
                 attribution.append((rid, name, it.SOURCE_URL[url_lang] + urllib.parse.quote(title.replace(" ", "_")), lic))
-        for _, _, t_wp in secs["wp"]:
-            lic = "CC BY-SA 4.0 (Wikipedia)" + ("" if lang == "it" else f" ({L['translated']}, {MT_MODELS[('it', 'en')]}, {MT_LICENSE})")
-            attribution.append((rid, name, it.SOURCE_URL["wp"] + urllib.parse.quote(t_wp.replace(" ", "_")), lic))
+        for t_wp, tr in dict.fromkeys(wp_used):  # una riga per articolo, non per paragrafo
+            lic = "CC BY-SA 4.0 (Wikipedia)" + (f" ({L['translated']}, {MT_MODELS[('it', 'en')]}, {MT_LICENSE})" if tr else "")
+            url = it.SOURCE_URL["wp" if lang == "it" or tr else "wp_en"]
+            attribution.append((rid, name, url + urllib.parse.quote(t_wp.replace(" ", "_")), lic))
 
-    keywords, split, stop = L["keywords"], L["split"], L["stopwords"]
+    keywords = L["keywords"]
     covers = lambda cat, text: it.covers(cat, text, keywords)
+    answer_for = make_answer_for(L)
 
-    def answer_for(context, body, q, cat, name):
-        """Frasi della sezione piu' vicine alla domanda; "" se nessuna ha una parola chiave della categoria o della domanda."""
-        words = [w for w in re.findall(r"\w+", q) if w.lower() not in stop]
-        answer = it.pick_answer(context, body, " ".join(words), cat, name, keywords, split)
-        stems = {w.lower()[:5] for w in words if len(w) >= 4} - {w[:5] for w in re.findall(r"\w{4,}", name.lower())}
-        low = answer.lower()
-        return answer if any(k in low for k in keywords[cat]) or any(s in low for s in stems) else ""
+    # Domande reali (--real-questions): per le categorie di REAL_QUESTION_CATS una quota delle domande, positive e rifiuti,
+    # viene da travel_questions.py invece che dai modelli; senza rete o traduttore restano i modelli.
+    real, real_uses = {}, Counter()
+    if a.real_questions:
+        phase("domande reali", travel_questions.DATASET)
+        try:
+            # tradotte in italiano con MarianMT; con --no-translate le originali inglesi, come le domande nell'altra lingua
+            real = travel_questions.load(it.OUT / "raw", "en" if a.no_translate else lang, en.KEYWORDS)
+        except Exception as e:  # senza, lo stesso seme darebbe un altro file con lo stesso nome
+            sys.exit(f"domande reali non disponibili ({e}): riprova con la rete, o usa --real-questions 0")
+        real = {c: qs for c, qs in real.items() if c in REAL_QUESTION_CATS and qs}
+        if not real:
+            sys.exit(f"nessuna domanda reale da {travel_questions.DATASET}: controlla la cache in raw/, o usa --real-questions 0")
+        if real:
+            attribution.extend(travel_questions.ATTRIBUTION)
+        print("domande reali per categoria:", {c: len(qs) for c, qs in real.items()})
 
-    def question(cat, name, city=False):
-        own, oth = (L["city_questions"], L["other_city_questions"]) if city else (L["questions"], L["other_questions"])
+    def question(cat, name, city=False, wiki=False):
+        if not wiki and cat in real and rng.random() < a.real_questions:
+            real_uses[cat] += 1
+            return rng.choice(real[cat])
+        own, oth =((L["wiki_questions"], L["other_wiki_questions"]) if wiki
+                    else (L["city_questions"], L["other_city_questions"]) if city else (L["questions"], L["other_questions"]))
         pool = oth.get(cat) if rng.random() < a.other_lang else None
         return rng.choice(pool or own[cat]).format(r=name)
 
@@ -453,7 +861,9 @@ def main():
     for rid, (name, secs, _) in data.items():
         for cat, body, tr in secs:
             if cat not in L["questions"] or not covers(cat, body):
+                excluded.append((rid, source_of(body, tr), cat, "fuori-categoria"))
                 continue
+            pos_before = pos
             others = [b for c, b, _ in secs if c != cat and not covers(cat, b)]
             for _ in range(a.per_section):
                 q = question(cat, name)
@@ -466,6 +876,8 @@ def main():
                     continue
                 seen.add((context, q))
                 rows.append(row("pos", rid, cat, context, q, answer, tr)); pos += 1
+            if pos == pos_before:
+                excluded.append((rid, source_of(body, tr), cat, "nessuna-risposta"))
     n_neg, ids, tries, neg = int(pos * a.negatives), list(data), 0, 0
     while neg < n_neg and tries < n_neg * 20:
         tries += 1
@@ -606,6 +1018,48 @@ def main():
                 if (context, q) not in seen:
                     seen.add((context, q))
                     rows.append(row("neg", rid, "VACCINAZIONI", context, q, refusal(VACC_TOPIC[lang]))); vacc_neg += 1
+        if vacc_pos + vacc_neg:
+            attribution.extend(VACC_ATTRIBUTION)
+    # Storia e Clima delle citta' da Wikipedia (--cities-db), fuori le regioni di test e quelle che ne condividono la pagina:
+    # una domanda per sezione, un distrattore per citta' e, come per le altre citta', un rifiuto ogni 2-3 citta'
+    wiki = Counter()
+    if a.cities_db:
+        phase("storia e clima", f"al massimo {a.wikipedia_cities} citta'")
+        wiki_cities = []
+        for region, cities_of in sorted(load_city_sections(a.cities_db).items()):
+            if region in TEST_REGIONS or region in skipped or any(region.startswith(f"{t}-") for t in TEST_REGIONS):
+                excluded.append((region, "wp-citta", "-", "regione-di-test"))
+                continue
+            wiki_cities += [(city, secs) for city, secs in sorted(cities_of.items()) if any(s[0] in WIKI_CATS for s in secs)]
+        rng.shuffle(wiki_cities)
+        wiki_cities = wiki_cities[:a.wikipedia_cities]
+        for city, secs in wiki_cities:
+            rid, name = f"citta:{city}", en.display_name(city)
+            examples = []
+            for sec in (s for s in secs if s[0] in WIKI_CATS):
+                if not it.covers(sec[0], sec[1], all_keywords(L)):
+                    excluded.append((rid, "wp-citta", sec[0], "fuori-categoria"))
+                elif example := wikipedia_positive(rng, lang, name, sec, secs, question, answer_for):
+                    examples.append(("pos", "pos", example))
+                else:
+                    excluded.append((rid, "wp-citta", sec[0], "nessuna-risposta"))
+            if example := wikipedia_distractor(rng, lang, name, secs, question, answer_for):
+                examples.append(("pos", "distrattori", example))
+            if rng.random() < a.negatives * 2 and (example := wikipedia_refusal(rng, lang, name, secs, question, refusal)):
+                examples.append(("neg", "neg", example))
+            used = {}
+            for kind, label, (cat, context, q, answer, sections) in examples:
+                if (context, q) in seen:
+                    continue
+                seen.add((context, q))
+                rows.append(row(kind, rid, cat, context, q, answer, any(s[3] for s in sections))); wiki[label] += 1
+                used.update({s[2]: s[3] for s in sections})
+            for url, tr in used.items():
+                lic = (WIKI_LICENSE if "wikipedia.org" in url else "CC BY-SA 4.0") + (
+                    f" ({L['translated']}, {MT_MODELS[(other, lang)]}, {MT_LICENSE})" if tr else "")
+                attribution.append((rid, name, url, lic))
+        print(f"storia e clima: {len(wiki_cities)} citta', positivi {wiki['pos']}, con distrattore {wiki['distrattori']}, "
+              f"rifiuti {wiki['neg']}")
     # Distanze tra citta' (--distances): meta' coppie che una guida collega con km o tempi, meta' coppie che si nominano
     # senza; con le coordinate di Wikidata parte degli esempi ha davanti la distanza calcolata come nell'app (il tipo
     # finale lo decide il contesto, vedi distance_example)
@@ -618,18 +1072,17 @@ def main():
         pairs = distance_pairs(secs_by_name, L["split"])
         named = {n for pair in pairs for n in pair}
         try:
-            found = city_population.wikidata_coordinates({by_name[n][0] for n in named}, lang)
-        except Exception as e:  # senza rete restano gli esempi senza blocco: guide o rifiuto
-            print(f"-- coordinate da Wikidata non disponibili ({e})")
-            found = {}
+            found = cached_coordinates({by_name[n][0] for n in named}, lang, it.OUT / "raw" / f"coordinates.{lang}.json")
+        except Exception as e:  # senza, lo stesso seme darebbe un altro file con lo stesso nome
+            sys.exit(f"coordinate da Wikidata non disponibili ({e}): riprova con la rete")
         coords = {n: found[by_name[n][0]] for n in named if by_name[n][0] in found}
         pools = [[p for p, figure in sorted(pairs.items()) if figure], [p for p, figure in sorted(pairs.items()) if not figure]]
         for pool in pools:
             rng.shuffle(pool)
-        for city, other in (p for pair in zip(*pools) for p in pair):
+        for city, other_city in (p for pair in zip(*pools) for p in pair):  # non `other`: e' la lingua, stampata alla fine
             if sum(dist[k] for k in ("pos", "neg")) >= target:
                 break
-            example = distance_example(rng, city, other, secs_by_name, lang, refusal, L["split"], coords)
+            example = distance_example(rng, city, other_city, secs_by_name, lang, refusal, L["split"], coords)
             if example is None or (example[0], example[1]) in seen:
                 continue
             context, q, ans, kind, computed = example
@@ -637,6 +1090,9 @@ def main():
             rows.append(row(kind, f"citta:{by_name[city][0]}", "DISTANZE", context, q, ans)); dist[kind] += 1
             dist["blocco"] += computed
         print(f"distanze: coordinate per {len(coords)}/{len(named)} citta', {dist['blocco']} esempi con la distanza calcolata")
+        if (made := dist["pos"] + dist["neg"]) < target:  # meta' e meta': il gruppo piu' piccolo limita il totale
+            print(f"ATTENZIONE: distanze {made} righe invece di {target}: coppie con km o tempi {len(pools[0])}, "
+                  f"senza {len(pools[1])}; servono piu' citta' (--cities) o un --distances piu' basso", file=sys.stderr)
     # Qui vicino e prossime partenze (--nearby): meta' e meta', con le sezioni di una regione qualunque dopo il blocco
     near = Counter()
     if a.nearby:
@@ -655,10 +1111,43 @@ def main():
                 continue
             seen.add((context, q))
             rows.append(row(kind, rid, cat, context, q, ans)); near[cat, kind] += 1
+    # Numeri di emergenza (--emergency): le regioni con numeri danno positivi, le altre rifiuti nella stessa proporzione dei
+    # negativi del resto del dataset
+    emergency = Counter()
+    if a.emergency:
+        numbers = load_emergency_numbers()
+        target = round(len(rows) * a.emergency / (1 - a.emergency))
+        phase("emergenze", f"{target} righe")
+        rids = [r for r in data if r not in TEST_REGIONS]
+        pools = {"pos": [r for r in rids if r in numbers], "neg": [r for r in rids if r not in numbers]}
+        neg_share = a.negatives / (1 + a.negatives) if pools["neg"] else 0
+        tries = 0
+        while sum(emergency.values()) < target and tries < target * 5 and pools["pos"]:
+            tries += 1
+            rid = rng.choice(pools["neg" if rng.random() < neg_share else "pos"])
+            name, secs, _ = data[rid]
+            line = emergency_line(numbers[rid], lang) if rid in numbers else None
+            context, q, ans, kind = emergency_example(rng, lang, line, name, [b for _, b, _ in secs], L, refusal, a.other_lang, a.empty)
+            if (context, q) in seen:
+                continue
+            seen.add((context, q))
+            rows.append(row(kind, rid, "EMERGENZE", context, q, ans)); emergency[kind] += 1
+        if emergency:
+            attribution.append(("-", "numeri di emergenza", "https://github.com/miracle091/pocket-travel/blob/main/tools/data-pipeline/"
+                                "content/src/main/resources/emergency-numbers.tsv",
+                                "fonti per riga nel file: Travel.gc.ca e gov.uk (Open Government Licence), Wikipedia e Wikivoyage (CC BY-SA 4.0), Wikidata (CC0)"))
+        print(f"emergenze: {len(pools['pos'])} regioni con numeri, {len(pools['neg'])} senza; positivi {emergency['pos']}, rifiuti {emergency['neg']}")
+    capped = cap_repeats(rows, L["prompt"])
+    print(f"stessa domanda e risposta oltre {SAME_ANSWER_MAX} volte: tolte {len(rows) - len(capped)} righe")
+    rows = capped
     rng.shuffle(rows)
 
     for name, (dataset, *_, lic, _) in L["off_topic_sources"].items():  # solo domande, con rifiuto come risposta
-        attribution.append(("-", f"off-topic ({name})", f"https://huggingface.co/datasets/{dataset}", lic))
+        attribution.append(("-", f"off-topic ({name})", f"https://huggingface.co/datasets/{dataset}/tree/{it.OFF_TOPIC_REVISIONS[dataset]}", lic))
+    for src in ("it", "en", "wp") + (("wp_en",) if lang == "en" else ()):  # la data del dump resta accanto al dataset
+        wiki = it.DUMP_WIKIS[src]
+        attribution.append(("-", f"export {wiki} del {date}", wiki_dump.export_url(wiki, date),
+                            "CC BY-SA 4.0 (testo delle pagine elencate sopra)"))
     data_out, attr_out = it.OUT / f"pocket_travel_sft.{version}.{lang}.jsonl", it.OUT / f"ATTRIBUTION.{version}.{lang}.tsv"
     with open(data_out, "w", encoding="utf-8") as f:
         for r in rows:
@@ -667,14 +1156,18 @@ def main():
         f.write("regionId\tdisplayName\tsourceUrl\tlicense\n")
         for rid, name, url, lic in attribution:
             f.write(f"{rid}\t{name}\t{url}\t{lic}\n")
-    print(f"regioni con testo: {len(data)}; sezioni tradotte {other}->{lang}: {n_tr['sezioni']}, paragrafi Wikipedia: {n_tr['wikipedia']}")
+    print(f"regioni con testo: {len(data)}; sezioni tradotte {other}->{lang}: {n_tr['sezioni']}, "
+          f"paragrafi Wikipedia tradotti: {n_tr['wikipedia']}, originali di Wikipedia EN: {n_tr['wikipedia_en']}")
     print(f"positivi={pos} negativi={neg} citta' positivi={city_pos} negativi={city_neg} "
           f"fatti rapidi {quick_pos}/{quick_neg} note {note_pos} vaccinazioni {vacc_pos}/{vacc_neg} "
           f"distanze {dist['pos']}/{dist['neg']} vicino {near['VICINO', 'pos']}/{near['VICINO', 'neg']} partenze {near['PARTENZE', 'pos']}/{near['PARTENZE', 'neg']} totale={len(rows)} "
           f"(rifiuti {sum(r['kind'] == 'neg' for r in rows) / max(len(rows), 1):.1%}, tradotte {sum(r['translated'] for r in rows)})")
     cats, refs = Counter(r["category"] for r in rows), Counter(r["category"] for r in rows if r["kind"] == "neg")
     print("per categoria (righe/rifiuti):", {c: f"{n}/{refs[c]}" for c, n in cats.most_common()})
+    if real:
+        print("domande reali usate (tra positivi, rifiuti e righe scartate):", dict(real_uses))
     print(f"scritto {data_out}")
+    it.write_excluded(it.OUT / f"EXCLUDED.{version}.{lang}.tsv", excluded)
 
 
 if __name__ == "__main__":

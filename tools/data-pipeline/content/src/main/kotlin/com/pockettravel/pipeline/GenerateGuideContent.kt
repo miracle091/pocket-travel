@@ -93,8 +93,8 @@ private val innermostTableRegex = Regex("""(?s)\{\|(?:(?!\{\|).)*?\|}""")
 // template di valore diventano testo, gli altri spariscono; listing e IATA restano per expandListing.
 private val innermostTemplateRegex = Regex("""\{\{((?:(?!\{\{|}}).)*)}}""", RegexOption.DOT_MATCHES_ALL)
 private val keptTemplateNames = setOf("marker", "see", "do", "go", "eat", "drink", "sleep", "buy", "listing", "iata")
-// Template che mostrano il loro primo parametro cosi' com'e'.
-private val textTemplateNames = setOf("nowrap", "phone", "tel", "telefono", "lang", "small", "smaller", "big", "nobr", "unbulleted list", "ta")
+// Template che mostrano il loro primo parametro cosi' com'e'. Non {{lang|fr|testo}}: il primo e' il codice della lingua.
+private val textTemplateNames = setOf("nowrap", "phone", "tel", "telefono", "small", "smaller", "big", "nobr", "unbulleted list", "ta")
 private val currencyTemplateRegex = Regex("""[A-Z]{3}""")
 
 // Misure delle voci di Wikipedia (Storia e Clima delle citta'): {{convert|641|mm|in}}, {{cvt|15|and|25|°C}} (EN) e
@@ -127,6 +127,9 @@ private fun resolveTemplate(inner: String): String? {
     val params = parts.drop(1).map { it.trim() }
     return when {
         lower in textTemplateNames -> first.substringAfter('=', first)
+        // {{lang|fr|Vieux-Port}} (il testo e' l'ultimo parametro senza nome) e {{lang-fr|Vieux-Port}} (il primo)
+        lower == "lang" -> params.lastOrNull { '=' !in it }.orEmpty()
+        lower.startsWith("lang-") -> first
         // Valute ({{EUR|5}}, {{ALL|500}}): "5 EUR", altrimenti resterebbe "almeno ." nel testo.
         currencyTemplateRegex.matches(name) && first.isNotEmpty() && first.first().isDigit() -> "$first $name"
         lower in convertTemplateNames -> convertMeasure(params)

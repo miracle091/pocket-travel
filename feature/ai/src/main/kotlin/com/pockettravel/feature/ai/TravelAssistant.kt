@@ -6,6 +6,8 @@ import android.location.Location
 import com.pockettravel.core.data.CarRoute
 import com.pockettravel.core.data.CarRouteCalculator
 import com.pockettravel.core.data.CityRepository
+import com.pockettravel.core.data.EmergencyNumbers
+import com.pockettravel.core.data.EmergencyNumbersRepository
 import com.pockettravel.core.data.FtsCorpusStats
 import com.pockettravel.core.data.FtsMatchInfo
 import com.pockettravel.core.data.CitySection
@@ -78,6 +80,7 @@ class TravelAssistant @Inject constructor(
     private val regionRepository: RegionRepository,
     private val vaccinationRepository: VaccinationRepository,
     private val vaccinationPreferences: VaccinationPreferences,
+    private val emergencyNumbersRepository: EmergencyNumbersRepository,
     private val poiRepository: PoiRepository,
     private val lastKnownPosition: LastKnownPosition,
     private val transitRepository: TransitRepository,
@@ -123,14 +126,16 @@ class TravelAssistant @Inject constructor(
         }
         when (mode) {
             AiEngineMode.ON_DEVICE -> {
+                val emergency = emergencySection(regionId, question, language)
                 val plan = planOnDevice(
                     question,
                     listOfNotNull(
                         cityDistanceSection(regionId, cities, question, language),
                         vaccinationSection(regionId, question, language),
+                        emergency,
                         nearbyPoiSection(regionId, question, language),
                         transitSection(regionId, question, language),
-                    ) + sections,
+                    ) + (emergency?.let { withoutEmergencyLine(sections, it.body) } ?: sections),
                     language,
                     focusStems(ftsQuery, city),
                 )
@@ -223,6 +228,21 @@ class TravelAssistant @Inject constructor(
     }
 
     /**
+     * Per una domanda sulle emergenze, i numeri di emergenza della regione (stessa riga dei Fatti rapidi), prima delle
+     * sezioni della guida: cosi' arrivano al modello anche se la ricerca non classifica quella sezione. Null se la
+     * domanda non parla di emergenze o se la regione non ha numeri (nessun numero centralizzato o pacchetto guide vecchio).
+     */
+    private suspend fun emergencySection(regionId: String, question: String, language: String): AssistantSection? {
+        if (!isEmergencyQuestion(question)) return null
+        val numbers = emergencyNumbersRepository.forRegion(regionId) ?: return null
+        return AssistantSection(
+            body = emergencyNumbersContext(numbers, language),
+            category = GuideCategory.FATTI_RAPIDI,
+            citation = if (language == "en") "Source: emergency numbers (Travel.gc.ca, Wikipedia, Wikidata, gov.uk)" else "Fonte: numeri di emergenza (Travel.gc.ca, Wikipedia, Wikidata, gov.uk)",
+        )
+    }
+
+    /**
      * Per una domanda su cosa c'è "qui vicino", i POI della regione attorno all'ultima posizione nota al telefono, prima
      * delle sezioni della guida. Null se la domanda non lo chiede, senza permesso di posizione, se la posizione ha più di
      * 15 minuti (l'utente potrebbe essere altrove) o se attorno non c'è nessun POI della regione.
@@ -296,6 +316,37 @@ private val vaccinationWords = Regex("""vaccin|febbre gialla|yellow fever|polio|
 
 /** True se la domanda parla di vaccini o certificati sanitari (italiano o inglese). */
 internal fun isVaccinationQuestion(question: String): Boolean = vaccinationWords.containsMatchIn(question)
+
+private val emergencyWords = Regex("""emergenz|ambulanz|polizia|pompier|vigili del fuoco|soccors|emergency|ambulance|police|fire brigade|fire department""", RegexOption.IGNORE_CASE)
+
+/** True se la domanda parla di emergenze o di polizia, ambulanza, pompieri (italiano o inglese). */
+internal fun isEmergencyQuestion(question: String): Boolean = emergencyWords.containsMatchIn(question)
+
+/**
+ * La riga dei numeri di emergenza per il contesto, uguale a quella dei Fatti rapidi della guida (la pipeline dei
+ * contenuti la scrive con emergencyNumbersLine; gli esempi di training la copiano: da cambiare insieme).
+ * "Generale" solo se la regione ha un numero unico.
+ */
+internal fun emergencyNumbersContext(numbers: EmergencyNumbers, language: String): String {
+    val en = language == "en"
+    val parts = buildList {
+        numbers.general?.let { add("${if (en) "General" else "Generale"} $it") }
+        add("${if (en) "Police" else "Polizia"} ${numbers.police}")
+        add("${if (en) "Ambulance" else "Ambulanza"} ${numbers.ambulance}")
+        add("${if (en) "Fire" else "Vigili del fuoco"} ${numbers.fire}")
+    }
+    return "${if (en) "Emergency numbers" else "Numeri di emergenza"}: ${parts.joinToString(", ")}"
+}
+
+/**
+ * [sections] senza la riga dei numeri di emergenza [line] nei Fatti rapidi, quando e' gia' in testa al contesto: il
+ * modello la vede una volta sola, come negli esempi di training (generate_sft.py --emergency).
+ */
+internal fun withoutEmergencyLine(sections: List<AssistantSection>, line: String): List<AssistantSection> =
+    sections.map { section ->
+        if (section.category != GuideCategory.FATTI_RAPIDI) section
+        else section.copy(body = section.body.lines().filterNot { it.trim() == line }.joinToString("\n"))
+    }.filter { it.body.isNotBlank() }
 
 private val pilgrimageWords = Regex("""hajj|umrah""", RegexOption.IGNORE_CASE)
 

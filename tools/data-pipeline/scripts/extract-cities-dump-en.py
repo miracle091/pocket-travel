@@ -8,7 +8,8 @@ livello alla volta (Rimini -> Rimini (province) -> Emilia-Romagna -> ... -> Ital
 dump: il primo raccoglie isPartOf di tutte le pagine e quali sono citta', il secondo scrive il testo
 delle citta' che, risalendo la catena, arrivano a una delle regioni passate.
 
-Uso: extract-cities-dump-en.py <dump.xml.bz2> <regioni.tsv> <outDir>
+Uso: extract-cities-dump-en.py <cartella del dump> <regioni.tsv> <outDir>
+cartella del dump: le parti dell'export di Wikivoyage EN (fetch_wikivoyage_dump_parts in lib.sh, wiki_dump.py).
 regioni.tsv: righe "regionId<TAB>wikiTitle" (titolo EN Wikivoyage, da regions.sh).
 """
 import json
@@ -43,9 +44,9 @@ def regions_of(title, parent, region_id_by_title):
 
 def main():
     if len(sys.argv) != 4:
-        print(f"Uso: {sys.argv[0]} <dump.xml.bz2> <regioni.tsv> <outDir>", file=sys.stderr)
+        print(f"Uso: {sys.argv[0]} <cartella del dump> <regioni.tsv> <outDir>", file=sys.stderr)
         sys.exit(1)
-    dump_path, regions_tsv, out_dir = sys.argv[1], Path(sys.argv[2]), Path(sys.argv[3])
+    dump_path, regions_tsv, out_dir = wiki_dump.dump_files(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
     out_dir.mkdir(parents=True, exist_ok=True)
 
     rows = [line.split("\t") for line in regions_tsv.read_text(encoding="utf-8").splitlines() if line.strip()]

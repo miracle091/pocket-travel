@@ -148,7 +148,7 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   come l'app (`test_make_context.py` lo confronta con la replica di `eval_retrieval.py`).
 - **Guide**: la sottosezione "Costo della vita" ("Cost of living" in inglese) viene omessa da guide e città. I fatti
   rapidi delle guide inglesi comprendono anche la lingua e i numeri di emergenza, come quelli italiani.
-- **Dataset SFT v9**: `scripts/generate_sft.py --lang it|en` genera il dataset dei due modelli linguistici con le
+- **Dataset SFT (v9-v10)**: `scripts/generate_sft.py --lang it|en` genera il dataset dei due modelli linguistici con le
   stesse fonti, la stessa composizione e gli stessi tipi di domanda. Con `--vaccinations` aggiunge domande sui
   vaccini, con il riassunto che l'app inserisce nel contesto dell'assistente. Con `--nearby <quota>` (per esempio 0.03)
   aggiunge esempi con i blocchi "Punti di interesse entro…" e "Prossime partenze…" che l'app mette nel contesto per le
@@ -156,19 +156,72 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   di rifiuti); senza il flag l'output resta quello del v9. Con `--distances <quota>` (per esempio 0.02, insieme a
   `--cities`) aggiunge domande sulla distanza tra due città con le sezioni "Come arrivare" e "Come spostarsi" di
   entrambe nel contesto: metà coppie che una guida collega con km o tempi di viaggio, metà coppie che si nominano
-  senza. Con le coordinate di Wikidata delle due città (scaricate durante la generazione) circa sei esempi su dieci
+  senza. Con le coordinate di Wikidata delle due città (scaricate durante la generazione e conservate in `data/sft/raw/coordinates.<lang>.json`; senza rete e senza
+  cache la generazione si ferma) circa sei esempi su dieci
   hanno in testa al contesto la distanza calcolata come nell'app, in linea d'aria o con il percorso in auto (lunghezza
   e tempo sintetici, ricavati dalla distanza vera in linea d'aria), e la risposta è quel testo; negli altri la risposta
-  è la frase della guida con i km, o il rifiuto se manca. I file di output sono
-  `pocket_travel_sft.<versione>.<lang>.jsonl` e `ATTRIBUTION.<versione>.<lang>.tsv`: la versione è v9 senza `--nearby` e `--distances`,
-  v10 con `--nearby` o `--distances` (così il v9 non viene sovrascritto) oppure quella data con
-  `--version`. I test estesi
+  è la frase della guida con i km, o il rifiuto se manca. Con `--cities-db <file> ...` (i `cities.db` pubblicati, o
+  `cities-en.db` per l'inglese, uno per regione: la regione è il nome del file fino al primo `--`, come negli asset
+  delle release `<regionId>--<versione>--cities.db`, oppure si scrive `<regionId>=<file>`) aggiunge domande di storia e
+  clima sulle sezioni `STORIA` e `CLIMA` di Wikipedia, per al massimo `--wikipedia-cities` città (1500): positivi con la
+  sezione nel contesto, rifiuti per le città che non l'hanno, e domande pratiche con Storia o Clima in coda al contesto
+  (le domande di storia e clima hanno una parola di `historyClimateWords` in `TravelAssistant.kt`, che altrimenti
+  declassa quelle sezioni). Con `--emergency <quota>` (per esempio 0.01) aggiunge domande sui numeri di emergenza con la
+  riga dell'app (`emergencyNumbersContext`, da `emergency-numbers.tsv`) in testa al contesto e come risposta, e il
+  rifiuto per le regioni senza numero centralizzato. Di default (`--real-questions 0.2`) nelle categorie Cosa vedere,
+  Alloggio, Sicurezza, Trasporti e Usi e costumi una domanda su cinque, tra positivi e rifiuti, è una domanda di viaggio
+  reale invece di un modello: `scripts/travel_questions.py` prende le prime domande delle conversazioni di
+  `soniawmeyer/travel-conversations-finetuning` della sola parte UltraChat (MIT; fuori Reddit e Dolly), tiene quelle
+  senza nomi di luogo che toccano una sola categoria e le traduce in italiano con MarianMT per il dataset italiano;
+  senza rete restano i modelli. I file di output sono
+  `pocket_travel_sft.<versione>.<lang>.jsonl` e `ATTRIBUTION.<versione>.<lang>.tsv`: la versione è v10 con
+  `--nearby`, `--distances`, `--cities-db`, `--emergency` o le domande reali (il default), v9 senza nessuna di queste,
+  oppure quella data con `--version`; un v9 che esiste già (lo usano i training) si sovrascrive solo con
+  `--version v9`. Le fonti e la pulizia sono cambiate dopo il v9 generato: gli stessi argomenti non ridanno quel file. I test estesi
   (`generate_eval_set.py`, `generate_eval_set_en.py`) hanno in fondo le righe `pos_near`/`neg_near` e
-  `pos_dep`/`neg_dep` sugli stessi blocchi, con domande, nomi e seme diversi da quelli del training; le righe
+  `pos_dep`/`neg_dep` sugli stessi blocchi, con domande, nomi e seme diversi da quelli del training, e con
+  `--cities-db` (solo le regioni di test) `pos_wiki`/`neg_wiki` su storia e clima; le righe
   precedenti restano identiche. `scripts/translate_dataset.py` traduce
   con MarianMT (`opus-mt-tc-big`, CC BY 4.0) le sezioni assenti o molto più brevi in una lingua; scarta le
-  traduzioni con numeri diversi dall'originale e conserva le frasi tradotte in una cache. Le tabelle per lingua
-  stanno in `generate_sft_dataset.py` e `generate_sft_dataset_en.py`, che servono ancora per rigenerare il dataset v8.
+  traduzioni con numeri diversi dall'originale, toglie le parentesi rimaste vuote (MarianMT perde i caratteri di altri
+  alfabeti, come i nomi cinesi o arabi tra parentesi) e conserva le frasi tradotte in una cache. Le tabelle per lingua
+  stanno in `generate_sft_dataset.py` e `generate_sft_dataset_en.py`; il primo cerca anche i titoli mancanti di
+  `sft-sources.tsv` e riempie la cache `data/sft/raw/` usata dai test estesi.
+  Ogni generatore scrive anche `EXCLUDED[.<versione>].<lang>.tsv`: per regione, fonte e categoria, cosa è rimasto
+  fuori e perché (regione di test, pagina assente, pagina senza sezioni utili, markup residuo, sezione che non tratta la
+  sua categoria, nessuna risposta estratta); il riepilogo per fonte e motivo si stampa a fine generazione.
+  `scripts/audit_sft.py <dataset.jsonl> [--eval <test esteso>] [--out <pulito.jsonl>] [--strict]` controlla un dataset
+  prima del training: righe malformate, contesti o risposte oltre i limiti, risposte positive con frasi che non sono nel
+  contesto, markup residuo, sottoregioni delle regioni di test, duplicati, righe che ripetono il test esteso; stampa
+  anche quota di rifiuti, righe per categoria e regione e domande più ripetute. Con `--out` scrive una copia senza le
+  righe con errori e senza i duplicati.
+  Nelle risposte estratte dalle guide, frasi di righe diverse (voci di elenco, sottosezioni) restano su righe diverse.
+  `scripts/generate-sft.sh [--new | --old] --data <cartella>` fa tutto in sequenza per le due lingue: dataset, test
+  estesi e audit `--strict`, dall'export più recente in `<cartella>/dumps/` e dai `guides*.db`, `cities*.db` e
+  riassunti delle vaccinazioni pubblicati nella stessa cartella (lo schema è nell'intestazione dello script). `--new` (il
+  default) è la ricetta v10; `--old` quella del v9, scritta come `v9-rigenerato` per non sostituire il v9 dei training.
+- **Fonti del dataset SFT**: i titoli delle pagine di ogni regione stanno in `sft-sources.tsv` (`-` = pagina che non
+  esiste). Le righe mancanti si cercano via API durante `generate_sft_dataset.py --dump-dir`; un errore di rete non
+  diventa `-`, così la volta dopo si riprova, e `--recheck-missing` cerca di nuovo tutte le pagine date per inesistenti.
+  L'articolo tematico di Wikipedia si cerca dal titolo inglese ("Cuisine of the Bahamas", "Fujian cuisine",
+  "Culture of X"…) e vale solo se la pagina a cui arriva ha nel titolo la parola del tema: un titolo che rinvia alla
+  voce del paese non conta. I titoli che nei dump sono redirect ("The Bahamas", "Curacao") si leggono dalla pagina di
+  destinazione. Il dataset italiano usa gli articoli di Wikipedia IT; quello inglese (`generate_sft.py --lang en`) gli
+  articoli originali di Wikipedia EN con gli stessi titoli, e traduce da Wikipedia IT solo i temi senza articolo inglese.
+- **Dump di Wikimedia**: tutti gli script usano i MediaWiki Content File Exports, uno al mese il 1°
+  (`https://dumps.wikimedia.org/other/mediawiki_content_current/<wiki>/<AAAA-MM-GG>/xml/bzip2/`): una o più parti
+  `<wiki>-<AAAA-MM-GG>-p<da>p<a>.xml.bz2` per wiki e i loro sha256 in `SHA256SUMS`, scritto a export finito.
+  `scripts/download-wikimedia-dumps.sh <cartella> [data]` scarica Wikivoyage IT ed EN e Wikipedia IT ed EN (19 parti,
+  circa 47 GB) in `<cartella>/<AAAA-MM-GG>/`, con ripresa e verifica sha256; senza data prende l'ultimo export completo
+  delle quattro wiki e, a download verificato, cancella le cartelle degli export più vecchi. Per `--dump-dir` servono
+  le quattro wiki dello stesso giorno nella stessa cartella (Wikipedia EN solo per il dataset inglese); il nome della
+  cartella fa da data, se non si passa `--dump-date`. La data si scrive come mese e anno (`10-2026` o `2026-10`, anche
+  con `/` o `.`: il giorno è sempre il 1°) oppure per intero (`2026-10-01`). Wikipedia non ha un indice: la prima
+  generazione scorre le parti in parallelo (un processo per CPU) e salva gli articoli che servono in
+  `<wiki>-<AAAA-MM-GG>.pages.json` accanto ai dump; le generazioni successive li leggono da lì. Le guide delle città (`build-cities-dump.sh`) scaricano invece l'ultimo
+  export completo di Wikivoyage (`fetch_wikivoyage_dump_parts` in `lib.sh`, quello del mese prima finché il nuovo non
+  ha `SHA256SUMS`), verificato con sha256 e tenuto nella cache di Actions fino all'export successivo; dopo un download
+  riuscito le parti degli export vecchi escono dalla cache.
 - **Guide arricchite dall'altra lingua**: `scripts/translate_guides.py` confronta, per regione o città e categoria, la
   sezione con quella dell'altra lingua (assente, sotto 300 caratteri o lunga meno della metà) e traduce la più ricca con
   MarianMT (`opus-mt-tc-big-en-it` e `-it-en`, CC BY 4.0, CTranslate2 int8 su CPU): l'italiano dall'inglese e l'inglese

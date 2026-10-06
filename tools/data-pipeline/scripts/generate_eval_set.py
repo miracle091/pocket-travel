@@ -20,8 +20,12 @@ blocchi di contesto dell'app (nearby_rows, come generate_sft.py --nearby ma con 
   pos_dep     il blocco "Prossime partenze..." ha il mezzo o la linea chiesti, oppure dice che gli orari sono
               scaduti o che non ci sono partenze nelle prossime ore (si risponde con quello, non si rifiuta);
   neg_dep     il tabellone non ha il mezzo chiesto, o non c'e' (nessuna fermata vicina): solo la guida.
-Legge solo la cache di generate_sft_dataset.py (data/sft/raw) e i dump: niente rete.
-Uso: python generate_eval_set.py [--dump-dir <cartella dei dump> [--dump-date AAAAMMGG]]
+Con --cities-db (i cities.db pubblicati, come generate_sft.py --cities-db, e solo le regioni di test), ancora dopo,
+domande di storia e clima delle loro citta' (wikipedia_rows, con un seme proprio):
+  pos_wiki    la sezione Storia o Clima della citta' ha la risposta;
+  neg_wiki    la citta' non ha la sezione chiesta: il contesto ha solo altre sezioni.
+Legge solo la cache di generate_sft_dataset.py (data/sft/raw), i dump e i cities.db: niente rete.
+Uso: python generate_eval_set.py [--dump-dir <cartella dei dump> [--dump-date MM-AAAA]] [--cities-db <cities.db> ...]
 """
 import argparse
 import json
@@ -35,7 +39,7 @@ from eval_common import TEST_REGIONS
 import generate_sft
 import sft_nearby
 import wiki_dump
-from generate_sft_dataset import (CITY_HEADING_TO_CATEGORY, CITY_MIN_SECTION, DUMP_FILES, EN_HEADING_TO_CATEGORY,
+from generate_sft_dataset import (CITY_HEADING_TO_CATEGORY, CITY_MIN_SECTION, DUMP_WIKIS, EN_HEADING_TO_CATEGORY,
                                   FALLBACK_CONTEXT, HEADING_TO_CATEGORY, OUT, QUESTIONS, TOPIC, city_parents, covers,
                                   load_regions, load_sources, make_context, on_device_prompt, parse_sections, pick_answer)
 
@@ -72,6 +76,20 @@ PARA_CITY = {  # domande sulle citta' riformulate: non sono in CITY_QUESTIONS/CI
     "SHOPPING": ["Dove compro souvenir a {r}?", "Where are the markets in {r}?"],
 }
 CITY_POS, CITY_NEG = 50, 20  # righe di citta' nel test (con --dump-dir)
+# Domande di storia e clima delle citta' (con --cities-db), non in WIKI_QUESTIONS del training e con una parola di
+# historyClimateWords (TravelAssistant.kt), per lingua e categoria (il test usa i cities.db di una sola lingua)
+PARA_WIKI = {
+    "it": {"STORIA": ["Come e' nata {r} e come si e' sviluppata nei secoli?", "Che passato storico ha {r}?",
+                      "Mi racconti le origini antiche di {r}?"],
+           "CLIMA": ["Com'e' il meteo a {r} durante l'anno?", "Che tempo fa a {r} nelle diverse stagioni?",
+                     "Mi descrivi il clima di {r}?"]},
+    "en": {"STORIA": ["How did {r} develop through its history?", "What historical events took place in {r}?",
+                      "Which centuries were important for {r}?"],
+           "CLIMA": ["What is the weather like in {r} through the year?", "How would you describe the climate of {r}?",
+                     "What are the seasons like in {r}?"]},
+}
+WIKI_POS, WIKI_NEG = 24, 8  # righe di storia e clima nel test per lingua (con --cities-db)
+WIKI_SEED = 2611  # proprio, come NEAR_SEED: le righe precedenti non cambiano
 OFF_TOPIC = ["Qual e' la capitale della Francia?", "Come si prepara la carbonara?", "Chi ha vinto i mondiali di calcio nel 2006?",
              "Quanto fa 17 per 23?", "Scrivimi una poesia sul mare.", "Chi ha scritto la Divina Commedia?",
              "Come si installa Python su Windows?", "Qual e' il senso della vita?",
@@ -196,13 +214,37 @@ def nearby_rows(lang, guides, row, refusal):
     return out
 
 
+def wikipedia_rows(lang, specs, row, refuse):
+    """Righe pos_wiki e neg_wiki sulle citta' delle regioni di test dei cities.db di [specs] (generate_sft.load_city_sections):
+    una domanda per sezione Storia o Clima, al massimo WIKI_POS positivi e WIKI_NEG rifiuti in tutto, a rotazione tra le citta'.
+    Contesti e risposte come nel training (wikipedia_positive e wikipedia_refusal di generate_sft.py), con le domande di
+    PARA_WIKI. [refuse]: argomento -> rifiuto."""
+    rng, L = random.Random(WIKI_SEED), generate_sft.LANGS[lang]
+    answer_for, keywords = generate_sft.make_answer_for(L), generate_sft.all_keywords(L)
+    ask = lambda cat, name, city=False, wiki=False: rng.choice(PARA_WIKI[lang][cat]).format(r=name)
+    cities = [(city, secs) for region, by_city in sorted(generate_sft.load_city_sections(specs).items()) if region in TEST_REGIONS
+              for city, secs in sorted(by_city.items()) if any(s[0] in generate_sft.WIKI_CATS for s in secs)]
+    rng.shuffle(cities)
+    pos, neg = [], []
+    for city, secs in cities:
+        name, rid = city.split(" (")[0], f"citta:{city}"  # "Salem (Oregon)" -> "Salem"
+        for sec in (s for s in secs if s[0] in generate_sft.WIKI_CATS):
+            if len(pos) < WIKI_POS and covers(sec[0], sec[1], keywords):
+                if example := generate_sft.wikipedia_positive(rng, lang, name, sec, secs, ask, answer_for):
+                    pos.append(row("pos_wiki", rid, *example[:4]))
+        if len(neg) < WIKI_NEG and (example := generate_sft.wikipedia_refusal(rng, lang, name, secs, ask, refuse)):
+            neg.append(row("neg_wiki", rid, *example[:4]))
+    print(f"citta' delle regioni di test con Storia o Clima: {len(cities)}, righe pos {len(pos)} neg {len(neg)}")
+    return pos + neg
+
+
 def city_rows(rng, dump_dir, dump_date, row, refusal):
     """Righe sulle citta' delle regioni di test (Stato/Regione/Territorio del QuickbarCity = pagina di una
     regione di test), dallo stesso dump IT del training: al massimo 2 domande per citta', CITY_POS positivi
     e CITY_NEG negativi in tutto, a rotazione tra le citta' per non pescarle tutte da un solo paese."""
     sources = load_sources()
     test_titles = {wiki_dump.norm_title(sources[(r, "it")]) for r in TEST_REGIONS if sources.get((r, "it"), "-") != "-"}
-    dump = dump_dir / DUMP_FILES["it"].format(d=dump_date)
+    dump = wiki_dump.dump_files(dump_dir, DUMP_WIKIS["it"], dump_date)
     cities = []
     for title, text, redirect in wiki_dump.iter_pages(dump):
         parents = None if redirect else city_parents(text)
@@ -241,7 +283,10 @@ def city_rows(rng, dump_dir, dump_date, row, refusal):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dump-dir", type=Path, help="cartella dei dump (come generate_sft_dataset.py): aggiunge le citta'")
-    ap.add_argument("--dump-date", help="data dei dump (AAAAMMGG), di default il nome della cartella")
+    ap.add_argument("--dump-date", help="data dei dump (MM-AAAA, AAAA-MM o AAAA-MM-GG), di default il nome della cartella")
+    ap.add_argument("--cities-db", nargs="+", metavar="DB",
+                    help="cities.db pubblicati (<regionId>--<versione>--cities.db o <regionId>=<file>): aggiunge storia e clima "
+                         "delle citta' delle regioni di test")
     args = ap.parse_args()
     rng = random.Random(42)
     held_out = sorted(TEST_REGIONS)  # come train_lora.py
@@ -273,9 +318,8 @@ def main():
 
     out, guides = [], []
     for rid in held_out:
-        if not langs[rid]:
-            print(f"{rid}: nessuna sezione in {OUT / 'raw'} (ne' IT ne' EN), regione saltata", file=sys.stderr)
-            continue
+        if not langs[rid]:  # un test senza una regione non e' confrontabile con i precedenti: meglio fermarsi
+            sys.exit(f"{rid}: nessuna sezione in {OUT / 'raw'} (ne' IT ne' EN): riempi la cache con generate_sft_dataset.py")
         name = names[rid]
         secs_it = langs[rid].get("it", [])
         for cat, body in secs_it:
@@ -305,8 +349,12 @@ def main():
                            q, refusal("VITA_QUOTIDIANA")))
     rng.shuffle(out)
     if args.dump_dir:  # in coda, dopo il mescolamento: le righe dei paesi restano quelle di prima
-        out += city_rows(rng, args.dump_dir, args.dump_date or args.dump_dir.name, row, refusal)
+        date = wiki_dump.normalize_date(args.dump_date or args.dump_dir.name)
+        # le righe delle citta' dicono da quale dump vengono: un test e un training di mesi diversi si vedono
+        out += [{**r, "dump": date} for r in city_rows(rng, args.dump_dir, date, row, refusal)]
     out += nearby_rows("it", guides, row, refusal_on)
+    if args.cities_db:
+        out += wikipedia_rows("it", args.cities_db, row, refusal_on)
     with open(OUT / "eval_extended.jsonl", "w", encoding="utf-8") as f:
         for r in out:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")

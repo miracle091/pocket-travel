@@ -13,14 +13,14 @@ sono qui: domande, parole chiave, rifiuto e testo di fallback in inglese.
 Regioni di test (TEST_REGIONS) come nel dataset italiano: le loro righe restano nel file (train_lora.py le tiene
 fuori dal training, il test base le usa); fuori invece le citta' e le regioni la cui pagina EN e' quella di una
 regione di test o vi appartiene risalendo {{IsPartOf}} (es. figi-occidentali ha la stessa pagina "Fiji" di figi-lau).
-Domande fuori tema anche da truthfulqa/truthful_qa (Apache 2.0) e yahma/alpaca-cleaned (CC BY 4.0): solo le domande,
+Domande fuori tema anche da truthfulqa/truthful_qa (Apache 2.0) e yahma/alpaca-cleaned (Stanford Alpaca, CC BY-NC 4.0, vedi ALPACA_LICENSE): solo le domande,
 la risposta e' sempre il rifiuto.
 
-Uso: python generate_sft_dataset_en.py --dump-dir <cartella dei dump> [--dump-date AAAAMMGG] [--cities 1500]
+Uso: python generate_sft_dataset_en.py --dump-dir <cartella dei dump> [--dump-date MM-AAAA] [--cities 1500]
      [--guides-db <guides-en.db>] [--seed 42]
 Titoli delle pagine EN da sft-sources.tsv (come generate_sft_dataset.py --dump-dir). Output in data/sft/:
 pocket_travel_sft.en.jsonl + ATTRIBUTION.en.tsv (il nome che train_lora.py --dataset pocket_travel_sft.en.jsonl
-si aspetta); cache delle domande fuori tema in raw/offtopic_<fonte>.txt.
+si aspetta), EXCLUDED.en.tsv con le pagine e le sezioni rimaste fuori e perche' (write_excluded); cache delle domande fuori tema in raw/offtopic_<fonte>.txt.
 """
 import argparse
 import importlib
@@ -33,10 +33,10 @@ from pathlib import Path
 
 import wiki_dump
 from eval_common import TEST_REGIONS
-from generate_sft_dataset import (CITY_MAX_QUESTIONS, CITY_MIN_SECTION, CITY_QUESTIONS_EN, DUMP_FILES,
+from generate_sft_dataset import (ALPACA_LICENSE, CITY_MAX_QUESTIONS, CITY_MIN_SECTION, CITY_QUESTIONS_EN, DUMP_WIKIS,
                                   EN_HEADING_TO_CATEGORY, MAX_CONTEXT, OFF_TOPIC_MAX_USES, OFF_TOPIC_TRAIN_EN, OUT,
-                                  QUESTIONS_EN, SOURCE_URL, covers, fetch_off_topic, load_quick_facts, load_regions,
-                                  load_sources, make_context, parse_sections, pick_answer)
+                                  OFF_TOPIC_REVISIONS, QUESTIONS_EN, SOURCE_URL, WIKI_QUESTIONS_EN, covers, fetch_off_topic, load_quick_facts,
+                                  load_regions, load_sources, make_context, parse_sections, pick_answer, write_excluded)
 from status import Progress, phase
 
 cities_en = importlib.import_module("extract-cities-dump-en")  # IS_PART_OF, CITY_STATUS, regions_of
@@ -93,14 +93,15 @@ CITY_QUESTIONS_EN_EXTRA = {  # disgiunte da PARA_CITY_EN di generate_eval_set_en
 CITY_QUESTIONS = {c: CITY_QUESTIONS_EN[c] + CITY_QUESTIONS_EN_EXTRA[c] for c in CITY_QUESTIONS_EN}
 
 KEYWORDS = {  # radici che il contesto deve contenere perche' la categoria sia davvero trattata (minuscolo)
-    "USI_COSTUMI": ["custom", "etiquette", "respect", "polite", "rude", "tradition", "cultur", "dress", "tipping", "greet", "religio"],
+    # "customar" e "local custom", non "custom": a inizio parola prenderebbe "customs" (DOGANE)
+    "USI_COSTUMI": ["customar", "local custom", "etiquette", "respect", "polite", "rude", "tradition", "cultur", "dress", "tipping", "greet", "religio"],
     "DOGANE": ["visa", "passport", "border", "customs", "airport", "flight", "ferry", "train", "entry", "arriv"],
     "SALUTE": ["health", "vaccin", "disease", "medic", "hospital", "doctor", "pharmac", "malaria", "water", "clinic"],
     "SICUREZZA": ["safe", "crime", "theft", "danger", "police", "risk", "scam", "pickpocket", "violen"],
     "TRASPORTI": [" bus", "train", "metro", "taxi", "ferry", "bicycl", "transport", "road", "drive", "driving", "car rental", "flight"],
     "CIBO_BEVANDE": ["cuisine", "dish", "food", "restaurant", "drink", "wine", "beer", "meal", "snack", "breakfast", "dinner", "lunch"],
     "ACQUISTI": ["currency", "money", "cash", "card", " atm", "price", "exchange", "dollar", "euros", "€", "pay", "shop"],
-    "CONNETTIVITA": ["internet", "wifi", "wi-fi", "phone", "cellular", "sim card", "roaming", "4g", "5g", "telecom"],
+    "CONNETTIVITA": ["internet", "wifi", "wi-fi", "phone", "telephone", "smartphone", "cellular", "sim card", "roaming", "4g", "5g", "telecom"],
     # solo notizie e media: "Cope" parla anche di consolati, lavanderie, elettricita', e le domande sulle notizie
     # riceverebbero risposte su quelli
     "VITA_QUOTIDIANA": ["news", "radio", "televis", "media", "magazine", "broadcast"],
@@ -109,11 +110,27 @@ KEYWORDS = {  # radici che il contesto deve contenere perche' la categoria sia d
     "ALLOGGIO": ["hotel", "hostel", "campsite", "camping", "guesthouse", "guest house", "b&b", "apartment", "rooms", "lodge", "resort", "motel"],
     "SHOPPING": ["shop", "market", "mall", "souvenir", "boutique", "store", "craft"],
 }
+# Articoli di Wikipedia EN (generate_sft.py, parse_wp): come WP_KEYWORDS del dataset italiano, per USI_COSTUMI solo
+# parole di comportamento
+WP_KEYWORDS_EN = {**KEYWORDS, "USI_COSTUMI": ["etiquette", "polite", "rude", "greet", "tipping", "taboo", "manners",
+                                              "shoes", "dress", "customar", "local custom", "gestur", "handshak"]}
+# Storia e Clima delle citta' (cities-en.db, generate_sft.py --cities-db): come WIKI_QUESTIONS e WIKI_KEYWORDS del dataset
+# italiano, fuori da KEYWORDS (che filtra anche le domande fuori tema); ogni domanda ha una parola di historyClimateWords.
+WIKI_QUESTIONS = {
+    "STORIA": WIKI_QUESTIONS_EN["STORIA"] + ["What happened in {r} over the centuries?", "Which historical events shaped {r}?"],
+    "CLIMA": WIKI_QUESTIONS_EN["CLIMA"] + ["What are the temperatures like in {r} through the year?", "What kind of climate does {r} have?"],
+}
+WIKI_KEYWORDS = {
+    # " rain" e " war " con lo spazio: "train", "warm" non sono clima ne' storia
+    "STORIA": ["history", "founded", "centur", "wars", " war ", "ancient", "medieval", "empire", "kingdom", "conquer"],
+    "CLIMA": ["climat", "temperatur", " rain", "snow", "summer", "winter", "degrees", "season", "weather", "precipitation"],
+}
 TOPIC = {  # per la risposta negativa
     "USI_COSTUMI": "about local customs", "DOGANE": "about how to get there", "SALUTE": "about health and vaccinations",
     "SICUREZZA": "about safety", "TRASPORTI": "about getting around", "CIBO_BEVANDE": "about food and drink",
     "ACQUISTI": "about money and payments", "CONNETTIVITA": "about phone and internet", "VITA_QUOTIDIANA": "about practical information",
     "ARRIVARE": "about how to get there", "COSA_VEDERE": "about what to see", "ALLOGGIO": "about where to stay", "SHOPPING": "about shopping",
+    "STORIA": "about history", "CLIMA": "about the climate",
 }
 REFUSAL_TAILS = ["for reliable details, check an official source.", "I recommend checking official sources.",
                  "better check an up-to-date source before you leave.", "I can't answer with certainty using only this text."]
@@ -126,7 +143,7 @@ OFF_TOPIC_TRAIN = OFF_TOPIC_TRAIN_EN + [
 # (dataset, config, split, colonna della domanda, licenza, quante righe tenere), come OFF_TOPIC_SOURCES
 OFF_TOPIC_SOURCES = {
     "truthful_qa": ("truthfulqa/truthful_qa", "generation", "validation", "question", "Apache 2.0", 800),
-    "alpaca_cleaned": ("yahma/alpaca-cleaned", "default", "train", "instruction", "CC BY 4.0", 1500),
+    "alpaca_cleaned": ("yahma/alpaca-cleaned", "default", "train", "instruction", ALPACA_LICENSE, 1500),
 }
 TRAVEL_STEMS = ("travel", "touris", "vacation", "holiday", "trip", "abroad", "visit", "city", "cities", "country",
                 "countries", "nation")
@@ -198,7 +215,7 @@ def answer_for(context, body, q, cat, name):
     answer = pick_answer(context, body, " ".join(words), cat, name, KEYWORDS, SENTENCE_END)
     stems = {w.lower()[:5] for w in words if len(w) >= 4} - {w[:5] for w in re.findall(r"\w{4,}", name.lower())}
     low = answer.lower()
-    return answer if any(k in low for k in KEYWORDS[cat]) or any(s in low for s in stems) else ""
+    return answer if covers(cat, low, KEYWORDS) or any(s in low for s in stems) else ""
 
 
 def refusal(topic, tail):
@@ -244,8 +261,8 @@ def load_en_dump(path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dump-dir", type=Path, required=True, help="cartella con i dump di dumps.wikimedia.org (DUMP_FILES)")
-    ap.add_argument("--dump-date", help="data dei dump (AAAAMMGG), di default il nome della cartella")
+    ap.add_argument("--dump-dir", type=Path, required=True, help="cartella con i dump di dumps.wikimedia.org (DUMP_WIKIS)")
+    ap.add_argument("--dump-date", help="data dei dump (MM-AAAA, AAAA-MM o AAAA-MM-GG), di default il nome della cartella")
     ap.add_argument("--negatives", type=float, default=0.33, help="negativi per positivo (0.33 = ~25%% del totale)")
     ap.add_argument("--off-topic", type=float, default=0.25, help="quota di negativi con domanda fuori tema")
     ap.add_argument("--empty", type=float, default=0.1, help="quota di negativi con il contesto di fallback")
@@ -257,20 +274,23 @@ def main():
     (OUT / "raw").mkdir(parents=True, exist_ok=True)
 
     sources = load_sources()
-    date = a.dump_date or a.dump_dir.name
+    date = wiki_dump.normalize_date(a.dump_date or a.dump_dir.name)
     phase("dump", f"Wikivoyage EN del {date}")
-    pages, parent, city_titles = load_en_dump(a.dump_dir / DUMP_FILES["en"].format(d=date))
+    pages, parent, city_titles = load_en_dump(wiki_dump.dump_files(a.dump_dir, DUMP_WIKIS["en"], date))
     test_titles = {t for r in TEST_REGIONS if (t := page_title(r, sources))}
     in_test = lambda t: t in test_titles or bool(cities_en.regions_of(t, parent, {x: x for x in test_titles}))
 
     # Regioni con pagina EN; fuori quelle (non di test) con la pagina di una regione di test o al suo interno
-    regions, skipped = [], []
+    regions, skipped, excluded = [], [], []
     for rid, _, _ in load_regions():
         title = page_title(rid, sources)
-        if not title or title not in pages:
-            continue
-        if rid not in TEST_REGIONS and (in_test(title) or any(rid.startswith(f"{t}-") for t in TEST_REGIONS)):
+        # prima delle pagine assenti: le sottoregioni delle regioni di test (canada-*) non hanno titolo in sft-sources.tsv
+        if rid not in TEST_REGIONS and ((title and in_test(title)) or any(rid.startswith(f"{t}-") for t in TEST_REGIONS)):
             skipped.append(rid)
+            excluded.append((rid, "-", "-", "regione-di-test"))
+            continue
+        if not title or title not in pages:
+            excluded.append((rid, "en", "-", "pagina-assente"))
             continue
         regions.append((rid, with_article(display_name(title)), title))
     print(f"regioni escluse perche' dentro una regione di test: {', '.join(skipped)}")
@@ -280,9 +300,13 @@ def main():
     progress = Progress("fonti", len(regions), "regione", every=20)
     for n, (rid, name, title) in enumerate(regions, 1):
         progress.update(n - 1, rid)
-        if secs := parse_sections(pages[title], EN_HEADING_TO_CATEGORY):
+        dropped = []
+        if secs := parse_sections(pages[title], EN_HEADING_TO_CATEGORY, dropped):
             data[rid] = (name, secs)
             attribution.append((rid, display_name(title), SOURCE_URL["en"] + urllib.parse.quote(title.replace(" ", "_")), "CC BY-SA 4.0"))
+        else:
+            excluded.append((rid, "en", "-", "nessuna-sezione"))
+        excluded.extend((rid, "en", cat, "markup-residuo") for cat in dropped)
     progress.update(len(regions), f"{len(data)} regioni con testo")
 
     def question(cat, name, city=False):
@@ -307,7 +331,9 @@ def main():
     for rid, (name, secs) in data.items():
         for cat, body in secs:
             if not covers(cat, body, KEYWORDS):
+                excluded.append((rid, "en", cat, "fuori-categoria"))
                 continue
+            pos_before = pos
             others = [b for c, b in secs if c != cat and not covers(cat, b, KEYWORDS)]
             for _ in range(3):
                 q = question(cat, name)
@@ -321,6 +347,8 @@ def main():
                     continue
                 seen.add((context, q))
                 rows.append(row("pos", rid, cat, context, q, answer)); pos += 1
+            if pos == pos_before:
+                excluded.append((rid, "en", cat, "nessuna-risposta"))
     # negativi: categoria assente dal contesto, domanda fuori tema, oppure contesto di fallback
     n_neg = int(pos * a.negatives)
     ids, tries, neg = list(data), 0, 0
@@ -432,7 +460,9 @@ def main():
     rng.shuffle(rows)
 
     for name, (dataset, *_, lic, _) in OFF_TOPIC_SOURCES.items():  # solo domande, con rifiuto come risposta
-        attribution.append(("-", f"off-topic questions ({name})", f"https://huggingface.co/datasets/{dataset}", lic))
+        attribution.append(("-", f"off-topic questions ({name})", f"https://huggingface.co/datasets/{dataset}/tree/{OFF_TOPIC_REVISIONS[dataset]}", lic))
+    attribution.append(("-", f"export {DUMP_WIKIS['en']} del {date}", wiki_dump.export_url(DUMP_WIKIS["en"], date),
+                        "CC BY-SA 4.0 (testo delle pagine elencate sopra)"))  # la data del dump resta accanto al dataset
     data_out, attr_out = OUT / "pocket_travel_sft.en.jsonl", OUT / "ATTRIBUTION.en.tsv"
     with open(data_out, "w", encoding="utf-8") as f:
         for r in rows:
@@ -448,6 +478,7 @@ def main():
     if a.guides_db:
         print(f"fatti rapidi: {quick_pos} positivi, {quick_neg} rifiuti; note personali: {note_pos} positivi")
     print(f"scritto {data_out}")
+    write_excluded(OUT / "EXCLUDED.en.tsv", excluded)
 
 
 if __name__ == "__main__":
