@@ -176,14 +176,18 @@ jobs:
           # Un rilancio dello stesso workflow sulla stessa VERSION (es. per correggere un
           # problema nell'APK appena caricato) deve poter riusare la release gia' creata
           # invece di fallire su "release already exists".
+          # --latest esplicito in tutti e due i rami: il badge "Latest" va solo all'ultima versione
+          # dell'app, anche se nel frattempo e' stata creata una release di dati (ensure_release le
+          # crea con --latest=false, ma quelle create prima di quella modifica lo avevano preso).
           publish_release() {
             if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-              gh release edit "$TAG" --repo "${{ github.repository }}" --notes-file "$NOTES_FILE"
+              gh release edit "$TAG" --repo "${{ github.repository }}" --notes-file "$NOTES_FILE" --latest
             else
               gh release create "$TAG" --repo "${{ github.repository }}" \
                 --target "$GITHUB_SHA" \
                 --title "Pocket Travel $VERSION" \
-                --notes-file "$NOTES_FILE"
+                --notes-file "$NOTES_FILE" \
+                --latest
             fi
           }
           retry publish_release
