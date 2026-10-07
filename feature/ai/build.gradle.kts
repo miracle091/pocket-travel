@@ -37,6 +37,11 @@ android {
         cmake {
             path("src/main/cpp/CMakeLists.txt")
             version = "3.31.6"
+            // Non in .cxx/: su Windows un file watcher che tiene aperte le sottocartelle (chokidar con fs.watch,
+            // come quello dell'app Hive) fa fallire il rename di FetchContent ("file RENAME failed ...
+            // kleidiai-src: Accesso negato"). Le cartelle .cache/ vengono di solito ignorate dai watcher
+            // e, a differenza di build/, `clean` non le cancella, quindi la cache di CMake resta.
+            buildStagingDirectory = file(".cache/cxx")
         }
     }
 
