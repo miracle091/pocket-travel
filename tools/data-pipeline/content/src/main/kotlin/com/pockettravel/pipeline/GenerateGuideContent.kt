@@ -507,8 +507,15 @@ fun main(rawArgs: Array<String>) {
     // --translated <jsonl>: sezioni tradotte dall'altra lingua (translate_guides.py), al posto di quelle povere.
     val translatedIndex = withoutMissions.indexOf("--translated")
     val translatedJsonl = if (translatedIndex >= 0) withoutMissions.getOrNull(translatedIndex + 1)?.let(::File) else null
-    val args = if (translatedIndex >= 0) withoutMissions.take(translatedIndex) + withoutMissions.drop(translatedIndex + 2) else withoutMissions
-    require(args.size in 2..3) { "Uso: generateGuides [--lang en] [--missions <missioni.tsv>] [--translated <tradotte.jsonl>] <regioni.tsv> <output guides.db> [guides.db pubblicato]" }
+    val withoutTranslated = if (translatedIndex >= 0) withoutMissions.take(translatedIndex) + withoutMissions.drop(translatedIndex + 2) else withoutMissions
+    // --travel-advice <tsv>: consigli di viaggio di travel.gc.ca per regione (GenerateTravelAdvice.kt, solo guida inglese).
+    val adviceIndex = withoutTranslated.indexOf("--travel-advice")
+    val adviceTsv = if (adviceIndex >= 0) withoutTranslated.getOrNull(adviceIndex + 1)?.let(::File) else null
+    val args = if (adviceIndex >= 0) withoutTranslated.take(adviceIndex) + withoutTranslated.drop(adviceIndex + 2) else withoutTranslated
+    require(args.size in 2..3) {
+        "Uso: generateGuides [--lang en] [--missions <missioni.tsv>] [--translated <tradotte.jsonl>] [--travel-advice <consigli.tsv>] " +
+            "<regioni.tsv> <output guides.db> [guides.db pubblicato]"
+    }
     val outputDb = File(args[1])
     val publishedDb = args.getOrNull(2)?.let(::File)?.takeIf { it.exists() }
 
@@ -526,7 +533,12 @@ fun main(rawArgs: Array<String>) {
             println("guide: $regionId senza dump in questa run, ricopio le sezioni pubblicate")
             publishedDb?.let { readRegionGuide(it, regionId) } ?: RegionGuide(regionId, sourceUrl, emptyList())
         }
-    }.withTranslations(translated)
+    }.withTranslations(translated).let { guides ->
+        val advice = adviceTsv?.takeIf { it.exists() }?.let { tsv ->
+            readTravelAdvice(tsv) { regionId -> publishedDb?.let { readRegionGuide(it, regionId) }?.sections.orEmpty() }
+        }
+        advice?.let { guides.withTravelAdvice(it) } ?: guides
+    }
 
     outputDb.delete()
     writeGuidesDb(guides, outputDb)

@@ -71,6 +71,8 @@ import com.pockettravel.core.data.DiplomaticMission
 import com.pockettravel.core.data.EmbassyEntry
 import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.GuideCategory
+import com.pockettravel.core.data.GuideSourceSite
+import com.pockettravel.core.data.guideSourceSiteOf
 import com.pockettravel.core.data.GuideSection
 import com.pockettravel.core.data.MainCity
 import com.pockettravel.core.data.MissionKind
@@ -828,9 +830,9 @@ private fun GuideSectionCard(
     }
 }
 
-// Riquadro finale con le pagine Wikivoyage (e Wikipedia, per Storia e Clima delle citta') da cui vengono
-// le sezioni mostrate: titolo della pagina (dall'URL) e sito, ognuna apribile. La licenza sta nella
-// schermata Licenze.
+// Riquadro finale con le pagine Wikivoyage (e Wikipedia, per Storia e Clima delle citta'; travel.gc.ca per i consigli di
+// viaggio del Governo del Canada) da cui vengono le sezioni mostrate: titolo della pagina (dall'URL, o il nome della
+// fonte per i link senza /wiki/) e sito, ognuna apribile. La licenza sta nella schermata Licenze.
 @Composable
 private fun GuideSourcesCard(
     sourceUrls: List<String>,
@@ -839,6 +841,7 @@ private fun GuideSourcesCard(
 ) {
     val wikivoyageTitle = stringResource(R.string.guide_source_title)
     val wikipediaTitle = stringResource(R.string.guide_source_title_wikipedia)
+    val travelAdviceTitle = stringResource(R.string.guide_source_title_travel_gc)
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(vertical = Spacing.l)) {
             Text(
@@ -848,13 +851,17 @@ private fun GuideSourcesCard(
             )
             sourceUrls.forEach { url ->
                 val host = url.toUri().host.orEmpty()
-                val sourceTitle = if (host.endsWith("wikipedia.org")) wikipediaTitle else wikivoyageTitle
+                val sourceTitle = when (guideSourceSiteOf(url)) {
+                    GuideSourceSite.WIKIVOYAGE -> wikivoyageTitle
+                    GuideSourceSite.WIKIPEDIA -> wikipediaTitle
+                    GuideSourceSite.TRAVEL_GC_CA -> travelAdviceTitle
+                }
                 ListItem(
                     supportingContent = { Text(host) },
                     trailingContent = { Icon(AppIcons.OpenExternal, contentDescription = null) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable { onOpenSource(url, sourceTitle) },
-                    content = { Text(sourcePageTitle(url)) },
+                    content = { Text(if ("/wiki/" in url) sourcePageTitle(url) else sourceTitle) },
                 )
             }
         }

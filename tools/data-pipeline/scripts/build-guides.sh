@@ -28,6 +28,9 @@
 # missioni cambiate non producono un nuovo guides.db se quelle pubblicate hanno meno di 14 giorni
 # (data nella tabella guides_meta); una modifica alle guide lo pubblica subito, con missioni fresche.
 #
+# Guida inglese con i consigli di viaggio del Governo del Canada (sezione 2c, JSON open data di travel.gc.ca, Open
+# Government Licence - Canada): sicurezza e livello di rischio, leggi e cultura, catastrofi naturali e clima, salute.
+#
 # Sezioni tradotte dall'altra lingua (sezione 3a): con TRANSLATE_CACHE_DIR e i modelli attivi (vedi translate_overlay in
 # lib.sh) le categorie assenti o molto piu' povere di quelle dell'altra lingua (translate_dataset.needs_translation) sono
 # sostituite da quelle tradotte (translate_guides.py), con translated = 1 in guide_sections e l'url della pagina
@@ -161,6 +164,40 @@ if [ -z "$(find "$MISSIONS_TSV" -mmin -120 -size +0 2>/dev/null)" ]; then
     || echo "AVVISO: missioni diplomatiche da Wikidata non scaricate, riuso quelle pubblicate se ci sono" >&2
 fi
 
+# --- 2c. Consigli di viaggio di travel.gc.ca (solo guida inglese) ---------------------------------
+# Un JSON open data per paese (flagCode di regions.sh; le regioni dello stesso paese lo condividono), vedi
+# GenerateTravelAdvice.kt. Uno non scaricato lascia la riga vuota: generateGuides ricopia i consigli pubblicati.
+ADVICE_TSV=""
+if [ "$LANG_CODE" = "en" ]; then
+  ADVICE_DIR="$WORKDIR/travel-advice"
+  ADVICE_TSV="$WORKDIR/travel-advice.tsv"
+  mkdir -p "$ADVICE_DIR"
+  : > "$ADVICE_TSV"
+  ADVICE_OK=0 ADVICE_TRIED=0
+  for spec in "${ALL_REGIONS[@]}"; do
+    IFS='|' read -r regionId _ _ _ _ _ _ flagCode _ <<< "$spec"
+    [ -n "$flagCode" ] || { printf '%s\t\n' "$regionId" >> "$ADVICE_TSV"; continue; }
+    advice="$ADVICE_DIR/$flagCode.json"
+    if [ ! -e "$advice" ] && [ ! -e "$advice.none" ]; then
+      ADVICE_TRIED=$((ADVICE_TRIED + 1))
+      if curl -sSf --max-time 60 --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" -o "$advice" \
+        "https://data.international.gc.ca/travel-voyage/cta-cap-$flagCode.json" 2>/dev/null; then
+        ADVICE_OK=$((ADVICE_OK + 1))
+      else
+        rm -f "$advice"
+        : > "$advice.none"  # niente pagina (es. il Canada stesso) o errore: non si riprova per le altre regioni del paese
+      fi
+      sleep 0.2
+    fi
+    if [ -s "$advice" ]; then
+      printf '%s\t%s\n' "$regionId" "$(winpath "$advice")" >> "$ADVICE_TSV"
+    else
+      printf '%s\t\n' "$regionId" >> "$ADVICE_TSV"
+    fi
+  done
+  echo "-- consigli di travel.gc.ca: $ADVICE_OK/$ADVICE_TRIED paesi scaricati"
+fi
+
 # --- 3. guides.db ---------------------------------------------------------------------------------
 GUIDES_DB="$OUTPUT_DIR/guides.db"
 rm -f "$GUIDES_DB"
@@ -197,6 +234,7 @@ if [ -n "${TRANSLATE_CACHE_DIR:-}" ]; then
   fi
 fi
 [ -s "$MISSIONS_TSV" ] && GUIDES_ARGS="--missions \"$(winpath "$MISSIONS_TSV")\" $GUIDES_ARGS"
+[ -n "$ADVICE_TSV" ] && GUIDES_ARGS="--travel-advice \"$(winpath "$ADVICE_TSV")\" $GUIDES_ARGS"
 [ "$LANG_CODE" = "en" ] && GUIDES_ARGS="--lang en $GUIDES_ARGS"
 [ -n "$PUBLISHED_DB" ] && GUIDES_ARGS="$GUIDES_ARGS \"$(winpath "$PUBLISHED_DB")\""
 ./gradlew -q :tools:data-pipeline:content:generateGuides --args="$GUIDES_ARGS"

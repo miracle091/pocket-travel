@@ -148,6 +148,14 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   come l'app (`test_make_context.py` lo confronta con la replica di `eval_retrieval.py`).
 - **Guide**: la sottosezione "Costo della vita" ("Cost of living" in inglese) viene omessa da guide e città. I fatti
   rapidi delle guide inglesi comprendono anche la lingua e i numeri di emergenza, come quelli italiani.
+- **Consigli di viaggio del Governo del Canada (guide inglesi)**: `build-guides.sh en` scarica per ogni paese (`flagCode`
+  di `regions.sh`) il JSON open data `data.international.gc.ca/travel-voyage/cta-cap-<iso2>.json` (Open Government
+  Licence - Canada 2.0) e `GenerateTravelAdvice.kt` ne fa quattro sezioni della guida, con l'url della pagina del paese
+  su travel.gc.ca e la data dell'ultimo aggiornamento: sicurezza (con il livello di rischio e gli avvisi regionali in
+  testa), leggi e cultura, catastrofi naturali e clima, salute. Restano fuori ingresso e uscita, uffici consolari, i
+  sottotitoli per i canadesi o sui vaccini (`excludedAdviceHeadings`) e le frasi che nominano il Canada o in cui parla il
+  governo ("we", "our"). Un paese non scaricato tiene i consigli del `guides-en.db` pubblicato. Sui dati del 2026-09/10:
+  232 regioni, +4,4 MB di `guides-en.db` e +0,4 MB compresso.
 - **Dataset SFT (v9-v10)**: `scripts/generate_sft.py --lang it|en` genera il dataset dei due modelli linguistici con le
   stesse fonti, la stessa composizione e gli stessi tipi di domanda. Con `--vaccinations` aggiunge domande sui
   vaccini, con il riassunto che l'app inserisce nel contesto dell'assistente. Con `--nearby <quota>` (per esempio 0.03)

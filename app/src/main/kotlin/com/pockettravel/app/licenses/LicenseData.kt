@@ -93,6 +93,12 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
         note = "Contains public sector information licensed under the Open Government Licence v3.0.",
     ),
     LicenseEntry(
+        component = "Guide in inglese, consigli di viaggio: Travel.gc.ca (Governo del Canada)",
+        license = "Open Government Licence - Canada 2.0",
+        note = "Contains information licensed under the Open Government Licence – Canada. Testo adattato (senza le parti " +
+            "per i cittadini canadesi), non approvato dal Governo del Canada.",
+    ),
+    LicenseEntry(
         component = "Vaccinazioni: Travel.gc.ca (Governo del Canada)",
         license = "Open Government Licence - Canada 2.0",
         note = "Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert - Canada. Fatti riscritti con parole nostre e confrontati con altre fonti.",

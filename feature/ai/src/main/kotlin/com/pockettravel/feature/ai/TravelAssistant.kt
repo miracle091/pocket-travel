@@ -14,6 +14,8 @@ import com.pockettravel.core.data.CitySection
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideRepository
 import com.pockettravel.core.data.GuideSection
+import com.pockettravel.core.data.GuideSourceSite
+import com.pockettravel.core.data.guideSourceSiteOf
 import com.pockettravel.core.data.LastKnownPosition
 import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.Note
@@ -527,13 +529,20 @@ internal data class AssistantSection(
 private fun AssistantSection.isRegulatedTopic(): Boolean =
     category == GuideCategory.DOGANE || category == GuideCategory.SALUTE
 
-// CC BY-SA 4.0 impone di indicare la fonte: titolo + link all'articolo originale, non solo il
-// nome "Wikivoyage".
-private fun GuideSection.toAssistantSection(language: String) = AssistantSection(
-    body = body,
-    category = category,
-    citation = if (language == "en") "Source: Wikivoyage, section $title — $sourceUrl" else "Fonte: Wikivoyage, sezione $title — $sourceUrl",
-)
+// CC BY-SA 4.0 (e la OGL-Canada per travel.gc.ca) impone di indicare la fonte: titolo + link alla pagina originale, non
+// solo il nome del sito.
+private fun GuideSection.toAssistantSection(language: String): AssistantSection {
+    val site = when (guideSourceSiteOf(sourceUrl)) {
+        GuideSourceSite.WIKIVOYAGE -> "Wikivoyage"
+        GuideSourceSite.WIKIPEDIA -> "Wikipedia"
+        GuideSourceSite.TRAVEL_GC_CA -> if (language == "en") "Government of Canada (travel.gc.ca)" else "Governo del Canada (travel.gc.ca)"
+    }
+    return AssistantSection(
+        body = body,
+        category = category,
+        citation = if (language == "en") "Source: $site, section $title — $sourceUrl" else "Fonte: $site, sezione $title — $sourceUrl",
+    )
+}
 
 // Storia e Clima delle citta' vengono dalla voce di Wikipedia, il resto da Wikivoyage: il sito si legge dal link.
 private fun CitySection.toAssistantSection(language: String): AssistantSection {

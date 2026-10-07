@@ -231,6 +231,17 @@ class TravelAssistantLogicTest {
     }
 
     @Test
+    fun `le sezioni di travel_gc_ca citano il Governo del Canada`() {
+        val advice = guideSection("Safety and security (Government of Canada)", category = GuideCategory.SICUREZZA)
+            .copy(sourceUrl = "https://travel.gc.ca/destinations/it")
+        assertEquals(
+            "Source: Government of Canada (travel.gc.ca), section Safety and security (Government of Canada) — https://travel.gc.ca/destinations/it",
+            rankSections(listOf(advice to info(bodyHits = 1)), emptyList(), limit = 3, language = "en").single().citation,
+        )
+        assertTrue(rankSections(listOf(guideSection("Stay safe") to info(bodyHits = 1)), emptyList(), limit = 3).single().citation.startsWith("Fonte: Wikivoyage"))
+    }
+
+    @Test
     fun `namedCities riconosce le citta' nominate, senza disambiguatore e accenti`() {
         val cities = listOf("Porto (Portogallo)", "Porto Santo", "Forlì", "Bra", "Braga", "Ne")
 
