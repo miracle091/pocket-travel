@@ -1,0 +1,9 @@
+root = true
+
+# LF everywhere, as in .gitattributes: editors on Windows would otherwise save new or
+# rewritten files with CRLF, and Syncthing carries them to the other PCs.
+[*]
+end_of_line = lf
+
+[*.bat]
+end_of_line = crlf
