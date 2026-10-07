@@ -239,7 +239,10 @@ internal fun regionsStyle(regions: List<RegionSource>, dark: Boolean, label: Str
 
 private fun regionLayers(r: RegionSource, palette: MapPalette, label: String, withEarth: Boolean): List<String> = listOfNotNull(
     if (withEarth) """{ "id": "earth${r.layerSuffix}", "type": "fill", "source": "${r.sourceId}", "source-layer": "earth", "paint": { "fill-color": "${palette.background}" } }""" else null,
-    """{ "id": "water${r.layerSuffix}", "type": "fill", "source": "${r.sourceId}", "source-layer": "water", "paint": { "fill-color": "${palette.water}" } }""",
+    // Lo strato "water" di Protomaps ha anche le linee di fiumi, torrenti e canali: un "fill" senza filtro
+    // le chiuderebbe in poligoni (cunei d'acqua nel deserto, fiumi larghissimi), quindi aree e linee a parte.
+    """{ "id": "water${r.layerSuffix}", "type": "fill", "source": "${r.sourceId}", "source-layer": "water", "filter": ["==", "${'$'}type", "Polygon"], "paint": { "fill-color": "${palette.water}" } }""",
+    """{ "id": "waterways${r.layerSuffix}", "type": "line", "source": "${r.sourceId}", "source-layer": "water", "filter": ["==", "${'$'}type", "LineString"], "layout": { "line-cap": "round", "line-join": "round" }, "paint": { "line-color": "${palette.water}", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 14, 1.5, 18, 4] } }""",
     """{ "id": "buildings${r.layerSuffix}", "type": "fill", "source": "${r.sourceId}", "source-layer": "buildings", "paint": { "fill-color": "${palette.building}" } }""",
     """{ "id": "buildings_outline${r.layerSuffix}", "type": "line", "source": "${r.sourceId}", "source-layer": "buildings", "minzoom": 15, "paint": { "line-color": "${palette.buildingOutline}", "line-width": 0.5 } }""",
     """{ "id": "roads_path${r.layerSuffix}", "type": "line", "source": "${r.sourceId}", "source-layer": "roads", "filter": ["==", "kind", "path"], "layout": { "line-cap": "round" }, "paint": { "line-color": "${palette.path}", "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.5, 18, 2], "line-dasharray": [2, 2] } }""",
@@ -326,7 +329,7 @@ internal fun worldFallbackStyle(
                 "world": { "type": "vector", "url": "$worldUrl", "attribution": "© OpenStreetMap contributors", "minzoom": 0, "maxzoom": $worldMaxZoom }""",
         layers = """$countriesLayers,
                 { "id": "fallback_world_earth", "type": "fill", "source": "world", "source-layer": "earth", "paint": { "fill-color": "$land" } },
-                { "id": "fallback_world_water", "type": "fill", "source": "world", "source-layer": "water", "paint": { "fill-color": "$water" } },
+                { "id": "fallback_world_water", "type": "fill", "source": "world", "source-layer": "water", "filter": ["==", "${'$'}type", "Polygon"], "paint": { "fill-color": "$water" } },
                 { "id": "fallback_world_roads", "type": "line", "source": "world", "source-layer": "roads", "filter": ["in", "kind", "highway", "major_road"], "paint": { "line-color": "$majorRoad", "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 14, 4] } },
                 { "id": "fallback_world_boundaries", "type": "line", "source": "world", "source-layer": "boundaries", "filter": ["<=", "kind_detail", 2], "paint": { "line-color": "$border", "line-width": 1 } }""",
     )

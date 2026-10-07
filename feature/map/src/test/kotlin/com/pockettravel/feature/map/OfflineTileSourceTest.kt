@@ -144,6 +144,30 @@ class OfflineTileSourceTest {
     }
 
     @Test
+    fun `l'acqua riempie solo i poligoni, fiumi e canali dello stesso strato sono linee`() {
+        val only = RegionSource("region", "", "pmtiles://file://map.pmtiles", 14, null)
+
+        val style = regionsStyle(listOf(only), dark = false, label = labelField("it"), fallback = null)
+
+        val water = style.lineSequence().first { "\"id\": \"water\"" in it }
+        assertTrue(water.contains("\"filter\": [\"==\", \"\$type\", \"Polygon\"]"))
+        val waterways = style.lineSequence().first { "\"id\": \"waterways\"" in it }
+        assertTrue(waterways.contains("\"type\": \"line\""))
+        assertTrue(waterways.contains("\"source-layer\": \"water\""))
+        assertTrue(waterways.contains("\"filter\": [\"==\", \"\$type\", \"LineString\"]"))
+        val ids = Regex(""""id": "([^"]+)"""").findAll(style).map { it.groupValues[1] }.toList()
+        assertEquals(ids.indexOf("water") + 1, ids.indexOf("waterways"))
+        assertTrue(ids.indexOf("waterways") < ids.indexOf("buildings"))
+    }
+
+    @Test
+    fun `anche l'acqua del mondo online riempie solo i poligoni`() {
+        val online = worldFallbackStyle("#00f", "#eee", "#888", "#fc0", worldUrl = "pmtiles://https://example.invalid/w.pmtiles", worldMaxZoom = 8)
+        val water = online.layers.lineSequence().first { "fallback_world_water" in it }
+        assertTrue(water.contains("\"filter\": [\"==\", \"\$type\", \"Polygon\"]"))
+    }
+
+    @Test
     fun `legge il riquadro dai byte 102-117 dell'header PMTiles, anche con longitudini negative`() {
         val header = ByteArray(127)
         java.nio.ByteBuffer.wrap(header, 102, 16).order(java.nio.ByteOrder.LITTLE_ENDIAN)
