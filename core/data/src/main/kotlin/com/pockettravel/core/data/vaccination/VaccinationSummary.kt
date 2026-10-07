@@ -52,7 +52,7 @@ fun VaccinationResult.toSummaryText(trip: Trip, language: String = "it"): String
 
     val recommendedNames = items.filter { it.level == VaccinationLevel.RECOMMENDED && it.vaccine != Vaccine.ROUTINE }
     if (recommendedNames.isNotEmpty()) {
-        lines += pick("Raccomandate per la destinazione: ","Recommended for the destination: ") +
+        lines += pick("Raccomandate per la destinazione: ", "Recommended for the destination: ") +
             recommendedNames.joinToString(", ") { vaccineName(it.vaccine, en) + (if (it.partialArea) pick(" (solo in alcune aree)", " (some areas only)") else "") }
     }
     val considerNames = items.filter { it.level == VaccinationLevel.CONSIDER && it.ageNote != AgeNote.BELOW_AGE }
