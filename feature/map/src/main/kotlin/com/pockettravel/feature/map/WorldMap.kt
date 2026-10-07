@@ -44,12 +44,12 @@ import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 
-/** Stato di un paese sulla mappa del mondo, deciso dall'elenco regioni del manifest. */
+/** Stato di una nazione sulla mappa delle nazioni, deciso dall'elenco regioni del manifest. */
 enum class CountryStatus { DOWNLOADED, AVAILABLE }
 
 /**
- * Mappa del mondo leggera e offline: confini Natural Earth 1:50m inclusi nell'app
- * (assets/world, generati da tools/data-pipeline generateWorldMap), paesi colorati per stato
+ * Mappa delle nazioni leggera e offline: confini Natural Earth 1:50m inclusi nell'app
+ * (assets/world, generati da tools/data-pipeline generateWorldMap), nazioni colorate per stato
  * (scaricato / disponibile nel catalogo / non disponibile) e cliccabili. Non usa tile: funziona
  * anche senza nessuna regione scaricata.
  */
@@ -195,7 +195,7 @@ internal fun worldStyleJson(
         countryStatus.filterValues { it == status }.keys.sorted().joinToString(",") { "\"$it\"" }
     val downloadedIsos = isoList(CountryStatus.DOWNLOADED)
     val availableIsos = isoList(CountryStatus.AVAILABLE)
-    // "match" non accetta liste vuote: i rami si aggiungono solo se c'e' almeno un paese.
+    // "match" non accetta liste vuote: i rami si aggiungono solo se c'e' almeno una nazione.
     val fillColor = if (downloadedIsos.isEmpty() && availableIsos.isEmpty()) "\"$land\"" else buildString {
         append("[\"match\", [\"get\", \"iso\"], ")
         if (downloadedIsos.isNotEmpty()) append("[$downloadedIsos], \"$downloaded\", ")

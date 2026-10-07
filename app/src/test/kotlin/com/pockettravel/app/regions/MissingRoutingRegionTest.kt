@@ -43,7 +43,7 @@ class MissingRoutingRegionTest {
     }
 
     @Test
-    fun `un punto in due riquadri, senza percorsi installati, la regione piu' piccola`() {
+    fun `un punto in due riquadri, senza rete stradale installata, la regione piu' piccola`() {
         assertEquals(listOf(sanMarino), missingRoutingRegions(all, emptySet(), listOf(cittaDiSanMarino), paeseDi(all)))
     }
 
@@ -54,12 +54,12 @@ class MissingRoutingRegionTest {
     }
 
     @Test
-    fun `con l'arrivo in Svizzera e i percorsi dell'Italia manca la Svizzera`() {
+    fun `con l'arrivo in Svizzera e la rete stradale dell'Italia manca la Svizzera`() {
         assertEquals(listOf(svizzera), missingRoutingRegions(all, setOf("italia"), listOf(milano, zurigo), paeseDi(all)))
     }
 
     @Test
-    fun `senza percorsi mancano tutte le regioni, in ordine dalla partenza`() {
+    fun `senza rete stradale mancano tutte le regioni, in ordine dalla partenza`() {
         assertEquals(listOf(italia, svizzera), missingRoutingRegions(all, emptySet(), listOf(milano, zurigo), paeseDi(all)))
     }
 
@@ -96,7 +96,7 @@ class MissingRoutingRegionTest {
     }
 
     @Test
-    fun `con i percorsi dell'Italia l'Austria manca, anche se il riquadro dell'Italia la contiene`() {
+    fun `con la rete stradale dell'Italia l'Austria manca, anche se il riquadro dell'Italia la contiene`() {
         val austria = region("austria", 9.5, 46.4, 17.2, 49.0)
         val catalogo = listOf(italia, austria)
         val innsbruck = RoutePoint(47.26, 11.39)

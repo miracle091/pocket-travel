@@ -21,7 +21,7 @@ enum class VaccinationLevel {
     /** Dose incoraggiata dall'OMS, non obbligatoria. */
     ENCOURAGED,
 
-    /** Consigliato (destinazione a rischio, "most travellers", routine). */
+    /** Raccomandato (destinazione a rischio, "most travellers", routine). */
     RECOMMENDED,
 
     /** Da valutare con il medico ("some travellers"), oppure obbligo non applicabile per l'eta' indicata. */

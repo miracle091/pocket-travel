@@ -92,7 +92,7 @@ class ValidateManifestTest {
     }
 
     @Test
-    fun `accetta la variante auto facoltativa dei percorsi e ne controlla i file`() {
+    fun `accetta la variante auto facoltativa della rete stradale e ne controlla i file`() {
         val carFile = """{ "name": "E10_N40.rd5", "url": "https://github.com/miracle091/pocket-travel/releases/download/region-data-car-r03/san-marino--2026.09.14--car-E10_N40.rd5", "sizeBytes": 90, "sha256": "${"d".repeat(64)}" }"""
         val withCar = { files: String -> validManifest().replace("\"poi\": {", "\"routingCar\": { \"version\": \"2026.09.14\", \"files\": [$files] },\n  \"poi\": {") }
         validateManifestJson(withCar(carFile), allowedHosts)

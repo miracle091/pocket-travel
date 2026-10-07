@@ -39,7 +39,7 @@ object Rd5Merger {
     private val MERGE_LOCK = Any()
 
     /**
-     * Cartella con i segmenti uniti delle cartelle di percorsi [routingDirs] (`regions/<id>/routing`),
+     * Cartella con i segmenti uniti delle cartelle della rete stradale [routingDirs] (`regions/<id>/routing`),
      * dentro [cacheRoot] col nome dato dai file di ogni regione (nome, dimensione, data): si rifa' solo
      * quando ne cambia uno, e le cartelle di combinazioni precedenti si cancellano.
      *

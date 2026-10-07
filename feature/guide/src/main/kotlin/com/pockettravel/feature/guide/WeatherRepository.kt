@@ -18,12 +18,12 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
-/** Meteo con l'ora in cui e' stato scaricato: senza rete la scheda mostra l'ultimo salvato e da quando. */
+/** Meteo con l'ora in cui e' stato scaricato: senza rete il riquadro mostra l'ultimo salvato e da quando. */
 data class WeatherResult(val weather: Weather, val updatedAtMillis: Long)
 
 /**
  * Meteo da Open-Meteo (open-meteo.com, nessuna chiave, dati CC BY 4.0). L'ultima risposta di ogni luogo resta
- * in un file: senza rete, o se il servizio non risponde, la scheda mostra quella finche' ha giorni non passati.
+ * in un file: senza rete, o se il servizio non risponde, il riquadro mostra quella finche' ha giorni non passati.
  * Le coordinate delle citta' (geocoding per nome e paese) restano nelle preferenze: non cambiano.
  */
 class WeatherRepository @Inject constructor(
@@ -34,7 +34,7 @@ class WeatherRepository @Inject constructor(
     private val cacheDir = File(context.filesDir, "weather")
     private val places = context.getSharedPreferences("weather_places", Context.MODE_PRIVATE)
 
-    // Tetto per chiamata: con una rete lenta la scheda non resta vuota per decine di secondi prima di mostrare
+    // Tetto per chiamata: con una rete lenta il riquadro non resta vuota per decine di secondi prima di mostrare
     // il meteo salvato (i timeout di connessione e lettura non limitano la chiamata intera).
     private val client = okHttpClient.newBuilder().callTimeout(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS).build()
 

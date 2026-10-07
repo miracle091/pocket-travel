@@ -7,13 +7,13 @@ import kotlin.math.cos
 import kotlin.math.hypot
 
 /**
- * Le regioni del manifest da cui scaricare i percorsi per andare dal primo all'ultimo dei [points] (partenza, linea
+ * Le regioni del manifest da cui scaricare la rete stradale per andare dal primo all'ultimo dei [points] (partenza, linea
  * retta in mezzo, arrivo), nell'ordine del viaggio. I paesi sono quelli del cammino via terra fra il paese di
  * partenza e quello di arrivo ([landPath] sui confini veri: da San Marino a Riga Italia, Austria, Cechia, Polonia,
  * Lituania, non la Croazia o Kaliningrad che la linea sfiora passando sul mare). Per ogni paese del cammino, le
  * regioni sotto la linea (gli Stati Uniti sono divisi in stati) o, se la linea non ci passa, la sua regione piu'
  * vicina alla linea. Senza un cammino via terra (isole, partenza in mare) si segue la linea. Vuota se tutto e'
- * coperto dai percorsi installati ([installedRoutingIds]).
+ * coperto dalla rete stradale installata ([installedRoutingIds]).
  */
 internal fun missingRoutingRegions(
     regions: List<RegionManifestEntry>,
@@ -55,7 +55,7 @@ internal fun missingRoutingRegions(
 }
 
 /**
- * La regione senza percorsi da scaricare per [point], nel paese [country] secondo i confini veri; null se e' gia'
+ * La regione senza rete stradale da scaricare per [point], nel paese [country] secondo i confini veri; null se e' gia'
  * coperto ([covering]) o nessuna regione fa al caso. Fra quelle del paese che lo contengono, la piu' piccola (l'Italia
  * contiene San Marino, gli Stati Uniti sono divisi in stati). Se nessun riquadro del suo paese lo contiene (i riquadri
  * del catalogo sono approssimati: la penisola dei Curi e' Lituania ma fuori dal suo), la regione del paese col riquadro

@@ -22,12 +22,12 @@ class RoutingVariantTest {
     )
 
     @Test
-    fun `con solo auto scelta e offerta i percorsi sono quelli per l'auto`() {
+    fun `con solo auto scelta e offerta la rete stradale e' quella per l'auto`() {
         assertEquals(listOf(430L, 860L), entry.withRoutingVariant(true).routing.files.map { it.sizeBytes })
     }
 
     @Test
-    fun `se non scelta o non offerta restano i percorsi completi`() {
+    fun `se non scelta o non offerta resta la rete stradale completa`() {
         assertSame(entry, entry.withRoutingVariant(false))
         val withoutCar = entry.copy(routingCar = null)
         assertSame(withoutCar, withoutCar.withRoutingVariant(true))

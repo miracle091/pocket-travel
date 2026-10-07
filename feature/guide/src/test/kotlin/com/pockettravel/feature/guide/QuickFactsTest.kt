@@ -8,7 +8,7 @@ class QuickFactsTest {
     private val none = QuickFactsExtra(language = null, currency = null, transport = null)
 
     @Test
-    fun `fuso in GMT e niente numeri di emergenza, che hanno la loro scheda`() {
+    fun `fuso in GMT e niente numeri di emergenza, che hanno il loro riquadro`() {
         val body = "Lingua: Giapponese\nElettricità: 100V/50-60Hz\nFuso orario: UTC+9\n" +
             "Numeri di emergenza: Polizia 110, Ambulanza 119, Vigili del fuoco 119"
         assertEquals("Lingua: Giapponese\nElettricità: 100V/50-60Hz\nFuso orario: GMT+9", quickFactsBody(body, none))

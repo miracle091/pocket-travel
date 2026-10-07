@@ -86,7 +86,7 @@ data class RegionManifestEntry(
     // Continente (da regions.sh, aggiunto dal merge della pipeline): assente, l'app ricade
     // sul gruppo "Altro".
     val continent: String? = null,
-    // Codice ISO 3166-1 alpha-2 minuscolo del paese (piu' regioni possono condividerlo, es. "us").
+    // Codice ISO 3166-1 alpha-2 minuscolo della nazione (piu' regioni possono condividerlo, es. "us").
     val countryCode: String? = null,
     // Paese diviso in piu' regioni (es. "Stati Uniti d'America") e nome breve della regione nel
     // gruppo (es. "California"): l'elenco le raccoglie sotto un'unica voce. Assenti per le nazioni intere.
@@ -112,15 +112,15 @@ data class RegionManifestEntry(
 
     /**
      * I pacchetti del download completo ("Scarica"): tutti quelli offerti tranne i POI extra e i
-     * percorsi, solo su richiesta dal foglio Pacchetti o con [downloadKinds]. I percorsi pesano
-     * (Italia 840 MB) e servono solo alla navigazione. Anche gli orari dei mezzi pubblici si chiedono
-     * a parte (la proposta del primo avvio dipende dalla modalita' d'uso). "Aggiorna" riguarda comunque
+     * rete stradale, solo su richiesta dal foglio Contenuti o con [downloadKinds]. La rete stradale pesa
+     * (Italia 840 MB) e serve solo alla navigazione. Anche gli orari dei mezzi pubblici si chiedono
+     * a parte (la proposta del primo avvio dipende dai modi di spostarsi). "Aggiorna" riguarda comunque
      * tutti i pacchetti installati.
      */
     val defaultKinds: Set<PackageKind>
         get() = availableKinds - PackageKind.POI_EXTRA - PackageKind.ROUTING - PackageKind.TRANSIT
 
-    /** Il download di "Scarica": [defaultKinds] piu' i percorsi se l'utente vuole le indicazioni. */
+    /** Il download di "Scarica": [defaultKinds] piu' la rete stradale se l'utente vuole le indicazioni. */
     fun downloadKinds(withRouting: Boolean): Set<PackageKind> =
         if (withRouting) defaultKinds + (availableKinds intersect setOf(PackageKind.ROUTING)) else defaultKinds
 

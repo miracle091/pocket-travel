@@ -9,12 +9,12 @@ class UsableRoutingRegionsTest {
     private val carOnly = setOf("italia")
 
     @Test
-    fun `in auto valgono anche i percorsi solo per l'auto`() {
+    fun `in auto vale anche la rete stradale solo auto`() {
         assertEquals(withRouting, usableRoutingRegions(withRouting, carOnly, RouteProfile.CAR))
     }
 
     @Test
-    fun `a piedi e in bici i percorsi solo per l'auto non valgono`() {
+    fun `a piedi e in bici la rete stradale solo auto non vale`() {
         assertEquals(setOf("francia"), usableRoutingRegions(withRouting, carOnly, RouteProfile.WALK))
         assertEquals(setOf("francia"), usableRoutingRegions(withRouting, carOnly, RouteProfile.BIKE))
     }

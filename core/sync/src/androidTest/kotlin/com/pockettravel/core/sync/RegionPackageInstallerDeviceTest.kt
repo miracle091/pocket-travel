@@ -86,13 +86,13 @@ class RegionPackageInstallerDeviceTest {
 
         db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).build()
         storage = RegionStorage(File(workDir, "regions").apply { mkdirs() }, File(workDir, "staging").apply { mkdirs() })
-        repository = RegionRepository(db.regionPackageDao(), db.poiDao(), storage, db, db.cityDao())
+        repository = RegionRepository(db.installedRegionDao(), db.poiDao(), storage, db, db.cityDao())
         installer = RegionPackageInstaller(
             RegionPackageDownloader(OkHttpClient(), storage),
             repository,
             storage,
             PoiImporter(db.poiDao(), db),
-            RegionRoutingGraphInstaller(),
+            RoutingSegmentsInstaller(),
             PmtilesExtractor(),
             CityImporter(db.cityDao(), db),
             RegionAddressGridInstaller(storage),

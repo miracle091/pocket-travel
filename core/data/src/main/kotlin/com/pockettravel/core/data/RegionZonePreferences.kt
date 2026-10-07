@@ -25,7 +25,7 @@ data class RegionZone(val minLon: Double, val minLat: Double, val maxLon: Double
 }
 
 /**
- * Zona di ogni regione da scaricare (solo per i paesi grandi): mappa, percorsi e civici si limitano al riquadro,
+ * Zona di ogni regione da scaricare (solo per le nazioni grandi): mappa, rete stradale e civici si limitano al riquadro,
  * punti di interesse e guide restano interi. Assente = tutta la regione.
  */
 @Singleton

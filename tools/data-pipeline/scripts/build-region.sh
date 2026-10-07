@@ -96,8 +96,8 @@ fetch_rd5() {
   printf '%s\t%s\t%s\t%s\t%s\n' "$name" "${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${name}" \
     "$(wc -c < "$dest" | tr -d ' ')" "$(sha256sum < "$dest" | awk '{print $1}')" "$sourceSize $RD5_CLIP" >> "$2"
 }
-# Variante "solo auto" dei segmenti (voce routingCar del manifest, interruttore "Percorsi solo per l'auto"
-# nell'app): filterRd5 (Rd5CarFilter, circa il 60% del file intero) sulle tile appena scaricate, in
+# Variante "solo auto" dei segmenti (voce routingCar del manifest, rete stradale solo auto
+# dell'app): filterRd5 (Rd5CarFilter, circa il 60% del file intero) sulle tile appena scaricate, in
 # OUTPUT_DIR/car con lo stesso nome. Asset "<regione>--<versione>--car-<tile>.rd5" su CAR_ASSET_BASE_URL: la
 # release region-data-car-rNN accanto a region-data-rNN (le release reggono 1.000 asset), o la stessa base per
 # gli URL che non seguono quello schema (esecuzioni locali).
@@ -897,7 +897,7 @@ elif [ "$PUBLISHED_PREVIEW" != "null" ]; then
   jq -c --argjson preview "$PUBLISHED_PREVIEW" '.regions |= map(.preview = $preview)' "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
   mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
 fi
-# Variante "solo auto" dei percorsi: stessa versione e stesse tile di "routing".
+# Variante "solo auto" della rete stradale: stessa versione e stesse tile di "routing".
 jq -c --arg version "$VERSION" --argjson files "$(jq -R -s -c "$RD5_TSV_TO_JSON" "$ROUTING_CAR_TSV")" \
   '.regions |= map(.routingCar = {version: $version, files: $files})' "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
 mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"

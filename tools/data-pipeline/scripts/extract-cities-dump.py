@@ -7,7 +7,7 @@ una regione alla volta) per generare cities.db, che pulisce il wikitext con la s
 delle guide - questo script non duplica quella pulizia.
 
 Uso: extract-cities-dump.py <cartella del dump> <regioni.tsv> <outDir>
-cartella del dump: le parti dell'export di Wikivoyage IT (fetch_wikivoyage_dump_parts in lib.sh, wiki_dump.py).
+cartella del dump: le parti del dump di Wikivoyage IT (fetch_wikivoyage_dump_parts in lib.sh, wiki_dump.py).
 regioni.tsv: righe "regionId<TAB>itTitle" (titolo IT Wikivoyage gia' risolto via langlink, vedi
 resolve_it_wikivoyage_title in lib.sh), una per regione.
 """

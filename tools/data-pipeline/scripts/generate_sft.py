@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera il dataset SFT v10 (v9 con --real-questions 0 e senza le altre opzioni nuove) in italiano o in inglese con lo stesso metodo, cosi' i due dataset restano equivalenti:
+"""Genera il dataset SFT v10 (v9 con --user-style-questions 0 e senza le altre opzioni nuove) in italiano o in inglese con lo stesso metodo, cosi' i due dataset restano equivalenti:
 stesse fonti (Wikivoyage IT ed EN dello stesso dump, Wikipedia IT o EN per le categorie deboli, fatti rapidi e note), stessa
 composizione per categoria, stessi tipi di domanda, stesso rapporto di rifiuti. Cambiano solo le tabelle della lingua
 (domande, parole chiave, rifiuto, prompt dell'app), prese da generate_sft_dataset.py (italiano) e
@@ -26,20 +26,21 @@ hanno "translated": true e ATTRIBUTION indica la traduzione automatica (CC BY-SA
   Clima in coda al contesto (distrattori), per al massimo --wikipedia-cities citta';
 - con --emergency, domande sui numeri di emergenza con la riga dell'app (emergencyNumbersContext) in testa al contesto
   per le regioni con numeri in emergency-numbers.tsv, il rifiuto per le altre, per una quota del dataset finale;
-- di default (--real-questions 0.2), nelle categorie di REAL_QUESTION_CATS una domanda su cinque e' una domanda di
-  viaggio reale (travel_questions.py, UltraChat MIT, tradotta in italiano per il dataset italiano) invece di un modello.
+- di default (--user-style-questions 0.2), nelle categorie di USER_STYLE_QUESTION_CATS una domanda su cinque e' una
+  domanda di viaggio in stile utente (travel_questions.py, UltraChat MIT, tradotta in italiano per il dataset italiano)
+  invece di un modello.
 Fuori dal training le regioni di test e quelle la cui pagina (IT o EN) e' la pagina di una regione di test o vi
 appartiene (es. figi-occidentali ha la pagina "Figi"/"Fiji" di figi-lau): restano nel file solo le regioni di test.
 
 Uso: python generate_sft.py --lang it|en --dump-dir <cartella dei dump> [--cities 4500] [--guides-db <db>] [--nearby 0.03]
-     [--distances 0.02] [--cities-db <cities.db> ...] [--wikipedia-cities 1500] [--emergency 0.01] [--real-questions 0.2] [--version v10] [--seed 42]
+     [--distances 0.02] [--cities-db <cities.db> ...] [--wikipedia-cities 1500] [--emergency 0.01] [--user-style-questions 0.2] [--version v10] [--seed 42]
 --cities-db: i cities.db pubblicati della lingua del dataset (cities.db per l'italiano, cities-en.db per l'inglese), uno
 per regione; la regione e' il nome del file fino al primo "--" (<regionId>--<versione>--cities.db, come gli asset delle
 release) oppure si scrive <regionId>=<file>.
 Output in data/sft/: pocket_travel_sft.<versione>.<lang>.jsonl, ATTRIBUTION.<versione>.<lang>.tsv ed EXCLUDED.<versione>.<lang>.tsv
 (le fonti e le sezioni rimaste fuori e perche', vedi write_excluded di generate_sft_dataset.py); traduzioni in cache in
 raw/translations.<src>-<tgt>.jsonl. Senza --version: v10 con --nearby, --distances, --cities-db, --emergency o
---real-questions diverso da 0 (il default), altrimenti v9; il v9, che usano i training, si sovrascrive solo dando
+--user-style-questions diverso da 0 (il default), altrimenti v9; il v9, che usano i training, si sovrascrive solo dando
 --version v9. Fonti e pulizia sono cambiate dal v9 generato: gli stessi argomenti non ridanno quel file.
 """
 import argparse
@@ -110,7 +111,7 @@ VACC_QUESTIONS = {
            "rec": ["Which vaccines are recommended for {r}?", "What vaccinations do you recommend for a trip to {r}?"]},
 }
 VACC_TOPIC = {"it": "sulla salute e sulle vaccinazioni", "en": "about health and vaccinations"}
-VACC_HEADERS = {"it": ("Certificati richiesti:", ("Consigliate per la destinazione:", "Da valutare con il medico"), "Verifica sempre"),
+VACC_HEADERS = {"it": ("Certificati richiesti:", ("Raccomandate per la destinazione:","Da valutare con il medico"), "Verifica sempre"),
                 "en": ("Required certificates:", ("Recommended for the destination:", "To discuss with a doctor"), "Always check")}
 VACC_YF = {"it": "Febbre gialla", "en": "Yellow fever"}
 # Stesse parole di isVaccinationQuestion in TravelAssistant.kt: una sezione che le contiene parla di vaccini
@@ -119,7 +120,7 @@ VACC_WORDS = re.compile(r"vaccin|febbre gialla|yellow fever|polio|meningococc|me
 
 def vaccination_answers(text, lang):
     """{tipo di domanda: risposta} estratti dal riassunto (righe intere, come le risposte estrattive delle guide):
-    certificati o la riga "nessun certificato nei nostri dati", poi i vaccini consigliati (o da valutare col medico),
+    certificati o la riga "nessun certificato nei nostri dati", poi i vaccini raccomandati (o da valutare col medico),
     e sempre la riga di verifica; al massimo 3 frasi come chiede il prompt."""
     required_head, rec_heads, check_head = VACC_HEADERS[lang]
     lines = text.split("\n")
@@ -151,7 +152,7 @@ def vaccination_answers(text, lang):
         out["rec"] = fit(rec, None)
     yf = next((sentence(l) for l in lines if l.startswith("- " + VACC_YF[lang])), None)
     if yf or required_head not in lines:
-        # febbre gialla non richiesta ma consigliata (paese a rischio): anche la riga dei consigliati
+        # febbre gialla non richiesta ma raccomandata (paese a rischio): anche la riga delle raccomandate
         rec_yf = rec if not yf and rec and VACC_YF[lang] in rec else None
         out["yf"] = fit(yf or required, rec_yf)
     return {k: v for k, v in out.items() if v}
@@ -604,10 +605,10 @@ def emergency_example(rng, lang, line, name, bodies, L, refusal, other_lang=0.2,
     return context, q, refusal(L["quick_topic"][field]), "neg"
 
 
-# Categorie con domande reali (travel_questions.py) abbastanza numerose e classificate bene: nelle altre le parole chiave
+# Categorie con domande in stile utente (travel_questions.py) abbastanza numerose e classificate bene: nelle altre le parole chiave
 # sbagliano spesso ("water" mette gli sport acquatici in SALUTE, "dress" un matrimonio in ACQUISTI) o le domande sono
 # poche decine; una domanda nella categoria sbagliata insegnerebbe a rispondere con una sezione che non c'entra.
-REAL_QUESTION_CATS = ("COSA_VEDERE", "ALLOGGIO", "SICUREZZA", "TRASPORTI", "USI_COSTUMI")
+USER_STYLE_QUESTION_CATS = ("COSA_VEDERE", "ALLOGGIO", "SICUREZZA", "TRASPORTI", "USI_COSTUMI")
 
 
 def main():
@@ -639,11 +640,11 @@ def main():
     ap.add_argument("--emergency", type=float, default=0,
                     help="quota del dataset finale (es. 0.01) con domande sui numeri di emergenza, la riga dell'app in testa al "
                          "contesto (da emergency-numbers.tsv) o il rifiuto per le regioni senza numeri")
-    ap.add_argument("--real-questions", type=float, default=0.2,
-                    help="quota delle domande di REAL_QUESTION_CATS presa dalle domande reali di travel_questions.py "
-                         "(0 = solo i modelli, come il v9)")
+    ap.add_argument("--user-style-questions", type=float, default=0.2,
+                    help="quota delle domande di USER_STYLE_QUESTION_CATS presa dalle domande in stile utente di "
+                         "travel_questions.py (0 = solo i modelli, come il v9)")
     ap.add_argument("--version", help="versione nel nome dei file di output (default: v10 con --nearby, --distances, "
-                                      "--cities-db, --emergency o --real-questions diverso da 0, altrimenti v9); "
+                                      "--cities-db, --emergency o --user-style-questions diverso da 0, altrimenti v9); "
                                       "serve per sovrascrivere un v9 che esiste gia'")
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
@@ -653,7 +654,7 @@ def main():
         ap.error("--distances, --nearby ed --emergency sono quote: tra 0 e 1 escluso")
     if missing := [p for _, p in map(city_db_region, a.cities_db or []) if not Path(p).is_file()]:
         ap.error(f"--cities-db: file inesistenti: {', '.join(map(str, missing))}")
-    version = a.version or ("v10" if a.nearby or a.distances or a.cities_db or a.emergency or a.real_questions else "v9")
+    version = a.version or ("v10" if a.nearby or a.distances or a.cities_db or a.emergency or a.user_style_questions else "v9")
     if version == "v9" and not a.version and (it.OUT / f"pocket_travel_sft.v9.{a.lang}.jsonl").exists():
         ap.error(f"pocket_travel_sft.v9.{a.lang}.jsonl esiste gia' (lo usano i training): per sovrascriverlo dai --version v9")
     L, lang, other = LANGS[a.lang], a.lang, OTHER[a.lang]
@@ -815,27 +816,28 @@ def main():
     covers = lambda cat, text: it.covers(cat, text, keywords)
     answer_for = make_answer_for(L)
 
-    # Domande reali (--real-questions): per le categorie di REAL_QUESTION_CATS una quota delle domande, positive e rifiuti,
-    # viene da travel_questions.py invece che dai modelli; senza rete o traduttore restano i modelli.
-    real, real_uses = {}, Counter()
-    if a.real_questions:
-        phase("domande reali", travel_questions.DATASET)
+    # Domande in stile utente (--user-style-questions): per le categorie di USER_STYLE_QUESTION_CATS una quota delle domande,
+    # positive e rifiuti, viene da travel_questions.py invece che dai modelli; senza rete o traduttore restano i modelli.
+    user_style, user_style_uses = {}, Counter()
+    if a.user_style_questions:
+        phase("domande in stile utente", travel_questions.DATASET)
         try:
             # tradotte in italiano con MarianMT; con --no-translate le originali inglesi, come le domande nell'altra lingua
-            real = travel_questions.load(it.OUT / "raw", "en" if a.no_translate else lang, en.KEYWORDS)
+            user_style = travel_questions.load(it.OUT / "raw", "en" if a.no_translate else lang, en.KEYWORDS)
         except Exception as e:  # senza, lo stesso seme darebbe un altro file con lo stesso nome
-            sys.exit(f"domande reali non disponibili ({e}): riprova con la rete, o usa --real-questions 0")
-        real = {c: qs for c, qs in real.items() if c in REAL_QUESTION_CATS and qs}
-        if not real:
-            sys.exit(f"nessuna domanda reale da {travel_questions.DATASET}: controlla la cache in raw/, o usa --real-questions 0")
-        if real:
+            sys.exit(f"domande in stile utente non disponibili ({e}): riprova con la rete, o usa --user-style-questions 0")
+        user_style = {c: qs for c, qs in user_style.items() if c in USER_STYLE_QUESTION_CATS and qs}
+        if not user_style:
+            sys.exit(f"nessuna domanda in stile utente da {travel_questions.DATASET}: controlla la cache in raw/, "
+                     "o usa --user-style-questions 0")
+        if user_style:
             attribution.extend(travel_questions.ATTRIBUTION)
-        print("domande reali per categoria:", {c: len(qs) for c, qs in real.items()})
+        print("domande in stile utente per categoria:", {c: len(qs) for c, qs in user_style.items()})
 
     def question(cat, name, city=False, wiki=False):
-        if not wiki and cat in real and rng.random() < a.real_questions:
-            real_uses[cat] += 1
-            return rng.choice(real[cat])
+        if not wiki and cat in user_style and rng.random() < a.user_style_questions:
+            user_style_uses[cat] += 1
+            return rng.choice(user_style[cat])
         own, oth =((L["wiki_questions"], L["other_wiki_questions"]) if wiki
                     else (L["city_questions"], L["other_city_questions"]) if city else (L["questions"], L["other_questions"]))
         pool = oth.get(cat) if rng.random() < a.other_lang else None
@@ -996,6 +998,8 @@ def main():
         phase("vaccinazioni", str(a.vaccinations))
         by_flag = flag_regions()
         summaries = [json.loads(l) for l in a.vaccinations.read_text(encoding="utf-8").splitlines() if l.strip()]
+        if any("Consigliate per la destinazione:" in s["text"] for s in summaries):
+            sys.exit(f"{a.vaccinations} e' esportato prima di \"Raccomandate per la destinazione:\": riesportalo con VaccinationSummaryExport")
         vq = VACC_QUESTIONS[lang]
         for s in (s for s in summaries if s["language"] == lang):
             rids = [r for r in by_flag.get(s["destination"], []) if r in data and r not in TEST_REGIONS]
@@ -1146,7 +1150,7 @@ def main():
         attribution.append(("-", f"off-topic ({name})", f"https://huggingface.co/datasets/{dataset}/tree/{it.OFF_TOPIC_REVISIONS[dataset]}", lic))
     for src in ("it", "en", "wp") + (("wp_en",) if lang == "en" else ()):  # la data del dump resta accanto al dataset
         wiki = it.DUMP_WIKIS[src]
-        attribution.append(("-", f"export {wiki} del {date}", wiki_dump.export_url(wiki, date),
+        attribution.append(("-", f"dump {wiki} del {date}",wiki_dump.export_url(wiki, date),
                             "CC BY-SA 4.0 (testo delle pagine elencate sopra)"))
     data_out, attr_out = it.OUT / f"pocket_travel_sft.{version}.{lang}.jsonl", it.OUT / f"ATTRIBUTION.{version}.{lang}.tsv"
     with open(data_out, "w", encoding="utf-8") as f:
@@ -1164,8 +1168,8 @@ def main():
           f"(rifiuti {sum(r['kind'] == 'neg' for r in rows) / max(len(rows), 1):.1%}, tradotte {sum(r['translated'] for r in rows)})")
     cats, refs = Counter(r["category"] for r in rows), Counter(r["category"] for r in rows if r["kind"] == "neg")
     print("per categoria (righe/rifiuti):", {c: f"{n}/{refs[c]}" for c, n in cats.most_common()})
-    if real:
-        print("domande reali usate (tra positivi, rifiuti e righe scartate):", dict(real_uses))
+    if user_style:
+        print("domande in stile utente usate (tra positivi, rifiuti e righe scartate):", dict(user_style_uses))
     print(f"scritto {data_out}")
     it.write_excluded(it.OUT / f"EXCLUDED.{version}.{lang}.tsv", excluded)
 

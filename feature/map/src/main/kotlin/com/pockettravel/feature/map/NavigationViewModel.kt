@@ -65,8 +65,8 @@ class NavigationViewModel @Inject constructor(
     /** La meta della guida in corso, null se non si sta navigando. */
     val target: StateFlow<NavigationPlace?> = destination.asStateFlow()
     // Guida interrotta: dallo stato salvato da Android (app riaperta dalle recenti) o dal disco (riaperta dall'icona).
-    private val savedGuidance = navigationPreferences.activeNavigation()
-    private val _resumeOffer = MutableStateFlow(savedStateHandle.get<Bundle>(KEY_DESTINATION)?.toPlace() ?: savedGuidance?.place)
+    private val savedNavigation = navigationPreferences.activeNavigation()
+    private val _resumeOffer = MutableStateFlow(savedStateHandle.get<Bundle>(KEY_DESTINATION)?.toPlace() ?: savedNavigation?.place)
     /** Guida interrotta perche' il sistema ha chiuso l'app: il Navigatore chiede se riprenderla, null altrimenti. */
     val resumeOffer: StateFlow<NavigationPlace?> = _resumeOffer.asStateFlow()
 
@@ -81,7 +81,7 @@ class NavigationViewModel @Inject constructor(
     val regionIds: StateFlow<List<String>> = _regionIds
 
     /**
-     * Il lato di guida da ricordare in auto: quello dei paesi del percorso, se diverso da quello del paese di
+     * Il lato di guida da ricordare in auto: quello delle nazioni del percorso, se diverso da quello del paese di
      * chi viaggia (nazionalita'); null se e' lo stesso.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -165,7 +165,7 @@ class NavigationViewModel @Inject constructor(
         val place = _resumeOffer.value ?: return
         _resumeOffer.value = null
         // Dal disco: regione, mezzo e ora di arrivo vengono da li' se lo stato di Android non c'e'.
-        val fromDisk = savedGuidance?.takeIf { savedStateHandle.get<Bundle>(KEY_DESTINATION) == null }
+        val fromDisk = savedNavigation?.takeIf { savedStateHandle.get<Bundle>(KEY_DESTINATION) == null }
         start(
             regionId = fromDisk?.regionId ?: regionId,
             place = place,
@@ -329,7 +329,7 @@ class NavigationViewModel @Inject constructor(
         calculating.value = true
         // Prima posizione arrivata: la notifica passa da "In attesa del segnale GPS…" a "Calcolo del percorso".
         if (routeResult.value !is RouteResult.Found) session.update(NavigationSnapshot(target.name, null, 0.0, 0.0, 0.0))
-        val choice = routingChoice(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value)
+        val choice = brouterProfile(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value)
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             val self = coroutineContext[Job]
             try {
@@ -354,7 +354,7 @@ class NavigationViewModel @Inject constructor(
         job.start()
     }
 
-    // Regioni installate con i Percorsi utili al mezzo (usableRoutingRegions) e riquadro della loro mappa (127 byte di
+    // Regioni installate con la rete stradale utile al mezzo (usableRoutingRegions) e riquadro della loro mappa (127 byte di
     // header ognuna).
     private suspend fun routingRegions(): List<RoutingRegion> = withContext(Dispatchers.IO) {
         val regions = regionRepository.observeInstalled().first()

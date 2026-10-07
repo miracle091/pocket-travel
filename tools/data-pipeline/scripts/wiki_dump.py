@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Lettura dei dump XML di MediaWiki senza API: i MediaWiki Content File Exports di Wikimedia, contenuto attuale,
 uno al mese il 1° (https://dumps.wikimedia.org/other/mediawiki_content_current/<wiki>/<AAAA-MM-GG>/xml/bzip2/, con
-SHA256SUMS, scritto per ultimo a export finito). Ogni wiki ha una o piu' parti per intervallo di pagine,
+SHA256SUMS, scritto per ultimo a dump finito). Ogni wiki ha una o piu' parti per intervallo di pagine,
 <wiki>-<AAAA-MM-GG>-p<da>p<a>.xml.bz2 (Wikipedia EN 17, Wikipedia IT tre, Wikivoyage una), scaricate da
 download-wikimedia-dumps.sh. La data si puo' dare anche come mese e anno (normalize_date).
 
@@ -28,7 +28,7 @@ EXPORTS_URL = "https://dumps.wikimedia.org/other/mediawiki_content_current"
 
 
 def export_url(wiki, date):
-    """Pagina dell'export di [wiki] del giorno [date] (normalize_date): la si scrive accanto ai file generati, che cosi'
+    """Pagina del dump di [wiki] del giorno [date] (normalize_date): la si scrive accanto ai file generati, che cosi'
     dicono da quale dump vengono."""
     return f"{EXPORTS_URL}/{wiki}/{normalize_date(date)}/xml/bzip2/"
 
@@ -64,7 +64,7 @@ def iter_pages(paths):
 
 
 def normalize_date(text):
-    """Data di un export, AAAA-MM-GG, da MM-AAAA o AAAA-MM (separatori -, / o .: il giorno e' sempre il 1°), oppure da
+    """Data di un dump, AAAA-MM-GG, da MM-AAAA o AAAA-MM (separatori -, / o .: il giorno e' sempre il 1°), oppure da
     AAAA-MM-GG per sperimentare. ValueError per gli altri formati e per mesi o giorni che non esistono. Come
     normalize_dump_date in lib.sh."""
     t = str(text).strip()
@@ -91,7 +91,7 @@ def dump_files(dump_dir, wiki="*", date="*"):
     if wiki != "*" and sums.exists():
         listed = {line.split()[-1] for line in sums.read_text(encoding="utf-8").splitlines() if line.strip()}
         if missing := sorted(n for n in listed if PART.search(n) and n not in {p.name for p in parts}):
-            raise FileNotFoundError(f"export incompleto in {dump_dir}, mancano: {', '.join(missing)}")
+            raise FileNotFoundError(f"dump incompleto in {dump_dir}, mancano: {', '.join(missing)}")
     return parts
 
 

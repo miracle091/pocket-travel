@@ -1,6 +1,6 @@
 package com.pockettravel.feature.ai
 
-/** Template dei prompt della modalita' "Online" (stringhe esplicite: vedi PromptTemplates.onDevicePrompt). */
+/** Template dei prompt del motore "Online" (stringhe esplicite: vedi PromptTemplates.onDevicePrompt). */
 object OnlinePromptTemplates {
 
     fun onlinePrompt(question: String, language: String = "it"): String =

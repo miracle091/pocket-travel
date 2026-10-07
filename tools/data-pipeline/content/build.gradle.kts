@@ -32,7 +32,7 @@ dependencies {
     constraints {
         implementation(libs.aircompressor)
     }
-    // Lettura e scrittura dei segmenti .rd5 per la variante "solo auto" dei percorsi (FilterRd5.kt).
+    // Lettura e scrittura dei segmenti .rd5 per la variante "solo auto" della rete stradale (FilterRd5.kt).
     implementation(project(":third-party:brouter-core"))
 
     testImplementation(libs.junit)

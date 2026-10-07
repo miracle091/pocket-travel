@@ -33,7 +33,7 @@ class VaccinationSummaryTest {
     private val today = LocalDate.parse("2026-10-03")
 
     @Test
-    fun `riassunto italiano con obbligo, consigliate, fonti e rimando a ambasciata e medico`() {
+    fun `riassunto italiano con obbligo, raccomandate, fonti e rimando a ambasciata e medico`() {
         val trip = Trip(departure = "ke", destination = "eg", transits = listOf(TripLeg("et", 3, false)))
         val text = evaluateVaccinations(trip, data, today).toSummaryText(trip, "it")
         println(text)
@@ -41,7 +41,7 @@ class VaccinationSummaryTest {
         assertTrue(text.contains("verificati il 2026-10-03"))
         assertTrue(text.contains("Certificati richiesti:"))
         assertTrue(text.contains("Febbre gialla: richiesto perché arrivi da Kenya; da 9 mesi di età"))
-        assertTrue(text.contains("Consigliate per la destinazione: Epatite A"))
+        assertTrue(text.contains("Raccomandate per la destinazione: Epatite A"))
         assertTrue(text.contains("Da valutare con il medico secondo il viaggio: Rabbia"))
         assertTrue(text.contains("Fonti: Travel.gc.ca, TravelHealthPro"))
         assertTrue(text.contains("ambasciata"))

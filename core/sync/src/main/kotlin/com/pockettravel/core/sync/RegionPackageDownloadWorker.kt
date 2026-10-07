@@ -42,9 +42,9 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
             val manifestEntry = json.decodeFromString(RegionManifestEntry.serializer(), entryJson)
             manifestEntry.validate()
             regionId = manifestEntry.regionId
-            // Qui e non da chi accoda: qualunque schermata avvii il download, mappa, percorsi e civici restano nella zona
+            // Qui e non da chi accoda: qualunque schermata avvii il download, mappa, rete stradale e civici restano nella zona
             // scelta. Una zona senza celle dei civici toglie i civici dai pacchetti da scaricare.
-            // Percorsi "solo auto" al posto di quelli completi, se scelti e offerti dal manifest.
+            // Rete stradale "solo auto" al posto di quella completa, se scelti e offerti dal manifest.
             val carOnly = routingVariantPreferences.choices.value.isCarOnly(manifestEntry.regionId) && manifestEntry.routingCar != null
             val entry = manifestEntry.withRoutingVariant(carOnly).restrictedTo(regionZonePreferences.zone(manifestEntry.regionId))
             val kinds = requestedKinds.filterTo(mutableSetOf()) { it in entry.availableKinds }
@@ -89,7 +89,7 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
                     setForegroundAsync(foregroundInfo(DownloadPhase.Installing))
                 },
             )
-            // Il Navigatore lo legge per avvisare che a piedi o in bici questi percorsi non bastano.
+            // Il Navigatore lo legge per avvisare che a piedi o in bici questa rete stradale non basta.
             if (PackageKind.ROUTING in kinds) routingVariantPreferences.setInstalledCarOnly(entry.regionId, entry.hasCarOnlyRouting)
             Result.success()
         } catch (error: CancellationException) {

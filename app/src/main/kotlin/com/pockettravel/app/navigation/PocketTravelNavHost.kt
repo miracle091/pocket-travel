@@ -321,8 +321,8 @@ private fun RegionsListDetail(
         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
             val regionId = selectedRegionId
             if (regionId == null) {
-                // Nessuna regione scelta: il pannello di destra mostra la mappa del mondo, dove
-                // toccare un paese equivale a sceglierlo dall'elenco.
+                // Nessuna regione scelta: il pannello di destra mostra la mappa delle nazioni, dove
+                // toccare una nazione equivale a sceglierlo dall'elenco.
                 val uiState by regionListViewModel.uiState.collectAsStateWithLifecycle()
                 RegionWorldMap(
                     items = uiState.items,

@@ -65,7 +65,7 @@ class BRouterRouteEngineTest {
     }
 
     @Test
-    fun `senza segmenti mancano i dati di percorso, senza eccezioni`() = runBlocking {
+    fun `senza file rd5 mancano i segmenti della rete stradale, senza eccezioni`() = runBlocking {
         val engine = BRouterRouteEngine(tempFolder.newFolder("segments4"), profileDir())
 
         val result = engine.route(from = RoutePoint(45.4642, 9.1900), to = RoutePoint(45.4658, 9.1920))

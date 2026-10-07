@@ -105,14 +105,14 @@ fun MapScreen(
     // Categorie presenti nell'area, filtrate comprese: i segnalini non hanno quelle filtrate. null = quelle dei segnalini.
     areaCategories: Set<PoiCategory>? = null,
     onHiddenCategoriesChange: (Set<PoiCategory>) -> Unit = {},
-    // Modalita' "In sedia a rotelle": via i POI che OSM segna come non accessibili in sedia a rotelle.
+    // Casella "In sedia a rotelle": via i POI che OSM segna come non accessibili in sedia a rotelle.
     hideInaccessible: Boolean = false,
     // Con "In sedia a rotelle": solo i posti accessibili (anche in parte) e i parcheggi per disabili.
     onlyAccessible: Boolean = false,
     onOnlyAccessibleChange: (Boolean) -> Unit = {},
     // Apre la navigazione verso il punto scelto; null = niente pulsante "Indicazioni".
     onNavigate: ((MapPin) -> Unit)? = null,
-    // Orari dei mezzi pubblici nella scheda di treni, metro, autobus e traghetti: pacchetto della regione,
+    // Orari dei mezzi pubblici nel riquadro di treni, metro, autobus e traghetti: pacchetto della regione,
     // tabellone del POI aperto (null finche' si legge), download e il POI di cui leggere le partenze.
     transitPackage: TransitPackageState = TransitPackageState.UNKNOWN,
     transitBoard: TransitBoard? = null,
@@ -139,7 +139,7 @@ fun MapScreen(
     var selectedPinId by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedPin = pins.firstOrNull { it.id == selectedPinId }
     // Le partenze si leggono solo per un POI di trasporto aperto e con gli orari installati; anche quando
-    // il pacchetto finisce di installarsi con la scheda aperta.
+    // il pacchetto finisce di installarsi con il riquadro aperta.
     LaunchedEffect(selectedPin, transitPackage) {
         onTransitStopChange(selectedPin?.takeIf { it.category in TRANSIT_CATEGORIES && transitPackage == TransitPackageState.INSTALLED })
     }
@@ -256,7 +256,7 @@ fun MapScreen(
                 // regione (gia' ben dentro il bbox estratto) appena sono disponibili. Una tantum (guardia
                 // cameraFitted): dopo il primo fit l'utente resta libero di tornare alla vista mondo senza che ogni
                 // ricomposizione lo riporti sulla regione.
-                // Con la mappa installata si inquadra il suo riquadro (la zona scelta, per i paesi grandi): i segnalini
+                // Con la mappa installata si inquadra il suo riquadro (la zona scelta, per le nazioni grandi): i segnalini
                 // sono solo quelli dell'area visibile, non tutti quelli della regione.
                 val restored = savedCamera
                 val mapBounds = if (!cameraFitted && restored == null) tileSource.regionBounds(regionId) else null
@@ -430,7 +430,7 @@ fun MapScreen(
     }
 }
 
-// Una riga della scheda del POI: icona piccola e testo (accessibilita', indirizzo, orari).
+// Una riga del riquadro del POI: icona piccola e testo (accessibilita', indirizzo, orari).
 @Composable
 private fun PoiDetailRow(icon: ImageVector, text: String, iconSize: Dp = 16.dp) {
     Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(top = Spacing.l)) {
@@ -483,7 +483,7 @@ private fun openingHoursLabels() = OpeningHoursLabels(
 )
 
 // Cerchio nel colore della categoria con il glifo bianco: stesso aspetto della testa del
-// segnalino, usato nel foglio dei filtri e nella scheda del POI.
+// segnalino, usato nel foglio dei filtri e nel riquadro del POI.
 @Composable
 internal fun PoiBadge(category: PoiCategory, size: Int) {
     Surface(shape = CircleShape, color = category.pinColor(), modifier = Modifier.size(size.dp)) {

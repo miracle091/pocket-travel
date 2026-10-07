@@ -20,7 +20,7 @@ import java.io.IOException
  * modello del catalogo (LlmModelCatalog.ALL). Se il modello IA on-device installato ha uno
  * sha256 diverso da quello pubblicato per lo stesso modelId, notifica — non scarica mai
  * automaticamente. Notifica solo se l'utente ha gia' scaricato un modello: non ha senso
- * segnalare un aggiornamento a chi non usa la modalita' on-device.
+ * segnalare un aggiornamento a chi non usa il motore on-device.
  */
 @HiltWorker
 class LlmModelUpdateCheckWorker @AssistedInject constructor(

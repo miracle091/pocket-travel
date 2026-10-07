@@ -56,7 +56,7 @@ private fun MapSourceInput.toJson(): JSONObject = JSONObject()
 
 /**
  * Frammento manifest (schema v2, vedi RegionManifest.kt in core/sync) di una regione rigenerata
- * per intero: i tre pacchetti della regione (mappa, routing, POI) hanno ciascuno la propria
+ * per intero: i tre pacchetti della regione (mappa, rete stradale, POI) hanno ciascuno la propria
  * versione, qui tutte uguali perche' appena rigenerati insieme. I segmenti .rd5 non sono file
  * locali per QUESTO tool (a differenza di poi.db) — il chiamante li passa gia' come
  * ManifestFileEntry con sha256/sizeBytes calcolati scaricandoli e hashandoli una volta (vedi

@@ -153,7 +153,7 @@ class TravelAssistantLogicTest {
     }
 
     @Test
-    fun `senza una citta' nominata la guida del paese viene prima delle citta'`() {
+    fun `senza una citta' nominata la guida della nazione viene prima delle citta'`() {
         val guide = listOf(guideSection("Trasporti", "corpo paese") to info(bodyHits = 1))
         val city = listOf(citySection("Roma", "Trasporti", "corpo roma") to info(titleHits = 1, bodyHits = 4))
 
@@ -194,7 +194,7 @@ class TravelAssistantLogicTest {
     }
 
     @Test
-    fun `con una citta' nominata le sue sezioni vengono prima di quelle del paese`() {
+    fun `con una citta' nominata le sue sezioni vengono prima di quelle della nazione`() {
         val guide = listOf(guideSection("Trasporti", "corpo paese") to info(titleHits = 1, bodyHits = 4))
         val city = listOf(citySection("Roma", "Trasporti", "corpo roma") to info(bodyHits = 1))
 

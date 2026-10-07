@@ -62,8 +62,8 @@
     <string name="notes_title">Note</string>
     <string name="notes_add">Aggiungi</string>
     <string name="notes_empty_title">Nessuna nota salvata</string>
-    <string name="notes_empty_subtitle">Crea la prima nota per appunti di viaggio, prenotazioni o indirizzi. Le note sono cifrate sul telefono e l\'assistente IA può usarle per rispondere alle domande</string>
-    <string name="notes_privacy_notice">Le note sono cifrate sul telefono. L\'assistente IA può usarle per rispondere alle domande</string>
+    <string name="notes_empty_subtitle">Crea la prima nota: note di viaggio, prenotazioni o indirizzi. Le note sono cifrate sul dispositivo e l\'assistente IA può usarle per rispondere alle domande</string>
+    <string name="notes_privacy_notice">Le note sono cifrate sul dispositivo. L\'assistente IA può usarle per rispondere alle domande</string>
     <string name="notes_edit">Modifica %1$s</string>
     <string name="notes_delete">Elimina %1$s</string>
     <string name="notes_delete_title">Eliminare questa nota?</string>

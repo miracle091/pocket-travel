@@ -123,7 +123,7 @@ fun StorageScreen(onBack: () -> Unit, viewModel: StorageViewModel = hiltViewMode
             if (uiState.installedRegions.isEmpty()) {
                 EmptyLine(stringResource(R.string.storage_no_regions))
             } else {
-                // Una superficie per regione: il totale (elimina tutto) e sotto mappa, percorsi e POI.
+                // Una superficie per regione: il totale (elimina tutto) e sotto mappa, rete stradale e POI.
                 // key: il dialogo di conferma (rememberSaveable nella riga) resta alla sua regione se l'elenco cambia.
                 uiState.installedRegions.forEach { region -> key(region.regionId) {
                     Surface(

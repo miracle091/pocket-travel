@@ -210,14 +210,14 @@ fetch_wikivoyage_dump() {
 
 # Dump di Wikivoyage dai MediaWiki Content File Exports di Wikimedia (contenuto attuale, uno al mese il 1°):
 # https://dumps.wikimedia.org/other/mediawiki_content_current/<wiki>/<AAAA-MM-GG>/xml/bzip2/, con una o piu' parti
-# <wiki>-<AAAA-MM-GG>-p<da>p<a>.xml.bz2 e i loro sha256 in SHA256SUMS, scritto per ultimo a export finito. Usati da
+# <wiki>-<AAAA-MM-GG>-p<da>p<a>.xml.bz2 e i loro sha256 in SHA256SUMS, scritto per ultimo a dump finito. Usati da
 # build-cities-dump.sh (guide delle citta') per trovare con un solo passaggio le pagine citta' di tutte le regioni,
 # invece di migliaia di richieste API.
 WIKIMEDIA_EXPORTS_URL="https://dumps.wikimedia.org/other/mediawiki_content_current"
 
-# latest_wikimedia_export <wiki>: data (AAAA-MM-GG) dell'export completo piu' recente di <wiki>, l'ultima cartella con
+# latest_wikimedia_export <wiki>: data (AAAA-MM-GG) del dump completo piu' recente di <wiki>, l'ultima cartella con
 # un SHA256SUMS non vuoto: il 1° del mese quella nuova puo' essere ancora in corso, e si usa quella del mese prima.
-# Non _SUCCESS: l'export del 2026-10-01 non lo ha, pur completo.
+# Non _SUCCESS: il dump del 2026-10-01 non lo ha, pur completo.
 latest_wikimedia_export() {
   local wiki="$1" date sums
   for date in $(wikimedia_curl "$WIKIMEDIA_EXPORTS_URL/$wiki/" 2>/dev/null | grep -oE 'href="[0-9]{4}-[0-9]{2}-[0-9]{2}/"' \
@@ -232,7 +232,7 @@ latest_wikimedia_export() {
   return 1
 }
 
-# normalize_dump_date <data>: la data di un export (AAAA-MM-GG) da MM-AAAA o AAAA-MM (separatori -, / o .; il giorno e'
+# normalize_dump_date <data>: la data di un dump (AAAA-MM-GG) da MM-AAAA o AAAA-MM (separatori -, / o .; il giorno e'
 # sempre il 1°), oppure da AAAA-MM-GG per sperimentare. Come normalize_date in wiki_dump.py. 1 se il formato, il mese o
 # il giorno non valgono.
 normalize_dump_date() {
@@ -250,7 +250,7 @@ normalize_dump_date() {
 }
 
 # wikivoyage_dumps_key: chiave della cache di Actions dei dump di Wikivoyage IT ed EN (publish-regions.yml), dagli
-# SHA256SUMS degli export correnti: cambia solo quando esce un export nuovo.
+# SHA256SUMS dei dump correnti: cambia solo quando esce un dump nuovo.
 wikivoyage_dumps_key() {
   local key="wikivoyage-dumps" lang date sums
   for lang in it en; do
@@ -261,7 +261,7 @@ wikivoyage_dumps_key() {
   echo "$key"
 }
 
-# fetch_wikivoyage_dump_parts <it|en> <outDir>: scarica in <outDir> le parti dell'ultimo export completo di Wikivoyage
+# fetch_wikivoyage_dump_parts <it|en> <outDir>: scarica in <outDir> le parti dell'ultimo dump completo di Wikivoyage
 # (IT ~57 MB, EN ~190 MB compressi) e ne verifica lo sha256, con fino a 3 tentativi per parte (un download cosi' grande
 # puo' interrompersi a meta'). Cache facoltativa WIKIVOYAGE_DUMP_CACHE (la riempie la cache di Actions nel job
 # "build"): una parte gia' scaricata con lo sha256 giusto non si riscarica. Senza tutte le parti verificate, 1 e
@@ -270,7 +270,7 @@ fetch_wikivoyage_dump_parts() {
   local lang="$1" outDir="$2" wiki="${1}wikivoyage" date sums sha file cached attempt ok
   mkdir -p "$outDir"
   if ! date="$(latest_wikimedia_export "$wiki")"; then
-    echo "-- dump Wikivoyage ${lang}: nessun export completo" >&2
+    echo "-- dump Wikivoyage ${lang}: nessun dump completo" >&2
     return 1
   fi
   sums="$(wikimedia_curl "$WIKIMEDIA_EXPORTS_URL/$wiki/$date/xml/bzip2/SHA256SUMS" 2>/dev/null)" || return 1
@@ -278,7 +278,7 @@ fetch_wikivoyage_dump_parts() {
   local part_re="^$wiki-$date-p[0-9]+p[0-9]+[.]xml[.]bz2$"
   while read -r sha file; do
     [ -n "$file" ] || continue
-    # i nomi vengono da un file remoto: solo parti di questo export, mai un percorso (finirebbe fuori da <outDir>)
+    # i nomi vengono da un file remoto: solo parti di questo dump, mai un percorso (finirebbe fuori da <outDir>)
     [[ "$sha" =~ ^[0-9a-f]{64}$ && "$file" =~ $part_re ]] || { rm -f "$outDir"/*.xml.bz2; return 1; }
     cached="${WIKIVOYAGE_DUMP_CACHE:+$WIKIVOYAGE_DUMP_CACHE/$file}"
     if [ -n "$cached" ] && printf '%s  %s\n' "$sha" "$cached" | sha256sum -c - >/dev/null 2>&1; then
@@ -305,14 +305,14 @@ fetch_wikivoyage_dump_parts() {
     fi
     if [ -n "$cached" ]; then mkdir -p "$WIKIVOYAGE_DUMP_CACHE" && cp "$outDir/$file" "$cached"; fi
   done <<< "$sums"
-  # le parti degli export vecchi non servono piu': fuori dalla cache, che altrimenti crescerebbe a ogni export
+  # le parti dei dump vecchi non servono piu': fuori dalla cache, che altrimenti crescerebbe a ogni dump
   if [ -n "${WIKIVOYAGE_DUMP_CACHE:-}" ] && [ -d "$WIKIVOYAGE_DUMP_CACHE" ]; then
     for cached in "$WIKIVOYAGE_DUMP_CACHE/$wiki"-*.xml.bz2; do
       [ -e "$cached" ] || continue
       grep -qF "  $(basename "$cached")" <<< "$sums" || rm -f "$cached"
     done
   fi
-  echo "-- dump Wikivoyage ${lang}: export del $date" >&2
+  echo "-- dump Wikivoyage ${lang}: dump del $date" >&2
 }
 
 # Solo la pagina inglese: stesso contratto di fetch_wikivoyage_dump (URL su stdout, 1 se vuota).

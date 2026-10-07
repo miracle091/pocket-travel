@@ -11,7 +11,7 @@ import com.pockettravel.core.data.db.NoteDao
 import com.pockettravel.core.data.db.PassportDao
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.RegionDatabase
-import com.pockettravel.core.data.db.RegionPackageDao
+import com.pockettravel.core.data.db.InstalledRegionDao
 import com.pockettravel.core.data.db.UNRELEASED_VERSIONS
 import com.pockettravel.core.data.db.VaccinationDao
 import dagger.Module
@@ -51,7 +51,7 @@ object DatabaseModule {
     fun providePoiDao(database: RegionDatabase): PoiDao = database.poiDao()
 
     @Provides
-    fun provideRegionPackageDao(database: RegionDatabase): RegionPackageDao = database.regionPackageDao()
+    fun provideInstalledRegionDao(database: RegionDatabase): InstalledRegionDao = database.installedRegionDao()
 
     @Provides
     fun providePassportDao(database: RegionDatabase): PassportDao = database.passportDao()

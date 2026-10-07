@@ -379,7 +379,7 @@ private val quickFactFieldRegex = Regex(
 private const val QUICKBAR_SCAN_CHARS = 4000
 private val quickFactOrder = listOf("Lingua", "Elettricità", "Fuso orario", "Valuta")
 
-// Pulizia inline di un valore di campo Quickbar (una riga, non una sezione): stesse regex di
+// Pulizia inline di un valore di campo dei Fatti rapidi (una riga, non una sezione): stesse regex di
 // rimozione del markup wiki di cleanBody, senza la gestione di sottotitoli/elenchi puntati su piu'
 // righe — un valore come quello di Valuta (tre voci separate da "*") diventa una singola riga con
 // le voci separate da virgola, non un elenco "▸/•" come nel corpo di una sezione.
@@ -418,10 +418,10 @@ fun quickFactsSection(regionId: String, dumpText: String): GuideSectionRow? {
 }
 
 // Fatti rapidi in inglese: le pagine di Wikivoyage EN non li hanno nel testo ({{quickbar}} li prende da
-// Wikidata quando la pagina si apre), quindi vengono dal Quickbar della pagina italiana: elettricita' e
+// Wikidata quando la pagina si apre), quindi vengono dai Fatti rapidi della pagina italiana: elettricita' e
 // fuso orario (valori quasi neutri) e la lingua tradotta coi nomi delle lingue del JDK, piu' i numeri di
 // emergenza come nella guida italiana. Cosi' l'assistente in inglese vede gli stessi fatti dell'italiano.
-// La valuta, quasi mai nel Quickbar, la ricava l'app dal codice paese.
+// La valuta, quasi mai nei Fatti rapidi, la ricava l'app dal codice paese.
 private val plugWords = mapOf(
     "presa" to "plug", "prese" to "plugs", "europea" to "European", "britannica" to "British",
     "americana" to "American", "australiana" to "Australian", "tedesca" to "German", "francese" to "French",
@@ -465,7 +465,7 @@ internal fun englishTimeZone(value: String): String? =
     value.takeIf { neutralValueRegex.matches(it) }
         ?: value.replace(Regex("""\([^)]*\)"""), "").replace(Regex("""\s+e\s+"""), ", ").trim().takeIf { neutralValueRegex.matches(it) && it.isNotBlank() }
 
-/** Sezione "Quick facts" della guida inglese dal Quickbar italiano e dai numeri di emergenza (vedi sopra); null senza dati. */
+/** Sezione "Quick facts" della guida inglese dai Fatti rapidi italiani e dai numeri di emergenza (vedi sopra); null senza dati. */
 fun englishQuickFactsSection(regionId: String, dumpIt: String): GuideSectionRow? {
     val fields = quickFactFieldRegex.findAll(dumpIt.take(QUICKBAR_SCAN_CHARS))
         .associate { it.groupValues[1] to cleanQuickFactValue(it.groupValues[2]) }
@@ -484,7 +484,7 @@ data class RegionGuide(val regionId: String, val sourceUrl: String, val sections
 
 /**
  * Genera guides.db, il pacchetto guide unico per tutte le regioni (guide_sections +
- * emergency_numbers), scaricato dall'app separatamente da mappa, POI e routing.
+ * emergency_numbers), scaricato dall'app separatamente da mappa, POI e rete stradale.
  *
  * regioni.tsv: una riga per regione "regionId<TAB>dump.txt<TAB>sourceUrl", con in piu'
  * "<TAB>dumpEn.txt<TAB>sourceUrlEn" quando build-guides.sh ha scaricato anche la pagina inglese.
@@ -545,7 +545,7 @@ fun main(rawArgs: Array<String>) {
  */
 fun regionGuideFromDumps(regionId: String, dump: String, sourceUrl: String, dumpEn: String?, sourceUrlEn: String): RegionGuide {
     val sections = parseWikivoyageDump(dump)
-    // Fatti rapidi: sempre dal Quickbar della pagina scaricata (di norma quella italiana), anche
+    // Fatti rapidi: sempre dal riquadro della pagina scaricata (di norma quella italiana), anche
     // quando il corpo delle sezioni viene dall'inglese piu' sotto — i nomi dei campi (Lingua,
     // Elettricità...) sono quelli di Wikivoyage IT.
     val quickFacts = quickFactsSection(regionId, dump)

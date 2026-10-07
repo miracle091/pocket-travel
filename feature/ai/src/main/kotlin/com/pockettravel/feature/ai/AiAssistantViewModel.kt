@@ -62,7 +62,7 @@ class AiAssistantViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(
         AiUiState(
-            // Sotto i 4 GB la modalita' on-device non va nemmeno offerta come opzione (vedi
+            // Sotto i 4 GB il motore on-device non va nemmeno offerta come opzione (vedi
             // messaggio "meno di 4 GB di RAM" in AiAssistantScreen): forzare Online qui evita che
             // un mode salvato in precedenza (o il default ON_DEVICE) resti selezionato su un
             // device che non puo' comunque usarlo.
@@ -279,7 +279,7 @@ class AiAssistantViewModel @Inject constructor(
         val state = _uiState.value
         val question = state.question.trim()
         if (question.isBlank() || state.isThinking) return
-        // Riconosciuta sul telefono con regole, anche in modalita' online: meta e posizione non escono mai.
+        // Riconosciuta sul telefono con regole, anche con il motore online: meta e posizione non escono mai.
         parseNavigationRequest(question)?.let { request ->
             _uiState.update { it.copy(question = "", errorMessage = null) }
             _navigationRequests.trySend(request)

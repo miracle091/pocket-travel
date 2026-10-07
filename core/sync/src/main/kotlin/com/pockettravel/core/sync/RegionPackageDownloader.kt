@@ -20,7 +20,7 @@ import javax.inject.Inject
 class PermanentRegionPackageException(message: String) : Exception(message)
 
 /**
- * Scarica i file del manifest indicati (poi.db, segmenti .rd5 dei percorsi, guides.db) in una
+ * Scarica i file del manifest indicati (poi.db, segmenti .rd5 della rete stradale, guides.db) in una
  * cartella di staging, con ripresa tramite HTTP range, e verifica lo SHA-256 di ciascuno rispetto al
  * manifest; il chiamante convalida prima la voce del manifest e poi sposta i file al loro posto.
  */
@@ -58,7 +58,7 @@ class RegionPackageDownloader @Inject constructor(
             val staging = regionStorage.stagingDirectoryFor(regionId, stagingVersion)
             staging.mkdirs()
             val installedRouting = File(regionStorage.directoryFor(regionId), RegionStorage.ROUTING_DIR)
-            // Un'installazione annullata dopo lo spostamento dei .rd5 in staging/routing (RegionRoutingGraphInstaller).
+            // Un'installazione annullata dopo lo spostamento dei .rd5 in staging/routing (RoutingSegmentsInstaller).
             val stagedRouting = File(staging, RegionStorage.ROUTING_DIR)
             val totalBytes = files.sumOf { it.sizeBytes }
             regionStorage.reserveSpace(totalBytes)

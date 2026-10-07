@@ -14,10 +14,10 @@
     <string name="ai_model_download">Download model</string>
     <string name="ai_model_downloading">Downloading · %1$d%%</string>
     <string name="ai_large_download_title">Large download</string>
-    <string name="ai_large_download_message">%1$s is about %2$s and the phone is on mobile data. Continue?</string>
+    <string name="ai_large_download_message">%1$s is about %2$s and the device is on mobile data. Continue?</string>
     <string name="ai_large_download_confirm">Download</string>
-    <string name="ai_api_key_intro">In Online mode, questions are sent to an AI service of your choice, using your own API key. Choose the service, create a key on its website and paste it below</string>
-    <string name="ai_api_key_privacy">The key stays only on this phone, encrypted. Questions are sent directly to %1$s, never to a Pocket Travel server, and usage is charged to your own account. Changing the service deletes the key</string>
+    <string name="ai_api_key_intro">With the Online engine, questions are sent to an AI service of your choice, using your own API key. Choose the service, create a key on its website and paste it below</string>
+    <string name="ai_api_key_privacy">The key stays only on this device, encrypted. Questions are sent directly to %1$s, never to a Pocket Travel server, and usage is charged to your own account. Changing the service deletes the key</string>
     <string name="ai_api_key_label">API key</string>
     <string name="ai_api_key_save">Save key</string>
     <string name="ai_api_key_show">Show key</string>
@@ -70,7 +70,7 @@
     <string name="ai_error_key_rejected">The service rejected the API key: it may have expired or been revoked. Remove it and enter a new one</string>
     <string name="ai_saved_key_reminder">A %1$s API key is saved: the online assistant is available right away, without downloading a model</string>
     <string name="ai_use_online">Use online</string>
-    <string name="ai_downloaded_model_choice">%1$s is already on the phone. Use it now or download %2$s, the model chosen earlier?</string>
+    <string name="ai_downloaded_model_choice">%1$s is already on the device. Use it now or download %2$s, the model chosen earlier?</string>
     <string name="ai_use_model">Use %1$s</string>
     <string name="ai_download_selected">Download %1$s</string>
     <string name="ai_taskmgr_title">Model task manager</string>

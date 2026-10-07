@@ -22,7 +22,7 @@ class RegionPackageInstaller @Inject constructor(
     private val regionRepository: RegionRepository,
     private val regionStorage: RegionStorage,
     private val poiImporter: PoiImporter,
-    private val routingGraphInstaller: RegionRoutingGraphInstaller,
+    private val routingSegmentsInstaller: RoutingSegmentsInstaller,
     private val pmtilesExtractor: PmtilesExtractor,
     private val cityImporter: CityImporter,
     private val addressGridInstaller: RegionAddressGridInstaller,
@@ -34,8 +34,8 @@ class RegionPackageInstaller @Inject constructor(
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit = { _, _ -> },
         // Dopo i file: l'estrazione della mappa, in byte di tile (il totale lo dice l'indice della build).
         onMapProgress: (bytesDone: Long, bytesTotal: Long) -> Unit = { _, _ -> },
-        // File scaricati e mappa estratta: resta l'installazione (percorsi, import dei POI e delle guide, attivazione),
-        // che per un paese grande dura minuti senza una percentuale da mostrare.
+        // File scaricati e mappa estratta: resta l'installazione (rete stradale, import dei POI e delle guide, attivazione),
+        // che per una nazione grande dura minuti senza una percentuale da mostrare.
         onInstalling: () -> Unit = {},
     ) {
         require(kinds.isNotEmpty()) { "Nessun pacchetto da installare per ${entry.regionId}" }
@@ -60,8 +60,8 @@ class RegionPackageInstaller @Inject constructor(
         // chiudere, che activatePackage sovrascriverebbe (RegionStartupRecovery salta le regioni in download).
         withContext(Dispatchers.IO) { regionRepository.recoverInterruptedActivations(entry.regionId) }
         // Una cartella di staging per combinazione di pacchetti e versioni: un download interrotto
-        // riprende dai file .part della stessa richiesta, una richiesta diversa riparte da zero. I percorsi
-        // "solo auto" hanno la stessa versione e gli stessi nomi di quelli completi: "car" li tiene separati.
+        // riprende dai file .part della stessa richiesta, una richiesta diversa riparte da zero. La rete stradale
+        // "solo auto" ha la stessa versione e gli stessi nomi di quella completa: "car" li tiene separati.
         val routingVariant = if (entry.hasCarOnlyRouting) "car-" else ""
         val stagingVersion = PackageKind.entries.filter { it in kinds }
             .joinToString("_") { "${it.name.lowercase()}-${if (it == PackageKind.ROUTING) routingVariant else ""}${entry.versionOf(it)}" } +
@@ -104,7 +104,7 @@ class RegionPackageInstaller @Inject constructor(
                 extractedLight = stats.maxZoom < entry.map.source.maxZoom
             }
             onInstalling()
-            if (PackageKind.ROUTING in kinds) routingGraphInstaller.install(staging, entry.routing.files.mapTo(HashSet()) { it.name })
+            if (PackageKind.ROUTING in kinds) routingSegmentsInstaller.install(staging, entry.routing.files.mapTo(HashSet()) { it.name })
 
             // I POI si leggono a blocchi dentro la transazione (PoiImporter.replaceFromFile): caricarli tutti in
             // memoria prima, per una regione grande, rischierebbe l'OutOfMemoryError.

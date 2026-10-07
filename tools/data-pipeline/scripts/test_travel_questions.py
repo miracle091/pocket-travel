@@ -142,11 +142,11 @@ class LoadTest(unittest.TestCase):
         self.assertTrue(all(r[0] == "-" and r[3] == "MIT" and r[2].startswith("https://") for r in tq.ATTRIBUTION))
 
     def test_categorie_del_generatore(self):
-        """Le categorie con domande reali (generate_sft.py) esistono nelle parole chiave inglesi con cui si classificano e
+        """Le categorie con domande in stile utente (generate_sft.py) esistono nelle parole chiave inglesi con cui si classificano e
         tra le domande (dei paesi o delle citta') delle due lingue."""
         import generate_sft
         import generate_sft_dataset_en
-        for cat in generate_sft.REAL_QUESTION_CATS:
+        for cat in generate_sft.USER_STYLE_QUESTION_CATS:
             self.assertIn(cat, generate_sft_dataset_en.KEYWORDS)
             for lang in ("it", "en"):
                 L = generate_sft.LANGS[lang]

@@ -2,7 +2,7 @@ package com.pockettravel.feature.vault
 
 import java.text.Normalizer
 
-// Aeroporti e compagnie aeree dei suggerimenti del biglietto: logica pura, senza Android.
+// Aeroporti e compagnie aeree del completamento del biglietto: logica pura, senza Android.
 // I dati stanno in assets/airports.tsv.gz e assets/airlines.tsv.gz (generati da
 // tools/data-pipeline/scripts/vault_travel_data.py).
 

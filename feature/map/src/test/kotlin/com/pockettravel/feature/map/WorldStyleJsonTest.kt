@@ -22,21 +22,21 @@ class WorldStyleJsonTest {
     private fun fill(json: String) = json.lineSequence().first { "countries-fill" in it }
 
     @Test
-    fun `senza paesi il riempimento e' il colore della terra, senza espressione match`() {
+    fun `senza nazioni il riempimento e' il colore della terra, senza espressione match`() {
         val line = fill(style(emptyMap()))
         assertTrue(line.contains("\"fill-color\": \"#land\""))
         assertFalse(line.contains("match"))
     }
 
     @Test
-    fun `con soli paesi scaricati non c'e' il ramo dei disponibili, che match non ammette vuoto`() {
+    fun `con sole nazioni scaricati non c'e' il ramo dei disponibili, che match non ammette vuoto`() {
         val line = fill(style(mapOf("IT" to CountryStatus.DOWNLOADED, "FR" to CountryStatus.DOWNLOADED)))
         assertTrue(line.contains("[\"match\", [\"get\", \"iso\"], [\"FR\",\"IT\"], \"#dl\", \"#land\"]"))
         assertFalse(line.contains("#av"))
     }
 
     @Test
-    fun `con soli paesi disponibili non c'e' il ramo degli scaricati`() {
+    fun `con sole nazioni disponibili non c'e' il ramo degli scaricati`() {
         val line = fill(style(mapOf("DE" to CountryStatus.AVAILABLE)))
         assertTrue(line.contains("[\"match\", [\"get\", \"iso\"], [\"DE\"], \"#av\", \"#land\"]"))
         assertFalse(line.contains("#dl"))

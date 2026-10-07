@@ -13,7 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Impostazioni dell'assistente IA, incluse la modalita' scelta e la chiave API personale
+ * Impostazioni dell'assistente IA, incluso il motore scelto e la chiave API personale
  * per il client online. La chiave API e' cifrata con AES-GCM e una chiave gestita direttamente
  * da Android Keystore; non lascia mai il dispositivo.
  */
@@ -47,7 +47,7 @@ class AiSettingsStore @Inject constructor(@ApplicationContext private val contex
         _hasApiKeyFlow.value = false
     }
 
-    /** Servizio della modalita' "Online" (ChatGPT se non ne e' mai stato scelto uno). */
+    /** Servizio del motore "Online" (ChatGPT se non ne e' mai stato scelto uno). */
     fun onlineProvider(): OnlineProvider =
         OnlineProvider.entries.firstOrNull { it.name == prefs.getString(KEY_PROVIDER, null) } ?: OnlineProvider.CHATGPT
 

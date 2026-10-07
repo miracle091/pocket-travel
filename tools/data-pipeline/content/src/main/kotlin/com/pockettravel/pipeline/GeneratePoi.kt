@@ -125,7 +125,7 @@ data class Poi(
     val lon: Double,
     val osmTag: String,
     val phone: String?,
-    // Tag OSM "wheelchair" (yes, limited, no, designated...), null se assente: per la modalita' Accessibilita'.
+    // Tag OSM "wheelchair" (yes, limited, no, designated...), null se assente: per il modo Accessibilita'.
     val wheelchair: String? = null,
     // Solo per i POI con poiHasDetails (cibo, alloggi, ambasciate, farmacie, ospedali, negozi), null se OSM non li indica.
     val openingHours: String? = null,
@@ -227,7 +227,7 @@ private fun addressOf(tags: Map<String, String>): String? {
  *   user_version assente cioe' 0 di default) - vedi PoiImporter.replaceFromFile.
  *
  * outputDb e' poi.db (o poi-extra.db, stesso formato), un pacchetto POI della regione, scaricato
- * e aggiornato dall'app separatamente da guide (guides.db), mappa e routing.
+ * e aggiornato dall'app separatamente da guide (guides.db), mappa e rete stradale.
  */
 fun writePoiDb(pois: List<Poi>, outputDb: File) {
     // LinkedHashMap: assegna i code in ordine di prima comparsa, solo per avere un file

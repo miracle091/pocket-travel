@@ -4,9 +4,9 @@ import android.content.Context
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.pockettravel.feature.ai.NavigationRequestMode.BIKE
-import com.pockettravel.feature.ai.NavigationRequestMode.CAR
-import com.pockettravel.feature.ai.NavigationRequestMode.WALK
+import com.pockettravel.feature.ai.NavigationRequestProfile.BIKE
+import com.pockettravel.feature.ai.NavigationRequestProfile.CAR
+import com.pockettravel.feature.ai.NavigationRequestProfile.WALK
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
@@ -80,7 +80,7 @@ class NavigationGrammarDeviceTest {
     }
 
     private fun matches(actual: NavigationRequest?, expected: NavigationRequest) =
-        actual != null && actual.destination.equals(expected.destination, ignoreCase = true) && actual.mode == expected.mode
+        actual != null && actual.destination.equals(expected.destination, ignoreCase = true) && actual.profile == expected.profile
 
     private companion object {
         const val TAG = "NavGrammar"

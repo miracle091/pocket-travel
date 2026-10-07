@@ -46,7 +46,7 @@
     <string name="package_routing_car">Auto</string>
     <string name="package_routing_bike_foot">Bici e piedi</string>
     <string name="package_routing_all">Tutti</string>
-    <string name="package_routing_bike_foot_detail">Tutte le strade e i sentieri: è il pacchetto completo, che vale anche per l\'auto</string>
+    <string name="package_routing_bike_foot_detail">Tutte le strade e i sentieri: è la rete stradale completa, che vale anche per l\'auto</string>
     <string name="package_routing_all_detail">Tutte le strade e i sentieri, per ogni mezzo</string>
     <string name="package_routing_car_only_detail">Solo le strade percorribili in auto, circa il 40% di spazio in meno: nessun percorso a piedi o in bici</string>
     <string name="zone_row">Zona</string>
@@ -58,7 +58,7 @@
     <string name="zone_choice_message">Questa regione è molto estesa. È possibile scaricare solo la zona necessaria: mappa, rete stradale e numeri civici di quella zona. Punti di interesse e guide restano di tutta la regione</string>
     <string name="zone_choice_message_country">Questa nazione è molto estesa. È possibile scaricare solo la zona necessaria: mappa, rete stradale e numeri civici di quella zona. Punti di interesse e guide restano di tutta la nazione</string>
     <string name="zone_choice_pick">Scegli una zona</string>
-    <string name="zone_hint">Scarica solo la parte di mappa visibile, con rete stradale e numeri civici</string>
+    <string name="zone_hint">La zona è l\'area di mappa visibile: si scarica solo quella, con rete stradale e numeri civici</string>
     <string name="zone_size">Circa %1$d × %2$d km</string>
     <string name="zone_use">Seleziona la zona</string>
     <string name="zone_download">Scarica questa zona</string>
@@ -88,7 +88,7 @@
     <string name="map_preview_notice">Mappa d\'insieme: per il dettaglio delle strade e per calcolare i percorsi scarica la mappa e la rete stradale della regione</string>
     <string name="map_missing_notice">Mappa non scaricata: scaricala per vedere strade e luoghi. Il calcolo dei percorsi richiede la mappa e la rete stradale scaricate</string>
     <string name="regions_large_download_title">Download di grandi dimensioni</string>
-    <string name="regions_large_download_message">%1$s occupa %2$s e il telefono usa la rete mobile. Continuare?</string>
+    <string name="regions_large_download_message">%1$s occupa %2$s e il dispositivo usa la rete mobile. Continuare?</string>
     <string name="regions_large_download_confirm">Scarica</string>
     <string name="continent_other">Altro</string>
     <string name="continent_europe">Europa</string>
@@ -98,7 +98,7 @@
     <string name="continent_south_america">Sud America</string>
     <string name="continent_oceania">Oceania</string>
     <string name="regions_downloaded">Nazioni scaricate</string>
-    <string name="regions_show_map">Mostra la mappa del mondo</string>
+    <string name="regions_show_map">Mostra la mappa delle nazioni</string>
     <string name="regions_show_list">Mostra l\'elenco</string>
     <string name="world_map_not_available">Questa nazione non è ancora disponibile nel catalogo</string>
     <plurals name="continent_count">
@@ -125,16 +125,16 @@
     <string name="more_usage_mode_none">Non scelto: la mappa mostra tutte le categorie</string>
     <string name="more_usage_mode_with_accessible">%1$s, in sedia a rotelle</string>
     <string name="more_usage_mode_accessible_only">In sedia a rotelle: la mappa mostra tutte le categorie</string>
-    <string name="more_usage_mode_body">La mappa mostra per primi i punti utili per i modi di viaggiare scelti e sono proposti i percorsi da scaricare adatti. La scelta riporta i filtri della mappa ai valori predefiniti</string>
+    <string name="more_usage_mode_body">La mappa mostra per primi i punti utili per i modi di viaggiare scelti e è proposta la rete stradale da scaricare adatta. La scelta riporta i filtri della mappa ai valori predefiniti</string>
     <string name="more_licenses">Licenze</string>
     <string name="more_appearance">Aspetto</string>
-    <string name="more_appearance_system">Tema del telefono</string>
+    <string name="more_appearance_system">Tema del dispositivo</string>
     <string name="more_appearance_dark">Tema scuro</string>
     <string name="more_appearance_with_dynamic_color">%1$s, colori dallo sfondo</string>
     <string name="more_force_dark">Tema scuro</string>
-    <string name="more_force_dark_subtitle">Sempre scuro, anche quando il telefono usa il tema chiaro</string>
+    <string name="more_force_dark_subtitle">Sempre scuro, anche quando il dispositivo usa il tema chiaro</string>
     <string name="more_dynamic_color">Colori dallo sfondo</string>
-    <string name="more_dynamic_color_subtitle">Usa i colori dello sfondo del telefono invece di quelli dell\'app</string>
+    <string name="more_dynamic_color_subtitle">Usa i colori dello sfondo del dispositivo invece di quelli dell\'app</string>
     <string name="more_licenses_subtitle">Componenti e dati di terze parti</string>
 
     <!-- Navigazione principale -->
@@ -212,10 +212,10 @@
         <item quantity="other">%1$d nazioni in download in background</item>
     </plurals>
     <string name="onboarding_ready_ai_title">Assistente IA</string>
-    <string name="onboarding_ready_ai_body">Si attiva in Altro, Impostazioni, con un modello sul telefono o una chiave API</string>
+    <string name="onboarding_ready_ai_body">Si attiva in Altro, Impostazioni, con un modello sul dispositivo o una chiave API</string>
     <!-- Suggerimenti mostrati la prima volta che si apre la scheda (ContextualHint). -->
-    <string name="hint_ai_title">L\'assistente IA ha due modalità</string>
-    <string name="hint_ai_body">\"Sul dispositivo\" funziona anche senza internet: un piccolo modello scaricato sul telefono (richiede almeno 4 GB di RAM) risponde usando la guida e le note personali. \"Online\" usa un servizio a scelta (ChatGPT, Mistral, Gemini o Claude) con una chiave API personale, che resta sul telefono</string>
+    <string name="hint_ai_title">L\'assistente IA ha due motori</string>
+    <string name="hint_ai_body">\"Sul dispositivo\" funziona anche senza internet: un piccolo modello scaricato sul dispositivo (richiede almeno 4 GB di RAM) risponde usando la guida e le note personali. \"Online\" usa un servizio a scelta (ChatGPT, Mistral, Gemini o Claude) con una chiave API personale, che resta sul dispositivo</string>
     <string name="hint_vault_title">I documenti restano al sicuro</string>
     <string name="hint_vault_body">Passaporti, biglietti e altri documenti sono protetti dalla biometria e mai inviati fuori dal dispositivo</string>
     <string name="hint_sources_title">Le fonti ufficiali restano esterne</string>

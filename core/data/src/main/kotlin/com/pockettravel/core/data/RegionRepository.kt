@@ -6,7 +6,7 @@ import com.pockettravel.core.data.db.InstalledGuidesEntity
 import com.pockettravel.core.data.db.InstalledRegionEntity
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.RegionDatabase
-import com.pockettravel.core.data.db.RegionPackageDao
+import com.pockettravel.core.data.db.InstalledRegionDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -14,19 +14,19 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 class RegionRepository @Inject constructor(
-    private val regionPackageDao: RegionPackageDao,
+    private val installedRegionDao: InstalledRegionDao,
     private val poiDao: PoiDao,
     private val regionStorage: RegionStorage,
     private val database: RegionDatabase,
     private val cityDao: CityDao,
 ) {
     fun observeInstalled(): Flow<List<InstalledRegion>> =
-        regionPackageDao.observeAll().map { entities -> entities.map { it.toDomain() } }
+        installedRegionDao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
     suspend fun displayName(regionId: String): String? =
-        regionPackageDao.findById(regionId)?.displayName
+        installedRegionDao.findById(regionId)?.displayName
 
-    suspend fun installed(regionId: String): InstalledRegion? = regionPackageDao.findById(regionId)?.toDomain()
+    suspend fun installed(regionId: String): InstalledRegion? = installedRegionDao.findById(regionId)?.toDomain()
 
     /**
      * Registra i pacchetti appena installati ([versions]), conservando gli altri gia' presenti.
@@ -103,7 +103,7 @@ class RegionRepository @Inject constructor(
     }
 
     /**
-     * Toglie dal database i pacchetti su file (mappa, percorsi, civici, orari dei mezzi) registrati ma
+     * Toglie dal database i pacchetti su file (mappa, rete stradale, civici, orari dei mezzi) registrati ma
      * senza file su disco: restano cosi' se l'app si chiude fra la cancellazione dei file e la
      * transazione di [removePackage], e l'app li crederebbe installati ("Installato · 0 B") invece di
      * proporre di scaricarli. Ritorna i pacchetti tolti.
@@ -145,7 +145,7 @@ class RegionRepository @Inject constructor(
             regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_FILE) + regionStorage.packageBytes(regionId, RegionStorage.PREVIEW_FILE) +
             regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_CELLS_FILE) + regionStorage.packageBytes(regionId, RegionStorage.TRANSIT_DIR) +
             regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_SEARCH_DIR)
-        regionPackageDao.upsert(
+        installedRegionDao.upsert(
             InstalledRegionEntity(
                 regionId = regionId,
                 displayName = displayName,
@@ -168,16 +168,16 @@ class RegionRepository @Inject constructor(
     }
 
     /** Codice paese dal manifest per le regioni installate prima che il database lo salvasse. */
-    suspend fun fillCountryCode(regionId: String, countryCode: String) = regionPackageDao.fillCountryCode(regionId, countryCode)
+    suspend fun fillCountryCode(regionId: String, countryCode: String) = installedRegionDao.fillCountryCode(regionId, countryCode)
 
     /** Versione del pacchetto guide installato, null se non ancora scaricato. */
-    suspend fun installedGuidesVersion(): String? = regionPackageDao.guidesVersion()
+    suspend fun installedGuidesVersion(): String? = installedRegionDao.guidesVersion()
 
     fun observeInstalledGuides(): Flow<InstalledGuides?> =
-        regionPackageDao.observeGuides().map { it?.let { entity -> InstalledGuides(entity.version, entity.sizeBytes) } }
+        installedRegionDao.observeGuides().map { it?.let { entity -> InstalledGuides(entity.version, entity.sizeBytes) } }
 
     suspend fun markGuidesInstalled(version: String, sizeBytes: Long) =
-        regionPackageDao.upsertGuides(InstalledGuidesEntity(version = version, sizeBytes = sizeBytes))
+        installedRegionDao.upsertGuides(InstalledGuidesEntity(version = version, sizeBytes = sizeBytes))
 
     suspend fun <T> inInstallTransaction(block: suspend () -> T): T = database.withTransaction { block() }
 
@@ -205,7 +205,7 @@ class RegionRepository @Inject constructor(
             regionStorage.deleteStaging(regionId)
         }
         database.withTransaction {
-            regionPackageDao.deleteById(regionId)
+            installedRegionDao.deleteById(regionId)
             poiDao.deleteForRegion(regionId, extra = null)
             cityDao.deleteForRegion(regionId)
         }

@@ -36,22 +36,22 @@ import javax.inject.Inject
 data class GuideUiState(
     val sections: List<GuideSection> = emptyList(),
     val emergencyNumbers: EmergencyNumbers? = null,
-    // Per i fatti rapidi: valuta e lingua dal paese, mezzi di trasporto dai POI della regione.
+    // Per i fatti rapidi: valuta e lingua dalla nazione, mezzi di trasporto dai POI della regione.
     val countryCode: String? = null,
     val transportCounts: Map<PoiCategory, Int> = emptyMap(),
     // Paese di chi viaggia se diverso da quello della regione (null altrimenti), con le sue
     // ambasciate e i suoi consolati nella regione.
     val embassiesCountry: String? = null,
     val embassies: List<Poi> = emptyList(),
-    // Le rappresentanze Wikidata dello stesso paese nel paese della regione: la scheda le fonde con i POI OSM.
+    // Le rappresentanze Wikidata dello stesso paese nella nazione della regione: il riquadro le fonde con i POI OSM.
     val missions: List<DiplomaticMission> = emptyList(),
     // Ultima posizione nota del telefono (null senza permesso): le rappresentanze piu' vicine in cima.
     val position: Pair<Double, Double>? = null,
-    // La regione non ha un numero di emergenza centralizzato: la scheda lo dice al posto dei numeri.
+    // La regione non ha un numero di emergenza centralizzato: il riquadro lo dice al posto dei numeri.
     val noCentralEmergencyNumber: Boolean = false,
     // Nomi delle citta' della regione (CityRepository.citiesFor): entry point "Citta'" nascosto se vuoto.
     val cities: List<String> = emptyList(),
-    // Le citta' principali per abitanti (CityRepository.mainCitiesFor), in evidenza nella scheda Citta'.
+    // Le citta' principali per abitanti (CityRepository.mainCitiesFor), in evidenza nel riquadro Citta'.
     val mainCities: List<MainCity> = emptyList(),
     // Meteo della posizione (se dentro la regione) o della capitale; null finche' non c'e' o senza rete e cache.
     val weather: PlaceWeather? = null,
@@ -115,10 +115,10 @@ class GuideViewModel @Inject constructor(
         embassiesJob = viewModelScope.launch {
             val regionCountry = regionRepository.installed(regionId)?.countryCode
             nationalityPreferences.nationality.collect { nationality ->
-                // Il paese della regione e' minuscolo (manifest), la nazionalita' maiuscola.
+                // La nazione della regione e' minuscola (manifest), la nazionalita' maiuscola.
                 val country = nationality?.takeIf { !it.equals(regionCountry, ignoreCase = true) }
                 val embassies = country?.let { poiRepository.embassiesOf(regionId, it) }.orEmpty()
-                // Senza paese per la regione (manifest non ancora letto) niente rappresentanze Wikidata.
+                // Senza nazione per la regione (manifest non ancora letto) niente rappresentanze Wikidata.
                 val missions = if (country != null && regionCountry != null) {
                     diplomaticMissionRepository.missions(country, regionCountry)
                 } else {
@@ -197,7 +197,7 @@ class GuideViewModel @Inject constructor(
         }
     }
 
-    /** "Aggiorna" della scheda meteo della nazione: niente se un aggiornamento e' gia' in corso. */
+    /** "Aggiorna" del riquadro meteo della nazione: niente se un aggiornamento e' gia' in corso. */
     fun refreshWeather() {
         val regionId = loadedForRegionId ?: return
         if (weatherJob?.isActive == true) return
@@ -206,7 +206,7 @@ class GuideViewModel @Inject constructor(
         }
     }
 
-    /** "Aggiorna" della scheda meteo della citta' aperta. */
+    /** "Aggiorna" del riquadro meteo della citta' aperta. */
     fun refreshCityWeather() {
         val (regionId, city) = loadedCityKey ?: return
         if (cityWeatherJob?.isActive == true) return
@@ -254,7 +254,7 @@ class GuideViewModel @Inject constructor(
     }
 }
 
-// Scorciatoie della scheda Citta' (CitiesEntryCard)
+// Scorciatoie del riquadro Citta' (CitiesEntryCard)
 internal const val MAIN_CITIES = 5
 
 // Posizione per il meteo "vicino a te": recente (3 ore) e con POI della regione entro ~5 km.

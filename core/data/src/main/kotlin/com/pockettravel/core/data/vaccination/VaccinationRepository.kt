@@ -22,7 +22,7 @@ class VaccinationRepository @Inject constructor(private val vaccinationDao: Vacc
         meta = vaccinationDao.meta(),
     ).takeUnless { it.isEmpty }
 
-    /** Esito per [trip], o null se mancano i dati (allora la UI non mostra la scheda). */
+    /** Esito per [trip], o null se mancano i dati (allora la UI non mostra il riquadro). */
     suspend fun evaluate(trip: Trip): VaccinationResult? = load()?.let { evaluateVaccinations(trip, it) }
 }
 

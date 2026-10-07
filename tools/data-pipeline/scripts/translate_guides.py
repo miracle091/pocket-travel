@@ -37,7 +37,7 @@ from pathlib import Path
 import city_population
 import translate_dataset as ts
 
-# Dai fatti rapidi in inglese non si traduce: li costruisce la pipeline dal Quickbar italiano.
+# Dai fatti rapidi in inglese non si traduce: li costruisce la pipeline dai Fatti rapidi italiani.
 SKIP_CATEGORIES = {"FATTI_RAPIDI"}
 CHUNK_CHARS = 40_000  # testo inglese per chiamata al modello: tra un lotto e l'altro si controlla il tempo
 # Sezioni che in realta' vengono dalla pagina nell'altra lingua (generateGuides usa quella inglese quando la pagina

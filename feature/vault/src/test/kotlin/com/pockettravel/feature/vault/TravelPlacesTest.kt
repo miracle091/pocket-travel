@@ -67,13 +67,13 @@ class TravelPlacesTest {
     }
 
     @Test
-    fun `una query vuota o non trovata non da suggerimenti`() {
+    fun `una query vuota o non trovata non da completamenti`() {
         assertTrue(airports.search("  ").isEmpty())
         assertTrue(airports.search("qqq").isEmpty())
     }
 
     @Test
-    fun `i suggerimenti sono al massimo sei`() {
+    fun `i completamenti sono al massimo sei`() {
         val many = SuggestionIndex(parseAirports((1..20).map { "A$it\t\tAirport $it\tTown\tIT" }))
         assertEquals(MAX_SUGGESTIONS, many.search("airport").size)
     }

@@ -37,7 +37,7 @@ class RecommendedRegionsTest {
     }
 
     @Test
-    fun `pacchetti di default come Scarica, percorsi solo con le indicazioni`() {
+    fun `pacchetti di default come Scarica, rete stradale solo con le indicazioni`() {
         val item = italia.copy(
             packages = listOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI, PackageKind.POI_EXTRA)
                 .map { PackageUiState(it, RegionStatus.NOT_INSTALLED, downloadBytes = 10, installedBytes = null) },
@@ -49,7 +49,7 @@ class RecommendedRegionsTest {
     }
 
     @Test
-    fun `gli orari dei mezzi pubblici si spuntano solo se la modalita' li propone, e solo se la regione li offre`() {
+    fun `gli orari dei mezzi pubblici si spuntano solo se il modo li propone, e solo se la regione li offre`() {
         val withTransit = italia.copy(
             packages = listOf(PackageKind.MAP, PackageKind.POI, PackageKind.TRANSIT)
                 .map { PackageUiState(it, RegionStatus.NOT_INSTALLED, downloadBytes = 10, installedBytes = null) },

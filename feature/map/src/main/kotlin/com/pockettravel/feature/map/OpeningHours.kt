@@ -2,7 +2,7 @@ package com.pockettravel.feature.map
 
 // Orari OSM (tag opening_hours). parseOpeningHours capisce le forme piu' comuni ("Mo-Fr 09:00-18:00;
 // Sa 09:00-13:00; Su off", "24/7", festivi con PH) e ne fa una tabella per giorni; il resto (mesi,
-// settimane, eccezioni, "sunrise"...) torna null e la scheda mostra formatOpeningHours.
+// settimane, eccezioni, "sunrise"...) torna null e il riquadro mostra formatOpeningHours.
 
 /** Una riga della tabella: giorni consecutivi con lo stesso orario ("lun–ven", "08:00–20:00"). */
 internal data class OpeningHoursRow(val days: String, val hours: String, val includesToday: Boolean)

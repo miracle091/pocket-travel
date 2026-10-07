@@ -9,14 +9,14 @@ import kotlin.math.abs
 class NavigationTest {
 
     @Test
-    fun `a piedi con disabilita' il profilo in sedia a rotelle, gradini solo se accettati`() {
-        assertEquals(RoutingChoice("wheelchair"), routingChoice(RouteProfile.WALK, accessible = true, allowSteps = false))
-        assertEquals(RoutingChoice("wheelchair", mapOf("allow_steps" to "1")), routingChoice(RouteProfile.WALK, accessible = true, allowSteps = true))
-        assertTrue(routingChoice(RouteProfile.WALK, accessible = true, allowSteps = false).wheelchair)
-        assertEquals(RoutingChoice("shortest"), routingChoice(RouteProfile.WALK, accessible = false, allowSteps = true))
+    fun `a piedi in sedia a rotelle il profilo in sedia a rotelle, gradini solo se accettati`() {
+        assertEquals(BRouterProfile("wheelchair"), brouterProfile(RouteProfile.WALK, accessible = true, allowSteps = false))
+        assertEquals(BRouterProfile("wheelchair", mapOf("allow_steps" to "1")), brouterProfile(RouteProfile.WALK, accessible = true, allowSteps = true))
+        assertTrue(brouterProfile(RouteProfile.WALK, accessible = true, allowSteps = false).wheelchair)
+        assertEquals(BRouterProfile("shortest"), brouterProfile(RouteProfile.WALK, accessible = false, allowSteps = true))
         // Bici e auto restano quelle del mezzo anche con la casella.
-        assertEquals(RoutingChoice("trekking"), routingChoice(RouteProfile.BIKE, accessible = true, allowSteps = true))
-        assertEquals(RoutingChoice("car-vario"), routingChoice(RouteProfile.CAR, accessible = true, allowSteps = false))
+        assertEquals(BRouterProfile("trekking"), brouterProfile(RouteProfile.BIKE, accessible = true, allowSteps = true))
+        assertEquals(BRouterProfile("car-vario"), brouterProfile(RouteProfile.CAR, accessible = true, allowSteps = false))
     }
 
     // Percorso a L: verso est lungo il parallelo 45 (circa 393 m), poi a sinistra verso nord (circa 445 m).
@@ -247,7 +247,7 @@ class NavigationTest {
     }
 
     @Test
-    fun `tempo scaduto e mezzo iniziale dalla modalita' d'uso`() {
+    fun `tempo scaduto e mezzo iniziale dal modo`() {
         assertEquals(NavigationUiState.Unavailable(RouteResult.TimedOut), state(result = RouteResult.TimedOut))
         assertEquals(RouteProfile.CAR, RouteProfile.from(setOf(UsageMode.CAMPER)))
         assertEquals(RouteProfile.BIKE, RouteProfile.from(setOf(UsageMode.BICI)))
@@ -256,7 +256,7 @@ class NavigationTest {
     }
 
     @Test
-    fun `con piu' modalita' il mezzo iniziale e' l'auto se c'e' auto o camper, poi la bici, poi a piedi`() {
+    fun `con piu' modi il mezzo iniziale e' l'auto se c'e' auto o camper, poi la bici, poi a piedi`() {
         assertEquals(RouteProfile.CAR, RouteProfile.from(setOf(UsageMode.BICI, UsageMode.CAMPER)))
         assertEquals(RouteProfile.CAR, RouteProfile.from(setOf(UsageMode.A_PIEDI, UsageMode.AUTO)))
         assertEquals(RouteProfile.BIKE, RouteProfile.from(setOf(UsageMode.A_PIEDI, UsageMode.BICI, UsageMode.MEZZI_PUBBLICI)))
@@ -344,7 +344,7 @@ class NavigationTest {
     }
 
     @Test
-    fun `da San Marino a Riga senza i paesi in mezzo il percorso esce dalle regioni scaricate`() {
+    fun `da San Marino a Riga senza le nazioni in mezzo il percorso esce dalle regioni scaricate`() {
         val lettonia = RoutingRegion("lettonia", MapBounds(20.9, 55.6, 28.3, 58.1))
         val riga = RoutePoint(56.952, 24.1147)
 

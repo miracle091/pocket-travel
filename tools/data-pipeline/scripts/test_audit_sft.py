@@ -189,7 +189,7 @@ class SyntheticCategoriesTest(unittest.TestCase):
 
     def test_vaccinazioni(self):
         texts = {"it": "Vaccinazioni per un viaggio dall'Italia al Ghana\nCertificati richiesti:\n- Febbre gialla\n- Poliomielite\n"
-                       "Consigliate per la destinazione:\n- Epatite A\nVerifica sempre le regole ufficiali.",
+                       "Raccomandate per la destinazione:\n- Epatite A\nVerifica sempre le regole ufficiali.",
                  "en": "Vaccinations for a trip from Italy to Ghana\nRequired certificates:\n- Yellow fever\n- Polio\n"
                        "Recommended for the destination:\n- Hepatitis A\nAlways check the official rules."}
         nessuno = {"it": "Vaccinazioni per un viaggio dall'Italia in Francia\nNessun certificato richiesto nei nostri dati\n"

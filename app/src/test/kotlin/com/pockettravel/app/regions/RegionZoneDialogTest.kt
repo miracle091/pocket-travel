@@ -15,7 +15,7 @@ class RegionZoneDialogTest {
     }
 
     @Test
-    fun `solo i paesi grandi propongono una zona`() {
+    fun `solo le nazioni grandi propongono una zona`() {
         assertTrue(RegionBbox(6.6, 35.5, 18.5, 47.1).isLarge()) // Italia
         assertFalse(RegionBbox(20.9, 55.6, 28.3, 58.1).isLarge()) // Lettonia
         assertFalse(RegionBbox(12.4, 43.89, 12.52, 43.99).isLarge()) // San Marino

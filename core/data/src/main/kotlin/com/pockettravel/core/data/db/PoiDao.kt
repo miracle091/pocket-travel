@@ -13,7 +13,7 @@ interface PoiDao {
     @Query("SELECT * FROM poi WHERE regionId = :regionId")
     suspend fun poisForRegion(regionId: String): List<PoiEntity>
 
-    // I POI dell'area inquadrata dalla mappa, per i segnalini: tutti i POI di un paese grande (Italia, ~70 MB) non stanno
+    // I POI dell'area inquadrata dalla mappa, per i segnalini: tutti i POI di una nazione grande (Italia, ~70 MB) non stanno
     // in memoria. Senza indice su lat/lon, come nearest: una scansione a ogni fermo della mappa. [excluded] sono le
     // coppie "category|osmTag" delle categorie filtrate dall'utente (vedi PoiRepository.inBounds): escluse qui, prima del
     // conteggio e del GROUP BY, altrimenti le celle sceglierebbero POI poi scartati e le categorie rimaste quasi sparirebbero.
@@ -34,7 +34,7 @@ interface PoiDao {
 
     // Come spreadInBounds, per le aree larghe (vedi PoiRepository.WIDE_AREA_DEGREES): legge le righe della regione in ordine di
     // rowid, cioe' in sequenza sul disco. Con l'indice su (regionId, lat) l'area e' poi una fascia di latitudine che attraversa
-    // tutto il paese, e le righe arrivano in ordine di latitudine, cioe' sparse: a cache fredda, su un milione di POI, 9 s invece di 1.
+    // tutta la nazione, e le righe arrivano in ordine di latitudine, cioe' sparse: a cache fredda, su un milione di POI, 9 s invece di 1.
     @Query(SPREAD_IN_WIDE_BOUNDS)
     suspend fun spreadInWideBounds(
         regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, cellLat: Double, cellLon: Double, excluded: List<String>,
@@ -55,7 +55,7 @@ interface PoiDao {
     )
     suspend fun transportCounts(regionId: String): List<TransportCount>
 
-    // Ambasciate e consolati di un paese nella regione, per la scheda dei numeri di emergenza.
+    // Ambasciate e consolati di un paese nella regione, per il riquadro dei numeri di emergenza.
     @Query("SELECT * FROM poi WHERE regionId = :regionId AND category = 'embassy' AND country = :country ORDER BY name")
     suspend fun embassiesOf(regionId: String, country: String): List<PoiEntity>
 

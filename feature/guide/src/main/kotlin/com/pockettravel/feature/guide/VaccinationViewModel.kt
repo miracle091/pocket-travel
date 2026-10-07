@@ -31,7 +31,7 @@ import javax.inject.Inject
  * [overTwelveHours] ("più di 12 ore") arriva al motore come durata non indicata: un numero fisso (es. 13)
  * nasconderebbe le regole sopra le 24 ore.
  */
-data class TransitInput(
+data class StopoverInput(
     val id: Int,
     val country: String? = null,
     val hours: Int? = null,
@@ -40,18 +40,18 @@ data class TransitInput(
 )
 
 /**
- * Stato della scheda e della schermata delle vaccinazioni. I paesi sono ISO alpha-2 maiuscoli (come li da' il
+ * Stato del riquadro e della schermata delle vaccinazioni. I paesi sono ISO alpha-2 maiuscoli (come li da' il
  * selettore); [result] e' null quando il percorso non e' valido (partenza mancante, o uguale alla destinazione senza scopo:
  * con lo scopo Hajj il motore vale anche per chi parte dal paese stesso).
  */
 data class VaccinationUiState(
-    // false: pacchetto guide senza dati vaccinali o paese della regione ignoto, la scheda non compare.
+    // false: pacchetto guide senza dati vaccinali o paese della regione ignoto, il riquadro non compare.
     val available: Boolean = false,
     val destination: String? = null,
     val departure: String? = null,
     val nationality: String? = null,
     val recentCountries: List<String> = emptyList(),
-    val transits: List<TransitInput> = emptyList(),
+    val stopovers: List<StopoverInput> = emptyList(),
     val childUnderOne: Boolean = false,
     val childMonths: Int? = null,
     val stayOverFourWeeks: Boolean = false,
@@ -63,7 +63,7 @@ data class VaccinationUiState(
 
 // Se non viaggia un bimbo sotto 1 anno si passa un'eta' sopra qualunque soglia dei dati: la voce resta "richiesta".
 private const val ADULT_AGE_MONTHS = 216
-private const val MAX_TRANSITS = 4
+private const val MAX_STOPOVERS = 4
 private const val MAX_RECENT = 8
 
 @HiltViewModel
@@ -81,7 +81,7 @@ class VaccinationViewModel @Inject constructor(
     private var loadedForRegionId: String? = null
     private var dataJob: Job? = null
     private var nationalityJob: Job? = null
-    private var nextTransitId = 0
+    private var nextStopoverId = 0
 
     // Come GuideViewModel.load: la regione arriva a runtime dalla composable.
     fun load(regionId: String) {
@@ -133,14 +133,14 @@ class VaccinationViewModel @Inject constructor(
 
     fun removeRecentCountry(country: String) = edit { it.copy(recentCountries = it.recentCountries - country) }
 
-    fun addTransit() = edit { state ->
-        if (state.transits.size >= MAX_TRANSITS) state else state.copy(transits = state.transits + TransitInput(nextTransitId++))
+    fun addStopover() = edit { state ->
+        if (state.stopovers.size >= MAX_STOPOVERS) state else state.copy(stopovers = state.stopovers + StopoverInput(nextStopoverId++))
     }
 
-    fun updateTransit(id: Int, change: (TransitInput) -> TransitInput) =
-        edit { state -> state.copy(transits = state.transits.map { if (it.id == id) change(it) else it }) }
+    fun updateStopover(id: Int, change: (StopoverInput) -> StopoverInput) =
+        edit { state -> state.copy(stopovers = state.stopovers.map { if (it.id == id) change(it) else it }) }
 
-    fun removeTransit(id: Int) = edit { state -> state.copy(transits = state.transits.filterNot { it.id == id }) }
+    fun removeStopover(id: Int) = edit { state -> state.copy(stopovers = state.stopovers.filterNot { it.id == id }) }
 
     fun setChildUnderOne(value: Boolean) = edit { it.copy(childUnderOne = value) }
 
@@ -175,7 +175,7 @@ private fun tripOf(state: VaccinationUiState, departure: String, destination: St
     return Trip(
         departure = departure,
         recentCountries = state.recentCountries.toSet(),
-        transits = state.transits.mapNotNull { leg -> leg.country?.let { TripLeg(it, leg.hours.takeUnless { leg.overTwelveHours }, leg.leftAirport) } },
+        transits = state.stopovers.mapNotNull { leg -> leg.country?.let { TripLeg(it, leg.hours.takeUnless { leg.overTwelveHours }, leg.leftAirport) } },
         destination = destination,
         travellerAgeMonths = if (state.childUnderOne) state.childMonths else ADULT_AGE_MONTHS,
         stayOverFourWeeksInDeparture = polioRelevant && state.stayOverFourWeeks,

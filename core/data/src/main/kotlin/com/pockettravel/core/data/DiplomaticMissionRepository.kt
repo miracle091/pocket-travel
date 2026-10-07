@@ -36,7 +36,7 @@ data class DiplomaticMission(
     val longitude: Double? = null,
 )
 
-/** Riga della scheda emergenze: un POI OSM, una rappresentanza Wikidata o le due fuse. [kind] e' null per i POI OSM senza corrispondenza. */
+/** Riga del riquadro emergenze: un POI OSM, una rappresentanza Wikidata o le due fuse. [kind] e' null per i POI OSM senza corrispondenza. */
 data class EmbassyEntry(
     val name: String,
     val kind: MissionKind?,
@@ -108,7 +108,7 @@ fun mergeEmbassies(osm: List<Poi>, missions: List<DiplomaticMission>, regionCiti
 
 /**
  * Le rappresentanze con posizione nota entro [maxKm] da ([latitude], [longitude]), dalla piu' vicina e al
- * massimo [limit], con la distanza in km: la parte "Vicino a te" della scheda emergenze.
+ * massimo [limit], con la distanza in km: la parte "Vicino a te" del riquadro emergenze.
  */
 fun nearbyEmbassies(
     entries: List<EmbassyEntry>,
@@ -123,7 +123,7 @@ fun nearbyEmbassies(
         entry to distanceKm(latitude, longitude, lat, lon)
     }.filter { it.second <= maxKm }.sortedBy { it.second }.take(limit)
 
-// Oltre i 100 km non e' "vicino": la scheda mostra solo l'elenco del paese.
+// Oltre i 100 km non e' "vicino": il riquadro mostra solo l'elenco del paese.
 private const val NEARBY_MAX_KM = 100.0
 private const val NEARBY_LIMIT = 3
 

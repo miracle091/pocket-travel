@@ -27,7 +27,7 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
     LicenseEntry("XZ for Java (decompressione dei punti di interesse, core:sync)", "0BSD"),
     LicenseEntry("Basemap Protomaps (software/schema)", "BSD-3-Clause"),
     LicenseEntry(
-        component = "Natural Earth (confini dei paesi, mappa del mondo)",
+        component = "Natural Earth (confini dei paesi, mappa delle nazioni)",
         license = "Pubblico dominio",
         note = "Dati 1:50m, ridotti a confini, codice ISO e nome del paese (feature:map/src/main/assets/world).",
     ),

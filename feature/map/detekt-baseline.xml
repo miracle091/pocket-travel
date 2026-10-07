@@ -14,7 +14,7 @@
     <ID>CyclomaticComplexMethod:NavigationScreen.kt:@Composable fun NavigationInstructions</ID>
     <ID>CyclomaticComplexMethod:NavigationScreen.kt:@Composable internal fun turnIcon: ImageVector</ID>
     <ID>CyclomaticComplexMethod:NavigationScreen.kt:@Composable internal fun turnText: String</ID>
-    <ID>CyclomaticComplexMethod:NavigationScreen.kt:@Composable private fun Guidance</ID>
+    <ID>CyclomaticComplexMethod:NavigationScreen.kt:@Composable private fun ActiveNavigationContent</ID>
     <ID>CyclomaticComplexMethod:NavigationService.kt:NavigationService.Companion$private fun turnIconRes: Int</ID>
     <ID>CyclomaticComplexMethod:NavigationService.kt:NavigationService.Companion$private fun turnText: String</ID>
     <ID>CyclomaticComplexMethod:OpeningHours.kt:internal fun parseOpeningHours: List&lt;OpeningHoursRow&gt;?</ID>

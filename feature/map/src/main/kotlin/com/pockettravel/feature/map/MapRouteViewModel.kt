@@ -89,14 +89,14 @@ class MapRouteViewModel @Inject constructor(
         viewModelScope.launch { pinRequests.collect { loadPinsNow() } }
     }
 
-    // Partenze del POI di trasporto aperto nella scheda: null finche' si leggono o senza POI.
+    // Partenze del POI di trasporto aperto nel riquadro: null finche' si leggono o senza POI.
     private val _transitBoard = MutableStateFlow<TransitBoard?>(null)
     val transitBoard: StateFlow<TransitBoard?> = _transitBoard.asStateFlow()
     private var transitJob: Job? = null
 
     /**
-     * Legge le prossime partenze vicino a [pin] e le rilegge ogni minuto finche' la scheda e' aperta (le partenze
-     * passano); null (scheda chiusa o orari non installati) le azzera.
+     * Legge le prossime partenze vicino a [pin] e le rilegge ogni minuto finche' il riquadro e' aperta (le partenze
+     * passano); null (riquadro chiuso o orari non installati) le azzera.
      */
     fun showDepartures(pin: MapPin?) {
         transitJob?.cancel()
@@ -145,7 +145,7 @@ class MapRouteViewModel @Inject constructor(
     }
 
     /**
-     * Solo i POI dell'area inquadrata, dentro la zona scaricata se c'e', al massimo [MAX_PINS]: tutti quelli di un paese
+     * Solo i POI dell'area inquadrata, dentro la zona scaricata se c'e', al massimo [MAX_PINS]: tutti quelli di una nazione
      * grande (Italia, ~70 MB) manderebbero l'app in OutOfMemoryError. Prima del primo fermo della mappa, quelli del
      * riquadro della mappa installata (o della zona).
      */

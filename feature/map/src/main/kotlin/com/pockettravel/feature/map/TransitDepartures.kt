@@ -51,16 +51,16 @@ import java.util.Date
 import java.util.TimeZone
 
 /**
- * Stato del pacchetto orari dei mezzi pubblici della regione, per la scheda delle fermate: [UNKNOWN] non mostra
+ * Stato del pacchetto orari dei mezzi pubblici della regione, per il riquadro delle fermate: [UNKNOWN] non mostra
  * nulla (catalogo non letto), [NOT_OFFERED] dice che per questa zona non ci sono orari.
  */
 enum class TransitPackageState { UNKNOWN, INSTALLED, AVAILABLE, DOWNLOADING, NOT_OFFERED }
 
-/** Le schede di queste categorie hanno la sezione "Prossime partenze". */
+/** I riquadri di queste categorie hanno la sezione "Prossime partenze". */
 val TRANSIT_CATEGORIES = setOf(PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TRAGHETTO)
 
 /**
- * "Prossime partenze" nella scheda di un POI di trasporto: le righe del tabellone, la scadenza degli
+ * "Prossime partenze" nel riquadro di un POI di trasporto: le righe del tabellone, la scadenza degli
  * orari e le fonti; se gli orari non sono installati, il pulsante per scaricarli. [board] e' null
  * finche' si legge. [onDownload] scarica o aggiorna il pacchetto orari della regione.
  */

@@ -56,15 +56,15 @@ class VaccinationContentDeviceTest {
 
     private fun actions(
         setDeparture: (String) -> Unit = {},
-        addTransit: () -> Unit = {},
+        addStopover: () -> Unit = {},
         setChildUnderOne: (Boolean) -> Unit = {},
     ) = VaccinationActions(
         setDeparture = setDeparture,
         addRecentCountry = {},
         removeRecentCountry = {},
-        addTransit = addTransit,
-        updateTransit = { _, _ -> },
-        removeTransit = {},
+        addStopover = addStopover,
+        updateStopover = { _, _ -> },
+        removeStopover = {},
         setChildUnderOne = setChildUnderOne,
         setChildMonths = {},
         setStayOverFourWeeks = {},
@@ -119,9 +119,9 @@ class VaccinationContentDeviceTest {
     }
 
     @Test
-    fun addTransitButtonInvokesTheAction() {
+    fun addStopoverButtonInvokesTheAction() {
         var added = 0
-        show(baseState, actions(addTransit = { added++ }))
+        show(baseState, actions(addStopover = { added++ }))
 
         compose.onNodeWithText(string(R.string.vacc_add_transit)).performClick()
 

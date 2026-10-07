@@ -42,48 +42,48 @@ class NavigationPreferences @Inject constructor(@ApplicationContext context: Con
      * La guida in corso, salvata su disco finche' non si chiude: se il sistema chiude l'app (anche a schermo
      * spento), alla riapertura il Navigatore propone di riprenderla, sia dalle app recenti sia dall'icona.
      */
-    fun saveActiveNavigation(guidance: ActiveNavigation) {
+    fun saveActiveNavigation(navigation: ActiveNavigation) {
         prefs.edit {
-            putString(KEY_GUIDANCE_PLACE, RecentDestinations.encode(listOf(guidance.place)))
-            putString(KEY_GUIDANCE_REGION, guidance.regionId)
-            putString(KEY_GUIDANCE_MODE, guidance.mode.name)
-            putLong(KEY_GUIDANCE_ARRIVE_BY, guidance.arriveByEpochMinute ?: -1L)
-            putLong(KEY_GUIDANCE_STARTED, guidance.startedAtMillis)
+            putString(KEY_NAVIGATION_PLACE, RecentDestinations.encode(listOf(navigation.place)))
+            putString(KEY_NAVIGATION_REGION, navigation.regionId)
+            putString(KEY_NAVIGATION_MODE, navigation.mode.name)
+            putLong(KEY_NAVIGATION_ARRIVE_BY, navigation.arriveByEpochMinute ?: -1L)
+            putLong(KEY_NAVIGATION_STARTED, navigation.startedAtMillis)
         }
     }
 
-    /** La guida salvata, se c'e' e non e' troppo vecchia (dopo [ACTIVE_GUIDANCE_MAX_AGE_MILLIS] non ha piu' senso riprenderla). */
+    /** La guida salvata, se c'e' e non e' troppo vecchia (dopo [ACTIVE_NAVIGATION_MAX_AGE_MILLIS] non ha piu' senso riprenderla). */
     fun activeNavigation(now: Long = System.currentTimeMillis()): ActiveNavigation? {
-        val place = RecentDestinations.decode(prefs.getString(KEY_GUIDANCE_PLACE, null)).firstOrNull() ?: return null
-        val started = prefs.getLong(KEY_GUIDANCE_STARTED, 0L)
-        if (now - started > ACTIVE_GUIDANCE_MAX_AGE_MILLIS) {
+        val place = RecentDestinations.decode(prefs.getString(KEY_NAVIGATION_PLACE, null)).firstOrNull() ?: return null
+        val started = prefs.getLong(KEY_NAVIGATION_STARTED, 0L)
+        if (now - started > ACTIVE_NAVIGATION_MAX_AGE_MILLIS) {
             clearActiveNavigation()
             return null
         }
         return ActiveNavigation(
-            regionId = prefs.getString(KEY_GUIDANCE_REGION, null) ?: place.regionId,
+            regionId = prefs.getString(KEY_NAVIGATION_REGION, null) ?: place.regionId,
             place = place,
-            mode = prefs.getString(KEY_GUIDANCE_MODE, null)?.let { name -> RouteProfile.entries.firstOrNull { it.name == name } } ?: RouteProfile.WALK,
-            arriveByEpochMinute = prefs.getLong(KEY_GUIDANCE_ARRIVE_BY, -1L).takeIf { it >= 0 },
+            mode = prefs.getString(KEY_NAVIGATION_MODE, null)?.let { name -> RouteProfile.entries.firstOrNull { it.name == name } } ?: RouteProfile.WALK,
+            arriveByEpochMinute = prefs.getLong(KEY_NAVIGATION_ARRIVE_BY, -1L).takeIf { it >= 0 },
             startedAtMillis = started,
         )
     }
 
     fun clearActiveNavigation() = prefs.edit {
-        remove(KEY_GUIDANCE_PLACE)
-        remove(KEY_GUIDANCE_REGION)
-        remove(KEY_GUIDANCE_MODE)
-        remove(KEY_GUIDANCE_ARRIVE_BY)
-        remove(KEY_GUIDANCE_STARTED)
+        remove(KEY_NAVIGATION_PLACE)
+        remove(KEY_NAVIGATION_REGION)
+        remove(KEY_NAVIGATION_MODE)
+        remove(KEY_NAVIGATION_ARRIVE_BY)
+        remove(KEY_NAVIGATION_STARTED)
     }
 
     private companion object {
-        const val KEY_GUIDANCE_PLACE = "guidance_place"
-        const val KEY_GUIDANCE_REGION = "guidance_region"
-        const val KEY_GUIDANCE_MODE = "guidance_mode"
-        const val KEY_GUIDANCE_ARRIVE_BY = "guidance_arrive_by"
-        const val KEY_GUIDANCE_STARTED = "guidance_started"
-        const val ACTIVE_GUIDANCE_MAX_AGE_MILLIS = 12 * 60 * 60 * 1000L
+        const val KEY_NAVIGATION_PLACE = "guidance_place"
+        const val KEY_NAVIGATION_REGION = "guidance_region"
+        const val KEY_NAVIGATION_MODE = "guidance_mode"
+        const val KEY_NAVIGATION_ARRIVE_BY = "guidance_arrive_by"
+        const val KEY_NAVIGATION_STARTED = "guidance_started"
+        const val ACTIVE_NAVIGATION_MAX_AGE_MILLIS = 12 * 60 * 60 * 1000L
         const val KEY_STOP_GPS_ON_ARRIVAL = "stop_gps_on_arrival"
         const val KEY_WALKING_HAPTICS = "walking_haptics"
     }

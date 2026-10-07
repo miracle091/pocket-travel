@@ -28,8 +28,8 @@ internal fun recommendedRegions(items: List<RegionUiItem>, countryCode: String?,
 
 /**
  * I pacchetti scelti di default per una regione nel primo avvio: come "Scarica" (tutti tranne POI
- * extra e percorsi, questi solo con "Indicazioni"), tra quelli che la regione offre; gli orari dei
- * mezzi pubblici solo se la modalita' d'uso li propone ([withTransit], UsageMode.proposesTransit).
+ * extra e rete stradale, questi solo con "Indicazioni"), tra quelli che la regione offre; gli orari dei
+ * mezzi pubblici solo se il modo di spostarsi li propone ([withTransit], UsageMode.proposesTransit).
  */
 internal fun defaultPackageChoice(item: RegionUiItem, withRouting: Boolean, withTransit: Boolean = false): Set<PackageKind> =
     item.packages.map { it.kind }.filterTo(mutableSetOf()) { kind ->

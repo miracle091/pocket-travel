@@ -26,8 +26,8 @@ import com.pockettravel.core.ui.R as UiR
 import com.pockettravel.core.ui.Spacing
 
 /**
- * Le modalita' d'uso come elenco a scelta multipla (onboarding e Altro), piu' la casella
- * "In sedia a rotelle" che si somma a qualsiasi modalita'.
+ * I modi come elenco a scelta multipla (onboarding e Altro), piu' la casella
+ * "In sedia a rotelle" che si somma a qualsiasi modo.
  */
 @Composable
 fun UsageModeOptions(
@@ -51,7 +51,7 @@ fun UsageModeOptions(
         )
         Column {
             // "Escursionismo" nascosto finche' non ha contenuti suoi (cammini a tappe): resta solo per
-            // chi l'aveva gia' scelto, per non lasciarlo senza modalita' selezionata.
+            // chi l'aveva gia' scelto, per non lasciarlo senza modo selezionato.
             UsageMode.entries.filter { it != UsageMode.ESCURSIONISMO || it in selected }.forEach { mode ->
                 val checked = mode in selected
                 ListItem(

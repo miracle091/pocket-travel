@@ -1,7 +1,7 @@
 package com.pockettravel.feature.ai
 
 /**
- * Servizi per la modalita' "Online": tutti espongono un endpoint compatibile con la Chat Completions
+ * Servizi per il motore "Online": tutti espongono un endpoint compatibile con la Chat Completions
  * API di OpenAI ([OnlineLlmClient]), quindi cambiano solo indirizzo, modello e pagina in cui l'utente
  * crea la sua chiave. Nessuno dei quattro ha un modello predefinito lato servizio (il nome e'
  * obbligatorio in ogni richiesta), quindi l'opzione "Automatico" usa [autoModel]: un nome che il

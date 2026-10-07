@@ -115,9 +115,9 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
         }
     }
 
-    // Scegliere una modalita' riporta i filtri della mappa ai suoi predefiniti: lo dice il testo del foglio.
+    // Scegliere un modo riporta i filtri della mappa ai suoi predefiniti: lo dice il testo del foglio.
     if (showUsageModes) {
-        // Aperto per intero e scorrevole: 6 modalita' e la casella non stanno a mezza altezza, ne' con i caratteri grandi.
+        // Aperto per intero e scorrevole: 6 modi e la casella non stanno a mezza altezza, ne' con i caratteri grandi.
         ModalBottomSheet(onDismissRequest = { showUsageModes = false }, sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))) {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = Spacing.l)) {
                 Text(

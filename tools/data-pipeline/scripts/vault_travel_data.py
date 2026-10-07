@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aeroporti e compagnie aeree per i suggerimenti del biglietto nel modulo feature/vault.
+"""Aeroporti e compagnie aeree per il completamento dei campi del biglietto nel modulo feature/vault.
 
 Uso: vault_travel_data.py [--out-dir feature/vault/src/main/assets] [--user-agent UA]
 

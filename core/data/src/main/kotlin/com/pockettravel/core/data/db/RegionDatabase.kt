@@ -33,7 +33,7 @@ import androidx.room.TypeConverters
 abstract class RegionDatabase : RoomDatabase() {
     abstract fun guideDao(): GuideDao
     abstract fun poiDao(): PoiDao
-    abstract fun regionPackageDao(): RegionPackageDao
+    abstract fun installedRegionDao(): InstalledRegionDao
     abstract fun passportDao(): PassportDao
     abstract fun emergencyNumbersDao(): EmergencyNumbersDao
     abstract fun cityDao(): CityDao

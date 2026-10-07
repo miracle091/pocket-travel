@@ -4,9 +4,9 @@ import android.icu.util.ULocale
 import java.util.Currency
 import java.util.Locale
 
-// Fatti rapidi della guida, ricomposti per la schermata: il testo pubblicato (Quickbar di
+// Fatti rapidi della guida, ricomposti per la schermata: il testo pubblicato (dai Fatti rapidi di
 // Wikivoyage, GenerateGuideContent.quickFactsSection) resta com'e' per l'assistente IA, qui si
-// aggiungono i dati che il Quickbar non ha e si tolgono quelli che la guida mostra gia' altrove.
+// aggiungono i dati che i Fatti rapidi pubblicati non hanno e si tolgono quelli che la guida mostra gia' altrove.
 
 /** Dati aggiunti ai fatti rapidi quando la guida non li ha. */
 internal data class QuickFactsExtra(val language: String?, val currency: String?, val transport: String?)
@@ -34,7 +34,7 @@ internal data class QuickFactsLabels(
         fun of(body: String, uiLanguage: String): QuickFactsLabels {
             val keys = body.lines().map { it.substringBefore(": ") }.toSet()
             return when {
-                // anche i soli numeri di emergenza (guide inglesi senza Quickbar italiano) bastano a riconoscere la lingua
+                // anche i soli numeri di emergenza (guide inglesi senza Fatti rapidi italiani) bastano a riconoscere la lingua
                 keys.any { it in ENGLISH.order || it == ENGLISH.emergency } -> ENGLISH
                 keys.any { it in ITALIAN.order || it == ITALIAN.emergency } -> ITALIAN
                 uiLanguage == "en" -> ENGLISH
@@ -51,7 +51,7 @@ internal fun quickFactsBody(body: String, extra: QuickFactsExtra, labels: QuickF
         val separator = line.indexOf(": ")
         if (separator > 0) fields[line.substring(0, separator)] = line.substring(separator + 2) else loose += line
     }
-    // Hanno gia' la loro scheda, con i pulsanti per chiamare.
+    // Hanno gia' il loro riquadro, con i pulsanti per chiamare.
     fields.remove(labels.emergency)
     fields[labels.timeZone]?.let { fields[labels.timeZone] = it.replace(Regex("""\bUTC\b"""), "GMT") }
     if (labels.language !in fields) extra.language?.let { fields[labels.language] = it }

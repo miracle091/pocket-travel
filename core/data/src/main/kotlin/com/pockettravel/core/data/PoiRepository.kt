@@ -13,7 +13,7 @@ import kotlin.math.sqrt
 private const val HIDDEN_OVERFETCH = 4
 
 // Altezza dell'area (gradi di latitudine) oltre la quale i segnalini a campione si scelgono leggendo la regione in ordine di
-// rowid (PoiDao.spreadInWideBounds) invece che per fascia di latitudine: a questa altezza la fascia di un paese grande ha
+// rowid (PoiDao.spreadInWideBounds) invece che per fascia di latitudine: a questa altezza la fascia di una nazione grande ha
 // gia' decine di migliaia di righe sparse sul disco, piu' costose da leggere della tabella intera in sequenza.
 private const val WIDE_AREA_DEGREES = 0.5
 

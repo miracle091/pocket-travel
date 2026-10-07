@@ -87,7 +87,7 @@ class RegionHubViewModel @Inject constructor(
     // null finche' non si sa (offline, catalogo non letto).
     private val transitOffered = MutableStateFlow<Boolean?>(null)
 
-    // Orari dei mezzi pubblici per la scheda delle fermate: installati, in scaricamento, scaricabili o non offerti.
+    // Orari dei mezzi pubblici per il riquadro delle fermate: installati, in scaricamento, scaricabili o non offerti.
     val transitState: StateFlow<TransitPackageState> = regionId.filterNotNull().flatMapLatest { id ->
         combine(
             regionRepository.observeInstalled().map { regions -> regions.firstOrNull { it.regionId == id }?.transitVersion != null },
@@ -135,7 +135,7 @@ class RegionHubViewModel @Inject constructor(
         }
     }
 
-    /** Scarica o aggiorna gli orari dei mezzi pubblici della regione (scheda delle fermate). */
+    /** Scarica o aggiorna gli orari dei mezzi pubblici della regione (riquadro delle fermate). */
     fun downloadTransit() {
         val id = regionId.value ?: return
         viewModelScope.launch {

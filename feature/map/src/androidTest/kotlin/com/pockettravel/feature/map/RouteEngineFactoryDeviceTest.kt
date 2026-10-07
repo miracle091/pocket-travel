@@ -44,6 +44,6 @@ class RouteEngineFactoryDeviceTest {
             )
         }
 
-        assertEquals("senza segmenti mancano i dati di percorso", RouteResult.NoRoutingData, result)
+        assertEquals("senza file .rd5 mancano i segmenti della rete stradale", RouteResult.NoRoutingData, result)
     }
 }

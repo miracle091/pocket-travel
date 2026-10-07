@@ -29,11 +29,11 @@
     <string name="regions_replaced">This region is now split into smaller regions: choose which ones to download. This region no longer receives updates</string>
     <string name="regions_replaced_choose">Choose the regions</string>
     <string name="regions_replaced_delete">Delete</string>
-    <string name="regions_packages">Contents for %1$s</string>
+    <string name="regions_packages">Content for %1$s</string>
     <string name="transit_networks_selected">%1$d of %2$d networks selected</string>
-    <string name="transit_networks_near">Networks within 50 km of the last known position are selected</string>
-    <string name="transit_networks_nearest">No network within 50 km of the last known position: the nearest one is selected</string>
-    <string name="transit_networks_all">Position unknown or in another country: all networks are selected. Deselect the ones not needed</string>
+    <string name="transit_networks_near">Networks within 50 km of the last known location are selected</string>
+    <string name="transit_networks_nearest">No network within 50 km of the last known location: the nearest one is selected</string>
+    <string name="transit_networks_all">Location unknown or in another country: all networks are selected. Deselect the ones not needed</string>
     <string name="package_map">Map</string>
     <string name="package_routing">Road network</string>
     <string name="package_poi">Points of interest</string>
@@ -45,8 +45,8 @@
     <string name="package_routing_car">Car</string>
     <string name="package_routing_bike_foot">Bike &amp; foot</string>
     <string name="package_routing_all">All</string>
-    <string name="package_routing_bike_foot_detail">All roads and paths: the full package, which also works for cars</string>
-    <string name="package_routing_all_detail">All roads and paths, for every mode of transport</string>
+    <string name="package_routing_bike_foot_detail">All roads and paths: the complete road network, which also works for cars</string>
+    <string name="package_routing_all_detail">All roads and paths, for every travel mode</string>
     <string name="package_routing_car_only_detail">Only roads open to cars, about 40% less space: no walking or cycling routes</string>
     <string name="zone_row">Area</string>
     <string name="zone_whole_region">Whole region</string>
@@ -57,7 +57,7 @@
     <string name="zone_choice_message">This region is very large. You can download only the area you need: map, road network and house numbers of that area. Points of interest and guides cover the whole region</string>
     <string name="zone_choice_message_country">This country is very large. You can download only the area you need: map, road network and house numbers of that area. Points of interest and guides cover the whole country</string>
     <string name="zone_choice_pick">Choose an area</string>
-    <string name="zone_hint">Download only the visible part of the map, with road network and house numbers</string>
+    <string name="zone_hint">The zone is the visible map area: only that is downloaded, with road network and house numbers</string>
     <string name="zone_size">About %1$d × %2$d km</string>
     <string name="zone_use">Select the area</string>
     <string name="zone_download">Download this area</string>
@@ -83,12 +83,12 @@
     <string name="package_delete_title_addresses">Delete house numbers for %1$s?</string>
     <string name="package_delete_title_cities">Delete city guides for %1$s?</string>
     <string name="package_delete_title_transit">Delete public transport timetables for %1$s?</string>
-    <string name="package_delete_message">The region\'s other contents stay on the device</string>
+    <string name="package_delete_message">The region\'s other content stays on the device</string>
     <string name="map_download">Download the map</string>
     <string name="map_preview_notice">Overview map: for street detail and route calculation, download the region\'s map and road network</string>
     <string name="map_missing_notice">Map not downloaded: download it to see streets and places. Route calculation requires the downloaded map and road network</string>
     <string name="regions_large_download_title">Large download</string>
-    <string name="regions_large_download_message">%1$s is %2$s and the phone is on mobile data. Continue?</string>
+    <string name="regions_large_download_message">%1$s is %2$s and the device is on mobile data. Continue?</string>
     <string name="regions_large_download_confirm">Download</string>
     <string name="continent_other">Other</string>
     <string name="continent_europe">Europe</string>
@@ -98,7 +98,7 @@
     <string name="continent_south_america">South America</string>
     <string name="continent_oceania">Oceania</string>
     <string name="regions_downloaded">Downloaded countries</string>
-    <string name="regions_show_map">Show the world map</string>
+    <string name="regions_show_map">Show the country map</string>
     <string name="regions_show_list">Show the list</string>
     <string name="world_map_not_available">This country isn\'t available in the catalog yet</string>
     <plurals name="continent_count">
@@ -125,16 +125,16 @@
     <string name="more_usage_mode_none">Not set: the map shows all categories</string>
     <string name="more_usage_mode_with_accessible">%1$s, in a wheelchair</string>
     <string name="more_usage_mode_accessible_only">In a wheelchair: the map shows all categories</string>
-    <string name="more_usage_mode_body">The map shows the points useful for the ways of traveling you pick first, and the suitable routes are offered for download. This choice resets the map filters to their defaults</string>
+    <string name="more_usage_mode_body">The map shows the points useful for the travel modes you pick first, and the suitable road network is offered for download. This choice resets the map filters to their defaults</string>
     <string name="more_licenses">Licenses</string>
     <string name="more_appearance">Appearance</string>
-    <string name="more_appearance_system">Phone theme</string>
+    <string name="more_appearance_system">Device theme</string>
     <string name="more_appearance_dark">Dark theme</string>
     <string name="more_appearance_with_dynamic_color">%1$s, colors from the wallpaper</string>
     <string name="more_force_dark">Dark theme</string>
-    <string name="more_force_dark_subtitle">Always dark, even when the phone uses the light theme</string>
+    <string name="more_force_dark_subtitle">Always dark, even when the device uses the light theme</string>
     <string name="more_dynamic_color">Colors from the wallpaper</string>
-    <string name="more_dynamic_color_subtitle">Use the phone\'s wallpaper colors instead of the app\'s</string>
+    <string name="more_dynamic_color_subtitle">Use the device\'s wallpaper colors instead of the app\'s</string>
     <string name="more_licenses_subtitle">Third-party components and data</string>
 
     <!-- Navigazione principale -->
@@ -191,7 +191,7 @@
     <string name="onboarding_region_title">Choose where you go</string>
     <string name="onboarding_region_body">Optional: the chosen countries download in the background with Next. Others can be added later from Countries</string>
     <string name="onboarding_region_search">Search for a country</string>
-    <string name="onboarding_region_recommended">Recommended for you</string>
+    <string name="onboarding_region_recommended">Suggested for you</string>
     <string name="onboarding_region_all">All countries</string>
     <string name="onboarding_region_installed">Already downloaded</string>
     <string name="onboarding_region_downloading">Downloading…</string>
@@ -204,7 +204,7 @@
     <string name="onboarding_next_download">Download and continue</string>
     <string name="onboarding_ready_title">All set</string>
     <string name="onboarding_ready_body">Summary of your choices, which can be changed at any time from More</string>
-    <string name="onboarding_ready_modes">Ways of getting around</string>
+    <string name="onboarding_ready_modes">Travel modes</string>
     <string name="onboarding_ready_countries">Countries</string>
     <string name="onboarding_ready_countries_none">No download started: countries can be added from the Countries screen</string>
     <plurals name="onboarding_ready_countries_started">
@@ -212,10 +212,10 @@
         <item quantity="other">%1$d countries downloading in the background</item>
     </plurals>
     <string name="onboarding_ready_ai_title">AI assistant</string>
-    <string name="onboarding_ready_ai_body">Turned on in More, Settings, with a model on the phone or an API key</string>
+    <string name="onboarding_ready_ai_body">Turned on in More, Settings, with a model on the device or an API key</string>
     <!-- Hints shown the first time a tab is opened (ContextualHint). -->
-    <string name="hint_ai_title">The AI assistant has two modes</string>
-    <string name="hint_ai_body">\"On device\" works even without internet: a small model downloaded to the phone (requires at least 4 GB of RAM) answers using the guide and your personal notes. \"Online\" uses a service of your choice (ChatGPT, Mistral, Gemini or Claude) with your own API key, which stays on the phone</string>
+    <string name="hint_ai_title">The AI assistant has two engines</string>
+    <string name="hint_ai_body">\"On device\" works even without internet: a small model downloaded to the device (requires at least 4 GB of RAM) answers using the guide and your personal notes. \"Online\" uses a service of your choice (ChatGPT, Mistral, Gemini or Claude) with your own API key, which stays on the device</string>
     <string name="hint_vault_title">Your documents stay safe</string>
     <string name="hint_vault_body">Passports, tickets and other documents are protected by biometrics and never sent off the device</string>
     <string name="hint_sources_title">Official sources open online</string>

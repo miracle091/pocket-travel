@@ -26,7 +26,7 @@ import com.pockettravel.core.ui.DownloadProgressIndicator
 import com.pockettravel.core.ui.Spacing
 
 /**
- * Le regioni senza Percorsi tra partenza e arrivo, in ordine dalla partenza, ciascuna col suo peso; l'icona in
+ * Le regioni senza rete stradale tra partenza e arrivo, in ordine dalla partenza, ciascuna col suo peso; l'icona in
  * alto le scarica tutte. Durante il download, al posto dell'icona l'avanzamento complessivo.
  */
 @Composable
@@ -45,7 +45,7 @@ internal fun MissingRoutingCard(
                     stringResource(
                         when {
                             downloadFailed -> R.string.planner_routing_failed
-                            // Solo regioni con i percorsi per l'auto: a piedi o in bici servono quelli completi.
+                            // Solo regioni con la rete stradale solo auto: a piedi o in bici serve quella completa.
                             regions.all { it.carOnly } -> R.string.navigation_car_only_routing_list
                             else -> R.string.navigation_missing_routing_list
                         },

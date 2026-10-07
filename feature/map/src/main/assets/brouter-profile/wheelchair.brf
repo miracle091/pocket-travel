@@ -1,4 +1,4 @@
-# Pocket Travel: a piedi in sedia a rotelle (casella "Con disabilita'" con il mezzo "a piedi").
+# Pocket Travel: a piedi in sedia a rotelle (casella "In sedia a rotelle" con il mezzo "a piedi").
 # Derivato da shortest.brf (distanza piu' breve a piedi), con i tag di accessibilita' di OSM:
 # scale e wheelchair=no vietati, fondi e pendenze difficili penalizzati, cordoli alti e barriere
 # (tornelli, scalette) evitati. Con allow_steps=1 (opzione dell'utente, passata dal motore come

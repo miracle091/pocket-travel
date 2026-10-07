@@ -14,10 +14,10 @@
     <string name="ai_model_download">Scarica il modello</string>
     <string name="ai_model_downloading">Download in corso · %1$d%%</string>
     <string name="ai_large_download_title">Download di grandi dimensioni</string>
-    <string name="ai_large_download_message">%1$s occupa circa %2$s e il telefono usa la rete mobile. Continuare?</string>
+    <string name="ai_large_download_message">%1$s occupa circa %2$s e il dispositivo usa la rete mobile. Continuare?</string>
     <string name="ai_large_download_confirm">Scarica</string>
-    <string name="ai_api_key_intro">In modalità Online le domande vengono inviate a un servizio di intelligenza artificiale a scelta, con una chiave API personale. Scegli il servizio, crea la chiave sul suo sito e incollala qui sotto</string>
-    <string name="ai_api_key_privacy">La chiave resta solo su questo telefono, cifrata. Le domande vengono inviate direttamente a %1$s, mai a un server di Pocket Travel, e l\'uso viene addebitato sul tuo account. Se cambi servizio, la chiave viene eliminata</string>
+    <string name="ai_api_key_intro">Con il motore Online le domande vengono inviate a un servizio di intelligenza artificiale a scelta, con una chiave API personale. Scegli il servizio, crea la chiave sul suo sito e incollala qui sotto</string>
+    <string name="ai_api_key_privacy">La chiave resta solo su questo dispositivo, cifrata. Le domande vengono inviate direttamente a %1$s, mai a un server di Pocket Travel, e l\'uso viene addebitato sul tuo account. Se cambi servizio, la chiave viene eliminata</string>
     <string name="ai_api_key_label">Chiave API</string>
     <string name="ai_api_key_save">Salva la chiave</string>
     <string name="ai_api_key_show">Mostra la chiave</string>
@@ -70,7 +70,7 @@
     <string name="ai_error_key_rejected">Il servizio ha rifiutato la chiave API: potrebbe essere scaduta o revocata. Rimuovila e inseriscine una nuova</string>
     <string name="ai_saved_key_reminder">È salvata una chiave API di %1$s: l\'assistente online è utilizzabile subito, senza scaricare un modello</string>
     <string name="ai_use_online">Usa online</string>
-    <string name="ai_downloaded_model_choice">%1$s è già sul telefono. Usarlo subito o scaricare %2$s, il modello scelto in precedenza?</string>
+    <string name="ai_downloaded_model_choice">%1$s è già sul dispositivo. Usarlo subito o scaricare %2$s, il modello scelto in precedenza?</string>
     <string name="ai_use_model">Usa %1$s</string>
     <string name="ai_download_selected">Scarica %1$s</string>
     <string name="ai_taskmgr_title">Task manager dei modelli</string>

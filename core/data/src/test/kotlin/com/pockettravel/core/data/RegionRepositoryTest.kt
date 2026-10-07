@@ -17,7 +17,7 @@ import com.pockettravel.core.data.db.PassportDao
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiEntity
 import com.pockettravel.core.data.db.RegionDatabase
-import com.pockettravel.core.data.db.RegionPackageDao
+import com.pockettravel.core.data.db.InstalledRegionDao
 import com.pockettravel.core.data.db.TransportCount
 import com.pockettravel.core.data.db.VaccinationDao
 import kotlinx.coroutines.flow.Flow
@@ -35,7 +35,7 @@ import kotlin.io.path.createTempDirectory
  * `RoomDatabase.withTransaction`, che richiede un'istanza Room reale (getOpenHelper() inizializzato) —
  * non coperti qui per lo stesso motivo per cui questo progetto non usa Robolectric altrove:
  * quel percorso resta verificato solo dai test strumentati esistenti. */
-private class FakeRegionPackageDao : RegionPackageDao {
+private class FakeInstalledRegionDao : InstalledRegionDao {
     private val entities = linkedMapOf<String, InstalledRegionEntity>()
     private val flow = MutableStateFlow<List<InstalledRegionEntity>>(emptyList())
 
@@ -107,11 +107,11 @@ private class NoOpCityDao : CityDao {
 private class UnusedRegionDatabase(
     private val guide: GuideDao,
     private val poi: PoiDao,
-    private val regionPackage: RegionPackageDao,
+    private val regionPackage: InstalledRegionDao,
 ) : RegionDatabase() {
     override fun guideDao() = guide
     override fun poiDao() = poi
-    override fun regionPackageDao() = regionPackage
+    override fun installedRegionDao() = regionPackage
     override fun passportDao(): PassportDao = throw UnsupportedOperationException()
     override fun emergencyNumbersDao(): EmergencyNumbersDao = throw UnsupportedOperationException()
     override fun cityDao(): CityDao = throw UnsupportedOperationException()
@@ -130,8 +130,8 @@ class RegionRepositoryTest {
     // RegionStorage dell'ultimo newRepository(), per i test che scrivono file dei pacchetti.
     private lateinit var regionStorage: RegionStorage
 
-    private fun newRepository(): Pair<RegionRepository, RegionPackageDao> {
-        val regionPackageDao = FakeRegionPackageDao()
+    private fun newRepository(): Pair<RegionRepository, InstalledRegionDao> {
+        val installedRegionDao = FakeInstalledRegionDao()
         val guideDao = NoOpGuideDao()
         val poiDao = NoOpPoiDao()
         val root = createTempDirectory("pocket-travel-region-repo-test").toFile()
@@ -140,13 +140,13 @@ class RegionRepositoryTest {
             stagingDir = File(root, "staging").apply { mkdirs() },
         )
         val repository = RegionRepository(
-            regionPackageDao = regionPackageDao,
+            installedRegionDao = installedRegionDao,
             poiDao = poiDao,
             regionStorage = regionStorage,
-            database = UnusedRegionDatabase(guideDao, poiDao, regionPackageDao),
+            database = UnusedRegionDatabase(guideDao, poiDao, installedRegionDao),
             cityDao = NoOpCityDao(),
         )
-        return repository to regionPackageDao
+        return repository to installedRegionDao
     }
 
     @Test
@@ -279,7 +279,7 @@ class RegionRepositoryTest {
         val (repository, _) = newRepository()
         val regionDir = regionStorage.directoryFor("sint-maarten")
         File(regionDir, RegionStorage.MAP_FILE).apply { parentFile!!.mkdirs() }.writeBytes(ByteArray(100))
-        // Cartella dei percorsi rimasta vuota, come dopo la cancellazione dei segmenti.
+        // Cartella della rete stradale rimasta vuota, come dopo la cancellazione dei segmenti.
         File(regionDir, RegionStorage.ROUTING_DIR).mkdirs()
         repository.markPackagesInstalled(
             "sint-maarten", "Sint Maarten", "sx",

@@ -35,7 +35,7 @@ import kotlin.coroutines.cancellation.CancellationException
 @InstallIn(SingletonComponent::class)
 object RouteEngineModule {
 
-    // "routing" deve combaciare con RegionRoutingGraphInstaller.ROUTING_DIR_NAME (core/sync): la
+    // "routing" deve combaciare con RoutingSegmentsInstaller.ROUTING_DIR_NAME (core/sync): la
     // cartella in cui il pacchetto regionale scaricato mette i file .rd5.
     private const val ROUTING_DIR_NAME = "routing"
     // Cache dei segmenti uniti di piu' regioni (Rd5Merger): si rifa' quando serve, il sistema puo' svuotarla.
@@ -65,7 +65,7 @@ object RouteEngineModule {
             BRouterRouteEngine(
                 segmentDir = segmentDirFor(regionIds, regionsDir, mergedDir),
                 profileDir = profileDir,
-                // Il profilo della modalita' d'uso scelta, letto a ogni motore creato.
+                // Il profilo del modo scelto, letto a ogni motore creato.
                 profileName = usageModePreferences.modes.value.defaultRoutingProfile(),
                 maxRunningTimeMillis = ROUTE_TIMEOUT_MILLIS,
             )

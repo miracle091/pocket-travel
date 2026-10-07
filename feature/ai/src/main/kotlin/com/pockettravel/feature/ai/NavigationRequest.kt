@@ -1,10 +1,10 @@
 package com.pockettravel.feature.ai
 
 /** Mezzo chiesto nella frase ("a piedi", "by car"); null se la frase non lo dice. */
-enum class NavigationRequestMode { WALK, BIKE, CAR }
+enum class NavigationRequestProfile { WALK, BIKE, CAR }
 
 /** "Portami al Colosseo a piedi": la meta da cercare nel Navigatore e il mezzo, se detto. */
-data class NavigationRequest(val destination: String, val mode: NavigationRequestMode?)
+data class NavigationRequest(val destination: String, val profile: NavigationRequestProfile?)
 
 /**
  * Riconosce una richiesta di navigazione con regole fisse, senza modello e senza rete: la frase deve
@@ -13,8 +13,8 @@ data class NavigationRequest(val destination: String, val mode: NavigationReques
  */
 fun parseNavigationRequest(text: String): NavigationRequest? {
     val rest = TRIGGER.find(text.trim())?.groupValues?.get(1) ?: return null
-    val modeMatch = MODES.firstNotNullOfOrNull { (regex, mode) -> regex.find(rest)?.let { it to mode } }
-    var destination = modeMatch?.let { rest.removeRange(it.first.range) } ?: rest
+    val profileMatch = MODES.firstNotNullOfOrNull { (regex, profile) -> regex.find(rest)?.let { it to profile } }
+    var destination = profileMatch?.let { rest.removeRange(it.first.range) } ?: rest
     destination = destination.replace(POLITENESS, " ").trim().trimEnd('?', '!', '.', ',', ';', ' ').trim()
     while (true) {
         val stripped = destination.replaceFirst(LEADING_WORD, "")
@@ -22,7 +22,7 @@ fun parseNavigationRequest(text: String): NavigationRequest? {
         destination = stripped
     }
     destination = destination.trim()
-    return if (destination.isEmpty()) null else NavigationRequest(destination, modeMatch?.second)
+    return if (destination.isEmpty()) null else NavigationRequest(destination, profileMatch?.second)
 }
 
 private val TRIGGER = Regex(
@@ -36,9 +36,9 @@ private val TRIGGER = Regex(
 private const val MODE_VERB = "(?:,?\\s*\\b(?:vado|andiamo|vengo|i'm|i am|we're|we are)\\s+)?"
 
 private val MODES = listOf(
-    Regex("$MODE_VERB\\b(?:a piedi|camminando|on foot|walking)\\b", RegexOption.IGNORE_CASE) to NavigationRequestMode.WALK,
-    Regex("$MODE_VERB\\b(?:(?:in|con la) bici(?:cletta)?|by (?:bike|bicycle)|cycling)\\b", RegexOption.IGNORE_CASE) to NavigationRequestMode.BIKE,
-    Regex("$MODE_VERB\\b(?:in (?:auto|macchina|automobile)|con (?:la macchina|l'auto|l’auto)|by car|driving)\\b", RegexOption.IGNORE_CASE) to NavigationRequestMode.CAR,
+    Regex("$MODE_VERB\\b(?:a piedi|camminando|on foot|walking)\\b", RegexOption.IGNORE_CASE) to NavigationRequestProfile.WALK,
+    Regex("$MODE_VERB\\b(?:(?:in|con la) bici(?:cletta)?|by (?:bike|bicycle)|cycling)\\b", RegexOption.IGNORE_CASE) to NavigationRequestProfile.BIKE,
+    Regex("$MODE_VERB\\b(?:in (?:auto|macchina|automobile)|con (?:la macchina|l'auto|l’auto)|by car|driving)\\b", RegexOption.IGNORE_CASE) to NavigationRequestProfile.CAR,
 )
 
 private val POLITENESS = Regex(",?\\s*\\b(?:per favore|please)\\b", RegexOption.IGNORE_CASE)

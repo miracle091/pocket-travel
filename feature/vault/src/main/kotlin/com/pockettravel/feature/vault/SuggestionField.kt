@@ -21,7 +21,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pockettravel.core.ui.Spacing
 
-// Campo di testo libero con i suggerimenti sotto, nel flusso della colonna (un menu a comparsa finirebbe
+// Campo di testo libero con il completamento sotto, nel flusso della colonna (un menu a comparsa finirebbe
 // sotto la tastiera nel dialogo a schermo intero). Senza indice si comporta come un campo normale.
 @Composable
 internal fun SuggestionField(
@@ -81,7 +81,7 @@ internal fun SuggestionField(
     }
 }
 
-// Partenza e arrivo di un biglietto: due campi con i suggerimenti degli aeroporti, salvati in un
+// Partenza e arrivo di un biglietto: due campi con il completamento degli aeroporti, salvati in un
 // unico testo "partenza – arrivo" (vedi splitRoute e joinRoute).
 @Composable
 internal fun RouteFields(value: String, onValueChange: (String) -> Unit, airports: SuggestionIndex?, italian: Boolean) {

@@ -17,7 +17,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
-// Elenco delle nazioni in modalita' elenco (senza la mappa del mondo): raggruppamento, ricerca, tap sulle righe e
+// Elenco delle nazioni in modalita' elenco (senza la mappa delle nazioni): raggruppamento, ricerca, tap sulle righe e
 // avviso di catalogo irraggiungibile. Il mapping tra tap e navigazione (installata: apre; non installata:
 // anteprima) sta in RegionListScreen: qui si verifica che la riga giusta venga passata a onRegionClick.
 class RegionListContentDeviceTest {

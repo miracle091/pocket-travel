@@ -63,20 +63,48 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Concetto | Italiano | Inglese |
 |---|---|---|
 | Paese o territorio scaricabile | nazione (elenco), regione (unita' che si scarica) | country, region |
+| Riquadro di una regione scaricato al posto della regione intera | zona | zone |
+| Scheda della barra con l'elenco delle nazioni | Nazioni | Countries |
 | Pagina con le schede Guida, Mappa, Navigatore, IA | pagina della regione | region page |
+| Pianificatore e navigazione, nella barra e nella pagina della regione | Navigatore | Navigator |
+| Scheda della barra con documenti e note | Documenti | Documents |
+| Guida di una regione non ancora scaricata | anteprima | preview |
+| Riquadro che spiega una funzione la prima volta che si apre una schermata | suggerimento | hint |
 | Testo di Wikivoyage di un paese | guida | guide |
 | Testo di Wikivoyage di una citta' | guida della citta' | city guide |
 | Indicazioni durante il viaggio | navigazione | navigation |
-| Riquadro con un contenuto | scheda | card |
+| Voce della barra o della pagina della regione (Nazioni, Guida, IA...) | scheda | tab |
+| Riquadro con un contenuto (meteo, punto di interesse...) | riquadro | card |
 | Parte scaricabile di una regione (mappa, guide, mezzi pubblici...) | contenuto | content |
 | Assistente, con il modello sul dispositivo o online | assistente | assistant |
 | Dove gira l'assistente | motore (sul dispositivo, online) | engine (on device, online) |
-| Modello scaricabile | modello | model |
+| Modello scaricabile | modello (modello IA) | model (AI model) |
+| Chiave personale per il motore Online | chiave API | API key |
+| Fornitore del motore Online (ChatGPT, Mistral...) | servizio | service |
+| Telefono o tablet dell'utente | dispositivo | device |
+| Dove si trova l'utente | posizione | location |
 | Percorso calcolato | percorso | route |
 | Contenuto con strade e sentieri per calcolare i percorsi | rete stradale | road network |
+| Rete stradale con le sole strade percorribili in auto | rete stradale solo auto | car-only road network |
+| Contenuto con i numeri civici | numeri civici | house numbers |
+| Contenuto con linee e fermate | mezzi pubblici | public transport |
+| Partenze dalle fermate | orari dei mezzi pubblici | public transport timetables |
+| Contenuto con negozi, ristoranti, musei... (e la sua aggiunta) | punti di interesse (punti di interesse extra) | points of interest (extra points of interest) |
+| Contenuto con le guide di Wikivoyage delle citta' | guide delle citta' | city guides |
+| Mappa con meno dettagli e meno spazio occupato | mappa leggera | light map |
+| Categorie della mappa da mostrare o nascondere | filtri | filters |
+| Come ci si sposta (A piedi, Bici, Auto...) | modo | travel mode |
+| Opzione di accessibilita' | in sedia a rotelle | wheelchair |
+| Categoria della guida con i dati essenziali | Fatti rapidi | Quick facts |
 | Mappa a bassa risoluzione installata da sola | mappa d'insieme | overview map |
 | Mappa per scegliere la nazione | mappa delle nazioni | country map |
+| Mappa online a bassa risoluzione | mappa del mondo | world map |
+| Proposte sotto un campo mentre si scrive (aeroporti, compagnie) | completamento | autocomplete |
 | Spazio cifrato con la biometria per i documenti | cassaforte | vault |
+| Note di viaggio cifrate, fuori dalla cassaforte | Note | Notes |
+| Paese di cui l'utente ha il passaporto | nazionalita' | nationality |
+| Siti di ambasciate, ministeri e OMS, aperti nel browser | Fonti ufficiali | Official sources |
+| Schermata con lo spazio occupato dai contenuti | Spazio di archiviazione | Storage |
 | Livello di una vaccinazione non obbligatoria | raccomandata | recommended |
 | Scalo aereo nelle regole delle vaccinazioni | scalo | stopover |
 

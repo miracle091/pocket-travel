@@ -30,7 +30,7 @@
     <string name="category_history">Storia</string>
     <string name="category_climate">Clima</string>
     <string name="guide_cities_title">Città</string>
-    <string name="guide_cities_subtitle">Guide alle città</string>
+    <string name="guide_cities_subtitle">Guide delle città</string>
     <string name="guide_cities_all">Vedi tutte</string>
     <string name="guide_city_open">Apri la guida</string>
     <string name="guide_city_capital">Capitale</string>
@@ -78,7 +78,7 @@
     <string name="transit_excluded_idfm">Île-de-France Mobilités (metro, RER e bus di Parigi): la licenza (Licence Mobilités) richiede che chi riusa i dati si registri, condizione che un file pubblico non può rispettare</string>
     <string name="transit_excluded_tcl">TCL (rete di Lione): la licenza (Licence Mobilités) richiede che chi riusa i dati si registri, condizione che un file pubblico non può rispettare</string>
     <string name="emergency_embassies_nearby">Vicino a te</string>
-    <string name="emergency_embassies_others">Nel resto del paese</string>
+    <string name="emergency_embassies_others">Nel resto della nazione</string>
     <string name="vacc_title">Vaccinazioni</string>
     <string name="vacc_screen_title">Vaccinazioni per il viaggio</string>
     <string name="vacc_card_open">Apri le vaccinazioni per il viaggio</string>
@@ -170,7 +170,7 @@
     <string name="vacc_vaccine_chik">Chikungunya</string>
     <string name="vacc_vaccine_routine">Vaccinazioni di routine</string>
 
-    <!-- Scheda meteo (WeatherCard): dati Open-Meteo, CC BY 4.0 -->
+    <!-- Riquadro meteo (WeatherCard): dati Open-Meteo, CC BY 4.0 -->
     <string name="weather_near_you">Vicino a te</string>
     <string name="weather_today">Oggi</string>
     <string name="weather_footer">%1$s · Dati meteo Open-Meteo.com</string>

@@ -20,7 +20,7 @@ class UsageModeTest {
     private val assetProfiles = File("src/main/assets/brouter-profile")
 
     @Test
-    fun `ogni modalita' mostra sempre le emergenze e nasconde il resto delle categorie`() {
+    fun `ogni modo mostra sempre le emergenze e nasconde il resto delle categorie`() {
         UsageMode.entries.forEach { mode ->
             assertTrue(mode.name, PoiCategory.OSPEDALE in mode.visibleCategories && PoiCategory.FARMACIA in mode.visibleCategories)
             assertEquals(mode.name, PoiCategory.entries.toSet(), mode.visibleCategories + mode.defaultHidden)
@@ -45,24 +45,24 @@ class UsageModeTest {
     }
 
     @Test
-    fun `con piu' modalita' si vede l'unione delle categorie e si nasconde il resto`() {
+    fun `con piu' modi si vede l'unione delle categorie e si nasconde il resto`() {
         val modes = setOf(UsageMode.CAMPER, UsageMode.BICI)
         val visible = modes.visibleCategories()
         assertEquals(UsageMode.CAMPER.visibleCategories + UsageMode.BICI.visibleCategories, visible)
         assertTrue(PoiCategory.SERVIZI_CAMPER in visible && PoiCategory.RIPARAZIONE_BICI in visible)
         assertEquals(PoiCategory.entries.toSet(), visible + modes.defaultHidden())
         assertTrue((visible intersect modes.defaultHidden()).isEmpty())
-        // Una sola modalita': come prima.
+        // Un solo modo: come prima.
         assertEquals(UsageMode.AUTO.defaultHidden, setOf(UsageMode.AUTO).defaultHidden())
     }
 
     @Test
-    fun `senza modalita' scelte non si nasconde nessuna categoria`() {
+    fun `senza modi scelti non si nasconde nessuna categoria`() {
         assertTrue(emptySet<UsageMode>().defaultHidden().isEmpty())
     }
 
     @Test
-    fun `gli orari dei mezzi si propongono se almeno una modalita' li propone`() {
+    fun `gli orari dei mezzi si propongono se almeno un modo li propone`() {
         assertTrue(setOf(UsageMode.CAMPER, UsageMode.A_PIEDI).proposesTransit())
         assertFalse(setOf(UsageMode.CAMPER, UsageMode.AUTO).proposesTransit())
         assertFalse(emptySet<UsageMode>().proposesTransit())
@@ -75,12 +75,12 @@ class UsageModeTest {
         assertEquals("trekking", setOf(UsageMode.BICI, UsageMode.MEZZI_PUBBLICI).defaultRoutingProfile())
         assertEquals("shortest", setOf(UsageMode.A_PIEDI, UsageMode.MEZZI_PUBBLICI).defaultRoutingProfile())
         assertEquals("hiking-mountain", setOf(UsageMode.ESCURSIONISMO).defaultRoutingProfile())
-        // Con una sola modalita' e' il suo profilo, come prima della scelta multipla.
+        // Con un solo modo e' il suo profilo, come prima della scelta multipla.
         UsageMode.entries.forEach { assertEquals(it.name, it.routingProfile, setOf(it).defaultRoutingProfile()) }
     }
 
     @Test
-    fun `i percorsi di default sono solo auto con auto e camper, completi senza mezzi a motore, tutti se misti o nessuna modalita'`() {
+    fun `la rete stradale di default e' solo auto con auto e camper, completa senza mezzi a motore, tutta se modi misti o nessuno`() {
         assertEquals(RoutingVariantChoice.CAR, setOf(UsageMode.AUTO).routingDefault())
         assertEquals(RoutingVariantChoice.CAR, setOf(UsageMode.AUTO, UsageMode.CAMPER).routingDefault())
         assertEquals(RoutingVariantChoice.BIKE_FOOT, setOf(UsageMode.A_PIEDI, UsageMode.MEZZI_PUBBLICI).routingDefault())
@@ -90,9 +90,9 @@ class UsageModeTest {
     }
 
     @Test
-    fun `la modalita' singola salvata diventa un insieme di un elemento`() {
+    fun `il modo singolo salvato diventa un insieme di un elemento`() {
         assertEquals(setOf(UsageMode.CAMPER), legacyUsageModes("CAMPER"))
-        // "Con disabilita'" era una modalita' a parte con il profilo di A piedi.
+        // "Con disabilita'" era un modo a parte con il profilo di A piedi.
         assertEquals(setOf(UsageMode.A_PIEDI), legacyUsageModes("ACCESSIBILITA"))
         assertTrue(legacyUsageModes("SCONOSCIUTA").isEmpty())
         assertTrue(legacyUsageModes(null).isEmpty())
@@ -100,7 +100,7 @@ class UsageModeTest {
     }
 
     @Test
-    fun `i profili delle modalita' sono negli asset e instradano secondo il mezzo`() {
+    fun `i profili dei modi sono negli asset e instradano secondo il mezzo`() {
         // Percorso di prova: un'unica via pedonale (highway=footway) a cavallo di due segmenti .rd5,
         // vedi BRouterRouteEngineTest.
         val segmentDir = tempFolder.newFolder("segments4")

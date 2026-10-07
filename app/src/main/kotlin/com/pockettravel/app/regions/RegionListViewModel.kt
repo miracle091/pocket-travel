@@ -54,7 +54,7 @@ import javax.inject.Inject
 
 enum class RegionStatus { NOT_INSTALLED, INSTALLED, UPDATE_AVAILABLE }
 
-/** Stato di un pacchetto (mappa, routing, POI) di una regione, per il foglio "Pacchetti". */
+/** Stato di un pacchetto (mappa, routing, POI) di una regione, per il foglio "Contenuti". */
 data class PackageUiState(
     val kind: PackageKind,
     val status: RegionStatus,
@@ -84,14 +84,14 @@ data class RegionUiItem(
     // Pacchetti che il manifest non offre per questa regione e che non sono installati (oggi solo
     // i civici: nessuna fonte o regione troppo grande): mostrati come "non disponibili".
     val unavailableKinds: List<PackageKind> = emptyList(),
-    // Paese diviso in piu' regioni e nome breve della regione nel gruppo (dal manifest).
+    // Nazione divisa in piu' regioni e nome breve della regione nel gruppo (dal manifest).
     val groupName: String? = null,
     val groupLabel: String? = null,
     // Riquadro geografico della regione (dalla mappa del manifest), per le regioni vicine del primo avvio e la scelta della zona.
     val bbox: RegionBbox? = null,
-    // Zona scelta dall'utente (RegionZonePreferences): mappa, percorsi e civici solo li'; null = tutta la regione.
+    // Zona scelta dall'utente (RegionZonePreferences): mappa, rete stradale e civici solo li'; null = tutta la regione.
     val zone: RegionZone? = null,
-    // Il manifest offre i percorsi "solo auto" (routingCar): nel foglio Contenuti c'e' l'interruttore.
+    // Il manifest offre la rete stradale "solo auto" (routingCar): nel foglio Contenuti c'e' l'interruttore.
     val routingCarAvailable: Boolean = false,
     // La mappa e' tra i pacchetti da scaricare: il suo peso non e' in sizeBytes (si conosce solo estraendola).
     val includesMap: Boolean = false,
@@ -161,7 +161,7 @@ class RegionListViewModel @Inject constructor(
     private val query = MutableStateFlow("")
     private val locale = MutableStateFlow(Locale.getDefault())
 
-    /** Lingua dell'interfaccia, per i nomi dei paesi (vedi [localizedNames]); la passa la schermata. */
+    /** Lingua dell'interfaccia, per i nomi delle nazioni (vedi [localizedNames]); la passa la schermata. */
     fun setLocale(newLocale: Locale) {
         val languageChanged = newLocale.language != locale.value.language
         locale.value = newLocale
@@ -174,11 +174,11 @@ class RegionListViewModel @Inject constructor(
     // si ricalcolano solo se cambia il catalogo, non a ogni tasto della ricerca.
     private val catalog = combine(
         // Ogni regione con la sua zona: dimensioni e versioni (quella dei civici dipende dalle celle) sono quelle della zona.
-        // Con i percorsi "solo auto" scelti, anche la dimensione e la versione dei percorsi sono quelle della variante.
+        // Con la rete stradale "solo auto" scelta, anche la dimensione e la versione della rete stradale sono quelle della variante.
         combine(manifestRegions, locale, regionZonePreferences.zones, routingVariantPreferences.choices) { regions, currentLocale, zones, choices ->
             regions.map { it.localizedNames(currentLocale).withRoutingVariant(choices.isCarOnly(it.regionId)) to zones[it.regionId] } to currentLocale
         },
-        // Con "Indicazioni" la dimensione di "Scarica" comprende i percorsi.
+        // Con "Indicazioni" la dimensione di "Scarica" comprende la rete stradale.
         combine(regionRepository.observeInstalled(), usageModePreferences.wantsDirections, ::Pair),
         replacedRegions,
     ) { (zonedRegions, currentLocale), (installed, wantsDirections), replacedByManifest ->
@@ -296,7 +296,7 @@ class RegionListViewModel @Inject constructor(
         return enqueue(entry, kinds)
     }
 
-    /** Scarica o aggiorna un solo pacchetto della regione (foglio "Pacchetti"). */
+    /** Scarica o aggiorna un solo pacchetto della regione (foglio "Contenuti"). */
     fun downloadPackage(regionId: String, kind: PackageKind) {
         val entry = zonedEntry(regionId) ?: return
         viewModelScope.launch { enqueue(entry, setOf(kind)) }
@@ -377,12 +377,12 @@ class RegionListViewModel @Inject constructor(
             ?.withRoutingVariant(routingVariantPreferences.choices.value.isCarOnly(regionId))?.restrictedTo(zone)
 
     /**
-     * Sceglie la zona della regione (null = tutta). Con la regione installata mappa, percorsi e civici si rifanno subito:
-     * la mappa riusa le tile gia' installate, i percorsi i segmenti gia' scaricati, i civici le celle invariate; i civici
+     * Sceglie la zona della regione (null = tutta). Con la regione installata mappa, rete stradale e civici si rifanno subito:
+     * la mappa riusa le tile gia' installate, la rete stradale i segmenti gia' scaricati, i civici le celle invariate; i civici
      * senza celle nella zona si tolgono. Con [download] e la regione non installata parte il download di tutta la regione.
      */
     fun setZone(regionId: String, zone: RegionZone?, download: Boolean = false) {
-        // Solo la parte dentro la regione (la zona inquadrata puo' prendere anche paesi vicini, vedi regionsInZone).
+        // Solo la parte dentro la regione (la zona inquadrata puo' prendere anche nazioni vicine, vedi regionsInZone).
         val source = manifestRegions.value.firstOrNull { it.regionId == regionId }?.map?.source ?: return
         if (zone != null && (zone.maxLon <= source.minLon || zone.minLon >= source.maxLon || zone.maxLat <= source.minLat || zone.minLat >= source.maxLat)) return
         val clamped = zone?.let {
@@ -404,24 +404,24 @@ class RegionListViewModel @Inject constructor(
         }
     }
 
-    fun observeRoutingChoice(regionId: String): Flow<RoutingChoice> =
+    fun observeRoutingChoice(regionId: String): Flow<RoutingVariantOption> =
         routingVariantPreferences.choices.map { choices ->
             when (choices.choiceFor(regionId)) {
-                RoutingVariantChoice.CAR -> RoutingChoice.CAR
-                RoutingVariantChoice.BIKE_FOOT -> RoutingChoice.BIKE_FOOT
-                RoutingVariantChoice.ALL -> RoutingChoice.ALL
+                RoutingVariantChoice.CAR -> RoutingVariantOption.CAR
+                RoutingVariantChoice.BIKE_FOOT -> RoutingVariantOption.BIKE_FOOT
+                RoutingVariantChoice.ALL -> RoutingVariantOption.ALL
             }
         }
 
     /**
-     * Percorsi per l'auto (variante "solo auto") o per bici e piedi / tutti i mezzi (pacchetto completo); se cambia il
-     * pacchetto e i percorsi sono gia' installati, si riscaricano subito.
+     * Rete stradale per l'auto (variante "solo auto") o per bici e piedi / tutti i mezzi (rete stradale completa); se
+     * cambia la variante e la rete stradale e' gia' installata, si riscarica subito.
      */
-    fun setRoutingChoice(regionId: String, choice: RoutingChoice) {
-        val carOnly = choice == RoutingChoice.CAR
+    fun setRoutingChoice(regionId: String, choice: RoutingVariantOption) {
+        val carOnly = choice == RoutingVariantOption.CAR
         val packageChanged = carOnly != routingVariantPreferences.choices.value.isCarOnly(regionId)
         routingVariantPreferences.setCarOnly(regionId, carOnly)
-        routingVariantPreferences.setBikeFoot(regionId, choice == RoutingChoice.BIKE_FOOT)
+        routingVariantPreferences.setBikeFoot(regionId, choice == RoutingVariantOption.BIKE_FOOT)
         if (!packageChanged) return
         viewModelScope.launch {
             if (regionRepository.installed(regionId)?.versionOf(PackageKind.ROUTING) != null) downloadPackage(regionId, PackageKind.ROUTING)
@@ -492,7 +492,7 @@ internal fun regionUiItem(
     // contare solo quelle nuove o cambiate nella dimensione da scaricare. Non serve per le regioni
     // senza griglia: il default basta a tutti i test.
     installedAddressCells: (regionId: String) -> Map<String, String> = { emptyMap() },
-    // "Indicazioni" attivo: "Scarica" comprende i percorsi (RegionManifestEntry.downloadKinds).
+    // "Indicazioni" attivo: "Scarica" comprende la rete stradale (RegionManifestEntry.downloadKinds).
     withRouting: Boolean = false,
     // Indice dei mezzi pubblici letto: una regione senza reti le mostra come "non disponibili" (senza indice non si sa).
     transitKnown: Boolean = false,
@@ -539,10 +539,10 @@ internal fun regionUiItem(
 }
 
 /**
- * Il catalogo ha i nomi in italiano: nazioni intere e paesi divisi in piu' regioni prendono il nome
+ * Il catalogo ha i nomi in italiano: nazioni intere e nazioni divise in piu' regioni prendono il nome
  * dal codice paese nella lingua dell'interfaccia ("be" -> "Belgio"/"Belgium"). Le singole regioni di un
- * paese diviso prendono groupLabelEn in inglese (se il catalogo lo ha), groupLabel altrimenti, col nome
- * del paese davanti.
+ * nazione divisa prendono groupLabelEn in inglese (se il catalogo lo ha), groupLabel altrimenti, col nome
+ * della nazione davanti.
  */
 internal fun RegionManifestEntry.localizedNames(locale: Locale): RegionManifestEntry {
     val code = countryCode ?: return this
@@ -557,8 +557,8 @@ internal fun RegionManifestEntry.localizedNames(locale: Locale): RegionManifestE
 
 /**
  * Il nome salvato di una regione installata (in italiano, dal catalogo) nella lingua dell'interfaccia,
- * senza manifest: il nome del paese dal codice quando e' il paese intero ("Francia", "Sint Maarten
- * (Paesi Bassi)"), il paese tradotto davanti all'etichetta per le regioni di un paese diviso
+ * senza manifest: il nome della nazione dal codice quando e' la nazione intera ("Francia", "Sint Maarten
+ * (Paesi Bassi)"), la nazione tradotta davanti all'etichetta per le regioni di una nazione divisa
  * ("Francia - Bretagna" -> "France - Bretagna"). Altrimenti resta com'e'.
  */
 internal fun localizedInstalledName(displayName: String, countryCode: String?, locale: Locale): String {
@@ -572,7 +572,7 @@ internal fun localizedInstalledName(displayName: String, countryCode: String?, l
     }
 }
 
-/** Il nome di una regione di una nazione divisa ("Francia - Bretagna", anche col paese tradotto da [localizedInstalledName]). */
+/** Il nome di una regione di una nazione divisa ("Francia - Bretagna", anche con la nazione tradotta da [localizedInstalledName]). */
 internal fun isSplitCountryName(displayName: String, countryCode: String?, locale: Locale = Locale.getDefault()): Boolean =
     countryCode != null && listOf(Locale.ITALIAN, locale).any { displayName.startsWith("${countryName(countryCode, it)} - ") }
 

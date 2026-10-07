@@ -128,7 +128,7 @@ private fun WeatherDayColumn(day: WeatherDay, isToday: Boolean, modifier: Modifi
 
 private fun temperatureText(celsius: Double): String = "${celsius.roundToInt()}°"
 
-// "alle 14:32" se oggi, altrimenti con la data: senza rete la scheda puo' mostrare dati di giorni fa.
+// "alle 14:32" se oggi, altrimenti con la data: senza rete il riquadro puo' mostrare dati di giorni fa.
 @Composable
 private fun updatedText(millis: Long): String {
     val context = LocalContext.current

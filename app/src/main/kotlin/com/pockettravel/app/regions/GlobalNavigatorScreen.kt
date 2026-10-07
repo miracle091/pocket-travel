@@ -41,11 +41,11 @@ fun navigatorViewModels(): Pair<NavigationPlannerViewModel, NavigationViewModel>
 }
 
 /**
- * Il Navigatore con i Percorsi da scaricare (catalogo e download stanno in app, non in feature:map): nella tab della
+ * Il Navigatore con la rete stradale da scaricare (catalogo e download stanno in app, non in feature:map): nella tab della
  * regione [regionId] (quella regione per prima) e nella barra principale (null, tutte le regioni scaricate).
  */
 @Composable
-fun NavigatorScreen(
+fun RegionNavigatorScreen(
     regionId: String?,
     plannerViewModel: NavigationPlannerViewModel,
     navigationViewModel: NavigationViewModel,
@@ -74,7 +74,7 @@ fun GlobalNavigatorScreen(onOpenCountries: () -> Unit, routingViewModel: Routing
     Surface(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
             when (hasRegions) {
-                true -> NavigatorScreen(regionId = null, plannerViewModel = plannerViewModel, navigationViewModel = navigationViewModel, routingViewModel = routingViewModel)
+                true -> RegionNavigatorScreen(regionId = null, plannerViewModel = plannerViewModel, navigationViewModel = navigationViewModel, routingViewModel = routingViewModel)
                 false -> Column(
                     modifier = Modifier.fillMaxSize().padding(Spacing.l),
                     verticalArrangement = Arrangement.spacedBy(Spacing.m, Alignment.CenterVertically),

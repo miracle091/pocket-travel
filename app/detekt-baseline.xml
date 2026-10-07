@@ -5,8 +5,8 @@
     <ID>ComplexCondition:RegionListViewModel.kt:RegionListViewModel$zone != null &amp;&amp; (zone.maxLon &lt;= source.minLon || zone.minLon &gt;= source.maxLon || zone.maxLat &lt;= source.minLat || zone.minLat &gt;= source.maxLat)</ID>
     <ID>CyclomaticComplexMethod:MissingRoutingRegions.kt:internal fun landPath: List&lt;String&gt;?</ID>
     <ID>CyclomaticComplexMethod:MissingRoutingRegions.kt:internal fun missingRoutingRegions: List&lt;RegionManifestEntry&gt;</ID>
-    <ID>CyclomaticComplexMethod:OnboardingRegionStep.kt:@Composable internal fun OnboardingRegionStep</ID>
-    <ID>CyclomaticComplexMethod:OnboardingRegionStep.kt:@OptIn(ExperimentalLayoutApi::class) @Composable private fun OnboardingRegionRow</ID>
+    <ID>CyclomaticComplexMethod:OnboardingDestinationsStep.kt:@Composable internal fun OnboardingDestinationsStep</ID>
+    <ID>CyclomaticComplexMethod:OnboardingDestinationsStep.kt:@OptIn(ExperimentalLayoutApi::class) @Composable private fun OnboardingRegionRow</ID>
     <ID>CyclomaticComplexMethod:OnboardingScreen.kt:@Composable fun OnboardingScreen</ID>
     <ID>CyclomaticComplexMethod:RegionHubScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun RegionHubScreen</ID>
     <ID>CyclomaticComplexMethod:RegionListScreen.kt:@Composable internal fun RegionRow</ID>

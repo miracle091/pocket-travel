@@ -3,7 +3,7 @@ package com.pockettravel.feature.map
 import kotlin.math.abs
 import kotlin.math.ceil
 
-/** Mezzo scelto nella schermata di navigazione: stessi profili BRouter delle modalita' d'uso. */
+/** Mezzo scelto nella schermata di navigazione: stessi profili BRouter dei modi. */
 enum class RouteProfile(val routingProfile: String) {
     WALK("shortest"),
     BIKE("trekking"),
@@ -11,7 +11,7 @@ enum class RouteProfile(val routingProfile: String) {
     ;
 
     companion object {
-        /** Il mezzo iniziale segue le modalita' d'uso: con auto o camper in auto, altrimenti con la bici in bici, il resto a piedi. */
+        /** Il mezzo iniziale segue i modi: con auto o camper in auto, altrimenti con la bici in bici, il resto a piedi. */
         fun from(usageModes: Set<UsageMode>): RouteProfile = when {
             UsageMode.AUTO in usageModes || UsageMode.CAMPER in usageModes -> CAR
             UsageMode.BICI in usageModes -> BIKE
@@ -21,7 +21,7 @@ enum class RouteProfile(val routingProfile: String) {
 }
 
 /** Profilo BRouter e sue variabili (vedi RouteEngine.route) per un percorso. */
-data class RoutingChoice(val profile: String, val params: Map<String, String> = emptyMap()) {
+data class BRouterProfile(val profile: String, val params: Map<String, String> = emptyMap()) {
     val wheelchair: Boolean get() = profile == UsageMode.WHEELCHAIR_ROUTING_PROFILE
 }
 
@@ -31,18 +31,18 @@ data class RoutingChoice(val profile: String, val params: Map<String, String> = 
  * Bici e auto restano quelle del mezzo.
  */
 /**
- * Le regioni con i Percorsi utili per [mode]: quelle con i soli percorsi per l'auto ([carOnly], RoutingVariantPreferences)
- * valgono solo in auto; a piedi, in bici e in carrozzina contano come regioni senza Percorsi (il Navigatore le propone
+ * Le regioni con la rete stradale utile per [mode]: quelle con la rete stradale solo auto ([carOnly], RoutingVariantPreferences)
+ * valgono solo in auto; a piedi, in bici e in sedia a rotelle contano come regioni senza rete stradale (il Navigatore le propone
  * da scaricare complete).
  */
 fun usableRoutingRegions(withRouting: Set<String>, carOnly: Set<String>, mode: RouteProfile): Set<String> =
     if (mode == RouteProfile.CAR) withRouting else withRouting - carOnly
 
-fun routingChoice(mode: RouteProfile, accessible: Boolean, allowSteps: Boolean): RoutingChoice =
+fun brouterProfile(mode: RouteProfile, accessible: Boolean, allowSteps: Boolean): BRouterProfile =
     if (mode == RouteProfile.WALK && accessible) {
-        RoutingChoice(UsageMode.WHEELCHAIR_ROUTING_PROFILE, if (allowSteps) mapOf("allow_steps" to "1") else emptyMap())
+        BRouterProfile(UsageMode.WHEELCHAIR_ROUTING_PROFILE, if (allowSteps) mapOf("allow_steps" to "1") else emptyMap())
     } else {
-        RoutingChoice(mode.routingProfile)
+        BRouterProfile(mode.routingProfile)
     }
 
 /** Cosa mostra la schermata di navigazione. */
@@ -146,17 +146,17 @@ const val RECENT_ARRIVAL_MILLIS = 2 * 60_000L
 fun isRecentArrival(arrivedAtMillis: Long?, nowMillis: Long): Boolean =
     arrivedAtMillis != null && nowMillis - arrivedAtMillis in 0..RECENT_ARRIVAL_MILLIS
 
-/** Regione installata con i Percorsi e riquadro della sua mappa (null se non si legge). */
+/** Regione installata con la rete stradale e riquadro della sua mappa (null se non si legge). */
 data class RoutingRegion(val regionId: String, val bounds: MapBounds?)
 
 /** Attorno a partenza e arrivo, per le regioni vicine al confine: circa 5 km. */
 private const val NAVIGATION_MARGIN_DEGREES = 0.05
 
 /**
- * Le regioni della navigazione: quelle con i Percorsi installati il cui riquadro tocca il riquadro di
+ * Le regioni della navigazione: quelle con la rete stradale installata il cui riquadro tocca il riquadro di
  * partenza e arrivo, allargato di qualche km. Con una sola non si uniscono segmenti. La regione da cui
  * si e' partiti ([regionId]) viene per prima, e resta l'unica se nessun riquadro tocca: cosi' la
- * mancanza dei dati si vede come "Scarica i percorsi".
+ * mancanza dei dati si vede come "Scarica la rete stradale".
  */
 fun navigationRegionIds(regionId: String, candidates: List<RoutingRegion>, from: RoutePoint, to: RoutePoint): List<String> {
     val minLon = minOf(from.longitude, to.longitude) - NAVIGATION_MARGIN_DEGREES
@@ -166,7 +166,7 @@ fun navigationRegionIds(regionId: String, candidates: List<RoutingRegion>, from:
     val touching = candidates
         .filter { region -> region.bounds?.let { it.minLon <= maxLon && it.maxLon >= minLon && it.minLat <= maxLat && it.maxLat >= minLat } == true }
         .map { it.regionId }
-    // La regione di partenza con i percorsi ma senza riquadro leggibile (niente mappa ne' anteprima) resta.
+    // La regione di partenza con la rete stradale ma senza riquadro leggibile (niente mappa ne' anteprima) resta.
     val startWithoutBounds = candidates.any { it.regionId == regionId && it.bounds == null }
     return (if (startWithoutBounds) touching + regionId else touching).ifEmpty { listOf(regionId) }.sortedBy { it != regionId }
 }
@@ -185,8 +185,8 @@ fun straightLinePoints(from: RoutePoint, to: RoutePoint): List<RoutePoint> {
 }
 
 /**
- * La linea da partenza ad arrivo esce dai riquadri delle regioni con i Percorsi ([candidates], allargati del
- * margine): mancano i percorsi dei paesi in mezzo, e BRouter fallirebbe dopo un lungo calcolo con un errore
+ * La linea da partenza ad arrivo esce dai riquadri delle regioni con la rete stradale ([candidates], allargati del
+ * margine): manca la rete stradale delle nazioni in mezzo, e BRouter fallirebbe dopo un lungo calcolo con un errore
  * generico. Con una regione senza riquadro non si giudica (false) e decide BRouter.
  */
 fun leavesRoutingRegions(candidates: List<RoutingRegion>, from: RoutePoint, to: RoutePoint): Boolean {

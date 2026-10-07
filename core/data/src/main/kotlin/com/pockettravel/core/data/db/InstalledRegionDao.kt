@@ -7,7 +7,7 @@ import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface RegionPackageDao {
+interface InstalledRegionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(region: InstalledRegionEntity)
 

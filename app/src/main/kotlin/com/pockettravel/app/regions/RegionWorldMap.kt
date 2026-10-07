@@ -28,9 +28,9 @@ import com.pockettravel.feature.map.CountryStatus
 import com.pockettravel.feature.map.WorldMap
 
 /**
- * Mappa del mondo con i paesi del catalogo: tocco su un paese con una sola regione -> quella
+ * Mappa delle nazioni con quelle del catalogo: tocco su una nazione con una sola regione -> quella
  * regione (anteprima se non scaricata, come nell'elenco); con piu' regioni (es. Stati Uniti) ->
- * scelta in un bottom sheet; paese non ancora nel catalogo -> un bottom sheet che lo dice.
+ * scelta in un bottom sheet; nazione non ancora nel catalogo -> un bottom sheet che lo dice.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

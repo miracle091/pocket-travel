@@ -19,8 +19,8 @@ def summary(certs, rec):
 
 
 class VaccinationAnswersTest(unittest.TestCase):
-    def test_troppo_lunga_senza_i_consigliati(self):
-        rec = "Consigliate per la destinazione: Epatite A, Tifo, Rabbia, Colera, Meningite, Encefalite giapponese, Epatite B, Influenza, Morbillo, Varicella."
+    def test_troppo_lunga_senza_le_raccomandate(self):
+        rec = "Raccomandate per la destinazione: Epatite A, Tifo, Rabbia, Colera, Meningite, Encefalite giapponese, Epatite B, Influenza, Morbillo, Varicella."
         answers = generate_sft.vaccination_answers(summary([LONG_CERT, "Poliomielite: richiesto a chi resta oltre 4 settimane"], rec), "it")
         for kind, answer in answers.items():
             self.assertLessEqual(len(answer), it.MAX_ANSWER, kind)
@@ -30,14 +30,14 @@ class VaccinationAnswersTest(unittest.TestCase):
         self.assertTrue(answers["any"].endswith(CHECK))
 
     def test_certificati_oltre_il_limite_niente_domanda(self):
-        rec = "Consigliate per la destinazione: Epatite A."
+        rec = "Raccomandate per la destinazione: Epatite A."
         answers = generate_sft.vaccination_answers(summary([LONG_CERT, LONG_CERT.replace("Nigeria", "Angola")], rec), "it")
         self.assertNotIn("any", answers)
         self.assertLessEqual(len(answers["yf"]), it.MAX_ANSWER)
         self.assertEqual(answers["rec"], f"{rec} {CHECK}")
 
     def test_corta_invariata(self):
-        rec = "Consigliate per la destinazione: Epatite A."
+        rec = "Raccomandate per la destinazione: Epatite A."
         answers = generate_sft.vaccination_answers(summary(["Febbre gialla: richiesto"], rec), "it")
         self.assertEqual(answers["any"], f"Febbre gialla: richiesto. {rec} {CHECK}")
 

@@ -105,7 +105,7 @@ private val travelHealthProSource = OfficialSource(
     topic = OfficialSourceTopic.HEALTH,
 )
 
-// Scheda compatta della guida: l'esito per il percorso predefinito (nazionalita' o ultima partenza scelta
+// Riquadro compatto della guida: l'esito per il percorso predefinito (nazionalita' o ultima partenza scelta
 // verso il paese della regione). Mai "non serve": senza certificati dice che nei dati non risultano.
 @Composable
 internal fun VaccinationCard(state: VaccinationUiState, onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -124,7 +124,7 @@ internal fun VaccinationCard(state: VaccinationUiState, onClick: () -> Unit, mod
                 .padding(Spacing.l),
         ) {
             InfoCardHeader(icon = AppIcons.Vaccinations, title = stringResource(R.string.vacc_title))
-            // Senza partenza la scheda mostra solo titolo e invito ad aprirla; con partenza uguale alla
+            // Senza partenza il riquadro mostra solo titolo e invito ad aprirla; con partenza uguale alla
             // destinazione lo dice, perche' altrimenti non si capirebbe l'assenza di risultati.
             if (result == null && state.departure != null) {
                 CardDescription(
@@ -165,9 +165,9 @@ internal class VaccinationActions(
     val setDeparture: (String) -> Unit,
     val addRecentCountry: (String) -> Unit,
     val removeRecentCountry: (String) -> Unit,
-    val addTransit: () -> Unit,
-    val updateTransit: (id: Int, change: (TransitInput) -> TransitInput) -> Unit,
-    val removeTransit: (Int) -> Unit,
+    val addStopover: () -> Unit,
+    val updateStopover: (id: Int, change: (StopoverInput) -> StopoverInput) -> Unit,
+    val removeStopover: (Int) -> Unit,
     val setChildUnderOne: (Boolean) -> Unit,
     val setChildMonths: (Int?) -> Unit,
     val setStayOverFourWeeks: (Boolean) -> Unit,
@@ -189,9 +189,9 @@ internal fun VaccinationDialog(
             setDeparture = viewModel::setDeparture,
             addRecentCountry = viewModel::addRecentCountry,
             removeRecentCountry = viewModel::removeRecentCountry,
-            addTransit = viewModel::addTransit,
-            updateTransit = viewModel::updateTransit,
-            removeTransit = viewModel::removeTransit,
+            addStopover = viewModel::addStopover,
+            updateStopover = viewModel::updateStopover,
+            removeStopover = viewModel::removeStopover,
             setChildUnderOne = viewModel::setChildUnderOne,
             setChildMonths = viewModel::setChildMonths,
             setStayOverFourWeeks = viewModel::setStayOverFourWeeks,
@@ -254,7 +254,7 @@ internal fun VaccinationContent(
         val selected = when (target) {
             PICK_DEPARTURE -> state.departure
             PICK_RECENT -> null
-            else -> state.transits.firstOrNull { it.id == target }?.country
+            else -> state.stopovers.firstOrNull { it.id == target }?.country
         }
         CountryPickerSheet(
             title = stringResource(
@@ -269,7 +269,7 @@ internal fun VaccinationContent(
                 when (target) {
                     PICK_DEPARTURE -> actions.setDeparture(country)
                     PICK_RECENT -> actions.addRecentCountry(country)
-                    else -> actions.updateTransit(target) { it.copy(country = country) }
+                    else -> actions.updateStopover(target) { it.copy(country = country) }
                 }
                 picking = null
             },
@@ -278,7 +278,7 @@ internal fun VaccinationContent(
     }
 }
 
-// Tutti i campi del percorso in una scheda: partenza e destinazione, scali, paesi visitati prima (chiuso di
+// Tutti i campi del percorso in un riquadro: partenza e destinazione, scali, paesi visitati prima (chiuso di
 // default) e le domande che cambiano il risultato.
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -295,16 +295,16 @@ private fun RouteCard(state: VaccinationUiState, actions: VaccinationActions, on
             HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.s))
 
             SectionLabel(stringResource(R.string.vacc_stopovers))
-            state.transits.forEach { transit ->
-                TransitEditor(
-                    transit = transit,
-                    onPickCountry = { onPick(transit.id) },
-                    onChange = { change -> actions.updateTransit(transit.id, change) },
-                    onRemove = { actions.removeTransit(transit.id) },
+            state.stopovers.forEach { stopover ->
+                StopoverEditor(
+                    stopover = stopover,
+                    onPickCountry = { onPick(stopover.id) },
+                    onChange = { change -> actions.updateStopover(stopover.id, change) },
+                    onRemove = { actions.removeStopover(stopover.id) },
                 )
             }
             TextButton(
-                onClick = actions.addTransit,
+                onClick = actions.addStopover,
                 modifier = Modifier.padding(horizontal = Spacing.s),
             ) {
                 Icon(AppIcons.Add, contentDescription = null)
@@ -414,16 +414,16 @@ private fun CountryRow(label: String, country: String?, onClick: (() -> Unit)?) 
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TransitEditor(
-    transit: TransitInput,
+private fun StopoverEditor(
+    stopover: StopoverInput,
     onPickCountry: () -> Unit,
-    onChange: ((TransitInput) -> TransitInput) -> Unit,
+    onChange: ((StopoverInput) -> StopoverInput) -> Unit,
     onRemove: () -> Unit,
 ) {
     Column(modifier = Modifier.padding(vertical = Spacing.xs)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = Spacing.s)) {
             Box(modifier = Modifier.weight(1f)) {
-                CountryRow(label = stringResource(R.string.vacc_stopover_country), country = transit.country, onClick = onPickCountry)
+                CountryRow(label = stringResource(R.string.vacc_stopover_country), country = stopover.country, onClick = onPickCountry)
             }
             IconButton(onClick = onRemove) {
                 Icon(AppIcons.Delete, contentDescription = stringResource(R.string.vacc_remove_transit))
@@ -435,7 +435,7 @@ private fun TransitEditor(
             modifier = Modifier.padding(horizontal = Spacing.l),
         ) {
             OutlinedTextField(
-                value = transit.hours?.toString().orEmpty(),
+                value = stopover.hours?.toString().orEmpty(),
                 onValueChange = { text -> onChange { it.copy(hours = text.filter(Char::isDigit).take(3).toIntOrNull(), overTwelveHours = false) } },
                 label = { Text(stringResource(R.string.vacc_stopover_hours)) },
                 singleLine = true,
@@ -444,12 +444,12 @@ private fun TransitEditor(
                 modifier = Modifier.widthIn(min = 120.dp, max = 200.dp),
             )
             FilterChip(
-                selected = transit.overTwelveHours,
+                selected = stopover.overTwelveHours,
                 onClick = { onChange { it.copy(hours = null, overTwelveHours = !it.overTwelveHours) } },
                 label = { Text(stringResource(R.string.vacc_stopover_over_12h)) },
             )
             FilterChip(
-                selected = transit.leftAirport,
+                selected = stopover.leftAirport,
                 onClick = { onChange { it.copy(leftAirport = !it.leftAirport) } },
                 label = { Text(stringResource(R.string.vacc_left_airport)) },
             )

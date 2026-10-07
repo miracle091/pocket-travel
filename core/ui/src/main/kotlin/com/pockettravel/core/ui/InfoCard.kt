@@ -22,12 +22,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
-// Regole comuni delle schede (Card) con titolo, uguali in tutte le schermate:
-// - contenuto della scheda con padding Spacing.l (CardPadding), schede di un elenco distanziate di Spacing.l (CardGap);
-// - titolo della scheda titleMedium in grassetto, con icona da 24 dp in un cerchio colorato da 40 dp (InfoCardHeader):
-//   e' quello che fa distinguere a colpo d'occhio una scheda dall'altra;
-// - descrizione bodyMedium (CardDescription), in onSurfaceVariant nelle schede neutre;
-// - etichette brevi (categoria, rotta, data) labelMedium; suggerimenti e didascalie che vanno a capo bodySmall; titoli di sezione fuori dalle schede titleLarge, sottotitoli titleSmall;
+// Regole comuni dei riquadri (Card) con titolo, uguali in tutte le schermate:
+// - contenuto del riquadro con padding Spacing.l (CardPadding), riquadri di un elenco distanziati di Spacing.l (CardGap);
+// - titolo del riquadro titleMedium in grassetto, con icona da 24 dp in un cerchio colorato da 40 dp (InfoCardHeader):
+//   e' quello che fa distinguere a colpo d'occhio un riquadro dall'altro;
+// - descrizione bodyMedium (CardDescription), in onSurfaceVariant nei riquadri neutri;
+// - etichette brevi (categoria, rotta, data) labelMedium; suggerimenti e didascalie che vanno a capo bodySmall; titoli di sezione fuori dai riquadri titleLarge, sottotitoli titleSmall;
 // - righe a forma di ListItem: titolo bodyLarge, testo di supporto bodyMedium.
 object InfoCardDefaults {
     val CardPadding = Spacing.l
@@ -36,8 +36,8 @@ object InfoCardDefaults {
     val HeaderIconCircle = 40.dp
 }
 
-// Intestazione di una scheda: icona, titolo (esposto a TalkBack come titolo) e, a destra, un elemento facoltativo
-// (conteggio, azione). L'etichetta sopra il titolo (overline) e' per le schede che la ripetono da una categoria.
+// Intestazione di un riquadro: icona, titolo (esposto a TalkBack come titolo) e, a destra, un elemento facoltativo
+// (conteggio, azione). L'etichetta sopra il titolo (overline) e' per i riquadri che la ripetono da una categoria.
 @Composable
 fun InfoCardHeader(
     icon: ImageVector,
@@ -73,8 +73,8 @@ fun InfoCardHeader(
     }
 }
 
-// Testo descrittivo di una scheda. Colore non specificato = quello della scheda (schede colorate);
-// nelle schede neutre passare MaterialTheme.colorScheme.onSurfaceVariant.
+// Testo descrittivo di un riquadro. Colore non specificato = quello del riquadro (riquadri colorati);
+// nei riquadri neutri passare MaterialTheme.colorScheme.onSurfaceVariant.
 @Composable
 fun CardDescription(text: String, modifier: Modifier = Modifier, color: Color = Color.Unspecified) {
     Text(text = text, style = MaterialTheme.typography.bodyMedium, color = color, modifier = modifier)

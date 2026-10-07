@@ -9,7 +9,7 @@
     <string name="usage_mode_transit">By public transport</string>
     <string name="usage_mode_multiple">Multiple choice</string>
     <string name="usage_mode_wheelchair">In a wheelchair</string>
-    <string name="usage_mode_wheelchair_body">In every mode, the map hides places marked as not wheelchair accessible</string>
+    <string name="usage_mode_wheelchair_body">In every travel mode, the map hides places marked as not wheelchair accessible</string>
     <string name="map_legend">Filters</string>
     <string name="map_legend_open">Map filters</string>
     <plurals name="map_filters_open_hidden">
@@ -154,13 +154,13 @@
     <string name="navigation_close">End navigation</string>
     <string name="navigation_no_speed_cameras">Speed cameras, speed limits and restricted-access or low-emission zones not shown:</string>
     <string name="navigation_follow_road_signs">always follow the road signs</string>
-    <string name="navigation_permission">Navigation requires your GPS location. The location stays on the phone and is used only while this screen is open</string>
+    <string name="navigation_permission">Navigation requires your GPS location. The location stays on the device and is used only while this screen is open</string>
     <string name="navigation_permission_grant">Allow location</string>
     <string name="navigation_gps_disabled">GPS is off. Navigation works only with GPS on: turn it on to start</string>
     <string name="navigation_gps_settings">Turn on GPS</string>
     <string name="navigation_waiting_fix">Waiting for GPS signal…</string>
     <string name="navigation_off_route">Off route: recalculating…</string>
-    <string name="navigation_signal_lost">GPS signal lost: showing last known position</string>
+    <string name="navigation_signal_lost">GPS signal lost: showing last known location</string>
     <string name="navigation_not_found">No route found to the destination with the chosen travel mode</string>
     <string name="navigation_wheelchair_notice">With stairs excluded, routes may be incomplete</string>
     <string name="navigation_allow_steps">Allow a few steps</string>
@@ -182,7 +182,7 @@
     <string name="navigation_calculating">Calculating the route…</string>
     <string name="navigation_calculating_progress">About %1$d%% calculated</string>
     <string name="navigation_calculating_long">By car, calculating long routes can take a few minutes</string>
-    <string name="navigation_timed_out">The route is too long to calculate on the phone: choose a closer destination or another travel mode</string>
+    <string name="navigation_timed_out">The route is too long to calculate on the device: choose a closer destination or another travel mode</string>
     <string name="turn_continue">Continue straight</string>
     <string name="turn_slight_left">Bear left</string>
     <string name="turn_left">Turn left</string>
@@ -234,9 +234,9 @@
     <string name="planner_swap">Swap start and destination</string>
     <string name="planner_recents">Recent</string>
     <string name="planner_remove_recent">Remove %1$s from recent</string>
-    <string name="planner_permission">Starting from the current location requires location permission. The location stays on the phone</string>
+    <string name="planner_permission">Starting from the current location requires location permission. The location stays on the device</string>
     <string name="planner_no_location">No GPS signal: turn on GPS or choose a starting point</string>
-    <string name="planner_no_routing_data">Calculating the route requires this region\'s road network (downloaded once, then kept on the phone)</string>
+    <string name="planner_no_routing_data">Calculating the route requires this region\'s road network (downloaded once, then kept on the device)</string>
     <string name="planner_start">Start</string>
     <string name="planner_preview_only">Starting from a chosen place: route only. Turn-by-turn navigation starts from your location</string>
     <string name="planner_steps">Directions</string>

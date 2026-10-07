@@ -43,7 +43,7 @@ class PackageImporterDeviceTest {
         workDir.mkdirs()
         db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).build()
         val storage = RegionStorage(File(workDir, "regions").apply { mkdirs() }, File(workDir, "staging").apply { mkdirs() })
-        repository = RegionRepository(db.regionPackageDao(), db.poiDao(), storage, db, db.cityDao())
+        repository = RegionRepository(db.installedRegionDao(), db.poiDao(), storage, db, db.cityDao())
     }
 
     @After

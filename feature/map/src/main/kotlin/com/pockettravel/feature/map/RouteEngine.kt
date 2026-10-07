@@ -10,7 +10,7 @@ enum class TurnType {
     EXIT_LEFT, EXIT_RIGHT,
     U_TURN,
     ROUNDABOUT,
-    /** Rotonda percorsa in senso orario: paesi con guida a sinistra. */
+    /** Rotonda percorsa in senso orario: nazioni con guida a sinistra. */
     ROUNDABOUT_LEFT,
     ARRIVE,
 }
@@ -40,7 +40,7 @@ data class Route(
 sealed interface RouteResult {
     data class Found(val route: Route) : RouteResult
 
-    /** Mancano i segmenti di percorso della regione, o partenza/arrivo sono fuori da quelli scaricati. */
+    /** Mancano i segmenti della rete stradale della regione, o partenza/arrivo sono fuori da quelli scaricati. */
     data object NoRoutingData : RouteResult
 
     /** Dati presenti ma nessun percorso tra i due punti con questo profilo. */
@@ -57,7 +57,7 @@ interface RouteEngine {
     /**
      * Calcola il percorso fuori dal thread principale; annullando la coroutine si ferma il calcolo.
      * [profile]: nome del profilo BRouter (vedi [UsageMode.ROUTING_PROFILES]); null = quello del
-     * motore, cioe' della modalita' d'uso quando e' stato creato. [profileParams]: variabili del
+     * motore, cioe' del modo quando e' stato creato. [profileParams]: variabili del
      * profilo (in BRouter "profile:<nome>=<valore>"), per esempio allow_steps del profilo wheelchair.
      * [onProgress]: stima 0..1 dell'avanzamento, chiamata piu' volte al secondo durante il calcolo
      * (da un altro thread).

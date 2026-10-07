@@ -30,9 +30,9 @@ import java.util.Locale
 import javax.inject.Inject
 
 /**
- * I Percorsi che mancano al Navigatore, nella tab della regione e in quello della barra principale: quali regioni
+ * La rete stradale che manca al Navigatore, nella tab della regione e in quello della barra principale: quali regioni
  * scaricare tra partenza e arrivo, il download e il suo avanzamento. [load] dice la regione aperta (null nel
- * Navigatore generico): senza altre indicazioni "Scarica i percorsi" scarica i suoi.
+ * Navigatore generico): senza altre indicazioni "Scarica la rete stradale" scarica la sua.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -49,7 +49,7 @@ class RoutingDownloadViewModel @Inject constructor(
     val hasRegions: StateFlow<Boolean?> = regionRepository.observeInstalled().map { it.isNotEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    // Le regioni di cui il Navigatore segue il download dei Percorsi: altre, se sono quelle tra partenza e arrivo.
+    // Le regioni di cui il Navigatore segue il download della rete stradale: altre, se sono quelle tra partenza e arrivo.
     private val targets = MutableStateFlow<List<String>>(emptyList())
     private val downloadIds: Flow<List<String>> = combine(regionId, targets) { id, targets -> targets.ifEmpty { listOfNotNull(id) } }
 
@@ -93,9 +93,9 @@ class RoutingDownloadViewModel @Inject constructor(
     }
 
     /**
-     * "Scarica i percorsi" dal Navigatore: della regione aperta, o di [targetIds] se sono quelle tra partenza e arrivo.
-     * Senza [carOnlyAllowed] (a piedi, in bici) si scaricano i percorsi completi anche dove l'utente aveva scelto quelli
-     * solo per l'auto: altrimenti il download non basterebbe e il Navigatore lo riproporrebbe.
+     * "Scarica la rete stradale" dal Navigatore: della regione aperta, o di [targetIds] se sono quelle tra partenza e
+     * arrivo. Senza [carOnlyAllowed] (a piedi, in bici) si scarica la rete stradale completa anche dove l'utente aveva
+     * scelto quella solo per l'auto: altrimenti il download non basterebbe e il Navigatore lo riproporrebbe.
      */
     fun downloadRouting(targetIds: List<String> = emptyList(), carOnlyAllowed: Boolean = false) {
         targets.value = targetIds
@@ -111,8 +111,8 @@ class RoutingDownloadViewModel @Inject constructor(
     }
 
     /**
-     * Le regioni del catalogo senza Percorsi tra partenza e arrivo ([points]: partenza, linea in mezzo, arrivo), in
-     * ordine, col nome nella lingua dell'app e il peso dei Percorsi. Vuota se il catalogo non si legge (offline) o
+     * Le regioni del catalogo senza rete stradale tra partenza e arrivo ([points]: partenza, linea in mezzo, arrivo), in
+     * ordine, col nome nella lingua dell'app e il peso della rete stradale. Vuota se il catalogo non si legge (offline) o
      * tutto e' coperto: il Navigatore resta col messaggio generico.
      */
     suspend fun missingRoutingRegions(points: List<RoutePoint>, usableRouting: Set<String>): List<MissingRegion> {

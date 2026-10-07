@@ -2,7 +2,7 @@ package com.pockettravel.feature.map
 
 import androidx.annotation.StringRes
 
-// Tipo preciso del POI dal suo tag OSM ("Ristorante", "Luogo di culto", "Museo"), per la scheda: la
+// Tipo preciso del POI dal suo tag OSM ("Ristorante", "Luogo di culto", "Museo"), per il riquadro: la
 // categoria (PoiCategory) resta quella di icone, colori e filtri, qui c'e' solo il nome da mostrare.
 private val TYPES: Map<String, Int> = mapOf(
     // Rappresentanze diplomatiche (office=diplomatic: ambasciate, consolati, missioni)
@@ -69,7 +69,7 @@ private val TYPES: Map<String, Int> = mapOf(
     "amenity=scooter_rental" to R.string.poi_type_scooter_rental,
     "amenity=boat_rental" to R.string.poi_type_boat_rental,
     "amenity=ski_rental" to R.string.poi_type_ski_rental,
-    // Salute, servizi e sport: al singolare nel titolo delle schede senza nome (la categoria e' al plurale, "Farmacie").
+    // Salute, servizi e sport: al singolare nel titolo dei riquadri senza nome (la categoria e' al plurale, "Farmacie").
     "amenity=pharmacy" to R.string.poi_type_pharmacy,
     "amenity=hospital" to R.string.poi_type_hospital,
     "amenity=clinic" to R.string.poi_type_clinic,

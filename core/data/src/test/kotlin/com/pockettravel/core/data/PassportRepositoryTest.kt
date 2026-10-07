@@ -15,7 +15,7 @@ import org.junit.Test
 import java.security.SecureRandom
 import kotlin.io.path.createTempDirectory
 
-/** In-memory, nessun vero database Room: stesso pattern di FakeRegionPackageDao in
+/** In-memory, nessun vero database Room: stesso pattern di FakeInstalledRegionDao in
  * RegionRepositoryTest. */
 private class FakePassportDao : PassportDao {
     private val entities = linkedMapOf<String, PassportEntity>()

@@ -20,7 +20,7 @@ annotation class RegionsDir
 @Retention(AnnotationRetention.BINARY)
 annotation class RegionsStagingDir
 
-/** Struttura su disco dei pacchetti regionali (`map.pmtiles`, uno o piu' segmenti `.rd5` dei percorsi, `addresses.pmtiles`; `poi.db` solo fino all'import). */
+/** Struttura su disco dei pacchetti regionali (`map.pmtiles`, uno o piu' segmenti `.rd5` della rete stradale, `addresses.pmtiles`; `poi.db` solo fino all'import). */
 class RegionStorage @Inject constructor(
     @param:RegionsDir private val regionsDir: File,
     @param:RegionsStagingDir private val stagingDir: File,
@@ -182,7 +182,7 @@ class RegionStorage @Inject constructor(
 
     companion object {
         // Devono combaciare con OfflineTileSource e RouteEngineModule (feature/map) e con
-        // RegionRoutingGraphInstaller.ROUTING_DIR_NAME (core/sync).
+        // RoutingSegmentsInstaller.ROUTING_DIR_NAME (core/sync).
         const val MAP_FILE = "map.pmtiles"
         const val ROUTING_DIR = "routing"
         // Civici sovrapposti alla mappa (OfflineTileSource).
@@ -204,7 +204,7 @@ class RegionStorage @Inject constructor(
         // Orari dei mezzi pubblici: una transit.db per rete (<feedId>.db) piu' TRANSIT_FEEDS_FILE, attivati
         // insieme come cartella, cosi' le reti sparite dal manifest spariscono con la sostituzione.
         const val TRANSIT_DIR = "transit"
-        // Nome, attribuzione e licenza di ogni rete di TRANSIT_DIR (vedi TransitFeedInfo), per la scheda delle partenze.
+        // Nome, attribuzione e licenza di ogni rete di TRANSIT_DIR (vedi TransitFeedInfo), per il riquadro delle partenze.
         const val TRANSIT_FEEDS_FILE = "feeds.json"
         private val PACKAGE_NAMES = setOf(MAP_FILE, ROUTING_DIR, ADDRESSES_FILE, PREVIEW_FILE, ADDRESSES_CELLS_FILE, ADDRESSES_SEARCH_DIR, TRANSIT_DIR)
         // Istanze di RegionStorage non condivise: due recuperi della stessa regione non si sovrappongono.

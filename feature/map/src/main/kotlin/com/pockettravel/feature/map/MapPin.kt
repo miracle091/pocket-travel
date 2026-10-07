@@ -4,12 +4,12 @@ import com.pockettravel.core.poi.PoiCategory
 
 data class MapPin(
     val id: String,
-    // null se il POI non ha un nome in OSM: la scheda mostra la categoria.
+    // null se il POI non ha un nome in OSM: il riquadro mostra la categoria.
     val name: String?,
     val latitude: Double,
     val longitude: Double,
     val category: PoiCategory,
-    // Tag OSM ("amenity=restaurant"): da qui il tipo preciso mostrato nella scheda (poiTypeLabel).
+    // Tag OSM ("amenity=restaurant"): da qui il tipo preciso mostrato nel riquadro (poiTypeLabel).
     val osmTag: String,
     val phone: String?,
     // Tag OSM "wheelchair" (yes, limited, no...), null se non indicato.

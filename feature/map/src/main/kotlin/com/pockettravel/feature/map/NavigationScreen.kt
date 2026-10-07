@@ -115,7 +115,7 @@ import kotlin.math.roundToInt
  * tempo e distanza rimasti, ora di arrivo e "Termina"; toccando il pannello si vedono le svolte
  * successive. Gli altri stati (permesso, GPS, calcolo, errori) prendono lo stesso schermo.
  * Con bici e auto l'avviso su autovelox, limiti e zone a traffico limitato resta nel pannello: i
- * dati di percorso (BRouter/OSM) non li hanno.
+ * segmenti della rete stradale (BRouter/OSM) non li hanno.
  */
 @Composable
 fun NavigationInstructions(
@@ -133,9 +133,9 @@ fun NavigationInstructions(
     // Vibrazione a piedi (Impostazioni) e nomi delle strade trovati dalla mappa, per la notifica della guida.
     walkingHaptics: Boolean = true,
     onStreetNames: (Map<Int, String>) -> Unit = {},
-    // In auto, il lato di guida del paese se diverso da quello di casa: un avviso sempre visibile.
+    // In auto, il lato di guida della nazione se diverso da quello di casa: un avviso sempre visibile.
     drivingSide: DrivingSide? = null,
-    // Percorsi mancanti a meta' strada: le regioni del catalogo da scaricare, in ordine (vuota se non si sa), l'avanzamento
+    // Rete stradale mancante a meta' strada: le regioni del catalogo da scaricare, in ordine (vuota se non si sa), l'avanzamento
     // 0..1 e l'esito del download.
     missingRegions: List<MissingRegion> = emptyList(),
     downloadProgress: Float? = null,
@@ -162,7 +162,7 @@ fun NavigationInstructions(
     }
 
     if (state is NavigationUiState.Navigating) {
-        Guidance(state, destinationName, routeProfile, arriveBy, tileSource, regionIds, onClose, walkingHaptics, onStreetNames, drivingSide)
+        ActiveNavigationContent(state, destinationName, routeProfile, arriveBy, tileSource, regionIds, onClose, walkingHaptics, onStreetNames, drivingSide)
         return
     }
     // Senza percorso da seguire: un messaggio al centro, con la meta in cima e sempre "Termina".
@@ -210,7 +210,7 @@ fun NavigationInstructions(
                 }
                 // L'arrivo lo chiude il Navigatore (snackbar e vibrazione, o in silenzio): qui non si resta.
                 NavigationUiState.Arrived -> Unit
-                // Percorsi mancanti a meta' strada: partenza o arrivo fuori dalla zona dei percorsi scaricati.
+                // Rete stradale mancante a meta' strada: partenza o arrivo fuori dalla zona della rete stradale scaricata.
                 is NavigationUiState.Unavailable -> if (state.result == RouteResult.NoRoutingData && missingRegions.isNotEmpty()) {
                     MissingRoutingCard(missingRegions, downloadProgress, downloadFailed, onDownloadRouting)
                 } else {
@@ -315,7 +315,7 @@ private fun Waiting(text: String, announcement: String = text) {
 }
 
 @Composable
-private fun Guidance(
+private fun ActiveNavigationContent(
     state: NavigationUiState.Navigating,
     destinationName: String,
     routeProfile: RouteProfile,
@@ -513,7 +513,7 @@ private fun DrivingSideNotice(side: DrivingSide) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = Spacing.m, vertical = Spacing.s)) {
             Icon(ImageVector.vectorResource(UiR.drawable.ms_directions_car), contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(Spacing.s))
-            // "Paese con guida a" e il lato in grassetto: e' la parola che conta.
+            // "Nazione con guida a" e il lato in grassetto: e' la parola che conta.
             val prefix = stringResource(R.string.navigation_drive_side)
             val sideText = stringResource(if (side == DrivingSide.LEFT) R.string.navigation_drive_left else R.string.navigation_drive_right)
             Text(
@@ -663,7 +663,7 @@ private fun NavigationMap(
     val mapView = rememberMapViewWithLifecycle()
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val language = LocalLocale.current.platformLocale.language
-    // Con worldFallback: se la posizione esce dal riquadro scaricato restano i paesi (e, con la rete, il mondo) invece del vuoto.
+    // Con worldFallback: se la posizione esce dal riquadro scaricato restano le nazioni (e, con la rete, il mondo) invece del vuoto.
     val styleJson = remember(tileSource, regionIds, dark, language) {
         tileSource.navigationStyleJson(regionIds, dark = dark, language = language)
     }
@@ -724,7 +724,7 @@ private fun NavigationMap(
         }
     }
 
-    // Nomi delle strade: i segmenti di percorso (.rd5) non li hanno, la mappa si'. A mappa ferma e
+    // Nomi delle strade: i segmenti della rete stradale (.rd5) non li hanno, la mappa si'. A mappa ferma e
     // disegnata si leggono le strade delle tile gia' caricate e, per ogni svolta, si prende quella in
     // cui si entra; le svolte lontane restano senza nome finche' le loro tile non vengono caricate.
     // OnDidBecomeIdle e non la fine del movimento della camera: querySourceFeatures prima che il

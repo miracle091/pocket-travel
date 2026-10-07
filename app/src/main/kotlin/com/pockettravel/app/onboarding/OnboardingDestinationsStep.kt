@@ -67,7 +67,7 @@ import com.pockettravel.feature.map.proposesTransit
  * background ([downloadSelection]) senza attendere la fine.
  */
 @Composable
-internal fun OnboardingRegionStep(
+internal fun OnboardingDestinationsStep(
     onboardingViewModel: OnboardingViewModel,
     selection: SnapshotStateMap<String, Set<PackageKind>>,
     viewModel: RegionListViewModel,

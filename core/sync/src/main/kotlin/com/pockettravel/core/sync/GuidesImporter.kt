@@ -141,7 +141,7 @@ class GuidesImporter @Inject constructor(
         return missions
     }
 
-    // I guides.db pubblicati prima dei dati vaccinali non hanno le tabelle vacc_*: nessuna riga, nessuna scheda.
+    // I guides.db pubblicati prima dei dati vaccinali non hanno le tabelle vacc_*: nessuna riga, nessun riquadro.
     private fun readVaccinations(db: SQLiteDatabase): VaccinationRows {
         fun <T> read(table: String, query: String, map: (Cursor) -> T): List<T> {
             val hasTable = db.rawQuery(tableQuery(table), null).use { it.moveToFirst() }

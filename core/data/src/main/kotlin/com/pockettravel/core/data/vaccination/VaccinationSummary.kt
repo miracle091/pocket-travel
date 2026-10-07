@@ -4,7 +4,7 @@ import java.util.Locale
 
 /**
  * Riassunto in testo semplice di [VaccinationResult] per [trip], da mettere nel contesto dell'assistente
- * IA: obblighi, incoraggiate, consigliate, fonti e data di verifica, e sempre la riga che rimanda ad
+ * IA: obblighi, incoraggiate, raccomandate, fonti e data di verifica, e sempre la riga che rimanda ad
  * ambasciata e centro di medicina dei viaggi. [language] e' "it" o "en" come in PromptTemplates; ogni
  * altro valore da' l'italiano. Quando nessun certificato risulta richiesto lo dice "nei nostri dati",
  * mai "non serve nulla".
@@ -52,7 +52,7 @@ fun VaccinationResult.toSummaryText(trip: Trip, language: String = "it"): String
 
     val recommendedNames = items.filter { it.level == VaccinationLevel.RECOMMENDED && it.vaccine != Vaccine.ROUTINE }
     if (recommendedNames.isNotEmpty()) {
-        lines += pick("Consigliate per la destinazione: ", "Recommended for the destination: ") +
+        lines += pick("Raccomandate per la destinazione: ","Recommended for the destination: ") +
             recommendedNames.joinToString(", ") { vaccineName(it.vaccine, en) + (if (it.partialArea) pick(" (solo in alcune aree)", " (some areas only)") else "") }
     }
     val considerNames = items.filter { it.level == VaccinationLevel.CONSIDER && it.ageNote != AgeNote.BELOW_AGE }

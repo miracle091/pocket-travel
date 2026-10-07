@@ -6,14 +6,14 @@ import java.io.File
 import javax.inject.Inject
 
 /**
- * Sposta i file .rd5 scaricati (uno o piu' segmenti BRouter, un file per ogni tile 5x5
+ * Sposta i "segmenti della rete stradale" (.rd5) scaricati (uno o piu' segmenti BRouter, un file per ogni tile 5x5
  * attraversata dalla regione — vedi tools/data-pipeline/routing) da packageDir/
  * (dove RegionPackageDownloader li scrive, come poi.db/map.pmtiles) a
  * packageDir/routing/ — la cartella che BRouterRouteEngine si aspetta (RouteEngineModule,
  * feature/map). Un .rd5 e' gia' pronto all'uso: basta spostarlo nella cartella giusta, nessuna
  * estrazione.
  */
-class RegionRoutingGraphInstaller @Inject constructor() {
+class RoutingSegmentsInstaller @Inject constructor() {
 
     /**
      * [names]: i segmenti della richiesta. Lo staging puo' contenere .rd5 completati da un tentativo precedente

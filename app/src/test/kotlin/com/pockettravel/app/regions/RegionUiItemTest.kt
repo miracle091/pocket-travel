@@ -95,7 +95,7 @@ class RegionUiItemTest {
     }
 
     @Test
-    fun `una regione non installata mostra la dimensione del download completo, senza percorsi`() {
+    fun `una regione non installata mostra la dimensione del download completo, senza rete stradale`() {
         val item = regionUiItem(remote, null, noBytes)
 
         assertEquals(RegionStatus.NOT_INSTALLED, item.status)
@@ -104,7 +104,7 @@ class RegionUiItemTest {
     }
 
     @Test
-    fun `con le indicazioni il download completo comprende i percorsi`() {
+    fun `con le indicazioni il download completo comprende la rete stradale`() {
         val item = regionUiItem(remote, null, noBytes, withRouting = true)
 
         assertEquals(140_000_000L, item.sizeBytes)

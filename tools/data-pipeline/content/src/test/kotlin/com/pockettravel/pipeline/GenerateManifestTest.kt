@@ -18,7 +18,7 @@ class GenerateManifestTest {
     private val rd5 = ManifestFileEntry("E5_N45.rd5", "https://example.org/E5_N45.rd5", 79_980_459L, "a".repeat(64))
 
     @Test
-    fun `il frammento di regione separa mappa, routing e POI con le rispettive versioni`() {
+    fun `il frammento di regione separa mappa, rete stradale e POI con le rispettive versioni`() {
         val packageDir = createTempDirectory("pocket-travel-test-manifest").toFile()
         try {
             val poiDb = File(packageDir, "poi.db").apply { writeText("contenuto di test") }
@@ -57,7 +57,7 @@ class GenerateManifestTest {
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun `fallisce se il routing non ha segmenti`() {
+    fun `fallisce se la rete stradale non ha segmenti`() {
         buildRegionFragmentJson(
             "test-region", "Regione di Test", "1", "2026-09-10T00:00:00Z", mapSource, emptyList(),
             ManifestFileEntry("poi.db", "https://example.org/poi.db", 1, "b".repeat(64)),

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Scarica i MediaWiki Content File Exports (contenuto attuale, uno al mese il 1°) di Wikivoyage IT/EN e Wikipedia IT/EN
-# usati da generate_sft.py e generate_eval_set*.py --dump-dir: 4 wiki, 19 parti, ~47 GB compressi per export.
+# usati da generate_sft.py e generate_eval_set*.py --dump-dir: 4 wiki, 19 parti, ~47 GB compressi per dump.
 #
 # Uso: download-wikimedia-dumps.sh <cartella> [data]
 #   data: MM-AAAA o AAAA-MM (separati da -, / o .), oppure AAAA-MM-GG (normalize_dump_date in lib.sh). Senza data:
-#   l'ultimo export completo (con SHA256SUMS) comune alle quattro wiki.
+#   l'ultimo dump completo (con SHA256SUMS) comune alle quattro wiki.
 # Le parti finiscono in <cartella>/<AAAA-MM-GG>/, con lo SHA256SUMS di ogni wiki (<wiki>.SHA256SUMS). Una parte gia'
 # presente con lo sha256 giusto non si riscarica, una interrotta riprende da dove era arrivata.
-# Senza data, solo dopo che l'export nuovo e' completo e verificato, cancella le cartelle degli export piu' vecchi in
+# Senza data, solo dopo che il dump nuovo e' completo e verificato, cancella le cartelle dei dump piu' vecchi in
 # <cartella>, comprese le cache <wiki>-<data>.pages.json di wiki_dump.py. Con una data esplicita non cancella niente.
 #
 # Richiede: curl, sha256sum, GNU date.
@@ -25,18 +25,18 @@ if [ -n "${2:-}" ]; then
   DATE="$(normalize_dump_date "$2")"
   PRUNE=""
 else
-  # l'export comune e' il piu' vecchio tra gli ultimi completi delle quattro wiki: il 1° del mese una wiki grande puo'
+  # il dump comune e' il piu' vecchio tra gli ultimi completi delle quattro wiki: il 1° del mese una wiki grande puo'
   # essere ancora in corso; se a quella data un'altra wiki non e' completa, lo SHA256SUMS qui sotto manca e si esce
   DATE=""
   for wiki in "${WIKIS[@]}"; do
-    d="$(latest_wikimedia_export "$wiki")" || { echo "$wiki: nessun export completo" >&2; exit 1; }
+    d="$(latest_wikimedia_export "$wiki")" || { echo "$wiki: nessun dump completo" >&2; exit 1; }
     if [ -z "$DATE" ] || [[ "$d" < "$DATE" ]]; then DATE="$d"; fi
   done
   PRUNE=1
 fi
 DIR="$ROOT/$DATE"
 mkdir -p "$DIR"
-echo "export del $DATE in $DIR"
+echo "dump del $DATE in $DIR"
 
 for wiki in "${WIKIS[@]}"; do
   url="$WIKIMEDIA_EXPORTS_URL/$wiki/$DATE/xml/bzip2"
@@ -65,7 +65,7 @@ for wiki in "${WIKIS[@]}"; do
     echo "$file: ok"
   done <<< "$sums"
 done
-echo "export del $DATE completo e verificato"
+echo "dump del $DATE completo e verificato"
 
 if [ -n "$PRUNE" ]; then
   for old in "$ROOT"/*/; do
@@ -74,7 +74,7 @@ if [ -n "$PRUNE" ]; then
     # solo le cartelle che crea questo script (nome AAAA-MM-GG e almeno un <wiki>.SHA256SUMS dentro)
     [[ "$d" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && compgen -G "$old/*.SHA256SUMS" >/dev/null || continue
     if [[ "$d" < "$DATE" ]]; then
-      echo "cancello l'export vecchio $old"
+      echo "cancello il dump vecchio $old"
       rm -rf "$old"
     fi
   done

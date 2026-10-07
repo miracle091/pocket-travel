@@ -48,7 +48,7 @@ import com.pockettravel.core.ui.ContextualHint
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.feature.ai.AiAssistantScreen
-import com.pockettravel.feature.ai.NavigationRequestMode
+import com.pockettravel.feature.ai.NavigationRequestProfile
 import com.pockettravel.feature.guide.GuideScreen
 import com.pockettravel.feature.map.MapRouteViewModel
 import com.pockettravel.feature.map.MapScreen
@@ -215,7 +215,7 @@ fun RegionHubScreen(
                             }
                         }
                     }
-                    RegionTab.NAVIGATION -> NavigatorScreen(regionId = regionId, plannerViewModel = plannerViewModel, navigationViewModel = navigationViewModel)
+                    RegionTab.NAVIGATION -> RegionNavigatorScreen(regionId = regionId, plannerViewModel = plannerViewModel, navigationViewModel = navigationViewModel)
                     RegionTab.AI -> Column(modifier = Modifier.fillMaxSize()) {
                         ContextualHint(
                             hintId = "ai",
@@ -230,7 +230,7 @@ fun RegionHubScreen(
                                 onOpenOfficialSource = onOpenOfficialSource,
                                 // "Portami a ...": il Navigatore cerca la meta (tutte le regioni installate) col mezzo chiesto.
                                 onNavigationRequest = { request ->
-                                    request.mode?.let { plannerViewModel.setRouteProfile(it.toRouteProfile()) }
+                                    request.profile?.let { plannerViewModel.setRouteProfile(it.toRouteProfile()) }
                                     plannerViewModel.searchDestination(request.destination)
                                     selectedTab = RegionTab.NAVIGATION
                                 },
@@ -284,8 +284,8 @@ private fun MapDownloadBar(sourceKind: MapSourceKind, downloading: Boolean, onDo
     }
 }
 
-private fun NavigationRequestMode.toRouteProfile(): RouteProfile = when (this) {
-    NavigationRequestMode.WALK -> RouteProfile.WALK
-    NavigationRequestMode.BIKE -> RouteProfile.BIKE
-    NavigationRequestMode.CAR -> RouteProfile.CAR
+private fun NavigationRequestProfile.toRouteProfile(): RouteProfile = when (this) {
+    NavigationRequestProfile.WALK -> RouteProfile.WALK
+    NavigationRequestProfile.BIKE -> RouteProfile.BIKE
+    NavigationRequestProfile.CAR -> RouteProfile.CAR
 }

@@ -62,8 +62,8 @@
     <string name="notes_title">Notes</string>
     <string name="notes_add">Add</string>
     <string name="notes_empty_title">No notes saved</string>
-    <string name="notes_empty_subtitle">Create the first note for travel notes, bookings or addresses. Notes are encrypted on the phone and the AI assistant can use them to answer questions</string>
-    <string name="notes_privacy_notice">Notes are encrypted on the phone. The AI assistant can use them to answer questions</string>
+    <string name="notes_empty_subtitle">Create the first note for travel notes, bookings or addresses. Notes are encrypted on the device and the AI assistant can use them to answer questions</string>
+    <string name="notes_privacy_notice">Notes are encrypted on the device. The AI assistant can use them to answer questions</string>
     <string name="notes_edit">Edit %1$s</string>
     <string name="notes_delete">Delete %1$s</string>
     <string name="notes_delete_title">Delete this note?</string>

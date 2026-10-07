@@ -10,12 +10,12 @@ import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Per quali mezzi si scaricano i percorsi di una regione: solo [CAR] scarica la variante "solo auto". */
+/** Per quali mezzi si scarica la rete stradale di una regione: solo [CAR] scarica la variante "solo auto". */
 enum class RoutingVariantChoice { CAR, BIKE_FOOT, ALL }
 
 /**
- * Le scelte dei percorsi per regione. [carOnly] e [bikeFoot]: le regioni scelte nei Contenuti; [explicit]: quelle con una
- * scelta nei Contenuti (anche "Tutti"), che vince sempre. Le altre seguono [default], impostato dalle modalita' d'uso.
+ * Le scelte della rete stradale per regione. [carOnly] e [bikeFoot]: le regioni scelte nei Contenuti; [explicit]: quelle con una
+ * scelta nei Contenuti (anche "Tutti"), che vince sempre. Le altre seguono [default], impostato dai modi di spostarsi.
  */
 data class RoutingVariantChoices(
     val carOnly: Set<String> = emptySet(),
@@ -35,10 +35,10 @@ data class RoutingVariantChoices(
 }
 
 /**
- * Percorsi "solo auto" per regione: [choices] le scelte (nei Contenuti o, senza, secondo le modalita' d'uso; "solo auto" si
- * scarica al posto di quelli completi, "Bici e piedi" come "Tutti": cambia solo la scelta mostrata), [installedCarOnly]
- * le regioni i cui percorsi installati sono solo per l'auto, scritto dopo ogni installazione: con quelli il Navigatore
- * non calcola percorsi a piedi, in bici o in carrozzina.
+ * Rete stradale "solo auto" per regione: [choices] le scelte (nei Contenuti o, senza, secondo i modi di spostarsi; "solo
+ * auto" si scarica al posto di quella completa, "Bici e piedi" come "Tutti": cambia solo la scelta mostrata),
+ * [installedCarOnly] le regioni la cui rete stradale installata e' solo per l'auto, scritto dopo ogni installazione: con
+ * quella il Navigatore non calcola percorsi a piedi, in bici o in sedia a rotelle.
  */
 @Singleton
 class RoutingVariantPreferences @Inject constructor(@ApplicationContext context: Context) {

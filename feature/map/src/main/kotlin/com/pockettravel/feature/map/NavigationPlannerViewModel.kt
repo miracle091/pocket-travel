@@ -79,8 +79,8 @@ private fun foldForSearch(text: String): String =
 private val COMBINING_MARKS = Regex("\\p{Mn}+")
 private val SPACES = Regex("\\s+")
 
-/** Una regione del catalogo senza Percorsi tra partenza e arrivo, col peso dei Percorsi: il Navigatore ne propone il download. */
-// carOnly: ci sono gia' i percorsi solo per l'auto, mancano quelli completi per il mezzo scelto.
+/** Una regione del catalogo senza rete stradale tra partenza e arrivo, col peso della rete stradale: il Navigatore ne propone il download. */
+// carOnly: c'e' gia' la rete stradale solo auto, manca quella completa per il mezzo scelto.
 data class MissingRegion(val regionId: String, val name: String, val routingBytes: Long, val carOnly: Boolean = false)
 
 /** Anteprima del percorso prima di partire. */
@@ -145,8 +145,8 @@ class NavigationPlannerViewModel @Inject constructor(
         savedStateHandle.get<String>(KEY_MODE)?.let(RouteProfile::valueOf) ?: RouteProfile.from(usageModePreferences.modes.value),
     )
     val routeProfile: StateFlow<RouteProfile> = _routeProfile.asStateFlow()
-    val routing: StateFlow<RoutingChoice> = combine(_routeProfile, usageModePreferences.accessible, usageModePreferences.allowSteps, ::routingChoice)
-        .stateIn(viewModelScope, SharingStarted.Eagerly, routingChoice(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value))
+    val routing: StateFlow<BRouterProfile> = combine(_routeProfile, usageModePreferences.accessible, usageModePreferences.allowSteps, ::brouterProfile)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, brouterProfile(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value))
     val allowSteps: StateFlow<Boolean> = usageModePreferences.allowSteps
 
     private val _preview = MutableStateFlow<PlannerPreview>(PlannerPreview.Idle)
@@ -200,14 +200,14 @@ class NavigationPlannerViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
-     * La regione aperta ha i Percorsi installati. Se mancano, "nessun dato di percorso" vuol dire
+     * La regione aperta ha la rete stradale installata. Se mancano, "nessun dato di percorso" vuol dire
      * "scaricali"; se ci sono, partenza o arrivo sono fuori dalle zone scaricate e riscaricare non serve.
      */
     val routingInstalled: StateFlow<Boolean> = combine(usableRouting(), regionId) { ids, id -> id == null || id in ids }
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     /**
-     * Le regioni con i Percorsi installati utili al mezzo scelto (usableRoutingRegions), di qualunque regione: serve a
+     * Le regioni con la rete stradale installata utile al mezzo scelto (usableRoutingRegions), di qualunque regione: serve a
      * rileggere quale regione manca.
      */
     val routingRegionIds: StateFlow<Set<String>> = usableRouting().stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
@@ -233,7 +233,7 @@ class NavigationPlannerViewModel @Inject constructor(
         _routeProfile.onEach { savedStateHandle[KEY_MODE] = it.name }.launchIn(viewModelScope)
         _arriveBy.onEach { savedStateHandle[KEY_ARRIVE_BY] = it?.let(::dateTimeToMinute) }.launchIn(viewModelScope)
         _reminder.onEach { savedStateHandle[KEY_REMINDER] = it?.let(::dateTimeToMinute) }.launchIn(viewModelScope)
-        // Percorsi appena installati dopo "Scarica i percorsi" (della regione aperta o di un'altra che copre
+        // Rete stradale appena installata dopo "Scarica la rete stradale" (della regione aperta o di un'altra che copre
         // partenza o arrivo): l'anteprima si ricalcola da sola.
         viewModelScope.launch {
             var hadRouting: Set<String>? = null
@@ -291,7 +291,7 @@ class NavigationPlannerViewModel @Inject constructor(
         _reminder.value = null
     }
 
-    /** "Indicazioni" dalla scheda di un punto della mappa: destinazione pronta, partenza dalla propria posizione. */
+    /** "Indicazioni" dal riquadro di un punto della mappa: destinazione pronta, partenza dalla propria posizione. */
     fun setDestination(place: NavigationPlace) {
         setTo(place)
         setFrom(null)
@@ -401,7 +401,7 @@ class NavigationPlannerViewModel @Inject constructor(
             _preview.value = PlannerPreview.Calculating(0.0)
             val candidates = routingRegions()
             val regionIds = navigationRegionIds(current, candidates, start, destination.point)
-            // Paesi in mezzo senza Percorsi: "mancano i percorsi" subito, invece di un errore generico dopo il calcolo.
+            // Nazioni in mezzo senza rete stradale: "manca la rete stradale" subito, invece di un errore generico dopo il calcolo.
             val result = if (leavesRoutingRegions(candidates, start, destination.point)) {
                 RouteResult.NoRoutingData
             } else {
@@ -454,7 +454,7 @@ class NavigationPlannerViewModel @Inject constructor(
         distanceMeters = reference?.let { approximateDistance(it, RoutePoint(latitude, longitude)) },
     )
 
-    // Regioni installate con i Percorsi utili al mezzo scelto e riquadro della loro mappa, come in NavigationViewModel.
+    // Regioni installate con la rete stradale utile al mezzo scelto e riquadro della loro mappa, come in NavigationViewModel.
     private suspend fun routingRegions(): List<RoutingRegion> = withContext(Dispatchers.IO) {
         val usable = usableRouting().first()
         regionRepository.observeInstalled().first()

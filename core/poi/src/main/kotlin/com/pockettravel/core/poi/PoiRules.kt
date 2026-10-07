@@ -93,7 +93,7 @@ private val natureValues = setOf("park", "garden", "nature_reserve")
 private val amusementValues = setOf("theme_park")
 private val attractionValues = setOf("attraction", "fountain")
 
-/** Le categorie di "Da vedere": per le modalita' d'uso e per i filtri salvati quando era una sola. */
+/** Le categorie di "Da vedere": per i modi di spostarsi e per i filtri salvati quando era una sola. */
 val SIGHT_CATEGORIES: Set<PoiCategory> = setOf(
     PoiCategory.LUOGHI_DI_CULTO, PoiCategory.MUSEI_ARTE, PoiCategory.LUOGHI_STORICI, PoiCategory.NATURA,
     PoiCategory.PANORAMI, PoiCategory.PARCHI_DIVERTIMENTO, PoiCategory.ZOO, PoiCategory.PARCHI_ACQUATICI, PoiCategory.ATTRAZIONI,
@@ -217,7 +217,7 @@ private val namelessOnMapCategories = setOf(
 )
 
 // Come sopra, per tipi di categorie che hanno anche POI da nascondere senza nome (tavoli da picnic
-// e noleggi d'auto senza nome restano nascosti). Servono alle modalita' d'uso (escursionismo, bici).
+// e noleggi d'auto senza nome restano nascosti). Servono ai modi di spostarsi (escursionismo, bici).
 private val namelessOnMapTags = setOf("amenity=fountain", "tourism=viewpoint", "amenity=bicycle_rental", "tourism=picnic_site")
 
 private val detailCategories = setOf(

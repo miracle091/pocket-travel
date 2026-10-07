@@ -2,11 +2,11 @@ package com.pockettravel.feature.map
 
 import java.util.Locale
 
-/** Lato della strada su cui si guida in un paese. */
+/** Lato della strada su cui si guida in una nazione. */
 enum class DrivingSide { LEFT, RIGHT }
 
 /**
- * Paesi e territori (ISO 3166-1 alpha-2) dove si guida a sinistra: Regno Unito, Irlanda, Giappone, India,
+ * Nazioni e territori (ISO 3166-1 alpha-2) dove si guida a sinistra: Regno Unito, Irlanda, Giappone, India,
  * Australia, Nuova Zelanda, buona parte dell'Africa australe e orientale, del Sud-est asiatico e dei Caraibi
  * anglofoni. Tutti gli altri guidano a destra.
  */
@@ -21,7 +21,7 @@ internal fun drivingSide(countryCode: String): DrivingSide =
     if (countryCode.uppercase(Locale.ROOT) in LEFT_HAND_TRAFFIC) DrivingSide.LEFT else DrivingSide.RIGHT
 
 /**
- * Il lato da ricordare a chi guida nei paesi [routeCountries], se diverso da quello di casa ([homeCountry],
+ * Il lato da ricordare a chi guida nelle nazioni [routeCountries], se diverso da quello di casa ([homeCountry],
  * la nazionalita'); null se e' lo stesso. Senza nazionalita' si assume casa a destra, come per la maggior
  * parte del mondo: l'avviso compare dove si guida a sinistra.
  */

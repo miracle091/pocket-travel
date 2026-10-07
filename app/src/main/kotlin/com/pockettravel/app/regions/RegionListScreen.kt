@@ -101,7 +101,7 @@ import java.util.Locale
 fun RegionListScreen(
     onRegionClick: (String) -> Unit,
     onPreviewClick: (regionId: String, displayName: String) -> Unit,
-    // false nel layout lista-dettaglio dei tablet: li' la mappa del mondo sta gia' nel pannello
+    // false nel layout lista-dettaglio dei tablet: li' la mappa delle nazioni sta gia' nel pannello
     // di destra, il pulsante Elenco/Mappa non serve.
     showMapToggle: Boolean = true,
     viewModel: RegionListViewModel = hiltViewModel(),
@@ -129,7 +129,7 @@ fun RegionListScreen(
     )
 }
 
-// Tutte le azioni di una riga regione, dal ViewModel dell'elenco: le usano l'elenco, la mappa del mondo dei tablet e l'anteprima.
+// Tutte le azioni di una riga regione, dal ViewModel dell'elenco: le usano l'elenco, la mappa delle nazioni dei tablet e l'anteprima.
 internal fun RegionListViewModel.rowActions() = RegionRowActions(
     observeProgress = ::observeDownloadProgress,
     onDownload = ::download,
@@ -160,15 +160,15 @@ internal data class RegionRowActions(
     // Mappa leggera (senza la z14): scelta dell'utente o, senza, com'e' la mappa installata (foglio Contenuti).
     val observeMapLight: (regionId: String) -> Flow<Boolean> = { flowOf(false) },
     val onMapLightChange: (regionId: String, light: Boolean) -> Unit = { _, _ -> },
-    // Zona di un paese grande (null = tutto); con download la regione non installata si scarica subito.
+    // Zona di una nazione grande (null = tutto); con download la regione non installata si scarica subito.
     val onZoneChange: (regionId: String, zone: RegionZone?, download: Boolean) -> Unit = { _, _, _ -> },
-    // Regioni del catalogo dentro una zona (id, nome), dalla piu' presente: per le zone che prendono altri paesi.
+    // Regioni del catalogo dentro una zona (id, nome), dalla piu' presente: per le zone che prendono altre nazioni.
     val regionsInZone: suspend (zone: RegionZone) -> List<Pair<String, String>> = { emptyList() },
-    // La regione e' installata per intero (senza zona): una zona scelta da un altro paese non deve ridurla.
+    // La regione e' installata per intero (senza zona): una zona scelta da un'altra nazione non deve ridurla.
     val isInstalledWhole: suspend (regionId: String) -> Boolean = { false },
-    // Per quali mezzi sono i percorsi (foglio Contenuti, sotto Percorsi).
-    val observeRoutingChoice: (regionId: String) -> Flow<RoutingChoice> = { flowOf(RoutingChoice.ALL) },
-    val onRoutingChoiceChange: (regionId: String, choice: RoutingChoice) -> Unit = { _, _ -> },
+    // Per quali mezzi sono la rete stradale (foglio Contenuti, sotto Rete stradale).
+    val observeRoutingChoice: (regionId: String) -> Flow<RoutingVariantOption> = { flowOf(RoutingVariantOption.ALL) },
+    val onRoutingChoiceChange: (regionId: String, choice: RoutingVariantOption) -> Unit = { _, _ -> },
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -206,7 +206,7 @@ internal fun RegionListContent(
             if (showMapToggle) {
                 ExtendedFloatingActionButton(
                     onClick = {
-                        // La mappa mostra tutto il catalogo: una ricerca in corso filtrerebbe i paesi.
+                        // La mappa mostra tutto il catalogo: una ricerca in corso filtrerebbe le nazioni.
                         if (!showMap) onQueryChange("")
                         showMap = !showMap
                     },
@@ -356,7 +356,7 @@ private fun RegionGroupedList(
         }
     }
     val listState = rememberLazyListState()
-    // "Scegli" su una regione sostituita apre continente e paese, poi scorre fino al paese.
+    // "Scegli" su una regione sostituita apre continente e nazione, poi scorre fino alla nazione.
     var scrollToKey by remember { mutableStateOf<String?>(null) }
     var deleting by remember { mutableStateOf<ReplacedRegionItem?>(null) }
     val otherLabel = stringResource(R.string.continent_other)
@@ -398,7 +398,7 @@ private fun RegionGroupedList(
             }
             if (expanded) {
                 // Un gruppo per continente: righe su una superficie tonale arrotondata, separate da
-                // divisori, invece di una card per riga. I paesi divisi in piu' regioni (es. gli stati
+                // divisori, invece di una card per riga. Le nazioni divise in piu' regioni (es. gli stati
                 // USA) sono una riga a scomparsa con le loro regioni sotto.
                 itemsIndexed(rows, key = { _, row -> row.key }) { index, row ->
                     val shape = groupShape(index, rows.size)
@@ -546,7 +546,7 @@ private fun ReplacedRegionRow(item: ReplacedRegionItem, onOpen: () -> Unit, onCh
     }
 }
 
-// Riga di un paese diviso in piu' regioni: bandiera, nome, quante regioni, freccia per aprirla.
+// Riga di una nazione divisa in piu' regioni: bandiera, nome, quante regioni, freccia per aprirla.
 @Composable
 private fun CountryRow(country: RegionListEntry.Country, expanded: Boolean, enabled: Boolean, onToggle: () -> Unit) {
     val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "countryChevron")
@@ -667,7 +667,7 @@ private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actio
     var showPackages by rememberSaveable { mutableStateOf(false) }
     RegionDownloadFlow(item = item, actions = actions) { startDownload, onDownloadClick ->
         when (item.status) {
-            // Paese grande non ancora scaricato: prima la scelta fra tutto il paese e una zona.
+            // Nazione grande non ancora scaricata: prima la scelta fra tutta la nazione e una zona.
             RegionStatus.NOT_INSTALLED -> FilledTonalIconButton(onClick = onDownloadClick, enabled = !isDownloading) {
                 Icon(AppIcons.Download, contentDescription = stringResource(R.string.regions_download, item.displayName))
             }
@@ -679,7 +679,7 @@ private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actio
                         Icon(AppIcons.Download, contentDescription = stringResource(R.string.regions_update_region, item.displayName))
                     }
                 }
-                // Mappa, percorsi e POI uno per uno, ed "Elimina tutto": vedi RegionPackagesSheet.
+                // Mappa, rete stradale e POI uno per uno, ed "Elimina tutto": vedi RegionPackagesSheet.
                 IconButton(onClick = { showPackages = true }) {
                     Icon(AppIcons.MoreVert, contentDescription = stringResource(R.string.regions_packages, item.displayName))
                 }
@@ -694,7 +694,7 @@ private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actio
 
 /**
  * Il percorso di download di una regione, comune all'elenco e all'anteprima: avviso per i download grandi su rete
- * cellulare, scelta fra tutto il paese e una zona per i paesi grandi. [content] riceve [startDownload] (download
+ * cellulare, scelta fra tutta la nazione e una zona per le nazioni grandi. [content] riceve [startDownload] (download
  * diretto, con l'avviso) e [onDownloadClick], il gesto "Scarica" di una regione non installata (con la scelta della zona).
  */
 @Composable
@@ -799,14 +799,14 @@ private fun continentLabel(name: String): String = when (name) {
     else -> name
 }
 
-// Voce di un continente: una regione, oppure un paese diviso in piu' regioni (stesso groupName).
+// Voce di un continente: una regione, oppure una nazione divisa in piu' regioni (stesso groupName).
 internal sealed interface RegionListEntry {
     data class Single(val item: RegionUiItem) : RegionListEntry
 
     data class Country(val name: String, val countryCode: String?, val items: List<RegionUiItem>) : RegionListEntry
 }
 
-/** Raccoglie in una voce paese le regioni con lo stesso groupName (se sono piu' d'una), nell'ordine per nome. */
+/** Raccoglie in una voce nazione le regioni con lo stesso groupName (se sono piu' d'una), nell'ordine per nome. */
 internal fun countryEntries(regions: List<RegionUiItem>): List<RegionListEntry> {
     val collator = Collator.getInstance(Locale.getDefault()).apply { strength = Collator.PRIMARY }
     val byGroup = regions.filter { it.groupName != null }.groupBy { it.groupName!! }.filterValues { it.size > 1 }
@@ -824,7 +824,7 @@ internal fun countryEntries(regions: List<RegionUiItem>): List<RegionListEntry> 
     )
 }
 
-// Righe visibili di un continente aperto: i paesi chiusi mostrano solo la propria riga.
+// Righe visibili di un continente aperto: le nazioni chiuse mostrano solo la propria riga.
 internal sealed interface ListRow {
     val key: String
 

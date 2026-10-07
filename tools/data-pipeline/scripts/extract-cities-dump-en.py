@@ -9,7 +9,7 @@ dump: il primo raccoglie isPartOf di tutte le pagine e quali sono citta', il sec
 delle citta' che, risalendo la catena, arrivano a una delle regioni passate.
 
 Uso: extract-cities-dump-en.py <cartella del dump> <regioni.tsv> <outDir>
-cartella del dump: le parti dell'export di Wikivoyage EN (fetch_wikivoyage_dump_parts in lib.sh, wiki_dump.py).
+cartella del dump: le parti del dump di Wikivoyage EN (fetch_wikivoyage_dump_parts in lib.sh, wiki_dump.py).
 regioni.tsv: righe "regionId<TAB>wikiTitle" (titolo EN Wikivoyage, da regions.sh).
 """
 import json

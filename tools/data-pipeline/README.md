@@ -168,14 +168,14 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   (le domande di storia e clima hanno una parola di `historyClimateWords` in `TravelAssistant.kt`, che altrimenti
   declassa quelle sezioni). Con `--emergency <quota>` (per esempio 0.01) aggiunge domande sui numeri di emergenza con la
   riga dell'app (`emergencyNumbersContext`, da `emergency-numbers.tsv`) in testa al contesto e come risposta, e il
-  rifiuto per le regioni senza numero centralizzato. Di default (`--real-questions 0.2`) nelle categorie Cosa vedere,
+  rifiuto per le regioni senza numero centralizzato. Di default (`--user-style-questions 0.2`) nelle categorie Cosa vedere,
   Alloggio, Sicurezza, Trasporti e Usi e costumi una domanda su cinque, tra positivi e rifiuti, è una domanda di viaggio
-  reale invece di un modello: `scripts/travel_questions.py` prende le prime domande delle conversazioni di
+  in stile utente invece di un modello: `scripts/travel_questions.py` prende le prime domande delle conversazioni di
   `soniawmeyer/travel-conversations-finetuning` della sola parte UltraChat (MIT; fuori Reddit e Dolly), tiene quelle
   senza nomi di luogo che toccano una sola categoria e le traduce in italiano con MarianMT per il dataset italiano;
   senza rete restano i modelli. I file di output sono
   `pocket_travel_sft.<versione>.<lang>.jsonl` e `ATTRIBUTION.<versione>.<lang>.tsv`: la versione è v10 con
-  `--nearby`, `--distances`, `--cities-db`, `--emergency` o le domande reali (il default), v9 senza nessuna di queste,
+  `--nearby`, `--distances`, `--cities-db`, `--emergency` o le domande in stile utente (il default), v9 senza nessuna di queste,
   oppure quella data con `--version`; un v9 che esiste già (lo usano i training) si sovrascrive solo con
   `--version v9`. Le fonti e la pulizia sono cambiate dopo il v9 generato: gli stessi argomenti non ridanno quel file. I test estesi
   (`generate_eval_set.py`, `generate_eval_set_en.py`) hanno in fondo le righe `pos_near`/`neg_near` e
@@ -197,7 +197,7 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   righe con errori e senza i duplicati.
   Nelle risposte estratte dalle guide, frasi di righe diverse (voci di elenco, sottosezioni) restano su righe diverse.
   `scripts/generate-sft.sh [--new | --old] --data <cartella>` fa tutto in sequenza per le due lingue: dataset, test
-  estesi e audit `--strict`, dall'export più recente in `<cartella>/dumps/` e dai `guides*.db`, `cities*.db` e
+  estesi e audit `--strict`, dal dump più recente in `<cartella>/dumps/` e dai `guides*.db`, `cities*.db` e
   riassunti delle vaccinazioni pubblicati nella stessa cartella (lo schema è nell'intestazione dello script). `--new` (il
   default) è la ricetta v10; `--old` quella del v9, scritta come `v9-rigenerato` per non sostituire il v9 dei training.
 - **Fonti del dataset SFT**: i titoli delle pagine di ogni regione stanno in `sft-sources.tsv` (`-` = pagina che non
@@ -210,18 +210,18 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   articoli originali di Wikipedia EN con gli stessi titoli, e traduce da Wikipedia IT solo i temi senza articolo inglese.
 - **Dump di Wikimedia**: tutti gli script usano i MediaWiki Content File Exports, uno al mese il 1°
   (`https://dumps.wikimedia.org/other/mediawiki_content_current/<wiki>/<AAAA-MM-GG>/xml/bzip2/`): una o più parti
-  `<wiki>-<AAAA-MM-GG>-p<da>p<a>.xml.bz2` per wiki e i loro sha256 in `SHA256SUMS`, scritto a export finito.
+  `<wiki>-<AAAA-MM-GG>-p<da>p<a>.xml.bz2` per wiki e i loro sha256 in `SHA256SUMS`, scritto a dump finito.
   `scripts/download-wikimedia-dumps.sh <cartella> [data]` scarica Wikivoyage IT ed EN e Wikipedia IT ed EN (19 parti,
-  circa 47 GB) in `<cartella>/<AAAA-MM-GG>/`, con ripresa e verifica sha256; senza data prende l'ultimo export completo
-  delle quattro wiki e, a download verificato, cancella le cartelle degli export più vecchi. Per `--dump-dir` servono
+  circa 47 GB) in `<cartella>/<AAAA-MM-GG>/`, con ripresa e verifica sha256; senza data prende l'ultimo dump completo
+  delle quattro wiki e, a download verificato, cancella le cartelle dei dump più vecchi. Per `--dump-dir` servono
   le quattro wiki dello stesso giorno nella stessa cartella (Wikipedia EN solo per il dataset inglese); il nome della
   cartella fa da data, se non si passa `--dump-date`. La data si scrive come mese e anno (`10-2026` o `2026-10`, anche
   con `/` o `.`: il giorno è sempre il 1°) oppure per intero (`2026-10-01`). Wikipedia non ha un indice: la prima
   generazione scorre le parti in parallelo (un processo per CPU) e salva gli articoli che servono in
   `<wiki>-<AAAA-MM-GG>.pages.json` accanto ai dump; le generazioni successive li leggono da lì. Le guide delle città (`build-cities-dump.sh`) scaricano invece l'ultimo
-  export completo di Wikivoyage (`fetch_wikivoyage_dump_parts` in `lib.sh`, quello del mese prima finché il nuovo non
-  ha `SHA256SUMS`), verificato con sha256 e tenuto nella cache di Actions fino all'export successivo; dopo un download
-  riuscito le parti degli export vecchi escono dalla cache.
+  dump completo di Wikivoyage (`fetch_wikivoyage_dump_parts` in `lib.sh`, quello del mese prima finché il nuovo non
+  ha `SHA256SUMS`), verificato con sha256 e tenuto nella cache di Actions fino al dump successivo; dopo un download
+  riuscito le parti dei dump vecchi escono dalla cache.
 - **Guide arricchite dall'altra lingua**: `scripts/translate_guides.py` confronta, per regione o città e categoria, la
   sezione con quella dell'altra lingua (assente, sotto 300 caratteri o lunga meno della metà) e traduce la più ricca con
   MarianMT (`opus-mt-tc-big-en-it` e `-it-en`, CC BY 4.0, CTranslate2 int8 su CPU): l'italiano dall'inglese e l'inglese

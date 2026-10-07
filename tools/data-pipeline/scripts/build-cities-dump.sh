@@ -6,7 +6,7 @@
 # federato/Regione/Territorio), lette poi da build-cities.sh (una regione alla volta) per generare
 # cities.db.
 #
-# Mai fatale per il chiamante (vedi publish-regions.yml): se il dump (l'ultimo export del 1° del mese, una cartella
+# Mai fatale per il chiamante (vedi publish-regions.yml): se il dump (l'ultimo dump del 1° del mese, una cartella
 # di parti) non si scarica o non passa la verifica sha256 (fetch_wikivoyage_dump_parts in lib.sh), o se nessuna pagina
 # IT si risolve, esce 1
 # senza scrivere nulla in <outDir> - le regioni di questo run restano senza citta' nuove

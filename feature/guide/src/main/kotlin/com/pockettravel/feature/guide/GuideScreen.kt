@@ -107,7 +107,7 @@ fun GuideScreen(
     LaunchedEffect(regionId) { viewModel.load(regionId) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showCities by rememberSaveable(regionId) { mutableStateOf(false) }
-    // citta' aperta direttamente da un chip della scheda Citta' (null = si apre l'elenco)
+    // citta' aperta direttamente da un chip del riquadro Citta' (null = si apre l'elenco)
     var initialCity by rememberSaveable(regionId) { mutableStateOf<String?>(null) }
     LaunchedEffect(regionId) { vaccinationViewModel.load(regionId) }
     val vaccinationState by vaccinationViewModel.uiState.collectAsStateWithLifecycle()
@@ -246,7 +246,7 @@ private fun GuideSectionsList(
                     )
                 }
             }
-            // Senza dati vaccinali (pacchetto guide vecchio) la scheda non compare.
+            // Senza dati vaccinali (pacchetto guide vecchio) il riquadro non compare.
             if (vaccination.available) {
                 item(key = "vaccinations") {
                     VaccinationCard(vaccination, onClick = onOpenVaccination, modifier = Modifier.padding(horizontal = Spacing.l))
@@ -301,8 +301,8 @@ private fun transportSummary(counts: Map<PoiCategory, Int>): String? =
         modes.singleOrNull() ?: modes.joinToString("\n") { "• $it" }.ifEmpty { null }
     }
 
-// Scheda delle guide delle citta': titolo con il numero di guide, le 5 citta' principali (per popolazione) in un
-// breve elenco che apre subito la loro guida, e "Vedi tutte" (o il tocco sulla scheda) per l'elenco completo.
+// Riquadro delle guide delle citta': titolo con il numero di guide, le 5 citta' principali (per popolazione) in un
+// breve elenco che apre subito la loro guida, e "Vedi tutte" (o il tocco sul riquadro) per l'elenco completo.
 @Composable
 private fun CitiesEntryCard(cities: List<String>, mainCities: List<MainCity>, onOpen: (city: String?) -> Unit, modifier: Modifier = Modifier) {
     Card(modifier = modifier.fillMaxWidth()) {
@@ -406,7 +406,7 @@ private fun CitiesDialog(
 ) {
     var selectedCity by rememberSaveable { mutableStateOf(initialCity) }
     val goBack = {
-        // Una citta' aperta da una scorciatoia della scheda: indietro torna alla guida della nazione, non all'elenco.
+        // Una citta' aperta da una scorciatoia del riquadro: indietro torna alla guida della nazione, non all'elenco.
         if (selectedCity != null && initialCity != null) {
             viewModel.clearCity()
             onDismiss()
@@ -514,7 +514,7 @@ private fun CityGuideContent(
     }
 }
 
-// Filtri per categoria + elenco delle sezioni: stessa vista sia per la guida del paese sia per il
+// Filtri per categoria + elenco delle sezioni: stessa vista sia per la guida della nazione sia per il
 // dettaglio di una citta' (GuideSectionCard e' l'unico posto che disegna una sezione).
 @Composable
 private fun SectionsWithFilters(
@@ -572,7 +572,7 @@ private fun SectionsWithFilters(
             itemsIndexed(visibleSections, key = { index, section -> "${section.category}_${section.title}_$index" }) { _, section ->
                 GuideSectionCard(section, modifier = Modifier.padding(horizontal = Spacing.l))
             }
-            // Le fonti una volta sola, in fondo, invece che sotto ogni scheda (attribuzione CC BY-SA).
+            // Le fonti una volta sola, in fondo, invece che sotto ogni riquadro (attribuzione CC BY-SA).
             val sourceUrls = visibleSections.map { it.sourceUrl }.filter { it.isNotBlank() }.distinct()
             if (sourceUrls.isNotEmpty()) {
                 item(key = "sources") {
@@ -583,7 +583,7 @@ private fun SectionsWithFilters(
     }
 }
 
-// numbers nullo: la regione non ha un numero di emergenza centralizzato, e la scheda lo dichiara.
+// numbers nullo: la regione non ha un numero di emergenza centralizzato, e il riquadro lo dichiara.
 @Composable
 private fun EmergencyNumbersCard(
     numbers: EmergencyNumbers?,
@@ -633,7 +633,7 @@ private fun EmergencyNumbersCard(
                         Text(text = label, style = MaterialTheme.typography.bodyMedium)
                         Text(text = number, style = MaterialTheme.typography.headlineSmall)
                     }
-                    // Nel riquadro da 48dp dei pulsanti delle ambasciate: tutte le icone della scheda in colonna.
+                    // Nel riquadro da 48dp dei pulsanti delle ambasciate: tutte le icone del riquadro in colonna.
                     Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                         Icon(imageVector = AppIcons.Call, contentDescription = null)
                     }
@@ -675,7 +675,7 @@ private fun EmbassiesSection(
     if (nearby.isEmpty()) {
         entries.forEach { entry -> EmbassyRow(entry, onOpenLink) }
     } else {
-        // Le piu' vicine alla posizione del telefono, con la distanza, poi tutte le altre del paese.
+        // Le piu' vicine alla posizione del telefono, con la distanza, poi tutte le altre della nazione.
         EmbassiesSubheading(stringResource(R.string.emergency_embassies_nearby))
         nearby.forEach { (entry, km) -> EmbassyRow(entry, onOpenLink, distanceKm = km) }
         val others = entries - nearby.map { it.first }.toSet()
@@ -799,7 +799,7 @@ private fun EmergencyNumbers.entries(): List<Pair<List<Int>, String>> {
 }
 
 // Forma comune a GuideSection e CitySection (stessa GuideCategory, titolo, corpo e fonte): un'unica
-// scheda/filtro per la guida del paese e per il dettaglio di una citta', senza dipendere da quale
+// riquadro/filtro per la guida del paese e per il dettaglio di una citta', senza dipendere da quale
 // dei due repository ha prodotto la sezione.
 internal data class SectionUi(val category: GuideCategory, val title: String, val body: String, val sourceUrl: String)
 
@@ -828,7 +828,7 @@ private fun GuideSectionCard(
     }
 }
 
-// Scheda finale con le pagine Wikivoyage (e Wikipedia, per Storia e Clima delle citta') da cui vengono
+// Riquadro finale con le pagine Wikivoyage (e Wikipedia, per Storia e Clima delle citta') da cui vengono
 // le sezioni mostrate: titolo della pagina (dall'URL) e sito, ognuna apribile. La licenza sta nella
 // schermata Licenze.
 @Composable
@@ -931,7 +931,7 @@ private fun GuideCategory.displayName(): Int = when (this) {
     GuideCategory.CLIMA -> R.string.category_climate
 }
 
-// Icona specifica per categoria, usata sia nelle schede sia nei filtri.
+// Icona specifica per categoria, usata sia nei riquadri sia nei filtri.
 @Composable
 private fun GuideCategory.icon(): ImageVector = ImageVector.vectorResource(
     when (this) {
@@ -957,7 +957,7 @@ private fun GuideCategory.icon(): ImageVector = ImageVector.vectorResource(
 // Tre toni dello schema (validi anche con i colori dinamici, in chiaro e scuro) per gruppi di
 // significato: logistica in primary, vita locale e cultura in secondary, attenzione in tertiary.
 // Colori pieni e non i container: con alcuni temi i tre container chiari sembrano uguali. Le coppie
-// colore/onColore garantiscono il contrasto AA; il rosso resta alla scheda emergenze.
+// colore/onColore garantiscono il contrasto AA; il rosso resta al riquadro emergenze.
 @Composable
 private fun GuideCategory.tone(): Pair<Color, Color> {
     val colors = MaterialTheme.colorScheme

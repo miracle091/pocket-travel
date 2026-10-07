@@ -21,9 +21,9 @@ class NavigationExtractionTest {
     }
 
     @Test
-    fun `model can shorten the rules destination, mode stays from the rules`() {
-        val rules = NavigationRequest("vedere il Colosseo domani", NavigationRequestMode.WALK)
-        assertEquals(NavigationRequest("Colosseo", NavigationRequestMode.WALK), mergeNavigationRequest(rules, "Colosseo"))
+    fun `model can shorten the rules destination, profile stays from the rules`() {
+        val rules = NavigationRequest("vedere il Colosseo domani", NavigationRequestProfile.WALK)
+        assertEquals(NavigationRequest("Colosseo", NavigationRequestProfile.WALK), mergeNavigationRequest(rules, "Colosseo"))
     }
 
     @Test

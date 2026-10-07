@@ -10,7 +10,7 @@ import javax.inject.Singleton
 
 /**
  * Il paese (codice ISO 3166-1 alpha-2 minuscolo) in cui cade un punto, dai confini Natural Earth gia' nell'app
- * per la mappa del mondo (asset world/countries.geojson): offline, senza servizi di geocodifica. Da chiamare
+ * per la mappa delle nazioni (asset world/countries.geojson): offline, senza servizi di geocodifica. Da chiamare
  * fuori dal main thread (la prima volta legge 1,6 MB).
  */
 @Singleton

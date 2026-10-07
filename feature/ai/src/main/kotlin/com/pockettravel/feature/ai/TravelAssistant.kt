@@ -60,13 +60,13 @@ sealed interface AssistantProgress {
 }
 
 /**
- * Orchestrazione dell'assistente nelle due modalità: "Sul dispositivo" usa il RAG semplice sulle
- * guide del paese e delle città in region.db (ricerca full-text come CONTESTO del prompt locale),
+ * Orchestrazione dell'assistente nei due motori: "Sul dispositivo" usa il RAG semplice sulle
+ * guide della nazione e delle città in region.db (ricerca full-text come CONTESTO del prompt locale),
  * più la nota personale più pertinente se ce n'è una e, per le domande su cosa c'è "qui vicino" o sui mezzi
  * pubblici, i POI e le prossime partenze attorno all'ultima posizione nota, e per la distanza tra due citta' quella
  * calcolata dalle coordinate (e su strada con la rete stradale scaricata); "Online" invia solo la domanda a un servizio
  * esterno con la chiave personale dell'utente, senza contesto RAG e senza note — per questo non
- * produce citazioni di sezione. In entrambe le modalità, le sezioni trovate su dogane/salute
+ * produce citazioni di sezione. Con entrambi i motori, le sezioni trovate su dogane/salute
  * attivano il banner "Verifica sempre sulla fonte ufficiale" con link diretto alla fonte pertinente.
  */
 class TravelAssistant @Inject constructor(
@@ -207,7 +207,7 @@ class TravelAssistant @Inject constructor(
     }
 
     /**
-     * Per una domanda sui vaccini, l'esito calcolato per il viaggio verso il paese della regione dalla partenza
+     * Per una domanda sui vaccini, l'esito calcolato per il viaggio verso la nazione della regione dalla partenza
      * scelta nella schermata Vaccinazioni (altrimenti dalla nazionalita')
      * (stesso testo che il dataset di training mette nel contesto), prima delle sezioni della guida: cosi' il
      * modello locale non deve indovinare obblighi e consigli. Null se la domanda non parla di vaccini, se mancano
@@ -233,8 +233,7 @@ class TravelAssistant @Inject constructor(
      * domanda non parla di emergenze o se la regione non ha numeri (nessun numero centralizzato o pacchetto guide vecchio).
      */
     private suspend fun emergencySection(regionId: String, question: String, language: String): AssistantSection? {
-        if (!isEmergencyQuestion(question)) return null
-        val numbers = emergencyNumbersRepository.forRegion(regionId) ?: return null
+        val numbers = (if (isEmergencyQuestion(question)) emergencyNumbersRepository.forRegion(regionId) else null) ?: return null
         return AssistantSection(
             body = emergencyNumbersContext(numbers, language),
             category = GuideCategory.FATTI_RAPIDI,
@@ -518,7 +517,7 @@ private fun TransitMode.promptName(en: Boolean): String = when (this) {
     TransitMode.OTHER -> if (en) "Line" else "Linea"
 }
 
-/** Sezione di contesto per il prompt, dalla guida del paese o da quella di una città. */
+/** Sezione di contesto per il prompt, dalla guida della nazione o da quella di una città. */
 internal data class AssistantSection(
     val body: String,
     val category: GuideCategory,
@@ -547,11 +546,11 @@ private fun CitySection.toAssistantSection(language: String): AssistantSection {
 }
 
 /**
- * Unisce i candidati della guida del paese e delle guide delle città in un'unica classifica BM25 con le statistiche
+ * Unisce i candidati della guida della nazione e delle guide delle città in un'unica classifica BM25 con le statistiche
  * delle due tabelle sommate (FtsCorpusStats: con quelle di ognuna una parola qualunque varrebbe molto di più nelle
- * poche sezioni del paese che nelle centinaia delle città), tenendo solo le [limit] sezioni migliori in totale.
- * Con [countryFirst] true (la domanda non nomina una città) le sezioni del paese vengono prima di quelle delle città,
- * con false (la nomina) dopo: senza il nome della città nella query (buildFtsQuery) le sezioni del paese
+ * poche sezioni della nazione che nelle centinaia delle città), tenendo solo le [limit] sezioni migliori in totale.
+ * Con [countryFirst] true (la domanda non nomina una città) le sezioni della nazione vengono prima di quelle delle città,
+ * con false (la nomina) dopo: senza il nome della città nella query (buildFtsQuery) le sezioni della nazione
  * scavalcherebbero le sue con le parole generiche della domanda ("treno", "musei"); con null conta solo il punteggio.
  * Senza [historyOrClimate] (isHistoryOrClimateQuestion) Storia e Clima valgono WIKIPEDIA_OFF_TOPIC_WEIGHT.
  * La ricerca (con buildFtsQuery, namedCities, focusStems e selectContext) e' replicata in

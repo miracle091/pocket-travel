@@ -132,15 +132,15 @@ fun NavigationPlannerScreen(
     viewModel: NavigationPlannerViewModel,
     // La navigazione passo passo, nella stessa scheda: "Avvia" la fa partire, "Termina" torna qui.
     navigationViewModel: NavigationViewModel,
-    // Senza i Percorsi della regione: avvia il download (l'hub lo sa fare), il ricalcolo poi e' automatico.
+    // Senza la rete stradale della regione: avvia il download (l'hub lo sa fare), il ricalcolo poi e' automatico.
     // Con gli id di altre regioni: quelle del catalogo tra partenza e arrivo (vuota = la regione aperta).
-    // carOnlyAllowed: il mezzo e' l'auto, quindi bastano i percorsi "solo auto" se l'utente li ha scelti.
+    // carOnlyAllowed: il mezzo e' l'auto, quindi basta la rete stradale solo auto se l'utente li ha scelti.
     onDownloadRouting: (regionIds: List<String>, carOnlyAllowed: Boolean) -> Unit,
     // Avanzamento 0..1 del download in corso, null se nessuno: la barra come nell'elenco delle regioni.
     downloadProgress: Float?,
     // Il download e' fallito (lavoro finito in errore o catalogo non raggiungibile): si puo' riprovare.
     downloadFailed: Boolean,
-    // Le regioni senza Percorsi che coprono i punti (partenza, linea in mezzo, arrivo), in ordine, dal catalogo che il
+    // Le regioni senza rete stradale che coprono i punti (partenza, linea in mezzo, arrivo), in ordine, dal catalogo che il
     // Navigatore non vede (core:sync); vuota se non se ne trova nessuna (anche offline).
     findMissingRegions: suspend (points: List<RoutePoint>, usableRouting: Set<String>) -> List<MissingRegion>,
 ) {
@@ -159,7 +159,7 @@ fun NavigationPlannerScreen(
     val routingInstalled by viewModel.routingInstalled.collectAsStateWithLifecycle()
     val arriveBy by viewModel.arriveBy.collectAsStateWithLifecycle()
     val reminder by viewModel.reminder.collectAsStateWithLifecycle()
-    // Se partenza, arrivo o la linea in mezzo escono dalle zone dei Percorsi: quali regioni mancano. Si rilegge quando se ne installa una.
+    // Se partenza, arrivo o la linea in mezzo escono dalle zone della rete stradale: quali regioni mancano. Si rilegge quando se ne installa una.
     val routingRegionIds by viewModel.routingRegionIds.collectAsStateWithLifecycle()
     val noRoutingData = (preview as? PlannerPreview.Unavailable)?.result == RouteResult.NoRoutingData
     var missingRegions by remember { mutableStateOf(emptyList<MissingRegion>()) }
@@ -214,15 +214,15 @@ fun NavigationPlannerScreen(
             }
         }
         BackHandler(onBack = navigationViewModel::stop)
-        // Percorsi mancanti a meta' strada: come nell'anteprima, la regione da scaricare; a download finito si riprova da soli.
-        val guidanceNoRouting = (navigationState as? NavigationUiState.Unavailable)?.result == RouteResult.NoRoutingData
-        var guidanceMissing by remember { mutableStateOf(emptyList<MissingRegion>()) }
-        LaunchedEffect(guidanceNoRouting, routingRegionIds) {
-            guidanceMissing = if (guidanceNoRouting) findMissingRegions(routePoints(viewModel.startPoint(), guidingTarget.point), routingRegionIds) else emptyList()
+        // Rete stradale mancante a meta' strada: come nell'anteprima, la regione da scaricare; a download finito si riprova da soli.
+        val navigationNoRouting = (navigationState as? NavigationUiState.Unavailable)?.result == RouteResult.NoRoutingData
+        var navigationMissing by remember { mutableStateOf(emptyList<MissingRegion>()) }
+        LaunchedEffect(navigationNoRouting, routingRegionIds) {
+            navigationMissing = if (navigationNoRouting) findMissingRegions(routePoints(viewModel.startPoint(), guidingTarget.point), routingRegionIds) else emptyList()
         }
         var seenRoutingRegionIds by remember { mutableStateOf(routingRegionIds) }
         LaunchedEffect(routingRegionIds) {
-            if (guidanceNoRouting && (routingRegionIds - seenRoutingRegionIds).isNotEmpty()) navigationViewModel.retry()
+            if (navigationNoRouting && (routingRegionIds - seenRoutingRegionIds).isNotEmpty()) navigationViewModel.retry()
             seenRoutingRegionIds = routingRegionIds
         }
         LaunchedEffect(navigationState) {
@@ -251,10 +251,10 @@ fun NavigationPlannerScreen(
             walkingHaptics = walkingHaptics,
             onStreetNames = navigationViewModel::onStreetNames,
             drivingSide = drivingSide,
-            missingRegions = guidanceMissing,
+            missingRegions = navigationMissing,
             downloadFailed = downloadFailed,
             downloadProgress = downloadProgress,
-            onDownloadRouting = { onDownloadRouting(guidanceMissing.map { it.regionId }, navigationMode == RouteProfile.CAR) },
+            onDownloadRouting = { onDownloadRouting(navigationMissing.map { it.regionId }, navigationMode == RouteProfile.CAR) },
         )
         return
     }
@@ -345,7 +345,7 @@ internal data class NavigationPlannerState(
     val routingInstalled: Boolean = true,
     val arriveBy: LocalDateTime? = null,
     val reminder: LocalDateTime? = null,
-    // Le regioni del catalogo senza Percorsi tra partenza e arrivo, in ordine (vuota se non si sono trovate).
+    // Le regioni del catalogo senza rete stradale tra partenza e arrivo, in ordine (vuota se non si sono trovate).
     val missingRegions: List<MissingRegion> = emptyList(),
     val downloadProgress: Float? = null,
     val downloadFailed: Boolean = false,
@@ -375,7 +375,7 @@ internal class NavigationPlannerActions(
 )
 
 /**
- * Il Navigatore fuori dalla guida: la ricerca a tutto schermo o la mappa con il pannello in alto e la scheda in
+ * Il Navigatore fuori dalla guida: la ricerca a tutto schermo o la mappa con il pannello in alto e il riquadro in
  * basso. La mappa MapLibre e' uno slot ([map]: regioni, percorso, margini in pixel e modificatore), cosi' i test
  * non creano una vista GL.
  */
@@ -415,7 +415,7 @@ internal fun NavigationPlannerContent(
             sheetState.snackbarHostState.showSnackbar(resources.getString(R.string.navigation_arrived_at, name))
         }
     }
-    // Altezza della scheda in alto: la mappa inquadra il percorso nello spazio libero sotto.
+    // Altezza del riquadro in alto: la mappa inquadra il percorso nello spazio libero sotto.
     var overlayHeightPx by remember { mutableStateOf(0) }
     val ready = state.preview as? PlannerPreview.Ready
     BottomSheetScaffold(
@@ -605,7 +605,7 @@ private fun PlannerSheet(
     downloadFailed: Boolean,
     onDownloadRouting: () -> Unit,
     routeProfile: RouteProfile,
-    // Le regioni del catalogo senza Percorsi tra partenza e arrivo, in ordine (vuota se non si sono trovate).
+    // Le regioni del catalogo senza rete stradale tra partenza e arrivo, in ordine (vuota se non si sono trovate).
     missingRegions: List<MissingRegion>,
     wheelchairOptions: (@Composable () -> Unit)?,
 ) {
@@ -614,7 +614,7 @@ private fun PlannerSheet(
             to == null -> Recents(recents, onRecent, onRemoveRecent, onClearRecents)
             preview is PlannerPreview.Ready -> RouteSummary(preview.route, startsFromMe, onStart, wheelchairOptions, arriveBy, reminder, onArriveByChange, onSetReminder)
             // Il download si propone se il catalogo dice quali regioni mancano tra partenza e arrivo, o se la regione aperta
-            // non ha i Percorsi; altrimenti "nessun dato" vuol dire fuori dalle zone scaricate, e riscaricare non cambierebbe nulla.
+            // non ha la rete stradale; altrimenti "nessun dato" vuol dire fuori dalle zone scaricate, e riscaricare non cambierebbe nulla.
             preview is PlannerPreview.Unavailable && preview.result == RouteResult.NoRoutingData && missingRegions.isNotEmpty() ->
                 MissingRoutingCard(missingRegions, downloadProgress, downloadFailed, onDownloadRouting)
             preview is PlannerPreview.Unavailable && preview.result == RouteResult.NoRoutingData && !routingInstalled -> {
@@ -724,8 +724,8 @@ private fun Recents(recents: List<NavigationPlace>, onRecent: (NavigationPlace) 
         )
     }
     if (recents.isEmpty()) return
-    // Righe larghe quanto la scheda: l'icona allineata al titolo "Recenti", la X al cestino (un ListItem aggiungerebbe
-    // il suo margine a quello della scheda).
+    // Righe larghe quanto il riquadro: l'icona allineata al titolo "Recenti", la X al cestino (un ListItem aggiungerebbe
+    // il suo margine a quello del riquadro).
     recents.forEach { place ->
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1232,7 +1232,7 @@ private fun lineString(points: List<RoutePoint>): LineString =
 
 private const val PLANNER_ROUTE_SOURCE = "planner-route"
 
-// Maniglia della scheda e riga "Recenti": quanto resta visibile della scheda senza meta.
+// Maniglia del riquadro e riga "Recenti": quanto resta visibile del riquadro senza meta.
 private val RECENTS_PEEK_HEIGHT = 112.dp
 private const val PLANNER_START_SOURCE = "planner-start"
 private const val PLANNER_END_SOURCE = "planner-end"
@@ -1242,7 +1242,7 @@ private const val PLANNER_POI_ICON = "icon"
 private const val PLANNER_POI_ICON_PREFIX = "planner-poi-"
 private const val METERS_PER_DEGREE = 111_320.0
 
-// Partenza, arrivo e la linea retta in mezzo, dalla partenza: la prima regione senza Percorsi e' la piu' vicina
+// Partenza, arrivo e la linea retta in mezzo, dalla partenza: la prima regione senza rete stradale e' la piu' vicina
 // (da San Marino a Riga l'Italia, poi l'Austria...). Senza partenza nota solo l'arrivo.
 private fun routePoints(start: RoutePoint?, destination: RoutePoint?): List<RoutePoint> =
     if (start != null && destination != null) straightLinePoints(start, destination) else listOfNotNull(start, destination)

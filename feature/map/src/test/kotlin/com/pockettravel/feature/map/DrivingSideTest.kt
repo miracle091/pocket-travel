@@ -41,7 +41,7 @@ class DrivingSideTest {
     }
 
     @Test
-    fun `un percorso che entra in un paese con l'altro lato avvisa`() {
+    fun `un percorso che entra in una nazione con l'altro lato avvisa`() {
         // Francia -> Regno Unito (tunnel della Manica) per un italiano.
         assertEquals(DrivingSide.LEFT, drivingSideWarning(listOf("fr", "gb"), "IT"))
     }

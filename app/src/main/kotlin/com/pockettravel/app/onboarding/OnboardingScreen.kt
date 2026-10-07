@@ -126,7 +126,7 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
             ) { current ->
                 when (current) {
                     OnboardingStep.WELCOME -> OnboardingWelcomeStep(viewModel)
-                    OnboardingStep.DESTINATIONS -> OnboardingRegionStep(viewModel, selection, regionViewModel)
+                    OnboardingStep.DESTINATIONS -> OnboardingDestinationsStep(viewModel, selection, regionViewModel)
                     OnboardingStep.READY -> OnboardingReadyStep(viewModel, startedDownloads)
                 }
             }

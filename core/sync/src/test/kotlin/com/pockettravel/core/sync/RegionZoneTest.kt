@@ -39,7 +39,7 @@ class RegionZoneTest {
     }
 
     @Test
-    fun `percorsi solo dalle tile 5x5 che toccano la zona`() {
+    fun `rete stradale solo dalle tile 5x5 che toccano la zona`() {
         assertEquals(listOf("E10_N40.rd5"), italy.restrictedTo(rome).routing.files.map { it.name })
         // Zona a cavallo di 45 gradi nord: due tile.
         assertEquals(listOf("E10_N40.rd5", "E10_N45.rd5"), italy.restrictedTo(RegionZone(11.0, 44.5, 12.0, 45.5)).routing.files.map { it.name })

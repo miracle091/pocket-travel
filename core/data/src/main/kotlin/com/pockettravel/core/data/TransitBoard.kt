@@ -77,7 +77,7 @@ data class TransitFeedInfo(
     }
 }
 
-/** Che cosa mostrare nella scheda di una fermata. */
+/** Che cosa mostrare nel riquadro di una fermata. */
 sealed interface TransitBoard {
     /** Nessuna rete installata ha fermate vicino al punto. */
     data object NoStops : TransitBoard

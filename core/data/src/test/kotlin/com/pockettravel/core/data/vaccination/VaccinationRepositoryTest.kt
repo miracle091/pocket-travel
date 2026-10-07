@@ -146,7 +146,7 @@ class VaccinationRepositoryTest {
     }
 
     @Test
-    fun `un livello consigliato sconosciuto salta la riga`() {
+    fun `un livello raccomandato sconosciuto salta la riga`() {
         assertTrue(map(recommended = listOf(recommended("HEPA", level = "ALWAYS"))).recommended.isEmpty())
     }
 
