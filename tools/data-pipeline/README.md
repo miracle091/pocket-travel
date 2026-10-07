@@ -173,9 +173,19 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   in stile utente invece di un modello: `scripts/travel_questions.py` prende le prime domande delle conversazioni di
   `soniawmeyer/travel-conversations-finetuning` della sola parte UltraChat (MIT; fuori Reddit e Dolly), tiene quelle
   senza nomi di luogo che toccano una sola categoria e le traduce in italiano con MarianMT per il dataset italiano;
-  senza rete restano i modelli. I file di output sono
+  senza rete restano i modelli. Di default (`--city-daily-life`) le città hanno anche la sezione "Informazioni utili" /
+  "Cope" (Vita quotidiana, come in `cities.db` dell'app), con in più le città oltre `--cities` che la hanno (solo quella
+  domanda, nessun rifiuto): nel v9 la categoria aveva solo le sezioni dei paesi e quasi tanti rifiuti quanti positivi. Le
+  sue parole chiave in più (uffici turistici, farmacie, consolati) valgono anche per i paesi, e i rifiuti delle città
+  hanno nel contesto solo sezioni che non trattano la categoria. Di
+  default (`--balanced-negatives`) la categoria di un rifiuto si sceglie in proporzione ai positivi della categoria
+  (paesi) o alle sezioni che la trattano (città), invece che con la stessa probabilità per tutte. Di default
+  (`--clear-questions`) restano fuori le domande che una sezione di un'altra categoria soddisfa altrettanto ("Quali
+  informazioni pratiche mi servono…") e le domande sui vaccini tra quelle sulla salute: nell'app portano nel contesto il
+  riassunto delle vaccinazioni, quindi sono domande di Vaccinazioni. I file di output sono
   `pocket_travel_sft.<versione>.<lang>.jsonl` e `ATTRIBUTION.<versione>.<lang>.tsv`: la versione è v10 con
-  `--nearby`, `--distances`, `--cities-db`, `--emergency` o le domande in stile utente (il default), v9 senza nessuna di queste,
+  `--nearby`, `--distances`, `--cities-db`, `--emergency`, le domande in stile utente, `--city-daily-life`,
+  `--balanced-negatives` o `--clear-questions` (i default), v9 senza nessuna di queste,
   oppure quella data con `--version`; un v9 che esiste già (lo usano i training) si sovrascrive solo con
   `--version v9`. Le fonti e la pulizia sono cambiate dopo il v9 generato: gli stessi argomenti non ridanno quel file. I test estesi
   (`generate_eval_set.py`, `generate_eval_set_en.py`) hanno in fondo le righe `pos_near`/`neg_near` e

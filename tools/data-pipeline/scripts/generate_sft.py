@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Genera il dataset SFT v10 (v9 con --user-style-questions 0 e senza le altre opzioni nuove) in italiano o in inglese con lo stesso metodo, cosi' i due dataset restano equivalenti:
+"""Genera il dataset SFT v10 (v9 con --user-style-questions 0, --no-city-daily-life, --no-balanced-negatives,
+--no-clear-questions e senza le altre opzioni nuove) in italiano o in inglese con lo stesso metodo, cosi' i due dataset restano equivalenti:
 stesse fonti (Wikivoyage IT ed EN dello stesso dump, Wikipedia IT o EN per le categorie deboli, fatti rapidi e note), stessa
 composizione per categoria, stessi tipi di domanda, stesso rapporto di rifiuti. Cambiano solo le tabelle della lingua
 (domande, parole chiave, rifiuto, prompt dell'app), prese da generate_sft_dataset.py (italiano) e
@@ -13,9 +14,15 @@ hanno "translated": true e ATTRIBUTION indica la traduzione automatica (CC BY-SA
 
 - positivi: sezione giusta + 0-2 sezioni distraenti, risposta = frasi della sezione (estrattivo); una risposta senza
   parole chiave della categoria o della domanda si scarta;
-- negativi: categoria qualsiasi con le sole sezioni di altre categorie che non la trattano (bilanciati tra le
-  categorie), domanda fuori tema, contesto di fallback dell'app; una quota con il contesto nell'altra lingua;
-- citta': --cities pagine della lingua del dataset, fino a --city-questions sezioni per citta';
+- negativi: categoria qualsiasi con le sole sezioni di altre categorie che non la trattano (di default in proporzione
+  ai positivi della categoria, --balanced-negatives), domanda fuori tema, contesto di fallback dell'app; una quota con il
+  contesto nell'altra lingua;
+- citta': --cities pagine della lingua del dataset, fino a --city-questions sezioni per citta'; di default
+  (--city-daily-life) anche la sezione VITA_QUOTIDIANA (Informazioni utili / Cope), con le citta' oltre --cities che la
+  hanno (solo quella domanda, nessun rifiuto); le sue radici in piu' (uffici turistici, farmacie, consolati) valgono anche
+  per i paesi, e i rifiuti delle citta' hanno nel contesto solo sezioni che non trattano la categoria;
+- di default (--clear-questions) niente domande che una sezione di un'altra categoria soddisfa (AMBIGUOUS_QUESTIONS) ne'
+  domande sui vaccini in SALUTE (sono di VACCINAZIONI, come nell'app);
 - fatti rapidi e note personali con --guides-db (guides.db per l'italiano, guides-en.db per l'inglese);
 - con --nearby, domande su cosa c'e' qui vicino e sulle prossime partenze con i blocchi di contesto dell'app
   (sft_nearby.py, dati sintetici), per una quota del dataset finale;
@@ -39,8 +46,10 @@ per regione; la regione e' il nome del file fino al primo "--" (<regionId>--<ver
 release) oppure si scrive <regionId>=<file>.
 Output in data/sft/: pocket_travel_sft.<versione>.<lang>.jsonl, ATTRIBUTION.<versione>.<lang>.tsv ed EXCLUDED.<versione>.<lang>.tsv
 (le fonti e le sezioni rimaste fuori e perche', vedi write_excluded di generate_sft_dataset.py); traduzioni in cache in
-raw/translations.<src>-<tgt>.jsonl. Senza --version: v10 con --nearby, --distances, --cities-db, --emergency o
---user-style-questions diverso da 0 (il default), altrimenti v9; il v9, che usano i training, si sovrascrive solo dando
+raw/translations.<src>-<tgt>.jsonl. Senza --version: v10 con --nearby, --distances, --cities-db, --emergency,
+--user-style-questions diverso da 0, --city-daily-life, --balanced-negatives o --clear-questions (i default),
+altrimenti v9; il v9, che
+usano i training, si sovrascrive solo dando
 --version v9. Fonti e pulizia sono cambiate dal v9 generato: gli stessi argomenti non ridanno quel file.
 """
 import argparse
@@ -97,6 +106,61 @@ LANGS = {
         wiki_questions=en.WIKI_QUESTIONS, other_wiki_questions=it.WIKI_QUESTIONS, wiki_keywords=en.WIKI_KEYWORDS),
 }
 OTHER = {"it": "en", "en": "it"}
+
+# VITA_QUOTIDIANA delle citta' (--city-daily-life, v10): le sezioni "Informazioni utili" (IT) e "Cope" (EN) delle pagine
+# delle citta', che GenerateCities.kt mette in cities.db e l'assistente quindi vede. Nel v9 la categoria aveva solo le
+# sezioni dei paesi ("Tenersi informati"/"Cope", in meno di un quarto delle pagine): IT 364 positivi e 288 rifiuti, EN 263
+# e 294. Le sezioni delle citta' parlano di uffici turistici, farmacie e consolati piu' che di giornali, da qui le radici in
+# piu'. Domande generiche come le altre e disgiunte da PARA/PARA_CITY di generate_eval_set*.py.
+DAILY_LIFE = "VITA_QUOTIDIANA"
+CITY_DAILY_LIFE = {
+    # domande sui servizi di cui parlano le sezioni: una domanda generica ("Consigli utili per chi visita X?") la
+    # soddisferebbe anche una sezione di un'altra categoria, e il suo rifiuto sarebbe ambiguo (vedi AMBIGUOUS_QUESTIONS)
+    "it": dict(heading="informazioni utili",
+               questions=["Dove trovo un ufficio turistico o una farmacia a {r}?",
+                          "Ci sono uffici informazioni, farmacie o consolati a {r}?"],
+               keywords=["ufficio turistic", "uffici turistic", "ufficio del turismo", "farmaci", "ospedal", "consolat",
+                         "ambasciat", "lavanderi", "uffici postal", "ufficio postal"]),
+    "en": dict(heading="cope",
+               questions=["Where can I find a tourist office or a pharmacy in {r}?",
+                          "Are there tourist information offices or consulates in {r}?"],
+               keywords=["tourist office", "tourist information", "visitor cent", "information cent", "pharmac", "hospital",
+                         "consulat", "embass", "laundr", "post office"]),
+}
+
+
+def with_city_daily_life(L, lang):
+    """Le tabelle della lingua [lang] con la sezione VITA_QUOTIDIANA delle citta': titolo della sezione, domande (anche
+    quelle dell'altra lingua, per --other-lang) e radici in piu'."""
+    own, other = CITY_DAILY_LIFE[lang], CITY_DAILY_LIFE[OTHER[lang]]
+    return {**L, "city_headings": {**L["city_headings"], own["heading"]: DAILY_LIFE},
+            "city_questions": {**L["city_questions"], DAILY_LIFE: own["questions"]},
+            "other_city_questions": {**L["other_city_questions"], DAILY_LIFE: other["questions"]},
+            "keywords": {**L["keywords"], DAILY_LIFE: L["keywords"][DAILY_LIFE] + own["keywords"]}}
+
+
+# Domande che una sezione di un'altra categoria soddisfa quanto quella giusta (--clear-questions, v10): ogni sezione e'
+# "informazione pratica", e "senza perdersi" e' anche Cosa vedere. Un positivo prende frasi qualsiasi e un rifiuto ha la
+# risposta nel contesto.
+AMBIGUOUS_QUESTIONS = {"Quali informazioni pratiche mi servono in {r}?", "Consigli pratici per la vita di tutti i giorni in {r}.",
+                       "What practical info do I need for {r}?", "Come si visita {r} senza perdersi?"}
+
+
+def with_clear_questions(L):
+    """Le tabelle della lingua senza AMBIGUOUS_QUESTIONS e senza domande sui vaccini in SALUTE: con una parola di
+    VACC_WORDS l'app mette nel contesto il riassunto delle vaccinazioni (isVaccinationQuestion), quindi sono domande di
+    VACCINAZIONI. Nel v9 "Devo fare vaccinazioni per X?" in SALUTE aveva quasi sempre per risposta frasi su acqua e
+    ospedali (IT 110 righe, EN 74), mentre VACCINAZIONI rifiutava domande quasi uguali."""
+    def clear(pools):
+        return {cat: [q for q in qs if q not in AMBIGUOUS_QUESTIONS and not (cat == "SALUTE" and VACC_WORDS.search(q))]
+                for cat, qs in pools.items()}
+    return {**L, **{k: clear(L[k]) for k in ("questions", "other_questions", "city_questions", "other_city_questions")}}
+
+
+def weighted_category(rng, cats, counts):
+    """Una categoria di [cats] con probabilita' proporzionale a [counts] (almeno 1 ciascuna): i rifiuti seguono quanto la
+    categoria e' presente, invece di darne lo stesso numero a ognuna (--balanced-negatives)."""
+    return rng.choices(cats, weights=[max(counts[c], 1) for c in cats])[0]
 
 # Vaccinazioni (--vaccinations): riassunti di VaccinationSummaryExport (toSummaryText dell'app, lo stesso testo che
 # TravelAssistant mette nel contesto per le domande sui vaccini). Domande disgiunte da PARA di generate_eval_set*.py.
@@ -643,9 +707,19 @@ def main():
     ap.add_argument("--user-style-questions", type=float, default=0.2,
                     help="quota delle domande di USER_STYLE_QUESTION_CATS presa dalle domande in stile utente di "
                          "travel_questions.py (0 = solo i modelli, come il v9)")
+    ap.add_argument("--city-daily-life", action=argparse.BooleanOptionalAction, default=True,
+                    help="domande VITA_QUOTIDIANA sulle sezioni Informazioni utili/Cope delle citta', anche di citta' oltre "
+                         "--cities che hanno solo quella (--no-city-daily-life: come il v9)")
+    ap.add_argument("--balanced-negatives", action=argparse.BooleanOptionalAction, default=True,
+                    help="categoria dei rifiuti in proporzione ai positivi (paesi) o alle sezioni (citta') della categoria "
+                         "(--no-balanced-negatives: stessa probabilita' per tutte, come il v9)")
+    ap.add_argument("--clear-questions", action=argparse.BooleanOptionalAction, default=True,
+                    help="senza le domande ambigue (AMBIGUOUS_QUESTIONS) e senza domande sui vaccini in SALUTE "
+                         "(--no-clear-questions: come il v9)")
     ap.add_argument("--version", help="versione nel nome dei file di output (default: v10 con --nearby, --distances, "
-                                      "--cities-db, --emergency o --user-style-questions diverso da 0, altrimenti v9); "
-                                      "serve per sovrascrivere un v9 che esiste gia'")
+                                      "--cities-db, --emergency, --user-style-questions diverso da 0, --city-daily-life, "
+                                      "--balanced-negatives o --clear-questions, altrimenti v9); serve per sovrascrivere "
+                                      "un v9 che esiste gia'")
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
     if a.distances and not a.cities:
@@ -654,9 +728,14 @@ def main():
         ap.error("--distances, --nearby ed --emergency sono quote: tra 0 e 1 escluso")
     if missing := [p for _, p in map(city_db_region, a.cities_db or []) if not Path(p).is_file()]:
         ap.error(f"--cities-db: file inesistenti: {', '.join(map(str, missing))}")
-    version = a.version or ("v10" if a.nearby or a.distances or a.cities_db or a.emergency or a.user_style_questions else "v9")
+    version = a.version or ("v10" if a.nearby or a.distances or a.cities_db or a.emergency or a.user_style_questions
+                            or a.city_daily_life or a.balanced_negatives or a.clear_questions else "v9")
     if version == "v9" and not a.version and (it.OUT / f"pocket_travel_sft.v9.{a.lang}.jsonl").exists():
         ap.error(f"pocket_travel_sft.v9.{a.lang}.jsonl esiste gia' (lo usano i training): per sovrascriverlo dai --version v9")
+    if a.city_daily_life:  # tutte e due le lingue: i rifiuti controllano anche le radici dell'altra lingua
+        LANGS.update({k: with_city_daily_life(v, k) for k, v in LANGS.items()})
+    if a.clear_questions:
+        LANGS.update({k: with_clear_questions(v) for k, v in LANGS.items()})
     L, lang, other = LANGS[a.lang], a.lang, OTHER[a.lang]
     rng = random.Random(a.seed)
     (it.OUT / "raw").mkdir(parents=True, exist_ok=True)
@@ -881,6 +960,7 @@ def main():
             if pos == pos_before:
                 excluded.append((rid, source_of(body, tr), cat, "nessuna-risposta"))
     n_neg, ids, tries, neg = int(pos * a.negatives), list(data), 0, 0
+    country_pos = Counter(r["category"] for r in rows)  # qui solo i positivi dei paesi
     while neg < n_neg and tries < n_neg * 20:
         tries += 1
         rid = rng.choice(ids)
@@ -893,7 +973,8 @@ def main():
             q, cat, ans = off_topic_question(), "OFF", refusal(L["off_topic_topic"])
             context = it.make_context(rng, rng.sample([b for _, b in bodies_all], min(len(bodies_all), rng.randint(1, 3))), q, name)
         else:
-            cat = rng.choice(list(L["questions"]))
+            cats = list(L["questions"])
+            cat = weighted_category(rng, cats, country_pos) if a.balanced_negatives else rng.choice(cats)
             q, ans = question(cat, name), refusal(L["topic"][cat])
             if x < a.off_topic + a.empty:
                 context = L["fallback"]
@@ -922,16 +1003,20 @@ def main():
             region_titles = {t for *_, t in regions} | test_en
             candidates = [(t, pages_en[t]) for t in sorted(cities_en) if t not in region_titles and not in_test_en(t)]
         rng.shuffle(candidates)
-        cities = []
+        cities, daily_life_only = [], []  # oltre --cities, le citta' con VITA_QUOTIDIANA: solo quella domanda
         for title, text in candidates:
-            if len(cities) >= a.cities:
+            full = len(cities) >= a.cities
+            if full and not a.city_daily_life:
                 break
             secs = [(c, b) for c, b in it.parse_sections(text, L["city_headings"]) if covers(c, b) and len(b) >= it.CITY_MIN_SECTION]
-            if secs:
+            if secs and not full:
                 cities.append((title, secs))
-        city_cats = Counter()
-        for title, secs in cities:
-            chosen = sorted(secs, key=lambda s: (city_cats[s[0]], rng.random()))[:a.city_questions]
+            elif secs and (daily := [s for s in secs if s[0] == DAILY_LIFE]):
+                daily_life_only.append((title, secs, daily))
+        print(f"citta' {len(cities)}, piu' {len(daily_life_only)} solo per {DAILY_LIFE}")
+        city_cats, city_secs = Counter(), Counter(c for _, secs in cities for c, _ in secs)
+        for title, secs, *daily in cities + daily_life_only:
+            chosen = daily[0] if daily else sorted(secs, key=lambda s: (city_cats[s[0]], rng.random()))[:a.city_questions]
             city_cats.update(c for c, _ in chosen)
             rid, name = f"citta:{title}", en.display_name(title)
             attribution.append((rid, name, it.SOURCE_URL[lang] + urllib.parse.quote(title.replace(" ", "_")), "CC BY-SA 4.0"))
@@ -945,11 +1030,15 @@ def main():
                 seen.add((context, q))
                 rows.append(row("pos", rid, cat, context, q, answer)); city_pos += 1
             missing = [c for c in L["city_questions"] if c not in {c for c, _ in secs}]
-            if missing and rng.random() < a.negatives * 2:  # ~1 rifiuto ogni 2-3 domande della citta'
-                cat = rng.choice(missing)
+            if missing and not daily and rng.random() < a.negatives * 2:  # ~1 rifiuto ogni 2-3 domande della citta'
+                cat = weighted_category(rng, missing, city_secs) if a.balanced_negatives else rng.choice(missing)
                 q = question(cat, name, city=True)
-                context = it.make_context(rng, rng.sample([b for _, b in secs], min(len(secs), rng.randint(1, 3))), q, name)
-                if (context, q) not in seen:
+                bodies = [b for _, b in secs]
+                if a.city_daily_life:  # come nei paesi: niente sezioni che trattano la categoria (le radici di VITA_QUOTIDIANA
+                    # delle citta', "ospedal", "uffici postal", stanno anche in Salute o Come restare in contatto)
+                    bodies = [b for b in bodies if not covers(cat, b) and not it.covers(cat, b, LANGS[other]["keywords"])]
+                context = bodies and it.make_context(rng, rng.sample(bodies, min(len(bodies), rng.randint(1, 3))), q, name)
+                if context and (context, q) not in seen:
                     seen.add((context, q))
                     rows.append(row("neg", rid, cat, context, q, refusal(L["topic"][cat]))); city_neg += 1
 
