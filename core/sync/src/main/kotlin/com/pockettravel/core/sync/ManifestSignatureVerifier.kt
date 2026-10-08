@@ -56,7 +56,7 @@ class ManifestSignatureVerifier @Inject constructor(
     /** Scarica `<url>.sig` e verifica [content]; IOException se il sito non risponde, [ManifestSignatureException] se la firma non va. */
     suspend fun verify(url: String, content: ByteArray) {
         if (!enabled()) return
-        verifyManifestSignature(SyncConfig.MANIFEST_PUBLIC_KEY, content, fetchSignature(url))
+        verifyManifestSignature(publicKeyFor(url), content, fetchSignature(url))
         checkPublishedAt(publishedAtStore, fileKind(url), content)
     }
 
@@ -68,12 +68,12 @@ class ManifestSignatureVerifier @Inject constructor(
         if (!enabled()) return
         val content = withContext(Dispatchers.IO) { file.readBytes() }
         val cached = File(file.path + ".sig")
-        if (cached.isFile && runCatching { verifyManifestSignature(SyncConfig.MANIFEST_PUBLIC_KEY, content, cached.readBytes()) }.isSuccess) {
+        if (cached.isFile && runCatching { verifyManifestSignature(publicKeyFor(url), content, cached.readBytes()) }.isSuccess) {
             checkPublishedAt(publishedAtStore, fileKind(url), content)
             return
         }
         val signature = fetchSignature(url)
-        verifyManifestSignature(SyncConfig.MANIFEST_PUBLIC_KEY, content, signature)
+        verifyManifestSignature(publicKeyFor(url), content, signature)
         // Prima di tenere la firma in cache: un file troppo vecchio non deve restare accanto alla sua firma.
         checkPublishedAt(publishedAtStore, fileKind(url), content)
         withContext(Dispatchers.IO) { cached.writeBytes(signature) }
@@ -82,9 +82,18 @@ class ManifestSignatureVerifier @Inject constructor(
     // Solo con un manifest alternativo (debug) non si verifica; altrimenti ogni errore (chiave illeggibile
     // compresa) e' un'eccezione, mai un "via libera".
     // Nome del file nell'url (manifest.json, ...): chiave dell'ultimo publishedAt accettato.
-    private fun fileKind(url: String): String = URI(url).path.substringAfterLast('/')
+    // app-status.json del progetto ha un posto solo suo: un file di un altro catalogo con lo stesso nome non lo
+    // tocca, altrimenti una data molto avanti bloccherebbe per sempre gli avvisi di aggiornamento.
+    private fun fileKind(url: String): String {
+        val name = URI(url).path.substringAfterLast('/')
+        return if (name == APP_STATUS_KIND && url != SyncConfig.APP_STATUS_URL) "catalog:$name" else name
+    }
 
     private fun enabled(): Boolean = BuildConfig.MANIFEST_URL_OVERRIDE.isEmpty()
+
+    // app-status.json viene sempre dal progetto (versioni dell'app e dei modelli), anche con un altro catalogo.
+    private fun publicKeyFor(url: String): String =
+        if (url == SyncConfig.APP_STATUS_URL) SyncConfig.PUBLISHED_PUBLIC_KEY else SyncConfig.MANIFEST_PUBLIC_KEY
 
     private suspend fun fetchSignature(url: String): ByteArray = withContext(Dispatchers.IO) {
         val host = URI(url).host
@@ -99,5 +108,10 @@ class ManifestSignatureVerifier @Inject constructor(
             }
             response.body.bytes().also { if (it.isEmpty()) throw ManifestSignatureException("Firma vuota ($url.sig)") }
         }
+    }
+
+    internal companion object {
+        /** Chiave di app-status.json nel PublishedAtStore: resta anche al cambio di catalogo. */
+        const val APP_STATUS_KIND = "app-status.json"
     }
 }

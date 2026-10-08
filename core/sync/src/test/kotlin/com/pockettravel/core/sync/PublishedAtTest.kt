@@ -10,6 +10,9 @@ internal class FakePublishedAtStore(private val values: MutableMap<String, Long>
     override fun save(kind: String, publishedAt: Long) {
         values[kind] = publishedAt
     }
+    override fun forgetAllExcept(kept: String) {
+        values.keys.retainAll(setOf(kept))
+    }
 }
 
 /** Confronto di `publishedAt` con l'ultimo accettato (anti-rollback dei file firmati): solo logica, nessuna rete. */

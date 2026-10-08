@@ -1,5 +1,6 @@
 package com.pockettravel.app.settings
 
+import android.net.Uri
 import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,6 +66,8 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
     var showAppearance by rememberSaveable { mutableStateOf(false) }
     var showNationality by rememberSaveable { mutableStateOf(false) }
     var showLanguage by rememberSaveable { mutableStateOf(false) }
+    var showCatalog by rememberSaveable { mutableStateOf(false) }
+    val catalogState by viewModel.catalogState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // Chiave sulla configurazione: la lingua cambia senza ricreare l'activity (configChanges nel manifest).
     val language = remember(LocalConfiguration.current) { AppLanguage.current(context) }
@@ -112,7 +116,30 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
 
             SectionHeader(stringResource(R.string.settings_section_ai))
             AiSettingsSection()
+
+            SectionHeader(stringResource(R.string.settings_section_advanced))
+            SettingsItem(
+                ImageVector.vectorResource(UiR.drawable.ms_cloud),
+                stringResource(R.string.settings_catalog),
+                viewModel.customCatalog?.let { stringResource(R.string.settings_catalog_custom, Uri.parse(it.manifestUrl).host.orEmpty()) }
+                    ?: stringResource(R.string.settings_catalog_official),
+            ) { showCatalog = true }
         }
+    }
+
+    if (catalogState == CatalogState.Restart) {
+        LaunchedEffect(Unit) { restartApp(context) }
+    }
+
+    if (showCatalog) {
+        CatalogSheet(
+            current = viewModel.customCatalog,
+            state = catalogState,
+            onUse = viewModel::useCatalog,
+            onUseOfficial = viewModel::useOfficialCatalog,
+            onEdit = viewModel::clearCatalogError,
+            onDismiss = { showCatalog = false },
+        )
     }
 
     // Scegliere un modo riporta i filtri della mappa ai suoi predefiniti: lo dice il testo del foglio.

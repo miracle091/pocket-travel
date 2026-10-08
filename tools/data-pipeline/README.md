@@ -45,6 +45,8 @@ openssl ec -in key.pem -pubout -outform DER | base64 -w0
 gh secret set MANIFEST_SIGNING_KEY < key.pem
 ```
 
+Senza ricompilare l'app, il catalogo di un fork si usa da **Altro → Impostazioni → Catalogo**: si inseriscono l'indirizzo di `manifest.json` (solo https) e la chiave pubblica in base64. L'app scarica il manifest e la sua firma, li verifica e solo allora salva il catalogo e si riavvia. I file del catalogo devono stare sull'host del manifest o su `github.com` (asset delle release). `app-status.json` resta quello del progetto, verificato con la chiave del progetto.
+
 Per controllare a mano un file scaricato:
 
 ```bash

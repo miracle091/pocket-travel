@@ -6,6 +6,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.pockettravel.app.settings.AppLanguage
 import com.pockettravel.core.data.AppInitializer
+import com.pockettravel.core.sync.CatalogSettings
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -26,8 +27,13 @@ class PocketTravelApp : Application(), Configuration.Provider {
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
 
+    // Catalogo scelto nelle Impostazioni, se diverso da quello del progetto.
+    @Inject lateinit var catalogSettings: CatalogSettings
+
     override fun onCreate() {
         super.onCreate()
+        // Prima di ogni worker e di ogni AppInitializer, che leggono il catalogo da SyncConfig.
+        catalogSettings.applySaved()
         initializers.forEach { it.onAppCreate() }
     }
 }
