@@ -52,6 +52,10 @@ class VaccinationEngineTest {
             PolioEntryRow("sa", PolioCategory.WPV1_CVDPV1_CVDPV3, emptySet(), PolioVaccine.BOPV_OR_IPV, PolioWindow.ANY, PolioApplies.HAJJ_UMRAH, "n", "n", listOf("F7"), "2026-10-03"),
             PolioEntryRow("sa", PolioCategory.CVDPV2, emptySet(), PolioVaccine.BOPV_OR_IPV, PolioWindow.ANY, PolioApplies.HAJJ_UMRAH, "n", "n", listOf("F7"), "2026-10-03"),
             PolioEntryRow("eg", null, setOf("pk", "af"), PolioVaccine.BOPV_OR_IPV, PolioWindow.W4_12M, PolioApplies.ALL, "", "", listOf("F7"), "2026-10-03"),
+            PolioEntryRow(
+                "np", null, emptySet(), PolioVaccine.BOPV_OR_IPV, PolioWindow.ANY, PolioApplies.ALL, "", "", listOf("F8"), "2026-10-08",
+                originUnlisted = true,
+            ),
         ),
         special = listOf(
             SpecialEntryRow("sa", TripPurpose.HAJJ_UMRAH, Vaccine.MENACWY, 12, 10, 5, "", "", listOf("F7"), "2026-10-03"),
@@ -222,6 +226,18 @@ class VaccinationEngineTest {
         assertEquals(VaccinationLevel.REQUIRED, item.level)
         assertEquals("pk", item.country)
         assertNull(evaluate(Trip(departure = "it", destination = "eg")).item(Vaccine.POLIO))
+    }
+
+    @Test
+    fun `polio all'ingresso senza elenco di provenienze e' da valutare per qualunque partenza`() {
+        listOf("it", "pk").forEach { departure ->
+            val result = evaluate(Trip(departure = departure, destination = "np"))
+            val item = result.item(Vaccine.POLIO, VaccinationReason.POLIO_ENTRY_UNLISTED)!!
+            assertEquals(VaccinationLevel.CONSIDER, item.level)
+            assertEquals("np", item.country)
+            assertEquals(listOf("F8"), item.sources)
+            assertTrue(result.noCertificateFound)
+        }
     }
 
     @Test

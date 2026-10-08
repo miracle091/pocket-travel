@@ -143,7 +143,7 @@ class GenerateVaccinationsTest {
             checkIso("polio-entry", it.iso2)
             if (it.origin.startsWith("CAT:")) {
                 assertTrue("polio-entry ${it.iso2}: origine ${it.origin}", it.origin.removePrefix("CAT:") in polioCategories)
-            } else {
+            } else if (it.origin != "UNLISTED") {
                 checkIsoList("polio-entry ${it.iso2}", it.origin)
             }
             assertTrue("polio-entry ${it.iso2}: vaccine ${it.vaccine}", it.vaccine in setOf("BOPV_OR_IPV", "IPV"))

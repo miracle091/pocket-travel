@@ -216,12 +216,28 @@ private fun polioItem(level: VaccinationLevel, reason: VaccinationReason, countr
     verifiedAt = status.verifiedAt,
 )
 
-/** Ingresso: righe della destinazione confrontate con la provenienza; le categorie si risolvono con polioStatus. */
+/**
+ * Ingresso: righe della destinazione confrontate con la provenienza; le categorie si risolvono con polioStatus.
+ * Le righe senza elenco di provenienze danno una voce da valutare qualunque sia la partenza.
+ */
 private fun polioEntry(trip: Trip, data: VaccinationData, destination: String, stays: List<Origin>): List<VaccinationItem> {
     val byCategory = data.polioStatus.groupBy({ it.category }, { it.iso2 })
-    return data.polioEntry
+    val (unlisted, listed) = data.polioEntry
         .filter { it.iso2 == destination }
         .filter { it.applies != PolioApplies.HAJJ_UMRAH || trip.purpose == TripPurpose.HAJJ_UMRAH }
+        .partition { it.originUnlisted }
+    return unlisted.map { row ->
+        VaccinationItem(
+            vaccine = Vaccine.POLIO,
+            level = VaccinationLevel.CONSIDER,
+            reason = VaccinationReason.POLIO_ENTRY_UNLISTED,
+            country = destination,
+            noteIt = row.noteIt,
+            noteEn = row.noteEn,
+            sources = row.sources,
+            verifiedAt = row.verifiedAt,
+        )
+    } + listed
         .mapNotNull { row ->
             val countries = row.originCountries + (row.originCategory?.let { byCategory[it] }.orEmpty())
             stays.firstOrNull { it.country in countries }?.let { row to it }

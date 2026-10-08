@@ -225,6 +225,10 @@
     <string name="licenses_note_vaccinations_canada">Contains information licensed under the Open Government Licence – Canada. Facts rewritten in our own words and cross-checked with other sources.</string>
     <string name="licenses_component_vaccinations_uk">Vaccinations: TravelHealthPro (UKHSA / NaTHNaC)</string>
     <string name="licenses_note_vaccinations_uk">Contains public sector information published by the UK Health Security Agency (UKHSA) and the National Travel Health Network and Centre (NaTHNaC), licensed under the Open Government Licence v3.0. Facts rewritten in our own words.</string>
+    <string name="licenses_component_vaccinations_fcdo">Vaccinations: gov.uk Foreign travel advice (UK Government)</string>
+    <string name="licenses_note_vaccinations_fcdo">Contains public sector information licensed under the Open Government Licence v3.0. Polio entry requirements of India, Nepal and Iran, rewritten in our own words.</string>
+    <string name="licenses_component_vaccinations_france">Vaccinations: France Diplomatie, Conseils aux voyageurs (Ministère de l\'Europe et des Affaires étrangères)</string>
+    <string name="licenses_note_vaccinations_france">Polio entry requirement of Egypt, from the Santé page updated on 21 September 2026, rewritten in our own words.</string>
 
     <!-- Onboarding -->
     <string name="onboarding_welcome_title">Welcome to Pocket Travel</string>

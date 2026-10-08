@@ -70,10 +70,12 @@ internal fun vaccinationDataFrom(
             } else {
                 null
             }
+            val unlisted = r.origin == UNLISTED_ORIGIN
             PolioEntryRow(
                 iso2 = r.iso2,
                 originCategory = category,
-                originCountries = if (category == null) r.origin.countries() else emptySet(),
+                originCountries = if (category == null && !unlisted) r.origin.countries() else emptySet(),
+                originUnlisted = unlisted,
                 vaccine = enumOrNull<PolioVaccine>(r.vaccine) ?: return@mapNotNull null,
                 window = when (r.timeWindow) {
                     "4W_12M" -> PolioWindow.W4_12M
@@ -121,6 +123,9 @@ internal fun vaccinationDataFrom(
 }
 
 private const val CATEGORY_PREFIX = "CAT:"
+
+// Origine di polio-entry senza elenco di paesi; le versioni precedenti dell'app la leggono come un paese inesistente e ignorano la riga.
+private const val UNLISTED_ORIGIN = "UNLISTED"
 
 private inline fun <reified E : Enum<E>> enumOrNull(name: String): E? = enumValues<E>().firstOrNull { it.name == name }
 

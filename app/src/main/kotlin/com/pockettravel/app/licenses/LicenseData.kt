@@ -32,6 +32,7 @@ private val OGL_UK_3 = License(
     R.string.licenses_name_ogl_uk,
     "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
 )
+private val LICENCE_OUVERTE_2 = License(R.string.licenses_name_licence_ouverte, "https://www.etalab.gouv.fr/licence-ouverte-open-licence/")
 
 val thirdPartyLicenses: List<LicenseEntry> = listOf(
     LicenseEntry(R.string.licenses_component_maplibre, BSD_2),
@@ -69,4 +70,6 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
     LicenseEntry(R.string.licenses_component_travel_advice, OGL_CANADA, R.string.licenses_note_travel_advice),
     LicenseEntry(R.string.licenses_component_vaccinations_canada, OGL_CANADA, R.string.licenses_note_vaccinations_canada),
     LicenseEntry(R.string.licenses_component_vaccinations_uk, OGL_UK_3, R.string.licenses_note_vaccinations_uk),
+    LicenseEntry(R.string.licenses_component_vaccinations_fcdo, OGL_UK_3, R.string.licenses_note_vaccinations_fcdo),
+    LicenseEntry(R.string.licenses_component_vaccinations_france, LICENCE_OUVERTE_2, R.string.licenses_note_vaccinations_france),
 )

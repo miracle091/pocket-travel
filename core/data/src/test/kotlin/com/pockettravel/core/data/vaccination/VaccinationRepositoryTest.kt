@@ -126,6 +126,15 @@ class VaccinationRepositoryTest {
     }
 
     @Test
+    fun `l'origine UNLISTED non ha paesi ne' categoria`() {
+        val rows = map(polioEntry = listOf(polioEntry("UNLISTED"), polioEntry("pk"))).polioEntry
+        assertTrue(rows[0].originUnlisted)
+        assertNull(rows[0].originCategory)
+        assertEquals(emptySet<String>(), rows[0].originCountries)
+        assertFalse(rows[1].originUnlisted)
+    }
+
+    @Test
     fun `la finestra polio accetta solo i codici dei dati, non i nomi dell'enum`() {
         val rows = map(
             polioEntry = listOf(polioEntry("pk", window = "4W_12M"), polioEntry("pk", window = "W4_12M"), polioEntry("pk", window = "")),

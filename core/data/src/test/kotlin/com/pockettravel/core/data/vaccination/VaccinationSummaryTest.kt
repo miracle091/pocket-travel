@@ -49,6 +49,22 @@ class VaccinationSummaryTest {
     }
 
     @Test
+    fun `polio all'ingresso senza elenco di provenienze, a parte e non tra le voci da valutare`() {
+        val unlisted = data.copy(
+            polioEntry = listOf(
+                PolioEntryRow("eg", null, emptySet(), PolioVaccine.BOPV_OR_IPV, PolioWindow.ANY, PolioApplies.ALL, "", "", listOf("F9"), "2026-10-08", originUnlisted = true),
+            ),
+        )
+        val trip = Trip(departure = "it", destination = "eg")
+        val result = evaluateVaccinations(trip, unlisted, today)
+        val it = result.toSummaryText(trip, "it")
+        assertTrue(it.contains("Poliomielite: Egitto può chiedere la prova della vaccinazione a chi arriva da paesi in cui circola la polio"))
+        assertTrue(it.contains("Da valutare con il medico secondo il viaggio: Rabbia\n"))
+        assertTrue(it.contains("France Diplomatie"))
+        assertTrue(result.toSummaryText(trip, "en").contains("Polio: Egypt may ask for proof of vaccination"))
+    }
+
+    @Test
     fun `riassunto inglese`() {
         val trip = Trip(departure = "ke", destination = "eg")
         val text = evaluateVaccinations(trip, data, today).toSummaryText(trip, "en")

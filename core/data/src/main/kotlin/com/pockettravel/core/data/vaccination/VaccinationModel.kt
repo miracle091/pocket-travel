@@ -38,6 +38,9 @@ enum class VaccinationReason {
     POLIO_EXIT,
     POLIO_ENCOURAGED,
     POLIO_ENTRY,
+
+    /** La destinazione puo' chiedere la prova della vaccinazione antipolio, ma le fonti aperte non dicono a chi arriva da dove. */
+    POLIO_ENTRY_UNLISTED,
     HAJJ_UMRAH,
     DESTINATION_MOST,
     DESTINATION_SOME,
@@ -111,7 +114,10 @@ data class PolioStatusRow(
     val verifiedAt: String,
 )
 
-/** Requisito polio d'ingresso di [iso2]: vale per chi arriva da un paese della [originCategory] o di [originCountries]. */
+/**
+ * Requisito polio d'ingresso di [iso2]: vale per chi arriva da un paese della [originCategory] o di [originCountries].
+ * [originUnlisted]: le fonti dicono solo che c'e' un requisito, senza i paesi di provenienza (origine `UNLISTED`).
+ */
 data class PolioEntryRow(
     val iso2: String,
     val originCategory: PolioCategory?,
@@ -123,6 +129,7 @@ data class PolioEntryRow(
     val noteEn: String,
     val sources: List<String>,
     val verifiedAt: String,
+    val originUnlisted: Boolean = false,
 )
 
 data class SpecialEntryRow(
@@ -236,6 +243,8 @@ fun vaccinationSourceName(code: String): String = when (code) {
     "F3" -> "OMS (Polio IHR Emergency Committee)"
     "F6" -> "Travel.gc.ca"
     "F7" -> "TravelHealthPro"
+    "F8" -> "GOV.UK Foreign travel advice"
+    "F9" -> "France Diplomatie"
     else -> code
 }
 

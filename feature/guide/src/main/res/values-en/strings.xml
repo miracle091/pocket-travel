@@ -139,6 +139,7 @@
     <string name="vacc_reason_polio_exit">Because you are leaving %1$s, where poliovirus circulates, after a stay of more than 4 weeks</string>
     <string name="vacc_reason_polio_encouraged">Because you are leaving %1$s, where vaccine-derived type 2 poliovirus has been detected</string>
     <string name="vacc_reason_polio_entry">Because you are arriving from %1$s: the destination asks for proof of polio vaccination</string>
+    <string name="vacc_reason_polio_entry_unlisted">%1$s may ask for proof of polio vaccination from travelers arriving from countries where polio is circulating. Our sources do not say which countries: check the %1$s page on your foreign ministry\'s website</string>
     <string name="vacc_reason_hajj">Mandatory for Hajj and Umrah pilgrims</string>
     <string name="vacc_reason_destination_most">Recommended for most travelers to %1$s</string>
     <string name="vacc_reason_destination_some">For some travelers to %1$s, depending on length of stay, activities and areas</string>

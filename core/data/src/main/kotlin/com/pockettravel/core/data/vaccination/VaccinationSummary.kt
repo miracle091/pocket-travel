@@ -55,7 +55,10 @@ fun VaccinationResult.toSummaryText(trip: Trip, language: String = "it"): String
         lines += pick("Raccomandate per la destinazione: ", "Recommended for the destination: ") +
             recommendedNames.joinToString(", ") { vaccineName(it.vaccine, en) + (if (it.partialArea) pick(" (solo in alcune aree)", " (some areas only)") else "") }
     }
-    val considerNames = items.filter { it.level == VaccinationLevel.CONSIDER && it.ageNote != AgeNote.BELOW_AGE }
+    items.filter { it.reason == VaccinationReason.POLIO_ENTRY_UNLISTED }.forEach { lines += itemLine(it, en, ::country) + "." }
+    val considerNames = items.filter {
+        it.level == VaccinationLevel.CONSIDER && it.ageNote != AgeNote.BELOW_AGE && it.reason != VaccinationReason.POLIO_ENTRY_UNLISTED
+    }
     if (considerNames.isNotEmpty()) {
         lines += pick("Da valutare con il medico secondo il viaggio: ", "To discuss with a doctor depending on the trip: ") +
             considerNames.joinToString(", ") { vaccineName(it.vaccine, en) }
@@ -107,6 +110,12 @@ private fun itemLine(item: VaccinationItem, en: Boolean, country: (String) -> St
         VaccinationReason.POLIO_ENTRY -> pick(
             "richiesto all'ingresso per chi arriva da $where (${doseText(item.polioDose, false)})",
             "required on entry for those arriving from $where (${doseText(item.polioDose, true)})",
+        )
+        VaccinationReason.POLIO_ENTRY_UNLISTED -> pick(
+            "$where può chiedere la prova della vaccinazione a chi arriva da paesi in cui circola la polio; le fonti " +
+                "non dicono da quali paesi: verifica sul sito del ministero degli Esteri del tuo paese o con l'ambasciata",
+            "$where may ask for proof of vaccination from travellers arriving from countries where polio is circulating; " +
+                "the sources do not say which countries: check your foreign ministry's travel advice or the embassy",
         )
         VaccinationReason.HAJJ_UMRAH -> pick("obbligatorio per Hajj e Umrah", "mandatory for Hajj and Umrah")
         VaccinationReason.DESTINATION_MOST, VaccinationReason.DESTINATION_SOME, VaccinationReason.ROUTINE -> ""

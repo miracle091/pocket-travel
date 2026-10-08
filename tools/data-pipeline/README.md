@@ -117,8 +117,10 @@ regioni pubblicate, perché partenza e scali di un viaggio possono essere paesi 
 `GenerateVaccinationsTest`. `scripts/vaccinations_draft.py` scarica i dati di Travel.gc.ca e produce solo bozze da
 rivedere a mano: non vanno copiate nel repository così come sono.
 
-Requisiti polio in ingresso senza fonte aperta e attuale (ricerca del 2026-10-08): `polio-entry.tsv` non ha righe per
-Egitto, Nepal, Iran e India. Cosa dicono le fonti:
+Requisiti polio in ingresso senza fonte aperta e attuale (ricerca del 2026-10-08): per Egitto, Nepal, Iran e India
+`polio-entry.tsv` ha solo righe con provenienza `UNLISTED`, dal FCDO (India, Nepal, Iran) e da France Diplomatie
+(Egitto), che dicono che un requisito esiste. L'app ne fa una voce "da valutare" per qualunque provenienza, con il
+link al sito degli esteri della nazionalità dell'utente. Cosa dicono le fonti:
 - OMS, elenco per paese del 2022: CC BY-NC-SA 3.0 IGO, non usabile.
 - FCDO (Open Government Licence v3.0): per India, Nepal e Iran il vaccino serve a chi arriva da un paese colpito dalla
   polio, senza elenco di paesi, tipo di vaccino o finestra; per l'Egitto nulla. TravelHealthPro rimanda all'OMS.

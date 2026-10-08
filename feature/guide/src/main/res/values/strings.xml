@@ -139,6 +139,7 @@
     <string name="vacc_reason_polio_exit">Perché parti da %1$s, dove circola il poliovirus, dopo un soggiorno di più di 4 settimane</string>
     <string name="vacc_reason_polio_encouraged">Perché parti da %1$s, dove è stato rilevato poliovirus di tipo 2 derivato dal vaccino</string>
     <string name="vacc_reason_polio_entry">Perché arrivi da %1$s: la destinazione richiede la prova di vaccinazione antipolio</string>
+    <string name="vacc_reason_polio_entry_unlisted">%1$s può chiedere la prova di vaccinazione antipolio a chi arriva da paesi in cui circola la polio. Le nostre fonti non dicono da quali paesi: controlla la scheda di %1$s sul sito degli esteri</string>
     <string name="vacc_reason_hajj">Obbligatorio per i pellegrini di Hajj e Umrah</string>
     <string name="vacc_reason_destination_most">Raccomandata alla maggior parte dei viaggiatori verso %1$s</string>
     <string name="vacc_reason_destination_some">Per alcuni viaggiatori verso %1$s, secondo durata, attività e zone</string>

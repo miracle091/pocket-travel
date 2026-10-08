@@ -197,6 +197,7 @@
     <string name="licenses_name_cc_by" translatable="false">CC BY 4.0</string>
     <string name="licenses_name_ogl_canada" translatable="false">Open Government Licence - Canada 2.0</string>
     <string name="licenses_name_ogl_uk" translatable="false">Open Government Licence v3.0</string>
+    <string name="licenses_name_licence_ouverte" translatable="false">Licence Ouverte 2.0 (Etalab)</string>
     <!-- Dicitura di attribuzione richiesta dalla Open Government Licence v3.0, uguale in ogni lingua -->
     <string name="licenses_note_emergency_uk" translatable="false">Contains public sector information licensed under the Open Government Licence v3.0.</string>
 
@@ -247,6 +248,10 @@
     <string name="licenses_note_vaccinations_canada">Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert - Canada. Fatti riscritti con parole nostre e confrontati con altre fonti.</string>
     <string name="licenses_component_vaccinations_uk">Vaccinazioni: TravelHealthPro (UKHSA / NaTHNaC)</string>
     <string name="licenses_note_vaccinations_uk">Contains public sector information published by the UK Health Security Agency (UKHSA) and the National Travel Health Network and Centre (NaTHNaC), licensed under the Open Government Licence v3.0. Fatti riscritti con parole nostre.</string>
+    <string name="licenses_component_vaccinations_fcdo">Vaccinazioni: gov.uk Foreign travel advice (Governo del Regno Unito)</string>
+    <string name="licenses_note_vaccinations_fcdo">Contains public sector information licensed under the Open Government Licence v3.0. Requisiti polio d\'ingresso di India, Nepal e Iran, riscritti con parole nostre.</string>
+    <string name="licenses_component_vaccinations_france">Vaccinazioni: France Diplomatie, Conseils aux voyageurs (Ministère de l\'Europe et des Affaires étrangères)</string>
+    <string name="licenses_note_vaccinations_france">Requisito polio d\'ingresso dell\'Egitto, dalla scheda Santé aggiornata il 21 settembre 2026, riscritto con parole nostre.</string>
 
     <!-- Onboarding -->
     <string name="onboarding_welcome_title">Ti diamo il benvenuto in Pocket Travel</string>

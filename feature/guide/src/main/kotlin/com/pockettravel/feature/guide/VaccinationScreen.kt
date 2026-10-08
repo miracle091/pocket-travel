@@ -60,6 +60,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.OfficialSource
 import com.pockettravel.core.data.OfficialSourceTopic
+import com.pockettravel.core.data.fallbackTravelAdviceSource
 import com.pockettravel.core.data.officialSourcesRegistry
 import com.pockettravel.core.data.travelAdviceSourceFor
 import com.pockettravel.core.data.vaccination.AgeNote
@@ -95,6 +96,8 @@ private fun vaccinationSourceUrl(code: String): String? = when (code) {
     "F3" -> "https://www.who.int/groups/poliovirus-ihr-emergency-committee"
     "F6" -> "https://travel.gc.ca/travelling/health-safety/vaccines"
     "F7" -> "https://travelhealthpro.org.uk/countries"
+    "F8" -> "https://www.gov.uk/foreign-travel-advice"
+    "F9" -> "https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/"
     else -> null
 }
 
@@ -245,7 +248,7 @@ internal fun VaccinationContent(
             if (result.polioDataStale) {
                 item(key = "stale") { StaleCard(result) }
             }
-            resultGroups(result, onOpenSource)
+            resultGroups(result, state.nationality, onOpenSource)
         }
         item(key = "links") { LinksCard(state.nationality, onOpenSource) }
     }
@@ -553,6 +556,7 @@ private fun StaleCard(result: VaccinationResult) {
 // sezione lo dice "nei nostri dati", con la data: mai "non serve".
 private fun LazyListScope.resultGroups(
     result: VaccinationResult,
+    nationality: String?,
     onOpenSource: (url: String, title: String) -> Unit,
 ) {
     val required = result.items.filter { it.isCertificate() }
@@ -571,14 +575,14 @@ private fun LazyListScope.resultGroups(
             }
         }
     }
-    itemsIndexed(required, key = { index, _ -> "required_$index" }) { _, item -> VaccinationItemCard(item, onOpenSource) }
+    itemsIndexed(required, key = { index, _ -> "required_$index" }) { _, item -> VaccinationItemCard(item, nationality, onOpenSource) }
     if (recommended.isNotEmpty()) {
         item(key = "recommended_title") { GroupTitle(R.string.vacc_recommended) }
-        itemsIndexed(recommended, key = { index, _ -> "recommended_$index" }) { _, item -> VaccinationItemCard(item, onOpenSource) }
+        itemsIndexed(recommended, key = { index, _ -> "recommended_$index" }) { _, item -> VaccinationItemCard(item, nationality, onOpenSource) }
     }
     if (consider.isNotEmpty()) {
         item(key = "consider_title") { GroupTitle(R.string.vacc_consider) }
-        itemsIndexed(consider, key = { index, _ -> "consider_$index" }) { _, item -> VaccinationItemCard(item, onOpenSource) }
+        itemsIndexed(consider, key = { index, _ -> "consider_$index" }) { _, item -> VaccinationItemCard(item, nationality, onOpenSource) }
     }
 }
 
@@ -593,7 +597,7 @@ private fun GroupTitle(titleRes: Int) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun VaccinationItemCard(item: VaccinationItem, onOpenSource: (url: String, title: String) -> Unit) {
+private fun VaccinationItemCard(item: VaccinationItem, nationality: String?, onOpenSource: (url: String, title: String) -> Unit) {
     val locale = LocalLocale.current.platformLocale
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
@@ -603,6 +607,7 @@ private fun VaccinationItemCard(item: VaccinationItem, onOpenSource: (url: Strin
             item.detailTexts().forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
             val note = if (locale.language == "en") item.noteEn.ifBlank { item.noteIt } else item.noteIt.ifBlank { item.noteEn }
             if (note.isNotBlank()) CardDescription(note.trim(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (item.reason == VaccinationReason.POLIO_ENTRY_UNLISTED) TravelAdviceLink(nationality, onOpenSource)
             if (item.sources.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.vacc_sources) + ":", style = MaterialTheme.typography.labelMedium)
@@ -620,6 +625,33 @@ private fun VaccinationItemCard(item: VaccinationItem, onOpenSource: (url: Strin
                 }
             }
             item.verifiedAt?.let { Text(stringResource(R.string.vacc_verified_on, formatDate(it, locale)), style = MaterialTheme.typography.labelMedium) }
+        }
+    }
+}
+
+// Sito degli esteri della nazionalita' scelta al primo avvio (homepage: il registro non ha le pagine per paese),
+// altrimenti GOV.UK, come nella Guida, con la descrizione che dice per chi e' scritto.
+@Composable
+private fun TravelAdviceLink(nationality: String?, onOpenSource: (url: String, title: String) -> Unit) {
+    val own = travelAdviceSourceFor(nationality?.uppercase())
+    val source = own ?: fallbackTravelAdviceSource
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable(onClickLabel = stringResource(R.string.vacc_open_source, source.name)) { onOpenSource(source.url, source.name) }
+            .padding(vertical = Spacing.s),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = source.name, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = stringResource(if (own != null) R.string.emergency_travel_advice_description else R.string.emergency_travel_advice_fallback_description),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        Box(modifier = Modifier.heightIn(min = 48.dp).width(48.dp), contentAlignment = Alignment.Center) {
+            Icon(imageVector = AppIcons.OpenExternal, contentDescription = null)
         }
     }
 }
@@ -740,6 +772,7 @@ private fun VaccinationItem.reasonText(): String? {
         VaccinationReason.POLIO_EXIT -> stringResource(R.string.vacc_reason_polio_exit, place)
         VaccinationReason.POLIO_ENCOURAGED -> stringResource(R.string.vacc_reason_polio_encouraged, place)
         VaccinationReason.POLIO_ENTRY -> stringResource(R.string.vacc_reason_polio_entry, place)
+        VaccinationReason.POLIO_ENTRY_UNLISTED -> stringResource(R.string.vacc_reason_polio_entry_unlisted, place)
         VaccinationReason.HAJJ_UMRAH -> stringResource(R.string.vacc_reason_hajj)
         VaccinationReason.DESTINATION_MOST -> stringResource(R.string.vacc_reason_destination_most, place)
         VaccinationReason.DESTINATION_SOME -> stringResource(R.string.vacc_reason_destination_some, place)
