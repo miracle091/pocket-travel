@@ -74,6 +74,7 @@
     <string name="emergency_travel_advice_fallback_description">UK government advice: safety and health apply to everyone, entry requirements are those for British citizens</string>
     <string name="emergency_travel_advice_open">Open %1$s</string>
     <string name="guide_sources_title">Sources</string>
+    <string name="guide_source_translated">%1$s · machine-translated</string>
     <string name="transit_excluded_title">Public transport timetables not included</string>
     <string name="transit_excluded_tmb">TMB (Barcelona metro and buses): the license is limited to the requesting app and does not allow redistribution</string>
     <string name="transit_excluded_idfm">Île-de-France Mobilités (Paris metro, RER and buses): their license (Licence Mobilités) requires every reuser to register, which a public file cannot ensure</string>

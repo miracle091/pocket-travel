@@ -54,6 +54,8 @@ data class CitySection(
     val title: String,
     val body: String,
     val sourceUrl: String,
+    // Tradotta automaticamente dalla pagina in sourceUrl, nell'altra lingua.
+    val translated: Boolean = false,
 )
 
 private fun CitySectionEntity.toDomain() = CitySection(
@@ -63,6 +65,7 @@ private fun CitySectionEntity.toDomain() = CitySection(
     title = title,
     body = body,
     sourceUrl = sourceUrl,
+    translated = translated,
 )
 
 /** Una delle citta' principali di una regione: nome, abitanti (null se ignoti) e se e' la capitale. */

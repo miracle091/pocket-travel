@@ -1,5 +1,6 @@
 package com.pockettravel.core.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -13,4 +14,6 @@ data class GuideSectionEntity(
     val title: String,
     val body: String,
     val sourceUrl: String,
+    // Tradotta automaticamente dalla pagina nell'altra lingua (pipeline: colonna translated di guides.db).
+    @ColumnInfo(defaultValue = "0") val translated: Boolean = false,
 )

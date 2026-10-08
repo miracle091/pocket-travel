@@ -5,10 +5,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 /** Tutte le migrazioni, per Room.databaseBuilder e per i test. */
 val ALL_MIGRATIONS: Array<Migration>
-    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_22, MIGRATION_22_23)
+    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_23, MIGRATION_23_24)
 
 /** Versioni del database mai uscite in una versione pubblicata dell'app (solo sviluppo). */
-val UNRELEASED_VERSIONS = intArrayOf(1, 2, 4, 7, 8, 10, 12, 13, 14, 16, 18, 19, 20, 21)
+val UNRELEASED_VERSIONS = intArrayOf(1, 2, 4, 7, 8, 10, 12, 13, 14, 16, 18, 19, 20, 21, 22)
 
 // Una migrazione per ogni versione dell'app pubblicata, dal suo database al successivo: chi
 // aggiorna salta le versioni intermedie usate solo durante lo sviluppo. Le versioni 1 e 2 non sono
@@ -228,8 +228,8 @@ val MIGRATION_15_17 = object : Migration(15, 17) {
     }
 }
 
-// Da 17 (v0.9.0) a 22. Dentro, i passi originali nello stesso ordine.
-val MIGRATION_17_22 = object : Migration(17, 22) {
+// Da 17 (v0.9.0) a 23. Dentro, i passi originali nello stesso ordine.
+val MIGRATION_17_23 = object : Migration(17, 23) {
     override fun migrate(db: SupportSQLiteDatabase) {
         // 17 -> 18: ambasciate e consolati da Wikidata (diplomatic_missions), vuota finche' non si
         // importa un pacchetto guide che la contiene; bagni accessibili e posti auto per disabili dei
@@ -364,14 +364,22 @@ val MIGRATION_17_22 = object : Migration(17, 22) {
         // 21 -> 22: indice dei POI su (regionId, category, osmTag): le coppie categoria/tag e i conteggi dei
         // trasporti si leggono dall'indice.
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionId_category_osmTag` ON `poi` (`regionId`, `category`, `osmTag`)")
+
+        // 22 -> 23: coordinate delle citta' (CitySectionEntity.latitude, longitude), per la distanza tra due
+        // citta' dell'assistente.
+        db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `latitude` REAL")
+        db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `longitude` REAL")
     }
 }
 
 // Ultima migrazione, separata dalle altre finche' la sua versione non esce in una release.
-/** Coordinate delle citta' (CitySectionEntity.latitude, longitude), per la distanza tra due citta' dell'assistente. */
-val MIGRATION_22_23 = object : Migration(22, 23) {
+/**
+ * Sezioni tradotte automaticamente dall'altra lingua (GuideSectionEntity.translated, CitySectionEntity.translated),
+ * segnate nelle Fonti della guida: false per le sezioni gia' importate finche' le guide non vengono riscaricate.
+ */
+val MIGRATION_23_24 = object : Migration(23, 24) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `latitude` REAL")
-        db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `longitude` REAL")
+        db.execSQL("ALTER TABLE `guide_sections` ADD COLUMN `translated` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `translated` INTEGER NOT NULL DEFAULT 0")
     }
 }

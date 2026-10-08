@@ -11,8 +11,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Migrazioni tra i database delle versioni pubblicate (3, 5, 6, 9, 11, 15, 17), la 22 e quella corrente (23),
- * sugli schemi esportati in core/data/schemas, piu' la catena completa da 3 a 23.
+ * Migrazioni tra i database delle versioni pubblicate (3, 5, 6, 9, 11, 15, 17), la 23 e quella corrente (24),
+ * sugli schemi esportati in core/data/schemas, piu' la catena completa da 3 a 24.
  */
 @RunWith(AndroidJUnit4::class)
 class RegionDatabaseMigrationTest {
@@ -193,14 +193,14 @@ class RegionDatabaseMigrationTest {
     }
 
     @Test
-    fun migrazione17a22AggiungeMissioniDiplomaticheVacciniPopolazioneEIndiciSenzaToccareIDati() {
+    fun migrazione17a23AggiungeMissioniDiplomaticheVacciniPopolazioneIndiciECoordinateSenzaToccareIDati() {
         helper.createDatabase(DB_NAME, 17).use { db ->
             db.execSQL("INSERT INTO emergency_numbers VALUES ('italia', '112', '113', '118', '115')")
             db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone, extra, wheelchair) VALUES ('italia', 'Da Mario', 'restaurant', 45.0, 9.0, 'amenity=restaurant', NULL, 0, 'yes')")
             db.execSQL("INSERT INTO city_sections (regionId, city, category, title, body, sourceUrl) VALUES ('italia', 'Roma', 'COSA_VEDERE', 'Cosa vedere', 'Colosseo', 'u')")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 22, true, MIGRATION_17_22).use { db ->
+        helper.runMigrationsAndValidate(DB_NAME, 23, true, MIGRATION_17_23).use { db ->
             // 17 -> 18: accessibilita' dei POI e rappresentanze diplomatiche vuote.
             db.query("SELECT name, wheelchair, toiletsWheelchair, capacityDisabled FROM poi").use { cursor ->
                 assertTrue(cursor.moveToFirst())
@@ -236,12 +236,13 @@ class RegionDatabaseMigrationTest {
                 assertEquals("ke,ug", cursor.getString(0))
                 assertTrue(cursor.isNull(1))
             }
-            // 19 -> 20: popolazione delle citta' vuota, sezioni intatte.
-            db.query("SELECT city, population, capital FROM city_sections").use { cursor ->
+            // 19 -> 20 e 22 -> 23: popolazione e coordinate delle citta' vuote, sezioni intatte.
+            db.query("SELECT city, population, capital, latitude, longitude FROM city_sections").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("Roma", cursor.getString(0))
                 assertTrue(cursor.isNull(1))
                 assertEquals(0, cursor.getInt(2))
+                assertTrue("le citta' gia' importate non hanno coordinate", cursor.isNull(3) && cursor.isNull(4))
             }
             // 20 -> 21 e 21 -> 22: indici dei POI per regione e latitudine, e per regione, categoria e tag.
             db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'poi'").use { cursor ->
@@ -264,25 +265,31 @@ class RegionDatabaseMigrationTest {
     }
 
     @Test
-    fun migrazione22a23AggiungeLeCoordinateVuoteAlleCitta() {
-        helper.createDatabase(DB_NAME, 22).use { db ->
-            db.execSQL("INSERT INTO city_sections (regionId, city, category, title, body, sourceUrl, population, capital) VALUES ('italia', 'Roma', 'COSA_VEDERE', 't', 'b', 'u', 2800000, 1)")
+    fun migrazione23a24SegnaComeNonTradotteLeSezioniGiaImportate() {
+        helper.createDatabase(DB_NAME, 23).use { db ->
+            db.execSQL("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES ('italia', 'TRASPORTI', 'In treno', 'corpo', 'u')")
+            db.execSQL("INSERT INTO city_sections (regionId, city, category, title, body, sourceUrl, population, capital, latitude, longitude) VALUES ('italia', 'Roma', 'COSA_VEDERE', 't', 'b', 'u', 2800000, 1, 41.9, 12.5)")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 23, true, MIGRATION_22_23).use { db ->
-            db.query("SELECT city, population, capital, latitude, longitude FROM city_sections").use { cursor ->
+        helper.runMigrationsAndValidate(DB_NAME, 24, true, MIGRATION_23_24).use { db ->
+            db.query("SELECT title, translated FROM guide_sections").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("In treno", cursor.getString(0))
+                assertEquals(0, cursor.getInt(1))
+            }
+            db.query("SELECT city, population, latitude, translated FROM city_sections").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("Roma", cursor.getString(0))
                 assertEquals(2800000L, cursor.getLong(1))
-                assertEquals(1, cursor.getInt(2))
-                assertTrue("le citta' gia' importate non hanno coordinate", cursor.isNull(3) && cursor.isNull(4))
+                assertEquals(41.9, cursor.getDouble(2), 0.0)
+                assertEquals(0, cursor.getInt(3))
             }
         }
     }
 
     // Chi aggiorna dalla prima versione pubblicata (v0.2.0) all'ultima: nessun dato perso.
     @Test
-    fun catenaCompletaDa3a23ConservaCassaforteRegioniPoiEGuide() {
+    fun catenaCompletaDa3a24ConservaCassaforteRegioniPoiEGuide() {
         helper.createDatabase(DB_NAME, 3).use { db ->
             db.execSQL("INSERT INTO passport_vault VALUES ('p1', 'cifrato', 1, 2)")
             db.execSQL("INSERT INTO installed_regions VALUES ('italia', 'Italia', '2026.09.01', 1000, 42)")
@@ -290,7 +297,7 @@ class RegionDatabaseMigrationTest {
             db.execSQL("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES ('italia', 'TRASPORTI', 'In treno', 'corpo', 'https://example.org')")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 23, true, *ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB_NAME, 24, true, *ALL_MIGRATIONS).use { db ->
             db.query("SELECT encryptedPayload FROM passport_vault WHERE id = 'p1'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("cifrato", cursor.getString(0))

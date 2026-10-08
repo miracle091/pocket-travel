@@ -6,4 +6,6 @@ data class GuideSection(
     val title: String,
     val body: String,
     val sourceUrl: String,
+    // Tradotta automaticamente dalla pagina in sourceUrl, nell'altra lingua.
+    val translated: Boolean = false,
 )

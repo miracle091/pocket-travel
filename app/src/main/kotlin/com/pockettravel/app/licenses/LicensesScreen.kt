@@ -63,12 +63,17 @@ fun LicensesScreen(onBack: () -> Unit, viewModel: LicensesViewModel = hiltViewMo
             items(thirdPartyLicenses, key = { it.component }) { entry ->
                 ListItem(
                     supportingContent = {
-                        Text(
-                            buildString {
-                                append(stringResource(R.string.licenses_license, stringResource(entry.license)))
-                                entry.note?.let { append("\n").append(stringResource(it)) }
-                            },
-                        )
+                        Column {
+                            Text(
+                                buildString {
+                                    append(stringResource(R.string.licenses_license, stringResource(entry.license.name)))
+                                    entry.note?.let { append("\n").append(stringResource(it)) }
+                                },
+                            )
+                            entry.license.url?.let { url ->
+                                TextButton(onClick = { uriHandler.openUri(url) }) { Text(stringResource(R.string.licenses_link)) }
+                            }
+                        }
                     },
                     content = { Text(stringResource(entry.component)) },
                 )
@@ -111,7 +116,7 @@ private fun TransitFeedRow(feed: TransitFeed, onOpenLicense: (String) -> Unit) {
             Column {
                 Text(feed.attribution)
                 Text(stringResource(R.string.licenses_license, feed.license))
-                feed.licenseUrl?.let { url -> TextButton(onClick = { onOpenLicense(url) }) { Text(stringResource(R.string.licenses_transit_link)) } }
+                feed.licenseUrl?.let { url -> TextButton(onClick = { onOpenLicense(url) }) { Text(stringResource(R.string.licenses_link)) } }
             }
         },
         content = { Text(feed.name) },

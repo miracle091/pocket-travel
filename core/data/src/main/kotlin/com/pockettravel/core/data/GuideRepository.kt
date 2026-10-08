@@ -30,4 +30,5 @@ private fun GuideSectionEntity.toDomain() = GuideSection(
     title = title,
     body = body,
     sourceUrl = sourceUrl,
+    translated = translated,
 )

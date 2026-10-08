@@ -70,7 +70,12 @@ class GuidesImporter @Inject constructor(
     // vengono saltate invece di far fallire l'intero import.
     private fun readGuideSections(db: SQLiteDatabase): List<GuideSectionEntity> {
         val sections = mutableListOf<GuideSectionEntity>()
-        db.rawQuery(GUIDE_SECTIONS_QUERY, null).use { cursor ->
+        // translated c'e' solo nei guides.db generati dopo le sezioni tradotte: senza, nessuna e' tradotta.
+        val hasTranslated = db.rawQuery("PRAGMA table_info(guide_sections)", null).use { cursor ->
+            generateSequence { if (cursor.moveToNext()) cursor.getString(1) else null }.any { it == "translated" }
+        }
+        db.rawQuery(if (hasTranslated) GUIDE_SECTIONS_WITH_TRANSLATED_QUERY else GUIDE_SECTIONS_QUERY, null).use { cursor ->
+            val translated = cursor.getColumnIndex("translated")
             while (cursor.moveToNext()) {
                 val category = guideCategoryOrNull(cursor.getString(1)) ?: continue
                 sections += GuideSectionEntity(
@@ -79,6 +84,7 @@ class GuidesImporter @Inject constructor(
                     title = cursor.getString(2),
                     body = cursor.getString(3),
                     sourceUrl = cursor.getString(4),
+                    translated = translated >= 0 && cursor.getInt(translated) == 1,
                 )
             }
         }
@@ -224,6 +230,8 @@ class GuidesImporter @Inject constructor(
         // Costanti (invece che inline) cosi' un test JVM puro puo' eseguirle via JDBC contro un
         // file prodotto dalla pipeline dati, senza android.database.sqlite.
         internal const val GUIDE_SECTIONS_QUERY = "SELECT regionId, category, title, body, sourceUrl FROM guide_sections"
+        internal const val GUIDE_SECTIONS_WITH_TRANSLATED_QUERY =
+            "SELECT regionId, category, title, body, sourceUrl, translated FROM guide_sections"
         internal const val EMERGENCY_NUMBERS_QUERY = "SELECT regionId, general, police, ambulance, fire FROM emergency_numbers"
         internal const val NO_CENTRAL_NUMBER_TABLE_QUERY =
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'emergency_numbers_none'"

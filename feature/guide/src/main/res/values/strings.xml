@@ -74,6 +74,7 @@
     <string name="emergency_travel_advice_fallback_description">Avvisi del governo britannico, in inglese: sicurezza e salute valgono per tutti, i requisiti d\'ingresso sono quelli per i cittadini britannici</string>
     <string name="emergency_travel_advice_open">Apri %1$s</string>
     <string name="guide_sources_title">Fonti</string>
+    <string name="guide_source_translated">%1$s · tradotta automaticamente</string>
     <string name="transit_excluded_title">Orari dei mezzi pubblici non inclusi</string>
     <string name="transit_excluded_tmb">TMB (metro e bus di Barcellona): la licenza vale solo per l\'app che la richiede e non ne consente la ridistribuzione</string>
     <string name="transit_excluded_idfm">Île-de-France Mobilités (metro, RER e bus di Parigi): la licenza (Licence Mobilités) richiede che chi riusa i dati si registri, condizione che un file pubblico non può rispettare</string>

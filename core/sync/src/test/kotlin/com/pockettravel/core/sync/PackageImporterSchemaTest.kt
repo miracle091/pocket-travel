@@ -322,4 +322,45 @@ class PackageImporterSchemaTest {
             assertEquals("https://it.wikivoyage.org/wiki/Roma", rs.getString("sourceUrl"))
         }
     }
+
+    // Schema di writeGuidesDb in tools/data-pipeline (GenerateGuideContent.kt), con translated.
+    @Test
+    fun `la query guide_sections con translated legge le sezioni tradotte`() = withDb { conn ->
+        conn.createStatement().use { statement ->
+            statement.execute(
+                "CREATE TABLE guide_sections (regionId TEXT NOT NULL, category TEXT NOT NULL, title TEXT NOT NULL, " +
+                    "body TEXT NOT NULL, sourceUrl TEXT NOT NULL, translated INTEGER NOT NULL DEFAULT 0)",
+            )
+            statement.execute(
+                "INSERT INTO guide_sections VALUES ('malta', 'TRASPORTI', 'Spostarsi', 'corpo', 'https://en.wikivoyage.org/wiki/Malta', 1)",
+            )
+        }
+        conn.createStatement().use { statement ->
+            val rs = statement.executeQuery(GuidesImporter.GUIDE_SECTIONS_WITH_TRANSLATED_QUERY)
+            assertEquals(true, rs.next())
+            assertEquals("https://en.wikivoyage.org/wiki/Malta", rs.getString("sourceUrl"))
+            assertEquals(1, rs.getInt("translated"))
+        }
+    }
+
+    // Schema di writeCitiesDb in tools/data-pipeline (GenerateCities.kt), con translated in fondo.
+    @Test
+    fun `la query city_sections con translated legge le sezioni tradotte`() = withDb { conn ->
+        conn.createStatement().use { statement ->
+            statement.execute(
+                "CREATE TABLE city_sections (city TEXT NOT NULL, category TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, " +
+                    "sourceUrl TEXT NOT NULL, population INTEGER, capital INTEGER NOT NULL DEFAULT 0, latitude REAL, longitude REAL, " +
+                    "translated INTEGER NOT NULL DEFAULT 0)",
+            )
+            statement.execute(
+                "INSERT INTO city_sections VALUES ('Valletta', 'STORIA', 'Storia', 'corpo', 'https://en.wikipedia.org/wiki/Valletta', 5000, 1, 35.9, 14.5, 1)",
+            )
+        }
+        conn.createStatement().use { statement ->
+            val rs = statement.executeQuery(CityImporter.CITY_SECTIONS_WITH_TRANSLATED_QUERY)
+            assertEquals(true, rs.next())
+            assertEquals("Valletta", rs.getString("city"))
+            assertEquals(1, rs.getInt("translated"))
+        }
+    }
 }

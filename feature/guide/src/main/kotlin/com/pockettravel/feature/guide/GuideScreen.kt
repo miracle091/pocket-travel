@@ -576,9 +576,11 @@ private fun SectionsWithFilters(
             }
             // Le fonti una volta sola, in fondo, invece che sotto ogni riquadro (attribuzione CC BY-SA).
             val sourceUrls = visibleSections.map { it.sourceUrl }.filter { it.isNotBlank() }.distinct()
+            // Pagine da cui almeno una sezione mostrata e' tradotta automaticamente (CC BY-SA: modifica indicata).
+            val translatedUrls = visibleSections.filter { it.translated }.map { it.sourceUrl }.toSet()
             if (sourceUrls.isNotEmpty()) {
                 item(key = "sources") {
-                    GuideSourcesCard(sourceUrls, onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l))
+                    GuideSourcesCard(sourceUrls, translatedUrls, onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l))
                 }
             }
         }
@@ -803,10 +805,16 @@ private fun EmergencyNumbers.entries(): List<Pair<List<Int>, String>> {
 // Forma comune a GuideSection e CitySection (stessa GuideCategory, titolo, corpo e fonte): un'unica
 // riquadro/filtro per la guida del paese e per il dettaglio di una citta', senza dipendere da quale
 // dei due repository ha prodotto la sezione.
-internal data class SectionUi(val category: GuideCategory, val title: String, val body: String, val sourceUrl: String)
+internal data class SectionUi(
+    val category: GuideCategory,
+    val title: String,
+    val body: String,
+    val sourceUrl: String,
+    val translated: Boolean = false,
+)
 
-private fun GuideSection.toUi() = SectionUi(category, title, body, sourceUrl)
-private fun CitySection.toUi() = SectionUi(category, title, body, sourceUrl)
+private fun GuideSection.toUi() = SectionUi(category, title, body, sourceUrl, translated)
+private fun CitySection.toUi() = SectionUi(category, title, body, sourceUrl, translated)
 
 @Composable
 private fun GuideSectionCard(
@@ -832,10 +840,12 @@ private fun GuideSectionCard(
 
 // Riquadro finale con le pagine Wikivoyage (e Wikipedia, per Storia e Clima delle citta'; travel.gc.ca per i consigli di
 // viaggio del Governo del Canada) da cui vengono le sezioni mostrate: titolo della pagina (dall'URL, o il nome della
-// fonte per i link senza /wiki/) e sito, ognuna apribile. La licenza sta nella schermata Licenze.
+// fonte per i link senza /wiki/) e sito, ognuna apribile; accanto al sito "tradotta automaticamente" per le pagine
+// in translatedUrls. La licenza sta nella schermata Licenze.
 @Composable
 private fun GuideSourcesCard(
     sourceUrls: List<String>,
+    translatedUrls: Set<String>,
     onOpenSource: (url: String, title: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -857,7 +867,9 @@ private fun GuideSourcesCard(
                     GuideSourceSite.TRAVEL_GC_CA -> travelAdviceTitle
                 }
                 ListItem(
-                    supportingContent = { Text(host) },
+                    supportingContent = {
+                        Text(if (url in translatedUrls) stringResource(R.string.guide_source_translated, host) else host)
+                    },
                     trailingContent = { Icon(AppIcons.OpenExternal, contentDescription = null) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable { onOpenSource(url, sourceTitle) },

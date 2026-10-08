@@ -24,4 +24,6 @@ data class CitySectionEntity(
     // Coordinate della citta' (pipeline: Wikidata P625), null se ignote o da un cities.db vecchio.
     val latitude: Double? = null,
     val longitude: Double? = null,
+    // Tradotta automaticamente dalla pagina nell'altra lingua (pipeline: colonna translated di cities.db).
+    @ColumnInfo(defaultValue = "0") val translated: Boolean = false,
 )
