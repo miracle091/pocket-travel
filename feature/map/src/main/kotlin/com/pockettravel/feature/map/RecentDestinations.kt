@@ -36,7 +36,7 @@ class RecentDestinations @Inject constructor(@ApplicationContext context: Contex
     private val _places = MutableStateFlow(decode(prefs.getString(KEY_PLACES, null)))
     val places: StateFlow<List<NavigationPlace>> = _places.asStateFlow()
 
-    /** In cima alla lista; la stessa meta (stesse coordinate) non si ripete. */
+    /** In cima alla lista; la stessa destinazione (stesse coordinate) non si ripete. */
     fun add(place: NavigationPlace) {
         val updated = (listOf(place) + _places.value.filterNot { it.latitude == place.latitude && it.longitude == place.longitude })
             .take(MAX_PLACES)
@@ -59,7 +59,7 @@ class RecentDestinations @Inject constructor(@ApplicationContext context: Contex
         const val KEY_PLACES = "places"
         const val MAX_PLACES = 10
 
-        // Una riga per meta, campi separati da tab: niente libreria di serializzazione in feature:map per una lista corta.
+        // Una riga per destinazione, campi separati da tab: niente libreria di serializzazione in feature:map per una lista corta.
         fun encode(places: List<NavigationPlace>): String = places.joinToString("\n") { place ->
             listOf(place.latitude, place.longitude, place.regionId, place.name.replace('\t', ' ').replace('\n', ' ')).joinToString("\t")
         }

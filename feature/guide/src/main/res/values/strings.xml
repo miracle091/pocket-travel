@@ -72,7 +72,7 @@
     <string name="emergency_kind_consulate">Consolato</string>
     <string name="emergency_embassy_website">Apri il sito di %1$s</string>
     <string name="emergency_embassy_email">Scrivi a %1$s</string>
-    <string name="emergency_travel_advice_description">Avvisi e schede paese del ministero degli esteri del tuo paese</string>
+    <string name="emergency_travel_advice_description">Avvisi e pagine sui paesi del ministero degli esteri del tuo paese</string>
     <string name="emergency_travel_advice_fallback_description">Avvisi del governo britannico, in inglese: sicurezza e salute valgono per tutti, i requisiti d\'ingresso sono quelli per i cittadini britannici</string>
     <string name="emergency_travel_advice_open">Apri %1$s</string>
     <string name="guide_sources_title">Fonti</string>
@@ -141,7 +141,7 @@
     <string name="vacc_reason_polio_exit">Perché parti da %1$s, dove circola il poliovirus, dopo un soggiorno di più di 4 settimane</string>
     <string name="vacc_reason_polio_encouraged">Perché parti da %1$s, dove è stato rilevato poliovirus di tipo 2 derivato dal vaccino</string>
     <string name="vacc_reason_polio_entry">Perché arrivi da %1$s: la destinazione richiede la prova di vaccinazione antipolio</string>
-    <string name="vacc_reason_polio_entry_unlisted">%1$s può chiedere la prova di vaccinazione antipolio a chi arriva da paesi in cui circola la polio. Le nostre fonti non dicono da quali paesi: controlla la scheda di %1$s sul sito degli esteri</string>
+    <string name="vacc_reason_polio_entry_unlisted">%1$s può chiedere la prova di vaccinazione antipolio a chi arriva da paesi in cui circola la polio. Le nostre fonti non dicono da quali paesi: controlla la pagina di %1$s sul sito degli esteri</string>
     <string name="vacc_reason_hajj">Obbligatorio per i pellegrini di Hajj e Umrah</string>
     <string name="vacc_reason_destination_most">Raccomandata alla maggior parte dei viaggiatori verso %1$s</string>
     <string name="vacc_reason_destination_some">Per alcuni viaggiatori verso %1$s, secondo durata, attività e zone</string>
@@ -160,7 +160,7 @@
     <string name="vacc_open_source">Apri %1$s</string>
     <string name="vacc_verified_on">Verificato il %1$s</string>
     <string name="vacc_links_title">Fonti ufficiali</string>
-    <string name="vacc_link_travelhealthpro">Schede paese sulla salute dei viaggiatori del servizio sanitario britannico (UKHSA)</string>
+    <string name="vacc_link_travelhealthpro">Pagine per paese sulla salute dei viaggiatori del servizio sanitario britannico (UKHSA)</string>
     <string name="vacc_vaccine_yellow_fever">Febbre gialla</string>
     <string name="vacc_vaccine_polio">Poliomielite</string>
     <string name="vacc_vaccine_menacwy">Meningococco ACWY</string>

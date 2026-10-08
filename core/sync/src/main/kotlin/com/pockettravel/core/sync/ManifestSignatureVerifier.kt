@@ -93,7 +93,7 @@ class ManifestSignatureVerifier @Inject constructor(
 
     // app-status.json viene sempre dal progetto (versioni dell'app e dei modelli), anche con un altro catalogo.
     private fun publicKeyFor(url: String): String =
-        if (url == SyncConfig.APP_STATUS_URL) SyncConfig.PUBLISHED_PUBLIC_KEY else SyncConfig.MANIFEST_PUBLIC_KEY
+        if (url == SyncConfig.APP_STATUS_URL) SyncConfig.OFFICIAL_PUBLIC_KEY else SyncConfig.MANIFEST_PUBLIC_KEY
 
     private suspend fun fetchSignature(url: String): ByteArray = withContext(Dispatchers.IO) {
         val host = URI(url).host

@@ -117,7 +117,7 @@ class NavigationService : Service() {
                 text = context.getString(R.string.navigation_title, snapshot.destinationName),
             )
         val distance = if (snapshot.distanceToNextMeters < NOW_METERS) context.getString(R.string.navigation_now) else distanceText(context, snapshot.distanceToNextMeters)
-        // All'arrivo la distanza dalla meta non dice nulla: solo "Arrivo".
+        // All'arrivo la distanza dalla destinazione non dice nulla: solo "Arrivo".
         val title = if (turn.type == TurnType.ARRIVE && snapshot.distanceToNextMeters < NOW_METERS) turnText(context, turn) else "$distance · ${turnText(context, turn)}"
         val minutes = remainingMinutes(snapshot.remainingSeconds)
         val duration = if (minutes < 60) context.getString(R.string.navigation_minutes, minutes) else context.getString(R.string.navigation_hours_minutes, minutes / 60, minutes % 60)

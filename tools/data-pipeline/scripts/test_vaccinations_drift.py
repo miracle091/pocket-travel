@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test di vaccinations_drift.py: frasi estratte da una scheda Travel.gc.ca, confronto con l'istantanea, numeri
+"""Test di vaccinations_drift.py: frasi estratte da una pagina Travel.gc.ca, confronto con l'istantanea, numeri
 delle riunioni del comitato polio OMS, statement di polio-status.tsv e main() con fonti finte. Nessuna rete.
 
 Uso: python test_vaccinations_drift.py

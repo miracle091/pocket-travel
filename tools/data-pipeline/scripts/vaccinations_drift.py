@@ -4,8 +4,8 @@ content/src/main/resources/vaccinations/. Non modifica mai i TSV: chi li aggiorn
 
 Confronta con l'istantanea vaccinations-drift.tsv (accanto a transit-feeds.tsv):
 - Travel.gc.ca (Open Government Licence - Canada), per ogni paese: rischio e requisito d'ingresso della
-  febbre gialla, primo paragrafo del blocco polio, elenco dei vaccini con un blocco proprio (scheda "Health"),
-  sezione polio della scheda "Entry and exit requirements";
+  febbre gialla, primo paragrafo del blocco polio, elenco dei vaccini con un blocco proprio (pagina "Health"),
+  sezione polio della pagina "Entry and exit requirements";
 - l'hash del PDF dei requisiti sanitari per Hajj e Umrah del Ministero della salute saudita.
 Controlla inoltre che la pagina del Polio IHR Emergency Committee dell'OMS non elenchi uno statement
 piu' recente di quello in polio-status.tsv (colonna statement, "IHR EC <numero>, <data>").
@@ -55,7 +55,7 @@ def one_line(text: str) -> str:
 
 
 def entry_polio(entry_exit: str) -> str:
-    """La sezione polio della scheda "Entry and exit requirements" (prova di vaccinazione all'ingresso, come l'India,
+    """La sezione polio della pagina "Entry and exit requirements" (prova di vaccinazione all'ingresso, come l'India,
     o all'uscita, come il Pakistan), senza i link utili in coda."""
     match = re.search(r"<h3[^>]*>\s*Polio[^<]*</h3>(.*?)(?=<h3|$)", entry_exit, re.S | re.I)
     if not match:
@@ -64,7 +64,7 @@ def entry_polio(entry_exit: str) -> str:
 
 
 def fingerprints_of(iso2: str, health: str, entry_exit: str) -> dict[tuple[str, str], str]:
-    """Le frasi di una scheda Travel.gc.ca che i TSV riassumono, una per tipo."""
+    """Le frasi di una pagina Travel.gc.ca che i TSV riassumono, una per tipo."""
     blocks = vd.blocks_of(health)
     yf_block = next((v for k, v in blocks.items() if k.lower().startswith("yellow fever")), "")
     polio_block = next((v for k, v in blocks.items() if k.lower().startswith("polio")), "")

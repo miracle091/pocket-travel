@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Cosa mostra la notifica della guida. [turn] null = percorso ancora in calcolo (restano meta e
+ * Cosa mostra la notifica della guida. [turn] null = percorso ancora in calcolo (restano destinazione e
  * "Termina"). [street]: la strada in cui si entra con [turn], se la mappa l'ha trovata.
  */
 data class NavigationSnapshot(

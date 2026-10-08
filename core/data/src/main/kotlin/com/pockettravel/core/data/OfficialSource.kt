@@ -25,8 +25,9 @@ private val EU = setOf(
 // non browser (travel.state.gov, step.state.gov, eda.admin.ch, ireland.ie, regjeringen.no, mzv.sk, mae.ro, mfa.bg,
 // keliauk.urm.lt, portales.sre.gob.mx) o non rispondono fuori dal paese (smartraveller.gov.au): per questi l'indirizzo
 // e' confermato dai risultati di ricerca sui domini dei ministeri. Per i consigli di viaggio entrano solo i servizi con
-// una scheda per ogni destinazione: i ministeri che pubblicano solo avvisi sui paesi a rischio (India, Brasile,
-// Israele, Lettonia...) non direbbero nulla della maggior parte delle mete, e per loro vale il ripiego qui sotto.
+// una pagina per ogni destinazione: i ministeri che pubblicano solo avvisi sui paesi a rischio (India, Brasile,
+// Israele, Lettonia...) non direbbero nulla della maggior parte delle destinazioni, e per loro vale il ripiego qui
+// sotto.
 val officialSourcesRegistry = listOf(
     // Internazionali: per chiunque, qualunque sia la nazionalita'.
     OfficialSource("OMS — International Travel and Health", "https://www.who.int/travel-advice", R.string.source_desc_who, topic = OfficialSourceTopic.HEALTH),

@@ -173,9 +173,9 @@ class NavigationPlannerViewModel @Inject constructor(
     private val lastPosition = MutableStateFlow<RoutePoint?>(null)
 
     /**
-     * Le regioni della mappa prima del percorso: quella della tab, poi quelle di partenza e arrivo (una meta a Riga
-     * dalla tab di San Marino mostra Riga). Senza nessuna delle tre (Navigatore della barra, nessuna meta) tutte quelle
-     * installate.
+     * Le regioni della mappa prima del percorso: quella della tab, poi quelle di partenza e arrivo (una destinazione a
+     * Riga dalla tab di San Marino mostra Riga). Senza nessuna delle tre (Navigatore della barra, nessuna
+     * destinazione) tutte quelle installate.
      */
     val mapRegionIds: StateFlow<List<String>> = combine(regionId, _from, _to, installed) { id, from, to, regions ->
         listOfNotNull(id, from?.regionId, to?.regionId).filter { it in regions }.distinct().ifEmpty { regions.keys.toList() }
@@ -259,7 +259,7 @@ class NavigationPlannerViewModel @Inject constructor(
                 hadRouting = has
             }
         }
-        // Ripreso dopo la chiusura del processo: l'anteprima si ricalcola dalla meta salvata.
+        // Ripreso dopo la chiusura del processo: l'anteprima si ricalcola dalla destinazione salvata.
         if (_to.value != null) refreshPreview()
     }
 
@@ -352,7 +352,7 @@ class NavigationPlannerViewModel @Inject constructor(
         }
     }
 
-    // Controllo della meta col momento del giorno ancora in corso: una nuova ricerca lo annulla, cosi' non la sovrascrive.
+    // Controllo della destinazione col momento del giorno ancora in corso: una nuova ricerca lo annulla, cosi' non la sovrascrive.
     private var destinationJob: Job? = null
 
     fun cancelSearch() {
@@ -384,7 +384,7 @@ class NavigationPlannerViewModel @Inject constructor(
         refreshPreview()
     }
 
-    /** Scambia partenza e arrivo; con la propria posizione come arrivo non si puo' (resterebbe senza meta). */
+    /** Scambia partenza e arrivo; con la propria posizione come arrivo non si puo' (resterebbe senza destinazione). */
     fun swap() {
         val from = _from.value ?: return
         setFrom(_to.value)
@@ -505,7 +505,8 @@ class NavigationPlannerViewModel @Inject constructor(
         const val KEY_REMINDER = "reminder"
         const val SEARCH_DEBOUNCE_MILLIS = 300L
         const val SEARCH_LIMIT = 200
-        // Abbastanza per trovare il nome a parole intere tra quelli che contengono la meta solo come parte di parola.
+        // Abbastanza per trovare il nome a parole intere tra quelli che contengono la destinazione solo come parte
+        // di parola.
         const val DESTINATION_CHECK_LIMIT = 50
         const val RESULTS_SHOWN = 30
         const val ADDRESS_RESULTS_SHOWN = 10

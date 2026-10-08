@@ -31,8 +31,8 @@ import com.pockettravel.feature.map.NavigationViewModel
 
 /**
  * Pianificatore e guida, uno solo per tutta l'app (legati all'activity, non alla schermata): la tab della regione e
- * il Navigatore della barra mostrano la stessa meta e la stessa guida in corso, e una guida avviata da una parte non
- * compare dall'altra come "interrotta" (con un secondo GPS acceso).
+ * il Navigatore della barra mostrano la stessa destinazione e la stessa guida in corso, e una guida avviata da una
+ * parte non compare dall'altra come "interrotta" (con un secondo GPS acceso).
  */
 @Composable
 fun navigatorViewModels(): Pair<NavigationPlannerViewModel, NavigationViewModel> {

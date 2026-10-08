@@ -225,7 +225,7 @@ def run_update_workflow(models):
 
 
 def update_app_status(api, repo, folder, push):
-    """--update-app-status: impronte dei GGUF caricati -> app-status.json firmato (workflow) -> catalogo locale."""
+    """--update-app-status: impronte dei GGUF caricati -> app-status.json firmato (workflow) -> catalogo dei modelli."""
     ggufs = sorted(folder.glob("*.gguf"))
     if not ggufs:
         sys.exit(f"--update-app-status: nessun .gguf in {folder}")
@@ -239,7 +239,7 @@ def update_app_status(api, repo, folder, push):
         return
     check_on_hf(api, repo, models)
     if not run_update_workflow(models):
-        sys.exit("Workflow fallito: catalogo locale non aggiornato. Dettagli su GitHub Actions.")
+        sys.exit("Workflow fallito: catalogo dei modelli non aggiornato. Dettagli su GitHub Actions.")
     text = CATALOG.read_text(encoding="utf-8")
     for m in models:
         text = update_catalog(text, m["fileName"], m["sha256"], m["sizeBytes"])

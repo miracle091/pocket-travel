@@ -11,8 +11,9 @@ android {
         buildConfigField("String", "MANIFEST_URL_OVERRIDE", "\"\"")
     }
 
-    // Solo debug: manifest alternativo (es. un server locale per provare i pacchetti sull'emulatore),
-    // passato con -PpocketTravel.manifestUrl=http://10.0.2.2:8000/manifest.json. Vuoto = manifest pubblicato.
+    // Solo debug: catalogo di debug (es. un server locale per provare i pacchetti sull'emulatore),
+    // passato con -PpocketTravel.manifestUrl=http://10.0.2.2:8000/manifest.json. Vuoto = catalogo ufficiale o
+    // personalizzato.
     buildTypes {
         getByName("debug") {
             val manifestUrl = providers.gradleProperty("pocketTravel.manifestUrl").getOrElse("")

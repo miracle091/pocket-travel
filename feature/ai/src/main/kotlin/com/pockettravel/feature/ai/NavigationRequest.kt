@@ -4,7 +4,7 @@ package com.pockettravel.feature.ai
 enum class NavigationRequestProfile { WALK, BIKE, CAR }
 
 /**
- * "Portami al Colosseo a piedi": la meta da cercare nel Navigatore e il mezzo, se detto. [destinationWithTime] e' la meta
+ * "Portami al Colosseo a piedi": la destinazione da cercare nel Navigatore e il mezzo, se detto. [destinationWithTime] e' la destinazione
  * col momento del giorno che le regole le hanno tolto ("bar stasera" per "bar"), null se non c'era: puo' essere il nome
  * del luogo, e il Navigatore la cerca per prima.
  */
@@ -58,7 +58,8 @@ private val MODES = listOf(
 
 private val POLITENESS = Regex(",?\\s*\\b(?:per favore|please)\\b", RegexOption.IGNORE_CASE)
 
-// Quando, in fondo alla meta: "il Colosseo domani" -> "il Colosseo", "the beach tomorrow morning" -> "the beach".
+// Quando, in fondo alla destinazione: "il Colosseo domani" -> "il Colosseo",
+// "the beach tomorrow morning" -> "the beach".
 // Solo in minuscolo: con la maiuscola e' parte del nome ("Bar Stasera", "Café Tomorrow").
 private val TRAILING_TIME = Regex(
     ",?\\s+(?:(?:dopo)?domani(?:\\s+(?:mattina|pomeriggio|sera))?|oggi(?:\\s+pomeriggio)?|domattina|stamattina|stasera|stanotte|adesso" +

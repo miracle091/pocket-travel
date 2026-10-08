@@ -99,6 +99,16 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Mappa a bassa risoluzione installata da sola | mappa d'insieme | overview map |
 | Mappa per scegliere la nazione | mappa delle nazioni | country map |
 | Mappa online a bassa risoluzione | mappa del mondo | world map |
+| Dove si vuole arrivare (Navigatore, vaccinazioni, assistente) | destinazione (mai "meta") | destination |
+| JSON firmati dei dati scaricabili, pubblicati dal progetto | catalogo ufficiale | official catalog |
+| Catalogo di altri, scelto in Impostazioni → Catalogo | catalogo personalizzato | custom catalog |
+| Catalogo letto con `-PpocketTravel.manifestUrl`, solo in debug e senza firme | catalogo di debug | debug catalog |
+| Testo di travel.gc.ca e del FCDO nelle guide inglesi | consigli di viaggio | travel advice |
+| Pagina web di un sito esterno (ministero, servizio sanitario) | pagina (mai "scheda") | page |
+| Da dove viene il testo mostrato (guida, vaccinazioni) | Fonti | Sources |
+| Siti da controllare di persona, solo online | Fonti ufficiali (mai solo "Fonti") | Official sources |
+| Sezione tradotta da un'altra lingua | tradotta automaticamente | machine-translated |
+| Schermata delle licenze | Licenze | Licenses |
 | Proposte sotto un campo mentre si scrive (aeroporti, compagnie) | completamento | autocomplete |
 | Spazio cifrato con la biometria per i documenti | cassaforte | vault |
 | Note di viaggio cifrate, fuori dalla cassaforte | Note | Notes |

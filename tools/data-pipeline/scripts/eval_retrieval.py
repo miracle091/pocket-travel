@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Misura la ricerca dell'assistente sul dispositivo (RAG sulle guide) su dati pubblicati, senza modello e senza app.
+"""Misura la scelta del contesto dell'assistente sul dispositivo (RAG sulle guide) su dati pubblicati, senza modello
+e senza app.
 
 Replica in Python TravelAssistant.kt (buildFtsQuery, namedCities, rankSections, focusStems, selectContext) e
 FtsRanking.kt (BM25 su matchinfo 'pcxnal' con le statistiche delle due tabelle sommate): se cambiano li', va cambiato

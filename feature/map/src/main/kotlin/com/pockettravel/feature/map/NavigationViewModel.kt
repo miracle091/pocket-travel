@@ -38,7 +38,7 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
- * Navigazione passo passo dentro la scheda Navigatore: "Avvia" chiama [start] con la meta e il mezzo
+ * Navigazione passo passo dentro la scheda Navigatore: "Avvia" chiama [start] con la destinazione e il mezzo
  * scelti, "Termina" (o l'arrivo, chiuso dal Navigatore) [stop]. Il GPS si ascolta solo mentre si naviga.
  * Meta, mezzo e ora di arrivo stanno in [SavedStateHandle]: se il sistema chiude l'app, tornando il
  * Navigatore chiede se riprendere la guida ([resumeOffer]) invece di ripartire da solo.
@@ -59,7 +59,7 @@ class NavigationViewModel @Inject constructor(
     nationalityPreferences: NationalityPreferences,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
-    // La regione da cui si e' partiti (la scheda aperta) e la meta; null = non si sta navigando.
+    // La regione da cui si e' partiti (la scheda aperta) e la destinazione; null = non si sta navigando.
     private var regionId: String = savedStateHandle[KEY_REGION] ?: ""
     private val destination = MutableStateFlow<NavigationPlace?>(null)
     /** La meta della guida in corso, null se non si sta navigando. */
@@ -160,7 +160,7 @@ class NavigationViewModel @Inject constructor(
         session.stopRequests.onEach { if (destination.value != null) stop() }.launchIn(viewModelScope)
     }
 
-    /** "Riprendi": la guida interrotta riparte con la stessa meta, mezzo e ora di arrivo. */
+    /** "Riprendi": la guida interrotta riparte con la stessa destinazione, mezzo e ora di arrivo. */
     fun resume() {
         val place = _resumeOffer.value ?: return
         _resumeOffer.value = null

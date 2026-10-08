@@ -36,7 +36,7 @@ class NavigationRequestTest {
     }
 
     @Test
-    fun `verbi di visita e momenti del giorno non fanno parte della meta`() {
+    fun `verbi di visita e momenti del giorno non fanno parte della destinazione`() {
         assertEquals(NavigationRequest("Colosseo", NavigationRequestProfile.WALK, "Colosseo domani"), parseNavigationRequest("portami a vedere il Colosseo domani, vado a piedi"))
         assertEquals(NavigationRequest("beach", null, "beach tomorrow morning"), parseNavigationRequest("take me to the beach tomorrow morning"))
         assertEquals(NavigationRequest("Pantheon", null, "Pantheon stasera"), parseNavigationRequest("portami a visitare il Pantheon stasera"))
@@ -76,7 +76,7 @@ class NavigationRequestTest {
     }
 
     @Test
-    fun `senza meta non e' una richiesta`() {
+    fun `senza destinazione non e' una richiesta`() {
         assertNull(parseNavigationRequest("Portami"))
         assertNull(parseNavigationRequest("take me to"))
         assertNull(parseNavigationRequest("portami a piedi"))

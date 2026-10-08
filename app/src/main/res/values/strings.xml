@@ -125,7 +125,7 @@
     <string name="more_usage_mode_none">Non scelto: la mappa mostra tutte le categorie</string>
     <string name="more_usage_mode_with_accessible">%1$s, in sedia a rotelle</string>
     <string name="more_usage_mode_accessible_only">In sedia a rotelle: la mappa mostra tutte le categorie</string>
-    <string name="more_usage_mode_body">La mappa mostra per primi i punti utili per i modi di viaggiare scelti e è proposta la rete stradale da scaricare adatta. La scelta riporta i filtri della mappa ai valori predefiniti</string>
+    <string name="more_usage_mode_body">La mappa mostra per primi i punti utili per i modi di viaggiare scelti e propone la rete stradale adatta da scaricare. La scelta riporta i filtri della mappa ai valori predefiniti</string>
     <string name="more_licenses">Licenze</string>
     <string name="more_appearance">Aspetto</string>
     <string name="more_appearance_system">Tema del dispositivo</string>
@@ -204,39 +204,39 @@
     <!-- Licenze di terze parti (LicenseData.kt): testi tradotti -->
     <string name="licenses_component_brouter">BRouter Core (vendorizzato, third-party/brouter-core)</string>
     <string name="licenses_component_llama_cpp">llama.cpp (vendorizzato, third-party/llama-cpp)</string>
-    <string name="licenses_note_llama_cpp">Sostituisce LiteRT-LM (Google), che non pubblica più release da agosto 2026; nessun AAR Maven ufficiale esiste, compilato da sorgente via NDK/CMake.</string>
+    <string name="licenses_note_llama_cpp">Sostituisce LiteRT-LM (Google), che non pubblica più release da agosto 2026; nessun AAR Maven ufficiale esiste, compilato da sorgente via NDK/CMake</string>
     <string name="licenses_component_nlohmann_json">nlohmann/json (usato da llama.cpp, third-party/llama-cpp/vendor/nlohmann)</string>
     <string name="licenses_component_subprocess">sheredom/subprocess.h (usato da llama.cpp, third-party/llama-cpp/vendor/sheredom)</string>
     <string name="licenses_component_cpp_httplib">yhirose/cpp-httplib (usato da llama.cpp, third-party/llama-cpp/vendor/cpp-httplib)</string>
     <string name="licenses_component_kleidiai">KleidiAI (Arm, kernel ottimizzati usati da llama.cpp su arm64)</string>
     <string name="licenses_component_okhttp">OkHttp (download dei pacchetti, dei modelli e del meteo)</string>
     <string name="licenses_component_qwen">Modelli Qwen3.5 e Qwen3 (Alibaba Cloud, team Qwen)</string>
-    <string name="licenses_note_qwen">Modelli dell\'assistente offline, scaricati su richiesta da HuggingFace nelle versioni GGUF quantizzate da Unsloth.</string>
+    <string name="licenses_note_qwen">Modelli dell\'assistente offline, scaricati su richiesta da HuggingFace nelle versioni GGUF quantizzate da Unsloth</string>
     <string name="licenses_component_trained_models">Modelli addestrati da Pocket Travel (pockettravel/*-travel-it-GGUF)</string>
-    <string name="licenses_note_trained_models">Fine-tuning dei modelli Qwen, addestrati su testi di Wikivoyage e Wikipedia; scaricati su richiesta da HuggingFace.</string>
+    <string name="licenses_note_trained_models">Fine-tuning dei modelli Qwen, addestrati su testi di Wikivoyage e Wikipedia; scaricati su richiesta da HuggingFace</string>
     <string name="licenses_component_pmtiles_reader">pmtiles-reader (lettura PMTiles via HTTP range, core:sync)</string>
     <string name="licenses_component_xz">XZ for Java (decompressione dei punti di interesse, core:sync)</string>
     <string name="licenses_component_protomaps">Basemap Protomaps (software/schema)</string>
     <string name="licenses_component_natural_earth">Natural Earth (confini dei paesi, mappa delle nazioni)</string>
     <string name="licenses_name_public_domain">Pubblico dominio</string>
-    <string name="licenses_note_natural_earth">Dati 1:50m, ridotti a confini, codice ISO e nome del paese (feature:map/src/main/assets/world).</string>
+    <string name="licenses_note_natural_earth">Dati 1:50m, ridotti a confini, codice ISO e nome del paese (feature:map/src/main/assets/world)</string>
     <string name="licenses_component_airports">OurAirports (aeroporti) e Wikidata (compagnie aeree, nomi delle città)</string>
     <string name="licenses_name_airports">Pubblico dominio (OurAirports), CC0 (Wikidata)</string>
-    <string name="licenses_note_airports">Suggerimenti di aeroporti e compagnie nei biglietti dei documenti (feature:vault/src/main/assets). I dati di OurAirports sono forniti senza garanzie.</string>
+    <string name="licenses_note_airports">Completamento di aeroporti e compagnie nei biglietti dei documenti (feature:vault/src/main/assets). I dati di OurAirports sono forniti senza garanzie.</string>
     <string name="licenses_component_flags">Bandiere nazionali (westnordost/flags-vector-drawables-android, core:ui/src/main/res/drawable/ic_flag_*)</string>
     <string name="licenses_name_flags">Licenza di ciascuna bandiera su Wikipedia/Wikimedia Commons, in gran parte pubblico dominio</string>
-    <string name="licenses_note_flags">Vettoriali esportati dalle bandiere di Wikipedia (Timeline of national flags).</string>
+    <string name="licenses_note_flags">Vettoriali esportati dalle bandiere di Wikipedia (Timeline of national flags)</string>
     <string name="licenses_component_material_symbols">Icone Material Symbols (Google, google/material-design-icons, core:ui/src/main/res/drawable/ms_*)</string>
-    <string name="licenses_note_material_symbols">Icone dell\'interfaccia, delle categorie dei punti di interesse e delle frecce di navigazione.</string>
+    <string name="licenses_note_material_symbols">Icone dell\'interfaccia, delle categorie dei punti di interesse e delle frecce di navigazione</string>
     <string name="licenses_component_noto_sans">Klokantech Noto Sans (glifi etichette mappa, feature:map/src/main/assets/fonts)</string>
-    <string name="licenses_note_noto_sans">Font Noto Sans (Google) ripacchettato in SDF da openmaptiles/fonts; inclusi i range di latino, greco, cirillico, armeno, ebraico, arabo, thai, georgiano e punteggiatura.</string>
+    <string name="licenses_note_noto_sans">Font Noto Sans (Google) ripacchettato in SDF da openmaptiles/fonts; inclusi i range di latino, greco, cirillico, armeno, ebraico, arabo, thai, georgiano e punteggiatura</string>
     <string name="licenses_component_osm">Dati OpenStreetMap</string>
-    <string name="licenses_note_osm">Richiede attribuzione e condivisione delle modifiche al database.</string>
+    <string name="licenses_note_osm">Richiede attribuzione e condivisione delle modifiche al database</string>
     <string name="licenses_note_wikivoyage">Testo degli autori di Wikivoyage, con il link a ogni pagina usata tra le fonti della guida. Le sezioni sono adattate (estratte e ripulite dalla formattazione); alcune sono tradotte automaticamente dalla pagina nell\'altra lingua (italiano o inglese) con i modelli opus-mt-tc-big di Helsinki-NLP. Anche il testo adattato e tradotto è distribuito con licenza CC BY-SA 4.0.</string>
     <string name="licenses_component_wikipedia">Wikipedia (storia e clima delle città)</string>
     <string name="licenses_note_wikipedia">Testo degli autori di Wikipedia: sezioni Storia (accorciata) e Clima della voce di ogni città, con il link alla voce tra le fonti della guida. Se la sezione manca o è povera, è tradotta automaticamente dalla voce nell\'altra lingua, come per Wikivoyage. Anche il testo adattato e tradotto è distribuito con licenza CC BY-SA 4.0.</string>
     <string name="licenses_component_wikidata">Wikidata (ambasciate e consolati)</string>
-    <string name="licenses_note_wikidata">Dominio pubblico: l\'attribuzione non è obbligatoria, ma la fonte è Wikidata.</string>
+    <string name="licenses_note_wikidata">Pubblico dominio: l\'attribuzione non è obbligatoria, ma la fonte è Wikidata</string>
     <string name="licenses_component_weather">Meteo: Open-Meteo.com (previsioni) e GeoNames (posizione delle città)</string>
     <string name="licenses_note_weather">Weather data by Open-Meteo.com, uso non commerciale. Coordinate delle città dal geocoding di Open-Meteo, basato su GeoNames.</string>
     <string name="licenses_component_emergency_canada">Numeri di emergenza: Travel.gc.ca (Governo del Canada)</string>
@@ -253,7 +253,7 @@
     <string name="licenses_component_vaccinations_fcdo">Vaccinazioni: gov.uk Foreign travel advice (Governo del Regno Unito)</string>
     <string name="licenses_note_vaccinations_fcdo">Contains public sector information licensed under the Open Government Licence v3.0. Requisiti polio d\'ingresso di India, Nepal e Iran, riscritti con parole nostre.</string>
     <string name="licenses_component_vaccinations_france">Vaccinazioni: France Diplomatie, Conseils aux voyageurs (Ministère de l\'Europe et des Affaires étrangères)</string>
-    <string name="licenses_note_vaccinations_france">Requisito polio d\'ingresso dell\'Egitto, dalla scheda Santé aggiornata il 21 settembre 2026, riscritto con parole nostre.</string>
+    <string name="licenses_note_vaccinations_france">Requisito polio d\'ingresso dell\'Egitto, dalla pagina Santé aggiornata il 21 settembre 2026, riscritto con parole nostre</string>
 
     <!-- Onboarding -->
     <string name="onboarding_welcome_title">Ti diamo il benvenuto in Pocket Travel</string>
@@ -322,7 +322,7 @@
     <string name="settings_catalog_reset">Torna al catalogo ufficiale</string>
     <string name="settings_catalog_error_url">L\'indirizzo deve essere completo e iniziare con https://</string>
     <string name="settings_catalog_error_key">Chiave pubblica non valida: serve una chiave ECDSA P-256 in base64</string>
-    <string name="settings_catalog_error_unreachable">Catalogo o firma non raggiungibili. Controllare l\'indirizzo e la connessione</string>
+    <string name="settings_catalog_error_unreachable">Catalogo o firma non raggiungibili. Controlla l\'indirizzo e la connessione</string>
     <string name="settings_catalog_error_signature">La firma del catalogo non corrisponde alla chiave pubblica</string>
     <string name="settings_catalog_error_format">Il file firmato non è un catalogo di Pocket Travel</string>
     <string name="settings_stop_gps_on_arrival">Spegni il GPS all\'arrivo</string>

@@ -20,7 +20,7 @@ dest ::= [^"\\\x00-\x1f]{1,80}
 """
 
 // Solo la meta trovata dalle regole, non la frase intera (che i modelli ricopiavano tutta, comando compreso), e
-// senza esempi (il modello da 0,8B ricopiava la meta dell'esempio qualunque fosse la frase).
+// senza esempi (il modello da 0,8B ricopiava la destinazione dell'esempio qualunque fosse la frase).
 internal fun navigationPrompt(destination: String): String = """
 Testo: $destination
 

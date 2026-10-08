@@ -5,12 +5,12 @@ import java.net.URI
 // Hosting statico open (GitHub Pages), mai un backend dell'app: manifest.json pubblicato da
 // .github/workflows/publish-regions.yml.
 object SyncConfig {
-    private const val PUBLISHED_MANIFEST_URL = "https://miracle091.github.io/pocket-travel/manifest.json"
+    private const val OFFICIAL_MANIFEST_URL = "https://miracle091.github.io/pocket-travel/manifest.json"
 
-    // Chiave pubblica ECDSA P-256 (X.509 SubjectPublicKeyInfo, base64) del catalogo pubblicato: verifica le firme
+    // Chiave pubblica ECDSA P-256 (X.509 SubjectPublicKeyInfo, base64) del catalogo ufficiale: verifica le firme
     // `<url>.sig` di manifest.json, transit.json, address-grid.json e, sempre, di app-status.json (vedi
     // ManifestSignatureVerifier).
-    const val PUBLISHED_PUBLIC_KEY =
+    const val OFFICIAL_PUBLIC_KEY =
         "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQvTHdjgRhQviaUGMXeJgQ698ZGiIGjbK6iMPmjvend3tqHsvICoVlPHl+FnnjMwjKEOVai3BWWbmOuCSDkz1cw=="
 
     // brouter.de: tenuto in whitelist solo per retrocompatibilita' con voci di manifest
@@ -30,7 +30,7 @@ object SyncConfig {
     /** Indirizzo, chiave e host ammessi del catalogo in uso, calcolati una volta per ogni cambio di catalogo. */
     private class Active(val manifestUrl: String, val publicKey: String) {
         // Host di un manifest alternativo servito in chiaro (http, server locale in debug): l'unico
-        // per cui RegionManifest accetta URL non https. null col manifest pubblicato.
+        // per cui RegionManifest accetta URL non https. null con un indirizzo https.
         val cleartextHost: String? = URI(manifestUrl).takeIf { it.scheme == "http" }?.host
         val allowedHosts: Set<String> = FIXED_HOSTS + URI(manifestUrl).host
     }
@@ -38,11 +38,11 @@ object SyncConfig {
     // BuildConfig.MANIFEST_URL_OVERRIDE e' vuoto nelle build di release (vedi build.gradle.kts) e, in debug,
     // vale piu' del catalogo scelto nelle Impostazioni.
     private fun active(custom: CustomCatalog?) = Active(
-        manifestUrl = BuildConfig.MANIFEST_URL_OVERRIDE.ifEmpty { custom?.manifestUrl ?: PUBLISHED_MANIFEST_URL },
-        publicKey = custom?.publicKey ?: PUBLISHED_PUBLIC_KEY,
+        manifestUrl = BuildConfig.MANIFEST_URL_OVERRIDE.ifEmpty { custom?.manifestUrl ?: OFFICIAL_MANIFEST_URL },
+        publicKey = custom?.publicKey ?: OFFICIAL_PUBLIC_KEY,
     )
 
-    // Catalogo scelto nelle Impostazioni, passato una volta all'avvio del processo da CatalogSettings.applySaved:
+    // Catalogo scelto nelle Impostazioni, passato una volta all'avvio del processo da CatalogPreferences.applySaved:
     // cambiarlo riavvia l'app, cosi' nessun componente resta con il catalogo precedente.
     @Volatile
     private var current: Active = active(null)

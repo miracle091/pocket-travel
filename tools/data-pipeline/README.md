@@ -124,23 +124,23 @@ link al sito degli esteri della nazionalità dell'utente. Cosa dicono le fonti:
 - OMS, elenco per paese del 2022: CC BY-NC-SA 3.0 IGO, non usabile.
 - FCDO (Open Government Licence v3.0): per India, Nepal e Iran il vaccino serve a chi arriva da un paese colpito dalla
   polio, senza elenco di paesi, tipo di vaccino o finestra; per l'Egitto nulla. TravelHealthPro rimanda all'OMS.
-- Travel.gc.ca, scheda "Entry and exit requirements" dell'India: 8 paesi di provenienza (Afghanistan, RD Congo,
+- Travel.gc.ca, pagina "Entry and exit requirements" dell'India: 8 paesi di provenienza (Afghanistan, RD Congo,
   Etiopia, Kenya, Nigeria, Pakistan, Somalia, Siria), che non coincidono con l'ordine del Ministero della salute
   indiano del 10 giugno 2024 (OPV o IPV almeno 4 settimane prima, certificato valido un anno, per chi ha il passaporto
   o risiede in Afghanistan, Pakistan, Camerun, Nigeria, Malawi, Mozambico, Madagascar, Congo, RD Congo, Somalia e
   Siria). L'ordine è "All Rights Reserved", quindi serve solo da controllo.
-- France Diplomatie, schede "Santé" (Licence Ouverte 2.0, riuso commerciale ammesso): elenchi per Egitto (Afghanistan,
+- France Diplomatie, pagine "Santé" (Licence Ouverte 2.0, riuso commerciale ammesso): elenchi per Egitto (Afghanistan,
   Nigeria, Pakistan, Papua Nuova Guinea, Somalia; Kenya, Niger, RD Congo, Siria) e Nepal (Afghanistan, Kenya, Nigeria,
   Pakistan, Papua Nuova Guinea, Somalia) che sembrano fermi al 2018-2019 e per l'Egitto non coincidono con quanto
   riportato dalla stampa nel 2023; per l'India solo vaccino orale per i residenti dei paesi colpiti, per l'Iran nulla.
 - Senza dati sulla polio in ingresso o con licenza non compatibile: Smartraveller, SafeTravel, FORTH (Giappone),
   KDCA, Irlanda, Spagna, Wikipedia e Wikivoyage, International SOS, IATA Timatic.
 
-Il controllo deriva segnala quando Travel.gc.ca cambia la sezione polio della scheda d'ingresso (vedi sotto).
+Il controllo deriva segnala quando Travel.gc.ca cambia la sezione polio della pagina d'ingresso (vedi sotto).
 
 Il controllo deriva `scripts/vaccinations_drift.py` confronta le fonti con l'istantanea `vaccinations-drift.tsv`
-(per ogni paese, le frasi di Travel.gc.ca su febbre gialla e polio e l'elenco dei vaccini della scheda "Health", la
-sezione polio della scheda "Entry and exit requirements", più l'hash del PDF
+(per ogni paese, le frasi di Travel.gc.ca su febbre gialla e polio e l'elenco dei vaccini della pagina "Health", la
+sezione polio della pagina "Entry and exit requirements", più l'hash del PDF
 saudita per Hajj e Umrah) e controlla che l'OMS non abbia pubblicato uno statement polio più recente di quello di
 `polio-status.tsv`. Gira nel job `vaccinations-check` di publish-regions, col bucket del lunedì e nelle run manuali:
 se qualcosa è cambiato lascia un warning e il resoconto nel riepilogo della run, senza toccare i TSV e senza
@@ -167,12 +167,12 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   Le versioni dell'app che non conoscono le due categorie le saltano all'import. Mai fatale: un errore di rete lascia
   le città senza le due sezioni. Il tempo è limitato a 20 minuti per shard e lingua (`MAX_SECONDS`); l'Italia in
   italiano, ~2.700 città, ne richiede circa 4, in inglese circa uno.
-- **Misura della ricerca dell'assistente**: `scripts/eval_retrieval.py` replica in Python la ricerca di
+- **Misura della scelta del contesto**: `scripts/eval_retrieval.py` replica in Python la scelta del contesto di
   `TravelAssistant.kt` e `FtsRanking.kt` (BM25, città nominata nella domanda, paragrafi del contesto) e la misura sulle
   guide pubblicate di alcune regioni, con Storia e Clima da Wikipedia se i `cities.db` pubblicati non li hanno ancora,
   e domande costruite da modelli fissi (pratiche sulle città, sul paese, storia e clima). Stampa quante volte la sezione
-  attesa entra nel contesto e quante volte la risposta ci sta dentro. Va aggiornato insieme alla ricerca dell'app;
-  `--lang en` misura le guide e le domande inglesi, `--no-wikipedia` misura senza le due sezioni. Anche `make_context`
+  attesa entra nel contesto e quante volte la risposta ci sta dentro. Va aggiornato insieme alla scelta del contesto
+  dell'app; `--lang en` misura le guide e le domande inglesi, `--no-wikipedia` misura senza le due sezioni. Anche `make_context`
   (`generate_sft_dataset.py`), che costruisce il contesto dei dataset SFT e dei set di valutazione, sceglie i paragrafi
   come l'app (`test_make_context.py` lo confronta con la replica di `eval_retrieval.py`).
 - **Guide**: la sottosezione "Costo della vita" ("Cost of living" in inglese) viene omessa da guide e città. I fatti

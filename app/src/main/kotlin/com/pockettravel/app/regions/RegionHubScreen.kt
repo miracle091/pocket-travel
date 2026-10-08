@@ -228,7 +228,7 @@ fun RegionHubScreen(
                                 regionId = regionId,
                                 splitCountry = splitCountry,
                                 onOpenOfficialSource = onOpenOfficialSource,
-                                // "Portami a ...": il Navigatore cerca la meta (tutte le regioni installate) col mezzo chiesto.
+                                // "Portami a ...": il Navigatore cerca la destinazione (tutte le regioni installate) col mezzo chiesto.
                                 onNavigationRequest = { request ->
                                     request.profile?.let { plannerViewModel.setRouteProfile(it.toRouteProfile()) }
                                     plannerViewModel.searchDestination(request.destination, request.destinationWithTime)

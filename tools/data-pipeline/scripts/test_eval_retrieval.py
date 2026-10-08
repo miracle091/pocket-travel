@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Test di eval_retrieval.py: la replica della ricerca dell'assistente (TravelAssistant.kt, FtsRanking.kt) su un
-database FTS4 in memoria, senza rete.
+"""Test di eval_retrieval.py: la replica della scelta del contesto dell'assistente (TravelAssistant.kt,
+FtsRanking.kt) su un database FTS4 in memoria, senza rete.
 
 Uso: python test_eval_retrieval.py
 """

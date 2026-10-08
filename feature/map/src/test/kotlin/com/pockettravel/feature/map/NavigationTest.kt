@@ -138,7 +138,7 @@ class NavigationTest {
     }
 
     @Test
-    fun `l'arrivo lo decide solo il flag, vicino alla meta senza flag si continua a navigare`() {
+    fun `l'arrivo lo decide solo il flag, vicino alla destinazione senza flag si continua a navigare`() {
         // Con "Spegni il GPS all'arrivo" tolto il ViewModel non segna l'arrivo e la guida resta aperta.
         val atEnd = state(fix = fix(end)) as NavigationUiState.Navigating
 

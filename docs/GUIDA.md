@@ -56,7 +56,7 @@ Sull'emulatore (x86_64) i 4 test durano circa 9 minuti.
 
 ## Provare con dati tuoi
 
-Nelle build di debug l'app può leggere un catalogo locale invece di quello pubblicato:
+Nelle build di debug l'app può leggere un catalogo di debug invece di quello ufficiale (le firme non si controllano):
 
 ```bash
 python -m http.server 8000 --directory <cartella con manifest.json>

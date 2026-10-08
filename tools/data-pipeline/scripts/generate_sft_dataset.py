@@ -72,7 +72,7 @@ EN_HEADING_TO_CATEGORY = {
     "connect": "CONNETTIVITA", "cope": "VITA_QUOTIDIANA",
 }
 
-# Sezioni delle schede Viaggiare Sicuri (Farnesina, in italiano) -> categoria. Licenza non verificata.
+# Sezioni delle pagine Viaggiare Sicuri (Farnesina, in italiano) -> categoria. Licenza non verificata.
 VS_BASE = "https://www.viaggiaresicuri.it"
 VS_SECTION_TO_CATEGORY = {"infoSicurezza": "SICUREZZA", "infoSituazioneSanitaria": "SALUTE",
                           "infoRequisitiIngresso": "DOGANE", "infoMobilita": "TRASPORTI"}
@@ -553,7 +553,7 @@ def parse_wp(raw, cat, keywords=WP_KEYWORDS, skip_sections=WP_SKIP_SECTIONS):
     return [(cat, paras[i]) for i in best]
 
 def fetch_vs(iso3):
-    """(json_raw, url) della scheda paese di Viaggiare Sicuri (JSON statico del sito), o None."""
+    """(json_raw, url) della pagina del paese di Viaggiare Sicuri (JSON statico del sito), o None."""
     try:
         return get(f"{VS_BASE}/schede_paese/{iso3}.json"), f"{VS_BASE}/find-country/country/{iso3}"
     except urllib.error.HTTPError as e:
@@ -562,7 +562,7 @@ def fetch_vs(iso3):
         raise
 
 def parse_vs(raw):
-    """[(categoria, corpo)] dalle sezioni della scheda (HTML -> testo), nodi nell'ordine del sito."""
+    """[(categoria, corpo)] dalle sezioni della pagina (HTML -> testo), nodi nell'ordine del sito."""
     d = json.loads(raw)
     out = []
     for key, cat in VS_SECTION_TO_CATEGORY.items():
@@ -577,8 +577,8 @@ def parse_vs(raw):
     return out
 
 def vs_codes(regions):
-    """regionId -> codice ISO3 della scheda VS. Solo regioni con bandiera propria (non condivisa con altre
-    regioni, non in un gruppo): altrimenti la scheda del paese non descriverebbe la regione."""
+    """regionId -> codice ISO3 della pagina VS. Solo regioni con bandiera propria (non condivisa con altre
+    regioni, non in un gruppo): altrimenti la pagina del paese non descriverebbe la regione."""
     rows = [r.split("|") for r in re.findall(r'^\s*"([^"]+\|[^"]+)"\s*$', (HERE / "regions.sh").read_text(encoding="utf-8"), re.M)]
     flags = Counter(f[7] for f in rows if len(f) > 8)
     iso3 = {n["Codice-2"].lower(): n["Codice-3"] for n in json.loads(get(f"{VS_BASE}/schede_paese/lista_nazioni.json"))}

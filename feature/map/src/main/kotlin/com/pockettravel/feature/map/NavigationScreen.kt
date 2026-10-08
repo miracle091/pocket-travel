@@ -165,7 +165,7 @@ fun NavigationInstructions(
         ActiveNavigationContent(state, destinationName, routeProfile, arriveBy, tileSource, regionIds, onClose, walkingHaptics, onStreetNames, drivingSide)
         return
     }
-    // Senza percorso da seguire: un messaggio al centro, con la meta in cima e sempre "Termina".
+    // Senza percorso da seguire: un messaggio al centro, con la destinazione in cima e sempre "Termina".
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.fillMaxSize().padding(Spacing.l),
@@ -697,7 +697,7 @@ private fun NavigationMap(
                         PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
                     ),
                 )
-                // Arrivo sotto la posizione: vicino alla meta il punto blu resta sopra la bandiera.
+                // Arrivo sotto la posizione: vicino alla destinazione il punto blu resta sopra la bandiera.
                 style.addImage(DESTINATION_PIN_IMAGE, pinBitmap(context, destinationColor, UiR.drawable.ms_flag, scale = DESTINATION_PIN_SCALE))
                 style.addLayer(destinationPinLayer(DESTINATION_SOURCE))
                 style.addLayer(

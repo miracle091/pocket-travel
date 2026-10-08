@@ -129,6 +129,6 @@ class CatalogCheckTest {
             SyncConfig.useCatalog(null)
         }
         assertEquals(published, SyncConfig.MANIFEST_URL)
-        assertEquals(SyncConfig.PUBLISHED_PUBLIC_KEY, SyncConfig.MANIFEST_PUBLIC_KEY)
+        assertEquals(SyncConfig.OFFICIAL_PUBLIC_KEY, SyncConfig.MANIFEST_PUBLIC_KEY)
     }
 }

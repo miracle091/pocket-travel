@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.sync.CatalogCheck
-import com.pockettravel.core.sync.CatalogSettings
+import com.pockettravel.core.sync.CatalogPreferences
 import com.pockettravel.core.sync.CustomCatalog
 import com.pockettravel.feature.map.NavigationPreferences
 import com.pockettravel.feature.map.UsageMode
@@ -25,7 +25,7 @@ class SettingsViewModel @Inject constructor(
     private val usageModePreferences: UsageModePreferences,
     private val nationalityPreferences: NationalityPreferences,
     private val navigationPreferences: NavigationPreferences,
-    private val catalogSettings: CatalogSettings,
+    private val catalogPreferences: CatalogPreferences,
 ) : ViewModel() {
     val useDynamicColor: StateFlow<Boolean> = themePreferences.useDynamicColor
     val forceDark: StateFlow<Boolean> = themePreferences.forceDark
@@ -56,7 +56,7 @@ class SettingsViewModel @Inject constructor(
     fun setWalkingHaptics(enabled: Boolean) = navigationPreferences.setWalkingHaptics(enabled)
 
     /** Catalogo scelto al posto di quello ufficiale; null = ufficiale. */
-    val customCatalog: CustomCatalog? = catalogSettings.saved()
+    val customCatalog: CustomCatalog? = catalogPreferences.saved()
 
     private val _catalogState = MutableStateFlow<CatalogState>(CatalogState.Idle)
     val catalogState: StateFlow<CatalogState> = _catalogState.asStateFlow()
@@ -66,14 +66,14 @@ class SettingsViewModel @Inject constructor(
         if (_catalogState.value == CatalogState.Checking) return
         _catalogState.value = CatalogState.Checking
         viewModelScope.launch {
-            val check = catalogSettings.checkAndSave(manifestUrl, publicKey)
+            val check = catalogPreferences.checkAndSave(manifestUrl, publicKey)
             _catalogState.value = if (check == CatalogCheck.OK) CatalogState.Restart else CatalogState.Failed(check)
         }
     }
 
     fun useOfficialCatalog() {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { catalogSettings.reset() }
+            withContext(Dispatchers.IO) { catalogPreferences.reset() }
             _catalogState.value = CatalogState.Restart
         }
     }

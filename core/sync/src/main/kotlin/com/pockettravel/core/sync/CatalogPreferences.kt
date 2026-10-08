@@ -30,12 +30,12 @@ data class CustomCatalog(val manifestUrl: String, val publicKey: String)
 enum class CatalogCheck { OK, INVALID_URL, INVALID_KEY, UNREACHABLE, BAD_SIGNATURE, NOT_A_CATALOG }
 
 /**
- * Catalogo scelto in Impostazioni al posto di quello pubblicato dal progetto. Si salva solo dopo averlo scaricato e
+ * Catalogo scelto in Impostazioni al posto di quello ufficiale. Si salva solo dopo averlo scaricato e
  * verificato con la sua chiave; vale dal riavvio dell'app (PocketTravelApp lo passa a [SyncConfig] con [applySaved]).
  * app-status.json resta quello del progetto, con la sua chiave.
  */
 @Singleton
-class CatalogSettings @Inject constructor(
+class CatalogPreferences @Inject constructor(
     @ApplicationContext context: Context,
     private val okHttpClient: OkHttpClient,
     private val json: Json,
@@ -43,7 +43,7 @@ class CatalogSettings @Inject constructor(
 ) {
     private val prefs = context.getSharedPreferences("catalog", Context.MODE_PRIVATE)
 
-    /** null = catalogo pubblicato dal progetto. */
+    /** null = catalogo ufficiale. */
     fun saved(): CustomCatalog? {
         val url = prefs.getString(KEY_URL, null)
         val key = prefs.getString(KEY_PUBLIC_KEY, null)
@@ -73,7 +73,7 @@ class CatalogSettings @Inject constructor(
         }
     }
 
-    /** Torna al catalogo pubblicato dal progetto. */
+    /** Torna al catalogo ufficiale. */
     fun reset() = save(null)
 
     // commit: subito dopo l'app si riavvia, e una scrittura asincrona andrebbe persa.

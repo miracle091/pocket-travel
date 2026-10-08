@@ -279,7 +279,7 @@ class AiAssistantViewModel @Inject constructor(
         val state = _uiState.value
         val question = state.question.trim()
         if (question.isBlank() || state.isThinking) return
-        // Riconosciuta sul telefono con regole, anche con il motore online: meta e posizione non escono mai.
+        // Riconosciuta sul telefono con regole, anche con il motore online: destinazione e posizione non escono mai.
         parseNavigationRequest(question)?.let { request ->
             _uiState.update { it.copy(question = "", errorMessage = null) }
             _navigationRequests.trySend(request)
