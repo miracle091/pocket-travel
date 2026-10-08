@@ -231,7 +231,7 @@ fun RegionHubScreen(
                                 // "Portami a ...": il Navigatore cerca la meta (tutte le regioni installate) col mezzo chiesto.
                                 onNavigationRequest = { request ->
                                     request.profile?.let { plannerViewModel.setRouteProfile(it.toRouteProfile()) }
-                                    plannerViewModel.searchDestination(request.destination)
+                                    plannerViewModel.searchDestination(request.destination, request.destinationWithTime)
                                     selectedTab = RegionTab.NAVIGATION
                                 },
                             )

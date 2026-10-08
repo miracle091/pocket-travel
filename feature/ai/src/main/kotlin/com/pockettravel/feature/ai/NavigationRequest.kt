@@ -3,8 +3,16 @@ package com.pockettravel.feature.ai
 /** Mezzo chiesto nella frase ("a piedi", "by car"); null se la frase non lo dice. */
 enum class NavigationRequestProfile { WALK, BIKE, CAR }
 
-/** "Portami al Colosseo a piedi": la meta da cercare nel Navigatore e il mezzo, se detto. */
-data class NavigationRequest(val destination: String, val profile: NavigationRequestProfile?)
+/**
+ * "Portami al Colosseo a piedi": la meta da cercare nel Navigatore e il mezzo, se detto. [destinationWithTime] e' la meta
+ * col momento del giorno che le regole le hanno tolto ("bar stasera" per "bar"), null se non c'era: puo' essere il nome
+ * del luogo, e il Navigatore la cerca per prima.
+ */
+data class NavigationRequest(
+    val destination: String,
+    val profile: NavigationRequestProfile?,
+    val destinationWithTime: String? = null,
+)
 
 /**
  * Riconosce una richiesta di navigazione con regole fisse, senza modello e senza rete: la frase deve
@@ -14,15 +22,22 @@ data class NavigationRequest(val destination: String, val profile: NavigationReq
 fun parseNavigationRequest(text: String): NavigationRequest? {
     val rest = TRIGGER.find(text.trim())?.groupValues?.get(1) ?: return null
     val profileMatch = MODES.firstNotNullOfOrNull { (regex, profile) -> regex.find(rest)?.let { it to profile } }
-    var destination = profileMatch?.let { rest.removeRange(it.first.range) } ?: rest
-    destination = destination.replace(POLITENESS, " ").trim().trimEnd('?', '!', '.', ',', ';', ' ').trim()
+    val withTime = (profileMatch?.let { rest.removeRange(it.first.range) } ?: rest)
+        .replace(POLITENESS, " ").trim().trimEnd('?', '!', '.', ',', ';', ' ')
+    val withoutTime = withTime.replace(TRAILING_TIME, "")
+    val destination = withoutLeadingWords(withoutTime)
+    return destination.takeIf { it.isNotEmpty() }
+        ?.let { NavigationRequest(it, profileMatch?.second, withoutLeadingWords(withTime).takeIf { withoutTime != withTime }) }
+}
+
+private fun withoutLeadingWords(text: String): String {
+    var destination = text
     while (true) {
         val stripped = destination.replaceFirst(LEADING_WORD, "")
         if (stripped == destination) break
         destination = stripped
     }
-    destination = destination.trim()
-    return if (destination.isEmpty()) null else NavigationRequest(destination, profileMatch?.second)
+    return destination.trim()
 }
 
 private val TRIGGER = Regex(
@@ -43,8 +58,16 @@ private val MODES = listOf(
 
 private val POLITENESS = Regex(",?\\s*\\b(?:per favore|please)\\b", RegexOption.IGNORE_CASE)
 
-// Preposizioni e articoli davanti alla meta, tolti uno alla volta: "fino alla stazione" -> "stazione".
+// Quando, in fondo alla meta: "il Colosseo domani" -> "il Colosseo", "the beach tomorrow morning" -> "the beach".
+// Solo in minuscolo: con la maiuscola e' parte del nome ("Bar Stasera", "Café Tomorrow").
+private val TRAILING_TIME = Regex(
+    ",?\\s+(?:(?:dopo)?domani(?:\\s+(?:mattina|pomeriggio|sera))?|oggi(?:\\s+pomeriggio)?|domattina|stamattina|stasera|stanotte|adesso" +
+        "|(?:tomorrow|today|this)(?:\\s+(?:morning|afternoon|evening|night))?|tonight|(?:right\\s+)?now)$",
+)
+
+// Preposizioni, articoli e verbi di visita davanti alla meta, tolti uno alla volta: "fino alla stazione" -> "stazione",
+// "a vedere il Colosseo" -> "Colosseo". I verbi solo in minuscolo: con la maiuscola sono parte del nome ("See Hotel").
 private val LEADING_WORD = Regex(
-    "^\\s*(?:(?:subito|stradali|verso|fino|per|a|ad|al|allo|alla|ai|agli|alle|in|il|lo|la|i|gli|le|to|towards?|for|the)(?:\\s+|$)|(?:all|dall|l)['’])",
+    "^\\s*(?:(?:subito|stradali|verso|fino|per|a|ad|al|allo|alla|ai|agli|alle|in|il|lo|la|i|gli|le|(?-i:vedere|visitare|see|visit)|to|towards?|for|the)(?:\\s+|$)|(?:all|dall|l)['’])",
     RegexOption.IGNORE_CASE,
 )

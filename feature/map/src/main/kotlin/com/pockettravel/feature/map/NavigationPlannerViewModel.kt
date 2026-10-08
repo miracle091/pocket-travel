@@ -72,6 +72,22 @@ internal fun searchRelevance(poi: Poi, query: String): Int {
     return (if (poi.poiCategory() in SIGHTS) 0 else 2) + (if (exact) 0 else 1)
 }
 
+/**
+ * La meta da cercare per una richiesta dell'assistente: quella col momento del giorno ("bar stasera") se e' il nome di
+ * un posto ([hasPois]), altrimenti quella senza ("bar"). Solo i POI: un indirizzo non finisce con "domani".
+ */
+internal suspend fun destinationQuery(destination: String, destinationWithTime: String?, hasPois: suspend (String) -> Boolean): String =
+    if (destinationWithTime != null && hasPois(destinationWithTime)) destinationWithTime else destination
+
+/**
+ * [name] contiene [words] come parole intere, senza badare a maiuscole e accenti: "Il Bar Stasera" contiene "bar stasera",
+ * "Station Nowy Świat" non contiene "station now" (la ricerca per nome trova anche le parti di parola).
+ */
+internal fun containsWords(name: String, words: String): Boolean {
+    val wanted = foldForSearch(words)
+    return wanted.isNotEmpty() && Regex("(?<![\\p{L}\\p{N}])${Regex.escape(wanted)}(?![\\p{L}\\p{N}])").containsMatchIn(foldForSearch(name))
+}
+
 // Senza maiuscole, accenti e spazi in piu': "tour  eiffel" e' uguale a "Tour Eiffel".
 private fun foldForSearch(text: String): String =
     Normalizer.normalize(text.trim().lowercase(), Normalizer.Form.NFD).replace(COMBINING_MARKS, "").replace(SPACES, " ")
@@ -304,6 +320,7 @@ class NavigationPlannerViewModel @Inject constructor(
     private var positionJob: Job? = null
 
     fun startSearch(field: PlannerField) {
+        destinationJob?.cancel()
         _query.value = ""
         _searching.value = field
         // Una posizione per ordinare i risultati per distanza, se il permesso c'e' gia': senza, in ordine di regione.
@@ -315,17 +332,35 @@ class NavigationPlannerViewModel @Inject constructor(
         }
     }
 
-    /** "Portami al Colosseo" dall'assistente: ricerca della meta gia' compilata, la scelta resta all'utente. */
-    fun searchDestination(text: String) {
+    /**
+     * "Portami al Colosseo" dall'assistente: ricerca della meta gia' compilata, la scelta resta all'utente.
+     * [textWithTime] ("bar stasera" per "bar") prende il posto di [text] se e' il nome di un posto (destinationQuery): si
+     * controlla dopo, senza far aspettare [text], perche' senza risultati la ricerca legge tutti i POI installati (secondi
+     * su un milione). Se intanto l'utente ha cambiato la ricerca, resta la sua.
+     */
+    fun searchDestination(text: String, textWithTime: String? = null) {
         startSearch(PlannerField.TO)
         _query.value = text
+        if (textWithTime == null) return
+        val ids = installed.value.keys.toList()
+        destinationJob = viewModelScope.launch {
+            val chosen = destinationQuery(text, textWithTime) { candidate ->
+                withContext(Dispatchers.IO) { poiRepository.searchByName(ids, candidate, DESTINATION_CHECK_LIMIT) }
+                    .any { poi -> listOfNotNull(poi.name, poi.nameIt, poi.nameEn).any { containsWords(it, candidate) } }
+            }
+            if (_query.value == text) _query.value = chosen
+        }
     }
+
+    // Controllo della meta col momento del giorno ancora in corso: una nuova ricerca lo annulla, cosi' non la sovrascrive.
+    private var destinationJob: Job? = null
 
     fun cancelSearch() {
         _searching.value = null
     }
 
     fun setQuery(text: String) {
+        destinationJob?.cancel()
         _query.value = text
     }
 
@@ -470,6 +505,8 @@ class NavigationPlannerViewModel @Inject constructor(
         const val KEY_REMINDER = "reminder"
         const val SEARCH_DEBOUNCE_MILLIS = 300L
         const val SEARCH_LIMIT = 200
+        // Abbastanza per trovare il nome a parole intere tra quelli che contengono la meta solo come parte di parola.
+        const val DESTINATION_CHECK_LIMIT = 50
         const val RESULTS_SHOWN = 30
         const val ADDRESS_RESULTS_SHOWN = 10
         const val LOCATION_TIMEOUT_MILLIS = 20_000L
