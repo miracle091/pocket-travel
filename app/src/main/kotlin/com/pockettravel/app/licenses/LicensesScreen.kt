@@ -65,12 +65,12 @@ fun LicensesScreen(onBack: () -> Unit, viewModel: LicensesViewModel = hiltViewMo
                     supportingContent = {
                         Text(
                             buildString {
-                                append(stringResource(R.string.licenses_license, entry.license))
-                                entry.note?.let { append("\n").append(it) }
+                                append(stringResource(R.string.licenses_license, stringResource(entry.license)))
+                                entry.note?.let { append("\n").append(stringResource(it)) }
                             },
                         )
                     },
-                    content = { Text(entry.component) },
+                    content = { Text(stringResource(entry.component)) },
                 )
                 HorizontalDivider(modifier = Modifier.padding(start = Spacing.l))
             }

@@ -178,6 +178,48 @@
     <string name="licenses_transit_sources_title">Public transport timetable sources</string>
     <string name="licenses_transit_link">License page</string>
 
+    <!-- Licenze di terze parti (LicenseData.kt): testi tradotti -->
+    <string name="licenses_component_brouter">BRouter Core (vendored, third-party/brouter-core)</string>
+    <string name="licenses_component_llama_cpp">llama.cpp (vendored, third-party/llama-cpp)</string>
+    <string name="licenses_note_llama_cpp">Replaces LiteRT-LM (Google), which has published no releases since August 2026; no official Maven AAR exists, built from source with the NDK/CMake.</string>
+    <string name="licenses_component_nlohmann_json">nlohmann/json (used by llama.cpp, third-party/llama-cpp/vendor/nlohmann)</string>
+    <string name="licenses_component_subprocess">sheredom/subprocess.h (used by llama.cpp, third-party/llama-cpp/vendor/sheredom)</string>
+    <string name="licenses_component_cpp_httplib">yhirose/cpp-httplib (used by llama.cpp, third-party/llama-cpp/vendor/cpp-httplib)</string>
+    <string name="licenses_component_pmtiles_reader">pmtiles-reader (reading PMTiles with HTTP range requests, core:sync)</string>
+    <string name="licenses_component_xz">XZ for Java (decompression of points of interest, core:sync)</string>
+    <string name="licenses_component_protomaps">Protomaps basemap (software/schema)</string>
+    <string name="licenses_component_natural_earth">Natural Earth (country borders, country map)</string>
+    <string name="licenses_name_public_domain">Public domain</string>
+    <string name="licenses_note_natural_earth">1:50m data, reduced to borders, ISO code and country name (feature:map/src/main/assets/world).</string>
+    <string name="licenses_component_airports">OurAirports (airports) and Wikidata (airlines, city names)</string>
+    <string name="licenses_name_airports">Public domain (OurAirports), CC0 (Wikidata)</string>
+    <string name="licenses_note_airports">Airport and airline suggestions in document tickets (feature:vault/src/main/assets). OurAirports data is provided without warranty.</string>
+    <string name="licenses_component_flags">National flags (westnordost/flags-vector-drawables-android, core:ui/src/main/res/drawable/ic_flag_*)</string>
+    <string name="licenses_name_flags">License of each flag on Wikipedia/Wikimedia Commons, mostly public domain</string>
+    <string name="licenses_note_flags">Vectors exported from the Wikipedia flags (Timeline of national flags).</string>
+    <string name="licenses_component_material_symbols">Material Symbols icons (Google, google/material-design-icons, core:ui/src/main/res/drawable/ms_*)</string>
+    <string name="licenses_note_material_symbols">Icons of the interface, of the point of interest categories and of the navigation arrows.</string>
+    <string name="licenses_component_noto_sans">Klokantech Noto Sans (map label glyphs, feature:map/src/main/assets/fonts)</string>
+    <string name="licenses_note_noto_sans">Noto Sans font (Google) repackaged as SDF by openmaptiles/fonts; includes the Latin, Greek, Cyrillic, Armenian, Hebrew, Arabic, Thai, Georgian and punctuation ranges.</string>
+    <string name="licenses_component_osm">OpenStreetMap data</string>
+    <string name="licenses_note_osm">Requires attribution and sharing of changes to the database.</string>
+    <string name="licenses_note_wikivoyage">Text by Wikivoyage contributors; every page used is linked in the sources of each guide. Sections are adapted (extracted and stripped of formatting); some are machine-translated from the page in the other language (Italian or English) with Helsinki-NLP\'s opus-mt-tc-big models. The adapted and translated text is also licensed under CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/</string>
+    <string name="licenses_component_wikipedia">Wikipedia (city history and climate)</string>
+    <string name="licenses_note_wikipedia">Text by Wikipedia contributors: the History (shortened) and Climate sections of each city\'s article, linked in the guide\'s sources. When a section is missing or thin, it is machine-translated from the article in the other language, as for Wikivoyage. The adapted and translated text is also licensed under CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/</string>
+    <string name="licenses_component_wikidata">Wikidata (embassies and consulates)</string>
+    <string name="licenses_note_wikidata">Public domain: attribution is not required, but the source is Wikidata.</string>
+    <string name="licenses_component_weather">Weather: Open-Meteo.com (forecasts) and GeoNames (city locations)</string>
+    <string name="licenses_note_weather">Weather data by Open-Meteo.com, non-commercial use. City coordinates from the Open-Meteo geocoding, based on GeoNames.</string>
+    <string name="licenses_component_emergency_canada">Emergency numbers: Travel.gc.ca (Government of Canada)</string>
+    <string name="licenses_note_emergency_canada">Contains information licensed under the Open Government Licence – Canada. Cross-checked with Wikipedia (CC BY-SA 4.0) and Wikidata (CC0).</string>
+    <string name="licenses_component_emergency_uk">Emergency numbers: gov.uk Foreign travel advice (UK Government)</string>
+    <string name="licenses_component_travel_advice">English guides, travel advice: Travel.gc.ca (Government of Canada)</string>
+    <string name="licenses_note_travel_advice">Contains information licensed under the Open Government Licence – Canada. Adapted text (without the parts for Canadian citizens), not endorsed by the Government of Canada.</string>
+    <string name="licenses_component_vaccinations_canada">Vaccinations: Travel.gc.ca (Government of Canada)</string>
+    <string name="licenses_note_vaccinations_canada">Contains information licensed under the Open Government Licence – Canada. Facts rewritten in our own words and cross-checked with other sources.</string>
+    <string name="licenses_component_vaccinations_uk">Vaccinations: TravelHealthPro (UKHSA / NaTHNaC)</string>
+    <string name="licenses_note_vaccinations_uk">Contains public sector information published by the UK Health Security Agency (UKHSA) and the National Travel Health Network and Centre (NaTHNaC), licensed under the Open Government Licence v3.0. Facts rewritten in our own words.</string>
+
     <!-- Onboarding -->
     <string name="onboarding_welcome_title">Welcome to Pocket Travel</string>
     <string name="onboarding_welcome_body">Travel guides and maps that work even offline. Three choices are enough to get started</string>
