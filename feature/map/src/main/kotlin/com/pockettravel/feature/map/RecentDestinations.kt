@@ -27,8 +27,8 @@ internal fun Bundle.toPlace(): NavigationPlace? =
     getString("name")?.let { NavigationPlace(it, getDouble("latitude"), getDouble("longitude"), getString("regionId").orEmpty()) }
 
 /**
- * Ultime destinazioni scelte nella tab Navigazione, la piu' recente per prima, di tutte le regioni
- * (la tab mostra quelle installate). Restano sul telefono, come ogni altra preferenza.
+ * Ultime destinazioni scelte nella scheda Navigatore, la piu' recente per prima, di tutte le regioni
+ * (la scheda mostra quelle installate). Restano sul dispositivo, come ogni altra preferenza.
  */
 @Singleton
 class RecentDestinations @Inject constructor(@ApplicationContext context: Context) {

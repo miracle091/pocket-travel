@@ -125,7 +125,7 @@
     <string name="more_usage_mode_none">Non scelto: la mappa mostra tutte le categorie</string>
     <string name="more_usage_mode_with_accessible">%1$s, in sedia a rotelle</string>
     <string name="more_usage_mode_accessible_only">In sedia a rotelle: la mappa mostra tutte le categorie</string>
-    <string name="more_usage_mode_body">La mappa mostra per primi i punti utili per i modi di viaggiare scelti e propone la rete stradale adatta da scaricare. La scelta riporta i filtri della mappa ai valori predefiniti</string>
+    <string name="more_usage_mode_body">La mappa mostra per primi i punti utili per i modi di spostarsi scelti e propone la rete stradale adatta da scaricare. La scelta riporta i filtri della mappa ai valori predefiniti</string>
     <string name="more_licenses">Licenze</string>
     <string name="more_appearance">Aspetto</string>
     <string name="more_appearance_system">Tema del dispositivo</string>
@@ -142,7 +142,7 @@
     <string name="nav_documents">Documenti</string>
     <string name="nav_more">Altro</string>
     <string name="nav_navigator">Navigatore</string>
-    <string name="navigator_no_regions">Scarica una nazione per cercare mete e navigare, anche tra più nazioni</string>
+    <string name="navigator_no_regions">Scarica una nazione per cercare destinazioni e navigare, anche tra più nazioni</string>
     <string name="navigator_open_countries">Vai alle nazioni</string>
     <string name="nav_guide">Guida</string>
     <string name="nav_map">Mappa</string>
@@ -204,7 +204,7 @@
     <!-- Licenze di terze parti (LicenseData.kt): testi tradotti -->
     <string name="licenses_component_brouter">BRouter Core (vendorizzato, third-party/brouter-core)</string>
     <string name="licenses_component_llama_cpp">llama.cpp (vendorizzato, third-party/llama-cpp)</string>
-    <string name="licenses_note_llama_cpp">Sostituisce LiteRT-LM (Google), che non pubblica più release da agosto 2026; nessun AAR Maven ufficiale esiste, compilato da sorgente via NDK/CMake</string>
+    <string name="licenses_note_llama_cpp">Sostituisce LiteRT-LM (Google), senza nuove release da agosto 2026. Non esiste un AAR Maven ufficiale: si compila dal sorgente con NDK e CMake.</string>
     <string name="licenses_component_nlohmann_json">nlohmann/json (usato da llama.cpp, third-party/llama-cpp/vendor/nlohmann)</string>
     <string name="licenses_component_subprocess">sheredom/subprocess.h (usato da llama.cpp, third-party/llama-cpp/vendor/sheredom)</string>
     <string name="licenses_component_cpp_httplib">yhirose/cpp-httplib (usato da llama.cpp, third-party/llama-cpp/vendor/cpp-httplib)</string>

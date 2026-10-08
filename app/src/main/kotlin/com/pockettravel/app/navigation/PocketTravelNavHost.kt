@@ -119,7 +119,7 @@ fun PocketTravelNavHost(
     val adaptiveInfo = currentWindowAdaptiveInfoV2()
     val isExpanded = adaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
 
-    // Notifica della guida toccata con l'app aperta: fuori dall'hub di una regione (che passa da solo alla sua tab) si
+    // Notifica della guida toccata con l'app aperta: fuori dall'hub di una regione (che passa da solo alla sua scheda) si
     // apre il Navigatore della barra, che mostra la stessa guida.
     val (_, navigationViewModel) = navigatorViewModels()
     LaunchedEffect(navigationViewModel) {
@@ -352,7 +352,7 @@ private fun RegionsListDetail(
 }
 
 // Cambio di destinazione principale: una sola copia di ciascuna nel back stack, con lo stato
-// (scroll, tab) salvato e ripristinato; l'elenco regioni resta sempre in fondo, cosi' "Indietro"
+// (scroll, scheda) salvato e ripristinato; l'elenco regioni resta sempre in fondo, cosi' "Indietro"
 // da Documenti/Altro ci torna.
 private fun NavHostController.navigateTopLevel(route: Any) {
     navigate(route) {

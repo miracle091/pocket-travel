@@ -127,7 +127,7 @@ import kotlin.math.cos
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NavigationPlannerScreen(
-    // La regione della tab che ospita il Navigatore (per prima nella ricerca), null nel Navigatore della barra principale.
+    // La regione della scheda che ospita il Navigatore (per prima nella ricerca), null nel Navigatore della barra principale.
     regionId: String?,
     viewModel: NavigationPlannerViewModel,
     // La navigazione passo passo, nella stessa scheda: "Avvia" la fa partire, "Termina" torna qui.
@@ -1074,7 +1074,7 @@ private fun ResultRow(result: PlannerResult, onClick: () -> Unit) {
 }
 
 /**
- * Mappa di sfondo della tab: la regione, poi il percorso con la partenza (cerchio pieno) e l'arrivo
+ * Mappa di sfondo della scheda: la regione, poi il percorso con la partenza (cerchio pieno) e l'arrivo
  * (cerchio rosso), inquadrati lasciando libero lo spazio del pannello in basso. Nascosta a TalkBack:
  * tempo, distanza e svolte sono nel pannello.
  */

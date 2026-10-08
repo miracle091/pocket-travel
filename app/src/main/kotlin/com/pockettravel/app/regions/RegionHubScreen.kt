@@ -70,7 +70,7 @@ private enum class RegionTab(val key: String, @StringRes val label: Int) {
 }
 
 // Guida/Mappa/Navigatore/IA sono viste sorelle della stessa regione, senza bisogno di un proprio
-// back-stack indipendente: il tab selezionato e' stato locale (rememberSaveable), non un nested
+// back-stack indipendente: la scheda selezionata e' stato locale (rememberSaveable), non un nested
 // NavHost — un nested graph qui sarebbe un'astrazione non necessaria per quattro viste che condividono
 // la stessa "torna alla lista regioni".
 @OptIn(ExperimentalMaterial3Api::class)
@@ -94,13 +94,13 @@ fun RegionHubScreen(
     val aiAvailable by viewModel.aiAvailable.collectAsStateWithLifecycle()
     val uiLanguage = LocalLocale.current.platformLocale.language
     LaunchedEffect(uiLanguage) { viewModel.refreshAiAvailability() }
-    // Tab IA salvata (o richiesta con tab=ai) ma non disponibile, o diventata tale (modello o chiave
-    // eliminati): si torna alla Guida. Per il disegno vale subito la tab effettiva, senza un fotogramma
-    // con la tab IA; lo stato salvato lo corregge l'effetto qui sotto.
+    // Scheda IA salvata (o richiesta con tab=ai) ma non disponibile, o diventata tale (modello o chiave
+    // eliminati): si torna alla Guida. Per il disegno vale subito la scheda effettiva, senza un fotogramma
+    // con la scheda IA; lo stato salvato lo corregge l'effetto qui sotto.
     val currentTab = if (selectedTab == RegionTab.AI && !aiAvailable) RegionTab.GUIDE else selectedTab
     LaunchedEffect(aiAvailable, selectedTab) { if (!aiAvailable && selectedTab == RegionTab.AI) selectedTab = RegionTab.GUIDE }
     LaunchedEffect(regionId) { viewModel.load(regionId) }
-    // Qui e non dentro la tab: "Indicazioni" dalla Mappa le passa la destinazione prima di aprirla, e la notifica della
+    // Qui e non dentro la scheda: "Indicazioni" dalla Mappa le passa la destinazione prima di aprirla, e la notifica della
     // guida riporta in primo piano il Navigatore. Uno solo per l'app, come quello della barra principale.
     val (plannerViewModel, navigationViewModel) = navigatorViewModels()
     LaunchedEffect(navigationViewModel) {
@@ -155,7 +155,7 @@ fun RegionHubScreen(
                     .consumeWindowInsets(innerPadding)
                     .imePadding(),
             ) {
-                // Motion M3 "fade through" tra le tab sorelle.
+                // Motion M3 "fade through" tra le schede sorelle.
                 Crossfade(targetState = currentTab, animationSpec = tween(250), label = "regionTab") { tab ->
                 when (tab) {
                     RegionTab.GUIDE -> Box(modifier = Modifier.statusBarsPadding()) { GuideScreen(regionId = regionId, onOpenSource = onOpenSource, onBack = onBack) }
@@ -193,7 +193,7 @@ fun RegionHubScreen(
                                     hideInaccessible = accessible,
                                     onlyAccessible = onlyAccessible,
                                     onOnlyAccessibleChange = mapViewModel::setOnlyAccessible,
-                                    // Prima il percorso nella tab Navigatore (partenza, mezzo, anteprima), poi "Avvia".
+                                    // Prima il percorso nella scheda Navigatore (partenza, mezzo, anteprima), poi "Avvia".
                                     onNavigate = { pin ->
                                         val name = pin.displayName(language) ?: pin.name.orEmpty()
                                         plannerViewModel.setDestination(NavigationPlace(name, pin.latitude, pin.longitude, regionId))

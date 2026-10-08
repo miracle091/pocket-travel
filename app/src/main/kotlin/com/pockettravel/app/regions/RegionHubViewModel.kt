@@ -52,7 +52,7 @@ class RegionHubViewModel @Inject constructor(
     private val aiAvailability: AiAvailability,
 ) : ViewModel() {
 
-    // La tab IA c'e' solo con un modello scaricato o una chiave API (si configurano nelle Impostazioni).
+    // La scheda IA c'e' solo con un modello scaricato o una chiave API (si configurano nelle Impostazioni).
     val aiAvailable: StateFlow<Boolean> = aiAvailability.available
 
     // Dopo un cambio di lingua: i modelli addestrati valgono solo per la lingua delle guide.

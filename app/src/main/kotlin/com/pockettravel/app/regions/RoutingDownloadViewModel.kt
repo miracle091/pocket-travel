@@ -30,7 +30,7 @@ import java.util.Locale
 import javax.inject.Inject
 
 /**
- * La rete stradale che manca al Navigatore, nella tab della regione e in quello della barra principale: quali regioni
+ * La rete stradale che manca al Navigatore, nella scheda della regione e in quello della barra principale: quali regioni
  * scaricare tra partenza e arrivo, il download e il suo avanzamento. [load] dice la regione aperta (null nel
  * Navigatore generico): senza altre indicazioni "Scarica la rete stradale" scarica la sua.
  */

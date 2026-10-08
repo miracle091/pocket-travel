@@ -47,7 +47,7 @@ import javax.inject.Inject
 import kotlin.math.cos
 import kotlin.math.sqrt
 
-/** Quale dei due campi della tab si sta scegliendo con la ricerca. */
+/** Quale dei due campi della scheda si sta scegliendo con la ricerca. */
 enum class PlannerField { FROM, TO }
 
 /**
@@ -173,8 +173,8 @@ class NavigationPlannerViewModel @Inject constructor(
     private val lastPosition = MutableStateFlow<RoutePoint?>(null)
 
     /**
-     * Le regioni della mappa prima del percorso: quella della tab, poi quelle di partenza e arrivo (una destinazione a
-     * Riga dalla tab di San Marino mostra Riga). Senza nessuna delle tre (Navigatore della barra, nessuna
+     * Le regioni della mappa prima del percorso: quella della scheda, poi quelle di partenza e arrivo (una destinazione
+     * a Riga dalla scheda di San Marino mostra Riga). Senza nessuna delle tre (Navigatore della barra, nessuna
      * destinazione) tutte quelle installate.
      */
     val mapRegionIds: StateFlow<List<String>> = combine(regionId, _from, _to, installed) { id, from, to, regions ->

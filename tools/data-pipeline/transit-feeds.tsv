@@ -24,13 +24,13 @@
 # al posto delle 6 reti di GTFS Regional, che coprivano solo SL, Vasttrafik, Skanetrafiken e tre
 # operatori nazionali. Non GTFS Sweden 3 (mdb-2939, 694 MB): Trafiklab stessa scrive che non contiene
 # ancora tutti i mezzi della Svezia e consiglia Sverige 2 per la copertura completa.
-# Italia (2026-10-08): licenze lette sui portali dei dati aperti, tutte CC BY: dati.lombardia.it
+# Italia (8 ottobre 2026): licenze lette sui portali dei dati aperti, tutte CC BY: dati.lombardia.it
 # (Trenord), dati.toscana.it (un dataset per treni, Toremar, tramvia e Autolinee Toscane),
 # sardegnamobilita.it (tutti i dataset del portale), dati.comune.napoli.it, dati.trentino.it,
 # opendata.comune.palermo.it, dati.comune.genova.it, dati.regione.calabria.it, dati.venezia.it (ACTV),
 # dati.comune.messina.it (ATM Messina, non nel Mobility Database: dal sito dell'ente),
 # dati.regione.liguria.it, solweb.tper.it (TPER, CC BY 3.0 IT). Liguria e TPER pubblicano un file con la
-# data nel nome a ogni versione: {ultimo} e cerca_ultimo. Al 2026-10-08 in Liguria solo il file di
+# data nel nome a ogni versione: {ultimo} e cerca_ultimo. All'8 ottobre 2026 in Liguria solo il file di
 # Trenitalia ha orari validi; le altre reti si costruiscono quando la Regione pubblica i nuovi. Fuori
 # anche se CC BY: i traghetti per la Sardegna di sardegnamobilita.it (scaduti, o entro un mese).
 # Autolinee Toscane dal feed unico della Regione: le copie per ambito del Mobility Database (tld-69xx)
@@ -38,7 +38,7 @@
 # ctmcagliari.it; Trentino extraurbano dal sito dell'ente (mdb-1031 e' inattivo). Escluse: GTT Torino e
 # Cotral (copia di BusOne) solo uso non commerciale; Matera (orari del 2022); ATAP Biella, Alilaguna,
 # CTPI Varese, STP Brindisi, Marsala, EAV: nessuna licenza dichiarata.
-# Altri paesi (2026-10-08), licenze lette sulle pagine dell'ente o del portale di ogni riga
+# Altri paesi (8 ottobre 2026), licenze lette sulle pagine dell'ente o del portale di ogni riga
 # (pagina_licenza). Per paese il feed nazionale se pesa meno di ~150 MB (Norvegia: il file "basic" di
 # Entur), altrimenti capitale, citta' turistiche e treni. BART, Caltrain, MBTA e Transperth: termini
 # propri dell'ente, senza registrazione ne' manleva, che permettono di riprodurre e ridistribuire

@@ -181,7 +181,7 @@
     <!-- Licenze di terze parti (LicenseData.kt): testi tradotti -->
     <string name="licenses_component_brouter">BRouter Core (vendored, third-party/brouter-core)</string>
     <string name="licenses_component_llama_cpp">llama.cpp (vendored, third-party/llama-cpp)</string>
-    <string name="licenses_note_llama_cpp">Replaces LiteRT-LM (Google), which has published no releases since August 2026; no official Maven AAR exists, built from source with the NDK/CMake</string>
+    <string name="licenses_note_llama_cpp">Replaces LiteRT-LM (Google), with no new releases since August 2026. There is no official Maven AAR: it is built from source with the NDK and CMake.</string>
     <string name="licenses_component_nlohmann_json">nlohmann/json (used by llama.cpp, third-party/llama-cpp/vendor/nlohmann)</string>
     <string name="licenses_component_subprocess">sheredom/subprocess.h (used by llama.cpp, third-party/llama-cpp/vendor/sheredom)</string>
     <string name="licenses_component_cpp_httplib">yhirose/cpp-httplib (used by llama.cpp, third-party/llama-cpp/vendor/cpp-httplib)</string>

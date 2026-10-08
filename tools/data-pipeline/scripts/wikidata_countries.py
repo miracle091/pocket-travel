@@ -74,7 +74,7 @@ NUMERO = re.compile(r"\d[\d-]*")
 QID_RE = re.compile(r"Q\d+")
 COLONNE = ["regionId", "iso2", "capital_it", "capital_en", "currency", "currency_it", "currency_en", "driving",
            "calling_code", "languages_it", "languages_en", "timezones", "emergency", "plugs", "voltage"]
-# Correzioni a lacune ed errori di Wikidata (verificati il 2026-10-08), per codice del paese e poi per regionId: valgono
+# Correzioni a lacune ed errori di Wikidata (verificati l'8 ottobre 2026), per codice del paese e poi per regionId: valgono
 # su tutto quello che viene da Wikidata, regioni comprese. Fonti: tzdata (fusi), worldstandards.eu (prese e tensione).
 # Senza capitale per scelta: Hong Kong, Macao e Tokelau non ne hanno una; le municipalita' cinesi sono citta'.
 _FUSI_RUSSIA = {

@@ -72,7 +72,7 @@ class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
     }
 
     /**
-     * I POI attorno a ([lat], [lon]) per il Navigatore senza meta: entro 150 m, o 300 o 600 se piu' vicino ce ne sono
+     * I POI attorno a ([lat], [lon]) per il Navigatore senza destinazione: entro 150 m, o 300 o 600 se piu' vicino ce ne sono
      * meno di 5 (in campagna la mappa non resta vuota); al massimo 30, i piu' vicini. Il raggio usato torna con i POI:
      * la mappa lo inquadra.
      */

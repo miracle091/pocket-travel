@@ -14,7 +14,7 @@ import javax.inject.Singleton
 
 /**
  * Se l'assistente IA e' utilizzabile: una chiave API salvata (online) o almeno un modello on-device
- * scaricato che funziona con la lingua delle guide. Chi non e' configurato non vede la tab IA
+ * scaricato che funziona con la lingua delle guide. Chi non e' configurato non vede la scheda IA
  * nell'hub delle regioni; la configurazione sta nelle Impostazioni (vedi [AiSettingsSection]).
  */
 @Singleton
