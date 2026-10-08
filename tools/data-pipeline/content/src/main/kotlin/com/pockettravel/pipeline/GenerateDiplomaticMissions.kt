@@ -83,15 +83,17 @@ fun readMissionsDate(db: File): LocalDate? =
         ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 
 /**
- * True se il guides.db appena generato non va pubblicato: identico al pubblicato, oppure
- * differente solo per le missioni diplomatiche e con le pubblicate piu' giovani di
- * MISSIONS_MAX_AGE_DAYS (senza data nel file pubblicato si considerano vecchie).
+ * True se il guides.db appena generato non va pubblicato: identico al pubblicato, oppure differente solo per le missioni
+ * diplomatiche e/o per i consigli di travel.gc.ca, con le missioni pubblicate piu' giovani di MISSIONS_MAX_AGE_DAYS (senza
+ * data nel file pubblicato si considerano vecchie) e i consigli pubblicati piu' giovani di TRAVEL_ADVICE_MAX_AGE_DAYS senza
+ * cambi di rischio (keepPublishedTravelAdvice).
  */
 fun keepPublishedGuides(outputDb: File, publishedDb: File, today: LocalDate = LocalDate.now(ZoneOffset.UTC)): Boolean {
     if (sameGuidesContent(outputDb, publishedDb)) return true
-    if (!sameGuidesContent(outputDb, publishedDb, includeMissions = false)) return false
-    val publishedDate = readMissionsDate(publishedDb) ?: return false
-    return !publishedDate.isBefore(today.minusDays(MISSIONS_MAX_AGE_DAYS))
+    if (!sameGuidesContent(outputDb, publishedDb, includeMissions = false, includeTravelAdvice = false)) return false
+    val missionsKept = sameMissions(outputDb, publishedDb) ||
+        readMissionsDate(publishedDb)?.let { !it.isBefore(today.minusDays(MISSIONS_MAX_AGE_DAYS)) } == true
+    return missionsKept && (sameTravelAdvice(outputDb, publishedDb) || keepPublishedTravelAdvice(outputDb, publishedDb, today))
 }
 
 fun writeDiplomaticMissionsTable(rows: List<List<String?>>, outputDb: File) {

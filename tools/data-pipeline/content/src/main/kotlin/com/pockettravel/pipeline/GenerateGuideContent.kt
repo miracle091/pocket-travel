@@ -2,6 +2,8 @@ package com.pockettravel.pipeline
 
 import java.io.File
 import java.sql.DriverManager
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.Locale
 
 // Unico parser delle guide Wikivoyage.
@@ -520,6 +522,11 @@ fun main(rawArgs: Array<String>) {
     val publishedDb = args.getOrNull(2)?.let(::File)?.takeIf { it.exists() }
 
     val translated = translatedJsonl?.takeIf { it.exists() }?.let { parseTranslatedSections(it.readText()) }.orEmpty()
+    val publishedAdviceMeta = publishedDb?.let(::readTravelAdviceMeta).orEmpty()
+    val advice = adviceTsv?.takeIf { it.exists() }?.let { tsv ->
+        val publishedSections = { regionId: String -> publishedDb?.let { readRegionGuide(it, regionId) }?.sections.orEmpty() }
+        readTravelAdvice(tsv, publishedSections, publishedAdviceMeta, LocalDate.now(ZoneOffset.UTC))
+    }
     val guides = File(args[0]).readLines().filter { it.isNotBlank() }.map { line ->
         val columns = line.split('\t')
         val (regionId, dumpPath, sourceUrl) = columns
@@ -533,19 +540,25 @@ fun main(rawArgs: Array<String>) {
             println("guide: $regionId senza dump in questa run, ricopio le sezioni pubblicate")
             publishedDb?.let { readRegionGuide(it, regionId) } ?: RegionGuide(regionId, sourceUrl, emptyList())
         }
-    }.withTranslations(translated).let { guides ->
-        val advice = adviceTsv?.takeIf { it.exists() }?.let { tsv ->
-            readTravelAdvice(tsv) { regionId -> publishedDb?.let { readRegionGuide(it, regionId) }?.sections.orEmpty() }
-        }
-        advice?.let { guides.withTravelAdvice(it) } ?: guides
-    }
+    }.withTranslations(translated).let { guides -> advice?.let { guides.withTravelAdvice(it) } ?: guides }
 
     outputDb.delete()
     writeGuidesDb(guides, outputDb)
     writeDiplomaticMissions(missionsTsv, publishedDb, outputDb)
+    if (advice != null) {
+        writeTravelAdviceMeta(advice, outputDb)
+        // Con dei consigli gia' pubblicati: un cambio di rischio pubblica subito (keepPublishedGuides), qui l'avviso nel job.
+        if (publishedAdviceMeta.isNotEmpty()) {
+            travelAdviceRiskChanges(publishedAdviceMeta, advice.mapNotNull { (id, a) -> a.meta?.let { id to it } }.toMap())
+                .forEach { println("::warning::travel.gc.ca, rischio cambiato: $it") }
+        }
+    }
     if (publishedDb != null && keepPublishedGuides(outputDb, publishedDb)) {
         outputDb.delete()
-        println("guide: contenuto identico a quello pubblicato (o cambiate solo le missioni da meno di $MISSIONS_MAX_AGE_DAYS giorni), nessun nuovo guides.db")
+        println(
+            "guide: contenuto identico a quello pubblicato (o cambiate solo le missioni da meno di $MISSIONS_MAX_AGE_DAYS giorni " +
+                "e i consigli di travel.gc.ca da meno di $TRAVEL_ADVICE_MAX_AGE_DAYS senza cambi di rischio), nessun nuovo guides.db",
+        )
         return
     }
     println("guide: ${guides.sumOf { it.sections.size }} sezioni di ${guides.size} regioni scritte in ${outputDb.path}")
@@ -630,10 +643,22 @@ private fun readRegionGuide(db: File, regionId: String): RegionGuide? =
         }
     }
 
-/** Stesse righe in guide_sections e nelle tabelle dei numeri di emergenza, vaccinali (vacc_*) e delle missioni diplomatiche, a prescindere dall'ordine di inserimento. */
-fun sameGuidesContent(a: File, b: File, includeMissions: Boolean = true): Boolean {
+private const val MISSIONS_QUERY =
+    "SELECT wikidata, sending, host, kind, name, name_en, city, address, phone, website, email, lat, lon FROM diplomatic_missions ORDER BY 1"
+private const val GUIDE_SECTIONS_QUERY = "SELECT regionId, category, title, body, sourceUrl, translated FROM guide_sections"
+private const val TRAVEL_ADVICE_URLS = "sourceUrl LIKE 'https://$TRAVEL_ADVICE_HOST/%'"
+// Senza la data di download: cambia a ogni run anche quando i consigli no.
+private const val TRAVEL_ADVICE_STATE_QUERY = "SELECT regionId, advisory_state, regional FROM travel_advice_meta ORDER BY 1"
+
+/**
+ * Stesse righe in guide_sections e nelle tabelle dei numeri di emergenza, vaccinali (vacc_*) e delle missioni diplomatiche, a
+ * prescindere dall'ordine di inserimento. [includeTravelAdvice] false: senza le sezioni di travel.gc.ca e il loro livello di
+ * rischio (travel_advice_meta), che keepPublishedGuides valuta a parte come le missioni.
+ */
+fun sameGuidesContent(a: File, b: File, includeMissions: Boolean = true, includeTravelAdvice: Boolean = true): Boolean {
     val queries = listOfNotNull(
-        "SELECT regionId, category, title, body, sourceUrl, translated FROM guide_sections ORDER BY 1, 2, 3, 4, 5, 6",
+        (if (includeTravelAdvice) GUIDE_SECTIONS_QUERY else "$GUIDE_SECTIONS_QUERY WHERE NOT $TRAVEL_ADVICE_URLS") + " ORDER BY 1, 2, 3, 4, 5, 6",
+        TRAVEL_ADVICE_STATE_QUERY.takeIf { includeTravelAdvice },
         "SELECT regionId, general, police, ambulance, fire FROM emergency_numbers ORDER BY 1",
         "SELECT regionId FROM emergency_numbers_none ORDER BY 1",
         "SELECT * FROM vacc_yf_risk ORDER BY 1, 2, 3",
@@ -643,11 +668,19 @@ fun sameGuidesContent(a: File, b: File, includeMissions: Boolean = true): Boolea
         "SELECT * FROM vacc_special ORDER BY 1, 2, 3",
         "SELECT * FROM vacc_recommended ORDER BY 1, 2, 3",
         "SELECT * FROM vacc_meta ORDER BY 1",
-        "SELECT wikidata, sending, host, kind, name, name_en, city, address, phone, website, email, lat, lon FROM diplomatic_missions ORDER BY 1"
-            .takeIf { includeMissions },
+        MISSIONS_QUERY.takeIf { includeMissions },
     )
     return queries.all { sql -> readRows(a, sql) == readRows(b, sql) }
 }
+
+/** Stesse missioni diplomatiche nei due guides.db. */
+fun sameMissions(a: File, b: File): Boolean = readRows(a, MISSIONS_QUERY) == readRows(b, MISSIONS_QUERY)
+
+/** Stesse sezioni di travel.gc.ca e stesso livello di rischio per regione nei due guides.db. */
+fun sameTravelAdvice(a: File, b: File): Boolean = listOf(
+    "$GUIDE_SECTIONS_QUERY WHERE $TRAVEL_ADVICE_URLS ORDER BY 1, 2, 3, 4, 5, 6",
+    TRAVEL_ADVICE_STATE_QUERY,
+).all { sql -> readRows(a, sql) == readRows(b, sql) }
 
 internal fun readRows(db: File, sql: String): List<List<String?>>? =
     DriverManager.getConnection("jdbc:sqlite:${db.path}").use { conn ->

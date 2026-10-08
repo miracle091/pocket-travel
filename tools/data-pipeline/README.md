@@ -155,7 +155,12 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   testa), leggi e cultura, catastrofi naturali e clima, salute. Restano fuori ingresso e uscita, uffici consolari, i
   sottotitoli per i canadesi o sui vaccini (`excludedAdviceHeadings`) e le frasi che nominano il Canada o in cui parla il
   governo ("we", "our"). Un paese non scaricato tiene i consigli del `guides-en.db` pubblicato. Sui dati del 2026-09/10:
-  232 regioni, +4,4 MB di `guides-en.db` e +0,4 MB compresso.
+  232 regioni, +4,4 MB di `guides-en.db` e +0,4 MB compresso. Il testo cambia per quasi tutti i paesi ogni due
+  settimane e il job `guides` gira ogni giorno: per regione la tabella `travel_advice_meta` (livello di rischio, avvisi
+  regionali, data di download; le app la ignorano) e `keepPublishedGuides` tiene il `guides-en.db` pubblicato quando sono
+  cambiati solo i consigli, finché sono stati scaricati da meno di 7 giorni (`TRAVEL_ADVICE_MAX_AGE_DAYS`) e nessun paese
+  ha cambiato livello di rischio o avvisi regionali; un cambio di rischio pubblica subito e lascia un `::warning::` nel
+  job, un cambio di Wikivoyage pubblica subito con i consigli freschi.
 - **Dataset SFT (v9-v10)**: `scripts/generate_sft.py --lang it|en` genera il dataset dei due modelli linguistici con le
   stesse fonti, la stessa composizione e gli stessi tipi di domanda. Con `--vaccinations` aggiunge domande sui
   vaccini, con il riassunto che l'app inserisce nel contesto dell'assistente. Con `--nearby <quota>` (per esempio 0.03)

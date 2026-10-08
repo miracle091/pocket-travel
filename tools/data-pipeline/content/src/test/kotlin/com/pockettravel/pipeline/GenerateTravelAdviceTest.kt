@@ -6,14 +6,23 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.sql.DriverManager
+import java.time.LocalDate
 import kotlin.io.path.createTempDirectory
 
 class GenerateTravelAdviceTest {
 
     // Struttura del JSON open data di travel.gc.ca (cta-cap-it.json), testi accorciati.
-    private fun json(eng: Map<String, String>, iso: String = "IT") = JSONObject(
-        mapOf("data" to mapOf("country-iso" to iso, "eng" to mapOf("friendly-date" to "September 22, 2026 05:35 EDT") + eng)),
+    private fun json(eng: Map<String, String>, iso: String = "IT", state: Int = 1, regional: Int = 0) = JSONObject(
+        mapOf(
+            "data" to mapOf(
+                "country-iso" to iso, "advisory-state" to state, "has-regional-advisory" to regional,
+                "eng" to mapOf("friendly-date" to "September 22, 2026 05:35 EDT") + eng,
+            ),
+        ),
     ).toString()
+
+    private val day0 = LocalDate.of(2026, 10, 1)
 
     private val security = """
         <h3>Crime</h3>
@@ -89,7 +98,10 @@ class GenerateTravelAdviceTest {
         val publishedAdvice = GuideSectionRow("SICUREZZA", "Safety and security (Government of Canada)", "Old advice.", "https://travel.gc.ca/destinations/mx")
         val wikivoyage = GuideSectionRow("SICUREZZA", "Stay safe", "Watch your bags.")
 
-        val advice = readTravelAdvice(tsv) { listOf(wikivoyage, publishedAdvice) }
+        val publishedMeta = mapOf("messico" to TravelAdviceMeta(1, 1, day0.minusDays(3)))
+        val advice = readTravelAdvice(tsv, { listOf(wikivoyage, publishedAdvice) }, publishedMeta, day0)
+        assertEquals(TravelAdviceMeta(1, 0, day0), advice.getValue("italia").meta)
+        assertEquals(publishedMeta["messico"], advice.getValue("messico").meta) // ricopiati: la data resta quella vecchia
         val guides = listOf(
             RegionGuide("italia", "https://en.wikivoyage.org/wiki/Italy", listOf(wikivoyage, publishedAdvice.copy(body = "Stale."))),
             RegionGuide("messico", "https://en.wikivoyage.org/wiki/Mexico", listOf(wikivoyage)),
@@ -100,5 +112,52 @@ class GenerateTravelAdviceTest {
         assertEquals(listOf(wikivoyage, publishedAdvice), guides[1].sections)
         assertEquals(listOf(wikivoyage), guides[2].sections)
         dir.deleteRecursively()
+    }
+
+    @Test
+    fun `i soli consigli cambiati pubblicano al piu' una volta a settimana, subito se cambia il rischio`() {
+        val dir = createTempDirectory("advice-week").toFile()
+        val wikivoyage = GuideSectionRow("SICUREZZA", "Stay safe", "Watch your bags.")
+        val published = File(dir, "published.db")
+        val fresh = File(dir, "guides.db")
+        // Un guides.db come lo scrive generateGuides: sezioni di Wikivoyage, consigli di travel.gc.ca e travel_advice_meta.
+        fun build(db: File, today: LocalDate, adviceText: String, state: Int = 1, wikivoyageText: String = "Watch your bags.") {
+            db.delete()
+            val italy = File(dir, "it.json").apply { writeText(json(mapOf("security" to "<p>$adviceText</p>"), state = state)) }
+            val tsv = File(dir, "advice.tsv").apply { writeText("italia\t${italy.path}\n") }
+            val advice = readTravelAdvice(tsv, { emptyList() }, emptyMap(), today)
+            val guides = listOf(RegionGuide("italia", "https://en.wikivoyage.org/wiki/Italy", listOf(wikivoyage.copy(body = wikivoyageText))))
+            writeGuidesDb(guides.withTravelAdvice(advice), db)
+            writeTravelAdviceMeta(advice, db)
+        }
+        try {
+            build(published, day0, "Old advice.")
+            assertEquals(mapOf("italia" to TravelAdviceMeta(1, 0, day0)), readTravelAdviceMeta(published))
+
+            // Stesso testo: si tiene il pubblicato anche dopo mesi (la data di download non conta).
+            build(fresh, day0.plusDays(60), "Old advice.")
+            assertTrue(keepPublishedGuides(fresh, published, day0.plusDays(60)))
+
+            // Testo dei consigli cambiato: per 6 giorni si tiene il pubblicato, il settimo si pubblica.
+            build(fresh, day0.plusDays(6), "New advice.")
+            assertTrue(keepPublishedGuides(fresh, published, day0.plusDays(6)))
+            assertFalse(keepPublishedGuides(fresh, published, day0.plusDays(7)))
+
+            // Livello di rischio cambiato: si pubblica subito.
+            build(fresh, day0.plusDays(1), "New advice.", state = 2)
+            assertEquals(listOf("italia: livello 1 -> 2, avvisi regionali 0 -> 0"), travelAdviceRiskChanges(readTravelAdviceMeta(published), readTravelAdviceMeta(fresh)))
+            assertFalse(keepPublishedGuides(fresh, published, day0.plusDays(1)))
+
+            // Wikivoyage cambiato: si pubblica subito, con i consigli freschi.
+            build(fresh, day0.plusDays(1), "New advice.", wikivoyageText = "Watch your wallet.")
+            assertFalse(keepPublishedGuides(fresh, published, day0.plusDays(1)))
+
+            // Pubblicato senza travel_advice_meta (guides.db precedente): i consigli si considerano vecchi.
+            DriverManager.getConnection("jdbc:sqlite:${published.path}").use { it.createStatement().use { s -> s.execute("DROP TABLE travel_advice_meta") } }
+            build(fresh, day0.plusDays(1), "New advice.")
+            assertFalse(keepPublishedGuides(fresh, published, day0.plusDays(1)))
+        } finally {
+            dir.deleteRecursively()
+        }
     }
 }

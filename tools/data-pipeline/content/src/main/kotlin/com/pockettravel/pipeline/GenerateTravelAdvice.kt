@@ -2,6 +2,7 @@ package com.pockettravel.pipeline
 
 import org.json.JSONObject
 import java.io.File
+import java.time.LocalDate
 
 /*
  * Consigli di viaggio del Governo del Canada (travel.gc.ca) come sezioni della guida inglese, e quindi del contesto
@@ -153,23 +154,96 @@ fun travelAdviceSections(json: String): List<GuideSectionRow> {
 fun isTravelAdvice(section: GuideSectionRow): Boolean = section.sourceUrl?.contains("://$TRAVEL_ADVICE_HOST/") == true
 
 /**
- * Le sezioni di travel.gc.ca per regione da [tsv] ("regionId<TAB>cta-cap.json", file vuoto o assente se non scaricato
- * in questa run): dal JSON, o se manca o non si legge quelle della regione nel guides.db pubblicato, cosi' un errore di
- * rete non fa sparire i consigli. Le regioni dello stesso paese (stati USA, regioni francesi) hanno le stesse.
+ * Il testo di travel.gc.ca cambia per quasi tutti i paesi ogni due settimane, il livello di rischio di rado (misura del
+ * 2026-10-07: nessun cambio in 228 paesi in 2-4 settimane), e il job delle guide gira ogni giorno: i soli consigli
+ * cambiati pubblicano un nuovo guides-en.db (che tutti riscaricano) al piu' una volta ogni questi giorni, a meno che
+ * cambi il livello di rischio o gli avvisi regionali di un paese (decisione utente 2026-10-07: una versione a settimana).
  */
-fun readTravelAdvice(tsv: File, published: (String) -> List<GuideSectionRow>): Map<String, List<GuideSectionRow>> =
+const val TRAVEL_ADVICE_MAX_AGE_DAYS = 7L
+
+/** Livello di rischio (0 normale ... 3 evitare ogni viaggio), avvisi regionali (0/1) e data di download dei consigli di una regione. */
+data class TravelAdviceMeta(val advisoryState: Int, val regional: Int, val fetched: LocalDate)
+
+data class RegionAdvice(val sections: List<GuideSectionRow>, val meta: TravelAdviceMeta?)
+
+private fun adviceState(json: String, fetched: LocalDate): TravelAdviceMeta? = runCatching {
+    val data = JSONObject(json).getJSONObject("data")
+    TravelAdviceMeta(data.getInt("advisory-state"), data.optInt("has-regional-advisory"), fetched)
+}.getOrNull()
+
+/**
+ * Le sezioni di travel.gc.ca per regione da [tsv] ("regionId<TAB>cta-cap.json", file vuoto o assente se non scaricato
+ * in questa run): dal JSON, con il livello di rischio e la data [today]; o, se manca o non si legge, quelle della regione
+ * nel guides.db pubblicato ([publishedSections], [publishedMeta], con la loro data), cosi' un errore di rete non fa
+ * sparire i consigli. Le regioni dello stesso paese (stati USA, regioni francesi) hanno le stesse.
+ */
+fun readTravelAdvice(
+    tsv: File,
+    publishedSections: (String) -> List<GuideSectionRow>,
+    publishedMeta: Map<String, TravelAdviceMeta>,
+    today: LocalDate,
+): Map<String, RegionAdvice> =
     tsv.readLines().filter { it.isNotBlank() }.associate { line ->
         val regionId = line.substringBefore('\t')
-        val json = line.substringAfter('\t', "").takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.length() > 0 }
-        val sections = json?.let { travelAdviceSections(it.readText()) }.orEmpty()
-        regionId to sections.ifEmpty {
+        val json = line.substringAfter('\t', "").takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.length() > 0 }?.readText()
+        val sections = json?.let(::travelAdviceSections).orEmpty()
+        val meta = json?.let { adviceState(it, today) }
+        regionId to if (sections.isNotEmpty() && meta != null) {
+            RegionAdvice(sections, meta)
+        } else {
             if (json != null) println("guide: $regionId, consigli di travel.gc.ca illeggibili, ricopio quelli pubblicati")
-            published(regionId).filter(::isTravelAdvice)
+            RegionAdvice(publishedSections(regionId).filter(::isTravelAdvice), publishedMeta[regionId])
         }
     }
 
 /** Le guide con le sezioni di travel.gc.ca di [advice] al posto di quelle che avevano (anche se ricopiate dal pubblicato). */
-fun List<RegionGuide>.withTravelAdvice(advice: Map<String, List<GuideSectionRow>>): List<RegionGuide> = map { guide ->
-    val sections = advice[guide.regionId] ?: return@map guide
-    guide.copy(sections = guide.sections.filterNot(::isTravelAdvice) + sections)
+fun List<RegionGuide>.withTravelAdvice(advice: Map<String, RegionAdvice>): List<RegionGuide> = map { guide ->
+    val regionAdvice = advice[guide.regionId] ?: return@map guide
+    guide.copy(sections = guide.sections.filterNot(::isTravelAdvice) + regionAdvice.sections)
+}
+
+/** Tabella travel_advice_meta di guides.db (le app la ignorano): serve solo a keepPublishedGuides della run successiva. */
+fun writeTravelAdviceMeta(advice: Map<String, RegionAdvice>, outputDb: File) {
+    writeSqliteTable(
+        outputDb = outputDb,
+        tableName = "travel_advice_meta",
+        createTableSql = "CREATE TABLE travel_advice_meta (regionId TEXT NOT NULL, advisory_state INTEGER NOT NULL, " +
+            "regional INTEGER NOT NULL, fetched TEXT NOT NULL)",
+        insertSql = "INSERT INTO travel_advice_meta (regionId, advisory_state, regional, fetched) VALUES (?, ?, ?, ?)",
+        rows = advice.mapNotNull { (regionId, regionAdvice) -> regionAdvice.meta?.let { regionId to it } },
+    ) { insert, (regionId, meta) ->
+        insert.setString(1, regionId)
+        insert.setInt(2, meta.advisoryState)
+        insert.setInt(3, meta.regional)
+        insert.setString(4, meta.fetched.toString())
+    }
+}
+
+/** travel_advice_meta di un guides.db per regione; vuota se la tabella manca (guides.db precedente o guida italiana). */
+fun readTravelAdviceMeta(db: File): Map<String, TravelAdviceMeta> =
+    readRows(db, "SELECT regionId, advisory_state, regional, fetched FROM travel_advice_meta").orEmpty().mapNotNull { row ->
+        val fetched = row[3]?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return@mapNotNull null
+        row[0]?.let { regionId -> regionId to TravelAdviceMeta(row[1]?.toIntOrNull() ?: 0, row[2]?.toIntOrNull() ?: 0, fetched) }
+    }.toMap()
+
+/** Le regioni di [fresh] con livello di rischio o avvisi regionali diversi da [published] (o assenti li'), con i due stati. */
+fun travelAdviceRiskChanges(published: Map<String, TravelAdviceMeta>, fresh: Map<String, TravelAdviceMeta>): List<String> =
+    fresh.mapNotNull { (regionId, meta) ->
+        val old = published[regionId]
+        if (old != null && old.advisoryState == meta.advisoryState && old.regional == meta.regional) {
+            null
+        } else {
+            "$regionId: livello ${old?.advisoryState ?: "-"} -> ${meta.advisoryState}, avvisi regionali ${old?.regional ?: "-"} -> ${meta.regional}"
+        }
+    }
+
+/**
+ * True se i consigli pubblicati possono restare anche se il testo e' cambiato: scaricati (il piu' recente) da meno di
+ * TRAVEL_ADVICE_MAX_AGE_DAYS giorni e nessun cambio di rischio. Senza travel_advice_meta pubblicata si considerano vecchi.
+ */
+fun keepPublishedTravelAdvice(outputDb: File, publishedDb: File, today: LocalDate): Boolean {
+    val published = readTravelAdviceMeta(publishedDb)
+    val newest = published.values.maxOfOrNull { it.fetched } ?: return false
+    return newest.isAfter(today.minusDays(TRAVEL_ADVICE_MAX_AGE_DAYS)) &&
+        travelAdviceRiskChanges(published, readTravelAdviceMeta(outputDb)).isEmpty()
 }
