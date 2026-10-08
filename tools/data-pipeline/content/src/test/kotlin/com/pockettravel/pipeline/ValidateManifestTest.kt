@@ -353,8 +353,13 @@ class ValidateManifestTest {
         }
     }
 
-    private fun transitFeed(id: String = "mdb-3502", host: String = "github.com", bbox: String = "[23.9, 56.8, 24.4, 57.1]") = """
-        { "id": "$id", "name": "Riga", "regions": ["lettonia"], "license": "CC0-1.0", "attribution": "Rigas satiksme",
+    private fun transitFeed(
+        id: String = "mdb-3502",
+        host: String = "github.com",
+        bbox: String = "[23.9, 56.8, 24.4, 57.1]",
+        licenseUrl: String = "https://data.gov.lv/dati/lv/dataset/riga",
+    ) = """
+        { "id": "$id", "name": "Riga", "regions": ["lettonia"], "license": "CC0-1.0", "attribution": "Rigas satiksme", "licenseUrl": "$licenseUrl",
           "version": "2026.09.29.1", "validUntil": "2026-12-27", "bbox": $bbox,
           "file": { "name": "transit.db", "url": "https://$host/miracle091/pocket-travel/releases/download/transit-feeds/$id--transit.db", "sizeBytes": 10, "sha256": "${"a".repeat(64)}" } }
     """.trimIndent()
@@ -367,6 +372,8 @@ class ValidateManifestTest {
             """{ "version": "2026.09.29.1", "feeds": [${transitFeed(host = "evil.example")}] }""",
             """{ "version": "2026.09.29.1", "feeds": [${transitFeed(bbox = "[25, 56.8, 24.4, 57.1]")}] }""",
             """{ "version": "2026.09.29.1", "feeds": [${transitFeed(id = "../x")}] }""",
+            // L'app rifiuta tutto l'indice se una rete ha la pagina della licenza fuori da https.
+            """{ "version": "2026.09.29.1", "feeds": [${transitFeed(licenseUrl = "http://acikveri.bizizmir.com/tr/license")}] }""",
         ).forEach { json -> assertThrows(ManifestValidationException::class.java) { validateTransitJson(json, allowedHosts) } }
     }
 }

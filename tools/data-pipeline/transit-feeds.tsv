@@ -24,17 +24,84 @@
 # al posto delle 6 reti di GTFS Regional, che coprivano solo SL, Vasttrafik, Skanetrafiken e tre
 # operatori nazionali. Non GTFS Sweden 3 (mdb-2939, 694 MB): Trafiklab stessa scrive che non contiene
 # ancora tutti i mezzi della Svezia e consiglia Sverige 2 per la copertura completa.
+# Italia (2026-10-08): licenze lette sui portali dei dati aperti, tutte CC BY: dati.lombardia.it
+# (Trenord), dati.toscana.it (un dataset per treni, Toremar, tramvia e Autolinee Toscane),
+# sardegnamobilita.it (tutti i dataset del portale), dati.comune.napoli.it, dati.trentino.it,
+# opendata.comune.palermo.it, dati.comune.genova.it, dati.regione.calabria.it, dati.venezia.it (ACTV),
+# dati.comune.messina.it (ATM Messina, non nel Mobility Database: dal sito dell'ente),
+# dati.regione.liguria.it, solweb.tper.it (TPER, CC BY 3.0 IT). Liguria e TPER pubblicano un file con la
+# data nel nome a ogni versione: {ultimo} e cerca_ultimo. Al 2026-10-08 in Liguria solo il file di
+# Trenitalia ha orari validi; le altre reti si costruiscono quando la Regione pubblica i nuovi. Fuori
+# anche se CC BY: i traghetti per la Sardegna di sardegnamobilita.it (scaduti, o entro un mese).
+# Autolinee Toscane dal feed unico della Regione: le copie per ambito del Mobility Database (tld-69xx)
+# sono ferme, la fonte risponde 404. CTM Cagliari dal link del portale sardo, non dal vecchio
+# ctmcagliari.it; Trentino extraurbano dal sito dell'ente (mdb-1031 e' inattivo). Escluse: GTT Torino e
+# Cotral (copia di BusOne) solo uso non commerciale; Matera (orari del 2022); ATAP Biella, Alilaguna,
+# CTPI Varese, STP Brindisi, Marsala, EAV: nessuna licenza dichiarata.
+# Altri paesi (2026-10-08), licenze lette sulle pagine dell'ente o del portale di ogni riga
+# (pagina_licenza). Per paese il feed nazionale se pesa meno di ~150 MB (Norvegia: il file "basic" di
+# Entur), altrimenti capitale, citta' turistiche e treni. BART, Caltrain, MBTA e Transperth: termini
+# propri dell'ente, senza registrazione ne' manleva, che permettono di riprodurre e ridistribuire
+# citando la fonte (revocabili: se l'ente li revoca si toglie la riga). Carris Metropolitana: CC BY 4.0
+# nel repository GitHub dell'operatore; la copia del Mobility Database coincide con il feed di
+# api.carrismetropolitana.pt (linee e fermate confrontate con la sua API). Lette con le API dei portali
+# perche' le pagine sono in JavaScript: Rejseplanen (catalogo nazionale danese, CC BY 4.0), Sofia
+# (urbandata.sofia.bg, CC BY-SA), Lituania (data.gov.lt dataset 1929, CC BY 4.0), Ottawa (Open Ottawa,
+# Open Data Licence 2.0), Calgary (Open Government Licence - City of Calgary). HVV Amburgo e
+# Lussemburgo: {ultimo} dall'API del portale. Melbourne PTV: uno zip per modo dentro lo zip
+# (#percorso nell'url_feed). Istanbul IETT: CSV sciolti e da correggere, composti in GTFS da
+# iett_gtfs.py (script: nell'url_feed). Estonia: feed nazionale del Ministero degli affari regionali,
+# CC BY-SA 3.0 sul portale andmed.eesti.ee (dataset "Uhistranspordiregistri avaandmed"). Romania, treni:
+# GTFS di data.gov.ro-gtfs-exporter (licenza MIT, dagli XML di data.gov.ro sotto OGL-ROU 1.0); non il
+# GTFS di jbb.ghsq.de, senza licenza dichiarata. Escluse, fra le altre: DELFI e opendata-oepnv.de (login), gtfs.de (feed
+# gratuito valido 7 giorni), Limassol ed ESHOT Smirne (orari di pochi giorni), MTA New York (vieta di
+# modificare i dati), CTA, LA Metro, TriMet,
+# SEPTA, Muni, Metrolinx, STM, TransLink Vancouver (accordi con manleva, registrazione o limiti d'uso),
+# BKK Budapest (solo uso personale), Vilnius (registrazione dell'utente), OVapi Paesi Bassi (nessuna
+# licenza dichiarata, 224 MB), Irlanda nazionale (193 MB: le 5 reti principali al suo posto).
 #
 # regioni: regionId di regions.sh separati da virgola (le regioni che propongono la rete).
 # attribuzione: testo per la schermata Licenze e sotto il tabellone.
-# url_feed (facoltativa): dove scaricare il feed, se non dalla copia del Mobility Database.
+# url_feed (facoltativa): dove scaricare il feed, se non dalla copia del Mobility Database. {anno},
+# {ultimo} e #percorso: vedi build-transit.sh.
+# cerca_ultimo (solo con {ultimo}): "<url dell'indice> <regex>", dove trovare il file piu' recente.
 #
-# id	regioni	nome	licenza	attribuzione	pagina_licenza	url_feed
+# id	regioni	nome	licenza	attribuzione	pagina_licenza	url_feed	cerca_ultimo
 mdb-992	lettonia	Autobus nazionali (ATD)	CC0-1.0	Valsts SIA Autotransporta direkcija (data.gov.lv, CC0 1.0)	https://data.gov.lv/dati/eng/dataset/atd-gtfs
 mdb-3385	lettonia	Treni (Pasažieru vilciens)	CC0-1.0	AS Pasažieru vilciens (data.gov.lv, CC0 1.0)	https://data.gov.lv/dati/eng/dataset/iekszemes-dzelzcela-vilcienu-kustibas-saraksts-gtfs-formata
 mdb-3502	lettonia	Riga (Rīgas satiksme)	CC0-1.0	Rīgas satiksme (data.gov.lv, CC0 1.0)	https://data.gov.lv/dati/lv/dataset/marsrutu-saraksti-rigas-satiksme-sabiedriskajam-transportam
 mdb-2666	italia	Milano (ATM)	CC-BY	Comune di Milano, ATM - Azienda Trasporti Milanesi (dati.comune.milano.it, CC BY); modificato	https://dati.comune.milano.it/dataset/ds929-orari-del-trasporto-pubblico-locale-nel-comune-di-milano-in-formato-gtfs
 mdb-1294	italia	Roma (Roma Servizi per la Mobilità)	CC-BY-SA	Roma Servizi per la Mobilità (dati.comune.roma.it, CC BY-SA); modificato	https://dati.comune.roma.it/catalog/it/dataset/c_h501-d-9000
+mdb-855	italia	Lombardia, treni regionali (Trenord)	CC-BY	Trenord, Regione Lombardia (dati.lombardia.it, CC BY 4.0); modificato	https://www.dati.lombardia.it/d/3z4k-mxz9
+mdb-1062	italia	Venezia e Mestre, autobus e tram (ACTV)	CC-BY	ACTV S.p.A. (dati.venezia.it, CC BY); modificato	https://dati.venezia.it/?q=content/actv-general-transit-feed-specification-gtfs
+mdb-1063	italia	Venezia, vaporetti e motonavi (ACTV)	CC-BY	ACTV S.p.A. (dati.venezia.it, CC BY); modificato	https://dati.venezia.it/?q=content/actv-general-transit-feed-specification-gtfs
+mdb-978	italia	Trentino, autobus urbani (Trentino trasporti)	CC-BY	Provincia Autonoma di Trento, Trentino trasporti (dati.trentino.it, CC BY 4.0); modificato	https://dati.trentino.it/dataset/trasporti-pubblici-del-trentino-formato-gtfs
+mdb-1031	italia	Trentino, autobus extraurbani (Trentino trasporti)	CC-BY	Provincia Autonoma di Trento, Trentino trasporti (dati.trentino.it, CC BY 4.0); modificato	https://dati.trentino.it/dataset/trasporti-pubblici-del-trentino-formato-gtfs	https://www.trentinotrasporti.it/opendata/google_transit_extraurbano_tte.zip
+tld-958	italia	Genova (AMT)	CC-BY	Comune di Genova, AMT Genova (dati.comune.genova.it, CC BY 4.0); modificato	https://dati.comune.genova.it/dataset/amt-trasporto-pubblico-nel-comune-di-genova
+mdb-1319	italia	Toscana, treni regionali (Trenitalia)	CC-BY	Regione Toscana, Trenitalia (dati.toscana.it, CC BY); modificato	https://dati.toscana.it/dataset/8bb8f8fe-fe7d-41d0-90dc-49f2456180d1
+tld-7005	italia	Arezzo, treni per Stia e Sinalunga (TFT)	CC-BY	Regione Toscana, Trasporto Ferroviario Toscano (dati.toscana.it, CC BY); modificato	https://dati.toscana.it/dataset/8bb8f8fe-fe7d-41d0-90dc-49f2456180d1
+tld-6956	italia	Firenze, tramvia (GEST)	CC-BY	Regione Toscana, GEST (dati.toscana.it, CC BY); modificato	https://dati.toscana.it/dataset/8bb8f8fe-fe7d-41d0-90dc-49f2456180d1
+at-toscana	italia	Toscana, autobus urbani ed extraurbani (Autolinee Toscane)	CC-BY	Regione Toscana, Autolinee Toscane (dati.toscana.it, CC BY); modificato	https://dati.toscana.it/dataset/8bb8f8fe-fe7d-41d0-90dc-49f2456180d1	https://regionetoscana.smartregion.toscana.it/mobility/artifacts/gtfs
+mdb-1068	italia	Toscana, traghetti per le isole (Toremar)	CC-BY	Regione Toscana, Toremar (dati.toscana.it, CC BY); modificato	https://dati.toscana.it/dataset/8bb8f8fe-fe7d-41d0-90dc-49f2456180d1
+mdb-893	italia	Napoli (ANM)	CC-BY	Comune di Napoli, ANM - Azienda Napoletana Mobilità (dati.comune.napoli.it, CC BY 4.0); modificato	https://dati.comune.napoli.it/dataset/azienda-napoletana-mobilita
+mdb-2668	italia	Calabria, autobus regionali	CC-BY	Regione Calabria (dati.regione.calabria.it, CC BY 4.0); modificato	https://dati.regione.calabria.it/catalogo/percorsi-linee-trasporto-pubblico/
+atm-messina	italia	Messina (ATM)	CC-BY	ATM Messina S.p.A. (dati.comune.messina.it, CC BY 4.0); modificato	https://dati.comune.messina.it/dataset/dati-trasporto-pubblico-urbano-atm-gtfs	https://www.atmmessinaspa.it/GTFS/GTFS_ATM_SPA.zip
+tper-bologna	italia	Bologna, autobus (TPER)	CC-BY	TPER S.p.A. (solweb.tper.it, CC BY 3.0 IT); modificato	https://solweb.tper.it/web/tools/open-data/open-data.aspx	https://solweb.tper.it/web/tools/open-data/open-data-download.aspx?source=solweb.tper.it&filename=gommagtfsbo&version={ultimo}&format=zip	https://solweb.tper.it/web/tools/open-data/open-data.aspx filename=gommagtfsbo&version=\K[0-9]{8}
+tper-ferrara	italia	Ferrara, autobus (TPER)	CC-BY	TPER S.p.A. (solweb.tper.it, CC BY 3.0 IT); modificato	https://solweb.tper.it/web/tools/open-data/open-data.aspx	https://solweb.tper.it/web/tools/open-data/open-data-download.aspx?source=solweb.tper.it&filename=gommagtfsfe&version={ultimo}&format=zip	https://solweb.tper.it/web/tools/open-data/open-data.aspx filename=gommagtfsfe&version=\K[0-9]{8}
+lig-trenitalia	italia	Liguria, treni regionali (Trenitalia)	CC-BY	Regione Liguria, Trenitalia (dati.regione.liguria.it, CC BY 4.0); modificato	https://dati.regione.liguria.it/dataset/ds-637	{ultimo}	https://dati.regione.liguria.it/api/3/action/package_show?id=ds-637 https://srvcarto\.regione\.liguria\.it/[^"]*/GTFS/GTFS-IT-ITC3-[^"]*\.zip
+lig-amt-extraurbano	italia	Genova, autobus extraurbani (AMT)	CC-BY	Regione Liguria, AMT Genova (dati.regione.liguria.it, CC BY 4.0); modificato	https://dati.regione.liguria.it/dataset/ds-642	{ultimo}	https://dati.regione.liguria.it/api/3/action/package_show?id=ds-642 https://srvcarto\.regione\.liguria\.it/[^"]*/GTFS/GTFS-IT-ITC3-[^"]*\.zip
+lig-atc	italia	La Spezia e Cinque Terre, autobus (ATC)	CC-BY	Regione Liguria, ATC Esercizio (dati.regione.liguria.it, CC BY 4.0); modificato	https://dati.regione.liguria.it/dataset/ds-640	{ultimo}	https://dati.regione.liguria.it/api/3/action/package_show?id=ds-640 https://srvcarto\.regione\.liguria\.it/[^"]*/GTFS/GTFS-IT-ITC3-[^"]*\.zip
+lig-riviera	italia	Imperia e Riviera di Ponente, autobus (Riviera Trasporti)	CC-BY	Regione Liguria, Riviera Trasporti (dati.regione.liguria.it, CC BY 4.0); modificato	https://dati.regione.liguria.it/dataset/ds-639	{ultimo}	https://dati.regione.liguria.it/api/3/action/package_show?id=ds-639 https://srvcarto\.regione\.liguria\.it/[^"]*/GTFS/GTFS-IT-ITC3-[^"]*\.zip
+lig-tpl-linea	italia	Savona, autobus (TPL Linea)	CC-BY	Regione Liguria, TPL Linea (dati.regione.liguria.it, CC BY 4.0); modificato	https://dati.regione.liguria.it/dataset/ds-638	{ultimo}	https://dati.regione.liguria.it/api/3/action/package_show?id=ds-638 https://srvcarto\.regione\.liguria\.it/[^"]*/GTFS/GTFS-IT-ITC3-[^"]*\.zip
+mdb-2373	italia	Palermo (AMAT)	CC-BY	Comune di Palermo, AMAT Palermo (opendata.comune.palermo.it, CC BY 4.0); modificato	https://opendata.comune.palermo.it/opendata-dataset.php?dataset=1303
+mdb-895	italia	Sardegna, autobus, treni e tram (ARST)	CC-BY	Regione Autonoma della Sardegna, ARST (sardegnamobilita.it, CC BY 4.0); modificato	https://www.sardegnamobilita.it/open-data
+mdb-1052	italia	Sardegna, treni (Trenitalia)	CC-BY	Regione Autonoma della Sardegna, Trenitalia (sardegnamobilita.it, CC BY 4.0); modificato	https://www.sardegnamobilita.it/open-data
+mdb-2993	italia	Sardegna, autobus di aziende private	CC-BY	Regione Autonoma della Sardegna (sardegnamobilita.it, CC BY 4.0); modificato	https://www.sardegnamobilita.it/open-data
+mdb-1047	italia	Sardegna, traghetti per le isole minori (Delcomar, Ensamar)	CC-BY	Regione Autonoma della Sardegna, Delcomar, Ensamar (sardegnamobilita.it, CC BY 4.0); modificato	https://www.sardegnamobilita.it/open-data
+tld-576	italia	Cagliari (CTM)	CC-BY	Regione Autonoma della Sardegna, CTM Cagliari (sardegnamobilita.it, CC BY 4.0); modificato	https://www.sardegnamobilita.it/open-data	https://flashnetctm.miz.it/download/gtfs/estrazione_gtfs.zip
+mdb-2009	italia	Sassari (ATP)	CC-BY	Regione Autonoma della Sardegna, ATP Sassari (sardegnamobilita.it, CC BY 4.0); modificato	https://www.sardegnamobilita.it/open-data
+mdb-991	italia	Nuoro (ATP)	CC-BY	Regione Autonoma della Sardegna, ATP Nuoro (sardegnamobilita.it, CC BY 4.0); modificato	https://www.sardegnamobilita.it/open-data
+mdb-2008	italia	Olbia (ASPO)	CC-BY	Regione Autonoma della Sardegna, ASPO Olbia (sardegnamobilita.it, CC BY 4.0); modificato	https://www.sardegnamobilita.it/open-data
 mdb-2661	svezia	Svezia, tutti i mezzi pubblici (Samtrafiken)	CC0-1.0	Samtrafiken i Sverige AB (Trafiklab GTFS Sverige 2, CC0 1.0)	https://www.trafiklab.se/api/gtfs-datasets/gtfs-sverige-2/
 mdb-2653	spagna	Treni suburbani (Renfe Cercanías e Rodalies)	CC-BY	Origen de los datos: Renfe Operadora (data.renfe.com, CC BY 4.0); modificato	https://data.renfe.com/dataset/horarios-cercanias
 renfe-avld	spagna	Treni alta velocità, lunga e media distanza (Renfe)	CC-BY	Origen de los datos: Renfe Operadora (data.renfe.com, CC BY 4.0); modificato	https://data.renfe.com/dataset/horarios-de-alta-velocidad-larga-distancia-y-media-distancia	https://ssl.renfe.com/gtransit/Fichero_AV_LD/google_transit.zip
@@ -63,3 +130,63 @@ bods-north-east	regno-unito	Nord-est, autobus e tram (BODS)	OGL-UK-3.0	Departmen
 bods-north-west	regno-unito	Nord-ovest, autobus e tram (BODS)	OGL-UK-3.0	Department for Transport, Bus Open Data Service: contains public sector information licensed under the Open Government Licence v3.0; modificato	https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/	https://data.bus-data.dft.gov.uk/timetable/download/gtfs-file/north_west/
 bods-scotland	regno-unito	Scozia, autobus e tram (BODS)	OGL-UK-3.0	Department for Transport, Bus Open Data Service: contains public sector information licensed under the Open Government Licence v3.0; modificato	https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/	https://data.bus-data.dft.gov.uk/timetable/download/gtfs-file/scotland/
 bods-wales	regno-unito	Galles, autobus e tram (BODS)	OGL-UK-3.0	Department for Transport, Bus Open Data Service: contains public sector information licensed under the Open Government Licence v3.0; modificato	https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/	https://data.bus-data.dft.gov.uk/timetable/download/gtfs-file/wales/
+mdb-2635	irlanda	Dublino, autobus (Dublin Bus)	CC-BY	National Transport Authority, Transport for Ireland (transportforireland.ie, CC BY 4.0); modificato	https://www.transportforireland.ie/transitData/PT_Data.html
+mdb-2638	irlanda	Dublino, tram (Luas)	CC-BY	National Transport Authority, Transport for Ireland (transportforireland.ie, CC BY 4.0); modificato	https://www.transportforireland.ie/transitData/PT_Data.html
+mdb-2639	irlanda	Dublino e dintorni, autobus (Go-Ahead Ireland)	CC-BY	National Transport Authority, Transport for Ireland (transportforireland.ie, CC BY 4.0); modificato	https://www.transportforireland.ie/transitData/PT_Data.html
+mdb-2637	irlanda	Irlanda, treni (Iarnród Éireann)	CC-BY	National Transport Authority, Transport for Ireland (transportforireland.ie, CC BY 4.0); modificato	https://www.transportforireland.ie/transitData/PT_Data.html
+mdb-2636	irlanda	Irlanda, autobus regionali e urbani (Bus Éireann)	CC-BY	National Transport Authority, Transport for Ireland (transportforireland.ie, CC BY 4.0); modificato	https://www.transportforireland.ie/transitData/PT_Data.html
+entur-no	norvegia	Norvegia, tutti i mezzi pubblici (Entur)	NLOD-2.0	Contains data under the Norwegian licence for Open Government data (NLOD) distributed by Entur AS; modificato	https://developer.entur.org/stops-and-timetable-data	https://storage.googleapis.com/marduk-production/outbound/gtfs/rb_norway-aggregated-gtfs-basic.zip
+mdb-865	finlandia	Helsinki e dintorni (HSL)	CC-BY	© HSL, Helsingin seudun liikenne (hsl.fi, CC BY 4.0); modificato	https://hsl.fi/en/opendata
+mdb-1102	finlandia	Finlandia, treni (VR)	CC-BY	Liikennetietojen lähde Fintraffic / digitraffic.fi, lisenssi CC 4.0 BY; modificato	https://www.digitraffic.fi/kayttoehdot/	https://rata.digitraffic.fi/api/v1/trains/gtfs-passenger.zip
+mdb-864	finlandia	Turku (Föli)	CC-BY	Lähde: Turun seudun joukkoliikenteen liikennöinti- ja aikatauludata, Turun kaupungin joukkoliikennetoimisto (data.foli.fi, CC BY 4.0); modificato	https://data.foli.fi/doc/index
+tld-716	portogallo	Lisbona, metropolitana (Metropolitano de Lisboa)	CC-BY	Metropolitano de Lisboa (dados.gov.pt, CC BY 4.0); modificato	https://dados.gov.pt/datasets/gtfs-do-metropolitano-de-lisboa	https://dados.gov.pt/api/1/datasets/r/e7e8ef72-9cee-43a0-b141-656ced144394
+mdb-2027	portogallo	Lisbona e area metropolitana, autobus (Carris Metropolitana)	CC-BY	Carris Metropolitana, TML - Transportes Metropolitanos de Lisboa (github.com/carrismetropolitana/gtfs, CC BY 4.0); modificato	https://github.com/carrismetropolitana/gtfs
+tld-4056	islanda	Islanda, autobus (Strætó)	Straeto-ToU	Based on data from Strætó bs.; modificato	https://www.straeto.is/en/about-straeto/open-data/terms
+mdb-1918	cipro	Nicosia, autobus (NPT)	CC-BY	Public Works Department, Cyprus (traffic4cyprus.org.cy, CC BY 4.0); modificato	https://traffic4cyprus.org.cy/dataset/publictransportstatic
+mdb-1919	cipro	Larnaca, autobus (LPT)	CC-BY	Public Works Department, Cyprus (traffic4cyprus.org.cy, CC BY 4.0); modificato	https://traffic4cyprus.org.cy/dataset/publictransportstatic	https://motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C10_google_transit.zip&rel=True
+mdb-1915	cipro	Pafo, autobus (OSYPA)	CC-BY	Public Works Department, Cyprus (traffic4cyprus.org.cy, CC BY 4.0); modificato	https://traffic4cyprus.org.cy/dataset/publictransportstatic
+mdb-1917	cipro	Cipro, autobus interurbani (Intercity)	CC-BY	Public Works Department, Cyprus (traffic4cyprus.org.cy, CC BY 4.0); modificato	https://traffic4cyprus.org.cy/dataset/publictransportstatic	https://motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C5_google_transit.zip&rel=True
+mdb-1824	turchia	Smirne, metropolitana (Metro İzmir)	Izmir-ODL	İzmir Büyükşehir Belediyesi, Metro İzmir (acikveri.bizizmir.com, İzmir BB Açık Veri Lisansı); modificato	https://acikveri.bizizmir.com/tr/license
+mdb-1829	turchia	Smirne, tram (Tram İzmir)	Izmir-ODL	İzmir Büyükşehir Belediyesi, Tram İzmir (acikveri.bizizmir.com, İzmir BB Açık Veri Lisansı); modificato	https://acikveri.bizizmir.com/tr/license
+mdb-1027	serbia	Belgrado, autobus, tram e filobus	SODL-RS	Gradska uprava grada Beograda, Sekretarijat za javni prevoz (data.gov.rs); modificato	https://data.gov.rs/sr/datasets/gradski-javni-prevoz-u-beogradu-gtfs/
+mdb-2925	serbia	Belgrado, autobus suburbani	SODL-RS	Gradska uprava grada Beograda, Sekretarijat za javni prevoz (data.gov.rs); modificato	https://data.gov.rs/sr/datasets/prigradski-javni-prevoz-u-u-beogradu-gtfs/
+mdb-1120	serbia	Niš, autobus	SODL-RS	Grad Niš (data.gov.rs); modificato	https://data.gov.rs/sr/datasets/javni-prevoz-i-gtfs/
+mdb-782	germania	Berlino e Brandeburgo (VBB)	CC-BY	Verkehrsverbund Berlin-Brandenburg GmbH (unternehmen.vbb.de, CC BY 4.0); modificato	https://unternehmen.vbb.de/digitale-services/datensaetze/
+mvv-muenchen	germania	Monaco di Baviera, tutti i mezzi pubblici (MVV)	CC-BY	Münchner Verkehrs- und Tarifverbund GmbH (mvv-muenchen.de, CC BY); modificato	https://www.mvv-muenchen.de/service-hilfe/mvv-content-fuer-entwickler	https://www.mvv-muenchen.de/fileadmin/mediapool/developer/opendata/gesamt_gtfs.zip
+mdb-778	germania	Colonia e Bonn (VRS)	dl-de-zero-2.0	Verkehrsverbund Rhein-Sieg GmbH (vrs.de, Datenlizenz Deutschland Zero 2.0); modificato	https://www.vrs.de/fahren/fahrplanauskunft/opendata-/-openservice
+nvbw-vvs	germania	Stoccarda (VVS)	dl-de-by-2.0	Datensatz der NVBW GmbH, VVS (nvbw.de/open-data, Datenlizenz Deutschland Namensnennung 2.0); modificato	https://www.nvbw.de/open-data/lizenz	https://www.nvbw.de/fileadmin/user_upload/service/open_data/fahrplandaten_ohne_liniennetz/vvs.zip
+mdv-leipzig	germania	Lipsia e Halle (MDV)	CC-BY	Mitteldeutscher Verkehrsverbund GmbH (mdv.de, CC BY 4.0); modificato	https://www.mdv.de/service/downloads/	https://www.mdv.de/media/file/35166051
+mdb-648	austria	Vienna (Wiener Linien)	CC-BY	Wiener Linien GmbH & Co KG (wienerlinien.at, CC BY); modificato	https://www.wienerlinien.at/open-data
+mdb-767	repubblica-ceca	Praga e Boemia centrale (PID)	CC-BY	ROPID, Pražská integrovaná doprava (pid.cz, CC BY 4.0); modificato	https://pid.cz/o-systemu/opendata/	https://data.pid.cz/PID_GTFS.zip
+mdb-2155	repubblica-ceca	Brno e Moravia meridionale (IDS JMK)	CC-BY	Statutární město Brno, KORDIS JMK (data.brno.cz, CC BY); modificato	https://data.brno.cz/datasets/379d2e9a7907460c8ca7fda1f3e84328/about
+tld-3363	slovacchia	Bratislava (DPB)	CC-BY	Hlavné mesto SR Bratislava, Dopravný podnik Bratislava (data.bratislava.sk, CC BY 4.0); modificato	https://www.arcgis.com/home/item.html?id=aba12fd2cbac4843bc7406151bc66106
+mdb-2093	polonia	Danzica (ZTM Gdańsk)	CC-BY	Zarząd Transportu Miejskiego w Gdańsku (Otwarte Dane Gdańsk, CC BY); modificato	https://ckan.multimediagdansk.pl/dataset/tristar
+tld-1071	croazia	Zagabria, tram e autobus (ZET)	Otvorena-dozvola-HR	Zagrebački električni tramvaj d.o.o.: sadrži informacije tijela javne vlasti u skladu s Otvorenom dozvolom (zet.hr); modificato	https://www.zet.hr/odredbe/datoteke-u-gtfs-formatu/669
+mdb-53	stati-uniti-california	San Francisco, metropolitana regionale (BART)	BART-DLA	Bay Area Rapid Transit (BART Developer License Agreement); modificato	https://www.bart.gov/schedules/developers/developer-license-agreement
+mdb-54	stati-uniti-california	San Francisco - San José, treni (Caltrain)	Caltrain-DLA	Peninsula Corridor Joint Powers Board, Caltrain (Developer License Agreement); modificato	https://www.caltrain.com/developer-resources
+mdb-437	stati-uniti-massachusetts,stati-uniti-rhode-island	Boston, tutti i mezzi pubblici (MBTA)	MassDOT-DLA	Dati forniti da MassDOT/MBTA (MassDOT Developers License Agreement); modificato	https://www.mbta.com/developers/gtfs
+mdb-732	canada-ontario	Toronto, metropolitana, tram e autobus (TTC)	OGL-Toronto	Toronto Transit Commission: Contains information licensed under the Open Government Licence – Toronto; modificato	https://open.toronto.ca/dataset/ttc-routes-and-schedules/
+mdb-735	canada-quebec,canada-ontario,canada-manitoba,canada-saskatchewan,canada-alberta,canada-columbia-britannica,canada-nuovo-brunswick,canada-nuova-scozia	Canada, treni (VIA Rail)	OGL-CA-2.0	VIA Rail Canada: Contains information licensed under the Open Government Licence – Canada; modificato	https://www.viarail.ca/en/developer-resources
+mdb-748	canada-quebec	Montréal, treni suburbani (exo)	CC-BY	exo (donneesquebec.ca, CC BY 4.0); modificato	https://exo.quebec/fr/a-propos/donnees-ouvertes	https://exo.quebec/uploads/ressources-telechargeables/a-propos/donnees-ouvertes/trains/google_transit.zip
+mdb-2449	australia	Sydney e Nuovo Galles del Sud, tutti i mezzi pubblici (TfNSW)	CC-BY	Transport for NSW (opendata.transport.nsw.gov.au, CC BY); modificato	https://opendata.transport.nsw.gov.au/dataset/timetables-complete-gtfs
+translink-seq	australia	Brisbane e Queensland sud-orientale, tutti i mezzi pubblici (Translink)	CC-BY	Translink, Department of Transport and Main Roads Queensland (data.qld.gov.au, CC BY 4.0); modificato	https://www.data.qld.gov.au/dataset/general-transit-feed-specification-gtfs-translink	https://gtfsrt.api.translink.com.au/GTFS/SEQ_GTFS.zip
+mdb-660	australia	Adelaide, tutti i mezzi pubblici (Adelaide Metro)	CC-BY	Adelaide Metro, Government of South Australia (data.sa.gov.au, CC BY); modificato	https://data.sa.gov.au/data/dataset/https-gtfs-adelaidemetro-com-au
+mdb-1086	australia	Perth e Australia Occidentale, tutti i mezzi pubblici (Transperth)	PTA-WA	Public Transport Authority of Western Australia: data available free of charge from www.transperth.wa.gov.au; modificato	https://www.transperth.wa.gov.au/About/Spatial-Data-Access
+mdb-3176	giappone	Tokyo, metropolitana Toei, tram Sakura e Nippori-Toneri Liner	CC-BY	東京都交通局・公共交通オープンデータ協議会 (Bureau of Transportation, Tokyo Metropolitan Government; ODPT, CC BY 4.0); modificato	https://ckan.odpt.org/dataset/train-toei
+mdb-3175	giappone	Tokyo, autobus Toei	CC-BY	東京都交通局・公共交通オープンデータ協議会 (Bureau of Transportation, Tokyo Metropolitan Government; ODPT, CC BY 4.0); modificato	https://ckan.odpt.org/dataset/b_bus_gtfs_jp-toei
+hvv-hamburg	germania	Amburgo (HVV)	dl-de-by-2.0	Hamburger Verkehrsverbund GmbH (transparenz.hamburg.de, Datenlizenz Deutschland Namensnennung 2.0); modificato	https://suche.transparenz.hamburg.de/dataset?q=hvv+gtfs	{ultimo}	https://suche.transparenz.hamburg.de/api/3/action/package_search?q=hvv%20gtfs&sort=metadata_created%20desc&rows=5 https://daten\.transparenz\.hamburg\.de/[^"]*_GTFS_Fpl_[0-9]{8}\.ZIP
+lu-gtfs	lussemburgo	Lussemburgo, tutti i mezzi pubblici	CC-BY	Administration des transports publics (data.public.lu, CC BY 4.0); modificato	https://data.public.lu/en/datasets/horaires-et-arrets-des-transport-publics-gtfs/	{ultimo}	https://data.public.lu/api/1/datasets/horaires-et-arrets-des-transport-publics-gtfs/ https://download\.data\.public\.lu/resources/horaires-et-arrets-des-transport-publics-gtfs/[0-9-]+/gtfs-[0-9]{8}-[0-9]{8}\.zip
+mdb-1292	danimarca	Danimarca, tutti i mezzi pubblici (Rejseplanen)	CC-BY	Rejsekort & Rejseplan A/S (Rejseplanen Labs, CC BY 4.0); modificato	https://datavejviser-indtastning.digst.govcloud.dk/dataset/rejseplanen-gtfs
+tld-4477	lituania	Lituania, tutti i mezzi pubblici	CC-BY	Lietuvos transporto saugos administracija (data.gov.lt, CC BY 4.0); modificato	https://data.gov.lt/datasets/1929/
+mdb-2848	bulgaria	Sofia, tutti i mezzi pubblici (Centro per la mobilità urbana)	CC-BY-SA	Център за градска мобилност ЕАД, Sofia Urban Mobility Center (urbandata.sofia.bg, CC BY-SA); modificato	https://urbandata.sofia.bg/dataset/gtfs-static
+mdb-2154	canada-ontario	Ottawa, tram e autobus (OC Transpo)	OGL-Ottawa-2.0	OC Transpo, City of Ottawa: Contains information licensed under the Open Government Licence – City of Ottawa; modificato	https://open.ottawa.ca/pages/open-data-licence
+mdb-712	canada-alberta	Calgary, tram e autobus (Calgary Transit)	OGL-Calgary	Calgary Transit: Contains information licensed under the Open Government Licence – City of Calgary; modificato	https://data.calgary.ca/stories/s/u45n-7awa
+mdb-1029	nuova-zelanda	Auckland, tutti i mezzi pubblici (Auckland Transport)	CC-BY	Auckland Transport (at.govt.nz, CC BY 4.0); modificato	https://at.govt.nz/about-us/at-data-sources/general-transit-feed-specification	https://gtfs.at.govt.nz/gtfs.zip
+ptv-2	australia	Melbourne, treni metropolitani (PTV)	CC-BY	Department of Transport and Planning Victoria (opendata.transport.vic.gov.au, CC BY 4.0); modificato	https://opendata.transport.vic.gov.au/dataset/gtfs-schedule	https://opendata.transport.vic.gov.au/dataset/3f4e292e-7f8a-4ffe-831f-1953be0fe448/resource/fb152201-859f-4882-9206-b768060b50ad/download/gtfs.zip#2/google_transit.zip
+ptv-3	australia	Melbourne, tram (PTV)	CC-BY	Department of Transport and Planning Victoria (opendata.transport.vic.gov.au, CC BY 4.0); modificato	https://opendata.transport.vic.gov.au/dataset/gtfs-schedule	https://opendata.transport.vic.gov.au/dataset/3f4e292e-7f8a-4ffe-831f-1953be0fe448/resource/fb152201-859f-4882-9206-b768060b50ad/download/gtfs.zip#3/google_transit.zip
+ptv-4	australia	Melbourne, autobus (PTV)	CC-BY	Department of Transport and Planning Victoria (opendata.transport.vic.gov.au, CC BY 4.0); modificato	https://opendata.transport.vic.gov.au/dataset/gtfs-schedule	https://opendata.transport.vic.gov.au/dataset/3f4e292e-7f8a-4ffe-831f-1953be0fe448/resource/fb152201-859f-4882-9206-b768060b50ad/download/gtfs.zip#4/google_transit.zip
+ptv-1	australia	Victoria, treni regionali (V/Line)	CC-BY	Department of Transport and Planning Victoria (opendata.transport.vic.gov.au, CC BY 4.0); modificato	https://opendata.transport.vic.gov.au/dataset/gtfs-schedule	https://opendata.transport.vic.gov.au/dataset/3f4e292e-7f8a-4ffe-831f-1953be0fe448/resource/fb152201-859f-4882-9206-b768060b50ad/download/gtfs.zip#1/google_transit.zip
+ptv-11	australia	Melbourne, SkyBus per l'aeroporto (PTV)	CC-BY	Department of Transport and Planning Victoria (opendata.transport.vic.gov.au, CC BY 4.0); modificato	https://opendata.transport.vic.gov.au/dataset/gtfs-schedule	https://opendata.transport.vic.gov.au/dataset/3f4e292e-7f8a-4ffe-831f-1953be0fe448/resource/fb152201-859f-4882-9206-b768060b50ad/download/gtfs.zip#11/google_transit.zip
+iett-istanbul	turchia	Istanbul, autobus (IETT)	IBB-ODL	İETT, İstanbul Büyükşehir Belediyesi (data.ibb.gov.tr, İBB Açık Veri Lisansı); modificato, orari delle fermate intermedie stimati	https://data.ibb.gov.tr/license	script:iett_gtfs.py
+mdb-3235	estonia	Estonia, tutti i mezzi pubblici	CC-BY-SA	Regionaal- ja Põllumajandusministeerium, Ühistranspordiregister (andmed.eesti.ee, CC BY-SA 3.0); modificato	https://andmed.eesti.ee/datasets/uhistranspordiregistri-avaandmed	https://eu-gtfs.remix.com/estonia_unified_gtfs.zip
+mdb-1104	romania	Romania, treni (CFR Călători e altri operatori)	MIT	Copyright (c) 2014-2022 Vasile Coțovanu, data.gov.ro-gtfs-exporter (licenza MIT); dati di Informatică Feroviară, data.gov.ro (OGL-ROU 1.0); modificato	https://github.com/vasile/data.gov.ro-gtfs-exporter/blob/master/gtfs-out/LICENSE

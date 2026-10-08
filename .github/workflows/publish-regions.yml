@@ -772,7 +772,8 @@ jobs:
     needs: plan
     if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
-    # Una quarantina di reti, una dopo l'altra: in locale Londra 7,5 min e la Svizzera 4.
+    # Circa 120 reti, una dopo l'altra: in locale Londra 7,5 min, la Svizzera 4, la Toscana 2, le
+    # altre per lo piu' sotto il minuto.
     timeout-minutes: 150
     permissions:
       contents: write

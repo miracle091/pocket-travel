@@ -20,7 +20,8 @@
 #   TRANSIT_MAX_AGE_DAYS (7)   eta' oltre cui una rete si ricostruisce anche con il feed invariato
 #   TRANSIT_FEEDS              lista delle reti (default: tools/data-pipeline/transit-feeds.tsv)
 #
-# Richiede: jq, curl, unzip, sha256sum, xz, gradle wrapper dalla root del repo.
+# Richiede: jq, curl, unzip, sha256sum, xz, perl ({ultimo}), python3 (script:), gradle wrapper dalla root
+# del repo.
 set -euo pipefail
 
 if [ "$#" -lt 4 ] || [ "$#" -gt 5 ]; then
@@ -45,9 +46,32 @@ source "$SCRIPT_DIR/lib.sh"
 [[ "$FEED_ID" =~ ^[a-z0-9-]+$ ]] || { echo "feedId non valido: $FEED_ID" >&2; exit 1; }
 LINE="$(awk -F'\t' -v id="$FEED_ID" '$0 !~ /^#/ && $1 == id' "$TRANSIT_FEEDS")"
 [ -n "$LINE" ] || { echo "$FEED_ID non e' nella lista $TRANSIT_FEEDS" >&2; exit 1; }
-IFS=$'\t' read -r _ REGIONS NAME LICENSE ATTRIBUTION LICENSE_URL FEED_URL <<< "$LINE"
+IFS=$'\t' read -r _ REGIONS NAME LICENSE ATTRIBUTION LICENSE_URL FEED_URL FIND_LATEST <<< "$LINE"
 # Senza colonna url_feed: la copia del Mobility Database.
 FEED_URL="${FEED_URL:-https://files.mobilitydatabase.org/${FEED_ID}/latest.zip}"
+# {ultimo} nell'url_feed: il file piu' recente di un ente che cambia indirizzo a ogni versione (url con
+# la data). cerca_ultimo e' "<url dell'indice> <regex PCRE>": fra i testi che la regex trova nell'indice
+# (API CKAN o udata, o pagina HTML) vince quello con l'ultimo numero di 8 cifre (la data: prima ci
+# possono essere UUID) piu' alto; a pari data il primo nell'indice.
+if [[ "$FEED_URL" == *"{ultimo}"* ]]; then
+  [ -n "${FIND_LATEST:-}" ] || { echo "-- $FEED_ID: {ultimo} senza la colonna cerca_ultimo" >&2; exit 1; }
+  LATEST="$(curl -sSfL --compressed --retry 3 --max-time 120 -A "$PIPELINE_USER_AGENT" "${FIND_LATEST%% *}" \
+    | sed 's/&amp;/\&/g' | PATTERN="${FIND_LATEST#* }" perl -ne 'print "$&\n" while /$ENV{PATTERN}/g' \
+    | awk '{ key = "0"; s = $0
+        while (match(s, /[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/)) { key = substr(s, RSTART, 8); s = substr(s, RSTART + 8) }
+        print key "\t" NR "\t" $0 }' \
+    | sort -t$'\t' -k1,1r -k2,2n | head -1 | cut -f3-)" || true
+  [ -n "$LATEST" ] || { echo "-- $FEED_ID: nessun file trovato in ${FIND_LATEST%% *}" >&2; exit 1; }
+  # Tra virgolette: con bash 5.2 un "&" nel testo sostitutivo diventerebbe il testo trovato.
+  FEED_URL="${FEED_URL//\{ultimo\}/"$LATEST"}"
+  echo "-- $FEED_ID: file piu' recente $FEED_URL"
+fi
+# #percorso nell'url_feed: il feed e' uno zip dentro lo zip scaricato (Melbourne: uno per modo).
+INNER_ZIP=""
+if [[ "$FEED_URL" == *"#"* ]]; then
+  INNER_ZIP="${FEED_URL#*#}"
+  FEED_URL="${FEED_URL%%#*}"
+fi
 # {anno} nell'url_feed: l'orario dell'anno (Svizzera: un dataset per anno, cambio orario a meta'
 # dicembre). Dal 10 dicembre si prova quello dell'anno dopo, se e' gia' pubblicato.
 if [[ "$FEED_URL" == *"{anno}"* ]]; then
@@ -67,14 +91,26 @@ ENTRIES="$OUTPUT_DIR/transit-entries.jsonl"
 echo "-- $FEED_ID ($NAME): scarico il feed..."
 FEED_ZIP="$WORKDIR/feed.zip"
 ok=false
+# script:<file> nell'url_feed: un convertitore in questa cartella compone il feed da dati non zippati o
+# da correggere (Istanbul: iett_gtfs.py).
+if [[ "$FEED_URL" == script:* ]]; then
+  PYTHON_BIN="$(command -v python3 || command -v python)"
+  "$PYTHON_BIN" "$SCRIPT_DIR/${FEED_URL#script:}" --out "$FEED_ZIP" --user-agent "$PIPELINE_USER_AGENT" && ok=true
+fi
+# --compressed: rata.digitraffic.fi (treni finlandesi) risponde 406 senza Accept-Encoding.
 for attempt in 1 2 3; do
-  if curl -sSfL --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" -o "$FEED_ZIP" "$FEED_URL"; then
+  [[ "$FEED_URL" == script:* ]] && break
+  if curl -sSfL --compressed --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" -o "$FEED_ZIP" "$FEED_URL"; then
     ok=true
     break
   fi
   [ "$attempt" -lt 3 ] && sleep $((attempt * 20))
 done
 [ "$ok" = true ] || { echo "-- $FEED_ID: feed non scaricato" >&2; exit 1; }
+if [ -n "$INNER_ZIP" ]; then
+  unzip -p "$FEED_ZIP" "$INNER_ZIP" > "$WORKDIR/inner.zip" || { echo "-- $FEED_ID: $INNER_ZIP non e' nello zip" >&2; exit 1; }
+  mv "$WORKDIR/inner.zip" "$FEED_ZIP"
+fi
 # Un messaggio chiaro invece dell'eccezione di Java ("zip END header not found"): BODS risponde 200 con
 # {"errors":["Invalid region name"]} a una regione che non serve piu'.
 if ! unzip -tqq "$FEED_ZIP" >/dev/null 2>&1; then

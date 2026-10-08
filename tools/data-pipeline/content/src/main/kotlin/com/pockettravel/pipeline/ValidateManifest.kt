@@ -217,6 +217,11 @@ fun validateTransitJson(indexJson: String, allowedHosts: Set<String>) {
         if (feed.getString("license").isBlank() || feed.getString("attribution").isBlank()) {
             throw ManifestValidationException("transit.json: $id senza licenza o attribuzione")
         }
+        // Come TransitFeed.validate() nell'app, che altrimenti rifiuta l'intero indice.
+        val licenseUrl = feed.optString("licenseUrl", "")
+        if (licenseUrl.isNotEmpty() && !licenseUrl.startsWith("https://")) {
+            throw ManifestValidationException("transit.json: licenseUrl non https per $id")
+        }
         runCatching { java.time.LocalDate.parse(feed.getString("validUntil")) }
             .getOrElse { throw ManifestValidationException("transit.json: validUntil non valido per $id") }
         val bbox = feed.getJSONArray("bbox")
