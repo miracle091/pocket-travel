@@ -154,6 +154,11 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   (P1082); la capitale della regione da Wikidata (P36). Finiscono nelle colonne `population` e `capital` di
   `cities.db`; senza dati la città resta senza popolazione. Le coordinate (Wikidata P625) finiscono nelle colonne
   `latitude` e `longitude`: con queste l'assistente calcola la distanza tra due città nominate in una domanda.
+- **Dati dei paesi**: `scripts/wikidata_countries.py --out countries.tsv` scrive da Wikidata (CC0) una riga per
+  regione di `regions.sh` con capitale, valuta, lato di guida, prefisso, lingue ufficiali, fusi, numeri di emergenza,
+  prese e tensione, con le etichette in italiano e in inglese. Fusi normalizzati come `UTC+01:00` (ora solare), prese
+  come lettere A-N; le regioni dei paesi divisi (stati USA, province...) e le Canarie ereditano i dati del paese.
+  Non ancora usato dalla generazione delle guide.
 - **Storia e clima delle città**: `scripts/city_wikipedia.py`, usato dagli stessi due script, trova la voce di
   Wikipedia (IT o EN) della città dal sitelink dell'elemento Wikidata della pagina di Wikivoyage e ne prende le sezioni
   Storia e Clima (History e Climate in inglese) dall'API di Wikipedia, a lotti: i dump completi (IT ~5 GB, EN ~24 GB)

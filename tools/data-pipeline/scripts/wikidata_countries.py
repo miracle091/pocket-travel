@@ -1,0 +1,279 @@
+#!/usr/bin/env python3
+"""Dati dei paesi da Wikidata (CC0) per i Fatti rapidi, in un TSV normalizzato con una riga per regione di regions.sh.
+
+Uso: wikidata_countries.py --out countries.tsv [--user-agent UA]
+
+Colonne del TSV, senza intestazione (campo vuoto = dato assente; piu' valori separati da "; "):
+regionId, iso2, capital_it, capital_en, currency (codici ISO 4217), currency_it, currency_en, driving (right|left),
+calling_code (+39, +1 340), languages_it, languages_en (lingue ufficiali), timezones (UTC+01:00, UTC-03:30: ora solare,
+senza l'ora legale), emergency (numeri), plugs (lettere A-N delle prese), voltage (volt).
+
+Una regione eredita i dati del paese del suo flagCode (ottavo campo di regions.sh): le regioni dei paesi divisi
+(stati USA, province di Canada e Cina, Russia europea, Francia metropolitana) hanno su Wikidata dati scarsi, quindi
+prendono quelli del paese intero (capitale e fusi compresi). Le Canarie (flagCode "ic", codice riservato che su
+Wikidata non e' un paese) prendono quelli della Spagna. Il paese di un flagCode e' l'elemento con quel codice
+ISO 3166-1 alpha-2 (P297) senza data di fine (P576); se sono piu' d'uno, quello col Q-id piu' basso.
+
+Di ogni proprieta' si tengono gli enunciati di rango preferito, o normale se non ce ne sono, senza data di fine
+passata (P582). Le etichette sono italiane e inglesi, con ripiego sull'etichetta multilingue ("mul") e, per
+l'italiano, sull'inglese. Normalizzazioni:
+- fusi (P421): su Wikidata convivono "UTC+01:00", nomi ("Central European Time", con lo scarto in P2907) e nomi
+  IANA ("Europe/Rome", spesso senza P2907, risolti con zoneinfo); si scartano le ore legali, sia come fuso a se'
+  ("Central European Summer Time") sia come enunciato valido in estate (qualificatore P1264 = Q36669, ora legale);
+- prese (P2853): nomi di norme diverse ("Europlug", "Schuko", "NEMA 5-15", "BS 1363") diventano le lettere della
+  classificazione IEC, dall'alias "Type X" o dalla tabella PRESE;
+- prefisso (P474): "+" e gruppi di cifre separati da uno spazio, senza lo "00" iniziale; numeri di emergenza (P2852): l'etichetta, se e'
+  un numero; tensione (P2884): volt interi plausibili.
+Le religioni non ci sono: su Wikidata le hanno solo 25-29 paesi.
+
+Esce con codice 1 se Wikidata non risponde o il risultato e' sospettosamente piccolo.
+"""
+
+import argparse
+import os
+import re
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import wikidata_missions  # noqa: E402
+from wikidata_missions import pulisci, qid, qid_key  # noqa: E402
+
+USER_AGENT = "pocket-travel-countries/1.0 (https://github.com/miracle091/pocket-travel)"
+REGIONS_SH = Path(__file__).with_name("regions.sh")
+# Sotto questa soglia di regioni con la capitale il risultato e' un errore (reali: circa 360 regioni).
+MIN_ROWS = 300
+DEADLINE_SECONDS = 15 * 60
+SEP = "; "
+
+# flagCode che non sono un paese su Wikidata -> paese da cui ereditano.
+PAESE_DEL_FLAG = {"ic": "es"}
+GUIDA = {"Q14565199": "right", "Q11920728": "left"}
+# Lettere delle norme senza alias "Type X" su Wikidata (nomi in minuscolo). BS 546 copre le prese D (5 A) e M (15 A).
+PRESE = {
+    "europlug": "C", "cee 7/16": "C", "schuko": "F", "cee 7/4": "F", "cee 7/6": "E", "cee 7/7": "EF",
+    "nema 1-15": "A", "nema 5-15": "B", "bs 1363": "G", "bs 546": "DM", "as/nzs 3112": "I", "as 3112": "I",
+    "sn 441011": "J", "cei 23-50": "L", "iec 60906-1": "N", "si 32": "H",
+}
+TIPO_PRESA = re.compile(r"\btype ([a-n])\b", re.I)
+# Fusi con uno scarto sbagliato su Wikidata (Greenwich Mean Time ha P2907 = 12): scarto in minuti.
+FUSI_NOTI = {"Q30192": 0}
+UTC = re.compile(r"(?:UTC|GMT)\s*(?:([+\-−±])\s*(\d{1,2})(?::?(\d{2}))?)?")
+IANA = re.compile(r"[A-Z][A-Za-z_-]+(?:/[A-Za-z_ -]+)+")
+ORA_LEGALE = re.compile(r"summer|daylight", re.I)
+NUMERO = re.compile(r"\d[\d-]*")
+QID_RE = re.compile(r"Q\d+")
+
+# Proprieta': (variabile extra sul valore, etichette).
+PROPRIETA = {
+    "P36": ("", True),                                                       # capitale
+    "P38": ("OPTIONAL { ?v wdt:P498 ?x }", True),                            # valuta, codice ISO 4217
+    "P1622": ("", False),                                                    # lato di guida
+    "P474": ("", False),                                                     # prefisso telefonico
+    "P37": ("", True),                                                       # lingua ufficiale
+    "P421": ("OPTIONAL { ?v wdt:P2907 ?x }", True),                          # fuso orario
+    "P2852": ("", True),                                                     # numero di emergenza
+    "P2853": ('OPTIONAL { ?v skos:altLabel ?x FILTER(lang(?x) = "en") }', True),  # tipo di presa
+    "P2884": ("", False),                                                    # tensione di rete
+}
+
+
+def regioni(text):
+    """[(regionId, flagCode)] dalle righe di ALL_REGIONS in regions.sh (quelle di REPLACED_REGIONS hanno 2 campi)."""
+    out = []
+    for row in re.findall(r'^\s*"([^"]+\|[^"]+)"\s*$', text, re.M):
+        f = row.split("|")
+        if len(f) > 7 and f[7]:
+            out.append((f[0], f[7].lower()))
+    return out
+
+
+def query_paesi():
+    return "SELECT ?c ?iso WHERE { ?c wdt:P297 ?iso . FILTER NOT EXISTS { ?c wdt:P576 ?fine } }"
+
+
+def query_proprieta(prop, items):
+    extra, etichette = PROPRIETA[prop]
+    labels = "".join(f' OPTIONAL {{ ?v rdfs:label ?{l} FILTER(lang(?{l}) = "{l}") }}' for l in ("it", "en", "mul")) \
+        if etichette else ""
+    values = " ".join(f"wd:{q}" for q in sorted(items, key=qid_key))
+    return f"""
+SELECT ?c ?v ?rank ?it ?en ?mul ?x WHERE {{
+  VALUES ?c {{ {values} }}
+  ?c p:{prop} ?st . ?st ps:{prop} ?v ; wikibase:rank ?rank .
+  FILTER(?rank != wikibase:DeprecatedRank)
+  FILTER NOT EXISTS {{ ?st pq:P582 ?fine FILTER(?fine < NOW()) }}
+  FILTER NOT EXISTS {{ ?st pq:P1264 wd:Q36669 }}
+  {labels} {extra}
+}}"""
+
+
+def scegli_paesi(rows, codici):
+    """{flagCode: Q-id del paese} per i codici chiesti: a parita' di codice vince il Q-id piu' basso."""
+    out = {}
+    for row in sorted(rows, key=lambda r: qid_key(qid(r["c"]))):
+        iso = row["iso"].lower()
+        if iso in codici:
+            out.setdefault(iso, qid(row["c"]))
+    return out
+
+
+def valori(rows):
+    """{paese: [valore]} con i soli enunciati del rango migliore; un valore e' un dict con v, it, en, x (insieme)."""
+    per_paese = {}
+    for row in rows:
+        per_paese.setdefault(qid(row["c"]), []).append(row)
+    out = {}
+    for c, rs in per_paese.items():
+        if any(r["rank"].endswith("PreferredRank") for r in rs):
+            rs = [r for r in rs if r["rank"].endswith("PreferredRank")]
+        vals = {}
+        for r in rs:
+            v = qid(r["v"]) if r["v"].startswith("http://www.wikidata.org/entity/") else r["v"]
+            en = pulisci(r.get("en")) or pulisci(r.get("mul"))
+            val = vals.setdefault(v, {"v": v, "it": pulisci(r.get("it")) or en, "en": en, "x": set()})
+            if r.get("x"):
+                val["x"].add(r["x"])
+        out[c] = sorted(vals.values(), key=lambda val: (qid_key(val["v"]) if QID_RE.fullmatch(val["v"]) else 0, val["v"]))
+    return out
+
+
+def unici(items):
+    return SEP.join(dict.fromkeys(i for i in items if i))
+
+
+def formato_fuso(minuti):
+    segno = "-" if minuti < 0 else "+"
+    return f"UTC{segno}{abs(minuti) // 60:02d}:{abs(minuti) % 60:02d}"
+
+
+def scarto_fuso(val):
+    """Scarto dell'ora solare in minuti, o None (ora legale, fuso sconosciuto)."""
+    if val["v"] in FUSI_NOTI:
+        return FUSI_NOTI[val["v"]]
+    nome = val["en"]
+    if ORA_LEGALE.search(nome):
+        return None
+    m = UTC.fullmatch(nome)
+    if m:
+        if not m.group(1):
+            return 0
+        minuti = int(m.group(2)) * 60 + int(m.group(3) or 0)
+        return -minuti if m.group(1) in "-−" else minuti
+    if IANA.fullmatch(nome):
+        try:
+            gennaio = datetime(2026, 1, 15, 12, tzinfo=ZoneInfo(nome.replace(" ", "_")))
+            return int((gennaio.utcoffset() - gennaio.dst()).total_seconds() // 60)
+        except (ZoneInfoNotFoundError, ValueError):
+            pass
+    # Due scarti (fusi nordamericani con nome): il minore e' l'ora solare, quella legale aggiunge un'ora.
+    scarti = [float(x) for x in val["x"] if re.fullmatch(r"[+-]?\d+(\.\d+)?", x)]
+    return round(min(scarti) * 60) if scarti else None
+
+
+def lettere_presa(val):
+    nomi = [val["en"], *sorted(val["x"])]
+    lettere = {m.group(1).upper() for n in nomi for m in TIPO_PRESA.finditer(n)}
+    if not lettere:
+        lettere = {l for n in nomi for l in PRESE.get(n.lower().strip(), "")}
+    return lettere
+
+
+def prefisso(value):
+    gruppi = re.findall(r"\d+", value.lstrip("+0"))
+    return "+" + " ".join(gruppi) if gruppi and len("".join(gruppi)) <= 7 else ""
+
+
+def volt(value):
+    try:
+        v = float(value)
+    except ValueError:
+        return ""
+    return str(int(v)) if v.is_integer() and 90 <= v <= 260 else ""
+
+
+def fatti(dati, c, avvisi):
+    """Campi dalla colonna capital_it in poi per il paese c."""
+    def vals(prop):
+        return dati[prop].get(c, [])
+
+    fusi = set()
+    for val in vals("P421"):
+        scarto = scarto_fuso(val)
+        if scarto is None:
+            if not ORA_LEGALE.search(val["en"]):
+                avvisi.add(f"fuso non riconosciuto: {val['v']} {val['en']!r}")
+        else:
+            fusi.add(scarto)
+    prese = set()
+    for val in vals("P2853"):
+        lettere = lettere_presa(val)
+        if not lettere:
+            avvisi.add(f"presa non riconosciuta: {val['v']} {val['en']!r}")
+        prese |= lettere
+    for val in vals("P1622"):
+        if val["v"] not in GUIDA:
+            avvisi.add(f"lato di guida non riconosciuto: {val['v']}")
+    return [
+        unici(v["it"] for v in vals("P36")), unici(v["en"] for v in vals("P36")),
+        unici(sorted(x for v in vals("P38") for x in v["x"] if re.fullmatch(r"[A-Z]{3}", x))),
+        unici(v["it"] for v in vals("P38")), unici(v["en"] for v in vals("P38")),
+        unici(GUIDA.get(v["v"], "") for v in vals("P1622")),
+        unici(prefisso(v["v"]) for v in vals("P474")),
+        unici(v["it"] for v in vals("P37")), unici(v["en"] for v in vals("P37")),
+        unici(formato_fuso(m) for m in sorted(fusi)),
+        unici(v["en"] for v in vals("P2852") if NUMERO.fullmatch(v["en"])),
+        ", ".join(sorted(prese)),
+        unici(sorted({volt(v["v"]) for v in vals("P2884")} - {""}, key=int)),
+    ]
+
+
+def raccogli(regions, user_agent, run=wikidata_missions.sparql):
+    """Righe (liste di 15 campi) ordinate per regionId; avvisi su stderr per fusi e prese sconosciuti."""
+    codici = {PAESE_DEL_FLAG.get(flag, flag) for _, flag in regions}
+    paesi = scegli_paesi(run(query_paesi(), user_agent), codici)
+    for code in sorted(codici - set(paesi)):
+        print(f"-- nessun paese su Wikidata per il codice {code!r}", file=sys.stderr)
+    dati = {prop: valori(run(query_proprieta(prop, set(paesi.values())), user_agent)) for prop in PROPRIETA}
+    avvisi = set()
+    per_paese = {code: fatti(dati, c, avvisi) for code, c in paesi.items()}
+    for a in sorted(avvisi):
+        print(f"-- {a}", file=sys.stderr)
+    rows = []
+    for region_id, flag in sorted(regions):
+        code = PAESE_DEL_FLAG.get(flag, flag)
+        if code in per_paese:
+            rows.append([region_id, code, *per_paese[code]])
+    return [[f.replace("\t", " ").replace("\n", " ") for f in row] for row in rows]
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--out", required=True)
+    parser.add_argument("--user-agent", default=USER_AGENT)
+    args = parser.parse_args()
+    wikidata_missions._deadline = time.monotonic() + DEADLINE_SECONDS
+    try:
+        rows = raccogli(regioni(REGIONS_SH.read_text(encoding="utf-8")), args.user_agent)
+    except Exception as e:  # noqa: BLE001 - qualunque errore di rete/parsing
+        print(f"ERRORE: Wikidata non interrogabile: {e}", file=sys.stderr)
+        return 1
+    con_capitale = sum(1 for r in rows if r[3])
+    if con_capitale < MIN_ROWS:
+        print(f"ERRORE: solo {con_capitale} regioni con la capitale (attese oltre {MIN_ROWS}): risultato scartato",
+              file=sys.stderr)
+        return 1
+    tmp = args.out + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        for row in rows:
+            f.write("\t".join(row) + "\n")
+    os.replace(tmp, args.out)
+    print(f"-- dati dei paesi: {len(rows)} regioni in {args.out}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
