@@ -379,7 +379,13 @@ private val quickFactFieldRegex = Regex(
     RegexOption.DOT_MATCHES_ALL,
 )
 private const val QUICKBAR_SCAN_CHARS = 4000
-private val quickFactOrder = listOf("Lingua", "Elettricità", "Fuso orario", "Valuta")
+
+// Righe "Campo: valore" nell'ordine di [labels]: i campi della pagina Wikivoyage prima (piu' ricchi: lingue regionali,
+// prese per nome, fusi dei paesi grandi), quelli di Wikidata (countryFactFields) per i campi che la pagina non ha.
+private fun quickFactLines(wikivoyage: Map<String, String>, wikidata: Map<String, String>, labels: QuickFactLabels): List<String> {
+    val fields = wikidata + wikivoyage
+    return labels.order.mapNotNull { field -> fields[field]?.let { "$field: $it" } }
+}
 
 // Pulizia inline di un valore di campo dei Fatti rapidi (una riga, non una sezione): stesse regex di
 // rimozione del markup wiki di cleanBody, senza la gestione di sottotitoli/elenchi puntati su piu'
@@ -404,26 +410,26 @@ private fun cleanQuickFactValue(raw: String): String =
         .joinToString(", ")
 
 /**
- * Sezione "Fatti rapidi" (categoria FATTI_RAPIDI) di una regione: una riga per ciascuno dei campi
- * Lingua/Elettricità/Fuso orario/Valuta presenti nel {{QuickbarCountry}}/{{QuickbarRegion}} della
- * pagina, piu' una riga con i numeri di emergenza (vedi emergencyNumbersLine in
- * GenerateEmergencyNumbers.kt). Nessuna riga per un dato assente, null (nessuna sezione) se non
- * c'e' nessun dato.
+ * Sezione "Fatti rapidi" (categoria FATTI_RAPIDI) di una regione: i campi Lingua/Elettricità/Fuso orario/Valuta del
+ * {{QuickbarCountry}}/{{QuickbarRegion}} della pagina, completati con quelli di Wikidata (Capitale, Prefisso
+ * telefonico, Lato di guida e i campi che la pagina non ha, vedi GenerateCountryFacts.kt), piu' una riga con i numeri
+ * di emergenza (vedi emergencyNumbersLine in GenerateEmergencyNumbers.kt). Nessuna riga per un dato assente, null
+ * (nessuna sezione) se non c'e' nessun dato.
  */
 fun quickFactsSection(regionId: String, dumpText: String): GuideSectionRow? {
     val fields = quickFactFieldRegex.findAll(dumpText.take(QUICKBAR_SCAN_CHARS))
         .associate { it.groupValues[1] to cleanQuickFactValue(it.groupValues[2]) }
         .filterValues { it.isNotBlank() }
-    val lines = quickFactOrder.mapNotNull { field -> fields[field]?.let { "$field: $it" } } +
+    val lines = quickFactLines(fields, countryFactFields(regionId, english = false), QuickFactLabels.ITALIAN) +
         listOfNotNull(emergencyNumbersLine(regionId))
     return lines.takeIf { it.isNotEmpty() }?.let { GuideSectionRow(category = "FATTI_RAPIDI", title = "Fatti rapidi", body = it.joinToString("\n")) }
 }
 
 // Fatti rapidi in inglese: le pagine di Wikivoyage EN non li hanno nel testo ({{quickbar}} li prende da
-// Wikidata quando la pagina si apre), quindi vengono dai Fatti rapidi della pagina italiana: elettricita' e
-// fuso orario (valori quasi neutri) e la lingua tradotta coi nomi delle lingue del JDK, piu' i numeri di
+// Wikidata quando la pagina si apre), quindi vengono dai Fatti rapidi della pagina italiana, dove si possono rendere
+// in inglese: elettricita' e fuso orario (valori quasi neutri) e la lingua tradotta coi nomi delle lingue del JDK.
+// Gli altri campi, e quelli italiani non traducibili, dai dati di Wikidata con le etichette inglesi; piu' i numeri di
 // emergenza come nella guida italiana. Cosi' l'assistente in inglese vede gli stessi fatti dell'italiano.
-// La valuta, quasi mai nei Fatti rapidi, la ricava l'app dal codice paese.
 private val plugWords = mapOf(
     "presa" to "plug", "prese" to "plugs", "europea" to "European", "britannica" to "British",
     "americana" to "American", "australiana" to "Australian", "tedesca" to "German", "francese" to "French",
@@ -467,17 +473,19 @@ internal fun englishTimeZone(value: String): String? =
     value.takeIf { neutralValueRegex.matches(it) }
         ?: value.replace(Regex("""\([^)]*\)"""), "").replace(Regex("""\s+e\s+"""), ", ").trim().takeIf { neutralValueRegex.matches(it) && it.isNotBlank() }
 
-/** Sezione "Quick facts" della guida inglese dai Fatti rapidi italiani e dai numeri di emergenza (vedi sopra); null senza dati. */
+/** Sezione "Quick facts" della guida inglese dai Fatti rapidi italiani, da Wikidata e dai numeri di emergenza (vedi sopra); null senza dati. */
 fun englishQuickFactsSection(regionId: String, dumpIt: String): GuideSectionRow? {
     val fields = quickFactFieldRegex.findAll(dumpIt.take(QUICKBAR_SCAN_CHARS))
         .associate { it.groupValues[1] to cleanQuickFactValue(it.groupValues[2]) }
         .filterValues { it.isNotBlank() }
-    val lines = listOfNotNull(
-        fields["Lingua"]?.let(::englishLanguage)?.let { "Language: $it" },
-        fields["Elettricità"]?.let(::englishElectricity)?.let { "Electricity: $it" },
-        fields["Fuso orario"]?.let(::englishTimeZone)?.let { "Time zone: $it" },
-        emergencyNumbersLine(regionId, english = true),
-    )
+    val labels = QuickFactLabels.ENGLISH
+    val translated = listOfNotNull(
+        fields["Lingua"]?.let(::englishLanguage)?.let { labels.language to it },
+        fields["Elettricità"]?.let(::englishElectricity)?.let { labels.electricity to it },
+        fields["Fuso orario"]?.let(::englishTimeZone)?.let { labels.timeZone to it },
+    ).toMap()
+    val lines = quickFactLines(translated, countryFactFields(regionId, english = true), labels) +
+        listOfNotNull(emergencyNumbersLine(regionId, english = true))
     return lines.takeIf { it.isNotEmpty() }?.let { GuideSectionRow(category = "FATTI_RAPIDI", title = "Quick facts", body = it.joinToString("\n")) }
 }
 

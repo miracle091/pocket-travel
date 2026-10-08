@@ -1,0 +1,358 @@
+# Dati dei paesi da Wikidata (CC0) per i Fatti rapidi, generati da tools/data-pipeline/scripts/wikidata_countries.py
+# (colonne e correzioni descritte li'): non modificare a mano.
+afghanistan	af	Kabul	Kabul	AFN	afghani afgano	afghani	right	+93	pashtu; dari	Pashto; Dari	UTC+04:30	112; 100; 101; 102	C, D, F	240
+albania	al	Tirana	Tirana	ALL	lek albanese	Albanian lek	right	+355	albanese	Albanian	UTC+01:00	112; 127; 128; 129	C, F	220
+algeria	dz	Algeri	Algiers	DZD	dinaro algerino	Algerian dinar	right	+213	arabo; tamazight	Arabic; Tamazight	UTC+01:00	14; 17; 1548; 1055	C, E, F	230
+andorra	ad	Andorra la Vella	Andorra la Vella	EUR	euro	euro	right	+376	catalano	Catalan	UTC+01:00	112; 118; 116; 110	C, F	220
+angola	ao	Luanda	Luanda	AOA	Kwanza angolano	kwanza	right	+244	portoghese	Portuguese	UTC+01:00	113; 115; 116	C	220
+anguilla	ai	The Valley	The Valley	XCD	dollaro dei Caraibi Orientali	Eastern Caribbean dollar	left	+1 264	inglese	English	UTC-04:00	911	A	110
+antigua-barbuda	ag	Saint John's	St. John's	XCD	dollaro dei Caraibi Orientali	Eastern Caribbean dollar	left	+1 268	spagnolo; inglese	Spanish; English	UTC-04:00	911; 999	A, B	230
+arabia-saudita	sa	Riad	Riyadh	SAR	riyal saudita	Saudi riyal	right	+966	arabo	Arabic	UTC+03:00	911; 112; 999	G	220; 230
+argentina	ar	Buenos Aires	Buenos Aires	ARS	peso argentino	Argentine convertible peso	right	+54	spagnolo	Spanish	UTC-03:00	911; 117; 100; 101	C, I	220
+armenia	am	Erevan	Yerevan	AMD	dram armeno	Armenian dram	right	+374	armeno	Armenian	UTC+04:00	112; 101; 102; 103	C, F	220
+aruba	aw	Oranjestad	Oranjestad	AWG	Fiorino arubano	Aruban florin	right	+297	olandese; lingua papiamento	Dutch; Papiamento	UTC-04:00	911	A, B, F	127
+australia	au	Canberra	Canberra	AUD	dollaro australiano	Australian dollar	left	+61	inglese	English	UTC+08:00; UTC+09:30; UTC+10:00	000	I	230
+austria	at	Vienna	Vienna	EUR	euro	euro	right	+43	tedesco; Austrian Sign Language	German; Austrian Sign Language	UTC+01:00	112; 122; 133; 144; 123; 120; 140	C, F	230
+azerbaigian	az	Baku	Baku	AZN	Manat azero	Azerbaijani manat	right	+994	azero; Azerbaijani Sign Language	Azerbaijani; Azerbaijani Sign Language	UTC+04:00	112; 101; 102; 103	C, F	220
+bahamas	bs	Nassau	Nassau	BSD	dollaro delle Bahamas	Bahamian dollar	left	+1 242	inglese	English	UTC-05:00	919	A, B	120
+bahrein	bh	Manama	Manama	BHD	dinaro del Bahrain	Bahraini dinar	right	+973	arabo	Arabic	UTC+03:00	112; 999	G	230
+bangladesh	bd	Dacca	Dhaka	BDT	taka	Bangladeshi taka	left	+880	bengali	Bangla	UTC+06:00	999	A, C, D, G, K	220
+barbados	bb	Bridgetown	Bridgetown	BBD	dollaro di Barbados	Barbadian dollar	left	+1 246	inglese; lingua bajan	English; Bajan Creole	UTC-04:00	911; 511; 211; 311	A, B	115
+belgio	be	Bruxelles	Brussels	EUR	euro	euro	right	+32	francese; tedesco; olandese	French; German; Dutch	UTC+01:00	112; 100; 101; 102	C, E	230
+belize	bz	Belmopan	Belmopan	BZD	Dollaro del Belize	Belize dollar	right	+501	inglese	English	UTC-06:00	911; 90	A, B, G	220
+benin	bj	Porto-Novo	Porto-Novo	XOF	franco CFA UEMOA	West African CFA franc	right	+229	francese	French	UTC+01:00	112; 117; 118	C, E	220
+bermuda	bm	Hamilton	Hamilton	BMD	Dollaro di Bermuda	Bermudian dollar	left	+1 441	inglese	English	UTC-04:00	911	A, B	120
+bhutan	bt	Thimphu	Thimphu	BTN	Ngultrum del Bhutan	ngultrum	left	+975	dzongkha	Dzongkha	UTC+06:00	112; 113; 110	C, D, F, G, M	230
+bielorussia	by	Minsk	Minsk	BYN	Rublo bielorusso	Belarusian ruble	right	+375	russo; bielorusso	Russian; Belarusian	UTC+03:00	101; 102; 103	C, F	220
+bolivia	bo	La Paz; Sucre	La Paz; Sucre	BOB	boliviano	boliviano	right	+591	spagnolo; aymara; quechua; guaraní	Spanish; Aymara; Quechua; Guarani	UTC-04:00	911; 119; 110; 160	A, C	115; 230
+bonaire	bq	Kralendijk	Kralendijk	USD	dollaro degli Stati Uniti	United States dollar	right	+599	inglese; olandese; lingua papiamento	English; Dutch; Papiamento	UTC-04:00		A, B, C, F	127; 220
+bosnia-erzegovina	ba	Sarajevo	Sarajevo	BAM	marco bosniaco	convertible mark	right	+387	croato; serbo; bosniaco	Croatian; Serbian; Bosnian	UTC+01:00	112; 122; 123; 124	C, F	230
+botswana	bw	Gaborone	Gaborone	BWP	pula del Botswana	Botswana pula	left	+267	inglese	English	UTC+02:00	911; 999; 997; 998	D, G, M	230
+brasile	br	Brasilia	Brasília	BRL	real brasiliano	Brazilian real	right	+55	portoghese	Portuguese	UTC-05:00; UTC-04:00; UTC-03:00; UTC-02:00	188; 190; 192; 193	C, N	127; 220
+brunei	bn	Bandar Seri Begawan	Bandar Seri Begawan	BND	dollaro del Brunei	Brunei dollar	left	+673	inglese britannico; malese	British English; Malay	UTC+08:00	995; 991; 993	G	240
+bulgaria	bg	Sofia	Sofia	EUR	euro	euro	right	+359	bulgaro	Bulgarian	UTC+02:00	112	C, F	230
+burkina-faso	bf	Ouagadougou	Ouagadougou	XOF	franco CFA UEMOA	West African CFA franc	right	+226	dioula; lingua bissa; lingua more	Dioula; Bissa; Mooré	UTC+00:00	112; 17; 18	C, E	220
+burundi	bi	Gitega	Gitega	BIF	Franco del Burundi	Burundian franc	right	+257	francese; inglese; kirundi	French; English; Kirundi	UTC+02:00	112; 117; 113	C, E	220
+cambogia	kh	Phnom Penh	Phnom Penh	KHR	Riel cambogiano	riel	right	+855	khmer	Khmer	UTC+07:00	119; 117; 118	A, C, G	230
+camerun	cm	Yaoundé	Yaoundé	XAF	franco CFA dell'Africa centrale	Central African CFA franc	right	+237	francese; inglese	French; English	UTC+01:00	112	C, E	220
+canada-alberta	ca	Edmonton	Edmonton	CAD	dollaro canadese	Canadian dollar	right	+1	francese; inglese	French; English	UTC-07:00	911	A, B	120
+canada-columbia-britannica	ca	Victoria	Victoria	CAD	dollaro canadese	Canadian dollar	right	+1	francese; inglese	French; English	UTC-08:00; UTC-07:00	911	A, B	120
+canada-isola-del-principe-edoardo	ca	Charlottetown	Charlottetown	CAD	dollaro canadese	Canadian dollar	right	+1	francese; inglese	French; English	UTC-04:00	911	A, B	120
+canada-manitoba	ca	Winnipeg	Winnipeg	CAD	dollaro canadese	Canadian dollar	right	+1	francese; inglese	French; English	UTC-06:00	911	A, B	120
+canada-nunavut	ca	Iqaluit	Iqaluit	CAD	dollaro canadese	Canadian dollar	right	+1	francese; inglese	French; English	UTC-07:00; UTC-06:00; UTC-05:00	911	A, B	120
+canada-nuova-scozia	ca	Halifax	Halifax	CAD	dollaro canadese	Canadian dollar	right	+1	francese; inglese	French; English	UTC-04:00	911	A, B	120
+canada-nuovo-brunswick	ca	Fredericton	Fredericton	CAD	dollaro canadese	Canadian dollar	right	+1	francese; inglese	French; English	UTC-04:00	911	A, B	120
+canada-ontario	ca	Toronto	Toronto	CAD	dollaro canadese	Canadian dollar	right	+1	francese; inglese	French; English	UTC-06:00; UTC-05:00	911	A, B	120
+canada-quebec	ca	Québec	Quebec City	CAD	dollaro canadese	Canadian dollar	right	+1	francese; inglese	French; English	UTC-05:00; UTC-04:00	911	A, B	120
+canada-saskatchewan	ca	Regina	Regina	CAD	dollaro canadese	Canadian dollar	right	+1	francese; inglese	French; English	UTC-06:00	911	A, B	120
+canada-terranova-e-labrador	ca	St. John's	St. John's	CAD	dollaro canadese	Canadian dollar	right	+1	francese; inglese	French; English	UTC-04:00; UTC-03:30	911	A, B	120
+canada-territori-del-nord-ovest	ca	Yellowknife	Yellowknife	CAD	dollaro canadese	Canadian dollar	right	+1	francese; inglese	French; English	UTC-07:00	911	A, B	120
+canada-yukon	ca	Whitehorse	Whitehorse	CAD	dollaro canadese	Canadian dollar	right	+1	francese; inglese	French; English	UTC-07:00	911	A, B	120
+capo-verde	cv	Praia	Praia	CVE	escudo capoverdiano	Cape Verdean escudo	right	+238	portoghese; creolo capoverdiano	Portuguese; Cape Verdean Creole	UTC-01:00	130; 131; 132	C, F	220
+ciad	td	N’Djamena	N'Djamena	XAF	franco CFA dell'Africa centrale	Central African CFA franc	right	+235	francese; arabo	French; Arabic	UTC+01:00	17; 18; 2251-4242	C, D, E, F	220
+cile	cl	Santiago del Cile	Santiago	CLP	peso cileno	Chilean peso	right	+56	spagnolo	Spanish	UTC-06:00; UTC-04:00; UTC-03:00	133; 130; 131; 132; 134	C, L	220
+cina-anhui	cn	Hefei	Hefei	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-chongqing	cn			CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-fujian	cn	Fuzhou	Fuzhou	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-gansu	cn	Lanzhou	Lanzhou	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-guangdong	cn	Canton	Guangzhou	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-guangxi	cn	Nanning	Nanning	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-guizhou	cn	Guiyang	Guiyang	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-hainan	cn	Haikou	Haikou	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-hebei	cn	Shijiazhuang	Shijiazhuang	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-heilongjiang	cn	Harbin	Harbin	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-henan	cn	Zhengzhou	Zhengzhou	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-hubei	cn	Wuhan	Wuhan	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-hunan	cn	Changsha	Changsha	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-jiangsu	cn	Nanchino	Nanjing	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-jiangxi	cn	Nanchang	Nanchang	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-jilin	cn	Changchun	Changchun	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-liaoning	cn	Shenyang	Shenyang	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-mongolia-interna	cn	Hohhot	Hohhot	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-ningxia	cn	Yinchuan	Yinchuan	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-pechino	cn	Pechino	Beijing	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-qinghai	cn	Xining	Xining	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-shaanxi	cn	Xi'an	Xi'an	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-shandong	cn	Jinan	Jinan	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-shanghai	cn			CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-shanxi	cn	Taiyuan	Taiyuan	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-sichuan	cn	Chengdu	Chengdu	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-tianjin	cn			CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-tibet	cn	Lhasa	Lhasa	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-xinjiang	cn	Ürümqi	Ürümqi	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-yunnan	cn	Kunming	Kunming	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cina-zhejiang	cn	Hangzhou	Hangzhou	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
+cipro	cy	Nicosia	Nicosia	EUR	euro	euro	left	+357	turco; greco moderno	Turkish; Modern Greek	UTC+02:00	112; 1400; 199	G	240
+citta-del-vaticano	va	Città del Vaticano	Vatican City	EUR	euro	euro	right	+379	latino; italiano	Latin; Italian	UTC+01:00	112	C, F, L	230
+colombia	co	Bogotà	Bogotá	COP	peso colombiano	Colombian peso	right	+57	spagnolo	Spanish	UTC-05:00	123	A, B	110
+colombia-san-andres	co			COP	peso colombiano	Colombian peso	right	+57	spagnolo	Spanish	UTC-05:00	123	A, B	110
+comore	km	Moroni	Moroni	KMF	franco delle Comore	Comorian franc	right	+269	francese; arabo; comoriano	French; Arabic; Comorian	UTC+03:00	17; 18; 772-03-73	C, E	220
+congo	cg	Brazzaville	Brazzaville	XAF	franco CFA dell'Africa centrale	Central African CFA franc	right	+242	francese	French	UTC+01:00	117; 118	C, E	230
+congo-rd	cd	Kinshasa	Kinshasa	CDF	franco congolese	Congolese franc	right	+243	francese	French	UTC+01:00; UTC+02:00	114; 118; 113	C, D, E	220
+corea-del-nord	kp	Pyongyang	Pyongyang	KPW	won nordcoreano	North Korean won	right	+850	coreano; Munhwaŏ	Korean; North Korean standard language	UTC+09:00		A, C, F	110; 220
+corea-del-sud	kr	Seul	Seoul	KRW	won sudcoreano	won	right	+82	coreano; lingua dei segni coreana	Korean; Korean Sign Language	UTC+09:00	112; 119; 113	C, F	220
+costa-avorio	ci	Yamoussoukro	Yamoussoukro	XOF	franco CFA UEMOA	West African CFA franc	right	+225	francese	French	UTC+00:00	111; 110; 180; 185; 170	C, E	230
+costa-rica	cr	San José	San José	CRC	Colón costaricano	Costa Rican colón	right	+506	spagnolo	Spanish	UTC-06:00	911; 112	A, B	120
+croazia	hr	Zagabria	Zagreb	EUR	euro	euro	right	+385	croato	Croatian	UTC+01:00	112; 192; 93; 94	C, F	230
+cuba	cu	L'Avana	Havana	CUP	peso cubano	Cuban peso	right	+53	spagnolo	Spanish	UTC-05:00	106; 104; 105	A, B	110
+curacao	cw	Willemstad	Willemstad	XCG	fiorino caraibico	Caribbean guilder	right	+599 9	inglese; olandese; lingua papiamento	English; Dutch; Papiamento	UTC-04:00	911	A, B	120
+danimarca	dk	Copenaghen	Copenhagen	DKK	corona danese	Danish krone	right	+45	danese	Danish	UTC+01:00	112	C, E, F, K	230
+dominica	dm	Roseau	Roseau	XCD	dollaro dei Caraibi Orientali	Eastern Caribbean dollar	left	+1 767	inglese	English	UTC-04:00	999	D, G	230
+ecuador	ec	Quito	Quito	USD	dollaro degli Stati Uniti	United States dollar	right	+593	spagnolo; lingua shuar; Kichwa	Spanish; Shuar; Northern Quichua	UTC-06:00; UTC-05:00	911; 101; 102; 131	A, B	120
+egitto	eg	Il Cairo	Cairo	EGP	sterlina egiziana	Egyptian pound	right	+20	arabo	Arabic	UTC+02:00	122; 123; 180	C, F	220
+el-salvador	sv	San Salvador	San Salvador	USD	dollaro degli Stati Uniti; bitcoin	United States dollar; Bitcoin	right	+503	spagnolo	Spanish	UTC-06:00	911; 913	A, B	115
+emirati-arabi-uniti	ae	Abu Dhabi	Abu Dhabi	AED	Dirham degli Emirati Arabi Uniti	United Arab Emirates dirham	right	+971	arabo	Arabic	UTC+04:00	112; 999; 997; 998	C, D, G	220
+eritrea	er	Asmara	Asmara	ERN	nacfa eritreo	nakfa	right	+291	inglese; arabo; tigrino	English; Arabic; Tigrinya	UTC+03:00	114; 113; 116	C, L	230
+estonia	ee	Tallinn	Tallinn	EUR	euro	euro	right	+372	estone	Estonian	UTC+02:00	112	C, F	230
+eswatini	sz	Mbabane; Lobamba	Mbabane; Lobamba	SZL	lilangeni dell'eSwatini	lilangeni	left	+268	inglese; swati	English; Swazi	UTC+02:00	999; 933; 977	D, M	230
+etiopia	et	Addis Abeba	Addis Ababa	ETB	birr etiope	bir	right	+251	amarico	Amharic	UTC+03:00	911; 907; 939; 991	C, D, E, F, J, L	220
+figi-lau	fj	Suva	Suva	FJD	dollaro delle Figi	Fijian dollar	left	+679	inglese; figiano; hindi figiano	English; Fijian; Fiji Hindi	UTC+12:00	911; 000; 919	I	240
+figi-occidentali	fj	Suva	Suva	FJD	dollaro delle Figi	Fijian dollar	left	+679	inglese; figiano; hindi figiano	English; Fijian; Fiji Hindi	UTC+12:00	911; 000; 919	I	240
+filippine	ph	Manila	Manila	PHP	peso filippino	Philippine peso	right	+63	inglese; filippino; Taglish	English; Filipino; Taglish	UTC+08:00	911	A, B, C	220
+finlandia	fi	Helsinki	Helsinki	EUR	euro	euro	right	+358	finlandese; svedese	Finnish; Swedish	UTC+02:00	112	C, F	230
+francia-alta-francia	fr	Lilla	Lille	EUR	euro	euro	right	+33	francese	French	UTC+01:00	112; 114; 17; 18; 15	C, E	230
+francia-alvernia-rodano-alpi	fr	Lione	Lyon	EUR	euro	euro	right	+33	francese	French	UTC+01:00	112; 114; 17; 18; 15	C, E	230
+francia-borgogna-franca-contea	fr	Digione; Besançon	Dijon; Besançon	EUR	euro	euro	right	+33	francese	French	UTC+01:00	112; 114; 17; 18; 15	C, E	230
+francia-bretagna	fr	Rennes	Rennes	EUR	euro	euro	right	+33	francese	French	UTC+01:00	112; 114; 17; 18; 15	C, E	230
+francia-centro-valle-della-loira	fr	Orléans	Orléans	EUR	euro	euro	right	+33	francese	French	UTC+01:00	112; 114; 17; 18; 15	C, E	230
+francia-corsica	fr	Ajaccio	Ajaccio	EUR	euro	euro	right	+33	francese	French	UTC+01:00	112; 114; 17; 18; 15	C, E	230
+francia-grand-est	fr	Strasburgo	Strasbourg	EUR	euro	euro	right	+33	francese	French	UTC+01:00	112; 114; 17; 18; 15	C, E	230
+francia-ile-de-france	fr	Parigi	Paris	EUR	euro	euro	right	+33	francese	French	UTC+01:00	112; 114; 17; 18; 15	C, E	230
+francia-normandia	fr	Rouen	Rouen	EUR	euro	euro	right	+33	francese	French	UTC+01:00	112; 114; 17; 18; 15	C, E	230
+francia-nuova-aquitania	fr	Bordeaux	Bordeaux	EUR	euro	euro	right	+33	francese	French	UTC+01:00	112; 114; 17; 18; 15	C, E	230
+francia-occitania	fr	Tolosa	Toulouse	EUR	euro	euro	right	+33	francese	French	UTC+01:00	112; 114; 17; 18; 15	C, E	230
+francia-paesi-della-loira	fr	Nantes	Nantes	EUR	euro	euro	right	+33	francese	French	UTC+01:00	112; 114; 17; 18; 15	C, E	230
+francia-provenza-alpi-costa-azzurra	fr	Marsiglia	Marseille	EUR	euro	euro	right	+33	francese	French	UTC+01:00	112; 114; 17; 18; 15	C, E	230
+gabon	ga	Libreville	Libreville	XAF	franco CFA dell'Africa centrale	Central African CFA franc	right	+241	francese	French	UTC+01:00	18; 1300; 1722	C	220
+gambia	gm	Banjul	Banjul	GMD	Dalasi gambese	dalasi	right	+220	inglese	English	UTC+00:00	112; 118; 116	G	230
+georgia	ge	Tbilisi	Tbilisi	GEL	lari georgiano	Georgian lari	right	+995	georgiano	Georgian	UTC+04:00	112; 111; 113; 122	C, F	220
+germania	de	Berlino	Berlin	EUR	euro	euro	right	+49	tedesco	German	UTC+01:00	112; 110	C, F	230
+ghana	gh	Accra	Accra	GHS	cedi ghanese	Ghana cedi	right	+233	inglese	English	UTC+00:00	999; 192; 193; 191	D, G	230
+giamaica	jm	Kingston	Kingston	JMD	Dollaro giamaicano	Jamaican dollar	left	+1 876	inglese; lingua creola giamaicana	English; Jamaican Patois	UTC-05:00	911; 112; 119; 110	A, B	116
+giappone	jp	Tokyo	Tokyo	JPY	yen	yen	left	+81	giapponese	Japanese	UTC+09:00	119; 118; 110	A, B	100
+gibilterra	gi	Gibilterra	Gibraltar	GIP	sterlina di Gibilterra	Gibraltar pound	right	+350	inglese britannico	British English	UTC+01:00	112	G	240
+gibuti	dj	Gibuti	Djibouti	DJF	franco gibutiano	Djiboutian franc	right	+253	francese; arabo	French; Arabic	UTC+03:00	17; 18; 19	C, E	220
+giordania	jo	Amman	Amman	JOD	dinaro giordano	Jordanian dinar	right	+962	arabo	Arabic	UTC+03:00	911	B, C, D, F, G, J	230
+grecia	gr	Atene	Athens	EUR	euro	euro	right	+30	greco	Greek	UTC+02:00	112; 100; 166; 199	C, F	230
+grenada	gd	Saint George's	St. George's	XCD	dollaro dei Caraibi Orientali	Eastern Caribbean dollar	left	+1 473	inglese; Creolo inglese grenadino	English; Grenadian Creole English	UTC-04:00	911; 434; 724; 774	G	230
+groenlandia	gl	Nuuk	Nuuk	DKK	corona danese	Danish krone	right	+299	groenlandese	Greenlandic	UTC-04:00; UTC-03:00; UTC-02:00; UTC-01:00; UTC+00:00	112	C, E, F, K	230
+guadalupa	gp	Basse-Terre	Basse-Terre	EUR	euro	euro	right	+590	francese	French	UTC-04:00	112	C, D, E	230
+guam	gu	Hagåtña	Hagåtña	USD	dollaro degli Stati Uniti	United States dollar	right	+1 671	inglese; chamorro	English; Chamorro	UTC+10:00	911	A, B	110
+guatemala	gt	Città del Guatemala	Guatemala City	GTQ	Quetzal guatemalteco	quetzal	right	+502	spagnolo	Spanish	UTC-06:00	128; 110; 123; 120	A, B	120
+guinea	gn	Conakry	Conakry	GNF	Franco guineano	Guinean franc	right	+224	francese	French	UTC+00:00	117; 18; 442-020	C, F, K	220
+guinea-bissau	gw	Bissau	Bissau	XOF	franco CFA UEMOA	West African CFA franc	right	+245	portoghese	Portuguese	UTC+00:00	112; 119; 180; 121	C	220
+guinea-equatoriale	gq	Ciudad de la Paz	Ciudad de la Paz	XAF	franco CFA dell'Africa centrale	Central African CFA franc	right	+240	francese; spagnolo; portoghese	French; Spanish; Portuguese	UTC+01:00	112; 114; 113; 115	C, E	220
+guyana	gy	Georgetown	Georgetown	GYD	Dollaro della Guyana	Guyanese dollar	left	+592	inglese	English	UTC-04:00	911; 999; 912; 913	A, B, D, G	240
+guyana-francese	gf	Caienna	Cayenne	EUR	euro	euro	right	+594	francese; lingua creola della Guyana francese	French; Guianan Creole	UTC-03:00		C, D, E	220
+haiti	ht	Port-au-Prince	Port-au-Prince	HTG	gourde haitiano	gourde	right	+509	francese; creolo haitiano	French; Haitian Creole	UTC-05:00	114; 115; 116; 122	A, B	110
+honduras	hn	Tegucigalpa	Tegucigalpa	HNL	lempira honduregna	Honduran lempira	right	+504	spagnolo	Spanish	UTC-06:00	198; 199	A, B	110
+hong-kong	hk			HKD	dollaro di Hong Kong	Hong Kong dollar	left	+852	cinese standard	Standard Chinese	UTC+08:00	999	G	220
+india	in	Nuova Delhi	New Delhi	INR	rupia indiana	Indian rupee	left	+91	hindī; inglese	Hindi; English	UTC+05:30	112; 108; 100; 101; 102	C, D, M	230
+indonesia	id	Giacarta	Jakarta	IDR	rupia indonesiana	rupiah	left	+62	indonesiano	Indonesian	UTC+07:00; UTC+08:00; UTC+09:00	112	C, F	127; 230
+iran	ir	Teheran	Tehran	IRR	riyal iraniano	Iranian rial	right	+98	persiano	Persian	UTC+03:30	115; 110; 125	C, F	220
+iraq	iq	Baghdad	Baghdad	IQD	dinaro iracheno	Iraqi dinar	right	+964	arabo; curdo	Arabic; Kurdish language	UTC+03:00	115; 122; 104; 911	C, D, G	230
+irlanda	ie	Dublino	Dublin	EUR	euro	euro	left	+353	inglese; irlandese	English; Irish	UTC+00:00	112	G	230
+islanda	is	Reykjavík	Reykjavík	ISK	corona islandese	Icelandic króna	right	+354	islandese	Icelandic	UTC+00:00	112	C, F	230
+isola-christmas	cx	Flying Fish Cove	Flying Fish Cove	AUD	dollaro australiano	Australian dollar	left	+61	inglese	English	UTC+07:00		I	230
+isola-norfolk	nf	Kingston	Kingston	AUD	dollaro australiano	Australian dollar	left	+672 3	inglese; dialetto norfuk	English; Norfuk	UTC+11:00		I	230
+isole-canarie	es	Las Palmas de Gran Canaria; Santa Cruz de Tenerife	Las Palmas de Gran Canaria; Santa Cruz de Tenerife	EUR	euro	euro	right	+34	spagnolo	Spanish	UTC+00:00	112; 061; 091	C, F	230
+isole-cayman	ky	George Town	George Town	KYD	Dollaro delle Cayman	Cayman Islands dollar	left	+1 345	inglese	English	UTC-05:00	911	A, B	120
+isole-cocos	cc	West Island	West Island	AUD	dollaro australiano	Australian dollar	left	+61 8 9162	inglese	English	UTC+06:30		I	230
+isole-cook	ck	Avarua	Avarua	NZD	Dollaro delle Cook; dollaro neozelandese	Cook Islands dollar; New Zealand dollar	left	+682	inglese; Cook Islands Maori	English; Cook Islands Maori	UTC-10:00	999; 998; 996	I	240
+isole-falkland	fk	Stanley	Stanley	FKP	sterlina delle Falkland	Falkland Islands pound	left	+500	inglese britannico	British English	UTC-03:00		G	240
+isole-faroe	fo	Tórshavn	Tórshavn	DKK	corona delle Fær Øer	Faroese króna	right	+298	danese; faroese	Danish; Faroese	UTC+00:00	112	C, E, F, K	230
+isole-marianne-settentrionali	mp	Saipan	Saipan	USD	dollaro degli Stati Uniti	United States dollar	right	+1 670	inglese; lingua caroliniana; chamorro	English; Carolinian; Chamorro	UTC+10:00		A, B	120
+isole-marshall	mh	Majuro	Majuro	USD	dollaro degli Stati Uniti	United States dollar	right	+692	inglese; marshallese	English; Marshallese	UTC+12:00	911	A, B	120
+isole-pitcairn	pn	Adamstown	Adamstown	NZD	dollaro neozelandese; Pitcairn Islands dollar	New Zealand dollar; Pitcairn Islands dollar	left	+64	inglese; pitcairnese	English; Pitkern	UTC-08:00		I	230
+isole-salomone	sb	Honiara	Honiara	SBD	dollaro delle Salomone	Solomon Islands dollar	left	+677	inglese	English	UTC+11:00	911; 999; 988	G, I	220
+isole-vergini-americane	vi	Charlotte Amalie	Charlotte Amalie	USD	dollaro degli Stati Uniti	United States dollar	left	+1 340	inglese	English	UTC-04:00	911	A, B	110
+isole-vergini-britanniche	vg	Road Town	Road Town	USD	dollaro degli Stati Uniti	United States dollar	left	+1 284	inglese	English	UTC-04:00	999	A, B	110
+israele	il	Gerusalemme	Jerusalem	ILS	nuovo siclo israeliano	new shekel	right	+972	ebraico	Hebrew	UTC+02:00	100; 101; 102	C, D, H, M	230
+italia	it	Roma	Rome	EUR	euro	euro	right	+39	italiano	Italian	UTC+01:00	112; 118; 113; 115	C, F, L	230
+kazakistan	kz	Astana	Astana	KZT	tenge kazako	Kazakhstani tenge	right	+7	russo; kazako	Russian; Kazakh	UTC+05:00	112; 101; 102; 103	C, F	220
+kenya	ke	Nairobi	Nairobi	KES	Scellino keniota	Kenyan shilling	left	+254	inglese; swahili	English; Swahili	UTC+03:00	112; 999	G	240
+kirghizistan	kg	Biškek	Bishkek	KGS	som kirghizo	Kyrgyz som	right	+996	kirghiso	Kyrgyz	UTC+06:00	101; 102; 103; 161	C, F	220
+kiribati-gilbert	ki	Tarawa Sud	South Tarawa	AUD	dollaro australiano	Australian dollar	left	+686	inglese; gilbertese	English; Gilbertese	UTC+12:00	999; 192; 193; 194; 195	I	240
+kiribati-line	ki			AUD	dollaro australiano	Australian dollar	left	+686	inglese; gilbertese	English; Gilbertese	UTC+14:00	999; 192; 193; 194; 195	I	240
+kosovo	xk	Priština	Pristina	EUR	euro	euro	right	+383	albanese; serbo	Albanian; Serbian	UTC+01:00	112	F	230
+kuwait	kw	Al Kuwait	Kuwait City	KWD	dinaro kuwaitiano	Kuwaiti dinar	right	+965	arabo	Arabic	UTC+03:00	112	C, G	240
+laos	la	Vientiane	Vientiane	LAK	Kip laotiano	Lao kip	right	+856	lao	Lao	UTC+07:00	190; 191; 195	A, B, C, E, F	230
+lesotho	ls	Maseru	Maseru	ZAR; LSL	rand sudafricano; Loti lesothiano	rand; loti	left	+266	inglese; sotho del sud	English; Sesotho	UTC+02:00	112; 114; 115	D, M	220
+lettonia	lv	Riga	Riga	EUR	euro	euro	right	+371	lettone	Latvian	UTC+02:00	112; 113; 110	C, F	230
+libano	lb	Beirut	Beirut	LBP	lira libanese	Lebanese pound	right	+961	arabo	Arabic	UTC+02:00	112; 160; 140; 175	A, B, C, D, G	220
+liberia	lr	Monrovia	Monrovia	LRD	Dollaro liberiano	Liberian dollar	right	+231	inglese	English	UTC+00:00	911; 114	A, B, C, E, F	120; 220
+libia	ly	Tripoli	Tripoli	LYD	dinaro libico	Libyan dinar	right	+218	arabo	Arabic	UTC+02:00	190; 193; 191	C, D, F, L	127; 230
+liechtenstein	li	Vaduz	Vaduz	CHF	franco svizzero	Swiss franc	right	+423	tedesco	German	UTC+01:00	112; 117; 118; 144	C, J	230
+lituania	lt	Vilnius	Vilnius	EUR	euro	euro	right	+370	lituano	Lithuanian	UTC+02:00	112; 02	C, F	220
+lussemburgo	lu	Lussemburgo	Luxembourg	EUR	euro	euro	right	+352	francese; tedesco; lussemburghese	French; German; Luxembourgish	UTC+01:00	112; 113	C, F	230
+macao	mo			MOP	pataca di Macao	Macanese pataca	left	+853	portoghese; cantonese standard; cinese standard	Portuguese; Cantonese; Standard Chinese	UTC+08:00	999	D, F, G, M	220
+macedonia-del-nord	mk	Skopje	Skopje	MKD	Dinaro macedone	Macedonian denar	right	+389	albanese; macedone	Albanian; Macedonian	UTC+01:00	112; 192; 193; 194	C, F	230
+madagascar	mg	Antananarivo	Antananarivo	MGA	ariary malgascio	ariary	right	+261	francese; malgascio	French; Malagasy	UTC+03:00	117; 118; 124	C, D, E, J, K	127; 220
+malawi	mw	Lilongwe	Lilongwe	MWK	Kwacha malawiano	Malawian kwacha	left	+265	inglese; chewa; tumbuka	English; Chewa; Tumbuka	UTC+02:00	999; 997; 998; 990	G	230
+maldive	mv	Male	Malé	MVR	rufiyaa delle Maldive	Maldivian rufiyaa	left	+960	maldiviano	Maldivian	UTC+05:00	119; 118; 102	A, C, D, G, J, K, L	230
+malesia	my	Kuala Lumpur	Kuala Lumpur	MYR	ringgit malaysiano	Malaysian ringgit	left	+60	malese	Malay	UTC+08:00	999	G	240
+mali	ml	Bamako	Bamako	XOF	franco CFA UEMOA	West African CFA franc	right	+223	bambara; fula; lingue bozo; maninka; Minyanka; soninke; xaasongaxango; hassaniyya; lingue songhay; dogon; Tamasheq; Bobo	Bambara; Fula; Bozo; Maninka; Minyanka; Soninke; Kassonke; Hassaniya Arabic; Songhay; Dogon; Tamasheq; Bobo	UTC+00:00	112; 17; 18; 15	C, E	220
+malta	mt	La Valletta	Valletta	EUR	euro	euro	left	+356	inglese; maltese	English; Maltese	UTC+01:00	112	G	230
+marocco	ma	Rabat	Rabat	MAD	dirham marocchino	Moroccan dirham	right	+212	arabo; amazigh marocchino standard	Arabic; Standard Moroccan Tamazight	UTC+00:00; UTC+01:00	112; 19; 15; 177	C, E	127; 220
+martinica	mq	Fort-de-France	Fort-de-France	EUR	euro	euro	right	+596	francese	French	UTC-04:00	112	C, D, E	220
+mauritania	mr	Nouakchott	Nouakchott	MRU	Ouguiya mauritana	Mauritanian ouguiya	right	+222	francese; arabo	French; Arabic	UTC+00:00	117; 118; 101	C	220
+mauritius	mu	Port Louis	Port Louis	MUR	Rupia mauriziana	Mauritian rupee	left	+230	francese; inglese	French; English	UTC+04:00	112; 114; 999; 995; 115	C, G	230
+mayotte	yt	Mamoudzou	Mamoudzou	EUR	euro	euro	right	+262	francese; maorese; Bushi	French; Maore; Bushi	UTC+03:00	112	C, E	230
+messico	mx	Città del Messico	Mexico City	MXN	peso messicano	peso	right	+52	spagnolo; nahuatl; maya yucateco	Spanish; Nahuatl; Yucatec Maya	UTC-08:00; UTC-07:00; UTC-06:00; UTC-05:00	911	A, B	127
+micronesia	fm	Palikir	Palikir	USD	dollaro degli Stati Uniti	United States dollar	right	+691	inglese	English	UTC+10:00; UTC+11:00	911; 111	A, B	120
+moldavia	md	Chișinău	Chișinău	MDL	leu moldavo	Moldovan leu	right	+373	romeno	Romanian	UTC+02:00	112	C, F	220
+monaco	mc	Principato di Monaco	Monaco	EUR	euro	euro	right	+377	francese	French	UTC+01:00	112; 17; 18	C, D, E, F	230
+mongolia	mn	Ulan Bator	Ulaanbaatar	MNT	tugrik mongolo	Mongolian tögrög	right	+976	mongolo	Mongolian	UTC+07:00; UTC+08:00	101; 102; 103; 105	C, E	220
+montenegro	me	Podgorica	Podgorica	EUR	euro	euro	right	+382	montenegrino	Montenegrin	UTC+01:00	112; 122; 123; 124	C, F	230
+montserrat	ms	Plymouth; Brades	Plymouth; Brades	XCD	dollaro dei Caraibi Orientali	Eastern Caribbean dollar	left	+1 664	inglese	English	UTC-04:00		A, B	230
+mozambico	mz	Maputo	Maputo	MZN	Metical mozambicano	Mozambican metical	left	+258	portoghese	Portuguese	UTC+02:00	119; 117; 198	C, D, F, M	220
+myanmar	mm	Naypyidaw	Naypyidaw	MMK	Kyat birmano	kyat	right	+95	birmano	Burmese	UTC+06:30	192; 191; 199	C, D, F, G	230
+namibia	na	Windhoek	Windhoek	ZAR; NAD	rand sudafricano; Dollaro namibiano	rand; Namibian dollar	left	+264	inglese	English	UTC+02:00	112; 10111	D, M	220
+nauru	nr	Yaren	Yaren District	AUD	dollaro australiano	Australian dollar	left	+674	inglese; nauruano	English; Nauruan	UTC+12:00	112; 111; 110	I	240
+nepal	np	Katmandu	Kathmandu	NPR	Rupia nepalese	Nepalese rupee	left	+977	nepalese	Nepali	UTC+05:45	100; 101; 102	C, D, M	230
+nicaragua	ni	Managua	Managua	NIO	Córdoba nicaraguense	Nicaraguan córdoba	right	+505	spagnolo	Spanish	UTC-06:00	118; 128; 115; 120	A, B	120
+niger	ne	Niamey	Niamey	XOF	franco CFA UEMOA	West African CFA franc	right	+227	hausa	Hausa	UTC+01:00	17; 18	A, B, C, D, E, F	220
+nigeria	ng	Abuja	Abuja	NGN	Naira nigeriana	naira	right	+234	inglese	English	UTC+01:00	112; 199	D, G, M	230
+niue	nu	Alofi	Alofi	NZD	dollaro neozelandese; Niue dollar	New Zealand dollar; Niue dollar	left	+683	inglese; lingua niueana	English; Niuean	UTC-11:00	999	I	230
+norvegia	no	Oslo	Oslo	NOK	corona norvegese	Norwegian krone	right	+47	norvegese; nynorsk; bokmål; lingue sami	Norwegian; Nynorsk; Bokmål; Sámi	UTC+01:00	112; 113; 110	C, F	230
+nuova-caledonia	nc	Numea	Nouméa	XPF	Franco CFP	CFP Franc	right	+687	francese	French	UTC+11:00	112	C, F	220
+nuova-zelanda	nz	Wellington	Wellington	NZD	dollaro neozelandese	New Zealand dollar	left	+64	inglese; lingua dei segni neozelandese; māori	English; New Zealand Sign Language; Māori	UTC+12:00	111	I	230
+oman	om	Mascate	Muscat	OMR	Riyal dell'Oman	Omani rial	right	+968	arabo	Arabic	UTC+04:00	112; 968	C, G	240
+paesi-bassi	nl	Amsterdam	Amsterdam	EUR	euro	euro	right	+31	olandese	Dutch	UTC+01:00	112	C, F	230
+pakistan	pk	Islamabad	Islamabad	PKR	rupia pakistana	Pakistani rupee	left	+92	urdu; inglese	Urdu; English	UTC+05:00	1122; 15; 16	C, D, G, M	230
+palau	pw	Ngerulmud	Ngerulmud	USD	dollaro degli Stati Uniti	United States dollar	right	+680	inglese; giapponese; palauano	English; Japanese; Palauan	UTC+09:00	911	A, B	120
+palestina	ps	Ramallah; Gerusalemme Est	Ramallah; East Jerusalem	ILS	nuovo siclo israeliano	new shekel	right	+970	arabo	Arabic	UTC+02:00		C, D, H, M	230
+panama	pa	Panama	Panama City	USD; PAB	dollaro degli Stati Uniti; Balboa panamense	United States dollar; Panamanian balboa	right	+507	spagnolo	Spanish	UTC-05:00	911; 103; 104	A, B	110
+papua-nuova-guinea	pg	Port Moresby	Port Moresby	PGK	Kina papuana	kina	left	+675	inglese; hiri motu; tok pisin; Papua New Guinean Sign Language	English; Hiri Motu; Tok Pisin; Papua New Guinean Sign Language	UTC+10:00	112; 111; 110	I	240
+paraguay	py	Asunción	Asunción	PYG	guaraní paraguaiano	Paraguayan guaraní	right	+595	spagnolo; guaraní	Spanish; Guarani	UTC-03:00	911	C	220
+peru	pe	Lima	Lima	PEN	sol peruviano	Peruvian sol	right	+51	spagnolo; aymara; quechua	Spanish; Aymara; Quechua	UTC-05:00	911; 106; 111; 117; 116; 105	A, B, C	220
+polinesia-francese	pf	Papeete	Papeete	XPF	Franco CFP	CFP Franc	right	+689	francese	French	UTC-10:00	112	C, E	230
+polonia	pl	Varsavia	Warsaw	PLN	złoty	złoty	right	+48	polacco	Polish	UTC+01:00	112; 999; 997; 998; 986	C, E	230
+portogallo	pt	Lisbona	Lisbon	EUR	euro	euro	right	+351	portoghese	Portuguese	UTC-01:00; UTC+00:00	112	C, F	230
+portorico	pr	San Juan	San Juan	USD	dollaro degli Stati Uniti	United States dollar	right	+1 787; +1 939	spagnolo; inglese	Spanish; English	UTC-04:00	911	A, B	120
+qatar	qa	Doha	Doha	QAR	riyal qatariota	Qatari riyal	right	+974	arabo	Arabic	UTC+03:00	112; 999	D, G	240
+regno-unito	gb	Londra	London	GBP	sterlina britannica	pound sterling	left	+44	inglese	English	UTC+00:00	112; 999	G	230
+repubblica-ceca	cz	Praga	Prague	CZK	corona ceca	Czech koruna	right	+420	ceco	Czech	UTC+01:00	112; 150; 155; 158; 156	C, E	230
+repubblica-centrafricana	cf	Bangui	Bangui	XAF	franco CFA dell'Africa centrale	Central African CFA franc	right	+236	francese; sango	French; Sango	UTC+01:00	117; 118; 1220	C, E	220
+repubblica-dominicana	do	Santo Domingo	Santo Domingo	DOP	peso dominicano	Dominican peso	right	+1 809; +1 829; +1 849	spagnolo	Spanish	UTC-04:00	911	A, B	110
+riunione	re	Saint-Denis	Saint-Denis	EUR	euro	euro	right	+262	francese	French	UTC+04:00	112	E	220
+romania	ro	Bucarest	Bucharest	RON	leu romeno	Romanian leu	right	+40	romeno	Romanian	UTC+02:00	112	C, F	230
+ruanda	rw	Kigali	Kigali	RWF	franco ruandese	Rwandan franc	right	+250	francese; inglese; swahili; kinyarwanda	French; English; Swahili; Kinyarwanda	UTC+02:00	112; 912	C, E, G	230
+russia-caucaso-settentrionale	ru			RUB	rublo russo	Russian ruble	right	+7	russo	Russian	UTC+03:00	112; 01; 101; 102; 103; 02; 03	C, F	220
+russia-centro	ru			RUB	rublo russo	Russian ruble	right	+7	russo	Russian	UTC+03:00	112; 01; 101; 102; 103; 02; 03	C, F	220
+russia-estremo-oriente	ru			RUB	rublo russo	Russian ruble	right	+7	russo	Russian	UTC+09:00; UTC+10:00; UTC+11:00; UTC+12:00	112; 01; 101; 102; 103; 02; 03	C, F	220
+russia-kaliningrad	ru			RUB	rublo russo	Russian ruble	right	+7	russo	Russian	UTC+02:00	112; 01; 101; 102; 103; 02; 03	C, F	220
+russia-nord-europeo	ru			RUB	rublo russo	Russian ruble	right	+7	russo	Russian	UTC+03:00	112; 01; 101; 102; 103; 02; 03	C, F	220
+russia-nord-ovest	ru			RUB	rublo russo	Russian ruble	right	+7	russo	Russian	UTC+03:00	112; 01; 101; 102; 103; 02; 03	C, F	220
+russia-siberia	ru			RUB	rublo russo	Russian ruble	right	+7	russo	Russian	UTC+05:00; UTC+06:00; UTC+07:00; UTC+08:00; UTC+09:00	112; 01; 101; 102; 103; 02; 03	C, F	220
+russia-terra-nera-centrale	ru			RUB	rublo russo	Russian ruble	right	+7	russo	Russian	UTC+03:00	112; 01; 101; 102; 103; 02; 03	C, F	220
+russia-urali-europei	ru			RUB	rublo russo	Russian ruble	right	+7	russo	Russian	UTC+04:00; UTC+05:00	112; 01; 101; 102; 103; 02; 03	C, F	220
+russia-volga	ru			RUB	rublo russo	Russian ruble	right	+7	russo	Russian	UTC+03:00; UTC+04:00	112; 01; 101; 102; 103; 02; 03	C, F	220
+russia-volga-vjatka	ru			RUB	rublo russo	Russian ruble	right	+7	russo	Russian	UTC+03:00	112; 01; 101; 102; 103; 02; 03	C, F	220
+saint-barthelemy	bl	Gustavia	Gustavia	EUR	euro	euro	right	+590	francese	French	UTC-04:00		C, E	230
+saint-kitts-nevis	kn	Basseterre	Basseterre	XCD	dollaro dei Caraibi Orientali	Eastern Caribbean dollar	left	+1 869	inglese	English	UTC-04:00	911	A, B, D, G	230
+saint-lucia	lc	Castries	Castries	XCD	dollaro dei Caraibi Orientali	Eastern Caribbean dollar	left	+1 758	inglese	English	UTC-04:00	911; 999	G	240
+saint-martin	mf	Marigot	Marigot	EUR	euro	euro	right	+590	francese	French	UTC-04:00		C, F	120; 220
+saint-pierre-miquelon	pm	Saint-Pierre	Saint-Pierre	EUR	euro	euro	right	+508	francese	French	UTC-03:00	112	C, E	230
+saint-vincent-grenadine	vc	Kingstown	Kingstown	XCD	dollaro dei Caraibi Orientali	Eastern Caribbean dollar	left	+1 784	inglese	English	UTC-04:00	911; 999	A, C, E, G, I, K	230
+samoa	ws	Apia	Apia	WST	tala samoano	Samoan tālā	left	+685	inglese; samoano	English; Samoan	UTC+13:00	999; 995; 994; 996	I	230
+samoa-americane	as	Pago Pago	Pago Pago	USD	dollaro degli Stati Uniti	United States dollar	right	+1 684	inglese; samoano	English; Samoan	UTC-11:00	911	A, B, F, I	120
+san-marino	sm	Città di San Marino	San Marino	EUR	euro	euro	right	+378	italiano	Italian	UTC+01:00	112; 118; 113; 115	C, F, L	230
+sao-tome-principe	st	São Tomé	São Tomé	STN	dobra di São Tomé e Príncipe	São Tomé and Príncipe dobra	right	+239	portoghese	Portuguese	UTC+00:00	112	C, F	220
+senegal	sn	Dakar	Dakar	XOF	franco CFA UEMOA	West African CFA franc	right	+221	francese; wolof; Balanta; Badyara	French; Wolof; Balanta; Badyara	UTC+00:00	17; 18	C, D, E, K	230
+serbia	rs	Belgrado	Belgrade	RSD	dinaro serbo	Serbian dinar	right	+381	serbo	Serbian	UTC+01:00	192; 193; 194; 93; 94; 92	C, F	230
+seychelles	sc	Victoria	Victoria	SCR	rupia delle Seychelles	Seychellois rupee	left	+248	francese; inglese; creolo delle Seychelles	French; English; Seychellois Creole	UTC+04:00	112; 999; 133; 151	G	240
+sierra-leone	sl	Freetown	Freetown	SLE	leone sierraleonese	leone	right	+232	inglese; lingua krio	English; Krio	UTC+00:00	999; 019	D, G	230
+singapore	sg	Singapore	Singapore	SGD	dollaro di Singapore	Singapore dollar	left	+65	inglese; tamil; malese; cinese standard	English; Tamil; Malay; Standard Chinese	UTC+08:00	999; 995	G	230
+sint-eustatius-saba	bq	Oranjestad	Oranjestad	USD	dollaro degli Stati Uniti	United States dollar	right	+599	inglese; olandese; lingua papiamento	English; Dutch; Papiamento	UTC-04:00		A, B	110
+sint-maarten	sx	Philipsburg	Philipsburg	XCG	fiorino caraibico	Caribbean guilder	right	+1 721	inglese; olandese	English; Dutch	UTC-04:00		A, B	110
+siria	sy	Damasco	Damascus	SYP	lira siriana	Syrian pound	right	+963	arabo	Arabic	UTC+03:00	112; 113; 110	C, E, L	220
+slovacchia	sk	Bratislava	Bratislava	EUR	euro	euro	right	+421	slovacco	Slovak	UTC+01:00	112; 150; 155; 158	C, E	230
+slovenia	si	Lubiana	Ljubljana	EUR	euro	euro	right	+386	sloveno	Slovene	UTC+01:00	112; 113	C, F	230
+somalia	so	Mogadiscio	Mogadishu	SOS	scellino somalo	Somali shilling	right	+252	somalo; arabo	Somali; Arabic	UTC+03:00	999; 555; 888	C	220
+spagna	es	Madrid	Madrid	EUR	euro	euro	right	+34	spagnolo	Spanish	UTC+01:00	112; 061; 091	C, F	230
+sri-lanka	lk	Colombo; Sri Jayawardenapura Kotte	Colombo; Sri Jayawardenepura Kotte	LKR	rupia singalese	Sri Lankan rupee	left	+94	tamil; singalese	Tamil; Sinhala	UTC+05:30	119; 110	D, G, M	230
+stati-uniti-alabama	us	Montgomery	Montgomery	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-06:00	911	A, B	120
+stati-uniti-alaska	us	Juneau	Juneau	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-10:00; UTC-09:00	911	A, B	120
+stati-uniti-arizona	us	Phoenix	Phoenix	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-07:00	911	A, B	120
+stati-uniti-arkansas	us	Little Rock	Little Rock	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-06:00	911	A, B	120
+stati-uniti-california	us	Sacramento	Sacramento	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-08:00	911	A, B	120
+stati-uniti-carolina-del-nord	us	Raleigh	Raleigh	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-carolina-del-sud	us	Columbia	Columbia	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-colorado	us	Denver	Denver	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-07:00	911	A, B	120
+stati-uniti-connecticut	us	Hartford	Hartford	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-dakota-del-nord	us	Bismarck	Bismarck	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-07:00; UTC-06:00	911	A, B	120
+stati-uniti-dakota-del-sud	us	Pierre	Pierre	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-07:00; UTC-06:00	911	A, B	120
+stati-uniti-delaware	us	Dover	Dover	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-distretto-di-columbia	us			USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-florida	us	Tallahassee	Tallahassee	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-06:00; UTC-05:00	911	A, B	120
+stati-uniti-georgia	us	Atlanta	Atlanta	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-hawaii	us	Honolulu	Honolulu	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese; hawaiano	English; Hawaiian	UTC-10:00	911	A, B	120
+stati-uniti-idaho	us	Boise	Boise	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-08:00; UTC-07:00	911	A, B	120
+stati-uniti-illinois	us	Springfield	Springfield	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-06:00	911	A, B	120
+stati-uniti-indiana	us	Indianapolis	Indianapolis	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-06:00; UTC-05:00	911	A, B	120
+stati-uniti-iowa	us	Des Moines	Des Moines	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-06:00	911	A, B	120
+stati-uniti-kansas	us	Topeka	Topeka	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-07:00; UTC-06:00	911	A, B	120
+stati-uniti-kentucky	us	Frankfort	Frankfort	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-06:00; UTC-05:00	911	A, B	120
+stati-uniti-louisiana	us	Baton Rouge	Baton Rouge	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-06:00	911	A, B	120
+stati-uniti-maine	us	Augusta	Augusta	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-maryland	us	Annapolis	Annapolis	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-massachusetts	us	Boston	Boston	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-michigan	us	Lansing	Lansing	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-06:00; UTC-05:00	911	A, B	120
+stati-uniti-minnesota	us	Saint Paul	Saint Paul	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-06:00	911	A, B	120
+stati-uniti-mississippi	us	Jackson	Jackson	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-06:00	911	A, B	120
+stati-uniti-missouri	us	Jefferson City	Jefferson City	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-06:00	911	A, B	120
+stati-uniti-montana	us	Helena	Helena	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-07:00	911	A, B	120
+stati-uniti-nebraska	us	Lincoln	Lincoln	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-07:00; UTC-06:00	911	A, B	120
+stati-uniti-nevada	us	Carson City	Carson City	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-08:00; UTC-07:00	911	A, B	120
+stati-uniti-new-hampshire	us	Concord	Concord	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-new-jersey	us	Trenton	Trenton	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-new-york	us	Albany	Albany	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-nuovo-messico	us	Santa Fe	Santa Fe	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-07:00	911	A, B	120
+stati-uniti-ohio	us	Columbus	Columbus	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-oklahoma	us	Oklahoma City	Oklahoma City	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-06:00	911	A, B	120
+stati-uniti-oregon	us	Salem	Salem	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-08:00; UTC-07:00	911	A, B	120
+stati-uniti-pennsylvania	us	Harrisburg	Harrisburg	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-rhode-island	us	Providence	Providence	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-tennessee	us	Nashville	Nashville	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-06:00; UTC-05:00	911	A, B	120
+stati-uniti-texas	us	Austin	Austin	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-07:00; UTC-06:00	911	A, B	120
+stati-uniti-utah	us	Salt Lake City	Salt Lake City	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-07:00	911	A, B	120
+stati-uniti-vermont	us	Montpelier	Montpelier	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-virginia	us	Richmond	Richmond	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-virginia-occidentale	us	Charleston	Charleston	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-05:00	911	A, B	120
+stati-uniti-washington	us	Olympia	Olympia	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-08:00	911	A, B	120
+stati-uniti-wisconsin	us	Madison	Madison	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-06:00	911	A, B	120
+stati-uniti-wyoming	us	Cheyenne	Cheyenne	USD	dollaro degli Stati Uniti	United States dollar	right	+1	inglese	English	UTC-07:00	911	A, B	120
+sud-sudan	ss	Giuba	Juba	SSP	sterlina sudsudanese	South Sudanese pound	right	+211	inglese	English	UTC+02:00	911	C, D, G	230
+sudafrica	za	Pretoria; Città del Capo; Bloemfontein	Pretoria; Cape Town; Bloemfontein	ZAR	rand sudafricano	rand	left	+27	inglese; zulu; xhosa; afrikaans; venda; sotho del nord; swati; tswana; tsonga; sotho del sud; ndebele del sud; lingua dei segni sudafricana	English; Zulu; Xhosa; Afrikaans; Venda; Northern Sotho; Swazi; Tswana; Tsonga; Sesotho; Southern Ndebele; South African Sign Language	UTC+02:00; UTC+03:00	112	C, D, M, N	230
+sudan	sd	Khartum	Khartoum	SDG	sterlina sudanese	Sudanese pound	right	+249	inglese; arabo	English; Arabic	UTC+02:00	999	C, D	230
+suriname	sr	Paramaribo	Paramaribo	SRD	Dollaro surinamese	Surinamese dollar	left	+597	olandese	Dutch	UTC-03:00	112; 111; 113; 115; 110	C, F	127
+svalbard-jan-mayen	sj	Longyearbyen	Longyearbyen	NOK	corona norvegese	Norwegian krone	right	+47	norvegese	Norwegian	UTC+01:00		C, F	230
+svezia	se	Stoccolma	Stockholm	SEK	corona svedese	Swedish krona	right	+46	svedese	Swedish	UTC+01:00	112	C, F	230
+svizzera	ch	Berna	Bern	CHF	franco svizzero	Swiss franc	right	+41	francese; tedesco; italiano; romancio	French; German; Italian; Romansh	UTC+01:00	112; 117; 118; 144; 140; 145; 1414	C, J	230
+tagikistan	tj	Dušanbe	Dushanbe	TJS	somoni tagico	Tajikistani somoni	right	+992	tagico	Tajik	UTC+05:00	112	C, F, I	220
+taiwan	tw	Taipei	Taipei	TWD	Dollaro taiwanese	New Taiwan dollar	right	+886	cinese mandarino	Mandarin Chinese	UTC+08:00	112; 119; 110	A, B	110
+tanzania	tz	Dodoma	Dodoma	TZS	scellino tanzaniano	Tanzanian shilling	left	+255	inglese; swahili	English; Swahili	UTC+03:00	112; 114; 115	D, G	230
+thailandia	th	Bangkok	Bangkok	THB	baht thailandese	baht	left	+66	thailandese	Thai	UTC+07:00	191; 199; 1669	A, B, C, F	220
+timor-est	tl	Dili	Dili	USD	dollaro degli Stati Uniti; Centavo est timorense	United States dollar; East Timor centavo coins	left	+670	portoghese; tetum	Portuguese; Tetum	UTC+09:00	112	C, E, F, I	220
+togo	tg	Lomé	Lomé	XOF	franco CFA UEMOA	West African CFA franc	right	+228	francese	French	UTC+00:00	117; 118; 171; 172	C	220
+tokelau	tk			NZD	dollaro neozelandese	New Zealand dollar	left	+690	inglese; lingua tokelauana	English; Tokelauan	UTC+13:00		I	230
+tonga	to	Nukuʻalofa	Nukuʻalofa	TOP	pa'anga tongano	Tongan paʻanga	left	+676	inglese; tongano	English; Tongan	UTC+13:00	911; 999; 933; 922; 927; 928	I	240
+trinidad-tobago	tt	Port of Spain	Port of Spain	TTD	Dollaro di Trinidad e Tobago	Trinidad and Tobago dollar	left	+1 868	inglese	English	UTC-04:00	911; 999; 811; 990	A, B	115
+tunisia	tn	Tunisi	Tunis	TND	dinaro tunisino	Tunisian dinar	right	+216	arabo	Arabic	UTC+01:00	190; 193; 198; 197	C, E	230
+turchia	tr	Ankara	Ankara	TRY	lira turca	Turkish lira	right	+90	turco	Turkish	UTC+03:00	112; 177	C, F	230
+turkmenistan	tm	Aşgabat	Ashgabat	TMT	Manat turkmeno	Turkmenistan new manat	right	+993	turkmeno	Turkmen	UTC+05:00	112	B, C, F	220
+turks-caicos	tc	Cockburn Town	Cockburn Town	USD	dollaro degli Stati Uniti	United States dollar	left	+1 649	inglese	English	UTC-05:00	911	A, B	120
+tuvalu	tv	Funafuti	Funafuti	AUD	Dollaro di Tuvalu; dollaro australiano	Tuvaluan dollar; Australian dollar	left	+688	inglese; lingua tuvaluana	English; Tuvaluan	UTC+12:00	911	I	220
+ucraina	ua	Kiev	Kyiv	UAH	grivnia ucraina	hryvnia	right	+380	ucraino	Ukrainian	UTC+02:00	112; 101; 102; 103	C, F	230
+uganda	ug	Kampala	Kampala	UGX	scellino ugandese	Ugandan shilling	left	+256	inglese; swahili	English; Swahili	UTC+03:00	911; 112; 999	G	240
+ungheria	hu	Budapest	Budapest	HUF	fiorino ungherese	forint	right	+36	ungherese	Hungarian	UTC+01:00	112; 104; 105; 107	C, F	230
+uruguay	uy	Montevideo	Montevideo	UYU	peso uruguaiano	Uruguayan peso	right	+598	spagnolo	Spanish	UTC-03:00	911	C, F, I, L	230
+uzbekistan	uz	Tashkent	Tashkent	UZS	Som uzbeco	Uzbek som	right	+998	uzbeco	Uzbek	UTC+05:00	112	C, F, I	220
+vanuatu	vu	Port Vila	Port Vila	VUV	Vatu di Vanuatu	Vanuatu vatus	right	+678	francese; inglese; bislama	French; English; Bislama	UTC+11:00	112; 113; 11	C, G, I	220
+venezuela	ve	Caracas	Caracas	VES	bolívar sovrano	sovereign bolívar	right	+58	spagnolo	Spanish	UTC-04:00	911; 171	A, B	120
+vietnam	vn	Hanoi	Hanoi	VND	Đồng vietnamita	Vietnamese đồng	right	+84	vietnamita	Vietnamese	UTC+07:00	114; 113; 115	A, C, F, G	220
+wallis-futuna	wf	Mata Utu	Mata-Utu	XPF	Franco CFP	CFP Franc	right	+681	francese; futuniano; wallisiano	French; Futunan; Wallisian	UTC+12:00		C, E	230
+yemen	ye	Sana'a; Aden	Sanaa; Aden	YER	riyal yemenita	Yemeni Rial	right	+967	arabo	Arabic	UTC+03:00	199	A, D, G	230
+zambia	zm	Lusaka	Lusaka	ZMW	kwacha zambiano	Zambian Kwacha	left	+260	inglese	English	UTC+02:00	911; 112; 999; 991; 992; 993	C, D, G	230
+zimbabwe	zw	Harare	Harare	USD; ZWG	dollaro degli Stati Uniti; Zimbabwe Gold	United States dollar; Zimbabwe Gold	left	+263	inglese; xhosa; lingua ndau; venda; chewa; lingue khoisan; lingua kalanga; shona; Tonga; tswana; tsonga; sotho del sud; ndebele del nord; lingua nambya; Zimbabwe Sign Language; Barwe	English; Xhosa; Ndau; Venda; Chewa; Khoisan; Kalanga; Shona; Tonga; Tswana; Tsonga; Sesotho; Northern Ndebele; Nambya; Zimbabwe Sign Language; Barwe	UTC+02:00	999; 995; 994; 993	D, G	220

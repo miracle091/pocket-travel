@@ -200,10 +200,15 @@ class GenerateGuideContentTest {
 
         val fattiRapidi = guide.sections.single { it.category == "FATTI_RAPIDI" }
         assertEquals("Fatti rapidi", fattiRapidi.title)
+        // Campi della pagina Wikivoyage, gli altri da Wikidata (countries.tsv), in ordine fisso.
         assertEquals(
-            "Lingua: Italiano, Tedesco (Trentino-Alto Adige)\n" +
+            "Capitale: Roma\n" +
+                "Lingua: Italiano, Tedesco (Trentino-Alto Adige)\n" +
                 "Elettricità: 230V/50Hz (presa italiana, europea e tedesca)\n" +
                 "Fuso orario: UTC+1\n" +
+                "Valuta: euro (EUR)\n" +
+                "Prefisso telefonico: +39\n" +
+                "Lato di guida: destra\n" +
                 "Numeri di emergenza: Generale 112, Polizia 113, Ambulanza 118, Vigili del fuoco 115",
             fattiRapidi.body,
         )
@@ -273,12 +278,17 @@ class GenerateGuideContentTest {
         val section = englishQuickFactsSection("italia", dump)
         assertEquals("Quick facts", section?.title)
         assertEquals(
-            "Language: Italian\nElectricity: 230V/50Hz (European plug)\nTime zone: UTC+1\n" +
-                "Emergency numbers: General 112, Police 113, Ambulance 118, Fire 115",
+            "Capital: Rome\nLanguage: Italian\nElectricity: 230V/50Hz (European plug)\nTime zone: UTC+1\nCurrency: euro (EUR)\n" +
+                "Calling code: +39\nDriving side: right\nEmergency numbers: General 112, Police 113, Ambulance 118, Fire 115",
             section?.body,
         )
-        assertEquals("Emergency numbers: General 112, Police 113, Ambulance 118, Fire 115", englishQuickFactsSection("italia", "")?.body)
-        assertEquals(null, englishQuickFactsSection("iraq", ""))
+        // Senza pagina italiana, e per i campi italiani non traducibili, i dati di Wikidata.
+        assertEquals(
+            "Capital: Rome\nLanguage: Italian\nElectricity: 230 V, plug types C, F, L\nTime zone: UTC+1\nCurrency: euro (EUR)\n" +
+                "Calling code: +39\nDriving side: right\nEmergency numbers: General 112, Police 113, Ambulance 118, Fire 115",
+            englishQuickFactsSection("italia", "{{QuickbarCountry\n|Elettricità=dipende dalla zona\n}}")?.body,
+        )
+        assertEquals(null, englishQuickFactsSection("regione-sconosciuta", ""))
     }
 
     @Test

@@ -148,8 +148,8 @@ OFF_TOPIC_SOURCES = {
 TRAVEL_STEMS = ("travel", "touris", "vacation", "holiday", "trip", "abroad", "visit", "city", "cities", "country",
                 "countries", "nation")
 
-# Fatti rapidi di guides-en.db ("Campo: valore" per riga). Nel catalogo EN ci sono solo Electricity e Time zone;
-# Language ed Emergency numbers servono se compaiono.
+# Fatti rapidi di guides-en.db ("Campo: valore" per riga), solo i campi qui sotto: gli altri (Capital, Currency,
+# Calling code, Driving side, da Wikidata) restano fuori dalle domande.
 QUICK_FACT_QUESTIONS = {
     "Language": ["What language is spoken in {r}?", "Which languages do people speak in {r}?", "What language do they use in {r}?"],
     "Electricity": ["What plugs are used in {r}?", "Do I need a plug adapter for {r}?", "What is the voltage in {r}?"],

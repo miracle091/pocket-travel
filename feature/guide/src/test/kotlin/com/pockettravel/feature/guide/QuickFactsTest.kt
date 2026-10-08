@@ -45,6 +45,17 @@ class QuickFactsTest {
     }
 
     @Test
+    fun `campi da Wikidata con la capitale in testa e i trasporti in fondo`() {
+        val body = "Lingua: Italiano\nCapitale: Roma\nLato di guida: destra\nPrefisso telefonico: +39\nValuta: euro (EUR)\nFuso orario: UTC+1"
+        val extra = QuickFactsExtra(language = null, currency = null, transport = "• treno")
+        assertEquals(
+            "Capitale: Roma\nLingua: Italiano\nFuso orario: GMT+1\nValuta: euro (EUR)\nPrefisso telefonico: +39\nLato di guida: destra\n" +
+                "Trasporti principali: • treno",
+            quickFactsBody(body, extra),
+        )
+    }
+
+    @Test
     fun `senza campi riconoscibili vale la lingua dell'interfaccia`() {
         assertEquals(QuickFactsLabels.ENGLISH, QuickFactsLabels.of("", "en"))
         assertEquals(QuickFactsLabels.ITALIAN, QuickFactsLabels.of("Lingua: Italiano", "en"))

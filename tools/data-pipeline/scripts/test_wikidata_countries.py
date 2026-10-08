@@ -70,7 +70,19 @@ RISPOSTE = {
 }
 
 
+# Elementi delle pagine Wikivoyage EN delle regioni divise: la California ha capitale e fuso, le Canarie no.
+SITELINK = [{"item": E + "Q99", "name": "California"}, {"item": E + "Q5813", "name": "Canary Islands"}]
+REGIONALI = {
+    "P36": [riga("Q99", "Q18013", it="Sacramento", en="Sacramento")],
+    "P421": [riga("Q99", "Q2", en="UTC−08:00")],
+}
+
+
 def finto_endpoint(query, user_agent):
+    if "schema:isPartOf" in query:
+        return SITELINK
+    if "wd:Q99" in query:
+        return next(rows for prop, rows in REGIONALI.items() if f"p:{prop} ?st" in query)
     if "wdt:P297" in query:
         return [{"c": E + c, "iso": iso} for c, iso in
                 (("Q38", "IT"), ("Q29", "ES"), ("Q30", "US"), ("Q644636", "IT"), ("Q142", "FR"))]
@@ -80,42 +92,79 @@ def finto_endpoint(query, user_agent):
     raise AssertionError(query)
 
 
-COLONNE = ["regionId", "iso2", "capital_it", "capital_en", "currency", "currency_it", "currency_en", "driving",
-           "calling_code", "languages_it", "languages_en", "timezones", "emergency", "plugs", "voltage"]
+COLONNE = wikidata_countries.COLONNE
 
 
 class RaccogliTest(unittest.TestCase):
     def setUp(self):
+        self.rows = self.raccogli({})
+
+    def raccogli(self, correzioni):
         regions = wikidata_countries.regioni(REGIONS_SH)
-        with mock.patch("sys.stderr"):
+        with mock.patch("sys.stderr"), mock.patch.object(wikidata_countries, "CORREZIONI", correzioni):
             rows = wikidata_countries.raccogli(regions, "test", run=finto_endpoint)
-        self.rows = {r[0]: dict(zip(COLONNE, r)) for r in rows}
+        return {r[0]: dict(zip(COLONNE, r)) for r in rows}
 
     def test_regioni_solo_da_all_regions(self):
-        self.assertEqual(wikidata_countries.regioni(REGIONS_SH)[0], ("italia", "it"))
+        self.assertEqual(wikidata_countries.regioni(REGIONS_SH)[0], ("italia", "it", "Italy"))
         self.assertEqual(len(wikidata_countries.regioni(REGIONS_SH)), 5)
 
     def test_regioni_ereditano_dal_paese_e_codice_sconosciuto_scartato(self):
         self.assertEqual(sorted(self.rows), ["isole-canarie", "italia", "stati-uniti-california", "stati-uniti-texas"])
         cal, tex = self.rows["stati-uniti-california"], self.rows["stati-uniti-texas"]
-        self.assertEqual({k: v for k, v in cal.items() if k != "regionId"}, {k: v for k, v in tex.items() if k != "regionId"})
+        diversi = {"regionId", "capital_it", "capital_en", "timezones"}
+        self.assertEqual({k: v for k, v in cal.items() if k not in diversi}, {k: v for k, v in tex.items() if k not in diversi})
         self.assertEqual(self.rows["isole-canarie"]["iso2"], "es")
-        self.assertEqual(self.rows["isole-canarie"]["capital_it"], "Madrid")
+        # Parti del paese senza una capitale propria (Canarie e Texas qui): nessuna, non quella del paese.
+        self.assertEqual(self.rows["isole-canarie"]["capital_it"], "")
+        self.assertEqual(self.rows["stati-uniti-texas"]["capital_en"], "")
+
+    def test_regioni_divise_con_capitale_e_fusi_propri(self):
+        cal = self.rows["stati-uniti-california"]
+        self.assertEqual((cal["capital_it"], cal["capital_en"], cal["timezones"]), ("Sacramento", "Sacramento", "UTC-08:00"))
+        self.assertEqual(wikidata_countries.divise(wikidata_countries.regioni(REGIONS_SH)),
+                         {"isole-canarie": "Canary_Islands", "stati-uniti-california": "California", "stati-uniti-texas": "Texas"})
+
+    def test_correzioni_per_paese_poi_per_regione(self):
+        rows = self.raccogli({"us": {"languages_it": "inglese", "timezones": "UTC-06:00"},
+                              "stati-uniti-california": {"timezones": "UTC-07:00"}})
+        self.assertEqual(rows["stati-uniti-texas"]["languages_it"], "inglese")
+        self.assertEqual(rows["stati-uniti-texas"]["timezones"], "UTC-06:00")
+        self.assertEqual(rows["stati-uniti-california"]["timezones"], "UTC-07:00")
+        self.assertEqual(rows["italia"]["timezones"], "UTC+01:00")
+
+    def test_correzioni_vere_con_colonne_note(self):
+        for chiave, campi in wikidata_countries.CORREZIONI.items():
+            self.assertLessEqual(set(campi), set(COLONNE[2:]), chiave)
 
     def test_codice_ripetuto_vince_il_qid_piu_basso(self):
         self.assertEqual(self.rows["italia"]["capital_en"], "Rome")
 
     def test_rango_preferito_ed_etichette(self):
-        us = self.rows["stati-uniti-texas"]
-        self.assertEqual((us["capital_it"], us["capital_en"]), ("Washington", "Washington, D.C."))
+        us = wikidata_countries.valori(RISPOSTE["P36"])["Q30"]
+        self.assertEqual([(v["it"], v["en"]) for v in us], [("Washington", "Washington, D.C.")])
         es = self.rows["isole-canarie"]
         self.assertEqual((es["languages_it"], es["languages_en"]), ("Español", "Español"))
         self.assertEqual((self.rows["italia"]["currency"], self.rows["italia"]["currency_it"]), ("EUR", "euro"))
 
     def test_fusi_normalizzati_senza_ora_legale(self):
         self.assertEqual(self.rows["italia"]["timezones"], "UTC+01:00")
+        # Le Canarie e il Texas non hanno fusi propri qui: quelli del paese.
         self.assertEqual(self.rows["isole-canarie"]["timezones"], "UTC+00:00; UTC+01:00")
         self.assertEqual(self.rows["stati-uniti-texas"]["timezones"], "UTC-05:00; UTC-03:30")
+
+    def test_codici_valuta_nell_ordine_dei_nomi(self):
+        dati = {p: {} for p in wikidata_countries.PROPRIETA}
+        dati["P38"] = wikidata_countries.valori([riga("Q1013", "Q181907", it="loti", en="loti", x="LSL"),
+                                                  riga("Q1013", "Q81893", it="rand", en="rand", x="ZAR")])
+        campi = dict(zip(COLONNE[2:], wikidata_countries.fatti(dati, "Q1013", set())))
+        self.assertEqual((campi["currency"], campi["currency_it"]), ("ZAR; LSL", "rand; loti"))
+
+    def test_avviso_per_titolo_senza_elemento(self):
+        with mock.patch("sys.stderr") as err:
+            wikidata_countries.raccogli(wikidata_countries.regioni(REGIONS_SH), "test", run=finto_endpoint)
+        testo = "".join(c.args[0] for c in err.write.call_args_list)
+        self.assertIn("nessun elemento Wikidata per la pagina Wikivoyage EN 'Texas'", testo)
 
     def test_prese_in_lettere(self):
         self.assertEqual(self.rows["italia"]["plugs"], "C, F, L")
@@ -191,6 +240,7 @@ class NormalizzazioniTest(unittest.TestCase):
         self.assertEqual(wikidata_countries.prefisso("+1-340"), "+1 340")
         self.assertEqual(wikidata_countries.prefisso("+44 1481"), "+44 1481")
         self.assertEqual(wikidata_countries.prefisso("nessuno"), "")
+        self.assertEqual(wikidata_countries.prefisso("+1787"), "+1 787")
 
 
 class MainTest(unittest.TestCase):
@@ -204,7 +254,8 @@ class MainTest(unittest.TestCase):
         codice, out = self.esegui([["r%d" % i, "it", "Roma", "Rome"] + [""] * 11 for i in range(wikidata_countries.MIN_ROWS)])
         self.assertEqual(codice, 0)
         with open(out, encoding="utf-8") as f:
-            self.assertEqual(len(f.read().splitlines()), wikidata_countries.MIN_ROWS)
+            righe = [r for r in f.read().splitlines() if not r.startswith("#")]
+        self.assertEqual(len(righe), wikidata_countries.MIN_ROWS)
         self.assertFalse(os.path.exists(out + ".tmp"))
 
     def test_poche_capitali_esce_con_1_senza_scrivere(self):

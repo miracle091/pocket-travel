@@ -16,19 +16,28 @@ internal data class QuickFactsExtra(val language: String?, val currency: String?
  * nella pipeline), con [locale] per i valori aggiunti dall'app (lingua e valuta).
  */
 internal data class QuickFactsLabels(
+    val capital: String,
     val language: String,
     val electricity: String,
     val timeZone: String,
     val currency: String,
+    val callingCode: String,
+    val drivingSide: String,
     val transport: String,
     val emergency: String,
     val locale: Locale,
 ) {
-    val order get() = listOf(language, electricity, timeZone, currency, transport)
+    val order get() = listOf(capital, language, electricity, timeZone, currency, callingCode, drivingSide, transport)
 
     companion object {
-        val ITALIAN = QuickFactsLabels("Lingua", "Elettricità", "Fuso orario", "Valuta", "Trasporti principali", "Numeri di emergenza", Locale.ITALIAN)
-        val ENGLISH = QuickFactsLabels("Language", "Electricity", "Time zone", "Currency", "Main transport", "Emergency numbers", Locale.ENGLISH)
+        val ITALIAN = QuickFactsLabels(
+            "Capitale", "Lingua", "Elettricità", "Fuso orario", "Valuta", "Prefisso telefonico", "Lato di guida",
+            "Trasporti principali", "Numeri di emergenza", Locale.ITALIAN,
+        )
+        val ENGLISH = QuickFactsLabels(
+            "Capital", "Language", "Electricity", "Time zone", "Currency", "Calling code", "Driving side",
+            "Main transport", "Emergency numbers", Locale.ENGLISH,
+        )
 
         /** Dai campi del testo pubblicato; senza campi riconoscibili, dalla lingua dell'interfaccia. */
         fun of(body: String, uiLanguage: String): QuickFactsLabels {

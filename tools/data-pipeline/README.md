@@ -154,11 +154,18 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   (P1082); la capitale della regione da Wikidata (P36). Finiscono nelle colonne `population` e `capital` di
   `cities.db`; senza dati la città resta senza popolazione. Le coordinate (Wikidata P625) finiscono nelle colonne
   `latitude` e `longitude`: con queste l'assistente calcola la distanza tra due città nominate in una domanda.
-- **Dati dei paesi**: `scripts/wikidata_countries.py --out countries.tsv` scrive da Wikidata (CC0) una riga per
-  regione di `regions.sh` con capitale, valuta, lato di guida, prefisso, lingue ufficiali, fusi, numeri di emergenza,
-  prese e tensione, con le etichette in italiano e in inglese. Fusi normalizzati come `UTC+01:00` (ora solare), prese
-  come lettere A-N; le regioni dei paesi divisi (stati USA, province...) e le Canarie ereditano i dati del paese.
-  Non ancora usato dalla generazione delle guide.
+- **Dati dei paesi**: `scripts/wikidata_countries.py --out content/src/main/resources/countries.tsv` scrive da
+  Wikidata (CC0) una riga per regione di `regions.sh` con capitale, valuta, lato di guida, prefisso, lingue ufficiali,
+  fusi, numeri di emergenza, prese e tensione, con le etichette in italiano e in inglese. Fusi normalizzati come
+  `UTC+01:00` (ora solare), prese come lettere A-N; le regioni dei paesi divisi (stati USA, province...) e le Canarie
+  prendono capitale e fusi dal proprio elemento Wikidata (senza una capitale propria restano senza), il resto dal
+  paese; gli errori noti di Wikidata sono corretti dalla tabella `CORREZIONI` dello script, e lo script avvisa delle
+  regioni senza elemento. Il TSV è un file curato: si rigenera a mano (non nel job delle guide) e si rivede il diff
+  prima del commit. `GenerateCountryFacts.kt` lo usa per i Fatti rapidi di `guides.db` e `guides-en.db`: i campi
+  della pagina Wikivoyage italiana restano (lingua, elettricità, fuso e valuta nella guida italiana; nella inglese
+  lingua, elettricità e fuso quando si possono tradurre), Wikidata aggiunge capitale, prefisso, lato di guida e i
+  campi mancanti. I numeri di emergenza restano quelli di
+  `emergency-numbers.tsv`.
 - **Storia e clima delle città**: `scripts/city_wikipedia.py`, usato dagli stessi due script, trova la voce di
   Wikipedia (IT o EN) della città dal sitelink dell'elemento Wikidata della pagina di Wikivoyage e ne prende le sezioni
   Storia e Clima (History e Climate in inglese) dall'API di Wikipedia, a lotti: i dump completi (IT ~5 GB, EN ~24 GB)

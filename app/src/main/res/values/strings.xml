@@ -235,7 +235,7 @@
     <string name="licenses_note_wikivoyage">Testo degli autori di Wikivoyage, con il link a ogni pagina usata tra le fonti della guida. Le sezioni sono adattate (estratte e ripulite dalla formattazione); alcune sono tradotte automaticamente dalla pagina nell\'altra lingua (italiano o inglese) con i modelli opus-mt-tc-big di Helsinki-NLP. Anche il testo adattato e tradotto è distribuito con licenza CC BY-SA 4.0.</string>
     <string name="licenses_component_wikipedia">Wikipedia (storia e clima delle città)</string>
     <string name="licenses_note_wikipedia">Testo degli autori di Wikipedia: sezioni Storia (accorciata) e Clima della voce di ogni città, con il link alla voce tra le fonti della guida. Se la sezione manca o è povera, è tradotta automaticamente dalla voce nell\'altra lingua, come per Wikivoyage. Anche il testo adattato e tradotto è distribuito con licenza CC BY-SA 4.0.</string>
-    <string name="licenses_component_wikidata">Wikidata (ambasciate e consolati)</string>
+    <string name="licenses_component_wikidata">Wikidata (ambasciate e consolati, Fatti rapidi delle guide)</string>
     <string name="licenses_note_wikidata">Pubblico dominio: l\'attribuzione non è obbligatoria, ma la fonte è Wikidata</string>
     <string name="licenses_component_weather">Meteo: Open-Meteo.com (previsioni) e GeoNames (posizione delle città)</string>
     <string name="licenses_note_weather">Weather data by Open-Meteo.com, uso non commerciale. Coordinate delle città dal geocoding di Open-Meteo, basato su GeoNames.</string>
