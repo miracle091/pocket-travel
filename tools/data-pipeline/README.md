@@ -117,8 +117,28 @@ regioni pubblicate, perché partenza e scali di un viaggio possono essere paesi 
 `GenerateVaccinationsTest`. `scripts/vaccinations_draft.py` scarica i dati di Travel.gc.ca e produce solo bozze da
 rivedere a mano: non vanno copiate nel repository così come sono.
 
+Requisiti polio in ingresso senza fonte aperta e attuale (ricerca del 2026-10-08): `polio-entry.tsv` non ha righe per
+Egitto, Nepal, Iran e India. Cosa dicono le fonti:
+- OMS, elenco per paese del 2022: CC BY-NC-SA 3.0 IGO, non usabile.
+- FCDO (Open Government Licence v3.0): per India, Nepal e Iran il vaccino serve a chi arriva da un paese colpito dalla
+  polio, senza elenco di paesi, tipo di vaccino o finestra; per l'Egitto nulla. TravelHealthPro rimanda all'OMS.
+- Travel.gc.ca, scheda "Entry and exit requirements" dell'India: 8 paesi di provenienza (Afghanistan, RD Congo,
+  Etiopia, Kenya, Nigeria, Pakistan, Somalia, Siria), che non coincidono con l'ordine del Ministero della salute
+  indiano del 10 giugno 2024 (OPV o IPV almeno 4 settimane prima, certificato valido un anno, per chi ha il passaporto
+  o risiede in Afghanistan, Pakistan, Camerun, Nigeria, Malawi, Mozambico, Madagascar, Congo, RD Congo, Somalia e
+  Siria). L'ordine è "All Rights Reserved", quindi serve solo da controllo.
+- France Diplomatie, schede "Santé" (Licence Ouverte 2.0, riuso commerciale ammesso): elenchi per Egitto (Afghanistan,
+  Nigeria, Pakistan, Papua Nuova Guinea, Somalia; Kenya, Niger, RD Congo, Siria) e Nepal (Afghanistan, Kenya, Nigeria,
+  Pakistan, Papua Nuova Guinea, Somalia) che sembrano fermi al 2018-2019 e per l'Egitto non coincidono con quanto
+  riportato dalla stampa nel 2023; per l'India solo vaccino orale per i residenti dei paesi colpiti, per l'Iran nulla.
+- Senza dati sulla polio in ingresso o con licenza non compatibile: Smartraveller, SafeTravel, FORTH (Giappone),
+  KDCA, Irlanda, Spagna, Wikipedia e Wikivoyage, International SOS, IATA Timatic.
+
+Il controllo deriva segnala quando Travel.gc.ca cambia la sezione polio della scheda d'ingresso (vedi sotto).
+
 Il controllo deriva `scripts/vaccinations_drift.py` confronta le fonti con l'istantanea `vaccinations-drift.tsv`
-(per ogni paese, le frasi di Travel.gc.ca su febbre gialla e polio e l'elenco dei vaccini, più l'hash del PDF
+(per ogni paese, le frasi di Travel.gc.ca su febbre gialla e polio e l'elenco dei vaccini della scheda "Health", la
+sezione polio della scheda "Entry and exit requirements", più l'hash del PDF
 saudita per Hajj e Umrah) e controlla che l'OMS non abbia pubblicato uno statement polio più recente di quello di
 `polio-status.tsv`. Gira nel job `vaccinations-check` di publish-regions, col bucket del lunedì e nelle run manuali:
 se qualcosa è cambiato lascia un warning e il resoconto nel riepilogo della run, senza toccare i TSV e senza

@@ -26,16 +26,22 @@ HEALTH = (details("Yellow Fever - Country Entry Requirements",
           + details("Polio", "Category A country.<br>Polio is spread from person to person.")
           + details("Typhoid fever", "x") + details("Hepatitis A", "y") + details("Measles", "z"))
 
+ENTRY_EXIT = ("<h3>Visas</h3><p>Visa required.</p><h3>Poliomyelitis</h3><p>You may need proof of polio vaccination "
+              "if you are arriving from:</p><ul><li>Afghanistan</li><li>Pakistan</li></ul><p>Confirm before travelling."
+              "</p><h4>Useful links</h4><ul><li><a href=\"x\">Poliomyelitis</a></li></ul><h3>Yellow fever</h3><p>See health.</p>")
+
 
 class FingerprintsTest(unittest.TestCase):
     def test_frasi_della_scheda(self):
         self.assertEqual({("yf", "ke"): "There is a risk of yellow fever. | Proof is required.",
                           ("polio", "ke"): "Category A country.",
-                          ("vaccini", "ke"): "HEPA TYPHOID"}, drift.fingerprints_of("ke", HEALTH))
+                          ("polio-ingresso", "ke"): "You may need proof of polio vaccination if you are arriving from: / "
+                                                    "Afghanistan / Pakistan / Confirm before travelling.",
+                          ("vaccini", "ke"): "HEPA TYPHOID"}, drift.fingerprints_of("ke", HEALTH, ENTRY_EXIT))
 
     def test_scheda_senza_blocchi(self):
-        self.assertEqual({("yf", "it"): "", ("polio", "it"): "", ("vaccini", "it"): ""},
-                         drift.fingerprints_of("it", "<p>niente</p>"))
+        self.assertEqual({("yf", "it"): "", ("polio", "it"): "", ("polio-ingresso", "it"): "", ("vaccini", "it"): ""},
+                         drift.fingerprints_of("it", "<p>niente</p>", "<h3>Visas</h3><p>No polio here.</p>"))
 
 
 class BaselineTest(unittest.TestCase):
@@ -91,7 +97,8 @@ class MainTest(unittest.TestCase):
         cache = tmp / "cache"
         cache.mkdir(exist_ok=True)
         (cache / "index-alpha-eng.json").write_text(json.dumps({"data": {"KE": {}, "CA-ON": {}}}), encoding="utf-8")
-        (cache / "cta-cap-ke.json").write_text(json.dumps({"data": {"eng": {"health": HEALTH}}}), encoding="utf-8")
+        (cache / "cta-cap-ke.json").write_text(json.dumps({"data": {"eng": {"health": HEALTH, "entry-exit": ENTRY_EXIT}}}),
+                                               encoding="utf-8")
         polio = tmp / "polio-status.tsv"
         polio.write_text("ke\tPREVIOUSLY_INFECTED\tIHR EC 45, 2026-08-21\tF3\t2026-10-03\n", encoding="utf-8")
         sources = {drift.WHO_COMMITTEE: who_page, drift.HAJJ_PDF: pdf}
@@ -109,6 +116,7 @@ class MainTest(unittest.TestCase):
             baseline = drift.read_baseline(Path(tmp) / "baseline.tsv")
             self.assertEqual(hashlib.sha256(b"pdf").hexdigest(), baseline[("hajj-pdf", "sa")])
             self.assertNotIn(("yf", "ca-on"), baseline)
+            self.assertIn("Afghanistan / Pakistan", baseline[("polio-ingresso", "ke")])
             self.assertEqual(0, self.run_main(tmp, page))
             self.assertFalse((Path(tmp) / "report.md").exists())
 

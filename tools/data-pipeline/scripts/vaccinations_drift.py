@@ -4,7 +4,8 @@ content/src/main/resources/vaccinations/. Non modifica mai i TSV: chi li aggiorn
 
 Confronta con l'istantanea vaccinations-drift.tsv (accanto a transit-feeds.tsv):
 - Travel.gc.ca (Open Government Licence - Canada), per ogni paese: rischio e requisito d'ingresso della
-  febbre gialla, primo paragrafo del blocco polio, elenco dei vaccini con un blocco proprio;
+  febbre gialla, primo paragrafo del blocco polio, elenco dei vaccini con un blocco proprio (scheda "Health"),
+  sezione polio della scheda "Entry and exit requirements";
 - l'hash del PDF dei requisiti sanitari per Hajj e Umrah del Ministero della salute saudita.
 Controlla inoltre che la pagina del Polio IHR Emergency Committee dell'OMS non elenchi uno statement
 piu' recente di quello in polio-status.tsv (colonna statement, "IHR EC <numero>, <data>").
@@ -36,6 +37,7 @@ HAJJ_PDF = "https://www.moh.gov.sa/HealthAwareness/Pilgrims-Health/Documents/Haj
 TSV_TO_CHECK = {
     "yf": "yf-entry.tsv, yf-risk.tsv",
     "polio": "polio-status.tsv, polio-entry.tsv",
+    "polio-ingresso": "polio-entry.tsv, polio-status.tsv",
     "vaccini": "recommended.tsv",
     "hajj-pdf": "special-entry.tsv, polio-entry.tsv",
 }
@@ -52,7 +54,16 @@ def one_line(text: str) -> str:
     return re.sub(r"\s+", " ", text.replace("\n", " / ")).strip()
 
 
-def fingerprints_of(iso2: str, health: str) -> dict[tuple[str, str], str]:
+def entry_polio(entry_exit: str) -> str:
+    """La sezione polio della scheda "Entry and exit requirements" (prova di vaccinazione all'ingresso, come l'India,
+    o all'uscita, come il Pakistan), senza i link utili in coda."""
+    match = re.search(r"<h3[^>]*>\s*Polio[^<]*</h3>(.*?)(?=<h3|$)", entry_exit, re.S | re.I)
+    if not match:
+        return ""
+    return one_line(vd.text_of(re.split(r"<h4[^>]*>\s*Useful links", match.group(1), flags=re.I)[0]))
+
+
+def fingerprints_of(iso2: str, health: str, entry_exit: str) -> dict[tuple[str, str], str]:
     """Le frasi di una scheda Travel.gc.ca che i TSV riassumono, una per tipo."""
     blocks = vd.blocks_of(health)
     yf_block = next((v for k, v in blocks.items() if k.lower().startswith("yellow fever")), "")
@@ -62,6 +73,7 @@ def fingerprints_of(iso2: str, health: str) -> dict[tuple[str, str], str]:
     return {
         ("yf", iso2): one_line(f"{yf['risk']} | {yf['entry']}") if yf_block else "",
         ("polio", iso2): one_line(polio_block.split("\n")[0]) if polio_block else "",
+        ("polio-ingresso", iso2): entry_polio(entry_exit),
         ("vaccini", iso2): " ".join(sorted(vaccines)),
     }
 
@@ -85,7 +97,8 @@ def collect(cache: Path) -> dict[tuple[str, str], str]:
     for iso2 in sorted(code.lower() for code in index if "-" not in code):
         body = vd.fetch(f"cta-cap-{iso2}.json", cache)
         if body:
-            result.update(fingerprints_of(iso2, json.loads(body)["data"]["eng"].get("health") or ""))
+            eng = json.loads(body)["data"]["eng"]
+            result.update(fingerprints_of(iso2, eng.get("health") or "", eng.get("entry-exit") or ""))
     pdf = download(HAJJ_PDF)
     result[("hajj-pdf", "sa")] = hashlib.sha256(pdf).hexdigest() if isinstance(pdf, bytes) else pdf
     return result
