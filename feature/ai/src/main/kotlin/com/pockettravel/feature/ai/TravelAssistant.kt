@@ -16,6 +16,8 @@ import com.pockettravel.core.data.GuideRepository
 import com.pockettravel.core.data.GuideSection
 import com.pockettravel.core.data.GuideSourceSite
 import com.pockettravel.core.data.guideSourceSiteOf
+import com.pockettravel.core.data.guideSourceUrlWithoutAudience
+import com.pockettravel.core.data.isGuideSectionFor
 import com.pockettravel.core.data.LastKnownPosition
 import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.Note
@@ -109,8 +111,9 @@ class TravelAssistant @Inject constructor(
         val sections = if (ftsQuery.isBlank()) {
             emptyList()
         } else {
+            val nationality = nationalityPreferences.nationality.value
             rankSections(
-                guideRepository.searchCandidates(regionId, ftsQuery),
+                guideRepository.searchCandidates(regionId, ftsQuery).filter { isGuideSectionFor(it.first.sourceUrl, nationality) },
                 if (withCityName) cityCandidates(regionId, ftsQuery, cities) else topicMatches,
                 MAX_SECTIONS,
                 countryFirst = cities.isEmpty(),
@@ -529,18 +532,20 @@ internal data class AssistantSection(
 private fun AssistantSection.isRegulatedTopic(): Boolean =
     category == GuideCategory.DOGANE || category == GuideCategory.SALUTE
 
-// CC BY-SA 4.0 (e la OGL-Canada per travel.gc.ca) impone di indicare la fonte: titolo + link alla pagina originale, non
+// CC BY-SA 4.0 (e la OGL-Canada per travel.gc.ca, la OGL v3.0 per gov.uk) impone di indicare la fonte: titolo + link alla pagina originale, non
 // solo il nome del sito.
 private fun GuideSection.toAssistantSection(language: String): AssistantSection {
     val site = when (guideSourceSiteOf(sourceUrl)) {
         GuideSourceSite.WIKIVOYAGE -> "Wikivoyage"
         GuideSourceSite.WIKIPEDIA -> "Wikipedia"
         GuideSourceSite.TRAVEL_GC_CA -> if (language == "en") "Government of Canada (travel.gc.ca)" else "Governo del Canada (travel.gc.ca)"
+        GuideSourceSite.FCDO -> if (language == "en") "UK government (gov.uk)" else "Governo del Regno Unito (gov.uk)"
     }
+    val url = guideSourceUrlWithoutAudience(sourceUrl)
     return AssistantSection(
         body = body,
         category = category,
-        citation = if (language == "en") "Source: $site, section $title — $sourceUrl" else "Fonte: $site, sezione $title — $sourceUrl",
+        citation = if (language == "en") "Source: $site, section $title — $url" else "Fonte: $site, sezione $title — $url",
     )
 }
 

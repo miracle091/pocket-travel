@@ -221,6 +221,8 @@
     <string name="licenses_component_emergency_uk">Emergency numbers: gov.uk Foreign travel advice (UK Government)</string>
     <string name="licenses_component_travel_advice">English guides, travel advice: Travel.gc.ca (Government of Canada)</string>
     <string name="licenses_note_travel_advice">Contains information licensed under the Open Government Licence – Canada. Adapted text (without the parts for Canadian citizens), not endorsed by the Government of Canada.</string>
+    <string name="licenses_component_travel_advice_uk">English guides, travel advice for Palestine, Pitcairn, Wallis and Futuna: gov.uk Foreign travel advice (FCDO, UK government)</string>
+    <string name="licenses_note_travel_advice_uk">Contains public sector information licensed under the Open Government Licence v3.0. Adapted text (without the parts for British citizens), not endorsed by the Foreign, Commonwealth &amp; Development Office.</string>
     <string name="licenses_component_vaccinations_canada">Vaccinations: Travel.gc.ca (Government of Canada)</string>
     <string name="licenses_note_vaccinations_canada">Contains information licensed under the Open Government Licence – Canada. Facts rewritten in our own words and cross-checked with other sources.</string>
     <string name="licenses_component_vaccinations_uk">Vaccinations: TravelHealthPro (UKHSA / NaTHNaC)</string>

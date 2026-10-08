@@ -17,6 +17,7 @@ import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.Poi
 import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.isGuideSectionFor
 import com.pockettravel.core.poi.PoiCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -99,6 +100,8 @@ class GuideViewModel @Inject constructor(
     private var cityWeatherJob: Job? = null
     private var citySectionsJob: Job? = null
     private var loadedCityKey: Pair<String, String>? = null
+    // Tutte le sezioni della regione: in uiState solo quelle per la nazionalita' scelta (isGuideSectionFor).
+    private var allSections: List<GuideSection> = emptyList()
 
     fun load(regionId: String) {
         if (loadedForRegionId == regionId) return
@@ -125,7 +128,15 @@ class GuideViewModel @Inject constructor(
                     emptyList()
                 }
                 val position = if (country != null) lastKnownPosition.get() else null
-                _uiState.update { it.copy(embassiesCountry = country, embassies = embassies, missions = missions, position = position) }
+                _uiState.update {
+                    it.copy(
+                        embassiesCountry = country,
+                        embassies = embassies,
+                        missions = missions,
+                        position = position,
+                        sections = allSections.filter { section -> isGuideSectionFor(section.sourceUrl, nationality) },
+                    )
+                }
             }
         }
         weatherJob?.cancel()
@@ -149,7 +160,9 @@ class GuideViewModel @Inject constructor(
 
     private suspend fun loadSections(regionId: String) {
         try {
-            val sections = guideRepository.sectionsFor(regionId)
+            allSections = guideRepository.sectionsFor(regionId)
+            val nationality = nationalityPreferences.nationality.value
+            val sections = allSections.filter { isGuideSectionFor(it.sourceUrl, nationality) }
             val emergencyNumbers = emergencyNumbersRepository.forRegion(regionId)
             val noCentralEmergencyNumber = emergencyNumbers == null && emergencyNumbersRepository.hasNoCentralNumber(regionId)
             val countryCode = regionRepository.installed(regionId)?.countryCode

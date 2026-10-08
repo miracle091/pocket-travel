@@ -6,6 +6,7 @@
     <string name="guide_source_title">Wikivoyage</string>
     <string name="guide_source_title_wikipedia">Wikipedia</string>
     <string name="guide_source_title_travel_gc">Government of Canada travel advice</string>
+    <string name="guide_source_title_fcdo">UK government travel advice</string>
     <string name="emergency_title">Emergency numbers</string>
     <string name="emergency_general">General</string>
     <string name="emergency_single">Emergency</string>

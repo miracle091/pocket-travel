@@ -68,6 +68,7 @@ val thirdPartyLicenses: List<LicenseEntry> = listOf(
     LicenseEntry(R.string.licenses_component_emergency_canada, OGL_CANADA, R.string.licenses_note_emergency_canada),
     LicenseEntry(R.string.licenses_component_emergency_uk, OGL_UK_3, R.string.licenses_note_emergency_uk),
     LicenseEntry(R.string.licenses_component_travel_advice, OGL_CANADA, R.string.licenses_note_travel_advice),
+    LicenseEntry(R.string.licenses_component_travel_advice_uk, OGL_UK_3, R.string.licenses_note_travel_advice_uk),
     LicenseEntry(R.string.licenses_component_vaccinations_canada, OGL_CANADA, R.string.licenses_note_vaccinations_canada),
     LicenseEntry(R.string.licenses_component_vaccinations_uk, OGL_UK_3, R.string.licenses_note_vaccinations_uk),
     LicenseEntry(R.string.licenses_component_vaccinations_fcdo, OGL_UK_3, R.string.licenses_note_vaccinations_fcdo),

@@ -244,6 +244,8 @@
     <string name="licenses_component_emergency_uk">Numeri di emergenza: gov.uk Foreign travel advice (Governo del Regno Unito)</string>
     <string name="licenses_component_travel_advice">Guide in inglese, consigli di viaggio: Travel.gc.ca (Governo del Canada)</string>
     <string name="licenses_note_travel_advice">Contains information licensed under the Open Government Licence – Canada. Testo adattato (senza le parti per i cittadini canadesi), non approvato dal Governo del Canada.</string>
+    <string name="licenses_component_travel_advice_uk">Guide in inglese, consigli di viaggio per Palestina, Pitcairn, Wallis e Futuna: gov.uk Foreign travel advice (FCDO, Governo del Regno Unito)</string>
+    <string name="licenses_note_travel_advice_uk">Contains public sector information licensed under the Open Government Licence v3.0. Testo adattato (senza le parti per i cittadini britannici), non approvato dal Foreign, Commonwealth &amp; Development Office.</string>
     <string name="licenses_component_vaccinations_canada">Vaccinazioni: Travel.gc.ca (Governo del Canada)</string>
     <string name="licenses_note_vaccinations_canada">Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert - Canada. Fatti riscritti con parole nostre e confrontati con altre fonti.</string>
     <string name="licenses_component_vaccinations_uk">Vaccinazioni: TravelHealthPro (UKHSA / NaTHNaC)</string>

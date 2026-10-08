@@ -47,6 +47,21 @@ class GenerateTravelAdviceTest {
     }
 
     @Test
+    fun `le frasi utili in prima persona diventano impersonali, le altre con we e our restano fuori`() {
+        val html = """
+            <p>Criminal activity has been reported near Huaquillas, where we advise against non-essential travel.</p>
+            <p>We also strongly advise that you file a report with the local police. Our ability to provide consular services is limited.</p>
+            <p>We don't make assessments on the compliance of foreign domestic airlines with international safety standards.</p>
+        """.trimIndent()
+
+        assertEquals(
+            "Criminal activity has been reported near Huaquillas, where the advice is against non-essential travel.\n\n" +
+                "You should also file a report with the local police.",
+            adviceHtmlToText(html),
+        )
+    }
+
+    @Test
     fun `un sottotitolo escluso toglie anche quelli di livello inferiore`() {
         val html = """
             <h3>Pre-travel vaccines and medications</h3><p>Hepatitis A.</p><h4>Yellow fever</h4><p>Required.</p>
@@ -55,6 +70,58 @@ class GenerateTravelAdviceTest {
         """.trimIndent()
 
         assertEquals("▸ Safe food and water precautions\nDrink bottled water.", adviceHtmlToText(html))
+    }
+
+    @Test
+    fun `un paragrafo che inizia con un link resta, anche se un paragrafo dopo finisce con un link`() {
+        // Scheda Zika del Brasile: prima il paragrafo togliendo fino al </a></p> di "For more information" spariva tutto.
+        val html = """
+            <p><a href="https://www.canada.ca/zika.html">Zika virus</a> is a risk in this country.</p>
+            <p>Zika virus is spread through the bite of an infected mosquito.</p>
+            <p>For more information, see <a href="https://www.canada.ca/zika-pregnancy.html">Zika virus: Pregnant or planning a pregnancy.</a></p>
+        """.trimIndent()
+
+        assertEquals(
+            "Zika virus is a risk in this country.\n\nZika virus is spread through the bite of an infected mosquito.\n\n" +
+                "For more information, see Zika virus: Pregnant or planning a pregnancy.",
+            adviceHtmlToText(html),
+        )
+    }
+
+    @Test
+    fun `salute compatta - avvisi e strutture interi, delle malattie il nome e la prima frase, niente consigli generici`() {
+        // Struttura della parte health di travel.gc.ca (Brasile), testi accorciati.
+        val html = """
+            <h3>Outbreak Monitoring</h3><h4>Chikungunya in Mato Grosso do Sul, Brazil</h4>
+            <p>There is a large outbreak. Prevent bites.</p><p><strong>Learn more:</strong><br><a href="https://x">Chikungunya</a></p>
+            <h3>Safe food and water precautions</h3><p>Eating unsafe food can make you sick.</p><ul><li>Boil it, cook it</li></ul>
+            <details class="health-tab"><summary class="healthtabexpandablesection">Typhoid fever </summary>
+            <p>There is a risk of typhoid fever in this destination, but the risk is low for most travellers. Travellers visiting friends are at higher risk.</p>
+            <p>Typhoid fever is caused by bacteria.</p><p><strong>Learn more:<br></strong><a href="https://x">Typhoid fever</a></p></details>
+            <h3>Tick and insect bite prevention</h3><p>Many diseases are spread by bites.</p>
+            <details class="health-tab"><summary class="healthtabexpandablesection">Dengue </summary>
+            <ul><li>In this country, dengue is a risk to travellers. It is a viral disease.</li><li>Dengue can cause flu-like symptoms.</li></ul></details>
+            <details class="health-tab"><summary class="healthtabexpandablesection">Cholera</summary>
+            <p><strong>Risk</strong></p><p>Cholera is a risk in parts of this country. It spreads through unsafe water.</p></details>
+            <details class="health-tab"><summary class="healthtabexpandablesection">Tuberculosis</summary>
+            <p>Tuberculosis is an infection caused by bacteria.</p><p>For most travellers the risk of tuberculosis is low.</p></details>
+            <details class="health-tab"><summary class="healthtabexpandablesection">Measles</summary>
+            <p>Measles is a serious viral infection.</p><p>It spreads easily.</p></details>
+            <h3>Medical services and facilities</h3><p>Good health care is usually only available in urban areas.</p>
+        """.trimIndent()
+
+        assertEquals(
+            "▸ Chikungunya in Mato Grosso do Sul, Brazil\nThere is a large outbreak. Prevent bites.\n\n" +
+                "▸ Typhoid fever\nThere is a risk of typhoid fever in this destination, but the risk is low for most travellers.\n\n" +
+                "▸ Dengue\n• In this country, dengue is a risk to travellers.\n\n" +
+                "▸ Cholera\nCholera is a risk in parts of this country.\n\n" +
+                "▸ Tuberculosis\nFor most travellers the risk of tuberculosis is low.\n\n" +
+                "▸ Measles\nMeasles is a serious viral infection.\n\n" +
+                "▸ Medical services and facilities\nGood health care is usually only available in urban areas.",
+            adviceHtmlToText(html, compactHealth = true),
+        )
+        // Senza compattare (le altre parti): le malattie sono sottotitoli e "Learn more:" non c'e', il resto intero.
+        assertTrue(adviceHtmlToText(html).let { "▸ Dengue\n• In this country" in it && "Learn more" !in it && "Boil it" in it })
     }
 
     @Test
@@ -82,6 +149,135 @@ class GenerateTravelAdviceTest {
         assertTrue(sections.first().body.startsWith("▸ Italy - Exercise a high degree of caution\nExercise a high degree of caution due to terrorism.\n\n▸ Petty crime"))
         assertFalse(sections.any { "passport" in it.body || "Embassy" in it.body || "prison" in it.body })
         assertTrue(sections.all(::isTravelAdvice))
+    }
+
+    // Struttura della pagina FCDO della GOV.UK Content API (foreign-travel-advice/wallis-and-futuna), testi accorciati.
+    private fun fcdoJson(alerts: List<String> = listOf("avoid_all_travel_to_parts")) = JSONObject(
+        mapOf(
+            "base_path" to "/foreign-travel-advice/wallis-and-futuna",
+            "public_updated_at" to "2025-12-10T13:02:12+00:00",
+            "details" to mapOf(
+                "alert_status" to alerts,
+                "parts" to listOf(
+                    mapOf(
+                        "title" to "Warnings and insurance",
+                        "body" to "<p>Your travel insurance could be invalidated.</p>" +
+                            "<h2 id=\"areas-where-fcdo-advises-against-travel\">Areas where <abbr title=\"Foreign\">FCDO</abbr> advises against travel</h2>" +
+                            "<h3>Alofi</h3><p><abbr title=\"Foreign\">FCDO</abbr> advises against all travel to:</p><ul><li>Alofi island</li></ul>" +
+                            "<p>Find out more about why FCDO advises against travel.</p>" +
+                            "<h2 id=\"before-you-travel\">Before you travel</h2><p>No travel can be guaranteed safe.</p>",
+                    ),
+                    mapOf("title" to "Entry requirements", "body" to "<p>You need a British passport.</p>"),
+                    mapOf(
+                        "title" to "Safety and security",
+                        "body" to "<h2>Crime</h2><p>Crime is low. Report it to the British embassy in Paris. " +
+                            "We advise you not to use unlicensed taxis.</p>" +
+                            "<h2>Laws and cultural differences</h2><h3>Dress code</h3><p>Dress modestly in villages.</p>" +
+                            "<h2>Extreme weather and natural disasters</h2><p>Cyclones hit from November to April.</p>",
+                    ),
+                    mapOf("title" to "Regional risks", "body" to "<h2>Futuna</h2><p>Roads close after storms.</p>"),
+                    mapOf(
+                        "title" to "Health",
+                        "body" to "<h2>Emergency medical number</h2><p>Call 15. The NHS does not cover you.</p>" +
+                            "<h2>Vaccine recommendations and health risks</h2><p>Check TravelHealthPro.</p>",
+                    ),
+                    mapOf("title" to "Getting help", "body" to "<p>We can help British nationals.</p>"),
+                ),
+            ),
+        ),
+    ).toString()
+
+    @Test
+    fun `consigli FCDO nelle stesse quattro sezioni, senza le parti per i britannici`() {
+        val sections = fcdoAdviceSections(fcdoJson())
+
+        assertEquals(listOf("SICUREZZA", "USI_COSTUMI", "SICUREZZA", "SALUTE"), sections.map { it.category })
+        assertEquals(
+            listOf(
+                "▸ Travel advice level\nThe UK government advises against all travel to parts of the country.\n\n" +
+                    "▸ Alofi\nAvoid all travel to:\n• Alofi island\n\n" +
+                    "▸ Crime\nCrime is low. Do not use unlicensed taxis.\n\n▸ Futuna\nRoads close after storms.",
+                "▸ Dress code\nDress modestly in villages.",
+                "▸ Extreme weather and natural disasters\nCyclones hit from November to April.",
+                "▸ Emergency medical number\nCall 15.",
+            ),
+            sections.map { it.body.substringBefore("\n\nLast updated") },
+        )
+        assertEquals("Safety and security (UK government)", sections.first().title)
+        assertEquals(
+            listOf("safety-and-security", "safety-and-security", "safety-and-security", "health").map { "https://www.gov.uk/foreign-travel-advice/wallis-and-futuna/$it" },
+            sections.map { it.sourceUrl },
+        )
+        assertTrue(sections.all { it.body.endsWith("Last updated by the UK government: December 10, 2025.") && isTravelAdvice(it) })
+    }
+
+    @Test
+    fun `Palestina - le parti solo israeliane in una sezione per chi e' israeliano, per gli altri un rimando`() {
+        val json = JSONObject(
+            mapOf(
+                "base_path" to "/foreign-travel-advice/palestine",
+                "public_updated_at" to "2026-07-22T13:43:56+01:00",
+                "details" to mapOf(
+                    "alert_status" to listOf("avoid_all_travel_to_parts"),
+                    "parts" to listOf(
+                        mapOf(
+                            "title" to "Warnings and insurance",
+                            "body" to "<h2>Areas where FCDO advises against travel</h2>" +
+                                "<h3>Gaza</h3><p>FCDO advises against all travel to Gaza</p>" +
+                                "<h3>Northern Israel and Occupied Golan Heights</h3><p>FCDO advises against all travel to:</p><ul><li>Sheba’a Farms</li></ul>" +
+                                "<h2>Areas where FCDO advises against all but essential travel</h2>" +
+                                "<h3>West Bank</h3><p>FCDO advises against all but essential travel to:</p><ul><li>The rest of the West Bank</li></ul>",
+                        ),
+                        mapOf(
+                            "title" to "Safety and security",
+                            "body" to "<h2>Conflict between Iran and Israel</h2><p>A ceasefire was agreed.</p>" +
+                                "<h2>Crime</h2><p>Pickpocketing happens in Jerusalem.</p>",
+                        ),
+                        mapOf(
+                            "title" to "Regional risks",
+                            "body" to "<h2>Tel Aviv</h2><h3>Buses</h3><p>Take care on buses.</p><h2>West Bank</h2><p>Clashes happen.</p>",
+                        ),
+                    ),
+                ),
+            ),
+        ).toString()
+
+        val sections = fcdoAdviceSections(json)
+        assertEquals(
+            listOf("Safety and security (UK government)", "Israel: areas and risks outside Palestine (UK government)", "Israel (UK government)"),
+            sections.map { it.title },
+        )
+        val (palestine, israelOnly, notice) = sections.map { it.body.substringBefore("\n\nLast updated") }
+        assertEquals(
+            "▸ Travel advice level\nThe UK government advises against all travel to parts of the country.\n\n" +
+                "▸ Gaza\nAvoid all travel to Gaza\n\n▸ West Bank\nAvoid all but essential travel to:\n• The rest of the West Bank\n\n" +
+                "▸ Crime\nPickpocketing happens in Jerusalem.\n\n▸ West Bank\nClashes happen.",
+            palestine,
+        )
+        assertEquals(
+            "▸ Northern Israel and Occupied Golan Heights\nAvoid all travel to:\n• Sheba’a Farms\n\n" +
+                "▸ Conflict between Iran and Israel\nA ceasefire was agreed.\n\n▸ Buses\nTake care on buses.",
+            israelOnly,
+        )
+        assertTrue(notice.startsWith("This advice also covers Israel."))
+        assertEquals(
+            listOf("", "#for-nationality=IL", "#not-for-nationality=IL"),
+            sections.map { it.sourceUrl.orEmpty().removePrefix("https://www.gov.uk/foreign-travel-advice/palestine/safety-and-security") },
+        )
+        assertTrue(sections.all(::isTravelAdvice))
+    }
+
+    @Test
+    fun `consigli FCDO letti dal tsv come quelli di travel_gc_ca, con il livello sulla stessa scala`() {
+        val dir = createTempDirectory("advice-fcdo").toFile()
+        val wallis = File(dir, "wf.json").apply { writeText(fcdoJson(listOf("avoid_all_but_essential_travel_to_whole_country"))) }
+        val tsv = File(dir, "advice.tsv").apply { writeText("wallis-futuna\t${wallis.path}\n") }
+
+        val advice = readTravelAdvice(tsv, { emptyList() }, emptyMap(), day0).getValue("wallis-futuna")
+        assertEquals(TravelAdviceMeta(2, 0, day0), advice.meta)
+        assertEquals(4, advice.sections.size)
+        assertTrue(advice.sections.first().body.contains("against all but essential travel to the whole country."))
+        dir.deleteRecursively()
     }
 
     @Test

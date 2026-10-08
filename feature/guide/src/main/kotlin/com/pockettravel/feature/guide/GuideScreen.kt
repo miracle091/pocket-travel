@@ -73,6 +73,7 @@ import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSourceSite
 import com.pockettravel.core.data.guideSourceSiteOf
+import com.pockettravel.core.data.guideSourceUrlWithoutAudience
 import com.pockettravel.core.data.GuideSection
 import com.pockettravel.core.data.MainCity
 import com.pockettravel.core.data.MissionKind
@@ -575,9 +576,9 @@ private fun SectionsWithFilters(
                 GuideSectionCard(section, modifier = Modifier.padding(horizontal = Spacing.l))
             }
             // Le fonti una volta sola, in fondo, invece che sotto ogni riquadro (attribuzione CC BY-SA).
-            val sourceUrls = visibleSections.map { it.sourceUrl }.filter { it.isNotBlank() }.distinct()
+            val sourceUrls = visibleSections.map { guideSourceUrlWithoutAudience(it.sourceUrl) }.filter { it.isNotBlank() }.distinct()
             // Pagine da cui almeno una sezione mostrata e' tradotta automaticamente (CC BY-SA: modifica indicata).
-            val translatedUrls = visibleSections.filter { it.translated }.map { it.sourceUrl }.toSet()
+            val translatedUrls = visibleSections.filter { it.translated }.map { guideSourceUrlWithoutAudience(it.sourceUrl) }.toSet()
             if (sourceUrls.isNotEmpty()) {
                 item(key = "sources") {
                     GuideSourcesCard(sourceUrls, translatedUrls, onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l))
@@ -838,10 +839,10 @@ private fun GuideSectionCard(
     }
 }
 
-// Riquadro finale con le pagine Wikivoyage (e Wikipedia, per Storia e Clima delle citta'; travel.gc.ca per i consigli di
-// viaggio del Governo del Canada) da cui vengono le sezioni mostrate: titolo della pagina (dall'URL, o il nome della
-// fonte per i link senza /wiki/) e sito, ognuna apribile; accanto al sito "tradotta automaticamente" per le pagine
-// in translatedUrls. La licenza sta nella schermata Licenze.
+// Riquadro finale con le pagine Wikivoyage (e Wikipedia, per Storia e Clima delle citta'; travel.gc.ca e gov.uk per i
+// consigli di viaggio dei Governi del Canada e del Regno Unito) da cui vengono le sezioni mostrate: titolo della pagina
+// (dall'URL, o il nome della fonte per i link senza /wiki/) e sito, ognuna apribile; accanto al sito "tradotta
+// automaticamente" per le pagine in translatedUrls. La licenza sta nella schermata Licenze.
 @Composable
 private fun GuideSourcesCard(
     sourceUrls: List<String>,
@@ -852,6 +853,7 @@ private fun GuideSourcesCard(
     val wikivoyageTitle = stringResource(R.string.guide_source_title)
     val wikipediaTitle = stringResource(R.string.guide_source_title_wikipedia)
     val travelAdviceTitle = stringResource(R.string.guide_source_title_travel_gc)
+    val fcdoAdviceTitle = stringResource(R.string.guide_source_title_fcdo)
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(vertical = Spacing.l)) {
             Text(
@@ -865,6 +867,7 @@ private fun GuideSourcesCard(
                     GuideSourceSite.WIKIVOYAGE -> wikivoyageTitle
                     GuideSourceSite.WIKIPEDIA -> wikipediaTitle
                     GuideSourceSite.TRAVEL_GC_CA -> travelAdviceTitle
+                    GuideSourceSite.FCDO -> fcdoAdviceTitle
                 }
                 ListItem(
                     supportingContent = {

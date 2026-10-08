@@ -510,7 +510,7 @@ fun main(rawArgs: Array<String>) {
     val translatedIndex = withoutMissions.indexOf("--translated")
     val translatedJsonl = if (translatedIndex >= 0) withoutMissions.getOrNull(translatedIndex + 1)?.let(::File) else null
     val withoutTranslated = if (translatedIndex >= 0) withoutMissions.take(translatedIndex) + withoutMissions.drop(translatedIndex + 2) else withoutMissions
-    // --travel-advice <tsv>: consigli di viaggio di travel.gc.ca per regione (GenerateTravelAdvice.kt, solo guida inglese).
+    // --travel-advice <tsv>: consigli di viaggio di travel.gc.ca o dell'FCDO per regione (GenerateTravelAdvice.kt, solo guida inglese).
     val adviceIndex = withoutTranslated.indexOf("--travel-advice")
     val adviceTsv = if (adviceIndex >= 0) withoutTranslated.getOrNull(adviceIndex + 1)?.let(::File) else null
     val args = if (adviceIndex >= 0) withoutTranslated.take(adviceIndex) + withoutTranslated.drop(adviceIndex + 2) else withoutTranslated
@@ -550,14 +550,14 @@ fun main(rawArgs: Array<String>) {
         // Con dei consigli gia' pubblicati: un cambio di rischio pubblica subito (keepPublishedGuides), qui l'avviso nel job.
         if (publishedAdviceMeta.isNotEmpty()) {
             travelAdviceRiskChanges(publishedAdviceMeta, advice.mapNotNull { (id, a) -> a.meta?.let { id to it } }.toMap())
-                .forEach { println("::warning::travel.gc.ca, rischio cambiato: $it") }
+                .forEach { println("::warning::consigli di viaggio, rischio cambiato: $it") }
         }
     }
     if (publishedDb != null && keepPublishedGuides(outputDb, publishedDb)) {
         outputDb.delete()
         println(
             "guide: contenuto identico a quello pubblicato (o cambiate solo le missioni da meno di $MISSIONS_MAX_AGE_DAYS giorni " +
-                "e i consigli di travel.gc.ca da meno di $TRAVEL_ADVICE_MAX_AGE_DAYS senza cambi di rischio), nessun nuovo guides.db",
+                "e i consigli di viaggio da meno di $TRAVEL_ADVICE_MAX_AGE_DAYS senza cambi di rischio), nessun nuovo guides.db",
         )
         return
     }
@@ -646,13 +646,13 @@ private fun readRegionGuide(db: File, regionId: String): RegionGuide? =
 private const val MISSIONS_QUERY =
     "SELECT wikidata, sending, host, kind, name, name_en, city, address, phone, website, email, lat, lon FROM diplomatic_missions ORDER BY 1"
 private const val GUIDE_SECTIONS_QUERY = "SELECT regionId, category, title, body, sourceUrl, translated FROM guide_sections"
-private const val TRAVEL_ADVICE_URLS = "sourceUrl LIKE 'https://$TRAVEL_ADVICE_HOST/%'"
+private const val TRAVEL_ADVICE_URLS = "(sourceUrl LIKE 'https://$TRAVEL_ADVICE_HOST/%' OR sourceUrl LIKE '$FCDO_ADVICE_PREFIX%')"
 // Senza la data di download: cambia a ogni run anche quando i consigli no.
 private const val TRAVEL_ADVICE_STATE_QUERY = "SELECT regionId, advisory_state, regional FROM travel_advice_meta ORDER BY 1"
 
 /**
  * Stesse righe in guide_sections e nelle tabelle dei numeri di emergenza, vaccinali (vacc_*) e delle missioni diplomatiche, a
- * prescindere dall'ordine di inserimento. [includeTravelAdvice] false: senza le sezioni di travel.gc.ca e il loro livello di
+ * prescindere dall'ordine di inserimento. [includeTravelAdvice] false: senza le sezioni di travel.gc.ca e dell'FCDO e il loro livello di
  * rischio (travel_advice_meta), che keepPublishedGuides valuta a parte come le missioni.
  */
 fun sameGuidesContent(a: File, b: File, includeMissions: Boolean = true, includeTravelAdvice: Boolean = true): Boolean {
@@ -676,7 +676,7 @@ fun sameGuidesContent(a: File, b: File, includeMissions: Boolean = true, include
 /** Stesse missioni diplomatiche nei due guides.db. */
 fun sameMissions(a: File, b: File): Boolean = readRows(a, MISSIONS_QUERY) == readRows(b, MISSIONS_QUERY)
 
-/** Stesse sezioni di travel.gc.ca e stesso livello di rischio per regione nei due guides.db. */
+/** Stesse sezioni di travel.gc.ca e dell'FCDO e stesso livello di rischio per regione nei due guides.db. */
 fun sameTravelAdvice(a: File, b: File): Boolean = listOf(
     "$GUIDE_SECTIONS_QUERY WHERE $TRAVEL_ADVICE_URLS ORDER BY 1, 2, 3, 4, 5, 6",
     TRAVEL_ADVICE_STATE_QUERY,

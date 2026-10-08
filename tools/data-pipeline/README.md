@@ -178,8 +178,22 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   su travel.gc.ca e la data dell'ultimo aggiornamento: sicurezza (con il livello di rischio e gli avvisi regionali in
   testa), leggi e cultura, catastrofi naturali e clima, salute. Restano fuori ingresso e uscita, uffici consolari, i
   sottotitoli per i canadesi o sui vaccini (`excludedAdviceHeadings`) e le frasi che nominano il Canada o in cui parla il
-  governo ("we", "our"). Un paese non scaricato tiene i consigli del `guides-en.db` pubblicato. Sui dati del 2026-09/10:
-  232 regioni, +4,4 MB di `guides-en.db` e +0,4 MB compresso. Il testo cambia per quasi tutti i paesi ogni due
+  governo ("we", "our"). La salute è compatta: il 73% del suo testo è uguale in almeno un paese su quattro, quindi
+  restano gli avvisi di epidemia, le strutture sanitarie e le medicine, e delle schede delle malattie il nome e la prima
+  frase ("There is a risk of typhoid fever in this destination, but the risk is low for most travellers."); fuori la
+  prevenzione generica (`genericHealthHeadings`). Palestina, Pitcairn e Wallis e Futuna, senza pagina su travel.gc.ca,
+  prendono le stesse quattro sezioni dalla pagina FCDO della GOV.UK Content API
+  (`www.gov.uk/api/content/foreign-travel-advice/<slug>`, `FCDO_SLUGS` in `build-guides.sh`, Open Government Licence
+  v3.0): Safety and security divisa per sottotitolo, Regional risks, Health, il livello di `alert_status` e le zone da
+  evitare di Warnings and insurance, senza ingresso, assistenza consolare e assicurazioni e senza le frasi sui britannici,
+  il Regno Unito o l'FCDO. Delle frasi in cui parla il governo ("we", "our", tolte per entrambe le fonti) le poche utili
+  diventano impersonali (`impersonalRewrites`: "where we advise against" -> "where the advice is against"). La pagina
+  della Palestina copre "Israel and Palestine": i sottotitoli solo israeliani (`fcdoSharedCountries`) vanno in una
+  sezione col link che finisce in `#for-nationality=IL`, che l'app mostra solo con la nazionalità israeliana; per gli
+  altri c'è un rimando alla guida di Israele (`#not-for-nationality=IL`). L'app toglie il suffisso dai link
+  (`GuideSectionAudience.kt`). Un paese non
+  scaricato tiene i consigli del `guides-en.db` pubblicato. Sui dati del 2026-09/10: 336 regioni, +5,8 MB di
+  `guides-en.db` e +0,4 MB compresso. Il testo cambia per quasi tutti i paesi ogni due
   settimane e il job `guides` gira ogni giorno: per regione la tabella `travel_advice_meta` (livello di rischio, avvisi
   regionali, data di download; le app la ignorano) e `keepPublishedGuides` tiene il `guides-en.db` pubblicato quando sono
   cambiati solo i consigli, finché sono stati scaricati da meno di 7 giorni (`TRAVEL_ADVICE_MAX_AGE_DAYS`) e nessun paese

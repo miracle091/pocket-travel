@@ -239,6 +239,12 @@ class TravelAssistantLogicTest {
             rankSections(listOf(advice to info(bodyHits = 1)), emptyList(), limit = 3, language = "en").single().citation,
         )
         assertTrue(rankSections(listOf(guideSection("Stay safe") to info(bodyHits = 1)), emptyList(), limit = 3).single().citation.startsWith("Fonte: Wikivoyage"))
+        // Il suffisso della nazionalita' (#for-nationality=...) non finisce nella citazione.
+        val fcdo = advice.copy(title = "Health (UK government)", sourceUrl = "https://www.gov.uk/foreign-travel-advice/palestine/health#for-nationality=IL")
+        assertEquals(
+            "Fonte: Governo del Regno Unito (gov.uk), sezione Health (UK government) — https://www.gov.uk/foreign-travel-advice/palestine/health",
+            rankSections(listOf(fcdo to info(bodyHits = 1)), emptyList(), limit = 3).single().citation,
+        )
     }
 
     @Test
