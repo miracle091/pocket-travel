@@ -1,0 +1,20 @@
+Il vendoring tiene solo le librerie di vendor/ che servono a llama e common: hash, miniaudio e stb
+servono solo a tools/mtmd (multimodale: audio e immagini), che qui non si builda. Senza questa
+patch vendor/CMakeLists.txt cerca cartelle che non ci sono e il configure fallisce.
+Riapplicata in automatico da feature/ai/src/main/cpp/CMakeLists.txt.
+
+diff --git a/third-party/llama-cpp/vendor/CMakeLists.txt b/third-party/llama-cpp/vendor/CMakeLists.txt
+--- a/third-party/llama-cpp/vendor/CMakeLists.txt
++++ b/third-party/llama-cpp/vendor/CMakeLists.txt
+@@ -1,9 +1,7 @@
+-# mtmd needs these even when common is not built
+-add_subdirectory(hash)
+-add_subdirectory(miniaudio)
++# hash, miniaudio e stb servono solo a tools/mtmd (multimodale: audio/immagini), che qui non si
++# builda (LLAMA_BUILD_TOOLS=OFF) - rimossi dal vendoring, nessun target li linka.
+ add_subdirectory(nlohmann)
+ add_subdirectory(sheredom)
+-add_subdirectory(stb)
+
+ # only used by common
+ if (LLAMA_BUILD_COMMON)

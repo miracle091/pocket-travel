@@ -1,0 +1,89 @@
+Cast espliciti negli assegnamenti composti (+=) con conversione implicita che restringe il tipo
+(double/float in int, double in float), segnalati da CodeQL: il comportamento resta quello di
+Java, che nei += fa gia' lo stesso cast in silenzio.
+Da riapplicare a mano dopo un aggiornamento di BRouter, dalla root del repository:
+git apply third-party/patches/brouter-core/<patch>. La CI controlla che sia applicata.
+
+diff --git a/third-party/brouter-core/src/main/java/btools/router/OsmPath.java b/third-party/brouter-core/src/main/java/btools/router/OsmPath.java
+--- a/third-party/brouter-core/src/main/java/btools/router/OsmPath.java
++++ b/third-party/brouter-core/src/main/java/btools/router/OsmPath.java
+@@ -340,7 +340,7 @@ abstract class OsmPath implements OsmLinkHolder {
+         if (rc.nogoCost < 0) {
+           cost = -1;
+         } else {
+-          cost += rc.nogoCost;
++          cost += (int) rc.nogoCost;
+         }
+         return;
+       }
+@@ -372,7 +372,7 @@ abstract class OsmPath implements OsmLinkHolder {
+       cost = -1;
+       return;
+     } else {
+-      cost += rc.nogoCost;
++      cost += (int) rc.nogoCost;
+     }
+ 
+     // add target-node costs
+diff --git a/third-party/brouter-core/src/main/java/btools/router/RoutingEngine.java b/third-party/brouter-core/src/main/java/btools/router/RoutingEngine.java
+--- a/third-party/brouter-core/src/main/java/btools/router/RoutingEngine.java
++++ b/third-party/brouter-core/src/main/java/btools/router/RoutingEngine.java
+@@ -1524,7 +1524,7 @@ public class RoutingEngine extends Thread {
+       n.message.linkdist = dist;
+       n.message.turnangle = (float) angle;
+       totaldist += dist;
+-      totaltime += n.getTime();
++      totaltime += (int) n.getTime();
+       tmptime = (n.getTime() - lasttime);
+       if (dist > 0) {
+         speed = dist / tmptime * 3.6f;
+diff --git a/third-party/brouter-core/src/main/java/btools/router/StdPath.java b/third-party/brouter-core/src/main/java/btools/router/StdPath.java
+--- a/third-party/brouter-core/src/main/java/btools/router/StdPath.java
++++ b/third-party/brouter-core/src/main/java/btools/router/StdPath.java
+@@ -151,8 +151,8 @@ final class StdPath extends OsmPath {
+     // leads to an immediate penalty
+ 
+     int delta_h_micros = (int) (1000000. * delta_h);
+-    ehbd += -delta_h_micros - dist * downhillcutoff;
+-    ehbu += delta_h_micros - dist * uphillcutoff;
++    ehbd += (int) (-delta_h_micros - dist * downhillcutoff);
++    ehbu += (int) (delta_h_micros - dist * uphillcutoff);
+ 
+     float downweight = 0.f;
+     if (ehbd > rc.elevationpenaltybuffer) {
+@@ -179,7 +179,7 @@ final class StdPath extends OsmPath {
+       if (elevationCost > 0) {
+         sectionCost += elevationCost;
+         if (message != null) {
+-          message.linkelevationcost += elevationCost;
++          message.linkelevationcost += (int) elevationCost;
+         }
+       }
+     } else if (ehbd < 0) {
+@@ -211,7 +211,7 @@ final class StdPath extends OsmPath {
+       if (elevationCost > 0) {
+         sectionCost += elevationCost;
+         if (message != null) {
+-          message.linkelevationcost += elevationCost;
++          message.linkelevationcost += (int) elevationCost;
+         }
+       }
+     } else if (ehbu < 0) {
+@@ -294,7 +294,7 @@ final class StdPath extends OsmPath {
+     }
+ 
+     // compute incline
+-    elevation_buffer += delta_h;
++    elevation_buffer += (float) delta_h;
+     double incline = calcIncline(dist);
+ 
+     double maxSpeed = rc.maxSpeed;
+@@ -318,7 +318,7 @@ final class StdPath extends OsmPath {
+     // (Count only positive, negative would mean breaking to enforce maxspeed)
+     double energy = dist * (rc.S_C_x * speed * speed + f_roll);
+     if (energy > 0.) {
+-      totalEnergy += energy;
++      totalEnergy += (float) energy;
+     }
+   }
+ 

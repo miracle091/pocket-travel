@@ -29,6 +29,17 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
+      # Le modifiche locali ai third-party stanno come patch in third-party/patches: dopo un aggiornamento
+      # del vendor vanno riapplicate (quelle di llama-cpp le riapplica il CMake di feature/ai, quelle di
+      # brouter-core si applicano a mano). Prima del build, cosi' controlla il codice com'e' nel commit.
+      - name: Patch dei third-party applicate
+        shell: bash
+        run: |
+          set -e
+          for p in third-party/patches/*/*.patch; do
+            git apply --reverse --check "$p" || { echo "$p non e' applicata: git apply $p, o rifarla" >&2; exit 1; }
+          done
+
       - run: ./gradlew assembleDebug lint detekt testDebugUnitTest :core:poi:test :tools:data-pipeline:content:test --no-daemon
 
       # Tutti i test Python della pipeline: un test nuovo (test_*.py) viene eseguito senza toccare il workflow.

@@ -34,15 +34,48 @@ set(LLAMA_SRC ${CMAKE_CURRENT_LIST_DIR}/../../../../../third-party/llama-cpp)
 # ccache, solo se presente: gli oggetti si riusano anche tra worktree git in percorsi diversi.
 # CCACHE_BASEDIR rende relativi i percorsi sotto la root di questo checkout, CCACHE_NOHASHDIR
 # toglie la cwd dall'hash (finisce nelle info di debug). Va impostato prima di add_subdirectory.
+get_filename_component(POCKET_TRAVEL_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../../../.." ABSOLUTE)
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
-    get_filename_component(POCKET_TRAVEL_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../../../.." ABSOLUTE)
     set(CCACHE_LAUNCHER ${CMAKE_COMMAND} -E env
             CCACHE_BASEDIR=${POCKET_TRAVEL_ROOT} CCACHE_NOHASHDIR=1 ${CCACHE_PROGRAM})
     set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_LAUNCHER})
     set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_LAUNCHER})
 endif()
+
+# Le nostre modifiche al vendor stanno come patch in third-party/patches/llama-cpp, cosi' si
+# riapplicano da sole dopo un aggiornamento di llama.cpp: una patch che passa il --reverse --check
+# e' gia' applicata. Il lock evita che le configurazioni parallele delle ABI la applichino due volte.
+find_package(Git QUIET)
+file(GLOB LLAMA_PATCHES ${POCKET_TRAVEL_ROOT}/third-party/patches/llama-cpp/*.patch)
+if(GIT_FOUND AND LLAMA_PATCHES)
+    file(LOCK ${CMAKE_CURRENT_LIST_DIR}/../../../.cache/llama-patches.lock GUARD FILE)
+    foreach(LLAMA_PATCH ${LLAMA_PATCHES})
+        execute_process(COMMAND ${GIT_EXECUTABLE} apply --reverse --check ${LLAMA_PATCH}
+                WORKING_DIRECTORY ${POCKET_TRAVEL_ROOT} RESULT_VARIABLE PATCH_MISSING OUTPUT_QUIET ERROR_QUIET)
+        if(PATCH_MISSING)
+            execute_process(COMMAND ${GIT_EXECUTABLE} apply ${LLAMA_PATCH}
+                    WORKING_DIRECTORY ${POCKET_TRAVEL_ROOT} RESULT_VARIABLE PATCH_FAILED)
+            if(PATCH_FAILED)
+                message(WARNING "${LLAMA_PATCH} non si applica piu' a third-party/llama-cpp: rifarla o toglierla")
+            else()
+                message(STATUS "Applicata ${LLAMA_PATCH}")
+            endif()
+        endif()
+    endforeach()
+    file(LOCK ${CMAKE_CURRENT_LIST_DIR}/../../../.cache/llama-patches.lock RELEASE)
+endif()
+
+# ggml-cpu scarica KleidiAI con FetchContent_Populate, deprecato da CMake 3.30 (policy CMP0169):
+# llama.cpp dichiara le policy fino alla 3.28, quindi senza questo default CMake stampa un warning dev.
+set(CMAKE_POLICY_DEFAULT_CMP0169 OLD)
 add_subdirectory(${LLAMA_SRC} build-llama)
+
+# ggml/src aggiunge -Wdouble-promotion a livello di cartella, che arriva anche ai sorgenti KleidiAI
+# scaricati da FetchContent (solo arm64): i loro float16 -> float sono voluti, quindi niente warning.
+if(TARGET kleidiai)
+    target_compile_options(kleidiai PRIVATE -Wno-double-promotion)
+endif()
 
 add_library(${CMAKE_PROJECT_NAME} SHARED
         ai_chat.cpp)

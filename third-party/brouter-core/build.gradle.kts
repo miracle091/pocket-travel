@@ -13,6 +13,9 @@
 // Modifiche rispetto a upstream (2026-09-28), segnate "Pocket Travel" nel codice: il file aggiunto
 // btools/router/TurnInstructions.java (accesso in sola lettura alle indicazioni di svolta, i cui campi
 // in VoiceHint sono package-private) e in RoutingEngine la stima dell'avanzamento (getProgress).
+// Le modifiche ai file upstream (getProgress e i cast per CodeQL in OsmPath/StdPath/RoutingEngine)
+// stanno anche come patch in third-party/patches/brouter-core: dopo un aggiornamento si riapplicano
+// con git apply dalla root, e la CI fallisce se una manca. TurnInstructions.java resta com'e'.
 plugins {
     id("java-library")
 }

@@ -30,7 +30,7 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
         message(WARNING "Git index not found in git repository.")
     endif()
 else()
-    message(WARNING "Git repository not found; to enable automatic generation of build info, make sure Git is installed and the project is a Git repository.")
+    message(STATUS "Git repository not found; to enable automatic generation of build info, make sure Git is installed and the project is a Git repository.")
 endif()
 
 set(TEMPLATE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/build-info.cpp.in")
