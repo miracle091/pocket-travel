@@ -854,6 +854,7 @@ private fun GuideSourcesCard(
     val wikipediaTitle = stringResource(R.string.guide_source_title_wikipedia)
     val travelAdviceTitle = stringResource(R.string.guide_source_title_travel_gc)
     val fcdoAdviceTitle = stringResource(R.string.guide_source_title_fcdo)
+    val fcdoHealthTitle = stringResource(R.string.guide_source_title_fcdo_health)
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(vertical = Spacing.l)) {
             Text(
@@ -867,7 +868,7 @@ private fun GuideSourcesCard(
                     GuideSourceSite.WIKIVOYAGE -> wikivoyageTitle
                     GuideSourceSite.WIKIPEDIA -> wikipediaTitle
                     GuideSourceSite.TRAVEL_GC_CA -> travelAdviceTitle
-                    GuideSourceSite.FCDO -> fcdoAdviceTitle
+                    GuideSourceSite.FCDO -> if (isFcdoHealthPage(url)) fcdoHealthTitle else fcdoAdviceTitle
                 }
                 ListItem(
                     supportingContent = {
@@ -882,6 +883,10 @@ private fun GuideSourcesCard(
         }
     }
 }
+
+// I consigli dell'FCDO citano due pagine per paese, ".../<paese>/health" per la salute e ".../<paese>/safety-and-security" per
+// il resto: nelle Fonti hanno nomi diversi, altrimenti si vedrebbero due righe uguali.
+internal fun isFcdoHealthPage(url: String): Boolean = url.substringBefore('#').trimEnd('/').endsWith("/health")
 
 // "https://it.wikivoyage.org/wiki/San_Marino" -> "San Marino"; l'URL intero se non ha /wiki/.
 internal fun sourcePageTitle(url: String): String =
