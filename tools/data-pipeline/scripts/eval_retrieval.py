@@ -295,7 +295,10 @@ def build_db(guides_db, region, city_rows):
         db.execute(f"CREATE TABLE {t} (id INTEGER PRIMARY KEY, regionId TEXT, {extra} category TEXT, title TEXT, body TEXT, sourceUrl TEXT)")
         db.execute(f"CREATE VIRTUAL TABLE {t}_fts USING fts4(title, body, content='{t}', tokenize=unicode61)")
     with closing(sqlite3.connect(guides_db)) as guides:
-        for row in guides.execute("SELECT category, title, body, sourceUrl FROM guide_sections WHERE regionId = ?", (region,)):
+        # Come l'app senza nazionalita' scelta (isGuideSectionFor): fuori le sezioni "#for-nationality=XX", che vedono
+        # solo i cittadini di XX; restano quelle "#not-for-nationality=XX" (il rimando per tutti gli altri).
+        for row in guides.execute("SELECT category, title, body, sourceUrl FROM guide_sections WHERE regionId = ? "
+                                  "AND instr(sourceUrl, '#for-nationality=') = 0", (region,)):
             db.execute("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES (?,?,?,?,?)", (region, *row))
     for row in city_rows:
         db.execute("INSERT INTO city_sections (regionId, city, category, title, body, sourceUrl) VALUES (?,?,?,?,?,?)", (region, *row))

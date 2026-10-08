@@ -125,6 +125,21 @@ class SearchTest(unittest.TestCase):
         self.assertEqual([(s["city"], s["category"]) for s in top], [("Siena", "COSA_VEDERE")])
         db.close()
 
+    def test_sezioni_per_una_nazionalita_come_nell_app_senza_nazionalita(self):
+        guides = Path(self.tmp.name) / "palestina.db"
+        g = sqlite3.connect(guides)
+        g.execute("CREATE TABLE guide_sections (regionId TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT)")
+        g.executemany("INSERT INTO guide_sections VALUES (?,?,?,?,?)", [
+            ("palestina", "SICUREZZA", "Aree a rischio", "Evitare Gaza.", "u#for-nationality=IL"),
+            ("palestina", "SICUREZZA", "Israele", "Vedi la guida di Israele.", "u#not-for-nationality=IL"),
+            ("palestina", "SALUTE", "Salute", "Bere acqua.", "u"),
+        ])
+        g.commit()
+        g.close()
+        db = ev.build_db(guides, "palestina", [])
+        self.assertEqual([t for (t,) in db.execute("SELECT title FROM guide_sections ORDER BY id")], ["Israele", "Salute"])
+        db.close()
+
     def test_matchinfo_pcxnal_letto(self):
         blob = self.db.execute("SELECT matchinfo(city_sections_fts, 'pcxnal') FROM city_sections_fts "
                                "WHERE city_sections_fts MATCH 'alberghi'").fetchone()[0]
