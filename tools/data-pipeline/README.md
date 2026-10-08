@@ -156,16 +156,16 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   `latitude` e `longitude`: con queste l'assistente calcola la distanza tra due città nominate in una domanda.
 - **Dati dei paesi**: `scripts/wikidata_countries.py --out content/src/main/resources/countries.tsv` scrive da
   Wikidata (CC0) una riga per regione di `regions.sh` con capitale, valuta, lato di guida, prefisso, lingue ufficiali,
-  fusi, numeri di emergenza, prese e tensione, con le etichette in italiano e in inglese. Fusi normalizzati come
-  `UTC+01:00` (ora solare), prese come lettere A-N; le regioni dei paesi divisi (stati USA, province...) e le Canarie
-  prendono capitale e fusi dal proprio elemento Wikidata (senza una capitale propria restano senza), il resto dal
-  paese; gli errori noti di Wikidata sono corretti dalla tabella `CORREZIONI` dello script, e lo script avvisa delle
-  regioni senza elemento. Il TSV è un file curato: si rigenera a mano (non nel job delle guide) e si rivede il diff
-  prima del commit. `GenerateCountryFacts.kt` lo usa per i Fatti rapidi di `guides.db` e `guides-en.db`: i campi
-  della pagina Wikivoyage italiana restano (lingua, elettricità, fuso e valuta nella guida italiana; nella inglese
-  lingua, elettricità e fuso quando si possono tradurre), Wikidata aggiunge capitale, prefisso, lato di guida e i
-  campi mancanti. I numeri di emergenza restano quelli di
-  `emergency-numbers.tsv`.
+  fusi orari, numeri di emergenza, prese e tensione, con le etichette in italiano e in inglese. I fusi orari sono
+  normalizzati come `UTC+01:00` (ora solare), le prese come lettere A-N. Le regioni dei paesi divisi (stati USA,
+  province...) e le Canarie prendono capitale e fusi orari dal proprio elemento Wikidata, il resto dal paese; senza
+  una capitale propria restano senza capitale. La tabella `CORREZIONI` dello script corregge gli errori noti di
+  Wikidata; lo script avvisa delle regioni senza elemento. Il TSV è un file curato: si rigenera a mano, non nel job
+  delle guide, e si rivede il diff prima del commit. `GenerateCountryFacts.kt` lo usa per i Fatti rapidi di
+  `guides.db` e `guides-en.db`. I campi della pagina Wikivoyage italiana hanno la precedenza: lingua, elettricità,
+  fuso orario e valuta nella guida italiana; lingua, elettricità e fuso orario nella guida inglese, quando si
+  possono tradurre. Wikidata aggiunge capitale, prefisso, lato di guida e i campi mancanti. I numeri di emergenza
+  restano quelli di `emergency-numbers.tsv`.
 - **Storia e clima delle città**: `scripts/city_wikipedia.py`, usato dagli stessi due script, trova la voce di
   Wikipedia (IT o EN) della città dal sitelink dell'elemento Wikidata della pagina di Wikivoyage e ne prende le sezioni
   Storia e Clima (History e Climate in inglese) dall'API di Wikipedia, a lotti: i dump completi (IT ~5 GB, EN ~24 GB)

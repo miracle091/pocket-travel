@@ -212,7 +212,7 @@
     <string name="licenses_note_wikivoyage">Text by Wikivoyage contributors; every page used is linked in the sources of each guide. Sections are adapted (extracted and stripped of formatting); some are machine-translated from the page in the other language (Italian or English) with Helsinki-NLP\'s opus-mt-tc-big models. The adapted and translated text is also licensed under CC BY-SA 4.0.</string>
     <string name="licenses_component_wikipedia">Wikipedia (city history and climate)</string>
     <string name="licenses_note_wikipedia">Text by Wikipedia contributors: the History (shortened) and Climate sections of each city\'s article, linked in the guide\'s sources. When a section is missing or thin, it is machine-translated from the article in the other language, as for Wikivoyage. The adapted and translated text is also licensed under CC BY-SA 4.0.</string>
-    <string name="licenses_component_wikidata">Wikidata (embassies and consulates, quick facts in the guides)</string>
+    <string name="licenses_component_wikidata">Wikidata (embassies and consulates, Quick facts in the guides)</string>
     <string name="licenses_note_wikidata">Public domain: attribution is not required, but the source is Wikidata</string>
     <string name="licenses_component_weather">Weather: Open-Meteo.com (forecasts) and GeoNames (city locations)</string>
     <string name="licenses_note_weather">Weather data by Open-Meteo.com, non-commercial use. City coordinates from the Open-Meteo geocoding, based on GeoNames.</string>
