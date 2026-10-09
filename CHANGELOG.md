@@ -148,6 +148,7 @@ La sezione "Cambiamenti incompatibili" elenca, per ogni versione, cosa smette di
 - Mappa: i mercati all'aperto sono tra i negozi e i villaggi turistici e i residence tra gli alloggi, invece che in "Altro".
 - Pubblicazione dei modelli: i GGUF quantizzati non contengono più nei metadati i percorsi dei file sul computer che li ha generati.
 - Orari dei mezzi pubblici: "Aggiorna" nel riquadro di una fermata non dava nessun riscontro. Ora mostra il download in corso, "Nessun orario più recente disponibile" se il catalogo ha gli stessi orari già installati, oppure un errore se il catalogo non si legge o il download non riesce.
+- Assistente IA sul dispositivo, conversazioni lunghe con Qwen3 4B: quando il contesto si riempiva, la risposta non si fermava più al limite di lunghezza. Inoltre, annullando una risposta dopo quel momento, una parte della risposta restava nella memoria della conversazione.
 
 ### Sicurezza
 - Catalogo firmato: il catalogo delle regioni, l'indice dei mezzi pubblici, quello dei numeri civici e il file che annuncia gli aggiornamenti dell'app hanno una firma digitale, che l'app controlla con la chiave pubblica incorporata: un file senza firma o con una firma sbagliata viene rifiutato.

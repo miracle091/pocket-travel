@@ -233,6 +233,9 @@ constexpr const char *ROLE_ASSISTANT    = "assistant";
 static std::vector<common_chat_msg> chat_msgs;
 static llama_pos system_prompt_position;
 static llama_pos current_position;
+// Stato del turno in corso (vedi sotto), dichiarato qui perche' shift_context lo sposta con le posizioni.
+static llama_pos stop_generation_position;
+static llama_pos generation_start_position;
 
 static void reset_long_term_states(const bool clear_kv_cache = true) {
     chat_msgs.clear();
@@ -265,6 +268,13 @@ static bool shift_context() {
     }
     llama_memory_seq_add(mem, 0, system_prompt_position + n_discard, current_position, -n_discard);
     current_position -= n_discard;
+    // Anche il limite di n_predict scende con le posizioni: senza, dopo uno shift durante la
+    // generazione current_position non lo raggiunge piu' e la risposta va avanti fino all'EOG
+    // (llama.cpp, PR #18432 su examples/llama.android).
+    stop_generation_position -= n_discard;
+    // Anche il punto a cui torna cancelGeneration: se lo shift ha scartato l'inizio della risposta in
+    // corso, quel che ne resta parte subito dopo il system prompt.
+    generation_start_position = std::max(system_prompt_position, generation_start_position - n_discard);
     LOGi("%s: Context shifting done! Current position: %d", __func__, current_position);
     return true;
 }
@@ -295,10 +305,8 @@ static std::string chat_add_and_format(const std::string &role, const std::strin
  * - current assistant message being generated
  * - posizione di partenza del turno assistente in corso (per riallineare la KV cache se cancellato)
  */
-static llama_pos stop_generation_position;
 static std::string cached_token_chars;
 static std::ostringstream assistant_ss;
-static llama_pos generation_start_position;
 
 // Solo misure per il task manager di debug (contextUsage): token del prompt e token campionati
 // nell'ultimo turno. Non le azzerano i reset, cosi' si leggono anche a turno finito.
