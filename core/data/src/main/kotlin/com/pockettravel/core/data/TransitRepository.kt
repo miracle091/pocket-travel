@@ -12,15 +12,24 @@ import javax.inject.Inject
 class TransitRepository @Inject constructor(
     private val regionStorage: RegionStorage,
 ) {
-    /** Letture in sola lettura su IO; una rete illeggibile si salta, come se non avesse fermate vicine. */
-    suspend fun board(regionId: String, latitude: Double, longitude: Double, now: Instant = Instant.now()): TransitBoard =
+    /**
+     * Letture in sola lettura su IO; una rete illeggibile si salta, come se non avesse fermate vicine. [stationModes]: i
+     * mezzi della stazione o del terminal nel punto, le cui fermate GTFS possono essere piu' lontane (TRANSIT_STATION_RADIUS_M).
+     */
+    suspend fun board(
+        regionId: String,
+        latitude: Double,
+        longitude: Double,
+        stationModes: Set<TransitMode> = emptySet(),
+        now: Instant = Instant.now(),
+    ): TransitBoard =
         withContext(Dispatchers.IO) {
             val dir = File(regionStorage.directoryFor(regionId), RegionStorage.TRANSIT_DIR)
             val infos = runCatching { TransitFeedInfo.decode(File(dir, RegionStorage.TRANSIT_FEEDS_FILE).readText()) }.getOrDefault(emptyList())
             val boards = dir.listFiles { file -> file.isFile && file.extension == "db" }.orEmpty().mapNotNull { file ->
                 runCatching {
                     SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-                        readFeedBoard(SqliteTransitQuery(db), infos.firstOrNull { it.id == file.nameWithoutExtension }, latitude, longitude, now)
+                        readFeedBoard(SqliteTransitQuery(db), infos.firstOrNull { it.id == file.nameWithoutExtension }, latitude, longitude, now, stationModes)
                     }
                 }.getOrNull()
             }

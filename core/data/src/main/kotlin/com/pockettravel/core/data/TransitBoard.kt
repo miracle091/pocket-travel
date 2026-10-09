@@ -103,6 +103,14 @@ sealed interface TransitBoard {
 /** Raggio entro cui le fermate contano come "vicine" al punto. */
 internal const val TRANSIT_STOP_RADIUS_M = 150.0
 
+/**
+ * Per stazioni e terminal: se una rete non ha fermate entro [TRANSIT_STOP_RADIUS_M], la sua fermata piu' vicina entro
+ * questo raggio servita dal mezzo della stazione (treni per una stazione, bus per un'autostazione...). Nelle stazioni
+ * grandi la fermata GTFS e' lontana dal punto OSM (Riga Centrale 228 m, Milano Centrale 158 m, Roma Termini 156 m);
+ * il mezzo evita di prendere, per una stazione con i treni vicini, il tram o il bus di un'altra rete a 400 m.
+ */
+internal const val TRANSIT_STATION_RADIUS_M = 400.0
+
 /** Ampiezza in avanti del tabellone e numero massimo di partenze mostrate. */
 internal const val TRANSIT_WINDOW_MINUTES = 180
 internal const val TRANSIT_MAX_DEPARTURES = 10
@@ -125,8 +133,18 @@ internal interface TransitQuery {
     fun <T> query(sql: String, read: (TransitRow) -> T): List<T>
 }
 
-/** Esito per una rete: [board] e' Departures o Expired; null se la rete non ha fermate vicino al punto. */
-internal fun readFeedBoard(db: TransitQuery, feed: TransitFeedInfo?, latitude: Double, longitude: Double, now: Instant): TransitBoard? {
+/**
+ * Esito per una rete: [board] e' Departures o Expired; null se la rete non ha fermate vicino al punto. [stationModes]: i
+ * mezzi della stazione o del terminal nel punto, vuoto per un punto qualsiasi; vedi [TRANSIT_STATION_RADIUS_M].
+ */
+internal fun readFeedBoard(
+    db: TransitQuery,
+    feed: TransitFeedInfo?,
+    latitude: Double,
+    longitude: Double,
+    now: Instant,
+    stationModes: Set<TransitMode> = emptySet(),
+): TransitBoard? {
     val meta = db.query("SELECT key, value FROM meta") { it.string(0).orEmpty() to it.string(1).orEmpty() }.toMap()
     // Un formato diverso da quello che l'app sa leggere: la rete si ignora finche' non si aggiorna.
     if (meta["format"]?.toIntOrNull() != TRANSIT_DB_FORMAT) return null
@@ -134,7 +152,7 @@ internal fun readFeedBoard(db: TransitQuery, feed: TransitFeedInfo?, latitude: D
     val windowStart = LocalDate.parse(meta.getValue("window_start"), BASIC_DATE)
     val validUntil = LocalDate.parse(meta.getValue("valid_until"), BASIC_DATE)
     val windowDays = meta["window_days"]?.toIntOrNull()
-    val stops = nearbyStopIds(db, latitude, longitude)
+    val stops = nearbyStopIds(db, latitude, longitude, stationModes)
     if (stops.isEmpty()) return null
     val feeds = listOfNotNull(feed?.copy(dataDate = windowStart))
     // Colonne wheelchair di stop e trip: solo nei transit.db costruiti dopo che la pipeline le ha aggiunte, vedi meta.
@@ -205,22 +223,41 @@ internal fun wheelchairOf(value: String?): Boolean? = when (value) {
 
 /**
  * Fermate del gruppo del punto: quelle entro [TRANSIT_STOP_RADIUS_M] (riquadro in microgradi, poi
- * distanza), con le loro stazioni (parent) e tutte le banchine di quelle stazioni. Vuoto se nessuna.
+ * distanza), con le loro stazioni (parent) e tutte le banchine di quelle stazioni. Per una stazione senza
+ * fermate cosi' vicine, il gruppo della fermata piu' vicina entro [TRANSIT_STATION_RADIUS_M] servita da uno dei
+ * [stationModes]. Vuoto se nessuna.
  */
-internal fun nearbyStopIds(db: TransitQuery, latitude: Double, longitude: Double): List<Long> {
-    val dLat = TRANSIT_STOP_RADIUS_M / METERS_PER_DEGREE
+internal fun nearbyStopIds(db: TransitQuery, latitude: Double, longitude: Double, stationModes: Set<TransitMode> = emptySet()): List<Long> {
+    val radius = if (stationModes.isEmpty()) TRANSIT_STOP_RADIUS_M else TRANSIT_STATION_RADIUS_M
+    val dLat = radius / METERS_PER_DEGREE
     val dLon = dLat / maxOf(cos(Math.toRadians(latitude)), 0.01)
     fun micro(degrees: Double) = Math.round(degrees * 1e6)
     val rows = db.query(
         "SELECT id, parent, latE6, lonE6 FROM stop WHERE latE6 BETWEEN ${micro(latitude - dLat)} AND ${micro(latitude + dLat)} " +
             "AND lonE6 BETWEEN ${micro(longitude - dLon)} AND ${micro(longitude + dLon)}",
     ) { StopRow(it.string(0)!!.toLong(), it.string(1)?.toLong(), it.string(2)!!.toLong(), it.string(3)!!.toLong()) }
-    val near = rows.filter { distanceMeters(latitude, longitude, it.latE6 / 1e6, it.lonE6 / 1e6) <= TRANSIT_STOP_RADIUS_M }
+    val distances = rows.associateWith { distanceMeters(latitude, longitude, it.latE6 / 1e6, it.lonE6 / 1e6) }
+    val near = distances.filterValues { it <= TRANSIT_STOP_RADIUS_M }.keys
+        .ifEmpty { listOfNotNull(nearestServedStop(db, distances.filterValues { it <= radius }, stationModes)) }
     if (near.isEmpty()) return emptyList()
     val ids = near.mapTo(mutableSetOf()) { it.id }
     val stations = near.mapTo(mutableSetOf()) { it.parent ?: it.id }
     ids += db.query("SELECT id FROM stop WHERE id IN (${stations.joinToString(",")}) OR parent IN (${stations.joinToString(",")})") { it.string(0)!!.toLong() }
     return ids.sorted()
+}
+
+/**
+ * La piu' vicina tra le fermate [candidates] (con la distanza) servite da linee di uno dei [modes]; le stazioni parent
+ * non hanno passaggi, le loro banchine si'. Null se nessuna.
+ */
+private fun nearestServedStop(db: TransitQuery, candidates: Map<StopRow, Double>, modes: Set<TransitMode>): StopRow? {
+    if (candidates.isEmpty()) return null
+    val served = db.query(
+        "SELECT DISTINCT ps.stop, r.type FROM pattern_stop ps JOIN trip t ON t.pattern = ps.pattern JOIN route r ON r.id = t.route " +
+            "WHERE ps.stop IN (${candidates.keys.joinToString(",") { it.id.toString() }})",
+    ) { it.string(0)?.toLongOrNull() to transitModeOf(it.int(1)) }
+        .filter { it.second in modes }.mapNotNullTo(mutableSetOf()) { it.first }
+    return candidates.filterKeys { it.id in served }.minByOrNull { it.value }?.key
 }
 
 private data class StopRow(val id: Long, val parent: Long?, val latE6: Long, val lonE6: Long)

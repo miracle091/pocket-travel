@@ -172,6 +172,28 @@ class TransitBoardTest {
     }
 
     @Test
+    fun unaStazioneGrandePrendeLaFermataPiuVicinaDelSuoMezzoEntro400Metri() {
+        // Punto 230 m a sud della fermata 1 (come Riga Centrale e la fermata "Riga"): niente entro 150 m.
+        val south = lat - 230 / 111_320.0
+        val now = at("2026-10-01T06:00:00Z")
+        trip(1, 1, 1, 1, stop = 1, minute = 545) // bus
+        trip(2, 3, 1, 1, stop = 2, minute = 546) // metro, alla banchina 2 della stazione 10 (263 m)
+        trip(3, 1, 1, 1, stop = 3, minute = 547) // bus, alla banchina 3 della stazione 10 (430 m)
+        assertNull(readFeedBoard(query, feed, south, lon, now))
+        // Un'autostazione: la fermata 1 dei bus, la piu' vicina, senza la stazione 10.
+        val bus = readFeedBoard(query, feed, south, lon, now, setOf(TransitMode.BUS)) as TransitBoard.Departures
+        assertEquals(listOf(5), bus.items.map { it.inMinutes })
+        // Una stazione della metro: la banchina 2, piu' lontana ma della metro, con tutta la stazione 10.
+        val metro = readFeedBoard(query, feed, south, lon, now, setOf(TransitMode.TRAIN, TransitMode.METRO)) as TransitBoard.Departures
+        assertEquals(listOf(6, 7), metro.items.map { it.inMinutes })
+        // Nessuna fermata del mezzo entro 400 m, o nessuna fermata: come un punto qualsiasi.
+        assertNull(readFeedBoard(query, feed, south, lon, now, setOf(TransitMode.FERRY)))
+        assertNull(readFeedBoard(query, feed, lat - 410 / 111_320.0, lon, now, setOf(TransitMode.BUS)))
+        // Con fermate entro 150 m il gruppo e' quello di sempre, di qualsiasi mezzo.
+        assertEquals(listOf(5, 6, 7), (readFeedBoard(query, feed, lat, lon, now, setOf(TransitMode.FERRY)) as TransitBoard.Departures).items.map { it.inMinutes })
+    }
+
+    @Test
     fun nessunaFermataVicinaDaNull() {
         trip(1, 1, 1, 1, stop = 4, minute = 545)
         assertNull(readFeedBoard(query, feed, 57.5, 25.0, at("2026-10-01T06:00:00Z")))

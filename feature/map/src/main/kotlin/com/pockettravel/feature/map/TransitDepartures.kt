@@ -60,6 +60,17 @@ enum class TransitPackageState { UNKNOWN, INSTALLED, AVAILABLE, DOWNLOADING, NOT
 val TRANSIT_CATEGORIES = setOf(PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TRAGHETTO)
 
 /**
+ * I mezzi di una stazione o di un terminal (non delle fermate railway=halt): le sue fermate GTFS di quei mezzi si cercano
+ * piu' lontano dal punto OSM. Vuoto per gli altri POI.
+ */
+fun transitStationModes(osmTag: String): Set<TransitMode> = when (osmTag) {
+    "railway=station" -> setOf(TransitMode.TRAIN, TransitMode.METRO)
+    "amenity=bus_station" -> setOf(TransitMode.BUS, TransitMode.TROLLEYBUS)
+    "amenity=ferry_terminal" -> setOf(TransitMode.FERRY)
+    else -> emptySet()
+}
+
+/**
  * "Prossime partenze" nel riquadro di un POI di trasporto: le righe del tabellone, la scadenza degli
  * orari e le fonti; se gli orari non sono installati, il pulsante per scaricarli. [board] e' null
  * finche' si legge. [onDownload] scarica o aggiorna il pacchetto orari della regione.

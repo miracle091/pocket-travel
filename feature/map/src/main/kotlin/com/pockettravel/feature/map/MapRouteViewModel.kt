@@ -105,7 +105,7 @@ class MapRouteViewModel @Inject constructor(
         if (pin == null || regionId == null) return
         transitJob = viewModelScope.launch {
             while (true) {
-                _transitBoard.value = transitRepository.board(regionId, pin.latitude, pin.longitude)
+                _transitBoard.value = transitRepository.board(regionId, pin.latitude, pin.longitude, transitStationModes(pin.osmTag))
                 delay(DEPARTURES_REFRESH_MILLIS)
             }
         }
