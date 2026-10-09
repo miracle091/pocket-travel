@@ -3,7 +3,11 @@
 // la logica e' invariata.
 #include <android/log.h>
 #include <jni.h>
+#include <link.h>
+#include <sys/auxv.h>
+#include <sys/prctl.h>
 #include <algorithm>
+#include <cstring>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -37,21 +41,54 @@ static common_chat_templates_ptr          g_chat_templates;
 static bool                               g_chat_template_supports_thinking;
 static common_sampler                   * g_sampler;
 
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_init(JNIEnv *env, jobject /*unused*/, jstring nativeLibDir) {
+// Copiata e rilasciata subito: se dopo qualcosa lancia, la stringa JNI non resta trattenuta.
+static std::string jstring_to_path(JNIEnv *env, jstring str) {
+    const auto *chars = env->GetStringUTFChars(str, 0);
+    std::string result = chars;
+    env->ReleaseStringUTFChars(str, chars);
+    return result;
+}
+
+static void init_impl(JNIEnv *env, jstring nativeLibDir, jstring forcedCpuBackend) {
     // Set llama log handler to Android
     llama_log_set(aichat_android_log_callback, nullptr);
 
-    // Loading all CPU backend variants
-    const auto *path_to_backend = env->GetStringUTFChars(nativeLibDir, 0);
-    LOGi("Loading backends from %s", path_to_backend);
-    ggml_backend_load_all_from_path(path_to_backend);
-    env->ReleaseStringUTFChars(nativeLibDir, path_to_backend);
+    // Di norma ggml carica la variante CPU (libggml-cpu-*.so) con il punteggio piu' alto per le
+    // estensioni della CPU. forcedCpuBackend (percorso di una variante, solo dal task manager delle
+    // build di debug) la sostituisce per confrontare le varianti; se la CPU non la supporta ggml la
+    // rifiuta e si torna alla scelta normale.
+    const std::string path_to_backend = jstring_to_path(env, nativeLibDir);
+    bool loaded = false;
+    if (forcedCpuBackend != nullptr) {
+        const std::string forced = jstring_to_path(env, forcedCpuBackend);
+        LOGi("Loading forced CPU backend %s", forced.c_str());
+        loaded = ggml_backend_load(forced.c_str()) != nullptr;
+        if (!loaded) LOGw("Forced CPU backend not loaded, falling back to the best variant: %s", forced.c_str());
+    }
+    if (!loaded) {
+        LOGi("Loading backends from %s", path_to_backend.c_str());
+        ggml_backend_load_all_from_path(path_to_backend.c_str());
+    }
 
     // Initialize backends
     llama_backend_init();
     LOGi("Backend initiated; Log handler set.");
+}
+
+// Un'eccezione C++ diventa una RuntimeException: InferenceEngineImpl la porta allo stato Error.
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_init(JNIEnv *env, jobject /*unused*/, jstring nativeLibDir,
+                                                                           jstring forcedCpuBackend) {
+    try {
+        init_impl(env, nativeLibDir, forcedCpuBackend);
+    } catch (const std::exception &e) {
+        LOGe("%s: %s", __func__, e.what());
+        jclass exception_class = env->FindClass("java/lang/RuntimeException");
+        if (exception_class) {
+            env->ThrowNew(exception_class, e.what());
+        }
+    }
 }
 
 static jint load_impl(JNIEnv *env, jstring jmodel_path) {
@@ -723,6 +760,49 @@ extern "C"
 JNIEXPORT jintArray JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_contextUsageNative(JNIEnv *env, jobject /*unused*/) {
     const jint values[] = {last_prompt_tokens, last_generated_tokens, (jint) current_position, DEFAULT_CONTEXT_SIZE};
+    constexpr jsize count = sizeof(values) / sizeof(values[0]);
+    jintArray result = env->NewIntArray(count);
+    if (result == nullptr) return nullptr;  // OutOfMemoryError gia' pendente in Java
+    env->SetIntArrayRegion(result, 0, count, values);
+    return result;
+}
+
+// Nome del file della variante CPU di ggml (libggml-cpu-*.so) caricata nel processo, per il task manager
+// di debug; null prima di init o se nessuna e' caricata. Letto dalle librerie mappate (dl_iterate_phdr),
+// quindi vale anche quando la sceglie ggml.
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_loadedCpuBackendNative(JNIEnv *env, jobject /*unused*/) {
+    // Solo funzioni C nel callback, che non deve lanciare eccezioni (lo chiama il linker).
+    const char *found = nullptr;
+    dl_iterate_phdr([](struct dl_phdr_info *info, size_t /*size*/, void *data) -> int {
+        if (info->dlpi_name == nullptr) return 0;
+        const char *slash = strrchr(info->dlpi_name, '/');
+        const char *name = slash != nullptr ? slash + 1 : info->dlpi_name;
+        if (strncmp(name, "libggml-cpu", strlen("libggml-cpu")) != 0) return 0;
+        *static_cast<const char **>(data) = name;  // la libreria resta caricata: il puntatore resta valido
+        return 1;
+    }, &found);
+    return found == nullptr ? nullptr : env->NewStringUTF(found);  // nome ASCII
+}
+
+// Estensioni della CPU che decidono la variante, per il task manager di debug: {SVE2, SME, lunghezza
+// dei vettori SVE in byte}, 1/0 e 0 se manca SVE. Tutti 0 fuori da arm64.
+extern "C"
+JNIEXPORT jintArray JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_cpuFeaturesNative(JNIEnv *env, jobject /*unused*/) {
+    jint values[] = {0, 0, 0};
+#if defined(__aarch64__)
+    constexpr unsigned long HWCAP2_SVE2_BIT = 1UL << 1;   // HWCAP2_SVE2 in <asm/hwcap.h>
+    constexpr unsigned long HWCAP2_SME_BIT = 1UL << 23;   // HWCAP2_SME
+    constexpr int PR_SVE_GET_VL_OPTION = 51;              // PR_SVE_GET_VL in <linux/prctl.h>
+    constexpr int PR_SVE_VL_LEN_MASK_BITS = 0xffff;       // PR_SVE_VL_LEN_MASK
+    const unsigned long hwcap2 = getauxval(AT_HWCAP2);
+    const int sve_vl = prctl(PR_SVE_GET_VL_OPTION);       // -1 (EINVAL) senza SVE
+    values[0] = (hwcap2 & HWCAP2_SVE2_BIT) != 0;
+    values[1] = (hwcap2 & HWCAP2_SME_BIT) != 0;
+    values[2] = sve_vl < 0 ? 0 : (sve_vl & PR_SVE_VL_LEN_MASK_BITS);
+#endif
     constexpr jsize count = sizeof(values) / sizeof(values[0]);
     jintArray result = env->NewIntArray(count);
     if (result == nullptr) return nullptr;  // OutOfMemoryError gia' pendente in Java

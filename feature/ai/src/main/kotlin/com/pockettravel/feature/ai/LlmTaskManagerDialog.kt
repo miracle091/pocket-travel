@@ -45,6 +45,7 @@ internal fun LlmTaskManagerDialog(onDismiss: () -> Unit, viewModel: LlmTaskManag
                     SpaceSection(current)
                     ResourcesSection(current)
                     BehaviourSection(current.runtime)
+                    CpuBackendSection(current.cpuBackend, viewModel)
                 } ?: Text(stringResource(R.string.ai_taskmgr_loading))
             }
         },
@@ -109,9 +110,15 @@ private fun BehaviourSection(runtime: LlmRuntimeStats) {
     )
     MetricRow(stringResource(R.string.ai_taskmgr_first_token), last.timeToFirstTokenMs?.let { seconds(it) } ?: NOT_AVAILABLE)
     MetricRow(stringResource(R.string.ai_taskmgr_total_time), seconds(last.totalMs))
+    SpeedRow(R.string.ai_taskmgr_speed, last.tokensPerSecond)
+    SpeedRow(R.string.ai_taskmgr_prompt_speed, last.promptTokensPerSecond)
+}
+
+@Composable
+private fun SpeedRow(@StringRes labelRes: Int, tokensPerSecond: Float?) {
     MetricRow(
-        stringResource(R.string.ai_taskmgr_speed),
-        last.tokensPerSecond?.let { stringResource(R.string.ai_taskmgr_speed_value, it) } ?: NOT_AVAILABLE,
+        stringResource(labelRes),
+        tokensPerSecond?.let { stringResource(R.string.ai_taskmgr_speed_value, it) } ?: NOT_AVAILABLE,
     )
 }
 
@@ -122,13 +129,13 @@ private fun stateLabel(runtime: LlmRuntimeStats, modelName: String?): String = w
     else -> stringResource(R.string.ai_taskmgr_state_unloaded)
 }
 
-private const val NOT_AVAILABLE = "—"
+internal const val NOT_AVAILABLE = "—"
 private const val PERCENT_INT = 100
 
 private fun seconds(ms: Long): String = String.format(Locale.getDefault(), "%.2f s", ms / MS_PER_SECOND)
 
 @Composable
-private fun SectionTitle(@StringRes titleRes: Int) {
+internal fun SectionTitle(@StringRes titleRes: Int) {
     Text(
         text = stringResource(titleRes),
         style = MaterialTheme.typography.titleSmall,
@@ -138,7 +145,7 @@ private fun SectionTitle(@StringRes titleRes: Int) {
 }
 
 @Composable
-private fun MetricRow(label: String, value: String) {
+internal fun MetricRow(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
         Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -1,6 +1,7 @@
 package com.pockettravel.feature.ai
 
 import android.content.Context
+import com.pockettravel.feature.ai.llamacpp.CpuBackendInfo
 import com.pockettravel.feature.ai.llamacpp.InferenceEngine
 import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl
 import com.pockettravel.feature.ai.llamacpp.isModelLoaded
@@ -46,6 +47,12 @@ class OnDeviceLlmEngine @Inject constructor(
 
     /** Modello in memoria, tempo di caricamento e ultima generazione, per il task manager di debug. */
     val stats: StateFlow<LlmRuntimeStats> = _stats.asStateFlow()
+
+    /**
+     * Variante CPU di llama.cpp caricata ed estensioni della CPU, per il task manager di debug. La prima lettura
+     * crea il motore, che carica la libreria nativa (non il modello).
+     */
+    val cpuBackend: StateFlow<CpuBackendInfo?> get() = engine.cpuBackend
 
     /**
      * Carica il modello se non e' gia' in memoria, restituendo quanto e' durato il caricamento — 0

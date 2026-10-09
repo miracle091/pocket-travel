@@ -18,6 +18,9 @@ interface InferenceEngine {
     /** Uso del contesto nell'ultimo turno, per il task manager di debug; null prima del primo prompt. */
     val contextUsage: StateFlow<ContextUsage?>
 
+    /** Variante CPU caricata ed estensioni della CPU, per il task manager di debug; null prima dell'init. */
+    val cpuBackend: StateFlow<CpuBackendInfo?>
+
     /**
      * Load a model from the given path.
      *
@@ -106,3 +109,16 @@ class UnsupportedArchitectureException : Exception()
  * compresi) e dimensione del contesto, letti dal motore nativo.
  */
 data class ContextUsage(val promptTokens: Int, val generatedTokens: Int, val usedTokens: Int, val contextSize: Int)
+
+/**
+ * Variante CPU di ggml caricata nel processo ([loadedFile], per esempio `libggml-cpu-android_armv8.6_1.so`,
+ * null se nessuna), quella chiesta dal task manager di debug ([forcedFile], null se la sceglie ggml) ed
+ * estensioni della CPU che decidono la scelta: SVE2, SME e lunghezza dei vettori SVE in byte (0 senza SVE).
+ */
+data class CpuBackendInfo(
+    val loadedFile: String?,
+    val forcedFile: String?,
+    val sve2: Boolean,
+    val sme: Boolean,
+    val sveVectorBytes: Int,
+)

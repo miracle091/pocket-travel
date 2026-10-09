@@ -49,4 +49,16 @@ class LlmTaskMetricsTest {
         assertNull(tokensPerSecond(pieces = 5, timeToFirstTokenMs = null, totalMs = 500))
         assertNull(tokensPerSecond(pieces = 5, timeToFirstTokenMs = 500, totalMs = 500))
     }
+
+    @Test
+    fun `prompt tokens per second come from the time to first token`() {
+        assertEquals(900f, promptTokensPerSecond(promptTokens = 900, timeToFirstTokenMs = 1000)!!, 0.01f)
+    }
+
+    @Test
+    fun `prompt tokens per second are unknown without enough data`() {
+        assertNull(promptTokensPerSecond(promptTokens = 0, timeToFirstTokenMs = 1000))
+        assertNull(promptTokensPerSecond(promptTokens = 900, timeToFirstTokenMs = null))
+        assertNull(promptTokensPerSecond(promptTokens = 900, timeToFirstTokenMs = 0))
+    }
 }

@@ -29,6 +29,10 @@ data class GenerationStats(
     /** Token al secondo dopo il primo; null se la risposta ne ha meno di due o mancano i conteggi. */
     val tokensPerSecond: Float?
         get() = context?.let { tokensPerSecond(it.generatedTokens, timeToFirstTokenMs, totalMs) }
+
+    /** Token del prompt letti al secondo, stimati dal tempo al primo token; null senza i conteggi. */
+    val promptTokensPerSecond: Float?
+        get() = context?.let { promptTokensPerSecond(it.promptTokens, timeToFirstTokenMs) }
 }
 
 /** Stato del motore visto da fuori: modello in memoria, tempo di caricamento e ultima generazione. */
@@ -39,6 +43,15 @@ data class LlmRuntimeStats(
     val lastGeneration: GenerationStats? = null,
     val history: List<GenerationStats> = emptyList(),
 )
+
+/**
+ * Velocita' di lettura del prompt: token del prompt diviso il tempo al primo token, che comprende la lettura
+ * del prompt e il calcolo del primo token generato (stima un po' per difetto); null senza dati.
+ */
+internal fun promptTokensPerSecond(promptTokens: Int, timeToFirstTokenMs: Long?): Float? {
+    if (promptTokens <= 0 || timeToFirstTokenMs == null || timeToFirstTokenMs <= 0L) return null
+    return promptTokens * MS_PER_SECOND / timeToFirstTokenMs
+}
 
 /** Velocita' di generazione escludendo l'attesa del primo token (caricamento del prompt). */
 internal fun tokensPerSecond(pieces: Int, timeToFirstTokenMs: Long?, totalMs: Long): Float? {

@@ -6,6 +6,8 @@ package com.pockettravel.feature.ai.llamacpp.internal
 import android.content.Context
 import android.util.Log
 import com.pockettravel.feature.ai.llamacpp.ContextUsage
+import com.pockettravel.feature.ai.llamacpp.CpuBackendInfo
+import com.pockettravel.feature.ai.llamacpp.CpuBackendOverride
 import com.pockettravel.feature.ai.llamacpp.InferenceEngine
 import com.pockettravel.feature.ai.llamacpp.UnsupportedArchitectureException
 import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl.Companion.getInstance
@@ -51,7 +53,9 @@ import java.io.IOException
  * @see ai_chat.cpp for the native implementation details
  */
 internal class InferenceEngineImpl private constructor(
-    private val nativeLibDir: String
+    private val nativeLibDir: String,
+    // Variante CPU scelta dal task manager di debug (CpuBackendOverride); null: la sceglie ggml.
+    private val forcedCpuBackend: String?,
 ) : InferenceEngine {
 
     companion object {
@@ -76,7 +80,7 @@ internal class InferenceEngineImpl private constructor(
                 require(nativeLibDir.isNotBlank()) { "Expected a valid native library path!" }
 
                 Log.i(TAG, "Instantiating InferenceEngineImpl,,,")
-                InferenceEngineImpl(nativeLibDir).also { instance = it }
+                InferenceEngineImpl(nativeLibDir, CpuBackendOverride.forcedPath(context)).also { instance = it }
             }
     }
 
@@ -87,7 +91,7 @@ internal class InferenceEngineImpl private constructor(
      * @FastNative solo sulle chiamate istantanee: un thread dentro una @FastNative non si puo'
      * sospendere per il GC, e caricamento, prompt e generazione durano secondi (jank o ANR).
      */
-    private external fun init(nativeLibDir: String)
+    private external fun init(nativeLibDir: String, forcedCpuBackend: String?)
 
     private external fun load(modelPath: String): Int
 
@@ -111,6 +115,14 @@ internal class InferenceEngineImpl private constructor(
     // {token del prompt, token generati, posizione nella KV cache, dimensione del contesto}
     private external fun contextUsageNative(): IntArray?
 
+    // Nome del file della variante CPU caricata (libggml-cpu-*.so), null se nessuna. Non @FastNative:
+    // dl_iterate_phdr aspetta il lock del linker se un altro thread sta caricando una libreria.
+    private external fun loadedCpuBackendNative(): String?
+
+    // {SVE2 1/0, SME 1/0, lunghezza dei vettori SVE in byte}; tutti 0 fuori da arm64
+    @FastNative
+    private external fun cpuFeaturesNative(): IntArray?
+
     private external fun unload()
 
     private external fun shutdown()
@@ -121,6 +133,9 @@ internal class InferenceEngineImpl private constructor(
 
     private val _contextUsage = MutableStateFlow<ContextUsage?>(null)
     override val contextUsage: StateFlow<ContextUsage?> = _contextUsage.asStateFlow()
+
+    private val _cpuBackend = MutableStateFlow<CpuBackendInfo?>(null)
+    override val cpuBackend: StateFlow<CpuBackendInfo?> = _cpuBackend.asStateFlow()
 
     @Volatile
     private var _cancelGeneration = false
@@ -147,7 +162,15 @@ internal class InferenceEngineImpl private constructor(
                 _state.value = InferenceEngine.State.Initializing
                 Log.i(TAG, "Loading native library...")
                 System.loadLibrary("llm-engine")
-                init(nativeLibDir)
+                init(nativeLibDir, forcedCpuBackend)
+                val features = cpuFeaturesNative()
+                _cpuBackend.value = CpuBackendInfo(
+                    loadedFile = loadedCpuBackendNative(),
+                    forcedFile = forcedCpuBackend?.let { File(it).name },
+                    sve2 = features?.getOrNull(0) == 1,
+                    sme = features?.getOrNull(1) == 1,
+                    sveVectorBytes = features?.getOrNull(2) ?: 0,
+                )
                 _state.value = InferenceEngine.State.Initialized
                 Log.i(TAG, "Native library loaded! System info: \n${systemInfo()}")
 

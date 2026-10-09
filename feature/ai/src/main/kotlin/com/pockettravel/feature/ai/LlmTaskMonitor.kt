@@ -2,12 +2,16 @@ package com.pockettravel.feature.ai
 
 import android.app.ActivityManager
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Debug
 import android.os.Process
 import android.os.SystemClock
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.pockettravel.feature.ai.llamacpp.CpuBackendInfo
+import com.pockettravel.feature.ai.llamacpp.CpuBackendOverride
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -15,12 +19,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
@@ -53,6 +60,8 @@ data class LlmTaskSnapshot(
     val cpuCores: Int,
     val threadCount: Int?,
     val runtime: LlmRuntimeStats,
+    /** Variante CPU di llama.cpp ed estensioni della CPU; null finche' la libreria nativa non e' inizializzata. */
+    val cpuBackend: CpuBackendInfo? = null,
 )
 
 /** Una lettura del task manager con l'ora (epoch ms) in cui e' stata presa. */
@@ -104,6 +113,7 @@ class LlmTaskMonitor @Inject constructor(
             "cores: ${Runtime.getRuntime().availableProcessors()}",
             "exported: ${Instant.now()}",
             "model: ${runtime.loadedModelId ?: "none"}, load_ms: ${runtime.loadTimeMs ?: ""}",
+            cpuBackendHeader(engine.cpuBackend.value, CpuBackendOverride.available(context)),
         )
     }
 
@@ -147,6 +157,7 @@ class LlmTaskMonitor @Inject constructor(
             cpuCores = Runtime.getRuntime().availableProcessors(),
             threadCount = readThreadCount(),
             runtime = engine.stats.value,
+            cpuBackend = engine.cpuBackend.value,
         )
     }
 
@@ -158,8 +169,47 @@ class LlmTaskMonitor @Inject constructor(
 }
 
 @HiltViewModel
-class LlmTaskManagerViewModel @Inject constructor(private val monitor: LlmTaskMonitor) : ViewModel() {
+class LlmTaskManagerViewModel @Inject constructor(
+    private val monitor: LlmTaskMonitor,
+    @ApplicationContext private val context: Context,
+) : ViewModel() {
     val snapshot: StateFlow<LlmTaskSnapshot?> = monitor.latest
 
+    private val _availableCpuBackends = MutableStateFlow<List<String>>(emptyList())
+
+    /** Varianti CPU di llama.cpp nell'APK installato, per sceglierne una a mano. */
+    val availableCpuBackends: StateFlow<List<String>> = _availableCpuBackends.asStateFlow()
+
+    private val _chosenCpuBackend = MutableStateFlow<String?>(null)
+
+    /** Variante scelta per il prossimo avvio; null se la sceglie ggml. */
+    val chosenCpuBackend: StateFlow<String?> = _chosenCpuBackend.asStateFlow()
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            val available = CpuBackendOverride.available(context)
+            _availableCpuBackends.value = available
+            // Una scelta non piu' presente nell'APK (variante tolta da un aggiornamento) vale come automatica.
+            _chosenCpuBackend.value = CpuBackendOverride.saved(context)?.takeIf { it in available }
+        }
+    }
+
     suspend fun export(target: Uri): Boolean = monitor.export(target)
+
+    fun chooseCpuBackend(fileName: String?) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { CpuBackendOverride.save(context, fileName) }
+            _chosenCpuBackend.value = fileName
+        }
+    }
+
+    /**
+     * Riavvia l'app: ggml carica la variante CPU solo all'avvio del processo. killProcess e non Runtime.exit, che
+     * eseguirebbe i distruttori delle librerie native mentre il motore puo' ancora generare.
+     */
+    fun restartApp() {
+        val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
+        context.startActivity(Intent.makeRestartActivityTask(launch.component))
+        Process.killProcess(Process.myPid())
+    }
 }

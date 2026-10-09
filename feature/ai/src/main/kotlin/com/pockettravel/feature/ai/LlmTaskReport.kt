@@ -1,5 +1,6 @@
 package com.pockettravel.feature.ai
 
+import com.pockettravel.feature.ai.llamacpp.CpuBackendInfo
 import java.time.Instant
 import java.util.Locale
 
@@ -27,12 +28,32 @@ internal fun buildTaskReport(
     samples.forEach { appendLine(sampleRow(it)) }
     appendLine()
     appendLine("## generations")
-    appendLine("ended_at,model,prompt_tokens,generated_tokens,context_used,context_size,first_token_ms,total_ms,tokens_per_s")
+    appendLine("ended_at,model,prompt_tokens,generated_tokens,context_used,context_size,first_token_ms,total_ms,tokens_per_s,prompt_tokens_per_s")
     generations.forEach { appendLine(generationRow(it)) }
     appendLine()
     appendLine("## logcat")
     append(logcat)
 }
+
+/** Nome della variante CPU dal file: `libggml-cpu-android_armv8.6_1.so` diventa `android_armv8.6_1`. */
+internal fun cpuVariantName(fileName: String): String =
+    fileName.removePrefix("libggml-cpu").removePrefix("-").removeSuffix(".so").ifEmpty { "cpu" }
+
+/** Riga dell'intestazione con la variante CPU di llama.cpp caricata, quella forzata, le estensioni e le varianti nell'APK. */
+internal fun cpuBackendHeader(info: CpuBackendInfo?, available: List<String>): String {
+    val variants = available.joinToString(" ") { cpuVariantName(it) }
+    if (info == null) return "cpu_backend: not initialized, available=$variants"
+    return listOf(
+        "loaded=${info.loadedFile?.let(::cpuVariantName) ?: "none"}",
+        "forced=${info.forcedFile?.let(::cpuVariantName) ?: "auto"}",
+        "sve2=${if (info.sve2) 1 else 0}",
+        "sme=${if (info.sme) 1 else 0}",
+        "sve_vector_bits=${info.sveVectorBytes * BITS_PER_BYTE}",
+        "available=$variants",
+    ).joinToString(", ", prefix = "cpu_backend: ")
+}
+
+private const val BITS_PER_BYTE = 8
 
 private fun sampleRow(sample: TimedSnapshot): String {
     val s = sample.snapshot
@@ -47,4 +68,5 @@ private fun generationRow(g: GenerationStats): String = listOf(
     time(g.endedAtMs), g.modelId ?: "", g.context?.promptTokens ?: "", g.context?.generatedTokens ?: "",
     g.context?.usedTokens ?: "", g.context?.contextSize ?: "", g.timeToFirstTokenMs ?: "", g.totalMs,
     g.tokensPerSecond?.let { String.format(Locale.ROOT, "%.1f", it) } ?: "",
+    g.promptTokensPerSecond?.let { String.format(Locale.ROOT, "%.1f", it) } ?: "",
 ).joinToString(",")

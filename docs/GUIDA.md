@@ -54,6 +54,18 @@ adb shell am instrument -w -e class com.pockettravel.feature.ai.LlamaEngineDevic
 
 Sull'emulatore (x86_64) i 4 test durano circa 9 minuti.
 
+### Misurare l'assistente su un telefono, senza adb
+
+Nelle build di debug la scheda IA, con il motore sul dispositivo, ha nel menu (⋯) il **Task manager dei modelli**. Mostra memoria, CPU e, per l'ultima risposta, il tempo al primo token, la velocità di generazione e la velocità di lettura del prompt (token del prompt diviso il tempo al primo token). "Esporta i log" salva un file di testo con le stesse misure in CSV e il logcat dell'app, da condividere senza collegare il telefono al computer.
+
+La sezione **Variante CPU di llama.cpp** serve a confrontare le varianti della libreria su telefoni diversi. llama.cpp è compilato in più varianti, una per famiglia di CPU (`libggml-cpu-*.so`: per arm64 da `android_armv8.0_1` a `android_armv9.2_2`). All'avvio ggml carica quella con il punteggio più alto per le estensioni della CPU, che non è sempre la più veloce: sui core ARMv9 con vettori SVE a 128 bit la variante SVE2 può leggere il prompt fino a due volte più lentamente di `android_armv8.6_1` (llama.cpp, issue #29884). La sezione mostra:
+
+- le estensioni della CPU che decidono la scelta (SVE2, SME, lunghezza dei vettori SVE);
+- la variante caricata, scelta da ggml o a mano;
+- l'elenco delle varianti presenti nell'APK installato, da usare al prossimo avvio. "Riavvia ora" riavvia l'app, perché ggml carica la variante solo all'avvio del processo.
+
+Una variante che la CPU non supporta viene rifiutata da ggml: l'app carica quella automatica e lo scrive accanto alla variante caricata. Per confrontare due varianti fai la stessa domanda, in una conversazione nuova, almeno tre volte con ciascuna, con il telefono nelle stesse condizioni (schermo acceso, risparmio energetico spento, una pausa tra una variante e l'altra perché non si scaldi), poi esporta i log. L'intestazione del file riporta la variante (riga `cpu_backend`), la sezione `generations` le velocità di ogni risposta (`tokens_per_s` e `prompt_tokens_per_s`). Le build di release ignorano la scelta e usano sempre quella di ggml.
+
 ## Provare con dati tuoi
 
 Nelle build di debug l'app può leggere un catalogo di debug invece di quello ufficiale (le firme non si controllano):
