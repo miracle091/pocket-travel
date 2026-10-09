@@ -222,6 +222,7 @@
     <string name="transit_source">Source: %1$s</string>
     <string name="transit_in_min">in %1$d min</string>
     <string name="transit_now">now</string>
+    <string name="transit_later">Then at %1$s</string>
     <plurals name="transit_in_minutes_spoken">
         <item quantity="one">in %1$d minute</item>
         <item quantity="other">in %1$d minutes</item>

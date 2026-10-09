@@ -297,15 +297,19 @@ class TransitBoardTest {
 
     @Test
     fun laViaDelleReti() {
-        val soon = TransitBoard.Departures(listOf(dep(20), dep(5)), LocalDate.of(2026, 10, 3), 2, listOf(feed))
+        val soon = TransitBoard.Departures(listOf(dep(20, "2"), dep(5)), LocalDate.of(2026, 10, 3), 2, listOf(feed))
         val late = TransitBoard.Departures(List(12) { dep(it) }, LocalDate.of(2026, 12, 1), 61, emptyList())
         val old = TransitBoard.Expired(LocalDate.of(2026, 9, 1), listOf(feed))
         val combined = combineBoards(listOf(soon, late, old)) as TransitBoard.Departures
-        assertEquals(10, combined.items.size)
         // Una rete scaduta accanto a reti valide: le partenze delle altre restano, e il tabellone sa quale manca.
         assertEquals(listOf(old), combined.expired)
         assertEquals(emptyList<TransitBoard.Expired>(), (combineBoards(listOf(soon, late)) as TransitBoard.Departures).expired)
-        assertEquals(listOf(0, 1, 2, 3, 4, 5, 5, 6, 7, 8), combined.items.map { it.inMinutes })
+        // Una riga per linea e direzione, con le due partenze successive: la 2 non resta coperta dalle dodici della 1.
+        assertEquals(listOf("1" to 0, "2" to 20), combined.items.map { it.line to it.inMinutes })
+        assertEquals(listOf(listOf(1, 2), emptyList()), combined.items.map { d -> d.later.map { it.inMinutes } })
+        // Stessa linea, direzioni diverse: due righe.
+        val ways = TransitBoard.Departures(listOf(dep(3).copy(headsign = "A"), dep(4).copy(headsign = "B")), LocalDate.of(2026, 10, 3), 2, listOf(feed))
+        assertEquals(listOf("A", "B"), (combineBoards(listOf(ways)) as TransitBoard.Departures).items.map { it.headsign })
         assertEquals(LocalDate.of(2026, 10, 3), combined.validUntil)
         assertTrue(combined.expiresSoon)
         // Fermate: basta una rete che dice si' per dire si'; un no vale solo se nessuna dice si'.
@@ -322,7 +326,7 @@ class TransitBoardTest {
         assertEquals(LocalDate.of(2026, 9, 9), (expired as TransitBoard.Expired).validUntil)
     }
 
-    private fun dep(inMinutes: Int) = TransitDeparture("1", TransitMode.BUS, null, null, null, inMinutes, inMinutes)
+    private fun dep(inMinutes: Int, line: String = "1") = TransitDeparture(line, TransitMode.BUS, null, null, null, inMinutes, inMinutes)
 
     @Test
     fun bitDeiGiorniDelServizio() {

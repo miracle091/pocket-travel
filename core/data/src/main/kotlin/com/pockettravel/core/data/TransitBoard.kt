@@ -57,6 +57,8 @@ data class TransitDeparture(
     val wheelchair: Boolean? = null,
     // Rete scaduta da al massimo TRANSIT_GRACE_DAYS giorni: partenza ricavata dallo stesso giorno della settimana prima.
     val estimated: Boolean = false,
+    // Le partenze successive della stessa linea e direzione, al massimo [TRANSIT_LATER_DEPARTURES] (vuoto nelle successive).
+    val later: List<TransitDeparture> = emptyList(),
 )
 
 /**
@@ -119,9 +121,13 @@ internal const val TRANSIT_STOP_RADIUS_M = 150.0
  */
 internal const val TRANSIT_STATION_RADIUS_M = 400.0
 
-/** Ampiezza in avanti del tabellone e numero massimo di partenze mostrate. */
+/**
+ * Ampiezza in avanti del tabellone e partenze successive mostrate accanto alla prossima di ogni linea e direzione.
+ * Una riga per linea e direzione, senza limite: nelle fermate con centinaia di partenze (autostazione di Riga) un
+ * limite sulle righe lasciava fuori le linee meno frequenti, coperte da tram e bus urbani.
+ */
 internal const val TRANSIT_WINDOW_MINUTES = 180
-internal const val TRANSIT_MAX_DEPARTURES = 10
+internal const val TRANSIT_LATER_DEPARTURES = 2
 
 /** Giorni dopo la scadenza in cui le partenze si stimano dallo stesso giorno della settimana prima. */
 internal const val TRANSIT_GRACE_DAYS = 3L
@@ -312,9 +318,9 @@ internal fun contrastingTextColor(background: Int): Int {
 
 /**
  * Unisce gli esiti delle reti: nessuna rete con fermate vicine -> [TransitBoard.NoStops]; tutte fuori
- * finestra -> Expired (con la data piu' recente); altrimenti le partenze delle reti valide, in ordine
- * di ora e al massimo [TRANSIT_MAX_DEPARTURES], con la scadenza piu' vicina tra le reti ancora valide (tra quelle
- * stimate se non ce ne sono) e le reti scadute.
+ * finestra -> Expired (con la data piu' recente); altrimenti le partenze delle reti valide, una per linea, mezzo e
+ * direzione con le successive in [TransitDeparture.later], in ordine di ora, con la scadenza piu' vicina tra le reti
+ * ancora valide (tra quelle stimate se non ce ne sono) e le reti scadute.
  */
 internal fun combineBoards(boards: List<TransitBoard>): TransitBoard {
     val expired = boards.filterIsInstance<TransitBoard.Expired>()
@@ -324,7 +330,9 @@ internal fun combineBoards(boards: List<TransitBoard>): TransitBoard {
     }
     val valid = active.filter { it.expired.isEmpty() }.ifEmpty { active }
     return TransitBoard.Departures(
-        items = active.flatMap { it.items }.sortedBy { it.inMinutes }.take(TRANSIT_MAX_DEPARTURES),
+        items = active.flatMap { it.items }.sortedBy { it.inMinutes }
+            .groupBy { Triple(it.line, it.mode, it.headsign) }.values
+            .map { group -> group.first().copy(later = group.drop(1).take(TRANSIT_LATER_DEPARTURES)) },
         validUntil = valid.minOf { it.validUntil },
         daysLeft = valid.minOf { it.daysLeft },
         feeds = active.flatMap { it.feeds },

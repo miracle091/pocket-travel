@@ -507,20 +507,31 @@ class TravelAssistantLogicTest {
     fun `le prossime partenze diventano righe con ora, minuti, mezzo, linea e direzione`() {
         val board = TransitBoard.Departures(
             items = listOf(
-                departure("7", TransitMode.TRAM, "Centrale", minuteOfDay = 14 * 60 + 5, inMinutes = 3),
+                departure("7", TransitMode.TRAM, "Centrale", minuteOfDay = 14 * 60 + 5, inMinutes = 3)
+                    .copy(later = listOf(departure("7", TransitMode.TRAM, "Centrale", minuteOfDay = 14 * 60 + 25, inMinutes = 23))),
                 departure("22", TransitMode.BUS, null, minuteOfDay = 14 * 60 + 20, inMinutes = 18),
             ),
             validUntil = LocalDate.of(2026, 12, 31), daysLeft = 89, feeds = emptyList(),
         )
 
+        // Le partenze successive di una linea diventano righe anche loro, in ordine di ora.
         assertEquals(
-            "Prossime partenze dalle fermate qui vicino:\n14:05 (tra 3 min) Tram 7 per Centrale\n14:20 (tra 18 min) Autobus 22",
+            "Prossime partenze dalle fermate qui vicino:\n14:05 (tra 3 min) Tram 7 per Centrale\n14:20 (tra 18 min) Autobus 22\n" +
+                "14:25 (tra 23 min) Tram 7 per Centrale",
             transitContext(board, "it"),
         )
         assertEquals(
-            "Next departures from the stops nearby:\n14:05 (in 3 min) Tram 7 to Centrale\n14:20 (in 18 min) Bus 22",
+            "Next departures from the stops nearby:\n14:05 (in 3 min) Tram 7 to Centrale\n14:20 (in 18 min) Bus 22\n" +
+                "14:25 (in 23 min) Tram 7 to Centrale",
             transitContext(board, "en"),
         )
+    }
+
+    @Test
+    fun `nelle fermate affollate il contesto tiene solo le prime dieci partenze`() {
+        val items = List(30) { departure("$it", TransitMode.BUS, null, minuteOfDay = 600 + it, inMinutes = it) }
+        val text = transitContext(TransitBoard.Departures(items, LocalDate.of(2026, 12, 31), 89, emptyList()), "en")
+        assertEquals(11, text?.lines()?.size)
     }
 
     @Test

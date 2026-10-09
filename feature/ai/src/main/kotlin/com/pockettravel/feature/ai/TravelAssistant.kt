@@ -428,6 +428,8 @@ private val transitWords = Regex(
 /** True se la domanda parla di mezzi pubblici o partenze (italiano o inglese). */
 internal fun isTransitQuestion(question: String): Boolean = transitWords.containsMatchIn(question)
 
+private const val TRANSIT_PROMPT_ROWS = 10
+
 /**
  * Testo del tabellone delle fermate vicine per il contesto: le prossime partenze (ora della rete, minuti da adesso, mezzo,
  * linea e direzione), oppure che non ce ne sono o che gli orari sono scaduti; in fondo le reti scadute accanto a quelle
@@ -449,7 +451,10 @@ internal fun transitContext(board: TransitBoard, language: String): String? {
                 listOf(if (en) "No departures in the next hours from the stops nearby." else "Nessuna partenza nelle prossime ore dalle fermate qui vicino.")
             } else {
                 val header = if (en) "Next departures from the stops nearby:" else "Prossime partenze dalle fermate qui vicino:"
-                listOf(header) + board.items.map { departure ->
+                // Una riga per partenza, anche le successive di ogni linea, come negli esempi di training; al massimo
+                // TRANSIT_PROMPT_ROWS: nelle fermate affollate il tabellone ha decine di linee, troppe per il prompt.
+                val rows = board.items.flatMap { listOf(it) + it.later }.sortedBy { it.inMinutes }.take(TRANSIT_PROMPT_ROWS)
+                listOf(header) + rows.map { departure ->
                     val time = "%02d:%02d".format(Locale.ROOT, departure.minuteOfDay / 60, departure.minuteOfDay % 60)
                     val wait = if (en) "in ${departure.inMinutes} min" else "tra ${departure.inMinutes} min"
                     val direction = departure.headsign?.let { if (en) " to $it" else " per $it" }.orEmpty()

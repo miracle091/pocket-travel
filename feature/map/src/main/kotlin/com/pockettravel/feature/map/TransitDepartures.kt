@@ -153,16 +153,21 @@ internal fun TransitDeparturesSection(
     }
 }
 
+private const val MINUTES_PER_DAY = 24 * 60
+private const val MILLIS_PER_MINUTE = 60_000L
+
 @Composable
 private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean) {
     // Ora della rete nel formato del telefono (24 h o AM/PM, anche per TalkBack). Il formatter va in UTC: minuteOfDay e'
     // gia' un orario locale della rete e non va spostato col fuso del telefono; GTFS supera le 24 h dopo mezzanotte.
     val context = LocalContext.current
-    val clock = remember(departure.minuteOfDay, context) {
-        DateFormat.getTimeFormat(context)
-            .apply { timeZone = TimeZone.getTimeZone("UTC") }
-            .format(Date(departure.minuteOfDay % (24 * 60) * 60_000L))
+    val (clock, laterClocks) = remember(departure.minuteOfDay, departure.later, context) {
+        val format = DateFormat.getTimeFormat(context).apply { timeZone = TimeZone.getTimeZone("UTC") }
+        fun clockOf(minute: Int) = format.format(Date(minute % MINUTES_PER_DAY * MILLIS_PER_MINUTE))
+        clockOf(departure.minuteOfDay) to departure.later.joinToString(", ") { clockOf(it.minuteOfDay) }
     }
+    // Le partenze successive della stessa linea e direzione: una riga per linea, anche nelle fermate affollate.
+    val laterText = laterClocks.takeIf { it.isNotEmpty() }?.let { stringResource(R.string.transit_later, it) }
     val relative = if (departure.inMinutes <= 0) stringResource(R.string.transit_now) else stringResource(R.string.transit_in_min, departure.inMinutes)
     val relativeSpoken = if (departure.inMinutes <= 0) {
         stringResource(R.string.transit_now)
@@ -180,7 +185,9 @@ private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.m),
-        modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = accessibleText?.let { "$description, $it" } ?: description },
+        modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
+            contentDescription = listOfNotNull(description, laterText, accessibleText).joinToString(", ")
+        },
     ) {
         // Il colore della linea e' solo decorazione: sigla, mezzo e destinazione stanno in chiaro.
         Surface(
@@ -202,6 +209,9 @@ private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean
             Text(text = departure.headsign ?: mode, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (departure.headsign != null) {
                 Text(text = mode, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (laterText != null) {
+                Text(text = laterText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (accessible != null) AccessibilityIcon(accessible)

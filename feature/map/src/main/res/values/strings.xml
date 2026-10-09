@@ -223,6 +223,7 @@
     <string name="transit_source_dated">Fonte: %1$s, dati del %2$s</string>
     <string name="transit_in_min">tra %1$d min</string>
     <string name="transit_now">ora</string>
+    <string name="transit_later">Poi alle %1$s</string>
     <plurals name="transit_in_minutes_spoken">
         <item quantity="one">tra %1$d minuto</item>
         <item quantity="other">tra %1$d minuti</item>

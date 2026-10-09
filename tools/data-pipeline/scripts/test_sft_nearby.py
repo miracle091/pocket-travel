@@ -17,7 +17,7 @@ import generate_sft
 import generate_sft_dataset as it
 import generate_sft_dataset_en
 from sft_nearby import (ASK, CATS, HEADSIGNS, MODES, NEARBY_CONTEXT_MAX, NEARBY_WORDS, PLACES, SURNAMES, TRANSIT_ASK,
-                        TRANSIT_WORDS, nearby_pois, nearby_radius, poi_context, poi_example, transit_context, transit_example)
+                        TRANSIT_WORDS, departures, nearby_pois, nearby_radius, poi_context, poi_example, transit_context, transit_example)
 
 RES = Path(__file__).resolve().parents[3] / "core" / "ui" / "src" / "main" / "res"
 REFUSAL = {"it": "Il contesto non contiene informazioni", "en": "The context does not contain information"}
@@ -71,6 +71,15 @@ class ContextFormatTest(unittest.TestCase):
         self.assertEqual(transit_context(estimated, "it"),
                          "Prossime partenze dalle fermate qui vicino:\n14:05 (tra 3 min) Tram 7 per Centrs (orario stimato)\n"
                          "Gli orari di Rīgas satiksme sono scaduti il 3/1/2027: le sue partenze sono stimate dalla settimana precedente.")
+
+    def test_partenze_al_massimo_tre_per_linea_e_dieci_in_tutto(self):
+        rng = random.Random(7)
+        for _ in range(300):
+            items = departures(rng)
+            self.assertLessEqual(len(items), 10)
+            self.assertEqual(items, sorted(items, key=lambda d: d[1]))
+            for key in {d[2:] for d in items}:
+                self.assertLessEqual(sum(1 for d in items if d[2:] == key), 3)
 
     def test_raggio_come_poi_repository(self):
         self.assertEqual(nearby_radius([10, 20, 30, 40, 150]), 150)

@@ -23,8 +23,10 @@ TRANSIT_WORDS = re.compile(r"\b(autobus|bus|tram|metro|metropolitana|treno|treni
 NEARBY_RADII = (150, 300, 600)
 NEARBY_MIN_COUNT = 5
 NEARBY_CONTEXT_MAX = 12
-# Come TransitBoard.kt: finestra di 180 minuti, al massimo 10 partenze.
+# Come TransitBoard.kt e transitContext di TravelAssistant.kt: finestra di 180 minuti, al massimo 3 partenze per linea
+# e direzione (la prossima e le 2 successive), al massimo 10 partenze in tutto.
 TRANSIT_WINDOW = 180
+TRANSIT_PER_LINE = 3
 TRANSIT_MAX = 10
 
 
@@ -322,8 +324,9 @@ def _line(rng, mode):
 
 
 def departures(rng, headsigns=HEADSIGNS):
-    """Partenze sintetiche delle fermate vicine come le restituisce TransitBoard (ordinate per minuti d'attesa, al
-    massimo 10 nella finestra di 180 minuti): [(minuto del giorno, tra minuti, mezzo, linea, direzione o None)]."""
+    """Partenze sintetiche delle fermate vicine come le scrive transitContext (ordinate per minuti d'attesa, al massimo
+    3 per linea e direzione e 10 in tutto nella finestra di 180 minuti): [(minuto del giorno, tra minuti, mezzo, linea,
+    direzione o None)]."""
     locale = rng.choice(list(headsigns))
     now = rng.randint(0, 1439)
     modes, weights = list(MODES), [m[2] for m in MODES.values()]
@@ -339,7 +342,13 @@ def departures(rng, headsigns=HEADSIGNS):
             head = head if rng.random() < 0.85 else None
             every = rng.randint(lo, hi)
             items += [((now + t) % 1440, t, mode, line, head) for t in range(rng.randint(0, every - 1), TRANSIT_WINDOW + 1, every)]
-    return sorted(items, key=lambda d: d[1])[:TRANSIT_MAX]
+    # Due direzioni senza nome sono una sola nel tabellone: il limite per linea va contato dopo l'ordinamento.
+    shown, count = [], {}
+    for d in sorted(items, key=lambda d: d[1]):
+        count[d[2:]] = count.get(d[2:], 0) + 1
+        if count[d[2:]] <= TRANSIT_PER_LINE:
+            shown.append(d)
+    return shown[:TRANSIT_MAX]
 
 
 # Domande (attivano isTransitQuestion e non isNearbyQuestion): generiche, per mezzo, per linea ({l}); inizio della

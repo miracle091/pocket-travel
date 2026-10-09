@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -328,7 +330,11 @@ fun MapScreen(
 
     selectedPin?.let { pin ->
         ModalBottomSheet(onDismissRequest = { selectedPinId = null }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(start = Spacing.xl, end = Spacing.xl, bottom = Spacing.xxl)) {
+            // Scorre: il tabellone di una fermata affollata ha una riga per linea, anche decine.
+            Column(
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                    .padding(start = Spacing.xl, end = Spacing.xl, bottom = Spacing.xxl),
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     PoiBadge(pin.category, size = 40)
                     Spacer(modifier = Modifier.width(Spacing.l))
