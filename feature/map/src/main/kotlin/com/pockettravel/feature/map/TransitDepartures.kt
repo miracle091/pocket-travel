@@ -106,9 +106,15 @@ internal fun TransitDeparturesSection(state: TransitPackageState, board: Transit
                             AccessibilityRow(accessible, if (accessible) R.string.transit_stop_wheelchair_yes else R.string.transit_stop_wheelchair_no)
                         }
                     }
+                    // Reti scadute accanto a reti valide: si dice quali partenze mancano, sopra l'elenco.
+                    if (board.expired.isNotEmpty()) {
+                        board.expired.forEach { ExpiredFeedNote(it) }
+                        TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
+                    }
                     if (board.items.isEmpty()) Note(stringResource(R.string.transit_none_soon))
                     board.items.forEach { DepartureRow(it, showAccessibility) }
-                    Note(stringResource(R.string.transit_valid_until, formatDate(board.validUntil)))
+                    // Con le sole reti scadute da poco la scadenza e' gia' nella nota sopra.
+                    if (board.daysLeft >= 0) Note(stringResource(R.string.transit_valid_until, formatDate(board.validUntil)))
                     if (board.expiresSoon) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
@@ -117,7 +123,8 @@ internal fun TransitDeparturesSection(state: TransitPackageState, board: Transit
                                 color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.weight(1f),
                             )
-                            TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
+                            // "Aggiorna" e' gia' sopra, accanto alle reti scadute.
+                            if (board.expired.isEmpty()) TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
                         }
                     }
                     Sources(board.feeds)
@@ -143,7 +150,7 @@ private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean
     } else {
         pluralStringResource(R.plurals.transit_in_minutes_spoken, departure.inMinutes, departure.inMinutes)
     }
-    val mode = stringResource(departure.mode.label())
+    val mode = stringResource(departure.mode.label()).let { if (departure.estimated) stringResource(R.string.transit_mode_estimated, it) else it }
     // Una sola voce per TalkBack: linea, mezzo, direzione e ora, senza leggere i pezzi a uno a uno.
     // Senza "direzione" quando ripete la linea (reti che usano il percorso come sigla): TalkBack lo direbbe due volte.
     val description = departure.headsign?.takeIf { it != departure.line }?.let {
@@ -208,6 +215,23 @@ private fun AccessibilityRow(accessible: Boolean, @StringRes label: Int) {
         AccessibilityIcon(accessible)
         Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
     }
+}
+
+@Composable
+private fun ExpiredFeedNote(board: TransitBoard.Expired) {
+    val until = formatDate(board.validUntil)
+    val name = board.feeds.firstOrNull()?.name
+    val text = when {
+        board.estimated && name != null -> stringResource(R.string.transit_feed_estimated, name, until)
+        board.estimated -> stringResource(R.string.transit_feed_estimated_unnamed, until)
+        name != null -> stringResource(R.string.transit_feed_expired, name, until)
+        else -> stringResource(R.string.transit_feed_expired_unnamed, until)
+    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.error,
+    )
 }
 
 @Composable

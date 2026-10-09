@@ -10,6 +10,7 @@ import com.pockettravel.core.data.Note
 import com.pockettravel.core.data.Poi
 import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitDeparture
+import com.pockettravel.core.data.TransitFeedInfo
 import com.pockettravel.core.data.TransitMode
 import com.pockettravel.core.data.vaccination.TripPurpose
 import com.pockettravel.core.poi.PoiCategory
@@ -533,6 +534,43 @@ class TravelAssistantLogicTest {
             transitContext(TransitBoard.Departures(emptyList(), LocalDate.of(2026, 12, 31), 89, emptyList()), "en"),
         )
         assertNull(transitContext(TransitBoard.NoStops, "it"))
+    }
+
+    @Test
+    fun `le reti scadute accanto a quelle valide sono nominate dopo le partenze`() {
+        val riga = TransitBoard.Expired(LocalDate.of(2027, 1, 3), listOf(TransitFeedInfo("lv-riga", "Rīgas satiksme", "Rīgas satiksme")))
+        val board = TransitBoard.Departures(
+            items = listOf(departure("7", TransitMode.BUS, "Liepāja", minuteOfDay = 14 * 60 + 5, inMinutes = 3)),
+            validUntil = LocalDate.of(2027, 1, 5), daysLeft = 1, feeds = emptyList(),
+            expired = listOf(riga, TransitBoard.Expired(LocalDate.of(2026, 12, 31), emptyList())),
+        )
+
+        assertEquals(
+            "Prossime partenze dalle fermate qui vicino:\n14:05 (tra 3 min) Autobus 7 per Liepāja\n" +
+                "Gli orari di Rīgas satiksme sono scaduti il 3/1/2027: le sue partenze non sono nell'elenco.\n" +
+                "Gli orari di un'altra rete sono scaduti il 31/12/2026: le sue partenze non sono nell'elenco.",
+            transitContext(board, "it"),
+        )
+        assertEquals(
+            "No departures in the next hours from the stops nearby.\n" +
+                "The timetables of Rīgas satiksme expired on 2027-01-03: its departures are not listed.",
+            transitContext(board.copy(items = emptyList(), expired = listOf(riga)), "en"),
+        )
+        // Scaduta da poco: partenze stimate dalla settimana prima, segnate riga per riga.
+        val estimated = board.copy(
+            items = listOf(departure("7", TransitMode.TRAM, "Centrs", minuteOfDay = 14 * 60 + 5, inMinutes = 3).copy(estimated = true)),
+            expired = listOf(riga.copy(estimated = true)),
+        )
+        assertEquals(
+            "Next departures from the stops nearby:\n14:05 (in 3 min) Tram 7 to Centrs (estimated time)\n" +
+                "The timetables of Rīgas satiksme expired on 2027-01-03: its departures are estimated from the previous week.",
+            transitContext(estimated, "en"),
+        )
+        assertEquals(
+            "Prossime partenze dalle fermate qui vicino:\n14:05 (tra 3 min) Tram 7 per Centrs (orario stimato)\n" +
+                "Gli orari di Rīgas satiksme sono scaduti il 3/1/2027: le sue partenze sono stimate dalla settimana precedente.",
+            transitContext(estimated, "it"),
+        )
     }
 
     private fun departure(line: String, mode: TransitMode, headsign: String?, minuteOfDay: Int, inMinutes: Int) =

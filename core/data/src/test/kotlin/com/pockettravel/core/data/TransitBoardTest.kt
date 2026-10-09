@@ -213,6 +213,28 @@ class TransitBoardTest {
     }
 
     @Test
+    fun scadutaDaPocoLePartenzeSiStimanoDallaSettimanaPrima() {
+        trip(1, 1, 2, 1, stop = 1, minute = 545) // servizio del 30 settembre, 09:05
+        exec("UPDATE meta SET value = '20261005' WHERE key = 'valid_until'")
+        // 7 ottobre, due giorni dopo la scadenza: le partenze sono quelle del 30 settembre, stimate.
+        val board = board("2026-10-07T06:00:00Z") as TransitBoard.Departures
+        assertEquals(listOf(5), board.items.map { it.inMinutes })
+        assertTrue(board.items.single().estimated)
+        assertEquals(listOf(TransitBoard.Expired(LocalDate.of(2026, 10, 5), board.feeds, estimated = true)), board.expired)
+        assertFalse(board.expiresSoon)
+        // Una rete valida accanto: la scadenza del tabellone e' la sua, la rete stimata resta tra le scadute.
+        val valid = TransitBoard.Departures(listOf(dep(20)), LocalDate.of(2026, 12, 1), 55, emptyList())
+        val combined = combineBoards(listOf(board, valid)) as TransitBoard.Departures
+        assertEquals(listOf(5, 20), combined.items.map { it.inMinutes })
+        assertEquals(LocalDate.of(2026, 12, 1), combined.validUntil)
+        assertEquals(board.expired, combined.expired)
+        // Oltre i tre giorni: scaduta, nessuna partenza.
+        assertTrue(board("2026-10-09T06:00:00Z") is TransitBoard.Expired)
+        // Prima della scadenza le partenze non sono stimate.
+        assertFalse(departures("2026-09-30T06:00:00Z").single().estimated)
+    }
+
+    @Test
     fun laFinestraCheInizieDomaniNonEScaduta() {
         // Fuso della rete avanti rispetto a chi ha costruito: window_start (29 settembre) e' domani. Alle 23:30 del
         // 28 settembre a Riga (20:30Z) oggi non c'e' servizio, ma la partenza delle 00:10 del 29 si vede.
@@ -277,8 +299,12 @@ class TransitBoardTest {
     fun laViaDelleReti() {
         val soon = TransitBoard.Departures(listOf(dep(20), dep(5)), LocalDate.of(2026, 10, 3), 2, listOf(feed))
         val late = TransitBoard.Departures(List(12) { dep(it) }, LocalDate.of(2026, 12, 1), 61, emptyList())
-        val combined = combineBoards(listOf(soon, late, TransitBoard.Expired(LocalDate.of(2026, 9, 1), emptyList()))) as TransitBoard.Departures
+        val old = TransitBoard.Expired(LocalDate.of(2026, 9, 1), listOf(feed))
+        val combined = combineBoards(listOf(soon, late, old)) as TransitBoard.Departures
         assertEquals(10, combined.items.size)
+        // Una rete scaduta accanto a reti valide: le partenze delle altre restano, e il tabellone sa quale manca.
+        assertEquals(listOf(old), combined.expired)
+        assertEquals(emptyList<TransitBoard.Expired>(), (combineBoards(listOf(soon, late)) as TransitBoard.Departures).expired)
         assertEquals(listOf(0, 1, 2, 3, 4, 5, 5, 6, 7, 8), combined.items.map { it.inMinutes })
         assertEquals(LocalDate.of(2026, 10, 3), combined.validUntil)
         assertTrue(combined.expiresSoon)

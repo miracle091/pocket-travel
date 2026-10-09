@@ -55,6 +55,8 @@ data class TransitDeparture(
     val inMinutes: Int,
     // wheelchair_accessible GTFS della corsa: true accessibile, false no, null se la rete non lo indica.
     val wheelchair: Boolean? = null,
+    // Rete scaduta da al massimo TRANSIT_GRACE_DAYS giorni: partenza ricavata dallo stesso giorno della settimana prima.
+    val estimated: Boolean = false,
 )
 
 /**
@@ -82,8 +84,11 @@ sealed interface TransitBoard {
     /** Nessuna rete installata ha fermate vicino al punto. */
     data object NoStops : TransitBoard
 
-    /** Orari fuori dalla finestra di validita' (oltre un giorno prima dell'inizio, o dopo la fine): nessuna partenza. */
-    data class Expired(val validUntil: LocalDate, val feeds: List<TransitFeedInfo>) : TransitBoard
+    /**
+     * Orari fuori dalla finestra di validita' (oltre un giorno prima dell'inizio, o dopo la fine): nessuna partenza.
+     * [estimated]: scaduti da al massimo [TRANSIT_GRACE_DAYS] giorni, con le partenze stimate dalla settimana prima.
+     */
+    data class Expired(val validUntil: LocalDate, val feeds: List<TransitFeedInfo>, val estimated: Boolean = false) : TransitBoard
 
     /** Le prossime partenze (anche nessuna), con l'ultimo giorno valido e i giorni che restano (0 = scade oggi). */
     data class Departures(
@@ -94,9 +99,12 @@ sealed interface TransitBoard {
         // wheelchair_boarding GTFS delle fermate vicine: true se almeno una e' accessibile, false se nessuna lo e'
         // e almeno una no, null se la rete non lo indica.
         val stopWheelchair: Boolean? = null,
+        // Reti con fermate vicine ma orari scaduti: le loro partenze non sono in [items] (o ci sono stimate, se
+        // Expired.estimated), il tabellone lo dice.
+        val expired: List<Expired> = emptyList(),
     ) : TransitBoard {
         /** Gli orari scadono entro una settimana: il tabellone propone di aggiornarli. */
-        val expiresSoon: Boolean get() = daysLeft <= 7
+        val expiresSoon: Boolean get() = daysLeft in 0..7
     }
 }
 
@@ -114,6 +122,9 @@ internal const val TRANSIT_STATION_RADIUS_M = 400.0
 /** Ampiezza in avanti del tabellone e numero massimo di partenze mostrate. */
 internal const val TRANSIT_WINDOW_MINUTES = 180
 internal const val TRANSIT_MAX_DEPARTURES = 10
+
+/** Giorni dopo la scadenza in cui le partenze si stimano dallo stesso giorno della settimana prima. */
+internal const val TRANSIT_GRACE_DAYS = 3L
 
 private const val MINUTES_PER_DAY = 1440
 private const val METERS_PER_DEGREE = 111_320.0
@@ -163,7 +174,8 @@ internal fun readFeedBoard(
     // window_start e' la data di costruzione nel fuso della rete: con un fuso avanti rispetto a chi ha
     // costruito puo' essere domani. Quel giorno di scarto non e' scaduto: nessuna partenza oggi (dayIndex < 0
     // sotto), ma quelle dopo mezzanotte si vedono.
-    if (today.plusDays(1) < windowStart || today > validUntil) return TransitBoard.Expired(validUntil, feeds)
+    if (today.plusDays(1) < windowStart || today > validUntil.plusDays(TRANSIT_GRACE_DAYS)) return TransitBoard.Expired(validUntil, feeds)
+    val grace = today > validUntil // scaduta da poco: i giorni dopo la scadenza prendono i servizi di 7 giorni prima
     val nowMinute = local.hour * 60 + local.minute
 
     val ids = stops.joinToString(",")
@@ -175,7 +187,8 @@ internal fun readFeedBoard(
         val from = maxOf(0, nowMinute - offset * MINUTES_PER_DAY)
         val to = nowMinute + TRANSIT_WINDOW_MINUTES - offset * MINUTES_PER_DAY
         if (to < from) continue
-        val dayIndex = ChronoUnit.DAYS.between(windowStart, today.plusDays(offset.toLong())).toInt()
+        val estimated = grace && today.plusDays(offset.toLong()) > validUntil
+        val dayIndex = ChronoUnit.DAYS.between(windowStart, today.plusDays(offset - if (estimated) 7L else 0L)).toInt()
         if (dayIndex < 0) continue
         // Formato 2 (GenerateTransit): i pattern della fermata, poi le loro corse per minuto di partenza
         // (chiave della tabella trip); il passaggio alla fermata e' partenza + offset.
@@ -200,18 +213,22 @@ internal fun readFeedBoard(
                 minuteOfDay = Math.floorMod(absolute, MINUTES_PER_DAY),
                 inMinutes = absolute - nowMinute,
                 wheelchair = wheelchairOf(row.string(9)),
+                estimated = estimated,
             )
         }
         found += rows.filterNotNull()
     }
     val daysLeft = ChronoUnit.DAYS.between(today, validUntil).toInt()
-    val stopWheelchair = if (hasWheelchair) {
-        val values = db.query("SELECT wheelchair FROM stop WHERE id IN ($ids)") { wheelchairOf(it.string(0)) }
-        if (true in values) true else if (false in values) false else null
-    } else {
-        null
-    }
-    return TransitBoard.Departures(found.sortedBy { it.inMinutes }, validUntil, daysLeft, feeds, stopWheelchair)
+    return TransitBoard.Departures(
+        found.sortedBy { it.inMinutes }, validUntil, daysLeft, feeds, if (hasWheelchair) stopWheelchair(db, ids) else null,
+        expired = if (grace) listOf(TransitBoard.Expired(validUntil, feeds, estimated = true)) else emptyList(),
+    )
+}
+
+/** wheelchair_boarding delle fermate [ids]: true se almeno una e' accessibile, false se nessuna e almeno una no. */
+private fun stopWheelchair(db: TransitQuery, ids: String): Boolean? {
+    val values = db.query("SELECT wheelchair FROM stop WHERE id IN ($ids)") { wheelchairOf(it.string(0)) }
+    return if (true in values) true else if (false in values) false else null
 }
 
 /** wheelchair_boarding / wheelchair_accessible come li scrive la pipeline: 1 si', 2 no, altro (NULL) non indicato. */
@@ -296,7 +313,8 @@ internal fun contrastingTextColor(background: Int): Int {
 /**
  * Unisce gli esiti delle reti: nessuna rete con fermate vicine -> [TransitBoard.NoStops]; tutte fuori
  * finestra -> Expired (con la data piu' recente); altrimenti le partenze delle reti valide, in ordine
- * di ora e al massimo [TRANSIT_MAX_DEPARTURES], con la scadenza piu' vicina tra quelle reti.
+ * di ora e al massimo [TRANSIT_MAX_DEPARTURES], con la scadenza piu' vicina tra le reti ancora valide (tra quelle
+ * stimate se non ce ne sono) e le reti scadute.
  */
 internal fun combineBoards(boards: List<TransitBoard>): TransitBoard {
     val expired = boards.filterIsInstance<TransitBoard.Expired>()
@@ -304,12 +322,14 @@ internal fun combineBoards(boards: List<TransitBoard>): TransitBoard {
     if (active.isEmpty()) {
         return if (expired.isEmpty()) TransitBoard.NoStops else TransitBoard.Expired(expired.maxOf { it.validUntil }, expired.flatMap { it.feeds })
     }
+    val valid = active.filter { it.expired.isEmpty() }.ifEmpty { active }
     return TransitBoard.Departures(
         items = active.flatMap { it.items }.sortedBy { it.inMinutes }.take(TRANSIT_MAX_DEPARTURES),
-        validUntil = active.minOf { it.validUntil },
-        daysLeft = active.minOf { it.daysLeft },
+        validUntil = valid.minOf { it.validUntil },
+        daysLeft = valid.minOf { it.daysLeft },
         feeds = active.flatMap { it.feeds },
         stopWheelchair = active.map { it.stopWheelchair }.let { if (true in it) true else if (false in it) false else null },
+        expired = active.flatMap { it.expired } + expired,
     )
 }
 

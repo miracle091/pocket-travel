@@ -52,20 +52,38 @@ def clock(minute_of_day):
 
 
 def transit_context(board, lang):
-    """Come transitContext: [board] = ("departures", [(minuto del giorno, tra minuti, mezzo, linea, direzione o None)]),
-    ("expired", data) o None (nessuna fermata vicina)."""
+    """Come transitContext: [board] = ("departures", [(minuto del giorno, tra minuti, mezzo, linea, direzione o None
+    [, stimata])] [, reti scadute accanto a quelle valide: [(nome o None, data[, stimate])]]), ("expired", data) o None
+    (nessuna fermata vicina)."""
     if board is None:
         return None
     en = lang == "en"
-    kind, value = board
+    kind, value, *rest = board
     if kind == "expired":
         return (f"The installed public transport timetables expired on {value.isoformat()}." if en else
                 f"Gli orari dei mezzi pubblici installati sono scaduti il {value.day}/{value.month}/{value.year}.")
     if not value:
-        return "No departures in the next hours from the stops nearby." if en else "Nessuna partenza nelle prossime ore dalle fermate qui vicino."
-    header = "Next departures from the stops nearby:" if en else "Prossime partenze dalle fermate qui vicino:"
-    return "\n".join([header] + [f"{clock(m)} ({'in' if en else 'tra'} {n} min) {MODES[mode][1 if en else 0]} {line}"
-                                 f"{(' to ' if en else ' per ') + head if head else ''}" for m, n, mode, line, head in value])
+        lines = ["No departures in the next hours from the stops nearby." if en else "Nessuna partenza nelle prossime ore dalle fermate qui vicino."]
+    else:
+        header = "Next departures from the stops nearby:" if en else "Prossime partenze dalle fermate qui vicino:"
+        lines = [header] + [f"{clock(d[0])} ({'in' if en else 'tra'} {d[1]} min) {MODES[d[2]][1 if en else 0]} {d[3]}"
+                            f"{(' to ' if en else ' per ') + d[4] if d[4] else ''}{_estimated(d, en)}" for d in value]
+    return "\n".join(lines + [expired_feed_line(*e[:2], lang, *e[2:]) for e in (rest[0] if rest else [])])
+
+
+def _estimated(d, en):
+    """Il segno di una partenza stimata (rete scaduta da poco), come transitContext."""
+    return f" ({'estimated time' if en else 'orario stimato'})" if len(d) > 5 and d[5] else ""
+
+
+def expired_feed_line(name, until, lang, estimated=False):
+    """Come expiredFeedLine di TravelAssistant.kt: una rete scaduta accanto a reti valide (stimata se scaduta da poco)."""
+    if lang == "en":
+        tail = "its departures are estimated from the previous week." if estimated else "its departures are not listed."
+        return f"The timetables of {name or 'another network'} expired on {until.isoformat()}: {tail}"
+    network = name or "un'altra rete"
+    tail = "le sue partenze sono stimate dalla settimana precedente." if estimated else "le sue partenze non sono nell'elenco."
+    return f"Gli orari di {network} sono scaduti il {until.day}/{until.month}/{until.year}: {tail}"
 
 
 # Categorie dei POI: etichetta plurale dell'app (poi_* in core/ui strings.xml, IT ed EN), un nome singolare per i POI senza
@@ -291,6 +309,9 @@ HEADSIGNS = {"it": ["Stazione Centrale", "Ospedale", "Porto", "Aeroporto", "Stad
              "fr": ["Gare Centrale", "Hôpital", "Port", "Aéroport", "Université", "Centre-ville", "Plage"],
              "de": ["Hauptbahnhof", "Krankenhaus", "Hafen", "Flughafen", "Universität", "Stadtmitte", "Friedhof"],
              "en": ["Central Station", "Hospital", "Harbour", "Airport", "University", "Town Centre", "Beach"]}
+# Nomi inventati di reti per lingua locale ({s} cognome, {p} luogo), per le reti scadute accanto a quelle valide.
+NETWORKS = {"it": ["Trasporti {p}", "Autolinee {s}"], "es": ["Transportes {p}", "Autobuses {s}"], "fr": ["Transports {p}", "Cars {s}"],
+            "de": ["Verkehrsbetriebe {p}", "Busreisen {s}"], "en": ["{p} Transit", "{s} Coaches"]}
 
 
 def _line(rng, mode):
@@ -357,11 +378,20 @@ TRANSIT_ASK = {
 
 
 def _dep(d, lang, with_mode=True):
-    """Una partenza in una risposta: "Autobus 22 per Centrale alle 14:20 (tra 18 min)"."""
-    en, (m, n, mode, line, head) = lang == "en", d
+    """Una partenza in una risposta: "Autobus 22 per Centrale alle 14:20 (tra 18 min)", con ", orario stimato" se stimata."""
+    en, (m, n, mode, line, head) = lang == "en", d[:5]
     what = (f"{MODES[mode][1 if en else 0]} {line}" if with_mode else (f"line {line}" if en else f"la linea {line}"))
     to = ((" to " if en else " per ") + head) if head else ""
-    return f"{what}{to} " + (f"at {clock(m)} (in {n} min)" if en else f"alle {clock(m)} (tra {n} min)")
+    return f"{what}{to} " + (f"at {clock(m)} (in {n} min{_est(d, en)})" if en else f"alle {clock(m)} (tra {n} min{_est(d, en)})")
+
+
+def _est(d, en):
+    return (", estimated time" if en else ", orario stimato") if len(d) > 5 and d[5] else ""
+
+
+def _network(rng):
+    locale = rng.choice(list(NETWORKS))
+    return rng.choice(NETWORKS[locale]).format(s=rng.choice(SURNAMES[locale]), p=rng.choice(PLACES[locale]))
 
 
 def transit_example(rng, lang, refusal, asks=None, headsigns=HEADSIGNS):
@@ -385,18 +415,43 @@ def transit_example(rng, lang, refusal, asks=None, headsigns=HEADSIGNS):
                   "Dalle fermate qui vicino non ci sono partenze nelle prossime ore.")
         return transit_context(("departures", []), lang), q, answer, "pos"
     items = departures(rng, headsigns)
-    block = transit_context(("departures", items), lang)
     present = {d[2] for d in items}
+    # A volte una rete scaduta accanto a quelle valide: scaduta da tempo (partenze assenti) o da al massimo tre giorni
+    # (partenze di un mezzo stimate dalla settimana prima, come TransitBoard).
+    expired = []
+    y = rng.random()
+    if y < 0.15:
+        expired = [(_network(rng) if rng.random() < 0.8 else None, date(2025, 1, 1) + timedelta(days=rng.randint(0, 900)), False)]
+    elif y < 0.27 and x >= 0.37:
+        guessed = rng.choice(sorted(present))
+        items = [d + (True,) if d[2] == guessed else d for d in items]
+        expired = [(_network(rng) if rng.random() < 0.8 else None, date(2025, 1, 1) + timedelta(days=rng.randint(0, 900)), True)]
+    block = transit_context(("departures", items, expired), lang)
     if x < 0.37:  # mezzo chiesto che nel tabellone non c'e'
         absent = [m for m in T["mode"] if m not in present]
         if absent:
             mode = rng.choice(absent)
-            return block, rng.choice(T["mode"][mode]), refusal(T["topic"][mode]), "neg"
+            if not expired:
+                return block, rng.choice(T["mode"][mode]), refusal(T["topic"][mode]), "neg"
+            # Il mezzo potrebbe essere della rete scaduta: lo si dice invece di rifiutare in blocco.
+            network = expired[0][0] or ("another network" if en else "un'altra rete")
+            answer = (f"I have no information {T['topic'][mode]}: the timetables of {network} have expired, so its departures are not listed."
+                      if en else
+                      f"Non ho informazioni {T['topic'][mode]}: gli orari di {network} sono scaduti, quindi le sue partenze non sono nell'elenco.")
+            return block, rng.choice(T["mode"][mode]), answer, "pos"
     if x < 0.6:
         first = items[:3]
         listed = ", ".join(_dep(d, lang) for d in first[:-1]) + (" and " if en else " e ") + _dep(first[-1], lang) if len(first) > 1 else _dep(first[0], lang)
         answer = ((f"The next departures are: {listed}." if len(first) > 1 else f"The next departure is {listed}.") if en else
                   (f"Le prossime partenze sono: {listed}." if len(first) > 1 else f"La prossima partenza è {listed}."))
+        for name, _, guessed in expired:
+            network = name or ("another network" if en else "un'altra rete")
+            if guessed:
+                answer += (f" The timetables of {network} have expired: its departures are estimated from the previous week." if en else
+                           f" Gli orari di {network} sono scaduti: le sue partenze sono stimate dalla settimana precedente.")
+            else:
+                answer += (f" The timetables of {network} have expired, so its departures are not included." if en else
+                           f" Gli orari di {network} sono scaduti, quindi le sue partenze non sono incluse.")
         return block, rng.choice(T["any"]), answer, "pos"
     lines = [(d[2], d[3]) for d in items if d[2] in T["line"]]
     if x < 0.8 or not lines:
@@ -411,9 +466,12 @@ def transit_example(rng, lang, refusal, asks=None, headsigns=HEADSIGNS):
         return block, rng.choice(T["mode"][mode]), answer, "pos"
     mode, line = rng.choice(lines)
     same = [d for d in items if (d[2], d[3]) == (mode, line)]
-    answer = (f"The next {MODES[mode][1].lower()} {line} " + (f"to {same[0][4]} " if same[0][4] else "") + f"leaves at {clock(same[0][0])}, in {same[0][1]} min."
+    answer = (f"The next {MODES[mode][1].lower()} {line} " + (f"to {same[0][4]} " if same[0][4] else "") +
+              f"leaves at {clock(same[0][0])}, in {same[0][1]} min{_est(same[0], en)}."
               if en else
-              f"{T['lead'][mode]} {line} " + (f"per {same[0][4]} " if same[0][4] else "") + f"parte alle {clock(same[0][0])}, tra {same[0][1]} min.")
+              f"{T['lead'][mode]} {line} " + (f"per {same[0][4]} " if same[0][4] else "") +
+              f"parte alle {clock(same[0][0])}, tra {same[0][1]} min{_est(same[0], en)}.")
     if len(same) > 1:
-        answer += f" The one after is at {clock(same[1][0])} (in {same[1][1]} min)." if en else f" La corsa dopo è alle {clock(same[1][0])} (tra {same[1][1]} min)."
+        answer += (f" The one after is at {clock(same[1][0])} (in {same[1][1]} min{_est(same[1], en)})." if en else
+                   f" La corsa dopo è alle {clock(same[1][0])} (tra {same[1][1]} min{_est(same[1], en)}).")
     return block, rng.choice(T["line"][mode]).format(l=line), answer, "pos"

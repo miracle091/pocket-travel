@@ -430,7 +430,8 @@ internal fun isTransitQuestion(question: String): Boolean = transitWords.contain
 
 /**
  * Testo del tabellone delle fermate vicine per il contesto: le prossime partenze (ora della rete, minuti da adesso, mezzo,
- * linea e direzione), oppure che non ce ne sono o che gli orari sono scaduti. Null se vicino non c'è nessuna fermata. I
+ * linea e direzione), oppure che non ce ne sono o che gli orari sono scaduti; in fondo le reti scadute accanto a quelle
+ * valide. Null se vicino non c'è nessuna fermata. I
  * nomi dei mezzi sono il vocabolario del prompt, non le etichette della mappa: gli esempi di training di generate_sft.py
  * --nearby (tools/data-pipeline/scripts/sft_nearby.py) copiano questo testo, da cambiare insieme.
  */
@@ -443,17 +444,33 @@ internal fun transitContext(board: TransitBoard, language: String): String? {
         } else {
             "Gli orari dei mezzi pubblici installati sono scaduti il ${board.validUntil.format(DateTimeFormatter.ofPattern("d/M/yyyy"))}."
         }
-        is TransitBoard.Departures -> if (board.items.isEmpty()) {
-            if (en) "No departures in the next hours from the stops nearby." else "Nessuna partenza nelle prossime ore dalle fermate qui vicino."
-        } else {
-            val header = if (en) "Next departures from the stops nearby:" else "Prossime partenze dalle fermate qui vicino:"
-            (listOf(header) + board.items.map { departure ->
-                val time = "%02d:%02d".format(Locale.ROOT, departure.minuteOfDay / 60, departure.minuteOfDay % 60)
-                val wait = if (en) "in ${departure.inMinutes} min" else "tra ${departure.inMinutes} min"
-                val direction = departure.headsign?.let { if (en) " to $it" else " per $it" }.orEmpty()
-                "$time ($wait) ${departure.mode.promptName(en)} ${departure.line}$direction"
-            }).joinToString("\n")
+        is TransitBoard.Departures -> {
+            val lines = if (board.items.isEmpty()) {
+                listOf(if (en) "No departures in the next hours from the stops nearby." else "Nessuna partenza nelle prossime ore dalle fermate qui vicino.")
+            } else {
+                val header = if (en) "Next departures from the stops nearby:" else "Prossime partenze dalle fermate qui vicino:"
+                listOf(header) + board.items.map { departure ->
+                    val time = "%02d:%02d".format(Locale.ROOT, departure.minuteOfDay / 60, departure.minuteOfDay % 60)
+                    val wait = if (en) "in ${departure.inMinutes} min" else "tra ${departure.inMinutes} min"
+                    val direction = departure.headsign?.let { if (en) " to $it" else " per $it" }.orEmpty()
+                    val estimated = if (!departure.estimated) "" else if (en) " (estimated time)" else " (orario stimato)"
+                    "$time ($wait) ${departure.mode.promptName(en)} ${departure.line}$direction$estimated"
+                }
+            }
+            // Reti con fermate vicine ma orari scaduti: le loro partenze mancano dall'elenco, il modello lo deve sapere.
+            (lines + board.expired.map { expiredFeedLine(it, en) }).joinToString("\n")
         }
+    }
+}
+
+private fun expiredFeedLine(board: TransitBoard.Expired, en: Boolean): String {
+    val name = board.feeds.firstOrNull()?.name
+    return if (en) {
+        "The timetables of ${name ?: "another network"} expired on ${board.validUntil}: " +
+            if (board.estimated) "its departures are estimated from the previous week." else "its departures are not listed."
+    } else {
+        "Gli orari di ${name ?: "un'altra rete"} sono scaduti il ${board.validUntil.format(DateTimeFormatter.ofPattern("d/M/yyyy"))}: " +
+            if (board.estimated) "le sue partenze sono stimate dalla settimana precedente." else "le sue partenze non sono nell'elenco."
     }
 }
 

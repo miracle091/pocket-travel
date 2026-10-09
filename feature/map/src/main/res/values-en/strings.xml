@@ -208,6 +208,11 @@
     <string name="transit_valid_until">Timetable valid until %1$s</string>
     <string name="transit_expired">The timetable has expired (valid until %1$s)</string>
     <string name="transit_expiring">The timetable is about to expire</string>
+    <string name="transit_feed_expired">%1$s departures not shown: timetable expired (valid until %2$s)</string>
+    <string name="transit_feed_expired_unnamed">Departures of another network not shown: timetable expired (valid until %1$s)</string>
+    <string name="transit_feed_estimated">%1$s departures estimated from the previous week: timetable expired (valid until %2$s)</string>
+    <string name="transit_feed_estimated_unnamed">Departures of another network estimated from the previous week: timetable expired (valid until %1$s)</string>
+    <string name="transit_mode_estimated">%1$s, estimated time</string>
     <string name="transit_update">Update</string>
     <string name="transit_download">Download public transport timetables</string>
     <string name="transit_downloading">Downloading public transport timetables…</string>

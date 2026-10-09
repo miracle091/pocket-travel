@@ -209,6 +209,11 @@
     <string name="transit_valid_until">Orari validi fino al %1$s</string>
     <string name="transit_expired">Gli orari sono scaduti (validi fino al %1$s)</string>
     <string name="transit_expiring">Gli orari stanno per scadere</string>
+    <string name="transit_feed_expired">Partenze di %1$s non mostrate: orari scaduti (validi fino al %2$s)</string>
+    <string name="transit_feed_expired_unnamed">Partenze di un\'altra rete non mostrate: orari scaduti (validi fino al %1$s)</string>
+    <string name="transit_feed_estimated">Partenze di %1$s stimate dalla settimana precedente: orari scaduti (validi fino al %2$s)</string>
+    <string name="transit_feed_estimated_unnamed">Partenze di un\'altra rete stimate dalla settimana precedente: orari scaduti (validi fino al %1$s)</string>
+    <string name="transit_mode_estimated">%1$s, orario stimato</string>
     <string name="transit_update">Aggiorna</string>
     <string name="transit_download">Scarica gli orari dei mezzi pubblici</string>
     <string name="transit_downloading">Download degli orari dei mezzi pubblici…</string>

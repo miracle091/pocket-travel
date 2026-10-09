@@ -53,6 +53,24 @@ class ContextFormatTest(unittest.TestCase):
                          "The installed public transport timetables expired on 2026-09-30.")
         self.assertEqual(transit_context(("departures", []), "en"), "No departures in the next hours from the stops nearby.")
         self.assertIsNone(transit_context(None, "it"))
+        # Reti scadute accanto a quelle valide, come in TravelAssistantLogicTest.
+        riga = ("Rīgas satiksme", date(2027, 1, 3))
+        board = ("departures", [(14 * 60 + 5, 3, "BUS", "7", "Liepāja")], [riga, (None, date(2026, 12, 31))])
+        self.assertEqual(transit_context(board, "it"),
+                         "Prossime partenze dalle fermate qui vicino:\n14:05 (tra 3 min) Autobus 7 per Liepāja\n"
+                         "Gli orari di Rīgas satiksme sono scaduti il 3/1/2027: le sue partenze non sono nell'elenco.\n"
+                         "Gli orari di un'altra rete sono scaduti il 31/12/2026: le sue partenze non sono nell'elenco.")
+        self.assertEqual(transit_context(("departures", [], [riga]), "en"),
+                         "No departures in the next hours from the stops nearby.\n"
+                         "The timetables of Rīgas satiksme expired on 2027-01-03: its departures are not listed.")
+        # Scaduta da poco: partenze stimate, come in TravelAssistantLogicTest.
+        estimated = ("departures", [(14 * 60 + 5, 3, "TRAM", "7", "Centrs", True)], [riga + (True,)])
+        self.assertEqual(transit_context(estimated, "en"),
+                         "Next departures from the stops nearby:\n14:05 (in 3 min) Tram 7 to Centrs (estimated time)\n"
+                         "The timetables of Rīgas satiksme expired on 2027-01-03: its departures are estimated from the previous week.")
+        self.assertEqual(transit_context(estimated, "it"),
+                         "Prossime partenze dalle fermate qui vicino:\n14:05 (tra 3 min) Tram 7 per Centrs (orario stimato)\n"
+                         "Gli orari di Rīgas satiksme sono scaduti il 3/1/2027: le sue partenze sono stimate dalla settimana precedente.")
 
     def test_raggio_come_poi_repository(self):
         self.assertEqual(nearby_radius([10, 20, 30, 40, 150]), 150)
@@ -119,6 +137,24 @@ class ExamplesTest(unittest.TestCase):
                         self.assertIn(fact, block, f"{answer}\n{block}")
             share = kinds.count("neg") / len(kinds)
             self.assertTrue(0.15 < share < 0.4, share)
+
+    def test_reti_scadute_nelle_risposte(self):
+        # Le risposte che citano partenze stimate o una rete scaduta hanno la stessa cosa nel blocco; un mezzo assente
+        # con una rete scaduta nel blocco non si rifiuta in blocco.
+        for lang, stima, scaduti in (("it", "orario stimato", "sono scaduti"), ("en", "estimated time", "expired on")):
+            rng, seen = random.Random(5), set()
+            for _ in range(3000):
+                block, q, answer, kind = transit_example(rng, lang, refusal(lang))
+                if stima in answer:
+                    self.assertIn(stima, block)
+                    seen.add("stima")
+                if answer.startswith("Non ho informazioni" if lang == "it" else "I have no information"):
+                    self.assertIn(scaduti, block)
+                    self.assertEqual(kind, "pos")
+                    seen.add("mezzo assente")
+                if kind == "neg" and block:
+                    self.assertNotIn(scaduti, block)
+            self.assertEqual(seen, {"stima", "mezzo assente"})
 
     def test_contesto_col_blocco_prima_della_guida(self):
         block = "Punti di interesse entro 150 m dalla tua posizione:\nFarmacie: Farmacia Rossi (40 m)"
