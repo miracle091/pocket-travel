@@ -249,6 +249,15 @@ class TravelAssistantLogicTest {
     }
 
     @Test
+    fun `dogane, salute e sicurezza mostrano il banner della fonte ufficiale`() {
+        val section = { category: GuideCategory -> AssistantSection("testo", category, "Fonte") }
+        assertTrue(section(GuideCategory.DOGANE).isRegulatedTopic())
+        assertTrue(section(GuideCategory.SALUTE).isRegulatedTopic())
+        assertTrue(section(GuideCategory.SICUREZZA).isRegulatedTopic())
+        assertFalse(section(GuideCategory.CIBO_BEVANDE).isRegulatedTopic())
+    }
+
+    @Test
     fun `namedCities riconosce le citta' nominate, senza disambiguatore e accenti`() {
         val cities = listOf("Porto (Portogallo)", "Porto Santo", "Forlì", "Bra", "Braga", "Ne")
 

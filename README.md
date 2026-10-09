@@ -49,7 +49,7 @@ Ci sono 355 regioni (le nazioni più grandi, come Stati Uniti, Canada e Cina, so
 
 ## Assistente IA
 
-L'assistente cerca nella guida del paese, in quelle delle sue città e nelle note di viaggio, e risponde solo con ciò che trova, in massimo tre frasi. Quando la guida non contiene la risposta, lo indica; per dogane e salute aggiunge il collegamento alla fonte ufficiale. Alla domanda sulla distanza tra due città del paese ("Quanti km ci sono tra Torino e Milano?") sul dispositivo risponde con la distanza in linea d'aria e, se è scaricata la rete stradale, con la lunghezza e il tempo del percorso in auto, calcolati come nel Navigatore. Ha due motori, da scegliere in **Altro → Impostazioni → Assistente IA**. La scheda **IA** di ogni nazione compare quando l'assistente è pronto, cioè con un modello scaricato o una chiave API salvata.
+L'assistente cerca nella guida del paese, in quelle delle sue città e nelle note di viaggio, e risponde solo con ciò che trova, in massimo tre frasi. Quando la guida non contiene la risposta, lo indica; per dogane, salute e sicurezza aggiunge il collegamento alla fonte ufficiale. Alla domanda sulla distanza tra due città del paese ("Quanti km ci sono tra Torino e Milano?") sul dispositivo risponde con la distanza in linea d'aria e, se è scaricata la rete stradale, con la lunghezza e il tempo del percorso in auto, calcolati come nel Navigatore. Ha due motori, da scegliere in **Altro → Impostazioni → Assistente IA**. La scheda **IA** di ogni nazione compare quando l'assistente è pronto, cioè con un modello scaricato o una chiave API salvata.
 
 ### Sul dispositivo (offline)
 
@@ -68,7 +68,7 @@ Per iniziare: in **Impostazioni → Assistente IA** scegli **Sul dispositivo**, 
 ### Online (con una chiave API personale)
 <!-- anchor: online-con-la-tua-chiave-api -->
 
-Se il dispositivo ha poca memoria, o serve un modello più grande, l'assistente può usare un servizio di intelligenza artificiale a scelta, con una chiave API personale. Con il motore Online la domanda va al servizio **così com'è, senza la guida scaricata**: le risposte sono più generali, e per dogane e salute conviene sempre controllare la fonte ufficiale.
+Se il dispositivo ha poca memoria, o serve un modello più grande, l'assistente può usare un servizio di intelligenza artificiale a scelta, con una chiave API personale. Con il motore Online la domanda va al servizio **così com'è, senza la guida scaricata**: le risposte sono più generali, e per dogane, salute e sicurezza conviene sempre controllare la fonte ufficiale.
 
 La chiave resta solo sul dispositivo, cifrata, e le domande vanno direttamente dal dispositivo al servizio: non passano da nessun server del progetto. L'uso si paga sull'account personale del servizio (alcuni hanno una quota gratuita). Una chiave API va trattata come una password: non va condivisa e, dove il servizio lo permette, conviene impostare un limite di spesa.
 

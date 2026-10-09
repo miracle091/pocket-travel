@@ -71,7 +71,7 @@ sealed interface AssistantProgress {
  * pubblici, i POI e le prossime partenze attorno all'ultima posizione nota, e per la distanza tra due citta' quella
  * calcolata dalle coordinate (e su strada con la rete stradale scaricata); "Online" invia solo la domanda a un servizio
  * esterno con la chiave personale dell'utente, senza contesto RAG e senza note — per questo non
- * produce citazioni di sezione. Con entrambi i motori, le sezioni trovate su dogane/salute
+ * produce citazioni di sezione. Con entrambi i motori, le sezioni trovate su dogane, salute o sicurezza
  * attivano il banner "Verifica sempre sulla fonte ufficiale" con link diretto alla fonte pertinente.
  */
 class TravelAssistant @Inject constructor(
@@ -554,8 +554,14 @@ internal data class AssistantSection(
     val citation: String,
 )
 
-private fun AssistantSection.isRegulatedTopic(): Boolean =
-    category == GuideCategory.DOGANE || category == GuideCategory.SALUTE
+/**
+ * True per le sezioni che fanno mostrare il banner "Verifica sempre sulla fonte ufficiale". Con SICUREZZA il banner
+ * compare nell'84% delle domande sulla sicurezza invece del 18% (88% invece del 25% in inglese), e nel 16% delle
+ * altre domande invece del 10% (20% invece del 7% in inglese): misurato sulle guide pubblicate di cinque paesi
+ * con la ricerca di tools/data-pipeline/scripts/eval_retrieval.py, il 2026-10-09.
+ */
+internal fun AssistantSection.isRegulatedTopic(): Boolean =
+    category == GuideCategory.DOGANE || category == GuideCategory.SALUTE || category == GuideCategory.SICUREZZA
 
 // CC BY-SA 4.0 (e la OGL-Canada per travel.gc.ca, la OGL v3.0 per gov.uk) impone di indicare la fonte: titolo + link alla pagina originale, non
 // solo il nome del sito.

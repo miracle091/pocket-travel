@@ -56,7 +56,7 @@
     <string name="ai_provider_title">Servizio</string>
     <string name="ai_provider_get_key">Crea la chiave su %1$s</string>
     <string name="ai_api_key_placeholder">Inizia con %1$s…</string>
-    <string name="ai_empty_subtitle_online">La domanda viene inviata a %1$s così com\'è, senza la guida scaricata: le risposte sono più generali. Per dogane e salute verifica sempre sulla fonte ufficiale</string>
+    <string name="ai_empty_subtitle_online">La domanda viene inviata a %1$s così com\'è, senza la guida scaricata: le risposte sono più generali. Per dogane, salute e sicurezza verifica sempre sulla fonte ufficiale</string>
     <string name="ai_online_model_title">Modello</string>
     <string name="ai_error_model">Il servizio non riconosce questo modello: controlla il nome in Assistente IA → Online o scegli Automatico</string>
     <string name="ai_provider_model">Modello: %1$s</string>

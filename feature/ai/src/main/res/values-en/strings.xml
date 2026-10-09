@@ -56,7 +56,7 @@
     <string name="ai_provider_title">Service</string>
     <string name="ai_provider_get_key">Create the key on %1$s</string>
     <string name="ai_api_key_placeholder">Starts with %1$s…</string>
-    <string name="ai_empty_subtitle_online">The question is sent to %1$s as it is, without the downloaded guide, so answers are more general. For customs and health, always verify with the official source</string>
+    <string name="ai_empty_subtitle_online">The question is sent to %1$s as it is, without the downloaded guide, so answers are more general. For customs, health and safety, always verify with the official source</string>
     <string name="ai_online_model_title">Model</string>
     <string name="ai_error_model">The service doesn\'t recognize this model: check its name in AI assistant → Online or choose Automatic</string>
     <string name="ai_provider_model">Model: %1$s</string>
