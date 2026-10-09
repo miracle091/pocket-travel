@@ -52,8 +52,11 @@ PARA = {  # riformulazioni generiche: coprono tutta la categoria, cosi' il posit
     "CIBO_BEVANDE": ["Quali piatti tipici provo in {r}?", "Dove si mangia bene in {r}?", "Com'e' la tavola in {r}?"],
     "ACQUISTI": ["Che moneta serve in {r}?", "Come mi regolo con i prezzi in {r}?", "Come funziona il denaro in {r}?"],
     "CONNETTIVITA": ["Come resto connesso in {r}?", "Com'e' la copertura telefonica in {r}?", "Riesco a stare online in {r}?"],
-    "VITA_QUOTIDIANA": ["Come resto aggiornato durante il soggiorno in {r}?", "Che fonti uso per informarmi in {r}?", "Dove trovo info pratiche per {r}?"],
+    "VITA_QUOTIDIANA": ["Come resto aggiornato durante il soggiorno in {r}?", "Che fonti uso per informarmi in {r}?", "Quali canali TV o radio si ricevono in {r}?"],
 }
+# Niente domande ambigue (vedi AMBIGUOUS_QUESTIONS di generate_sft.py): "Dove trovo info pratiche per X?" e "Where do I find
+# practical info for X?" le soddisfa ogni sezione, quindi il loro rifiuto ha la risposta nel contesto. Sostituite il
+# 2026-10-08: i risultati di prima su questo test non sono confrontabili con quelli dopo.
 PARA_EN = {  # come PARA, in inglese (2 per categoria)
     "USI_COSTUMI": ["Which manners should I keep in mind in {r}?", "How do I avoid offending people in {r}?"],
     "DOGANE": ["What is the best way to arrive in {r}?", "Which entry requirements apply to {r}?"],
@@ -63,7 +66,7 @@ PARA_EN = {  # come PARA, in inglese (2 per categoria)
     "CIBO_BEVANDE": ["Which local dishes should I try in {r}?", "Where is the best place to eat in {r}?"],
     "ACQUISTI": ["Which money do I need in {r}?", "How do prices and payments work in {r}?"],
     "CONNETTIVITA": ["How do I stay connected in {r}?", "How is mobile coverage in {r}?"],
-    "VITA_QUOTIDIANA": ["How do I keep up with news in {r}?", "Where do I find practical info for {r}?"],
+    "VITA_QUOTIDIANA": ["How do I keep up with news in {r}?", "Which TV channels can I watch in {r}?"],
 }
 PARA_CITY = {  # domande sulle citta' riformulate: non sono in CITY_QUESTIONS/CITY_QUESTIONS_EN del training
     "ARRIVARE": ["Con che mezzi arrivo fino a {r}?", "How can I reach {r}?"],
