@@ -14,7 +14,8 @@ sull'indice o con un indice ritoccato.
    resta in --cache: le regioni successive dello stesso job non riscaricano lo stesso estratto.
 3. "osmium export" calcola le geometrie; di ogni oggetto che passa lo stesso filtro della query
    Overpass (filtro_overpass) e il cui centro cade nel bbox si scrive un <node>, o una <way>/<relation>
-   con il <center> del suo rettangolo come "out center" di Overpass.
+   con il <center> del suo rettangolo come "out center" di Overpass. Le relazioni che osmium export non
+   assembla (non multipolygon ne' boundary) prendono il centro dai loro membri (relazioni_non_aree).
 
 Esce con codice 1 se qualcosa non va (download, osmium): build-region.sh ripiega allora su Overpass.
 """
@@ -37,11 +38,13 @@ INDEX_URL = "https://download.geofabrik.de/index-v1.json"
 # (qui piu' larghi: il filtro esatto, con name, information e iata, e' filtro_overpass).
 TAGS_FILTER = [
     "n/amenity", "n/shop", "n/tourism", "n/leisure", "n/historic",
-    "w/amenity=parking,bus_station,hospital,fire_station,place_of_worship,monastery,ferry_terminal",
+    "w/amenity=parking,bus_station,hospital,fire_station,monastery,ferry_terminal", "wr/amenity=place_of_worship",
     "w/tourism=information", "nw/office=diplomatic",
-    "wr/leisure=park,nature_reserve,water_park,marina", "wr/tourism=theme_park,zoo,museum,gallery,attraction",
-    "wr/historic=castle,monument,ruins,archaeological_site,fort,city_gate",
-    "nw/railway=station,halt", "nwr/aeroway=aerodrome",
+    "wr/leisure=park,nature_reserve,water_park,marina,garden", "wr/tourism=theme_park,zoo,museum,gallery,attraction",
+    # protect_class=2 e non boundary=protected_area: le aree protette di altre classi (in Italia migliaia di siti
+    # Natura 2000) porterebbero nell'estratto ridotto tutti i nodi dei loro confini.
+    "wr/historic", "wr/man_made=bridge", "wr/landuse=religious", "wr/boundary=national_park", "wr/protect_class=2",
+    "nwr/place=square", "nw/railway=station,halt", "nwr/aeroway=aerodrome",
 ]
 # Paesi che un estratto contiene ma l'indice non elenca: gcc-states ha anche l'Arabia Saudita, quello
 # dell'Irlanda l'Irlanda del Nord, quello della Malesia Singapore e Brunei.
@@ -51,11 +54,13 @@ NODE_KEYS = ("amenity", "shop", "tourism", "leisure", "historic")
 # Musei e monumenti come aree o relazioni (Tour Eiffel, Louvre), solo con un nome: query di build-region.sh.
 WR_TOURISM_NAMED = {"museum", "gallery", "attraction"}
 WR_HISTORIC_NAMED = {"castle", "monument", "ruins", "archaeological_site", "fort", "city_gate"}
-WAY_AMENITY = {"parking", "bus_station", "hospital", "fire_station", "place_of_worship", "monastery", "ferry_terminal"}
+WAY_AMENITY = {"parking", "bus_station", "hospital", "fire_station", "monastery", "ferry_terminal"}
 
 
 def filtro_overpass(kind, tags):
-    """True se la query Overpass di build-region.sh restituirebbe l'oggetto (kind: node, way, relation)."""
+    """True se la query Overpass di build-region.sh restituirebbe l'oggetto (kind: node, way, relation). Ponti,
+    giardini, piazze, complessi religiosi e gli altri valori di historic solo con wikidata: famosi, non le migliaia
+    di ponticelli e giardinetti."""
     if kind == "node" and any(k in tags for k in NODE_KEYS):
         return True
     if kind == "way" and (tags.get("amenity") in WAY_AMENITY or
@@ -66,7 +71,15 @@ def filtro_overpass(kind, tags):
     if kind in ("way", "relation") and (
             (tags.get("leisure") in ("park", "nature_reserve") and "name" in tags) or
             tags.get("leisure") in ("water_park", "marina") or tags.get("tourism") in ("theme_park", "zoo") or
-            ("name" in tags and (tags.get("tourism") in WR_TOURISM_NAMED or tags.get("historic") in WR_HISTORIC_NAMED))):
+            tags.get("amenity") == "place_of_worship" or
+            ("name" in tags and (tags.get("tourism") in WR_TOURISM_NAMED or tags.get("historic") in WR_HISTORIC_NAMED or
+                                 tags.get("boundary") == "national_park" or
+                                 (tags.get("boundary") == "protected_area" and tags.get("protect_class") == "2"))) or
+            ("name" in tags and "wikidata" in tags and (
+                "historic" in tags or tags.get("man_made") == "bridge" or tags.get("landuse") == "religious" or
+                tags.get("leisure") == "garden"))):
+        return True
+    if tags.get("place") == "square" and "name" in tags and "wikidata" in tags:
         return True
     return tags.get("aeroway") == "aerodrome" and "iata" in tags
 
@@ -276,12 +289,85 @@ def centro(geometry):
     return (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
 
 
-def scrivi_xml(sources, bbox, out):
-    """Scrive gli oggetti di ogni geojsonseq in sources nell'XML di Overpass; ritorna quanti."""
+def leggi_opl(path):
+    """Nodi {id: (lon, lat)}, way {id: [id dei nodi]} e relazioni {id: (tag, [(n|w|r, id)])} di un file OPL di osmium
+    (formato "opl,add_metadata=false": un oggetto per riga, campi separati da spazi, caratteri speciali come %hex%)."""
+    def unescape(text):
+        return re.sub(r"%([0-9a-fA-F]+)%", lambda m: chr(int(m.group(1), 16)), text)
+
+    nodes, ways, relations = {}, {}, {}
+    with open(path, encoding="utf-8") as lines:
+        for line in lines:
+            fields = line.split()
+            if not fields:
+                continue
+            kind, oid = fields[0][0], int(fields[0][1:])
+            values = {f[0]: f[1:] for f in fields[1:]}
+            if kind == "n" and values.get("x") and values.get("y"):
+                nodes[oid] = (float(values["x"]), float(values["y"]))
+            elif kind == "w":
+                ways[oid] = [int(n[1:]) for n in values.get("N", "").split(",") if n]
+            elif kind == "r":
+                tags = dict(unescape(t).split("=", 1) for t in values.get("T", "").split(",") if t)
+                members = [(m[0], int(m[1:].split("@", 1)[0])) for m in values.get("M", "").split(",") if m]
+                relations[oid] = (tags, members)
+    return nodes, ways, relations
+
+
+def punti_relazione(rid, nodes, ways, relations, seen=None):
+    """Coordinate dei nodi di una relazione: i nodi membri, quelli delle way membri e delle relazioni figlie."""
+    seen = seen if seen is not None else set()
+    seen.add(rid)
+    points = []
+    for kind, mid in relations.get(rid, ({}, []))[1]:
+        if kind == "n" and mid in nodes:
+            points.append(nodes[mid])
+        elif kind == "w":
+            points += [nodes[n] for n in ways.get(mid, []) if n in nodes]
+        elif kind == "r" and mid not in seen:
+            points += punti_relazione(mid, nodes, ways, relations, seen)
+    return points
+
+
+def relazioni_non_aree(clipped, tmp, nome):
+    """[(id, tag, lon, lat)] delle relazioni del filtro che osmium export non assembla come aree, perche' non sono
+    multipolygon o boundary (Ponte di Rialto type=building, Palmeral di Elche type=collection, Museo di storia
+    naturale di Parigi type=site): Overpass le restituisce con "out center", qui il centro e' quello del rettangolo
+    dei loro membri, come il suo."""
+    rels = os.path.join(tmp, f"{nome}-relazioni.opl")
+    subprocess.run(["osmium", "cat", "--overwrite", "--no-progress", "-t", "relation", clipped,
+                    "-f", "opl,add_metadata=false", "-o", rels], check=True)
+    candidates = [rid for rid, (tags, _) in leggi_opl(rels)[2].items()
+                  if tags.get("type") not in ("multipolygon", "boundary") and filtro_overpass("relation", tags)]
+    if not candidates:
+        return []
+    ids = os.path.join(tmp, f"{nome}-relazioni.txt")
+    with open(ids, "w", encoding="utf-8") as f:
+        f.writelines(f"r{rid}\n" for rid in candidates)
+    members = os.path.join(tmp, f"{nome}-membri.opl")
+    # Codice 1: alcuni membri non ci sono (relazioni figlie fuori dal filtro); il centro viene da quelli che restano. Senza
+    # il file scritto e' invece un errore di osmium, che altrimenti perderebbe in silenzio tutte queste relazioni.
+    result = subprocess.run(["osmium", "getid", "--overwrite", "--no-progress", "-r", "-i", ids, clipped,
+                             "-f", "opl,add_metadata=false", "-o", members])
+    if result.returncode not in (0, 1) or not os.path.exists(members):
+        raise subprocess.CalledProcessError(result.returncode, result.args)
+    nodes, ways, relations = leggi_opl(members)
+    out = []
+    for rid in candidates:
+        points = punti_relazione(rid, nodes, ways, relations)
+        if points:
+            minx, miny, maxx, maxy = rettangolo([points])
+            out.append((rid, relations[rid][0], (minx + maxx) / 2, (miny + maxy) / 2))
+    return out
+
+
+def scrivi_xml(sources, bbox, out, relazioni=()):
+    """Scrive gli oggetti di ogni geojsonseq in sources, piu' le relazioni [(id, tag, lon, lat)] di relazioni_non_aree,
+    nell'XML di Overpass; ritorna quanti."""
     minx, miny, maxx, maxy = bbox
     seen = set()
-    with open(out, "w", encoding="utf-8") as xml:
-        xml.write('<?xml version="1.0" encoding="UTF-8"?>\n<osm version="0.6" generator="geofabrik_pois.py">\n')
+
+    def oggetti():
         for source in sources:
             with open(source, encoding="utf-8") as lines:
                 for line in lines:
@@ -290,19 +376,25 @@ def scrivi_xml(sources, bbox, out):
                         continue
                     feature = json.loads(line)
                     props = feature["properties"]
-                    kind, oid = props.pop("@type"), props.pop("@id")
-                    # osmium export da' una way chiusa sia come linea sia come area: conta una volta.
-                    if (kind, oid) in seen or not filtro_overpass(kind, props):
-                        continue
-                    lon, lat = centro(feature["geometry"])
-                    if not (minx <= lon <= maxx and miny <= lat <= maxy):
-                        continue
-                    seen.add((kind, oid))
-                    tags = "".join(f"<tag k={quoteattr(k)} v={quoteattr(str(v))}/>" for k, v in props.items())
-                    if kind == "node":
-                        xml.write(f'<node id="{oid}" lat="{lat:.7f}" lon="{lon:.7f}">{tags}</node>\n')
-                    else:
-                        xml.write(f'<{kind} id="{oid}"><center lat="{lat:.7f}" lon="{lon:.7f}"/>{tags}</{kind}>\n')
+                    yield props.pop("@type"), props.pop("@id"), props, feature["geometry"]
+        for rid, tags, lon, lat in relazioni:
+            yield "relation", rid, tags, {"type": "Point", "coordinates": [lon, lat]}
+
+    with open(out, "w", encoding="utf-8") as xml:
+        xml.write('<?xml version="1.0" encoding="UTF-8"?>\n<osm version="0.6" generator="geofabrik_pois.py">\n')
+        for kind, oid, props, geometry in oggetti():
+            # osmium export da' una way chiusa sia come linea sia come area: conta una volta.
+            if (kind, oid) in seen or not filtro_overpass(kind, props):
+                continue
+            lon, lat = centro(geometry)
+            if not (minx <= lon <= maxx and miny <= lat <= maxy):
+                continue
+            seen.add((kind, oid))
+            tags = "".join(f"<tag k={quoteattr(k)} v={quoteattr(str(v))}/>" for k, v in props.items())
+            if kind == "node":
+                xml.write(f'<node id="{oid}" lat="{lat:.7f}" lon="{lon:.7f}">{tags}</node>\n')
+            else:
+                xml.write(f'<{kind} id="{oid}"><center lat="{lat:.7f}" lon="{lon:.7f}"/>{tags}</{kind}>\n')
         xml.write("</osm>\n")
     return len(seen)
 
@@ -329,18 +421,21 @@ def main():
     print(f"-- geofabrik: {len(extracts)} estratti per il bbox: {' '.join(cid for cid, _ in extracts)}", flush=True)
 
     with tempfile.TemporaryDirectory() as tmp:
-        sources = []
+        sources, relazioni = [], []
         for cid, url in extracts:
             reduced = estratto_ridotto(cid, url, args.cache, args.user_agent)
-            # Prima il ritaglio sul bbox: San Marino esporterebbe altrimenti tutto il nord-est d'Italia.
+            # Prima il ritaglio sul bbox: San Marino esporterebbe altrimenti tutto il nord-est d'Italia. "types=any":
+            # complete anche le relazioni non multipolygon che escono dal bbox (parchi nazionali type=boundary, siti
+            # type=site), come le vede Overpass; l'estratto ridotto ha solo le relazioni dei POI, niente confini.
             clipped = os.path.join(tmp, f"{nome_file(cid)}.osm.pbf")
-            subprocess.run(["osmium", "extract", "--overwrite", "--no-progress", "-s", "smart",
+            subprocess.run(["osmium", "extract", "--overwrite", "--no-progress", "-s", "smart", "-S", "types=any",
                             "-b", ",".join(str(v) for v in bbox), reduced, "-o", clipped], check=True)
             source = os.path.join(tmp, f"{nome_file(cid)}.geojsonseq")
             subprocess.run(["osmium", "export", "--overwrite", "--no-progress", "-f", "geojsonseq",
                             "-x", "print_record_separator=false", "-a", "type,id", clipped, "-o", source], check=True)
             sources.append(source)
-        count = scrivi_xml(sources, bbox, args.out)
+            relazioni += relazioni_non_aree(clipped, tmp, nome_file(cid))
+        count = scrivi_xml(sources, bbox, args.out, relazioni)
     # Nessun oggetto e' quasi certamente un errore (formato di osmium cambiato, filtro sbagliato): meglio Overpass.
     if count == 0:
         sys.exit("nessun oggetto POI dagli estratti Geofabrik")

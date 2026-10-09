@@ -211,6 +211,36 @@ class GeneratePoiTest {
             xml.delete()
         }
     }
+
+    @Test
+    fun `ponti, piazze, complessi religiosi e parchi nazionali dalle loro chiavi, aree protette di classe 2 come parchi nazionali`() {
+        val xml = File.createTempFile("pocket-travel-test", ".osm.xml")
+        try {
+            xml.writeText(
+                """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <osm version="0.6">
+                  <way id="1"><center lat="41.04" lon="29.03"/><tag k="man_made" v="bridge"/><tag k="name" v="15 Temmuz Şehitler Köprüsü"/><tag k="wikidata" v="Q4484"/></way>
+                  <relation id="2"><center lat="35.40" lon="138.80"/><tag k="boundary" v="protected_area"/><tag k="protect_class" v="2"/><tag k="name" v="富士箱根伊豆国立公園"/></relation>
+                  <relation id="3"><center lat="35.40" lon="138.90"/><tag k="boundary" v="protected_area"/><tag k="protect_class" v="5"/><tag k="name" v="Paesaggio"/></relation>
+                  <node id="4" lat="48.85" lon="2.36"><tag k="place" v="square"/><tag k="name" v="Place des Vosges"/><tag k="wikidata" v="Q898629"/></node>
+                  <relation id="5"><center lat="35.69" lon="139.74"/><tag k="landuse" v="religious"/><tag k="name" v="靖国神社"/><tag k="wikidata" v="Q242803"/></relation>
+                  <way id="6"><center lat="45.43" lon="12.33"/><tag k="tourism" v="attraction"/><tag k="man_made" v="bridge"/><tag k="name" v="Ponte di Rialto"/></way>
+                </osm>
+                """.trimIndent(),
+            )
+            val pois = readPois(listOf(xml), poiTagKeys + listOf("railway", "aeroway", "office", "man_made", "landuse", "boundary", "place"))
+
+            // Un'attrazione resta un'attrazione anche se e' un ponte: le chiavi nuove vengono dopo quelle di sempre.
+            assertEquals(
+                listOf("man_made=bridge", "boundary=national_park", "boundary=protected_area", "place=square", "landuse=religious", "tourism=attraction"),
+                pois.map { it.osmTag },
+            )
+        } finally {
+            xml.delete()
+        }
+    }
+
     @Test
     fun `nomi in inglese e italiano solo se diversi dal nome locale`() {
         val dir = kotlin.io.path.createTempDirectory("pocket-travel-poi").toFile()

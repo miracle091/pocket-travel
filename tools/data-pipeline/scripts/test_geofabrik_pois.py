@@ -168,6 +168,54 @@ class FiltroOverpassTest(unittest.TestCase):
         self.assertFalse(f("node", {"aeroway": "aerodrome"}))
         self.assertTrue(f("relation", {"aeroway": "aerodrome", "iata": "RIX"}))
 
+    def test_luoghi_famosi_solo_con_wikidata(self):
+        f = geofabrik_pois.filtro_overpass
+        self.assertTrue(f("relation", {"amenity": "place_of_worship", "name": "Ibn Tulun"}))
+        self.assertTrue(f("relation", {"boundary": "national_park", "name": "Parque Nacional del Manu"}))
+        self.assertTrue(f("relation", {"boundary": "protected_area", "protect_class": "2", "name": "Fuji-Hakone-Izu"}))
+        self.assertFalse(f("relation", {"boundary": "protected_area", "protect_class": "5", "name": "Paesaggio"}))
+        self.assertFalse(f("relation", {"boundary": "national_park"}))
+        for tags in ({"man_made": "bridge"}, {"historic": "citywalls"}, {"landuse": "religious"}, {"leisure": "garden"}):
+            self.assertFalse(f("way", {**tags, "name": "Senza wikidata"}), tags)
+            self.assertTrue(f("way", {**tags, "name": "Famoso", "wikidata": "Q1"}), tags)
+        self.assertFalse(f("node", {"man_made": "bridge", "name": "Famoso", "wikidata": "Q1"}))
+        self.assertTrue(f("node", {"place": "square", "name": "Place des Vosges", "wikidata": "Q898629"}))
+        self.assertFalse(f("way", {"place": "square", "name": "Piazzetta"}))
+
+
+class RelazioniNonAreeTest(unittest.TestCase):
+    def test_opl_e_centro_dai_membri_anche_annidati(self):
+        opl = (
+            "n1 x12.3350000 y45.4380000\n"
+            "n2 x12.3360000 y45.4385000\n"
+            "n3 x12.3400000 y45.4300000\n"
+            "n9 x12.0000000 y45.0000000\n"
+            "w10 Tbuilding:part=yes Nn1,n2\n"
+            "r20 Ttype=building,tourism=attraction,name=Ponte%20%di%20%Rialto,wikidata=Q52505 Mw10@outline,r21@,n99@\n"
+            "r21 Ttype=site Mn3@\n"
+            "r22 T Mn9@\n"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "a.opl")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(opl)
+            nodes, ways, relations = geofabrik_pois.leggi_opl(path)
+
+        self.assertEqual(nodes[1], (12.335, 45.438))
+        self.assertEqual(ways[10], [1, 2])
+        tags, members = relations[20]
+        self.assertEqual(tags["name"], "Ponte di Rialto")
+        self.assertEqual(members, [("w", 10), ("r", 21), ("n", 99)])
+        self.assertEqual(relations[22], ({}, [("n", 9)]))
+        # Il nodo 99 manca (fuori dal ritaglio): conta quello che c'e'.
+        points = geofabrik_pois.punti_relazione(20, nodes, ways, relations)
+        self.assertEqual(sorted(points), [(12.335, 45.438), (12.336, 45.4385), (12.34, 45.43)])
+
+    def test_relazione_ciclica_finisce(self):
+        relations = {1: ({}, [("r", 2)]), 2: ({}, [("r", 1), ("n", 5)])}
+
+        self.assertEqual(geofabrik_pois.punti_relazione(1, {5: (1.0, 2.0)}, {}, relations), [(1.0, 2.0)])
+
 
 class ScriviXmlTest(unittest.TestCase):
     def test_nodi_e_centri_nel_bbox_una_volta_sola(self):
@@ -190,11 +238,15 @@ class ScriviXmlTest(unittest.TestCase):
                 f.writelines(json.dumps(x) + "\n" for x in features)
             out = os.path.join(tmp, "out.osm.xml")
 
-            count = geofabrik_pois.scrivi_xml([source], (20, 55, 28, 58), out)
+            relazioni = [(7, {"type": "site", "tourism": "museum", "name": "Muzejs"}, 24.15, 56.95),
+                         (8, {"type": "site", "tourism": "museum", "name": "Lontano"}, 30.0, 60.0)]
+            count = geofabrik_pois.scrivi_xml([source], (20, 55, 28, 58), out, relazioni)
             with open(out, encoding="utf-8") as f:
                 xml = f.read()
 
-        self.assertEqual(count, 2)
+        self.assertEqual(count, 3)
+        self.assertIn('<relation id="7"><center lat="56.9500000" lon="24.1500000"/><tag k="type" v="site"/>', xml)
+        self.assertNotIn('id="8"', xml)
         self.assertIn('<node id="1" lat="56.9000000" lon="24.1000000"><tag k="amenity" v="cafe"/>', xml)
         name = ElementTree.fromstring(xml).find("node/tag[@k='name']").get("v")
         self.assertEqual(name, 'Kafe & "Rīga"')

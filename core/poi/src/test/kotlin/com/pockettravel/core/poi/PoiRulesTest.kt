@@ -46,6 +46,19 @@ class PoiRulesTest {
     }
 
     @Test
+    fun `ponti, piazze, complessi religiosi e parchi nazionali famosi sono da vedere e sul pacchetto base`() {
+        mapOf(
+            "man_made=bridge" to PoiCategory.ATTRAZIONI,
+            "place=square" to PoiCategory.ATTRAZIONI,
+            "landuse=religious" to PoiCategory.LUOGHI_DI_CULTO,
+            "boundary=national_park" to PoiCategory.NATURA,
+        ).forEach { (tag, category) ->
+            assertEquals(tag, category, poiCategoryOf(tag.substringAfter("="), tag))
+            assertEquals(tag, PoiPackage.BASE, poiPackageOf("Con un nome", tag.substringAfter("="), tag))
+        }
+    }
+
+    @Test
     fun `i negozi sono riconosciuti dal prefisso shop`() {
         assertEquals(PoiCategory.NEGOZI, poiCategoryOf("bakery", "shop=bakery"))
         assertEquals(PoiCategory.NEGOZI, poiCategoryOf("supermarket", "shop=supermarket"))

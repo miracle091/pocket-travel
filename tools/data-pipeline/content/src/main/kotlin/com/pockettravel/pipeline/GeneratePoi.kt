@@ -150,7 +150,9 @@ data class Poi(
 
 private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagKeys: List<String>): Poi? {
     val tagKey = poiTagKeys.firstOrNull { tags.containsKey(it) } ?: return null
+    // Le aree protette di classe 2 sono parchi nazionali (Fuji-Hakone-Izu), anche senza boundary=national_park.
     val tagValue = tags.getValue(tagKey)
+        .let { if (tagKey == "boundary" && it == "protected_area" && tags["protect_class"] == "2") "national_park" else it }
     // Parchi senza nome: per lo piu' aiuole e giardinetti, sulla mappa sarebbero solo "park".
     if (tagKey == "leisure" && tagValue == "park" && tags["name"] == null) return null
     // Pensiline delle fermate: stesso tag dei bivacchi, ma sulla mappa sarebbero centinaia di segnalini

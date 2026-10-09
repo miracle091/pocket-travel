@@ -101,7 +101,8 @@ val SIGHT_CATEGORIES: Set<PoiCategory> = setOf(
 
 /**
  * Raggruppa il tag OSM grezzo di un POI (Poi.category/osmTag, uno dei tanti valori possibili di
- * amenity/shop/tourism/leisure/historic/railway/aeroway — vedi poiTagKeys in GeneratePoi.kt) in una manciata di
+ * amenity/shop/tourism/leisure/historic/railway/aeroway/office/man_made/landuse/boundary/place — vedi poiTagKeys in
+ * GeneratePoi.kt) in una manciata di
  * macro-categorie per la mappa (icona + filtro), con lo stesso criterio delle GuideCategory
  * delle guide testuali.
  */
@@ -177,7 +178,12 @@ fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     osmTag.startsWith("shop=") -> PoiCategory.NEGOZI
     // Mercati all'aperto ("Mercato del Sabato"): si fanno acquisti, non sono "Altro".
     osmTag == "amenity=marketplace" -> PoiCategory.NEGOZI
-    osmTag == "historic=church" || osmTag == "historic=monastery" -> PoiCategory.LUOGHI_DI_CULTO
+    // Complessi religiosi (santuario Yasukuni, moschea di Amr) e parchi nazionali: solo con wikidata o con nome, vedi la
+    // query di build-region.sh.
+    osmTag == "historic=church" || osmTag == "historic=monastery" || osmTag == "landuse=religious" -> PoiCategory.LUOGHI_DI_CULTO
+    osmTag == "boundary=national_park" -> PoiCategory.NATURA
+    // Ponti e piazze famosi (ponte sul Bosforo, place des Vosges): solo quelli con wikidata.
+    osmTag == "man_made=bridge" || osmTag == "place=square" -> PoiCategory.ATTRAZIONI
     osmTag.startsWith("historic=") -> PoiCategory.LUOGHI_STORICI
     // Villaggi turistici e residence (leisure=resort), capanne e love hotel: ci si dorme, non sono "Altro".
     category in accommodationValues || osmTag == "leisure=resort" || osmTag == "tourism=cabin" ||

@@ -578,9 +578,9 @@ ATTEMPTS=${#OVERPASS_ENDPOINTS[@]}
 # in GeneratePoi.kt non possono disallinearsi.
 POI_TAG_KEYS=(amenity shop tourism leisure historic)
 # Chiavi lette da generatePoi ma interrogate su Overpass solo con i filtri mirati di
-# fetch_overpass_chunk (stazioni, aeroporti): con la chiave intera arriverebbero anche binari,
-# passaggi a livello e segnali.
-POI_EXTRA_TAG_KEYS=(railway aeroway office)
+# fetch_overpass_chunk (stazioni, aeroporti, ponti, piazze, parchi nazionali): con la chiave intera
+# arriverebbero anche binari, passaggi a livello e segnali.
+POI_EXTRA_TAG_KEYS=(railway aeroway office man_made landuse boundary place)
 
 fmax() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0>b+0)?a:b }'; }
 fmin() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0<b+0)?a:b }'; }
@@ -608,6 +608,15 @@ fetch_overpass_chunk() {
   # Musei e monumenti disegnati come edifici o complessi (Tour Eiffel, Louvre, Colosseo): da soli punti
   # mancavano proprio i piu' famosi. Solo con un nome, come i parchi.
   query="${query}wr[\"tourism\"~\"^(museum|gallery|attraction)$\"][\"name\"]${bbox};wr[\"historic\"~\"^(castle|monument|ruins|archaeological_site|fort|city_gate)$\"][\"name\"]${bbox};"
+  # Luoghi famosi che i filtri sopra perdevano (tra i 50 con piu' voci Wikipedia di 11 regioni ne mancava il 9%):
+  # chiese e moschee disegnate come relazioni, parchi nazionali e, solo con wikidata (i famosi, non le migliaia di
+  # ponticelli e giardinetti), ponti, complessi religiosi, giardini, piazze e gli altri valori di historic (mura,
+  # tombe, edifici storici).
+  query="${query}relation[\"amenity\"=\"place_of_worship\"]${bbox};wr[\"boundary\"=\"national_park\"][\"name\"]${bbox};"
+  query="${query}wr[\"boundary\"=\"protected_area\"][\"protect_class\"=\"2\"][\"name\"]${bbox};"
+  query="${query}wr[\"historic\"][\"name\"][\"wikidata\"]${bbox};wr[\"man_made\"=\"bridge\"][\"name\"][\"wikidata\"]${bbox};"
+  query="${query}wr[\"landuse\"=\"religious\"][\"name\"][\"wikidata\"]${bbox};wr[\"leisure\"=\"garden\"][\"name\"][\"wikidata\"]${bbox};"
+  query="${query}nwr[\"place\"=\"square\"][\"name\"][\"wikidata\"]${bbox};"
   # Trasporti: stazioni (treno e metro), autostazioni, aeroporti con codice IATA (niente aviosuperfici).
   query="${query}nw[\"railway\"~\"^(station|halt)$\"]${bbox};nwr[\"aeroway\"=\"aerodrome\"][\"iata\"]${bbox};"
   query="${query});out center;"

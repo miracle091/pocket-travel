@@ -46,6 +46,7 @@ private val TYPES: Map<String, Int> = mapOf(
     "leisure=nature_reserve" to R.string.poi_type_nature_reserve,
     "amenity=monastery" to R.string.poi_type_monastery,
     "amenity=place_of_worship" to R.string.poi_type_place_of_worship,
+    "landuse=religious" to R.string.poi_type_place_of_worship,
     "amenity=fountain" to R.string.poi_type_fountain,
     "historic=castle" to R.string.poi_type_castle,
     "historic=monument" to R.string.poi_type_monument,
