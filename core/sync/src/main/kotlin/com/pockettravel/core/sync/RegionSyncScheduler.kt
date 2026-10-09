@@ -49,11 +49,15 @@ class RegionSyncScheduler @Inject constructor(
     /**
      * Download esplicito richiesto dall'utente dei pacchetti [kinds] di una regione. Accoda anche
      * il controllo delle guide senza vincolo di Wi-Fi: chi scarica una regione si aspetta di
-     * trovarne subito la guida.
+     * trovarne subito la guida. Restituisce lo stato di questo solo lavoro (anche con altri download della regione in
+     * catena), null se non accodato.
      */
-    fun enqueueDownload(entry: RegionManifestEntry, kinds: Set<PackageKind>) {
+    fun enqueueDownload(entry: RegionManifestEntry, kinds: Set<PackageKind>): Flow<WorkInfo?>? {
         // Dati in un formato che quest'app non sa leggere: invito ad aggiornarla invece di un errore muto.
-        if (appCompatibility.requiresAppUpdate()) return appCompatibility.showUpdateRequiredMessage()
+        if (appCompatibility.requiresAppUpdate()) {
+            appCompatibility.showUpdateRequiredMessage()
+            return null
+        }
         val data = Data.Builder()
             .putString(
                 RegionPackageDownloadWorker.KEY_MANIFEST_ENTRY_FILE,
@@ -83,6 +87,7 @@ class RegionSyncScheduler @Inject constructor(
             request,
         )
         enqueueGuidesSync(onlyOnWifi = false)
+        return workManager.getWorkInfoByIdFlow(request.id)
     }
 
     /**

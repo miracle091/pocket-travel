@@ -217,6 +217,8 @@
     <string name="transit_update">Aggiorna</string>
     <string name="transit_download">Scarica gli orari dei mezzi pubblici</string>
     <string name="transit_downloading">Download degli orari dei mezzi pubblici…</string>
+    <string name="transit_up_to_date">Nessun orario più recente disponibile</string>
+    <string name="transit_update_failed">Download degli orari dei mezzi pubblici non riuscito. Controlla la connessione e riprova</string>
     <string name="transit_source">Fonte: %1$s</string>
     <string name="transit_source_dated">Fonte: %1$s, dati del %2$s</string>
     <string name="transit_in_min">tra %1$d min</string>

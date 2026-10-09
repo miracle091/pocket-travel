@@ -178,6 +178,7 @@ fun RegionHubScreen(
                         val mapSource by mapViewModel.mapSource.collectAsStateWithLifecycle()
                         val transitState by viewModel.transitState.collectAsStateWithLifecycle()
                         val transitBoard by mapViewModel.transitBoard.collectAsStateWithLifecycle()
+                        val transitUpdateResult by viewModel.transitUpdateResult.collectAsStateWithLifecycle()
                         val sourceKind = mapSource.kind
                         val language = LocalLocale.current.platformLocale.language
                         Column(modifier = Modifier.fillMaxSize()) {
@@ -201,6 +202,7 @@ fun RegionHubScreen(
                                     },
                                     transitPackage = transitState,
                                     transitBoard = transitBoard,
+                                    transitUpdateResult = transitUpdateResult,
                                     onDownloadTransit = viewModel::downloadTransit,
                                     onTransitStopChange = mapViewModel::showDepartures,
                                     onViewportChange = mapViewModel::setViewport,

@@ -113,9 +113,10 @@ fun MapScreen(
     // Apre la navigazione verso il punto scelto; null = niente pulsante "Indicazioni".
     onNavigate: ((MapPin) -> Unit)? = null,
     // Orari dei mezzi pubblici nel riquadro di treni, metro, autobus e traghetti: pacchetto della regione,
-    // tabellone del POI aperto (null finche' si legge), download e il POI di cui leggere le partenze.
+    // tabellone del POI aperto (null finche' si legge), esito dell'ultimo "Aggiorna", download e il POI di cui leggere le partenze.
     transitPackage: TransitPackageState = TransitPackageState.UNKNOWN,
     transitBoard: TransitBoard? = null,
+    transitUpdateResult: TransitUpdateResult? = null,
     onDownloadTransit: () -> Unit = {},
     onTransitStopChange: (MapPin?) -> Unit = {},
     // Area inquadrata a ogni fermo della mappa, dopo il primo inquadramento: i segnalini si leggono solo li'.
@@ -370,7 +371,7 @@ fun MapScreen(
                 }
                 pin.address?.let { PoiDetailRow(AppIcons.Place, it) }
                 pin.openingHours?.let { OpeningHoursDetail(it) }
-                if (pin.category in TRANSIT_CATEGORIES) TransitDeparturesSection(transitPackage, transitBoard, hideInaccessible, onDownloadTransit)
+                if (pin.category in TRANSIT_CATEGORIES) TransitDeparturesSection(transitPackage, transitBoard, hideInaccessible, transitUpdateResult, onDownloadTransit)
                 onNavigate?.let { navigate ->
                     Spacer(modifier = Modifier.padding(top = Spacing.l))
                     Button(

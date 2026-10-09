@@ -216,6 +216,8 @@
     <string name="transit_update">Update</string>
     <string name="transit_download">Download public transport timetables</string>
     <string name="transit_downloading">Downloading public transport timetables…</string>
+    <string name="transit_up_to_date">No newer timetables available</string>
+    <string name="transit_update_failed">Public transport timetables download failed. Check the connection and try again</string>
     <string name="transit_source_dated">Source: %1$s, data from %2$s</string>
     <string name="transit_source">Source: %1$s</string>
     <string name="transit_in_min">in %1$d min</string>

@@ -15,9 +15,11 @@ import com.pockettravel.core.sync.attachTransitFeeds
 import com.pockettravel.core.sync.regionTransitFeeds
 import com.pockettravel.feature.ai.AiAvailability
 import com.pockettravel.feature.map.TransitPackageState
+import com.pockettravel.feature.map.TransitUpdateResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -87,14 +90,30 @@ class RegionHubViewModel @Inject constructor(
     // null finche' non si sa (offline, catalogo non letto).
     private val transitOffered = MutableStateFlow<Boolean?>(null)
 
+    // L'ultimo tocco su "Aggiorna" o "Scarica" nel riquadro delle fermate della regione aperta, null se nessuno.
+    private val transitUpdate = MutableStateFlow<TransitUpdate?>(null)
+
+    // Lo stato del download accodato da quel tocco: null se nessuno (o non ancora registrato da WorkManager).
+    private val transitUpdateWork: Flow<WorkInfo.State?> = transitUpdate.flatMapLatest { update ->
+        if (update is TransitUpdate.Requested) update.work.map { it?.state } else flowOf(null)
+    }
+
+    /** Esito di "Aggiorna" quando non scarica nulla: nessun orario piu' recente nel catalogo, o errore. */
+    val transitUpdateResult: StateFlow<TransitUpdateResult?> = combine(transitUpdate, transitUpdateWork, ::transitUpdateResultOf)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     // Orari dei mezzi pubblici per il riquadro delle fermate: installati, in scaricamento, scaricabili o non offerti.
+    // Durante un aggiornamento chiesto dal riquadro risultano in scaricamento, anche se gia' installati.
     val transitState: StateFlow<TransitPackageState> = regionId.filterNotNull().flatMapLatest { id ->
         combine(
             regionRepository.observeInstalled().map { regions -> regions.firstOrNull { it.regionId == id }?.transitVersion != null },
             regionSyncScheduler.observeDownload(id),
             transitOffered,
-        ) { installed, work, offered ->
+            transitUpdate,
+            transitUpdateWork,
+        ) { installed, work, offered, update, updateWork ->
             when {
+                isTransitUpdating(update, updateWork) -> TransitPackageState.DOWNLOADING
                 installed -> TransitPackageState.INSTALLED
                 work?.state == WorkInfo.State.RUNNING || work?.state == WorkInfo.State.ENQUEUED -> TransitPackageState.DOWNLOADING
                 offered == true -> TransitPackageState.AVAILABLE
@@ -114,6 +133,7 @@ class RegionHubViewModel @Inject constructor(
         _splitCountry.value = false
         _regionMissing.value = false
         transitOffered.value = null
+        transitUpdate.value = null
         recentRegionPreferences.setLastRegionId(regionId)
         viewModelScope.launch {
             val region = regionRepository.installed(regionId)
@@ -135,17 +155,27 @@ class RegionHubViewModel @Inject constructor(
         }
     }
 
-    /** Scarica o aggiorna gli orari dei mezzi pubblici della regione (riquadro delle fermate). */
+    /**
+     * Scarica o aggiorna gli orari dei mezzi pubblici della regione (riquadro delle fermate). Se il catalogo ha la
+     * stessa versione di quelli installati non scarica nulla e lo dice; un catalogo non leggibile e' un errore.
+     */
     fun downloadTransit() {
         val id = regionId.value ?: return
+        transitUpdate.value = TransitUpdate.Checking
         viewModelScope.launch {
-            runCatchingCancellable { entryWithTransit(id) }
-                .onSuccess { entry ->
-                    if (entry.transit != null) {
-                        transitNetworkPreferences.rememberChoice(entry, setOf(PackageKind.TRANSIT))
-                        regionSyncScheduler.enqueueDownload(entry, setOf(PackageKind.TRANSIT))
-                    }
+            val update = runCatchingCancellable {
+                val entry = entryWithTransit(id)
+                val latest = entry.versionOf(PackageKind.TRANSIT)
+                if (latest == null || latest == regionRepository.installed(id)?.transitVersion) {
+                    TransitUpdate.UpToDate
+                } else {
+                    transitNetworkPreferences.rememberChoice(entry, setOf(PackageKind.TRANSIT))
+                    // null: l'app va aggiornata per leggere questi dati, e enqueueDownload lo ha gia' detto.
+                    regionSyncScheduler.enqueueDownload(entry, setOf(PackageKind.TRANSIT))?.let { TransitUpdate.Requested(it) }
                 }
+            }.getOrElse { TransitUpdate.Failed }
+            // Nel frattempo il pannello puo' essere passato a un'altra regione.
+            if (regionId.value == id) transitUpdate.value = update
         }
     }
 
@@ -176,4 +206,34 @@ class RegionHubViewModel @Inject constructor(
         work?.state == WorkInfo.State.RUNNING || work?.state == WorkInfo.State.ENQUEUED -> RegionMapState.DOWNLOADING
         else -> RegionMapState.MISSING
     }
+}
+
+/** Un tocco su "Aggiorna" o "Scarica" nel riquadro delle fermate. */
+internal sealed interface TransitUpdate {
+    /** Si legge il catalogo. */
+    data object Checking : TransitUpdate
+
+    /** Download accodato: [work] e' lo stato del suo lavoro in WorkManager. */
+    class Requested(val work: Flow<WorkInfo?>) : TransitUpdate
+
+    /** Il catalogo ha la stessa versione degli orari installati (o nessuna rete per la regione). */
+    data object UpToDate : TransitUpdate
+
+    /** Catalogo non leggibile (offline, server non raggiungibile). */
+    data object Failed : TransitUpdate
+}
+
+// In scaricamento finche' si legge il catalogo e finche' il download accodato non finisce (null: non ancora registrato).
+internal fun isTransitUpdating(update: TransitUpdate?, work: WorkInfo.State?): Boolean = when (update) {
+    TransitUpdate.Checking -> true
+    is TransitUpdate.Requested -> work?.isFinished != true
+    TransitUpdate.UpToDate, TransitUpdate.Failed, null -> false
+}
+
+// Riuscito o annullato, il download non lascia messaggi: gli orari nuovi si vedono nel tabellone.
+internal fun transitUpdateResultOf(update: TransitUpdate?, work: WorkInfo.State?): TransitUpdateResult? = when (update) {
+    TransitUpdate.UpToDate -> TransitUpdateResult.UP_TO_DATE
+    TransitUpdate.Failed -> TransitUpdateResult.FAILED
+    is TransitUpdate.Requested -> TransitUpdateResult.FAILED.takeIf { work == WorkInfo.State.FAILED }
+    TransitUpdate.Checking, null -> null
 }

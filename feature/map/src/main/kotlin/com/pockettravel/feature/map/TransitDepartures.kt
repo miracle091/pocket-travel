@@ -56,6 +56,9 @@ import java.util.TimeZone
  */
 enum class TransitPackageState { UNKNOWN, INSTALLED, AVAILABLE, DOWNLOADING, NOT_OFFERED }
 
+/** Esito di "Aggiorna" o "Scarica" quando non c'e' un download in corso: catalogo senza orari piu' recenti, o errore. */
+enum class TransitUpdateResult { UP_TO_DATE, FAILED }
+
 /** I riquadri di queste categorie hanno la sezione "Prossime partenze". */
 val TRANSIT_CATEGORIES = setOf(PoiCategory.TRENO, PoiCategory.METRO, PoiCategory.AUTOBUS, PoiCategory.TRAGHETTO)
 
@@ -73,10 +76,17 @@ fun transitStationModes(osmTag: String): Set<TransitMode> = when (osmTag) {
 /**
  * "Prossime partenze" nel riquadro di un POI di trasporto: le righe del tabellone, la scadenza degli
  * orari e le fonti; se gli orari non sono installati, il pulsante per scaricarli. [board] e' null
- * finche' si legge. [onDownload] scarica o aggiorna il pacchetto orari della regione.
+ * finche' si legge. [onDownload] scarica o aggiorna il pacchetto orari della regione; [updateResult] e' l'esito
+ * dell'ultimo tocco, se non ha avviato un download.
  */
 @Composable
-internal fun TransitDeparturesSection(state: TransitPackageState, board: TransitBoard?, showAccessibility: Boolean, onDownload: () -> Unit) {
+internal fun TransitDeparturesSection(
+    state: TransitPackageState,
+    board: TransitBoard?,
+    showAccessibility: Boolean,
+    updateResult: TransitUpdateResult?,
+    onDownload: () -> Unit,
+) {
     if (state == TransitPackageState.UNKNOWN) return
     Column(modifier = Modifier.fillMaxWidth().padding(top = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
         Text(
@@ -130,6 +140,15 @@ internal fun TransitDeparturesSection(state: TransitPackageState, board: Transit
                     Sources(board.feeds)
                 }
             }
+        }
+        when (updateResult) {
+            TransitUpdateResult.UP_TO_DATE -> Note(stringResource(R.string.transit_up_to_date))
+            TransitUpdateResult.FAILED -> Text(
+                stringResource(R.string.transit_update_failed),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+            null -> Unit
         }
     }
 }
