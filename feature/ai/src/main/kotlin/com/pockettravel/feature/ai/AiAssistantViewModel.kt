@@ -286,19 +286,25 @@ class AiAssistantViewModel @Inject constructor(
             return
         }
 
+        val previous = previousQuestion
         askJob = viewModelScope.launch {
             _uiState.update { it.copy(isThinking = true, errorMessage = null, askedQuestion = question, question = "", answer = null, streamingText = "") }
             try {
-                travelAssistant.ask(regionId, question, state.mode).collect { progress ->
+                travelAssistant.ask(regionId, question, state.mode, previous).collect { progress ->
                     when (progress) {
                         is AssistantProgress.Partial -> _uiState.update { it.copy(streamingText = progress.text) }
-                        is AssistantProgress.Done -> _uiState.update { it.copy(isThinking = false, streamingText = "", answer = progress.answer) }
+                        is AssistantProgress.Done -> {
+                            previousQuestion = progress.answer.question ?: question
+                            _uiState.update { it.copy(isThinking = false, streamingText = "", answer = progress.answer) }
+                        }
                     }
                 }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                // Errore a meta': il parziale si scarta, come l'errore sostituisce la risposta nella UI.
+                // Errore a meta': il parziale si scarta, come l'errore sostituisce la risposta nella UI. Senza risposta
+                // visibile nemmeno la base dei seguiti (vedi cancelAsk).
+                previousQuestion = null
                 _uiState.update { it.copy(isThinking = false, streamingText = "", errorMessage = askErrorMessage(error)) }
             }
         }
@@ -307,13 +313,18 @@ class AiAssistantViewModel @Inject constructor(
     // La domanda in corso (generazione o richiesta online).
     private var askJob: Job? = null
 
+    // L'ultima domanda con risposta (con quella prima se era un seguito): la base di un seguito ("E a Lisbona?").
+    private var previousQuestion: String? = null
+
     /**
      * Interrompe la domanda in corso, se c'e': chi la chiama sta per azzerare o cambiare la risposta, e
-     * senza questo il testo parziale (o la risposta finale) ricomparirebbe dopo.
+     * senza questo il testo parziale (o la risposta finale) ricomparirebbe dopo. Con la risposta va via anche
+     * la base dei seguiti: un seguito non si riferisce a una risposta che non si vede piu'.
      */
     private fun cancelAsk() {
         askJob?.cancel()
         askJob = null
+        previousQuestion = null
         _uiState.update { it.copy(isThinking = false, streamingText = "") }
     }
 }

@@ -54,6 +54,8 @@ adb shell am instrument -w -e class com.pockettravel.feature.ai.LlamaEngineDevic
 
 Sull'emulatore (x86_64) i 4 test durano circa 9 minuti.
 
+Le conversazioni a più turni (chiarimento, cambio di destinazione, domanda interrotta, navigazione prima di una domanda, prompt oltre il contesto) le prova `MultiTurnDeviceTest`, con il primo modello italiano del catalogo copiato nella stessa cartella (per esempio `qwen3.5-0.8b-travel-it-Q4_K_M.gguf`). Stessi comandi, con la classe `com.pockettravel.feature.ai.MultiTurnDeviceTest`; le risposte si leggono con `adb logcat -s MultiTurn`. Sull'emulatore durano meno di un minuto.
+
 ### Misurare l'assistente su un telefono, senza adb
 
 Nelle build di debug la scheda IA, con il motore sul dispositivo, ha nel menu (⋯) il **Task manager dei modelli**. Mostra memoria, CPU e, per l'ultima risposta, il tempo al primo token, la velocità di generazione e la velocità di lettura del prompt (token del prompt diviso il tempo al primo token). "Esporta i log" salva un file di testo con le stesse misure in CSV e il logcat dell'app, da condividere senza collegare il telefono al computer.

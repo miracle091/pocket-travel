@@ -109,7 +109,7 @@ internal class InferenceEngineImpl private constructor(
     @FastNative
     private external fun resetConversationNative()
 
-    @FastNative
+    // Non @FastNative: chiude il turno interrotto decodificando il token di fine turno.
     private external fun cancelGeneration()
 
     // {token del prompt, token generati, posizione nella KV cache, dimensione del contesto}
@@ -267,7 +267,7 @@ internal class InferenceEngineImpl private constructor(
         // Fuori dal try (a differenza del riferimento Arm, che faceva solo return@flow): lo stato
         // resterebbe ProcessingUserPrompt per sempre, bloccando ogni prompt successivo fino al
         // ricaricamento del modello, e il chiamante riceverebbe una risposta vuota senza errore.
-        // Il modello resta valido (resetConversation() pulisce la KV-cache al prossimo prompt),
+        // Il modello resta valido (il prompt rifiutato azzera la conversazione nativa),
         // quindi si torna a ModelReady e non a Error.
         processUserPrompt(message, predictLength).let { result ->
             if (result != 0) {
@@ -286,13 +286,13 @@ internal class InferenceEngineImpl private constructor(
                     if (utf8token.isNotEmpty()) emit(utf8token)
                 } ?: break
             }
-            // Prima di cancelGeneration, che riporta la KV cache alla posizione precedente al turno.
+            // Prima di cancelGeneration, che aggiunge alla KV cache il token di fine turno.
             publishContextUsage()
             if (_cancelGeneration) {
                 Log.i(TAG, "Assistant generation aborted per requested.")
-                // Riallinea la KV cache nativa alla posizione precedente al turno interrotto: senza
-                // questo, i token gia' campionati (mai aggiunti a chat_msgs, che si aggiorna solo
-                // su EOG o a n_predict) resterebbero nella cache e disallineerebbero il prossimo prompt.
+                // Chiude il turno interrotto con la risposta parziale: senza questo, i token gia' campionati
+                // (mai aggiunti a chat_msgs, che si aggiorna solo su EOG o a n_predict) resterebbero nella
+                // cache in un turno aperto e disallineerebbero il prossimo prompt.
                 cancelGeneration()
             } else {
                 Log.i(TAG, "Assistant generation complete. Awaiting user prompt...")

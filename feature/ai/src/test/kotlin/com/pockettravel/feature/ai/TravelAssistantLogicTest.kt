@@ -24,6 +24,59 @@ import java.time.LocalDate
 class TravelAssistantLogicTest {
 
     @Test
+    fun `riconosce l'inizio di un seguito, non una domanda nuova`() {
+        assertTrue(isFollowUpQuestion("E per quanto tempo posso restare?"))
+        assertTrue(isFollowUpQuestion("ma a Lisbona?"))
+        assertTrue(isFollowUpQuestion("And in winter?"))
+        assertTrue(isFollowUpQuestion("What about Porto?"))
+        assertTrue(isFollowUpQuestion("E, a Lisbona?"))
+        assertFalse(isFollowUpQuestion("E' sicuro bere l'acqua del rubinetto?"))
+        assertFalse(isFollowUpQuestion("Serve il visto per il Giappone?"))
+        assertFalse(isFollowUpQuestion("Easter holidays in Lisbon?"))
+    }
+
+    @Test
+    fun `un seguito senza citta' si aggiunge alla domanda prima`() {
+        assertEquals(
+            "Serve il visto per il Giappone? E per quanto tempo posso restare?",
+            followUpQuestion("Serve il visto per il Giappone?", "E per quanto tempo posso restare?", listOf("Tokyo", "Kyoto")),
+        )
+    }
+
+    @Test
+    fun `un seguito con solo un'altra citta' la sostituisce nella domanda prima`() {
+        val cities = listOf("Lisbona", "Porto (Portogallo)", "Coimbra")
+        assertEquals("Cosa vedere a Porto?", followUpQuestion("Cosa vedere a Lisbona?", "E a Porto?", cities))
+        assertEquals("Cosa vedere a Coimbra?", followUpQuestion("Cosa vedere a Lisbona?", "E a Coimbra invece?", cities))
+        assertEquals("What to see in Coimbra?", followUpQuestion("What to see in Lisbon?", "What about Coimbra?", listOf("Lisbon", "Coimbra"), "en"))
+    }
+
+    @Test
+    fun `la citta' si sostituisce come parola intera, senza badare ad accenti e maiuscole`() {
+        val cities = listOf("Lisbona", "Porto (Portogallo)", "Forlì", "L'Aquila")
+        assertEquals(
+            "Come funziona il trasporto pubblico a Lisbona?",
+            followUpQuestion("Come funziona il trasporto pubblico a Porto?", "E a Lisbona?", cities),
+        )
+        assertEquals("Cosa vedere a L'Aquila?", followUpQuestion("Cosa vedere a forli?", "E a L’Aquila?", cities))
+        assertEquals("Cosa vedere a Forlì?", followUpQuestion("Cosa vedere a L’Aquila?", "E a Forlì?", cities))
+    }
+
+    @Test
+    fun `un seguito con una citta' e un'altra richiesta vale da solo`() {
+        val cities = listOf("Lisbona", "Coimbra")
+        assertEquals("E a Coimbra dove si mangia?", followUpQuestion("Cosa vedere a Lisbona?", "E a Coimbra dove si mangia?", cities))
+    }
+
+    @Test
+    fun `un seguito con una citta' dopo una domanda senza citta' si aggiunge`() {
+        assertEquals(
+            "Serve il visto? E a Tokyo?",
+            followUpQuestion("Serve il visto?", "E a Tokyo?", listOf("Tokyo")),
+        )
+    }
+
+    @Test
     fun `builds an OR query from words of at least four characters`() {
         val query = buildFtsQuery("Posso portare farmaci da banco in Giappone?", "giappone")
 

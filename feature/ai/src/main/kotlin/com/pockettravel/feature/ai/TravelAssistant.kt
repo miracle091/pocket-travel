@@ -56,6 +56,8 @@ data class AssistantAnswer(
     val sourceCitations: List<String>,
     val showOfficialSourceBanner: Boolean,
     val officialSourceUrl: String? = null,
+    // La domanda a cui risponde, con quella prima se era un seguito (followUpQuestion): la base del seguito dopo.
+    val question: String? = null,
 )
 
 /** Avanzamento di una risposta: il testo scritto finora, poi la risposta definitiva. */
@@ -96,13 +98,16 @@ class TravelAssistant @Inject constructor(
      * La risposta come flusso: sul dispositivo una serie di [AssistantProgress.Partial] (testo accumulato, al massimo
      * uno ogni PARTIAL_INTERVAL_MS) e in fondo [AssistantProgress.Done] con citazioni e banner; online solo il Done.
      * Gli errori escono dal flusso (anche a meta': il chiamante decide che farne del parziale); la cancellazione
-     * del collector ferma la generazione.
+     * del collector ferma la generazione. Se [askedQuestion] e' il seguito di [previousQuestion] (resolveQuestion), ricerca e
+     * prompt usano le due unite (followUpQuestion): i modelli sono addestrati su un turno solo.
      */
-    fun ask(regionId: String, question: String, mode: AiEngineMode): Flow<AssistantProgress> = flow {
+    fun ask(regionId: String, askedQuestion: String, mode: AiEngineMode, previousQuestion: String? = null): Flow<AssistantProgress> = flow {
         // Lingua dell'interfaccia: prompt, testo di ripiego e citazioni (le guide installate la seguono).
         val language = currentGuidesLanguage()
+        val cityNames = cityRepository.cityNamesFor(regionId)
+        val question = resolveQuestion(regionId, askedQuestion, previousQuestion, cityNames, language)
         // Le citta' nominate nella domanda: le sezioni delle citta' candidate sono solo le loro (due per "quanto dista X da Y").
-        val cities = namedCities(question, cityRepository.cityNamesFor(regionId), language)
+        val cities = namedCities(question, cityNames, language)
         val city = cities.singleOrNull()
         val topicQuery = buildFtsQuery(question, regionId, city)
         val topicMatches = if (topicQuery.isBlank()) emptyList() else cityCandidates(regionId, topicQuery, cities)
@@ -128,6 +133,7 @@ class TravelAssistant @Inject constructor(
 
         val withSource = { answer: AssistantAnswer ->
             answer.copy(
+                question = question,
                 showOfficialSourceBanner = regulatedMatch != null,
                 officialSourceUrl = regulatedMatch?.let { officialSourceFor(it.category, nationalityPreferences.nationality.value)?.urlFor(destination) },
             )
@@ -156,6 +162,23 @@ class TravelAssistant @Inject constructor(
             }
             AiEngineMode.ONLINE -> emit(AssistantProgress.Done(withSource(askOnline(question, language))))
         }
+    }
+
+    /**
+     * La domanda da cercare e da mandare al modello: [question] unita a [previous] (followUpQuestion) se ne e' il
+     * seguito, cioe' se comincia come un seguito (isFollowUpQuestion) oppure non nomina citta' e la ricerca nelle
+     * guide non trova niente con le sue parole.
+     */
+    private suspend fun resolveQuestion(regionId: String, question: String, previous: String?, cityNames: List<String>, language: String): String {
+        if (previous == null) return question
+        val followUp = isFollowUpQuestion(question) || namedCities(question, cityNames, language).isEmpty() &&
+            buildFtsQuery(question, regionId).let { query ->
+                val nationality = nationalityPreferences.nationality.value
+                query.isBlank() ||
+                    guideRepository.searchCandidates(regionId, query).none { isGuideSectionFor(it.first.sourceUrl, nationality) } &&
+                    cityCandidates(regionId, query, emptyList()).isEmpty()
+            }
+        return if (followUp) followUpQuestion(previous, question, cityNames, language) else question
     }
 
     /** Candidati delle guide delle citta' [cities] (di ognuna, per "quanto dista X da Y"), o di tutte se e' vuota. */
@@ -678,6 +701,57 @@ internal fun namedCities(question: String, cities: List<String>, language: Strin
         val name = normalizedWords(spokenCityName(city))
         if (kept.any { name in normalizedWords(spokenCityName(it)) }) kept else kept + city
     }
+}
+
+// Parole con cui comincia il seguito di una domanda ("E per quanto tempo?", "Ma a Lisbona?", "And in winter?").
+// Con uno spazio o una virgola dopo: "E'" (e' accentata scritta con l'apostrofo) apre una domanda nuova.
+private val followUpStart = Regex("""^\s*(e|ed|ma|anche|invece|and|but|also|what about|how about)[\s,]""", RegexOption.IGNORE_CASE)
+
+// Parole del seguito che non dicono di cosa si chiede, oltre a questionStopwords ("E a Lisbona invece?").
+private val followUpWords = setOf("invece", "allora", "then", "instead")
+
+/** True se [question] comincia come il seguito di una domanda (italiano o inglese). */
+internal fun isFollowUpQuestion(question: String): Boolean = followUpStart.containsMatchIn(question)
+
+/**
+ * La domanda da cercare e da mandare al modello per il seguito [question] di [previous]. Se il seguito nomina solo
+ * un'altra citta' di [cities] ("E a Lisbona?" dopo "Cosa vedere a Roma?"), la domanda prima con la citta' cambiata;
+ * se nomina una citta' e chiede anche altro, il seguito da solo; altrimenti le due domande di fila.
+ */
+internal fun followUpQuestion(previous: String, question: String, cities: List<String>, language: String = "it"): String {
+    val newCities = namedCities(question, cities, language)
+    val newCity = newCities.singleOrNull()
+    val oldCity = namedCities(previous, cities, language).singleOrNull()
+    val replaced = if (newCity != null && oldCity != null) replaceCity(previous, oldCity, spokenCityName(newCity)) else previous
+    return when {
+        newCities.isEmpty() -> "$previous $question"
+        asksMoreThanPlaces(question, newCities) -> question
+        newCity != null && newCity == oldCity -> previous
+        replaced == previous -> "$previous $question"
+        else -> replaced
+    }
+}
+
+private val wordWithMarks = Regex("""[\p{L}\p{N}\p{M}]+""")
+
+/**
+ * [text] con il primo nome di [city] sostituito da [replacement], cercato come namedCities: parole intere, senza
+ * badare a maiuscole e accenti ("a Forli" trova "Forlì", "trasporto" non contiene "Porto").
+ */
+private fun replaceCity(text: String, city: String, replacement: String): String {
+    val name = normalizedWords(spokenCityName(city)).trim().split(' ')
+    val tokens = wordWithMarks.findAll(text).toList()
+    val start = tokens.indices.firstOrNull { i ->
+        i + name.size <= tokens.size && name.indices.all { folded(tokens[i + it].value) == name[it] }
+    } ?: return text
+    return text.replaceRange(tokens[start].range.first, tokens[start + name.size - 1].range.last + 1, replacement)
+}
+
+/** True se [question] ha parole di contenuto oltre ai nomi delle citta' [cities] ("dove si mangia" in "E a Porto dove si mangia?"). */
+private fun asksMoreThanPlaces(question: String, cities: List<String>): Boolean {
+    val cityWords = cities.flatMap { normalizedWords(spokenCityName(it)).trim().split(' ') }.toSet()
+    return question.split(nonWord).map(::folded)
+        .any { it.length >= 4 && it !in questionStopwords && it !in followUpWords && it !in cityWords }
 }
 
 private const val STEM_CHARS = 5

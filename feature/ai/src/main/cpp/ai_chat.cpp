@@ -235,7 +235,6 @@ static llama_pos system_prompt_position;
 static llama_pos current_position;
 // Stato del turno in corso (vedi sotto), dichiarato qui perche' shift_context lo sposta con le posizioni.
 static llama_pos stop_generation_position;
-static llama_pos generation_start_position;
 
 static void reset_long_term_states(const bool clear_kv_cache = true) {
     chat_msgs.clear();
@@ -272,9 +271,6 @@ static bool shift_context() {
     // generazione current_position non lo raggiunge piu' e la risposta va avanti fino all'EOG
     // (llama.cpp, PR #18432 su examples/llama.android).
     stop_generation_position -= n_discard;
-    // Anche il punto a cui torna cancelGeneration: se lo shift ha scartato l'inizio della risposta in
-    // corso, quel che ne resta parte subito dopo il system prompt.
-    generation_start_position = std::max(system_prompt_position, generation_start_position - n_discard);
     LOGi("%s: Context shifting done! Current position: %d", __func__, current_position);
     return true;
 }
@@ -303,10 +299,11 @@ static std::string chat_add_and_format(const std::string &role, const std::strin
  * - stop generation position
  * - token chars caching
  * - current assistant message being generated
- * - posizione di partenza del turno assistente in corso (per riallineare la KV cache se cancellato)
+ * - turno assistente aperto (prompt decodificato, turno non ancora chiuso da close_assistant_turn)
  */
 static std::string cached_token_chars;
 static std::ostringstream assistant_ss;
+static bool assistant_turn_open = false;
 
 // Solo misure per il task manager di debug (contextUsage): token del prompt e token campionati
 // nell'ultimo turno. Non le azzerano i reset, cosi' si leggono anche a turno finito.
@@ -317,7 +314,29 @@ static void reset_short_term_states() {
     stop_generation_position = 0;
     cached_token_chars.clear();
     assistant_ss.str("");
-    generation_start_position = 0;
+    assistant_turn_open = false;
+}
+
+// Chiude il turno assistente in corso sia nella KV cache (token di fine turno, se il modello non l'ha generato) sia
+// in chat_msgs, con il testo scritto finora: altrimenti il prossimo processUserPrompt formatterebbe la history senza
+// questo turno, disallineata dalla cache. OVERFLOW_HEADROOM lascia sempre posto al token di fine turno.
+static void close_assistant_turn(const bool decode_end_token) {
+    if (decode_end_token) {
+        const llama_vocab *vocab = llama_model_get_vocab(g_model);
+        llama_token end_token = llama_vocab_eot(vocab);
+        if (end_token == LLAMA_TOKEN_NULL) end_token = llama_vocab_eos(vocab);
+        if (end_token != LLAMA_TOKEN_NULL) {
+            common_batch_clear(g_batch);
+            common_batch_add(g_batch, end_token, current_position, {0}, false);
+            if (llama_decode(g_context, g_batch) != 0) {
+                LOGe("%s: llama_decode() failed for end-of-turn token", __func__);
+                throw std::runtime_error("llama_decode() failed for end-of-turn token");
+            }
+            current_position++;
+        }
+    }
+    chat_add_and_format(ROLE_ASSISTANT, assistant_ss.str());
+    assistant_turn_open = false;
 }
 
 // Pulisce KV-cache e history. Niente system prompt (l'esempio llama.android ne ha uno):
@@ -421,6 +440,14 @@ static std::string jstring_to_utf8(JNIEnv *env, jstring str) {
     return utf8;
 }
 
+// Prompt rifiutato o decodificato solo in parte: il messaggio utente e' gia' in chat_msgs ma non (tutto) nella cache.
+// Si azzera la conversazione, persa ma coerente: senza, con il contesto pieno ogni prompt successivo verrebbe
+// rifiutato finche' il chiamante non chiama resetConversation.
+static jint reject_user_prompt(const jint error) {
+    reset_long_term_states();
+    return error;
+}
+
 static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_predict) {
     // Reset short-term states
     reset_short_term_states();
@@ -457,7 +484,7 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
         const size_t suffix_pos = has_chat_template ? formatted_user_prompt.rfind("<|im_start|>assistant") : std::string::npos;
         if (suffix_pos == std::string::npos) {
             LOGe("%s: User prompt too long and no assistant-turn marker to preserve!", __func__);
-            return 3;
+            return reject_user_prompt(3);
         }
         const bool has_open = formatted_user_prompt.compare(0, user_open.size(), user_open) == 0 && suffix_pos >= user_open.size();
         auto head_tokens = common_tokenize(g_context, formatted_user_prompt.substr(0, suffix_pos), true, true);
@@ -474,7 +501,7 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
         const int fixed_tokens = (int) (open_tokens.size() + suffix_tokens.size());
         if (fixed_tokens >= max_new_tokens) {
             LOGe("%s: User prompt too long, even the template alone does not fit (%d >= %d)!", __func__, fixed_tokens, max_new_tokens);
-            return 3;
+            return reject_user_prompt(3);
         }
         const int keep_content = std::min((int) head_tokens.size() - (int) open_tokens.size(), max_new_tokens - fixed_tokens);
         llama_tokens truncated(open_tokens);
@@ -502,32 +529,36 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
     // Decode user tokens in batches
     if (decode_tokens_in_batches(g_context, g_batch, user_tokens, current_position, true)) {
         LOGe("%s: llama_decode() failed!", __func__);
-        return 2;
+        return reject_user_prompt(2);
     }
 
     // Update position
     current_position += user_prompt_size;
     last_prompt_tokens = user_prompt_size;
     last_generated_tokens = 0;
-    // Posizione della KV cache subito prima del primo token generato dall'assistente: se il turno
-    // viene cancellato a meta' (vedi cancelGeneration), e' il punto a cui tornare.
-    generation_start_position = current_position;
     stop_generation_position = current_position + n_predict;
+    assistant_turn_open = true;
     return 0;
 }
 
 // Il turno assistente viene aggiunto a chat_msgs solo su EOG o a n_predict (generateNextToken), ma la KV cache
 // viene aggiornata ad ogni token campionato: se la generazione e' cancellata a meta' (Kotlin,
-// CancellationException o _cancelGeneration), la cache resterebbe con token "orfani" mai riflessi
+// CancellationException o _cancelGeneration), la cache resterebbe con un turno aperto mai riflesso
 // nella history, disallineata dal prossimo processUserPrompt. Va chiamata dal
-// lato Kotlin non appena la generazione viene interrotta prima di EOG.
+// lato Kotlin non appena la generazione viene interrotta prima di EOG: chiude il turno con la risposta
+// parziale, come a n_predict. Non si torna indietro con llama_memory_seq_rm: con la memoria ricorrente dei
+// modelli ibridi (Qwen3.5) fallisce, e il prompt successivo trovava posizioni non coerenti con la cache.
+// Se nemmeno la chiusura riesce si azzera la conversazione: persa, ma coerente.
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_cancelGeneration(JNIEnv * /*env*/, jobject /*unused*/) {
-    if (g_context && current_position > generation_start_position) {
-        LOGi("%s: Rolling back KV cache from %d to %d", __func__, current_position, generation_start_position);
-        llama_memory_seq_rm(llama_get_memory(g_context), 0, generation_start_position, current_position);
-        current_position = generation_start_position;
+    if (g_context && assistant_turn_open) {
+        try {
+            close_assistant_turn(true);
+        } catch (const std::exception &e) {
+            LOGe("%s: cannot close the interrupted turn, resetting the conversation: %s", __func__, e.what());
+            reset_long_term_states();
+        }
     }
     reset_short_term_states();
 }
@@ -621,24 +652,10 @@ static jstring generate_next_token_impl(JNIEnv *env) {
         context_exhausted = !shift_context();
     }
 
-    // Ci si ferma alla posizione segnata. Come su EOG, il turno assistente va chiuso sia nella KV
-    // cache (token di fine turno, che qui il modello non ha generato) sia in chat_msgs: altrimenti il
-    // prossimo processUserPrompt formatterebbe la history senza questo turno, disallineata dalla cache.
+    // Ci si ferma alla posizione segnata, chiudendo il turno come su EOG.
     if (context_exhausted || current_position >= stop_generation_position) {
         LOGw("%s: STOP: hitting stop position: %d (context exhausted: %d)", __func__, stop_generation_position, (int) context_exhausted);
-        const llama_vocab *vocab = llama_model_get_vocab(g_model);
-        llama_token end_token = llama_vocab_eot(vocab);
-        if (end_token == LLAMA_TOKEN_NULL) end_token = llama_vocab_eos(vocab);
-        if (end_token != LLAMA_TOKEN_NULL) {
-            common_batch_clear(g_batch);
-            common_batch_add(g_batch, end_token, current_position, {0}, false);
-            if (llama_decode(g_context, g_batch) != 0) {
-                LOGe("%s: llama_decode() failed for end-of-turn token", __func__);
-                throw std::runtime_error("llama_decode() failed for end-of-turn token");
-            }
-            current_position++;
-        }
-        chat_add_and_format(ROLE_ASSISTANT, assistant_ss.str());
+        close_assistant_turn(true);
         return nullptr;
     }
 
@@ -663,7 +680,7 @@ static jstring generate_next_token_impl(JNIEnv *env) {
     // Stop if next token is EOG
     if (llama_vocab_is_eog(llama_model_get_vocab(g_model), new_token_id)) {
         LOGd("id: %d,\tIS EOG!\nSTOP.", new_token_id);
-        chat_add_and_format(ROLE_ASSISTANT, assistant_ss.str());
+        close_assistant_turn(false);
         return nullptr;
     }
 
@@ -721,7 +738,8 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processUs
         return process_user_prompt_impl(env, juser_prompt, n_predict);
     } catch (const std::exception &e) {
         LOGe("%s: %s", __func__, e.what());
-        return -100;
+        // Come un prompt rifiutato: il messaggio utente puo' essere gia' in chat_msgs senza essere nella cache.
+        return g_context ? reject_user_prompt(-100) : -100;
     }
 }
 
