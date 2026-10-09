@@ -39,6 +39,9 @@ assign turnInstructionMode          = 1     # %turnInstructionMode% | Mode for t
 
 # Technical parameters
 assign pass1coefficient    = 1.3
+# Seconda passata della ricerca come A* (1.0) invece di Dijkstra (0, predefinito di BRouter): stesso
+# percorso e calcolo da 1,2 a 2,7 volte piu' veloce su tratte di 120-190 km (BRouter issue #967).
+assign pass2coefficient    = 1.0
 
 
 ---context:way   # following code refers to way-tags
