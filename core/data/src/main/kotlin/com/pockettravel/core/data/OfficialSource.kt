@@ -1,6 +1,7 @@
 package com.pockettravel.core.data
 
 import androidx.annotation.StringRes
+import java.util.Locale
 
 /** A cosa serve una fonte, per scegliere quella da citare nel banner dell'assistente ([officialSourceFor]). */
 enum class OfficialSourceTopic { TRAVEL_ADVICE, HEALTH, CUSTOMS, OTHER }
@@ -33,7 +34,7 @@ val officialSourcesRegistry = listOf(
     OfficialSource("OMS — International Travel and Health", "https://www.who.int/travel-advice", R.string.source_desc_who, topic = OfficialSourceTopic.HEALTH),
     OfficialSource("CDC — Travelers' Health", "https://wwwnc.cdc.gov/travel", R.string.source_desc_cdc, topic = OfficialSourceTopic.HEALTH),
     // Italia
-    OfficialSource("Farnesina — Viaggiare Sicuri", "https://www.viaggiaresicuri.it", R.string.source_desc_advice_documents, setOf("IT", "SM"), OfficialSourceTopic.TRAVEL_ADVICE),
+    OfficialSource("Farnesina — Viaggiare Sicuri", VIAGGIARE_SICURI_URL, R.string.source_desc_advice_documents, setOf("IT", "SM"), OfficialSourceTopic.TRAVEL_ADVICE),
     OfficialSource("Farnesina — Dove siamo nel mondo", "https://www.dovesiamonelmondo.it", R.string.source_desc_register, setOf("IT")),
     OfficialSource("Polizia di Stato — Passaporto", "https://www.poliziadistato.it/articolo/passaporto", R.string.source_desc_passport, setOf("IT")),
     OfficialSource("ENAC — Diritti dei passeggeri", "https://www.enac.gov.it/passeggeri", R.string.source_desc_air_passengers, setOf("IT")),
@@ -106,6 +107,25 @@ fun nationalOfficialSources(nationality: String?): List<OfficialSource> =
 /** Consigli di viaggio del ministero degli esteri del paese di chi viaggia, null se mancano. */
 fun travelAdviceSourceFor(nationality: String?): OfficialSource? =
     nationalOfficialSources(nationality).firstOrNull { it.topic == OfficialSourceTopic.TRAVEL_ADVICE }
+
+private const val VIAGGIARE_SICURI_URL = "https://www.viaggiaresicuri.it"
+
+// Destinazioni dell'app senza una pagina su Viaggiare Sicuri (verificato il 2026-10-09 su schede_paese/<alpha-3>.json):
+// territori che il sito non tratta a parte (404), piu' Italia e Vaticano, che hanno solo una pagina quasi vuota.
+private val VIAGGIARE_SICURI_NO_PAGE = setOf("BL", "CC", "CX", "FK", "FO", "GL", "IT", "NF", "PM", "PN", "SJ", "TK", "VA", "WF")
+
+/**
+ * Indirizzo da aprire per la destinazione [destination] (ISO 3166-1 alpha-2): per Viaggiare Sicuri la pagina del
+ * paese, indirizzata dal codice alpha-3 (il Kosovo, senza codice ISO, e' KSV); per le altre fonti, o senza pagina,
+ * [OfficialSource.url]. Solo il link: i testi della Farnesina non hanno una licenza aperta, quindi non si copiano nell'app.
+ */
+fun OfficialSource.urlFor(destination: String?): String {
+    val code = destination?.uppercase(Locale.ROOT)
+    if (url != VIAGGIARE_SICURI_URL || code == null || code in VIAGGIARE_SICURI_NO_PAGE) return url
+    // Senza codice alpha-3 (es. IC, Canarie) getISO3Country lancia MissingResourceException.
+    val iso3 = if (code == "XK") "KSV" else runCatching { Locale.Builder().setRegion(code).build().isO3Country }.getOrNull()
+    return if (iso3.isNullOrEmpty()) url else "$url/find-country/country/$iso3"
+}
 
 /**
  * Ripiego per chi non ha un servizio del proprio paese: GOV.UK copre 226 destinazioni, e' aggiornato di continuo,

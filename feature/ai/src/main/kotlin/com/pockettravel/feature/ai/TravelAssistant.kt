@@ -34,6 +34,7 @@ import com.pockettravel.core.data.currentGuidesLanguage
 import com.pockettravel.core.data.displayName
 import com.pockettravel.core.data.officialSourceFor
 import com.pockettravel.core.data.poiCategory
+import com.pockettravel.core.data.urlFor
 import com.pockettravel.core.data.vaccination.Trip
 import com.pockettravel.core.data.vaccination.TripPurpose
 import com.pockettravel.core.data.vaccination.VaccinationPreferences
@@ -122,11 +123,13 @@ class TravelAssistant @Inject constructor(
             )
         }
         val regulatedMatch = sections.firstOrNull { it.isRegulatedTopic() }
+        // Per Viaggiare Sicuri il banner apre la pagina del paese della regione.
+        val destination = regulatedMatch?.let { regionRepository.installed(regionId)?.countryCode }
 
         val withSource = { answer: AssistantAnswer ->
             answer.copy(
                 showOfficialSourceBanner = regulatedMatch != null,
-                officialSourceUrl = regulatedMatch?.let { officialSourceFor(it.category, nationalityPreferences.nationality.value)?.url },
+                officialSourceUrl = regulatedMatch?.let { officialSourceFor(it.category, nationalityPreferences.nationality.value)?.urlFor(destination) },
             )
         }
         when (mode) {

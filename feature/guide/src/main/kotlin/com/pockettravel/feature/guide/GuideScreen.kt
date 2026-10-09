@@ -83,6 +83,7 @@ import com.pockettravel.core.data.fallbackTravelAdviceSource
 import com.pockettravel.core.data.mergeEmbassies
 import com.pockettravel.core.data.nearbyEmbassies
 import com.pockettravel.core.data.travelAdviceSourceFor
+import com.pockettravel.core.data.urlFor
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.CardDescription
@@ -240,6 +241,7 @@ private fun GuideSectionsList(
                     EmergencyNumbersCard(
                         numbers = uiState.emergencyNumbers,
                         embassiesCountry = uiState.embassiesCountry,
+                        destination = uiState.countryCode,
                         embassies = uiState.embassies,
                         missions = uiState.missions,
                         position = uiState.position,
@@ -593,6 +595,7 @@ private fun SectionsWithFilters(
 private fun EmergencyNumbersCard(
     numbers: EmergencyNumbers?,
     embassiesCountry: String?,
+    destination: String?,
     embassies: List<Poi>,
     missions: List<DiplomaticMission>,
     position: Pair<Double, Double>?,
@@ -644,7 +647,7 @@ private fun EmergencyNumbersCard(
                     }
                 }
             }
-            embassiesCountry?.let { country -> EmbassiesSection(country, embassies, missions, position, cities, onOpenLink) }
+            embassiesCountry?.let { country -> EmbassiesSection(country, destination, embassies, missions, position, cities, onOpenLink) }
         }
     }
 }
@@ -655,6 +658,7 @@ private fun EmergencyNumbersCard(
 @Composable
 private fun EmbassiesSection(
     country: String,
+    destination: String?,
     embassies: List<Poi>,
     missions: List<DiplomaticMission>,
     position: Pair<Double, Double>?,
@@ -693,6 +697,7 @@ private fun EmbassiesSection(
     val ownAdvice = travelAdviceSourceFor(country.uppercase())
     TravelAdviceRow(
         source = ownAdvice ?: fallbackTravelAdviceSource,
+        destination = destination,
         description = stringResource(if (ownAdvice != null) R.string.emergency_travel_advice_description else R.string.emergency_travel_advice_fallback_description),
         onOpenLink = onOpenLink,
     )
@@ -763,15 +768,16 @@ private fun MissionKind.label(): Int = when (this) {
 }
 
 // Solo il link: i contenuti dei siti dei ministeri (Viaggiare Sicuri e gli altri) non hanno una licenza aperta,
-// quindi non si copiano nell'app; il nome del servizio resta quello ufficiale, nella sua lingua.
+// quindi non si copiano nell'app; il nome del servizio resta quello ufficiale, nella sua lingua. Viaggiare Sicuri
+// si apre sulla pagina del paese di destinazione.
 @Composable
-private fun TravelAdviceRow(source: OfficialSource, description: String, onOpenLink: (url: String, title: String) -> Unit) {
+private fun TravelAdviceRow(source: OfficialSource, destination: String?, description: String, onOpenLink: (url: String, title: String) -> Unit) {
     val title = source.name
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
-            .clickable(onClickLabel = stringResource(R.string.emergency_travel_advice_open, title)) { onOpenLink(source.url, title) }
+            .clickable(onClickLabel = stringResource(R.string.emergency_travel_advice_open, title)) { onOpenLink(source.urlFor(destination), title) }
             .padding(start = Spacing.l, end = Spacing.s, top = Spacing.s, bottom = Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {

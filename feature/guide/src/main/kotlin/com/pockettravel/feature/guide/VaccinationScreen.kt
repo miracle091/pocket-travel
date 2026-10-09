@@ -63,6 +63,7 @@ import com.pockettravel.core.data.OfficialSourceTopic
 import com.pockettravel.core.data.fallbackTravelAdviceSource
 import com.pockettravel.core.data.officialSourcesRegistry
 import com.pockettravel.core.data.travelAdviceSourceFor
+import com.pockettravel.core.data.urlFor
 import com.pockettravel.core.data.vaccination.AgeNote
 import com.pockettravel.core.data.vaccination.PolioVaccine
 import com.pockettravel.core.data.vaccination.PolioWindow
@@ -248,9 +249,9 @@ internal fun VaccinationContent(
             if (result.polioDataStale) {
                 item(key = "stale") { StaleCard(result) }
             }
-            resultGroups(result, state.nationality, onOpenSource)
+            resultGroups(result, state.nationality, state.destination, onOpenSource)
         }
-        item(key = "links") { LinksCard(state.nationality, onOpenSource) }
+        item(key = "links") { LinksCard(state.nationality, state.destination, onOpenSource) }
     }
 
     picking?.let { target ->
@@ -557,6 +558,7 @@ private fun StaleCard(result: VaccinationResult) {
 private fun LazyListScope.resultGroups(
     result: VaccinationResult,
     nationality: String?,
+    destination: String?,
     onOpenSource: (url: String, title: String) -> Unit,
 ) {
     val required = result.items.filter { it.isCertificate() }
@@ -575,14 +577,14 @@ private fun LazyListScope.resultGroups(
             }
         }
     }
-    itemsIndexed(required, key = { index, _ -> "required_$index" }) { _, item -> VaccinationItemCard(item, nationality, onOpenSource) }
+    itemsIndexed(required, key = { index, _ -> "required_$index" }) { _, item -> VaccinationItemCard(item, nationality, destination, onOpenSource) }
     if (recommended.isNotEmpty()) {
         item(key = "recommended_title") { GroupTitle(R.string.vacc_recommended) }
-        itemsIndexed(recommended, key = { index, _ -> "recommended_$index" }) { _, item -> VaccinationItemCard(item, nationality, onOpenSource) }
+        itemsIndexed(recommended, key = { index, _ -> "recommended_$index" }) { _, item -> VaccinationItemCard(item, nationality, destination, onOpenSource) }
     }
     if (consider.isNotEmpty()) {
         item(key = "consider_title") { GroupTitle(R.string.vacc_consider) }
-        itemsIndexed(consider, key = { index, _ -> "consider_$index" }) { _, item -> VaccinationItemCard(item, nationality, onOpenSource) }
+        itemsIndexed(consider, key = { index, _ -> "consider_$index" }) { _, item -> VaccinationItemCard(item, nationality, destination, onOpenSource) }
     }
 }
 
@@ -597,7 +599,7 @@ private fun GroupTitle(titleRes: Int) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun VaccinationItemCard(item: VaccinationItem, nationality: String?, onOpenSource: (url: String, title: String) -> Unit) {
+private fun VaccinationItemCard(item: VaccinationItem, nationality: String?, destination: String?, onOpenSource: (url: String, title: String) -> Unit) {
     val locale = LocalLocale.current.platformLocale
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
@@ -607,7 +609,7 @@ private fun VaccinationItemCard(item: VaccinationItem, nationality: String?, onO
             item.detailTexts().forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
             val note = if (locale.language == "en") item.noteEn.ifBlank { item.noteIt } else item.noteIt.ifBlank { item.noteEn }
             if (note.isNotBlank()) CardDescription(note.trim(), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (item.reason == VaccinationReason.POLIO_ENTRY_UNLISTED) TravelAdviceLink(nationality, onOpenSource)
+            if (item.reason == VaccinationReason.POLIO_ENTRY_UNLISTED) TravelAdviceLink(nationality, destination, onOpenSource)
             if (item.sources.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.vacc_sources) + ":", style = MaterialTheme.typography.labelMedium)
@@ -629,17 +631,18 @@ private fun VaccinationItemCard(item: VaccinationItem, nationality: String?, onO
     }
 }
 
-// Sito degli esteri della nazionalita' scelta al primo avvio (homepage: il registro non ha le pagine per paese),
-// altrimenti GOV.UK, come nella Guida, con la descrizione che dice per chi e' scritto.
+// Sito degli esteri della nazionalita' scelta al primo avvio (homepage: il registro non ha le pagine per paese, tranne
+// la pagina della destinazione su Viaggiare Sicuri), altrimenti GOV.UK, come nella Guida, con la descrizione che dice
+// per chi e' scritto.
 @Composable
-private fun TravelAdviceLink(nationality: String?, onOpenSource: (url: String, title: String) -> Unit) {
+private fun TravelAdviceLink(nationality: String?, destination: String?, onOpenSource: (url: String, title: String) -> Unit) {
     val own = travelAdviceSourceFor(nationality?.uppercase())
     val source = own ?: fallbackTravelAdviceSource
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
-            .clickable(onClickLabel = stringResource(R.string.vacc_open_source, source.name)) { onOpenSource(source.url, source.name) }
+            .clickable(onClickLabel = stringResource(R.string.vacc_open_source, source.name)) { onOpenSource(source.urlFor(destination), source.name) }
             .padding(vertical = Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -683,8 +686,9 @@ private fun LevelBadge(item: VaccinationItem) {
 }
 
 @Composable
-private fun LinksCard(nationality: String?, onOpenSource: (url: String, title: String) -> Unit) {
-    // OMS e CDC dal registro delle fonti ufficiali; Viaggiare Sicuri solo per chi ha nazionalita' italiana.
+private fun LinksCard(nationality: String?, destination: String?, onOpenSource: (url: String, title: String) -> Unit) {
+    // OMS e CDC dal registro delle fonti ufficiali; Viaggiare Sicuri solo per chi ha nazionalita' italiana, sulla
+    // pagina della destinazione.
     val sources = officialSourcesRegistry.filter { it.topic == OfficialSourceTopic.HEALTH && it.countries.isEmpty() } +
         travelHealthProSource +
         listOfNotNull(if (nationality.equals("IT", ignoreCase = true)) travelAdviceSourceFor("IT") else null)
@@ -710,7 +714,7 @@ private fun LinksCard(nationality: String?, onOpenSource: (url: String, title: S
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 56.dp)
-                            .clickable(onClickLabel = stringResource(R.string.vacc_open_source, source.name)) { onOpenSource(source.url, source.name) }
+                            .clickable(onClickLabel = stringResource(R.string.vacc_open_source, source.name)) { onOpenSource(source.urlFor(destination), source.name) }
                             .padding(start = Spacing.l, end = Spacing.s, top = Spacing.s, bottom = Spacing.s),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

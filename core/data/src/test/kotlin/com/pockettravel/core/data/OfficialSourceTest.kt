@@ -43,6 +43,17 @@ class OfficialSourceTest {
     }
 
     @Test
+    fun `Viaggiare Sicuri links the country page of the destination`() {
+        val vs = checkNotNull(travelAdviceSourceFor("IT"))
+        assertEquals("https://www.viaggiaresicuri.it/find-country/country/THA", vs.urlFor("th"))
+        assertEquals("https://www.viaggiaresicuri.it/find-country/country/KSV", vs.urlFor("XK"))
+        // Senza pagina sul sito (territori, Italia) o senza codice ISO alpha-3 (Canarie), o senza destinazione: la home.
+        listOf("GL", "it", "IC", null).forEach { assertEquals("https://www.viaggiaresicuri.it", vs.urlFor(it)) }
+        // Gli altri ministeri non hanno indirizzi per paese nel registro: resta il loro indirizzo.
+        assertEquals(fallbackTravelAdviceSource.url, fallbackTravelAdviceSource.urlFor("TH"))
+    }
+
+    @Test
     fun `national sources include the EU ones for EU citizens only`() {
         assertTrue(nationalOfficialSources("DE").any { it.name.startsWith("Your Europe") })
         assertTrue(nationalOfficialSources("US").none { it.name.startsWith("Your Europe") })
