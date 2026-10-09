@@ -2,7 +2,6 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>CyclomaticComplexMethod:Rd5Merger.kt:Rd5Merger$private fun write</ID>
     <ID>CyclomaticComplexMethod:RegionRepository.kt:RegionRepository$suspend fun removePackage</ID>
     <ID>CyclomaticComplexMethod:TransitBoard.kt:fun transitModeOf: TransitMode</ID>
     <ID>CyclomaticComplexMethod:TransitBoard.kt:internal fun readFeedBoard: TransitBoard?</ID>
@@ -16,7 +15,6 @@
     <ID>EmptyElseBlock:RegionStorage.kt:RegionStorage.Activation$if (hadPrevious) backup.renameTo(live)</ID>
     <ID>EmptyFunctionBlock:GuideRepositoryTest.kt:FakeGuideDao${}</ID>
     <ID>LongMethod:Migrations.kt:&lt;no name provided&gt;$override fun migrate</ID>
-    <ID>LongMethod:Rd5Merger.kt:Rd5Merger$private fun write</ID>
     <ID>LongMethod:VaccinationEngine.kt:fun evaluateVaccinations: VaccinationResult</ID>
     <ID>LongMethod:VaccinationRepository.kt:internal fun vaccinationDataFrom: VaccinationData</ID>
     <ID>LongMethod:VaccinationSummary.kt:fun VaccinationResult.toSummaryText: String</ID>
@@ -33,8 +31,6 @@
     <ID>MagicNumber:FtsRanking.kt:8</ID>
     <ID>MagicNumber:KeystoreCipher.kt:KeystoreCipher$256</ID>
     <ID>MagicNumber:NoteRepository.kt:3</ID>
-    <ID>MagicNumber:Rd5Merger.kt:Rd5Merger$32</ID>
-    <ID>MagicNumber:Rd5Merger.kt:Rd5Merger$48</ID>
     <ID>MagicNumber:Rd5Merger.kt:Rd5Merger.Rd5$0xFFFFFFFFFFFFL</ID>
     <ID>MagicNumber:Rd5Merger.kt:Rd5Merger.Rd5$32</ID>
     <ID>MagicNumber:Rd5Merger.kt:Rd5Merger.Rd5$48</ID>

@@ -10,10 +10,12 @@ import com.pockettravel.core.data.WorldMapStore
 import com.pockettravel.feature.map.AndroidConnectivityChecker
 import com.pockettravel.feature.map.AndroidGpsLocationSource
 import com.pockettravel.feature.map.BRouterCarRouteCalculator
+import com.pockettravel.feature.map.BRouterRd5Links
 import com.pockettravel.feature.map.GpsLocationSource
 import com.pockettravel.feature.map.BRouterRouteEngine
 import com.pockettravel.feature.map.ConnectivityChecker
 import com.pockettravel.feature.map.ConnectivityObserver
+import com.pockettravel.feature.map.FallbackRouteEngine
 import com.pockettravel.feature.map.OfflineTileSource
 import com.pockettravel.feature.map.PmtilesTileSource
 import com.pockettravel.feature.map.RouteEngineFactory
@@ -62,13 +64,13 @@ object RouteEngineModule {
 
         return RouteEngineFactory { regionIds ->
             withContext(Dispatchers.IO) { profilesSynced.value }
-            BRouterRouteEngine(
-                segmentDir = segmentDirFor(regionIds, regionsDir, mergedDir),
-                profileDir = profileDir,
-                // Il profilo del modo scelto, letto a ogni motore creato.
-                profileName = usageModePreferences.modes.value.defaultRoutingProfile(),
-                maxRunningTimeMillis = ROUTE_TIMEOUT_MILLIS,
-            )
+            // Il profilo del modo scelto, letto a ogni motore creato.
+            val profileName = usageModePreferences.modes.value.defaultRoutingProfile()
+            fun engine(segmentDir: File) = BRouterRouteEngine(segmentDir, profileDir, profileName, ROUTE_TIMEOUT_MILLIS)
+            val dirs = regionIds.map { File(regionsDir, "$it/$ROUTING_DIR_NAME") }
+            val merged = mergedDirOrNull(dirs, mergedDir)
+            if (merged == null) engine(dirs.first())
+            else FallbackRouteEngine(engine(merged), dirs.map(::engine))
         }
     }
 
@@ -77,19 +79,19 @@ object RouteEngineModule {
     fun provideCarRouteCalculator(routeEngineFactory: RouteEngineFactory): CarRouteCalculator =
         BRouterCarRouteCalculator(routeEngineFactory)
 
-    // Una regione: la sua cartella, nessun costo in piu'. Piu' regioni: i segmenti uniti; se non
-    // si riesce a unirli (file rovinato, disco pieno) si naviga con la sola prima regione.
-    private suspend fun segmentDirFor(regionIds: List<String>, regionsDir: File, mergedDir: File): File {
-        val dirs = regionIds.map { File(regionsDir, "$it/$ROUTING_DIR_NAME") }
-        if (dirs.size == 1) return dirs.single()
+    // Una regione: null, si usa la sua cartella senza costi in piu'. Piu' regioni: i segmenti uniti
+    // (FallbackRouteEngine riprova con ogni regione da sola dopo un'isola); null anche se non si riesce a unirli
+    // (file rovinato, disco pieno): si naviga con la sola prima regione.
+    private suspend fun mergedDirOrNull(dirs: List<File>, mergedDir: File): File? {
+        if (dirs.size == 1) return null
         return withContext(Dispatchers.IO) {
             try {
-                Rd5Merger.mergedDirectory(mergedDir, dirs)
+                Rd5Merger.mergedDirectory(mergedDir, dirs, BRouterRd5Links())
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
                 // IOException, ma anche errori di un file rovinato (dimensioni assurde nell'indice).
-                dirs.first()
+                null
             }
         }
     }

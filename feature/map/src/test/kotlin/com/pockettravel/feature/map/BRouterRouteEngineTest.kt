@@ -113,7 +113,7 @@ class BRouterRouteEngineTest {
         assertTrue(expected is RouteResult.Found)
         assertNotEquals("una regione da sola non ha il percorso intero", expected, BRouterRouteEngine(regionA, profiles).route(from, to))
         assertNotEquals("una regione da sola non ha il percorso intero", expected, BRouterRouteEngine(regionB, profiles).route(from, to))
-        val merged = Rd5Merger.mergedDirectory(tempFolder.newFolder(), listOf(regionA, regionB))
+        val merged = Rd5Merger.mergedDirectory(tempFolder.newFolder(), listOf(regionA, regionB), BRouterRd5Links())
         val result = BRouterRouteEngine(merged, profiles).route(from, to)
 
         assertTrue("percorso con i segmenti uniti: $result", result is RouteResult.Found)
@@ -131,7 +131,7 @@ class BRouterRouteEngineTest {
         val big = regionRouting("grande", "E5_N45.rd5" to File(whole, "E5_N45.rd5").readBytes(), "E10_N45.rd5" to File(whole, "E10_N45.rd5").readBytes())
         val small = regionRouting("piccola", "W5_N45.rd5" to emptied(File(whole, "E5_N45.rd5").readBytes()))
 
-        val merged = Rd5Merger.mergedDirectory(tempFolder.newFolder(), listOf(small, big))
+        val merged = Rd5Merger.mergedDirectory(tempFolder.newFolder(), listOf(small, big), BRouterRd5Links())
         val result = BRouterRouteEngine(merged, profileDir()).route(RoutePoint(45.5000, 9.9970), RoutePoint(45.5000, 10.0030))
 
         assertEquals(setOf("W5_N45.rd5", Rd5Merger.STORAGE_CONFIG_FILE), merged.list()!!.toSet())
