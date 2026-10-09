@@ -118,11 +118,11 @@
     <string name="ai_taskmgr_cpu_sve_bits">%1$d-bit SVE vectors</string>
     <string name="ai_taskmgr_cpu_loaded">Loaded variant</string>
     <string name="ai_taskmgr_cpu_not_initialized">Library not loaded yet</string>
-    <string name="ai_taskmgr_cpu_loaded_auto">%1$s, chosen by ggml</string>
+    <string name="ai_taskmgr_cpu_loaded_auto">%1$s, chosen automatically</string>
     <string name="ai_taskmgr_cpu_loaded_forced">%1$s, chosen manually</string>
-    <string name="ai_taskmgr_cpu_forced_refused">%1$s, chosen by ggml: the CPU does not support %2$s</string>
+    <string name="ai_taskmgr_cpu_forced_refused">%1$s, chosen automatically: the CPU does not support %2$s</string>
     <string name="ai_taskmgr_cpu_next_start">Variant at next start</string>
-    <string name="ai_taskmgr_cpu_auto">Automatic, chosen by ggml</string>
+    <string name="ai_taskmgr_cpu_auto">Automatic</string>
     <string name="ai_taskmgr_cpu_restart_hint">The chosen variant loads when the app restarts</string>
     <string name="ai_taskmgr_cpu_restart">Restart now</string>
 </resources>

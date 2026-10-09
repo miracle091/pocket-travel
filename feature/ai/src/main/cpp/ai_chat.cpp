@@ -49,22 +49,68 @@ static std::string jstring_to_path(JNIEnv *env, jstring str) {
     return result;
 }
 
+// Estensioni della CPU che decidono la variante: SVE2, SME (1/0) e lunghezza dei vettori SVE in
+// byte (0 senza SVE). Tutti 0 fuori da arm64.
+struct CpuFeatures {
+    int sve2 = 0;
+    int sme = 0;
+    int sve_vector_bytes = 0;
+};
+
+static CpuFeatures read_cpu_features() {
+    CpuFeatures features;
+#if defined(__aarch64__)
+    constexpr unsigned long HWCAP2_SVE2_BIT = 1UL << 1;   // HWCAP2_SVE2 in <asm/hwcap.h>
+    constexpr unsigned long HWCAP2_SME_BIT = 1UL << 23;   // HWCAP2_SME
+    constexpr int PR_SVE_GET_VL_OPTION = 51;              // PR_SVE_GET_VL in <linux/prctl.h>
+    constexpr int PR_SVE_VL_LEN_MASK_BITS = 0xffff;       // PR_SVE_VL_LEN_MASK
+    const unsigned long hwcap2 = getauxval(AT_HWCAP2);
+    const int sve_vl = prctl(PR_SVE_GET_VL_OPTION);       // -1 (EINVAL) senza SVE
+    features.sve2 = (hwcap2 & HWCAP2_SVE2_BIT) != 0;
+    features.sme = (hwcap2 & HWCAP2_SME_BIT) != 0;
+    features.sve_vector_bytes = sve_vl < 0 ? 0 : (sve_vl & PR_SVE_VL_LEN_MASK_BITS);
+#endif
+    return features;
+}
+
+// ggml sceglie la variante con piu' estensioni, quindi sui core ARMv9 con SVE2 carica
+// android_armv9.0_1. Con vettori SVE a 128 bit (i telefoni di oggi, Pixel 8 compreso) i suoi
+// kernel SVE leggono il prompt piu' lentamente dei kernel NEON con i8mm di android_armv8.6_1:
+// circa 1,5 volte sul Pixel 8 con prompt di 300-500 token, fino a 2 volte nell'issue #29884 di
+// ggml-org/llama.cpp (aperta senza correzione a ottobre 2026). Qui si provano prima le varianti
+// senza SVE: ognuna rifiuta da sola
+// una CPU che non ha le sue estensioni. Con SME resta la scelta di ggml (kernel KleidiAI SME).
+static bool load_preferred_cpu_backend(const std::string &backend_dir) {
+    const CpuFeatures features = read_cpu_features();
+    if (features.sve_vector_bytes != 16 || features.sme) return false;
+    for (const char *variant : {"android_armv8.6_1", "android_armv8.2_2", "android_armv8.2_1"}) {
+        const std::string file = backend_dir + "/libggml-cpu-" + variant + ".so";
+        if (ggml_backend_load(file.c_str()) != nullptr) {
+            LOGi("SVE vectors are 128 bits: loaded CPU backend %s instead of the SVE one", variant);
+            return true;
+        }
+    }
+    return false;
+}
+
 static void init_impl(JNIEnv *env, jstring nativeLibDir, jstring forcedCpuBackend) {
     // Set llama log handler to Android
     llama_log_set(aichat_android_log_callback, nullptr);
 
     // Di norma ggml carica la variante CPU (libggml-cpu-*.so) con il punteggio piu' alto per le
-    // estensioni della CPU. forcedCpuBackend (percorso di una variante, solo dal task manager delle
-    // build di debug) la sostituisce per confrontare le varianti; se la CPU non la supporta ggml la
-    // rifiuta e si torna alla scelta normale.
+    // estensioni della CPU, salvo la preferenza di load_preferred_cpu_backend. forcedCpuBackend
+    // (percorso di una variante, solo dal task manager delle build di debug) le sostituisce per
+    // confrontare le varianti; se la CPU non la supporta ggml la rifiuta e si torna alla scelta
+    // automatica.
     const std::string path_to_backend = jstring_to_path(env, nativeLibDir);
     bool loaded = false;
     if (forcedCpuBackend != nullptr) {
         const std::string forced = jstring_to_path(env, forcedCpuBackend);
         LOGi("Loading forced CPU backend %s", forced.c_str());
         loaded = ggml_backend_load(forced.c_str()) != nullptr;
-        if (!loaded) LOGw("Forced CPU backend not loaded, falling back to the best variant: %s", forced.c_str());
+        if (!loaded) LOGw("Forced CPU backend not loaded, falling back to the automatic choice: %s", forced.c_str());
     }
+    if (!loaded) loaded = load_preferred_cpu_backend(path_to_backend);
     if (!loaded) {
         LOGi("Loading backends from %s", path_to_backend.c_str());
         ggml_backend_load_all_from_path(path_to_backend.c_str());
@@ -786,23 +832,13 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_loadedCpu
     return found == nullptr ? nullptr : env->NewStringUTF(found);  // nome ASCII
 }
 
-// Estensioni della CPU che decidono la variante, per il task manager di debug: {SVE2, SME, lunghezza
-// dei vettori SVE in byte}, 1/0 e 0 se manca SVE. Tutti 0 fuori da arm64.
+// Estensioni della CPU (read_cpu_features) per il task manager di debug: {SVE2, SME, lunghezza dei
+// vettori SVE in byte}.
 extern "C"
 JNIEXPORT jintArray JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_cpuFeaturesNative(JNIEnv *env, jobject /*unused*/) {
-    jint values[] = {0, 0, 0};
-#if defined(__aarch64__)
-    constexpr unsigned long HWCAP2_SVE2_BIT = 1UL << 1;   // HWCAP2_SVE2 in <asm/hwcap.h>
-    constexpr unsigned long HWCAP2_SME_BIT = 1UL << 23;   // HWCAP2_SME
-    constexpr int PR_SVE_GET_VL_OPTION = 51;              // PR_SVE_GET_VL in <linux/prctl.h>
-    constexpr int PR_SVE_VL_LEN_MASK_BITS = 0xffff;       // PR_SVE_VL_LEN_MASK
-    const unsigned long hwcap2 = getauxval(AT_HWCAP2);
-    const int sve_vl = prctl(PR_SVE_GET_VL_OPTION);       // -1 (EINVAL) senza SVE
-    values[0] = (hwcap2 & HWCAP2_SVE2_BIT) != 0;
-    values[1] = (hwcap2 & HWCAP2_SME_BIT) != 0;
-    values[2] = sve_vl < 0 ? 0 : (sve_vl & PR_SVE_VL_LEN_MASK_BITS);
-#endif
+    const CpuFeatures features = read_cpu_features();
+    jint values[] = {features.sve2, features.sme, features.sve_vector_bytes};
     constexpr jsize count = sizeof(values) / sizeof(values[0]);
     jintArray result = env->NewIntArray(count);
     if (result == nullptr) return nullptr;  // OutOfMemoryError gia' pendente in Java

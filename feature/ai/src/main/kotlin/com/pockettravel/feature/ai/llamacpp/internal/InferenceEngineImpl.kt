@@ -54,7 +54,7 @@ import java.io.IOException
  */
 internal class InferenceEngineImpl private constructor(
     private val nativeLibDir: String,
-    // Variante CPU scelta dal task manager di debug (CpuBackendOverride); null: la sceglie ggml.
+    // Variante CPU scelta dal task manager di debug (CpuBackendOverride); null: scelta automatica (init in ai_chat.cpp).
     private val forcedCpuBackend: String?,
 ) : InferenceEngine {
 

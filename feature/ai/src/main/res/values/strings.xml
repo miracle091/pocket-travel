@@ -118,11 +118,11 @@
     <string name="ai_taskmgr_cpu_sve_bits">vettori SVE a %1$d bit</string>
     <string name="ai_taskmgr_cpu_loaded">Variante caricata</string>
     <string name="ai_taskmgr_cpu_not_initialized">Libreria non ancora caricata</string>
-    <string name="ai_taskmgr_cpu_loaded_auto">%1$s, scelta da ggml</string>
+    <string name="ai_taskmgr_cpu_loaded_auto">%1$s, scelta automatica</string>
     <string name="ai_taskmgr_cpu_loaded_forced">%1$s, scelta a mano</string>
-    <string name="ai_taskmgr_cpu_forced_refused">%1$s, scelta da ggml: la CPU non supporta %2$s</string>
+    <string name="ai_taskmgr_cpu_forced_refused">%1$s, scelta automatica: la CPU non supporta %2$s</string>
     <string name="ai_taskmgr_cpu_next_start">Variante al prossimo avvio</string>
-    <string name="ai_taskmgr_cpu_auto">Automatica, scelta da ggml</string>
+    <string name="ai_taskmgr_cpu_auto">Automatica</string>
     <string name="ai_taskmgr_cpu_restart_hint">La variante scelta si carica al riavvio dell\'app</string>
     <string name="ai_taskmgr_cpu_restart">Riavvia ora</string>
 </resources>
