@@ -226,7 +226,7 @@ class TravelAssistant @Inject constructor(
         val destination = regionRepository.installed(regionId)?.countryCode ?: return null
         val departure = vaccinationPreferences.departure ?: nationalityPreferences.nationality.value ?: return null
         if (departure.equals(destination, ignoreCase = true)) return null
-        val trip = Trip(departure = departure, destination = destination, purpose = tripPurposeOf(question))
+        val trip = Trip(departure = departure, destination = destination, destinationRegion = regionId, purpose = tripPurposeOf(question))
         val result = vaccinationRepository.evaluate(trip) ?: return null
         return AssistantSection(
             body = result.toSummaryText(trip, language),

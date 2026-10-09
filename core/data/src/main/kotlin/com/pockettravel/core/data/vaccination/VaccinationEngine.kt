@@ -88,7 +88,8 @@ fun evaluateVaccinations(trip: Trip, data: VaccinationData, today: LocalDate = L
     // Se il certificato e' gia' richiesto, la raccomandazione per la destinazione a rischio non aggiunge nulla.
     // Sotto i 9 mesi il vaccino di norma non si fa (sotto i 6 e' controindicato): da valutare col medico.
     val yfInfant = trip.travellerAgeMonths?.let { it < YF_RECOMMENDED_MIN_AGE_MONTHS } == true
-    data.yfRisk.firstOrNull { it.iso2 == destination }?.takeIf { items.none { it.vaccine == Vaccine.YELLOW_FEVER && it.ageNote != AgeNote.BELOW_AGE } }?.let { risk ->
+    val yfRiskFree = trip.destinationRegion in YF_RISK_FREE_REGIONS
+    data.yfRisk.firstOrNull { it.iso2 == destination && !yfRiskFree }?.takeIf { items.none { it.vaccine == Vaccine.YELLOW_FEVER && it.ageNote != AgeNote.BELOW_AGE } }?.let { risk ->
         items += VaccinationItem(
             vaccine = Vaccine.YELLOW_FEVER,
             level = if (yfInfant) VaccinationLevel.CONSIDER else VaccinationLevel.RECOMMENDED,
@@ -132,8 +133,9 @@ fun evaluateVaccinations(trip: Trip, data: VaccinationData, today: LocalDate = L
     // Raccomandate per destinazione: MOST = raccomandate, SOME = da valutare. Una riga che ripete un vaccino
     // gia' presente (febbre gialla a rischio, MenACWY dell'Hajj) si salta, salvo che la voce sia solo
     // "non richiesto per l'eta'". La febbre gialla si salta sempre: la voce "destinazione a rischio" tiene gia'
-    // conto dell'eta' (sotto i 9 mesi e' da valutare, non raccomandata).
-    data.recommended.filter { it.iso2 == destination }.forEach { row ->
+    // conto dell'eta' (sotto i 9 mesi e' da valutare, non raccomandata), e nelle regioni fuori dall'area a rischio
+    // non c'e'.
+    data.recommended.filter { it.iso2 == destination && !(yfRiskFree && it.vaccine == Vaccine.YELLOW_FEVER) }.forEach { row ->
         val duplicate = items.any {
             it.vaccine == row.vaccine && (it.ageNote != AgeNote.BELOW_AGE || it.vaccine == Vaccine.YELLOW_FEVER)
         }
@@ -155,6 +157,8 @@ fun evaluateVaccinations(trip: Trip, data: VaccinationData, today: LocalDate = L
         vaccine = Vaccine.ROUTINE,
         level = VaccinationLevel.RECOMMENDED,
         reason = VaccinationReason.ROUTINE,
+        // La partenza: la schermata collega il suo calendario vaccinale.
+        country = departure,
     )
 
     val sorted = items.sortedWith(compareBy({ it.level.ordinal }, { it.vaccine.ordinal }))

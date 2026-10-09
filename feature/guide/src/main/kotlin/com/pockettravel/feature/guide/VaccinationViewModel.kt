@@ -48,6 +48,8 @@ data class VaccinationUiState(
     // false: pacchetto guide senza dati vaccinali o paese della regione ignoto, il riquadro non compare.
     val available: Boolean = false,
     val destination: String? = null,
+    // Id della regione: alcune sono tutte fuori dall'area della febbre gialla del loro paese (YF_RISK_FREE_REGIONS).
+    val destinationRegion: String? = null,
     val departure: String? = null,
     val nationality: String? = null,
     val recentCountries: List<String> = emptyList(),
@@ -118,7 +120,7 @@ class VaccinationViewModel @Inject constructor(
         data = loaded
         val destination = regionRepository.installed(regionId)?.countryCode?.uppercase()
         _uiState.update { state ->
-            recompute(state.copy(available = loaded != null && destination != null, destination = destination))
+            recompute(state.copy(available = loaded != null && destination != null, destination = destination, destinationRegion = regionId))
         }
     }
 
@@ -177,6 +179,7 @@ private fun tripOf(state: VaccinationUiState, departure: String, destination: St
         recentCountries = state.recentCountries.toSet(),
         transits = state.stopovers.mapNotNull { leg -> leg.country?.let { TripLeg(it, leg.hours.takeUnless { leg.overTwelveHours }, leg.leftAirport) } },
         destination = destination,
+        destinationRegion = state.destinationRegion,
         travellerAgeMonths = if (state.childUnderOne) state.childMonths else ADULT_AGE_MONTHS,
         stayOverFourWeeksInDeparture = polioRelevant && state.stayOverFourWeeks,
         purpose = purpose,

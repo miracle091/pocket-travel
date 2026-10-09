@@ -47,7 +47,7 @@ class OfficialSourceTest {
         val vs = checkNotNull(travelAdviceSourceFor("IT"))
         assertEquals("https://www.viaggiaresicuri.it/find-country/country/THA", vs.urlFor("th"))
         assertEquals("https://www.viaggiaresicuri.it/find-country/country/KSV", vs.urlFor("XK"))
-        // Senza pagina sul sito (territori, Italia) o senza codice ISO alpha-3 (Canarie), o senza destinazione: la home.
+        // Senza pagina sul sito (territori, Italia) o senza codice ISO alpha-3 (Canarie), o senza destinazione: la pagina iniziale.
         listOf("GL", "it", "IC", null).forEach { assertEquals("https://www.viaggiaresicuri.it", vs.urlFor(it)) }
         // Gli altri ministeri non hanno indirizzi per paese nel registro: resta il loro indirizzo.
         assertEquals(fallbackTravelAdviceSource.url, fallbackTravelAdviceSource.urlFor("TH"))

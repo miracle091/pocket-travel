@@ -161,6 +161,7 @@
     <string name="vacc_verified_on">Verificato il %1$s</string>
     <string name="vacc_links_title">Fonti ufficiali</string>
     <string name="vacc_link_travelhealthpro">Pagine per paese sulla salute dei viaggiatori del servizio sanitario britannico (UKHSA)</string>
+    <string name="vacc_schedule_link">Calendario vaccinale del paese di partenza, %1$s, comunicato all\'OMS</string>
     <string name="vacc_vaccine_yellow_fever">Febbre gialla</string>
     <string name="vacc_vaccine_polio">Poliomielite</string>
     <string name="vacc_vaccine_menacwy">Meningococco ACWY</string>

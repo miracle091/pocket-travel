@@ -161,6 +161,7 @@
     <string name="vacc_verified_on">Checked on %1$s</string>
     <string name="vacc_links_title">Official sources</string>
     <string name="vacc_link_travelhealthpro">Traveler health country pages from the UK health service (UKHSA)</string>
+    <string name="vacc_schedule_link">Vaccination schedule of the departure country, %1$s, as reported to WHO</string>
     <string name="vacc_vaccine_yellow_fever">Yellow fever</string>
     <string name="vacc_vaccine_polio">Polio</string>
     <string name="vacc_vaccine_menacwy">Meningococcal ACWY</string>

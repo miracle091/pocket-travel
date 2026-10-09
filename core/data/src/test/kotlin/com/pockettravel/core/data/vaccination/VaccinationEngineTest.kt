@@ -268,6 +268,7 @@ class VaccinationEngineTest {
         for (trip in listOf(Trip(departure = "it", destination = "fr"), Trip(departure = "zz", destination = "yy"))) {
             val routine = evaluate(trip).item(Vaccine.ROUTINE)!!
             assertEquals(VaccinationReason.ROUTINE, routine.reason)
+            assertEquals(trip.departure, routine.country)
         }
     }
 
@@ -297,6 +298,22 @@ class VaccinationEngineTest {
 
         val adult = evaluate(Trip(departure = "it", destination = "ke")).item(Vaccine.YELLOW_FEVER, VaccinationReason.YF_DESTINATION_RISK)!!
         assertEquals(VaccinationLevel.RECOMMENDED, adult.level)
+    }
+
+    @Test
+    fun `regione fuori dall'area della febbre gialla senza voci per destinazione, con le regole d'ingresso`() {
+        val colombia = data.copy(
+            yfRisk = data.yfRisk + risk("co", partial = true),
+            yfEntry = data.yfEntry + yf("co", YfRule.FROM_LIST, transit = StopoverRule.GT12H, fromList = setOf("br")),
+            recommended = data.recommended + RecommendedRow("co", Vaccine.YELLOW_FEVER, RecommendedLevel.SOME, "", "", listOf("F7"), "2026-10-03"),
+        )
+        val mainland = evaluate(Trip(departure = "it", destination = "co", destinationRegion = "colombia"), colombia)
+        assertEquals(listOf(VaccinationReason.YF_DESTINATION_RISK), mainland.items.filter { it.vaccine == Vaccine.YELLOW_FEVER }.map { it.reason })
+
+        val sanAndres = evaluate(Trip(departure = "it", destination = "co", destinationRegion = "colombia-san-andres"), colombia)
+        assertTrue(sanAndres.items.none { it.vaccine == Vaccine.YELLOW_FEVER })
+        val fromBrazil = evaluate(Trip(departure = "br", destination = "co", destinationRegion = "colombia-san-andres"), colombia)
+        assertEquals(listOf(VaccinationReason.YF_ENTRY_FROM_LIST), fromBrazil.items.filter { it.vaccine == Vaccine.YELLOW_FEVER }.map { it.reason })
     }
 
     @Test

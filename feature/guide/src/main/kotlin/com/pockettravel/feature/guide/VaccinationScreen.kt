@@ -102,6 +102,26 @@ private fun vaccinationSourceUrl(code: String): String? = when (code) {
     else -> null
 }
 
+// Paesi senza pagina sul portale dati dell'OMS (confronto del 2026-10-09 tra Locale.getISOCountries e l'elenco del
+// portale): territori e dipendenze, piu' Liechtenstein, Taiwan e Vaticano.
+private val WHO_SCHEDULE_MISSING = setOf(
+    "AQ", "AX", "BL", "BQ", "BV", "CC", "CX", "EH", "FK", "FO", "GF", "GG", "GI", "GL", "GP", "GS", "HM", "IM",
+    "IO", "JE", "LI", "MF", "MQ", "NF", "PM", "PN", "PR", "RE", "SH", "SJ", "TF", "TW", "UM", "VA", "VI", "YT",
+)
+
+/**
+ * Calendario vaccinale di [country] (ISO alpha-2) sul portale dati dell'OMS, null se il portale non ha il paese.
+ * Solo il link: i dati del portale hanno termini d'uso non commerciali, quindi non si copiano nell'app.
+ */
+internal fun vaccinationScheduleUrl(country: String): String? {
+    val code = country.uppercase(Locale.ROOT)
+    if (code in WHO_SCHEDULE_MISSING) return null
+    // Stesso indirizzo che costruisce il portale; senza codice alpha-3 getISO3Country lancia MissingResourceException.
+    val iso3 = runCatching { Locale.Builder().setRegion(code).build().isO3Country }.getOrNull()
+    return iso3?.takeIf { it.isNotEmpty() }
+        ?.let { "https://immunizationdata.who.int/global/wiise-detail-page/vaccination-schedule-for-country_name?ISO_3_CODE=$it" }
+}
+
 private val travelHealthProSource = OfficialSource(
     name = "TravelHealthPro (UKHSA / NaTHNaC)",
     url = "https://travelhealthpro.org.uk/countries",
@@ -610,6 +630,11 @@ private fun VaccinationItemCard(item: VaccinationItem, nationality: String?, des
             val note = if (locale.language == "en") item.noteEn.ifBlank { item.noteIt } else item.noteIt.ifBlank { item.noteEn }
             if (note.isNotBlank()) CardDescription(note.trim(), color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (item.reason == VaccinationReason.POLIO_ENTRY_UNLISTED) TravelAdviceLink(nationality, destination, onOpenSource)
+            val country = item.country
+            val scheduleUrl = country?.let(::vaccinationScheduleUrl)
+            if (item.reason == VaccinationReason.ROUTINE && country != null && scheduleUrl != null) {
+                LinkRow(WHO_IMMUNIZATION_PORTAL, stringResource(R.string.vacc_schedule_link, countryName(country.uppercase())), scheduleUrl, onOpenSource)
+            }
             if (item.sources.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.vacc_sources) + ":", style = MaterialTheme.typography.labelMedium)
@@ -631,27 +656,38 @@ private fun VaccinationItemCard(item: VaccinationItem, nationality: String?, des
     }
 }
 
-// Sito degli esteri della nazionalita' scelta al primo avvio (homepage: il registro non ha le pagine per paese, tranne
+// Sito degli esteri della nazionalita' scelta al primo avvio (pagina iniziale: il registro non ha le pagine per paese, tranne
 // la pagina della destinazione su Viaggiare Sicuri), altrimenti GOV.UK, come nella Guida, con la descrizione che dice
 // per chi e' scritto.
 @Composable
 private fun TravelAdviceLink(nationality: String?, destination: String?, onOpenSource: (url: String, title: String) -> Unit) {
     val own = travelAdviceSourceFor(nationality?.uppercase())
     val source = own ?: fallbackTravelAdviceSource
+    LinkRow(
+        title = source.name,
+        description = stringResource(if (own != null) R.string.emergency_travel_advice_description else R.string.emergency_travel_advice_fallback_description),
+        url = source.urlFor(destination),
+        onOpenSource = onOpenSource,
+    )
+}
+
+// Nome ufficiale del portale, in inglese come il sito.
+private const val WHO_IMMUNIZATION_PORTAL = "WHO Immunization Data portal"
+
+// Link a un sito esterno dentro il riquadro di una voce: nome del sito, a cosa serve, icona di apertura.
+@Composable
+private fun LinkRow(title: String, description: String, url: String, onOpenSource: (url: String, title: String) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
-            .clickable(onClickLabel = stringResource(R.string.vacc_open_source, source.name)) { onOpenSource(source.urlFor(destination), source.name) }
+            .clickable(onClickLabel = stringResource(R.string.vacc_open_source, title)) { onOpenSource(url, title) }
             .padding(vertical = Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = source.name, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                text = stringResource(if (own != null) R.string.emergency_travel_advice_description else R.string.emergency_travel_advice_fallback_description),
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            Text(text = description, style = MaterialTheme.typography.bodyMedium)
         }
         Box(modifier = Modifier.heightIn(min = 48.dp).width(48.dp), contentAlignment = Alignment.Center) {
             Icon(imageVector = AppIcons.OpenExternal, contentDescription = null)

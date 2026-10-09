@@ -189,6 +189,8 @@ data class Trip(
     val recentCountries: Set<String> = emptySet(),
     val transits: List<TripLeg> = emptyList(),
     val destination: String,
+    /** Regione scaricata della destinazione (id del catalogo), null se ignota: serve per [YF_RISK_FREE_REGIONS]. */
+    val destinationRegion: String? = null,
     /** null = non chiesta: le soglie di eta' si mostrano senza decidere. */
     val travellerAgeMonths: Int? = null,
     /** Residente nel paese di partenza o li' per oltre 4 settimane (soglia dell'obbligo polio in uscita). */
@@ -237,6 +239,13 @@ data class VaccinationResult(
 )
 
 const val POLIO_STALE_DAYS = 120L
+
+/**
+ * Regioni tutte fuori dall'area a rischio di febbre gialla di un paese a rischio parziale (`yf-risk.tsv`): senza
+ * voci di febbre gialla per la destinazione, restano le regole d'ingresso del paese. Le fonti descrivono le aree
+ * solo a parole, senza confini: l'elenco va rivisto quando cambiano le regioni o le aree.
+ */
+val YF_RISK_FREE_REGIONS = setOf("colombia-san-andres")
 
 /** Nome leggibile delle sigle delle fonti usate nei dati (stesse sigle dei file della pipeline). */
 fun vaccinationSourceName(code: String): String = when (code) {
