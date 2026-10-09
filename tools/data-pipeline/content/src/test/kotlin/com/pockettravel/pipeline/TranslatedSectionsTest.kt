@@ -39,6 +39,50 @@ class TranslatedSectionsTest {
     }
 
     @Test
+    fun `i consigli del governo canadese tradotti si aggiungono in fondo senza togliere la categoria italiana`() {
+        val advice = """{"owner": "finlandia", "category": "SALUTE", "sections": [{"title": "Salute (Governo del Canada)", "body": "Zecche.", "sourceUrl": "https://travel.gc.ca/destinations/fi"}]}"""
+        val guide = RegionGuide(
+            "finlandia", "https://it.wikivoyage.org/wiki/Finlandia",
+            listOf(
+                GuideSectionRow("SALUTE", "Salute", "Acqua potabile."),
+                GuideSectionRow("SALUTE", "Salute (Governo del Canada)", "vecchia", "https://travel.gc.ca/destinations/fi", translated = true),
+                GuideSectionRow("CIBO_BEVANDE", "Cibo", "y"),
+            ),
+        )
+
+        val result = listOf(guide).withTranslations(parseTranslatedSections(advice)).single()
+
+        assertEquals(listOf("Salute", "Cibo", "Salute (Governo del Canada)"), result.sections.map { it.title })
+        assertEquals(listOf("Acqua potabile.", "y", "Zecche."), result.sections.map { it.body })
+    }
+
+    private val gc = "https://travel.gc.ca/destinations/fi"
+    private val publishedAdvice = listOf(
+        GuideSectionRow("SICUREZZA", "Sicurezza (Governo del Canada)", "Furti.", gc, translated = true),
+        GuideSectionRow("SALUTE", "Salute (Governo del Canada)", "Zecche vecchie.", gc, translated = true),
+    )
+
+    @Test
+    fun `senza traduzioni restano i consigli tradotti gia' pubblicati`() {
+        val guide = RegionGuide("finlandia", "https://it.wikivoyage.org/wiki/Finlandia", listOf(GuideSectionRow("SALUTE", "Salute", "Acqua.")))
+
+        val result = listOf(guide).withTranslations(emptyList()) { publishedAdvice }.single()
+
+        assertEquals(listOf("Acqua.", "Furti.", "Zecche vecchie."), result.sections.map { it.body })
+    }
+
+    @Test
+    fun `una categoria di consigli tradotta sostituisce solo la sua, le altre restano quelle pubblicate`() {
+        val advice = """{"owner": "finlandia", "category": "SALUTE", "sections": [{"title": "Salute (Governo del Canada)", "body": "Zecche.", "sourceUrl": "$gc"}]}"""
+        // Regione senza dump in questa run: la guida e' quella pubblicata, con i consigli tradotti dentro.
+        val guide = RegionGuide("finlandia", "https://it.wikivoyage.org/wiki/Finlandia", listOf(GuideSectionRow("SALUTE", "Salute", "Acqua.")) + publishedAdvice)
+
+        val result = listOf(guide).withTranslations(parseTranslatedSections(advice)) { publishedAdvice }.single()
+
+        assertEquals(listOf("Acqua.", "Furti.", "Zecche."), result.sections.map { it.body })
+    }
+
+    @Test
     fun `una categoria assente in italiano va in fondo e le altre regioni restano uguali`() {
         val finlandia = RegionGuide("finlandia", "u", listOf(GuideSectionRow("CIBO_BEVANDE", "Cibo", "y")))
         val svezia = RegionGuide("svezia", "u", listOf(GuideSectionRow("SALUTE", "Salute", "z")))

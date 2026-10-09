@@ -27,10 +27,13 @@ REVISIONS = {"Helsinki-NLP/opus-mt-tc-big-en-it": "592d2cfb0797867f1dd223e49141d
              "Helsinki-NLP/opus-mt-tc-big-it-en": "5009c4525f89c23e195873e918ba6827777d1a27"}
 LICENSE = "CC BY 4.0"
 MARKERS = ("▸ ", "• ")
-# Fine frase: punto, ! o ? seguiti da spazio e da una maiuscola, una cifra o una virgoletta
-SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-ZÀ-Ý0-9\"«(])")
+# Fine frase: punto, ! o ? seguiti da spazio e da una maiuscola, una cifra o una virgoletta, ma non dopo un'abbreviazione
+# ("St. Petersburg" diviso darebbe "San Pietroburgo" e poi "Petersburg." in inglese; "U.S. Embassy")
+SENTENCE_SPLIT = re.compile(r"(?<=[.!?])(?<!\b[A-Z]\.[A-Z]\.)(?<!\bSt\.)(?<!\bMt\.)(?<!\bFt\.)(?<!\bDr\.)(?<!\bMr\.)"
+                            r"(?<!\bMrs\.)(?<!\bMs\.)(?<!\bNo\.)(?<!\bvs\.)\s+(?=[A-ZÀ-Ý0-9\"«(])")
 NUMBER = re.compile(r"\d+(?:[.,:]\d+)*")
 POOR_CHARS = 300  # sotto questa lunghezza una sezione e' "povera"
+UNKNOWN = "⁇"  # cio' che SentencePiece scrive al posto di un pezzo sconosciuto
 # MarianMT perde i caratteri di altri alfabeti: "Yu Cai (豫菜)" -> "Yu Cai ()", "(白族, Baizu)" -> "(, Baizu)"
 EMPTY_PARENS = re.compile(r"\s*\(\s*[,;]?\s*\)")
 PARENS_LEADING_COMMA = re.compile(r"\(\s*[,;]\s*")
@@ -55,8 +58,10 @@ def _numbers(text):
 
 
 def _plausible(src, out):
-    """Stessi numeri e lunghezza ragionevole: i modelli MarianMT a volte ripetono o saltano pezzi."""
-    return _numbers(src) == _numbers(out) and 0.5 <= (len(out) + 10) / (len(src) + 10) <= 2.0
+    """Stessi numeri e lunghezza ragionevole: i modelli MarianMT a volte ripetono o saltano pezzi. " ⁇ " e' un carattere
+    che il modello non conosce (cirillico, simboli di valuta, anche ü, ö, ł: "Rösti" -> "R ⁇ sti")."""
+    return (UNKNOWN not in out and _numbers(src) == _numbers(out)
+            and 0.5 <= (len(out) + 10) / (len(src) + 10) <= 2.0)
 
 
 def _pick_discrete_gpu():
@@ -83,6 +88,7 @@ class Translator:
         self.src, self.tgt, self.batch = src, tgt, batch
         self.cache_path = Path(cache_dir) / f"translations.{src}-{tgt}.jsonl"
         self.cache = {}
+        self.trusted = set()  # chiavi di traduzioni corrette a mano: niente controllo di plausibilita'
         if self.cache_path.exists():
             for line in self.cache_path.read_text(encoding="utf-8").splitlines():
                 if line:
@@ -163,7 +169,7 @@ class Translator:
             lines, ok = [], True
             for marker, ss in pieces:
                 outs = [self.cache[self._key(s)] for s in ss]
-                if not all(_plausible(s, t) for s, t in zip(ss, outs)):
+                if not all(self._key(s) in self.trusted or _plausible(s, t) for s, t in zip(ss, outs)):
                     ok = False
                     break
                 lines.append(marker + drop_empty_parens(" ".join(outs)))

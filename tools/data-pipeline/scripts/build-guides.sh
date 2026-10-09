@@ -32,11 +32,12 @@
 # Government Licence - Canada): sicurezza e livello di rischio, leggi e cultura, catastrofi naturali e clima, salute.
 #
 # Sezioni tradotte dall'altra lingua (sezione 3a): con TRANSLATE_CACHE_DIR e i modelli attivi (vedi translate_overlay in
-# lib.sh) le categorie assenti o molto piu' povere di quelle dell'altra lingua (translate_dataset.needs_translation) sono
-# sostituite da quelle tradotte (translate_guides.py), con translated = 1 in guide_sections e l'url della pagina
-# d'origine. La passata "en" va lanciata prima di quella italiana, con GUIDES_PLAIN_COPY=<file> (dove lascia la guida
-# inglese non arricchita) e poi GUIDES_SOURCE_DB=<lo stesso file> per l'italiana; GUIDES_TRANSLATE_SECONDS e' il tempo
-# massimo di traduzione della passata. Senza o se qualcosa non riesce, guide come prima.
+# lib.sh) translate_guides.py traduce le sezioni del governo canadese della guida inglese, che si aggiungono alla guida
+# italiana con translated = 1 in guide_sections e l'url della pagina d'origine (il confronto con le sezioni povere di
+# Wikivoyage e' spento, vedi WIKIVOYAGE_SECTIONS li'). La passata "en" va lanciata prima di quella italiana, con
+# GUIDES_FINAL_COPY=<file> (dove lascia la guida inglese che pubblica, con i consigli) e poi GUIDES_SOURCE_DB=<lo stesso
+# file> per l'italiana; GUIDES_TRANSLATE_SECONDS e' il tempo massimo di traduzione della passata. Senza o se qualcosa
+# non riesce, guide come prima.
 #
 # Richiede: curl, jq (solo se si passa publishedManifestUrl), xz, python3, gradle wrapper dalla root del repo.
 set -euo pipefail
@@ -214,16 +215,16 @@ cd "$REPO_ROOT"
 GUIDES_ARGS="\"$(winpath "$REGIONS_TSV")\" \"$(winpath "$GUIDES_DB")\""
 # --- 3a. Sezioni povere tradotte dall'altra lingua ------------------------------------------------
 # Solo con la traduzione attiva (translate_overlay in lib.sh). La guida "semplice" della lingua (senza guide pubblicate,
-# cosi' non si confronta con quelle gia' arricchite) si confronta con quella dell'altra lingua, sempre non arricchita:
-# per l'italiano la inglese semplice della passata "en" (GUIDES_SOURCE_DB, la passata inglese gira per prima), per
-# l'inglese la italiana costruita qui dalle stesse pagine italiane scaricate per i fatti rapidi (regions-it.tsv).
+# cosi' non si confronta con quelle gia' arricchite) si confronta con quella dell'altra lingua: per l'italiano la guida
+# inglese pubblicata dalla passata "en" (GUIDES_SOURCE_DB, la passata inglese gira per prima; ha le sezioni del governo
+# canadese), per l'inglese la italiana costruita qui dalle stesse pagine italiane scaricate per i fatti rapidi
+# (regions-it.tsv).
 # Tempo massimo di questa passata: GUIDES_TRANSLATE_SECONDS. Se qualcosa non riesce si pubblica la guida com'e'.
 if [ -n "${TRANSLATE_CACHE_DIR:-}" ]; then
   PLAIN_DB="$WORKDIR/plain-guides.db"
   PLAIN_ARGS="\"$(winpath "$REGIONS_TSV")\" \"$(winpath "$PLAIN_DB")\""
   [ "$LANG_CODE" = "en" ] && PLAIN_ARGS="--lang en $PLAIN_ARGS"
   if (cd "$REPO_ROOT" && ./gradlew -q :tools:data-pipeline:content:generateGuides --args="$PLAIN_ARGS" >/dev/null); then
-    [ -n "${GUIDES_PLAIN_COPY:-}" ] && cp "$PLAIN_DB" "$GUIDES_PLAIN_COPY"
     SOURCE_DB=""
     if [ "$LANG_CODE" = "en" ]; then
       SOURCE_DB="$WORKDIR/plain-guides-it.db"
@@ -263,6 +264,8 @@ else
   FRAGMENT_URL="$PUBLISHED_URL"
   FRAGMENT_VERSION="$PUBLISHED_VERSION"
 fi
+# La guida che esce da questa passata, nuova o quella pubblicata: per la passata italiana (sezione 3a).
+if [ -n "${GUIDES_FINAL_COPY:-}" ] && [ -s "$FRAGMENT_DB" ]; then cp "$FRAGMENT_DB" "$GUIDES_FINAL_COPY"; fi
 ./gradlew -q :tools:data-pipeline:content:generateManifest \
   --args="--guides \"$(winpath "$FRAGMENT_DB")\" \"$FRAGMENT_URL\" \"$FRAGMENT_VERSION\" \"$(winpath "$REGIONS_TSV")\" \"$(winpath "$OUTPUT_DIR/manifest-fragment.json")\""
 

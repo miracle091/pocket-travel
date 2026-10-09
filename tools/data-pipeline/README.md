@@ -295,11 +295,17 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   dump completo di Wikivoyage (`fetch_wikivoyage_dump_parts` in `lib.sh`, quello del mese prima finché il nuovo non
   ha `SHA256SUMS`), verificato con sha256 e tenuto nella cache di Actions fino al dump successivo; dopo un download
   riuscito le parti dei dump vecchi escono dalla cache.
-- **Guide arricchite dall'altra lingua**: `scripts/translate_guides.py` confronta, per regione o città e categoria, la
-  sezione con quella dell'altra lingua (assente, sotto 300 caratteri o lunga meno della metà) e traduce la più ricca con
-  MarianMT (`opus-mt-tc-big-en-it` e `-it-en`, CC BY 4.0, CTranslate2 int8 su CPU): l'italiano dall'inglese e l'inglese
-  dall'italiano. `generateGuides` e `generateCities` con `--translated` sostituiscono la sezione povera e segnano la
-  riga con `translated = 1`, che le app vecchie ignorano. In publish-regions i passi girano solo con la variabile del
-  repository `TRANSLATE_GUIDES` uguale a `true`, quindi per ora le guide escono come prima: va accesa dopo una revisione
-  a campione, perché sui dati attuali sostituirebbe circa 2.000 sezioni italiane. Mai bloccante: se il motore o il
-  modello mancano, o il tempo finisce, la guida esce originale; la cache delle frasi tradotte tiene il lavoro fatto.
+- **Guide arricchite dall'altra lingua**: `scripts/translate_guides.py` traduce con MarianMT (`opus-mt-tc-big-en-it`,
+  CC BY 4.0, CTranslate2 int8 su CPU) le sezioni del Governo del Canada della guida inglese che pubblica la passata
+  `en` (`GUIDES_FINAL_COPY`, poi `GUIDES_SOURCE_DB` della passata italiana); `generateGuides --translated` le aggiunge in
+  fondo alla guida italiana, con titoli fissi e `translated = 1`, che le app vecchie ignorano. Le frasi inglesi più
+  frequenti hanno una traduzione rivista in `translation-corrections.en-it.tsv` (una riga "inglese<TAB>italiano"), che
+  prevale sul modello e non passa dal controllo automatico; le altre frasi con numeri diversi, lunghezza fuori misura o
+  un carattere perso (" ⁇ ") fanno scartare la loro sezione. Il confronto delle sezioni di Wikivoyage con quelle
+  dell'altra lingua (assenti, sotto 300 caratteri o lunghe meno della metà), dall'inglese all'italiano e dall'italiano
+  all'inglese, guide e città, resta nel codice ma spento (`WIKIVOYAGE_SECTIONS`): in una revisione a campione il 21%
+  delle frasi tradotte aveva errori critici o gravi, contro il 5,8% di quelle del Governo del Canada. In publish-regions
+  i passi girano solo con la variabile del repository `TRANSLATE_GUIDES` uguale a `true`, quindi per ora le guide escono
+  come prima. Mai bloccante: se il motore o il modello mancano, il tempo finisce o una categoria viene scartata,
+  restano i consigli tradotti gia' pubblicati (nessuno, la prima volta); la cache delle frasi tradotte tiene il lavoro
+  fatto. Spegnendo di nuovo la variabile i consigli tradotti gia' pubblicati restano, senza aggiornamenti.

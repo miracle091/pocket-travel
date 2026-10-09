@@ -548,7 +548,8 @@ fun main(rawArgs: Array<String>) {
             println("guide: $regionId senza dump in questa run, ricopio le sezioni pubblicate")
             publishedDb?.let { readRegionGuide(it, regionId) } ?: RegionGuide(regionId, sourceUrl, emptyList())
         }
-    }.withTranslations(translated).let { guides -> advice?.let { guides.withTravelAdvice(it) } ?: guides }
+    }.withTranslations(translated) { regionId -> publishedDb?.let { readRegionGuide(it, regionId) }?.sections.orEmpty() }
+        .let { guides -> advice?.let { guides.withTravelAdvice(it) } ?: guides }
 
     outputDb.delete()
     writeGuidesDb(guides, outputDb)

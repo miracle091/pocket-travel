@@ -4,7 +4,8 @@ import org.json.JSONObject
 
 /**
  * Sezioni di una regione o citta' ([owner]) e [category] tradotte da translate_guides.py dalla guida nell'altra lingua
- * (italiano <-> inglese): sostituiscono tutte le sezioni della stessa categoria. Ogni riga ha [GuideSectionRow.translated]
+ * (italiano <-> inglese): sostituiscono tutte le sezioni della stessa categoria, tranne i consigli di viaggio che si
+ * aggiungono (vedi withTranslations). Ogni riga ha [GuideSectionRow.translated]
  * e l'url della pagina d'origine.
  */
 data class TranslatedCategory(val owner: String, val category: String, val sections: List<GuideSectionRow>)
@@ -42,11 +43,25 @@ internal fun <T> replaceCategories(rows: List<T>, categoryOf: (T) -> String, rep
     return kept + replacements.filterKeys { it !in placed }.values.flatten()
 }
 
-fun List<RegionGuide>.withTranslations(translated: List<TranslatedCategory>): List<RegionGuide> {
+/**
+ * Le guide con le sezioni tradotte: quelle di Wikivoyage al posto della categoria, quelle dei consigli di viaggio
+ * (isTravelAdvice, che la guida italiana non ha di suo) in fondo. I consigli tradotti di una categoria assente da
+ * [translated] (traduzione non riuscita, rimandata per il tempo o spenta) restano quelli gia' pubblicati,
+ * [publishedAdvice] della regione, come fa readTravelAdvice per la guida inglese.
+ */
+fun List<RegionGuide>.withTranslations(
+    translated: List<TranslatedCategory>,
+    publishedAdvice: (String) -> List<GuideSectionRow> = { emptyList() },
+): List<RegionGuide> {
     val byRegion = translated.groupBy { it.owner }
     return map { guide ->
-        val replacements = byRegion[guide.regionId]?.associate { it.category to it.sections } ?: return@map guide
-        guide.copy(sections = replaceCategories(guide.sections, { it.category }, replacements))
+        val categories = byRegion[guide.regionId].orEmpty()
+        val replacements = categories.associate { it.category to it.sections.filterNot(::isTravelAdvice) }.filterValues { it.isNotEmpty() }
+        val advice = categories.associate { it.category to it.sections.filter(::isTravelAdvice) }.filterValues { it.isNotEmpty() }
+        val previous = publishedAdvice(guide.regionId).filter { it.translated && isTravelAdvice(it) }
+        if (replacements.isEmpty() && advice.isEmpty() && previous.isEmpty()) return@map guide
+        val own = guide.sections.filterNot { it.translated && isTravelAdvice(it) }
+        guide.copy(sections = replaceCategories(own, { it.category }, replacements) + replaceCategories(previous, { it.category }, advice))
     }
 }
 

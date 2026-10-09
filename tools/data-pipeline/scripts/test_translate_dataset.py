@@ -45,6 +45,10 @@ class PlausibleTest(unittest.TestCase):
         self.assertFalse(ts._plausible("Una frase di media lunghezza qui.", "Ok " * 50))
         self.assertFalse(ts._plausible("Una frase di media lunghezza qui, abbastanza lunga da contare." * 3, "Si."))
 
+    def test_carattere_perso_dal_modello(self):
+        # MarianMT rende " ⁇ " i caratteri che non conosce: "Rösti" -> "R ⁇ sti", "грн" -> " ⁇ "
+        self.assertFalse(ts._plausible("Rösti is a potato dish.", "Il R ⁇ sti è un piatto di patate."))
+
     def test_numbers_ordinati(self):
         self.assertEqual(["1.5", "20"], ts._numbers("20 e 1,5"))
 
@@ -56,6 +60,12 @@ class SentenceSplitTest(unittest.TestCase):
 
     def test_non_divide_prima_di_minuscola(self):
         self.assertEqual(["Vedi pag. tre e altro."], ts.SENTENCE_SPLIT.split("Vedi pag. tre e altro."))
+
+    def test_non_divide_dopo_un_abbreviazione(self):
+        # "St." tradotto da solo darebbe "San Pietroburgo" e poi "Petersburg." in inglese
+        self.assertEqual(["Drones hit Moscow and St. Petersburg.", "Flights stopped."],
+                         ts.SENTENCE_SPLIT.split("Drones hit Moscow and St. Petersburg. Flights stopped."))
+        self.assertEqual(["Ask the U.S. Embassy."], ts.SENTENCE_SPLIT.split("Ask the U.S. Embassy."))
 
     def test_pieces_mantiene_marcatori_e_righe_vuote(self):
         body = "Titolo.\n▸ Sezione uno. Seconda frase.\n• voce\n\n"

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Guide arricchite dall'altra lingua, italiano dall'inglese o inglese dall'italiano (--from): per ogni regione (o
-citta') e categoria si confronta la sezione della guida con quella nell'altra lingua
-(translate_dataset.needs_translation: assente, sotto 300 caratteri o lunga meno della meta') e, dove l'altra e' molto
-piu' ricca, la si traduce. Scrive un file di sezioni tradotte (una riga JSON per regione e categoria) che
-generateGuides / generateCities (--translated) mettono al posto di quelle povere, segnandole con translated = 1 nel
-database.
+"""Guide arricchite dall'altra lingua. Oggi solo le guide italiane, con le sezioni del governo canadese (travel.gc.ca)
+della guida inglese tradotte (pick_travel_advice): generateGuides (--translated) le aggiunge alla guida italiana. Spento
+dopo la revisione a campione (vedi WIKIVOYAGE_SECTIONS): per ogni regione (o citta') e categoria si confronta la sezione
+della guida con quella nell'altra lingua (translate_dataset.needs_translation: assente, sotto 300 caratteri o lunga meno
+della meta') e, dove l'altra e' molto piu' ricca, la si traduce, italiano dall'inglese o inglese dall'italiano (--from).
+Scrive un file di sezioni tradotte (una riga JSON per regione e categoria) che generateGuides / generateCities
+(--translated) mettono al posto di quelle povere, segnandole con translated = 1 nel database.
 
 Uso: translate_guides.py guides|cities <guides.db|cities.db da arricchire> <idem nell'altra lingua> <tradotte.jsonl>
          --cache-dir DIR --model-dir DIR [--from en|it] [--max-seconds N] [--deadline EPOCH]
@@ -39,6 +40,25 @@ import translate_dataset as ts
 
 # Dai fatti rapidi in inglese non si traduce: li costruisce la pipeline dai Fatti rapidi italiani.
 SKIP_CATEGORIES = {"FATTI_RAPIDI"}
+# Revisione a campione del 2026-10-09 (1786 frasi tradotte dall'inglese, controllate una per una per omissioni,
+# aggiunte, numeri e senso): le sezioni di
+# Wikivoyage hanno il 21% di frasi con errori critici o gravi (senso sbagliato delle parole ambigue: "Muggings" -> "I
+# muggini", "tip" -> "consigliare"), quelle del governo canadese il 5,8%, con testo formale e frasi ripetute da un paese
+# all'altro. Si traducono solo queste ultime (guide italiane, aggiunte alle sezioni di Wikivoyage, vedi
+# pick_travel_advice); il confronto con le sezioni povere (pick_sections) resta spento, in tutte e due le direzioni e
+# per le citta', finche' un motore migliore non passa la stessa revisione.
+WIKIVOYAGE_SECTIONS = False
+TRAVEL_ADVICE_HOST = "://travel.gc.ca/"
+# Titoli delle sezioni del governo canadese (GenerateTravelAdvice.kt): fissi, il modello fuori contesto li sbaglia.
+FIXED_TITLES = {
+    "Safety and security (Government of Canada)": "Sicurezza (Governo del Canada)",
+    "Laws and culture (Government of Canada)": "Leggi e cultura (Governo del Canada)",
+    "Natural disasters and climate (Government of Canada)": "Catastrofi naturali e clima (Governo del Canada)",
+    "Health (Government of Canada)": "Salute (Governo del Canada)",
+}
+# Traduzioni corrette a mano delle frasi inglesi piu' frequenti (una riga "inglese<TAB>italiano"): prevalgono sulla cache
+# e sul modello.
+CORRECTIONS = Path(__file__).resolve().parent.parent / "translation-corrections.en-it.tsv"
 CHUNK_CHARS = 40_000  # testo inglese per chiamata al modello: tra un lotto e l'altro si controlla il tempo
 # Sezioni che in realta' vengono dalla pagina nell'altra lingua (generateGuides usa quella inglese quando la pagina
 # italiana non ha sezioni, es. la Siberia) equivalgono a una sezione assente: group() le salta per il prefisso dell'url.
@@ -106,6 +126,35 @@ def pick_sections(own_sections, source, source_owner):
     return picks
 
 
+def pick_travel_advice(source, source_owner):
+    """[(proprietario, categoria, righe d'origine)]: le sezioni di travel.gc.ca di [source] (group()) per i proprietari di
+    [source_owner], tutte, a prescindere da cosa c'e' nella guida da arricchire: non la sostituiscono, si aggiungono."""
+    picks = []
+    for owner, other in sorted(source_owner.items()):
+        for (o, category), rows in sorted(source.items()):
+            advice = [r for r in rows if TRAVEL_ADVICE_HOST in r[2]]
+            if o == other and advice:
+                picks.append((owner, category, advice))
+    return picks
+
+
+def load_corrections(translator, path=CORRECTIONS):
+    """Mette nella cache di [translator] le traduzioni di [path] (righe "inglese<TAB>italiano", # per i commenti), senza
+    controllo di plausibilita': i numeri possono essere scritti in altro modo ("8AM-10PM" -> "dalle 8 alle 22")."""
+    if not path.exists():
+        return
+    for number, line in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), 1):
+        if not line.strip() or line.startswith("#"):
+            continue
+        fields = [f.strip() for f in line.split("\t")]
+        if len(fields) != 2 or not all(fields):
+            raise ValueError(f"{path.name}, riga {number}: serve \"inglese<TAB>italiano\"")
+        en, it = fields
+        key = translator._key(en)
+        translator.cache[key] = it
+        translator.trusted.add(key)
+
+
 def _all_cached(translator, texts):
     return all(translator._key(s) in translator.cache for t in texts for _, ss in translator._pieces(t) for s in ss)
 
@@ -124,6 +173,7 @@ def _translate_chunk(translator, picks):
             if new_body is None:
                 failed.add(key)
                 continue
+            new_title = FIXED_TITLES.get(title, new_title)
             # due titoli uguali nella stessa categoria darebbero la stessa chiave di lista nell'app
             if new_title is None or new_title.lower() in taken:
                 new_title = title
@@ -235,14 +285,17 @@ def main(argv=None):
             pass
         finally:
             con.close()
-    own_sections = group(own_rows, drop_url_prefix=f"https://{source_lang}.")
-    picks = pick_sections(own_sections, source, source_owner)
+    picks = pick_travel_advice(source, source_owner) if (args.kind, source_lang) == ("guides", "en") else []
+    if WIKIVOYAGE_SECTIONS:
+        picks += pick_sections(group(own_rows, drop_url_prefix=f"https://{source_lang}."), source, source_owner)
     if not picks:
-        print(f"traduzioni {source_lang}->{own_lang}: nessuna sezione povera rispetto all'altra lingua", file=sys.stderr)
+        print(f"traduzioni {source_lang}->{own_lang} ({args.kind}): niente da tradurre", file=sys.stderr)
         write_overlay(args.overlay, {})
         return 0
 
     translator = Ct2Translator(source_lang, own_lang, args.cache_dir, args.model_dir)
+    if source_lang == "en":
+        load_corrections(translator)
     before = len(translator.cache)
     deadline = min(time.time() + args.max_seconds, args.deadline)
     translated, _ = translate_picks(picks, translator, deadline, priority)

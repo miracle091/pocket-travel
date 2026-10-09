@@ -62,6 +62,21 @@ class GenerateTravelAdviceTest {
     }
 
     @Test
+    fun `una frase sul Canada esce intera anche con abbreviazioni come U_S_ e St_`() {
+        // Testi di cta-cap-us.json e cta-cap-ru.json del 2026-10-09, accorciati.
+        val html = """
+            <p>Although the possession of cannabis is legal in some U.S. states, it remains illegal under U.S. federal laws in any form and quantity, making it illegal to bring across the Canada-U.S. border.</p>
+            <p>Don't attempt to cross the Canada-U.S. border with any amount of cannabis in any form. You can expect legal prosecution and fines.</p>
+            <p>Drone strikes have occurred in Moscow and St. Petersburg. Contact the Canadian embassy if affected.</p>
+        """.trimIndent()
+
+        assertEquals(
+            "You can expect legal prosecution and fines.\n\nDrone strikes have occurred in Moscow and St. Petersburg.",
+            adviceHtmlToText(html),
+        )
+    }
+
+    @Test
     fun `un sottotitolo escluso toglie anche quelli di livello inferiore`() {
         val html = """
             <h3>Pre-travel vaccines and medications</h3><p>Hepatitis A.</p><h4>Yellow fever</h4><p>Required.</p>

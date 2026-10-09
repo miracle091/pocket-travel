@@ -48,7 +48,11 @@ private fun isExcludedHeading(heading: String): Boolean =
 
 // Frasi sul Canada o in cui parla il governo canadese ("how we can help", "our ability to offer you consular services").
 private val canadianRegex = Regex("""canad|global affairs|\bwe\b|\bour\b""", RegexOption.IGNORE_CASE)
-private val sentenceEndRegex = Regex("""(?<=[.!?])\s+""")
+// Fine frase: punto, ! o ? e una maiuscola, una cifra o una virgoletta dopo lo spazio, ma non dopo un'abbreviazione:
+// dividendo anche li', da "illegal under U.S. federal laws ... across the Canada-U.S. border." il filtro toglierebbe solo
+// i pezzi col Canada e resterebbe "illegal under U.S. border.".
+private val sentenceEndRegex =
+    Regex("""(?<=[.!?])(?<!\b(?:[A-Z]\.[A-Z]|St|Mt|Ft|Dr|Mr|Mrs|Ms|No|vs|e\.g|i\.e)\.)\s+(?=[\p{Lu}\d"“‘'(])""")
 private val htmlOptions = setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
 private val headingTagRegex = Regex("""<h([1-6])[^>]*>(.*?)</h\1>""", htmlOptions)
 // Paragrafo fatto solo di un link a un'altra pagina di travel.gc.ca ("Drugs, alcohol and travel"): fuori dal sito e' un titolo orfano.

@@ -360,8 +360,8 @@ jobs:
         with:
           cache-name: guides
 
-      # La passata inglese gira per prima: la sua guida "semplice" serve all'italiana per tradurre le sezioni povere
-      # dall'inglese (GUIDES_SOURCE_DB), e la passata inglese ricava da sola quella italiana per tradurre le sue.
+      # La passata inglese gira per prima: la guida che pubblica (GUIDES_FINAL_COPY) serve all'italiana per tradurre le
+      # sezioni del governo canadese (GUIDES_SOURCE_DB), e la passata inglese ricava da sola quella italiana per le sue.
       # GUIDES_TRANSLATE_SECONDS: tempo massimo di traduzione di ciascuna passata (60 minuti per l'italiano, che parte
       # da molto piu' testo inglese da tradurre, 15 per l'inglese), cosi' una direzione non toglie tempo all'altra; il
       # job pubblica comunque quello che e' pronto, il resto segue nelle run dopo grazie alla cache.
@@ -376,8 +376,8 @@ jobs:
           # Guida inglese (voce "guidesEn", asset guides-en--...): stessa release, cartella a parte. Se
           # fallisce non blocca quella italiana: il manifest tiene la voce guidesEn gia' pubblicata.
           OUT_EN="$RUNNER_TEMP/guides-en-out"
-          EN_PLAIN="$RUNNER_TEMP/guides-en-plain.db"
-          if GUIDES_TRANSLATE_SECONDS=900 GUIDES_PLAIN_COPY="$EN_PLAIN" tools/data-pipeline/scripts/build-guides.sh "$VERSION"             "https://github.com/${{ github.repository }}/releases/download/region-data-guide" "$OUT_EN"             "${{ env.PAGES_BASE_URL }}/manifest.json" en; then
+          EN_FINAL="$RUNNER_TEMP/guides-en-final.db"
+          if GUIDES_TRANSLATE_SECONDS=900 GUIDES_FINAL_COPY="$EN_FINAL" tools/data-pipeline/scripts/build-guides.sh "$VERSION"             "https://github.com/${{ github.repository }}/releases/download/region-data-guide" "$OUT_EN"             "${{ env.PAGES_BASE_URL }}/manifest.json" en; then
             if [ -f "$OUT_EN/guides.db.xz" ]; then
               asset="$OUT_EN/guides-en--${VERSION}--guides.db.xz"
               cp "$OUT_EN/guides.db.xz" "$asset"
@@ -388,7 +388,7 @@ jobs:
             echo "::warning::guida inglese non generata in questa run, resta quella pubblicata"
           fi
           OUT="$RUNNER_TEMP/guides-out"
-          GUIDES_TRANSLATE_SECONDS=3600 GUIDES_SOURCE_DB="$EN_PLAIN" tools/data-pipeline/scripts/build-guides.sh "$VERSION"             "https://github.com/${{ github.repository }}/releases/download/region-data-guide" "$OUT"             "${{ env.PAGES_BASE_URL }}/manifest.json"
+          GUIDES_TRANSLATE_SECONDS=3600 GUIDES_SOURCE_DB="$EN_FINAL" tools/data-pipeline/scripts/build-guides.sh "$VERSION"             "https://github.com/${{ github.repository }}/releases/download/region-data-guide" "$OUT"             "${{ env.PAGES_BASE_URL }}/manifest.json"
           if [ -f "$OUT/guides.db.xz" ]; then
             asset="$OUT/guides--${VERSION}--guides.db.xz"
             cp "$OUT/guides.db.xz" "$asset"

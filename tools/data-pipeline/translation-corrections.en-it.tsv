@@ -1,0 +1,272 @@
+# Traduzioni corrette a mano delle frasi piu' frequenti dei consigli di viaggio del Governo del Canada (travel.gc.ca),
+# dall'inglese all'italiano: translate_guides.py le usa al posto di quelle di MarianMT. Una riga "inglese<TAB>italiano",
+# la frase inglese esattamente come nella guida inglese; registro formale e impersonale. Riviste il 2026-10-09 una per una
+# (omissioni, aggiunte, numeri, senso, registro) le 495 frasi piu' frequenti, circa meta' del testo: qui quelle da correggere.
+Make sure you get travel insurance that includes coverage for medical evacuation and hospital stays.	Assicurarsi di stipulare un'assicurazione di viaggio che includa la copertura per l'evacuazione sanitaria e i ricoveri ospedalieri.
+Medical services and facilities	Servizi e strutture sanitarie
+Money	Denaro
+Driving	Guida su strada
+You must abide by local laws.	È necessario rispettare le leggi locali.
+Demonstrations	Manifestazioni
+Monitor local media for information on ongoing demonstrations	Monitorare i media locali per informazioni sulle manifestazioni in corso
+Penalties for possession, use or trafficking of illegal drugs are severe.	Le pene per il possesso, l'uso o il traffico di droghe illegali sono severe.
+2SLGBTQI+ persons	Persone 2SLGBTQI+
+Extreme and unusual weather events are becoming more frequent and may affect your travel plans.	Eventi meteorologici estremi e insoliti stanno diventando sempre più frequenti e possono incidere sui programmi di viaggio.
+There is a risk of chikungunya in this country.	C'è il rischio di chikungunya in questo paese.
+cover the keypad with one hand when entering your PIN	coprire la tastiera con una mano quando si inserisce il PIN
+avoid using card readers with an irregular or unusual feature	evitare di utilizzare lettori di carte con caratteristiche irregolari o insolite
+check for any unauthorized transactions on your account statements	controllare che non vi siano transazioni non autorizzate negli estratti conto
+Petty crime	Microcriminalità
+places of worship	luoghi di culto
+Violent crime	Criminalità violenta
+Always be aware of your surroundings when in public places.	Prestare sempre attenzione all'ambiente circostante quando ci si trova in luoghi pubblici.
+Public transportation	Trasporti pubblici
+Targets could include:	Tra i possibili obiettivi figurano:
+Travellers' diarrhea	Diarrea del viaggiatore
+Travellers are at higher risk when going to destinations with poor standards of hygiene and sanitation and/or eating at places with poor food handling practices.	I viaggiatori sono maggiormente a rischio quando si recano in destinazioni con scarsi standard igienici e sanitari e/o mangiano in luoghi con scarse pratiche di manipolazione degli alimenti.
+airports and other transportation hubs and networks	aeroporti e altri snodi e reti di trasporto
+stay informed of the latest regional weather forecasts	tenersi informati sulle più recenti previsioni meteorologiche regionali
+be prepared to change your travel plans on short notice, including cutting short or cancelling your trip	essere pronti a modificare i propri programmi di viaggio con breve preavviso, anche interrompendo o annullando il viaggio
+carry emergency contact information for your airline or tour operator	portare con sé i recapiti di emergenza della compagnia aerea o del tour operator
+Fraud	Frodi
+Identification	Documenti d'identità
+buy travel insurance that includes helicopter rescue and medical evacuation	stipulare un'assicurazione di viaggio che includa il soccorso in elicottero e l'evacuazione sanitaria
+Crime	Criminalità
+ensure that your physical condition is good enough to meet the challenges of your activity	accertarsi che la propria condizione fisica sia adeguata ad affrontare le difficoltà dell'attività
+use ATMs located in well-lit public areas or inside a bank or business	utilizzare sportelli bancomat situati in aree pubbliche ben illuminate o all'interno di una banca o di un esercizio commerciale
+pay careful attention when your cards are being handled by others	prestare molta attenzione quando le proprie carte vengono maneggiate da altri
+In this country, risk of dengue is sporadic.	In questo paese il rischio di dengue è sporadico.
+In this country, dengue is a risk to travellers.	In questo paese la dengue costituisce un rischio per i viaggiatori.
+Stay informed of the latest regional weather forecasts	Tenersi informati sulle ultime previsioni meteo regionali
+Human cases of avian influenza have been reported in this destination.	In questa destinazione sono stati segnalati casi umani di influenza aviaria.
+In case of a major fire:	In caso di incendio di vaste proporzioni:
+These severe storms can put you at risk and hamper the provision of essential services.	Queste forti tempeste possono mettere a rischio i viaggiatori e ostacolare la fornitura dei servizi essenziali.
+Earthquakes	Terremoti
+Zika virus is a risk in this country.	Il virus Zika costituisce un rischio in questo paese.
+know the symptoms of high-altitude illnesses, which can be fatal	conoscere i sintomi delle malattie da alta quota, che possono essere fatali
+monitor local media for the latest information	seguire i media locali per le informazioni più recenti
+inform a family member or friend of your itinerary, including when you expect to be back to camp	informare un familiare o un amico del proprio itinerario, compreso l'orario previsto di rientro al campo
+Flooding and landslides	Inondazioni e frane
+A tsunami can occur within minutes of a nearby earthquake.	Uno tsunami può verificarsi pochi minuti dopo un terremoto nelle vicinanze.
+The air quality in areas near active fires may deteriorate due to heavy smoke.	La qualità dell'aria nelle aree in prossimità di incendi attivi può peggiorare a causa del fumo denso.
+power distribution	distribuzione dell'energia elettrica
+transportation	trasporti
+During this period, even small tropical storms can quickly develop into major hurricanes.	Durante questo periodo, anche piccole tempeste tropicali possono trasformarsi rapidamente in uragani di forte intensità.
+You could face serious safety risks during a hurricane.	Durante un uragano si potrebbe essere esposti a gravi rischi per la sicurezza.
+You should carefully consider these risks when planning a trip during the hurricane season.	È opportuno valutare attentamente questi rischi quando si pianifica un viaggio durante la stagione degli uragani.
+If you decide to travel to a coastal area during the hurricane season despite the risks:	Se si decide di recarsi in una zona costiera durante la stagione degli uragani nonostante i rischi:
+Volcanoes	Vulcani
+Spiked food and drinks	Cibo e bevande drogati
+Demonstrations may occur.	Possono verificarsi manifestazioni.
+During your trip:	Durante il viaggio:
+However, the risk of tsunami can remain for several hours following the first tremor.	Tuttavia, il rischio di tsunami può persistere per diverse ore dopo la prima scossa.
+Dress and behaviour	Abbigliamento e comportamento
+Driving habits	Abitudini di guida
+Convicted offenders can expect jail sentences and heavy fines.	I trasgressori condannati possono incorrere in pene detentive e pesanti multe.
+Pack your medication in your carry-on luggage	Riporre i farmaci nel bagaglio a mano
+exercise caution	usare cautela
+dress conservatively	vestire in modo sobrio
+behave discreetly	comportarsi con discrezione
+If you participate in or are witness to a demonstration, you may be subject to scrutiny and severe legal action.	Chi partecipa o assiste a una manifestazione può essere sottoposto a controlli e a gravi conseguenze legali.
+Convicted offenders can expect lengthy jail sentences and heavy fines.	I trasgressori condannati possono incorrere in lunghe pene detentive e pesanti multe.
+Never leave food or drinks unattended or in the care of strangers.	Non lasciare mai cibo o bevande incustoditi o affidati a sconosciuti.
+Authorized and unauthorized demonstrations can take place with little or no notice.	Manifestazioni autorizzate e non autorizzate possono avere luogo con poco o nessun preavviso.
+use ATMs located in public areas or inside a bank or business	utilizzare sportelli bancomat situati in aree pubbliche o all'interno di una banca o di un'attività commerciale
+pay careful attention when others are handling your cards	prestare particolare attenzione quando altre persone maneggiano le proprie carte
+Cybercrime	Criminalità informatica
+Always keep your medication in the original container and carry a copy of your prescriptions	Conservare sempre i farmaci nella confezione originale e portare con sé una copia delle ricette mediche
+Traffic drives on the left.	Si guida a sinistra.
+If you're staying on the coast, familiarize yourself with the region's evacuation plans in the event of a tsunami warning.	Se si soggiorna sulla costa, informarsi sui piani di evacuazione della regione in caso di allerta tsunami.
+During your stay:	Durante il soggiorno:
+Be wary of accepting snacks, beverages, gum or cigarettes from new acquaintances.	Diffidare dall'accettare snack, bevande, gomme da masticare o sigarette da nuove conoscenze.
+These items may contain drugs that could put you at risk of sexual assault and robbery.	Questi prodotti possono contenere droghe che potrebbero esporre al rischio di violenza sessuale e rapina.
+Bring enough medication for your stay	Portare farmaci sufficienti per tutto il soggiorno
+never do so alone and always hire an experienced guide from a reputable company	non farlo mai da soli e rivolgersi sempre a una guida esperta di un'agenzia affidabile
+Bush and forest fires	Incendi boschivi e di vegetazione
+Heat and humidity	Caldo e umidità
+keep your personal belongings, including your passport and other travel documents, in a secure place	conservare i propri effetti personali, compresi il passaporto e gli altri documenti di viaggio, in un luogo sicuro
+Always keep your medication in the original container	Conservare sempre i farmaci nella confezione originale
+avoid travelling at night	evitare di viaggiare di notte
+Ensure that your belongings, including passports and other travel documents, are secure at all times	Assicurarsi che gli effetti personali, compresi passaporti e altri documenti di viaggio, siano sempre al sicuro
+Adventure tourism	Turismo d'avventura
+Ensure that your personal belongings, including your passport and other travel documents, are secure at all times	Assicurarsi che gli effetti personali, compresi il passaporto e gli altri documenti di viaggio, siano sempre al sicuro
+Prescription medication	Farmaci soggetti a prescrizione
+Home break-ins	Furti in abitazione
+The storm is likely to bring excessive rainfall and violent winds.	È probabile che la tempesta porti piogge torrenziali e venti violenti.
+It may cause flash flooding and landslides and could severely disrupt the following essential services:	Può causare inondazioni improvvise e frane e potrebbe interrompere gravemente i seguenti servizi essenziali:
+United States - Take normal security precautions	Stati Uniti - Adottare le normali precauzioni di sicurezza
+Take normal security precautions in the United States.	Adottare le normali precauzioni di sicurezza negli Stati Uniti.
+Northern Gulf coast - Avoid non-essential travel	Costa settentrionale del Golfo - Evitare i viaggi non essenziali
+Avoid non-essential travel to to the northern Gulf coast, from Ocean Springs, Mississippi, to the Bay/Gulf county line, Florida, due to Hurricane Isaias.	Evitare i viaggi non essenziali verso la costa settentrionale del Golfo, da Ocean Springs, Mississippi, al confine tra le contee di Bay e Gulf, Florida, a causa dell'uragano Isaias.
+Petty crime, such as pickpocketing and purse snatching, occurs, particularly in urban centres and tourist locations.	La microcriminalità, come il borseggio e lo scippo, è presente, in particolare nei centri urbani e nelle località turistiche.
+Don’t leave bags or valuables unattended in parked cars, especially rental vehicles, even in trunks	Non lasciare borse o oggetti di valore incustoditi nelle auto parcheggiate, in particolare nei veicoli a noleggio, nemmeno nel bagagliaio
+It often involves intoxication.	Spesso entra in gioco lo stato di ebbrezza.
+Incidents of violent crime are mainly carried out by gangs or members of organized crime groups but may also be perpetrated by lone individuals.	Gli episodi di criminalità violenta sono commessi principalmente da bande o da membri di gruppi della criminalità organizzata, ma possono essere perpetrati anche da individui isolati.
+Although violent crime rarely affects tourists:	Anche se la criminalità violenta colpisce raramente i turisti:
+be mindful of your surroundings at all time	prestare attenzione all'ambiente circostante in ogni momento
+verify official neighbourhood crime statistics before planning an outing	verificare le statistiche ufficiali sulla criminalità nei quartieri prima di programmare un'uscita
+if threatened by robbers, stay calm and don’t resist	in caso di minaccia da parte di rapinatori, mantenere la calma e non opporre resistenza
+Crime Data Explorer – Federal Bureau of Investigation	Crime Data Explorer – Federal Bureau of Investigation
+Gun violence	Violenza armata
+It’s legal in many states for U.S. citizens to openly carry firearms in public.	In molti stati i cittadini statunitensi possono legalmente portare armi da fuoco in modo visibile in pubblico.
+Incidences of mass shootings occur, resulting most often in casualties.	Si verificano sparatorie di massa, che il più delle volte causano vittime.
+Familiarize yourself on how to respond to an active shooter situation.	Informarsi su come reagire in caso di sparatoria in corso.
+Active Shooter Preparedness – Cybersecurity and Infrastructure Security Agency	Preparazione in caso di sparatorie – Cybersecurity and Infrastructure Security Agency
+Make sure you lock windows and doors securely at night and when you are away.	Chiudere bene a chiave finestre e porte di notte e quando si è fuori.
+Be on alert for robbery ploys targeting visitors.	Prestare attenzione agli stratagemmi dei rapinatori che prendono di mira i visitatori.
+They then wait for the driver to pull over or exit the car before grabbing exposed valuables.	Poi aspettano che il conducente accosti o scenda dall'auto per impossessarsi degli oggetti di valore in vista.
+Criminals may also throw items at the windshield, obscuring the view of the road and forcing the driver to pull over.	I criminali possono anche lanciare oggetti contro il parabrezza, oscurando la vista della strada e costringendo il conducente ad accostare.
+If you’re the victim of such a ploy:	Se si è vittima di un simile stratagemma:
+avoid pulling over on the side of the road	evitare di accostare sul ciglio della strada
+put on your hazard lights and slowly drive to a gas station, police station or other safe and populated area	accendere le luci di emergenza e guidare lentamente fino a una stazione di servizio, un commissariato di polizia o un'altra zona sicura e frequentata
+If you intend on hiking, backpacking or skiing:	Se si intende fare escursioni, trekking con lo zaino o sciare:
+never practise these activities alone and always hire an experienced guide from a reputable company	non praticare mai queste attività da soli e rivolgersi sempre a una guida esperta di un'agenzia affidabile
+obtain detailed information on hiking routes or ski slopes before setting out and do not venture off marked trails or slopes	ottenere informazioni dettagliate sui percorsi escursionistici o sulle piste da sci prima di partire e non avventurarsi fuori dai sentieri o dalle piste segnalati
+Identification and proof of status	Documenti d'identità e prova dello status
+Carry government-issued photo I.D. and photocopies of the identification page of your passport and other travel documents in case they are lost or stolen.	Portare con sé un documento d'identità con foto rilasciato dalle autorità e fotocopie della pagina d'identificazione del passaporto e degli altri documenti di viaggio, in caso di smarrimento o furto.
+Be prepared to show evidence of your legal presence in the U.S.	Essere pronti a dimostrare la propria presenza legale negli Stati Uniti.
+Penalties and transfer of offenders	Sanzioni e trasferimento dei condannati
+If you do so, you can expect legal prosecution and fines, and possibly jail time.	In tal caso, si rischiano procedimenti giudiziari, multe ed eventualmente il carcere.
+Personal medication may be subject to U.S. drug importation laws and regulations.	I farmaci personali possono essere soggetti alle leggi e ai regolamenti statunitensi sull'importazione di farmaci.
+In general, personal importation of a 90-day supply of medication is allowed.	In generale, è consentita l'importazione per uso personale di una scorta di farmaci per 90 giorni.
+When taking any prescription medication to the United States, it’s important to:	Quando si portano farmaci soggetti a prescrizione negli Stati Uniti, è importante:
+take only the quantity that you would normally take for the number of days you will be in the United States, plus an additional week’s worth	portare solo la quantità che si assumerebbe normalmente per il numero di giorni di permanenza negli Stati Uniti, più una scorta per una settimana aggiuntiva
+pack medicines in their original packaging with the dispensary label intact that shows your name and other pertinent information such as the drug’s name, dosage and DIN (drug identification number)	riporre i medicinali nella confezione originale con l'etichetta della farmacia intatta che riporti il proprio nome e altre informazioni pertinenti, come il nome del farmaco, il dosaggio e il DIN (numero di identificazione del farmaco)
+keep a duplicate of your original prescription, listing both the generic and trade names of the drug	conservare una copia della prescrizione originale, che riporti sia il nome generico sia il nome commerciale del farmaco
+have a physician’s note explaining your condition and the reason for you to be legitimately carrying syringes, if applicable	avere un certificato medico che spieghi la propria condizione e il motivo per cui si portano legittimamente siringhe, se del caso
+NEXUS applications	Domande NEXUS
+passenger manifests	liste dei passeggeri
+Social Security applications	domande di previdenza sociale (Social Security)
+Some states have enacted laws affecting 2SLGBTQI+ persons.	Alcuni stati hanno emanato leggi che riguardano le persone 2SLGBTQI+.
+Expedited removal	Espulsione accelerata
+U.S. Customs and Border Protection can bar non-citizens from the United States for five years if, in their judgment, the individuals presented false documentation or misrepresented themselves.	La U.S. Customs and Border Protection può vietare l'ingresso negli Stati Uniti ai non cittadini per cinque anni se, a suo giudizio, hanno presentato documenti falsi o fornito false dichiarazioni su se stessi.
+There is no formal appeal process under expedited removal.	Non esiste una procedura formale di ricorso contro l'espulsione accelerata.
+However, if you believe the law has been misapplied in your case, you can request a supervisory review by writing to the U.S. Citizenship and Immigration Services district director responsible for the port of entry where the decision was made.	Tuttavia, se si ritiene che la legge sia stata applicata in modo errato nel proprio caso, è possibile chiedere un riesame gerarchico scrivendo al direttore distrettuale dell'U.S. Citizenship and Immigration Services competente per il punto d'ingresso in cui è stata presa la decisione.
+Find a USCIS office – U.S. Citizenship and Immigration Services	Trovare un ufficio USCIS – U.S. Citizenship and Immigration Services
+Contact the specific U.S. border crossing you are planning to use before starting your trip for the latest information on allowances and restrictions on bringing items into the United States.	Prima di partire, contattare lo specifico valico di frontiera statunitense che si intende utilizzare per le informazioni più recenti sulle franchigie e sulle restrizioni all'introduzione di beni negli Stati Uniti.
+Declare all items at your point of entry.	Dichiarare tutti i beni al punto d'ingresso.
+Tourists may not travel between the two countries.	I turisti non possono viaggiare tra i due paesi.
+However, you may go to Cuba from the United States on other types of travel, if you meet certain requirements.	Tuttavia, è possibile recarsi a Cuba dagli Stati Uniti per altri tipi di viaggio, se si soddisfano determinati requisiti.
+Cuba sanctions – U.S. Department of the Treasury	Sanzioni contro Cuba – Dipartimento del Tesoro degli Stati Uniti
+Many states have mandatory automobile insurance requirements, and many require motorists to carry appropriate proof of insurance.	Molti stati prevedono l'obbligo di assicurazione auto e molti richiedono agli automobilisti di portare con sé un'adeguata prova di assicurazione.
+Each state’s motor vehicles department can give you more specific information.	Il dipartimento della motorizzazione di ciascuno stato può fornire informazioni più specifiche.
+If you are in the United States and wish to drive to Mexico in your personal vehicle, you may need to purchase liability insurance and additional auto insurance.	Se ci si trova negli Stati Uniti e si desidera raggiungere il Messico con il proprio veicolo, potrebbe essere necessario acquistare un'assicurazione di responsabilità civile e un'assicurazione auto aggiuntiva.
+Though you may not be carrying anything illegal, the hitchhiker or driver might be, and you could be implicated.	Anche se non si trasporta nulla di illegale, l'autostoppista o il conducente potrebbero farlo e si potrebbe esserne coinvolti.
+Be equally careful about who and what you carry in your vehicle.	Prestare altrettanta attenzione a chi e a cosa si trasporta nel proprio veicolo.
+As the driver, you could be held responsible for the misdeeds and belongings of your passengers, even if you were unaware of the problem.	In qualità di conducente, si potrebbe essere ritenuti responsabili delle azioni illecite e degli oggetti dei propri passeggeri, anche senza essere a conoscenza del problema.
+There’s no limit to the amount of money that you may legally take into or out of the United States.	Non esiste alcun limite alla quantità di denaro che si può legalmente portare negli Stati Uniti o fuori dagli Stati Uniti.
+However, you must declare to U.S. Customs and Border Protection:	Tuttavia, è necessario dichiarare alla U.S. Customs and Border Protection:
+if you carry more than US$10,000 (in cash, cheque, money order, travellers’ cheque or any other convertible asset) into or out of the United States	se si trasportano più di 10.000 US$ (in contanti, assegni, vaglia, traveller's cheque o qualsiasi altro bene convertibile) in entrata o in uscita dagli Stati Uniti
+if you will receive more than US$10,000 while in the United States	se si riceveranno più di 10.000 dollari statunitensi durante il soggiorno negli Stati Uniti
+Hurricane Isaias is expected to make landfall as a hurricane on the northern Gulf coast, between Ocean City, Mississippi and the Bay/Gulf county line, Florida, early on October 10, 2026.	Si prevede che l'uragano Isaias tocchi terra come uragano sulla costa settentrionale del Golfo, tra Ocean City, Mississippi, e il confine tra le contee di Bay e Gulf, Florida, nelle prime ore del 10 ottobre 2026.
+If you are in the affected area of the northern Gulf coast:	Se ci si trova nella zona interessata della costa settentrionale del Golfo:
+Plan Ahead for Disasters – U.S. Department of Homeland Security	Prepararsi in anticipo alle catastrofi – Dipartimento della Sicurezza Nazionale degli Stati Uniti
+If you're in an area prone to earthquakes, familiarize yourself with emergency procedures.	Se ci si trova in una zona soggetta a terremoti, informarsi sulle procedure di emergenza.
+Earthquakes – Federal Emergency Management	Terremoti – Federal Emergency Management
+Humidity and heat may be most severe during the hot season, from June to September, particularly in the South and South-West of the country.	L'umidità e il caldo possono essere particolarmente intensi durante la stagione calda, da giugno a settembre, in particolare nel Sud e nel Sud-Ovest del paese.
+Bush and forest fires are common and a risk across much of the United States, particularly during the summer months.	Gli incendi boschivi e di vegetazione sono frequenti e costituiscono un rischio in gran parte degli Stati Uniti, in particolare durante i mesi estivi.
+Wildfires can occur year-round but they are most common during periods of low rainfall and high temperatures.	Gli incendi boschivi possono verificarsi tutto l'anno, ma sono più frequenti nei periodi di scarse precipitazioni e temperature elevate.
+Tornadoes pose a risk across much of the United States, particularly in central, mid-west and southern states.	I tornado rappresentano un rischio in gran parte degli Stati Uniti, in particolare negli stati centrali, del Midwest e meridionali.
+The air quality may deteriorate and affect you, especially if you suffer from respiratory ailments.	La qualità dell'aria può peggiorare e avere ripercussioni, soprattutto su chi soffre di disturbi respiratori.
+Be prepared to modify your travel arrangements or even evacuate the area on short notice	Essere pronti a modificare i propri programmi di viaggio o persino a evacuare la zona con breve preavviso
+Tsunami Evacuation Zones – Government of Hawaii	Zone di evacuazione in caso di tsunami – Governo delle Hawaii
+However, treatment costs are expensive.	Tuttavia, i costi delle cure sono elevati.
+Clients will, however, be charged for all services rendered.	Tuttavia, ai clienti saranno addebitati tutti i servizi prestati.
+Foreign visitors without travel health insurance will have to pay out of pocket for their medical treatment.	I visitatori stranieri senza assicurazione sanitaria di viaggio dovranno pagare di tasca propria le cure mediche.
+Bring sufficient quantities of your medication	Portare quantità sufficienti dei propri farmaci
+Ensure to have a physician’s note explaining your medical condition, if applicable	Assicurarsi di avere un certificato medico che spieghi la propria condizione clinica, se del caso
+always drive defensively	guidare sempre in modo difensivo
+Penalties for drinking and driving are severe.	Le sanzioni per la guida in stato di ebbrezza sono severe.
+Cholera is a risk in parts of this country.	In alcune zone di questo paese esiste un rischio di colera.
+Wildfires	Incendi boschivi
+hotel lobbies	hall degli hotel
+Bring sufficient quantities of your medication with you	Portare con sé quantità sufficienti dei propri farmaci
+Live piracy map – International Maritime Bureau Piracy Reporting Centre	Mappa della pirateria in tempo reale – International Maritime Bureau Piracy Reporting Centre
+be aware of your surroundings, especially in busy tourist areas	prestare attenzione all'ambiente circostante, soprattutto nelle zone turistiche affollate
+You should carry an international driving permit.	È consigliabile portare con sé un permesso internazionale di guida.
+monitor local media	monitorare i media locali
+Carry a copy of your prescriptions	Portare con sé una copia delle ricette mediche
+In 2027, the lunar month of Ramadan is expected to begin on or around February 7.	Nel 2027, il mese lunare del Ramadan dovrebbe iniziare intorno al 7 febbraio.
+smoking	fumare
+know that you expose yourself to serious safety risks	essere consapevoli di esporsi a gravi rischi per la sicurezza
+Monitor weather reports	Seguire i bollettini meteorologici
+armed robberies	rapine a mano armata
+Be cautious when posting information or photos on social media	Prestare attenzione quando si pubblicano informazioni o foto sui social media
+This does not apply if you are travelling within the European Union or in transit to a non-EU country.	Questo non si applica se si viaggia all'interno dell'Unione Europea o in transito verso un paese non UE.
+EU Cash Controls – European Commission	Controlli sul denaro contante nell'UE – Commissione europea
+inform a family member or friend of your itinerary	informare un familiare o un amico del proprio itinerario
+avoid isolated areas	evitare le zone isolate
+Mariners should take appropriate precautions.	I naviganti devono adottare le opportune precauzioni.
+limit your activities outdoors	limitare le attività all'aperto
+High-altitude illnesses	Malattie da alta quota
+ensure that your physical condition is good enough to tackle the challenges of your activity	accertarsi che la propria condizione fisica sia adeguata ad affrontare le difficoltà dell'attività
+government buildings, including police stations	edifici governativi, compresi i commissariati di polizia
+Pack them in your carry-on luggage	Riporli nel bagaglio a mano
+Petty crime, such as pickpocketing and purse snatching, occurs.	La microcriminalità, come borseggi e scippi, è presente.
+Pack your own luggage and monitor it closely at all times	Preparare personalmente il proprio bagaglio e sorvegliarlo attentamente in ogni momento
+During this period, even small storms can quickly develop into major typhoons.	Durante questo periodo, anche piccole tempeste possono trasformarsi rapidamente in tifoni di forte intensità.
+be aware of your surroundings	prestare attenzione a ciò che accade intorno a sé
+Riptides are common.	Le correnti di risacca sono frequenti.
+Always meet new acquaintances in a secure and familiar location	Incontrare sempre le nuove conoscenze in un luogo sicuro e conosciuto
+If a police officer suspects you of drinking and driving, they could confiscate your driver's licence on the spot.	Se un agente di polizia sospetta che si stia guidando in stato di ebbrezza, potrebbe ritirare la patente di guida sul posto.
+Surrogacy	Maternità surrogata
+You shouldn't expect internet privacy.	Non ci si deve aspettare riservatezza su Internet.
+If you’re in an affected area:	Se ci si trova in una zona interessata:
+Convicted offenders can expect jail sentences or heavy fines.	I condannati possono aspettarsi pene detentive o pesanti multe.
+obtain detailed information on your activity and the environment in which you will be setting out	ottenere informazioni dettagliate sulla propria attività e sull'ambiente in cui ci si avventurerà
+High-altitude illnesses may occur at high altitudes.	Le malattie da alta quota possono manifestarsi ad alta quota.
+Your communications may be monitored at any time, and authorities may review the content stored or consulted on your electronic devices.	Le comunicazioni possono essere monitorate in qualsiasi momento e le autorità possono esaminare i contenuti memorizzati o consultati sui dispositivi elettronici.
+The Chinese government may ban or sanction entities or individuals for actions, including oral or written statements, and associations with entities that are critical of:	Il governo cinese può vietare o sanzionare entità o individui per azioni, incluse dichiarazioni orali o scritte, e per associazioni con entità critiche nei confronti di:
+the Chinese government	il governo cinese
+Chinese leaders and policies	i leader e le politiche cinesi
+prohibition of business or association with Chinese citizens and organizations	divieto di svolgere attività commerciali o di avere rapporti con cittadini e organizzazioni cinesi
+stay on marked trails and consider hiring an experienced guide from a reputable company	rimanere sui sentieri segnalati e valutare di rivolgersi a una guida esperta di un'agenzia affidabile
+obtain detailed information on trekking routes before setting out and do not venture off marked trails or slopes	ottenere informazioni dettagliate sui percorsi di trekking prima di partire e non avventurarsi fuori dai sentieri segnalati o dalle piste
+Always carry ID	Portare sempre con sé un documento d'identità
+Ensure that the train compartment contains packages belonging only to you and other occupants	Assicurarsi che lo scompartimento del treno contenga solo pacchi appartenenti a sé e agli altri occupanti
+Store personal belongings in a safe place, and don't leave the compartment unattended	Conservare gli oggetti personali in un luogo sicuro e non lasciare lo scompartimento incustodito
+If you've been scammed:	In caso di truffa:
+get to a safe location immediately	raggiungere immediatamente un luogo sicuro
+notify the police and obtain a report	informare la polizia e ottenere un verbale di denuncia
+delaying or refusing renewals of press cards and visas	ritardare o rifiutare il rinnovo delle tessere stampa e dei visti
+If you intend on engaging in trekking activities:	Se si intende praticare il trekking:
+The Government of the People's Republic of China does not publicize a list of banned or sanctioned entities or individuals, and the implementation of bans or sanctions remains vague.	Il governo della Repubblica popolare cinese non rende pubblico un elenco di entità o persone vietate o sanzionate e l'attuazione di divieti o sanzioni rimane vaga.
+However, make sure you are well informed before signing a contract.	Tuttavia, assicurarsi di essere ben informati prima di firmare un contratto.
+There is an ongoing risk of additional flooding and mudslides.	Esiste un rischio costante di ulteriori inondazioni e frane.
+move to higher ground if it is safe to do so	raggiungere un'altura se è possibile farlo in sicurezza
+If you require assistance, contact the Emergency Watch and Response Centre in Ottawa.	In caso di bisogno di assistenza, contattare il Centro di vigilanza e risposta alle emergenze a Ottawa.
+China - Exercise a high degree of caution	Cina - Usare un elevato grado di cautela
+Exercise a high degree of caution in China.	Adottare un elevato grado di cautela in Cina.
+Gyirong County - Avoid non-essential travel	Contea di Gyirong - Evitare i viaggi non essenziali
+Avoid non-essential travel to Gyirong County due to severe flash flooding and mudslide damage, as well as the continued risk of further flooding and mudslides.	Evitare i viaggi non essenziali nella contea di Gyirong a causa delle gravi inondazioni improvvise e dei danni provocati dalle colate di fango, nonché del persistente rischio di ulteriori inondazioni e colate di fango.
+Chinese authorities are increasingly detaining ethnic and Muslim minorities in the region without due process.	Le autorità cinesi trattengono sempre più spesso membri delle minoranze etniche e musulmane nella regione senza un giusto processo.
+You may be at risk of arbitrary detention if you have familial or ethnic ties to the Xinjiang Uighur Autonomous Region.	Chi ha legami familiari o etnici con la Regione autonoma uigura dello Xinjiang potrebbe essere a rischio di detenzione arbitraria.
+Expect a heightened security presence and frequent security checks	Aspettarsi una maggiore presenza delle forze di sicurezza e frequenti controlli di sicurezza
+Expect significant travel delays	Prevedere notevoli ritardi nei viaggi
+Tibet and Tibetan autonomous prefectures	Tibet e prefetture autonome tibetane
+If you enter a restricted area without the requisite permit, you could be fined, taken into custody, and deported for illegal entry.	Chi entra in un'area soggetta a restrizioni senza il permesso richiesto potrebbe essere multato, arrestato ed espulso per ingresso illegale.
+Where possible, make full payment for travel conditional upon a travel permit being secured while noting that changes in Tibet's security situation can affect travel and related government policies at any time.	Ove possibile, subordinare il pagamento integrale del viaggio all'ottenimento del permesso di viaggio, tenendo presente che i cambiamenti nella situazione di sicurezza del Tibet possono influire in qualsiasi momento sui viaggi e sulle relative politiche governative.
+In these regions, expect:	In queste regioni è opportuno aspettarsi:
+increased security measures and police presence	aumento delle misure di sicurezza e della presenza della polizia
+surveillance measures	misure di sorveglianza
+that unauthorised gatherings may be dispersed by force	che i raduni non autorizzati possono essere dispersi con la forza
+that some places of worship or cultural sites of interest may be off-limits to foreigners	che alcuni luoghi di culto o siti culturali di interesse possano essere vietati agli stranieri
+If you travel to these regions despite the risks:	Se ci si reca in queste regioni nonostante i rischi:
+contact a reputable travel agency and the Chinese Embassy or a consulate before you leave to learn about entry requirements	contattare un'agenzia di viaggio affidabile e l'ambasciata cinese o un consolato prima di partire per conoscere i requisiti di ingresso
+exercise caution due to increased scrutiny on foreigners	usare cautela a causa dei maggiori controlli sugli stranieri
+don't film or photograph unauthorised gatherings or outbreaks of violence	non filmare né fotografare raduni non autorizzati o episodi di violenza
+Petty crime, such as pickpocketing, purse snatching and theft of mobile phones and other electronic devices occurs, even during the day.	La microcriminalità, come borseggi, scippi e furti di telefoni cellulari e di altri dispositivi elettronici, è presente anche di giorno.
+Petty crime and sexual harassment can occur on buses and overnight trains.	Microcriminalità e molestie sessuali possono verificarsi su autobus e treni notturni.
+You should securely lock the doors	È opportuno chiudere bene a chiave le porte
+Serious crime against foreigners is relatively rare, but incidents do occur.	I reati gravi contro gli stranieri sono relativamente rari, ma alcuni episodi si verificano.
+Exercise caution in popular tourist areas (particularly in Beijing's Tiananmen Square and Shanghai's the Bund, East Nanjing Road and People's Square), where scammers target foreigners.	Prestare attenzione nelle zone turistiche frequentate (in particolare piazza Tiananmen a Pechino e, a Shanghai, il Bund, East Nanjing Road e People's Square), dove i truffatori prendono di mira gli stranieri.
+Scammers may invite you to a nearby establishment for a drink (usually tea or alcohol), a massage or other services.	I truffatori possono invitare i viaggiatori in un locale vicino per bere qualcosa (di solito tè o alcolici), per un massaggio o per altri servizi.
+They will then ask you to pay an exorbitant bill (up to thousands of dollars), sometimes under threat of injury.	Verrà quindi chiesto di pagare un conto esorbitante (fino a migliaia di dollari), talvolta sotto minaccia di aggressione.
+In some cases, foreigners were harmed.	In alcuni casi, gli stranieri hanno subito violenze.
+Be cautious of unsolicited requests from strangers to "practice English" or to accompany them to an art gallery, teahouse or an unknown location.	Diffidare delle richieste non sollecitate di sconosciuti di "fare pratica di inglese" o di accompagnarli in una galleria d'arte, in una sala da tè o in un luogo sconosciuto.
+take note, as soon as possible of the name and address of the facility where you were held; this information is required by police to identify the persons involved and issue a report	prendere nota, appena possibile, del nome e dell'indirizzo della struttura in cui si è stati trattenuti; queste informazioni sono richieste dalla polizia per identificare le persone coinvolte e redigere un verbale
+call your credit card company to report the scam; they will likely request a copy of the police report to cancel the transaction	chiamare l'emittente della carta di credito per segnalare la truffa; probabilmente verrà richiesta una copia della denuncia alla polizia per annullare la transazione
+Foreigners have received calls from scammers claiming to be the police.	Gli stranieri hanno ricevuto chiamate da truffatori che si spacciano per agenti di polizia.
+The caller says that local authorities are investigating them for identity theft or money-laundering operation and requests a fund transfer to resolve the issue.	Il chiamante afferma che le autorità locali stanno indagando sulla persona contattata per furto d'identità o riciclaggio di denaro e chiede un trasferimento di fondi per risolvere il problema.
+Since most Chinese use their mobile device as payment method, digital and mobile phone scams are a common issue.	Poiché la maggior parte dei cinesi utilizza il proprio dispositivo mobile come metodo di pagamento, le truffe digitali e telefoniche sono un problema comune.
+You should be vigilant if you use your smartphone to scan, transfer funds or make payments.	Si consiglia di essere vigili se si usa lo smartphone per effettuare scansioni, trasferire fondi o fare pagamenti.
