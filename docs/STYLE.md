@@ -95,6 +95,8 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Categorie della mappa da mostrare o nascondere | filtri | filters |
 | Come ci si sposta (A piedi, Bici, Auto...) | modo | travel mode |
 | Opzione di accessibilita' | in sedia a rotelle | wheelchair |
+| Accessibilita' dal tag OSM `wheelchair`, nel riquadro di treno, metro, autobus e traghetto | stazione | station |
+| Accessibilita' dal GTFS della rete (`wheelchair_boarding`) | fermata dei mezzi | public transport stop |
 | Categoria della guida con i dati essenziali | Fatti rapidi | Quick facts |
 | Mappa a bassa risoluzione installata da sola | mappa d'insieme | overview map |
 | Mappa per scegliere la nazione | mappa delle nazioni | country map |

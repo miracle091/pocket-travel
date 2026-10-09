@@ -359,7 +359,7 @@ fun MapScreen(
                         }
                     }
                 }
-                wheelchairLabel(pin.wheelchair)?.let { label ->
+                wheelchairLabel(pin.wheelchair, station = pin.category in TRANSIT_CATEGORIES)?.let { label ->
                     PoiDetailRow(ImageVector.vectorResource(UiR.drawable.ms_accessible), stringResource(label))
                 }
                 toiletsWheelchairLabel(pin.toiletsWheelchair)?.let { label ->
@@ -504,11 +504,13 @@ internal fun PoiBadge(category: PoiCategory, size: Int) {
 }
 
 // Solo i valori OSM con un significato chiaro; gli altri (es. "unknown") come se mancasse.
+// Nelle stazioni dice "Stazione": il tag OSM descrive l'edificio, mentre la riga "Fermata dei
+// mezzi" viene dal GTFS della rete (wheelchair_boarding) e le due possono non coincidere.
 @StringRes
-private fun wheelchairLabel(value: String?): Int? = when (value) {
-    "yes", "designated" -> R.string.poi_wheelchair_yes
-    "limited" -> R.string.poi_wheelchair_limited
-    "no" -> R.string.poi_wheelchair_no
+private fun wheelchairLabel(value: String?, station: Boolean): Int? = when (value) {
+    "yes", "designated" -> if (station) R.string.poi_station_wheelchair_yes else R.string.poi_wheelchair_yes
+    "limited" -> if (station) R.string.poi_station_wheelchair_limited else R.string.poi_wheelchair_limited
+    "no" -> if (station) R.string.poi_station_wheelchair_no else R.string.poi_wheelchair_no
     else -> null
 }
 
