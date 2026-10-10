@@ -107,7 +107,7 @@ adb shell cmd locale set-app-locales com.pockettravel.app --locales en   # o it
 ## Rilasciare una versione
 
 1. Aggiornare `versionCode` e `versionName` in `app/build.gradle.kts`.
-2. Nel `CHANGELOG.md` rinominare "Non rilasciato" con il numero di versione.
+2. Nel `CHANGELOG.md` spostare le voci di "Non rilasciato" sotto `## [X.Y.Z] - AAAA-MM-GG` (data del rilascio), lasciare in cima un "Non rilasciato" vuoto e aggiornare i link di confronto in fondo al file.
 3. Se i nuovi dati richiedono questa versione dell'app, aggiornare `tools/data-pipeline/min-app-version-code`.
 4. Fare il push su `main`: `publish-apk.yml` firma l'APK e crea la release. La pipeline dei dati pubblicherà i dati nuovi solo dopo.
 

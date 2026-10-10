@@ -154,11 +154,11 @@ jobs:
           CHANGELOG_URL="https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md"
           NOTES_FILE="$RUNNER_TEMP/release-notes.md"
 
-          # Estrae solo la sezione di questa versione da CHANGELOG.md (dal suo "## [VERSION]"
-          # alla prossima intestazione "## [", esclusa), cosi' le note della release non
-          # duplicano a mano un testo che va tenuto sincronizzato in un solo posto.
+          # Estrae solo la sezione di questa versione da CHANGELOG.md (dal suo "## [VERSION]",
+          # con o senza " - <data>", alla prossima intestazione "## [", esclusa), cosi' le note
+          # della release non duplicano a mano un testo che va tenuto sincronizzato in un solo posto.
           SECTION="$(awk -v ver="## [$VERSION]" '
-            $0 == ver { found=1; next }
+            $0 == ver || index($0, ver " - ") == 1 { found=1; next }
             found && /^## \[/ { exit }
             found { print }
           ' CHANGELOG.md)"

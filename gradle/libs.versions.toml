@@ -35,9 +35,9 @@ fragmentKtx = "1.9.1"
 exifinterface = "1.4.2"
 camerax = "1.6.2"
 material3Adaptive = "1.3.0"
-# Alpha di proposito: i componenti Expressive (LoadingIndicator, wavy progress, FlexibleTopAppBar,
-# MaterialExpressiveTheme) non sono ancora in una material3 stabile. Trascina Compose 1.13.0-alpha.
-material3 = "1.5.0-alpha29"
+# Beta di proposito: i componenti Expressive (LoadingIndicator, wavy progress, FlexibleTopAppBar,
+# MaterialExpressiveTheme) non sono ancora in una material3 stabile; la 1.5.0-beta01 segue l'ultima alpha.
+material3 = "1.5.0-beta01"
 # Alpha di proposito: detekt 1.23 non legge Kotlin 2.4, la linea 2.0 (ancora alpha) lo richiede come minimo.
 detekt = "2.0.0-alpha.6"
 

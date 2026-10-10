@@ -193,14 +193,15 @@ class RegionDatabaseMigrationTest {
     }
 
     @Test
-    fun migrazione17a23AggiungeMissioniDiplomaticheVacciniPopolazioneIndiciECoordinateSenzaToccareIDati() {
+    fun migrazione17a24AggiungeMissioniDiplomaticheVacciniPopolazioneIndiciCoordinateESezioniTradotteSenzaToccareIDati() {
         helper.createDatabase(DB_NAME, 17).use { db ->
             db.execSQL("INSERT INTO emergency_numbers VALUES ('italia', '112', '113', '118', '115')")
             db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone, extra, wheelchair) VALUES ('italia', 'Da Mario', 'restaurant', 45.0, 9.0, 'amenity=restaurant', NULL, 0, 'yes')")
             db.execSQL("INSERT INTO city_sections (regionId, city, category, title, body, sourceUrl) VALUES ('italia', 'Roma', 'COSA_VEDERE', 'Cosa vedere', 'Colosseo', 'u')")
+            db.execSQL("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES ('italia', 'TRASPORTI', 'In treno', 'corpo', 'u')")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 23, true, MIGRATION_17_23).use { db ->
+        helper.runMigrationsAndValidate(DB_NAME, 24, true, MIGRATION_17_24).use { db ->
             // 17 -> 18: accessibilita' dei POI e rappresentanze diplomatiche vuote.
             db.query("SELECT name, wheelchair, toiletsWheelchair, capacityDisabled FROM poi").use { cursor ->
                 assertTrue(cursor.moveToFirst())
@@ -236,13 +237,20 @@ class RegionDatabaseMigrationTest {
                 assertEquals("ke,ug", cursor.getString(0))
                 assertTrue(cursor.isNull(1))
             }
-            // 19 -> 20 e 22 -> 23: popolazione e coordinate delle citta' vuote, sezioni intatte.
-            db.query("SELECT city, population, capital, latitude, longitude FROM city_sections").use { cursor ->
+            // 19 -> 20, 22 -> 23 e 23 -> 24: popolazione e coordinate delle citta' vuote, sezioni intatte e
+            // non tradotte.
+            db.query("SELECT city, population, capital, latitude, longitude, translated FROM city_sections").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("Roma", cursor.getString(0))
                 assertTrue(cursor.isNull(1))
                 assertEquals(0, cursor.getInt(2))
                 assertTrue("le citta' gia' importate non hanno coordinate", cursor.isNull(3) && cursor.isNull(4))
+                assertEquals(0, cursor.getInt(5))
+            }
+            db.query("SELECT title, translated FROM guide_sections").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("In treno", cursor.getString(0))
+                assertEquals(0, cursor.getInt(1))
             }
             // 20 -> 21 e 21 -> 22: indici dei POI per regione e latitudine, e per regione, categoria e tag.
             db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'poi'").use { cursor ->
@@ -260,29 +268,6 @@ class RegionDatabaseMigrationTest {
             db.query("SELECT police FROM emergency_numbers WHERE regionId = 'italia'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("113", cursor.getString(0))
-            }
-        }
-    }
-
-    @Test
-    fun migrazione23a24SegnaComeNonTradotteLeSezioniGiaImportate() {
-        helper.createDatabase(DB_NAME, 23).use { db ->
-            db.execSQL("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES ('italia', 'TRASPORTI', 'In treno', 'corpo', 'u')")
-            db.execSQL("INSERT INTO city_sections (regionId, city, category, title, body, sourceUrl, population, capital, latitude, longitude) VALUES ('italia', 'Roma', 'COSA_VEDERE', 't', 'b', 'u', 2800000, 1, 41.9, 12.5)")
-        }
-
-        helper.runMigrationsAndValidate(DB_NAME, 24, true, MIGRATION_23_24).use { db ->
-            db.query("SELECT title, translated FROM guide_sections").use { cursor ->
-                assertTrue(cursor.moveToFirst())
-                assertEquals("In treno", cursor.getString(0))
-                assertEquals(0, cursor.getInt(1))
-            }
-            db.query("SELECT city, population, latitude, translated FROM city_sections").use { cursor ->
-                assertTrue(cursor.moveToFirst())
-                assertEquals("Roma", cursor.getString(0))
-                assertEquals(2800000L, cursor.getLong(1))
-                assertEquals(41.9, cursor.getDouble(2), 0.0)
-                assertEquals(0, cursor.getInt(3))
             }
         }
     }
