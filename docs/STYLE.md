@@ -9,7 +9,9 @@ toni colloquiali.
 - Frasi complete e brevi, una informazione per frase; il soggetto e il verbo all'inizio.
 - Un solo termine per ogni concetto, sempre lo stesso (vedi "Terminologia"); niente sinonimi per variare.
 - Nessuna espressione colloquiale, esclamazione, emoji, ironia o abbreviazione informale ("ok", "tipo", "roba",
-  "ecc." nei testi dell'interfaccia).
+  "ecc." nei testi dell'interfaccia). Fanno eccezione per le emoji `README.md`, `README.en.md`, `CONTRIBUTING.md`
+  e `CONTRIBUTING.en.md`: una sola emoji all'inizio di titoli, passi numerati, elenchi puntati brevi, righe della
+  tabella delle funzioni e badge, mai dentro una frase.
 - Numeri, unita' e date nel formato della lingua: in italiano "2,8 milioni", "4–6 settimane", "3 ott 2026"; in
   inglese "2.8 million", "4 to 6 weeks", "Oct 3, 2026".
 - Nessun punto finale nei testi brevi dell'interfaccia di una sola frase (etichette, pulsanti, titoli, descrizioni

@@ -1659,6 +1659,12 @@ jobs:
             cp "$RUNNER_TEMP/previous-transit.json" "$SITE_DIR/transit.json"
           fi
 
+          # Pagine delle licenze (licenses.html, licenses-en.html), collegate dal README: dagli indici
+          # appena copiati, cosi' fonti dei civici e reti corrispondono ai dati pubblicati. Non blocca la
+          # pubblicazione: se fallisce, Pages resta senza le pagine fino alla run successiva.
+          python3 tools/data-pipeline/scripts/licenses_page.py "$SITE_DIR" \
+            || echo "::warning::pagine delle licenze non generate"
+
           echo "site_dir=$SITE_DIR" >> "$GITHUB_OUTPUT"
           echo "pages_host=${{ github.repository_owner }}.github.io" >> "$GITHUB_OUTPUT"
 
