@@ -148,19 +148,29 @@ OFF_TOPIC_SOURCES = {
 TRAVEL_STEMS = ("travel", "touris", "vacation", "holiday", "trip", "abroad", "visit", "city", "cities", "country",
                 "countries", "nation")
 
-# Fatti rapidi di guides-en.db ("Campo: valore" per riga), solo i campi qui sotto: gli altri (Capital, Currency,
-# Calling code, Driving side, da Wikidata) restano fuori dalle domande.
+# Fatti rapidi di guides-en.db ("Campo: valore" per riga), come QUICK_FACT_QUESTIONS del dataset italiano: Capital,
+# Currency, Calling code e Driving side vengono da Wikidata e generate_sft.py li usa solo con --guide-sections.
 QUICK_FACT_QUESTIONS = {
     "Language": ["What language is spoken in {r}?", "Which languages do people speak in {r}?", "What language do they use in {r}?"],
     "Electricity": ["What plugs are used in {r}?", "Do I need a plug adapter for {r}?", "What is the voltage in {r}?"],
     "Time zone": ["What time zone is {r} in?", "What is the time difference with {r}?", "What is the time zone of {r}?"],
     "Emergency numbers": ["What is the ambulance number in {r}?", "What number do I call in an emergency in {r}?",
                           "What is the police number in {r}?"],
+    "Capital": ["What is the capital of {r}?", "Which city is the capital of {r}?", "What is the capital city of {r} called?"],
+    "Currency": ["What is the currency of {r}?", "What is the local money called in {r}?", "Which currency does {r} have?"],
+    "Calling code": ["What is the calling code of {r}?", "What is the international dialling code for {r}?",
+                     "Which country code do I dial to call {r}?"],
+    "Driving side": ["Which side of the road do they drive on in {r}?", "Do people drive on the left or on the right in {r}?",
+                     "What is the driving side in {r}?"],
 }
 QUICK_FACT_TOPIC = {"Language": "about the language", "Electricity": "about electrical plugs", "Time zone": "about the time zone",
-                    "Emergency numbers": "about emergency numbers"}
+                    "Emergency numbers": "about emergency numbers", "Capital": "about the capital", "Currency": "about the currency",
+                    "Calling code": "about the calling code", "Driving side": "about the driving side"}
 QUICK_FACT_KEYWORDS = {"Language": ("language", "spoken"), "Electricity": ("plug", "socket", "volt", "electric"),
-                       "Time zone": ("time zone", "utc", "gmt"), "Emergency numbers": ("emergenc", "ambulance", "112", "911", "police")}
+                       "Time zone": ("time zone", "utc", "gmt"), "Emergency numbers": ("emergenc", "ambulance", "112", "911", "police"),
+                       "Capital": ("capital",), "Currency": ("currency", "money", "euro", "dollar"),
+                       "Calling code": ("calling code", "country code", "dialling code", "dialing code"),
+                       "Driving side": ("drive on the", "drives on the", "driving side", "left-hand", "right-hand")}
 
 # Note personali inventate (nessun dato vero), come NOTE_SAMPLES: (titolo, testo, domande, risposta: una frase del testo).
 NOTE_SAMPLES = [

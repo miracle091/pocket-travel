@@ -45,7 +45,7 @@ import wiki_dump
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parent / "data" / "sft"
-UA = {"User-Agent": "pocket-travel-sft/0.9 (https://github.com/miracle091/pocket-travel)"}
+UA = {"User-Agent": "pocket-travel-sft/0.10 (https://github.com/miracle091/pocket-travel)"}
 # Con --dump-dir: titolo della pagina di ogni fonte per regione (regionId, fonte, titolo), versionato cosi'
 # che dump + questo file bastino a rifare lo stesso dataset. Le regioni nuove si risolvono via API e si
 # aggiungono qui.
@@ -154,18 +154,27 @@ TOPIC = {  # per la risposta negativa: gia' con preposizione articolata
 }
 
 # Fatti rapidi del paese (sezione FATTI_RAPIDI di guides.db, "Campo: valore" per riga, come l'assistente li trova nel
-# contesto): domande per campo, la risposta e' la riga del campo. Con --guides-db.
+# contesto): domande per campo, la risposta e' la riga del campo. Con --guides-db. Capitale, Valuta, Prefisso telefonico
+# e Lato di guida vengono da Wikidata (GenerateCountryFacts.kt) e generate_sft.py li usa solo con --guide-sections
+# (QUICK_FACT_WIKIDATA); le domande sulla valuta sono diverse da quelle di ACQUISTI.
 QUICK_FACT_QUESTIONS = {
     "Lingua": ["Che lingua si parla in {r}?", "Quali lingue parlano in {r}?", "In {r} che lingua usano?"],
     "Elettricità": ["Che prese elettriche ci sono in {r}?", "Serve un adattatore per le prese in {r}?", "Che tensione ha la corrente in {r}?"],
     "Fuso orario": ["Che fuso orario ha {r}?", "Quante ore di differenza ci sono con {r}?", "Qual e' il fuso orario di {r}?"],
     "Numeri di emergenza": ["Qual e' il numero dell'ambulanza in {r}?", "Che numero chiamo per un'emergenza in {r}?", "Qual e' il numero della polizia in {r}?"],
+    "Capitale": ["Qual e' la capitale di {r}?", "Come si chiama la capitale di {r}?", "Quale citta' e' la capitale di {r}?"],
+    "Valuta": ["Qual e' la moneta di {r}?", "Come si chiama la valuta di {r}?", "Che moneta hanno in {r}?"],
+    "Prefisso telefonico": ["Qual e' il prefisso telefonico di {r}?", "Che prefisso internazionale ha {r}?", "Che prefisso devo comporre per chiamare {r}?"],
+    "Lato di guida": ["Da che lato si guida in {r}?", "In {r} si guida a destra o a sinistra?", "Su che lato della strada si guida in {r}?"],
 }
 QUICK_FACT_TOPIC = {"Lingua": "sulla lingua", "Elettricità": "sulle prese elettriche", "Fuso orario": "sul fuso orario",
-                    "Numeri di emergenza": "sui numeri di emergenza"}
+                    "Numeri di emergenza": "sui numeri di emergenza", "Capitale": "sulla capitale", "Valuta": "sulla valuta",
+                    "Prefisso telefonico": "sul prefisso telefonico", "Lato di guida": "sul lato di guida"}
 # Radici che, se presenti in una sezione, ne fanno un contesto che risponde al campo: fuori dai negativi.
 QUICK_FACT_KEYWORDS = {"Lingua": ("lingu",), "Elettricità": ("prese", "presa", "volt", "elettric"),
-                       "Fuso orario": ("fuso", "utc", "gmt"), "Numeri di emergenza": ("emergenz", "ambulanz", "112", "polizia")}
+                       "Fuso orario": ("fuso", "utc", "gmt"), "Numeri di emergenza": ("emergenz", "ambulanz", "112", "polizia"),
+                       "Capitale": ("capital",), "Valuta": ("valuta", "monet", "euro", "dollar"),
+                       "Prefisso telefonico": ("prefiss",), "Lato di guida": ("guida a destra", "guida a sinistra", "si guida")}
 
 # Note personali inventate (nessun dato vero): l'app mette la nota piu' pertinente in fondo al contesto come
 # "Nota personale: <titolo>\n<testo>" (buildOnDeviceContext). (titolo, testo, domande, risposta: una frase del testo).
@@ -199,8 +208,9 @@ NOTE_SAMPLES = [
 def load_quick_facts(guides_db, questions=QUICK_FACT_QUESTIONS):
     """{regionId: {campo: riga}} dalla sezione FATTI_RAPIDI di guides.db (solo i campi di `questions`)."""
     import sqlite3
+    from contextlib import closing
     out = {}
-    with sqlite3.connect(guides_db) as db:
+    with closing(sqlite3.connect(guides_db)) as db:  # "with" sulla sola connessione non la chiude
         for rid, body in db.execute("SELECT regionId, body FROM guide_sections WHERE category = 'FATTI_RAPIDI'"):
             fields = {line.split(":", 1)[0]: line for line in body.splitlines() if line.split(":", 1)[0] in questions}
             if fields:
@@ -601,12 +611,12 @@ def fetch_off_topic(sources=OFF_TOPIC_SOURCES, keywords=KEYWORDS, travel_stems=T
             while len(qs) < keep:
                 url = ("https://datasets-server.huggingface.co/rows?" + urllib.parse.urlencode(
                     {"dataset": dataset, "config": config, "split": split, "offset": offset, "length": 100}))
-                for attempt in range(1, 6):  # datasets-server risponde 429 se le richieste sono fitte
+                for attempt in range(1, 6):  # datasets-server risponde 429 se le richieste sono fitte, a volte 502
                     try:
                         rows = json.loads(get(url))["rows"]
                         break
                     except urllib.error.HTTPError as e:
-                        if e.code != 429 or attempt == 5:
+                        if (e.code != 429 and e.code < 500) or attempt == 5:
                             raise
                         time.sleep(15 * attempt)
                 if not rows:

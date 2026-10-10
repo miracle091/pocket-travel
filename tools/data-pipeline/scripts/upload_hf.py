@@ -73,8 +73,13 @@ dal markup (modificate rispetto all'originale):
 - Wikipedia IT ed EN, paragrafi degli articoli tematici per paese e Storia e Clima delle citta' — CC BY-SA 4.0
 - sezioni tradotte automaticamente dall'altra lingua con MarianMT (Helsinki-NLP opus-mt-tc-big, CC BY 4.0),
   indicate come tali in `ATTRIBUTION.tsv`
+- consigli di viaggio del Governo del Canada (travel.gc.ca, Open Government Licence - Canada 2.0: "Contains
+  information licensed under the Open Government Licence – Canada") e del governo britannico (FCDO su gov.uk, Open
+  Government Licence v3.0: "Contains public sector information licensed under the Open Government Licence v3.0"),
+  nei modelli inglesi
 - numeri di emergenza e riassunti delle vaccinazioni da Travel.gc.ca (Open Government Licence - Canada 2.0) e
   gov.uk / TravelHealthPro (Open Government Licence v3.0), con Wikipedia e Wikidata (CC0)
+- Fatti rapidi dei paesi da Wikivoyage e Wikidata (CC0): capitale, valuta, prefisso telefonico, lato di guida
 
 Fonti usate solo per le domande (le risposte sono estratte dal contesto o sono la frase di rifiuto): domande di
 viaggio reali (UltraChat, MIT) e domande fuori tema da dataset pubblici, elencati con la loro licenza.

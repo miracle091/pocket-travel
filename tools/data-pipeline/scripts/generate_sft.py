@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Genera il dataset SFT v10 (v9 con --user-style-questions 0, --no-city-daily-life, --no-balanced-negatives,
---no-clear-questions e senza le altre opzioni nuove) in italiano o in inglese con lo stesso metodo, cosi' i due dataset restano equivalenti:
+--no-clear-questions, --no-guide-sections e senza le altre opzioni nuove) in italiano o in inglese con lo stesso metodo, cosi' i due dataset restano equivalenti:
 stesse fonti (Wikivoyage IT ed EN dello stesso dump, Wikipedia IT o EN per le categorie deboli, fatti rapidi e note), stessa
 composizione per categoria, stessi tipi di domanda, stesso rapporto di rifiuti. Cambiano solo le tabelle della lingua
 (domande, parole chiave, rifiuto, prompt dell'app), prese da generate_sft_dataset.py (italiano) e
@@ -23,7 +23,9 @@ hanno "translated": true e ATTRIBUTION indica la traduzione automatica (CC BY-SA
   per i paesi, e i rifiuti delle citta' hanno nel contesto solo sezioni che non trattano la categoria;
 - di default (--clear-questions) niente domande che una sezione di un'altra categoria soddisfa (AMBIGUOUS_QUESTIONS) ne'
   domande sui vaccini in SALUTE (sono di VACCINAZIONI, come nell'app);
-- fatti rapidi e note personali con --guides-db (guides.db per l'italiano, guides-en.db per l'inglese);
+- fatti rapidi e note personali con --guides-db (guides.db per l'italiano, guides-en.db per l'inglese); di default
+  (--guide-sections) anche i campi dei Fatti rapidi da Wikidata e le sezioni che i dump non danno (consigli di
+  travel.gc.ca e FCDO, Sleep e Talk dei paesi), al massimo GUIDE_SECTIONS_MAX per categoria;
 - con --nearby, domande su cosa c'e' qui vicino e sulle prossime partenze con i blocchi di contesto dell'app
   (sft_nearby.py, dati sintetici), per una quota del dataset finale;
 - con --distances (e --cities), domande sulla distanza tra due citta' con le sezioni di entrambe nel contesto: la
@@ -47,8 +49,8 @@ release) oppure si scrive <regionId>=<file>.
 Output in data/sft/: pocket_travel_sft.<versione>.<lang>.jsonl, ATTRIBUTION.<versione>.<lang>.tsv ed EXCLUDED.<versione>.<lang>.tsv
 (le fonti e le sezioni rimaste fuori e perche', vedi write_excluded di generate_sft_dataset.py); traduzioni in cache in
 raw/translations.<src>-<tgt>.jsonl. Senza --version: v10 con --nearby, --distances, --cities-db, --emergency,
---user-style-questions diverso da 0, --city-daily-life, --balanced-negatives o --clear-questions (i default),
-altrimenti v9; il v9, che
+--user-style-questions diverso da 0, --city-daily-life, --balanced-negatives, --clear-questions o --guide-sections con
+--guides-db (i default), altrimenti v9; il v9, che
 usano i training, si sovrascrive solo dando
 --version v9. Fonti e pulizia sono cambiate dal v9 generato: gli stessi argomenti non ridanno quel file.
 """
@@ -64,6 +66,7 @@ from collections import Counter, defaultdict
 from contextlib import closing
 from pathlib import Path
 
+import audit_sft
 import city_population
 import generate_sft_dataset as it
 import generate_sft_dataset_en as en
@@ -161,6 +164,15 @@ def weighted_category(rng, cats, counts):
     """Una categoria di [cats] con probabilita' proporzionale a [counts] (almeno 1 ciascuna): i rifiuti seguono quanto la
     categoria e' presente, invece di darne lo stesso numero a ognuna (--balanced-negatives)."""
     return rng.choices(cats, weights=[max(counts[c], 1) for c in cats])[0]
+
+
+def city_refusal_category(rng, missing, present, refused, rate):
+    """La categoria del rifiuto di una citta' tra quelle che non ha ([missing]), come weighted_category su [present]
+    (citta' che hanno la categoria), oppure None se la categoria ha gia' [rate] rifiuti per citta' che la ha ([refused]).
+    Senza tetto una categoria che quasi nessuna citta' ha (VITA_QUOTIDIANA) manca quasi ovunque, concorre solo con altre
+    rare e prende piu' rifiuti che positivi."""
+    cat = weighted_category(rng, missing, present)
+    return None if refused[cat] >= present[cat] * rate else cat
 
 # Vaccinazioni (--vaccinations): riassunti di VaccinationSummaryExport (toSummaryText dell'app, lo stesso testo che
 # TravelAssistant mette nel contesto per le domande sui vaccini). Domande disgiunte da PARA di generate_eval_set*.py.
@@ -376,6 +388,19 @@ def nearby_context(rng, block, q, name, bodies, L, transport=False, empty=0.1):
 # Righe positive con la stessa domanda e la stessa risposta (cambiano solo i distrattori del contesto): due insegnano a
 # ignorarli, di piu' ripetono la stessa coppia (nel v9 c'erano gruppi fino a 6).
 SAME_ANSWER_MAX = 2
+
+
+def drop_audit_errors(rows, lang):
+    """([rows] senza le righe che audit_sft.py segna come errori, [(regionId, "riga", categoria, motivo)] di quelle tolte):
+    markup rimasto nei testi pubblicati, risposte fatte di righe diverse unite che il contesto non ha cosi'. Vale anche
+    per --old: sono righe sbagliate con qualsiasi ricetta."""
+    kept, dropped = [], []
+    for r in rows:
+        if errors := audit_sft.hard_errors(r, lang):
+            dropped.append((r["region"], "riga", r["category"], f"audit-{errors[0]}"))
+        else:
+            kept.append(r)
+    return kept, dropped
 
 
 def question_of(content, prompt):
@@ -674,6 +699,98 @@ def emergency_example(rng, lang, line, name, bodies, L, refusal, other_lang=0.2,
 # poche decine; una domanda nella categoria sbagliata insegnerebbe a rispondere con una sezione che non c'entra.
 USER_STYLE_QUESTION_CATS = ("COSA_VEDERE", "ALLOGGIO", "SICUREZZA", "TRASPORTI", "USI_COSTUMI")
 
+# Sezioni di guides.db che i dump non danno (--guide-sections, v10, con --guides-db): i consigli di viaggio governativi
+# delle guide inglesi e le sezioni di Wikivoyage dei paesi che l'app mostra ma HEADING_TO_CATEGORY non prende (Sleep,
+# Talk). Sono nel contesto dell'app come le altre (buildOnDeviceContext usa solo il corpo). Fuori le sezioni
+# "#for-nationality=XX", che l'app mostra solo ai cittadini di XX (isGuideSectionFor), e quelle di Wikivoyage
+# nell'altra lingua (nelle guide italiane, Sleep e Talk sono solo in inglese).
+GUIDE_LICENSES = {  # host di sourceUrl -> licenza, con la dichiarazione richiesta (come nella schermata delle licenze)
+    "travel.gc.ca": "Open Government Licence - Canada 2.0: contains information licensed under the Open Government "
+                    "Licence - Canada (https://open.canada.ca/en/open-government-licence-canada)",
+    "www.gov.uk": "Open Government Licence v3.0: contains public sector information licensed under the Open Government "
+                  "Licence v3.0 (https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/)",
+}
+GUIDE_ONLY_CATS = ("ALLOGGIO", "FRASI_UTILI")
+# Tetto di sezioni per categoria fuori dalle regioni di test: travel.gc.ca da' fino a 2 sezioni SICUREZZA, una SALUTE e
+# una USI_COSTUMI per paese, che a 3 domande ciascuna raddoppierebbero categorie gia' ricche (SICUREZZA, SALUTE).
+GUIDE_SECTIONS_MAX = 120
+# Domande dei paesi per le categorie di GUIDE_ONLY_CATS, disgiunte da PARA/PARA_CITY di generate_eval_set*.py; quelle di
+# FRASI_UTILI non chiedono quale lingua si parla (e' il campo Lingua dei Fatti rapidi).
+GUIDE_QUESTIONS = {
+    "it": {"ALLOGGIO": ["Dove conviene dormire in {r}?", "Che tipo di alloggi ci sono in {r}?", "Ci sono ostelli o campeggi in {r}?"],
+           "FRASI_UTILI": ["In {r} si parla inglese?", "Me la cavo con l'inglese in {r}?", "Quali frasi conviene imparare per {r}?"]},
+    "en": {"ALLOGGIO": ["Where should I stay in {r}?", "What kind of accommodation is there in {r}?", "Are there hostels or campsites in {r}?"],
+           "FRASI_UTILI": ["Do people speak English in {r}?", "Will I get by in English in {r}?", "Which phrases should I learn before visiting {r}?"]},
+}
+# ALLOGGIO ha gia' argomento e radici (quelli delle citta')
+GUIDE_TOPIC = {"it": {"FRASI_UTILI": "sulla lingua e sulle frasi utili"}, "en": {"FRASI_UTILI": "about the language and useful phrases"}}
+GUIDE_KEYWORDS = {"it": {"FRASI_UTILI": ["ingles", "lingu", "dialett", "parla", "frasi"]},
+                  "en": {"FRASI_UTILI": ["english", "language", "dialect", "speak", "spoken", "phrase"]}}
+# Campi dei Fatti rapidi da Wikidata (GenerateCountryFacts.kt): con --no-guide-sections restano fuori, come nel v9
+QUICK_FACT_WIKIDATA = {"it": ("Capitale", "Valuta", "Prefisso telefonico", "Lato di guida"),
+                       "en": ("Capital", "Currency", "Calling code", "Driving side")}
+
+
+def with_guide_sections(L, lang):
+    """Le tabelle della lingua [lang] con le categorie di GUIDE_ONLY_CATS tra le domande dei paesi (anche quelle
+    dell'altra lingua, per --other-lang), il loro argomento nel rifiuto e le loro radici."""
+    own, other = GUIDE_QUESTIONS[lang], GUIDE_QUESTIONS[OTHER[lang]]
+    return {**L, "questions": {**L["questions"], **own}, "other_questions": {**L["other_questions"], **other},
+            "topic": {**L["topic"], **GUIDE_TOPIC[lang]},
+            "keywords": {**L["keywords"], **GUIDE_KEYWORDS[lang]}}
+
+
+def guide_source(url, lang):
+    """La licenza di una sezione di guides.db per il dataset in [lang] ("CC BY-SA 4.0" per Wikivoyage nella lingua del
+    dataset), None per le fonti che non si usano."""
+    host = urllib.parse.urlsplit(url).netloc
+    return GUIDE_LICENSES.get(host) or ("CC BY-SA 4.0" if host == f"{lang}.wikivoyage.org" else None)
+
+
+def load_guide_sections(guides_db, lang):
+    """{regionId: [(categoria, corpo, sourceUrl, tradotta)]} delle sezioni di [guides_db] che i dump non danno: fonti di
+    GUIDE_LICENSES e categorie GUIDE_ONLY_CATS di Wikivoyage nella lingua [lang]; fuori le "#for-nationality=", i Fatti
+    rapidi (a parte, load_quick_facts) e le sezioni tradotte da translate_guides.py: guides.db non dice con quale
+    modello, che ATTRIBUTION dovrebbe dichiarare."""
+    out = {}
+    with closing(sqlite3.connect(guides_db)) as db:
+        has_translated = any(col[1] == "translated" for col in db.execute("PRAGMA table_info(guide_sections)"))
+        for rid, cat, body, url in db.execute(
+                "SELECT regionId, category, body, sourceUrl FROM guide_sections WHERE category != 'FATTI_RAPIDI' "
+                f"AND instr(sourceUrl, '#for-nationality=') = 0 {'AND IFNULL(translated, 0) = 0' if has_translated else ''} "
+                "ORDER BY regionId, rowid"):
+            source = guide_source(url, lang)
+            if source and (source in GUIDE_LICENSES.values() or cat in GUIDE_ONLY_CATS):
+                out.setdefault(rid, []).append((cat, body, url, False))
+    return out
+
+
+def select_guide_sections(sections, rng, test_regions, cap=GUIDE_SECTIONS_MAX):
+    """([sections] senza i corpi gia' visti in un'altra regione e con al massimo [cap] sezioni per categoria fuori da
+    [test_regions], [(regionId, fonte, categoria, motivo)] di quelle tolte). Prima le regioni di test, come in
+    drop_shared_wp: travel.gc.ca da' la stessa pagina alle regioni di un paese, e un testo che ha anche una regione di
+    test resta nel test e non entra nel training."""
+    seen, kept, dropped, pool = set(), {}, [], []
+    for rid in sorted(sections, key=lambda r: (r not in test_regions, r)):
+        for sec in sections[rid]:
+            if sec[1] in seen:
+                dropped.append((rid, "guides-db", sec[0], "pagina-condivisa"))
+            elif rid in test_regions:
+                seen.add(sec[1])
+                kept.setdefault(rid, []).append(sec)
+            else:
+                seen.add(sec[1])
+                pool.append((rid, sec))
+    rng.shuffle(pool)
+    per_cat = Counter()
+    for rid, sec in pool:
+        per_cat[sec[0]] += 1
+        if per_cat[sec[0]] > cap:
+            dropped.append((rid, "guides-db", sec[0], "tetto-categoria"))
+        else:
+            kept.setdefault(rid, []).append(sec)
+    return kept, dropped
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -711,15 +828,20 @@ def main():
                     help="domande VITA_QUOTIDIANA sulle sezioni Informazioni utili/Cope delle citta', anche di citta' oltre "
                          "--cities che hanno solo quella (--no-city-daily-life: come il v9)")
     ap.add_argument("--balanced-negatives", action=argparse.BooleanOptionalAction, default=True,
-                    help="categoria dei rifiuti in proporzione ai positivi (paesi) o alle sezioni (citta') della categoria "
-                         "(--no-balanced-negatives: stessa probabilita' per tutte, come il v9)")
+                    help="categoria dei rifiuti in proporzione ai positivi (paesi) o alle sezioni (citta', al massimo "
+                         "--negatives rifiuti per citta' con la sezione) della categoria (--no-balanced-negatives: stessa "
+                         "probabilita' per tutte, come il v9)")
     ap.add_argument("--clear-questions", action=argparse.BooleanOptionalAction, default=True,
                     help="senza le domande ambigue (AMBIGUOUS_QUESTIONS) e senza domande sui vaccini in SALUTE "
                          "(--no-clear-questions: come il v9)")
+    ap.add_argument("--guide-sections", action=argparse.BooleanOptionalAction, default=True,
+                    help="con --guides-db, anche le sezioni che i dump non danno (consigli di travel.gc.ca e FCDO, Sleep e "
+                         "Talk dei paesi; al massimo GUIDE_SECTIONS_MAX per categoria) e i campi Wikidata dei Fatti rapidi "
+                         "(--no-guide-sections: come il v9)")
     ap.add_argument("--version", help="versione nel nome dei file di output (default: v10 con --nearby, --distances, "
                                       "--cities-db, --emergency, --user-style-questions diverso da 0, --city-daily-life, "
-                                      "--balanced-negatives o --clear-questions, altrimenti v9); serve per sovrascrivere "
-                                      "un v9 che esiste gia'")
+                                      "--balanced-negatives, --clear-questions o --guide-sections con --guides-db, "
+                                      "altrimenti v9); serve per sovrascrivere un v9 che esiste gia'")
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
     if a.distances and not a.cities:
@@ -729,12 +851,15 @@ def main():
     if missing := [p for _, p in map(city_db_region, a.cities_db or []) if not Path(p).is_file()]:
         ap.error(f"--cities-db: file inesistenti: {', '.join(map(str, missing))}")
     version = a.version or ("v10" if a.nearby or a.distances or a.cities_db or a.emergency or a.user_style_questions
-                            or a.city_daily_life or a.balanced_negatives or a.clear_questions else "v9")
+                            or a.city_daily_life or a.balanced_negatives or a.clear_questions
+                            or (a.guide_sections and a.guides_db) else "v9")
     if version == "v9" and not a.version and (it.OUT / f"pocket_travel_sft.v9.{a.lang}.jsonl").exists():
         ap.error(f"pocket_travel_sft.v9.{a.lang}.jsonl esiste gia' (lo usano i training): per sovrascriverlo dai --version v9")
     if a.city_daily_life:  # tutte e due le lingue: i rifiuti controllano anche le radici dell'altra lingua
         LANGS.update({k: with_city_daily_life(v, k) for k, v in LANGS.items()})
-    if a.clear_questions:
+    if a.guide_sections and a.guides_db:
+        LANGS.update({k: with_guide_sections(v, k) for k, v in LANGS.items()})
+    if a.clear_questions:  # dopo with_guide_sections: filtra anche le sue domande
         LANGS.update({k: with_clear_questions(v) for k, v in LANGS.items()})
     L, lang, other = LANGS[a.lang], a.lang, OTHER[a.lang]
     rng = random.Random(a.seed)
@@ -852,7 +977,7 @@ def main():
     data, n_tr = {}, Counter()
     # per la fonte nell'elenco delle esclusioni
     wp_bodies = {src: {b for _, secs, _, _ in raw.values() for _, b, _ in secs[src]} for src in ("wp", "wp_en")}
-    source_of = lambda body, tr: ("tradotta" if tr else "wp" if body in wp_bodies["wp"]
+    source_of = lambda body, tr: ("guides-db" if body in guide_bodies else "tradotta" if tr else "wp" if body in wp_bodies["wp"]
                                   else "wp_en" if body in wp_bodies["wp_en"] else lang)
     for rid, (name, secs, t_it, t_en) in raw.items():
         own = by_cat(secs[lang])
@@ -890,6 +1015,22 @@ def main():
             lic = "CC BY-SA 4.0 (Wikipedia)" + (f" ({L['translated']}, {MT_MODELS[('it', 'en')]}, {MT_LICENSE})" if tr else "")
             url = it.SOURCE_URL["wp" if lang == "it" or tr else "wp_en"]
             attribution.append((rid, name, url + urllib.parse.quote(t_wp.replace(" ", "_")), lic))
+
+    # Sezioni di guides.db che i dump non danno (--guide-sections): con quelle della regione, anche per una regione senza
+    # testo dai dump
+    guide_bodies = set()
+    if a.guides_db and a.guide_sections:
+        names = {rid: name for rid, name, *_ in regions}
+        guide_secs, dropped = select_guide_sections(
+            {r: s for r, s in load_guide_sections(a.guides_db, lang).items() if r in names}, rng, TEST_REGIONS)
+        excluded.extend(dropped)
+        for rid, gsecs in sorted(guide_secs.items()):
+            name, secs, other_secs = data.get(rid, (names[rid], [], []))
+            data[rid] = (name, sorted(secs + [(c, b, tr) for c, b, _, tr in gsecs], key=lambda s: (s[0], s[1])), other_secs)
+            guide_bodies.update(b for _, b, _, _ in gsecs)
+            for url in dict.fromkeys(u for _, _, u, _ in gsecs):
+                attribution.append((rid, name, url, guide_source(url, lang)))
+        print("sezioni da guides.db per categoria:", dict(Counter(c for s in guide_secs.values() for c, *_ in s)))
 
     keywords = L["keywords"]
     covers = lambda cat, text: it.covers(cat, text, keywords)
@@ -1014,7 +1155,7 @@ def main():
             elif secs and (daily := [s for s in secs if s[0] == DAILY_LIFE]):
                 daily_life_only.append((title, secs, daily))
         print(f"citta' {len(cities)}, piu' {len(daily_life_only)} solo per {DAILY_LIFE}")
-        city_cats, city_secs = Counter(), Counter(c for _, secs in cities for c, _ in secs)
+        city_cats, city_secs, city_refused = Counter(), Counter(c for _, secs in cities for c, _ in secs), Counter()
         for title, secs, *daily in cities + daily_life_only:
             chosen = daily[0] if daily else sorted(secs, key=lambda s: (city_cats[s[0]], rng.random()))[:a.city_questions]
             city_cats.update(c for c, _ in chosen)
@@ -1031,7 +1172,10 @@ def main():
                 rows.append(row("pos", rid, cat, context, q, answer)); city_pos += 1
             missing = [c for c in L["city_questions"] if c not in {c for c, _ in secs}]
             if missing and not daily and rng.random() < a.negatives * 2:  # ~1 rifiuto ogni 2-3 domande della citta'
-                cat = weighted_category(rng, missing, city_secs) if a.balanced_negatives else rng.choice(missing)
+                cat = (city_refusal_category(rng, missing, city_secs, city_refused, a.negatives) if a.balanced_negatives
+                       else rng.choice(missing))
+                if cat is None:
+                    continue
                 q = question(cat, name, city=True)
                 bodies = [b for _, b in secs]
                 if a.city_daily_life:  # come nei paesi: niente sezioni che trattano la categoria (le radici di VITA_QUOTIDIANA
@@ -1041,19 +1185,28 @@ def main():
                 if context and (context, q) not in seen:
                     seen.add((context, q))
                     rows.append(row("neg", rid, cat, context, q, refusal(L["topic"][cat]))); city_neg += 1
+                    city_refused[cat] += 1
 
     # Fatti rapidi e note personali (--guides-db), fuori le regioni di test
     quick_pos = quick_neg = note_pos = 0
     if a.guides_db:
         phase("fatti rapidi", a.guides_db)
         qq, qk = L["quick_questions"], L["quick_keywords"]
+        # Con i campi Wikidata i campi raddoppiano: una domanda per campo e rifiuti con la quota degli altri, invece di due
+        # domande e rifiuti al doppio, tengono la categoria grande come nel v9
+        per_field, neg_rate = (1, a.negatives) if a.guide_sections else (2, a.negatives * 2)
+        if not a.guide_sections:
+            qq = {f: qs for f, qs in qq.items() if f not in QUICK_FACT_WIKIDATA[lang]}
+        else:
+            attribution.append(("-", "fatti rapidi: Wikidata (capitale, valuta, prefisso, lato di guida e dove manca "
+                                "Wikivoyage)", "https://www.wikidata.org/", "CC0 1.0"))
         for rid, (qf_body, fields) in sorted(it.load_quick_facts(a.guides_db, qq).items()):
             if rid not in data or rid in TEST_REGIONS:
                 continue
             name, secs, _ = data[rid]
             others = [b for _, b, _ in secs]
             for field, line in fields.items():
-                for q in rng.sample(qq[field], 2):
+                for q in rng.sample(qq[field], per_field):
                     q = q.format(r=name)
                     context = it.make_context(rng, [qf_body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))), q, name)
                     if line not in context or (context, q) in seen:
@@ -1061,7 +1214,7 @@ def main():
                     seen.add((context, q))
                     rows.append(row("pos", rid, "FATTI_RAPIDI", context, q, line)); quick_pos += 1
                 unrelated = [b for b in others if not any(k in b.lower() for k in qk[field])]
-                if unrelated and rng.random() < a.negatives * 2:
+                if unrelated and rng.random() < neg_rate:
                     q = rng.choice(qq[field]).format(r=name)
                     context = it.make_context(rng, rng.sample(unrelated, min(len(unrelated), rng.randint(1, 3))), q, name)
                     if (context, q) not in seen:
@@ -1230,6 +1383,9 @@ def main():
                                 "content/src/main/resources/emergency-numbers.tsv",
                                 "fonti per riga nel file: Travel.gc.ca e gov.uk (Open Government Licence), Wikipedia e Wikivoyage (CC BY-SA 4.0), Wikidata (CC0)"))
         print(f"emergenze: {len(pools['pos'])} regioni con numeri, {len(pools['neg'])} senza; positivi {emergency['pos']}, rifiuti {emergency['neg']}")
+    rows, dropped = drop_audit_errors(rows, lang)
+    excluded.extend(dropped)
+    print(f"righe con errori dell'audit: tolte {len(dropped)}")
     capped = cap_repeats(rows, L["prompt"])
     print(f"stessa domanda e risposta oltre {SAME_ANSWER_MAX} volte: tolte {len(rows) - len(capped)} righe")
     rows = capped

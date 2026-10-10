@@ -15,7 +15,7 @@ import generate_eval_set
 import generate_eval_set_en
 import generate_sft
 import generate_sft_dataset as it
-from generate_sft import CITY_DAILY_LIFE, DAILY_LIFE, LANGS, weighted_category, with_city_daily_life
+from generate_sft import CITY_DAILY_LIFE, DAILY_LIFE, LANGS, city_refusal_category, weighted_category, with_city_daily_life
 
 ROOT = Path(__file__).resolve().parents[3]
 GENERATE_CITIES = ROOT / "tools" / "data-pipeline" / "content" / "src" / "main" / "kotlin" / "com" / "pockettravel" / "pipeline" / "GenerateCities.kt"
@@ -79,6 +79,19 @@ class BalancedNegativesTest(unittest.TestCase):
         rng = random.Random(1)
         picks = Counter(weighted_category(rng, ["A", "B"], Counter(A=900, B=100)) for _ in range(5000))
         self.assertAlmostEqual(picks["A"] / 5000, 0.9, delta=0.02)
+
+    def test_city_refusals_follow_presence(self):
+        # 1000 citta': A in 900, B in 100 (rara come VITA_QUOTIDIANA), C in 300; il rifiuto si sceglie tra le mancanti
+        rng = random.Random(3)
+        cities = [{c for c, n in (("A", 900), ("B", 100), ("C", 300)) if (i * 7919 + ord(c) * 131) % 1000 < n}
+                  for i in range(1000)]
+        present, refused = Counter(c for cats in cities for c in cats), Counter()
+        for cats in cities:
+            if (missing := sorted(set("ABC") - cats)) and (cat := city_refusal_category(rng, missing, present, refused, 0.33)):
+                refused[cat] += 1
+        self.assertLessEqual(refused["B"], 33)  # senza tetto B prenderebbe piu' di 300 rifiuti con 100 citta' che lo hanno
+        self.assertLessEqual(refused["C"], 99)
+        self.assertGreater(refused["A"], 50)  # A manca in 100 citta': il tetto (297) non lo tocca
 
     def test_category_without_count_still_possible(self):
         rng = random.Random(2)

@@ -5,7 +5,8 @@
 # Uso: generate-sft.sh [--new | --old] --data <cartella> [--lang it|en] [--version <nome>] [--dump-dir <cartella>] [--no-eval]
 #   --new   (default) la ricetta nuova (v10): citta', citta' vicine e partenze, distanze, Storia e Clima delle citta',
 #           numeri di emergenza, domande in stile utente, VITA_QUOTIDIANA delle citta', rifiuti in proporzione ai
-#           positivi e niente domande ambigue (gli ultimi quattro di default in generate_sft.py)
+#           positivi, niente domande ambigue, sezioni nuove e campi Wikidata delle guide pubblicate (gli ultimi cinque
+#           di default in generate_sft.py)
 #   --old   la ricetta vecchia (v9): citta', fatti rapidi, note e vaccinazioni, senza le opzioni nuove. Le fonti sono
 #           cambiate da allora, quindi il file non e' identico al v9 dei training: si chiama v9-rigenerato e non
 #           sostituisce pocket_travel_sft.v9.*.jsonl (per farlo, --version v9)
@@ -74,7 +75,7 @@ for lang in $LANGS; do
   if [ "$RECIPE" = new ]; then
     args+=(--nearby 0.03 --distances 0.02 --emergency 0.01 --cities-db "${cities[@]}")
   else
-    args+=(--user-style-questions 0 --no-city-daily-life --no-balanced-negatives --no-clear-questions)
+    args+=(--user-style-questions 0 --no-city-daily-life --no-balanced-negatives --no-clear-questions --no-guide-sections)
   fi
   log="$DATA/generate-sft.$VERSION.$lang.log"
   "$PY" generate_sft.py "${args[@]}" 2>&1 | tee "$log"
