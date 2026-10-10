@@ -39,6 +39,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -73,6 +74,9 @@ internal fun OnboardingDestinationsStep(
     viewModel: RegionListViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // La lingua scelta al passo 1: senza, i nomi delle nazioni restano nella lingua del dispositivo.
+    val locale = LocalLocale.current.platformLocale
+    LaunchedEffect(locale) { viewModel.setLocale(locale) }
     val nationality by onboardingViewModel.nationality.collectAsStateWithLifecycle()
     val wantsDirections by onboardingViewModel.wantsDirections.collectAsStateWithLifecycle()
     val usageModes by onboardingViewModel.usageModes.collectAsStateWithLifecycle()
