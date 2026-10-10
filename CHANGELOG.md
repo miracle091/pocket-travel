@@ -1,15 +1,18 @@
 # Changelog
 
-Formato ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versionamento secondo [Semantic Versioning](https://semver.org/lang/it/). Le voci non riportano date: la cronologia dettagliata resta nella storia git del repository.
+Formato secondo [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versionamento secondo [Semantic Versioning](https://semver.org/lang/it/).
 
-La sezione "Cambiamenti incompatibili" elenca, per ogni versione, cosa smette di funzionare nelle versioni precedenti o richiede un intervento, anche quando il problema è emerso dopo il rilascio.
+Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili" elenca, per ogni versione, cosa smette di funzionare nelle versioni precedenti o richiede un intervento, anche quando il problema è emerso dopo il rilascio.
 
 ## [Non rilasciato]
+
+## [0.10.0] - 2026-10-10
 
 ### Cambiamenti incompatibili
 - Le versioni fino alla 0.9.0 conoscono solo le impronte (sha256) dei modelli IA scritte nel loro APK. Da questa versione l'app le legge anche dal file firmato `app-status.json`, che può cambiare senza un nuovo rilascio: quando un modello addestrato viene ricaricato, le versioni precedenti ricevono l'avviso di aggiornamento del modello ma ne rifiutano il download, finché l'app non viene aggiornata.
 - Chi pubblica i dati da un fork deve firmarli: da questa versione l'app rifiuta il catalogo delle regioni, l'indice dei mezzi pubblici, quello dei numeri civici e `app-status.json` senza una firma valida (chiave e procedura in `tools/data-pipeline/README.md`).
 - Le altre app non possono più aprire la navigazione o il browser interno con un intent implicito: i deep link impliciti di navigazione sono stati tolti.
+- Il catalogo richiede almeno questa versione (`minAppVersionCode` 11): le versioni fino alla 0.9.0 non scaricano più guide, contenuti e aggiornamenti delle regioni pubblicati dopo questa versione e mostrano un messaggio che invita ad aggiornare l'app. Le guide pubblicate dal 2026-10-09 hanno sezioni per una sola nazionalità (per la Palestina, le zone e i rischi solo israeliani), che la 0.9.0 mostra a tutti.
 
 ### Aggiunto
 - Fatti rapidi più completi in ogni guida, italiana e inglese: capitale, prefisso telefonico e lato di guida. Lingua, prese elettriche, fuso orario e valuta compaiono anche dove la pagina di Wikivoyage non li indica. I dati vengono da Wikidata. Negli stati USA, nelle province del Canada e della Cina, nelle regioni della Francia e nelle Canarie la capitale e il fuso orario sono quelli della regione. Arrivano con il prossimo aggiornamento delle guide.
@@ -166,7 +169,7 @@ La sezione "Cambiamenti incompatibili" elenca, per ogni versione, cosa smette di
 - Catalogo firmato: ogni file porta l'ora di pubblicazione dentro i dati firmati e l'app rifiuta un file più vecchio dell'ultimo accettato, così una vecchia copia firmata non può riportare indietro il catalogo né nascondere gli avvisi di aggiornamento.
 - Pubblicazione: il token di scrittura non resta salvato nei checkout dei job che pubblicano, e i controlli di integrità del catalogo coprono anche gli indici dei civici e dei mezzi pubblici.
 
-## [0.9.0]
+## [0.9.0] - 2026-09-29
 
 ### Cambiamenti incompatibili
 - Dopo il rilascio i modelli addestrati da noi (Pocket Travel 0.8B, 2B e 4B) sono stati sostituiti su HuggingFace dalla versione v8, con lo stesso nome file e un'impronta diversa. La 0.9.0 controlla il download con l'impronta scritta nel suo APK e lo rifiuta con un errore di integrità. Si risolve aggiornando l'app alla versione successiva; i modelli "Ufficiali" non sono coinvolti.
@@ -225,7 +228,7 @@ La sezione "Cambiamenti incompatibili" elenca, per ogni versione, cosa smette di
 - Guide di Île-de-France, Alvernia-Rodano-Alpi, Borgogna-Franca Contea e Provenza-Alpi-Costa Azzurra: non si aggiornavano più, perché le pagine Wikivoyage con lettere accentate nel titolo non venivano scaricate. Tornano aggiornate con il prossimo aggiornamento delle guide.
 - Numeri civici: finora erano pubblicati solo per le zone del primo giorno di aggiornamento, e solo con quelli di OpenStreetMap. Ora arrivano, zona dopo zona nell'arco di un mese, per tutto il mondo e anche con quelli dei registri ufficiali raccolti da Overture Maps.
 
-## [0.8.0]
+## [0.8.0] - 2026-09-28
 
 ### Cambiamenti incompatibili
 - Guide e numeri civici sono pubblicati solo compressi e il catalogo richiede almeno la 0.8.0 (`minAppVersionCode` 9): le versioni fino alla 0.7.0 non scaricano più guide, numeri civici e aggiornamenti delle regioni pubblicati dopo questa versione. Dalla 0.8.0 l'app mostra un messaggio che invita ad aggiornarla; le versioni precedenti falliscono senza spiegazione.
@@ -268,7 +271,7 @@ La sezione "Cambiamenti incompatibili" elenca, per ogni versione, cosa smette di
 - Il browser interno libera la memoria quando si chiude; la pagina di una regione non mostra più per un attimo la mappa prima di sapere se è installata.
 - Pubblicazione dei dati più sicura: un problema di rete non può più far cancellare i pacchetti delle altre regioni né far pubblicare una regione senza una parte dei percorsi.
 
-## [0.7.0]
+## [0.7.0] - 2026-09-25
 
 ### Cambiamenti incompatibili
 - I punti di interesse delle regioni pubblicate da questa versione in poi sono solo compressi (xz): le versioni fino alla 0.6.0 non riescono più a scaricarli né ad aggiornarli.
@@ -296,7 +299,7 @@ La sezione "Cambiamenti incompatibili" elenca, per ogni versione, cosa smette di
 ### Corretto
 - Numeri civici mancanti a Filippine, Finlandia e Tanzania per errori di rete temporanei durante la pubblicazione: ora ci sono, e la pubblicazione riprova più volte il download e il caricamento prima di rinunciare.
 
-## [0.6.0]
+## [0.6.0] - 2026-09-24
 
 ### Aggiunto
 - Numeri civici sulla mappa, visibili avvicinandosi (da zoom 17): un pacchetto a parte e leggero per regione (San Marino 146 kB, circa 50 MB l'Italia intera), da scaricare dai Contenuti della regione; la mappa resta quella di prima. Le regioni ricevono i civici man mano che vengono ripubblicate.
@@ -319,7 +322,7 @@ La sezione "Cambiamenti incompatibili" elenca, per ogni versione, cosa smette di
 - Guide: 225 nazioni su 246 risultavano senza nessuna sezione (es. Isole Faroe, Germania, Stati Uniti). La pipeline salvava come guida le risposte di errore di Wikivoyage e non trovava la pagina italiana per i titoli con lettere accentate o con un redirect. Ora tutte le 246 nazioni hanno la guida: 245 in italiano, e la Siberia in inglese perché la sua pagina italiana ha solo i titoli.
 - Punti di interesse: una regione con i segmenti di percorso invariati non aggiornava mai i propri POI. Ora vengono rigenerati quando hanno più di 30 giorni, senza riscaricare mappa e percorsi, e l'app li riscarica solo se sono davvero cambiati.
 
-## [0.5.0]
+## [0.5.0] - 2026-09-23
 
 ### Cambiamenti incompatibili
 - Nuovo catalogo con pacchetti separati per guide, mappa, percorsi e punti di interesse: le versioni fino alla 0.4.0 non lo leggono e, dopo la sua pubblicazione, non scaricano più regioni. Le regioni già installate restano utilizzabili; le guide vanno riscaricate una volta.
@@ -362,7 +365,7 @@ La sezione "Cambiamenti incompatibili" elenca, per ogni versione, cosa smette di
 - Guida: le sottosezioni delle voci Wikivoyage (es. "Vini rossi", "Moscati e passiti" sotto "Bevande") comparivano come testo semplice preceduto da `;` o `▸`, senza che si capisse che erano titoli. Ora sono mostrate come sottotitoli, senza simbolo e annunciate come titoli da TalkBack; vale subito anche per le regioni già scaricate. La pipeline dati converte ora anche la sintassi `;Titolo` in sottosezione, per i pacchetti pubblicati da qui in avanti.
 - Pubblicazione automatica settimanale (`publish-regions.yml`): lo sharding a 3 vie dentro il bucket di ogni giorno era round-robin, senza tenere conto del peso reale delle regioni — una nazione enorme (es. Canada) poteva finire da sola in uno shard e rischiare di sforare il limite di 6h di un job GitHub Actions. Ora usa lo stesso bin-packing goloso per peso (tile `.rd5` misurate) già impiegato per bilanciare i 7 giorni della settimana.
 
-## [0.4.0]
+## [0.4.0] - 2026-09-18
 
 ### Aggiunto
 - Tasto "Controlla aggiornamenti" nella schermata Regioni: in aggiunta al controllo periodico automatico, forza subito un nuovo controllo del catalogo regioni, della versione app e del modello IA.
@@ -389,7 +392,7 @@ La sezione "Cambiamenti incompatibili" elenca, per ogni versione, cosa smette di
 - Import di content.db reso tollerante all'assenza della colonna `phone` (introdotta in questa stessa versione): i pacchetti regionali già pubblicati prima di questa modifica ne sono privi, e senza questo fallback l'intero download/import di qualunque regione sarebbe fallito finché non ripubblicata dalla pipeline.
 - Guida: la pulizia del wikitext Wikivoyage lasciava passare artefatti di sintassi grezza nel testo mostrato in app — verificato dal vivo sull'anteprima di Andorra: sottosezioni prive di corpo (es. "Money", quando il suo unico contenuto era un template tipo `{{Pricerange}}` ormai rimosso) restavano come parola orfana seguita da una riga vuota enorme, gli elenchi puntati mostravano l'asterisco grezzo (`* Perfume`) invece di un punto elenco, e il testo di una citazione `<ref>...</ref>` restava come prosa vagante perché veniva tolto solo il tag e non il contenuto. Ora le sottosezioni vuote sono scartate, i sottotitoli non vuoti diventano "▸ Titolo", gli elenchi usano "•", le citazioni sono rimosse interamente e righe vuote consecutive sono ridotte a una sola.
 
-## [0.3.0]
+## [0.3.0] - 2026-09-18
 
 ### Aggiunto
 - Controllo periodico (qualunque rete inclusi i dati cellulari) di aggiornamenti disponibili per l'app e per il modello IA on-device, in aggiunta a quello già esistente per i pacchetti regionali — solo notifica, mai un download automatico. Fonte: `app-status.json`, asset di una release GitHub fissa (`app-status`) pubblicato da `publish-apk.yml` ad ogni rilascio dell'app, volutamente separato da `manifest.json`/GitHub Pages (pacchetti regionali) così i due cicli di pubblicazione restano indipendenti.
@@ -406,7 +409,7 @@ La sezione "Cambiamenti incompatibili" elenca, per ogni versione, cosa smette di
 - Sotto i 4 GB di RAM l'assistente IA è solo Online: la modalità "sul dispositivo" non viene più mostrata come opzione, dato che il dispositivo non può comunque usarla.
 - Il controllo periodico di aggiornamenti del modello IA (`app-status.json`) copre ora l'intero catalogo invece del solo modello storico.
 
-## [0.2.0]
+## [0.2.0] - 2026-09-16
 
 ### Aggiunto
 - Cinque nuove categorie guida (alloggio, cibo e bevande, acquisti, connettività, vita quotidiana), mappate dalle sezioni Wikivoyage "Sleep"/"Eat"/"Drink"/"Buy"/"Connect"/"Cope".
@@ -440,3 +443,14 @@ Prima baseline documentata: nessuna versione precedente pubblicata da cui deriva
 - Parsing dei sotto-titoli Wikivoyage, che troncava silenziosamente il contenuto reale delle guide.
 - Attribuzione mancante a schermo per OpenStreetMap e link sorgente mancante per le citazioni Wikivoyage.
 - Inizializzazione di WorkManager con Hilt, che impediva l'esecuzione di qualunque download in background.
+
+[Non rilasciato]: https://github.com/miracle091/pocket-travel/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/miracle091/pocket-travel/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/miracle091/pocket-travel/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/miracle091/pocket-travel/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/miracle091/pocket-travel/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/miracle091/pocket-travel/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/miracle091/pocket-travel/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/miracle091/pocket-travel/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/miracle091/pocket-travel/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/miracle091/pocket-travel/releases/tag/v0.2.0
