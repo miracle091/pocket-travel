@@ -6,7 +6,9 @@
 #   data: MM-AAAA o AAAA-MM (separati da -, / o .), oppure AAAA-MM-GG (normalize_dump_date in lib.sh). Senza data:
 #   l'ultimo dump completo (con SHA256SUMS) comune alle quattro wiki.
 # Le parti finiscono in <cartella>/<AAAA-MM-GG>/, con lo SHA256SUMS di ogni wiki (<wiki>.SHA256SUMS). Una parte gia'
-# presente con lo sha256 giusto non si riscarica, una interrotta riprende da dove era arrivata.
+# presente con lo sha256 giusto non si riscarica, una interrotta riprende da dove era arrivata, finche' cresce; una
+# arrivata alla dimensione del server con lo sha256 sbagliato si riscarica da capo. Il download dura ore: su un
+# terminale che si chiude va lanciato staccato (nohup, o Start-Process su Windows); rilanciato, riprende.
 # Senza data, solo dopo che il dump nuovo e' completo e verificato, cancella le cartelle dei dump piu' vecchi in
 # <cartella>, comprese le cache <wiki>-<data>.pages.json di wiki_dump.py. Con una data esplicita non cancella niente.
 #
@@ -52,16 +54,29 @@ for wiki in "${WIKIS[@]}"; do
       || { echo "$wiki: riga di SHA256SUMS non valida: $file" >&2; exit 1; }
     verified() { printf '%s  %s\n' "$sha" "$DIR/$file" | sha256sum -c - >/dev/null 2>&1; }
     size() { if [ -f "$DIR/$file" ]; then wc -c < "$DIR/$file"; else echo 0; fi; }
-    for attempt in 1 2 3 4 5 6 7 8 9 10; do
-      verified && break
+    # dimensione sul server: solo un file arrivato a questa dimensione con lo sha256 sbagliato si cancella
+    remote="$(wikimedia_curl -I "$url/$file" | tr -d '\r' | awk 'tolower($1) == "content-length:" { n = $2 } END { print n }')" || remote=""
+    # Si riprova finche' il file cresce: con una rete instabile curl si ferma dopo 30 s sotto 1 KB/s e una parte di
+    # oltre 2 GB richiede molte riprese. Si smette dopo 10 tentativi di fila senza crescita.
+    attempt=0 stalls=0
+    while ! verified && [ "$stalls" -lt 10 ]; do
+      attempt=$((attempt + 1))
       before="$(size)"
       echo "$file: download (tentativo $attempt)"
       # -C -: riprende un download interrotto; --max-time per parte, le piu' grandi superano i 3 GB
       wikimedia_curl --max-time 14400 -C - -o "$DIR/$file" "$url/$file" || sleep 30
-      # non e' cresciuto e non torna: un file intero con lo sha256 sbagliato non si riprende, si riscarica da capo
-      if ! verified && [ "$(size)" = "$before" ]; then rm -f "$DIR/$file"; fi
+      verified && break
+      if [ -n "$remote" ] && [ "$(size)" -ge "$remote" ]; then
+        rm -f "$DIR/$file"  # intero ma con lo sha256 sbagliato: non si riprende, si riscarica da capo
+        stalls=$((stalls + 1))
+      elif [ "$(size)" = "$before" ]; then
+        [ -n "$remote" ] || rm -f "$DIR/$file"  # senza la dimensione sul server non si sa se e' intero: da capo
+        stalls=$((stalls + 1))
+      else
+        stalls=0
+      fi
     done
-    verified || { echo "$file: sha256 sbagliato dopo 10 tentativi" >&2; exit 1; }
+    verified || { echo "$file: non scaricato (10 tentativi di fila senza crescita o con lo sha256 sbagliato)" >&2; exit 1; }
     echo "$file: ok"
   done <<< "$sums"
 done
