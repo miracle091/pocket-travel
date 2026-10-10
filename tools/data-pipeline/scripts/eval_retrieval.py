@@ -17,8 +17,13 @@ Metriche: sezione attesa tra le 3 del contesto ("trovata") e al primo posto, Sto
 non ne parla, e il paragrafo della sezione attesa con piu' parole della domanda presente nel contesto (questa
 favorisce la scelta dei paragrafi dell'app, che usa lo stesso criterio). Con --lang en le guide inglesi (guidesEn,
 citiesEn, Storia e Clima da Wikipedia EN) e le domande in inglese, come l'app in inglese.
+Con --questions reworded le stesse domande dette con altre parole (sinonimi, giri di frase), con --questions other-lang
+le domande nell'altra lingua sulle guide di --lang (chi scrive in inglese con l'app in italiano, e viceversa): servono
+a vedere quanto la ricerca a testo pieno dipende dalle parole esatte delle guide. Citta' e coppie delle distanze sono
+le stesse in tutti e tre i casi.
 
-Uso: python eval_retrieval.py [--lang it|en] [--regions italia portogallo ...] [--cache DIR] [--no-wikipedia]
+Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|other-lang] [--regions italia ...]
+[--cache DIR] [--no-wikipedia]
 (la cache dei file scaricati sta di default nella cartella temporanea di sistema)
 Richiede rete (manifest, release, API di Wikipedia) e, per Storia e Clima, il gradle wrapper dalla root del repo.
 """
@@ -124,12 +129,70 @@ COUNTRY_Q_EN = {
     "TRASPORTI": ["How do trains work in the country?", "Is it worth renting a car?"],
     "CIBO_BEVANDE": ["Which typical dishes should I try?"],
 }
-# Per lingua: domande (citta', storia e clima, paese, distanze), chiavi del manifest e suffisso dei file in cache.
-LANGS = {
-    "it": {"questions": (CITY_Q, WIKI_Q, COUNTRY_Q, DISTANCE_Q), "guides": "guides", "cities": "cities", "suffix": ""},
-    "en": {"questions": (CITY_Q_EN, WIKI_Q_EN, COUNTRY_Q_EN, DISTANCE_Q_EN), "guides": "guidesEn", "cities": "citiesEn",
-           "suffix": "-en"},
+# Le stesse richieste con altre parole: sinonimi e giri di frase che le guide usano poco o in altra forma.
+CITY_Q_REWORDED = {
+    "COSA_VEDERE": ["Cosa non perdere a {c}?", "Quali sono le attrazioni principali di {c}?",
+                    "Cosa merita una visita a {c}?"],
+    "TRASPORTI": ["Come ci si arriva a {c}?", "Come mi sposto a {c} senza macchina?"],
+    "ALLOGGIO": ["Dove posso passare la notte a {c}?", "Cerco un posto economico per pernottare a {c}"],
+    "CIBO_BEVANDE": ["Che cosa assaggiare a {c}?", "Dove si cena bene a {c}?", "Quali specialità locali provare a {c}?",
+                     "Un buon locale per pranzo a {c}?"],
+    "ACQUISTI": ["Dove comprare souvenir a {c}?"],
 }
+DISTANCE_Q_REWORDED = ["Quanta strada c'è da {o} a {c}?", "Quanto è lontana {c} da {o}?",
+                       "In quanto tempo si va da {o} a {c}?"]
+WIKI_Q_REWORDED = {
+    "STORIA": ["Quali sono le origini di {c}?", "Quando è nata {c}?", "Cosa sappiamo del passato di {c}?",
+               "Chi governava {c} nel Medioevo?"],
+    "CLIMA": ["Che tempo fa a {c} in primavera?", "Qual è il periodo migliore per andare a {c}?",
+              "Serve l'ombrello a {c} in autunno?", "Che temperature ci sono a {c} ad agosto?"],
+}
+COUNTRY_Q_REWORDED = {
+    "DOGANE": ["Che documenti mi servono alla frontiera?", "Quali limiti ci sono per alcol e sigarette all'arrivo?"],
+    "SALUTE": ["Devo fare qualche vaccino prima di partire?", "Se mi ammalo dove vado?"],
+    "SICUREZZA": ["È un paese sicuro per chi viaggia?", "Rischio di essere derubato?"],
+    "ACQUISTI": ["Accettano il bancomat nei negozi?", "Si usa lasciare qualcosa al cameriere?"],
+    "CONNETTIVITA": ["Come mi collego a internet col telefono?"],
+    "TRASPORTI": ["Come ci si sposta tra le città?", "Si può girare in macchina?"],
+    "CIBO_BEVANDE": ["Cosa si mangia di solito?"],
+}
+CITY_Q_REWORDED_EN = {
+    "COSA_VEDERE": ["What shouldn't I miss in {c}?", "What are the main attractions of {c}?",
+                    "What is worth a visit in {c}?"],
+    "TRASPORTI": ["How can I reach {c}?", "How do I move around {c} without a car?"],
+    "ALLOGGIO": ["Where can I spend the night in {c}?", "I need a cheap place to sleep in {c}"],
+    "CIBO_BEVANDE": ["What should I taste in {c}?", "Where can I have a good dinner in {c}?",
+                     "Which local specialities should I try in {c}?", "A good place for lunch in {c}?"],
+    "ACQUISTI": ["Where can I buy souvenirs in {c}?"],
+}
+DISTANCE_Q_REWORDED_EN = ["How much road is there from {o} to {c}?", "How far away is {c} from {o}?",
+                          "How quickly can I get from {o} to {c}?"]
+WIKI_Q_REWORDED_EN = {
+    "STORIA": ["What are the origins of {c}?", "When was {c} established?", "What do we know about the past of {c}?",
+               "Who ruled {c} in the Middle Ages?"],
+    "CLIMA": ["What is the weather like in {c} in spring?", "When is the best time to go to {c}?",
+              "Do I need an umbrella in {c} in autumn?", "What temperatures are there in {c} in August?"],
+}
+COUNTRY_Q_REWORDED_EN = {
+    "DOGANE": ["What documents do I need at the border?", "What are the limits on alcohol and cigarettes on arrival?"],
+    "SALUTE": ["Should I get any jabs before leaving?", "Where do I go if I get sick?"],
+    "SICUREZZA": ["Is the country safe for travellers?", "Am I likely to get robbed?"],
+    "ACQUISTI": ["Do shops accept debit cards?", "Do people leave something for the waiter?"],
+    "CONNETTIVITA": ["How do I get online with my phone?"],
+    "TRASPORTI": ["How do people travel between cities?", "Can I get around by car?"],
+    "CIBO_BEVANDE": ["What do people usually eat?"],
+}
+# Per lingua: domande dirette e riformulate (citta', storia e clima, paese, distanze), chiavi del manifest e suffisso
+# dei file in cache.
+LANGS = {
+    "it": {"questions": (CITY_Q, WIKI_Q, COUNTRY_Q, DISTANCE_Q),
+           "reworded": (CITY_Q_REWORDED, WIKI_Q_REWORDED, COUNTRY_Q_REWORDED, DISTANCE_Q_REWORDED),
+           "guides": "guides", "cities": "cities", "suffix": "", "other": "en"},
+    "en": {"questions": (CITY_Q_EN, WIKI_Q_EN, COUNTRY_Q_EN, DISTANCE_Q_EN),
+           "reworded": (CITY_Q_REWORDED_EN, WIKI_Q_REWORDED_EN, COUNTRY_Q_REWORDED_EN, DISTANCE_Q_REWORDED_EN),
+           "guides": "guidesEn", "cities": "citiesEn", "suffix": "-en", "other": "it"},
+}
+QUESTION_SETS = ["direct", "reworded", "other-lang"]
 KINDS = ["citta', domande pratiche", "paese", "citta', storia e clima", "distanze"]
 # Un paragrafo con una distanza o un tempo di viaggio ("72 km", "3 h 30", "20 minuti", "2 hours").
 TRAVEL_FIGURE = re.compile(r"\d+\s*(km|h|ore|minuti|min|hours?|minutes?)\b")
@@ -408,9 +471,17 @@ def distance_pairs(city_rows):
     return [(c, o, p) for (c, o), p in sorted(pairs.items())]
 
 
-def make_plan(region, city_rows, rng, lang="it"):
-    """(tipo, categoria attesa, citta' attesa o None, domanda, paragrafo atteso o None) per la regione."""
-    city_q, wiki_q, country_q, distance_q = LANGS[lang]["questions"]
+def questions_of(lang, question_set):
+    """I modelli di domanda (citta', storia e clima, paese, distanze) di [question_set] per le guide in [lang]."""
+    if question_set == "other-lang":
+        return LANGS[LANGS[lang]["other"]]["questions"]
+    return LANGS[lang]["reworded" if question_set == "reworded" else "questions"]
+
+
+def make_plan(region, city_rows, rng, pick, questions):
+    """(tipo, categoria attesa, citta' attesa o None, domanda, paragrafo atteso o None) per la regione: citta' e coppie
+    scelte con [rng], modelli di [questions] con [pick], cosi' citta' e coppie non cambiano con i modelli."""
+    city_q, wiki_q, country_q, distance_q = questions
     cats = defaultdict(set)
     for city, cat, *_ in city_rows:
         cats[city].add(cat)
@@ -419,31 +490,34 @@ def make_plan(region, city_rows, rng, lang="it"):
     for c in rng.sample(eligible, min(len(eligible), CITIES_PER_REGION.get(region, DEFAULT_CITIES))):
         for cat, qs in city_q.items():
             if cat in cats[c]:
-                plan.append((KINDS[0], cat, c, rng.choice(qs).format(c=spoken_city_name(c)), None))
+                plan.append((KINDS[0], cat, c, pick.choice(qs).format(c=spoken_city_name(c)), None))
         for cat, qs in wiki_q.items():
             if cat in cats[c]:
-                plan.append((KINDS[2], cat, c, rng.choice(qs).format(c=spoken_city_name(c)), None))
+                plan.append((KINDS[2], cat, c, pick.choice(qs).format(c=spoken_city_name(c)), None))
     for cat, qs in country_q.items():
         plan += [(KINDS[1], cat, None, q, None) for q in qs]
     pairs = distance_pairs(city_rows)
     for c, o, paragraph in rng.sample(pairs, min(len(pairs), DISTANCE_PAIRS)):
-        plan.append((KINDS[3], "TRASPORTI", c, rng.choice(distance_q).format(c=c, o=o), paragraph))
+        plan.append((KINDS[3], "TRASPORTI", c, pick.choice(distance_q).format(c=c, o=o), paragraph))
     return plan
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--lang", choices=sorted(LANGS), default="it")
+    ap.add_argument("--questions", choices=QUESTION_SETS, default="direct",
+                    help="domande dirette, riformulate o nell'altra lingua")
     ap.add_argument("--regions", nargs="+", default=DEFAULT_REGIONS)
     ap.add_argument("--cache", type=Path, default=Path(tempfile.gettempdir()) / "pocket-travel-eval-retrieval")
     ap.add_argument("--no-wikipedia", action="store_true", help="senza Storia e Clima (per confronto)")
     a = ap.parse_args()
     fetch_data(a.regions, a.cache, a.lang)
-    rng = random.Random(7)
+    rng, pick = random.Random(7), random.Random(8)
+    questions = questions_of(a.lang, a.questions)
     res = defaultdict(lambda: defaultdict(int))
     for region in a.regions:
         # Le domande si scelgono sempre con Storia e Clima, cosi' con e senza --no-wikipedia sono le stesse.
-        plan = make_plan(region, city_rows_of(a.cache, region, True, a.lang), rng, a.lang)
+        plan = make_plan(region, city_rows_of(a.cache, region, True, a.lang), rng, pick, questions)
         rows = city_rows_of(a.cache, region, not a.no_wikipedia, a.lang)
         db = build_db(a.cache / f"guides{LANGS[a.lang]['suffix']}.db", region, rows)
         cities = sorted({r[0] for r in rows})

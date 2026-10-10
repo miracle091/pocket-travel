@@ -179,7 +179,9 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   guide pubblicate di alcune regioni, con Storia e Clima da Wikipedia se i `cities.db` pubblicati non li hanno ancora,
   e domande costruite da modelli fissi (pratiche sulle città, sul paese, storia e clima). Stampa quante volte la sezione
   attesa entra nel contesto e quante volte la risposta ci sta dentro. Va aggiornato insieme alla scelta del contesto
-  dell'app; `--lang en` misura le guide e le domande inglesi, `--no-wikipedia` misura senza le due sezioni. Anche `make_context`
+  dell'app; `--lang en` misura le guide e le domande inglesi, `--no-wikipedia` misura senza le due sezioni,
+  `--questions reworded` usa le stesse richieste con altre parole e `--questions other-lang` le domande nell'altra
+  lingua (stesse città nei tre casi). Anche `make_context`
   (`generate_sft_dataset.py`), che costruisce il contesto dei dataset SFT e dei set di valutazione, sceglie i paragrafi
   come l'app (`test_make_context.py` lo confronta con la replica di `eval_retrieval.py`).
 - **Guide**: la sottosezione "Costo della vita" ("Cost of living" in inglese) viene omessa da guide e città. I fatti
