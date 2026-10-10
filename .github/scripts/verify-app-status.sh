@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Verifica <file> con <file>.sig e la chiave pubblica incorporata nell'app (SyncConfig.MANIFEST_PUBLIC_KEY in
-# core/sync), come fa l'app: prima di riusare un file gia' pubblicato, per non firmare un asset manomesso.
-# Esce con errore se la firma manca o non e' valida. Da lanciare dalla radice del repository.
+# Verifica <file> con <file>.sig e la chiave pubblica del catalogo ufficiale incorporata nell'app
+# (SyncConfig.OFFICIAL_PUBLIC_KEY in core/sync), come fa l'app: prima di riusare un file gia' pubblicato, per non
+# firmare un asset manomesso. Esce con errore se la chiave non si trova nel sorgente o se la firma manca o non e'
+# valida. Da lanciare dalla radice del repository.
 # Uso: bash .github/scripts/verify-app-status.sh <file>
 set -euo pipefail
 
 file="$1"
 config="core/sync/src/main/kotlin/com/pockettravel/core/sync/SyncConfig.kt"
-key="$(grep -A1 'MANIFEST_PUBLIC_KEY =' "$config" | grep -oE '"[A-Za-z0-9+/=]{40,}"' | tr -d '"')"
+# "|| true": senza, con pipefail un grep senza risultati chiuderebbe lo script in silenzio, prima del messaggio sotto.
+key="$(grep -A1 'OFFICIAL_PUBLIC_KEY =' "$config" | grep -oE '"[A-Za-z0-9+/=]{40,}"' | tr -d '"' || true)"
 if [ -z "$key" ]; then
-  echo "::error::MANIFEST_PUBLIC_KEY non trovata in $config" >&2
+  echo "::error::OFFICIAL_PUBLIC_KEY non trovata in $config" >&2
   exit 1
 fi
 pub="$(mktemp)"

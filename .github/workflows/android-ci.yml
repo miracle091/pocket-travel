@@ -49,6 +49,20 @@ jobs:
           set -e
           for t in tools/data-pipeline/scripts/test_*.py; do echo "== $t"; python3 "$t"; done
 
+      # Gli script di pubblicazione leggono la chiave pubblica da SyncConfig.kt: se il sorgente cambia forma, la
+      # verifica di app-status.json fallisce, e nei job di pubblicazione questo si vede solo al rilascio. Qui
+      # si verifica il file pubblicato a ogni push, con lo stesso script.
+      - name: Firma di app-status.json verificabile con la chiave dell'app
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          source .github/scripts/retry.sh
+          retry gh release download app-status --pattern 'app-status.json*' --dir "$RUNNER_TEMP/app-status" \
+            --repo "$GITHUB_REPOSITORY"
+          bash .github/scripts/verify-app-status.sh "$RUNNER_TEMP/app-status/app-status.json"
+
       # weekly-schedule.sh e' generato da regions.sh (generate-weekly-schedule.sh): se non e'
       # stato rigenerato dopo una modifica all'elenco, una regione nuova non verrebbe mai pubblicata
       # dallo schedule (o una tolta verrebbe ancora chiesta). Ogni regione una e una sola volta.

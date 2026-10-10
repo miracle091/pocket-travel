@@ -13,10 +13,12 @@ online_dir="$(mktemp -d)"
 trap 'rm -rf "$online_dir"' EXIT
 
 online=()
-if retry gh release download app-status --pattern 'app-status.json*' --dir "$online_dir" --repo "$GITHUB_REPOSITORY" \
-  && bash .github/scripts/verify-app-status.sh "$online_dir/app-status.json" > /dev/null 2>&1; then
-  online=("$online_dir/app-status.json")
+if ! retry gh release download app-status --pattern 'app-status.json*' --dir "$online_dir" --repo "$GITHUB_REPOSITORY"; then
+  echo "::warning::app-status.json online non scaricabile: uso solo il catalogo" >&2
+# Il motivo (chiave non trovata, firma assente o non valida) resta nel log: lo scrive verify-app-status.sh.
+elif ! bash .github/scripts/verify-app-status.sh "$online_dir/app-status.json"; then
+  echo "::warning::app-status.json online non verificato (motivo sopra): uso solo il catalogo" >&2
 else
-  echo "::warning::app-status.json online assente o con firma non valida: uso solo il catalogo" >&2
+  online=("$online_dir/app-status.json")
 fi
 python3 tools/data-pipeline/scripts/resolve_ai_models.py "$catalog" "${online[@]}" > "$output"
