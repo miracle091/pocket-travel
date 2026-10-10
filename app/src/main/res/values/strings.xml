@@ -34,6 +34,9 @@
     <string name="transit_networks_near">Selezionate le reti entro 50 km dall\'ultima posizione nota</string>
     <string name="transit_networks_nearest">Nessuna rete entro 50 km dall\'ultima posizione nota: selezionata la più vicina</string>
     <string name="transit_networks_all">Posizione non nota o in un\'altra nazione: selezionate tutte le reti. Deseleziona quelle non necessarie</string>
+    <string name="transit_missing_timetables">Non incluse, orari scaduti o validi meno di un mese: %1$s</string>
+    <string name="transit_missing_license">Non incluse, licenza che non consente il riuso dei dati: %1$s</string>
+    <string name="transit_missing_other">Non incluse: %1$s</string>
     <string name="package_map">Mappa</string>
     <string name="package_routing">Rete stradale</string>
     <string name="package_poi">Punti di interesse</string>

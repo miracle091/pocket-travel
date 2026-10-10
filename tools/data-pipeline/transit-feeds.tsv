@@ -30,9 +30,24 @@
 # opendata.comune.palermo.it, dati.comune.genova.it, dati.regione.calabria.it, dati.venezia.it (ACTV),
 # dati.comune.messina.it (ATM Messina, non nel Mobility Database: dal sito dell'ente),
 # dati.regione.liguria.it, solweb.tper.it (TPER, CC BY 3.0 IT). Liguria e TPER pubblicano un file con la
-# data nel nome a ogni versione: {ultimo} e cerca_ultimo. All'8 ottobre 2026 in Liguria solo il file di
-# Trenitalia ha orari validi; le altre reti si costruiscono quando la Regione pubblica i nuovi. Fuori
-# anche se CC BY: i traghetti per la Sardegna di sardegnamobilita.it (scaduti, o entro un mese).
+# data nel nome a ogni versione: {ultimo} e cerca_ultimo. Al 10 ottobre 2026 in Liguria solo il file di
+# Trenitalia ha orari validi (fino al 2026-12-12); TPL Linea (fino al 2026-09-06), Riviera Trasporti
+# (2026-09-13), ATC (2026-09-12) e AMT extraurbano (2026-08-04) sono scaduti: tolte finche' la
+# Regione non pubblica i file nuovi (altrimenti il workflow ripubblica la voce vecchia, con orari
+# scaduti). Per rimetterle: righe come lig-trenitalia, dataset ds-642 (lig-amt-extraurbano), ds-640
+# (lig-atc), ds-639 (lig-riviera), ds-638 (lig-tpl-linea), stessa regex di cerca_ultimo.
+# Le reti escluse per orari o licenza che l'app mostra come "Non incluse" sono in transit-missing.tsv.
+# Traghetti di sardegnamobilita.it (pagina open-data/offerta-servizi, CC BY 4.0), verificati il 10
+# ottobre 2026, tutti fuori: Tirrenia (R_SARDEGTRASP_00026, corse fino al 2022-12-31; il nuovo
+# TIRRENIA_regione_opendata.zip di static.moby.it non e' GTFS, porti e navi senza fermate ne' orari, e
+# arriva al 2022-12-31), Grimaldi (00031, corse fino al 2025-12-31; GRIMALDI_OPENDATA.zip stesso formato
+# non GTFS, fino al 2025-12-31), Corsica Ferries - Sardinia Ferries (00028, fino al 2024-01-14), Moby e
+# GTM Santa Teresa - Bonifacio (00010 dati_mare_corsica, fino al 2026-10-31: meno di un mese). Si
+# rimettono quando il portale pubblica un GTFS con almeno un mese di corse.
+# Marche (10 ottobre 2026): il GTFS regionale (bus urbani, extraurbani e treni regionali,
+# regione.marche.it, pagina Trasporto pubblico locale) e' sotto CC BY-NC-ND 3.0 IT e si ottiene solo con
+# un modulo di richiesta: escluso (non commerciale, non opere derivate), nessuna copia nel Mobility
+# Database.
 # Autolinee Toscane dal feed unico della Regione: le copie per ambito del Mobility Database (tld-69xx)
 # sono ferme, la fonte risponde 404. CTM Cagliari dal link del portale sardo, non dal vecchio
 # ctmcagliari.it; Trentino extraurbano dal sito dell'ente (mdb-1031 e' inattivo). Escluse: GTT Torino e
@@ -89,10 +104,6 @@ atm-messina	italia	Messina (ATM)	CC-BY	ATM Messina S.p.A. (dati.comune.messina.i
 tper-bologna	italia	Bologna, autobus (TPER)	CC-BY	TPER S.p.A. (solweb.tper.it, CC BY 3.0 IT); modificato	https://solweb.tper.it/web/tools/open-data/open-data.aspx	https://solweb.tper.it/web/tools/open-data/open-data-download.aspx?source=solweb.tper.it&filename=gommagtfsbo&version={ultimo}&format=zip	https://solweb.tper.it/web/tools/open-data/open-data.aspx filename=gommagtfsbo&version=\K[0-9]{8}
 tper-ferrara	italia	Ferrara, autobus (TPER)	CC-BY	TPER S.p.A. (solweb.tper.it, CC BY 3.0 IT); modificato	https://solweb.tper.it/web/tools/open-data/open-data.aspx	https://solweb.tper.it/web/tools/open-data/open-data-download.aspx?source=solweb.tper.it&filename=gommagtfsfe&version={ultimo}&format=zip	https://solweb.tper.it/web/tools/open-data/open-data.aspx filename=gommagtfsfe&version=\K[0-9]{8}
 lig-trenitalia	italia	Liguria, treni regionali (Trenitalia)	CC-BY	Regione Liguria, Trenitalia (dati.regione.liguria.it, CC BY 4.0); modificato	https://dati.regione.liguria.it/dataset/ds-637	{ultimo}	https://dati.regione.liguria.it/api/3/action/package_show?id=ds-637 https://srvcarto\.regione\.liguria\.it/[^"]*/GTFS/GTFS-IT-ITC3-[^"]*\.zip
-lig-amt-extraurbano	italia	Genova, autobus extraurbani (AMT)	CC-BY	Regione Liguria, AMT Genova (dati.regione.liguria.it, CC BY 4.0); modificato	https://dati.regione.liguria.it/dataset/ds-642	{ultimo}	https://dati.regione.liguria.it/api/3/action/package_show?id=ds-642 https://srvcarto\.regione\.liguria\.it/[^"]*/GTFS/GTFS-IT-ITC3-[^"]*\.zip
-lig-atc	italia	La Spezia e Cinque Terre, autobus (ATC)	CC-BY	Regione Liguria, ATC Esercizio (dati.regione.liguria.it, CC BY 4.0); modificato	https://dati.regione.liguria.it/dataset/ds-640	{ultimo}	https://dati.regione.liguria.it/api/3/action/package_show?id=ds-640 https://srvcarto\.regione\.liguria\.it/[^"]*/GTFS/GTFS-IT-ITC3-[^"]*\.zip
-lig-riviera	italia	Imperia e Riviera di Ponente, autobus (Riviera Trasporti)	CC-BY	Regione Liguria, Riviera Trasporti (dati.regione.liguria.it, CC BY 4.0); modificato	https://dati.regione.liguria.it/dataset/ds-639	{ultimo}	https://dati.regione.liguria.it/api/3/action/package_show?id=ds-639 https://srvcarto\.regione\.liguria\.it/[^"]*/GTFS/GTFS-IT-ITC3-[^"]*\.zip
-lig-tpl-linea	italia	Savona, autobus (TPL Linea)	CC-BY	Regione Liguria, TPL Linea (dati.regione.liguria.it, CC BY 4.0); modificato	https://dati.regione.liguria.it/dataset/ds-638	{ultimo}	https://dati.regione.liguria.it/api/3/action/package_show?id=ds-638 https://srvcarto\.regione\.liguria\.it/[^"]*/GTFS/GTFS-IT-ITC3-[^"]*\.zip
 mdb-2373	italia	Palermo (AMAT)	CC-BY	Comune di Palermo, AMAT Palermo (opendata.comune.palermo.it, CC BY 4.0); modificato	https://opendata.comune.palermo.it/opendata-dataset.php?dataset=1303
 mdb-895	italia	Sardegna, autobus, treni e tram (ARST)	CC-BY	Regione Autonoma della Sardegna, ARST (sardegnamobilita.it, CC BY 4.0); modificato	https://www.sardegnamobilita.it/open-data
 mdb-1052	italia	Sardegna, treni (Trenitalia)	CC-BY	Regione Autonoma della Sardegna, Trenitalia (sardegnamobilita.it, CC BY 4.0); modificato	https://www.sardegnamobilita.it/open-data

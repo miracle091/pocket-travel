@@ -53,6 +53,7 @@ import com.pockettravel.app.R
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionZone
 import com.pockettravel.core.sync.TransitDefaultReason
+import com.pockettravel.core.sync.TransitMissing
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
@@ -125,6 +126,8 @@ internal fun RegionPackagesSheet(
                             }
                             pkg.transitDefaultReason?.let { TransitNetworksNote(it) }
                         }
+                        // Sempre visibili, anche con le reti chiuse: chi cerca una rete mancante legge subito il perche'.
+                        if (pkg.missingNetworks.isNotEmpty()) TransitMissingNote(pkg.missingNetworks)
                         if (pkg.kind == PackageKind.ROUTING && item.routingCarAvailable) {
                             val choice by remember(item.regionId) { actions.observeRoutingChoice(item.regionId) }
                                 .collectAsStateWithLifecycle(RoutingVariantOption.ALL)
@@ -346,6 +349,25 @@ private fun TransitNetworksNote(reason: TransitDefaultReason) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = Spacing.xl + Spacing.l, end = Spacing.l, bottom = Spacing.s),
     )
+}
+
+// Sotto i mezzi pubblici: le reti non ancora incluse, una riga per motivo. I nomi contengono virgole: separati da ";".
+@Composable
+private fun TransitMissingNote(missing: List<TransitMissing>) {
+    missing.groupBy { it.reason }.forEach { (reason, networks) ->
+        val names = networks.joinToString("; ") { it.name }
+        val text = when (reason) {
+            "orari" -> stringResource(R.string.transit_missing_timetables, names)
+            "licenza" -> stringResource(R.string.transit_missing_license, names)
+            else -> stringResource(R.string.transit_missing_other, names)
+        }
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = Spacing.xl + Spacing.l, end = Spacing.l, bottom = Spacing.s),
+        )
+    }
 }
 
 // Pacchetto che il manifest non offre per la regione: nessuna azione, solo il motivo. "regione" solo per una parte di

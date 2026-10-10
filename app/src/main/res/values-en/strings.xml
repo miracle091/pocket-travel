@@ -34,6 +34,9 @@
     <string name="transit_networks_near">Networks within 50 km of the last known location are selected</string>
     <string name="transit_networks_nearest">No network within 50 km of the last known location: the nearest one is selected</string>
     <string name="transit_networks_all">Location unknown or in another country: all networks are selected. Deselect the ones not needed</string>
+    <string name="transit_missing_timetables">Not included, timetables expired or valid for less than a month: %1$s</string>
+    <string name="transit_missing_license">Not included, the license does not allow reuse of the data: %1$s</string>
+    <string name="transit_missing_other">Not included: %1$s</string>
     <string name="package_map">Map</string>
     <string name="package_routing">Road network</string>
     <string name="package_poi">Points of interest</string>

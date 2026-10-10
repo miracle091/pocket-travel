@@ -14,6 +14,7 @@ import com.pockettravel.core.sync.ReplacedRegion
 import com.pockettravel.core.sync.RoutingPackageEntry
 import com.pockettravel.core.sync.TransitFeed
 import com.pockettravel.core.sync.TransitIndex
+import com.pockettravel.core.sync.TransitMissing
 import com.pockettravel.core.sync.attachTransitFeeds
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -81,6 +82,16 @@ class RegionUiItemTest {
 
         assertEquals(800_000L, transit.downloadBytes)
         assertEquals(listOf(true, false), transit.networks.map { it.selected })
+    }
+
+    @Test
+    fun `le reti non incluse della regione arrivano solo al pacchetto dei mezzi pubblici`() {
+        val marche = TransitMissing("Marche, autobus e treni regionali", listOf("italia"), "licenza")
+        val index = TransitIndex("v1", withTransit.transit!!.feeds, listOf(marche, marche.copy(name = "Altrove", regions = listOf("francia"))))
+        val packages = regionUiItem(attachTransitFeeds(listOf(remote), index).single(), null, noBytes).packages
+
+        assertEquals(listOf(marche), packages.first { it.kind == PackageKind.TRANSIT }.missingNetworks)
+        assertTrue(packages.filter { it.kind != PackageKind.TRANSIT }.all { it.missingNetworks.isEmpty() })
     }
 
     @Test

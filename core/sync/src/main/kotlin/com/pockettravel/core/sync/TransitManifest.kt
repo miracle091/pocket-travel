@@ -20,7 +20,15 @@ data class TransitManifestEntry(val version: String, val url: String, val sizeBy
  * numero di fermate e la scadenza degli orari stanno gia' dentro la transit.db.
  */
 @Serializable
-data class TransitIndex(val version: String, val feeds: List<TransitFeed>)
+data class TransitIndex(val version: String, val feeds: List<TransitFeed>, val missing: List<TransitMissing> = emptyList())
+
+/**
+ * Una rete che la pipeline non pubblica ancora (transit-missing.tsv), solo da mostrare nei Contenuti.
+ * [reason]: "orari" (scaduti o validi meno di un mese), "licenza" (non aperta); un valore che l'app non
+ * conosce si mostra senza motivo.
+ */
+@Serializable
+data class TransitMissing(val name: String, val regions: List<String>, val reason: String)
 
 /**
  * Una rete: [file] e' la transit.db, [fileXz], se c'e', il file da scaricare, compresso con xz, il cui
@@ -54,6 +62,8 @@ data class RegionTransitEntry(
     val available: List<TransitFeed> = feeds,
     // Perche' [feeds] sono quelle di default (l'utente non ha ancora scelto); null se ha scelto o se le reti sono poche.
     val defaultReason: TransitDefaultReason? = null,
+    // Reti della regione non ancora pubblicate, con il motivo (TransitIndex.missing).
+    val missing: List<TransitMissing> = emptyList(),
 )
 
 internal val TransitFeed.stagedFile: RegionManifestFile get() = file.copy(name = "$id.db")
@@ -74,6 +84,7 @@ fun TransitIndex.validate() {
     require(isSafeVersion(version)) { "version dell'indice dei mezzi pubblici non valida" }
     require(feeds.map { it.id }.toSet().size == feeds.size) { "id di rete duplicati" }
     feeds.forEach { it.validate() }
+    missing.forEach { require(it.name.isNotBlank() && it.regions.all(::isSafeSegment)) { "rete non inclusa non valida: ${it.name}" } }
 }
 
 internal fun TransitFeed.validate() {
@@ -119,7 +130,8 @@ fun attachTransitFeeds(
     return entries.map { entry ->
         val all = regionTransitFeeds(index, entry.regionId)
         val chosen = all.filter { it.id !in excluded[entry.regionId].orEmpty() }.ifEmpty { all }
-        if (all.isEmpty()) entry else entry.copy(transit = RegionTransitEntry(chosen, all, defaultReasons[entry.regionId]))
+        val missing = index.missing.filter { entry.regionId in it.regions }
+        if (all.isEmpty()) entry else entry.copy(transit = RegionTransitEntry(chosen, all, defaultReasons[entry.regionId], missing))
     }
 }
 

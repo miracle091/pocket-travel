@@ -25,6 +25,7 @@ import com.pockettravel.core.sync.ReplacedRegion
 import com.pockettravel.core.sync.TransitClient
 import com.pockettravel.core.sync.TransitDefaultReason
 import com.pockettravel.core.sync.TransitIndex
+import com.pockettravel.core.sync.TransitMissing
 import com.pockettravel.core.sync.attachAddressGridCells
 import com.pockettravel.core.sync.restrictedTo
 import com.pockettravel.core.sync.withRoutingVariant
@@ -68,6 +69,8 @@ data class PackageUiState(
     val networks: List<TransitNetworkUi> = emptyList(),
     // Mezzi pubblici con la scelta di default: come sono state scelte le reti (null se ha scelto l'utente).
     val transitDefaultReason: TransitDefaultReason? = null,
+    // Mezzi pubblici: le reti della regione non ancora incluse, con il motivo.
+    val missingNetworks: List<TransitMissing> = emptyList(),
 )
 
 data class TransitNetworkUi(val id: String, val name: String, val downloadBytes: Long, val selected: Boolean)
@@ -522,6 +525,7 @@ internal fun regionUiItem(
             detail = if (kind == PackageKind.TRANSIT && remote.transit?.available.orEmpty().size <= 1) remote.transit?.feeds?.joinToString { it.name } else null,
             networks = if (kind == PackageKind.TRANSIT) remote.transitNetworks() else emptyList(),
             transitDefaultReason = if (kind == PackageKind.TRANSIT) remote.transit?.defaultReason else null,
+            missingNetworks = if (kind == PackageKind.TRANSIT) remote.transit?.missing.orEmpty() else emptyList(),
         )
     }
     val toDownload = when (status) {

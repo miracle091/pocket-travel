@@ -1,0 +1,18 @@
+# Reti di mezzi pubblici escluse da transit-feeds.tsv che l'app mostra nei Contenuti della regione
+# ("Non incluse", con il motivo): una riga per rete. Il workflow publish-regions le copia in transit.json
+# (campo "missing"); le verifiche e i dettagli di ogni esclusione sono nel commento di transit-feeds.tsv.
+# Quando una rete entra in transit-feeds.tsv si toglie da qui.
+#
+# regioni: regionId di regions.sh separati da virgola, come in transit-feeds.tsv.
+# motivo: "orari" (scaduti o validi meno di un mese) o "licenza" (non consente il riuso dei dati).
+#
+# id	regioni	nome	motivo
+lig-amt-extraurbano	italia	Genova, autobus extraurbani (AMT)	orari
+lig-atc	italia	La Spezia e Cinque Terre, autobus (ATC)	orari
+lig-riviera	italia	Imperia e Riviera di Ponente, autobus (Riviera Trasporti)	orari
+lig-tpl-linea	italia	Savona, autobus (TPL Linea)	orari
+sard-tirrenia	italia	Traghetti per la Sardegna (Tirrenia)	orari
+sard-grimaldi	italia	Traghetti per la Sardegna (Grimaldi)	orari
+sard-sardinia-ferries	italia	Traghetti per la Sardegna (Corsica Ferries - Sardinia Ferries)	orari
+sard-moby-corsica	italia,francia-corsica	Traghetti Santa Teresa Gallura - Bonifacio (Moby, GTM)	orari
+marche	italia	Marche, autobus e treni regionali	licenza

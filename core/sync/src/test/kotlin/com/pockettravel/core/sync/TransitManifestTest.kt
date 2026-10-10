@@ -108,6 +108,26 @@ class TransitManifestTest {
     }
 
     @Test
+    fun `le reti non incluse arrivano alle regioni che elencano, senza cambiare la versione`() {
+        val missing = """"missing": [
+            {"id": "marche", "name": "Marche, autobus e treni regionali", "regions": ["italia"], "reason": "licenza"},
+            {"id": "lig-atc", "name": "La Spezia, autobus (ATC)", "regions": ["italia", "lettonia"], "reason": "orari"}
+          ],"""
+        val index = index(sampleIndex.replaceFirst("\"feeds\":", "$missing \"feeds\":"))
+        index.validate()
+        val (lettonia, italia) = attachTransitFeeds(listOf(region("lettonia"), region("italia")), index)
+        assertEquals(listOf("La Spezia, autobus (ATC)"), lettonia.transit!!.missing.map { it.name })
+        assertEquals(listOf("licenza", "orari"), italia.transit!!.missing.map { it.reason })
+        assertEquals(regionTransitVersion(regionTransitFeeds(index, "italia")), italia.versionOf(PackageKind.TRANSIT))
+        // L'indice di prima, senza "missing", resta leggibile.
+        assertTrue(index().missing.isEmpty())
+        assertThrows(IllegalArgumentException::class.java) {
+            index.copy(missing = listOf(index.missing[0].copy(regions = listOf("../x")))).validate()
+        }
+        assertThrows(IllegalArgumentException::class.java) { index.copy(missing = listOf(index.missing[0].copy(name = ""))).validate() }
+    }
+
+    @Test
     fun `la versione del pacchetto deriva dalle reti, non dall'ordine`() {
         val feeds = regionTransitFeeds(index(), "lettonia")
         val version = regionTransitVersion(feeds)

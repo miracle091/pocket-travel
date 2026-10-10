@@ -836,7 +836,11 @@ jobs:
           INDEX="$RUNNER_TEMP/transit-index/transit.json"
           # publishedAt (secondi Unix) dentro i byte firmati e coperti dallo sha256 del frammento: l'app rifiuta
           # un valore piu' basso dell'ultimo accettato (niente ritorno a una vecchia coppia file + .sig).
-          jq -s --arg v "$VERSION" --argjson at "$(date +%s)" '{version: $v, publishedAt: $at, feeds: (unique_by(.id))}' "$OUT/transit-entries.jsonl" > "$INDEX"
+          # missing: le reti escluse di transit-missing.tsv, che l'app mostra come "Non incluse" con il motivo.
+          MISSING="$(jq -Rn '[inputs | select(length > 0 and (startswith("#") | not)) | split("\t")
+            | {id: .[0], regions: (.[1] | split(",")), name: .[2], reason: .[3]}]' tools/data-pipeline/transit-missing.tsv)"
+          jq -s --arg v "$VERSION" --argjson at "$(date +%s)" --argjson missing "$MISSING" \
+            '{version: $v, publishedAt: $at, feeds: (unique_by(.id)), missing: $missing}' "$OUT/transit-entries.jsonl" > "$INDEX"
           jq -n --arg v "$VERSION" --arg url "$INDEX_URL" --argjson size "$(stat -c %s "$INDEX")" \
             --arg sha "$(sha256sum "$INDEX" | cut -d' ' -f1)" \
             '{manifestVersion: 2, transit: {version: $v, url: $url, sizeBytes: $size, sha256: $sha}, regions: []}' \
