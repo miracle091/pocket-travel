@@ -181,11 +181,21 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   attesa entra nel contesto e quante volte la risposta ci sta dentro. Va aggiornato insieme alla scelta del contesto
   dell'app; `--lang en` misura le guide e le domande inglesi, `--no-wikipedia` misura senza le due sezioni,
   `--questions reworded` usa le stesse richieste con altre parole e `--questions other-lang` le domande nell'altra
-  lingua (stesse città nei tre casi). Anche `make_context`
+  lingua (stesse città nei tre casi), `--questions general` le domande generali sulle pagine della pseudo-regione mondo,
+  `--guides-db` un `guides.db` locale al posto di quello pubblicato. La tabella delle guide contiene tutte le regioni,
+  come nell'app, perché le statistiche di BM25 valgono per tutta la tabella. Anche `make_context`
   (`generate_sft_dataset.py`), che costruisce il contesto dei dataset SFT e dei set di valutazione, sceglie i paragrafi
   come l'app (`test_make_context.py` lo confronta con la replica di `eval_retrieval.py`).
 - **Guide**: la sottosezione "Costo della vita" ("Cost of living" in inglese) viene omessa da guide e città. I fatti
   rapidi delle guide inglesi comprendono anche la lingua e i numeri di emergenza, come quelli italiani.
+- **Pseudo-regione mondo**: `build-guides.sh` scarica anche le pagine tematiche di Wikivoyage di `WORLD_PAGES` (salute,
+  jet lag, mal di montagna, assicurazione, documenti, visti, borseggiatori, truffe, pagamenti, mance solo in inglese,
+  telefono) e `generateGuides --world` le scrive in `guide_sections` con regionId `_world` (`GenerateWorldGuide.kt`):
+  una sezione per titolo "==", intitolata "<pagina>: <titolo>", con la categoria della pagina e il suo link. Senza la
+  pagina italiana la guida italiana la salta; una pagina non scaricata riprende le sezioni pubblicate. L'assistente
+  le cerca insieme alla regione aperta; le versioni precedenti dell'app le importano senza cercarle. Pesano circa il 5%
+  di `guides.db` compresso. Non entrano nei dataset SFT: `load_guide_sections` di `generate_sft.py` le esclude finché
+  non esce l'app che le cerca.
 - **Consigli di viaggio del Governo del Canada (guide inglesi)**: `build-guides.sh en` scarica per ogni paese (`flagCode`
   di `regions.sh`) il JSON open data `data.international.gc.ca/travel-voyage/cta-cap-<iso2>.json` (Open Government
   Licence - Canada 2.0) e `GenerateTravelAdvice.kt` ne fa quattro sezioni della guida, con l'url della pagina del paese

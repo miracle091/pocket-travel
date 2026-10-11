@@ -116,6 +116,45 @@ if [ "$FAILED" -eq "${#ALL_REGIONS[@]}" ]; then
 fi
 echo "-- pagine Wikivoyage: $(( ${#ALL_REGIONS[@]} - FAILED ))/${#ALL_REGIONS[@]} scaricate"
 
+# --- 1b. Pagine tematiche della pseudo-regione "mondo" ---------------------------------------------
+# Per le domande generali all'assistente (jet lag, mance, passaporto smarrito...), regionId _world in guide_sections (vedi
+# GenerateWorldGuide.kt). Lista corta scelta a mano: "titolo EN|titolo IT|categoria", categorie esistenti cosi' le app
+# installate le importano. Senza pagina IT (Tipping) la guida italiana la salta: niente testo inglese non rivisto. Fuori
+# Packing list (un elenco di oggetti, non risponde a domande). Una pagina non scaricata riprende le sezioni pubblicate.
+WORLD_PAGES=(
+  "Stay healthy|Salute|SALUTE"
+  "Jet lag|Jet lag|SALUTE"
+  "Altitude sickness|Mal di montagna|SALUTE"
+  "Travel insurance|Assicurazione di viaggio|SALUTE"
+  "Passport|Documenti|DOGANE"
+  "Visa|Visto d'ingresso|DOGANE"
+  "Pickpockets|Borseggiatori|SICUREZZA"
+  "Common scams|Truffe comuni|SICUREZZA"
+  "Money|Strumenti di pagamento|ACQUISTI"
+  "Tipping||ACQUISTI"
+  "Mobile phones|Telefono cellulare|CONNETTIVITA"
+)
+WORLD_TSV="$WORKDIR/world.tsv"
+: > "$WORLD_TSV"
+WORLD_INDEX=0
+for spec in "${WORLD_PAGES[@]}"; do
+  IFS='|' read -r titleEn titleIt category <<< "$spec"
+  WORLD_INDEX=$((WORLD_INDEX + 1))
+  dump="$WORKDIR/world-$WORLD_INDEX.txt"
+  if [ "$LANG_CODE" = "en" ]; then
+    page="$titleEn"
+    sourceUrl="https://en.wikivoyage.org/wiki/${titleEn// /_}"
+    fetch_wikivoyage_en_dump "$titleEn" "$dump" >/dev/null || : > "$dump"
+  else
+    [ -n "$titleIt" ] || continue
+    page="$titleIt"
+    sourceUrl="https://it.wikivoyage.org/wiki/${titleIt// /_}"
+    wikimedia_curl -G "https://it.wikivoyage.org/w/index.php" --data-urlencode "title=${titleIt}" -d action=raw -o "$dump" 2>/dev/null || : > "$dump"
+  fi
+  [ -s "$dump" ] || echo "-- pagina del mondo $page non scaricata, tengo le sezioni gia' pubblicate" >&2
+  printf '%s\t%s\t%s\t%s\n' "$category" "$page" "$(winpath "$dump")" "$sourceUrl" >> "$WORLD_TSV"
+done
+
 # --- 2. guides.db pubblicato (per il confronto e per le regioni non scaricate) ------------------
 PUBLISHED_DB=""
 PUBLISHED_URL=""
@@ -243,6 +282,7 @@ if [ -n "${TRANSLATE_CACHE_DIR:-}" ]; then
     echo "::warning::guida semplice non generata, niente traduzioni in questa run" >&2
   fi
 fi
+GUIDES_ARGS="--world \"$(winpath "$WORLD_TSV")\" $GUIDES_ARGS"
 [ -s "$MISSIONS_TSV" ] && GUIDES_ARGS="--missions \"$(winpath "$MISSIONS_TSV")\" $GUIDES_ARGS"
 [ -n "$ADVICE_TSV" ] && GUIDES_ARGS="--travel-advice \"$(winpath "$ADVICE_TSV")\" $GUIDES_ARGS"
 [ "$LANG_CODE" = "en" ] && GUIDES_ARGS="--lang en $GUIDES_ARGS"

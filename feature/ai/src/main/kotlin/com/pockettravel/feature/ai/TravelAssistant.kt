@@ -28,6 +28,7 @@ import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitMode
 import com.pockettravel.core.data.TransitRepository
+import com.pockettravel.core.data.WORLD_REGION_ID
 import com.pockettravel.core.data.bm25Score
 import com.pockettravel.core.data.db.CityCoordinates
 import com.pockettravel.core.data.currentGuidesLanguage
@@ -125,9 +126,10 @@ class TravelAssistant @Inject constructor(
                 countryFirst = cities.isEmpty(),
                 historyOrClimate = isHistoryOrClimateQuestion(question),
                 language = language,
+                worldMatches = guideRepository.searchCandidates(WORLD_REGION_ID, ftsQuery),
             )
         }
-        val regulatedMatch = sections.firstOrNull { it.isRegulatedTopic() }
+        val regulatedMatch = sections.firstOrNull { !it.fromWorld && it.isRegulatedTopic() }
         // Per Viaggiare Sicuri il banner apre la pagina del paese della regione.
         val destination = regulatedMatch?.let { regionRepository.installed(regionId)?.countryCode }
 
@@ -575,6 +577,8 @@ internal data class AssistantSection(
     val body: String,
     val category: GuideCategory,
     val citation: String,
+    // Sezione della pseudo-regione mondo: non riguarda il paese, quindi non accende il banner delle fonti ufficiali.
+    val fromWorld: Boolean = false,
 )
 
 /**
@@ -600,6 +604,7 @@ private fun GuideSection.toAssistantSection(language: String): AssistantSection 
         body = body,
         category = category,
         citation = if (language == "en") "Source: $site, section $title — $url" else "Fonte: $site, sezione $title — $url",
+        fromWorld = regionId == WORLD_REGION_ID,
     )
 }
 
@@ -621,6 +626,9 @@ private fun CitySection.toAssistantSection(language: String): AssistantSection {
  * con false (la nomina) dopo: senza il nome della città nella query (buildFtsQuery) le sezioni della nazione
  * scavalcherebbero le sue con le parole generiche della domanda ("treno", "musei"); con null conta solo il punteggio.
  * Senza [historyOrClimate] (isHistoryOrClimateQuestion) Storia e Clima valgono WIKIPEDIA_OFF_TOPIC_WEIGHT.
+ * Dei candidati della pseudo-regione mondo [worldMatches] conta solo il migliore, senza togliere posto alle sezioni della
+ * regione: in testa, come sezione in più, se supera di WORLD_FIRST_RATIO volte la migliore della regione e la domanda non
+ * nomina una città ([countryFirst] non false); altrimenti solo in un posto libero, in fondo.
  * La ricerca (con buildFtsQuery, namedCities, focusStems e selectContext) e' replicata in
  * tools/data-pipeline/scripts/eval_retrieval.py, che la misura su dati pubblicati: va cambiata insieme.
  */
@@ -631,8 +639,10 @@ internal fun rankSections(
     countryFirst: Boolean? = null,
     historyOrClimate: Boolean = true,
     language: String = "it",
+    worldMatches: List<Pair<GuideSection, FtsMatchInfo>> = emptyList(),
 ): List<AssistantSection> {
-    val tables = listOfNotNull(guideMatches.firstOrNull()?.second, cityMatches.firstOrNull()?.second)
+    // Le righe del mondo stanno in guide_sections: stesse statistiche della guida della regione.
+    val tables = listOfNotNull((guideMatches + worldMatches).firstOrNull()?.second, cityMatches.firstOrNull()?.second)
     if (tables.isEmpty()) return emptyList()
     val stats = FtsCorpusStats.of(tables)
     val cityWeight = { category: GuideCategory ->
@@ -642,11 +652,24 @@ internal fun rankSections(
         cityMatches.map { (section, info) ->
             RankedSection(section.toAssistantSection(language), bm25Score(info, stats) * cityWeight(section.category), fromCountry = false)
         }
-    return ranked
+    val top = ranked
         .sortedWith(compareBy<RankedSection> { countryFirst != null && it.fromCountry != countryFirst }.thenByDescending { it.score })
         .take(limit)
-        .map { it.section }
+    val world = worldMatches.map { (section, info) -> RankedSection(section.toAssistantSection(language), bm25Score(info, stats), fromCountry = true) }
+        .maxByOrNull { it.score }
+    return when {
+        world == null -> top
+        top.isEmpty() || countryFirst != false && world.score > WORLD_FIRST_RATIO * top.maxOf { it.score } -> listOf(world) + top
+        top.size < limit -> top + world
+        else -> top
+    }.map { it.section }
 }
+
+// Quanto la sezione del mondo deve superare la migliore della regione per andare in testa (domanda generale). Misurato con
+// eval_retrieval.py il 2026-10-11: con 2 le domande generali la trovano nel 72% (IT) e nel 77% (EN) dei casi e le sei
+// serie su regione e citta' non perdono piu' di un punto; in fondo invece della testa il suo paragrafo entrerebbe nel
+// contesto solo nel 5-8% dei casi, e al posto della terza sezione le domande sul paese perderebbero fino a 7 punti.
+private const val WORLD_FIRST_RATIO = 2.0
 
 private class RankedSection(val section: AssistantSection, val score: Double, val fromCountry: Boolean)
 

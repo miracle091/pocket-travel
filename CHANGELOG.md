@@ -6,6 +6,9 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ## [Non rilasciato]
 
+### Aggiunto
+- Assistente IA: risponde anche alle domande generali di viaggio che nessuna guida di nazione copre (jet lag, mal di montagna, assicurazione di viaggio, passaporto smarrito, visti, borseggiatori, truffe, contanti e carte, telefono all'estero; nella guida inglese anche le mance), con le pagine tematiche di Wikivoyage, citate come Wikivoyage. La pagina va in testa al contesto quando risponde molto meglio della guida della nazione aperta e la domanda non nomina una città; altrimenti entra solo se la guida ha poche sezioni pertinenti. Non toglie mai posto alle sezioni della nazione e non fa comparire l'invito a verificare sulla fonte ufficiale. Le pagine arrivano con il prossimo aggiornamento delle guide; le versioni precedenti dell'app le scaricano senza usarle.
+
 ## [0.10.0] - 2026-10-10
 
 ### Cambiamenti incompatibili

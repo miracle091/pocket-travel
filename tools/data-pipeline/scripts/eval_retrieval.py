@@ -20,10 +20,13 @@ citiesEn, Storia e Clima da Wikipedia EN) e le domande in inglese, come l'app in
 Con --questions reworded le stesse domande dette con altre parole (sinonimi, giri di frase), con --questions other-lang
 le domande nell'altra lingua sulle guide di --lang (chi scrive in inglese con l'app in italiano, e viceversa): servono
 a vedere quanto la ricerca a testo pieno dipende dalle parole esatte delle guide. Citta' e coppie delle distanze sono
-le stesse in tutti e tre i casi.
+le stesse in tutti e tre i casi. Con --questions general le domande generali (jet lag, mance, passaporto smarrito) con
+aperta ogni regione: attesa la sezione della pagina tematica della pseudo-regione mondo (regionId _world) che risponde.
+Le sezioni del mondo concorrono in tutte le serie, come nell'app. Con --guides-db un guides.db locale al posto di quello
+pubblicato, per misurare un cambio delle guide prima di pubblicarlo.
 
-Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|other-lang] [--regions italia ...]
-[--cache DIR] [--no-wikipedia]
+Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|other-lang|general] [--regions italia ...]
+[--cache DIR] [--no-wikipedia] [--guides-db FILE]
 (la cache dei file scaricati sta di default nella cartella temporanea di sistema)
 Richiede rete (manifest, release, API di Wikipedia) e, per Storia e Clima, il gradle wrapper dalla root del repo.
 """
@@ -53,6 +56,7 @@ CITIES_PER_REGION = {"italia": 40}
 DEFAULT_CITIES = 15
 
 # --- costanti dell'app ---------------------------------------------------------------------------------------------
+WORLD_REGION_ID = "_world"       # GuideRepository.WORLD_REGION_ID
 MAX_SECTIONS = 3                 # TravelAssistant.MAX_SECTIONS
 CANDIDATE_CAP = 100              # GuideRepository/CityRepository.CANDIDATE_CAP
 CITY_CANDIDATE_CAP = 100         # CityRepository.CITY_CANDIDATE_CAP
@@ -76,6 +80,7 @@ TITLE_WEIGHT, BODY_WEIGHT = 3.0, 1.0
 BM25_K1, BM25_B, BM25_IDF_SMOOTHING = 1.2, 0.75, 0.5
 WIKI = {"STORIA", "CLIMA"}
 WIKIPEDIA_OFF_TOPIC_WEIGHT = 0.1  # TravelAssistant.WIKIPEDIA_OFF_TOPIC_WEIGHT
+WORLD_FIRST_RATIO = 2.0          # TravelAssistant.WORLD_FIRST_RATIO
 # TravelAssistant.historyClimateWords
 HISTORY_CLIMATE_WORDS = re.compile(
     r"\b(stori|fondat|fondò|secol|guerr|antic|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|"
@@ -182,6 +187,52 @@ COUNTRY_Q_REWORDED_EN = {
     "TRASPORTI": ["How do people travel between cities?", "Can I get around by car?"],
     "CIBO_BEVANDE": ["What do people usually eat?"],
 }
+# Domande generali, non su un paese, con la pagina tematica della pseudo-regione mondo che risponde (titolo nella guida
+# di quella lingua). La guida italiana non ha la pagina sulle mance (manca su it.wikivoyage).
+GENERAL_Q = {
+    "it": [
+        ("Come si combatte il jet lag?", "Jet lag"),
+        ("La melatonina aiuta col fuso orario dopo un volo lungo?", "Jet lag"),
+        ("Come si previene il mal di montagna?", "Mal di montagna"),
+        ("Quali sono i sintomi del mal d'altitudine?", "Mal di montagna"),
+        ("Conviene fare un'assicurazione di viaggio?", "Assicurazione di viaggio"),
+        ("Cosa copre di solito un'assicurazione di viaggio?", "Assicurazione di viaggio"),
+        ("Cosa mettere nel kit di pronto soccorso da viaggio?", "Salute"),
+        ("Cosa faccio se perdo il passaporto all'estero?", "Documenti"),
+        ("Quali documenti servono per guidare all'estero?", "Documenti"),
+        ("Che differenza c'è tra il visto all'arrivo e il visto in anticipo?", "Visto d'ingresso"),
+        ("Cosa succede se resto oltre la scadenza del visto?", "Visto d'ingresso"),
+        ("Come proteggersi dai borseggiatori?", "Borseggiatori"),
+        ("Quali sono le truffe più comuni con i taxi?", "Truffe comuni"),
+        ("Come riconoscere i falsi poliziotti?", "Truffe comuni"),
+        ("Conviene usare i traveller's cheque?", "Strumenti di pagamento"),
+        ("Meglio i contanti o la carta di credito in viaggio?", "Strumenti di pagamento"),
+        ("Come evitare i costi del roaming col telefono?", "Telefono cellulare"),
+        ("Serve un telefono satellitare nei posti isolati?", "Telefono cellulare"),
+    ],
+    "en": [
+        ("How do I deal with jet lag?", "Jet lag"),
+        ("Does melatonin help with jet lag after a long flight?", "Jet lag"),
+        ("How can I prevent altitude sickness?", "Altitude sickness"),
+        ("What are the symptoms of altitude sickness?", "Altitude sickness"),
+        ("Is travel insurance worth it?", "Travel insurance"),
+        ("What does travel insurance usually cover?", "Travel insurance"),
+        ("What should I pack in a travel first aid kit?", "Stay healthy"),
+        ("What do I do if I lose my passport abroad?", "Passport"),
+        ("How long must my passport be valid before it expires?", "Passport"),
+        ("What is the difference between a visa on arrival and a visa in advance?", "Visa"),
+        ("What happens if I overstay my visa?", "Visa"),
+        ("How do I protect myself from pickpockets?", "Pickpockets"),
+        ("What are the most common taxi scams?", "Common scams"),
+        ("How do I spot fake police officers?", "Common scams"),
+        ("Are traveller's cheques still worth using?", "Money"),
+        ("Is cash or a credit card better when travelling?", "Money"),
+        ("How do I avoid roaming charges on my phone?", "Mobile phones"),
+        ("Do I need a satellite phone in remote places?", "Mobile phones"),
+        ("How much should I tip in a restaurant?", "Tipping"),
+        ("Which services usually expect a tip?", "Tipping"),
+    ],
+}
 # Per lingua: domande dirette e riformulate (citta', storia e clima, paese, distanze), chiavi del manifest e suffisso
 # dei file in cache.
 LANGS = {
@@ -192,7 +243,7 @@ LANGS = {
            "reworded": (CITY_Q_REWORDED_EN, WIKI_Q_REWORDED_EN, COUNTRY_Q_REWORDED_EN, DISTANCE_Q_REWORDED_EN),
            "guides": "guidesEn", "cities": "citiesEn", "suffix": "-en", "other": "it"},
 }
-QUESTION_SETS = ["direct", "reworded", "other-lang"]
+QUESTION_SETS = ["direct", "reworded", "other-lang", "general"]
 KINDS = ["citta', domande pratiche", "paese", "citta', storia e clima", "distanze"]
 # Un paragrafo con una distanza o un tempo di viaggio ("72 km", "3 h 30", "20 minuti", "2 hours").
 TRAVEL_FIGURE = re.compile(r"\d+\s*(km|h|ore|minuti|min|hours?|minutes?)\b")
@@ -310,17 +361,26 @@ def bm25(info, stats):
     return score
 
 
-def rank_sections(guide, city, country_first, history_or_climate=True):
+def rank_sections(guide, city, country_first, history_or_climate=True, world=()):
     """rankSections: [(sezione, matchinfo)] della guida del paese e delle citta' -> le MAX_SECTIONS migliori; prima
-    quelle del paese con [country_first] True, quelle delle citta' con False, solo per punteggio con None."""
-    tables = [rows[0][1] for rows in (guide, city) if rows]
+    quelle del paese con [country_first] True, quelle delle citta' con False, solo per punteggio con None. Della
+    pseudo-regione mondo [world] conta solo la migliore: in testa, in piu' alle altre, se supera di WORLD_FIRST_RATIO
+    volte la migliore delle altre e la domanda non nomina una citta'; altrimenti solo in un posto libero, in fondo."""
+    tables = [rows[0][1] for rows in (list(guide) + list(world), city) if rows]
     if not tables:
         return []
     stats = corpus_stats(tables)
     weight = lambda s: WIKIPEDIA_OFF_TOPIC_WEIGHT if not history_or_climate and s["category"] in WIKI else 1.0
     ranked = [(bm25(info, stats), True, s) for s, info in guide] + [(bm25(info, stats) * weight(s), False, s) for s, info in city]
     ranked.sort(key=lambda r: (country_first is not None and r[1] != country_first, -r[0]))
-    return [s for _, _, s in ranked[:MAX_SECTIONS]]
+    top = ranked[:MAX_SECTIONS]
+    best = max(((bm25(info, stats), s) for s, info in world), key=lambda r: r[0], default=None)
+    sections = [s for _, _, s in top]
+    if best is None:
+        return sections
+    if not top or (country_first is not False and best[0] > WORLD_FIRST_RATIO * max(r[0] for r in top)):
+        return [best[1]] + sections
+    return sections + [best[1]] if len(top) < MAX_SECTIONS else sections
 
 
 def relevant_paragraphs(body, stems, budget):
@@ -359,11 +419,11 @@ def build_db(guides_db, region, city_rows):
         db.execute(f"CREATE TABLE {t} (id INTEGER PRIMARY KEY, regionId TEXT, {extra} category TEXT, title TEXT, body TEXT, sourceUrl TEXT)")
         db.execute(f"CREATE VIRTUAL TABLE {t}_fts USING fts4(title, body, content='{t}', tokenize=unicode61)")
     with closing(sqlite3.connect(guides_db)) as guides:
-        # Come l'app senza nazionalita' scelta (isGuideSectionFor): fuori le sezioni "#for-nationality=XX", che vedono
-        # solo i cittadini di XX; restano quelle "#not-for-nationality=XX" (il rimando per tutti gli altri).
-        for row in guides.execute("SELECT category, title, body, sourceUrl FROM guide_sections WHERE regionId = ? "
-                                  "AND instr(sourceUrl, '#for-nationality=') = 0", (region,)):
-            db.execute("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES (?,?,?,?,?)", (region, *row))
+        # Tutte le guide, come le importa l'app (GuidesImporter): le statistiche di BM25 (righe, lunghezza media, righe
+        # con ogni parola) valgono per tutta la tabella, e con le sole righe di una regione cambierebbero molto per poche
+        # righe in piu' (quelle della pseudo-regione mondo). La ricerca resta su [region] e sul mondo (guide_candidates).
+        for row in guides.execute("SELECT regionId, category, title, body, sourceUrl FROM guide_sections"):
+            db.execute("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES (?,?,?,?,?)", row)
     for row in city_rows:
         db.execute("INSERT INTO city_sections (regionId, city, category, title, body, sourceUrl) VALUES (?,?,?,?,?,?)", (region, *row))
     for t in ("guide_sections", "city_sections"):
@@ -393,12 +453,22 @@ def search(db, region, question, cities, lang="it"):
         # Nessuna sezione della citta' con le parole della domanda: si cerca anche il suo nome.
         fts = fts_query(question, region)
         city_rows = city_candidates(db, region, fts, named)
-    guide = [({"city": None, "category": k, "body": b}, parse_matchinfo(mi)) for k, b, mi in db.execute(
-        "SELECT s.category, s.body, matchinfo(guide_sections_fts, 'pcxnal') FROM guide_sections s "
-        "JOIN guide_sections_fts ON s.id = guide_sections_fts.rowid "
-        f"WHERE guide_sections_fts MATCH ? AND s.regionId = ? LIMIT {CANDIDATE_CAP}", (fts, region))]
     history_or_climate = bool(HISTORY_CLIMATE_WORDS.search(question))
-    return rank_sections(guide, city_rows, country_first=not named, history_or_climate=history_or_climate), focus_stems(fts, city)
+    return (rank_sections(guide_candidates(db, region, fts), city_rows, country_first=not named, history_or_climate=history_or_climate,
+                          world=guide_candidates(db, WORLD_REGION_ID, fts)),
+            focus_stems(fts, city))
+
+
+def guide_candidates(db, region, fts):
+    """GuideRepository.searchCandidates: [(sezione, matchinfo)] della guida di [region] (o della pseudo-regione mondo),
+    senza le sezioni "#for-nationality=XX" come l'app senza nazionalita' scelta (isGuideSectionFor): restano quelle
+    "#not-for-nationality=XX", il rimando per tutti gli altri."""
+    return [({"city": None, "category": k, "title": t, "body": b, "world": region == WORLD_REGION_ID}, parse_matchinfo(mi))
+            for k, t, b, url, mi in db.execute(
+                "SELECT s.category, s.title, s.body, s.sourceUrl, matchinfo(guide_sections_fts, 'pcxnal') FROM guide_sections s "
+                "JOIN guide_sections_fts ON s.id = guide_sections_fts.rowid "
+                f"WHERE guide_sections_fts MATCH ? AND s.regionId = ? LIMIT {CANDIDATE_CAP}", (fts, region))
+            if "#for-nationality=" not in url]
 
 
 def answer_paragraph(body, stems):
@@ -502,6 +572,25 @@ def make_plan(region, city_rows, rng, pick, questions):
     return plan
 
 
+def general(guides_db, regions, lang):
+    """Le domande generali (GENERAL_Q) con aperta ogni regione di [regions], senza le citta' (non ne nominano): pagina
+    del mondo attesa nel contesto, al primo posto, e il suo paragrafo con piu' parole della domanda nel contesto."""
+    found = first = in_context = n = 0
+    for region in regions:
+        db = build_db(guides_db, region, [])
+        for question, page in GENERAL_Q[lang]:
+            top, stems = search(db, region, question, [], lang)
+            match = [s for s in top if s.get("world") and s["title"].split(": ")[0] == page]
+            n += 1
+            found += bool(match)
+            first += bool(top) and top[0] in match
+            if match:
+                in_context += answer_paragraph(match[0]["body"], stems)[:150] in select_context([s["body"] for s in top], stems)
+        db.close()
+    print(f"domande generali ({n} domande): trovata {100 * found / max(n, 1):.1f}%, prima {100 * first / max(n, 1):.1f}%, "
+          f"risposta nel contesto {100 * in_context / max(found, 1):.1f}% delle trovate")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--lang", choices=sorted(LANGS), default="it")
@@ -510,8 +599,13 @@ def main():
     ap.add_argument("--regions", nargs="+", default=DEFAULT_REGIONS)
     ap.add_argument("--cache", type=Path, default=Path(tempfile.gettempdir()) / "pocket-travel-eval-retrieval")
     ap.add_argument("--no-wikipedia", action="store_true", help="senza Storia e Clima (per confronto)")
+    ap.add_argument("--guides-db", type=Path, help="un guides.db locale al posto di quello pubblicato (per misurare prima di pubblicare)")
     a = ap.parse_args()
     fetch_data(a.regions, a.cache, a.lang)
+    guides_db = a.guides_db or a.cache / f"guides{LANGS[a.lang]['suffix']}.db"
+    if a.questions == "general":
+        general(guides_db, a.regions, a.lang)
+        return
     rng, pick = random.Random(7), random.Random(8)
     questions = questions_of(a.lang, a.questions)
     res = defaultdict(lambda: defaultdict(int))
@@ -519,13 +613,14 @@ def main():
         # Le domande si scelgono sempre con Storia e Clima, cosi' con e senza --no-wikipedia sono le stesse.
         plan = make_plan(region, city_rows_of(a.cache, region, True, a.lang), rng, pick, questions)
         rows = city_rows_of(a.cache, region, not a.no_wikipedia, a.lang)
-        db = build_db(a.cache / f"guides{LANGS[a.lang]['suffix']}.db", region, rows)
+        db = build_db(guides_db, region, rows)
         cities = sorted({r[0] for r in rows})
         for kind, cat, city, q, paragraph in plan:
             top, stems = search(db, region, q, cities, a.lang)
             r = res[kind]
             r["n"] += 1
-            match = [s for s in top if s["category"] == cat and (city is None or s["city"] == city)]
+            # Una sezione del mondo con la stessa categoria non e' quella del paese attesa.
+            match = [s for s in top if s["category"] == cat and (city is None or s["city"] == city) and not s.get("world")]
             r["trovata"] += bool(match)
             r["prima"] += bool(top) and top[0] in match
             r["Storia/Clima di troppo"] += kind != KINDS[2] and any(s["category"] in WIKI for s in top)

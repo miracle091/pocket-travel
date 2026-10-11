@@ -130,14 +130,39 @@ class SearchTest(unittest.TestCase):
         g = sqlite3.connect(guides)
         g.execute("CREATE TABLE guide_sections (regionId TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT)")
         g.executemany("INSERT INTO guide_sections VALUES (?,?,?,?,?)", [
-            ("palestina", "SICUREZZA", "Aree a rischio", "Evitare Gaza.", "u#for-nationality=IL"),
-            ("palestina", "SICUREZZA", "Israele", "Vedi la guida di Israele.", "u#not-for-nationality=IL"),
+            ("palestina", "SICUREZZA", "Aree a rischio", "Evitare Gaza e le aree a rischio.", "u#for-nationality=IL"),
+            ("palestina", "SICUREZZA", "Israele", "Vedi la guida di Israele per le aree a rischio.", "u#not-for-nationality=IL"),
             ("palestina", "SALUTE", "Salute", "Bere acqua.", "u"),
         ])
         g.commit()
         g.close()
         db = ev.build_db(guides, "palestina", [])
-        self.assertEqual([t for (t,) in db.execute("SELECT title FROM guide_sections ORDER BY id")], ["Israele", "Salute"])
+        # Nella tabella tutte le righe, come nell'app (contano per BM25); tra i candidati non quelle per una nazionalita'.
+        self.assertEqual(db.execute("SELECT COUNT(*) FROM guide_sections").fetchone()[0], 3)
+        top, _ = ev.search(db, "palestina", "Quali sono le aree a rischio?", [])
+        self.assertEqual([s["title"] for s in top], ["Israele"])
+        db.close()
+
+    def test_pseudo_regione_mondo_come_nell_app(self):
+        guides = Path(self.tmp.name) / "mondo.db"
+        g = sqlite3.connect(guides)
+        g.execute("CREATE TABLE guide_sections (regionId TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT)")
+        g.executemany("INSERT INTO guide_sections VALUES (?,?,?,?,?)", [
+            ("italia", "DOGANE", "Dogane", "Per entrare serve il passaporto.", "u"),
+            ("_world", "SALUTE", "Jet lag: Recupero", "Il recupero dal jet lag richiede pochi giorni.", "u"),
+            ("_world", "DOGANE", "Documenti", "Il passaporto smarrito va denunciato " + "e poi rifatto. " * 30, "u"),
+            ("grecia", "SALUTE", "Salute", "Il jet lag in Grecia.", "u"),
+        ])
+        g.commit()
+        g.close()
+        db = ev.build_db(guides, "italia", [])
+        # Tutte le guide nella tabella, come nell'app, ma la ricerca solo nella regione aperta e nel mondo.
+        self.assertEqual([r for (r,) in db.execute("SELECT DISTINCT regionId FROM guide_sections ORDER BY 1")], ["_world", "grecia", "italia"])
+        top, _ = ev.search(db, "italia", "Quanti giorni per il recupero dal jet lag in Grecia?", [])
+        self.assertEqual([s["title"] for s in top], ["Jet lag: Recupero"])
+        # La sezione del paese resta prima di quella del mondo, piu' lunga e con meno occorrenze.
+        top, _ = ev.search(db, "italia", "Serve il passaporto?", [])
+        self.assertEqual([s["title"] for s in top], ["Dogane", "Documenti"])
         db.close()
 
     def test_matchinfo_pcxnal_letto(self):

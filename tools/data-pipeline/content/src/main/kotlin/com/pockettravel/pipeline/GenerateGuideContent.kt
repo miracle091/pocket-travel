@@ -38,7 +38,7 @@ private val headingToCategory = mapOf(
 // (?!=)/(?<!=) escludono i sotto-titoli ===/==== (3+ segni "="): senza, un "===Get in==="
 // verrebbe trattato come un nuovo titolo di sezione (non mappato), troncando silenziosamente
 // tutto il testo reale di Wikivoyage dopo la prima sottosezione.
-private val headingRegex = Regex("""^==(?!=)\s*(.+?)\s*(?<!=)==$""")
+internal val headingRegex = Regex("""^==(?!=)\s*(.+?)\s*(?<!=)==$""")
 private val htmlCommentRegex = Regex("""(?s)<!--.*?-->""")
 // Da tenere prima di htmlTagRegex: quest'ultimo toglie solo i tag <ref>/</ref>, lasciando il
 // testo della citazione come prosa vagante in mezzo al corpo della sezione.
@@ -521,10 +521,14 @@ fun main(rawArgs: Array<String>) {
     // --travel-advice <tsv>: consigli di viaggio di travel.gc.ca o dell'FCDO per regione (GenerateTravelAdvice.kt, solo guida inglese).
     val adviceIndex = withoutTranslated.indexOf("--travel-advice")
     val adviceTsv = if (adviceIndex >= 0) withoutTranslated.getOrNull(adviceIndex + 1)?.let(::File) else null
-    val args = if (adviceIndex >= 0) withoutTranslated.take(adviceIndex) + withoutTranslated.drop(adviceIndex + 2) else withoutTranslated
+    val withoutAdvice = if (adviceIndex >= 0) withoutTranslated.take(adviceIndex) + withoutTranslated.drop(adviceIndex + 2) else withoutTranslated
+    // --world <tsv>: pagine tematiche di Wikivoyage della pseudo-regione "mondo" (readWorldGuide).
+    val worldIndex = withoutAdvice.indexOf("--world")
+    val worldTsv = if (worldIndex >= 0) withoutAdvice.getOrNull(worldIndex + 1)?.let(::File) else null
+    val args = if (worldIndex >= 0) withoutAdvice.take(worldIndex) + withoutAdvice.drop(worldIndex + 2) else withoutAdvice
     require(args.size in 2..3) {
         "Uso: generateGuides [--lang en] [--missions <missioni.tsv>] [--translated <tradotte.jsonl>] [--travel-advice <consigli.tsv>] " +
-            "<regioni.tsv> <output guides.db> [guides.db pubblicato]"
+            "[--world <mondo.tsv>] <regioni.tsv> <output guides.db> [guides.db pubblicato]"
     }
     val outputDb = File(args[1])
     val publishedDb = args.getOrNull(2)?.let(::File)?.takeIf { it.exists() }
@@ -550,6 +554,7 @@ fun main(rawArgs: Array<String>) {
         }
     }.withTranslations(translated) { regionId -> publishedDb?.let { readRegionGuide(it, regionId) }?.sections.orEmpty() }
         .let { guides -> advice?.let { guides.withTravelAdvice(it) } ?: guides }
+        .plus(listOfNotNull(worldTsv?.takeIf { it.exists() }?.let { tsv -> readWorldGuide(tsv, publishedDb?.let { readRegionGuide(it, WORLD_REGION_ID) }?.sections.orEmpty()) }))
 
     outputDb.delete()
     writeGuidesDb(guides, outputDb)

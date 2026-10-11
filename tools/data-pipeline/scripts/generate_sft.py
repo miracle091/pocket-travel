@@ -750,13 +750,15 @@ def guide_source(url, lang):
 def load_guide_sections(guides_db, lang):
     """{regionId: [(categoria, corpo, sourceUrl, tradotta)]} delle sezioni di [guides_db] che i dump non danno: fonti di
     GUIDE_LICENSES e categorie GUIDE_ONLY_CATS di Wikivoyage nella lingua [lang]; fuori le "#for-nationality=", i Fatti
-    rapidi (a parte, load_quick_facts) e le sezioni tradotte da translate_guides.py: guides.db non dice con quale
-    modello, che ATTRIBUTION dovrebbe dichiarare."""
+    rapidi (a parte, load_quick_facts), le sezioni tradotte da translate_guides.py (guides.db non dice con quale
+    modello, che ATTRIBUTION dovrebbe dichiarare) e la pseudo-regione mondo "_world", che entra nel dataset solo dopo
+    il rilascio dell'app che la cerca."""
     out = {}
     with closing(sqlite3.connect(guides_db)) as db:
         has_translated = any(col[1] == "translated" for col in db.execute("PRAGMA table_info(guide_sections)"))
         for rid, cat, body, url in db.execute(
                 "SELECT regionId, category, body, sourceUrl FROM guide_sections WHERE category != 'FATTI_RAPIDI' "
+                "AND regionId != '_world' "
                 f"AND instr(sourceUrl, '#for-nationality=') = 0 {'AND IFNULL(translated, 0) = 0' if has_translated else ''} "
                 "ORDER BY regionId, rowid"):
             source = guide_source(url, lang)
