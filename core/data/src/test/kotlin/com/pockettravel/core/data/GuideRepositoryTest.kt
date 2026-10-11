@@ -25,11 +25,11 @@ private class FakeGuideDao : GuideDao {
     // Il fake non replica il matching testuale FTS: filtra solo per regione e ritorna il
     // matchinfo impostato con setMatchInfo (NO_MATCH_INFO di default), cosi' i test si concentrano
     // sul ranking fatto da GuideRepository invece che sulla sintassi della query.
-    override suspend fun searchInRegionRanked(regionId: String, query: String, candidateLimit: Int): List<GuideSectionMatch> {
+    override suspend fun searchInRegionsRanked(regionIds: List<String>, query: String, candidateLimit: Int): List<GuideSectionMatch> {
         lastSearchQuery = query
         lastCandidateLimit = candidateLimit
         return stored
-            .filter { it.regionId == regionId }
+            .filter { it.regionId in regionIds }
             .take(candidateLimit)
             .map { GuideSectionMatch(it, matchInfoBySection[it] ?: NO_MATCH_INFO) }
     }

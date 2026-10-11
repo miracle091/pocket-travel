@@ -39,7 +39,7 @@ private class FakeCityDao : CityDao {
     override suspend fun sectionsFor(regionId: String, city: String): List<CitySectionEntity> =
         stored.filter { it.regionId == regionId && it.city == city }
 
-    // Come FakeGuideDao.searchInRegionRanked: filtra solo per regione e ritorna il matchinfo
+    // Come FakeGuideDao.searchInRegionsRanked: filtra solo per regione e ritorna il matchinfo
     // impostato con setMatchInfo, i test si concentrano sul merge/ranking fatto dal chiamante.
     override suspend fun searchInRegionRanked(regionId: String, query: String, city: String?, candidateLimit: Int): List<CitySectionMatch> =
         stored

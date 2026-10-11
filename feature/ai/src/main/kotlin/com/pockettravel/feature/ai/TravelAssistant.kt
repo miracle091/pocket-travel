@@ -110,30 +110,11 @@ class TravelAssistant @Inject constructor(
         // Le citta' nominate nella domanda: le sezioni delle citta' candidate sono solo le loro (due per "quanto dista X da Y").
         val cities = namedCities(question, cityNames, language)
         val city = cities.singleOrNull()
-        val topicBase = buildFtsQuery(question, regionId, city)
-        val topicQuery = withCategoryWords(topicBase, question, language, WordListsOverride.enabled(context))
-        val topicMatches = if (topicQuery.isBlank()) emptyList() else cityCandidates(regionId, topicQuery, cities)
-        // Nessuna sezione della citta' nominata con le parole della domanda: si cerca anche il suo nome.
-        val withCityName = city != null && topicQuery.isNotBlank() && topicMatches.isEmpty()
-        val baseQuery = if (withCityName) buildFtsQuery(question, regionId) else topicBase
-        val ftsQuery = withCategoryWords(baseQuery, question, language, WordListsOverride.enabled(context))
-        val sections = if (ftsQuery.isBlank()) {
-            emptyList()
-        } else {
-            val nationality = nationalityPreferences.nationality.value
-            rankSections(
-                guideRepository.searchCandidates(regionId, ftsQuery).filter { isGuideSectionFor(it.first.sourceUrl, nationality) },
-                if (withCityName) cityCandidates(regionId, ftsQuery, cities) else topicMatches,
-                MAX_SECTIONS,
-                countryFirst = cities.isEmpty(),
-                historyOrClimate = isHistoryOrClimateQuestion(question),
-                language = language,
-                worldMatches = guideRepository.searchCandidates(WORLD_REGION_ID, ftsQuery),
-            )
-        }
+        val search = searchSections(regionId, question, cities, language)
+        val sections = search.sections
         val regulatedMatch = sections.firstOrNull { !it.fromWorld && it.isRegulatedTopic() }
-        // Per Viaggiare Sicuri il banner apre la pagina del paese della regione.
-        val destination = regulatedMatch?.let { regionRepository.installed(regionId)?.countryCode }
+        // Per Viaggiare Sicuri il banner apre la pagina della nazione nominata nella domanda, o di quella della regione.
+        val destination = regulatedMatch?.let { search.country?.code ?: regionRepository.installed(regionId)?.countryCode }
 
         val withSource = { answer: AssistantAnswer ->
             answer.copy(
@@ -144,18 +125,18 @@ class TravelAssistant @Inject constructor(
         }
         when (mode) {
             AiEngineMode.ON_DEVICE -> {
-                val emergency = emergencySection(regionId, question, language)
+                val emergency = emergencySection(search.country?.regionIds?.first() ?: regionId, question, language)
                 val plan = planOnDevice(
                     question,
                     listOfNotNull(
                         cityDistanceSection(regionId, cities, question, language),
-                        vaccinationSection(regionId, question, language),
+                        vaccinationSection(regionId, question, language, search.country),
                         emergency,
                         nearbyPoiSection(regionId, question, language),
                         transitSection(regionId, question, language),
                     ) + (emergency?.let { withoutEmergencyLine(sections, it.body) } ?: sections),
                     language,
-                    focusStems(baseQuery, city),
+                    focusStems(search.baseQuery, city),
                 )
                 var text = ""
                 engine.generateStream(plan.prompt).accumulated(PARTIAL_INTERVAL_MS).collect {
@@ -180,14 +161,43 @@ class TravelAssistant @Inject constructor(
                 val nationality = nationalityPreferences.nationality.value
                 query.isBlank() ||
                     guideRepository.searchCandidates(regionId, query).none { isGuideSectionFor(it.first.sourceUrl, nationality) } &&
-                    cityCandidates(regionId, query, emptyList()).isEmpty()
+                    cityRepository.candidates(regionId, query, emptyList()).isEmpty()
             }
         return if (followUp) followUpQuestion(previous, question, cityNames, language) else question
     }
 
-    /** Candidati delle guide delle citta' [cities] (di ognuna, per "quanto dista X da Y"), o di tutte se e' vuota. */
-    private suspend fun cityCandidates(regionId: String, ftsQuery: String, cities: List<String>) =
-        cities.ifEmpty { listOf(null) }.flatMap { cityRepository.searchCandidates(regionId, ftsQuery, it) }
+    /**
+     * Le sezioni del contesto per [question], con la query FTS della domanda (da cui vengono le radici dei paragrafi) e la
+     * nazione nominata. Una nazione diversa da quella della regione, senza citta' nominate, fa cercare nella sua guida al
+     * posto di quella della regione e delle sue citta' (namedCountry), senza il suo nome nella query come per le citta'.
+     * Con le liste di parole (CategoryWords.kt) la ricerca usa la query allargata.
+     */
+    private suspend fun searchSections(regionId: String, question: String, cities: List<String>, language: String): SectionSearch {
+        val country = if (cities.isEmpty()) namedCountry(question, regionId, language) else null
+        val city = cities.singleOrNull()
+        val wordLists = WordListsOverride.enabled(context)
+        val topicBase = buildFtsQuery(question, regionId, city ?: country?.name)
+        val topicQuery = withCategoryWords(topicBase, question, language, wordLists)
+        val topicMatches = if (topicQuery.isBlank() || country != null) emptyList() else cityRepository.candidates(regionId, topicQuery, cities)
+        // Nessuna sezione della citta' nominata con le parole della domanda: si cerca anche il suo nome.
+        val withCityName = city != null && topicQuery.isNotBlank() && topicMatches.isEmpty()
+        val baseQuery = if (withCityName) buildFtsQuery(question, regionId) else topicBase
+        val ftsQuery = withCategoryWords(baseQuery, question, language, wordLists)
+        if (ftsQuery.isBlank()) return SectionSearch(emptyList(), baseQuery, country)
+        val nationality = nationalityPreferences.nationality.value
+        val sections = rankSections(
+            guideRepository.searchCandidates(country?.regionIds ?: listOf(regionId), ftsQuery).filter { isGuideSectionFor(it.first.sourceUrl, nationality) },
+            if (withCityName) cityRepository.candidates(regionId, ftsQuery, cities) else topicMatches,
+            MAX_SECTIONS,
+            countryFirst = cities.isEmpty(),
+            historyOrClimate = isHistoryOrClimateQuestion(question),
+            language = language,
+            worldMatches = guideRepository.searchCandidates(WORLD_REGION_ID, ftsQuery),
+        )
+        return SectionSearch(sections, baseQuery, country)
+    }
+
+    private class SectionSearch(val sections: List<AssistantSection>, val baseQuery: String, val country: NamedCountry?)
 
     /** Prompt per il modello locale e fonti da citare: calcolati dal contesto, non dalla risposta. */
     private class OnDevicePlan(val prompt: String, val citations: List<String>)
@@ -248,12 +258,14 @@ class TravelAssistant @Inject constructor(
      * modello locale non deve indovinare obblighi e consigli. Null se la domanda non parla di vaccini, se mancano
      * la partenza o il codice paese della regione, se coincidono, o se il pacchetto guide non ha i dati delle vaccinazioni.
      */
-    private suspend fun vaccinationSection(regionId: String, question: String, language: String): AssistantSection? {
+    private suspend fun vaccinationSection(regionId: String, question: String, language: String, country: NamedCountry?): AssistantSection? {
         if (!isVaccinationQuestion(question)) return null
-        val destination = regionRepository.installed(regionId)?.countryCode ?: return null
+        // La destinazione e' la nazione nominata nella domanda, se c'e' (la sua regione solo se ne ha una), o quella della regione.
+        val destination = country?.code ?: regionRepository.installed(regionId)?.countryCode ?: return null
         val departure = vaccinationPreferences.departure ?: nationalityPreferences.nationality.value ?: return null
         if (departure.equals(destination, ignoreCase = true)) return null
-        val trip = Trip(departure = departure, destination = destination, destinationRegion = regionId, purpose = tripPurposeOf(question))
+        val destinationRegion = if (country == null) regionId else country.regionIds.singleOrNull()
+        val trip = Trip(departure = departure, destination = destination, destinationRegion = destinationRegion, purpose = tripPurposeOf(question))
         val result = vaccinationRepository.evaluate(trip) ?: return null
         return AssistantSection(
             body = result.toSummaryText(trip, language),
@@ -679,6 +691,10 @@ private class RankedSection(val section: AssistantSection, val score: Double, va
 // (se non c'e' altro), ma non scavalcano le sezioni pratiche.
 private val WIKIPEDIA_CATEGORIES = setOf(GuideCategory.STORIA, GuideCategory.CLIMA)
 private const val WIKIPEDIA_OFF_TOPIC_WEIGHT = 0.1
+
+/** Candidati delle guide delle citta' [cities] (di ognuna, per "quanto dista X da Y"), o di tutte se e' vuota. */
+private suspend fun CityRepository.candidates(regionId: String, ftsQuery: String, cities: List<String>) =
+    cities.ifEmpty { listOf(null) }.flatMap { searchCandidates(regionId, ftsQuery, it) }
 
 /** Nome della citta' come lo scrive chi chiede: senza il disambiguatore di Wikivoyage ("Porto (Portogallo)"). */
 private fun spokenCityName(city: String): String = city.substringBefore(" (").trim()

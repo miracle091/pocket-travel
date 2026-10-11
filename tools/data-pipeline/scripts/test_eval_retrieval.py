@@ -182,6 +182,24 @@ class SearchTest(unittest.TestCase):
         self.assertEqual([s["title"] for s in top], ["Dogane", "Documenti"])
         db.close()
 
+    def test_nazione_nominata_cerca_nella_sua_guida(self):
+        self.assertEqual(ev.named_country("Serve il passaporto per entrare in Grecia?", "italia"), ("gr", "Grecia", ["grecia"]))
+        self.assertIsNone(ev.named_country("Serve il passaporto per entrare in Italia?", "italia"))
+        guides = Path(self.tmp.name) / "nazioni.db"
+        g = sqlite3.connect(guides)
+        g.execute("CREATE TABLE guide_sections (regionId TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT)")
+        g.executemany("INSERT INTO guide_sections VALUES (?,?,?,?,?)", [
+            ("italia", "DOGANE", "Come arrivare", "Per entrare serve il passaporto.", "u"),
+            ("grecia", "DOGANE", "Come arrivare", "Per entrare in Grecia serve il passaporto.", "u"),
+        ])
+        g.commit()
+        g.close()
+        db = ev.build_db(guides, "italia", [])
+        top, _ = ev.search(db, "italia", "Serve il passaporto per entrare in Grecia?", [])
+        self.assertEqual([s["region"] for s in top], ["grecia"])
+        self.assertEqual(ev.fts_query("Serve il passaporto per entrare in Grecia?", "italia", "Grecia"), "passap* OR entra*")
+        db.close()
+
     def test_matchinfo_pcxnal_letto(self):
         blob = self.db.execute("SELECT matchinfo(city_sections_fts, 'pcxnal') FROM city_sections_fts "
                                "WHERE city_sections_fts MATCH 'alberghi'").fetchone()[0]

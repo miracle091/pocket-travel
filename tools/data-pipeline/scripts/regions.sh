@@ -16,6 +16,10 @@
 # I bbox sono approssimazioni rettangolari (mapSource supporta solo bbox, non poligoni) —
 # includono territorio confinante/mare, coerente con qualunque approccio a bounding-box.
 #
+# Una regione aggiunta o tolta qui va aggiunta o tolta anche in countryRegions di
+# feature/ai/src/main/kotlin/com/pockettravel/feature/ai/CountryGuides.kt (l'assistente cerca nella guida della nazione
+# nominata nella domanda): CountryGuidesTest confronta le due liste.
+#
 # flagCode e' il codice ISO 3166-1 alpha-2 in minuscolo della nazione (le region statunitensi
 # condividono lo stesso "us", non sono nazioni a se' - vedi nota sopra) - usato nella pagina
 # indice statica del sito pubblicato (assemble-site.sh) per risolvere il file

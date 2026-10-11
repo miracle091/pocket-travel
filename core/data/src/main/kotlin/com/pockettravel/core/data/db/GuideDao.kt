@@ -26,16 +26,16 @@ interface GuideDao {
 
     // Nessun ORDER BY per rilevanza: FTS4 non ha bm25(), quindi si prendono fino a candidateLimit
     // candidati (in ordine di rowid) col loro matchinfo, e TravelAssistant li riordina in Kotlin
-    // insieme a quelli delle citta' (bm25Score).
+    // insieme a quelli delle citta' (bm25Score). Piu' regioni per le nazioni divise (gli stati USA) nominate in una domanda.
     @Query(
         """
         SELECT guide_sections.*, matchinfo(guide_sections_fts, 'pcxnal') AS matchinfo FROM guide_sections
         JOIN guide_sections_fts ON guide_sections.id = guide_sections_fts.rowid
-        WHERE guide_sections_fts MATCH :query AND guide_sections.regionId = :regionId
+        WHERE guide_sections_fts MATCH :query AND guide_sections.regionId IN (:regionIds)
         LIMIT :candidateLimit
         """
     )
-    suspend fun searchInRegionRanked(regionId: String, query: String, candidateLimit: Int): List<GuideSectionMatch>
+    suspend fun searchInRegionsRanked(regionIds: List<String>, query: String, candidateLimit: Int): List<GuideSectionMatch>
 
     @Query("DELETE FROM guide_sections")
     suspend fun deleteAll()

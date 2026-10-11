@@ -22,11 +22,13 @@ le domande nell'altra lingua sulle guide di --lang (chi scrive in inglese con l'
 a vedere quanto la ricerca a testo pieno dipende dalle parole esatte delle guide. Citta' e coppie delle distanze sono
 le stesse in tutti e tre i casi. Con --questions general le domande generali (jet lag, mance, passaporto smarrito) con
 aperta ogni regione: attesa la sezione della pagina tematica della pseudo-regione mondo (regionId _world) che risponde.
-Le sezioni del mondo concorrono in tutte le serie, come nell'app. Con --guides-db un guides.db locale al posto di quello
+Le sezioni del mondo concorrono in tutte le serie, come nell'app. Con --questions other-country le domande sul paese
+che nominano un'altra nazione ("Serve il passaporto per entrare in Grecia?" con aperto il Portogallo): attesa la sezione
+della guida della nazione nominata. Con --guides-db un guides.db locale al posto di quello
 pubblicato, per misurare un cambio delle guide prima di pubblicarlo. Con --word-lists la query ha anche le parole delle
 guide per la categoria della domanda (CategoryWords.kt, accese nell'app; senza l'opzione si misura la ricerca senza liste).
 
-Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|other-lang|general] [--regions italia ...]
+Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|other-lang|general|other-country] [--regions italia ...]
 [--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists]
 (la cache dei file scaricati sta di default nella cartella temporanea di sistema)
 Richiede rete (manifest, release, API di Wikipedia) e, per Storia e Clima, il gradle wrapper dalla root del repo.
@@ -233,6 +235,55 @@ def with_category_words(fts, question, lang):
     return " OR ".join(dict.fromkeys([t for t in fts.split(" OR ") if t] + extra))
 
 
+# Nazione nominata nella domanda (CountryGuides.kt): l'app riconosce i nomi di tutte le nazioni (Locale del JDK), la misura
+# solo quelli delle regioni di DEFAULT_REGIONS e della Francia (nazione divisa), le uniche che nomina. Le regioni di ogni nazione vengono da regions.sh, come
+# la tabella countryRegions dell'app.
+COUNTRY_NAMES = {"it": ("Italia", "Italy"), "pt": ("Portogallo", "Portugal"), "gr": ("Grecia", "Greece"),
+                 "ch": ("Svizzera", "Switzerland"), "hr": ("Croazia", "Croatia"), "fr": ("Francia", "France")}
+# Domande sul paese con la nazione nominata ({p}), da fare con aperta un'altra regione.
+OTHER_COUNTRY_Q = {
+    "it": {"DOGANE": ["Serve il passaporto per entrare in {p}?", "Cosa si può portare in dogana in {p}?"],
+           "SALUTE": ["Quali vaccinazioni servono per andare in {p}?", "Com'è l'assistenza sanitaria per i turisti in {p}?"],
+           "SICUREZZA": ["È pericoloso girare di notte in {p}?", "Ci sono borseggiatori in {p}?"],
+           "ACQUISTI": ["Si può pagare con la carta di credito in {p}?", "Quanto si lascia di mancia in {p}?"],
+           "CONNETTIVITA": ["Come comprare una SIM per internet in {p}?"],
+           "TRASPORTI": ["Come funzionano i treni in {p}?", "Conviene noleggiare un'auto in {p}?"],
+           "CIBO_BEVANDE": ["Quali piatti tipici assaggiare in {p}?"]},
+    "en": {"DOGANE": ["Do I need a passport to enter {p}?", "What can I bring through customs in {p}?"],
+           "SALUTE": ["Which vaccinations do I need for {p}?", "What is healthcare like for tourists in {p}?"],
+           "SICUREZZA": ["Is it dangerous to walk around at night in {p}?", "Are there pickpockets in {p}?"],
+           "ACQUISTI": ["Can I pay by credit card in {p}?", "How much should I tip in {p}?"],
+           "CONNETTIVITA": ["How do I buy a SIM card for mobile internet in {p}?"],
+           "TRASPORTI": ["How do trains work in {p}?", "Is it worth renting a car in {p}?"],
+           "CIBO_BEVANDE": ["Which typical dishes should I try in {p}?"]},
+}
+
+
+def country_regions():
+    """{codice ISO: [regionId]} dalle righe di regions.sh (flagCode e' l'ottavo campo), come countryRegions dell'app."""
+    out = defaultdict(list)
+    for line in (Path(__file__).resolve().parent / "regions.sh").read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line.startswith('"') and line.count("|") >= 10:
+            fields = line.strip('"').split("|")
+            out[fields[7]].append(fields[0])
+    return dict(out)
+
+
+COUNTRY_REGIONS = country_regions()
+REGION_COUNTRY = {r: iso for iso, regions in COUNTRY_REGIONS.items() for r in regions}
+
+
+def named_country(question, open_region, lang="it"):
+    """namedCountry: (codice, nome come nella domanda, regioni) della nazione nominata, se non e' quella di [open_region]."""
+    by_name = {name: iso for iso, names in COUNTRY_NAMES.items() for name in names}
+    open_country = REGION_COUNTRY.get(open_region)
+    for name in named_cities(question, list(by_name), lang):
+        if by_name[name] != open_country:
+            return by_name[name], name, COUNTRY_REGIONS[by_name[name]]
+    return None
+
+
 # Domande generali, non su un paese, con la pagina tematica della pseudo-regione mondo che risponde (titolo nella guida
 # di quella lingua). La guida italiana non ha la pagina sulle mance (manca su it.wikivoyage).
 GENERAL_Q = {
@@ -289,7 +340,7 @@ LANGS = {
            "reworded": (CITY_Q_REWORDED_EN, WIKI_Q_REWORDED_EN, COUNTRY_Q_REWORDED_EN, DISTANCE_Q_REWORDED_EN),
            "guides": "guidesEn", "cities": "citiesEn", "suffix": "-en", "other": "it"},
 }
-QUESTION_SETS = ["direct", "reworded", "other-lang", "general"]
+QUESTION_SETS = ["direct", "reworded", "other-lang", "general", "other-country"]
 KINDS = ["citta', domande pratiche", "paese", "citta', storia e clima", "distanze"]
 # Un paragrafo con una distanza o un tempo di viaggio ("72 km", "3 h 30", "20 minuti", "2 hours").
 TRAVEL_FIGURE = re.compile(r"\d+\s*(km|h|ore|minuti|min|hours?|minutes?)\b")
@@ -488,36 +539,40 @@ def city_candidates(db, region, fts, named):
 
 
 def search(db, region, question, cities, lang="it", word_lists=False):
-    """TravelAssistant.ask fino alle sezioni del contesto: (sezioni, radici della domanda). Con [word_lists] la query
-    ha anche le parole delle guide per la categoria della domanda; le radici restano quelle della domanda."""
+    """TravelAssistant.searchSections: (sezioni, radici della domanda). Con [word_lists] la query ha anche le parole delle
+    guide per la categoria della domanda; le radici restano quelle della domanda. Una nazione diversa da quella di
+    [region] nominata senza citta' (named_country) fa cercare nelle sue regioni, senza il suo nome nella query."""
     named = named_cities(question, cities, lang)
     city = named[0] if len(named) == 1 else None
+    country = None if named else named_country(question, region, lang)
     with_words = (lambda q: with_category_words(q, question, lang)) if word_lists else (lambda q: q)
-    base = fts_query(question, region, city)
+    base = fts_query(question, region, city or (country and country[1]))
     fts = with_words(base)
     if not fts:
         return [], set()
-    city_rows = city_candidates(db, region, fts, named)
+    city_rows = [] if country else city_candidates(db, region, fts, named)
     if city and not city_rows:
         # Nessuna sezione della citta' con le parole della domanda: si cerca anche il suo nome.
         base = fts_query(question, region)
         fts = with_words(base)
         city_rows = city_candidates(db, region, fts, named)
     history_or_climate = bool(HISTORY_CLIMATE_WORDS.search(question))
-    return (rank_sections(guide_candidates(db, region, fts), city_rows, country_first=not named, history_or_climate=history_or_climate,
-                          world=guide_candidates(db, WORLD_REGION_ID, fts)),
+    guide_regions = country[2] if country else [region]
+    return (rank_sections(guide_candidates(db, guide_regions, fts), city_rows, country_first=not named,
+                          history_or_climate=history_or_climate, world=guide_candidates(db, [WORLD_REGION_ID], fts)),
             focus_stems(base, city))
 
 
-def guide_candidates(db, region, fts):
-    """GuideRepository.searchCandidates: [(sezione, matchinfo)] della guida di [region] (o della pseudo-regione mondo),
+def guide_candidates(db, regions, fts):
+    """GuideRepository.searchCandidates: [(sezione, matchinfo)] delle guide di [regions] (o della pseudo-regione mondo),
     senza le sezioni "#for-nationality=XX" come l'app senza nazionalita' scelta (isGuideSectionFor): restano quelle
-    "#not-for-nationality=XX", il rimando per tutti gli altri."""
-    return [({"city": None, "category": k, "title": t, "body": b, "world": region == WORLD_REGION_ID}, parse_matchinfo(mi))
-            for k, t, b, url, mi in db.execute(
-                "SELECT s.category, s.title, s.body, s.sourceUrl, matchinfo(guide_sections_fts, 'pcxnal') FROM guide_sections s "
+    "#not-for-nationality=XX", il rimando per tutti gli altri. CANDIDATE_CAP candidati per regione, come l'app."""
+    marks = ",".join("?" * len(regions))
+    return [({"city": None, "region": r, "category": k, "title": t, "body": b, "world": r == WORLD_REGION_ID}, parse_matchinfo(mi))
+            for r, k, t, b, url, mi in db.execute(
+                "SELECT s.regionId, s.category, s.title, s.body, s.sourceUrl, matchinfo(guide_sections_fts, 'pcxnal') FROM guide_sections s "
                 "JOIN guide_sections_fts ON s.id = guide_sections_fts.rowid "
-                f"WHERE guide_sections_fts MATCH ? AND s.regionId = ? LIMIT {CANDIDATE_CAP}", (fts, region))
+                f"WHERE guide_sections_fts MATCH ? AND s.regionId IN ({marks}) LIMIT {CANDIDATE_CAP * len(regions)}", (fts, *regions))
             if "#for-nationality=" not in url]
 
 
@@ -641,6 +696,28 @@ def general(guides_db, regions, lang, word_lists=False):
           f"risposta nel contesto {100 * in_context / max(found, 1):.1f}% delle trovate")
 
 
+def other_country(guides_db, regions, lang, word_lists=False):
+    """Le domande sul paese con nominata un'altra nazione (OTHER_COUNTRY_Q): con aperta ogni regione di [regions] la
+    nazione della regione successiva della lista, e con aperta la prima la Francia (nazione divisa in 13 regioni). Attesa
+    la sezione della categoria in una regione della nazione nominata."""
+    pairs = [(r, REGION_COUNTRY[regions[(i + 1) % len(regions)]]) for i, r in enumerate(regions)] + [(regions[0], "fr")]
+    found = first = n = 0
+    for region, target in pairs:
+        if target == REGION_COUNTRY.get(region) or target not in COUNTRY_NAMES:
+            sys.exit(f"other-country: {target} e' la nazione di {region} o non ha un nome in COUNTRY_NAMES")
+        name = COUNTRY_NAMES[target][0 if lang == "it" else 1]
+        db = build_db(guides_db, region, [])
+        for cat, qs in OTHER_COUNTRY_Q[lang].items():
+            for q in qs:
+                top, _ = search(db, region, q.format(p=name), [], lang, word_lists)
+                match = [s for s in top if s["category"] == cat and s.get("region") in COUNTRY_REGIONS[target]]
+                n += 1
+                found += bool(match)
+                first += bool(top) and top[0] in match
+        db.close()
+    print(f"paese nominato ({n} domande): trovata {100 * found / max(n, 1):.1f}%, prima {100 * first / max(n, 1):.1f}%")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--lang", choices=sorted(LANGS), default="it")
@@ -656,6 +733,9 @@ def main():
     guides_db = a.guides_db or a.cache / f"guides{LANGS[a.lang]['suffix']}.db"
     if a.questions == "general":
         general(guides_db, a.regions, a.lang, a.word_lists)
+        return
+    if a.questions == "other-country":
+        other_country(guides_db, a.regions, a.lang, a.word_lists)
         return
     rng, pick = random.Random(7), random.Random(8)
     questions = questions_of(a.lang, a.questions)

@@ -23,7 +23,14 @@ class GuideRepository @Inject constructor(
      * TravelAssistant le ordina in Kotlin insieme a quelle di CityRepository.searchCandidates (bm25Score).
      */
     suspend fun searchCandidates(regionId: String, query: String): List<Pair<GuideSection, FtsMatchInfo>> =
-        guideDao.searchInRegionRanked(regionId, query, CANDIDATE_CAP)
+        searchCandidates(listOf(regionId), query)
+
+    /**
+     * Come l'altra searchCandidates, nelle guide di tutte le regioni [regionIds] (una nazione divisa, gli stati USA), con
+     * CANDIDATE_CAP candidati per regione: senza ordine di rilevanza un tetto unico si riempirebbe con le prime regioni.
+     */
+    suspend fun searchCandidates(regionIds: List<String>, query: String): List<Pair<GuideSection, FtsMatchInfo>> =
+        guideDao.searchInRegionsRanked(regionIds, query, CANDIDATE_CAP * regionIds.size)
             .map { it.section.toDomain() to FtsMatchInfo.parse(it.matchinfo) }
 
     private companion object {

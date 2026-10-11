@@ -42,7 +42,7 @@ interface CityDao {
     @Query("SELECT * FROM city_sections WHERE regionId = :regionId AND city = :city ORDER BY category")
     suspend fun sectionsFor(regionId: String, city: String): List<CitySectionEntity>
 
-    // Nessun ORDER BY per rilevanza, come GuideDao.searchInRegionRanked: si prendono fino a
+    // Nessun ORDER BY per rilevanza, come GuideDao.searchInRegionsRanked: si prendono fino a
     // candidateLimit candidati col loro matchinfo, e TravelAssistant li riordina in Kotlin. Con [city]
     // solo le sezioni di quella citta': senza, i primi candidati in ordine di rowid sono di citta' qualunque.
     @Query(

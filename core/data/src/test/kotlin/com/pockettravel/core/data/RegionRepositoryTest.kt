@@ -67,7 +67,7 @@ private class FakeInstalledRegionDao : InstalledRegionDao {
 private class NoOpGuideDao : GuideDao {
     override suspend fun insertAll(sections: List<GuideSectionEntity>) = Unit
     override suspend fun sectionsForRegion(regionId: String): List<GuideSectionEntity> = emptyList()
-    override suspend fun searchInRegionRanked(regionId: String, query: String, candidateLimit: Int): List<GuideSectionMatch> = emptyList()
+    override suspend fun searchInRegionsRanked(regionIds: List<String>, query: String, candidateLimit: Int): List<GuideSectionMatch> = emptyList()
     override suspend fun deleteAll() = Unit
     override suspend fun optimizeFts() = Unit
 }
