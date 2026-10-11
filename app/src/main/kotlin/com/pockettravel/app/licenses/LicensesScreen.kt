@@ -18,7 +18,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
@@ -27,6 +26,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
 import com.pockettravel.core.sync.AddressGridAttribution
 import com.pockettravel.core.sync.TransitFeed
@@ -41,8 +41,8 @@ import com.pockettravel.core.ui.R as UiR
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LicensesScreen(onBack: () -> Unit, viewModel: LicensesViewModel = hiltViewModel()) {
-    val addressAttributions by viewModel.addressAttributions.collectAsState()
-    val transitFeeds by viewModel.transitFeeds.collectAsState()
+    val addressAttributions by viewModel.addressAttributions.collectAsStateWithLifecycle()
+    val transitFeeds by viewModel.transitFeeds.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(

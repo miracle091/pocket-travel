@@ -70,8 +70,7 @@ class UpdateAvailableNotifier @Inject constructor(
             return
         }
         val notification = NotificationCompat.Builder(context, channelId)
-            // Icona di sistema come segnaposto: nessun asset dedicato nel progetto.
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setSmallIcon(R.drawable.ic_download_notification)
             .setContentTitle(title)
             .setContentText(text)
             .setAutoCancel(true)

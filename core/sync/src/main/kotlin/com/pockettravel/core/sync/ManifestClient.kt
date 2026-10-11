@@ -12,7 +12,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
 import javax.inject.Inject
+import javax.inject.Singleton
 
+// Singleton: la cache dei manifest recenti vale solo se tutti i ViewModel condividono la stessa istanza.
+@Singleton
 class ManifestClient @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val json: Json,

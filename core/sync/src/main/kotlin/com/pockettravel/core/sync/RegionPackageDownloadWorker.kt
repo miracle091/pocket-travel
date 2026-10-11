@@ -2,11 +2,13 @@ package com.pockettravel.core.sync
 
 import android.content.Context
 import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
+import androidx.work.WorkInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.pockettravel.core.data.PackageKind
@@ -93,6 +95,10 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
             if (PackageKind.ROUTING in kinds) routingVariantPreferences.setInstalledCarOnly(entry.regionId, entry.hasCarOnlyRouting)
             Result.success()
         } catch (error: CancellationException) {
+            // "Annulla" della notifica: il download non riparte, lo staging (anche di una regione gia' installata,
+            // che all'avvio resterebbe) e il file della richiesta si ripuliscono. Altre cause (vincoli persi,
+            // processo fermato dal sistema) lasciano lo staging per la ripresa.
+            if (cancelledByUser()) cleanUp(regionId, requestFile)
             throw error
         } catch (_: PermanentRegionPackageException) {
             Result.failure()
@@ -116,6 +122,10 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         cleanUp(regionId, requestFile)
         return result
     }
+
+    // Il motivo dello stop si legge da Android 12: prima lo staging resta come per le altre cause.
+    private fun cancelledByUser(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && stopReason == WorkInfo.STOP_REASON_CANCELLED_BY_APP
 
     private fun cleanUp(regionId: String?, requestFile: String?) {
         regionId?.let(regionStorage::deleteStaging)

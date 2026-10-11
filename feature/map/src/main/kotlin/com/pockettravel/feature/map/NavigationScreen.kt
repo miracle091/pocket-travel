@@ -76,6 +76,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -664,11 +665,14 @@ private fun NavigationMap(
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val language = LocalLocale.current.platformLocale.language
     // Con worldFallback: se la posizione esce dal riquadro scaricato restano le nazioni (e, con la rete, il mondo) invece del vuoto.
-    val styleJson = remember(tileSource, regionIds, dark, language) {
-        tileSource.navigationStyleJson(regionIds, dark = dark, language = language)
+    // Letti dai file delle mappe, fuori dal main thread (stile null finche' non e' pronto).
+    val styleJson by produceState<String?>(null, tileSource, regionIds, dark, language) {
+        value = withContext(Dispatchers.IO) { tileSource.navigationStyleJson(regionIds, dark = dark, language = language) }
     }
     // Letti dall'header delle mappe installate: 127 byte, una volta per regione.
-    val regionBounds = remember(tileSource, regionIds) { regionIds.mapNotNull(tileSource::regionBounds) }
+    val regionBounds by produceState(emptyList<MapBounds>(), tileSource, regionIds) {
+        value = withContext(Dispatchers.IO) { regionIds.mapNotNull(tileSource::regionBounds) }
+    }
     val routeColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f).toArgb()
     val nextColor = MaterialTheme.colorScheme.tertiary.toArgb()
     val positionColor = MaterialTheme.colorScheme.primary.toArgb()
@@ -678,9 +682,10 @@ private fun NavigationMap(
     var sources by remember { mutableStateOf<NavigationSources?>(null) }
 
     LaunchedEffect(styleJson) {
+        val json = styleJson ?: return@LaunchedEffect
         sources = null
         mapView.getMapAsync { map ->
-            map.setStyle(Style.Builder().fromJson(styleJson)) { style ->
+            map.setStyle(Style.Builder().fromJson(json)) { style ->
                 val routeSource = GeoJsonSource(ROUTE_SOURCE).also(style::addSource)
                 val nextSource = GeoJsonSource(NEXT_SOURCE).also(style::addSource)
                 val positionSource = GeoJsonSource(POSITION_SOURCE).also(style::addSource)

@@ -40,7 +40,7 @@ class RegionManifestSyncWorker @AssistedInject constructor(
                 }
                 if (outdated.isNotEmpty()) notifier.notifyUpdateAvailable(remote, outdated)
             }
-            // Le guide (tutte le nazioni, meno di un MB) si installano e aggiornano da sole, su Wi-Fi.
+            // Le guide (tutte le nazioni, circa 2,6 MB in italiano e 4,5 MB in inglese) si installano e aggiornano da sole, su Wi-Fi.
             if (regionRepository.installedGuidesVersion() != manifest.guidesChoice().installedVersion) scheduler.enqueueGuidesSync(onlyOnWifi = true)
             Result.success()
         } catch (error: CancellationException) {

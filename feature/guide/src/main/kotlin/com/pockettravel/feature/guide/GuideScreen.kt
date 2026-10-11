@@ -1,6 +1,7 @@
 package com.pockettravel.feature.guide
 
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
@@ -632,7 +633,7 @@ private fun EmergencyNumbersCard(
                         .heightIn(min = 56.dp)
                         .clickable(onClickLabel = callLabel) {
                             // Senza app telefono (tablet solo Wi-Fi) l'intent non ha destinatari: niente crash.
-                            runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$number".toUri())) }
+                            runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null))) }
                         }
                         .padding(start = Spacing.l, end = Spacing.s, top = Spacing.s, bottom = Spacing.s),
                     verticalAlignment = Alignment.CenterVertically,
@@ -734,7 +735,7 @@ private fun EmbassyRow(entry: EmbassyEntry, onOpenLink: (url: String, title: Str
             entry.address?.let { Text(text = it, style = MaterialTheme.typography.bodyMedium) }
         }
         if (phone != null) {
-            IconButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, "tel:$phone".toUri())) } }) {
+            IconButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", phone, null))) } }) {
                 Icon(imageVector = AppIcons.Call, contentDescription = stringResource(R.string.emergency_call, entry.name, phone))
             }
         }
@@ -744,7 +745,7 @@ private fun EmbassyRow(entry: EmbassyEntry, onOpenLink: (url: String, title: Str
             }
         }
         if (email != null) {
-            IconButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, "mailto:$email".toUri())) } }) {
+            IconButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.fromParts("mailto", email, null))) } }) {
                 Icon(imageVector = AppIcons.Mail, contentDescription = stringResource(R.string.emergency_embassy_email, entry.name))
             }
         }

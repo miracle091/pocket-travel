@@ -93,8 +93,10 @@ import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.DownloadProgressIndicator
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.withContext
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
@@ -1097,8 +1099,13 @@ private fun PlannerMap(
     val mapView = rememberMapViewWithLifecycle()
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val language = LocalLocale.current.platformLocale.language
-    val styleJson = remember(tileSource, regionIds, dark, language) { tileSource.navigationStyleJson(regionIds, dark = dark, language = language) }
-    val regionBounds = remember(tileSource, regionIds) { regionIds.firstNotNullOfOrNull(tileSource::regionBounds) }
+    // Stile e riquadro leggono i file delle mappe: fuori dal main thread (null finche' non sono pronti).
+    val styleJson by produceState<String?>(null, tileSource, regionIds, dark, language) {
+        value = withContext(Dispatchers.IO) { tileSource.navigationStyleJson(regionIds, dark = dark, language = language) }
+    }
+    val regionBounds by produceState<MapBounds?>(null, tileSource, regionIds) {
+        value = withContext(Dispatchers.IO) { regionIds.firstNotNullOfOrNull(tileSource::regionBounds) }
+    }
     val routeColor = MaterialTheme.colorScheme.primary.toArgb()
     val startColor = MaterialTheme.colorScheme.surface.toArgb()
     val endColor = MaterialTheme.colorScheme.error.toArgb()
@@ -1106,9 +1113,10 @@ private fun PlannerMap(
     var sources by remember { mutableStateOf<PlannerSources?>(null) }
 
     LaunchedEffect(styleJson) {
+        val json = styleJson ?: return@LaunchedEffect
         sources = null
         mapView.getMapAsync { map ->
-            map.setStyle(Style.Builder().fromJson(styleJson)) { style ->
+            map.setStyle(Style.Builder().fromJson(json)) { style ->
                 val routeSource = GeoJsonSource(PLANNER_ROUTE_SOURCE).also(style::addSource)
                 val startSource = GeoJsonSource(PLANNER_START_SOURCE).also(style::addSource)
                 val endSource = GeoJsonSource(PLANNER_END_SOURCE).also(style::addSource)
@@ -1175,8 +1183,9 @@ private fun PlannerMap(
             )
         }
     }
-    LaunchedEffect(sources, route, from, to, topPaddingPx, nearby) {
+    LaunchedEffect(sources, route, from, to, topPaddingPx, nearby, regionBounds) {
         val current = sources ?: return@LaunchedEffect
+        val area = regionBounds
         val points = route?.points.orEmpty()
         current.route.setGeoJson(FeatureCollection.fromFeatures(listOfNotNull(points.takeIf { it.size >= 2 }?.let { Feature.fromGeometry(lineString(it)) })))
         val start = points.firstOrNull() ?: from
@@ -1202,10 +1211,10 @@ private fun PlannerMap(
                         .build()
                     map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0, topPaddingPx.toInt(), 0, bottomPaddingPx.toInt()))
                 }
-                regionBounds != null -> {
+                area != null -> {
                     val bounds = LatLngBounds.Builder()
-                        .include(LatLng(regionBounds.minLat, regionBounds.minLon))
-                        .include(LatLng(regionBounds.maxLat, regionBounds.maxLon))
+                        .include(LatLng(area.minLat, area.minLon))
+                        .include(LatLng(area.maxLat, area.maxLon))
                         .build()
                     map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0, 0, 0, bottomPaddingPx.toInt()))
                 }

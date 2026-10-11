@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -17,6 +18,8 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
@@ -47,8 +50,9 @@ fun ZonePickerMap(
     val mapView = rememberMapViewWithLifecycle()
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val language = LocalLocale.current.platformLocale.language
-    val styleJson = remember(tileSource, regionId, dark, language) {
-        tileSource.styleJson(regionId, dark = dark, language = language, worldFallback = true)
+    // Lo stile legge i file della mappa: fuori dal main thread (null finche' non e' pronto).
+    val styleJson by produceState<String?>(null, tileSource, regionId, dark, language) {
+        value = withContext(Dispatchers.IO) { tileSource.styleJson(regionId, dark = dark, language = language, worldFallback = true) }
     }
     val currentOnZoneChange by rememberUpdatedState(onZoneChange)
     var configured by remember { mutableStateOf(false) }
@@ -61,12 +65,13 @@ fun ZonePickerMap(
             modifier = Modifier.fillMaxSize(),
             factory = { mapView },
             update = { view ->
+                val json = styleJson ?: return@AndroidView
                 view.getMapAsync { map ->
                     if (configured) return@getMapAsync
                     configured = true
                     map.uiSettings.isRotateGesturesEnabled = false
                     map.uiSettings.isTiltGesturesEnabled = false
-                    map.setStyle(Style.Builder().fromJson(styleJson))
+                    map.setStyle(Style.Builder().fromJson(json))
                     fun reportZone() {
                         if (!moved) {
                             currentOnZoneChange(initialBounds)

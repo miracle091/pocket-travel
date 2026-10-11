@@ -1,6 +1,6 @@
 // Adattato da examples/llama.android (com.arm.aichat) di ggml-org/llama.cpp, git tag v0.5.0:
-// solo i simboli JNI sono stati rinominati per il package com.pockettravel.feature.ai.llamacpp.internal,
-// la logica e' invariata.
+// i simboli JNI sono rinominati per il package com.pockettravel.feature.ai.llamacpp.internal, e la logica e' cambiata
+// (troncamento e scorrimento del contesto, UTF-16, grammatica, varianti della CPU).
 #include <android/log.h>
 #include <jni.h>
 #include <link.h>
@@ -41,9 +41,11 @@ static common_chat_templates_ptr          g_chat_templates;
 static bool                               g_chat_template_supports_thinking;
 static common_sampler                   * g_sampler;
 
-// Copiata e rilasciata subito: se dopo qualcosa lancia, la stringa JNI non resta trattenuta.
+// Copiata e rilasciata subito: se dopo qualcosa lancia, la stringa JNI non resta trattenuta. Vuota se manca la memoria
+// (GetStringUTFChars da' null con un OutOfMemoryError in sospeso, che arriva al chiamante Kotlin).
 static std::string jstring_to_path(JNIEnv *env, jstring str) {
     const auto *chars = env->GetStringUTFChars(str, 0);
+    if (!chars) return {};
     std::string result = chars;
     env->ReleaseStringUTFChars(str, chars);
     return result;
@@ -140,10 +142,7 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_init(JNIE
 static jint load_impl(JNIEnv *env, jstring jmodel_path) {
     llama_model_params model_params = llama_model_default_params();
 
-    // Copiato e rilasciato subito: se il caricamento lancia, la stringa JNI non resta trattenuta.
-    const auto *model_path_chars = env->GetStringUTFChars(jmodel_path, 0);
-    const std::string model_path = model_path_chars;
-    env->ReleaseStringUTFChars(jmodel_path, model_path_chars);
+    const std::string model_path = jstring_to_path(env, jmodel_path);
     LOGd("%s: Loading model from: \n%s\n", __func__, model_path.c_str());
 
     auto *model = llama_model_load_from_file(model_path.c_str(), model_params);

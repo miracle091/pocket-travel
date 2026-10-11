@@ -46,6 +46,7 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
@@ -227,16 +228,16 @@ fun PocketTravelNavHost(
                 )
             }
             composable<SettingsRoute> {
-                SettingsScreen(onBack = { navController.popBackStack() })
+                SettingsScreen(onBack = dropUnlessResumed { navController.popBackStack() })
             }
             composable<TutorialRoute> {
                 OnboardingScreen(
                     viewModel = onboardingViewModel,
-                    onComplete = { navController.popBackStack() },
+                    onComplete = dropUnlessResumed { navController.popBackStack() },
                 )
             }
             composable<StorageRoute> {
-                StorageScreen(onBack = { navController.popBackStack() })
+                StorageScreen(onBack = dropUnlessResumed { navController.popBackStack() })
             }
             composable<SourcesRoute> {
                 // Stesse preferenze delle Impostazioni: la nazionalita' sceglie le fonti del proprio paese.
@@ -245,7 +246,7 @@ fun PocketTravelNavHost(
                     Box(modifier = Modifier.weight(1f)) {
                         OfficialSourcesScreen(
                             nationality = nationality,
-                            onBack = { navController.popBackStack() },
+                            onBack = dropUnlessResumed { navController.popBackStack() },
                             onOpenSource = { url, title -> navController.navigate(InAppBrowserRoute(url, title)) },
                         )
                     }
@@ -258,7 +259,7 @@ fun PocketTravelNavHost(
                 }
             }
             composable<LicensesRoute> {
-                LicensesScreen(onBack = { navController.popBackStack() })
+                LicensesScreen(onBack = dropUnlessResumed { navController.popBackStack() })
             }
             composable<RegionHubRoute>(
                 // Dall'elenco regioni la riga si trasforma nell'hub (container transform): la
@@ -285,18 +286,18 @@ fun PocketTravelNavHost(
                 RegionPreviewScreen(
                     regionId = route.regionId,
                     displayName = route.name.ifBlank { route.regionId },
-                    onBack = { navController.popBackStack() },
+                    onBack = dropUnlessResumed { navController.popBackStack() },
                     item = listState.items.firstOrNull { it.regionId == route.regionId },
                     rowActions = listViewModel.rowActions(),
                     // Il download completo si segue dalla lista Regioni (barra di avanzamento gia'
                     // presente li'), non duplicata qui: torna semplicemente indietro.
-                    onDownloadFull = { navController.popBackStack() },
+                    onDownloadFull = dropUnlessResumed { navController.popBackStack() },
                     onOpenSource = { url, title -> navController.navigate(InAppBrowserRoute(url, title)) },
                 )
             }
             composable<InAppBrowserRoute> { backStackEntry ->
                 val route = backStackEntry.toRoute<InAppBrowserRoute>()
-                InAppBrowserScreen(url = route.url, title = route.title, onBack = { navController.popBackStack() })
+                InAppBrowserScreen(url = route.url, title = route.title, onBack = dropUnlessResumed { navController.popBackStack() })
             }
         }
         }

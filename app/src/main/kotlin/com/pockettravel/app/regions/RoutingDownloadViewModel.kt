@@ -3,6 +3,7 @@ package com.pockettravel.app.regions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
+import com.pockettravel.app.runCatchingCancellable
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RoutingVariantPreferences
@@ -104,7 +105,7 @@ class RoutingDownloadViewModel @Inject constructor(
         viewModelScope.launch {
             manifestFailed.value = false
             // Un errore del catalogo non si butta: il Navigatore lo mostra e lascia riprovare, invece di restare fermo.
-            runCatching { manifestClient.fetchManifest().regions.filter { it.regionId in ids } }
+            runCatchingCancellable { manifestClient.fetchManifest().regions.filter { it.regionId in ids } }
                 .onSuccess { entries -> entries.forEach { regionSyncScheduler.enqueueDownload(it, setOf(PackageKind.ROUTING)) } }
                 .onFailure { manifestFailed.value = true }
         }
@@ -116,7 +117,7 @@ class RoutingDownloadViewModel @Inject constructor(
      * tutto e' coperto: il Navigatore resta col messaggio generico.
      */
     suspend fun missingRoutingRegions(points: List<RoutePoint>, usableRouting: Set<String>): List<MissingRegion> {
-        val regions = runCatching { manifestClient.recentManifest().regions }.getOrNull() ?: return emptyList()
+        val regions = runCatchingCancellable { manifestClient.recentManifest().regions }.getOrNull() ?: return emptyList()
         val carOnly = routingVariantPreferences.installedCarOnly.value
         return withContext(Dispatchers.Default) {
             missingRoutingRegions(regions, usableRouting, points, { countryLocator.countryAt(it.latitude, it.longitude) }, countryLocator.neighbours, countryLocator.centres)

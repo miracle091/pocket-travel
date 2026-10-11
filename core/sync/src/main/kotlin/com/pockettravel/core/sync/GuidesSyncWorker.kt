@@ -12,7 +12,7 @@ import kotlinx.coroutines.CancellationException
 import java.io.IOException
 
 /**
- * Installa o aggiorna il pacchetto guide (tutte le nazioni, meno di un MB) se la versione del
+ * Installa o aggiorna il pacchetto guide (tutte le nazioni, circa 2,6 MB in italiano e 4,5 MB in inglese) se la versione del
  * manifest e' diversa da quella installata. Accodato da [RegionSyncScheduler]: in automatico
  * solo su Wi-Fi, subito quando l'utente scarica una regione.
  */

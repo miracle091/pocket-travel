@@ -263,6 +263,9 @@ class GenerateGuideContentTest {
         assertEquals("https://it.example/r", italiana.sourceUrl)
         assertEquals(listOf("Sicurezza"), italiana.sections.map { it.title })
 
+        val soloCosaVedere = regionGuideFromDumps("r", "== Cosa vedere ==\nIl duomo.\n", "https://it.example/r", en, "https://en.example/r")
+        assertEquals("https://en.example/r", soloCosaVedere.sourceUrl)
+
         val senzaInglese = regionGuideFromDumps("r", itSoloTitoli, "https://it.example/r", null, "")
         assertEquals("https://it.example/r", senzaInglese.sourceUrl)
         assertEquals(0, senzaInglese.sections.size)
@@ -380,6 +383,8 @@ class GenerateGuideContentTest {
         assertEquals("Cercate il logo e dite \"touch\" per pagare.", cleanBody("Cercate il logo [[File:EMVCoContactlessIndicator.svg e dite \"touch\" per pagare."))
         // Su piu' righe (didascalia con una legenda a template).
         assertEquals("Serve il visto.", cleanBody("[[File:Mappa.png|thumb|\n{{legend|#fff|Visto}}\n{{legend|#000|No}}\n]]Serve il visto."))
+        // Una "[" sola nella didascalia: il paragrafo dopo resta, anche con un link.
+        assertTrue(cleanBody("[[File:x.jpg|thumb|a [ b]] Primo.\n\nAltro [[Roma]] qui.").endsWith("Altro Roma qui."))
     }
 
     @Test

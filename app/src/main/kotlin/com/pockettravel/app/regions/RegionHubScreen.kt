@@ -32,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +42,7 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.platform.LocalLocale
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.dropUnlessResumed
 import com.pockettravel.app.R
 import com.pockettravel.app.navigation.regionContainer
 import com.pockettravel.core.ui.AppIcons
@@ -109,6 +111,10 @@ fun RegionHubScreen(
         }
     }
     LaunchedEffect(regionMissing) { if (regionMissing) onBack() }
+    // Il secondo tocco su Indietro arriva mentre l'hub sta uscendo: senza il controllo toglierebbe dalla pila anche
+    // la schermata sotto. Vale per i tocchi, non per l'uscita automatica qui sopra (puo' partire durante l'ingresso).
+    val onBackTap = dropUnlessResumed { onBack() }
+    val tabStateHolder = rememberSaveableStateHolder()
 
     val adaptiveInfo = currentWindowAdaptiveInfoV2()
     NavigationSuiteScaffold(
@@ -139,7 +145,7 @@ fun RegionHubScreen(
                 if (currentTab != RegionTab.GUIDE) TopAppBar(
                     title = { Text(displayName ?: regionId) },
                     navigationIcon = {
-                        IconButton(onClick = onBack) {
+                        IconButton(onClick = onBackTap) {
                             Icon(imageVector = AppIcons.Back, contentDescription = stringResource(UiR.string.back))
                         }
                     },
@@ -156,12 +162,12 @@ fun RegionHubScreen(
                     .imePadding(),
             ) {
                 // Motion M3 "fade through" tra le schede sorelle.
+                // SaveableStateProvider: lasciando una scheda se ne conserva lo stato (la camera della Mappa).
                 Crossfade(targetState = currentTab, animationSpec = tween(250), label = "regionTab") { tab ->
+                tabStateHolder.SaveableStateProvider(tab.key) {
                 when (tab) {
-                    RegionTab.GUIDE -> Box(modifier = Modifier.statusBarsPadding()) { GuideScreen(regionId = regionId, onOpenSource = onOpenSource, onBack = onBack) }
-                    RegionTab.MAP -> if (mapState == RegionMapState.LOADING) {
-                        // Stato della mappa non ancora noto: nessun contenuto finche' non arriva.
-                    } else {
+                    RegionTab.GUIDE -> Box(modifier = Modifier.statusBarsPadding()) { GuideScreen(regionId = regionId, onOpenSource = onOpenSource, onBack = onBackTap) }
+                    RegionTab.MAP -> {
                         // I pacchetti si installano separatamente: la mappa completa puo' mancare,
                         // ma la scheda mostra sempre qualcosa (anteprima, mondo online, o solo lo
                         // sfondo) invece di una schermata vuota — vedi MapSourceKind.
@@ -169,51 +175,56 @@ fun RegionHubScreen(
                         LaunchedEffect(regionId) { mapViewModel.loadPins(regionId) }
                         // La mappa completa e' appena finita di scaricare: MapRouteViewModel non se
                         // ne accorgerebbe da solo (non osserva il file system).
-                        val pins by mapViewModel.pins.collectAsStateWithLifecycle()
-                        val hiddenCategories by mapViewModel.hiddenCategories.collectAsStateWithLifecycle()
-                        // Categorie dell'area inquadrata, filtrate comprese: i segnalini non contengono quelle nascoste.
-                        val presentCategories by mapViewModel.presentCategories.collectAsStateWithLifecycle()
-                        val accessible by mapViewModel.accessible.collectAsStateWithLifecycle()
-                        val onlyAccessible by mapViewModel.onlyAccessible.collectAsStateWithLifecycle()
                         val mapSource by mapViewModel.mapSource.collectAsStateWithLifecycle()
-                        val transitState by viewModel.transitState.collectAsStateWithLifecycle()
-                        val transitBoard by mapViewModel.transitBoard.collectAsStateWithLifecycle()
-                        val transitUpdateResult by viewModel.transitUpdateResult.collectAsStateWithLifecycle()
-                        val sourceKind = mapSource.kind
-                        val language = LocalLocale.current.platformLocale.language
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                                MapScreen(
-                                    tileSource = mapViewModel.tileSource,
-                                    regionId = regionId,
-                                    mapSource = mapSource,
-                                    pins = pins,
-                                    hiddenCategories = hiddenCategories,
-                                    areaCategories = presentCategories,
-                                    onHiddenCategoriesChange = mapViewModel::setHiddenCategories,
-                                    hideInaccessible = accessible,
-                                    onlyAccessible = onlyAccessible,
-                                    onOnlyAccessibleChange = mapViewModel::setOnlyAccessible,
-                                    // Prima il percorso nella scheda Navigatore (partenza, mezzo, anteprima), poi "Avvia".
-                                    onNavigate = { pin ->
-                                        val name = pin.displayName(language) ?: pin.name.orEmpty()
-                                        plannerViewModel.setDestination(NavigationPlace(name, pin.latitude, pin.longitude, regionId))
-                                        selectedTab = RegionTab.NAVIGATION
-                                    },
-                                    transitPackage = transitState,
-                                    transitBoard = transitBoard,
-                                    transitUpdateResult = transitUpdateResult,
-                                    onDownloadTransit = viewModel::downloadTransit,
-                                    onTransitStopChange = mapViewModel::showDepartures,
-                                    onViewportChange = mapViewModel::setViewport,
-                                )
-                            }
-                            if (sourceKind != MapSourceKind.FULL) {
-                                MapDownloadBar(
-                                    sourceKind = sourceKind,
-                                    downloading = mapState == RegionMapState.DOWNLOADING,
-                                    onDownload = viewModel::downloadMap,
-                                )
+                        val knownSource = mapSource
+                        // Stato della mappa o sorgente non ancora noti: nessun contenuto finche' non arrivano
+                        // (altrimenti la barra "Scarica la mappa" lampeggerebbe).
+                        if (mapState != RegionMapState.LOADING && knownSource != null) {
+                            val pins by mapViewModel.pins.collectAsStateWithLifecycle()
+                            val hiddenCategories by mapViewModel.hiddenCategories.collectAsStateWithLifecycle()
+                            // Categorie dell'area inquadrata, filtrate comprese: i segnalini non contengono quelle nascoste.
+                            val presentCategories by mapViewModel.presentCategories.collectAsStateWithLifecycle()
+                            val accessible by mapViewModel.accessible.collectAsStateWithLifecycle()
+                            val onlyAccessible by mapViewModel.onlyAccessible.collectAsStateWithLifecycle()
+                            val transitState by viewModel.transitState.collectAsStateWithLifecycle()
+                            val transitBoard by mapViewModel.transitBoard.collectAsStateWithLifecycle()
+                            val transitUpdateResult by viewModel.transitUpdateResult.collectAsStateWithLifecycle()
+                            val sourceKind = knownSource.kind
+                            val language = LocalLocale.current.platformLocale.language
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                                    MapScreen(
+                                        tileSource = mapViewModel.tileSource,
+                                        regionId = regionId,
+                                        mapSource = knownSource,
+                                        pins = pins,
+                                        hiddenCategories = hiddenCategories,
+                                        areaCategories = presentCategories,
+                                        onHiddenCategoriesChange = mapViewModel::setHiddenCategories,
+                                        hideInaccessible = accessible,
+                                        onlyAccessible = onlyAccessible,
+                                        onOnlyAccessibleChange = mapViewModel::setOnlyAccessible,
+                                        // Prima il percorso nella scheda Navigatore (partenza, mezzo, anteprima), poi "Avvia".
+                                        onNavigate = { pin ->
+                                            val name = pin.displayName(language) ?: pin.name.orEmpty()
+                                            plannerViewModel.setDestination(NavigationPlace(name, pin.latitude, pin.longitude, regionId))
+                                            selectedTab = RegionTab.NAVIGATION
+                                        },
+                                        transitPackage = transitState,
+                                        transitBoard = transitBoard,
+                                        transitUpdateResult = transitUpdateResult,
+                                        onDownloadTransit = viewModel::downloadTransit,
+                                        onTransitStopChange = mapViewModel::showDepartures,
+                                        onViewportChange = mapViewModel::setViewport,
+                                    )
+                                }
+                                if (sourceKind != MapSourceKind.FULL) {
+                                    MapDownloadBar(
+                                        sourceKind = sourceKind,
+                                        downloading = mapState == RegionMapState.DOWNLOADING,
+                                        onDownload = viewModel::downloadMap,
+                                    )
+                                }
                             }
                         }
                     }
@@ -239,6 +250,7 @@ fun RegionHubScreen(
                             )
                         }
                     }
+                }
                 }
                 }
             }

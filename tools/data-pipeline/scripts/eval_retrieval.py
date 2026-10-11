@@ -38,6 +38,7 @@ import argparse
 import json
 import lzma
 import math
+import os
 import random
 import re
 import sqlite3
@@ -708,10 +709,23 @@ def answer_paragraph(body, stems):
 
 
 # --- dati --------------------------------------------------------------------------------------------------------------
+UA = {"User-Agent": "pocket-travel-eval-retrieval/1.0 (https://github.com/miracle091/pocket-travel)"}
+
+
+def fetch(url):
+    return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=300).read()
+
+
 def download(url, out):
-    if not out.exists():
-        data = urllib.request.urlopen(url).read()
-        out.write_bytes(lzma.decompress(data) if url.endswith(".xz") else data)
+    """[out] scaricato da [url], riusato finche' l'URL (che ha la versione pubblicata) resta lo stesso: <out>.url lo
+    ricorda. Scritto in un file temporaneo e poi rinominato: un download interrotto non lascia un file troncato."""
+    seen = out.with_name(out.name + ".url")
+    if not out.exists() or not seen.exists() or seen.read_text(encoding="utf-8") != url:
+        data = fetch(url)
+        part = out.with_name(out.name + ".part")
+        part.write_bytes(lzma.decompress(data) if url.endswith(".xz") else data)
+        os.replace(part, out)
+        seen.write_text(url, encoding="utf-8")
     return out
 
 
@@ -721,7 +735,7 @@ def fetch_data(regions, cache, lang):
     conf = LANGS[lang]
     sfx = conf["suffix"]
     cache.mkdir(parents=True, exist_ok=True)
-    manifest = json.loads(urllib.request.urlopen(MANIFEST_URL).read())
+    manifest = json.loads(fetch(MANIFEST_URL))
     download(manifest[conf["guides"]]["fileXz"]["url"], cache / f"guides{sfx}.db")
     by_id = {r["regionId"]: r for r in manifest["regions"]}
     for region in regions:

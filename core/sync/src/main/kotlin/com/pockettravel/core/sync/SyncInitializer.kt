@@ -15,6 +15,7 @@ class SyncInitializer @Inject constructor(
 
     override fun onAppCreate() {
         // Fuori dal thread principale: WorkManager apre il suo database anche solo per accodare un lavoro.
+        // Scope senza annullamento: il lavoro vive quanto il processo e non esiste uno scope applicativo iniettabile.
         CoroutineScope(Dispatchers.IO).launch {
             regionSyncScheduler.schedulePeriodicManifestCheck()
             appUpdateCheckScheduler.schedulePeriodicCheck()

@@ -187,7 +187,9 @@ private fun removeMediaLinks(text: String): String {
         var depth = 1
         var singleOpen = 0
         var index = start.range.last + 1
-        while (index < text.length && depth > 0) {
+        // Con una "[" ancora aperta solo fino a fine paragrafo: se e' una "[" sola nella didascalia, la scansione non deve
+        // cancellare il testo dopo fino al prossimo "]]". Le righe vuote di una didascalia su piu' righe restano dentro.
+        while (index < text.length && depth > 0 && !(singleOpen > 0 && text.startsWith("\n\n", index))) {
             when {
                 text.startsWith("[[", index) -> { depth++; index += 2 }
                 text[index] == '[' -> { singleOpen++; index++ }
@@ -656,7 +658,8 @@ fun regionGuideFromDumps(regionId: String, dump: String, sourceUrl: String, dump
     // quando il corpo delle sezioni viene dall'inglese piu' sotto — i nomi dei campi (Lingua,
     // Elettricità...) sono quelli di Wikivoyage IT.
     val quickFacts = quickFactsSection(regionId, dump)
-    if (sections.isEmpty() && dumpEn != null) {
+    // Una pagina con le sole sezioni Cosa vedere e Cosa fare ricade sull'inglese come una senza sezioni: le altre mancano.
+    if (sections.all { it.category == "COSA_VEDERE" } && dumpEn != null) {
         val sectionsEn = parseWikivoyageDump(dumpEn)
         if (sectionsEn.isNotEmpty()) {
             println("guide: $regionId senza sezioni nella pagina $sourceUrl, uso $sourceUrlEn")

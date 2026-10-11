@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -123,17 +124,21 @@ class MapRouteViewModel @Inject constructor(
     // Sorgente in uso per la regione corrente: il tipo serve a RegionHubScreen per la barra "Scarica
     // la mappa"; l'intero stato (tipo + versioni) e' la chiave con cui MapScreen ricostruisce lo stile,
     // cosi' anche un'anteprima o una mappa aggiornata (stesso tipo, file nuovo) viene ridisegnata.
-    val mapSource: StateFlow<MapSourceState> = combine(
+    // null finche' la sorgente non e' nota: la barra "Scarica la mappa" non deve comparire in quel frattempo.
+    // sourceKind legge il file system: la combinazione gira su IO.
+    val mapSource: StateFlow<MapSourceState?> = combine(
         regionIdFlow.filterNotNull(), connectivityObserver.changes(), installedVersions,
     ) { regionId, _, versions -> MapSourceState(tileSource.sourceKind(regionId), versions) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MapSourceState(MapSourceKind.NONE, null))
+        .flowOn(Dispatchers.IO)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     // Area inquadrata dalla mappa (MapScreen la segnala a ogni fermo); null prima del primo fermo.
     private var viewport: MapBounds? = null
 
     fun loadPins(regionId: String) {
+        // La stessa regione (si torna alla scheda Mappa) conserva l'area inquadrata: la camera e' stata ripristinata.
+        if (regionIdFlow.value != regionId) viewport = null
         regionIdFlow.value = regionId
-        viewport = null
         // Riaperta la regione si rileggono le categorie: un aggiornamento dei POI puo' averle cambiate.
         regionTags = null
         reloadPins()

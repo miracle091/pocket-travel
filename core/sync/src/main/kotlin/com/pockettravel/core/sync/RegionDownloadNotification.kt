@@ -44,12 +44,15 @@ internal class UpdateThrottle(private val intervalMillis: Long = 1_000L) {
 
 /** Notifica in primo piano del download di una regione, con barra di avanzamento e "Annulla". */
 internal class RegionDownloadNotification(private val context: Context) {
-    fun notificationId(regionId: String): Int = NOTIFICATION_ID_BASE + (regionId.hashCode() and 0xFFFF)
-
-    fun build(workId: UUID, regionName: String, kinds: Set<PackageKind>, phase: DownloadPhase): Notification {
+    init {
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL_ID, context.getString(R.string.sync_download_channel), NotificationManager.IMPORTANCE_LOW),
         )
+    }
+
+    fun notificationId(regionId: String): Int = NOTIFICATION_ID_BASE + (regionId.hashCode() and 0xFFFF)
+
+    fun build(workId: UUID, regionName: String, kinds: Set<PackageKind>, phase: DownloadPhase): Notification {
         val packages = orderedKinds(kinds).joinToString(", ") { context.getString(label(it)) }
         val percent: Int?
         val text: String

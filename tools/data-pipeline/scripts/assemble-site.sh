@@ -108,7 +108,7 @@ FINAL_MANIFEST="$SITE_DIR/manifest.json"
 PRESENT_REGION_IDS="$(grep -o '"regionId"[[:space:]]*:[[:space:]]*"[^"]*"' "$FINAL_MANIFEST" | sed 's/.*:[[:space:]]*"//;s/"$//' | sort -u)"
 
 is_present() {
-  echo "$PRESENT_REGION_IDS" | grep -qxF "$1"
+  grep -qxF "$1" <<< "$PRESENT_REGION_IDS"
 }
 
 # Nome nazione collegato alla propria pagina Wikivoyage: riusa l'URL gia' risolto e salvato nel

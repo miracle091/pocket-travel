@@ -29,9 +29,11 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -131,8 +133,10 @@ fun MapScreen(
     // Stile scuro quando l'app e' in tema scuro (segue il tema effettivo, non solo il sistema).
     val darkMap = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val language = LocalLocale.current.platformLocale.language
-    val styleJson = remember(tileSource, regionId, darkMap, mapSource, language) { tileSource.styleJson(regionId, dark = darkMap, language = language) }
-    var configuredStyle by remember { mutableStateOf<String?>(null) }
+    // Lo stile legge i file della mappa (cartelle, intestazione pmtiles): fuori dal main thread. null finche' non e' pronto.
+    val styleJson by produceState<String?>(null, tileSource, regionId, darkMap, mapSource, language) {
+        value = withContext(Dispatchers.IO) { tileSource.styleJson(regionId, dark = darkMap, language = language) }
+    }
     // Sorgente dei segnalini dello stile corrente: null durante un cambio di stile.
     var pinsSource by remember { mutableStateOf<GeoJsonSource?>(null) }
     // Saveable: il foglio resta aperto dopo una rotazione o un cambio di tema.
@@ -146,6 +150,9 @@ fun MapScreen(
     LaunchedEffect(selectedPin, transitPackage) {
         onTransitStopChange(selectedPin?.takeIf { it.category in TRANSIT_CATEGORIES && transitPackage == TransitPackageState.INSTALLED })
     }
+    // Uscendo dalla schermata con un riquadro aperto le partenze smettono di essere rilette ogni minuto.
+    val currentOnTransitStopChange by rememberUpdatedState(onTransitStopChange)
+    DisposableEffect(Unit) { onDispose { currentOnTransitStopChange(null) } }
     var cameraFitted by remember { mutableStateOf(false) }
     // Centro e zoom (lat, lon, zoom) dell'ultima vista: una rotazione ricrea la mappa, e senza
     // si tornerebbe all'inquadratura iniziale su tutti i segnalini.
@@ -215,77 +222,80 @@ fun MapScreen(
         }
     }
 
+    // Stile e camera si configurano in un effetto, non nel blocco update di AndroidView (che gira durante il
+    // measure: setStyle/moveCamera e le scritture di stato Compose non vi sono ammessi).
+    LaunchedEffect(mapView, styleJson) {
+        val json = styleJson ?: return@LaunchedEffect
+        mapView.getMapAsync { map ->
+            // Basso, non il default (4 livelli): con le tile pmtiles:// gia' tutte in
+            // locale (l'intero z0-z14 scaricato all'installazione da PmtilesExtractor),
+            // un placeholder piu' vicino allo zoom target non costa una richiesta di
+            // rete in piu' come costerebbe con tile remote, solo un parsing leggermente
+            // anticipato di una tile che verra' comunque renderizzata.
+            map.prefetchZoomDelta = 1
+            // La sorgente dei segnalini appartiene allo stile corrente: non va piu' usata
+            // dopo setStyle, che ne crea una nuova nel callback.
+            pinsSource = null
+            map.setStyle(Style.Builder().fromJson(json)) { style ->
+                PoiCategory.entries.forEach { category ->
+                    style.addImage(iconIdFor(category), poiPinBitmap(context, category))
+                }
+                // Usata solo quando lo stile non ha alcuna sorgente (MapSourceKind.NONE),
+                // ma aggiunta sempre, come le icone dei POI sopra.
+                style.addImage(MISSING_MAP_HATCH_IMAGE, missingMapHatchBitmap(context, darkMap))
+                val source = GeoJsonSource(PINS_SOURCE)
+                style.addSource(source)
+                style.addLayer(
+                    SymbolLayer(PINS_LAYER, PINS_SOURCE).withProperties(
+                        PropertyFactory.iconImage(Expression.get(PIN_ICON)),
+                        PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+                    ),
+                )
+                pinsSource = source
+            }
+        }
+    }
+
+    // PmtilesExtractor scarica solo le tile che intersecano il bounding box della regione (vedi
+    // core:sync/PmtilesExtractor.tileRangeFor), per tenere piccolo il pacchetto: ai livelli di zoom
+    // bassi le tile vicine che non toccano il bbox non esistono, e zoomando a mano dalla vista mondo
+    // meta' schermo mostrerebbe solo il "background". Per questo la camera si inquadra sui pin della
+    // regione (gia' ben dentro il bbox estratto) appena sono disponibili. Una tantum (guardia
+    // cameraFitted): dopo il primo fit l'utente resta libero di tornare alla vista mondo senza che ogni
+    // ricomposizione lo riporti sulla regione.
+    // Con la mappa installata si inquadra il suo riquadro (la zona scelta, per le nazioni grandi): i segnalini
+    // sono solo quelli dell'area visibile, non tutti quelli della regione.
+    LaunchedEffect(mapView, regionId, pins.isNotEmpty()) {
+        if (cameraFitted) return@LaunchedEffect
+        val restored = savedCamera
+        val mapBounds = if (restored == null) withContext(Dispatchers.IO) { tileSource.regionBounds(regionId) } else null
+        if (restored == null && mapBounds == null && pins.isEmpty()) return@LaunchedEffect
+        cameraFitted = true
+        mapView.getMapAsync { map ->
+            // LatLngBounds.Builder.build() vuole almeno 2 punti: con un solo pin si
+            // centra la camera su di lui. Dopo una rotazione, la vista di prima.
+            val update = if (restored != null) {
+                CameraUpdateFactory.newLatLngZoom(LatLng(restored[0], restored[1]), restored[2])
+            } else if (mapBounds != null) {
+                CameraUpdateFactory.newLatLngBounds(
+                    LatLngBounds.Builder().include(LatLng(mapBounds.maxLat, mapBounds.minLon)).include(LatLng(mapBounds.minLat, mapBounds.maxLon)).build(),
+                    0,
+                )
+            } else if (pins.size == 1) {
+                CameraUpdateFactory.newLatLngZoom(LatLng(pins[0].latitude, pins[0].longitude), SINGLE_PIN_ZOOM)
+            } else {
+                val boundsBuilder = LatLngBounds.Builder()
+                pins.forEach { pin -> boundsBuilder.include(LatLng(pin.latitude, pin.longitude)) }
+                CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 64)
+            }
+            map.moveCamera(update)
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { mapView },
-            update = { view ->
-                if (configuredStyle != styleJson) {
-                    configuredStyle = styleJson
-                    view.getMapAsync { map ->
-                        // Basso, non il default (4 livelli): con le tile pmtiles:// gia' tutte in
-                        // locale (l'intero z0-z14 scaricato all'installazione da PmtilesExtractor),
-                        // un placeholder piu' vicino allo zoom target non costa una richiesta di
-                        // rete in piu' come costerebbe con tile remote, solo un parsing leggermente
-                        // anticipato di una tile che verra' comunque renderizzata.
-                        map.prefetchZoomDelta = 1
-                        // La sorgente dei segnalini appartiene allo stile corrente: non va piu' usata
-                        // dopo setStyle, che ne crea una nuova nel callback.
-                        pinsSource = null
-                        map.setStyle(Style.Builder().fromJson(styleJson)) { style ->
-                            PoiCategory.entries.forEach { category ->
-                                style.addImage(iconIdFor(category), poiPinBitmap(context, category))
-                            }
-                            // Usata solo quando lo stile non ha alcuna sorgente (MapSourceKind.NONE),
-                            // ma aggiunta sempre, come le icone dei POI sopra.
-                            style.addImage(MISSING_MAP_HATCH_IMAGE, missingMapHatchBitmap(context, darkMap))
-                            val source = GeoJsonSource(PINS_SOURCE)
-                            style.addSource(source)
-                            style.addLayer(
-                                SymbolLayer(PINS_LAYER, PINS_SOURCE).withProperties(
-                                    PropertyFactory.iconImage(Expression.get(PIN_ICON)),
-                                    PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
-                                ),
-                            )
-                            pinsSource = source
-                        }
-                    }
-                }
-
-                // PmtilesExtractor scarica solo le tile che intersecano il bounding box della regione (vedi
-                // core:sync/PmtilesExtractor.tileRangeFor), per tenere piccolo il pacchetto: ai livelli di zoom
-                // bassi le tile vicine che non toccano il bbox non esistono, e zoomando a mano dalla vista mondo
-                // meta' schermo mostrerebbe solo il "background". Per questo la camera si inquadra sui pin della
-                // regione (gia' ben dentro il bbox estratto) appena sono disponibili. Una tantum (guardia
-                // cameraFitted): dopo il primo fit l'utente resta libero di tornare alla vista mondo senza che ogni
-                // ricomposizione lo riporti sulla regione.
-                // Con la mappa installata si inquadra il suo riquadro (la zona scelta, per le nazioni grandi): i segnalini
-                // sono solo quelli dell'area visibile, non tutti quelli della regione.
-                val restored = savedCamera
-                val mapBounds = if (!cameraFitted && restored == null) tileSource.regionBounds(regionId) else null
-                if (!cameraFitted && (restored != null || mapBounds != null || pins.isNotEmpty())) {
-                    cameraFitted = true
-                    view.getMapAsync { map ->
-                        // LatLngBounds.Builder.build() vuole almeno 2 punti: con un solo pin si
-                        // centra la camera su di lui. Dopo una rotazione, la vista di prima.
-                        val update = if (restored != null) {
-                            CameraUpdateFactory.newLatLngZoom(LatLng(restored[0], restored[1]), restored[2])
-                        } else if (mapBounds != null) {
-                            CameraUpdateFactory.newLatLngBounds(
-                                LatLngBounds.Builder().include(LatLng(mapBounds.maxLat, mapBounds.minLon)).include(LatLng(mapBounds.minLat, mapBounds.maxLon)).build(),
-                                0,
-                            )
-                        } else if (pins.size == 1) {
-                            CameraUpdateFactory.newLatLngZoom(LatLng(pins[0].latitude, pins[0].longitude), SINGLE_PIN_ZOOM)
-                        } else {
-                            val boundsBuilder = LatLngBounds.Builder()
-                            pins.forEach { pin -> boundsBuilder.include(LatLng(pin.latitude, pin.longitude)) }
-                            CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 64)
-                        }
-                        map.moveCamera(update)
-                    }
-                }
-            },
         )
 
         // Filtri nel foglio a gruppi che si apre dal pulsante in basso: con 20 e piu' categorie una fila
