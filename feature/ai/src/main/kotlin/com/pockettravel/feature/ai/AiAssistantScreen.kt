@@ -429,8 +429,8 @@ private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String)
 }
 
 // Il contenuto della bolla della risposta: testo in arrivo, attesa, errore o risposta con fonti.
-// Le fonti in una riga sola ("2 fonti"), aperta a richiesta: con l'URL e la sezione di ogni guida prendevano spesso piu'
-// spazio della risposta.
+// Fonti in una riga sola, "Fonti (2)" con il numero di quelle citate, che si apre a richiesta: con la sezione e
+// l'indirizzo di ogni pagina, l'elenco completo occuperebbe spesso piu' spazio della risposta.
 @Composable
 private fun SourceCitations(citations: List<String>) {
     var expanded by rememberSaveable(citations) { mutableStateOf(false) }

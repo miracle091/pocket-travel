@@ -131,7 +131,7 @@
     <string name="ai_sources_show">Show sources</string>
     <string name="ai_sources_hide">Hide sources</string>
     <plurals name="ai_sources_count">
-        <item quantity="one">1 source</item>
-        <item quantity="other">%d sources</item>
+        <item quantity="one">Source (%d)</item>
+        <item quantity="other">Sources (%d)</item>
     </plurals>
 </resources>
