@@ -47,7 +47,9 @@ class RegionStartupRecovery @Inject constructor(
             val keep = when (stagingId) {
                 GuidesInstaller.STAGING_ID -> regionSyncScheduler.isGuidesSyncPending()
                 TransitClient.STAGING_ID, AddressGridClient.STAGING_ID -> true
-                else -> stagingId in installed || regionSyncScheduler.isDownloadPending(stagingId)
+                // Anche di una regione installata: i backup delle attivazioni stanno nella cartella della regione, lo
+                // staging senza un download in coda e' solo un avanzo ("Annulla" prima di Android 12, un crash).
+                else -> regionSyncScheduler.isDownloadPending(stagingId)
             }
             if (!keep) regionStorage.deleteStaging(stagingId)
         }

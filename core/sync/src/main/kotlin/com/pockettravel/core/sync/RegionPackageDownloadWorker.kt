@@ -95,9 +95,9 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
             if (PackageKind.ROUTING in kinds) routingVariantPreferences.setInstalledCarOnly(entry.regionId, entry.hasCarOnlyRouting)
             Result.success()
         } catch (error: CancellationException) {
-            // "Annulla" della notifica: il download non riparte, lo staging (anche di una regione gia' installata,
-            // che all'avvio resterebbe) e il file della richiesta si ripuliscono. Altre cause (vincoli persi,
-            // processo fermato dal sistema) lasciano lo staging per la ripresa.
+            // "Annulla" della notifica: il download non riparte, lo staging e il file della richiesta si ripuliscono
+            // subito (senza il motivo, prima di Android 12, al prossimo avvio: RegionStartupRecovery). Altre cause
+            // (vincoli persi, processo fermato dal sistema) lasciano lo staging per la ripresa.
             if (cancelledByUser()) cleanUp(regionId, requestFile)
             throw error
         } catch (_: PermanentRegionPackageException) {

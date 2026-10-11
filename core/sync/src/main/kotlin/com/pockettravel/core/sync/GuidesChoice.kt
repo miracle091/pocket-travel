@@ -15,6 +15,15 @@ fun RegionManifest.guidesChoice(language: String = currentGuidesLanguage()): Gui
     return if (english != null) GuidesChoice(english, "${ENGLISH_PREFIX}${english.version}") else GuidesChoice(guides, guides.version)
 }
 
+/**
+ * true se l'aggiornamento automatico delle guide non aspetta il Wi-Fi: sotto i 5 MB compressi (oggi circa 2,6 MB in
+ * italiano e 4,5 MB in inglese) costa poco anche su rete a consumo, e le guide restano allineate.
+ */
+val GuidesChoice.automaticOnMeteredNetwork: Boolean get() = entry.downloadFile.sizeBytes < GUIDES_METERED_MAX_BYTES
+
+/** Sopra questo peso compresso le guide si aggiornano da sole solo su Wi-Fi. */
+const val GUIDES_METERED_MAX_BYTES = 5L * 1024 * 1024
+
 /** true se le guide installate (versione registrata) sono in inglese. */
 fun isEnglishGuidesVersion(installedVersion: String?): Boolean = installedVersion?.startsWith(ENGLISH_PREFIX) == true
 

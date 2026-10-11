@@ -92,13 +92,14 @@ class RegionSyncScheduler @Inject constructor(
 
     /**
      * Installa o aggiorna il pacchetto guide se il manifest ne ha una versione diversa. In
-     * automatico ([onlyOnWifi]) non sostituisce una richiesta gia' in coda; su richiesta
-     * dell'utente la sostituisce, cosi' non resta in attesa del Wi-Fi.
+     * automatico ([automatic]) non sostituisce una richiesta gia' in coda; su richiesta
+     * dell'utente la sostituisce, cosi' non resta in attesa del Wi-Fi. [onlyOnWifi] aspetta una rete senza
+     * limiti di traffico: in automatico solo per le guide da 5 MB in su (GuidesChoice.automaticOnMeteredNetwork).
      */
-    fun enqueueGuidesSync(onlyOnWifi: Boolean) {
-        // In automatico (onlyOnWifi) si salta in silenzio; su richiesta dell'utente lo si avvisa.
+    fun enqueueGuidesSync(onlyOnWifi: Boolean, automatic: Boolean = onlyOnWifi) {
+        // In automatico si salta in silenzio; su richiesta dell'utente lo si avvisa.
         if (appCompatibility.requiresAppUpdate()) {
-            if (!onlyOnWifi) appCompatibility.showUpdateRequiredMessage()
+            if (!automatic) appCompatibility.showUpdateRequiredMessage()
             return
         }
         val networkType = if (onlyOnWifi) NetworkType.UNMETERED else NetworkType.CONNECTED
@@ -108,7 +109,7 @@ class RegionSyncScheduler @Inject constructor(
             .build()
         workManager.enqueueUniqueWork(
             SyncConfig.GUIDES_SYNC_WORK_NAME,
-            if (onlyOnWifi) ExistingWorkPolicy.KEEP else ExistingWorkPolicy.REPLACE,
+            if (automatic) ExistingWorkPolicy.KEEP else ExistingWorkPolicy.REPLACE,
             request,
         )
     }

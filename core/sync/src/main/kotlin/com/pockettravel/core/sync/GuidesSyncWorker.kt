@@ -14,7 +14,7 @@ import java.io.IOException
 /**
  * Installa o aggiorna il pacchetto guide (tutte le nazioni, circa 2,6 MB in italiano e 4,5 MB in inglese) se la versione del
  * manifest e' diversa da quella installata. Accodato da [RegionSyncScheduler]: in automatico
- * solo su Wi-Fi, subito quando l'utente scarica una regione.
+ * solo su Wi-Fi se pesano 5 MB o piu', subito quando l'utente scarica una regione.
  */
 @HiltWorker
 class GuidesSyncWorker @AssistedInject constructor(

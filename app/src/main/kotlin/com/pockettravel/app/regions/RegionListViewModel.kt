@@ -30,6 +30,7 @@ import com.pockettravel.core.sync.attachAddressGridCells
 import com.pockettravel.core.sync.restrictedTo
 import com.pockettravel.core.sync.withRoutingVariant
 import com.pockettravel.core.sync.attachTransitFeeds
+import com.pockettravel.core.sync.automaticOnMeteredNetwork
 import com.pockettravel.core.sync.guidesChoice
 import com.pockettravel.core.sync.hasCitiesIn
 import com.pockettravel.core.ui.countryName
@@ -255,8 +256,12 @@ class RegionListViewModel @Inject constructor(
                 this@RegionListViewModel.transitIndex.value = transitIndex
                 baseRegions.value = attachAddressGridCells(manifest.regions, addressGridIndex)
                 replacedRegions.value = manifest.replacedRegions
-                // Le guide si aggiornano da sole (su Wi-Fi) anche da qui, non solo col controllo periodico.
-                if (regionRepository.installedGuidesVersion() != manifest.guidesChoice().installedVersion) regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = true)
+                // Le guide si aggiornano da sole anche da qui, non solo col controllo periodico (sotto i 5 MB anche su
+                // rete a consumo).
+                val guides = manifest.guidesChoice()
+                if (regionRepository.installedGuidesVersion() != guides.installedVersion) {
+                    regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = !guides.automaticOnMeteredNetwork, automatic = true)
+                }
                 // Regioni installate prima che il database salvasse il codice paese: serve alla bandiera in Spazio.
                 val withoutCode = regionRepository.observeInstalled().first().filter { it.countryCode == null }.mapTo(mutableSetOf()) { it.regionId }
                 manifest.regions.filter { it.regionId in withoutCode }.forEach { remote ->

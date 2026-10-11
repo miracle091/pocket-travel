@@ -35,6 +35,16 @@ class GuidesChoiceTest {
     }
 
     @Test
+    fun `sotto i 5 MB compressi le guide si aggiornano da sole anche su rete a consumo`() {
+        fun choice(xzBytes: Long) = GuidesChoice(
+            italian.copy(fileXz = RegionManifestFile("guides.db.xz", "https://example.org/guides.db.xz", xzBytes, "b".repeat(64))),
+            "2026.09.28.1.1",
+        )
+        assertTrue(choice(GUIDES_METERED_MAX_BYTES - 1).automaticOnMeteredNetwork)
+        assertFalse(choice(GUIDES_METERED_MAX_BYTES).automaticOnMeteredNetwork)
+    }
+
+    @Test
     fun `in inglese le citta' di ogni regione sono quelle inglesi, con la versione prefissata`() {
         val file = RegionManifestFile("cities.db", "https://github.com/o/r/releases/download/x/cities.db", 1, "a".repeat(64))
         val region = RegionManifestEntry(

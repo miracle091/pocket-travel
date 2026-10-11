@@ -159,7 +159,7 @@
     <string name="storage_no_regions">Nessuna nazione installata</string>
     <string name="storage_guides">Guide</string>
     <string name="storage_guides_title">Guide di tutte le nazioni</string>
-    <string name="storage_guides_auto">%1$s · aggiornamento automatico su Wi-Fi</string>
+    <string name="storage_guides_auto">%1$s · aggiornamento automatico</string>
     <string name="storage_no_guides">Guide non ancora scaricate</string>
     <string name="storage_guides_download">Scarica le guide</string>
     <string name="storage_model">Modello IA locale</string>
