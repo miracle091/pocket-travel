@@ -48,6 +48,11 @@ class OnDeviceLlmEngine @Inject constructor(
     /** Modello in memoria, tempo di caricamento e ultima generazione, per il task manager di debug. */
     val stats: StateFlow<LlmRuntimeStats> = _stats.asStateFlow()
 
+    private val _isLoadingModel = MutableStateFlow(false)
+
+    /** true mentre il modello si carica in memoria (alla prima domanda, secondi per i modelli piu' grandi). */
+    val isLoadingModel: StateFlow<Boolean> = _isLoadingModel.asStateFlow()
+
     /**
      * Variante CPU di llama.cpp caricata ed estensioni della CPU, per il task manager di debug. La prima lettura
      * crea il motore, che carica la libreria nativa (non il modello).
@@ -179,12 +184,17 @@ class OnDeviceLlmEngine @Inject constructor(
         check(modelManager.isDownloaded(definition)) { "Modello IA non scaricato" }
         val path = modelManager.modelFile(definition).absolutePath
         val loadStart = System.nanoTime()
-        engine.loadModel(
-            path,
-            topK = TOP_K,
-            topP = TOP_P,
-            nThreads = deviceAiCapability.inferenceThreadCount(),
-        )
+        _isLoadingModel.value = true
+        try {
+            engine.loadModel(
+                path,
+                topK = TOP_K,
+                topP = TOP_P,
+                nThreads = deviceAiCapability.inferenceThreadCount(),
+            )
+        } finally {
+            _isLoadingModel.value = false
+        }
         loadedModelPath = path
         _stats.update { it.copy(loadedModelId = definition.id, loadTimeMs = (System.nanoTime() - loadStart) / NANOS_PER_MS) }
     }

@@ -204,10 +204,13 @@ static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads) {
     g_context = context;
     g_batch = llama_batch_init(BATCH_SIZE, 0, 1);
     g_chat_templates = common_chat_templates_init(g_model, "");
-    // Rilevato passando dal parser jinja del GGUF (indipendente da use_jinja=false qui sotto): serve
-    // solo a sapere se il template e' del tipo Qwen3 con blocco <think>, per forzarlo vuoto in
-    // chat_add_and_format, perche' il training usa enable_thinking=False.
-    g_chat_template_supports_thinking = common_chat_templates_support_enable_thinking(g_chat_templates.get());
+    // Blocco <think> vuoto (chat_add_and_format) solo se il template del GGUF ha la variabile enable_thinking
+    // (Qwen3.5): e' la stessa regola del training, che applica il template con enable_thinking=False, e degli
+    // script di conversione e valutazione. common_chat_templates_support_enable_thinking qui non va bene: dice
+    // si' anche al template di Qwen3-4B-Instruct-2507, che gestisce i blocchi <think> ma non ha la variabile;
+    // con il blocco in un prompt mai visto in training quel modello chiude subito il turno (risposta vuota).
+    const char *chat_template = llama_model_chat_template(g_model, nullptr);
+    g_chat_template_supports_thinking = chat_template != nullptr && std::strstr(chat_template, "enable_thinking") != nullptr;
     g_top_k = top_k;
     g_top_p = top_p;
     g_sampler = new_sampler(DEFAULT_SAMPLER_TEMP, top_k, top_p);
@@ -283,7 +286,7 @@ static std::string chat_add_and_format(const std::string &role, const std::strin
             g_chat_templates.get(), chat_msgs, new_msg, add_ass, /* use_jinja */ false);
     chat_msgs.push_back(new_msg);
     // Il formatter CHATML hardcoded (use_jinja=false) non inserisce mai un blocco "think": lo si forza
-    // vuoto qui, dopo l'apertura del turno assistente, per i template Qwen3 che lo supportano, perche'
+    // vuoto qui, dopo l'apertura del turno assistente, per i template con enable_thinking (vedi prepare_impl), perche'
     // il training (enable_thinking=False) lo assume sempre presente nel prefisso del turno assistente.
     if (add_ass && g_chat_template_supports_thinking) {
         formatted += "<think>\n\n</think>\n\n";

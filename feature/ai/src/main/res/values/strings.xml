@@ -26,6 +26,7 @@
     <string name="ai_question_hint_country">Fai una domanda sulla nazione</string>
     <string name="ai_send">Invia domanda</string>
     <string name="ai_thinking">Elaborazione della risposta…</string>
+    <string name="ai_loading_model">Caricamento del modello…</string>
     <string name="ai_empty_title">Fai una domanda sul viaggio</string>
     <string name="ai_empty_subtitle">Le risposte, in poche frasi, si basano sulla guida della regione e sulle note personali. Se la guida non basta, l\'assistente lo segnala</string>
     <string name="ai_verify_official">Verifica sempre sulla fonte ufficiale</string>

@@ -41,6 +41,8 @@ data class AiUiState(
     val showBenchmarkComparison: Boolean = false,
     val question: String = "",
     val isThinking: Boolean = false,
+    // Il modello sul dispositivo si sta caricando in memoria (prima domanda dopo l'avvio o un cambio di modello).
+    val isModelLoading: Boolean = false,
     // Testo della risposta scritto finora dal modello (con isThinking): vuoto prima del primo token.
     val streamingText: String = "",
     val answer: AssistantAnswer? = null,
@@ -97,6 +99,9 @@ class AiAssistantViewModel @Inject constructor(
             aiSettingsStore.hasApiKeyFlow.collect { configured -> _uiState.update { it.copy(isApiKeyConfigured = configured) } }
         }
         observeModelDownload()
+        viewModelScope.launch {
+            engine.isLoadingModel.collect { loading -> _uiState.update { it.copy(isModelLoading = loading) } }
+        }
         // Dimensione mostrata e spazio richiesto come quelli che il download verifichera' (LlmModelDownloadWorker):
         // un modello ricaricato con lo stesso nome puo' pesare diversamente da quanto scritto nell'APK.
         viewModelScope.launch {

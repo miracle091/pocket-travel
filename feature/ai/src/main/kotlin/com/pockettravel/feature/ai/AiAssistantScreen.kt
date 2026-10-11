@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,6 +33,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -482,6 +484,13 @@ private fun AnswerContent(
     val error = uiState.errorMessage
     when {
         streaming -> Text(uiState.streamingText, style = MaterialTheme.typography.bodyLarge)
+        // Alla prima domanda il modello si carica in memoria (fino a qualche decina di secondi per il 4B): una barra
+        // dice che l'app sta lavorando e che la risposta arriva dopo.
+        uiState.isThinking && uiState.isModelLoading -> Column {
+            Text(stringResource(R.string.ai_loading_model), style = MaterialTheme.typography.bodyLarge)
+            Spacer(modifier = Modifier.height(Spacing.m))
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
         uiState.isThinking -> Row(verticalAlignment = Alignment.CenterVertically) {
             PocketTravelLoadingIndicator(modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.width(Spacing.m))
