@@ -29,10 +29,16 @@ class LlmModelCatalogTest {
     }
 
     @Test
-    fun `in inglese, finche' gli addestrati inglesi non sono pubblicati, il predefinito e' l'ufficiale della fascia`() {
-        assertEquals("qwen3.5-0.8b", LlmModelCatalog.defaultFor(RamTier.MINIMO, "en").id)
-        assertEquals("qwen3.5-2b", LlmModelCatalog.defaultFor(RamTier.CONFORTEVOLE, "en").id)
-        assertEquals("qwen3-4b-instruct-2507", LlmModelCatalog.defaultFor(RamTier.AMPIA, "en").id)
+    fun `in inglese il predefinito e' il nostro addestrato in inglese della fascia di RAM`() {
+        assertEquals("pt-qwen3.5-0.8b-en", LlmModelCatalog.defaultFor(RamTier.INSUFFICIENTE, "en").id)
+        assertEquals("pt-qwen3.5-0.8b-en", LlmModelCatalog.defaultFor(RamTier.MINIMO, "en").id)
+        assertEquals("pt-qwen3.5-2b-en", LlmModelCatalog.defaultFor(RamTier.CONFORTEVOLE, "en").id)
+        assertEquals("pt-qwen3-4b-2507-en", LlmModelCatalog.defaultFor(RamTier.AMPIA, "en").id)
+    }
+
+    @Test
+    fun `in una lingua senza modelli addestrati il predefinito e' l'ufficiale della fascia`() {
+        assertEquals("qwen3.5-2b", LlmModelCatalog.defaultFor(RamTier.CONFORTEVOLE, "de").id)
     }
 
     @Test
