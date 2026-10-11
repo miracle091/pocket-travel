@@ -72,6 +72,9 @@ class AiAssistantContentDeviceTest {
 
         compose.onNodeWithText("Serve il visto per San Marino?").assertIsDisplayed()
         compose.onNodeWithText("No, per i cittadini italiani non serve alcun visto.").assertIsDisplayed()
+        // Le fonti sono chiuse in una riga "Fonte (1)": si vedono dopo averla toccata.
+        compose.onNodeWithText("Fonte: Wikivoyage - San Marino").assertDoesNotExist()
+        compose.onNodeWithText(context.resources.getQuantityString(R.plurals.ai_sources_count, 1, 1)).performClick()
         compose.onNodeWithText("Fonte: Wikivoyage - San Marino").assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.ai_verify_official)).assertIsDisplayed()
     }
