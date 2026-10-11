@@ -384,6 +384,28 @@ internal val subregionNames = mapOf(
     "kiribati-line" to "Isole della Linea, Kiribati",
 )
 
+/**
+ * Nomi comuni delle nazioni che i nomi del JDK non coprono: forme brevi o d'uso ("Olanda", "USA", "Inghilterra"), e in
+ * inglese con "and" invece di "&" ("Trinidad and Tobago"). I nomi del JDK sono a volte poco usati ("RAS di Hong Kong",
+ * "Territori palestinesi", "Czechia") e cambiano con le versioni di Android ("Türkiye" al posto di "Turkey").
+ */
+internal val countryAliases = mapOf(
+    "Hong Kong" to "hk", "Macao" to "mo", "Macau" to "mo", "Palestina" to "ps", "Palestine" to "ps", "Cisgiordania" to "ps",
+    "West Bank" to "ps", "Striscia di Gaza" to "ps", "Gaza Strip" to "ps",
+    "Repubblica Democratica del Congo" to "cd", "Democratic Republic of the Congo" to "cd", "RD Congo" to "cd", "DR Congo" to "cd",
+    "Repubblica del Congo" to "cg", "Republic of the Congo" to "cg",
+    "Repubblica Ceca" to "cz", "Czech Republic" to "cz", "Turkey" to "tr", "Turchia" to "tr", "Ivory Coast" to "ci",
+    "Bosnia" to "ba", "Bosnia and Herzegovina" to "ba", "Antigua and Barbuda" to "ag", "Trinidad and Tobago" to "tt",
+    "Trinidad" to "tt", "Saint Lucia" to "lc", "Saint Kitts and Nevis" to "kn", "Saint Vincent and the Grenadines" to "vc",
+    "Turks and Caicos" to "tc", "Sao Tome and Principe" to "st", "Wallis and Futuna" to "wf", "Svalbard" to "sj",
+    "Saint Pierre and Miquelon" to "pm", "Swaziland" to "sz", "Burma" to "mm", "Birmania" to "mm", "Macedonia" to "mk",
+    "East Timor" to "tl", "Cabo Verde" to "cv", "Olanda" to "nl", "Holland" to "nl", "Reunion" to "re",
+    "USA" to "us", "Stati Uniti d'America" to "us", "United States of America" to "us",
+    "Inghilterra" to "gb", "England" to "gb", "Scozia" to "gb", "Scotland" to "gb", "Galles" to "gb", "Wales" to "gb",
+    "Gran Bretagna" to "gb", "Great Britain" to "gb", "Britain" to "gb",
+    "Vaticano" to "va", "Vatican" to "va", "Corea" to "kr", "Korea" to "kr", "Emirati" to "ae", "UAE" to "ae",
+)
+
 // Nomi di luoghi che contengono quello di una nazione diversa, o che in italiano indicano anche una citta' di un'altra nazione.
 private val placeAliases = mapOf(
     "Irlanda del Nord" to "regno-unito",
@@ -400,14 +422,14 @@ private val regionCountry: Map<String, String> by lazy {
 internal class NamedCountry(val code: String, val name: String, val regionIds: List<String>)
 
 // Nome -> luoghi con quel nome, in ordine di preferenza: le nazioni (nomi italiani e inglesi del JDK, come l'elenco delle
-// nazioni) con tutte le loro regioni, poi le regioni delle nazioni divise e gli alias con la sola regione.
+// nazioni, e countryAliases) con tutte le loro regioni, poi le regioni delle nazioni divise e gli alias con la sola regione.
 private val placesByName: Map<String, List<NamedCountry>> by lazy {
     val countries = countryRegions.flatMap { (iso, regions) ->
         val locale = Locale.Builder().setRegion(iso.uppercase()).build()
         listOf(Locale.ITALIAN, Locale.ENGLISH).map { locale.getDisplayCountry(it) }
             .filter { !it.equals(iso, ignoreCase = true) }
             .map { NamedCountry(iso, it, regions.split(' ')) }
-    }
+    } + countryAliases.map { (name, iso) -> NamedCountry(iso, name, countryRegions.getValue(iso).split(' ')) }
     val regions = subregionNames.flatMap { (regionId, names) -> names.split(", ").map { NamedCountry(regionCountry.getValue(regionId), it, listOf(regionId)) } } +
         placeAliases.map { (name, regionId) -> NamedCountry(regionCountry.getValue(regionId), name, listOf(regionId)) }
     (countries + regions).groupBy { it.name }

@@ -163,7 +163,7 @@ class TravelAssistant @Inject constructor(
                     guideRepository.searchCandidates(regionId, query).none { isGuideSectionFor(it.first.sourceUrl, nationality) } &&
                     cityRepository.candidates(regionId, query, emptyList()).isEmpty()
             }
-        return if (followUp) followUpQuestion(previous, question, cityNames, language) else question
+        return if (followUp) followUpQuestion(previous, question, cityNames, language, regionId) else question
     }
 
     /**
@@ -757,10 +757,14 @@ internal fun isFollowUpQuestion(question: String): Boolean = followUpStart.conta
 /**
  * La domanda da cercare e da mandare al modello per il seguito [question] di [previous]. Se il seguito nomina solo
  * un'altra citta' di [cities] ("E a Lisbona?" dopo "Cosa vedere a Roma?"), la domanda prima con la citta' cambiata;
- * se nomina una citta' e chiede anche altro, il seguito da solo; altrimenti le due domande di fila.
+ * se nomina una citta' e chiede anche altro, il seguito da solo; altrimenti le due domande di fila. Con [regionId] (la
+ * regione aperta) un seguito che nomina un'altra nazione e nessuna citta' ("E in Giappone?") fa lo stesso con la citta' o
+ * la nazione della domanda prima: unite, la citta' della domanda prima toglierebbe la ricerca nella nazione (namedCountry).
  */
-internal fun followUpQuestion(previous: String, question: String, cities: List<String>, language: String = "it"): String {
+internal fun followUpQuestion(previous: String, question: String, cities: List<String>, language: String = "it", regionId: String? = null): String {
     val newCities = namedCities(question, cities, language)
+    val country = regionId?.takeIf { newCities.isEmpty() }?.let { namedCountry(question, it, language) }
+    if (country != null) return countryFollowUp(previous, question, country.name, cities, language, regionId)
     val newCity = newCities.singleOrNull()
     val oldCity = namedCities(previous, cities, language).singleOrNull()
     val replaced = if (newCity != null && oldCity != null) replaceCity(previous, oldCity, spokenCityName(newCity)) else previous
@@ -770,6 +774,16 @@ internal fun followUpQuestion(previous: String, question: String, cities: List<S
         newCity != null && newCity == oldCity -> previous
         replaced == previous -> "$previous $question"
         else -> replaced
+    }
+}
+
+/** followUpQuestion per un seguito che nomina la nazione [country]: la domanda prima con il luogo cambiato, se ne ha uno. */
+private fun countryFollowUp(previous: String, question: String, country: String, cities: List<String>, language: String, regionId: String): String {
+    val oldPlace = namedCities(previous, cities, language).singleOrNull() ?: namedCountry(previous, regionId, language)?.name
+    return when {
+        asksMoreThanPlaces(question, listOf(country)) -> question
+        oldPlace == null -> "$previous $question"
+        else -> replaceCity(previous, oldPlace, country)
     }
 }
 

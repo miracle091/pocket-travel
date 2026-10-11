@@ -2,6 +2,7 @@ package com.pockettravel.feature.ai
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
@@ -25,6 +26,19 @@ class CountryGuidesTest {
             .map { it[0] }
             .toSet()
         assertEquals(grouped, subregionNames.keys)
+    }
+
+    @Test
+    fun `nomi d'uso delle nazioni oltre a quelli del JDK`() {
+        assertTrue("alias di nazioni fuori tabella", countryRegions.keys.containsAll(countryAliases.values))
+        assertEquals("tr", namedCountry("Is it safe to travel to Turkey?", "italia", "en")?.code)
+        assertEquals("hk", namedCountry("Serve il visto per Hong Kong?", "italia", "it")?.code)
+        assertEquals("ps", namedCountry("È sicuro andare in Palestina?", "italia", "it")?.code)
+        assertEquals("nl", namedCountry("Cosa si mangia in Olanda?", "italia", "it")?.code)
+        assertEquals("gb", namedCountry("Do I need a visa for England?", "italia", "en")?.code)
+        assertEquals("ba", namedCountry("Is Bosnia and Herzegovina safe?", "italia", "en")?.code)
+        // "Corea del Nord" e' piu' lungo di "Corea": vince.
+        assertEquals("kp", namedCountry("Si puo' andare in Corea del Nord?", "italia", "it")?.code)
     }
 
     @Test

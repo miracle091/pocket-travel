@@ -64,6 +64,25 @@ class TravelAssistantLogicTest {
     }
 
     @Test
+    fun `un seguito con solo un'altra nazione sostituisce la citta' o la nazione della domanda prima`() {
+        val cities = listOf("Città di San Marino")
+        assertEquals(
+            "Cosa vedere a Giappone?",
+            followUpQuestion("Cosa vedere a Città di San Marino?", "E in Giappone?", cities, "it", "san-marino"),
+        )
+        assertEquals(
+            "Serve il visto per il Cina?",
+            followUpQuestion("Serve il visto per il Giappone?", "E per la Cina?", cities, "it", "san-marino"),
+        )
+        assertEquals("Do I need a visa? And for Japan?", followUpQuestion("Do I need a visa?", "And for Japan?", cities, "en", "san-marino"))
+        // La nazione con un'altra richiesta: il seguito da solo.
+        assertEquals(
+            "E in Giappone dove si mangia?",
+            followUpQuestion("Cosa vedere a Città di San Marino?", "E in Giappone dove si mangia?", cities, "it", "san-marino"),
+        )
+    }
+
+    @Test
     fun `un seguito con una citta' e un'altra richiesta vale da solo`() {
         val cities = listOf("Lisbona", "Coimbra")
         assertEquals("E a Coimbra dove si mangia?", followUpQuestion("Cosa vedere a Lisbona?", "E a Coimbra dove si mangia?", cities))
