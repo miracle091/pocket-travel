@@ -94,7 +94,7 @@ HISTORY_CLIMATE_WORDS = re.compile(
     r"\b((?<!centr[oi] )stori|fondat|fondò|secol|guerr|antic(?:[oa]\b|h)|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|"
     r"invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season|"
     r"passat|origin|govern|medioev|nascit|nata\b|nato\b|period|quando andare|best time|when to go|establish|ruled|"
-    r"costru|mura\b|built|walls?\b|ottocent|novecent|settecent|seicent|cinquecent|quattrocent|trecent|gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre|mesi\b|january|february|march|april|june|july|august|september|october|november|december|months?\b|middle ages|past\b|origins?\b)",
+    r"costru|mura\b|built|walls?\b|ottocent|novecent|settecent|seicent|cinquecent|quattrocent|trecent|gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre|mesi\b|january|february|march|april|june|july|august|september|october|november|december|months?\b|middle ages|past\b|origins?\b|natale\b|natalizi|capodanno|pasqua|ferragosto|christmas|xmas|easter|new year|che tempo)",
     re.IGNORECASE)
 
 CITY_Q = {
@@ -219,16 +219,17 @@ CATEGORY_TRIGGERS = {
              "periodo+migliore quando+andare best+time when+to+go gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre mesi january february march april june july august september october november december months",
     "CONSIGLI": "combat evitar preven curar rimed superar affront deal cope avoid prevent cure treat overcom",
     "EMERGENZE": "perdo perso= persa smarr rubat lose lost stolen",
+    "PERIODI": "natale= natalizi capodann pasqua ferragost christmas xmas easter new+year che+tempo",
 }
 CATEGORY_GUIDE_WORDS = {
     "it": {"ALLOGGIO": "allogg*", "CIBO_BEVANDE": "mangi*, tavola", "COSA_VEDERE": "veder*", "ACQUISTI": "acqui*, valut*",
            "TRASPORTI": "arriv*, spost*", "DOGANE": "arriv*, dogan*", "SALUTE": "sanit*, salut*", "SICUREZZA": "sicur*",
            "CONNETTIVITA": "contat*", "STORIA": "stori*", "CLIMA": "clima",
-           "CONSIGLI": "prepar*, recupe*, preven*, tratta*", "EMERGENZE": "emerg*"},
+           "CONSIGLI": "prepar*, recupe*, preven*, tratta*", "EMERGENZE": "emerg*", "PERIODI": "clima"},
     "en": {"ALLOGGIO": "sleep", "CIBO_BEVANDE": "eat, drink", "COSA_VEDERE": "see", "ACQUISTI": "buy",
            "TRASPORTI": "get in, get around", "DOGANE": "get in, customs", "SALUTE": "health*", "SICUREZZA": "safe*",
            "CONNETTIVITA": "connect*", "STORIA": "history", "CLIMA": "climate",
-           "CONSIGLI": "prepar*, cope, recover*, prevent*, treat*", "EMERGENZE": "lose, lost, stolen"},
+           "CONSIGLI": "prepar*, cope, recover*, prevent*, treat*", "EMERGENZE": "lose, lost, stolen", "PERIODI": "climate"},
 }
 SHORT_STEM_CHARS = 4             # CategoryWords.SHORT_STEM_CHARS
 

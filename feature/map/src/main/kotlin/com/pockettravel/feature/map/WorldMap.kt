@@ -165,8 +165,9 @@ internal fun rememberMapViewWithLifecycle(): MapView {
             lifecycleOwner.lifecycle.removeObserver(observer)
             val last = applied
             // Al messaggio successivo: la composizione puo' togliere la mappa nel mezzo di una misura
-            // (transizione della navigazione), e onDestroy toglie viste figlie: "layout state is not
-            // idle before measure starts". Handler e non mapView.post, che da staccata non partirebbe.
+            // (transizione della navigazione), e onStop/onDestroy fermano il rendering, distruggono la mappa
+            // nativa e svuotano lo stile, lavoro da tenere fuori dalla misura. Non tolgono viste figlie
+            // (MapView di MapLibre 13.6.1). Handler e non mapView.post, che da staccata non partirebbe.
             Handler(Looper.getMainLooper()).post {
                 if (last == Lifecycle.Event.ON_RESUME) mapView.onPause()
                 if (last == Lifecycle.Event.ON_RESUME || last == Lifecycle.Event.ON_PAUSE || last == Lifecycle.Event.ON_START) mapView.onStop()

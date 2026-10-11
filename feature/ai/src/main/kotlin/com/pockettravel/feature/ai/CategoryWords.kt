@@ -27,6 +27,8 @@ private val categoryTriggers = mapOf(
     "CLIMA" to "clima meteo piog piov ombrel tempera primav estat invern autun nevic neve caldo fredd stagion " +
         "climat weather rain umbrel spring summer winter= autumn snow hot cold season " +
         "periodo+migliore quando+andare best+time when+to+go gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre mesi january february march april june july august september october november december months",
+    // Non categorie ma momenti dell'anno: "Che tempo trovo a Roma a Natale?" chiede il clima di quel periodo.
+    "PERIODI" to "natale= natalizi capodann pasqua ferragost christmas xmas easter new+year che+tempo",
     // Non categorie ma richieste: cosa fare contro un problema e dopo una perdita o un furto. Portano alle sottosezioni
     // pratiche delle pagine della guida generale ("Jet lag: Recupero", "Documenti: In caso di emergenza") invece della definizione.
     "CONSIGLI" to "combat evitar preven curar rimed superar affront deal cope avoid prevent cure treat overcom",
@@ -52,6 +54,7 @@ private val categoryGuideWords = mapOf(
         "CLIMA" to "clima",
         "CONSIGLI" to "prepar*, recupe*, preven*, tratta*",
         "EMERGENZE" to "emerg*",
+        "PERIODI" to "clima",
     ),
     "en" to mapOf(
         "ALLOGGIO" to "sleep",
@@ -67,6 +70,7 @@ private val categoryGuideWords = mapOf(
         "CLIMA" to "climate",
         "CONSIGLI" to "prepar*, cope, recover*, prevent*, treat*",
         "EMERGENZE" to "lose, lost, stolen",
+        "PERIODI" to "climate",
     ),
 ).mapValues { (_, byCategory) ->
     byCategory.mapValues { (_, words) -> words.split(", ").map { if (' ' in it) "\"$it\"" else it } }
@@ -74,7 +78,7 @@ private val categoryGuideWords = mapOf(
 
 private const val SHORT_STEM_CHARS = 4
 
-/** I gruppi (categorie con il nome di GuideCategory, CONSIGLI, EMERGENZE) che le parole di [question] indicano. */
+/** I gruppi (categorie con il nome di GuideCategory, CONSIGLI, EMERGENZE, PERIODI) che le parole di [question] indicano. */
 internal fun questionGroups(question: String): Set<String> {
     val tokens = question.split(nonWord).filter { it.isNotEmpty() }.map(::folded)
     val text = tokens.joinToString(" ", prefix = " ", postfix = " ")

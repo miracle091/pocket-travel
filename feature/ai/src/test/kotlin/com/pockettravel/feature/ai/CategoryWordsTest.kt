@@ -1,6 +1,8 @@
 package com.pockettravel.feature.ai
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CategoryWordsTest {
@@ -24,6 +26,12 @@ class CategoryWordsTest {
         assertEquals(setOf("ALLOGGIO"), questionGroups("Un hotel per due persone a Campobasso?"))
         assertEquals(setOf("CIBO_BEVANDE"), questionGroups("Where to eat pasta in Cardiff?"))
         assertEquals(setOf("EMERGENZE"), questionGroups("Ho perso il portafoglio"))
+        // Momenti dell'anno: il clima di quel periodo. Natal, citta' del Brasile, non e' Natale.
+        assertEquals(setOf("PERIODI"), questionGroups("Che tempo trovo a Roma a Natale?"))
+        assertEquals(setOf("ALLOGGIO"), questionGroups("Dove dormire a Natal?"))
+        // Le stesse domande valgono come domande sul clima (storia e clima di Wikipedia non si abbassano); "centro storico" no.
+        assertTrue(isHistoryOrClimateQuestion("Che tempo trovo a Roma a Natale?"))
+        assertFalse(isHistoryOrClimateQuestion("Cosa vedere nel centro storico di Lucca?"))
         assertEquals("come OR combat* OR prepar* OR recupe* OR preven* OR tratta*", withCategoryWords("come OR combat*", "Come si combatte il jet lag?", "it"))
     }
 
