@@ -188,7 +188,8 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   come nell'app, perché le statistiche di BM25 valgono per tutta la tabella. Anche `make_context`
   (`generate_sft_dataset.py`), che costruisce il contesto dei dataset SFT e dei set di valutazione, sceglie i paragrafi
   come l'app (`test_make_context.py` lo confronta con la replica di `eval_retrieval.py`).
-- **Guide**: la sottosezione "Costo della vita" ("Cost of living" in inglese) viene omessa da guide e città. I fatti
+- **Guide**: la sottosezione "Costo della vita" ("Cost of living" in inglese) viene omessa da guide e città. Le guide
+  delle nazioni hanno anche "Cosa vedere" e "Cosa fare" ("See" e "Do"), come quelle delle città, categoria `COSA_VEDERE`. I fatti
   rapidi delle guide inglesi comprendono anche la lingua e i numeri di emergenza, come quelli italiani.
 - **Pseudo-regione mondo**: `build-guides.sh` scarica anche le pagine tematiche di Wikivoyage di `WORLD_PAGES` (salute,
   jet lag, mal di montagna, assicurazione, documenti, visti, borseggiatori, truffe, pagamenti, mance solo in inglese,

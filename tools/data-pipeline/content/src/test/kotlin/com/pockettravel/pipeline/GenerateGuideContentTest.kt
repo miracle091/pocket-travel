@@ -24,6 +24,11 @@ class GenerateGuideContentTest {
                     val rs = statement.executeQuery(
                         "SELECT category, title, sourceUrl FROM guide_sections ORDER BY category"
                     )
+                    // "See" come nelle guide delle citta': l'assistente risponde a "cosa vedere" anche senza la regione.
+                    assertEquals(true, rs.next())
+                    assertEquals("COSA_VEDERE", rs.getString("category"))
+                    assertEquals("See", rs.getString("title"))
+
                     assertEquals(true, rs.next())
                     assertEquals("SICUREZZA", rs.getString("category"))
                     assertEquals("Stay safe", rs.getString("title"))
@@ -33,7 +38,7 @@ class GenerateGuideContentTest {
                     assertEquals("TRASPORTI", rs.getString("category"))
                     assertEquals("Get around", rs.getString("title"))
 
-                    // "See" non ha una categoria mappata: deve essere scartata.
+                    // "Understand" non ha una categoria mappata: deve essere scartata.
                     assertEquals(false, rs.next())
                 }
             }
@@ -58,6 +63,10 @@ class GenerateGuideContentTest {
                         "SELECT category, title, sourceUrl FROM guide_sections ORDER BY category"
                     )
                     assertEquals(true, rs.next())
+                    assertEquals("COSA_VEDERE", rs.getString("category"))
+                    assertEquals("Cosa vedere", rs.getString("title"))
+
+                    assertEquals(true, rs.next())
                     assertEquals("SICUREZZA", rs.getString("category"))
                     assertEquals("Sicurezza", rs.getString("title"))
                     assertEquals("https://it.wikivoyage.org/wiki/Test", rs.getString("sourceUrl"))
@@ -66,7 +75,7 @@ class GenerateGuideContentTest {
                     assertEquals("TRASPORTI", rs.getString("category"))
                     assertEquals("Come spostarsi", rs.getString("title"))
 
-                    // "Cosa vedere" non ha una categoria mappata: deve essere scartata.
+                    // "Da sapere" non ha una categoria mappata: deve essere scartata.
                     assertEquals(false, rs.next())
                 }
             }

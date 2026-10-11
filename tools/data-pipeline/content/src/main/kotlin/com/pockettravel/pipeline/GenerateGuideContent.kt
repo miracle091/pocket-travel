@@ -33,6 +33,12 @@ private val headingToCategory = mapOf(
     "come restare in contatto" to "CONNETTIVITA",
     "cope" to "VITA_QUOTIDIANA",
     "tenersi informati" to "VITA_QUOTIDIANA",
+    // Come nelle guide delle citta' (GenerateCities.kt): l'assistente risponde a "Cosa vedere in Giappone?" anche senza
+    // la regione scaricata, che sola porta le guide delle citta'.
+    "see" to "COSA_VEDERE",
+    "do" to "COSA_VEDERE",
+    "cosa vedere" to "COSA_VEDERE",
+    "cosa fare" to "COSA_VEDERE",
 )
 
 // (?!=)/(?<!=) escludono i sotto-titoli ===/==== (3+ segni "="): senza, un "===Get in==="

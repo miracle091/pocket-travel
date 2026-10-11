@@ -111,6 +111,13 @@ class TravelAssistantLogicTest {
     }
 
     @Test
+    fun `le espressioni di parole corte si cercano come frase`() {
+        assertEquals("come OR combat* OR \"jet lag\"", buildFtsQuery("Come si combatte il jet lag?", "san-marino"))
+        assertEquals("\"jet lag\"", buildFtsQuery("Jet lag?", "san-marino"))
+        assertEquals(setOf("come", "comba", "jet l"), focusStems("come OR combat* OR \"jet lag\"", null))
+    }
+
+    @Test
     fun `le parole con l'apostrofo si dividono come nell'indice`() {
         assertEquals("caldo* OR rimin* OR estat*", buildFtsQuery("Fa caldo a Rimini d'estate?", "italia"))
         assertEquals("musei* OR isola*", buildFtsQuery("Musei dell'isola", "italia"))

@@ -817,7 +817,7 @@ private const val STEM_CHARS = 5
  */
 internal fun focusStems(ftsQuery: String, city: String?): Set<String> {
     val cityStems = city?.let { normalizedWords(spokenCityName(it)).split(' ').filter { w -> w.length >= 4 }.map { w -> w.take(STEM_CHARS) } }.orEmpty()
-    return ftsQuery.split(" OR ").filter { it.isNotBlank() }.map { folded(it.removeSuffix("*")).take(STEM_CHARS) }.toSet() - cityStems.toSet()
+    return ftsQuery.split(" OR ").filter { it.isNotBlank() }.map { folded(it.removeSuffix("*").trim('"')).take(STEM_CHARS) }.toSet() - cityStems.toSet()
 }
 
 /**
@@ -908,11 +908,15 @@ internal fun buildFtsQuery(question: String, regionId: String, city: String? = n
         .map { it.lowercase() }
         .filter { it.length >= 4 && it !in regionNameTokens && folded(it) !in questionStopwords }
     val cityWords = city?.let { normalizedWords(spokenCityName(it)).split(' ').toSet() }.orEmpty()
-    return words.filter { folded(it) !in cityWords }.ifEmpty { words }
-        .map(::ftsPrefix)
+    val phrases = shortWordPhrases.filter { " $it " in normalizedWords(question) }.map { "\"$it\"" }
+    return (words.filter { folded(it) !in cityWords }.ifEmpty { words }.map(::ftsPrefix) + phrases)
         .distinct()
         .joinToString(" OR ")
 }
+
+// Espressioni di parole sotto le 4 lettere, che buildFtsQuery altrimenti scarta: si cercano come frase ("jet lag" e' la
+// pagina del mondo Jet lag, non "jet" e "lag" ovunque).
+private val shortWordPhrases = listOf("jet lag", "wi fi")
 
 /**
  * [word] come prefisso FTS ("piatti" -> "piatt*", che trova anche "piatto"): le prime 5 lettere, 6 dalle parole di

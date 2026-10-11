@@ -68,6 +68,7 @@ MIN_SECTION_CHARS = 50           # TravelAssistant.MIN_SECTION_CHARS
 MIN_CITY_NAME_CHARS = 3          # TravelAssistant.MIN_CITY_NAME_CHARS
 STEM_CHARS = 5                   # TravelAssistant.STEM_CHARS
 LONG_WORD_CHARS = 8              # TravelAssistant.LONG_WORD_CHARS
+SHORT_WORD_PHRASES = ["jet lag", "wi fi"]  # TravelAssistant.shortWordPhrases
 # TravelAssistant.questionStopwords
 STOPWORDS = {
     "quale", "quali", "quanto", "quanta", "quanti", "quante", "quando", "perche", "sono", "della", "delle", "dello",
@@ -364,7 +365,8 @@ def fts_query(question, region_id, city=None):
     words = [t for t in tokens if len(t) >= 4 and t not in region_tokens and folded(t) not in STOPWORDS]
     city_words = set(normalized_words(spoken_city_name(city)).split()) if city else set()
     topic = [t for t in words if folded(t) not in city_words] or words
-    return " OR ".join(dict.fromkeys(fts_prefix(t) for t in topic))
+    phrases = [f'"{p}"' for p in SHORT_WORD_PHRASES if f" {p} " in normalized_words(question)]
+    return " OR ".join(dict.fromkeys([fts_prefix(t) for t in topic] + phrases))
 
 
 def spoken_city_name(city):
@@ -416,7 +418,7 @@ def named_cities(question, cities, lang="it"):
 def focus_stems(fts, city):
     """focusStems: prime 5 lettere delle parole della query, senza quelle della citta' nominata."""
     city_stems = {w[:STEM_CHARS] for w in normalized_words(spoken_city_name(city)).split() if len(w) >= 4} if city else set()
-    return {folded(t.rstrip("*"))[:STEM_CHARS] for t in fts.split(" OR ") if t} - city_stems
+    return {folded(t.rstrip("*").strip('"'))[:STEM_CHARS] for t in fts.split(" OR ") if t} - city_stems
 
 
 def parse_matchinfo(blob):

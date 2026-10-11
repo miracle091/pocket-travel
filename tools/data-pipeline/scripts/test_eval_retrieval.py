@@ -21,6 +21,10 @@ class ReplicaTest(unittest.TestCase):
         self.assertEqual(ev.fts_query("Serve il passaporto per entrare?", "italia"), "passap* OR entra*")
         self.assertEqual(ev.fts_query("What are the typical dishes?", "italia"), "typic* OR dishe*")
 
+    def test_espressioni_di_parole_corte_come_frase(self):
+        self.assertEqual(ev.fts_query("Come si combatte il jet lag?", "san-marino"), 'come OR combat* OR "jet lag"')
+        self.assertEqual(ev.focus_stems('come OR combat* OR "jet lag"', None), {"come", "comba", "jet l"})
+
     def test_fts_query_senza_la_citta_nominata(self):
         self.assertEqual(ev.fts_query("Cosa si mangia a Napoli?", "italia", "Napoli"), "cosa OR mangi*")
         self.assertEqual(ev.fts_query("Cosa vedere a Forli?", "italia", "Forlì"), "cosa OR veder*")
@@ -175,7 +179,7 @@ class SearchTest(unittest.TestCase):
         db = ev.build_db(guides, "italia", [])
         # Tutte le guide nella tabella, come nell'app, ma la ricerca solo nella regione aperta e nel mondo.
         self.assertEqual([r for (r,) in db.execute("SELECT DISTINCT regionId FROM guide_sections ORDER BY 1")], ["_world", "grecia", "italia"])
-        top, _ = ev.search(db, "italia", "Quanti giorni per il recupero dal jet lag in Grecia?", [])
+        top, _ = ev.search(db, "italia", "Quanti giorni per il recupero dal jet lag?", [])
         self.assertEqual([s["title"] for s in top], ["Jet lag: Recupero"])
         # La sezione del paese resta prima di quella del mondo, piu' lunga e con meno occorrenze.
         top, _ = ev.search(db, "italia", "Serve il passaporto?", [])
