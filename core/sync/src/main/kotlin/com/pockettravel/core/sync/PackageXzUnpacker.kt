@@ -53,7 +53,12 @@ internal suspend fun unpackXz(staging: File, file: RegionManifestFile, fileXz: R
                 File(staging, xz.name).delete()
                 throw PermanentRegionPackageException("${file.name} decompresso non corrisponde al manifest")
             }
+            // Un tentativo precedente interrotto dopo la decompressione puo' aver lasciato il file finale.
+            target.delete()
             check(part.renameTo(target)) { "Impossibile finalizzare ${file.name}" }
+            // Verificato e decompresso: l'.xz non serve piu' e liberare il suo spazio abbassa il picco dell'installazione.
+            // Se un passo successivo fallisce, il nuovo tentativo lo riscarica (come le celle dei civici, vedi mergeInto).
+            File(staging, xz.name).delete()
         } finally {
             // Dopo il rename non esiste piu'; su errore o annullamento non resta niente di parziale.
             part.delete()

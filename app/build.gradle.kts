@@ -9,6 +9,10 @@ plugins {
 android {
     namespace = "com.pockettravel.app"
 
+    // AGP toglie i simboli di debug dalle .so (task stripDebugSymbols) solo se trova l'NDK: senza questa
+    // riga le librerie di llama.cpp restavano con .debug_info (decine di MB per ABI). Stessa versione di feature:ai.
+    ndkVersion = "29.0.14206865"
+
     defaultConfig {
         applicationId = "com.pockettravel.app"
         versionCode = 11
@@ -30,7 +34,18 @@ android {
     }
 
     buildTypes {
+        // Gli ABI non compaiono nei default di defaultConfig: ogni build type ha il suo elenco.
+        // x86_64 solo nel debug, per gli emulatori dei test strumentati (docs/GUIDA.md). MapLibre porta
+        // anche x86 e armeabi-v7a: qui fuori dall'APK.
+        debug {
+            ndk {
+                abiFilters += listOf("arm64-v8a", "x86_64")
+            }
+        }
         release {
+            ndk {
+                abiFilters += "arm64-v8a"
+            }
             if (System.getenv("RELEASE_KEYSTORE_PATH") != null) {
                 signingConfig = signingConfigs.getByName("release")
             }

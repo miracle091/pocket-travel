@@ -74,7 +74,7 @@ class RegionPackageInstaller @Inject constructor(
             if (PackageKind.POI_EXTRA in kinds) unpackXz(staging, entry.poiExtra!!.file, entry.poiExtra.fileXz)
             if (PackageKind.ADDRESSES in kinds) {
                 addressPlan!!.toDownload.forEach { unpackXz(staging, it.file, it.fileXz) }
-                addressPlan.searchToDownload.forEach { unpackXz(staging, it.search!!.file, it.search.fileXz) }
+                // Le ricerche per cella restano compresse: mergeInto le tiene .xz e le decomprime solo per l'unione.
                 withContext(Dispatchers.IO) {
                     addressGridInstaller.mergeInto(entry.regionId, entry.map.source, addressPlan, staging, ensureActive = { ensureActive() })
                 }
@@ -137,14 +137,15 @@ class RegionPackageInstaller @Inject constructor(
                     activations += regionStorage.activatePackage(entry.regionId, RegionStorage.PREVIEW_FILE, File(staging, entry.preview.file.name), entry.preview.version)
                 }
                 regionRepository.inInstallTransaction {
-                    poisToImport?.let { poiImporter.replaceFromFile(entry.regionId, it) }
-                    poiExtraToImport?.let { poiImporter.replaceFromFile(entry.regionId, it, extra = true) }
+                    // Byte veri in region.db (stima dai dati importati), non la dimensione del file scaricato.
+                    val poiBytes = poisToImport?.let { poiImporter.replaceFromFile(entry.regionId, it) }
+                    val poiExtraBytes = poiExtraToImport?.let { poiImporter.replaceFromFile(entry.regionId, it, extra = true) }
                     citySectionsToImport?.let { cityImporter.replace(entry.regionId, it) }
                     regionRepository.markPackagesInstalled(
                         entry.regionId, entry.displayName, entry.countryCode,
                         versions = kinds.associateWith { entry.versionOf(it)!! },
-                        poiSizeBytes = if (PackageKind.POI in kinds) entry.poi.file.sizeBytes else null,
-                        poiExtraSizeBytes = if (PackageKind.POI_EXTRA in kinds) entry.poiExtra!!.file.sizeBytes else null,
+                        poiSizeBytes = poiBytes,
+                        poiExtraSizeBytes = poiExtraBytes,
                         previewVersion = if (installPreview) entry.preview.version else null,
                         citiesSizeBytes = if (PackageKind.CITIES in kinds) entry.cities!!.file.sizeBytes else null,
                     )

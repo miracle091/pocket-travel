@@ -140,9 +140,14 @@ class RegionStorage @Inject constructor(
         return if (file.isFile) decodeAddressCells(file.readText()) else emptyMap()
     }
 
-    /** Database di ricerca per cella (sorgente dell'aggiornamento incrementale, vedi [ADDRESSES_SEARCH_DIR]); vuoto se non ce ne sono. */
+    /**
+     * Ricerca per cella (sorgente dell'aggiornamento incrementale, vedi [ADDRESSES_SEARCH_DIR]): `.db.xz`, oppure
+     * `.db` per le installazioni fatte prima della compressione; vuoto se non ce ne sono.
+     */
     fun addressSearchFiles(regionId: String): List<File> =
-        File(directoryFor(regionId), ADDRESSES_SEARCH_DIR).listFiles { file -> file.isFile && file.extension == "db" && file.name != ADDRESSES_SEARCH_DB }.orEmpty().sortedBy { it.name }
+        File(directoryFor(regionId), ADDRESSES_SEARCH_DIR).listFiles { file ->
+            file.isFile && file.name != ADDRESSES_SEARCH_DB && (file.extension == "db" || file.extension == "xz")
+        }.orEmpty().sortedBy { it.name }
 
     /** Database di ricerca unico della regione ([ADDRESSES_SEARCH_DB]), null se la regione non ha la ricerca. */
     fun addressSearchDb(regionId: String): File? =
@@ -194,7 +199,8 @@ class RegionStorage @Inject constructor(
         // scritto e attivato accanto ad esso, atomicamente con lo stesso meccanismo di activatePackage.
         // Assente per le regioni con i civici senza griglia (una sola voce "addresses").
         const val ADDRESSES_CELLS_FILE = "addresses-cells.json"
-        // Ricerca degli indirizzi: una addresses-search.db per cella (<z>-<x>-<y>.db, vedi addressSearchFileName),
+        // Ricerca degli indirizzi: una addresses-search per cella, compressa com'e' stata scaricata
+        // (<z>-<x>-<y>.db.xz, vedi addressSearchArchiveName; le vecchie installazioni hanno il .db),
         // tenute solo per aggiornare la regione scaricando le celle cambiate, piu' ADDRESSES_SEARCH_DB, l'unione di
         // tutte le celle che AddressSearchRepository apre in sola lettura. Cartella attivata insieme a
         // ADDRESSES_FILE (stessa versione): le celle sparite dal manifest spariscono con la sostituzione.
@@ -214,6 +220,9 @@ class RegionStorage @Inject constructor(
 
         /** Nome del file di ricerca di una cella in [ADDRESSES_SEARCH_DIR]: l'id "z/x/y" senza barre. */
         fun addressSearchFileName(cellId: String): String = cellId.replace('/', '-') + ".db"
+
+        /** Come [addressSearchFileName], compresso con xz: com'e' tenuto su disco. */
+        fun addressSearchArchiveName(cellId: String): String = addressSearchFileName(cellId) + ".xz"
 
         /**
          * Formato di [ADDRESSES_CELLS_FILE]: un oggetto json id -> version. Id e version sono gia'

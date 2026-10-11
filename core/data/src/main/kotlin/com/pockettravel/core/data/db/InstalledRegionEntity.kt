@@ -19,7 +19,8 @@ data class InstalledRegionEntity(
     // download della regione (RegionPackageInstaller), non e' un pacchetto a parte per l'utente -
     // sparisce solo con l'intera regione, mai con "elimina mappa".
     val previewVersion: String?,
-    // Byte del poi.db importato: i POI stanno in region.db, non misurabili dal disco come mappa e routing.
+    // Byte che i POI occupano in region.db (stima, vedi PoiEntity.estimatedStorageBytes), non misurabili dal disco come mappa
+    // e routing. Per le regioni installate prima, la dimensione del poi.db scaricato finche' non si riscaricano.
     val poiSizeBytes: Long?,
     // Come poiSizeBytes, per il poi-extra.db importato.
     val poiExtraSizeBytes: Long?,

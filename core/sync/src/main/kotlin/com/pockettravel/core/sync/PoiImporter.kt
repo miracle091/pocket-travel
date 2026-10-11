@@ -5,6 +5,7 @@ import androidx.room.withTransaction
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiEntity
 import com.pockettravel.core.data.db.RegionDatabase
+import com.pockettravel.core.data.db.estimatedStorageBytes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -41,15 +42,20 @@ class PoiImporter @Inject constructor(
      * Sostituisce i POI del pacchetto leggendo [poiDbFile] a blocchi di [CHUNK_SIZE] righe invece che tutto in memoria:
      * per le regioni grandi (centinaia di migliaia di POI, ognuno con una dozzina di stringhe) la lista
      * intera rischia l'OutOfMemoryError. Il file si legge dentro la transazione (piu' lunga, ma e' un'installazione).
+     * Ritorna i byte che i POI importati occupano in region.db (stima di [estimatedStorageBytes], non la dimensione del file).
      */
-    suspend fun replaceFromFile(regionId: String, poiDbFile: File, extra: Boolean = false) {
+    suspend fun replaceFromFile(regionId: String, poiDbFile: File, extra: Boolean = false): Long =
         database.withTransaction {
             poiDao.deleteForRegion(regionId, extra)
+            var storageBytes = 0L
             SQLiteDatabase.openDatabase(poiDbFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-                forEachPoiChunk(regionId, db, extra) { poiDao.insertAll(it) }
+                forEachPoiChunk(regionId, db, extra) { chunk ->
+                    poiDao.insertAll(chunk)
+                    storageBytes += chunk.sumOf { it.estimatedStorageBytes() }
+                }
             }
+            storageBytes
         }
-    }
 
     // Le colonne facoltative dipendono da quando il file e' stato generato: i content.db v1 (vedi
     // MergeManifests.convertV1Region, tools/data-pipeline) pubblicati prima di "phone" non la hanno, i

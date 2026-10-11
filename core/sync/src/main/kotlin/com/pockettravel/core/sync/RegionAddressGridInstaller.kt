@@ -3,6 +3,9 @@ package com.pockettravel.core.sync
 import ch.poole.geo.pmtiles.Constants
 import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.mergeAddressSearchOnDevice
+import org.tukaani.xz.LZMA2Options
+import org.tukaani.xz.XZInputStream
+import org.tukaani.xz.XZOutputStream
 import java.io.File
 import javax.inject.Inject
 
@@ -42,7 +45,11 @@ class RegionAddressGridInstaller @Inject constructor(
         val (unchanged, toDownload) = addressGrid.cells.partition { installed[it.id] == it.version }
         val installedSearch = regionStorage.addressSearchFiles(regionId).map { it.name }.toSet()
         val searchToDownload = addressGrid.cells.filter {
-            it.search != null && (it in toDownload || RegionStorage.addressSearchFileName(it.id) !in installedSearch)
+            // Installata come archivio .db.xz o, prima della compressione, come .db: in entrambi i casi non si riscarica.
+            it.search != null && (
+                it in toDownload ||
+                    (RegionStorage.addressSearchArchiveName(it.id) !in installedSearch && RegionStorage.addressSearchFileName(it.id) !in installedSearch)
+                )
         }
         return Plan(addressGrid.cells, toDownload, unchanged, searchToDownload)
     }
@@ -119,35 +126,68 @@ class RegionAddressGridInstaller @Inject constructor(
         File(staging, RegionStorage.ADDRESSES_CELLS_FILE).writeText(
             RegionStorage.encodeAddressCells(plan.allCells.associate { it.id to it.version }),
         )
-        assembleSearchDir(regionId, plan, staging, mergeSearch)
+        assembleSearchDir(regionId, plan, staging, mergeSearch, ensureActive)
     }
 
     /**
      * Prepara [RegionStorage.ADDRESSES_SEARCH_DIR] in [staging], pronta da attivare: per ogni cella con
-     * ricerca il database appena scaricato (in [staging] col nome del manifest, vedi [Plan.searchToDownload])
-     * o, per le celle invariate, la copia di quello gia' installato. Le celle senza ricerca restano fuori:
+     * ricerca l'archivio `.db.xz` appena scaricato (in [staging] col nome del manifest, vedi
+     * [Plan.searchToDownload]) o, per le celle invariate, la copia di quello gia' installato. Un database non
+     * compresso (manifest senza xz, o installazione fatta prima della compressione) si comprime qui, cosi' le
+     * celle occupano su disco solo la loro forma compressa. Le celle senza ricerca restano fuori:
      * la cartella puo' essere vuota (manifest senza ricerca) e sostituisce comunque quella precedente.
-     * Ai database per cella (che servono solo a scaricare in seguito le sole celle cambiate) si aggiunge
+     * Gli archivi per cella (che servono solo a scaricare in seguito le sole celle cambiate) si affiancano a
      * [RegionStorage.ADDRESSES_SEARCH_DB], l'unione di tutte le celle con cui l'app cerca: costruita qui, prima
-     * dell'attivazione, cosi' file per cella e file unito cambiano insieme, con la stessa sostituzione della cartella.
+     * dell'attivazione, cosi' archivi e file unito cambiano insieme, con la stessa sostituzione della cartella.
+     * Per l'unione le celle si decomprimono in una cartella temporanea di [staging], cancellata a fine lavoro.
      */
-    private fun assembleSearchDir(regionId: String, plan: Plan, staging: File, mergeSearch: (List<File>, File) -> Unit) {
+    private fun assembleSearchDir(
+        regionId: String,
+        plan: Plan,
+        staging: File,
+        mergeSearch: (List<File>, File) -> Unit,
+        ensureActive: () -> Unit,
+    ) {
         val dir = File(staging, RegionStorage.ADDRESSES_SEARCH_DIR)
         dir.deleteRecursively()
         check(dir.mkdirs()) { "Impossibile creare ${RegionStorage.ADDRESSES_SEARCH_DIR}" }
         val installedDir = File(regionStorage.directoryFor(regionId), RegionStorage.ADDRESSES_SEARCH_DIR)
         plan.allCells.forEach { cell ->
             val search = cell.search ?: return@forEach
-            val target = File(dir, RegionStorage.addressSearchFileName(cell.id))
-            val downloaded = File(staging, search.file.name)
-            val installed = File(installedDir, target.name)
+            val target = File(dir, RegionStorage.addressSearchArchiveName(cell.id))
+            val downloaded = File(staging, search.downloadFile.name)
+            val installedXz = File(installedDir, target.name)
+            val installedDb = File(installedDir, RegionStorage.addressSearchFileName(cell.id))
+            ensureActive()
             when {
-                cell in plan.searchToDownload -> check(downloaded.renameTo(target)) { "Impossibile installare la ricerca della cella ${cell.id}" }
-                installed.isFile -> installed.copyTo(target)
+                cell in plan.searchToDownload && search.fileXz != null ->
+                    check(downloaded.renameTo(target)) { "Impossibile installare la ricerca della cella ${cell.id}" }
+                cell in plan.searchToDownload -> {
+                    compressXz(downloaded, target)
+                    downloaded.delete()
+                }
+                installedXz.isFile -> installedXz.copyTo(target)
+                installedDb.isFile -> compressXz(installedDb, target)
             }
         }
-        val cellFiles = dir.listFiles().orEmpty().filter { it.isFile }.sortedBy { it.name }
-        if (cellFiles.isNotEmpty()) mergeSearch(cellFiles, File(dir, RegionStorage.ADDRESSES_SEARCH_DB))
+        val archives = dir.listFiles().orEmpty().filter { it.isFile }.sortedBy { it.name }
+        if (archives.isEmpty()) return
+        val unpacked = File(staging, SEARCH_UNPACK_DIR)
+        unpacked.deleteRecursively()
+        check(unpacked.mkdirs()) { "Impossibile creare $SEARCH_UNPACK_DIR" }
+        try {
+            val cellDbs = archives.map { archive ->
+                ensureActive()
+                File(unpacked, archive.name.removeSuffix(".xz")).also { decompressXz(archive, it) }
+            }
+            mergeSearch(cellDbs, File(dir, RegionStorage.ADDRESSES_SEARCH_DB))
+        } finally {
+            unpacked.deleteRecursively()
+        }
+    }
+
+    private companion object {
+        const val SEARCH_UNPACK_DIR = "addresses-search-unpacked"
     }
 
     /** Intervallo (in coordinate x/y a zoom 14) delle tile discendenti di una cella. */
@@ -170,6 +210,29 @@ class RegionAddressGridInstaller @Inject constructor(
     // Stesso calcolo di PmtilesExtractor.zoomOffset: sum(4^k, k=0..z-1), non esposto dalla libreria.
     private fun zoomOffset(zoom: Int): Long = ((1L shl (2 * zoom)) - 1L) / 3L
 }
+
+/** Comprime [source] in [target] (xz). Bloccante; su errore non lascia [target] parziale. */
+internal fun compressXz(source: File, target: File) {
+    val part = File(target.path + ".part")
+    try {
+        source.inputStream().buffered().use { input ->
+            XZOutputStream(part.outputStream().buffered(), LZMA2Options(XZ_PRESET)).use { input.copyTo(it) }
+        }
+        check(part.renameTo(target)) { "Impossibile scrivere ${target.name}" }
+    } finally {
+        part.delete()
+    }
+}
+
+/** Decomprime [source] (xz, gia' verificato) in [target]. Bloccante. */
+internal fun decompressXz(source: File, target: File) {
+    XZInputStream(source.inputStream().buffered()).use { input ->
+        target.outputStream().buffered().use { input.copyTo(it) }
+    }
+}
+
+// Preset veloce: i database di ricerca si comprimono sul device, solo per le installazioni vecchie.
+private const val XZ_PRESET = 3
 
 /**
  * Inversa di ch.poole.geo.pmtiles.Hilbert.zxyToIndex(z,x,y): dato l'indice locale a zoom [z] (senza

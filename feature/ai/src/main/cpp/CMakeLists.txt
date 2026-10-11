@@ -66,6 +66,11 @@ if(GIT_FOUND AND LLAMA_PATCHES)
     file(LOCK ${CMAKE_CURRENT_LIST_DIR}/../../../.cache/llama-patches.lock RELEASE)
 endif()
 
+# -g0 per tutto il sottoalbero (llama.cpp, ggml, KleidiAI): il toolchain NDK aggiunge -g a ogni file, e
+# con i simboli di debug le .so pesano decine di MB in piu'. Le .so restano con la tabella dei simboli
+# dinamici, che JNI e dlopen usano; AGP toglie il resto in fase di packaging.
+add_compile_options(-g0)
+
 # ggml-cpu scarica KleidiAI con FetchContent_Populate, deprecato da CMake 3.30 (policy CMP0169):
 # llama.cpp dichiara le policy fino alla 3.28, quindi senza questo default CMake stampa un warning dev.
 set(CMAKE_POLICY_DEFAULT_CMP0169 OLD)

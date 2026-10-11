@@ -83,37 +83,77 @@ class RegionAddressGridInstallerTest {
         assertEquals(mapOf("12/0/0" to "v1", "12/1/0" to "v1"), RegionStorage.decodeAddressCells(cellsFile.readText()))
     }
 
+    private fun xzBytes(text: String): ByteArray = java.io.ByteArrayOutputStream().also { out ->
+        org.tukaani.xz.XZOutputStream(out, org.tukaani.xz.LZMA2Options()).use { it.write(text.toByteArray()) }
+    }.toByteArray()
+
+    private fun readXz(file: File): String = org.tukaani.xz.XZInputStream(file.inputStream()).use { String(it.readBytes()) }
+
     @Test
-    fun `i database di ricerca, scaricato per la cella nuova, copiato per l'invariata che ce l'ha, assente senza search`() {
+    fun `le ricerche per cella restano compresse, il merge riceve i database decompressi e li toglie dopo`() {
         val (storage, installer) = newStorageAndInstaller()
         val regionDir = storage.directoryFor("san-marino").apply { mkdirs() }
         writeFixture(File(regionDir, RegionStorage.ADDRESSES_FILE), mapOf(Triple(14, 1, 1) to byteArrayOf(0xAA.toByte())))
-        File(regionDir, RegionStorage.ADDRESSES_CELLS_FILE).writeText(RegionStorage.encodeAddressCells(mapOf("12/0/0" to "v1", "12/1/0" to "v1")))
-        File(regionDir, RegionStorage.ADDRESSES_SEARCH_DIR).apply { mkdirs() }.resolve(RegionStorage.addressSearchFileName("12/0/0")).writeText("vecchio A")
+        File(regionDir, RegionStorage.ADDRESSES_CELLS_FILE).writeText(
+            RegionStorage.encodeAddressCells(mapOf("12/0/0" to "v1", "12/2/0" to "v1", "12/1/0" to "v1")),
+        )
+        val installedDir = File(regionDir, RegionStorage.ADDRESSES_SEARCH_DIR).apply { mkdirs() }
+        // A: installazione vecchia (.db non compresso); D: gia' compressa
+        installedDir.resolve(RegionStorage.addressSearchFileName("12/0/0")).writeText("vecchio A")
+        installedDir.resolve(RegionStorage.addressSearchArchiveName("12/2/0")).writeBytes(xzBytes("archivio D"))
 
-        fun search(name: String) = AddressSearchEntry(cellFile(name))
-        val cellA = AddressGridCell("12/0/0", "v1", cellFile("cell-a.pmtiles"), search = search("search-a.db")) // invariata, ricerca gia' installata
-        val cellB = AddressGridCell("12/1/0", "v2", cellFile("cell-b.pmtiles"), search = search("search-b.db")) // cambiata
+        fun search(name: String, xz: String? = null) = AddressSearchEntry(cellFile(name), xz?.let { cellFile(it) })
+        val cellA = AddressGridCell("12/0/0", "v1", cellFile("cell-a.pmtiles"), search = search("search-a.db", "search-a.db.xz")) // invariata, .db vecchio
+        val cellD = AddressGridCell("12/2/0", "v1", cellFile("cell-d.pmtiles"), search = search("search-d.db", "search-d.db.xz")) // invariata, gia' .xz
+        val cellB = AddressGridCell("12/1/0", "v2", cellFile("cell-b.pmtiles"), search = search("search-b.db", "search-b.db.xz")) // cambiata
         val cellC = AddressGridCell("12/0/1", "v1", cellFile("cell-c.pmtiles")) // senza ricerca
-        val cells = listOf(cellA, cellB, cellC)
+        val cells = listOf(cellA, cellB, cellC, cellD)
         val staging = storage.stagingDirectoryFor("san-marino", "v2").apply { mkdirs() }
-        File(staging, "search-b.db").writeText("nuovo B")
+        val downloadedB = xzBytes("nuovo B")
+        File(staging, "search-b.db.xz").writeBytes(downloadedB)
         writeFixture(File(staging, cellB.file.name), mapOf(Triple(14, 5, 2) to byteArrayOf(0xBB.toByte())))
         writeFixture(File(staging, cellC.file.name), mapOf(Triple(14, 1, 5) to byteArrayOf(0xCC.toByte())))
 
         val plan = installer.plan("san-marino", RegionAddressGridEntry(cells))
-        assertEquals(listOf("12/1/0"), plan.searchToDownload.map { it.id })
-        val merged = mutableListOf<Pair<List<String>, File>>()
-        installer.mergeInto("san-marino", mapSource, plan, staging, mergeSearch = { cellFiles, target -> merged += cellFiles.map { it.name } to target })
+        assertEquals("il .db vecchio e l'.xz installati non si riscaricano", listOf("12/1/0"), plan.searchToDownload.map { it.id })
+        val merged = mutableListOf<Triple<String, String, File>>()
+        installer.mergeInto(
+            "san-marino", mapSource, plan, staging,
+            mergeSearch = { cellFiles, target -> cellFiles.forEach { merged += Triple(it.name, it.readText(), target) } },
+        )
 
         val searchDir = File(staging, RegionStorage.ADDRESSES_SEARCH_DIR)
-        assertEquals(listOf("12-0-0.db", "12-1-0.db"), searchDir.list()!!.sorted())
-        // il database unico si costruisce dai soli file per cella, dentro la cartella che si attiva
-        assertEquals(listOf(listOf("12-0-0.db", "12-1-0.db") to File(searchDir, RegionStorage.ADDRESSES_SEARCH_DB)), merged)
-        assertEquals("vecchio A", File(searchDir, "12-0-0.db").readText())
-        assertEquals("nuovo B", File(searchDir, "12-1-0.db").readText())
+        // il database unico lo crea mergeSearch (qui un fake): in cartella restano i soli archivi
+        assertEquals(listOf("12-0-0.db.xz", "12-1-0.db.xz", "12-2-0.db.xz"), searchDir.list()!!.sorted())
+        assertEquals("vecchio A", readXz(File(searchDir, "12-0-0.db.xz")))
+        assertEquals("nuovo B", readXz(File(searchDir, "12-1-0.db.xz")))
+        assertEquals("archivio D", readXz(File(searchDir, "12-2-0.db.xz")))
+        // il merge vede i database decompressi, in ordine di nome, e scrive nella cartella che si attiva
+        val target = File(searchDir, RegionStorage.ADDRESSES_SEARCH_DB)
+        assertEquals(
+            listOf(Triple("12-0-0.db", "vecchio A", target), Triple("12-1-0.db", "nuovo B", target), Triple("12-2-0.db", "archivio D", target)),
+            merged,
+        )
+        // l'archivio scaricato e' stato spostato, i database decompressi tolti: in staging non resta nulla delle ricerche
+        assertFalse(File(staging, "search-b.db.xz").exists())
+        assertFalse(File(staging, "addresses-search-unpacked").exists())
         // la copia lascia intatto il file installato (resta il pacchetto attivo fino a activatePackage)
-        assertTrue(File(regionDir, "${RegionStorage.ADDRESSES_SEARCH_DIR}/12-0-0.db").isFile)
+        assertTrue(File(installedDir, "12-0-0.db").isFile)
+    }
+
+    @Test
+    fun `una ricerca scaricata senza xz nel manifest si comprime`() {
+        val (storage, installer) = newStorageAndInstaller()
+        val cell = AddressGridCell("12/0/0", "v1", cellFile("cell-a.pmtiles"), search = AddressSearchEntry(cellFile("search-a.db")))
+        val staging = storage.stagingDirectoryFor("san-marino", "v1").apply { mkdirs() }
+        File(staging, "search-a.db").writeText("contenuto A")
+        writeFixture(File(staging, cell.file.name), mapOf(Triple(14, 1, 1) to byteArrayOf(0xAA.toByte())))
+
+        val plan = installer.plan("san-marino", RegionAddressGridEntry(listOf(cell)))
+        installer.mergeInto("san-marino", mapSource, plan, staging, mergeSearch = { _, _ -> })
+
+        assertEquals("contenuto A", readXz(File(staging, "${RegionStorage.ADDRESSES_SEARCH_DIR}/12-0-0.db.xz")))
+        assertFalse(File(staging, "search-a.db").exists())
     }
 
     @Test

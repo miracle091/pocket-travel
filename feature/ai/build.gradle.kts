@@ -14,10 +14,22 @@ android {
 
     // Il riferimento (examples/llama.android, com.arm.aichat) richiede minSdk 33; qui resta il minSdk 26
     // del progetto (pockettravel.android.library): qualche API NDK/Kotlin potrebbe non funzionare sotto API 33.
-    defaultConfig {
-        ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+    // Gli ABI per build type: la release compila solo arm64-v8a (i telefoni), il debug anche x86_64 per
+    // l'emulatore dei test strumentati. Senza abiFilters CMake compilerebbe anche x86 e armeabi-v7a.
+    buildTypes {
+        debug {
+            ndk {
+                abiFilters += listOf("arm64-v8a", "x86_64")
+            }
         }
+        release {
+            ndk {
+                abiFilters += "arm64-v8a"
+            }
+        }
+    }
+
+    defaultConfig {
         externalNativeBuild {
             cmake {
                 arguments += "-DCMAKE_BUILD_TYPE=Release"

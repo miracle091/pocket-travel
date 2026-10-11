@@ -20,6 +20,9 @@ class RegionRepository @Inject constructor(
     private val database: RegionDatabase,
     private val cityDao: CityDao,
 ) {
+    // Dopo una rimozione il file di region.db non si accorcia da solo: vedi DatabaseCompactor.
+    private val compactor = DatabaseCompactor(database) { regionStorage.availableBytes() }
+
     fun observeInstalled(): Flow<List<InstalledRegion>> =
         installedRegionDao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
@@ -100,6 +103,8 @@ class RegionRepository @Inject constructor(
                 citiesSizeBytes = if (kind == PackageKind.CITIES) null else current.citiesSizeBytes,
             )
         }
+        // Fuori dalla transazione (il VACUUM non ci puo' stare). Mappa, routing e il resto sono file, non righe.
+        if (kind == PackageKind.POI || kind == PackageKind.POI_EXTRA || kind == PackageKind.CITIES) compactor.compactIfWasteful()
     }
 
     /**
@@ -138,7 +143,7 @@ class RegionRepository @Inject constructor(
         citiesSizeBytes: Long?,
     ) {
         if (PackageKind.entries.all { versionOf(it) == null }) {
-            remove(regionId)
+            removeRegion(regionId)
             return
         }
         val diskBytes = regionStorage.packageBytes(regionId, RegionStorage.MAP_FILE) + regionStorage.packageBytes(regionId, RegionStorage.ROUTING_DIR) +
@@ -179,7 +184,7 @@ class RegionRepository @Inject constructor(
     suspend fun markGuidesInstalled(version: String, sizeBytes: Long) =
         installedRegionDao.upsertGuides(InstalledGuidesEntity(version = version, sizeBytes = sizeBytes))
 
-    suspend fun <T> inInstallTransaction(block: suspend () -> T): T = database.withTransaction { block() }
+    suspend fun <T> inInstallTransaction(block: suspend () -> T): T = compactor.exclusive { database.withTransaction { block() } }
 
     /** Riallinea i pacchetti su disco di [regionId] alle versioni registrate dopo un'installazione interrotta da un crash. */
     suspend fun recoverInterruptedActivations(regionId: String) {
@@ -200,6 +205,12 @@ class RegionRepository @Inject constructor(
 
     // Le guide restano: sono un pacchetto unico per tutte le regioni, non di questa regione.
     suspend fun remove(regionId: String) {
+        removeRegion(regionId)
+        compactor.compactIfWasteful()
+    }
+
+    // Senza il VACUUM: lo chiamano anche save(), che puo' essere dentro la transazione di un'installazione o di removePackage.
+    private suspend fun removeRegion(regionId: String) {
         withContext(Dispatchers.IO) {
             check(regionStorage.delete(regionId)) { "Impossibile eliminare la regione $regionId" }
             regionStorage.deleteStaging(regionId)

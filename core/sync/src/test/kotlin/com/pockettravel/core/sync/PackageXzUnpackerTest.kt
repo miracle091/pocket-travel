@@ -57,6 +57,7 @@ class PackageXzUnpackerTest {
         unpackXz(staging, manifestFile("guides.db", original), manifestFile("guides.db.xz", compressed))
 
         assertEquals("contenuto delle guide", File(staging, "guides.db").readText())
+        assertFalse("l'.xz verificato e decompresso si cancella subito", File(staging, "guides.db.xz").exists())
     }
 
     @Test
