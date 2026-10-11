@@ -39,7 +39,7 @@ class ReplicaTest(unittest.TestCase):
         kotlin = (Path(__file__).resolve().parents[3] / "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/CategoryWords.kt")
         text = kotlin.read_text(encoding="utf-8")
         pairs = lambda block: {cat: "".join(re.findall(r'"([^"]*)"', value))
-                               for cat, value in re.findall(r'GuideCategory\.(\w+) to ((?:"[^"]*"(?:\s*\+\s*)?)+)', block)}
+                               for cat, value in re.findall(r'"([A-Z_]+)" to ((?:"[^"]*"(?:\s*\+\s*)?)+)', block)}
         triggers = text.split("private val categoryTriggers = mapOf(")[1].split(").mapValues")[0]
         self.assertEqual(pairs(triggers), ev.CATEGORY_TRIGGERS)
         for lang in ("it", "en"):

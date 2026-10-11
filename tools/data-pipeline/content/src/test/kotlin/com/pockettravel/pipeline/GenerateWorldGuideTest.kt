@@ -12,22 +12,26 @@ class GenerateWorldGuideTest {
     private val url = "https://it.wikivoyage.org/wiki/Jet_lag"
 
     @Test
-    fun `una sezione per titolo con il nome della pagina, l'introduzione e senza Vedi anche`() {
+    fun `una sezione per titolo con il nome della pagina, l'introduzione in testa alla prima e senza Vedi anche`() {
         val dump = """
             {{Pagebanner|Jet lag banner.jpg}}
             Il '''jet lag''' e' il disturbo dovuto al cambio di fuso orario.
             == Prepararsi ==
             * Dormire di piu' nei giorni prima.
+            == Recupero ==
+            Un'ora al giorno.
             == Vedi anche ==
             * [[Salute]]
         """.trimIndent()
 
         val sections = parseWorldPage("Jet lag", "SALUTE", dump, url)
 
-        assertEquals(listOf("Jet lag", "Jet lag: Prepararsi"), sections.map { it.title })
-        assertEquals("Il jet lag e' il disturbo dovuto al cambio di fuso orario.", sections[0].body)
-        assertEquals("• Dormire di piu' nei giorni prima.", sections[1].body)
+        assertEquals(listOf("Jet lag: Prepararsi", "Jet lag: Recupero"), sections.map { it.title })
+        assertEquals("Il jet lag e' il disturbo dovuto al cambio di fuso orario.\n\n• Dormire di piu' nei giorni prima.", sections[0].body)
+        assertEquals("Un'ora al giorno.", sections[1].body)
         assertTrue(sections.all { it.category == "SALUTE" && it.sourceUrl == url })
+        // Una pagina senza sottotitoli resta la sola introduzione.
+        assertEquals(listOf("Jet lag"), parseWorldPage("Jet lag", "SALUTE", "Solo introduzione.", url).map { it.title })
     }
 
     @Test

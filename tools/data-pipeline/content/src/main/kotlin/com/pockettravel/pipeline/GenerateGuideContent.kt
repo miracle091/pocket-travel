@@ -90,7 +90,8 @@ private fun expandListing(params: String): String {
         else -> "$name: $description"
     }
 }
-private val htmlTagRegex = Regex("""<[^>]+>""")
+// "</>" (tag chiuso senza nome, refuso di alcune pagine) compreso.
+private val htmlTagRegex = Regex("""<[^>]+>|</>""")
 
 // Gallerie e tabelle: le righe "File:Pizza.jpg|Pizza" di <gallery> e il markup {| ... |} resterebbero nel
 // testo. Si tolgono intere (le tabelle anche annidate, dall'interno).
@@ -166,6 +167,42 @@ private fun resolveTemplates(text: String): String {
 private val innermostLinkRegex = Regex("""\[\[([^\[\]]*)]]""")
 private val fileLinkPrefixRegex = Regex("""(?i)^\s*(?:File|Image|Immagine|Media|Categoria|Category)\s*:""")
 
+// Immagini e link a Commons ("[[File:x.jpg|thumb|didascalia con [parentesi] e [[link]]]]", "[[c:Category:Foo|[1]]]"):
+// resolveLinks non ammette parentesi quadre dentro un link e li lascerebbe interi nel testo. Si tolgono contando le
+// parentesi, anche su piu' righe. Se il link non si chiude ("[[File:x.svg e dica..." senza "]]") si toglie solo il nome
+// del file: il resto della riga e' testo vero.
+private val mediaLinkStartRegex = Regex("""(?i)\[\[\s*(?:File|Image|Immagine|Media|c|commons)\s*:""")
+private val unclosedFileNameRegex = Regex("""[^|\[\]\n]*?\.[A-Za-z]{3,4}\b""")
+
+private fun removeMediaLinks(text: String): String {
+    val out = StringBuilder()
+    var position = 0
+    while (true) {
+        val start = mediaLinkStartRegex.find(text, position) ?: break
+        out.append(text, position, start.range.first)
+        var depth = 1
+        var singleOpen = 0
+        var index = start.range.last + 1
+        while (index < text.length && depth > 0) {
+            when {
+                text.startsWith("[[", index) -> { depth++; index += 2 }
+                text[index] == '[' -> { singleOpen++; index++ }
+                // "[2]]]": la prima "]" chiude la "[" della didascalia, le altre due il link.
+                text[index] == ']' && singleOpen > 0 -> { singleOpen--; index++ }
+                text.startsWith("]]", index) -> { depth--; index += 2 }
+                else -> index++
+            }
+        }
+        val afterMarker = start.range.last + 1
+        position = if (depth == 0) {
+            index
+        } else {
+            unclosedFileNameRegex.find(text, afterMarker)?.takeIf { it.range.first == afterMarker }?.range?.last?.plus(1) ?: afterMarker
+        }
+    }
+    return out.append(text, position, text.length).toString()
+}
+
 private fun resolveLinks(text: String): String {
     var current = text
     while (true) {
@@ -178,9 +215,21 @@ private fun resolveLinks(text: String): String {
     }
 }
 
-// Spazi doppi (frequenti nel testo inglese dopo il punto) e spazi rimasti prima della punteggiatura.
-private val repeatedSpacesRegex = Regex("""(?<=\S) {2,}""")
-private val spaceBeforePunctuationRegex = Regex(""" +([,.;:!?)])""")
+// Spazi doppi (frequenti nel testo inglese dopo il punto), tabulazioni e mescolanze di spazi, spazi senza interruzione e
+// spazi stretti ("25 \u00A0km"): la sequenza diventa uno spazio solo, senza interruzione se ce n'era uno.
+private val repeatedSpacesRegex = Regex("""(?<=\S)[ \t\u00A0\u202F\u2009]{2,}|(?<=\S)\t""")
+// Spazi rimasti prima della punteggiatura, anche quelli senza interruzione che la tipografia francese mette prima dei
+// due punti (i consigli del Canada: "Durante il soggiorno :"). Non dopo "•" o "▸": "• , la strada" resta com'e'.
+private val spaceBeforePunctuationRegex = Regex("""(?<![•▸])[ \u00A0\u202F\u2009]+([,.;:!?)])""")
+private val spaceAfterOpenParenRegex = Regex("""\([ \u00A0\u202F\u2009]+""")
+// Spazio a larghezza zero, trattino facoltativo, giunzione e BOM: invisibili, pesano 2-3 byte e rompono la ricerca
+// ("gaz\u00ADpacho" non trova "gazpacho"). Non i segni di direzione (U+200E/F), che servono al testo arabo.
+private val invisibleCharsRegex = Regex("""[\u200B\u00AD\u2060\uFEFF]""")
+// Wikivoyage IT scrive il giapponese con uno spazio fra i caratteri ("そ ば", "在 留 カ ー ド"): fra due caratteri CJK
+// non ce ne vanno (giapponese e cinese non separano le parole).
+private val cjkSpaceRegex = Regex(
+    """(?<=[\p{IsHan}\p{IsHiragana}\p{IsKatakana}\u30FC\u3001-\u303F])[ \u00A0]+(?=[\p{IsHan}\p{IsHiragana}\p{IsKatakana}\u30FC\u3001-\u303F])""",
+)
 private val subHeadingLineRegex = Regex("""^={3,}\s*(.+?)\s*={3,}$""")
 // ";Termine" (lista di definizione wiki): Wikivoyage la usa come sottotitolo dentro un elenco
 // (es. ";Vini rossi" sotto "Bere"), trattato come ===Termine===.
@@ -250,6 +299,8 @@ private val htmlEntityRegex = Regex("""&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA
 private val namedEntities = mapOf(
     "amp" to "&", "lt" to "<", "gt" to ">", "quot" to "\"", "apos" to "'",
     "nbsp" to "\u00A0", "thinsp" to "\u2009", "ensp" to "\u2002", "emsp" to "\u2003", "shy" to "",
+    // Segni di direzione e spazio a larghezza zero: invisibili, nel testo inglese restano soli (&lrm;roadblocks).
+    "lrm" to "", "rlm" to "", "ZeroWidthSpace" to "", "scaron" to "š", "Scaron" to "Š",
     "mdash" to "—", "ndash" to "–", "minus" to "−", "hellip" to "…", "middot" to "·", "bull" to "•",
     "laquo" to "«", "raquo" to "»", "lsquo" to "‘", "rsquo" to "’", "ldquo" to "“", "rdquo" to "”", "sbquo" to "‚", "bdquo" to "„",
     "deg" to "°", "times" to "×", "divide" to "÷", "plusmn" to "±", "frac12" to "½", "frac14" to "¼", "frac34" to "¾",
@@ -309,13 +360,17 @@ internal fun cleanBody(raw: String): String {
         // Link esterni prima di quelli interni: possono stare nella didascalia di un'immagine.
         .replace(externalLinkWithTextRegex, "$1")
         .replace(bareExternalLinkRegex, "")
+        .let(::removeMediaLinks)
         .let(::resolveLinks)
         .let(::stripBoldItalic)
         .replace(templateRegex, "")
         .replace(htmlTagRegex, "")
         .let(::decodeHtmlEntities)
+        .replace(invisibleCharsRegex, "")
         .replace(emptyParenthesesRegex, "")
-        .replace(repeatedSpacesRegex, " ")
+        .replace(repeatedSpacesRegex) { if ('\u00A0' in it.value || '\u202F' in it.value) "\u00A0" else " " }
+        .replace(spaceAfterOpenParenRegex, "(")
+        .replace(cjkSpaceRegex, "")
         .replace(spaceBeforePunctuationRegex, "$1")
 
     val markedLines = stripped.lineSequence().map { rawLine ->
@@ -343,12 +398,14 @@ internal fun cleanBody(raw: String): String {
                 next++
             }
             if (hasBody) kept += "▸ ${line.removePrefix(SUBHEADING_MARKER)}"
-        } else {
+        } else if (line != "• ") {
             kept += line
         }
     }
 
     return joinWrappedLines(kept).joinToString("\n")
+        // Le righe unite possono aver lasciato uno spazio prima della punteggiatura ("carburante\n, acqua").
+        .replace(spaceBeforePunctuationRegex, "$1")
         .replace(blankLinesRegex, "\n\n")
         .replace(blankAfterSubheadingRegex, "$1\n")
         .replace(blankBetweenItemsRegex, "$1\n")

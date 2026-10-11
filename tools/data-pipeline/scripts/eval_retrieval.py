@@ -85,6 +85,8 @@ BM25_K1, BM25_B, BM25_IDF_SMOOTHING = 1.2, 0.75, 0.5
 WIKI = {"STORIA", "CLIMA"}
 WIKIPEDIA_OFF_TOPIC_WEIGHT = 0.1  # TravelAssistant.WIKIPEDIA_OFF_TOPIC_WEIGHT
 WORLD_FIRST_RATIO = 2.0          # TravelAssistant.WORLD_FIRST_RATIO
+# TravelAssistant.generalTravelWords: con queste parole la soglia del mondo scende a 1
+GENERAL_TRAVEL_WORDS = re.compile(r"\b(ester[oi]|in viaggio|viaggiando|abroad|overseas|travell?ing)\b", re.IGNORECASE)
 # TravelAssistant.historyClimateWords
 HISTORY_CLIMATE_WORDS = re.compile(
     r"\b(stori|fondat|fondò|secol|guerr|antic|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|"
@@ -210,14 +212,18 @@ CATEGORY_TRIGGERS = {
               "histor found establ past ancien rule middl war",
     "CLIMA": "clima meteo piog piov ombrel tempera primav estat invern autun nevic neve caldo fredd stagion "
              "climat weather rain umbrel spring summer winter autumn snow hot cold season",
+    "CONSIGLI": "combat evitar preven curar rimed superar affront deal cope avoid prevent cure treat overcom",
+    "EMERGENZE": "perdo perso persa smarr rubat lose lost stolen",
 }
 CATEGORY_GUIDE_WORDS = {
     "it": {"ALLOGGIO": "allogg*", "CIBO_BEVANDE": "mangi*, tavola", "COSA_VEDERE": "veder*", "ACQUISTI": "acqui*, valut*",
            "TRASPORTI": "arriv*, spost*", "DOGANE": "arriv*, dogan*", "SALUTE": "sanit*, salut*", "SICUREZZA": "sicur*",
-           "CONNETTIVITA": "contat*", "STORIA": "stori*", "CLIMA": "clima"},
+           "CONNETTIVITA": "contat*", "STORIA": "stori*", "CLIMA": "clima",
+           "CONSIGLI": "prepar*, recupe*, preven*, tratta*", "EMERGENZE": "emerg*"},
     "en": {"ALLOGGIO": "sleep", "CIBO_BEVANDE": "eat, drink", "COSA_VEDERE": "see", "ACQUISTI": "buy",
            "TRASPORTI": "get in, get around", "DOGANE": "get in, customs", "SALUTE": "health*", "SICUREZZA": "safe*",
-           "CONNETTIVITA": "connect*", "STORIA": "history", "CLIMA": "climate"},
+           "CONNETTIVITA": "connect*", "STORIA": "history", "CLIMA": "climate",
+           "CONSIGLI": "prepar*, cope, recover*, prevent*, treat*", "EMERGENZE": "lose, lost, stolen"},
 }
 SHORT_STEM_CHARS = 4             # CategoryWords.SHORT_STEM_CHARS
 
@@ -460,7 +466,7 @@ def bm25(info, stats):
     return score
 
 
-def rank_sections(guide, city, country_first, history_or_climate=True, world=()):
+def rank_sections(guide, city, country_first, history_or_climate=True, world=(), general=False):
     """rankSections: [(sezione, matchinfo)] della guida del paese e delle citta' -> le MAX_SECTIONS migliori; prima
     quelle del paese con [country_first] True, quelle delle citta' con False, solo per punteggio con None. Della
     pseudo-regione mondo [world] conta solo la migliore: in testa, in piu' alle altre, se supera di WORLD_FIRST_RATIO
@@ -477,7 +483,7 @@ def rank_sections(guide, city, country_first, history_or_climate=True, world=())
     sections = [s for _, _, s in top]
     if best is None:
         return sections
-    if not top or (country_first is not False and best[0] > WORLD_FIRST_RATIO * max(r[0] for r in top)):
+    if not top or (country_first is not False and best[0] > (1.0 if general else WORLD_FIRST_RATIO) * max(r[0] for r in top)):
         return [best[1]] + sections
     return sections + [best[1]] if len(top) < MAX_SECTIONS else sections
 
@@ -561,7 +567,8 @@ def search(db, region, question, cities, lang="it", word_lists=False):
     history_or_climate = bool(HISTORY_CLIMATE_WORDS.search(question))
     guide_regions = country[2] if country else [region]
     return (rank_sections(guide_candidates(db, guide_regions, fts), city_rows, country_first=not named,
-                          history_or_climate=history_or_climate, world=guide_candidates(db, [WORLD_REGION_ID], fts)),
+                          history_or_climate=history_or_climate, world=guide_candidates(db, [WORLD_REGION_ID], fts),
+                          general=bool(GENERAL_TRAVEL_WORDS.search(question))),
             focus_stems(base, city))
 
 

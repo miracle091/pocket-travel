@@ -256,6 +256,18 @@ class TravelAssistantLogicTest {
     }
 
     @Test
+    fun `in una domanda sul viaggio in generale il mondo va in testa se supera la migliore della regione`() {
+        val guide = listOf(guideSection("A", "corpo A") to info(bodyHits = 2), guideSection("B") to info(bodyHits = 1), guideSection("C") to info(bodyHits = 1))
+        val world = listOf(guideSection("Documenti", "mondo") to info(bodyHits = 3))
+
+        assertEquals("corpo A", rankSections(guide, emptyList(), limit = 3, countryFirst = true, worldMatches = world).first().body)
+        assertEquals("mondo", rankSections(guide, emptyList(), limit = 3, countryFirst = true, worldMatches = world, generalQuestion = true).first().body)
+        assertTrue(isGeneralTravelQuestion("Cosa faccio se perdo il passaporto all'estero?"))
+        assertTrue(isGeneralTravelQuestion("What should I pack when travelling?"))
+        assertFalse(isGeneralTravelQuestion("Serve il passaporto per entrare?"))
+    }
+
+    @Test
     fun `con meno di tre sezioni della regione il mondo entra in fondo anche se debole, e da solo se la regione non trova nulla`() {
         val weakWorld = listOf(guideSection("Jet lag", "mondo debole") to info(bodyHits = 1, length = 500))
 

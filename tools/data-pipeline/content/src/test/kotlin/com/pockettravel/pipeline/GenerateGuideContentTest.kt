@@ -328,6 +328,66 @@ class GenerateGuideContentTest {
     }
 
     @Test
+    fun `entita' invisibili spariscono e le lettere con il caron diventano caratteri`() {
+        assertEquals("rajavartijat/gränsbevakare, Prešhevo: roadblocks", cleanBody("rajavartijat/&ZeroWidthSpace;gränsbevakare, Pre&scaron;hevo: &lrm;roadblocks"))
+    }
+
+    @Test
+    fun `spazi invisibili e trattini facoltativi spariscono dal testo`() {
+        assertEquals("gazpacho al 10% del totale", cleanBody("gaz\u00ADpacho al\u200B 10%\u200B del totale"))
+        // I segni di direzione servono al testo arabo: restano.
+        assertEquals("ريال\u200E", cleanBody("ريال\u200E"))
+    }
+
+    @Test
+    fun `spazi doppi, tabulazioni e spazi misti diventano uno spazio solo`() {
+        assertEquals("a 25\u00A0km da Roma", cleanBody("a 25 \u00A0km da Roma"))
+        assertEquals("Madagascar — Antananarivo", cleanBody("Madagascar —\tAntananarivo"))
+        assertEquals("Budva:\u00A0+382 33", cleanBody("Budva:\u00A0 \u00A0 \u00A0+382 33"))
+        assertEquals("Dopo il punto. Poi", cleanBody("Dopo il punto.  Poi"))
+    }
+
+    @Test
+    fun `nessuno spazio prima di punteggiatura e dopo la parentesi aperta, anche senza interruzione`() {
+        assertEquals("Durante il soggiorno:\n• state attenti", cleanBody("Durante il soggiorno\u202F:\n* state attenti"))
+        assertEquals("costa (ISO code: AUD) e (€1)", cleanBody("costa ( ISO code: AUD) e ( €1)"))
+        // Due righe unite da cleanBody: il capo con la virgola non lascia " ,".
+        assertEquals("carburante, acqua e cibo", cleanBody("carburante\n, acqua e cibo"))
+        // Dopo il pallino dell'elenco la punteggiatura resta (voce che iniziava con un template tolto).
+        assertEquals("• , la strada", cleanBody("* {{shield|I-90}}, la strada"))
+    }
+
+    @Test
+    fun `una voce di elenco vuota non resta come pallino solo`() {
+        assertEquals("Musei:\n• Uffizi", cleanBody("Musei:\n* {{marker|nome=|descrizione=}}\n* Uffizi"))
+    }
+
+    @Test
+    fun `fra caratteri giapponesi e cinesi non restano spazi`() {
+        assertEquals("la carta (在留カード) e il soba (そば) di grano saraceno", cleanBody("la carta (在 留 カ ー ド) e il soba (そ ば) di grano saraceno"))
+        // Fra parole latine e fra latino e giapponese lo spazio serve.
+        assertEquals("il sushi 寿司 e il ramen", cleanBody("il sushi 寿司 e il ramen"))
+    }
+
+    @Test
+    fun `immagini e link a Commons spariscono interi, anche con parentesi nella didascalia o non chiusi`() {
+        assertEquals(
+            "▸ Politica\nIl Paese vive una crisi.",
+            cleanBody("===Politica===\n[[File:Propaganda, Myanmar 2.jpg|thumb|\"Tatmadaw [Armed Forces] e il [[popolo]] sono uno.\"]]\nIl Paese vive una crisi."),
+        )
+        assertEquals("Immagini di mammiferi e uccelli.", cleanBody("Immagini di mammiferi [[c:Category:Mammals|[2]]] e uccelli."))
+        // Non chiuso: va via solo il nome del file, il resto della riga e' testo vero.
+        assertEquals("Cercate il logo e dite \"touch\" per pagare.", cleanBody("Cercate il logo [[File:EMVCoContactlessIndicator.svg e dite \"touch\" per pagare."))
+        // Su piu' righe (didascalia con una legenda a template).
+        assertEquals("Serve il visto.", cleanBody("[[File:Mappa.png|thumb|\n{{legend|#fff|Visto}}\n{{legend|#000|No}}\n]]Serve il visto."))
+    }
+
+    @Test
+    fun `il tag chiuso senza nome sparisce`() {
+        assertEquals("Restate in macchina.", cleanBody("Restate in macchina.</>"))
+    }
+
+    @Test
     fun `entita' sconosciute o non valide restano com'erano`() {
         assertEquals("&foo; & &#99999999;", decodeHtmlEntities("&foo; & &#99999999;"))
     }

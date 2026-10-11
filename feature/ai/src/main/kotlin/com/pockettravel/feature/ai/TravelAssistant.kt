@@ -193,6 +193,7 @@ class TravelAssistant @Inject constructor(
             historyOrClimate = isHistoryOrClimateQuestion(question),
             language = language,
             worldMatches = guideRepository.searchCandidates(WORLD_REGION_ID, ftsQuery),
+            generalQuestion = isGeneralTravelQuestion(question),
         )
         return SectionSearch(sections, baseQuery, country)
     }
@@ -642,7 +643,8 @@ private fun CitySection.toAssistantSection(language: String): AssistantSection {
  * Senza [historyOrClimate] (isHistoryOrClimateQuestion) Storia e Clima valgono WIKIPEDIA_OFF_TOPIC_WEIGHT.
  * Dei candidati della pseudo-regione mondo [worldMatches] conta solo il migliore, senza togliere posto alle sezioni della
  * regione: in testa, come sezione in più, se supera di WORLD_FIRST_RATIO volte la migliore della regione e la domanda non
- * nomina una città ([countryFirst] non false); altrimenti solo in un posto libero, in fondo.
+ * nomina una città ([countryFirst] non false); altrimenti solo in un posto libero, in fondo. Con [generalQuestion]
+ * (isGeneralTravelQuestion: "all'estero", "abroad") basta che superi la migliore della regione.
  * La ricerca (con buildFtsQuery, namedCities, focusStems e selectContext) e' replicata in
  * tools/data-pipeline/scripts/eval_retrieval.py, che la misura su dati pubblicati: va cambiata insieme.
  */
@@ -654,6 +656,7 @@ internal fun rankSections(
     historyOrClimate: Boolean = true,
     language: String = "it",
     worldMatches: List<Pair<GuideSection, FtsMatchInfo>> = emptyList(),
+    generalQuestion: Boolean = false,
 ): List<AssistantSection> {
     // Le righe del mondo stanno in guide_sections: stesse statistiche della guida della regione.
     val tables = listOfNotNull((guideMatches + worldMatches).firstOrNull()?.second, cityMatches.firstOrNull()?.second)
@@ -673,7 +676,7 @@ internal fun rankSections(
         .maxByOrNull { it.score }
     return when {
         world == null -> top
-        top.isEmpty() || countryFirst != false && world.score > WORLD_FIRST_RATIO * top.maxOf { it.score } -> listOf(world) + top
+        top.isEmpty() || countryFirst != false && world.score > (if (generalQuestion) 1.0 else WORLD_FIRST_RATIO) * top.maxOf { it.score } -> listOf(world) + top
         top.size < limit -> top + world
         else -> top
     }.map { it.section }
@@ -684,6 +687,12 @@ internal fun rankSections(
 // serie su regione e citta' non perdono piu' di un punto; in fondo invece della testa il suo paragrafo entrerebbe nel
 // contesto solo nel 5-8% dei casi, e al posto della terza sezione le domande sul paese perderebbero fino a 7 punti.
 private const val WORLD_FIRST_RATIO = 2.0
+
+// Parole che dicono che la domanda non riguarda la nazione aperta ma il viaggio in generale.
+private val generalTravelWords = Regex("""\b(ester[oi]|in viaggio|viaggiando|abroad|overseas|travell?ing)\b""", RegexOption.IGNORE_CASE)
+
+/** True se [question] chiede del viaggio in generale ("Cosa faccio se perdo il passaporto all'estero?"). */
+internal fun isGeneralTravelQuestion(question: String): Boolean = generalTravelWords.containsMatchIn(question)
 
 private class RankedSection(val section: AssistantSection, val score: Double, val fromCountry: Boolean)
 

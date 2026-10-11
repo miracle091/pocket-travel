@@ -20,10 +20,20 @@ private val skippedWorldHeadings = setOf(
 private val redirectRegex = Regex("""^\s*#(REDIRECT|RINVIA)\b""", RegexOption.IGNORE_CASE)
 
 /**
- * Sezioni della pagina tematica [page], tutte della categoria [category] e con il link [sourceUrl]: l'introduzione con il
- * titolo della pagina, poi una per titolo "==" con il titolo "<pagina>: <titolo>"; stessa pulizia delle guide (cleanBody).
+ * Sezioni della pagina tematica [page], tutte della categoria [category] e con il link [sourceUrl]: una per titolo "==",
+ * con il titolo "<pagina>: <titolo>"; stessa pulizia delle guide (cleanBody). L'introduzione della pagina apre la prima
+ * sezione: da sola e' corta, quindi vince la ricerca con una definizione ("Il jet lag e'...") invece dei consigli.
  */
-fun parseWorldPage(page: String, category: String, dump: String, sourceUrl: String): List<GuideSectionRow> {
+fun parseWorldPage(page: String, category: String, dump: String, sourceUrl: String): List<GuideSectionRow> =
+    foldIntroduction(page, parseWorldSections(page, category, dump, sourceUrl))
+
+private fun foldIntroduction(page: String, sections: List<GuideSectionRow>): List<GuideSectionRow> {
+    val intro = sections.firstOrNull()?.takeIf { it.title == page } ?: return sections
+    val next = sections.getOrNull(1) ?: return sections
+    return listOf(next.copy(body = "${intro.body}\n\n${next.body}")) + sections.drop(2)
+}
+
+private fun parseWorldSections(page: String, category: String, dump: String, sourceUrl: String): List<GuideSectionRow> {
     val sections = mutableListOf<GuideSectionRow>()
     var heading: String? = null
     val body = StringBuilder()
