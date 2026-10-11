@@ -590,13 +590,20 @@ fmin() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0<b+0)?a:b }'; }
 # tentativi - il chiamante decide se e' fatale.
 fetch_overpass_chunk() {
   local chunkMinLon="$1" chunkMinLat="$2" chunkMaxLon="$3" chunkMaxLat="$4" outFile="$5"
-  local query="[out:xml][timeout:900];("
+  # Con il confine della nazione (BORDER_AREA, vedi sotto) ogni filtro ha anche l'area della nazione: Overpass scarta
+  # sul server i POI dei paesi confinanti che il riquadro contiene.
+  local bbox="(${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon})"
+  local query="[out:xml][timeout:900];"
+  if [ -n "${BORDER_AREA:-}" ]; then
+    query="${query}area(id:${BORDER_AREA})->.confine;"
+    bbox="(area.confine)${bbox}"
+  fi
+  query="${query}("
   for tag in "${POI_TAG_KEYS[@]}"; do
-    query="${query}node[\"${tag}\"](${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon});"
+    query="${query}node[\"${tag}\"]${bbox};"
   done
   # Parcheggi, autostazioni, ospedali, caserme dei pompieri, chiese, monasteri e terminal dei
   # traghetti anche come aree (quasi sempre disegnati cosi'): "out center" da' alle way un punto.
-  local bbox="(${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon})"
   query="${query}way[\"amenity\"~\"^(parking|bus_station|hospital|fire_station|place_of_worship|monastery|ferry_terminal)$\"]${bbox};"
   query="${query}way[\"tourism\"=\"information\"][\"information\"~\"^(office|visitor_centre)$\"]${bbox};"
   # Ambasciate e consolati col tag moderno (office=diplomatic), non solo amenity=embassy.
@@ -650,13 +657,34 @@ fetch_overpass_chunk() {
 # le modifiche del giorno), in secondi invece che nei minuti di Overpass, che resta il ripiego se
 # qualcosa va storto. GEOFABRIK_CACHE (facoltativa, la imposta il job "build") tiene gli estratti
 # ridotti per le regioni successive dello stesso job.
+# Nazione della regione (flagCode di regions.sh): con quella si scartano gli estratti Geofabrik dei paesi confinanti
+# che il bbox contiene, e si taglia sul confine. Vuoto se la regione non e' nell'elenco: si usa solo il bbox.
+REGION_ISO="$(source "$SCRIPT_DIR/regions.sh" && for spec in "${ALL_REGIONS[@]}"; do IFS='|' read -r id _ _ _ _ _ _ flag _ <<< "$spec"; [ "$id" = "$REGION_ID" ] && echo "$flag" && break; done || true)"
+# Confine OpenStreetMap della nazione (country_border.py, da Nominatim): i POI fuori si scartano, sia dagli estratti
+# Geofabrik sia da Overpass (area 3600000000 + id della relazione). Il riquadro da solo comprende anche i paesi vicini:
+# meta' dei POI di San Marino erano italiani, quasi meta' di quelli dell'Ungheria austriaci o slovacchi (misura del
+# 2026-10-11 sui pacchetti pubblicati). Senza confine (territori d'oltremare, Canarie) resta il solo riquadro.
+BORDER_FILE=""
+BORDER_AREA=""
+if [ -n "$REGION_ISO" ] && BORDER_RELATION="$(python3 "$SCRIPT_DIR/country_border.py" --iso "$REGION_ISO" --out "$WORKDIR/confine.geojson" \
+    --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT")"; then
+  BORDER_FILE="$WORKDIR/confine.geojson"
+  BORDER_AREA=$((3600000000 + BORDER_RELATION))
+  echo "-- confine OSM della nazione: relazione $BORDER_RELATION"
+elif [ "$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.border // false' 2>/dev/null || true)" = "true" ]; then
+  # I POI pubblicati sono gia' tagliati sul confine: senza (Nominatim non raggiungibile) si pubblicherebbero di nuovo
+  # quelli dei paesi vicini.
+  echo "ERRORE: confine OSM di $REGION_ID non disponibile e i POI pubblicati sono tagliati sul confine: li tengo" >&2
+  exit 1
+else
+  echo "::warning::confine OSM di $REGION_ID non trovato (${REGION_ISO:-nessun codice ISO}): punti di interesse sul solo riquadro"
+fi
+
 GEOFABRIK_XML=""
 if [ "${GEOFABRIK_POI:-true}" = "true" ] && command -v osmium >/dev/null; then
   echo "-- POI dagli estratti Geofabrik..."
-  # Nazione della regione (flagCode di regions.sh): con quella si scartano gli estratti dei paesi
-  # confinanti che il bbox contiene. Vuoto se la regione non e' nell'elenco: si usa solo il bbox.
-  GEOFABRIK_ISO="$(source "$SCRIPT_DIR/regions.sh" && for spec in "${ALL_REGIONS[@]}"; do IFS='|' read -r id _ _ _ _ _ _ flag _ <<< "$spec"; [ "$id" = "$REGION_ID" ] && echo "$flag" && break; done || true)"
-  if python3 "$SCRIPT_DIR/geofabrik_pois.py" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --iso="$GEOFABRIK_ISO" --out "$WORKDIR/poi-geofabrik.osm.xml" --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT"; then
+  if python3 "$SCRIPT_DIR/geofabrik_pois.py" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --iso="$REGION_ISO" ${BORDER_FILE:+--border "$BORDER_FILE"} \
+    --out "$WORKDIR/poi-geofabrik.osm.xml" --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT"; then
     GEOFABRIK_XML="$WORKDIR/poi-geofabrik.osm.xml"
   else
     # Avviso nel riepilogo della run, non solo nel log: dal 2026-10-11 un poligono vuoto nell'indice di Geofabrik ha
@@ -766,6 +794,14 @@ poi_count() {
 # estratti Geofabrik tengono la sola nazione: con Geofabrik non si confrontano, resta il controllo sul
 # risultato vuoto (un estratto incompleto fa gia' fallire geofabrik_pois.py).
 PUBLISHED_POI_COUNT="$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.count // empty' 2>/dev/null || true)"
+POI_BORDER=false
+[ -n "$BORDER_FILE" ] && POI_BORDER=true
+# Primo pacchetto tagliato sul confine: quello pubblicato aveva anche i POI dei paesi vicini (Oman: due terzi negli
+# Emirati), quindi il confronto con la meta' scarterebbe il risultato giusto. Resta il controllo sul risultato vuoto.
+if [ "$POI_BORDER" = true ] && [ "$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.border // false' 2>/dev/null || true)" != "true" ]; then
+  PUBLISHED_POI_COUNT=""
+  PUBLISHED_POI_URL=""
+fi
 if [ -z "$PUBLISHED_POI_COUNT" ] && [ -n "${PUBLISHED_POI_URL:-}" ] && [ -z "$GEOFABRIK_XML" ]; then
   echo "-- conto i POI del poi.db pubblicato..."
   # Il file compresso (fileXz): nelle voci meno recenti file.url punta al database non compresso, che
@@ -810,9 +846,9 @@ if [ "$POI_ONLY" = "true" ]; then
       return 0
     fi
     jq -c --arg key "$key" --arg version "$VERSION" --arg name "$name" --arg url "$url" \
-      --argjson size "$(wc -c < "$file" | tr -d ' ')" --arg hash "$hash" --argjson xz "$(xz_entry "$file" "$url")" --argjson count "$POI_COUNT" '
+      --argjson size "$(wc -c < "$file" | tr -d ' ')" --arg hash "$hash" --argjson xz "$(xz_entry "$file" "$url")" --argjson count "$POI_COUNT" --argjson border "$POI_BORDER" '
       .regions |= map(.[$key] = {version: $version, file: {name: $name, url: $url, sizeBytes: $size, sha256: $hash}, fileXz: $xz}
-        + (if $key == "poi" then {count: $count} else {} end))' \
+        + (if $key == "poi" then {count: $count, border: $border} else {} end))' \
       "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
     mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
   }
@@ -893,8 +929,9 @@ echo "-- genero il frammento manifest..."
 POI_XZ="$(xz_entry "$POI_DB" "$POI_DB_URL")"
 POI_EXTRA_XZ="null"
 [ -f "$POI_EXTRA_DB" ] && POI_EXTRA_XZ="$(xz_entry "$POI_EXTRA_DB" "$POI_EXTRA_DB_URL")"
-jq -c --argjson xz "$POI_XZ" --argjson extraXz "$POI_EXTRA_XZ" --argjson count "$POI_COUNT" \
-  '.regions |= map(.poi.fileXz = $xz | .poi.count = $count | if .poiExtra and $extraXz then .poiExtra.fileXz = $extraXz else . end)' \
+# border: POI tagliati sul confine OSM della nazione (il controllo del conteggio sopra confronta solo pacchetti uguali).
+jq -c --argjson xz "$POI_XZ" --argjson extraXz "$POI_EXTRA_XZ" --argjson count "$POI_COUNT" --argjson border "$POI_BORDER" \
+  '.regions |= map(.poi.fileXz = $xz | .poi.count = $count | .poi.border = $border | if .poiExtra and $extraXz then .poiExtra.fileXz = $extraXz else . end)' \
   "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
 mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
 # Anteprima compressa (voce fileXz): dimensione/hash gia' calcolati da build_preview, niente

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """POI di una regione dagli estratti Geofabrik, nello stesso XML che build-region.sh riceve da Overpass.
 
-Uso: geofabrik_pois.py --bbox=minLon,minLat,maxLon,maxLat [--iso=XX] --out poi.osm.xml --cache DIR [--user-agent UA] [--index FILE]
+Uso: geofabrik_pois.py --bbox=minLon,minLat,maxLon,maxLat [--iso=XX] [--border confine.geojson] --out poi.osm.xml --cache DIR
+     [--user-agent UA] [--index FILE]
 
 L'indice index-v1.json viene scaricato una volta in --cache e riusato dalle regioni successive; --index (opzione
 manuale, build-region.sh non la passa) usa invece un indice locale: utile per provare lo script senza rete
@@ -486,6 +487,7 @@ def main():
     parser.add_argument("--out", required=True)
     parser.add_argument("--cache", required=True, help="cartella degli estratti ridotti, condivisa dalle regioni del job")
     parser.add_argument("--user-agent", default="PocketTravel-pipeline")
+    parser.add_argument("--border", help="confine della nazione (Feature GeoJSON di country_border.py): i POI fuori si scartano")
     parser.add_argument("--index", help="index-v1.json locale, usato al posto di quello scaricato in --cache (opzione manuale, non usata da build-region.sh)")
     args = parser.parse_args()
     bbox = tuple(float(v) for v in args.bbox.split(","))
@@ -512,6 +514,13 @@ def main():
             clipped = os.path.join(tmp, f"{nome_file(cid)}.osm.pbf")
             subprocess.run(["osmium", "extract", "--overwrite", "--no-progress", "-s", "smart", "-S", "types=any",
                             "-b", ",".join(str(v) for v in bbox), reduced, "-o", clipped], check=True)
+            if args.border:
+                # Poi sul confine della nazione: il riquadro di San Marino o dell'Ungheria comprende anche l'Italia o
+                # Vienna. Le vie e le relazioni a cavallo restano (strategia smart, come sopra).
+                inside = os.path.join(tmp, f"{nome_file(cid)}-confine.osm.pbf")
+                subprocess.run(["osmium", "extract", "--overwrite", "--no-progress", "-s", "smart", "-S", "types=any",
+                                "-p", args.border, clipped, "-o", inside], check=True)
+                clipped = inside
             source = os.path.join(tmp, f"{nome_file(cid)}.geojsonseq")
             subprocess.run(["osmium", "export", "--overwrite", "--no-progress", "-f", "geojsonseq",
                             "-x", "print_record_separator=false", "-a", "type,id", clipped, "-o", source], check=True)
