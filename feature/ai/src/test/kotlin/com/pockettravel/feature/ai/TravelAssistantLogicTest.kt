@@ -111,6 +111,15 @@ class TravelAssistantLogicTest {
     }
 
     @Test
+    fun `con le parole della categoria la query non ripiega sul nome della citta'`() {
+        assertEquals("colles*", buildFtsQuery("Where to eat in Collesano?", "italia", "Collesano"))
+        assertEquals("", buildFtsQuery("Where to eat in Collesano?", "italia", "Collesano", keepCityWords = false))
+        assertEquals("\"tip\"", buildFtsQuery("Should I tip?", "italia"))
+        assertTrue(isHistoryOrClimateQuestion("Quando è nata Lisbona?"))
+        assertTrue(isHistoryOrClimateQuestion("When is the best time to go to Porto?"))
+    }
+
+    @Test
     fun `le espressioni di parole corte si cercano come frase`() {
         assertEquals("come OR combat* OR \"jet lag\"", buildFtsQuery("Come si combatte il jet lag?", "san-marino"))
         assertEquals("\"jet lag\"", buildFtsQuery("Jet lag?", "san-marino"))

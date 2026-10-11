@@ -20,7 +20,8 @@ citiesEn, Storia e Clima da Wikipedia EN) e le domande in inglese, come l'app in
 Con --questions reworded le stesse domande dette con altre parole (sinonimi, giri di frase), con --questions other-lang
 le domande nell'altra lingua sulle guide di --lang (chi scrive in inglese con l'app in italiano, e viceversa): servono
 a vedere quanto la ricerca a testo pieno dipende dalle parole esatte delle guide. Citta' e coppie delle distanze sono
-le stesse in tutti e tre i casi. Con --questions general le domande generali (jet lag, mance, passaporto smarrito) con
+le stesse in tutti e tre i casi. Con --questions control le domande di controllo, scritte dopo le liste di parole e mai
+usate per costruirle: dicono se le liste valgono anche su domande nuove. Con --questions general le domande generali (jet lag, mance, passaporto smarrito) con
 aperta ogni regione: attesa la sezione della pagina tematica della pseudo-regione mondo (regionId _world) che risponde.
 Le sezioni del mondo concorrono in tutte le serie, come nell'app. Con --questions other-country le domande sul paese
 che nominano un'altra nazione ("Serve il passaporto per entrare in Grecia?" con aperto il Portogallo): attesa la sezione
@@ -28,7 +29,7 @@ della guida della nazione nominata. Con --guides-db un guides.db locale al posto
 pubblicato, per misurare un cambio delle guide prima di pubblicarlo. Con --word-lists la query ha anche le parole delle
 guide per la categoria della domanda (CategoryWords.kt, accese nell'app; senza l'opzione si misura la ricerca senza liste).
 
-Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|other-lang|general|other-country] [--regions italia ...]
+Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|other-lang|control|general|other-country] [--regions italia ...]
 [--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists]
 (la cache dei file scaricati sta di default nella cartella temporanea di sistema)
 Richiede rete (manifest, release, API di Wikipedia) e, per Storia e Clima, il gradle wrapper dalla root del repo.
@@ -68,7 +69,7 @@ MIN_SECTION_CHARS = 50           # TravelAssistant.MIN_SECTION_CHARS
 MIN_CITY_NAME_CHARS = 3          # TravelAssistant.MIN_CITY_NAME_CHARS
 STEM_CHARS = 5                   # TravelAssistant.STEM_CHARS
 LONG_WORD_CHARS = 8              # TravelAssistant.LONG_WORD_CHARS
-SHORT_WORD_PHRASES = ["jet lag", "wi fi"]  # TravelAssistant.shortWordPhrases
+SHORT_WORD_PHRASES = ["jet lag", "wi fi", "tip", "tips", "sim", "atm", "first aid", "pronto soccorso"]  # TravelAssistant.shortWordPhrases
 # TravelAssistant.questionStopwords
 STOPWORDS = {
     "quale", "quali", "quanto", "quanta", "quanti", "quante", "quando", "perche", "sono", "della", "delle", "dello",
@@ -90,7 +91,9 @@ GENERAL_TRAVEL_WORDS = re.compile(r"\b(ester[oi]|in viaggio|viaggiando|abroad|ov
 # TravelAssistant.historyClimateWords
 HISTORY_CLIMATE_WORDS = re.compile(
     r"\b(stori|fondat|fondò|secol|guerr|antic|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|"
-    r"invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season)",
+    r"invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season|"
+    r"passat|origin|govern|medioev|nascit|nata\b|nato\b|period|quando andare|best time|when to go|establish|ruled|"
+    r"middle ages|past\b|origins?\b)",
     re.IGNORECASE)
 
 CITY_Q = {
@@ -205,13 +208,14 @@ CATEGORY_TRIGGERS = {
     "TRASPORTI": "arriv spost muov treno treni autob macchin auto nolegg guidar raggiun "
                  "bus train car drive rent transp metro reach around",
     "DOGANE": "passap docum front dogan visto alcol sigar passport border custom visa alcoh cigar",
-    "SALUTE": "vacci ammal malat medic osped salut farmac sanit sick ill doctor hospit health jab pharm",
+    "SALUTE": "vacci ammal malat medic osped salut farmac sanit sick ill doctor hospit health jab pharm pronto+soccorso first+aid",
     "SICUREZZA": "sicur peric derub furt borseg ladr crimin truff safe danger rob theft thief pickp crime scam",
     "CONNETTIVITA": "intern telef cellul sim wifi colleg roami online phone mobile connec",
     "STORIA": "stori origin nata nato fond passat medioev govern antic roman guerr "
-              "histor found establ past ancien rule middl war",
+              "histor found establ past ancien rule middl war middle+ages",
     "CLIMA": "clima meteo piog piov ombrel tempera primav estat invern autun nevic neve caldo fredd stagion "
-             "climat weather rain umbrel spring summer winter autumn snow hot cold season",
+             "climat weather rain umbrel spring summer winter autumn snow hot cold season "
+             "periodo+migliore quando+andare best+time when+to+go",
     "CONSIGLI": "combat evitar preven curar rimed superar affront deal cope avoid prevent cure treat overcom",
     "EMERGENZE": "perdo perso persa smarr rubat lose lost stolen",
 }
@@ -231,7 +235,12 @@ SHORT_STEM_CHARS = 4             # CategoryWords.SHORT_STEM_CHARS
 def question_categories(question):
     """questionCategories: le categorie che le parole della domanda indicano."""
     tokens = [folded(t) for t in re.split(r"[^\w]+|_", question) if t]
-    hit = lambda stem: any(t.startswith(stem) if len(stem) >= SHORT_STEM_CHARS else t in (stem, stem + "s") for t in tokens)
+    text = " " + " ".join(tokens) + " "
+
+    def hit(stem):
+        if "+" in stem:
+            return " " + stem.replace("+", " ") in text
+        return any(t.startswith(stem) if len(stem) >= SHORT_STEM_CHARS else t in (stem, stem + "s") for t in tokens)
     return {cat for cat, stems in CATEGORY_TRIGGERS.items() if any(hit(s) for s in stems.split())}
 
 
@@ -313,6 +322,20 @@ GENERAL_Q = {
         ("Meglio i contanti o la carta di credito in viaggio?", "Strumenti di pagamento"),
         ("Come evitare i costi del roaming col telefono?", "Telefono cellulare"),
         ("Serve un telefono satellitare nei posti isolati?", "Telefono cellulare"),
+        ("Come evitare il jet lag nei voli verso est?", "Jet lag"),
+        ("Quanti giorni servono per riprendersi dal fuso orario?", "Jet lag"),
+        ("Cosa fare se mi gira la testa in alta quota?", "Mal di montagna"),
+        ("Come ci si acclimata in montagna?", "Mal di montagna"),
+        ("L'assicurazione di viaggio copre le spese mediche?", "Assicurazione di viaggio"),
+        ("Cosa faccio se mi rubano i documenti in viaggio?", "Documenti"),
+        ("Mi hanno rubato la borsa, cosa devo fare?", "Borseggiatori"),
+        ("Dove tenere il portafoglio sui mezzi affollati?", "Borseggiatori"),
+        ("Come riconoscere un tassista disonesto?", "Truffe comuni"),
+        ("Cosa fare se mi chiedono soldi per strada?", "Truffe comuni"),
+        ("Conviene cambiare i soldi prima di partire?", "Strumenti di pagamento"),
+        ("Come prelevare contanti all'estero senza commissioni?", "Strumenti di pagamento"),
+        ("Come uso il cellulare all'estero senza spendere troppo?", "Telefono cellulare"),
+        ("Cosa portare in valigia per restare in salute?", "Salute"),
     ],
     "en": [
         ("How do I deal with jet lag?", "Jet lag"),
@@ -335,6 +358,20 @@ GENERAL_Q = {
         ("Do I need a satellite phone in remote places?", "Mobile phones"),
         ("How much should I tip in a restaurant?", "Tipping"),
         ("Which services usually expect a tip?", "Tipping"),
+        ("How do I avoid jet lag when flying east?", "Jet lag"),
+        ("How many days does it take to recover from the time difference?", "Jet lag"),
+        ("What should I do if I feel dizzy at high altitude?", "Altitude sickness"),
+        ("How do you acclimatize in the mountains?", "Altitude sickness"),
+        ("Does travel insurance cover medical bills?", "Travel insurance"),
+        ("What should I do if my passport is stolen while travelling?", "Passport"),
+        ("My bag was stolen, what should I do?", "Pickpockets"),
+        ("Where should I keep my wallet on crowded buses?", "Pickpockets"),
+        ("How do I recognise a dishonest taxi driver?", "Common scams"),
+        ("What should I do if strangers ask me for money?", "Common scams"),
+        ("Should I exchange money before I leave?", "Money"),
+        ("How do I withdraw cash abroad without fees?", "Money"),
+        ("How can I use my phone abroad without spending too much?", "Mobile phones"),
+        ("Is it customary to tip taxi drivers?", "Tipping"),
     ],
 }
 # Per lingua: domande dirette e riformulate (citta', storia e clima, paese, distanze), chiavi del manifest e suffisso
@@ -347,7 +384,38 @@ LANGS = {
            "reworded": (CITY_Q_REWORDED_EN, WIKI_Q_REWORDED_EN, COUNTRY_Q_REWORDED_EN, DISTANCE_Q_REWORDED_EN),
            "guides": "guidesEn", "cities": "citiesEn", "suffix": "-en", "other": "it"},
 }
-QUESTION_SETS = ["direct", "reworded", "other-lang", "general", "other-country"]
+# Domande di controllo: stesse categorie, parole scelte dopo aver scritto le liste di parole (CATEGORY_TRIGGERS) e mai
+# usate per costruirle o correggerle. Dicono se le liste valgono anche fuori dalle domande da cui sono nate: le correzioni
+# delle liste si fanno sugli errori delle altre serie, non su queste.
+CITY_Q_CONTROL = {
+    "COSA_VEDERE": ["Che cosa c'è di bello a {c}?", "Quali chiese meritano a {c}?"],
+    "TRASPORTI": ["C'è la metropolitana a {c}?", "Da quale stazione si parte per {c}?"],
+    "ALLOGGIO": ["C'è un ostello a {c}?", "Dove prenotare una camera a {c}?"],
+    "CIBO_BEVANDE": ["Dove fare colazione a {c}?", "Quale vino bere a {c}?"],
+    "ACQUISTI": ["Ci sono mercatini a {c}?"],
+}
+WIKI_Q_CONTROL = {"STORIA": ["Com'era {c} nell'Ottocento?", "Chi ha costruito le mura di {c}?"],
+                  "CLIMA": ["Che clima c'è a {c} a novembre?", "Fa freddo a {c} di sera?"]}
+COUNTRY_Q_CONTROL = {"DOGANE": ["Basta la carta d'identità?"], "SALUTE": ["Dove trovo una farmacia aperta?"],
+                     "SICUREZZA": ["Ci sono zone da evitare?"], "ACQUISTI": ["Si paga in euro?"],
+                     "CONNETTIVITA": ["Il wifi è diffuso?"], "TRASPORTI": ["Come sono le strade?"],
+                     "CIBO_BEVANDE": ["Cosa si beve?"]}
+CITY_Q_CONTROL_EN = {
+    "COSA_VEDERE": ["What is there to do in {c}?", "Which churches are worth it in {c}?"],
+    "TRASPORTI": ["Is there a metro in {c}?", "Which station do trains to {c} leave from?"],
+    "ALLOGGIO": ["Is there a hostel in {c}?", "Where can I book a room in {c}?"],
+    "CIBO_BEVANDE": ["Where can I have breakfast in {c}?", "Which wine should I drink in {c}?"],
+    "ACQUISTI": ["Are there markets in {c}?"],
+}
+WIKI_Q_CONTROL_EN = {"STORIA": ["What was {c} like in the 19th century?", "Who built the walls of {c}?"],
+                     "CLIMA": ["What is the climate in {c} in November?", "Is it cold in {c} in the evening?"]}
+COUNTRY_Q_CONTROL_EN = {"DOGANE": ["Is an ID card enough?"], "SALUTE": ["Where can I find an open pharmacy?"],
+                        "SICUREZZA": ["Are there areas to avoid?"], "ACQUISTI": ["Do they use the euro?"],
+                        "CONNETTIVITA": ["Is wifi common?"], "TRASPORTI": ["What are the roads like?"],
+                        "CIBO_BEVANDE": ["What do people drink?"]}
+LANGS["it"]["control"] = (CITY_Q_CONTROL, WIKI_Q_CONTROL, COUNTRY_Q_CONTROL, DISTANCE_Q)
+LANGS["en"]["control"] = (CITY_Q_CONTROL_EN, WIKI_Q_CONTROL_EN, COUNTRY_Q_CONTROL_EN, DISTANCE_Q_EN)
+QUESTION_SETS = ["direct", "reworded", "other-lang", "control", "general", "other-country"]
 KINDS = ["citta', domande pratiche", "paese", "citta', storia e clima", "distanze"]
 # Un paragrafo con una distanza o un tempo di viaggio ("72 km", "3 h 30", "20 minuti", "2 hours").
 TRAVEL_FIGURE = re.compile(r"\d+\s*(km|h|ore|minuti|min|hours?|minutes?)\b")
@@ -362,7 +430,7 @@ def fts_prefix(word):
     return word[:STEM_CHARS if len(word) < LONG_WORD_CHARS else STEM_CHARS + 1] + "*"
 
 
-def fts_query(question, region_id, city=None):
+def fts_query(question, region_id, city=None, keep_city_words=True):
     """buildFtsQuery: parole (divise su tutto cio' che non e' lettera o cifra, come l'indice) di almeno 4 caratteri in
     minuscolo, senza quelle del nome della regione e senza STOPWORDS; senza quelle della citta' [city] salvo che
     restino solo quelle; per prefisso (fts_prefix), senza doppioni, in OR."""
@@ -370,7 +438,7 @@ def fts_query(question, region_id, city=None):
     tokens = [t.lower() for t in re.split(r"[^\w]+|_", question) if t]
     words = [t for t in tokens if len(t) >= 4 and t not in region_tokens and folded(t) not in STOPWORDS]
     city_words = set(normalized_words(spoken_city_name(city)).split()) if city else set()
-    topic = [t for t in words if folded(t) not in city_words] or words
+    topic = [t for t in words if folded(t) not in city_words] or (words if keep_city_words else [])
     phrases = [f'"{p}"' for p in SHORT_WORD_PHRASES if f" {p} " in normalized_words(question)]
     return " OR ".join(dict.fromkeys([fts_prefix(t) for t in topic] + phrases))
 
@@ -554,7 +622,8 @@ def search(db, region, question, cities, lang="it", word_lists=False):
     city = named[0] if len(named) == 1 else None
     country = None if named else named_country(question, region, lang)
     with_words = (lambda q: with_category_words(q, question, lang)) if word_lists else (lambda q: q)
-    base = fts_query(question, region, city or (country and country[1]))
+    base = fts_query(question, region, city or (country and country[1]),
+                     keep_city_words=not (word_lists and question_categories(question)))
     fts = with_words(base)
     if not fts:
         return [], set()
@@ -659,7 +728,7 @@ def questions_of(lang, question_set):
     """I modelli di domanda (citta', storia e clima, paese, distanze) di [question_set] per le guide in [lang]."""
     if question_set == "other-lang":
         return LANGS[LANGS[lang]["other"]]["questions"]
-    return LANGS[lang]["reworded" if question_set == "reworded" else "questions"]
+    return LANGS[lang][question_set if question_set in ("reworded", "control") else "questions"]
 
 
 def make_plan(region, city_rows, rng, pick, questions):

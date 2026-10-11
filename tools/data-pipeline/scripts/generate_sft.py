@@ -539,7 +539,9 @@ DB_QUESTION_CATS = {"TRASPORTI": ("ARRIVARE", "TRASPORTI"), "COSA_VEDERE": ("COS
 # sezioni Storia e Clima pesano come le altre nella classifica dell'app
 HISTORY_CLIMATE_WORDS = re.compile(
     r"\b(stori|fondat|fondò|secol|guerr|antic|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|"
-    r"invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season)",
+    r"invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season|"
+    r"passat|origin|govern|medioev|nascit|nata\b|nato\b|period|quando andare|best time|when to go|establish|ruled|"
+    r"middle ages|past\b|origins?\b)",
     re.I)
 
 

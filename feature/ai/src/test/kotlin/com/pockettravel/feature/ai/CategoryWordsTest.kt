@@ -13,6 +13,10 @@ class CategoryWordsTest {
         // Le radici corte valgono solo come parola intera: "tipico" non e' "tip", "carta" non e' "car".
         assertEquals(emptySet<String>(), questionCategories("Che cosa e' tipico della zona?"))
         assertEquals(setOf("ACQUISTI"), questionCategories("How much should I tip?"))
+        // Espressioni di piu' parole: "best time" e "periodo migliore" sono il clima, "best" da solo no.
+        assertEquals(setOf("CLIMA"), questionCategories("When is the best time to go to Porto?"))
+        assertEquals(setOf("CLIMA"), questionCategories("Qual è il periodo migliore per andare a Lisbona?"))
+        assertEquals(emptySet<String>(), questionCategories("Which is the best beach?"))
         // Richieste di consigli e di cosa fare dopo una perdita, oltre alle categorie.
         assertEquals(setOf("CONSIGLI"), questionCategories("Come si combatte il jet lag?"))
         assertEquals(setOf("DOGANE", "EMERGENZE"), questionCategories("What do I do if I lose my passport abroad?"))

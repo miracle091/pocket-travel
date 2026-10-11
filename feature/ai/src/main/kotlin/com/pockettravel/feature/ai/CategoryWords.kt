@@ -4,7 +4,8 @@ package com.pockettravel.feature.ai
  * Liste di parole per categoria, per le domande dette con parole che le guide non usano ("pernottare", "souvenir",
  * "Where to stay" sulle guide inglesi, che scrivono "Sleep"). Radici (senza accenti) che nella domanda, in italiano o
  * in inglese, indicano la categoria: una parola le contiene se comincia con la radice; sotto le 4 lettere deve essere
- * uguale, o con una "s" in più ("tip", "tips"). Costruite dagli errori di tools/data-pipeline/scripts/eval_retrieval.py
+ * uguale, o con una "s" in più ("tip", "tips"); con "+" e' un'espressione, che conta all'inizio di una parola ("best+time",
+ * "periodo+migliore"). Costruite dagli errori di tools/data-pipeline/scripts/eval_retrieval.py
  * e da sinonimi delle stesse richieste. Accese per tutti; nelle build di debug il task manager le spegne
  * (WordListsOverride). La stessa tabella e' in eval_retrieval.py (--word-lists), che un test confronta con questa.
  */
@@ -18,13 +19,14 @@ private val categoryTriggers = mapOf(
     "TRASPORTI" to "arriv spost muov treno treni autob macchin auto nolegg guidar raggiun " +
         "bus train car drive rent transp metro reach around",
     "DOGANE" to "passap docum front dogan visto alcol sigar passport border custom visa alcoh cigar",
-    "SALUTE" to "vacci ammal malat medic osped salut farmac sanit sick ill doctor hospit health jab pharm",
+    "SALUTE" to "vacci ammal malat medic osped salut farmac sanit sick ill doctor hospit health jab pharm pronto+soccorso first+aid",
     "SICUREZZA" to "sicur peric derub furt borseg ladr crimin truff safe danger rob theft thief pickp crime scam",
     "CONNETTIVITA" to "intern telef cellul sim wifi colleg roami online phone mobile connec",
     "STORIA" to "stori origin nata nato fond passat medioev govern antic roman guerr " +
-        "histor found establ past ancien rule middl war",
+        "histor found establ past ancien rule middl war middle+ages",
     "CLIMA" to "clima meteo piog piov ombrel tempera primav estat invern autun nevic neve caldo fredd stagion " +
-        "climat weather rain umbrel spring summer winter autumn snow hot cold season",
+        "climat weather rain umbrel spring summer winter autumn snow hot cold season " +
+        "periodo+migliore quando+andare best+time when+to+go",
     // Non categorie ma richieste: cosa fare contro un problema e dopo una perdita o un furto. Portano alle sottosezioni
     // pratiche delle pagine del mondo ("Jet lag: Recupero", "Documenti: In caso di emergenza") invece della definizione.
     "CONSIGLI" to "combat evitar preven curar rimed superar affront deal cope avoid prevent cure treat overcom",
@@ -75,7 +77,12 @@ private const val SHORT_STEM_CHARS = 4
 /** I gruppi (categorie con il nome di GuideCategory, CONSIGLI, EMERGENZE) che le parole di [question] indicano. */
 internal fun questionCategories(question: String): Set<String> {
     val tokens = question.split(nonWord).filter { it.isNotEmpty() }.map(::folded)
-    fun hit(stem: String) = tokens.any { if (stem.length >= SHORT_STEM_CHARS) it.startsWith(stem) else it == stem || it == "${stem}s" }
+    val text = tokens.joinToString(" ", prefix = " ", postfix = " ")
+    fun hit(stem: String) = when {
+        '+' in stem -> " ${stem.replace('+', ' ')}" in text
+        stem.length >= SHORT_STEM_CHARS -> tokens.any { it.startsWith(stem) }
+        else -> tokens.any { it == stem || it == "${stem}s" }
+    }
     return categoryTriggers.filterValues { stems -> stems.any(::hit) }.keys
 }
 

@@ -176,7 +176,9 @@ class TravelAssistant @Inject constructor(
         val country = if (cities.isEmpty()) namedCountry(question, regionId, language) else null
         val city = cities.singleOrNull()
         val wordLists = WordListsOverride.enabled(context)
-        val topicBase = buildFtsQuery(question, regionId, city ?: country?.name)
+        // Con le parole della categoria non serve ripiegare sul nome della citta' quando la domanda non ha altre parole
+        // ("Where to eat in Collesano?"): il nome vincerebbe sulle sezioni dove compare piu' spesso.
+        val topicBase = buildFtsQuery(question, regionId, city ?: country?.name, keepCityWords = !wordLists || questionCategories(question).isEmpty())
         val topicQuery = withCategoryWords(topicBase, question, language, wordLists)
         val topicMatches = if (topicQuery.isBlank() || country != null) emptyList() else cityRepository.candidates(regionId, topicQuery, cities)
         // Nessuna sezione della citta' nominata con le parole della domanda: si cerca anche il suo nome.
@@ -410,7 +412,10 @@ private val nearbyWords = Regex(
 // Radici di parole di storia o clima, a inizio parola ("rain" non deve trovare "train").
 private val historyClimateWords = Regex(
     """\b(stori|fondat|fondò|secol|guerr|antic|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|""" +
-        """invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season)""",
+        """invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season|""" +
+        // Le stesse richieste dette con altre parole ("Quando e' nata X?", "When is the best time to go to X?").
+        """passat|origin|govern|medioev|nascit|nata\b|nato\b|period|quando andare|best time|when to go|establish|ruled|""" +
+        """middle ages|past\b|origins?\b)""",
     RegexOption.IGNORE_CASE,
 )
 
@@ -907,7 +912,7 @@ internal fun relevantParagraphs(body: String, focusStems: Set<String>, budget: I
  * interrogative o di servizio (questionStopwords). Le parole di almeno 5 lettere si cercano per
  * prefisso (ftsPrefix): l'indice non ha radici, e "mangia" deve trovare "Dove mangiare".
  */
-internal fun buildFtsQuery(question: String, regionId: String, city: String? = null): String {
+internal fun buildFtsQuery(question: String, regionId: String, city: String? = null, keepCityWords: Boolean = true): String {
     val regionNameTokens = regionId.split(Regex("[^\\p{L}\\p{N}]+")).map { it.lowercase() }.toSet()
     val words = question
         // Parole divise come le divide l'indice (unicode61): "dell'isola" e' "dell" e "isola", non "dellisola".
@@ -918,14 +923,14 @@ internal fun buildFtsQuery(question: String, regionId: String, city: String? = n
         .filter { it.length >= 4 && it !in regionNameTokens && folded(it) !in questionStopwords }
     val cityWords = city?.let { normalizedWords(spokenCityName(it)).split(' ').toSet() }.orEmpty()
     val phrases = shortWordPhrases.filter { " $it " in normalizedWords(question) }.map { "\"$it\"" }
-    return (words.filter { folded(it) !in cityWords }.ifEmpty { words }.map(::ftsPrefix) + phrases)
+    return (words.filter { folded(it) !in cityWords }.ifEmpty { if (keepCityWords) words else emptyList() }.map(::ftsPrefix) + phrases)
         .distinct()
         .joinToString(" OR ")
 }
 
-// Espressioni di parole sotto le 4 lettere, che buildFtsQuery altrimenti scarta: si cercano come frase ("jet lag" e' la
-// pagina del mondo Jet lag, non "jet" e "lag" ovunque).
-private val shortWordPhrases = listOf("jet lag", "wi fi")
+// Parole ed espressioni sotto le 4 lettere che buildFtsQuery altrimenti scarta: si cercano tra virgolette, come frase
+// ("jet lag" e' la pagina del mondo Jet lag, non "jet" e "lag" ovunque; "tip" la pagina Tipping).
+private val shortWordPhrases = listOf("jet lag", "wi fi", "tip", "tips", "sim", "atm", "first aid", "pronto soccorso")
 
 /**
  * [word] come prefisso FTS ("piatti" -> "piatt*", che trova anche "piatto"): le prime 5 lettere, 6 dalle parole di
