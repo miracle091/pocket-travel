@@ -14,7 +14,9 @@ Con --update-app-status, dopo il caricamento: calcola sha256 e dimensione dei .g
 confronta con quelli che HuggingFace riporta, avvia su main il job update-app-status-models di
 publish-apk.yml (app-status.json firmato con le impronte nuove: le app dalla 0.9.1 scaricano subito il
 modello ricaricato, senza un rilascio) e, se il run riesce, scrive le impronte in LlmModelCatalog.kt
-(riserva per quando l'app non raggiunge app-status.json). Senza --push mostra solo le impronte.
+(riserva per quando l'app non raggiunge app-status.json). Un modello nuovo, non ancora in app-status.json, non
+passa dal workflow: le impronte vanno solo nel catalogo, e in app-status.json con il rilascio successivo. Senza --push
+mostra solo le impronte.
 
 POLICY Viaggiare Sicuri (vedi generate_sft_dataset.py): con --vs il dataset
 include Viaggiare Sicuri (Farnesina), licenza non verificata; siccome il training e' estrattivo, un modello
@@ -229,8 +231,19 @@ def run_update_workflow(models):
     return conclusion == "success"
 
 
+def released_model_ids():
+    """modelId dei modelli nell'app-status.json pubblicato (release app-status del repository). La firma non serve qui:
+    decide solo a chi chiedere l'aggiornamento, e il workflow la verifica prima di riscrivere il file."""
+    out = subprocess.run(["gh", "release", "download", "app-status", "--pattern", "app-status.json", "--output", "-"],
+                         check=True, capture_output=True, text=True).stdout
+    return {m["modelId"] for m in json.loads(out).get("aiModels", [])}
+
+
 def update_app_status(api, repo, folder, push):
-    """--update-app-status: impronte dei GGUF caricati -> app-status.json firmato (workflow) -> catalogo dei modelli."""
+    """--update-app-status: impronte dei GGUF caricati -> app-status.json firmato (workflow) -> catalogo dei modelli.
+    Un modello che non e' ancora in app-status.json (nuovo, assente dal catalogo dell'ultimo rilascio) nessuna app
+    rilasciata lo scarica: le sue impronte vanno solo nel catalogo, e in app-status.json con il rilascio successivo
+    (publish-apk.yml le legge dal catalogo, resolve_ai_models.py)."""
     ggufs = sorted(folder.glob("*.gguf"))
     if not ggufs:
         sys.exit(f"--update-app-status: nessun .gguf in {folder}")
@@ -243,14 +256,24 @@ def update_app_status(api, repo, folder, push):
         print("Dry-run: app-status.json e catalogo non aggiornati.")
         return
     check_on_hf(api, repo, models)
-    if not run_update_workflow(models):
+    released = released_model_ids()
+    known = [m for m in models if m["modelId"] in released]
+    for m in models:
+        if m not in known:
+            print(f"  {m['modelId']}: non e' in app-status.json (nessuna app rilasciata lo scarica), impronte solo nel "
+                  "catalogo; arrivano in app-status.json con il prossimo rilascio.")
+    if known and not run_update_workflow(known):
         sys.exit("Workflow fallito: catalogo dei modelli non aggiornato. Dettagli su GitHub Actions.")
     text = CATALOG.read_text(encoding="utf-8")
     for m in models:
         text = update_catalog(text, m["fileName"], m["sha256"], m["sizeBytes"])
     CATALOG.write_text(text, encoding="utf-8", newline="")
-    print(f"app-status.json aggiornato e {CATALOG.name} allineato. Il commit del catalogo non e' urgente: al "
-          "rilascio publish-apk.yml tiene l'impronta che coincide con HuggingFace, dal catalogo o dal file online.")
+    if known:
+        print(f"app-status.json aggiornato e {CATALOG.name} allineato. Il commit del catalogo non e' urgente: al "
+              "rilascio publish-apk.yml tiene l'impronta che coincide con HuggingFace, dal catalogo o dal file online.")
+    if len(known) < len(models):
+        print(f"{CATALOG.name} aggiornato: va committato prima del rilascio, e' l'unica fonte delle impronte dei "
+              "modelli nuovi.")
 
 
 def main():

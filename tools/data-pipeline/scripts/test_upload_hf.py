@@ -3,9 +3,13 @@
 
 Uso: python test_upload_hf.py
 """
+import contextlib
+import io
 import json
+import tempfile
 import types
 import unittest
+from pathlib import Path
 from unittest import mock
 
 import upload_hf
@@ -117,6 +121,52 @@ class WorkflowRunTest(unittest.TestCase):
     def test_job_non_finito(self):
         with self.gh({"jobs": [{"name": upload_hf.UPDATE_JOB, "conclusion": ""}]}):
             self.assertIsNone(upload_hf.job_conclusion("7"))
+
+
+class UpdateAppStatusTest(unittest.TestCase):
+    """--update-app-status --push con un GGUF finto: workflow solo per i modelli gia' in app-status.json."""
+
+    def run_update(self, file_name, repo, released, workflow_ok=True):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp) / "model"
+            folder.mkdir()
+            gguf = folder / file_name
+            gguf.write_bytes(b"gguf")
+            catalog = Path(tmp) / "LlmModelCatalog.kt"
+            catalog.write_text(CATALOG, encoding="utf-8")
+            info = types.SimpleNamespace(path=file_name, size=4, lfs=types.SimpleNamespace(sha256=upload_hf.sha256_of(gguf)))
+            api = types.SimpleNamespace(get_paths_info=lambda repo, paths: [info])
+            with mock.patch.object(upload_hf, "CATALOG", catalog), \
+                    mock.patch.object(upload_hf, "released_model_ids", return_value=released), \
+                    mock.patch.object(upload_hf, "run_update_workflow", return_value=workflow_ok) as workflow, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                exited = False
+                try:
+                    upload_hf.update_app_status(api, repo, folder, push=True)
+                except SystemExit:
+                    exited = True
+            return workflow, catalog.read_text(encoding="utf-8"), exited
+
+    def test_modello_nuovo_solo_nel_catalogo(self):
+        workflow, text, exited = self.run_update("future.gguf", "pockettravel/future-GGUF", {"pt-qwen3.5-0.8b"})
+        self.assertFalse(exited)
+        workflow.assert_not_called()
+        self.assertNotIn("sha256 = null", text)
+        self.assertIn("sizeBytes = 4L", text)
+
+    def test_modello_gia_pubblicato_passa_dal_workflow(self):
+        workflow, text, exited = self.run_update("travel.gguf", "pockettravel/qwen3.5-0.8b-travel-it-GGUF",
+                                                 {"pt-qwen3.5-0.8b"})
+        self.assertFalse(exited)
+        workflow.assert_called_once()
+        self.assertEqual(["pt-qwen3.5-0.8b"], [m["modelId"] for m in workflow.call_args.args[0]])
+        self.assertNotIn('sha256 = "bbbb"', text)
+
+    def test_workflow_fallito_lascia_il_catalogo(self):
+        _, text, exited = self.run_update("travel.gguf", "pockettravel/qwen3.5-0.8b-travel-it-GGUF",
+                                          {"pt-qwen3.5-0.8b"}, workflow_ok=False)
+        self.assertTrue(exited)
+        self.assertEqual(CATALOG, text)
 
 
 class RealCatalogTest(unittest.TestCase):
