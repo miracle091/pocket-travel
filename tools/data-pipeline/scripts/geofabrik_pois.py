@@ -113,12 +113,40 @@ def anelli_poly(text):
     return polygons
 
 
+def anelli_geojson(text):
+    """Anelli esterni del file .geojson di un estratto (la sola geometria); nessuno se non e' JSON valido (una pagina
+    d'errore al posto del file)."""
+    try:
+        return anelli(json.loads(text))
+    except (ValueError, KeyError, TypeError):
+        return []
+
+
+def poligono_scaricato(base_url, cache, name, user_agent):
+    """Anelli dell'estratto dai suoi file accanto al pbf: prima <nome>.geojson (la sola geometria, piena anche dove il
+    .poly e' vuoto, come Kyushu), poi <nome>.poly. Un file vuoto (Geofabrik risponde 200 senza contenuto mentre
+    rigenera i poligoni) non resta in cache: la regione dopo, nello stesso job, ci riprova."""
+    for ext, parse in ((".geojson", anelli_geojson), (".poly", anelli_poly)):
+        path = os.path.join(cache, f"{name}{ext}")
+        if not os.path.exists(path):
+            scarica(base_url + ext, path, user_agent)
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        if not text.strip():
+            os.remove(path)
+            continue
+        polygons = [[ring] for ring in parse(text)] if ext == ".geojson" else parse(text)
+        if polygons:
+            return polygons
+    return []
+
+
 def completa_geometrie(index, cache, user_agent):
     """Agli estratti che nell'indice hanno il poligono vuoto (dal 2026-10 Giappone, Thailandia, sei stati USA...)
-    da' quello del loro file .poly, accanto al pbf: senza, la Georgia USA userebbe solo gli stati vicini. Se anche il
-    .poly e' vuoto (Kyushu) prende il poligono dell'antenato piu' vicino che ne ha uno: piu' grande del vero, al
-    massimo fa scaricare un estratto in piu', mai mancare POI. Il .poly resta in cache; senza nessun poligono, o se
-    il .poly non si scarica, lo script esce e build-region.sh ripiega su Overpass."""
+    da' quello dei loro file .geojson o .poly, accanto al pbf (poligono_scaricato): senza, la Georgia USA userebbe solo
+    gli stati vicini. Se anche quelli sono vuoti prende il poligono dell'antenato piu' vicino che ne ha uno: piu' grande
+    del vero, al massimo fa scaricare un estratto in piu', mai mancare POI. Senza nessun poligono, o se i file non si
+    scaricano, lo script esce e build-region.sh ripiega su Overpass."""
     by_id = {f["properties"]["id"]: f for f in index["features"]}
     missing = []
     for feature in index["features"]:
@@ -126,11 +154,7 @@ def completa_geometrie(index, cache, user_agent):
         pbf = props.get("urls", {}).get("pbf", "")
         if not geometry or not pbf.endswith("-latest.osm.pbf") or anelli(geometry):
             continue
-        path = os.path.join(cache, f"{nome_file(props['id'])}.poly")
-        if not os.path.exists(path):
-            scarica(pbf.removesuffix("-latest.osm.pbf") + ".poly", path, user_agent)
-        with open(path, encoding="utf-8") as f:
-            polygons = anelli_poly(f.read())
+        polygons = poligono_scaricato(pbf.removesuffix("-latest.osm.pbf"), cache, nome_file(props["id"]), user_agent)
         feature["geometry"] = {"type": "MultiPolygon", "coordinates": polygons}
         if not polygons:
             missing.append(feature)
@@ -139,7 +163,7 @@ def completa_geometrie(index, cache, user_agent):
         while ancestor and not (ancestor.get("geometry") and anelli(ancestor["geometry"])):
             ancestor = by_id.get(ancestor["properties"].get("parent"))
         if not ancestor:
-            sys.exit(f"estratto Geofabrik {feature['properties']['id']} senza poligono, neanche nel file .poly o in un genitore")
+            sys.exit(f"estratto Geofabrik {feature['properties']['id']} senza poligono, neanche nei file .geojson e .poly o in un genitore")
         print(f"-- geofabrik: {feature['properties']['id']} senza poligono, uso quello di {ancestor['properties']['id']}", flush=True)
         feature["geometry"] = ancestor["geometry"]
         # Il poligono prestato copre i fratelli: per scegli_estratti l'estratto non e' composto.

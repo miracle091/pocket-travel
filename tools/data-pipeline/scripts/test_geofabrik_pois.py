@@ -51,20 +51,33 @@ class CompletaGeometrieTest(unittest.TestCase):
             vuoto("kansai", "giappone"),
             vuoto("kyushu", "giappone"),
         ]}
-        polys = {"kansai": "kansai\n1\n  0 0\n  5 0\n  5 5\n  0 5\nEND\nEND\n", "kyushu": "none\nEND\n"}
+        # kansai: .geojson vuoto (Geofabrik risponde 200 senza contenuto), poligono dal .poly; kyushu: vuoti tutti e due.
+        files = {"kansai.poly": "kansai\n1\n  0 0\n  5 0\n  5 5\n  0 5\nEND\nEND\n", "kyushu.poly": "none\nEND\n"}
 
         with tempfile.TemporaryDirectory() as cache, \
-                mock.patch.object(geofabrik_pois, "scarica", side_effect=scrivi(lambda url: polys[url.rsplit("/", 1)[1][:-5]])):
+                mock.patch.object(geofabrik_pois, "scarica", side_effect=scrivi(lambda url: files.get(url.rsplit("/", 1)[1], ""))):
             geofabrik_pois.completa_geometrie(index, cache, "test")
 
         # kyushu ha il poligono del Giappone, che copre anche kanto: resta una foglia, non un composto.
         chosen = [cid for cid, _ in geofabrik_pois.scegli_estratti(index, (1, 1, 2, 2))]
         self.assertEqual(sorted(chosen), ["kansai", "kyushu"])
 
+    def test_il_geojson_dell_estratto_viene_prima_del_poly(self):
+        index = {"features": [quadrato("giappone", 0, 0, 20, 10), vuoto("kyushu", "giappone")]}
+        geojson = '{ "type" : "MultiPolygon", "coordinates" : [[[[0,0],[3,0],[3,3],[0,3],[0,0]]]] }'
+
+        with tempfile.TemporaryDirectory() as cache, \
+                mock.patch.object(geofabrik_pois, "scarica", side_effect=scrivi(lambda url: geojson if url.endswith(".geojson") else "none\nEND\n")):
+            geofabrik_pois.completa_geometrie(index, cache, "test")
+
+        kyushu = index["features"][1]
+        self.assertEqual(kyushu["geometry"]["coordinates"], [[[[0, 0], [3, 0], [3, 3], [0, 3], [0, 0]]]])
+        self.assertNotIn("poligono_del_genitore", kyushu["properties"])
+
     def test_senza_poligono_ne_genitore_esce(self):
         index = {"features": [vuoto("solo", None)]}
         with tempfile.TemporaryDirectory() as cache, \
-                mock.patch.object(geofabrik_pois, "scarica", side_effect=scrivi("none\nEND\n")), \
+                mock.patch.object(geofabrik_pois, "scarica", side_effect=scrivi(lambda url: "none\nEND\n" if url.endswith(".poly") else "")), \
                 self.assertRaises(SystemExit):
             geofabrik_pois.completa_geometrie(index, cache, "test")
 
