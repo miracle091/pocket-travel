@@ -62,26 +62,31 @@ Held-out test set of 508 questions over 11 countries never seen in training (and
 outside the training templates and with contexts shaped exactly like the app's: 160 answerable questions on the
 countries' guides, 44 paraphrased questions whose topic is missing from the context, 110 off-topic and 44 with
 an empty context, 50 answerable and 20 unanswerable city questions, and smaller groups on the history and climate of
-cities, nearby places and next departures. GGUF evaluated with llama.cpp (greedy decoding). Refusal rates: higher
-is better on the first block, lower is better on the second.
+cities, nearby places and next departures. This model and its base model were evaluated as GGUF with llama.cpp
+(greedy decoding), on the same questions and with the same prompt; the base model is the official
+[unsloth/Qwen3.5-0.8B-GGUF](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF) quantization (UD-Q4_K_XL) that the app offers in the same
+memory tier. Refusal rates: higher is better on the first block, lower is better on the second.
 
-| Metric | This model |
-|---|---|
-| Refuses when the context is empty (no guide text found) | 100% |
-| Refuses off-topic questions | 99.1% |
-| Refuses paraphrased country questions whose topic is missing from the context | 93.2% |
-| Refuses city questions whose topic is missing from the page | 85% |
-| Refuses city history or climate questions the context does not cover | 100% |
-| Refuses "what is near me" questions with no matching place nearby | 100% |
-| Refuses departure questions with no matching departure | 100% |
-| Wrongly refuses answerable country questions | 3.1% |
-| Wrongly refuses answerable city questions | 10% |
-| Wrongly refuses answerable city history or climate questions | 4.2% |
-| Wrongly refuses answerable "what is near me" questions | 28.6% |
-| Wrongly refuses answerable departure questions | 7.1% |
+| Metric | This model | Base model (Qwen3.5-0.8B) |
+|---|---|---|
+| Refuses when the context is empty (no guide text found) | 100% | 6.8% |
+| Refuses off-topic questions | 99.1% | 7.3% |
+| Refuses paraphrased country questions whose topic is missing from the context | 93.2% | 2.3% |
+| Refuses city questions whose topic is missing from the page | 85% | 5% |
+| Refuses city history or climate questions the context does not cover | 100% | 0% |
+| Refuses "what is near me" questions with no matching place nearby | 100% | 20% |
+| Refuses departure questions with no matching departure | 100% | 0% |
+| Wrongly refuses answerable country questions | 3.8% | 1.2% |
+| Wrongly refuses answerable city questions | 10% | 2% |
+| Wrongly refuses answerable city history or climate questions | 4.2% | 4.2% |
+| Wrongly refuses answerable "what is near me" questions | 28.6% | 14.3% |
+| Wrongly refuses answerable departure questions | 7.1% | 7.1% |
 
-A refusal is any recognizable "the context does not say" answer. This test set is new with this version (more
-groups, contexts with the app's extra blocks), so the numbers are not comparable with the previous version's card.
+A refusal is any recognizable "the context does not say" answer, counted with the same rule for both models (the base
+model words it in its own way). The base model's low rate of wrong refusals on some groups comes with few refusals
+overall: where it does not refuse, it often answers from its own knowledge or with text from the context that does
+not answer the question. This test set is new with this version (more groups, contexts with the app's extra blocks),
+so the numbers are not comparable with the previous version's card.
 
 ## Training
 
