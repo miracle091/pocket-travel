@@ -33,3 +33,13 @@ data class InstalledRegion(
         PackageKind.TRANSIT -> transitVersion
     }
 }
+
+/**
+ * Versione che la migrazione dei POI (database 24 -> 25) scrive al posto di quella installata quando non ha abbastanza spazio per
+ * convertirli: nessun catalogo la usa, quindi la nazione risulta da aggiornare e i punti di interesse si riscaricano.
+ */
+const val POI_TO_REDOWNLOAD_VERSION = "da-riscaricare"
+
+/** I pacchetti POI che la migrazione ha tolto per mancanza di spazio: da riscaricare. */
+fun InstalledRegion.poiToRedownload(): Set<PackageKind> =
+    setOf(PackageKind.POI, PackageKind.POI_EXTRA).filterTo(mutableSetOf()) { versionOf(it) == POI_TO_REDOWNLOAD_VERSION }

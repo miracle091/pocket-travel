@@ -2,6 +2,7 @@ package com.pockettravel.app.regions
 
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.InstalledRegion
+import com.pockettravel.core.data.POI_TO_REDOWNLOAD_VERSION
 import com.pockettravel.core.sync.AddressGridCell
 import com.pockettravel.core.sync.MapExtractionSource
 import com.pockettravel.core.sync.MapPackageEntry
@@ -103,6 +104,14 @@ class RegionUiItemTest {
         assertEquals(RegionStatus.UPDATE_AVAILABLE, item.status)
         assertEquals(1_800_000L, item.sizeBytes)
         assertEquals(setOf(PackageKind.TRANSIT), outdatedKinds(withTransit, old))
+    }
+
+    @Test
+    fun `i POI tolti dalla migrazione del database fanno risultare la nazione da aggiornare`() {
+        val installed = local(map = "m2", routing = "r1", poi = POI_TO_REDOWNLOAD_VERSION)
+
+        assertEquals(setOf(PackageKind.POI), outdatedKinds(remote, installed))
+        assertEquals(RegionStatus.UPDATE_AVAILABLE, regionUiItem(remote, installed, noBytes).status)
     }
 
     @Test

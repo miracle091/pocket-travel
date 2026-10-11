@@ -3,6 +3,7 @@ package com.pockettravel.core.data.db
 import androidx.room.migration.Migration
 import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.pockettravel.core.data.POI_TO_REDOWNLOAD_VERSION
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -278,6 +279,7 @@ class RegionDatabaseMigrationTest {
     fun migrazione24a25ConvertePoiInFormaCompattaConGliStessiDatiEIdentificatori() {
         helper.createDatabase(DB_NAME, 24).use { db ->
             insertInstalledRegion(db, "italia", poiVersion = "1", poiExtraVersion = "1", poiSizeBytes = 100, poiExtraSizeBytes = 20, sizeBytes = 1000)
+            insertInstalledRegion(db, "san-marino", poiVersion = "1", poiSizeBytes = 10, sizeBytes = 10)
             insertOldPoi(db, 7, "italia", "Da Mario", "restaurant", 45.123456, 9.654321, "amenity=restaurant", extra = 0, wheelchair = "yes")
             insertOldPoi(db, 9, "italia", "Farmacia", "pharmacy", -33.5, -70.25, "amenity=pharmacy", extra = 0)
             insertOldPoi(db, 12, "italia", "Altra Trattoria", "restaurant", 41.9, 12.5, "amenity=restaurant", extra = 1)
@@ -323,43 +325,78 @@ class RegionDatabaseMigrationTest {
             // L'id continua dopo l'ultimo (AUTOINCREMENT): un nuovo POI non riusa un id.
             db.execSQL("INSERT INTO poi (regionRef, code, latE6, lonE6, name) VALUES (1, 1, 1, 1, 'Nuovo')")
             assertEquals(14, scalar(db, "SELECT MAX(id) FROM poi"))
-            // La regione resta installata con i suoi pacchetti.
-            db.query("SELECT poiVersion, poiExtraVersion, poiSizeBytes, sizeBytes FROM installed_regions WHERE regionId = 'italia'").use { cursor ->
+            // La regione resta installata con i suoi pacchetti, ma il peso dei POI non e' piu' quello del file scaricato: e' la stima
+            // sulle righe convertite (base ed extra a parte) e il totale cambia della differenza. Il POI extra si stima come il base.
+            db.query("SELECT poiVersion, poiExtraVersion, poiSizeBytes, poiExtraSizeBytes, sizeBytes FROM installed_regions WHERE regionId = 'italia'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("1", cursor.getString(0))
                 assertEquals("1", cursor.getString(1))
-                assertEquals(100L, cursor.getLong(2))
-                assertEquals(1000L, cursor.getLong(3))
+                // Due POI base ("Da Mario", "Farmacia") e uno extra ("Altra Trattoria"); wheelchair "yes" di Da Mario conta 3 byte.
+                val base = estimate("Da Mario", wheelchair = "yes") + estimate("Farmacia")
+                val extra = estimate("Altra Trattoria")
+                assertEquals(base, cursor.getLong(2))
+                assertEquals(extra, cursor.getLong(3))
+                assertEquals(1000L - 100 - 20 + base + extra, cursor.getLong(4))
+            }
+            db.query("SELECT poiSizeBytes, poiExtraSizeBytes FROM installed_regions WHERE regionId = 'san-marino'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(estimate("Bar Titano"), cursor.getLong(0))
+                assertTrue("senza POI extra installati il peso resta vuoto", cursor.isNull(1))
             }
         }
     }
 
-    // Senza spazio per la conversione (hasRoomToConvertPoi) la tabella si ricrea vuota e i POI risultano da riscaricare.
+    // Senza spazio per la conversione la tabella si ricrea vuota e i POI delle regioni risultano da riscaricare: la versione e' un
+    // valore che nessun catalogo usa, cosi' outdatedKinds li vede come da aggiornare (RegionUiItemTest).
     @Test
     fun migrazione24a25SenzaSpazioSvuotaIPoiELiSegnaDaRiscaricare() {
         helper.createDatabase(DB_NAME, 24).use { db ->
             insertInstalledRegion(db, "italia", mapVersion = "1", poiVersion = "1", poiExtraVersion = "1", poiSizeBytes = 100, poiExtraSizeBytes = 20, sizeBytes = 1000)
-            // Una regione con i soli POI: senza non resta alcun pacchetto, non c'e' piu'.
+            // Senza POI extra installati la versione resta vuota: non c'e' niente da riscaricare.
+            insertInstalledRegion(db, "san-marino", mapVersion = "1", poiVersion = "1", poiSizeBytes = 50, sizeBytes = 500)
+            // Una regione con i soli POI resta, con i POI da riscaricare.
             insertInstalledRegion(db, "solo-poi", poiVersion = "1", poiSizeBytes = 50, sizeBytes = 50)
             insertOldPoi(db, 1, "italia", "Da Mario", "restaurant", 45.0, 9.0, "amenity=restaurant", extra = 0)
             db.execSQL("INSERT INTO notes (title, body, updatedAt) VALUES ('t', 'b', 5)")
         }
 
         val withoutRoom = object : Migration(24, 25) {
-            override fun migrate(db: SupportSQLiteDatabase) = migratePoiToCompact(db, convert = false)
+            override fun migrate(db: SupportSQLiteDatabase) = migratePoiToCompact(db, freeBytes = 0)
         }
         helper.runMigrationsAndValidate(DB_NAME, 25, true, withoutRoom).use { db ->
             assertEquals(0, scalar(db, "SELECT COUNT(*) FROM poi"))
             db.query("SELECT poiVersion, poiExtraVersion, poiSizeBytes, poiExtraSizeBytes, mapVersion, sizeBytes FROM installed_regions WHERE regionId = 'italia'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
-                assertTrue((0..3).all { cursor.isNull(it) })
+                assertEquals(POI_TO_REDOWNLOAD_VERSION, cursor.getString(0))
+                assertEquals(POI_TO_REDOWNLOAD_VERSION, cursor.getString(1))
+                assertEquals(0L, cursor.getLong(2))
+                assertEquals(0L, cursor.getLong(3))
                 assertEquals("1", cursor.getString(4))
                 assertEquals(880L, cursor.getLong(5))
             }
-            assertEquals(0, scalar(db, "SELECT COUNT(*) FROM installed_regions WHERE regionId = 'solo-poi'"))
+            db.query("SELECT poiVersion, poiExtraVersion, poiExtraSizeBytes, sizeBytes FROM installed_regions WHERE regionId = 'san-marino'").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(POI_TO_REDOWNLOAD_VERSION, cursor.getString(0))
+                assertTrue(cursor.isNull(1) && cursor.isNull(2))
+                assertEquals(450L, cursor.getLong(3))
+            }
+            assertEquals(POI_TO_REDOWNLOAD_VERSION, db.query("SELECT poiVersion FROM installed_regions WHERE regionId = 'solo-poi'").use { it.moveToFirst(); it.getString(0) })
             assertEquals("i dati dell'utente non si toccano", 1, scalar(db, "SELECT COUNT(*) FROM notes"))
         }
     }
+
+    // Lo spazio che la migrazione chiede per convertire: la stima dei POI per due (il WAL ne tiene una copia) piu' un margine.
+    @Test
+    fun migrazione24a25ChiedeSpazioPariAlDoppioDellaStimaPiuIlMargine() {
+        helper.createDatabase(DB_NAME, 24).use { db ->
+            insertOldPoi(db, 1, "italia", "Da Mario", "restaurant", 45.0, 9.0, "amenity=restaurant", extra = 0)
+            assertEquals(2 * estimate("Da Mario") + 8L * 1024 * 1024, poiConversionNeedsBytes(db))
+        }
+    }
+
+    // La stima di PoiRow.estimatedStorageBytes per un POI con quel nome (e l'accessibilita'): la migrazione deve dare lo stesso numero.
+    private fun estimate(name: String, wheelchair: String? = null): Long =
+        PoiRow(regionRef = 1, code = 1, latE6 = 0, lonE6 = 0, name = name, wheelchair = wheelchair).estimatedStorageBytes()
 
     private fun scalar(db: SupportSQLiteDatabase, sql: String): Int = db.query(sql).use { cursor ->
         cursor.moveToFirst()

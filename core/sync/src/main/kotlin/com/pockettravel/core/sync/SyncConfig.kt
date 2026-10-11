@@ -61,6 +61,7 @@ object SyncConfig {
     val ALLOWED_MANIFEST_HOSTS: Set<String> get() = current.allowedHosts
 
     const val PERIODIC_SYNC_WORK_NAME = "region-manifest-sync"
+    const val ONE_TIME_SYNC_WORK_NAME = "region-manifest-sync-now"
     const val DOWNLOAD_WORK_NAME_PREFIX = "region-download-"
 
     // Tag dei download delle regioni; con "$DOWNLOAD_TAG:<regionId>" l'elenco sa quali sono in corso.

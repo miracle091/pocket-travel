@@ -3,6 +3,7 @@ package com.pockettravel.core.sync
 import android.content.Context
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
+import com.pockettravel.core.data.poiToRedownload
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -20,6 +21,7 @@ class RegionStartupRecovery @Inject constructor(
     private val regionRepository: RegionRepository,
     private val regionStorage: RegionStorage,
     private val regionSyncScheduler: RegionSyncScheduler,
+    private val manifestCheckNow: RegionManifestCheckNow,
 ) {
     suspend fun run() = withContext(Dispatchers.IO) {
         // Staging delle versioni precedenti dell'app, in cacheDir: solo dati temporanei.
@@ -53,6 +55,10 @@ class RegionStartupRecovery @Inject constructor(
             }
             if (!keep) regionStorage.deleteStaging(stagingId)
         }
+
+        // Punti di interesse tolti dalla migrazione del database per mancanza di spazio: la notifica non aspetta il controllo
+        // periodico (fino a un giorno), parte appena c'e' una rete.
+        if (regionRepository.observeInstalled().first().any { it.poiToRedownload().isNotEmpty() }) manifestCheckNow.enqueue()
 
         // Le pagine che una migrazione del database (la conversione dei POI) o una rimozione fatta in un'altra sessione hanno
         // lasciato libere: per ultimo, e' il lavoro piu' lungo e non serve a niente di quanto sopra.

@@ -6,6 +6,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.poiToRedownload
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
@@ -38,7 +39,7 @@ class RegionManifestSyncWorker @AssistedInject constructor(
                 val outdated = remote.availableKinds.filterTo(mutableSetOf()) { kind ->
                     local.versionOf(kind)?.let { it != remote.versionOf(kind) } == true
                 }
-                if (outdated.isNotEmpty()) notifier.notifyUpdateAvailable(remote, outdated)
+                if (outdated.isNotEmpty()) notifier.notifyUpdateAvailable(remote, outdated, local.poiToRedownload())
             }
             // Le guide (tutte le nazioni) si installano e aggiornano da sole: sotto i 5 MB anche su rete a consumo.
             val guides = manifest.guidesChoice()

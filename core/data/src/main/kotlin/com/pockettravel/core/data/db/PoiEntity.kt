@@ -103,10 +103,23 @@ fun PoiRow.estimatedStorageBytes(): Long {
 }
 
 // Parte fissa della riga: id, regionRef, code, latE6, lonE6, extra, capacityDisabled e l'intestazione dei 18 campi.
-private const val FIXED_ROW_BYTES = 32L
+internal const val FIXED_ROW_BYTES = 32L
 // Le tre voci d'indice (chiave piu' rowid e intestazione): regionRef 9, (regionRef, latE6) 16, (regionRef, code) 11.
-private const val INDEXES_BYTES = 36L
-private const val BTREE_FILL_PERCENT = 105L
-private const val PERCENT = 100L
+internal const val INDEXES_BYTES = 36L
+internal const val BTREE_FILL_PERCENT = 105L
+internal const val PERCENT = 100L
+
+/**
+ * La stessa stima di [estimatedStorageBytes] come espressione SQL su una riga della tabella poi (vecchia o nuova: le colonne di
+ * testo hanno gli stessi nomi): serve alla migrazione, che non ha i POI in memoria. length(CAST(x AS BLOB)) sono i byte UTF-8,
+ * la divisione intera per riga e' quella di Kotlin, quindi la SUM coincide con la somma delle stime.
+ */
+internal const val POI_ROW_ESTIMATE_SQL =
+    "(($FIXED_ROW_BYTES + length(CAST(name AS BLOB)) + COALESCE(length(CAST(phone AS BLOB)), 0) + " +
+        "COALESCE(length(CAST(wheelchair AS BLOB)), 0) + COALESCE(length(CAST(openingHours AS BLOB)), 0) + " +
+        "COALESCE(length(CAST(address AS BLOB)), 0) + COALESCE(length(CAST(website AS BLOB)), 0) + " +
+        "COALESCE(length(CAST(email AS BLOB)), 0) + COALESCE(length(CAST(country AS BLOB)), 0) + " +
+        "COALESCE(length(CAST(nameEn AS BLOB)), 0) + COALESCE(length(CAST(nameIt AS BLOB)), 0) + " +
+        "COALESCE(length(CAST(toiletsWheelchair AS BLOB)), 0) + $INDEXES_BYTES) * $BTREE_FILL_PERCENT / $PERCENT)"
 
 private fun utf8Length(text: String?): Long = text?.toByteArray(Charsets.UTF_8)?.size?.toLong() ?: 0L

@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.text.format.Formatter
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -37,13 +38,27 @@ class UpdateAvailableNotifier @Inject constructor(
         )
     }
 
-    fun notifyUpdateAvailable(entry: RegionManifestEntry, kinds: Set<PackageKind>) {
-        val sizeMb = entry.downloadBytes(kinds) / (1024 * 1024)
+    /**
+     * [redownloadKinds]: i pacchetti che la migrazione del database ha tolto per mancanza di spazio (InstalledRegion.poiToRedownload).
+     * Se fra gli aggiornamenti [kinds] ce ne sono, il testo dice che vanno riscaricati e il peso e' il loro.
+     */
+    fun notifyUpdateAvailable(entry: RegionManifestEntry, kinds: Set<PackageKind>, redownloadKinds: Set<PackageKind> = emptySet()) {
+        val missing = redownloadKinds intersect kinds
+        if (missing.isNotEmpty()) {
+            notify(
+                CHANNEL_ID,
+                entry.regionId.hashCode(),
+                context.getString(R.string.sync_update_poi_redownload_title),
+                context.getString(R.string.sync_update_poi_redownload_text, entry.displayName, size(entry.downloadBytes(missing))),
+                openApp(OPEN_UPDATES),
+            )
+            return
+        }
         notify(
             CHANNEL_ID,
             entry.regionId.hashCode(),
             context.getString(R.string.sync_update_region_title),
-            context.getString(R.string.sync_update_region_text, entry.displayName, sizeMb),
+            context.getString(R.string.sync_update_region_text, entry.displayName, size(entry.downloadBytes(kinds))),
             openApp(OPEN_UPDATES),
         )
     }
@@ -59,15 +74,17 @@ class UpdateAvailableNotifier @Inject constructor(
     }
 
     fun notifyAiModelUpdateAvailable(entry: AiModelManifestEntry) {
-        val sizeMb = entry.sizeBytes / (1024 * 1024)
         notify(
             AI_MODEL_CHANNEL_ID,
             AI_MODEL_NOTIFICATION_ID,
             context.getString(R.string.sync_update_ai_model_title),
-            context.getString(R.string.sync_update_ai_model_text, entry.modelVersion, sizeMb),
+            context.getString(R.string.sync_update_ai_model_text, entry.modelVersion, size(entry.sizeBytes)),
             openApp(OPEN_UPDATES),
         )
     }
+
+    // Peso con l'unita' giusta (kB, MB, GB), come in Spazio di archiviazione: in MB interi una nazione piccola dava "0 MB".
+    private fun size(bytes: Long): String = Formatter.formatShortFileSize(context, bytes)
 
     // L'activity di avvio dell'app (intent esplicito) con la schermata da aprire: la legge MainActivity.
     private fun openApp(screen: String): PendingIntent? {

@@ -2,6 +2,7 @@ package com.pockettravel.core.data.db
 
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.pockettravel.core.data.POI_TO_REDOWNLOAD_VERSION
 import java.io.File
 
 /** Tutte le migrazioni, per Room.databaseBuilder e per i test. */
@@ -382,17 +383,20 @@ val MIGRATION_17_24 = object : Migration(17, 24) {
 // Da 24 a 25: POI in forma compatta (poi_region, poi_code, coordinate intere in microgradi), da 172 a 94 MB per un milione di
 // POI. E' la migrazione piu' recente: resta separata, la 17 -> 24 sopra e' gia' quella unita.
 val MIGRATION_24_25 = object : Migration(24, 25) {
-    override fun migrate(db: SupportSQLiteDatabase) = migratePoiToCompact(db, convert = hasRoomToConvertPoi(db))
+    override fun migrate(db: SupportSQLiteDatabase) = migratePoiToCompact(db)
 }
 
 /**
- * Riscrive la tabella poi nella forma compatta di [PoiRow]. Con [convert] i POI gia' importati si convertono in SQL: la regione
- * e la coppia (category, osmTag) di ogni riga diventano un intero, lat e lon microgradi interi (arrotondati, 11 cm), gli id
- * restano gli stessi. Senza, la tabella si ricrea vuota e i POI (base ed extra) delle regioni installate risultano non
- * installati, da riscaricare: serve a chi non ha abbastanza spazio libero per tenere insieme la tabella vecchia e la nuova.
- * Gli altri pacchetti della regione e i dati dell'utente non si toccano.
+ * Riscrive la tabella poi nella forma compatta di [PoiRow]. Se [freeBytes] basta (vedi [poiConversionNeedsBytes]) i POI gia'
+ * importati si convertono in SQL: la regione e la coppia (category, osmTag) di ogni riga diventano un intero, lat e lon
+ * microgradi interi (arrotondati, 11 cm), gli id restano gli stessi, e il peso dei POI di ogni regione installata si ricalcola
+ * con la stima di [PoiRow.estimatedStorageBytes] invece di quello del file scaricato. Altrimenti la tabella si ricrea vuota e
+ * i POI (base ed extra) delle regioni installate prendono la versione [POI_TO_REDOWNLOAD_VERSION]: risultano da aggiornare,
+ * da riscaricare. Gli altri pacchetti della regione e i dati dell'utente non si toccano. [freeBytes] e' lo spazio libero del
+ * disco; solo i test lo passano, per provare i due rami senza riempire il disco.
  */
-internal fun migratePoiToCompact(db: SupportSQLiteDatabase, convert: Boolean) {
+internal fun migratePoiToCompact(db: SupportSQLiteDatabase, freeBytes: Long = freeSpaceOf(db)) {
+    val convert = freeBytes >= poiConversionNeedsBytes(db)
     db.execSQL("CREATE TABLE IF NOT EXISTS `poi_region` (`ref` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `regionId` TEXT NOT NULL)")
     db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_poi_region_regionId` ON `poi_region` (`regionId`)")
     db.execSQL(
@@ -406,6 +410,7 @@ internal fun migratePoiToCompact(db: SupportSQLiteDatabase, convert: Boolean) {
     db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionRef` ON `poi` (`regionRef`)")
     db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionRef_latE6` ON `poi` (`regionRef`, `latE6`)")
     db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionRef_code` ON `poi` (`regionRef`, `code`)")
+    if (convert) updateInstalledPoiSizes(db)
 }
 
 private fun createCompactPoiTable(db: SupportSQLiteDatabase) {
@@ -457,32 +462,52 @@ private fun convertPoiRows(db: SupportSQLiteDatabase) {
     )
 }
 
-// I POI non ci sono piu': la regione non li ha installati e il peso registrato scende della loro parte. Una regione rimasta senza
-// alcun pacchetto non c'e' piu' (come RegionRepository.save).
+// I POI non ci sono piu': la regione li segna da riscaricare (versione-segnaposto, peso a zero) e il peso registrato scende della
+// loro parte. Un pacchetto assente resta assente.
 private fun forgetInstalledPoi(db: SupportSQLiteDatabase) {
     db.execSQL(
         """
         UPDATE `installed_regions` SET
             `sizeBytes` = MAX(0, `sizeBytes` - COALESCE(`poiSizeBytes`, 0) - COALESCE(`poiExtraSizeBytes`, 0)),
-            `poiVersion` = NULL, `poiExtraVersion` = NULL, `poiSizeBytes` = NULL, `poiExtraSizeBytes` = NULL
+            `poiVersion` = CASE WHEN `poiVersion` IS NULL THEN NULL ELSE '$POI_TO_REDOWNLOAD_VERSION' END,
+            `poiExtraVersion` = CASE WHEN `poiExtraVersion` IS NULL THEN NULL ELSE '$POI_TO_REDOWNLOAD_VERSION' END,
+            `poiSizeBytes` = CASE WHEN `poiVersion` IS NULL THEN NULL ELSE 0 END,
+            `poiExtraSizeBytes` = CASE WHEN `poiExtraVersion` IS NULL THEN NULL ELSE 0 END
         """.trimIndent()
     )
+}
+
+// Il peso registrato dei POI di ogni regione installata e' la stima sulle righe convertite, base ed extra a parte; il totale
+// della regione (sizeBytes) cambia della differenza. Tre istruzioni per non ripetere le sottoquery: la prima toglie il peso
+// vecchio, la seconda scrive il nuovo, la terza lo aggiunge.
+private fun updateInstalledPoiSizes(db: SupportSQLiteDatabase) {
     db.execSQL(
-        """
-        DELETE FROM `installed_regions` WHERE `mapVersion` IS NULL AND `routingVersion` IS NULL AND `addressesVersion` IS NULL
-            AND `citiesVersion` IS NULL AND `transitVersion` IS NULL
-        """.trimIndent()
+        "UPDATE `installed_regions` SET `sizeBytes` = MAX(0, `sizeBytes` - COALESCE(`poiSizeBytes`, 0) - COALESCE(`poiExtraSizeBytes`, 0))"
     )
+    for ((version, size, extra) in listOf(Triple("poiVersion", "poiSizeBytes", 0), Triple("poiExtraVersion", "poiExtraSizeBytes", 1))) {
+        db.execSQL(
+            """
+            UPDATE `installed_regions` SET `$size` = CASE WHEN `$version` IS NULL THEN NULL ELSE COALESCE((
+                SELECT SUM($POI_ROW_ESTIMATE_SQL) FROM `poi`
+                WHERE `regionRef` = (SELECT `ref` FROM `poi_region` WHERE `regionId` = `installed_regions`.`regionId`) AND `extra` = $extra
+            ), 0) END
+            """.trimIndent()
+        )
+    }
+    db.execSQL("UPDATE `installed_regions` SET `sizeBytes` = `sizeBytes` + COALESCE(`poiSizeBytes`, 0) + COALESCE(`poiExtraSizeBytes`, 0)")
 }
 
-// La conversione scrive la tabella nuova (circa la meta' della vecchia) accanto a quella vecchia, e il WAL ne tiene una copia
-// fino al checkpoint: servono quanto il file di region.db, che e' fatto soprattutto dai POI, piu' un 10%. Il file non si
-// accorcia da solo dopo la DROP: lo fa DatabaseCompactor, all'avvio.
-private fun hasRoomToConvertPoi(db: SupportSQLiteDatabase): Boolean {
+// La conversione scrive la tabella nuova accanto a quella vecchia: la stima del suo peso (la stessa dei POI importati) per due,
+// perche' il WAL ne tiene una copia fino al checkpoint, piu' un margine. Il file non si accorcia da solo dopo la DROP: lo fa
+// DatabaseCompactor, all'avvio.
+internal fun poiConversionNeedsBytes(db: SupportSQLiteDatabase): Long {
+    val estimate = db.query("SELECT COALESCE(SUM($POI_ROW_ESTIMATE_SQL), 0) FROM `poi`").use { if (it.moveToFirst()) it.getLong(0) else 0L }
+    return 2 * estimate + CONVERSION_MARGIN_BYTES
+}
+
+private fun freeSpaceOf(db: SupportSQLiteDatabase): Long {
     val file = db.path?.takeIf { it != ":memory:" }?.let(::File)
-    val directory = file?.absoluteFile?.parentFile
-    return file == null || directory == null || directory.usableSpace >= file.length() + file.length() / CONVERSION_MARGIN_DIVISOR
+    return file?.absoluteFile?.parentFile?.usableSpace ?: Long.MAX_VALUE
 }
 
-// Un decimo del file di margine.
-private const val CONVERSION_MARGIN_DIVISOR = 10
+private const val CONVERSION_MARGIN_BYTES = 8L * 1024 * 1024

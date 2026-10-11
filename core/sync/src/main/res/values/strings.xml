@@ -17,9 +17,11 @@
     <string name="sync_updates_app_channel">Aggiornamenti dell\'app</string>
     <string name="sync_updates_ai_model_channel">Aggiornamenti del modello IA</string>
     <string name="sync_update_region_title">Aggiornamento disponibile</string>
-    <string name="sync_update_region_text">%1$s, %2$d MB</string>
+    <string name="sync_update_region_text">%1$s, %2$s</string>
+    <string name="sync_update_poi_redownload_title">Punti di interesse da riscaricare</string>
+    <string name="sync_update_poi_redownload_text">%1$s: mancava lo spazio per aggiornarli (%2$s)</string>
     <string name="sync_update_app_title">Aggiornamento dell\'app disponibile</string>
     <string name="sync_update_app_text">Versione %1$s</string>
     <string name="sync_update_ai_model_title">Aggiornamento del modello IA disponibile</string>
-    <string name="sync_update_ai_model_text">%1$s, %2$d MB</string>
+    <string name="sync_update_ai_model_text">%1$s, %2$s</string>
 </resources>
