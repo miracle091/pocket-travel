@@ -8,7 +8,9 @@ import androidx.room.TypeConverters
     entities = [
         GuideSectionEntity::class,
         GuideSectionFts::class,
-        PoiEntity::class,
+        PoiRow::class,
+        PoiRegionEntity::class,
+        PoiCodeEntity::class,
         InstalledRegionEntity::class,
         PassportEntity::class,
         EmergencyNumbersEntity::class,
@@ -26,13 +28,14 @@ import androidx.room.TypeConverters
         VaccRecommendedEntity::class,
         VaccMetaEntity::class,
     ],
-    version = 24,
+    version = 25,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class RegionDatabase : RoomDatabase() {
     abstract fun guideDao(): GuideDao
     abstract fun poiDao(): PoiDao
+    abstract fun poiCodeDao(): PoiCodeDao
     abstract fun installedRegionDao(): InstalledRegionDao
     abstract fun passportDao(): PassportDao
     abstract fun emergencyNumbersDao(): EmergencyNumbersDao

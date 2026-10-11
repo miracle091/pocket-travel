@@ -3,6 +3,7 @@ package com.pockettravel.core.data
 import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiEntity
+import com.pockettravel.core.data.db.PoiRow
 import com.pockettravel.core.data.db.TransportCount
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -23,7 +24,7 @@ class PoiRepositorySearchTest {
             minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, limit: Int,
         ): List<PoiEntity> = emptyList()
 
-        override suspend fun insertAll(pois: List<PoiEntity>) = Unit
+        override suspend fun insertAll(pois: List<PoiRow>) = Unit
         override suspend fun poisForRegion(regionId: String): List<PoiEntity> = emptyList()
         override suspend fun poisInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, excluded: List<String>, accessibility: Int, limit: Int): List<PoiEntity> = emptyList()
         override suspend fun spreadInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, cellLat: Double, cellLon: Double, excluded: List<String>, accessibility: Int): List<PoiEntity> = emptyList()

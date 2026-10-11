@@ -184,6 +184,9 @@ class RegionRepository @Inject constructor(
     suspend fun markGuidesInstalled(version: String, sizeBytes: Long) =
         installedRegionDao.upsertGuides(InstalledGuidesEntity(version = version, sizeBytes = sizeBytes))
 
+    /** VACUUM di region.db se ha tante pagine libere (vedi [DatabaseCompactor]): all'avvio, dopo una migrazione che ne ha lasciate. */
+    suspend fun compactDatabase() = compactor.compactIfWasteful()
+
     suspend fun <T> inInstallTransaction(block: suspend () -> T): T = compactor.exclusive { database.withTransaction { block() } }
 
     /** Riallinea i pacchetti su disco di [regionId] alle versioni registrate dopo un'installazione interrotta da un crash. */

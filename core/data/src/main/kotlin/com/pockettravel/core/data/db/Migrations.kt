@@ -2,10 +2,11 @@ package com.pockettravel.core.data.db
 
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import java.io.File
 
 /** Tutte le migrazioni, per Room.databaseBuilder e per i test. */
 val ALL_MIGRATIONS: Array<Migration>
-    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_24)
+    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_24, MIGRATION_24_25)
 
 /** Versioni del database mai uscite in una versione pubblicata dell'app (solo sviluppo). */
 val UNRELEASED_VERSIONS = intArrayOf(1, 2, 4, 7, 8, 10, 12, 13, 14, 16, 18, 19, 20, 21, 22, 23)
@@ -377,3 +378,111 @@ val MIGRATION_17_24 = object : Migration(17, 24) {
         db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `translated` INTEGER NOT NULL DEFAULT 0")
     }
 }
+
+// Da 24 a 25: POI in forma compatta (poi_region, poi_code, coordinate intere in microgradi), da 172 a 94 MB per un milione di
+// POI. E' la migrazione piu' recente: resta separata, la 17 -> 24 sopra e' gia' quella unita.
+val MIGRATION_24_25 = object : Migration(24, 25) {
+    override fun migrate(db: SupportSQLiteDatabase) = migratePoiToCompact(db, convert = hasRoomToConvertPoi(db))
+}
+
+/**
+ * Riscrive la tabella poi nella forma compatta di [PoiRow]. Con [convert] i POI gia' importati si convertono in SQL: la regione
+ * e la coppia (category, osmTag) di ogni riga diventano un intero, lat e lon microgradi interi (arrotondati, 11 cm), gli id
+ * restano gli stessi. Senza, la tabella si ricrea vuota e i POI (base ed extra) delle regioni installate risultano non
+ * installati, da riscaricare: serve a chi non ha abbastanza spazio libero per tenere insieme la tabella vecchia e la nuova.
+ * Gli altri pacchetti della regione e i dati dell'utente non si toccano.
+ */
+internal fun migratePoiToCompact(db: SupportSQLiteDatabase, convert: Boolean) {
+    db.execSQL("CREATE TABLE IF NOT EXISTS `poi_region` (`ref` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `regionId` TEXT NOT NULL)")
+    db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_poi_region_regionId` ON `poi_region` (`regionId`)")
+    db.execSQL(
+        "CREATE TABLE IF NOT EXISTS `poi_code` (`code` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `category` TEXT NOT NULL, `osmTag` TEXT NOT NULL)"
+    )
+    db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_poi_code_category_osmTag` ON `poi_code` (`category`, `osmTag`)")
+    createCompactPoiTable(db)
+    if (convert) convertPoiRows(db) else forgetInstalledPoi(db)
+    db.execSQL("DROP TABLE `poi`")
+    db.execSQL("ALTER TABLE `poi_new` RENAME TO `poi`")
+    db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionRef` ON `poi` (`regionRef`)")
+    db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionRef_latE6` ON `poi` (`regionRef`, `latE6`)")
+    db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionRef_code` ON `poi` (`regionRef`, `code`)")
+}
+
+private fun createCompactPoiTable(db: SupportSQLiteDatabase) {
+    db.execSQL(
+        """
+        CREATE TABLE `poi_new` (
+            `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+            `regionRef` INTEGER NOT NULL,
+            `code` INTEGER NOT NULL,
+            `latE6` INTEGER NOT NULL,
+            `lonE6` INTEGER NOT NULL,
+            `extra` INTEGER NOT NULL DEFAULT 0,
+            `name` TEXT NOT NULL,
+            `phone` TEXT,
+            `wheelchair` TEXT,
+            `openingHours` TEXT,
+            `address` TEXT,
+            `website` TEXT,
+            `email` TEXT,
+            `country` TEXT,
+            `nameEn` TEXT,
+            `nameIt` TEXT,
+            `toiletsWheelchair` TEXT,
+            `capacityDisabled` INTEGER
+        )
+        """.trimIndent()
+    )
+}
+
+private fun convertPoiRows(db: SupportSQLiteDatabase) {
+    db.execSQL("INSERT OR IGNORE INTO `poi_region` (`regionId`) SELECT DISTINCT `regionId` FROM `poi`")
+    db.execSQL("INSERT OR IGNORE INTO `poi_code` (`category`, `osmTag`) SELECT DISTINCT `category`, `osmTag` FROM `poi`")
+    // CROSS JOIN: la tabella vecchia si legge una volta, in ordine di rowid, e le due ricerche sono sugli indici unici delle
+    // tabelle piccole; senza, SQLite potrebbe ordinare un milione di righe su disco per l'ORDER BY.
+    db.execSQL(
+        """
+        INSERT INTO `poi_new` (
+            `id`, `regionRef`, `code`, `latE6`, `lonE6`, `extra`, `name`, `phone`, `wheelchair`, `openingHours`, `address`,
+            `website`, `email`, `country`, `nameEn`, `nameIt`, `toiletsWheelchair`, `capacityDisabled`
+        )
+        SELECT poi.`id`, poi_region.`ref`, poi_code.`code`, CAST(ROUND(poi.`lat` * 1000000) AS INTEGER),
+            CAST(ROUND(poi.`lon` * 1000000) AS INTEGER), poi.`extra`, poi.`name`, poi.`phone`, poi.`wheelchair`,
+            poi.`openingHours`, poi.`address`, poi.`website`, poi.`email`, poi.`country`, poi.`nameEn`, poi.`nameIt`,
+            poi.`toiletsWheelchair`, poi.`capacityDisabled`
+        FROM `poi`
+        CROSS JOIN `poi_region` ON poi_region.`regionId` = poi.`regionId`
+        CROSS JOIN `poi_code` ON poi_code.`category` = poi.`category` AND poi_code.`osmTag` = poi.`osmTag`
+        """.trimIndent()
+    )
+}
+
+// I POI non ci sono piu': la regione non li ha installati e il peso registrato scende della loro parte. Una regione rimasta senza
+// alcun pacchetto non c'e' piu' (come RegionRepository.save).
+private fun forgetInstalledPoi(db: SupportSQLiteDatabase) {
+    db.execSQL(
+        """
+        UPDATE `installed_regions` SET
+            `sizeBytes` = MAX(0, `sizeBytes` - COALESCE(`poiSizeBytes`, 0) - COALESCE(`poiExtraSizeBytes`, 0)),
+            `poiVersion` = NULL, `poiExtraVersion` = NULL, `poiSizeBytes` = NULL, `poiExtraSizeBytes` = NULL
+        """.trimIndent()
+    )
+    db.execSQL(
+        """
+        DELETE FROM `installed_regions` WHERE `mapVersion` IS NULL AND `routingVersion` IS NULL AND `addressesVersion` IS NULL
+            AND `citiesVersion` IS NULL AND `transitVersion` IS NULL
+        """.trimIndent()
+    )
+}
+
+// La conversione scrive la tabella nuova (circa la meta' della vecchia) accanto a quella vecchia, e il WAL ne tiene una copia
+// fino al checkpoint: servono quanto il file di region.db, che e' fatto soprattutto dai POI, piu' un 10%. Il file non si
+// accorcia da solo dopo la DROP: lo fa DatabaseCompactor, all'avvio.
+private fun hasRoomToConvertPoi(db: SupportSQLiteDatabase): Boolean {
+    val file = db.path?.takeIf { it != ":memory:" }?.let(::File)
+    val directory = file?.absoluteFile?.parentFile
+    return file == null || directory == null || directory.usableSpace >= file.length() + file.length() / CONVERSION_MARGIN_DIVISOR
+}
+
+// Un decimo del file di margine.
+private const val CONVERSION_MARGIN_DIVISOR = 10

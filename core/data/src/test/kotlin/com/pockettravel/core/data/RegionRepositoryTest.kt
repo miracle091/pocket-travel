@@ -14,8 +14,10 @@ import com.pockettravel.core.data.db.InstalledGuidesEntity
 import com.pockettravel.core.data.db.InstalledRegionEntity
 import com.pockettravel.core.data.db.NoteDao
 import com.pockettravel.core.data.db.PassportDao
+import com.pockettravel.core.data.db.PoiCodeDao
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiEntity
+import com.pockettravel.core.data.db.PoiRow
 import com.pockettravel.core.data.db.RegionDatabase
 import com.pockettravel.core.data.db.InstalledRegionDao
 import com.pockettravel.core.data.db.TransportCount
@@ -73,7 +75,7 @@ private class NoOpGuideDao : GuideDao {
 }
 
 private class NoOpPoiDao : PoiDao {
-    override suspend fun insertAll(pois: List<PoiEntity>) = Unit
+    override suspend fun insertAll(pois: List<PoiRow>) = Unit
     override suspend fun poisForRegion(regionId: String): List<PoiEntity> = emptyList()
     override suspend fun poisInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, excluded: List<String>, accessibility: Int, limit: Int): List<PoiEntity> = emptyList()
     override suspend fun spreadInBounds(regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, cellLat: Double, cellLon: Double, excluded: List<String>, accessibility: Int): List<PoiEntity> = emptyList()
@@ -111,6 +113,7 @@ private class UnusedRegionDatabase(
 ) : RegionDatabase() {
     override fun guideDao() = guide
     override fun poiDao() = poi
+    override fun poiCodeDao(): PoiCodeDao = throw UnsupportedOperationException()
     override fun installedRegionDao() = regionPackage
     override fun passportDao(): PassportDao = throw UnsupportedOperationException()
     override fun emergencyNumbersDao(): EmergencyNumbersDao = throw UnsupportedOperationException()

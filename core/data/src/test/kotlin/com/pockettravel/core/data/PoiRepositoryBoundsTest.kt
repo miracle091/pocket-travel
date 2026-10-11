@@ -5,6 +5,7 @@ import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.db.POIS_IN_BOUNDS
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiEntity
+import com.pockettravel.core.data.db.PoiRow
 import com.pockettravel.core.data.db.SPREAD_IN_BOUNDS
 import com.pockettravel.core.data.db.SPREAD_IN_WIDE_BOUNDS
 import com.pockettravel.core.data.db.TransportCount
@@ -30,9 +31,16 @@ class PoiRepositoryBoundsTest {
     fun setUp() {
         connection = DriverManager.getConnection("jdbc:sqlite::memory:")
         connection.createStatement().use {
-            it.execute("CREATE TABLE poi(id INTEGER PRIMARY KEY AUTOINCREMENT, regionId TEXT, name TEXT, category TEXT, lat REAL, lon REAL, osmTag TEXT, wheelchair TEXT, toiletsWheelchair TEXT)")
-            // Lo stesso nome dell'indice di PoiEntity: SPREAD_IN_WIDE_BOUNDS lo impone con INDEXED BY.
-            it.execute("CREATE INDEX index_poi_regionId ON poi(regionId)")
+            it.execute("CREATE TABLE poi_region(ref INTEGER PRIMARY KEY AUTOINCREMENT, regionId TEXT NOT NULL UNIQUE)")
+            it.execute("CREATE TABLE poi_code(code INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL, osmTag TEXT NOT NULL, UNIQUE(category, osmTag))")
+            it.execute(
+                "CREATE TABLE poi(id INTEGER PRIMARY KEY AUTOINCREMENT, regionRef INTEGER NOT NULL, code INTEGER NOT NULL, latE6 INTEGER NOT NULL, " +
+                    "lonE6 INTEGER NOT NULL, extra INTEGER NOT NULL DEFAULT 0, name TEXT NOT NULL, phone TEXT, wheelchair TEXT, openingHours TEXT, " +
+                    "address TEXT, website TEXT, email TEXT, country TEXT, nameEn TEXT, nameIt TEXT, toiletsWheelchair TEXT, capacityDisabled INTEGER)",
+            )
+            // Lo stesso nome dell'indice di PoiRow: SPREAD_IN_WIDE_BOUNDS lo impone con INDEXED BY.
+            it.execute("CREATE INDEX index_poi_regionRef ON poi(regionRef)")
+            it.execute("INSERT INTO poi_region(regionId) VALUES ('roma')")
         }
     }
 
@@ -40,12 +48,20 @@ class PoiRepositoryBoundsTest {
     fun tearDown() = connection.close()
 
     private fun insert(name: String, category: String, osmTag: String, lat: Double, lon: Double, wheelchair: String? = null) {
-        connection.prepareStatement("INSERT INTO poi(regionId, name, category, lat, lon, osmTag, wheelchair) VALUES ('roma', ?, ?, ?, ?, ?, ?)").use {
-            it.setString(1, name)
-            it.setString(2, category)
-            it.setDouble(3, lat)
-            it.setDouble(4, lon)
-            it.setString(5, osmTag)
+        connection.prepareStatement("INSERT OR IGNORE INTO poi_code(category, osmTag) VALUES (?, ?)").use {
+            it.setString(1, category)
+            it.setString(2, osmTag)
+            it.executeUpdate()
+        }
+        connection.prepareStatement(
+            "INSERT INTO poi(regionRef, code, latE6, lonE6, name, wheelchair) " +
+                "VALUES (1, (SELECT code FROM poi_code WHERE category = ? AND osmTag = ?), ?, ?, ?, ?)",
+        ).use {
+            it.setString(1, category)
+            it.setString(2, osmTag)
+            it.setLong(3, Math.round(lat * 1_000_000))
+            it.setLong(4, Math.round(lon * 1_000_000))
+            it.setString(5, name)
             it.setString(6, wheelchair)
             it.executeUpdate()
         }
@@ -101,7 +117,7 @@ class PoiRepositoryBoundsTest {
         override suspend fun categoryTagsInRegion(regionId: String): List<CategoryTag> =
             run(CATEGORY_TAGS_IN_REGION, mapOf("regionId" to regionId), emptyList()) { CategoryTag(it.getString("category"), it.getString("osmTag")) }
 
-        override suspend fun insertAll(pois: List<PoiEntity>) = Unit
+        override suspend fun insertAll(pois: List<PoiRow>) = Unit
         override suspend fun poisForRegion(regionId: String): List<PoiEntity> = emptyList()
         override suspend fun transportCounts(regionId: String): List<TransportCount> = emptyList()
         override suspend fun embassiesOf(regionId: String, country: String): List<PoiEntity> = emptyList()

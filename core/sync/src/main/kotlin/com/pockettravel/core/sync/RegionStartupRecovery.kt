@@ -12,7 +12,7 @@ import javax.inject.Inject
 
 /**
  * All'avvio dell'app: chiude le attivazioni di pacchetti interrotte da un crash, dimentica i
- * pacchetti registrati i cui file non ci sono piu' e toglie lo staging che nessun download usera' piu'. Le regioni con un download in coda o in corso restano
+ * pacchetti registrati i cui file non ci sono piu' e toglie lo staging che nessun download usera' piu'; poi restituisce lo spazio libero di region.db. Le regioni con un download in coda o in corso restano
  * al loro worker (RegionPackageInstaller recupera da se' prima di attivare).
  */
 class RegionStartupRecovery @Inject constructor(
@@ -53,5 +53,9 @@ class RegionStartupRecovery @Inject constructor(
             }
             if (!keep) regionStorage.deleteStaging(stagingId)
         }
+
+        // Le pagine che una migrazione del database (la conversione dei POI) o una rimozione fatta in un'altra sessione hanno
+        // lasciato libere: per ultimo, e' il lavoro piu' lungo e non serve a niente di quanto sopra.
+        regionRepository.compactDatabase()
     }
 }

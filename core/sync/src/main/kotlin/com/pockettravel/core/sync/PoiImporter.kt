@@ -2,8 +2,9 @@ package com.pockettravel.core.sync
 
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.withTransaction
+import com.pockettravel.core.data.db.PoiCodeDao
 import com.pockettravel.core.data.db.PoiDao
-import com.pockettravel.core.data.db.PoiEntity
+import com.pockettravel.core.data.db.PoiRow
 import com.pockettravel.core.data.db.RegionDatabase
 import com.pockettravel.core.data.db.estimatedStorageBytes
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +15,9 @@ import javax.inject.Inject
 /**
  * Importa il poi.db (o, con extra, il poi-extra.db) scaricato di una regione (generato da
  * tools/data-pipeline) in region.db, l'unico database che l'app interroga via PoiDao, sostituendo
- * i POI dello stesso pacchetto gia' presenti per la regione. Le colonne corrispondono 1:1 a PoiEntity meno l'id, autogenerato all'insert. poi.db
+ * i POI dello stesso pacchetto gia' presenti per la regione. Le colonne corrispondono a PoiRow meno l'id, autogenerato all'insert:
+ * regione e coppia (category, osmTag) diventano interi di poi_region e poi_code (registrati qui se nuovi), le coordinate
+ * microgradi interi. poi.db
  * viene cancellato dopo un import riuscito: tenerlo raddoppierebbe lo spazio occupato.
  *
  * Due formati, distinti da PRAGMA user_version (SQLiteDatabase.version): 0 (assente, il vecchio
@@ -47,9 +50,12 @@ class PoiImporter @Inject constructor(
     suspend fun replaceFromFile(regionId: String, poiDbFile: File, extra: Boolean = false): Long =
         database.withTransaction {
             poiDao.deleteForRegion(regionId, extra)
+            val poiCodeDao = database.poiCodeDao()
+            poiCodeDao.ensureRegion(regionId)
+            val regionRef = poiCodeDao.regionRef(regionId)
             var storageBytes = 0L
             SQLiteDatabase.openDatabase(poiDbFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-                forEachPoiChunk(regionId, db, extra) { chunk ->
+                forEachPoiChunk(regionRef, db, extra, poiCodeDao) { chunk ->
                     poiDao.insertAll(chunk)
                     storageBytes += chunk.sumOf { it.estimatedStorageBytes() }
                 }
@@ -61,12 +67,16 @@ class PoiImporter @Inject constructor(
     // MergeManifests.convertV1Region, tools/data-pipeline) pubblicati prima di "phone" non la hanno, i
     // poi.db pubblicati prima di "wheelchair" nemmeno questa. Selezionare una colonna assente farebbe
     // fallire l'intero download.
-    private suspend fun forEachPoiChunk(regionId: String, db: SQLiteDatabase, extra: Boolean, onChunk: suspend (List<PoiEntity>) -> Unit) {
+    private suspend fun forEachPoiChunk(
+        regionRef: Long, db: SQLiteDatabase, extra: Boolean, poiCodeDao: PoiCodeDao, onChunk: suspend (List<PoiRow>) -> Unit,
+    ) {
         // db.version legge PRAGMA user_version: assente (0) sui file nel vecchio formato, vedi la
         // nota di formato sopra la classe.
         val columns = poiColumns(db)
         val query = if (db.version >= 1) compactPoiQuery(columns) else poiQuery(columns)
-        var pois = ArrayList<PoiEntity>(CHUNK_SIZE)
+        var pois = ArrayList<PoiRow>(CHUNK_SIZE)
+        // I codici di poi_code, uno per coppia (category, osmTag): poche centinaia, si chiedono al database la prima volta.
+        val codes = HashMap<Pair<String, String>, Long>()
         db.rawQuery(query, null).use { cursor ->
             // Indici calcolati una volta sola, non a ogni riga (-1: colonna assente dal file).
             val phone = cursor.getColumnIndex("phone")
@@ -82,13 +92,19 @@ class PoiImporter @Inject constructor(
             val capacityDisabled = cursor.getColumnIndex("capacityDisabled")
             fun optional(index: Int): String? = if (index >= 0 && !cursor.isNull(index)) cursor.getString(index) else null
             while (cursor.moveToNext()) {
-                pois += PoiEntity(
-                    regionId = regionId,
+                val category = cursor.getString(1)
+                val osmTag = cursor.getString(4)
+                val code = codes.getOrPut(category to osmTag) {
+                    poiCodeDao.ensureCode(category, osmTag)
+                    poiCodeDao.codeOf(category, osmTag)
+                }
+                pois += PoiRow(
+                    regionRef = regionRef,
+                    code = code,
+                    // Il formato compatto ha gia' i microgradi (la query li divide per 1e6, qui si riportano allo stesso intero).
+                    latE6 = Math.round(cursor.getDouble(2) * MICRODEGREES),
+                    lonE6 = Math.round(cursor.getDouble(3) * MICRODEGREES),
                     name = cursor.getString(0),
-                    category = cursor.getString(1),
-                    lat = cursor.getDouble(2),
-                    lon = cursor.getDouble(3),
-                    osmTag = cursor.getString(4),
                     phone = optional(phone),
                     wheelchair = optional(wheelchair),
                     openingHours = optional(openingHours),
@@ -122,6 +138,7 @@ class PoiImporter @Inject constructor(
 
     companion object {
         private const val CHUNK_SIZE = 5_000
+        private const val MICRODEGREES = 1_000_000.0
 
         // Vedi GuidesImporter: eseguita via JDBC da un test JVM contro lo schema della pipeline.
         internal fun poiQuery(columns: Set<String>): String =
