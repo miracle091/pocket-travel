@@ -45,6 +45,7 @@ internal fun LlmTaskManagerDialog(onDismiss: () -> Unit, viewModel: LlmTaskManag
                     SpaceSection(current)
                     ResourcesSection(current)
                     BehaviourSection(current.runtime)
+                    WordListsSection(viewModel)
                     CpuBackendSection(current.cpuBackend, viewModel)
                 } ?: Text(stringResource(R.string.ai_taskmgr_loading))
             }

@@ -23,10 +23,11 @@ a vedere quanto la ricerca a testo pieno dipende dalle parole esatte delle guide
 le stesse in tutti e tre i casi. Con --questions general le domande generali (jet lag, mance, passaporto smarrito) con
 aperta ogni regione: attesa la sezione della pagina tematica della pseudo-regione mondo (regionId _world) che risponde.
 Le sezioni del mondo concorrono in tutte le serie, come nell'app. Con --guides-db un guides.db locale al posto di quello
-pubblicato, per misurare un cambio delle guide prima di pubblicarlo.
+pubblicato, per misurare un cambio delle guide prima di pubblicarlo. Con --word-lists la query ha anche le parole delle
+guide per la categoria della domanda (CategoryWords.kt, accese nell'app; senza l'opzione si misura la ricerca senza liste).
 
 Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|other-lang|general] [--regions italia ...]
-[--cache DIR] [--no-wikipedia] [--guides-db FILE]
+[--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists]
 (la cache dei file scaricati sta di default nella cartella temporanea di sistema)
 Richiede rete (manifest, release, API di Wikipedia) e, per Storia e Clima, il gradle wrapper dalla root del repo.
 """
@@ -187,6 +188,51 @@ COUNTRY_Q_REWORDED_EN = {
     "TRASPORTI": ["How do people travel between cities?", "Can I get around by car?"],
     "CIBO_BEVANDE": ["What do people usually eat?"],
 }
+# Liste di parole per categoria (CategoryWords.kt, solo con --word-lists): radici che nella domanda indicano la
+# categoria e parole dei titoli delle guide da aggiungere alla query. test_eval_retrieval.py le confronta con l'app.
+CATEGORY_TRIGGERS = {
+    "ALLOGGIO": "allogg dormi pernot notte alberg hotel ostell campeg stay sleep accomm lodg hostel night camp",
+    "CIBO_BEVANDE": "mangi cibo cucin piatt assag ristor pranz cena cenar colaz specia bere vino birra "
+                    "food eat dish cuisin restau lunch dinner breakf tast drink wine beer",
+    "COSA_VEDERE": "veder visit attraz monum muse perder merit see sight attract worth miss",
+    "ACQUISTI": "acqui compr souven negoz mercat manci camer pagar contan bancom soldi valut "
+                "shop buy market tip waiter pay cash card money curren atm",
+    "TRASPORTI": "arriv spost muov treno treni autob macchin auto nolegg guidar raggiun "
+                 "bus train car drive rent transp metro reach around",
+    "DOGANE": "passap docum front dogan visto alcol sigar passport border custom visa alcoh cigar",
+    "SALUTE": "vacci ammal malat medic osped salut farmac sanit sick ill doctor hospit health jab pharm",
+    "SICUREZZA": "sicur peric derub furt borseg ladr crimin truff safe danger rob theft thief pickp crime scam",
+    "CONNETTIVITA": "intern telef cellul sim wifi colleg roami online phone mobile connec",
+    "STORIA": "stori origin nata nato fond passat medioev govern antic roman guerr "
+              "histor found establ past ancien rule middl war",
+    "CLIMA": "clima meteo piog piov ombrel tempera primav estat invern autun nevic neve caldo fredd stagion "
+             "climat weather rain umbrel spring summer winter autumn snow hot cold season",
+}
+CATEGORY_GUIDE_WORDS = {
+    "it": {"ALLOGGIO": "allogg*", "CIBO_BEVANDE": "mangi*, tavola", "COSA_VEDERE": "veder*", "ACQUISTI": "acqui*, valut*",
+           "TRASPORTI": "arriv*, spost*", "DOGANE": "arriv*, dogan*", "SALUTE": "sanit*, salut*", "SICUREZZA": "sicur*",
+           "CONNETTIVITA": "contat*", "STORIA": "stori*", "CLIMA": "clima"},
+    "en": {"ALLOGGIO": "sleep", "CIBO_BEVANDE": "eat, drink", "COSA_VEDERE": "see", "ACQUISTI": "buy",
+           "TRASPORTI": "get in, get around", "DOGANE": "get in, customs", "SALUTE": "health*", "SICUREZZA": "safe*",
+           "CONNETTIVITA": "connect*", "STORIA": "history", "CLIMA": "climate"},
+}
+SHORT_STEM_CHARS = 4             # CategoryWords.SHORT_STEM_CHARS
+
+
+def question_categories(question):
+    """questionCategories: le categorie che le parole della domanda indicano."""
+    tokens = [folded(t) for t in re.split(r"[^\w]+|_", question) if t]
+    hit = lambda stem: any(t.startswith(stem) if len(stem) >= SHORT_STEM_CHARS else t in (stem, stem + "s") for t in tokens)
+    return {cat for cat, stems in CATEGORY_TRIGGERS.items() if any(hit(s) for s in stems.split())}
+
+
+def with_category_words(fts, question, lang):
+    """withCategoryWords: [fts] con in OR le parole dei titoli delle guide in [lang] delle categorie della domanda."""
+    words = CATEGORY_GUIDE_WORDS.get(lang, CATEGORY_GUIDE_WORDS["en"])
+    extra = [f'"{w}"' if " " in w else w for cat in sorted(question_categories(question)) for w in words.get(cat, "").split(", ") if w]
+    return " OR ".join(dict.fromkeys([t for t in fts.split(" OR ") if t] + extra))
+
+
 # Domande generali, non su un paese, con la pagina tematica della pseudo-regione mondo che risponde (titolo nella guida
 # di quella lingua). La guida italiana non ha la pagina sulle mance (manca su it.wikivoyage).
 GENERAL_Q = {
@@ -441,22 +487,26 @@ def city_candidates(db, region, fts, named):
         (fts, region, name, name, CITY_CANDIDATE_CAP if name else CANDIDATE_CAP))]
 
 
-def search(db, region, question, cities, lang="it"):
-    """TravelAssistant.ask fino alle sezioni del contesto: (sezioni, radici della domanda)."""
+def search(db, region, question, cities, lang="it", word_lists=False):
+    """TravelAssistant.ask fino alle sezioni del contesto: (sezioni, radici della domanda). Con [word_lists] la query
+    ha anche le parole delle guide per la categoria della domanda; le radici restano quelle della domanda."""
     named = named_cities(question, cities, lang)
     city = named[0] if len(named) == 1 else None
-    fts = fts_query(question, region, city)
+    with_words = (lambda q: with_category_words(q, question, lang)) if word_lists else (lambda q: q)
+    base = fts_query(question, region, city)
+    fts = with_words(base)
     if not fts:
         return [], set()
     city_rows = city_candidates(db, region, fts, named)
     if city and not city_rows:
         # Nessuna sezione della citta' con le parole della domanda: si cerca anche il suo nome.
-        fts = fts_query(question, region)
+        base = fts_query(question, region)
+        fts = with_words(base)
         city_rows = city_candidates(db, region, fts, named)
     history_or_climate = bool(HISTORY_CLIMATE_WORDS.search(question))
     return (rank_sections(guide_candidates(db, region, fts), city_rows, country_first=not named, history_or_climate=history_or_climate,
                           world=guide_candidates(db, WORLD_REGION_ID, fts)),
-            focus_stems(fts, city))
+            focus_stems(base, city))
 
 
 def guide_candidates(db, region, fts):
@@ -572,14 +622,14 @@ def make_plan(region, city_rows, rng, pick, questions):
     return plan
 
 
-def general(guides_db, regions, lang):
+def general(guides_db, regions, lang, word_lists=False):
     """Le domande generali (GENERAL_Q) con aperta ogni regione di [regions], senza le citta' (non ne nominano): pagina
     del mondo attesa nel contesto, al primo posto, e il suo paragrafo con piu' parole della domanda nel contesto."""
     found = first = in_context = n = 0
     for region in regions:
         db = build_db(guides_db, region, [])
         for question, page in GENERAL_Q[lang]:
-            top, stems = search(db, region, question, [], lang)
+            top, stems = search(db, region, question, [], lang, word_lists)
             match = [s for s in top if s.get("world") and s["title"].split(": ")[0] == page]
             n += 1
             found += bool(match)
@@ -600,11 +650,12 @@ def main():
     ap.add_argument("--cache", type=Path, default=Path(tempfile.gettempdir()) / "pocket-travel-eval-retrieval")
     ap.add_argument("--no-wikipedia", action="store_true", help="senza Storia e Clima (per confronto)")
     ap.add_argument("--guides-db", type=Path, help="un guides.db locale al posto di quello pubblicato (per misurare prima di pubblicare)")
+    ap.add_argument("--word-lists", action="store_true", help="con le liste di parole per categoria (CategoryWords.kt)")
     a = ap.parse_args()
     fetch_data(a.regions, a.cache, a.lang)
     guides_db = a.guides_db or a.cache / f"guides{LANGS[a.lang]['suffix']}.db"
     if a.questions == "general":
-        general(guides_db, a.regions, a.lang)
+        general(guides_db, a.regions, a.lang, a.word_lists)
         return
     rng, pick = random.Random(7), random.Random(8)
     questions = questions_of(a.lang, a.questions)
@@ -616,7 +667,7 @@ def main():
         db = build_db(guides_db, region, rows)
         cities = sorted({r[0] for r in rows})
         for kind, cat, city, q, paragraph in plan:
-            top, stems = search(db, region, q, cities, a.lang)
+            top, stems = search(db, region, q, cities, a.lang, a.word_lists)
             r = res[kind]
             r["n"] += 1
             # Una sezione del mondo con la stessa categoria non e' quella del paese attesa.

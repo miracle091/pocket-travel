@@ -112,6 +112,9 @@
     <string name="ai_taskmgr_speed">Velocità</string>
     <string name="ai_taskmgr_speed_value">%1$.1f token/s</string>
     <string name="ai_taskmgr_prompt_speed">Velocità di lettura del prompt</string>
+    <string name="ai_taskmgr_search">Ricerca nelle guide</string>
+    <string name="ai_taskmgr_word_lists">Liste di parole per categoria</string>
+    <string name="ai_taskmgr_word_lists_hint">Aggiungono alla ricerca le parole delle guide per la categoria della domanda</string>
     <string name="ai_taskmgr_cpu_backend">Variante CPU di llama.cpp</string>
     <string name="ai_taskmgr_cpu_extensions">Estensioni della CPU</string>
     <string name="ai_taskmgr_cpu_extensions_none">Nessuna tra SVE, SVE2 e SME</string>

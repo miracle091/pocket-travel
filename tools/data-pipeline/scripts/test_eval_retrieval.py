@@ -31,6 +31,23 @@ class ReplicaTest(unittest.TestCase):
         block = kotlin.read_text(encoding="utf-8").split("private val questionStopwords = setOf(")[1].split(")")[0]
         self.assertEqual(set(re.findall(r'"(\w+)"', block)), ev.STOPWORDS)
 
+    def test_liste_di_parole_come_l_app(self):
+        kotlin = (Path(__file__).resolve().parents[3] / "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/CategoryWords.kt")
+        text = kotlin.read_text(encoding="utf-8")
+        pairs = lambda block: {cat: "".join(re.findall(r'"([^"]*)"', value))
+                               for cat, value in re.findall(r'GuideCategory\.(\w+) to ((?:"[^"]*"(?:\s*\+\s*)?)+)', block)}
+        triggers = text.split("private val categoryTriggers = mapOf(")[1].split(").mapValues")[0]
+        self.assertEqual(pairs(triggers), ev.CATEGORY_TRIGGERS)
+        for lang in ("it", "en"):
+            block = text.split(f'"{lang}" to mapOf(')[1].split("),")[0]
+            self.assertEqual(pairs(block), ev.CATEGORY_GUIDE_WORDS[lang])
+
+    def test_liste_di_parole_nella_query(self):
+        self.assertEqual(ev.question_categories("Cerco un posto per pernottare a Rimini"), {"ALLOGGIO"})
+        self.assertEqual(ev.question_categories("Che cosa e' tipico della zona?"), set())
+        self.assertEqual(ev.with_category_words("pernot* OR rimini", "Dove pernottare a Rimini?", "it"), "pernot* OR rimini OR allogg*")
+        self.assertEqual(ev.with_category_words("", "Come si arriva in treno?", "en"), '"get in" OR "get around"')
+
     def test_named_cities_senza_disambiguatore_e_accenti(self):
         cities = ["Porto (Portogallo)", "Porto Santo", "Forlì", "Bra", "Braga", "Ne"]
         self.assertEqual(ev.named_cities("Cosa vedere a Porto?", cities), ["Porto (Portogallo)"])

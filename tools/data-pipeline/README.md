@@ -182,7 +182,8 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   dell'app; `--lang en` misura le guide e le domande inglesi, `--no-wikipedia` misura senza le due sezioni,
   `--questions reworded` usa le stesse richieste con altre parole e `--questions other-lang` le domande nell'altra
   lingua (stesse città nei tre casi), `--questions general` le domande generali sulle pagine della pseudo-regione mondo,
-  `--guides-db` un `guides.db` locale al posto di quello pubblicato. La tabella delle guide contiene tutte le regioni,
+  `--guides-db` un `guides.db` locale al posto di quello pubblicato, `--word-lists` la ricerca con le liste di parole
+  per categoria che l'app usa (`CategoryWords.kt`; senza l'opzione si misura la ricerca senza liste). La tabella delle guide contiene tutte le regioni,
   come nell'app, perché le statistiche di BM25 valgono per tutta la tabella. Anche `make_context`
   (`generate_sft_dataset.py`), che costruisce il contesto dei dataset SFT e dei set di valutazione, sceglie i paragrafi
   come l'app (`test_make_context.py` lo confronta con la replica di `eval_retrieval.py`).

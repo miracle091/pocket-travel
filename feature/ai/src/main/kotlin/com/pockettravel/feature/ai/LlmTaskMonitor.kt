@@ -185,8 +185,14 @@ class LlmTaskManagerViewModel @Inject constructor(
     /** Variante scelta per il prossimo avvio; null se la sceglie ggml. */
     val chosenCpuBackend: StateFlow<String?> = _chosenCpuBackend.asStateFlow()
 
+    private val _wordLists = MutableStateFlow(false)
+
+    /** Liste di parole per categoria accese nella ricerca dell'assistente (WordListsOverride). */
+    val wordLists: StateFlow<Boolean> = _wordLists.asStateFlow()
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
+            _wordLists.value = WordListsOverride.enabled(context)
             val available = CpuBackendOverride.available(context)
             _availableCpuBackends.value = available
             // Una scelta non piu' presente nell'APK (variante tolta da un aggiornamento) vale come automatica.
@@ -195,6 +201,13 @@ class LlmTaskManagerViewModel @Inject constructor(
     }
 
     suspend fun export(target: Uri): Boolean = monitor.export(target)
+
+    fun setWordLists(enabled: Boolean) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { WordListsOverride.save(context, enabled) }
+            _wordLists.value = enabled
+        }
+    }
 
     fun chooseCpuBackend(fileName: String?) {
         viewModelScope.launch {

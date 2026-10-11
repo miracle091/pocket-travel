@@ -112,6 +112,9 @@
     <string name="ai_taskmgr_speed">Speed</string>
     <string name="ai_taskmgr_speed_value">%1$.1f tokens/s</string>
     <string name="ai_taskmgr_prompt_speed">Prompt reading speed</string>
+    <string name="ai_taskmgr_search">Guide search</string>
+    <string name="ai_taskmgr_word_lists">Category word lists</string>
+    <string name="ai_taskmgr_word_lists_hint">Add the guide words for the question\'s category to the search</string>
     <string name="ai_taskmgr_cpu_backend">llama.cpp CPU variant</string>
     <string name="ai_taskmgr_cpu_extensions">CPU extensions</string>
     <string name="ai_taskmgr_cpu_extensions_none">None of SVE, SVE2 and SME</string>

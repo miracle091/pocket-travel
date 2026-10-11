@@ -110,11 +110,13 @@ class TravelAssistant @Inject constructor(
         // Le citta' nominate nella domanda: le sezioni delle citta' candidate sono solo le loro (due per "quanto dista X da Y").
         val cities = namedCities(question, cityNames, language)
         val city = cities.singleOrNull()
-        val topicQuery = buildFtsQuery(question, regionId, city)
+        val topicBase = buildFtsQuery(question, regionId, city)
+        val topicQuery = withCategoryWords(topicBase, question, language, WordListsOverride.enabled(context))
         val topicMatches = if (topicQuery.isBlank()) emptyList() else cityCandidates(regionId, topicQuery, cities)
         // Nessuna sezione della citta' nominata con le parole della domanda: si cerca anche il suo nome.
         val withCityName = city != null && topicQuery.isNotBlank() && topicMatches.isEmpty()
-        val ftsQuery = if (withCityName) buildFtsQuery(question, regionId) else topicQuery
+        val baseQuery = if (withCityName) buildFtsQuery(question, regionId) else topicBase
+        val ftsQuery = withCategoryWords(baseQuery, question, language, WordListsOverride.enabled(context))
         val sections = if (ftsQuery.isBlank()) {
             emptyList()
         } else {
@@ -153,7 +155,7 @@ class TravelAssistant @Inject constructor(
                         transitSection(regionId, question, language),
                     ) + (emergency?.let { withoutEmergencyLine(sections, it.body) } ?: sections),
                     language,
-                    focusStems(ftsQuery, city),
+                    focusStems(baseQuery, city),
                 )
                 var text = ""
                 engine.generateStream(plan.prompt).accumulated(PARTIAL_INTERVAL_MS).collect {
@@ -684,10 +686,10 @@ private fun spokenCityName(city: String): String = city.substringBefore(" (").tr
 // Minuscolo, senza accenti e con le parole separate da un solo spazio, anche agli estremi: "Forlì" e "forli"
 // coincidono e "Bra" non si trova dentro "Braga".
 private val combiningMarks = Regex("""\p{Mn}+""")
-private val nonWord = Regex("""[^\p{L}\p{N}]+""")
+internal val nonWord = Regex("""[^\p{L}\p{N}]+""")
 
 /** [text] in minuscolo e senza accenti ("Città" -> "citta"), come confronta l'indice FTS (unicode61). */
-private fun folded(text: String): String = Normalizer.normalize(text.lowercase(), Normalizer.Form.NFD).replace(combiningMarks, "")
+internal fun folded(text: String): String = Normalizer.normalize(text.lowercase(), Normalizer.Form.NFD).replace(combiningMarks, "")
 
 private fun normalizedWords(text: String): String =
     folded(text).split(nonWord).filter { it.isNotEmpty() }.joinToString(" ", prefix = " ", postfix = " ")
