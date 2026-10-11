@@ -122,7 +122,7 @@
     </plurals>
     <string name="updates_up_to_date">Tutto aggiornato</string>
     <string name="updates_offline_title">Nessuna connessione</string>
-    <string name="updates_offline">Impossibile controllare gli aggiornamenti: riprova quando sei connesso a internet</string>
+    <string name="updates_offline">Il controllo degli aggiornamenti richiede una connessione a internet</string>
     <string name="updates_section_app">App</string>
     <string name="updates_app_title">Pocket Travel %1$s</string>
     <string name="updates_app_subtitle">Nuova versione disponibile</string>

@@ -121,7 +121,7 @@
         <item quantity="other">%1$d updates available</item>
     </plurals>
     <string name="updates_offline_title">No connection</string>
-    <string name="updates_offline">Couldn\'t check for updates: try again when you\'re online</string>
+    <string name="updates_offline">Checking for updates requires an internet connection</string>
     <string name="updates_up_to_date">Everything is up to date</string>
     <string name="updates_section_app">App</string>
     <string name="updates_app_title">Pocket Travel %1$s</string>

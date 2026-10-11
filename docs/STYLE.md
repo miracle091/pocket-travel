@@ -119,6 +119,8 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Paese di cui l'utente ha il passaporto | nazionalita' | nationality |
 | Siti di ambasciate, ministeri e OMS, aperti nel browser | Fonti ufficiali | Official sources |
 | Schermata con lo spazio occupato dai contenuti | Spazio di archiviazione | Storage |
+| Schermata in Altro con gli aggiornamenti di app, nazioni, guide e modello IA | Aggiornamenti | Updates |
+| Punti di interesse tolti per mancanza di spazio, da scaricare di nuovo | punti di interesse da riscaricare | points of interest to download again |
 | Livello di una vaccinazione non obbligatoria | raccomandata | recommended |
 | Scalo aereo nelle regole delle vaccinazioni | scalo | stopover |
 
