@@ -382,6 +382,34 @@ LAT_END="$(floor5 "$MAX_LAT")"
 # risparmio che questo controllo vuole ottenere. Nessun $PUBLISHED_MANIFEST_URL o jq mancante =
 # nessun controllo, si procede sempre con la rigenerazione completa (come
 # nell'esecuzione locale via build-all-regions.sh).
+# Nazione della regione (flagCode di regions.sh): con quella si scartano gli estratti Geofabrik dei paesi confinanti
+# che il bbox contiene, e si taglia sul confine. Vuoto se la regione non e' nell'elenco: si usa solo il bbox.
+REGION_ISO="$(source "$SCRIPT_DIR/regions.sh" && for spec in "${ALL_REGIONS[@]}"; do IFS='|' read -r id _ _ _ _ _ _ flag _ <<< "$spec"; [ "$id" = "$REGION_ID" ] && echo "$flag" && break; done || true)"
+# Confine OpenStreetMap della nazione (country_border.py, da Nominatim): i POI fuori si scartano, sia dagli estratti
+# Geofabrik sia da Overpass (area 3600000000 + id della relazione). Il riquadro da solo comprende anche i paesi vicini:
+# meta' dei POI di San Marino erano italiani, quasi meta' di quelli dell'Ungheria austriaci o slovacchi (misura del
+# 2026-10-11 sui pacchetti pubblicati). Senza confine (territori d'oltremare, Canarie) resta il solo riquadro.
+# Si cerca prima di decidere se riusare il poi.db pubblicato (sezione 2bis), e una volta sola.
+BORDER_FILE=""
+BORDER_AREA=""
+BORDER_CHECKED=""
+find_border() {
+  BORDER_CHECKED=true
+  if [ -n "$REGION_ISO" ] && BORDER_RELATION="$(python3 "$SCRIPT_DIR/country_border.py" --iso "$REGION_ISO" --out "$WORKDIR/confine.geojson" \
+      --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT")"; then
+    BORDER_FILE="$WORKDIR/confine.geojson"
+    BORDER_AREA=$((3600000000 + BORDER_RELATION))
+    echo "-- confine OSM della nazione: relazione $BORDER_RELATION"
+  elif [ "$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.border // false' 2>/dev/null || true)" = "true" ]; then
+    # I POI pubblicati sono gia' tagliati sul confine: senza (Nominatim non raggiungibile) si pubblicherebbero di nuovo
+    # quelli dei paesi vicini.
+    echo "ERRORE: confine OSM di $REGION_ID non disponibile e i POI pubblicati sono tagliati sul confine: li tengo" >&2
+    exit 1
+  else
+    echo "::warning::confine OSM di $REGION_ID non trovato (${REGION_ISO:-nessun codice ISO}): punti di interesse sul solo riquadro"
+  fi
+}
+
 if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
   echo "-- controllo se $REGION_ID e' gia' aggiornata rispetto a $PUBLISHED_MANIFEST_URL..."
   PUBLISHED_MANIFEST="$WORKDIR/published-manifest.json"
@@ -459,6 +487,12 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
       fi
     fi
     if [ -n "$POI_AGE_DAYS" ] && [ "$POI_AGE_DAYS" -gt "$POI_MAX_AGE_DAYS" ]; then
+      POI_STALE=true
+    fi
+    # POI pubblicati prima del taglio sul confine: si rigenerano anche se recenti, se ora il confine c'e'.
+    find_border
+    if [ -n "$BORDER_FILE" ] && [ "$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.border // false' 2>/dev/null || true)" != "true" ]; then
+      echo "-- $REGION_ID: POI pubblicati non tagliati sul confine della nazione: li rigenero"
       POI_STALE=true
     fi
 
@@ -657,28 +691,7 @@ fetch_overpass_chunk() {
 # le modifiche del giorno), in secondi invece che nei minuti di Overpass, che resta il ripiego se
 # qualcosa va storto. GEOFABRIK_CACHE (facoltativa, la imposta il job "build") tiene gli estratti
 # ridotti per le regioni successive dello stesso job.
-# Nazione della regione (flagCode di regions.sh): con quella si scartano gli estratti Geofabrik dei paesi confinanti
-# che il bbox contiene, e si taglia sul confine. Vuoto se la regione non e' nell'elenco: si usa solo il bbox.
-REGION_ISO="$(source "$SCRIPT_DIR/regions.sh" && for spec in "${ALL_REGIONS[@]}"; do IFS='|' read -r id _ _ _ _ _ _ flag _ <<< "$spec"; [ "$id" = "$REGION_ID" ] && echo "$flag" && break; done || true)"
-# Confine OpenStreetMap della nazione (country_border.py, da Nominatim): i POI fuori si scartano, sia dagli estratti
-# Geofabrik sia da Overpass (area 3600000000 + id della relazione). Il riquadro da solo comprende anche i paesi vicini:
-# meta' dei POI di San Marino erano italiani, quasi meta' di quelli dell'Ungheria austriaci o slovacchi (misura del
-# 2026-10-11 sui pacchetti pubblicati). Senza confine (territori d'oltremare, Canarie) resta il solo riquadro.
-BORDER_FILE=""
-BORDER_AREA=""
-if [ -n "$REGION_ISO" ] && BORDER_RELATION="$(python3 "$SCRIPT_DIR/country_border.py" --iso "$REGION_ISO" --out "$WORKDIR/confine.geojson" \
-    --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT")"; then
-  BORDER_FILE="$WORKDIR/confine.geojson"
-  BORDER_AREA=$((3600000000 + BORDER_RELATION))
-  echo "-- confine OSM della nazione: relazione $BORDER_RELATION"
-elif [ "$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.border // false' 2>/dev/null || true)" = "true" ]; then
-  # I POI pubblicati sono gia' tagliati sul confine: senza (Nominatim non raggiungibile) si pubblicherebbero di nuovo
-  # quelli dei paesi vicini.
-  echo "ERRORE: confine OSM di $REGION_ID non disponibile e i POI pubblicati sono tagliati sul confine: li tengo" >&2
-  exit 1
-else
-  echo "::warning::confine OSM di $REGION_ID non trovato (${REGION_ISO:-nessun codice ISO}): punti di interesse sul solo riquadro"
-fi
+[ -n "$BORDER_CHECKED" ] || find_border
 
 GEOFABRIK_XML=""
 if [ "${GEOFABRIK_POI:-true}" = "true" ] && command -v osmium >/dev/null; then
