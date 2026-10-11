@@ -113,6 +113,34 @@
     <string name="continent_expand">Mostra le nazioni</string>
     <string name="continent_collapse">Nascondi le nazioni</string>
 
+    <!-- Aggiornamenti -->
+    <string name="more_updates">Aggiornamenti</string>
+    <string name="more_updates_subtitle">App, nazioni, guide e modello IA</string>
+    <plurals name="updates_available_count">
+        <item quantity="one">%1$d aggiornamento disponibile</item>
+        <item quantity="other">%1$d aggiornamenti disponibili</item>
+    </plurals>
+    <string name="updates_up_to_date">Tutto aggiornato</string>
+    <string name="updates_offline_title">Nessuna connessione</string>
+    <string name="updates_offline">Impossibile controllare gli aggiornamenti: riprova quando sei connesso a internet</string>
+    <string name="updates_section_app">App</string>
+    <string name="updates_app_title">Pocket Travel %1$s</string>
+    <string name="updates_app_subtitle">Nuova versione disponibile</string>
+    <string name="updates_app_download">Scarica da GitHub</string>
+    <string name="updates_section_regions">Nazioni</string>
+    <string name="updates_region_details">%1$s · %2$s</string>
+    <string name="updates_all">Aggiorna tutto · %1$s</string>
+    <string name="updates_metered_title">Scaricare %1$s con la rete mobile?</string>
+    <string name="updates_metered_message">Il dispositivo non è collegato a una rete senza limiti di traffico</string>
+    <string name="updates_section_guides">Guide</string>
+    <string name="updates_guides_title">Nuove guide disponibili</string>
+    <string name="updates_guides_now">Aggiorna ora</string>
+    <string name="updates_guides_syncing">Aggiornamento in corso…</string>
+    <string name="updates_section_model">Modello IA</string>
+    <string name="updates_model_subtitle">Nuova versione · %1$s</string>
+    <string name="updates_model_download">Scarica</string>
+    <string name="updates_model_not_enough_space">Spazio insufficiente per scaricare il modello</string>
+
     <!-- Altro -->
     <string name="more_sources">Fonti ufficiali</string>
     <string name="more_sources_subtitle">Ministeri, ambasciate e OMS</string>

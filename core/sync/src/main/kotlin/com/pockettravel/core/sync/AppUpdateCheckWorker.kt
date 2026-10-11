@@ -46,5 +46,5 @@ class AppUpdateCheckWorker @AssistedInject constructor(
     }
 }
 
-internal fun isAppUpdateAvailable(installedVersionCode: Long, remote: AppVersionEntry): Boolean =
+fun isAppUpdateAvailable(installedVersionCode: Long, remote: AppVersionEntry): Boolean =
     remote.versionCode > installedVersionCode

@@ -12,15 +12,14 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
 import com.pockettravel.core.data.PackageKind
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 /**
- * Notifica non intrusiva "aggiornamento disponibile" — mai un download automatico. Toccata apre dove si aggiorna:
- * l'elenco delle nazioni (riga "da aggiornare" con Aggiorna), le Impostazioni per il modello IA, la pagina dell'ultima
- * release su GitHub per l'app, che non ha una schermata sua per gli aggiornamenti.
+ * Notifica non intrusiva "aggiornamento disponibile" — mai un download automatico. Toccata apre sempre la schermata
+ * Aggiornamenti dell'app ([OPEN_UPDATES]), dove si aggiornano nazioni, guide e modello IA e si apre la pagina
+ * dell'ultima release per l'app.
  */
 class UpdateAvailableNotifier @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -45,7 +44,7 @@ class UpdateAvailableNotifier @Inject constructor(
             entry.regionId.hashCode(),
             context.getString(R.string.sync_update_region_title),
             context.getString(R.string.sync_update_region_text, entry.displayName, sizeMb),
-            openApp(OPEN_REGIONS),
+            openApp(OPEN_UPDATES),
         )
     }
 
@@ -55,9 +54,7 @@ class UpdateAvailableNotifier @Inject constructor(
             APP_NOTIFICATION_ID,
             context.getString(R.string.sync_update_app_title),
             context.getString(R.string.sync_update_app_text, entry.versionName),
-            PendingIntent.getActivity(
-                context, APP_NOTIFICATION_ID, Intent(Intent.ACTION_VIEW, SyncConfig.APP_RELEASES_URL.toUri()), PendingIntent.FLAG_IMMUTABLE,
-            ),
+            openApp(OPEN_UPDATES),
         )
     }
 
@@ -68,7 +65,7 @@ class UpdateAvailableNotifier @Inject constructor(
             AI_MODEL_NOTIFICATION_ID,
             context.getString(R.string.sync_update_ai_model_title),
             context.getString(R.string.sync_update_ai_model_text, entry.modelVersion, sizeMb),
-            openApp(OPEN_SETTINGS),
+            openApp(OPEN_UPDATES),
         )
     }
 
@@ -103,10 +100,9 @@ class UpdateAvailableNotifier @Inject constructor(
     }
 
     companion object {
-        /** Extra dell'intent di avvio: la schermata da aprire ([OPEN_REGIONS] o [OPEN_SETTINGS]). */
+        /** Extra dell'intent di avvio: la schermata da aprire ([OPEN_UPDATES]). */
         const val EXTRA_OPEN_SCREEN = "com.pockettravel.OPEN_SCREEN"
-        const val OPEN_REGIONS = "regions"
-        const val OPEN_SETTINGS = "settings"
+        const val OPEN_UPDATES = "updates"
 
         private const val CHANNEL_ID = "region-updates"
         private const val APP_CHANNEL_ID = "app-updates"

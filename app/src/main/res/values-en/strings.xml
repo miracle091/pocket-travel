@@ -113,6 +113,34 @@
     <string name="continent_expand">Show countries</string>
     <string name="continent_collapse">Hide countries</string>
 
+    <!-- Updates -->
+    <string name="more_updates">Updates</string>
+    <string name="more_updates_subtitle">App, countries, guides and AI model</string>
+    <plurals name="updates_available_count">
+        <item quantity="one">%1$d update available</item>
+        <item quantity="other">%1$d updates available</item>
+    </plurals>
+    <string name="updates_offline_title">No connection</string>
+    <string name="updates_offline">Couldn\'t check for updates: try again when you\'re online</string>
+    <string name="updates_up_to_date">Everything is up to date</string>
+    <string name="updates_section_app">App</string>
+    <string name="updates_app_title">Pocket Travel %1$s</string>
+    <string name="updates_app_subtitle">New version available</string>
+    <string name="updates_app_download">Download from GitHub</string>
+    <string name="updates_section_regions">Countries</string>
+    <string name="updates_region_details">%1$s · %2$s</string>
+    <string name="updates_all">Update all · %1$s</string>
+    <string name="updates_metered_title">Download %1$s on mobile data?</string>
+    <string name="updates_metered_message">The device is not on an unmetered network</string>
+    <string name="updates_section_guides">Guides</string>
+    <string name="updates_guides_title">New guides available</string>
+    <string name="updates_guides_now">Update now</string>
+    <string name="updates_guides_syncing">Updating…</string>
+    <string name="updates_section_model">AI model</string>
+    <string name="updates_model_subtitle">New version · %1$s</string>
+    <string name="updates_model_download">Download</string>
+    <string name="updates_model_not_enough_space">Not enough space to download the model</string>
+
     <!-- Altro -->
     <string name="more_sources">Official sources</string>
     <string name="more_sources_subtitle">Ministries, embassies and WHO</string>

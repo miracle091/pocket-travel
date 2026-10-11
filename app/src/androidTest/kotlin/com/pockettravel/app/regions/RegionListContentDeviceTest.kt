@@ -52,7 +52,6 @@ class RegionListContentDeviceTest {
                 RegionListContent(
                     uiState = uiState,
                     onQueryChange = onQueryChange,
-                    onCheckUpdates = {},
                     onRetry = onRetry,
                     onMessageShown = {},
                     rowActions = rowActions,

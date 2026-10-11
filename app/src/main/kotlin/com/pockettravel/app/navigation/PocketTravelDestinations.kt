@@ -13,6 +13,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable data object StorageRoute
 
+@Serializable data object UpdatesRoute
+
 @Serializable data object SourcesRoute
 
 @Serializable data object LicensesRoute

@@ -20,3 +20,10 @@ fun isOnCellularNetwork(context: Context): Boolean {
     val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
     return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
 }
+
+// Rete a consumo (dati mobili, hotspot, Wi-Fi impostato "a consumo"): "Aggiorna tutto" chiede conferma prima di
+// scaricare. false se lo stato di rete non e' determinabile, come in isOnCellularNetwork.
+fun isOnMeteredNetwork(context: Context): Boolean {
+    val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+    return connectivityManager.isActiveNetworkMetered
+}

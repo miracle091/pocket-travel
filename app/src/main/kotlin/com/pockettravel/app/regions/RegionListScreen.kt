@@ -1,10 +1,7 @@
 package com.pockettravel.app.regions
 
-import androidx.compose.ui.semantics.customActions
-import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.ExtendedFloatingActionButton
 import android.text.format.Formatter
@@ -114,7 +111,6 @@ fun RegionListScreen(
         showMapToggle = showMapToggle,
         uiState = uiState,
         onQueryChange = viewModel::onQueryChange,
-        onCheckUpdates = viewModel::checkForUpdatesNow,
         onRetry = viewModel::refresh,
         onMessageShown = viewModel::onMessageShown,
         rowActions = viewModel.rowActions(),
@@ -177,7 +173,6 @@ internal fun RegionListContent(
     uiState: RegionListUiState,
     showMapToggle: Boolean = true,
     onQueryChange: (String) -> Unit,
-    onCheckUpdates: () -> Unit,
     onRetry: () -> Unit,
     onMessageShown: () -> Unit,
     rowActions: RegionRowActions,
@@ -196,10 +191,8 @@ internal fun RegionListContent(
     }
 
     // Senza barra in alto: la voce "Nazioni" della barra in basso dice gia' dove si e'. Mappa ed elenco si scambiano con
-    // il pulsante in basso al centro, il controllo degli aggiornamenti e' il trascinamento in giu' dell'elenco (e
-    // un'azione di TalkBack). Dentro NavigationSuiteScaffold gli inset in basso li gestisce la barra: qui solo quello
-    // della barra di stato.
-    val checkUpdatesLabel = stringResource(R.string.regions_check_updates)
+    // il pulsante in basso al centro. Dentro NavigationSuiteScaffold gli inset in basso li gestisce la barra: qui solo
+    // quello della barra di stato.
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         floatingActionButton = {
@@ -228,20 +221,7 @@ internal fun RegionListContent(
             )
             return@Scaffold
         }
-        // La rotella solo dopo un trascinamento: all'avvio il catalogo si carica da solo, senza rotella sopra la ricerca.
-        var pulled by rememberSaveable { mutableStateOf(false) }
-        LaunchedEffect(uiState.isLoading) { if (!uiState.isLoading) pulled = false }
-        PullToRefreshBox(
-            isRefreshing = pulled && uiState.isLoading,
-            onRefresh = {
-                pulled = true
-                onCheckUpdates()
-            },
-            modifier = contentModifier.semantics {
-                customActions = listOf(CustomAccessibilityAction(checkUpdatesLabel) { onCheckUpdates(); true })
-            },
-        ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = contentModifier) {
             RegionSearchField(
                 query = uiState.query,
                 onQueryChange = onQueryChange,
@@ -280,7 +260,6 @@ internal fun RegionListContent(
                     )
                 }
             }
-        }
         }
     }
 }
@@ -599,19 +578,9 @@ internal fun RegionRow(
 ) {
     val workInfo by remember(item.regionId) { actions.observeProgress(item.regionId) }
         .collectAsStateWithLifecycle(initialValue = null)
-    val isDownloading = workInfo?.state == WorkInfo.State.RUNNING || workInfo?.state == WorkInfo.State.ENQUEUED
-    // Due fasi: prima i file (byte), poi l'estrazione della mappa (byte di tile), ognuna da 0 a 100%.
-    val mapBytesTotal = workInfo?.progress?.getLong(RegionPackageDownloadWorker.KEY_MAP_BYTES_TOTAL, 0L) ?: 0L
-    val extractingMap = mapBytesTotal > 0
-    val installing = workInfo?.progress?.getBoolean(RegionPackageDownloadWorker.KEY_INSTALLING, false) == true
-    val progress = workInfo?.progress?.let { data ->
-        if (extractingMap) {
-            data.getLong(RegionPackageDownloadWorker.KEY_MAP_BYTES_DONE, 0L) / mapBytesTotal.toFloat()
-        } else {
-            val total = data.getLong(RegionPackageDownloadWorker.KEY_TOTAL_BYTES, 0L)
-            if (total > 0) data.getLong(RegionPackageDownloadWorker.KEY_BYTES_DOWNLOADED, 0L) / total.toFloat() else 0f
-        }
-    } ?: 0f
+    val download = workInfo.downloadUi()
+    val (isDownloading, installing, extractingMap) = download
+    val progress = download.progress
     val size = item.sizeText()
     val installed = item.status != RegionStatus.NOT_INSTALLED
 
@@ -660,6 +629,26 @@ internal fun RegionRow(
             )
         }
     }
+}
+
+/** Avanzamento di un download di regione, letto dal lavoro: usato dalle righe dell'elenco e da Aggiornamenti. */
+internal data class RegionDownloadUi(val isDownloading: Boolean, val installing: Boolean, val extractingMap: Boolean, val progress: Float)
+
+internal fun WorkInfo?.downloadUi(): RegionDownloadUi {
+    val isDownloading = this?.state == WorkInfo.State.RUNNING || this?.state == WorkInfo.State.ENQUEUED
+    // Due fasi: prima i file (byte), poi l'estrazione della mappa (byte di tile), ognuna da 0 a 100%.
+    val mapBytesTotal = this?.progress?.getLong(RegionPackageDownloadWorker.KEY_MAP_BYTES_TOTAL, 0L) ?: 0L
+    val extractingMap = mapBytesTotal > 0
+    val installing = this?.progress?.getBoolean(RegionPackageDownloadWorker.KEY_INSTALLING, false) == true
+    val progress = this?.progress?.let { data ->
+        if (extractingMap) {
+            data.getLong(RegionPackageDownloadWorker.KEY_MAP_BYTES_DONE, 0L) / mapBytesTotal.toFloat()
+        } else {
+            val total = data.getLong(RegionPackageDownloadWorker.KEY_TOTAL_BYTES, 0L)
+            if (total > 0) data.getLong(RegionPackageDownloadWorker.KEY_BYTES_DOWNLOADED, 0L) / total.toFloat() else 0f
+        }
+    } ?: 0f
+    return RegionDownloadUi(isDownloading, installing, extractingMap, progress)
 }
 
 @Composable
@@ -746,7 +735,7 @@ internal fun RegionDownloadFlow(
 // Peso da scaricare (o installato): con la mappa tra i pacchetti da scaricare si aggiunge "+ mappa",
 // perche' il suo peso si conosce solo estraendola (per la Lettonia 248 MB contro 6,3 MB di file).
 @Composable
-private fun RegionUiItem.sizeText(): String {
+internal fun RegionUiItem.sizeText(): String {
     val bytes = Formatter.formatShortFileSize(LocalContext.current, sizeBytes)
     return when {
         !includesMap -> bytes
@@ -891,7 +880,6 @@ private fun RegionListPreview() {
                 ),
             ),
             onQueryChange = {},
-            onCheckUpdates = {},
             onRetry = {},
             onMessageShown = {},
             rowActions = RegionRowActions(

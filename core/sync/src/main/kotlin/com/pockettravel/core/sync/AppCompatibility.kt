@@ -40,5 +40,5 @@ class AppCompatibility @Inject constructor(@ApplicationContext private val conte
     }
 }
 
-internal fun installedAppVersionCode(context: Context): Long =
+fun installedAppVersionCode(context: Context): Long =
     PackageInfoCompat.getLongVersionCode(context.packageManager.getPackageInfo(context.packageName, 0))

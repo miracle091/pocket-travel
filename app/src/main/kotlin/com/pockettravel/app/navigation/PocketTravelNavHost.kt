@@ -75,6 +75,10 @@ import com.pockettravel.app.regions.RegionWorldMap
 import com.pockettravel.app.regions.navigatorViewModels
 import com.pockettravel.app.regions.rowActions
 import com.pockettravel.app.storage.StorageScreen
+import com.pockettravel.app.updates.UpdatesScreen
+import com.pockettravel.app.updates.UpdatesViewModel
+import com.pockettravel.app.updates.outdatedRegions
+import com.pockettravel.app.updates.updatesCount
 import com.pockettravel.core.data.officialSourcesRegistry
 import com.pockettravel.core.sync.UpdateAvailableNotifier
 import com.pockettravel.core.ui.AppIcons
@@ -222,13 +226,33 @@ fun PocketTravelNavHost(
                     Box(modifier = Modifier.weight(1f)) { DocumentsScreen() }
                 }
             }
-            composable<MoreRoute>(enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
+            composable<MoreRoute>(enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) { backStackEntry ->
+                // Gli stessi ViewModel di Aggiornamenti (nella voce RegionsRoute sotto): il badge conta senza aprire la schermata.
+                val regionsEntry = remember(backStackEntry) { navController.getBackStackEntry(RegionsRoute) }
+                val listState by hiltViewModel<RegionListViewModel>(regionsEntry).uiState.collectAsStateWithLifecycle()
+                val updatesState by hiltViewModel<UpdatesViewModel>(regionsEntry).uiState.collectAsStateWithLifecycle()
                 MoreScreen(
+                    updatesCount = updatesCount(
+                        appUpdate = updatesState.appUpdate != null,
+                        regionUpdates = outdatedRegions(listState.items).size,
+                        guidesUpdate = updatesState.guidesUpdate != null,
+                        modelUpdate = updatesState.modelUpdate != null,
+                    ),
+                    onOpenUpdates = { navController.navigate(UpdatesRoute) },
                     onOpenSettings = { navController.navigate(SettingsRoute) },
                     onOpenSources = { navController.navigate(SourcesRoute) },
                     onOpenStorage = { navController.navigate(StorageRoute) },
                     onOpenTutorial = { navController.navigate(TutorialRoute) },
                     onOpenLicenses = { navController.navigate(LicensesRoute) },
+                )
+            }
+            composable<UpdatesRoute> { backStackEntry ->
+                // Lo stesso ViewModel dell'elenco (nella voce RegionsRoute sotto): l'aggiornamento di una nazione parte dal suo percorso.
+                val regionsEntry = remember(backStackEntry) { navController.getBackStackEntry(RegionsRoute) }
+                UpdatesScreen(
+                    onBack = dropUnlessResumed { navController.popBackStack() },
+                    regionListViewModel = hiltViewModel(regionsEntry),
+                    viewModel = hiltViewModel(regionsEntry),
                 )
             }
             composable<SettingsRoute> {
@@ -405,9 +429,8 @@ private fun OpenScreenRequestsEffect(navController: NavHostController, currentDe
         if (currentDestination == null || currentDestination.hasRoute<OnboardingRoute>()) return@LaunchedEffect
         OpenScreenRequests.screen.value = null
         when (screen) {
-            // L'elenco stesso, non navigateTopLevel: ripristinerebbe la pila salvata sopra (l'hub, le Impostazioni).
-            UpdateAvailableNotifier.OPEN_REGIONS -> if (!navController.popBackStack<RegionsRoute>(inclusive = false)) navController.navigateTopLevel(RegionsRoute)
-            UpdateAvailableNotifier.OPEN_SETTINGS -> navController.navigate(SettingsRoute)
+            // Una sola copia: toccare una seconda notifica con la schermata gia' aperta non la impila di nuovo.
+            UpdateAvailableNotifier.OPEN_UPDATES -> navController.navigate(UpdatesRoute) { launchSingleTop = true }
         }
     }
 }

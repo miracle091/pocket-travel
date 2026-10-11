@@ -111,7 +111,7 @@ class MainActivity : FragmentActivity() {
 private fun Intent.requestOpenScreen() {
     val screen = getStringExtra(UpdateAvailableNotifier.EXTRA_OPEN_SCREEN) ?: return
     removeExtra(UpdateAvailableNotifier.EXTRA_OPEN_SCREEN)
-    if (screen == UpdateAvailableNotifier.OPEN_REGIONS || screen == UpdateAvailableNotifier.OPEN_SETTINGS) OpenScreenRequests.screen.value = screen
+    if (screen == UpdateAvailableNotifier.OPEN_UPDATES) OpenScreenRequests.screen.value = screen
 }
 
 // Navigation Compose legge dall'intent degli extra "android-support-nav:*" come deep link impliciti: l'app non ha
