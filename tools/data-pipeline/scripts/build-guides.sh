@@ -151,7 +151,10 @@ for spec in "${GENERAL_GUIDE_PAGES[@]}"; do
     sourceUrl="https://it.wikivoyage.org/wiki/${titleIt// /_}"
     wikimedia_curl -G "https://it.wikivoyage.org/w/index.php" --data-urlencode "title=${titleIt}" -d action=raw -o "$dump" 2>/dev/null || : > "$dump"
   fi
-  [ -s "$dump" ] || echo "-- pagina della guida generale $page non scaricata, tengo le sezioni gia' pubblicate" >&2
+  if [ ! -s "$dump" ]; then
+    echo "-- pagina della guida generale $page non scaricata, tengo le sezioni gia' pubblicate" >&2
+    FAILED=$((FAILED + 1))
+  fi
   printf '%s\t%s\t%s\t%s\n' "$category" "$page" "$(winpath "$dump")" "$sourceUrl" >> "$GENERAL_GUIDE_TSV"
 done
 

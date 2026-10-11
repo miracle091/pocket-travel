@@ -90,7 +90,7 @@ GENERAL_GUIDE_FIRST_RATIO = 2.0          # TravelAssistant.GENERAL_GUIDE_FIRST_R
 GENERAL_TRAVEL_WORDS = re.compile(r"\b(ester[oi]|in viaggio|viaggiando|abroad|overseas|travell?ing)\b", re.IGNORECASE)
 # TravelAssistant.historyClimateWords
 HISTORY_CLIMATE_WORDS = re.compile(
-    r"\b(stori|fondat|fondò|secol|guerr|antic|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|"
+    r"\b((?<!centr[oi] )stori|fondat|fondò|secol|guerr|antic(?:[oa]\b|h)|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|"
     r"invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season|"
     r"passat|origin|govern|medioev|nascit|nata\b|nato\b|period|quando andare|best time|when to go|establish|ruled|"
     r"costru|mura\b|built|walls?\b|ottocent|novecent|settecent|seicent|cinquecent|quattrocent|trecent|gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre|mesi\b|january|february|march|april|june|july|august|september|october|november|december|months?\b|middle ages|past\b|origins?\b)",
@@ -199,25 +199,25 @@ COUNTRY_Q_REWORDED_EN = {
 # Liste di parole (CategoryWords.kt, solo con --word-lists): radici che nella domanda indicano la
 # categoria e parole dei titoli delle guide da aggiungere alla query. test_eval_retrieval.py le confronta con l'app.
 CATEGORY_TRIGGERS = {
-    "ALLOGGIO": "allogg dormi pernot notte alberg hotel ostell campeg stay sleep accomm lodg hostel night camp camera prenot room rooms",
+    "ALLOGGIO": "allogg dormi pernot notte alberg hotel ostell campeg stay sleep accomm lodg hostel night= camp= camping campsite camera prenot room rooms",
     "CIBO_BEVANDE": "mangi cibo cucin piatt assag ristor pranz cena cenar colaz specia bere vino birra "
-                    "food eat dish cuisin restau lunch dinner breakf tast drink wine beer beve bevi bevan",
+                    "food eat dish cuisin restaurant lunch dinner breakf tast drink wine beer beve bevi bevan",
     "COSA_VEDERE": "veder visit attraz monum muse perder merit see sight attract worth miss to+do things+to+do",
     "ACQUISTI": "acqui compr souven negoz mercat manci camerier pagar contan bancom soldi valut "
-                "shop buy market tip waiter pay cash card money curren atm paga euro dollar",
+                "shop buy market tip waiter pay cash card= money curren atm paga euro= dollar",
     "TRASPORTI": "arriv spost muov treno treni autob macchin auto nolegg guidar raggiun "
                  "bus train car drive rent transp metro reach around stazion station aeroport airport",
     "DOGANE": "passap docum front dogan visto alcol sigar passport border custom visa alcoh cigar identit id+card",
-    "SALUTE": "vacci ammal malat medic osped salut farmac sanit sick ill doctor hospit health jab pharm pronto+soccorso first+aid",
-    "SICUREZZA": "sicur peric derub furt borseg ladr crimin truff safe danger rob theft thief pickp crime scam",
-    "CONNETTIVITA": "intern telef cellul sim wifi colleg roami online phone mobile connec",
-    "STORIA": "stori origin nata nato fond passat medioev govern antic roman guerr "
-              "histor found establ past ancien rule middl war middle+ages costru mura built wall ottocent novecent settecent seicent cinquecent quattrocent trecent secol centur",
+    "SALUTE": "vacci ammal malat medic osped salute farmac sanit sick ill doctor hospit health jab pharm pronto+soccorso first+aid",
+    "SICUREZZA": "sicur peric derub furt borseg ladr crimin truffa truffe safe danger rob theft thief pickp crime scam",
+    "CONNETTIVITA": "internet telef cellul sim wifi collegar roami online phone mobile connec",
+    "STORIA": "stori origin nata= nato= fondat fondo= passat medioev govern antico antica antich roman guerr "
+              "histor found establ past= ancien rule= ruled ruler middl war middle+ages costru mura= built wall= ottocent novecent settecent seicent cinquecent quattrocent trecent secol centur",
     "CLIMA": "clima meteo piog piov ombrel tempera primav estat invern autun nevic neve caldo fredd stagion "
-             "climat weather rain umbrel spring summer winter autumn snow hot cold season "
+             "climat weather rain umbrel spring summer winter= autumn snow hot cold season "
              "periodo+migliore quando+andare best+time when+to+go gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre mesi january february march april june july august september october november december months",
     "CONSIGLI": "combat evitar preven curar rimed superar affront deal cope avoid prevent cure treat overcom",
-    "EMERGENZE": "perdo perso persa smarr rubat lose lost stolen",
+    "EMERGENZE": "perdo perso= persa smarr rubat lose lost stolen",
 }
 CATEGORY_GUIDE_WORDS = {
     "it": {"ALLOGGIO": "allogg*", "CIBO_BEVANDE": "mangi*, tavola", "COSA_VEDERE": "veder*", "ACQUISTI": "acqui*, valut*",
@@ -240,6 +240,8 @@ def question_groups(question):
     def hit(stem):
         if "+" in stem:
             return " " + stem.replace("+", " ") in text
+        if stem.endswith("="):
+            return any(t in (stem[:-1], stem[:-1] + "s") for t in tokens)
         return any(t.startswith(stem) if len(stem) >= SHORT_STEM_CHARS else t in (stem, stem + "s") for t in tokens)
     return {cat for cat, stems in CATEGORY_TRIGGERS.items() if any(hit(s) for s in stems.split())}
 
@@ -536,7 +538,8 @@ def named_cities(question, cities, lang="it"):
 def focus_stems(fts, city):
     """focusStems: prime 5 lettere delle parole della query, senza quelle della citta' nominata."""
     city_stems = {w[:STEM_CHARS] for w in normalized_words(spoken_city_name(city)).split() if len(w) >= 4} if city else set()
-    return {folded(t.rstrip("*").strip('"'))[:STEM_CHARS] for t in fts.split(" OR ") if t} - city_stems
+    return {folded(t.rstrip("*").strip('"'))[:STEM_CHARS] for t in fts.split(" OR ")
+            if t and not (t.startswith('"') and len(t) - 2 < STEM_CHARS)} - city_stems
 
 
 def parse_matchinfo(blob):

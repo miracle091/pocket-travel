@@ -185,7 +185,7 @@ class LlmTaskManagerViewModel @Inject constructor(
     /** Variante scelta per il prossimo avvio; null se la sceglie ggml. */
     val chosenCpuBackend: StateFlow<String?> = _chosenCpuBackend.asStateFlow()
 
-    private val _wordLists = MutableStateFlow(false)
+    private val _wordLists = MutableStateFlow(true)
 
     /** Liste di parole accese nella ricerca dell'assistente (WordListsOverride). */
     val wordLists: StateFlow<Boolean> = _wordLists.asStateFlow()

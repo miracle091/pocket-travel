@@ -50,6 +50,10 @@ class CountryGuidesTest {
         assertEquals("ge", namedPlace("Serve il visto per la Georgia?", "italia", "it")?.code)
         assertNull(namedPlace("Cosa vedere a Monaco?", "germania", "it"))
         assertEquals("gb", namedPlace("Cosa vedere in Irlanda del Nord?", "italia", "it")?.code)
+        // Parole comuni non sono nomi di regioni ("in centro" non e' la Russia centrale), e la virgola di "Washington D.C."
+        // non stacca "Washington" dallo stato.
+        assertNull(namedPlace("Dove parcheggiare in centro?", "italia", "it"))
+        assertEquals(listOf("stati-uniti-washington"), namedPlace("Cosa vedere nello stato di Washington?", "italia", "it")?.regionIds)
     }
 
     @Test

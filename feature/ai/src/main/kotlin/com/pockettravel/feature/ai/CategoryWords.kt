@@ -4,33 +4,33 @@ package com.pockettravel.feature.ai
  * Liste di parole, per le domande dette con parole che le guide non usano ("pernottare", "souvenir",
  * "Where to stay" sulle guide inglesi, che scrivono "Sleep"). Radici (senza accenti) che nella domanda, in italiano o
  * in inglese, indicano la categoria: una parola le contiene se comincia con la radice; sotto le 4 lettere deve essere
- * uguale, o con una "s" in più ("tip", "tips"); con "+" e' un'espressione, che conta all'inizio di una parola ("best+time",
- * "periodo+migliore"). Costruite dagli errori di tools/data-pipeline/scripts/eval_retrieval.py
+ * uguale, o con una "s" in più ("tip", "tips"), come con "=" in fondo ("perso=" non trova "persone", "card=" non trova
+ * "Cardiff"); con "+" e' un'espressione, che conta all'inizio di una parola ("best+time", "periodo+migliore"). Costruite dagli errori di tools/data-pipeline/scripts/eval_retrieval.py
  * e da sinonimi delle stesse richieste. Accese per tutti; nelle build di debug il task manager le spegne
  * (WordListsOverride). La stessa tabella e' in eval_retrieval.py (--word-lists), che un test confronta con questa.
  */
 private val categoryTriggers = mapOf(
-    "ALLOGGIO" to "allogg dormi pernot notte alberg hotel ostell campeg stay sleep accomm lodg hostel night camp camera prenot room rooms",
+    "ALLOGGIO" to "allogg dormi pernot notte alberg hotel ostell campeg stay sleep accomm lodg hostel night= camp= camping campsite camera prenot room rooms",
     "CIBO_BEVANDE" to "mangi cibo cucin piatt assag ristor pranz cena cenar colaz specia bere vino birra " +
-        "food eat dish cuisin restau lunch dinner breakf tast drink wine beer beve bevi bevan",
+        "food eat dish cuisin restaurant lunch dinner breakf tast drink wine beer beve bevi bevan",
     "COSA_VEDERE" to "veder visit attraz monum muse perder merit see sight attract worth miss to+do things+to+do",
     "ACQUISTI" to "acqui compr souven negoz mercat manci camerier pagar contan bancom soldi valut " +
-        "shop buy market tip waiter pay cash card money curren atm paga euro dollar",
+        "shop buy market tip waiter pay cash card= money curren atm paga euro= dollar",
     "TRASPORTI" to "arriv spost muov treno treni autob macchin auto nolegg guidar raggiun " +
         "bus train car drive rent transp metro reach around stazion station aeroport airport",
     "DOGANE" to "passap docum front dogan visto alcol sigar passport border custom visa alcoh cigar identit id+card",
-    "SALUTE" to "vacci ammal malat medic osped salut farmac sanit sick ill doctor hospit health jab pharm pronto+soccorso first+aid",
-    "SICUREZZA" to "sicur peric derub furt borseg ladr crimin truff safe danger rob theft thief pickp crime scam",
-    "CONNETTIVITA" to "intern telef cellul sim wifi colleg roami online phone mobile connec",
-    "STORIA" to "stori origin nata nato fond passat medioev govern antic roman guerr " +
-        "histor found establ past ancien rule middl war middle+ages costru mura built wall ottocent novecent settecent seicent cinquecent quattrocent trecent secol centur",
+    "SALUTE" to "vacci ammal malat medic osped salute farmac sanit sick ill doctor hospit health jab pharm pronto+soccorso first+aid",
+    "SICUREZZA" to "sicur peric derub furt borseg ladr crimin truffa truffe safe danger rob theft thief pickp crime scam",
+    "CONNETTIVITA" to "internet telef cellul sim wifi collegar roami online phone mobile connec",
+    "STORIA" to "stori origin nata= nato= fondat fondo= passat medioev govern antico antica antich roman guerr " +
+        "histor found establ past= ancien rule= ruled ruler middl war middle+ages costru mura= built wall= ottocent novecent settecent seicent cinquecent quattrocent trecent secol centur",
     "CLIMA" to "clima meteo piog piov ombrel tempera primav estat invern autun nevic neve caldo fredd stagion " +
-        "climat weather rain umbrel spring summer winter autumn snow hot cold season " +
+        "climat weather rain umbrel spring summer winter= autumn snow hot cold season " +
         "periodo+migliore quando+andare best+time when+to+go gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre mesi january february march april june july august september october november december months",
     // Non categorie ma richieste: cosa fare contro un problema e dopo una perdita o un furto. Portano alle sottosezioni
     // pratiche delle pagine della guida generale ("Jet lag: Recupero", "Documenti: In caso di emergenza") invece della definizione.
     "CONSIGLI" to "combat evitar preven curar rimed superar affront deal cope avoid prevent cure treat overcom",
-    "EMERGENZE" to "perdo perso persa smarr rubat lose lost stolen",
+    "EMERGENZE" to "perdo perso= persa smarr rubat lose lost stolen",
 ).mapValues { (_, stems) -> stems.split(' ') }
 
 /**
@@ -80,6 +80,7 @@ internal fun questionGroups(question: String): Set<String> {
     val text = tokens.joinToString(" ", prefix = " ", postfix = " ")
     fun hit(stem: String) = when {
         '+' in stem -> " ${stem.replace('+', ' ')}" in text
+        stem.endsWith('=') -> stem.dropLast(1).let { word -> tokens.any { it == word || it == "${word}s" } }
         stem.length >= SHORT_STEM_CHARS -> tokens.any { it.startsWith(stem) }
         else -> tokens.any { it == stem || it == "${stem}s" }
     }

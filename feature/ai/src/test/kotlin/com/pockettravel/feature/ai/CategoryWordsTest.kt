@@ -20,6 +20,10 @@ class CategoryWordsTest {
         // Richieste di consigli e di cosa fare dopo una perdita, oltre alle categorie.
         assertEquals(setOf("CONSIGLI"), questionGroups("Come si combatte il jet lag?"))
         assertEquals(setOf("DOGANE", "EMERGENZE"), questionGroups("What do I do if I lose my passport abroad?"))
+        // Con "=" la parola e' intera: nomi di citta' e parole comuni che cominciano come una radice non contano.
+        assertEquals(setOf("ALLOGGIO"), questionGroups("Un hotel per due persone a Campobasso?"))
+        assertEquals(setOf("CIBO_BEVANDE"), questionGroups("Where to eat pasta in Cardiff?"))
+        assertEquals(setOf("EMERGENZE"), questionGroups("Ho perso il portafoglio"))
         assertEquals("come OR combat* OR prepar* OR recupe* OR preven* OR tratta*", withCategoryWords("come OR combat*", "Come si combatte il jet lag?", "it"))
     }
 

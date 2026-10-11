@@ -46,6 +46,10 @@ private val headingToCategory = mapOf(
 // tutto il testo reale di Wikivoyage dopo la prima sottosezione.
 internal val headingRegex = Regex("""^==(?!=)\s*(.+?)\s*(?<!=)==$""")
 private val htmlCommentRegex = Regex("""(?s)<!--.*?-->""")
+
+// Note per chi scrive la pagina, rientrate con ":" e con un link alle pagine di servizio ("See [[Wikivoyage:Currency]] for
+// editing guidelines" in testa a "Money"): non sono testo per chi viaggia.
+private val editorNoteRegex = Regex("""(?m)^:+[^\n]*\[\[(?:Wikivoyage|Project):[^\n]*\n?""")
 // Da tenere prima di htmlTagRegex: quest'ultimo toglie solo i tag <ref>/</ref>, lasciando il
 // testo della citazione come prosa vagante in mezzo al corpo della sezione.
 private val refTagRegex = Regex("""(?is)<ref\b[^>]*?/>|<ref\b[^>]*?>.*?</ref>""")
@@ -351,6 +355,7 @@ internal fun dropSkippedSubsections(raw: String): String {
 internal fun cleanBody(raw: String): String {
     val stripped = dropSkippedSubsections(raw)
         .replace(htmlCommentRegex, "")
+        .replace(editorNoteRegex, "")
         .replace(refTagRegex, "")
         .replace(galleryRegex, "")
         .let(::removeTables)

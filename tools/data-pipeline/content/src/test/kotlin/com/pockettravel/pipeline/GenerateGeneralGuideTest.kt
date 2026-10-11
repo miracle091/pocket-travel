@@ -35,6 +35,16 @@ class GenerateGeneralGuideTest {
     }
 
     @Test
+    fun `la nota per chi scrive la pagina non entra nel testo`() {
+        val dump = ": ''See [[Wikivoyage:Currency]] for editing guidelines for currency expressions.''\n" +
+            "Cash is still useful.\n== Cards ==\nVisa is widely accepted."
+
+        val sections = parseGeneralGuidePage("Money", "ACQUISTI", dump, "https://en.wikivoyage.org/wiki/Money")
+
+        assertEquals("Cash is still useful.\n\nVisa is widely accepted.", sections[0].body)
+    }
+
+    @Test
     fun `una pagina non scaricata riprende le sue sezioni pubblicate, non quelle delle altre pagine`() {
         val dump = File.createTempFile("pocket-travel-test", ".txt").apply { writeText("== Truffe dei taxi ==\nTassametro spento.") }
         val tsv = File.createTempFile("pocket-travel-test", ".tsv")

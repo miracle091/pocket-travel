@@ -44,8 +44,10 @@ import com.pockettravel.core.data.vaccination.toSummaryText
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.label
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withTimeoutOrNull
 import java.text.Normalizer
 import java.time.format.DateTimeFormatter
@@ -147,7 +149,8 @@ class TravelAssistant @Inject constructor(
             }
             AiEngineMode.ONLINE -> emit(AssistantProgress.Done(withSource(askOnline(question, language))))
         }
-    }
+        // Nomi da riconoscere, query e paragrafi da normalizzare: lavoro di CPU fuori dal main thread del chiamante.
+    }.flowOn(Dispatchers.Default)
 
     /**
      * La domanda da cercare e da mandare al modello: [question] unita a [previous] (followUpQuestion) se ne e' il
@@ -411,7 +414,7 @@ private val nearbyWords = Regex(
 
 // Radici di parole di storia o clima, a inizio parola ("rain" non deve trovare "train").
 private val historyClimateWords = Regex(
-    """\b(stori|fondat|fondò|secol|guerr|antic|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|""" +
+    """\b((?<!centr[oi] )stori|fondat|fondò|secol|guerr|antic(?:[oa]\b|h)|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|""" +
         """invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season|""" +
         // Le stesse richieste dette con altre parole ("Quando e' nata X?", "When is the best time to go to X?").
         """passat|origin|govern|medioev|nascit|nata\b|nato\b|period|quando andare|best time|when to go|establish|ruled|""" +
@@ -831,7 +834,9 @@ private const val STEM_CHARS = 5
  */
 internal fun focusStems(ftsQuery: String, city: String?): Set<String> {
     val cityStems = city?.let { normalizedWords(spokenCityName(it)).split(' ').filter { w -> w.length >= 4 }.map { w -> w.take(STEM_CHARS) } }.orEmpty()
-    return ftsQuery.split(" OR ").filter { it.isNotBlank() }.map { folded(it.removeSuffix("*").trim('"')).take(STEM_CHARS) }.toSet() - cityStems.toSet()
+    // Le parole corte tra virgolette ("tip", "sim") sarebbero radici di altre parole ("tipico", "simile"): non scelgono paragrafi.
+    return ftsQuery.split(" OR ").filter { it.isNotBlank() && !(it.startsWith('"') && it.length - 2 < STEM_CHARS) }
+        .map { folded(it.removeSuffix("*").trim('"')).take(STEM_CHARS) }.toSet() - cityStems.toSet()
 }
 
 /**
