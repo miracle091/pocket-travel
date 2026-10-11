@@ -66,5 +66,59 @@ class ConfineTest(unittest.TestCase):
                 country_border.main()
 
 
+def stato(osm_id, code, south, north, west, east):
+    """Risultato di Nominatim per una suddivisione: codice ISO 3166-2 nell'indirizzo, riquadro come stringhe."""
+    return {"osm_type": "relation", "osm_id": osm_id, "address": {"ISO3166-2-lvl4": code},
+            "boundingbox": [str(south), str(north), str(west), str(east)], "geojson": SAN_MARINO["geojson"]}
+
+
+HUBEI_BBOX = (108.36, 29.03, 116.13, 33.27)
+HEBEI = stato(912998, "CN-HE", 36.05, 42.62, 113.45, 119.85)
+HUBEI = stato(913106, "CN-HB", 29.03, 33.28, 108.36, 116.13)
+
+
+class SuddivisioneTest(unittest.TestCase):
+    def test_copertura(self):
+        self.assertAlmostEqual(country_border.copertura((0, 0, 2, 2), (1, 0, 3, 2)), 0.5)
+        self.assertEqual(country_border.copertura((-180, 0, 180, 80), (-170, 51, -130, 71)), 1.0)
+        self.assertEqual(country_border.copertura((0, 0, 1, 1), (2, 2, 3, 3)), 0.0)
+
+    def test_suddivisione_con_il_nome_simile_e_un_altro_riquadro_scartata(self):
+        with tempfile.TemporaryDirectory() as cache, \
+                mock.patch.object(country_border, "cerca", side_effect=[[HEBEI], [HEBEI, HUBEI]]), \
+                mock.patch.object(country_border.time, "sleep"):
+            found = country_border.confine_suddivisione("cn", "Hubei", HUBEI_BBOX, cache, "test")
+
+        self.assertEqual(found[0], 913106)
+
+    def test_suddivisione_di_un_altra_nazione_scartata(self):
+        other = stato(1, "TW-TPE", 29.03, 33.28, 108.36, 116.13)
+        with tempfile.TemporaryDirectory() as cache, mock.patch.object(country_border, "cerca", return_value=[other]), \
+                mock.patch.object(country_border.time, "sleep"):
+            self.assertIsNone(country_border.confine_suddivisione("cn", "Hubei", HUBEI_BBOX, cache, "test"))
+
+    def test_titolo_senza_la_parte_tra_parentesi(self):
+        georgia = stato(161957, "US-GA", 30.36, 35.0, -85.61, -80.84)
+        with tempfile.TemporaryDirectory() as cache, \
+                mock.patch.object(country_border, "cerca", side_effect=[[], [], [georgia]]) as cerca, \
+                mock.patch.object(country_border.time, "sleep"):
+            found = country_border.confine_suddivisione("us", "Georgia (U.S. state)", (-85.61, 30.36, -80.84, 35.0), cache, "test")
+
+        self.assertEqual(found[0], 161957)
+        self.assertEqual(cerca.call_args_list[2].args[0]["q"], "Georgia")
+
+    def test_main_senza_suddivisione_usa_la_nazione(self):
+        russia = {**SAN_MARINO, "osm_id": 60189, "extratags": {"ISO3166-1": "RU"}}
+        with tempfile.TemporaryDirectory() as cache, \
+                mock.patch.object(country_border, "cerca", side_effect=[[], [], [russia]]), \
+                mock.patch.object(country_border.time, "sleep"), mock.patch("sys.stdout") as stdout, mock.patch("sys.stderr"):
+            argv = ["country_border.py", "--iso", "ru", "--name", "Volga Region", "--subdivision", "--bbox", "41,51,53,58",
+                    "--out", os.path.join(cache, "c.geojson"), "--cache", cache]
+            with mock.patch.object(sys, "argv", argv):
+                country_border.main()
+
+        self.assertIn("60189", "".join(call.args[0] for call in stdout.write.call_args_list))
+
+
 if __name__ == "__main__":
     unittest.main()
