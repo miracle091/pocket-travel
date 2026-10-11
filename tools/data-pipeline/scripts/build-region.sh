@@ -387,21 +387,29 @@ LAT_END="$(floor5 "$MAX_LAT")"
 REGION_ISO="$(source "$SCRIPT_DIR/regions.sh" && for spec in "${ALL_REGIONS[@]}"; do IFS='|' read -r id _ _ _ _ _ _ flag _ <<< "$spec"; [ "$id" = "$REGION_ID" ] && echo "$flag" && break; done || true)"
 # Titolo Wikivoyage della regione: nome con cui si cercano i territori che per Nominatim non sono nazioni.
 REGION_TITLE="$(source "$SCRIPT_DIR/regions.sh" && for spec in "${ALL_REGIONS[@]}"; do IFS='|' read -r id _ _ _ _ _ title _ <<< "$spec"; [ "$id" = "$REGION_ID" ] && echo "${title//_/ }" && break; done || true)"
+# groupName di regions.sh: non vuoto per le regioni che sono parte di una nazione (stati USA, province).
+REGION_GROUP="$(source "$SCRIPT_DIR/regions.sh" && for spec in "${ALL_REGIONS[@]}"; do IFS='|' read -r id _ _ _ _ _ _ _ group _ <<< "$spec"; [ "$id" = "$REGION_ID" ] && echo "$group" && break; done || true)"
 # Confine OpenStreetMap della nazione (country_border.py, da Nominatim): i POI fuori si scartano, sia dagli estratti
 # Geofabrik sia da Overpass (area 3600000000 + id della relazione). Il riquadro da solo comprende anche i paesi vicini:
 # meta' dei POI di San Marino erano italiani, quasi meta' di quelli dell'Ungheria austriaci o slovacchi (misura del
 # 2026-10-11 sui pacchetti pubblicati). Senza confine (Canarie, Bonaire) resta il solo riquadro.
+# Una regione che e' parte di una nazione si taglia sul confine della sua suddivisione (stato, provincia), se
+# country_border.py la trova; altrimenti su quello della nazione. Il riquadro di uno stato comprende parti di quelli
+# vicini (Virginia Occidentale: 73% dei POI fuori, misura del 2026-10-11), e l'app li mostrerebbe due volte a chi
+# scarica le due regioni.
 # Si cerca prima di decidere se riusare il poi.db pubblicato (sezione 2bis), e una volta sola.
 BORDER_FILE=""
 BORDER_AREA=""
+BORDER_RELATION=""
 BORDER_CHECKED=""
 find_border() {
   BORDER_CHECKED=true
   if [ -n "$REGION_ISO" ] && BORDER_RELATION="$(python3 "$SCRIPT_DIR/country_border.py" --iso "$REGION_ISO" --name "$REGION_TITLE" --out "$WORKDIR/confine.geojson" \
+      ${REGION_GROUP:+--subdivision --bbox "$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT"} \
       --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT")"; then
     BORDER_FILE="$WORKDIR/confine.geojson"
     BORDER_AREA=$((3600000000 + BORDER_RELATION))
-    echo "-- confine OSM della nazione: relazione $BORDER_RELATION"
+    echo "-- confine OSM: relazione $BORDER_RELATION"
   elif [ "$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.border // false' 2>/dev/null || true)" = "true" ]; then
     # I POI pubblicati sono gia' tagliati sul confine: senza (Nominatim non raggiungibile) si pubblicherebbero di nuovo
     # quelli dei paesi vicini.
@@ -491,10 +499,11 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
     if [ -n "$POI_AGE_DAYS" ] && [ "$POI_AGE_DAYS" -gt "$POI_MAX_AGE_DAYS" ]; then
       POI_STALE=true
     fi
-    # POI pubblicati prima del taglio sul confine: si rigenerano anche se recenti, se ora il confine c'e'.
+    # POI pubblicati senza taglio o tagliati su un altro confine (la nazione invece dello stato): si rigenerano anche
+    # se recenti.
     find_border
-    if [ -n "$BORDER_FILE" ] && [ "$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.border // false' 2>/dev/null || true)" != "true" ]; then
-      echo "-- $REGION_ID: POI pubblicati non tagliati sul confine della nazione: li rigenero"
+    if [ -n "$BORDER_FILE" ] && [ "$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.borderRelation // ""' 2>/dev/null || true)" != "$BORDER_RELATION" ]; then
+      echo "-- $REGION_ID: POI pubblicati non tagliati sul confine $BORDER_RELATION: li rigenero"
       POI_STALE=true
     fi
 
@@ -811,9 +820,10 @@ poi_count() {
 PUBLISHED_POI_COUNT="$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.count // empty' 2>/dev/null || true)"
 POI_BORDER=false
 [ -n "$BORDER_FILE" ] && POI_BORDER=true
-# Primo pacchetto tagliato sul confine: quello pubblicato aveva anche i POI dei paesi vicini (Oman: due terzi negli
-# Emirati), quindi il confronto con la meta' scarterebbe il risultato giusto. Resta il controllo sul risultato vuoto.
-if [ "$POI_BORDER" = true ] && [ "$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.border // false' 2>/dev/null || true)" != "true" ]; then
+# Primo pacchetto tagliato su questo confine: quello pubblicato aveva anche i POI dei paesi o degli stati vicini (Oman:
+# due terzi negli Emirati; Virginia Occidentale: tre quarti negli stati vicini), quindi il confronto con la meta'
+# scarterebbe il risultato giusto. Resta il controllo sul risultato vuoto.
+if [ "$POI_BORDER" = true ] && [ "$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.borderRelation // ""' 2>/dev/null || true)" != "$BORDER_RELATION" ]; then
   PUBLISHED_POI_COUNT=""
   PUBLISHED_POI_URL=""
 fi
@@ -861,9 +871,9 @@ if [ "$POI_ONLY" = "true" ]; then
       return 0
     fi
     jq -c --arg key "$key" --arg version "$VERSION" --arg name "$name" --arg url "$url" \
-      --argjson size "$(wc -c < "$file" | tr -d ' ')" --arg hash "$hash" --argjson xz "$(xz_entry "$file" "$url")" --argjson count "$POI_COUNT" --argjson border "$POI_BORDER" '
+      --argjson size "$(wc -c < "$file" | tr -d ' ')" --arg hash "$hash" --argjson xz "$(xz_entry "$file" "$url")" --argjson count "$POI_COUNT" --argjson border "$POI_BORDER" --argjson borderRelation "${BORDER_RELATION:-null}" '
       .regions |= map(.[$key] = {version: $version, file: {name: $name, url: $url, sizeBytes: $size, sha256: $hash}, fileXz: $xz}
-        + (if $key == "poi" then {count: $count, border: $border} else {} end))' \
+        + (if $key == "poi" then {count: $count, border: $border, borderRelation: $borderRelation} else {} end))' \
       "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
     mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
   }
@@ -944,9 +954,11 @@ echo "-- genero il frammento manifest..."
 POI_XZ="$(xz_entry "$POI_DB" "$POI_DB_URL")"
 POI_EXTRA_XZ="null"
 [ -f "$POI_EXTRA_DB" ] && POI_EXTRA_XZ="$(xz_entry "$POI_EXTRA_DB" "$POI_EXTRA_DB_URL")"
-# border: POI tagliati sul confine OSM della nazione (il controllo del conteggio sopra confronta solo pacchetti uguali).
+# border: POI tagliati su un confine OSM; borderRelation: la relazione (nazione o suddivisione). Il controllo del
+# conteggio sopra e la rigenerazione anticipata confrontano solo pacchetti tagliati sulla stessa relazione.
 jq -c --argjson xz "$POI_XZ" --argjson extraXz "$POI_EXTRA_XZ" --argjson count "$POI_COUNT" --argjson border "$POI_BORDER" \
-  '.regions |= map(.poi.fileXz = $xz | .poi.count = $count | .poi.border = $border | if .poiExtra and $extraXz then .poiExtra.fileXz = $extraXz else . end)' \
+  --argjson borderRelation "${BORDER_RELATION:-null}" \
+  '.regions |= map(.poi.fileXz = $xz | .poi.count = $count | .poi.border = $border | .poi.borderRelation = $borderRelation | if .poiExtra and $extraXz then .poiExtra.fileXz = $extraXz else . end)' \
   "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
 mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
 # Anteprima compressa (voce fileXz): dimensione/hash gia' calcolati da build_preview, niente
