@@ -145,7 +145,7 @@ object LlmModelCatalog {
 
     /**
      * Modello predefinito per la fascia di RAM del dispositivo: il nostro addestrato scaricabile della
-     * fascia (4 GB -> 0.8B, 8 GB -> 2B, 12 GB -> 4B), o il piu' grande tra quelli che la fascia regge;
+     * fascia (4 GB -> 0.8B, 6 GB -> 2B, 12 GB -> 4B), o il piu' grande tra quelli che la fascia regge;
      * con RAM insufficiente (IA locale disattivata) il piu' leggero. Gli addestrati hanno la precedenza
      * sugli ufficiali perche' rifiutano molto meglio le domande a cui la guida non risponde. Solo quelli
      * addestrati nella lingua dell'interfaccia [language]: senza, gli ufficiali, con la stessa regola

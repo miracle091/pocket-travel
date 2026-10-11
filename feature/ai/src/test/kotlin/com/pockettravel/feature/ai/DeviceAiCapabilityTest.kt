@@ -9,54 +9,52 @@ import org.junit.Test
 
 private const val GB = 1024L * 1024 * 1024
 
+private fun Double.gib(): Long = (this * GB).toLong()
+
 // Stessa regola di DeviceAiCapability.isOnDeviceAiSupported(), che in JVM puro non si puo' chiamare (serve un Context).
 private fun enablesOnDeviceAi(totalMemBytes: Long) = ramTierFor(totalMemBytes) != RamTier.INSUFFICIENTE
 
 class DeviceAiCapabilityTest {
 
+    // totalMem dei telefoni veri: meno della RAM dichiarata (memoria riservata, GB decimali), mai sotto l'85%.
     @Test
-    fun `disables on-device AI on a 3 GB device`() {
-        assertFalse(enablesOnDeviceAi(3 * GB))
+    fun `a 3 GB phone has no on-device AI`() {
+        assertFalse(enablesOnDeviceAi(2.8.gib()))
     }
 
     @Test
-    fun `disables on-device AI just below the 4 GB threshold`() {
-        assertFalse(enablesOnDeviceAi(4 * GB - 1))
+    fun `a 4 GB phone reporting 3,6 GiB enables on-device AI`() {
+        assertTrue(enablesOnDeviceAi(3.6.gib()))
+        assertEquals(RamTier.MINIMO, ramTierFor(3.6.gib()))
     }
 
     @Test
-    fun `enables on-device AI at exactly 4 GB`() {
-        assertTrue(enablesOnDeviceAi(4 * GB))
+    fun `just below 85 percent of 4 GiB is not enough`() {
+        assertFalse(enablesOnDeviceAi(DeviceAiCapability.MIN_RAM_BYTES - 1))
+        assertTrue(enablesOnDeviceAi(DeviceAiCapability.MIN_RAM_BYTES))
     }
 
     @Test
-    fun `enables on-device AI above 4 GB`() {
-        assertTrue(enablesOnDeviceAi(6 * GB))
+    fun `6 and 8 GB phones are CONFORTEVOLE`() {
+        assertEquals(RamTier.CONFORTEVOLE, ramTierFor(5.5.gib()))
+        assertEquals(RamTier.CONFORTEVOLE, ramTierFor(7.4.gib()))
+        assertEquals(RamTier.MINIMO, ramTierFor(DeviceAiCapability.COMFORTABLE_RAM_BYTES - 1))
     }
 
     @Test
-    fun `ramTierFor reports INSUFFICIENTE below 4 GB`() {
-        assertEquals(RamTier.INSUFFICIENTE, ramTierFor(3 * GB))
-    }
-
-    @Test
-    fun `ramTierFor reports MINIMO between 4 and 8 GB`() {
-        assertEquals(RamTier.MINIMO, ramTierFor(4 * GB))
-        assertEquals(RamTier.MINIMO, ramTierFor(8 * GB - 1))
-    }
-
-    @Test
-    fun `ramTierFor reports CONFORTEVOLE between 8 and 12 GB`() {
-        assertEquals(RamTier.CONFORTEVOLE, ramTierFor(8 * GB))
-        assertEquals(RamTier.CONFORTEVOLE, ramTierFor(12 * GB - 1))
-    }
-
-    @Test
-    fun `ramTierFor reports AMPIA from 12 GB`() {
-        assertEquals(RamTier.AMPIA, ramTierFor(12 * GB))
+    fun `12 GB phones are AMPIA`() {
+        assertEquals(RamTier.AMPIA, ramTierFor(11.2.gib()))
         assertEquals(RamTier.AMPIA, ramTierFor(16 * GB))
+        assertEquals(RamTier.CONFORTEVOLE, ramTierFor(10 * GB))
     }
 
+    @Test
+    fun `advertised RAM in decimal GB falls in the same tier`() {
+        assertEquals(RamTier.MINIMO, ramTierFor(4_000_000_000L))
+        assertEquals(RamTier.CONFORTEVOLE, ramTierFor(6_000_000_000L))
+        assertEquals(RamTier.CONFORTEVOLE, ramTierFor(8_000_000_000L))
+        assertEquals(RamTier.AMPIA, ramTierFor(12_000_000_000L))
+    }
     @Test
     fun `inferenceThreadCountFor uses cores minus one below the tier cap`() {
         assertEquals(3, inferenceThreadCountFor(RamTier.AMPIA, availableCores = 4))

@@ -2,6 +2,7 @@ package com.pockettravel.feature.ai
 
 import android.app.ActivityManager
 import android.content.Context
+import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
@@ -21,7 +22,10 @@ class DeviceAiCapability @Inject constructor(
         val activityManager = context.getSystemService(ActivityManager::class.java) ?: return RamTier.INSUFFICIENTE
         val memoryInfo = ActivityManager.MemoryInfo()
         activityManager.getMemoryInfo(memoryInfo)
-        return ramTierFor(memoryInfo.totalMem)
+        // advertisedMem (Android 14+) e' la RAM dichiarata dal produttore; totalMem quella che vede il kernel,
+        // senza la memoria riservata (modem, TEE, DMA): su un telefono da 8 GB circa 7,3-7,6 GiB.
+        val advertised = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) memoryInfo.advertisedMem else 0L
+        return ramTierFor(if (advertised > 0) advertised else memoryInfo.totalMem)
     }
 
     /**
@@ -32,17 +36,21 @@ class DeviceAiCapability @Inject constructor(
     fun inferenceThreadCount(): Int = inferenceThreadCountFor(ramTier(), Runtime.getRuntime().availableProcessors())
 
     companion object {
-        const val MIN_RAM_BYTES = 4L * 1024 * 1024 * 1024
-        const val COMFORTABLE_RAM_BYTES = 8L * 1024 * 1024 * 1024
-        const val AMPLE_RAM_BYTES = 12L * 1024 * 1024 * 1024
+        // Soglie all'85% di 4, 6 e 12 GiB: un telefono da N GB riporta in totalMem meno di N GiB (memoria riservata,
+        // GB decimali) ma non sotto l'85%, e un telefono della taglia sotto non ci arriva. Le fasce vengono dalla
+        // memoria misurata con llama.cpp (contesto 4096): 0.8B ~0,8 GiB, 2B ~1,9 GiB, 4B ~4,6 GiB, piu' ~0,4 GB
+        // dell'app: modello e app occupano circa il 40% della RAM della fascia o meno, il resto e' per sistema e altre app.
+        const val MIN_RAM_BYTES = 4L * 1024 * 1024 * 1024 * 85 / 100
+        const val COMFORTABLE_RAM_BYTES = 6L * 1024 * 1024 * 1024 * 85 / 100
+        const val AMPLE_RAM_BYTES = 12L * 1024 * 1024 * 1024 * 85 / 100
 
         // Estratte a parte per essere testabili in JVM puro: ActivityManager.getMemoryInfo
         // richiede un Context Android, non disponibile nei unit test di questo modulo (solo
         // JUnit, nessun Robolectric — coerente con il resto del modulo, es. buildFtsQuery).
-        fun ramTierFor(totalMemBytes: Long): RamTier = when {
-            totalMemBytes >= AMPLE_RAM_BYTES -> RamTier.AMPIA
-            totalMemBytes >= COMFORTABLE_RAM_BYTES -> RamTier.CONFORTEVOLE
-            totalMemBytes >= MIN_RAM_BYTES -> RamTier.MINIMO
+        fun ramTierFor(memBytes: Long): RamTier = when {
+            memBytes >= AMPLE_RAM_BYTES -> RamTier.AMPIA
+            memBytes >= COMFORTABLE_RAM_BYTES -> RamTier.CONFORTEVOLE
+            memBytes >= MIN_RAM_BYTES -> RamTier.MINIMO
             else -> RamTier.INSUFFICIENTE
         }
 

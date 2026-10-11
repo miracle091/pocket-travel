@@ -22,9 +22,13 @@ a LoRA fine-tune of [Qwen/Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B), m
 answers **in English, in at most 3 sentences, using only the travel-guide CONTEXT it is given**, and says so
 explicitly when the context does not contain the answer.
 
-| File | Size | Quantization | Suggested device RAM |
-|---|---|---|---|
-| `qwen3.5-2b-travel-en-Q4_K_M.gguf` | 1,215 MiB | Q4_K_M with importance matrix | 8 GB |
+| File | Size | Quantization | Memory in use | Suggested device RAM |
+|---|---|---|---|---|
+| `qwen3.5-2b-travel-en-Q4_K_M.gguf` | 1,215 MiB | Q4_K_M with importance matrix | about 1.9 GiB | 6 GB or more |
+
+Memory in use: weights, the CPU copy of repacked weights, KV cache and compute buffers, measured with llama.cpp on
+CPU with the app's settings (context 4096 tokens, batch 512, f16 KV cache). With about 0.4 GB for the app itself, model
+and app take about 40% of the suggested device RAM or less, leaving the rest to the system and other apps.
 
 ## Intended use
 

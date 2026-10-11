@@ -80,13 +80,13 @@ The assistant answers in at most three sentences, only with what it finds in the
 
 ### 📱 On device (offline)
 
-The model runs on the device and no data leaves it. It needs at least 4 GB of RAM; the app suggests the right model and updates it when it improves.
+The model runs on the device and no data leaves it. It needs at least 4 GB of RAM; the app suggests the right model for the RAM and the app language and updates it when it improves.
 
-| RAM | Trained by the project (Italian) | Official (English) |
-|---|---|---|
-| 4 GB | [Pocket Travel 0.8B](tools/data-pipeline/model-cards/qwen3.5-0.8b-travel-it-GGUF.md) – 0.53 GB | [Qwen3.5 0.8B](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF) – 0.56 GB |
-| 8 GB | [Pocket Travel 2B](tools/data-pipeline/model-cards/qwen3.5-2b-travel-it-GGUF.md) – 1.27 GB | [Qwen3.5 2B](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF) – 1.34 GB |
-| 12 GB or more | [Pocket Travel 4B](tools/data-pipeline/model-cards/qwen3-4b-instruct-2507-travel-it-GGUF.md) – 2.50 GB | [Qwen3 4B Instruct 2507](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF) – 2.55 GB |
+| RAM | Trained by the project (Italian) | Trained by the project (English) | Official |
+|---|---|---|---|
+| 4 GB | [Pocket Travel 0.8B](tools/data-pipeline/model-cards/qwen3.5-0.8b-travel-it-GGUF.md) – 0.53 GB | [Pocket Travel 0.8B](tools/data-pipeline/model-cards/qwen3.5-0.8b-travel-en-GGUF.md) – 0.53 GB | [Qwen3.5 0.8B](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF) – 0.56 GB |
+| 6 GB | [Pocket Travel 2B](tools/data-pipeline/model-cards/qwen3.5-2b-travel-it-GGUF.md) – 1.27 GB | [Pocket Travel 2B](tools/data-pipeline/model-cards/qwen3.5-2b-travel-en-GGUF.md) – 1.27 GB | [Qwen3.5 2B](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF) – 1.34 GB |
+| 12 GB or more | [Pocket Travel 4B](tools/data-pipeline/model-cards/qwen3-4b-instruct-2507-travel-it-GGUF.md) – 2.50 GB | [Pocket Travel 4B](tools/data-pipeline/model-cards/qwen3-4b-instruct-2507-travel-en-GGUF.md) – 2.50 GB | [Qwen3 4B Instruct 2507](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF) – 2.55 GB |
 
 ### ☁️ Online (with a personal API key)
 
