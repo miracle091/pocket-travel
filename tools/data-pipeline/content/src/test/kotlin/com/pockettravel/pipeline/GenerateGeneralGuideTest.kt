@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-class GenerateWorldGuideTest {
+class GenerateGeneralGuideTest {
 
     private val url = "https://it.wikivoyage.org/wiki/Jet_lag"
 
@@ -24,14 +24,14 @@ class GenerateWorldGuideTest {
             * [[Salute]]
         """.trimIndent()
 
-        val sections = parseWorldPage("Jet lag", "SALUTE", dump, url)
+        val sections = parseGeneralGuidePage("Jet lag", "SALUTE", dump, url)
 
         assertEquals(listOf("Jet lag: Prepararsi", "Jet lag: Recupero"), sections.map { it.title })
         assertEquals("Il jet lag e' il disturbo dovuto al cambio di fuso orario.\n\n• Dormire di piu' nei giorni prima.", sections[0].body)
         assertEquals("Un'ora al giorno.", sections[1].body)
         assertTrue(sections.all { it.category == "SALUTE" && it.sourceUrl == url })
         // Una pagina senza sottotitoli resta la sola introduzione.
-        assertEquals(listOf("Jet lag"), parseWorldPage("Jet lag", "SALUTE", "Solo introduzione.", url).map { it.title })
+        assertEquals(listOf("Jet lag"), parseGeneralGuidePage("Jet lag", "SALUTE", "Solo introduzione.", url).map { it.title })
     }
 
     @Test
@@ -48,9 +48,9 @@ class GenerateWorldGuideTest {
                 GuideSectionRow("SALUTE", "Mal di montagna", "altra pagina", "https://it.wikivoyage.org/wiki/Mal_di_montagna"),
             )
 
-            val guide = readWorldGuide(tsv, published)
+            val guide = readGeneralGuide(tsv, published)
 
-            assertEquals(WORLD_REGION_ID, guide?.regionId)
+            assertEquals(GENERAL_GUIDE_REGION_ID, guide?.regionId)
             assertEquals(listOf("Jet lag", "Truffe comuni: Truffe dei taxi"), guide?.sections?.map { it.title })
             assertEquals(scamsUrl, guide?.sections?.last()?.sourceUrl)
         } finally {
@@ -60,18 +60,18 @@ class GenerateWorldGuideTest {
     }
 
     @Test
-    fun `nessuna guida del mondo senza sezioni`() {
+    fun `nessuna guida della guida generale senza sezioni`() {
         val tsv = File.createTempFile("pocket-travel-test", ".tsv")
         try {
             tsv.writeText("SALUTE\tJet lag\t\t$url\n")
-            assertNull(readWorldGuide(tsv, emptyList()))
+            assertNull(readGeneralGuide(tsv, emptyList()))
         } finally {
             tsv.delete()
         }
     }
 
     @Test
-    fun `nessuna regione di regions sh usa l'id riservato del mondo`() {
+    fun `nessuna regione di regions sh usa l'id riservato della guida generale`() {
         val script = File("../scripts/regions.sh").takeIf { it.exists() } ?: File("scripts/regions.sh")
         val regionIds = script.readLines().map { it.trim() }
             .filter { it.startsWith("\"") && it.count { c -> c == '|' } >= 10 }

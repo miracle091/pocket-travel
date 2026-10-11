@@ -181,7 +181,7 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   attesa entra nel contesto e quante volte la risposta ci sta dentro. Va aggiornato insieme alla scelta del contesto
   dell'app; `--lang en` misura le guide e le domande inglesi, `--no-wikipedia` misura senza le due sezioni,
   `--questions reworded` usa le stesse richieste con altre parole e `--questions other-lang` le domande nell'altra
-  lingua (stesse città nei tre casi), `--questions general` le domande generali sulle pagine della pseudo-regione mondo,
+  lingua (stesse città nei tre casi), `--questions general` le domande generali sulle pagine della guida generale,
   `--questions control` le domande di controllo (mai usate per costruire le liste di parole), `--questions other-country` le domande che nominano un'altra nazione (cercate nella sua guida, `CountryGuides.kt`),
   `--guides-db` un `guides.db` locale al posto di quello pubblicato, `--word-lists` la ricerca con le liste di parole
   per categoria che l'app usa (`CategoryWords.kt`; senza l'opzione si misura la ricerca senza liste). La tabella delle guide contiene tutte le regioni,
@@ -191,9 +191,9 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
 - **Guide**: la sottosezione "Costo della vita" ("Cost of living" in inglese) viene omessa da guide e città. Le guide
   delle nazioni hanno anche "Cosa vedere" e "Cosa fare" ("See" e "Do"), come quelle delle città, categoria `COSA_VEDERE`. I fatti
   rapidi delle guide inglesi comprendono anche la lingua e i numeri di emergenza, come quelli italiani.
-- **Pseudo-regione mondo**: `build-guides.sh` scarica anche le pagine tematiche di Wikivoyage di `WORLD_PAGES` (salute,
+- **Guida generale**: `build-guides.sh` scarica anche le pagine tematiche di Wikivoyage di `GENERAL_GUIDE_PAGES` (salute,
   jet lag, mal di montagna, assicurazione, documenti, visti, borseggiatori, truffe, pagamenti, mance solo in inglese,
-  telefono) e `generateGuides --world` le scrive in `guide_sections` con regionId `_world` (`GenerateWorldGuide.kt`):
+  telefono) e `generateGuides --general-guide` le scrive in `guide_sections` con regionId `_general` (`GenerateGeneralGuide.kt`):
   una sezione per titolo "==", intitolata "<pagina>: <titolo>", con la categoria della pagina e il suo link. Senza la
   pagina italiana la guida italiana la salta; una pagina non scaricata riprende le sezioni pubblicate. L'assistente
   le cerca insieme alla regione aperta; le versioni precedenti dell'app le importano senza cercarle. Pesano circa il 5%

@@ -23,7 +23,7 @@ import com.pockettravel.core.ui.Spacing
 @Composable
 internal fun WordListsSection(viewModel: LlmTaskManagerViewModel) {
     val enabled by viewModel.wordLists.collectAsStateWithLifecycle()
-    SectionTitle(R.string.ai_taskmgr_search)
+    SectionTitle(R.string.ai_taskmgr_context)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier

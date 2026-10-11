@@ -187,7 +187,7 @@ class LlmTaskManagerViewModel @Inject constructor(
 
     private val _wordLists = MutableStateFlow(false)
 
-    /** Liste di parole per categoria accese nella ricerca dell'assistente (WordListsOverride). */
+    /** Liste di parole accese nella ricerca dell'assistente (WordListsOverride). */
     val wordLists: StateFlow<Boolean> = _wordLists.asStateFlow()
 
     init {

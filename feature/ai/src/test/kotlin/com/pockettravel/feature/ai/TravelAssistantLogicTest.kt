@@ -12,7 +12,7 @@ import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitDeparture
 import com.pockettravel.core.data.TransitFeedInfo
 import com.pockettravel.core.data.TransitMode
-import com.pockettravel.core.data.WORLD_REGION_ID
+import com.pockettravel.core.data.GENERAL_GUIDE_REGION_ID
 import com.pockettravel.core.data.vaccination.TripPurpose
 import com.pockettravel.core.poi.PoiCategory
 import org.junit.Assert.assertEquals
@@ -243,52 +243,52 @@ class TravelAssistantLogicTest {
     }
 
     @Test
-    fun `il mondo va in testa in piu' alle tre sezioni solo se supera di molto la migliore della regione`() {
+    fun `la guida generale va in testa in piu' alle tre sezioni solo se supera di molto la migliore della regione`() {
         val guide = listOf(
             guideSection("A", "corpo A") to info(bodyHits = 1),
             guideSection("B", "corpo B") to info(bodyHits = 1, length = 200),
             guideSection("C", "corpo C") to info(bodyHits = 1, length = 300),
         )
-        val strongWorld = listOf(guideSection("Jet lag", "mondo forte") to info(titleHits = 1, bodyHits = 5), guideSection("Salute", "mondo secondo") to info(bodyHits = 2))
-        val weakWorld = listOf(guideSection("Jet lag", "mondo debole") to info(bodyHits = 2))
+        val strongGeneral = listOf(guideSection("Jet lag", "generale forte") to info(titleHits = 1, bodyHits = 5), guideSection("Salute", "generale secondo") to info(bodyHits = 2))
+        val weakGeneral = listOf(guideSection("Jet lag", "generale debole") to info(bodyHits = 2))
 
         assertEquals(
-            listOf("mondo forte", "corpo A", "corpo B", "corpo C"),
-            rankSections(guide, emptyList(), limit = 3, countryFirst = true, worldMatches = strongWorld).map { it.body },
+            listOf("generale forte", "corpo A", "corpo B", "corpo C"),
+            rankSections(guide, emptyList(), limit = 3, countryFirst = true, generalGuideMatches = strongGeneral).map { it.body },
         )
-        assertEquals(listOf("corpo A", "corpo B", "corpo C"), rankSections(guide, emptyList(), limit = 3, worldMatches = weakWorld).map { it.body })
-        // Con una citta' nominata il mondo non va in testa, e senza posti liberi non entra.
+        assertEquals(listOf("corpo A", "corpo B", "corpo C"), rankSections(guide, emptyList(), limit = 3, generalGuideMatches = weakGeneral).map { it.body })
+        // Con una citta' nominata la guida generale non va in testa, e senza posti liberi non entra.
         assertEquals(
             listOf("corpo A", "corpo B", "corpo C"),
-            rankSections(guide, emptyList(), limit = 3, countryFirst = false, worldMatches = strongWorld).map { it.body },
+            rankSections(guide, emptyList(), limit = 3, countryFirst = false, generalGuideMatches = strongGeneral).map { it.body },
         )
     }
 
     @Test
-    fun `in una domanda sul viaggio in generale il mondo va in testa se supera la migliore della regione`() {
+    fun `in una domanda sul viaggio in generale la guida generale va in testa se supera la migliore della regione`() {
         val guide = listOf(guideSection("A", "corpo A") to info(bodyHits = 2), guideSection("B") to info(bodyHits = 1), guideSection("C") to info(bodyHits = 1))
-        val world = listOf(guideSection("Documenti", "mondo") to info(bodyHits = 3))
+        val general = listOf(guideSection("Documenti", "generale") to info(bodyHits = 3))
 
-        assertEquals("corpo A", rankSections(guide, emptyList(), limit = 3, countryFirst = true, worldMatches = world).first().body)
-        assertEquals("mondo", rankSections(guide, emptyList(), limit = 3, countryFirst = true, worldMatches = world, generalQuestion = true).first().body)
+        assertEquals("corpo A", rankSections(guide, emptyList(), limit = 3, countryFirst = true, generalGuideMatches = general).first().body)
+        assertEquals("generale", rankSections(guide, emptyList(), limit = 3, countryFirst = true, generalGuideMatches = general, generalQuestion = true).first().body)
         assertTrue(isGeneralTravelQuestion("Cosa faccio se perdo il passaporto all'estero?"))
         assertTrue(isGeneralTravelQuestion("What should I pack when travelling?"))
         assertFalse(isGeneralTravelQuestion("Serve il passaporto per entrare?"))
     }
 
     @Test
-    fun `con meno di tre sezioni della regione il mondo entra in fondo anche se debole, e da solo se la regione non trova nulla`() {
-        val weakWorld = listOf(guideSection("Jet lag", "mondo debole") to info(bodyHits = 1, length = 500))
+    fun `con meno di tre sezioni della regione la guida generale entra in fondo anche se debole, e da solo se la regione non trova nulla`() {
+        val weakGeneral = listOf(guideSection("Jet lag", "generale debole") to info(bodyHits = 1, length = 500))
 
         assertEquals(
-            listOf("corpo A", "mondo debole"),
-            rankSections(listOf(guideSection("A", "corpo A") to info(bodyHits = 3)), emptyList(), limit = 3, worldMatches = weakWorld).map { it.body },
+            listOf("corpo A", "generale debole"),
+            rankSections(listOf(guideSection("A", "corpo A") to info(bodyHits = 3)), emptyList(), limit = 3, generalGuideMatches = weakGeneral).map { it.body },
         )
-        assertEquals(listOf("mondo debole"), rankSections(emptyList(), emptyList(), limit = 3, worldMatches = weakWorld).map { it.body })
-        // La SALUTE del mondo non accende il banner delle fonti ufficiali, che riguarda il paese.
-        val worldHealth = guideSection("Jet lag", category = GuideCategory.SALUTE).copy(regionId = WORLD_REGION_ID)
-        assertTrue(rankSections(emptyList(), emptyList(), limit = 3, worldMatches = listOf(worldHealth to info(bodyHits = 1))).single().fromWorld)
-        assertFalse(rankSections(listOf(guideSection("A") to info(bodyHits = 1)), emptyList(), limit = 3).single().fromWorld)
+        assertEquals(listOf("generale debole"), rankSections(emptyList(), emptyList(), limit = 3, generalGuideMatches = weakGeneral).map { it.body })
+        // La SALUTE della guida generale non accende il banner delle fonti ufficiali, che riguarda il paese.
+        val generalHealth = guideSection("Jet lag", category = GuideCategory.SALUTE).copy(regionId = GENERAL_GUIDE_REGION_ID)
+        assertTrue(rankSections(emptyList(), emptyList(), limit = 3, generalGuideMatches = listOf(generalHealth to info(bodyHits = 1))).single().fromGeneralGuide)
+        assertFalse(rankSections(listOf(guideSection("A") to info(bodyHits = 1)), emptyList(), limit = 3).single().fromGeneralGuide)
     }
 
     @Test

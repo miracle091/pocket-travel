@@ -5,11 +5,11 @@ import com.pockettravel.core.data.db.GuideSectionEntity
 import javax.inject.Inject
 
 /**
- * regionId della pseudo-regione "mondo" di guide_sections: sezioni delle pagine tematiche di Wikivoyage (salute,
+ * regionId della guida generale di guide_sections: sezioni delle pagine tematiche di Wikivoyage (salute,
  * documenti, mance, truffe...) per le domande generali, che l'assistente cerca insieme alla regione aperta. Lo stesso id
- * di GenerateWorldGuide.kt nella pipeline.
+ * di GenerateGeneralGuide.kt nella pipeline.
  */
-const val WORLD_REGION_ID = "_world"
+const val GENERAL_GUIDE_REGION_ID = "_general"
 
 class GuideRepository @Inject constructor(
     private val guideDao: GuideDao,

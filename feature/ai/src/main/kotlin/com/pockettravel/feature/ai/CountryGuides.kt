@@ -419,19 +419,19 @@ private val regionCountry: Map<String, String> by lazy {
 }
 
 /** Nazione (o sua regione) nominata in una domanda: [code] ISO, [name] come e' scritto nella domanda, [regionIds] dove cercare. */
-internal class NamedCountry(val code: String, val name: String, val regionIds: List<String>)
+internal class NamedPlace(val code: String, val name: String, val regionIds: List<String>)
 
 // Nome -> luoghi con quel nome, in ordine di preferenza: le nazioni (nomi italiani e inglesi del JDK, come l'elenco delle
 // nazioni, e countryAliases) con tutte le loro regioni, poi le regioni delle nazioni divise e gli alias con la sola regione.
-private val placesByName: Map<String, List<NamedCountry>> by lazy {
+private val placesByName: Map<String, List<NamedPlace>> by lazy {
     val countries = countryRegions.flatMap { (iso, regions) ->
         val locale = Locale.Builder().setRegion(iso.uppercase()).build()
         listOf(Locale.ITALIAN, Locale.ENGLISH).map { locale.getDisplayCountry(it) }
             .filter { !it.equals(iso, ignoreCase = true) }
-            .map { NamedCountry(iso, it, regions.split(' ')) }
-    } + countryAliases.map { (name, iso) -> NamedCountry(iso, name, countryRegions.getValue(iso).split(' ')) }
-    val regions = subregionNames.flatMap { (regionId, names) -> names.split(", ").map { NamedCountry(regionCountry.getValue(regionId), it, listOf(regionId)) } } +
-        placeAliases.map { (name, regionId) -> NamedCountry(regionCountry.getValue(regionId), name, listOf(regionId)) }
+            .map { NamedPlace(iso, it, regions.split(' ')) }
+    } + countryAliases.map { (name, iso) -> NamedPlace(iso, name, countryRegions.getValue(iso).split(' ')) }
+    val regions = subregionNames.flatMap { (regionId, names) -> names.split(", ").map { NamedPlace(regionCountry.getValue(regionId), it, listOf(regionId)) } } +
+        placeAliases.map { (name, regionId) -> NamedPlace(regionCountry.getValue(regionId), name, listOf(regionId)) }
     (countries + regions).groupBy { it.name }
 }
 
@@ -441,7 +441,7 @@ private val placesByName: Map<String, List<NamedCountry>> by lazy {
  * domanda non ne nomina nessuna, o se un nome nominato puo' indicare un luogo della nazione della regione aperta
  * [openRegionId] ("Georgia" con aperta la Florida, "Monaco" con aperta la Germania): resta la ricerca di prima.
  */
-internal fun namedCountry(question: String, openRegionId: String, language: String): NamedCountry? {
+internal fun namedPlace(question: String, openRegionId: String, language: String): NamedPlace? {
     val open = regionCountry[openRegionId]
     val named = namedCities(question, placesByName.keys.toList(), language).map { placesByName.getValue(it) }
     if (named.any { places -> places.any { it.code == open } }) return null

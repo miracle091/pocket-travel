@@ -7,19 +7,19 @@ class CategoryWordsTest {
 
     @Test
     fun `le categorie dalle parole della domanda in italiano e in inglese`() {
-        assertEquals(setOf("ALLOGGIO"), questionCategories("Cerco un posto economico per pernottare a Rimini"))
-        assertEquals(setOf("ACQUISTI"), questionCategories("Where can I buy souvenirs in Porto?"))
-        assertEquals(setOf("CLIMA"), questionCategories("Serve l'ombrello a Bologna in autunno?"))
+        assertEquals(setOf("ALLOGGIO"), questionGroups("Cerco un posto economico per pernottare a Rimini"))
+        assertEquals(setOf("ACQUISTI"), questionGroups("Where can I buy souvenirs in Porto?"))
+        assertEquals(setOf("CLIMA"), questionGroups("Serve l'ombrello a Bologna in autunno?"))
         // Le radici corte valgono solo come parola intera: "tipico" non e' "tip", "carta" non e' "car".
-        assertEquals(emptySet<String>(), questionCategories("Che cosa e' tipico della zona?"))
-        assertEquals(setOf("ACQUISTI"), questionCategories("How much should I tip?"))
+        assertEquals(emptySet<String>(), questionGroups("Che cosa e' tipico della zona?"))
+        assertEquals(setOf("ACQUISTI"), questionGroups("How much should I tip?"))
         // Espressioni di piu' parole: "best time" e "periodo migliore" sono il clima, "best" da solo no.
-        assertEquals(setOf("CLIMA"), questionCategories("When is the best time to go to Porto?"))
-        assertEquals(setOf("CLIMA"), questionCategories("Qual è il periodo migliore per andare a Lisbona?"))
-        assertEquals(emptySet<String>(), questionCategories("Which is the best beach?"))
+        assertEquals(setOf("CLIMA"), questionGroups("When is the best time to go to Porto?"))
+        assertEquals(setOf("CLIMA"), questionGroups("Qual è il periodo migliore per andare a Lisbona?"))
+        assertEquals(emptySet<String>(), questionGroups("Which is the best beach?"))
         // Richieste di consigli e di cosa fare dopo una perdita, oltre alle categorie.
-        assertEquals(setOf("CONSIGLI"), questionCategories("Come si combatte il jet lag?"))
-        assertEquals(setOf("DOGANE", "EMERGENZE"), questionCategories("What do I do if I lose my passport abroad?"))
+        assertEquals(setOf("CONSIGLI"), questionGroups("Come si combatte il jet lag?"))
+        assertEquals(setOf("DOGANE", "EMERGENZE"), questionGroups("What do I do if I lose my passport abroad?"))
         assertEquals("come OR combat* OR prepar* OR recupe* OR preven* OR tratta*", withCategoryWords("come OR combat*", "Come si combatte il jet lag?", "it"))
     }
 

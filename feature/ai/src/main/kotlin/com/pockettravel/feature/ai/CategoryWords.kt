@@ -1,7 +1,7 @@
 package com.pockettravel.feature.ai
 
 /**
- * Liste di parole per categoria, per le domande dette con parole che le guide non usano ("pernottare", "souvenir",
+ * Liste di parole, per le domande dette con parole che le guide non usano ("pernottare", "souvenir",
  * "Where to stay" sulle guide inglesi, che scrivono "Sleep"). Radici (senza accenti) che nella domanda, in italiano o
  * in inglese, indicano la categoria: una parola le contiene se comincia con la radice; sotto le 4 lettere deve essere
  * uguale, o con una "s" in più ("tip", "tips"); con "+" e' un'espressione, che conta all'inizio di una parola ("best+time",
@@ -28,7 +28,7 @@ private val categoryTriggers = mapOf(
         "climat weather rain umbrel spring summer winter autumn snow hot cold season " +
         "periodo+migliore quando+andare best+time when+to+go gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre mesi january february march april june july august september october november december months",
     // Non categorie ma richieste: cosa fare contro un problema e dopo una perdita o un furto. Portano alle sottosezioni
-    // pratiche delle pagine del mondo ("Jet lag: Recupero", "Documenti: In caso di emergenza") invece della definizione.
+    // pratiche delle pagine della guida generale ("Jet lag: Recupero", "Documenti: In caso di emergenza") invece della definizione.
     "CONSIGLI" to "combat evitar preven curar rimed superar affront deal cope avoid prevent cure treat overcom",
     "EMERGENZE" to "perdo perso persa smarr rubat lose lost stolen",
 ).mapValues { (_, stems) -> stems.split(' ') }
@@ -75,7 +75,7 @@ private val categoryGuideWords = mapOf(
 private const val SHORT_STEM_CHARS = 4
 
 /** I gruppi (categorie con il nome di GuideCategory, CONSIGLI, EMERGENZE) che le parole di [question] indicano. */
-internal fun questionCategories(question: String): Set<String> {
+internal fun questionGroups(question: String): Set<String> {
     val tokens = question.split(nonWord).filter { it.isNotEmpty() }.map(::folded)
     val text = tokens.joinToString(" ", prefix = " ", postfix = " ")
     fun hit(stem: String) = when {
@@ -94,6 +94,6 @@ internal fun questionCategories(question: String): Set<String> {
 internal fun withCategoryWords(ftsQuery: String, question: String, language: String, enabled: Boolean = true): String {
     if (!enabled) return ftsQuery
     val words = categoryGuideWords[language] ?: categoryGuideWords.getValue("en")
-    val extra = questionCategories(question).sorted().flatMap { words[it].orEmpty() }
+    val extra = questionGroups(question).sorted().flatMap { words[it].orEmpty() }
     return (ftsQuery.split(" OR ").filter { it.isNotBlank() } + extra).distinct().joinToString(" OR ")
 }

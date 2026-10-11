@@ -31,34 +31,34 @@ class CountryGuidesTest {
     @Test
     fun `nomi d'uso delle nazioni oltre a quelli del JDK`() {
         assertTrue("alias di nazioni fuori tabella", countryRegions.keys.containsAll(countryAliases.values))
-        assertEquals("tr", namedCountry("Is it safe to travel to Turkey?", "italia", "en")?.code)
-        assertEquals("hk", namedCountry("Serve il visto per Hong Kong?", "italia", "it")?.code)
-        assertEquals("ps", namedCountry("È sicuro andare in Palestina?", "italia", "it")?.code)
-        assertEquals("nl", namedCountry("Cosa si mangia in Olanda?", "italia", "it")?.code)
-        assertEquals("gb", namedCountry("Do I need a visa for England?", "italia", "en")?.code)
-        assertEquals("ba", namedCountry("Is Bosnia and Herzegovina safe?", "italia", "en")?.code)
+        assertEquals("tr", namedPlace("Is it safe to travel to Turkey?", "italia", "en")?.code)
+        assertEquals("hk", namedPlace("Serve il visto per Hong Kong?", "italia", "it")?.code)
+        assertEquals("ps", namedPlace("È sicuro andare in Palestina?", "italia", "it")?.code)
+        assertEquals("nl", namedPlace("Cosa si mangia in Olanda?", "italia", "it")?.code)
+        assertEquals("gb", namedPlace("Do I need a visa for England?", "italia", "en")?.code)
+        assertEquals("ba", namedPlace("Is Bosnia and Herzegovina safe?", "italia", "en")?.code)
         // "Corea del Nord" e' piu' lungo di "Corea": vince.
-        assertEquals("kp", namedCountry("Si puo' andare in Corea del Nord?", "italia", "it")?.code)
+        assertEquals("kp", namedPlace("Si puo' andare in Corea del Nord?", "italia", "it")?.code)
     }
 
     @Test
     fun `una regione di una nazione divisa vince sul nome di nazione che contiene, e i nomi ambigui restano nella regione aperta`() {
-        assertEquals(listOf("stati-uniti-nuovo-messico"), namedCountry("Is it safe in New Mexico?", "italia", "en")?.regionIds)
-        assertNull(namedCountry("Is it safe in New Mexico?", "stati-uniti-texas", "en"))
-        assertEquals(listOf("francia-bretagna"), namedCountry("Cosa vedere in Bretagna?", "italia", "it")?.regionIds)
-        assertNull(namedCountry("What to see in Georgia?", "stati-uniti-florida", "en"))
-        assertEquals("ge", namedCountry("Serve il visto per la Georgia?", "italia", "it")?.code)
-        assertNull(namedCountry("Cosa vedere a Monaco?", "germania", "it"))
-        assertEquals("gb", namedCountry("Cosa vedere in Irlanda del Nord?", "italia", "it")?.code)
+        assertEquals(listOf("stati-uniti-nuovo-messico"), namedPlace("Is it safe in New Mexico?", "italia", "en")?.regionIds)
+        assertNull(namedPlace("Is it safe in New Mexico?", "stati-uniti-texas", "en"))
+        assertEquals(listOf("francia-bretagna"), namedPlace("Cosa vedere in Bretagna?", "italia", "it")?.regionIds)
+        assertNull(namedPlace("What to see in Georgia?", "stati-uniti-florida", "en"))
+        assertEquals("ge", namedPlace("Serve il visto per la Georgia?", "italia", "it")?.code)
+        assertNull(namedPlace("Cosa vedere a Monaco?", "germania", "it"))
+        assertEquals("gb", namedPlace("Cosa vedere in Irlanda del Nord?", "italia", "it")?.code)
     }
 
     @Test
     fun `nazione nominata in italiano e in inglese, non quella della regione aperta`() {
-        assertEquals("jp", namedCountry("Serve il visto per il Giappone?", "italia", "it")?.code)
-        assertEquals("Greece", namedCountry("Is it safe to travel in Greece?", "italia", "en")?.name)
-        assertNull(namedCountry("Cosa si mangia in Italia?", "italia", "it"))
-        assertNull(namedCountry("Dove dormire a Roma?", "italia", "it"))
+        assertEquals("jp", namedPlace("Serve il visto per il Giappone?", "italia", "it")?.code)
+        assertEquals("Greece", namedPlace("Is it safe to travel in Greece?", "italia", "en")?.name)
+        assertNull(namedPlace("Cosa si mangia in Italia?", "italia", "it"))
+        assertNull(namedPlace("Dove dormire a Roma?", "italia", "it"))
         // Una nazione divisa da' tutte le sue regioni.
-        assertEquals(13, namedCountry("Serve il passaporto per la Francia?", "italia", "it")?.regionIds?.size)
+        assertEquals(13, namedPlace("Serve il passaporto per la Francia?", "italia", "it")?.regionIds?.size)
     }
 }

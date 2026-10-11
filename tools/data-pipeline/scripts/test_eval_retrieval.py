@@ -47,8 +47,8 @@ class ReplicaTest(unittest.TestCase):
             self.assertEqual(pairs(block), ev.CATEGORY_GUIDE_WORDS[lang])
 
     def test_liste_di_parole_nella_query(self):
-        self.assertEqual(ev.question_categories("Cerco un posto per pernottare a Rimini"), {"ALLOGGIO"})
-        self.assertEqual(ev.question_categories("Che cosa e' tipico della zona?"), set())
+        self.assertEqual(ev.question_groups("Cerco un posto per pernottare a Rimini"), {"ALLOGGIO"})
+        self.assertEqual(ev.question_groups("Che cosa e' tipico della zona?"), set())
         self.assertEqual(ev.with_category_words("pernot* OR rimini", "Dove pernottare a Rimini?", "it"), "pernot* OR rimini OR allogg*")
         self.assertEqual(ev.with_category_words("", "Come si arriva in treno?", "en"), '"get in" OR "get around"')
 
@@ -164,31 +164,31 @@ class SearchTest(unittest.TestCase):
         self.assertEqual([s["title"] for s in top], ["Israele"])
         db.close()
 
-    def test_pseudo_regione_mondo_come_nell_app(self):
-        guides = Path(self.tmp.name) / "mondo.db"
+    def test_guida_generale_come_nell_app(self):
+        guides = Path(self.tmp.name) / "generale.db"
         g = sqlite3.connect(guides)
         g.execute("CREATE TABLE guide_sections (regionId TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT)")
         g.executemany("INSERT INTO guide_sections VALUES (?,?,?,?,?)", [
             ("italia", "DOGANE", "Dogane", "Per entrare serve il passaporto.", "u"),
-            ("_world", "SALUTE", "Jet lag: Recupero", "Il recupero dal jet lag richiede pochi giorni.", "u"),
-            ("_world", "DOGANE", "Documenti", "Il passaporto smarrito va denunciato " + "e poi rifatto. " * 30, "u"),
+            ("_general", "SALUTE", "Jet lag: Recupero", "Il recupero dal jet lag richiede pochi giorni.", "u"),
+            ("_general", "DOGANE", "Documenti", "Il passaporto smarrito va denunciato " + "e poi rifatto. " * 30, "u"),
             ("grecia", "SALUTE", "Salute", "Il jet lag in Grecia.", "u"),
         ])
         g.commit()
         g.close()
         db = ev.build_db(guides, "italia", [])
-        # Tutte le guide nella tabella, come nell'app, ma la ricerca solo nella regione aperta e nel mondo.
-        self.assertEqual([r for (r,) in db.execute("SELECT DISTINCT regionId FROM guide_sections ORDER BY 1")], ["_world", "grecia", "italia"])
+        # Tutte le guide nella tabella, come nell'app, ma la ricerca solo nella regione aperta e nella guida generale.
+        self.assertEqual([r for (r,) in db.execute("SELECT DISTINCT regionId FROM guide_sections ORDER BY 1")], ["_general", "grecia", "italia"])
         top, _ = ev.search(db, "italia", "Quanti giorni per il recupero dal jet lag?", [])
         self.assertEqual([s["title"] for s in top], ["Jet lag: Recupero"])
-        # La sezione del paese resta prima di quella del mondo, piu' lunga e con meno occorrenze.
+        # La sezione del paese resta prima di quella della guida generale, piu' lunga e con meno occorrenze.
         top, _ = ev.search(db, "italia", "Serve il passaporto?", [])
         self.assertEqual([s["title"] for s in top], ["Dogane", "Documenti"])
         db.close()
 
     def test_nazione_nominata_cerca_nella_sua_guida(self):
-        self.assertEqual(ev.named_country("Serve il passaporto per entrare in Grecia?", "italia"), ("gr", "Grecia", ["grecia"]))
-        self.assertIsNone(ev.named_country("Serve il passaporto per entrare in Italia?", "italia"))
+        self.assertEqual(ev.named_place("Serve il passaporto per entrare in Grecia?", "italia"), ("gr", "Grecia", ["grecia"]))
+        self.assertIsNone(ev.named_place("Serve il passaporto per entrare in Italia?", "italia"))
         guides = Path(self.tmp.name) / "nazioni.db"
         g = sqlite3.connect(guides)
         g.execute("CREATE TABLE guide_sections (regionId TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT)")
