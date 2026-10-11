@@ -181,9 +181,10 @@ class SearchTest(unittest.TestCase):
         self.assertEqual([r for (r,) in db.execute("SELECT DISTINCT regionId FROM guide_sections ORDER BY 1")], ["_general", "grecia", "italia"])
         top, _ = ev.search(db, "italia", "Quanti giorni per il recupero dal jet lag?", [])
         self.assertEqual([s["title"] for s in top], ["Jet lag: Recupero"])
-        # La sezione del paese resta prima di quella della guida generale, piu' lunga e con meno occorrenze.
+        # La sezione della guida generale, piu' lunga e con meno occorrenze di quella del paese, non entra: in fondo
+        # come riempitivo porterebbe il modello fuori tema.
         top, _ = ev.search(db, "italia", "Serve il passaporto?", [])
-        self.assertEqual([s["title"] for s in top], ["Dogane", "Documenti"])
+        self.assertEqual([s["title"] for s in top], ["Dogane"])
         db.close()
 
     def test_nazione_nominata_cerca_nella_sua_guida(self):

@@ -277,11 +277,13 @@ class TravelAssistantLogicTest {
     }
 
     @Test
-    fun `con meno di tre sezioni della regione la guida generale entra in fondo anche se debole, e da solo se la regione non trova nulla`() {
+    fun `una guida generale debole non entra nemmeno con posti liberi, e da sola se la regione non trova nulla`() {
         val weakGeneral = listOf(guideSection("Jet lag", "generale debole") to info(bodyHits = 1, length = 500))
 
+        // "Quali piatti tipici devo assaggiare a San Marino?": la sola sezione A tavola, senza la pagina Salute
+        // trovata per "mangia", che faceva rispondere ai modelli con una frase sull'igiene.
         assertEquals(
-            listOf("corpo A", "generale debole"),
+            listOf("corpo A"),
             rankSections(listOf(guideSection("A", "corpo A") to info(bodyHits = 3)), emptyList(), limit = 3, generalGuideMatches = weakGeneral).map { it.body },
         )
         assertEquals(listOf("generale debole"), rankSections(emptyList(), emptyList(), limit = 3, generalGuideMatches = weakGeneral).map { it.body })

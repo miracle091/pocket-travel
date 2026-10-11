@@ -587,7 +587,8 @@ def rank_sections(guide, city, country_first, history_or_climate=True, general_g
     """rankSections: [(sezione, matchinfo)] della guida del paese e delle citta' -> le MAX_SECTIONS migliori; prima
     quelle del paese con [country_first] True, quelle delle citta' con False, solo per punteggio con None. Della
     guida generale [general_guide] conta solo la migliore: in testa, in piu' alle altre, se supera di GENERAL_GUIDE_FIRST_RATIO
-    volte la migliore delle altre e la domanda non nomina una citta'; altrimenti solo in un posto libero, in fondo."""
+    volte la migliore delle altre e la domanda non nomina una citta', o da sola se le altre non trovano nulla;
+    altrimenti non entra (mai in fondo come riempitivo)."""
     tables = [rows[0][1] for rows in (list(guide) + list(general_guide), city) if rows]
     if not tables:
         return []
@@ -602,7 +603,7 @@ def rank_sections(guide, city, country_first, history_or_climate=True, general_g
         return sections
     if not top or (country_first is not False and best[0] > (1.0 if general_question else GENERAL_GUIDE_FIRST_RATIO) * max(r[0] for r in top)):
         return [best[1]] + sections
-    return sections + [best[1]] if len(top) < MAX_SECTIONS else sections
+    return sections
 
 
 def relevant_paragraphs(body, stems, budget):

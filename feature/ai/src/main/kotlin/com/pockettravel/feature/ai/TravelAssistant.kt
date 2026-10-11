@@ -651,8 +651,10 @@ private fun CitySection.toAssistantSection(language: String): AssistantSection {
  * Senza [historyOrClimate] (isHistoryOrClimateQuestion) Storia e Clima valgono WIKIPEDIA_OFF_TOPIC_WEIGHT.
  * Dei candidati della guida generale [generalGuideMatches] conta solo il migliore, senza togliere posto alle sezioni della
  * regione: in testa, come sezione in più, se supera di GENERAL_GUIDE_FIRST_RATIO volte la migliore della regione e la domanda non
- * nomina una città ([countryFirst] non false); altrimenti solo in un posto libero, in fondo. Con [generalQuestion]
- * (isGeneralTravelQuestion: "all'estero", "abroad") basta che superi la migliore della regione.
+ * nomina una città ([countryFirst] non false), oppure da sola se la regione non trova nulla; altrimenti non entra. Con
+ * [generalQuestion] (isGeneralTravelQuestion: "all'estero", "abroad") basta che superi la migliore della regione. Mai in
+ * fondo come riempitivo: una pagina generale debole porta il modello fuori tema (su "Quali piatti tipici devo assaggiare a
+ * San Marino?" la pagina Salute, trovata per "mangia", faceva rispondere con una frase sull'igiene).
  * La ricerca (con buildFtsQuery, namedCities, focusStems e selectContext) e' replicata in
  * tools/data-pipeline/scripts/eval_retrieval.py, che la misura su dati pubblicati: va cambiata insieme.
  */
@@ -685,15 +687,15 @@ internal fun rankSections(
     return when {
         world == null -> top
         top.isEmpty() || countryFirst != false && world.score > (if (generalQuestion) 1.0 else GENERAL_GUIDE_FIRST_RATIO) * top.maxOf { it.score } -> listOf(world) + top
-        top.size < limit -> top + world
         else -> top
     }.map { it.section }
 }
 
 // Quanto la sezione della guida generale deve superare la migliore della regione per andare in testa (domanda generale). Misurato con
-// eval_retrieval.py il 2026-10-11: con 2 le domande generali la trovano nel 72% (IT) e nel 77% (EN) dei casi e le sei
-// serie su regione e citta' non perdono piu' di un punto; in fondo invece della testa il suo paragrafo entrerebbe nel
-// contesto solo nel 5-8% dei casi, e al posto della terza sezione le domande sul paese perderebbero fino a 7 punti.
+// eval_retrieval.py il 2026-10-11: con 2 le domande generali la trovano nel 74% (IT) e nel 77% (EN) dei casi, sempre in
+// testa, e le sei serie su regione e citta' non perdono piu' di un punto. Messa anche in fondo nei posti liberi non
+// cambiava quelle percentuali, ma portava nel contesto pagine deboli che i modelli citavano fuori tema; al posto della
+// terza sezione le domande sul paese perderebbero fino a 7 punti.
 private const val GENERAL_GUIDE_FIRST_RATIO = 2.0
 
 // Parole che dicono che la domanda non riguarda la nazione aperta ma il viaggio in generale.
