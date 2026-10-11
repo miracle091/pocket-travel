@@ -385,17 +385,19 @@ LAT_END="$(floor5 "$MAX_LAT")"
 # Nazione della regione (flagCode di regions.sh): con quella si scartano gli estratti Geofabrik dei paesi confinanti
 # che il bbox contiene, e si taglia sul confine. Vuoto se la regione non e' nell'elenco: si usa solo il bbox.
 REGION_ISO="$(source "$SCRIPT_DIR/regions.sh" && for spec in "${ALL_REGIONS[@]}"; do IFS='|' read -r id _ _ _ _ _ _ flag _ <<< "$spec"; [ "$id" = "$REGION_ID" ] && echo "$flag" && break; done || true)"
+# Titolo Wikivoyage della regione: nome con cui si cercano i territori che per Nominatim non sono nazioni.
+REGION_TITLE="$(source "$SCRIPT_DIR/regions.sh" && for spec in "${ALL_REGIONS[@]}"; do IFS='|' read -r id _ _ _ _ _ title _ <<< "$spec"; [ "$id" = "$REGION_ID" ] && echo "${title//_/ }" && break; done || true)"
 # Confine OpenStreetMap della nazione (country_border.py, da Nominatim): i POI fuori si scartano, sia dagli estratti
 # Geofabrik sia da Overpass (area 3600000000 + id della relazione). Il riquadro da solo comprende anche i paesi vicini:
 # meta' dei POI di San Marino erano italiani, quasi meta' di quelli dell'Ungheria austriaci o slovacchi (misura del
-# 2026-10-11 sui pacchetti pubblicati). Senza confine (territori d'oltremare, Canarie) resta il solo riquadro.
+# 2026-10-11 sui pacchetti pubblicati). Senza confine (Canarie, Bonaire) resta il solo riquadro.
 # Si cerca prima di decidere se riusare il poi.db pubblicato (sezione 2bis), e una volta sola.
 BORDER_FILE=""
 BORDER_AREA=""
 BORDER_CHECKED=""
 find_border() {
   BORDER_CHECKED=true
-  if [ -n "$REGION_ISO" ] && BORDER_RELATION="$(python3 "$SCRIPT_DIR/country_border.py" --iso "$REGION_ISO" --out "$WORKDIR/confine.geojson" \
+  if [ -n "$REGION_ISO" ] && BORDER_RELATION="$(python3 "$SCRIPT_DIR/country_border.py" --iso "$REGION_ISO" --name "$REGION_TITLE" --out "$WORKDIR/confine.geojson" \
       --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT")"; then
     BORDER_FILE="$WORKDIR/confine.geojson"
     BORDER_AREA=$((3600000000 + BORDER_RELATION))
