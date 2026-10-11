@@ -19,8 +19,8 @@ data class LlmModelDefinition(
     val sizeBytes: Long,
     val minRamTier: RamTier,
     val origin: ModelOrigin = ModelOrigin.UFFICIALE,
-    // Lingua in cui risponde un modello addestrato da noi ("it"; "en" per quelli inglesi, quando ci
-    // saranno). Null per gli ufficiali, che rispondono nella lingua del prompt.
+    // Lingua in cui risponde un modello addestrato da noi ("it" o "en"). Null per gli ufficiali, che
+    // rispondono nella lingua del prompt.
     val language: String? = null,
 )
 
@@ -72,9 +72,9 @@ object LlmModelCatalog {
             sizeBytes = 2_546_340_960L,
             minRamTier = RamTier.AMPIA,
         ),
-        // Addestrati da noi (uno per fascia di RAM), pubblicati sull'organizzazione HuggingFace
-        // pockettravel (upload_hf.py, versione v8 del 2026-10-03): sha256 e dimensioni ricontrollati via API tree dopo
-        // l'upload. Sono i predefiniti delle loro fasce (vedi defaultFor).
+        // Addestrati da noi (uno per fascia di RAM e per lingua), pubblicati sull'organizzazione HuggingFace
+        // pockettravel (upload_hf.py; gli italiani nella versione v8 del 2026-10-03): sha256 e dimensioni ricontrollati
+        // via API tree dopo l'upload. Sono i predefiniti delle loro fasce nella loro lingua (vedi defaultFor).
         LlmModelDefinition(
             id = "pt-qwen3.5-0.8b",
             displayName = "Pocket Travel 0.8B (Qwen3.5)",
@@ -108,6 +108,41 @@ object LlmModelCatalog {
             origin = ModelOrigin.ADDESTRATO,
             language = "it",
         ),
+        // Inglesi, dataset v10: sha256 null finche' non sono su HuggingFace (dimensioni stimate). Fino ad allora
+        // la lista li mostra come "Presto disponibile" e in inglese il predefinito resta l'ufficiale della fascia.
+        LlmModelDefinition(
+            id = "pt-qwen3.5-0.8b-en",
+            displayName = "Pocket Travel 0.8B (Qwen3.5)",
+            url = "https://huggingface.co/pockettravel/qwen3.5-0.8b-travel-en-GGUF/resolve/main/qwen3.5-0.8b-travel-en-Q4_K_M.gguf",
+            fileName = "qwen3.5-0.8b-travel-en-Q4_K_M.gguf",
+            sha256 = null,
+            sizeBytes = 529_297_024L,
+            minRamTier = RamTier.MINIMO,
+            origin = ModelOrigin.ADDESTRATO,
+            language = "en",
+        ),
+        LlmModelDefinition(
+            id = "pt-qwen3.5-2b-en",
+            displayName = "Pocket Travel 2B (Qwen3.5)",
+            url = "https://huggingface.co/pockettravel/qwen3.5-2b-travel-en-GGUF/resolve/main/qwen3.5-2b-travel-en-Q4_K_M.gguf",
+            fileName = "qwen3.5-2b-travel-en-Q4_K_M.gguf",
+            sha256 = null,
+            sizeBytes = 1_274_396_384L,
+            minRamTier = RamTier.CONFORTEVOLE,
+            origin = ModelOrigin.ADDESTRATO,
+            language = "en",
+        ),
+        LlmModelDefinition(
+            id = "pt-qwen3-4b-2507-en",
+            displayName = "Pocket Travel 4B (Qwen3)",
+            url = "https://huggingface.co/pockettravel/qwen3-4b-instruct-2507-travel-en-GGUF/resolve/main/qwen3-4b-instruct-2507-travel-en-Q4_K_M.gguf",
+            fileName = "qwen3-4b-instruct-2507-travel-en-Q4_K_M.gguf",
+            sha256 = null,
+            sizeBytes = 2_497_280_320L,
+            minRamTier = RamTier.AMPIA,
+            origin = ModelOrigin.ADDESTRATO,
+            language = "en",
+        ),
     )
 
     /**
@@ -115,13 +150,12 @@ object LlmModelCatalog {
      * fascia (4 GB -> 0.8B, 8 GB -> 2B, 12 GB -> 4B), o il piu' grande tra quelli che la fascia regge;
      * con RAM insufficiente (IA locale disattivata) il piu' leggero. Gli addestrati hanno la precedenza
      * sugli ufficiali perche' rifiutano molto meglio le domande a cui la guida non risponde. Solo quelli
-     * addestrati nella lingua dell'interfaccia [language]: senza (oggi per l'inglese) gli ufficiali,
-     * con la stessa regola delle fasce.
+     * addestrati nella lingua dell'interfaccia [language]: senza, gli ufficiali, con la stessa regola
+     * delle fasce.
      */
     /**
      * Modelli da mostrare nella lista: quelli che la fascia di RAM regge, senza gli addestrati in una
-     * lingua diversa da quella dell'interfaccia (in inglese solo quelli con supporto all'inglese, oggi
-     * nessuno, quindi il gruppo "Addestrati da noi" non compare).
+     * lingua diversa da quella dell'interfaccia.
      */
     fun visibleFor(tier: RamTier, language: String): List<LlmModelDefinition> =
         ALL.filter { tier.ordinal >= it.minRamTier.ordinal && isUsableIn(it, language) }
