@@ -7,6 +7,7 @@ import org.tukaani.xz.LZMA2Options
 import org.tukaani.xz.XZInputStream
 import org.tukaani.xz.XZOutputStream
 import java.io.File
+import java.security.MessageDigest
 import javax.inject.Inject
 
 /** Tile dei civici, sempre allo stesso zoom (GenerateAddresses). */
@@ -152,6 +153,9 @@ class RegionAddressGridInstaller @Inject constructor(
         dir.deleteRecursively()
         check(dir.mkdirs()) { "Impossibile creare ${RegionStorage.ADDRESSES_SEARCH_DIR}" }
         val installedDir = File(regionStorage.directoryFor(regionId), RegionStorage.ADDRESSES_SEARCH_DIR)
+        // Archivio di ogni cella con il database atteso dal manifest: la decompressione si ferma oltre la sua dimensione
+        // e ne controlla lo sha256, come unpackXz (un xz piccolo puo' espandersi a dismisura).
+        val archives = mutableListOf<Pair<File, RegionManifestFile>>()
         plan.allCells.forEach { cell ->
             val search = cell.search ?: return@forEach
             val target = File(dir, RegionStorage.addressSearchArchiveName(cell.id))
@@ -169,16 +173,16 @@ class RegionAddressGridInstaller @Inject constructor(
                 installedXz.isFile -> installedXz.copyTo(target)
                 installedDb.isFile -> compressXz(installedDb, target)
             }
+            if (target.isFile) archives += target to search.file
         }
-        val archives = dir.listFiles().orEmpty().filter { it.isFile }.sortedBy { it.name }
         if (archives.isEmpty()) return
         val unpacked = File(staging, SEARCH_UNPACK_DIR)
         unpacked.deleteRecursively()
         check(unpacked.mkdirs()) { "Impossibile creare $SEARCH_UNPACK_DIR" }
         try {
-            val cellDbs = archives.map { archive ->
+            val cellDbs = archives.sortedBy { it.first.name }.map { (archive, expected) ->
                 ensureActive()
-                File(unpacked, archive.name.removeSuffix(".xz")).also { decompressXz(archive, it) }
+                File(unpacked, archive.name.removeSuffix(".xz")).also { decompressXz(archive, it, expected) }
             }
             mergeSearch(cellDbs, File(dir, RegionStorage.ADDRESSES_SEARCH_DB))
         } finally {
@@ -224,10 +228,28 @@ internal fun compressXz(source: File, target: File) {
     }
 }
 
-/** Decomprime [source] (xz, gia' verificato) in [target]. Bloccante. */
-internal fun decompressXz(source: File, target: File) {
+/**
+ * Decomprime [source] (xz) in [target], che deve essere [expected]: si ferma appena supera la sua dimensione e alla fine ne
+ * controlla dimensione e sha256. Bloccante.
+ */
+internal fun decompressXz(source: File, target: File, expected: RegionManifestFile) {
+    val digest = MessageDigest.getInstance("SHA-256")
+    var written = 0L
     XZInputStream(source.inputStream().buffered()).use { input ->
-        target.outputStream().buffered().use { input.copyTo(it) }
+        target.outputStream().buffered().use { output ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var read: Int
+            while (input.read(buffer).also { read = it } != -1) {
+                written += read
+                if (written > expected.sizeBytes) throw PermanentRegionPackageException("${expected.name} decompresso supera la dimensione del manifest")
+                digest.update(buffer, 0, read)
+                output.write(buffer, 0, read)
+            }
+        }
+    }
+    val sha256 = digest.digest().joinToString("") { "%02x".format(it) }
+    if (written != expected.sizeBytes || !sha256.equals(expected.sha256, ignoreCase = true)) {
+        throw PermanentRegionPackageException("${expected.name} decompresso non corrisponde al manifest")
     }
 }
 

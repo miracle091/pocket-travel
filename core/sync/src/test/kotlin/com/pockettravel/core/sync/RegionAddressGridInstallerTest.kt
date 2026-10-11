@@ -11,6 +11,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.security.MessageDigest
 import kotlin.io.path.createTempDirectory
 
 /**
@@ -29,6 +30,13 @@ class RegionAddressGridInstallerTest {
     }
 
     private fun cellFile(name: String) = RegionManifestFile(name, "https://github.com/o/r/releases/download/address-cells-1/$name", 1_000L, sha)
+
+    // Database di ricerca come nel manifest: dimensione e sha256 veri, che la decompressione controlla.
+    private fun searchDb(name: String, content: String): RegionManifestFile {
+        val bytes = content.toByteArray()
+        val sha256 = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        return RegionManifestFile(name, "https://github.com/o/r/releases/download/address-cells-1/$name", bytes.size.toLong(), sha256)
+    }
 
     private fun zoomOffset(zoom: Int): Long = ((1L shl (2 * zoom)) - 1L) / 3L
 
@@ -102,10 +110,10 @@ class RegionAddressGridInstallerTest {
         installedDir.resolve(RegionStorage.addressSearchFileName("12/0/0")).writeText("vecchio A")
         installedDir.resolve(RegionStorage.addressSearchArchiveName("12/2/0")).writeBytes(xzBytes("archivio D"))
 
-        fun search(name: String, xz: String? = null) = AddressSearchEntry(cellFile(name), xz?.let { cellFile(it) })
-        val cellA = AddressGridCell("12/0/0", "v1", cellFile("cell-a.pmtiles"), search = search("search-a.db", "search-a.db.xz")) // invariata, .db vecchio
-        val cellD = AddressGridCell("12/2/0", "v1", cellFile("cell-d.pmtiles"), search = search("search-d.db", "search-d.db.xz")) // invariata, gia' .xz
-        val cellB = AddressGridCell("12/1/0", "v2", cellFile("cell-b.pmtiles"), search = search("search-b.db", "search-b.db.xz")) // cambiata
+        fun search(name: String, content: String) = AddressSearchEntry(searchDb(name, content), cellFile("$name.xz"))
+        val cellA = AddressGridCell("12/0/0", "v1", cellFile("cell-a.pmtiles"), search = search("search-a.db", "vecchio A")) // invariata, .db vecchio
+        val cellD = AddressGridCell("12/2/0", "v1", cellFile("cell-d.pmtiles"), search = search("search-d.db", "archivio D")) // invariata, gia' .xz
+        val cellB = AddressGridCell("12/1/0", "v2", cellFile("cell-b.pmtiles"), search = search("search-b.db", "nuovo B")) // cambiata
         val cellC = AddressGridCell("12/0/1", "v1", cellFile("cell-c.pmtiles")) // senza ricerca
         val cells = listOf(cellA, cellB, cellC, cellD)
         val staging = storage.stagingDirectoryFor("san-marino", "v2").apply { mkdirs() }
@@ -144,7 +152,7 @@ class RegionAddressGridInstallerTest {
     @Test
     fun `una ricerca scaricata senza xz nel manifest si comprime`() {
         val (storage, installer) = newStorageAndInstaller()
-        val cell = AddressGridCell("12/0/0", "v1", cellFile("cell-a.pmtiles"), search = AddressSearchEntry(cellFile("search-a.db")))
+        val cell = AddressGridCell("12/0/0", "v1", cellFile("cell-a.pmtiles"), search = AddressSearchEntry(searchDb("search-a.db", "contenuto A")))
         val staging = storage.stagingDirectoryFor("san-marino", "v1").apply { mkdirs() }
         File(staging, "search-a.db").writeText("contenuto A")
         writeFixture(File(staging, cell.file.name), mapOf(Triple(14, 1, 1) to byteArrayOf(0xAA.toByte())))
@@ -154,6 +162,18 @@ class RegionAddressGridInstallerTest {
 
         assertEquals("contenuto A", readXz(File(staging, "${RegionStorage.ADDRESSES_SEARCH_DIR}/12-0-0.db.xz")))
         assertFalse(File(staging, "search-a.db").exists())
+    }
+
+    @Test
+    fun `una ricerca che decompressa supera la dimensione del manifest o non ha il suo sha256 e' rifiutata`() {
+        val unpacked = createTempDirectory("pocket-travel-xz-test").toFile()
+        val archive = File(unpacked, "a.db.xz").apply { writeBytes(xzBytes("x".repeat(10_000))) }
+
+        val tooBig = runCatching { decompressXz(archive, File(unpacked, "a.db"), searchDb("a.db", "x".repeat(100))) }.exceptionOrNull()
+        val wrongSha = runCatching { decompressXz(archive, File(unpacked, "b.db"), searchDb("b.db", "y".repeat(10_000))) }.exceptionOrNull()
+
+        assertTrue(tooBig is PermanentRegionPackageException)
+        assertTrue(wrongSha is PermanentRegionPackageException)
     }
 
     @Test
