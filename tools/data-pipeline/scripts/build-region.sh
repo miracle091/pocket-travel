@@ -567,9 +567,9 @@ fi
 # Marino resta un solo chunk/una sola query, per uno grande diventano N query piu' leggere.
 # generatePoi (piu' sotto) unisce i risultati delle tile con terra emersa.
 #
-# Mirror Overpass: OVERPASS_ENDPOINTS in lib.sh. ATTEMPTS = numero di istanze, cosi' ogni chunk le
-# prova tutte.
-ATTEMPTS=${#OVERPASS_ENDPOINTS[@]}
+# Mirror Overpass: OVERPASS_ENDPOINTS in lib.sh. ATTEMPTS = due giri sulle istanze: con tre shard insieme i mirror
+# rifiutano per qualche minuto (429, risposta vuota in 2 s) e il secondo giro, dopo attese piu' lunghe, di solito passa.
+ATTEMPTS=$(( ${#OVERPASS_ENDPOINTS[@]} * 2 ))
 
 # Chiavi di tag OSM riconosciute come punti di interesse — sottoinsieme minimo, non lo schema POI
 # completo di OSM (amenity/shop/tourism/leisure/historic coprono la maggior parte dei casi comuni
@@ -637,8 +637,9 @@ fetch_overpass_chunk() {
       return 0
     fi
     if [ "$attempt" -lt "$ATTEMPTS" ]; then
-      echo "-- $endpoint non disponibile o in timeout, riprovo tra $((attempt * 20))s..."
-      sleep $((attempt * 20))
+      local wait=$(( attempt * 20 > 120 ? 120 : attempt * 20 ))
+      echo "-- $endpoint non disponibile o in timeout, riprovo tra ${wait}s..."
+      sleep "$wait"
     fi
   done
   return 1
@@ -658,7 +659,9 @@ if [ "${GEOFABRIK_POI:-true}" = "true" ] && command -v osmium >/dev/null; then
   if python3 "$SCRIPT_DIR/geofabrik_pois.py" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --iso="$GEOFABRIK_ISO" --out "$WORKDIR/poi-geofabrik.osm.xml" --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT"; then
     GEOFABRIK_XML="$WORKDIR/poi-geofabrik.osm.xml"
   else
-    echo "-- estratti Geofabrik non disponibili, interrogo Overpass"
+    # Avviso nel riepilogo della run, non solo nel log: dal 2026-10-11 un poligono vuoto nell'indice di Geofabrik ha
+    # mandato tutte le regioni su Overpass, che con tre shard insieme rifiuta le richieste e lascia regioni senza POI.
+    echo "::warning::estratti Geofabrik non usabili per $REGION_ID (errore sopra), interrogo Overpass"
   fi
 fi
 

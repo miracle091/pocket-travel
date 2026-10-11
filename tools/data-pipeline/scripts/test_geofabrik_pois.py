@@ -23,6 +23,51 @@ def quadrato(fid, minx, miny, maxx, maxy, parent=None):
             "geometry": {"type": "Polygon", "coordinates": [ring]}}
 
 
+def vuoto(fid, parent):
+    """Estratto con il poligono vuoto nell'indice (Giappone, sei stati USA dal 2026-10)."""
+    return {"properties": {"id": fid, "parent": parent, "urls": {"pbf": f"https://example.org/{fid}-latest.osm.pbf"}},
+            "geometry": {"type": "MultiPolygon", "coordinates": [[[]]]}}
+
+
+def scrivi(text):
+    """Finto scarica che scrive text al posto del file .poly."""
+    def scarica(url, dest, _ua):
+        with open(dest, "w", encoding="utf-8") as f:
+            f.write(text(url) if callable(text) else text)
+    return scarica
+
+
+class CompletaGeometrieTest(unittest.TestCase):
+    def test_anelli_del_file_poly_senza_i_buchi(self):
+        poly = "isola\n1\n  0 0\n  4 0\n  4 4\nEND\n!1\n  1 1\n  2 1\n  2 2\nEND\n2\n  9 9\n  10 9\n  10 10\nEND\nEND\n"
+
+        self.assertEqual(geofabrik_pois.anelli_poly(poly), [[[[0, 0], [4, 0], [4, 4]]], [[[9, 9], [10, 9], [10, 10]]]])
+        self.assertEqual(geofabrik_pois.anelli_poly("none\nEND\n"), [])
+
+    def test_poligono_dal_poly_o_dal_genitore_e_l_estratto_resta_una_foglia(self):
+        index = {"features": [
+            quadrato("giappone", 0, 0, 20, 10),
+            quadrato("kanto", 10, 0, 20, 10, "giappone"),
+            vuoto("kansai", "giappone"),
+            vuoto("kyushu", "giappone"),
+        ]}
+        polys = {"kansai": "kansai\n1\n  0 0\n  5 0\n  5 5\n  0 5\nEND\nEND\n", "kyushu": "none\nEND\n"}
+
+        with tempfile.TemporaryDirectory() as cache, \
+                mock.patch.object(geofabrik_pois, "scarica", side_effect=scrivi(lambda url: polys[url.rsplit("/", 1)[1][:-5]])):
+            geofabrik_pois.completa_geometrie(index, cache, "test")
+
+        # kyushu ha il poligono del Giappone, che copre anche kanto: resta una foglia, non un composto.
+        chosen = [cid for cid, _ in geofabrik_pois.scegli_estratti(index, (1, 1, 2, 2))]
+        self.assertEqual(sorted(chosen), ["kansai", "kyushu"])
+
+    def test_senza_poligono_ne_genitore_esce(self):
+        index = {"features": [vuoto("solo", None)]}
+        with tempfile.TemporaryDirectory() as cache, \
+                mock.patch.object(geofabrik_pois, "scarica", side_effect=scrivi("none\nEND\n")), \
+                self.assertRaises(SystemExit):
+            geofabrik_pois.completa_geometrie(index, cache, "test")
+
 class ScegliEstrattiTest(unittest.TestCase):
     def test_foglie_che_toccano_il_bbox_senza_i_composti_ne_i_genitori(self):
         index = {"features": [

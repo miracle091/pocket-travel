@@ -85,10 +85,65 @@ def filtro_overpass(kind, tags):
 
 
 def anelli(geometry):
-    """Anelli esterni di un Polygon/MultiPolygon GeoJSON."""
+    """Anelli esterni non vuoti di un Polygon/MultiPolygon GeoJSON."""
     if geometry["type"] == "Polygon":
-        return [geometry["coordinates"][0]]
-    return [poly[0] for poly in geometry["coordinates"]]
+        return [ring for ring in geometry["coordinates"][:1] if ring]
+    return [poly[0] for poly in geometry["coordinates"] if poly and poly[0]]
+
+
+def anelli_poly(text):
+    """Anelli esterni di un file .poly di Osmosis (nome, poi sezioni di righe "lon lat" chiuse da END; quelle che
+    cominciano con "!" sono buchi), come coordinate di un MultiPolygon GeoJSON."""
+    lines = [line.strip() for line in text.splitlines()][1:]
+    polygons, ring, hole = [], None, False
+    for line in lines:
+        if not line:
+            continue
+        if ring is None:
+            if line == "END":
+                break
+            ring, hole = [], line.startswith("!")
+        elif line == "END":
+            if not hole and ring:
+                polygons.append([ring])
+            ring = None
+        else:
+            x, y = line.split()[:2]
+            ring.append([float(x), float(y)])
+    return polygons
+
+
+def completa_geometrie(index, cache, user_agent):
+    """Agli estratti che nell'indice hanno il poligono vuoto (dal 2026-10 Giappone, Thailandia, sei stati USA...)
+    da' quello del loro file .poly, accanto al pbf: senza, la Georgia USA userebbe solo gli stati vicini. Se anche il
+    .poly e' vuoto (Kyushu) prende il poligono dell'antenato piu' vicino che ne ha uno: piu' grande del vero, al
+    massimo fa scaricare un estratto in piu', mai mancare POI. Il .poly resta in cache; senza nessun poligono, o se
+    il .poly non si scarica, lo script esce e build-region.sh ripiega su Overpass."""
+    by_id = {f["properties"]["id"]: f for f in index["features"]}
+    missing = []
+    for feature in index["features"]:
+        props, geometry = feature["properties"], feature.get("geometry")
+        pbf = props.get("urls", {}).get("pbf", "")
+        if not geometry or not pbf.endswith("-latest.osm.pbf") or anelli(geometry):
+            continue
+        path = os.path.join(cache, f"{nome_file(props['id'])}.poly")
+        if not os.path.exists(path):
+            scarica(pbf.removesuffix("-latest.osm.pbf") + ".poly", path, user_agent)
+        with open(path, encoding="utf-8") as f:
+            polygons = anelli_poly(f.read())
+        feature["geometry"] = {"type": "MultiPolygon", "coordinates": polygons}
+        if not polygons:
+            missing.append(feature)
+    for feature in missing:
+        ancestor = by_id.get(feature["properties"].get("parent"))
+        while ancestor and not (ancestor.get("geometry") and anelli(ancestor["geometry"])):
+            ancestor = by_id.get(ancestor["properties"].get("parent"))
+        if not ancestor:
+            sys.exit(f"estratto Geofabrik {feature['properties']['id']} senza poligono, neanche nel file .poly o in un genitore")
+        print(f"-- geofabrik: {feature['properties']['id']} senza poligono, uso quello di {ancestor['properties']['id']}", flush=True)
+        feature["geometry"] = ancestor["geometry"]
+        # Il poligono prestato copre i fratelli: per scegli_estratti l'estratto non e' composto.
+        feature["properties"]["poligono_del_genitore"] = True
 
 
 def dentro(x, y, ring):
@@ -176,7 +231,8 @@ def scegli_estratti(index, bbox, iso=None):
     # che toccano il bbox: il bbox del Belgio tocca il mare di britain-and-ireland ma nessuna contea
     # inglese (si scaricherebbe tutta la Gran Bretagna; us per le Bahamas). Un'enclave non basta: il Marocco
     # contiene Ceuta e Melilla, il Sudafrica il Lesotho, e non per questo vanno scartati.
-    chosen = [c for c in leaves if tocca_bbox(c[2], bbox) and copertura(c, leaves) < 0.5]
+    borrowed = {f["properties"]["id"] for f in features if f["properties"].get("poligono_del_genitore")}
+    chosen = [c for c in leaves if tocca_bbox(c[2], bbox) and (c[0] in borrowed or copertura(c, leaves) < 0.5)]
     if iso:
         props_by_id = {f["properties"]["id"]: f["properties"] for f in index["features"]}
         propri = [c for c in chosen if iso.upper() in paesi_estratto(props_by_id, c[0])]
@@ -415,7 +471,9 @@ def main():
     if not os.path.exists(index_path):
         scarica(INDEX_URL, index_path, args.user_agent)
     with open(index_path, encoding="utf-8") as f:
-        extracts = scegli_estratti(json.load(f), bbox, args.iso)
+        index = json.load(f)
+    completa_geometrie(index, args.cache, args.user_agent)
+    extracts = scegli_estratti(index, bbox, args.iso)
     if not extracts:
         sys.exit("nessun estratto Geofabrik tocca il bbox")
     print(f"-- geofabrik: {len(extracts)} estratti per il bbox: {' '.join(cid for cid, _ in extracts)}", flush=True)
