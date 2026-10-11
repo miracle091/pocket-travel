@@ -186,8 +186,11 @@ class RegionPackageInstallerDeviceTest {
         installed = repository.installed("san-marino")!!
         assertEquals("r1", installed.routingVersion)
         assertEquals("segmento", File(regionDir, "${RegionStorage.ROUTING_DIR}/E10_N40.rd5").readText())
+        // I POI pesano quanto occupano in region.db (stima di PoiRow.estimatedStorageBytes), non il file scaricato.
+        val poiBytes = installed.poiSizeBytes!!
+        assertTrue(poiBytes > 0)
         assertEquals(
-            storage.packageBytes("san-marino", RegionStorage.MAP_FILE) + files.getValue("E10_N40.rd5").size + files.getValue("poi.db").size,
+            storage.packageBytes("san-marino", RegionStorage.MAP_FILE) + files.getValue("E10_N40.rd5").size + poiBytes,
             installed.sizeBytes,
         )
     }
@@ -234,7 +237,9 @@ class RegionPackageInstallerDeviceTest {
         val installed = repository.installed("san-marino")!!
         assertEquals("p1", installed.poiVersion)
         assertEquals(708, db.poiDao().poisForRegion("san-marino").size)
-        assertEquals(compressed.poi.file.sizeBytes, installed.sizeBytes)
+        // Il peso e' quello in region.db (stima), non quello del file decompresso.
+        assertTrue(installed.poiSizeBytes!! > 0)
+        assertEquals(installed.poiSizeBytes, installed.sizeBytes)
     }
 
     @Test
