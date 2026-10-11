@@ -18,12 +18,14 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.pockettravel.app.navigation.OpenScreenRequests
 import com.pockettravel.app.navigation.PocketTravelNavHost
 import com.pockettravel.app.settings.AppLanguage
 import com.pockettravel.app.settings.ThemePreferences
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.currentGuidesLanguage
 import com.pockettravel.core.sync.RegionSyncScheduler
+import com.pockettravel.core.sync.UpdateAvailableNotifier
 import com.pockettravel.core.sync.isEnglishGuidesVersion
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.feature.map.NavigationService
@@ -47,6 +49,7 @@ class MainActivity : FragmentActivity() {
         intent.removeNavigationDeepLinkExtras()
         super.onNewIntent(intent)
         if (intent.getBooleanExtra(NavigationService.EXTRA_OPEN_NAVIGATOR, false)) navigationSession.requestOpen()
+        intent.requestOpenScreen()
     }
 
     // Lingua cambiata senza ricreare l'activity (configChanges nel manifest): Compose segue da solo la nuova
@@ -80,6 +83,7 @@ class MainActivity : FragmentActivity() {
         intent.removeNavigationDeepLinkExtras()
         // Activity ricreata dal tocco sulla notifica (non gia' aperta): onNewIntent non scatta, lo legge il NavHost.
         val openNavigator = savedInstanceState == null && intent.getBooleanExtra(NavigationService.EXTRA_OPEN_NAVIGATOR, false)
+        if (savedInstanceState == null) intent.requestOpenScreen()
         syncGuidesLanguage()
         setContent {
             val useDynamicColor by themePreferences.useDynamicColor.collectAsStateWithLifecycle()
@@ -100,6 +104,14 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
+}
+
+// Notifica di aggiornamento toccata: la schermata da aprire passa al NavHost. Solo i valori noti, poi l'extra si toglie
+// (una ricreazione dell'activity non la riaprirebbe).
+private fun Intent.requestOpenScreen() {
+    val screen = getStringExtra(UpdateAvailableNotifier.EXTRA_OPEN_SCREEN) ?: return
+    removeExtra(UpdateAvailableNotifier.EXTRA_OPEN_SCREEN)
+    if (screen == UpdateAvailableNotifier.OPEN_REGIONS || screen == UpdateAvailableNotifier.OPEN_SETTINGS) OpenScreenRequests.screen.value = screen
 }
 
 // Navigation Compose legge dall'intent degli extra "android-support-nav:*" come deep link impliciti: l'app non ha

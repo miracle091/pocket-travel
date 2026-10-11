@@ -16,6 +16,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Le guide si aggiornano da sole anche su rete mobile quando il pacchetto compresso pesa meno di 5 MB (oggi circa 2,6 MB in italiano e 4,5 MB in inglese); sopra, come prima, solo su Wi-Fi. In Spazio di archiviazione la riga delle guide dice "aggiornamento automatico".
 
 ### Corretto
+- Le notifiche di aggiornamento si possono toccare: quella di una nazione apre l'elenco delle nazioni, dove c'è "Aggiorna", quella del modello IA le Impostazioni, quella dell'app la pagina della nuova versione su GitHub. Prima toccarle non apriva nulla.
 - All'avvio l'app cancella i file di download rimasti a metà anche per le nazioni già installate (dopo un "Annulla" su Android 8-11 o un crash), se nessun download è in coda.
 - Due tocchi veloci su Indietro nella pagina di una nazione non chiudono più anche l'elenco delle nazioni.
 - Scheda Mappa: tornando dalla Guida o dal Navigatore la mappa resta dove l'avevi lasciata, invece di tornare sull'intera regione, e la barra "Scarica la mappa" non compare più per un attimo quando la mappa è già installata. Lo stile delle mappe si prepara fuori dal thread dell'interfaccia.

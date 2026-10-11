@@ -48,6 +48,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -75,6 +76,7 @@ import com.pockettravel.app.regions.navigatorViewModels
 import com.pockettravel.app.regions.rowActions
 import com.pockettravel.app.storage.StorageScreen
 import com.pockettravel.core.data.officialSourcesRegistry
+import com.pockettravel.core.sync.UpdateAvailableNotifier
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ContextualHint
 import com.pockettravel.core.ui.R as UiR
@@ -147,6 +149,8 @@ fun PocketTravelNavHost(
             navController.navigateTopLevel(NavigatorRoute)
         }
     }
+
+    OpenScreenRequestsEffect(navController, currentDestination)
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -391,6 +395,23 @@ private fun fadeThroughExit(): ExitTransition = fadeOut(tween(MOTION_MS / 3))
 
 // Destinazioni principali: "fade through" tra loro (cambio di sezione dalla barra), "shared axis"
 // verso e dalle schermate di dettaglio.
+// Notifica di aggiornamento toccata (OpenScreenRequests): dopo la regione iniziale, sopra cui si apre. Durante
+// l'onboarding no: la richiesta resta per quando l'elenco delle nazioni c'e'.
+@Composable
+private fun OpenScreenRequestsEffect(navController: NavHostController, currentDestination: NavDestination?) {
+    val openScreen by OpenScreenRequests.screen.collectAsStateWithLifecycle()
+    LaunchedEffect(openScreen, currentDestination) {
+        val screen = openScreen ?: return@LaunchedEffect
+        if (currentDestination == null || currentDestination.hasRoute<OnboardingRoute>()) return@LaunchedEffect
+        OpenScreenRequests.screen.value = null
+        when (screen) {
+            // L'elenco stesso, non navigateTopLevel: ripristinerebbe la pila salvata sopra (l'hub, le Impostazioni).
+            UpdateAvailableNotifier.OPEN_REGIONS -> if (!navController.popBackStack<RegionsRoute>(inclusive = false)) navController.navigateTopLevel(RegionsRoute)
+            UpdateAvailableNotifier.OPEN_SETTINGS -> navController.navigate(SettingsRoute)
+        }
+    }
+}
+
 private fun NavBackStackEntry.isTopLevel() = TopLevelDestination.entries.any { destination.hasRoute(it.route::class) }
 
 private fun NavBackStackEntry.isRegionHub() = destination.hasRoute<RegionHubRoute>()

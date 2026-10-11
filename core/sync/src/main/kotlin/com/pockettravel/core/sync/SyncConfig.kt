@@ -74,4 +74,8 @@ object SyncConfig {
     // indipendenti tra loro.
     const val APP_STATUS_URL = "https://github.com/miracle091/pocket-travel/releases/download/app-status/app-status.json"
     const val APP_UPDATE_CHECK_WORK_NAME = "app-update-check"
+
+    // Pagina dell'ultima release dell'app (l'APK), aperta dalla notifica di aggiornamento: le release dei dati non sono
+    // mai segnate come "Latest".
+    const val APP_RELEASES_URL = "https://github.com/miracle091/pocket-travel/releases/latest"
 }
