@@ -415,7 +415,7 @@ private val historyClimateWords = Regex(
         """invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season|""" +
         // Le stesse richieste dette con altre parole ("Quando e' nata X?", "When is the best time to go to X?").
         """passat|origin|govern|medioev|nascit|nata\b|nato\b|period|quando andare|best time|when to go|establish|ruled|""" +
-        """middle ages|past\b|origins?\b)""",
+        """costru|mura\b|built|walls?\b|ottocent|novecent|settecent|seicent|cinquecent|quattrocent|trecent|gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre|mesi\b|january|february|march|april|june|july|august|september|october|november|december|months?\b|middle ages|past\b|origins?\b)""",
     RegexOption.IGNORE_CASE,
 )
 

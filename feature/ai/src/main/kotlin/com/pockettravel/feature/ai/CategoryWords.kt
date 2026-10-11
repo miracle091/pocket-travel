@@ -10,23 +10,23 @@ package com.pockettravel.feature.ai
  * (WordListsOverride). La stessa tabella e' in eval_retrieval.py (--word-lists), che un test confronta con questa.
  */
 private val categoryTriggers = mapOf(
-    "ALLOGGIO" to "allogg dormi pernot notte alberg hotel ostell campeg stay sleep accomm lodg hostel night camp",
+    "ALLOGGIO" to "allogg dormi pernot notte alberg hotel ostell campeg stay sleep accomm lodg hostel night camp camera prenot room rooms",
     "CIBO_BEVANDE" to "mangi cibo cucin piatt assag ristor pranz cena cenar colaz specia bere vino birra " +
-        "food eat dish cuisin restau lunch dinner breakf tast drink wine beer",
-    "COSA_VEDERE" to "veder visit attraz monum muse perder merit see sight attract worth miss",
-    "ACQUISTI" to "acqui compr souven negoz mercat manci camer pagar contan bancom soldi valut " +
-        "shop buy market tip waiter pay cash card money curren atm",
+        "food eat dish cuisin restau lunch dinner breakf tast drink wine beer beve bevi bevan",
+    "COSA_VEDERE" to "veder visit attraz monum muse perder merit see sight attract worth miss to+do things+to+do",
+    "ACQUISTI" to "acqui compr souven negoz mercat manci camerier pagar contan bancom soldi valut " +
+        "shop buy market tip waiter pay cash card money curren atm paga euro dollar",
     "TRASPORTI" to "arriv spost muov treno treni autob macchin auto nolegg guidar raggiun " +
-        "bus train car drive rent transp metro reach around",
-    "DOGANE" to "passap docum front dogan visto alcol sigar passport border custom visa alcoh cigar",
+        "bus train car drive rent transp metro reach around stazion station aeroport airport",
+    "DOGANE" to "passap docum front dogan visto alcol sigar passport border custom visa alcoh cigar identit id+card",
     "SALUTE" to "vacci ammal malat medic osped salut farmac sanit sick ill doctor hospit health jab pharm pronto+soccorso first+aid",
     "SICUREZZA" to "sicur peric derub furt borseg ladr crimin truff safe danger rob theft thief pickp crime scam",
     "CONNETTIVITA" to "intern telef cellul sim wifi colleg roami online phone mobile connec",
     "STORIA" to "stori origin nata nato fond passat medioev govern antic roman guerr " +
-        "histor found establ past ancien rule middl war middle+ages",
+        "histor found establ past ancien rule middl war middle+ages costru mura built wall ottocent novecent settecent seicent cinquecent quattrocent trecent secol centur",
     "CLIMA" to "clima meteo piog piov ombrel tempera primav estat invern autun nevic neve caldo fredd stagion " +
         "climat weather rain umbrel spring summer winter autumn snow hot cold season " +
-        "periodo+migliore quando+andare best+time when+to+go",
+        "periodo+migliore quando+andare best+time when+to+go gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre mesi january february march april june july august september october november december months",
     // Non categorie ma richieste: cosa fare contro un problema e dopo una perdita o un furto. Portano alle sottosezioni
     // pratiche delle pagine del mondo ("Jet lag: Recupero", "Documenti: In caso di emergenza") invece della definizione.
     "CONSIGLI" to "combat evitar preven curar rimed superar affront deal cope avoid prevent cure treat overcom",
