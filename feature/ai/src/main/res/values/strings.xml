@@ -128,4 +128,10 @@
     <string name="ai_taskmgr_cpu_auto">Automatica</string>
     <string name="ai_taskmgr_cpu_restart_hint">La variante scelta si carica al riavvio dell\'app</string>
     <string name="ai_taskmgr_cpu_restart">Riavvia ora</string>
+    <string name="ai_sources_show">Mostra le fonti</string>
+    <string name="ai_sources_hide">Nascondi le fonti</string>
+    <plurals name="ai_sources_count">
+        <item quantity="one">1 fonte</item>
+        <item quantity="other">%d fonti</item>
+    </plurals>
 </resources>

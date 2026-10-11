@@ -52,9 +52,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -427,6 +429,48 @@ private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String)
 }
 
 // Il contenuto della bolla della risposta: testo in arrivo, attesa, errore o risposta con fonti.
+// Le fonti in una riga sola ("2 fonti"), aperta a richiesta: con l'URL e la sezione di ogni guida prendevano spesso piu'
+// spazio della risposta.
+@Composable
+private fun SourceCitations(citations: List<String>) {
+    var expanded by rememberSaveable(citations) { mutableStateOf(false) }
+    Column(modifier = Modifier.padding(top = Spacing.xs)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clickable(role = Role.Button, onClickLabel = stringResource(if (expanded) R.string.ai_sources_hide else R.string.ai_sources_show)) {
+                    expanded = !expanded
+                }
+                .padding(vertical = Spacing.xs),
+        ) {
+            Text(
+                pluralStringResource(R.plurals.ai_sources_count, citations.size, citations.size),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Icon(
+                AppIcons.ExpandMore,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp).rotate(if (expanded) HALF_TURN_DEGREES else 0f),
+            )
+        }
+        if (expanded) {
+            citations.forEach { citation ->
+                Text(
+                    citation,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Spacing.xs),
+                )
+            }
+        }
+    }
+}
+
+// Freccia delle fonti girata quando sono aperte.
+private const val HALF_TURN_DEGREES = 180f
+
 @Composable
 private fun AnswerContent(
     uiState: AiUiState,
@@ -456,14 +500,7 @@ private fun AnswerContent(
         }
         answer != null -> {
             Text(answer.text, style = MaterialTheme.typography.bodyLarge)
-            answer.sourceCitations.forEach { citation ->
-                Text(
-                    citation,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = Spacing.xs),
-                )
-            }
+            if (answer.sourceCitations.isNotEmpty()) SourceCitations(answer.sourceCitations)
             if (answer.showOfficialSourceBanner) {
                 val url = answer.officialSourceUrl
                 AssistChip(

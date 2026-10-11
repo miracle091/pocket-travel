@@ -128,4 +128,10 @@
     <string name="ai_taskmgr_cpu_auto">Automatic</string>
     <string name="ai_taskmgr_cpu_restart_hint">The chosen variant loads when the app restarts</string>
     <string name="ai_taskmgr_cpu_restart">Restart now</string>
+    <string name="ai_sources_show">Show sources</string>
+    <string name="ai_sources_hide">Hide sources</string>
+    <plurals name="ai_sources_count">
+        <item quantity="one">1 source</item>
+        <item quantity="other">%d sources</item>
+    </plurals>
 </resources>
