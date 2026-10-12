@@ -6,6 +6,9 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ## [Non rilasciato]
 
+### Cambiamenti incompatibili
+- La versione pubblicata contiene solo le librerie native per i dispositivi a 64 bit (arm64): non si installa più su dispositivi a 32 bit, che restano alla 0.10.0.
+
 ### Aggiunto
 - Schermata Aggiornamenti, in Altro, con il numero degli aggiornamenti disponibili. Elenca la nuova versione dell'app ("Scarica da GitHub"), le nazioni da aggiornare con i contenuti cambiati e il peso, le guide e il nuovo modello IA, ognuno col suo pulsante e l'avanzamento. "Aggiorna tutto" scarica le nazioni subito su Wi-Fi e chiede conferma, con il peso, su una rete mobile o a consumo; "Controlla gli aggiornamenti" rilegge catalogo, app e modello IA; senza connessione la schermata lo dice, invece di "Tutto aggiornato". Nell'elenco delle nazioni il controllo non c'è più (trascinamento in giù e azione di TalkBack): le righe mantengono "da aggiornare" e il pulsante Aggiorna.
 - Guide delle nazioni: le sezioni "Cosa vedere" e "Cosa fare" ("See" e "Do" nella guida inglese) di Wikivoyage, con il filtro "Cosa vedere e fare", come nelle guide delle città. Così anche l'assistente IA risponde a "Cosa vedere in Giappone?" senza le guide delle città della nazione, che arrivano solo scaricando la regione. Il pacchetto delle guide cresce di circa 350 KB in italiano e 500 KB in inglese. Arrivano con il prossimo aggiornamento delle guide.
@@ -39,6 +42,9 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Il catalogo delle regioni si scarica una volta ogni 10 minuti al massimo, invece che a ogni apertura della pagina di una regione.
 - Se due aggiornamenti delle guide partono insieme, il secondo non riscarica e non reimporta le guide; un download interrotto delle guide in una lingua non rovina più quello nell'altra.
 - Numeri di telefono e indirizzi email delle ambasciate si aprono anche quando contengono caratteri come "#" o "?".
+
+### Sicurezza
+- Ricerca degli indirizzi: le parti compresse della nazione si scompattano con un limite di dimensione e, alla fine, con il controllo di dimensione e sha256 indicati dal catalogo, come i pacchetti delle regioni.
 
 ## [0.10.0] - 2026-10-10
 
