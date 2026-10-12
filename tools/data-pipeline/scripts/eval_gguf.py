@@ -5,6 +5,9 @@ checkpoint HF: verifica il comportamento del modello quantizzato che l'app scari
 Uso (binari di llama.cpp scaricati con get_llama_tools.py, o un clone con build/bin):
   python eval_gguf.py <file .gguf> --llama-cpp <cartella dei binari> [--extended] [--limit N]
                       [--gpu-layers 99 --device Vulkan0]
+  python eval_gguf.py <file .gguf> --llama-cpp <cartella> --contexts <file di eval_retrieval.py --contexts> ...
+Con --contexts il modello risponde con il contesto prodotto dalla ricerca vera (ricerca e modello insieme): per lingua,
+serie e variante della ricerca, rifiuti con la sezione attesa nel contesto (del modello) e senza (della ricerca).
 Stesse regioni di test di train_lora.py (TEST_REGIONS in eval_common.py) e stesse metriche di eval_behavior.py; decodifica
 greedy (temperature 0, top-k 1). Il modello si carica una volta sola in llama-server e ogni riga e' una
 richiesta /completion. Il prompt viene formattato qui a mano nello stesso ChatML "grezzo" che
@@ -25,7 +28,8 @@ from pathlib import Path
 from gguf import GGUFReader
 
 import vram
-from eval_common import DEFAULT_DATASET, find_llama_bin, llama_env, load_test_rows, print_report, question_of, refusal_summary, score
+from eval_common import (DEFAULT_DATASET, context_report, find_llama_bin, is_refusal, llama_env, load_test_rows, on_device_prompt,
+                         print_report, question_of, refusal_summary, score)
 from status import Progress, phase
 
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -43,6 +47,9 @@ ap.add_argument("--empty-think", action="store_true",
 ap.add_argument("--dataset", default=DEFAULT_DATASET, help="file in data/sft/ usato nel training (test base: sue regioni di test; "
                                                          "con un dataset *.en.jsonl il test esteso e' eval_extended.en.jsonl)")
 ap.add_argument("--answers", type=Path, help="salva domanda, risposta attesa e ottenuta (JSONL) per leggerle a mano")
+ap.add_argument("--contexts", type=Path, nargs="+",
+                help="file di eval_retrieval.py --contexts al posto delle righe di test: il prompt dell'app con il contesto "
+                     "della ricerca vera, e i rifiuti contati con e senza la sezione attesa nel contesto")
 a = ap.parse_args()
 
 # Come ai_chat.cpp (common_chat_templates_support_enable_thinking): i template con thinking (Qwen3.5)
@@ -50,7 +57,10 @@ a = ap.parse_args()
 template = GGUFReader(a.model).fields.get("tokenizer.chat_template")
 empty_think = a.empty_think or (template is not None and "enable_thinking" in bytes(template.parts[template.data[0]]).decode("utf-8"))
 
-test, held_out = load_test_rows(a.extended, a.dataset)
+if a.contexts:
+    test = [json.loads(line) for f in a.contexts for line in open(f, encoding="utf-8")]
+else:
+    test, held_out = load_test_rows(a.extended, a.dataset)
 if a.limit:
     test = test[:a.limit]
 
@@ -94,10 +104,36 @@ def ask(url, content):
         return json.load(r)["content"].strip()
 
 
+def answer_contexts(url):
+    """Le righe di --contexts con "got" e "refused"; un prompt gia' visto (stessa domanda e stesso contesto in due
+    varianti della ricerca) non si richiede: la decodifica e' greedy."""
+    seen = {}
+    progress = Progress("eval", len(test), "domanda", every=30)
+    for n, r in enumerate(test, 1):
+        prompt = on_device_prompt(r["context"], r["question"], r["lang"])
+        if prompt not in seen:
+            seen[prompt] = ask(url, prompt)
+        r["got"] = seen[prompt]
+        r["refused"] = is_refusal(r["got"], r["lang"])
+        if answers:
+            answers.write(json.dumps(r, ensure_ascii=False) + "\n")
+        progress.update(n, f"rifiuti {sum(x['refused'] for x in test[:n])}")
+    print("lingua serie ricerca: domande | sezione attesa nel contesto | rifiuti con la sezione | rifiuti senza")
+    for (lang, series, search), (n, with_section, refused_with, refused_without) in sorted(context_report(test).items()):
+        print(f"{lang} {series} {search}: {n} | {with_section} | {refused_with}/{with_section} | "
+              f"{refused_without}/{n - with_section}")
+
+
 stats = {}  # tipo di riga -> [(ha rifiutato, risposta ok)]
 answers = open(a.answers, "w", encoding="utf-8", buffering=1) if a.answers else None  # a righe: resta anche se llama crasha
 phase("eval GGUF", f"{a.model.name}, {len(test)} righe {'(test esteso)' if a.extended else ''}")
 server, url = start_server()
+if a.contexts:
+    try:
+        answer_contexts(url)
+    finally:
+        server.kill()
+    raise SystemExit(0)
 progress = Progress("eval", len(test), "riga", every=30)
 try:
     for n, r in enumerate(test, 1):

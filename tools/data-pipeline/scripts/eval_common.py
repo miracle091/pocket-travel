@@ -84,6 +84,39 @@ def refusal_prefix(row):
     return REFUSAL_EN if row["messages"][0]["content"].startswith(EN_PROMPT) else REFUSAL
 
 
+def on_device_prompt(context, question, lang):
+    """PromptTemplates.onDevicePrompt, con PromptTemplates.emptyContext al posto di un contesto vuoto (come planOnDevice)."""
+    if lang == "en":
+        context = context if context.strip() else "No information available for this region."
+        return ("You are an offline travel guide.\n"
+                "Answer in at most 3 sentences, in English, using only the information in the CONTEXT.\n"
+                "If the context is not enough, say so explicitly.\n\n"
+                f"CONTEXT: {context}\n\nQUESTION: {question}")
+    context = context if context.strip() else "Nessuna informazione disponibile per questa regione."
+    return ("Sei una guida turistica offline.\n"
+            "Rispondi in massimo 3 frasi, in italiano, usando solo le informazioni nel CONTESTO.\n"
+            "Se il contesto non basta, dillo esplicitamente.\n\n"
+            f"CONTESTO: {context}\n\nDOMANDA: {question}")
+
+
+def is_refusal(answer, lang):
+    """Il rifiuto dei modelli addestrati: la risposta comincia con REFUSAL (o REFUSAL_EN), come in score."""
+    return answer.startswith(REFUSAL_EN if lang == "en" else REFUSAL)
+
+
+def context_report(rows):
+    """Righe di eval_gguf.py --contexts (con "refused" e "section_in_context") -> per (lingua, serie, ricerca):
+    (domande, con la sezione attesa nel contesto, rifiuti con la sezione, rifiuti senza). Le domande hanno tutte una
+    risposta nelle guide: ogni rifiuto e' sbagliato, della ricerca se la sezione non e' nel contesto, del modello se c'e'."""
+    out = {}
+    for r in rows:
+        n, with_section, refused_with, refused_without = out.get((r["lang"], r["series"], r["search"]), (0, 0, 0, 0))
+        out[(r["lang"], r["series"], r["search"])] = (
+            n + 1, with_section + r["section_in_context"],
+            refused_with + (r["refused"] and r["section_in_context"]), refused_without + (r["refused"] and not r["section_in_context"]))
+    return out
+
+
 def question_of(row):
     """La domanda della riga (dopo "DOMANDA: " o "QUESTION: ")."""
     content = row["messages"][0]["content"]

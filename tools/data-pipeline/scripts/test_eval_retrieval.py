@@ -185,7 +185,30 @@ class SearchTest(unittest.TestCase):
         # come riempitivo porterebbe il modello fuori tema.
         top, _ = ev.search(db, "italia", "Serve il passaporto?", [])
         self.assertEqual([s["title"] for s in top], ["Dogane"])
+        # Con la ricerca di prima del RAG la guida generale non si cerca.
+        top, _ = ev.search(db, "italia", "Quanti giorni per il recupero dal jet lag?", [], before_rag=True)
+        self.assertEqual(top, [])
         db.close()
+
+    def test_contesto_come_nel_prompt_e_sezione_attesa(self):
+        top = [{"body": "A" * 1990}, {"body": "Alberghi sul lungomare.\nB" + "b" * 300}]
+        row = ev.context_row(top, {"alber"}, [top[1]])
+        self.assertEqual(row["context"], ev.select_context([s["body"] for s in top], {"alber"}))
+        # La seconda sezione e' tra quelle scelte, ma nei 2000 caratteri non entra.
+        self.assertEqual((row["found"], row["section_in_context"], row["answer_in_context"]), (True, False, False))
+        row = ev.context_row(top[1:], {"alber"}, top[1:])
+        self.assertEqual((row["found"], row["section_in_context"], row["answer_in_context"]), (True, True, True))
+        self.assertEqual(ev.context_row(top[:1], {"alber"}, [])["found"], False)
+
+    def test_stesse_domande_in_ogni_variante(self):
+        rows = [{"kind": k, "question": f"{k}{i}"} for k in ("paese", "distanze") for i in range(10)]
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = [Path(tmp) / "a.jsonl", Path(tmp) / "b.jsonl"]
+            for p in paths:
+                ev.write_contexts(p, rows, 3)
+            first, second = (p.read_text(encoding="utf-8") for p in paths)
+        self.assertEqual(first, second)
+        self.assertEqual(len(first.splitlines()), 6)
 
     def test_nazione_nominata_cerca_nella_sua_guida(self):
         self.assertEqual(ev.named_place("Serve il passaporto per entrare in Grecia?", "italia"), ("gr", "Grecia", ["grecia"]))
@@ -203,6 +226,8 @@ class SearchTest(unittest.TestCase):
         top, _ = ev.search(db, "italia", "Serve il passaporto per entrare in Grecia?", [])
         self.assertEqual([s["region"] for s in top], ["grecia"])
         self.assertEqual(ev.fts_query("Serve il passaporto per entrare in Grecia?", "italia", "Grecia"), "passap* OR entra*")
+        top, _ = ev.search(db, "italia", "Serve il passaporto per entrare in Grecia?", [], before_rag=True)
+        self.assertEqual([s["region"] for s in top], ["italia"])
         db.close()
 
     def test_matchinfo_pcxnal_letto(self):

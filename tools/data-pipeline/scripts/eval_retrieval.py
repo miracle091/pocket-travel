@@ -28,9 +28,12 @@ che nominano un'altra nazione ("Serve il passaporto per entrare in Grecia?" con 
 della guida della nazione nominata. Con --guides-db un guides.db locale al posto di quello
 pubblicato, per misurare un cambio delle guide prima di pubblicarlo. Con --word-lists la query ha anche le parole delle
 guide per la categoria della domanda (CategoryWords.kt, accese nell'app; senza l'opzione si misura la ricerca senza liste).
+Con --before-rag la ricerca senza guida generale e senza nazione nominata: senza --word-lists e' quella di prima del RAG.
+Con --contexts FILE ogni domanda (distanze escluse) va in JSONL con il contesto che l'app mette nel prompt e la presenza
+della sezione attesa, per far rispondere il modello con eval_gguf.py --contexts (ricerca e modello insieme).
 
 Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|dev|other-lang|control|general|other-country] [--regions italia ...]
-[--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists]
+[--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists] [--before-rag] [--contexts FILE [--contexts-sample N]]
 (la cache dei file scaricati sta di default nella cartella temporanea di sistema)
 Richiede rete (manifest, release, API di Wikipedia) e, per Storia e Clima, il gradle wrapper dalla root del repo.
 """
@@ -664,13 +667,14 @@ def city_candidates(db, region, fts, named):
         (fts, region, name, name, CITY_CANDIDATE_CAP if name else CANDIDATE_CAP))]
 
 
-def search(db, region, question, cities, lang="it", word_lists=False):
+def search(db, region, question, cities, lang="it", word_lists=False, before_rag=False):
     """TravelAssistant.searchSections: (sezioni, radici della domanda). Con [word_lists] la query ha anche le parole delle
     guide per la categoria della domanda; le radici restano quelle della domanda. Una nazione diversa da quella di
-    [region] nominata senza citta' (named_place) fa cercare nelle sue regioni, senza il suo nome nella query."""
+    [region] nominata senza citta' (named_place) fa cercare nelle sue regioni, senza il suo nome nella query. Con
+    [before_rag] la ricerca di prima della guida generale e della nazione nominata: solo la regione aperta e le sue citta'."""
     named = named_cities(question, cities, lang)
     city = named[0] if len(named) == 1 else None
-    country = None if named else named_place(question, region, lang)
+    country = None if named or before_rag else named_place(question, region, lang)
     with_words = (lambda q: with_category_words(q, question, lang)) if word_lists else (lambda q: q)
     base = fts_query(question, region, city or (country and country[1]),
                      keep_city_words=not (word_lists and question_groups(question)))
@@ -686,7 +690,8 @@ def search(db, region, question, cities, lang="it", word_lists=False):
     history_or_climate = bool(HISTORY_CLIMATE_WORDS.search(question))
     guide_regions = country[2] if country else [region]
     return (rank_sections(guide_candidates(db, guide_regions, fts), city_rows, country_first=not named,
-                          history_or_climate=history_or_climate, general_guide=guide_candidates(db, [GENERAL_GUIDE_REGION_ID], fts),
+                          history_or_climate=history_or_climate,
+                          general_guide=() if before_rag else guide_candidates(db, [GENERAL_GUIDE_REGION_ID], fts),
                           general_question=bool(GENERAL_TRAVEL_WORDS.search(question))),
             focus_stems(base, city))
 
@@ -708,6 +713,33 @@ def answer_paragraph(body, stems):
     """Il paragrafo della sezione attesa con piu' radici della domanda (il primo se nessuno ne ha)."""
     paragraphs = [p for p in body.split("\n") if p.strip()]
     return max(paragraphs, key=lambda p: sum(s in p.lower() for s in stems))
+
+
+def context_row(top, stems, match):
+    """Il contesto che l'app mette nel prompt (buildOnDeviceContext senza nota: selectContext dei corpi delle sezioni) e
+    se la sezione attesa vi e' entrata: "section_in_context" se almeno un suo paragrafo e' nel contesto (selectContext
+    puo' lasciarla fuori o tagliarla), "answer_in_context" se c'e' il suo paragrafo con piu' radici della domanda."""
+    context = select_context([s["body"] for s in top], stems)
+    paragraphs = [p for s in match for p in s["body"].split("\n") if p.strip()]
+    answer = answer_paragraph(match[0]["body"], stems) if match else None
+    return {"context": context, "found": bool(match),
+            "section_in_context": any(p[:150] in context for p in paragraphs),
+            "answer_in_context": bool(answer) and answer[:150] in context}
+
+
+def write_contexts(path, rows, sample):
+    """Le righe [rows] in JSONL in [path]; con [sample] al massimo [sample] domande per tipo, scelte con un seme fisso
+    sulle posizioni: le domande non dipendono dalla ricerca, quindi due varianti della ricerca hanno le stesse."""
+    by_kind = defaultdict(list)
+    for r in rows:
+        by_kind[r["kind"]].append(r)
+    kept = []
+    for kind, kind_rows in by_kind.items():
+        picked = sorted(random.Random(9).sample(range(len(kind_rows)), sample)) if 0 < sample < len(kind_rows) else range(len(kind_rows))
+        kept += [kind_rows[i] for i in picked]
+    with open(path, "w", encoding="utf-8") as out:
+        out.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in kept)
+    print(f"contesti: {len(kept)} domande in {path}")
 
 
 # --- dati --------------------------------------------------------------------------------------------------------------
@@ -818,26 +850,30 @@ def make_plan(region, city_rows, rng, pick, questions):
     return plan
 
 
-def general(guides_db, regions, lang, word_lists=False):
+def general(guides_db, regions, lang, word_lists=False, before_rag=False, rows=None):
     """Le domande generali (GENERAL_Q) con aperta ogni regione di [regions], senza le citta' (non ne nominano): pagina
-    della guida generale attesa nel contesto, al primo posto, e il suo paragrafo con piu' parole della domanda nel contesto."""
+    della guida generale attesa nel contesto, al primo posto, e il suo paragrafo con piu' parole della domanda nel contesto.
+    In [rows], se c'e', una riga per domanda con il contesto (context_row)."""
     found = first = in_context = n = 0
     for region in regions:
         db = build_db(guides_db, region, [])
         for question, page in GENERAL_Q[lang]:
-            top, stems = search(db, region, question, [], lang, word_lists)
+            top, stems = search(db, region, question, [], lang, word_lists, before_rag)
             match = [s for s in top if s.get("general_guide") and s["title"].split(": ")[0] == page]
             n += 1
             found += bool(match)
             first += bool(top) and top[0] in match
             if match:
                 in_context += answer_paragraph(match[0]["body"], stems)[:150] in select_context([s["body"] for s in top], stems)
+            if rows is not None:
+                rows.append({"region": region, "kind": "domande generali", "category": page, "city": None,
+                             "question": question, **context_row(top, stems, match)})
         db.close()
     print(f"domande generali ({n} domande): trovata {100 * found / max(n, 1):.1f}%, prima {100 * first / max(n, 1):.1f}%, "
           f"risposta nel contesto {100 * in_context / max(found, 1):.1f}% delle trovate")
 
 
-def other_country(guides_db, regions, lang, word_lists=False):
+def other_country(guides_db, regions, lang, word_lists=False, before_rag=False):
     """Le domande sul paese con nominata un'altra nazione (OTHER_COUNTRY_Q): con aperta ogni regione di [regions] la
     nazione della regione successiva della lista, e con aperta la prima la Francia (nazione divisa in 13 regioni). Attesa
     la sezione della categoria in una regione della nazione nominata."""
@@ -850,7 +886,7 @@ def other_country(guides_db, regions, lang, word_lists=False):
         db = build_db(guides_db, region, [])
         for cat, qs in OTHER_COUNTRY_Q[lang].items():
             for q in qs:
-                top, _ = search(db, region, q.format(p=name), [], lang, word_lists)
+                top, _ = search(db, region, q.format(p=name), [], lang, word_lists, before_rag)
                 match = [s for s in top if s["category"] == cat and s.get("region") in COUNTRY_REGIONS[target]]
                 n += 1
                 found += bool(match)
@@ -869,14 +905,27 @@ def main():
     ap.add_argument("--no-wikipedia", action="store_true", help="senza Storia e Clima (per confronto)")
     ap.add_argument("--guides-db", type=Path, help="un guides.db locale al posto di quello pubblicato (per misurare prima di pubblicare)")
     ap.add_argument("--word-lists", action="store_true", help="con le liste di parole per categoria (CategoryWords.kt)")
+    ap.add_argument("--before-rag", action="store_true",
+                    help="ricerca senza guida generale e senza nazione nominata (con le liste spente: com'era prima del RAG)")
+    ap.add_argument("--contexts", type=Path,
+                    help="scrive in JSONL domanda, contesto come nel prompt dell'app e presenza della sezione attesa, per "
+                         "eval_gguf.py --contexts (senza le distanze: l'app aggiunge la sua sezione calcolata dalle coordinate)")
+    ap.add_argument("--contexts-sample", type=int, default=0, help="con --contexts: al massimo N domande per tipo (0 = tutte)")
     a = ap.parse_args()
+    if a.before_rag and a.word_lists:
+        ap.error("--before-rag misura la ricerca senza le liste di parole")
     fetch_data(a.regions, a.cache, a.lang)
     guides_db = a.guides_db or a.cache / f"guides{LANGS[a.lang]['suffix']}.db"
+    context_rows = [] if a.contexts else None
+    labels = {"lang": a.lang, "series": a.questions,
+              "search": "before-rag" if a.before_rag else "word-lists" if a.word_lists else "no-word-lists"}
     if a.questions == "general":
-        general(guides_db, a.regions, a.lang, a.word_lists)
+        general(guides_db, a.regions, a.lang, a.word_lists, a.before_rag, context_rows)
+        if a.contexts:
+            write_contexts(a.contexts, [{**labels, **r} for r in context_rows], a.contexts_sample)
         return
     if a.questions == "other-country":
-        other_country(guides_db, a.regions, a.lang, a.word_lists)
+        other_country(guides_db, a.regions, a.lang, a.word_lists, a.before_rag)
         return
     rng, pick = random.Random(7), random.Random(8)
     questions = questions_of(a.lang, a.questions)
@@ -888,7 +937,7 @@ def main():
         db = build_db(guides_db, region, rows)
         cities = sorted({r[0] for r in rows})
         for kind, cat, city, q, paragraph in plan:
-            top, stems = search(db, region, q, cities, a.lang, a.word_lists)
+            top, stems = search(db, region, q, cities, a.lang, a.word_lists, a.before_rag)
             r = res[kind]
             r["n"] += 1
             # Una sezione della guida generale con la stessa categoria non e' quella del paese attesa.
@@ -899,6 +948,11 @@ def main():
             if match:
                 expected = paragraph or answer_paragraph(match[0]["body"], stems)
                 r["risposta nel contesto"] += expected[:150] in select_context([s["body"] for s in top], stems)
+            if context_rows is not None and kind != KINDS[3]:
+                context_rows.append({**labels, "region": region, "kind": kind, "category": cat, "city": city, "question": q,
+                                     **context_row(top, stems, match)})
+    if a.contexts:
+        write_contexts(a.contexts, context_rows, a.contexts_sample)
     for kind in KINDS:
         r = res[kind]
         n = max(r["n"], 1)
