@@ -18,6 +18,7 @@ import com.pockettravel.core.sync.installedAppVersionCode
 import com.pockettravel.core.sync.isAppUpdateAvailable
 import com.pockettravel.feature.ai.AiModelUpdates
 import com.pockettravel.feature.ai.LlmModelDownloadWorker
+import com.pockettravel.feature.map.ConnectivityChecker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -41,7 +42,7 @@ data class UpdatesUiState(
     val modelProgress: Float? = null,
     // Controllo in corso (all'apertura o con "Controlla ora").
     val isChecking: Boolean = true,
-    // L'ultimo controllo non ha raggiunto ne' app-status.json ne' il catalogo: senza rete non si puo' dire "Tutto aggiornato".
+    // L'ultimo controllo non ha raggiunto la rete (updateCheckOffline): senza rete non si puo' dire "Tutto aggiornato".
     val offline: Boolean = false,
     // Messaggio una tantum (Snackbar), poi onMessageShown().
     @StringRes val message: Int? = null,
@@ -59,6 +60,7 @@ class UpdatesViewModel @Inject constructor(
     private val regionRepository: RegionRepository,
     private val regionSyncScheduler: RegionSyncScheduler,
     private val aiModelUpdates: AiModelUpdates,
+    private val connectivityChecker: ConnectivityChecker,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(UpdatesUiState())
@@ -104,7 +106,7 @@ class UpdatesViewModel @Inject constructor(
                     val model = runCatchingCancellable { aiModelUpdates.availableUpdate(current.aiModels) }.getOrNull()
                     _uiState.update { it.copy(appUpdate = app, modelUpdate = model) }
                 }
-                val offline = status.await() == null && manifest.await() == null
+                val offline = updateCheckOffline(appStatusReached = status.await() != null, deviceOnline = connectivityChecker.isOnline())
                 // Chiesto con il pulsante: lo si dice anche se la schermata mostra gli aggiornamenti trovati prima.
                 _uiState.update { it.copy(offline = offline, message = if (offline && userRequested) R.string.updates_offline else it.message) }
                 manifest.await()?.let { current ->

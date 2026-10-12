@@ -23,3 +23,10 @@ internal fun updateTotal(items: List<RegionUiItem>): UpdateTotal =
 
 /** Su una rete a consumo "Aggiorna tutto" chiede conferma; su una senza limiti parte subito. Niente da scaricare, niente conferma. */
 internal fun updateAllNeedsConfirmation(metered: Boolean, pending: List<RegionUiItem>): Boolean = metered && pending.isNotEmpty()
+
+/**
+ * Il controllo non ha raggiunto la rete: app-status.json, che si scarica sempre, non è arrivato e il dispositivo non ha una rete
+ * utilizzabile. Il catalogo non conta: può essere quello tenuto in memoria per 10 minuti. Con la rete presente un errore è del server,
+ * e la schermata tiene i valori di prima.
+ */
+internal fun updateCheckOffline(appStatusReached: Boolean, deviceOnline: Boolean): Boolean = !appStatusReached && !deviceOnline

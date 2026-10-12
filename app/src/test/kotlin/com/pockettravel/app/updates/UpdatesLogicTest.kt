@@ -50,4 +50,18 @@ class UpdatesLogicTest {
         assertFalse(updateAllNeedsConfirmation(metered = false, pending = pending))
         assertFalse(updateAllNeedsConfirmation(metered = true, pending = emptyList()))
     }
+
+    @Test
+    fun `senza rete il controllo e' offline anche con il catalogo ancora in memoria`() {
+        // Il catalogo di recentManifest(), tenuto per 10 minuti, arriva anche senza rete: non deve far dire "Tutto aggiornato".
+        assertTrue(updateCheckOffline(appStatusReached = false, deviceOnline = false))
+    }
+
+    @Test
+    fun `con app-status arrivato o con la rete presente il controllo non e' offline`() {
+        assertFalse(updateCheckOffline(appStatusReached = true, deviceOnline = true))
+        assertFalse(updateCheckOffline(appStatusReached = true, deviceOnline = false))
+        // Rete presente ma app-status non arrivato: errore del server, restano i valori di prima.
+        assertFalse(updateCheckOffline(appStatusReached = false, deviceOnline = true))
+    }
 }
