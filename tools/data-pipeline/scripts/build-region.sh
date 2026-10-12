@@ -405,7 +405,7 @@ BORDER_CHECKED=""
 find_border() {
   BORDER_CHECKED=true
   if [ -n "$REGION_ISO" ] && BORDER_RELATION="$(python3 "$SCRIPT_DIR/country_border.py" --iso "$REGION_ISO" --name "$REGION_TITLE" --out "$WORKDIR/confine.geojson" \
-      ${REGION_GROUP:+--subdivision --bbox "$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT"} \
+      ${REGION_GROUP:+--subdivision "--bbox=$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT"} \
       --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT")"; then
     BORDER_FILE="$WORKDIR/confine.geojson"
     BORDER_AREA=$((3600000000 + BORDER_RELATION))

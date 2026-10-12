@@ -119,6 +119,18 @@ class SuddivisioneTest(unittest.TestCase):
 
         self.assertIn("60189", "".join(call.args[0] for call in stdout.write.call_args_list))
 
+    def test_main_con_un_riquadro_a_ovest_di_greenwich(self):
+        # "--bbox -82.62,..." argparse lo legge come un'opzione: build-region.sh passa "--bbox=-82.62,...".
+        virginia = stato(162068, "US-WV", 37.2, 40.64, -82.64, -77.72)
+        with tempfile.TemporaryDirectory() as cache, mock.patch.object(country_border, "cerca", return_value=[virginia]), \
+                mock.patch("sys.stdout") as stdout:
+            argv = ["country_border.py", "--iso", "us", "--name", "West Virginia", "--subdivision",
+                    "--bbox=-82.62,37.20,-77.72,40.65", "--out", os.path.join(cache, "c.geojson"), "--cache", cache]
+            with mock.patch.object(sys, "argv", argv):
+                country_border.main()
+
+        self.assertIn("162068", "".join(call.args[0] for call in stdout.write.call_args_list))
+
 
 if __name__ == "__main__":
     unittest.main()
