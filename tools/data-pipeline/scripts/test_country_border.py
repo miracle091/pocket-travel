@@ -47,6 +47,17 @@ class ConfineTest(unittest.TestCase):
         self.assertEqual(found, (4422604, SAN_MARINO["geojson"]))
         self.assertEqual(cerca.call_args_list[1].args[0], {"q": "Puerto Rico"})
 
+    def test_zona_economica_esclusiva_scartata(self):
+        # "New Caledonia": prima la zona economica esclusiva (confine marittimo, con lo stesso codice ISO), poi il territorio.
+        eez = {**SAN_MARINO, "osm_id": 2177258, "type": "maritime", "extratags": {"ISO3166-1": "NC"}}
+        territory = {**SAN_MARINO, "osm_id": 3407643, "type": "administrative", "extratags": {"ISO3166-1": "NC"}}
+        with tempfile.TemporaryDirectory() as cache, \
+                mock.patch.object(country_border, "cerca", side_effect=[[], [eez, territory]]), \
+                mock.patch.object(country_border.time, "sleep"):
+            found = country_border.confine("NC", cache, "test", "New Caledonia")
+
+        self.assertEqual(found, (3407643, SAN_MARINO["geojson"]))
+
     def test_main_scrive_la_feature_e_stampa_l_id(self):
         with tempfile.TemporaryDirectory() as cache, mock.patch.object(country_border, "cerca", return_value=[SAN_MARINO]), \
                 mock.patch("sys.stdout") as stdout:

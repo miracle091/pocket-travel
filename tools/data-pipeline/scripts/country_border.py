@@ -64,8 +64,11 @@ def copertura(a, b):
 
 
 def nazione(result, iso):
+    """Relazione con il codice ISO 3166-1 [iso]. Non un confine marittimo: per "New Caledonia" Nominatim restituisce prima
+    la zona economica esclusiva, con lo stesso codice, da cui `osmium extract` non estrae nessun punto di interesse."""
     tags = result.get("extratags") or {}
-    return (tags.get("ISO3166-1:alpha2") or tags.get("ISO3166-1") or "").lower() == iso.lower()
+    return (result.get("type") != "maritime"
+            and (tags.get("ISO3166-1:alpha2") or tags.get("ISO3166-1") or "").lower() == iso.lower())
 
 
 def suddivisione(result, iso, bbox):
