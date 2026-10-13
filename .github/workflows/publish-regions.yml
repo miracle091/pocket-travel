@@ -1069,11 +1069,23 @@ jobs:
         with:
           cache-name: cities-${{ matrix.shard }}
 
+      # Popolazione e coordinate delle citta' gia' chieste a Wikidata (city_population.py, CITY_FACTS_CACHE): si riparte
+      # dalla cache piu' recente di qualunque shard e si chiedono solo le citta' nuove o scadute, cosi' i tre shard
+      # insieme mandano poche richieste a Wikimedia, che alle raffiche risponde 429.
+      - name: Ripristina popolazione e coordinate delle citta'
+        continue-on-error: true
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ github.workspace }}/city-facts
+          key: city-facts-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: city-facts-
+
       - name: Genera i pacchetti regionali dello shard
         id: build
         shell: bash
         env:
           WIKIVOYAGE_DUMP_CACHE: ${{ runner.temp }}/wikivoyage-dumps
+          CITY_FACTS_CACHE: ${{ github.workspace }}/city-facts/city-facts.json
           # Intervalli dei .rd5 gia' scaricati, riusati dalle regioni dopo nello stesso shard (34% dei
           # download .rd5 della run del 2026-09-28 erano tile gia' scaricate nello shard).
           RD5_RANGE_CACHE: ${{ runner.temp }}/rd5-range-cache
@@ -1409,6 +1421,28 @@ jobs:
           set -euo pipefail
           NEW_KEY="translations-cities-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}"
           gh cache list --repo "${{ github.repository }}" --key translations-cities-${{ matrix.shard }}- --sort created_at --order desc --limit 100 --json key --jq '.[].key' \
+            | awk -v new="$NEW_KEY" 'found { print } $0 == new { found = 1 }' \
+            | while read -r key; do gh cache delete "$key" --repo "${{ github.repository }}"; done
+
+      # Ogni shard salva la sua copia, con le citta' nuove di questa run; poi si tolgono le copie piu' vecchie dello
+      # stesso shard. Il ripristino sopra prende la piu' recente di tutti gli shard.
+      - name: Salva popolazione e coordinate delle citta'
+        id: save-city-facts
+        if: ${{ always() && hashFiles('city-facts/city-facts.json') != '' }}
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ github.workspace }}/city-facts
+          key: city-facts-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Elimina le cache delle citta' piu' vecchie
+        if: ${{ always() && steps.save-city-facts.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW_KEY="city-facts-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}"
+          gh cache list --repo "${{ github.repository }}" --key city-facts-${{ matrix.shard }}- --sort created_at --order desc --limit 100 --json key --jq '.[].key' \
             | awk -v new="$NEW_KEY" 'found { print } $0 == new { found = 1 }' \
             | while read -r key; do gh cache delete "$key" --repo "${{ github.repository }}"; done
 

@@ -1,4 +1,4 @@
-"""Popolazione e capitale delle citta' per i JSONL di extract-cities-dump(-en).py: la scheda Citta' dell'app mostra le
+"""Popolazione e capitale delle citta' per i JSONL di extract-cities-dump(-en).py: il riquadro Citta' dell'app mostra le
 citta' principali in ordine di popolazione e segna la capitale.
 
 Fonti, nell'ordine:
@@ -9,19 +9,37 @@ Senza nessuna delle due la citta' resta senza popolazione e l'app ripiega sulla 
 Capitale: la proprieta' P36 (capitale) dell'elemento Wikidata della regione (stato, o stato federato per le regioni che
 lo sono, es. il Texas), risolta nel titolo della sua pagina di Wikivoyage nella stessa lingua.
 Coordinate: la proprieta' P625 dello stesso elemento Wikidata, per la distanza tra due citta' dell'assistente.
+Popolazione e coordinate arrivano con lo stesso giro di richieste.
+
+Cache: con la variabile d'ambiente CITY_FACTS_CACHE (un file JSON, conservato dal workflow tra un run e l'altro)
+popolazione e coordinate di Wikidata di ogni citta' valgono CACHE_MAX_AGE_DAYS giorni, e si chiedono solo per le citta'
+nuove o scadute: i tre shard insieme mandano cosi' molte meno richieste a Wikimedia, che risponde 429.
 
 Mai fatale: un errore di rete lascia le citta' interessate senza popolazione.
 """
 import json
+import os
+import random
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import date
+from pathlib import Path
 
 UA = {"User-Agent": "pocket-travel-cities/1.0 (https://github.com/miracle091/pocket-travel)"}
 ABITANTI = re.compile(r"^\|\s*Abitanti\s*=\s*([0-9][0-9.\s ]*)", re.M)
 BATCH = 50  # massimo di titoli/id per richiesta delle API MediaWiki
+# Tre shard chiedono a Wikimedia insieme e ricevono 429 a raffiche: fino a 5 attese (10 s, 20 s... 160 s, o il
+# Retry-After della risposta) prima di arrendersi, al massimo 5 minuti l'una.
+RETRY_ATTEMPTS = 6
+RETRY_BASE_S = 10
+RETRY_MAX_S = 300
+RETRY_JITTER_S = 5
+CACHE_ENV = "CITY_FACTS_CACHE"
+CACHE_MAX_AGE_DAYS = 60  # popolazione e coordinate cambiano di rado; anche "nessun dato" si richiede dopo 60 giorni
 
 
 def abitanti(text):
@@ -33,16 +51,25 @@ def abitanti(text):
     return int(digits) if digits and int(digits) > 0 else None
 
 
+def _retry_wait(error, attempt):
+    """Secondi di attesa prima del tentativo [attempt] + 1: il Retry-After di un 429 o 503 se c'e', altrimenti 10, 20,
+    40... secondi; piu' fino a 5 secondi a caso, perche' gli shard che girano insieme non riprovino nello stesso istante."""
+    retry_after = error.headers.get("Retry-After") if isinstance(error, urllib.error.HTTPError) and error.headers else None
+    wait = int(retry_after) if retry_after and retry_after.isdigit() else RETRY_BASE_S * 2 ** attempt
+    return min(wait, RETRY_MAX_S) + random.uniform(0, RETRY_JITTER_S)
+
+
 def _get(url):
-    for attempt in range(4):
+    for attempt in range(RETRY_ATTEMPTS):
         try:
             with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60) as r:
                 return json.loads(r.read().decode("utf-8"))
-        except Exception as e:  # 429 o rete: si riprova con attesa crescente
-            if attempt == 3:
+        except Exception as e:  # 429 (limite di Wikimedia) o rete: si riprova con attesa crescente
+            if attempt == RETRY_ATTEMPTS - 1:
                 raise
-            print(f"-- popolazione: {e}, riprovo", file=sys.stderr)
-            time.sleep(5 * (attempt + 1))
+            wait = _retry_wait(e, attempt)
+            print(f"-- Wikimedia: {e}, riprovo tra {wait:.0f}s", file=sys.stderr)
+            time.sleep(wait)
 
 
 def _latest_population(claims):
@@ -100,11 +127,6 @@ def _wikidata_values(titles, lang, value_of):
     return {t: value_of_item[q] for t, q in item_of.items() if q in value_of_item}
 
 
-def wikidata_populations(titles, lang):
-    """{titolo: popolazione} da Wikidata per le pagine di Wikivoyage [lang] in [titles]."""
-    return _wikidata_values(titles, lang, _latest_population)
-
-
 EARTH = "http://www.wikidata.org/entity/Q2"
 
 
@@ -123,6 +145,38 @@ def wikidata_coordinates(titles, lang):
     """{titolo: (latitudine, longitudine)} da Wikidata (P625) per le pagine di Wikivoyage [lang] in [titles]: l'assistente
     ne calcola la distanza tra due citta' (in linea d'aria, o su strada con la rete stradale scaricata)."""
     return _wikidata_values(titles, lang, _coordinates)
+
+
+def wikidata_city_facts(titles, lang):
+    """{titolo: (popolazione o None, coordinate o None)} con un solo giro di richieste per le due proprieta'; mancano le
+    pagine senza elemento Wikidata."""
+    return _wikidata_values(titles, lang, lambda claims: (_latest_population(claims), _coordinates(claims)))
+
+
+def _load_cache(path, today):
+    """Voci della cache ("lingua|titolo" -> {population, lat, lon, fetched}) con meno di CACHE_MAX_AGE_DAYS giorni;
+    vuota se il file manca o non si legge."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    fresh = {}
+    for key, entry in (data.items() if isinstance(data, dict) else []):
+        try:
+            age = (today - date.fromisoformat(entry["fetched"])).days
+        except (KeyError, TypeError, ValueError):
+            continue
+        if 0 <= age < CACHE_MAX_AGE_DAYS:
+            fresh[key] = entry
+    return fresh
+
+
+def _save_cache(path, cache):
+    """Scrive la cache in un file temporaneo e poi la sposta: una scrittura interrotta non lascia un JSON troncato."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(cache, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+    tmp.replace(path)
 
 
 def capital_titles(region_titles, lang):
@@ -164,7 +218,8 @@ def _current_values(claims):
 def annotate(paths, lang, region_titles=None):
     """Aggiunge "population" a ogni riga dei JSONL [paths]: Abitanti (solo IT), poi Wikidata per le mancanti; con
     [region_titles] ({percorso: titolo della regione}) anche "capital" (true per la capitale della regione); "lat" e
-    "lon" da Wikidata (null se mancano)."""
+    "lon" da Wikidata (senza, restano quelle gia' nel file). Con CITY_FACTS_CACHE si chiedono a Wikidata solo le citta'
+    che la cache non ha o ha da troppo tempo."""
     rows = {p: [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()] for p in paths}
     capital_of = {}
     if region_titles:
@@ -172,30 +227,35 @@ def annotate(paths, lang, region_titles=None):
             capital_of = capital_titles(region_titles.values(), lang)
         except Exception as e:
             print(f"-- capitali da Wikidata non disponibili ({e})", file=sys.stderr)
-    for lines in rows.values():
-        for r in lines:
-            r["population"] = abitanti(r["text"]) if lang == "it" else None
-    missing = {r["city"] for lines in rows.values() for r in lines if r["population"] is None}
+    today = date.today()
+    cache_path = Path(os.environ[CACHE_ENV]) if os.environ.get(CACHE_ENV) else None
+    cache = _load_cache(cache_path, today) if cache_path else {}
+    titles = {r["city"] for lines in rows.values() for r in lines}
+    to_fetch = {t for t in titles if f"{lang}|{t}" not in cache}
     try:
-        found = wikidata_populations(missing, lang)
+        facts = wikidata_city_facts(to_fetch, lang) if to_fetch else {}
+        for t in to_fetch:
+            # anche "nessun dato" entra nella cache: la pagina senza elemento non si richiede a ogni run
+            population, coordinates = facts.get(t, (None, None))
+            lat, lon = coordinates or (None, None)
+            cache[f"{lang}|{t}"] = {"population": population, "lat": lat, "lon": lon, "fetched": today.isoformat()}
     except Exception as e:
-        print(f"-- popolazione da Wikidata non disponibile ({e}): le citta' senza Abitanti restano senza", file=sys.stderr)
-        found = {}
-    try:
-        coordinates = wikidata_coordinates({r["city"] for lines in rows.values() for r in lines}, lang)
-    except Exception as e:
-        print(f"-- coordinate da Wikidata non disponibili ({e}): le citta' restano senza", file=sys.stderr)
-        coordinates = {}
+        print(f"-- Wikidata non disponibile ({e}): popolazione e coordinate solo dalla cache e dal file", file=sys.stderr)
     for path, lines in rows.items():
         for r in lines:
-            if r["population"] is None:
-                r["population"] = found.get(r["city"])
+            known = cache.get(f"{lang}|{r['city']}", {})
+            r["population"] = (abitanti(r["text"]) if lang == "it" else None) or known.get("population")
             r["capital"] = r["city"] in capital_of.get((region_titles or {}).get(path), set())
-            # come la popolazione: senza rete restano quelle gia' nel file
-            r["lat"], r["lon"] = coordinates.get(r["city"], (r.get("lat"), r.get("lon")))
+            if known.get("lat") is not None:
+                r["lat"], r["lon"] = known["lat"], known["lon"]
+            else:
+                r["lat"], r["lon"] = r.get("lat"), r.get("lon")
         path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in lines), encoding="utf-8")
+    if cache_path:
+        _save_cache(cache_path, cache)
     total = sum(len(lines) for lines in rows.values())
     with_pop = sum(r["population"] is not None for lines in rows.values() for r in lines)
     capitals = sum(r["capital"] for lines in rows.values() for r in lines)
-    print(f"citta': popolazione per {with_pop}/{total} (Wikidata: {len(found)}), capitali {capitals}, "
-          f"coordinate per {sum(r['lat'] is not None for lines in rows.values() for r in lines)}/{total}")
+    print(f"citta': popolazione per {with_pop}/{total}, capitali {capitals}, "
+          f"coordinate per {sum(r['lat'] is not None for lines in rows.values() for r in lines)}/{total} "
+          f"(Wikidata chiesto per {len(to_fetch)}, dalla cache {len(titles) - len(to_fetch)})")

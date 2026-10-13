@@ -4,11 +4,14 @@ nessuna rete, le chiamate alle API sono sostituite con unittest.mock.
 
 Uso: python test_city_population.py
 """
+import email.message
 import io
 import json
 import tempfile
 import unittest
+import urllib.error
 from contextlib import redirect_stderr, redirect_stdout
+from datetime import date, timedelta
 from pathlib import Path
 from unittest import mock
 
@@ -87,40 +90,64 @@ class GetTest(unittest.TestCase):
         r.__enter__.return_value.read.return_value = json.dumps(payload).encode("utf-8")
         return r
 
+    def _too_many(self, retry_after=None):
+        headers = email.message.Message()
+        if retry_after is not None:
+            headers["Retry-After"] = retry_after
+        return urllib.error.HTTPError("http://x", 429, "Too Many Requests", headers, None)
+
     def test_riprova_dopo_un_errore_e_poi_riesce(self):
-        with mock.patch("city_population.urllib.request.urlopen", side_effect=[OSError("429"), self._response({"a": 1})]), \
+        with mock.patch("city_population.urllib.request.urlopen", side_effect=[OSError("rete"), self._response({"a": 1})]), \
+                mock.patch("city_population.random.uniform", return_value=0), \
                 mock.patch("city_population.time.sleep") as sleep, redirect_stderr(io.StringIO()):
             self.assertEqual({"a": 1}, city_population._get("http://x"))
-        sleep.assert_called_once_with(5)
+        sleep.assert_called_once_with(10)
 
-    def test_dopo_quattro_tentativi_rilancia(self):
-        with mock.patch("city_population.urllib.request.urlopen", side_effect=OSError("errore")) as urlopen, \
-                mock.patch("city_population.time.sleep"), redirect_stderr(io.StringIO()):
-            with self.assertRaises(OSError):
+    def test_attese_che_raddoppiano_e_poi_rilancia(self):
+        with mock.patch("city_population.urllib.request.urlopen", side_effect=self._too_many()) as urlopen, \
+                mock.patch("city_population.random.uniform", return_value=0), \
+                mock.patch("city_population.time.sleep") as sleep, redirect_stderr(io.StringIO()):
+            with self.assertRaises(urllib.error.HTTPError):
                 city_population._get("http://x")
-        self.assertEqual(4, urlopen.call_count)
+        self.assertEqual(6, urlopen.call_count)
+        self.assertEqual([10, 20, 40, 80, 160], [c.args[0] for c in sleep.call_args_list])
+
+    def test_retry_after_della_risposta_con_un_tetto(self):
+        errors = [self._too_many("42"), self._too_many("9999"), self._too_many("domani"), self._response({"a": 1})]
+        with mock.patch("city_population.urllib.request.urlopen", side_effect=errors), \
+                mock.patch("city_population.random.uniform", return_value=0), \
+                mock.patch("city_population.time.sleep") as sleep, redirect_stderr(io.StringIO()):
+            self.assertEqual({"a": 1}, city_population._get("http://x"))
+        self.assertEqual([42, 300, 40], [c.args[0] for c in sleep.call_args_list])
+
+    def test_attesa_casuale_aggiunta(self):
+        with mock.patch("city_population.random.uniform", return_value=3.5) as uniform:
+            self.assertEqual(13.5, city_population._retry_wait(OSError("rete"), 0))
+        uniform.assert_called_once_with(0, city_population.RETRY_JITTER_S)
 
 
-class WikidataPopulationsTest(unittest.TestCase):
+class WikidataCityFactsTest(unittest.TestCase):
     def test_segue_normalizzazioni_e_redirect_fino_al_titolo_richiesto(self):
         responses = [
             {"query": {"normalized": [{"from": "roma", "to": "Roma"}],
                        "redirects": [{"from": "Roma", "to": "Roma (citta)"}],
                        "pages": {"1": {"title": "Roma (citta)", "pageprops": {"wikibase_item": "Q220"}},
                                  "2": {"title": "Senza", "pageprops": {}}}}},
-            {"entities": {"Q220": {"claims": {"P1082": [claim("+2800000")]}}}},
+            {"entities": {"Q220": {"claims": {"P1082": [claim("+2800000")], "P625": [coord(41.9, 12.5)]}}}},
         ]
-        with mock.patch("city_population._get", side_effect=responses), mock.patch("city_population.time.sleep"):
-            result = city_population.wikidata_populations(["roma", "Senza"], "it")
-        self.assertEqual({"roma": 2800000}, result)
+        with mock.patch("city_population._get", side_effect=responses) as get, mock.patch("city_population.time.sleep"):
+            result = city_population.wikidata_city_facts(["roma", "Senza"], "it")
+        self.assertEqual({"roma": (2800000, (41.9, 12.5))}, result)
+        # popolazione e coordinate con lo stesso giro: una richiesta per i titoli, una per gli elementi
+        self.assertEqual(2, get.call_count)
 
-    def test_elemento_senza_popolazione_omesso(self):
+    def test_elemento_senza_dati(self):
         responses = [
             {"query": {"pages": {"1": {"title": "Villa", "pageprops": {"wikibase_item": "Q5"}}}}},
             {"entities": {"Q5": {"claims": {}}}},
         ]
         with mock.patch("city_population._get", side_effect=responses), mock.patch("city_population.time.sleep"):
-            self.assertEqual({}, city_population.wikidata_populations(["Villa"], "it"))
+            self.assertEqual({"Villa": (None, None)}, city_population.wikidata_city_facts(["Villa"], "it"))
 
 
 def coord(lat, lon, rank="normal", globe=city_population.EARTH):
@@ -178,17 +205,18 @@ class AnnotateTest(unittest.TestCase):
                 {"city": "Viterbo", "text": "nulla"},
                 {"city": "Rieti", "text": "nulla"},
             ])
-            with mock.patch("city_population.wikidata_populations", return_value={"Viterbo": 67000}) as wp, \
-                    mock.patch("city_population.wikidata_coordinates", return_value={"Roma": (41.89306, 12.48278)}) as wc, \
+            facts = {"Roma": (2700000, (41.89306, 12.48278)), "Viterbo": (67000, None)}
+            with mock.patch("city_population.wikidata_city_facts", return_value=facts) as wf, \
                     mock.patch("city_population.capital_titles", return_value={"Lazio": {"Roma"}}), \
+                    mock.patch.dict("os.environ", {"CITY_FACTS_CACHE": ""}), \
                     redirect_stdout(io.StringIO()) as out:
                 city_population.annotate([path], "it", {path: "Lazio"})
             rows = self._read(path)
-        self.assertEqual({"Viterbo", "Rieti"}, set(wp.call_args[0][0]))
+        # un solo giro per tutte le citta': servono le coordinate anche di quelle con Abitanti
+        self.assertEqual({"Roma", "Viterbo", "Rieti"}, set(wf.call_args[0][0]))
+        # Abitanti batte Wikidata
         self.assertEqual([2800000, 67000, None], [r["population"] for r in rows])
         self.assertEqual([True, False, False], [r["capital"] for r in rows])
-        # coordinate per tutte le citta', non solo per quelle senza Abitanti
-        self.assertEqual({"Roma", "Viterbo", "Rieti"}, set(wc.call_args[0][0]))
         self.assertEqual([(41.89306, 12.48278), (None, None), (None, None)], [(r["lat"], r["lon"]) for r in rows])
         self.assertIn("popolazione per 2/3", out.getvalue())
         self.assertIn("coordinate per 1/3", out.getvalue())
@@ -196,21 +224,20 @@ class AnnotateTest(unittest.TestCase):
     def test_en_ignora_abitanti(self):
         with tempfile.TemporaryDirectory() as d:
             path = self._write(d, "x.jsonl", [{"city": "A", "text": "| Abitanti = 5\n"}])
-            with mock.patch("city_population.wikidata_populations", return_value={"A": 9}) as wp, \
-                    mock.patch("city_population.wikidata_coordinates", return_value={}), \
+            with mock.patch("city_population.wikidata_city_facts", return_value={"A": (9, None)}), \
+                    mock.patch.dict("os.environ", {"CITY_FACTS_CACHE": ""}), \
                     redirect_stdout(io.StringIO()):
                 city_population.annotate([path], "en")
             rows = self._read(path)
-        self.assertEqual({"A"}, set(wp.call_args[0][0]))
         self.assertEqual(9, rows[0]["population"])
         self.assertFalse(rows[0]["capital"])
 
     def test_errore_di_rete_non_e_fatale(self):
         with tempfile.TemporaryDirectory() as d:
             path = self._write(d, "x.jsonl", [{"city": "A", "text": "| Abitanti = 5\n"}, {"city": "B", "text": ""}])
-            with mock.patch("city_population.wikidata_populations", side_effect=OSError("rete")), \
-                    mock.patch("city_population.wikidata_coordinates", side_effect=OSError("rete")), \
+            with mock.patch("city_population.wikidata_city_facts", side_effect=OSError("rete")), \
                     mock.patch("city_population.capital_titles", side_effect=OSError("rete")), \
+                    mock.patch.dict("os.environ", {"CITY_FACTS_CACHE": ""}), \
                     redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
                 city_population.annotate([path], "it", {path: "Regione"})
             rows = self._read(path)
@@ -222,12 +249,73 @@ class AnnotateTest(unittest.TestCase):
     def test_senza_rete_restano_le_coordinate_gia_nel_file(self):
         with tempfile.TemporaryDirectory() as d:
             path = self._write(d, "x.jsonl", [{"city": "A", "text": "", "lat": 45.1, "lon": 7.6}])
-            with mock.patch("city_population.wikidata_populations", return_value={}), \
-                    mock.patch("city_population.wikidata_coordinates", side_effect=OSError("rete")), \
+            with mock.patch("city_population.wikidata_city_facts", side_effect=OSError("rete")), \
+                    mock.patch.dict("os.environ", {"CITY_FACTS_CACHE": ""}), \
                     redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                 city_population.annotate([path], "en")
             rows = self._read(path)
         self.assertEqual((45.1, 7.6), (rows[0]["lat"], rows[0]["lon"]))
+
+
+class CacheTest(unittest.TestCase):
+    def _write(self, directory, rows):
+        path = Path(directory) / "x.jsonl"
+        path.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+        return path
+
+    def _annotate(self, path, cache, facts, lang="en"):
+        with mock.patch("city_population.wikidata_city_facts", return_value=facts) as wf, \
+                mock.patch.dict("os.environ", {"CITY_FACTS_CACHE": str(cache)}), \
+                redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            city_population.annotate([path], lang)
+        return wf
+
+    def test_la_seconda_volta_chiede_solo_le_citta_nuove(self):
+        with tempfile.TemporaryDirectory() as d:
+            cache = Path(d) / "cache" / "city-facts.json"
+            path = self._write(d, [{"city": "A", "text": ""}, {"city": "B", "text": ""}])
+            self._annotate(path, cache, {"A": (10, (1.0, 2.0))})
+            path = self._write(d, [{"city": "A", "text": ""}, {"city": "B", "text": ""}, {"city": "C", "text": ""}])
+            wf = self._annotate(path, cache, {"C": (30, None)})
+            rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+        # B senza elemento Wikidata e' in cache come "nessun dato": non si richiede
+        self.assertEqual({"C"}, set(wf.call_args[0][0]))
+        self.assertEqual([10, None, 30], [r["population"] for r in rows])
+        self.assertEqual((1.0, 2.0), (rows[0]["lat"], rows[0]["lon"]))
+
+    def test_voci_scadute_o_illeggibili_si_richiedono(self):
+        with tempfile.TemporaryDirectory() as d:
+            cache = Path(d) / "city-facts.json"
+            old = date.today() - timedelta(days=city_population.CACHE_MAX_AGE_DAYS)
+            cache.write_text(json.dumps({
+                "en|A": {"population": 1, "lat": None, "lon": None, "fetched": old.isoformat()},
+                "en|B": {"population": 2},
+                "en|C": {"population": 3, "lat": None, "lon": None, "fetched": date.today().isoformat()},
+            }), encoding="utf-8")
+            path = self._write(d, [{"city": "A", "text": ""}, {"city": "B", "text": ""}, {"city": "C", "text": ""}])
+            wf = self._annotate(path, cache, {})
+            saved = json.loads(cache.read_text(encoding="utf-8"))
+        self.assertEqual({"A", "B"}, set(wf.call_args[0][0]))
+        self.assertEqual({"en|A", "en|B", "en|C"}, set(saved))
+
+    def test_lingue_separate_e_file_rovinato(self):
+        with tempfile.TemporaryDirectory() as d:
+            cache = Path(d) / "city-facts.json"
+            cache.write_text("{non json", encoding="utf-8")
+            path = self._write(d, [{"city": "A", "text": ""}])
+            self._annotate(path, cache, {"A": (5, None)}, lang="en")
+            wf = self._annotate(path, cache, {"A": (6, None)}, lang="it")
+        self.assertEqual({"A"}, set(wf.call_args[0][0]))
+
+    def test_errore_di_rete_non_scrive_voci_nuove(self):
+        with tempfile.TemporaryDirectory() as d:
+            cache = Path(d) / "city-facts.json"
+            path = self._write(d, [{"city": "A", "text": ""}])
+            with mock.patch("city_population.wikidata_city_facts", side_effect=OSError("rete")), \
+                    mock.patch.dict("os.environ", {"CITY_FACTS_CACHE": str(cache)}), \
+                    redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                city_population.annotate([path], "en")
+            self.assertEqual({}, json.loads(cache.read_text(encoding="utf-8")))
 
 
 if __name__ == "__main__":
