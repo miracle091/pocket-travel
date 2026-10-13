@@ -64,6 +64,19 @@ class MainTest(unittest.TestCase):
         out, called, _, _ = run_main(info, [])
         self.assertEqual("0", called["env"]["HIP_VISIBLE_DEVICES"])
 
+    def test_variabile_gia_impostata_resta_sulla_gpu_fisica(self):
+        # Con HIP_VISIBLE_DEVICES=1 PyTorch vede la sola discreta come device 0: il figlio deve restare su 1, non 0 (iGPU).
+        info = {"cuda": None, "hip": "6.2", "gpus": [dict(DGPU, index=0)]}
+        with mock.patch.dict(os.environ, {"HIP_VISIBLE_DEVICES": "1"}):
+            _, called, _, _ = run_main(info, [])
+        self.assertEqual("1", called["env"]["HIP_VISIBLE_DEVICES"])
+
+    def test_indice_forzato_tradotto_dalla_lista_gia_impostata(self):
+        info = {"cuda": None, "hip": "6.2", "gpus": [dict(SMALL, index=0), dict(DGPU, index=1)]}
+        with mock.patch.dict(os.environ, {"HIP_VISIBLE_DEVICES": "3,2"}):
+            _, called, _, _ = run_main(info, ["--gpu", "1"])
+        self.assertEqual("2", called["env"]["HIP_VISIBLE_DEVICES"])
+
     def test_nessuna_gpu_si_ferma(self):
         _, called, _, code = run_main({"cuda": None, "hip": None, "gpus": []}, [])
         self.assertIn("Nessuna GPU", code)

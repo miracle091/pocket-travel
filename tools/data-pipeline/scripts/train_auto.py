@@ -86,7 +86,11 @@ def main():
     vram.check(gpu["vram_gib"], gpu["free_gib"], a.max_vram_held, f"GPU {gpu['index']} ({gpu['name']})")
 
     env = dict(os.environ)
-    env["CUDA_VISIBLE_DEVICES" if vendor == "NVIDIA" else "HIP_VISIBLE_DEVICES"] = str(gpu["index"])
+    # Gli indici della sonda contano solo le GPU gia' visibili: con la variabile impostata (es. HIP_VISIBLE_DEVICES=1
+    # per escludere l'iGPU) si passa al figlio la GPU fisica della lista, non l'indice, che riporterebbe sull'iGPU.
+    visible_var = "CUDA_VISIBLE_DEVICES" if vendor == "NVIDIA" else "HIP_VISIBLE_DEVICES"
+    visible = os.environ.get(visible_var, "").split(",")
+    env[visible_var] = visible[gpu["index"]].strip() if gpu["index"] < len(visible) and visible[0] else str(gpu["index"])
     env["PYTHONIOENCODING"] = "utf-8"
 
     use_unsloth, why = importlib.util.find_spec("unsloth") is not None, "Unsloth installato"
