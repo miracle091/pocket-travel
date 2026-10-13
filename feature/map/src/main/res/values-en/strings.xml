@@ -250,7 +250,7 @@
     <string name="planner_no_routing_data">Calculating the route requires this region\'s road network (downloaded once, then kept on the device)</string>
     <string name="planner_start">Start</string>
     <string name="planner_preview_only">Starting from a chosen place: route only. Turn-by-turn navigation starts from your location</string>
-    <string name="planner_steps">Directions</string>
+    <string name="planner_steps">Turns</string>
     <string name="planner_search_start">Choose the starting point</string>
     <string name="planner_back">Back</string>
     <string name="planner_clear">Clear</string>

@@ -153,7 +153,7 @@
     <string name="opening_hours_always_open">sempre aperto</string>
     <string name="opening_hours_holidays">festivi</string>
     <!-- Navigazione -->
-    <string name="poi_directions">Indicazioni</string>
+    <string name="poi_directions">Percorso</string>
     <string name="navigation_title">Verso %1$s</string>
     <string name="navigation_close">Termina la navigazione</string>
     <string name="navigation_no_speed_cameras">Autovelox, limiti di velocità e zone a traffico limitato o a basse emissioni non segnalati:</string>
@@ -251,7 +251,7 @@
     <string name="planner_no_routing_data">Il calcolo del percorso richiede la rete stradale di questa regione (si scarica una sola volta e resta sul dispositivo)</string>
     <string name="planner_start">Avvia</string>
     <string name="planner_preview_only">Partenza da un luogo scelto: si vede solo il percorso. La navigazione passo passo parte dalla tua posizione</string>
-    <string name="planner_steps">Indicazioni</string>
+    <string name="planner_steps">Svolte</string>
     <string name="planner_search_start">Scegli la partenza</string>
     <string name="planner_back">Indietro</string>
     <string name="planner_clear">Cancella</string>

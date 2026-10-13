@@ -190,7 +190,7 @@
     <string name="storage_guides_auto">%1$s · aggiornamento automatico</string>
     <string name="storage_no_guides">Guide non ancora scaricate</string>
     <string name="storage_guides_download">Scarica le guide</string>
-    <string name="storage_model">Modello IA locale</string>
+    <string name="storage_model">Modello IA sul dispositivo</string>
     <string name="storage_no_model">Nessun modello IA scaricato</string>
     <string name="storage_delete">Elimina %1$s</string>
     <string name="storage_delete_title">Eliminare %1$s?</string>
@@ -198,7 +198,7 @@
 
     <!-- Anteprima regione -->
     <string name="preview_banner_title">Anteprima senza download</string>
-    <string name="preview_banner_body">La mappa e l\'assistente IA offline richiedono la regione completa</string>
+    <string name="preview_banner_body">La mappa e l\'assistente IA sul dispositivo richiedono la regione completa</string>
     <string name="preview_download">Scarica</string>
     <string name="preview_error">Impossibile caricare l\'anteprima. Riprova più tardi</string>
 
@@ -242,7 +242,7 @@
     <string name="licenses_component_kleidiai">KleidiAI (Arm, kernel ottimizzati usati da llama.cpp su arm64)</string>
     <string name="licenses_component_okhttp">OkHttp (download dei contenuti, dei modelli e del meteo)</string>
     <string name="licenses_component_qwen">Modelli Qwen3.5 e Qwen3 (Alibaba Cloud, team Qwen)</string>
-    <string name="licenses_note_qwen">Modelli dell\'assistente offline, scaricati su richiesta da HuggingFace nelle versioni GGUF quantizzate da Unsloth</string>
+    <string name="licenses_note_qwen">Modelli dell\'assistente sul dispositivo, scaricati su richiesta da HuggingFace nelle versioni GGUF quantizzate da Unsloth</string>
     <string name="licenses_component_trained_models">Modelli addestrati da Pocket Travel (pockettravel/*-travel-it-GGUF)</string>
     <string name="licenses_note_trained_models">Fine-tuning dei modelli Qwen, addestrati su testi di Wikivoyage e Wikipedia; scaricati su richiesta da HuggingFace</string>
     <string name="licenses_component_pmtiles_reader">pmtiles-reader (lettura PMTiles via HTTP range, core:sync)</string>
