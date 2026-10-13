@@ -1,8 +1,9 @@
 package com.pockettravel.feature.ai
 
+import com.pockettravel.core.data.DefaultDispatcher
 import com.pockettravel.core.data.currentGuidesLanguage
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,6 +19,7 @@ class DefaultAiAvailability @Inject constructor(
     private val settingsStore: AiSettingsStore,
     private val modelManager: LlmModelManager,
     private val deviceAiCapability: DeviceAiCapability,
+    @DefaultDispatcher defaultDispatcher: CoroutineDispatcher,
 ) : AiAvailability {
     // La lingua delle guide e' letta a ogni calcolo e non e' un flusso: [refresh] la rilegge dopo un cambio lingua.
     private val languageTick = MutableStateFlow(0)
@@ -27,7 +29,7 @@ class DefaultAiAvailability @Inject constructor(
         modelManager.downloadedModelIds,
         languageTick,
     ) { hasApiKey, downloaded, _ -> compute(hasApiKey, downloaded) }
-        .stateIn(CoroutineScope(SupervisorJob() + Dispatchers.Default), SharingStarted.Eagerly, compute(settingsStore.hasApiKeyFlow.value, modelManager.downloadedModelIds.value))
+        .stateIn(CoroutineScope(SupervisorJob() + defaultDispatcher), SharingStarted.Eagerly, compute(settingsStore.hasApiKeyFlow.value, modelManager.downloadedModelIds.value))
 
     override fun refresh() {
         languageTick.value++

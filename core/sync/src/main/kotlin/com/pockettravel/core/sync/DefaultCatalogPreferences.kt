@@ -3,9 +3,7 @@ package com.pockettravel.core.sync
 import androidx.core.content.edit
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.PreferencesFactory
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -49,7 +47,7 @@ class DefaultCatalogPreferences @Inject constructor(
 
     override suspend fun checkAndSave(manifestUrl: String, publicKey: String): CatalogCheck {
         val catalog = CustomCatalog(manifestUrl.trim(), publicKey.filterNot(Char::isWhitespace))
-        return checkCatalog(okHttpClient, json, catalog).also {
+        return withContext(ioDispatcher) { checkCatalog(okHttpClient, json, catalog) }.also {
             // NonCancellable: un catalogo provato si salva anche se nel frattempo si chiudono le Impostazioni.
             if (it == CatalogCheck.OK) withContext(NonCancellable + ioDispatcher) { save(catalog) }
         }
@@ -76,8 +74,11 @@ class DefaultCatalogPreferences @Inject constructor(
     }
 }
 
-/** Scarica manifest.json e `manifest.json.sig` di [catalog] e li verifica come farebbe la sincronizzazione. */
-internal suspend fun checkCatalog(okHttpClient: OkHttpClient, json: Json, catalog: CustomCatalog): CatalogCheck {
+/**
+ * Scarica manifest.json e `manifest.json.sig` di [catalog] e li verifica come farebbe la sincronizzazione. Bloccante:
+ * va chiamata sul dispatcher di I/O.
+ */
+internal fun checkCatalog(okHttpClient: OkHttpClient, json: Json, catalog: CustomCatalog): CatalogCheck {
     val validUrl = isValidCatalogUrl(catalog.manifestUrl)
     val validKey = isReadableP256Key(catalog.publicKey)
     // Si scarica solo con indirizzo e chiave validi; null = sito non raggiungibile.
@@ -94,10 +95,8 @@ internal suspend fun checkCatalog(okHttpClient: OkHttpClient, json: Json, catalo
 }
 
 // Il file e la sua firma `.sig`; null se uno dei due non si scarica.
-private suspend fun downloadWithSignature(okHttpClient: OkHttpClient, url: String): Pair<ByteArray, ByteArray>? = try {
+private fun downloadWithSignature(okHttpClient: OkHttpClient, url: String): Pair<ByteArray, ByteArray>? = try {
     download(okHttpClient, url) to download(okHttpClient, "$url.sig")
-} catch (error: CancellationException) {
-    throw error
 } catch (_: IOException) {
     null
 }
@@ -119,9 +118,8 @@ private fun isReadableP256Key(publicKey: String): Boolean = runCatching {
 private const val P256_FIELD_BITS = 256
 
 // Ogni risposta non riuscita conta come sito non raggiungibile: senza il file non c'e' nulla da verificare.
-private suspend fun download(okHttpClient: OkHttpClient, url: String): ByteArray = withContext(Dispatchers.IO) {
+private fun download(okHttpClient: OkHttpClient, url: String): ByteArray =
     okHttpClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
         if (!response.isSuccessful) throw IOException("HTTP ${response.code} per $url")
         response.body.bytes()
     }
-}

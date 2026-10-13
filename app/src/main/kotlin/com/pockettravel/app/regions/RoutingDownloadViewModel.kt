@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pockettravel.app.runCatchingCancellable
+import com.pockettravel.core.data.DefaultDispatcher
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RoutingVariantPreferences
@@ -13,7 +14,7 @@ import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.feature.map.MissingRegion
 import com.pockettravel.feature.map.RoutePoint
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +44,7 @@ class RoutingDownloadViewModel @Inject constructor(
     private val regionSyncScheduler: RegionSyncScheduler,
     private val countryLocator: CountryLocator,
     private val routingVariantPreferences: RoutingVariantPreferences,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
     private val regionId = MutableStateFlow<String?>(null)
 
@@ -119,7 +121,7 @@ class RoutingDownloadViewModel @Inject constructor(
     suspend fun missingRoutingRegions(points: List<RoutePoint>, usableRouting: Set<String>): List<MissingRegion> {
         val regions = runCatchingCancellable { manifestClient.recentManifest().regions }.getOrNull() ?: return emptyList()
         val carOnly = routingVariantPreferences.installedCarOnly.value
-        return withContext(Dispatchers.Default) {
+        return withContext(defaultDispatcher) {
             missingRoutingRegions(regions, usableRouting, points, { countryLocator.countryAt(it.latitude, it.longitude) }, countryLocator.neighbours, countryLocator.centres)
         }.map { missing ->
             MissingRegion(missing.regionId, missing.localizedNames(Locale.getDefault()).displayName, missing.routing.files.sumOf { it.sizeBytes }, carOnly = missing.regionId in carOnly)

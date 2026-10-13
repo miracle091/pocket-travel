@@ -6,6 +6,7 @@ import android.location.Location
 import com.pockettravel.core.data.CarRoute
 import com.pockettravel.core.data.CarRouteCalculator
 import com.pockettravel.core.data.CityRepository
+import com.pockettravel.core.data.DefaultDispatcher
 import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.EmergencyNumbersRepository
 import com.pockettravel.core.data.FtsCorpusStats
@@ -44,7 +45,7 @@ import com.pockettravel.core.data.vaccination.toSummaryText
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.label
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -97,6 +98,7 @@ class TravelAssistant @Inject constructor(
     private val carRouteCalculator: CarRouteCalculator,
     @param:ApplicationContext private val context: Context,
     private val wordListsOverride: WordListsOverride,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) {
     /**
      * La risposta come flusso: sul dispositivo una serie di [AssistantProgress.Partial] (testo accumulato, al massimo
@@ -151,7 +153,7 @@ class TravelAssistant @Inject constructor(
             AiEngineMode.ONLINE -> emit(AssistantProgress.Done(withSource(askOnline(question, language))))
         }
         // Nomi da riconoscere, query e paragrafi da normalizzare: lavoro di CPU fuori dal main thread del chiamante.
-    }.flowOn(Dispatchers.Default)
+    }.flowOn(defaultDispatcher)
 
     /**
      * La domanda da cercare e da mandare al modello: [question] unita a [previous] (followUpQuestion) se ne e' il
