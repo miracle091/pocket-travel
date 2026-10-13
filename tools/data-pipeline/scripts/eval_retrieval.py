@@ -21,7 +21,8 @@ Con --questions reworded le stesse domande dette con altre parole (sinonimi, gir
 le domande nell'altra lingua sulle guide di --lang (chi scrive in inglese con l'app in italiano, e viceversa): servono
 a vedere quanto la ricerca a testo pieno dipende dalle parole esatte delle guide. Citta' e coppie delle distanze sono
 le stesse in tutti e tre i casi. Con --questions control le domande di controllo, scritte dopo le liste di parole e mai
-usate per costruirle: dicono se le liste valgono anche su domande nuove. Con --questions general le domande generali (jet lag, mance, passaporto smarrito) con
+usate per costruirle: dicono se le liste valgono anche su domande nuove; --questions dev e dev2 sono controlli di prima,
+diventati serie di sviluppo. Con --questions general le domande generali (jet lag, mance, passaporto smarrito) con
 aperta ogni regione: attesa la sezione della pagina tematica della guida generale (regionId _general) che risponde.
 Le sezioni della guida generale concorrono in tutte le serie, come nell'app. Con --questions other-country le domande sul paese
 che nominano un'altra nazione ("Serve il passaporto per entrare in Grecia?" con aperto il Portogallo): attesa la sezione
@@ -32,7 +33,7 @@ Con --before-rag la ricerca senza guida generale e senza nazione nominata: senza
 Con --contexts FILE ogni domanda (distanze escluse) va in JSONL con il contesto che l'app mette nel prompt e la presenza
 della sezione attesa, per far rispondere il modello con eval_gguf.py --contexts (ricerca e modello insieme).
 
-Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|dev|other-lang|control|general|other-country] [--regions italia ...]
+Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|dev|dev2|other-lang|control|general|other-country] [--regions italia ...]
 [--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists] [--before-rag] [--contexts FILE [--contexts-sample N]]
 (la cache dei file scaricati sta di default nella cartella temporanea di sistema)
 Richiede rete (`manifest.json`, release, API di Wikipedia) e, per Storia e Clima, il gradle wrapper dalla root del repo.
@@ -419,54 +420,98 @@ COUNTRY_Q_DEV_EN = {"DOGANE": ["Is an ID card enough?"], "SALUTE": ["Where can I
                         "SICUREZZA": ["Are there areas to avoid?"], "ACQUISTI": ["Do they use the euro?"],
                         "CONNETTIVITA": ["Is wifi common?"], "TRASPORTI": ["What are the roads like?"],
                         "CIBO_BEVANDE": ["What do people drink?"]}
-# Domande di controllo: stesse categorie, scritte prima delle correzioni delle liste di parole del 2026-10-11 sera e mai
-# usate per costruirle o correggerle. Dicono se le liste valgono anche su domande nuove: le correzioni si fanno sugli
-# errori delle altre serie, mai su queste.
-CITY_Q_CONTROL = {
+# Terza serie di sviluppo (--questions dev2): erano le domande di controllo scritte il 2026-10-11 sera; dal 2026-10-13
+# le liste di parole si correggono anche sui loro errori ("Ci sono taxi a X?", "C'è una trattoria tipica a X?").
+CITY_Q_DEV2 = {
     "COSA_VEDERE": ["Quali palazzi storici ci sono a {c}?", "Cosa fare in una giornata a {c}?", "C'è un castello a {c}?"],
     "TRASPORTI": ["Ci sono taxi a {c}?", "Come si raggiunge {c} dall'aeroporto?"],
     "ALLOGGIO": ["Dove soggiornare a {c} con la famiglia?", "Ci sono campeggi vicino a {c}?"],
     "CIBO_BEVANDE": ["C'è una trattoria tipica a {c}?", "Dove bere un aperitivo a {c}?", "Quali dolci provare a {c}?"],
     "ACQUISTI": ["Cosa portare a casa come ricordo da {c}?"],
 }
-WIKI_Q_CONTROL = {
+WIKI_Q_DEV2 = {
     "STORIA": ["Che cosa è successo a {c} nel Novecento?", "Chi ha dominato {c} nei secoli?", "Quanto è antica {c}?",
                "Quali popoli hanno abitato {c}?", "Com'è cambiata {c} dopo la guerra?"],
     "CLIMA": ["Piove molto a {c} in ottobre?", "Che tempo trovo a {c} a Natale?", "Quali sono i mesi più caldi a {c}?",
               "C'è umidità a {c} d'estate?", "Fa freddo a {c} in febbraio?"],
 }
-COUNTRY_Q_CONTROL = {"DOGANE": ["Serve un visto per entrare?", "Quanti contanti posso portare alla frontiera?"],
-                     "SALUTE": ["L'acqua del rubinetto si può bere?", "Ci sono ospedali per stranieri?"],
-                     "SICUREZZA": ["Ci sono quartieri pericolosi?", "È sicuro viaggiare da sola?"],
-                     "ACQUISTI": ["Quanto costa la vita?", "Si contratta nei negozi?"],
-                     "CONNETTIVITA": ["Il telefono prende ovunque?"],
-                     "TRASPORTI": ["Come funzionano gli autobus tra le città?", "Si guida a destra o a sinistra?"],
-                     "CIBO_BEVANDE": ["Qual è il piatto nazionale?"]}
-CITY_Q_CONTROL_EN = {
+COUNTRY_Q_DEV2 = {"DOGANE": ["Serve un visto per entrare?", "Quanti contanti posso portare alla frontiera?"],
+                  "SALUTE": ["L'acqua del rubinetto si può bere?", "Ci sono ospedali per stranieri?"],
+                  "SICUREZZA": ["Ci sono quartieri pericolosi?", "È sicuro viaggiare da sola?"],
+                  "ACQUISTI": ["Quanto costa la vita?", "Si contratta nei negozi?"],
+                  "CONNETTIVITA": ["Il telefono prende ovunque?"],
+                  "TRASPORTI": ["Come funzionano gli autobus tra le città?", "Si guida a destra o a sinistra?"],
+                  "CIBO_BEVANDE": ["Qual è il piatto nazionale?"]}
+CITY_Q_DEV2_EN = {
     "COSA_VEDERE": ["Which historic palaces are there in {c}?", "What to do for a day in {c}?", "Is there a castle in {c}?"],
     "TRASPORTI": ["Are there taxis in {c}?", "How do I get to {c} from the airport?"],
     "ALLOGGIO": ["Where to stay in {c} with kids?", "Are there campsites near {c}?"],
     "CIBO_BEVANDE": ["Is there a traditional tavern in {c}?", "Where can I get a drink in {c}?", "Which desserts should I try in {c}?"],
     "ACQUISTI": ["What should I bring home as a souvenir from {c}?"],
 }
-WIKI_Q_CONTROL_EN = {
+WIKI_Q_DEV2_EN = {
     "STORIA": ["What happened in {c} in the 20th century?", "Who ruled {c} over the centuries?", "How old is {c}?",
                "Which peoples lived in {c}?", "How did {c} change after the war?"],
     "CLIMA": ["Does it rain a lot in {c} in October?", "What is the weather like in {c} at Christmas?",
               "Which are the hottest months in {c}?", "Is it humid in {c} in summer?", "Is it cold in {c} in February?"],
 }
-COUNTRY_Q_CONTROL_EN = {"DOGANE": ["Do I need a visa to enter?", "How much cash can I bring across the border?"],
-                        "SALUTE": ["Is tap water safe to drink?", "Are there hospitals for foreigners?"],
-                        "SICUREZZA": ["Are there dangerous neighbourhoods?", "Is it safe to travel alone as a woman?"],
-                        "ACQUISTI": ["How expensive is it?", "Can you haggle in shops?"],
-                        "CONNETTIVITA": ["Is there phone coverage everywhere?"],
-                        "TRASPORTI": ["How do buses between cities work?", "Do they drive on the left or the right?"],
-                        "CIBO_BEVANDE": ["What is the national dish?"]}
+COUNTRY_Q_DEV2_EN = {"DOGANE": ["Do I need a visa to enter?", "How much cash can I bring across the border?"],
+                     "SALUTE": ["Is tap water safe to drink?", "Are there hospitals for foreigners?"],
+                     "SICUREZZA": ["Are there dangerous neighbourhoods?", "Is it safe to travel alone as a woman?"],
+                     "ACQUISTI": ["How expensive is it?", "Can you haggle in shops?"],
+                     "CONNETTIVITA": ["Is there phone coverage everywhere?"],
+                     "TRASPORTI": ["How do buses between cities work?", "Do they drive on the left or the right?"],
+                     "CIBO_BEVANDE": ["What is the national dish?"]}
+# Domande di controllo: stesse categorie, scritte il 2026-10-13 prima delle correzioni delle liste di parole sugli
+# errori di dev2 e mai usate per costruirle o correggerle. Dicono se le liste valgono anche su domande nuove: le
+# correzioni si fanno sugli errori delle altre serie, mai su queste (se ne guardano solo i totali).
+CITY_Q_CONTROL = {
+    "COSA_VEDERE": ["Quali sono i posti più belli di {c}?", "Cosa visitare a {c} con i bambini?", "Che passeggiata fare a {c}?"],
+    "TRASPORTI": ["Dove si parcheggia a {c}?", "Come raggiungo il centro di {c}?"],
+    "ALLOGGIO": ["C'è un agriturismo a {c}?", "Dove trovo un B&B a {c}?"],
+    "CIBO_BEVANDE": ["C'è una buona pizzeria a {c}?", "Quali prodotti tipici ci sono a {c}?", "Dove prendere un gelato a {c}?"],
+    "ACQUISTI": ["Ci sono negozi di artigianato a {c}?"],
+}
+WIKI_Q_CONTROL = {
+    "STORIA": ["Quando è stata fondata {c}?", "Cosa c'era a {c} ai tempi dei Romani?", "Che importanza aveva {c} nel Rinascimento?",
+               "Quali battaglie ci sono state a {c}?", "Da dove viene il nome di {c}?"],
+    "CLIMA": ["Che vestiti portare a {c} a marzo?", "C'è tanto sole a {c}?", "Tira vento a {c}?",
+              "Qual è la stagione migliore per visitare {c}?", "Quanti gradi ci sono a {c} d'inverno?"],
+}
+COUNTRY_Q_CONTROL = {"DOGANE": ["Posso portare medicine in valigia?", "Cosa serve a un minore per entrare?"],
+                     "SALUTE": ["Ci sono malattie da cui proteggersi?", "Come chiamo un'ambulanza?"],
+                     "SICUREZZA": ["Ci sono truffe per turisti?", "Si può uscire tranquilli la sera?"],
+                     "ACQUISTI": ["I prezzi sono alti?", "Dove cambio i soldi?"],
+                     "CONNETTIVITA": ["C'è copertura 4G?"],
+                     "TRASPORTI": ["Ci sono voli interni?", "Conviene viaggiare in pullman?"],
+                     "CIBO_BEVANDE": ["A che ora si cena di solito?"]}
+CITY_Q_CONTROL_EN = {
+    "COSA_VEDERE": ["What are the most beautiful places in {c}?", "What can I visit in {c} with children?", "Is there a nice walk in {c}?"],
+    "TRASPORTI": ["Where can I park in {c}?", "How do I get to the centre of {c}?"],
+    "ALLOGGIO": ["Is there a farm stay in {c}?", "Where can I find a B&B in {c}?"],
+    "CIBO_BEVANDE": ["Is there a good pizzeria in {c}?", "What are the local products of {c}?", "Where can I get an ice cream in {c}?"],
+    "ACQUISTI": ["Are there craft shops in {c}?"],
+}
+WIKI_Q_CONTROL_EN = {
+    "STORIA": ["When was {c} founded?", "What was in {c} in Roman times?", "How important was {c} during the Renaissance?",
+               "Which battles took place in {c}?", "Where does the name {c} come from?"],
+    "CLIMA": ["What clothes should I pack for {c} in March?", "Is it sunny in {c}?", "Is it windy in {c}?",
+              "Which season is best to visit {c}?", "How many degrees is it in {c} in winter?"],
+}
+COUNTRY_Q_CONTROL_EN = {"DOGANE": ["Can I bring medicines in my luggage?", "What does a minor need to enter?"],
+                        "SALUTE": ["Are there diseases I should protect myself from?", "How do I call an ambulance?"],
+                        "SICUREZZA": ["Are there scams targeting tourists?", "Is it safe to go out in the evening?"],
+                        "ACQUISTI": ["Are prices high?", "Where can I change money?"],
+                        "CONNETTIVITA": ["Is there 4G coverage?"],
+                        "TRASPORTI": ["Are there domestic flights?", "Is it worth travelling by coach?"],
+                        "CIBO_BEVANDE": ["What time do people usually have dinner?"]}
 LANGS["it"]["dev"] = (CITY_Q_DEV, WIKI_Q_DEV, COUNTRY_Q_DEV, DISTANCE_Q)
 LANGS["en"]["dev"] = (CITY_Q_DEV_EN, WIKI_Q_DEV_EN, COUNTRY_Q_DEV_EN, DISTANCE_Q_EN)
+LANGS["it"]["dev2"] = (CITY_Q_DEV2, WIKI_Q_DEV2, COUNTRY_Q_DEV2, DISTANCE_Q)
+LANGS["en"]["dev2"] = (CITY_Q_DEV2_EN, WIKI_Q_DEV2_EN, COUNTRY_Q_DEV2_EN, DISTANCE_Q_EN)
 LANGS["it"]["control"] = (CITY_Q_CONTROL, WIKI_Q_CONTROL, COUNTRY_Q_CONTROL, DISTANCE_Q)
 LANGS["en"]["control"] = (CITY_Q_CONTROL_EN, WIKI_Q_CONTROL_EN, COUNTRY_Q_CONTROL_EN, DISTANCE_Q_EN)
-QUESTION_SETS = ["direct", "reworded", "dev", "other-lang", "control", "general", "other-country"]
+QUESTION_SETS = ["direct", "reworded", "dev", "dev2", "other-lang", "control", "general", "other-country"]
 KINDS = ["citta', domande pratiche", "paese", "citta', storia e clima", "distanze"]
 # Un paragrafo con una distanza o un tempo di viaggio ("72 km", "3 h 30", "20 minuti", "2 hours").
 TRAVEL_FIGURE = re.compile(r"\d+\s*(km|h|ore|minuti|min|hours?|minutes?)\b")
@@ -823,7 +868,7 @@ def questions_of(lang, question_set):
     """Gli schemi di domanda (citta', storia e clima, paese, distanze) di [question_set] per le guide in [lang]."""
     if question_set == "other-lang":
         return LANGS[LANGS[lang]["other"]]["questions"]
-    return LANGS[lang][question_set if question_set in ("reworded", "dev", "control") else "questions"]
+    return LANGS[lang][question_set if question_set in ("reworded", "dev", "dev2", "control") else "questions"]
 
 
 def make_plan(region, city_rows, rng, pick, questions):

@@ -182,7 +182,8 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   dell'app; `--lang en` misura le guide e le domande inglesi, `--no-wikipedia` misura senza le due sezioni,
   `--questions reworded` usa le stesse richieste con altre parole e `--questions other-lang` le domande nell'altra
   lingua (stesse città nei tre casi), `--questions general` le domande generali sulle pagine della guida generale,
-  `--questions control` le domande di controllo (mai usate per costruire le liste di parole), `--questions other-country` le domande che nominano un'altra nazione (cercate nella sua guida, `CountryGuides.kt`),
+  `--questions control` le domande di controllo (mai usate per costruire le liste di parole), `--questions dev` e `dev2`
+  i controlli di prima, diventati serie di sviluppo, `--questions other-country` le domande che nominano un'altra nazione (cercate nella sua guida, `CountryGuides.kt`),
   `--guides-db` un `guides.db` locale al posto di quello pubblicato, `--word-lists` la ricerca con le liste di parole
   che l'app usa (`CategoryWords.kt`; senza l'opzione si misura la ricerca senza liste). La tabella delle guide contiene tutte le regioni,
   come nell'app, perché le statistiche di BM25 valgono per tutta la tabella. Anche `make_context`
