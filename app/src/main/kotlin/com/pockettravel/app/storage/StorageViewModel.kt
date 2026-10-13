@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.app.R
 import com.pockettravel.core.data.InstalledGuides
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.sync.RegionSyncScheduler
@@ -14,7 +15,7 @@ import com.pockettravel.feature.ai.OnDeviceLlmEngine
 import com.pockettravel.feature.ai.selectedModelDefinition
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -62,6 +63,7 @@ class StorageViewModel @Inject constructor(
     private val modelManager: LlmModelManager,
     private val engine: OnDeviceLlmEngine,
     private val aiSettingsStore: AiSettingsStore,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     private val modelState = MutableStateFlow(currentModelState())
@@ -102,7 +104,7 @@ class StorageViewModel @Inject constructor(
         )
     }
         // packageBytes legge le dimensioni di mappa e routing dal disco.
-        .flowOn(Dispatchers.IO)
+        .flowOn(ioDispatcher)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StorageUiState())
 
     fun deleteRegion(regionId: String) {
@@ -150,7 +152,7 @@ class StorageViewModel @Inject constructor(
     }
 
     private fun refreshAvailableBytes() {
-        viewModelScope.launch { availableBytes.value = withContext(Dispatchers.IO) { regionRepository.availableStorageBytes() } }
+        viewModelScope.launch { availableBytes.value = withContext(ioDispatcher) { regionRepository.availableStorageBytes() } }
     }
 
     private fun currentModelState(): ModelState {

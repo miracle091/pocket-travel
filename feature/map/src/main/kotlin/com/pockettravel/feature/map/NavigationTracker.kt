@@ -151,13 +151,16 @@ class NavigationTracker(private val route: Route) {
         /** Distanza massima dalla strada di una mappa perche' il suo nome valga per una svolta. */
         const val STREET_MATCH_METERS = 15.0
 
+        /** Frazione del tratto che porta al punto di mezzo. */
+        private const val MIDPOINT_FRACTION = 0.5
+
         /**
          * Il punto per cercare la strada in cui si entra con [instruction]: a meta' del tratto subito
          * dopo la svolta. null per l'arrivo o una svolta sull'ultimo punto.
          */
         fun streetProbe(route: Route, instruction: TurnInstruction): RoutePoint? {
             if (instruction.type == TurnType.ARRIVE || instruction.pointIndex + 1 >= route.points.size) return null
-            return interpolate(route.points[instruction.pointIndex], route.points[instruction.pointIndex + 1], 0.5)
+            return interpolate(route.points[instruction.pointIndex], route.points[instruction.pointIndex + 1], MIDPOINT_FRACTION)
         }
 
         /** Il nome della strada di [roads] piu' vicina a [probe], se entro [maxMeters]. */

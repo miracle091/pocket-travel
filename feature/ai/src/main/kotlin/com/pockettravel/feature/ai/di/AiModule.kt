@@ -4,7 +4,13 @@ import android.content.Context
 import com.pockettravel.core.data.AppInitializer
 import com.pockettravel.core.data.UpdateCheck
 import com.pockettravel.feature.ai.AiInitializer
+import com.pockettravel.feature.ai.AndroidAppRestarter
+import com.pockettravel.feature.ai.AndroidCpuBackendStore
+import com.pockettravel.feature.ai.AppRestarter
+import com.pockettravel.feature.ai.CpuBackendStore
 import com.pockettravel.feature.ai.LlmModelUpdateCheckScheduler
+import com.pockettravel.feature.ai.LlmTaskMonitor
+import com.pockettravel.feature.ai.TaskMonitor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -31,6 +37,15 @@ object AiModule {
     @AiModelsDir
     fun provideAiModelsDir(@ApplicationContext context: Context): File =
         File(context.filesDir, "models").apply { mkdirs() }
+
+    @Provides
+    fun provideTaskMonitor(monitor: LlmTaskMonitor): TaskMonitor = monitor
+
+    @Provides
+    fun provideCpuBackendStore(store: AndroidCpuBackendStore): CpuBackendStore = store
+
+    @Provides
+    fun provideAppRestarter(restarter: AndroidAppRestarter): AppRestarter = restarter
 
     @Provides
     @IntoSet

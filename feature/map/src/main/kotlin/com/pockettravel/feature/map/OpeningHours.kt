@@ -15,6 +15,10 @@ internal data class OpeningHoursLabels(val days: List<String>, val closed: Strin
 }
 
 private val DAY_KEYS = listOf("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
+private const val DAYS_PER_WEEK = 7
+
+// Indice della domenica, ultimo giorno (0 = lunedi').
+private const val LAST_DAY_INDEX = 6
 private const val DAY = "(?:Mo|Tu|We|Th|Fr|Sa|Su|PH)"
 private val DAYS = Regex("""$DAY(?:-$DAY)?(?:,$DAY(?:-$DAY)?)*""")
 private val TIME = Regex("""(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})""")
@@ -29,10 +33,10 @@ internal fun parseOpeningHours(raw: String, today: Int, labels: OpeningHoursLabe
     val closed = labels.closed
     val names = labels.days
     val text = raw.trim()
-    val week = arrayOfNulls<String>(7)
+    val week = arrayOfNulls<String>(DAYS_PER_WEEK)
     var holidays: String? = null
     if (text == "24/7") {
-        return listOf(OpeningHoursRow("${names[0]}–${names[6]}", labels.alwaysOpen, true))
+        return listOf(OpeningHoursRow("${names[0]}–${names[LAST_DAY_INDEX]}", labels.alwaysOpen, true))
     }
     for (rule in text.split(';').map { it.trim() }.filter { it.isNotEmpty() }) {
         val match = RULE.matchEntire(rule) ?: return null
@@ -48,8 +52,8 @@ internal fun parseOpeningHours(raw: String, today: Int, labels: OpeningHoursLabe
     val filled = week.map { it ?: closed }
     val rows = mutableListOf<OpeningHoursRow>()
     var start = 0
-    for (i in 1..7) {
-        if (i == 7 || filled[i] != filled[start]) {
+    for (i in 1..DAYS_PER_WEEK) {
+        if (i == DAYS_PER_WEEK || filled[i] != filled[start]) {
             val label = if (i - 1 == start) names[start] else "${names[start]}–${names[i - 1]}"
             rows += OpeningHoursRow(label, filled[start], today in start until i)
             start = i
@@ -67,7 +71,7 @@ private fun expandDays(spec: String): List<String> = spec.split(',').flatMap { p
         val from = DAY_KEYS.indexOf(range[0])
         val to = DAY_KEYS.indexOf(range[1])
         // Intervalli che attraversano la domenica ("Fr-Mo").
-        val indices = if (from <= to) (from..to).toList() else (from..6).toList() + (0..to).toList()
+        val indices = if (from <= to) (from..to).toList() else (from..LAST_DAY_INDEX).toList() + (0..to).toList()
         indices.map { DAY_KEYS[it] }
     }
 }

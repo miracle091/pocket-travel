@@ -4,6 +4,10 @@ import com.pockettravel.core.data.PackageKind
 import kotlinx.serialization.Serializable
 import java.net.URI
 
+private const val MAX_MAP_ZOOM = 22
+private const val MAX_LONGITUDE = 180.0
+private const val MAX_LATITUDE = 90.0
+
 /**
  * manifest.json nel formato a pacchetti (manifestVersion 2, generato da tools/data-pipeline):
  * un pacchetto guide unico per tutte le regioni, e per ogni regione i pacchetti mappa, routing,
@@ -283,22 +287,23 @@ fun RegionManifestEntry.validate() {
     }
     preview?.let {
         require(isSafeVersion(it.version)) { "version dell'anteprima non valida per $regionId" }
-        require(it.maxZoom in 0..22) { "maxZoom dell'anteprima non valido per $regionId" }
+        require(it.maxZoom in 0..MAX_MAP_ZOOM) { "maxZoom dell'anteprima non valido per $regionId" }
         it.file.validate(regionId)
         it.fileXz?.validate(regionId)
     }
     val source = map.source
     require(isAllowedManifestUrl(source.sourceUrl)) { "map.source.sourceUrl non consentito per $regionId" }
     require(source.minLon < source.maxLon && source.minLat < source.maxLat) { "bounding box non valido per $regionId" }
-    require(source.minLon >= -180.0 && source.maxLon <= 180.0 && source.minLat >= -90.0 && source.maxLat <= 90.0) {
+    require(source.minLon >= -MAX_LONGITUDE && source.maxLon <= MAX_LONGITUDE &&
+        source.minLat >= -MAX_LATITUDE && source.maxLat <= MAX_LATITUDE) {
         "bounding box fuori dai limiti geografici per $regionId"
     }
-    require(source.minZoom in 0..22 && source.maxZoom in source.minZoom..22) { "zoom non valido per $regionId" }
+    require(source.minZoom in 0..MAX_MAP_ZOOM && source.maxZoom in source.minZoom..MAX_MAP_ZOOM) { "zoom non valido per $regionId" }
 }
 
 fun WorldMapEntry.validate() {
     require(isSafeVersion(version)) { "version del mondo online non valida" }
-    require(maxZoom in 0..22) { "maxZoom del mondo online non valido" }
+    require(maxZoom in 0..MAX_MAP_ZOOM) { "maxZoom del mondo online non valido" }
     require(sizeBytes >= 0) { "Dimensione del mondo online non valida" }
     require(isAllowedManifestUrl(url)) { "url del mondo online non consentito" }
 }
@@ -317,7 +322,7 @@ fun AddressGridManifestEntry.validate() {
  */
 fun AddressGridIndex.validate() {
     require(isSafeVersion(version)) { "version dell'indice civici non valida" }
-    require(tileZoom in 0..22) { "tileZoom non valido" }
+    require(tileZoom in 0..MAX_MAP_ZOOM) { "tileZoom non valido" }
     require(cells == cells.sortedBy { it.id }) { "cells non ordinato per id" }
     require(cells.map { it.id }.toSet().size == cells.size) { "id di cella duplicati" }
     val ids = cells.map { requireNotNull(parseCellId(it.id)) { "id di cella non valido: ${it.id}" } }

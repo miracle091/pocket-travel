@@ -47,7 +47,17 @@ jobs:
         shell: bash
         run: |
           set -e
-          for t in tools/data-pipeline/scripts/test_*.py; do echo "== $t"; python3 "$t"; done
+          for t in tools/data-pipeline/scripts/test_*.py .github/scripts/test_check_dependencies.py; do echo "== $t"; python3 "$t"; done
+
+      # Vulnerabilita' note (OSV) nelle dipendenze risolte di app e pipeline: un errore fa fallire il job. Le
+      # versioni piu' nuove sono solo note (::notice::); se OSV o i repository non rispondono e' un avviso.
+      - name: Dipendenze senza vulnerabilita' note
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew -q --no-daemon :app:dependencies --configuration releaseRuntimeClasspath > "$RUNNER_TEMP/app.txt"
+          ./gradlew -q --no-daemon :tools:data-pipeline:content:dependencies --configuration runtimeClasspath > "$RUNNER_TEMP/pipeline.txt"
+          python3 .github/scripts/check-dependencies.py "$RUNNER_TEMP/app.txt" "$RUNNER_TEMP/pipeline.txt"
 
       # Gli script di pubblicazione leggono la chiave pubblica da SyncConfig.kt: se il sorgente cambia forma, la
       # verifica di app-status.json fallisce, e nei job di pubblicazione questo si vede solo al rilascio. Qui
@@ -93,7 +103,7 @@ jobs:
           echo "DEBUG_APK_NAME=$NAME" >> "$GITHUB_ENV"
           echo "DEBUG_APK_PATH=$RUNNER_TEMP/$NAME" >> "$GITHUB_ENV"
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: github.event_name == 'push'
         with:
           name: ${{ env.DEBUG_APK_NAME }}

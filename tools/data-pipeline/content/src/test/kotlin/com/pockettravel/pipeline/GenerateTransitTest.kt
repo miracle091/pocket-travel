@@ -3,6 +3,7 @@ package com.pockettravel.pipeline
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -194,5 +195,392 @@ class GenerateTransitTest {
         val rows = mutableListOf<Map<String, String>>()
         readCsv(BufferedReader(StringReader("﻿a,b\r\n\"x, \"\"y\"\"\",2\r\n\r\n3,\n"))) { rows += it }
         assertEquals(listOf(mapOf("a" to "x, \"y\"", "b" to "2"), mapOf("a" to "3", "b" to "")), rows)
+    }
+
+    // --- generateTransit: limiti, cartelle nello zip, calendari, filtri ---
+
+    private fun zipOf(name: String, files: Map<String, String>): File = tmp.newFile(name).also { zip ->
+        ZipOutputStream(zip.outputStream()).use { out ->
+            files.forEach { (entry, text) ->
+                out.putNextEntry(ZipEntry(entry))
+                out.write(text.trimIndent().toByteArray(Charsets.UTF_8))
+                out.closeEntry()
+            }
+        }
+    }
+
+    private fun queryDb(db: File, sql: String): List<List<Any?>> =
+        DriverManager.getConnection("jdbc:sqlite:${db.path}").use { conn ->
+            conn.createStatement().use { s ->
+                s.executeQuery(sql).use { rs -> buildList { while (rs.next()) add((1..rs.metaData.columnCount).map { rs.getObject(it) }) } }
+            }
+        }
+
+    private val feedStops = """
+        stop_id,stop_name,stop_lat,stop_lon
+        A,Alfa,56.0000,24.0000
+        B,Beta,56.0100,24.0100
+        C,Gamma,56.0200,24.0200
+    """
+
+    private val feedCalendar = """
+        service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date
+        FERIALE,1,1,1,1,1,0,0,20260101,20261231
+    """
+
+    private fun miniFeed(
+        trips: String,
+        stopTimes: String,
+        stops: String = feedStops,
+        routes: String = "route_id,route_type\nR1,3",
+        calendar: String = feedCalendar,
+    ) = mapOf(
+        "stops.txt" to stops,
+        "routes.txt" to routes,
+        "trips.txt" to trips,
+        "stop_times.txt" to stopTimes,
+        "calendar.txt" to calendar,
+    )
+
+    @Test
+    fun `windowDays fuori da 1 e 366 e' rifiutato, i due estremi sono accettati`() {
+        listOf(0, -1, 367).forEach { days ->
+            assertThrows(IllegalArgumentException::class.java) {
+                generateTransit(zipOf("fuori-$days.zip", feed), tmp.root.resolve("fuori-$days.db"), "mdb-1", monday, days)
+            }
+        }
+        val one = tmp.root.resolve("uno.db")
+        val year = tmp.root.resolve("anno.db")
+        assertEquals(monday, generateTransit(zipOf("uno.zip", feed), one, "mdb-1", monday, 1).validUntil)
+        generateTransit(zipOf("anno.zip", feed), year, "mdb-1", monday, 366)
+
+        assertEquals(listOf(listOf<Any?>(1)), queryDb(one, "SELECT LENGTH(days) FROM service ORDER BY id LIMIT 1"))
+        assertEquals(listOf(listOf<Any?>(46)), queryDb(year, "SELECT LENGTH(days) FROM service ORDER BY id LIMIT 1"))
+        assertEquals("1", queryDb(one, "SELECT value FROM meta WHERE key = 'window_days'").single()[0])
+    }
+
+    @Test
+    fun `i file del feed possono stare in una sottocartella dello zip`() {
+        val stats = generateTransit(zipOf("sub.zip", feed.mapKeys { "feed/${it.key}" }), tmp.root.resolve("sub.db"), "mdb-1", monday, 7)
+
+        assertEquals(3, stats.stops)
+        assertEquals(3, stats.trips)
+    }
+
+    @Test
+    fun `statistiche del feed di prova - linee, orari e riquadro delle fermate`() {
+        val stats = generateTransit(zipOf("stat.zip", feed), tmp.root.resolve("stat.db"), "mdb-1", monday, 7)
+
+        assertEquals(1, stats.routes)
+        assertEquals(3, stats.stopTimes)
+        // Ordine: lon minima, lat minima, lon massima, lat massima; l'entrata (location_type 2) non conta.
+        assertArrayEquals(doubleArrayOf(24.1210, 56.9460, 24.1300, 56.9500), stats.bbox, 1e-9)
+    }
+
+    @Test
+    fun `senza fermate il riquadro e' nullo`() {
+        val noStops = miniFeed(
+            trips = "route_id,service_id,trip_id\nR1,FERIALE,T1",
+            stopTimes = "trip_id,arrival_time,departure_time,stop_id,stop_sequence\nT1,08:00:00,08:00:00,A,1",
+            stops = "stop_id,stop_name,stop_lat,stop_lon",
+        )
+        val stats = generateTransit(zipOf("nostops.zip", noStops), tmp.root.resolve("nostops.db"), "mdb-1", monday, 7)
+
+        assertEquals(0, stats.stops)
+        assertEquals(0, stats.trips)
+        assertNull(stats.bbox)
+    }
+
+    @Test
+    fun `senza calendar_txt bastano le date aggiunte di calendar_dates, quelle fuori finestra si ignorano`() {
+        val onlyDates = miniFeed(
+            trips = "route_id,service_id,trip_id\nR1,X,T1",
+            stopTimes = """
+                trip_id,arrival_time,departure_time,stop_id,stop_sequence
+                T1,08:00:00,08:00:00,A,1
+                T1,08:10:00,08:10:00,B,2
+            """,
+        ).minus("calendar.txt") + ("calendar_dates.txt" to "service_id,date,exception_type\nX,20261006,1\nX,20260101,1\nX,20261030,1\nX,20261007,3")
+        val db = tmp.root.resolve("dates.db")
+        val stats = generateTransit(zipOf("dates.zip", onlyDates), db, "mdb-1", monday, 7)
+
+        assertEquals(1, stats.trips)
+        assertEquals(LocalDate.parse("2026-10-06"), stats.validUntil)
+        assertArrayEquals(byteArrayOf(0b10), queryDb(db, "SELECT days FROM service").single()[0] as ByteArray)
+    }
+
+    @Test
+    fun `un servizio cui le eccezioni tolgono ogni giorno non da' corse ne' data di fine`() {
+        val removed = miniFeed(
+            trips = "route_id,service_id,trip_id\nR1,FERIALE,T1",
+            stopTimes = """
+                trip_id,arrival_time,departure_time,stop_id,stop_sequence
+                T1,08:00:00,08:00:00,A,1
+                T1,08:10:00,08:10:00,B,2
+            """,
+        ) + ("calendar_dates.txt" to "service_id,date,exception_type\nFERIALE,20261005,2\nFERIALE,20261006,2\nFERIALE,20261007,2\nFERIALE,20261008,2\nFERIALE,20261009,2")
+        val stats = generateTransit(zipOf("removed.zip", removed), tmp.root.resolve("removed.db"), "mdb-1", monday, 5)
+
+        assertEquals(0, stats.trips)
+        assertNull(stats.validUntil)
+    }
+
+    @Test
+    fun `fermate non valide si saltano, stazioni e fermate si tengono, il nome unicode si conserva`() {
+        val stops = """
+            stop_id,stop_name,stop_lat,stop_lon,location_type
+            A,Škoda 東京 😀,56.0000,24.0000,
+            B,Stazione,56.0100,24.0100,1
+            C,Entrata,56.0200,24.0200,2
+            D,Latitudine rotta,abc,24.0300,0
+            E,Longitudine vuota,56.0400,,0
+            F,Nodo generico,56.0500,24.0500,3
+        """
+        val db = tmp.root.resolve("stops.db")
+        val feedWithStops = miniFeed(
+            trips = "route_id,service_id,trip_id\nR1,FERIALE,T1",
+            stopTimes = "trip_id,arrival_time,departure_time,stop_id,stop_sequence\nT1,08:00:00,08:00:00,A,1\nT1,08:10:00,08:10:00,B,2",
+            stops = stops,
+        )
+        val stats = generateTransit(zipOf("stops.zip", feedWithStops), db, "mdb-1", monday, 7)
+
+        assertEquals(2, stats.stops)
+        assertEquals(listOf(listOf<Any?>("Škoda 東京 😀"), listOf("Stazione")), queryDb(db, "SELECT name FROM stop ORDER BY id"))
+        assertArrayEquals(doubleArrayOf(24.0, 56.0, 24.01, 56.01), stats.bbox, 1e-9)
+    }
+
+    @Test
+    fun `le coordinate si salvano in milionesimi di grado interi`() {
+        val db = tmp.root.resolve("e6.db")
+        generateTransit(zipOf("e6.zip", feed), db, "mdb-1", monday, 7)
+
+        assertEquals(listOf(listOf<Any?>(56950000, 24130000)), queryDb(db, "SELECT latE6, lonE6 FROM stop WHERE name = 'Piazza'"))
+    }
+
+    @Test
+    fun `orari - arrivo al posto della partenza vuota, orari illeggibili e fermate sconosciute si saltano`() {
+        val times = miniFeed(
+            trips = "route_id,service_id,trip_id\nR1,FERIALE,T1",
+            stopTimes = """
+                trip_id,arrival_time,departure_time,stop_id,stop_sequence,pickup_type
+                T1,,08:00:00,A,1,0
+                T1,08:10:00,,B,2,0
+                T1,08:20:00,08:20:00,SCONOSCIUTA,3,0
+                T1,xx,xx,A,4,0
+                T1,09:00:00,09:00:00,C,5,0
+            """,
+        )
+        val db = tmp.root.resolve("times.db")
+        val stats = generateTransit(zipOf("times.zip", times), db, "mdb-1", monday, 7)
+
+        assertEquals(2, stats.stopTimes)
+        assertEquals(
+            listOf(listOf<Any?>("Alfa", 0), listOf("Beta", 10)),
+            queryDb(db, "SELECT s.name, ps.offset FROM pattern_stop ps JOIN stop s ON s.id = ps.stop ORDER BY ps.offset"),
+        )
+        assertEquals(listOf(listOf<Any?>(480)), queryDb(db, "SELECT start FROM trip"))
+    }
+
+    @Test
+    fun `corse con la stessa sequenza di fermate e intervalli condividono il pattern`() {
+        val shared = miniFeed(
+            trips = "route_id,service_id,trip_id\nR1,FERIALE,T1\nR1,FERIALE,T2\nR1,FERIALE,T3",
+            stopTimes = """
+                trip_id,arrival_time,departure_time,stop_id,stop_sequence
+                T1,08:00:00,08:00:00,A,1
+                T1,08:10:00,08:10:00,B,2
+                T1,08:20:00,08:20:00,C,3
+                T2,09:00:00,09:00:00,A,1
+                T2,09:10:00,09:10:00,B,2
+                T2,09:25:00,09:25:00,C,3
+                T3,10:00:00,10:00:00,A,1
+                T3,10:15:00,10:15:00,B,2
+                T3,10:20:00,10:20:00,C,3
+            """,
+        )
+        val db = tmp.root.resolve("patterns.db")
+        val stats = generateTransit(zipOf("patterns.zip", shared), db, "mdb-1", monday, 7)
+
+        assertEquals(3, stats.trips)
+        assertEquals(6, stats.stopTimes)
+        assertEquals(listOf(listOf<Any?>(2, 3)), queryDb(db, "SELECT COUNT(DISTINCT pattern), COUNT(*) FROM trip"))
+        assertEquals(listOf(listOf<Any?>(4)), queryDb(db, "SELECT COUNT(*) FROM pattern_stop"))
+    }
+
+    @Test
+    fun `la stessa fermata allo stesso minuto nella stessa corsa conta una volta`() {
+        val repeated = miniFeed(
+            trips = "route_id,service_id,trip_id\nR1,FERIALE,T1",
+            stopTimes = """
+                trip_id,arrival_time,departure_time,stop_id,stop_sequence
+                T1,08:00:00,08:00:00,A,1
+                T1,08:00:00,08:00:00,A,2
+                T1,08:10:00,08:10:00,B,3
+            """,
+        )
+        val db = tmp.root.resolve("repeated.db")
+        val stats = generateTransit(zipOf("repeated.zip", repeated), db, "mdb-1", monday, 7)
+
+        assertEquals(1, stats.stopTimes)
+        assertEquals(listOf(listOf<Any?>(1)), queryDb(db, "SELECT COUNT(*) FROM pattern_stop"))
+    }
+
+    @Test
+    fun `corse senza partenze utili o con linea sconosciuta non si scrivono`() {
+        val trips = miniFeed(
+            trips = "route_id,service_id,trip_id\nR1,FERIALE,T1\nRX,FERIALE,T2\nR1,FERIALE,T3",
+            stopTimes = """
+                trip_id,arrival_time,departure_time,stop_id,stop_sequence
+                T1,08:00:00,08:00:00,A,1
+                T2,08:00:00,08:00:00,A,1
+                T2,08:10:00,08:10:00,B,2
+                T3,09:00:00,09:00:00,A,1
+                T3,09:10:00,09:10:00,B,2
+            """,
+        )
+        val db = tmp.root.resolve("trips.db")
+        val stats = generateTransit(zipOf("trips.zip", trips), db, "mdb-1", monday, 7)
+
+        assertEquals(1, stats.trips)
+        assertEquals(listOf(listOf<Any?>(1)), queryDb(db, "SELECT COUNT(*) FROM trip"))
+    }
+
+    @Test
+    fun `linee - tipo mancante o non numerico e' bus, i campi vuoti sono NULL`() {
+        val routes = """
+            route_id,route_short_name,route_long_name,route_type,route_color,route_text_color
+            R1,,Lunga,abc,,
+            R2,2,,1,00FF00,000000
+            R3,3,Senza tipo,,,
+        """
+        val db = tmp.root.resolve("routes.db")
+        generateTransit(
+            zipOf("routes.zip", miniFeed(trips = "route_id,service_id,trip_id\nR1,FERIALE,T1", stopTimes = "trip_id,departure_time,stop_id,stop_sequence\nT1,08:00:00,A,1", routes = routes)),
+            db, "mdb-1", monday, 7,
+        )
+
+        assertEquals(
+            listOf(
+                listOf<Any?>(null, "Lunga", 3, null, null),
+                listOf("2", null, 1, "00FF00", "000000"),
+                listOf("3", "Senza tipo", 3, null, null),
+            ),
+            queryDb(db, "SELECT short_name, long_name, type, color, text_color FROM route ORDER BY id"),
+        )
+    }
+
+    @Test
+    fun `meta - formato, finestra, accessibilita' e fuso orario vuoto senza agency_txt, nessun valid_until senza servizio`() {
+        val db = tmp.root.resolve("meta.db")
+        generateTransit(zipOf("meta.zip", feed.minus("agency.txt")), db, "mdb-9", LocalDate.parse("2030-01-01"), 7)
+
+        val meta = queryDb(db, "SELECT key, value FROM meta").associate { it[0] to it[1] }
+        assertEquals(
+            mapOf<Any?, Any?>(
+                "feed_id" to "mdb-9", "format" to "2", "timezone" to "", "window_start" to "20300101", "window_days" to "7", "wheelchair" to "1",
+            ),
+            meta,
+        )
+    }
+
+    @Test
+    fun `un transit_db preesistente nello stesso percorso viene sostituito`() {
+        val db = tmp.root.resolve("vecchio.db").apply { writeText("non e' un database") }
+
+        generateTransit(zipOf("vecchio.zip", feed), db, "mdb-1", monday, 7)
+
+        assertEquals(listOf(listOf<Any?>(3)), queryDb(db, "SELECT COUNT(*) FROM stop"))
+    }
+
+    @Test
+    fun `l'agenzia con piu' righe dichiara il fuso della prima`() {
+        val twoAgencies = feed + ("agency.txt" to "agency_id,agency_name,agency_url,agency_timezone\na,Uno,https://x.invalid,Europe/Riga\nb,Due,https://y.invalid,Europe/Rome")
+        val db = tmp.root.resolve("agenzie.db")
+        generateTransit(zipOf("agenzie.zip", twoAgencies), db, "mdb-1", monday, 7)
+
+        assertEquals("Europe/Riga", queryDb(db, "SELECT value FROM meta WHERE key = 'timezone'").single()[0])
+    }
+
+    @Test
+    fun `una colonna obbligatoria assente fa fallire la conversione`() {
+        assertThrows(java.util.NoSuchElementException::class.java) {
+            generateTransit(zipOf("senza-viaggi.zip", feed.minus("calendar.txt").minus("calendar_dates.txt") + ("trips.txt" to "route_id,trip_id\nR1,T1")), tmp.root.resolve("x.db"), "mdb-1", monday, 7)
+        }
+    }
+
+    // --- funzioni di supporto ---
+
+    @Test
+    fun `gtfsWheelchair accetta solo 1 e 2, anche con spazi`() {
+        assertEquals(1, gtfsWheelchair("1"))
+        assertEquals(2, gtfsWheelchair(" 2 "))
+        assertNull(gtfsWheelchair("0"))
+        assertNull(gtfsWheelchair("3"))
+        assertNull(gtfsWheelchair("-1"))
+        assertNull(gtfsWheelchair("si"))
+        assertNull(gtfsWheelchair(""))
+        assertNull(gtfsWheelchair(null))
+    }
+
+    @Test
+    fun `gtfsMinutes - senza secondi, a mezzanotte, ore oltre 24 e valori non numerici`() {
+        assertEquals(510, gtfsMinutes("08:30"))
+        assertEquals(0, gtfsMinutes("00:00:00"))
+        assertEquals(1440, gtfsMinutes("24:00:00"))
+        assertEquals(1620, gtfsMinutes("27:00:00"))
+        assertNull(gtfsMinutes("8"))
+        assertNull(gtfsMinutes("ab:cd"))
+        assertNull(gtfsMinutes("08:xx:00"))
+        assertNull(gtfsMinutes("   "))
+    }
+
+    @Test
+    fun `dayBits - vuoto, un byte pieno, nove giorni e tutti accesi`() {
+        assertArrayEquals(ByteArray(0), dayBits(BooleanArray(0)))
+        assertArrayEquals(byteArrayOf(0), dayBits(BooleanArray(8)))
+        assertArrayEquals(byteArrayOf(-1), dayBits(BooleanArray(8) { true }))
+        assertArrayEquals(byteArrayOf(0, 0b1), dayBits(BooleanArray(9).also { it[8] = true }))
+        assertArrayEquals(byteArrayOf(-128), dayBits(BooleanArray(8).also { it[7] = true }))
+        assertEquals(46, dayBits(BooleanArray(366)).size)
+    }
+
+    private fun csvRows(text: String): List<Map<String, String>> {
+        val rows = mutableListOf<Map<String, String>>()
+        readCsv(BufferedReader(StringReader(text))) { rows += it }
+        return rows
+    }
+
+    @Test
+    fun `CSV - vuoto, solo intestazione e ultima riga senza a capo`() {
+        assertEquals(emptyList<Map<String, String>>(), csvRows(""))
+        assertEquals(emptyList<Map<String, String>>(), csvRows("a,b\n"))
+        assertEquals(emptyList<Map<String, String>>(), csvRows("a,b"))
+        assertEquals(listOf(mapOf("a" to "1", "b" to "2")), csvRows("a,b\n1,2"))
+        assertEquals(listOf(mapOf("a" to "1", "b" to "")), csvRows("a,b\n1,"))
+    }
+
+    @Test
+    fun `CSV - righe corte, righe lunghe e spazi attorno ai valori`() {
+        assertEquals(listOf(mapOf("a" to "1", "b" to "")), csvRows("a,b\n1\n"))
+        assertEquals(listOf(mapOf("a" to "1", "b" to "2")), csvRows("a,b\n1,2,3,4\n"))
+        assertEquals(listOf(mapOf("a" to "x", "b" to "y")), csvRows(" a , b \n x , y \n"))
+    }
+
+    @Test
+    fun `CSV - a capo e virgolette doppie dentro un campo tra virgolette, CRLF e righe vuote`() {
+        assertEquals(listOf(mapOf("a" to "riga1\nriga2", "b" to "z")), csvRows("a,b\n\"riga1\nriga2\",z\n"))
+        assertEquals(listOf(mapOf("a" to "x\"y")), csvRows("a\n\"x\"\"y\"\n"))
+        assertEquals(listOf(mapOf("a" to "1"), mapOf("a" to "2")), csvRows("a\r\n1\r\n\r\n\r\n2\r\n"))
+    }
+
+    @Test
+    fun `CSV - il BOM si toglie solo all'inizio e il campo tra virgolette non chiuso arriva a fine file`() {
+        assertEquals(listOf(mapOf("a" to "1")), csvRows("﻿a\n1\n"))
+        assertEquals(listOf(mapOf("a" to "aperto, senza chiusura")), csvRows("a\n\"aperto, senza chiusura"))
+    }
+
+    @Test
+    fun `CSV - testo unicode e virgole in campi tra virgolette`() {
+        assertEquals(listOf(mapOf("nome" to "Škoda, 東京 😀", "n" to "1")), csvRows("nome,n\n\"Škoda, 東京 😀\",1\n"))
     }
 }

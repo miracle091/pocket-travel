@@ -5,8 +5,13 @@ usa una cache gia' piena o un _run sostituito.
 
 Uso: python test_translate_dataset.py
 """
+import io
 import json
+import os
+import subprocess
+import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -131,6 +136,114 @@ class TranslatorTest(unittest.TestCase):
             with mock.patch.object(t, "_run"):
                 result = t.translate_many(["Aperto alle 9.", "Chiuso."])
         self.assertEqual([None, "Closed."], result)
+
+
+class RunTest(unittest.TestCase):
+    """_run con _decode sostituito: ordine per lunghezza, lotti, cache su disco."""
+
+    def test_risultati_nell_ordine_di_ingresso_lotti_per_lunghezza_e_cache_scritta(self):
+        with tempfile.TemporaryDirectory() as d:
+            t = ts.Translator("it", "en", d, batch=2)
+            t.model = object()  # niente _load
+            batches = []
+
+            def decode(batch):
+                batches.append(list(batch))
+                return [f" EN:{s} " for s in batch]
+
+            sentences = ["Una frase molto più lunga delle altre.", "Corta.", "Media frase.", "Ok."]
+            with mock.patch.object(t, "_decode", side_effect=decode), mock.patch("sys.stderr"):
+                out = t._run(sentences)
+            self.assertEqual([[ "Ok.", "Corta."], ["Media frase.", "Una frase molto più lunga delle altre."]], batches)
+            self.assertEqual([f"EN:{s}" for s in sentences], out)
+            lines = (Path(d) / "translations.it-en.jsonl").read_text(encoding="utf-8").splitlines()
+            reloaded = ts.Translator("it", "en", d)
+        self.assertEqual(4, len(lines))
+        self.assertEqual("EN:Corta.", reloaded.cache[reloaded._key("Corta.")])
+        self.assertIn("più", lines[0])  # UTF-8 non escapato
+
+    def test_traduzione_in_cache_non_viene_richiesta_di_nuovo(self):
+        with tempfile.TemporaryDirectory() as d:
+            t = ts.Translator("it", "en", d)
+            t.model = object()
+            t.cache[t._key("Ciao.")] = "Hello."
+            with mock.patch.object(t, "_decode", side_effect=lambda b: [s + "!" for s in b]) as decode, \
+                    mock.patch("sys.stderr"):
+                result = t.translate_many(["Ciao.", "Grazie."])
+        self.assertEqual(["Hello.", "Grazie.!"], result)
+        decode.assert_called_once_with(["Grazie."])
+
+    def test_corpo_vuoto_e_solo_righe_vuote(self):
+        with tempfile.TemporaryDirectory() as d:
+            t = ts.Translator("it", "en", d)
+            with mock.patch.object(t, "_run") as run:
+                self.assertEqual(["", "\n"], t.translate_many(["", "\n"]))
+        run.assert_not_called()
+
+
+class PickDiscreteGpuTest(unittest.TestCase):
+    def setUp(self):
+        env = {k: v for k, v in os.environ.items() if k not in ("HIP_VISIBLE_DEVICES", "CUDA_VISIBLE_DEVICES")}
+        patcher = mock.patch.dict(os.environ, env, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        modules = mock.patch.dict(sys.modules)
+        modules.start()
+        self.addCleanup(modules.stop)
+        sys.modules.pop("torch", None)
+
+    def test_imposta_entrambe_le_variabili_con_la_gpu_migliore(self):
+        with mock.patch("subprocess.run", return_value=mock.Mock(stdout="1\n")):
+            ts._pick_discrete_gpu()
+        self.assertEqual("1", os.environ["HIP_VISIBLE_DEVICES"])
+        self.assertEqual("1", os.environ["CUDA_VISIBLE_DEVICES"])
+
+    def test_variabile_gia_impostata_viene_rispettata(self):
+        os.environ["HIP_VISIBLE_DEVICES"] = "0"
+        with mock.patch("subprocess.run") as run:
+            ts._pick_discrete_gpu()
+        run.assert_not_called()
+        self.assertNotIn("CUDA_VISIBLE_DEVICES", os.environ)
+
+    def test_torch_gia_importato_non_si_tocca_nulla(self):
+        sys.modules["torch"] = types.ModuleType("torch")
+        with mock.patch("subprocess.run") as run:
+            ts._pick_discrete_gpu()
+        run.assert_not_called()
+
+    def test_nessuna_gpu_lascia_l_ambiente_com_e(self):
+        with mock.patch("subprocess.run", return_value=mock.Mock(stdout="-1\n")):
+            ts._pick_discrete_gpu()
+        self.assertNotIn("HIP_VISIBLE_DEVICES", os.environ)
+
+    def test_sonda_fallita_avvisa_senza_eccezioni(self):
+        for failure in (mock.Mock(stdout="traceback"), subprocess.TimeoutExpired("x", 300)):
+            kwargs = {"side_effect": failure} if isinstance(failure, Exception) else {"return_value": failure}
+            with mock.patch("subprocess.run", **kwargs), mock.patch("sys.stderr", io.StringIO()) as err:
+                ts._pick_discrete_gpu()
+            self.assertIn("scelta della GPU non riuscita", err.getvalue())
+        self.assertNotIn("CUDA_VISIBLE_DEVICES", os.environ)
+
+
+class EdgeTest(unittest.TestCase):
+    def test_parentesi_con_virgola_iniziale_e_vuote(self):
+        self.assertEqual("I Bai (Baizu) e Yu Cai.", ts.drop_empty_parens("I Bai (, Baizu) e Yu Cai ( )."))
+        self.assertEqual("Testo (ok).", ts.drop_empty_parens("Testo (ok)."))
+        self.assertEqual("", ts.drop_empty_parens(""))
+
+    def test_numeri_con_orari_e_migliaia(self):
+        self.assertTrue(ts._plausible("Apre alle 9:30 e costa 1,50.", "Opens at 9:30 and costs 1.50."))
+        self.assertFalse(ts._plausible("Apre alle 9:30.", "Opens at 9."))
+
+    def test_modelli_e_revisioni_coerenti(self):
+        self.assertEqual(set(ts.MODELS.values()), set(ts.REVISIONS))
+        for revision in ts.REVISIONS.values():
+            self.assertRegex(revision, r"^[0-9a-f]{40}$")
+
+    def test_abbreviazioni_non_dividono_la_frase(self):
+        for text in ("Dr. Rossi arriva.", "Mt. Everest e' alto.", "Vedi No. 5 qui."):
+            self.assertEqual(1, len(ts.SENTENCE_SPLIT.split(text)), text)
+        self.assertEqual(2, len(ts.SENTENCE_SPLIT.split("Il treno parte. Ècco la stazione.")))
 
 
 if __name__ == "__main__":

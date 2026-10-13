@@ -108,13 +108,17 @@ dependencies {
     implementation(libs.androidx.fragment.ktx)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(testFixtures(project(":core:data")))
+    testImplementation(testFixtures(project(":core:sync")))
+    testImplementation(testFixtures(project(":feature:ai")))
 
     androidTestImplementation(libs.navigation.testing)
     // L'APK dei test usa le stesse versioni dell'app (consistent resolution di AGP): ui-test-junit4 e
     // navigation-testing chiedono versioni un po' piu' recenti di queste due librerie, quindi l'app le alza.
     constraints {
-        implementation("androidx.concurrent:concurrent-futures:1.2.0")
-        implementation("androidx.concurrent:concurrent-futures-ktx:1.2.0")
-        implementation("com.google.errorprone:error_prone_annotations:2.30.0")
+        implementation(libs.androidx.concurrent.futures)
+        implementation(libs.androidx.concurrent.futures.ktx)
+        implementation(libs.error.prone.annotations)
     }
 }

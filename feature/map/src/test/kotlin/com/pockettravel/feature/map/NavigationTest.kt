@@ -106,24 +106,24 @@ class NavigationTest {
 
     @Test
     fun `senza permesso non si naviga`() {
-        assertEquals(NavigationUiState.NeedsPermission, state(permission = false))
+        assertEquals(NavigationStatus.NeedsPermission, state(permission = false))
     }
 
     @Test
     fun `con il GPS spento non si naviga, anche con il percorso gia' calcolato`() {
-        assertEquals(NavigationUiState.GpsDisabled, state(gpsEnabled = false))
-        assertEquals(NavigationUiState.GpsDisabled, state(gpsEnabled = false, arrived = true))
+        assertEquals(NavigationStatus.GpsDisabled, state(gpsEnabled = false))
+        assertEquals(NavigationStatus.GpsDisabled, state(gpsEnabled = false, arrived = true))
     }
 
     @Test
     fun `senza una posizione GPS recente si aspetta il segnale`() {
-        assertEquals(NavigationUiState.WaitingForFix, state(fix = null))
-        assertEquals(NavigationUiState.WaitingForFix, state(fix = fix(start, timeMillis = NOW - FIX_MAX_AGE_MILLIS - 1), result = null))
+        assertEquals(NavigationStatus.WaitingForFix, state(fix = null))
+        assertEquals(NavigationStatus.WaitingForFix, state(fix = fix(start, timeMillis = NOW - FIX_MAX_AGE_MILLIS - 1), result = null))
     }
 
     @Test
     fun `con GPS e posizione si naviga`() {
-        val navigating = state(fix = fix(RoutePoint(45.0, 10.0025))) as NavigationUiState.Navigating
+        val navigating = state(fix = fix(RoutePoint(45.0, 10.0025))) as NavigationStatus.Navigating
 
         assertEquals(TurnType.LEFT, navigating.progress.nextInstruction.type)
         assertEquals(route, navigating.route)
@@ -131,32 +131,32 @@ class NavigationTest {
 
     @Test
     fun `calcolo in corso, percorso non trovato e arrivo`() {
-        assertEquals(NavigationUiState.Calculating(0), state(calculating = true, result = null))
-        assertEquals(NavigationUiState.Calculating(0), state(result = null))
-        assertEquals(NavigationUiState.Unavailable(RouteResult.NoRoutingData), state(result = RouteResult.NoRoutingData))
-        assertEquals(NavigationUiState.Arrived, state(fix = null, arrived = true))
+        assertEquals(NavigationStatus.Calculating(0), state(calculating = true, result = null))
+        assertEquals(NavigationStatus.Calculating(0), state(result = null))
+        assertEquals(NavigationStatus.Unavailable(RouteResult.NoRoutingData), state(result = RouteResult.NoRoutingData))
+        assertEquals(NavigationStatus.Arrived, state(fix = null, arrived = true))
     }
 
     @Test
     fun `l'arrivo lo decide solo il flag, vicino alla destinazione senza flag si continua a navigare`() {
         // Con "Spegni il GPS all'arrivo" tolto il ViewModel non segna l'arrivo e la guida resta aperta.
-        val atEnd = state(fix = fix(end)) as NavigationUiState.Navigating
+        val atEnd = state(fix = fix(end)) as NavigationStatus.Navigating
 
         assertTrue(atEnd.progress.arrived)
-        assertEquals(NavigationUiState.Arrived, state(fix = fix(end), arrived = true))
+        assertEquals(NavigationStatus.Arrived, state(fix = fix(end), arrived = true))
     }
 
     @Test
     fun `senza posizione recente, con il percorso trovato, si resta sull'ultima posizione con il segnale perso`() {
         val stale = fix(RoutePoint(45.0, 10.0025), timeMillis = NOW - FIX_MAX_AGE_MILLIS - 1)
 
-        val lost = state(fix = stale) as NavigationUiState.Navigating
+        val lost = state(fix = stale) as NavigationStatus.Navigating
 
         assertTrue(lost.signalLost)
         assertEquals(RoutePoint(45.0, 10.0025), lost.position)
-        assertFalse((state(fix = fix(RoutePoint(45.0, 10.0025))) as NavigationUiState.Navigating).signalLost)
+        assertFalse((state(fix = fix(RoutePoint(45.0, 10.0025))) as NavigationStatus.Navigating).signalLost)
         // Senza percorso (calcolo in corso o errore) non c'e' nulla da seguire: si aspetta il segnale.
-        assertEquals(NavigationUiState.WaitingForFix, state(fix = stale, result = null))
+        assertEquals(NavigationStatus.WaitingForFix, state(fix = stale, result = null))
     }
 
     @Test
@@ -165,7 +165,7 @@ class NavigationTest {
         val shared = NavigationTracker(route)
         val result = navigationUiState(
             true, true, fix(start), NOW, false, RouteResult.Found(route), false, trackerFor = { requested++; shared },
-        ) as NavigationUiState.Navigating
+        ) as NavigationStatus.Navigating
 
         assertEquals(1, requested)
         assertEquals(shared.progress(start), result.progress)
@@ -238,7 +238,7 @@ class NavigationTest {
     @Test
     fun `durante il calcolo si contano i secondi e la stima dell'avanzamento`() {
         assertEquals(
-            NavigationUiState.Calculating(12, 0.4),
+            NavigationStatus.Calculating(12, 0.4),
             navigationUiState(
                 true, true, fix(start), NOW, calculating = true, routeResult = null, arrived = false,
                 calculationStartedMillis = NOW - 12_500, calculationProgress = 0.4,
@@ -248,7 +248,7 @@ class NavigationTest {
 
     @Test
     fun `tempo scaduto e mezzo iniziale dal modo`() {
-        assertEquals(NavigationUiState.Unavailable(RouteResult.TimedOut), state(result = RouteResult.TimedOut))
+        assertEquals(NavigationStatus.Unavailable(RouteResult.TimedOut), state(result = RouteResult.TimedOut))
         assertEquals(RouteProfile.CAR, RouteProfile.from(setOf(UsageMode.CAMPER)))
         assertEquals(RouteProfile.BIKE, RouteProfile.from(setOf(UsageMode.BICI)))
         assertEquals(RouteProfile.WALK, RouteProfile.from(setOf(UsageMode.ESCURSIONISMO)))

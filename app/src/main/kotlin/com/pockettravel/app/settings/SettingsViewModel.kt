@@ -2,6 +2,7 @@ package com.pockettravel.app.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.sync.CatalogCheck
 import com.pockettravel.core.sync.CatalogPreferences
@@ -10,7 +11,7 @@ import com.pockettravel.feature.map.NavigationPreferences
 import com.pockettravel.feature.map.UsageMode
 import com.pockettravel.feature.map.UsageModePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +27,7 @@ class SettingsViewModel @Inject constructor(
     private val nationalityPreferences: NationalityPreferences,
     private val navigationPreferences: NavigationPreferences,
     private val catalogPreferences: CatalogPreferences,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
     val useDynamicColor: StateFlow<Boolean> = themePreferences.useDynamicColor
     val forceDark: StateFlow<Boolean> = themePreferences.forceDark
@@ -73,7 +75,7 @@ class SettingsViewModel @Inject constructor(
 
     fun useOfficialCatalog() {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { catalogPreferences.reset() }
+            withContext(ioDispatcher) { catalogPreferences.reset() }
             _catalogState.value = CatalogState.Restart
         }
     }

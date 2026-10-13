@@ -27,20 +27,52 @@ fun transitModeOf(routeType: Int): TransitMode = when (routeType) {
     0 -> TransitMode.TRAM
     1 -> TransitMode.METRO
     2 -> TransitMode.TRAIN
-    3 -> TransitMode.BUS
-    4 -> TransitMode.FERRY
-    5, 6, 7 -> TransitMode.CABLE
-    11 -> TransitMode.TROLLEYBUS
-    12 -> TransitMode.MONORAIL
-    in 100..199 -> TransitMode.TRAIN
-    in 200..299, in 700..799 -> TransitMode.BUS
-    in 400..499 -> TransitMode.METRO
-    in 800..899 -> TransitMode.TROLLEYBUS
-    in 900..999 -> TransitMode.TRAM
-    in 1000..1099 -> TransitMode.FERRY
-    in 1300..1499 -> TransitMode.CABLE
-    else -> TransitMode.OTHER
+    GTFS_BUS -> TransitMode.BUS
+    GTFS_FERRY -> TransitMode.FERRY
+    GTFS_CABLE_TRAM, GTFS_AERIAL_LIFT, GTFS_FUNICULAR -> TransitMode.CABLE
+    GTFS_TROLLEYBUS -> TransitMode.TROLLEYBUS
+    GTFS_MONORAIL -> TransitMode.MONORAIL
+    in GTFS_EXTENDED_RAIL -> TransitMode.TRAIN
+    in GTFS_EXTENDED_COACH, in GTFS_EXTENDED_BUS -> TransitMode.BUS
+    in GTFS_EXTENDED_METRO -> TransitMode.METRO
+    in GTFS_EXTENDED_TROLLEYBUS -> TransitMode.TROLLEYBUS
+    in GTFS_EXTENDED_TRAM -> TransitMode.TRAM
+    in GTFS_EXTENDED_WATER -> TransitMode.FERRY
+    in GTFS_EXTENDED_CABLE -> TransitMode.CABLE
+    // Gli altri tipi estesi per centinaia: 3xx ferrovia suburbana, 5xx e 6xx metropolitana, 12xx traghetto.
+    else -> when (routeType / GTFS_EXTENDED_CLASS_SIZE) {
+        GTFS_CLASS_SUBURBAN_RAIL -> TransitMode.TRAIN
+        GTFS_CLASS_METRO, GTFS_CLASS_UNDERGROUND -> TransitMode.METRO
+        GTFS_CLASS_FERRY -> TransitMode.FERRY
+        else -> TransitMode.OTHER
+    }
 }
+
+// route_type GTFS base: i valori 0 (tram), 1 (metro) e 2 (treno) restano nel when.
+private const val GTFS_BUS = 3
+private const val GTFS_FERRY = 4
+private const val GTFS_CABLE_TRAM = 5
+private const val GTFS_AERIAL_LIFT = 6
+private const val GTFS_FUNICULAR = 7
+private const val GTFS_TROLLEYBUS = 11
+private const val GTFS_MONORAIL = 12
+
+// route_type GTFS estesi: un intervallo di cento valori per categoria.
+private val GTFS_EXTENDED_RAIL = 100..199
+private val GTFS_EXTENDED_COACH = 200..299
+private val GTFS_EXTENDED_METRO = 400..499
+private val GTFS_EXTENDED_BUS = 700..799
+private val GTFS_EXTENDED_TROLLEYBUS = 800..899
+private val GTFS_EXTENDED_TRAM = 900..999
+private val GTFS_EXTENDED_WATER = 1000..1099
+private val GTFS_EXTENDED_CABLE = 1300..1499
+
+// Categorie estese non elencate sopra, identificate dalle centinaia del route_type.
+private const val GTFS_EXTENDED_CLASS_SIZE = 100
+private const val GTFS_CLASS_SUBURBAN_RAIL = 3
+private const val GTFS_CLASS_METRO = 5
+private const val GTFS_CLASS_UNDERGROUND = 6
+private const val GTFS_CLASS_FERRY = 12
 
 /** Una partenza: [minuteOfDay] e' l'ora sull'orologio della rete (0..1439), [inMinutes] i minuti da adesso. */
 data class TransitDeparture(
@@ -106,12 +138,14 @@ sealed interface TransitBoard {
         val expired: List<Expired> = emptyList(),
     ) : TransitBoard {
         /** Gli orari scadono entro una settimana: il tabellone propone di aggiornarli. */
-        val expiresSoon: Boolean get() = daysLeft in 0..7
+        val expiresSoon: Boolean get() = daysLeft in 0..EXPIRES_SOON_DAYS
     }
 }
 
 /** Raggio entro cui le fermate contano come "vicine" al punto. */
 internal const val TRANSIT_STOP_RADIUS_M = 150.0
+
+private const val EXPIRES_SOON_DAYS = 7
 
 /**
  * Per stazioni e terminal: se una rete non ha fermate entro [TRANSIT_STOP_RADIUS_M], la sua fermata piu' vicina entro
@@ -133,6 +167,9 @@ internal const val TRANSIT_LATER_DEPARTURES = 2
 internal const val TRANSIT_GRACE_DAYS = 3L
 
 private const val MINUTES_PER_DAY = 1440
+
+// Un servizio stimato prende i giorni di una settimana prima.
+private const val ESTIMATED_SHIFT_DAYS = 7L
 private const val METERS_PER_DEGREE = 111_320.0
 private val BASIC_DATE = DateTimeFormatter.BASIC_ISO_DATE
 
@@ -194,7 +231,7 @@ internal fun readFeedBoard(
         val to = nowMinute + TRANSIT_WINDOW_MINUTES - offset * MINUTES_PER_DAY
         if (to < from) continue
         val estimated = grace && today.plusDays(offset.toLong()) > validUntil
-        val dayIndex = ChronoUnit.DAYS.between(windowStart, today.plusDays(offset - if (estimated) 7L else 0L)).toInt()
+        val dayIndex = ChronoUnit.DAYS.between(windowStart, today.plusDays(offset - if (estimated) ESTIMATED_SHIFT_DAYS else 0L)).toInt()
         if (dayIndex < 0) continue
         // Formato 2 (GenerateTransit): i pattern della fermata, poi le loro corse per minuto di partenza
         // (chiave della tabella trip); il passaggio alla fermata e' partenza + offset.
@@ -204,21 +241,21 @@ internal fun readFeedBoard(
                 "JOIN route r ON r.id = t.route JOIN service sv ON sv.id = t.service LEFT JOIN headsign h ON h.id = t.headsign " +
                 "WHERE ps.stop IN ($ids) ORDER BY minute",
         ) { row ->
-            val days = row.bytes(8)
+            val days = row.bytes(DEP_COL_DAYS)
             if (days == null || !isServiceActive(days, dayIndex, windowDays)) return@query null
-            val minute = row.int(0)
-            if (!seen.add(Triple(row.int(1), offset, minute))) return@query null
+            val minute = row.int(DEP_COL_MINUTE)
+            if (!seen.add(Triple(row.int(DEP_COL_TRIP), offset, minute))) return@query null
             val absolute = offset * MINUTES_PER_DAY + minute
-            val color = parseGtfsColor(row.string(5))
+            val color = parseGtfsColor(row.string(DEP_COL_COLOR))
             TransitDeparture(
-                line = row.string(2)?.takeIf { it.isNotBlank() } ?: row.string(3)?.takeIf { it.isNotBlank() } ?: "?",
-                mode = transitModeOf(row.int(4)),
+                line = row.string(DEP_COL_SHORT_NAME)?.takeIf { it.isNotBlank() } ?: row.string(DEP_COL_LONG_NAME)?.takeIf { it.isNotBlank() } ?: "?",
+                mode = transitModeOf(row.int(DEP_COL_TYPE)),
                 color = color,
-                textColor = parseGtfsColor(row.string(6)) ?: color?.let(::contrastingTextColor),
-                headsign = row.string(7)?.takeIf { it.isNotBlank() },
+                textColor = parseGtfsColor(row.string(DEP_COL_TEXT_COLOR)) ?: color?.let(::contrastingTextColor),
+                headsign = row.string(DEP_COL_HEADSIGN)?.takeIf { it.isNotBlank() },
                 minuteOfDay = Math.floorMod(absolute, MINUTES_PER_DAY),
                 inMinutes = absolute - nowMinute,
-                wheelchair = wheelchairOf(row.string(9)),
+                wheelchair = wheelchairOf(row.string(DEP_COL_WHEELCHAIR)),
                 estimated = estimated,
             )
         }
@@ -254,12 +291,12 @@ internal fun nearbyStopIds(db: TransitQuery, latitude: Double, longitude: Double
     val radius = if (stationModes.isEmpty()) TRANSIT_STOP_RADIUS_M else TRANSIT_STATION_RADIUS_M
     val dLat = radius / METERS_PER_DEGREE
     val dLon = dLat / maxOf(cos(Math.toRadians(latitude)), 0.01)
-    fun micro(degrees: Double) = Math.round(degrees * 1e6)
+    fun micro(degrees: Double) = Math.round(degrees * MICRODEGREES_PER_DEGREE)
     val rows = db.query(
         "SELECT id, parent, latE6, lonE6 FROM stop WHERE latE6 BETWEEN ${micro(latitude - dLat)} AND ${micro(latitude + dLat)} " +
             "AND lonE6 BETWEEN ${micro(longitude - dLon)} AND ${micro(longitude + dLon)}",
-    ) { StopRow(it.string(0)!!.toLong(), it.string(1)?.toLong(), it.string(2)!!.toLong(), it.string(3)!!.toLong()) }
-    val distances = rows.associateWith { distanceMeters(latitude, longitude, it.latE6 / 1e6, it.lonE6 / 1e6) }
+    ) { StopRow(it.string(STOP_COL_ID)!!.toLong(), it.string(STOP_COL_PARENT)?.toLong(), it.string(STOP_COL_LAT)!!.toLong(), it.string(STOP_COL_LON)!!.toLong()) }
+    val distances = rows.associateWith { distanceMeters(latitude, longitude, it.latE6 / MICRODEGREES_PER_DEGREE, it.lonE6 / MICRODEGREES_PER_DEGREE) }
     val near = distances.filterValues { it <= TRANSIT_STOP_RADIUS_M }.keys
         .ifEmpty { listOfNotNull(nearestServedStop(db, distances.filterValues { it <= radius }, stationModes)) }
     if (near.isEmpty()) return emptyList()
@@ -297,36 +334,72 @@ internal fun distanceMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Doub
  * dal meno significativo. Fuori dalla finestra ([windowDays] o la lunghezza della maschera) mai.
  */
 internal fun isServiceActive(days: ByteArray, dayIndex: Int, windowDays: Int? = null): Boolean {
-    if (dayIndex < 0 || dayIndex >= (windowDays ?: (days.size * 8)) || dayIndex / 8 >= days.size) return false
-    return (days[dayIndex / 8].toInt() shr (dayIndex % 8)) and 1 == 1
+    if (dayIndex < 0 || dayIndex >= (windowDays ?: (days.size * BITS_PER_BYTE)) || dayIndex / BITS_PER_BYTE >= days.size) return false
+    return (days[dayIndex / BITS_PER_BYTE].toInt() shr (dayIndex % BITS_PER_BYTE)) and 1 == 1
 }
 
 /** "RRGGBB" (con o senza #) in ARGB opaco, null se vuoto o non valido. */
 internal fun parseGtfsColor(value: String?): Int? {
     val hex = value?.trim()?.removePrefix("#") ?: return null
-    if (hex.length != 6) return null
-    return hex.toIntOrNull(16)?.let { 0xFF000000.toInt() or it }
+    // toIntOrNull(16) accetterebbe anche il segno e le cifre non ASCII.
+    if (hex.length != HEX_COLOR_LENGTH || HEX_DIGITS_ONLY.matchEntire(hex) == null) return null
+    return hex.toIntOrNull(HEX_RADIX)?.let { 0xFF000000.toInt() or it }
 }
+
+private val HEX_DIGITS_ONLY = Regex("[0-9a-fA-F]+")
+
+private const val HEX_COLOR_LENGTH = 6
+private const val HEX_RADIX = 16
+private const val BITS_PER_BYTE = 8
+private const val RED_SHIFT = 16
+private const val GREEN_SHIFT = 8
+private const val CHANNEL_MASK = 0xFF
+
+// Luminanza percepita (ITU-R BT.601): sopra la soglia lo sfondo e' chiaro e il testo va nero.
+private const val LUMA_RED = 0.299
+private const val LUMA_GREEN = 0.587
+private const val LUMA_BLUE = 0.114
+private const val DARK_TEXT_LUMA_THRESHOLD = 150
+
+private const val MICRODEGREES_PER_DEGREE = 1e6
+
+// Colonne della query delle partenze (dopo il minuto, l'id della corsa e i dati della linea).
+private const val DEP_COL_MINUTE = 0
+private const val DEP_COL_TRIP = 1
+private const val DEP_COL_SHORT_NAME = 2
+private const val DEP_COL_LONG_NAME = 3
+private const val DEP_COL_TYPE = 4
+private const val DEP_COL_COLOR = 5
+private const val DEP_COL_TEXT_COLOR = 6
+private const val DEP_COL_HEADSIGN = 7
+private const val DEP_COL_DAYS = 8
+private const val DEP_COL_WHEELCHAIR = 9
+
+// Colonne della query delle fermate vicine.
+private const val STOP_COL_ID = 0
+private const val STOP_COL_PARENT = 1
+private const val STOP_COL_LAT = 2
+private const val STOP_COL_LON = 3
 
 /** Nero o bianco, quello che si legge meglio sul colore [background]. */
 internal fun contrastingTextColor(background: Int): Int {
-    val r = (background shr 16) and 0xFF
-    val g = (background shr 8) and 0xFF
-    val b = background and 0xFF
-    return if (0.299 * r + 0.587 * g + 0.114 * b > 150) 0xFF000000.toInt() else 0xFFFFFFFF.toInt()
+    val r = (background shr RED_SHIFT) and CHANNEL_MASK
+    val g = (background shr GREEN_SHIFT) and CHANNEL_MASK
+    val b = background and CHANNEL_MASK
+    return if (LUMA_RED * r + LUMA_GREEN * g + LUMA_BLUE * b > DARK_TEXT_LUMA_THRESHOLD) 0xFF000000.toInt() else 0xFFFFFFFF.toInt()
 }
 
 /**
  * Unisce gli esiti delle reti: nessuna rete con fermate vicine -> [TransitBoard.NoStops]; tutte fuori
- * finestra -> Expired (con la data piu' recente); altrimenti le partenze delle reti valide, una per linea, mezzo e
- * direzione con le successive in [TransitDeparture.later], in ordine di ora, con la scadenza piu' vicina tra le reti
+ * finestra -> Expired (con la data piu' recente, stimato solo se lo sono tutte); altrimenti le partenze delle
+ * reti valide, una per linea, mezzo e direzione con le successive in [TransitDeparture.later], in ordine di ora, con la scadenza piu' vicina tra le reti
  * ancora valide (tra quelle stimate se non ce ne sono) e le reti scadute.
  */
 internal fun combineBoards(boards: List<TransitBoard>): TransitBoard {
     val expired = boards.filterIsInstance<TransitBoard.Expired>()
     val active = boards.filterIsInstance<TransitBoard.Departures>()
     if (active.isEmpty()) {
-        return if (expired.isEmpty()) TransitBoard.NoStops else TransitBoard.Expired(expired.maxOf { it.validUntil }, expired.flatMap { it.feeds })
+        return if (expired.isEmpty()) TransitBoard.NoStops else TransitBoard.Expired(expired.maxOf { it.validUntil }, expired.flatMap { it.feeds }, expired.all { it.estimated })
     }
     val valid = active.filter { it.expired.isEmpty() }.ifEmpty { active }
     return TransitBoard.Departures(

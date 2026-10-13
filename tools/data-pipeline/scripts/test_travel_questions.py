@@ -2,8 +2,10 @@
 """Test di travel_questions.py (senza rete): python3 test_travel_questions.py"""
 import tempfile
 import unittest
+import urllib.error
 from collections import Counter
 from pathlib import Path
+from unittest import mock
 
 import travel_questions as tq
 
@@ -151,6 +153,112 @@ class LoadTest(unittest.TestCase):
             for lang in ("it", "en"):
                 L = generate_sft.LANGS[lang]
                 self.assertTrue(cat in L["questions"] or cat in L["city_questions"], (cat, lang))
+
+
+def row(source, data):
+    return {"row": {"source": source, "data": data}}
+
+
+class FetchTest(unittest.TestCase):
+    def setUp(self):
+        for patcher in (mock.patch("time.sleep"), mock.patch.object(tq, "require_revision")):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.cache = Path(tmp.name) / "sotto" / tq.CACHE_NAME
+
+    def fetch(self, pages):
+        with mock.patch.object(tq, "_page", side_effect=[{"rows": p} for p in pages]) as page:
+            return tq.fetch(self.cache), page
+
+    def test_tiene_solo_le_fonti_ammesse_e_si_ferma_dopo_la_fine_dell_ordinamento(self):
+        pages = [
+            [row("ultrachat", "['Where is the hospital?', 'risposta']"), row("ultrachat", "['Is there\ta   hotel?']")],
+            [row("ultrachat", "['Can I pay by card?']"), row("dolly", "['No']")],
+            [row("dolly", "['Altra']"), row("reddit", "{'a': 1}")],       # nessuna ammessa dopo averne viste: fine
+            [row("ultrachat", "['Non letta']")],
+        ]
+        questions, page = self.fetch(pages)
+        self.assertEqual(["Where is the hospital?", "Is there a hotel?", "Can I pay by card?"], questions)
+        self.assertEqual(3, page.call_count)
+        self.assertEqual([mock.call(0), mock.call(tq.PAGE), mock.call(2 * tq.PAGE)], page.call_args_list)
+
+    def test_pagine_iniziali_senza_fonti_ammesse_non_fermano_la_lettura(self):
+        # se il dataset cambiasse ordine, le prime pagine potrebbero non contenere righe ammesse
+        questions, _ = self.fetch([[row("dolly", "['x']")], [row("ultrachat", "['How do I get there?']")], []])
+        self.assertEqual(["How do I get there?"], questions)
+
+    def test_riga_senza_prima_domanda_conta_come_vista_ma_non_si_scrive(self):
+        questions, _ = self.fetch([[row("ultrachat", "{'a': 1}"), row("ultrachat", "rotto [")], []])
+        self.assertEqual([], questions)
+
+    def test_la_tabulazione_nella_domanda_non_rompe_la_cache(self):
+        self.fetch([[row("ultrachat", "['Is there a\\thotel here?']")], []])
+        line = self.cache.read_text(encoding="utf-8").splitlines()[0]
+        self.assertEqual("ultrachat\tIs there a hotel here?", line)
+
+    def test_cache_scritta_in_modo_atomico_e_riusata_senza_rete(self):
+        self.fetch([[row("ultrachat", "['Where is the bus stop?']")], []])
+        self.assertFalse(self.cache.with_suffix(".tmp").exists())
+        with mock.patch.object(tq, "_page") as page:
+            self.assertEqual(["Where is the bus stop?"], tq.fetch(self.cache))
+        page.assert_not_called()
+        tq.require_revision.assert_called_once()
+
+    def test_righe_di_cache_senza_tabulazione_ignorate(self):
+        self.cache.parent.mkdir(parents=True)
+        self.cache.write_text("senza tab\nultrachat\tOk?\n\n", encoding="utf-8")
+        self.assertEqual(["Ok?"], tq.fetch(self.cache))
+
+
+class RequireRevisionTest(unittest.TestCase):
+    def test_revisione_cambiata_e_un_errore(self):
+        with mock.patch.object(tq, "_get", return_value={"sha": "a" * 40}):
+            with self.assertRaises(RuntimeError) as ctx:
+                tq.require_revision("x/y", "b" * 40)
+        self.assertIn("e' cambiato", str(ctx.exception))
+        self.assertIn("aaaaaaa", str(ctx.exception))
+
+    def test_stessa_revisione_non_fa_nulla(self):
+        with mock.patch.object(tq, "_get", return_value={"sha": "c" * 40}):
+            self.assertIsNone(tq.require_revision("x/y", "c" * 40))
+
+    def test_la_revisione_fissata_e_un_sha_completo(self):
+        self.assertRegex(tq.DATASET_REVISION, r"^[0-9a-f]{40}$")
+
+
+class PageTest(unittest.TestCase):
+    def setUp(self):
+        patcher = mock.patch("time.sleep")
+        self.sleep = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def error(self, code):
+        return urllib.error.HTTPError("https://x", code, "x", {}, None)
+
+    def test_429_si_riprova_con_attesa_crescente(self):
+        with mock.patch.object(tq, "_get", side_effect=[self.error(429), self.error(503), {"rows": []}]):
+            self.assertEqual({"rows": []}, tq._page(0))
+        self.assertEqual([mock.call(10), mock.call(20)], self.sleep.call_args_list)
+
+    def test_404_non_si_riprova(self):
+        with mock.patch.object(tq, "_get", side_effect=self.error(404)) as get:
+            with self.assertRaises(urllib.error.HTTPError):
+                tq._page(0)
+        self.assertEqual(1, get.call_count)
+
+    def test_dopo_sei_tentativi_rilancia(self):
+        with mock.patch.object(tq, "_get", side_effect=urllib.error.URLError("rete")) as get:
+            with self.assertRaises(urllib.error.URLError):
+                tq._page(0)
+        self.assertEqual(6, get.call_count)
+
+    def test_offset_e_lunghezza_nell_url(self):
+        with mock.patch.object(tq, "_get", return_value={}) as get:
+            tq._page(300)
+        self.assertIn("offset=300", get.call_args.args[0])
+        self.assertIn(f"length={tq.PAGE}", get.call_args.args[0])
 
 
 if __name__ == "__main__":

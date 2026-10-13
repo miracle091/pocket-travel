@@ -30,10 +30,14 @@ class AndroidConnectivityChecker(private val connectivityManager: ConnectivityMa
  * (MapRouteViewModel) mentre la scheda Mappa resta aperta. Il valore e' [ConnectivityChecker.isOnline]:
  * le callback di Android arrivano anche quando cambia altro (intensita' del segnale, banda) e restano
  * senza effetto qui. */
-class ConnectivityObserver(private val connectivityManager: ConnectivityManager) {
+interface ConnectivityObserver {
+    fun changes(): Flow<Boolean>
+}
+
+class AndroidConnectivityObserver(private val connectivityManager: ConnectivityManager) : ConnectivityObserver {
     private val checker = AndroidConnectivityChecker(connectivityManager)
 
-    fun changes(): Flow<Boolean> = callbackFlow<Unit> {
+    override fun changes(): Flow<Boolean> = callbackFlow<Unit> {
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) { trySend(Unit) }
             override fun onLost(network: Network) { trySend(Unit) }

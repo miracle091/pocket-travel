@@ -18,9 +18,11 @@ internal sealed interface DownloadPhase {
     data object Installing : DownloadPhase
 }
 
+private const val PERCENT_MAX = 100
+
 /** Percentuale 0..100 della barra; null (barra indeterminata) se il totale non e' ancora noto. */
 internal fun downloadPercent(done: Long, total: Long): Int? =
-    if (total > 0) (done * 100 / total).toInt().coerceIn(0, 100) else null
+    if (total > 0) (done * PERCENT_MAX / total).toInt().coerceIn(0, PERCENT_MAX) else null
 
 /** I pacchetti in un ordine fisso (quello di [PackageKind]), non quello in cui l'insieme li restituisce. */
 internal fun orderedKinds(kinds: Set<PackageKind>): List<PackageKind> = PackageKind.entries.filter { it in kinds }
@@ -50,7 +52,7 @@ internal class RegionDownloadNotification(private val context: Context) {
         )
     }
 
-    fun notificationId(regionId: String): Int = NOTIFICATION_ID_BASE + (regionId.hashCode() and 0xFFFF)
+    fun notificationId(regionId: String): Int = NOTIFICATION_ID_BASE + (regionId.hashCode() and NOTIFICATION_ID_MASK)
 
     fun build(workId: UUID, regionName: String, kinds: Set<PackageKind>, phase: DownloadPhase): Notification {
         val packages = orderedKinds(kinds).joinToString(", ") { context.getString(label(it)) }
@@ -83,7 +85,7 @@ internal class RegionDownloadNotification(private val context: Context) {
             .setSmallIcon(R.drawable.ic_download_notification)
             .setContentTitle(regionName)
             .setContentText(text)
-            .setProgress(100, percent ?: 0, percent == null)
+            .setProgress(PERCENT_MAX, percent ?: 0, percent == null)
             .addAction(0, context.getString(R.string.sync_download_cancel), WorkManager.getInstance(context).createCancelPendingIntent(workId))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -107,5 +109,6 @@ internal class RegionDownloadNotification(private val context: Context) {
         const val CHANNEL_ID = "region-download"
         // Un ID per regione (piu' regioni possono scaricare insieme), lontano da quelli delle altre notifiche.
         const val NOTIFICATION_ID_BASE = 0x10000
+        const val NOTIFICATION_ID_MASK = 0xFFFF
     }
 }

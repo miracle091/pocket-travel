@@ -17,7 +17,8 @@ internal fun accentInsensitiveGlob(query: String): String = buildString {
             if (base.isNotEmpty()) append(original)
             continue
         }
-        val char = base[0]
+        // Le lettere speciali (ł, ø, ı...) valgono come la loro base ASCII: scritte nella ricerca trovano anche questa.
+        val char = BASE_OF_SPECIAL_LETTER[base[0]] ?: base[0]
         val variants = LETTER_VARIANTS[char]
         // Lettere senza varianti (cirillico, greco...): maiuscola, minuscola, base senza accento e lettera
         // originale, cosi' il testo digitato esatto trova sempre se stesso, anche con l'accento (ή).
@@ -46,9 +47,15 @@ private val LETTER_VARIANTS: Map<Char, String> by lazy {
         val base = Normalizer.normalize(char.toString(), Normalizer.Form.NFD).first().lowercaseChar()
         variants[base]?.takeIf { char !in it }?.append(char)
     }
-    // Lettere senza scomposizione Unicode ma lette come quella base.
-    mapOf('l' to "łŁ", 'o' to "øØ", 'd' to "đĐð", 'i' to "ıİ", 'h' to "ħĦ", 't' to "ŧŦ").forEach { (base, extra) ->
+    SPECIAL_LETTERS.forEach { (base, extra) ->
         extra.filterNot { it in variants.getValue(base) }.forEach { variants.getValue(base).append(it) }
     }
     variants.mapValues { it.value.toString() }
 }
+
+// Lettere senza scomposizione Unicode ma lette come quella base.
+private val SPECIAL_LETTERS = mapOf('l' to "łŁ", 'o' to "øØ", 'd' to "đĐð", 'i' to "ıİ", 'h' to "ħĦ", 't' to "ŧŦ")
+
+// Lettera speciale minuscola -> la sua base ASCII.
+private val BASE_OF_SPECIAL_LETTER: Map<Char, Char> =
+    SPECIAL_LETTERS.flatMap { (base, extra) -> extra.map { it.lowercaseChar() to base } }.toMap()

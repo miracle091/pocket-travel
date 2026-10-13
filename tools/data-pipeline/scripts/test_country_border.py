@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 import unittest
+import urllib.error
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -141,6 +142,80 @@ class SuddivisioneTest(unittest.TestCase):
                 country_border.main()
 
         self.assertIn("162068", "".join(call.args[0] for call in stdout.write.call_args_list))
+
+
+class FakeResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self, *args):
+        return json.dumps(self.payload).encode("utf-8")
+
+
+class CercaTest(unittest.TestCase):
+    def test_parametri_della_ricerca_e_user_agent(self):
+        with mock.patch("urllib.request.urlopen", return_value=FakeResponse([{"osm_id": 1}])) as urlopen:
+            result = country_border.cerca({"q": "Città del Messico"}, "UA-di-prova")
+        self.assertEqual([{"osm_id": 1}], result)
+        request = urlopen.call_args.args[0]
+        self.assertEqual("UA-di-prova", request.get_header("User-agent"))
+        for fragment in ("polygon_geojson=1", "format=jsonv2", "limit=5", "extratags=1", "addressdetails=1",
+                         "q=Citt%C3%A0+del+Messico"):
+            self.assertIn(fragment, request.full_url)
+
+    def test_riprova_e_per_429_attende_di_piu(self):
+        too_many = urllib.error.HTTPError("https://n", 429, "Too Many Requests", {}, None)
+        with mock.patch("urllib.request.urlopen", side_effect=[too_many, OSError("rete"), FakeResponse([])]), \
+                mock.patch("time.sleep") as sleep, mock.patch("sys.stderr"):
+            self.assertEqual([], country_border.cerca({"q": "x"}, "ua"))
+        self.assertEqual([mock.call(60), mock.call(10)], sleep.call_args_list)
+
+    def test_dopo_tre_tentativi_rilancia(self):
+        with mock.patch("urllib.request.urlopen", side_effect=OSError("rete")) as urlopen, \
+                mock.patch("time.sleep"), mock.patch("sys.stderr"):
+            with self.assertRaises(OSError):
+                country_border.cerca({"q": "x"}, "ua")
+        self.assertEqual(3, urlopen.call_count)
+
+
+class ScegliAndCacheTest(unittest.TestCase):
+    def test_scegli_salta_i_non_poligoni_e_le_relazioni_non_valide(self):
+        node = {"osm_type": "node", "osm_id": 1, "geojson": {"type": "Polygon", "coordinates": []}}
+        line = {"osm_type": "relation", "osm_id": 2, "geojson": {"type": "LineString", "coordinates": []}}
+        no_geometry = {"osm_type": "relation", "osm_id": 3}
+        good = {"osm_type": "relation", "osm_id": "4", "geojson": {"type": "MultiPolygon", "coordinates": []}}
+        self.assertEqual((4, good["geojson"]), country_border.scegli([node, line, no_geometry, good], lambda r: True))
+        self.assertIsNone(country_border.scegli([good], lambda r: False))
+        self.assertIsNone(country_border.scegli(None, lambda r: True))
+
+    def test_in_cache_scrive_una_volta_e_crea_la_cartella(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "sotto", "cartella", "x.json")
+            fetch = mock.Mock(return_value=[{"nome": "Réunion"}])
+            self.assertEqual([{"nome": "Réunion"}], country_border.in_cache(path, fetch))
+            self.assertEqual([{"nome": "Réunion"}], country_border.in_cache(path, fetch))
+            fetch.assert_called_once()
+            with open(path, encoding="utf-8") as f:
+                self.assertEqual([{"nome": "Réunion"}], json.load(f))
+
+    def test_copertura_senza_sovrapposizione_e_parziale(self):
+        self.assertEqual(0.0, country_border.copertura((0, 0, 1, 1), (2, 2, 3, 3)))
+        self.assertEqual(0.0, country_border.copertura((0, 0, 1, 1), (1, 0, 2, 1)))   # solo un lato in comune
+        self.assertEqual(0.25, country_border.copertura((0, 0, 1, 1), (0.5, 0.5, 1.5, 1.5)))
+        self.assertEqual(1.0, country_border.copertura((-5, -5, 5, 5), (0, 0, 1, 1)))
+
+    def test_iso_di_lunghezza_errata_esce_subito(self):
+        argv = ["country_border.py", "--iso", "ITA", "--out", "x", "--cache", "y"]
+        with mock.patch.object(sys, "argv", argv), mock.patch.object(country_border, "cerca") as cerca:
+            with self.assertRaises(SystemExit):
+                country_border.main()
+        cerca.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -1,14 +1,13 @@
 package com.pockettravel.app.regions
 
-import android.content.Context
 import androidx.core.content.edit
 import com.pockettravel.core.data.PackageKind
+import com.pockettravel.core.data.PreferencesFactory
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.TransitIndex
 import com.pockettravel.core.sync.TransitDefaultReason
 import com.pockettravel.core.sync.defaultTransitChoice
 import com.pockettravel.core.sync.regionTransitFeeds
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,9 +20,9 @@ import javax.inject.Singleton
  * vicine alla posizione); al primo download degli orari la scelta si salva e non cambia piu' da sola.
  */
 @Singleton
-class TransitNetworkPreferences @Inject constructor(@ApplicationContext context: Context) {
+class TransitNetworkPreferences @Inject constructor(preferences: PreferencesFactory) {
 
-    private val prefs = context.getSharedPreferences("transit_networks", Context.MODE_PRIVATE)
+    private val prefs = preferences.open("transit_networks")
     private val _excluded = MutableStateFlow(read())
     val excluded: StateFlow<Map<String, Set<String>>> = _excluded.asStateFlow()
 

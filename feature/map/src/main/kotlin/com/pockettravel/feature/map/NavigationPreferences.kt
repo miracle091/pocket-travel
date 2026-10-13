@@ -1,8 +1,7 @@
 package com.pockettravel.feature.map
 
-import android.content.Context
 import androidx.core.content.edit
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.pockettravel.core.data.PreferencesFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,8 +10,8 @@ import javax.inject.Singleton
 
 /** Preferenze del Navigatore, dalle Impostazioni. */
 @Singleton
-class NavigationPreferences @Inject constructor(@ApplicationContext context: Context) {
-    private val prefs = context.getSharedPreferences("navigation", Context.MODE_PRIVATE)
+class NavigationPreferences @Inject constructor(preferences: PreferencesFactory) {
+    private val prefs = preferences.open("navigation")
 
     private val _stopGpsOnArrival = MutableStateFlow(prefs.getBoolean(KEY_STOP_GPS_ON_ARRIVAL, true))
 

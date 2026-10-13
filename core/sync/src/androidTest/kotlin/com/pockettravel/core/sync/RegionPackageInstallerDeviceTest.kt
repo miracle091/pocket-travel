@@ -11,7 +11,9 @@ import com.pockettravel.core.data.MapDetailPreferences
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
+import com.pockettravel.core.data.RoomRegionRepository
 import com.pockettravel.core.data.db.RegionDatabase
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.Dispatcher
@@ -86,17 +88,18 @@ class RegionPackageInstallerDeviceTest {
 
         db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).build()
         storage = RegionStorage(File(workDir, "regions").apply { mkdirs() }, File(workDir, "staging").apply { mkdirs() })
-        repository = RegionRepository(db.installedRegionDao(), db.poiDao(), storage, db, db.cityDao())
+        repository = RoomRegionRepository(db.installedRegionDao(), db.poiDao(), storage, db, db.cityDao(), Dispatchers.IO)
         installer = RegionPackageInstaller(
-            RegionPackageDownloader(OkHttpClient(), storage),
+            RegionPackageDownloader(OkHttpClient(), storage, Dispatchers.IO),
             repository,
             storage,
-            PoiImporter(db.poiDao(), db),
-            RoutingSegmentsInstaller(),
+            PoiImporter(db.poiDao(), db, Dispatchers.IO),
+            RoutingSegmentsInstaller(Dispatchers.IO),
             PmtilesExtractor(),
-            CityImporter(db.cityDao(), db),
+            CityImporter(db.cityDao(), db, Dispatchers.IO),
             RegionAddressGridInstaller(storage),
-            MapDetailPreferences(context),
+            MapDetailPreferences { name -> context.getSharedPreferences(name, Context.MODE_PRIVATE) },
+            Dispatchers.IO,
         )
     }
 

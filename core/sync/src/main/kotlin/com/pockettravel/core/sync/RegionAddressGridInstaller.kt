@@ -13,6 +13,9 @@ import javax.inject.Inject
 /** Tile dei civici, sempre allo stesso zoom (GenerateAddresses). */
 private const val ADDRESS_TILE_ZOOM = 14
 
+// Figli di ogni tile del quadtree: ogni livello della curva di Hilbert consuma due bit dell'indice.
+private const val QUADTREE_CHILDREN = 4L
+
 /**
  * Ricostruisce addresses.pmtiles di una regione a partire dalle sue celle:
  * solo le celle nuove o cambiate si scaricano (vedi [plan]), le altre si tengono dal file
@@ -191,6 +194,8 @@ class RegionAddressGridInstaller @Inject constructor(
     }
 
     private companion object {
+        // 4 - 1: divisore della somma sum(4^k) in forma chiusa.
+        const val GEOMETRIC_SERIES_DIVISOR = 3L
         const val SEARCH_UNPACK_DIR = "addresses-search-unpacked"
     }
 
@@ -212,7 +217,7 @@ class RegionAddressGridInstaller @Inject constructor(
     }
 
     // Stesso calcolo di PmtilesExtractor.zoomOffset: sum(4^k, k=0..z-1), non esposto dalla libreria.
-    private fun zoomOffset(zoom: Int): Long = ((1L shl (2 * zoom)) - 1L) / 3L
+    private fun zoomOffset(zoom: Int): Long = ((1L shl (2 * zoom)) - 1L) / GEOMETRIC_SERIES_DIVISOR
 }
 
 /** Comprime [source] in [target] (xz). Bloccante; su errore non lascia [target] parziale. */
@@ -282,7 +287,7 @@ internal fun indexToXY(z: Int, index: Long): Pair<Long, Long> {
         }
         x += s * rx
         y += s * ry
-        t /= 4
+        t /= QUADTREE_CHILDREN
         s *= 2
     }
     return x to y

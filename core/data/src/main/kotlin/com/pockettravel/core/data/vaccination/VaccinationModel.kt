@@ -63,13 +63,17 @@ enum class TripPurpose { HAJJ_UMRAH }
 
 enum class YfRule { NONE, FROM_RISK, ALL, FROM_LIST }
 
+private const val STOPOVER_4H = 4
+private const val STOPOVER_12H = 12
+private const val STOPOVER_24H = 24
+
 /** Transiti che contano come "provenienza" per la febbre gialla: [hours] e' la soglia (esclusa), null = nessuna. */
 enum class StopoverRule(val hours: Int?) {
     NONE(null),
     ANY(null),
-    GT4H(4),
-    GT12H(12),
-    GT24H(24),
+    GT4H(STOPOVER_4H),
+    GT12H(STOPOVER_12H),
+    GT24H(STOPOVER_24H),
 }
 
 enum class PolioCategory { WPV1_CVDPV1_CVDPV3, CVDPV2, PREVIOUSLY_INFECTED }

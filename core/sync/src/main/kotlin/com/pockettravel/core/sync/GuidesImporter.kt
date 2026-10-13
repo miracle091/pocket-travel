@@ -3,6 +3,7 @@ package com.pockettravel.core.sync
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.withTransaction
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.db.DiplomaticMissionDao
 import com.pockettravel.core.data.db.DiplomaticMissionEntity
@@ -21,7 +22,7 @@ import com.pockettravel.core.data.db.VaccYfEntryEntity
 import com.pockettravel.core.data.db.VaccYfRiskEntity
 import com.pockettravel.core.data.db.VaccinationDao
 import com.pockettravel.core.data.guideCategoryOrNull
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
@@ -40,8 +41,9 @@ class GuidesImporter @Inject constructor(
     private val vaccinationDao: VaccinationDao,
     private val regionRepository: RegionRepository,
     private val database: RegionDatabase,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
-    suspend fun import(guidesDbFile: File, version: String) = withContext(Dispatchers.IO) {
+    suspend fun import(guidesDbFile: File, version: String) = withContext(ioDispatcher) {
         SQLiteDatabase.openDatabase(guidesDbFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
             val sections = readGuideSections(db)
             val emergencyNumbers = readEmergencyNumbers(db)

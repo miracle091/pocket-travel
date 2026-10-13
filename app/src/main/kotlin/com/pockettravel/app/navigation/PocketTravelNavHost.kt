@@ -131,7 +131,7 @@ fun PocketTravelNavHost(
     val (_, navigationViewModel) = navigatorViewModels()
     LaunchedEffect(navigationViewModel) {
         navigationViewModel.openNavigatorRequests.collect {
-            if (navigationViewModel.target.value != null && navController.currentDestination?.hasRoute<RegionHubRoute>() != true) {
+            if (navigationViewModel.isNavigating && navController.currentDestination?.hasRoute<RegionHubRoute>() != true) {
                 navController.navigateTopLevel(NavigatorRoute)
             }
         }
@@ -149,7 +149,7 @@ fun PocketTravelNavHost(
     // Dopo la regione iniziale, che altrimenti resterebbe in cima: i collector di openNavigatorRequests non c'erano ancora
     // quando l'activity ha letto l'intent, quindi qui si naviga direttamente (solo se una guida e' in corso).
     LaunchedEffect(Unit) {
-        if (openNavigatorOnStart && startDestination != OnboardingRoute && navigationViewModel.target.value != null) {
+        if (openNavigatorOnStart && startDestination != OnboardingRoute && navigationViewModel.isNavigating) {
             navController.navigateTopLevel(NavigatorRoute)
         }
     }
@@ -399,6 +399,10 @@ private fun NavHostController.navigateToOfficialSource(url: String) {
 // Transizioni M3 (durate "medium" della spec di motion). Le animazioni Compose rispettano da sole
 // l'impostazione di sistema "Rimuovi animazioni".
 private const val MOTION_MS = 300
+
+// Divisori di MOTION_MS per ritardi e durate delle dissolvenze.
+private const val QUARTER = 4
+private const val THIRD = 3
 private const val SHARED_AXIS_OFFSET_DP = 30
 
 private fun sharedAxisOffset(forward: Boolean): Int {
@@ -407,15 +411,15 @@ private fun sharedAxisOffset(forward: Boolean): Int {
 }
 
 private fun sharedAxisEnter(forward: Boolean): EnterTransition =
-    slideInHorizontally(tween(MOTION_MS)) { sharedAxisOffset(forward) } + fadeIn(tween(MOTION_MS / 2, delayMillis = MOTION_MS / 4))
+    slideInHorizontally(tween(MOTION_MS)) { sharedAxisOffset(forward) } + fadeIn(tween(MOTION_MS / 2, delayMillis = MOTION_MS / QUARTER))
 
 private fun sharedAxisExit(forward: Boolean): ExitTransition =
-    slideOutHorizontally(tween(MOTION_MS)) { -sharedAxisOffset(forward) } + fadeOut(tween(MOTION_MS / 4))
+    slideOutHorizontally(tween(MOTION_MS)) { -sharedAxisOffset(forward) } + fadeOut(tween(MOTION_MS / QUARTER))
 
 private fun fadeThroughEnter(): EnterTransition =
-    fadeIn(tween(MOTION_MS * 2 / 3, delayMillis = MOTION_MS / 3)) + scaleIn(tween(MOTION_MS * 2 / 3, delayMillis = MOTION_MS / 3), initialScale = 0.92f)
+    fadeIn(tween(MOTION_MS * 2 / THIRD, delayMillis = MOTION_MS / THIRD)) + scaleIn(tween(MOTION_MS * 2 / THIRD, delayMillis = MOTION_MS / THIRD), initialScale = 0.92f)
 
-private fun fadeThroughExit(): ExitTransition = fadeOut(tween(MOTION_MS / 3))
+private fun fadeThroughExit(): ExitTransition = fadeOut(tween(MOTION_MS / THIRD))
 
 // Destinazioni principali: "fade through" tra loro (cambio di sezione dalla barra), "shared axis"
 // verso e dalle schermate di dettaglio.

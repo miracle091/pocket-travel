@@ -236,10 +236,11 @@ class RegionStorage @Inject constructor(
         fun decodeAddressCells(text: String): Map<String, String> {
             val body = text.trim().removeSurrounding("{", "}")
             if (body.isBlank()) return emptyMap()
-            return body.split(",").associate { entry ->
-                val (key, value) = entry.split(":", limit = 2)
-                key.trim().trim('"') to value.trim().trim('"')
-            }
+            // Le voci senza ':' (file danneggiato) si saltano.
+            return body.split(",").mapNotNull { entry ->
+                val parts = entry.split(":", limit = 2)
+                if (parts.size < 2) null else parts[0].trim().trim('"') to parts[1].trim().trim('"')
+            }.toMap()
         }
     }
 

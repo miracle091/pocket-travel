@@ -1,11 +1,12 @@
 package com.pockettravel.core.sync
 
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.MapDetailPreferences
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.TransitFeedInfo
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -27,6 +28,7 @@ class RegionPackageInstaller @Inject constructor(
     private val cityImporter: CityImporter,
     private val addressGridInstaller: RegionAddressGridInstaller,
     private val mapDetailPreferences: MapDetailPreferences,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     suspend fun install(
         entry: RegionManifestEntry,
@@ -58,7 +60,7 @@ class RegionPackageInstaller @Inject constructor(
         }
         // Prima di tutto: un tentativo precedente interrotto da un crash puo' aver lasciato backup da
         // chiudere, che activatePackage sovrascriverebbe (RegionStartupRecovery salta le regioni in download).
-        withContext(Dispatchers.IO) { regionRepository.recoverInterruptedActivations(entry.regionId) }
+        withContext(ioDispatcher) { regionRepository.recoverInterruptedActivations(entry.regionId) }
         // Una cartella di staging per combinazione di pacchetti e versioni: un download interrotto
         // riprende dai file .part della stessa richiesta, una richiesta diversa riparte da zero. La rete stradale
         // "solo auto" ha la stessa versione e gli stessi nomi di quella completa: "car" li tiene separati.
@@ -75,14 +77,14 @@ class RegionPackageInstaller @Inject constructor(
             if (PackageKind.ADDRESSES in kinds) {
                 addressPlan!!.toDownload.forEach { unpackXz(staging, it.file, it.fileXz) }
                 // Le ricerche per cella restano compresse: mergeInto le tiene .xz e le decomprime solo per l'unione.
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                     addressGridInstaller.mergeInto(entry.regionId, entry.map.source, addressPlan, staging, ensureActive = { ensureActive() })
                 }
             }
             if (PackageKind.CITIES in kinds) unpackXz(staging, entry.cities!!.file, entry.cities.fileXz)
             if (PackageKind.TRANSIT in kinds) {
                 entry.transit!!.feeds.forEach { unpackXz(staging, it.stagedFile, it.stagedFileXz) }
-                withContext(Dispatchers.IO) { assembleTransitDir(staging, entry.transit.feeds) }
+                withContext(ioDispatcher) { assembleTransitDir(staging, entry.transit.feeds) }
             }
             if (installPreview) unpackXz(staging, entry.preview.file, entry.preview.fileXz)
 
@@ -98,7 +100,7 @@ class RegionPackageInstaller @Inject constructor(
                 val light = mapDetailPreferences.choice(entry.regionId)
                     ?: (!installedMap.isFile || entry.regionId in mapDetailPreferences.installedLight.value)
                 val detail = if (light) MapDetail.LIGHT else MapDetail.FULL
-                val stats = withContext(Dispatchers.IO) {
+                val stats = withContext(ioDispatcher) {
                     pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE), installedMap, detail, onMapProgress) { ensureActive() }
                 }
                 extractedLight = stats.maxZoom < entry.map.source.maxZoom

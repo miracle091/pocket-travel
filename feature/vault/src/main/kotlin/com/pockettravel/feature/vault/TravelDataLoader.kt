@@ -2,6 +2,7 @@ package com.pockettravel.feature.vault
 
 import android.content.Context
 import android.content.res.AssetManager
+import java.io.FileNotFoundException
 import java.util.zip.GZIPInputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,11 +18,19 @@ internal object TravelDataLoader {
     suspend fun load(context: Context): TravelData = cached ?: withContext(Dispatchers.IO) {
         val assets = context.applicationContext.assets
         TravelData(
-            airports = SuggestionIndex(parseAirports(readLines(assets, "airports.tsv.gz"))),
-            airlines = SuggestionIndex(parseAirlines(readLines(assets, "airlines.tsv.gz"))),
+            airports = SuggestionIndex(parseAirports(readLines(assets, "airports.tsv"))),
+            airlines = SuggestionIndex(parseAirlines(readLines(assets, "airlines.tsv"))),
         ).also { cached = it }
     }
 
-    private fun readLines(assets: AssetManager, name: String): List<String> =
-        GZIPInputStream(assets.open(name)).bufferedReader(Charsets.UTF_8).use { it.readLines() }
+    // Nel sorgente gli asset sono `<name>.gz`, ma il plugin Android li decomprime e toglie l'estensione:
+    // nell'APK c'e' `<name>` in chiaro. Il `.gz` resta come alternativa, se il plugin smette di farlo.
+    private fun readLines(assets: AssetManager, name: String): List<String> {
+        val stream = try {
+            assets.open(name)
+        } catch (_: FileNotFoundException) {
+            GZIPInputStream(assets.open("$name.gz"))
+        }
+        return stream.bufferedReader(Charsets.UTF_8).use { it.readLines() }
+    }
 }

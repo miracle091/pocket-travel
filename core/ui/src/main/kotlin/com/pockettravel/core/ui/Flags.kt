@@ -283,10 +283,13 @@ fun flagRes(countryCode: String): Int? = when (countryCode.lowercase()) {
 fun flagCropAlignment(countryCode: String): Alignment = when (countryCode.uppercase()) {
     "AW", "BY", "CD", "CF", "CL", "CN", "CU", "CW", "DJ", "ER", "ES", "GR", "GW", "JO", "KM", "LI", "LR", "MH", "MN", "MY", "MZ", "NA", "NR", "NU", "OM", "PH", "PR", "PS", "RS", "SB", "SC", "SD", "SG", "SI", "SK", "SS", "SX", "TG", "TK", "TL", "TM", "TO", "TW", "UY", "UZ", "VU", "WS", "ZW" -> Alignment.CenterStart
     "AI", "AS", "AU", "BM", "CK", "FJ", "FK", "GS", "HM", "IO", "KY", "MS", "NZ", "PK", "PN", "RW", "TC", "TF", "TV", "VG", "ZM" -> Alignment.CenterEnd
-    "BH", "CV", "EH", "GL", "GQ", "KP", "PT", "QA", "ST", "UM", "US" -> BiasAlignment(-0.5f, 0f)
-    "BT", "CC" -> BiasAlignment(0.5f, 0f)
+    "BH", "CV", "EH", "GL", "GQ", "KP", "PT", "QA", "ST", "UM", "US" -> BiasAlignment(-FLAG_CROP_SIDE_BIAS, 0f)
+    "BT", "CC" -> BiasAlignment(FLAG_CROP_SIDE_BIAS, 0f)
     else -> Alignment.Center
 }
+
+// Spostamento orizzontale a meta' tra il centro e il bordo.
+private const val FLAG_CROP_SIDE_BIAS = 0.5f
 
 // Bandiera ritagliata in un cerchio con un bordo sottile (le bandiere chiare restano leggibili sullo
 // sfondo); [fallback] se il codice manca o non ha una bandiera.

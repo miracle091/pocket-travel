@@ -42,7 +42,7 @@ class RegionPackageDownloaderTest {
             regionsDir = File(root, "regions").apply { mkdirs() },
             stagingDir = File(root, "staging").apply { mkdirs() },
         )
-        downloader = RegionPackageDownloader(OkHttpClient(), regionStorage)
+        downloader = RegionPackageDownloader(OkHttpClient(), regionStorage, Dispatchers.IO)
     }
 
     @After

@@ -80,7 +80,7 @@ internal fun MissingRoutingCard(
             }
             if (downloadProgress != null) {
                 Text(
-                    stringResource(R.string.navigation_routing_progress_all, (downloadProgress * 100).toInt()),
+                    stringResource(R.string.navigation_routing_progress_all, (downloadProgress * PERCENT_SCALE).toInt()),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = Spacing.m),
                 )
@@ -89,3 +89,5 @@ internal fun MissingRoutingCard(
         }
     }
 }
+
+private const val PERCENT_SCALE = 100

@@ -92,6 +92,11 @@ import java.util.Locale
 private const val PICK_DEPARTURE = -1
 private const val PICK_RECENT = -2
 
+// Freccia girata quando la sezione e' aperta.
+private const val HALF_TURN_DEGREES = 180f
+private const val STOPOVER_HOURS_MAX_DIGITS = 3
+private val CHILD_MONTHS_RANGE = 0..11
+
 // Pagine dei servizi citati nelle voci, per le sigle usate nei dati (vaccinationSourceName).
 private fun vaccinationSourceUrl(code: String): String? = when (code) {
     "F3" -> "https://www.who.int/groups/poliovirus-ihr-emergency-committee"
@@ -357,7 +362,7 @@ private fun RouteCard(state: VaccinationUiState, actions: VaccinationActions, on
                 Icon(
                     imageVector = AppIcons.ExpandMore,
                     contentDescription = stringResource(if (previousExpanded) R.string.vacc_previous_collapse else R.string.vacc_previous_expand),
-                    modifier = Modifier.rotate(if (previousExpanded) 180f else 0f),
+                    modifier = Modifier.rotate(if (previousExpanded) HALF_TURN_DEGREES else 0f),
                 )
             }
             AnimatedVisibility(visible = previousExpanded) {
@@ -460,7 +465,7 @@ private fun StopoverEditor(
         ) {
             OutlinedTextField(
                 value = stopover.hours?.toString().orEmpty(),
-                onValueChange = { text -> onChange { it.copy(hours = text.filter(Char::isDigit).take(3).toIntOrNull(), overTwelveHours = false) } },
+                onValueChange = { text -> onChange { it.copy(hours = text.filter(Char::isDigit).take(STOPOVER_HOURS_MAX_DIGITS).toIntOrNull(), overTwelveHours = false) } },
                 label = { Text(stringResource(R.string.vacc_stopover_hours)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -485,12 +490,12 @@ private fun StopoverEditor(
 private fun ChildMonthsField(months: Int?, onChange: (Int?) -> Unit) {
     // Il testo resta quello digitato anche se non e' valido (0-11): al motore va solo un valore valido.
     var text by rememberSaveable { mutableStateOf(months?.toString().orEmpty()) }
-    val valid = text.isEmpty() || text.toIntOrNull()?.let { it in 0..11 } == true
+    val valid = text.isEmpty() || text.toIntOrNull()?.let { it in CHILD_MONTHS_RANGE } == true
     OutlinedTextField(
         value = text,
         onValueChange = { input ->
             text = input.filter(Char::isDigit).take(2)
-            onChange(text.toIntOrNull()?.takeIf { it in 0..11 })
+            onChange(text.toIntOrNull()?.takeIf { it in CHILD_MONTHS_RANGE })
         },
         label = { Text(stringResource(R.string.vacc_child_months)) },
         isError = !valid,

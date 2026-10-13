@@ -4,11 +4,19 @@ FtsRanking.kt) su un database FTS4 in memoria, senza rete.
 
 Uso: python test_eval_retrieval.py
 """
+import contextlib
+import gc
+import io
+import json
+import lzma
+import random
 import re
 import sqlite3
 import tempfile
 import unittest
+from collections import Counter
 from pathlib import Path
+from unittest import mock
 
 import eval_retrieval as ev
 
@@ -236,6 +244,146 @@ class SearchTest(unittest.TestCase):
         info = ev.parse_matchinfo(blob)
         self.assertEqual((info["p"], info["c"], info["n"]), (1, 2, 3))
         self.assertEqual(info["docs"][0][1], 3)
+
+
+
+class DownloadTest(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.dir = Path(tmp.name)
+
+    def test_scarica_una_volta_finche_l_url_non_cambia(self):
+        out = self.dir / "guides.db"
+        with mock.patch.object(ev, "fetch", return_value=b"dati-v1") as fetch:
+            ev.download("https://x/guides-v1.db", out)
+            ev.download("https://x/guides-v1.db", out)
+            self.assertEqual(1, fetch.call_count)
+            self.assertEqual(b"dati-v1", out.read_bytes())
+        with mock.patch.object(ev, "fetch", return_value=b"dati-v2") as fetch:
+            ev.download("https://x/guides-v2.db", out)   # la versione pubblicata e' cambiata
+            self.assertEqual(1, fetch.call_count)
+        self.assertEqual(b"dati-v2", out.read_bytes())
+        self.assertEqual("https://x/guides-v2.db", out.with_name("guides.db.url").read_text(encoding="utf-8"))
+        self.assertFalse(out.with_name("guides.db.part").exists())
+
+    def test_file_xz_decompresso(self):
+        out = self.dir / "guides.db"
+        with mock.patch.object(ev, "fetch", return_value=lzma.compress("città".encode("utf-8"))):
+            ev.download("https://x/guides.db.xz", out)
+        self.assertEqual("città", out.read_text(encoding="utf-8"))
+
+    def test_file_scomparso_si_riscarica_anche_con_lo_stesso_url(self):
+        out = self.dir / "guides.db"
+        with mock.patch.object(ev, "fetch", return_value=b"x") as fetch:
+            ev.download("https://x/a.db", out)
+            out.unlink()
+            ev.download("https://x/a.db", out)
+        self.assertEqual(2, fetch.call_count)
+
+    def test_download_interrotto_non_lascia_il_file(self):
+        out = self.dir / "guides.db"
+        with mock.patch.object(ev, "fetch", return_value=b"not lzma"):
+            with self.assertRaises(lzma.LZMAError):
+                ev.download("https://x/guides.db.xz", out)
+        self.assertFalse(out.exists())
+        self.assertFalse(out.with_name("guides.db.url").exists())
+
+
+def make_cities_db(path, rows):
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE city_sections (city TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT)")
+    con.executemany("INSERT INTO city_sections VALUES (?, ?, ?, ?, ?)", rows)
+    con.commit()
+    con.close()
+
+
+class CityRowsTest(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.addCleanup(gc.collect)  # city_rows_of lascia le connessioni sqlite ad aprirsi da sole: su Windows bloccano la cartella
+        self.cache = Path(tmp.name)
+        make_cities_db(self.cache / "italia.cities.db", [
+            ("Roma", "COSA_VEDERE", "Vedere", "Colosseo.", "u1"), ("Roma", "STORIA", "Storia", "Fondata nel 753.", "u2"),
+            ("Pisa", "TRASPORTI", "Trasporti", "Aeroporto.", "u3")])
+        make_cities_db(self.cache / "italia.wp.db", [("Roma", "CLIMA", "Clima", "Mite.", "u4"), ("Sconosciuta", "CLIMA", "Clima", "x", "u5")])
+        make_cities_db(self.cache / "italia.cities-en.db", [("Rome", "SEE", "See", "Colosseum.", "u6")])
+
+    def test_senza_wikipedia_toglie_storia_e_clima(self):
+        rows = ev.city_rows_of(self.cache, "italia", False)
+        self.assertEqual({("Roma", "COSA_VEDERE"), ("Pisa", "TRASPORTI")}, {r[:2] for r in rows})
+
+    def test_con_wikipedia_aggiunge_il_db_wp_solo_per_citta_note_dopo_wikivoyage(self):
+        rows = ev.city_rows_of(self.cache, "italia", True)
+        self.assertEqual([("Roma", "COSA_VEDERE"), ("Roma", "STORIA"), ("Roma", "CLIMA"), ("Pisa", "TRASPORTI")], [r[:2] for r in rows])
+
+    def test_suffisso_della_lingua(self):
+        self.assertEqual([("Rome", "SEE")], [r[:2] for r in ev.city_rows_of(self.cache, "italia", False, "en")])
+
+
+class PlanTest(unittest.TestCase):
+    def test_distanze_tra_citta_della_regione(self):
+        rows = [("Firenze", "TRASPORTI", "t", "Da Firenze a Bologna sono 100 km.\nPaese senza cifre verso Bologna.", "u"),
+                ("Firenze", "COSA_VEDERE", "v", "Da Firenze a Siena 70 km.", "u"),     # solo TRASPORTI conta
+                ("Bologna", "TRASPORTI", "t", "Bologna dista 3 ore da Firenze e 50 minuti da Roma.", "u"),
+                ("Siena", "TRASPORTI", "t", "Siena e' a 5 minuti.", "u"),
+                ("Roma", "TRASPORTI", "t", "A Roma ci sono 10 km di metro.", "u"),     # nome di 4 lettere: escluso
+                ("San Gimignano", "TRASPORTI", "t", "Da Firenze 60 km.", "u")]            # nome con spazio: escluso
+        pairs = ev.distance_pairs(rows)
+        self.assertEqual([("Bologna", "Firenze", "Bologna dista 3 ore da Firenze e 50 minuti da Roma."),
+                          ("Firenze", "Bologna", "Da Firenze a Bologna sono 100 km.")], pairs)
+
+    def test_distanze_senza_dati(self):
+        self.assertEqual([], ev.distance_pairs([]))
+
+    def test_questions_of_per_serie(self):
+        self.assertIs(ev.LANGS["it"]["questions"], ev.questions_of("it", "direct"))
+        self.assertIs(ev.LANGS["it"]["reworded"], ev.questions_of("it", "reworded"))
+        # guide in una lingua, domande nell'altra
+        self.assertIs(ev.LANGS["en"]["questions"], ev.questions_of("it", "other-lang"))
+        self.assertIs(ev.LANGS["it"]["questions"], ev.questions_of("en", "other-lang"))
+
+    def test_piano_deterministico_con_i_semi_e_domande_solo_per_le_categorie_presenti(self):
+        questions = ({"COSA_VEDERE": ["Cosa vedere a {c}?"], "TRASPORTI": ["Come muoversi a {c}?"], "ALLOGGIO": ["Dove dormire a {c}?"]},
+                     {"STORIA": ["Storia di {c}?"], "CLIMA": ["Clima a {c}?"]}, {"CIBO_BEVANDE": ["Cosa mangiare?"]}, ["Quanto da {c} a {o}?"])
+        rows = [(c, cat, "t", "Testo.", "u") for c in ("Verona (Veneto)", "Padova") for cat in ("COSA_VEDERE", "TRASPORTI", "STORIA")]
+        rows.append(("Isolata", "COSA_VEDERE", "t", "Testo.", "u"))   # senza TRASPORTI: non e' una citta' ammissibile
+
+        def plan():
+            return ev.make_plan("veneto", rows, random.Random(7), random.Random(8), questions)
+
+        first = plan()
+        self.assertEqual(first, plan())
+        kinds = Counter(p[0] for p in first)
+        self.assertEqual({ev.KINDS[0]: 4, ev.KINDS[2]: 2, ev.KINDS[1]: 1}, dict(kinds))   # ALLOGGIO e CLIMA mancano
+        self.assertNotIn("Isolata", {p[2] for p in first})
+        self.assertIn("Cosa vedere a Verona?", [p[3] for p in first])   # senza il disambiguatore
+        self.assertTrue(all(p[4] is None for p in first))
+
+
+class WriteContextsTest(unittest.TestCase):
+    ROWS = [{"kind": "a", "question": f"A{i}"} for i in range(6)] + [{"kind": "b", "question": f"B{i}"} for i in range(2)]
+
+    def write(self, sample, rows=None):
+        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+            path = Path(tmp) / "c.jsonl"
+            ev.write_contexts(path, rows or self.ROWS, sample)
+            return path.read_text(encoding="utf-8")
+
+    def test_tutte_le_righe_senza_campione(self):
+        self.assertEqual(self.ROWS, [json.loads(l) for l in self.write(0).splitlines()])
+
+    def test_campione_per_tipo_riproducibile_e_nell_ordine_originale(self):
+        first = [json.loads(l) for l in self.write(3).splitlines()]
+        self.assertEqual(first, [json.loads(l) for l in self.write(3).splitlines()])
+        self.assertEqual(3, sum(r["kind"] == "a" for r in first))
+        self.assertEqual(2, sum(r["kind"] == "b" for r in first))     # meno righe del campione: tutte
+        numbers = [int(r["question"][1:]) for r in first if r["kind"] == "a"]
+        self.assertEqual(sorted(numbers), numbers)
+
+    def test_unicode_non_escapato(self):
+        self.assertIn("città", self.write(0, [{"kind": "a", "question": "Qual è la città?"}]))
 
 
 if __name__ == "__main__":

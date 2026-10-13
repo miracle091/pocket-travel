@@ -1,4 +1,4 @@
-// Adattato da examples/llama.android (com.arm.aichat) di ggml-org/llama.cpp, git tag v0.5.0:
+// Adattato da examples/llama.android (com.arm.aichat) di ggml-org/llama.cpp, git tag v0.6.0:
 // i simboli JNI sono rinominati per il package com.pockettravel.feature.ai.llamacpp.internal, e la logica e' cambiata
 // (troncamento e scorrimento del contesto, UTF-16, grammatica, varianti della CPU).
 #include <android/log.h>
@@ -36,7 +36,7 @@ constexpr float DEFAULT_SAMPLER_TEMP    = 0.3f;
 
 static llama_model                      * g_model;
 static llama_context                    * g_context;
-static llama_batch                        g_batch;
+static common_batch                       g_batch;
 static common_chat_templates_ptr          g_chat_templates;
 static bool                               g_chat_template_supports_thinking;
 static common_sampler                   * g_sampler;
@@ -202,7 +202,7 @@ static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads) {
     auto *context = init_context(g_model, n_threads > 0 ? n_threads : DEFAULT_N_THREADS);
     if (!context) { return 1; }
     g_context = context;
-    g_batch = llama_batch_init(BATCH_SIZE, 0, 1);
+    g_batch = common_batch(context);
     g_chat_templates = common_chat_templates_init(g_model, "");
     // Blocco <think> vuoto (chat_add_and_format) solo se il template del GGUF ha la variabile enable_thinking
     // (Qwen3.5): e' la stessa regola del training, che applica il template con enable_thinking=False, e degli
@@ -328,9 +328,9 @@ static void close_assistant_turn(const bool decode_end_token) {
         llama_token end_token = llama_vocab_eot(vocab);
         if (end_token == LLAMA_TOKEN_NULL) end_token = llama_vocab_eos(vocab);
         if (end_token != LLAMA_TOKEN_NULL) {
-            common_batch_clear(g_batch);
-            common_batch_add(g_batch, end_token, current_position, {0}, false);
-            if (llama_decode(g_context, g_batch) != 0) {
+            g_batch.clear();
+            g_batch.add(end_token, current_position, 0, false);
+            if (llama_process(g_context, LLAMA_PROCESS_TYPE_DECODE, g_batch.get()) != 0) {
                 LOGe("%s: llama_decode() failed for end-of-turn token", __func__);
                 throw std::runtime_error("llama_decode() failed for end-of-turn token");
             }
@@ -355,7 +355,7 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_resetConv
 
 static int decode_tokens_in_batches(
         llama_context *context,
-        llama_batch &batch,
+        common_batch &batch,
         const llama_tokens &tokens,
         llama_pos start_pos,
         const bool compute_last_logit = false) {
@@ -363,7 +363,7 @@ static int decode_tokens_in_batches(
     LOGd("%s: Decode %d tokens starting at position %d", __func__, (int) tokens.size(), start_pos);
     for (int i = 0; i < (int) tokens.size(); i += BATCH_SIZE) {
         const int cur_batch_size = std::min((int) tokens.size() - i, BATCH_SIZE);
-        common_batch_clear(batch);
+        batch.clear();
         LOGv("%s: Preparing a batch size of %d starting at: %d", __func__, cur_batch_size, i);
 
         // Shift context if current batch cannot fit into the context
@@ -390,11 +390,11 @@ static int decode_tokens_in_batches(
             const llama_token token_id = tokens[i + j];
             const llama_pos position = start_pos + i + j;
             const bool want_logit = compute_last_logit && (i + j == tokens.size() - 1);
-            common_batch_add(batch, token_id, position, {0}, want_logit);
+            batch.add(token_id, position, 0, want_logit);
         }
 
         // Decode this batch
-        const int decode_result = llama_decode(context, batch);
+        const int decode_result = llama_process(context, LLAMA_PROCESS_TYPE_DECODE, batch.get());
         if (decode_result) {
             LOGe("%s: llama_decode failed w/ %d", __func__, decode_result);
             return 1;
@@ -666,9 +666,9 @@ static jstring generate_next_token_impl(JNIEnv *env) {
     common_sampler_accept(g_sampler, new_token_id, true);
 
     // Populate the batch with new token, then decode
-    common_batch_clear(g_batch);
-    common_batch_add(g_batch, new_token_id, current_position, {0}, true);
-    if (llama_decode(g_context, g_batch) != 0) {
+    g_batch.clear();
+    g_batch.add(new_token_id, current_position, 0, true);
+    if (llama_process(g_context, LLAMA_PROCESS_TYPE_DECODE, g_batch.get()) != 0) {
         // Non un fine generazione: nullptr verrebbe letto da Kotlin come EOG (risposta troncata senza
         // errore). L'eccezione arriva a generateNextToken, che la rilancia a Java.
         LOGe("%s: llama_decode() failed for generated token", __func__);
@@ -804,8 +804,7 @@ static void unload_impl() {
     common_sampler_free(g_sampler);
     g_sampler = nullptr;
     g_chat_templates.reset();
-    llama_batch_free(g_batch);
-    g_batch = {};
+    g_batch = common_batch();
     llama_free(g_context);
     g_context = nullptr;
     llama_model_free(g_model);

@@ -7,6 +7,7 @@ import btools.router.RoutingParamCollector
 import btools.router.TurnInstructions
 import com.pockettravel.core.data.Rd5Merger
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
@@ -33,6 +34,7 @@ class BRouterRouteEngine(
     private val profileDir: File,
     private val profileName: String = "trekking",
     private val maxRunningTimeMillis: Long = 60_000,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : RouteEngine {
 
     override suspend fun route(
@@ -43,7 +45,7 @@ class BRouterRouteEngine(
         onProgress: (Double) -> Unit,
     ): RouteResult {
         // Con la cartella dei segmenti uniti (Rd5Merger) le tile possono stare solo nella cartella secondaria.
-        val noSegments = withContext(Dispatchers.IO) {
+        val noSegments = withContext(ioDispatcher) {
             segmentDir.listFiles { file -> file.extension == "rd5" || file.name == Rd5Merger.STORAGE_CONFIG_FILE }.isNullOrEmpty()
         }
         if (noSegments) return RouteResult.NoRoutingData
@@ -67,7 +69,11 @@ class BRouterRouteEngine(
             }
             try {
                 // Calcolo bloccante di minuti (anche in auto): su IO, per non occupare i thread di Default.
-                runInterruptible(Dispatchers.IO) { compute(from, to, profile ?: profileName, profileParams, running) }
+                runInterruptible(ioDispatcher) { compute(from, to, profile ?: profileName, profileParams, running) }
+            } catch (error: IllegalArgumentException) {
+                // BRouter la lancia, fuori da doRun, per un profilo .brf mancante o una variabile del profilo non valida:
+                // diventa un errore del motore invece di arrivare fino al ViewModel.
+                RouteResult.Failed(error.message ?: error.javaClass.simpleName)
             } finally {
                 stopper.cancel()
                 progressPoller.cancel()
@@ -128,11 +134,14 @@ class BRouterRouteEngine(
         // annullato mentre aspetta (l'assistente IA al suo tempo massimo, col Navigatore che calcola) smette subito.
         private val BROUTER_RUNTIME_LOCK = ReentrantLock()
         private const val PROGRESS_INTERVAL_MILLIS = 250L
+        private const val FIXED_POINT_SCALE = 1_000_000.0
+        private const val LAT_OFFSET_DEGREES = 90.0
+        private const val LON_OFFSET_DEGREES = 180.0
 
         // Formato punto fisso di BRouter per lat/lon (verificato in RoutingParamCollector:
         // "ilon = (lon + 180) * 1_000_000", "ilat = (lat + 90) * 1_000_000") — inverso qui.
-        fun ilatToLat(ilat: Int) = ilat / 1_000_000.0 - 90.0
-        fun ilonToLon(ilon: Int) = ilon / 1_000_000.0 - 180.0
+        fun ilatToLat(ilat: Int) = ilat / FIXED_POINT_SCALE - LAT_OFFSET_DEGREES
+        fun ilonToLon(ilon: Int) = ilon / FIXED_POINT_SCALE - LON_OFFSET_DEGREES
 
         fun OsmTrack.toRoute(): Route {
             val turns = TurnInstructions.of(this).mapNotNull { turn ->

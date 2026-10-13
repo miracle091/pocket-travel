@@ -1,6 +1,5 @@
 package com.pockettravel.app.regions
 
-import androidx.annotation.StringRes
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
@@ -59,22 +58,12 @@ import com.pockettravel.feature.map.NavigationPlace
 import com.pockettravel.feature.map.RouteProfile
 import com.pockettravel.core.ui.R as UiR
 
-private enum class RegionTab(val key: String, @StringRes val label: Int) {
-    GUIDE("guide", R.string.nav_guide),
-    MAP("map", R.string.nav_map),
-    NAVIGATION("navigation", R.string.nav_navigation),
-    AI("ai", R.string.nav_assistant),
-    ;
-
-    companion object {
-        fun fromKey(key: String): RegionTab = entries.firstOrNull { it.key == key } ?: GUIDE
-    }
-}
-
 // Guida/Mappa/Navigatore/IA sono viste sorelle della stessa regione, senza bisogno di un proprio
 // back-stack indipendente: la scheda selezionata e' stato locale (rememberSaveable), non un nested
 // NavHost — un nested graph qui sarebbe un'astrazione non necessaria per quattro viste che condividono
 // la stessa "torna alla lista regioni".
+private const val TAB_CROSSFADE_MS = 250
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegionHubScreen(
@@ -89,11 +78,12 @@ fun RegionHubScreen(
     viewModel: RegionHubViewModel = hiltViewModel(),
 ) {
     var selectedTab by rememberSaveable(regionId) { mutableStateOf(RegionTab.fromKey(initialTab)) }
-    val displayName by viewModel.displayName.collectAsStateWithLifecycle()
-    val splitCountry by viewModel.splitCountry.collectAsStateWithLifecycle()
-    val regionMissing by viewModel.regionMissing.collectAsStateWithLifecycle()
-    val mapState by viewModel.mapState.collectAsStateWithLifecycle()
-    val aiAvailable by viewModel.aiAvailable.collectAsStateWithLifecycle()
+    val hubState by viewModel.uiState.collectAsStateWithLifecycle()
+    val displayName = hubState.displayName
+    val splitCountry = hubState.splitCountry
+    val regionMissing = hubState.regionMissing
+    val mapState = hubState.mapState
+    val aiAvailable = hubState.aiAvailable
     val uiLanguage = LocalLocale.current.platformLocale.language
     LaunchedEffect(uiLanguage) { viewModel.refreshAiAvailability() }
     // Scheda IA salvata (o richiesta con tab=ai) ma non disponibile, o diventata tale (modello o chiave
@@ -107,7 +97,7 @@ fun RegionHubScreen(
     val (plannerViewModel, navigationViewModel) = navigatorViewModels()
     LaunchedEffect(navigationViewModel) {
         navigationViewModel.openNavigatorRequests.collect {
-            if (navigationViewModel.target.value != null) selectedTab = RegionTab.NAVIGATION
+            if (navigationViewModel.isNavigating) selectedTab = RegionTab.NAVIGATION
         }
     }
     LaunchedEffect(regionMissing) { if (regionMissing) onBack() }
@@ -163,7 +153,7 @@ fun RegionHubScreen(
             ) {
                 // Motion M3 "fade through" tra le schede sorelle.
                 // SaveableStateProvider: lasciando una scheda se ne conserva lo stato (la camera della Mappa).
-                Crossfade(targetState = currentTab, animationSpec = tween(250), label = "regionTab") { tab ->
+                Crossfade(targetState = currentTab, animationSpec = tween(TAB_CROSSFADE_MS), label = "regionTab") { tab ->
                 tabStateHolder.SaveableStateProvider(tab.key) {
                 when (tab) {
                     RegionTab.GUIDE -> Box(modifier = Modifier.statusBarsPadding()) { GuideScreen(regionId = regionId, onOpenSource = onOpenSource, onBack = onBackTap) }
@@ -175,20 +165,11 @@ fun RegionHubScreen(
                         LaunchedEffect(regionId) { mapViewModel.loadPins(regionId) }
                         // La mappa completa e' appena finita di scaricare: MapRouteViewModel non se
                         // ne accorgerebbe da solo (non osserva il file system).
-                        val mapSource by mapViewModel.mapSource.collectAsStateWithLifecycle()
-                        val knownSource = mapSource
+                        val mapScreen by mapViewModel.uiState.collectAsStateWithLifecycle()
+                        val knownSource = mapScreen.mapSource
                         // Stato della mappa o sorgente non ancora noti: nessun contenuto finche' non arrivano
                         // (altrimenti la barra "Scarica la mappa" lampeggerebbe).
                         if (mapState != RegionMapState.LOADING && knownSource != null) {
-                            val pins by mapViewModel.pins.collectAsStateWithLifecycle()
-                            val hiddenCategories by mapViewModel.hiddenCategories.collectAsStateWithLifecycle()
-                            // Categorie dell'area inquadrata, filtrate comprese: i segnalini non contengono quelle nascoste.
-                            val presentCategories by mapViewModel.presentCategories.collectAsStateWithLifecycle()
-                            val accessible by mapViewModel.accessible.collectAsStateWithLifecycle()
-                            val onlyAccessible by mapViewModel.onlyAccessible.collectAsStateWithLifecycle()
-                            val transitState by viewModel.transitState.collectAsStateWithLifecycle()
-                            val transitBoard by mapViewModel.transitBoard.collectAsStateWithLifecycle()
-                            val transitUpdateResult by viewModel.transitUpdateResult.collectAsStateWithLifecycle()
                             val sourceKind = knownSource.kind
                             val language = LocalLocale.current.platformLocale.language
                             Column(modifier = Modifier.fillMaxSize()) {
@@ -197,12 +178,13 @@ fun RegionHubScreen(
                                         tileSource = mapViewModel.tileSource,
                                         regionId = regionId,
                                         mapSource = knownSource,
-                                        pins = pins,
-                                        hiddenCategories = hiddenCategories,
-                                        areaCategories = presentCategories,
+                                        pins = mapScreen.pins,
+                                        hiddenCategories = mapScreen.hiddenCategories,
+                                        // Categorie dell'area inquadrata, filtrate comprese: i segnalini non contengono quelle nascoste.
+                                        areaCategories = mapScreen.presentCategories,
                                         onHiddenCategoriesChange = mapViewModel::setHiddenCategories,
-                                        hideInaccessible = accessible,
-                                        onlyAccessible = onlyAccessible,
+                                        hideInaccessible = mapScreen.accessible,
+                                        onlyAccessible = mapScreen.onlyAccessible,
                                         onOnlyAccessibleChange = mapViewModel::setOnlyAccessible,
                                         // Prima il percorso nella scheda Navigatore (partenza, mezzo, anteprima), poi "Avvia".
                                         onNavigate = { pin ->
@@ -210,9 +192,9 @@ fun RegionHubScreen(
                                             plannerViewModel.setDestination(NavigationPlace(name, pin.latitude, pin.longitude, regionId))
                                             selectedTab = RegionTab.NAVIGATION
                                         },
-                                        transitPackage = transitState,
-                                        transitBoard = transitBoard,
-                                        transitUpdateResult = transitUpdateResult,
+                                        transitPackage = hubState.transitState,
+                                        transitBoard = mapScreen.transitBoard,
+                                        transitUpdateResult = hubState.transitUpdateResult,
                                         onDownloadTransit = viewModel::downloadTransit,
                                         onTransitStopChange = mapViewModel::showDepartures,
                                         onViewportChange = mapViewModel::setViewport,

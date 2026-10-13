@@ -35,6 +35,9 @@ private val COMBINING_MARKS = Regex("\\p{M}+")
 // Solo cifre decimali (Nd), come Character.isLetterOrDigit della pipeline: le chiavi devono coincidere.
 private val NON_ALPHANUMERIC = Regex("[^\\p{L}\\p{Nd}]+")
 
+// Spazi ASCII e Unicode (\p{Z}: anche U+00A0, U+2007, U+202F), come in streetKey.
+private val WORD_SEPARATOR = Regex("[\\s\\p{Z}]+")
+
 // 12, 12a, 12/3, 12-14, 12a/3b: cifre con al piu' una lettera, ripetibili dopo / o -.
 private val HOUSE_NUMBER = Regex("\\d+\\p{L}?(?:[/-]\\d+\\p{L}?)?")
 
@@ -44,7 +47,7 @@ private val HOUSE_NUMBER = Regex("\\d+\\p{L}?(?:[/-]\\d+\\p{L}?)?")
  * ("12" cerca le vie che iniziano per 12), e senza civico si cercano comunque le vie.
  */
 fun parseAddressQuery(text: String): AddressQuery {
-    val words = text.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    val words = text.trim().split(WORD_SEPARATOR).filter { it.isNotEmpty() }
     if (words.size >= 2) {
         if (HOUSE_NUMBER.matches(words.last())) return AddressQuery(words.dropLast(1).joinToString(" "), words.last())
         if (HOUSE_NUMBER.matches(words.first())) return AddressQuery(words.drop(1).joinToString(" "), words.first())
@@ -67,6 +70,8 @@ internal const val ADDRESS_SEARCH_DB_FORMAT = 2
 
 /** Origine in microgradi del database: lat = (latE6 + dlat) / 1e6, come lon. */
 internal class AddressOrigin(val latE6: Long, val lonE6: Long)
+
+private const val MICRODEGREES_PER_DEGREE = 1e6
 
 /** L'origine del database, null se il formato non e' [ADDRESS_SEARCH_DB_FORMAT] o la meta e' incompleta. */
 internal fun readAddressOrigin(db: AddressQueryRunner): AddressOrigin? {
@@ -134,7 +139,7 @@ internal fun searchAddressDb(db: AddressQueryRunner, origin: AddressOrigin, regi
 }
 
 private fun result(origin: AddressOrigin, regionId: String, street: FoundStreet, number: String?, delta: Pair<Long, Long>) =
-    AddressResult(regionId, street.name, number, street.city, (origin.latE6 + delta.first) / 1e6, (origin.lonE6 + delta.second) / 1e6)
+    AddressResult(regionId, street.name, number, street.city, (origin.latE6 + delta.first) / MICRODEGREES_PER_DEGREE, (origin.lonE6 + delta.second) / MICRODEGREES_PER_DEGREE)
 
 // Scarti di tutti i civici della via: quello piu' vicino alla mediana di latitudine e longitudine
 // (la mediana da sola puo' cadere fuori dalla via se questa e' curva). null per una via senza indirizzi.

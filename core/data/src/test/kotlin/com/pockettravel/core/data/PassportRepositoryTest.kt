@@ -2,17 +2,23 @@ package com.pockettravel.core.data
 
 import com.pockettravel.core.data.db.PassportDao
 import com.pockettravel.core.data.db.PassportEntity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.security.SecureRandom
+import kotlin.coroutines.ContinuationInterceptor
 import kotlin.io.path.createTempDirectory
 
 /** In-memory, nessun vero database Room: stesso pattern di FakeInstalledRegionDao in
@@ -20,6 +26,7 @@ import kotlin.io.path.createTempDirectory
 private class FakePassportDao : PassportDao {
     private val entities = linkedMapOf<String, PassportEntity>()
     private val flow = MutableStateFlow<List<PassportEntity>>(emptyList())
+    var deleteAllInterceptor: ContinuationInterceptor? = null
 
     override suspend fun upsert(passport: PassportEntity) {
         entities[passport.id] = passport
@@ -36,6 +43,7 @@ private class FakePassportDao : PassportDao {
     }
 
     override suspend fun deleteAll() {
+        deleteAllInterceptor = currentCoroutineContext()[ContinuationInterceptor]
         entities.clear()
         flow.value = emptyList()
     }
@@ -45,7 +53,7 @@ class PassportRepositoryTest {
 
     private fun newRepository(): Pair<PassportRepository, PassportPhotoStore> {
         val photoStore = PassportPhotoStore(createTempDirectory("passport-repository-test").toFile())
-        val repository = PassportRepository(FakePassportDao(), photoStore)
+        val repository = PassportRepository(FakePassportDao(), photoStore, Dispatchers.IO)
         return repository to photoStore
     }
 
@@ -59,6 +67,17 @@ class PassportRepositoryTest {
         note = note,
         photoFileNames = photoFileNames,
     )
+
+    @Test
+    fun `deleteAll gira sul dispatcher IO iniettato`() = runTest {
+        val io = StandardTestDispatcher(testScheduler)
+        val dao = FakePassportDao()
+        val photoStore = PassportPhotoStore(createTempDirectory("passport-repository-io-test").toFile())
+
+        PassportRepository(dao, photoStore, io).deleteAll()
+
+        assertSame(io, dao.deleteAllInterceptor)
+    }
 
     @Test(expected = IllegalStateException::class)
     fun `save prima di unlock lancia`() = runBlocking {

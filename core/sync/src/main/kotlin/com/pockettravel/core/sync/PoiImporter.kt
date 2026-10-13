@@ -2,12 +2,13 @@ package com.pockettravel.core.sync
 
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.withTransaction
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.db.PoiCodeDao
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiRow
 import com.pockettravel.core.data.db.RegionDatabase
 import com.pockettravel.core.data.db.estimatedStorageBytes
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
@@ -31,12 +32,13 @@ import javax.inject.Inject
 class PoiImporter @Inject constructor(
     private val poiDao: PoiDao,
     private val database: RegionDatabase,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     /**
      * Solo per i test (PackageImporterDeviceTest): sostituisce i POI e cancella [poiDbFile]. L'installazione
      * vera passa da [replaceFromFile] dentro RegionRepository.inInstallTransaction e lascia il file allo staging.
      */
-    suspend fun import(regionId: String, poiDbFile: File, extra: Boolean = false) = withContext(Dispatchers.IO) {
+    suspend fun import(regionId: String, poiDbFile: File, extra: Boolean = false) = withContext(ioDispatcher) {
         replaceFromFile(regionId, poiDbFile, extra)
         poiDbFile.delete()
     }

@@ -1,8 +1,7 @@
 package com.pockettravel.app.settings
 
-import android.content.Context
 import androidx.core.content.edit
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.pockettravel.core.data.PreferencesFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,9 +13,9 @@ import javax.inject.Singleton
  * scuro forzato (spento: l'app segue il tema del telefono).
  */
 @Singleton
-class ThemePreferences @Inject constructor(@ApplicationContext context: Context) {
+class ThemePreferences @Inject constructor(preferences: PreferencesFactory) {
 
-    private val prefs = context.getSharedPreferences("theme", Context.MODE_PRIVATE)
+    private val prefs = preferences.open("theme")
     private val _useDynamicColor = MutableStateFlow(prefs.getBoolean(KEY_DYNAMIC_COLOR, true))
     val useDynamicColor: StateFlow<Boolean> = _useDynamicColor.asStateFlow()
 

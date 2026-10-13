@@ -6,7 +6,8 @@
 # Uso: [UNSLOTH_VENV=<venv>] [CUDA_DEVICE=0] ./run_train_nvidia.sh [opzioni di train_lora.py]
 #      es. ./run_train_nvidia.sh --max-steps 30
 #          ./run_train_nvidia.sh --4bit --model <modello piu' grande>   (QLoRA: meno VRAM)
-# Setup una tantum nel venv: pip install unsloth  (PyTorch CUDA incluso)
+# Setup una tantum nel venv, dalla radice del repository (PyTorch CUDA incluso):
+#   pip install -c tools/data-pipeline/constraints-train.txt unsloth unsloth-zoo trl peft datasets bitsandbytes wandb
 # Su Windows nativo lancia direttamente train_auto.py (carica da solo l'ambiente MSVC).
 set -euo pipefail
 

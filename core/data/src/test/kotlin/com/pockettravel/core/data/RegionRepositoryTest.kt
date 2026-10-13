@@ -22,6 +22,7 @@ import com.pockettravel.core.data.db.RegionDatabase
 import com.pockettravel.core.data.db.InstalledRegionDao
 import com.pockettravel.core.data.db.TransportCount
 import com.pockettravel.core.data.db.VaccinationDao
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -142,12 +143,13 @@ class RegionRepositoryTest {
             regionsDir = File(root, "regions").apply { mkdirs() },
             stagingDir = File(root, "staging").apply { mkdirs() },
         )
-        val repository = RegionRepository(
+        val repository = RoomRegionRepository(
             installedRegionDao = installedRegionDao,
             poiDao = poiDao,
             regionStorage = regionStorage,
             database = UnusedRegionDatabase(guideDao, poiDao, installedRegionDao),
             cityDao = NoOpCityDao(),
+            ioDispatcher = Dispatchers.IO,
         )
         return repository to installedRegionDao
     }

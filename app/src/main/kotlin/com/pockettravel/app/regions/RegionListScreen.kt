@@ -104,7 +104,6 @@ fun RegionListScreen(
     viewModel: RegionListViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val downloadingRegions by viewModel.downloadingRegions.collectAsStateWithLifecycle()
     val locale = LocalLocale.current.platformLocale
     LaunchedEffect(locale) { viewModel.setLocale(locale) }
     RegionListContent(
@@ -114,7 +113,7 @@ fun RegionListScreen(
         onRetry = viewModel::refresh,
         onMessageShown = viewModel::onMessageShown,
         rowActions = viewModel.rowActions(),
-        downloadingRegions = downloadingRegions,
+        downloadingRegions = uiState.downloadingRegions,
         onRegionClick = { item ->
             if (item.status == RegionStatus.NOT_INSTALLED) {
                 onPreviewClick(item.regionId, item.displayName)
@@ -565,6 +564,15 @@ private fun groupShape(index: Int, size: Int) = MaterialTheme.shapes.large.let {
 
 private val ZeroCorner = CornerSize(0)
 
+private const val PERCENT_SCALE = 100
+
+// Dimensioni di esempio dell'anteprima, in MiB (shift di 20 bit).
+private const val MEBIBYTE_SHIFT = 20
+private const val PREVIEW_SAN_MARINO_MB = 76L
+private const val PREVIEW_ITALY_MB = 940L
+private const val PREVIEW_ANDORRA_MB = 114L
+private const val PREVIEW_JAPAN_MB = 566L
+
 // Riusata anche dallo step di onboarding "Scarica una regione". Il tap e' sempre attivo: per una
 // regione non installata porta a un'anteprima della guida Wikivoyage (senza scaricare
 // mappa/routing), vedi RegionPreviewScreen.
@@ -593,7 +601,7 @@ internal fun RegionRow(
                     } else if (isDownloading) {
                         stringResource(
                             if (extractingMap) R.string.regions_status_extracting_map else R.string.regions_status_downloading,
-                            (progress * 100).toInt(),
+                            (progress * PERCENT_SCALE).toInt(),
                         )
                     } else {
                         stringResource(item.statusLabel(), size)
@@ -873,10 +881,10 @@ private fun RegionListPreview() {
             uiState = RegionListUiState(
                 isLoading = false,
                 items = listOf(
-                    RegionUiItem("san-marino", "San Marino", 76L shl 20, RegionStatus.INSTALLED, "Europa"),
-                    RegionUiItem("italia", "Italia", 940L shl 20, RegionStatus.UPDATE_AVAILABLE, "Europa"),
-                    RegionUiItem("andorra", "Andorra", 114L shl 20, RegionStatus.NOT_INSTALLED, "Europa"),
-                    RegionUiItem("giappone", "Giappone", 566L shl 20, RegionStatus.NOT_INSTALLED, "Asia"),
+                    RegionUiItem("san-marino", "San Marino", PREVIEW_SAN_MARINO_MB shl MEBIBYTE_SHIFT, RegionStatus.INSTALLED, "Europa"),
+                    RegionUiItem("italia", "Italia", PREVIEW_ITALY_MB shl MEBIBYTE_SHIFT, RegionStatus.UPDATE_AVAILABLE, "Europa"),
+                    RegionUiItem("andorra", "Andorra", PREVIEW_ANDORRA_MB shl MEBIBYTE_SHIFT, RegionStatus.NOT_INSTALLED, "Europa"),
+                    RegionUiItem("giappone", "Giappone", PREVIEW_JAPAN_MB shl MEBIBYTE_SHIFT, RegionStatus.NOT_INSTALLED, "Asia"),
                 ),
             ),
             onQueryChange = {},

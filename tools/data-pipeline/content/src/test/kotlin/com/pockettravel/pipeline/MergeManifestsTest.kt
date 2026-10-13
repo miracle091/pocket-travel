@@ -296,4 +296,211 @@ class MergeManifestsTest {
         val merged = JSONObject(mergeManifestJson(listOf(fragmentFor("san-marino", "San Marino"), en)))
         assertEquals("2026.09.28", merged.getJSONObject("guidesEn").getString("version"))
     }
+
+    private fun v1Region(
+        files: String = """
+            { "name": "content.db", "url": "https://example.org/r--content.db", "sizeBytes": 10, "sha256": "${"a".repeat(64)}" },
+            { "name": "E10_N40.rd5", "url": "https://example.org/r--E10_N40.rd5", "sizeBytes": 20, "sha256": "${"b".repeat(64)}" }
+        """.trimIndent(),
+        extra: String = "",
+        mapSourceJson: String = """"mapSource": { "sourceUrl": "https://build.protomaps.com/1.pmtiles", "minLon": 1, "minLat": 2, "maxLon": 3, "maxLat": 4, "minZoom": 0, "maxZoom": 14 }""",
+    ) = """
+        { "manifestVersion": 1, "regions": [{
+          "regionId": "r", "displayName": "Citta' dell'Aquila - Åland", "version": "2026.09.20", "updatedAt": "2026-09-20T00:00:00Z",
+          "files": [$files], $mapSourceJson $extra
+        }] }
+    """.trimIndent()
+
+    @Test
+    fun `una regione v1 senza content_db o senza mapSource fa fallire l'unione`() {
+        val onlyRd5 = """{ "name": "E10_N40.rd5", "url": "https://example.org/x.rd5", "sizeBytes": 20, "sha256": "${"b".repeat(64)}" }"""
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { mergeManifestJson(listOf(v1Region(files = onlyRd5))) }
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            mergeManifestJson(listOf(v1Region(mapSourceJson = """"altro": 1""")))
+        }
+    }
+
+    @Test
+    fun `una regione v1 non perde il nome unicode e ignora metadati vuoti`() {
+        val extra = ", \"continent\": \"\", \"countryCode\": \"  \", \"wikivoyageUrl\": \"\""
+        val region = regionsById(JSONObject(mergeManifestJson(listOf(v1Region(extra = extra))))).getValue("r")
+
+        assertEquals("Citta' dell'Aquila - Åland", region.getString("displayName"))
+        assertFalse(region.has("continent"))
+        assertFalse(region.has("countryCode"))
+        assertFalse(region.has("wikivoyageUrl"))
+    }
+
+    @Test
+    fun `convertV1Region non modifica la regione di partenza e non include content_db nel routing`() {
+        val source = regionsInput(v1Region())
+        val converted = convertV1Region(source)
+
+        assertEquals("content.db", source.getJSONArray("files").getJSONObject(0).getString("name"))
+        assertEquals("poi.db", converted.getJSONObject("poi").getJSONObject("file").getString("name"))
+        val routingNames = converted.getJSONObject("routing").getJSONArray("files").let { files -> (0 until files.length()).map { files.getJSONObject(it).getString("name") } }
+        assertEquals(listOf("E10_N40.rd5"), routingNames)
+        assertEquals("2026.09.20", converted.getJSONObject("routing").getString("version"))
+    }
+
+    private fun regionsInput(manifest: String): JSONObject = JSONObject(manifest).getJSONArray("regions").getJSONObject(0)
+
+    @Test
+    fun `un manifest v1 senza regioni e' accettato e produce un manifest v2 vuoto`() {
+        val merged = JSONObject(mergeManifestJson(listOf("""{"manifestVersion": 1, "regions": []}""")))
+
+        assertEquals(2, merged.getInt("manifestVersion"))
+        assertEquals(0, merged.getJSONArray("regions").length())
+        assertFalse(merged.has("guides"))
+        assertFalse(merged.has("replacedRegions"))
+    }
+
+    @Test
+    fun `un JSON malformato o senza regioni fa fallire l'unione`() {
+        org.junit.Assert.assertThrows(org.json.JSONException::class.java) { mergeManifestJson(listOf("non e' json")) }
+        org.junit.Assert.assertThrows(org.json.JSONException::class.java) { mergeManifestJson(listOf("""{"manifestVersion": 2}""")) }
+        org.junit.Assert.assertThrows(org.json.JSONException::class.java) { mergeManifestJson(listOf("""{"regions": []}""")) }
+    }
+
+    @Test
+    fun `una regione sostituita da un frammento mantiene la posizione originale nell'elenco`() {
+        val merged = JSONObject(
+            mergeManifestJson(listOf(fragmentFor("a", "A"), fragmentFor("b", "B"), fragmentFor("c", "C"), fragmentFor("a", "A", "2"))),
+        )
+
+        val ids = merged.getJSONArray("regions").let { regions -> (0 until regions.length()).map { regions.getJSONObject(it).getString("regionId") } }
+        assertEquals(listOf("a", "b", "c"), ids)
+        assertEquals("2", regionsById(merged).getValue("a").getJSONObject("poi").getString("version"))
+    }
+
+    @Test
+    fun `i metadati nuovi battono quelli vecchi e quelli dell'elenco battono entrambi`() {
+        val old = mergeManifestJson(
+            listOf(fragmentFor("san-marino", "San Marino")),
+            continents = mapOf("san-marino" to "Europa"), countryCodes = mapOf("san-marino" to "sm"),
+        )
+        val fresh = JSONObject(fragmentFor("san-marino", "San Marino", "2")).apply {
+            getJSONArray("regions").getJSONObject(0).put("continent", "Asia")
+        }.toString()
+
+        val kept = regionsById(JSONObject(mergeManifestJson(listOf(old, fresh)))).getValue("san-marino")
+        assertEquals("Asia", kept.getString("continent"))
+        assertEquals("sm", kept.getString("countryCode"))
+
+        val overridden = regionsById(JSONObject(mergeManifestJson(listOf(old, fresh), continents = mapOf("san-marino" to "Europa")))).getValue("san-marino")
+        assertEquals("Europa", overridden.getString("continent"))
+    }
+
+    @Test
+    fun `l'ultimo link wikivoyage vince e i link di regioni assenti sono ignorati`() {
+        val first = buildGuidesFragmentJson(
+            "1", ManifestFileEntry("guides.db", "https://example.org/g1.db", 3, "c".repeat(64)),
+            mapOf("san-marino" to "https://it.wikivoyage.org/wiki/Vecchio", "assente" to "https://it.wikivoyage.org/wiki/Assente"),
+        )
+        val merged = JSONObject(mergeManifestJson(listOf(fragmentFor("san-marino", "San Marino"), first, guidesFragment("2"))))
+
+        assertEquals("https://it.wikivoyage.org/wiki/San_Marino", regionsById(merged).getValue("san-marino").getString("wikivoyageUrl"))
+        assertEquals(setOf("san-marino"), regionsById(merged).keys)
+    }
+
+    @Test
+    fun `senza elenco completo il gruppo vecchio resta, con l'elenco sparisce insieme all'etichetta inglese`() {
+        val published = JSONObject(fragmentFor("italia", "Italia")).apply {
+            getJSONArray("regions").getJSONObject(0).put("groupName", "G").put("groupLabel", "L").put("groupLabelEn", "LE")
+        }.toString()
+
+        val untouched = regionsById(JSONObject(mergeManifestJson(listOf(published)))).getValue("italia")
+        assertEquals("G", untouched.getString("groupName"))
+        assertEquals("LE", untouched.getString("groupLabelEn"))
+
+        val cleaned = regionsById(JSONObject(mergeManifestJson(listOf(published), knownRegionIds = setOf("italia")))).getValue("italia")
+        assertFalse(cleaned.has("groupName"))
+        assertFalse(cleaned.has("groupLabel"))
+        assertFalse(cleaned.has("groupLabelEn"))
+    }
+
+    @Test
+    fun `l'etichetta inglese si scrive solo per le regioni con gruppo`() {
+        val merged = JSONObject(
+            mergeManifestJson(
+                listOf(fragmentFor("a", "A"), fragmentFor("b", "B")),
+                groups = mapOf("a" to ("G" to "A1")),
+                groupLabelsEn = mapOf("a" to "A one", "b" to "B one"),
+            ),
+        )
+        val regions = regionsById(merged)
+
+        assertEquals("A one", regions.getValue("a").getString("groupLabelEn"))
+        assertFalse(regions.getValue("b").has("groupLabelEn"))
+    }
+
+    @Test
+    fun `una regione sostituita il cui gruppo non e' definito resta e non entra in replacedRegions`() {
+        val merged = JSONObject(
+            mergeManifestJson(
+                listOf(fragmentFor("canada", "Canada"), fragmentFor("italia", "Italia")),
+                knownRegionIds = setOf("italia"),
+                replacedRegions = mapOf("canada" to "Canada"),
+            ),
+        )
+
+        assertEquals(setOf("canada", "italia"), regionsById(merged).keys)
+        assertFalse(merged.has("replacedRegions"))
+    }
+
+    @Test
+    fun `una regione sostituita con gruppo completo sparisce e viene elencata`() {
+        val merged = JSONObject(
+            mergeManifestJson(
+                listOf(fragmentFor("canada", "Canada"), fragmentFor("canada-yukon", "Yukon"), fragmentFor("canada-ontario", "Ontario")),
+                knownRegionIds = setOf("canada-yukon", "canada-ontario"),
+                groups = mapOf("canada-yukon" to ("Canada" to "Yukon"), "canada-ontario" to ("Canada" to "Ontario")),
+                replacedRegions = mapOf("canada" to "Canada"),
+            ),
+        )
+
+        assertEquals(setOf("canada-yukon", "canada-ontario"), regionsById(merged).keys)
+        assertEquals(1, merged.getJSONArray("replacedRegions").length())
+    }
+
+    @Test
+    fun `mapSourceUrl si applica anche alle regioni v1 convertite e non tocca le regioni senza mappa`() {
+        val merged = JSONObject(mergeManifestJson(listOf(v1Region()), mapSourceUrl = "https://build.protomaps.com/2.pmtiles"))
+        val source = regionsById(merged).getValue("r").getJSONObject("map").getJSONObject("source")
+
+        assertEquals("https://build.protomaps.com/2.pmtiles", source.getString("sourceUrl"))
+        assertEquals(14, source.getInt("maxZoom"))
+
+        val untouched = JSONObject(mergeManifestJson(listOf(v1Region())))
+        assertEquals("https://build.protomaps.com/1.pmtiles", regionsById(untouched).getValue("r").getJSONObject("map").getJSONObject("source").getString("sourceUrl"))
+    }
+
+    @Test
+    fun `l'unione e' idempotente se si rilegge il proprio risultato`() {
+        val first = mergeManifestJson(
+            listOf(guidesFragment("1"), fragmentFor("san-marino", "San Marino"), fragmentFor("italia", "Italia")),
+            continents = mapOf("san-marino" to "Europa"), minAppVersionCode = 9,
+        )
+        val second = mergeManifestJson(listOf(first), continents = mapOf("san-marino" to "Europa"), minAppVersionCode = 9)
+
+        assertTrue(JSONObject(first).similar(JSONObject(second)))
+    }
+
+    @Test
+    fun `minAppVersionCode del manifest pubblicato non si propaga se non e' indicato di nuovo`() {
+        val old = mergeManifestJson(listOf(fragmentFor("san-marino", "San Marino")), minAppVersionCode = 9)
+        val merged = JSONObject(mergeManifestJson(listOf(old)))
+
+        assertFalse(merged.has("minAppVersionCode"))
+    }
+
+    @Test
+    fun `englishLabelOf gestisce casi limite`() {
+        assertEquals("", englishLabelOf(""))
+        assertEquals("Paris", englishLabelOf("Paris"))
+        assertEquals("A (b)", englishLabelOf("A_(b)_(c)"))
+        assertEquals("", englishLabelOf("(solo parentesi)"))
+        assertEquals("Citta' del Messico", englishLabelOf("  Citta'_del_Messico  "))
+        assertEquals("Åland", englishLabelOf("Åland_(region)"))
+    }
 }

@@ -34,9 +34,13 @@ fun PocketTravelTheme(
     MaterialExpressiveTheme(colorScheme = colorScheme, motionScheme = MotionScheme.expressive(), content = content)
 }
 
+// Soglie del contrasto di sistema per scegliere lo schema alto o medio.
+private const val HIGH_CONTRAST_THRESHOLD = 0.66f
+private const val MEDIUM_CONTRAST_THRESHOLD = 0.33f
+
 private fun brandColorScheme(darkTheme: Boolean, contrast: Float): ColorScheme = when {
-    contrast >= 0.66f -> if (darkTheme) darkSchemeHighContrast else lightSchemeHighContrast
-    contrast >= 0.33f -> if (darkTheme) darkSchemeMediumContrast else lightSchemeMediumContrast
+    contrast >= HIGH_CONTRAST_THRESHOLD -> if (darkTheme) darkSchemeHighContrast else lightSchemeHighContrast
+    contrast >= MEDIUM_CONTRAST_THRESHOLD -> if (darkTheme) darkSchemeMediumContrast else lightSchemeMediumContrast
     else -> if (darkTheme) darkScheme else lightScheme
 }
 

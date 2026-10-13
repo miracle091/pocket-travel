@@ -371,4 +371,390 @@ class GenerateTravelAdviceTest {
             dir.deleteRecursively()
         }
     }
+
+    // --- adviceHtmlToText: casi limite ---
+
+    @Test
+    fun `html vuoto, solo tag o solo spazi non da' testo`() {
+        assertEquals("", adviceHtmlToText(""))
+        assertEquals("", adviceHtmlToText("<div><ul><li></li></ul><br/></div>"))
+        assertEquals("", adviceHtmlToText("<p>&nbsp;  </p>"))
+    }
+
+    @Test
+    fun `un sottotitolo senza contenuto non compare e il successivo si`() {
+        assertEquals("▸ Pieno\nTesto.", adviceHtmlToText("<h3>Vuoto</h3><h3>Pieno</h3><p>Testo.</p>"))
+        // Anche se tutto il testo sotto il sottotitolo parla del Canada.
+        assertEquals("", adviceHtmlToText("<h3>Ambasciata</h3><p>Contact the Canadian embassy.</p>"))
+    }
+
+    @Test
+    fun `un sottotitolo escluso finisce al titolo dello stesso livello o superiore, senza distinguere le maiuscole`() {
+        assertEquals("▸ Next\nb", adviceHtmlToText("<h3>USEFUL LINKS</h3><p>a</p><h4>Sotto</h4><p>c</p><h2>Next</h2><p>b</p>"))
+        assertEquals("", adviceHtmlToText("<h3>Keep in mind that the decision is yours</h3><p>Testo.</p>"))
+    }
+
+    @Test
+    fun `i parametri personalizzati scelgono le frasi da togliere e i sottotitoli da escludere`() {
+        assertEquals("This is fine.", adviceHtmlToText("<p>This is secret. This is fine.</p>", foreign = Regex("secret")))
+        assertEquals("▸ Keep\ny", adviceHtmlToText("<h3>Skip</h3><p>x</p><h3>Keep</h3><p>y</p>", excluded = { it == "Skip" }))
+        // Una voce di elenco con un riferimento straniero cade intera, un paragrafo perde solo la frase.
+        assertEquals("• ok item", adviceHtmlToText("<ul><li>keep it. Canada rules</li><li>ok item</li></ul>"))
+    }
+
+    @Test
+    fun `i separatori dipendono dal tipo di blocco precedente`() {
+        assertEquals("a\n• b\n\nc", adviceHtmlToText("<p>a</p><ul><li>b</li></ul><p>c</p>"))
+        assertEquals("a\n\nb", adviceHtmlToText("<p>a</p><p>b</p>"))
+        assertEquals("• a\n• b", adviceHtmlToText("<ul><li>a</li><li>b</li></ul>"))
+    }
+
+    @Test
+    fun `spazi non separabili, spazi ripetuti ed entita' nei sottotitoli e nel testo`() {
+        assertEquals("Solo due spazi", adviceHtmlToText("<p>Solo&nbsp;&nbsp;due   spazi</p>"))
+        assertEquals("▸ Rock & roll\nx", adviceHtmlToText("<h3>Rock &amp; roll</h3><p>x</p>"))
+    }
+
+    @Test
+    fun `testo unicode attraversa la pulizia`() {
+        assertEquals("Tōkyō 東京 Москва 😀.", adviceHtmlToText("<p>Tōkyō 東京 Москва 😀.</p>"))
+    }
+
+    // --- travelAdviceSections: casi limite ---
+
+    @Test
+    fun `senza paese a due lettere o senza dati non ci sono sezioni`() {
+        assertEquals(emptyList<GuideSectionRow>(), travelAdviceSections(json(mapOf("security" to "<p>Ok.</p>"), iso = "ITA")))
+        assertEquals(emptyList<GuideSectionRow>(), travelAdviceSections(json(mapOf("security" to "<p>Ok.</p>"), iso = "")))
+        assertEquals(emptyList<GuideSectionRow>(), travelAdviceSections(json(mapOf("security" to "<p>Contact the Canadian embassy.</p>"))))
+        assertEquals(emptyList<GuideSectionRow>(), travelAdviceSections("{}"))
+        assertEquals(emptyList<GuideSectionRow>(), travelAdviceSections(""))
+    }
+
+    @Test
+    fun `il codice paese si porta in minuscolo nell'URL e senza data valida manca il piede`() {
+        val noDate = travelAdviceSections(json(mapOf("friendly-date" to "", "security" to "<p>Ok.</p>"), iso = "Jp")).single()
+        assertEquals("https://travel.gc.ca/destinations/jp", noDate.sourceUrl)
+        assertEquals("Ok.", noDate.body)
+
+        val badDate = travelAdviceSections(json(mapOf("friendly-date" to "presto", "security" to "<p>Ok.</p>"))).single()
+        assertEquals("Ok.", badDate.body)
+
+        val shortDay = travelAdviceSections(json(mapOf("friendly-date" to "October 2, 2026 10:00 EDT", "security" to "<p>Ok.</p>"))).single()
+        assertTrue(shortDay.body.endsWith("Last updated by the Government of Canada: October 2, 2026."))
+    }
+
+    @Test
+    fun `gli avvisi regionali da soli bastano per la sezione sicurezza e non entrano nelle altre`() {
+        val sections = travelAdviceSections(json(mapOf("advisories" to "<h3>Avviso</h3><p>Evitate la zona nord.</p>", "health" to "<p>Bevete acqua.</p>")))
+
+        assertEquals(listOf("SICUREZZA", "SALUTE"), sections.map { it.category })
+        assertEquals("▸ Avviso\nEvitate la zona nord.", sections[0].body.substringBefore("\n\nLast"))
+        assertFalse("Avviso" in sections[1].body)
+    }
+
+    // --- FCDO: casi limite ---
+
+    private fun fcdoMinimal(
+        basePath: String = "/foreign-travel-advice/test-land",
+        alerts: List<String> = emptyList(),
+        health: String = "",
+        updated: String? = null,
+    ) = JSONObject(
+        buildMap<String, Any> {
+            put("base_path", basePath)
+            updated?.let { put("public_updated_at", it) }
+            put(
+                "details",
+                mapOf(
+                    "alert_status" to alerts,
+                    "parts" to listOf(mapOf("title" to "Health", "body" to health)),
+                ),
+            )
+        },
+    ).toString()
+
+    @Test
+    fun `FCDO - JSON illeggibile, senza dettagli o con un percorso estraneo non da' sezioni`() {
+        assertEquals(emptyList<GuideSectionRow>(), fcdoAdviceSections("non json"))
+        assertEquals(emptyList<GuideSectionRow>(), fcdoAdviceSections("""{"base_path": "/foreign-travel-advice/x"}"""))
+        assertEquals(emptyList<GuideSectionRow>(), fcdoAdviceSections(fcdoMinimal(basePath = "/altro/percorso", health = "<p>Ok.</p>")))
+        assertEquals(emptyList<GuideSectionRow>(), fcdoAdviceSections("""{"details": {"parts": []}}"""))
+    }
+
+    @Test
+    fun `FCDO - senza livelli ne' testo non ci sono sezioni`() {
+        assertEquals(emptyList<GuideSectionRow>(), fcdoAdviceSections(fcdoMinimal()))
+    }
+
+    @Test
+    fun `FCDO - il solo livello di allerta basta per la sicurezza e piu' livelli si elencano nell'ordine fisso`() {
+        val whole = fcdoAdviceSections(fcdoMinimal(alerts = listOf("avoid_all_travel_to_whole_country"))).single()
+        assertEquals("SICUREZZA", whole.category)
+        assertEquals("▸ Travel advice level\nThe UK government advises against all travel to the whole country.", whole.body)
+        assertEquals("https://www.gov.uk/foreign-travel-advice/test-land/safety-and-security", whole.sourceUrl)
+
+        val both = fcdoAdviceSections(
+            fcdoMinimal(alerts = listOf("avoid_all_but_essential_travel_to_parts", "avoid_all_travel_to_whole_country", "valore_sconosciuto")),
+        ).single()
+        assertEquals(
+            "▸ Travel advice level\nThe UK government advises against all travel to the whole country and " +
+                "against all but essential travel to parts of the country.",
+            both.body,
+        )
+    }
+
+    @Test
+    fun `FCDO - la salute ha il proprio URL e il piede dipende dalla data`() {
+        val dated = fcdoAdviceSections(fcdoMinimal(health = "<h2>Ospedali</h2><p>Buona assistenza.</p>", updated = "2025-12-10T13:02:12+00:00")).single()
+        assertEquals("Health (UK government)", dated.title)
+        assertEquals("SALUTE", dated.category)
+        assertEquals("https://www.gov.uk/foreign-travel-advice/test-land/health", dated.sourceUrl)
+        assertEquals("▸ Ospedali\nBuona assistenza.\n\nLast updated by the UK government: December 10, 2025.", dated.body)
+
+        val badDate = fcdoAdviceSections(fcdoMinimal(health = "<p>Ok.</p>", updated = "ieri")).single()
+        assertEquals("Ok.", badDate.body)
+        val noDate = fcdoAdviceSections(fcdoMinimal(health = "<p>Ok.</p>")).single()
+        assertEquals("Ok.", noDate.body)
+    }
+
+    @Test
+    fun `FCDO - i sottotitoli sui vaccini e sulla salute mentale si escludono`() {
+        val health = "<h2>Vaccine recommendations and health risks</h2><p>Check it.</p><h2>Travel and mental health</h2><p>Care.</p>" +
+            "<h2>Hospitals</h2><p>Good.</p>"
+
+        assertEquals("▸ Hospitals\nGood.", fcdoAdviceSections(fcdoMinimal(health = health)).single().body)
+    }
+
+    // --- readTravelAdvice: ripieghi ---
+
+    private fun withDir(block: (File) -> Unit) {
+        val dir = createTempDirectory("advice-extra").toFile()
+        try {
+            block(dir)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `readTravelAdvice ricopia il pubblicato se la riga non ha file, il file manca, e' vuoto o non si legge`() {
+        withDir { dir ->
+            val empty = File(dir, "vuoto.json").apply { writeText("") }
+            val html = File(dir, "pagina.html").apply { writeText("<html>404</html>") }
+            val noState = File(dir, "senza-stato.json").apply { writeText("""{"data": {"country-iso": "IT", "eng": {"security": "<p>Ok.</p>"}}}""") }
+            val tsv = File(dir, "advice.tsv").apply {
+                writeText("senza-tab\nnon-esiste\t${File(dir, "non-esiste.json").path}\nvuoto\t${empty.path}\nhtml\t${html.path}\nsenza-stato\t${noState.path}\n\n")
+            }
+            val oldAdvice = GuideSectionRow("SICUREZZA", "Old", "vecchio", "https://travel.gc.ca/destinations/it")
+            val wikivoyage = GuideSectionRow("SICUREZZA", "Stay safe", "Watch your bags.")
+            val meta = TravelAdviceMeta(2, 1, day0.minusDays(2))
+
+            val advice = readTravelAdvice(tsv, { listOf(wikivoyage, oldAdvice) }, mapOf("html" to meta), day0)
+
+            assertEquals(setOf("senza-tab", "non-esiste", "vuoto", "html", "senza-stato"), advice.keys)
+            advice.values.forEach { assertEquals(listOf(oldAdvice), it.sections) }
+            assertEquals(meta, advice.getValue("html").meta)
+            assertEquals(null, advice.getValue("vuoto").meta)
+            // Sezioni valide ma senza advisory-state: il livello manca, quindi si tiene il pubblicato.
+            assertEquals(listOf(oldAdvice), advice.getValue("senza-stato").sections)
+            assertEquals(null, advice.getValue("senza-stato").meta)
+        }
+    }
+
+    @Test
+    fun `readTravelAdvice con un tsv vuoto non da' regioni`() {
+        withDir { dir ->
+            val tsv = File(dir, "advice.tsv").apply { writeText("\n\n") }
+
+            assertEquals(emptyMap<String, RegionAdvice>(), readTravelAdvice(tsv, { emptyList() }, emptyMap(), day0))
+        }
+    }
+
+    @Test
+    fun `readTravelAdvice porta il livello FCDO sulla scala di travel_gc_ca`() {
+        withDir { dir ->
+            fun levelFor(alerts: List<String>): TravelAdviceMeta? {
+                val file = File(dir, "fcdo.json").apply { writeText(fcdoMinimal(alerts = alerts, health = "<p>Ok.</p>")) }
+                val tsv = File(dir, "advice.tsv").apply { writeText("paese\t${file.path}\n") }
+                return readTravelAdvice(tsv, { emptyList() }, emptyMap(), day0).getValue("paese").meta
+            }
+
+            assertEquals(TravelAdviceMeta(3, 0, day0), levelFor(listOf("avoid_all_travel_to_whole_country")))
+            assertEquals(TravelAdviceMeta(2, 0, day0), levelFor(listOf("avoid_all_but_essential_travel_to_whole_country")))
+            assertEquals(TravelAdviceMeta(0, 1, day0), levelFor(listOf("avoid_all_travel_to_parts")))
+            assertEquals(TravelAdviceMeta(0, 1, day0), levelFor(listOf("avoid_all_but_essential_travel_to_parts")))
+            assertEquals(TravelAdviceMeta(3, 1, day0), levelFor(listOf("avoid_all_travel_to_whole_country", "avoid_all_travel_to_parts")))
+            assertEquals(TravelAdviceMeta(0, 0, day0), levelFor(emptyList()))
+        }
+    }
+
+    @Test
+    fun `la data di download dei consigli freschi e' quella passata, non quella del file`() {
+        withDir { dir ->
+            val italy = File(dir, "it.json").apply { writeText(json(mapOf("security" to "<p>Ok.</p>"), state = 3, regional = 1)) }
+            val tsv = File(dir, "advice.tsv").apply { writeText("italia\t${italy.path}\n") }
+
+            assertEquals(TravelAdviceMeta(3, 1, day0), readTravelAdvice(tsv, { emptyList() }, emptyMap(), day0).getValue("italia").meta)
+        }
+    }
+
+    // --- isTravelAdvice, withTravelAdvice ---
+
+    @Test
+    fun `isTravelAdvice riconosce solo gli URL di travel_gc_ca e dell'FCDO`() {
+        fun section(url: String?) = GuideSectionRow("SICUREZZA", "t", "b", url)
+
+        assertTrue(isTravelAdvice(section("https://travel.gc.ca/destinations/it")))
+        assertTrue(isTravelAdvice(section("http://travel.gc.ca/destinations/it")))
+        assertTrue(isTravelAdvice(section("https://www.gov.uk/foreign-travel-advice/italy/health")))
+        assertFalse(isTravelAdvice(section(null)))
+        assertFalse(isTravelAdvice(section("https://en.wikivoyage.org/wiki/Italy")))
+        assertFalse(isTravelAdvice(section("https://evil.example/travel.gc.ca/x")))
+        assertFalse(isTravelAdvice(section("https://www.gov.uk/foreign-travel-advice")))
+        assertFalse(isTravelAdvice(section("https://www.gov.uk/other/foreign-travel-advice/x")))
+    }
+
+    @Test
+    fun `withTravelAdvice sostituisce le sezioni di consigli anche dell'FCDO e lascia le regioni senza consigli`() {
+        val wikivoyage = GuideSectionRow("SICUREZZA", "Stay safe", "Watch your bags.")
+        val oldFcdo = GuideSectionRow("SALUTE", "Health (UK government)", "vecchio", "${FCDO_ADVICE_PREFIX}x/health")
+        val fresh = GuideSectionRow("SICUREZZA", "Fresh", "nuovo", "https://travel.gc.ca/destinations/x")
+        val guides = listOf(
+            RegionGuide("a", "https://example.org/a", listOf(oldFcdo, wikivoyage)),
+            RegionGuide("b", "https://example.org/b", listOf(oldFcdo)),
+        ).withTravelAdvice(mapOf("a" to RegionAdvice(listOf(fresh), null)))
+
+        assertEquals(listOf(wikivoyage, fresh), guides[0].sections)
+        assertEquals(listOf(oldFcdo), guides[1].sections)
+        assertEquals(emptyList<RegionGuide>(), emptyList<RegionGuide>().withTravelAdvice(emptyMap()))
+    }
+
+    // --- travel_advice_meta: scrittura, lettura, confronto ---
+
+    private fun metaRows(db: File): List<List<String?>>? = readRows(db, "SELECT regionId, advisory_state, regional, fetched FROM travel_advice_meta ORDER BY 1")
+
+    @Test
+    fun `writeTravelAdviceMeta scrive una riga per regione con metadati e salta le altre, e si rilegge uguale`() {
+        withDir { dir ->
+            val db = File(dir, "guides.db")
+            writeTravelAdviceMeta(
+                mapOf(
+                    "b" to RegionAdvice(emptyList(), TravelAdviceMeta(2, 1, day0)),
+                    "a" to RegionAdvice(emptyList(), TravelAdviceMeta(0, 0, day0.minusDays(1))),
+                    "senza" to RegionAdvice(emptyList(), null),
+                ),
+                db,
+            )
+
+            assertEquals(listOf(listOf("a", "0", "0", "2026-09-30"), listOf("b", "2", "1", "2026-10-01")), metaRows(db))
+            assertEquals(
+                mapOf("a" to TravelAdviceMeta(0, 0, day0.minusDays(1)), "b" to TravelAdviceMeta(2, 1, day0)),
+                readTravelAdviceMeta(db),
+            )
+        }
+    }
+
+    @Test
+    fun `writeTravelAdviceMeta senza consigli crea la tabella vuota e riscrivere non accumula`() {
+        withDir { dir ->
+            val db = File(dir, "guides.db")
+            val advice = mapOf("a" to RegionAdvice(emptyList(), TravelAdviceMeta(1, 0, day0)))
+            writeTravelAdviceMeta(emptyMap(), db)
+            assertEquals(emptyList<List<String?>>(), metaRows(db))
+
+            writeTravelAdviceMeta(advice, db)
+            writeTravelAdviceMeta(advice, db)
+            assertEquals(1, metaRows(db)?.size)
+        }
+    }
+
+    @Test
+    fun `readTravelAdviceMeta salta le date illeggibili, tratta i numeri non validi come zero e senza tabella e' vuota`() {
+        withDir { dir ->
+            val missing = File(dir, "senza.db")
+            DriverManager.getConnection("jdbc:sqlite:${missing.path}").use { it.createStatement().use { s -> s.execute("CREATE TABLE altro (x TEXT)") } }
+            assertEquals(emptyMap<String, TravelAdviceMeta>(), readTravelAdviceMeta(missing))
+
+            val db = File(dir, "guides.db")
+            DriverManager.getConnection("jdbc:sqlite:${db.path}").use { conn ->
+                conn.createStatement().use { s ->
+                    s.execute("CREATE TABLE travel_advice_meta (regionId TEXT, advisory_state TEXT, regional TEXT, fetched TEXT)")
+                    s.execute("INSERT INTO travel_advice_meta VALUES ('ok', '2', '1', '2026-10-01')")
+                    s.execute("INSERT INTO travel_advice_meta VALUES ('numeri', 'x', NULL, '2026-10-02')")
+                    s.execute("INSERT INTO travel_advice_meta VALUES ('data', '1', '0', 'ieri')")
+                    s.execute("INSERT INTO travel_advice_meta VALUES ('senza-data', '1', '0', NULL)")
+                }
+            }
+
+            assertEquals(
+                mapOf("ok" to TravelAdviceMeta(2, 1, day0), "numeri" to TravelAdviceMeta(0, 0, LocalDate.of(2026, 10, 2))),
+                readTravelAdviceMeta(db),
+            )
+        }
+    }
+
+    @Test
+    fun `travelAdviceRiskChanges segnala regioni nuove, livelli e avvisi regionali cambiati, non le date`() {
+        val published = mapOf(
+            "uguale" to TravelAdviceMeta(1, 0, day0),
+            "livello" to TravelAdviceMeta(1, 0, day0),
+            "regionale" to TravelAdviceMeta(1, 0, day0),
+        )
+        val fresh = mapOf(
+            "uguale" to TravelAdviceMeta(1, 0, day0.plusDays(30)),
+            "livello" to TravelAdviceMeta(3, 0, day0),
+            "regionale" to TravelAdviceMeta(1, 1, day0),
+            "nuova" to TravelAdviceMeta(2, 1, day0),
+        )
+
+        assertEquals(
+            listOf(
+                "livello: livello 1 -> 3, avvisi regionali 0 -> 0",
+                "regionale: livello 1 -> 1, avvisi regionali 0 -> 1",
+                "nuova: livello - -> 2, avvisi regionali - -> 1",
+            ),
+            travelAdviceRiskChanges(published, fresh),
+        )
+        assertEquals(emptyList<String>(), travelAdviceRiskChanges(published, emptyMap()))
+        assertEquals(emptyList<String>(), travelAdviceRiskChanges(emptyMap(), emptyMap()))
+    }
+
+    @Test
+    fun `keepPublishedTravelAdvice - il limite e' di 7 giorni dalla data piu' recente e il rischio cambiato annulla`() {
+        withDir { dir ->
+            val published = File(dir, "published.db")
+            val fresh = File(dir, "fresh.db")
+            writeTravelAdviceMeta(
+                mapOf(
+                    "a" to RegionAdvice(emptyList(), TravelAdviceMeta(1, 0, day0.minusDays(30))),
+                    "b" to RegionAdvice(emptyList(), TravelAdviceMeta(1, 0, day0)),
+                ),
+                published,
+            )
+            writeTravelAdviceMeta(
+                mapOf("a" to RegionAdvice(emptyList(), TravelAdviceMeta(1, 0, day0)), "b" to RegionAdvice(emptyList(), TravelAdviceMeta(1, 0, day0))),
+                fresh,
+            )
+
+            assertTrue(keepPublishedTravelAdvice(fresh, published, day0))
+            assertTrue(keepPublishedTravelAdvice(fresh, published, day0.plusDays(6)))
+            assertFalse(keepPublishedTravelAdvice(fresh, published, day0.plusDays(7)))
+
+            writeTravelAdviceMeta(mapOf("a" to RegionAdvice(emptyList(), TravelAdviceMeta(2, 0, day0))), fresh)
+            assertFalse(keepPublishedTravelAdvice(fresh, published, day0))
+        }
+    }
+
+    @Test
+    fun `keepPublishedTravelAdvice - senza consigli pubblicati si considerano vecchi`() {
+        withDir { dir ->
+            val published = File(dir, "published.db")
+            val fresh = File(dir, "fresh.db")
+            writeTravelAdviceMeta(emptyMap(), published)
+            writeTravelAdviceMeta(mapOf("a" to RegionAdvice(emptyList(), TravelAdviceMeta(1, 0, day0))), fresh)
+
+            assertFalse(keepPublishedTravelAdvice(fresh, published, day0))
+        }
+    }
 }

@@ -7,6 +7,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.pockettravel.core.data.PreferencesFactory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -17,17 +18,21 @@ import javax.inject.Inject
  * Una sola richiesta alla volta, e al massimo una al giorno: chiamato a ogni avvio, la notifica non torna a ogni apertura
  * dell'app finche' l'utente non riscarica. Come quello periodico, non scarica nulla.
  */
-class RegionManifestCheckNow @Inject constructor(
-    @ApplicationContext private val context: Context,
+class RegionManifestCheckNow internal constructor(
+    preferences: PreferencesFactory,
+    private val enqueueWork: () -> Unit,
 ) {
+    @Inject constructor(@ApplicationContext context: Context, preferences: PreferencesFactory) : this(
+        preferences,
+        enqueueWork = { enqueueManifestCheck(context) },
+    )
+
+    private val prefs = preferences.open(PREFS)
+
     fun enqueue(now: Long = System.currentTimeMillis()) {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (now - prefs.getLong(KEY_LAST, 0L) < MIN_INTERVAL_MILLIS) return
         prefs.edit { putLong(KEY_LAST, now) }
-        val request = OneTimeWorkRequestBuilder<RegionManifestSyncWorker>()
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(SyncConfig.ONE_TIME_SYNC_WORK_NAME, ExistingWorkPolicy.KEEP, request)
+        enqueueWork()
     }
 
     private companion object {
@@ -35,4 +40,11 @@ class RegionManifestCheckNow @Inject constructor(
         const val KEY_LAST = "last_enqueued_at"
         val MIN_INTERVAL_MILLIS = TimeUnit.DAYS.toMillis(1)
     }
+}
+
+private fun enqueueManifestCheck(context: Context) {
+    val request = OneTimeWorkRequestBuilder<RegionManifestSyncWorker>()
+        .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+        .build()
+    WorkManager.getInstance(context).enqueueUniqueWork(SyncConfig.ONE_TIME_SYNC_WORK_NAME, ExistingWorkPolicy.KEEP, request)
 }

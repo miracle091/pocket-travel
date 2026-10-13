@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
 class OnlineModelErrorTest {
 
     private val server = MockWebServer()
-    private val client = OnlineLlmClient(OkHttpClient(), Json { ignoreUnknownKeys = true })
+    private val client = OnlineLlmClient(OkHttpClient(), Json { ignoreUnknownKeys = true }, Dispatchers.IO)
 
     @Before
     fun setUp() = server.start()

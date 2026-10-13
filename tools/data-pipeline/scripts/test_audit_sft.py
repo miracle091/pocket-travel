@@ -367,5 +367,27 @@ class CommandLineTest(unittest.TestCase):
             self.assertIn("stessa domanda e regione: 1", out)
 
 
+class GuessLangTest(unittest.TestCase):
+    def entries(self, *langs):
+        return [(json.dumps(r), r) for r in (make(GUIDE[l], QUESTION[l], "x", lang=l) for l in langs)]
+
+    def test_dal_nome_del_file(self):
+        self.assertEqual("en", audit_sft.guess_lang("data/sft/pocket_travel_sft.v10.en.jsonl", self.entries("it")))
+        self.assertEqual("it", audit_sft.guess_lang("data/sft/pocket_travel_sft.v10.it.jsonl", self.entries("en")))
+
+    def test_dal_prompt_piu_frequente(self):
+        self.assertEqual("en", audit_sft.guess_lang("dataset.jsonl", self.entries("en", "en", "it")))
+        self.assertEqual("it", audit_sft.guess_lang("dataset.jsonl", self.entries("it", "it", "en")))
+
+    def test_righe_malformate_e_file_vuoto_ripiegano_sull_italiano(self):
+        self.assertEqual("it", audit_sft.guess_lang("dataset.jsonl", []))
+        self.assertEqual("it", audit_sft.guess_lang("dataset.jsonl", [("{", None), ("x", {"messages": []}), ("y", {"messages": [{}]})]))
+
+    def test_prompt_estraneo_non_conta(self):
+        foreign = ("z", {"messages": [{"role": "user", "content": "Altro prompt"}, {"role": "assistant", "content": "x"}]})
+        self.assertEqual("en", audit_sft.guess_lang("dataset.jsonl", [foreign, foreign, *self.entries("en")]))
+        self.assertIsNone(audit_sft.prompt_lang("Altro prompt"))
+
+
 if __name__ == "__main__":
     unittest.main()

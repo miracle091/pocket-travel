@@ -20,6 +20,13 @@ data class PmtilesEntry(val tileId: Long, val data: ByteArray)
 internal const val SPOOL_PREFIX = "pmtiles-"
 internal const val SPOOL_SUFFIX = ".tiles.tmp"
 
+private const val VARINT_PAYLOAD_MASK = 0x7F
+private const val VARINT_CONTINUATION_BIT = 0x80
+private const val VARINT_PAYLOAD_BITS = 7
+
+// Gradi in interi a 1e-7, come i campi lon/lat dell'header PMTiles.
+private const val E7_SCALE = 10_000_000.0
+
 /**
  * Accumula le tile su un file temporaneo in [directory] man mano che arrivano, tenendo in
  * memoria solo tileId/offset/lunghezza (~20 byte per tile) invece dei dati: per regioni grandi
@@ -348,12 +355,12 @@ object PmtilesWriter {
     private fun writeVarLong(out: ByteArrayOutputStream, valueIn: Long) {
         var value = valueIn
         while (true) {
-            if (value and 0x7FL.inv() == 0L) {
+            if (value and VARINT_PAYLOAD_MASK.toLong().inv() == 0L) {
                 out.write(value.toInt())
                 return
             }
-            out.write(((value and 0x7F) or 0x80).toInt())
-            value = value ushr 7
+            out.write(((value and VARINT_PAYLOAD_MASK.toLong()) or VARINT_CONTINUATION_BIT.toLong()).toInt())
+            value = value ushr VARINT_PAYLOAD_BITS
         }
     }
 
@@ -414,5 +421,5 @@ object PmtilesWriter {
         return buffer.array()
     }
 
-    private fun toE7(value: Double): Int = (value * 10_000_000.0).toInt()
+    private fun toE7(value: Double): Int = (value * E7_SCALE).toInt()
 }

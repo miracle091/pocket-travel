@@ -1,6 +1,7 @@
 package com.pockettravel.feature.ai
 
 import com.pockettravel.core.sync.AiModelManifestEntry
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -24,7 +25,7 @@ import kotlin.io.path.createTempDirectory
 class LlmModelManagerTest {
 
     private val server = MockWebServer()
-    private lateinit var modelManager: LlmModelManager
+    private lateinit var modelManager: FileLlmModelManager
     private lateinit var modelsDir: File
 
     // sha256/url sono placeholder qui: ogni test li sovrascrive con .copy() secondo cosa vuole
@@ -43,7 +44,7 @@ class LlmModelManagerTest {
     fun setUp() {
         server.start()
         modelsDir = createTempDirectory("pocket-travel-llm-test").toFile()
-        modelManager = LlmModelManager(OkHttpClient(), modelsDir, AiModelCoordinator())
+        modelManager = FileLlmModelManager(OkHttpClient(), modelsDir, AiModelCoordinator(), Dispatchers.IO)
     }
 
     @After

@@ -1,10 +1,9 @@
 package com.pockettravel.feature.map
 
-import android.content.Context
 import androidx.core.content.edit
+import com.pockettravel.core.data.PreferencesFactory
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.poi.SIGHT_CATEGORIES
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,9 +15,9 @@ import javax.inject.Singleton
  * l'altra. Si salvano le nascoste, non le visibili: una categoria nuova parte visibile.
  */
 @Singleton
-class MapFilterPreferences @Inject constructor(@ApplicationContext context: Context) {
+class MapFilterPreferences @Inject constructor(preferences: PreferencesFactory) {
 
-    private val prefs = context.getSharedPreferences("map_filters", Context.MODE_PRIVATE).apply {
+    private val prefs = preferences.open("map_filters").apply {
         // "Da vedere" era una sola categoria (ATTRAZIONI): chi l'aveva nascosta la ritrova nascosta
         // anche divisa, invece di vedere comparire le categorie nuove.
         if (!getBoolean(KEY_SIGHTS_SPLIT, false)) {

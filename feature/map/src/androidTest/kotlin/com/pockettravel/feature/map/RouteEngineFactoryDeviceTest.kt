@@ -1,9 +1,12 @@
 package com.pockettravel.feature.map
 
+import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.pockettravel.core.data.PreferencesFactory
 import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.feature.map.di.RouteEngineModule
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -31,10 +34,12 @@ class RouteEngineFactoryDeviceTest {
         val regionId = "test-region"
         File(regionsDir, "$regionId/routing").mkdirs()
 
+        val preferences = PreferencesFactory { name -> context.getSharedPreferences(name, Context.MODE_PRIVATE) }
         val factory = RouteEngineModule.provideRouteEngineFactory(
             regionsDir,
             context,
-            UsageModePreferences(context, MapFilterPreferences(context), RoutingVariantPreferences(context)),
+            UsageModePreferences(preferences, MapFilterPreferences(preferences), RoutingVariantPreferences(preferences)),
+            Dispatchers.IO,
         )
         val result = runBlocking {
             val engine = factory.create(listOf(regionId))

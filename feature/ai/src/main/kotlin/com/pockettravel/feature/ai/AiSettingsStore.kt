@@ -1,10 +1,11 @@
 package com.pockettravel.feature.ai
 
-import android.content.Context
+import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.pockettravel.core.data.PreferencesFactory
 import com.pockettravel.core.data.crypto.KeystoreCipher
 import com.pockettravel.core.data.currentGuidesLanguage
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.pockettravel.feature.ai.di.AiModelsDir
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,10 +19,21 @@ import javax.inject.Singleton
  * da Android Keystore; non lascia mai il dispositivo.
  */
 @Singleton
-class AiSettingsStore @Inject constructor(@ApplicationContext private val context: Context) {
+class AiSettingsStore(
+    preferencesFactory: PreferencesFactory,
+    private val modelsDir: File,
+    private val ramTier: () -> RamTier,
+) {
 
-    private val prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
-    private val apiKeyStore = AndroidKeystoreSecretStore(context, API_KEY_ALIAS, API_KEY_PAYLOAD)
+    @Inject
+    constructor(
+        preferencesFactory: PreferencesFactory,
+        @AiModelsDir modelsDir: File,
+        deviceAiCapability: DeviceAiCapability,
+    ) : this(preferencesFactory, modelsDir, deviceAiCapability::ramTier)
+
+    private val prefs = preferencesFactory.open(PREFERENCES_NAME)
+    private val apiKeyStore = AndroidKeystoreSecretStore(prefs, API_KEY_ALIAS, API_KEY_PAYLOAD)
 
     fun engineMode(): AiEngineMode =
         AiEngineMode.valueOf(prefs.getString(KEY_MODE, AiEngineMode.ON_DEVICE.name) ?: AiEngineMode.ON_DEVICE.name)
@@ -92,14 +104,11 @@ class AiSettingsStore @Inject constructor(@ApplicationContext private val contex
         fun usable(id: String?) = id?.takeIf { stored -> LlmModelCatalog.ALL.any { it.id == stored && LlmModelCatalog.isUsableIn(it, language) } }
         return usable(prefs.getString(KEY_SELECTED_MODEL_ID, null))
             ?: usable(downloadedModelId())
-            ?: LlmModelCatalog.defaultFor(DeviceAiCapability(context).ramTier(), language).id
+            ?: LlmModelCatalog.defaultFor(ramTier(), language).id
     }
 
-    // Stessa cartella di AiModule.provideAiModelsDir.
-    private fun downloadedModelId(): String? {
-        val modelsDir = File(context.filesDir, "models")
-        return LlmModelCatalog.ALL.firstOrNull { File(modelsDir, it.fileName).exists() }?.id
-    }
+    private fun downloadedModelId(): String? =
+        LlmModelCatalog.ALL.firstOrNull { File(modelsDir, it.fileName).exists() }?.id
 
     fun setSelectedModelId(modelId: String) = prefs.edit { putString(KEY_SELECTED_MODEL_ID, modelId) }
 
@@ -152,7 +161,7 @@ class AiSettingsStore @Inject constructor(@ApplicationContext private val contex
 // Delega a KeystoreCipher (core:data), la stessa cifratura AES-256-GCM/Keystore generalizzata
 // per servire anche la cassaforte — vedi KeystoreCipher per il ragionamento completo.
 private class AndroidKeystoreSecretStore(
-    private val context: Context,
+    private val prefs: SharedPreferences,
     keyAlias: String,
     private val payloadKey: String,
 ) {
@@ -160,25 +169,19 @@ private class AndroidKeystoreSecretStore(
     private val cipher = KeystoreCipher(keyAlias = keyAlias)
 
     fun read(): String? {
-        val payload = preferences().getString(payloadKey, null) ?: return null
+        val payload = prefs.getString(payloadKey, null) ?: return null
         return cipher.decrypt(payload)
     }
 
     fun write(value: String) {
-        preferences().edit {
+        prefs.edit {
             putString(payloadKey, cipher.encrypt(value))
         }
     }
 
     fun clear() {
-        preferences().edit {
+        prefs.edit {
             remove(payloadKey)
         }
-    }
-
-    private fun preferences() = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
-
-    private companion object {
-        const val PREFERENCES_NAME = "ai_online_settings_v2"
     }
 }

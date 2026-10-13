@@ -44,6 +44,45 @@ class UpdatesLogicTest {
     }
 
     @Test
+    fun `senza nazioni da aggiornare non c'e' nulla da fare`() {
+        val upToDate = items.filter { it.status != RegionStatus.UPDATE_AVAILABLE }
+
+        assertEquals(emptyList<RegionUiItem>(), outdatedRegions(upToDate))
+        assertEquals(emptyList<RegionUiItem>(), outdatedRegions(emptyList()))
+        assertEquals(UpdateTotal(bytes = 0, includesMap = false), updateTotal(emptyList()))
+    }
+
+    @Test
+    fun `se tutte le nazioni sono gia' in download Aggiorna tutto non ha nulla in coda`() {
+        val all = setOf("italia", "francia")
+
+        assertEquals(emptyList<RegionUiItem>(), pendingRegionUpdates(items, downloading = all))
+        // Il download di una nazione non aggiornabile non cambia l'elenco.
+        assertEquals(listOf("italia", "francia"), pendingRegionUpdates(items, downloading = setOf("spagna")).map { it.regionId })
+    }
+
+    @Test
+    fun `Aggiorna tutto mantiene l'ordine dell'elenco`() {
+        assertEquals(listOf("italia", "francia"), pendingRegionUpdates(items, downloading = emptySet()).map { it.regionId })
+        assertEquals(listOf("francia", "italia"), pendingRegionUpdates(items.reversed().filter { it.regionId != "grecia" }, emptySet()).map { it.regionId })
+    }
+
+    @Test
+    fun `una mappa sola pesa zero byte ma il totale la segnala`() {
+        val total = updateTotal(listOf(item("lettonia", RegionStatus.UPDATE_AVAILABLE, bytes = 0, includesMap = true)))
+
+        assertEquals(UpdateTotal(bytes = 0, includesMap = true), total)
+    }
+
+    @Test
+    fun `il badge conta ogni nazione una volta e ogni altro aggiornamento una volta`() {
+        assertEquals(1, updatesCount(appUpdate = true, regionUpdates = 0, guidesUpdate = false, modelUpdate = false))
+        assertEquals(1, updatesCount(appUpdate = false, regionUpdates = 0, guidesUpdate = true, modelUpdate = false))
+        assertEquals(1, updatesCount(appUpdate = false, regionUpdates = 0, guidesUpdate = false, modelUpdate = true))
+        assertEquals(outdatedRegions(items).size, updatesCount(appUpdate = false, regionUpdates = outdatedRegions(items).size, guidesUpdate = false, modelUpdate = false))
+    }
+
+    @Test
     fun `la conferma serve solo su rete a consumo e con qualcosa da scaricare`() {
         val pending = outdatedRegions(items)
         assertTrue(updateAllNeedsConfirmation(metered = true, pending = pending))

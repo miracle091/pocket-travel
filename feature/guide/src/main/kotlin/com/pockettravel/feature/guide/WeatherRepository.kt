@@ -2,9 +2,11 @@ package com.pockettravel.feature.guide
 
 import android.content.Context
 import androidx.core.content.edit
+import com.pockettravel.core.data.IoDispatcher
+import com.pockettravel.core.data.PreferencesFactory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -26,13 +28,23 @@ data class WeatherResult(val weather: Weather, val updatedAtMillis: Long)
  * in un file: senza rete, o se il servizio non risponde, il riquadro mostra quella finche' ha giorni non passati.
  * Le coordinate delle citta' (geocoding per nome e paese) restano nelle preferenze: non cambiano.
  */
-class WeatherRepository @Inject constructor(
-    @ApplicationContext context: Context,
+class WeatherRepository(
+    private val cacheDir: File,
+    preferencesFactory: PreferencesFactory,
     okHttpClient: OkHttpClient,
     private val json: Json,
+    private val ioDispatcher: CoroutineDispatcher,
 ) {
-    private val cacheDir = File(context.filesDir, "weather")
-    private val places = context.getSharedPreferences("weather_places", Context.MODE_PRIVATE)
+    @Inject
+    constructor(
+        @ApplicationContext context: Context,
+        preferencesFactory: PreferencesFactory,
+        okHttpClient: OkHttpClient,
+        json: Json,
+        @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    ) : this(File(context.filesDir, "weather"), preferencesFactory, okHttpClient, json, ioDispatcher)
+
+    private val places = preferencesFactory.open("weather_places")
 
     // Tetto per chiamata: con una rete lenta il riquadro non resta vuota per decine di secondi prima di mostrare
     // il meteo salvato (i timeout di connessione e lettura non limitano la chiamata intera).
@@ -44,7 +56,7 @@ class WeatherRepository @Inject constructor(
      * ne' l'apertura della guida ne' il pulsante "Aggiorna" interrogano Open-Meteo piu' spesso di cosi'.
      */
     suspend fun weather(cacheKey: String, coordinates: suspend () -> Pair<Double, Double>?): WeatherResult? =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             val file = File(cacheDir, cacheKey.toFileName())
             val fresh = System.currentTimeMillis() - file.lastModified() < WEATHER_MIN_REFRESH_MILLIS && cached(file) != null
             if (!fresh) try {
@@ -70,7 +82,7 @@ class WeatherRepository @Inject constructor(
         }
 
     /** Coordinate della citta' [city] nel paese [countryCode] (ISO alpha-2); null se il geocoding non la trova. */
-    suspend fun coordinatesOf(city: String, countryCode: String): Pair<Double, Double>? = withContext(Dispatchers.IO) {
+    suspend fun coordinatesOf(city: String, countryCode: String): Pair<Double, Double>? = withContext(ioDispatcher) {
         val key = "${countryCode.uppercase(Locale.ROOT)}|$city"
         places.getString(key, null)?.split(',')?.let { (lat, lon) -> return@withContext lat.toDouble() to lon.toDouble() }
         val (name, result) = geocodingCandidates(city).firstNotNullOfOrNull { name ->

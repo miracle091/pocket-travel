@@ -1,0 +1,17 @@
+# Versioni dello stack di training (run_train_nvidia.sh, train_auto.py, train_lora.py), verificate con
+#   uv pip compile --python-version 3.12 --python-platform x86_64-manylinux_2_28 (e windows)
+# da "unsloth", "unsloth-zoo", "trl", "peft", "datasets", "bitsandbytes" e "wandb". Si usa con
+#   pip install -c tools/data-pipeline/constraints-train.txt unsloth unsloth-zoo trl peft datasets bitsandbytes wandb
+# (PyTorch CUDA lo sceglie unsloth). Non e' un lock con hash: fissa solo i pacchetti che si muovono insieme.
+# Unsloth 2026.10.3 richiede trl<=1.13.0, datasets<5 e transformers<=5.17.0: per questo trl, datasets e
+# transformers non sono le ultime uscite. Alzarli solo quando una nuova versione di unsloth allarga i limiti.
+unsloth==2026.10.3
+unsloth-zoo==2026.10.3
+trl==1.13.0
+peft==0.21.2
+datasets==4.8.5
+bitsandbytes==0.50.2
+wandb==0.30.0
+transformers==5.17.0
+accelerate==1.15.0
+huggingface-hub==1.33.0

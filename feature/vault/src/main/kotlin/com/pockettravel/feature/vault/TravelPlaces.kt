@@ -13,8 +13,13 @@ private val DIACRITICS = Regex("\\p{Mn}+")
 internal fun normalize(text: String): String =
     Normalizer.normalize(text, Normalizer.Form.NFD).replace(DIACRITICS, "").lowercase()
 
-private fun tokenize(text: String): List<String> =
-    normalize(text).split(NON_ALPHANUMERIC).filter { it.isNotEmpty() }
+// Apostrofo dritto, tipografico e modificatore.
+private val APOSTROPHES = Regex("['’ʼ]")
+
+// L'apostrofo non divide ("O'Hare" diventa "ohare"), salvo con [splitApostrophes]: "o", "hare".
+private fun tokenize(text: String, splitApostrophes: Boolean = false): List<String> =
+    normalize(text).replace(APOSTROPHES, if (splitApostrophes) " " else "")
+        .split(NON_ALPHANUMERIC).filter { it.isNotEmpty() }
 
 /** [detail] e' mostrato sotto il nome; [value] e' il testo che finisce nel campo del documento quando la voce e' scelta. */
 internal class TravelText(val detail: String, val value: String)
@@ -32,7 +37,7 @@ internal class TravelEntry(
     val italian: TravelText = english,
 ) {
     val codes: List<String> = listOf(code, altCode).filter { it.isNotEmpty() }.map(::normalize)
-    val words: List<String> = tokenize("$name ${english.detail} ${italian.detail}")
+    val words: List<String> = "$name ${english.detail} ${italian.detail}".let { tokenize(it) + tokenize(it, splitApostrophes = true) }.distinct()
     val nameKey: String = tokenize(name).joinToString(" ")
 
     fun text(italian: Boolean): TravelText = if (italian) this.italian else english

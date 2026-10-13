@@ -90,8 +90,8 @@ fun WorldMap(
             view.getMapAsync { map ->
                 if (!listenerAdded) {
                     listenerAdded = true
-                    map.cameraPosition = CameraPosition.Builder().target(LatLng(25.0, 12.0)).zoom(0.8).build()
-                    map.setMaxZoomPreference(6.0)
+                    map.cameraPosition = CameraPosition.Builder().target(LatLng(INITIAL_LATITUDE, INITIAL_LONGITUDE)).zoom(INITIAL_ZOOM).build()
+                    map.setMaxZoomPreference(MAX_ZOOM)
                     map.uiSettings.isRotateGesturesEnabled = false
                     map.addOnMapClickListener { point ->
                         val features = map.queryRenderedFeatures(map.projection.toScreenLocation(point), "countries-fill")
@@ -178,7 +178,16 @@ internal fun rememberMapViewWithLifecycle(): MapView {
     return mapView
 }
 
-private fun Color.hex(): String = "#%06X".format(toArgb() and 0xFFFFFF)
+// Vista iniziale del mappamondo (centrata su Europa e Africa) e zoom massimo.
+private const val INITIAL_LATITUDE = 25.0
+private const val INITIAL_LONGITUDE = 12.0
+private const val INITIAL_ZOOM = 0.8
+private const val MAX_ZOOM = 6.0
+
+// Toglie il canale alfa da un colore ARGB.
+private const val RGB_MASK = 0xFFFFFF
+
+private fun Color.hex(): String = "#%06X".format(toArgb() and RGB_MASK)
 
 internal fun worldStyleJson(
     countryStatus: Map<String, CountryStatus>,

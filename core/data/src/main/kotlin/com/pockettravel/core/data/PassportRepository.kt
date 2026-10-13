@@ -3,7 +3,7 @@ package com.pockettravel.core.data
 import com.pockettravel.core.data.crypto.SessionAesCipher
 import com.pockettravel.core.data.db.PassportDao
 import com.pockettravel.core.data.db.PassportEntity
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -23,6 +23,7 @@ import javax.inject.Inject
 class PassportRepository @Inject constructor(
     private val passportDao: PassportDao,
     private val photoStore: PassportPhotoStore,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     @Volatile
     private var sessionCipher: SessionAesCipher? = null
@@ -54,7 +55,7 @@ class PassportRepository @Inject constructor(
         )
     }
 
-    suspend fun delete(id: String) = withContext(Dispatchers.IO) {
+    suspend fun delete(id: String) = withContext(ioDispatcher) {
         // Da bloccato il record non si decifra e i nomi delle foto non si leggono: resterebbero orfane.
         check(isUnlocked) { "Vault bloccato: chiamare unlock() prima di delete()" }
         passportDao.findById(id)?.toDomainOrNull()?.photoFileNames?.forEach { photoStore.delete(it) }
@@ -64,27 +65,27 @@ class PassportRepository @Inject constructor(
     // jpegBytes deve gia' arrivare ripulito dei tag EXIF sensibili (vedi PassportPhotoCapture nel
     // modulo feature:vault): qui si cifra soltanto.
     /** Cancella tutti i passaporti e le foto: per la cassaforte con la chiave invalidata (VaultKeyEnvelope). */
-    suspend fun deleteAll() = withContext(Dispatchers.IO) {
+    suspend fun deleteAll() = withContext(ioDispatcher) {
         lock()
         passportDao.deleteAll()
         photoStore.deleteAll()
     }
 
-    suspend fun savePhoto(jpegBytes: ByteArray): String = withContext(Dispatchers.IO) {
+    suspend fun savePhoto(jpegBytes: ByteArray): String = withContext(ioDispatcher) {
         val cipher = sessionCipher ?: error("Vault bloccato: chiamare unlock() prima di savePhoto()")
         val fileName = "${UUID.randomUUID()}.jpg.enc"
         photoStore.write(fileName, cipher.encryptBytes(jpegBytes))
         fileName
     }
 
-    suspend fun loadPhoto(fileName: String): ByteArray? = withContext(Dispatchers.IO) {
+    suspend fun loadPhoto(fileName: String): ByteArray? = withContext(ioDispatcher) {
         val cipher = sessionCipher ?: return@withContext null
         photoStore.read(fileName)?.let { cipher.decryptBytes(it) }
     }
 
     // Per scartare una foto scattata ma poi rimossa dalla bozza prima di salvare il documento
     // (vedi PassportEditDialog): non richiede la sessione sbloccata, e' solo I/O sul file.
-    suspend fun deletePhoto(fileName: String) = withContext(Dispatchers.IO) { photoStore.delete(fileName) }
+    suspend fun deletePhoto(fileName: String) = withContext(ioDispatcher) { photoStore.delete(fileName) }
 
     private fun PassportEntity.toDomainOrNull(): Passport? =
         sessionCipher?.decrypt(encryptedPayload)?.let { json -> Json.decodeFromString(Passport.serializer(), json) }

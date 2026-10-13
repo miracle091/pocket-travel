@@ -179,4 +179,67 @@ class GenerateWorldMapTest {
         assertEquals(listOf("it", "fr"), (0 until 2).map { features("countries.geojson").getJSONObject(it).getJSONObject("properties").getString("iso") })
         assertEquals(listOf("Italia", "Francia"), (0 until 2).map { features("country-labels.geojson").getJSONObject(it).getJSONObject("properties").getString("name") })
     }
+
+    @Test
+    fun `un poligono con un buco arrotonda entrambi gli anelli e li tiene separati`() {
+        val outer = JSONArray(listOf(listOf(0.0, 0.0), listOf(10.0004, 0.0), listOf(10.0, 10.0), listOf(0.0, 0.0)).map { JSONArray(it) })
+        val hole = JSONArray(listOf(listOf(2.0, 2.0), listOf(2.0001, 2.0001), listOf(4.0, 2.0), listOf(2.0, 2.0)).map { JSONArray(it) })
+        val geometry = JSONObject().put("type", "Polygon").put("coordinates", JSONArray().put(outer).put(hole))
+
+        run(listOf(feature(props("DE"), geometry)))
+
+        val rings = features("countries.geojson").getJSONObject(0).getJSONObject("geometry").getJSONArray("coordinates")
+        assertEquals(2, rings.length())
+        assertEquals(4, rings.getJSONArray(0).length())
+        // Nel buco il secondo vertice (2.0001) si fonde con il primo dopo l'arrotondamento.
+        assertEquals(3, rings.getJSONArray(1).length())
+    }
+
+    @Test
+    fun `nomi con apostrofi e caratteri unicode restano intatti`() {
+        run(listOf(feature(props("CI", nameIt = "Costa d'Avorio Å 東京 🇮🇹"), polygon(0.0 to 0.0, 1.0 to 1.0))))
+
+        assertEquals(
+            "Costa d'Avorio Å 東京 🇮🇹",
+            features("country-labels.geojson").getJSONObject(0).getJSONObject("properties").getString("name"),
+        )
+    }
+
+    @Test
+    fun `senza alcun nome il nome dell'etichetta e' vuoto e la mappa si scrive comunque`() {
+        val noNames = JSONObject().put("LABEL_X", 1.0).put("LABEL_Y", 2.0).put("ISO_A2_EH", "ZZ")
+
+        run(listOf(feature(noNames, polygon(0.0 to 0.0, 1.0 to 1.0))))
+
+        assertEquals("", features("country-labels.geojson").getJSONObject(0).getJSONObject("properties").getString("name"))
+    }
+
+    @Test
+    fun `un paese senza coordinate dell'etichetta o un file senza features fanno fallire la generazione`() {
+        val noLabel = JSONObject().put("NAME_IT", "Italia").put("ISO_A2_EH", "IT")
+        assertThrows(org.json.JSONException::class.java) { run(listOf(feature(noLabel, polygon(0.0 to 0.0, 1.0 to 1.0)))) }
+
+        source.writeText("""{"type": "FeatureCollection"}""")
+        assertThrows(org.json.JSONException::class.java) { runMain(arrayOf(source.path, outputDir.path)) }
+        source.writeText("non json")
+        assertThrows(org.json.JSONException::class.java) { runMain(arrayOf(source.path, outputDir.path)) }
+    }
+
+    @Test
+    fun `rigenerare nella stessa cartella sostituisce i file e lascia valido il GeoJSON`() {
+        run(listOf(feature(props("IT"), polygon(0.0 to 0.0, 1.0 to 1.0)), feature(props("FR"), polygon(0.0 to 0.0, 1.0 to 1.0))))
+        run(listOf(feature(props("SM"), polygon(0.0 to 0.0, 1.0 to 1.0))))
+
+        val root = JSONObject(File(outputDir, "countries.geojson").readText())
+        assertEquals("FeatureCollection", root.getString("type"))
+        assertEquals(1, root.getJSONArray("features").length())
+        assertEquals("Feature", root.getJSONArray("features").getJSONObject(0).getString("type"))
+    }
+
+    @Test
+    fun `il rank dell'etichetta e' quello di LABELRANK anche se zero`() {
+        run(listOf(feature(props("RU").put("LABELRANK", 0), polygon(0.0 to 0.0, 1.0 to 1.0))))
+
+        assertEquals(0, features("country-labels.geojson").getJSONObject(0).getJSONObject("properties").getInt("rank"))
+    }
 }

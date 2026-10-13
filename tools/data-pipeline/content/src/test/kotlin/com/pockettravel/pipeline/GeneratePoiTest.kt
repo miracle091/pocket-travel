@@ -324,4 +324,345 @@ class GeneratePoiTest {
         assertThrows(IllegalStateException::class.java) { checkPoiCount(0, 200) }
         assertThrows(IllegalStateException::class.java) { checkPoiCount(99, 200) }
     }
+
+    // --- readPois: casi limite ---
+
+    private fun readOsm(body: String, keys: List<String> = poiTagKeys): List<Poi> {
+        val dir = kotlin.io.path.createTempDirectory("pocket-travel-poi-extra").toFile()
+        try {
+            val xml = File(dir, "a.xml").apply { writeText("<?xml version=\"1.0\" encoding=\"UTF-8\"?><osm version=\"0.6\">$body</osm>") }
+            return readPois(listOf(xml), keys)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    private fun node(id: Int, tags: Map<String, String>, lat: String = "44.0", lon: String = "12.0") =
+        """<node id="$id" lat="$lat" lon="$lon">${tags.entries.joinToString("") { """<tag k="${it.key}" v="${it.value}"/>""" }}</node>"""
+
+    private fun rowsOf(db: File, sql: String): List<List<String?>> =
+        DriverManager.getConnection("jdbc:sqlite:${db.path}").use { conn ->
+            conn.createStatement().use { s ->
+                s.executeQuery(sql).use { rs ->
+                    val columns = rs.metaData.columnCount
+                    generateSequence { if (rs.next()) (1..columns).map { rs.getString(it) } else null }.toList()
+                }
+            }
+        }
+
+    @Test
+    fun `un estratto vuoto non da' POI e i tag fuori da un elemento si ignorano`() {
+        assertEquals(emptyList<Poi>(), readOsm(""))
+        assertEquals(emptyList<Poi>(), readOsm("""<tag k="amenity" v="cafe"/>"""))
+    }
+
+    @Test
+    fun `un estratto con DOCTYPE, malformato o vuoto fa fallire la lettura`() {
+        val dir = kotlin.io.path.createTempDirectory("pocket-travel-poi-bad").toFile()
+        try {
+            val doctype = File(dir, "doctype.xml").apply {
+                writeText("""<?xml version="1.0"?><!DOCTYPE osm [<!ENTITY x "y">]><osm version="0.6"><node id="1" lat="1" lon="1"><tag k="amenity" v="&x;"/></node></osm>""")
+            }
+            val broken = File(dir, "rotto.xml").apply { writeText("""<?xml version="1.0"?><osm version="0.6"><node id="1" lat="1" """) }
+            val empty = File(dir, "vuoto.xml").apply { writeText("") }
+
+            listOf(doctype, broken, empty).forEach { file ->
+                assertThrows(org.xml.sax.SAXException::class.java) { readPois(listOf(file), poiTagKeys) }
+            }
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `elementi senza coordinate e tag non POI si saltano, i tag non restano da un elemento al successivo`() {
+        val pois = readOsm(
+            """<node id="1"><tag k="amenity" v="cafe"/></node>""" +
+                node(2, mapOf("amenity" to "cafe", "name" to "Bar Uno")) +
+                node(3, mapOf("shop" to "bakery")) +
+                node(4, mapOf("highway" to "bus_stop", "name" to "Fermata")),
+        )
+
+        assertEquals(listOf("Bar Uno", "bakery"), pois.map { it.name })
+        assertEquals(listOf("amenity=cafe", "shop=bakery"), pois.map { it.osmTag })
+    }
+
+    @Test
+    fun `tra le chiavi POI vince la prima dell'elenco presente nell'elemento`() {
+        val both = node(1, mapOf("amenity" to "cafe", "shop" to "bakery"))
+
+        assertEquals(listOf("amenity=cafe"), readOsm(both, listOf("amenity", "shop")).map { it.osmTag })
+        assertEquals(listOf("shop=bakery"), readOsm(both, listOf("shop", "amenity")).map { it.osmTag })
+        assertEquals(emptyList<Poi>(), readOsm(both, listOf("historic")))
+        assertEquals(emptyList<Poi>(), readOsm(both, emptyList()))
+    }
+
+    @Test
+    fun `nome, entita' XML e caratteri unicode si conservano`() {
+        val pois = readOsm(
+            """<node id="1" lat="35.0" lon="135.0"><tag k="amenity" v="restaurant"/><tag k="name" v="Pane &amp; Vino &#x1F355; &#26481;&#20140; &quot;Il Gatto&quot;"/></node>""",
+        )
+
+        assertEquals("Pane & Vino 🍕 東京 \"Il Gatto\"", pois.single().name)
+    }
+
+    @Test
+    fun `senza nome si usa il tipo, e il marchio solo per le categorie con i dettagli`() {
+        val pois = readOsm(
+            node(1, mapOf("amenity" to "cafe")) +
+                node(2, mapOf("tourism" to "museum", "brand" to "Marchio")) +
+                node(3, mapOf("amenity" to "pharmacy", "brand" to "Lloyds")),
+        )
+
+        assertEquals(listOf("cafe", "museum", "Lloyds"), pois.map { it.name })
+    }
+
+    @Test
+    fun `il telefono storico vince su contact_phone e il resto dei campi facoltativi resta nullo`() {
+        val both = readOsm(node(1, mapOf("amenity" to "cafe", "phone" to "+39 1", "contact:phone" to "+39 2"))).single()
+        val onlyContact = readOsm(node(1, mapOf("amenity" to "cafe", "contact:phone" to "+39 2"))).single()
+        val none = readOsm(node(1, mapOf("amenity" to "cafe"))).single()
+
+        assertEquals("+39 1", both.phone)
+        assertEquals("+39 2", onlyContact.phone)
+        assertEquals(null, none.phone)
+        assertEquals(listOf(null, null, null, null, null, null), listOf(none.wheelchair, none.website, none.email, none.country, none.nameEn, none.toiletsWheelchair))
+    }
+
+    @Test
+    fun `i nomi tradotti si tagliano, non esistono senza nome locale e non sono mai vuoti`() {
+        val pois = readOsm(
+            node(1, mapOf("amenity" to "cafe", "name" to "Locale", "name:en" to "  Local  ", "name:it" to "")) +
+                node(2, mapOf("amenity" to "cafe", "name:en" to "Solo inglese")) +
+                node(3, mapOf("amenity" to "cafe", "name" to "Uguale", "name:it" to "Uguale")),
+        )
+
+        assertEquals(listOf("Local", null, null), pois.map { it.nameEn })
+        assertEquals(listOf(null, null, null), pois.map { it.nameIt })
+    }
+
+    @Test
+    fun `il paese di un'ambasciata e' un codice a due lettere maiuscolo, il primo se ce ne sono piu'`() {
+        fun countryOf(value: String?): String? {
+            val tags = mutableMapOf("office" to "diplomatic", "name" to "Rappresentanza")
+            if (value != null) tags["country"] = value
+            return readOsm(node(1, tags), poiTagKeys + "office").single().country
+        }
+
+        assertEquals("IT", countryOf("it"))
+        assertEquals("IT", countryOf(" it ; fr"))
+        assertEquals(null, countryOf("ITA"))
+        assertEquals(null, countryOf("I1"))
+        assertEquals(null, countryOf(""))
+        assertEquals(null, countryOf(null))
+        // Un ristorante con tag country non ha paese.
+        assertEquals(null, readOsm(node(1, mapOf("amenity" to "restaurant", "country" to "IT"))).single().country)
+    }
+
+    @Test
+    fun `posti per disabili - numeri positivi con spazi si, zero negativi e testo no`() {
+        fun capacityOf(value: String): Int? = readOsm(node(1, mapOf("amenity" to "parking", "capacity:disabled" to value))).single().capacityDisabled
+
+        assertEquals(5, capacityOf(" 5 "))
+        assertEquals(null, capacityOf("0"))
+        assertEquals(null, capacityOf("-2"))
+        assertEquals(null, capacityOf("abc"))
+        assertEquals(null, capacityOf("2.5"))
+    }
+
+    @Test
+    fun `parcheggi - solo gli accessi riservati sono privati`() {
+        fun categoryOf(access: String?): String {
+            val tags = mutableMapOf("amenity" to "parking")
+            if (access != null) tags["access"] = access
+            return readOsm(node(1, tags)).single().category
+        }
+
+        listOf("private", "customers", "no", "permit", "residents").forEach { assertEquals(it, "parking_private", categoryOf(it)) }
+        listOf("yes", "destination", "public", null).forEach { assertEquals(it, "parking", categoryOf(it)) }
+    }
+
+    @Test
+    fun `stazioni della metro da station=subway o subway=yes, uffici informazioni e giardini senza nome`() {
+        val keys = listOf("amenity", "tourism", "leisure", "railway")
+        val pois = readOsm(
+            node(1, mapOf("railway" to "station", "subway" to "yes")) +
+                node(2, mapOf("railway" to "tram_stop", "station" to "subway")) +
+                node(3, mapOf("railway" to "station")) +
+                node(4, mapOf("tourism" to "information", "information" to "visitor_centre")) +
+                node(5, mapOf("tourism" to "information", "information" to "guidepost")) +
+                node(6, mapOf("tourism" to "information")) +
+                node(7, mapOf("leisure" to "garden")) +
+                node(8, mapOf("leisure" to "park", "name" to "Parco")),
+            keys,
+        )
+
+        assertEquals(
+            listOf("subway_station", "subway_station", "station", "information_office", "information", "information", "garden", "park"),
+            pois.map { it.category },
+        )
+    }
+
+    @Test
+    fun `un'area protetta di classe 2 diventa parco nazionale, le altre classi restano aree protette`() {
+        val pois = readOsm(
+            node(1, mapOf("boundary" to "protected_area", "protect_class" to "2", "name" to "Parco")) +
+                node(2, mapOf("boundary" to "protected_area", "protect_class" to "4", "name" to "Riserva")) +
+                node(3, mapOf("boundary" to "protected_area", "name" to "Senza classe")) +
+                node(4, mapOf("boundary" to "national_park", "name" to "Gia' parco")),
+            listOf("boundary"),
+        )
+
+        assertEquals(
+            listOf("boundary=national_park", "boundary=protected_area", "boundary=protected_area", "boundary=national_park"),
+            pois.map { it.osmTag },
+        )
+    }
+
+    @Test
+    fun `ways e relazioni ripetuti in due chunk contano una volta, nodi con lo stesso id di una way no`() {
+        val dir = kotlin.io.path.createTempDirectory("pocket-travel-poi-chunks").toFile()
+        try {
+            val way = """<way id="5"><center lat="44.0" lon="12.0"/><tag k="amenity" v="cafe"/></way>"""
+            val relation = """<relation id="5"><center lat="44.0" lon="12.0"/><tag k="amenity" v="cafe"/></relation>"""
+            val a = File(dir, "a.xml").apply { writeText("""<?xml version="1.0"?><osm>$way${node(5, mapOf("amenity" to "cafe"))}</osm>""") }
+            val b = File(dir, "b.xml").apply { writeText("""<?xml version="1.0"?><osm>$way$relation</osm>""") }
+
+            assertEquals(3, readPois(listOf(a, b), poiTagKeys).size)
+            assertEquals(emptyList<Poi>(), readPois(emptyList(), poiTagKeys))
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    // --- checkPoiCount: soglie ---
+
+    @Test
+    fun `checkPoiCount - la soglia e' la meta' esatta dei pubblicati e il messaggio dice i numeri`() {
+        checkPoiCount(2, 4)
+        checkPoiCount(2, 3)
+        checkPoiCount(1, 0)
+        checkPoiCount(1, null)
+        val error = assertThrows(IllegalStateException::class.java) { checkPoiCount(1, 3) }
+        assertEquals(true, error.message.orEmpty().let { "1 POI base contro 3" in it && "50%" in it })
+        val empty = assertThrows(IllegalStateException::class.java) { checkPoiCount(0, null) }
+        assertEquals(true, empty.message.orEmpty().contains("nessun POI base"))
+    }
+
+    // --- writePoiDb: schema e contenuto ---
+
+    private fun poi(
+        name: String = "Bar",
+        category: String = "cafe",
+        osmTag: String = "amenity=cafe",
+        lat: Double = 44.0,
+        lon: Double = 12.0,
+        capacityDisabled: Int? = null,
+    ) = Poi(name, category, lat, lon, osmTag, phone = null, capacityDisabled = capacityDisabled)
+
+    private fun withDb(block: (File) -> Unit) {
+        val db = File.createTempFile("pocket-travel-test", ".poi.db").also { it.delete() }
+        try {
+            block(db)
+        } finally {
+            db.delete()
+        }
+    }
+
+    @Test
+    fun `lo schema di poi e poi_code ha le colonne attese`() {
+        withDb { db ->
+            writePoiDb(listOf(poi()), db)
+
+            assertEquals(
+                listOf(
+                    "name", "code", "latE6", "lonE6", "phone", "wheelchair", "openingHours", "address", "website", "email",
+                    "country", "nameEn", "nameIt", "toiletsWheelchair", "capacityDisabled",
+                ),
+                rowsOf(db, "SELECT name FROM pragma_table_info('poi')").map { it[0] },
+            )
+            assertEquals(listOf("code", "category", "osmTag"), rowsOf(db, "SELECT name FROM pragma_table_info('poi_code')").map { it[0] })
+            assertEquals(listOf(listOf<String?>(POI_DB_FORMAT_VERSION.toString())), rowsOf(db, "PRAGMA user_version"))
+        }
+    }
+
+    @Test
+    fun `i codici seguono l'ordine di prima comparsa e distinguono osmTag diversi della stessa categoria`() {
+        withDb { db ->
+            writePoiDb(
+                listOf(
+                    poi(name = "a"),
+                    poi(name = "b", category = "embassy", osmTag = "amenity=embassy"),
+                    poi(name = "c", category = "embassy", osmTag = "office=diplomatic"),
+                    poi(name = "d"),
+                ),
+                db,
+            )
+
+            assertEquals(
+                listOf(listOf<String?>("0", "cafe", "amenity=cafe"), listOf("1", "embassy", "amenity=embassy"), listOf("2", "embassy", "office=diplomatic")),
+                rowsOf(db, "SELECT code, category, osmTag FROM poi_code ORDER BY code"),
+            )
+            assertEquals(listOf("0", "1", "2", "0"), rowsOf(db, "SELECT code FROM poi ORDER BY rowid").map { it[0] })
+        }
+    }
+
+    @Test
+    fun `le coordinate si salvano in microgradi interi, anche negative e ai limiti`() {
+        withDb { db ->
+            writePoiDb(
+                listOf(
+                    poi(name = "sydney", lat = -33.8688, lon = 151.2093),
+                    poi(name = "giu", lat = 44.0612344, lon = 12.0),
+                    poi(name = "su", lat = 44.0612346, lon = -180.0),
+                    poi(name = "polo", lat = 90.0, lon = 180.0),
+                ),
+                db,
+            )
+
+            assertEquals(
+                listOf(
+                    listOf<String?>("sydney", "-33868800", "151209300"),
+                    listOf("giu", "44061234", "12000000"),
+                    listOf("su", "44061235", "-180000000"),
+                    listOf("polo", "90000000", "180000000"),
+                ),
+                rowsOf(db, "SELECT name, latE6, lonE6 FROM poi ORDER BY rowid"),
+            )
+            assertEquals(listOf("integer"), rowsOf(db, "SELECT DISTINCT typeof(latE6) FROM poi").map { it[0] })
+        }
+    }
+
+    @Test
+    fun `senza POI le tabelle esistono vuote e il marcatore di formato c'e' comunque`() {
+        withDb { db ->
+            writePoiDb(emptyList(), db)
+
+            assertEquals(listOf(listOf<String?>("0", "0")), rowsOf(db, "SELECT (SELECT COUNT(*) FROM poi), (SELECT COUNT(*) FROM poi_code)"))
+            assertEquals(listOf(listOf<String?>("1")), rowsOf(db, "PRAGMA user_version"))
+        }
+    }
+
+    @Test
+    fun `riscrivere poi db sullo stesso file sostituisce il contenuto`() {
+        withDb { db ->
+            writePoiDb(listOf(poi(name = "vecchio"), poi(name = "vecchio 2")), db)
+            writePoiDb(listOf(poi(name = "nuovo", category = "bakery", osmTag = "shop=bakery")), db)
+
+            assertEquals(listOf("nuovo"), rowsOf(db, "SELECT name FROM poi").map { it[0] })
+            assertEquals(listOf("bakery"), rowsOf(db, "SELECT category FROM poi_code").map { it[0] })
+        }
+    }
+
+    @Test
+    fun `nomi con apici, SQL e unicode si salvano alla lettera e i campi assenti sono NULL`() {
+        withDb { db ->
+            val tricky = "Robert'); DROP TABLE poi;-- 東京 🍕"
+            writePoiDb(listOf(poi(name = tricky, capacityDisabled = 4), poi(name = "")), db)
+
+            assertEquals(listOf(tricky, ""), rowsOf(db, "SELECT name FROM poi ORDER BY rowid").map { it[0] })
+            assertEquals(listOf(listOf<String?>("4", null), listOf(null, null)), rowsOf(db, "SELECT capacityDisabled, phone FROM poi ORDER BY rowid"))
+            assertEquals(listOf("integer", "null"), rowsOf(db, "SELECT typeof(capacityDisabled) FROM poi ORDER BY rowid").map { it[0] })
+        }
+    }
 }

@@ -46,21 +46,21 @@ fun brouterProfile(mode: RouteProfile, accessible: Boolean, allowSteps: Boolean)
     }
 
 /** Cosa mostra la schermata di navigazione. */
-sealed interface NavigationUiState {
+sealed interface NavigationStatus {
     /** Manca il permesso di posizione: senza, niente navigazione. */
-    data object NeedsPermission : NavigationUiState
+    data object NeedsPermission : NavigationStatus
 
     /** GPS spento: la navigazione parte solo con il GPS attivo. */
-    data object GpsDisabled : NavigationUiState
+    data object GpsDisabled : NavigationStatus
 
     /** GPS acceso ma nessuna posizione recente (appena acceso, al chiuso, segnale perso). */
-    data object WaitingForFix : NavigationUiState
+    data object WaitingForFix : NavigationStatus
 
     /**
      * [elapsedSeconds]: da quanto dura il calcolo (in auto, su percorsi lunghi, anche minuti);
      * [progress]: stima 0..1 del motore, tarata sul tempo di un percorso lungo in auto.
      */
-    data class Calculating(val elapsedSeconds: Long, val progress: Double = 0.0) : NavigationUiState
+    data class Calculating(val elapsedSeconds: Long, val progress: Double = 0.0) : NavigationStatus
 
     /**
      * [position]: l'ultima posizione GPS, per il punto sulla mappa; [signalLost]: la posizione e' vecchia (galleria,
@@ -71,12 +71,12 @@ sealed interface NavigationUiState {
         val progress: NavigationProgress,
         val position: RoutePoint,
         val signalLost: Boolean = false,
-    ) : NavigationUiState
+    ) : NavigationStatus
 
-    data object Arrived : NavigationUiState
+    data object Arrived : NavigationStatus
 
     /** Nessun percorso: dati mancanti, strada non trovata o errore del motore. */
-    data class Unavailable(val result: RouteResult) : NavigationUiState
+    data class Unavailable(val result: RouteResult) : NavigationStatus
 }
 
 /**
@@ -84,7 +84,7 @@ sealed interface NavigationUiState {
  * con il GPS spento o senza una posizione GPS recente non si naviga, anche con un percorso gia'
  * calcolato. [routeResult]: l'ultimo calcolo concluso (null se non c'e' ancora). L'arrivo lo decide solo
  * [arrived], che il ViewModel segna secondo "Spegni il GPS all'arrivo". Con un percorso trovato e una
- * posizione scaduta (galleria) si resta in navigazione sull'ultima posizione, con [NavigationUiState.Navigating.signalLost].
+ * posizione scaduta (galleria) si resta in navigazione sull'ultima posizione, con [NavigationStatus.Navigating.signalLost].
  * [trackerFor]: il tracker del percorso, che chi chiama puo' tenere in cache (costruirlo costa O(punti)).
  */
 fun navigationUiState(
@@ -98,24 +98,24 @@ fun navigationUiState(
     calculationStartedMillis: Long = nowMillis,
     calculationProgress: Double = 0.0,
     trackerFor: (Route) -> NavigationTracker = ::NavigationTracker,
-): NavigationUiState {
-    if (!permissionGranted) return NavigationUiState.NeedsPermission
-    if (!gpsEnabled) return NavigationUiState.GpsDisabled
-    if (arrived) return NavigationUiState.Arrived
-    if (lastFix == null) return NavigationUiState.WaitingForFix
+): NavigationStatus {
+    if (!permissionGranted) return NavigationStatus.NeedsPermission
+    if (!gpsEnabled) return NavigationStatus.GpsDisabled
+    if (arrived) return NavigationStatus.Arrived
+    if (lastFix == null) return NavigationStatus.WaitingForFix
     val signalLost = nowMillis - lastFix.timeMillis > FIX_MAX_AGE_MILLIS
     val found = routeResult as? RouteResult.Found
-    if (signalLost && found == null) return NavigationUiState.WaitingForFix
+    if (signalLost && found == null) return NavigationStatus.WaitingForFix
     if (found == null) {
         if (calculating || routeResult == null) {
             val elapsed = if (calculating) ((nowMillis - calculationStartedMillis) / 1_000).coerceAtLeast(0) else 0
-            return NavigationUiState.Calculating(elapsed, if (calculating) calculationProgress else 0.0)
+            return NavigationStatus.Calculating(elapsed, if (calculating) calculationProgress else 0.0)
         }
-        return NavigationUiState.Unavailable(routeResult)
+        return NavigationStatus.Unavailable(routeResult)
     }
     val position = RoutePoint(lastFix.latitude, lastFix.longitude)
     val progress = trackerFor(found.route).progress(position)
-    return NavigationUiState.Navigating(found.route, progress, position, signalLost)
+    return NavigationStatus.Navigating(found.route, progress, position, signalLost)
 }
 
 /**

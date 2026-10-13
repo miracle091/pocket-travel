@@ -1,6 +1,7 @@
 package com.pockettravel.core.sync
 
-import kotlinx.coroutines.Dispatchers
+import com.pockettravel.core.data.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
@@ -13,13 +14,15 @@ import javax.inject.Inject
  * feature/map). Un .rd5 e' gia' pronto all'uso: basta spostarlo nella cartella giusta, nessuna
  * estrazione.
  */
-class RoutingSegmentsInstaller @Inject constructor() {
+class RoutingSegmentsInstaller @Inject constructor(
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+) {
 
     /**
      * [names]: i segmenti della richiesta. Lo staging puo' contenere .rd5 completati da un tentativo precedente
      * (un'altra zona): solo questi si installano. Null = tutti.
      */
-    suspend fun install(packageDir: File, names: Set<String>? = null) = withContext(Dispatchers.IO) {
+    suspend fun install(packageDir: File, names: Set<String>? = null) = withContext(ioDispatcher) {
         val routingDir = File(packageDir, ROUTING_DIR_NAME)
         routingDir.deleteRecursively()
         routingDir.mkdirs()

@@ -91,6 +91,10 @@ private const val PARKING_MIN_ZOOM = 15.0
 // Zoom del fit iniziale quando la regione ha un solo pin (niente bounds da inquadrare).
 private const val SINGLE_PIN_ZOOM = 15.0
 
+// Proporzioni dell'icona e del puntino rispetto al diametro del badge.
+private const val BADGE_GLYPH_RATIO = 0.6f
+private const val BADGE_DOT_RATIO = 0.3f
+
 private fun iconIdFor(category: PoiCategory, badge: AccessibilityBadge? = null) =
     PIN_ICON_PREFIX + category.name + (badge?.let { "-" + it.imageId } ?: "")
 
@@ -511,10 +515,10 @@ internal fun PoiBadge(category: PoiCategory, size: Int) {
                     imageVector = ImageVector.vectorResource(glyph),
                     contentDescription = null,
                     tint = PoiColors.Glyph,
-                    modifier = Modifier.size((size * 0.6f).dp),
+                    modifier = Modifier.size((size * BADGE_GLYPH_RATIO).dp),
                 )
             } else {
-                Surface(shape = CircleShape, color = PoiColors.Glyph, modifier = Modifier.size((size * 0.3f).dp)) {}
+                Surface(shape = CircleShape, color = PoiColors.Glyph, modifier = Modifier.size((size * BADGE_DOT_RATIO).dp)) {}
             }
         }
     }

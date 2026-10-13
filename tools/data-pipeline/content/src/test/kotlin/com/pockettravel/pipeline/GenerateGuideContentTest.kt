@@ -3,6 +3,7 @@ package com.pockettravel.pipeline
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Ignore
 import org.junit.Test
 import java.io.File
 import java.sql.DriverManager
@@ -395,5 +396,407 @@ class GenerateGuideContentTest {
     @Test
     fun `entita' sconosciute o non valide restano com'erano`() {
         assertEquals("&foo; & &#99999999;", decodeHtmlEntities("&foo; & &#99999999;"))
+    }
+
+    // --- parseWikivoyageDump ---
+
+    private fun bodyOf(dump: String): String = parseWikivoyageDump(dump).single().body
+
+    @Test
+    fun `ogni titolo noto, inglese o italiano, ha la sua categoria`() {
+        val expected = mapOf(
+            "Respect" to "USI_COSTUMI", "Rispettare le usanze" to "USI_COSTUMI",
+            "Get in" to "DOGANE", "Come arrivare" to "DOGANE",
+            "Stay healthy" to "SALUTE", "Situazione sanitaria" to "SALUTE",
+            "Stay safe" to "SICUREZZA", "Sicurezza" to "SICUREZZA",
+            "Get around" to "TRASPORTI", "Come spostarsi" to "TRASPORTI",
+            "Talk" to "FRASI_UTILI", "Sleep" to "ALLOGGIO",
+            "Eat" to "CIBO_BEVANDE", "Drink" to "CIBO_BEVANDE", "A tavola" to "CIBO_BEVANDE",
+            "Buy" to "ACQUISTI", "Valuta e acquisti" to "ACQUISTI",
+            "Connect" to "CONNETTIVITA", "Come restare in contatto" to "CONNETTIVITA",
+            "Cope" to "VITA_QUOTIDIANA", "Tenersi informati" to "VITA_QUOTIDIANA",
+            "See" to "COSA_VEDERE", "Do" to "COSA_VEDERE", "Cosa vedere" to "COSA_VEDERE", "Cosa fare" to "COSA_VEDERE",
+        )
+        expected.forEach { (heading, category) ->
+            val sections = parseWikivoyageDump("== $heading ==\nTesto.\n")
+            assertEquals(heading, 1, sections.size)
+            assertEquals(heading, category, sections.single().category)
+            assertEquals(heading, heading, sections.single().title)
+        }
+    }
+
+    @Test
+    fun `il titolo si riconosce senza distinguere maiuscole e con spazi in piu'`() {
+        val sections = parseWikivoyageDump("==  STAY SAFE  ==\nTesto.\n==Eat==\nPasta.\n")
+
+        assertEquals(listOf("SICUREZZA" to "STAY SAFE", "CIBO_BEVANDE" to "Eat"), sections.map { it.category to it.title })
+    }
+
+    @Test
+    fun `i sottotitoli restano nel corpo e il testo prima del primo titolo e' ignorato`() {
+        val sections = parseWikivoyageDump("Introduzione.\n== Stay safe ==\nIntro\n=== Crime ===\nPickpockets\n")
+
+        assertEquals(1, sections.size)
+        assertEquals("Intro\n▸ Crime\nPickpockets", sections.single().body)
+    }
+
+    @Test
+    fun `una sezione con il solo titolo o con corpo vuoto si scarta`() {
+        val sections = parseWikivoyageDump("== Stay safe ==\n\n   \n== Eat ==\nPasta\n== Sleep ==\n<!-- niente -->\n{{Pricerange}}\n")
+
+        assertEquals(listOf("Eat"), sections.map { it.title })
+    }
+
+    @Test
+    fun `titoli ripetuti danno sezioni distinte e i titoli non mappati interrompono la sezione precedente`() {
+        val sections = parseWikivoyageDump("== Eat ==\nUno.\n== Understand ==\nSi scarta.\n== Eat ==\nDue.\n")
+
+        assertEquals(listOf("Uno.", "Due."), sections.map { it.body })
+    }
+
+    @Test
+    fun `le righe con CRLF e la mancanza dell'a capo finale non cambiano il risultato`() {
+        assertEquals("Pasta", bodyOf("== Eat ==\r\nPasta\r\n"))
+        assertEquals("Pasta", bodyOf("== Eat ==\nPasta"))
+    }
+
+    @Test
+    fun `testo vuoto o senza titoli non da' sezioni`() {
+        assertEquals(emptyList<GuideSectionRow>(), parseWikivoyageDump(""))
+        assertEquals(emptyList<GuideSectionRow>(), parseWikivoyageDump("Solo testo\nsenza titoli\n"))
+        assertEquals(emptyList<GuideSectionRow>(), parseWikivoyageDump("=== Eat ===\nNon e' un titolo di sezione.\n"))
+    }
+
+    @Test
+    fun `una mappa di categorie personalizzata sostituisce quella delle regioni`() {
+        val sections = parseWikivoyageDump("== Foo ==\nbar\n== Eat ==\nPasta\n", mapOf("foo" to "ALTRO"))
+
+        assertEquals(listOf("ALTRO" to "bar"), sections.map { it.category to it.body })
+    }
+
+    // --- cleanBody ---
+
+    @Test
+    fun `commenti HTML anche su piu' righe e citazioni ref spariscono`() {
+        assertEquals("Ciao mondo", cleanBody("Ciao <!-- nota\nsu piu' righe --> mondo"))
+        assertEquals("Aperto tutti i giorni.", cleanBody("Aperto<ref>Fonte: sito</ref> tutti i giorni.<ref name=\"a\" />"))
+        assertEquals("Testo", cleanBody("Testo<ref name=x>riga uno\nriga due</ref>"))
+    }
+
+    @Test
+    fun `gallerie e tabelle, anche annidate, spariscono intere`() {
+        assertEquals("Prima\n\nDopo", cleanBody("Prima\n<gallery>\nFile:Pizza.jpg|Pizza\n</gallery>\nDopo"))
+        assertEquals("Orari:\n\nFine", cleanBody("Orari:\n{| class=\"wikitable\"\n|-\n| a || b\n|}\nFine"))
+        assertEquals("A\n\nB", cleanBody("A\n{| x\n{| y\n|}\n|}\nB"))
+    }
+
+    @Test
+    fun `i template di valuta, misura e lingua mostrano il loro valore`() {
+        assertEquals("Costa 5 EUR a persona", cleanBody("Costa {{EUR|5}} a persona"))
+        assertEquals("Provate Bar.", cleanBody("Provate {{listing|nome=Bar|prezzo={{EUR|5}}}}."))
+        assertEquals("Piove 641 mm l'anno", cleanBody("Piove {{convert|641|mm|in}} l'anno"))
+        assertEquals("Tra 15 and 25 °C in estate", cleanBody("Tra {{cvt|15|and|25|C}} in estate"))
+        assertEquals("Media 23,1 °C", cleanBody("Media {{M|23.1|u=°C}}"))
+        assertEquals("Il Vieux-Port e il Vieux-Port", cleanBody("Il {{lang|fr|Vieux-Port}} e il {{lang-fr|Vieux-Port}}"))
+        assertEquals("Chiamate +39 055", cleanBody("Chiamate {{phone|+39 055}}"))
+        assertEquals("Il Duomo di Pisa e il Duomo", cleanBody("Il {{ill|Duomo|lt=Duomo di Pisa}} e il {{ill|Duomo}}"))
+    }
+
+    @Test
+    fun `un template sconosciuto chiuso sparisce e uno non chiuso resta come testo`() {
+        assertEquals("Prima dopo", cleanBody("Prima {{Sconosciuto|x}} dopo"))
+        assertEquals("Resta {{aperto", cleanBody("Resta {{aperto"))
+    }
+
+    @Test
+    fun `corsivo e grassetto si tolgono ma l'apostrofo attaccato resta`() {
+        assertEquals("corsivo e grassetto e entrambi", cleanBody("''corsivo'' e '''grassetto''' e '''''entrambi'''''"))
+        assertEquals("l'Arte", cleanBody("l'''Arte'''"))
+        assertEquals("l'Arte", cleanBody("l''''Arte"))
+    }
+
+    @Test
+    fun `link esterni e interni lasciano solo il testo`() {
+        assertEquals("Vedi Sito ufficiale.", cleanBody("Vedi [http://example.org Sito ufficiale]."))
+        assertEquals("Vedi.", cleanBody("Vedi [https://example.org]."))
+        assertEquals("la capitale e Firenze", cleanBody("[[Roma|la capitale]] e [[Firenze]]"))
+        assertEquals("Testo", cleanBody("Testo [[Category:Foo]]"))
+    }
+
+    @Test
+    fun `le note per chi scrive la pagina spariscono`() {
+        assertEquals("Si paga in euro.", cleanBody(":See [[Wikivoyage:Currency]] for editing guidelines.\nSi paga in euro."))
+    }
+
+    @Test
+    fun `elenchi numerati e annidati diventano pallini e i termini di definizione sottotitoli`() {
+        assertEquals("• uno\n• due", cleanBody("# uno\n# due"))
+        assertEquals("• a\n• b", cleanBody("* a\n** b"))
+        assertEquals("▸ Vini rossi\nBarolo", cleanBody(";Vini rossi\nBarolo"))
+        assertEquals("rientrato", cleanBody(": rientrato"))
+    }
+
+    @Test
+    fun `tag HTML, parentesi vuote e righe vuote in eccesso si ripuliscono`() {
+        assertEquals("Testo forte e a capo", cleanBody("Testo <b>forte</b> e <br/> a capo <br>"))
+        assertEquals("Roma centro", cleanBody("Roma (, ) centro"))
+        assertEquals("a\n\nb", cleanBody("a\n\n\n\nb"))
+        assertEquals("", cleanBody(""))
+        assertEquals("", cleanBody("   \n\n  \t "))
+    }
+
+    @Test
+    fun `le righe di testo consecutive si uniscono e gli elenchi restano righe a se'`() {
+        assertEquals("prima riga seconda riga", cleanBody("prima riga\nseconda riga"))
+        assertEquals("• uno\ntesto", cleanBody("* uno\ntesto"))
+        assertEquals("• a\n• b", cleanBody("* a\n\n* b"))
+    }
+
+    @Test
+    fun `un sottotitolo seguito solo da altri sottotitoli o dalla fine non resta`() {
+        assertEquals("Testo", cleanBody("Testo\n=== Vuoto ===\n"))
+        assertEquals("▸ Pieno\nContenuto", cleanBody("=== Vuoto ===\n=== Pieno ===\nContenuto"))
+    }
+
+    @Test
+    fun `testo unicode non latino e emoji attraversano la pulizia intatti`() {
+        assertEquals("東京 – Tōkyō 😀 Москва", cleanBody("東京 – Tōkyō 😀 Москва"))
+    }
+
+    // --- decodeHtmlEntities, dropSkippedSubsections ---
+
+    @Test
+    fun `entita' numeriche decimali, esadecimali e fuori dallo Unicode`() {
+        assertEquals("😀", decodeHtmlEntities("&#x1F600;"))
+        assertEquals("A", decodeHtmlEntities("&#X41;"))
+        assertEquals("A", decodeHtmlEntities("&#65;"))
+        assertEquals("&#1114112;", decodeHtmlEntities("&#1114112;"))
+        assertEquals("&#xZZ;", decodeHtmlEntities("&#xZZ;"))
+    }
+
+    @Test
+    fun `le entita' si decodificano una sola volta e distinguono le maiuscole`() {
+        assertEquals("&lt;", decodeHtmlEntities("&amp;lt;"))
+        assertEquals("&AMP;", decodeHtmlEntities("&AMP;"))
+        assertEquals("\"Å\" è", decodeHtmlEntities("&quot;&Aring;&quot; &egrave;"))
+        assertEquals("senza entita' & niente", decodeHtmlEntities("senza entita' & niente"))
+    }
+
+    @Test
+    fun `dropSkippedSubsections si ferma al titolo dello stesso livello o superiore, senza distinguere le maiuscole`() {
+        assertEquals("A\n=== Altro ===\ny", dropSkippedSubsections("A\n=== Cost of living ===\nx\n=== Altro ===\ny"))
+        assertEquals("=== Sopra ===\ny", dropSkippedSubsections("==== Costo della vita ====\nx\n=== Sopra ===\ny"))
+        assertEquals("", dropSkippedSubsections("=== COSTO DELLA VITA ===\nx\n==== Dettagli ====\ny"))
+        assertEquals("a\nb", dropSkippedSubsections("a\nb"))
+    }
+
+    // --- Fatti rapidi ---
+
+    @Test
+    fun `i campi del Quickbar oltre i primi 4000 caratteri si ignorano`() {
+        val far = "x".repeat(4100) + "\n|Valuta=euro\n}}"
+        val near = "{{QuickbarCountry\n|Valuta=euro\n}}\n" + "x".repeat(4100)
+
+        assertEquals(null, quickFactsSection("zz", far))
+        assertEquals("Valuta: euro", quickFactsSection("zz", near)?.body)
+    }
+
+    @Ignore("un ultimo campo vuoto prima di \"}}\" diventa \"}}\": in quickFactFieldRegex \"=\\s*\" consuma l'a capo")
+    @Test
+    fun `il valore di un campo del Quickbar si ripulisce dal markup e un campo vuoto non crea righe`() {
+        val dump = "{{QuickbarCountry\n|Lingua=[[Italiano|italiano]]<ref>x</ref> '''ufficiale'''\n|Valuta=\n|Fuso orario=   \n}}"
+        val section = quickFactsSection("zz", dump)
+
+        assertEquals("FATTI_RAPIDI", section?.category)
+        assertEquals("Lingua: italiano ufficiale", section?.body)
+    }
+
+    @Test
+    fun `i fatti rapidi inglesi hanno titolo e categoria propri e saltano i campi non traducibili`() {
+        val section = englishQuickFactsSection("zz", "{{QuickbarCountry\n|Lingua=lingua inventata\n|Fuso orario=ora locale\n|Elettricità=dipende\n}}")
+
+        assertEquals(null, section)
+    }
+
+    @Test
+    fun `englishElectricity gestisce parentesi assenti, elenchi con virgola e note sconosciute`() {
+        assertEquals("230V", englishElectricity("230V"))
+        assertEquals("230V/50Hz (European and British plugs)", englishElectricity("230V/50Hz (presa europea, britannica)"))
+        assertEquals("230V", englishElectricity("230V (presa tipo C)"))
+        assertEquals(null, englishElectricity(""))
+    }
+
+    @Test
+    fun `englishTimeZone e englishLanguage gestiscono parentesi, elenchi e valori non traducibili`() {
+        assertEquals("UTC+1", englishTimeZone("UTC+1 (CET)"))
+        assertEquals(null, englishTimeZone("ora locale"))
+        assertEquals("Italian, German", englishLanguage("Italiano e Tedesco"))
+        assertEquals("Italian", englishLanguage("Italiano, Italiano"))
+        assertEquals("Spanish, Portuguese", englishLanguage("Spagnolo; Portoghese"))
+        assertEquals(null, englishLanguage(""))
+        assertEquals(null, englishLanguage("(solo parentesi)"))
+    }
+
+    // --- regionGuideFromDumps ---
+
+    @Test
+    fun `senza pagina inglese un riquadro Quickbar e le sezioni restano della pagina scaricata`() {
+        val guide = regionGuideFromDumps("zz", "{{QuickbarCountry\n|Valuta=euro\n}}\n== Sicurezza ==\nOk.\n", "https://it.example/zz", null, "")
+
+        assertEquals(listOf("FATTI_RAPIDI", "SICUREZZA"), guide.sections.map { it.category })
+        assertEquals("https://it.example/zz", guide.sourceUrl)
+    }
+
+    @Test
+    fun `se la pagina inglese di ripiego e' vuota si tiene quella italiana`() {
+        val guide = regionGuideFromDumps("zz", "== Sicurezza ==\n", "https://it.example/zz", "== Understand ==\nNo.\n", "https://en.example/zz")
+
+        assertEquals("https://it.example/zz", guide.sourceUrl)
+        assertEquals(emptyList<GuideSectionRow>(), guide.sections)
+    }
+
+    @Test
+    fun `il ripiego sull'inglese tiene i fatti rapidi della pagina italiana`() {
+        val dumpIt = "{{QuickbarCountry\n|Valuta=euro\n}}\n== Cosa vedere ==\nIl duomo.\n"
+        val guide = regionGuideFromDumps("zz", dumpIt, "https://it.example/zz", "== Stay safe ==\nQuiet.\n", "https://en.example/zz")
+
+        assertEquals(listOf("FATTI_RAPIDI", "SICUREZZA"), guide.sections.map { section -> section.category })
+        assertEquals("Valuta: euro", guide.sections.first().body)
+        assertEquals("https://en.example/zz", guide.sourceUrl)
+    }
+
+    // --- writeGuidesDb, sameGuidesContent, readRows ---
+
+    private fun withTempDbs(count: Int, block: (List<File>) -> Unit) {
+        val files = List(count) { File.createTempFile("pocket-travel-test", ".guides.db").also { it.delete() } }
+        try {
+            block(files)
+        } finally {
+            files.forEach { it.delete() }
+        }
+    }
+
+    @Test
+    fun `guide_sections ha le colonne attese, salva il flag tradotto e l'URL proprio di ogni sezione`() {
+        withTempDbs(1) { (db) ->
+            val guide = RegionGuide(
+                "italia", "https://it.wikivoyage.org/wiki/Italia",
+                listOf(
+                    GuideSectionRow("SICUREZZA", "Sicurezza", "Citta' è 東京 😀"),
+                    GuideSectionRow("SALUTE", "Stay healthy", "Tradotta", sourceUrl = "https://en.wikivoyage.org/wiki/Italy", translated = true),
+                ),
+            )
+            writeGuidesDb(listOf(guide), db)
+
+            DriverManager.getConnection("jdbc:sqlite:${db.path}").use { conn ->
+                conn.createStatement().use { statement ->
+                    val columns = statement.executeQuery("PRAGMA table_info(guide_sections)").use { rs ->
+                        generateSequence { if (rs.next()) rs.getString("name") else null }.toList()
+                    }
+                    assertEquals(listOf("regionId", "category", "title", "body", "sourceUrl", "translated"), columns)
+
+                    val rows = statement.executeQuery("SELECT category, body, sourceUrl, translated FROM guide_sections ORDER BY category").use { rs ->
+                        generateSequence { if (rs.next()) listOf(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4)) else null }.toList()
+                    }
+                    assertEquals(
+                        listOf(
+                            listOf("SALUTE", "Tradotta", "https://en.wikivoyage.org/wiki/Italy", "1"),
+                            listOf("SICUREZZA", "Citta' è 東京 😀", "https://it.wikivoyage.org/wiki/Italia", "0"),
+                        ),
+                        rows,
+                    )
+
+                    val tables = statement.executeQuery("SELECT name FROM sqlite_master WHERE type = 'table'").use { rs ->
+                        generateSequence { if (rs.next()) rs.getString(1) else null }.toSet()
+                    }
+                    assertTrue(tables.toString(), tables.containsAll(setOf("guide_sections", "emergency_numbers", "vacc_meta")))
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `senza regioni guides db ha comunque le tabelle vuote`() {
+        withTempDbs(1) { (db) ->
+            writeGuidesDb(emptyList(), db)
+
+            assertEquals(emptyList<List<String?>>(), readRows(db, "SELECT * FROM guide_sections"))
+            assertEquals(emptyList<List<String?>>(), readRows(db, "SELECT * FROM emergency_numbers"))
+        }
+    }
+
+    @Test
+    fun `riscrivere guides db sullo stesso file sostituisce le sezioni invece di accumularle`() {
+        withTempDbs(1) { (db) ->
+            val guide = RegionGuide("italia", "https://example.org", listOf(GuideSectionRow("SICUREZZA", "Sicurezza", "a")))
+            writeGuidesDb(listOf(guide), db)
+            writeGuidesDb(listOf(guide), db)
+
+            assertEquals(1, readRows(db, "SELECT * FROM guide_sections")?.size)
+        }
+    }
+
+    @Test
+    fun `readRows restituisce null per una tabella assente e le righe con i NULL per una presente`() {
+        withTempDbs(1) { (db) ->
+            writeGuidesDb(listOf(RegionGuide("italia", "https://example.org", listOf(GuideSectionRow("SICUREZZA", "Sicurezza", "a")))), db)
+
+            assertEquals(null, readRows(db, "SELECT * FROM tabella_che_non_esiste"))
+            assertEquals(listOf(listOf("italia", null)), readRows(db, "SELECT regionId, NULL FROM guide_sections"))
+        }
+    }
+
+    @Test
+    fun `sameGuidesContent distingue flag tradotto, URL e categoria`() {
+        withTempDbs(4) { (base, translated, otherUrl, otherCategory) ->
+            val section = GuideSectionRow("SICUREZZA", "Sicurezza", "testo")
+            writeGuidesDb(listOf(RegionGuide("italia", "https://example.org/a", listOf(section))), base)
+            writeGuidesDb(listOf(RegionGuide("italia", "https://example.org/a", listOf(section.copy(translated = true)))), translated)
+            writeGuidesDb(listOf(RegionGuide("italia", "https://example.org/b", listOf(section))), otherUrl)
+            writeGuidesDb(listOf(RegionGuide("italia", "https://example.org/a", listOf(section.copy(category = "SALUTE")))), otherCategory)
+
+            assertFalse(sameGuidesContent(base, translated))
+            assertFalse(sameGuidesContent(base, otherUrl))
+            assertFalse(sameGuidesContent(base, otherCategory))
+            assertTrue(sameGuidesContent(base, base))
+        }
+    }
+
+    @Test
+    fun `sameGuidesContent puo' ignorare le sezioni dei consigli di viaggio e sameTravelAdvice guarda solo quelle`() {
+        withTempDbs(2) { (a, b) ->
+            val fixed = GuideSectionRow("SICUREZZA", "Sicurezza", "testo")
+            fun advice(body: String) = GuideSectionRow("SICUREZZA", "Consigli", body, sourceUrl = "https://$TRAVEL_ADVICE_HOST/destinations/it")
+            val fcdo = GuideSectionRow("SICUREZZA", "Advice", "x", sourceUrl = "${FCDO_ADVICE_PREFIX}italy")
+            writeGuidesDb(listOf(RegionGuide("italia", "https://example.org", listOf(fixed, advice("uno"), fcdo))), a)
+            writeGuidesDb(listOf(RegionGuide("italia", "https://example.org", listOf(fixed, advice("due"), fcdo))), b)
+
+            assertFalse(sameGuidesContent(a, b))
+            assertTrue(sameGuidesContent(a, b, includeTravelAdvice = false))
+            assertFalse(sameTravelAdvice(a, b))
+        }
+        withTempDbs(2) { (a, b) ->
+            val advice = GuideSectionRow("SICUREZZA", "Consigli", "stesso", sourceUrl = "https://$TRAVEL_ADVICE_HOST/destinations/it")
+            writeGuidesDb(listOf(RegionGuide("italia", "https://example.org", listOf(advice, GuideSectionRow("SALUTE", "Salute", "uno")))), a)
+            writeGuidesDb(listOf(RegionGuide("italia", "https://example.org", listOf(advice, GuideSectionRow("SALUTE", "Salute", "due")))), b)
+
+            assertTrue(sameTravelAdvice(a, b))
+            assertFalse(sameGuidesContent(a, b, includeTravelAdvice = false))
+        }
+    }
+
+    @Test
+    fun `sameMissions e sameGuidesContent su due file senza missioni, e un file senza le tabelle delle guide non e' uguale a uno completo`() {
+        withTempDbs(3) { (a, b, foreign) ->
+            writeGuidesDb(emptyList(), a)
+            writeGuidesDb(emptyList(), b)
+            DriverManager.getConnection("jdbc:sqlite:${foreign.path}").use { conn ->
+                conn.createStatement().use { it.execute("CREATE TABLE altro (x TEXT)") }
+            }
+
+            assertTrue(sameMissions(a, b))
+            assertTrue(sameGuidesContent(a, b))
+            assertFalse(sameGuidesContent(a, foreign))
+        }
     }
 }

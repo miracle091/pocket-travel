@@ -6,11 +6,13 @@ import java.security.MessageDigest
 internal data class CellId(val z: Int, val x: Int, val y: Int)
 
 private const val MAX_CELL_ZOOM = 14
+private const val CELL_ID_PARTS = 3
+private const val GRID_VERSION_HASH_CHARS = 16
 
 /** Interpreta "z/x/y", null se il formato o l'intervallo di x/y per quello zoom non e' valido. */
 internal fun parseCellId(id: String): CellId? {
     val parts = id.split('/')
-    if (parts.size != 3) return null
+    if (parts.size != CELL_ID_PARTS) return null
     val z = parts[0].toIntOrNull() ?: return null
     val x = parts[1].toIntOrNull() ?: return null
     val y = parts[2].toIntOrNull() ?: return null
@@ -53,7 +55,7 @@ fun regionAddressesGridVersion(cells: List<AddressGridCell>): String {
     val lines = cells.map { "${it.id}@${it.version}" + if (it.search != null) "+search" else "" }.sorted().joinToString("\n")
     val digest = MessageDigest.getInstance("SHA-256").digest(lines.toByteArray(Charsets.UTF_8))
     val hex = digest.joinToString("") { "%02x".format(it) }
-    return "grid-" + hex.take(16)
+    return "grid-" + hex.take(GRID_VERSION_HASH_CHARS)
 }
 
 /**

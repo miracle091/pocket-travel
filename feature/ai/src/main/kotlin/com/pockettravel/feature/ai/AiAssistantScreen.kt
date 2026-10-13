@@ -227,7 +227,7 @@ private fun AssistantHeader(uiState: AiUiState, isReady: Boolean, actions: AiAct
     if (showBenchmark && result != null && result.modelId == uiState.selectedModelId) {
         val base = stringResource(R.string.ai_benchmark_result, result.wordsPerSecond.toInt(), result.qualityScore)
         Text(
-            text = if (result.loadTimeMs > 0) stringResource(R.string.ai_benchmark_load_time, base, result.loadTimeMs / 1000f) else base,
+            text = if (result.loadTimeMs > 0) stringResource(R.string.ai_benchmark_load_time, base, result.loadTimeMs / MS_PER_SECOND) else base,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs),
@@ -472,6 +472,7 @@ private fun SourceCitations(citations: List<String>) {
 
 // Freccia delle fonti girata quando sono aperte.
 private const val HALF_TURN_DEGREES = 180f
+private const val PERCENT_SCALE = 100
 
 @Composable
 private fun AnswerContent(
@@ -642,7 +643,7 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
                     }
                 } else if (downloadProgress != null) {
                     Text(
-                        stringResource(R.string.ai_model_downloading, (downloadProgress * 100).toInt()),
+                        stringResource(R.string.ai_model_downloading, (downloadProgress * PERCENT_SCALE).toInt()),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     DownloadProgressIndicator(progress = { downloadProgress }, modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs))

@@ -24,6 +24,8 @@ dependencies {
     implementation(libs.androidx.activity.compose)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(testFixtures(project(":core:data")))
 
     // Test strumentato (androidTest): verifica su device/emulatore reale che il wiring di
     // RouteEngineModule (copia profilo dagli asset, RoutingContext/RoutingEngine di

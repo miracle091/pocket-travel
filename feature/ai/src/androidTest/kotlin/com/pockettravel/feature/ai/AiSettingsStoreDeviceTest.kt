@@ -22,17 +22,17 @@ class AiSettingsStoreDeviceTest {
 
     @Test
     fun apiKeyRoundTripPersistsAndClears() {
-        val store = AiSettingsStore(context)
+        val store = aiSettingsStore(context)
         store.setApiKey("test-api-key")
 
-        assertEquals("test-api-key", AiSettingsStore(context).apiKey())
+        assertEquals("test-api-key", aiSettingsStore(context).apiKey())
         assertFalse(
             context.getSharedPreferences("ai_online_settings_v2", Context.MODE_PRIVATE)
                 .all.values.any { it == "test-api-key" },
         )
 
         store.clearApiKey()
-        assertNull(AiSettingsStore(context).apiKey())
+        assertNull(aiSettingsStore(context).apiKey())
     }
 
 }

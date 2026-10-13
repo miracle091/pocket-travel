@@ -3,19 +3,25 @@ package com.pockettravel.feature.map.di
 import android.content.Context
 import android.net.ConnectivityManager
 import com.pockettravel.core.data.CarRouteCalculator
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.Rd5Merger
 import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.RegionsDir
 import com.pockettravel.core.data.WorldMapStore
 import com.pockettravel.feature.map.AndroidConnectivityChecker
+import com.pockettravel.feature.map.AndroidConnectivityObserver
+import com.pockettravel.feature.map.AndroidDepartureReminderScheduler
 import com.pockettravel.feature.map.AndroidGpsLocationSource
+import com.pockettravel.feature.map.AndroidGuidanceServiceStarter
 import com.pockettravel.feature.map.BRouterCarRouteCalculator
 import com.pockettravel.feature.map.BRouterRd5Links
 import com.pockettravel.feature.map.GpsLocationSource
 import com.pockettravel.feature.map.BRouterRouteEngine
 import com.pockettravel.feature.map.ConnectivityChecker
 import com.pockettravel.feature.map.ConnectivityObserver
+import com.pockettravel.feature.map.DepartureReminderScheduler
 import com.pockettravel.feature.map.FallbackRouteEngine
+import com.pockettravel.feature.map.GuidanceServiceStarter
 import com.pockettravel.feature.map.OfflineTileSource
 import com.pockettravel.feature.map.PmtilesTileSource
 import com.pockettravel.feature.map.RouteEngineFactory
@@ -27,7 +33,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Singleton
@@ -55,6 +61,7 @@ object RouteEngineModule {
         @RegionsDir regionsDir: File,
         @ApplicationContext context: Context,
         usageModePreferences: UsageModePreferences,
+        @IoDispatcher ioDispatcher: CoroutineDispatcher,
     ): RouteEngineFactory {
         val profileDir = File(context.filesDir, PROFILE_ASSET_DIR)
         // Copia dei profili al primo calcolo, su IO (legge e scrive file): se fallisce si riprova al successivo.
@@ -63,12 +70,12 @@ object RouteEngineModule {
         val mergedDir = File(context.cacheDir, MERGED_DIR_NAME)
 
         return RouteEngineFactory { regionIds ->
-            withContext(Dispatchers.IO) { profilesSynced.value }
+            withContext(ioDispatcher) { profilesSynced.value }
             // Il profilo del modo scelto, letto a ogni motore creato.
             val profileName = usageModePreferences.modes.value.defaultRoutingProfile()
-            fun engine(segmentDir: File) = BRouterRouteEngine(segmentDir, profileDir, profileName, ROUTE_TIMEOUT_MILLIS)
+            fun engine(segmentDir: File) = BRouterRouteEngine(segmentDir, profileDir, profileName, ROUTE_TIMEOUT_MILLIS, ioDispatcher)
             val dirs = regionIds.map { File(regionsDir, "$it/$ROUTING_DIR_NAME") }
-            val merged = mergedDirOrNull(dirs, mergedDir)
+            val merged = mergedDirOrNull(dirs, mergedDir, ioDispatcher)
             if (merged == null) engine(dirs.first())
             else FallbackRouteEngine(engine(merged), dirs.map(::engine))
         }
@@ -82,9 +89,9 @@ object RouteEngineModule {
     // Una regione: null, si usa la sua cartella senza costi in piu'. Piu' regioni: i segmenti uniti
     // (FallbackRouteEngine riprova con ogni regione da sola dopo un'isola); null anche se non si riesce a unirli
     // (file rovinato, disco pieno): si naviga con la sola prima regione.
-    private suspend fun mergedDirOrNull(dirs: List<File>, mergedDir: File): File? {
+    private suspend fun mergedDirOrNull(dirs: List<File>, mergedDir: File, ioDispatcher: CoroutineDispatcher): File? {
         if (dirs.size == 1) return null
-        return withContext(Dispatchers.IO) {
+        return withContext(ioDispatcher) {
             try {
                 Rd5Merger.mergedDirectory(mergedDir, dirs, BRouterRd5Links())
             } catch (error: CancellationException) {
@@ -107,6 +114,12 @@ object RouteEngineModule {
     fun provideGpsLocationSource(source: AndroidGpsLocationSource): GpsLocationSource = source
 
     @Provides
+    fun provideGuidanceServiceStarter(starter: AndroidGuidanceServiceStarter): GuidanceServiceStarter = starter
+
+    @Provides
+    fun provideDepartureReminderScheduler(scheduler: AndroidDepartureReminderScheduler): DepartureReminderScheduler = scheduler
+
+    @Provides
     fun provideConnectivityManager(@ApplicationContext context: Context): ConnectivityManager =
         context.getSystemService(ConnectivityManager::class.java)
 
@@ -116,7 +129,7 @@ object RouteEngineModule {
 
     @Provides
     fun provideConnectivityObserver(connectivityManager: ConnectivityManager): ConnectivityObserver =
-        ConnectivityObserver(connectivityManager)
+        AndroidConnectivityObserver(connectivityManager)
 
     // I profili .brf + lookups.dat sono logica dell'app (gli stessi per tutte le regioni), non dati
     // per-regione — bundlati come asset e copiati su file reali: BRouter legge da file system, non da

@@ -1,6 +1,7 @@
 package com.pockettravel.pipeline
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.sql.DriverManager
@@ -167,5 +168,172 @@ class TranslatedSectionsTest {
         } finally {
             db.delete()
         }
+    }
+
+    // --- parseTranslatedSections: casi limite ---
+
+    @Test
+    fun `parseTranslatedSections - vuoto, righe vuote e sezioni vuote`() {
+        assertEquals(emptyList<TranslatedCategory>(), parseTranslatedSections(""))
+        assertEquals(emptyList<TranslatedCategory>(), parseTranslatedSections("\n  \n\n"))
+        val empty = parseTranslatedSections("""{"owner": "finlandia", "category": "SALUTE", "sections": []}""")
+        assertEquals(listOf(TranslatedCategory("finlandia", "SALUTE", emptyList())), empty)
+    }
+
+    @Test
+    fun `parseTranslatedSections - ogni sezione prende la categoria della riga e il flag translated, con testo unicode`() {
+        val line = """{"owner": "giappone", "category": "CIBO_BEVANDE", "sections": [""" +
+            """{"title": "料理", "body": "Ramen 🍜 e 'sake'\n▸ Bere", "sourceUrl": "https://en.wikivoyage.org/wiki/Japan"},""" +
+            """{"title": "Bere", "body": "Tè", "sourceUrl": "https://en.wikivoyage.org/wiki/Japan"}]}"""
+
+        val result = parseTranslatedSections(line).single()
+
+        assertEquals(listOf("CIBO_BEVANDE", "CIBO_BEVANDE"), result.sections.map { it.category })
+        assertEquals(listOf(true, true), result.sections.map { it.translated })
+        assertEquals("料理", result.sections[0].title)
+        assertEquals("Ramen 🍜 e 'sake'\n▸ Bere", result.sections[0].body)
+    }
+
+    @Test
+    fun `parseTranslatedSections - una riga malformata o con campi mancanti fa fallire la lettura`() {
+        org.junit.Assert.assertThrows(org.json.JSONException::class.java) { parseTranslatedSections("non json") }
+        org.junit.Assert.assertThrows(org.json.JSONException::class.java) { parseTranslatedSections("""{"owner": "a", "sections": []}""") }
+        org.junit.Assert.assertThrows(org.json.JSONException::class.java) { parseTranslatedSections("""{"owner": "a", "category": "X"}""") }
+        org.junit.Assert.assertThrows(org.json.JSONException::class.java) { parseTranslatedSections("""{"category": "X", "sections": []}""") }
+        // Una sezione senza sourceUrl non e' ammessa: tutte le sezioni tradotte citano la pagina d'origine.
+        org.junit.Assert.assertThrows(org.json.JSONException::class.java) {
+            parseTranslatedSections("""{"owner": "a", "category": "X", "sections": [{"title": "t", "body": "b"}]}""")
+        }
+    }
+
+    // --- replaceCategories ---
+
+    @Test
+    fun `replaceCategories mette il blocco al posto della prima riga della categoria e toglie le altre`() {
+        val rows = listOf("A1", "B1", "A2", "C1", "A3")
+
+        val result = replaceCategories(rows, { it.take(1) }, mapOf("A" to listOf("X", "Y")))
+
+        assertEquals(listOf("X", "Y", "B1", "C1"), result)
+    }
+
+    @Test
+    fun `replaceCategories - le categorie assenti vanno in fondo nell'ordine dei rimpiazzi`() {
+        val result = replaceCategories(listOf("A1"), { it.take(1) }, linkedMapOf("Z" to listOf("Z1"), "A" to listOf("X"), "M" to listOf("M1", "M2")))
+
+        assertEquals(listOf("X", "Z1", "M1", "M2"), result)
+    }
+
+    @Test
+    fun `replaceCategories - senza rimpiazzi o senza righe`() {
+        assertEquals(listOf("A1", "B1"), replaceCategories(listOf("A1", "B1"), { it.take(1) }, emptyMap()))
+        assertEquals(emptyList<String>(), replaceCategories<String>(emptyList(), { it.take(1) }, emptyMap()))
+        assertEquals(listOf("X"), replaceCategories<String>(emptyList(), { it.take(1) }, mapOf("A" to listOf("X"))))
+        // Un rimpiazzo vuoto toglie tutta la categoria.
+        assertEquals(listOf("B1"), replaceCategories(listOf("A1", "B1", "A2"), { it.take(1) }, mapOf("A" to emptyList<String>())))
+    }
+
+    // --- withTranslations: casi limite ---
+
+    @Test
+    fun `senza traduzioni ne' consigli pubblicati la guida resta lo stesso oggetto`() {
+        val guide = RegionGuide("finlandia", "u", listOf(GuideSectionRow("SALUTE", "Salute", "Acqua.")))
+
+        val result = listOf(guide).withTranslations(emptyList())
+
+        assertEquals(listOf(guide), result)
+        assertTrue(result.single() === guide)
+    }
+
+    @Test
+    fun `le traduzioni di un proprietario che non e' tra le guide si ignorano`() {
+        val guide = RegionGuide("svezia", "u", listOf(GuideSectionRow("SALUTE", "Salute", "z")))
+
+        assertEquals(listOf(guide), listOf(guide).withTranslations(parseTranslatedSections(jsonl)))
+    }
+
+    @Test
+    fun `una traduzione con sole sezioni vuote non cambia la categoria italiana`() {
+        val guide = RegionGuide("finlandia", "u", listOf(GuideSectionRow("SALUTE", "Salute", "Acqua.")))
+        val empty = """{"owner": "finlandia", "category": "SALUTE", "sections": []}"""
+
+        assertEquals(listOf(guide), listOf(guide).withTranslations(parseTranslatedSections(empty)))
+    }
+
+    @Test
+    fun `i consigli tradotti gia' nella guida si sostituiscono con quelli pubblicati e quelli non tradotti restano`() {
+        val untranslatedAdvice = GuideSectionRow("SICUREZZA", "Safety (Government of Canada)", "inglese", gc)
+        val oldTranslated = GuideSectionRow("SALUTE", "Salute (Governo del Canada)", "vecchi", gc, translated = true)
+        val guide = RegionGuide("finlandia", "u", listOf(GuideSectionRow("SALUTE", "Salute", "Acqua."), untranslatedAdvice, oldTranslated))
+
+        val result = listOf(guide).withTranslations(emptyList()) { listOf(publishedAdvice[0]) }.single()
+
+        assertEquals(listOf("Acqua.", "inglese", "Furti."), result.sections.map { it.body })
+    }
+
+    @Test
+    fun `i consigli pubblicati non tradotti o non di viaggio non si ricopiano`() {
+        val guide = RegionGuide("finlandia", "u", listOf(GuideSectionRow("SALUTE", "Salute", "Acqua.")))
+        val notTranslated = GuideSectionRow("SICUREZZA", "Safety", "inglese", gc)
+        val notAdvice = GuideSectionRow("SICUREZZA", "Sicurezza", "wikivoyage", "https://it.wikivoyage.org/wiki/Finlandia", translated = true)
+
+        val result = listOf(guide).withTranslations(emptyList()) { listOf(notTranslated, notAdvice) }.single()
+
+        assertEquals(listOf("Acqua."), result.sections.map { it.body })
+    }
+
+    @Test
+    fun `piu' categorie tradotte della stessa regione mantengono l'ordine delle righe italiane`() {
+        val two = """
+            {"owner": "finlandia", "category": "SALUTE", "sections": [{"title": "Salute", "body": "S", "sourceUrl": "https://en.wikivoyage.org/wiki/Finland"}]}
+            {"owner": "finlandia", "category": "ALLOGGIO", "sections": [{"title": "Alloggio", "body": "A", "sourceUrl": "https://en.wikivoyage.org/wiki/Finland"}]}
+        """.trimIndent()
+        val guide = RegionGuide(
+            "finlandia", "u",
+            listOf(GuideSectionRow("ALLOGGIO", "Alloggio", "a"), GuideSectionRow("CIBO_BEVANDE", "Cibo", "c"), GuideSectionRow("SALUTE", "Salute", "s")),
+        )
+
+        val result = listOf(guide).withTranslations(parseTranslatedSections(two)).single()
+
+        assertEquals(listOf("A", "c", "S"), result.sections.map { it.body })
+        assertEquals(listOf(true, false, true), result.sections.map { it.translated })
+    }
+
+    // --- withCityTranslations: casi limite ---
+
+    private val venice = CitySectionRow("Venezia", "COSA_VEDERE", "Cosa vedere", "Piazza San Marco.", "https://it.wikivoyage.org/wiki/Venezia", 250000, false, 45.4, 12.3)
+
+    @Test
+    fun `withCityTranslations - senza traduzioni le righe restano le stesse`() {
+        val rows = listOf(venice, venice.copy(category = "STORIA", title = "Storia"))
+
+        assertEquals(rows, rows.withCityTranslations(emptyList()))
+        assertEquals(emptyList<CitySectionRow>(), emptyList<CitySectionRow>().withCityTranslations(parseTranslatedSections(jsonl)))
+    }
+
+    @Test
+    fun `withCityTranslations - la categoria assente va in fondo con i dati della citta' e le citta' sconosciute non si aggiungono`() {
+        val rows = listOf(venice)
+
+        val result = rows.withCityTranslations(parseTranslatedSections(jsonl))
+
+        // jsonl traduce STORIA di Venezia (assente nelle righe) e SALUTE di "finlandia" (non e' una citta' delle righe).
+        assertEquals(listOf("COSA_VEDERE", "STORIA"), result.map { it.category })
+        val storia = result.last()
+        assertEquals(listOf<Any?>(250000L, false, 45.4, 12.3, true), listOf(storia.population, storia.capital, storia.latitude, storia.longitude, storia.translated))
+    }
+
+    @Test
+    fun `withCityTranslations - le righe di una stessa citta' si raggruppano e l'url mancante diventa vuoto`() {
+        val roma = CitySectionRow("Roma", "STORIA", "Storia", "x", "u", 2800000, true)
+        val rows = listOf(venice, roma, venice.copy(category = "ACQUISTI", title = "Acquisti"))
+        val noUrl = TranslatedCategory("Roma", "STORIA", listOf(GuideSectionRow("STORIA", "Storia", "tradotta", null, translated = true)))
+
+        val result = rows.withCityTranslations(listOf(noUrl))
+
+        assertEquals(listOf("Venezia" to "COSA_VEDERE", "Venezia" to "ACQUISTI", "Roma" to "STORIA"), result.map { it.city to it.category })
+        assertEquals("", result.last().sourceUrl)
+        assertEquals(true, result.last().capital)
+        assertEquals(2800000L, result.last().population)
     }
 }

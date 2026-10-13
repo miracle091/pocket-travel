@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.pockettravel.feature.ai.NavigationRequestProfile.BIKE
 import com.pockettravel.feature.ai.NavigationRequestProfile.CAR
 import com.pockettravel.feature.ai.NavigationRequestProfile.WALK
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
@@ -43,9 +44,9 @@ class NavigationGrammarDeviceTest {
         val modelsDir = checkNotNull(context.getExternalFilesDir(null))
         val models = LlmModelCatalog.ALL.filter { File(modelsDir, it.fileName).exists() && LlmModelCatalog.isUsableIn(it, "it") }
         assumeTrue("Nessun modello in $modelsDir", models.isNotEmpty())
-        val settings = AiSettingsStore(context)
+        val settings = aiSettingsStore(context)
         val coordinator = AiModelCoordinator()
-        val engine = OnDeviceLlmEngine(context, LlmModelManager(OkHttpClient(), modelsDir, coordinator), coordinator, settings, DeviceAiCapability(context))
+        val engine = LlamaOnDeviceLlmEngine(context, FileLlmModelManager(OkHttpClient(), modelsDir, coordinator, Dispatchers.IO), coordinator, settings, DeviceAiCapability(context), Dispatchers.IO)
 
         val rulesOk = CASES.count { (text, expected) -> matches(parseNavigationRequest(text), expected) }
         Log.i(TAG, "regole: $rulesOk/${CASES.size}")

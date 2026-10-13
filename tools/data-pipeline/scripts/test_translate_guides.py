@@ -231,5 +231,111 @@ class DatabaseTest(unittest.TestCase):
         self.assertEqual({"Venezia": "Venice", "Rimini": "Rimini"}, mapping)
 
 
+class OverlayTest(unittest.TestCase):
+    def test_overlay_in_utf8_ordinato_per_proprietario_e_categoria(self):
+        translated = {("b", "SALUTE"): [("Salute", "Bere l'acqua è sicuro.", "u2")],
+                      ("a", "TRASPORTI"): [("Città", "Autobus.", "u1"), ("Treni", "Ogni ora.", "u3")]}
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "overlay.jsonl"
+            tg.write_overlay(path, translated)
+            raw = path.read_text(encoding="utf-8")
+        lines = [json.loads(line) for line in raw.splitlines()]
+        self.assertEqual(["a", "b"], [l["owner"] for l in lines])
+        self.assertIn("è sicuro", raw)           # non escapato
+        self.assertEqual([{"title": "Città", "body": "Autobus.", "sourceUrl": "u1"},
+                          {"title": "Treni", "body": "Ogni ora.", "sourceUrl": "u3"}], lines[0]["sections"])
+
+    def test_overlay_vuoto_e_un_file_vuoto(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "overlay.jsonl"
+            tg.write_overlay(path, {})
+            self.assertEqual("", path.read_text(encoding="utf-8"))
+
+
+class Ct2DecodeTest(unittest.TestCase):
+    def test_decodifica_la_prima_ipotesi_di_ogni_frase(self):
+        with tempfile.TemporaryDirectory() as d:
+            t = tg.Ct2Translator("en", "it", Path(d) / "nuova" / "cache", d)
+            self.assertTrue((Path(d) / "nuova" / "cache").is_dir())   # la cartella della cache viene creata
+            self.assertEqual(64, t.batch)
+            t.tokenizer = mock.Mock(encode=lambda s, out_type=str: s.split())
+            t.target = mock.Mock(decode=lambda tokens: " ".join(tokens).upper())
+            seen = []
+
+            def translate_batch(batch, **kwargs):
+                seen.append((batch, kwargs))
+                return [mock.Mock(hypotheses=[b[:-1], ["scartata"]]) for b in batch]
+
+            t.model = mock.Mock(translate_batch=translate_batch)
+            result = t._decode(["hello world", "good day"])
+        self.assertEqual(["HELLO WORLD", "GOOD DAY"], result)
+        self.assertEqual([["hello", "world", "</s>"], ["good", "day", "</s>"]], seen[0][0])
+        self.assertEqual(4, seen[0][1]["beam_size"])
+
+
+class MainEdgeTest(unittest.TestCase):
+    def _db(self, directory, name, data):
+        path = Path(directory) / name
+        con = sqlite3.connect(path)
+        con.execute("CREATE TABLE guide_sections (regionId TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT)")
+        con.executemany("INSERT INTO guide_sections VALUES (?, ?, ?, ?, ?)", data)
+        con.commit()
+        con.close()
+        return path
+
+    def test_marcatore_creato_solo_se_la_cache_cresce(self):
+        gc = "https://travel.gc.ca/destinations/it"
+        data = [("a", "SALUTE", "Health (Government of Canada)", "Malaria occurs.", gc)]
+        with tempfile.TemporaryDirectory() as d:
+            it = self._db(d, "it.db", [("a", "SALUTE", "Salute", "Poco.", "https://it.wikivoyage.org/wiki/A")])
+            en = self._db(d, "en.db", data)
+            marker = Path(d) / "grown"
+            argv = ["guides", str(it), str(en), str(Path(d) / "o.jsonl"), "--cache-dir", d, "--model-dir", d]
+            def factory(src, tgt, cache_dir, model_dir, preloaded=[False]):
+                translator = FakeTranslator(cache_dir, src, tgt)
+                if preloaded[0]:  # seconda esecuzione: la frase e' gia' nella cache del traduttore
+                    for sentence in ("Malaria occurs.", "Health (Government of Canada)"):
+                        translator.cache[translator._key(sentence)] = "IT:" + sentence
+                return translator
+
+            with mock.patch.object(tg, "Ct2Translator", factory), mock.patch.dict("os.environ", {"TRANSLATE_GROWN_MARKER": str(marker)}):
+                tg.main(argv)
+                first = marker.exists()
+                marker.unlink()
+                factory.__defaults__[0][0] = True
+                tg.main(argv)
+                second = marker.exists()
+        self.assertTrue(first)
+        self.assertFalse(second)
+
+    def test_niente_da_tradurre_scrive_un_overlay_vuoto_senza_modello(self):
+        with tempfile.TemporaryDirectory() as d:
+            it = self._db(d, "it.db", [("a", "SALUTE", "Salute", "Poco.", "https://it.wikivoyage.org/wiki/A")])
+            en = self._db(d, "en.db", [("b", "SALUTE", "Health", "Altro.", "https://en.wikivoyage.org/wiki/B")])
+            overlay = Path(d) / "o.jsonl"
+            with mock.patch.object(tg, "Ct2Translator", side_effect=AssertionError("modello caricato")):
+                self.assertEqual(0, tg.main(["guides", str(it), str(en), str(overlay), "--cache-dir", d, "--model-dir", d]))
+            self.assertEqual("", overlay.read_text(encoding="utf-8"))
+
+
+class OtherTitlesWikidataTest(unittest.TestCase):
+    def test_titoli_da_wikidata_scritti_in_cache_e_filtrati_su_quelli_esistenti(self):
+        entities = {"entities": {"Q1": {"sitelinks": {"enwikivoyage": {"title": "Venice"}}},
+                                 "Q2": {"sitelinks": {}}}}
+        with tempfile.TemporaryDirectory() as d:
+            with mock.patch.object(tg.city_population, "wikibase_items", return_value={"Venezia": "Q1", "Roma": "Q2"}), \
+                    mock.patch.object(tg.city_population, "_get", return_value=entities), mock.patch("time.sleep"):
+                mapping = tg.other_titles({"Venezia", "Roma"}, {"Venice", "Roma"}, "it", "en", d)
+            cached = (Path(d) / "city-titles.it-en.jsonl").read_text(encoding="utf-8")
+        self.assertEqual({"Venezia": "Venice", "Roma": "Roma"}, mapping)   # Roma: senza link, titolo uguale
+        self.assertEqual({"own": "Venezia", "other": "Venice"}, json.loads(cached.strip()))
+
+    def test_titolo_tradotto_ma_assente_dall_altra_guida_si_scarta(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "city-titles.it-en.jsonl").write_text(json.dumps({"own": "Venezia", "other": "Venice"}) + "\n", encoding="utf-8")
+            with mock.patch.object(tg.city_population, "wikibase_items", return_value={}):
+                self.assertEqual({}, tg.other_titles({"Venezia"}, {"Rimini"}, "it", "en", d))
+
+
 if __name__ == "__main__":
     unittest.main()

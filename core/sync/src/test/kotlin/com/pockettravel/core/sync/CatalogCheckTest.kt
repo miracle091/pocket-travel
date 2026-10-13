@@ -1,5 +1,6 @@
 package com.pockettravel.core.sync
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
@@ -80,7 +81,7 @@ class CatalogCheckTest {
         try {
             SyncConfig.useCatalog(CustomCatalog(url, publicKey(pair)))
             runBlocking {
-                ManifestSignatureVerifier(client(file, sign(pair, file)), store)
+                ManifestSignatureVerifier(client(file, sign(pair, file)), store, Dispatchers.IO)
                     .verify("https://example.org/catalog/app-status.json", file)
             }
         } finally {

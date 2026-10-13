@@ -1,9 +1,8 @@
 package com.pockettravel.feature.map
 
-import android.content.Context
 import androidx.core.content.edit
+import com.pockettravel.core.data.PreferencesFactory
 import com.pockettravel.core.data.RoutingVariantPreferences
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,11 +23,11 @@ internal fun legacyUsageModes(name: String?): Set<UsageMode> =
  */
 @Singleton
 class UsageModePreferences @Inject constructor(
-    @ApplicationContext context: Context,
+    preferences: PreferencesFactory,
     private val filterPreferences: MapFilterPreferences,
     private val routingVariantPreferences: RoutingVariantPreferences,
 ) {
-    private val prefs = context.getSharedPreferences("usage_mode", Context.MODE_PRIVATE).apply {
+    private val prefs = preferences.open("usage_mode").apply {
         // Prima della scelta multipla c'era un solo modo (KEY_MODE): diventa un insieme di un elemento.
         val legacyMode = getString(KEY_MODE, null)
         if (legacyMode != null) {

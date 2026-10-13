@@ -1,21 +1,19 @@
 package com.pockettravel.feature.map
 
 import kotlinx.coroutines.flow.mapLatest
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.NationalityPreferences
-import android.content.Context
 import android.util.Log
-import android.os.Bundle
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RoutingVariantPreferences
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -23,7 +21,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
@@ -41,7 +38,7 @@ import javax.inject.Inject
  * Navigazione passo passo dentro la scheda Navigatore: "Avvia" chiama [start] con la destinazione e il mezzo
  * scelti, "Termina" (o l'arrivo, chiuso dal Navigatore) [stop]. Il GPS si ascolta solo mentre si naviga.
  * Meta, mezzo e ora di arrivo stanno in [SavedStateHandle]: se il sistema chiude l'app, tornando il
- * Navigatore chiede se riprendere la guida ([resumeOffer]) invece di ripartire da solo.
+ * Navigatore chiede se riprendere la guida ([NavigationUiState.resumeOffer]) invece di ripartire da solo.
  */
 @HiltViewModel
 class NavigationViewModel @Inject constructor(
@@ -57,37 +54,34 @@ class NavigationViewModel @Inject constructor(
     private val navigationPreferences: NavigationPreferences,
     private val routingVariantPreferences: RoutingVariantPreferences,
     nationalityPreferences: NationalityPreferences,
-    @ApplicationContext private val context: Context,
+    private val serviceStarter: GuidanceServiceStarter,
+    private val simulationLog: RouteSimulationLog,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
     // La regione da cui si e' partiti (la scheda aperta) e la destinazione; null = non si sta navigando.
     private var regionId: String = savedStateHandle[KEY_REGION] ?: ""
     private val destination = MutableStateFlow<NavigationPlace?>(null)
-    /** La meta della guida in corso, null se non si sta navigando. */
-    val target: StateFlow<NavigationPlace?> = destination.asStateFlow()
+    /**
+     * Se una guida e' in corso. Per chi reagisce a un evento (la notifica toccata) senza osservare lo stato: lo stato
+     * di schermata si aggiorna solo mentre qualcuno lo raccoglie.
+     */
+    val isNavigating: Boolean get() = destination.value != null
     // Guida interrotta: dallo stato salvato da Android (app riaperta dalle recenti) o dal disco (riaperta dall'icona).
     private val savedNavigation = navigationPreferences.activeNavigation()
-    private val _resumeOffer = MutableStateFlow(savedStateHandle.get<Bundle>(KEY_DESTINATION)?.toPlace() ?: savedNavigation?.place)
-    /** Guida interrotta perche' il sistema ha chiuso l'app: il Navigatore chiede se riprenderla, null altrimenti. */
-    val resumeOffer: StateFlow<NavigationPlace?> = _resumeOffer.asStateFlow()
-
-    /** Vibrazione alle svolte e all'arrivo nella guida a piedi (Impostazioni). */
-    val walkingHaptics: StateFlow<Boolean> = navigationPreferences.walkingHaptics
-    private val arrival = MutableStateFlow(savedStateHandle.get<Long>(KEY_ARRIVE_BY)?.let { LocalDateTime.ofEpochSecond(it * 60, 0, ZoneOffset.UTC) })
-    /** L'ora a cui si vuole arrivare ("Arriva alle…" del Navigatore), null se non scelta: la guida mostra il ritardo. */
-    val arriveBy: StateFlow<LocalDateTime?> = arrival.asStateFlow()
+    private val _resumeOffer = MutableStateFlow(savedStateHandle.savedPlace(KEY_DESTINATION) ?: savedNavigation?.place)
+    private val arrival = MutableStateFlow(savedStateHandle.get<Long>(KEY_ARRIVE_BY)?.let { LocalDateTime.ofEpochSecond(it * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC) })
 
     // Regioni del percorso in corso (navigationRegionIds), aggiornate a ogni calcolo: la mappa ha una sorgente per ognuna.
     private val _regionIds = MutableStateFlow(listOfNotNull(regionId.takeIf { it.isNotEmpty() }))
-    val regionIds: StateFlow<List<String>> = _regionIds
 
     /**
      * Il lato di guida da ricordare in auto: quello delle nazioni del percorso, se diverso da quello del paese di
      * chi viaggia (nazionalita'); null se e' lo stesso.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    val drivingSideWarning: StateFlow<DrivingSide?> = combine(_regionIds, nationalityPreferences.nationality, ::Pair)
+    private val drivingSideWarning: StateFlow<DrivingSide?> = combine(_regionIds, nationalityPreferences.nationality, ::Pair)
         .mapLatest { (ids, home) ->
-            val countries = withContext(Dispatchers.IO) { ids.mapNotNull { regionRepository.installed(it)?.countryCode } }
+            val countries = withContext(ioDispatcher) { ids.mapNotNull { regionRepository.installed(it)?.countryCode } }
             drivingSideWarning(countries, home)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -103,12 +97,9 @@ class NavigationViewModel @Inject constructor(
     private val _routeProfile = MutableStateFlow(
         savedStateHandle.get<String>(KEY_MODE)?.let(RouteProfile::valueOf) ?: RouteProfile.from(usageModePreferences.modes.value),
     )
-    val routeProfile: StateFlow<RouteProfile> = _routeProfile
     private val routeResult = MutableStateFlow<RouteResult?>(null)
     private val arrived = MutableStateFlow(false)
     private val _arrivedAtMillis = MutableStateFlow<Long?>(null)
-    /** Quando e' stata raggiunta la meta, null se non ancora: chi chiude la guida distingue un arrivo appena avvenuto da uno di cui nessuno si e' accorto. */
-    val arrivedAtMillis: StateFlow<Long?> = _arrivedAtMillis.asStateFlow()
     private var lastCalculationMillis = 0L
 
     // Ticchetta ogni secondo: una posizione che invecchia deve far passare a "segnale perso"
@@ -128,7 +119,7 @@ class NavigationViewModel @Inject constructor(
     private fun trackerFor(route: Route): NavigationTracker =
         tracker?.takeIf { trackerRoute === route } ?: NavigationTracker(route).also { tracker = it; trackerRoute = route }
 
-    val uiState: StateFlow<NavigationUiState> = combine(
+    private val guidance: StateFlow<NavigationStatus> = combine(
         combine(permissionGranted, gpsEnabled, lastFix, ::Triple),
         combine(calculating, calculationStartedMillis, calculationProgress, routeResult, arrived) { isCalculating, started, progress, result, hasArrived ->
             CalculationInputs(isCalculating, started, progress, result, hasArrived)
@@ -136,7 +127,29 @@ class NavigationViewModel @Inject constructor(
         clock,
     ) { (permission, enabled, fix), calc, now ->
         navigationUiState(permission, enabled, fix, now, calc.calculating, calc.result, calc.arrived, calc.startedMillis, calc.progress, ::trackerFor)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NavigationUiState.WaitingForFix)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NavigationStatus.WaitingForFix)
+
+    /** Tutto quello che la scheda Navigatore legge della guida, in un solo stato. */
+    val uiState: StateFlow<NavigationUiState> = combine(
+        combine(guidance, destination, _resumeOffer, _routeProfile, navigationPreferences.walkingHaptics) { status, target, offer, mode, haptics ->
+            NavigationUiState(status = status, target = target, resumeOffer = offer, routeProfile = mode, walkingHaptics = haptics)
+        },
+        arrival, _regionIds, drivingSideWarning, _arrivedAtMillis,
+    ) { state, arriveBy, regionIds, drivingSide, arrivedAt ->
+        state.copy(arriveBy = arriveBy, regionIds = regionIds, drivingSideWarning = drivingSide, arrivedAtMillis = arrivedAt)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        NavigationUiState(
+            status = NavigationStatus.WaitingForFix,
+            target = destination.value,
+            resumeOffer = _resumeOffer.value,
+            routeProfile = _routeProfile.value,
+            walkingHaptics = navigationPreferences.walkingHaptics.value,
+            arriveBy = arrival.value,
+            regionIds = _regionIds.value,
+        ),
+    )
 
     // Strade del percorso in corso, per punto della svolta: le trova la mappa della guida, che le passa a onStreetNames.
     private val streetNames = mutableMapOf<Int, String>()
@@ -165,12 +178,12 @@ class NavigationViewModel @Inject constructor(
         val place = _resumeOffer.value ?: return
         _resumeOffer.value = null
         // Dal disco: regione, mezzo e ora di arrivo vengono da li' se lo stato di Android non c'e'.
-        val fromDisk = savedNavigation?.takeIf { savedStateHandle.get<Bundle>(KEY_DESTINATION) == null }
+        val fromDisk = savedNavigation?.takeIf { savedStateHandle.savedPlace(KEY_DESTINATION) == null }
         start(
             regionId = fromDisk?.regionId ?: regionId,
             place = place,
             mode = fromDisk?.mode ?: _routeProfile.value,
-            arriveBy = fromDisk?.arriveByEpochMinute?.let { LocalDateTime.ofEpochSecond(it * 60, 0, ZoneOffset.UTC) } ?: arrival.value,
+            arriveBy = fromDisk?.arriveByEpochMinute?.let { LocalDateTime.ofEpochSecond(it * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC) } ?: arrival.value,
         )
     }
 
@@ -178,7 +191,7 @@ class NavigationViewModel @Inject constructor(
     fun dismissResume() {
         _resumeOffer.value = null
         arrival.value = null
-        savedStateHandle.remove<Bundle>(KEY_DESTINATION)
+        savedStateHandle.remove<String>(KEY_DESTINATION)
         navigationPreferences.clearActiveNavigation()
     }
 
@@ -187,7 +200,7 @@ class NavigationViewModel @Inject constructor(
     // Android 14 senza il servizio non parte), se manca arriva da onPermissionResult.
     private fun beginSession(place: NavigationPlace) {
         session.update(NavigationSnapshot(place.name, null, 0.0, 0.0, 0.0, waitingForFix = true))
-        if (gps.hasPermission()) NavigationService.start(context)
+        if (gps.hasPermission()) serviceStarter.start()
     }
 
     /** Notifica della guida toccata con l'app aperta: chi mostra l'hub porta in primo piano il Navigatore. */
@@ -241,10 +254,10 @@ class NavigationViewModel @Inject constructor(
         beginSession(place)
         savedStateHandle[KEY_REGION] = regionId
         savedStateHandle[KEY_MODE] = mode.name
-        savedStateHandle[KEY_ARRIVE_BY] = arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / 60 }
-        savedStateHandle[KEY_DESTINATION] = place.toBundle()
+        savedStateHandle[KEY_ARRIVE_BY] = arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }
+        savedStateHandle[KEY_DESTINATION] = place.toSavedState()
         navigationPreferences.saveActiveNavigation(
-            ActiveNavigation(regionId, place, mode, arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / 60 }, System.currentTimeMillis()),
+            ActiveNavigation(regionId, place, mode, arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }, System.currentTimeMillis()),
         )
     }
 
@@ -258,7 +271,7 @@ class NavigationViewModel @Inject constructor(
         routeResult.value = null
         arrived.value = false
         _arrivedAtMillis.value = null
-        savedStateHandle.remove<Bundle>(KEY_DESTINATION)
+        savedStateHandle.remove<String>(KEY_DESTINATION)
         navigationPreferences.clearActiveNavigation()
         // Snapshot null: il servizio in primo piano si ferma da solo.
         session.clear()
@@ -267,7 +280,7 @@ class NavigationViewModel @Inject constructor(
 
     fun onPermissionResult(granted: Boolean) {
         permissionGranted.value = granted || gps.hasPermission()
-        if (permissionGranted.value && destination.value != null) NavigationService.start(context)
+        if (permissionGranted.value && destination.value != null) serviceStarter.start()
     }
 
     // Activity chiusa (o hub chiuso): senza ViewModel nessuno ascolta il GPS, il servizio non ha piu' ragione di vivere.
@@ -291,7 +304,7 @@ class NavigationViewModel @Inject constructor(
                 val preview = previewToUse?.takeIf { !trackerFor(it.route).progress(RoutePoint(fix.latitude, fix.longitude)).offRoute }
                 previewToUse = null
                 if (preview != null) {
-                    logRouteForSimulation(preview.route)
+                    simulationLog.log(preview.route)
                     routeResult.value = RouteResult.Found(preview.route)
                     onFix(fix)
                 } else {
@@ -339,13 +352,18 @@ class NavigationViewModel @Inject constructor(
                 val result = routeEngineFactory.create(regionIds).route(start, target.point, choice.profile, choice.params) { progress ->
                     if (calculationJob === self) calculationProgress.value = progress
                 }
-                if (result is RouteResult.Found) logRouteForSimulation(result.route)
+                if (result is RouteResult.Found) simulationLog.log(result.route)
                 // Un ricalcolo fuori percorso fallito (partenza in un parcheggio, tempo scaduto) non butta
                 // via il percorso buono: si riprova al prossimo intervallo. "Riprova" azzera prima il
                 // risultato, quindi li' arriva anche l'errore.
                 if (result is RouteResult.Found || routeResult.value !is RouteResult.Found) routeResult.value = result
-                // Un percorso nuovo ha altre svolte: i nomi trovati per il vecchio non valgono.
-                if (result is RouteResult.Found) streetNames.clear()
+                if (result is RouteResult.Found) {
+                    // Un percorso nuovo ha altre svolte: i nomi trovati per il vecchio non valgono.
+                    streetNames.clear()
+                    // La notifica mostra subito la prima svolta, invece di "Calcolo del percorso" fino alla posizione successiva.
+                    val fix = lastFix.value ?: from
+                    publish(result.route, trackerFor(result.route).progress(RoutePoint(fix.latitude, fix.longitude)))
+                }
             } finally {
                 if (calculationJob === self) calculating.value = false
             }
@@ -356,7 +374,7 @@ class NavigationViewModel @Inject constructor(
 
     // Regioni installate con la rete stradale utile al mezzo (usableRoutingRegions) e riquadro della loro mappa (127 byte di
     // header ognuna).
-    private suspend fun routingRegions(): List<RoutingRegion> = withContext(Dispatchers.IO) {
+    private suspend fun routingRegions(): List<RoutingRegion> = withContext(ioDispatcher) {
         val regions = regionRepository.observeInstalled().first()
         val usable = usableRoutingRegions(
             regions.filter { it.routingVersion != null }.map { it.regionId }.toSet(),
@@ -373,16 +391,37 @@ class NavigationViewModel @Inject constructor(
         const val KEY_DESTINATION = "destination"
         const val KEY_MODE = "mode"
         const val KEY_ARRIVE_BY = "arriveBy"
+        const val SECONDS_PER_MINUTE = 60
     }
 
     private data class CalculationInputs(val calculating: Boolean, val startedMillis: Long, val progress: Double, val result: RouteResult?, val arrived: Boolean)
 }
 
 /**
+ * Lo stato della scheda Navigatore durante la guida. [target] e' la meta della guida in corso (null se non si sta
+ * navigando); [resumeOffer] la guida interrotta perche' il sistema ha chiuso l'app, da riprendere o dimenticare;
+ * [walkingHaptics] la vibrazione alle svolte e all'arrivo a piedi (Impostazioni); [arriveBy] l'ora a cui si vuole
+ * arrivare, per mostrare il ritardo; [regionIds] le regioni del percorso, una sorgente di mappa per ognuna;
+ * [drivingSideWarning] il lato di guida da ricordare in auto; [arrivedAtMillis] quando e' stata raggiunta la meta, per
+ * distinguere un arrivo appena avvenuto da uno di cui nessuno si e' accorto.
+ */
+data class NavigationUiState(
+    val status: NavigationStatus,
+    val target: NavigationPlace? = null,
+    val resumeOffer: NavigationPlace? = null,
+    val routeProfile: RouteProfile,
+    val walkingHaptics: Boolean,
+    val arriveBy: LocalDateTime? = null,
+    val regionIds: List<String> = emptyList(),
+    val drivingSideWarning: DrivingSide? = null,
+    val arrivedAtMillis: Long? = null,
+)
+
+/**
  * Solo nelle build di debug: i punti del percorso nel log (tag [SIMULATION_LOG_TAG]), letti dallo script
  * che sull'emulatore muove il GPS lungo il percorso con "adb emu geo fix" per provare la guida.
  */
-private fun logRouteForSimulation(route: Route) {
+internal fun logRouteForSimulation(route: Route) {
     if (!BuildConfig.DEBUG) return
     val points = route.points.joinToString(";") { "%.6f,%.6f".format(java.util.Locale.ROOT, it.longitude, it.latitude) }
     Log.d(SIMULATION_LOG_TAG, "route ${route.distanceMeters.toInt()} ${route.durationSeconds.toInt()} $points")

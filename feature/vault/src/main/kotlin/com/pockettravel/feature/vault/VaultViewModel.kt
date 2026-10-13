@@ -1,6 +1,5 @@
 package com.pockettravel.feature.vault
 
-import android.util.LruCache
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -41,9 +40,7 @@ class VaultViewModel @Inject constructor(
 
     // Miniature gia' decodificate: evitano di decifrare e decodificare la foto intera a ogni rientro
     // nella lista. Solo in memoria, svuotata al blocco; misurata in byte dei bitmap (max 4 MiB).
-    private val thumbnails = object : LruCache<String, ImageBitmap>(THUMBNAIL_CACHE_BYTES) {
-        override fun sizeOf(key: String, value: ImageBitmap): Int = value.width * value.height * BYTES_PER_PIXEL
-    }
+    private val thumbnails = ThumbnailCache(THUMBNAIL_CACHE_BYTES)
 
     fun cachedThumbnail(fileName: String): ImageBitmap? = thumbnails.get(fileName)
 
@@ -98,6 +95,5 @@ class VaultViewModel @Inject constructor(
 
     private companion object {
         const val THUMBNAIL_CACHE_BYTES = 4 * 1024 * 1024
-        const val BYTES_PER_PIXEL = 4
     }
 }

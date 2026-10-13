@@ -6,7 +6,10 @@ import io
 import json
 import os
 import sys
+import tempfile
 import unittest
+import zipfile
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import iett_gtfs  # noqa: E402
@@ -95,6 +98,122 @@ class ResourceUrlsTest(unittest.TestCase):
     def test_missing_resource(self):
         with self.assertRaises(ValueError):
             iett_gtfs.resource_urls(json.dumps({"result": {"resources": []}}))
+
+
+class TimeHelpersTest(unittest.TestCase):
+    def test_secondi_e_formato_oltre_la_mezzanotte(self):
+        self.assertEqual(25 * 3600 + 20 * 60, iett_gtfs.gtfs_seconds("25:20:00"))
+        self.assertIsNone(iett_gtfs.gtfs_seconds(""))
+        self.assertEqual("25:20:05", iett_gtfs.gtfs_time(25 * 3600 + 20 * 60 + 5))
+        self.assertEqual("00:00:00", iett_gtfs.gtfs_time(0))
+
+    def test_distanza_in_metri_circa(self):
+        # un centesimo di grado di latitudine sono circa 1,1 km
+        self.assertAlmostEqual(1112, iett_gtfs.distance_m((41.0, 29.0), (41.01, 29.0)), delta=2)
+        self.assertEqual(0, iett_gtfs.distance_m((41.0, 29.0), (41.0, 29.0)))
+
+    def test_fermate_coincidenti_ripartiscono_in_parti_uguali(self):
+        coords = {"A": (41.0, 29.0), "B": (41.0, 29.0), "C": (41.0, 29.0)}
+        calls = [(1, "A", 0), (2, "B", None), (3, "C", 600)]
+        self.assertEqual([0, 300, 600], iett_gtfs.interpolate_trip(calls, coords))
+
+    def test_orari_prima_del_primo_noto_restano_vuoti(self):
+        coords = {"A": (41.0, 29.0), "B": (41.01, 29.0), "C": (41.02, 29.0)}
+        self.assertEqual([None, 100, 200], iett_gtfs.interpolate_trip([(1, "A", None), (2, "B", 100), (3, "C", 200)], coords))
+
+    def test_coordinate_limite_e_formati_strani(self):
+        self.assertEqual(41.0, iett_gtfs.parse_coord("41.0", iett_gtfs.LAT_RANGE))
+        self.assertIsNone(iett_gtfs.parse_coord("", iett_gtfs.LAT_RANGE))
+        self.assertIsNone(iett_gtfs.parse_coord("39.9", iett_gtfs.LAT_RANGE))
+        self.assertIsNone(iett_gtfs.parse_coord("...", iett_gtfs.LAT_RANGE))
+        self.assertEqual(29.0, iett_gtfs.parse_coord(" 29 ", iett_gtfs.LON_RANGE))
+
+
+STOPS = ("stop_id;stop_code;stop_name;stop_lat;stop_lon\n"
+         "1;S1;KADIKÃ–Y Ä°skele;410.191.700.005.564;290.231.200.000.000\n"
+         "2;S2;Esponenziale;4,12E+14;2,9E+14\n"
+         "3;S3;Piazza Taksim;41.0370;28.9850\n")
+AGENCY = "agency_id;agency_name;agency_url;agency_timezone\n1;IETT;https://iett.example;Europe/Istanbul\n"
+CALENDAR = ("service_id;monday;tuesday;wednesday;thursday;friday;saturday;sunday;start_date;end_date\n"
+            "WD;1;1;1;1;1;0;0;20260101;20261231\n")
+ROUTES = ("route_id;agency_id;route_short_name;route_long_name;route_type\n"
+          "R1;1;15;KADIKÃ–Y - TAKSÄ°M;\n"
+          "R2;1;16;Tram;0\n")
+TRIPS = "trip_id;route_id;service_id;trip_headsign;direction_id\nT1;R1;WD;KADIKÃ–Y;0\n"
+STOP_TIMES = ("trip_id,stop_id,stop_sequence,arrival_time,departure_time,timepoint\n"
+              "T1,1,1,08:00:00,08:00:00,1\n"
+              "T1,2,2,,,0\n"          # fermata scartata: coordinate esponenziali
+              "T1,3,3,08:10:00,08:10:00,1\n")
+
+
+def make_fetch(resources=None, texts=None):
+    names = iett_gtfs.CSV_FILES + ["stop_times"]
+    resources = resources if resources is not None else (
+        [{"name": n, "format": "CSV", "url": f"https://x/{n}.csv"} for n in iett_gtfs.CSV_FILES]
+        + [{"name": "stop_times", "format": "ZIP", "url": "https://x/stop_times.zip"}])
+    texts = texts or {"agency": AGENCY, "calendar": CALENDAR, "routes": ROUTES, "stops": STOPS, "trips": TRIPS}
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("stop_times.txt", "﻿" + STOP_TIMES)
+    payload = {iett_gtfs.PACKAGE_URL: json.dumps({"result": {"resources": resources}}).encode("utf-8"),
+               "https://x/stop_times.zip": buf.getvalue()}
+    payload.update({f"https://x/{n}.csv": t.encode("utf-8") for n, t in texts.items()})
+    assert names
+
+    def fetch(url, user_agent):
+        return payload[url]
+    return fetch
+
+
+class MainTest(unittest.TestCase):
+    def run_main(self, out, **kwargs):
+        with mock.patch.object(iett_gtfs, "fetch", make_fetch(**kwargs)), \
+                mock.patch.object(sys, "argv", ["iett_gtfs.py", "--out", out]), \
+                mock.patch.object(sys, "stdout", io.StringIO()) as stdout, mock.patch.object(sys, "stderr", io.StringIO()):
+            return iett_gtfs.main(), stdout.getvalue()
+
+    def read(self, archive, name):
+        return list(csv.reader(io.StringIO(archive.read(name).decode("utf-8"))))
+
+    def test_feed_composto_corretto(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "feed.zip")
+            code, text = self.run_main(out)
+            with zipfile.ZipFile(out) as z:
+                self.assertEqual(["agency.txt", "calendar.txt", "routes.txt", "stops.txt", "trips.txt", "stop_times.txt"], z.namelist())
+                stops = self.read(z, "stops.txt")
+                routes = self.read(z, "routes.txt")
+                trips = self.read(z, "trips.txt")
+                times = self.read(z, "stop_times.txt")
+        self.assertEqual(0, code)
+        self.assertEqual("iett_gtfs: 2 fermate, 2 passaggi (0 con orario stimato)\n", text)
+        self.assertEqual([["1", "S1", "KADIKÖY İskele", "41.0191700005564", "29.02312"],
+                          ["3", "S3", "Piazza Taksim", "41.037", "28.985"]], stops[1:])
+        self.assertEqual(["R1", "1", "15", "KADIKÖY - TAKSİM", "3"], routes[1])  # route_type vuoto -> autobus
+        self.assertEqual("0", routes[2][4])                                      # route_type 0 (tram) resta
+        self.assertEqual("KADIKÖY", trips[1][3])
+        self.assertEqual([["T1", "1", "1", "08:00:00", "08:00:00"], ["T1", "3", "3", "08:10:00", "08:10:00"]], times[1:])
+
+    def test_stesso_input_stesso_zip(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a, b = os.path.join(tmp, "a.zip"), os.path.join(tmp, "b.zip")
+            self.run_main(a)
+            self.run_main(b)
+            with open(a, "rb") as fa, open(b, "rb") as fb:
+                self.assertEqual(fa.read(), fb.read())
+
+    def test_risorsa_mancante_esce_con_1_senza_scrivere(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "feed.zip")
+            code, _ = self.run_main(out, resources=[])
+            self.assertEqual(1, code)
+            self.assertFalse(os.path.exists(out))
+
+    def test_errore_di_rete_esce_con_1(self):
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(iett_gtfs, "fetch", side_effect=OSError("giu")), \
+                mock.patch.object(sys, "argv", ["iett_gtfs.py", "--out", os.path.join(tmp, "f.zip")]), \
+                mock.patch.object(sys, "stderr", io.StringIO()):
+            self.assertEqual(1, iett_gtfs.main())
 
 
 if __name__ == "__main__":

@@ -89,7 +89,7 @@ fun TransitIndex.validate() {
 
 internal fun TransitFeed.validate() {
     require(isSafeSegment(id)) { "id di rete non valido: $id" }
-    require(bbox == null || bbox.size == 4) { "riquadro non valido per la rete $id" }
+    require(bbox == null || bbox.size == BBOX_VALUES) { "riquadro non valido per la rete $id" }
     require(isSafeVersion(version)) { "version non valida per la rete $id" }
     require(name.isNotBlank() && attribution.isNotBlank()) { "nome o attribuzione mancanti per la rete $id" }
     require(regions.all(::isSafeSegment)) { "regione non valida per la rete $id" }
@@ -112,7 +112,7 @@ fun regionTransitFeeds(index: TransitIndex, regionId: String): List<TransitFeed>
 fun regionTransitVersion(feeds: List<TransitFeed>): String {
     val lines = feeds.map { "${it.id}@${it.version}" }.sorted().joinToString("\n")
     val digest = MessageDigest.getInstance("SHA-256").digest(lines.toByteArray(Charsets.UTF_8))
-    return "transit-" + digest.joinToString("") { "%02x".format(it) }.take(16)
+    return "transit-" + digest.joinToString("") { "%02x".format(it) }.take(VERSION_HASH_CHARS)
 }
 
 /**
@@ -140,6 +140,13 @@ private const val MANY_TRANSIT_FEEDS = 3
 
 /** Entro questa distanza dal riquadro delle fermate una rete conta come vicina. */
 private const val NEAR_TRANSIT_KM = 50.0
+
+// minLon, minLat, maxLon, maxLat.
+private const val BBOX_VALUES = 4
+private const val VERSION_HASH_CHARS = 16
+
+// Chilometri per grado di latitudine.
+private const val KM_PER_DEGREE = 111.32
 
 /** Come sono state scelte le reti di default di una regione con molte reti (mostrato nei Contenuti). */
 @Serializable
@@ -179,5 +186,5 @@ fun defaultTransitChoice(available: List<TransitFeed>, latitude: Double?, longit
 private fun distanceToBoxKm(box: List<Double>, latitude: Double, longitude: Double): Double {
     val dLat = latitude - latitude.coerceIn(box[1], box[3])
     val dLon = (longitude - longitude.coerceIn(box[0], box[2])) * cos(Math.toRadians(latitude))
-    return sqrt(dLat * dLat + dLon * dLon) * 111.32
+    return sqrt(dLat * dLat + dLon * dLon) * KM_PER_DEGREE
 }

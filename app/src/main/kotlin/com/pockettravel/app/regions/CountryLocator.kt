@@ -2,29 +2,43 @@ package com.pockettravel.app.regions
 
 import android.content.Context
 import com.pockettravel.feature.map.RoutePoint
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
 import org.json.JSONArray
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Il paese (codice ISO 3166-1 alpha-2 minuscolo) in cui cade un punto, dai confini Natural Earth gia' nell'app
- * per la mappa delle nazioni (asset world/countries.geojson): offline, senza servizi di geocodifica. Da chiamare
- * fuori dal main thread (la prima volta legge 1,6 MB).
+ * Il paese (codice ISO 3166-1 alpha-2 minuscolo) in cui cade un punto, offline e senza servizi di geocodifica.
+ * Da chiamare fuori dal main thread: [AssetCountryLocator] la prima volta legge 1,6 MB.
  */
+interface CountryLocator {
+    fun countryAt(latitude: Double, longitude: Double): String?
+
+    /** I paesi confinanti via terra, per codice. */
+    val neighbours: Map<String, Set<String>>
+
+    /** Il centro di ogni paese, per le distanze fra paesi. */
+    val centres: Map<String, RoutePoint>
+}
+
+/** [CountryLocator] sui confini Natural Earth gia' nell'app per la mappa delle nazioni (asset world/countries.geojson). */
 @Singleton
-class CountryLocator @Inject constructor(@ApplicationContext private val context: Context) {
+class AssetCountryLocator @Inject constructor(@ApplicationContext private val context: Context) : CountryLocator {
     private val countries: List<Pair<String, List<List<DoubleArray>>>> by lazy { load() }
 
-    fun countryAt(latitude: Double, longitude: Double): String? =
+    override fun countryAt(latitude: Double, longitude: Double): String? =
         countries.firstOrNull { (_, polygons) -> polygons.any { rings -> contains(rings, longitude, latitude) } }?.first
 
     /**
      * I paesi confinanti via terra: quelli che hanno un vertice in comune (i confini Natural Earth sono coerenti, i
      * vicini condividono i vertici del confine). La Svezia non confina con la Lettonia, l'Italia si' con l'Austria.
      */
-    val neighbours: Map<String, Set<String>> by lazy {
+    override val neighbours: Map<String, Set<String>> by lazy {
         val owners = HashMap<Long, MutableSet<String>>()
         countries.forEach { (iso, polygons) ->
             polygons.forEach { rings ->
@@ -39,13 +53,8 @@ class CountryLocator @Inject constructor(@ApplicationContext private val context
     }
 
     /** Il centro del riquadro della parte piu' grande di ogni paese (per la Russia non Kaliningrad): per le distanze fra paesi. */
-    val centres: Map<String, RoutePoint> by lazy {
-        countries.associate { (iso, polygons) ->
-            val outer = polygons.map { it[0] }.maxBy { ring -> boxArea(ring) }
-            val lons = outer.filterIndexed { i, _ -> i % 2 == 0 }
-            val lats = outer.filterIndexed { i, _ -> i % 2 == 1 }
-            iso to RoutePoint((lats.min() + lats.max()) / 2, (lons.min() + lons.max()) / 2)
-        }
+    override val centres: Map<String, RoutePoint> by lazy {
+        countries.mapNotNull { (iso, polygons) -> countryCentre(polygons)?.let { iso to it } }.toMap()
     }
 
     private fun load(): List<Pair<String, List<List<DoubleArray>>>> {
@@ -72,15 +81,11 @@ class CountryLocator @Inject constructor(@ApplicationContext private val context
 
     private companion object {
         const val ASSET = "world/countries.geojson"
+        const val VERTEX_SCALE = 10_000
+        const val LATITUDE_STRIDE = 4_000_000L
 
         // Vertice arrotondato a 10^-4 gradi (circa 10 m): lo stesso punto di confine nei due paesi.
-        fun vertexKey(lon: Double, lat: Double): Long = Math.round(lon * 10_000) * 4_000_000L + Math.round(lat * 10_000)
-
-        fun boxArea(ring: DoubleArray): Double {
-            val lons = ring.filterIndexed { i, _ -> i % 2 == 0 }
-            val lats = ring.filterIndexed { i, _ -> i % 2 == 1 }
-            return (lons.max() - lons.min()) * (lats.max() - lats.min())
-        }
+        fun vertexKey(lon: Double, lat: Double): Long = Math.round(lon * VERTEX_SCALE) * LATITUDE_STRIDE + Math.round(lat * VERTEX_SCALE)
 
         // Ray casting sull'anello esterno meno i buchi; ring = lon, lat alternati.
         fun contains(rings: List<DoubleArray>, x: Double, y: Double): Boolean =
@@ -99,4 +104,43 @@ class CountryLocator @Inject constructor(@ApplicationContext private val context
             return result
         }
     }
+}
+
+// Anelli esterni utilizzabili: un poligono senza anelli o con l'anello vuoto si salta.
+private fun usableOuterRings(polygons: List<List<DoubleArray>>): List<DoubleArray> =
+    polygons.mapNotNull { it.firstOrNull() }.filter { it.size >= 2 }
+
+// Longitudini senza salto a 180: se il riquadro e' piu' largo di 180 gradi il poligono attraversa
+// l'antimeridiano e le longitudini negative si spostano di +360.
+private fun unwrappedLongitudes(ring: DoubleArray): List<Double> {
+    val lons = ring.filterIndexed { i, _ -> i % 2 == 0 }
+    return if (lons.max() - lons.min() > HALF_TURN) lons.map { if (it < 0) it + FULL_TURN else it } else lons
+}
+
+private fun latitudes(ring: DoubleArray): List<Double> = ring.filterIndexed { i, _ -> i % 2 == 1 }
+
+private fun boxArea(ring: DoubleArray): Double {
+    val lons = unwrappedLongitudes(ring)
+    val lats = latitudes(ring)
+    return (lons.max() - lons.min()) * (lats.max() - lats.min())
+}
+
+private const val HALF_TURN = 180.0
+private const val FULL_TURN = 360.0
+
+/** Il centro del riquadro del poligono piu' grande; null se nessun poligono ha un anello utilizzabile. */
+internal fun countryCentre(polygons: List<List<DoubleArray>>): RoutePoint? =
+    usableOuterRings(polygons).maxByOrNull(::boxArea)?.let { outer ->
+        val lons = unwrappedLongitudes(outer)
+        val lats = latitudes(outer)
+        val lon = (lons.min() + lons.max()) / 2
+        RoutePoint((lats.min() + lats.max()) / 2, if (lon > HALF_TURN) lon - FULL_TURN else lon)
+    }
+
+/** Lega [AssetCountryLocator] all'interfaccia che i ViewModel iniettano. */
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class CountryLocatorModule {
+    @Binds
+    abstract fun bindCountryLocator(impl: AssetCountryLocator): CountryLocator
 }

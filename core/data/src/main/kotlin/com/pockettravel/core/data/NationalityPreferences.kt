@@ -1,9 +1,7 @@
 package com.pockettravel.core.data
 
-import android.content.Context
 import android.content.res.Resources
 import androidx.core.content.edit
-import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,9 +13,13 @@ import kotlinx.coroutines.flow.asStateFlow
  * ambasciate e consolati di quel paese. Finche' non la sceglie vale il paese del telefono.
  */
 @Singleton
-class NationalityPreferences @Inject constructor(@ApplicationContext context: Context) {
+class NationalityPreferences internal constructor(
+    preferences: PreferencesFactory,
+    deviceCountry: () -> String?,
+) {
+    @Inject constructor(preferences: PreferencesFactory) : this(preferences, ::systemCountry)
 
-    private val prefs = context.getSharedPreferences("profile", Context.MODE_PRIVATE)
+    private val prefs = preferences.open("profile")
     private val _nationality = MutableStateFlow(prefs.getString(KEY_NATIONALITY, null) ?: deviceCountry())
     val nationality: StateFlow<String?> = _nationality.asStateFlow()
 
@@ -26,12 +28,12 @@ class NationalityPreferences @Inject constructor(@ApplicationContext context: Co
         _nationality.value = countryCode
     }
 
-    // Paese delle impostazioni di sistema: Locale.getDefault() segue la lingua scelta nell'app ("it", "en"),
-    // che non ha paese.
-    private fun deviceCountry(): String? =
-        Resources.getSystem().configuration.locales[0].country.takeIf { it.length == 2 }
-
     private companion object {
         const val KEY_NATIONALITY = "nationality"
     }
 }
+
+// Paese delle impostazioni di sistema: Locale.getDefault() segue la lingua scelta nell'app ("it", "en"),
+// che non ha paese.
+private fun systemCountry(): String? =
+    Resources.getSystem().configuration.locales[0].country.takeIf { it.length == 2 }

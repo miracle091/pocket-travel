@@ -1,9 +1,8 @@
 package com.pockettravel.feature.map
 
-import android.content.Context
-import android.os.Bundle
 import androidx.core.content.edit
-import dagger.hilt.android.qualifiers.ApplicationContext
+import androidx.lifecycle.SavedStateHandle
+import com.pockettravel.core.data.PreferencesFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,24 +14,21 @@ data class NavigationPlace(val name: String, val latitude: Double, val longitude
     val point: RoutePoint get() = RoutePoint(latitude, longitude)
 }
 
-// Per lo stato salvato dei ViewModel del Navigatore (SavedStateHandle).
-internal fun NavigationPlace.toBundle() = Bundle().apply {
-    putString("name", name)
-    putDouble("latitude", latitude)
-    putDouble("longitude", longitude)
-    putString("regionId", regionId)
-}
+// Per lo stato salvato dei ViewModel del Navigatore (SavedStateHandle): la stessa riga dei Recenti.
+internal fun NavigationPlace.toSavedState(): String = RecentDestinations.encode(listOf(this))
 
-internal fun Bundle.toPlace(): NavigationPlace? =
-    getString("name")?.let { NavigationPlace(it, getDouble("latitude"), getDouble("longitude"), getString("regionId").orEmpty()) }
+internal fun String.toPlace(): NavigationPlace? = RecentDestinations.decode(this).firstOrNull()
+
+// Le versioni precedenti salvavano un Bundle: dopo un aggiornamento con il processo ucciso quel valore si ignora.
+internal fun SavedStateHandle.savedPlace(key: String): NavigationPlace? = (get<Any?>(key) as? String)?.toPlace()
 
 /**
  * Ultime destinazioni scelte nella scheda Navigatore, la piu' recente per prima, di tutte le regioni
  * (la scheda mostra quelle installate). Restano sul dispositivo, come ogni altra preferenza.
  */
 @Singleton
-class RecentDestinations @Inject constructor(@ApplicationContext context: Context) {
-    private val prefs = context.getSharedPreferences("navigation_recent", Context.MODE_PRIVATE)
+class RecentDestinations @Inject constructor(preferences: PreferencesFactory) {
+    private val prefs = preferences.open("navigation_recent")
     private val _places = MutableStateFlow(decode(prefs.getString(KEY_PLACES, null)))
     val places: StateFlow<List<NavigationPlace>> = _places.asStateFlow()
 
@@ -58,6 +54,8 @@ class RecentDestinations @Inject constructor(@ApplicationContext context: Contex
     internal companion object {
         const val KEY_PLACES = "places"
         const val MAX_PLACES = 10
+        private const val FIELD_COUNT = 4
+        private const val NAME_FIELD = 3
 
         // Una riga per destinazione, campi separati da tab: niente libreria di serializzazione in feature:map per una lista corta.
         fun encode(places: List<NavigationPlace>): String = places.joinToString("\n") { place ->
@@ -66,10 +64,10 @@ class RecentDestinations @Inject constructor(@ApplicationContext context: Contex
 
         fun decode(text: String?): List<NavigationPlace> = text.orEmpty().lines().mapNotNull { line ->
             val fields = line.split('\t')
-            if (fields.size != 4) return@mapNotNull null
+            if (fields.size != FIELD_COUNT) return@mapNotNull null
             val latitude = fields[0].toDoubleOrNull() ?: return@mapNotNull null
             val longitude = fields[1].toDoubleOrNull() ?: return@mapNotNull null
-            NavigationPlace(fields[3], latitude, longitude, fields[2])
+            NavigationPlace(fields[NAME_FIELD], latitude, longitude, fields[2])
         }
     }
 }

@@ -1,8 +1,6 @@
 package com.pockettravel.core.data
 
-import android.content.Context
 import androidx.core.content.edit
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,9 +13,9 @@ import javax.inject.Singleton
  * leggera, scritto dopo ogni estrazione.
  */
 @Singleton
-class MapDetailPreferences @Inject constructor(@ApplicationContext context: Context) {
+class MapDetailPreferences @Inject constructor(preferences: PreferencesFactory) {
 
-    private val prefs = context.getSharedPreferences("map_detail", Context.MODE_PRIVATE)
+    private val prefs = preferences.open("map_detail")
     private val _choices = MutableStateFlow(read(CHOICE_PREFIX).mapValues { it.value as Boolean })
     private val _installedLight = MutableStateFlow(read(INSTALLED_PREFIX).filterValues { it == true }.keys)
     val choices: StateFlow<Map<String, Boolean>> = _choices.asStateFlow()

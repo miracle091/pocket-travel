@@ -3,7 +3,7 @@ package com.pockettravel.core.data
 import android.database.sqlite.SQLiteException
 import android.util.Log
 import com.pockettravel.core.data.db.RegionDatabase
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -19,6 +19,7 @@ import kotlinx.coroutines.withContext
  */
 class DatabaseCompactor(
     private val database: RegionDatabase,
+    private val ioDispatcher: CoroutineDispatcher,
     private val availableBytes: () -> Long,
 ) {
     private val lock = Mutex()
@@ -36,7 +37,7 @@ class DatabaseCompactor(
     suspend fun compactIfWasteful() {
         if (!lock.tryLock()) return
         try {
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 try {
                     compact()
                 } catch (error: SQLiteException) {

@@ -1,6 +1,9 @@
 package com.pockettravel.core.sync
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -17,7 +20,7 @@ class RoutingSegmentsInstallerTest {
         val rd5File = File(packageDir, "E5_N45.rd5")
         rd5File.writeBytes(byteArrayOf(1, 2, 3))
 
-        RoutingSegmentsInstaller().install(packageDir)
+        RoutingSegmentsInstaller(Dispatchers.IO).install(packageDir)
 
         val routingDir = File(packageDir, RoutingSegmentsInstaller.ROUTING_DIR_NAME)
         assertTrue(routingDir.isDirectory)
@@ -26,12 +29,24 @@ class RoutingSegmentsInstallerTest {
     }
 
     @Test
+    fun `lo spostamento passa dal dispatcher iniettato`() = runTest {
+        val packageDir = createTempDirectory("pocket-travel-test").toFile()
+        File(packageDir, "E5_N45.rd5").writeBytes(byteArrayOf(1))
+        val dispatcher = RecordingDispatcher(StandardTestDispatcher(testScheduler))
+
+        RoutingSegmentsInstaller(dispatcher).install(packageDir)
+
+        assertTrue(dispatcher.dispatched > 0)
+        assertTrue(File(packageDir, "routing/E5_N45.rd5").isFile)
+    }
+
+    @Test
     fun `sposta piu' segmenti rd5 se la regione attraversa piu' tile`() = runBlocking {
         val packageDir = createTempDirectory("pocket-travel-test").toFile()
         File(packageDir, "E5_N45.rd5").writeBytes(byteArrayOf(1))
         File(packageDir, "E10_N45.rd5").writeBytes(byteArrayOf(2))
 
-        RoutingSegmentsInstaller().install(packageDir)
+        RoutingSegmentsInstaller(Dispatchers.IO).install(packageDir)
 
         val routingDir = File(packageDir, RoutingSegmentsInstaller.ROUTING_DIR_NAME)
         assertEquals(setOf("E5_N45.rd5", "E10_N45.rd5"), routingDir.list()?.toSet())
@@ -41,7 +56,7 @@ class RoutingSegmentsInstallerTest {
     fun `fallisce se il pacchetto non contiene segmenti routing`() = runBlocking {
         val packageDir = createTempDirectory("pocket-travel-test").toFile()
         try {
-            RoutingSegmentsInstaller().install(packageDir)
+            RoutingSegmentsInstaller(Dispatchers.IO).install(packageDir)
             fail("un pacchetto senza rd5 non e' installabile")
         } catch (_: IllegalStateException) {
             // atteso: errore definitivo del pacchetto
@@ -53,7 +68,7 @@ class RoutingSegmentsInstallerTest {
         File(packageDir, "E5_N45.rd5").writeBytes(byteArrayOf(1))
         File(packageDir, "content.db").writeText("contenuto")
 
-        RoutingSegmentsInstaller().install(packageDir)
+        RoutingSegmentsInstaller(Dispatchers.IO).install(packageDir)
 
         assertTrue("content.db non e' un .rd5, deve restare dov'era", File(packageDir, "content.db").exists())
     }
@@ -65,7 +80,7 @@ class RoutingSegmentsInstallerTest {
         // Completato da un tentativo precedente con un'altra zona: non fa parte di questa richiesta.
         File(packageDir, "E10_N45.rd5").writeBytes(byteArrayOf(2))
 
-        RoutingSegmentsInstaller().install(packageDir, setOf("E5_N45.rd5"))
+        RoutingSegmentsInstaller(Dispatchers.IO).install(packageDir, setOf("E5_N45.rd5"))
 
         assertEquals(setOf("E5_N45.rd5"), File(packageDir, RoutingSegmentsInstaller.ROUTING_DIR_NAME).list()?.toSet())
     }

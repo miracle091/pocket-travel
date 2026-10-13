@@ -1,8 +1,6 @@
 package com.pockettravel.core.data
 
-import android.content.Context
 import androidx.core.content.edit
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,9 +39,9 @@ data class RoutingVariantChoices(
  * quella il Navigatore non calcola percorsi a piedi, in bici o in sedia a rotelle.
  */
 @Singleton
-class RoutingVariantPreferences @Inject constructor(@ApplicationContext context: Context) {
+class RoutingVariantPreferences @Inject constructor(preferences: PreferencesFactory) {
 
-    private val prefs = context.getSharedPreferences("routing_variant", Context.MODE_PRIVATE)
+    private val prefs = preferences.open("routing_variant")
     private val _choices = MutableStateFlow(
         RoutingVariantChoices(
             carOnly = read(CHOICE_PREFIX),

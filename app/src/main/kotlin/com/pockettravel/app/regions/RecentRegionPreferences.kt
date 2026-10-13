@@ -1,16 +1,15 @@
 package com.pockettravel.app.regions
 
-import android.content.Context
 import androidx.core.content.edit
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.pockettravel.core.data.PreferencesFactory
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /** Ricorda l'ultima regione aperta, per riaprirne la mappa all'avvio (vedi StartDestinationViewModel). */
 @Singleton
-class RecentRegionPreferences @Inject constructor(@ApplicationContext context: Context) {
+class RecentRegionPreferences @Inject constructor(preferences: PreferencesFactory) {
 
-    private val prefs = context.getSharedPreferences("recent_region", Context.MODE_PRIVATE)
+    private val prefs = preferences.open("recent_region")
 
     fun lastRegionId(): String? = prefs.getString(KEY_REGION_ID, null)
 

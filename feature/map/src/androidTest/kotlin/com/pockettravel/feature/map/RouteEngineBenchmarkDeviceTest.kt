@@ -1,11 +1,14 @@
 package com.pockettravel.feature.map
 
+import android.content.Context
 import android.os.Debug
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.pockettravel.core.data.PreferencesFactory
 import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.feature.map.di.RouteEngineModule
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -45,7 +48,9 @@ class RouteEngineBenchmarkDeviceTest {
         assumeTrue("segmenti mancanti in $segments", segments?.listFiles { f -> f.extension == "rd5" }?.isNotEmpty() == true)
         // Stessi profili dell'app: creare la factory li copia dagli asset, come in produzione.
         val profileDir = File(context.filesDir, "brouter-profile")
-        RouteEngineModule.provideRouteEngineFactory(File(context.cacheDir, "unused"), context, UsageModePreferences(context, MapFilterPreferences(context), RoutingVariantPreferences(context)))
+        val preferences = PreferencesFactory { name -> context.getSharedPreferences(name, Context.MODE_PRIVATE) }
+        RouteEngineModule.provideRouteEngineFactory(File(context.cacheDir, "unused"), context,
+            UsageModePreferences(preferences, MapFilterPreferences(preferences), RoutingVariantPreferences(preferences)), Dispatchers.IO)
         val engine = BRouterRouteEngine(segments!!, profileDir, profile, maxRunningTimeMillis = 300_000)
 
         repeat(2) { attempt ->

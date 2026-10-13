@@ -10,6 +10,7 @@ import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -40,7 +41,7 @@ import java.util.Locale
 class MultiTurnDeviceTest {
 
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
-    private lateinit var engine: OnDeviceLlmEngine
+    private lateinit var engine: LlamaOnDeviceLlmEngine
     private lateinit var native: InferenceEngine
 
     // I modelli "pt-" (addestrati in italiano) si usano solo con l'interfaccia in italiano (LlmModelCatalog.isUsableIn).
@@ -52,9 +53,9 @@ class MultiTurnDeviceTest {
         val modelsDir = checkNotNull(context.getExternalFilesDir(null))
         val model = LlmModelCatalog.ALL.firstOrNull { File(modelsDir, it.fileName).exists() && LlmModelCatalog.isUsableIn(it, "it") }
         assumeTrue("Nessun modello italiano in $modelsDir", model != null)
-        val settings = AiSettingsStore(context).apply { setSelectedModelId(checkNotNull(model).id) }
+        val settings = aiSettingsStore(context).apply { setSelectedModelId(checkNotNull(model).id) }
         val coordinator = AiModelCoordinator()
-        engine = OnDeviceLlmEngine(context, LlmModelManager(OkHttpClient(), modelsDir, coordinator), coordinator, settings, DeviceAiCapability(context))
+        engine = LlamaOnDeviceLlmEngine(context, FileLlmModelManager(OkHttpClient(), modelsDir, coordinator, Dispatchers.IO), coordinator, settings, DeviceAiCapability(context), Dispatchers.IO)
         native = InferenceEngineImpl.getInstance(context)
         Log.i(TAG, "modello: ${model?.id}")
     }

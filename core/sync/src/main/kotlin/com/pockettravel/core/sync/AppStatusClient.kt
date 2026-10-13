@@ -1,40 +1,7 @@
 package com.pockettravel.core.sync
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.io.IOException
-import javax.inject.Inject
-
-class AppStatusClient @Inject constructor(
-    private val okHttpClient: OkHttpClient,
-    private val json: Json,
-    private val signatureVerifier: ManifestSignatureVerifier,
-) {
-    suspend fun fetchAppStatus(): AppStatus = withContext(Dispatchers.IO) {
-        val request = Request.Builder().url(SyncConfig.APP_STATUS_URL).build()
-        okHttpClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                // Errori temporanei del server: IOException, come per il manifest, cosi' i worker riprovano.
-                if (response.code >= HTTP_SERVER_ERROR || response.code == HTTP_REQUEST_TIMEOUT || response.code == HTTP_TOO_MANY_REQUESTS) {
-                    throw IOException("App status fetch failed: HTTP ${response.code}")
-                }
-                error("App status fetch failed: HTTP ${response.code}")
-            }
-            val bodyBytes = response.body.bytes()
-            if (bodyBytes.isEmpty()) error("Empty app status response")
-            signatureVerifier.verify(SyncConfig.APP_STATUS_URL, bodyBytes)
-            val body = bodyBytes.decodeToString()
-            json.decodeFromString(AppStatus.serializer(), body).also { status ->
-                status.appVersion?.validate()
-                status.aiModels.forEach { it.validate() }
-            }
-        }
-    }
+/** app-status.json: versione dell'app e modelli IA pubblicati. */
+interface AppStatusClient {
+    /** Scarica e verifica app-status.json; IOException per gli errori temporanei del server. */
+    suspend fun fetchAppStatus(): AppStatus
 }
-
-private const val HTTP_SERVER_ERROR = 500
-private const val HTTP_REQUEST_TIMEOUT = 408
-private const val HTTP_TOO_MANY_REQUESTS = 429

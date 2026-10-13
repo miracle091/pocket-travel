@@ -11,9 +11,10 @@ import sys
 import tempfile
 import threading
 import unittest
+import zlib
 from pathlib import Path
 
-from clip_rd5 import CachedSource, FileSource, HttpSource, brouter_crc, clip, overlaps
+from clip_rd5 import CachedSource, FileSource, HttpSource, brouter_crc, clip, overlaps, tile_origin
 
 DIVISOR = 32
 INDEX_SIZE = DIVISOR * DIVISOR * 4
@@ -203,6 +204,92 @@ class ClipRd5Test(unittest.TestCase):
         finally:
             RangeHandler.next_data = None
             server.shutdown()
+
+
+def make_rd5_80(cells):
+    """Come make_rd5, ma con divisor 80 (CRC dell'indice senza lo xor con 2)."""
+    divisor, index_size = 80, 80 * 80 * 4
+    blocks, crcs = [], []
+    for i in range(25):
+        data, positions = bytearray(), []
+        for sub in range(divisor * divisor):
+            data += cells.get((i, sub), b"")
+            positions.append(index_size + len(data))
+        if not data:
+            blocks.append(b""); crcs.append(0)
+            continue
+        index = struct.pack(f">{divisor * divisor}i", *positions)
+        blocks.append(index + data); crcs.append(brouter_crc(index))
+    ends, pos = [], 200
+    for block in blocks:
+        pos += len(block)
+        ends.append((7 << 48) | pos)
+    head = struct.pack(">25q", *ends)
+    footer = struct.pack(">qI", 99, brouter_crc(head)) + struct.pack(">25I", *crcs) + TAIL
+    return head + b"".join(blocks) + footer
+
+
+class TileOriginTest(unittest.TestCase):
+    def test_nomi_validi(self):
+        self.assertEqual((5, 45), tile_origin("E5_N45.rd5"))
+        self.assertEqual((-10, -20), tile_origin("W10_S20.rd5"))
+        self.assertEqual((0, 0), tile_origin("E0_N0.rd5"))
+        self.assertEqual((-175, 80), tile_origin("W175_N80.rd5"))
+
+    def test_nomi_non_validi(self):
+        for name in ("E5_N45.rd4", "e5_n45.rd5", "E5N45.rd5", "E5_N45.rd5.part", "X5_N45.rd5", ""):
+            with self.assertRaises(ValueError, msg=name):
+                tile_origin(name)
+
+
+class OverlapsTest(unittest.TestCase):
+    def test_bordi_esclusi_e_celle_dentro(self):
+        bbox = (10.0, 40.0, 11.0, 41.0)
+        self.assertTrue(overlaps(10.5, 40.5, 0.1, bbox))
+        self.assertTrue(overlaps(9.95, 40.5, 0.1, bbox))     # sporge dal bordo ovest
+        self.assertFalse(overlaps(11.0, 40.5, 0.1, bbox))    # comincia esattamente sul bordo est
+        self.assertFalse(overlaps(9.9, 40.5, 0.1, bbox))     # finisce esattamente sul bordo ovest
+        self.assertFalse(overlaps(10.5, 41.0, 0.1, bbox))
+        self.assertTrue(overlaps(5, 35, 10, bbox))           # cella piu' grande del riquadro
+
+
+class DivisorAndCrcTest(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.dir = Path(tmp.name)
+
+    def test_formato_con_divisor_80(self):
+        # Tile E10_N40: la sotto-tile 6 (lon 11, lat 41) ha due micro-celle, quella (0, 0) e (79, 79)
+        rd5 = make_rd5_80({(6, 0): b"AAAA", (6, 80 * 80 - 1): b"BB"})
+        path = self.dir / "E10_N40.rd5"
+        path.write_bytes(rd5)
+        out, kept = clip(FileSource(path), (11.0, 41.0, 11.001, 41.001))   # solo la micro-cella (0, 0)
+        self.assertEqual(1, kept)
+        self.assertIn(b"AAAA", out)
+        self.assertNotIn(b"BB", out)
+        again, kept_again = clip(FileSource(path), (10, 40, 13, 43))
+        self.assertEqual(2, kept_again)
+        self.assertEqual(len(rd5), len(again))   # riquadro che copre tutto: file identico
+
+    def test_crc_dell_indice_non_valido(self):
+        rd5 = bytearray(make_rd5({(0, 0): b"x"}))
+        rd5[0] ^= 0x01     # altera l'indice: il CRC nel piede non torna
+        path = self.dir / "E10_N40.rd5"
+        path.write_bytes(bytes(rd5))
+        with self.assertRaises(ValueError) as ctx:
+            clip(FileSource(path), (10, 40, 11, 41))
+        self.assertIn("CRC dell'indice", str(ctx.exception))
+
+    def test_tile_con_nome_non_valido(self):
+        path = self.dir / "nome-strano.rd5"
+        path.write_bytes(make_rd5({(0, 0): b"x"}))
+        with self.assertRaises(ValueError):
+            clip(FileSource(path), (10, 40, 11, 41))
+
+    def test_crc_standard_di_brouter(self):
+        self.assertEqual(0xFFFFFFFF, brouter_crc(b""))
+        self.assertEqual((zlib.crc32(b"abc") ^ 0xFFFFFFFF) & 0xFFFFFFFF, brouter_crc(b"abc"))
 
 
 if __name__ == "__main__":

@@ -42,9 +42,23 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Il catalogo delle regioni si scarica una volta ogni 10 minuti al massimo, invece che a ogni apertura della pagina di una regione.
 - Se due aggiornamenti delle guide partono insieme, il secondo non riscarica e non reimporta le guide; un download interrotto delle guide in una lingua non rovina più quello nell'altra.
 - Numeri di telefono e indirizzi email delle ambasciate si aprono anche quando contengono caratteri come "#" o "?".
+- Ricerca dei punti di interesse per nome: le lettere speciali scritte nella ricerca trovano anche la lettera base, come già avveniva al contrario ("Łódź" trova "Lodz", "kırklareli" trova "Kirklareli"; vale per ł, ø, đ, ð, ħ, ŧ e ı). I nomi scritti in OpenStreetMap con l'accento separato dalla lettera si trovano con il prossimo aggiornamento dei punti di interesse.
+- Ricerca degli indirizzi: il numero civico si riconosce anche quando è separato dalla via da uno spazio unificatore, inserito da alcune tastiere.
+- Completamento di aeroporti e compagnie aeree: un nome con l'apostrofo si trova anche scritto senza ("ohare" trova Chicago O'Hare, "laquila" trova L'Aquila).
+- Orari dei mezzi pubblici: le linee con i tipi estesi del GTFS compaiono con il loro mezzo (traghetto, treno suburbano, metropolitana) invece che come "altro", e un colore di linea non valido nel GTFS non dà più un colore a caso.
+- I siti web dei punti di interesse e delle fonti scritti senza "https://" si aprono anche quando l'indirizzo contiene ":" dopo il nome del sito (per esempio nei parametri).
+- Un file dei numeri civici installati danneggiato non blocca più la lettura delle parti già installate: le voci illeggibili si saltano.
+- Documenti: scegliere il tipo Biglietto chiudeva l'app. Gli elenchi di aeroporti e compagnie aeree nell'APK hanno un nome diverso da quello nel repository (il plugin Android li decomprime), e l'app non li trovava.
+- Navigatore: un profilo di calcolo mancante o una sua variabile non valida danno un errore del calcolo, con "Riprova", invece di chiudere l'app.
+- Navigatore: la notifica della navigazione mostra la prima svolta appena il percorso è calcolato, invece di "Calcolo del percorso" fino alla posizione successiva.
+- Navigatore: l'anteprima del percorso usa sempre il mezzo e la scelta sulle scale appena cambiati; in alcuni casi usava quelli di prima.
+- I siti web con lettere non ASCII nel nome ("münchen.de", "www.zürich.ch") si aprono: prima il pulsante "Sito web" non compariva.
+- Note: la ricerca, usata anche dall'assistente IA, ignora gli accenti ("perche" trova "perché").
+- Navigatore: le nazioni che attraversano il meridiano di 180° (Figi, la Čukotka in Russia) hanno il centro al posto giusto nella scelta delle reti stradali da scaricare per un percorso, e un confine senza poligoni non blocca più il calcolo.
 
 ### Sicurezza
 - Ricerca degli indirizzi: le parti compresse della nazione si scompattano con un limite di dimensione e, alla fine, con il controllo di dimensione e sha256 indicati dal catalogo, come i pacchetti delle regioni.
+- Motore dell'assistente IA sul dispositivo (llama.cpp) aggiornato alla versione 0.6.0, che corregge un errore di gestione della memoria nella lettura delle chiamate a strumenti (CVE-2026-107183). L'app non usa quella parte della libreria, che però era compresa nell'APK.
 
 ## [0.10.0] - 2026-10-10
 

@@ -1,5 +1,6 @@
 package com.pockettravel.feature.map
 
+import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -23,5 +24,56 @@ class RecentDestinationsTest {
     fun `righe rovinate o vuote si saltano`() {
         assertEquals(emptyList<NavigationPlace>(), RecentDestinations.decode(null))
         assertEquals(1, RecentDestinations.decode("x\ty\tz\tw\n1.0\t2.0\tit\tRoma\nsolo testo").size)
+    }
+
+    private fun place(n: Int) = NavigationPlace("Meta $n", 40.0 + n, 10.0, "italia")
+
+    @Test
+    fun `senza scelte la lista e' vuota`() {
+        assertEquals(emptyList<NavigationPlace>(), RecentDestinations(InMemoryPreferencesFactory()).places.value)
+    }
+
+    @Test
+    fun `la meta nuova va in cima e resta per la prossima apertura`() {
+        val files = InMemoryPreferencesFactory()
+        RecentDestinations(files).apply {
+            add(place(1))
+            add(place(2))
+        }
+
+        assertEquals(listOf(place(2), place(1)), RecentDestinations(files).places.value)
+    }
+
+    @Test
+    fun `la stessa meta con le stesse coordinate non si ripete`() {
+        val recent = RecentDestinations(InMemoryPreferencesFactory())
+        recent.add(place(1))
+        recent.add(place(2))
+        recent.add(place(1).copy(name = "Altro nome"))
+
+        assertEquals(listOf(place(1).copy(name = "Altro nome"), place(2)), recent.places.value)
+    }
+
+    @Test
+    fun `la lista tiene al massimo dieci mete`() {
+        val recent = RecentDestinations(InMemoryPreferencesFactory())
+        (1..12).forEach { recent.add(place(it)) }
+
+        assertEquals(10, recent.places.value.size)
+        assertEquals(place(12), recent.places.value.first())
+        assertEquals(place(3), recent.places.value.last())
+    }
+
+    @Test
+    fun `togliere una meta e svuotare la lista si salvano`() {
+        val files = InMemoryPreferencesFactory()
+        val recent = RecentDestinations(files)
+        recent.add(place(1))
+        recent.add(place(2))
+        recent.remove(place(1))
+        assertEquals(listOf(place(2)), RecentDestinations(files).places.value)
+
+        recent.clear()
+        assertEquals(emptyList<NavigationPlace>(), RecentDestinations(files).places.value)
     }
 }

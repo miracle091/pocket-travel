@@ -90,7 +90,7 @@ class KeystoreCipher(
                         keyAlias,
                         KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
                     )
-                        .setKeySize(256)
+                        .setKeySize(AES_KEY_BITS)
                         .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                         .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                         .apply {
@@ -118,5 +118,6 @@ class KeystoreCipher(
     private companion object {
         const val ANDROID_KEYSTORE = "AndroidKeyStore"
         const val AUTH_VALIDITY_SECONDS = 300
+        const val AES_KEY_BITS = 256
     }
 }

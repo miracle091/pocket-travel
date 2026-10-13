@@ -358,5 +358,165 @@ class FileDatatoTest(unittest.TestCase):
         self.assertEqual(os.path.basename(reduced), "us-alaska-poi.osm.pbf")
 
 
+class GeometriaTest(unittest.TestCase):
+    ring = [(0, 0), (10, 0), (10, 10), (0, 10)]
+
+    def test_punto_nel_poligono(self):
+        self.assertTrue(geofabrik_pois.dentro(5, 5, self.ring))
+        self.assertFalse(geofabrik_pois.dentro(11, 5, self.ring))
+        self.assertFalse(geofabrik_pois.dentro(5, -1, self.ring))
+
+    def test_bbox_tocca_in_tutti_e_tre_i_modi(self):
+        bbox_dentro = (4, 4, 6, 6)       # nessun vertice dell'anello nel bbox, ma gli angoli del bbox sono nell'anello
+        bbox_vertice = (9, 9, 20, 20)    # un vertice dell'anello dentro il bbox
+        self.assertTrue(geofabrik_pois.tocca_bbox([self.ring], bbox_dentro))
+        self.assertTrue(geofabrik_pois.tocca_bbox([self.ring], bbox_vertice))
+        # Striscia lunga che attraversa il quadrato senza vertici dentro il bbox e senza angoli dentro l'anello.
+        striscia = [(-5, 4), (15, 4), (15, 6), (-5, 6)]
+        self.assertTrue(geofabrik_pois.tocca_bbox([striscia], (4, -5, 6, 15)))
+        self.assertFalse(geofabrik_pois.tocca_bbox([self.ring], (20, 20, 30, 30)))
+        self.assertFalse(geofabrik_pois.tocca_bbox([], (0, 0, 1, 1)))
+
+    def test_rettangolo_e_area(self):
+        rect = geofabrik_pois.rettangolo([self.ring, [(-2, 3), (4, 12), (1, 1)]])
+        self.assertEqual((-2, 0, 10, 12), rect)
+        self.assertEqual(144, geofabrik_pois.area(rect))
+
+    def test_centro_di_punto_poligono_e_multipoligono(self):
+        self.assertEqual([9.5, 45.1], geofabrik_pois.centro({"type": "Point", "coordinates": [9.5, 45.1]}))
+        # Come nel GeoJSON letto da json: liste, non tuple
+        square = [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]
+        self.assertEqual((5.0, 5.0), geofabrik_pois.centro({"type": "Polygon", "coordinates": [square]}))
+        multi = {"type": "MultiPolygon", "coordinates": [[[[0, 0], [2, 0], [2, 2], [0, 0]]], [[[8, 8], [10, 8], [10, 10], [8, 8]]]]}
+        self.assertEqual((5.0, 5.0), geofabrik_pois.centro(multi))
+        self.assertEqual((2.0, 1.0), geofabrik_pois.centro({"type": "LineString", "coordinates": [[0, 0], [4, 2]]}))
+
+    def test_nome_file_senza_barre(self):
+        self.assertEqual("us-alaska", geofabrik_pois.nome_file("us/alaska"))
+        self.assertEqual("italy", geofabrik_pois.nome_file("italy"))
+
+
+class PoligoniTest(unittest.TestCase):
+    def test_poly_con_buco_e_righe_vuote(self):
+        poly = "nome\n1\n  0 0\n  4 0\n  4 4\n\nEND\n!2\n 1 1\n 2 1\n 2 2\nEND\nEND\n"
+        self.assertEqual([[[[0.0, 0.0], [4.0, 0.0], [4.0, 4.0]]]], geofabrik_pois.anelli_poly(poly))
+
+    def test_poly_con_notazione_scientifica(self):
+        poly = "n\n1\n 1.0E+01 -5.0e-1\n 2 3\n 4 5\nEND\nEND\n"
+        self.assertEqual([[[[10.0, -0.5], [2.0, 3.0], [4.0, 5.0]]]], geofabrik_pois.anelli_poly(poly))
+
+    def test_anelli_di_poligono_e_multipoligono_scartano_i_vuoti(self):
+        ring = [[0, 0], [1, 0], [1, 1], [0, 0]]
+        self.assertEqual([ring], geofabrik_pois.anelli({"type": "Polygon", "coordinates": [ring, [[0.2, 0.2], [0.4, 0.2], [0.3, 0.3]]]}))
+        self.assertEqual([], geofabrik_pois.anelli({"type": "Polygon", "coordinates": [[]]}))
+        self.assertEqual([ring], geofabrik_pois.anelli({"type": "MultiPolygon", "coordinates": [[ring], [], [[]]]}))
+
+    def test_geojson_non_valido_o_senza_geometria(self):
+        self.assertEqual([], geofabrik_pois.anelli_geojson("<html>404</html>"))
+        self.assertEqual([], geofabrik_pois.anelli_geojson("{}"))
+        self.assertEqual([], geofabrik_pois.anelli_geojson("null"))
+
+    def test_opl_con_caratteri_speciali_e_nodi_senza_coordinate(self):
+        opl = ("n1 x9.5 y45.25\n"
+               "n2 v1\n"                       # nodo senza posizione: ignorato
+               "w10 Nn1,n2,n3\n"
+               "r20 Mw10@outer,n1@,r21 Tname=Caff%e8%,type=site\n"
+               "\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "x.opl")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(opl)
+            nodes, ways, relations = geofabrik_pois.leggi_opl(path)
+        self.assertEqual({1: (9.5, 45.25)}, nodes)
+        self.assertEqual({10: [1, 2, 3]}, ways)
+        self.assertEqual([("w", 10), ("n", 1), ("r", 21)], relations[20][1])
+        self.assertEqual("site", relations[20][0]["type"])
+        self.assertEqual("Caffè", relations[20][0]["name"])
+
+
+class FakeDownload:
+    def __init__(self, body, length="auto", status=None):
+        self.body = body
+        self.headers = {} if length is None else {"Content-Length": str(len(body) if length == "auto" else length)}
+        self.offset = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self, size):
+        chunk = self.body[self.offset:self.offset + size]
+        self.offset += len(chunk)
+        return chunk
+
+
+class ScaricaTest(unittest.TestCase):
+    def setUp(self):
+        for patcher in (mock.patch("time.sleep"), mock.patch("builtins.print")):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.dest = os.path.join(tmp.name, "estratto.osm.pbf")
+
+    def test_file_completo_sostituisce_il_parziale(self):
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", return_value=FakeDownload(b"dati" * 10)):
+            geofabrik_pois.scarica("https://d.example/x.osm.pbf", self.dest, "ua")
+        with open(self.dest, "rb") as f:
+            self.assertEqual(b"dati" * 10, f.read())
+        self.assertFalse(os.path.exists(self.dest + ".part"))
+
+    def test_file_troncato_si_riprova_poi_si_arrende(self):
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen",
+                               side_effect=lambda *a, **k: FakeDownload(b"abc", length=100)) as urlopen:
+            with self.assertRaises(OSError) as ctx:
+                geofabrik_pois.scarica("https://d.example/x.osm.pbf", self.dest, "ua", attempts=3)
+        self.assertEqual(3, urlopen.call_count)
+        self.assertIn("3 byte invece di 100", str(ctx.exception))
+        self.assertFalse(os.path.exists(self.dest))
+
+    def test_troncato_al_primo_tentativo_riuscito_al_secondo(self):
+        responses = [FakeDownload(b"abc", length=10), FakeDownload(b"0123456789")]
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", side_effect=responses):
+            geofabrik_pois.scarica("https://d.example/x.osm.pbf", self.dest, "ua")
+        with open(self.dest, "rb") as f:
+            self.assertEqual(b"0123456789", f.read())
+
+    def test_senza_content_length_il_file_si_accetta(self):
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", return_value=FakeDownload(b"xyz", length=None)):
+            geofabrik_pois.scarica("https://d.example/x.osm.pbf", self.dest, "ua")
+        self.assertTrue(os.path.exists(self.dest))
+
+    def test_4xx_non_si_riprova(self):
+        error = urllib.error.HTTPError("https://d.example/x", 404, "Not Found", {}, None)
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", side_effect=error) as urlopen:
+            with self.assertRaises(urllib.error.HTTPError):
+                geofabrik_pois.scarica("https://d.example/x.osm.pbf", self.dest, "ua")
+        self.assertEqual(1, urlopen.call_count)
+
+    def test_5xx_si_riprova(self):
+        error = urllib.error.HTTPError("https://d.example/x", 503, "Unavailable", {}, None)
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", side_effect=[error, FakeDownload(b"ok")]) as urlopen:
+            geofabrik_pois.scarica("https://d.example/x.osm.pbf", self.dest, "ua")
+        self.assertEqual(2, urlopen.call_count)
+
+    def test_nessun_file_datato_nell_elenco(self):
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", side_effect=lambda *a, **k: io.BytesIO(b"<html>niente</html>")):
+            with self.assertRaises(OSError) as ctx:
+                geofabrik_pois.url_datato("https://d.example/europe/iceland-latest.osm.pbf", "ua")
+        self.assertIn("nessun file datato per iceland", str(ctx.exception))
+
+    def test_elenco_non_raggiungibile_prova_la_pagina_dell_estratto(self):
+        def opened(request, timeout):
+            if request.full_url.endswith("/"):
+                raise OSError("rete assente")
+            return io.BytesIO(b'<a href="iceland-261001.osm.pbf">x</a>')
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", side_effect=opened):
+            url = geofabrik_pois.url_datato("https://d.example/europe/iceland-latest.osm.pbf", "ua")
+        self.assertEqual("https://d.example/europe/iceland-261001.osm.pbf", url)
+
+
 if __name__ == "__main__":
     unittest.main()

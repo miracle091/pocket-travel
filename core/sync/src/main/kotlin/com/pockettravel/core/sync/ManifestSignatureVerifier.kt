@@ -1,6 +1,7 @@
 package com.pockettravel.core.sync
 
-import kotlinx.coroutines.Dispatchers
+import com.pockettravel.core.data.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -52,6 +53,7 @@ internal fun verifyManifestSignature(publicKeyBase64: String, content: ByteArray
 class ManifestSignatureVerifier @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val publishedAtStore: PublishedAtStore,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     /** Scarica `<url>.sig` e verifica [content]; IOException se il sito non risponde, [ManifestSignatureException] se la firma non va. */
     suspend fun verify(url: String, content: ByteArray) {
@@ -66,7 +68,7 @@ class ManifestSignatureVerifier @Inject constructor(
      */
     suspend fun verifyFile(url: String, file: File) {
         if (!enabled()) return
-        val content = withContext(Dispatchers.IO) { file.readBytes() }
+        val content = withContext(ioDispatcher) { file.readBytes() }
         val cached = File(file.path + ".sig")
         if (cached.isFile && runCatching { verifyManifestSignature(publicKeyFor(url), content, cached.readBytes()) }.isSuccess) {
             checkPublishedAt(publishedAtStore, fileKind(url), content)
@@ -76,7 +78,7 @@ class ManifestSignatureVerifier @Inject constructor(
         verifyManifestSignature(publicKeyFor(url), content, signature)
         // Prima di tenere la firma in cache: un file troppo vecchio non deve restare accanto alla sua firma.
         checkPublishedAt(publishedAtStore, fileKind(url), content)
-        withContext(Dispatchers.IO) { cached.writeBytes(signature) }
+        withContext(ioDispatcher) { cached.writeBytes(signature) }
     }
 
     // Solo con un manifest alternativo (debug) non si verifica; altrimenti ogni errore (chiave illeggibile
@@ -95,13 +97,13 @@ class ManifestSignatureVerifier @Inject constructor(
     private fun publicKeyFor(url: String): String =
         if (url == SyncConfig.APP_STATUS_URL) SyncConfig.OFFICIAL_PUBLIC_KEY else SyncConfig.MANIFEST_PUBLIC_KEY
 
-    private suspend fun fetchSignature(url: String): ByteArray = withContext(Dispatchers.IO) {
+    private suspend fun fetchSignature(url: String): ByteArray = withContext(ioDispatcher) {
         val host = URI(url).host
         require(host in SyncConfig.ALLOWED_MANIFEST_HOSTS) { "Host non ammesso per la firma: $host" }
         okHttpClient.newCall(Request.Builder().url("$url.sig").build()).execute().use { response ->
             if (!response.isSuccessful) {
                 // Errori temporanei del server: IOException, cosi' i worker riprovano; una firma assente (404) no.
-                if (response.code >= 500 || response.code == 408 || response.code == 429) {
+                if (isRetryableHttpStatus(response.code)) {
                     throw IOException("Signature fetch failed: HTTP ${response.code}")
                 }
                 throw ManifestSignatureException("Firma non disponibile ($url.sig): HTTP ${response.code}")

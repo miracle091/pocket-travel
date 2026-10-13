@@ -38,18 +38,20 @@ internal class PmtilesTileIndex(private val source: PmtilesRangeSource) {
         val header = source.read(0, HEADER_LENGTH)
         if (!MAGIC.indices.all { header[it] == MAGIC[it] }) throw IOException("Non e' un archivio PMTiles")
         val buffer = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
-        if (buffer.get(7).toInt() != 3) throw IOException("Versione PMTiles non supportata: ${buffer.get(7)}")
-        rootDirOffset = buffer.getLong(8)
-        rootDirLength = buffer.getLong(16)
-        leafDirOffset = buffer.getLong(40)
-        tileDataOffset = buffer.getLong(56)
-        val internalCompression = buffer.get(97).toInt()
+        if (buffer.get(OFFSET_VERSION).toInt() != SUPPORTED_VERSION) {
+            throw IOException("Versione PMTiles non supportata: ${buffer.get(OFFSET_VERSION)}")
+        }
+        rootDirOffset = buffer.getLong(OFFSET_ROOT_DIR)
+        rootDirLength = buffer.getLong(OFFSET_ROOT_DIR_LENGTH)
+        leafDirOffset = buffer.getLong(OFFSET_LEAF_DIRS)
+        tileDataOffset = buffer.getLong(OFFSET_TILE_DATA)
+        val internalCompression = buffer.get(OFFSET_INTERNAL_COMPRESSION).toInt()
         if (internalCompression != COMPRESSION_NONE && internalCompression != COMPRESSION_GZIP) {
             throw IOException("Compressione interna non supportata ($internalCompression)")
         }
         internalGzip = internalCompression == COMPRESSION_GZIP
-        tileCompression = buffer.get(98)
-        tileType = buffer.get(99)
+        tileCompression = buffer.get(OFFSET_TILE_COMPRESSION)
+        tileType = buffer.get(OFFSET_TILE_TYPE)
     }
 
     /**
@@ -109,10 +111,10 @@ internal class PmtilesTileIndex(private val source: PmtilesRangeSource) {
             var result = 0L
             var shift = 0
             while (true) {
-                val b = raw[position++].toInt() and 0xFF
-                result = result or ((b and 0x7F).toLong() shl shift)
-                if (b and 0x80 == 0) return result
-                shift += 7
+                val b = raw[position++].toInt() and BYTE_MASK
+                result = result or ((b and VARINT_PAYLOAD_MASK).toLong() shl shift)
+                if (b and VARINT_CONTINUATION_BIT == 0) return result
+                shift += VARINT_PAYLOAD_BITS
             }
         }
         val count = varint().toInt()
@@ -130,6 +132,19 @@ internal class PmtilesTileIndex(private val source: PmtilesRangeSource) {
 
     private companion object {
         const val HEADER_LENGTH = 127
+        const val SUPPORTED_VERSION = 3
+        const val OFFSET_VERSION = 7
+        const val OFFSET_ROOT_DIR = 8
+        const val OFFSET_ROOT_DIR_LENGTH = 16
+        const val OFFSET_LEAF_DIRS = 40
+        const val OFFSET_TILE_DATA = 56
+        const val OFFSET_INTERNAL_COMPRESSION = 97
+        const val OFFSET_TILE_COMPRESSION = 98
+        const val OFFSET_TILE_TYPE = 99
+        const val BYTE_MASK = 0xFF
+        const val VARINT_PAYLOAD_MASK = 0x7F
+        const val VARINT_CONTINUATION_BIT = 0x80
+        const val VARINT_PAYLOAD_BITS = 7
         const val COMPRESSION_NONE = 1
         const val COMPRESSION_GZIP = 2
         val MAGIC = byteArrayOf(0x50, 0x4D, 0x54, 0x69, 0x6C, 0x65, 0x73) // "PMTiles"

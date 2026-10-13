@@ -136,10 +136,17 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
     }
 }
 
+// Transizione tra i passaggi: scorrimento di 1/6 della larghezza con dissolvenza.
+private const val STEP_SLIDE_MS = 300
+private const val STEP_SLIDE_FRACTION = 6
+private const val STEP_FADE_IN_MS = 200
+private const val STEP_FADE_IN_DELAY_MS = 75
+private const val STEP_FADE_OUT_MS = 75
+
 private fun stepTransition(forward: Boolean): ContentTransform {
     val direction = if (forward) 1 else -1
-    return (slideInHorizontally(tween(300)) { it / 6 * direction } + fadeIn(tween(200, delayMillis = 75)))
-        .togetherWith(slideOutHorizontally(tween(300)) { -it / 6 * direction } + fadeOut(tween(75)))
+    return (slideInHorizontally(tween(STEP_SLIDE_MS)) { it / STEP_SLIDE_FRACTION * direction } + fadeIn(tween(STEP_FADE_IN_MS, delayMillis = STEP_FADE_IN_DELAY_MS)))
+        .togetherWith(slideOutHorizontally(tween(STEP_SLIDE_MS)) { -it / STEP_SLIDE_FRACTION * direction } + fadeOut(tween(STEP_FADE_OUT_MS)))
 }
 
 // Richiesta al raggiungimento dell'ultimo passo, non subito all'apertura: a quel punto l'utente ha gia' visto cosa

@@ -126,13 +126,18 @@ fun nearbyEmbassies(
 // Oltre i 100 km non e' "vicino": il riquadro mostra solo l'elenco del paese.
 private const val NEARBY_MAX_KM = 100.0
 private const val NEARBY_LIMIT = 3
+private const val EARTH_RADIUS_KM = 6371.0
+
+// Numeri di telefono: lunghezza minima valida e cifre finali confrontate.
+private const val MIN_PHONE_DIGITS = 7
+private const val PHONE_MATCH_DIGITS = 8
 
 private fun distanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
     val dLat = Math.toRadians(lat2 - lat1)
     val dLon = Math.toRadians(lon2 - lon1)
     val a = Math.sin(dLat / 2).let { it * it } +
         Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.sin(dLon / 2).let { it * it }
-    return 2 * 6371.0 * Math.asin(Math.sqrt(a))
+    return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(a))
 }
 
 private fun DiplomaticMission.displayName(language: String): String =
@@ -147,8 +152,8 @@ private fun DiplomaticMission.sameNameAs(poi: Poi, sameKind: Boolean): Boolean {
 private fun samePhone(a: String?, b: String?): Boolean {
     val digitsA = a?.filter { it.isDigit() }.orEmpty()
     val digitsB = b?.filter { it.isDigit() }.orEmpty()
-    if (digitsA.length < 7 || digitsB.length < 7) return false
-    return digitsA.takeLast(8) == digitsB.takeLast(8)
+    if (digitsA.length < MIN_PHONE_DIGITS || digitsB.length < MIN_PHONE_DIGITS) return false
+    return digitsA.takeLast(PHONE_MATCH_DIGITS) == digitsB.takeLast(PHONE_MATCH_DIGITS)
 }
 
 // Stessi termini significativi, oppure tutti quelli del nome piu' corto nell'altro: ne bastano due, o uno

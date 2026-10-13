@@ -34,7 +34,7 @@ class NoteRepository @Inject constructor(
 
     suspend fun delete(id: Long) = noteDao.delete(id)
 
-    /** Decifra in memoria e ordina per parole in comune con [query] (tokenizzazione come buildFtsQuery: minuscolo, non alfanumerico scartato). */
+    /** Decifra in memoria e ordina per parole in comune con [query] (minuscolo e senza accenti come streetKey, non alfanumerico scartato). */
     suspend fun search(query: String, limit: Int): List<Note> =
         rankNotesByQuery(noteDao.all().mapNotNull { it.toDomainOrNull() }, query, limit)
 
@@ -63,7 +63,7 @@ data class Note(
  */
 internal fun rankNotesByQuery(notes: List<Note>, query: String, limit: Int): List<Note> {
     val queryWords = tokenize(query)
-    if (queryWords.isEmpty()) return emptyList()
+    if (queryWords.isEmpty() || limit <= 0) return emptyList()
     return notes
         .map { note -> note to tokenize("${note.title} ${note.body}").intersect(queryWords).size }
         .filter { (_, shared) -> shared > 0 }
@@ -72,8 +72,10 @@ internal fun rankNotesByQuery(notes: List<Note>, query: String, limit: Int): Lis
         .map { (note, _) -> note }
 }
 
+// Le parole piu' corte non contano nel confronto tra note e ricerca.
+private const val MIN_TOKEN_CHARS = 3
+
 private fun tokenize(text: String): Set<String> =
-    text.split(Regex("[^\\p{L}\\p{N}]+"))
-        .map { it.lowercase() }
-        .filter { it.length >= 3 }
+    streetKey(text).split(' ')
+        .filter { it.length >= MIN_TOKEN_CHARS }
         .toSet()

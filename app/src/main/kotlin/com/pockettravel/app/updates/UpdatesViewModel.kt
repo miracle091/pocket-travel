@@ -1,10 +1,10 @@
 package com.pockettravel.app.updates
 
-import android.content.Context
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
+import com.pockettravel.app.InstalledVersionCode
 import com.pockettravel.app.R
 import com.pockettravel.app.runCatchingCancellable
 import com.pockettravel.core.data.RegionRepository
@@ -14,13 +14,11 @@ import com.pockettravel.core.sync.AppVersionEntry
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.guidesChoice
-import com.pockettravel.core.sync.installedAppVersionCode
 import com.pockettravel.core.sync.isAppUpdateAvailable
 import com.pockettravel.feature.ai.AiModelUpdates
 import com.pockettravel.feature.ai.LlmModelDownloadWorker
 import com.pockettravel.feature.map.ConnectivityChecker
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,7 +52,7 @@ data class UpdatesUiState(
  */
 @HiltViewModel
 class UpdatesViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
+    private val installedVersionCode: InstalledVersionCode,
     private val appStatusClient: AppStatusClient,
     private val manifestClient: ManifestClient,
     private val regionRepository: RegionRepository,
@@ -102,7 +100,7 @@ class UpdatesViewModel @Inject constructor(
                 val manifest = async { runCatchingCancellable { manifestClient.recentManifest() }.getOrNull() }
                 status.await()?.let { current ->
                     publishedModels = current.aiModels
-                    val app = current.appVersion?.takeIf { isAppUpdateAvailable(installedAppVersionCode(context), it) }
+                    val app = current.appVersion?.takeIf { isAppUpdateAvailable(installedVersionCode.get(), it) }
                     val model = runCatchingCancellable { aiModelUpdates.availableUpdate(current.aiModels) }.getOrNull()
                     _uiState.update { it.copy(appUpdate = app, modelUpdate = model) }
                 }

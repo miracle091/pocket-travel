@@ -231,4 +231,151 @@ class GenerateVaccinationsTest {
             outputDb.delete()
         }
     }
+
+    // --- parseVaccinationRows: casi limite ---
+
+    @Test
+    fun `parseVaccinationRows salta righe vuote, di soli spazi e commenti, e tiene i campi vuoti`() {
+        val text = "# commento\n\n   \na\t\tc\n#altro commento\nè\t東京\t\n"
+
+        assertEquals(listOf(listOf("a", "", "c"), listOf("è", "東京", "")), parseVaccinationRows("prova", text, 3))
+    }
+
+    @Test
+    fun `parseVaccinationRows - il commento deve iniziare con il cancelletto in prima colonna`() {
+        val rows = parseVaccinationRows("prova", " # non e' un commento\tb\n#commento\tb\n", 2)
+
+        assertEquals(listOf(listOf(" # non e' un commento", "b")), rows)
+    }
+
+    @Test
+    fun `parseVaccinationRows - testo vuoto o di soli commenti da' nessuna riga`() {
+        assertEquals(emptyList<List<String>>(), parseVaccinationRows("prova", "", 3))
+        assertEquals(emptyList<List<String>>(), parseVaccinationRows("prova", "# a\n# b\n\n", 3))
+    }
+
+    @Test
+    fun `parseVaccinationRows - il messaggio d'errore ha nome, riga reale, colonne attese e trovate`() {
+        val text = "# intestazione\n\na\tb\n\nc\td\te\n"
+        val error = org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { parseVaccinationRows("prova", text, 2) }
+
+        assertEquals("prova.tsv riga 5: attese 2 colonne, trovate 3", error.message)
+        // Una riga con meno colonne e una con un tab finale in piu' falliscono allo stesso modo.
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { parseVaccinationRows("prova", "a\n", 2) }
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { parseVaccinationRows("prova", "a\tb\t\n", 2) }
+    }
+
+    @Test
+    fun `parseVaccinationRows - fine riga CRLF non lascia un ritorno a capo nell'ultima colonna`() {
+        assertEquals(listOf(listOf("a", "b")), parseVaccinationRows("prova", "a\tb\r\n", 2))
+    }
+
+    @Test
+    fun `nessuna cella dei dati ha spazi ai bordi o ritorni a capo`() {
+        files.forEach { (name, _) ->
+            rows(name).forEachIndexed { index, row ->
+                row.forEach { cell ->
+                    assertEquals("$name riga dati ${index + 1}: spazi ai bordi in '$cell'", cell.trim(), cell)
+                    assertTrue("$name riga dati ${index + 1}: ritorno a capo in '$cell'", '\r' !in cell && '\n' !in cell)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `ogni file di dati dichiara almeno una sigla di fonte nell'intestazione`() {
+        files.keys.forEach { name ->
+            assertTrue("$name: nessuna sigla Fn dichiarata", declaredSources(name).isNotEmpty())
+        }
+    }
+
+    // --- writeVaccinationsTables: schema e valori ---
+
+    private fun withVaccDb(block: (java.sql.Connection) -> Unit) {
+        val outputDb = File.createTempFile("pocket-travel-test", ".guides.db").also { it.delete() }
+        try {
+            writeVaccinationsTables(outputDb)
+            DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use(block)
+        } finally {
+            outputDb.delete()
+        }
+    }
+
+    private fun java.sql.Connection.columns(table: String): List<String> = createStatement().use { statement ->
+        statement.executeQuery("SELECT name FROM pragma_table_info('$table')").use { rs ->
+            generateSequence { if (rs.next()) rs.getString(1) else null }.toList()
+        }
+    }
+
+    private fun java.sql.Connection.scalar(sql: String): String? = createStatement().use { statement ->
+        statement.executeQuery(sql).use { rs ->
+            rs.next()
+            rs.getString(1)
+        }
+    }
+
+    @Test
+    fun `le tabelle vacc_ hanno le colonne attese dall'app`() = withVaccDb { conn ->
+        assertEquals(listOf("iso2", "scope", "areasIt", "areasEn", "sources", "verified"), conn.columns("vacc_yf_risk"))
+        assertEquals(
+            listOf("iso2", "rule", "minAgeMonths", "transit", "fromList", "exitRequired", "noteIt", "noteEn", "sources", "verified"),
+            conn.columns("vacc_yf_entry"),
+        )
+        assertEquals(listOf("iso2", "category", "statement", "sources", "verified"), conn.columns("vacc_polio_status"))
+        assertEquals(
+            listOf("iso2", "origin", "vaccine", "timeWindow", "applies", "noteIt", "noteEn", "sources", "verified"),
+            conn.columns("vacc_polio_entry"),
+        )
+        assertEquals(
+            listOf("iso2", "purpose", "vaccine", "minAgeMonths", "minDaysBefore", "validityYears", "noteIt", "noteEn", "sources", "verified"),
+            conn.columns("vacc_special"),
+        )
+        assertEquals(listOf("iso2", "vaccine", "level", "conditionIt", "conditionEn", "sources", "verified"), conn.columns("vacc_recommended"))
+        assertEquals(listOf("key", "value"), conn.columns("vacc_meta"))
+    }
+
+    @Test
+    fun `i numeri mancanti sono NULL, i testi mancanti stringa vuota, exitRequired e' 0 o 1`() = withVaccDb { conn ->
+        assertEquals(
+            VaccinationData.yfEntry.count { it.minAgeMonths == null }.toString(),
+            conn.scalar("SELECT COUNT(*) FROM vacc_yf_entry WHERE minAgeMonths IS NULL"),
+        )
+        assertEquals(VaccinationData.yfEntry.count { it.exitRequired }.toString(), conn.scalar("SELECT COUNT(*) FROM vacc_yf_entry WHERE exitRequired = 1"))
+        assertEquals("0", conn.scalar("SELECT COUNT(*) FROM vacc_yf_entry WHERE exitRequired NOT IN (0, 1)"))
+        assertEquals(
+            VaccinationData.special.count { it.minDaysBefore == null }.toString(),
+            conn.scalar("SELECT COUNT(*) FROM vacc_special WHERE minDaysBefore IS NULL"),
+        )
+        // Nessun testo e' NULL: i vuoti sono stringhe vuote (le colonne sono NOT NULL).
+        assertEquals(VaccinationData.yfRisk.count { it.areasIt.isEmpty() }.toString(), conn.scalar("SELECT COUNT(*) FROM vacc_yf_risk WHERE areasIt = ''"))
+        assertEquals("0", conn.scalar("SELECT COUNT(*) FROM vacc_yf_risk WHERE areasIt IS NULL OR areasEn IS NULL"))
+    }
+
+    @Test
+    fun `vacc_meta ha l'ultimo statement, la sua data e la verifica piu' recente di tutti i file`() = withVaccDb { conn ->
+        val allVerified = VaccinationData.yfRisk.map { it.verified } + VaccinationData.yfEntry.map { it.verified } +
+            VaccinationData.polioStatus.map { it.verified } + VaccinationData.polioEntry.map { it.verified } +
+            VaccinationData.special.map { it.verified } + VaccinationData.recommended.map { it.verified }
+        val lastReview = conn.scalar("SELECT value FROM vacc_meta WHERE key = 'last_review'").orEmpty()
+        val polioVerified = conn.scalar("SELECT value FROM vacc_meta WHERE key = 'polio_verified'").orEmpty()
+
+        assertEquals(allVerified.max(), lastReview)
+        assertEquals(VaccinationData.polioStatus.maxOf { it.verified }, polioVerified)
+        LocalDate.parse(lastReview)
+        assertTrue("last_review $lastReview precede polio_verified $polioVerified", lastReview >= polioVerified)
+    }
+
+    @Test
+    fun `le righe scritte coincidono con i dati letti, nello stesso ordine`() = withVaccDb { conn ->
+        val firstRisk = VaccinationData.yfRisk.first()
+        assertEquals(firstRisk.iso2, conn.scalar("SELECT iso2 FROM vacc_yf_risk ORDER BY rowid LIMIT 1"))
+        assertEquals(firstRisk.areasEn, conn.scalar("SELECT areasEn FROM vacc_yf_risk ORDER BY rowid LIMIT 1"))
+        val lastRecommended = VaccinationData.recommended.last()
+        assertEquals(lastRecommended.conditionIt, conn.scalar("SELECT conditionIt FROM vacc_recommended ORDER BY rowid DESC LIMIT 1"))
+        // Testi con apostrofi (italiano) arrivano intatti.
+        val withApostrophe = VaccinationData.yfRisk.firstOrNull { "'" in it.areasIt }
+        if (withApostrophe != null) {
+            assertEquals(withApostrophe.areasIt, conn.scalar("SELECT areasIt FROM vacc_yf_risk WHERE iso2 = '${withApostrophe.iso2}'"))
+        }
+    }
 }

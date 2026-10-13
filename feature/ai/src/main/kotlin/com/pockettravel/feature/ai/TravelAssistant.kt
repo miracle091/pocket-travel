@@ -96,6 +96,7 @@ class TravelAssistant @Inject constructor(
     private val transitRepository: TransitRepository,
     private val carRouteCalculator: CarRouteCalculator,
     @param:ApplicationContext private val context: Context,
+    private val wordListsOverride: WordListsOverride,
 ) {
     /**
      * La risposta come flusso: sul dispositivo una serie di [AssistantProgress.Partial] (testo accumulato, al massimo
@@ -178,7 +179,7 @@ class TravelAssistant @Inject constructor(
     private suspend fun searchSections(regionId: String, question: String, cities: List<String>, language: String): SectionSearch {
         val country = if (cities.isEmpty()) namedPlace(question, regionId, language) else null
         val city = cities.singleOrNull()
-        val wordLists = WordListsOverride.enabled(context)
+        val wordLists = wordListsOverride.enabled()
         // Con le parole della categoria non serve ripiegare sul nome della citta' quando la domanda non ha altre parole
         // ("Where to eat in Collesano?"): il nome vincerebbe sulle sezioni dove compare piu' spesso.
         val topicBase = buildFtsQuery(question, regionId, city ?: country?.name, keepCityWords = !wordLists || questionGroups(question).isEmpty())
@@ -825,17 +826,20 @@ private fun replaceCity(text: String, city: String, replacement: String): String
 private fun asksMoreThanPlaces(question: String, cities: List<String>): Boolean {
     val cityWords = cities.flatMap { normalizedWords(spokenCityName(it)).trim().split(' ') }.toSet()
     return question.split(nonWord).map(::folded)
-        .any { it.length >= 4 && it !in questionStopwords && it !in followUpWords && it !in cityWords }
+        .any { it.length >= MIN_CONTENT_WORD_CHARS && it !in questionStopwords && it !in followUpWords && it !in cityWords }
 }
 
 private const val STEM_CHARS = 5
+
+// Lunghezza minima di una parola perche' conti come contenuto della domanda.
+private const val MIN_CONTENT_WORD_CHARS = 4
 
 /**
  * Radici (prime 5 lettere, senza accenti) delle parole della domanda in [ftsQuery], senza quelle della citta'
  * nominata [city]: scelgono i paragrafi di una sezione troppo lunga per il contesto ("estate" trova anche "estati").
  */
 internal fun focusStems(ftsQuery: String, city: String?): Set<String> {
-    val cityStems = city?.let { normalizedWords(spokenCityName(it)).split(' ').filter { w -> w.length >= 4 }.map { w -> w.take(STEM_CHARS) } }.orEmpty()
+    val cityStems = city?.let { normalizedWords(spokenCityName(it)).split(' ').filter { w -> w.length >= MIN_CONTENT_WORD_CHARS }.map { w -> w.take(STEM_CHARS) } }.orEmpty()
     // Le parole corte tra virgolette ("tip", "sim") sarebbero radici di altre parole ("tipico", "simile"): non scelgono paragrafi.
     return ftsQuery.split(" OR ").filter { it.isNotBlank() && !(it.startsWith('"') && it.length - 2 < STEM_CHARS) }
         .map { folded(it.removeSuffix("*").trim('"')).take(STEM_CHARS) }.toSet() - cityStems.toSet()
@@ -927,7 +931,7 @@ internal fun buildFtsQuery(question: String, regionId: String, city: String? = n
         // minuscolo: FTS riconosce AND/OR/NOT/NEAR come operatori solo in maiuscolo, e il confronto dei
         // termini ignora comunque maiuscole e minuscole
         .map { it.lowercase() }
-        .filter { it.length >= 4 && it !in regionNameTokens && folded(it) !in questionStopwords }
+        .filter { it.length >= MIN_CONTENT_WORD_CHARS && it !in regionNameTokens && folded(it) !in questionStopwords }
     val cityWords = city?.let { normalizedWords(spokenCityName(it)).split(' ').toSet() }.orEmpty()
     val phrases = shortQueryTerms.filter { " $it " in normalizedWords(question) }.map { "\"$it\"" }
     return (words.filter { folded(it) !in cityWords }.ifEmpty { if (keepCityWords) words else emptyList() }.map(::ftsPrefix) + phrases)

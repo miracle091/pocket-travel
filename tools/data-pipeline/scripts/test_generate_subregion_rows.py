@@ -10,6 +10,7 @@ import json
 import sys
 import tempfile
 import unittest
+import urllib.parse
 from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
@@ -115,6 +116,62 @@ class MainTest(unittest.TestCase):
         rows = self._run(features, "--group-by", "region")
         self.assertEqual(['  "stati-uniti-nord|Stati Uniti - Nord|0.00|0.00|4.00|5.00|Nord|us|'
                           "Stati Uniti d'America|Nord|Nord America\""], rows)
+
+
+class FakeResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self, *args):
+        return json.dumps(self.payload).encode("utf-8")
+
+
+class WikivoyageMissingTest(unittest.TestCase):
+    def check(self, pages_by_title, titles):
+        def urlopen(request, timeout):
+            title = urllib.parse.parse_qs(urllib.parse.urlsplit(request.full_url).query)["titles"][0]
+            return FakeResponse({"query": {"pages": {"1": pages_by_title[title]}}})
+
+        with mock.patch("urllib.request.urlopen", side_effect=urlopen) as opened:
+            return gsr.wikivoyage_missing(titles), opened
+
+    def test_pagine_assenti_e_senza_italiano(self):
+        pages = {"Alaska": {"title": "Alaska", "langlinks": [{"lang": "it", "*": "Alaska"}]},
+                 "Nowhere": {"title": "Nowhere", "missing": ""},
+                 "Georgia (U.S. state)": {"title": "Georgia (U.S. state)"}}
+        problems, _ = self.check(pages, ["Alaska", "Nowhere", "Georgia_(U.S._state)"])
+        self.assertEqual(["Nowhere: pagina EN assente",
+                          "Georgia_(U.S._state): nessuna pagina IT (la guida usera' quella inglese)"], problems)
+
+    def test_titolo_con_trattini_bassi_diventa_spazi_e_ha_un_user_agent(self):
+        pages = {"New York (state)": {"langlinks": [{"lang": "it"}]}}
+        problems, opened = self.check(pages, ["New_York_(state)"])
+        self.assertEqual([], problems)
+        self.assertIn("PocketTravel", opened.call_args.args[0].get_header("User-agent"))
+
+    def test_nessun_titolo_nessuna_richiesta(self):
+        problems, opened = self.check({}, [])
+        self.assertEqual([], problems)
+        opened.assert_not_called()
+
+
+class SlugEdgeTest(unittest.TestCase):
+    def test_slug_di_nomi_reali(self):
+        for name, expected in (("São Paulo", "sao-paulo"), ("Île-de-France", "ile-de-france"),
+                               ("Nordrhein-Westfalen", "nordrhein-westfalen"), ("  A  &  B  ", "a-b"),
+                               ("Ürümqi", "urumqi"), ("北京", "")):
+            self.assertEqual(expected, gsr.slug(name), name)
+
+    def test_pairs_valore_con_uguale_e_vuoto(self):
+        self.assertEqual({"A": "x=y"}, gsr.pairs(["A=x=y"]))
+        self.assertEqual({}, gsr.pairs(None))
+        self.assertEqual({"A": ""}, gsr.pairs(["A="]))
 
 
 if __name__ == "__main__":

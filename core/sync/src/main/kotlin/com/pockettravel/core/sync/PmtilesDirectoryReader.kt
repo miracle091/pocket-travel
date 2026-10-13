@@ -44,21 +44,21 @@ class PmtilesDirectoryReader(file: File) : Closeable {
         raf.readFully(header)
         val buffer = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
         require(MAGIC.indices.all { header[it] == MAGIC[it] }) { "Non e' un archivio PMTiles: ${file.name}" }
-        rootDirOffset = buffer.getLong(8)
-        rootDirLength = buffer.getLong(16)
-        metadataOffset = buffer.getLong(24)
-        metadataLength = buffer.getLong(32)
-        leafDirOffset = buffer.getLong(40)
-        tileDataOffset = buffer.getLong(56)
-        val internalCompression = buffer.get(97).toInt()
+        rootDirOffset = buffer.getLong(OFFSET_ROOT_DIR)
+        rootDirLength = buffer.getLong(OFFSET_ROOT_DIR_LENGTH)
+        metadataOffset = buffer.getLong(OFFSET_METADATA)
+        metadataLength = buffer.getLong(OFFSET_METADATA_LENGTH)
+        leafDirOffset = buffer.getLong(OFFSET_LEAF_DIRS)
+        tileDataOffset = buffer.getLong(OFFSET_TILE_DATA)
+        val internalCompression = buffer.get(OFFSET_INTERNAL_COMPRESSION).toInt()
         require(internalCompression == COMPRESSION_NONE || internalCompression == COMPRESSION_GZIP) {
             "Compressione interna non supportata ($internalCompression): ${file.name}"
         }
         internalGzip = internalCompression == COMPRESSION_GZIP
-        tileCompression = buffer.get(98)
-        tileType = buffer.get(99)
-        minZoom = buffer.get(100).toInt() and 0xFF
-        maxZoom = buffer.get(101).toInt() and 0xFF
+        tileCompression = buffer.get(OFFSET_TILE_COMPRESSION)
+        tileType = buffer.get(OFFSET_TILE_TYPE)
+        minZoom = buffer.get(OFFSET_MIN_ZOOM).toInt() and BYTE_MASK
+        maxZoom = buffer.get(OFFSET_MAX_ZOOM).toInt() and BYTE_MASK
     }
 
     val metadata: String by lazy { String(gunzip(readBytes(metadataOffset, metadataLength.toInt())), Charsets.UTF_8) }
@@ -99,10 +99,10 @@ class PmtilesDirectoryReader(file: File) : Closeable {
             var result = 0L
             var shift = 0
             while (true) {
-                val b = raw[position++].toInt() and 0xFF
-                result = result or ((b and 0x7F).toLong() shl shift)
-                if (b and 0x80 == 0) return result
-                shift += 7
+                val b = raw[position++].toInt() and BYTE_MASK
+                result = result or ((b and VARINT_PAYLOAD_MASK).toLong() shl shift)
+                if (b and VARINT_CONTINUATION_BIT == 0) return result
+                shift += VARINT_PAYLOAD_BITS
             }
         }
         val count = varint().toInt()
@@ -139,6 +139,21 @@ class PmtilesDirectoryReader(file: File) : Closeable {
 
     private companion object {
         const val HEADER_LENGTH = 127
+        const val OFFSET_ROOT_DIR = 8
+        const val OFFSET_ROOT_DIR_LENGTH = 16
+        const val OFFSET_METADATA = 24
+        const val OFFSET_METADATA_LENGTH = 32
+        const val OFFSET_LEAF_DIRS = 40
+        const val OFFSET_TILE_DATA = 56
+        const val OFFSET_INTERNAL_COMPRESSION = 97
+        const val OFFSET_TILE_COMPRESSION = 98
+        const val OFFSET_TILE_TYPE = 99
+        const val OFFSET_MIN_ZOOM = 100
+        const val OFFSET_MAX_ZOOM = 101
+        const val BYTE_MASK = 0xFF
+        const val VARINT_PAYLOAD_MASK = 0x7F
+        const val VARINT_CONTINUATION_BIT = 0x80
+        const val VARINT_PAYLOAD_BITS = 7
         const val COMPRESSION_NONE = 1
         const val COMPRESSION_GZIP = 2
         val MAGIC = byteArrayOf(0x50, 0x4D, 0x54, 0x69, 0x6C, 0x65, 0x73) // "PMTiles"

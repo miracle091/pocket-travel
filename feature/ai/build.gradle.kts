@@ -7,6 +7,8 @@ plugins {
 
 android {
     namespace = "com.pockettravel.feature.ai"
+    // Fake del motore sul dispositivo e dei modelli, per i test JVM dei ViewModel di app.
+    testFixtures { enable = true }
 
     // NDK 29 stabile, non l'rc1 usato da examples/llama.android: la release finale ha sostituito l'rc
     // con lo stesso major.
@@ -83,7 +85,18 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
 
+    testFixturesImplementation(libs.kotlinx.coroutines.android)
+    // FakeAiModelUpdates espone AiModelManifestEntry (core:sync) e WorkInfo nella firma.
+    testFixturesApi(project(":core:sync"))
+    testFixturesApi(libs.work.runtime.ktx)
+    // Il plugin del compilatore Compose del modulo vale anche per i fake e richiede il runtime.
+    testFixturesImplementation(platform(libs.compose.bom))
+    testFixturesImplementation(libs.compose.ui)
+
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(testFixtures(project(":core:data")))
+    testImplementation(testFixtures(project(":core:sync")))
     testImplementation(libs.okhttp.mockwebserver)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)

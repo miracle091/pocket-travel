@@ -1,5 +1,6 @@
 package com.pockettravel.app.regions
 
+import com.pockettravel.core.data.DefaultDispatcher
 import com.pockettravel.core.data.LastKnownPosition
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -17,15 +18,13 @@ import com.pockettravel.feature.ai.AiAvailability
 import com.pockettravel.feature.map.TransitPackageState
 import com.pockettravel.feature.map.TransitUpdateResult
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -38,6 +37,31 @@ import javax.inject.Inject
 /** Stato della mappa della regione aperta: i pacchetti si installano separatamente, puo' mancare. */
 // LOADING: stato non ancora noto, per non mostrare la mappa (o il suo stato vuoto) prima del primo valore.
 enum class RegionMapState { LOADING, INSTALLED, MISSING, DOWNLOADING }
+
+/**
+ * Tutto quello che la schermata della regione legge dal ViewModel.
+ * [displayName] e' il nome reale per la TopAppBar (null finche' non e' letto); [splitCountry]: regione di una nazione divisa
+ * ("Francia - Bretagna"), l'assistente dice "regione" invece di "nazione"; [regionMissing]: true solo dopo che il caricamento
+ * ha escluso la regione dal database, e la schermata esce da sola (rotta di avvio con un'ultima regione poi eliminata);
+ * [aiAvailable]: la scheda IA c'e' solo con un modello scaricato o una chiave API; [transitState]: orari dei mezzi pubblici
+ * per il riquadro delle fermate (in scaricamento anche durante un aggiornamento chiesto dal riquadro);
+ * [transitUpdateResult]: esito di "Aggiorna" quando non scarica nulla.
+ */
+data class RegionHubUiState(
+    val displayName: String? = null,
+    val splitCountry: Boolean = false,
+    val regionMissing: Boolean = false,
+    val mapState: RegionMapState = RegionMapState.LOADING,
+    val aiAvailable: Boolean = false,
+    val transitState: TransitPackageState = TransitPackageState.UNKNOWN,
+    val transitUpdateResult: TransitUpdateResult? = null,
+)
+
+private data class RegionHeader(
+    val displayName: String? = null,
+    val splitCountry: Boolean = false,
+    val regionMissing: Boolean = false,
+)
 
 // Tra l'altro fornisce a RegionHubScreen il nome reale della regione per la TopAppBar, invece del
 // regionId grezzo (es. "italia").
@@ -53,38 +77,27 @@ class RegionHubViewModel @Inject constructor(
     private val lastKnownPosition: LastKnownPosition,
     private val countryLocator: CountryLocator,
     private val aiAvailability: AiAvailability,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
-
-    // La scheda IA c'e' solo con un modello scaricato o una chiave API (si configurano nelle Impostazioni).
-    val aiAvailable: StateFlow<Boolean> = aiAvailability.available
 
     // Dopo un cambio di lingua: i modelli addestrati valgono solo per la lingua delle guide.
     fun refreshAiAvailability() = aiAvailability.refresh()
 
-    private val _displayName = MutableStateFlow<String?>(null)
-    val displayName: StateFlow<String?> = _displayName.asStateFlow()
-
-    // Regione di una nazione divisa ("Francia - Bretagna"): l'assistente dice "regione", altrimenti "nazione".
-    private val _splitCountry = MutableStateFlow(false)
-    val splitCountry: StateFlow<Boolean> = _splitCountry.asStateFlow()
-
-    // true solo dopo che il caricamento ha escluso la regione dal database (mai installata, o
-    // installata in una sessione precedente e poi eliminata) — RegionHubScreen ci naviga via in
-    // automatico invece di mostrare guida/mappa vuote per un regionId ormai inesistente. Serve
-    // soprattutto quando questa schermata e' la rotta di avvio dell'app (vedi StartDestinationViewModel,
-    // basata sull'ultima regione aperta secondo RecentRegionPreferences, non su cio' che e' ancora
-    // davvero installato).
-    private val _regionMissing = MutableStateFlow(false)
-    val regionMissing: StateFlow<Boolean> = _regionMissing.asStateFlow()
+    private val header = MutableStateFlow(RegionHeader())
 
     private val regionId = MutableStateFlow<String?>(null)
 
-    val mapState: StateFlow<RegionMapState> = regionId.filterNotNull().flatMapLatest { id ->
-        combine(
-            regionRepository.observeInstalled().map { regions -> regions.firstOrNull { it.regionId == id }?.mapVersion != null },
-            regionSyncScheduler.observeDownload(id),
-        ) { hasMap, work -> mapState(hasMap, work) }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RegionMapState.LOADING)
+    // Senza regione (prima di load) non si sa: LOADING, per non mostrare la mappa prima del primo valore.
+    private val mapState: Flow<RegionMapState> = regionId.flatMapLatest { id ->
+        if (id == null) {
+            flowOf(RegionMapState.LOADING)
+        } else {
+            combine(
+                regionRepository.observeInstalled().map { regions -> regions.firstOrNull { it.regionId == id }?.mapVersion != null },
+                regionSyncScheduler.observeDownload(id),
+            ) { hasMap, work -> mapState(hasMap, work) }
+        }
+    }
 
     // La regione ha reti dei mezzi pubblici nel catalogo (letto solo se gli orari non sono ancora installati);
     // null finche' non si sa (offline, catalogo non letto).
@@ -98,13 +111,13 @@ class RegionHubViewModel @Inject constructor(
         if (update is TransitUpdate.Requested) update.work.map { it?.state } else flowOf(null)
     }
 
-    /** Esito di "Aggiorna" quando non scarica nulla: nessun orario piu' recente nel catalogo, o errore. */
-    val transitUpdateResult: StateFlow<TransitUpdateResult?> = combine(transitUpdate, transitUpdateWork, ::transitUpdateResultOf)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    // Esito di "Aggiorna" quando non scarica nulla: nessun orario piu' recente nel catalogo, o errore.
+    private val transitUpdateResult: Flow<TransitUpdateResult?> = combine(transitUpdate, transitUpdateWork, ::transitUpdateResultOf)
 
     // Orari dei mezzi pubblici per il riquadro delle fermate: installati, in scaricamento, scaricabili o non offerti.
     // Durante un aggiornamento chiesto dal riquadro risultano in scaricamento, anche se gia' installati.
-    val transitState: StateFlow<TransitPackageState> = regionId.filterNotNull().flatMapLatest { id ->
+    private val transitState: Flow<TransitPackageState> = regionId.flatMapLatest { id ->
+        if (id == null) return@flatMapLatest flowOf(TransitPackageState.UNKNOWN)
         combine(
             regionRepository.observeInstalled().map { regions -> regions.firstOrNull { it.regionId == id }?.transitVersion != null },
             regionSyncScheduler.observeDownload(id),
@@ -121,17 +134,30 @@ class RegionHubViewModel @Inject constructor(
                 else -> TransitPackageState.UNKNOWN
             }
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TransitPackageState.UNKNOWN)
+    }
+
+    /** Tutto quello che l'hub legge, in un solo stato. */
+    val uiState: StateFlow<RegionHubUiState> = combine(
+        header, mapState, aiAvailability.available, transitState, transitUpdateResult,
+    ) { currentHeader, map, ai, transit, transitResult ->
+        RegionHubUiState(
+            displayName = currentHeader.displayName,
+            splitCountry = currentHeader.splitCountry,
+            regionMissing = currentHeader.regionMissing,
+            mapState = map,
+            aiAvailable = ai,
+            transitState = transit,
+            transitUpdateResult = transitResult,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RegionHubUiState(aiAvailable = aiAvailability.available.value))
 
     fun load(regionId: String) {
         // Sui tablet lo stesso ViewModel serve tutte le regioni scelte nel pannello: rientrando nella stessa non si rifa'
         // nulla (niente manifest e transit.json riscaricati); cambiando, si riparte da uno stato vuoto.
         // (Se era risultata mancante si ricontrolla: nel frattempo puo' essere stata scaricata di nuovo.)
-        if (this.regionId.value == regionId && !_regionMissing.value) return
+        if (this.regionId.value == regionId && !header.value.regionMissing) return
         this.regionId.value = regionId
-        _displayName.value = null
-        _splitCountry.value = false
-        _regionMissing.value = false
+        header.value = RegionHeader()
         transitOffered.value = null
         transitUpdate.value = null
         recentRegionPreferences.setLastRegionId(regionId)
@@ -140,9 +166,11 @@ class RegionHubViewModel @Inject constructor(
             val name = region?.let { localizedInstalledName(it.displayName, it.countryCode, Locale.getDefault()) }
             // Nel frattempo il pannello puo' essere passato a un'altra regione.
             if (this@RegionHubViewModel.regionId.value != regionId) return@launch
-            _displayName.value = name
-            _splitCountry.value = region?.let { isSplitCountryName(it.displayName, it.countryCode) } == true
-            _regionMissing.value = name == null
+            header.value = RegionHeader(
+                displayName = name,
+                splitCountry = region?.let { isSplitCountryName(it.displayName, it.countryCode) } == true,
+                regionMissing = name == null,
+            )
         }
         viewModelScope.launch {
             val installed = regionRepository.installed(regionId)?.transitVersion != null
@@ -184,7 +212,7 @@ class RegionHubViewModel @Inject constructor(
         val manifest = manifestClient.fetchManifest()
         val index = manifest.transit?.let { transitClient.fetchIndex(it) }
         val regions = manifest.regions.filter { it.regionId == id }
-        val place = withContext(Dispatchers.Default) {
+        val place = withContext(defaultDispatcher) {
             lastKnownPosition.get()?.let { (lat, lon) -> DevicePlace(lat, lon, countryLocator.countryAt(lat, lon)) }
         }
         val choices = effectiveTransitChoices(regions, index, transitNetworkPreferences.excluded.value, place)

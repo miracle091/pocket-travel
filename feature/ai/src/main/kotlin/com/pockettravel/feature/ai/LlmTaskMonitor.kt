@@ -2,7 +2,6 @@ package com.pockettravel.feature.ai
 
 import android.app.ActivityManager
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Debug
@@ -10,12 +9,13 @@ import android.os.Process
 import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.feature.ai.llamacpp.CpuBackendInfo
 import com.pockettravel.feature.ai.llamacpp.CpuBackendOverride
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -67,6 +67,15 @@ data class LlmTaskSnapshot(
 /** Una lettura del task manager con l'ora (epoch ms) in cui e' stata presa. */
 data class TimedSnapshot(val atMs: Long, val snapshot: LlmTaskSnapshot)
 
+/** Le letture del task manager che servono alla sua schermata. */
+interface TaskMonitor {
+    /** Ultima lettura; null finche' non ce n'e' una. */
+    val latest: StateFlow<LlmTaskSnapshot?>
+
+    /** Scrive il rapporto in [target]; false se non riesce. */
+    suspend fun export(target: Uri): Boolean
+}
+
 /**
  * Misure per il task manager dei modelli IA (solo build di debug): campiona ogni secondo disco, memoria e
  * CPU del processo e le affianca a [OnDeviceLlmEngine.stats]. Il processo e' unico: la memoria dei pesi
@@ -79,17 +88,18 @@ class LlmTaskMonitor @Inject constructor(
     @ApplicationContext private val context: Context,
     private val modelManager: LlmModelManager,
     private val engine: OnDeviceLlmEngine,
-) {
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+) : TaskMonitor {
     private val activityManager = context.getSystemService(ActivityManager::class.java)
     private val samples = ArrayDeque<TimedSnapshot>()
 
     /** Ultima lettura; la prima richiesta avvia la registrazione, che poi non si ferma piu'. */
-    val latest: StateFlow<LlmTaskSnapshot?> = snapshots()
+    override val latest: StateFlow<LlmTaskSnapshot?> = snapshots()
         .onEach { record(it) }
-        .stateIn(CoroutineScope(SupervisorJob() + Dispatchers.IO), SharingStarted.Lazily, null)
+        .stateIn(CoroutineScope(SupervisorJob() + ioDispatcher), SharingStarted.Lazily, null)
 
     /** Scrive in [target] intestazione, letture, generazioni e logcat del processo; false se non riesce. */
-    suspend fun export(target: Uri): Boolean = withContext(Dispatchers.IO) {
+    override suspend fun export(target: Uri): Boolean = withContext(ioDispatcher) {
         val recorded = synchronized(samples) { samples.toList() }
         val report = buildTaskReport(header(), recorded, engine.stats.value.history, readLogcat())
         try {
@@ -138,7 +148,7 @@ class LlmTaskMonitor @Inject constructor(
             lastCpuMs = cpuMs
             lastWallMs = wallMs
         }
-    }.flowOn(Dispatchers.IO)
+    }.flowOn(ioDispatcher)
 
     private fun sample(cpu: Float): LlmTaskSnapshot {
         val processMemory = Debug.MemoryInfo().also { Debug.getMemoryInfo(it) }
@@ -170,8 +180,11 @@ class LlmTaskMonitor @Inject constructor(
 
 @HiltViewModel
 class LlmTaskManagerViewModel @Inject constructor(
-    private val monitor: LlmTaskMonitor,
-    @ApplicationContext private val context: Context,
+    private val monitor: TaskMonitor,
+    private val wordListsOverride: WordListsOverride,
+    private val cpuBackends: CpuBackendStore,
+    private val appRestarter: AppRestarter,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
     val snapshot: StateFlow<LlmTaskSnapshot?> = monitor.latest
 
@@ -191,12 +204,12 @@ class LlmTaskManagerViewModel @Inject constructor(
     val wordLists: StateFlow<Boolean> = _wordLists.asStateFlow()
 
     init {
-        viewModelScope.launch(Dispatchers.IO) {
-            _wordLists.value = WordListsOverride.enabled(context)
-            val available = CpuBackendOverride.available(context)
+        viewModelScope.launch(ioDispatcher) {
+            _wordLists.value = wordListsOverride.enabled()
+            val available = cpuBackends.available()
             _availableCpuBackends.value = available
             // Una scelta non piu' presente nell'APK (variante tolta da un aggiornamento) vale come automatica.
-            _chosenCpuBackend.value = CpuBackendOverride.saved(context)?.takeIf { it in available }
+            _chosenCpuBackend.value = cpuBackends.saved()?.takeIf { it in available }
         }
     }
 
@@ -204,25 +217,18 @@ class LlmTaskManagerViewModel @Inject constructor(
 
     fun setWordLists(enabled: Boolean) {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { WordListsOverride.save(context, enabled) }
+            withContext(ioDispatcher) { wordListsOverride.save(enabled) }
             _wordLists.value = enabled
         }
     }
 
     fun chooseCpuBackend(fileName: String?) {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { CpuBackendOverride.save(context, fileName) }
+            withContext(ioDispatcher) { cpuBackends.save(fileName) }
             _chosenCpuBackend.value = fileName
         }
     }
 
-    /**
-     * Riavvia l'app: ggml carica la variante CPU solo all'avvio del processo. killProcess e non Runtime.exit, che
-     * eseguirebbe i distruttori delle librerie native mentre il motore puo' ancora generare.
-     */
-    fun restartApp() {
-        val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
-        context.startActivity(Intent.makeRestartActivityTask(launch.component))
-        Process.killProcess(Process.myPid())
-    }
+    /** Riavvia l'app: ggml carica la variante CPU solo all'avvio del processo. */
+    fun restartApp() = appRestarter.restart()
 }

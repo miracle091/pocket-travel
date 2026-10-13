@@ -3,6 +3,7 @@ package com.pockettravel.feature.map
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.AreaPois
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.MapAccessibility
 import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.db.CategoryTag
@@ -16,14 +17,13 @@ import com.pockettravel.core.data.isHiddenOnMap
 import com.pockettravel.core.data.poiCategory
 import com.pockettravel.core.poi.PoiCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
@@ -49,16 +49,16 @@ class MapRouteViewModel @Inject constructor(
     private val transitRepository: TransitRepository,
     usageModePreferences: UsageModePreferences,
     connectivityObserver: ConnectivityObserver,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
-    val accessible: StateFlow<Boolean> = usageModePreferences.accessible
-    val hiddenCategories: StateFlow<Set<PoiCategory>> = filterPreferences.hiddenCategories
+    private val accessible: StateFlow<Boolean> = usageModePreferences.accessible
 
     fun setHiddenCategories(categories: Set<PoiCategory>) {
         filterPreferences.setHidden(categories)
         // I segnalini a campione si scelgono senza le categorie nascoste: cambiate quelle, si rileggono.
         reloadPins()
     }
-    val onlyAccessible: StateFlow<Boolean> = filterPreferences.onlyAccessible
+    private val onlyAccessible: StateFlow<Boolean> = filterPreferences.onlyAccessible
     fun setOnlyAccessible(only: Boolean) {
         filterPreferences.setOnlyAccessible(only)
         reloadPins()
@@ -70,11 +70,9 @@ class MapRouteViewModel @Inject constructor(
     }
 
     private val _pins = MutableStateFlow<List<MapPin>>(emptyList())
-    val pins: StateFlow<List<MapPin>> = _pins.asStateFlow()
 
     // Categorie presenti nell'area, comprese quelle filtrate: il foglio dei filtri deve poterle riattivare.
     private val _presentCategories = MutableStateFlow<Set<PoiCategory>>(emptySet())
-    val presentCategories: StateFlow<Set<PoiCategory>> = _presentCategories.asStateFlow()
 
     private val regionIdFlow = MutableStateFlow<String?>(null)
 
@@ -92,7 +90,6 @@ class MapRouteViewModel @Inject constructor(
 
     // Partenze del POI di trasporto aperto nel riquadro: null finche' si leggono o senza POI.
     private val _transitBoard = MutableStateFlow<TransitBoard?>(null)
-    val transitBoard: StateFlow<TransitBoard?> = _transitBoard.asStateFlow()
     private var transitJob: Job? = null
 
     /**
@@ -126,11 +123,25 @@ class MapRouteViewModel @Inject constructor(
     // cosi' anche un'anteprima o una mappa aggiornata (stesso tipo, file nuovo) viene ridisegnata.
     // null finche' la sorgente non e' nota: la barra "Scarica la mappa" non deve comparire in quel frattempo.
     // sourceKind legge il file system: la combinazione gira su IO.
-    val mapSource: StateFlow<MapSourceState?> = combine(
+    private val mapSource: StateFlow<MapSourceState?> = combine(
         regionIdFlow.filterNotNull(), connectivityObserver.changes(), installedVersions,
     ) { regionId, _, versions -> MapSourceState(tileSource.sourceKind(regionId), versions) }
-        .flowOn(Dispatchers.IO)
+        .flowOn(ioDispatcher)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Tutto quello che la scheda Mappa legge, in un solo stato. */
+    val uiState: StateFlow<MapUiState> = combine(
+        combine(accessible, filterPreferences.hiddenCategories, onlyAccessible) { accessible, hidden, only ->
+            MapUiState(accessible = accessible, hiddenCategories = hidden, onlyAccessible = only)
+        },
+        _pins, _presentCategories, _transitBoard, mapSource,
+    ) { filters, pins, present, board, source ->
+        filters.copy(pins = pins, presentCategories = present, transitBoard = board, mapSource = source)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        MapUiState(accessible = accessible.value, hiddenCategories = filterPreferences.hiddenCategories.value, onlyAccessible = onlyAccessible.value),
+    )
 
     // Area inquadrata dalla mappa (MapScreen la segnala a ogni fermo); null prima del primo fermo.
     private var viewport: MapBounds? = null
@@ -162,7 +173,7 @@ class MapRouteViewModel @Inject constructor(
         val regionId = regionIdFlow.value ?: return
         val zone = regionZonePreferences.zone(regionId)
         val inView = viewport ?: zone?.let { MapBounds(it.minLon, it.minLat, it.maxLon, it.maxLat) }
-            ?: withContext(Dispatchers.IO) { tileSource.regionBounds(regionId) } ?: WORLD
+            ?: withContext(ioDispatcher) { tileSource.regionBounds(regionId) } ?: WORLD
         val area = pinsArea(inView, zone)
         val inArea = area?.let {
             val tags = regionTags?.takeIf { cached -> cached.first == regionId }?.second
@@ -223,3 +234,18 @@ private val WORLD = MapBounds(-180.0, -90.0, 180.0, 90.0)
 
 /** Sorgente della mappa in uso e versioni dei pacchetti locali da cui dipende lo stile. */
 data class MapSourceState(val kind: MapSourceKind, val installedVersions: List<String?>?)
+
+/**
+ * Lo stato della scheda Mappa. [presentCategories] sono quelle dell'area inquadrata, filtrate comprese; [accessible] e'
+ * "In sedia a rotelle" delle Impostazioni, [onlyAccessible] il filtro della mappa; [mapSource] e' null finche' la
+ * sorgente non e' nota.
+ */
+data class MapUiState(
+    val pins: List<MapPin> = emptyList(),
+    val presentCategories: Set<PoiCategory> = emptySet(),
+    val hiddenCategories: Set<PoiCategory> = emptySet(),
+    val accessible: Boolean = false,
+    val onlyAccessible: Boolean = false,
+    val transitBoard: TransitBoard? = null,
+    val mapSource: MapSourceState? = null,
+)

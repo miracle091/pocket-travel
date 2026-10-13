@@ -1,6 +1,7 @@
 package com.pockettravel.core.ui
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -27,12 +28,18 @@ object ContextualHints {
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun isSeen(context: Context, hintId: String): Boolean = prefs(context).getBoolean(hintId, false)
+    fun isSeen(context: Context, hintId: String): Boolean = isSeen(prefs(context), hintId)
 
-    fun markSeen(context: Context, hintId: String) = prefs(context).edit().putBoolean(hintId, true).apply()
+    fun markSeen(context: Context, hintId: String) = markSeen(prefs(context), hintId)
 
     /** Rimostra tutti i suggerimenti alla prossima apertura delle schermate (Rivedi il tutorial). */
-    fun reset(context: Context) = prefs(context).edit().clear().apply()
+    fun reset(context: Context) = reset(prefs(context))
+
+    internal fun isSeen(prefs: SharedPreferences, hintId: String): Boolean = prefs.getBoolean(hintId, false)
+
+    internal fun markSeen(prefs: SharedPreferences, hintId: String) = prefs.edit().putBoolean(hintId, true).apply()
+
+    internal fun reset(prefs: SharedPreferences) = prefs.edit().clear().apply()
 }
 
 /**

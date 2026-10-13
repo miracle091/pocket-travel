@@ -94,7 +94,7 @@ class MainActivity : FragmentActivity() {
             LaunchedEffect(darkTheme) {
                 enableEdgeToEdge(
                     statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { darkTheme },
-                    navigationBarStyle = SystemBarStyle.auto(Color.argb(0xe6, 0xff, 0xff, 0xff), Color.argb(0x80, 0x1b, 0x1b, 0x1b)) { darkTheme },
+                    navigationBarStyle = SystemBarStyle.auto(Color.argb(LIGHT_SCRIM_ALPHA, CHANNEL_MAX, CHANNEL_MAX, CHANNEL_MAX), Color.argb(DARK_SCRIM_ALPHA, DARK_SCRIM_CHANNEL, DARK_SCRIM_CHANNEL, DARK_SCRIM_CHANNEL)) { darkTheme },
                 )
             }
             PocketTravelTheme(darkTheme = darkTheme, dynamicColor = useDynamicColor) {
@@ -108,6 +108,12 @@ class MainActivity : FragmentActivity() {
 
 // Notifica di aggiornamento toccata: la schermata da aprire passa al NavHost. Solo i valori noti, poi l'extra si toglie
 // (una ricreazione dell'activity non la riaprirebbe).
+// Scrim della barra di navigazione: bianco quasi opaco sul tema chiaro, grigio scuro semitrasparente sullo scuro.
+private const val LIGHT_SCRIM_ALPHA = 0xe6
+private const val DARK_SCRIM_ALPHA = 0x80
+private const val DARK_SCRIM_CHANNEL = 0x1b
+private const val CHANNEL_MAX = 0xff
+
 private fun Intent.requestOpenScreen() {
     val screen = getStringExtra(UpdateAvailableNotifier.EXTRA_OPEN_SCREEN) ?: return
     removeExtra(UpdateAvailableNotifier.EXTRA_OPEN_SCREEN)

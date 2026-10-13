@@ -376,4 +376,314 @@ class ValidateManifestTest {
             """{ "version": "2026.09.29.1", "feeds": [${transitFeed(licenseUrl = "http://acikveri.bizizmir.com/tr/license")}] }""",
         ).forEach { json -> assertThrows(ManifestValidationException::class.java) { validateTransitJson(json, allowedHosts) } }
     }
+
+    private fun assertManifestInvalid(json: String) {
+        assertThrows(ManifestValidationException::class.java) { validateManifestJson(json, allowedHosts) }
+    }
+
+    @Test
+    fun `rifiuta un manifest senza regioni`() {
+        assertManifestInvalid("""{ "manifestVersion": 2, $guides, "regions": [] }""")
+    }
+
+    @Test
+    fun `rifiuta un regionId con segmenti di percorso o caratteri non ammessi`() {
+        listOf("..", ".", "a/b", "a\\b", "con spazio", "citta'", "").forEach { id ->
+            assertManifestInvalid(validManifest(region(id)))
+        }
+    }
+
+    @Test
+    fun `accetta un regionId con punti, trattini e trattino basso`() {
+        validateManifestJson(validManifest(region("stati-uniti_1.0")), allowedHosts)
+    }
+
+    @Test
+    fun `rifiuta una version non valida in guide, mappa e POI`() {
+        assertManifestInvalid(validManifest().replace("\"version\": \"2026.09.23\"", "\"version\": \"../x\""))
+        val badMapVersion = JSONObject(validManifest()).apply {
+            getJSONArray("regions").getJSONObject(0).getJSONObject("map").put("version", "a b")
+        }
+        assertManifestInvalid(badMapVersion.toString())
+        val badPoiVersion = JSONObject(validManifest()).apply {
+            getJSONArray("regions").getJSONObject(0).getJSONObject("poi").put("version", "")
+        }
+        assertManifestInvalid(badPoiVersion.toString())
+    }
+
+    @Test
+    fun `rifiuta un nome di file con percorso o vuoto`() {
+        assertManifestInvalid(validManifest().replace("\"name\": \"poi.db\"", "\"name\": \"../poi.db\""))
+        assertManifestInvalid(validManifest().replace("\"name\": \"poi.db\"", "\"name\": \"\""))
+        assertManifestInvalid(validManifest().replace("\"name\": \"poi.db\"", "\"name\": \"..\""))
+    }
+
+    @Test
+    fun `rifiuta una dimensione negativa e accetta zero`() {
+        assertManifestInvalid(validManifest().replace("\"sizeBytes\": 100,", "\"sizeBytes\": -1,"))
+        validateManifestJson(validManifest().replace("\"sizeBytes\": 100,", "\"sizeBytes\": 0,"), allowedHosts)
+    }
+
+    @Test
+    fun `rifiuta sha256 di lunghezza sbagliata e accetta le maiuscole`() {
+        assertManifestInvalid(validManifest().replace("a".repeat(64), "a".repeat(63)))
+        assertManifestInvalid(validManifest().replace("a".repeat(64), "a".repeat(65)))
+        validateManifestJson(validManifest().replace("a".repeat(64), "A".repeat(64)), allowedHosts)
+    }
+
+    @Test
+    fun `rifiuta URL non https, con credenziali, con frammento o malformati`() {
+        val good = "https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.14--poi.db"
+        listOf(
+            good.replace("https://", "http://"),
+            good.replace("https://", "https://utente:pw@"),
+            "$good#frammento",
+            "https://github.com/con spazio/poi.db",
+            "ftp://github.com/poi.db",
+            "/relativo/poi.db",
+            "",
+        ).forEach { url ->
+            assertManifestInvalid(validManifest().replace(good, url))
+        }
+    }
+
+    @Test
+    fun `lo schema dell'URL ignora le maiuscole ma l'host deve coincidere esattamente`() {
+        val good = "https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.14--poi.db"
+        validateManifestJson(validManifest().replace(good, good.replace("https://", "HTTPS://")), allowedHosts)
+        assertManifestInvalid(validManifest().replace(good, good.replace("github.com", "sub.github.com")))
+        assertManifestInvalid(validManifest().replace(good, good.replace("github.com", "github.com.evil.example")))
+    }
+
+    @Test
+    fun `rifiuta un bounding box fuori dai limiti geografici o senza area`() {
+        assertManifestInvalid(validManifest().replace("\"maxLon\": 12.52", "\"maxLon\": 181.0"))
+        assertManifestInvalid(validManifest().replace("\"minLon\": 12.40", "\"minLon\": -181.0"))
+        assertManifestInvalid(validManifest().replace("\"maxLat\": 43.99", "\"maxLat\": 90.5"))
+        assertManifestInvalid(validManifest().replace("\"minLat\": 43.89", "\"minLat\": -91.0"))
+        assertManifestInvalid(validManifest().replace("\"maxLon\": 12.52", "\"maxLon\": 12.40"))
+        assertManifestInvalid(validManifest().replace("\"maxLat\": 43.99", "\"maxLat\": 43.89"))
+    }
+
+    @Test
+    fun `accetta un riquadro che copre esattamente il mondo`() {
+        val json = validManifest()
+            .replace("\"minLon\": 12.40", "\"minLon\": -180.0").replace("\"maxLon\": 12.52", "\"maxLon\": 180.0")
+            .replace("\"minLat\": 43.89", "\"minLat\": -90.0").replace("\"maxLat\": 43.99", "\"maxLat\": 90.0")
+        validateManifestJson(json, allowedHosts)
+    }
+
+    @Test
+    fun `controlla i livelli di zoom della mappa`() {
+        assertManifestInvalid(validManifest().replace("\"maxZoom\": 14", "\"maxZoom\": 23"))
+        assertManifestInvalid(validManifest().replace("\"minZoom\": 0", "\"minZoom\": -1"))
+        assertManifestInvalid(validManifest().replace("\"minZoom\": 0, \"maxZoom\": 14", "\"minZoom\": 10, \"maxZoom\": 9"))
+        validateManifestJson(validManifest().replace("\"minZoom\": 0, \"maxZoom\": 14", "\"minZoom\": 22, \"maxZoom\": 22"), allowedHosts)
+        validateManifestJson(validManifest().replace("\"minZoom\": 0, \"maxZoom\": 14", "\"minZoom\": 0, \"maxZoom\": 0"), allowedHosts)
+    }
+
+    @Test
+    fun `rifiuta segmenti di routing con nome duplicato`() {
+        val file = """{ "name": "E10_N40.rd5", "url": "https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.14--E10_N40.rd5", "sizeBytes": 200, "sha256": "${"b".repeat(64)}" }"""
+        assertManifestInvalid(validManifest().replace(file, "$file, $file"))
+    }
+
+    @Test
+    fun `rifiuta minAppVersionCode negativo`() {
+        assertManifestInvalid(validManifest().replace("\"manifestVersion\": 2,", "\"manifestVersion\": 2, \"minAppVersionCode\": -3,"))
+    }
+
+    @Test
+    fun `la mappa del mondo rifiuta zoom, dimensione e version non validi`() {
+        val url = "https://github.com/miracle091/pocket-travel/releases/download/world-map/world-20260926-z8.pmtiles"
+        assertManifestInvalid(withWorldMap(url).replace("\"maxZoom\": 8", "\"maxZoom\": 23"))
+        assertManifestInvalid(withWorldMap(url).replace("\"maxZoom\": 8", "\"maxZoom\": -1"))
+        assertManifestInvalid(withWorldMap(url).replace("555000000", "-5"))
+        assertManifestInvalid(withWorldMap(url).replace("\"version\": \"20260926\"", "\"version\": \"x/y\""))
+        validateManifestJson(withWorldMap(url).replace("\"maxZoom\": 8", "\"maxZoom\": 22"), allowedHosts)
+    }
+
+    @Test
+    fun `l'indice dei civici nel manifest rifiuta sha256, dimensione e version non validi`() {
+        val url = "https://miracle091.github.io/pocket-travel/address-grid.json"
+        assertManifestInvalid(withAddressGrid(url).replace("7".repeat(64), "xyz"))
+        assertManifestInvalid(withAddressGrid(url).replace("\"sizeBytes\": 300000", "\"sizeBytes\": -1"))
+        assertManifestInvalid(withAddressGrid(url).replace("2026.09.30.1", "2026 09"))
+    }
+
+    @Test
+    fun `il puntatore alle reti di mezzi pubblici e' facoltativo e controllato`() {
+        fun withTransit(url: String, sha: String = "8".repeat(64), size: Long = 5000) =
+            """{ "manifestVersion": 2, $guides, "transit": { "version": "2026.09.29.1", "url": "$url", "sizeBytes": $size, "sha256": "$sha" }, "regions": [${region()}] }"""
+        val good = "https://miracle091.github.io/pocket-travel/transit.json"
+        validateManifestJson(withTransit(good), allowedHosts)
+        assertManifestInvalid(withTransit("https://evil.example.com/transit.json"))
+        assertManifestInvalid(withTransit(good, sha = "zz"))
+        assertManifestInvalid(withTransit(good, size = -1))
+    }
+
+    @Test
+    fun `la guida inglese facoltativa e' validata come quella italiana`() {
+        fun withGuidesEn(url: String, version: String = "2026.09.23") =
+            """{ "manifestVersion": 2, $guides, "guidesEn": { "version": "$version", "file": { "name": "guides-en.db", "url": "$url", "sizeBytes": 10, "sha256": "${"9".repeat(64)}" } }, "regions": [${region()}] }"""
+        val good = "https://github.com/miracle091/pocket-travel/releases/download/region-data-guide/guides-en--2026.09.23--guides-en.db"
+        validateManifestJson(withGuidesEn(good), allowedHosts)
+        assertManifestInvalid(withGuidesEn("https://evil.example.com/guides-en.db"))
+        assertManifestInvalid(withGuidesEn(good, version = "a/b"))
+    }
+
+    @Test
+    fun `le citta' inglesi facoltative sono validate come quelle italiane`() {
+        fun withCitiesEn(url: String) = validManifest().replace(
+            "\"poi\": {",
+            """"citiesEn": { "version": "2026.09.27", "file": { "name": "cities-en.db", "url": "$url", "sizeBytes": 10, "sha256": "${"5".repeat(64)}" } },
+              "poi": {""",
+        )
+        validateManifestJson(withCitiesEn("https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.27--cities-en.db"), allowedHosts)
+        assertManifestInvalid(withCitiesEn("https://evil.example.com/cities-en.db"))
+    }
+
+    @Test
+    fun `rifiuta una regione sostituita con regionId non sicuro o gruppo inesistente`() {
+        val grouped = JSONObject(validManifest()).apply {
+            getJSONArray("regions").getJSONObject(0).put("groupName", "Gruppo")
+        }
+        fun withReplaced(entry: JSONObject) = JSONObject(grouped.toString())
+            .put("replacedRegions", org.json.JSONArray().put(entry)).toString()
+        assertManifestInvalid(withReplaced(JSONObject().put("regionId", "../x").put("groupName", "Gruppo")))
+        assertManifestInvalid(withReplaced(JSONObject().put("regionId", "ex").put("groupName", "")))
+        // Un groupName bianco sulla regione non conta come gruppo esistente.
+        val blankGroup = JSONObject(validManifest()).apply {
+            getJSONArray("regions").getJSONObject(0).put("groupName", "  ")
+            put("replacedRegions", org.json.JSONArray().put(JSONObject().put("regionId", "ex").put("groupName", "  ")))
+        }
+        assertManifestInvalid(blankGroup.toString())
+    }
+
+    @Test
+    fun `validateRegion restituisce il regionId`() {
+        org.junit.Assert.assertEquals("san-marino", validateRegion(JSONObject(region()), allowedHosts))
+    }
+
+    @Test
+    fun `un JSON malformato o con campi mancanti lancia JSONException`() {
+        assertThrows(org.json.JSONException::class.java) { validateManifestJson("non e' json", allowedHosts) }
+        assertThrows(org.json.JSONException::class.java) { validateManifestJson("""{ "guides": {} }""", allowedHosts) }
+    }
+
+    // --- address-grid.json ---
+
+    private fun assertGridInvalid(json: String) {
+        assertThrows(ManifestValidationException::class.java) { validateAddressGridJson(json, allowedHosts) }
+    }
+
+    @Test
+    fun `l'indice dei civici rifiuta id di cella malformati o fuori intervallo`() {
+        listOf("11/1", "11/1/1/1", "a/b/c", "11/x/1", "-1/0/0", "11/2048/0", "11/0/2048", "11/-1/0", "0/1/0", "").forEach { id ->
+            assertGridInvalid(addressGridIndex(gridCell(id)))
+        }
+    }
+
+    @Test
+    fun `l'indice dei civici accetta i confini dell'intervallo valido`() {
+        validateAddressGridJson(addressGridIndex(gridCell("0/0/0")), allowedHosts)
+        validateAddressGridJson(addressGridIndex(gridCell("11/2047/2047")), allowedHosts)
+    }
+
+    @Test
+    fun `l'indice dei civici rifiuta nessuna cella, tileZoom e version non validi`() {
+        assertGridInvalid(addressGridIndex())
+        assertGridInvalid(addressGridIndex(gridCell("11/1/1")).replace("\"tileZoom\": 14", "\"tileZoom\": 23"))
+        assertGridInvalid(addressGridIndex(gridCell("11/1/1")).replace("\"tileZoom\": 14", "\"tileZoom\": -1"))
+        assertGridInvalid(addressGridIndex(gridCell("11/1/1")).replace("\"version\": \"2026.09.30.1\", \"tileZoom\"", "\"version\": \"a b\", \"tileZoom\""))
+    }
+
+    @Test
+    fun `l'indice dei civici ordina per zoom, poi x, poi y`() {
+        validateAddressGridJson(addressGridIndex(gridCell("5/9/9"), gridCell("11/0/0")), allowedHosts)
+        assertGridInvalid(addressGridIndex(gridCell("11/0/0"), gridCell("5/9/9")))
+        validateAddressGridJson(addressGridIndex(gridCell("12/10/5"), gridCell("12/11/0")), allowedHosts)
+        assertGridInvalid(addressGridIndex(gridCell("12/11/0"), gridCell("12/10/5")))
+    }
+
+    @Test
+    fun `l'indice dei civici rifiuta file con hash, dimensione, host o version non validi nella cella`() {
+        assertGridInvalid(addressGridIndex(gridCell("11/1/1").replace("a".repeat(64), "nope")))
+        assertGridInvalid(addressGridIndex(gridCell("11/1/1").replace("\"sizeBytes\": 100", "\"sizeBytes\": -5")))
+        assertGridInvalid(addressGridIndex(gridCell("11/1/1").replace("https://github.com", "https://evil.example.com")))
+        assertGridInvalid(addressGridIndex(gridCell("11/1/1", version = "../v")))
+    }
+
+    @Test
+    fun `l'indice dei civici controlla hash del file e del fileXz della ricerca`() {
+        val cell = gridCellWithSearch("11/1/1")
+        assertGridInvalid(addressGridIndex(cell.replace("d".repeat(64), "bad")))
+        assertGridInvalid(addressGridIndex(cell.replace("c".repeat(64), "bad")))
+    }
+
+    @Test
+    fun `l'indice dei civici richiede tutti i campi dell'attribuzione`() {
+        val base = addressGridIndex(gridCell("11/1/1"))
+        assertThrows(org.json.JSONException::class.java) {
+            validateAddressGridJson(base.replace(gridAttributions, """[{ "source": "OSM", "license": "ODbL-1.0" }]"""), allowedHosts)
+        }
+        assertThrows(org.json.JSONException::class.java) {
+            validateAddressGridJson(base.replace(gridAttributions, """[{ "license": "ODbL-1.0", "url": "https://x" }]"""), allowedHosts)
+        }
+    }
+
+    @Test
+    fun `l'antenata si rileva anche a piu' livelli di distanza e le sorelle sono ammesse`() {
+        assertGridInvalid(addressGridIndex(gridCell("10/0/0"), gridCell("13/3/3")))
+        validateAddressGridJson(addressGridIndex(gridCell("11/0/0"), gridCell("11/0/1"), gridCell("11/1/0")), allowedHosts)
+    }
+
+    // --- transit.json ---
+
+    private fun assertTransitInvalid(json: String) {
+        assertThrows(ManifestValidationException::class.java) { validateTransitJson(json, allowedHosts) }
+    }
+
+    private fun transitIndex(feed: String) = """{ "version": "2026.09.29.1", "feeds": [$feed] }"""
+
+    @Test
+    fun `l'indice delle reti accetta zero reti e una licenseUrl assente o vuota`() {
+        validateTransitJson("""{ "version": "2026.09.29.1", "feeds": [] }""", allowedHosts)
+        val noLicenseUrl = transitFeed().replace(Regex(""""licenseUrl": "[^"]*","""), "")
+        validateTransitJson(transitIndex(noLicenseUrl), allowedHosts)
+        validateTransitJson(transitIndex(transitFeed(licenseUrl = "")), allowedHosts)
+    }
+
+    @Test
+    fun `l'indice delle reti rifiuta version, regioni, licenza e attribuzione non valide`() {
+        assertTransitInvalid(transitIndex(transitFeed()).replace("\"version\": \"2026.09.29.1\", \"feeds\"", "\"version\": \"a b\", \"feeds\""))
+        assertTransitInvalid(transitIndex(transitFeed().replace("[\"lettonia\"]", "[]")))
+        assertTransitInvalid(transitIndex(transitFeed().replace("[\"lettonia\"]", "[\"../x\"]")))
+        assertTransitInvalid(transitIndex(transitFeed().replace("\"license\": \"CC0-1.0\"", "\"license\": \"  \"")))
+        assertTransitInvalid(transitIndex(transitFeed().replace("\"attribution\": \"Rigas satiksme\"", "\"attribution\": \"\"")))
+    }
+
+    @Test
+    fun `l'indice delle reti rifiuta validUntil non valido`() {
+        assertTransitInvalid(transitIndex(transitFeed().replace("2026-12-27", "27/12/2026")))
+        assertTransitInvalid(transitIndex(transitFeed().replace("2026-12-27", "2026-02-30")))
+        assertTransitInvalid(transitIndex(transitFeed().replace("2026-12-27", "")))
+    }
+
+    @Test
+    fun `l'indice delle reti controlla il riquadro`() {
+        assertTransitInvalid(transitIndex(transitFeed(bbox = "[23.9, 56.8, 24.4]")))
+        assertTransitInvalid(transitIndex(transitFeed(bbox = "[23.9, 56.8, 24.4, 57.1, 1]")))
+        assertTransitInvalid(transitIndex(transitFeed(bbox = "[23.9, 58.0, 24.4, 57.1]")))
+        // Un riquadro ridotto a un punto passa: le regole rifiutano solo min > max.
+        validateTransitJson(transitIndex(transitFeed(bbox = "[24.0, 57.0, 24.0, 57.0]")), allowedHosts)
+    }
+
+    @Test
+    fun `l'indice delle reti controlla il file e il fileXz`() {
+        assertTransitInvalid(transitIndex(transitFeed().replace("a".repeat(64), "bad")))
+        assertTransitInvalid(transitIndex(transitFeed().replace("\"sizeBytes\": 10", "\"sizeBytes\": -1")))
+        val xz = """, "fileXz": { "name": "transit.db.xz", "url": "https://evil.example.com/t.xz", "sizeBytes": 5, "sha256": "${"e".repeat(64)}" } }"""
+        assertTransitInvalid(transitIndex(transitFeed().removeSuffix("}") + xz))
+    }
 }

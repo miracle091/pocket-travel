@@ -422,7 +422,7 @@ jobs:
       # !cancelled(): anche se la guida italiana fallisce, il frammento della guida inglese (guides-en.json) va al job "publish".
       - name: Carica il frammento manifest delle guide
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: manifest-fragments-guides
           path: |
@@ -515,7 +515,7 @@ jobs:
 
       - name: Carica il frammento manifest della mappa del mondo
         if: steps.build.outputs.changed == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: manifest-fragments-world-map
           path: ${{ runner.temp }}/fragments/world-map.json
@@ -750,14 +750,14 @@ jobs:
       # e' (niente "manifestVersion", schema diverso) e finirebbe scambiato per un frammento se
       # stesse nello stesso artifact/pattern.
       - name: Carica il frammento manifest dell'indice civici
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: manifest-fragments-address-grid
           path: ${{ runner.temp }}/fragments/address-grid.json
           retention-days: 1
 
       - name: Carica l'indice dei civici
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: address-grid-index
           path: ${{ runner.temp }}/address-grid-index/address-grid.json
@@ -852,14 +852,14 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Carica il frammento manifest delle reti
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: manifest-fragments-transit
           path: ${{ runner.temp }}/fragments/transit.json
           retention-days: 1
 
       - name: Carica l'indice delle reti
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: transit-index
           path: ${{ runner.temp }}/transit-index/transit.json
@@ -1416,7 +1416,7 @@ jobs:
       # regioni rimandate da passare alla continuazione.
       - name: Carica i frammenti manifest dello shard
         if: ${{ !cancelled() && steps.build.outputs.has_fragments == 'true' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: manifest-fragments-${{ matrix.shard }}
           path: |
@@ -1479,7 +1479,7 @@ jobs:
           fi
           echo "-- min-app-version-code $MIN_APP_VERSION_CODE, app rilasciata $RELEASED_VERSION_CODE: ok"
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: manifest-fragments-*
           path: ${{ runner.temp }}/fragments
@@ -1491,7 +1491,7 @@ jobs:
       # tutto o non ha prodotto nulla (continue-on-error qui sotto, come per i frammenti).
       # Solo se il job l'ha prodotto: in una continuazione e' saltato, e il download fallito finiva tra gli errori della run.
       - if: needs.address-grid.result == 'success'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: address-grid-index
           path: ${{ runner.temp }}/address-grid-index
@@ -1500,7 +1500,7 @@ jobs:
       # transit.json (indice delle reti di mezzi pubblici), stesso trattamento di address-grid.json.
       # Solo se il job l'ha prodotto: in una continuazione e' saltato, e il download fallito finiva tra gli errori della run.
       - if: needs.transit.result == 'success'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: transit-index
           path: ${{ runner.temp }}/transit-index

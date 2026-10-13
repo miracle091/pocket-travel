@@ -1,6 +1,7 @@
 package com.pockettravel.feature.ai
 
-import kotlinx.coroutines.Dispatchers
+import com.pockettravel.core.data.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -28,9 +29,10 @@ import javax.inject.Inject
 class OnlineLlmClient @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val json: Json,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     suspend fun generate(baseUrl: String, apiKey: String, model: String, prompt: String): String =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             val requestBody = OpenAiChatRequest(
                 model = model,
                 messages = listOf(OpenAiChatMessage(role = "user", content = prompt)),
@@ -48,7 +50,7 @@ class OnlineLlmClient @Inject constructor(
                 .newCall(request).await().use { response ->
                 val responseBody = response.body.string()
                 if (!response.isSuccessful) {
-                    if (response.code == 401 || response.code == 403) {
+                    if (response.code == HTTP_UNAUTHORIZED || response.code == HTTP_FORBIDDEN) {
                         throw OnlineApiKeyRejectedException("Chiave API rifiutata (HTTP ${response.code})")
                     }
                     if (isModelNotFound(response.code, responseBody, json)) {
@@ -81,6 +83,8 @@ internal fun isModelNotFound(statusCode: Int, responseBody: String, json: Json):
 }
 
 private const val HTTP_BAD_REQUEST = 400
+private const val HTTP_UNAUTHORIZED = 401
+private const val HTTP_FORBIDDEN = 403
 private const val HTTP_NOT_FOUND = 404
 
 // execute() bloccherebbe il thread ignorando la cancellazione (una risposta da 120 s andrebbe attesa

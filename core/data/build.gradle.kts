@@ -6,6 +6,8 @@ plugins {
 
 android {
     namespace = "com.pockettravel.core.data"
+    // InMemorySharedPreferences e InMemoryPreferencesFactory, per i test JVM di tutti i moduli.
+    testFixtures { enable = true }
 }
 
 // Schemi Room esportati (vedi ksp room.schemaLocation), letti da MigrationTestHelper nei test di migrazione.
@@ -25,7 +27,12 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
 
+    // Flow nelle firme dei fake (FakeRegionRepository).
+    testFixturesApi(libs.kotlinx.coroutines.android)
+
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(testFixtures(project(":core:data")))
     // Esegue le query di TransitBoard su un transit.db sintetico (android.database.sqlite non c'e' nei test JVM).
     testImplementation(libs.sqlite.jdbc)
 

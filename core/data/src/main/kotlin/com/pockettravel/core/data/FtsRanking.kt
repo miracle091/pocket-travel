@@ -20,6 +20,13 @@ private const val HEADER_INTS = 2
 private const val X_INTS_PER_PAIR = 3
 private const val X_ROWS_WITH_HIT = 2
 
+// Lettura di un intero little-endian a 4 byte.
+private const val BYTE_MASK = 0xFF
+private const val LAST_BYTE_INDEX = 3
+private const val SECOND_BYTE_SHIFT = 8
+private const val THIRD_BYTE_SHIFT = 16
+private const val FOURTH_BYTE_SHIFT = 24
+
 /**
  * matchinfo(<tabella fts>, 'pcxnal') letto: interi a 32 bit little-endian (nativo su Android). 'p' = numero di frasi
  * della query FTS, 'c' = numero di colonne (title, body), 'x' = per ogni coppia frase/colonna (occorrenze in questa
@@ -115,7 +122,7 @@ fun bm25Score(info: FtsMatchInfo, stats: FtsCorpusStats): Double {
 }
 
 private fun readLittleEndianInt(bytes: ByteArray, offset: Int): Int =
-    (bytes[offset].toInt() and 0xFF) or
-        ((bytes[offset + 1].toInt() and 0xFF) shl 8) or
-        ((bytes[offset + 2].toInt() and 0xFF) shl 16) or
-        ((bytes[offset + 3].toInt() and 0xFF) shl 24)
+    (bytes[offset].toInt() and BYTE_MASK) or
+        ((bytes[offset + 1].toInt() and BYTE_MASK) shl SECOND_BYTE_SHIFT) or
+        ((bytes[offset + 2].toInt() and BYTE_MASK) shl THIRD_BYTE_SHIFT) or
+        ((bytes[offset + LAST_BYTE_INDEX].toInt() and BYTE_MASK) shl FOURTH_BYTE_SHIFT)

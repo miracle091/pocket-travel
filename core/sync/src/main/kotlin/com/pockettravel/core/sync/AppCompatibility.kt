@@ -6,6 +6,7 @@ import android.os.Looper
 import android.widget.Toast
 import androidx.core.content.edit
 import androidx.core.content.pm.PackageInfoCompat
+import com.pockettravel.core.data.PreferencesFactory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,22 +19,27 @@ import javax.inject.Singleton
  * Il catalogo resta consultabile: i campi nuovi del manifest un'app vecchia li ignora.
  */
 @Singleton
-class AppCompatibility @Inject constructor(@ApplicationContext private val context: Context) {
+class AppCompatibility internal constructor(
+    preferences: PreferencesFactory,
+    private val installedVersionCode: () -> Long,
+    private val showMessage: () -> Unit,
+) {
+    @Inject constructor(@ApplicationContext context: Context, preferences: PreferencesFactory) : this(
+        preferences,
+        installedVersionCode = { installedAppVersionCode(context) },
+        showMessage = { showUpdateRequiredToast(context) },
+    )
 
-    private val prefs = context.getSharedPreferences("app_compatibility", Context.MODE_PRIVATE)
+    private val prefs = preferences.open("app_compatibility")
 
     fun update(minAppVersionCode: Int?) = prefs.edit {
         if (minAppVersionCode == null) remove(KEY_MIN_VERSION_CODE) else putInt(KEY_MIN_VERSION_CODE, minAppVersionCode)
     }
 
-    fun requiresAppUpdate(): Boolean = prefs.getInt(KEY_MIN_VERSION_CODE, 0) > installedAppVersionCode(context)
+    fun requiresAppUpdate(): Boolean = prefs.getInt(KEY_MIN_VERSION_CODE, 0) > installedVersionCode()
 
     /** Breve messaggio all'utente che ha appena chiesto un download bloccato. */
-    fun showUpdateRequiredMessage() {
-        Handler(Looper.getMainLooper()).post {
-            Toast.makeText(context, R.string.app_update_required_for_download, Toast.LENGTH_LONG).show()
-        }
-    }
+    fun showUpdateRequiredMessage() = showMessage()
 
     private companion object {
         const val KEY_MIN_VERSION_CODE = "min_version_code"
@@ -42,3 +48,9 @@ class AppCompatibility @Inject constructor(@ApplicationContext private val conte
 
 fun installedAppVersionCode(context: Context): Long =
     PackageInfoCompat.getLongVersionCode(context.packageManager.getPackageInfo(context.packageName, 0))
+
+private fun showUpdateRequiredToast(context: Context) {
+    Handler(Looper.getMainLooper()).post {
+        Toast.makeText(context, R.string.app_update_required_for_download, Toast.LENGTH_LONG).show()
+    }
+}

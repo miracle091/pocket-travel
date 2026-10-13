@@ -340,6 +340,9 @@ internal fun worldFallbackStyle(
 // perche' l'anteprima puo' essere rigenerata con uno zoom diverso da build-region.sh (tetto di
 // peso) e l'header e' l'unica fonte sempre corretta.
 private const val PMTILES_HEADER_SIZE = 127
+
+// Per leggere un byte come valore senza segno.
+private const val BYTE_MASK = 0xFF
 private const val PMTILES_MAX_ZOOM_OFFSET = 101
 
 internal fun pmtilesHeaderMaxZoom(file: File): Int = pmtilesHeaderMaxZoom(readPmtilesHeader(file))
@@ -358,7 +361,7 @@ private fun readPmtilesHeader(file: File): ByteArray = file.inputStream().use { 
 
 internal fun pmtilesHeaderMaxZoom(header: ByteArray): Int {
     require(header.size >= PMTILES_HEADER_SIZE) { "Header PMTiles troncato: ${header.size} byte" }
-    return header[PMTILES_MAX_ZOOM_OFFSET].toInt() and 0xFF
+    return header[PMTILES_MAX_ZOOM_OFFSET].toInt() and BYTE_MASK
 }
 
 /** Riquadro dei dati della mappa installata, in gradi. */

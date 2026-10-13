@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -33,7 +34,7 @@ internal fun arrivalFor(time: LocalTime, now: LocalDateTime = LocalDateTime.now(
  * conti passano dal fuso [zone]: la notte del cambio dell'ora legale un'ora d'orologio non e' un'ora vera.
  */
 internal fun departureFor(arrival: LocalDateTime, durationSeconds: Double, zone: ZoneId = ZoneId.systemDefault()): LocalDateTime {
-    val minutes = ceil(durationSeconds / 60).toLong().coerceAtLeast(1)
+    val minutes = ceil(durationSeconds / SECONDS_PER_MINUTE).toLong().coerceAtLeast(1)
     return arrival.atZone(zone).minusMinutes(minutes).toLocalDateTime().withSecond(0).withNano(0)
 }
 
@@ -52,7 +53,7 @@ internal fun minutesLate(
     zone: ZoneId = ZoneId.systemDefault(),
 ): Long {
     val seconds = Duration.between(arrival.atZone(zone), now.atZone(zone).plusSeconds(ceil(durationSeconds).toLong())).seconds
-    return if (seconds > 0) ceil(seconds / 60.0).toLong() else -(-seconds / 60)
+    return if (seconds > 0) ceil(seconds / SECONDS_PER_MINUTE.toDouble()).toLong() else -(-seconds / SECONDS_PER_MINUTE)
 }
 
 /** Quando suona l'avviso per la partenza [departure]: l'ora locale in millisecondi dall'epoca. */
@@ -70,52 +71,69 @@ internal fun reminderTriggerMillis(departure: LocalDateTime, zone: ZoneId = Zone
 internal object DepartureReminder {
     private const val REQUEST_CODE = 4201
 
-    private const val PREFS = "navigation_departure_reminder"
-    private const val KEY_TRIGGER_AT = "trigger_at"
-    private const val KEY_DESTINATION = "destination"
-
-    fun schedule(context: Context, departure: LocalDateTime, destinationName: String) {
+    fun schedule(context: Context, store: DepartureReminderStore, departure: LocalDateTime, destinationName: String) {
         val triggerAt = reminderTriggerMillis(departure)
-        prefs(context).edit().putLong(KEY_TRIGGER_AT, triggerAt).putString(KEY_DESTINATION, destinationName).apply()
+        store.save(triggerAt, destinationName)
         setAlarm(context, triggerAt, destinationName)
     }
 
     /** All'accensione: riprogramma l'avviso salvato, o lo mostra subito se l'ora e' passata da poco a telefono spento. */
-    fun restore(context: Context, now: Long = System.currentTimeMillis()) {
-        val prefs = prefs(context)
-        val triggerAt = prefs.getLong(KEY_TRIGGER_AT, 0L).takeIf { it > 0 } ?: return
-        val destination = prefs.getString(KEY_DESTINATION, null).orEmpty()
-        when (restoreAction(triggerAt, now)) {
-            RestoreAction.SCHEDULE -> setAlarm(context, triggerAt, destination)
+    fun restore(context: Context, store: DepartureReminderStore, now: Long = System.currentTimeMillis()) {
+        val saved = store.load() ?: return
+        when (restoreAction(saved.triggerAt, now)) {
+            RestoreAction.SCHEDULE -> setAlarm(context, saved.triggerAt, saved.destination)
             RestoreAction.NOTIFY_NOW -> {
-                clearSaved(context)
-                DepartureReminderReceiver.notify(context, destination)
+                store.clear()
+                DepartureReminderReceiver.notify(context, saved.destination)
             }
-            RestoreAction.DROP -> clearSaved(context)
+            RestoreAction.DROP -> store.clear()
         }
     }
-
-    internal fun clearSaved(context: Context) = prefs(context).edit().clear().apply()
-
-    private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     @SuppressLint("ScheduleExactAlarm")
     private fun setAlarm(context: Context, triggerAt: Long, destinationName: String) {
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
         val intent = Intent(context, DepartureReminderReceiver::class.java).putExtra(DepartureReminderReceiver.KEY_DESTINATION, destinationName)
         val pending = PendingIntent.getBroadcast(context, REQUEST_CODE, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        if (Build.VERSION.SDK_INT < 31 || alarmManager.canScheduleExactAlarms()) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()) {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
         } else {
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
         }
     }
 
-    fun cancel(context: Context) {
-        clearSaved(context)
+    fun cancel(context: Context, store: DepartureReminderStore) {
+        store.clear()
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
         val intent = Intent(context, DepartureReminderReceiver::class.java)
         alarmManager.cancel(PendingIntent.getBroadcast(context, REQUEST_CODE, intent, PendingIntent.FLAG_IMMUTABLE))
+    }
+}
+
+/** L'avviso di partenza salvato nelle preferenze: ora in cui suona l'allarme e nome della destinazione. */
+internal class DepartureReminderStore(private val prefs: SharedPreferences) {
+
+    class Saved(val triggerAt: Long, val destination: String)
+
+    fun save(triggerAt: Long, destination: String) {
+        prefs.edit().putLong(KEY_TRIGGER_AT, triggerAt).putString(KEY_DESTINATION, destination).apply()
+    }
+
+    /** L'avviso salvato; null se non c'e'. */
+    fun load(): Saved? {
+        val triggerAt = prefs.getLong(KEY_TRIGGER_AT, 0L).takeIf { it > 0 } ?: return null
+        return Saved(triggerAt, prefs.getString(KEY_DESTINATION, null).orEmpty())
+    }
+
+    fun clear() = prefs.edit().clear().apply()
+
+    companion object {
+        const val PREFS = "navigation_departure_reminder"
+        private const val KEY_TRIGGER_AT = "trigger_at"
+        private const val KEY_DESTINATION = "destination"
+
+        /** Per i ricevitori di sistema, che Hilt non costruisce. */
+        fun of(context: Context) = DepartureReminderStore(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE))
     }
 }
 
@@ -132,18 +150,19 @@ internal fun restoreAction(triggerAt: Long, now: Long): RestoreAction = when {
 }
 
 private const val MISSED_GRACE_MILLIS = 30 * 60_000L
+private const val SECONDS_PER_MINUTE = 60
 
 /** Riprogramma l'avviso di partenza dopo il riavvio del telefono (gli allarmi non sopravvivono allo spegnimento). */
 class DepartureReminderBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) DepartureReminder.restore(context)
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED) DepartureReminder.restore(context, DepartureReminderStore.of(context))
     }
 }
 
 /** La notifica all'ora di partenza; toccandola si apre l'app. */
 class DepartureReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        DepartureReminder.clearSaved(context)
+        DepartureReminderStore.of(context).clear()
         notify(context, intent.getStringExtra(KEY_DESTINATION).orEmpty())
     }
 

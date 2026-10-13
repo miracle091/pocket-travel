@@ -1,7 +1,8 @@
 package com.pockettravel.core.sync
 
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.RegionStorage
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
@@ -27,6 +28,7 @@ class PermanentRegionPackageException(message: String) : Exception(message)
 class RegionPackageDownloader @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val regionStorage: RegionStorage,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     /**
      * Sezione critica per id di staging: chiamate concorrenti sullo stesso id (piu' ViewModel che chiedono
@@ -52,7 +54,7 @@ class RegionPackageDownloader @Inject constructor(
         files: List<RegionManifestFile>,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit = { _, _ -> },
     ): File =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             // Una seconda richiesta accodata dopo la prima trova i file gia' completi e li riusa.
             regionStorage.cleanupStagingExcept(regionId, stagingVersion)
             val staging = regionStorage.stagingDirectoryFor(regionId, stagingVersion)
@@ -119,19 +121,19 @@ class RegionPackageDownloader @Inject constructor(
             }.build(),
         ).execute().use { response ->
             if (!response.isSuccessful) {
-                if (response.code == 416) {
+                if (response.code == HTTP_RANGE_NOT_SATISFIABLE) {
                     // .part non coerente con il file sul server (es. cambiato a parita' di nome): si riparte da zero
                     partFile.delete()
                     throw IOException("Range non valido per ${file.name}: riscarico da capo")
                 }
-                if (response.code in 400..499 && response.code != 408 && response.code != 429) {
+                if (response.code in HTTP_CLIENT_ERRORS && !isRetryableHttpStatus(response.code)) {
                     throw PermanentRegionPackageException("Download fallito per ${file.name}: HTTP ${response.code}")
                 }
                 throw IOException("Download fallito per ${file.name}: HTTP ${response.code}")
             }
             val body = response.body
-            val append = response.code == 206 && existingBytes > 0
-            if (existingBytes > 0 && response.code == 206) {
+            val append = response.code == HTTP_PARTIAL_CONTENT && existingBytes > 0
+            if (existingBytes > 0 && response.code == HTTP_PARTIAL_CONTENT) {
                 if (response.header("Content-Range")?.startsWith("bytes $existingBytes-", ignoreCase = true) != true) {
                     // Come per il 416: .part non coerente con la risposta, si riparte da zero.
                     partFile.delete()
@@ -194,12 +196,13 @@ class RegionPackageDownloader @Inject constructor(
                 // DigestInputStream.read aggiorna il digest a ogni lettura
             }
         }
-        return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+        return digest.digest().joinToString("") { "%02x".format(it.toInt() and BYTE_MASK) }
     }
 
     private companion object {
         // Un lock per id di staging, condiviso tra le istanze (il downloader non e' un singleton).
         val locks = ConcurrentHashMap<String, Mutex>()
         const val PROGRESS_STEP_BYTES = 4_000_000L
+        const val BYTE_MASK = 0xFF
     }
 }

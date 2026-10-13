@@ -40,6 +40,8 @@ class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
     ): AreaPois {
         val present = tags.mapTo(mutableSetOf()) { poiCategoryOf(it.category, it.osmTag) }
         val excluded = tags.filter { poiCategoryOf(it.category, it.osmTag) in hiddenCategories }.map { "${it.category}|${it.osmTag}" }
+        // Senza posti per i segnalini non serve leggere nulla (e la griglia avrebbe lato zero).
+        if (maxPois <= 0) return AreaPois(emptyList(), present)
         val firstRows = poiDao.poisInBounds(regionId, minLat, maxLat, minLon, maxLon, excluded, accessibility.ordinal, maxPois + 1)
         val entities = if (firstRows.size <= maxPois) {
             firstRows
@@ -64,10 +66,11 @@ class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
      */
     suspend fun searchByName(regionIds: List<String>, query: String, limit: Int): List<Poi> {
         val text = query.trim()
-        if (text.length < 2 || regionIds.isEmpty()) return emptyList()
+        if (text.length < 2 || regionIds.isEmpty() || limit <= 0) return emptyList()
         // Il LIMIT di SQL viene prima del filtro sui nascosti (regola in Kotlin, non esprimibile in SQL): si
-        // chiede di piu' e si taglia dopo, cosi' i nascosti non svuotano il risultato.
-        return poiDao.searchByName(regionIds, accentInsensitiveGlob(text), limit * HIDDEN_OVERFETCH)
+        // chiede di piu' e si taglia dopo, cosi' i nascosti non svuotano il risultato. Il prodotto satura a Int.MAX_VALUE.
+        val sqlLimit = if (limit > Int.MAX_VALUE / HIDDEN_OVERFETCH) Int.MAX_VALUE else limit * HIDDEN_OVERFETCH
+        return poiDao.searchByName(regionIds, accentInsensitiveGlob(text), sqlLimit)
             .map { it.toDomain() }.filterNot { it.isHiddenOnMap() }.take(limit)
     }
 

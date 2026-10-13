@@ -1,6 +1,8 @@
 package com.pockettravel.pipeline
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -101,5 +103,151 @@ class SelectFragmentsTest {
 
         assertEquals(emptyList<File>(), selection.accepted)
         assertEquals(mapOf("p-old.json" to "scaduta", "p-bad.json" to "scartata", "p-broken.json" to "scartata"), outcomes(selection))
+    }
+
+    private fun reportOf(selection: FragmentSelection, name: String) = selection.report.single { it.file.name == name }
+
+    @Test
+    fun `un frammento della run che non e' JSON si scarta con il motivo e senza regionId`() {
+        val broken = tmp.newFile("rotto.json").apply { writeText("{ non json") }
+
+        val selection = selectFragments(null, listOf(broken), emptyList(), allowedHosts, now, week)
+
+        assertEquals(emptyList<File>(), selection.accepted)
+        val choice = reportOf(selection, "rotto.json")
+        assertEquals("scartata", choice.outcome)
+        assertNull(choice.regionId)
+        assertTrue(choice.reason.startsWith("JSON non leggibile"))
+    }
+
+    @Test
+    fun `i frammenti senza regioni passano senza comparire nel rapporto`() {
+        val noRegions = tmp.newFile("guide.json").apply { writeText("""{ "manifestVersion": 2, "guides": {} }""") }
+        val emptyRegions = tmp.newFile("mondo.json").apply { writeText("""{ "manifestVersion": 2, "regions": [] }""") }
+
+        val selection = selectFragments(null, listOf(noRegions, emptyRegions), emptyList(), allowedHosts, now, week)
+
+        assertEquals(listOf(noRegions, emptyRegions), selection.accepted)
+        assertEquals(emptyList<FragmentChoice>(), selection.report)
+    }
+
+    @Test
+    fun `se una regione di un frammento a piu' regioni e' non valida si scarta tutto il file e si elencano i motivi`() {
+        val file = fragment(
+            "doppio.json",
+            region("andorra", "2026-09-29T10:00:00Z"),
+            region("malta", "2026-09-29T10:00:00Z", host = "evil.example"),
+        )
+
+        val selection = selectFragments(null, listOf(file), emptyList(), allowedHosts, now, week)
+
+        assertEquals(emptyList<File>(), selection.accepted)
+        val choice = reportOf(selection, "doppio.json")
+        assertEquals("andorra", choice.regionId)
+        assertEquals("scartata", choice.outcome)
+        assertTrue(choice.reason, choice.reason.contains("evil.example"))
+    }
+
+    @Test
+    fun `il limite di eta' e' incluso, un secondo oltre scade`() {
+        val onTheLimit = fragment("p-limite.json", region("italia", now.minus(week).toString()))
+        val oneSecondOver = fragment("p-oltre.json", region("francia", now.minus(week).minusSeconds(1).toString()))
+
+        val selection = selectFragments(null, emptyList(), listOf(onTheLimit, oneSecondOver), allowedHosts, now, week)
+
+        assertEquals(listOf(onTheLimit), selection.accepted)
+        assertEquals("recuperata", reportOf(selection, "p-limite.json").outcome)
+        assertEquals("scaduta", reportOf(selection, "p-oltre.json").outcome)
+        assertTrue(reportOf(selection, "p-oltre.json").reason.contains("7 giorni"))
+    }
+
+    @Test
+    fun `un frammento in sospeso con la stessa data del pubblicato e' superato, uno piu' recente di un secondo no`() {
+        val same = fragment("p-uguale.json", region("italia", "2026-09-28T10:00:00Z"))
+        val later = fragment("p-dopo.json", region("francia", "2026-09-28T10:00:01Z"))
+
+        val selection = selectFragments(
+            published("italia" to "2026-09-28T10:00:00Z", "francia" to "2026-09-28T10:00:00Z"),
+            emptyList(), listOf(same, later), allowedHosts, now, week,
+        )
+
+        assertEquals(listOf(later), selection.accepted)
+        assertEquals("superata", reportOf(selection, "p-uguale.json").outcome)
+    }
+
+    @Test
+    fun `un frammento in sospeso senza updatedAt valido o senza regioni si scarta`() {
+        val missing = tmp.newFile("p-manca.json").apply { writeText(region("italia", "x").let { """{ "regions": [${it.replace("\"updatedAt\": \"x\",", "")}] }""" }) }
+        val garbage = fragment("p-ieri.json", region("francia", "ieri"))
+        val noRegion = tmp.newFile("p-vuoto.json").apply { writeText("""{ "regions": [] }""") }
+
+        val selection = selectFragments(null, emptyList(), listOf(missing, garbage, noRegion), allowedHosts, now, week)
+
+        assertEquals(emptyList<File>(), selection.accepted)
+        assertEquals("updatedAt mancante o non valido", reportOf(selection, "p-manca.json").reason)
+        assertEquals("updatedAt mancante o non valido", reportOf(selection, "p-ieri.json").reason)
+        assertEquals("francia", reportOf(selection, "p-ieri.json").regionId)
+        assertTrue(reportOf(selection, "p-vuoto.json").reason.startsWith("frammento non leggibile"))
+        assertNull(reportOf(selection, "p-vuoto.json").regionId)
+    }
+
+    @Test
+    fun `un frammento in sospeso piu' recente di quello della run si recupera e va prima`() {
+        val run = fragment("andorra.json", region("andorra", "2026-09-29T10:00:00Z"))
+        val newer = fragment("p-andorra.json", region("andorra", "2026-09-29T11:00:00Z"))
+
+        val selection = selectFragments(null, listOf(run), listOf(newer), allowedHosts, now, week)
+
+        assertEquals(listOf(newer, run), selection.accepted)
+    }
+
+    @Test
+    fun `un frammento della run scartato non fa superare quelli in sospeso della stessa regione`() {
+        val badRun = fragment("andorra.json", region("andorra", "2026-09-29T10:00:00Z", host = "evil.example"))
+        val pending = fragment("p-andorra.json", region("andorra", "2026-09-28T10:00:00Z"))
+
+        val selection = selectFragments(null, listOf(badRun), listOf(pending), allowedHosts, now, week)
+
+        assertEquals(listOf(pending), selection.accepted)
+        assertEquals("scartata", reportOf(selection, "andorra.json").outcome)
+        assertEquals("recuperata", reportOf(selection, "p-andorra.json").outcome)
+    }
+
+    @Test
+    fun `un manifest pubblicato senza regioni o con date illeggibili non impedisce il recupero`() {
+        val pending = fragment("p-italia.json", region("italia", "2026-09-28T10:00:00Z"))
+
+        listOf("""{ "manifestVersion": 2 }""", """{ "regions": [] }""", published("italia" to "non-una-data")).forEach { json ->
+            val selection = selectFragments(json, emptyList(), listOf(pending), allowedHosts, now, week)
+            assertEquals(json, listOf(pending), selection.accepted)
+        }
+    }
+
+    @Test
+    fun `un manifest pubblicato malformato fa fallire la selezione invece di recuperare alla cieca`() {
+        val pending = fragment("p-italia.json", region("italia", "2026-09-28T10:00:00Z"))
+
+        org.junit.Assert.assertThrows(org.json.JSONException::class.java) {
+            selectFragments("non json", emptyList(), listOf(pending), allowedHosts, now, week)
+        }
+    }
+
+    @Test
+    fun `senza frammenti la selezione e' vuota`() {
+        val selection = selectFragments(null, emptyList(), emptyList(), allowedHosts, now, week)
+
+        assertEquals(emptyList<File>(), selection.accepted)
+        assertEquals(emptyList<FragmentChoice>(), selection.report)
+    }
+
+    @Test
+    fun `i recuperati sono ordinati dal piu' vecchio al piu' recente a prescindere dall'ordine di ingresso`() {
+        val a = fragment("p-a.json", region("a", "2026-09-28T12:00:00Z"))
+        val b = fragment("p-b.json", region("b", "2026-09-26T12:00:00Z"))
+        val c = fragment("p-c.json", region("c", "2026-09-27T12:00:00Z"))
+
+        val selection = selectFragments(null, emptyList(), listOf(a, b, c), allowedHosts, now, week)
+
+        assertEquals(listOf(b, c, a), selection.accepted)
     }
 }

@@ -7,11 +7,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
+import com.pockettravel.core.data.RoomRegionRepository
 import com.pockettravel.core.data.db.CityCoordinates
 import com.pockettravel.core.data.db.RegionDatabase
 import com.pockettravel.core.data.vaccination.PolioCategory
 import com.pockettravel.core.data.vaccination.StopoverRule
 import com.pockettravel.core.data.vaccination.VaccinationRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -43,7 +45,7 @@ class PackageImporterDeviceTest {
         workDir.mkdirs()
         db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).build()
         val storage = RegionStorage(File(workDir, "regions").apply { mkdirs() }, File(workDir, "staging").apply { mkdirs() })
-        repository = RegionRepository(db.installedRegionDao(), db.poiDao(), storage, db, db.cityDao())
+        repository = RoomRegionRepository(db.installedRegionDao(), db.poiDao(), storage, db, db.cityDao(), Dispatchers.IO)
     }
 
     @After
@@ -54,7 +56,7 @@ class PackageImporterDeviceTest {
 
     @Test
     fun importaLeGuideDiTutteLeRegioniERegistraLaVersione() = runBlocking {
-        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), db.vaccinationDao(), repository, db)
+        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), db.vaccinationDao(), repository, db, Dispatchers.IO)
         assertNull(repository.installedGuidesVersion())
 
         val file = copyAsset("guides.db")
@@ -76,7 +78,7 @@ class PackageImporterDeviceTest {
 
     @Test
     fun importaLeRappresentanzeDiplomaticheSeLaTabellaCeESostituisceLePrecedenti() = runBlocking {
-        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), db.vaccinationDao(), repository, db)
+        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), db.vaccinationDao(), repository, db, Dispatchers.IO)
         importer.import(guidesDbWithMissions("guides-missions.db", "Q1", "Q2"), "2026.10.01")
 
         val missions = db.diplomaticMissionDao().missions("it", "es")
@@ -97,7 +99,7 @@ class PackageImporterDeviceTest {
 
     @Test
     fun importaIDatiVaccinaliSeLeTabelleCeranoESenzaDiLoroNonLasciaNulla() = runBlocking {
-        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), db.vaccinationDao(), repository, db)
+        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), db.vaccinationDao(), repository, db, Dispatchers.IO)
         assertNull("senza import non ci sono dati vaccinali", VaccinationRepository(db.vaccinationDao()).load())
 
         importer.import(guidesDbWithVaccinations("guides-vacc.db"), "2026.10.01")
@@ -116,7 +118,7 @@ class PackageImporterDeviceTest {
 
     @Test
     fun importaIPoiDiUnaRegioneSostituendoQuelliPrecedenti() = runBlocking {
-        val importer = PoiImporter(db.poiDao(), db)
+        val importer = PoiImporter(db.poiDao(), db, Dispatchers.IO)
 
         val file = copyAsset("poi.db")
         importer.import("san-marino", file)
@@ -133,7 +135,7 @@ class PackageImporterDeviceTest {
     fun importaIlContentDbV1SenzaColonnaPhoneComePacchettoPoi() = runBlocking {
         // content.db pubblicato di Andorra (2026.09.18, prima della colonna phone): le regioni non
         // ancora rigenerate lo usano come pacchetto POI dopo la conversione del manifest v1.
-        PoiImporter(db.poiDao(), db).import("andorra", copyAsset("content-v1.db"))
+        PoiImporter(db.poiDao(), db, Dispatchers.IO).import("andorra", copyAsset("content-v1.db"))
 
         val pois = db.poiDao().poisForRegion("andorra")
         assertEquals(2681, pois.size)
@@ -143,7 +145,7 @@ class PackageImporterDeviceTest {
     @Test
     fun importaIPoiNelFormatoCompattoConLaTabellaDeiCodici() = runBlocking {
         val file = compactPoiDbFile("poi-compact.db")
-        PoiImporter(db.poiDao(), db).import("test-region", file)
+        PoiImporter(db.poiDao(), db, Dispatchers.IO).import("test-region", file)
 
         val pois = db.poiDao().poisForRegion("test-region")
         assertEquals(1, pois.size)
@@ -159,7 +161,7 @@ class PackageImporterDeviceTest {
 
     @Test
     fun importaLeGuideDiCittaDiUnaRegioneSostituendoQuellePrecedentiESaltandoLeCategorieSconosciute() = runBlocking {
-        val importer = CityImporter(db.cityDao(), db)
+        val importer = CityImporter(db.cityDao(), db, Dispatchers.IO)
 
         val file = citiesDbFile("cities-san-marino.db") { cities ->
             cities.execSQL("INSERT INTO city_sections VALUES ('Citta di San Marino', 'COSA_VEDERE', 'Cosa vedere', 'corpo', 'https://it.wikivoyage.org/wiki/Citta_di_San_Marino')")
@@ -198,7 +200,7 @@ class PackageImporterDeviceTest {
             cities.execSQL("INSERT INTO city_sections VALUES ('Asti', 'COSA_VEDERE', 'Cosa vedere', 'Il Palio.', 'u', NULL, 0, NULL, NULL, 0)")
         }
 
-        CityImporter(db.cityDao(), db).import("italia", file)
+        CityImporter(db.cityDao(), db, Dispatchers.IO).import("italia", file)
 
         assertEquals(CityCoordinates(45.07917, 7.67611), db.cityDao().coordinatesFor("italia", "Torino"))
         assertNull(db.cityDao().coordinatesFor("italia", "Asti"))

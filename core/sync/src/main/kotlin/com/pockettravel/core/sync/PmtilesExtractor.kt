@@ -297,9 +297,11 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
     /** Somma cumulativa delle tile di tutti gli zoom precedenti a `zoom` (0 = nessuna): stesso
      *  offset che ch.poole.geo.pmtiles.Reader.getZoomOffset applica internamente — non esposto
      *  pubblicamente dalla libreria, quindi replicato qui in forma chiusa: sum(4^k, k=0..z-1). */
-    private fun zoomOffset(zoom: Int): Long = ((1L shl (2 * zoom)) - 1L) / 3L
+    private fun zoomOffset(zoom: Int): Long = ((1L shl (2 * zoom)) - 1L) / GEOMETRIC_SERIES_DIVISOR
 
     private companion object {
+        // 4 - 1: divisore della somma sum(4^k) in forma chiusa.
+        const val GEOMETRIC_SERIES_DIVISOR = 3L
         const val ALWAYS_DOWNLOAD_MAX_ZOOM = 6
         const val MAX_BATCH_BYTES = 16L * 1024 * 1024
         const val MAX_GAP_BYTES = 256L * 1024

@@ -3,11 +3,12 @@ package com.pockettravel.core.sync
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.withTransaction
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.CitySectionEntity
 import com.pockettravel.core.data.db.RegionDatabase
 import com.pockettravel.core.data.guideCategoryOrNull
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
@@ -21,12 +22,13 @@ import javax.inject.Inject
 class CityImporter @Inject constructor(
     private val cityDao: CityDao,
     private val database: RegionDatabase,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     /**
      * Solo per i test (PackageImporterDeviceTest): legge, sostituisce e cancella [citiesDbFile]. L'installazione
      * vera usa [readSections] fuori dalla transazione e [replace] dentro RegionRepository.inInstallTransaction.
      */
-    suspend fun import(regionId: String, citiesDbFile: File) = withContext(Dispatchers.IO) {
+    suspend fun import(regionId: String, citiesDbFile: File) = withContext(ioDispatcher) {
         val sections = readSections(regionId, citiesDbFile)
         replace(regionId, sections)
         citiesDbFile.delete()
@@ -37,7 +39,7 @@ class CityImporter @Inject constructor(
      * RegionRepository.inInstallTransaction, per non tenere occupato il lock di scrittura del database durante l'IO sul file.
      */
     suspend fun readSections(regionId: String, citiesDbFile: File): List<CitySectionEntity> =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             SQLiteDatabase.openDatabase(citiesDbFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
                 readSections(regionId, db)
             }

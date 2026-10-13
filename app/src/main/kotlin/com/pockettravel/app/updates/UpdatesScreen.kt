@@ -56,7 +56,6 @@ fun UpdatesScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState by regionListViewModel.uiState.collectAsStateWithLifecycle()
-    val downloadingRegions by regionListViewModel.downloadingRegions.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // Aperta dalla notifica prima dell'elenco, la lingua dei nomi delle nazioni non è ancora stata passata al ViewModel.
     val locale = LocalLocale.current.platformLocale
@@ -73,7 +72,7 @@ fun UpdatesScreen(
     }
 
     val outdated = outdatedRegions(listState.items)
-    val pending = pendingRegionUpdates(listState.items, downloadingRegions)
+    val pending = pendingRegionUpdates(listState.items, listState.downloadingRegions)
     val rowActions = regionListViewModel.rowActions()
     var confirmUpdateAll by rememberSaveable { mutableStateOf(false) }
     val nothingToUpdate = updatesCount(state.appUpdate != null, outdated.size, state.guidesUpdate != null, state.modelUpdate != null) == 0

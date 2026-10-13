@@ -6,6 +6,8 @@ plugins {
 
 android {
     namespace = "com.pockettravel.core.sync"
+    // Fake di scheduler e client del catalogo, per i test JVM dei moduli che li usano.
+    testFixtures { enable = true }
 
     defaultConfig {
         buildConfigField("String", "MANIFEST_URL_OVERRIDE", "\"\"")
@@ -43,7 +45,16 @@ dependencies {
     implementation(libs.hilt.work)
     ksp(libs.hilt.work.compiler)
 
+    // Tipi nelle firme dei fake: Flow, WorkInfo, PackageKind.
+    testFixturesApi(project(":core:data"))
+    testFixturesApi(libs.kotlinx.coroutines.android)
+    testFixturesApi(libs.work.runtime.ktx)
+    testFixturesImplementation(libs.kotlinx.serialization.json)
+
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(testFixtures(project(":core:data")))
+    testImplementation(testFixtures(project(":core:sync")))
     testImplementation(libs.okhttp.mockwebserver)
     // Solo per verificare a livello di schema che le query di GuidesImporter e
     // PoiImporter corrispondano alle colonne prodotte dalla pipeline dati (tools/data-pipeline) — non

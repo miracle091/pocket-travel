@@ -68,10 +68,14 @@ internal sealed interface DistanceLabel {
     data class Kilometers(val value: Double) : DistanceLabel
 }
 
+private const val METERS_PER_KILOMETER = 1_000
+private const val SECONDS_PER_MINUTE = 60
+private const val MILLIS_PER_MINUTE = 60_000L
+
 internal fun distanceLabel(meters: Double): DistanceLabel {
     // Arrotondato prima del confronto: 996 m sono gia' "1,0 km", non "1000 m".
     val rounded = (meters / 10).roundToInt() * 10
-    return if (rounded < 1_000) DistanceLabel.Meters(rounded) else DistanceLabel.Kilometers(meters / 1_000)
+    return if (rounded < METERS_PER_KILOMETER) DistanceLabel.Meters(rounded) else DistanceLabel.Kilometers(meters / METERS_PER_KILOMETER)
 }
 
 /** Secondi che restano: la durata del percorso in proporzione ai metri ancora da fare. */
@@ -80,10 +84,10 @@ internal fun remainingSeconds(route: Route, remainingMeters: Double): Double =
 
 /** Minuto (dall'epoca) in cui si arriva, da adesso piu' [remainingSeconds]: l'ora si mostra nel formato del telefono. */
 internal fun arrivalMinute(nowMillis: Long, remainingSeconds: Double): Long =
-    nowMillis / 60_000 + (remainingSeconds / 60).roundToInt()
+    nowMillis / MILLIS_PER_MINUTE + (remainingSeconds / SECONDS_PER_MINUTE).roundToInt()
 
 /** Minuti restanti per la notifica: sempre almeno uno. */
-internal fun remainingMinutes(remainingSeconds: Double): Int = (remainingSeconds / 60).roundToInt().coerceAtLeast(1)
+internal fun remainingMinutes(remainingSeconds: Double): Int = (remainingSeconds / SECONDS_PER_MINUTE).roundToInt().coerceAtLeast(1)
 
 /** Intervallo minimo fra due aggiornamenti della notifica: piu' spesso e' inutile e il sistema le limita. */
 internal const val NOTIFICATION_MIN_INTERVAL_MILLIS = 1_000L

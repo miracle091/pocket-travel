@@ -18,7 +18,15 @@ Prima di ogni commit, lancia gli stessi controlli della CI (`.github/workflows/a
 
 ```bash
 ./gradlew assembleDebug lint detekt testDebugUnitTest :core:poi:test :tools:data-pipeline:content:test --continue
-for t in tools/data-pipeline/scripts/test_*.py; do python "$t" || break; done
+for t in tools/data-pipeline/scripts/test_*.py .github/scripts/test_check_dependencies.py; do python "$t" || break; done
+```
+
+La CI controlla anche le vulnerabilità note (OSV) delle dipendenze di app e pipeline, e segnala come nota le versioni più nuove del catalogo:
+
+```bash
+./gradlew -q :app:dependencies --configuration releaseRuntimeClasspath > app.txt
+./gradlew -q :tools:data-pipeline:content:dependencies --configuration runtimeClasspath > pipeline.txt
+python .github/scripts/check-dependencies.py app.txt pipeline.txt
 ```
 
 detekt segnala solo i problemi nuovi: quelli già presenti stanno nel `detekt-baseline.xml` di ogni modulo. Rigenera il baseline di un modulo (`./gradlew :feature:map:detektBaseline`) solo quando sposti codice che contiene già un problema registrato, non per far passare codice nuovo.

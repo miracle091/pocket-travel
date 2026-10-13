@@ -8,6 +8,7 @@ import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl
 import com.pockettravel.feature.ai.llamacpp.isModelLoaded
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.junit.After
@@ -110,14 +111,15 @@ class LlamaEngineDeviceTest {
 
     @Test
     fun onDeviceLlmEngineEsceDaErrorAllaRichiestaSuccessiva() = runBlocking<Unit> {
-        val settings = AiSettingsStore(context).apply { setSelectedModelId(definition.id) }
+        val settings = aiSettingsStore(context).apply { setSelectedModelId(definition.id) }
         val coordinator = AiModelCoordinator()
-        val onDevice = OnDeviceLlmEngine(
+        val onDevice = LlamaOnDeviceLlmEngine(
             context,
-            LlmModelManager(OkHttpClient(), modelsDir, coordinator),
+            FileLlmModelManager(OkHttpClient(), modelsDir, coordinator, Dispatchers.IO),
             coordinator,
             settings,
             DeviceAiCapability(context),
+            Dispatchers.IO,
         )
         try {
             engine.loadModel(garbageFile().absolutePath)

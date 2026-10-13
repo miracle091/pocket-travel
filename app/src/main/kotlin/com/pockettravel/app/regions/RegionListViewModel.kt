@@ -1,5 +1,7 @@
 package com.pockettravel.app.regions
 
+import com.pockettravel.core.data.DefaultDispatcher
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.LastKnownPosition
 import com.pockettravel.core.data.MapDetailPreferences
 import com.pockettravel.core.data.RegionZone
@@ -38,7 +40,7 @@ import com.pockettravel.feature.map.UsageModePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -47,6 +49,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -125,6 +128,8 @@ data class RegionListUiState(
     @StringRes val loadError: Int? = null,
     // Messaggio una tantum (es. spazio insufficiente): Snackbar, poi onMessageShown().
     @StringRes val message: Int? = null,
+    // Le regioni in download o in coda: nell'elenco salgono subito tra le nazioni scaricate.
+    val downloadingRegions: Set<String> = emptySet(),
 )
 
 /** Le righe dell'elenco senza il filtro della ricerca. */
@@ -151,6 +156,8 @@ class RegionListViewModel @Inject constructor(
     private val routingVariantPreferences: RoutingVariantPreferences,
     private val lastKnownPosition: LastKnownPosition,
     private val countryLocator: CountryLocator,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     // Per le reti dei mezzi pubblici vicine (defaultTransitChoice): ultima posizione nota e il suo paese, senza GPS.
@@ -204,9 +211,12 @@ class RegionListViewModel @Inject constructor(
         RegionCatalog(items, replacedItems(installed, remoteRegions, replacedByManifest))
     }
         // packageBytes legge le dimensioni di mappa e routing dal disco.
-        .flowOn(Dispatchers.IO)
+        .flowOn(ioDispatcher)
 
-    val uiState = combine(catalog, status, query) { currentCatalog, currentStatus, currentQuery ->
+    // Parte vuoto: l'elenco non aspetta la prima risposta di WorkManager.
+    private val downloading = regionSyncScheduler.observeDownloadingRegions().onStart { emit(emptySet()) }
+
+    val uiState: StateFlow<RegionListUiState> = combine(catalog, status, query, downloading) { currentCatalog, currentStatus, currentQuery, currentDownloading ->
         RegionListUiState(
             items = currentCatalog.items.filter { matchesQuery(it.displayName, currentQuery) },
             replaced = currentCatalog.replaced.filter { matchesQuery(it.displayName, currentQuery) },
@@ -214,6 +224,7 @@ class RegionListViewModel @Inject constructor(
             isLoading = currentStatus.isLoading,
             loadError = currentStatus.loadError,
             message = currentStatus.message,
+            downloadingRegions = currentDownloading,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RegionListUiState())
 
@@ -226,7 +237,7 @@ class RegionListViewModel @Inject constructor(
                 attachTransitFeeds(regions, index, choices.excluded, choices.reasons)
             }.collect { manifestRegions.value = it }
         }
-        viewModelScope.launch(Dispatchers.Default) {
+        viewModelScope.launch(defaultDispatcher) {
             place.value = lastKnownPosition.get()?.let { (lat, lon) -> DevicePlace(lat, lon, countryLocator.countryAt(lat, lon)) }
         }
     }
@@ -314,7 +325,7 @@ class RegionListViewModel @Inject constructor(
         if (kinds.isEmpty()) return false
         val entry = if (PackageKind.CITIES in kinds) withCitiesInCurrentLanguage(listed) else listed
         // StorageManager.getAllocatableBytes puo' bloccare: fuori dal thread principale.
-        val enoughSpace = withContext(Dispatchers.IO) { regionRepository.availableStorageBytes() } >= entry.downloadBytes(kinds)
+        val enoughSpace = withContext(ioDispatcher) { regionRepository.availableStorageBytes() } >= entry.downloadBytes(kinds)
         if (enoughSpace) {
             transitNetworkPreferences.rememberChoice(entry, kinds)
             regionSyncScheduler.enqueueDownload(entry, kinds)
@@ -437,7 +448,7 @@ class RegionListViewModel @Inject constructor(
     }
 
     /** Le regioni del catalogo dentro [zone], dalla piu' presente (terra, non mare): id e nome nella lingua dell'interfaccia. */
-    suspend fun regionsInZone(zone: RegionZone): List<Pair<String, String>> = withContext(Dispatchers.Default) {
+    suspend fun regionsInZone(zone: RegionZone): List<Pair<String, String>> = withContext(defaultDispatcher) {
         val regions = manifestRegions.value
         val candidates = regions.mapNotNull { region ->
             region.countryCode?.let { code -> region.map.source.let { ZoneCandidate(region.regionId, code, RegionBbox(it.minLon, it.minLat, it.maxLon, it.maxLat)) } }
@@ -450,10 +461,6 @@ class RegionListViewModel @Inject constructor(
     /** La regione e' installata e senza zona: la si ha per intero. */
     suspend fun isInstalledWhole(regionId: String): Boolean =
         regionRepository.installed(regionId) != null && regionZonePreferences.zone(regionId) == null
-
-    /** Le regioni in download o in coda: nell'elenco salgono subito tra le nazioni scaricate. */
-    val downloadingRegions: StateFlow<Set<String>> = regionSyncScheduler.observeDownloadingRegions()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     fun observeDownloadProgress(regionId: String): Flow<WorkInfo?> =
         regionSyncScheduler.observeDownload(regionId)

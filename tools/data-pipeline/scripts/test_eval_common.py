@@ -4,11 +4,18 @@ riconoscimento dei rifiuti e il conteggio dei rifiuti con e senza la sezione att
 
 Uso: python test_eval_common.py
 """
+import io
+import json
+import os
 import re
+import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest import mock
 
-from eval_common import context_report, is_refusal, on_device_prompt
+import eval_common
+from eval_common import EMPTY_THINK, context_report, is_refusal, on_device_prompt
 
 PROMPT_TEMPLATES = (Path(__file__).resolve().parents[3]
                     / "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/PromptTemplates.kt").read_text(encoding="utf-8")
@@ -48,6 +55,208 @@ class RefusalTest(unittest.TestCase):
                 row("word-lists", False, False), row("before-rag", False, True)]
         self.assertEqual(context_report(rows), {("it", "direct", "word-lists"): (4, 2, 1, 1),
                                                 ("it", "direct", "before-rag"): (1, 0, 0, 1)})
+
+
+class FakeTokenizer:
+    """Tokenizer minimo con un ChatML a due turni; il blocco <think> vuoto compare solo se richiesto."""
+
+    def __init__(self, chat_template, think_in_assistant=False):
+        self.chat_template = chat_template
+        self.think_in_assistant = think_in_assistant
+
+    def apply_chat_template(self, messages, add_generation_prompt=False, tokenize=False, **kwargs):
+        text = "".join(f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n" for m in messages[:1])
+        if add_generation_prompt:
+            return text + "<|im_start|>assistant\n"
+        for m in messages[1:]:
+            text += "<|im_start|>assistant\n" + (EMPTY_THINK if self.think_in_assistant else "") + m["content"] + "<|im_end|>\n"
+        return text
+
+
+MESSAGES = [{"role": "user", "content": "Ciao"}, {"role": "assistant", "content": "Salve"}]
+
+
+class ChatPromptTest(unittest.TestCase):
+    def test_template_senza_thinking(self):
+        prompt, answer = eval_common.chat_prompt_and_answer(FakeTokenizer("chatml"), MESSAGES)
+        self.assertEqual("<|im_start|>user\nCiao<|im_end|>\n<|im_start|>assistant\n", prompt)
+        self.assertEqual("Salve<|im_end|>\n", answer)
+
+    def test_template_con_thinking_aggiunge_il_blocco_al_prompt_non_alla_risposta(self):
+        tok = FakeTokenizer("... enable_thinking ...", think_in_assistant=True)
+        prompt, answer = eval_common.chat_prompt_and_answer(tok, MESSAGES)
+        self.assertTrue(prompt.endswith("assistant\n" + EMPTY_THINK))
+        self.assertEqual("Salve<|im_end|>\n", answer)
+
+    def test_prompt_gia_con_blocco_non_lo_duplica(self):
+        tok = FakeTokenizer("enable_thinking", think_in_assistant=True)
+        original = tok.apply_chat_template
+        tok.apply_chat_template = lambda m, add_generation_prompt=False, **k: (
+            original(m, add_generation_prompt, **k) + EMPTY_THINK if add_generation_prompt else original(m, **k))
+        prompt, _ = eval_common.chat_prompt_and_answer(tok, MESSAGES)
+        self.assertEqual(1, prompt.count("<think>"))
+
+    def test_un_solo_messaggio_da_la_risposta_vuota(self):
+        prompt, answer = eval_common.chat_prompt_and_answer(FakeTokenizer("chatml"), MESSAGES[:1])
+        self.assertEqual("", answer)
+        self.assertTrue(prompt.endswith("<|im_start|>assistant\n"))
+
+    def test_template_che_non_estende_il_prompt_e_un_errore(self):
+        tok = FakeTokenizer("chatml")
+        tok.apply_chat_template = lambda m, add_generation_prompt=False, **k: "prompt" if add_generation_prompt else "diverso"
+        with self.assertRaises(AssertionError):
+            eval_common.chat_prompt_and_answer(tok, MESSAGES)
+
+
+class FindLlamaBinTest(unittest.TestCase):
+    def test_cerca_nelle_sottocartelle_di_build_e_con_estensione_exe(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "build" / "bin" / "Release"
+            target.mkdir(parents=True)
+            exe = target / "llama-quantize.exe"
+            exe.write_text("", encoding="utf-8")
+            self.assertEqual(str(exe), eval_common.find_llama_bin("llama-quantize", None, tmp))
+
+    def test_cartella_data_ha_la_precedenza_sul_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exe = Path(tmp) / "llama-server"
+            exe.write_text("", encoding="utf-8")
+            with mock.patch("shutil.which", return_value="/usr/bin/llama-server"):
+                self.assertEqual(str(exe), eval_common.find_llama_bin("llama-server", tmp))
+
+    def test_ripiega_sul_path(self):
+        with mock.patch("shutil.which", return_value="/usr/bin/llama-server"):
+            self.assertEqual("/usr/bin/llama-server", eval_common.find_llama_bin("llama-server", None))
+
+    def test_non_trovato_esce_con_messaggio(self):
+        with mock.patch("shutil.which", return_value=None):
+            with self.assertRaises(SystemExit) as ctx:
+                eval_common.find_llama_bin("llama-server", "/nessuna/cartella")
+        self.assertIn("llama-server non trovato", str(ctx.exception))
+
+
+class LlamaEnvTest(unittest.TestCase):
+    def test_extra_path_va_davanti_al_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "extra-path.txt").write_text("/hip/bin\n/rocm/bin", encoding="utf-8")
+            with mock.patch.dict(os.environ, {"PATH": "/usr/bin"}):
+                env = eval_common.llama_env(str(Path(tmp) / "llama-server.exe"))
+            self.assertEqual(os.pathsep.join(["/hip/bin", "/rocm/bin", "/usr/bin"]), env["PATH"])
+
+    def test_senza_extra_path_l_ambiente_resta_uguale(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {"PATH": "/usr/bin"}):
+                self.assertEqual("/usr/bin", eval_common.llama_env(str(Path(tmp) / "llama-server"))["PATH"])
+
+
+class RunDatasetTest(unittest.TestCase):
+    def test_dataset_da_run_json_o_di_default(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            merged = Path(tmp) / "run" / "merged"
+            merged.mkdir(parents=True)
+            self.assertEqual(eval_common.DEFAULT_DATASET, eval_common.run_dataset(merged))
+            (Path(tmp) / "run" / "run.json").write_text(json.dumps({"dataset": "x.en.jsonl"}), encoding="utf-8")
+            self.assertEqual("x.en.jsonl", eval_common.run_dataset(merged))
+            (Path(tmp) / "run" / "run.json").write_text("{}", encoding="utf-8")
+            self.assertEqual(eval_common.DEFAULT_DATASET, eval_common.run_dataset(merged))
+
+    def test_file_del_test_esteso(self):
+        self.assertEqual("eval_extended.en.jsonl", eval_common.extended_file("a.v10.en.jsonl"))
+        self.assertEqual("eval_extended.jsonl", eval_common.extended_file("a.v10.it.jsonl"))
+        self.assertEqual("eval_extended.jsonl", eval_common.extended_file(None))
+
+
+def row(kind, question="Q", answer="A", lang="it", region="canada", category="c"):
+    prompt = ("You are an offline travel guide.\n\nQUESTION: " if lang == "en" else "Sei una guida.\n\nDOMANDA: ") + question
+    return {"kind": kind, "region": region, "category": category,
+            "messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": answer}]}
+
+
+class RowsTest(unittest.TestCase):
+    def test_rifiuto_per_lingua_della_riga(self):
+        self.assertEqual(eval_common.REFUSAL, eval_common.refusal_prefix(row("pos")))
+        self.assertEqual(eval_common.REFUSAL_EN, eval_common.refusal_prefix(row("pos", lang="en")))
+
+    def test_domanda_con_accenti_e_con_etichetta_ripetuta(self):
+        self.assertEqual("Dov'è la città?", eval_common.question_of(row("pos", "Dov'è la città?")))
+        self.assertEqual("What?", eval_common.question_of(row("pos", "What?", lang="en")))
+        self.assertEqual("b", eval_common.question_of(row("pos", "a\n\nDOMANDA: b")))
+
+
+class ScoreTest(unittest.TestCase):
+    def test_positivo_stesso_inizio_di_60_caratteri(self):
+        stats = {}
+        want = "x" * 60 + "fine A"
+        eval_common.score(stats, row("pos", answer=want), "x" * 60 + "fine B")
+        eval_common.score(stats, row("pos", answer=want), "y" * 60)
+        self.assertEqual([(False, True), (False, False)], stats["pos"])
+
+    def test_positivo_rifiutato(self):
+        stats = {}
+        eval_common.score(stats, row("pos", answer="Roma."), eval_common.REFUSAL + ": niente")
+        self.assertEqual([(True, False)], stats["pos"])
+
+    def test_negativo_conta_solo_il_tema_prima_dei_due_punti(self):
+        stats = {}
+        want = eval_common.REFUSAL + " sugli hotel: prova altrove"
+        eval_common.score(stats, row("neg", answer=want), eval_common.REFUSAL + " sugli hotel: altra coda")
+        eval_common.score(stats, row("neg", answer=want), eval_common.REFUSAL + " sui treni: altra coda")
+        eval_common.score(stats, row("neg", answer=want), "Risposta inventata")
+        self.assertEqual([(True, True), (True, False), (False, False)], stats["neg"])
+
+    def test_negativo_inglese(self):
+        stats = {}
+        eval_common.score(stats, row("neg", answer=eval_common.REFUSAL_EN + " on x: y", lang="en"),
+                          eval_common.REFUSAL_EN + " on x: z")
+        self.assertEqual([(True, True)], stats["neg"])
+
+
+class ReportTest(unittest.TestCase):
+    def test_riassunto_vuoto_e_parziale(self):
+        self.assertEqual("", eval_common.refusal_summary({}))
+        self.assertEqual("neg rifiutati 50%", eval_common.refusal_summary({"neg": [(True, True), (False, False)]}))
+
+    def test_riassunto_raggruppa_i_tipi_con_lo_stesso_prefisso(self):
+        stats = {"pos": [(False, True)] * 3 + [(True, False)], "pos_x": [(False, True)], "neg": [(True, True)]}
+        self.assertEqual("pos rifiutati 20% · neg rifiutati 100%", eval_common.refusal_summary(stats))
+
+    def test_percentuale_su_lista_vuota_e_zero(self):
+        self.assertEqual(0.0, eval_common.pct([], 0))
+        self.assertEqual(50.0, eval_common.pct([(True, False), (False, False)], 0))
+
+    def test_rapporto_base_e_esteso(self):
+        stats = {"pos": [(False, True), (True, False)], "neg": [(True, True)]}
+        out = io.StringIO()
+        with redirect_stdout(out):
+            eval_common.print_report(stats, [1, 2, 3], {"a", "b"}, False)
+            eval_common.print_report({"pos_a": [(False, True)], "neg_b": [(True, True)]}, [1, 2], set(), True)
+        text = out.getvalue()
+        self.assertIn("test: 3 righe, 2 regioni | pos 2 neg 1", text)
+        self.assertIn("POS: rifiuto sbagliato 50.0% | inizio uguale all'atteso 50.0%", text)
+        self.assertIn("NEG: rifiuta 100.0% | tema del rifiuto giusto 100.0%", text)
+        self.assertIn("neg_b: 1 righe | rifiuta 100.0% (atteso 100%)", text)
+        self.assertIn("pos_a: 1 righe | rifiuta 0.0% (atteso 0%)", text)
+
+    def test_rapporto_senza_righe_non_divide_per_zero(self):
+        with redirect_stdout(io.StringIO()):
+            eval_common.print_report({}, [], set(), False)
+
+
+class LoadTestRowsTest(unittest.TestCase):
+    def test_base_filtra_le_regioni_di_test_ed_esteso_le_prende_tutte(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rows = [row("pos", region="canada"), row("pos", region="italia"), row("neg", region="palau")]
+            for name in (eval_common.DEFAULT_DATASET, "eval_extended.jsonl"):
+                (Path(tmp) / name).write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
+            with mock.patch.object(eval_common, "SFT_DIR", Path(tmp)):
+                base, held_out = eval_common.load_test_rows(False)
+                ext, _ = eval_common.load_test_rows(True)
+        self.assertEqual(["canada", "palau"], [r["region"] for r in base])
+        self.assertEqual(eval_common.TEST_REGIONS, held_out)
+        self.assertEqual(3, len(ext))
+
+    def test_le_regioni_di_test_sono_fisse(self):
+        self.assertEqual(11, len(eval_common.TEST_REGIONS))
 
 
 if __name__ == "__main__":

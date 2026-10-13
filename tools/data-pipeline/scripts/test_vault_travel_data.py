@@ -5,9 +5,13 @@ nessuna rete, le righe di esempio sono nel test.
 Uso: python test_vault_travel_data.py
 """
 import gzip
+import io
+import sys
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
+from unittest import mock
 
 import vault_travel_data as v
 
@@ -104,6 +108,150 @@ class ScriviTsvTest(unittest.TestCase):
             self.assertEqual(a.read_bytes(), b.read_bytes())
             testo = gzip.open(a, "rt", encoding="utf-8").read()
         self.assertEqual("FCO\tLIRF\tRome–Fiumicino\tRome\tIT\tRoma\nJFK\t\tKennedy\t\tUS\t\n", testo)
+
+
+class ParseAirportsEdgeTest(unittest.TestCase):
+    def test_csv_vuoto_o_solo_intestazione(self):
+        self.assertEqual([], v.parse_airports(""))
+        self.assertEqual([], v.parse_airports(INTESTAZIONE))
+
+    def test_iata_non_valido_scartato(self):
+        csv_text = INTESTAZIONE + "\n".join([
+            "1,AAAA,small_airport,Lungo,X,IT,AAAA,ABCD",   # quattro caratteri
+            "2,BBBB,small_airport,Corto,X,IT,BBBB,A",      # un carattere
+            "3,CCCC,small_airport,Simboli,X,IT,CCCC,A-B",
+            "4,DDDD,small_airport,Buono,X,IT,DDDD,d1",     # minuscolo: viene portato in maiuscolo
+        ]) + "\n"
+        self.assertEqual(["D1"], [r[0] for r in v.parse_airports(csv_text)])
+
+    def test_icao_non_valido_lascia_il_campo_vuoto_e_senza_nome_la_riga_salta(self):
+        csv_text = INTESTAZIONE + "\n".join([
+            "1,TOOLONG1,small_airport,Pista,X,IT,TOOLONG1,PST",
+            "2,NONAME,small_airport,,X,IT,NONA,NNM",
+        ]) + "\n"
+        self.assertEqual([("PST", "", "Pista", "X", "IT", "")], v.parse_airports(csv_text))
+
+    def test_stesso_tipo_ordinato_per_codice_iata_e_accenti_conservati(self):
+        csv_text = INTESTAZIONE + "\n".join([
+            "1,LTFM,large_airport,İstanbul,İstanbul,TR,LTFM,IST",
+            "2,LFPG,large_airport,Paris–Charles de Gaulle,Paris,FR,LFPG,CDG",
+        ]) + "\n"
+        righe = v.parse_airports(csv_text)
+        self.assertEqual(["CDG", "IST"], [r[0] for r in righe])
+        self.assertEqual("İstanbul", righe[1][2])
+
+    def test_citta_italiana_uguale_al_comune_senza_distinguere_maiuscole(self):
+        csv_text = INTESTAZIONE + "1,LIMC,large_airport,Malpensa,MILANO,IT,LIMC,MXP\n"
+        righe = v.parse_airports(csv_text, {"MXP": ["Milano", "Varese"]})
+        self.assertEqual("Varese", righe[0][5])
+
+    def test_piu_citta_italiane_separate_da_barra(self):
+        csv_text = INTESTAZIONE + "1,LFSB,large_airport,Basilea,Mulhouse,FR,LFSB,BSL\n"
+        self.assertEqual("Basilea / Mulhouse-X", v.parse_airports(csv_text, {"BSL": ["Basilea", "Mulhouse-X"]})[0][5])
+
+
+class ParseCitiesItEdgeTest(unittest.TestCase):
+    def test_iata_in_minuscolo_e_spazi(self):
+        binding = lambda i, c: {"iata": {"value": i}, "city": {"value": c}}
+        self.assertEqual({"FCO": ["Roma"]}, v.parse_cities_it([binding(" fco ", " Roma\n")]))
+
+    def test_binding_senza_campi_ignorato(self):
+        self.assertEqual({}, v.parse_cities_it([{}, {"iata": {"value": "FCO"}}]))
+
+
+class ParseAirlinesEdgeTest(unittest.TestCase):
+    def test_ordine_senza_distinguere_maiuscole_e_codici_in_maiuscolo(self):
+        b = lambda iata, icao, nome: {"iata": {"value": iata}, "icao": {"value": icao}, "name": {"value": nome}}
+        righe = v.parse_airlines([b("zz", "zzz", "zeta air"), b("AA", "AAL", "American"), b("bb", "bbb", "Beta")])
+        self.assertEqual(["American", "Beta", "zeta air"], [r[2] for r in righe])
+        self.assertEqual(("ZZ", "ZZZ", "zeta air"), righe[2])
+
+    def test_codice_non_valido_ma_icao_valido_tiene_solo_l_icao(self):
+        righe = v.parse_airlines([{"iata": {"value": "TOOLONG"}, "icao": {"value": "ABC"}, "name": {"value": "Mista"}}])
+        self.assertEqual([("", "ABC", "Mista")], righe)
+
+    def test_elenco_vuoto(self):
+        self.assertEqual([], v.parse_airlines([]))
+
+
+class FakeResponse:
+    def __init__(self, body):
+        self.body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self):
+        return self.body.encode("utf-8")
+
+
+class ScaricaTest(unittest.TestCase):
+    def setUp(self):
+        patcher = mock.patch("time.sleep")
+        self.sleep = patcher.start()
+        self.addCleanup(patcher.stop)
+        err = mock.patch.object(sys, "stderr", io.StringIO())
+        err.start()
+        self.addCleanup(err.stop)
+
+    def test_riprova_con_attesa_crescente(self):
+        responses = [urllib.error.URLError("rete"), TimeoutError("lento"), FakeResponse("ciao è")]
+        with mock.patch("urllib.request.urlopen", side_effect=responses):
+            self.assertEqual("ciao è", v.scarica("https://example.org/x", "ua"))
+        self.assertEqual([mock.call(10), mock.call(20)], self.sleep.call_args_list)
+
+    def test_dopo_tutti_i_tentativi_esce_con_1(self):
+        with mock.patch("urllib.request.urlopen", side_effect=urllib.error.URLError("giu")) as urlopen:
+            with self.assertRaises(SystemExit) as ctx:
+                v.scarica("https://example.org/x", "ua", tentativi=2)
+        self.assertEqual(1, ctx.exception.code)
+        self.assertEqual(2, urlopen.call_count)
+
+    def test_user_agent_inviato(self):
+        with mock.patch("urllib.request.urlopen", return_value=FakeResponse("x")) as urlopen:
+            v.scarica("https://example.org/x", "UA-di-prova")
+        self.assertEqual("UA-di-prova", urlopen.call_args.args[0].get_header("User-agent"))
+
+    def test_sparql_legge_i_binding_anche_con_caratteri_di_controllo(self):
+        body = '{"results": {"bindings": [{"name": {"value": "Air\tOne"}}]}}'
+        with mock.patch.object(v, "scarica", return_value=body) as scarica:
+            self.assertEqual([{"name": {"value": "Air\tOne"}}], v.sparql("SELECT 1", "ua"))
+        self.assertIn("format=json", scarica.call_args.args[0])
+        self.assertIn("query=SELECT+1", scarica.call_args.args[0])
+
+
+class MainTest(unittest.TestCase):
+    def run_main(self, out_dir, airports, airlines):
+        argv = ["vault_travel_data.py", "--out-dir", str(out_dir)]
+        with mock.patch.object(sys, "argv", argv), mock.patch.object(sys, "stdout", io.StringIO()) as out, \
+                mock.patch.object(sys, "stderr", io.StringIO()), \
+                mock.patch.object(v, "MIN_AIRPORTS", 1), mock.patch.object(v, "MIN_AIRLINES", 1), \
+                mock.patch.object(v, "scarica", return_value=airports), \
+                mock.patch.object(v, "sparql", return_value=airlines):
+            code = v.main()
+        return code, out.getvalue()
+
+    def test_scrive_i_due_file_e_riassume(self):
+        airlines = [{"iata": {"value": "AZ"}, "icao": {"value": "ITY"}, "name": {"value": "ITA Airways"}}]
+        with tempfile.TemporaryDirectory() as d:
+            code, text = self.run_main(Path(d) / "assets", CSV, airlines)
+            self.assertEqual(0, code)
+            self.assertTrue((Path(d) / "assets" / "airports.tsv.gz").exists())
+            righe = gzip.open(Path(d) / "assets" / "airlines.tsv.gz", "rt", encoding="utf-8").read()
+        self.assertEqual("AZ\tITY\tITA Airways\n", righe)
+        self.assertIn("5 aeroporti", text)
+        self.assertIn("1 compagnie", text)
+
+    def test_risultato_troppo_piccolo_non_scrive_nulla(self):
+        with tempfile.TemporaryDirectory() as d:
+            with mock.patch.object(sys, "argv", ["vault_travel_data.py", "--out-dir", str(Path(d) / "assets")]), \
+                    mock.patch.object(sys, "stderr", io.StringIO()), \
+                    mock.patch.object(v, "scarica", return_value=CSV), mock.patch.object(v, "sparql", return_value=[]):
+                self.assertEqual(1, v.main())
+            self.assertFalse((Path(d) / "assets").exists())
 
 
 if __name__ == "__main__":

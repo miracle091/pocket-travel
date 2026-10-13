@@ -1,11 +1,12 @@
 package com.pockettravel.core.sync
 
 import android.content.Context
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.poiToRedownload
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -22,8 +23,9 @@ class RegionStartupRecovery @Inject constructor(
     private val regionStorage: RegionStorage,
     private val regionSyncScheduler: RegionSyncScheduler,
     private val manifestCheckNow: RegionManifestCheckNow,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
-    suspend fun run() = withContext(Dispatchers.IO) {
+    suspend fun run() = withContext(ioDispatcher) {
         // Staging delle versioni precedenti dell'app, in cacheDir: solo dati temporanei.
         File(context.cacheDir, "regions_staging").deleteRecursively()
 

@@ -1,5 +1,6 @@
 package com.pockettravel.core.sync
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -47,6 +48,7 @@ class ManifestSignatureVerifierTest {
             },
         ).build(),
         FakePublishedAtStore(),
+        Dispatchers.IO,
     )
 
     private fun tempFile(): File =

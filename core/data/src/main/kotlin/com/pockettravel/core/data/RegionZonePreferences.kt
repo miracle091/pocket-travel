@@ -1,8 +1,6 @@
 package com.pockettravel.core.data
 
-import android.content.Context
 import androidx.core.content.edit
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,8 +16,11 @@ data class RegionZone(val minLon: Double, val minLat: Double, val maxLon: Double
     internal fun encode(): String = "$minLon,$minLat,$maxLon,$maxLat"
 
     internal companion object {
+        // minLon, minLat, maxLon, maxLat.
+        private const val ZONE_VALUES = 4
+
         fun decode(value: String): RegionZone? = value.split(',').mapNotNull { it.toDoubleOrNull() }
-            .takeIf { it.size == 4 }
+            .takeIf { it.size == ZONE_VALUES }
             ?.let { (minLon, minLat, maxLon, maxLat) -> runCatching { RegionZone(minLon, minLat, maxLon, maxLat) }.getOrNull() }
     }
 }
@@ -29,9 +30,9 @@ data class RegionZone(val minLon: Double, val minLat: Double, val maxLon: Double
  * punti di interesse e guide restano interi. Assente = tutta la regione.
  */
 @Singleton
-class RegionZonePreferences @Inject constructor(@ApplicationContext context: Context) {
+class RegionZonePreferences @Inject constructor(preferences: PreferencesFactory) {
 
-    private val prefs = context.getSharedPreferences("region_zone", Context.MODE_PRIVATE)
+    private val prefs = preferences.open("region_zone")
     private val _zones = MutableStateFlow(
         prefs.all.mapNotNull { (regionId, value) -> (value as? String)?.let(RegionZone::decode)?.let { regionId to it } }.toMap(),
     )

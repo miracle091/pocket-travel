@@ -121,8 +121,8 @@ internal fun pinBitmap(context: Context, fill: Int, glyphRes: Int?, badge: Acces
     val cy = headRadius
 
     canvas.drawOval(
-        cx - 5f * density, tipY - 2f * density, cx + 5f * density, tipY + 2f * density,
-        Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x40000000 },
+        cx - SHADOW_HALF_WIDTH_DP * density, tipY - 2f * density, cx + SHADOW_HALF_WIDTH_DP * density, tipY + 2f * density,
+        Paint(Paint.ANTI_ALIAS_FLAG).apply { color = SHADOW_COLOR },
     )
 
     // Testa circolare + due tangenti che convergono nella punta.
@@ -155,7 +155,7 @@ internal fun pinBitmap(context: Context, fill: Int, glyphRes: Int?, badge: Acces
             draw(canvas)
         }
     } else {
-        canvas.drawCircle(cx, cy, 4f * density, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = PoiColors.Glyph.toArgb() })
+        canvas.drawCircle(cx, cy, GLYPHLESS_DOT_RADIUS_DP * density, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = PoiColors.Glyph.toArgb() })
     }
     // Centro a 2 dp dal bordo: raggio 9 dp + mezzo anello restano dentro i 8 dp di margine.
     if (badge != null) drawAccessibilityBadge(context, canvas, width - 2f * density, 2f * density, badge)
@@ -200,3 +200,10 @@ private fun drawAccessibilityBadge(context: Context, canvas: Canvas, cx: Float, 
         draw(canvas)
     }
 }
+
+// Ombra sotto la punta del segnalino: mezza larghezza (dp) e colore nero al 25% di opacita'.
+private const val SHADOW_HALF_WIDTH_DP = 5f
+private const val SHADOW_COLOR = 0x40000000
+
+// Raggio (dp) del puntino al posto dell'icona, per le categorie senza icona.
+private const val GLYPHLESS_DOT_RADIUS_DP = 4f

@@ -1,9 +1,8 @@
 package com.pockettravel.core.data.crypto
 
-import android.content.Context
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import androidx.core.content.edit
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.pockettravel.core.data.PreferencesFactory
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.inject.Inject
@@ -14,9 +13,9 @@ import javax.inject.Inject
 // la verifica CodeQL java/android/insecure-local-authentication. I singoli record restano cifrati
 // con la DEK in memoria (SessionAesCipher, vedi PassportRepository), senza un nuovo prompt a ogni
 // operazione: un solo sblocco per apertura della schermata.
-class VaultKeyEnvelope @Inject constructor(@ApplicationContext context: Context) {
+class VaultKeyEnvelope @Inject constructor(preferences: PreferencesFactory) {
     private val kek = KeystoreCipher(keyAlias = KEK_ALIAS, requireUserAuthentication = true, authValiditySeconds = 0)
-    private val prefs = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+    private val prefs = preferences.open(PREFERENCES_NAME)
 
     sealed interface UnlockCipher {
         val cipher: Cipher

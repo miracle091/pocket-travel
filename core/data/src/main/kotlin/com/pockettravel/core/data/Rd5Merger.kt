@@ -59,6 +59,9 @@ object Rd5Merger {
     // Indice della tile: 16 bit alti = versione dei lookup. Con divisor 32 il CRC dell'indice ha xor 2.
     private const val VERSION_SHIFT = 48
     private const val DIVISOR_32 = 32
+    private const val DIVISOR_80 = 80
+    // Indice della tile: 48 bit bassi = fine del blocco.
+    private const val END_OFFSET_MASK = 0xFFFFFFFFFFFFL
     private const val LON_OFFSET = 180
     private const val LAT_OFFSET = 90
     private val TILE_NAME = Regex("([EW])(\\d+)_([NS])(\\d+)\\.rd5")
@@ -76,6 +79,7 @@ object Rd5Merger {
      * (vedi [Plan.moveSeams]). IOException se un segmento non e' nel formato atteso.
      */
     fun mergedDirectory(cacheRoot: File, routingDirs: List<File>, links: Links): File = synchronized(MERGE_LOCK) {
+        require(routingDirs.isNotEmpty()) { "Serve almeno una cartella di rete stradale da unire" }
         val tiles = routingDirs.flatMap { dir ->
             dir.listFiles { file -> file.isFile && file.extension == EXTENSION }.orEmpty().map { dir to it }
         }
@@ -421,8 +425,8 @@ object Rd5Merger {
                 val index = ByteBuffer.wrap(header)
                 for (sub in 0 until SUB_TILES) {
                     val value = index.getLong()
-                    versions[sub] = value ushr 48
-                    ends[sub] = value and 0xFFFFFFFFFFFFL
+                    versions[sub] = value ushr VERSION_SHIFT
+                    ends[sub] = value and END_OFFSET_MASK
                 }
                 val footerStart = ends[SUB_TILES - 1]
                 if (raf.length() < footerStart + FOOTER_FIXED_SIZE) throw IOException("${file.name}: manca la coda con i CRC")
@@ -432,8 +436,8 @@ object Rd5Merger {
                 val crcIndex = buffer.getInt()
                 val actual = crc(header)
                 divisor = when (crcIndex) {
-                    actual -> 80
-                    actual xor 2 -> 32
+                    actual -> DIVISOR_80
+                    actual xor 2 -> DIVISOR_32
                     else -> throw IOException("${file.name}: CRC dell'indice non valido")
                 }
                 tail = footer.copyOfRange(FOOTER_FIXED_SIZE, footer.size)

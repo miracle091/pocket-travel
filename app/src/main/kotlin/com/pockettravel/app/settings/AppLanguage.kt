@@ -3,6 +3,7 @@ package com.pockettravel.app.settings
 import android.app.Activity
 import android.app.LocaleManager
 import android.content.Context
+import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.os.Build
@@ -29,9 +30,16 @@ enum class AppLanguage(val tag: String) {
             val tag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 context.getSystemService(LocaleManager::class.java).applicationLocales.get(0)?.language
             } else {
-                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_TAG, null)
+                savedTag(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE))
             }
             return entries.firstOrNull { it.tag == tag } ?: systemDefault()
+        }
+
+        /** Il codice della lingua scelta fino ad Android 12; null se non se n'e' scelta una. */
+        internal fun savedTag(prefs: SharedPreferences): String? = prefs.getString(KEY_TAG, null)
+
+        internal fun saveTag(prefs: SharedPreferences, language: AppLanguage) {
+            prefs.edit { putString(KEY_TAG, language.tag) }
         }
 
         // La lingua del telefono, non quella dell'app (Resources.getSystem ignora la lingua per app).
@@ -54,7 +62,7 @@ enum class AppLanguage(val tag: String) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 activity.getSystemService(LocaleManager::class.java).applicationLocales = LocaleList.forLanguageTags(language.tag)
             } else {
-                activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString(KEY_TAG, language.tag) }
+                saveTag(activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE), language)
                 activity.recreate()
             }
         }
@@ -62,7 +70,7 @@ enum class AppLanguage(val tag: String) {
         /** Fino ad Android 12: il contesto con la lingua scelta, o quella predefinita se non se n'e' scelta una. */
         fun wrap(base: Context): Context {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return base
-            val tag = base.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_TAG, null) ?: systemDefault().tag
+            val tag = savedTag(base.getSharedPreferences(PREFS, Context.MODE_PRIVATE)) ?: systemDefault().tag
             val locale = Locale.forLanguageTag(tag)
             Locale.setDefault(locale)
             val config = Configuration(base.resources.configuration).apply { setLocale(locale) }

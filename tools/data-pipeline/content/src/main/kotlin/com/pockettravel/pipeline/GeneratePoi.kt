@@ -8,6 +8,7 @@ import org.xml.sax.Attributes
 import org.xml.sax.helpers.DefaultHandler
 import java.io.File
 import java.sql.DriverManager
+import java.text.Normalizer
 import javax.xml.parsers.SAXParserFactory
 import kotlin.math.roundToInt
 
@@ -176,7 +177,7 @@ private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagK
     val contacts = poiHasContacts(category, osmTag)
     return Poi(
         // Farmacie, supermercati e catene spesso hanno solo il marchio ("Conad", "Lloyds"): meglio del tipo.
-        name = tags["name"] ?: tags["brand"]?.takeIf { details } ?: tagValue,
+        name = (tags["name"] ?: tags["brand"]?.takeIf { details } ?: tagValue).nfc(),
         category = category,
         lat = lat,
         lon = lon,
@@ -191,12 +192,15 @@ private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagK
         website = (tags["website"] ?: tags["contact:website"]).takeIf { contacts },
         email = (tags["email"] ?: tags["contact:email"]).takeIf { contacts },
         country = if (category == "embassy") representedCountry(tags["country"]) else null,
-        nameEn = translatedName(tags, "name:en"),
-        nameIt = translatedName(tags, "name:it"),
+        nameEn = translatedName(tags, "name:en")?.nfc(),
+        nameIt = translatedName(tags, "name:it")?.nfc(),
         toiletsWheelchair = tags["toilets:wheelchair"],
         capacityDisabled = tags["capacity:disabled"]?.trim()?.toIntOrNull()?.takeIf { it > 0 },
     )
 }
+
+// Nomi in forma precomposta (NFC): la ricerca per nome dell'app confronta i caratteri precomposti.
+private fun String.nfc(): String = Normalizer.normalize(this, Normalizer.Form.NFC)
 
 private fun translatedName(tags: Map<String, String>, key: String): String? =
     tags[key]?.trim()?.takeIf { it.isNotEmpty() && tags["name"] != null && it != tags["name"] }

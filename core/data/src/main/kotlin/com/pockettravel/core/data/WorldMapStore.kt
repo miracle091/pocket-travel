@@ -1,8 +1,6 @@
 package com.pockettravel.core.data
 
-import android.content.Context
 import androidx.core.content.edit
-import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -13,9 +11,9 @@ import javax.inject.Singleton
  * feature/map non dipende da core/sync: legge solo questo store.
  */
 @Singleton
-class WorldMapStore @Inject constructor(@ApplicationContext context: Context) {
+class WorldMapStore @Inject constructor(preferences: PreferencesFactory) {
 
-    private val prefs = context.getSharedPreferences("world_map", Context.MODE_PRIVATE)
+    private val prefs = preferences.open("world_map")
 
     fun worldMapUrl(): String? = prefs.getString(KEY_URL, null)
 

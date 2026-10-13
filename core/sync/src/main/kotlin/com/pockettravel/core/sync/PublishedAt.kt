@@ -1,8 +1,7 @@
 package com.pockettravel.core.sync
 
-import android.content.Context
 import androidx.core.content.edit
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.pockettravel.core.data.PreferencesFactory
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -25,8 +24,8 @@ interface PublishedAtStore {
 }
 
 @Singleton
-class SharedPrefsPublishedAtStore @Inject constructor(@ApplicationContext context: Context) : PublishedAtStore {
-    private val prefs = context.getSharedPreferences("published_at", Context.MODE_PRIVATE)
+class SharedPrefsPublishedAtStore @Inject constructor(preferences: PreferencesFactory) : PublishedAtStore {
+    private val prefs = preferences.open("published_at")
 
     override fun last(kind: String): Long? = if (prefs.contains(kind)) prefs.getLong(kind, 0L) else null
 
