@@ -10,11 +10,11 @@
     <string name="regions_load_error">Couldn\'t reach the country catalog. Try again later</string>
     <string name="regions_retry">Retry</string>
     <string name="regions_not_enough_space">Not enough space to download this region</string>
-    <string name="regions_delete_error">Could not delete the data, try again</string>
-    <string name="regions_status_not_installed">%1$s · not installed</string>
-    <string name="regions_status_installed">%1$s · installed</string>
+    <string name="regions_delete_error">Couldn\'t delete the data, try again</string>
+    <string name="regions_status_not_installed">%1$s · not downloaded</string>
+    <string name="regions_status_installed">%1$s · downloaded</string>
     <string name="regions_status_update">%1$s · update available</string>
-    <string name="regions_status_partial">%1$s · partially installed</string>
+    <string name="regions_status_partial">%1$s · partially downloaded</string>
     <string name="regions_status_downloading">Downloading · %1$d%%</string>
     <string name="regions_status_extracting_map">Extracting the map · %1$d%%</string>
     <string name="regions_status_installing">Installing…</string>
@@ -69,8 +69,8 @@
     <string name="zone_cross_top_only">Only %1$s</string>
     <string name="package_cities">City guides</string>
     <string name="package_transit">Public transport</string>
-    <string name="package_status_installed">Installed · %1$s</string>
-    <string name="package_status_installed_no_size">Installed</string>
+    <string name="package_status_installed">Downloaded · %1$s</string>
+    <string name="package_status_installed_no_size">Downloaded</string>
     <string name="package_status_update">Update available · %1$s</string>
     <string name="package_status_update_no_size">Update available</string>
     <string name="package_status_not_installed">Not downloaded · %1$s</string>
@@ -147,7 +147,7 @@
     <string name="more_storage">Storage</string>
     <string name="more_storage_subtitle">Downloaded countries and AI models</string>
     <string name="more_tutorial">Replay the tutorial</string>
-    <string name="more_tutorial_subtitle">Guide, map, Navigator and documents</string>
+    <string name="more_tutorial_subtitle">Guide, Map, Navigator and Documents</string>
     <string name="more_usage_mode">How you travel</string>
     <string name="more_nationality">Nationality</string>
     <string name="more_language">Language</string>
@@ -156,7 +156,7 @@
     <string name="more_usage_mode_none">Not set: the map shows all categories</string>
     <string name="more_usage_mode_with_accessible">%1$s, in a wheelchair</string>
     <string name="more_usage_mode_accessible_only">In a wheelchair: the map shows all categories</string>
-    <string name="more_usage_mode_body">The map shows the points useful for the travel modes you pick first, and the suitable road network is offered for download. This choice resets the map filters to their defaults</string>
+    <string name="more_usage_mode_body">The map shows the points useful for the chosen travel modes first and offers the suitable road network to download. The choice resets the map filters to their defaults</string>
     <string name="more_licenses">Licenses</string>
     <string name="more_appearance">Appearance</string>
     <string name="more_appearance_system">Device theme</string>
@@ -183,8 +183,8 @@
     <!-- Spazio di archiviazione -->
     <string name="storage_title">Storage</string>
     <string name="storage_summary">Pocket Travel uses %1$s · %2$s free on the device</string>
-    <string name="storage_regions">Installed countries</string>
-    <string name="storage_no_regions">No countries installed</string>
+    <string name="storage_regions">Downloaded countries</string>
+    <string name="storage_no_regions">No countries downloaded</string>
     <string name="storage_guides">Guides</string>
     <string name="storage_guides_title">Guides for all countries</string>
     <string name="storage_guides_auto">%1$s · updates automatically</string>
@@ -217,7 +217,7 @@
     <string name="licenses_component_subprocess">sheredom/subprocess.h (used by llama.cpp, third-party/llama-cpp/vendor/sheredom)</string>
     <string name="licenses_component_cpp_httplib">yhirose/cpp-httplib (used by llama.cpp, third-party/llama-cpp/vendor/cpp-httplib)</string>
     <string name="licenses_component_kleidiai">KleidiAI (Arm, optimized kernels used by llama.cpp on arm64)</string>
-    <string name="licenses_component_okhttp">OkHttp (downloads of packages, models and weather)</string>
+    <string name="licenses_component_okhttp">OkHttp (downloads of content, models and weather)</string>
     <string name="licenses_component_qwen">Qwen3.5 and Qwen3 models (Alibaba Cloud, Qwen team)</string>
     <string name="licenses_note_qwen">Models of the offline assistant, downloaded on request from HuggingFace in the GGUF versions quantized by Unsloth</string>
     <string name="licenses_component_trained_models">Models trained by Pocket Travel (pockettravel/*-travel-it-GGUF)</string>
@@ -291,7 +291,7 @@
     <string name="onboarding_ready_body">Summary of your choices, which can be changed at any time from More</string>
     <string name="onboarding_ready_modes">Travel modes</string>
     <string name="onboarding_ready_countries">Countries</string>
-    <string name="onboarding_ready_countries_none">No download started: countries can be added from the Countries screen</string>
+    <string name="onboarding_ready_countries_none">No download started: countries can be added from the Countries tab</string>
     <plurals name="onboarding_ready_countries_started">
         <item quantity="one">%1$d country downloading in the background</item>
         <item quantity="other">%1$d countries downloading in the background</item>

@@ -123,7 +123,7 @@ class VaccinationContentDeviceTest {
         var added = 0
         show(baseState, actions(addStopover = { added++ }))
 
-        compose.onNodeWithText(string(R.string.vacc_add_transit)).performClick()
+        compose.onNodeWithText(string(R.string.vacc_add_stopover)).performClick()
 
         assertEquals(1, added)
     }

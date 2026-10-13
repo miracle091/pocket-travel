@@ -338,7 +338,7 @@ private fun RouteCard(state: VaccinationUiState, actions: VaccinationActions, on
             ) {
                 Icon(AppIcons.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(Spacing.s))
-                Text(stringResource(R.string.vacc_add_transit))
+                Text(stringResource(R.string.vacc_add_stopover))
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.s))
 
@@ -455,7 +455,7 @@ private fun StopoverEditor(
                 CountryRow(label = stringResource(R.string.vacc_stopover_country), country = stopover.country, onClick = onPickCountry)
             }
             IconButton(onClick = onRemove) {
-                Icon(AppIcons.Delete, contentDescription = stringResource(R.string.vacc_remove_transit))
+                Icon(AppIcons.Delete, contentDescription = stringResource(R.string.vacc_remove_stopover))
             }
         }
         FlowRow(
@@ -806,8 +806,8 @@ private fun VaccinationItem.reasonText(): String? {
     return when (reason) {
         VaccinationReason.YF_ENTRY_ALL -> stringResource(R.string.vacc_reason_yf_all)
         VaccinationReason.YF_ENTRY_FROM_RISK, VaccinationReason.YF_ENTRY_FROM_LIST -> when {
-            hours != null -> stringResource(R.string.vacc_reason_transit, hours, place)
-            stopover -> stringResource(R.string.vacc_reason_transit_unknown, place)
+            hours != null -> stringResource(R.string.vacc_reason_stopover, hours, place)
+            stopover -> stringResource(R.string.vacc_reason_stopover_unknown, place)
             reason == VaccinationReason.YF_ENTRY_FROM_RISK -> stringResource(R.string.vacc_reason_from_risk, place)
             else -> stringResource(R.string.vacc_reason_from_list, place)
         }

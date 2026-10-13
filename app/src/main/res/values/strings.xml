@@ -11,10 +11,10 @@
     <string name="regions_retry">Riprova</string>
     <string name="regions_not_enough_space">Spazio insufficiente per scaricare questa regione</string>
     <string name="regions_delete_error">Impossibile eliminare i dati, riprova</string>
-    <string name="regions_status_not_installed">%1$s · non installata</string>
-    <string name="regions_status_installed">%1$s · installata</string>
+    <string name="regions_status_not_installed">%1$s · non scaricata</string>
+    <string name="regions_status_installed">%1$s · scaricata</string>
     <string name="regions_status_update">%1$s · da aggiornare</string>
-    <string name="regions_status_partial">%1$s · installata in parte</string>
+    <string name="regions_status_partial">%1$s · scaricata in parte</string>
     <string name="regions_status_downloading">Download in corso · %1$d%%</string>
     <string name="regions_status_extracting_map">Estrazione della mappa · %1$d%%</string>
     <string name="regions_status_installing">Installazione…</string>
@@ -50,7 +50,7 @@
     <string name="package_routing_bike_foot">Bici e piedi</string>
     <string name="package_routing_all">Tutti</string>
     <string name="package_routing_bike_foot_detail">Tutte le strade e i sentieri: è la rete stradale completa, che vale anche per l\'auto</string>
-    <string name="package_routing_all_detail">Tutte le strade e i sentieri, per ogni mezzo</string>
+    <string name="package_routing_all_detail">Tutte le strade e i sentieri, per ogni modo di spostarsi</string>
     <string name="package_routing_car_only_detail">Solo le strade percorribili in auto, circa il 40% di spazio in meno: nessun percorso a piedi o in bici</string>
     <string name="zone_row">Zona</string>
     <string name="zone_whole_region">Tutta la regione</string>
@@ -69,8 +69,8 @@
     <string name="zone_cross_all">Scarica tutto</string>
     <string name="zone_cross_top_only">Solo %1$s</string>
     <string name="package_transit">Mezzi pubblici</string>
-    <string name="package_status_installed">Installato · %1$s</string>
-    <string name="package_status_installed_no_size">Installato</string>
+    <string name="package_status_installed">Scaricato · %1$s</string>
+    <string name="package_status_installed_no_size">Scaricato</string>
     <string name="package_status_update">Da aggiornare · %1$s</string>
     <string name="package_status_update_no_size">Da aggiornare</string>
     <string name="package_status_not_installed">Non scaricato · %1$s</string>
@@ -147,7 +147,7 @@
     <string name="more_storage">Spazio di archiviazione</string>
     <string name="more_storage_subtitle">Nazioni e modelli IA scaricati</string>
     <string name="more_tutorial">Rivedi il tutorial</string>
-    <string name="more_tutorial_subtitle">Guida, mappa, Navigatore e documenti</string>
+    <string name="more_tutorial_subtitle">Guida, Mappa, Navigatore e Documenti</string>
     <string name="more_usage_mode">Come ti sposti</string>
     <string name="more_nationality">Nazionalità</string>
     <string name="more_language">Lingua</string>
@@ -183,8 +183,8 @@
     <!-- Spazio di archiviazione -->
     <string name="storage_title">Spazio di archiviazione</string>
     <string name="storage_summary">Pocket Travel occupa %1$s · %2$s liberi sul dispositivo</string>
-    <string name="storage_regions">Nazioni installate</string>
-    <string name="storage_no_regions">Nessuna nazione installata</string>
+    <string name="storage_regions">Nazioni scaricate</string>
+    <string name="storage_no_regions">Nessuna nazione scaricata</string>
     <string name="storage_guides">Guide</string>
     <string name="storage_guides_title">Guide di tutte le nazioni</string>
     <string name="storage_guides_auto">%1$s · aggiornamento automatico</string>
@@ -240,7 +240,7 @@
     <string name="licenses_component_subprocess">sheredom/subprocess.h (usato da llama.cpp, third-party/llama-cpp/vendor/sheredom)</string>
     <string name="licenses_component_cpp_httplib">yhirose/cpp-httplib (usato da llama.cpp, third-party/llama-cpp/vendor/cpp-httplib)</string>
     <string name="licenses_component_kleidiai">KleidiAI (Arm, kernel ottimizzati usati da llama.cpp su arm64)</string>
-    <string name="licenses_component_okhttp">OkHttp (download dei pacchetti, dei modelli e del meteo)</string>
+    <string name="licenses_component_okhttp">OkHttp (download dei contenuti, dei modelli e del meteo)</string>
     <string name="licenses_component_qwen">Modelli Qwen3.5 e Qwen3 (Alibaba Cloud, team Qwen)</string>
     <string name="licenses_note_qwen">Modelli dell\'assistente offline, scaricati su richiesta da HuggingFace nelle versioni GGUF quantizzate da Unsloth</string>
     <string name="licenses_component_trained_models">Modelli addestrati da Pocket Travel (pockettravel/*-travel-it-GGUF)</string>
@@ -259,7 +259,7 @@
     <string name="licenses_note_flags">Vettoriali esportati dalle bandiere di Wikipedia (Timeline of national flags)</string>
     <string name="licenses_component_material_symbols">Icone Material Symbols (Google, google/material-design-icons, core:ui/src/main/res/drawable/ms_*)</string>
     <string name="licenses_note_material_symbols">Icone dell\'interfaccia, delle categorie dei punti di interesse e delle frecce di navigazione</string>
-    <string name="licenses_component_noto_sans">Klokantech Noto Sans (glifi etichette mappa, feature:map/src/main/assets/fonts)</string>
+    <string name="licenses_component_noto_sans">Klokantech Noto Sans (glifi delle etichette della mappa, feature:map/src/main/assets/fonts)</string>
     <string name="licenses_note_noto_sans">Font Noto Sans (Google) ripacchettato in SDF da openmaptiles/fonts; inclusi i range di latino, greco, cirillico, armeno, ebraico, arabo, thai, georgiano e punteggiatura</string>
     <string name="licenses_component_osm">Dati OpenStreetMap</string>
     <string name="licenses_note_osm">Richiede attribuzione e condivisione delle modifiche al database</string>
@@ -314,7 +314,7 @@
     <string name="onboarding_ready_body">Riepilogo delle scelte, modificabili in qualsiasi momento da Altro</string>
     <string name="onboarding_ready_modes">Modi di spostarsi</string>
     <string name="onboarding_ready_countries">Nazioni</string>
-    <string name="onboarding_ready_countries_none">Nessun download avviato: le nazioni si aggiungono dalla schermata Nazioni</string>
+    <string name="onboarding_ready_countries_none">Nessun download avviato: le nazioni si aggiungono dalla scheda Nazioni</string>
     <plurals name="onboarding_ready_countries_started">
         <item quantity="one">%1$d nazione in download in background</item>
         <item quantity="other">%1$d nazioni in download in background</item>

@@ -179,7 +179,7 @@
     <string name="usage_mode_directions_body">Con ogni nazione scelta viene scaricata la rete stradale ed è richiesta la posizione GPS</string>
     <string name="navigation_routing_download">Scarica la rete stradale</string>
     <string name="navigation_missing_routing_list">Manca la rete stradale di queste regioni, dalla partenza all\'arrivo</string>
-    <string name="navigation_car_only_routing_list">È installata solo la rete stradale per l\'auto: per andare a piedi o in bici scarica la rete stradale completa</string>
+    <string name="navigation_car_only_routing_list">È installata solo la rete stradale solo auto: per andare a piedi o in bici scarica la rete stradale completa</string>
     <string name="navigation_routing_download_all">Scarica tutta la rete stradale (%1$s)</string>
     <string name="navigation_routing_progress_all">Download della rete stradale · %1$d%%</string>
     <string name="navigation_outside_routing">Il percorso esce dalla zona della rete stradale scaricata</string>
@@ -258,7 +258,7 @@
     <string name="planner_no_results">Nessun posto con questo nome nelle regioni scaricate</string>
     <string name="planner_type_address">Indirizzo</string>
     <string name="planner_routing_progress">Rete stradale della regione · %1$d%%</string>
-    <string name="planner_calculating">Ricerca del percorso migliore</string>
+    <string name="planner_calculating">Calcolo del percorso migliore</string>
     <string name="planner_calculating_progress">%1$s · %2$d%%</string>
     <string name="navigation_then">Poi</string>
     <string name="navigation_end">Termina</string>
@@ -297,7 +297,7 @@
     <string name="navigation_resume_no">No</string>
     <string name="planner_recents_clear">Cancella le ricerche recenti</string>
     <string name="planner_recents_clear_title">Cancellare le ricerche recenti?</string>
-    <string name="planner_recents_clear_text">Tutte le destinazioni recenti verranno rimosse da questo elenco</string>
+    <string name="planner_recents_clear_text">Tutte le ricerche recenti verranno rimosse da questo elenco</string>
     <string name="planner_recents_clear_confirm">Cancella</string>
     <string name="navigation_drive_left">sinistra</string>
     <string name="navigation_drive_right">destra</string>

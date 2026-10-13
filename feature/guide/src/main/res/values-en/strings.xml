@@ -73,7 +73,7 @@
     <string name="emergency_embassy_website">Open the website of %1$s</string>
     <string name="emergency_embassy_email">Email %1$s</string>
     <string name="emergency_travel_advice_description">Travel advice and country pages from your country\'s foreign ministry</string>
-    <string name="emergency_travel_advice_fallback_description">UK government advice: safety and health apply to everyone, entry requirements are those for British citizens</string>
+    <string name="emergency_travel_advice_fallback_description">UK government travel advice: safety and health apply to everyone, entry requirements are those for British citizens</string>
     <string name="emergency_travel_advice_open">Open %1$s</string>
     <string name="guide_sources_title">Sources</string>
     <string name="guide_source_translated">%1$s · machine-translated</string>
@@ -104,8 +104,8 @@
     <string name="vacc_to">Destination country</string>
     <string name="vacc_change_country">Change country</string>
     <string name="vacc_stopovers">Stopovers</string>
-    <string name="vacc_add_transit">Add a stopover</string>
-    <string name="vacc_remove_transit">Remove the stopover</string>
+    <string name="vacc_add_stopover">Add a stopover</string>
+    <string name="vacc_remove_stopover">Remove the stopover</string>
     <string name="vacc_stopover_country">Stopover country</string>
     <string name="vacc_stopover_choose_country">Choose the country</string>
     <string name="vacc_stopover_hours">Stopover hours</string>
@@ -133,8 +133,8 @@
     <string name="vacc_reason_yf_all">Required of all arriving travelers</string>
     <string name="vacc_reason_from_risk">Because you are arriving from %1$s, a yellow fever risk country</string>
     <string name="vacc_reason_from_list">Because you are arriving from %1$s, on the list of countries for which the destination requires the certificate</string>
-    <string name="vacc_reason_transit">Because of your %1$d-hour stopover in %2$s</string>
-    <string name="vacc_reason_transit_unknown">Because of your stopover in %1$s (duration not given or over 12 hours)</string>
+    <string name="vacc_reason_stopover">Because of your %1$d-hour stopover in %2$s</string>
+    <string name="vacc_reason_stopover_unknown">Because of your stopover in %1$s (duration not given or over 12 hours)</string>
     <string name="vacc_reason_yf_exit">Required when leaving %1$s</string>
     <string name="vacc_reason_yf_destination">%1$s has yellow fever risk areas</string>
     <string name="vacc_reason_yf_destination_partial">Only in some areas of %1$s</string>

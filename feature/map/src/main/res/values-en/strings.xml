@@ -178,7 +178,7 @@
     <string name="usage_mode_directions_body">The road network is downloaded with each chosen country, and the GPS location is requested</string>
     <string name="navigation_routing_download">Download road network</string>
     <string name="navigation_missing_routing_list">The road network is missing for these regions, from start to destination</string>
-    <string name="navigation_car_only_routing_list">Only the car road network is installed: download the full road network to walk or cycle</string>
+    <string name="navigation_car_only_routing_list">Only the car-only road network is installed: download the full road network to walk or cycle</string>
     <string name="navigation_routing_download_all">Download the whole road network (%1$s)</string>
     <string name="navigation_routing_progress_all">Downloading the road network · %1$d%%</string>
     <string name="navigation_outside_routing">The route leaves the area covered by the downloaded road network</string>
@@ -205,13 +205,13 @@
     <string name="transit_no_stops">No timetables for this stop: the downloaded networks don\'t cover it</string>
     <string name="transit_not_offered">No public transport timetables for this area</string>
     <string name="transit_none_soon">No departures in the next 3 hours</string>
-    <string name="transit_valid_until">Timetable valid until %1$s</string>
-    <string name="transit_expired">The timetable has expired (valid until %1$s)</string>
-    <string name="transit_expiring">The timetable is about to expire</string>
-    <string name="transit_feed_expired">%1$s departures not shown: timetable expired (valid until %2$s)</string>
-    <string name="transit_feed_expired_unnamed">Departures of another network not shown: timetable expired (valid until %1$s)</string>
-    <string name="transit_feed_estimated">%1$s departures estimated from the previous week: timetable expired (valid until %2$s)</string>
-    <string name="transit_feed_estimated_unnamed">Departures of another network estimated from the previous week: timetable expired (valid until %1$s)</string>
+    <string name="transit_valid_until">Timetables valid until %1$s</string>
+    <string name="transit_expired">The timetables have expired (valid until %1$s)</string>
+    <string name="transit_expiring">The timetables are about to expire</string>
+    <string name="transit_feed_expired">%1$s departures not shown: timetables expired (valid until %2$s)</string>
+    <string name="transit_feed_expired_unnamed">Departures of another network not shown: timetables expired (valid until %1$s)</string>
+    <string name="transit_feed_estimated">%1$s departures estimated from the previous week: timetables expired (valid until %2$s)</string>
+    <string name="transit_feed_estimated_unnamed">Departures of another network estimated from the previous week: timetables expired (valid until %1$s)</string>
     <string name="transit_mode_estimated">%1$s, estimated time</string>
     <string name="transit_update">Update</string>
     <string name="transit_download">Download public transport timetables</string>
@@ -257,7 +257,7 @@
     <string name="planner_no_results">No place with this name in the downloaded regions</string>
     <string name="planner_type_address">Address</string>
     <string name="planner_routing_progress">Region road network · %1$d%%</string>
-    <string name="planner_calculating">Finding the best route</string>
+    <string name="planner_calculating">Calculating the best route</string>
     <string name="planner_calculating_progress">%1$s · %2$d%%</string>
     <string name="navigation_then">Then</string>
     <string name="navigation_end">End</string>
@@ -296,7 +296,7 @@
     <string name="navigation_resume_no">No</string>
     <string name="planner_recents_clear">Clear recent searches</string>
     <string name="planner_recents_clear_title">Clear recent searches?</string>
-    <string name="planner_recents_clear_text">All recent destinations will be removed from this list</string>
+    <string name="planner_recents_clear_text">All recent searches will be removed from this list</string>
     <string name="planner_recents_clear_confirm">Clear</string>
     <string name="navigation_drive_left">left</string>
     <string name="navigation_drive_right">right</string>

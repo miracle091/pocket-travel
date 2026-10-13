@@ -77,7 +77,7 @@
     <string name="ai_taskmgr_title">Model task manager</string>
     <string name="ai_taskmgr_export">Export logs</string>
     <string name="ai_taskmgr_export_done">Logs exported</string>
-    <string name="ai_taskmgr_export_failed">Could not export the logs</string>
+    <string name="ai_taskmgr_export_failed">Couldn\'t export the logs</string>
     <string name="ai_taskmgr_loading">Measuring…</string>
     <string name="ai_taskmgr_space">Space</string>
     <string name="ai_taskmgr_no_models">No model downloaded</string>
@@ -115,7 +115,7 @@
     <string name="ai_taskmgr_prompt_speed">Prompt reading speed</string>
     <string name="ai_taskmgr_context">Context retrieval</string>
     <string name="ai_taskmgr_word_lists">Word lists</string>
-    <string name="ai_taskmgr_word_lists_hint">Add the guide words for the question\'s category to the search</string>
+    <string name="ai_taskmgr_word_lists_hint">They add the guide words for the question\'s group to the search</string>
     <string name="ai_taskmgr_cpu_backend">llama.cpp CPU variant</string>
     <string name="ai_taskmgr_cpu_extensions">CPU extensions</string>
     <string name="ai_taskmgr_cpu_extensions_none">None of SVE, SVE2 and SME</string>

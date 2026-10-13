@@ -13,7 +13,7 @@
     <string name="sync_package_addresses">House numbers</string>
     <string name="sync_package_cities">City guides</string>
     <string name="sync_package_transit">Public transport</string>
-    <string name="sync_updates_regions_channel">Region updates</string>
+    <string name="sync_updates_regions_channel">Country updates</string>
     <string name="sync_updates_app_channel">App updates</string>
     <string name="sync_updates_ai_model_channel">AI model updates</string>
     <string name="sync_update_region_title">Update available</string>

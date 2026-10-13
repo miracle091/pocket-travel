@@ -8,6 +8,6 @@
     <string name="source_desc_eu_travel">Documenti, diritti e regole per viaggiare nell\'UE</string>
     <string name="source_desc_eu_health">Tessera sanitaria europea e cure durante un soggiorno breve</string>
     <string name="source_desc_who">Salute e vaccinazioni per chi viaggia</string>
-    <string name="source_desc_cdc">Rischi sanitari e vaccini consigliati per destinazione</string>
+    <string name="source_desc_cdc">Rischi sanitari e vaccini raccomandati per destinazione</string>
     <string name="source_desc_advice">Sicurezza e ingresso paese per paese</string>
 </resources>

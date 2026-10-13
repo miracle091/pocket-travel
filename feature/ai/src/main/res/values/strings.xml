@@ -17,7 +17,7 @@
     <string name="ai_large_download_message">%1$s occupa circa %2$s e il dispositivo usa la rete mobile. Continuare?</string>
     <string name="ai_large_download_confirm">Scarica</string>
     <string name="ai_api_key_intro">Con il motore Online le domande vengono inviate a un servizio di intelligenza artificiale a scelta, con una chiave API personale. Scegli il servizio, crea la chiave sul suo sito e incollala qui sotto</string>
-    <string name="ai_api_key_privacy">La chiave resta solo su questo dispositivo, cifrata. Le domande vengono inviate direttamente a %1$s, mai a un server di Pocket Travel, e l\'uso viene addebitato sul tuo account. Se cambi servizio, la chiave viene eliminata</string>
+    <string name="ai_api_key_privacy">La chiave resta solo su questo dispositivo, cifrata. Le domande vengono inviate direttamente a %1$s, mai a un server di Pocket Travel, e l\'uso viene addebitato sull\'account personale. Cambiando servizio, la chiave viene eliminata</string>
     <string name="ai_api_key_label">Chiave API</string>
     <string name="ai_api_key_save">Salva la chiave</string>
     <string name="ai_api_key_show">Mostra la chiave</string>
@@ -115,7 +115,7 @@
     <string name="ai_taskmgr_prompt_speed">Velocità di lettura del prompt</string>
     <string name="ai_taskmgr_context">Scelta del contesto</string>
     <string name="ai_taskmgr_word_lists">Liste di parole</string>
-    <string name="ai_taskmgr_word_lists_hint">Aggiungono alla ricerca le parole delle guide per la categoria della domanda</string>
+    <string name="ai_taskmgr_word_lists_hint">Aggiungono alla ricerca le parole delle guide per il gruppo della domanda</string>
     <string name="ai_taskmgr_cpu_backend">Variante CPU di llama.cpp</string>
     <string name="ai_taskmgr_cpu_extensions">Estensioni della CPU</string>
     <string name="ai_taskmgr_cpu_extensions_none">Nessuna tra SVE, SVE2 e SME</string>

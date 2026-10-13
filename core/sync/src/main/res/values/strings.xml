@@ -13,7 +13,7 @@
     <string name="sync_package_addresses">Numeri civici</string>
     <string name="sync_package_cities">Guide delle città</string>
     <string name="sync_package_transit">Mezzi pubblici</string>
-    <string name="sync_updates_regions_channel">Aggiornamenti delle regioni</string>
+    <string name="sync_updates_regions_channel">Aggiornamenti delle nazioni</string>
     <string name="sync_updates_app_channel">Aggiornamenti dell\'app</string>
     <string name="sync_updates_ai_model_channel">Aggiornamenti del modello IA</string>
     <string name="sync_update_region_title">Aggiornamento disponibile</string>
