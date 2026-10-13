@@ -37,7 +37,7 @@ import javax.inject.Inject
 /**
  * Navigazione passo passo dentro la scheda Navigatore: "Avvia" chiama [start] con la destinazione e il mezzo
  * scelti, "Termina" (o l'arrivo, chiuso dal Navigatore) [stop]. Il GPS si ascolta solo mentre si naviga.
- * Meta, mezzo e ora di arrivo stanno in [SavedStateHandle]: se il sistema chiude l'app, tornando il
+ * Destinazione, mezzo e ora di arrivo stanno in [SavedStateHandle]: se il sistema chiude l'app, tornando il
  * Navigatore chiede se riprendere la guida ([NavigationUiState.resumeOffer]) invece di ripartire da solo.
  */
 @HiltViewModel
@@ -398,11 +398,11 @@ class NavigationViewModel @Inject constructor(
 }
 
 /**
- * Lo stato della scheda Navigatore durante la guida. [target] e' la meta della guida in corso (null se non si sta
+ * Lo stato della scheda Navigatore durante la guida. [target] e' la destinazione della guida in corso (null se non si sta
  * navigando); [resumeOffer] la guida interrotta perche' il sistema ha chiuso l'app, da riprendere o dimenticare;
  * [walkingHaptics] la vibrazione alle svolte e all'arrivo a piedi (Impostazioni); [arriveBy] l'ora a cui si vuole
  * arrivare, per mostrare il ritardo; [regionIds] le regioni del percorso, una sorgente di mappa per ognuna;
- * [drivingSideWarning] il lato di guida da ricordare in auto; [arrivedAtMillis] quando e' stata raggiunta la meta, per
+ * [drivingSideWarning] il lato di guida da ricordare in auto; [arrivedAtMillis] quando e' stata raggiunta la destinazione, per
  * distinguere un arrivo appena avvenuto da uno di cui nessuno si e' accorto.
  */
 data class NavigationUiState(

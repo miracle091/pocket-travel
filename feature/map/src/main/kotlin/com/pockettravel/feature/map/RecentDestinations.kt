@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Una meta della navigazione: un punto di interesse o un punto qualsiasi con un nome. */
+/** Una destinazione della navigazione: un punto di interesse o un punto qualsiasi con un nome. */
 data class NavigationPlace(val name: String, val latitude: Double, val longitude: Double, val regionId: String) {
     val point: RoutePoint get() = RoutePoint(latitude, longitude)
 }

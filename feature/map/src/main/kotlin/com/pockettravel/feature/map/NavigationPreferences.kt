@@ -18,7 +18,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
     /**
      * All'arrivo la guida si chiude e il GPS si spegne da solo, anche con l'app in background (risparmia
      * batteria). Spento, la guida resta aperta col GPS acceso finche' non si tocca "Termina": utile se la
-     * meta e' un punto di passaggio o se l'arrivo scatta qualche metro prima.
+     * destinazione e' un punto di passaggio o se l'arrivo scatta qualche metro prima.
      */
     val stopGpsOnArrival: StateFlow<Boolean> = _stopGpsOnArrival.asStateFlow()
 

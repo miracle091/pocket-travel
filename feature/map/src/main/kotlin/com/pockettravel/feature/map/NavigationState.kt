@@ -142,7 +142,7 @@ const val RECALCULATION_INTERVAL_MILLIS = 10_000L
 /** Un arrivo piu' vecchio di cosi' non si annuncia piu' (snackbar, vibrazione): nessuno e' li' a sentirlo. */
 const val RECENT_ARRIVAL_MILLIS = 2 * 60_000L
 
-/** [arrivedAtMillis]: quando la guida ha visto la meta (null se mai): vero se e' successo da poco. */
+/** [arrivedAtMillis]: quando la guida ha visto la destinazione (null se mai): vero se e' successo da poco. */
 fun isRecentArrival(arrivedAtMillis: Long?, nowMillis: Long): Boolean =
     arrivedAtMillis != null && nowMillis - arrivedAtMillis in 0..RECENT_ARRIVAL_MILLIS
 

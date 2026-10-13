@@ -472,7 +472,7 @@ class NavigationViewModelTest {
         assertNull(session.snapshot.value)
         assertNull(preferences.activeNavigation())
         assertEquals(0, gps.listeners)
-        // La meta resta fino a "Termina": e' il Navigatore a chiudere la schermata.
+        // La destinazione resta fino a "Termina": e' il Navigatore a chiudere la schermata.
         assertEquals(meta, viewModel.uiState.value.target)
     }
 

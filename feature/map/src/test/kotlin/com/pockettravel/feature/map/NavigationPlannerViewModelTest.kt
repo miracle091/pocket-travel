@@ -366,14 +366,14 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
         val viewModel = viewModel()
         viewModel.setDestination(colosseo)
 
-        // Stessa meta, stessa ora: l'avviso resta.
+        // Stessa destinazione, stessa ora: l'avviso resta.
         viewModel.setReminder(departure)
         viewModel.setDestination(colosseo)
         viewModel.setArriveBy(null)
         viewModel.setRouteProfile(settled(viewModel.uiState).routeProfile)
         assertEquals(departure, settled(viewModel.uiState).reminder)
 
-        // Nuova meta, nuova partenza, mezzo, ora di arrivo o gradini: l'avviso non vale piu'.
+        // Nuova destinazione, nuova partenza, mezzo, ora di arrivo o gradini: l'avviso non vale piu'.
         val changes: List<() -> Unit> = listOf(
             { viewModel.setDestination(duomo) },
             { viewModel.startSearch(PlannerField.FROM); viewModel.choose(colosseo) },
@@ -450,7 +450,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     fun `la mappa mostra la regione aperta, poi quelle di partenza e arrivo`() = runTest {
         val viewModel = viewModel()
         runCurrent()
-        // Nessuna regione e nessuna meta: tutte quelle installate.
+        // Nessuna regione e nessuna destinazione: tutte quelle installate.
         assertEquals(listOf("r1", "r2"), settled(viewModel.uiState).mapRegionIds)
 
         viewModel.load("r2")

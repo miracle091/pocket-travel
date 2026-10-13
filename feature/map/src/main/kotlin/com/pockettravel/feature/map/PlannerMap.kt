@@ -51,7 +51,7 @@ internal fun PlannerMap(
     route: Route?,
     from: RoutePoint?,
     to: RoutePoint?,
-    // Senza meta: la propria posizione e i POI attorno (null = niente), inquadrati sul raggio della ricerca.
+    // Senza destinazione: la propria posizione e i POI attorno (null = niente), inquadrati sul raggio della ricerca.
     position: RoutePoint?,
     nearby: NearbyPois?,
     topPaddingPx: Float,
@@ -165,7 +165,7 @@ internal fun PlannerMap(
                     map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, margin.toInt(), topPaddingPx.toInt() + margin.toInt(), margin.toInt(), bottomPaddingPx.toInt() + margin.toInt()))
                 }
                 framed.size == 1 -> map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(framed[0].latitude, framed[0].longitude), SINGLE_POINT_ZOOM))
-                // Senza meta, con la posizione: il cerchio dei POI vicini (150, 300 o 600 m), cioe' lo zoom adatto alla distanza.
+                // Senza destinazione, con la posizione: il cerchio dei POI vicini (150, 300 o 600 m), cioe' lo zoom adatto alla distanza.
                 nearby != null && position != null -> {
                     val dLat = nearby.radiusMeters / METERS_PER_DEGREE
                     val dLon = dLat / cos(Math.toRadians(position.latitude))

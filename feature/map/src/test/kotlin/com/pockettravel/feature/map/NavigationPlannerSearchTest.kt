@@ -202,7 +202,7 @@ class NavigationPlannerSearchTest : NavigationPlannerTestBase() {
 
         assertEquals("", settled(viewModel.uiState).query)
         assertEquals(PlannerField.FROM, settled(viewModel.uiState).searching)
-        // Uno per la posizione sulla mappa senza meta (lo stato e' osservato), uno per la ricerca.
+        // Uno per la posizione sulla mappa senza destinazione (lo stato e' osservato), uno per la ricerca.
         assertEquals(2, gps.listeners)
         gps.emit(fix())
         runCurrent()

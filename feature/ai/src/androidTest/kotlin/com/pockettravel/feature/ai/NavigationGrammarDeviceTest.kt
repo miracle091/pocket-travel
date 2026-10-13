@@ -18,7 +18,7 @@ import java.io.File
 import java.util.Locale
 
 /**
- * Estrazione di meta e mezzo con la grammatica ([NAVIGATION_GRAMMAR]) sui modelli del catalogo presenti in
+ * Estrazione di destinazione e mezzo con la grammatica ([NAVIGATION_GRAMMAR]) sui modelli del catalogo presenti in
  * getExternalFilesDir(null) (vedi [LlamaEngineDeviceTest] per come copiarli). Verifica che l'output sia sempre JSON
  * valido e scrive nel logcat (tag NavGrammar) precisione e tempi di modello, regole e risultato finale:
  *   adb logcat -s NavGrammar

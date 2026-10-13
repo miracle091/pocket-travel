@@ -70,7 +70,7 @@ internal fun searchRelevance(poi: Poi, query: String): Int {
 }
 
 /**
- * La meta da cercare per una richiesta dell'assistente: quella col momento del giorno ("bar stasera") se e' il nome di
+ * La destinazione da cercare per una richiesta dell'assistente: quella col momento del giorno ("bar stasera") se e' il nome di
  * un posto ([hasPois]), altrimenti quella senza ("bar"). Solo i POI: un indirizzo non finisce con "domani".
  */
 internal suspend fun destinationQuery(destination: String, destinationWithTime: String?, hasPois: suspend (String) -> Boolean): String =
@@ -117,7 +117,7 @@ sealed interface PlannerPreview {
 /**
  * Lo stato della scheda Navigatore prima della guida. [from] null = la propria posizione; [query] e [results] hanno
  * un valore solo con la ricerca aperta ([searching]); [routing] e' il profilo BRouter del mezzo scelto; [mapRegionIds]
- * le regioni della mappa; [idlePosition] la propria posizione sulla mappa senza meta, con i [nearbyPois] attorno;
+ * le regioni della mappa; [idlePosition] la propria posizione sulla mappa senza destinazione, con i [nearbyPois] attorno;
  * [routingInstalled] dice se la regione aperta ha la rete stradale e [routingRegionIds] quali regioni ce l'hanno utile
  * al mezzo; [arriveBy] e' l'ora a cui si vuole arrivare (null = si parte subito) e [reminder] l'ora di partenza con un
  * avviso programmato.
@@ -204,7 +204,7 @@ class NavigationPlannerViewModel @Inject constructor(
     private val locationAllowed = MutableStateFlow(gps.hasPermission())
 
     /**
-     * Senza meta, con permesso e GPS acceso: la propria posizione sulla mappa, null altrimenti. Il GPS si ascolta solo
+     * Senza destinazione, con permesso e GPS acceso: la propria posizione sulla mappa, null altrimenti. Il GPS si ascolta solo
      * mentre la scheda e' aperta (WhileSubscribed).
      */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -214,7 +214,7 @@ class NavigationPlannerViewModel @Inject constructor(
         .onEach { position -> if (position != null) lastPosition.value = position }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** I POI attorno alla posizione senza meta (PoiRepository.nearby), ricercati dopo ogni spostamento di 50 m. */
+    /** I POI attorno alla posizione senza destinazione (PoiRepository.nearby), ricercati dopo ogni spostamento di 50 m. */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private val nearbyPois: StateFlow<NearbyPois?> = combine(idlePosition, installed) { position, regions -> position to regions.keys.toList() }
         .distinctUntilChanged { old, new ->
@@ -315,7 +315,7 @@ class NavigationPlannerViewModel @Inject constructor(
         this.regionId.value = regionId
     }
 
-    /** Meta raggiunta: si torna alla ricerca, partendo di nuovo dalla propria posizione. */
+    /** Destinazione raggiunta: si torna alla ricerca, partendo di nuovo dalla propria posizione. */
     fun clearDestination() {
         cancelReminder()
         setTo(null)
@@ -387,7 +387,7 @@ class NavigationPlannerViewModel @Inject constructor(
     }
 
     /**
-     * "Portami al Colosseo" dall'assistente: ricerca della meta gia' compilata, la scelta resta all'utente.
+     * "Portami al Colosseo" dall'assistente: ricerca della destinazione gia' compilata, la scelta resta all'utente.
      * [textWithTime] ("bar stasera" per "bar") prende il posto di [text] se e' il nome di un posto (destinationQuery): si
      * controlla dopo, senza far aspettare [text], perche' senza risultati la ricerca legge tutti i POI installati (secondi
      * su un milione). Se intanto l'utente ha cambiato la ricerca, resta la sua.

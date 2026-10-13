@@ -47,7 +47,7 @@ import com.pockettravel.core.ui.R as UiR
 
 /**
  * Tab Navigazione dell'hub, sul modello delle app di navigazione: la mappa a tutto schermo, in alto
- * la ricerca della meta (poi partenza, arrivo e mezzo), in basso un pannello con i recenti o con
+ * la ricerca della destinazione (poi partenza, arrivo e mezzo), in basso un pannello con i recenti o con
  * tempo, distanza, "Avvia" e le svolte del percorso. La ricerca occupa tutto lo schermo, come in
  * Google Maps. In navigazione la scheda mostra la navigazione passo passo (NavigationInstructions).
  */
@@ -116,7 +116,7 @@ fun NavigationPlannerScreen(
 
     // In navigazione la scheda e' il navigatore: mappa a tutto schermo e indicazioni (NavigationInstructions).
     val guiding = navigation.target
-    // Meta appena raggiunta: la guida si chiude da sola e il Navigatore lo dice con un avviso.
+    // Destinazione appena raggiunta: la guida si chiude da sola e il Navigatore lo dice con un avviso.
     var arrivedAt by rememberSaveable { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val guidingTarget = guiding
@@ -267,7 +267,7 @@ internal data class NavigationPlannerState(
     val missingRegions: List<MissingRegion> = emptyList(),
     val downloadProgress: Float? = null,
     val downloadFailed: Boolean = false,
-    // Meta appena raggiunta: se non e' null se ne mostra l'avviso, poi si chiama onArrivalAnnounced.
+    // Destinazione appena raggiunta: se non e' null se ne mostra l'avviso, poi si chiama onArrivalAnnounced.
     val arrivedAt: String? = null,
 )
 
@@ -338,7 +338,7 @@ internal fun NavigationPlannerContent(
     val ready = state.preview as? PlannerPreview.Ready
     BottomSheetScaffold(
         scaffoldState = sheetState,
-        // Senza meta i recenti restano nascosti: si vede solo il titolo "Recenti", si trascina su per aprirli.
+        // Senza destinazione i recenti restano nascosti: si vede solo il titolo "Recenti", si trascina su per aprirli.
         sheetPeekHeight = if (to == null) RECENTS_PEEK_HEIGHT else 180.dp,
         sheetContent = {
             PlannerSheet(
