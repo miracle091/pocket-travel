@@ -9,7 +9,7 @@ data class EmergencyNumbers(val general: String?, val police: String, val ambula
 // resources/emergency-numbers.tsv e' stata compilata da Travel.gc.ca e confrontata con Wikipedia e
 // Wikidata, piu' gov.uk (FCDO) dove queste non bastavano (fonti e note per riga nel file). Una riga
 // senza numeri indica una regione senza numero di emergenza centralizzato; una regione assente dal
-// file non ha la scheda nell'app. "general" e' il numero unico (dove esiste, es. il 112 europeo); nullo per i
+// file non ha il riquadro nell'app. "general" e' il numero unico (dove esiste, es. il 112 europeo); nullo per i
 // paesi senza un unico numero universale (es. Giappone).
 private val emergencyRows: List<List<String>> by lazy {
     val tsv = EmergencyNumbers::class.java.getResource("/emergency-numbers.tsv")!!.readText()

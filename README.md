@@ -44,7 +44,7 @@ Pocket Travel funziona su **Android 8.0 o successivo** ed è distribuita solo su
 2. ⚙️ Al primo avvio scegli lingua, modi di spostarsi e nazionalità.
 3. 🌍 Scarica le nazioni del viaggio, meglio con il Wi-Fi e prima di partire: poi tutto funziona offline.
 
-> 💡 **Suggerimento.** Senza la rete stradale il Navigatore non calcola i percorsi: si aggiunge dai Contenuti della nazione, come i numeri civici e i mezzi pubblici.
+> **Nota.** Senza la rete stradale il Navigatore non calcola i percorsi: si aggiunge dai Contenuti della nazione, come i numeri civici e i mezzi pubblici.
 
 L'app segnala le nuove versioni con una notifica; le novità sono nel [CHANGELOG](CHANGELOG.md).
 
@@ -52,11 +52,11 @@ L'app segnala le nuove versioni con una notifica; le novità sono nel [CHANGELOG
 
 | | Funzione | Cosa fa |
 |---|---|---|
-| 📖 | **Guida** | Cosa vedere, dove mangiare, come muoversi e sicurezza per ogni paese e città; fatti rapidi, numeri di emergenza, ambasciate, meteo a 7 giorni |
+| 📖 | **Guida** | Cosa vedere, dove mangiare, come muoversi e sicurezza per ogni nazione e città; fatti rapidi, numeri di emergenza, ambasciate, meteo a 7 giorni |
 | 💉 | **Vaccinazioni** | Obbligatorie, raccomandate e da valutare con il medico, calcolate offline da partenza, scali e paesi visitati |
 | 🗺️ | **Mappa** | Ristoranti, hotel, farmacie, bancomat e molto altro, con orari e contatti, filtrati per modo di spostarsi |
 | 🧭 | **Navigatore** | Percorsi a piedi, in bici e in auto, anche tra nazioni, con la navigazione passo passo a schermo spento |
-| 🚌 | **Mezzi pubblici** | Partenze delle tre ore successive in fermate e stazioni, per le reti con dati aperti di 32 paesi, per lo più europei, e di Stati Uniti, Canada, Australia, Nuova Zelanda e Giappone |
+| 🚌 | **Mezzi pubblici** | Partenze delle tre ore successive in fermate e stazioni, per le reti con dati aperti di 32 nazioni, per lo più europei, e di Stati Uniti, Canada, Australia, Nuova Zelanda e Giappone |
 | 🤖 | **Assistente IA** | Risposte brevi sulla guida scaricata e sulle note, anche senza internet |
 | 🔐 | **Documenti e note** | Passaporto e biglietti cifrati, sbloccabili con impronta o volto; note di viaggio cifrate |
 | 🏛️ | **Fonti ufficiali** | Ministero degli esteri del proprio paese, OMS e CDC |
@@ -134,9 +134,9 @@ L'assistente usa un servizio di IA con la propria chiave API, che resta cifrata 
 
 ## Dati e privacy
 
-I dati vengono da progetti aperti: [Wikivoyage](https://it.wikivoyage.org) e [Wikipedia](https://it.wikipedia.org) per le guide, [OpenStreetMap](https://www.openstreetmap.org) e [Overture Maps](https://overturemaps.org) per mappe e civici, [Wikidata](https://www.wikidata.org) per fatti rapidi e ambasciate, Travel.gc.ca, TravelHealthPro e gov.uk per vaccinazioni e consigli di viaggio, [Open-Meteo](https://open-meteo.com) per il meteo. Fonti e licenze sono nella [pagina delle licenze](https://miracle091.github.io/pocket-travel/licenses.html).
+I dati vengono da progetti aperti: [Wikivoyage](https://it.wikivoyage.org) e [Wikipedia](https://it.wikipedia.org) per le guide, [OpenStreetMap](https://www.openstreetmap.org) e [Overture Maps](https://overturemaps.org) per mappe e numeri civici, [Wikidata](https://www.wikidata.org) per fatti rapidi e ambasciate, Travel.gc.ca, TravelHealthPro e gov.uk per vaccinazioni e consigli di viaggio, [Open-Meteo](https://open-meteo.com) per il meteo. Fonti e licenze sono nella [pagina delle licenze](https://miracle091.github.io/pocket-travel/licenses.html).
 
-🔒 L'app non ha un server proprio e non raccoglie dati sugli utenti. La posizione resta sul dispositivo; al meteo arriva solo la zona, arrotondata a circa 10 km. Il catalogo dei dati è firmato e l'app rifiuta i file non firmati.
+L'app non ha un server proprio e non raccoglie dati sugli utenti. La posizione resta sul dispositivo; al servizio meteo arriva solo la posizione approssimata, arrotondata a circa 10 km. Il catalogo dei dati è firmato e l'app rifiuta i file non firmati.
 
 ## Aiuto e contributi
 
@@ -159,7 +159,7 @@ I dati vengono da progetti aperti: [Wikivoyage](https://it.wikivoyage.org) e [Wi
 <details>
 <summary><strong>Requisiti, comandi e architettura</strong></summary>
 
-Servono Android Studio con **JDK 17** o successivo e Android 8.0 (API 26); Gradle è incluso. La [guida rapida](docs/GUIDA.md) spiega come compilare, provare e generare i dati; la [wiki](https://github.com/miracle091/pocket-travel/wiki) il perché delle scelte tecniche.
+Servono Android Studio con **JDK 17** o successivo e Android 8.0 (API 26); Gradle è incluso. La [guida per sviluppatori](docs/GUIDA.md) spiega come compilare, provare e generare i dati; la [wiki](https://github.com/miracle091/pocket-travel/wiki) il perché delle scelte tecniche.
 
 | Comando | Cosa fa |
 |---|---|

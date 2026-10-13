@@ -13,7 +13,7 @@
 # (GenerateGuideContent.kt, via parseWikivoyageDump) e mappa i titoli di sezione delle citta' sulle
 # categorie condivise con l'app (GuideCategory).
 #
-# Mai fatale per la regione: se il dump non e' stato estratto in questo run (nessun
+# Mai fatale per la regione: se il dump non e' stato estratto in questa run (nessun
 # <regionId>.cities.jsonl, es. build-cities-dump.sh fallito o non lanciato) o generateCities non
 # produce nessuna sezione, la regione resta con la voce gia' pubblicata (o senza citta') e lo
 # script esce 0 con un avviso.
@@ -95,7 +95,7 @@ keep_published() {
 
 JSONL="$CITIES_JSONL_DIR/${REGION_ID}.$JSONL_SUFFIX"
 if [ ! -f "$JSONL" ]; then
-  keep_published "nessun dump estratto per questa regione in questo run"
+  keep_published "nessun dump estratto per questa regione in questa run"
   exit 0
 fi
 

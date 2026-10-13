@@ -31,7 +31,7 @@ class SpacingTest {
     }
 
     @Test
-    fun `la scheda informativa usa la scala degli spazi e un cerchio che contiene l'icona`() {
+    fun `il riquadro informativo usa la scala degli spazi e un cerchio che contiene l'icona`() {
         assertEquals(Spacing.l, InfoCardDefaults.CardPadding)
         assertEquals(Spacing.l, InfoCardDefaults.CardGap)
         assertTrue(InfoCardDefaults.HeaderIconCircle > InfoCardDefaults.HeaderIconSize)

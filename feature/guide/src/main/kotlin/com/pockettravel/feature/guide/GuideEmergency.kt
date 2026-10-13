@@ -141,7 +141,7 @@ private fun EmbassiesSection(
     if (nearby.isEmpty()) {
         entries.forEach { entry -> EmbassyRow(entry, onOpenLink) }
     } else {
-        // Le piu' vicine alla posizione del telefono, con la distanza, poi tutte le altre della nazione.
+        // Le piu' vicine alla posizione del dispositivo, con la distanza, poi tutte le altre della nazione.
         EmbassiesSubheading(stringResource(R.string.emergency_embassies_nearby))
         nearby.forEach { (entry, km) -> EmbassyRow(entry, onOpenLink, distanceKm = km) }
         val others = entries - nearby.map { it.first }.toSet()

@@ -12,7 +12,7 @@ data class Weather(
     val temperature: Double,
     val condition: WeatherCondition,
     val days: List<WeatherDay>,
-    // Oggi nel fuso del luogo, per l'etichetta "Oggi" (puo' non essere la data del telefono).
+    // Oggi nel fuso del luogo, per l'etichetta "Oggi" (puo' non essere la data del dispositivo).
     val today: LocalDate,
 )
 

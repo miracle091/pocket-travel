@@ -51,7 +51,7 @@ import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.R as UiR
 
-// Note personali (prenotazioni, indirizzi, itinerario), cifrate sul telefono ma senza il gate
+// Note personali (prenotazioni, indirizzi, itinerario), cifrate sul dispositivo ma senza il gate
 // biometrico del vault documenti (VaultScreen): l'assistente IA le legge per rispondere
 // senza chiedere l'impronta, come da contratto in NoteRepository.
 @OptIn(ExperimentalMaterial3Api::class)

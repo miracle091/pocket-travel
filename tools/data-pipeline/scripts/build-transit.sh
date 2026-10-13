@@ -153,7 +153,7 @@ fi
 
 ASSET="${FEED_ID}--${VERSION}--transit.db"
 cp "$DB" "$OUTPUT_DIR/$ASSET"
-# Dizionario da 16 MiB come xz_entry (lib.sh): con -9 (64 MiB) il telefono ne userebbe 65 per decomprimere.
+# Dizionario da 16 MiB come xz_entry (lib.sh): con -9 (64 MiB) il dispositivo ne userebbe 65 per decomprimere.
 xz -T1 --lzma2=preset=9e,dict=16MiB -k -f "$OUTPUT_DIR/$ASSET"
 file_json() {
   jq -n --arg name "$2" --arg url "$ASSET_BASE_URL/$1" --argjson size "$(stat -c %s "$OUTPUT_DIR/$1")" \

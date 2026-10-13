@@ -53,7 +53,7 @@ class RegionManifestTest {
     private fun parse(text: String = sampleManifest) = json.decodeFromString(RegionManifest.serializer(), text)
 
     @Test
-    fun `parses guides and the three packages of each region`() {
+    fun `legge le guide e le versioni di mappa, rete stradale e POI di ogni regione`() {
         val manifest = parse()
 
         assertEquals(2, manifest.manifestVersion)
@@ -85,7 +85,7 @@ class RegionManifestTest {
     }
 
     @Test
-    fun `download size counts only the requested packages, the map is extracted on device`() {
+    fun `il peso del download conta solo i pacchetti richiesti, la mappa si estrae sul dispositivo`() {
         val region = parse().regions.single()
 
         assertEquals(28_000_000L, region.downloadBytes(setOf(PackageKind.ROUTING)))
@@ -147,39 +147,39 @@ class RegionManifestTest {
     }
 
     @Test
-    fun `a valid manifest passes validation`() {
+    fun `un manifest valido supera la validazione`() {
         val manifest = parse()
         manifest.guides.validate()
         manifest.regions.forEach { it.validate() }
     }
 
     @Test
-    fun `validation rejects an unsafe package version`() {
+    fun `la validazione rifiuta una versione di pacchetto non sicura`() {
         val region = parse(sampleManifest.replace("\"2026.03.03\"", "\"../x\"")).regions.single()
         assertThrows(IllegalArgumentException::class.java) { region.validate() }
     }
 
     @Test
-    fun `validation rejects a guides file on a host outside the allowlist`() {
+    fun `la validazione rifiuta un file delle guide su un host fuori dall'elenco di quelli ammessi`() {
         val guides = parse(sampleManifest.replace("https://github.com/o/r/releases/download/region-data/guides.db", "https://evil.example/guides.db")).guides
         assertThrows(IllegalArgumentException::class.java) { guides.validate() }
     }
 
     @Test
-    fun `validation rejects plain http without a debug manifest override`() {
+    fun `la validazione rifiuta http in chiaro senza un manifest di debug`() {
         val region = parse(sampleManifest.replace("https://github.com/o/r/releases/download/region-data/poi.db", "http://github.com/poi.db")).regions.single()
         assertThrows(IllegalArgumentException::class.java) { region.validate() }
     }
 
     @Test
-    fun `validation rejects a region without routing segments`() {
+    fun `la validazione rifiuta una regione senza segmenti della rete stradale`() {
         val region = parse().regions.single()
         val withoutRouting = region.copy(routing = region.routing.copy(files = emptyList()))
         assertThrows(IllegalArgumentException::class.java) { withoutRouting.validate() }
     }
 
     @Test
-    fun `ignores unknown fields for forward compatibility`() {
+    fun `ignora i campi sconosciuti per compatibilita' con le versioni future`() {
         val manifest = parse(sampleManifest.replaceFirst("\"manifestVersion\": 2,", "\"manifestVersion\": 2, \"generatedBy\": \"pipeline-x\","))
         assertEquals(1, manifest.regions.size)
     }
@@ -227,7 +227,7 @@ class RegionManifestTest {
     )
 
     @Test
-    fun `l'anteprima e' facoltativa, non e' un pacchetto e non conta nel download completo`() {
+    fun `la mappa d'insieme e' facoltativa, non e' un pacchetto e non conta nel download completo`() {
         val without = parse().regions.single()
         assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI), without.availableKinds)
 
@@ -248,7 +248,7 @@ class RegionManifestTest {
     }
 
     @Test
-    fun `se c'e' la copia compressa dell'anteprima si scarica quella`() {
+    fun `se c'e' la copia compressa della mappa d'insieme si scarica quella`() {
         val withXz = parse(withPreview.replace(
             "\"sizeBytes\": 1200000, \"sha256\": \"$sha\" }",
             "\"sizeBytes\": 1200000, \"sha256\": \"$sha\" },\n" +
@@ -262,7 +262,7 @@ class RegionManifestTest {
         """, "worldMap": { "version": "2026.09.20", "maxZoom": 8, "url": "https://github.com/o/r/releases/download/world-map/world-2026.09.20-z8.pmtiles", "sizeBytes": 555000000 } }"""
 
     @Test
-    fun `il mondo online e' facoltativo, in cima al manifest`() {
+    fun `la mappa del mondo e' facoltativa, in cima al manifest`() {
         assertNull(parse().worldMap)
 
         val manifest = parse(withWorldMap)

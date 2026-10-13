@@ -46,7 +46,7 @@ sealed interface RouteResult {
     /** Dati presenti ma nessun percorso tra i due punti con questo profilo. */
     data object NotFound : RouteResult
 
-    /** Calcolo troppo lungo per il telefono (tempo massimo superato): destinazione troppo lontana. */
+    /** Calcolo troppo lungo per il dispositivo (tempo massimo superato): destinazione troppo lontana. */
     data object TimedOut : RouteResult
 
     /** Altro errore del motore. */

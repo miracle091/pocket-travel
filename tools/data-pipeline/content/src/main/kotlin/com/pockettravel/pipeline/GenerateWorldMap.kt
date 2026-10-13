@@ -6,12 +6,12 @@ import java.io.File
 import kotlin.math.roundToLong
 
 /**
- * Mappa del mondo leggera inclusa nell'app (feature/map/src/main/assets/world/): confini dei paesi
+ * Mappa delle nazioni leggera inclusa nell'app (feature/map/src/main/assets/world/): confini dei paesi
  * Natural Earth 1:50m (dominio pubblico, include i microstati come San Marino e Vaticano, che la
  * 1:110m non ha), ridotti a quello che serve per disegnarli e renderli cliccabili:
  * - countries.geojson: poligoni con solo "iso" (ISO 3166-1 alpha-2 minuscolo, lo stesso di
  *   countryCode nel manifest) e coordinate arrotondate a 3 decimali (~100 m, invisibile agli zoom
- *   di una mappa del mondo);
+ *   della mappa delle nazioni);
  * - country-labels.geojson: un punto per paese (LABEL_X/LABEL_Y di Natural Earth) con "iso",
  *   "name" (nome italiano) e "rank" (LABELRANK, per mostrare prima le etichette dei paesi grandi).
  *
@@ -56,7 +56,7 @@ fun main(args: Array<String>) {
     }
     write("countries.geojson", countries)
     write("country-labels.geojson", labels)
-    println("mappa del mondo: ${countries.length()} paesi scritti in ${outputDir.path}")
+    println("mappa delle nazioni: ${countries.length()} paesi scritti in ${outputDir.path}")
 }
 
 private fun round(value: Double): Double = (value * 1000).roundToLong() / 1000.0

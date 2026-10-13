@@ -11,7 +11,7 @@ import java.sql.DriverManager
 class GenerateGuideContentTest {
 
     @Test
-    fun `estrae solo le sezioni con categoria mappata dall'estratto wikivoyage di test`() {
+    fun `estrae solo le sezioni con categoria mappata dal dump wikivoyage di test`() {
         val outputDb = File.createTempFile("pocket-travel-test", ".guides.db")
         outputDb.delete()
 

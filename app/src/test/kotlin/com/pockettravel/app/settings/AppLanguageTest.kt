@@ -43,7 +43,7 @@ class AppLanguageTest {
     }
 
     @Test
-    fun `il nome della lingua e' indipendente dalla lingua del telefono`() {
+    fun `il nome della lingua e' indipendente dalla lingua del dispositivo`() {
         val previous = Locale.getDefault()
         try {
             Locale.setDefault(Locale.JAPAN)

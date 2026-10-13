@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Impronte (sha256, dimensione) dei modelli IA da scrivere in app-status.json, per publish-apk.yml.
 
-Per ogni modello del catalogo dell'app (LlmModelCatalog.kt) sceglie, tra le impronte di fonti nostre, quella
-che coincide con il file che HuggingFace serve ora (X-Linked-ETag e X-Linked-Size del suo url):
-- quella del catalogo;
+Per ogni modello del catalogo dei modelli dell'app (LlmModelCatalog.kt) sceglie, tra le impronte di fonti nostre, quella
+che coincide con il file che Hugging Face serve ora (X-Linked-ETag e X-Linked-Size del suo url):
+- quella del catalogo dei modelli;
 - quella dell'app-status.json online, solo se il chiamante ne ha verificato la firma (stesso modelId e nome
   file): un modello ricaricato con upload_hf.py --update-app-status non torna alla versione precedente al
-  rilascio successivo, anche se il catalogo non e' stato aggiornato.
-HuggingFace sceglie e non fornisce valori: un file ricaricato da altri non diventa mai un'impronta firmata.
+  rilascio successivo, anche se il catalogo dei modelli non e' stato aggiornato.
+Hugging Face sceglie e non fornisce valori: un file ricaricato da altri non diventa mai un'impronta firmata.
 Se per un modello nessuna impronta coincide, esce con errore: l'app rifiuterebbe quel download.
 
 Uso: python resolve_ai_models.py <LlmModelCatalog.kt> [<app-status.json online, firma verificata>] > ai-models.json
@@ -21,7 +21,7 @@ from urllib.parse import urlsplit
 
 
 def catalog_models(kotlin_source):
-    """Modelli pubblicati del catalogo (sha256 non nullo), con url."""
+    """Modelli pubblicati del catalogo dei modelli (sha256 non nullo), con url."""
     content = kotlin_source[kotlin_source.index("listOf("):]
     models = []
     for block in re.findall(r"LlmModelDefinition\((.*?)\n\s*\),", content, re.S):
@@ -58,7 +58,7 @@ def hf_fingerprint(url, attempts=3):
 
 
 def resolve(catalog, online, fingerprint_of):
-    """Voci di aiModels; errore con l'elenco dei modelli per cui nessuna impronta coincide con HuggingFace."""
+    """Voci di aiModels; errore con l'elenco dei modelli per cui nessuna impronta coincide con Hugging Face."""
     resolved, errors = [], []
     for model in catalog:
         remote = fingerprint_of(model["url"])
@@ -66,14 +66,14 @@ def resolve(catalog, online, fingerprint_of):
                                 if o["modelId"] == model["modelId"] and o["modelVersion"] == model["modelVersion"]]
         match = next((c for c in candidates if remote == (c["sha256"].lower(), c["sizeBytes"])), None)
         if match is None:
-            errors.append(f"{model['modelId']} ({model['modelVersion']}): HuggingFace ha {remote}, "
-                          f"catalogo e app-status.json online hanno {[(c['sha256'], c['sizeBytes']) for c in candidates]}")
+            errors.append(f"{model['modelId']} ({model['modelVersion']}): Hugging Face ha {remote}, "
+                          f"catalogo dei modelli e app-status.json online hanno {[(c['sha256'], c['sizeBytes']) for c in candidates]}")
             continue
         resolved.append({"modelId": model["modelId"], "modelVersion": model["modelVersion"],
                          "sha256": match["sha256"].lower(), "sizeBytes": match["sizeBytes"]})
     if errors:
-        raise ValueError("impronte dei modelli diverse dai file su HuggingFace (l'app rifiuterebbe questi "
-                         "download; ricarica con upload_hf.py --update-app-status o aggiorna il catalogo):\n  "
+        raise ValueError("impronte dei modelli diverse dai file su Hugging Face (l'app rifiuterebbe questi "
+                         "download; ricarica con upload_hf.py --update-app-status o aggiorna il catalogo dei modelli):\n  "
                          + "\n  ".join(errors))
     return resolved
 

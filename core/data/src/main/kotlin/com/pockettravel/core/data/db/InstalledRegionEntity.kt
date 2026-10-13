@@ -20,11 +20,11 @@ data class InstalledRegionEntity(
     // sparisce solo con l'intera regione, mai con "elimina mappa".
     val previewVersion: String?,
     // Byte che i POI occupano in region.db (stima, vedi PoiEntity.estimatedStorageBytes), non misurabili dal disco come mappa
-    // e routing. Per le regioni installate prima, la dimensione del poi.db scaricato finche' non si riscaricano.
+    // e rete stradale. Per le regioni installate prima, la dimensione del poi.db scaricato finche' non si riscaricano.
     val poiSizeBytes: Long?,
     // Come poiSizeBytes, per il poi-extra.db importato.
     val poiExtraSizeBytes: Long?,
-    // Totale sul device: mappa + routing + civici (dal disco) + poiSizeBytes + poiExtraSizeBytes + citiesSizeBytes.
+    // Totale sul dispositivo: mappa + rete stradale + civici (dal disco) + poiSizeBytes + poiExtraSizeBytes + citiesSizeBytes.
     val sizeBytes: Long,
     val installedAt: Long,
     val citiesVersion: String?,

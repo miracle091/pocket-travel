@@ -31,7 +31,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     // --- Scelta di partenza e arrivo ---
 
     @Test
-    fun `scegliere la meta la mette tra i recenti e calcola l'anteprima`() = runTest {
+    fun `scegliere la destinazione la mette tra i recenti e calcola l'anteprima`() = runTest {
         engines.defaultResult = RouteResult.Found(route)
         val viewModel = viewModel()
         runCurrent()
@@ -73,7 +73,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `Indicazioni dalla mappa imposta la meta dalla propria posizione e chiude la ricerca`() = runTest {
+    fun `Indicazioni dalla mappa imposta la destinazione dalla propria posizione e chiude la ricerca`() = runTest {
         val viewModel = viewModel()
         viewModel.startSearch(PlannerField.FROM)
         viewModel.choose(duomo)
@@ -136,7 +136,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     // --- Anteprima ---
 
     @Test
-    fun `senza meta l'anteprima e' inattiva`() = runTest {
+    fun `senza destinazione l'anteprima e' inattiva`() = runTest {
         val viewModel = viewModel()
         runCurrent()
 
@@ -274,7 +274,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `cancellare la meta toglie l'anteprima e riparte dalla propria posizione`() = runTest {
+    fun `cancellare la destinazione toglie l'anteprima e riparte dalla propria posizione`() = runTest {
         val viewModel = viewModel()
         viewModel.startSearch(PlannerField.FROM)
         viewModel.choose(duomo)
@@ -334,7 +334,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     // --- Avviso di partenza ---
 
     @Test
-    fun `l'avviso si programma per la meta con il suo nome e si ricorda`() = runTest {
+    fun `l'avviso si programma per la destinazione con il suo nome e si ricorda`() = runTest {
         val viewModel = viewModel()
         viewModel.setDestination(colosseo)
 
@@ -501,7 +501,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     // --- Intorno alla posizione ---
 
     @Test
-    fun `senza meta, con GPS e permesso, la posizione e i POI vicini si aggiornano`() = runTest {
+    fun `senza destinazione, con GPS e permesso, la posizione e i POI vicini si aggiornano`() = runTest {
         dao.nearestRows += poiRow(1, "Bar Duomo", lat = duomo.latitude, lon = duomo.longitude)
         val viewModel = viewModel()
         runCurrent()
@@ -516,7 +516,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `con una meta o senza GPS la posizione non si ascolta`() = runTest {
+    fun `con una destinazione o senza GPS la posizione non si ascolta`() = runTest {
         val viewModel = viewModel()
         runCurrent()
         assertEquals(1, gps.listeners)

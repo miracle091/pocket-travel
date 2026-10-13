@@ -3,10 +3,10 @@
 # nazioni non contigue — vedi build-all-regions.sh per Stati Uniti), genera poi.db (POI
 # Overpass, via il tool Kotlin generatePoi), scarica e ri-ospita i segmenti BRouter .rd5 che
 # intersecano il bbox (stesso host di poi.db, vedi manifest-fragment.json), estrae con go-pmtiles
-# un'anteprima offline a pochi zoom della mappa (preview.pmtiles, vedi PREVIEW_MAX_ZOOM piu' sotto),
+# una mappa d'insieme offline a pochi zoom della mappa (preview.pmtiles, vedi PREVIEW_MAX_ZOOM piu' sotto),
 # e produce il frammento manifest.json con i pacchetti della regione: mappa (map.source punta alla
-# build Protomaps corrente per l'estrazione lato device — vedi PmtilesExtractor, core:sync),
-# routing (.rd5), POI e anteprima (preview, facoltativa), ciascuno con la propria versione. Le
+# build Protomaps corrente per l'estrazione sul dispositivo — vedi PmtilesExtractor, core:sync),
+# rete stradale (.rd5), POI e mappa d'insieme (preview, facoltativa), ciascuno con la propria versione. Le
 # guide non sono qui: un solo pacchetto per tutte le regioni, generato da build-guides.sh.
 #
 # I .rd5 sono ri-ospitati perche' brouter.de
@@ -45,7 +45,7 @@
 #
 # Richiede: curl, sha256sum, awk, jq, xz, python3 (clip_rd5.py), gradle wrapper (./gradlew) dalla
 # root del repo. go-pmtiles (PMTILES_BIN, vedi publish-regions.yml) e' facoltativo: senza, la
-# regione resta senza anteprima (mai fatale). I segmenti .rd5 restano in <outputDir> insieme a
+# regione resta senza mappa d'insieme (mai fatale). I segmenti .rd5 restano in <outputDir> insieme a
 # poi.db e preview.pmtiles(.xz), pronti per essere copiati nel sito da pubblicare (vedi
 # build-all-regions.sh/publish-regions.yml).
 set -euo pipefail
@@ -149,20 +149,20 @@ MAP_FINGERPRINT_MIN_ZOOM=12
 # invariate; sotto, si riusa (vedi sezione 2bis).
 POI_MAX_AGE_DAYS="${POI_MAX_AGE_DAYS:-30}"
 
-# Anteprima offline della regione (preview.pmtiles): pochi livelli di zoom della stessa build
+# Mappa d'insieme offline della regione (preview.pmtiles): pochi livelli di zoom della stessa build
 # Protomaps della mappa, con un tetto di peso sul file compresso. Si parte da PREVIEW_MAX_ZOOM:
 # se il .xz supera PREVIEW_MAX_XZ_BYTES si rifa' con uno zoom in meno, fino a PREVIEW_MIN_ZOOM
 # incluso - se anche li' resta sopra il tetto si pubblica comunque (e' il minimo scelto) con un
-# avviso, invece di lasciare la regione senza anteprima. Si rigenera solo quando la mappa cambia o
+# avviso, invece di lasciare la regione senza mappa d'insieme. Si rigenera solo quando la mappa cambia o
 # la regione non ne ha ancora una (sezioni 2bis e 5 piu' sotto), non a ogni run: e' un'estrazione e
 # una compressione in piu', inutili se la mappa sottostante e' la stessa.
 PREVIEW_MAX_ZOOM=9
 PREVIEW_MIN_ZOOM=6
 PREVIEW_MAX_XZ_BYTES=$((10 * 1024 * 1024))
 # go-pmtiles: stesso binario e stessa installazione di build-address-cell.sh (vedi publish-regions.yml).
-# Mancante = niente anteprima, mai fatale per la regione (solo un avviso).
+# Mancante = niente mappa d'insieme, mai fatale per la regione (solo un avviso).
 PMTILES_BIN="${PMTILES_BIN:-$(command -v pmtiles || command -v go-pmtiles || true)}"
-# Limite per tentativo di estrazione: un'anteprima nei limiti scarica pochi MB in qualche secondo, ma
+# Limite per tentativo di estrazione: una mappa d'insieme nei limiti scarica pochi MB in qualche secondo, ma
 # build.protomaps.com a volte rallenta a ~20 kB/s o risponde 524 dopo 15 minuti (norvegia, run del
 # 2026-09-30: due tentativi da ~18 minuti hanno fatto scadere il limite di 45 minuti della regione).
 PREVIEW_ATTEMPT_TIMEOUT=180
@@ -195,10 +195,10 @@ preview_over_cap() {
 # MiB, un solo thread.
 build_preview() {
   local sourceUrl="$1" zoom="$PREVIEW_MAX_ZOOM" file="$OUTPUT_DIR/preview.pmtiles"
-  # Si parte dallo zoom dell'anteprima gia' pubblicata invece che dal massimo: ripartendo
+  # Si parte dallo zoom della mappa d'insieme gia' pubblicata invece che dal massimo: ripartendo
   # sempre da z9 le regioni grandi rifarebbero ogni volta le estrazioni scartate (Italia: z9, z8,
   # poi z7). Se allo zoom pubblicato il file sta sotto meta' del tetto, si prova un livello in piu'
-  # (l'anteprima puo' anche crescere); se non ci sta piu', si scende di un livello alla volta.
+  # (la mappa d'insieme puo' anche crescere); se non ci sta piu', si scende di un livello alla volta.
   local published="" tryUp=false
   if [ -n "${PUBLISHED_MANIFEST:-}" ] && [ -s "$PUBLISHED_MANIFEST" ]; then
     published="$(jq -r --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id)][0].preview.maxZoom // empty' "$PUBLISHED_MANIFEST" 2>/dev/null || true)"
@@ -211,15 +211,15 @@ build_preview() {
     rm -f "$file" "$file.xz"
     # Sopra lo zoom minimo, uno zoom la cui stima e' gia' oltre il tetto non si scarica nemmeno.
     if [ "$zoom" -gt "$PREVIEW_MIN_ZOOM" ] && preview_over_cap "$sourceUrl" "$zoom"; then
-      echo "-- anteprima di $REGION_ID a z$zoom: stima oltre il tetto ($PREVIEW_MAX_XZ_BYTES), salto il download e provo z$((zoom - 1))"
+      echo "-- mappa d'insieme di $REGION_ID a z$zoom: stima oltre il tetto ($PREVIEW_MAX_XZ_BYTES), salto il download e provo z$((zoom - 1))"
       zoom=$((zoom - 1))
       tryUp=false
       continue
     fi
     # build.protomaps.com a volte non risponde o chiude a meta': due tentativi (ciascuno con un limite
-    # di tempo), poi l'anteprima si salta (return 1) e il chiamante tiene quella pubblicata, invece di
-    # perdere POI e percorsi gia' fatti.
-    with_retries "anteprima di $REGION_ID" "$PREVIEW_ATTEMPTS" "$file" \
+    # di tempo), poi la mappa d'insieme si salta (return 1) e il chiamante tiene quella pubblicata, invece di
+    # perdere POI e rete stradale gia' fatti.
+    with_retries "mappa d'insieme di $REGION_ID" "$PREVIEW_ATTEMPTS" "$file" \
       timeout "$PREVIEW_ATTEMPT_TIMEOUT" "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$zoom" 2>&1 | pmtiles_log || return 1
     xz -T1 --lzma2=preset=9e,dict=16MiB -c "$file" > "$file.xz"
     local xzSize
@@ -227,13 +227,13 @@ build_preview() {
     if [ "$tryUp" = true ] && [ $((xzSize * 2)) -le "$PREVIEW_MAX_XZ_BYTES" ] && [ "$zoom" -lt "$PREVIEW_MAX_ZOOM" ]; then
       # Un solo tentativo verso l'alto: se non ci sta, si torna qui sotto allo zoom pubblicato.
       tryUp=false
-      echo "-- anteprima di $REGION_ID a z$zoom: $xzSize byte, sotto meta' del tetto: provo z$((zoom + 1))"
+      echo "-- mappa d'insieme di $REGION_ID a z$zoom: $xzSize byte, sotto meta' del tetto: provo z$((zoom + 1))"
       mv "$file" "$file.down"
       mv "$file.xz" "$file.xz.down"
       local upSize=$((PREVIEW_MAX_XZ_BYTES + 1))
       # Il tentativo verso l'alto e' facoltativo: se l'estrazione fallisce resta lo zoom pubblicato.
       if ! preview_over_cap "$sourceUrl" "$((zoom + 1))" \
-        && with_retries "anteprima di $REGION_ID a z$((zoom + 1))" "$PREVIEW_ATTEMPTS" "$file" \
+        && with_retries "mappa d'insieme di $REGION_ID a z$((zoom + 1))" "$PREVIEW_ATTEMPTS" "$file" \
         timeout "$PREVIEW_ATTEMPT_TIMEOUT" "$PMTILES_BIN" extract "$sourceUrl" "$file" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --maxzoom="$((zoom + 1))" 2>&1 | pmtiles_log; then
         xz -T1 --lzma2=preset=9e,dict=16MiB -c "$file" > "$file.xz"
         upSize="$(wc -c < "$file.xz" | tr -d ' ')"
@@ -250,7 +250,7 @@ build_preview() {
     tryUp=false
     if [ "$xzSize" -le "$PREVIEW_MAX_XZ_BYTES" ] || [ "$zoom" -le "$PREVIEW_MIN_ZOOM" ]; then
       if [ "$xzSize" -gt "$PREVIEW_MAX_XZ_BYTES" ]; then
-        echo "::warning::anteprima di $REGION_ID a z$zoom pesa $xzSize byte (tetto $PREVIEW_MAX_XZ_BYTES), pubblicata comunque (zoom minimo $PREVIEW_MIN_ZOOM raggiunto)"
+        echo "::warning::mappa d'insieme di $REGION_ID a z$zoom pesa $xzSize byte (tetto $PREVIEW_MAX_XZ_BYTES), pubblicata comunque (zoom minimo $PREVIEW_MIN_ZOOM raggiunto)"
       fi
       PREVIEW_ZOOM_USED="$zoom"
       PREVIEW_SIZE="$(wc -c < "$file" | tr -d ' ')"
@@ -259,7 +259,7 @@ build_preview() {
       PREVIEW_XZ_SHA256="$(sha256sum < "$file.xz" | awk '{print $1}')"
       return 0
     fi
-    echo "-- anteprima di $REGION_ID a z$zoom: $xzSize byte oltre il tetto ($PREVIEW_MAX_XZ_BYTES), riprovo a z$((zoom - 1))"
+    echo "-- mappa d'insieme di $REGION_ID a z$zoom: $xzSize byte oltre il tetto ($PREVIEW_MAX_XZ_BYTES), riprovo a z$((zoom - 1))"
     zoom=$((zoom - 1))
   done
 }
@@ -277,7 +277,7 @@ preview_manifest_entry() {
 }
 
 # update_preview_entry <manifestFragmentFile> <needed:true|false>: se needed e go-pmtiles c'e',
-# (ri)genera l'anteprima e la scrive nel frammento con preview_manifest_entry; se manca go-pmtiles
+# (ri)genera la mappa d'insieme e la scrive nel frammento con preview_manifest_entry; se manca go-pmtiles
 # e serve, solo un avviso (mai fatale). Usata dalle rigenerazioni incrementali (sezione 2bis): la
 # rigenerazione completa (sezione 5) passa invece dalla spec di generateManifest (previewPmtiles),
 # che gestisce "file" come i POI e lascia solo "fileXz" a questo script.
@@ -285,12 +285,12 @@ update_preview_entry() {
   local fragment="$1" needed="$2"
   [ "$needed" = "true" ] || return 0
   if [ -z "$PMTILES_BIN" ]; then
-    echo "::warning::go-pmtiles non trovato: $REGION_ID resta senza anteprima"
+    echo "::warning::go-pmtiles non trovato: $REGION_ID resta senza mappa d'insieme"
     return 0
   fi
-  echo "-- $REGION_ID: (ri)genero l'anteprima"
+  echo "-- $REGION_ID: (ri)genero la mappa d'insieme"
   if ! build_preview "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles"; then
-    echo "::warning::anteprima di $REGION_ID non estratta (build.protomaps.com): resta quella pubblicata"
+    echo "::warning::mappa d'insieme di $REGION_ID non estratta (build.protomaps.com): resta quella pubblicata"
     return 0
   fi
   local url="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--preview.pmtiles.xz"
@@ -424,7 +424,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
   echo "-- controllo se $REGION_ID e' gia' aggiornata rispetto a $PUBLISHED_MANIFEST_URL..."
   PUBLISHED_MANIFEST="$WORKDIR/published-manifest.json"
   # Con ritentativi e, se non arriva, errore: una rigenerazione completa per un problema di rete
-  # darebbe nuove versioni (e riscaricamenti) a mappa, routing e POI senza motivo. Solo un 404 (nessun
+  # darebbe nuove versioni (e riscaricamenti) a mappa, rete stradale e POI senza motivo. Solo un 404 (nessun
   # manifest ancora pubblicato, prima pubblicazione) porta alla rigenerazione completa.
   PUBLISHED_MANIFEST_HTTP="$(fetch_published_manifest "$PUBLISHED_MANIFEST_URL" "$PUBLISHED_MANIFEST")"
   if [ "$PUBLISHED_MANIFEST_HTTP" != "200" ] && [ "$PUBLISHED_MANIFEST_HTTP" != "404" ]; then
@@ -518,7 +518,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
       jq -c --arg id "$REGION_ID" --arg fp "$MAP_FINGERPRINT" '{manifestVersion: .manifestVersion, regions: [(.regions // [])[] | select(.regionId == $id)
         | if (.map.fingerprint // "") == "" and $fp != "" then .map.fingerprint = $fp else . end]}' \
         "$PUBLISHED_MANIFEST" > "$OUTPUT_DIR/manifest-fragment.json"
-      # La mappa non e' cambiata, ma una regione senza ancora un'anteprima pubblicata la riceve
+      # La mappa non e' cambiata, ma una regione senza ancora una mappa d'insieme pubblicata la riceve
       # comunque una volta sola, senza aspettare la prossima rigenerazione completa.
       if [ "$(printf '%s' "$PUBLISHED_REGION" | jq 'has("preview")')" != "true" ]; then
         update_preview_entry "$OUTPUT_DIR/manifest-fragment.json" true
@@ -532,11 +532,11 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
     fi
     # Aggiornamento incrementale: la regione e' gia' pubblicata nel formato a pacchetti (v2) con
     # le stesse tile (cambiano solo le dimensioni di alcune). Si riscaricano solo le tile cambiate
-    # (nuova versione del routing, e della mappa, che punta alla build Protomaps corrente; nessuna
+    # (nuova versione della rete stradale, e della mappa, che punta alla build Protomaps corrente; nessuna
     # delle due cambia versione se non e' cambiata nessuna tile, altrimenti l'app riscaricherebbe
-    # per niente). I POI non dipendono dalle tile di routing: il poi.db pubblicato resta com'e' se
+    # per niente). I POI non dipendono dalle tile della rete stradale: il poi.db pubblicato resta com'e' se
     # ha al piu' POI_MAX_AGE_DAYS giorni, altrimenti si rigenera solo lui (sezione 3 in modalita'
-    # POI_ONLY). Una regione ancora v1 (senza "routing"), o senza la variante auto (routingCar, che va
+    # POI_ONLY). Una regione ancora v1 (senza la rete stradale "routing"), o senza la variante auto (routingCar, che va
     # ricavata da tutte le tile, non solo da quelle cambiate), viene rigenerata per intero.
     if [ -n "$PUBLISHED_REGION" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$(printf '%s' "$PUBLISHED_REGION" | jq 'has("routing") and has("routingCar")')" = "true" ]; then
       SAME_TILES="$(jq -n --argjson a "$EXPECTED_SORTED" --argjson b "$PUBLISHED_SORTED" '($a | map(.name)) == ($b | map(.name))')"
@@ -558,7 +558,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
         jq -R -s -c "$RD5_TSV_TO_JSON" "$UPDATED_TSV" > "$WORKDIR/updated-rd5.json"
         build_car_variant "$UPDATED_TSV" "$WORKDIR/updated-car.tsv"
         jq -R -s -c "$RD5_TSV_TO_JSON" "$WORKDIR/updated-car.tsv" > "$WORKDIR/updated-car.json"
-        # Mappa e routing hanno versioni indipendenti: una tile .rd5 cambiata non fa ri-estrarre
+        # Mappa e rete stradale hanno versioni indipendenti: una tile .rd5 cambiata non fa ri-estrarre
         # la mappa.
         jq -c --arg id "$REGION_ID" --arg version "$VERSION" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
           --arg src "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" --slurpfile upd "$WORKDIR/updated-rd5.json" --slurpfile updCar "$WORKDIR/updated-car.json" \
@@ -576,7 +576,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
                   | .routingCar.version = $version | .routingCar.files |= map(if $uc[.name] then $uc[.name] else . end)
                 else . end]}' \
           "$PUBLISHED_MANIFEST" > "$OUTPUT_DIR/manifest-fragment.json"
-        # Anteprima: si rigenera solo se la mappa e' davvero cambiata (MAP_DUE, non solo qualche
+        # Mappa d'insieme: si rigenera solo se la mappa e' davvero cambiata (MAP_DUE, non solo qualche
         # tile .rd5) o se la regione non ne ha ancora una - non a ogni run incrementale.
         PREVIEW_NEEDED=false
         { [ "$MAP_DUE" = "true" ] || [ "$(printf '%s' "$PUBLISHED_REGION" | jq 'has("preview")')" != "true" ]; } && PREVIEW_NEEDED=true
@@ -853,7 +853,7 @@ POI_COUNT="$(poi_count "$POI_DB")"
 POI_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi.db.xz"
 POI_EXTRA_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi-extra.db.xz"
 if [ "$POI_ONLY" = "true" ]; then
-  # Il frammento incrementale scritto dalla sezione 2bis ha gia' mappa, routing e le voci POI
+  # Il frammento incrementale scritto dalla sezione 2bis ha gia' mappa, rete stradale e le voci POI
   # pubblicate: si aggiornano solo i pacchetti POI. Un file identico a quello pubblicato si scarta e
   # si tiene la voce pubblicata: una versione nuova farebbe riscaricare all'app gli stessi dati.
   MANIFEST_FRAGMENT="$OUTPUT_DIR/manifest-fragment.json"
@@ -885,7 +885,7 @@ if [ "$POI_ONLY" = "true" ]; then
       [ -e "$rd5" ] && CHANGED_RD5=true
     done
     # Non se la sezione 2bis ha dato una nuova versione alla mappa (MAP_DUE) o ha (ri)generato
-    # l'anteprima: il frammento pubblicato le perderebbe.
+    # la mappa d'insieme: il frammento pubblicato le perderebbe.
     if [ "$CHANGED_RD5" != "true" ] && [ "$MAP_DUE" != "true" ] && [ ! -f "$OUTPUT_DIR/preview.pmtiles.xz" ] \
       && [ "$(jq -c '.regions[0] | {poi, poiExtra}' "$MANIFEST_FRAGMENT")" = "$(printf '%s' "$PUBLISHED_REGION" | jq -c '{poi, poiExtra}')" ]; then
       # Nessuna tile cambiata e POI identici: niente da caricare, come lo skip della sezione 2bis.
@@ -905,7 +905,7 @@ POI_EXTRA_SPEC="null"
 if [ -f "$POI_EXTRA_DB" ]; then
   POI_EXTRA_SPEC="$(jq -n -c --arg path "$(winpath "$POI_EXTRA_DB")" --arg url "$POI_EXTRA_DB_URL" '{path: $path, url: $url}')"
 fi
-# Anteprima: la mappa e' comunque appena (ri)estratta dalla build Protomaps corrente in questa
+# Mappa d'insieme: la mappa e' comunque appena (ri)estratta dalla build Protomaps corrente in questa
 # rigenerazione completa, quindi si genera sempre (non solo quando cambia rispetto alla precedente,
 # a differenza delle sezioni incrementali sopra). Solo "file" passa dalla spec (come poiDb, hash
 # calcolato da generateManifest sul file locale); "fileXz" si aggiunge dopo coi valori gia' pronti
@@ -917,15 +917,15 @@ if [ -n "$PMTILES_BIN" ] && build_preview "https://build.protomaps.com/${PROTOMA
   PREVIEW_SPEC="$(jq -n -c --arg path "$(winpath "$OUTPUT_DIR/preview.pmtiles")" --arg url "$PREVIEW_URL" \
     --argjson maxZoom "$PREVIEW_ZOOM_USED" '{path: $path, url: $url, maxZoom: $maxZoom}')"
 elif [ -n "$PMTILES_BIN" ]; then
-  # Protomaps non ha risposto: si tiene l'anteprima pubblicata (il suo asset resta referenziato dal
+  # Protomaps non ha risposto: si tiene la mappa d'insieme pubblicata (il suo asset resta referenziato dal
   # manifest), o la regione esce senza se non ne aveva una.
   rm -f "$OUTPUT_DIR/preview.pmtiles" "$OUTPUT_DIR/preview.pmtiles.xz"
   if [ -n "${PUBLISHED_MANIFEST:-}" ] && [ -s "$PUBLISHED_MANIFEST" ]; then
     PUBLISHED_PREVIEW="$(jq -c --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id)][0].preview // null' "$PUBLISHED_MANIFEST" 2>/dev/null || echo null)"
   fi
-  echo "::warning::anteprima di $REGION_ID non estratta (build.protomaps.com): $([ "$PUBLISHED_PREVIEW" = null ] && echo 'regione senza anteprima' || echo 'resta quella pubblicata')"
+  echo "::warning::mappa d'insieme di $REGION_ID non estratta (build.protomaps.com): $([ "$PUBLISHED_PREVIEW" = null ] && echo "regione senza mappa d'insieme" || echo 'resta quella pubblicata')"
 else
-  echo "::warning::go-pmtiles non trovato: $REGION_ID senza anteprima"
+  echo "::warning::go-pmtiles non trovato: $REGION_ID senza mappa d'insieme"
 fi
 # Costruita con jq (--arg), non con un heredoc: un displayName con virgolette o backslash
 # produrrebbe altrimenti un JSON non valido.
@@ -961,7 +961,7 @@ jq -c --argjson xz "$POI_XZ" --argjson extraXz "$POI_EXTRA_XZ" --argjson count "
   '.regions |= map(.poi.fileXz = $xz | .poi.count = $count | .poi.border = $border | .poi.borderRelation = $borderRelation | if .poiExtra and $extraXz then .poiExtra.fileXz = $extraXz else . end)' \
   "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
 mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
-# Anteprima compressa (voce fileXz): dimensione/hash gia' calcolati da build_preview, niente
+# Mappa d'insieme compressa (voce fileXz): dimensione/hash gia' calcolati da build_preview, niente
 # ricompressione (a differenza di xz_entry sopra, che lavora su un file non ancora compresso).
 if [ -f "$OUTPUT_DIR/preview.pmtiles" ]; then
   PREVIEW_XZ_JSON="$(jq -n -c --arg url "$PREVIEW_URL" --argjson size "$PREVIEW_XZ_SIZE" --arg hash "$PREVIEW_XZ_SHA256" \

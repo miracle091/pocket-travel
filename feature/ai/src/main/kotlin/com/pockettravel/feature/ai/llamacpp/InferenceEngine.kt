@@ -1,5 +1,7 @@
 // Adattato da examples/llama.android (com.arm.aichat) di ggml-org/llama.cpp, git tag v0.6.0 —
-// vedi third-party/llama-cpp/LICENSE-LLAMA-CPP.txt. Interfaccia invariata, solo il package.
+// vedi third-party/llama-cpp/LICENSE-LLAMA-CPP.txt. Oltre al package cambiano: uso del contesto (`contextUsage`,
+// `ContextUsage`), variante CPU (`cpuBackend`, `CpuBackendInfo`), campionamento e thread in `loadModel`,
+// `resetConversation` e `setGrammar` al posto del system prompt.
 package com.pockettravel.feature.ai.llamacpp
 
 import com.pockettravel.feature.ai.llamacpp.InferenceEngine.State

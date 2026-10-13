@@ -50,7 +50,7 @@ MANIFEST_INPUTS+=("${FRAGMENT_FILES[@]}")
 # Continente e codice paese di ogni regione (campi continent e flagCode di ALL_REGIONS), scritti
 # dal merge nei campi "continent" e "countryCode" di tutte le regioni del manifest, anche quelle non
 # ricostruite in questa run: l'app raggruppa l'elenco per continente e rende cliccabili i paesi
-# sulla mappa del mondo, e non ha altra fonte per saperlo.
+# sulla mappa delle nazioni, e non ha altra fonte per saperlo.
 source "$SCRIPT_DIR/regions.sh"
 CONTINENTS_TSV="$(mktemp)"
 for spec in "${ALL_REGIONS[@]}"; do
@@ -212,7 +212,7 @@ for continent in "${CONTINENTS[@]}"; do
   CONTINENT_SECTIONS="$(printf '%s\n%s' "$CONTINENT_SECTIONS" "$section")"
 done
 
-# "Ultimi aggiornamenti": derivato dalle versioni dei pacchetti (mappa, routing, POI: la piu'
+# "Ultimi aggiornamenti": derivato dalle versioni dei pacchetti (mappa, rete stradale, POI: la piu'
 # recente) gia' presenti in ogni region del manifest unito, non serve nessuna cronologia separata da
 # mantenere. Raggruppato per version (una per
 # ogni run di pubblicazione, non per singola nazione) e limitato alle 10 piu' recenti cosi' la

@@ -13,9 +13,9 @@ class ModelDownloadFailedException(message: String) : Exception(message)
 class ModelNotAvailableException(message: String) : Exception(message)
 
 /**
- * Modello IA on-device: scaricato solo su richiesta, liberabile dall'utente in un tocco
+ * Modello IA sul dispositivo: scaricato solo su richiesta, liberabile dall'utente in un tocco
  * (quantizzato, consigliato sotto 1,5 GB).
- * Generalizzato a un catalogo di modelli (LlmModelCatalog): ogni metodo prende il
+ * Generalizzato al catalogo dei modelli (LlmModelCatalog): ogni metodo prende il
  * [LlmModelDefinition] su cui operare invece di leggere un unico modello fisso, cosi' il
  * chiamante (risolto da AiSettingsStore.selectedModelId) resta l'unica fonte di verita' su
  * quale modello e' "quello attivo" — nessuno stato duplicato qui dentro.
@@ -25,7 +25,7 @@ interface LlmModelManager {
 
     fun isDownloaded(definition: LlmModelDefinition): Boolean
 
-    /** Id dei modelli del catalogo presenti su disco, aggiornato a ogni installazione ed eliminazione. */
+    /** Id delle voci del catalogo dei modelli presenti su disco, aggiornato a ogni installazione ed eliminazione. */
     val downloadedModelIds: StateFlow<Set<String>>
 
     fun sizeOnDisk(definition: LlmModelDefinition): Long
@@ -37,7 +37,7 @@ interface LlmModelManager {
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     )
 
-    /** Un solo modello on-device installato alla volta: [currentlyInstalled], se diverso, si elimina prima del download. */
+    /** Un solo modello sul dispositivo installato alla volta: [currentlyInstalled], se diverso, si elimina prima del download. */
     suspend fun selectAndDownload(
         newDefinition: LlmModelDefinition,
         currentlyInstalled: LlmModelDefinition?,
@@ -52,6 +52,6 @@ interface LlmModelManager {
     /** Come [delete], da chiamare solo con il lock del modello gia' preso. */
     fun deleteWithoutLock(definition: LlmModelDefinition): Boolean
 
-    /** Elimina da disco ogni file che non e' un modello del catalogo ne' il parziale del modello [selected]. */
+    /** Elimina da disco ogni file che non e' una voce del catalogo dei modelli ne' il parziale del modello [selected]. */
     fun deleteOrphanedFiles(selected: LlmModelDefinition)
 }

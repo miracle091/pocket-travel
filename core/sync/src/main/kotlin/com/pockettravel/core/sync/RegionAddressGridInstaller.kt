@@ -258,7 +258,7 @@ internal fun decompressXz(source: File, target: File, expected: RegionManifestFi
     }
 }
 
-// Preset veloce: i database di ricerca si comprimono sul device, solo per le installazioni vecchie.
+// Preset veloce: i database di ricerca si comprimono sul dispositivo, solo per le installazioni vecchie.
 private const val XZ_PRESET = 3
 
 /**

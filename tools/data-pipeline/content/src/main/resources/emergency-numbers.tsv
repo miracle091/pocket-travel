@@ -3,7 +3,7 @@
 # WP = Wikipedia EN "List of emergency telephone numbers", WD = Wikidata P2852,
 # FCDO = gov.uk Foreign travel advice (Open Government Licence v3.0), WV = Wikivoyage EN,
 # WV/WVfr = Wikivoyage (varie lingue / FR, Infobox numero di emergenza), NIHRACS = Norfolk Island Health (norfolkislandhealth.gov.nf).
-# Riga senza numeri: nessun numero di emergenza centralizzato (l'app lo dichiara nella scheda).
+# Riga senza numeri: nessun numero di emergenza centralizzato (l'app lo dichiara nel riquadro).
 # regionId	general	police	ambulance	fire	fonti	nota
 afghanistan		119	102	112	CA+WP/WD	
 albania	112	129	127	128	CA+WP/WD	

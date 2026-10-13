@@ -39,7 +39,7 @@ class RegionManifestValidationTest {
     }
 
     @Test
-    fun `i segmenti di routing non possono ripetersi`() {
+    fun `i segmenti della rete stradale non possono ripetersi`() {
         val dup = RoutingPackageEntry("r1", listOf(file("E10_N40.rd5"), file("E10_N40.rd5")))
         invalid(entry.copy(routing = dup))
     }
@@ -78,7 +78,7 @@ class RegionManifestValidationTest {
     }
 
     @Test
-    fun `l'anteprima ha zoom massimo fra 0 e 22 e file validi`() {
+    fun `la mappa d'insieme ha zoom massimo fra 0 e 22 e file validi`() {
         val preview = PreviewPackageEntry("v1", 6, file("preview.pmtiles"))
         entry.copy(preview = preview).validate()
         entry.copy(preview = preview.copy(maxZoom = 0)).validate()
@@ -119,7 +119,7 @@ class RegionManifestValidationTest {
     }
 
     @Test
-    fun `il mondo online ha zoom, dimensione e indirizzo validi`() {
+    fun `la mappa del mondo ha zoom, dimensione e indirizzo validi`() {
         val world = WorldMapEntry("1", 8, "https://github.com/o/r/world.pmtiles", 100)
         world.validate()
         listOf(

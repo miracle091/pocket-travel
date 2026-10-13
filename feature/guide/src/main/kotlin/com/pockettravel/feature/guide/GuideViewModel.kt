@@ -46,7 +46,7 @@ data class GuideUiState(
     val embassies: List<Poi> = emptyList(),
     // Le rappresentanze Wikidata dello stesso paese nella nazione della regione: il riquadro le fonde con i POI OSM.
     val missions: List<DiplomaticMission> = emptyList(),
-    // Ultima posizione nota del telefono (null senza permesso): le rappresentanze piu' vicine in cima.
+    // Ultima posizione nota del dispositivo (null senza permesso): le rappresentanze piu' vicine in cima.
     val position: Pair<Double, Double>? = null,
     // La regione non ha un numero di emergenza centralizzato: il riquadro lo dice al posto dei numeri.
     val noCentralEmergencyNumber: Boolean = false,
@@ -67,7 +67,7 @@ data class CityGuideUiState(
     @StringRes val loadError: Int? = null,
 )
 
-/** Meteo di un luogo: [place] e' il nome della citta', null per la posizione del telefono. */
+/** Meteo di un luogo: [place] e' il nome della citta', null per la posizione del dispositivo. */
 data class PlaceWeather(val place: String?, val result: WeatherResult)
 
 @HiltViewModel
@@ -243,7 +243,7 @@ class GuideViewModel @Inject constructor(
         _cityUiState.value = CityGuideUiState()
     }
 
-    // Il meteo della posizione se il telefono e' nella regione (POI del pacchetto attorno a una posizione recente),
+    // Il meteo della posizione se il dispositivo e' nella regione (POI del pacchetto attorno a una posizione recente),
     // altrimenti della capitale o, senza, della citta' principale.
     private suspend fun regionWeather(regionId: String): PlaceWeather? = positionWeather(regionId) ?: capitalWeather(regionId)
 

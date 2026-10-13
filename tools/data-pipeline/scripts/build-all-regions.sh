@@ -28,7 +28,7 @@ source "$SCRIPT_DIR/regions.sh"
 source "$SCRIPT_DIR/lib.sh"
 REGIONS=("${ALL_REGIONS[@]}")
 
-# Risolta una volta sola per l'intero lotto (non da ogni build-region.sh, vedi lib.sh): stessa
+# Risolta una volta sola per tutto l'elenco delle regioni (non da ogni build-region.sh, vedi lib.sh): stessa
 # build Protomaps per tutte le regioni della stessa run.
 PROTOMAPS_DATE_OVERRIDE="$(resolve_protomaps_date)"
 export PROTOMAPS_DATE_OVERRIDE
@@ -48,8 +48,8 @@ done
 # --- merge dei frammenti in un unico manifest.json + asset pronti per la release -----------------
 # SITE_DIR/manifest.json e' cio' che va su GitHub Pages; RELEASE_ASSETS_DIR/<tag> contiene invece
 # gli asset della release <tag> gia' rinominati <id>--version--nomefile (stessa convenzione e stessi
-# file compressi caricati da publish-regions.yml), pronti per essere caricati a mano se questo lotto
-# va pubblicato per davvero.
+# file compressi caricati da publish-regions.yml), pronti per essere caricati a mano se queste regioni
+# vanno pubblicate per davvero.
 SITE_DIR="$OUTPUT_ROOT/site"
 RELEASE_ASSETS_DIR="$OUTPUT_ROOT/release-assets"
 mkdir -p "$SITE_DIR" "$RELEASE_ASSETS_DIR/region-data-guide"

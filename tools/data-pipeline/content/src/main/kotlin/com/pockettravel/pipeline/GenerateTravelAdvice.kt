@@ -14,7 +14,7 @@ import java.util.Locale
  * licensed under the Open Government Licence – Canada."; i termini del sito canada.ca non valgono per i dati aperti).
  * Il testo e' scritto per i canadesi solo in alcune parti, misurate il 2026-10-07 sulle 237 pagine: restano fuori
  * ingresso e uscita (passaporti canadesi), uffici consolari, i sottotitoli di excludedAdviceHeadings e, nel resto, le
- * frasi che nominano il Canada. Fuori anche i vaccini: li da' gia' la scheda Vaccinazioni, dalla stessa fonte.
+ * frasi che nominano il Canada. Fuori anche i vaccini: li da' gia' la schermata delle vaccinazioni, dalla stessa fonte.
  *
  * Per i territori senza pagina su travel.gc.ca (Palestina, Pitcairn, Wallis e Futuna; misura del 2026-10-08) le stesse
  * quattro sezioni vengono dai consigli del Foreign, Commonwealth & Development Office del Regno Unito: GOV.UK Content API
@@ -271,7 +271,7 @@ private fun fcdoAreasToAvoid(warnings: String): String =
 /** Paese che una pagina FCDO copre insieme a quello della regione, e i sottotitoli (h2/h3, minuscoli) solo suoi. */
 private data class SharedCountry(val iso: String, val name: String, val region: String, val headings: Set<String>)
 
-// La pagina FCDO della Palestina e' "Israel and Palestine" (decisione utente 2026-10-08): le parti solo israeliane vanno in
+// La pagina FCDO della Palestina e' "Israel and Palestine": le parti solo israeliane vanno in
 // una sezione a parte, mostrata solo a chi ha la nazionalita' israeliana; gli altri vedono un rimando alla guida di Israele.
 private val fcdoSharedCountries = mapOf(
     "/foreign-travel-advice/palestine" to SharedCountry(
@@ -399,7 +399,7 @@ fun isTravelAdvice(section: GuideSectionRow): Boolean =
  * Il testo di travel.gc.ca cambia per quasi tutti i paesi ogni due settimane, il livello di rischio di rado (misura del
  * 2026-10-07: nessun cambio in 228 paesi in 2-4 settimane), e il job delle guide gira ogni giorno: i soli consigli
  * cambiati pubblicano un nuovo guides-en.db (che tutti riscaricano) al piu' una volta ogni questi giorni, a meno che
- * cambi il livello di rischio o gli avvisi regionali di un paese (decisione utente 2026-10-07: una versione a settimana).
+ * cambi il livello di rischio o gli avvisi regionali di un paese.
  */
 const val TRAVEL_ADVICE_MAX_AGE_DAYS = 7L
 

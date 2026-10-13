@@ -67,7 +67,7 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
     }
 
     @Test
-    fun `la regione installata e aggiornata risulta installata, con la dimensione sul telefono`() = runTest {
+    fun `la regione installata e aggiornata risulta installata, con la dimensione sul dispositivo`() = runTest {
         repository.installedRegions.value = listOf(installed())
         val viewModel = viewModel()
 

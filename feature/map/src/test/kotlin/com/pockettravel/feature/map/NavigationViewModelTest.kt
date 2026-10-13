@@ -55,7 +55,7 @@ class NavigationViewModelTest {
         durationSeconds = 600.0,
         instructions = listOf(TurnInstruction(TurnType.LEFT, 445.0, 1), TurnInstruction(TurnType.ARRIVE, 0.0, 2)),
     )
-    private val meta = NavigationPlace("Meta", end.latitude, end.longitude, "r1")
+    private val destination = NavigationPlace("Destinazione", end.latitude, end.longitude, "r1")
     private val arrival = LocalDateTime.of(2026, 10, 12, 18, 0)
 
     @After
@@ -81,12 +81,12 @@ class NavigationViewModelTest {
     private fun minutes(time: LocalDateTime) = time.toEpochSecond(ZoneOffset.UTC) / 60
 
     private fun NavigationViewModel.begin(mode: RouteProfile = RouteProfile.CAR, preview: PlannerPreview.Ready? = null) =
-        start("r1", meta, mode, arrival, preview)
+        start("r1", destination, mode, arrival, preview)
 
     // --- Stati iniziali ---
 
     @Test
-    fun `senza guida in corso non c'e' meta ne proposta di ripresa e il GPS non si ascolta`() = runTest {
+    fun `senza navigazione in corso non c'e' destinazione ne proposta di ripresa e il GPS non si ascolta`() = runTest {
         val viewModel = viewModel()
         runCurrent()
 
@@ -97,7 +97,7 @@ class NavigationViewModelTest {
     }
 
     @Test
-    fun `senza permesso o con il GPS spento la guida lo dice`() = runTest {
+    fun `senza permesso o con il GPS spento la navigazione lo dice`() = runTest {
         gps.permission = false
         val viewModel = viewModel()
         runCurrent()
@@ -124,27 +124,27 @@ class NavigationViewModelTest {
         assertFalse(viewModel.uiState.value.walkingHaptics)
     }
 
-    // --- Avvio e fine della guida ---
+    // --- Avvio e fine della navigazione ---
 
     @Test
-    fun `Avvia imposta la meta, avvisa la notifica, parte il servizio e salva la guida`() = runTest {
+    fun `Avvia imposta la destinazione, avvisa la notifica, parte il servizio e salva la navigazione`() = runTest {
         val viewModel = viewModel()
 
         viewModel.begin(RouteProfile.CAR)
 
-        assertEquals(meta, viewModel.uiState.value.target)
+        assertEquals(destination, viewModel.uiState.value.target)
         assertEquals(RouteProfile.CAR, viewModel.uiState.value.routeProfile)
         assertEquals(arrival, viewModel.uiState.value.arriveBy)
         assertEquals(listOf("r1"), viewModel.uiState.value.regionIds)
-        assertEquals(NavigationSnapshot("Meta", null, 0.0, 0.0, 0.0, waitingForFix = true), session.snapshot.value)
+        assertEquals(NavigationSnapshot("Destinazione", null, 0.0, 0.0, 0.0, waitingForFix = true), session.snapshot.value)
         assertEquals(1, starter.starts)
         assertEquals(1, gps.listeners)
         val saved = preferences.activeNavigation()
-        assertEquals(meta, saved?.place)
+        assertEquals(destination, saved?.place)
         assertEquals(RouteProfile.CAR, saved?.mode)
         assertEquals("r1", saved?.regionId)
         assertEquals(minutes(arrival), saved?.arriveByEpochMinute)
-        assertEquals(meta, handle.get<String>("destination")?.toPlace())
+        assertEquals(destination, handle.get<String>("destination")?.toPlace())
         assertEquals("r1", handle.get<String>("regionId"))
         assertEquals("CAR", handle.get<String>("mode"))
     }
@@ -154,7 +154,7 @@ class NavigationViewModelTest {
         gps.permission = false
         val viewModel = viewModel()
         viewModel.onPermissionResult(true)
-        assertEquals("senza guida il permesso non avvia nulla", 0, starter.starts)
+        assertEquals("senza navigazione il permesso non avvia nulla", 0, starter.starts)
 
         viewModel.begin()
         assertEquals(0, starter.starts)
@@ -169,7 +169,7 @@ class NavigationViewModelTest {
     }
 
     @Test
-    fun `Termina chiude la guida, svuota la notifica, il disco e lo stato salvato e ferma il GPS`() = runTest {
+    fun `Termina chiude la navigazione, svuota la notifica, il disco e lo stato salvato e ferma il GPS`() = runTest {
         val viewModel = viewModel()
         viewModel.begin()
 
@@ -184,7 +184,7 @@ class NavigationViewModelTest {
     }
 
     @Test
-    fun `Termina dalla notifica chiude la guida in corso`() = runTest {
+    fun `Termina dalla notifica chiude la navigazione in corso`() = runTest {
         val viewModel = viewModel()
         runCurrent()
         viewModel.begin()
@@ -197,7 +197,7 @@ class NavigationViewModelTest {
     }
 
     @Test
-    fun `chiudere l'hub con una guida in corso toglie la notifica, senza guida non tocca nulla`() = runTest {
+    fun `chiudere l'hub con una navigazione in corso toglie la notifica, senza navigazione non tocca nulla`() = runTest {
         val viewModel = viewModel()
         viewModel.begin()
         assertNotNull(session.snapshot.value)
@@ -225,10 +225,10 @@ class NavigationViewModelTest {
         runCurrent()
 
         assertTrue(viewModel.uiState.value.status is NavigationStatus.Calculating)
-        assertEquals(NavigationSnapshot("Meta", null, 0.0, 0.0, 0.0), session.snapshot.value)
+        assertEquals(NavigationSnapshot("Destinazione", null, 0.0, 0.0, 0.0), session.snapshot.value)
         val request = engines.requests.single()
         assertEquals(origin, request.from)
-        assertEquals(meta.point, request.to)
+        assertEquals(destination.point, request.to)
         assertEquals("car-vario", request.profile)
         assertEquals(listOf(listOf("r1")), engines.created)
 
@@ -417,7 +417,7 @@ class NavigationViewModelTest {
     }
 
     @Test
-    fun `ripartire cancella il calcolo della guida precedente`() = runTest {
+    fun `ripartire cancella il calcolo della navigazione precedente`() = runTest {
         engines.defaultResult = RouteResult.Found(route)
         engines.gate = CompletableDeferred()
         val viewModel = viewModel()
@@ -437,7 +437,7 @@ class NavigationViewModelTest {
     }
 
     @Test
-    fun `chiudere la guida durante il calcolo ne scarta il risultato`() = runTest {
+    fun `chiudere la navigazione durante il calcolo ne scarta il risultato`() = runTest {
         engines.defaultResult = RouteResult.Found(route)
         engines.gate = CompletableDeferred()
         val viewModel = viewModel()
@@ -456,7 +456,7 @@ class NavigationViewModelTest {
     // --- Arrivo ---
 
     @Test
-    fun `all'arrivo la guida si chiude, il GPS si spegne e il disco si svuota`() = runTest {
+    fun `all'arrivo la navigazione si chiude, il GPS si spegne e il disco si svuota`() = runTest {
         engines.defaultResult = RouteResult.Found(route)
         val viewModel = viewModel()
         viewModel.begin()
@@ -473,11 +473,11 @@ class NavigationViewModelTest {
         assertNull(preferences.activeNavigation())
         assertEquals(0, gps.listeners)
         // La destinazione resta fino a "Termina": e' il Navigatore a chiudere la schermata.
-        assertEquals(meta, viewModel.uiState.value.target)
+        assertEquals(destination, viewModel.uiState.value.target)
     }
 
     @Test
-    fun `senza spegnere il GPS all'arrivo la guida resta aperta e l'arrivo si segna una volta`() = runTest {
+    fun `senza spegnere il GPS all'arrivo la navigazione resta aperta e l'arrivo si segna una volta`() = runTest {
         preferences.setStopGpsOnArrival(false)
         engines.defaultResult = RouteResult.Found(route)
         val viewModel = viewModel()
@@ -501,14 +501,14 @@ class NavigationViewModelTest {
     // --- Ripresa dopo la chiusura del processo ---
 
     @Test
-    fun `dallo stato salvato da Android la guida interrotta si propone e riparte uguale`() = runTest {
+    fun `dallo stato salvato da Android la navigazione interrotta si propone e riparte uguale`() = runTest {
         handle = SavedStateHandle(
             mapOf(
-                "destination" to meta.toSavedState(), "regionId" to "r1", "mode" to "BIKE", "arriveBy" to minutes(arrival),
+                "destination" to destination.toSavedState(), "regionId" to "r1", "mode" to "BIKE", "arriveBy" to minutes(arrival),
             ),
         )
         val viewModel = viewModel()
-        assertEquals(meta, viewModel.uiState.value.resumeOffer)
+        assertEquals(destination, viewModel.uiState.value.resumeOffer)
         assertEquals(RouteProfile.BIKE, viewModel.uiState.value.routeProfile)
         assertEquals(minutes(arrival), viewModel.uiState.value.arriveBy?.let(::minutes))
         assertNull(viewModel.uiState.value.target)
@@ -516,50 +516,50 @@ class NavigationViewModelTest {
         viewModel.resume()
 
         assertNull(viewModel.uiState.value.resumeOffer)
-        assertEquals(meta, viewModel.uiState.value.target)
+        assertEquals(destination, viewModel.uiState.value.target)
         assertEquals(RouteProfile.BIKE, viewModel.uiState.value.routeProfile)
         assertEquals(arrival, viewModel.uiState.value.arriveBy)
         assertEquals(1, starter.starts)
     }
 
     @Test
-    fun `ricreato con lo stesso handle il ViewModel ritrova meta e mezzo e la guida riprende`() = runTest {
+    fun `ricreato con lo stesso handle il ViewModel ritrova destinazione e mezzo e la navigazione riprende`() = runTest {
         viewModel().begin(RouteProfile.CAR)
         host?.clear()
 
         val recreated = viewModel()
 
         assertNull(recreated.uiState.value.target)
-        assertEquals(meta, recreated.uiState.value.resumeOffer)
+        assertEquals(destination, recreated.uiState.value.resumeOffer)
         assertEquals(RouteProfile.CAR, recreated.uiState.value.routeProfile)
         assertEquals(arrival, recreated.uiState.value.arriveBy)
 
         recreated.resume()
 
-        assertEquals(meta, recreated.uiState.value.target)
+        assertEquals(destination, recreated.uiState.value.target)
         assertEquals(RouteProfile.CAR, recreated.uiState.value.routeProfile)
     }
 
     @Test
-    fun `dal disco la guida interrotta riparte con regione, mezzo e ora salvati`() = runTest {
+    fun `dal disco la navigazione interrotta riparte con regione, mezzo e ora salvati`() = runTest {
         preferences.saveActiveNavigation(
-            ActiveNavigation("r1", meta, RouteProfile.CAR, minutes(arrival), System.currentTimeMillis()),
+            ActiveNavigation("r1", destination, RouteProfile.CAR, minutes(arrival), System.currentTimeMillis()),
         )
         val viewModel = viewModel()
-        assertEquals(meta, viewModel.uiState.value.resumeOffer)
+        assertEquals(destination, viewModel.uiState.value.resumeOffer)
 
         viewModel.resume()
 
-        assertEquals(meta, viewModel.uiState.value.target)
+        assertEquals(destination, viewModel.uiState.value.target)
         assertEquals(RouteProfile.CAR, viewModel.uiState.value.routeProfile)
         assertEquals(arrival, viewModel.uiState.value.arriveBy)
         assertEquals(listOf("r1"), viewModel.uiState.value.regionIds)
     }
 
     @Test
-    fun `una guida salvata da troppo tempo non si propone`() = runTest {
+    fun `una navigazione salvata da troppo tempo non si propone`() = runTest {
         preferences.saveActiveNavigation(
-            ActiveNavigation("r1", meta, RouteProfile.CAR, null, System.currentTimeMillis() - 13 * 60 * 60 * 1000L),
+            ActiveNavigation("r1", destination, RouteProfile.CAR, null, System.currentTimeMillis() - 13 * 60 * 60 * 1000L),
         )
 
         val viewModel = viewModel()
@@ -568,9 +568,9 @@ class NavigationViewModelTest {
     }
 
     @Test
-    fun `No dimentica la guida interrotta ovunque sia salvata`() = runTest {
-        handle = SavedStateHandle(mapOf("destination" to meta.toSavedState(), "arriveBy" to minutes(arrival)))
-        preferences.saveActiveNavigation(ActiveNavigation("r1", meta, RouteProfile.CAR, null, System.currentTimeMillis()))
+    fun `No dimentica la navigazione interrotta ovunque sia salvata`() = runTest {
+        handle = SavedStateHandle(mapOf("destination" to destination.toSavedState(), "arriveBy" to minutes(arrival)))
+        preferences.saveActiveNavigation(ActiveNavigation("r1", destination, RouteProfile.CAR, null, System.currentTimeMillis()))
         val viewModel = viewModel()
 
         viewModel.dismissResume()
@@ -599,7 +599,7 @@ class NavigationViewModelTest {
     }
 
     @Test
-    fun `nella stessa nazione di casa o senza guida l'avviso non c'e'`() = runTest {
+    fun `nella stessa nazione di casa o senza navigazione l'avviso non c'e'`() = runTest {
         val viewModel = viewModel()
         runCurrent()
         assertNull(viewModel.uiState.value.drivingSideWarning)

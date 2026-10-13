@@ -74,13 +74,13 @@ class TileSourceStyleTest {
     }
 
     @Test
-    fun `le anteprime stanno sotto le mappe complete, in qualunque ordine arrivino`() {
+    fun `le mappe d'insieme stanno sotto le mappe complete, in qualunque ordine arrivino`() {
         val preview = region("anteprima", maxZoom = 9)
         val full = region("completa")
 
         val all = ids(regionsStyle(listOf(full, preview), dark = false, label = labelField("it"), fallback = null))
 
-        // Tutta la pila dell'anteprima prima di quella della mappa completa.
+        // Tutta la pila della mappa d'insieme prima di quella della mappa completa.
         assertTrue(all.indexOf("roads_labels_minor-anteprima") < all.indexOf("water-completa"))
     }
 
@@ -151,7 +151,7 @@ class TileSourceStyleTest {
     }
 
     @Test
-    fun `lo zoom massimo del mondo online finisce nella sorgente`() {
+    fun `lo zoom massimo della mappa del mondo finisce nella sorgente`() {
         val fallback = worldFallbackStyle("#1", "#2", "#3", "#4", "pmtiles://https://example.invalid/w.pmtiles", 6)
 
         assertTrue(fallback.sources.contains("\"url\": \"pmtiles://https://example.invalid/w.pmtiles\""))
@@ -202,7 +202,7 @@ class TileSourceStyleTest {
     }
 
     @Test
-    fun `la sorgente scelta tra mondo online e nessuna dipende solo dalla rete e dall'indirizzo`() {
+    fun `la sorgente scelta tra mappa del mondo e nessuna dipende solo dalla rete e dall'indirizzo`() {
         val online = selectSource(null, previewUrl = null, previewMaxZoom = 0, worldMapUrl = "https://example.invalid/w.pmtiles", worldMapMaxZoom = 7, online = true)
         val offline = selectSource(null, previewUrl = null, previewMaxZoom = 0, worldMapUrl = "https://example.invalid/w.pmtiles", worldMapMaxZoom = 7, online = false)
 

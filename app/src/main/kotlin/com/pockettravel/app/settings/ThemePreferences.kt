@@ -10,7 +10,7 @@ import javax.inject.Singleton
 
 /**
  * Aspetto scelto in Altro: colori del wallpaper (dynamic color, Android 12+) o del brand, e tema
- * scuro forzato (spento: l'app segue il tema del telefono).
+ * scuro forzato (spento: l'app segue il tema del dispositivo).
  */
 @Singleton
 class ThemePreferences @Inject constructor(preferences: PreferencesFactory) {

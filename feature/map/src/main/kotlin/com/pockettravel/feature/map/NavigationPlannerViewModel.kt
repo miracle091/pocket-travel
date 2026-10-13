@@ -115,7 +115,7 @@ sealed interface PlannerPreview {
 }
 
 /**
- * Lo stato della scheda Navigatore prima della guida. [from] null = la propria posizione; [query] e [results] hanno
+ * Lo stato della scheda Navigatore prima della navigazione. [from] null = la propria posizione; [query] e [results] hanno
  * un valore solo con la ricerca aperta ([searching]); [routing] e' il profilo BRouter del mezzo scelto; [mapRegionIds]
  * le regioni della mappa; [idlePosition] la propria posizione sulla mappa senza destinazione, con i [nearbyPois] attorno;
  * [routingInstalled] dice se la regione aperta ha la rete stradale e [routingRegionIds] quali regioni ce l'hanno utile
@@ -144,7 +144,7 @@ data class PlannerUiState(
 
 /**
  * Tab Navigazione dell'hub: partenza (la propria posizione o un posto), destinazione cercata per nome
- * tra i punti di interesse delle regioni installate, mezzo e anteprima del percorso. La guida passo
+ * tra i punti di interesse delle regioni installate, mezzo e anteprima del percorso. La navigazione passo
  * passo e' NavigationInstructions, nella stessa scheda: "Avvia" la fa partire (NavigationViewModel) quando
  * si parte dalla propria posizione. Partenza, arrivo, mezzo, ora di arrivo e avviso di partenza stanno
  * in [SavedStateHandle]: se il sistema chiude l'app, tornando si ritrova lo stesso Navigatore.
@@ -193,7 +193,7 @@ class NavigationPlannerViewModel @Inject constructor(
 
     /**
      * Le regioni della mappa prima del percorso: quella della scheda, poi quelle di partenza e arrivo (una destinazione
-     * a Riga dalla scheda di San Marino mostra Riga). Senza nessuna delle tre (Navigatore della barra, nessuna
+     * a Riga dalla pagina della regione di San Marino mostra Riga). Senza nessuna delle tre (Navigatore della barra, nessuna
      * destinazione) tutte quelle installate.
      */
     private val mapRegionIds: StateFlow<List<String>> = combine(regionId, _from, _to, installed) { id, from, to, regions ->
@@ -348,7 +348,7 @@ class NavigationPlannerViewModel @Inject constructor(
         _reminder.value = departure
     }
 
-    /** Toglie l'avviso programmato: all'avvio della guida, all'arrivo e a ogni cambio del percorso. */
+    /** Toglie l'avviso programmato: all'avvio della navigazione, all'arrivo e a ogni cambio del percorso. */
     fun cancelReminder() {
         if (_reminder.value == null) return
         departureReminder.cancel()

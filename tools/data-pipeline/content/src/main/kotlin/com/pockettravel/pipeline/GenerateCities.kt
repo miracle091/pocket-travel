@@ -174,7 +174,7 @@ fun writeCitiesDb(sections: List<CitySectionRow>, outputDb: File) {
  * come guides.db, perche' le citta' pesano troppo per stare tutte in un pacchetto scaricato da
  * ogni app.
  *
- * cities.jsonl assente o vuoto (nessuna citta' abbinata alla regione in questo run, vedi
+ * cities.jsonl assente o vuoto (nessuna citta' abbinata alla regione in questa run, vedi
  * build-cities-dump.sh) o senza sezioni utili: nessun cities.db scritto, il chiamante tiene la
  * voce "cities" gia' pubblicata (se c'e').
  */

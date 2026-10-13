@@ -47,7 +47,7 @@ class FileLlmModelManager @Inject constructor(
 
     override fun isDownloaded(definition: LlmModelDefinition): Boolean = modelFile(definition).exists()
 
-    // Id dei modelli del catalogo presenti su disco, aggiornato a ogni installazione/eliminazione
+    // Id delle voci del catalogo dei modelli presenti su disco, aggiornato a ogni installazione/eliminazione
     // (per questo la classe e' un singleton: una sola copia dello stato).
     private val _downloadedModelIds = MutableStateFlow(scanDownloadedModelIds())
     override val downloadedModelIds: StateFlow<Set<String>> = _downloadedModelIds.asStateFlow()
@@ -91,7 +91,7 @@ class FileLlmModelManager @Inject constructor(
     }
 
     /**
-     * Un solo modello on-device installato alla volta: se un altro modello e' gia' presente su
+     * Un solo modello sul dispositivo installato alla volta: se un altro modello e' gia' presente su
      * disco, va eliminato (e il motore rilasciato) prima di scaricare quello nuovo — evita di
      * accumulare piu' file da centinaia di MB/pochi GB ciascuno in parallelo.
      */
@@ -260,10 +260,10 @@ class FileLlmModelManager @Inject constructor(
         }
 
     /**
-     * Elimina da [modelsDir] ogni file che non e' un modello del catalogo attuale (col suo sha256 salvato)
+     * Elimina da [modelsDir] ogni file che non e' una voce del catalogo dei modelli attuale (col suo sha256 salvato)
      * ne' il `.part` del modello [selected]: es. i `.litertlm` scaricati prima del passaggio a llama.cpp,
      * o il parziale di un modello poi abbandonato, che nessun altro codice referenzia piu' e che
-     * occuperebbero fino a 2,5 GB per sempre. Senza lock: i modelli del catalogo e il download in corso
+     * occuperebbero fino a 2,5 GB per sempre. Senza lock: le voci del catalogo dei modelli e il download in corso
      * (quello del modello scelto) non vengono mai toccati, quindi non c'e' corsa con download().
      */
     override fun deleteOrphanedFiles(selected: LlmModelDefinition) {

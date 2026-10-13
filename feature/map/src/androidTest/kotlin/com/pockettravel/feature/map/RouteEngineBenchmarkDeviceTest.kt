@@ -50,8 +50,8 @@ class RouteEngineBenchmarkDeviceTest {
         val profileDir = File(context.filesDir, "brouter-profile")
         val preferences = PreferencesFactory { name -> context.getSharedPreferences(name, Context.MODE_PRIVATE) }
         RouteEngineModule.provideRouteEngineFactory(File(context.cacheDir, "unused"), context,
-            UsageModePreferences(preferences, MapFilterPreferences(preferences), RoutingVariantPreferences(preferences)), Dispatchers.IO)
-        val engine = BRouterRouteEngine(segments!!, profileDir, profile, maxRunningTimeMillis = 300_000)
+            UsageModePreferences(preferences, MapFilterPreferences(preferences), RoutingVariantPreferences(preferences)), Dispatchers.IO, Dispatchers.Default)
+        val engine = BRouterRouteEngine(segments!!, profileDir, profile, maxRunningTimeMillis = 300_000, ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default)
 
         repeat(2) { attempt ->
             System.gc()

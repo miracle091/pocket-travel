@@ -103,7 +103,7 @@ class RegionListLogicEdgeCasesTest {
     // offlineRegionItem
 
     @Test
-    fun `una nazione senza catalogo mostra solo i pacchetti sul telefono, tutti installati e senza peso da scaricare`() {
+    fun `una nazione senza catalogo mostra solo i pacchetti sul dispositivo, tutti installati e senza peso da scaricare`() {
         val item = offlineRegionItem(local(map = "m1", poi = "p1", size = 500)) { _, kind -> kind.ordinal * 10L }
 
         assertEquals(RegionStatus.INSTALLED, item.status)
@@ -163,7 +163,7 @@ class RegionListLogicEdgeCasesTest {
     // regionUiItem
 
     @Test
-    fun `una regione installata e aggiornata mostra il peso sul telefono e nessuna mappa da scaricare`() {
+    fun `una regione installata e aggiornata mostra il peso sul dispositivo e nessuna mappa da scaricare`() {
         val item = regionUiItem(remote, local(map = "m2", routing = "r1", poi = "p2", size = 777), noBytes)
 
         assertEquals(RegionStatus.INSTALLED, item.status)

@@ -2,6 +2,7 @@ package com.pockettravel.feature.map
 
 import com.pockettravel.core.data.RoutingVariantChoice
 import com.pockettravel.core.poi.PoiCategory
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -112,7 +113,7 @@ class UsageModeTest {
         UsageMode.ROUTING_PROFILES.forEach { profile ->
             assertTrue("$profile.brf mancante negli asset", File(assetProfiles, "$profile.brf").isFile)
             val result = runBlocking {
-                BRouterRouteEngine(segmentDir, assetProfiles, profile)
+                BRouterRouteEngine(segmentDir, assetProfiles, profile, ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default)
                     .route(from = RoutePoint(45.5000, 9.9970), to = RoutePoint(45.5000, 10.0030))
             }
             if (profile == "car-vario") {

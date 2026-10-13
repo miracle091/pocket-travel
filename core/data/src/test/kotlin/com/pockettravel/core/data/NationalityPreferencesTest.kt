@@ -9,19 +9,19 @@ import org.junit.Test
 class NationalityPreferencesTest {
 
     @Test
-    fun `senza scelta vale il paese del telefono`() {
+    fun `senza scelta vale il paese del dispositivo`() {
         val preferences = NationalityPreferences(InMemoryPreferencesFactory()) { "IT" }
 
         assertEquals("IT", preferences.nationality.value)
     }
 
     @Test
-    fun `senza scelta e senza paese del telefono non c'e' nazionalita'`() {
+    fun `senza scelta e senza paese del dispositivo non c'e' nazionalita'`() {
         assertNull(NationalityPreferences(InMemoryPreferencesFactory()) { null }.nationality.value)
     }
 
     @Test
-    fun `la nazionalita' scelta vince sul paese del telefono e resta`() {
+    fun `la nazionalita' scelta vince sul paese del dispositivo e resta`() {
         val files = InMemoryPreferencesFactory()
         NationalityPreferences(files) { "IT" }.setNationality("JP")
 

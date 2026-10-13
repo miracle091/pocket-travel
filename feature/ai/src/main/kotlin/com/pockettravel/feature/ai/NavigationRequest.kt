@@ -47,7 +47,7 @@ private val TRIGGER = Regex(
     RegexOption.IGNORE_CASE,
 )
 
-// Il mezzo con il verbo davanti, se c'e' ("vado a piedi", "I'm walking"): si toglie tutto dalla meta.
+// Il mezzo con il verbo davanti, se c'e' ("vado a piedi", "I'm walking"): si toglie tutto dalla destinazione.
 private const val MODE_VERB = "(?:,?\\s*\\b(?:vado|andiamo|vengo|i'm|i am|we're|we are)\\s+)?"
 
 private val MODES = listOf(
@@ -66,7 +66,7 @@ private val TRAILING_TIME = Regex(
         "|(?:tomorrow|today|this)(?:\\s+(?:morning|afternoon|evening|night))?|tonight|(?:right\\s+)?now)$",
 )
 
-// Preposizioni, articoli e verbi di visita davanti alla meta, tolti uno alla volta: "fino alla stazione" -> "stazione",
+// Preposizioni, articoli e verbi di visita davanti alla destinazione, tolti uno alla volta: "fino alla stazione" -> "stazione",
 // "a vedere il Colosseo" -> "Colosseo". I verbi solo in minuscolo: con la maiuscola sono parte del nome ("See Hotel").
 private val LEADING_WORD = Regex(
     "^\\s*(?:(?:subito|stradali|verso|fino|per|a|ad|al|allo|alla|ai|agli|alle|in|il|lo|la|i|gli|le|(?-i:vedere|visitare|see|visit)|to|towards?|for|the)(?:\\s+|$)|(?:all|dall|l)['’])",

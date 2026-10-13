@@ -1,6 +1,6 @@
 package com.pockettravel.core.sync
 
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.tukaani.xz.XZInputStream
@@ -14,14 +14,19 @@ import java.util.UUID
  * il file scaricato e' gia' [file]. Condivisa da RegionPackageInstaller (poi.db, poi-extra.db,
  * addresses.pmtiles, preview.pmtiles) e GuidesInstaller (guides.db).
  *
- * Gira su IO e si ferma tra un blocco e l'altro se la coroutine viene annullata (un lavoro sostituito
+ * Gira su [ioDispatcher] e si ferma tra un blocco e l'altro se la coroutine viene annullata (un lavoro sostituito
  * con REPLACE non deve continuare a scrivere). Il file temporaneo ha un nome unico: due esecuzioni
  * sulla stessa cartella di staging non scrivono mai lo stesso file. La decompressione si interrompe
  * appena il risultato supera la dimensione attesa (un xz piccolo puo' espandersi a dismisura).
  */
-internal suspend fun unpackXz(staging: File, file: RegionManifestFile, fileXz: RegionManifestFile?) {
+internal suspend fun unpackXz(
+    staging: File,
+    file: RegionManifestFile,
+    fileXz: RegionManifestFile?,
+    ioDispatcher: CoroutineDispatcher,
+) {
     val xz = fileXz ?: return
-    withContext(Dispatchers.IO) {
+    withContext(ioDispatcher) {
         val target = File(staging, file.name)
         val part = File(staging, "${file.name}.${UUID.randomUUID()}.unpack")
         val digest = MessageDigest.getInstance("SHA-256")

@@ -322,7 +322,7 @@ class RegionDatabaseDaoTest {
         assertEquals(listOf("Rīgas Centrs"), find("riga"))
         assertEquals(listOf("Centro"), find("vecchia"))
         assertEquals(listOf("Centrs"), find("old square"))
-        assertEquals("il pacchetto extra non e' una meta", emptyList<String>(), find("extra"))
+        assertEquals("il pacchetto extra non e' una destinazione", emptyList<String>(), find("extra"))
         assertEquals(listOf("Riga Bar", "Rīgas Centrs"), find("riga", listOf("lettonia", "estonia")))
         assertEquals(1, db.poiDao().searchByName(listOf("lettonia"), accentInsensitiveGlob("cent"), 1).size)
     }

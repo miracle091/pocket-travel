@@ -21,7 +21,7 @@
 #   --no-eval   senza rigenerare i test estesi (l'audit usa quelli che ci sono)
 # Output in tools/data-pipeline/data/sft/; log in <data>/generate-sft.<versione>.<lang>.log.
 # Richiede: Python con torch, transformers e sentencepiece (variabile PYTHON, default python3), Java e ANDROID_HOME
-# (app_clean passa da Gradle), rete per Wikidata e HuggingFace la prima volta (poi in cache in data/sft/raw/).
+# (app_clean passa da Gradle), rete per Wikidata e Hugging Face la prima volta (poi in cache in data/sft/raw/).
 set -euo pipefail
 
 usage() { sed -n '2,/^set /{/^#/p}' "$0" >&2; exit 1; }

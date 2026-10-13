@@ -13,7 +13,7 @@ class OfflineTileSourceTest {
     val tempFolder = TemporaryFolder()
 
     @Test
-    fun `sceglie la mappa completa se c'e', anche con anteprima, mondo online e rete disponibili`() {
+    fun `sceglie la mappa completa se c'e', anche con mappa d'insieme, mappa del mondo e rete disponibili`() {
         val resolved = selectSource(
             fullMapUrl = "pmtiles://file://map.pmtiles",
             previewUrl = "pmtiles://file://preview.pmtiles",
@@ -43,7 +43,7 @@ class OfflineTileSourceTest {
     }
 
     @Test
-    fun `senza mappa completa sceglie l'anteprima, con il suo maxzoom`() {
+    fun `senza mappa completa sceglie la mappa d'insieme, con il suo maxzoom`() {
         val resolved = selectSource(
             fullMapUrl = null,
             previewUrl = "pmtiles://file://preview.pmtiles",
@@ -57,7 +57,7 @@ class OfflineTileSourceTest {
     }
 
     @Test
-    fun `senza mappa ne' anteprima ma online sceglie il mondo, con lo schema pmtiles`() {
+    fun `senza mappa ne' mappa d'insieme ma online sceglie la mappa del mondo, con lo schema pmtiles`() {
         val resolved = selectSource(
             fullMapUrl = null,
             previewUrl = null,
@@ -72,7 +72,7 @@ class OfflineTileSourceTest {
     }
 
     @Test
-    fun `senza mappa, anteprima e offline (o senza mondo pubblicato) non resta nessuna sorgente`() {
+    fun `senza mappa, mappa d'insieme e offline (o senza mappa del mondo pubblicata) non resta nessuna sorgente`() {
         val offline = selectSource(
             fullMapUrl = null, previewUrl = null, previewMaxZoom = 0,
             worldMapUrl = "https://example.invalid/world.pmtiles", worldMapMaxZoom = 8, online = false,
@@ -87,19 +87,19 @@ class OfflineTileSourceTest {
     }
 
     @Test
-    fun `mondo online sotto la regione solo con mappa della regione e rete`() {
+    fun `mappa del mondo sotto la regione solo con mappa della regione e rete`() {
         val world = "https://example.invalid/world.pmtiles"
         assertEquals("pmtiles://$world", worldFallbackUrl(MapSourceKind.FULL, world, online = true))
         assertEquals("pmtiles://$world", worldFallbackUrl(MapSourceKind.PREVIEW, world, online = true))
         assertEquals(null, worldFallbackUrl(MapSourceKind.FULL, world, online = false))
         assertEquals(null, worldFallbackUrl(MapSourceKind.FULL, null, online = true))
-        // Con ONLINE_WORLD il mondo e' gia' la sorgente principale: niente doppione.
+        // Con ONLINE_WORLD la mappa del mondo e' gia' la sorgente principale: niente doppione.
         assertEquals(null, worldFallbackUrl(MapSourceKind.ONLINE_WORLD, world, online = true))
         assertEquals(null, worldFallbackUrl(MapSourceKind.NONE, world, online = true))
     }
 
     @Test
-    fun `il ripiego offline ha solo i confini, con la rete anche il mondo sopra`() {
+    fun `il ripiego offline ha solo i confini, con la rete anche la mappa del mondo sopra`() {
         val offline = worldFallbackStyle("#00f", "#eee", "#888", "#fc0", worldUrl = null, worldMaxZoom = 8)
         assertTrue(offline.sources.contains("asset://world/countries.geojson"))
         assertFalse(offline.sources.contains("\"world\""))
@@ -161,7 +161,7 @@ class OfflineTileSourceTest {
     }
 
     @Test
-    fun `anche l'acqua del mondo online riempie solo i poligoni`() {
+    fun `anche l'acqua della mappa del mondo riempie solo i poligoni`() {
         val online = worldFallbackStyle("#00f", "#eee", "#888", "#fc0", worldUrl = "pmtiles://https://example.invalid/w.pmtiles", worldMaxZoom = 8)
         val water = online.layers.lineSequence().first { "fallback_world_water" in it }
         assertTrue(water.contains("\"filter\": [\"==\", \"\$type\", \"Polygon\"]"))

@@ -84,7 +84,7 @@ class AiSettingsStoreTest {
     }
 
     @Test
-    fun `il modello scelto e' quello salvato se e' nel catalogo`() {
+    fun `il modello scelto e' quello salvato se e' nel catalogo dei modelli`() {
         val model = LlmModelCatalog.ALL.first { LlmModelCatalog.isUsableIn(it, "it") }
         newStore().setSelectedModelId(model.id)
 
@@ -110,7 +110,7 @@ class AiSettingsStoreTest {
     }
 
     @Test
-    fun `un id salvato che non e' piu' nel catalogo ripiega sul predefinito`() {
+    fun `un id salvato che non e' piu' nel catalogo dei modelli ripiega sul predefinito`() {
         raw.edit().putString("selected_model_id", "modello-rimosso").apply()
 
         assertEquals(LlmModelCatalog.defaultFor(RamTier.MINIMO, "it").id, newStore().selectedModelId())
@@ -147,7 +147,7 @@ class AiSettingsStoreTest {
     }
 
     @Test
-    fun `allBenchmarkResults elenca solo i modelli del catalogo con un risultato`() {
+    fun `allBenchmarkResults elenca solo le voci del catalogo dei modelli con un risultato`() {
         val store = newStore()
         val id = LlmModelCatalog.ALL.first().id
         store.saveBenchmarkResult(BenchmarkResult(id, 1f, 1L, 1L, 1, 1L))

@@ -551,7 +551,7 @@ private suspend fun decodeSampled(bytes: ByteArray, targetPx: Int): ImageBitmap?
     while (minOf(bounds.outWidth, bounds.outHeight) / (sampleSize * 2) >= targetPx) sampleSize *= 2
     val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sampleSize })
         ?: return@withContext null
-    // CameraX salva la rotazione del telefono nel tag EXIF Orientation, che BitmapFactory ignora: senza,
+    // CameraX salva la rotazione del dispositivo nel tag EXIF Orientation, che BitmapFactory ignora: senza,
     // una foto scattata in verticale comparirebbe di lato.
     val degrees = runCatching { ExifInterface(ByteArrayInputStream(bytes)).rotationDegrees }.getOrDefault(0)
     val upright = if (degrees == 0) {

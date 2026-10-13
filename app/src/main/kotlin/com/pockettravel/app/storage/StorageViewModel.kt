@@ -103,7 +103,7 @@ class StorageViewModel @Inject constructor(
             message = currentMessage,
         )
     }
-        // packageBytes legge le dimensioni di mappa e routing dal disco.
+        // packageBytes legge le dimensioni di mappa e rete stradale dal disco.
         .flowOn(ioDispatcher)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StorageUiState())
 

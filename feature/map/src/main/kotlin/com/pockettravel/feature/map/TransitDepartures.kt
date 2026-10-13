@@ -158,8 +158,8 @@ private const val MILLIS_PER_MINUTE = 60_000L
 
 @Composable
 private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean) {
-    // Ora della rete nel formato del telefono (24 h o AM/PM, anche per TalkBack). Il formatter va in UTC: minuteOfDay e'
-    // gia' un orario locale della rete e non va spostato col fuso del telefono; GTFS supera le 24 h dopo mezzanotte.
+    // Ora della rete nel formato del dispositivo (24 h o AM/PM, anche per TalkBack). Il formatter va in UTC: minuteOfDay e'
+    // gia' un orario locale della rete e non va spostato col fuso del dispositivo; GTFS supera le 24 h dopo mezzanotte.
     val context = LocalContext.current
     val (clock, laterClocks) = remember(departure.minuteOfDay, departure.later, context) {
         val format = DateFormat.getTimeFormat(context).apply { timeZone = TimeZone.getTimeZone("UTC") }

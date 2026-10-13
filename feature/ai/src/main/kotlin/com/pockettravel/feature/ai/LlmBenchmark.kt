@@ -6,8 +6,8 @@ import javax.inject.Singleton
 /**
  * Punteggio approssimato, non un vero eval linguistico: confronta la risposta con parole chiave
  * attese e una lunghezza minima plausibile per prompt, non un giudizio semantico. Nessun modello
- * giudice disponibile on-device per valutare la qualita' in modo piu' rigoroso — serve solo a dare
- * un'idea relativa (questo modello risponde piu' a tema di quell'altro, su questo device), non un
+ * giudice disponibile sul dispositivo per valutare la qualita' in modo piu' rigoroso — serve solo a dare
+ * un'idea relativa (questo modello risponde piu' a tema di quell'altro, su questo dispositivo), non un
  * voto assoluto.
  */
 internal data class BenchmarkPrompt(val prompt: String, val expectedKeywords: List<String>, val minAnswerLength: Int)
@@ -41,7 +41,7 @@ class LlmBenchmark @Inject constructor(
     internal companion object {
         // Domande generiche sul dominio viaggio, non legate a una regione specifica: il
         // benchmark valuta il modello grezzo via OnDeviceLlmEngine.generate(), non la
-        // pipeline RAG di TravelAssistant (che dipende dai contenuti di una regione scaricata).
+        // scelta del contesto di TravelAssistant (che dipende dai contenuti di una regione scaricata).
         // Sei categorie diverse (documenti, fuso orario, sicurezza, visti, aritmetica breve,
         // usi e costumi) per un segnale di qualita' un po' piu' robusto: resta comunque
         // un'euristica su parole chiave, non un eval semantico vero.

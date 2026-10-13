@@ -8,7 +8,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Liste di parole nella ricerca dell'assistente (CategoryWords.kt): accese per tutti (utente, 2026-10-11).
+ * Liste di parole nella scelta del contesto (CategoryWords.kt): accese per tutti.
  * Nelle build di debug il task manager le spegne, per confrontare la ricerca con e senza; in release non si leggono.
  */
 @Singleton

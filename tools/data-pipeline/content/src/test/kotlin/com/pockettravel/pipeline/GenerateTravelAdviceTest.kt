@@ -89,7 +89,7 @@ class GenerateTravelAdviceTest {
 
     @Test
     fun `un paragrafo che inizia con un link resta, anche se un paragrafo dopo finisce con un link`() {
-        // Scheda Zika del Brasile: prima il paragrafo togliendo fino al </a></p> di "For more information" spariva tutto.
+        // Blocco Zika del Brasile: un link a fine paragrafo non deve far togliere i paragrafi dopo.
         val html = """
             <p><a href="https://www.canada.ca/zika.html">Zika virus</a> is a risk in this country.</p>
             <p>Zika virus is spread through the bite of an infected mosquito.</p>

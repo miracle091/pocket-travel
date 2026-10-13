@@ -70,7 +70,7 @@ class WorkManagerRegionSyncScheduler @Inject constructor(
             .addTag("${SyncConfig.DOWNLOAD_TAG}:${entry.regionId}")
             .build()
         // APPEND_OR_REPLACE, non KEEP: se un download di questa regione e' gia' in coda o in corso,
-        // una richiesta di altri pacchetti (es. routing mentre scarica map) si accoda invece di
+        // una richiesta di altri pacchetti (es. `ROUTING` mentre scarica `MAP`) si accoda invece di
         // sparire in silenzio. Il worker legge i kinds dal proprio input, quindi ogni link della
         // catena installa solo i pacchetti richiesti in quella chiamata, senza toccare lo staging
         // (nome per kinds+versione) degli altri. cancelDownload usa lo stesso nome univoco e annulla

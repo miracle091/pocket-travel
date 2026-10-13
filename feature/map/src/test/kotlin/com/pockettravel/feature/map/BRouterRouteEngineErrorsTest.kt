@@ -1,5 +1,6 @@
 package com.pockettravel.feature.map
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -21,7 +22,7 @@ class BRouterRouteEngineErrorsTest {
     private fun engine(): BRouterRouteEngine {
         val segments = tempFolder.newFolder().also { copy("E5_N45.rd5", "multi-tile-segments", it); copy("E10_N45.rd5", "multi-tile-segments", it) }
         val profiles = tempFolder.newFolder().also { copy("trekking.brf", "brouter-profile", it); copy("lookups.dat", "brouter-profile", it) }
-        return BRouterRouteEngine(segments, profiles)
+        return BRouterRouteEngine(segments, profiles, ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default)
     }
 
     @Test

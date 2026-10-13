@@ -1,5 +1,6 @@
 package com.pockettravel.core.sync
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -18,7 +19,7 @@ import kotlin.io.path.createTempDirectory
  * unpackXz() e' la decompressione condivisa da RegionPackageInstaller (poi.db, poi-extra.db,
  * addresses.pmtiles, preview.pmtiles, esercitati anche da RegionPackageInstallerDeviceTest) e
  * GuidesInstaller (guides.db): qui si esercita da sola, senza scaricare nulla ne' toccare
- * Room/android.database.sqlite (xz-java e' Java puro, non serve un device).
+ * Room/android.database.sqlite (xz-java e' Java puro, non serve un dispositivo).
  */
 class PackageXzUnpackerTest {
 
@@ -54,7 +55,7 @@ class PackageXzUnpackerTest {
         val compressed = xzOf(original)
         File(staging, "guides.db.xz").writeBytes(compressed)
 
-        unpackXz(staging, manifestFile("guides.db", original), manifestFile("guides.db.xz", compressed))
+        unpackXz(staging, manifestFile("guides.db", original), manifestFile("guides.db.xz", compressed), Dispatchers.IO)
 
         assertEquals("contenuto delle guide", File(staging, "guides.db").readText())
         assertFalse("l'.xz verificato e decompresso si cancella subito", File(staging, "guides.db.xz").exists())
@@ -62,7 +63,7 @@ class PackageXzUnpackerTest {
 
     @Test
     fun `senza fileXz non fa nulla`() = runBlocking {
-        unpackXz(staging, manifestFile("guides.db", "x".toByteArray()), null)
+        unpackXz(staging, manifestFile("guides.db", "x".toByteArray()), null, Dispatchers.IO)
 
         assertFalse(File(staging, "guides.db").exists())
     }
@@ -75,7 +76,7 @@ class PackageXzUnpackerTest {
         val wrongManifest = manifestFile("guides.db", original).copy(sha256 = sha256Hex("altro contenuto".toByteArray()))
 
         try {
-            unpackXz(staging, wrongManifest, manifestFile("guides.db.xz", compressed))
+            unpackXz(staging, wrongManifest, manifestFile("guides.db.xz", compressed), Dispatchers.IO)
             fail("un checksum sbagliato dopo la decompressione deve far fallire")
         } catch (_: PermanentRegionPackageException) {
             // atteso
@@ -93,7 +94,7 @@ class PackageXzUnpackerTest {
         val smaller = manifestFile("guides.db", original).copy(sizeBytes = 1_000)
 
         try {
-            unpackXz(staging, smaller, manifestFile("guides.db.xz", compressed))
+            unpackXz(staging, smaller, manifestFile("guides.db.xz", compressed), Dispatchers.IO)
             fail("un output oltre la dimensione attesa deve far fallire")
         } catch (_: PermanentRegionPackageException) {
             // atteso

@@ -78,7 +78,7 @@ class MapRouteViewModel @Inject constructor(
 
     // Richieste di ricaricare i segnalini (regione, area, filtri). Un solo raccoglitore, conflato: un caricamento
     // iniziato finisce sempre e poi si legge lo stato piu' recente. Annullarlo a ogni fermo della mappa, con una
-    // nazione grande (query di secondi sul telefono), lasciava la mappa senza segnalini.
+    // nazione grande (query di secondi sul dispositivo), lasciava la mappa senza segnalini.
     private val pinRequests = MutableStateFlow(0L)
 
     // Le coppie categoria/tag della regione aperta, lette una volta (PoiRepository.categoryTags).
@@ -109,7 +109,7 @@ class MapRouteViewModel @Inject constructor(
         }
     }
 
-    // Versioni installate di mappa, anteprima e civici della regione corrente, dal database: cambiano
+    // Versioni installate di mappa, mappa d'insieme e civici della regione corrente, dal database: cambiano
     // quando un pacchetto finisce di installarsi, anche in background con la scheda Mappa aperta.
     @OptIn(ExperimentalCoroutinesApi::class)
     private val installedVersions = regionIdFlow.filterNotNull().flatMapLatest { regionId ->
@@ -120,7 +120,7 @@ class MapRouteViewModel @Inject constructor(
 
     // Sorgente in uso per la regione corrente: il tipo serve a RegionHubScreen per la barra "Scarica
     // la mappa"; l'intero stato (tipo + versioni) e' la chiave con cui MapScreen ricostruisce lo stile,
-    // cosi' anche un'anteprima o una mappa aggiornata (stesso tipo, file nuovo) viene ridisegnata.
+    // cosi' anche una mappa d'insieme o una mappa aggiornata (stesso tipo, file nuovo) viene ridisegnata.
     // null finche' la sorgente non e' nota: la barra "Scarica la mappa" non deve comparire in quel frattempo.
     // sourceKind legge il file system: la combinazione gira su IO.
     private val mapSource: StateFlow<MapSourceState?> = combine(

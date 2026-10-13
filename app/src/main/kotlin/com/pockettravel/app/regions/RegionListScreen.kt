@@ -575,7 +575,7 @@ private const val PREVIEW_JAPAN_MB = 566L
 
 // Riusata anche dallo step di onboarding "Scarica una regione". Il tap e' sempre attivo: per una
 // regione non installata porta a un'anteprima della guida Wikivoyage (senza scaricare
-// mappa/routing), vedi RegionPreviewScreen.
+// mappa/rete stradale), vedi RegionPreviewScreen.
 @Composable
 internal fun RegionRow(
     item: RegionUiItem,

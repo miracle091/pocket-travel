@@ -142,7 +142,7 @@ const val RECALCULATION_INTERVAL_MILLIS = 10_000L
 /** Un arrivo piu' vecchio di cosi' non si annuncia piu' (snackbar, vibrazione): nessuno e' li' a sentirlo. */
 const val RECENT_ARRIVAL_MILLIS = 2 * 60_000L
 
-/** [arrivedAtMillis]: quando la guida ha visto la destinazione (null se mai): vero se e' successo da poco. */
+/** [arrivedAtMillis]: quando la navigazione ha visto la destinazione (null se mai): vero se e' successo da poco. */
 fun isRecentArrival(arrivedAtMillis: Long?, nowMillis: Long): Boolean =
     arrivedAtMillis != null && nowMillis - arrivedAtMillis in 0..RECENT_ARRIVAL_MILLIS
 
@@ -166,7 +166,7 @@ fun navigationRegionIds(regionId: String, candidates: List<RoutingRegion>, from:
     val touching = candidates
         .filter { region -> region.bounds?.let { it.minLon <= maxLon && it.maxLon >= minLon && it.minLat <= maxLat && it.maxLat >= minLat } == true }
         .map { it.regionId }
-    // La regione di partenza con la rete stradale ma senza riquadro leggibile (niente mappa ne' anteprima) resta.
+    // La regione di partenza con la rete stradale ma senza riquadro leggibile (niente mappa ne' mappa d'insieme) resta.
     val startWithoutBounds = candidates.any { it.regionId == regionId && it.bounds == null }
     return (if (startWithoutBounds) touching + regionId else touching).ifEmpty { listOf(regionId) }.sortedBy { it != regionId }
 }

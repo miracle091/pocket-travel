@@ -42,7 +42,7 @@ data class PmtilesExtractionStats(
 enum class MapDetail { FULL, LIGHT }
 
 /**
- * Estrae, lato device, solo le tile dentro il bounding box di una regione dalla build
+ * Estrae, lato dispositivo, solo le tile dentro il bounding box di una regione dalla build
  * whole-planet pubblica di Protomaps (mapSource.sourceUrl) — mai scaricato il file intero
  * (~120 GB): PMTiles legge prima la (piccola) directory delle tile via HTTP range, poi solo
  * le tile richieste (ch.poole.geo.pmtiles-reader, BSD-3). Il contenitore .pmtiles locale

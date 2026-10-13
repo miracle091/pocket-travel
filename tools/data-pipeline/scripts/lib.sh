@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Helper condivisi dagli script della pipeline publish-region (build-region.sh, build-guides.sh,
+# Helper condivisi dagli script della pipeline publish-regions (build-region.sh, build-guides.sh,
 # build-address-cell.sh, assemble-site.sh, build-all-regions.sh, generate-weekly-schedule.sh). Solo
 # funzioni, nessun effetto collaterale:
 # sourcing sicuro da qualunque script con "set -euo pipefail" gia' attivo.
@@ -12,7 +12,7 @@
 # sullo stesso path POSIX.
 winpath() { cygpath -m "$1" 2>/dev/null || echo "$1"; }
 
-# xz_entry <file> <url>: comprime <file> in <file>.xz (dizionario da 16 MiB: il telefono decomprime
+# xz_entry <file> <url>: comprime <file> in <file>.xz (dizionario da 16 MiB: il dispositivo decomprime
 # con ~17 MB di memoria, il preset 9e ne vorrebbe 65, perdendo meno del 2%; un solo thread, cosi' lo
 # stesso file da' sempre lo stesso .xz) e stampa su stdout la voce "fileXz" del manifest (nome,
 # url, dimensione e sha256 del .xz). Usata da build-region.sh (poi.db, poi-extra.db, preview.pmtiles)

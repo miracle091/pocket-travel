@@ -30,8 +30,8 @@ import com.pockettravel.feature.map.NavigationPlannerViewModel
 import com.pockettravel.feature.map.NavigationViewModel
 
 /**
- * Pianificatore e guida, uno solo per tutta l'app (legati all'activity, non alla schermata): la scheda della regione e
- * il Navigatore della barra mostrano la stessa destinazione e la stessa guida in corso, e una guida avviata da una
+ * Pianificatore e navigazione, uno solo per tutta l'app (legati all'activity, non alla schermata): la scheda Navigatore della pagina della regione e
+ * il Navigatore della barra mostrano la stessa destinazione e la stessa navigazione in corso, e una navigazione avviata da una
  * parte non compare dall'altra come "interrotta" (con un secondo GPS acceso).
  */
 @Composable
@@ -41,7 +41,7 @@ fun navigatorViewModels(): Pair<NavigationPlannerViewModel, NavigationViewModel>
 }
 
 /**
- * Il Navigatore con la rete stradale da scaricare (catalogo e download stanno in app, non in feature:map): nella scheda della
+ * Il Navigatore con la rete stradale da scaricare (catalogo e download stanno in app, non in feature:map): nella scheda Navigatore della pagina della
  * regione [regionId] (quella regione per prima) e nella barra principale (null, tutte le regioni scaricate).
  */
 @Composable

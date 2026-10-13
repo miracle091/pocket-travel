@@ -21,7 +21,7 @@ import java.io.File
  * continents e countryCodes (regionId -> continente / codice ISO 3166-1 alpha-2 minuscolo, da
  * regions.sh) vengono scritti nei campi "continent" e "countryCode" di ogni regione presente,
  * anche di quelle non ricostruite in questa run: l'app raggruppa l'elenco per continente e trova le
- * regioni di un paese toccato sulla mappa del mondo, e non ha altra fonte per saperlo. Allo stesso
+ * regioni di un paese toccato sulla mappa delle nazioni, e non ha altra fonte per saperlo. Allo stesso
  * modo i "wikivoyageUrls" del frammento guide finiscono nel campo "wikivoyageUrl" delle regioni.
  *
  * groups (regionId -> groupName, groupLabel, da regions.sh) finisce nei campi "groupName" e
@@ -98,7 +98,7 @@ fun mergeManifestJson(
     }
 
     // Una regione sostituita resta (com'e', senza aggiornamenti) finche' tutte le regioni del suo gruppo
-    // non sono nel manifest: senza, al primo run dopo la divisione il paese sparirebbe per giorni,
+    // non sono nel manifest: senza, alla prima run dopo la divisione il paese sparirebbe per giorni,
     // finche' il calendario settimanale non ha pubblicato tutte le regioni nuove.
     val completed = replacedRegions.filter { (_, groupName) ->
         val members = groups.filterValues { it.first == groupName }.keys

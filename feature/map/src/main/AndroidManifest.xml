@@ -1,15 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Connectivity.kt: mondo online solo con rete (arriva anche da core/ui, ma il lint del modulo non lo vede) -->
+    <!-- Connectivity.kt: mappa del mondo solo con rete (arriva anche da core/ui, ma il lint del modulo non lo vede) -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- NavigationHaptics.kt: vibrazione leggera alle svolte e all'arrivo nella guida a piedi -->
+    <!-- NavigationHaptics.kt: vibrazione leggera alle svolte e all'arrivo nella navigazione a piedi -->
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- DepartureReminder.kt: riprogramma l'avviso di partenza dopo il riavvio del telefono -->
+    <!-- DepartureReminder.kt: riprogramma l'avviso di partenza dopo il riavvio del dispositivo -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!-- NavigationService.kt: la guida resta in primo piano (tipo posizione) per ricevere il GPS a schermo spento -->
+    <!-- NavigationService.kt: la navigazione resta in primo piano (tipo posizione) per ricevere il GPS a schermo spento -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-    <!-- NavigationService: la notifica della guida come "Live Update" di Android 16 (schermata di blocco, chip in barra) -->
+    <!-- NavigationService: la notifica della navigazione come "Live Update" di Android 16 (schermata di blocco, chip in barra) -->
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <!-- Il servizio di tipo location richiede anche i permessi di posizione (li dichiara gia' l'app: qui per il lint del modulo) -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />

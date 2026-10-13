@@ -11,7 +11,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** Il ponte tra la guida e la notifica: richieste dalla notifica, aggiornamenti dello stato e conti della distanza. */
+/** Il ponte tra la navigazione e la notifica: richieste dalla notifica, aggiornamenti dello stato e conti della distanza. */
 class NavigationSessionRequestsTest {
 
     @Test

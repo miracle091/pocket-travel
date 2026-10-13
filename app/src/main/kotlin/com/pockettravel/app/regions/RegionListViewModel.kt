@@ -59,13 +59,13 @@ import javax.inject.Inject
 
 enum class RegionStatus { NOT_INSTALLED, INSTALLED, UPDATE_AVAILABLE }
 
-/** Stato di un pacchetto (mappa, routing, POI) di una regione, per il foglio "Contenuti". */
+/** Stato di un pacchetto (mappa, rete stradale, POI) di una regione, per il foglio "Contenuti". */
 data class PackageUiState(
     val kind: PackageKind,
     val status: RegionStatus,
-    // Byte da scaricare (0 per la mappa: estratta sul device, dimensione nota solo dopo).
+    // Byte da scaricare (0 per la mappa: estratta sul dispositivo, dimensione nota solo dopo).
     val downloadBytes: Long,
-    // Byte occupati sul device, null se il pacchetto non e' installato o la dimensione non e' nota.
+    // Byte occupati sul dispositivo, null se il pacchetto non e' installato o la dimensione non e' nota.
     val installedBytes: Long?,
     // Riga in piu' sotto il nome del pacchetto: le reti dei mezzi pubblici, se e' quello.
     val detail: String? = null,
@@ -82,7 +82,7 @@ data class TransitNetworkUi(val id: String, val name: String, val downloadBytes:
 data class RegionUiItem(
     val regionId: String,
     val displayName: String,
-    // Non installata: da scaricare; da aggiornare: dei soli pacchetti cambiati; installata: sul device.
+    // Non installata: da scaricare; da aggiornare: dei soli pacchetti cambiati; installata: sul dispositivo.
     val sizeBytes: Long,
     val status: RegionStatus,
     val continent: String? = null,
@@ -195,7 +195,7 @@ class RegionListViewModel @Inject constructor(
     ) { (zonedRegions, currentLocale), (installed, wantsDirections), replacedByManifest ->
         val remoteRegions = zonedRegions.map { it.first }
         val installedByRegion = installed.associateBy { it.regionId }
-        // Senza catalogo (offline, o non ancora letto) le nazioni installate restano apribili: i loro dati sono sul telefono.
+        // Senza catalogo (offline, o non ancora letto) le nazioni installate restano apribili: i loro dati sono sul dispositivo.
         val items = if (remoteRegions.isEmpty()) {
             // Con il nome nella lingua dell'interfaccia, come quando arriva il catalogo (niente "Italia" che diventa "Italy").
             installed.map {
@@ -210,7 +210,7 @@ class RegionListViewModel @Inject constructor(
         }
         RegionCatalog(items, replacedItems(installed, remoteRegions, replacedByManifest))
     }
-        // packageBytes legge le dimensioni di mappa e routing dal disco.
+        // packageBytes legge le dimensioni di mappa e rete stradale dal disco.
         .flowOn(ioDispatcher)
 
     // Parte vuoto: l'elenco non aspetta la prima risposta di WorkManager.
@@ -467,7 +467,7 @@ class RegionListViewModel @Inject constructor(
 }
 
 /**
- * Una nazione installata quando il catalogo non c'e': solo i pacchetti sul telefono, tutti "installati" (senza
+ * Una nazione installata quando il catalogo non c'e': solo i pacchetti sul dispositivo, tutti "installati" (senza
  * catalogo non si sa se ci sono aggiornamenti) e senza nulla da scaricare.
  */
 internal fun offlineRegionItem(local: InstalledRegion, installedBytes: (InstalledRegion, PackageKind) -> Long?): RegionUiItem =

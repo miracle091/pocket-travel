@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Nazionalita' di chi viaggia (ISO 3166-1 alpha-2), scelta nel primo avvio o in Altro: la guida mostra
- * ambasciate e consolati di quel paese. Finche' non la sceglie vale il paese del telefono.
+ * ambasciate e consolati di quel paese. Finche' non la sceglie vale il paese del dispositivo.
  */
 @Singleton
 class NationalityPreferences internal constructor(

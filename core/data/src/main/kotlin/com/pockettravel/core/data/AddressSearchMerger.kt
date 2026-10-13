@@ -87,7 +87,7 @@ private fun <T> withCell(db: MergeDb, cell: File, block: () -> T): T {
 private fun sqlQuoted(file: File): String = file.path.replace("'", "''")
 
 /**
- * Crea [target] unendo i database di ricerca [cells] con SQLite del device (vedi [mergeAddressSearchDbs]).
+ * Crea [target] unendo i database di ricerca [cells] con SQLite del dispositivo (vedi [mergeAddressSearchDbs]).
  * Bloccante: va chiamata fuori dal main thread.
  */
 fun mergeAddressSearchOnDevice(cells: List<File>, target: File) {

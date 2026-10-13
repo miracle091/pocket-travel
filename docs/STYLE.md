@@ -72,14 +72,14 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Scheda della barra con documenti e note | Documenti | Documents |
 | Guida di una regione non ancora scaricata | anteprima | preview |
 | Riquadro che spiega una funzione la prima volta che si apre una schermata | suggerimento | hint |
-| Testo di Wikivoyage di un paese | guida | guide |
+| Testo di Wikivoyage di una nazione | guida | guide |
 | Testo di Wikivoyage di una citta' | guida della citta' | city guide |
 | Indicazioni durante il viaggio | navigazione | navigation |
 | Voce della barra o della pagina della regione (Nazioni, Guida, IA...) | scheda | tab |
 | Riquadro con un contenuto (meteo, punto di interesse...) | riquadro | card |
 | Parte scaricabile di una regione (mappa, guide, mezzi pubblici...) | contenuto | content |
 | Assistente, con il modello sul dispositivo o online | assistente | assistant |
-| Dove gira l'assistente | motore (sul dispositivo, online) | engine (on device, online) |
+| Dove gira l'assistente | motore (Sul dispositivo, Online) | engine (On device, Online) |
 | Modello scaricabile | modello (modello IA) | model (AI model) |
 | Chiave personale per il motore Online | chiave API | API key |
 | Fornitore del motore Online (ChatGPT, Mistral...) | servizio | service |
@@ -87,6 +87,7 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Dove si trova l'utente | posizione | location |
 | Percorso calcolato | percorso | route |
 | Contenuto con strade e sentieri per calcolare i percorsi | rete stradale | road network |
+| Rete stradale con tutte le strade e i sentieri | rete stradale completa | full road network |
 | Rete stradale con le sole strade percorribili in auto | rete stradale solo auto | car-only road network |
 | Contenuto con i numeri civici | numeri civici | house numbers |
 | Contenuto con linee e fermate | mezzi pubblici | public transport |
@@ -110,14 +111,13 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Testo di travel.gc.ca e del FCDO nelle guide inglesi | consigli di viaggio | travel advice |
 | Pagina web di un sito esterno (ministero, servizio sanitario) | pagina (mai "scheda") | page |
 | Da dove viene il testo mostrato (guida, vaccinazioni) | Fonti | Sources |
-| Siti da controllare di persona, solo online | Fonti ufficiali (mai solo "Fonti") | Official sources |
+| Siti di ambasciate, ministeri e OMS da controllare di persona, solo online | Fonti ufficiali (mai solo "Fonti") | Official sources |
 | Sezione tradotta da un'altra lingua | tradotta automaticamente | machine-translated |
 | Schermata delle licenze | Licenze | Licenses |
 | Proposte sotto un campo mentre si scrive (aeroporti, compagnie) | completamento | autocomplete |
 | Spazio cifrato con la biometria per i documenti | cassaforte | vault |
 | Note di viaggio cifrate, fuori dalla cassaforte | Note | Notes |
 | Paese di cui l'utente ha il passaporto | nazionalita' | nationality |
-| Siti di ambasciate, ministeri e OMS, aperti nel browser | Fonti ufficiali | Official sources |
 | Schermata con lo spazio occupato dai contenuti | Spazio di archiviazione | Storage |
 | Schermata in Altro con gli aggiornamenti di app, nazioni, guide e modello IA | Aggiornamenti | Updates |
 | Punti di interesse tolti per mancanza di spazio, da scaricare di nuovo | punti di interesse da riscaricare | points of interest to download again |

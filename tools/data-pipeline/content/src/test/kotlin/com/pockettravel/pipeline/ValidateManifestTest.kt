@@ -86,7 +86,7 @@ class ValidateManifestTest {
     }
 
     @Test
-    fun `rifiuta un routing senza segmenti`() {
+    fun `rifiuta una rete stradale senza segmenti`() {
         val json = validManifest().replace(Regex(""""files": \[[^\]]*]"""), "\"files\": []")
         assertThrows(ManifestValidationException::class.java) { validateManifestJson(json, allowedHosts) }
     }
@@ -196,14 +196,14 @@ class ValidateManifestTest {
     )
 
     @Test
-    fun `accetta l'anteprima facoltativa e ne controlla l'host`() {
+    fun `accetta la mappa d'insieme facoltativa e ne controlla l'host`() {
         val url = "https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.26--preview.pmtiles.xz"
         validateManifestJson(withPreview(url), allowedHosts)
         assertThrows(ManifestValidationException::class.java) { validateManifestJson(withPreview("https://evil.example.com/preview.pmtiles.xz"), allowedHosts) }
     }
 
     @Test
-    fun `accetta la copia compressa facoltativa dell'anteprima e ne controlla l'host`() {
+    fun `accetta la copia compressa facoltativa della mappa d'insieme e ne controlla l'host`() {
         val goodUrl = "https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.26--preview.pmtiles.xz"
         fun fileXz(url: String) = ""","fileXz": { "name": "preview.pmtiles.xz", "url": "$url", "sizeBytes": 900000, "sha256": "${"2".repeat(64)}" }"""
         validateManifestJson(withPreview(goodUrl, fileXz(goodUrl)), allowedHosts)
@@ -213,7 +213,7 @@ class ValidateManifestTest {
     }
 
     @Test
-    fun `rifiuta un maxZoom non valido per l'anteprima`() {
+    fun `rifiuta un maxZoom non valido per la mappa d'insieme`() {
         val url = "https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.26--preview.pmtiles.xz"
         val json = withPreview(url).replace("\"maxZoom\": 9", "\"maxZoom\": 99")
         assertThrows(ManifestValidationException::class.java) { validateManifestJson(json, allowedHosts) }
@@ -483,7 +483,7 @@ class ValidateManifestTest {
     }
 
     @Test
-    fun `rifiuta segmenti di routing con nome duplicato`() {
+    fun `rifiuta segmenti della rete stradale con nome duplicato`() {
         val file = """{ "name": "E10_N40.rd5", "url": "https://github.com/miracle091/pocket-travel/releases/download/region-data-europa/san-marino--2026.09.14--E10_N40.rd5", "sizeBytes": 200, "sha256": "${"b".repeat(64)}" }"""
         assertManifestInvalid(validManifest().replace(file, "$file, $file"))
     }

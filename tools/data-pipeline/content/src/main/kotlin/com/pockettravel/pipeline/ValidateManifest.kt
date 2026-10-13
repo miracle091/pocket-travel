@@ -166,7 +166,7 @@ internal fun validateRegion(region: JSONObject, allowedHosts: Set<String>): Stri
         }
     }
 
-    // Anteprima offline: facoltativa (regioni non ancora rigenerate da quando esiste, o senza
+    // Mappa d'insieme offline: facoltativa (regioni non ancora rigenerate da quando esiste, o senza
     // go-pmtiles in quella run), stesso schema di poi/poiExtra piu' il livello di zoom usato.
     region.optJSONObject("preview")?.let { preview ->
         validateVersion(preview, "$regionId/preview")
@@ -191,13 +191,6 @@ private fun validateFile(file: JSONObject, owner: String, allowedHosts: Set<Stri
     if (!isAllowedUrl(url, allowedHosts)) throw ManifestValidationException("URL non consentito per $owner/$name: $url")
 }
 
-/**
- * Valida address-grid.json (indice dei civici a celle): duplica qui le
- * stesse regole della griglia dell'app (RegionManifest.kt, core/sync), stesso motivo di
- * validateManifestJson sopra. Celle con id valido (z in 0..14, x/y dentro 0..2^z-1), nessuna
- * discendente di un'altra (isAncestorCell, GenerateAddressGrid.kt), ordinate per id, file/fileXz
- * come le altre voci del manifest (anche "search", facoltativo), almeno un'attribuzione.
- */
 /** transit.json: reti con id unico, regioni, licenza e attribuzione, file consentiti, data di fine e riquadro validi. */
 fun validateTransitJson(indexJson: String, allowedHosts: Set<String>) {
     val root = JSONObject(indexJson)
@@ -234,6 +227,13 @@ fun validateTransitJson(indexJson: String, allowedHosts: Set<String>) {
     }
 }
 
+/**
+ * Valida address-grid.json (indice dei civici a celle): duplica qui le
+ * stesse regole della griglia dell'app (RegionManifest.kt, core/sync), stesso motivo di
+ * validateManifestJson sopra. Celle con id valido (z in 0..14, x/y dentro 0..2^z-1), nessuna
+ * discendente di un'altra (isAncestorCell, GenerateAddressGrid.kt), ordinate per id, file/fileXz
+ * come le altre voci del manifest (anche "search", facoltativo), almeno un'attribuzione.
+ */
 fun validateAddressGridJson(indexJson: String, allowedHosts: Set<String>) {
     val root = JSONObject(indexJson)
     if (!root.getString("version").matches(safeSegmentRegex)) throw ManifestValidationException("address-grid.json: version non valida")

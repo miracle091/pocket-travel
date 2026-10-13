@@ -54,7 +54,7 @@ import com.pockettravel.core.ui.R as UiR
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NavigationPlannerScreen(
-    // La regione della scheda che ospita il Navigatore (per prima nella ricerca), null nel Navigatore della barra principale.
+    // La regione della pagina che ospita il Navigatore (per prima nella ricerca), null nel Navigatore della barra principale.
     regionId: String?,
     viewModel: NavigationPlannerViewModel,
     // La navigazione passo passo, nella stessa scheda: "Avvia" la fa partire, "Termina" torna qui.
@@ -96,7 +96,7 @@ fun NavigationPlannerScreen(
         permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
     }
 
-    // Guida interrotta dal sistema (app chiusa in background): si chiede se riprenderla.
+    // Navigazione interrotta dal sistema (app chiusa in background): si chiede se riprenderla.
     val navigation by navigationViewModel.uiState.collectAsStateWithLifecycle()
     navigation.resumeOffer?.let { place ->
         AlertDialog(
@@ -110,13 +110,13 @@ fun NavigationPlannerScreen(
         )
     }
 
-    // La notifica della guida (svolta, distanza) da Android 13 chiede il permesso: lo si chiede ad "Avvia",
+    // La notifica della navigazione (svolta, distanza) da Android 13 chiede il permesso: lo si chiede ad "Avvia",
     // senza bloccare la partenza se viene negato.
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     // In navigazione la scheda e' il navigatore: mappa a tutto schermo e indicazioni (NavigationInstructions).
     val guiding = navigation.target
-    // Destinazione appena raggiunta: la guida si chiude da sola e il Navigatore lo dice con un avviso.
+    // Destinazione appena raggiunta: la navigazione si chiude da sola e il Navigatore lo dice con un avviso.
     var arrivedAt by rememberSaveable { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val guidingTarget = guiding
@@ -128,7 +128,7 @@ fun NavigationPlannerScreen(
         val walkingHaptics = navigation.walkingHaptics
         val drivingSide = navigation.drivingSideWarning
         val arrivedAtMillis = navigation.arrivedAtMillis
-        // Con "Spegni il GPS all'arrivo" tolto la guida resta aperta: all'arrivo solo la vibrazione.
+        // Con "Spegni il GPS all'arrivo" tolto la navigazione resta aperta: all'arrivo solo la vibrazione.
         LaunchedEffect(arrivedAtMillis) {
             if (navigationState != NavigationStatus.Arrived && isRecentArrival(arrivedAtMillis, System.currentTimeMillis())) {
                 if (navigationMode == RouteProfile.WALK && walkingHaptics) NavigationHaptics.arrived(context)
@@ -149,7 +149,7 @@ fun NavigationPlannerScreen(
         LaunchedEffect(navigationState) {
             if (navigationState == NavigationStatus.Arrived) {
                 // L'arrivo puo' essere avvenuto mentre la scheda non era aperta (il GPS lo ascolta il ViewModel):
-                // dopo qualche minuto non si annuncia piu', la guida si chiude e basta.
+                // dopo qualche minuto non si annuncia piu', la navigazione si chiude e basta.
                 if (isRecentArrival(arrivedAtMillis, System.currentTimeMillis())) {
                     arrivedAt = guidingTarget.name
                     if (navigationMode == RouteProfile.WALK && walkingHaptics) NavigationHaptics.arrived(context)
@@ -293,7 +293,7 @@ internal class NavigationPlannerActions(
 )
 
 /**
- * Il Navigatore fuori dalla guida: la ricerca a tutto schermo o la mappa con il pannello in alto e il riquadro in
+ * Il Navigatore fuori dalla navigazione: la ricerca a tutto schermo o la mappa con il pannello in alto e il riquadro in
  * basso. La mappa MapLibre e' uno slot ([map]: regioni, percorso, margini in pixel e modificatore), cosi' i test
  * non creano una vista GL.
  */
@@ -400,7 +400,7 @@ internal fun NavigationPlannerContent(
 }
 
 
-// Maniglia del riquadro e riga "Recenti": quanto resta visibile del riquadro senza meta.
+// Maniglia del riquadro e riga "Recenti": quanto resta visibile del riquadro senza destinazione.
 private val RECENTS_PEEK_HEIGHT = 112.dp
 
 // Altezza (dp) del riquadro con il percorso calcolato, per inquadrare la mappa sopra di esso.

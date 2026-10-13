@@ -334,7 +334,7 @@ class RegionStorageTest {
         assertEquals(preview.length(), storage.packageBytes("italia", RegionStorage.PREVIEW_FILE))
         assertTrue(storage.deletePackage("italia", RegionStorage.PREVIEW_FILE))
         assertEquals(0L, storage.packageBytes("italia", RegionStorage.PREVIEW_FILE))
-        // L'eliminazione della mappa non deve toccare l'anteprima (si cancella solo con l'intera regione).
+        // L'eliminazione della mappa non deve toccare la mappa d'insieme (si cancella solo con l'intera regione).
         storage.activatePackage("italia", RegionStorage.MAP_FILE, stagedFile(storage, "v1", RegionStorage.MAP_FILE, "mappa"), "v1").commit()
         storage.activatePackage("italia", RegionStorage.PREVIEW_FILE, stagedFile(storage, "v3", RegionStorage.PREVIEW_FILE, "anteprima 3"), "v3").commit()
         assertTrue(storage.deletePackage("italia", RegionStorage.MAP_FILE))
@@ -342,7 +342,7 @@ class RegionStorageTest {
     }
 
     @Test
-    fun `recupero dopo un crash chiude anche un attivazione interrotta dell anteprima`() {
+    fun `recupero dopo un crash chiude anche un attivazione interrotta della mappa d'insieme`() {
         val (storage, _) = newStorage()
         storage.activatePackage("italia", RegionStorage.PREVIEW_FILE, stagedFile(storage, "v1", RegionStorage.PREVIEW_FILE, "vecchia"), "v1").commit()
         // Crash: attivazione senza commit, il database registra ancora v1.

@@ -5,9 +5,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Mondo online a bassa risoluzione (z0-8), letto da feature/map con richieste range quando la mappa
+ * Mappa del mondo a bassa risoluzione (z0-8), letta da feature/map con richieste range quando la mappa
  * della regione non e' scaricata; url e maxZoom arrivano dal manifest ("worldMap", facoltativo) e
- * core/sync li salva qui ad ogni sync riuscita, azzerandoli se il manifest non offre piu' il mondo.
+ * core/sync li salva qui ad ogni sync riuscita, azzerandoli se il manifest non offre piu' la mappa del mondo.
  * feature/map non dipende da core/sync: legge solo questo store.
  */
 @Singleton

@@ -30,7 +30,7 @@ object DatabaseModule {
     fun provideRegionDatabase(@ApplicationContext context: Context): RegionDatabase =
         Room.databaseBuilder(context, RegionDatabase::class.java, "region.db")
             .addMigrations(*ALL_MIGRATIONS)
-            // Versioni mai pubblicate, rimaste solo su qualche telefono di sviluppo: senza una
+            // Versioni mai pubblicate, rimaste solo su qualche dispositivo di sviluppo: senza una
             // migrazione l'app non partirebbe, cosi' il database si ricrea vuoto.
             .fallbackToDestructiveMigrationFrom(dropAllTables = true, *UNRELEASED_VERSIONS)
             .build()

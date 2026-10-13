@@ -71,7 +71,7 @@ class NavigationPlannerSearchTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `il nome mostrato segue la lingua del telefono`() = runTest {
+    fun `il nome mostrato segue la lingua del dispositivo`() = runTest {
         gps.permission = false
         dao.rows += poiRow(1, "Tour Eiffel", category = "attraction", osmTag = "tourism=attraction", nameIt = "Torre Eiffel", nameEn = "Eiffel Tower")
         val viewModel = viewModel()
@@ -225,7 +225,7 @@ class NavigationPlannerSearchTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `la meta dell'assistente compila la ricerca e preferisce il testo col momento del giorno se e' un posto`() = runTest {
+    fun `la destinazione dell'assistente compila la ricerca e preferisce il testo col momento del giorno se e' un posto`() = runTest {
         gps.permission = false
         dao.rows += poiRow(1, "Bar Stasera")
         val viewModel = viewModel()
@@ -239,7 +239,7 @@ class NavigationPlannerSearchTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `la meta dell'assistente resta senza il momento del giorno se non e' il nome di un posto`() = runTest {
+    fun `la destinazione dell'assistente resta senza il momento del giorno se non e' il nome di un posto`() = runTest {
         gps.permission = false
         dao.rows += poiRow(1, "Bar Roma")
         val viewModel = viewModel()

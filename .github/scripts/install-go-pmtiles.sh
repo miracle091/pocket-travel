@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Installa go-pmtiles (pmtiles) in $RUNNER_TEMP/bin e lo aggiunge al PATH dei passi successivi.
 # Versione e sha256 dell'archivio sono fissati qui, una volta sola, per tutti i job di
-# publish-regions.yml che usano go-pmtiles (mappa del mondo, celle dei civici, anteprime delle regioni).
+# publish-regions.yml che usano go-pmtiles (mappa del mondo, celle dei civici, mappe d'insieme delle regioni).
 # Uso (in un passo di workflow): bash .github/scripts/install-go-pmtiles.sh
 set -euo pipefail
 

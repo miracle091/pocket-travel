@@ -15,7 +15,7 @@ class NavigationPreferencesTest {
         ActiveNavigation("emilia-romagna", place, RouteProfile.BIKE, arriveBy, startedAtMillis)
 
     @Test
-    fun `di default la guida si ferma all'arrivo e la vibrazione a piedi e' accesa`() {
+    fun `di default la navigazione si ferma all'arrivo e la vibrazione a piedi e' accesa`() {
         val preferences = NavigationPreferences(InMemoryPreferencesFactory())
 
         assertTrue(preferences.stopGpsOnArrival.value)
@@ -36,12 +36,12 @@ class NavigationPreferencesTest {
     }
 
     @Test
-    fun `senza guida salvata non c'e' nulla da riprendere`() {
+    fun `senza navigazione salvata non c'e' nulla da riprendere`() {
         assertNull(NavigationPreferences(InMemoryPreferencesFactory()).activeNavigation(now = 0L))
     }
 
     @Test
-    fun `la guida salvata torna uguale, con l'ora di arrivo`() {
+    fun `la navigazione salvata torna uguale, con l'ora di arrivo`() {
         val files = InMemoryPreferencesFactory()
         val saved = navigation(startedAtMillis = 5_000L, arriveBy = 29_000_000L)
         NavigationPreferences(files).saveActiveNavigation(saved)
@@ -58,7 +58,7 @@ class NavigationPreferencesTest {
     }
 
     @Test
-    fun `una guida piu' vecchia di dodici ore non si riprende e si cancella`() {
+    fun `una navigazione piu' vecchia di dodici ore non si riprende e si cancella`() {
         val files = InMemoryPreferencesFactory()
         val preferences = NavigationPreferences(files)
         preferences.saveActiveNavigation(navigation(startedAtMillis = 0L))
@@ -68,7 +68,7 @@ class NavigationPreferencesTest {
     }
 
     @Test
-    fun `chiudere la guida toglie lo stato salvato`() {
+    fun `chiudere la navigazione toglie lo stato salvato`() {
         val preferences = NavigationPreferences(InMemoryPreferencesFactory())
         preferences.saveActiveNavigation(navigation())
         preferences.clearActiveNavigation()

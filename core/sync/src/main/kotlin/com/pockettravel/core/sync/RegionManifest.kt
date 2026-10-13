@@ -10,7 +10,7 @@ private const val MAX_LATITUDE = 90.0
 
 /**
  * manifest.json nel formato a pacchetti (manifestVersion 2, generato da tools/data-pipeline):
- * un pacchetto guide unico per tutte le regioni, e per ogni regione i pacchetti mappa, routing,
+ * un pacchetto guide unico per tutte le regioni, e per ogni regione i pacchetti mappa, rete stradale,
  * POI e (facoltativi) POI extra, civici e orari dei mezzi pubblici, ciascuno con la propria versione, scaricabili e aggiornabili
  * separatamente.
  */
@@ -31,7 +31,7 @@ data class RegionManifest(
     // Regioni tolte e divise in regioni piu' piccole (es. "stati-uniti" -> gli stati): l'app le propone
     // a chi ha ancora installata quella vecchia.
     val replacedRegions: List<ReplacedRegion> = emptyList(),
-    // Mondo online a bassa risoluzione (z0-8) del progetto: assente finche' la release GitHub "world-map"
+    // Mappa del mondo a bassa risoluzione (z0-8) del progetto: assente finche' la release GitHub "world-map"
     // non e' pubblicata. core/sync lo salva in WorldMapStore (core/data) ad ogni sync riuscita.
     val worldMap: WorldMapEntry? = null,
     // Versione minima dell'app (versionCode) che sa leggere questi dati: vedi AppCompatibility.
@@ -130,7 +130,7 @@ data class RegionManifestEntry(
 
     /**
      * Byte da scaricare per questi pacchetti. La mappa non ha una dimensione nota in anticipo:
-     * map.pmtiles viene estratto sul device dalla build Protomaps (vedi PmtilesExtractor), quindi
+     * map.pmtiles viene estratto sul dispositivo dalla build Protomaps (vedi PmtilesExtractor), quindi
      * conta zero. Per i civici a griglia [installedAddressCells]
      * (id di cella -> version gia' installata, RegionStorage.installedAddressCells) fa contare solo le
      * celle nuove o cambiate, come verra' davvero scaricato: vuoto (default) conta tutte le celle,
@@ -148,7 +148,7 @@ data class RegionManifestEntry(
         addressGrid?.cells?.filter { installedAddressCells[it.id] != it.version }?.sumOf { it.downloadFile.sizeBytes + (it.search?.downloadFile?.sizeBytes ?: 0L) } ?: 0L
 }
 
-/** map.pmtiles non e' un file scaricato: viene estratto sul device dalle tile di [source]. */
+/** map.pmtiles non e' un file scaricato: viene estratto sul dispositivo dalle tile di [source]. */
 @Serializable
 data class MapPackageEntry(val version: String, val source: MapExtractionSource)
 
@@ -236,8 +236,8 @@ data class PreviewPackageEntry(val version: String, val maxZoom: Int, val file: 
 }
 
 /**
- * Mondo online a bassa risoluzione del progetto, pubblicato sulla release GitHub "world-map": non
- * compresso, letto a pezzi con richieste range (pmtiles://https://...) quando la mappa della regione
+ * Mappa del mondo a bassa risoluzione del progetto, pubblicata sulla release GitHub "world-map": non
+ * compressa, letta a pezzi con richieste range (pmtiles://https://...) quando la mappa della regione
  * non e' scaricata — niente sha256 da verificare, il file non si scarica per intero.
  */
 @Serializable

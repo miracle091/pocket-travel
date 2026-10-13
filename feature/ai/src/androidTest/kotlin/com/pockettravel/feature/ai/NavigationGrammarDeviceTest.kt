@@ -18,7 +18,7 @@ import java.io.File
 import java.util.Locale
 
 /**
- * Estrazione di destinazione e mezzo con la grammatica ([NAVIGATION_GRAMMAR]) sui modelli del catalogo presenti in
+ * Estrazione di destinazione e mezzo con la grammatica ([NAVIGATION_GRAMMAR]) sui file del catalogo dei modelli presenti in
  * getExternalFilesDir(null) (vedi [LlamaEngineDeviceTest] per come copiarli). Verifica che l'output sia sempre JSON
  * valido e scrive nel logcat (tag NavGrammar) precisione e tempi di modello, regole e risultato finale:
  *   adb logcat -s NavGrammar
@@ -72,7 +72,7 @@ class NavigationGrammarDeviceTest {
             times.sort()
             Log.i(
                 TAG,
-                "${model.id}: meta del modello $modelOk/${CASES.size}, finale $finalOk/${CASES.size}, JSON non valido $invalid, " +
+                "${model.id}: destinazione del modello $modelOk/${CASES.size}, finale $finalOk/${CASES.size}, JSON non valido $invalid, " +
                     "tempo mediano ${times[times.size / 2]} ms, massimo ${times.last()} ms",
             )
             assertEquals("JSON non valido con ${model.id}", 0, invalid)

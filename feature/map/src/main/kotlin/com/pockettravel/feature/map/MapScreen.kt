@@ -104,7 +104,7 @@ fun MapScreen(
     tileSource: OfflineTileSource,
     regionId: String,
     // Solo per invalidare la cache dello stile (remember piu' sotto) quando cambia la sorgente
-    // usata (mappa scaricata, anteprima installata, connettivita'): il valore vero e proprio lo
+    // usata (mappa scaricata, mappa d'insieme installata, connettivita'): il valore vero e proprio lo
     // rilegge tileSource.styleJson.
     mapSource: MapSourceState,
     pins: List<MapPin> = emptyList(),

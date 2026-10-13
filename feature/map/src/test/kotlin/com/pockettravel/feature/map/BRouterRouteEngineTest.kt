@@ -66,7 +66,7 @@ class BRouterRouteEngineTest {
 
     @Test
     fun `senza file rd5 mancano i segmenti della rete stradale, senza eccezioni`() = runBlocking {
-        val engine = BRouterRouteEngine(tempFolder.newFolder("segments4"), profileDir())
+        val engine = BRouterRouteEngine(tempFolder.newFolder("segments4"), profileDir(), ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default)
 
         val result = engine.route(from = RoutePoint(45.4642, 9.1900), to = RoutePoint(45.4658, 9.1920))
 
@@ -84,7 +84,7 @@ class BRouterRouteEngineTest {
     // dei segmenti reali di brouter.de usati solo per verifiche manuali una tantum.
     @Test
     fun `instrada correttamente quando il percorso attraversa due segmenti rd5 adiacenti`() = runBlocking {
-        val engine = BRouterRouteEngine(twoTileSegments(), profileDir())
+        val engine = BRouterRouteEngine(twoTileSegments(), profileDir(), ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default)
         // Nodo 1 e nodo 4 dell'estratto: il primo sta in E5_N45 (lon < 10), il secondo in
         // E10_N45 (lon > 10) — un percorso trovato dimostra che entrambi i segmenti sono stati
         // caricati e collegati correttamente al bordo, non solo il primo incontrato.
@@ -109,12 +109,12 @@ class BRouterRouteEngineTest {
         val to = RoutePoint(45.5000, 10.0030)
         val profiles = profileDir()
 
-        val expected = BRouterRouteEngine(whole, profiles).route(from, to)
+        val expected = BRouterRouteEngine(whole, profiles, ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default).route(from, to)
         assertTrue(expected is RouteResult.Found)
-        assertNotEquals("una regione da sola non ha il percorso intero", expected, BRouterRouteEngine(regionA, profiles).route(from, to))
-        assertNotEquals("una regione da sola non ha il percorso intero", expected, BRouterRouteEngine(regionB, profiles).route(from, to))
+        assertNotEquals("una regione da sola non ha il percorso intero", expected, BRouterRouteEngine(regionA, profiles, ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default).route(from, to))
+        assertNotEquals("una regione da sola non ha il percorso intero", expected, BRouterRouteEngine(regionB, profiles, ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default).route(from, to))
         val merged = Rd5Merger.mergedDirectory(tempFolder.newFolder(), listOf(regionA, regionB), BRouterRd5Links())
-        val result = BRouterRouteEngine(merged, profiles).route(from, to)
+        val result = BRouterRouteEngine(merged, profiles, ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default).route(from, to)
 
         assertTrue("percorso con i segmenti uniti: $result", result is RouteResult.Found)
         assertEquals(expected, result)
@@ -132,7 +132,7 @@ class BRouterRouteEngineTest {
         val small = regionRouting("piccola", "W5_N45.rd5" to emptied(File(whole, "E5_N45.rd5").readBytes()))
 
         val merged = Rd5Merger.mergedDirectory(tempFolder.newFolder(), listOf(small, big), BRouterRd5Links())
-        val result = BRouterRouteEngine(merged, profileDir()).route(RoutePoint(45.5000, 9.9970), RoutePoint(45.5000, 10.0030))
+        val result = BRouterRouteEngine(merged, profileDir(), ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default).route(RoutePoint(45.5000, 9.9970), RoutePoint(45.5000, 10.0030))
 
         assertEquals(setOf("W5_N45.rd5", Rd5Merger.STORAGE_CONFIG_FILE), merged.list()!!.toSet())
         assertTrue("percorso con la cartella secondaria: $result", result is RouteResult.Found)
@@ -159,7 +159,7 @@ class BRouterRouteEngineTest {
 
     @Test
     fun `partenza fuori dai segmenti scaricati`() = runBlocking {
-        val engine = BRouterRouteEngine(twoTileSegments(), profileDir())
+        val engine = BRouterRouteEngine(twoTileSegments(), profileDir(), ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default)
 
         val result = engine.route(from = RoutePoint(41.9000, 12.5000), to = RoutePoint(45.5000, 10.0030))
 
@@ -168,7 +168,7 @@ class BRouterRouteEngineTest {
 
     @Test
     fun `il profilo in sedia a rotelle si legge e instrada, anche con allow_steps`() = runBlocking {
-        val engine = BRouterRouteEngine(twoTileSegments(), profileDir("wheelchair.brf"))
+        val engine = BRouterRouteEngine(twoTileSegments(), profileDir("wheelchair.brf"), ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default)
         val from = RoutePoint(45.5000, 9.9970)
         val to = RoutePoint(45.5000, 10.0030)
 
@@ -182,7 +182,7 @@ class BRouterRouteEngineTest {
     @Test
     fun `il profilo si cambia per il singolo percorso`() = runBlocking {
         val profiles = profileDir("car-vario.brf")
-        val engine = BRouterRouteEngine(twoTileSegments(), profiles)
+        val engine = BRouterRouteEngine(twoTileSegments(), profiles, ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default)
         val from = RoutePoint(45.5000, 9.9970)
         val to = RoutePoint(45.5000, 10.0030)
 
@@ -192,7 +192,7 @@ class BRouterRouteEngineTest {
 
     @Test
     fun `un calcolo annullato libera il motore per il successivo`() = runBlocking {
-        val engine = BRouterRouteEngine(twoTileSegments(), profileDir())
+        val engine = BRouterRouteEngine(twoTileSegments(), profileDir(), ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default)
         val from = RoutePoint(45.5000, 9.9970)
         val to = RoutePoint(45.5000, 10.0030)
 
@@ -211,8 +211,8 @@ class BRouterRouteEngineTest {
         val base = realSegmentsDir()
         val profileDir = profileDir()
 
-        val original = BRouterRouteEngine(File(base, "orig"), profileDir).route(SERRAVALLE, CITTA_DI_SAN_MARINO)
-        val clipped = BRouterRouteEngine(File(base, "clipped"), profileDir).route(SERRAVALLE, CITTA_DI_SAN_MARINO)
+        val original = BRouterRouteEngine(File(base, "orig"), profileDir, ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default).route(SERRAVALLE, CITTA_DI_SAN_MARINO)
+        val clipped = BRouterRouteEngine(File(base, "clipped"), profileDir, ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default).route(SERRAVALLE, CITTA_DI_SAN_MARINO)
 
         assertTrue("percorso con il segmento originale: $original", original is RouteResult.Found)
         assertEquals(original, clipped)
@@ -222,7 +222,7 @@ class BRouterRouteEngineTest {
     fun `un percorso reale ha le svolte in ordine lungo il tracciato`() = runBlocking {
         val base = realSegmentsDir()
 
-        val result = BRouterRouteEngine(File(base, "clipped"), profileDir()).route(SERRAVALLE, CITTA_DI_SAN_MARINO)
+        val result = BRouterRouteEngine(File(base, "clipped"), profileDir(), ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default).route(SERRAVALLE, CITTA_DI_SAN_MARINO)
 
         val route = (result as RouteResult.Found).route
         val instructions = route.instructions
@@ -242,7 +242,7 @@ class BRouterRouteEngineTest {
     fun `rotonde del Regno Unito percorse a sinistra, con l'uscita`() = runBlocking {
         val dir = System.getenv("RD5_UK_TEST_DIR")?.let(::File)
         assumeTrue("RD5_UK_TEST_DIR non impostata", dir != null && File(dir, "W5_N50.rd5").exists())
-        val engine = BRouterRouteEngine(dir!!, File("src/main/assets/brouter-profile"), "car-vario")
+        val engine = BRouterRouteEngine(dir!!, File("src/main/assets/brouter-profile"), "car-vario", ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default)
 
         // Milton Keynes, da Newport Pagnell a Kents Hill: una serie di rotonde.
         val route = (engine.route(RoutePoint(52.0870, -0.7222), RoutePoint(52.0240, -0.7070)) as RouteResult.Found).route

@@ -18,11 +18,11 @@ class LlmModelUpdateCheckScheduler @Inject constructor(
 ) : UpdateCheck {
     private val workManager get() = WorkManager.getInstance(context)
 
-    // Anche su dati cellulari: manifest.json e' pochi KB, non il modello IA vero e proprio
+    // Anche su dati cellulari: lo stato dell'app (`app-status.json`) e' pochi KB, non il modello IA vero e proprio
     // (centinaia di MB o qualche GB, quello si' mai su rete a consumo) — il download resta sempre esplicito e su
     // richiesta dell'utente (vedi LlmModelDownloadScheduler), qui si controlla solo se c'e' una
     // versione piu' recente.
-    /** Controllo periodico del manifest, qualunque rete — mai un download automatico. */
+    /** Controllo periodico dello stato dell'app, qualunque rete — mai un download automatico. */
     fun schedulePeriodicCheck() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)

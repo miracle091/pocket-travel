@@ -42,7 +42,7 @@ class RegionPackageInstaller @Inject constructor(
     ) {
         require(kinds.isNotEmpty()) { "Nessun pacchetto da installare per ${entry.regionId}" }
         require(entry.availableKinds.containsAll(kinds)) { "Pacchetti non offerti dal manifest per ${entry.regionId}: ${kinds - entry.availableKinds}" }
-        // L'anteprima non e' tra i pacchetti richiesti (non e' un PackageKind): si installa da sola con
+        // La mappa d'insieme non e' tra i pacchetti richiesti (non e' un PackageKind): si installa da sola con
         // ogni download della regione, quando il manifest la offre con una versione diversa da quella
         // gia' installata — cosi' le regioni gia' scaricate la prendono al primo aggiornamento successivo.
         val installPreview = entry.preview != null && regionRepository.installed(entry.regionId)?.previewVersion != entry.preview.version
@@ -72,21 +72,21 @@ class RegionPackageInstaller @Inject constructor(
         // lavoro con una versione diversa non cancella (cleanupStagingExcept) i file mentre questo li usa.
         downloader.withStagingLock(entry.regionId) {
             val staging = downloader.downloadLocked(entry.regionId, stagingVersion, files, onProgress)
-            if (PackageKind.POI in kinds) unpackXz(staging, entry.poi.file, entry.poi.fileXz)
-            if (PackageKind.POI_EXTRA in kinds) unpackXz(staging, entry.poiExtra!!.file, entry.poiExtra.fileXz)
+            if (PackageKind.POI in kinds) unpackXz(staging, entry.poi.file, entry.poi.fileXz, ioDispatcher)
+            if (PackageKind.POI_EXTRA in kinds) unpackXz(staging, entry.poiExtra!!.file, entry.poiExtra.fileXz, ioDispatcher)
             if (PackageKind.ADDRESSES in kinds) {
-                addressPlan!!.toDownload.forEach { unpackXz(staging, it.file, it.fileXz) }
+                addressPlan!!.toDownload.forEach { unpackXz(staging, it.file, it.fileXz, ioDispatcher) }
                 // Le ricerche per cella restano compresse: mergeInto le tiene .xz e le decomprime solo per l'unione.
                 withContext(ioDispatcher) {
                     addressGridInstaller.mergeInto(entry.regionId, entry.map.source, addressPlan, staging, ensureActive = { ensureActive() })
                 }
             }
-            if (PackageKind.CITIES in kinds) unpackXz(staging, entry.cities!!.file, entry.cities.fileXz)
+            if (PackageKind.CITIES in kinds) unpackXz(staging, entry.cities!!.file, entry.cities.fileXz, ioDispatcher)
             if (PackageKind.TRANSIT in kinds) {
-                entry.transit!!.feeds.forEach { unpackXz(staging, it.stagedFile, it.stagedFileXz) }
+                entry.transit!!.feeds.forEach { unpackXz(staging, it.stagedFile, it.stagedFileXz, ioDispatcher) }
                 withContext(ioDispatcher) { assembleTransitDir(staging, entry.transit.feeds) }
             }
-            if (installPreview) unpackXz(staging, entry.preview.file, entry.preview.fileXz)
+            if (installPreview) unpackXz(staging, entry.preview.file, entry.preview.fileXz, ioDispatcher)
 
             var extractedLight: Boolean? = null
 

@@ -62,7 +62,7 @@ def main():
             f.close()
 
     print(f"citta': {sum(counts.values())} pagine di {len(counts)} regioni scritte in {out_dir}")
-    # popolazione (Abitanti del QuickbarCity, poi Wikidata) per le citta' principali della scheda Citta' dell'app
+    # popolazione (Abitanti del QuickbarCity, poi Wikidata) per le citta' principali del riquadro Citta' dell'app
     title_of = {region_id: title for title, region_id in region_id_by_title.items()}
     city_population.annotate([out_dir / f"{r}.cities.jsonl" for r in counts], "it",
                              {out_dir / f"{r}.cities.jsonl": title_of[r] for r in counts})

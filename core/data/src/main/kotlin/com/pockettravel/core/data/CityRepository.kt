@@ -14,7 +14,7 @@ class CityRepository @Inject constructor(
     /** Nomi delle citta' abbinate alla regione, in ordine alfabetico. */
     fun citiesFor(regionId: String): Flow<List<String>> = cityDao.citiesForRegion(regionId)
 
-    /** Le [limit] citta' con la guida piu' ricca, dalla piu' ricca: le scorciatoie della scheda Citta'. */
+    /** Le [limit] citta' con la guida piu' ricca, dalla piu' ricca: le scorciatoie del riquadro Citta'. */
     fun mainCitiesFor(regionId: String, limit: Int): Flow<List<MainCity>> =
         cityDao.mainCitiesForRegion(regionId, limit).map { rows -> rows.map { MainCity(it.city, it.population, it.capital) } }
 

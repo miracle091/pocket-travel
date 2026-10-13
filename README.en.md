@@ -45,7 +45,7 @@ Pocket Travel runs on **Android 8.0 or later** and is distributed only on GitHub
 2. ⚙️ On first launch, choose language, travel modes and nationality.
 3. 🌍 Download the countries of the trip, preferably over Wi-Fi and before leaving: then everything works offline.
 
-> 💡 **Hint.** Without the road network the Navigator cannot calculate routes: add it from the country's content, like house numbers and public transport.
+> **Note.** Without the road network the Navigator cannot calculate routes: it is added from the country's Content, like house numbers and public transport.
 
 The app announces new versions with a notification; the changes are in the [CHANGELOG](CHANGELOG.md) (in Italian).
 
@@ -135,7 +135,7 @@ The assistant uses an AI service with the user's own API key, which stays encryp
 
 The data comes from open projects: [Wikivoyage](https://en.wikivoyage.org) and [Wikipedia](https://en.wikipedia.org) for the guides, [OpenStreetMap](https://www.openstreetmap.org) and [Overture Maps](https://overturemaps.org) for maps and house numbers, [Wikidata](https://www.wikidata.org) for quick facts and embassies, Travel.gc.ca, TravelHealthPro and gov.uk for vaccinations and travel advice, [Open-Meteo](https://open-meteo.com) for the weather. Sources and licenses are on the [licenses page](https://miracle091.github.io/pocket-travel/licenses-en.html).
 
-🔒 The app has no server of its own and collects no data about its users. The location stays on the device; the weather service receives only the area, rounded to about 10 km. The data catalog is signed and the app rejects unsigned files.
+The app has no server of its own and collects no data about its users. The location stays on the device; the weather service receives only the approximate location, rounded to about 10 km. The data catalog is signed and the app rejects unsigned files.
 
 ## Help and contributions
 
@@ -158,7 +158,7 @@ The data comes from open projects: [Wikivoyage](https://en.wikivoyage.org) and [
 <details>
 <summary><strong>Requirements, commands and architecture</strong></summary>
 
-Android Studio with **JDK 17** or later and Android 8.0 (API 26) are required; Gradle is included. The [quick guide](docs/GUIDA.md) explains how to build, test and generate the data; the [wiki](https://github.com/miracle091/pocket-travel/wiki) explains the technical choices. Both are in Italian.
+Android Studio with **JDK 17** or later and Android 8.0 (API 26) are required; Gradle is included. The [developer guide](docs/GUIDA.md) explains how to build, test and generate the data; the [wiki](https://github.com/miracle091/pocket-travel/wiki) explains the technical choices. Both are in Italian.
 
 | Command | What it does |
 |---|---|

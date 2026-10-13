@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test di resolve_ai_models.py: scelta dell'impronta che coincide con HuggingFace (senza rete).
+"""Test di resolve_ai_models.py: scelta dell'impronta che coincide con Hugging Face (senza rete).
 
 Uso: python test_resolve_ai_models.py
 """

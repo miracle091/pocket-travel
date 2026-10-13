@@ -113,7 +113,7 @@ class MergeManifestsTest {
     }
 
     @Test
-    fun `converte una regione del manifest v1 in mappa, routing e POI da content_db`() {
+    fun `converte una regione del manifest v1 in mappa, rete stradale e POI da content_db`() {
         val v1 = """
             {
               "manifestVersion": 1,

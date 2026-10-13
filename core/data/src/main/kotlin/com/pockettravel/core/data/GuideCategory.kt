@@ -12,7 +12,7 @@ enum class GuideCategory {
     ACQUISTI,
     CONNETTIVITA,
     VITA_QUOTIDIANA,
-    // Aggiunte per le guide delle citta' e i fatti rapidi.
+    // Categorie delle guide delle citta' e dei fatti rapidi.
     DA_SAPERE,
     COSA_VEDERE,
     FATTI_RAPIDI,

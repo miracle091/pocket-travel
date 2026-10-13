@@ -32,7 +32,7 @@ import java.util.Locale
  * interrotta, richiesta di navigazione): ogni turno deve partire da zero, senza history ne' KV cache del
  * turno prima, perche' i modelli sono addestrati su un turno singolo (OnDeviceLlmEngine azzera la
  * conversazione a ogni domanda). Lo si verifica dall'uso del contesto: a fine turno la KV cache contiene
- * solo prompt e risposta di quel turno. Usa il primo modello italiano del catalogo presente in
+ * solo prompt e risposta di quel turno. Usa il primo modello italiano del catalogo dei modelli presente in
  * getExternalFilesDir(null) (vedi [LlamaEngineDeviceTest] per come copiarlo); scrive le risposte nel
  * logcat (tag MultiTurn) per leggerle:
  *   adb logcat -s MultiTurn

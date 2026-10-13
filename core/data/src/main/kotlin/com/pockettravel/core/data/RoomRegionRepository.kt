@@ -97,7 +97,7 @@ class RoomRegionRepository @Inject constructor(
                 citiesSizeBytes = if (kind == PackageKind.CITIES) null else current.citiesSizeBytes,
             )
         }
-        // Fuori dalla transazione (il VACUUM non ci puo' stare). Mappa, routing e il resto sono file, non righe.
+        // Fuori dalla transazione (il VACUUM non ci puo' stare). Mappa, rete stradale e il resto sono file, non righe.
         if (kind == PackageKind.POI || kind == PackageKind.POI_EXTRA || kind == PackageKind.CITIES) compactor.compactIfWasteful()
     }
 

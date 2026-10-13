@@ -3,7 +3,7 @@ package com.pockettravel.feature.ai
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Se l'assistente IA e' utilizzabile: una chiave API salvata (online) o almeno un modello on-device
+ * Se l'assistente IA e' utilizzabile: una chiave API salvata (online) o almeno un modello sul dispositivo
  * scaricato che funziona con la lingua delle guide. Chi non e' configurato non vede la scheda IA
  * nell'hub delle regioni; la configurazione sta nelle Impostazioni (vedi [AiSettingsSection]).
  */

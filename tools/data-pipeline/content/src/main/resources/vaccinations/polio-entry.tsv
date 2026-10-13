@@ -1,8 +1,8 @@
 # Requisiti polio all'ingresso (solo quelli documentati da fonti aperte) (vedi GenerateVaccinations.kt).
 # Fonti (sigle usate nella colonna fonti, separate da +; fatti riformulati; OMS e CDC solo per controllo, mai copiati; verificato = data ISO del confronto tra le fonti):
-# F7 = TravelHealthPro (NaTHNaC / UKHSA), pagine paese e scheda Hajj e Umrah, Open Government Licence v3.0
-# F8 = GOV.UK Foreign travel advice (FCDO), scheda "Entry requirements" del paese, Open Government Licence v3.0
-# F9 = France Diplomatie, Conseils aux voyageurs, scheda "Santé" del paese (Egitto: aggiornata il 2026-09-21), Licence Ouverte 2.0
+# F7 = TravelHealthPro (NaTHNaC / UKHSA), pagine paese e pagina Hajj e Umrah, Open Government Licence v3.0
+# F8 = GOV.UK Foreign travel advice (FCDO), pagina "Entry requirements" del paese, Open Government Licence v3.0
+# F9 = France Diplomatie, Conseils aux voyageurs, pagina "Santé" del paese (Egitto: aggiornata il 2026-09-21), Licence Ouverte 2.0
 # UNLISTED: la fonte dice che il paese chiede la vaccinazione a chi arriva da paesi con la polio, senza un elenco aperto e attuale
 # dei paesi (Egitto, Nepal, Iran e India: dettagli in tools/data-pipeline/README.md); l'app mostra un avviso da valutare per
 # qualunque provenienza, e vaccine e window non si usano.

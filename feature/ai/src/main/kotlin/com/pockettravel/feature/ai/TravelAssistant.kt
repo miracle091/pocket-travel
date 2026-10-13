@@ -71,7 +71,7 @@ sealed interface AssistantProgress {
 }
 
 /**
- * Orchestrazione dell'assistente nei due motori: "Sul dispositivo" usa il RAG semplice sulle
+ * Orchestrazione dell'assistente nei due motori: "Sul dispositivo" usa la scelta del contesto sulle
  * guide della nazione e delle città in region.db (ricerca full-text come CONTESTO del prompt locale),
  * più la nota personale più pertinente se ce n'è una e, per le domande su cosa c'è "qui vicino" o sui mezzi
  * pubblici, i POI e le prossime partenze attorno all'ultima posizione nota, e per la distanza tra due citta' quella
@@ -227,7 +227,7 @@ class TravelAssistant @Inject constructor(
     /**
      * Per una domanda sulla distanza o sul tempo di viaggio tra due citta' nominate ([cities]), la distanza in linea
      * d'aria dalle loro coordinate e, con la rete stradale della regione scaricata, il percorso in auto calcolato sul
-     * telefono (al massimo CAR_ROUTE_TIMEOUT_MILLIS, poi solo la linea d'aria). Le guide riportano i km solo per
+     * dispositivo (al massimo CAR_ROUTE_TIMEOUT_MILLIS, poi solo la linea d'aria). Le guide riportano i km solo per
      * alcune coppie. Null senza le coordinate di una delle due (cities.db vecchio), e per il solo tempo di viaggio
      * senza percorso in auto: la linea d'aria non lo dice.
      */
@@ -298,7 +298,7 @@ class TravelAssistant @Inject constructor(
     }
 
     /**
-     * Per una domanda su cosa c'è "qui vicino", i POI della regione attorno all'ultima posizione nota al telefono, prima
+     * Per una domanda su cosa c'è "qui vicino", i POI della regione attorno all'ultima posizione nota al dispositivo, prima
      * delle sezioni della guida. Null se la domanda non lo chiede, senza permesso di posizione, se la posizione ha più di
      * 15 minuti (l'utente potrebbe essere altrove) o se attorno non c'è nessun POI della regione.
      */
@@ -361,7 +361,7 @@ class TravelAssistant @Inject constructor(
         const val NEARBY_MAX_AGE_MILLIS = 15 * 60 * 1_000L
         // I più vicini: 30 POI con nome e orari supererebbero da soli il limite del contesto.
         const val NEARBY_CONTEXT_MAX = 12
-        // Il percorso in auto tra due citta' lontane puo' richiedere minuti sul telefono (Milano-Roma 45 s sull'emulatore):
+        // Il percorso in auto tra due citta' lontane puo' richiedere minuti sul dispositivo (Milano-Roma 45 s sull'emulatore):
         // oltre questo tempo l'assistente risponde con la sola distanza in linea d'aria.
         const val CAR_ROUTE_TIMEOUT_MILLIS = 30_000L
     }

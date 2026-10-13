@@ -89,7 +89,7 @@ import com.pockettravel.feature.vault.DocumentsScreen
 
 // Le destinazioni principali della barra/rail di navigazione (M3: il menu laterale modale e'
 // sconsigliato, sostituito dalla navigation suite). La barra compare solo su queste: le
-// schermate di dettaglio (hub regione, fonti, licenze...) occupano tutto lo spazio.
+// schermate di dettaglio (hub regione, Fonti ufficiali, licenze...) occupano tutto lo spazio.
 private enum class TopLevelDestination(val route: Any, @StringRes val label: Int) {
     REGIONS(RegionsRoute, R.string.nav_regions),
     NAVIGATOR(NavigatorRoute, R.string.nav_navigator),
@@ -111,7 +111,7 @@ private fun TopLevelDestination.icon(selected: Boolean): ImageVector = when (thi
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PocketTravelNavHost(
-    // Activity creata dal tocco sulla notifica della guida (non gia' aperta): parte dal Navigatore.
+    // Activity creata dal tocco sulla notifica della navigazione (non gia' aperta): parte dal Navigatore.
     openNavigatorOnStart: Boolean = false,
     onboardingViewModel: OnboardingViewModel = hiltViewModel(),
     startDestinationViewModel: StartDestinationViewModel = hiltViewModel(),
@@ -126,8 +126,8 @@ fun PocketTravelNavHost(
     val adaptiveInfo = currentWindowAdaptiveInfoV2()
     val isExpanded = adaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
 
-    // Notifica della guida toccata con l'app aperta: fuori dall'hub di una regione (che passa da solo alla sua scheda) si
-    // apre il Navigatore della barra, che mostra la stessa guida.
+    // Notifica della navigazione toccata con l'app aperta: fuori dall'hub di una regione (che passa da solo alla sua scheda) si
+    // apre il Navigatore della barra, che mostra la stessa navigazione.
     val (_, navigationViewModel) = navigatorViewModels()
     LaunchedEffect(navigationViewModel) {
         navigationViewModel.openNavigatorRequests.collect {
@@ -147,7 +147,7 @@ fun PocketTravelNavHost(
     }
 
     // Dopo la regione iniziale, che altrimenti resterebbe in cima: i collector di openNavigatorRequests non c'erano ancora
-    // quando l'activity ha letto l'intent, quindi qui si naviga direttamente (solo se una guida e' in corso).
+    // quando l'activity ha letto l'intent, quindi qui si naviga direttamente (solo se una navigazione e' in corso).
     LaunchedEffect(Unit) {
         if (openNavigatorOnStart && startDestination != OnboardingRoute && navigationViewModel.isNavigating) {
             navController.navigateTopLevel(NavigatorRoute)
@@ -268,7 +268,7 @@ fun PocketTravelNavHost(
                 StorageScreen(onBack = dropUnlessResumed { navController.popBackStack() })
             }
             composable<SourcesRoute> {
-                // Stesse preferenze delle Impostazioni: la nazionalita' sceglie le fonti del proprio paese.
+                // Stesse preferenze delle Impostazioni: la nazionalita' sceglie le Fonti ufficiali del proprio paese.
                 val nationality by hiltViewModel<SettingsViewModel>().nationality.collectAsStateWithLifecycle()
                 Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
                     Box(modifier = Modifier.weight(1f)) {

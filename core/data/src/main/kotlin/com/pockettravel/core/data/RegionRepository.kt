@@ -13,7 +13,7 @@ interface RegionRepository {
     /**
      * Registra i pacchetti appena installati ([versions]), conservando gli altri gia' presenti.
      * [poiSizeBytes] e [poiExtraSizeBytes] sono richiesti quando tra i pacchetti c'e' [PackageKind.POI] o
-     * [PackageKind.POI_EXTRA]. [previewVersion], se presente, aggiorna l'anteprima installata da sola
+     * [PackageKind.POI_EXTRA]. [previewVersion], se presente, aggiorna la mappa d'insieme installata da sola
      * insieme a questo download (non e' un [PackageKind], vedi RegionPackageInstaller).
      */
     suspend fun markPackagesInstalled(
@@ -33,7 +33,7 @@ interface RegionRepository {
     /**
      * Toglie dal database i pacchetti su file (mappa, rete stradale, civici, orari dei mezzi) registrati ma
      * senza file su disco: restano cosi' se l'app si chiude fra la cancellazione dei file e la
-     * transazione di [removePackage], e l'app li crederebbe installati ("Installato · 0 B") invece di
+     * transazione di [removePackage], e l'app li crederebbe installati ("Scaricato · 0 B") invece di
      * proporre di scaricarli. Ritorna i pacchetti tolti.
      */
     suspend fun forgetMissingPackages(regionId: String): Set<PackageKind>
@@ -60,7 +60,7 @@ interface RegionRepository {
     /** Elimina la regione, database e file; le guide restano: sono un pacchetto unico per tutte le regioni. */
     suspend fun remove(regionId: String)
 
-    /** Byte occupati da un pacchetto installato: mappa, routing, civici e orari dei mezzi dal disco, POI (base ed extra) e citta' dalla dimensione registrata. */
+    /** Byte occupati da un pacchetto installato: mappa, rete stradale, civici e orari dei mezzi dal disco, POI (base ed extra) e citta' dalla dimensione registrata. */
     fun packageBytes(region: InstalledRegion, kind: PackageKind): Long?
 
     fun availableStorageBytes(): Long

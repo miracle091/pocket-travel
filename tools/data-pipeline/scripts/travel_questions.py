@@ -85,7 +85,7 @@ def _get(url):
 
 
 def require_revision(dataset, revision):
-    """RuntimeError se [dataset] su HuggingFace non e' piu' alla revisione [revision]. datasets-server legge solo
+    """RuntimeError se [dataset] su Hugging Face non e' piu' alla revisione [revision]. datasets-server legge solo
     l'ultima revisione: senza questo controllo un dataset cambiato finirebbe nel training senza che nessuno l'abbia
     guardato. Va chiamata prima di riempire una cache (con la cache non serve la rete)."""
     sha = _get(f"https://huggingface.co/api/datasets/{dataset}")["sha"]

@@ -38,7 +38,7 @@ import javax.inject.Inject
  * Navigazione passo passo dentro la scheda Navigatore: "Avvia" chiama [start] con la destinazione e il mezzo
  * scelti, "Termina" (o l'arrivo, chiuso dal Navigatore) [stop]. Il GPS si ascolta solo mentre si naviga.
  * Destinazione, mezzo e ora di arrivo stanno in [SavedStateHandle]: se il sistema chiude l'app, tornando il
- * Navigatore chiede se riprendere la guida ([NavigationUiState.resumeOffer]) invece di ripartire da solo.
+ * Navigatore chiede se riprendere la navigazione ([NavigationUiState.resumeOffer]) invece di ripartire da solo.
  */
 @HiltViewModel
 class NavigationViewModel @Inject constructor(
@@ -46,7 +46,7 @@ class NavigationViewModel @Inject constructor(
     private val routeEngineFactory: RouteEngineFactory,
     private val regionRepository: RegionRepository,
     private val gps: GpsLocationSource,
-    /** Per la mappa della guida: lo stesso stile della scheda Mappa, con una sorgente per regione. */
+    /** Per la mappa della navigazione: lo stesso stile della scheda Mappa, con una sorgente per regione. */
     val tileSource: OfflineTileSource,
     private val usageModePreferences: UsageModePreferences,
     /** Ponte con il servizio in primo piano e la sua notifica (vedi [NavigationService]). */
@@ -62,11 +62,11 @@ class NavigationViewModel @Inject constructor(
     private var regionId: String = savedStateHandle[KEY_REGION] ?: ""
     private val destination = MutableStateFlow<NavigationPlace?>(null)
     /**
-     * Se una guida e' in corso. Per chi reagisce a un evento (la notifica toccata) senza osservare lo stato: lo stato
+     * Se una navigazione e' in corso. Per chi reagisce a un evento (la notifica toccata) senza osservare lo stato: lo stato
      * di schermata si aggiorna solo mentre qualcuno lo raccoglie.
      */
     val isNavigating: Boolean get() = destination.value != null
-    // Guida interrotta: dallo stato salvato da Android (app riaperta dalle recenti) o dal disco (riaperta dall'icona).
+    // Navigazione interrotta: dallo stato salvato da Android (app riaperta dalle recenti) o dal disco (riaperta dall'icona).
     private val savedNavigation = navigationPreferences.activeNavigation()
     private val _resumeOffer = MutableStateFlow(savedStateHandle.savedPlace(KEY_DESTINATION) ?: savedNavigation?.place)
     private val arrival = MutableStateFlow(savedStateHandle.get<Long>(KEY_ARRIVE_BY)?.let { LocalDateTime.ofEpochSecond(it * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC) })
@@ -119,7 +119,7 @@ class NavigationViewModel @Inject constructor(
     private fun trackerFor(route: Route): NavigationTracker =
         tracker?.takeIf { trackerRoute === route } ?: NavigationTracker(route).also { tracker = it; trackerRoute = route }
 
-    private val guidance: StateFlow<NavigationStatus> = combine(
+    private val navigationStatus: StateFlow<NavigationStatus> = combine(
         combine(permissionGranted, gpsEnabled, lastFix, ::Triple),
         combine(calculating, calculationStartedMillis, calculationProgress, routeResult, arrived) { isCalculating, started, progress, result, hasArrived ->
             CalculationInputs(isCalculating, started, progress, result, hasArrived)
@@ -129,9 +129,9 @@ class NavigationViewModel @Inject constructor(
         navigationUiState(permission, enabled, fix, now, calc.calculating, calc.result, calc.arrived, calc.startedMillis, calc.progress, ::trackerFor)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NavigationStatus.WaitingForFix)
 
-    /** Tutto quello che la scheda Navigatore legge della guida, in un solo stato. */
+    /** Tutto quello che la scheda Navigatore legge della navigazione, in un solo stato. */
     val uiState: StateFlow<NavigationUiState> = combine(
-        combine(guidance, destination, _resumeOffer, _routeProfile, navigationPreferences.walkingHaptics) { status, target, offer, mode, haptics ->
+        combine(navigationStatus, destination, _resumeOffer, _routeProfile, navigationPreferences.walkingHaptics) { status, target, offer, mode, haptics ->
             NavigationUiState(status = status, target = target, resumeOffer = offer, routeProfile = mode, walkingHaptics = haptics)
         },
         arrival, _regionIds, drivingSideWarning, _arrivedAtMillis,
@@ -151,17 +151,17 @@ class NavigationViewModel @Inject constructor(
         ),
     )
 
-    // Strade del percorso in corso, per punto della svolta: le trova la mappa della guida, che le passa a onStreetNames.
+    // Strade del percorso in corso, per punto della svolta: le trova la mappa della navigazione, che le passa a onStreetNames.
     private val streetNames = mutableMapOf<Int, String>()
     private var lastProgress: Pair<Route, NavigationProgress>? = null
 
-    // L'anteprima del Navigatore da cui e' partita la guida: si usa alla prima posizione, se e' sul percorso.
+    // L'anteprima del Navigatore da cui e' partita la navigazione: si usa alla prima posizione, se e' sul percorso.
     private var previewToUse: PlannerPreview.Ready? = null
 
     init {
         // Posizioni raccolte solo navigando, con permesso e GPS acceso: spegnendo il GPS il flusso si
-        // chiude e la guida si ferma finche' non torna. Arrivati il GPS si spegne subito, senza aspettare
-        // che la scheda chiuda la guida.
+        // chiude e la navigazione si ferma finche' non torna. Arrivati il GPS si spegne subito, senza aspettare
+        // che la scheda chiuda la navigazione.
         @OptIn(ExperimentalCoroutinesApi::class)
         combine(permissionGranted, gpsEnabled, destination, arrived) { permission, enabled, target, hasArrived ->
             permission && enabled && target != null && !hasArrived
@@ -173,7 +173,7 @@ class NavigationViewModel @Inject constructor(
         session.stopRequests.onEach { if (destination.value != null) stop() }.launchIn(viewModelScope)
     }
 
-    /** "Riprendi": la guida interrotta riparte con la stessa destinazione, mezzo e ora di arrivo. */
+    /** "Riprendi": la navigazione interrotta riparte con la stessa destinazione, mezzo e ora di arrivo. */
     fun resume() {
         val place = _resumeOffer.value ?: return
         _resumeOffer.value = null
@@ -187,7 +187,7 @@ class NavigationViewModel @Inject constructor(
         )
     }
 
-    /** "No": la guida interrotta si dimentica. */
+    /** "No": la navigazione interrotta si dimentica. */
     fun dismissResume() {
         _resumeOffer.value = null
         arrival.value = null
@@ -195,7 +195,7 @@ class NavigationViewModel @Inject constructor(
         navigationPreferences.clearActiveNavigation()
     }
 
-    // Il servizio in primo piano parte con la guida (dal primo piano: da sfondo Android 12+ non puo'): senza,
+    // Il servizio in primo piano parte con la navigazione (dal primo piano: da sfondo Android 12+ non puo'): senza,
     // a schermo spento le posizioni verrebbero limitate. Il permesso di posizione serve gia' per partire (da
     // Android 14 senza il servizio non parte), se manca arriva da onPermissionResult.
     private fun beginSession(place: NavigationPlace) {
@@ -203,10 +203,10 @@ class NavigationViewModel @Inject constructor(
         if (gps.hasPermission()) serviceStarter.start()
     }
 
-    /** Notifica della guida toccata con l'app aperta: chi mostra l'hub porta in primo piano il Navigatore. */
+    /** Notifica della navigazione toccata con l'app aperta: chi mostra l'hub porta in primo piano il Navigatore. */
     val openNavigatorRequests: SharedFlow<Unit> = session.openRequests
 
-    /** Nomi di strada trovati dalla mappa della guida, per la notifica (accumulati, come nella guida a schermo). */
+    /** Nomi di strada trovati dalla mappa della navigazione, per la notifica (accumulati, come nella navigazione a schermo). */
     fun onStreetNames(found: Map<Int, String>) {
         streetNames += found
         lastProgress?.let { (route, progress) -> publish(route, progress) }
@@ -228,7 +228,7 @@ class NavigationViewModel @Inject constructor(
     }
 
     /**
-     * Parte la guida verso [place] con il mezzo scelto nel Navigatore: il percorso si ricalcola dalla posizione GPS.
+     * Parte la navigazione verso [place] con il mezzo scelto nel Navigatore: il percorso si ricalcola dalla posizione GPS.
      * Con [preview] (il percorso gia' calcolato nell'anteprima) si riparte da quello, se la prima posizione e' sul percorso.
      */
     fun start(regionId: String, place: NavigationPlace, mode: RouteProfile, arriveBy: LocalDateTime? = null, preview: PlannerPreview.Ready? = null) {
@@ -261,7 +261,7 @@ class NavigationViewModel @Inject constructor(
         )
     }
 
-    /** "Termina": la guida si chiude e il GPS non si ascolta piu'. */
+    /** "Termina": la navigazione si chiude e il GPS non si ascolta piu'. */
     fun stop() {
         calculationJob?.cancel()
         calculating.value = false
@@ -319,7 +319,7 @@ class NavigationViewModel @Inject constructor(
                     session.clear()
                     navigationPreferences.clearActiveNavigation()
                 } else {
-                    // Con "Spegni il GPS all'arrivo" tolto la guida resta aperta: l'arrivo si segna una volta sola
+                    // Con "Spegni il GPS all'arrivo" tolto la navigazione resta aperta: l'arrivo si segna una volta sola
                     // (per l'avviso), poi si continua a seguire la posizione finche' non si chiude.
                     if (progress.arrived && _arrivedAtMillis.value == null) _arrivedAtMillis.value = System.currentTimeMillis()
                     publish(result.route, progress)
@@ -398,8 +398,8 @@ class NavigationViewModel @Inject constructor(
 }
 
 /**
- * Lo stato della scheda Navigatore durante la guida. [target] e' la destinazione della guida in corso (null se non si sta
- * navigando); [resumeOffer] la guida interrotta perche' il sistema ha chiuso l'app, da riprendere o dimenticare;
+ * Lo stato della scheda Navigatore durante la navigazione. [target] e' la destinazione della navigazione in corso (null se non si sta
+ * navigando); [resumeOffer] la navigazione interrotta perche' il sistema ha chiuso l'app, da riprendere o dimenticare;
  * [walkingHaptics] la vibrazione alle svolte e all'arrivo a piedi (Impostazioni); [arriveBy] l'ora a cui si vuole
  * arrivare, per mostrare il ritardo; [regionIds] le regioni del percorso, una sorgente di mappa per ognuna;
  * [drivingSideWarning] il lato di guida da ricordare in auto; [arrivedAtMillis] quando e' stata raggiunta la destinazione, per
@@ -419,7 +419,7 @@ data class NavigationUiState(
 
 /**
  * Solo nelle build di debug: i punti del percorso nel log (tag [SIMULATION_LOG_TAG]), letti dallo script
- * che sull'emulatore muove il GPS lungo il percorso con "adb emu geo fix" per provare la guida.
+ * che sull'emulatore muove il GPS lungo il percorso con "adb emu geo fix" per provare la navigazione.
  */
 internal fun logRouteForSimulation(route: Route) {
     if (!BuildConfig.DEBUG) return

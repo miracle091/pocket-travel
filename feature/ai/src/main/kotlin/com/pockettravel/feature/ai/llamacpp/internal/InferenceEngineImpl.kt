@@ -1,6 +1,8 @@
 // Adattato da examples/llama.android (com.arm.aichat) di ggml-org/llama.cpp, git tag v0.6.0 —
-// vedi third-party/llama-cpp/LICENSE-LLAMA-CPP.txt. Solo package e nome della libreria nativa
-// (System.loadLibrary) sono cambiati, per restare allineati ai simboli JNI di ai_chat.cpp.
+// vedi third-party/llama-cpp/LICENSE-LLAMA-CPP.txt. Package e nome della libreria nativa sono allineati ai simboli
+// JNI di ai_chat.cpp; la logica e' cambiata: variante CPU forzata (CpuBackendOverride), errore di init definitivo
+// (nativeInitError), uso del contesto (contextUsage), grammatica, azzeramento della conversazione, chiusura del turno
+// interrotto e scaricamento del modello anche dopo un errore.
 package com.pockettravel.feature.ai.llamacpp.internal
 
 import android.content.Context

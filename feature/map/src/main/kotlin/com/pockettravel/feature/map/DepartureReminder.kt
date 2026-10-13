@@ -65,7 +65,7 @@ internal fun reminderTriggerMillis(departure: LocalDateTime, zone: ZoneId = Zone
  * Con AlarmManager e non WorkManager: in Doze il ritardo di WorkManager e' di minuti, un avviso di partenza
  * deve suonare all'ora giusta. Il permesso SCHEDULE_EXACT_ALARM non e' dichiarato (su Play e' riservato
  * a sveglie e calendari): senza, canScheduleExactAlarms() e' falso e si usa setAndAllowWhileIdle, che in
- * Doze puo' tardare di qualche minuto ma non salta. Il riavvio del telefono cancella gli allarmi: l'avviso
+ * Doze puo' tardare di qualche minuto ma non salta. Il riavvio del dispositivo cancella gli allarmi: l'avviso
  * resta salvato nelle preferenze e DepartureReminderBootReceiver lo riprogramma all'accensione.
  */
 internal object DepartureReminder {
@@ -77,7 +77,7 @@ internal object DepartureReminder {
         setAlarm(context, triggerAt, destinationName)
     }
 
-    /** All'accensione: riprogramma l'avviso salvato, o lo mostra subito se l'ora e' passata da poco a telefono spento. */
+    /** All'accensione: riprogramma l'avviso salvato, o lo mostra subito se l'ora e' passata da poco a dispositivo spento. */
     fun restore(context: Context, store: DepartureReminderStore, now: Long = System.currentTimeMillis()) {
         val saved = store.load() ?: return
         when (restoreAction(saved.triggerAt, now)) {
@@ -141,7 +141,7 @@ internal enum class RestoreAction { SCHEDULE, NOTIFY_NOW, DROP }
 
 /**
  * Cosa fare all'accensione di un avviso salvato per [triggerAt]: ancora da venire, si riprogramma; passato da
- * meno di [MISSED_GRACE_MILLIS] (telefono spento all'ora giusta) si mostra subito; piu' vecchio non serve piu'.
+ * meno di [MISSED_GRACE_MILLIS] (dispositivo spento all'ora giusta) si mostra subito; piu' vecchio non serve piu'.
  */
 internal fun restoreAction(triggerAt: Long, now: Long): RestoreAction = when {
     triggerAt > now -> RestoreAction.SCHEDULE
@@ -152,7 +152,7 @@ internal fun restoreAction(triggerAt: Long, now: Long): RestoreAction = when {
 private const val MISSED_GRACE_MILLIS = 30 * 60_000L
 private const val SECONDS_PER_MINUTE = 60
 
-/** Riprogramma l'avviso di partenza dopo il riavvio del telefono (gli allarmi non sopravvivono allo spegnimento). */
+/** Riprogramma l'avviso di partenza dopo il riavvio del dispositivo (gli allarmi non sopravvivono allo spegnimento). */
 class DepartureReminderBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) DepartureReminder.restore(context, DepartureReminderStore.of(context))

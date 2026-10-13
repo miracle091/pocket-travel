@@ -42,7 +42,7 @@ val MIGRATION_3_5 = object : Migration(3, 5) {
 }
 
 // Da 5 (v0.4.0) a 6 (v0.5.0).
-// Pacchetti separati (guide, mappa, routing, POI): installed_regions passa da una sola version a
+// Pacchetti separati (guide, mappa, rete stradale, POI): installed_regions passa da una sola version a
 // una per pacchetto, nullable (ogni combinazione e' possibile). Le regioni gia' installate hanno
 // tutti e tre, con la stessa versione; poiSizeBytes resta NULL (il vecchio sizeBytes non separava
 // i POI dal resto). installed_guides resta vuota: le guide finora importate venivano dai
@@ -355,7 +355,7 @@ val MIGRATION_17_24 = object : Migration(17, 24) {
         db.execSQL("CREATE TABLE IF NOT EXISTS `vacc_meta` (`key` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`key`))")
 
         // 19 -> 20: popolazione e capitale delle citta' (CitySectionEntity.population, capital), per le
-        // citta' principali della scheda Citta'.
+        // citta' principali del riquadro Citta'.
         db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `population` INTEGER")
         db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `capital` INTEGER NOT NULL DEFAULT 0")
 

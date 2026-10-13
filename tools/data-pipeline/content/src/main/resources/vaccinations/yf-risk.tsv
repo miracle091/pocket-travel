@@ -1,7 +1,7 @@
 # Paesi con rischio di trasmissione della febbre gialla (vedi GenerateVaccinations.kt).
 # Fonti (sigle usate nella colonna fonti, separate da +; fatti riformulati; OMS e CDC solo per controllo, mai copiati; verificato = data ISO del confronto tra le fonti):
-# F6 = Travel.gc.ca, Country Travel Advice and Advisories, scheda "Health" (Governo del Canada, dati aperti), Open Government Licence - Canada
-# F7 = TravelHealthPro (NaTHNaC / UKHSA), pagine paese e scheda Hajj e Umrah, Open Government Licence v3.0
+# F6 = Travel.gc.ca, Country Travel Advice and Advisories, pagina "Health" (Governo del Canada, dati aperti), Open Government Licence - Canada
+# F7 = TravelHealthPro (NaTHNaC / UKHSA), pagine paese e pagina Hajj e Umrah, Open Government Licence v3.0
 # iso2	scope (WHOLE|PARTIAL)	aree_it	aree_en	fonti	verificato
 ao	WHOLE			F6+F7	2026-10-03
 ar	PARTIAL	Province di Corrientes e Misiones (con le cascate dell'Iguazu'); basso rischio in Formosa e in parti di Chaco, Jujuy e Salta	Corrientes and Misiones provinces (including Iguazu Falls); low risk in Formosa and parts of Chaco, Jujuy and Salta	F6+F7	2026-10-03

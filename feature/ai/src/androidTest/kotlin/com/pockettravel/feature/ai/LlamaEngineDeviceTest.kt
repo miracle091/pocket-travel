@@ -24,7 +24,7 @@ import java.io.File
 /**
  * Esercita la libreria nativa llm-engine vera (llama.cpp) con un modello GGUF reale: i percorsi di
  * errore/recupero dell'engine non sono testabili in JVM, perche' InferenceEngineImpl carica la
- * libreria nativa alla creazione. Il modello (Qwen3.5 0.8B, ~530 MB, il piu' piccolo del catalogo) non
+ * libreria nativa alla creazione. Il modello (Qwen3.5 0.8B, ~530 MB, il piu' piccolo del catalogo dei modelli) non
  * e' nel repo: va copiato prima in getExternalFilesDir(null), altrimenti i test vengono saltati:
  *   adb push Qwen3.5-0.8B-UD-Q4_K_XL.gguf /sdcard/Android/data/com.pockettravel.feature.ai.test/files/
  */

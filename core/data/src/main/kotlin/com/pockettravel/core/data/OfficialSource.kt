@@ -9,7 +9,7 @@ enum class OfficialSourceTopic { TRAVEL_ADVICE, HEALTH, CUSTOMS, OTHER }
 data class OfficialSource(
     val name: String,
     val url: String,
-    // A cosa serve, mostrato sotto il nome nel registro delle fonti (nella lingua dell'interfaccia).
+    // A cosa serve, mostrato sotto il nome nel registro delle Fonti ufficiali (nella lingua dell'interfaccia).
     @StringRes val description: Int,
     // Paesi (ISO 3166-1 alpha-2) dei cui cittadini e' la fonte; vuoto per le fonti internazionali,
     // mostrate a tutti.
@@ -97,10 +97,10 @@ val officialSourcesRegistry = listOf(
     OfficialSource("MOFA UAE — Travel updates", "https://www.mofa.gov.ae/en/travel-updates", R.string.source_desc_advice, setOf("AE"), OfficialSourceTopic.TRAVEL_ADVICE),
 )
 
-/** Fonti internazionali: nel registro per chiunque, qualunque sia la nazionalita'. */
+/** Fonti ufficiali internazionali: nel registro per chiunque, qualunque sia la nazionalita'. */
 val globalOfficialSources: List<OfficialSource> = officialSourcesRegistry.filter { it.countries.isEmpty() }
 
-/** Fonti del paese di chi viaggia (comprese quelle dell'UE per i cittadini europei); vuota se non ce ne sono. */
+/** Fonti ufficiali del paese di chi viaggia (comprese quelle dell'UE per i cittadini europei); vuota se non ce ne sono. */
 fun nationalOfficialSources(nationality: String?): List<OfficialSource> =
     officialSourcesRegistry.filter { nationality != null && nationality in it.countries }
 
@@ -116,7 +116,7 @@ private val VIAGGIARE_SICURI_NO_PAGE = setOf("BL", "CC", "CX", "FK", "FO", "GL",
 
 /**
  * Indirizzo da aprire per la destinazione [destination] (ISO 3166-1 alpha-2): per Viaggiare Sicuri la pagina del
- * paese, indirizzata dal codice alpha-3 (il Kosovo, senza codice ISO, e' KSV); per le altre fonti, o senza pagina,
+ * paese, indirizzata dal codice alpha-3 (il Kosovo, senza codice ISO, e' KSV); per le altre Fonti ufficiali, o senza pagina,
  * [OfficialSource.url]. Solo il link: i testi della Farnesina non hanno una licenza aperta, quindi non si copiano nell'app.
  */
 fun OfficialSource.urlFor(destination: String?): String {

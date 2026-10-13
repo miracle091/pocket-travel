@@ -114,7 +114,7 @@ internal fun PlannerMap(
                 // Arrivo: segnalino rosso con la bandiera, piu' grande di quelli dei POI, punta sul punto.
                 style.addImage(DESTINATION_PIN_IMAGE, pinBitmap(context, endColor, UiR.drawable.ms_flag, scale = DESTINATION_PIN_SCALE))
                 style.addLayer(destinationPinLayer(PLANNER_END_SOURCE))
-                // Posizione come nella guida: punto pieno nel colore del percorso con il bordo chiaro, sopra tutto.
+                // Posizione come nella navigazione: punto pieno nel colore del percorso con il bordo chiaro, sopra tutto.
                 style.addLayer(
                     CircleLayer(PLANNER_POSITION_SOURCE, PLANNER_POSITION_SOURCE).withProperties(
                         PropertyFactory.circleColor(routeColor), PropertyFactory.circleRadius(POSITION_DOT_RADIUS),

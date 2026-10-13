@@ -93,7 +93,7 @@ fun RegionHubScreen(
     LaunchedEffect(aiAvailable, selectedTab) { if (!aiAvailable && selectedTab == RegionTab.AI) selectedTab = RegionTab.GUIDE }
     LaunchedEffect(regionId) { viewModel.load(regionId) }
     // Qui e non dentro la scheda: "Indicazioni" dalla Mappa le passa la destinazione prima di aprirla, e la notifica della
-    // guida riporta in primo piano il Navigatore. Uno solo per l'app, come quello della barra principale.
+    // navigazione riporta in primo piano il Navigatore. Uno solo per l'app, come quello della barra principale.
     val (plannerViewModel, navigationViewModel) = navigatorViewModels()
     LaunchedEffect(navigationViewModel) {
         navigationViewModel.openNavigatorRequests.collect {
@@ -159,7 +159,7 @@ fun RegionHubScreen(
                     RegionTab.GUIDE -> Box(modifier = Modifier.statusBarsPadding()) { GuideScreen(regionId = regionId, onOpenSource = onOpenSource, onBack = onBackTap) }
                     RegionTab.MAP -> {
                         // I pacchetti si installano separatamente: la mappa completa puo' mancare,
-                        // ma la scheda mostra sempre qualcosa (anteprima, mondo online, o solo lo
+                        // ma la scheda mostra sempre qualcosa (mappa d'insieme, mappa del mondo, o solo lo
                         // sfondo) invece di una schermata vuota — vedi MapSourceKind.
                         val mapViewModel: MapRouteViewModel = hiltViewModel()
                         LaunchedEffect(regionId) { mapViewModel.loadPins(regionId) }

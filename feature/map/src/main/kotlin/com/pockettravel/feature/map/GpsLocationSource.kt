@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import javax.inject.Inject
 
-/** Posizione dal solo GPS del telefono: niente rete, niente Google Play Services. */
+/** Posizione dal solo GPS del dispositivo: niente rete, niente Google Play Services. */
 interface GpsLocationSource {
     fun hasPermission(): Boolean
 

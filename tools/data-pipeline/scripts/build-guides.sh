@@ -2,7 +2,7 @@
 # Genera guides.db, il pacchetto guide unico per tutte le regioni di regions.sh (sezioni
 # Wikivoyage + numeri di emergenza, via il tool Kotlin generateGuides), e il suo frammento
 # manifest.json (voce "guides"). L'app lo scarica una volta per tutte le nazioni, separato dai
-# pacchetti per regione (mappa, POI, routing) di build-region.sh, e lo aggiorna da solo: pesa
+# pacchetti per regione (mappa, POI, rete stradale) di build-region.sh, e lo aggiorna da solo: pesa
 # meno di un MB compresso.
 #
 # Uso: build-guides.sh <version> <assetBaseUrl> <outputDir> [publishedManifestUrl] [it|en]

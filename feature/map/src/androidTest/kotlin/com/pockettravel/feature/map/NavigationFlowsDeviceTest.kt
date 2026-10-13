@@ -17,8 +17,8 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * Flussi del Navigatore e della guida provati su emulatore senza ViewModel, motore dei percorsi ne' mappa: stato e
- * azioni si passano a mano, la mappa del Navigatore e' uno slot vuoto e gli stati della guida senza percorso non ne
+ * Flussi del Navigatore e della navigazione provati su emulatore senza ViewModel, motore dei percorsi ne' mappa: stato e
+ * azioni si passano a mano, la mappa del Navigatore e' uno slot vuoto e gli stati della navigazione senza percorso non ne
  * creano nessuna. Nessun file da copiare sul dispositivo; i testi si leggono a runtime, per qualunque lingua.
  */
 class NavigationFlowsDeviceTest {
@@ -249,7 +249,7 @@ class NavigationFlowsDeviceTest {
         assertEquals(0, announced)
     }
 
-    // Guida: stati senza percorso da seguire
+    // Navigazione: stati senza percorso da seguire
 
     private fun setGuide(state: NavigationStatus, onRetry: () -> Unit = {}, onClose: () -> Unit = {}) {
         composeRule.setContent {
@@ -357,7 +357,7 @@ class NavigationFlowsDeviceTest {
         // Nessuna mappa: con le regioni vuote non viene nemmeno chiamata, ma lo slot e' obbligatorio.
         val NoMap: @Composable (List<String>, Route?, Float, Float, Modifier) -> Unit = { _, _, _, _, _ -> }
 
-        // La mappa della guida non si crea negli stati senza percorso: lo stile non si legge mai.
+        // La mappa della navigazione non si crea negli stati senza percorso: lo stile non si legge mai.
         val NoTiles = object : OfflineTileSource {
             override fun styleJson(regionId: String, dark: Boolean, language: String, worldFallback: Boolean) = "{}"
             override fun navigationStyleJson(regionIds: List<String>, dark: Boolean, language: String) = "{}"

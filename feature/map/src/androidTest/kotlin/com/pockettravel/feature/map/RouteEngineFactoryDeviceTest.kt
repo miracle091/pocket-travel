@@ -40,6 +40,7 @@ class RouteEngineFactoryDeviceTest {
             context,
             UsageModePreferences(preferences, MapFilterPreferences(preferences), RoutingVariantPreferences(preferences)),
             Dispatchers.IO,
+            Dispatchers.Default,
         )
         val result = runBlocking {
             val engine = factory.create(listOf(regionId))

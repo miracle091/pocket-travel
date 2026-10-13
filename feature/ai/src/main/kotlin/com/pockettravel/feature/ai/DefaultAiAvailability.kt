@@ -41,7 +41,7 @@ class DefaultAiAvailability @Inject constructor(
 
 /**
  * Pura, per i test. Sotto i 4 GB di RAM ([RamTier.INSUFFICIENTE]) conta solo la chiave: nessun modello
- * del catalogo e' visibile li' ([LlmModelCatalog.visibleFor]). Un modello addestrato in un'altra lingua
+ * del catalogo dei modelli e' visibile li' ([LlmModelCatalog.visibleFor]). Un modello addestrato in un'altra lingua
  * (es. quello italiano con le guide in inglese) non conta.
  */
 internal fun isAiAvailable(hasApiKey: Boolean, ramTier: RamTier, downloadedModelIds: Set<String>, language: String): Boolean =

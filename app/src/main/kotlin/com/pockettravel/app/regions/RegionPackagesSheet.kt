@@ -389,7 +389,7 @@ private fun UnavailablePackageRow(kind: PackageKind, splitCountry: Boolean) {
     )
 }
 
-// La mappa non ha una dimensione nota prima del download (estratta sul device): niente "0 B".
+// La mappa non ha una dimensione nota prima del download (estratta sul dispositivo): niente "0 B".
 @Composable
 private fun sizedStatus(@StringRes withSize: Int, @StringRes withoutSize: Int, bytes: Long): String =
     if (bytes > 0) stringResource(withSize, Formatter.formatShortFileSize(LocalContext.current, bytes)) else stringResource(withoutSize)

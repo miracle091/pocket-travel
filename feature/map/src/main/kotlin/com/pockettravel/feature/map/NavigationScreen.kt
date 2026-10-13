@@ -66,13 +66,13 @@ fun NavigationInstructions(
     routeProfile: RouteProfile,
     // Ora a cui si vuole arrivare ("Arriva alle…"), null se non scelta: il pannello dice se si e' in ritardo.
     arriveBy: LocalDateTime?,
-    // Mappa della guida: lo stile della scheda Mappa, con una sorgente per ognuna delle regioni del percorso.
+    // Mappa della navigazione: lo stile della scheda Mappa, con una sorgente per ognuna delle regioni del percorso.
     tileSource: OfflineTileSource,
     regionIds: List<String>,
     onPermissionResult: (Boolean) -> Unit,
     onRetry: () -> Unit,
     onClose: () -> Unit,
-    // Vibrazione a piedi (Impostazioni) e nomi delle strade trovati dalla mappa, per la notifica della guida.
+    // Vibrazione a piedi (Impostazioni) e nomi delle strade trovati dalla mappa, per la notifica della navigazione.
     walkingHaptics: Boolean = true,
     onStreetNames: (Map<Int, String>) -> Unit = {},
     // In auto, il lato di guida della nazione se diverso da quello di casa: un avviso sempre visibile.
@@ -89,8 +89,8 @@ fun NavigationInstructions(
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         onPermissionResult(result[Manifest.permission.ACCESS_FINE_LOCATION] == true)
     }
-    // Schermo acceso mentre si naviga, come in ogni navigatore, e guida visibile anche sopra la schermata
-    // di blocco: col telefono bloccato si vede la svolta senza sbloccarlo (il resto dell'app resta protetto).
+    // Schermo acceso mentre si naviga, come in ogni navigatore, e navigazione visibile anche sopra la schermata
+    // di blocco: col dispositivo bloccato si vede la svolta senza sbloccarlo (il resto dell'app resta protetto).
     val view = LocalView.current
     val activity = LocalActivity.current
     val navigating = state is NavigationStatus.Navigating

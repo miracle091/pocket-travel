@@ -13,8 +13,8 @@ import java.util.Locale
 
 /**
  * Lingua dell'interfaccia (le guide installate la seguono). Finche' non se ne sceglie una:
- * italiano se il telefono e' in italiano, inglese altrimenti ([systemDefault]). Da Android 13 e' la lingua per
- * app di sistema (LocaleManager, la stessa delle impostazioni del telefono); prima si salva qui e la
+ * italiano se il dispositivo e' in italiano, inglese altrimenti ([systemDefault]). Da Android 13 e' la lingua per
+ * app di sistema (LocaleManager, la stessa delle impostazioni del dispositivo); prima si salva qui e la
  * applicano [wrap] in attachBaseContext di app e activity.
  */
 enum class AppLanguage(val tag: String) {
@@ -42,13 +42,13 @@ enum class AppLanguage(val tag: String) {
             prefs.edit { putString(KEY_TAG, language.tag) }
         }
 
-        // La lingua del telefono, non quella dell'app (Resources.getSystem ignora la lingua per app).
+        // La lingua del dispositivo, non quella dell'app (Resources.getSystem ignora la lingua per app).
         private fun systemDefault(): AppLanguage =
             if (Resources.getSystem().configuration.locales.get(0).language == ITALIAN.tag) ITALIAN else ENGLISH
 
         /**
          * Da Android 13, al primo avvio: senza una lingua scelta imposta quella predefinita, perche' con un
-         * telefono ne' in italiano ne' in inglese Android mostrerebbe le stringhe di default (italiano).
+         * dispositivo ne' in italiano ne' in inglese Android mostrerebbe le stringhe di default (italiano).
          * Fino ad Android 12 ci pensa [wrap].
          */
         fun applyDefault(activity: Activity) {

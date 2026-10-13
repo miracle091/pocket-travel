@@ -12,8 +12,8 @@ import java.time.Instant
  *  la tile va riscaricata o ritagliata di nuovo (sizeBytes e' quella del file ritagliato). Non letto dall'app. */
 data class ManifestFileEntry(val name: String, val url: String, val sizeBytes: Long, val sha256: String, val sourceKey: String? = null)
 
-/** bbox+sorgente per l'estrazione lato device di map.pmtiles (vedi PmtilesExtractor, core:sync) —
- *  non un file da impacchettare, la build Protomaps e' letta via HTTP range direttamente dal device. */
+/** bbox+sorgente per l'estrazione sul dispositivo di map.pmtiles (vedi PmtilesExtractor, core:sync) —
+ *  non un file da impacchettare, la build Protomaps e' letta via HTTP range direttamente dal dispositivo. */
 data class MapSourceInput(
     val sourceUrl: String,
     val minLon: Double, val minLat: Double, val maxLon: Double, val maxLat: Double,
@@ -73,13 +73,13 @@ fun buildRegionFragmentJson(
     poiFile: ManifestFileEntry,
     // POI extra (scaricati solo su richiesta): assente se la regione non ne ha.
     poiExtraFile: ManifestFileEntry? = null,
-    // Anteprima offline (preview.pmtiles): assente se go-pmtiles
+    // Mappa d'insieme offline (preview.pmtiles): assente se go-pmtiles
     // non e' disponibile in questa run (build-region.sh continua senza, mai fatale). fileXz non e'
     // qui: build-region.sh lo aggiunge dopo con lo stesso schema di poi.fileXz (xz_entry).
     previewFile: ManifestFileEntry? = null,
     previewMaxZoom: Int? = null,
 ): String {
-    require(routingFiles.isNotEmpty()) { "Il routing di $regionId non contiene segmenti .rd5" }
+    require(routingFiles.isNotEmpty()) { "La rete stradale di $regionId non contiene segmenti .rd5" }
 
     val region = JSONObject()
         .put("regionId", regionId)
@@ -115,7 +115,7 @@ fun buildGuidesFragmentJson(version: String, file: ManifestFileEntry, wikivoyage
 /**
  * Legge una "spec" JSON prodotta dall'orchestratore batch (build-region.sh) invece di N
  * argomenti posizionali: contiene gia' gli hash dei segmenti .rd5 (calcolati scaricando e
- * hashando lo stream, vedi sopra) e il bbox per l'estrazione mappa lato device.
+ * hashando lo stream, vedi sopra) e il bbox per l'estrazione mappa sul dispositivo.
  *
  * Formato atteso:
  * {

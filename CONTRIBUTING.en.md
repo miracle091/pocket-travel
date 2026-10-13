@@ -11,7 +11,8 @@ Contributions are welcome. Everyone taking part follows the [code of conduct](CO
 - 🔧 **Fix bugs** open in the [issues](https://github.com/miracle091/pocket-travel/issues).
 - 📝 **Improve the texts** of the app, the README and the [wiki](https://github.com/miracle091/pocket-travel/wiki).
 - 🚌 **Add public transport networks** with a public GTFS feed and an open license.
-- ♿ **Improve accessibility** and 🧪 **add tests**.
+- ♿ **Improve accessibility**.
+- 🧪 **Add tests**.
 
 Errors in the content of guides and the map are fixed at the source (Wikivoyage, OpenStreetMap, Wikidata) and reach the app with the weekly update.
 
@@ -36,7 +37,7 @@ A suggestion describes the travel use case first, then the solution. Large chang
 
 5. Open the pull request against `main` with what changes and why, the linked issue (`Fixes #123`), the tests run and screenshots of visible changes.
 
-The [quick guide](docs/GUIDA.md) (in Italian) explains how to set up the environment, build and generate the data.
+The [developer guide](docs/GUIDA.md) (in Italian) explains how to set up the environment, build and generate the data.
 
 ## Rules
 

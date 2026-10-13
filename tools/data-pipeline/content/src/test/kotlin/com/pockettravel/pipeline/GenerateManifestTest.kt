@@ -112,7 +112,7 @@ class GenerateManifestTest {
             assertEquals("poi-extra.db", poiExtra.getJSONObject("file").getString("name"))
             assertEquals(5L, poiExtra.getJSONObject("file").getLong("sizeBytes"))
 
-            // Anteprima facoltativa: stessa versione, maxZoom dalla spec, niente fileXz (aggiunto
+            // Mappa d'insieme facoltativa: stessa versione, maxZoom dalla spec, niente fileXz (aggiunto
             // dopo da build-region.sh, come per poi.fileXz).
             val previewPmtiles = File(packageDir, "preview.pmtiles").apply { writeText("anteprima") }
             spec.put(
@@ -274,7 +274,7 @@ class GenerateManifestTest {
     }
 
     @Test
-    fun `l'anteprima compare solo se ci sono sia il file sia il maxZoom`() {
+    fun `la mappa d'insieme compare solo se ci sono sia il file sia il maxZoom`() {
         val poi = ManifestFileEntry("poi.db", "https://example.org/poi.db", 1, "b".repeat(64))
         val preview = ManifestFileEntry("preview.pmtiles", "https://example.org/preview.pmtiles.xz", 10, "c".repeat(64))
         fun region(file: ManifestFileEntry?, zoom: Int?) = JSONObject(
@@ -335,7 +335,7 @@ class GenerateManifestTest {
     }
 
     @Test
-    fun `la spec senza segmenti di routing fallisce`() {
+    fun `la spec senza segmenti della rete stradale fallisce`() {
         withTempDir { dir ->
             val poiDb = File(dir, "poi.db").apply { writeText("x") }
             val spec = specFor(poiDb.absolutePath).put("routingFiles", JSONArray())

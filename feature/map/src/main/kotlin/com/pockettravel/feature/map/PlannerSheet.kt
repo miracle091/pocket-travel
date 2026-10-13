@@ -220,7 +220,7 @@ private fun RouteSummary(
             Text(distanceText(route.distanceMeters), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (startsFromMe) {
-            // Pulsante tondo con l'icona, come la X che chiude la guida: il nome lo legge TalkBack.
+            // Pulsante tondo con l'icona, come la X che chiude la navigazione: il nome lo legge TalkBack.
             FilledIconButton(onClick = onStart, modifier = Modifier.size(56.dp)) {
                 Icon(ImageVector.vectorResource(UiR.drawable.ms_navigation), contentDescription = stringResource(R.string.planner_start))
             }

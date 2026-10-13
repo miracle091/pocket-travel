@@ -241,7 +241,7 @@ private fun OnboardingRegionRow(
                     FilterChip(
                         selected = pkg.kind in selectedKinds,
                         onClick = { onSelectionChange(if (pkg.kind in selectedKinds) selectedKinds - pkg.kind else selectedKinds + pkg.kind) },
-                        // La mappa non ha una dimensione nota prima dell'estrazione sul telefono.
+                        // La mappa non ha una dimensione nota prima dell'estrazione sul dispositivo.
                         label = { Text(if (pkg.downloadBytes > 0) "$label · ${Formatter.formatShortFileSize(context, pkg.downloadBytes)}" else label) },
                         leadingIcon = if (pkg.kind in selectedKinds) {
                             { Icon(AppIcons.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }

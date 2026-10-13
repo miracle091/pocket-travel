@@ -17,10 +17,10 @@ import java.io.IOException
  * [LlmModelUpdateCheckScheduler]): legge app-status.json (asset della release GitHub
  * "app-status", pubblicato da publish-apk.yml ad ogni rilascio app — non legato
  * all'aggiornamento dei pacchetti regionali, vedi AppStatus.kt in core:sync), una entry per
- * modello del catalogo (LlmModelCatalog.ALL). Se il modello IA on-device installato ha uno
+ * voce del catalogo dei modelli (LlmModelCatalog.ALL). Se il modello IA sul dispositivo installato ha uno
  * sha256 diverso da quello pubblicato per lo stesso modelId, notifica — non scarica mai
  * automaticamente. Notifica solo se l'utente ha gia' scaricato un modello: non ha senso
- * segnalare un aggiornamento a chi non usa il motore on-device.
+ * segnalare un aggiornamento a chi non usa il motore sul dispositivo.
  */
 @HiltWorker
 class LlmModelUpdateCheckWorker @AssistedInject constructor(
@@ -37,7 +37,7 @@ class LlmModelUpdateCheckWorker @AssistedInject constructor(
             val definition = aiSettingsStore.selectedModelDefinition()
             if (modelManager.isDownloaded(definition)) {
                 val remote = appStatusClient.fetchAppStatus().aiModels.firstOrNull { it.modelId == definition.id }
-                // Lo sha del file su disco, non quello del catalogo dell'APK: chi ha scaricato la versione
+                // Lo sha del file su disco, non quello del catalogo dei modelli dell'APK: chi ha scaricato la versione
                 // precedente con lo stesso id (cambia solo lo sha256) altrimenti non verrebbe mai avvisato.
                 // Calcolato (una volta sola) solo se serve, cioe' se c'e' una entry remota da confrontare.
                 val installedSha256 = remote?.let { modelManager.installedSha256(definition) }

@@ -7,7 +7,7 @@ import org.junit.Test
 class RecentDestinationsTest {
 
     @Test
-    fun `le mete tornano uguali dopo il salvataggio, anche con tab e a capo nel nome`() {
+    fun `le destinazioni tornano uguali dopo il salvataggio, anche con tab e a capo nel nome`() {
         val places = listOf(
             NavigationPlace("Rīgas Centrālā stacija", 56.9466, 24.1206, "lettonia"),
             NavigationPlace("Bar\tcon\na capo", 43.93, 12.45, "san-marino"),
@@ -26,7 +26,7 @@ class RecentDestinationsTest {
         assertEquals(1, RecentDestinations.decode("x\ty\tz\tw\n1.0\t2.0\tit\tRoma\nsolo testo").size)
     }
 
-    private fun place(n: Int) = NavigationPlace("Meta $n", 40.0 + n, 10.0, "italia")
+    private fun place(n: Int) = NavigationPlace("Destinazione $n", 40.0 + n, 10.0, "italia")
 
     @Test
     fun `senza scelte la lista e' vuota`() {
@@ -34,7 +34,7 @@ class RecentDestinationsTest {
     }
 
     @Test
-    fun `la meta nuova va in cima e resta per la prossima apertura`() {
+    fun `la destinazione nuova va in cima e resta per la prossima apertura`() {
         val files = InMemoryPreferencesFactory()
         RecentDestinations(files).apply {
             add(place(1))
@@ -45,7 +45,7 @@ class RecentDestinationsTest {
     }
 
     @Test
-    fun `la stessa meta con le stesse coordinate non si ripete`() {
+    fun `la stessa destinazione con le stesse coordinate non si ripete`() {
         val recent = RecentDestinations(InMemoryPreferencesFactory())
         recent.add(place(1))
         recent.add(place(2))
@@ -55,7 +55,7 @@ class RecentDestinationsTest {
     }
 
     @Test
-    fun `la lista tiene al massimo dieci mete`() {
+    fun `la lista tiene al massimo dieci destinazioni`() {
         val recent = RecentDestinations(InMemoryPreferencesFactory())
         (1..12).forEach { recent.add(place(it)) }
 
@@ -65,7 +65,7 @@ class RecentDestinationsTest {
     }
 
     @Test
-    fun `togliere una meta e svuotare la lista si salvano`() {
+    fun `togliere una destinazione e svuotare la lista si salvano`() {
         val files = InMemoryPreferencesFactory()
         val recent = RecentDestinations(files)
         recent.add(place(1))

@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Cosa mostra la notifica della guida. [turn] null = percorso ancora in calcolo (restano destinazione e
+ * Cosa mostra la notifica della navigazione. [turn] null = percorso ancora in calcolo (restano destinazione e
  * "Termina"). [street]: la strada in cui si entra con [turn], se la mappa l'ha trovata.
  */
 data class NavigationSnapshot(
@@ -28,7 +28,7 @@ data class NavigationSnapshot(
 /**
  * Ponte tra il [NavigationViewModel], che resta il proprietario di GPS e tracking, e il
  * [NavigationService], che tiene solo l'app in primo piano (senza, Android limita le posizioni a
- * schermo spento) e disegna la notifica. Il ViewModel scrive [snapshot] (null = nessuna guida: il
+ * schermo spento) e disegna la notifica. Il ViewModel scrive [snapshot] (null = nessuna navigazione: il
  * servizio si ferma); dalla notifica tornano la richiesta di "Termina" e quella di aprire il Navigatore.
  */
 @Singleton
@@ -38,7 +38,7 @@ class NavigationSession @Inject constructor() {
 
     // Eventi senza replay: una richiesta vecchia non deve rieseguirsi alla prossima raccolta.
     private val _stopRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    /** "Termina" toccato nella notifica: il ViewModel chiude la guida. */
+    /** "Termina" toccato nella notifica: il ViewModel chiude la navigazione. */
     val stopRequests: SharedFlow<Unit> = _stopRequests.asSharedFlow()
 
     private val _openRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -62,7 +62,7 @@ class NavigationSession @Inject constructor() {
     }
 }
 
-/** Distanza come la mostra la guida: a decine di metri sotto il chilometro, sopra in km. */
+/** Distanza come la mostra la navigazione: a decine di metri sotto il chilometro, sopra in km. */
 internal sealed interface DistanceLabel {
     data class Meters(val value: Int) : DistanceLabel
     data class Kilometers(val value: Double) : DistanceLabel
@@ -82,7 +82,7 @@ internal fun distanceLabel(meters: Double): DistanceLabel {
 internal fun remainingSeconds(route: Route, remainingMeters: Double): Double =
     if (route.distanceMeters > 0) route.durationSeconds * remainingMeters / route.distanceMeters else 0.0
 
-/** Minuto (dall'epoca) in cui si arriva, da adesso piu' [remainingSeconds]: l'ora si mostra nel formato del telefono. */
+/** Minuto (dall'epoca) in cui si arriva, da adesso piu' [remainingSeconds]: l'ora si mostra nel formato del dispositivo. */
 internal fun arrivalMinute(nowMillis: Long, remainingSeconds: Double): Long =
     nowMillis / MILLIS_PER_MINUTE + (remainingSeconds / SECONDS_PER_MINUTE).roundToInt()
 

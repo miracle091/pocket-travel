@@ -126,7 +126,7 @@ data class Poi(
     val lon: Double,
     val osmTag: String,
     val phone: String?,
-    // Tag OSM "wheelchair" (yes, limited, no, designated...), null se assente: per il modo Accessibilita'.
+    // Tag OSM "wheelchair" (yes, limited, no, designated...), null se assente: per l'opzione in sedia a rotelle.
     val wheelchair: String? = null,
     // Solo per i POI con poiHasDetails (cibo, alloggi, ambasciate, farmacie, ospedali, negozi), null se OSM non li indica.
     val openingHours: String? = null,

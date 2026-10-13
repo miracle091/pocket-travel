@@ -6,7 +6,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalDateTime
 import javax.inject.Inject
 
-/** Fa partire il servizio in primo piano della guida ([NavigationService]); nei test se ne registrano le chiamate. */
+/** Fa partire il servizio in primo piano della navigazione ([NavigationService]); nei test se ne registrano le chiamate. */
 fun interface GuidanceServiceStarter {
     fun start()
 }
@@ -18,7 +18,7 @@ interface DepartureReminderScheduler {
     fun cancel()
 }
 
-/** Scrive il percorso della guida nel log per la simulazione GPS (solo debug); nei test se ne registrano le chiamate. */
+/** Scrive il percorso della navigazione nel log per la simulazione GPS (solo debug); nei test se ne registrano le chiamate. */
 fun interface RouteSimulationLog {
     fun log(route: Route)
 }

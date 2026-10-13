@@ -5,7 +5,7 @@ internal enum class OnboardingStep { WELCOME, DESTINATIONS, READY }
 
 /**
  * Se dal passo si puo' andare avanti (anche con il gesto). Lingua e nazionalita' hanno sempre un valore proposto dal
- * telefono ([hasNationality] manca solo se il telefono non ha un paese); i modi di spostarsi non hanno un valore
+ * dispositivo ([hasNationality] manca solo se il dispositivo non ha un paese); i modi di spostarsi non hanno un valore
  * predefinito e vanno scelti ([hasUsageModes]). Le nazioni da scaricare sono facoltative.
  */
 internal fun OnboardingStep.canAdvance(hasUsageModes: Boolean, hasNationality: Boolean): Boolean = when (this) {

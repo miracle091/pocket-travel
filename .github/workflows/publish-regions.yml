@@ -4,14 +4,14 @@ name: Publish regions
 # regioni, poi.db e segmenti .rd5 per regione: il grosso dei dati) vanno invece sugli asset delle
 # release "region-data*" - GitHub Pages ha un limite fisso di 1GB per l'intero sito, sforato con la
 # copertura mondiale di regions.sh (254 regioni), gli asset di una release no. map.pmtiles
-# non e' mai un file da ospitare (estratto lato device dalla build Protomaps, vedi
+# non e' mai un file da ospitare (estratto sul dispositivo dalla build Protomaps, vedi
 # PmtilesExtractor); i segmenti .rd5 invece sono ri-ospitati insieme a poi.db (non solo
 # referenziati su brouter.de) perche' quel file cambia dimensione/hash nel tempo — vedi il
 # commento in testa a tools/data-pipeline/scripts/build-region.sh.
 #
 # Il pacchetto guide (job "guides") si rigenera a ogni run per tutte le regioni: e' piccolo, e
 # build-guides.sh pubblica una nuova versione solo se il contenuto e' cambiato. Ogni regione porta
-# anche un'anteprima offline a pochi zoom (preview.pmtiles, stesso trattamento di poi.db - vedi
+# anche una mappa d'insieme offline a pochi zoom (preview.pmtiles, stesso trattamento di poi.db - vedi
 # build-region.sh) e il manifest ha in cima "worldMap": mappa del mondo online a bassa risoluzione
 # (job "world-map"), sulla release "world-map", rigenerata solo ogni ~30 giorni o se assente.
 #
@@ -19,7 +19,7 @@ name: Publish regions
 # (tools/data-pipeline/scripts/weekly-schedule.sh, generato da generate-weekly-schedule.sh —
 # cadenza settimanale perche' i segmenti .rd5 di BRouter vengono rigenerati settimanalmente, non ha senso
 # ripubblicare piu' spesso). workflow_dispatch resta disponibile per run manuali/mirate (regions
-# esplicito) o per rigenerare tutto il lotto (regions vuoto, fuori da uno schedule).
+# esplicito) o per rigenerare tutto l'elenco delle regioni (regions vuoto, fuori da uno schedule).
 #
 # Il lavoro e' spalmato su piu' giorni (bucket) E, dentro ogni bucket, su piu' shard in parallelo
 # (matrice a 3 vie) per due limiti concreti, non teorici:
@@ -104,7 +104,7 @@ env:
 
 jobs:
   # Determina l'elenco di regioni da processare in questa run (bucket del giorno, input manuale,
-  # o tutto il lotto) e lo divide in 3 shard per il job a matrice sotto.
+  # o tutte le regioni) e lo divide in 3 shard per il job a matrice sotto.
   plan:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -154,7 +154,7 @@ jobs:
             # Variante "solo auto" dei segmenti (routingCar, build-region.sh): stessa ripartizione, release a parte
             # per non sforare i 1000 asset di region-data-rNN.
             ensure_release_if_missing "$(printf 'region-data-car-r%02d' "$n")" \
-              "Percorsi solo auto ($((n + 1))/$REGION_RELEASES)" \
+              "Rete stradale solo auto ($((n + 1))/$REGION_RELEASES)" \
               "Segmenti .rd5 con le sole strade per l'auto, per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
           done
           # Release del pacchetto guide unico: stesso prefisso "region-data" cosi' la pulizia degli
@@ -207,7 +207,7 @@ jobs:
             ADAPTIVE_DOW="$DOW"
           fi
           if [ -z "$SELECTED" ]; then
-            # workflow_dispatch senza regions esplicite (fuori da uno schedule): tutto il lotto.
+            # workflow_dispatch senza regions esplicite (fuori da uno schedule): tutto l'elenco delle regioni.
             ids=()
             for spec in "${ALL_REGIONS[@]}"; do
               IFS='|' read -r regionId _ <<< "$spec"
@@ -749,7 +749,7 @@ jobs:
       # accettato perche' ognuno e' un frammento manifest valido) - l'indice vero e proprio non lo
       # e' (niente "manifestVersion", schema diverso) e finirebbe scambiato per un frammento se
       # stesse nello stesso artifact/pattern.
-      - name: Carica il frammento manifest dell'indice civici
+      - name: Carica il frammento manifest dell'indice dei civici
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: manifest-fragments-address-grid
@@ -1025,7 +1025,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
-      # go-pmtiles estrae l'anteprima offline della regione (preview.pmtiles, build-region.sh):
+      # go-pmtiles estrae la mappa d'insieme offline della regione (preview.pmtiles, build-region.sh):
       # versione e sha256 fissati in .github/scripts/install-go-pmtiles.sh.
       - name: Installa go-pmtiles
         shell: bash
@@ -1040,7 +1040,7 @@ jobs:
         run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq osmium-tool
 
       # Dump di Wikivoyage (MediaWiki Content File Exports, IT ~57 MB, EN ~190 MB, uno al mese il 1°) nella cache di
-      # Actions, con la chiave dagli SHA256SUMS dell'export corrente: gli shard e le run del mese non li riscaricano
+      # Actions, con la chiave dagli SHA256SUMS del dump corrente: gli shard e le run del mese non li riscaricano
       # (fetch_wikivoyage_dump_parts e wikivoyage_dumps_key in lib.sh, WIKIVOYAGE_DUMP_CACHE). Mai bloccante.
       - name: Chiave dei dump di Wikivoyage
         id: dumps
@@ -1187,7 +1187,7 @@ jobs:
 
           # Citta' delle regioni: un solo passaggio sul dump di
           # Wikivoyage IT per l'intero shard (build-cities-dump.sh), prima del giro per regione qui
-          # sotto - mai fatale, se fallisce le regioni di questo run restano senza citta' nuove
+          # sotto - mai fatale, se fallisce le regioni di questa run restano senza citta' nuove
           # (build-cities.sh, piu' sotto, tiene la voce gia' pubblicata).
           CITIES_REGIONS_TSV="$RUNNER_TEMP/cities-regions.tsv"
           : > "$CITIES_REGIONS_TSV"
@@ -1265,7 +1265,7 @@ jobs:
                 # caricano solo le tile cambiate, piu' poi.db.xz/poi-extra.db.xz se erano scaduti e sono cambiati,
                 # e cities.db.xz se build-cities.sh ne ha prodotto uno nuovo.
                 uploads=()
-                # I POI, l'anteprima e le citta' si caricano solo compressi (vedi xz_entry
+                # I POI, la mappa d'insieme e le citta' si caricano solo compressi (vedi xz_entry
                 # in lib.sh, build_preview in build-region.sh).
                 for xz in poi.db.xz poi-extra.db.xz preview.pmtiles.xz cities.db.xz cities-en.db.xz; do
                   [ -f "$regionOut/$xz" ] || continue
@@ -1310,7 +1310,7 @@ jobs:
                     break
                   fi
                   if [ "$attempt" -lt 3 ]; then
-                    echo "-- upload dei percorsi auto di $regionId fallito (tentativo $attempt/3), riprovo tra $((attempt * 30))s"
+                    echo "-- upload della rete stradale solo auto di $regionId fallito (tentativo $attempt/3), riprovo tra $((attempt * 30))s"
                     sleep $((attempt * 30))
                   else
                     uploadOk=false
@@ -1494,7 +1494,7 @@ jobs:
       # I dati che richiedono un'app piu' recente (min-app-version-code, vedi assemble-site.sh) non
       # si pubblicano prima di quell'app: le installazioni esistenti bloccherebbero i download
       # chiedendo un aggiornamento che non c'e' ancora. versionCode rilasciato = app-status.json
-      # (publish-apk.yml), lo stesso che legge il controllo aggiornamenti sul device.
+      # (publish-apk.yml), lo stesso che legge il controllo aggiornamenti sul dispositivo.
       - name: Controlla che l'app richiesta dai dati sia gia' rilasciata
         shell: bash
         run: |
@@ -1860,7 +1860,7 @@ jobs:
       # Dopo il deploy i frammenti in sospeso scaricati sono tutti sistemati: uniti, gia' superati dal
       # pubblicato, scaduti o non validi. Si tolgono solo quelli scaricati: una run in corso puo'
       # averne caricati altri nel frattempo.
-      - name: Toglie i frammenti in sospeso gestiti
+      - name: Togli i frammenti in sospeso gestiti
         if: steps.pending.outputs.ok == 'true'
         shell: bash
         env:
@@ -1878,7 +1878,7 @@ jobs:
 
       # Solo con l'elenco dei frammenti in sospeso: senza, cancellerebbe gli asset di regioni costruite
       # e non ancora pubblicate (li recupera una run successiva).
-      - name: Rimuove gli asset non piu' referenziati dal manifest
+      - name: Rimuovi gli asset non piu' referenziati dal manifest
         if: steps.pending.outputs.ok == 'true'
         shell: bash
         env:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test di upload_hf.py per --update-app-status: lettura e aggiornamento del catalogo, controllo su HuggingFace.
+"""Test di upload_hf.py per --update-app-status: lettura e aggiornamento del catalogo, controllo su Hugging Face.
 
 Uso: python test_upload_hf.py
 """

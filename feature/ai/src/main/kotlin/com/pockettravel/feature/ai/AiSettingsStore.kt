@@ -89,9 +89,9 @@ class AiSettingsStore(
 
     fun model(): String = onlineModel()
 
-    // Un solo modello on-device installabile alla volta (vedi LlmModelManager.selectAndDownload):
+    // Un solo modello sul dispositivo installabile alla volta (vedi LlmModelManager.selectAndDownload):
     // questo e' l'id del modello scelto dall'utente in LlmModelCatalog.ALL, non necessariamente
-    // ancora scaricato. Senza una scelta, o con un id salvato che non e' piu' nel catalogo (es. un
+    // ancora scaricato. Senza una scelta, o con un id salvato che non e' piu' nel catalogo dei modelli (es. un
     // modello rimosso), vale il modello gia' scaricato (uno solo alla volta: chi aveva scaricato il
     // predefinito di prima non deve riscaricarne un altro quando il predefinito cambia) o, se non ce
     // n'e', il predefinito della fascia di RAM del dispositivo, altrimenti selectedModelDefinition()

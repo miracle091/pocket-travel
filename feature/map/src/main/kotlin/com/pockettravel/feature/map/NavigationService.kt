@@ -36,8 +36,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
- * Servizio in primo piano di tipo posizione, vivo mentre la guida e' attiva: con lo schermo spento o
- * l'app in secondo piano Android limita le posizioni alle app senza un servizio cosi', e la guida si
+ * Servizio in primo piano di tipo posizione, vivo mentre la navigazione e' attiva: con lo schermo spento o
+ * l'app in secondo piano Android limita le posizioni alle app senza un servizio cosi', e la navigazione si
  * bloccherebbe. Non traccia nulla (GPS e percorso restano nel [NavigationViewModel]): tiene l'app in
  * primo piano e disegna la notifica da [NavigationSession.snapshot]; si ferma quando questo torna null.
  */
@@ -63,7 +63,7 @@ class NavigationService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
-            // "Termina" dalla notifica: il ViewModel chiude la guida; la sessione si svuota anche se non c'e' piu'.
+            // "Termina" dalla notifica: il ViewModel chiude la navigazione; la sessione si svuota anche se non c'e' piu'.
             session.requestStop()
             session.clear()
             stopSelf()
@@ -75,7 +75,7 @@ class NavigationService : Service() {
             ServiceCompat.startForeground(this, NOTIFICATION_ID, build(first), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
         } catch (error: Exception) {
             // Da 14 il tipo posizione richiede il permesso di posizione (SecurityException); da 12 non si parte da
-            // sfondo. Senza servizio la guida continua con l'app aperta.
+            // sfondo. Senza servizio la navigazione continua con l'app aperta.
             Log.w(TAG, "Servizio di navigazione non avviato", error)
             stopSelf()
             return START_NOT_STICKY
@@ -154,7 +154,7 @@ class NavigationService : Service() {
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
-            // La svolta si legge anche a telefono bloccato.
+            // La svolta si legge anche a dispositivo bloccato.
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             // Android 16: "Live Update", come la navigazione di Google Maps. La notifica resta in cima e sulla
@@ -165,7 +165,7 @@ class NavigationService : Service() {
             .build()
     }
 
-    // La freccia della guida (stesse icone) in bianco su un cerchio scuro: leggibile con il tema chiaro e scuro.
+    // La freccia della navigazione (stesse icone) in bianco su un cerchio scuro: leggibile con il tema chiaro e scuro.
     private fun turnIcon(type: TurnType): Bitmap = turnIcons.getOrPut(type) {
         val size = (LARGE_ICON_DP * resources.displayMetrics.density).toInt()
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -194,11 +194,11 @@ class NavigationService : Service() {
         private const val REQUEST_STOP = 4203
         private const val LARGE_ICON_DP = 48
         private const val ICON_BACKGROUND = 0xFF37474F.toInt()
-        // Sotto i 10 m la svolta e' adesso, come nella guida a schermo.
+        // Sotto i 10 m la svolta e' adesso, come nella navigazione a schermo.
         private const val NOW_METERS = 10.0
         private val TAG = NavigationService::class.java.simpleName
 
-        /** Dal primo piano (l'avvio della guida): da sfondo Android 12+ non consente di far partire un servizio in primo piano. */
+        /** Dal primo piano (l'avvio della navigazione): da sfondo Android 12+ non consente di far partire un servizio in primo piano. */
         fun start(context: Context) {
             try {
                 ContextCompat.startForegroundService(context, Intent(context, NavigationService::class.java))
@@ -232,7 +232,7 @@ class NavigationService : Service() {
             TurnType.ARRIVE -> context.getString(R.string.turn_arrive)
         }
 
-        // Le stesse frecce di turnIcon() della guida a schermo (che e' un composable: qui servono gli id).
+        // Le stesse frecce di turnIcon() della navigazione a schermo (che e' un composable: qui servono gli id).
         private fun turnIconRes(type: TurnType): Int = when (type) {
             TurnType.CONTINUE -> UiR.drawable.ms_straight
             TurnType.SLIGHT_LEFT -> UiR.drawable.ms_turn_slight_left

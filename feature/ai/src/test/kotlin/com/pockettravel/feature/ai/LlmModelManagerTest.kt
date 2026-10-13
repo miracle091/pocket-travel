@@ -20,7 +20,7 @@ import java.security.MessageDigest
 import kotlin.io.path.createTempDirectory
 
 // download() prende un LlmModelDefinition intero (non solo url/sha256 sciolti) apposta per poter
-// costruire qui una definizione di test che punta al MockWebServer, verificando il checksum reale
+// costruire qui una definizione di test che punta al MockWebServer, verificando un'impronta reale
 // senza scaricare centinaia di MB da un repo HuggingFace vero.
 class LlmModelManagerTest {
 
@@ -29,7 +29,7 @@ class LlmModelManagerTest {
     private lateinit var modelsDir: File
 
     // sha256/url sono placeholder qui: ogni test li sovrascrive con .copy() secondo cosa vuole
-    // verificare (checksum atteso reale, url del MockWebServer, ecc).
+    // verificare (impronta attesa reale, url del MockWebServer, ecc).
     private val testDefinition = LlmModelDefinition(
         id = "test-model",
         displayName = "Test Model",
@@ -224,7 +224,7 @@ class LlmModelManagerTest {
     }
 
     @Test
-    fun `deleteOrphanedFiles elimina i file fuori catalogo e conserva modelli e il download del modello scelto`() {
+    fun `deleteOrphanedFiles elimina i file fuori dal catalogo dei modelli e conserva modelli e il download del modello scelto`() {
         val catalogModel = LlmModelCatalog.ALL.first()
         val selected = LlmModelCatalog.ALL.last()
         val installed = File(modelsDir, catalogModel.fileName).apply { writeText("modello installato") }

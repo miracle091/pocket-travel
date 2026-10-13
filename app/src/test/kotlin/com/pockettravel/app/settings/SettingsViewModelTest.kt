@@ -33,7 +33,7 @@ class SettingsViewModelTest {
     private val files = InMemoryPreferencesFactory()
     private val catalog = FakeCatalogPreferences()
 
-    // Senza una scelta la nazionalita' viene dal telefono (Resources di sistema, assente nei test JVM): la si salva prima.
+    // Senza una scelta la nazionalita' viene dal dispositivo (Resources di sistema, assente nei test JVM): la si salva prima.
     private fun viewModel(nationality: String = "IT", saved: CustomCatalog? = null): SettingsViewModel {
         files.open("profile").edit().putString("nationality", nationality).apply()
         catalog.saved = saved

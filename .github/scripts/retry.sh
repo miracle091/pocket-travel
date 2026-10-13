@@ -22,7 +22,7 @@ retry() {
 
 # Crea la release <tag> se non c'e'. Tutto dentro retry: con un errore passeggero di "gh release view"
 # si tenterebbe di creare una release che esiste, e il create fallirebbe; al tentativo dopo la view riesce.
-# --latest=false: sono release di dati (percorsi, guide, app-status...), il badge "Latest" spetta solo
+# --latest=false: sono release di dati (rete stradale, guide, app-status...), il badge "Latest" spetta solo
 # all'ultima versione dell'app (publish-apk.yml); senza, GitHub lo sposta su ogni release appena creata.
 ensure_release() {
   local tag="$1" title="$2" notes="$3"

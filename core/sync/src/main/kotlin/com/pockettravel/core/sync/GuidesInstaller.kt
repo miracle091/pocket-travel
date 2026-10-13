@@ -1,6 +1,8 @@
 package com.pockettravel.core.sync
 
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.RegionRepository
+import kotlinx.coroutines.CoroutineDispatcher
 import java.io.File
 import javax.inject.Inject
 
@@ -13,6 +15,7 @@ class GuidesInstaller @Inject constructor(
     private val downloader: RegionPackageDownloader,
     private val guidesImporter: GuidesImporter,
     private val regionRepository: RegionRepository,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     /** [installedVersion]: la versione da registrare, vedi [GuidesChoice]. */
     suspend fun install(guides: GuidesManifestEntry, installedVersion: String = guides.version) {
@@ -23,7 +26,7 @@ class GuidesInstaller @Inject constructor(
             if (regionRepository.installedGuidesVersion() == installedVersion) return@withStagingLock
             // Staging per versione installata (con il prefisso della lingua): italiano e inglese hanno la stessa guides.version.
             val staging = downloader.downloadLocked(STAGING_ID, installedVersion, listOf(guides.downloadFile))
-            unpackXz(staging, guides.file, guides.fileXz)
+            unpackXz(staging, guides.file, guides.fileXz, ioDispatcher)
             guidesImporter.import(File(staging, guides.file.name), installedVersion)
             staging.deleteRecursively()
         }

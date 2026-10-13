@@ -26,8 +26,8 @@ class VaccinationStateTest {
 
     private fun polio(iso2: String, category: PolioCategory) = PolioStatusRow(iso2, category, "", emptyList(), verified)
 
-    private fun yfEntry(iso2: String, rule: YfRule, transit: StopoverRule = StopoverRule.NONE, minAgeMonths: Int? = null) =
-        YfEntryRow(iso2, rule, minAgeMonths, transit, emptySet(), false, "", "", emptyList(), verified)
+    private fun yfEntry(iso2: String, rule: YfRule, stopover: StopoverRule = StopoverRule.NONE, minAgeMonths: Int? = null) =
+        YfEntryRow(iso2, rule, minAgeMonths, stopover, emptySet(), false, "", "", emptyList(), verified)
 
     private val polioData = VaccinationData(
         polioStatus = listOf(

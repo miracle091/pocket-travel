@@ -10,7 +10,7 @@ class SavedPlaceTest {
     private val place = NavigationPlace("Colosseo", 41.8902, 12.4922, "italia")
 
     @Test
-    fun `una meta salvata come testo si ripristina`() {
+    fun `una destinazione salvata come testo si ripristina`() {
         val handle = SavedStateHandle(mapOf("to" to place.toSavedState()))
 
         assertEquals(place, handle.savedPlace("to"))
@@ -25,7 +25,7 @@ class SavedPlaceTest {
     }
 
     @Test
-    fun `senza valore salvato non c'e' meta`() {
+    fun `senza valore salvato non c'e' destinazione`() {
         assertNull(SavedStateHandle().savedPlace("to"))
     }
 }

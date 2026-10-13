@@ -22,7 +22,7 @@ a LoRA fine-tune of [Qwen/Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B), m
 answers **in Italian, in at most 3 sentences, using only the travel-guide CONTEXT it is given**, and says so
 explicitly when the context does not contain the answer.
 
-> *In italiano:* assistente di viaggio offline per l'app Pocket Travel. Risponde in italiano, in poche frasi,
+> *In italiano:* assistente di viaggio offline per l'app Pocket Travel. Risponde in italiano, in massimo 3 frasi,
 > solo con le informazioni della guida passate nel CONTESTO, e dice chiaramente quando mancano.
 
 | File | Size | Quantization | Memory in use | Suggested device RAM |
@@ -36,7 +36,7 @@ and app take about 40% of the suggested device RAM or less, leaving the rest to 
 ## Intended use
 
 Retrieval-augmented answers on a phone, fully offline: the app searches the downloaded
-Wikivoyage guide of a region (SQLite FTS), puts 1-3 sections in the prompt and asks the question. The
+Wikivoyage guide of a region (SQLite FTS), puts 1 to 3 sections in the prompt and asks the question. The
 model is **not** meant as a general chatbot or knowledge source: without a context it should refuse.
 The app uses this model when its interface is in Italian.
 
@@ -54,10 +54,10 @@ DOMANDA: <question>
 
 Qwen3.5 is a thinking model: thinking was disabled in training (`enable_thinking=False`, empty `<think></think>` block in the prompt), so run it with thinking disabled.
 
-Example with llama.cpp (context 8192, as in the app):
+Example with llama.cpp (context 4096, as in the app):
 
 ```bash
-llama-server -m qwen3.5-2b-travel-it-Q4_K_M.gguf -c 8192 --chat-template-kwargs '{"enable_thinking": false}'
+llama-server -m qwen3.5-2b-travel-it-Q4_K_M.gguf -c 4096 --chat-template-kwargs '{"enable_thinking": false}'
 ```
 
 ## Evaluation
@@ -97,16 +97,16 @@ so the numbers are not comparable with the previous version's card.
 - Method: LoRA (16-bit, Unsloth) merged into the base weights, 1 epoch, loss on answer tokens only, weighted by
   question category.
 - Data: 32,685 synthetic question/answer pairs with extractive answers, about 22% of them refusal examples, built
-  from the Wikimedia dumps of 2026-10-01: Italian Wikivoyage (country and city pages, cleaned with the same code as
+  from the Wikimedia dumps of Oct 1, 2026: Italian Wikivoyage (country and city pages, cleaned with the same code as
   the app's guides), Italian Wikipedia (country articles on cuisine, culture, telecommunications and media; history
   and climate of cities), sections of English Wikivoyage machine-translated into Italian where the Italian page has
   none (MarianMT `Helsinki-NLP/opus-mt-tc-big-en-it`, CC BY 4.0, marked as such in `ATTRIBUTION.tsv`), quick facts
   from Wikidata (capital, currency, calling code, driving side), emergency numbers and vaccination summaries.
-  Contexts are shaped like the app's: 1-3 guide sections with distractor sections, up to 2000 characters, plus the
+  Contexts are shaped like the app's: 1 to 3 guide sections with distractor sections, up to 2000 characters, plus the
   blocks the app adds (nearby points of interest, next departures, distances between cities, emergency numbers,
   personal notes).
-- Questions only (answers are always taken from the context, or are the refusal sentence): real travel questions
-  from [soniawmeyer/travel-conversations-finetuning](https://huggingface.co/datasets/soniawmeyer/travel-conversations-finetuning)
+- Questions only (answers are always taken from the context, or are the refusal sentence): user-style travel questions
+  (written by a model imitating the user) from [soniawmeyer/travel-conversations-finetuning](https://huggingface.co/datasets/soniawmeyer/travel-conversations-finetuning)
   (UltraChat part, MIT), machine-translated into Italian; off-topic questions from
   [truthful_qa_italian](https://huggingface.co/datasets/sapienzanlp/truthful_qa_italian) (Apache 2.0) and
   [alpaca-cleaned-italian](https://huggingface.co/datasets/DanielSc4/alpaca-cleaned-italian) (CC BY 4.0 as declared by
@@ -117,21 +117,21 @@ so the numbers are not comparable with the previous version's card.
 ## Limitations
 
 - Answers are only as good and as current as the guide text in the context: check prices, opening hours,
-  entry requirements and safety information with official sources before travelling.
+  entry requirements and safety information with official sources before traveling.
 - Trained to answer in Italian; questions in other languages get Italian answers.
 - It sometimes answers city questions whose topic is not on the city page instead of refusing (see the table), and
   it may refuse "what is near me" questions that name the place with a synonym of the label in the context.
-- It may reproduce sentences of the source texts verbatim (see licence below).
+- It may reproduce sentences of the source texts verbatim (see license below).
 
-## Licence and attribution
+## License and attribution
 
-- Base model: [Qwen/Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B), Apache-2.0; its licence text is included as
+- Base model: [Qwen/Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B), Apache-2.0; its license text is included as
   `LICENSE-base-model`.
 - Training data: Wikivoyage and Wikipedia (mostly Italian, some English sections machine-translated), CC BY-SA 4.0.
-  Because the model can reproduce that text, the fine-tuned weights are released under **CC BY-SA 4.0**. The full list of source pages (title, URL, licence) is in `ATTRIBUTION.tsv`.
+  Because the model can reproduce that text, the fine-tuned weights are released under **CC BY-SA 4.0**. The full list of source pages (title, URL, license) is in `ATTRIBUTION.tsv`.
 - Vaccination summaries from Travel.gc.ca (OGL-Canada 2.0: contains information licensed under the Open Government
   Licence - Canada) and from TravelHealthPro (UKHSA / NaTHNaC, OGL v3.0: contains public sector information licensed
-  under the Open Government Licence v3.0); emergency numbers from Travel.gc.ca and gov.uk (same licences), Wikipedia,
+  under the Open Government Licence v3.0); emergency numbers from Travel.gc.ca and gov.uk (same licenses), Wikipedia,
   Wikivoyage and Wikidata.
 - Wikidata (quick facts, emergency numbers): CC0 1.0.
 - No content from Viaggiare Sicuri (Farnesina) is included.

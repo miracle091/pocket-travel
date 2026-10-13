@@ -33,7 +33,7 @@ class ZonePickerMapViewModel @Inject constructor(val tileSource: OfflineTileSour
 
 /**
  * Mappa per scegliere la zona da scaricare di una regione: si sposta e si ingrandisce la mappa, la zona e' tutto quello
- * che si vede. Usa la mappa della regione se c'e' (anche solo l'anteprima), altrimenti il mondo online con
+ * che si vede. Usa la mappa della regione se c'e' (anche solo la mappa d'insieme), altrimenti la mappa del mondo con
  * citta' e strade principali. [onZoneChange] riceve il riquadro (ovest, sud, est, nord) ogni volta che la mappa si ferma.
  */
 @Composable

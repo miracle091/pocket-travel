@@ -10,7 +10,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-private class InMemoryEmergencyNumbersDao : EmergencyNumbersDao {
+private class FakeEmergencyNumbersDao : EmergencyNumbersDao {
     val numbers = mutableMapOf<String, EmergencyNumbersEntity>()
     val noCentral = mutableSetOf<String>()
 
@@ -38,7 +38,7 @@ class EmergencyNumbersAndNotesEdgeCasesTest {
 
     @Test
     fun `i numeri di una regione portano generale, polizia, ambulanza e pompieri`() = runBlocking {
-        val dao = InMemoryEmergencyNumbersDao()
+        val dao = FakeEmergencyNumbersDao()
         dao.insertAll(listOf(EmergencyNumbersEntity("italia", "112", "113", "118", "115")))
 
         val numbers = EmergencyNumbersRepository(dao).forRegion("italia")
@@ -48,7 +48,7 @@ class EmergencyNumbersAndNotesEdgeCasesTest {
 
     @Test
     fun `il numero generale puo' mancare e gli altri restano`() = runBlocking {
-        val dao = InMemoryEmergencyNumbersDao()
+        val dao = FakeEmergencyNumbersDao()
         dao.insertAll(listOf(EmergencyNumbersEntity("usa-like", null, "911", "911", "911")))
 
         val numbers = EmergencyNumbersRepository(dao).forRegion("usa-like")
@@ -59,12 +59,12 @@ class EmergencyNumbersAndNotesEdgeCasesTest {
 
     @Test
     fun `una regione senza numeri da' null`() = runBlocking {
-        assertNull(EmergencyNumbersRepository(InMemoryEmergencyNumbersDao()).forRegion("italia"))
+        assertNull(EmergencyNumbersRepository(FakeEmergencyNumbersDao()).forRegion("italia"))
     }
 
     @Test
     fun `nessun numero centralizzato vale per la regione indicata e non per le altre`() = runBlocking {
-        val dao = InMemoryEmergencyNumbersDao()
+        val dao = FakeEmergencyNumbersDao()
         dao.insertNoCentralNumber(listOf(NoCentralEmergencyNumberEntity("palestina")))
         val repository = EmergencyNumbersRepository(dao)
 

@@ -53,7 +53,7 @@ class RoutingSegmentsInstallerTest {
     }
 
     @Test
-    fun `fallisce se il pacchetto non contiene segmenti routing`() = runBlocking {
+    fun `fallisce se il pacchetto non contiene segmenti della rete stradale`() = runBlocking {
         val packageDir = createTempDirectory("pocket-travel-test").toFile()
         try {
             RoutingSegmentsInstaller(Dispatchers.IO).install(packageDir)

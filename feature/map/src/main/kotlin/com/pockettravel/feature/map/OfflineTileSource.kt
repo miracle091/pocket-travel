@@ -7,7 +7,7 @@ import java.io.File
 interface OfflineTileSource {
     /** [language]: lingua dell'interfaccia ("it"/"en"), per i nomi di localita' e strade (vedi labelField).
      * [worldFallback]: sotto la regione anche i confini dei paesi inclusi nell'app e, con la rete,
-     * il mondo online, per quando la vista esce dal riquadro scaricato (navigazione). */
+     * la mappa del mondo, per quando la vista esce dal riquadro scaricato (navigazione). */
     fun styleJson(regionId: String, dark: Boolean = false, language: String = "it", worldFallback: Boolean = false): String
 
     /** Stile della navigazione fra [regionIds] (almeno una): una sorgente per regione con la mappa
@@ -19,13 +19,13 @@ interface OfflineTileSource {
      * barra "Scarica la mappa" (RegionHubScreen). */
     fun sourceKind(regionId: String): MapSourceKind
 
-    /** Riquadro della mappa della regione installata (completa, altrimenti anteprima); null senza
+    /** Riquadro della mappa della regione installata (completa, altrimenti mappa d'insieme); null senza
      * mappa locale. La navigazione lo usa per sapere se la posizione e' fuori dai dati scaricati. */
     fun regionBounds(regionId: String): MapBounds?
 }
 
 /** Sorgente della mappa di base, in ordine di preferenza: mappa completa della regione, sua
- * anteprima, mondo online (solo se c'e' rete), nessuna (solo sfondo con reticolo). */
+ * mappa d'insieme, mappa del mondo (solo se c'e' rete), nessuna (solo sfondo con reticolo). */
 enum class MapSourceKind { FULL, PREVIEW, ONLINE_WORLD, NONE }
 
 // MapLibre Native gestisce il protocollo pmtiles:// nativamente su Android (nessun parser
@@ -122,7 +122,7 @@ class PmtilesTileSource(
     private fun regionSource(sourceId: String, layerSuffix: String, regionId: String, resolved: ResolvedSource): RegionSource {
         // Civici (pacchetto facoltativo, stesso nome di RegionStorage.ADDRESSES_FILE): solo punti,
         // tutti a z14, che MapLibre sovrazooma; etichette da zoom 17, dove non coprono le strade.
-        // Solo con una sorgente locale (mappa completa o anteprima): il mondo online non ha civici.
+        // Solo con una sorgente locale (mappa completa o mappa d'insieme): la mappa del mondo non ha civici.
         val addresses = if (resolved.kind != MapSourceKind.ONLINE_WORLD) {
             regionStorage.versionedPmtiles(regionId, RegionStorage.ADDRESSES_FILE)
         } else {
@@ -139,9 +139,9 @@ internal fun regionsStyle(regions: List<RegionSource>, dark: Boolean, label: Str
     val palette = if (dark) MapPalette.Dark else MapPalette.Light
     // I nomi dei source-layer ("water", "roads", "buildings", "places") sono quelli dello
     // schema "basemap" ufficiale Protomaps (docs.protomaps.com/basemaps/layers): il map.pmtiles
-    // installato e' estratto lato device dalla build whole-planet Protomaps (PmtilesExtractor,
-    // core:sync). Stesso schema per l'anteprima regionale e per il mondo online: entrambi
-    // estratti dalla stessa build Protomaps.
+    // installato e' estratto sul dispositivo dalla build whole-planet Protomaps (PmtilesExtractor,
+    // core:sync). Stesso schema per la mappa d'insieme e per la mappa del mondo: entrambe
+    // estratte dalla stessa build Protomaps.
     //
     // "attribution" sulla source: l'ODbL 1.0 impone di attribuire i dati
     // OpenStreetMap. Essendo tile locali (pmtiles://), non c'e' un TileJSON remoto da cui
@@ -150,12 +150,12 @@ internal fun regionsStyle(regions: List<RegionSource>, dark: Boolean, label: Str
     //
     // "minzoom"/"maxzoom" sulla source: per la mappa completa DEVONO combaciare con
     // MAP_MIN_ZOOM/MAP_MAX_ZOOM di build-region.sh (0/14), lo stesso range con cui
-    // PmtilesExtractor scarica le tile sul device. Senza dichiararli qui, MapLibre assume che
+    // PmtilesExtractor scarica le tile sul dispositivo. Senza dichiararli qui, MapLibre assume che
     // esistano tile fino a z22 e le richiede davvero quando l'utente zooma oltre 14;
     // PmtilesExtractor non le ha mai scaricate, quindi tornano vuote e pezzi di mappa sparirebbero
     // zoomando. Dichiarare maxzoom=14 dice a MapLibre di fermare le richieste li' e ri-scalare
     // (overzoom) l'ultima tile disponibile, come fa Google Maps quando non ha piu' dettaglio.
-    // Per l'anteprima e per il mondo online il maxzoom e' piu' basso e viene letto dall'header
+    // Per la mappa d'insieme e per la mappa del mondo il maxzoom e' piu' basso e viene letto dall'header
     // PMTiles (byte 101, vedi pmtilesHeaderMaxZoom) o da WorldMapStore.worldMapMaxZoom().
     //
     // "boundaries": confini dal layer omonimo di Protomaps (kind_detail = admin_level OSM):
@@ -193,7 +193,7 @@ internal fun regionsStyle(regions: List<RegionSource>, dark: Boolean, label: Str
     // romanizzazione pronta in name:en.
     //
     // Con il ripiego (worldFallback) lo sfondo e' il mare e le terre le disegnano, dal basso:
-    // i confini Natural Earth, il mondo online e lo strato "earth" della regione, preciso sulle
+    // i confini Natural Earth, la mappa del mondo e lo strato "earth" della regione, preciso sulle
     // coste; fuori dal riquadro scaricato restano cosi' i paesi invece dello sfondo vuoto.
     val baseLayers = if (fallback != null) {
         fallback.layers
@@ -201,9 +201,9 @@ internal fun regionsStyle(regions: List<RegionSource>, dark: Boolean, label: Str
         """{ "id": "background", "type": "background", "paint": { "background-color": "${palette.background}" } }"""
     }
     // Lo strato "earth" delle regioni sta dopo il ripiego (con il ripiego: vedi sopra).
-    // Strati intercalati per tipo (acqua di tutte, poi edifici...), ma prima tutta la pila delle anteprime
+    // Strati intercalati per tipo (acqua di tutte, poi edifici...), ma prima tutta la pila delle mappe d'insieme e leggere
     // e poi quella delle mappe complete: dove i riquadri si sovrappongono la mappa completa copre acqua
-    // semplificata e strade generalizzate dell'anteprima, invece di mescolarle.
+    // semplificata e strade generalizzate della mappa d'insieme, invece di mescolarle.
     val layers = regions.partition { it.maxZoom < FULL_MAP_MAX_ZOOM }.toList().filter { it.isNotEmpty() }.flatMap { group ->
         val perRegion = group.map { regionLayers(it, palette, label, withEarth = fallback != null) }
         perRegion.first().indices.flatMap { index -> perRegion.map { it[index] } }
@@ -271,7 +271,7 @@ internal class RegionSource(val sourceId: String, val layerSuffix: String, val u
 internal data class ResolvedSource(val kind: MapSourceKind, val url: String?, val maxZoom: Int)
 
 // DEVE combaciare con MAP_MAX_ZOOM di build-region.sh (0/14), vedi il commento in styleJson; la mappa leggera
-// dichiara 13 nel suo header. Le mappe sotto questo zoom stanno nella pila delle anteprime (regionsStyle): dove si
+// dichiara 13 nel suo header. Le mappe sotto questo zoom stanno nella pila delle mappe d'insieme e leggere (regionsStyle): dove si
 // sovrappongono a una mappa completa dettagliata, quella le copre.
 private const val FULL_MAP_MAX_ZOOM = 14
 
@@ -298,8 +298,8 @@ internal fun selectSource(
 /** Sorgenti e strati del ripiego fuori regione, gia' in JSON (senza virgole esterne). */
 internal data class WorldFallbackStyle(val sources: String, val layers: String)
 
-// Mondo online sotto la regione solo se la regione ha una mappa sua (completa o anteprima): con
-// ONLINE_WORLD e' gia' la sorgente principale, con NONE non c'e' rete o non c'e' il mondo.
+// Mappa del mondo sotto la regione solo se la regione ha una mappa sua (completa o d'insieme): con
+// ONLINE_WORLD e' gia' la sorgente principale, con NONE non c'e' rete o non c'e' la mappa del mondo.
 internal fun worldFallbackUrl(kind: MapSourceKind, worldMapUrl: String?, online: Boolean): String? =
     if ((kind == MapSourceKind.FULL || kind == MapSourceKind.PREVIEW) && online && worldMapUrl != null) {
         "pmtiles://$worldMapUrl"
@@ -310,7 +310,7 @@ internal fun worldFallbackUrl(kind: MapSourceKind, worldMapUrl: String?, online:
 private fun worldFallbackStyle(palette: MapPalette, worldUrl: String?, worldMaxZoom: Int): WorldFallbackStyle =
     worldFallbackStyle(palette.water, palette.background, palette.boundaryCountry, palette.majorRoad, worldUrl, worldMaxZoom)
 
-// Confini Natural Earth 1:50m inclusi nell'app (gli stessi di WorldMap), sempre; il mondo online
+// Confini Natural Earth 1:50m inclusi nell'app (gli stessi di WorldMap), sempre; la mappa del mondo
 // (stessa build Protomaps, zoom bassi) solo con [worldUrl]: terre, acqua, strade principali e confini.
 internal fun worldFallbackStyle(
     water: String,
@@ -337,7 +337,7 @@ internal fun worldFallbackStyle(
 
 // L'header PMTiles v3 e' fisso a 127 byte; il byte 101 (0-based) e' il max_zoom dell'archivio
 // (specs.protomaps.dev/pmtiles/spec-v3). Letto qui invece che tenuto in un campo del manifest
-// perche' l'anteprima puo' essere rigenerata con uno zoom diverso da build-region.sh (tetto di
+// perche' la mappa d'insieme puo' essere rigenerata con uno zoom diverso da build-region.sh (tetto di
 // peso) e l'header e' l'unica fonte sempre corretta.
 private const val PMTILES_HEADER_SIZE = 127
 

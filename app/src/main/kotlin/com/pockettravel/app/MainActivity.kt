@@ -44,7 +44,7 @@ class MainActivity : FragmentActivity() {
 
     @Inject lateinit var navigationSession: NavigationSession
 
-    // Notifica della guida toccata con l'app gia' aperta: l'hub della regione porta in primo piano il Navigatore.
+    // Notifica della navigazione toccata con l'app gia' aperta: l'hub della regione porta in primo piano il Navigatore.
     override fun onNewIntent(intent: Intent) {
         intent.removeNavigationDeepLinkExtras()
         super.onNewIntent(intent)
@@ -89,7 +89,7 @@ class MainActivity : FragmentActivity() {
             val useDynamicColor by themePreferences.useDynamicColor.collectAsStateWithLifecycle()
             val forceDark by themePreferences.forceDark.collectAsStateWithLifecycle()
             val darkTheme = forceDark || isSystemInDarkTheme()
-            // enableEdgeToEdge() sopra segue il tema del telefono: con il tema scuro forzato le icone
+            // enableEdgeToEdge() sopra segue il tema del dispositivo: con il tema scuro forzato le icone
             // delle barre di sistema resterebbero scure su sfondo scuro. Scrim come quelli di default.
             LaunchedEffect(darkTheme) {
                 enableEdgeToEdge(

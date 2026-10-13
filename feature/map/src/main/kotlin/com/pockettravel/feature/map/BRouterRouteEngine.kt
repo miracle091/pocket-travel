@@ -8,7 +8,6 @@ import btools.router.TurnInstructions
 import com.pockettravel.core.data.Rd5Merger
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -34,7 +33,8 @@ class BRouterRouteEngine(
     private val profileDir: File,
     private val profileName: String = "trekking",
     private val maxRunningTimeMillis: Long = 60_000,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val ioDispatcher: CoroutineDispatcher,
+    private val defaultDispatcher: CoroutineDispatcher,
 ) : RouteEngine {
 
     override suspend fun route(
@@ -61,7 +61,7 @@ class BRouterRouteEngine(
                 }
             }
             // Stima dell'avanzamento (RoutingEngine.getProgress, aggiunta di Pocket Travel in brouter-core).
-            val progressPoller = launch(Dispatchers.Default) {
+            val progressPoller = launch(defaultDispatcher) {
                 while (true) {
                     running.get()?.let { onProgress(it.progress) }
                     delay(PROGRESS_INTERVAL_MILLIS)

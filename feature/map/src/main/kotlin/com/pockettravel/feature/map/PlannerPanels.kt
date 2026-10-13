@@ -80,7 +80,7 @@ internal fun RoutePanel(
                         onClick = onEditTo,
                     )
                 }
-                // Con la propria posizione come partenza non si scambia: l'arrivo resterebbe senza meta.
+                // Con la propria posizione come partenza non si scambia: l'arrivo resterebbe senza destinazione.
                 IconButton(onClick = onSwap, enabled = from != null) {
                     Icon(ImageVector.vectorResource(UiR.drawable.ms_swap_vert), contentDescription = stringResource(R.string.planner_swap))
                 }

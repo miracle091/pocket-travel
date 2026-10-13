@@ -65,7 +65,7 @@ class LlmModelCatalogTest {
     }
 
     @Test
-    fun `id e file del catalogo sono tutti diversi`() {
+    fun `id e file del catalogo dei modelli sono tutti diversi`() {
         assertEquals(LlmModelCatalog.ALL.size, LlmModelCatalog.ALL.map { it.id }.toSet().size)
         assertEquals(LlmModelCatalog.ALL.size, LlmModelCatalog.ALL.map { it.fileName }.toSet().size)
     }

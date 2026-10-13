@@ -49,7 +49,7 @@ class UpdatesViewModelTest {
     private val repository = FakeRegionRepository()
     private val scheduler = FakeRegionSyncScheduler()
     private val models = FakeAiModelUpdates()
-    private val connectivity = FakeConnectivity()
+    private val connectivity = FakeConnectivityChecker()
     private lateinit var previousLocale: Locale
 
     private val newApp = AppVersionEntry("1.2.0", 20)
@@ -424,6 +424,6 @@ class UpdatesViewModelTest {
     }
 }
 
-private class FakeConnectivity(var online: Boolean = true) : ConnectivityChecker {
+private class FakeConnectivityChecker(var online: Boolean = true) : ConnectivityChecker {
     override fun isOnline() = online
 }

@@ -82,7 +82,7 @@ class RegionPackageDownloader @Inject constructor(
 
     /**
      * Evita di riscaricare un file che c'e' gia': un segmento .rd5 installato con lo stesso nome,
-     * dimensione e SHA-256 (tile non cambiata tra due versioni del routing, la pipeline ricarica
+     * dimensione e SHA-256 (tile non cambiata tra due versioni della rete stradale, la pipeline ricarica
      * solo quelle cambiate), o un file gia' completo in staging da un tentativo precedente
      * (anche gia' spostato in staging/routing da un'installazione annullata). La sorgente si
      * copia, non si sposta, e solo se lo SHA-256 coincide: il segmento installato serve ancora per

@@ -11,7 +11,8 @@ I contributi sono benvenuti. Chi partecipa rispetta il [codice di condotta](CODE
 - 🔧 **Correggere errori** aperti nelle [segnalazioni](https://github.com/miracle091/pocket-travel/issues).
 - 📝 **Migliorare i testi** dell'app, il README e la [wiki](https://github.com/miracle091/pocket-travel/wiki).
 - 🚌 **Aggiungere reti di mezzi pubblici** con un GTFS pubblico e una licenza aperta.
-- ♿ **Migliorare l'accessibilità** e 🧪 **aggiungere test**.
+- ♿ **Migliorare l'accessibilità**.
+- 🧪 **Aggiungere test**.
 
 Gli errori nei contenuti di guide e mappa si correggono alla fonte (Wikivoyage, OpenStreetMap, Wikidata) e arrivano nell'app con l'aggiornamento settimanale.
 
@@ -36,7 +37,7 @@ Una proposta descrive prima il caso d'uso in viaggio, poi la soluzione. Le modif
 
 5. Apri la pull request su `main` con cosa cambia e perché, la segnalazione collegata (`Risolve #123`), i test eseguiti e gli screenshot delle modifiche visibili.
 
-La [guida rapida](docs/GUIDA.md) spiega come preparare l'ambiente, compilare e generare i dati.
+La [guida per sviluppatori](docs/GUIDA.md) spiega come preparare l'ambiente, compilare e generare i dati.
 
 ## Regole
 

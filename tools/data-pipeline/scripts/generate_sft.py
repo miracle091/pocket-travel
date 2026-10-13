@@ -257,7 +257,7 @@ TRAVEL_FIGURE = re.compile(r"\d+\s*(km|chilometri|kilomet(?:er|re)s?|miglia|mile
 # d'aria, nessun blocco (cities.db senza coordinate: guide o rifiuto).
 DIST_VARIANTS = (("car", 0.3), ("air", 0.3), ("none", 0.4))
 # Percorso in auto sintetico per il training, dalla distanza in linea d'aria vera (coordinate di Wikidata): il modello
-# deve solo riportare i numeri del contesto, che sul telefono calcola BRouter.
+# deve solo riportare i numeri del contesto, che sul dispositivo calcola BRouter.
 ROAD_FACTOR = (1.15, 1.45)
 CAR_KMH = (55, 95)
 

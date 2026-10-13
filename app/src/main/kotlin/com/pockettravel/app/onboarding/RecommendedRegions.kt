@@ -7,7 +7,7 @@ import kotlin.math.hypot
 
 /**
  * Regioni consigliate nel primo avvio: quelle del paese [countryCode] (la nazionalita' scelta, o il
- * paese del telefono) e poi le vicine, cioe' quelle il cui riquadro geografico tocca quello di una
+ * paese del dispositivo) e poi le vicine, cioe' quelle il cui riquadro geografico tocca quello di una
  * regione del paese allargato di [NEAR_DEGREES] (non esiste una tabella dei confini), dalla piu'
  * vicina, al massimo [maxNeighbours]. Vuota se il paese non ha regioni nel catalogo.
  */

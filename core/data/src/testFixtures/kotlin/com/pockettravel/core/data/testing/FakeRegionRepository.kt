@@ -17,7 +17,7 @@ class FakeRegionRepository(initial: List<InstalledRegion> = emptyList()) : Regio
     val installedRegions = MutableStateFlow(initial)
     val guides = MutableStateFlow<InstalledGuides?>(null)
 
-    /** Dimensioni su disco dei pacchetti su file (mappa, routing, civici, orari), per regione e tipo. */
+    /** Dimensioni su disco dei pacchetti su file (mappa, rete stradale, civici, orari), per regione e tipo. */
     val packageSizes = mutableMapOf<Pair<String, PackageKind>, Long>()
 
     /** Pacchetti registrati ma senza file su disco, per regione: li toglie [forgetMissingPackages]. */

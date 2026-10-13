@@ -25,7 +25,7 @@ data class AiUiState(
     val availableModels: List<LlmModelDefinition> = emptyList(),
     val selectedModelId: String = "",
     val isModelDownloaded: Boolean,
-    // Modelli gia' sul telefono: se quello scelto non c'e', se ne propone uno di questi.
+    // Modelli gia' sul dispositivo: se quello scelto non c'e', se ne propone uno di questi.
     val downloadedModelIds: Set<String> = emptySet(),
     val downloadProgress: Float? = null,
     val isApiKeyConfigured: Boolean,
@@ -64,14 +64,14 @@ class AiAssistantViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(
         AiUiState(
-            // Sotto i 4 GB il motore on-device non va nemmeno offerta come opzione (vedi
+            // Sotto i 4 GB il motore sul dispositivo non va nemmeno offerto come opzione (vedi
             // messaggio "meno di 4 GB di RAM" in AiAssistantScreen): forzare Online qui evita che
-            // un mode salvato in precedenza (o il default ON_DEVICE) resti selezionato su un
-            // device che non puo' comunque usarlo.
+            // un motore salvato in precedenza (o il default ON_DEVICE) resti selezionato su un
+            // dispositivo che non puo' comunque usarlo.
             mode = if (deviceAiCapability.isOnDeviceAiSupported()) aiSettingsStore.engineMode() else AiEngineMode.ONLINE,
             isDeviceCapable = deviceAiCapability.isOnDeviceAiSupported(),
             // L'ordine di RamTier (INSUFFICIENTE < MINIMO < CONFORTEVOLE < AMPIA) e' significativo
-            // qui: un device di fascia superiore vede anche i modelli delle fasce inferiori.
+            // qui: un dispositivo di fascia superiore vede anche i modelli delle fasce inferiori.
             availableModels = LlmModelCatalog.visibleFor(deviceAiCapability.ramTier(), currentGuidesLanguage()),
             selectedModelId = aiSettingsStore.selectedModelId(),
             isModelDownloaded = modelManager.isDownloaded(aiSettingsStore.selectedModelDefinition()),
@@ -218,8 +218,8 @@ class AiAssistantViewModel @Inject constructor(
         }
     }
 
-    /** Solo per il modello on-device attualmente scaricato: non ha senso misurare un modello
-     *  non ancora presente sul device. */
+    /** Solo per il modello sul dispositivo attualmente scaricato: non ha senso misurare un modello
+     *  non ancora presente sul dispositivo. */
     fun runBenchmark() {
         if (_uiState.value.isBenchmarking) return
         val modelId = _uiState.value.selectedModelId

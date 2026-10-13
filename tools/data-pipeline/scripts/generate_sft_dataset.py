@@ -26,7 +26,7 @@ Viaggiare Sicuri (Farnesina, in italiano) alimenta anche i positivi, ma la sua l
 della fonte): un modello addestrato con VS puo' rigenerare testo Farnesina non licenziato se interrogato,
 un rischio di redistribuzione, non solo di attribuzione mancante.
 POLICY: il default (senza --vs) e' l'UNICA variante che puo' finire
-su un repo HuggingFace pubblico (upload_hf.py rifiuta --public se rileva righe VS in ATTRIBUTION.tsv). Con
+su un repo Hugging Face pubblico (upload_hf.py rifiuta --public se rileva righe VS in ATTRIBUTION.tsv). Con
 --vs, VS viene incluso per un dataset/modello di uso locale o personale: mai per la pubblicazione.
 Wikipedia IT (CC BY-SA 4.0, via langlink dall'articolo tematico EN: "Cuisine of X", "Culture of X", ecc.)
 alimenta i positivi di CIBO_BEVANDE, CONNETTIVITA, USI_COSTUMI, VITA_QUOTIDIANA: sono le categorie che
@@ -1035,7 +1035,7 @@ def main():
         print(f"fatti rapidi: {quick_pos} positivi, {quick_neg} rifiuti; note personali: {note_pos} positivi")
     print(f"scritto {data_out}")
     write_excluded(OUT / f"EXCLUDED{suffix}.tsv", excluded)
-    print("SOLO USO LOCALE (--vs: include Viaggiare Sicuri, licenza non verificata, non pubblicare su HuggingFace)" if a.vs
+    print("SOLO USO LOCALE (--vs: include Viaggiare Sicuri, licenza non verificata, non pubblicare su Hugging Face)" if a.vs
           else "PUBBLICABILE (nessuna riga Viaggiare Sicuri)")
 
 if __name__ == "__main__":

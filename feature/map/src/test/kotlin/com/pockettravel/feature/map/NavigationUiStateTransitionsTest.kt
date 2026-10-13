@@ -58,7 +58,7 @@ class NavigationUiStateTransitionsTest {
     }
 
     @Test
-    fun `un ricalcolo fuori strada non toglie la guida, si resta in navigazione sul percorso trovato`() {
+    fun `un ricalcolo fuori strada non toglie la navigazione, che resta sul percorso trovato`() {
         val navigating = state(calculating = true) as NavigationStatus.Navigating
 
         assertEquals(route, navigating.route)

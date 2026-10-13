@@ -28,7 +28,7 @@ class WorldMapStoreTest {
     }
 
     @Test
-    fun `un indirizzo null azzera il mondo ma lo zoom resta quello dato`() {
+    fun `un indirizzo null azzera la mappa del mondo ma lo zoom resta quello dato`() {
         val store = WorldMapStore(InMemoryPreferencesFactory())
         store.save("https://github.com/o/r/world.pmtiles", 6)
         store.save(null, 7)

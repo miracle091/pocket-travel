@@ -181,7 +181,7 @@ private fun AssistantHeader(uiState: AiUiState, isReady: Boolean, actions: AiAct
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Sotto i 4 GB di RAM l'assistente e' solo Online (vedi AiAssistantViewModel: mode e'
-        // gia' forzato a ONLINE li'): niente selettore da mostrare, un solo modo esiste.
+        // gia' forzato a ONLINE li'): niente selettore da mostrare, esiste un solo motore.
         if (uiState.isDeviceCapable) {
             ModeSelector(uiState, actions, modifier = Modifier.weight(1f))
         } else {
@@ -249,7 +249,7 @@ private fun AssistantHeader(uiState: AiUiState, isReady: Boolean, actions: AiAct
     }
 }
 
-/** Un modello gia' sul telefono e utilizzabile, diverso da quello scelto (che non e' scaricato); null se non c'e'. */
+/** Un modello gia' sul dispositivo e utilizzabile, diverso da quello scelto (che non e' scaricato); null se non c'e'. */
 internal fun downloadedAlternative(uiState: AiUiState): LlmModelDefinition? =
     if (uiState.downloadProgress != null) null
     else uiState.availableModels.firstOrNull { it.id != uiState.selectedModelId && it.id in uiState.downloadedModelIds }
@@ -274,7 +274,7 @@ private fun DownloadedModelChoice(uiState: AiUiState, other: LlmModelDefinition,
     }
 }
 
-// La scheda IA c'e' perche' una chiave e' salvata, ma il modo scelto e' "sul telefono" senza modello:
+// La scheda IA c'e' perche' una chiave e' salvata, ma il motore scelto e' "Sul dispositivo" senza modello:
 // si ricorda la chiave, per usarla subito, e la si puo' togliere se e' scaduta.
 @Composable
 private fun SavedKeyReminder(uiState: AiUiState, actions: AiActions) {
@@ -323,8 +323,8 @@ private fun ModeSelector(uiState: AiUiState, actions: AiActions, modifier: Modif
 }
 
 /**
- * Configurazione dell'assistente per le Impostazioni: modo (solo quelli che il dispositivo regge), modelli
- * on-device con download/eliminazione, oppure servizio, chiave e modello online. Il ViewModel e' lo stesso
+ * Configurazione dell'assistente per le Impostazioni: motore (solo quelli che il dispositivo regge), modelli
+ * sul dispositivo con download/eliminazione, oppure servizio, chiave e modello online. Il ViewModel e' lo stesso
  * della chat: fuori da una regione non serve altro, la regione conta solo quando si fa una domanda.
  */
 @Composable
@@ -626,7 +626,7 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
         )
         // sha256 == null: modello non ancora pubblicato (in attesa di fine-tuning/upload
         // proprio, vedi LlmModelCatalog) — nessun pulsante di download da mostrare, non c'e'
-        // nulla da scaricare finche' non viene pubblicato un hash reale.
+        // nulla da scaricare finche' non viene pubblicata un'impronta reale.
         if (isSelected && available) {
             Column(modifier = Modifier.padding(start = 56.dp, end = Spacing.l, bottom = Spacing.l)) {
                 uiState.errorMessage?.let {
@@ -819,7 +819,7 @@ private fun BenchmarkComparisonDialog(uiState: AiUiState, onDismiss: () -> Unit)
         text = {
             Column {
                 // Solo i modelli con un risultato salvato (LlmModelCatalog.ALL puo' includere
-                // modelli mai scaricati su questo device, es. per una fascia RAM diversa) — un
+                // modelli mai scaricati su questo dispositivo, es. per una fascia RAM diversa) — un
                 // modello non ancora provato non aggiunge informazione utile al confronto.
                 val results = uiState.allBenchmarkResults.sortedByDescending { it.qualityScore }
                 if (results.isEmpty()) {

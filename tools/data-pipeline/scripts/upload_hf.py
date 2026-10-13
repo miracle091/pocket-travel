@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Carica un modello fine-tunato su HuggingFace — SOLO su richiesta esplicita.
+"""Carica un modello fine-tunato su Hugging Face — SOLO su richiesta esplicita.
 
 Non fa parte della pipeline di training: va lanciato a mano. Senza --push e' un dry-run
-(mostra repo, file e model card, non contatta HuggingFace). Il repo nasce PRIVATO: per
+(mostra repo, file e model card, non contatta Hugging Face). Il repo nasce PRIVATO: per
 pubblicarlo serve anche --public. Il token si legge da HF_TOKEN (mai stampato).
 
 Uso:
@@ -11,11 +11,11 @@ Uso:
       [--update-app-status]
 
 Con --update-app-status, dopo il caricamento: calcola sha256 e dimensione dei .gguf della cartella, li
-confronta con quelli che HuggingFace riporta, avvia su main il job update-app-status-models di
+confronta con quelli che Hugging Face riporta, avvia su main il job update-app-status-models di
 publish-apk.yml (app-status.json firmato con le impronte nuove: le app dalla 0.9.1 scaricano subito il
-modello ricaricato, senza un rilascio) e, se il run riesce, scrive le impronte in LlmModelCatalog.kt
+modello ricaricato, senza un rilascio) e, se la run riesce, scrive le impronte in LlmModelCatalog.kt
 (riserva per quando l'app non raggiunge app-status.json). Un modello nuovo, non ancora in app-status.json, non
-passa dal workflow: le impronte vanno solo nel catalogo, e in app-status.json con il rilascio successivo. Senza --push
+passa dal workflow: le impronte vanno solo nel catalogo dei modelli, e in app-status.json con il rilascio successivo. Senza --push
 mostra solo le impronte.
 
 POLICY Viaggiare Sicuri (vedi generate_sft_dataset.py): con --vs il dataset
@@ -128,7 +128,7 @@ def check_no_vs(attribution, push_public):
 
 
 def catalog_blocks(catalog_text):
-    """Blocchi `LlmModelDefinition(...)` del catalogo (le istanze, non la dichiarazione della classe)."""
+    """Blocchi `LlmModelDefinition(...)` del catalogo dei modelli (le istanze, non la dichiarazione della classe)."""
     start = catalog_text.index("listOf(")
     return [(m.start(1) + start, m.end(1) + start, m.group(1))
             for m in re.finditer(r"LlmModelDefinition\((.*?)\n\s*\),", catalog_text[start:], re.S)]
@@ -140,8 +140,8 @@ def field(block, name):
 
 
 def catalog_targets(catalog_text, repo, file_names):
-    """(modelId, nome file) dei GGUF caricati in `repo` che il catalogo dell'app scarica da li'. Un GGUF che il
-    catalogo non conosce e' un errore: la sua impronta non servirebbe a nessuna app."""
+    """(modelId, nome file) dei GGUF caricati in `repo` che il catalogo dei modelli dell'app scarica da li'. Un GGUF che il
+    catalogo dei modelli non conosce e' un errore: la sua impronta non servirebbe a nessuna app."""
     by_file = {}
     for _, _, block in catalog_blocks(catalog_text):
         url = field(block, "url") or ""
@@ -149,23 +149,23 @@ def catalog_targets(catalog_text, repo, file_names):
             by_file[field(block, "fileName")] = field(block, "id")
     missing = [n for n in file_names if n not in by_file]
     if missing:
-        sys.exit(f"{', '.join(missing)}: nessun modello del catalogo ({CATALOG.name}) li scarica da {repo}")
+        sys.exit(f"{', '.join(missing)}: nessun modello del catalogo dei modelli ({CATALOG.name}) li scarica da {repo}")
     return [(by_file[n], n) for n in file_names]
 
 
 def kotlin_long(value):
-    """529297120 -> 529_297_120L, come nel catalogo."""
+    """529297120 -> 529_297_120L, come nel catalogo dei modelli."""
     return f"{value:_}L"
 
 
 def update_catalog(catalog_text, file_name, sha256, size):
-    """Testo del catalogo con sha256 e sizeBytes nuovi per il modello che scarica `file_name`."""
+    """Testo del catalogo dei modelli con sha256 e sizeBytes nuovi per il modello che scarica `file_name`."""
     for begin, end, block in catalog_blocks(catalog_text):
         if field(block, "fileName") == file_name:
             block = re.sub(r'\bsha256\s*=\s*(?:"[^"]*"|null)', f'sha256 = "{sha256}"', block)
             block = re.sub(r"\bsizeBytes\s*=\s*[0-9_]+L", f"sizeBytes = {kotlin_long(size)}", block)
             return catalog_text[:begin] + block + catalog_text[end:]
-    raise ValueError(f"{file_name} non e' nel catalogo")
+    raise ValueError(f"{file_name} non e' nel catalogo dei modelli")
 
 
 def sha256_of(path):
@@ -177,13 +177,13 @@ def sha256_of(path):
 
 
 def check_on_hf(api, repo, models):
-    """Le impronte calcolate in locale devono essere quelle del file che HuggingFace ora serve."""
+    """Le impronte calcolate in locale devono essere quelle del file che Hugging Face ora serve."""
     infos = {i.path: i for i in api.get_paths_info(repo, [m["fileName"] for m in models])}
     for m in models:
         info = infos.get(m["fileName"])
         remote = (info.lfs.sha256 if info and info.lfs else None, info.size if info else None)
         if remote != (m["sha256"], m["sizeBytes"]):
-            sys.exit(f"{m['fileName']} su HuggingFace ha sha256 {remote[0]} e {remote[1]} byte, "
+            sys.exit(f"{m['fileName']} su Hugging Face ha sha256 {remote[0]} e {remote[1]} byte, "
                      f"in locale {m['sha256']} e {m['sizeBytes']}: app-status.json non aggiornato")
 
 
@@ -191,7 +191,7 @@ UPDATE_JOB = "update-app-status-models"
 
 
 def find_run(request_id):
-    """Id del run il cui nome contiene `request_id` (run-name di publish-apk.yml), None se non c'e' ancora."""
+    """Id della run il cui nome contiene `request_id` (run-name di publish-apk.yml), None se non c'e' ancora."""
     runs = json.loads(subprocess.run(
         ["gh", "run", "list", "--workflow", WORKFLOW, "--event", "workflow_dispatch", "--branch", "main",
          "--limit", "20", "--json", "databaseId,displayTitle"], check=True, capture_output=True, text=True).stdout)
@@ -199,7 +199,7 @@ def find_run(request_id):
 
 
 def job_conclusion(run_id):
-    """Esito del job che aggiorna app-status.json nel run (success, failure, cancelled...), None se non e' finito."""
+    """Esito del job che aggiorna app-status.json nella run (success, failure, cancelled...), None se non e' finito."""
     jobs = json.loads(subprocess.run(["gh", "run", "view", run_id, "--json", "jobs"],
                                      check=True, capture_output=True, text=True).stdout)["jobs"]
     return next((j.get("conclusion") or None for j in jobs if j["name"] == UPDATE_JOB), None)
@@ -213,7 +213,7 @@ def run_update_workflow(models):
     subprocess.run(["gh", "workflow", "run", WORKFLOW, "--ref", "main",
                     "-f", f"update_models={payload}", "-f", f"request_id={request_id}"], check=True)
     run_id = None
-    for _ in range(40):  # il run compare nella lista qualche secondo dopo la richiesta
+    for _ in range(40):  # la run compare nella lista qualche secondo dopo la richiesta
         time.sleep(3)
         run_id = find_run(request_id)
         if run_id:
@@ -241,9 +241,9 @@ def released_model_ids():
 
 def update_app_status(api, repo, folder, push):
     """--update-app-status: impronte dei GGUF caricati -> app-status.json firmato (workflow) -> catalogo dei modelli.
-    Un modello che non e' ancora in app-status.json (nuovo, assente dal catalogo dell'ultimo rilascio) nessuna app
-    rilasciata lo scarica: le sue impronte vanno solo nel catalogo, e in app-status.json con il rilascio successivo
-    (publish-apk.yml le legge dal catalogo, resolve_ai_models.py)."""
+    Un modello che non e' ancora in app-status.json (nuovo, assente dal catalogo dei modelli dell'ultimo rilascio) nessuna app
+    rilasciata lo scarica: le sue impronte vanno solo nel catalogo dei modelli, e in app-status.json con il rilascio successivo
+    (publish-apk.yml le legge dal catalogo dei modelli, resolve_ai_models.py)."""
     ggufs = sorted(folder.glob("*.gguf"))
     if not ggufs:
         sys.exit(f"--update-app-status: nessun .gguf in {folder}")
@@ -253,7 +253,7 @@ def update_app_status(api, repo, folder, push):
     for m in models:
         print(f"  {m['modelId']} ({m['fileName']}): {m['sha256']}, {m['sizeBytes']} byte")
     if not push:
-        print("Dry-run: app-status.json e catalogo non aggiornati.")
+        print("Dry-run: app-status.json e catalogo dei modelli non aggiornati.")
         return
     check_on_hf(api, repo, models)
     released = released_model_ids()
@@ -261,7 +261,7 @@ def update_app_status(api, repo, folder, push):
     for m in models:
         if m not in known:
             print(f"  {m['modelId']}: non e' in app-status.json (nessuna app rilasciata lo scarica), impronte solo nel "
-                  "catalogo; arrivano in app-status.json con il prossimo rilascio.")
+                  "catalogo dei modelli; arrivano in app-status.json con il prossimo rilascio.")
     if known and not run_update_workflow(known):
         sys.exit("Workflow fallito: catalogo dei modelli non aggiornato. Dettagli su GitHub Actions.")
     text = CATALOG.read_text(encoding="utf-8")
@@ -269,8 +269,8 @@ def update_app_status(api, repo, folder, push):
         text = update_catalog(text, m["fileName"], m["sha256"], m["sizeBytes"])
     CATALOG.write_text(text, encoding="utf-8", newline="")
     if known:
-        print(f"app-status.json aggiornato e {CATALOG.name} allineato. Il commit del catalogo non e' urgente: al "
-              "rilascio publish-apk.yml tiene l'impronta che coincide con HuggingFace, dal catalogo o dal file online.")
+        print(f"app-status.json aggiornato e {CATALOG.name} allineato. Il commit del catalogo dei modelli non e' urgente: al "
+              "rilascio publish-apk.yml tiene l'impronta che coincide con Hugging Face, dal catalogo dei modelli o dal file online.")
     if len(known) < len(models):
         print(f"{CATALOG.name} aggiornato: va committato prima del rilascio, e' l'unica fonte delle impronte dei "
               "modelli nuovi.")
@@ -279,7 +279,7 @@ def update_app_status(api, repo, folder, push):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("folder", type=Path, help="cartella del modello (es. .../merged)")
-    ap.add_argument("--repo", required=True, help="utente/nome del repo HuggingFace")
+    ap.add_argument("--repo", required=True, help="utente/nome del repo Hugging Face")
     ap.add_argument("--base-model", required=True)
     ap.add_argument("--base-license", required=True, help="licenza del modello base, es. apache-2.0 o mit")
     ap.add_argument("--license", default="cc-by-sa-4.0", help="licenza dichiarata per il modello pubblicato")

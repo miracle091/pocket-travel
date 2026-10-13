@@ -10,7 +10,7 @@ class AppStatusTest {
     private val json = Json { ignoreUnknownKeys = true }
 
     @Test
-    fun `parses appVersion and aiModels when present`() {
+    fun `legge appVersion e aiModels quando ci sono`() {
         val statusJson = """
             {
               "appVersion": { "versionName": "0.3.0", "versionCode": 3 },
@@ -30,7 +30,7 @@ class AppStatusTest {
     }
 
     @Test
-    fun `appVersion is optional and aiModels defaults to empty`() {
+    fun `appVersion e' facoltativo e aiModels senza valore e' vuoto`() {
         val status = json.decodeFromString(AppStatus.serializer(), "{}")
 
         assertNull(status.appVersion)
@@ -38,7 +38,7 @@ class AppStatusTest {
     }
 
     @Test
-    fun `ignores unknown fields for forward compatibility`() {
+    fun `ignora i campi sconosciuti per compatibilita' con le versioni future`() {
         val statusJson = """{ "generatedBy": "publish-apk.yml", "appVersion": { "versionName": "0.3.0", "versionCode": 3 } }"""
 
         val status = json.decodeFromString(AppStatus.serializer(), statusJson)

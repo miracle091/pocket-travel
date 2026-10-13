@@ -636,7 +636,7 @@ def select_context(bodies, stems, max_chars=MAX_CONTEXT):
     return "\n\n".join(parts)[:max_chars]
 
 
-# --- database come sul telefono --------------------------------------------------------------------------------------
+# --- database come sul dispositivo -----------------------------------------------------------------------------------
 def build_db(guides_db, region, city_rows):
     """region.db in memoria con le tabelle FTS4 come le crea Room (content esterno, unicode61). [city_rows]:
     (citta', categoria, titolo, corpo, url) nell'ordine di import."""

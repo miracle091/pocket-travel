@@ -159,7 +159,7 @@ class RegionUiItemPackagesTest {
     }
 
     @Test
-    fun `una regione installata senza pacchetti mantiene il peso sul telefono`() {
+    fun `una regione installata senza pacchetti mantiene il peso sul dispositivo`() {
         val item = regionUiItem(remote, local(map = null, routing = null, poi = null, size = 9), noBytes)
 
         assertEquals(RegionStatus.INSTALLED, item.status)

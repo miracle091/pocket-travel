@@ -42,7 +42,7 @@ class TransitNetworkPreferences @Inject constructor(preferences: PreferencesFact
         prefs.all.mapNotNull { (regionId, value) -> (value as? Set<*>)?.filterIsInstance<String>()?.toSet()?.let { regionId to it } }.toMap()
 }
 
-/** Dove si trova il telefono: ultima posizione nota e paese (CountryLocator), null se non nota. */
+/** Dove si trova il dispositivo: ultima posizione nota e paese (CountryLocator), null se non nota. */
 internal data class DevicePlace(val latitude: Double, val longitude: Double, val countryCode: String?)
 
 /** Le reti tolte per regione e, per quelle con la scelta di default, il perche'. */

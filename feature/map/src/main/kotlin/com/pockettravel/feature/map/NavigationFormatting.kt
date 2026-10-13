@@ -18,7 +18,7 @@ import kotlin.math.roundToInt
 internal fun minutesPlural(@PluralsRes id: Int, minutes: Long): String =
     pluralStringResource(id, if (minutes <= 1) 1 else minutes.toInt(), minutes.toInt())
 
-// Ora di arrivo nel formato del telefono (24 ore o AM/PM), da adesso piu' il tempo rimasto.
+// Ora di arrivo nel formato del dispositivo (24 ore o AM/PM), da adesso piu' il tempo rimasto.
 @Composable
 internal fun arrivalTime(remainingSeconds: Double): String {
     val context = LocalContext.current
@@ -86,7 +86,7 @@ internal fun durationText(seconds: Double): String {
     else stringResource(R.string.navigation_hours_minutes, minutes / MINUTES_PER_HOUR, minutes % MINUTES_PER_HOUR)
 }
 
-/** Fuori dalla mappa scaricata resta il mondo online (dati fino a z8): oltre questo zoom non mostra piu' niente. */
+/** Fuori dalla mappa scaricata resta la mappa del mondo (dati fino a z8): oltre questo zoom non mostra piu' niente. */
 private const val OUTSIDE_REGION_MAX_ZOOM = 11.0
 
 // Zoom di inseguimento quando la prossima svolta e' lontana (8 km o piu').

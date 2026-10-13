@@ -18,7 +18,7 @@ class OnboardingViewModelTest {
     private val files = InMemoryPreferencesFactory()
     private var hintResets = 0
 
-    // Senza una scelta la nazionalita' viene dal telefono (Resources di sistema, assente nei test JVM): la si salva prima.
+    // Senza una scelta la nazionalita' viene dal dispositivo (Resources di sistema, assente nei test JVM): la si salva prima.
     private fun viewModel(nationality: String? = "IT"): OnboardingViewModel {
         nationality?.let { files.open("profile").edit().putString("nationality", it).apply() }
         return OnboardingViewModel(
@@ -70,7 +70,7 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun `la nazionalita' scelta sostituisce quella del telefono e resta`() {
+    fun `la nazionalita' scelta sostituisce quella del dispositivo e resta`() {
         val viewModel = viewModel(nationality = "IT")
 
         viewModel.setNationality("DE")

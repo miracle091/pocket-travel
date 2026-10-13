@@ -38,7 +38,7 @@ import java.io.File
 import java.security.MessageDigest
 
 /**
- * RegionPackageInstaller con Room, SQLite e file system reali: ogni pacchetto (mappa, routing,
+ * RegionPackageInstaller con Room, SQLite e file system reali: ogni pacchetto (mappa, rete stradale,
  * POI) si installa, aggiorna ed elimina senza toccare gli altri. I file arrivano da un
  * MockWebServer locale: poi.db vero della pipeline (asset), un .rd5 finto e una sorgente PMTiles
  * con una sola tile, servita a range come build.protomaps.com.
@@ -142,11 +142,11 @@ class RegionPackageInstallerDeviceTest {
         assertEquals("anteprima 1", File(regionDir, RegionStorage.PREVIEW_FILE).readText())
         val previewModified = File(regionDir, RegionStorage.PREVIEW_FILE).lastModified()
 
-        // Stessa versione dell'anteprima: aggiornando un altro pacchetto non la ritocca.
+        // Stessa versione della mappa d'insieme: aggiornando un altro pacchetto non la ritocca.
         installer.install(entryWithPreview(), setOf(PackageKind.MAP))
         assertEquals(previewModified, File(regionDir, RegionStorage.PREVIEW_FILE).lastModified())
 
-        // Versione dell'anteprima cambiata: si aggiorna anche se l'utente aggiorna solo un altro pacchetto.
+        // Versione della mappa d'insieme cambiata: si aggiorna anche se l'utente aggiorna solo un altro pacchetto.
         files["preview.pmtiles"] = "anteprima 2".toByteArray()
         installer.install(entryWithPreview(previewVersion = "pv2"), setOf(PackageKind.MAP))
         installed = repository.installed("san-marino")!!

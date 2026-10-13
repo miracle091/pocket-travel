@@ -8,8 +8,8 @@ import android.os.Vibrator
 import android.os.VibratorManager
 
 /**
- * Feedback aptico della guida a piedi: un impulso breve e leggero alla svolta, due all'arrivo, da
- * sentire col telefono in mano senza guardare lo schermo. In bici e in auto no: li' non si sente o
+ * Feedback aptico della navigazione a piedi: un impulso breve e leggero alla svolta, due all'arrivo, da
+ * sentire col dispositivo in mano senza guardare lo schermo. In bici e in auto no: li' non si sente o
  * distrae.
  */
 internal object NavigationHaptics {
@@ -27,7 +27,7 @@ internal object NavigationHaptics {
         if (vibrator?.hasVibrator() != true) return
         // Intensita' bassa dove il motore la regola, altrimenti conta solo la brevita' dell'impulso.
         val amplitudes = IntArray(timings.size) { if (it % 2 == 1) AMPLITUDE else 0 }
-        // Attributi da guida di navigazione: senza, Android tratta l'impulso breve come feedback al tocco e
+        // Attributi audio della navigazione: senza, Android tratta l'impulso breve come feedback al tocco e
         // lo silenzia se le vibrazioni al tocco sono spente.
         @Suppress("DEPRECATION")
         vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1), NAVIGATION_AUDIO)

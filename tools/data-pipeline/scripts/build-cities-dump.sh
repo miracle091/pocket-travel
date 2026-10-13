@@ -9,7 +9,7 @@
 # Mai fatale per il chiamante (vedi publish-regions.yml): se il dump (l'ultimo dump del 1° del mese, una cartella
 # di parti) non si scarica o non passa la verifica sha256 (fetch_wikivoyage_dump_parts in lib.sh), o se nessuna pagina
 # IT si risolve, esce 1
-# senza scrivere nulla in <outDir> - le regioni di questo run restano senza citta' nuove
+# senza scrivere nulla in <outDir> - le regioni di questa run restano senza citta' nuove
 # (build-cities.sh tiene la voce "cities" gia' pubblicata, se c'e').
 #
 # Uso: build-cities-dump.sh <regioni.tsv> <outDir> [it|en]
@@ -39,12 +39,12 @@ trap 'rm -rf "$WORKDIR"' EXIT
 
 if [ "$LANG_CODE" = "en" ]; then
   DUMP="$WORKDIR/dump-en"
-  echo "-- cities (en): scarico il dump di Wikivoyage EN..."
+  echo "-- citta' (en): scarico il dump di Wikivoyage EN..."
   if ! fetch_wikivoyage_dump_parts en "$DUMP"; then
-    echo "::warning::cities (en): dump Wikivoyage EN non scaricato/verificato"
+    echo "::warning::citta' (en): dump Wikivoyage EN non scaricato/verificato"
     exit 1
   fi
-  echo "-- cities (en): estraggo le pagine citta' dal dump..."
+  echo "-- citta' (en): estraggo le pagine citta' dal dump..."
   python3 "$SCRIPT_DIR/extract-cities-dump-en.py" "$DUMP" "$REGIONS_TSV" "$OUT_DIR"
   exit 0
 fi

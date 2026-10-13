@@ -1,11 +1,11 @@
 package com.pockettravel.feature.ai
 
 /**
- * Un modello scaricabile del catalogo. `sha256 == null` significa "non ancora disponibile per il
+ * Un modello scaricabile del catalogo dei modelli. `sha256 == null` significa "non ancora disponibile per il
  * download" (vedi LlmModelManager.download, che rifiuta di procedere in quel caso, e ModelRow in
  * AiAssistantScreen, che mostra "Presto disponibile" invece del pulsante): serve per un modello
- * aggiunto al catalogo prima della sua pubblicazione.
- * Il catalogo contiene solo modelli non gated (Apache 2.0/MIT): il download non richiede alcun
+ * aggiunto al catalogo dei modelli prima della sua pubblicazione.
+ * Il catalogo dei modelli contiene solo modelli non gated (Apache 2.0/MIT): il download non richiede alcun
  * token HuggingFace. Ogni `url`/`fileName` referenziato e' un file GGUF quantizzato a ~4 bit
  * (UD-Q4_K_XL per gli ufficiali, Q4_K_M con imatrix per i nostri), l'unico formato che
  * [OnDeviceLlmEngine] (llama.cpp) sa caricare.

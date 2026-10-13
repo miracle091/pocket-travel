@@ -16,8 +16,8 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
     private val _stopGpsOnArrival = MutableStateFlow(prefs.getBoolean(KEY_STOP_GPS_ON_ARRIVAL, true))
 
     /**
-     * All'arrivo la guida si chiude e il GPS si spegne da solo, anche con l'app in background (risparmia
-     * batteria). Spento, la guida resta aperta col GPS acceso finche' non si tocca "Termina": utile se la
+     * All'arrivo la navigazione si chiude e il GPS si spegne da solo, anche con l'app in background (risparmia
+     * batteria). Spento, la navigazione resta aperta col GPS acceso finche' non si tocca "Termina": utile se la
      * destinazione e' un punto di passaggio o se l'arrivo scatta qualche metro prima.
      */
     val stopGpsOnArrival: StateFlow<Boolean> = _stopGpsOnArrival.asStateFlow()
@@ -29,7 +29,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
 
     private val _walkingHaptics = MutableStateFlow(prefs.getBoolean(KEY_WALKING_HAPTICS, true))
 
-    /** Vibrazione leggera alle svolte e all'arrivo nella guida a piedi (NavigationHaptics). */
+    /** Vibrazione leggera alle svolte e all'arrivo nella navigazione a piedi (NavigationHaptics). */
     val walkingHaptics: StateFlow<Boolean> = _walkingHaptics.asStateFlow()
 
     fun setWalkingHaptics(enabled: Boolean) {
@@ -38,7 +38,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
     }
 
     /**
-     * La guida in corso, salvata su disco finche' non si chiude: se il sistema chiude l'app (anche a schermo
+     * La navigazione in corso, salvata su disco finche' non si chiude: se il sistema chiude l'app (anche a schermo
      * spento), alla riapertura il Navigatore propone di riprenderla, sia dalle app recenti sia dall'icona.
      */
     fun saveActiveNavigation(navigation: ActiveNavigation) {
@@ -51,7 +51,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
         }
     }
 
-    /** La guida salvata, se c'e' e non e' troppo vecchia (dopo [ACTIVE_NAVIGATION_MAX_AGE_MILLIS] non ha piu' senso riprenderla). */
+    /** La navigazione salvata, se c'e' e non e' troppo vecchia (dopo [ACTIVE_NAVIGATION_MAX_AGE_MILLIS] non ha piu' senso riprenderla). */
     fun activeNavigation(now: Long = System.currentTimeMillis()): ActiveNavigation? {
         val place = RecentDestinations.decode(prefs.getString(KEY_NAVIGATION_PLACE, null)).firstOrNull() ?: return null
         val started = prefs.getLong(KEY_NAVIGATION_STARTED, 0L)
@@ -88,7 +88,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
     }
 }
 
-/** Una guida avviata e non ancora chiusa (vedi [NavigationPreferences.saveActiveNavigation]). */
+/** Una navigazione avviata e non ancora chiusa (vedi [NavigationPreferences.saveActiveNavigation]). */
 data class ActiveNavigation(
     val regionId: String,
     val place: NavigationPlace,

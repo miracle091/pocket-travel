@@ -114,7 +114,7 @@ object VaccinationData {
  * Tabelle "vacc_*" di guides.db (schema minimo, non quello Room), una per file di
  * resources/vaccinations: vacc_yf_risk, vacc_yf_entry, vacc_polio_status, vacc_polio_entry,
  * vacc_special, vacc_recommended, piu' vacc_meta (chiave/valore). Scrivono TUTTE le righe, senza
- * filtrare per regione: partenza e transiti di un viaggio possono essere paesi che l'app non ha
+ * filtrare per regione: partenza e scali di un viaggio possono essere paesi che l'app non ha
  * come regione (es. la Nigeria). Le app che non conoscono queste tabelle le ignorano.
  *
  * Colonne vuote: i numeri mancanti sono NULL, i testi mancanti sono stringa vuota. In vacc_meta:

@@ -10,7 +10,7 @@ import kotlin.io.path.createTempDirectory
  * Verifica a livello di schema che le query di GuidesImporter e PoiImporter corrispondano alle
  * colonne che tools/data-pipeline scrive in guides.db e poi.db — via JDBC puro
  * (org.xerial:sqlite-jdbc), perche' android.database.sqlite.SQLiteDatabase (usato dal codice
- * reale) richiede un device/emulatore e non gira in un test JVM.
+ * reale) richiede un dispositivo/emulatore e non gira in un test JVM.
  */
 class PackageImporterSchemaTest {
 

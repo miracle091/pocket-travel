@@ -1,13 +1,13 @@
 # Pipeline dei dati
 
 Script, tool Kotlin e workflow (`.github/workflows/publish-regions.yml`) che producono i pacchetti
-scaricati dall'app: manifest delle regioni, indice delle reti di trasporto, indice dei civici a celle.
-La panoramica e' nel `README.md` della root.
+scaricati dall'app: il catalogo (`manifest.json`, `transit.json`, `address-grid.json`) e i file che elenca.
+La panoramica è nel `README.md` della root.
 
 ## Firma dei file JSON
 
 I JSON che l'app scarica sono firmati con ECDSA P-256 e SHA-256 (supportati da `java.security` su
-Android API 26+, a differenza di Ed25519). Accanto a ogni file c'e' `<nome>.sig`, la firma in formato DER
+Android API 26+, a differenza di Ed25519). Accanto a ogni file c'è `<nome>.sig`, la firma in formato DER
 calcolata sui byte esatti del file:
 
 | File | URL |
@@ -23,12 +23,12 @@ file non firmati.
 
 `app-status.json` si aggiorna in tre modi, tutti in `publish-apk.yml`:
 - al rilascio dell'app (bump di `versionCode`): versione dal catalogo di main; per ogni modello l'impronta
-  che coincide con il file su HuggingFace, presa dal catalogo o dal file online se la sua firma è valida
+  che coincide con il file su Hugging Face, presa dal catalogo dei modelli o dal file online se la sua firma è valida
   (`scripts/resolve_ai_models.py`). Se nessuna coincide il job si ferma prima di compilare: una release che
   rifiuterebbe i download non esce;
 - lancio manuale con `update_models`, avviato da `scripts/upload_hf.py --update-app-status` dopo il
   caricamento di un GGUF con lo stesso nome file: cambia solo sha256 e dimensione di quei modelli, dopo aver
-  verificato la firma del file online e le impronte su HuggingFace. Le app dalla 0.9.1 verificano il
+  verificato la firma del file online e le impronte su Hugging Face. Le app dalla 0.9.1 verificano il
   download con queste impronte, quindi il modello nuovo si scarica senza rilasciare l'app; lo script poi
   aggiorna anche `LlmModelCatalog.kt`, che resta la riserva quando l'app non raggiunge `app-status.json`;
 - lancio manuale con `resign_app_status`: lo ricostruisce dal tag della versione rilasciata, con le stesse
@@ -61,13 +61,13 @@ I civici (OSM + Overture) non si pubblicano per regione ma in celle di una grigl
 `GenerateAddressGrid.kt` e controllato da `validateAddressGridJson` (`ValidateManifest.kt`).
 
 - **Cella**: nodo `z/x/y` del quadtree Web Mercator con `z <= 14` (`tileZoom`), che contiene le tile z14
-  discendenti. Il file e' un PMTiles con i civici di quelle tile (`GenerateAddresses --cell`) e, se ci sono
+  discendenti. Il file è un PMTiles con i civici di quelle tile (`GenerateAddresses --cell`) e, se ci sono
   vie, un indice di ricerca `addresses-search.db`. Le celle senza dati non esistono.
-- **Partizione**: le celle dell'indice pubblicato piu' quelle del seme `address-grid-seed.tsv` (righe
-  `z/x/y`, da `scripts/seed-address-grid.py`) non ancora coperte, cioe' ne' pubblicate ne' antenate di una
-  cella pubblicata. Nessuna cella dell'indice e' antenata di un'altra.
+- **Partizione**: le celle dell'indice pubblicato più quelle del seme `address-grid-seed.tsv` (righe
+  `z/x/y`, da `scripts/seed-address-grid.py`) non ancora coperte, cioè né pubblicate né antenate di una
+  cella pubblicata. Nessuna cella dell'indice è antenata di un'altra.
 - **Crescita**: se il `.xz` di una cella supera `ADDRESS_CELL_MAX_BYTES` (10.000.000 byte) si pubblicano al
-  suo posto i 4 figli con dati, ricorsivamente fino a z14 (li' la cella resta oltre il tetto, con un
+  suo posto i 4 figli con dati, ricorsivamente fino a z14 (lì la cella resta oltre il tetto, con un
   warning). Le celle non si fondono mai: gli id restano stabili.
 - **Ricostruzione**: ogni notte le celle con `cksum(id) % 30` uguale al giorno dall'epoca `% 30`; una cella
   pubblicata da meno di `ADDRESS_CELL_MAX_AGE_DAYS` (30) giorni tiene la sua voce, e una cella rigenerata
@@ -75,8 +75,8 @@ I civici (OSM + Overture) non si pubblicano per regione ma in celle di una grigl
   partizione separati da virgola, al posto della quota del giorno) e `address_cell_max_age_days` (-1 =
   rigenera anche le celle recenti).
 - **Release**: `address-cells-<n>` con `n = cksum(id) % ADDRESS_CELL_RELEASES` (12), calcolato sulla cella
-  scelta per la run (i figli di una divisione finiscono nella stessa release). Erano 6: 12 e' multiplo di
-  6, quindi le celle con `n < 6` restano dove sono e le altre passano alle release 6-11 solo quando si
+  scelta per la run (i figli di una divisione finiscono nella stessa release). Erano 6: 12 è multiplo di
+  6, quindi le celle con `n < 6` restano dove sono e le altre passano alle release 6–11 solo quando si
   rigenerano. La pulizia finale guarda tutte le `address-cells-*`. Asset caricati:
   `cell-<z>-<x>-<y>--<version>--addresses.pmtiles.xz` e `...--addresses-search.db.xz`.
 
@@ -97,8 +97,8 @@ Indice, firmato come gli altri JSON e puntato dalla voce `"addressGrid": { "vers
 }
 ```
 
-- `cells` ordinato per `z`, `x`, `y`; `url` e' sempre quello del `.xz`, `file` ne da' dimensione e sha256
-  decompressi. `search` e' facoltativo (le app vecchie lo ignorano).
+- `cells` ordinato per `z`, `x`, `y`; `url` è sempre quello del `.xz`, `file` ne dà dimensione e sha256
+  decompressi. `search` è facoltativo (le app vecchie lo ignorano).
 - `attributions` (schermata Licenze): OSM, Overture con i distributori e il testo di ogni fonte ammessa
   dalla lista bianca `overture-address-sources.tsv`, anche se le celle di oggi non la usano.
 - L'app scarica le celle che intersecano il riquadro della regione, le unisce in un solo
@@ -109,7 +109,7 @@ Indice, firmato come gli altri JSON e puntato dalla voce `"addressGrid": { "vers
 ## Vaccinazioni (tabelle `vacc_*` di `guides.db`)
 
 I dati vaccinali sono file TSV curati a mano in `content/src/main/resources/vaccinations/` (febbre gialla in
-ingresso, in uscita e per rischio, polio, requisiti speciali come Hajj e Umrah, vaccini consigliati per
+ingresso, in uscita e per rischio, polio, requisiti speciali come Hajj e Umrah, vaccini raccomandati per
 destinazione). Le fonti sono Travel.gc.ca (Open Government Licence - Canada 2.0) e TravelHealthPro (Open
 Government Licence v3.0): i fatti sono riscritti con parole proprie e le fonti sono indicate nelle righe `#` di ogni
 file. `GenerateVaccinations.kt` li scrive in `guides.db` come tabelle `vacc_*`, tutte le righe e non solo quelle delle
@@ -117,7 +117,7 @@ regioni pubblicate, perché partenza e scali di un viaggio possono essere paesi 
 `GenerateVaccinationsTest`. `scripts/vaccinations_draft.py` scarica i dati di Travel.gc.ca e produce solo bozze da
 rivedere a mano: non vanno copiate nel repository così come sono.
 
-Requisiti polio in ingresso senza fonte aperta e attuale (ricerca del 2026-10-08): per Egitto, Nepal, Iran e India
+Requisiti polio in ingresso senza fonte aperta e attuale (ricerca dell'8 ott 2026): per Egitto, Nepal, Iran e India
 `polio-entry.tsv` ha solo righe con provenienza `UNLISTED`, dal FCDO (India, Nepal, Iran) e da France Diplomatie
 (Egitto), che dicono che un requisito esiste. L'app ne fa una voce "da valutare" per qualunque provenienza, con il
 link al sito degli esteri della nazionalità dell'utente. Cosa dicono le fonti:
@@ -131,7 +131,7 @@ link al sito degli esteri della nazionalità dell'utente. Cosa dicono le fonti:
   Siria). L'ordine è "All Rights Reserved", quindi serve solo da controllo.
 - France Diplomatie, pagine "Santé" (Licence Ouverte 2.0, riuso commerciale ammesso): elenchi per Egitto (Afghanistan,
   Nigeria, Pakistan, Papua Nuova Guinea, Somalia; Kenya, Niger, RD Congo, Siria) e Nepal (Afghanistan, Kenya, Nigeria,
-  Pakistan, Papua Nuova Guinea, Somalia) che sembrano fermi al 2018-2019 e per l'Egitto non coincidono con quanto
+  Pakistan, Papua Nuova Guinea, Somalia) che sembrano fermi al 2018–2019 e per l'Egitto non coincidono con quanto
   riportato dalla stampa nel 2023; per l'India solo vaccino orale per i residenti dei paesi colpiti, per l'Iran nulla.
 - Senza dati sulla polio in ingresso o con licenza non compatibile: Smartraveller, SafeTravel, FORTH (Giappone),
   KDCA, Irlanda, Spagna, Wikipedia e Wikivoyage, International SOS, IATA Timatic.
@@ -184,7 +184,7 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   lingua (stesse città nei tre casi), `--questions general` le domande generali sulle pagine della guida generale,
   `--questions control` le domande di controllo (mai usate per costruire le liste di parole), `--questions other-country` le domande che nominano un'altra nazione (cercate nella sua guida, `CountryGuides.kt`),
   `--guides-db` un `guides.db` locale al posto di quello pubblicato, `--word-lists` la ricerca con le liste di parole
-  per categoria che l'app usa (`CategoryWords.kt`; senza l'opzione si misura la ricerca senza liste). La tabella delle guide contiene tutte le regioni,
+  che l'app usa (`CategoryWords.kt`; senza l'opzione si misura la ricerca senza liste). La tabella delle guide contiene tutte le regioni,
   come nell'app, perché le statistiche di BM25 valgono per tutta la tabella. Anche `make_context`
   (`generate_sft_dataset.py`), che costruisce il contesto dei dataset SFT e dei set di valutazione, sceglie i paragrafi
   come l'app (`test_make_context.py` lo confronta con la replica di `eval_retrieval.py`).
@@ -206,12 +206,12 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   testa), leggi e cultura, catastrofi naturali e clima, salute. Restano fuori ingresso e uscita, uffici consolari, i
   sottotitoli per i canadesi o sui vaccini (`excludedAdviceHeadings`) e le frasi che nominano il Canada o in cui parla il
   governo ("we", "our"). La salute è compatta: il 73% del suo testo è uguale in almeno un paese su quattro, quindi
-  restano gli avvisi di epidemia, le strutture sanitarie e le medicine, e delle schede delle malattie il nome e la prima
+  restano gli avvisi di epidemia, le strutture sanitarie e le medicine, e dei blocchi sulle malattie il nome e la prima
   frase ("There is a risk of typhoid fever in this destination, but the risk is low for most travellers."); fuori la
   prevenzione generica (`genericHealthHeadings`). Palestina, Pitcairn e Wallis e Futuna, senza pagina su travel.gc.ca,
   prendono le stesse quattro sezioni dalla pagina FCDO della GOV.UK Content API
   (`www.gov.uk/api/content/foreign-travel-advice/<slug>`, `FCDO_SLUGS` in `build-guides.sh`, Open Government Licence
-  v3.0): Safety and security divisa per sottotitolo, Regional risks, Health, il livello di `alert_status` e le zone da
+  v3.0): Safety and security divisa per sottotitolo, Regional risks, Health, il livello di `alert_status` e le aree da
   evitare di Warnings and insurance, senza ingresso, assistenza consolare e assicurazioni e senza le frasi sui britannici,
   il Regno Unito o l'FCDO. Delle frasi in cui parla il governo ("we", "our", tolte per entrambe le fonti) le poche utili
   diventano impersonali (`impersonalRewrites`: "where we advise against" -> "where the advice is against"). La pagina
@@ -219,7 +219,7 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   sezione col link che finisce in `#for-nationality=IL`, che l'app mostra solo con la nazionalità israeliana; per gli
   altri c'è un rimando alla guida di Israele (`#not-for-nationality=IL`). L'app toglie il suffisso dai link
   (`GuideSectionAudience.kt`). Un paese non
-  scaricato tiene i consigli del `guides-en.db` pubblicato. Sui dati del 2026-09/10: 336 regioni, +5,8 MB di
+  scaricato tiene i consigli del `guides-en.db` pubblicato. Sui dati di set–ott 2026: 336 regioni, +5,8 MB di
   `guides-en.db` e +0,4 MB compresso. Il testo cambia per quasi tutti i paesi ogni due
   settimane e il job `guides` gira ogni giorno: per regione la tabella `travel_advice_meta` (livello di rischio, avvisi
   regionali, data di download; le app la ignorano) e `keepPublishedGuides` tiene il `guides-en.db` pubblicato quando sono
@@ -320,7 +320,7 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   dell'altra lingua (assenti, sotto 300 caratteri o lunghe meno della metà), dall'inglese all'italiano e dall'italiano
   all'inglese, guide e città, resta nel codice ma spento (`WIKIVOYAGE_SECTIONS`): in una revisione a campione il 21%
   delle frasi tradotte aveva errori critici o gravi, contro il 5,8% di quelle del Governo del Canada. In publish-regions
-  i passi girano solo con la variabile del repository `TRANSLATE_GUIDES` uguale a `true`, quindi per ora le guide escono
-  come prima. Mai bloccante: se il motore o il modello mancano, il tempo finisce o una categoria viene scartata,
-  restano i consigli tradotti gia' pubblicati (nessuno, la prima volta); la cache delle frasi tradotte tiene il lavoro
-  fatto. Spegnendo di nuovo la variabile i consigli tradotti gia' pubblicati restano, senza aggiornamenti.
+  i passi girano solo con la variabile del repository `TRANSLATE_GUIDES` uguale a `true`: con la variabile spenta le guide escono
+  senza sezioni tradotte. Mai bloccante: se CTranslate2 o il modello mancano, il tempo finisce o una categoria viene scartata,
+  restano i consigli tradotti già pubblicati (nessuno, la prima volta); la cache delle frasi tradotte tiene il lavoro
+  fatto. Spegnendo di nuovo la variabile i consigli tradotti già pubblicati restano, senza aggiornamenti.

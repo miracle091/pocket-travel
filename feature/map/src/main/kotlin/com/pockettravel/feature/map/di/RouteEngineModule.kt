@@ -3,6 +3,7 @@ package com.pockettravel.feature.map.di
 import android.content.Context
 import android.net.ConnectivityManager
 import com.pockettravel.core.data.CarRouteCalculator
+import com.pockettravel.core.data.DefaultDispatcher
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.Rd5Merger
 import com.pockettravel.core.data.RegionStorage
@@ -51,7 +52,7 @@ object RouteEngineModule {
     private const val PROFILE_ASSET_DIR = "brouter-profile"
 
     // Tempo massimo di un calcolo: Milano-Roma in auto (575 km) ha richiesto 45-48 s sull'emulatore,
-    // un telefono e' piu' lento. Oltre, RouteResult.TimedOut ("destinazione troppo lontana").
+    // un dispositivo e' piu' lento. Oltre, RouteResult.TimedOut ("destinazione troppo lontana").
     private const val ROUTE_TIMEOUT_MILLIS = 180_000L
 
     // Singleton: i profili si sincronizzano una volta sola, non a ogni ViewModel che riceve la factory.
@@ -62,6 +63,7 @@ object RouteEngineModule {
         @ApplicationContext context: Context,
         usageModePreferences: UsageModePreferences,
         @IoDispatcher ioDispatcher: CoroutineDispatcher,
+        @DefaultDispatcher defaultDispatcher: CoroutineDispatcher,
     ): RouteEngineFactory {
         val profileDir = File(context.filesDir, PROFILE_ASSET_DIR)
         // Copia dei profili al primo calcolo, su IO (legge e scrive file): se fallisce si riprova al successivo.
@@ -73,7 +75,7 @@ object RouteEngineModule {
             withContext(ioDispatcher) { profilesSynced.value }
             // Il profilo del modo scelto, letto a ogni motore creato.
             val profileName = usageModePreferences.modes.value.defaultRoutingProfile()
-            fun engine(segmentDir: File) = BRouterRouteEngine(segmentDir, profileDir, profileName, ROUTE_TIMEOUT_MILLIS, ioDispatcher)
+            fun engine(segmentDir: File) = BRouterRouteEngine(segmentDir, profileDir, profileName, ROUTE_TIMEOUT_MILLIS, ioDispatcher, defaultDispatcher)
             val dirs = regionIds.map { File(regionsDir, "$it/$ROUTING_DIR_NAME") }
             val merged = mergedDirOrNull(dirs, mergedDir, ioDispatcher)
             if (merged == null) engine(dirs.first())

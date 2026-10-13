@@ -41,7 +41,7 @@ import com.pockettravel.core.ui.R as UiR
 
 /**
  * Passo "Benvenuto": lingua, modi di spostarsi e nazionalita' in una sola schermata a chip. Lingua e nazionalita'
- * partono dai valori del telefono; i modi di spostarsi vanno scelti (almeno uno) per poter proseguire.
+ * partono dai valori del dispositivo; i modi di spostarsi vanno scelti (almeno uno) per poter proseguire.
  */
 @Composable
 internal fun OnboardingWelcomeStep(viewModel: OnboardingViewModel) {
@@ -138,7 +138,7 @@ private fun UsageModeChips(viewModel: OnboardingViewModel) {
     }
 }
 
-// Proposta: il paese del telefono (NationalityPreferences); il chip apre l'elenco dei paesi per cambiarla.
+// Proposta: il paese del dispositivo (NationalityPreferences); il chip apre l'elenco dei paesi per cambiarla.
 @Composable
 private fun NationalityChip(viewModel: OnboardingViewModel) {
     val nationality by viewModel.nationality.collectAsStateWithLifecycle()
