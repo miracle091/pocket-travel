@@ -37,7 +37,7 @@ class RegionZoneEdgeCasesTest {
     }
 
     @Test
-    fun `una zona piu' grande della regione prende il riquadro della regione e tutte le tile`() {
+    fun `una zona piu' grande della regione prende il rettangolo della regione e tutte le tile`() {
         val restricted = europe.restrictedTo(RegionZone(-180.0, -90.0, 180.0, 90.0))
         assertEquals(europe.map.source, restricted.map.source)
         assertEquals(europe.routing.files, restricted.routing.files)

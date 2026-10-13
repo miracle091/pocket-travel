@@ -45,7 +45,7 @@ class ValidateManifestTest {
         """{ "manifestVersion": 2, $guides, "regions": [${regions.joinToString(",")}] }"""
 
     @Test
-    fun `un manifest valido non lancia eccezioni`() {
+    fun `un catalogo valido non lancia eccezioni`() {
         validateManifestJson(validManifest(), allowedHosts)
     }
 
@@ -80,7 +80,7 @@ class ValidateManifestTest {
     }
 
     @Test
-    fun `rifiuta un manifest senza pacchetto guide`() {
+    fun `rifiuta un catalogo senza pacchetto guide`() {
         val json = """{ "manifestVersion": 2, "regions": [${region()}] }"""
         assertThrows(ManifestValidationException::class.java) { validateManifestJson(json, allowedHosts) }
     }
@@ -382,7 +382,7 @@ class ValidateManifestTest {
     }
 
     @Test
-    fun `rifiuta un manifest senza regioni`() {
+    fun `rifiuta un catalogo senza regioni`() {
         assertManifestInvalid("""{ "manifestVersion": 2, $guides, "regions": [] }""")
     }
 
@@ -466,7 +466,7 @@ class ValidateManifestTest {
     }
 
     @Test
-    fun `accetta un riquadro che copre esattamente il mondo`() {
+    fun `accetta un rettangolo che copre esattamente il mondo`() {
         val json = validManifest()
             .replace("\"minLon\": 12.40", "\"minLon\": -180.0").replace("\"maxLon\": 12.52", "\"maxLon\": 180.0")
             .replace("\"minLat\": 43.89", "\"minLat\": -90.0").replace("\"maxLat\": 43.99", "\"maxLat\": 90.0")
@@ -504,7 +504,7 @@ class ValidateManifestTest {
     }
 
     @Test
-    fun `l'indice dei civici nel manifest rifiuta sha256, dimensione e version non validi`() {
+    fun `l'indice dei civici nel catalogo rifiuta sha256, dimensione e version non validi`() {
         val url = "https://miracle091.github.io/pocket-travel/address-grid.json"
         assertManifestInvalid(withAddressGrid(url).replace("7".repeat(64), "xyz"))
         assertManifestInvalid(withAddressGrid(url).replace("\"sizeBytes\": 300000", "\"sizeBytes\": -1"))
@@ -671,11 +671,11 @@ class ValidateManifestTest {
     }
 
     @Test
-    fun `l'indice delle reti controlla il riquadro`() {
+    fun `l'indice delle reti controlla il rettangolo`() {
         assertTransitInvalid(transitIndex(transitFeed(bbox = "[23.9, 56.8, 24.4]")))
         assertTransitInvalid(transitIndex(transitFeed(bbox = "[23.9, 56.8, 24.4, 57.1, 1]")))
         assertTransitInvalid(transitIndex(transitFeed(bbox = "[23.9, 58.0, 24.4, 57.1]")))
-        // Un riquadro ridotto a un punto passa: le regole rifiutano solo min > max.
+        // Un rettangolo ridotto a un punto passa: le regole rifiutano solo min > max.
         validateTransitJson(transitIndex(transitFeed(bbox = "[24.0, 57.0, 24.0, 57.0]")), allowedHosts)
     }
 

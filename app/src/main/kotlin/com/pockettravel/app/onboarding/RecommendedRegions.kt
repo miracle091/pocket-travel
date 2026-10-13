@@ -7,7 +7,7 @@ import kotlin.math.hypot
 
 /**
  * Regioni consigliate nel primo avvio: quelle del paese [countryCode] (la nazionalita' scelta, o il
- * paese del dispositivo) e poi le vicine, cioe' quelle il cui riquadro geografico tocca quello di una
+ * paese del dispositivo) e poi le vicine, cioe' quelle il cui rettangolo geografico tocca quello di una
  * regione del paese allargato di [NEAR_DEGREES] (non esiste una tabella dei confini), dalla piu'
  * vicina, al massimo [maxNeighbours]. Vuota se il paese non ha regioni nel catalogo.
  */
@@ -28,7 +28,7 @@ internal fun recommendedRegions(items: List<RegionUiItem>, countryCode: String?,
 
 /**
  * I pacchetti scelti di default per una regione nel primo avvio: come "Scarica" (tutti tranne POI
- * extra e rete stradale, questi solo con "Indicazioni"), tra quelli che la regione offre; gli orari dei
+ * extra e rete stradale, questi solo con "Percorsi di navigazione"), tra quelli che la regione offre; gli orari dei
  * mezzi pubblici solo se il modo di spostarsi li propone ([withTransit], UsageMode.proposesTransit).
  */
 internal fun defaultPackageChoice(item: RegionUiItem, withRouting: Boolean, withTransit: Boolean = false): Set<PackageKind> =

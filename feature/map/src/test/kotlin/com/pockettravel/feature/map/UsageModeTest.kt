@@ -70,7 +70,7 @@ class UsageModeTest {
     }
 
     @Test
-    fun `il profilo di default segue il mezzo iniziale`() {
+    fun `il profilo di default segue il modo iniziale`() {
         assertEquals("trekking", emptySet<UsageMode>().defaultRoutingProfile())
         assertEquals("car-vario", setOf(UsageMode.BICI, UsageMode.CAMPER).defaultRoutingProfile())
         assertEquals("trekking", setOf(UsageMode.BICI, UsageMode.MEZZI_PUBBLICI).defaultRoutingProfile())
@@ -101,7 +101,7 @@ class UsageModeTest {
     }
 
     @Test
-    fun `i profili dei modi sono negli asset e instradano secondo il mezzo`() {
+    fun `i profili dei modi sono negli asset e instradano secondo il modo`() {
         // Percorso di prova: un'unica via pedonale (highway=footway) a cavallo di due segmenti .rd5,
         // vedi BRouterRouteEngineTest.
         val segmentDir = tempFolder.newFolder("segments4")

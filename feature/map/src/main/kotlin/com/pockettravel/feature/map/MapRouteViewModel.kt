@@ -93,7 +93,7 @@ class MapRouteViewModel @Inject constructor(
     private var transitJob: Job? = null
 
     /**
-     * Legge le prossime partenze vicino a [pin] e le rilegge ogni minuto finche' il riquadro e' aperta (le partenze
+     * Legge le prossime partenze vicino a [pin] e le rilegge ogni minuto finche' il riquadro e' aperto (le partenze
      * passano); null (riquadro chiuso o orari non installati) le azzera.
      */
     fun showDepartures(pin: MapPin?) {
@@ -163,7 +163,7 @@ class MapRouteViewModel @Inject constructor(
     /**
      * Solo i POI dell'area inquadrata, dentro la zona scaricata se c'e', al massimo [MAX_PINS]: tutti quelli di una nazione
      * grande (Italia, ~70 MB) manderebbero l'app in OutOfMemoryError. Prima del primo fermo della mappa, quelli del
-     * riquadro della mappa installata (o della zona).
+     * rettangolo della mappa installata (o della zona).
      */
     private fun reloadPins() {
         pinRequests.value += 1

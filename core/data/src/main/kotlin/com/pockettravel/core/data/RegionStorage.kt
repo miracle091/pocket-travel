@@ -192,7 +192,7 @@ class RegionStorage @Inject constructor(
         const val ROUTING_DIR = "routing"
         // Civici sovrapposti alla mappa (OfflineTileSource).
         const val ADDRESSES_FILE = "addresses.pmtiles"
-        // Anteprima offline (pochi zoom): si installa da sola con ogni download della regione, vedi
+        // Mappa d'insieme (pochi zoom): si installa da sola con ogni download della regione, vedi
         // RegionPackageInstaller; sopravvive all'eliminazione della sola mappa.
         const val PREVIEW_FILE = "preview.pmtiles"
         // Civici a griglia: elenco delle celle in ADDRESSES_FILE (id -> version),
@@ -203,12 +203,12 @@ class RegionStorage @Inject constructor(
         // (<z>-<x>-<y>.db.xz, vedi addressSearchArchiveName; le vecchie installazioni hanno il .db),
         // tenute solo per aggiornare la regione scaricando le celle cambiate, piu' ADDRESSES_SEARCH_DB, l'unione di
         // tutte le celle che AddressSearchRepository apre in sola lettura. Cartella attivata insieme a
-        // ADDRESSES_FILE (stessa versione): le celle sparite dal manifest spariscono con la sostituzione.
-        // Assente per le regioni senza ricerca (manifest vecchi).
+        // ADDRESSES_FILE (stessa versione): le celle sparite dal catalogo spariscono con la sostituzione.
+        // Assente per le regioni senza ricerca (cataloghi vecchi).
         const val ADDRESSES_SEARCH_DIR = "addresses-search"
         const val ADDRESSES_SEARCH_DB = "addresses-search.db"
         // Orari dei mezzi pubblici: una transit.db per rete (<feedId>.db) piu' TRANSIT_FEEDS_FILE, attivati
-        // insieme come cartella, cosi' le reti sparite dal manifest spariscono con la sostituzione.
+        // insieme come cartella, cosi' le reti sparite dal catalogo spariscono con la sostituzione.
         const val TRANSIT_DIR = "transit"
         // Nome, attribuzione e licenza di ogni rete di TRANSIT_DIR (vedi TransitFeedInfo), per il riquadro delle partenze.
         const val TRANSIT_FEEDS_FILE = "feeds.json"

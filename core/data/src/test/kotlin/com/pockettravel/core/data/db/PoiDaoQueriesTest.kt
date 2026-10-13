@@ -195,7 +195,7 @@ class PoiDaoQueriesTest {
     }
 
     @Test
-    fun `nearest ordina per distanza con la correzione della longitudine e resta nel riquadro`() {
+    fun `nearest ordina per distanza con la correzione della longitudine e resta nel rettangolo`() {
         // A 60 N un grado di longitudine vale meta' di uno di latitudine: lonScale = cos^2(60) = 0,25.
         addPoi("n", "Nord", "cafe", "amenity=cafe", 60.0010, 10.0000)
         addPoi("n", "Est", "cafe", "amenity=cafe", 60.0000, 10.0016)
@@ -212,14 +212,14 @@ class PoiDaoQueriesTest {
             ),
         ).map { it.name }
 
-        // Est a 0,0016 gradi di longitudine pesa 0,0008 di latitudine: piu' vicino di Nord (0,0010). "Lontano" e' fuori dal riquadro.
+        // Est a 0,0016 gradi di longitudine pesa 0,0008 di latitudine: piu' vicino di Nord (0,0010). "Lontano" e' fuori dal rettangolo.
         assertEquals(listOf("Altra regione", "Est", "Nord"), nearest())
         assertEquals(listOf("Altra regione"), nearest(limit = 1))
         assertEquals(emptyList<String>(), nearest(regions = emptyList()))
     }
 
     @Test
-    fun `nearest include i POI esattamente sul bordo del riquadro`() {
+    fun `nearest include i POI esattamente sul bordo del rettangolo`() {
         addPoi("n", "Sul bordo", "cafe", "amenity=cafe", 60.005, 10.01)
         val result = query(
             "nearest",

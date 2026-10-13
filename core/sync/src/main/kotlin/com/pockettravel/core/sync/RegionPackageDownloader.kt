@@ -21,9 +21,9 @@ import javax.inject.Inject
 class PermanentRegionPackageException(message: String) : Exception(message)
 
 /**
- * Scarica i file del manifest indicati (poi.db, segmenti .rd5 della rete stradale, guides.db) in una
+ * Scarica i file del catalogo indicati (poi.db, segmenti .rd5 della rete stradale, guides.db) in una
  * cartella di staging, con ripresa tramite HTTP range, e verifica lo SHA-256 di ciascuno rispetto al
- * manifest; il chiamante convalida prima la voce del manifest e poi sposta i file al loro posto.
+ * catalogo; il chiamante convalida prima la voce del catalogo e poi sposta i file al loro posto.
  */
 class RegionPackageDownloader @Inject constructor(
     private val okHttpClient: OkHttpClient,
@@ -151,7 +151,7 @@ class RegionPackageDownloader @Inject constructor(
                             // Annullare il download (es. regione eliminata) lo ferma subito, non al prossimo onProgress.
                             currentCoroutineContext().ensureActive()
                             downloaded += read
-                            // Un server che manda piu' byte del manifest (anche col resume: conta il totale del
+                            // Un server che manda piu' byte di quelli del catalogo (anche col resume: conta il totale del
                             // file) non riempie il disco: ci si ferma subito, senza aspettare l'EOF.
                             if (downloaded > file.sizeBytes) {
                                 throw PermanentRegionPackageException("Dimensione non valida per ${file.name}: superiore ai ${file.sizeBytes} byte attesi")

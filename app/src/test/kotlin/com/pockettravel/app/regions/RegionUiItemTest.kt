@@ -124,7 +124,7 @@ class RegionUiItemTest {
     }
 
     @Test
-    fun `con le indicazioni il download completo comprende la rete stradale`() {
+    fun `con i percorsi di navigazione il download completo comprende la rete stradale`() {
         val item = regionUiItem(remote, null, noBytes, withRouting = true)
 
         assertEquals(140_000_000L, item.sizeBytes)
@@ -176,7 +176,7 @@ class RegionUiItemTest {
     }
 
     @Test
-    fun `i civici offerti dal manifest contano nella prima installazione`() {
+    fun `i civici offerti dal catalogo contano nella prima installazione`() {
         val item = regionUiItem(withAddresses, null, noBytes)
 
         assertEquals(110_000_000L, item.sizeBytes)
@@ -192,7 +192,7 @@ class RegionUiItemTest {
     }
 
     @Test
-    fun `civici installati con una version legacy (percorso di oggi) sono un aggiornamento quando il manifest offre la griglia`() {
+    fun `civici installati con una version legacy (percorso di oggi) sono un aggiornamento quando il catalogo offre la griglia`() {
         val item = regionUiItem(withAddresses, local(map = "m2", routing = "r1", poi = "p2", addresses = "2024-01-15"), noBytes)
 
         assertEquals(RegionStatus.UPDATE_AVAILABLE, item.status)
@@ -249,7 +249,7 @@ class RegionUiItemTest {
     }
 
     @Test
-    fun `una regione installata e sostituita nel manifest viene proposta con il suo gruppo`() {
+    fun `una regione installata e sostituita nel catalogo viene proposta con il suo gruppo`() {
         val oldRegion = InstalledRegion(
             "stati-uniti", "Stati Uniti (contigui)", "us", mapVersion = "m1", routingVersion = "r1", poiVersion = "p1",
             poiExtraVersion = null, addressesVersion = null, poiSizeBytes = 1, poiExtraSizeBytes = null, sizeBytes = 2_000,
@@ -259,7 +259,7 @@ class RegionUiItemTest {
         val items = replacedItems(listOf(oldRegion, local("m2", "r1", "p2")), listOf(remote), replaced)
 
         assertEquals(listOf(ReplacedRegionItem("stati-uniti", "Stati Uniti (contigui)", "us", "Stati Uniti d'America", 2_000)), items)
-        // Ancora nel manifest (o non sostituita): nessuna proposta.
+        // Ancora nel catalogo (o non sostituita): nessuna proposta.
         assertEquals(emptyList<ReplacedRegionItem>(), replacedItems(listOf(local("m2", "r1", "p2")), listOf(remote), listOf(ReplacedRegion("italia", "x"))))
     }
 

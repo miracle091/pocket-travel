@@ -67,7 +67,7 @@ class AddressGridIndexTest {
         sampleIndex.replace("""{ "id": "12/2178/1500",""", """{ "id": "12/2178/1500", $search,""")
 
     @Test
-    fun `un manifest senza search resta valido, la cella non ha ricerca`() {
+    fun `un indice della griglia senza search resta valido, la cella non ha ricerca`() {
         val index = parse()
         index.validate()
         assertEquals(null, index.cells.single().search)
@@ -148,7 +148,7 @@ class AddressGridIndexTest {
         assertThrows(IllegalArgumentException::class.java) { index.validate() }
     }
 
-    // ---- AddressGridManifestEntry (voce "addressGrid" del manifest) ----
+    // ---- AddressGridManifestEntry (voce "addressGrid" di `manifest.json`) ----
 
     private val sampleManifestEntry = """{ "version": "2026.10.01.123.1", "url": "https://miracle091.github.io/pocket-travel/address-grid.json", "sizeBytes": 250000, "sha256": "$sha" }"""
 

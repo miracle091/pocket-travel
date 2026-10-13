@@ -39,7 +39,7 @@ fun UsageModeOptions(
     onDirectionsChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Accendendo "Indicazioni" si chiede subito il permesso di posizione, solo in primo piano;
+    // Accendendo "Percorsi di navigazione" si chiede subito il permesso di posizione, solo in primo piano;
     // chi rifiuta lo concede dopo dalla schermata di navigazione.
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
     Column(modifier = modifier) {

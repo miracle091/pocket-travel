@@ -13,23 +13,23 @@ object SyncConfig {
     const val OFFICIAL_PUBLIC_KEY =
         "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQvTHdjgRhQviaUGMXeJgQ698ZGiIGjbK6iMPmjvend3tqHsvICoVlPHl+FnnjMwjKEOVai3BWWbmOuCSDkz1cw=="
 
-    // brouter.de: tenuto in whitelist solo per retrocompatibilita' con voci di manifest
+    // brouter.de: tenuto in whitelist solo per retrocompatibilita' con voci di cataloghi
     // pubblicate prima che i segmenti .rd5 venissero ri-ospitati (vedi build-region.sh) — quei
     // segmenti cambiano dimensione/hash nel tempo (rigenerazione periodica lato BRouter),
     // rompendo permanentemente ogni download che li referenzia ancora in diretta
     // (RegionPackageDownloader.downloadAndVerify rigetta un file la cui dimensione non combacia
-    // piu' col manifest). build.protomaps.com: mapSource.sourceUrl (MapExtractionSource) punta
+    // piu' col catalogo). build.protomaps.com: mapSource.sourceUrl (MapExtractionSource) punta
     // alla build giornaliera whole-planet da cui il dispositivo estrae solo le tile del bounding box
     // della regione — vedi PmtilesExtractor. github.com: guides.db, poi.db e i segmenti .rd5 ri-ospitati
     // vivono sugli asset della release "region-data" (github.com/OWNER/REPO/releases/download/...,
     // limite di 1GB di GitHub Pages sforato con la copertura mondiale di regions.sh — vedi
     // assemble-site.sh); solo l'host conta qui, il redirect verso il vero storage degli asset
-    // avviene dopo, seguito automaticamente da OkHttp. In piu' c'e' sempre l'host del manifest.
+    // avviene dopo, seguito automaticamente da OkHttp. In piu' c'e' sempre l'host di `manifest.json`.
     private val FIXED_HOSTS = setOf("brouter.de", "build.protomaps.com", "github.com")
 
     /** Indirizzo, chiave e host ammessi del catalogo in uso, calcolati una volta per ogni cambio di catalogo. */
     private class Active(val manifestUrl: String, val publicKey: String) {
-        // Host di un manifest alternativo servito in chiaro (http, server locale in debug): l'unico
+        // Host di un catalogo di debug servito in chiaro (http, server locale in debug): l'unico
         // per cui RegionManifest accetta URL non https. null con un indirizzo https.
         val cleartextHost: String? = URI(manifestUrl).takeIf { it.scheme == "http" }?.host
         val allowedHosts: Set<String> = FIXED_HOSTS + URI(manifestUrl).host

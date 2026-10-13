@@ -43,12 +43,12 @@ class MissingRoutingRegionTest {
     }
 
     @Test
-    fun `un punto in due riquadri, senza rete stradale installata, la regione piu' piccola`() {
+    fun `un punto in due rettangoli, senza rete stradale installata, la regione piu' piccola`() {
         assertEquals(listOf(sanMarino), missingRoutingRegions(all, emptySet(), listOf(cittaDiSanMarino), paeseDi(all)))
     }
 
     @Test
-    fun `il riquadro dell'Italia copre Rimini ma non San Marino, che e' un altro paese`() {
+    fun `il rettangolo dell'Italia copre Rimini ma non San Marino, che e' un altro paese`() {
         assertEquals(emptyList<RegionManifestEntry>(), missingRoutingRegions(all, setOf("italia"), listOf(rimini), paeseDi(all)))
         assertEquals(listOf(sanMarino), missingRoutingRegions(all, setOf("italia"), listOf(rimini, cittaDiSanMarino), paeseDi(all)))
     }
@@ -84,7 +84,7 @@ class MissingRoutingRegionTest {
     }
 
     @Test
-    fun `un punto in mare non conta, anche se cade nel riquadro della Svezia`() {
+    fun `un punto in mare non conta, anche se cade nel rettangolo della Svezia`() {
         val svezia = region("svezia", 11.0, 55.3, 24.2, 69.1)
         val lettonia = region("lettonia", 20.9, 55.6, 28.3, 58.1)
         val catalogo = listOf(svezia, lettonia)
@@ -96,7 +96,7 @@ class MissingRoutingRegionTest {
     }
 
     @Test
-    fun `con la rete stradale dell'Italia l'Austria manca, anche se il riquadro dell'Italia la contiene`() {
+    fun `con la rete stradale dell'Italia l'Austria manca, anche se il rettangolo dell'Italia la contiene`() {
         val austria = region("austria", 9.5, 46.4, 17.2, 49.0)
         val catalogo = listOf(italia, austria)
         val innsbruck = RoutePoint(47.26, 11.39)
@@ -105,7 +105,7 @@ class MissingRoutingRegionTest {
     }
 
     @Test
-    fun `un punto di un paese fuori dal suo riquadro non prende quello di un altro paese, le Canarie si`() {
+    fun `un punto di un paese fuori dal suo rettangolo non prende quello di un altro paese, le Canarie si`() {
         val svezia = region("svezia", 11.03, 55.36, 23.90, 69.11, "se")
         val canarie = region("isole-canarie", -18.20, 27.60, -13.30, 29.45, "ic")
         val penisolaDeiCuri = RoutePoint(55.5, 21.0)
@@ -113,13 +113,13 @@ class MissingRoutingRegionTest {
         val paese = { p: RoutePoint -> if (p == penisolaDeiCuri) "lt" else "es" }
 
         assertEquals(listOf(canarie), missingRoutingRegions(listOf(svezia, canarie), emptySet(), listOf(penisolaDeiCuri, tenerife), paese))
-        // Con la Lituania nel catalogo, il punto fuori dal suo riquadro e' suo (il riquadro piu' vicino del paese).
+        // Con la Lituania nel catalogo, il punto fuori dal suo rettangolo e' suo (il rettangolo piu' vicino del paese).
         val lituania = region("lituania", 21.06, 53.91, 26.59, 56.37, "lt")
         assertEquals(listOf(lituania, canarie), missingRoutingRegions(listOf(svezia, canarie, lituania), emptySet(), listOf(penisolaDeiCuri, tenerife), paese))
     }
 
     @Test
-    fun `un punto in nessuna regione del manifest si salta`() {
+    fun `un punto in nessuna regione del catalogo si salta`() {
         val newYork = RoutePoint(40.7, -74.0)
 
         assertEquals(listOf(svizzera), missingRoutingRegions(all, setOf("italia"), listOf(newYork, milano, zurigo), paeseDi(all)))

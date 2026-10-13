@@ -89,7 +89,7 @@ class RegionDatabaseMigrationTest {
             db.query("SELECT displayName, countryCode, mapVersion, sizeBytes, addressesVersion FROM installed_regions WHERE regionId = 'italia'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("Italia", cursor.getString(0))
-                assertTrue("il codice arriva dal manifest, non dalla migrazione", cursor.isNull(1))
+                assertTrue("il codice arriva dal catalogo, non dalla migrazione", cursor.isNull(1))
                 assertEquals("1", cursor.getString(2))
                 assertEquals(1000L, cursor.getLong(3))
                 assertTrue("nessuna regione ha gia' i civici", cursor.isNull(4))
@@ -145,7 +145,7 @@ class RegionDatabaseMigrationTest {
             db.query("SELECT mapVersion, previewVersion, citiesVersion, citiesSizeBytes FROM installed_regions WHERE regionId = 'italia'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("1", cursor.getString(0))
-                assertTrue("nessuna regione ha gia' anteprima e citta'", (1..3).all { cursor.isNull(it) })
+                assertTrue("nessuna regione ha gia' mappa d'insieme e citta'", (1..3).all { cursor.isNull(it) })
             }
             // Guide gia' importate reindicizzate con unicode61, che casefolda le maiuscole accentate.
             db.query(

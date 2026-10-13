@@ -101,7 +101,7 @@ private fun downloadWithSignature(okHttpClient: OkHttpClient, url: String): Pair
     null
 }
 
-// Solo https, con un host e senza credenziali o frammenti, come gli indirizzi dentro il manifest. Deve leggerlo
+// Solo https, con un host e senza credenziali o frammenti, come gli indirizzi dentro `manifest.json`. Deve leggerlo
 // sia java.net.URI (SyncConfig, host ammessi) sia OkHttp (download), che rifiuta per esempio porte fuori intervallo.
 private fun isValidCatalogUrl(url: String): Boolean {
     val uri = runCatching { URI(url) }.getOrNull()

@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Riquadro in gradi (WGS84) di una zona scelta dall'utente dentro una regione. */
+/** Rettangolo in gradi (WGS84) di una zona scelta dall'utente dentro una regione. */
 data class RegionZone(val minLon: Double, val minLat: Double, val maxLon: Double, val maxLat: Double) {
     init {
         require(minLon < maxLon && minLat < maxLat) { "Zona non valida" }
@@ -26,7 +26,7 @@ data class RegionZone(val minLon: Double, val minLat: Double, val maxLon: Double
 }
 
 /**
- * Zona di ogni regione da scaricare (solo per le nazioni grandi): mappa, rete stradale e civici si limitano al riquadro,
+ * Zona di ogni regione da scaricare (solo per le nazioni grandi): mappa, rete stradale e civici si limitano al rettangolo,
  * punti di interesse e guide restano interi. Assente = tutta la regione.
  */
 @Singleton

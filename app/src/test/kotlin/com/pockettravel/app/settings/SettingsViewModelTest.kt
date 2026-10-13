@@ -88,7 +88,7 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `i modi d'uso, la sedia a rotelle e le indicazioni si salvano a parte`() {
+    fun `i modi d'uso, la sedia a rotelle e i percorsi di navigazione si salvano a parte`() {
         val viewModel = viewModel()
 
         viewModel.setUsageModes(setOf(UsageMode.A_PIEDI, UsageMode.AUTO))
@@ -113,7 +113,7 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `svuotare i modi riporta la rete stradale a tutti i mezzi`() {
+    fun `svuotare i modi riporta la rete stradale a tutti i modi`() {
         val viewModel = viewModel()
         viewModel.setUsageModes(setOf(UsageMode.AUTO))
 

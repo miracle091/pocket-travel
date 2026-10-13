@@ -35,9 +35,9 @@ internal fun verifyManifestSignature(publicKeyBase64: String, content: ByteArray
     } catch (error: SignatureException) {
         false
     } catch (error: java.security.GeneralSecurityException) {
-        throw ManifestSignatureException("Chiave pubblica del manifest non valida", error)
+        throw ManifestSignatureException("Chiave pubblica del catalogo non valida", error)
     } catch (error: IllegalArgumentException) {
-        throw ManifestSignatureException("Chiave pubblica del manifest non valida", error)
+        throw ManifestSignatureException("Chiave pubblica del catalogo non valida", error)
     }
     if (!valid) throw ManifestSignatureException("Firma non valida")
 }
@@ -45,7 +45,7 @@ internal fun verifyManifestSignature(publicKeyBase64: String, content: ByteArray
 /**
  * Controlla la firma di manifest.json, transit.json, address-grid.json e app-status.json prima che vengano
  * interpretati: accanto a ogni file il sito pubblica `<stesso url>.sig`, scaricata con lo stesso OkHttpClient e
- * ammessa solo sugli host di [SyncConfig.ALLOWED_MANIFEST_HOSTS]. Con un manifest alternativo
+ * ammessa solo sugli host di [SyncConfig.ALLOWED_MANIFEST_HOSTS]. Con un catalogo di debug
  * (BuildConfig.MANIFEST_URL_OVERRIDE, solo debug) non si verifica nulla, cosi' un server locale continua a funzionare.
  * Dopo la firma controlla anche `publishedAt` (vedi [checkPublishedAt]): niente ritorno a file piu' vecchi.
  */
@@ -81,7 +81,7 @@ class ManifestSignatureVerifier @Inject constructor(
         withContext(ioDispatcher) { cached.writeBytes(signature) }
     }
 
-    // Solo con un manifest alternativo (debug) non si verifica; altrimenti ogni errore (chiave illeggibile
+    // Solo con un catalogo di debug non si verifica; altrimenti ogni errore (chiave illeggibile
     // compresa) e' un'eccezione, mai un "via libera".
     // Nome del file nell'url (manifest.json, ...): chiave dell'ultimo publishedAt accettato.
     // app-status.json del progetto ha un posto solo suo: un file di un altro catalogo con lo stesso nome non lo

@@ -18,8 +18,8 @@ import kotlin.math.ln
 import kotlin.math.tan
 
 /**
- * Impronta delle tile di un riquadro in un archivio PMTiles (la build Protomaps da cui l'app estrae
- * la mappa): SHA-256 di id e lunghezza di ogni tile z[minZoom]-z[maxZoom] che interseca il riquadro.
+ * Impronta delle tile di un rettangolo in un archivio PMTiles (la build Protomaps da cui l'app estrae
+ * la mappa): SHA-256 di id e lunghezza di ogni tile z[minZoom]-z[maxZoom] che interseca il rettangolo.
  * Si leggono solo intestazione e indici (poche richieste HTTP a intervalli), non le tile: se una
  * tile cambia, cambia quasi sempre anche la sua lunghezza compressa. build-region.sh la confronta
  * con quella pubblicata per dare una versione nuova alla mappa solo quando e' davvero cambiata.
@@ -104,7 +104,7 @@ fun mapFingerprint(
         entries.forEachIndexed { index, entry ->
             val next = entries.getOrNull(index + 1)?.tileId() ?: end
             if (entry.runLength() == 0) {
-                // Indice foglia: si scarica solo se copre almeno una tile del riquadro.
+                // Indice foglia: si scarica solo se copre almeno una tile del rettangolo.
                 if (!neededIn(entry.tileId(), next).isEmpty()) {
                     walk(directory(header.leafDirectoriesOffset() + entry.offset(), entry.length().toLong()), next)
                 }
@@ -122,9 +122,9 @@ fun mapFingerprint(
     return MapFingerprintResult(digest.digest().joinToString("") { "%02x".format(it) }, tiles)
 }
 
-/** Id (curva di Hilbert, come negli indici PMTiles) delle tile che intersecano il riquadro, ordinati. */
+/** Id (curva di Hilbert, come negli indici PMTiles) delle tile che intersecano il rettangolo, ordinati. */
 internal fun tileIdsIn(minLon: Double, minLat: Double, maxLon: Double, maxLat: Double, minZoom: Int, maxZoom: Int): LongArray {
-    // Riempito senza boxing: allo z14 un riquadro come il Nunavut ha milioni di tile.
+    // Riempito senza boxing: allo z14 un rettangolo come quello del Nunavut ha milioni di tile.
     val ranges = (minZoom..maxZoom).map { z ->
         val n = 1 shl z
         intArrayOf(z, lonToTile(minLon, n), lonToTile(maxLon, n), latToTile(maxLat, n), latToTile(minLat, n))

@@ -135,7 +135,7 @@ class RegionManifestNamesTest {
     }
 
     @Test
-    fun `un aggiornamento pesa solo i pacchetti cambiati, anche senza le indicazioni`() {
+    fun `un aggiornamento pesa solo i pacchetti cambiati, anche senza i percorsi di navigazione`() {
         val item = regionUiItem(entry, installed(map = "m2", routing = "r0", poi = "p2"), noBytes, withRouting = false)
 
         assertEquals(RegionStatus.UPDATE_AVAILABLE, item.status)
@@ -144,7 +144,7 @@ class RegionManifestNamesTest {
     }
 
     @Test
-    fun `continente, paese e riquadro arrivano dal catalogo`() {
+    fun `continente, paese e rettangolo arrivano dal catalogo`() {
         val item = regionUiItem(entry.copy(continent = "Europa"), null, noBytes)
 
         assertEquals("Europa", item.continent)

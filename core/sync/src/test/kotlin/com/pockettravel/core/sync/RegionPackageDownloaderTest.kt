@@ -111,7 +111,7 @@ class RegionPackageDownloaderTest {
     }
 
     @Test
-    fun `un flusso piu' corto del manifest e' ritentabile e tiene il part file`() = runBlocking {
+    fun `un flusso piu' corto di quanto dice il catalogo e' ritentabile e tiene il part file`() = runBlocking {
         val bytes = "abc".toByteArray()
         server.enqueue(MockResponse().setResponseCode(200).setBody("abc"))
         val manifest = manifestFile(bytes).copy(sizeBytes = 999)
@@ -148,13 +148,13 @@ class RegionPackageDownloaderTest {
     }
 
     @Test
-    fun `un flusso piu' lungo del manifest si ferma subito e cancella il part file`() = runBlocking {
+    fun `un flusso piu' lungo di quanto dice il catalogo si ferma subito e cancella il part file`() = runBlocking {
         val bytes = "abc".toByteArray()
         server.enqueue(MockResponse().setResponseCode(200).setBody("abc".repeat(100_000)))
 
         try {
             downloader.downloadAndVerify(manifestFile(bytes), File(targetDir, "content.db"))
-            fail("piu' byte del manifest devono far fallire il download")
+            fail("piu' byte di quelli del catalogo devono far fallire il download")
         } catch (_: PermanentRegionPackageException) {
             // atteso
         }

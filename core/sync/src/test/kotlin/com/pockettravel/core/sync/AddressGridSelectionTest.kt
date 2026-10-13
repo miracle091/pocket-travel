@@ -43,7 +43,7 @@ class AddressGridSelectionTest {
     private val westernHemisphere = MapExtractionSource("https://build.protomaps.com/x.pmtiles", -170.0, -80.0, -10.0, 80.0, 0, 14)
 
     @Test
-    fun `regionGridCells sceglie solo le celle che intersecano il riquadro della regione`() {
+    fun `regionGridCells sceglie solo le celle che intersecano il rettangolo della regione`() {
         val index = AddressGridIndex(
             version = "2026.09.30.1",
             tileZoom = 14,
@@ -65,7 +65,7 @@ class AddressGridSelectionTest {
     }
 
     @Test
-    fun `regionGridCells e' vuoto senza celle nel riquadro`() {
+    fun `regionGridCells e' vuoto senza celle nel rettangolo`() {
         val index = AddressGridIndex("v1", 14, cells = listOf(cell("1/1/0"), cell("1/1/1")))
 
         assertEquals(emptyList<AddressGridCell>(), regionGridCells(index, westernHemisphere))

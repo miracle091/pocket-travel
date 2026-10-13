@@ -76,7 +76,7 @@ interface PoiDao {
     )
     suspend fun searchByName(regionIds: List<String>, pattern: String, limit: Int): List<PoiEntity>
 
-    // I POI del pacchetto base piu' vicini a un punto, dentro il riquadro dato: per il Navigatore senza destinazione. Senza
+    // I POI del pacchetto base piu' vicini a un punto, dentro il rettangolo dato: per il Navigatore senza destinazione. Senza
     // indice su lat/lon (una scansione, come searchByName): una ricerca solo quando la posizione si sposta.
     @Query(
         "$POI_SELECT $POI_FROM WHERE poi.regionRef IN $REGION_REFS AND poi.extra = 0 " +

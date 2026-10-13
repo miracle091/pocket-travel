@@ -24,7 +24,7 @@ interface CountryLocator {
 private fun usableOuterRings(polygons: List<List<DoubleArray>>): List<DoubleArray> =
     polygons.mapNotNull { it.firstOrNull() }.filter { it.size >= 2 }
 
-// Longitudini senza salto a 180: se il riquadro e' piu' largo di 180 gradi il poligono attraversa
+// Longitudini senza salto a 180: se il rettangolo e' piu' largo di 180 gradi il poligono attraversa
 // l'antimeridiano e le longitudini negative si spostano di +360.
 private fun unwrappedLongitudes(ring: DoubleArray): List<Double> {
     val lons = ring.filterIndexed { i, _ -> i % 2 == 0 }
@@ -42,7 +42,7 @@ private fun boxArea(ring: DoubleArray): Double {
 private const val HALF_TURN = 180.0
 private const val FULL_TURN = 360.0
 
-/** Il centro del riquadro del poligono piu' grande; null se nessun poligono ha un anello utilizzabile. */
+/** Il centro del rettangolo del poligono piu' grande; null se nessun poligono ha un anello utilizzabile. */
 internal fun countryCentre(polygons: List<List<DoubleArray>>): RoutePoint? =
     usableOuterRings(polygons).maxByOrNull(::boxArea)?.let { outer ->
         val lons = unwrappedLongitudes(outer)

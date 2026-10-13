@@ -417,7 +417,7 @@ class GenerateAddressesTest {
     @Test
     fun `dedupeWithOverture - il raggio e' di 30 m in ogni direzione e anche a cavallo delle celle della griglia`() {
         // 22 m (200 microgradi di latitudine) dal civico OSM, con lo stesso numero: scartato per ogni posizione
-        // della griglia di confronto, anche quando il punto cade nel riquadro accanto.
+        // della griglia di confronto, anche quando il punto cade nella cella accanto.
         val baseLats = (0 until 60).map { 43_942_400 + it * 37 }
         val osm = baseLats.mapIndexed { index, lat -> Address(lat, 12_457_800 + index * 3_000, "10") }
         val northOvertures = osm.map { OvertureAddress(it.latE6 + 200, it.lonE6, "10", "x") }

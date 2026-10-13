@@ -29,7 +29,7 @@
 # groupName/groupLabel (opzionali, vuoti per le nazioni normali): quando piu' region condividono lo
 # stesso groupName (es. gli stati USA), la pagina indice statica (assemble-site.sh) e l'elenco
 # regioni dell'app le raccolgono sotto un'unica voce "groupName" con groupLabel come sotto-voce.
-# Arrivano all'app nel manifest (campi groupName/groupLabel, scritti da mergeManifests). Non
+# Arrivano all'app in `manifest.json` (campi groupName/groupLabel, scritti da mergeManifests). Non
 # toccano ne' regionId ne' displayName.
 #
 # continent raggruppa ulteriormente la pagina indice sotto un'intestazione per continente - le
@@ -420,7 +420,7 @@ ALL_REGIONS=(
 # 500 anche durante una rigenerazione completa e spazio per il doppio delle regioni prima del primo
 # avviso a 500. Aggiungere regioni non richiede di toccare nulla; cambiare REGION_RELEASES sposta le
 # regioni alla prossima rigenerazione. Gli asset gia' pubblicati restano dove sono finche' la regione non
-# li rigenera: il manifest ha URL assoluti, e la pulizia toglie le vecchie release una volta vuote.
+# li rigenera: `manifest.json` ha URL assoluti, e la pulizia toglie le vecchie release una volta vuote.
 REGION_RELEASES=32
 region_release_tag() {
   local regionId="$1"
@@ -428,8 +428,8 @@ region_release_tag() {
 }
 
 # Regioni divise in regioni piu' piccole: regionId della vecchia regione | groupName delle nuove.
-# Tolta da ALL_REGIONS, la vecchia regione sparisce dal manifest; mergeManifests scrive questo
-# elenco nel campo "replacedRegions" del manifest, cosi' l'app propone le regioni del gruppo a chi
+# Tolta da ALL_REGIONS, la vecchia regione sparisce da `manifest.json`; mergeManifests scrive questo
+# elenco nel campo "replacedRegions" di `manifest.json`, cosi' l'app propone le regioni del gruppo a chi
 # ha ancora installata quella vecchia.
 REPLACED_REGIONS=(
   "stati-uniti|Stati Uniti d'America"

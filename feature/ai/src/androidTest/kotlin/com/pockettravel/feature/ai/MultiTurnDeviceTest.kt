@@ -128,13 +128,13 @@ class MultiTurnDeviceTest {
     }
 
     /**
-     * Lo stato a piu' turni del motore nativo, che l'app non usa (azzera a ogni domanda) ma ai_chat.cpp tiene:
+     * Lo stato a piu' turni del codice nativo, che l'app non usa (azzera a ogni domanda) ma ai_chat.cpp tiene:
      * senza reset, a ogni turno la KV cache cresce di quanto il turno ha aggiunto, e un turno interrotto resta
      * chiuso con la sua risposta parziale. Regressione: prima la si toglieva con llama_memory_seq_rm, che con la
      * memoria ricorrente di Qwen3.5 fallisce, e il prompt successivo falliva ("inconsistent sequence positions").
      */
     @Test
-    fun motoreNativoSenzaResetTieneLaCacheCoerente() = runBlocking<Unit> {
+    fun codiceNativoSenzaResetTieneLaCacheCoerente() = runBlocking<Unit> {
         engine.ensureLoaded()
         native.resetConversation()
         val first = native.sendUserPrompt(PromptTemplates.onDevicePrompt(JAPAN, "Serve il visto per il Giappone?"), SHORT_ANSWER).toList()
@@ -159,7 +159,7 @@ class MultiTurnDeviceTest {
     }
 
     /**
-     * Senza reset, un prompt che non entra nel contesto rimasto viene rifiutato: il motore azzera la conversazione,
+     * Senza reset, un prompt che non entra nel contesto rimasto viene rifiutato: il codice nativo azzera la conversazione,
      * e la domanda dopo funziona. Prima il messaggio rifiutato restava nella history senza essere nella cache, e
      * ogni prompt successivo veniva rifiutato finche' non si chiamava resetConversation.
      */

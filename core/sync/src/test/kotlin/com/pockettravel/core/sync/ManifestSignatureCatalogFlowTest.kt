@@ -74,7 +74,7 @@ class ManifestSignatureCatalogFlowTest {
     private fun fileOnDisk(content: ByteArray): File = File(tempDir, "manifest.json").also { it.writeBytes(content) }
 
     @Test
-    fun `un manifest firmato con la chiave del catalogo passa e memorizza publishedAt`() {
+    fun `un file del catalogo firmato con la sua chiave passa e memorizza publishedAt`() {
         val content = file(100)
         runBlocking { verifier(sign(pair, content)).verify(manifestUrl, content) }
         assertEquals(listOf("$manifestUrl.sig"), requested)
@@ -82,7 +82,7 @@ class ManifestSignatureCatalogFlowTest {
     }
 
     @Test
-    fun `un manifest firmato da un'altra chiave non passa e non tocca publishedAt`() {
+    fun `un file del catalogo firmato da un'altra chiave non passa e non tocca publishedAt`() {
         val content = file(100)
         assertThrows(ManifestSignatureException::class.java) {
             runBlocking { verifier(sign(newKeyPair(), content)).verify(manifestUrl, content) }
@@ -91,7 +91,7 @@ class ManifestSignatureCatalogFlowTest {
     }
 
     @Test
-    fun `un manifest alterato dopo la firma non passa`() {
+    fun `un file del catalogo alterato dopo la firma non passa`() {
         val signed = file(100)
         val tampered = file(101)
         assertThrows(ManifestSignatureException::class.java) {

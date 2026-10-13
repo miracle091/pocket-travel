@@ -12,7 +12,7 @@ import java.time.LocalDate
 enum class Vaccine { YELLOW_FEVER, POLIO, MENACWY, HEPA, HEPB, TYPHOID, RABIES, JE, TBE, CHOLERA, DENGUE, CHIK, ROUTINE }
 
 enum class VaccinationLevel {
-    /** Certificato richiesto all'ingresso (o dalla compagnia/visto) per questo percorso. */
+    /** Certificato richiesto all'ingresso (o dalla compagnia/visto) per questo viaggio. */
     REQUIRED,
 
     /** Certificato richiesto all'uscita dal paese di partenza. */

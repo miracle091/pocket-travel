@@ -85,13 +85,13 @@ class RegionListLogicEdgeCasesTest {
     }
 
     @Test
-    fun `una versione uguale a quella del manifest non e' da aggiornare`() {
+    fun `una versione uguale a quella del catalogo non e' da aggiornare`() {
         assertEquals(emptySet<PackageKind>(), outdatedKinds(remote, local(map = "m2", routing = "r1", poi = "p2")))
     }
 
     @Test
-    fun `un pacchetto installato che il manifest non offre piu' non si aggiorna`() {
-        // Il manifest non ha i POI extra: la versione installata non chiede un aggiornamento.
+    fun `un pacchetto installato che il catalogo non offre piu' non si aggiorna`() {
+        // Il catalogo non ha i POI extra: la versione installata non chiede un aggiornamento.
         assertEquals(emptySet<PackageKind>(), outdatedKinds(remote, local(map = "m2", poiExtra = "x1")))
     }
 
@@ -195,7 +195,7 @@ class RegionListLogicEdgeCasesTest {
     }
 
     @Test
-    fun `le guide delle citta' installate restano una riga anche se il manifest non le offre`() {
+    fun `le guide delle citta' installate restano una riga anche se il catalogo non le offre`() {
         val item = regionUiItem(remote, local(map = "m2", routing = "r1", poi = "p2", cities = "c1"), noBytes)
 
         assertEquals(RegionStatus.INSTALLED, item.packages.first { it.kind == PackageKind.CITIES }.status)
@@ -215,7 +215,7 @@ class RegionListLogicEdgeCasesTest {
     }
 
     @Test
-    fun `una regione di una nazione divisa porta il gruppo e l'etichetta del manifest`() {
+    fun `una regione di una nazione divisa porta il gruppo e l'etichetta del catalogo`() {
         val part = remote.copy(regionId = "francia-bretagna", displayName = "Francia - Bretagna", groupName = "Francia", groupLabel = "Bretagna")
 
         val item = regionUiItem(part, null, noBytes)

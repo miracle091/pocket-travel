@@ -134,7 +134,7 @@ class ClipRd5Test(unittest.TestCase):
         self.assertEqual((kept, read_cells(out)), (0, {}))
 
     def test_riga_di_comando_riquadro_vuoto_fallisce_senza_scrivere(self):
-        # Tile esistente ma senza micro-cella nel riquadro: niente .rd5 vuoto, uscita diversa da zero.
+        # Tile esistente ma senza micro-cella nel rettangolo: niente .rd5 vuoto, uscita diversa da zero.
         out = self.dir / "out.rd5"
         res = subprocess.run([sys.executable, str(Path(__file__).with_name("clip_rd5.py")), str(self.dir / self.NAME),
                               str(out), "--bbox=50,50,51,51", "--margin", "0"], capture_output=True)
@@ -186,7 +186,7 @@ class ClipRd5Test(unittest.TestCase):
             self.assertEqual(clip(second, other)[0], want_second)
             self.assertGreater(second.reused, 0)
             self.assertLess(second.fetched, first.fetched)
-            # Stesso riquadro una terza volta: dalla rete solo l'intestazione.
+            # Stesso rettangolo una terza volta: dalla rete solo l'intestazione.
             third = CachedSource(HttpSource(url, "test"), cache)
             self.assertEqual(clip(third, self.BBOX)[0], want_first)
             self.assertEqual(third.fetched, 200)
@@ -250,7 +250,7 @@ class OverlapsTest(unittest.TestCase):
         self.assertFalse(overlaps(11.0, 40.5, 0.1, bbox))    # comincia esattamente sul bordo est
         self.assertFalse(overlaps(9.9, 40.5, 0.1, bbox))     # finisce esattamente sul bordo ovest
         self.assertFalse(overlaps(10.5, 41.0, 0.1, bbox))
-        self.assertTrue(overlaps(5, 35, 10, bbox))           # cella piu' grande del riquadro
+        self.assertTrue(overlaps(5, 35, 10, bbox))           # cella piu' grande del rettangolo
 
 
 class DivisorAndCrcTest(unittest.TestCase):
@@ -270,7 +270,7 @@ class DivisorAndCrcTest(unittest.TestCase):
         self.assertNotIn(b"BB", out)
         again, kept_again = clip(FileSource(path), (10, 40, 13, 43))
         self.assertEqual(2, kept_again)
-        self.assertEqual(len(rd5), len(again))   # riquadro che copre tutto: file identico
+        self.assertEqual(len(rd5), len(again))   # rettangolo che copre tutto: file identico
 
     def test_crc_dell_indice_non_valido(self):
         rd5 = bytearray(make_rd5({(0, 0): b"x"}))

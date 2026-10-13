@@ -5,7 +5,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /**
- * Le voci del manifest passate al download di una regione, una per richiesta. WorkManager rifiuta i dati di lavoro
+ * Le voci del catalogo passate al download di una regione, una per richiesta. WorkManager rifiuta i dati di lavoro
  * sopra i 10 KB, e le voci con molte tile .rd5 li superano (Russia - Siberia circa 30 KB): nei dati va solo il nome
  * del file. Il worker lo cancella quando ha finito; i file di lavori annullati prima di partire si tolgono alla
  * richiesta successiva, passati [MAX_AGE_MILLIS].

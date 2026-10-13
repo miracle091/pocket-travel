@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Domande di viaggio scritte come le scrivono le persone, per i dataset SFT (al posto dei soli modelli a mano).
+"""Domande di viaggio scritte come le scrivono le persone, per i dataset SFT (al posto dei soli schemi di domanda).
 
 Fonte: la prima domanda dell'utente di ogni conversazione di soniawmeyer/travel-conversations-finetuning (MIT), solo per
 le righe di UltraChat (openbmb/UltraChat, MIT): domande scritte da un modello (ChatGPT) che imita l'utente, nessun testo

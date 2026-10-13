@@ -134,7 +134,7 @@ class PackageImporterDeviceTest {
     @Test
     fun importaIlContentDbV1SenzaColonnaPhoneComePacchettoPoi() = runBlocking {
         // content.db pubblicato di Andorra (2026.09.18, prima della colonna phone): le regioni non
-        // ancora rigenerate lo usano come pacchetto POI dopo la conversione del manifest v1.
+        // ancora rigenerate lo usano come pacchetto POI dopo la conversione di `manifest.json` v1.
         PoiImporter(db.poiDao(), db, Dispatchers.IO).import("andorra", copyAsset("content-v1.db"))
 
         val pois = db.poiDao().poisForRegion("andorra")

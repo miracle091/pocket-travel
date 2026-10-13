@@ -2,7 +2,7 @@
 # Pacchetto "citta'" di UNA regione, da lanciare dopo
 # build-region.sh sulla stessa <outputDir> e dopo build-cities-dump.sh (che scrive
 # <citiesJsonlDir>/<regionId>.cities.jsonl con un solo passaggio sul dump per tutte le regioni):
-# aggiunge al manifest-fragment.json gia' scritto la voce "cities" (facoltativa nel manifest) e,
+# aggiunge al manifest-fragment.json gia' scritto la voce "cities" (facoltativa in `manifest.json`) e,
 # se il contenuto e' cambiato, lascia <outputDir>/cities.db.xz da caricare - unico asset
 # pubblicato, stesso trattamento di poi.db in build-region.sh (xz_entry in lib.sh):
 # "file" descrive il database decompresso (nome/dimensione/sha256 che l'app ricontrolla dopo il
@@ -66,7 +66,7 @@ if [ ! -f "$FRAGMENT" ]; then
 fi
 
 # Voce "cities" gia' pubblicata per la regione ("" se assente). Stesso trattamento degli errori di
-# rete di build-region.sh: un manifest non scaricabile e' un errore (non "nessuna citta'"), solo
+# rete di build-region.sh: un `manifest.json` non scaricabile e' un errore (non "nessuna citta'"), solo
 # un 404 (prima pubblicazione) vale come "nessuna voce pubblicata".
 PUBLISHED_ENTRY=""
 if [ -n "$PUBLISHED_MANIFEST_URL" ]; then
@@ -74,7 +74,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ]; then
   if [ "$PUBLISHED_HTTP" = "200" ]; then
     PUBLISHED_ENTRY="$(jq -c --arg id "$REGION_ID" --arg k "$ENTRY_KEY" '[(.regions // [])[] | select(.regionId == $id) | .[$k] // empty][0] // empty' "$WORKDIR/published.json")"
   elif [ "$PUBLISHED_HTTP" != "404" ]; then
-    echo "ERRORE: manifest pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL (HTTP ${PUBLISHED_HTTP:-000})" >&2
+    echo "ERRORE: manifest.json pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL (HTTP ${PUBLISHED_HTTP:-000})" >&2
     exit 1
   fi
 fi

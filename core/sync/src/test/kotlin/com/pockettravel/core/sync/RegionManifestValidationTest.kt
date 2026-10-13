@@ -5,7 +5,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Convalida delle voci del manifest e degli indirizzi ammessi: il confine fra dati pubblicati e file scaricati. */
+/** Convalida delle voci del catalogo e degli indirizzi ammessi: il confine fra dati pubblicati e file scaricati. */
 class RegionManifestValidationTest {
 
     private val sha = "a".repeat(64)
@@ -54,7 +54,7 @@ class RegionManifestValidationTest {
     }
 
     @Test
-    fun `i file del manifest devono avere nome, dimensione, hash e host validi`() {
+    fun `i file del catalogo devono avere nome, dimensione, hash e host validi`() {
         invalid(entry.copy(poi = PoiPackageEntry("p1", file("a/b.db"))))
         invalid(entry.copy(poi = PoiPackageEntry("p1", file("poi.db", size = -1))))
         invalid(entry.copy(poi = PoiPackageEntry("p1", file("poi.db", hash = "abc"))))
@@ -90,7 +90,7 @@ class RegionManifestValidationTest {
     }
 
     @Test
-    fun `il riquadro della mappa deve essere ordinato e dentro i limiti geografici`() {
+    fun `il rettangolo della mappa deve essere ordinato e dentro i limiti geografici`() {
         invalid(withSource(source.copy(minLon = 12.0, maxLon = 10.0)))
         invalid(withSource(source.copy(minLon = 10.0, maxLon = 10.0)))
         invalid(withSource(source.copy(minLat = 44.0, maxLat = 42.0)))

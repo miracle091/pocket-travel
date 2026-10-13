@@ -92,7 +92,7 @@ fun RegionHubScreen(
     val currentTab = if (selectedTab == RegionTab.AI && !aiAvailable) RegionTab.GUIDE else selectedTab
     LaunchedEffect(aiAvailable, selectedTab) { if (!aiAvailable && selectedTab == RegionTab.AI) selectedTab = RegionTab.GUIDE }
     LaunchedEffect(regionId) { viewModel.load(regionId) }
-    // Qui e non dentro la scheda: "Indicazioni" dalla Mappa le passa la destinazione prima di aprirla, e la notifica della
+    // Qui e non dentro la scheda: "Percorso" dalla Mappa le passa la destinazione prima di aprirla, e la notifica della
     // navigazione riporta in primo piano il Navigatore. Uno solo per l'app, come quello della barra principale.
     val (plannerViewModel, navigationViewModel) = navigatorViewModels()
     LaunchedEffect(navigationViewModel) {
@@ -186,7 +186,7 @@ fun RegionHubScreen(
                                         hideInaccessible = mapScreen.accessible,
                                         onlyAccessible = mapScreen.onlyAccessible,
                                         onOnlyAccessibleChange = mapViewModel::setOnlyAccessible,
-                                        // Prima il percorso nella scheda Navigatore (partenza, mezzo, anteprima), poi "Avvia".
+                                        // Prima il percorso nella scheda Navigatore (partenza, modo, anteprima del percorso), poi "Avvia".
                                         onNavigate = { pin ->
                                             val name = pin.displayName(language) ?: pin.name.orEmpty()
                                             plannerViewModel.setDestination(NavigationPlace(name, pin.latitude, pin.longitude, regionId))
@@ -223,7 +223,7 @@ fun RegionHubScreen(
                                 regionId = regionId,
                                 splitCountry = splitCountry,
                                 onOpenOfficialSource = onOpenOfficialSource,
-                                // "Portami a ...": il Navigatore cerca la destinazione (tutte le regioni installate) col mezzo chiesto.
+                                // "Portami a ...": il Navigatore cerca la destinazione (tutte le regioni installate) col modo chiesto.
                                 onNavigationRequest = { request ->
                                     request.profile?.let { plannerViewModel.setRouteProfile(it.toRouteProfile()) }
                                     plannerViewModel.searchDestination(request.destination, request.destinationWithTime)

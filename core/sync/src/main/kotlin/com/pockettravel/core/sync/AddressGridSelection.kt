@@ -30,7 +30,7 @@ internal fun CellId.isSameOrDescendantOf(ancestor: CellId): Boolean {
 }
 
 /**
- * Celle di [index] che intersecano il riquadro della mappa di una regione (in coordinate tile,
+ * Celle di [index] che intersecano il rettangolo della mappa di una regione (in coordinate tile,
  * stessa proiezione slippy-map di PmtilesExtractor): selezionate quelle la cui tile z/x/y ricade
  * nell'intervallo di tile che copre [bbox] allo stesso zoom della cella.
  */
@@ -60,9 +60,9 @@ fun regionAddressesGridVersion(cells: List<AddressGridCell>): String {
 
 /**
  * Arricchisce [entries] con le celle della griglia indirizzi:
- * regioni senza celle nel loro riquadro restano invariate. [index] null (manifest senza
+ * regioni senza celle nel loro rettangolo restano invariate. [index] null (catalogo senza
  * addressGrid, o non scaricato con successo) lascia tutte le regioni invariate: i civici non sono
- * disponibili per nessuna regione, come le regioni senza celle nel loro riquadro.
+ * disponibili per nessuna regione, come le regioni senza celle nel loro rettangolo.
  */
 fun attachAddressGridCells(entries: List<RegionManifestEntry>, index: AddressGridIndex?): List<RegionManifestEntry> {
     if (index == null) return entries

@@ -26,7 +26,7 @@ class ManifestSanitizeTest {
     )
 
     @Test
-    fun `un manifest valido resta com'e'`() {
+    fun `un catalogo valido resta com'e'`() {
         val dropped = mutableListOf<String>()
         val parsed = manifest()
         assertEquals(parsed, sanitizeManifest(parsed) { what, _ -> dropped += what })
@@ -34,7 +34,7 @@ class ManifestSanitizeTest {
     }
 
     @Test
-    fun `una voce globale facoltativa non valida si scarta senza far fallire il manifest`() {
+    fun `una voce globale facoltativa non valida si scarta senza far fallire il catalogo`() {
         val dropped = mutableListOf<String>()
         val bad = "https://evil.example.org/x"
         val result = sanitizeManifest(
@@ -63,7 +63,7 @@ class ManifestSanitizeTest {
     }
 
     @Test
-    fun `le guide obbligatorie non valide fanno fallire il manifest`() {
+    fun `le guide obbligatorie non valide fanno fallire il catalogo`() {
         assertThrows(IllegalArgumentException::class.java) {
             sanitizeManifest(manifest(guides = guides("https://evil.example.org/g.db"))) { _, _ -> }
         }

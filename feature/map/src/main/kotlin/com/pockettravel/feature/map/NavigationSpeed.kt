@@ -5,7 +5,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 
-// Velocita' tipiche (m/s) per il mezzo, finche' non c'e' una misura.
+// Velocita' tipiche (m/s) per il modo, finche' non c'e' una misura.
 private const val WALK_TYPICAL_SPEED_MPS = 1.4
 private const val BIKE_TYPICAL_SPEED_MPS = 4.5
 private const val CAR_TYPICAL_SPEED_MPS = 12.0
@@ -21,7 +21,7 @@ private const val ANNOUNCEMENT_FAR_STEP_METERS = 100
 
 /**
  * Velocita' effettiva lungo il percorso (m/s), dalla distanza rimasta che cala nel tempo, smussata perche' il
- * GPS salta. Finche' non c'e' una misura (primi secondi, fermi al semaforo) vale quella tipica del mezzo.
+ * GPS salta. Finche' non c'e' una misura (primi secondi, fermi al semaforo) vale quella tipica del modo.
  */
 @Composable
 internal fun rememberSpeedMps(remainingMeters: Double, routeProfile: RouteProfile): Double {

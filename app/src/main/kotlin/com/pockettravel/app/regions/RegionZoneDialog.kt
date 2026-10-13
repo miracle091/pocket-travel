@@ -46,12 +46,12 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import com.pockettravel.core.ui.R as UiR
 
-// Sopra questa superficie del riquadro (Italia ~1,3 milioni di km², Lettonia ~0,1) si propone di scaricare solo una zona.
+// Sopra questa superficie del rettangolo (Italia ~1,3 milioni di km², Lettonia ~0,1) si propone di scaricare solo una zona.
 private const val LARGE_REGION_KM2 = 200_000.0
 
 private const val KM_PER_DEGREE = 111.32
 
-/** Larghezza e altezza in km di un riquadro, a meta' della sua latitudine. */
+/** Larghezza e altezza in km di un rettangolo, a meta' della sua latitudine. */
 internal fun boundsSizeKm(minLon: Double, minLat: Double, maxLon: Double, maxLat: Double): Pair<Int, Int> {
     val midLat = Math.toRadians((minLat + maxLat) / 2)
     return ((maxLon - minLon) * KM_PER_DEGREE * cos(midLat)).roundToInt() to ((maxLat - minLat) * KM_PER_DEGREE).roundToInt()
@@ -236,7 +236,7 @@ internal fun ZoneSelection(item: RegionUiItem, download: Boolean, actions: Regio
 internal fun zoneTargets(openedId: String, regionIds: List<String>, installedWhole: Set<String>): List<String> =
     regionIds.filter { it == openedId || it !in installedWhole }
 
-/** Una regione del catalogo per [zoneShares]: nazione e riquadro. */
+/** Una regione del catalogo per [zoneShares]: nazione e rettangolo. */
 internal data class ZoneCandidate(val regionId: String, val countryCode: String, val bbox: RegionBbox)
 
 /**

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Assembla il sito da pubblicare (site/) unendo i frammenti manifest appena generati con il
+# Assembla il sito da pubblicare (site/) unendo i frammenti di catalogo appena generati con il
 # manifest.json gia' pubblicato online (se esiste). Serve solo a unire il JSON: guides.db, poi.db e
 # i .rd5 non toccati in questa run non vanno ri-copiati da nessuna parte, perche' non
 # vivono sul sito Pages ma sugli asset della release "region-data" (vedi
@@ -11,7 +11,7 @@
 #
 # Uso: assemble-site.sh <siteDir> <publishedManifestUrl> <fragmentFile1> [fragmentFile2 ...]
 # Richiede jq (per la sezione "Ultimi aggiornamenti" della pagina, derivata dalle versioni dei
-# pacchetti del manifest unito) oltre alle dipendenze gia' richieste da mergeManifests (gradle wrapper).
+# pacchetti del `manifest.json` unito) oltre alle dipendenze gia' richieste da mergeManifests (gradle wrapper).
 set -euo pipefail
 
 SITE_DIR="$1"; shift
@@ -32,23 +32,23 @@ REPLACED_TSV=""
 trap 'rm -f "$PREV_MANIFEST" "$CONTINENTS_TSV" "$REPLACED_TSV"' EXIT
 MANIFEST_INPUTS=()
 
-# Senza il manifest pubblicato il merge conterrebbe solo le regioni di questa run, e la pulizia
+# Senza il `manifest.json` pubblicato il merge conterrebbe solo le regioni di questa run, e la pulizia
 # degli asset in publish-regions.yml cancellerebbe quelli di tutte le altre: si ritenta e, se non
-# arriva, ci si ferma. BOOTSTRAP=1 solo per la primissima pubblicazione (nessun manifest online).
+# arriva, ci si ferma. BOOTSTRAP=1 solo per la primissima pubblicazione (nessun `manifest.json` online).
 if curl -sSf --retry 5 --retry-all-errors --retry-delay 5 -o "$PREV_MANIFEST" "$PUBLISHED_MANIFEST_URL"; then
-  echo "-- manifest gia' pubblicato trovato, unisco (le regioni di questa run vincono)"
+  echo "-- manifest.json gia' pubblicato trovato, unisco (le regioni di questa run vincono)"
   MANIFEST_INPUTS+=("$PREV_MANIFEST")
 elif [ "${BOOTSTRAP:-}" = "1" ]; then
-  echo "-- nessun manifest pubblicato trovato e BOOTSTRAP=1 (prima pubblicazione): nessun merge"
+  echo "-- nessun manifest.json pubblicato trovato e BOOTSTRAP=1 (prima pubblicazione): nessun merge"
 else
-  echo "ERRORE: manifest pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL; per una prima pubblicazione rilanciare con BOOTSTRAP=1" >&2
+  echo "ERRORE: manifest.json pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL; per una prima pubblicazione rilanciare con BOOTSTRAP=1" >&2
   exit 1
 fi
 
 MANIFEST_INPUTS+=("${FRAGMENT_FILES[@]}")
 
 # Continente e codice paese di ogni regione (campi continent e flagCode di ALL_REGIONS), scritti
-# dal merge nei campi "continent" e "countryCode" di tutte le regioni del manifest, anche quelle non
+# dal merge nei campi "continent" e "countryCode" di tutte le regioni di `manifest.json`, anche quelle non
 # ricostruite in questa run: l'app raggruppa l'elenco per continente e rende cliccabili i paesi
 # sulla mappa delle nazioni, e non ha altra fonte per saperlo.
 source "$SCRIPT_DIR/regions.sh"
@@ -112,7 +112,7 @@ is_present() {
 }
 
 # Nome nazione collegato alla propria pagina Wikivoyage: riusa l'URL gia' risolto e salvato nel
-# manifest da build-region.sh (edizione italiana preferita, fallback su quella inglese se manca
+# `manifest.json` da build-region.sh (edizione italiana preferita, fallback su quella inglese se manca
 # il langlink - vedi il commento li'), nessuna nuova risoluzione di lingua lato sito. Facoltativo
 # come jq sopra ("Ultimi aggiornamenti"): senza jq i nomi restano semplice testo.
 WIKIVOYAGE_URLS=""
@@ -213,7 +213,7 @@ for continent in "${CONTINENTS[@]}"; do
 done
 
 # "Ultimi aggiornamenti": derivato dalle versioni dei pacchetti (mappa, rete stradale, POI: la piu'
-# recente) gia' presenti in ogni region del manifest unito, non serve nessuna cronologia separata da
+# recente) gia' presenti in ogni region del `manifest.json` unito, non serve nessuna cronologia separata da
 # mantenere. Raggruppato per version (una per
 # ogni run di pubblicazione, non per singola nazione) e limitato alle 10 piu' recenti cosi' la
 # sezione resta di dimensione costante anche a copertura mondiale completa (tutte le nazioni), invece

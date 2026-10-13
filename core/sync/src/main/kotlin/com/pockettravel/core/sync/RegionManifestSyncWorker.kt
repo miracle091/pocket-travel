@@ -15,7 +15,7 @@ import java.io.IOException
 
 /**
  * Controllo periodico, qualunque rete incluse i dati cellulari (vincolo impostato da
- * [RegionSyncScheduler] — manifest.json e' pochi KB): confronta il manifest remoto con le
+ * [RegionSyncScheduler] — manifest.json e' pochi KB): confronta il `manifest.json` remoto con le
  * regioni già installate e, se la versione di un pacchetto installato è cambiata, notifica — i
  * pacchetti delle regioni non si scaricano mai in automatico; solo le guide, su Wi-Fi.
  */
@@ -52,7 +52,7 @@ class RegionManifestSyncWorker @AssistedInject constructor(
         } catch (_: IOException) {
             Result.retry()
         } catch (error: Exception) {
-            Log.w(TAG, "Sync manifest regioni fallita", error)
+            Log.w(TAG, "Sync del catalogo fallita", error)
             Result.failure()
         }
     }

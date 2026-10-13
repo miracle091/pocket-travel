@@ -48,7 +48,7 @@ class VaccinationSummaryEdgeCasesTest {
     }
 
     @Test
-    fun `il percorso elenca partenza, scali e destinazione, con il codice maiuscolo se il paese e' ignoto`() {
+    fun `il viaggio elenca partenza, scali e destinazione, con il codice maiuscolo se il paese e' ignoto`() {
         val long = Trip(departure = " IT ", transits = listOf(TripLeg("ke", 3, false), TripLeg("et", null, true)), destination = "xyz")
         assertTrue(result(routine).toSummaryText(long, "it").startsWith("Vaccinazioni per il viaggio Italia -> Kenya -> Etiopia -> XYZ:"))
         assertTrue(result(routine).toSummaryText(long, "en").startsWith("Vaccinations for the trip Italy -> Kenya -> Ethiopia -> XYZ:"))

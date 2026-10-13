@@ -7,7 +7,7 @@ import com.pockettravel.core.data.db.PoiRow
 import com.pockettravel.core.data.db.TransportCount
 import kotlinx.coroutines.CompletableDeferred
 
-/** [PoiDao] in memoria: filtra [rows] per regione, riquadro e categorie escluse, e registra le richieste. */
+/** [PoiDao] in memoria: filtra [rows] per regione, rettangolo e categorie escluse, e registra le richieste. */
 class FakePoiDao : PoiDao {
     class InBoundsCall(
         val regionId: String, val minLat: Double, val maxLat: Double, val minLon: Double, val maxLon: Double,

@@ -7,15 +7,15 @@ import androidx.room.PrimaryKey
 data class InstalledRegionEntity(
     @PrimaryKey val regionId: String,
     val displayName: String,
-    // ISO 3166-1 alpha-2 dal manifest, per la bandiera; null per le regioni installate prima della
-    // versione 8 del database finche' l'elenco regioni non lo riempie dal manifest.
+    // ISO 3166-1 alpha-2 dal catalogo, per la bandiera; null per le regioni installate prima della
+    // versione 8 del database finche' l'elenco regioni non lo riempie dal catalogo.
     val countryCode: String?,
     val mapVersion: String?,
     val routingVersion: String?,
     val poiVersion: String?,
     val poiExtraVersion: String?,
     val addressesVersion: String?,
-    // Anteprima offline (preview.pmtiles, pochi zoom): si installa e aggiorna da sola con ogni
+    // Mappa d'insieme (preview.pmtiles, pochi zoom): si installa e aggiorna da sola con ogni
     // download della regione (RegionPackageInstaller), non e' un pacchetto a parte per l'utente -
     // sparisce solo con l'intera regione, mai con "elimina mappa".
     val previewVersion: String?,

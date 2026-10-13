@@ -4,9 +4,9 @@ import androidx.work.WorkInfo
 import com.pockettravel.core.data.PackageKind
 import kotlinx.coroutines.flow.Flow
 
-/** Accoda e osserva i lavori di sincronizzazione: controllo del manifest, download delle regioni, guide. Implementazione: [WorkManagerRegionSyncScheduler]. */
+/** Accoda e osserva i lavori di sincronizzazione: controllo del catalogo, download delle regioni, guide. Implementazione: [WorkManagerRegionSyncScheduler]. */
 interface RegionSyncScheduler {
-    /** Controllo periodico del manifest, qualunque rete — mai un download automatico. */
+    /** Controllo periodico del catalogo, qualunque rete — mai un download automatico. */
     fun schedulePeriodicManifestCheck()
 
     /**
@@ -18,7 +18,7 @@ interface RegionSyncScheduler {
     fun enqueueDownload(entry: RegionManifestEntry, kinds: Set<PackageKind>): Flow<WorkInfo?>?
 
     /**
-     * Installa o aggiorna il pacchetto guide se il manifest ne ha una versione diversa. In
+     * Installa o aggiorna il pacchetto guide se il catalogo ne ha una versione diversa. In
      * automatico ([automatic]) non sostituisce una richiesta gia' in coda; su richiesta
      * dell'utente la sostituisce, cosi' non resta in attesa del Wi-Fi. [onlyOnWifi] aspetta una rete senza
      * limiti di traffico: in automatico solo per le guide da 5 MB in su (GuidesChoice.automaticOnMeteredNetwork).

@@ -827,7 +827,7 @@ def main():
                          "contesto (da emergency-numbers.tsv) o il rifiuto per le regioni senza numeri")
     ap.add_argument("--user-style-questions", type=float, default=0.2,
                     help="quota delle domande di USER_STYLE_QUESTION_CATS presa dalle domande in stile utente di "
-                         "travel_questions.py (0 = solo i modelli, come il v9)")
+                         "travel_questions.py (0 = solo gli schemi di domanda, come il v9)")
     ap.add_argument("--city-daily-life", action=argparse.BooleanOptionalAction, default=True,
                     help="domande VITA_QUOTIDIANA sulle sezioni Informazioni utili/Cope delle citta', anche di citta' oltre "
                          "--cities che hanno solo quella (--no-city-daily-life: come il v9)")
@@ -1041,7 +1041,8 @@ def main():
     answer_for = make_answer_for(L)
 
     # Domande in stile utente (--user-style-questions): per le categorie di USER_STYLE_QUESTION_CATS una quota delle domande,
-    # positive e rifiuti, viene da travel_questions.py invece che dai modelli; senza rete o traduttore restano i modelli.
+    # positive e rifiuti, viene da travel_questions.py invece che dagli schemi di domanda; senza rete o traduttore restano
+    # gli schemi.
     user_style, user_style_uses = {}, Counter()
     if a.user_style_questions:
         phase("domande in stile utente", travel_questions.DATASET)
@@ -1237,7 +1238,7 @@ def main():
                     continue
                 seen.add((context, q))
                 rows.append(row("pos", rid, "NOTE", context, q, answer)); note_pos += 1
-    # Vaccinazioni: riassunto del percorso (dalla nazionalita' al paese della regione, come nell'app) piu' 0-2 sezioni
+    # Vaccinazioni: riassunto del viaggio (dalla nazionalita' al paese della regione, come nell'app) piu' 0-2 sezioni
     # della guida; rifiuto per la stessa domanda quando il contesto ha solo sezioni che non parlano di vaccini.
     vacc_pos = vacc_neg = 0
     if a.vaccinations:

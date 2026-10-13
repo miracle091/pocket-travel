@@ -118,10 +118,10 @@ class GuideViewModel @Inject constructor(
         embassiesJob = viewModelScope.launch {
             val regionCountry = regionRepository.installed(regionId)?.countryCode
             nationalityPreferences.nationality.collect { nationality ->
-                // La nazione della regione e' minuscola (manifest), la nazionalita' maiuscola.
+                // La nazione della regione e' minuscola (`manifest.json`), la nazionalita' maiuscola.
                 val country = nationality?.takeIf { !it.equals(regionCountry, ignoreCase = true) }
                 val embassies = country?.let { poiRepository.embassiesOf(regionId, it) }.orEmpty()
-                // Senza nazione per la regione (manifest non ancora letto) niente rappresentanze Wikidata.
+                // Senza nazione per la regione (`manifest.json` non ancora letto) niente rappresentanze Wikidata.
                 val missions = if (country != null && regionCountry != null) {
                     diplomaticMissionRepository.missions(country, regionCountry)
                 } else {

@@ -70,8 +70,8 @@ class TransitBoardEdgeCasesTest {
     }
 
     @Test
-    fun `una fermata nel riquadro ma oltre il raggio non conta`() {
-        // A circa 162 m in diagonale: dentro il riquadro di latitudine e longitudine, fuori dal raggio di 150 m.
+    fun `una fermata nel rettangolo ma oltre il raggio non conta`() {
+        // A circa 162 m in diagonale: dentro il rettangolo di latitudine e longitudine, fuori dal raggio di 150 m.
         stop(1, 45_001_000, 9_001_500)
 
         assertEquals(emptyList<Long>(), nearbyStopIds(query, 45.0, 9.0))

@@ -134,7 +134,7 @@ private val travelHealthProSource = OfficialSource(
     topic = OfficialSourceTopic.HEALTH,
 )
 
-// Riquadro compatto della guida: l'esito per il percorso predefinito (nazionalita' o ultima partenza scelta
+// Riquadro compatto della guida: l'esito per il viaggio predefinito (nazionalita' o ultima partenza scelta
 // verso il paese della regione). Mai "non serve": senza certificati dice che nei dati non risultano.
 @Composable
 internal fun VaccinationCard(state: VaccinationUiState, onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -260,11 +260,11 @@ internal fun VaccinationContent(
         contentPadding = PaddingValues(Spacing.l),
         verticalArrangement = Arrangement.spacedBy(InfoCardDefaults.CardGap),
     ) {
-        // L'avviso viene prima di tutto, anche del percorso: e' la prima cosa che si legge.
+        // L'avviso viene prima di tutto, anche del viaggio: e' la prima cosa che si legge.
         item(key = "disclaimer") { DisclaimerCard() }
         item(key = "route") { RouteCard(state, actions, onPick = { picking = it }) }
         if (result == null) {
-            // senza partenza basta il "Scegli il paese" del percorso; con partenza uguale alla destinazione lo si dice
+            // senza partenza basta il "Scegli il paese" del viaggio; con partenza uguale alla destinazione lo si dice
             if (state.departure != null) {
                 item(key = "choose") {
                     Text(stringResource(R.string.vacc_choose_departure), style = MaterialTheme.typography.bodyMedium)
@@ -307,7 +307,7 @@ internal fun VaccinationContent(
     }
 }
 
-// Tutti i campi del percorso in un riquadro: partenza e destinazione, scali, paesi visitati prima (chiuso di
+// Tutti i campi del viaggio in un riquadro: partenza e destinazione, scali, paesi visitati prima (chiuso di
 // default) e le domande che cambiano il risultato.
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

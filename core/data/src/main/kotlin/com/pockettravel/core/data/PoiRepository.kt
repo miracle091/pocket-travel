@@ -22,7 +22,7 @@ enum class MapAccessibility { ALL, NO_INACCESSIBLE, ONLY_ACCESSIBLE }
 
 class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
     /**
-     * I POI della regione dentro il riquadro, per i segnalini della mappa, senza le categorie [hiddenCategories]: tutti se
+     * I POI della regione dentro il rettangolo, per i segnalini della mappa, senza le categorie [hiddenCategories]: tutti se
      * sono al massimo [maxPois], altrimenti circa [maxPois] sparsi sull'area (uno per cella di una griglia). Le categorie
      * filtrate si escludono nella query, prima del conteggio e della scelta per cella: dopo, le celle avrebbero scelto
      * altri POI e quelli della categoria rimasta visibile sarebbero quasi spariti. [tags] sono le coppie della regione

@@ -41,7 +41,7 @@ internal suspend fun unpackXz(
                             ensureActive()
                             written += read
                             if (written > file.sizeBytes) {
-                                throw PermanentRegionPackageException("${file.name} decompresso supera la dimensione del manifest")
+                                throw PermanentRegionPackageException("${file.name} decompresso supera la dimensione del catalogo")
                             }
                             digest.update(buffer, 0, read)
                             output.write(buffer, 0, read)
@@ -56,7 +56,7 @@ internal suspend fun unpackXz(
             val sha256 = digest.digest().joinToString("") { "%02x".format(it) }
             if (written != file.sizeBytes || !sha256.equals(file.sha256, ignoreCase = true)) {
                 File(staging, xz.name).delete()
-                throw PermanentRegionPackageException("${file.name} decompresso non corrisponde al manifest")
+                throw PermanentRegionPackageException("${file.name} decompresso non corrisponde al catalogo")
             }
             // Un tentativo precedente interrotto dopo la decompressione puo' aver lasciato il file finale.
             target.delete()

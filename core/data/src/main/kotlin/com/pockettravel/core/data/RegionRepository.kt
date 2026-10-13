@@ -38,7 +38,7 @@ interface RegionRepository {
      */
     suspend fun forgetMissingPackages(regionId: String): Set<PackageKind>
 
-    /** Codice paese dal manifest per le regioni installate prima che il database lo salvasse. */
+    /** Codice paese dal catalogo per le regioni installate prima che il database lo salvasse. */
     suspend fun fillCountryCode(regionId: String, countryCode: String)
 
     /** Versione del pacchetto guide installato, null se non ancora scaricato. */

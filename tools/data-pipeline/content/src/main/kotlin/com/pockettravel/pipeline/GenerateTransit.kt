@@ -314,7 +314,7 @@ internal fun readCsv(reader: BufferedReader, onRow: (Map<String, String>) -> Uni
 fun main(args: Array<String>) {
     require(args.size == 5) { "Uso: generateTransit <gtfs.zip> <transit.db> <feedId> <inizio finestra AAAA-MM-GG> <giorni>" }
     val stats = generateTransit(File(args[0]), File(args[1]), args[2], LocalDate.parse(args[3]), args[4].toInt())
-    // Riga TSV per build-transit.sh: fermate, linee, corse, orari, valido fino a (AAAA-MM-GG o vuoto), riquadro.
+    // Riga TSV per build-transit.sh: fermate, linee, corse, orari, valido fino a (AAAA-MM-GG o vuoto), rettangolo.
     println(
         listOf(
             stats.stops, stats.routes, stats.trips, stats.stopTimes, stats.validUntil?.toString().orEmpty(),

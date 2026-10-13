@@ -63,7 +63,7 @@ internal fun PlannerMap(
     val mapView = rememberMapViewWithLifecycle()
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val language = LocalLocale.current.platformLocale.language
-    // Stile e riquadro leggono i file delle mappe: fuori dal main thread (null finche' non sono pronti).
+    // Stile e rettangolo leggono i file delle mappe: fuori dal main thread (null finche' non sono pronti).
     val styleJson by produceState<String?>(null, tileSource, regionIds, dark, language) {
         value = withContext(Dispatchers.IO) { tileSource.navigationStyleJson(regionIds, dark = dark, language = language) }
     }

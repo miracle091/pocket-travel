@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 
-/** Motore on-device in memoria per i test JVM: risponde con [answer] e registra le chiamate. */
+/** Motore sul dispositivo in memoria per i test JVM: risponde con [answer] e registra le chiamate. */
 class FakeOnDeviceLlmEngine : OnDeviceLlmEngine {
 
     override val stats = MutableStateFlow(LlmRuntimeStats())

@@ -13,7 +13,7 @@ data class InstalledRegion(
     val poiSizeBytes: Long?,
     val poiExtraSizeBytes: Long?,
     val sizeBytes: Long,
-    // Anteprima offline installata (preview.pmtiles): non e' un PackageKind, vedi InstalledRegionEntity.
+    // Mappa d'insieme installata (preview.pmtiles): non e' un PackageKind, vedi InstalledRegionEntity.
     // Default null: le costruzioni che non la indicano (test in app/) restano valide.
     val previewVersion: String? = null,
     // Guide delle citta' (city_sections in region.db, non misurabili dal disco come mappa e rete stradale,

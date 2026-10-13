@@ -4,7 +4,7 @@
 # Overpass, via il tool Kotlin generatePoi), scarica e ri-ospita i segmenti BRouter .rd5 che
 # intersecano il bbox (stesso host di poi.db, vedi manifest-fragment.json), estrae con go-pmtiles
 # una mappa d'insieme offline a pochi zoom della mappa (preview.pmtiles, vedi PREVIEW_MAX_ZOOM piu' sotto),
-# e produce il frammento manifest.json con i pacchetti della regione: mappa (map.source punta alla
+# e produce il frammento di catalogo con i pacchetti della regione: mappa (map.source punta alla
 # build Protomaps corrente per l'estrazione sul dispositivo — vedi PmtilesExtractor, core:sync),
 # rete stradale (.rd5), POI e mappa d'insieme (preview, facoltativa), ciascuno con la propria versione. Le
 # guide non sono qui: un solo pacchetto per tutte le regioni, generato da build-guides.sh.
@@ -13,8 +13,8 @@
 # rigenera periodicamente i propri segmenti: la stessa tile scaricata a poche ore di distanza
 # ha gia' dato dimensioni diverse (visto su E10_N40.rd5: 80062379, poi 80071670, poi 79989750
 # byte in meno di un giorno). RegionPackageDownloader.downloadAndVerify() confronta la
-# dimensione scaricata con quella fissata nel manifest al momento della pubblicazione e la
-# rigetta come PermanentRegionPackageException se non combacia piu' — un manifest che punta
+# dimensione scaricata con quella fissata in `manifest.json` al momento della pubblicazione e la
+# rigetta come PermanentRegionPackageException se non combacia piu' — un `manifest.json` che punta
 # dritto a brouter.de si rompe quindi da solo ad ogni rigenerazione a monte, senza modo per
 # l'app di saperlo in anticipo. Con una copia ospitata dal progetto, dimensione/hash restano quelli
 # del file che l'utente scarica davvero, stabili finche' la regione non viene ripubblicata.
@@ -30,7 +30,7 @@
 #
 # <assetBaseUrl> e' la base a cui poi.db/i .rd5 saranno raggiungibili una volta caricati
 # (gli asset della release "region-data", vedi publish-regions.yml): questo script calcola
-# solo gli URL da scrivere nel manifest, non carica nulla.
+# solo gli URL da scrivere in `manifest.json`, non carica nulla.
 #
 # <publishedManifestUrl> (opzionale, es. https://.../manifest.json): se presente, prima di fare
 # qualunque lavoro costoso lo script confronta le tile .rd5 attese con quelle gia' pubblicate per
@@ -71,11 +71,11 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 # shellcheck source=./lib.sh
 source "$SCRIPT_DIR/lib.sh"
 BROUTER_BASE="https://brouter.de/brouter/segments4"
-# I .rd5 di brouter.de coprono 5x5 gradi: si scaricano gia' ritagliati sul riquadro della regione
+# I .rd5 di brouter.de coprono 5x5 gradi: si scaricano gia' ritagliati sul rettangolo della regione
 # allargato di RD5_CLIP_MARGIN gradi (clip_rd5.py con richieste HTTP Range: San Marino 0,9 MB invece
 # di 76, Lussemburgo 6,3 invece di 435, stesso percorso). Nel
-# manifest sizeBytes/sha256 sono del file ritagliato, sourceKey = "<dimensione originale> $RD5_CLIP":
-# il confronto 2bis riscarica una tile se cambia su brouter.de o se cambiano riquadro o margine.
+# `manifest.json` sizeBytes/sha256 sono del file ritagliato, sourceKey = "<dimensione originale> $RD5_CLIP":
+# il confronto 2bis riscarica una tile se cambia su brouter.de o se cambiano rettangolo o margine.
 RD5_CLIP_MARGIN="${RD5_CLIP_MARGIN:-0.1}"
 RD5_CLIP="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT $RD5_CLIP_MARGIN"
 # Colonne del TSV scritto da fetch_rd5 -> voci routing.files del manifest.
@@ -90,13 +90,13 @@ fetch_rd5() {
   local rc=0
   sourceSize="$(python3 "$SCRIPT_DIR/clip_rd5.py" "${BROUTER_BASE}/${name}" "$dest" \
     --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --margin "$RD5_CLIP_MARGIN" --user-agent "$PIPELINE_USER_AGENT" "${cacheArgs[@]}")" || rc=$?
-  # 3 = la tile non ha strade nel riquadro (costa, mare al bordo): non serve alla regione, si salta.
+  # 3 = la tile non ha strade nel rettangolo (costa, mare al bordo): non serve alla regione, si salta.
   [ "$rc" -ne 3 ] || return 0
   [ "$rc" -eq 0 ] || return "$rc"
   printf '%s\t%s\t%s\t%s\t%s\n' "$name" "${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${name}" \
     "$(wc -c < "$dest" | tr -d ' ')" "$(sha256sum < "$dest" | awk '{print $1}')" "$sourceSize $RD5_CLIP" >> "$2"
 }
-# Variante "solo auto" dei segmenti (voce routingCar del manifest, rete stradale solo auto
+# Variante "solo auto" dei segmenti (voce routingCar di `manifest.json`, rete stradale solo auto
 # dell'app): filterRd5 (Rd5CarFilter, circa il 60% del file intero) sulle tile appena scaricate, in
 # OUTPUT_DIR/car con lo stesso nome. Asset "<regione>--<versione>--car-<tile>.rd5" su CAR_ASSET_BASE_URL: la
 # release region-data-car-rNN accanto a region-data-rNN (le release reggono 1.000 asset), o la stessa base per
@@ -264,7 +264,7 @@ build_preview() {
   done
 }
 
-# preview_manifest_entry <version> <url>: la voce "preview" del manifest (stesso schema di "poi" -
+# preview_manifest_entry <version> <url>: la voce "preview" di `manifest.json` (stesso schema di "poi" -
 # file = pmtiles decompresso, fileXz = da scaricare, stesso url per entrambi perche' l'unico asset
 # pubblicato e' il .xz, vedi POI_DB_URL/xz_entry piu' sotto). Richiede una build_preview riuscita.
 preview_manifest_entry() {
@@ -390,11 +390,11 @@ REGION_TITLE="$(source "$SCRIPT_DIR/regions.sh" && for spec in "${ALL_REGIONS[@]
 # groupName di regions.sh: non vuoto per le regioni che sono parte di una nazione (stati USA, province).
 REGION_GROUP="$(source "$SCRIPT_DIR/regions.sh" && for spec in "${ALL_REGIONS[@]}"; do IFS='|' read -r id _ _ _ _ _ _ _ group _ <<< "$spec"; [ "$id" = "$REGION_ID" ] && echo "$group" && break; done || true)"
 # Confine OpenStreetMap della nazione (country_border.py, da Nominatim): i POI fuori si scartano, sia dagli estratti
-# Geofabrik sia da Overpass (area 3600000000 + id della relazione). Il riquadro da solo comprende anche i paesi vicini:
+# Geofabrik sia da Overpass (area 3600000000 + id della relazione). Il rettangolo da solo comprende anche i paesi vicini:
 # meta' dei POI di San Marino erano italiani, quasi meta' di quelli dell'Ungheria austriaci o slovacchi (misura del
-# 2026-10-11 sui pacchetti pubblicati). Senza confine (Canarie, Bonaire) resta il solo riquadro.
+# 2026-10-11 sui pacchetti pubblicati). Senza confine (Canarie, Bonaire) resta il solo rettangolo.
 # Una regione che e' parte di una nazione si taglia sul confine della sua suddivisione (stato, provincia), se
-# country_border.py la trova; altrimenti su quello della nazione. Il riquadro di uno stato comprende parti di quelli
+# country_border.py la trova; altrimenti su quello della nazione. Il rettangolo di uno stato comprende parti di quelli
 # vicini (Virginia Occidentale: 73% dei POI fuori, misura del 2026-10-11), e l'app li mostrerebbe due volte a chi
 # scarica le due regioni.
 # Si cerca prima di decidere se riusare il poi.db pubblicato (sezione 2bis), e una volta sola.
@@ -416,7 +416,7 @@ find_border() {
     echo "ERRORE: confine OSM di $REGION_ID non disponibile e i POI pubblicati sono tagliati sul confine: li tengo" >&2
     exit 1
   else
-    echo "::warning::confine OSM di $REGION_ID non trovato (${REGION_ISO:-nessun codice ISO}): punti di interesse sul solo riquadro"
+    echo "::warning::confine OSM di $REGION_ID non trovato (${REGION_ISO:-nessun codice ISO}): punti di interesse sul solo rettangolo"
   fi
 }
 
@@ -425,10 +425,10 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
   PUBLISHED_MANIFEST="$WORKDIR/published-manifest.json"
   # Con ritentativi e, se non arriva, errore: una rigenerazione completa per un problema di rete
   # darebbe nuove versioni (e riscaricamenti) a mappa, rete stradale e POI senza motivo. Solo un 404 (nessun
-  # manifest ancora pubblicato, prima pubblicazione) porta alla rigenerazione completa.
+  # `manifest.json` ancora pubblicato, prima pubblicazione) porta alla rigenerazione completa.
   PUBLISHED_MANIFEST_HTTP="$(fetch_published_manifest "$PUBLISHED_MANIFEST_URL" "$PUBLISHED_MANIFEST")"
   if [ "$PUBLISHED_MANIFEST_HTTP" != "200" ] && [ "$PUBLISHED_MANIFEST_HTTP" != "404" ]; then
-    echo "ERRORE: manifest pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL (HTTP ${PUBLISHED_MANIFEST_HTTP:-000})" >&2
+    echo "ERRORE: manifest.json pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL (HTTP ${PUBLISHED_MANIFEST_HTTP:-000})" >&2
     exit 1
   fi
   if [ "$PUBLISHED_MANIFEST_HTTP" = "200" ]; then
@@ -509,9 +509,9 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
 
     if [ -n "$EXPECTED_SORTED" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$PUBLISHED_SORTED" = "$EXPECTED_SORTED" ] && [ "$POI_STALE" != "true" ] && [ "$MAP_DUE" != "true" ] \
       && [ "$(printf '%s' "$PUBLISHED_REGION" | jq 'has("routingCar")')" = "true" ]; then
-      echo "== [$REGION_ID] invariata rispetto al manifest pubblicato (stesse tile .rd5, stesse dimensioni): salto la rigenerazione =="
+      echo "== [$REGION_ID] invariata rispetto al manifest.json pubblicato (stesse tile .rd5, stesse dimensioni): salto la rigenerazione =="
       : > "$OUTPUT_DIR/.skipped"
-      # manifestVersion quella del manifest pubblicato: una regione ancora v1 viene convertita da
+      # manifestVersion quella del `manifest.json` pubblicato: una regione ancora v1 viene convertita da
       # mergeManifests (vedi MergeManifests.kt), non qui.
       # Mappe pubblicate prima dell'impronta: la registra senza cambiare versione (riferimento per
       # i confronti successivi).
@@ -592,7 +592,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
       echo "-- $REGION_ID cambiata (o non ancora pubblicata): rigenerazione completa"
     fi
   else
-    echo "-- nessun manifest pubblicato su $PUBLISHED_MANIFEST_URL (HTTP 404): rigenerazione completa"
+    echo "-- nessun manifest.json pubblicato su $PUBLISHED_MANIFEST_URL (HTTP 404): rigenerazione completa"
   fi
 fi
 
@@ -636,7 +636,7 @@ fmin() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0<b+0)?a:b }'; }
 fetch_overpass_chunk() {
   local chunkMinLon="$1" chunkMinLat="$2" chunkMaxLon="$3" chunkMaxLat="$4" outFile="$5"
   # Con il confine della nazione (BORDER_AREA, vedi sotto) ogni filtro ha anche l'area della nazione: Overpass scarta
-  # sul server i POI dei paesi confinanti che il riquadro contiene.
+  # sul server i POI dei paesi confinanti che il rettangolo contiene.
   local bbox="(${chunkMinLat},${chunkMinLon},${chunkMaxLat},${chunkMaxLon})"
   local query="[out:xml][timeout:900];"
   if [ -n "${BORDER_AREA:-}" ]; then
@@ -811,7 +811,7 @@ poi_count() {
 }
 # POI base del poi.db gia' pubblicato: generatePoi rifiuta un risultato vuoto o sotto la meta' (un
 # chunk Overpass puo' essere valido ma vuoto: meglio fallire e tenere il pacchetto pubblicato). Viene
-# da poi.count del manifest; le voci pubblicate prima di quel campo si contano sul poi.db pubblicato,
+# da poi.count di `manifest.json`; le voci pubblicate prima di quel campo si contano sul poi.db pubblicato,
 # che si scarica (una volta, finche' la regione non e' ripubblicata). Se non si riesce a contarli resta
 # solo il controllo sul risultato vuoto. Quei poi.db vengono da Overpass sull'intero bbox, paesi
 # confinanti compresi (Eritrea: 5117 POI, quasi meta' in Arabia Saudita, Yemen ed Etiopia), mentre gli
@@ -844,12 +844,12 @@ POI_PUBLISHED_COUNT="$PUBLISHED_POI_COUNT" ./gradlew -q :tools:data-pipeline:con
 POI_COUNT="$(poi_count "$POI_DB")"
 
 # I pacchetti POI si pubblicano solo compressi con xz (<file>.xz): Spagna 110 MB -> 26 MB, contro i
-# 44 MB di gzip. Nel manifest "file" descrive il database non compresso (nome, dimensione e sha256,
+# 44 MB di gzip. In `manifest.json` "file" descrive il database non compresso (nome, dimensione e sha256,
 # che l'app ricontrolla dopo la decompressione) e "fileXz" il file da scaricare; tutti e due hanno
 # l'URL del .xz. xz_entry (dizionario da 16 MiB, un solo thread) e' in lib.sh: stessa convenzione
 # per guides.db (build-guides.sh).
 
-# --- 5. Frammento manifest.json (poi.db e poi-extra.db generati qui + rd5 ri-ospitati + sorgente mappa)
+# --- 5. Frammento di catalogo (poi.db e poi-extra.db generati qui + rd5 ri-ospitati + sorgente mappa)
 POI_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi.db.xz"
 POI_EXTRA_DB_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--poi-extra.db.xz"
 if [ "$POI_ONLY" = "true" ]; then
@@ -918,7 +918,7 @@ if [ -n "$PMTILES_BIN" ] && build_preview "https://build.protomaps.com/${PROTOMA
     --argjson maxZoom "$PREVIEW_ZOOM_USED" '{path: $path, url: $url, maxZoom: $maxZoom}')"
 elif [ -n "$PMTILES_BIN" ]; then
   # Protomaps non ha risposto: si tiene la mappa d'insieme pubblicata (il suo asset resta referenziato dal
-  # manifest), o la regione esce senza se non ne aveva una.
+  # `manifest.json`), o la regione esce senza se non ne aveva una.
   rm -f "$OUTPUT_DIR/preview.pmtiles" "$OUTPUT_DIR/preview.pmtiles.xz"
   if [ -n "${PUBLISHED_MANIFEST:-}" ] && [ -s "$PUBLISHED_MANIFEST" ]; then
     PUBLISHED_PREVIEW="$(jq -c --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id)][0].preview // null' "$PUBLISHED_MANIFEST" 2>/dev/null || echo null)"
@@ -947,7 +947,7 @@ jq -n \
                  minZoom: $minZoom, maxZoom: $maxZoom}}' > "$SPEC_FILE"
 
 MANIFEST_FRAGMENT="$OUTPUT_DIR/manifest-fragment.json"
-echo "-- genero il frammento manifest..."
+echo "-- genero il frammento di catalogo..."
 ./gradlew -q :tools:data-pipeline:content:generateManifest \
   --args="\"$(winpath "$SPEC_FILE")\" \"$(winpath "$MANIFEST_FRAGMENT")\""
 # POI compressi (voce fileXz, vedi xz_entry).
@@ -984,7 +984,7 @@ if [ -z "${MAP_FINGERPRINT:-}" ]; then
     | sed -n 's/.*impronta \([0-9a-f]\{64\}\).*/\1/p' | tail -1 || true)"
 fi
 if [ -z "$MAP_FINGERPRINT" ]; then
-  echo "::warning::$REGION_ID: impronta delle tile non calcolata (mapFingerprint), il manifest esce senza map.fingerprint" >&2
+  echo "::warning::$REGION_ID: impronta delle tile non calcolata (mapFingerprint), manifest.json esce senza map.fingerprint" >&2
 fi
 if [ -n "$MAP_FINGERPRINT" ]; then
   jq -c --arg fp "$MAP_FINGERPRINT" '.regions |= map(.map.fingerprint = $fp)' "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"

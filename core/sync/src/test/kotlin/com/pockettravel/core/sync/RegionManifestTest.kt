@@ -95,7 +95,7 @@ class RegionManifestTest {
     }
 
     // Il vecchio pacchetto "addresses" per regione e' stato tolto dall'app (i civici vengono solo
-    // dalla griglia, RegionManifestEntry.addressGrid): il manifest pubblicato lo contiene ancora per
+    // dalla griglia, RegionManifestEntry.addressGrid): il `manifest.json` pubblicato lo contiene ancora per
     // un periodo, l'app deve continuare a leggerlo (ignoreUnknownKeys) senza offrire i civici.
     private val withLegacyAddresses = sampleManifest.replace(
         "\"continent\": \"Europa\"",
@@ -104,7 +104,7 @@ class RegionManifestTest {
     )
 
     @Test
-    fun `un vecchio oggetto addresses per regione non impedisce di leggere il manifest, ma i civici restano non disponibili`() {
+    fun `un vecchio oggetto addresses per regione non impedisce di leggere il catalogo, ma i civici restano non disponibili`() {
         val region = parse(withLegacyAddresses).regions.single()
         region.validate()
         assertEquals(setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI), region.availableKinds)
@@ -147,7 +147,7 @@ class RegionManifestTest {
     }
 
     @Test
-    fun `un manifest valido supera la validazione`() {
+    fun `un catalogo valido supera la validazione`() {
         val manifest = parse()
         manifest.guides.validate()
         manifest.regions.forEach { it.validate() }
@@ -166,7 +166,7 @@ class RegionManifestTest {
     }
 
     @Test
-    fun `la validazione rifiuta http in chiaro senza un manifest di debug`() {
+    fun `la validazione rifiuta http in chiaro senza un catalogo di debug`() {
         val region = parse(sampleManifest.replace("https://github.com/o/r/releases/download/region-data/poi.db", "http://github.com/poi.db")).regions.single()
         assertThrows(IllegalArgumentException::class.java) { region.validate() }
     }
@@ -262,7 +262,7 @@ class RegionManifestTest {
         """, "worldMap": { "version": "2026.09.20", "maxZoom": 8, "url": "https://github.com/o/r/releases/download/world-map/world-2026.09.20-z8.pmtiles", "sizeBytes": 555000000 } }"""
 
     @Test
-    fun `la mappa del mondo e' facoltativa, in cima al manifest`() {
+    fun `la mappa del mondo e' facoltativa, in cima al catalogo`() {
         assertNull(parse().worldMap)
 
         val manifest = parse(withWorldMap)
@@ -282,7 +282,7 @@ class RegionManifestTest {
         """, "addressGrid": { "version": "2026.10.01.123.1", "url": "https://miracle091.github.io/pocket-travel/address-grid.json", "sizeBytes": 250000, "sha256": "$sha" } }"""
 
     @Test
-    fun `addressGrid e' facoltativo, in cima al manifest`() {
+    fun `addressGrid e' facoltativo, in cima al catalogo`() {
         assertNull(parse().addressGrid)
 
         val manifest = parse(withAddressGridManifestEntry)

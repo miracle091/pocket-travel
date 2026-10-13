@@ -28,7 +28,7 @@ class MergeManifestsTest {
     }
 
     @Test
-    fun `unisce piu' manifest in uno unico con tutte le regioni`() {
+    fun `unisce piu' frammenti di catalogo in uno unico con tutte le regioni`() {
         val merged = JSONObject(mergeManifestJson(listOf(fragmentFor("san-marino", "San Marino"), fragmentFor("italia", "Italia"))))
 
         assertEquals(2, merged.getInt("manifestVersion"))
@@ -63,7 +63,7 @@ class MergeManifestsTest {
     }
 
     @Test
-    fun `una regionId duplicata viene sostituita dall'ultimo manifest fornito`() {
+    fun `una regionId duplicata viene sostituita dall'ultimo frammento fornito`() {
         val merged = JSONObject(mergeManifestJson(listOf(fragmentFor("italia", "Italia", "1"), fragmentFor("italia", "Italia", "2"))))
 
         val regions = merged.getJSONArray("regions")
@@ -113,7 +113,7 @@ class MergeManifestsTest {
     }
 
     @Test
-    fun `converte una regione del manifest v1 in mappa, rete stradale e POI da content_db`() {
+    fun `converte una regione del catalogo v1 in mappa, rete stradale e POI da content_db`() {
         val v1 = """
             {
               "manifestVersion": 1,
@@ -146,12 +146,12 @@ class MergeManifestsTest {
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun `fallisce se non ci sono manifest da unire`() {
+    fun `fallisce se non ci sono file da unire`() {
         mergeManifestJson(emptyList())
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun `fallisce se un manifest ha una manifestVersion non supportata`() {
+    fun `fallisce se un frammento ha una manifestVersion non supportata`() {
         mergeManifestJson(listOf("""{"manifestVersion": 3, "regions": []}"""))
     }
 
@@ -291,7 +291,7 @@ class MergeManifestsTest {
     }
 
     @Test
-    fun `la guida inglese passa nel manifest unito come quella italiana`() {
+    fun `la guida inglese passa nel catalogo unito come quella italiana`() {
         val en = """{"manifestVersion": 2, "regions": [], "guidesEn": {"version": "2026.09.28", "file": {"name": "guides.db", "url": "https://x/guides-en.db.xz", "sizeBytes": 1, "sha256": "a"}}}"""
         val merged = JSONObject(mergeManifestJson(listOf(fragmentFor("san-marino", "San Marino"), en)))
         assertEquals("2026.09.28", merged.getJSONObject("guidesEn").getString("version"))
@@ -346,7 +346,7 @@ class MergeManifestsTest {
     private fun regionsInput(manifest: String): JSONObject = JSONObject(manifest).getJSONArray("regions").getJSONObject(0)
 
     @Test
-    fun `un manifest v1 senza regioni e' accettato e produce un manifest v2 vuoto`() {
+    fun `un catalogo v1 senza regioni e' accettato e produce un catalogo v2 vuoto`() {
         val merged = JSONObject(mergeManifestJson(listOf("""{"manifestVersion": 1, "regions": []}""")))
 
         assertEquals(2, merged.getInt("manifestVersion"))
@@ -487,7 +487,7 @@ class MergeManifestsTest {
     }
 
     @Test
-    fun `minAppVersionCode del manifest pubblicato non si propaga se non e' indicato di nuovo`() {
+    fun `minAppVersionCode del catalogo pubblicato non si propaga se non e' indicato di nuovo`() {
         val old = mergeManifestJson(listOf(fragmentFor("san-marino", "San Marino")), minAppVersionCode = 9)
         val merged = JSONObject(mergeManifestJson(listOf(old)))
 

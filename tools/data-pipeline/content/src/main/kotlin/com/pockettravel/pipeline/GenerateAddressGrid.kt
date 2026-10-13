@@ -78,7 +78,7 @@ fun mergeAddressGridJson(
         .toString(2)
 }
 
-/** Frammento manifest (schema v2) con la sola voce "addressGrid", stesso trattamento di "guides"/"worldMap" in mergeManifests. */
+/** Frammento di catalogo (schema v2) con la sola voce "addressGrid", stesso trattamento di "guides"/"worldMap" in mergeManifests. */
 fun buildAddressGridFragmentJson(version: String, indexFile: File, url: String): String {
     val entry = localFileEntry(indexFile, "address-grid.json", url)
     return JSONObject()

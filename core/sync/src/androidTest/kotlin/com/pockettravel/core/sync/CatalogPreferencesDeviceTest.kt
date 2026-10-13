@@ -82,7 +82,7 @@ class CatalogPreferencesDeviceTest {
 
     @Before
     fun setUp() {
-        // Con un manifest alternativo (solo debug) SyncConfig non segue il catalogo scelto.
+        // Con un catalogo di debug SyncConfig non segue il catalogo scelto.
         assumeTrue(BuildConfig.MANIFEST_URL_OVERRIDE.isEmpty())
         clearPreferences()
         SyncConfig.useCatalog(null)
@@ -192,7 +192,7 @@ class CatalogPreferencesDeviceTest {
             compatibility.update(installed + 1)
             assertTrue(compatibility.requiresAppUpdate())
             compatibility.update(null)
-            assertFalse("senza versione minima nel manifest il blocco cade", compatibility.requiresAppUpdate())
+            assertFalse("senza versione minima in manifest.json il blocco cade", compatibility.requiresAppUpdate())
         } finally {
             compatibility.update(null)
         }

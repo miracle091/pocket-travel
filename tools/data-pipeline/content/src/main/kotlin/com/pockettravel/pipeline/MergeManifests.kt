@@ -7,12 +7,12 @@ import java.io.File
 /**
  * Unisce N manifest.json (frammenti di GenerateManifest: una regione ciascuno, oppure il solo
  * pacchetto guide) in un unico manifest.json valido per lo schema v2 di RegionManifest
- * (core/sync). Se una regionId compare in piu' manifest di input vince l'ultimo fornito, e lo
+ * (core/sync). Se una regionId compare in piu' file di input vince l'ultimo fornito, e lo
  * stesso vale per la voce "guides": permette a una pubblicazione parziale (publish-regions.yml) di
- * aggiornare solo cio' che e' stato rigenerato unendolo al manifest gia' online,
+ * aggiornare solo cio' che e' stato rigenerato unendolo al `manifest.json` gia' online,
  * senza far sparire il resto.
  *
- * Gli input possono essere anche in formato v1 (il manifest pubblicato prima della separazione
+ * Gli input possono essere anche in formato v1 (il `manifest.json` pubblicato prima della separazione
  * in pacchetti, o un frammento riusato da quello): ogni regione v1 viene convertita, con il
  * content.db pubblicato come pacchetto POI (contiene gia' la tabella "poi", che e' tutto cio' che
  * l'app ne legge) — le regioni non ancora rigenerate restano cosi' scaricabili senza doverle
@@ -29,24 +29,24 @@ import java.io.File
  * groupLabelsEn (regionId -> nome inglese della regione nel gruppo, dal titolo della pagina di Wikivoyage
  * inglese, vedi [englishLabelOf]) finisce in "groupLabelEn": l'app lo mostra quando e' in inglese.
  * replacedRegions (regionId di una regione tolta -> groupName delle regioni che la sostituiscono): la regione
- * tolta resta finche' tutte le regioni del gruppo sono nel manifest, poi sparisce e finisce nel campo
+ * tolta resta finche' tutte le regioni del gruppo sono in `manifest.json`, poi sparisce e finisce nel campo
  * "replacedRegions", con cui l'app propone le regioni nuove a chi ha ancora installata quella vecchia.
  *
  * knownRegionIds (le regioni di regions.sh), se indicato, scarta le regioni che non ne fanno
- * piu' parte: senza, una regione tolta dall'elenco resterebbe per sempre nel manifest,
+ * piu' parte: senza, una regione tolta dall'elenco resterebbe per sempre in `manifest.json`,
  * ricopiata a ogni run da quello gia' pubblicato.
  *
  * "worldMap" (mappa del mondo online) e' come "guides": non una
  * regione, vince l'ultimo frammento che la contiene. Il job che la rigenera (publish-regions.yml)
  * ne produce uno solo quando serve davvero (mappa pubblicata assente o troppo vecchia): se non gira
- * o non rigenera nulla, la voce gia' pubblicata (nel manifest online, sempre il primo input di
+ * o non rigenera nulla, la voce gia' pubblicata (nel `manifest.json` online, sempre il primo input di
  * questa funzione) resta cosi' com'e'.
  *
  * "addressGrid" (indice dei civici a celle) e' come "worldMap": vince
  * l'ultimo frammento che la contiene (generateAddressGrid ne scrive uno solo, con l'indice appena
  * unito). Le regioni v1/v2 tengono anche la loro vecchia voce "addresses" (congelata, non piu'
  * aggiornata): le app vecchie che non conoscono la griglia continuano a leggere quella.
- * "transit" (indice delle reti di mezzi pubblici, transit.json) come "addressGrid".
+ * "transit" (indice delle reti dei mezzi pubblici, transit.json) come "addressGrid".
  */
 fun mergeManifestJson(
     manifestJsons: List<String>,
@@ -61,7 +61,7 @@ fun mergeManifestJson(
     minAppVersionCode: Int? = null,
     groupLabelsEn: Map<String, String> = emptyMap(),
 ): String {
-    require(manifestJsons.isNotEmpty()) { "Nessun manifest da unire" }
+    require(manifestJsons.isNotEmpty()) { "Nessun manifest.json da unire" }
 
     val regionsById = LinkedHashMap<String, JSONObject>()
     val wikivoyageUrls = mutableMapOf<String, String>()
@@ -86,7 +86,7 @@ fun mergeManifestJson(
             val region = regions.getJSONObject(i)
             val regionId = region.getString("regionId")
             val replacement = if (region.has("files")) convertV1Region(region) else region
-            // Un frammento nuovo puo' non avere i metadati gia' scritti nel manifest precedente: si
+            // Un frammento nuovo puo' non avere i metadati gia' scritti nel `manifest.json` precedente: si
             // tengono quelli, altrimenti una regione fuori da --continents o senza guida li perderebbe.
             regionsById[regionId]?.let { previous ->
                 listOf("wikivoyageUrl", "continent", "countryCode").forEach { key ->
@@ -98,7 +98,7 @@ fun mergeManifestJson(
     }
 
     // Una regione sostituita resta (com'e', senza aggiornamenti) finche' tutte le regioni del suo gruppo
-    // non sono nel manifest: senza, alla prima run dopo la divisione il paese sparirebbe per giorni,
+    // non sono in `manifest.json`: senza, alla prima run dopo la divisione il paese sparirebbe per giorni,
     // finche' il calendario settimanale non ha pubblicato tutte le regioni nuove.
     val completed = replacedRegions.filter { (_, groupName) ->
         val members = groups.filterValues { it.first == groupName }.keys
@@ -198,11 +198,11 @@ fun main(args: Array<String>) {
         ?.filter { it.size >= 2 }?.associate { it[0] to it[1] }.orEmpty()
     val outputFile = File(rest[0])
     val inputFiles = rest.drop(1).map { File(it) }
-    inputFiles.forEach { require(it.exists()) { "Manifest non trovato: ${it.path}" } }
+    inputFiles.forEach { require(it.exists()) { "manifest.json non trovato: ${it.path}" } }
 
     // La tabella --continents elenca tutte le regioni di regions.sh: chi non c'e' e' stata tolta.
     val knownRegionIds = continentsFile?.let { rows.map { it[0] }.toSet() }?.takeIf { it.isNotEmpty() }
     val merged = mergeManifestJson(inputFiles.map { it.readText() }, continents, countryCodes, knownRegionIds, groups, replaced, mapSourceUrl, minAppVersionCode, groupLabelsEn)
     outputFile.writeText(merged)
-    println("manifest unito (${inputFiles.size} input, ${JSONObject(merged).getJSONArray("regions").length()} regioni) scritto in ${outputFile.path}")
+    println("manifest.json unito (${inputFiles.size} input, ${JSONObject(merged).getJSONArray("regions").length()} regioni) scritto in ${outputFile.path}")
 }

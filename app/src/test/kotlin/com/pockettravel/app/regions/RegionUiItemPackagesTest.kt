@@ -143,7 +143,7 @@ class RegionUiItemPackagesTest {
     }
 
     @Test
-    fun `l'aggiornamento non comprende la rete stradale nemmeno con le indicazioni attive`() {
+    fun `l'aggiornamento non comprende la rete stradale nemmeno con i percorsi di navigazione attivi`() {
         val item = regionUiItem(remote, local(poi = "p1"), noBytes, withRouting = true)
 
         assertEquals(60_000_000L, item.sizeBytes)
@@ -168,7 +168,7 @@ class RegionUiItemPackagesTest {
     }
 
     @Test
-    fun `gruppo e riquadro del manifest passano alla voce`() {
+    fun `gruppo e rettangolo del catalogo passano alla voce`() {
         val item = regionUiItem(remote.copy(groupName = "Italia", groupLabel = "Nord"), null, noBytes)
 
         assertEquals("Italia", item.groupName)

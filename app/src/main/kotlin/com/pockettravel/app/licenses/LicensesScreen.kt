@@ -36,7 +36,7 @@ import com.pockettravel.core.ui.R as UiR
 
 // Mostra thirdPartyLicenses (LicenseData.kt): solo licenze di terze parti realmente in uso,
 // compilate nell'app invece che lette da un asset a runtime. In coda, le fonti dei civici a griglia,
-// lette da address-grid.json quando il manifest le offre, e le reti dei mezzi pubblici di transit.json
+// lette da address-grid.json quando il catalogo le offre, e le reti dei mezzi pubblici di transit.json
 // con il link alla loro licenza.
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable

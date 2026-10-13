@@ -73,7 +73,7 @@ class RoomRegionRepository @Inject constructor(
                     // Percorso a griglia: elenco delle celle installate accanto ad ADDRESSES_FILE, assente
                     // (deletePackage torna comunque true) per i civici senza griglia.
                     regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_CELLS_FILE)
-                    // Database di ricerca degli indirizzi: assente per i manifest senza ricerca. I file aperti da
+                    // Database di ricerca degli indirizzi: assente per i cataloghi senza ricerca. I file aperti da
                     // AddressSearchRepository li chiude lei alla ricerca successiva (file sparito).
                     regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_SEARCH_DIR)
                 }

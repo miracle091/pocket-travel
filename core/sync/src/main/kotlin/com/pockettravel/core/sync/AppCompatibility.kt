@@ -12,11 +12,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Versione minima dell'app per i dati pubblicati ("minAppVersionCode" del manifest, alzata dalla
+ * Versione minima dell'app per i dati pubblicati ("minAppVersionCode" di `manifest.json`, alzata dalla
  * pipeline quando il formato dei dati cambia in modo incompatibile, es. guide e civici solo in xz).
  * ManifestClient la salva a ogni sync; RegionSyncScheduler non avvia download che l'app non saprebbe
  * leggere e, se li ha chiesti l'utente, lo invita ad aggiornare l'app invece di fallire in silenzio.
- * Il catalogo resta consultabile: i campi nuovi del manifest un'app vecchia li ignora.
+ * Il catalogo resta consultabile: i campi nuovi di `manifest.json` un'app vecchia li ignora.
  */
 @Singleton
 class AppCompatibility internal constructor(

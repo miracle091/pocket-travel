@@ -34,7 +34,7 @@ class ManifestSignatureVerifierTest {
 
     @Before
     fun setUp() {
-        // Con un manifest alternativo (solo debug) la verifica e' spenta di proposito.
+        // Con un catalogo di debug la verifica e' spenta di proposito.
         assumeTrue(BuildConfig.MANIFEST_URL_OVERRIDE.isEmpty())
         requested.clear()
     }

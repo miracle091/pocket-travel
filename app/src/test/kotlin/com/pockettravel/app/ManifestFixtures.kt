@@ -12,7 +12,7 @@ import com.pockettravel.core.sync.RoutingPackageEntry
 import com.pockettravel.core.sync.TransitFeed
 import com.pockettravel.core.sync.TransitManifestEntry
 
-// Pezzi di manifest per i test dei ViewModel: i valori che non contano per il test hanno un default.
+// Pezzi di catalogo per i test dei ViewModel: i valori che non contano per il test hanno un default.
 
 internal fun manifestFile(name: String, sizeBytes: Long = 1_000L) =
     RegionManifestFile(name, "https://github.com/pocket-travel/$name", sizeBytes, "a".repeat(64))

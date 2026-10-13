@@ -49,7 +49,7 @@ enum class MapDetail { FULL, LIGHT }
  * risultante e' scritto da PmtilesWriter (nessuna libreria pronta scrive questo formato).
  *
  * Con una mappa gia' installata (previousMap) l'aggiornamento e' incrementale: si confrontano le
- * directory della build nuova e del file locale per le tile del riquadro, e si scaricano solo le
+ * directory della build nuova e del file locale per le tile del rettangolo, e si scaricano solo le
  * tile nuove o con lunghezza diversa; le altre si copiano dal file locale, byte per byte, senza
  * ricompressione. Tra due build una tile con lo stesso contenuto ha la stessa lunghezza; il caso
  * inverso (stessa lunghezza, contenuto diverso) e' accettato: la tile resta quella vecchia fino al
@@ -145,13 +145,13 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
     }
 
     /**
-     * Tile del riquadro dalla build remota. Con [previousMap] (aggiornamento incrementale) si scaricano
+     * Tile del rettangolo dalla build remota. Con [previousMap] (aggiornamento incrementale) si scaricano
      * solo le tile assenti o di lunghezza diversa nella mappa installata, piu' tutte quelle fino a
      * [alwaysDownloadMaxZoom]; senza, tutte.
      *
      * Una richiesta HTTP per tile sarebbe lenta (circa 3 MB al minuto sulla Lettonia, limitati dalla
      * latenza): la build Protomaps e' in ordine di tileId (clustered), quindi le tile vicine del
-     * riquadro stanno quasi sempre una dopo l'altra nel file e si leggono a blocchi, una richiesta
+     * rettangolo stanno quasi sempre una dopo l'altra nel file e si leggono a blocchi, una richiesta
      * per blocco fino a [MAX_BATCH_BYTES], scaricando anche i buchi tra una tile e l'altra fino a
      * [MAX_GAP_BYTES]. [onProgress] riceve i byte delle tile da scaricare (buchi esclusi).
      */
@@ -279,7 +279,7 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
         return bytes
     }
 
-    /** TileId (zoomOffset incluso) di tutte le tile del riquadro, ordinati: le stesse dell'estrazione completa. */
+    /** TileId (zoomOffset incluso) di tutte le tile del rettangolo, ordinati: le stesse dell'estrazione completa. */
     private fun wantedTileIds(mapSource: MapExtractionSource): LongArray {
         val zooms = mapSource.minZoom..mapSource.maxZoom
         val ranges = zooms.map { tileRangeFor(mapSource.minLon, mapSource.minLat, mapSource.maxLon, mapSource.maxLat, it) }

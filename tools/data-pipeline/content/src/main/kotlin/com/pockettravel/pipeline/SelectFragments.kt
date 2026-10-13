@@ -6,12 +6,12 @@ import java.time.Duration
 import java.time.Instant
 
 /**
- * Sceglie i frammenti del manifest da unire nella pubblicazione (job "publish" di
+ * Sceglie i frammenti di catalogo da unire nella pubblicazione (job "publish" di
  * publish-regions.yml), cosi' una regione costruita non si perde e una regione rotta non blocca le
  * altre:
  * - frammenti di questa run: ogni regione si valida da sola (validateRegion); una non valida si
  *   scarta, le altre passano. I frammenti senza regioni (guide, mappa del mondo, civici) passano
- *   com'e': li controlla la validazione del manifest intero;
+ *   com'e': li controlla la validazione di `manifest.json` intero;
  * - frammenti in sospeso (release "region-fragments", caricati da ogni shard subito dopo la regione,
  *   anche da run annullate o morte prima di pubblicare): si recuperano solo se piu' recenti della
  *   regione pubblicata e di quella di questa run, non piu' vecchi di [maxAge] e validi; per una

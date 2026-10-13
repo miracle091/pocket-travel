@@ -7,7 +7,7 @@ import java.net.URI
 /**
  * Duplica intenzionalmente le regole di RegionManifestEntry.validate() (core/sync, modulo
  * Android non raggiungibile da questo modulo Kotlin/JVM puro) cosi' il workflow di
- * pubblicazione (publish-regions.yml) puo' rifiutare un manifest malformato PRIMA del deploy su Pages, senza
+ * pubblicazione (publish-regions.yml) puo' rifiutare un `manifest.json` malformato PRIMA del deploy su Pages, senza
  * bisogno di un modulo Android in CI solo per una validazione. Se le regole in RegionManifest.kt
  * cambiano, vanno aggiornate anche qui. L'host Pages non e' hardcoded: viene passato dal
  * chiamante (il workflow lo conosce da github.repository_owner), cosi' non c'e' un nome utente
@@ -33,7 +33,7 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
     val manifestVersion = root.getInt("manifestVersion")
     if (manifestVersion != MANIFEST_VERSION) throw ManifestValidationException("manifestVersion non supportata: $manifestVersion")
 
-    val guides = root.optJSONObject("guides") ?: throw ManifestValidationException("Il manifest non contiene il pacchetto guide")
+    val guides = root.optJSONObject("guides") ?: throw ManifestValidationException("manifest.json non contiene il pacchetto guide")
     validateVersion(guides, "guide")
     validateFile(guides.getJSONObject("file"), "guide", allowedHosts)
     guides.optJSONObject("fileXz")?.let { validateFile(it, "guide", allowedHosts) }
@@ -80,7 +80,7 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
     }
 
     val regions = root.getJSONArray("regions")
-    if (regions.length() == 0) throw ManifestValidationException("Il manifest non contiene regioni")
+    if (regions.length() == 0) throw ManifestValidationException("manifest.json non contiene regioni")
 
     val seenRegionIds = mutableSetOf<String>()
     val groupNames = mutableSetOf<String>()
@@ -104,8 +104,8 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
 }
 
 /**
- * Controlli di una sola regione (pacchetti, file, URL consentiti, riquadro e zoom della mappa): gli
- * stessi del manifest intero, usati anche per scartare un frammento non valido senza bloccare le
+ * Controlli di una sola regione (pacchetti, file, URL consentiti, rettangolo e zoom della mappa): gli
+ * stessi di `manifest.json` intero, usati anche per scartare un frammento non valido senza bloccare le
  * altre regioni (selectFragments). Restituisce il regionId.
  */
 private fun validateRouting(routing: JSONObject, key: String, regionId: String, allowedHosts: Set<String>) {
@@ -148,7 +148,7 @@ internal fun validateRegion(region: JSONObject, allowedHosts: Set<String>): Stri
 
     // Civici per regione: voce legacy, congelata (la pipeline non la genera:
     // i civici si pubblicano nella griglia "addressGrid"). Accettata
-    // finche' il manifest pubblicato la porta ancora avanti per le app vecchie.
+    // finche' il `manifest.json` pubblicato la porta ancora avanti per le app vecchie.
     region.optJSONObject("addresses")?.let { addresses ->
         validateVersion(addresses, "$regionId/addresses")
         validateFile(addresses.getJSONObject("file"), regionId, allowedHosts)
@@ -191,7 +191,7 @@ private fun validateFile(file: JSONObject, owner: String, allowedHosts: Set<Stri
     if (!isAllowedUrl(url, allowedHosts)) throw ManifestValidationException("URL non consentito per $owner/$name: $url")
 }
 
-/** transit.json: reti con id unico, regioni, licenza e attribuzione, file consentiti, data di fine e riquadro validi. */
+/** transit.json: reti con id unico, regioni, licenza e attribuzione, file consentiti, data di fine e rettangolo validi. */
 fun validateTransitJson(indexJson: String, allowedHosts: Set<String>) {
     val root = JSONObject(indexJson)
     if (!root.getString("version").matches(safeSegmentRegex)) throw ManifestValidationException("transit.json: version non valida")
@@ -232,7 +232,7 @@ fun validateTransitJson(indexJson: String, allowedHosts: Set<String>) {
  * stesse regole della griglia dell'app (RegionManifest.kt, core/sync), stesso motivo di
  * validateManifestJson sopra. Celle con id valido (z in 0..14, x/y dentro 0..2^z-1), nessuna
  * discendente di un'altra (isAncestorCell, GenerateAddressGrid.kt), ordinate per id, file/fileXz
- * come le altre voci del manifest (anche "search", facoltativo), almeno un'attribuzione.
+ * come le altre voci di `manifest.json` (anche "search", facoltativo), almeno un'attribuzione.
  */
 fun validateAddressGridJson(indexJson: String, allowedHosts: Set<String>) {
     val root = JSONObject(indexJson)
@@ -316,13 +316,13 @@ fun main(allArgs: Array<String>) {
     // (core/sync), duplicato qui di proposito.
     val allowedHosts = setOf(args[1], "brouter.de", "build.protomaps.com", "github.com")
     validateManifestJson(File(args[0]).readText(), allowedHosts)
-    println("manifest valido: ${args[0]}")
+    println("manifest.json valido: ${args[0]}")
     if (args.size == 3) {
         validateAddressGridJson(File(args[2]).readText(), allowedHosts)
         println("indice civici valido: ${args[2]}")
     }
     transitIndex?.let {
         validateTransitJson(File(it).readText(), allowedHosts)
-        println("indice reti valido: $it")
+        println("indice delle reti dei mezzi pubblici valido: $it")
     }
 }

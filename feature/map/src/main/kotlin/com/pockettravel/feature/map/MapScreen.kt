@@ -118,7 +118,7 @@ fun MapScreen(
     // Con "In sedia a rotelle": solo i posti accessibili (anche in parte) e i parcheggi per disabili.
     onlyAccessible: Boolean = false,
     onOnlyAccessibleChange: (Boolean) -> Unit = {},
-    // Apre la navigazione verso il punto scelto; null = niente pulsante "Indicazioni".
+    // Apre la navigazione verso il punto scelto; null = niente pulsante "Percorso".
     onNavigate: ((MapPin) -> Unit)? = null,
     // Orari dei mezzi pubblici nel riquadro di treni, metro, autobus e traghetti: pacchetto della regione,
     // tabellone del POI aperto (null finche' si legge), esito dell'ultimo "Aggiorna", download e il POI di cui leggere le partenze.
@@ -150,7 +150,7 @@ fun MapScreen(
     var selectedPinId by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedPin = pins.firstOrNull { it.id == selectedPinId }
     // Le partenze si leggono solo per un POI di trasporto aperto e con gli orari installati; anche quando
-    // il pacchetto finisce di installarsi con il riquadro aperta.
+    // il pacchetto finisce di installarsi con il riquadro aperto.
     LaunchedEffect(selectedPin, transitPackage) {
         onTransitStopChange(selectedPin?.takeIf { it.category in TRANSIT_CATEGORIES && transitPackage == TransitPackageState.INSTALLED })
     }
@@ -267,7 +267,7 @@ fun MapScreen(
     // regione (gia' ben dentro il bbox estratto) appena sono disponibili. Una tantum (guardia
     // cameraFitted): dopo il primo fit l'utente resta libero di tornare alla vista mondo senza che ogni
     // ricomposizione lo riporti sulla regione.
-    // Con la mappa installata si inquadra il suo riquadro (la zona scelta, per le nazioni grandi): i segnalini
+    // Con la mappa installata si inquadra il suo rettangolo (la zona scelta, per le nazioni grandi): i segnalini
     // sono solo quelli dell'area visibile, non tutti quelli della regione.
     LaunchedEffect(mapView, regionId, pins.isNotEmpty()) {
         if (cameraFitted) return@LaunchedEffect

@@ -44,7 +44,7 @@ import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 
-/** Stato di una nazione sulla mappa delle nazioni, deciso dall'elenco regioni del manifest. */
+/** Stato di una nazione sulla mappa delle nazioni, deciso dall'elenco regioni di `manifest.json`. */
 enum class CountryStatus { DOWNLOADED, AVAILABLE }
 
 /**

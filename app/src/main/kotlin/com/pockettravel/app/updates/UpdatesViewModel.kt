@@ -64,7 +64,7 @@ class UpdatesViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(UpdatesUiState())
     val uiState: StateFlow<UpdatesUiState> = _uiState.asStateFlow()
 
-    // Versione che le guide installate devono avere (dal manifest) e modelli pubblicati: servono a ricontrollare a fine lavoro.
+    // Versione che le guide installate devono avere (dal catalogo) e modelli pubblicati: servono a ricontrollare a fine lavoro.
     private var guidesTargetVersion: String? = null
     private var publishedModels: List<AiModelManifestEntry> = emptyList()
 
@@ -88,7 +88,7 @@ class UpdatesViewModel @Inject constructor(
     }
 
     /**
-     * Rilegge app-status.json (app e modello IA) e il manifest (guide). Il manifest è quello scaricato da poco: "Controlla ora"
+     * Rilegge app-status.json (app e modello IA) e `manifest.json` (guide). `manifest.json` è quello scaricato da poco: "Controlla ora"
      * chiama prima RegionListViewModel.checkForUpdatesNow, che prende il lock di ManifestClient prima di questa chiamata, quindi
      * qui arriva quello nuovo. Senza rete restano i valori di prima.
      */

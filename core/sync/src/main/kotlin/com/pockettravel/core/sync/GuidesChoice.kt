@@ -4,7 +4,7 @@ import com.pockettravel.core.data.currentGuidesLanguage
 
 /**
  * Pacchetto guide da installare e versione con cui registrarlo in installed_guides. Le guide inglesi
- * (quando l'app e' in inglese e il manifest le offre) si registrano come "en-<versione>": escono nella
+ * (quando l'app e' in inglese e il catalogo le offre) si registrano come "en-<versione>": escono nella
  * stessa run di quelle italiane, con la stessa versione, e senza il prefisso cambiare lingua non
  * farebbe riscaricare nulla.
  */
@@ -28,7 +28,7 @@ const val GUIDES_METERED_MAX_BYTES = 5L * 1024 * 1024
 fun isEnglishGuidesVersion(installedVersion: String?): Boolean = installedVersion?.startsWith(ENGLISH_PREFIX) == true
 
 /**
- * Il manifest per la lingua dell'interfaccia: in inglese le citta' di ogni regione sono quelle di
+ * Il `manifest.json` per la lingua dell'interfaccia: in inglese le citta' di ogni regione sono quelle di
  * Wikivoyage EN (citiesEn, se c'e'), con la versione preceduta da "en-" come per le guide. Cosi' tutto
  * il resto (installazione, versioni installate, pacchetti da aggiornare) resta com'e', e dopo un cambio
  * di lingua le citta' installate risultano da aggiornare.
@@ -45,8 +45,8 @@ fun RegionManifest.forLanguage(language: String = currentGuidesLanguage()): Regi
     }
 
 /**
- * true se le citta' della voce (letta da un manifest passato per [forLanguage]) sono quelle per [language]: false se
- * la voce e' stata letta nell'altra lingua, e allora va presa di nuovo dal manifest. In inglese, per una regione
+ * true se le citta' della voce (letta da un `manifest.json` passato per [forLanguage]) sono quelle per [language]: false se
+ * la voce e' stata letta nell'altra lingua, e allora va presa di nuovo dal catalogo. In inglese, per una regione
  * senza citta' inglesi, risulta false anche se non c'e' altro da prendere: rileggerla non cambia niente.
  */
 fun RegionManifestEntry.hasCitiesIn(language: String): Boolean =

@@ -72,7 +72,7 @@ sealed interface AssistantProgress {
 
 /**
  * Orchestrazione dell'assistente nei due motori: "Sul dispositivo" usa la scelta del contesto sulle
- * guide della nazione e delle città in region.db (ricerca full-text come CONTESTO del prompt locale),
+ * guide della nazione e delle città in region.db (ricerca full-text come CONTESTO del prompt sul dispositivo),
  * più la nota personale più pertinente se ce n'è una e, per le domande su cosa c'è "qui vicino" o sui mezzi
  * pubblici, i POI e le prossime partenze attorno all'ultima posizione nota, e per la distanza tra due citta' quella
  * calcolata dalle coordinate (e su strada con la rete stradale scaricata); "Online" invia solo la domanda a un servizio
@@ -208,7 +208,7 @@ class TravelAssistant @Inject constructor(
 
     private class SectionSearch(val sections: List<AssistantSection>, val baseQuery: String, val country: NamedPlace?)
 
-    /** Prompt per il modello locale e fonti da citare: calcolati dal contesto, non dalla risposta. */
+    /** Prompt per il modello sul dispositivo e fonti da citare: calcolati dal contesto, non dalla risposta. */
     private class OnDevicePlan(val prompt: String, val citations: List<String>)
 
     private suspend fun planOnDevice(question: String, sections: List<AssistantSection>, language: String, focusStems: Set<String>): OnDevicePlan {
@@ -264,7 +264,7 @@ class TravelAssistant @Inject constructor(
      * Per una domanda sui vaccini, l'esito calcolato per il viaggio verso la nazione della regione dalla partenza
      * scelta nella schermata Vaccinazioni (altrimenti dalla nazionalita')
      * (stesso testo che il dataset di training mette nel contesto), prima delle sezioni della guida: cosi' il
-     * modello locale non deve indovinare obblighi e consigli. Null se la domanda non parla di vaccini, se mancano
+     * modello sul dispositivo non deve indovinare obblighi e consigli. Null se la domanda non parla di vaccini, se mancano
      * la partenza o il codice paese della regione, se coincidono, o se il pacchetto guide non ha i dati delle vaccinazioni.
      */
     private suspend fun vaccinationSection(regionId: String, question: String, language: String, country: NamedPlace?): AssistantSection? {

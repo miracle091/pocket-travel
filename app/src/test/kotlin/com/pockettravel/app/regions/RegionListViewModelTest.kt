@@ -36,7 +36,7 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
     }
 
     @Test
-    fun `il catalogo letto compare nell'elenco con stato, peso e riquadro`() = runTest {
+    fun `il catalogo letto compare nell'elenco con stato, peso e rettangolo`() = runTest {
         val viewModel = viewModel()
 
         observe(viewModel)
@@ -57,7 +57,7 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
     }
 
     @Test
-    fun `con le indicazioni attive il peso comprende la rete stradale`() = runTest {
+    fun `con i percorsi di navigazione attivi il peso comprende la rete stradale`() = runTest {
         usagePreferences.setWantsDirections(true)
         val viewModel = viewModel()
 
@@ -314,7 +314,7 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
     }
 
     @Test
-    fun `con le indicazioni attive scaricare comprende la rete stradale`() = runTest {
+    fun `con i percorsi di navigazione attivi scaricare comprende la rete stradale`() = runTest {
         usagePreferences.setWantsDirections(true)
         val viewModel = viewModel()
         advanceUntilIdle()

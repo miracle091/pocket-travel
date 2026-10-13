@@ -31,7 +31,7 @@ class RegionAddressGridInstallerTest {
 
     private fun cellFile(name: String) = RegionManifestFile(name, "https://github.com/o/r/releases/download/address-cells-1/$name", 1_000L, sha)
 
-    // Database di ricerca come nel manifest: dimensione e sha256 veri, che la decompressione controlla.
+    // Database di ricerca come nel catalogo: dimensione e sha256 veri, che la decompressione controlla.
     private fun searchDb(name: String, content: String): RegionManifestFile {
         val bytes = content.toByteArray()
         val sha256 = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
@@ -150,7 +150,7 @@ class RegionAddressGridInstallerTest {
     }
 
     @Test
-    fun `una ricerca scaricata senza xz nel manifest si comprime`() {
+    fun `una ricerca scaricata senza xz nel catalogo si comprime`() {
         val (storage, installer) = newStorageAndInstaller()
         val cell = AddressGridCell("12/0/0", "v1", cellFile("cell-a.pmtiles"), search = AddressSearchEntry(searchDb("search-a.db", "contenuto A")))
         val staging = storage.stagingDirectoryFor("san-marino", "v1").apply { mkdirs() }
@@ -165,7 +165,7 @@ class RegionAddressGridInstallerTest {
     }
 
     @Test
-    fun `una ricerca che decompressa supera la dimensione del manifest o non ha il suo sha256 e' rifiutata`() {
+    fun `una ricerca che decompressa supera la dimensione del catalogo o non ha il suo sha256 e' rifiutata`() {
         val unpacked = createTempDirectory("pocket-travel-xz-test").toFile()
         val archive = File(unpacked, "a.db.xz").apply { writeBytes(xzBytes("x".repeat(10_000))) }
 

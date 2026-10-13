@@ -15,7 +15,7 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-// Singleton: la cache dei manifest recenti vale solo se tutti i ViewModel condividono la stessa istanza.
+// Singleton: la cache dei `manifest.json` recenti vale solo se tutti i ViewModel condividono la stessa istanza.
 @Singleton
 class HttpManifestClient @Inject constructor(
     private val okHttpClient: OkHttpClient,
@@ -37,17 +37,17 @@ class HttpManifestClient @Inject constructor(
             if (!response.isSuccessful) {
                 // Errori temporanei del server: IOException, cosi' i worker riprovano.
                 if (isRetryableHttpStatus(response.code)) {
-                    throw IOException("Manifest fetch failed: HTTP ${response.code}")
+                    throw IOException("manifest.json fetch failed: HTTP ${response.code}")
                 }
-                error("Manifest fetch failed: HTTP ${response.code}")
+                error("manifest.json fetch failed: HTTP ${response.code}")
             }
             val bodyBytes = response.body.bytes()
-            if (bodyBytes.isEmpty()) error("Empty manifest response")
-            // Prima di interpretarlo: un manifest con la firma sbagliata e' un fetch fallito (resta la cache).
+            if (bodyBytes.isEmpty()) error("Empty manifest.json response")
+            // Prima di interpretarlo: un `manifest.json` con la firma sbagliata e' un fetch fallito (resta la cache).
             signatureVerifier.verify(SyncConfig.MANIFEST_URL, bodyBytes)
             val body = bodyBytes.decodeToString()
             val parsed = json.decodeFromString(RegionManifest.serializer(), body)
-            sanitizeManifest(parsed) { what, error -> Log.w(TAG, "Voce del manifest scartata: $what", error) }.also { manifest ->
+            sanitizeManifest(parsed) { what, error -> Log.w(TAG, "Voce del catalogo scartata: $what", error) }.also { manifest ->
                 // Ad ogni sync riuscita: feature/map legge solo WorldMapStore, non dipende da core/sync.
                 worldMapStore.save(manifest.worldMap?.url, manifest.worldMap?.maxZoom ?: worldMapStore.worldMapMaxZoom())
                 appCompatibility.update(manifest.minAppVersionCode)
@@ -81,10 +81,10 @@ internal class RecentFetch<T : Any>(private val now: () -> Long) {
 }
 
 /**
- * Scarta le voci non valide invece di far fallire tutto il manifest: senza, una sola voce rotta fermerebbe
+ * Scarta le voci non valide invece di far fallire tutto `manifest.json`: senza, una sola voce rotta fermerebbe
  * elenco e aggiornamenti di tutte le altre. Una regione non valida si toglie dall'elenco; guidesEn, worldMap,
  * addressGrid e transit (facoltativi) diventano null. Ogni scarto e' segnalato a [onDropped] (voce, motivo).
- * Le guide italiane sono obbligatorie: se non valide il manifest fallisce, e resta la cache.
+ * Le guide italiane sono obbligatorie: se non valide la lettura di `manifest.json` fallisce, e resta la cache.
  */
 internal fun sanitizeManifest(manifest: RegionManifest, onDropped: (String, Throwable) -> Unit): RegionManifest {
     manifest.guides.validate()

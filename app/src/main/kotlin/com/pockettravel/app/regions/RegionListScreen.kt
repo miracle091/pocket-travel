@@ -161,7 +161,7 @@ internal data class RegionRowActions(
     val regionsInZone: suspend (zone: RegionZone) -> List<Pair<String, String>> = { emptyList() },
     // La regione e' installata per intero (senza zona): una zona scelta da un'altra nazione non deve ridurla.
     val isInstalledWhole: suspend (regionId: String) -> Boolean = { false },
-    // Per quali mezzi sono la rete stradale (foglio Contenuti, sotto Rete stradale).
+    // Per quali modi e' la rete stradale (foglio Contenuti, sotto Rete stradale).
     val observeRoutingChoice: (regionId: String) -> Flow<RoutingVariantOption> = { flowOf(RoutingVariantOption.ALL) },
     val onRoutingChoiceChange: (regionId: String, choice: RoutingVariantOption) -> Unit = { _, _ -> },
 )
@@ -499,7 +499,7 @@ private fun ContinentHeader(
     }
 }
 
-// Regione installata che il manifest ha diviso in regioni piu' piccole: si apre ancora (i dati sono
+// Regione installata che il catalogo ha diviso in regioni piu' piccole: si apre ancora (i dati sono
 // sul dispositivo), non si aggiorna piu'; "Scegli" porta alle regioni che la sostituiscono.
 @Composable
 private fun ReplacedRegionRow(item: ReplacedRegionItem, onOpen: () -> Unit, onChoose: () -> Unit, onDelete: () -> Unit) {
@@ -766,7 +766,7 @@ private fun RegionUiItem.statusLabel(): Int = when (status) {
 }
 
 // Ordine dei continenti come in regions.sh/assemble-site.sh; un continente sconosciuto va in
-// coda, le regioni senza continente (manifest pubblicati prima del campo) nel gruppo "Altro".
+// coda, le regioni senza continente (cataloghi pubblicati prima del campo) nel gruppo "Altro".
 private val CONTINENT_ORDER = listOf("Europa", "Asia", "Africa", "Nord America", "Sud America", "Oceania")
 
 // Gruppo dell'elenco regioni: prima "Nazioni scaricate" (scaricate o da aggiornare), poi i continenti

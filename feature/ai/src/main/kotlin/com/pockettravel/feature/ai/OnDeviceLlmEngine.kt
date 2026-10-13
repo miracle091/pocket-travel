@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Motore di inferenza on-device: carica il modello scelto e genera le risposte. L'implementazione e'
+ * Motore di inferenza sul dispositivo: carica il modello scelto e genera le risposte. L'implementazione e'
  * [LlamaOnDeviceLlmEngine] (llama.cpp via JNI); nei test la sostituisce un fake.
  */
 interface OnDeviceLlmEngine {

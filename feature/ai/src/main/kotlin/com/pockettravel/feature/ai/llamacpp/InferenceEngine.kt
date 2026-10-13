@@ -108,7 +108,7 @@ class UnsupportedArchitectureException : Exception()
 
 /**
  * Token del prompt e generati nell'ultimo turno, posizione occupata nella KV cache (turni precedenti
- * compresi) e dimensione del contesto, letti dal motore nativo.
+ * compresi) e dimensione del contesto, letti dal codice nativo.
  */
 data class ContextUsage(val promptTokens: Int, val generatedTokens: Int, val usedTokens: Int, val contextSize: Int)
 

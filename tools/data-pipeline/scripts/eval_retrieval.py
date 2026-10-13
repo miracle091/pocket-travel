@@ -4,9 +4,9 @@ e senza app.
 
 Replica in Python TravelAssistant.kt (buildFtsQuery, namedCities, rankSections, focusStems, selectContext) e
 FtsRanking.kt (BM25 su matchinfo 'pcxnal' con le statistiche delle due tabelle sommate): se cambiano li', va cambiato
-anche qui. Per ogni regione scarica guides.db e il cities.db pubblicati (manifest), aggiunge Storia e Clima da
+anche qui. Per ogni regione scarica guides.db e il cities.db pubblicati (`manifest.json`), aggiunge Storia e Clima da
 Wikipedia (city_wikipedia.py + generateCities, come build-cities.sh) se il cities.db pubblicato non li ha ancora,
-e fa domande costruite da modelli fissi:
+e fa domande costruite da schemi di domanda fissi:
 - citta', domande pratiche ("Dove dormire a {citta'}?", "Cosa si mangia a {citta'}?"): attesa la sezione della
   categoria di quella citta';
 - distanze ("Quanto dista {citta'} da {altra}?"): attesa la sezione TRASPORTI della prima citta' e nel contesto il
@@ -35,7 +35,7 @@ della sezione attesa, per far rispondere il modello con eval_gguf.py --contexts 
 Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|dev|other-lang|control|general|other-country] [--regions italia ...]
 [--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists] [--before-rag] [--contexts FILE [--contexts-sample N]]
 (la cache dei file scaricati sta di default nella cartella temporanea di sistema)
-Richiede rete (manifest, release, API di Wikipedia) e, per Storia e Clima, il gradle wrapper dalla root del repo.
+Richiede rete (`manifest.json`, release, API di Wikipedia) e, per Storia e Clima, il gradle wrapper dalla root del repo.
 """
 import argparse
 import json
@@ -381,7 +381,7 @@ GENERAL_Q = {
         ("Is it customary to tip taxi drivers?", "Tipping"),
     ],
 }
-# Per lingua: domande dirette e riformulate (citta', storia e clima, paese, distanze), chiavi del manifest e suffisso
+# Per lingua: domande dirette e riformulate (citta', storia e clima, paese, distanze), chiavi di `manifest.json` e suffisso
 # dei file in cache.
 LANGS = {
     "it": {"questions": (CITY_Q, WIKI_Q, COUNTRY_Q, DISTANCE_Q),
@@ -820,7 +820,7 @@ def distance_pairs(city_rows):
 
 
 def questions_of(lang, question_set):
-    """I modelli di domanda (citta', storia e clima, paese, distanze) di [question_set] per le guide in [lang]."""
+    """Gli schemi di domanda (citta', storia e clima, paese, distanze) di [question_set] per le guide in [lang]."""
     if question_set == "other-lang":
         return LANGS[LANGS[lang]["other"]]["questions"]
     return LANGS[lang][question_set if question_set in ("reworded", "dev", "control") else "questions"]
@@ -828,7 +828,7 @@ def questions_of(lang, question_set):
 
 def make_plan(region, city_rows, rng, pick, questions):
     """(tipo, categoria attesa, citta' attesa o None, domanda, paragrafo atteso o None) per la regione: citta' e coppie
-    scelte con [rng], modelli di [questions] con [pick], cosi' citta' e coppie non cambiano con i modelli."""
+    scelte con [rng], schemi di domanda di [questions] con [pick], cosi' citta' e coppie non cambiano con gli schemi."""
     city_q, wiki_q, country_q, distance_q = questions
     cats = defaultdict(set)
     for city, cat, *_ in city_rows:

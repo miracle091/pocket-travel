@@ -5,7 +5,7 @@ Le cose da sapere per lavorare su Pocket Travel. Il **perché** delle scelte tec
 ## Cosa serve
 
 - Android Studio con JDK 17 o successivo (Gradle è già incluso nel repository).
-- Per la pipeline dei dati: bash, `jq`, `xz`, Python 3 (per i civici di Overture anche il pacchetto `duckdb`).
+- Per la pipeline dei dati: bash, `jq`, `xz`, Python 3 (per i numeri civici di Overture anche il pacchetto `duckdb`).
 - Per addestrare i modelli dell'assistente: una GPU (AMD con ROCm o NVIDIA con CUDA) e PyTorch, meglio con Unsloth (senza, si usa peft). Si lancia `tools/data-pipeline/scripts/train_auto.py`, che sceglie da solo GPU e backend; su Linux/WSL con NVIDIA c'è anche `run_train_nvidia.sh`. Su WSL il desktop di Windows occupa parte della memoria della GPU: si aggiunge `--max-vram-held 25`. Il dataset di addestramento (v10: di default con una parte di domande in stile utente, più `--nearby` per gli esempi sui punti di interesse vicini e sulle partenze, `--distances` per le domande sulla distanza tra due città, `--cities-db` per storia e clima delle città, `--emergency` per i numeri di emergenza; in italiano o in inglese) si genera con `generate_sft.py --lang it|en`; le sezioni mancanti in una lingua si traducono dall'altra con `translate_dataset.py` (MarianMT, anche su GPU).
 
 ## Compilare e provare
@@ -103,7 +103,7 @@ adb shell cmd locale set-app-locales com.pockettravel.app --locales en   # o it
 | cosa finisce nei pacchetti | `tools/data-pipeline/scripts/` e `tools/data-pipeline/content/` |
 | l'elenco delle regioni | `tools/data-pipeline/scripts/regions.sh`, poi `generate-weekly-schedule.sh` |
 | i numeri civici (celle da ~10 MB) | `tools/data-pipeline/scripts/build-address-cell.sh` e il seme `tools/data-pipeline/address-grid-seed.tsv` |
-| le fonti Overture dei civici | `tools/data-pipeline/overture-address-sources.tsv` (una fonte nuova resta fuori finché non la si rivede) |
+| le fonti Overture dei numeri civici | `tools/data-pipeline/overture-address-sources.tsv` (una fonte nuova resta fuori finché non la si rivede) |
 | i modelli dell'assistente | `feature/ai/.../LlmModelCatalog.kt` (ogni modello addestrato ha la sua lingua) e gli script `train_*.py` / `eval_*.py`; un GGUF ricaricato con lo stesso nome si pubblica con `upload_hf.py --push --update-app-status`, che aggiorna le impronte in `app-status.json` senza rilasciare l'app. Nelle build di debug il menu (⋯) della scheda IA ha il benchmark e il task manager dei modelli (memoria, CPU, contesto, velocità, log esportabili) |
 | percorsi e navigazione | `feature/map/.../BRouterRouteEngine.kt`, `NavigationScreen.kt`, `NavigationTracker.kt`; le aggiunte a BRouter sono segnate "Pocket Travel" in `third-party/brouter-core` |
 | i testi dell'app | `res/values/strings.xml` (italiano) e `res/values-en/strings.xml` (inglese) di ogni modulo |

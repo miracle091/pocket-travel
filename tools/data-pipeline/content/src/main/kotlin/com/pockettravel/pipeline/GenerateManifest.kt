@@ -8,7 +8,7 @@ import java.security.MessageDigest
 import java.time.Instant
 
 /** sourceKey: solo per i .rd5 ritagliati sulla regione (clip_rd5.py), "<dimensione del file originale
- *  di brouter.de> <riquadro> <margine>"; build-region.sh la confronta con quella attesa per capire se
+ *  di brouter.de> <rettangolo> <margine>"; build-region.sh la confronta con quella attesa per capire se
  *  la tile va riscaricata o ritagliata di nuovo (sizeBytes e' quella del file ritagliato). Non letto dall'app. */
 data class ManifestFileEntry(val name: String, val url: String, val sizeBytes: Long, val sha256: String, val sourceKey: String? = null)
 
@@ -55,7 +55,7 @@ private fun MapSourceInput.toJson(): JSONObject = JSONObject()
     .put("maxZoom", maxZoom)
 
 /**
- * Frammento manifest (schema v2, vedi RegionManifest.kt in core/sync) di una regione rigenerata
+ * Frammento di catalogo (schema v2, vedi RegionManifest.kt in core/sync) di una regione rigenerata
  * per intero: i tre pacchetti della regione (mappa, rete stradale, POI) hanno ciascuno la propria
  * versione, qui tutte uguali perche' appena rigenerati insieme. I segmenti .rd5 non sono file
  * locali per QUESTO tool (a differenza di poi.db) — il chiamante li passa gia' come
@@ -100,7 +100,7 @@ fun buildRegionFragmentJson(
 }
 
 /**
- * Frammento manifest del pacchetto guide unico (vedi build-guides.sh): nessuna regione, solo la
+ * Frammento di catalogo del pacchetto guide unico (vedi build-guides.sh): nessuna regione, solo la
  * voce "guides". wikivoyageUrls (regionId -> pagina da cui viene la guida) non e' letto dall'app:
  * mergeManifests lo scrive nel campo wikivoyageUrl di ogni regione per la pagina index.html del sito.
  */
@@ -179,5 +179,5 @@ fun main(args: Array<String>) {
     }
     require(args.size == 2) { "Uso: generateManifest <spec.json> <output frammento.json>" }
     File(args[1]).writeText(buildRegionFragmentJsonFromSpec(File(args[0]).readText()))
-    println("frammento manifest scritto in ${args[1]}")
+    println("frammento di catalogo scritto in ${args[1]}")
 }

@@ -17,7 +17,7 @@ private val BYTE_UNITS = listOf("B", "KB", "MB", "GB", "TB")
 
 /**
  * Una generazione del modello: tempi misurati in Kotlin e [context] (token del prompt e generati, contesto
- * occupato) letto dal motore nativo a fine turno; [context] e' null se il motore non l'ha fornito.
+ * occupato) letto dal codice nativo a fine turno; [context] e' null se il codice nativo non l'ha fornito.
  */
 data class GenerationStats(
     val modelId: String?,

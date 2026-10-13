@@ -80,8 +80,8 @@ private fun String.toIntOrNullStrict(): Int? = if (isEmpty()) null else toInt()
 /**
  * Dati vaccinali curati a mano (i file TSV di resources/vaccinations, uno per regola; fonti e licenze nelle
  * righe `#` di ciascun file). Sono fatti per paese (ISO 3166-1 alpha-2 minuscolo, come il flagCode
- * delle regioni) riformulati, non testo copiato dalle fonti. Il calcolo del
- * percorso lo fa l'app: qui si pubblicano solo le righe.
+ * delle regioni) riformulati, non testo copiato dalle fonti. Il calcolo per il
+ * viaggio lo fa l'app: qui si pubblicano solo le righe.
  */
 object VaccinationData {
     val yfRisk: List<YfRiskRow> by lazy {

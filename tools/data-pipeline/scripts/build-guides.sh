@@ -8,7 +8,7 @@
 # Uso: build-guides.sh <version> <assetBaseUrl> <outputDir> [publishedManifestUrl] [it|en]
 #
 # Con "en" (default "it"): guida inglese dalle pagine di Wikivoyage EN, asset guides-en--<version>--
-# guides.db.xz e voce "guidesEn" del manifest (l'app la scarica quando e' in inglese). Stessi
+# guides.db.xz e voce "guidesEn" di `manifest.json` (l'app la scarica quando e' in inglese). Stessi
 # guides.db.xz/manifest-fragment.json in <outputDir>: si usa una cartella diversa per lingua.
 #
 # Scrive sempre <outputDir>/manifest-fragment.json. <outputDir>/guides.db e guides.db.xz esistono
@@ -173,7 +173,7 @@ published_unreadable() {
 }
 if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
   if ! curl -sSf --max-time 120 --speed-limit 1000 --speed-time 30 --retry 5 --retry-all-errors --retry-delay 5 -o "$WORKDIR/published-manifest.json" "$PUBLISHED_MANIFEST_URL" 2>/dev/null; then
-    published_unreadable "manifest pubblicato non scaricato"
+    published_unreadable "manifest.json pubblicato non scaricato"
   else
     PUBLISHED_URL="$(jq -r --arg k "$MANIFEST_KEY" '.[$k].file.url // ""' "$WORKDIR/published-manifest.json")"
     PUBLISHED_VERSION="$(jq -r --arg k "$MANIFEST_KEY" '.[$k].version // ""' "$WORKDIR/published-manifest.json")"
@@ -181,7 +181,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
     if [ -n "$PUBLISHED_URL" ]; then
       # guides.file.url punta al .xz pubblicato (stesso url di fileXz, vedi sezione 4): lo si
       # decomprime dopo il download per riottenere il database vero, letto piu' sotto da
-      # generateGuides. Se punta ancora a un guides.db grezzo (manifest nello schema precedente,
+      # generateGuides. Se punta ancora a un guides.db grezzo (`manifest.json` nello schema precedente,
       # prima di questo .xz) si usa cosi' com'e'.
       DOWNLOAD_TARGET="$WORKDIR/published-guides.db"
       [[ "$PUBLISHED_URL" == *.xz ]] && DOWNLOAD_TARGET="$WORKDIR/published-guides.db.xz"
@@ -292,7 +292,7 @@ GUIDES_ARGS="--general-guide \"$(winpath "$GENERAL_GUIDE_TSV")\" $GUIDES_ARGS"
 [ -n "$PUBLISHED_DB" ] && GUIDES_ARGS="$GUIDES_ARGS \"$(winpath "$PUBLISHED_DB")\""
 ./gradlew -q :tools:data-pipeline:content:generateGuides --args="$GUIDES_ARGS"
 
-# --- 4. Frammento manifest ------------------------------------------------------------------------
+# --- 4. Frammento di catalogo ---------------------------------------------------------------------
 # guides.db si pubblica solo compresso (guides--<version>--guides.db.xz, come poi.db/preview.pmtiles
 # in build-region.sh): "file" e "fileXz" condividono lo stesso url, "file" descrive pero' il
 # contenuto decompresso (nome/dimensione/sha256 che l'app ricontrolla dopo il download).

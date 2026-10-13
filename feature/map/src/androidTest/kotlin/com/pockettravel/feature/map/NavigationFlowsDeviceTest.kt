@@ -161,7 +161,7 @@ class NavigationFlowsDeviceTest {
         composeRule.onNodeWithContentDescription(string(R.string.usage_mode_bike)).assertDoesNotExist()
     }
 
-    // Planner: anteprima
+    // Planner: anteprima del percorso
 
     @Test
     fun aReadyRouteFromMyPositionCanStart() {

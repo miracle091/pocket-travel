@@ -3,7 +3,7 @@ package com.pockettravel.feature.map
 import kotlin.math.abs
 import kotlin.math.ceil
 
-/** Mezzo scelto nella schermata di navigazione: stessi profili BRouter dei modi. */
+/** Modo scelto nella schermata di navigazione: stessi profili BRouter dei modi di [UsageMode]. */
 enum class RouteProfile(val routingProfile: String) {
     WALK("shortest"),
     BIKE("trekking"),
@@ -11,7 +11,7 @@ enum class RouteProfile(val routingProfile: String) {
     ;
 
     companion object {
-        /** Il mezzo iniziale segue i modi: con auto o camper in auto, altrimenti con la bici in bici, il resto a piedi. */
+        /** Il modo iniziale segue i modi scelti: con auto o camper in auto, altrimenti con la bici in bici, il resto a piedi. */
         fun from(usageModes: Set<UsageMode>): RouteProfile = when {
             UsageMode.AUTO in usageModes || UsageMode.CAMPER in usageModes -> CAR
             UsageMode.BICI in usageModes -> BIKE
@@ -28,7 +28,7 @@ data class BRouterProfile(val profile: String, val params: Map<String, String> =
 /**
  * A piedi con "In sedia a rotelle" si usa il profilo in sedia a rotelle: scale vietate, oppure molto
  * penalizzate se l'utente accetta qualche gradino ([allowSteps], variabile allow_steps del profilo).
- * Bici e auto restano quelle del mezzo.
+ * Bici e auto restano quelle del modo.
  */
 /**
  * Le regioni con la rete stradale utile per [mode]: quelle con la rete stradale solo auto ([carOnly], RoutingVariantPreferences)
@@ -146,16 +146,16 @@ const val RECENT_ARRIVAL_MILLIS = 2 * 60_000L
 fun isRecentArrival(arrivedAtMillis: Long?, nowMillis: Long): Boolean =
     arrivedAtMillis != null && nowMillis - arrivedAtMillis in 0..RECENT_ARRIVAL_MILLIS
 
-/** Regione installata con la rete stradale e riquadro della sua mappa (null se non si legge). */
+/** Regione installata con la rete stradale e rettangolo della sua mappa (null se non si legge). */
 data class RoutingRegion(val regionId: String, val bounds: MapBounds?)
 
 /** Attorno a partenza e arrivo, per le regioni vicine al confine: circa 5 km. */
 private const val NAVIGATION_MARGIN_DEGREES = 0.05
 
 /**
- * Le regioni della navigazione: quelle con la rete stradale installata il cui riquadro tocca il riquadro di
+ * Le regioni della navigazione: quelle con la rete stradale installata il cui rettangolo tocca il rettangolo di
  * partenza e arrivo, allargato di qualche km. Con una sola non si uniscono segmenti. La regione da cui
- * si e' partiti ([regionId]) viene per prima, e resta l'unica se nessun riquadro tocca: cosi' la
+ * si e' partiti ([regionId]) viene per prima, e resta l'unica se nessun rettangolo tocca: cosi' la
  * mancanza dei dati si vede come "Scarica la rete stradale".
  */
 fun navigationRegionIds(regionId: String, candidates: List<RoutingRegion>, from: RoutePoint, to: RoutePoint): List<String> {
@@ -166,7 +166,7 @@ fun navigationRegionIds(regionId: String, candidates: List<RoutingRegion>, from:
     val touching = candidates
         .filter { region -> region.bounds?.let { it.minLon <= maxLon && it.maxLon >= minLon && it.minLat <= maxLat && it.maxLat >= minLat } == true }
         .map { it.regionId }
-    // La regione di partenza con la rete stradale ma senza riquadro leggibile (niente mappa ne' mappa d'insieme) resta.
+    // La regione di partenza con la rete stradale ma senza rettangolo leggibile (niente mappa ne' mappa d'insieme) resta.
     val startWithoutBounds = candidates.any { it.regionId == regionId && it.bounds == null }
     return (if (startWithoutBounds) touching + regionId else touching).ifEmpty { listOf(regionId) }.sortedBy { it != regionId }
 }
@@ -185,9 +185,9 @@ fun straightLinePoints(from: RoutePoint, to: RoutePoint): List<RoutePoint> {
 }
 
 /**
- * La linea da partenza ad arrivo esce dai riquadri delle regioni con la rete stradale ([candidates], allargati del
+ * La linea da partenza ad arrivo esce dai rettangoli delle regioni con la rete stradale ([candidates], allargati del
  * margine): manca la rete stradale delle nazioni in mezzo, e BRouter fallirebbe dopo un lungo calcolo con un errore
- * generico. Con una regione senza riquadro non si giudica (false) e decide BRouter.
+ * generico. Con una regione senza rettangolo non si giudica (false) e decide BRouter.
  */
 fun leavesRoutingRegions(candidates: List<RoutingRegion>, from: RoutePoint, to: RoutePoint): Boolean {
     val bounds = candidates.map { it.bounds ?: return false }

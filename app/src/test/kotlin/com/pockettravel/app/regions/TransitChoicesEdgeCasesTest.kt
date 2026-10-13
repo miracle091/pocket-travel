@@ -146,7 +146,7 @@ class TransitChoicesEdgeCasesTest {
     }
 
     @Test
-    fun `una rete senza riquadro non si puo' dire vicina`() {
+    fun `una rete senza rettangolo non si puo' dire vicina`() {
         val noBox = TransitIndex("v1", manyFeeds.map { it.copy(bbox = null) })
 
         val choices = effectiveTransitChoices(listOf(uk), noBox, emptyMap(), london)

@@ -288,8 +288,8 @@ private fun MapLightRow(light: Boolean, enabled: Boolean, onChange: (Boolean) ->
     )
 }
 
-// Sotto la rete stradale: per quali mezzi. Auto = solo le strade per l'auto (circa il 60% del peso); bici e piedi e tutti i
-// mezzi = la rete stradale completa (una rete solo per bici e piedi peserebbe quasi uguale). Cambiare variante con la rete
+// Sotto la rete stradale: per quali modi. Auto = solo le strade per l'auto (circa il 60% del peso); bici e piedi e tutti i
+// modi = la rete stradale completa (una rete solo per bici e piedi peserebbe quasi uguale). Cambiare variante con la rete
 // stradale installata la riscarica.
 @Composable
 private fun RoutingChoiceRow(choice: RoutingVariantOption, enabled: Boolean, onChange: (RoutingVariantOption) -> Unit) {
@@ -316,7 +316,7 @@ private fun RoutingChoiceRow(choice: RoutingVariantOption, enabled: Boolean, onC
     )
 }
 
-/** Per quali mezzi e' la rete stradale di una regione: solo [CAR] scarica la variante "solo auto". */
+/** Per quali modi e' la rete stradale di una regione: solo [CAR] scarica la variante "solo auto". */
 enum class RoutingVariantOption(@StringRes val label: Int, @StringRes val detail: Int) {
     CAR(R.string.package_routing_car, R.string.package_routing_car_only_detail),
     BIKE_FOOT(R.string.package_routing_bike_foot, R.string.package_routing_bike_foot_detail),
@@ -370,7 +370,7 @@ private fun TransitMissingNote(missing: List<TransitMissing>) {
     }
 }
 
-// Pacchetto che il manifest non offre per la regione: nessuna azione, solo il motivo. "regione" solo per una parte di
+// Pacchetto che il catalogo non offre per la regione: nessuna azione, solo il motivo. "regione" solo per una parte di
 // una nazione divisa, come in zoneLabel; altrimenti "nazione" (es. San Marino).
 @Composable
 private fun UnavailablePackageRow(kind: PackageKind, splitCountry: Boolean) {

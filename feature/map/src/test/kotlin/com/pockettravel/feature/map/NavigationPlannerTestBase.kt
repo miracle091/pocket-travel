@@ -85,7 +85,7 @@ abstract class NavigationPlannerTestBase {
         return created.viewModel
     }
 
-    // Destinazione [to] con partenza da un posto scelto: l'anteprima non ha bisogno del GPS.
+    // Destinazione [to] con partenza da un posto scelto: l'anteprima del percorso non ha bisogno del GPS.
     protected fun NavigationPlannerViewModel.plan(to: NavigationPlace, from: NavigationPlace = duomo) {
         setDestination(to)
         startSearch(PlannerField.FROM)

@@ -47,7 +47,7 @@ import com.pockettravel.core.ui.R as UiR
 
 /**
  * Tab Navigazione dell'hub, sul modello delle app di navigazione: la mappa a tutto schermo, in alto
- * la ricerca della destinazione (poi partenza, arrivo e mezzo), in basso un pannello con i recenti o con
+ * la ricerca della destinazione (poi partenza, arrivo e modo), in basso un pannello con i recenti o con
  * tempo, distanza, "Avvia" e le svolte del percorso. La ricerca occupa tutto lo schermo, come in
  * Google Maps. In navigazione la scheda mostra la navigazione passo passo (NavigationInstructions).
  */
@@ -61,7 +61,7 @@ fun NavigationPlannerScreen(
     navigationViewModel: NavigationViewModel,
     // Senza la rete stradale della regione: avvia il download (l'hub lo sa fare), il ricalcolo poi e' automatico.
     // Con gli id di altre regioni: quelle del catalogo tra partenza e arrivo (vuota = la regione aperta).
-    // carOnlyAllowed: il mezzo e' l'auto, quindi basta la rete stradale solo auto se l'utente li ha scelti.
+    // carOnlyAllowed: il modo e' l'auto, quindi basta la rete stradale solo auto se l'utente li ha scelti.
     onDownloadRouting: (regionIds: List<String>, carOnlyAllowed: Boolean) -> Unit,
     // Avanzamento 0..1 del download in corso, null se nessuno: la barra come nell'elenco delle regioni.
     downloadProgress: Float?,
@@ -89,7 +89,7 @@ fun NavigationPlannerScreen(
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        // L'anteprima da "La mia posizione" e il GPS vogliono la posizione precisa: con la sola approssimativa no.
+        // L'anteprima del percorso da "La mia posizione" e il GPS vogliono la posizione precisa: con la sola approssimativa no.
         viewModel.onPermissionResult(result[Manifest.permission.ACCESS_FINE_LOCATION] == true)
     }
     val requestPermission = {
@@ -114,7 +114,7 @@ fun NavigationPlannerScreen(
     // senza bloccare la partenza se viene negato.
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
-    // In navigazione la scheda e' il navigatore: mappa a tutto schermo e indicazioni (NavigationInstructions).
+    // In navigazione la scheda e' il navigatore: mappa a tutto schermo e svolte (NavigationInstructions).
     val guiding = navigation.target
     // Destinazione appena raggiunta: la navigazione si chiude da sola e il Navigatore lo dice con un avviso.
     var arrivedAt by rememberSaveable { mutableStateOf<String?>(null) }
@@ -135,7 +135,7 @@ fun NavigationPlannerScreen(
             }
         }
         BackHandler(onBack = navigationViewModel::stop)
-        // Rete stradale mancante a meta' strada: come nell'anteprima, la regione da scaricare; a download finito si riprova da soli.
+        // Rete stradale mancante a meta' strada: come nell'anteprima del percorso, la regione da scaricare; a download finito si riprova da soli.
         val navigationNoRouting = (navigationState as? NavigationStatus.Unavailable)?.result == RouteResult.NoRoutingData
         var navigationMissing by remember { mutableStateOf(emptyList<MissingRegion>()) }
         LaunchedEffect(navigationNoRouting, routingRegionIds) {
@@ -216,7 +216,7 @@ fun NavigationPlannerScreen(
                 if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
-                // Il percorso gia' calcolato nell'anteprima non si ricalcola da zero (se la posizione e' sul percorso).
+                // Il percorso gia' calcolato per l'anteprima del percorso non si ricalcola da zero (se la posizione e' sul percorso).
                 to?.let { navigationViewModel.start(regionId ?: it.regionId, it, routeProfile, arriveBy, preview as? PlannerPreview.Ready) }
             },
             onSwap = viewModel::swap,

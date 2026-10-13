@@ -349,7 +349,7 @@ class PoiRepositoryEdgeCasesTest {
     }
 
     @Test
-    fun `nearby chiede un riquadro di 600 metri attorno alla posizione`() = runBlocking {
+    fun `nearby chiede un rettangolo di 600 metri attorno alla posizione`() = runBlocking {
         val dao = RecordingDao()
         PoiRepository(dao).nearby(listOf("italia"), 60.0, 10.0)
 
@@ -357,7 +357,7 @@ class PoiRepositoryEdgeCasesTest {
         val dLat = 600.0 / 111_320.0
         assertEquals(60.0 - dLat, args["minLat"] as Double, 1e-9)
         assertEquals(60.0 + dLat, args["maxLat"] as Double, 1e-9)
-        // A 60 gradi il grado di longitudine e' lungo la meta': il riquadro e' largo il doppio.
+        // A 60 gradi il grado di longitudine e' lungo la meta': il rettangolo e' largo il doppio.
         assertEquals(10.0 - 2 * dLat, args["minLon"] as Double, 1e-6)
         assertEquals(10.0 + 2 * dLat, args["maxLon"] as Double, 1e-6)
         assertEquals(cos(Math.toRadians(60.0)) * cos(Math.toRadians(60.0)), args["lonScale"] as Double, 1e-9)
@@ -365,7 +365,7 @@ class PoiRepositoryEdgeCasesTest {
     }
 
     @Test
-    fun `nearby ai poli non divide per zero e il riquadro resta finito`() = runBlocking {
+    fun `nearby ai poli non divide per zero e il rettangolo resta finito`() = runBlocking {
         val dao = RecordingDao()
         PoiRepository(dao).nearby(listOf("antartide"), 90.0, 0.0)
 

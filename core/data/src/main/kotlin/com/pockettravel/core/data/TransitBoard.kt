@@ -282,7 +282,7 @@ internal fun wheelchairOf(value: String?): Boolean? = when (value) {
 }
 
 /**
- * Fermate del gruppo del punto: quelle entro [TRANSIT_STOP_RADIUS_M] (riquadro in microgradi, poi
+ * Fermate del gruppo del punto: quelle entro [TRANSIT_STOP_RADIUS_M] (rettangolo in microgradi, poi
  * distanza), con le loro stazioni (parent) e tutte le banchine di quelle stazioni. Per una stazione senza
  * fermate cosi' vicine, il gruppo della fermata piu' vicina entro [TRANSIT_STATION_RADIUS_M] servita da uno dei
  * [stationModes]. Vuoto se nessuna.

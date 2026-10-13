@@ -2,7 +2,7 @@
 # Lancia build-region.sh per tutte le regioni dell'elenco — vedi
 # regions.sh per l'elenco e le note su bbox/Stati Uniti non contigui. Esecuzione locale
 # "tutto fresco"; il workflow publish-regions.yml usa lo stesso regions.sh ma permette di
-# selezionare un sottoinsieme e unisce col manifest gia' pubblicato (assemble-site.sh).
+# selezionare un sottoinsieme e unisce col `manifest.json` gia' pubblicato (assemble-site.sh).
 #
 # guides.db, poi.db e i .rd5 non vivono su GitHub Pages (limite di 1GB per l'intero sito, sforato
 # con la copertura mondiale di regions.sh) ma sugli asset delle release "region-data*" —

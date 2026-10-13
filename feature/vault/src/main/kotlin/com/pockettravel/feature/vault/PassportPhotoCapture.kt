@@ -165,7 +165,7 @@ internal fun DocumentCameraCaptureScreen(
                             val preview = Preview.Builder().build()
                                 .also { it.surfaceProvider = previewView.surfaceProvider }
                             provider.unbindAll()
-                            // Tablet o Chromebook senza fotocamera posteriore (la fotocamera non e' obbligatoria nel manifest).
+                            // Tablet o Chromebook senza fotocamera posteriore (la fotocamera non e' obbligatoria in `AndroidManifest.xml`).
                             runCatching {
                                 provider.bindToLifecycle(
                                     lifecycleOwner,

@@ -101,7 +101,7 @@ private const val METERS_PER_KILOMETER = 1_000
 
 /**
  * Zoom che segue la posizione: vicino alla svolta si vede l'incrocio, lontano la strada davanti
- * (in autostrada la prossima svolta puo' essere a decine di km). Fuori dal riquadro della mappa
+ * (in autostrada la prossima svolta puo' essere a decine di km). Fuori dal rettangolo della mappa
  * scaricata ([insideRegion] falso) al massimo [OUTSIDE_REGION_MAX_ZOOM].
  */
 internal fun followZoom(distanceToNextMeters: Double, insideRegion: Boolean): Double {

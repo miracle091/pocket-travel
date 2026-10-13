@@ -17,7 +17,7 @@ class MapFingerprintTest {
     private val fixture = File("testdata/san-marino-center-z15.pmtiles")
 
     @Test
-    fun `l'impronta conta le tile del riquadro ed e' stabile`() {
+    fun `l'impronta conta le tile del rettangolo ed e' stabile`() {
         val first = mapFingerprint(fileRangeReader(fixture), 12.40, 43.89, 12.52, 43.99, 15, 15)
         val second = mapFingerprint(fileRangeReader(fixture), 12.40, 43.89, 12.52, 43.99, 15, 15)
 
@@ -27,7 +27,7 @@ class MapFingerprintTest {
     }
 
     @Test
-    fun `un riquadro senza tile da' un'impronta diversa`() {
+    fun `un rettangolo senza tile da' un'impronta diversa`() {
         val sanMarino = mapFingerprint(fileRangeReader(fixture), 12.40, 43.89, 12.52, 43.99, 15, 15)
         val elsewhere = mapFingerprint(fileRangeReader(fixture), 0.0, 0.0, 0.01, 0.01, 15, 15)
 
@@ -36,8 +36,8 @@ class MapFingerprintTest {
     }
 
     @Test
-    fun `un id per ogni tile del riquadro, ordinati`() {
-        // A z0 e z1 un riquadro piccolo cade in una sola tile per livello.
+    fun `un id per ogni tile del rettangolo, ordinati`() {
+        // A z0 e z1 un rettangolo piccolo cade in una sola tile per livello.
         val ids = tileIdsIn(12.44, 43.92, 12.46, 43.94, 0, 1)
 
         assertEquals(2, ids.size)
@@ -53,7 +53,7 @@ class MapFingerprintTest {
     }
 
     @Test
-    fun `un riquadro ridotto a un punto occupa una sola tile per livello`() {
+    fun `un rettangolo ridotto a un punto occupa una sola tile per livello`() {
         val ids = tileIdsIn(12.45, 43.94, 12.45, 43.94, 5, 7)
 
         assertEquals(3, ids.size)
@@ -61,7 +61,7 @@ class MapFingerprintTest {
     }
 
     @Test
-    fun `gli id non hanno duplicati e il conteggio cresce con il riquadro`() {
+    fun `gli id non hanno duplicati e il conteggio cresce con il rettangolo`() {
         val small = tileIdsIn(12.40, 43.89, 12.52, 43.99, 12, 12)
         val large = tileIdsIn(10.0, 42.0, 14.0, 45.0, 12, 12)
 
@@ -85,7 +85,7 @@ class MapFingerprintTest {
     }
 
     @Test
-    fun `un'impronta su un riquadro piu' piccolo non ha piu' tile di quella sul riquadro intero`() {
+    fun `un'impronta su un rettangolo piu' piccolo non ha piu' tile di quella sul rettangolo intero`() {
         val full = mapFingerprint(fileRangeReader(fixture), 12.40, 43.89, 12.52, 43.99, 15, 15)
         val part = mapFingerprint(fileRangeReader(fixture), 12.44, 43.92, 12.46, 43.94, 15, 15)
 

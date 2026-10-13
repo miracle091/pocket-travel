@@ -268,7 +268,7 @@ class GenerateTransitTest {
     }
 
     @Test
-    fun `statistiche del feed di prova - linee, orari e riquadro delle fermate`() {
+    fun `statistiche del feed di prova - linee, orari e rettangolo delle fermate`() {
         val stats = generateTransit(zipOf("stat.zip", feed), tmp.root.resolve("stat.db"), "mdb-1", monday, 7)
 
         assertEquals(1, stats.routes)
@@ -278,7 +278,7 @@ class GenerateTransitTest {
     }
 
     @Test
-    fun `senza fermate il riquadro e' nullo`() {
+    fun `senza fermate il rettangolo e' nullo`() {
         val noStops = miniFeed(
             trips = "route_id,service_id,trip_id\nR1,FERIALE,T1",
             stopTimes = "trip_id,arrival_time,departure_time,stop_id,stop_sequence\nT1,08:00:00,08:00:00,A,1",

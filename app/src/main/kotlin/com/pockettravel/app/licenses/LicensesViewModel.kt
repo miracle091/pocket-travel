@@ -17,7 +17,7 @@ import javax.inject.Inject
 
 /**
  * Fonti dei civici a griglia (`attributions` di address-grid.json) e reti dei mezzi pubblici (transit.json):
- * un errore (rete, manifest senza addressGrid) lascia semplicemente la lista vuota, la schermata
+ * un errore (rete, `manifest.json` senza addressGrid) lascia semplicemente la lista vuota, la schermata
  * mostra comunque le licenze statiche di [thirdPartyLicenses].
  */
 @HiltViewModel
@@ -34,7 +34,7 @@ class LicensesViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            // Un solo manifest per entrambe le liste.
+            // Un solo `manifest.json` per entrambe le liste.
             val manifest = runCatchingCancellable { manifestClient.recentManifest() }.getOrNull() ?: return@launch
             launch {
                 val attributions = runCatchingCancellable {

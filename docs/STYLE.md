@@ -65,7 +65,8 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Concetto | Italiano | Inglese |
 |---|---|---|
 | Paese o territorio scaricabile | nazione (elenco), regione (unita' che si scarica) | country, region |
-| Riquadro di una regione scaricato al posto della regione intera | zona | zone |
+| Rettangolo di una regione scaricato al posto della regione intera | zona | zone |
+| Rettangolo geografico di una regione, di una zona o di un estratto ("riquadro" e' solo dell'interfaccia) | rettangolo | bounding box |
 | Scheda della barra con l'elenco delle nazioni | Nazioni | Countries |
 | Pagina con le schede Guida, Mappa, Navigatore, IA | pagina della regione | region page |
 | Pianificatore e navigazione, nella barra e nella pagina della regione | Navigatore | Navigator |
@@ -79,13 +80,18 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Riquadro con un contenuto (meteo, punto di interesse...) | riquadro | card |
 | Parte scaricabile di una regione (mappa, guide, mezzi pubblici...) | contenuto | content |
 | Assistente, con il modello sul dispositivo o online | assistente | assistant |
-| Dove gira l'assistente | motore (Sul dispositivo, Online) | engine (On device, Online) |
+| Dove gira l'assistente | motore (Sul dispositivo, Online; mai "offline" o "locale" per il modello) | engine (On device, Online) |
 | Modello scaricabile | modello (modello IA) | model (AI model) |
 | Chiave personale per il motore Online | chiave API | API key |
 | Fornitore del motore Online (ChatGPT, Mistral...) | servizio | service |
 | Telefono o tablet dell'utente | dispositivo | device |
 | Dove si trova l'utente | posizione | location |
 | Percorso calcolato | percorso | route |
+| Percorso mostrato prima di "Avvia" (sempre con "del percorso") | anteprima del percorso | route preview |
+| Elenco delle manovre del percorso | svolte | turns |
+| Pulsante di un punto di interesse che apre il Navigatore verso il posto | Percorso | Directions |
+| Partenza e arrivo di un biglietto (solo nei biglietti) | tratta | route |
+| Partenza, scali e destinazione nelle vaccinazioni | viaggio | trip |
 | Contenuto con strade e sentieri per calcolare i percorsi | rete stradale | road network |
 | Rete stradale con tutte le strade e i sentieri | rete stradale completa | full road network |
 | Rete stradale con le sole strade percorribili in auto | rete stradale solo auto | car-only road network |
@@ -96,7 +102,7 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Contenuto con le guide di Wikivoyage delle citta' | guide delle citta' | city guides |
 | Mappa con meno dettagli e meno spazio occupato | mappa leggera | light map |
 | Categorie della mappa da mostrare o nascondere | filtri | filters |
-| Come ci si sposta (A piedi, Bici, Auto...) | modo | travel mode |
+| Come ci si sposta (A piedi, Bici, Auto...), anche nel selettore del Navigatore | modo (mai "mezzo") | travel mode |
 | Opzione di accessibilita' | in sedia a rotelle | wheelchair |
 | Accessibilita' dal tag OSM `wheelchair`, nel riquadro di treno, metro, autobus e traghetto | stazione | station |
 | Accessibilita' dal GTFS della rete (`wheelchair_boarding`) | fermata dei mezzi | public transport stop |
@@ -121,7 +127,7 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Schermata con lo spazio occupato dai contenuti | Spazio di archiviazione | Storage |
 | Schermata in Altro con gli aggiornamenti di app, nazioni, guide e modello IA | Aggiornamenti | Updates |
 | Punti di interesse tolti per mancanza di spazio, da scaricare di nuovo | punti di interesse da riscaricare | points of interest to download again |
-| Livello di una vaccinazione non obbligatoria | raccomandata | recommended |
+| Livello di una vaccinazione non obbligatoria (altrove "consigliato" resta) | raccomandata | recommended |
 | Scalo aereo nelle regole delle vaccinazioni | scalo | stopover |
 
 "Paese" resta per i paesi del mondo che non si scaricano: nazionalita', partenza e destinazione delle vaccinazioni

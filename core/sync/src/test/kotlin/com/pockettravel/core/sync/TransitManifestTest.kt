@@ -68,7 +68,7 @@ class TransitManifestTest {
     }
 
     @Test
-    fun `la voce transit del manifest e' facoltativa e convalidata come addressGrid`() {
+    fun `la voce transit del catalogo e' facoltativa e convalidata come addressGrid`() {
         val manifest = """{"manifestVersion":2,"guides":{"version":"1","file":{"name":"guides.db","url":"https://github.com/o/r/g.db","sizeBytes":1,"sha256":"$sha"}},
             "transit":{"version":"2026.09.29.1","url":"https://github.com/o/r/releases/download/transit-feeds/transit.json","sizeBytes":3000,"sha256":"$sha"},"regions":[]}"""
         val parsed = json.decodeFromString(RegionManifest.serializer(), manifest)
@@ -103,7 +103,7 @@ class TransitManifestTest {
         val attached = attachTransitFeeds(listOf(region("lettonia"), region("francia")), index)
         assertEquals(2, attached[0].transit!!.feeds.size)
         assertNull("nessuna rete per la Francia", attached[1].transit)
-        // Senza indice (manifest senza transit o non scaricato) le regioni restano com'erano.
+        // Senza indice (catalogo senza transit o non scaricato) le regioni restano com'erano.
         assertEquals(listOf(region("lettonia")), attachTransitFeeds(listOf(region("lettonia")), null))
     }
 
@@ -167,7 +167,7 @@ class TransitManifestTest {
         val (riga, jurmala) = regionTransitFeeds(index(), "lettonia")
         assertEquals("mdb-3502.db", riga.stagedFile.name)
         assertEquals("mdb-3502.db.xz", riga.stagedDownloadFile.name)
-        assertEquals("dimensione e sha256 restano quelli del manifest", riga.file.sha256, riga.stagedFile.sha256)
+        assertEquals("dimensione e sha256 restano quelli del catalogo", riga.file.sha256, riga.stagedFile.sha256)
         assertEquals("mdb-3503.db", jurmala.stagedDownloadFile.name)
     }
 

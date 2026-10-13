@@ -32,7 +32,7 @@ class RegionZoneTest {
     }
 
     @Test
-    fun `la mappa si estrae solo dal riquadro della zona, dentro quello della regione`() {
+    fun `la mappa si estrae solo dal rettangolo della zona, dentro quello della regione`() {
         val source = italy.restrictedTo(RegionZone(5.0, 41.7, 12.8, 42.1)).map.source
         assertEquals(listOf(6.6, 41.7, 12.8, 42.1), listOf(source.minLon, source.minLat, source.maxLon, source.maxLat))
         assertEquals("m1", italy.restrictedTo(rome).map.version)

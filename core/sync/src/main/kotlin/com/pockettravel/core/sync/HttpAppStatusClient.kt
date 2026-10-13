@@ -19,7 +19,7 @@ class HttpAppStatusClient @Inject constructor(
         val request = Request.Builder().url(SyncConfig.APP_STATUS_URL).build()
         okHttpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
-                // Errori temporanei del server: IOException, come per il manifest, cosi' i worker riprovano.
+                // Errori temporanei del server: IOException, come per `manifest.json`, cosi' i worker riprovano.
                 if (isRetryableHttpStatus(response.code)) {
                     throw IOException("App status fetch failed: HTTP ${response.code}")
                 }

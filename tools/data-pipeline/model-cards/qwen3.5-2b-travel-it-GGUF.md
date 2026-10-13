@@ -17,12 +17,12 @@ tags:
 
 # qwen3.5-2b-travel-it-GGUF
 
-Offline travel assistant for the [Pocket Travel](https://github.com/miracle091/pocket-travel) Android app:
+On-device travel assistant for the [Pocket Travel](https://github.com/miracle091/pocket-travel) Android app:
 a LoRA fine-tune of [Qwen/Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B), merged and quantized to GGUF Q4_K_M, that
 answers **in Italian, in at most 3 sentences, using only the travel-guide CONTEXT it is given**, and says so
 explicitly when the context does not contain the answer.
 
-> *In italiano:* assistente di viaggio offline per l'app Pocket Travel. Risponde in italiano, in massimo 3 frasi,
+> *In italiano:* assistente di viaggio sul dispositivo per l'app Pocket Travel. Risponde in italiano, in massimo 3 frasi,
 > solo con le informazioni della guida passate nel CONTESTO, e dice chiaramente quando mancano.
 
 | File | Size | Quantization | Memory in use | Suggested device RAM |

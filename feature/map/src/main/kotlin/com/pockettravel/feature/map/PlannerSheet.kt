@@ -119,7 +119,7 @@ internal fun PlannerSheet(
     }
 }
 
-// Indicatore Expressive (forme che cambiano) e, appena BRouter da' una stima, mezzo, percentuale e barra:
+// Indicatore Expressive (forme che cambiano) e, appena BRouter da' una stima, modo, percentuale e barra:
 // un calcolo in auto puo' durare minuti, una scritta ferma sembrerebbe un blocco. TalkBack legge solo il
 // titolo, non ogni cambio di percentuale.
 @Composable
@@ -227,7 +227,7 @@ private fun RouteSummary(
         }
     }
     ArriveBy(route, arriveBy, reminder, onArriveByChange, onSetReminder)
-    // Sotto tempo e distanza: cambia il percorso come il mezzo, ma non deve coprire la mappa in alto.
+    // Sotto tempo e distanza: cambia il percorso come il modo, ma non deve coprire la mappa in alto.
     wheelchairOptions?.invoke()
     if (!startsFromMe) {
         Text(stringResource(R.string.planner_preview_only), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

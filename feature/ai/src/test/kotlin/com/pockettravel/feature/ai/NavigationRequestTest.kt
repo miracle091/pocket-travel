@@ -7,7 +7,7 @@ import org.junit.Test
 class NavigationRequestTest {
 
     @Test
-    fun `richieste in italiano, con e senza mezzo`() {
+    fun `richieste in italiano, con e senza modo`() {
         assertEquals(NavigationRequest("Colosseo", NavigationRequestProfile.WALK), parseNavigationRequest("Portami al Colosseo a piedi"))
         assertEquals(NavigationRequest("stazione", null), parseNavigationRequest("portami alla stazione"))
         assertEquals(NavigationRequest("aeroporto", NavigationRequestProfile.CAR), parseNavigationRequest("Come arrivo all'aeroporto in macchina?"))
@@ -25,7 +25,7 @@ class NavigationRequestTest {
     }
 
     @Test
-    fun `altri modi di dire il mezzo e parole di contorno`() {
+    fun `altre espressioni del modo e parole di contorno`() {
         assertEquals(NavigationRequest("Torre Eiffel", NavigationRequestProfile.WALK), parseNavigationRequest("voglio andare alla Torre Eiffel camminando"))
         assertEquals(NavigationRequest("spiaggia di Jurmala", NavigationRequestProfile.CAR), parseNavigationRequest("andiamo alla spiaggia di Jurmala con la macchina"))
         assertEquals(NavigationRequest("Basilica di San Pietro", NavigationRequestProfile.BIKE), parseNavigationRequest("come vado alla Basilica di San Pietro con la bici"))

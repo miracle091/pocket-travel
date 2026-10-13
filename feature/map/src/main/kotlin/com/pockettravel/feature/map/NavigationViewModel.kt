@@ -35,9 +35,9 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
- * Navigazione passo passo dentro la scheda Navigatore: "Avvia" chiama [start] con la destinazione e il mezzo
+ * Navigazione passo passo dentro la scheda Navigatore: "Avvia" chiama [start] con la destinazione e il modo
  * scelti, "Termina" (o l'arrivo, chiuso dal Navigatore) [stop]. Il GPS si ascolta solo mentre si naviga.
- * Destinazione, mezzo e ora di arrivo stanno in [SavedStateHandle]: se il sistema chiude l'app, tornando il
+ * Destinazione, modo e ora di arrivo stanno in [SavedStateHandle]: se il sistema chiude l'app, tornando il
  * Navigatore chiede se riprendere la navigazione ([NavigationUiState.resumeOffer]) invece di ripartire da solo.
  */
 @HiltViewModel
@@ -155,7 +155,7 @@ class NavigationViewModel @Inject constructor(
     private val streetNames = mutableMapOf<Int, String>()
     private var lastProgress: Pair<Route, NavigationProgress>? = null
 
-    // L'anteprima del Navigatore da cui e' partita la navigazione: si usa alla prima posizione, se e' sul percorso.
+    // L'anteprima del percorso del Navigatore da cui e' partita la navigazione: si usa alla prima posizione, se e' sul percorso.
     private var previewToUse: PlannerPreview.Ready? = null
 
     init {
@@ -173,11 +173,11 @@ class NavigationViewModel @Inject constructor(
         session.stopRequests.onEach { if (destination.value != null) stop() }.launchIn(viewModelScope)
     }
 
-    /** "Riprendi": la navigazione interrotta riparte con la stessa destinazione, mezzo e ora di arrivo. */
+    /** "Riprendi": la navigazione interrotta riparte con la stessa destinazione, modo e ora di arrivo. */
     fun resume() {
         val place = _resumeOffer.value ?: return
         _resumeOffer.value = null
-        // Dal disco: regione, mezzo e ora di arrivo vengono da li' se lo stato di Android non c'e'.
+        // Dal disco: regione, modo e ora di arrivo vengono da li' se lo stato di Android non c'e'.
         val fromDisk = savedNavigation?.takeIf { savedStateHandle.savedPlace(KEY_DESTINATION) == null }
         start(
             regionId = fromDisk?.regionId ?: regionId,
@@ -228,15 +228,15 @@ class NavigationViewModel @Inject constructor(
     }
 
     /**
-     * Parte la navigazione verso [place] con il mezzo scelto nel Navigatore: il percorso si ricalcola dalla posizione GPS.
-     * Con [preview] (il percorso gia' calcolato nell'anteprima) si riparte da quello, se la prima posizione e' sul percorso.
+     * Parte la navigazione verso [place] con il modo scelto nel Navigatore: il percorso si ricalcola dalla posizione GPS.
+     * Con [preview] (il percorso gia' calcolato nell'anteprima del percorso) si riparte da quello, se la prima posizione e' sul percorso.
      */
     fun start(regionId: String, place: NavigationPlace, mode: RouteProfile, arriveBy: LocalDateTime? = null, preview: PlannerPreview.Ready? = null) {
         this.regionId = regionId
         _resumeOffer.value = null
         _regionIds.value = preview?.regionIds ?: listOf(regionId)
         previewToUse = preview
-        // Anche la stessa anteprima riavviata riparte da capo: il tracker ricorda quanto si e' avanzati.
+        // Anche la stessa anteprima del percorso riavviata riparte da capo: il tracker ricorda quanto si e' avanzati.
         tracker = null
         trackerRoute = null
         _routeProfile.value = mode
@@ -300,7 +300,7 @@ class NavigationViewModel @Inject constructor(
         if (arrived.value) return
         when (val result = routeResult.value) {
             null -> if (!calculating.value) {
-                // "Avvia" dall'anteprima: il percorso c'e' gia', si ricalcola solo se la posizione e' fuori percorso.
+                // "Avvia" dall'anteprima del percorso: il percorso c'e' gia', si ricalcola solo se la posizione e' fuori percorso.
                 val preview = previewToUse?.takeIf { !trackerFor(it.route).progress(RoutePoint(fix.latitude, fix.longitude)).offRoute }
                 previewToUse = null
                 if (preview != null) {
@@ -372,7 +372,7 @@ class NavigationViewModel @Inject constructor(
         job.start()
     }
 
-    // Regioni installate con la rete stradale utile al mezzo (usableRoutingRegions) e riquadro della loro mappa (127 byte di
+    // Regioni installate con la rete stradale utile al modo (usableRoutingRegions) e rettangolo della loro mappa (127 byte di
     // header ognuna).
     private suspend fun routingRegions(): List<RoutingRegion> = withContext(ioDispatcher) {
         val regions = regionRepository.observeInstalled().first()

@@ -55,7 +55,7 @@ import java.time.ZoneId
 import com.pockettravel.core.ui.R as UiR
 
 // "Programma un orario di arrivo": invece di partire subito si sceglie l'ora di arrivo, il Navigatore dice quando partire
-// (durata del percorso con il mezzo scelto) e, se si vuole, avvisa con una notifica a quell'ora. Il
+// (durata del percorso con il modo scelto) e, se si vuole, avvisa con una notifica a quell'ora. Il
 // riquadro cambia colore col tempo: neutro, poi "parti tra poco" a 5 minuti dalla partenza, rosso con i
 // minuti di ritardo quando partendo adesso non si arriva piu' in tempo. TalkBack annuncia solo il cambio
 // di stato (icona con una descrizione fissa per stato), non i minuti: il testo completo si legge al focus.

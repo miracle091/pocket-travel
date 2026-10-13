@@ -14,10 +14,10 @@ winpath() { cygpath -m "$1" 2>/dev/null || echo "$1"; }
 
 # xz_entry <file> <url>: comprime <file> in <file>.xz (dizionario da 16 MiB: il dispositivo decomprime
 # con ~17 MB di memoria, il preset 9e ne vorrebbe 65, perdendo meno del 2%; un solo thread, cosi' lo
-# stesso file da' sempre lo stesso .xz) e stampa su stdout la voce "fileXz" del manifest (nome,
+# stesso file da' sempre lo stesso .xz) e stampa su stdout la voce "fileXz" di `manifest.json` (nome,
 # url, dimensione e sha256 del .xz). Usata da build-region.sh (poi.db, poi-extra.db, preview.pmtiles)
 # e build-guides.sh (guides.db): stesso schema ovunque, "file"
-# nel manifest descrive il file non compresso (nome, dimensione e sha256 che l'app ricontrolla dopo
+# in `manifest.json` descrive il file non compresso (nome, dimensione e sha256 che l'app ricontrolla dopo
 # la decompressione) e "fileXz" il file da scaricare, con l'URL del .xz.
 xz_entry() {
   local file="$1" url="$2"
@@ -120,7 +120,7 @@ fetch_overpass_address_points() {
   rm -rf "$workdir"
 }
 
-# Riquadro (minLon minLat maxLon maxLat, separati da spazio) di una cella z/x/y del quadtree Web
+# Rettangolo (minLon minLat maxLon maxLat, separati da spazio) di una cella z/x/y del quadtree Web
 # Mercator (stessa curva delle tile, z<=12): standard "slippy map tile
 # bounds", usato da build-address-cell.sh per l'estrazione Protomaps/Overpass e la query Overture.
 cell_bbox() {
@@ -144,9 +144,9 @@ cell_bbox() {
   }'
 }
 
-# fetch_published_manifest <urlOPath> <out>: copia in <out> il manifest pubblicato e stampa il codice
-# HTTP (200 = trovato, 404 = nessun manifest pubblicato, altro = non scaricabile). <urlOPath> puo'
-# essere un file locale gia' scaricato: publish-regions.yml scarica il manifest una volta per shard
+# fetch_published_manifest <urlOPath> <out>: copia in <out> il `manifest.json` pubblicato e stampa il codice
+# HTTP (200 = trovato, 404 = nessun `manifest.json` pubblicato, altro = non scaricabile). <urlOPath> puo'
+# essere un file locale gia' scaricato: publish-regions.yml scarica `manifest.json` una volta per shard
 # e lo passa a build-region.sh e build-cities.sh, invece di due download per
 # regione (centinaia per run).
 fetch_published_manifest() {

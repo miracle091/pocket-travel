@@ -21,7 +21,7 @@ data class RegionManifest(
     // Guide in inglese (build-guides.sh ... en): assenti finche' la pipeline non le pubblica. Vedi guidesChoice.
     val guidesEn: GuidesManifestEntry? = null,
     // Indice dei civici a griglia, a fianco di manifest.json su GitHub
-    // Pages: assente nei manifest senza griglia; le app vecchie che non lo sanno leggere lo ignorano
+    // Pages: assente nei `manifest.json` senza griglia; le app vecchie che non lo sanno leggere lo ignorano
     // (ignoreUnknownKeys = true).
     val addressGrid: AddressGridManifestEntry? = null,
     // Reti dei mezzi pubblici (transit.json, a fianco di manifest.json): come addressGrid, assente finche'
@@ -38,14 +38,14 @@ data class RegionManifest(
     val minAppVersionCode: Int? = null,
 )
 
-/** Regione tolta dal manifest e sostituita dalle regioni del gruppo [groupName]. */
+/** Regione tolta dal catalogo e sostituita dalle regioni del gruppo [groupName]. */
 @Serializable
 data class ReplacedRegion(val regionId: String, val groupName: String)
 
 /**
  * guides.db: guide Wikivoyage e numeri di emergenza di tutte le regioni. [fileXz], se c'e', e' il
  * file da scaricare, compresso con xz: lo si decomprime e il risultato deve avere dimensione e
- * sha256 di [file]. Senza [fileXz] (manifest pubblicati prima della compressione) si scarica
+ * sha256 di [file]. Senza [fileXz] (cataloghi pubblicati prima della compressione) si scarica
  * direttamente [file].
  */
 @Serializable
@@ -66,24 +66,24 @@ data class RegionManifestEntry(
     // POI extra (fontanelle, tavoli da picnic...): assenti per le regioni senza o non ancora rigenerate.
     val poiExtra: PoiPackageEntry? = null,
     // Celle dei civici a griglia che intersecano questa regione: mai nel
-    // manifest (assente li'), valorizzato dall'app dopo aver scaricato l'indice (AddressGridClient +
+    // `manifest.json` (assente li'), valorizzato dall'app dopo aver scaricato l'indice (AddressGridClient +
     // regionGridCells) prima di accodare un download — cosi' RegionPackageDownloadWorker lo riceve
     // nell'input di lavoro insieme al resto dell'entry, senza bisogno di un canale a parte. La
     // versione dei civici si calcola da qui (regionAddressesGridVersion), non e' un campo a parte:
-    // non puo' disallinearsi dalle celle. Null se il manifest non offre [RegionManifest.addressGrid]
-    // o se questa regione non ha celle nel suo riquadro.
+    // non puo' disallinearsi dalle celle. Null se `manifest.json` non offre [RegionManifest.addressGrid]
+    // o se questa regione non ha celle nel suo rettangolo.
     val addressGrid: RegionAddressGridEntry? = null,
-    // Reti dei mezzi pubblici che servono questa regione: mai nel manifest, valorizzato dall'app dopo
+    // Reti dei mezzi pubblici che servono questa regione: mai in `manifest.json`, valorizzato dall'app dopo
     // aver scaricato transit.json (TransitClient + attachTransitFeeds) prima di accodare un download,
     // come addressGrid. La versione del pacchetto si calcola da qui (regionTransitVersion). Null se il
-    // manifest non offre transit.json o nessuna rete e' di questa regione.
+    // catalogo non offre transit.json o nessuna rete e' di questa regione.
     val transit: RegionTransitEntry? = null,
     // Guide delle citta' (city_sections di cities.db): assenti per le regioni senza citta' abbinate.
     val cities: CitiesPackageEntry? = null,
     // Citta' di Wikivoyage EN (build-cities.sh ... en). L'app non le legge da qui: con l'interfaccia in
     // inglese ManifestClient le mette al posto di [cities] (vedi forLanguage in GuidesChoice.kt).
     val citiesEn: CitiesPackageEntry? = null,
-    // Anteprima offline (pochi zoom, tetto di peso compresso): si installa da sola con ogni download
+    // Mappa d'insieme (pochi zoom, tetto di peso compresso): si installa da sola con ogni download
     // della regione (RegionPackageInstaller), non e' un PackageKind. Assente per le regioni non ancora
     // rigenerate.
     val preview: PreviewPackageEntry? = null,
@@ -99,7 +99,7 @@ data class RegionManifestEntry(
     // Nome inglese di groupLabel (es. "North Carolina" per "Carolina del Nord"), per l'app in inglese.
     val groupLabelEn: String? = null,
 ) {
-    /** Versione del pacchetto nel manifest, null se la regione non lo offre (POI extra e civici). */
+    /** Versione del pacchetto nel catalogo, null se la regione non lo offre (POI extra e civici). */
     fun versionOf(kind: PackageKind): String? = when (kind) {
         PackageKind.MAP -> map.version
         PackageKind.ROUTING -> routing.version
@@ -110,7 +110,7 @@ data class RegionManifestEntry(
         PackageKind.TRANSIT -> transit?.let { regionTransitVersion(it.feeds) }
     }
 
-    /** I pacchetti che il manifest offre per questa regione (tutti tranne, a volte, POI extra, civici e mezzi pubblici). */
+    /** I pacchetti che il catalogo offre per questa regione (tutti tranne, a volte, POI extra, civici e mezzi pubblici). */
     val availableKinds: Set<PackageKind>
         get() = PackageKind.entries.filterTo(mutableSetOf()) { versionOf(it) != null }
 
@@ -124,7 +124,7 @@ data class RegionManifestEntry(
     val defaultKinds: Set<PackageKind>
         get() = availableKinds - PackageKind.POI_EXTRA - PackageKind.ROUTING - PackageKind.TRANSIT
 
-    /** Il download di "Scarica": [defaultKinds] piu' la rete stradale se l'utente vuole le indicazioni. */
+    /** Il download di "Scarica": [defaultKinds] piu' la rete stradale se l'utente vuole i percorsi di navigazione. */
     fun downloadKinds(withRouting: Boolean): Set<PackageKind> =
         if (withRouting) defaultKinds + (availableKinds intersect setOf(PackageKind.ROUTING)) else defaultKinds
 
@@ -171,8 +171,8 @@ data class PoiPackageEntry(val version: String, val file: RegionManifestFile, va
 data class RegionAddressGridEntry(val cells: List<AddressGridCell>)
 
 /**
- * Voce "addressGrid" in cima al manifest: riferimento a address-grid.json,
- * scaricato e verificato (sha256) come gli altri file del manifest, vedi AddressGridClient.
+ * Voce "addressGrid" in cima a `manifest.json`: riferimento a address-grid.json,
+ * scaricato e verificato (sha256) come gli altri file del catalogo, vedi AddressGridClient.
  */
 @Serializable
 data class AddressGridManifestEntry(val version: String, val url: String, val sizeBytes: Long, val sha256: String)
@@ -192,7 +192,7 @@ data class AddressGridIndex(
 /**
  * Una cella (nodo z/x/y del quadtree Web Mercator, z <= 14 = tileZoom): stesso schema di
  * [PoiPackageEntry], [fileXz] se c'e' e' il file da scaricare, compresso con xz. [search], se c'e',
- * e' il database per la ricerca degli indirizzi della cella (addresses-search.db), assente nei manifest
+ * e' il database per la ricerca degli indirizzi della cella (addresses-search.db), assente nei cataloghi
  * pubblicati prima: senza, la cella funziona ma non si cerca per indirizzo.
  */
 @Serializable
@@ -286,8 +286,8 @@ fun RegionManifestEntry.validate() {
         it.fileXz?.validate(regionId)
     }
     preview?.let {
-        require(isSafeVersion(it.version)) { "version dell'anteprima non valida per $regionId" }
-        require(it.maxZoom in 0..MAX_MAP_ZOOM) { "maxZoom dell'anteprima non valido per $regionId" }
+        require(isSafeVersion(it.version)) { "version della mappa d'insieme non valida per $regionId" }
+        require(it.maxZoom in 0..MAX_MAP_ZOOM) { "maxZoom della mappa d'insieme non valido per $regionId" }
         it.file.validate(regionId)
         it.fileXz?.validate(regionId)
     }

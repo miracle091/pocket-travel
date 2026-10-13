@@ -12,7 +12,7 @@ import kotlin.math.abs
 /**
  * Unisce i segmenti BRouter (.rd5) di piu' regioni per la navigazione tra regioni vicine.
  *
- * I .rd5 installati sono ritagliati sul riquadro della regione (tools/data-pipeline/scripts/clip_rd5.py):
+ * I .rd5 installati sono ritagliati sul rettangolo della regione (tools/data-pipeline/scripts/clip_rd5.py):
  * due regioni confinanti hanno ritagli diversi della stessa tile (es. `E10_N40.rd5` di Italia e di San
  * Marino) e BRouter, che legge le tile per nome da una cartella, non puo' usarle insieme. Il formato pero'
  * lo permette: 200 byte di indice (25 long big-endian, uno per sotto-tile di 1x1 grado: 16 bit alti =

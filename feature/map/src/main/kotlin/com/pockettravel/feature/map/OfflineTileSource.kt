@@ -5,7 +5,7 @@ import java.io.File
 interface OfflineTileSource {
     /** [language]: lingua dell'interfaccia ("it"/"en"), per i nomi di localita' e strade (vedi labelField).
      * [worldFallback]: sotto la regione anche i confini dei paesi inclusi nell'app e, con la rete,
-     * la mappa del mondo, per quando la vista esce dal riquadro scaricato (navigazione). */
+     * la mappa del mondo, per quando la vista esce dal rettangolo scaricato (navigazione). */
     fun styleJson(regionId: String, dark: Boolean = false, language: String = "it", worldFallback: Boolean = false): String
 
     /** Stile della navigazione fra [regionIds] (almeno una): una sorgente per regione con la mappa
@@ -17,7 +17,7 @@ interface OfflineTileSource {
      * barra "Scarica la mappa" (RegionHubScreen). */
     fun sourceKind(regionId: String): MapSourceKind
 
-    /** Riquadro della mappa della regione installata (completa, altrimenti mappa d'insieme); null senza
+    /** Rettangolo della mappa della regione installata (completa, altrimenti mappa d'insieme); null senza
      * mappa locale. La navigazione lo usa per sapere se la posizione e' fuori dai dati scaricati. */
     fun regionBounds(regionId: String): MapBounds?
 }
@@ -88,7 +88,7 @@ internal fun regionsStyle(regions: List<RegionSource>, dark: Boolean, label: Str
     //
     // Con il ripiego (worldFallback) lo sfondo e' il mare e le terre le disegnano, dal basso:
     // i confini Natural Earth, la mappa del mondo e lo strato "earth" della regione, preciso sulle
-    // coste; fuori dal riquadro scaricato restano cosi' i paesi invece dello sfondo vuoto.
+    // coste; fuori dal rettangolo scaricato restano cosi' i paesi invece dello sfondo vuoto.
     val baseLayers = if (fallback != null) {
         fallback.layers
     } else {
@@ -96,7 +96,7 @@ internal fun regionsStyle(regions: List<RegionSource>, dark: Boolean, label: Str
     }
     // Lo strato "earth" delle regioni sta dopo il ripiego (con il ripiego: vedi sopra).
     // Strati intercalati per tipo (acqua di tutte, poi edifici...), ma prima tutta la pila delle mappe d'insieme e leggere
-    // e poi quella delle mappe complete: dove i riquadri si sovrappongono la mappa completa copre acqua
+    // e poi quella delle mappe complete: dove i rettangoli si sovrappongono la mappa completa copre acqua
     // semplificata e strade generalizzate della mappa d'insieme, invece di mescolarle.
     val layers = regions.partition { it.maxZoom < FULL_MAP_MAX_ZOOM }.toList().filter { it.isNotEmpty() }.flatMap { group ->
         val perRegion = group.map { regionLayers(it, palette, label, withEarth = fallback != null) }
@@ -230,7 +230,7 @@ internal fun worldFallbackStyle(
 }
 
 // L'header PMTiles v3 e' fisso a 127 byte; il byte 101 (0-based) e' il max_zoom dell'archivio
-// (specs.protomaps.dev/pmtiles/spec-v3). Letto qui invece che tenuto in un campo del manifest
+// (specs.protomaps.dev/pmtiles/spec-v3). Letto qui invece che tenuto in un campo di `manifest.json`
 // perche' la mappa d'insieme puo' essere rigenerata con uno zoom diverso da build-region.sh (tetto di
 // peso) e l'header e' l'unica fonte sempre corretta.
 private const val PMTILES_HEADER_SIZE = 127
@@ -258,14 +258,14 @@ internal fun pmtilesHeaderMaxZoom(header: ByteArray): Int {
     return header[PMTILES_MAX_ZOOM_OFFSET].toInt() and BYTE_MASK
 }
 
-/** Riquadro dei dati della mappa installata, in gradi. */
+/** Rettangolo dei dati della mappa installata, in gradi. */
 data class MapBounds(val minLon: Double, val minLat: Double, val maxLon: Double, val maxLat: Double) {
     fun contains(latitude: Double, longitude: Double): Boolean =
         longitude in minLon..maxLon && latitude in minLat..maxLat
 }
 
 // Byte 102-117 dell'header: min_lon, min_lat, max_lon, max_lat in gradi x 10^7, int32
-// little-endian (spec v3; PmtilesWriter li scrive dal riquadro della regione).
+// little-endian (spec v3; PmtilesWriter li scrive dal rettangolo della regione).
 private const val PMTILES_BOUNDS_OFFSET = 102
 
 internal fun pmtilesHeaderBounds(header: ByteArray): MapBounds {

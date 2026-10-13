@@ -11,11 +11,11 @@ stessa nazione nello stesso job non la richiedono di nuovo; Nominatim chiede al 
 I territori d'oltremare (Riunione, Porto Rico, Svalbard) non sono "country" per Nominatim: si cercano per --name (il
 titolo Wikivoyage della regione). Vale solo una relazione con lo stesso codice ISO 3166-1 (ISO3166-1 o
 ISO3166-1:alpha2 tra i tag): "country" e "q" sono testo libero, e per "PR" Nominatim restituisce il Peru'. Esce con
-codice 1 senza un poligono: le regioni senza codice ISO (Canarie) restano sul solo riquadro.
+codice 1 senza un poligono: le regioni senza codice ISO (Canarie) restano sul solo rettangolo.
 
 Con --subdivision (regioni che sono parte di una nazione: stati USA, province) cerca prima la suddivisione per --name,
 anche senza la parte tra parentesi ("Georgia (U.S. state)"). Vale una relazione con un codice ISO 3166-2 della nazione
-(nell'indirizzo di Nominatim, non tra i tag) il cui riquadro copre quasi tutto quello della regione (--bbox, almeno
+(nell'indirizzo di Nominatim, non tra i tag) il cui rettangolo copre quasi tutto quello della regione (--bbox, almeno
 MIN_COVERAGE): il nome da solo sbaglia (per "Hubei" Nominatim restituisce anche Hebei, per "Volga Region" il
 Territorio di Perm). Senza una suddivisione valida (le regioni economiche russe non sono confini in OSM) vale il
 confine della nazione.
@@ -31,8 +31,8 @@ import urllib.parse
 import urllib.request
 
 NOMINATIM = "https://nominatim.openstreetmap.org/search"
-# Quota minima del riquadro della regione (regions.sh, da Natural Earth) coperta da quello della suddivisione trovata.
-# Non l'intersezione su unione: in OSM il riquadro di Hawaii, Alaska (oltre l'antimeridiano), Shanghai e Tianjin
+# Quota minima del rettangolo della regione (regions.sh, da Natural Earth) coperta da quello della suddivisione trovata.
+# Non l'intersezione su unione: in OSM il rettangolo di Hawaii, Alaska (oltre l'antimeridiano), Shanghai e Tianjin
 # comprende isole lontane o mare e supera di 10 volte quello della regione. Hebei per la regione dello Hubei copre 0.
 MIN_COVERAGE = 0.7
 
@@ -55,7 +55,7 @@ def cerca(params, user_agent):
 
 
 def copertura(a, b):
-    """Quota del riquadro [b] coperta dal riquadro [a] (minLon, minLat, maxLon, maxLat)."""
+    """Quota del rettangolo [b] coperta dal rettangolo [a] (minLon, minLat, maxLon, maxLat)."""
     w = min(a[2], b[2]) - max(a[0], b[0])
     h = min(a[3], b[3]) - max(a[1], b[1])
     if w <= 0 or h <= 0:
@@ -144,7 +144,7 @@ def main():
     parser.add_argument("--iso", required=True)
     parser.add_argument("--name", help="nome per la ricerca dei territori e delle suddivisioni")
     parser.add_argument("--subdivision", action="store_true", help="cerca prima la suddivisione --name dentro --bbox")
-    parser.add_argument("--bbox", help="riquadro della regione: minLon,minLat,maxLon,maxLat")
+    parser.add_argument("--bbox", help="rettangolo della regione: minLon,minLat,maxLon,maxLat")
     parser.add_argument("--out", required=True)
     parser.add_argument("--cache", required=True)
     parser.add_argument("--user-agent", default="PocketTravel-pipeline")

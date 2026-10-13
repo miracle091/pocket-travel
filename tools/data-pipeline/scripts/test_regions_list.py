@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test dell'elenco delle regioni (regions.sh) e dei suoi lettori in Python: load_regions e vs_codes di
 generate_sft_dataset.py, flag_regions di generate_sft.py. Il file vero e' controllato per coerenza (identificativi
-unici, riquadri validi, codici paese); i lettori sono provati su un regions.sh sintetico. Niente rete.
+unici, rettangoli validi, codici paese); i lettori sono provati su un regions.sh sintetico. Niente rete.
 
 Uso: python test_regions_list.py
 """

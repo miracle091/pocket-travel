@@ -60,7 +60,7 @@ class RegionAddressGridInstaller @Inject constructor(
 
     /**
      * [plan.toDownload] deve gia' essere scaricato e decompresso in [staging], con lo stesso nome del
-     * manifest ([AddressGridCell.file].name) — RegionPackageInstaller se ne occupa insieme agli altri
+     * catalogo ([AddressGridCell.file].name) — RegionPackageInstaller se ne occupa insieme agli altri
      * pacchetti richiesti. Bloccante (letture di file): va chiamato fuori dal main thread.
      * [ensureActive] e' invocato piu' volte durante la copia delle tile e deve lanciare un'eccezione
      * per interrompere l'operazione (es. CoroutineScope.ensureActive del worker annullato).
@@ -135,11 +135,11 @@ class RegionAddressGridInstaller @Inject constructor(
 
     /**
      * Prepara [RegionStorage.ADDRESSES_SEARCH_DIR] in [staging], pronta da attivare: per ogni cella con
-     * ricerca l'archivio `.db.xz` appena scaricato (in [staging] col nome del manifest, vedi
+     * ricerca l'archivio `.db.xz` appena scaricato (in [staging] col nome del catalogo, vedi
      * [Plan.searchToDownload]) o, per le celle invariate, la copia di quello gia' installato. Un database non
-     * compresso (manifest senza xz, o installazione fatta prima della compressione) si comprime qui, cosi' le
+     * compresso (catalogo senza xz, o installazione fatta prima della compressione) si comprime qui, cosi' le
      * celle occupano su disco solo la loro forma compressa. Le celle senza ricerca restano fuori:
-     * la cartella puo' essere vuota (manifest senza ricerca) e sostituisce comunque quella precedente.
+     * la cartella puo' essere vuota (catalogo senza ricerca) e sostituisce comunque quella precedente.
      * Gli archivi per cella (che servono solo a scaricare in seguito le sole celle cambiate) si affiancano a
      * [RegionStorage.ADDRESSES_SEARCH_DB], l'unione di tutte le celle con cui l'app cerca: costruita qui, prima
      * dell'attivazione, cosi' archivi e file unito cambiano insieme, con la stessa sostituzione della cartella.
@@ -156,7 +156,7 @@ class RegionAddressGridInstaller @Inject constructor(
         dir.deleteRecursively()
         check(dir.mkdirs()) { "Impossibile creare ${RegionStorage.ADDRESSES_SEARCH_DIR}" }
         val installedDir = File(regionStorage.directoryFor(regionId), RegionStorage.ADDRESSES_SEARCH_DIR)
-        // Archivio di ogni cella con il database atteso dal manifest: la decompressione si ferma oltre la sua dimensione
+        // Archivio di ogni cella con il database atteso dal catalogo: la decompressione si ferma oltre la sua dimensione
         // e ne controlla lo sha256, come unpackXz (un xz piccolo puo' espandersi a dismisura).
         val archives = mutableListOf<Pair<File, RegionManifestFile>>()
         plan.allCells.forEach { cell ->
@@ -246,7 +246,7 @@ internal fun decompressXz(source: File, target: File, expected: RegionManifestFi
             var read: Int
             while (input.read(buffer).also { read = it } != -1) {
                 written += read
-                if (written > expected.sizeBytes) throw PermanentRegionPackageException("${expected.name} decompresso supera la dimensione del manifest")
+                if (written > expected.sizeBytes) throw PermanentRegionPackageException("${expected.name} decompresso supera la dimensione del catalogo")
                 digest.update(buffer, 0, read)
                 output.write(buffer, 0, read)
             }
@@ -254,7 +254,7 @@ internal fun decompressXz(source: File, target: File, expected: RegionManifestFi
     }
     val sha256 = digest.digest().joinToString("") { "%02x".format(it) }
     if (written != expected.sizeBytes || !sha256.equals(expected.sha256, ignoreCase = true)) {
-        throw PermanentRegionPackageException("${expected.name} decompresso non corrisponde al manifest")
+        throw PermanentRegionPackageException("${expected.name} decompresso non corrisponde al catalogo")
     }
 }
 

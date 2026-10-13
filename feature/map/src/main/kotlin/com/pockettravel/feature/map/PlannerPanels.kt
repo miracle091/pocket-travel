@@ -49,7 +49,7 @@ internal fun SearchPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-// Partenza e arrivo su due righe basse, il pulsante per scambiarli e i mezzi in chip piccole: un
+// Partenza e arrivo su due righe basse, il pulsante per scambiarli e i modi in chip piccole: un
 // pannello agganciato al bordo in alto, come le indicazioni di Google Maps, che lascia libera la mappa.
 @Composable
 internal fun RoutePanel(
@@ -85,7 +85,7 @@ internal fun RoutePanel(
                     Icon(ImageVector.vectorResource(UiR.drawable.ms_swap_vert), contentDescription = stringResource(R.string.planner_swap))
                 }
             }
-            // Solo il mezzo scelto ha anche il nome: tre chip con l'icona stanno in una riga stretta.
+            // Solo il modo scelto ha anche il nome: tre chip con l'icona stanno in una riga stretta.
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.padding(top = Spacing.xs)) {
                 RouteProfile.entries.forEach { mode ->
                     val (icon, text) = when (mode) {

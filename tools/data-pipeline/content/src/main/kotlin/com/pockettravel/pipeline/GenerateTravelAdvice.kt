@@ -59,13 +59,13 @@ private val headingTagRegex = Regex("""<h([1-6])[^>]*>(.*?)</h\1>""", htmlOption
 // Il testo del link non contiene altri link o paragrafi: altrimenti da "<p><a>Zika virus</a> is a risk..." la corrispondenza
 // arriverebbe al primo </a></p> dei paragrafi dopo, e li toglierebbe tutti.
 private val linkOnlyParagraphRegex = Regex("""<p[^>]*>\s*<a\b[^>]*>(?:(?!</?(?:a|p)\b).)*</a>\s*</p>""", htmlOptions)
-// "Learn more:" con i link che lo seguono, in fondo alle schede della salute: fuori dal sito sono titoli orfani.
+// "Learn more:" con i link che lo seguono, in fondo ai blocchi della salute: fuori dal sito sono titoli orfani.
 private val learnMoreRegex = Regex(
     """<strong>\s*Learn more\s*:(?:\s|&nbsp;|<br\s*/?>)*</strong>(?:\s|&nbsp;|<br\s*/?>|</p>\s*<p[^>]*>)*""" +
         """(?:<a\b[^>]*>(?:(?!</?a\b).)*</a>(?:\s|&nbsp;|<br\s*/?>)*)*""",
     htmlOptions,
 )
-// Nome della malattia di una scheda a scomparsa della salute ("<details><summary>Dengue</summary>"): un sottotitolo.
+// Nome della malattia di un blocco a scomparsa della salute ("<details><summary>Dengue</summary>"): un sottotitolo.
 private val summaryTagRegex = Regex("""<summary[^>]*>(.*?)</summary>""", htmlOptions)
 private const val SUMMARY_LEVEL = 5
 private val listItemRegex = Regex("""<li[^>]*>""", RegexOption.IGNORE_CASE)
@@ -93,7 +93,7 @@ internal val excludedFcdoHeadings = setOf("vaccine recommendations and health ri
 
 // Sottotitoli della salute di travel.gc.ca con testo uguale per quasi tutti i paesi (prevenzione per cibo e acqua, punture,
 // animali, infezioni, turismo medico; misura del 2026-10-08: il 73% della salute e' fatto di righe identiche in almeno un
-// paese su quattro). Nella salute compatta resta solo cio' che sta nelle schede delle malattie sotto di loro.
+// paese su quattro). Nella salute compatta resta solo cio' che sta nei blocchi delle malattie sotto di loro.
 private val genericHealthHeadings = setOf(
     "safe food and water precautions", "tick and insect bite prevention", "animal precautions", "person-to-person infections",
     "medical tourism",
@@ -109,7 +109,7 @@ private val impersonalRewrites = listOf(
     Regex("""\bagainst our advice\b""") to "against the advice",
 )
 
-// Frase di una scheda di malattia che dice se e quanto la malattia c'e' nel paese.
+// Frase del blocco di una malattia che dice se e quanto la malattia c'e' nel paese.
 private val diseaseRiskRegex = Regex("""\brisk\b|occur|present in|reported|outbreak""", RegexOption.IGNORE_CASE)
 
 /** Le frasi di [text] che non corrispondono a [foreign]. */
@@ -120,8 +120,8 @@ private fun withoutForeignSentences(text: String, foreign: Regex): String =
  * Il corpo HTML di una parte dei consigli nel formato delle sezioni della guida (come cleanBody): sottotitoli
  * "▸ Titolo", elenchi "• voce", paragrafi separati da una riga vuota. Senza i sottotitoli [excluded] (con quelli di livello
  * inferiore), senza le frasi e le voci che corrispondono a [foreign] (di norma quelle sul Canada), senza i sottotitoli
- * rimasti vuoti. [compactHealth] (salute di travel.gc.ca): fuori il testo dei sottotitoli di genericHealthHeadings e, delle
- * schede delle malattie, tutto tranne il nome e la prima frase ("There is a risk of typhoid fever in this destination, but
+ * rimasti vuoti. [compactHealth] (salute di travel.gc.ca): fuori il testo dei sottotitoli di genericHealthHeadings e, dei
+ * blocchi delle malattie, tutto tranne il nome e la prima frase ("There is a risk of typhoid fever in this destination, but
  * the risk is low for most travellers."), che il resto spiega la malattia allo stesso modo in ogni paese.
  */
 internal fun adviceHtmlToText(
@@ -143,9 +143,9 @@ internal fun adviceHtmlToText(
     var pendingHeading: String? = null
     var nextIsItem = false
     var genericBlock = false // salute compatta: sotto un sottotitolo di genericHealthHeadings
-    var diseaseBlock = false // salute compatta: dentro una scheda di malattia
-    var diseaseKept = false // salute compatta: frase della scheda gia' presa
-    var diseaseFallback: Block? = null // salute compatta: prima frase della scheda, se nessuna parla di rischio
+    var diseaseBlock = false // salute compatta: dentro il blocco di una malattia
+    var diseaseKept = false // salute compatta: frase del blocco gia' presa
+    var diseaseFallback: Block? = null // salute compatta: prima frase del blocco, se nessuna parla di rischio
     fun emit(block: Block) {
         pendingHeading?.let { blocks += Heading(it) }
         pendingHeading = null

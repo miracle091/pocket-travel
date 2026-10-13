@@ -168,7 +168,7 @@ class OfflineTileSourceTest {
     }
 
     @Test
-    fun `legge il riquadro dai byte 102-117 dell'header PMTiles, anche con longitudini negative`() {
+    fun `legge il rettangolo dai byte 102-117 dell'header PMTiles, anche con longitudini negative`() {
         val header = ByteArray(127)
         java.nio.ByteBuffer.wrap(header, 102, 16).order(java.nio.ByteOrder.LITTLE_ENDIAN)
             .putInt(124_000_000).putInt(438_900_000).putInt(125_200_000).putInt(439_900_000)

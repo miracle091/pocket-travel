@@ -4,7 +4,7 @@ import com.pockettravel.feature.map.MapBounds
 import com.pockettravel.feature.map.MapSourceKind
 import com.pockettravel.feature.map.OfflineTileSource
 
-/** [OfflineTileSource] senza file: i riquadri e le sorgenti si impostano per regione. */
+/** [OfflineTileSource] senza file: i rettangoli e le sorgenti si impostano per regione. */
 class FakeOfflineTileSource : OfflineTileSource {
     val bounds = mutableMapOf<String, MapBounds>()
     val kinds = mutableMapOf<String, MapSourceKind>()

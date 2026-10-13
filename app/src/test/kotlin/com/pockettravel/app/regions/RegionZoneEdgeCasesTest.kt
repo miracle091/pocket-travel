@@ -14,7 +14,7 @@ class RegionZoneEdgeCasesTest {
     }
 
     @Test
-    fun `un riquadro senza superficie misura zero`() {
+    fun `un rettangolo senza superficie misura zero`() {
         assertEquals(0 to 0, boundsSizeKm(10.0, 45.0, 10.0, 45.0))
     }
 
@@ -33,7 +33,7 @@ class RegionZoneEdgeCasesTest {
     }
 
     @Test
-    fun `un riquadro senza superficie non e' grande`() {
+    fun `un rettangolo senza superficie non e' grande`() {
         assertFalse(RegionBbox(10.0, 45.0, 10.0, 45.0).isLarge())
     }
 
@@ -109,7 +109,7 @@ class RegionZoneEdgeCasesTest {
     }
 
     @Test
-    fun `un punto fuori dai riquadri del suo paese non conta`() {
+    fun `un punto fuori dai rettangoli del suo paese non conta`() {
         val candidates = listOf(candidate("italia", "it", 6.0, 35.0, 19.0, 48.0))
 
         assertEquals(emptyList<Pair<String, Int>>(), zoneShares(RegionZone(30.0, 30.0, 32.0, 32.0), candidates, { _, _ -> "it" }))

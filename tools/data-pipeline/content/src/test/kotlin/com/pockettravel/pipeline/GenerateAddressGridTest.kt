@@ -139,7 +139,7 @@ class GenerateAddressGridTest {
     }
 
     @Test
-    fun `l'indice scritto passa il validatore del manifest`() {
+    fun `l'indice scritto passa il validatore del catalogo`() {
         val index = merge(publishedWith(cellEntry("11/1/1")), cellEntry("12/5/5"), cellEntry("12/5/6"))
 
         validateAddressGridJson(index, setOf("example.org"))
@@ -251,7 +251,7 @@ class GenerateAddressGridTest {
     // --- buildAddressGridFragmentJson e MergeManifests ---
 
     @Test
-    fun `il frammento dell'indice ha manifestVersion 2, nessuna regione e passa il merge dei manifest`() {
+    fun `il frammento dell'indice ha manifestVersion 2, nessuna regione e passa il merge del catalogo`() {
         val indexFile = File.createTempFile("pocket-travel-test", "address-grid.json")
         try {
             indexFile.writeText(merge(null, cellEntry("11/1/1")))

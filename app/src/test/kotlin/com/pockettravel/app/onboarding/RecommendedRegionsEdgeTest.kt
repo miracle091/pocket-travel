@@ -16,7 +16,7 @@ class RecommendedRegionsEdgeTest {
     private val svizzera = region("svizzera", "ch", RegionBbox(5.9, 45.8, 10.5, 47.8))
 
     @Test
-    fun `un paese senza riquadro si consiglia da solo, senza vicini`() {
+    fun `un paese senza rettangolo si consiglia da solo, senza vicini`() {
         val senzaRiquadro = region("italia", "it", null)
 
         assertEquals(listOf(senzaRiquadro), recommendedRegions(listOf(senzaRiquadro, svizzera), "it"))

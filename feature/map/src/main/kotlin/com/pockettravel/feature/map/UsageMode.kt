@@ -105,7 +105,7 @@ fun Set<UsageMode>.defaultHidden(): Set<PoiCategory> =
 fun Set<UsageMode>.proposesTransit(): Boolean = any { it.proposesTransit }
 
 /**
- * Profilo BRouter di default: quello del mezzo iniziale del Navigatore ([RouteProfile.from]); solo con Escursionismo
+ * Profilo BRouter di default: quello del modo iniziale del Navigatore ([RouteProfile.from]); solo con Escursionismo
  * da solo quello dei sentieri, senza modi scelti quello di prima della scelta.
  */
 fun Set<UsageMode>.defaultRoutingProfile(): String = when {

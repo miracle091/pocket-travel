@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 /**
- * Un controllo del manifest subito, appena c'e' una rete, invece di aspettare quello periodico ([RegionSyncScheduler]): la
+ * Un controllo del catalogo subito, appena c'e' una rete, invece di aspettare quello periodico ([RegionSyncScheduler]): la
  * notifica di un aggiornamento gia' noto (i punti di interesse tolti dalla migrazione del database) arriva in pochi secondi.
  * Una sola richiesta alla volta, e al massimo una al giorno: chiamato a ogni avvio, la notifica non torna a ogni apertura
  * dell'app finche' l'utente non riscarica. Come quello periodico, non scarica nulla.

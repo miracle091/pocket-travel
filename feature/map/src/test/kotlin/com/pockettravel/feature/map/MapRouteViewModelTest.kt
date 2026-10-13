@@ -76,7 +76,7 @@ class MapRouteViewModelTest {
     }
 
     @Test
-    fun `prima del primo fermo della mappa i segnalini sono quelli del riquadro della mappa installata`() = runTest {
+    fun `prima del primo fermo della mappa i segnalini sono quelli del rettangolo della mappa installata`() = runTest {
         dao.rows += poiRow(1, "Da Mario", lat = 45.5, lon = 9.5)
         dao.rows += poiRow(2, "Lontano", lat = 10.0, lon = 10.0)
         val viewModel = viewModel()

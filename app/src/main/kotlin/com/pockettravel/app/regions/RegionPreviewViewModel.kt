@@ -20,7 +20,7 @@ sealed interface RegionPreviewState {
     data object Error : RegionPreviewState
 }
 
-// Il download completo non e' qui: parte dall'elenco regioni (RegionListViewModel), che prepara la voce del manifest
+// Il download completo non e' qui: parte dall'elenco regioni (RegionListViewModel), che prepara la voce del catalogo
 // con civici, zona e reti dei mezzi pubblici e controlla lo spazio libero.
 @HiltViewModel
 class RegionPreviewViewModel @Inject constructor(

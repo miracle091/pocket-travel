@@ -214,7 +214,7 @@ class SelectFragmentsTest {
     }
 
     @Test
-    fun `un manifest pubblicato senza regioni o con date illeggibili non impedisce il recupero`() {
+    fun `un catalogo pubblicato senza regioni o con date illeggibili non impedisce il recupero`() {
         val pending = fragment("p-italia.json", region("italia", "2026-09-28T10:00:00Z"))
 
         listOf("""{ "manifestVersion": 2 }""", """{ "regions": [] }""", published("italia" to "non-una-data")).forEach { json ->
@@ -224,7 +224,7 @@ class SelectFragmentsTest {
     }
 
     @Test
-    fun `un manifest pubblicato malformato fa fallire la selezione invece di recuperare alla cieca`() {
+    fun `un catalogo pubblicato malformato fa fallire la selezione invece di recuperare alla cieca`() {
         val pending = fragment("p-italia.json", region("italia", "2026-09-28T10:00:00Z"))
 
         org.junit.Assert.assertThrows(org.json.JSONException::class.java) {

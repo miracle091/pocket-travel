@@ -17,7 +17,7 @@ class RecommendedRegionsBoundaryTest {
     private fun withPackages(item: RegionUiItem, sizes: Map<PackageKind, Long>) =
         item.copy(packages = sizes.map { (kind, bytes) -> PackageUiState(kind, RegionStatus.NOT_INSTALLED, downloadBytes = bytes, installedBytes = null) })
 
-    // Paese di prova: riquadro 10..11 x 40..41, centro (10,5; 40,5).
+    // Paese di prova: rettangolo 10..11 x 40..41, centro (10,5; 40,5).
     private val home = region("casa", "xx", box(10.0, 40.0, 11.0, 41.0))
 
     @Test
@@ -53,7 +53,7 @@ class RecommendedRegionsBoundaryTest {
     }
 
     @Test
-    fun `le regioni senza riquadro non sono mai vicine`() {
+    fun `le regioni senza rettangolo non sono mai vicine`() {
         val noBox = region("senza-riquadro", "aa", null)
 
         assertEquals(listOf(home), recommendedRegions(listOf(home, noBox), "xx"))
@@ -63,7 +63,7 @@ class RecommendedRegionsBoundaryTest {
     fun `le regioni senza codice paese non sono del paese`() {
         val noCode = region("senza-codice", null, box(10.0, 40.0, 11.0, 41.0))
 
-        // Non e' del paese, ma il suo riquadro tocca quello della regione: e' una vicina.
+        // Non e' del paese, ma il suo rettangolo tocca quello della regione: e' una vicina.
         assertEquals(listOf(home, noCode), recommendedRegions(listOf(noCode, home), "xx"))
     }
 
@@ -85,7 +85,7 @@ class RecommendedRegionsBoundaryTest {
     }
 
     @Test
-    fun `i riquadri mancanti di alcune regioni del paese non impediscono di cercare i vicini`() {
+    fun `i rettangoli mancanti di alcune regioni del paese non impediscono di cercare i vicini`() {
         val partNoBox = region("parte-senza-riquadro", "xx", null)
         val near = region("vicina", "yy", box(11.2, 40.0, 12.0, 41.0))
 
@@ -117,7 +117,7 @@ class RecommendedRegionsBoundaryTest {
     }
 
     @Test
-    fun `la rete stradale offerta non si sceglie senza indicazioni anche con i mezzi pubblici`() {
+    fun `la rete stradale offerta non si sceglie senza percorsi di navigazione anche con i mezzi pubblici`() {
         val item = withPackages(home, mapOf(PackageKind.ROUTING to 5L, PackageKind.TRANSIT to 5L))
 
         assertEquals(setOf(PackageKind.TRANSIT), defaultPackageChoice(item, withRouting = false, withTransit = true))

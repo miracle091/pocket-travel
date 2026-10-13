@@ -69,7 +69,7 @@ class PackageXzUnpackerTest {
     }
 
     @Test
-    fun `un risultato decompresso diverso dal manifest fa fallire e cancella i file temporanei`() = runBlocking {
+    fun `un risultato decompresso diverso dal catalogo fa fallire e cancella i file temporanei`() = runBlocking {
         val original = "contenuto vero".toByteArray()
         val compressed = xzOf(original)
         File(staging, "guides.db.xz").writeBytes(compressed)
@@ -87,7 +87,7 @@ class PackageXzUnpackerTest {
     }
 
     @Test
-    fun `un risultato decompresso piu' grande del manifest si ferma e cancella i file temporanei`() = runBlocking {
+    fun `un risultato decompresso piu' grande di quanto dice il catalogo si ferma e cancella i file temporanei`() = runBlocking {
         val original = ByteArray(200_000) { 'a'.code.toByte() }
         val compressed = xzOf(original)
         File(staging, "guides.db.xz").writeBytes(compressed)

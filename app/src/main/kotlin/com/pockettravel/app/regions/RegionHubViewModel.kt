@@ -153,7 +153,7 @@ class RegionHubViewModel @Inject constructor(
 
     fun load(regionId: String) {
         // Sui tablet lo stesso ViewModel serve tutte le regioni scelte nel pannello: rientrando nella stessa non si rifa'
-        // nulla (niente manifest e transit.json riscaricati); cambiando, si riparte da uno stato vuoto.
+        // nulla (niente `manifest.json` e transit.json riscaricati); cambiando, si riparte da uno stato vuoto.
         // (Se era risultata mancante si ricontrolla: nel frattempo puo' essere stata scaricata di nuovo.)
         if (this.regionId.value == regionId && !header.value.regionMissing) return
         this.regionId.value = regionId
@@ -207,7 +207,7 @@ class RegionHubViewModel @Inject constructor(
         }
     }
 
-    // La voce del manifest della regione con le sue reti (transit.json), come nell'elenco delle regioni.
+    // La voce del catalogo della regione con le sue reti (transit.json), come nell'elenco delle regioni.
     private suspend fun entryWithTransit(id: String): RegionManifestEntry {
         val manifest = manifestClient.fetchManifest()
         val index = manifest.transit?.let { transitClient.fetchIndex(it) }

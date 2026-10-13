@@ -7,7 +7,7 @@ import kotlin.math.cos
 import kotlin.math.hypot
 
 /**
- * Le regioni del manifest da cui scaricare la rete stradale per andare dal primo all'ultimo dei [points] (partenza, linea
+ * Le regioni del catalogo da cui scaricare la rete stradale per andare dal primo all'ultimo dei [points] (partenza, linea
  * retta in mezzo, arrivo), nell'ordine del viaggio. I paesi sono quelli del cammino via terra fra il paese di
  * partenza e quello di arrivo ([landPath] sui confini veri: da San Marino a Riga Italia, Austria, Cechia, Polonia,
  * Lituania, non la Croazia o Kaliningrad che la linea sfiora passando sul mare). Per ogni paese del cammino, le
@@ -57,10 +57,10 @@ internal fun missingRoutingRegions(
 /**
  * La regione senza rete stradale da scaricare per [point], nel paese [country] secondo i confini veri; null se e' gia'
  * coperto ([covering]) o nessuna regione fa al caso. Fra quelle del paese che lo contengono, la piu' piccola (l'Italia
- * contiene San Marino, gli Stati Uniti sono divisi in stati). Se nessun riquadro del suo paese lo contiene (i riquadri
- * del catalogo sono approssimati: la penisola dei Curi e' Lituania ma fuori dal suo), la regione del paese col riquadro
+ * contiene San Marino, gli Stati Uniti sono divisi in stati). Se nessun rettangolo del suo paese lo contiene (i rettangoli
+ * del catalogo sono approssimati: la penisola dei Curi e' Lituania ma fuori dal suo), la regione del paese col rettangolo
  * piu' vicino; se il paese non ha regioni col suo codice, fra quelle che lo contengono con un codice che non e' un paese
- * ISO (le Canarie hanno "ic", i confini dicono "es"). Mai il riquadro di un altro paese: quello della Svezia copre
+ * ISO (le Canarie hanno "ic", i confini dicono "es"). Mai il rettangolo di un altro paese: quello della Svezia copre
  * mezzo Baltico, quello dell'Italia l'Austria del sud.
  */
 private fun regionToDownload(
@@ -126,7 +126,7 @@ private fun RegionManifestEntry.contains(point: RoutePoint): Boolean = map.sourc
 
 private fun RegionManifestEntry.area(): Double = map.source.let { (it.maxLon - it.minLon) * (it.maxLat - it.minLat) }
 
-// Distanza in gradi dal riquadro (0 dentro): basta per scegliere il piu' vicino.
+// Distanza in gradi dal rettangolo (0 dentro): basta per scegliere il piu' vicino.
 private fun RegionManifestEntry.distance(point: RoutePoint): Double = map.source.let {
     hypot(maxOf(it.minLon - point.longitude, 0.0, point.longitude - it.maxLon), maxOf(it.minLat - point.latitude, 0.0, point.latitude - it.maxLat))
 }

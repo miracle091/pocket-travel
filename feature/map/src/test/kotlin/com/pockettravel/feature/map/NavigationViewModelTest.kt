@@ -317,7 +317,7 @@ class NavigationViewModelTest {
     }
 
     @Test
-    fun `l'anteprima gia' calcolata evita il calcolo se la posizione e' sul percorso`() = runTest {
+    fun `l'anteprima del percorso gia' calcolata evita il calcolo se la posizione e' sul percorso`() = runTest {
         val viewModel = viewModel()
         viewModel.begin(preview = PlannerPreview.Ready(route, listOf("r1", "r2")))
         assertEquals(listOf("r1", "r2"), viewModel.uiState.value.regionIds)
@@ -331,7 +331,7 @@ class NavigationViewModelTest {
     }
 
     @Test
-    fun `con l'anteprima ma la posizione lontana dal percorso si ricalcola`() = runTest {
+    fun `con l'anteprima del percorso ma la posizione lontana dal percorso si ricalcola`() = runTest {
         engines.defaultResult = RouteResult.Found(route)
         val viewModel = viewModel()
         viewModel.begin(preview = PlannerPreview.Ready(route, listOf("r1")))
@@ -528,7 +528,7 @@ class NavigationViewModelTest {
     }
 
     @Test
-    fun `ricreato con lo stesso handle il ViewModel ritrova destinazione e mezzo e la navigazione riprende`() = runTest {
+    fun `ricreato con lo stesso handle il ViewModel ritrova destinazione e modo e la navigazione riprende`() = runTest {
         viewModel().begin(RouteProfile.CAR)
         host?.clear()
 
@@ -546,7 +546,7 @@ class NavigationViewModelTest {
     }
 
     @Test
-    fun `dal disco la navigazione interrotta riparte con regione, mezzo e ora salvati`() = runTest {
+    fun `dal disco la navigazione interrotta riparte con regione, modo e ora salvati`() = runTest {
         preferences.saveActiveNavigation(
             ActiveNavigation("r1", destination, RouteProfile.CAR, minutes(arrival), System.currentTimeMillis()),
         )

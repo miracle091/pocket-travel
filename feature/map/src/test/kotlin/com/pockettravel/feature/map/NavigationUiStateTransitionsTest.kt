@@ -128,7 +128,7 @@ class NavigationUiStateTransitionsTest {
     }
 
     @Test
-    fun `una regione senza riquadro che non e' quella di partenza non entra nella navigazione`() {
+    fun `una regione senza rettangolo che non e' quella di partenza non entra nella navigazione`() {
         val senzaMappa = RoutingRegion("senza-mappa", null)
         val italia = RoutingRegion("italia", MapBounds(6.6, 35.5, 18.5, 47.1))
 
@@ -148,7 +148,7 @@ class NavigationUiStateTransitionsTest {
     }
 
     @Test
-    fun `un punto sul bordo del riquadro, entro il margine, non esce`() {
+    fun `un punto sul bordo del rettangolo, entro il margine, non esce`() {
         val italia = RoutingRegion("italia", MapBounds(6.6, 35.5, 18.5, 47.1))
 
         assertFalse(leavesRoutingRegions(listOf(italia), RoutePoint(47.1, 18.5), RoutePoint(47.12, 18.54)))
@@ -156,7 +156,7 @@ class NavigationUiStateTransitionsTest {
     }
 
     @Test
-    fun `i mezzi di navigazione usano i profili BRouter attesi`() {
+    fun `i modi di navigazione usano i profili BRouter attesi`() {
         assertEquals(listOf("shortest", "trekking", "car-vario"), RouteProfile.entries.map { it.routingProfile })
         assertFalse(BRouterProfile("trekking").wheelchair)
     }

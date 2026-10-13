@@ -93,7 +93,7 @@ private val COMBINING_MARKS = Regex("\\p{Mn}+")
 private val SPACES = Regex("\\s+")
 
 /** Una regione del catalogo senza rete stradale tra partenza e arrivo, col peso della rete stradale: il Navigatore ne propone il download. */
-// carOnly: c'e' gia' la rete stradale solo auto, manca quella completa per il mezzo scelto.
+// carOnly: c'e' gia' la rete stradale solo auto, manca quella completa per il modo scelto.
 data class MissingRegion(val regionId: String, val name: String, val routingBytes: Long, val carOnly: Boolean = false)
 
 /** Anteprima del percorso prima di partire. */
@@ -116,10 +116,10 @@ sealed interface PlannerPreview {
 
 /**
  * Lo stato della scheda Navigatore prima della navigazione. [from] null = la propria posizione; [query] e [results] hanno
- * un valore solo con la ricerca aperta ([searching]); [routing] e' il profilo BRouter del mezzo scelto; [mapRegionIds]
+ * un valore solo con la ricerca aperta ([searching]); [routing] e' il profilo BRouter del modo scelto; [mapRegionIds]
  * le regioni della mappa; [idlePosition] la propria posizione sulla mappa senza destinazione, con i [nearbyPois] attorno;
  * [routingInstalled] dice se la regione aperta ha la rete stradale e [routingRegionIds] quali regioni ce l'hanno utile
- * al mezzo; [arriveBy] e' l'ora a cui si vuole arrivare (null = si parte subito) e [reminder] l'ora di partenza con un
+ * al modo; [arriveBy] e' l'ora a cui si vuole arrivare (null = si parte subito) e [reminder] l'ora di partenza con un
  * avviso programmato.
  */
 data class PlannerUiState(
@@ -144,9 +144,9 @@ data class PlannerUiState(
 
 /**
  * Tab Navigazione dell'hub: partenza (la propria posizione o un posto), destinazione cercata per nome
- * tra i punti di interesse delle regioni installate, mezzo e anteprima del percorso. La navigazione passo
+ * tra i punti di interesse delle regioni installate, modo e anteprima del percorso. La navigazione passo
  * passo e' NavigationInstructions, nella stessa scheda: "Avvia" la fa partire (NavigationViewModel) quando
- * si parte dalla propria posizione. Partenza, arrivo, mezzo, ora di arrivo e avviso di partenza stanno
+ * si parte dalla propria posizione. Partenza, arrivo, modo, ora di arrivo e avviso di partenza stanno
  * in [SavedStateHandle]: se il sistema chiude l'app, tornando si ritrova lo stesso Navigatore.
  */
 @HiltViewModel
@@ -162,7 +162,7 @@ class NavigationPlannerViewModel @Inject constructor(
     private val recentDestinations: RecentDestinations,
     private val usageModePreferences: UsageModePreferences,
     private val routingVariantPreferences: RoutingVariantPreferences,
-    /** Per la mappa dell'anteprima: lo stesso stile della scheda Mappa. */
+    /** Per la mappa dell'anteprima del percorso: lo stesso stile della scheda Mappa. */
     val tileSource: OfflineTileSource,
 ) : ViewModel() {
     private val regionId = MutableStateFlow<String?>(null)
@@ -242,7 +242,7 @@ class NavigationPlannerViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     /**
-     * Le regioni con la rete stradale installata utile al mezzo scelto (usableRoutingRegions), di qualunque regione: serve a
+     * Le regioni con la rete stradale installata utile al modo scelto (usableRoutingRegions), di qualunque regione: serve a
      * rileggere quale regione manca.
      */
     private val routingRegionIds: StateFlow<Set<String>> = usableRouting().stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
@@ -298,7 +298,7 @@ class NavigationPlannerViewModel @Inject constructor(
         _arriveBy.onEach { savedStateHandle[KEY_ARRIVE_BY] = it?.let(::dateTimeToMinute) }.launchIn(viewModelScope)
         _reminder.onEach { savedStateHandle[KEY_REMINDER] = it?.let(::dateTimeToMinute) }.launchIn(viewModelScope)
         // Rete stradale appena installata dopo "Scarica la rete stradale" (della regione aperta o di un'altra che copre
-        // partenza o arrivo): l'anteprima si ricalcola da sola.
+        // partenza o arrivo): l'anteprima del percorso si ricalcola da sola.
         viewModelScope.launch {
             var hadRouting: Set<String>? = null
             usableRouting().collect { has ->
@@ -307,7 +307,7 @@ class NavigationPlannerViewModel @Inject constructor(
                 hadRouting = has
             }
         }
-        // Ripreso dopo la chiusura del processo: l'anteprima si ricalcola dalla destinazione salvata.
+        // Ripreso dopo la chiusura del processo: l'anteprima del percorso si ricalcola dalla destinazione salvata.
         if (_to.value != null) refreshPreview()
     }
 
@@ -324,7 +324,7 @@ class NavigationPlannerViewModel @Inject constructor(
         refreshPreview()
     }
 
-    // L'avviso e' per un percorso preciso: se cambia la partenza, l'arrivo, il mezzo o l'ora si toglie.
+    // L'avviso e' per un percorso preciso: se cambia la partenza, l'arrivo, il modo o l'ora si toglie.
     private fun setFrom(place: NavigationPlace?) {
         if (place != _from.value) cancelReminder()
         _from.value = place
@@ -355,7 +355,7 @@ class NavigationPlannerViewModel @Inject constructor(
         _reminder.value = null
     }
 
-    /** "Indicazioni" dal riquadro di un punto della mappa: destinazione pronta, partenza dalla propria posizione. */
+    /** "Percorso" dal riquadro di un punto della mappa: destinazione pronta, partenza dalla propria posizione. */
     fun setDestination(place: NavigationPlace) {
         setTo(place)
         setFrom(null)
@@ -470,14 +470,14 @@ class NavigationPlannerViewModel @Inject constructor(
         if (granted || gps.hasPermission()) refreshPreview()
     }
 
-    /** Ricalcola l'anteprima: dopo ogni cambio di partenza, arrivo o mezzo, o con "Riprova". */
+    /** Ricalcola l'anteprima del percorso: dopo ogni cambio di partenza, arrivo o modo, o con "Riprova". */
     fun refreshPreview() {
         previewJob?.cancel()
         val destination = _to.value ?: run { _preview.value = PlannerPreview.Idle; return }
         val origin = _from.value
         val current = regionId.value ?: destination.regionId
         // Dai valori di partenza, non da [routing]: quello si aggiorna solo al giro successivo della sua coroutine, e
-        // dopo un cambio fatto da dentro una coroutine l'anteprima userebbe il mezzo di prima.
+        // dopo un cambio fatto da dentro una coroutine l'anteprima del percorso userebbe il modo di prima.
         val choice = brouterProfile(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value)
         previewJob = viewModelScope.launch {
             val start = if (origin != null) {
@@ -545,7 +545,7 @@ class NavigationPlannerViewModel @Inject constructor(
         distanceMeters = reference?.let { approximateDistance(it, RoutePoint(latitude, longitude)) },
     )
 
-    // Regioni installate con la rete stradale utile al mezzo scelto e riquadro della loro mappa, come in NavigationViewModel.
+    // Regioni installate con la rete stradale utile al modo scelto e rettangolo della loro mappa, come in NavigationViewModel.
     private suspend fun routingRegions(): List<RoutingRegion> = withContext(ioDispatcher) {
         val usable = usableRouting().first()
         regionRepository.observeInstalled().first()

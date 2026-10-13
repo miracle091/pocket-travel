@@ -12,7 +12,7 @@ name: Publish regions
 # Il pacchetto guide (job "guides") si rigenera a ogni run per tutte le regioni: e' piccolo, e
 # build-guides.sh pubblica una nuova versione solo se il contenuto e' cambiato. Ogni regione porta
 # anche una mappa d'insieme offline a pochi zoom (preview.pmtiles, stesso trattamento di poi.db - vedi
-# build-region.sh) e il manifest ha in cima "worldMap": mappa del mondo online a bassa risoluzione
+# build-region.sh) e `manifest.json` ha in cima "worldMap": mappa del mondo online a bassa risoluzione
 # (job "world-map"), sulla release "world-map", rigenerata solo ogni ~30 giorni o se assente.
 #
 # Trigger: 7 righe schedule (una per giorno) rigenerano automaticamente il bucket del giorno
@@ -159,15 +159,15 @@ jobs:
           done
           # Release del pacchetto guide unico: stesso prefisso "region-data" cosi' la pulizia degli
           # asset non piu' referenziati nel job "publish" la copre senza casi speciali.
-          # Orari delle reti di mezzi pubblici (job "transit"), referenziati da transit.json su Pages.
+          # Orari delle reti dei mezzi pubblici (job "transit"), referenziati da transit.json su Pages.
           ensure_release_if_missing "transit-feeds" \
             "Orari dei mezzi pubblici" \
             "Pacchetti transit.db (orari GTFS convertiti) per l'app Pocket Travel, referenziati da transit.json su GitHub Pages. Non e' una release software."
-          # Frammenti del manifest salvati da ogni shard subito dopo ogni regione (<VERSION>--<regionId>.json):
+          # Frammenti di catalogo salvati da ogni shard subito dopo ogni regione (<VERSION>--<regionId>.json):
           # se il job muore prima di pubblicare, il job "publish" di una run successiva li recupera.
           ensure_release_if_missing "region-fragments" \
-            "Frammenti del manifest in sospeso" \
-            "Frammenti manifest.json delle regioni costruite e non ancora pubblicate, per la pipeline di Pocket Travel. Non e' una release software."
+            "Frammenti di catalogo in sospeso" \
+            "Frammenti di catalogo delle regioni costruite e non ancora pubblicate, per la pipeline di Pocket Travel. Non e' una release software."
           ensure_release_if_missing "region-data-guide" \
             "Guide di viaggio" \
             "guides.db (guide Wikivoyage e numeri di emergenza di tutte le regioni) per l'app Pocket Travel, referenziato da manifest.json su GitHub Pages. Non e' una release software."
@@ -227,7 +227,7 @@ jobs:
           # uno o due shard possono restare vuoti - il job "build" per quello shard non fa nulla e
           # termina subito (vedi sotto), non e' un errore.
           # Peso = secondi dell'ultima generazione completa della regione (region-timings.tsv,
-          # pubblicato accanto al manifest dal job "publish"): le tile contano poco per i POI,
+          # pubblicato accanto a `manifest.json` dal job "publish"): le tile contano poco per i POI,
           # rigenerati ogni settimana e lunghi dove i punti sono tanti (Germania: poche tile, molti
           # POI). Senza misura: 50 s per tile land, la media delle regioni mai generate nella run
           # completa del 2026-09-28.
@@ -282,7 +282,7 @@ jobs:
                 POI_AGE[$regionId]=$(( (NOW_EPOCH - $(date -u -d "${d//./-}" +%s)) / 86400 ))
               done < <(jq -r '.regions[] | [.regionId, (.poi.file.url // "")] | @tsv' "$RUNNER_TEMP/plan-manifest.json")
             else
-              echo "::warning::manifest pubblicato non leggibile: niente regioni in ritardo nella quota adattiva"
+              echo "::warning::manifest.json pubblicato non leggibile: niente regioni in ritardo nella quota adattiva"
             fi
             EXTRA_FILE="$RUNNER_TEMP/extra-regions.tsv"
             : > "$EXTRA_FILE"
@@ -320,7 +320,7 @@ jobs:
           echo "shard1=${SHARDS[1]}" >> "$GITHUB_OUTPUT"
           echo "shard2=${SHARDS[2]}" >> "$GITHUB_OUTPUT"
 
-  # Genera il pacchetto guide unico (guides.db) e il suo frammento manifest. Un solo job, non
+  # Genera il pacchetto guide unico (guides.db) e il suo frammento di catalogo. Un solo job, non
   # sharded: sono poche centinaia di pagine Wikivoyage di pochi KB ciascuna.
   # Come "world-map" e "address-grid", non gira nelle continuazioni (input continuation > 0): le ha
   # gia' fatte la run che ha rimandato le regioni, e il job "publish" tiene le voci pubblicate.
@@ -374,7 +374,7 @@ jobs:
           VERSION="$(date -u +%Y.%m.%d).${{ github.run_number }}.${{ github.run_attempt }}"
           mkdir -p "$RUNNER_TEMP/fragments"
           # Guida inglese (voce "guidesEn", asset guides-en--...): stessa release, cartella a parte. Se
-          # fallisce non blocca quella italiana: il manifest tiene la voce guidesEn gia' pubblicata.
+          # fallisce non blocca quella italiana: `manifest.json` tiene la voce guidesEn gia' pubblicata.
           OUT_EN="$RUNNER_TEMP/guides-en-out"
           EN_FINAL="$RUNNER_TEMP/guides-en-final.db"
           if GUIDES_TRANSLATE_SECONDS=900 GUIDES_FINAL_COPY="$EN_FINAL" tools/data-pipeline/scripts/build-guides.sh "$VERSION"             "https://github.com/${{ github.repository }}/releases/download/region-data-guide" "$OUT_EN"             "${{ env.PAGES_BASE_URL }}/manifest.json" en; then
@@ -420,7 +420,7 @@ jobs:
             | while read -r key; do gh cache delete "$key" --repo "${{ github.repository }}"; done
 
       # !cancelled(): anche se la guida italiana fallisce, il frammento della guida inglese (guides-en.json) va al job "publish".
-      - name: Carica il frammento manifest delle guide
+      - name: Carica il frammento di catalogo delle guide
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -435,7 +435,7 @@ jobs:
   # rete. Un solo job,
   # non sharded: un solo file per l'intero pianeta. Si rigenera solo se quella pubblicata ha piu' di
   # WORLD_MAP_MAX_AGE_DAYS giorni o manca del tutto - altrimenti il job non produce nulla e la voce
-  # gia' pubblicata resta (mergeManifests la riporta avanti dal manifest online, come "guides").
+  # gia' pubblicata resta (mergeManifests la riporta avanti dal `manifest.json` online, come "guides").
   world-map:
     if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
@@ -467,14 +467,14 @@ jobs:
           PROTOMAPS_DATE="$(resolve_protomaps_date)"
           echo "-- build Protomaps: ${PROTOMAPS_DATE}.pmtiles"
 
-          # Si rigenera (550 MB) solo con un 404 (nessun manifest) o se la mappa pubblicata e' vecchia: un errore
-          # di rete sul manifest non deve farla rigenerare, si riprova alla prossima run.
+          # Si rigenera (550 MB) solo con un 404 (nessun `manifest.json`) o se la mappa pubblicata e' vecchia: un errore
+          # di rete su `manifest.json` non deve farla rigenerare, si riprova alla prossima run.
           PUBLISHED_DATE=""
           PUBLISHED_HTTP="$(fetch_published_manifest "${{ env.PAGES_BASE_URL }}/manifest.json" "$RUNNER_TEMP/published-manifest.json")"
           if [ "$PUBLISHED_HTTP" = "200" ]; then
             PUBLISHED_DATE="$(jq -r '.worldMap.version // ""' "$RUNNER_TEMP/published-manifest.json")"
           elif [ "$PUBLISHED_HTTP" != "404" ]; then
-            echo "::warning::manifest pubblicato non scaricabile (HTTP ${PUBLISHED_HTTP:-000}): non rigenero la mappa del mondo in questa run"
+            echo "::warning::manifest.json pubblicato non scaricabile (HTTP ${PUBLISHED_HTTP:-000}): non rigenero la mappa del mondo in questa run"
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -513,7 +513,7 @@ jobs:
             > "$RUNNER_TEMP/fragments/world-map.json"
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Carica il frammento manifest della mappa del mondo
+      - name: Carica il frammento di catalogo della mappa del mondo
         if: steps.build.outputs.changed == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -533,7 +533,7 @@ jobs:
   # multiplo di 6, quindi una cella con (hash mod 12) < 6 resta dov'e' e le altre passano alla release
   # n+6 solo quando si rigenerano; gli URL assoluti di address-grid.json restano validi finche' non
   # cambiano, e la pulizia finale guarda tutte le release "address-cells-*".
-  # L'indice (address-grid.json) e il suo frammento manifest (voce "addressGrid") vanno al job "publish" come artifact, stesso schema di "guides"/"world-map".
+  # L'indice (address-grid.json) e il suo frammento di catalogo (voce "addressGrid") vanno al job "publish" come artifact, stesso schema di "guides"/"world-map".
   # Nelle continuazioni (stesso giorno, quindi stesso slot e stesse celle) non gira.
   address-grid:
     if: ${{ !(github.event.inputs.continuation > 0) }}
@@ -746,10 +746,10 @@ jobs:
 
       # Due artifact distinti e non solo per ordine: il job "publish" scarica "manifest-fragments-*"
       # con merge-multiple (tutti i frammenti appiattiti nella stessa cartella, stesso nome di file
-      # accettato perche' ognuno e' un frammento manifest valido) - l'indice vero e proprio non lo
+      # accettato perche' ognuno e' un frammento di catalogo valido) - l'indice vero e proprio non lo
       # e' (niente "manifestVersion", schema diverso) e finirebbe scambiato per un frammento se
       # stesse nello stesso artifact/pattern.
-      - name: Carica il frammento manifest dell'indice dei civici
+      - name: Carica il frammento di catalogo dell'indice dei civici
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: manifest-fragments-address-grid
@@ -763,9 +763,9 @@ jobs:
           path: ${{ runner.temp }}/address-grid-index/address-grid.json
           retention-days: 1
 
-  # Reti di mezzi pubblici (GTFS) di tools/data-pipeline/transit-feeds.tsv: una per una, dalla copia
+  # Reti dei mezzi pubblici (GTFS) di tools/data-pipeline/transit-feeds.tsv: una per una, dalla copia
   # del Mobility Database, in transit.db (build-transit.sh), ricostruite solo se il feed e' cambiato o
-  # la voce pubblicata ha piu' di 7 giorni. L'indice (transit.json) e il suo frammento manifest (voce
+  # la voce pubblicata ha piu' di 7 giorni. L'indice (transit.json) e il suo frammento di catalogo (voce
   # "transit") vanno al job "publish" come artifact, stesso schema dei civici. Una rete che fallisce
   # tiene la voce gia' pubblicata. Non gira nelle continuazioni.
   transit:
@@ -791,7 +791,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
-      - name: Costruisci le reti di mezzi pubblici
+      - name: Costruisci le reti dei mezzi pubblici
         id: build
         shell: bash
         run: |
@@ -846,19 +846,19 @@ jobs:
             '{manifestVersion: 2, transit: {version: $v, url: $url, sizeBytes: $size, sha256: $sha}, regions: []}' \
             > "$RUNNER_TEMP/fragments/transit.json"
           {
-            echo "### Reti di mezzi pubblici"
+            echo "### Reti dei mezzi pubblici"
             jq -r '.feeds[] | "- \(.id) \(.name): valido fino al \(.validUntil), versione \(.version)"' "$INDEX"
             [ "${#FAILED[@]}" -eq 0 ] || echo "Non costruite (resta la voce pubblicata): ${FAILED[*]}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Carica il frammento manifest delle reti
+      - name: Carica il frammento di catalogo delle reti dei mezzi pubblici
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: manifest-fragments-transit
           path: ${{ runner.temp }}/fragments/transit.json
           retention-days: 1
 
-      - name: Carica l'indice delle reti
+      - name: Carica l'indice delle reti dei mezzi pubblici
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: transit-index
@@ -974,7 +974,7 @@ jobs:
           esac
 
   # Genera i pacchetti regionali (poi.db + .rd5) per lo shard assegnato e carica gli asset
-  # sulla release "region-data". I frammenti manifest prodotti vanno come artifact al job
+  # sulla release "region-data". I frammenti di catalogo prodotti vanno come artifact al job
   # "publish" sotto (job diversi non condividono il filesystem).
   build:
     needs: plan
@@ -1123,12 +1123,12 @@ jobs:
           PUBLISHED_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
           # Data + numero e tentativo della run (YYYY.MM.DD.<run>.<tentativo>): con la sola data una
           # seconda run nello stesso giorno ricaricherebbe con --clobber asset con lo stesso nome (e byte
-          # diversi) gia' referenziati dal manifest online. Gli script leggono la data dai nomi degli
+          # diversi) gia' referenziati dal `manifest.json` online. Gli script leggono la data dai nomi degli
           # asset ignorando il suffisso (vedi POI_DATE in build-region.sh).
           VERSION="$(date -u +%Y.%m.%d).${{ github.run_number }}.${{ github.run_attempt }}"
           mkdir -p "$OUTPUT_ROOT" "$RUNNER_TEMP/fragments"
 
-          # Manifest pubblicato scaricato una volta per shard e passato come file locale a
+          # `manifest.json` pubblicato scaricato una volta per shard e passato come file locale a
           # build-region.sh e build-cities.sh (fetch_published_manifest in lib.sh),
           # invece di due download per regione. Stessa semantica degli script: non scaricabile =
           # errore, 404 = prima pubblicazione (si lascia l'URL, gli script vedono lo stesso 404).
@@ -1137,7 +1137,7 @@ jobs:
           if [ "$PUBLISHED_MANIFEST_HTTP" = "200" ]; then
             PUBLISHED_MANIFEST_URL="$PUBLISHED_MANIFEST_FILE"
           elif [ "$PUBLISHED_MANIFEST_HTTP" != "404" ]; then
-            echo "ERRORE: manifest pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL (HTTP ${PUBLISHED_MANIFEST_HTTP:-000})" >&2
+            echo "ERRORE: manifest.json pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL (HTTP ${PUBLISHED_MANIFEST_HTTP:-000})" >&2
             exit 1
           fi
 
@@ -1251,7 +1251,7 @@ jobs:
                 "$PUBLISHED_MANIFEST_URL" en || echo "::warning::citta' EN di $regionId non generate"
               if [ -f "$regionOut/.skipped" ]; then
                 # Controllo di necessita' in build-region.sh: tile .rd5 attese invariate rispetto
-                # al manifest gia' pubblicato, il frammento e' quello di sempre, niente da
+                # al `manifest.json` gia' pubblicato, il frammento e' quello di sempre, niente da
                 # ricaricare sulla release (vedi build-region.sh, sezione "2bis").
                 echo "-- $regionId invariata: riuso il frammento pubblicato, nessun asset da ricaricare"
               else
@@ -1448,7 +1448,7 @@ jobs:
 
       # !cancelled(): anche quando il passo sopra esce con errore (nessuna regione completata) ma ha
       # regioni rimandate da passare alla continuazione.
-      - name: Carica i frammenti manifest dello shard
+      - name: Carica i frammenti di catalogo dello shard
         if: ${{ !cancelled() && steps.build.outputs.has_fragments == 'true' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -1459,18 +1459,18 @@ jobs:
             ${{ runner.temp }}/fragments/*.txt
           retention-days: 1
 
-  # Riunisce i frammenti manifest di tutti gli shard (e delle guide, e della mappa del mondo) col
-  # manifest gia' pubblicato e pubblica su Pages. Gira comunque (!cancelled()) anche se uno shard e'
+  # Riunisce i frammenti di catalogo di tutti gli shard (e delle guide, e della mappa del mondo) col
+  # `manifest.json` gia' pubblicato e pubblica su Pages. Gira comunque (!cancelled()) anche se uno shard e'
   # fallito del tutto, cosi' il lavoro degli shard riusciti non va perso — se pero' NESSuno shard ha
   # prodotto frammenti, il passo sotto fallisce esplicitamente (niente da assemblare/pubblicare).
-  # Senza il frammento guide il manifest resta con le guide gia' pubblicate; se non ce ne sono
+  # Senza il frammento guide `manifest.json` resta con le guide gia' pubblicate; se non ce ne sono
   # (prima run nel formato a pacchetti) la validazione fallisce e non si pubblica nulla. Senza il
   # frammento world-map (nessuna rigenerazione in questa run, il caso comune) resta la mappa del
   # mondo gia' pubblicata, se c'e'.
   publish:
     needs: [guides, world-map, address-grid, transit, build]
     if: ${{ !cancelled() }}
-    # Un deploy su Pages (e un merge/pulizia sul manifest) alla volta: vedi il commento sulla concurrency in testa al file.
+    # Un deploy su Pages (e un merge/pulizia sul catalogo) alla volta: vedi il commento sulla concurrency in testa al file.
     concurrency:
       group: pages
       cancel-in-progress: false
@@ -1520,7 +1520,7 @@ jobs:
           merge-multiple: true
         continue-on-error: true
 
-      # address-grid.json (l'indice, non un frammento manifest: niente "manifestVersion", non deve
+      # address-grid.json (l'indice, non un frammento di catalogo: niente "manifestVersion", non deve
       # entrare nel merge sopra) - facoltativo, assente se il job "address-grid" e' fallito del
       # tutto o non ha prodotto nulla (continue-on-error qui sotto, come per i frammenti).
       # Solo se il job l'ha prodotto: in una continuazione e' saltato, e il download fallito finiva tra gli errori della run.
@@ -1531,7 +1531,7 @@ jobs:
           path: ${{ runner.temp }}/address-grid-index
         continue-on-error: true
 
-      # transit.json (indice delle reti di mezzi pubblici), stesso trattamento di address-grid.json.
+      # transit.json (indice delle reti dei mezzi pubblici), stesso trattamento di address-grid.json.
       # Solo se il job l'ha prodotto: in una continuazione e' saltato, e il download fallito finiva tra gli errori della run.
       - if: needs.transit.result == 'success'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -1591,7 +1591,7 @@ jobs:
           SITE_DIR="$RUNNER_TEMP/site"
           PAGES_BASE_URL="${{ env.PAGES_BASE_URL }}"
           mkdir -p "$SITE_DIR"
-          # Manifest pubblicato prima di questa run: lo usano il controllo sulle regioni perse (prima
+          # `manifest.json` pubblicato prima di questa run: lo usano il controllo sulle regioni perse (prima
           # del deploy) e la pulizia degli asset (ultimo passo) per il periodo di grazia di una generazione.
           # Solo un 404 vale come "prima pubblicazione" (segnata da first-publication): ogni altro
           # esito (rete, 5xx) dopo i tentativi ferma il passo, altrimenti il controllo sulle regioni
@@ -1604,17 +1604,17 @@ jobs:
             404)
               rm -f "$RUNNER_TEMP/previous-manifest.json"
               touch "$RUNNER_TEMP/first-publication"
-              echo "::notice::nessun manifest pubblicato (404): prima pubblicazione"
+              echo "::notice::nessun manifest.json pubblicato (404): prima pubblicazione"
               ;;
             *)
-              echo "::error::manifest pubblicato non scaricabile da $PAGES_BASE_URL/manifest.json (HTTP ${MANIFEST_HTTP:-000}): non pubblico senza il confronto con il precedente" >&2
+              echo "::error::manifest.json pubblicato non scaricabile da $PAGES_BASE_URL/manifest.json (HTTP ${MANIFEST_HTTP:-000}): non pubblico senza il confronto con il precedente" >&2
               exit 1
               ;;
           esac
           # address-grid.json pubblicato prima di questa run: gli URL delle celle non toccate oggi
           # vivono solo li' (non in manifest.json, che ha solo il puntatore "addressGrid"), servono
           # alla pulizia degli asset (ultimo passo) per lo stesso periodo di grazia.
-          # Stesso motivo per transit.json (URL degli orari delle reti). Come per il manifest, solo
+          # Stesso motivo per transit.json (URL degli orari delle reti). Come per `manifest.json`, solo
           # un 404 vale come "indice non ancora pubblicato": ogni altro esito dopo i tentativi ferma
           # il passo, altrimenti il sito si ripubblicherebbe senza l'indice precedente e le sue voci
           # sparirebbero (e la pulizia degli asset cancellerebbe i file a cui puntavano).
@@ -1655,7 +1655,7 @@ jobs:
           ./gradlew -q :tools:data-pipeline:content:selectFragments --args="$SELECT_ARGS"
           mapfile -t FRAGMENT_FILES < "$SELECTED_LIST"
           {
-            echo "### Frammenti del manifest"
+            echo "### Frammenti di catalogo"
             echo "| Regione | Esito | Motivo |"
             echo "|---|---|---|"
             awk -F'\t' '$3 != "superata" { printf "| %s | %s | %s |\n", ($2 == "" ? $1 : $2), $3, $4 }' "$SELECTION_REPORT"
@@ -1666,7 +1666,7 @@ jobs:
             if [ "$outcome" = "scartata" ]; then echo "::warning::frammento di ${regionId:-?} scartato: $reason"; fi
           done < "$SELECTION_REPORT"
           if [ "${#FRAGMENT_FILES[@]}" -eq 0 ]; then
-            echo "Nessun frammento manifest da unire (ne' di questa run ne' in sospeso), niente da pubblicare" >&2
+            echo "Nessun frammento di catalogo da unire (ne' di questa run ne' in sospeso), niente da pubblicare" >&2
             exit 1
           fi
           tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$MERGE_MANIFEST_URL" "${FRAGMENT_FILES[@]}"
@@ -1682,7 +1682,7 @@ jobs:
           # manifest.json su Pages, come region-timings.tsv sopra - non e' un frammento da
           # unire (e' gia' il risultato finale del merge fatto da generateAddressGrid nel suo
           # job). Se quel job non ha prodotto nulla (download-artifact sopra in continue-on-error),
-          # mergeManifests tiene la voce "addressGrid" del manifest pubblicato: si ripubblica
+          # mergeManifests tiene la voce "addressGrid" del `manifest.json` pubblicato: si ripubblica
           # allora l'indice precedente, lo stesso file (e sha256) a cui quella voce punta, invece
           # di lasciare il puntatore verso un file sparito dal sito.
           ADDRESS_GRID_FILE="$RUNNER_TEMP/address-grid-index/address-grid.json"
@@ -1698,7 +1698,7 @@ jobs:
           fi
 
           # Pagine delle licenze (licenses.html, licenses-en.html), collegate dal README: dagli indici
-          # appena copiati, cosi' fonti dei civici e reti corrispondono ai dati pubblicati. Non blocca la
+          # appena copiati, cosi' fonti dei civici e reti dei mezzi pubblici corrispondono ai dati pubblicati. Non blocca la
           # pubblicazione: se fallisce, Pages resta senza le pagine fino alla run successiva.
           python3 tools/data-pipeline/scripts/licenses_page.py "$SITE_DIR" \
             || echo "::warning::pagine delle licenze non generate"
@@ -1706,7 +1706,7 @@ jobs:
           echo "site_dir=$SITE_DIR" >> "$GITHUB_OUTPUT"
           echo "pages_host=${{ github.repository_owner }}.github.io" >> "$GITHUB_OUTPUT"
 
-      - name: Valida il manifest prima del deploy
+      - name: Valida il catalogo prima del deploy
         shell: bash
         run: |
           set -euo pipefail
@@ -1715,7 +1715,7 @@ jobs:
           [ ! -s "$SITE_DIR/address-grid.json" ] || ARGS="$ARGS $SITE_DIR/address-grid.json"
           [ ! -s "$SITE_DIR/transit.json" ] || ARGS="$ARGS --transit $SITE_DIR/transit.json"
           ./gradlew -q :tools:data-pipeline:content:validateManifest --args="$ARGS"
-          # Indice e voce del manifest vengono da download diversi (artifact, in continue-on-error, o indice
+          # Indice e voce di `manifest.json` vengono da download diversi (artifact, in continue-on-error, o indice
           # gia' pubblicato) e potrebbero non corrispondere: l'app scarterebbe l'indice per lo sha256 diverso.
           for entry in addressGrid:address-grid.json transit:transit.json; do
             key="${entry%%:*}"
@@ -1725,17 +1725,17 @@ jobs:
             [ -n "$expected" ] || continue
             actual="$(sha256sum "$file" | cut -d' ' -f1)"
             if [ "$expected" != "$actual" ]; then
-              echo "::error::${entry#*:} ($actual) non corrisponde a $key.sha256 del manifest ($expected): non pubblico" >&2
+              echo "::error::${entry#*:} ($actual) non corrisponde a $key.sha256 di manifest.json ($expected): non pubblico" >&2
               exit 1
             fi
           done
 
-      # Prima del deploy: ogni regione del manifest precedente deve restare nel nuovo, salvo quelle
+      # Prima del deploy: ogni regione del `manifest.json` precedente deve restare nel nuovo, salvo quelle
       # che il merge toglie di proposito (fuori da regions.sh, o sostituite da un gruppo ormai
       # completo e quindi in "replacedRegions", vedi knownRegionIds/replacedRegions in
       # MergeManifests.kt). Altrimenti e' quasi certamente un merge incompleto: pubblicarlo farebbe
       # sparire regioni dall'app e la pulizia ne cancellerebbe gli asset.
-      - name: Controlla che il nuovo manifest non perda regioni
+      - name: Controlla che il nuovo manifest.json non perda regioni
         shell: bash
         run: |
           set -euo pipefail
@@ -1743,10 +1743,10 @@ jobs:
           PREVIOUS_MANIFEST="$RUNNER_TEMP/previous-manifest.json"
           if [ ! -s "$PREVIOUS_MANIFEST" ]; then
             if [ ! -e "$RUNNER_TEMP/first-publication" ]; then
-              echo "::error::manifest precedente mancante senza che sia una prima pubblicazione: confronto sulle regioni impossibile" >&2
+              echo "::error::manifest.json precedente mancante senza che sia una prima pubblicazione: confronto sulle regioni impossibile" >&2
               exit 1
             fi
-            echo "::warning::manifest precedente non disponibile: nessun confronto sulle regioni"
+            echo "::warning::manifest.json precedente non disponibile: nessun confronto sulle regioni"
             exit 0
           fi
           source tools/data-pipeline/scripts/regions.sh
@@ -1758,7 +1758,7 @@ jobs:
             | [(.regions // [])[].regionId | select(IN($k[]) and (IN($kept[]) | not))] | join(" ")
           ' "$PREVIOUS_MANIFEST")"
           if [ -n "$MISSING" ]; then
-            echo "Il nuovo manifest ha perso regioni ancora nell'elenco: $MISSING. Non pubblico" >&2
+            echo "Il nuovo manifest.json ha perso regioni ancora nell'elenco: $MISSING. Non pubblico" >&2
             exit 1
           fi
           echo "-- nessuna regione persa ($(jq '.regions | length' "$PREVIOUS_MANIFEST") prima, $(jq '.regions | length' "$MANIFEST") ora)"
@@ -1774,9 +1774,9 @@ jobs:
         run: |
           set -euo pipefail
           SITE_DIR="${{ steps.assemble.outputs.site_dir }}"
-          # publishedAt (secondi Unix) nel manifest, prima della firma: l'app rifiuta un valore piu' basso
+          # publishedAt (secondi Unix) in `manifest.json`, prima della firma: l'app rifiuta un valore piu' basso
           # dell'ultimo accettato (niente ritorno a una vecchia coppia file + .sig). address-grid.json e
-          # transit.json lo hanno gia' dalla generazione (il loro sha256 e' nel manifest, non si toccano qui).
+          # transit.json lo hanno gia' dalla generazione (il loro sha256 e' in `manifest.json`, non si toccano qui).
           jq --argjson at "$(date +%s)" '.publishedAt = $at' "$SITE_DIR/manifest.json" > "$RUNNER_TEMP/manifest-stamped.json"
           mv "$RUNNER_TEMP/manifest-stamped.json" "$SITE_DIR/manifest.json"
           FILES=("$SITE_DIR/manifest.json")
@@ -1852,10 +1852,10 @@ jobs:
       # Gli asset si chiamano regionId--VERSION--file: ogni rigenerazione ne aggiunge di nuovi
       # senza togliere i vecchi, e ogni release e' limitata a 1000 asset. Dopo il deploy (i vecchi
       # URL restano in uso fino ad allora) si cancella da ogni release "region-data*" e da
-      # "world-map" cio' che il manifest appena pubblicato non referenzia piu'. Il manifest e'
+      # "world-map" cio' che il catalogo appena pubblicato non referenzia piu'. `manifest.json` e'
       # cumulativo (frammenti di questa run + regioni/mappa del mondo gia' pubblicate), quindi le
       # regioni non toccate restano intatte. Periodo di grazia di una generazione: resta anche cio'
-      # che referenziava il manifest precedente (le app che l'hanno appena letto scaricano ancora
+      # che referenziava il catalogo precedente (le app che l'hanno appena letto scaricano ancora
       # quegli URL).
       # Dopo il deploy i frammenti in sospeso scaricati sono tutti sistemati: uniti, gia' superati dal
       # pubblicato, scaduti o non validi. Si tolgono solo quelli scaricati: una run in corso puo'
@@ -1878,7 +1878,7 @@ jobs:
 
       # Solo con l'elenco dei frammenti in sospeso: senza, cancellerebbe gli asset di regioni costruite
       # e non ancora pubblicate (li recupera una run successiva).
-      - name: Rimuovi gli asset non piu' referenziati dal manifest
+      - name: Rimuovi gli asset non piu' referenziati dal catalogo
         if: steps.pending.outputs.ok == 'true'
         shell: bash
         env:
@@ -1890,10 +1890,10 @@ jobs:
           PREVIOUS_MANIFEST="$RUNNER_TEMP/previous-manifest.json"
           if [ ! -s "$PREVIOUS_MANIFEST" ]; then
             if [ ! -e "$RUNNER_TEMP/first-publication" ]; then
-              echo "::error::manifest precedente mancante senza che sia una prima pubblicazione: non cancello nulla e fermo il passo" >&2
+              echo "::error::manifest.json precedente mancante senza che sia una prima pubblicazione: non cancello nulla e fermo il passo" >&2
               exit 1
             fi
-            echo "::warning::manifest precedente non disponibile: non cancello nulla in questa run"
+            echo "::warning::manifest.json precedente non disponibile: non cancello nulla in questa run"
             exit 0
           fi
           # Le regioni perse per un merge incompleto le ferma gia' il controllo prima del deploy.
@@ -1911,7 +1911,7 @@ jobs:
             | grep -oE 'https://github\.com/[^"]+/releases/download/[^"/]+/[^"]+' \
             | sed -E 's#.*/releases/download/##' | sort -u > "$REFERENCED"
           if [ ! -s "$REFERENCED" ]; then
-            echo "Il manifest non referenzia alcun asset di release: non cancello nulla" >&2
+            echo "Il catalogo non referenzia alcun asset di release: non cancello nulla" >&2
             exit 1
           fi
           # Gli asset caricati nelle ultime 24 ore restano anche se non referenziati: possono essere di

@@ -31,7 +31,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     // --- Scelta di partenza e arrivo ---
 
     @Test
-    fun `scegliere la destinazione la mette tra i recenti e calcola l'anteprima`() = runTest {
+    fun `scegliere la destinazione la mette tra i recenti e calcola l'anteprima del percorso`() = runTest {
         engines.defaultResult = RouteResult.Found(route)
         val viewModel = viewModel()
         runCurrent()
@@ -73,7 +73,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `Indicazioni dalla mappa imposta la destinazione dalla propria posizione e chiude la ricerca`() = runTest {
+    fun `il pulsante Percorso della mappa imposta la destinazione dalla propria posizione e chiude la ricerca`() = runTest {
         val viewModel = viewModel()
         viewModel.startSearch(PlannerField.FROM)
         viewModel.choose(duomo)
@@ -133,10 +133,10 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
         assertEquals(emptyList<NavigationPlace>(), settled(viewModel.uiState).recents)
     }
 
-    // --- Anteprima ---
+    // --- Anteprima del percorso ---
 
     @Test
-    fun `senza destinazione l'anteprima e' inattiva`() = runTest {
+    fun `senza destinazione l'anteprima del percorso e' inattiva`() = runTest {
         val viewModel = viewModel()
         runCurrent()
 
@@ -145,7 +145,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `dalla propria posizione senza permesso l'anteprima chiede il permesso`() = runTest {
+    fun `dalla propria posizione senza permesso l'anteprima del percorso chiede il permesso`() = runTest {
         gps.permission = false
         val viewModel = viewModel()
 
@@ -157,7 +157,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `concesso il permesso l'anteprima riparte, negato resta la richiesta`() = runTest {
+    fun `concesso il permesso l'anteprima del percorso riparte, negato resta la richiesta`() = runTest {
         gps.permission = false
         val viewModel = viewModel()
         viewModel.setDestination(colosseo)
@@ -175,7 +175,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `senza posizione entro venti secondi l'anteprima dice che manca e Riprova la rilegge`() = runTest {
+    fun `senza posizione entro venti secondi l'anteprima del percorso dice che manca e Riprova la rilegge`() = runTest {
         engines.defaultResult = RouteResult.Found(route)
         val viewModel = viewModel()
         viewModel.setDestination(colosseo)
@@ -194,7 +194,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `dalla posizione GPS il percorso si calcola e l'anteprima e' pronta con le regioni usate`() = runTest {
+    fun `dalla posizione GPS il percorso si calcola e l'anteprima del percorso e' pronta con le regioni usate`() = runTest {
         engines.defaultResult = RouteResult.Found(route)
         val viewModel = viewModel()
         viewModel.load("r1")
@@ -234,7 +234,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `gli errori del motore diventano un'anteprima non disponibile con il motivo`() = runTest {
+    fun `gli errori del motore diventano un'anteprima del percorso non disponibile con il motivo`() = runTest {
         val viewModel = viewModel()
         viewModel.plan(colosseo)
 
@@ -259,7 +259,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `installata la rete stradale mancante l'anteprima si ricalcola da sola`() = runTest {
+    fun `installata la rete stradale mancante l'anteprima del percorso si ricalcola da sola`() = runTest {
         regions.installedRegions.value = listOf(installedRegion("r1", "Italia", routing = false))
         engines.defaultResult = RouteResult.Found(route)
         val viewModel = viewModel()
@@ -274,7 +274,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `cancellare la destinazione toglie l'anteprima e riparte dalla propria posizione`() = runTest {
+    fun `cancellare la destinazione toglie l'anteprima del percorso e riparte dalla propria posizione`() = runTest {
         val viewModel = viewModel()
         viewModel.startSearch(PlannerField.FROM)
         viewModel.choose(duomo)
@@ -290,10 +290,10 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
         assertEquals(PlannerPreview.Idle, settled(viewModel.uiState).preview)
     }
 
-    // --- Mezzo e accessibilita' ---
+    // --- Modo e accessibilita' ---
 
     @Test
-    fun `il mezzo iniziale segue i modi scelti e cambiarlo ricalcola`() = runTest {
+    fun `il modo iniziale segue i modi scelti e cambiarlo ricalcola`() = runTest {
         usageModes.setModes(setOf(UsageMode.AUTO))
         engines.defaultResult = RouteResult.Found(route)
         val viewModel = viewModel()
@@ -373,7 +373,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
         viewModel.setRouteProfile(settled(viewModel.uiState).routeProfile)
         assertEquals(departure, settled(viewModel.uiState).reminder)
 
-        // Nuova destinazione, nuova partenza, mezzo, ora di arrivo o gradini: l'avviso non vale piu'.
+        // Nuova destinazione, nuova partenza, modo, ora di arrivo o gradini: l'avviso non vale piu'.
         val changes: List<() -> Unit> = listOf(
             { viewModel.setDestination(duomo) },
             { viewModel.startSearch(PlannerField.FROM); viewModel.choose(colosseo) },
@@ -393,7 +393,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     // --- Stato salvato ---
 
     @Test
-    fun `partenza, arrivo, mezzo, ora e avviso si salvano per quando il sistema chiude l'app`() = runTest {
+    fun `partenza, arrivo, modo, ora e avviso si salvano per quando il sistema chiude l'app`() = runTest {
         val viewModel = viewModel()
         viewModel.plan(colosseo)
         viewModel.setRouteProfile(RouteProfile.BIKE)
@@ -409,7 +409,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `con lo stato salvato precompilato il primo stato ha partenza, arrivo e mezzo`() = runTest {
+    fun `con lo stato salvato precompilato il primo stato ha partenza, arrivo e modo`() = runTest {
         handle = SavedStateHandle(
             mapOf("from" to duomo.toSavedState(), "to" to colosseo.toSavedState(), "mode" to "BIKE", "arriveBy" to minutes(departure)),
         )
@@ -423,7 +423,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `ripreso dopo la chiusura il Navigatore ritrova tutto e ricalcola l'anteprima`() = runTest {
+    fun `ripreso dopo la chiusura il Navigatore ritrova tutto e ricalcola l'anteprima del percorso`() = runTest {
         engines.defaultResult = RouteResult.Found(route)
         handle = SavedStateHandle(
             mapOf(
@@ -474,7 +474,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `la rete stradale della regione aperta e quella utile al mezzo scelto`() = runTest {
+    fun `la rete stradale della regione aperta e quella utile al modo scelto`() = runTest {
         regions.installedRegions.value = listOf(
             installedRegion("r1", "Italia"), installedRegion("r2", "Francia"), installedRegion("r3", "Spagna", routing = false),
         )
@@ -523,7 +523,7 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
 
         viewModel.setDestination(colosseo)
         runCurrent()
-        // Resta solo l'ascolto della posizione per l'anteprima.
+        // Resta solo l'ascolto della posizione per l'anteprima del percorso.
         assertNull(settled(viewModel.uiState).idlePosition)
 
         viewModel.clearDestination()

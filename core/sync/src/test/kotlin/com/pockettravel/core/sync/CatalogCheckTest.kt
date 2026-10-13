@@ -118,7 +118,7 @@ class CatalogCheckTest {
 
     @Test
     fun `il catalogo scelto cambia indirizzo, chiave e host ammessi, il ritorno all'ufficiale li ripristina`() {
-        // Con un manifest alternativo (-PpocketTravel.manifestUrl, solo debug) l'indirizzo resta quello.
+        // Con un catalogo di debug (-PpocketTravel.manifestUrl, solo debug) l'indirizzo resta quello.
         assumeTrue(BuildConfig.MANIFEST_URL_OVERRIDE.isEmpty())
         val published = SyncConfig.MANIFEST_URL
         assertFalse(isAllowedManifestUrl("https://example.org/region.pmtiles"))

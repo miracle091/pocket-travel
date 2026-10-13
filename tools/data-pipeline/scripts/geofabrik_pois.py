@@ -263,7 +263,7 @@ def scegli_estratti(index, bbox, iso=None):
         propri = [c for c in chosen if iso.upper() in paesi_estratto(props_by_id, c[0])]
         chosen = propri or chosen
     if not chosen:
-        # Nessuna foglia tocca il riquadro (Sint Maarten sta solo in central-america e north-america):
+        # Nessuna foglia tocca il rettangolo (Sint Maarten sta solo in central-america e north-america):
         # il piu' piccolo degli estratti che lo toccano, invece di ripiegare su Overpass.
         touching = [(f["properties"]["id"], f["properties"]["urls"]["pbf"], anelli(f["geometry"])) for f in features]
         touching = [(*c, rettangolo(c[2])) for c in touching if tocca_bbox(c[2], bbox)]
@@ -515,7 +515,7 @@ def main():
             subprocess.run(["osmium", "extract", "--overwrite", "--no-progress", "-s", "smart", "-S", "types=any",
                             "-b", ",".join(str(v) for v in bbox), reduced, "-o", clipped], check=True)
             if args.border:
-                # Poi sul confine della nazione: il riquadro di San Marino o dell'Ungheria comprende anche l'Italia o
+                # Poi sul confine della nazione: il rettangolo di San Marino o dell'Ungheria comprende anche l'Italia o
                 # Vienna. Le vie e le relazioni a cavallo restano (strategia smart, come sopra).
                 inside = os.path.join(tmp, f"{nome_file(cid)}-confine.osm.pbf")
                 subprocess.run(["osmium", "extract", "--overwrite", "--no-progress", "-s", "smart", "-S", "types=any",

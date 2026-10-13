@@ -88,28 +88,28 @@ data class RegionUiItem(
     val continent: String? = null,
     val countryCode: String? = null,
     val packages: List<PackageUiState> = emptyList(),
-    // Pacchetti che il manifest non offre per questa regione e che non sono installati (oggi solo
+    // Pacchetti che il catalogo non offre per questa regione e che non sono installati (oggi solo
     // i civici: nessuna fonte o regione troppo grande): mostrati come "non disponibili".
     val unavailableKinds: List<PackageKind> = emptyList(),
-    // Nazione divisa in piu' regioni e nome breve della regione nel gruppo (dal manifest).
+    // Nazione divisa in piu' regioni e nome breve della regione nel gruppo (dal catalogo).
     val groupName: String? = null,
     val groupLabel: String? = null,
-    // Riquadro geografico della regione (dalla mappa del manifest), per le regioni vicine del primo avvio e la scelta della zona.
+    // Rettangolo geografico della regione (dalla mappa del catalogo), per le regioni vicine del primo avvio e la scelta della zona.
     val bbox: RegionBbox? = null,
     // Zona scelta dall'utente (RegionZonePreferences): mappa, rete stradale e civici solo li'; null = tutta la regione.
     val zone: RegionZone? = null,
-    // Il manifest offre la rete stradale "solo auto" (routingCar): nel foglio Contenuti c'e' l'interruttore.
+    // Il catalogo offre la rete stradale "solo auto" (routingCar): nel foglio Contenuti c'e' l'interruttore.
     val routingCarAvailable: Boolean = false,
     // La mappa e' tra i pacchetti da scaricare: il suo peso non e' in sizeBytes (si conosce solo estraendola).
     val includesMap: Boolean = false,
 ) {
-    // Parte di una nazione divisa: "Tutta la regione" invece di "Tutta la nazione" (senza manifest, dal nome).
+    // Parte di una nazione divisa: "Tutta la regione" invece di "Tutta la nazione" (senza catalogo, dal nome).
     val splitCountry: Boolean get() = groupName != null || isSplitCountryName(displayName, countryCode)
 }
 
 data class RegionBbox(val minLon: Double, val minLat: Double, val maxLon: Double, val maxLat: Double)
 
-/** Regione installata che il manifest ha tolto e diviso nelle regioni del gruppo [groupName]. */
+/** Regione installata che il catalogo ha tolto e diviso nelle regioni del gruppo [groupName]. */
 data class ReplacedRegionItem(
     val regionId: String,
     val displayName: String,
@@ -164,7 +164,7 @@ class RegionListViewModel @Inject constructor(
     private val place = MutableStateFlow<DevicePlace?>(null)
 
     private val manifestRegions = MutableStateFlow<List<RegionManifestEntry>>(emptyList())
-    // Manifest e indice dei mezzi pubblici come arrivano: manifestRegions li unisce con le reti scelte.
+    // Catalogo e indice dei mezzi pubblici come arrivano: manifestRegions li unisce con le reti scelte.
     private val baseRegions = MutableStateFlow<List<RegionManifestEntry>>(emptyList())
     private val transitIndex = MutableStateFlow<TransitIndex?>(null)
     private val replacedRegions = MutableStateFlow<List<ReplacedRegion>>(emptyList())
@@ -177,7 +177,7 @@ class RegionListViewModel @Inject constructor(
         val languageChanged = newLocale.language != locale.value.language
         locale.value = newLocale
         // Lingua cambiata dalle Impostazioni con l'elenco gia' letto: le citta' (italiane o inglesi), le loro dimensioni e
-        // versioni vengono dal manifest della lingua di prima, che resterebbe in memoria fino al prossimo avvio.
+        // versioni vengono dal catalogo della lingua di prima, che resterebbe in memoria fino al prossimo avvio.
         if (languageChanged && baseRegions.value.isNotEmpty()) refresh()
     }
 
@@ -189,7 +189,7 @@ class RegionListViewModel @Inject constructor(
         combine(manifestRegions, locale, regionZonePreferences.zones, routingVariantPreferences.choices) { regions, currentLocale, zones, choices ->
             regions.map { it.localizedNames(currentLocale).withRoutingVariant(choices.isCarOnly(it.regionId)) to zones[it.regionId] } to currentLocale
         },
-        // Con "Indicazioni" la dimensione di "Scarica" comprende la rete stradale.
+        // Con "Percorsi di navigazione" la dimensione di "Scarica" comprende la rete stradale.
         combine(regionRepository.observeInstalled(), usageModePreferences.wantsDirections, ::Pair),
         replacedRegions,
     ) { (zonedRegions, currentLocale), (installed, wantsDirections), replacedByManifest ->
@@ -251,7 +251,7 @@ class RegionListViewModel @Inject constructor(
 
     fun refresh() = load(fresh = false)
 
-    // [fresh]: il controllo manuale scarica sempre; all'apertura e al "Riprova" va bene il manifest scaricato da poco (l'hub lo
+    // [fresh]: il controllo manuale scarica sempre; all'apertura e al "Riprova" va bene il `manifest.json` scaricato da poco (l'hub lo
     // chiede insieme all'elenco: ManifestClient.recentManifest).
     private fun load(fresh: Boolean) {
         viewModelScope.launch {
@@ -289,7 +289,7 @@ class RegionListViewModel @Inject constructor(
         }
     }
 
-    /** Controllo manuale immediato, in aggiunta a quello periodico: manifest regioni (qui, sincrono)
+    /** Controllo manuale immediato, in aggiunta a quello periodico: catalogo (qui, sincrono)
      *  + versione app e modello IA (in background, notificano se c'e' un aggiornamento). */
     fun checkForUpdatesNow() {
         load(fresh = true)
@@ -377,11 +377,11 @@ class RegionListViewModel @Inject constructor(
         }
     }
 
-    // La voce del manifest limitata alla zona scelta: anche il worker la limita, ma dimensioni, spazio libero e versioni
+    // La voce del catalogo limitata alla zona scelta: anche il worker la limita, ma dimensioni, spazio libero e versioni
     // da confrontare devono essere gia' quelle della zona.
     /**
      * [entry] con le guide delle citta' nella lingua di adesso: se l'elenco e' stato letto nell'altra lingua (cambiata
-     * mentre era aperto, prima che setLocale lo rileggesse) si prendono dal manifest, letto ora nella lingua giusta.
+     * mentre era aperto, prima che setLocale lo rileggesse) si prendono dal catalogo, letto ora nella lingua giusta.
      * Senza rete restano quelle dell'elenco.
      */
     private suspend fun withCitiesInCurrentLanguage(entry: RegionManifestEntry): RegionManifestEntry {
@@ -433,7 +433,7 @@ class RegionListViewModel @Inject constructor(
         }
 
     /**
-     * Rete stradale per l'auto (variante "solo auto") o per bici e piedi / tutti i mezzi (rete stradale completa); se
+     * Rete stradale per l'auto (variante "solo auto") o per bici e piedi / tutti i modi (rete stradale completa); se
      * cambia la variante e la rete stradale e' gia' installata, si riscarica subito.
      */
     fun setRoutingChoice(regionId: String, choice: RoutingVariantOption) {
@@ -482,7 +482,7 @@ internal fun offlineRegionItem(local: InstalledRegion, installedBytes: (Installe
         },
     )
 
-/** Regioni installate che il manifest non offre piu' perche' divise in regioni piu' piccole. */
+/** Regioni installate che il catalogo non offre piu' perche' divise in regioni piu' piccole. */
 internal fun replacedItems(
     installed: List<InstalledRegion>,
     remoteRegions: List<RegionManifestEntry>,
@@ -495,7 +495,7 @@ internal fun replacedItems(
         .map { ReplacedRegionItem(it.regionId, it.displayName, it.countryCode, groups.getValue(it.regionId), it.sizeBytes) }
 }
 
-/** Pacchetti installati la cui versione nel manifest e' cambiata (tra quelli che il manifest offre ancora). */
+/** Pacchetti installati la cui versione nel catalogo e' cambiata (tra quelli che il catalogo offre ancora). */
 internal fun outdatedKinds(remote: RegionManifestEntry, local: InstalledRegion?): Set<PackageKind> =
     remote.availableKinds.filterTo(mutableSetOf()) { kind -> local?.versionOf(kind)?.let { it != remote.versionOf(kind) } == true }
 
@@ -507,7 +507,7 @@ internal fun regionUiItem(
     // contare solo quelle nuove o cambiate nella dimensione da scaricare. Non serve per le regioni
     // senza griglia: il default basta a tutti i test.
     installedAddressCells: (regionId: String) -> Map<String, String> = { emptyMap() },
-    // "Indicazioni" attivo: "Scarica" comprende la rete stradale (RegionManifestEntry.downloadKinds).
+    // "Percorsi di navigazione" attivo: "Scarica" comprende la rete stradale (RegionManifestEntry.downloadKinds).
     withRouting: Boolean = false,
     // Indice dei mezzi pubblici letto: una regione senza reti le mostra come "non disponibili" (senza indice non si sa).
     transitKnown: Boolean = false,
@@ -519,7 +519,7 @@ internal fun regionUiItem(
         outdated.isNotEmpty() -> RegionStatus.UPDATE_AVAILABLE
         else -> RegionStatus.INSTALLED
     }
-    // POI extra e civici possono mancare dal manifest: la riga c'e' se il manifest li offre o se sono
+    // POI extra e civici possono mancare dal catalogo: la riga c'e' se il catalogo li offre o se sono
     // installati. Solo i civici mancanti si segnalano come "non disponibili": i POI extra arrivano man
     // mano che la pipeline rigenera i POI delle regioni.
     val (shown, missing) = PackageKind.entries.partition { it in remote.availableKinds || local?.versionOf(it) != null }
@@ -573,7 +573,7 @@ internal fun RegionManifestEntry.localizedNames(locale: Locale): RegionManifestE
 
 /**
  * Il nome salvato di una regione installata (in italiano, dal catalogo) nella lingua dell'interfaccia,
- * senza manifest: il nome della nazione dal codice quando e' la nazione intera ("Francia", "Sint Maarten
+ * senza catalogo: il nome della nazione dal codice quando e' la nazione intera ("Francia", "Sint Maarten
  * (Paesi Bassi)"), la nazione tradotta davanti all'etichetta per le regioni di una nazione divisa
  * ("Francia - Bretagna" -> "France - Bretagna"). Altrimenti resta com'e'.
  */

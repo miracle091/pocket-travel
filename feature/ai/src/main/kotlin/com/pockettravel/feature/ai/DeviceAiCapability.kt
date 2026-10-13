@@ -12,7 +12,7 @@ import javax.inject.Inject
  */
 enum class RamTier { INSUFFICIENTE, MINIMO, CONFORTEVOLE, AMPIA }
 
-/** Vincolo tecnico: almeno 4 GB di RAM per abilitare l'IA locale, altrimenti va disattivata. */
+/** Vincolo tecnico: almeno 4 GB di RAM per abilitare l'IA sul dispositivo, altrimenti va disattivata. */
 class DeviceAiCapability @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {

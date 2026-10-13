@@ -11,10 +11,10 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class NavigationPlannerProfileTest : NavigationPlannerTestBase() {
 
-    // Il cambio di mezzo puo' partire da dentro una coroutine sul thread principale: l'anteprima deve usare il mezzo
+    // Il cambio di modo puo' partire da dentro una coroutine sul thread principale: l'anteprima del percorso deve usare il modo
     // appena scelto, non quello di prima.
     @Test
-    fun `l'anteprima usa il mezzo appena scelto anche da dentro una coroutine`() = runTest(main.dispatcher) {
+    fun `l'anteprima del percorso usa il modo appena scelto anche da dentro una coroutine`() = runTest(main.dispatcher) {
         val viewModel = viewModel()
         viewModel.plan(colosseo)
         advanceUntilIdle()
@@ -26,7 +26,7 @@ class NavigationPlannerProfileTest : NavigationPlannerTestBase() {
     }
 
     @Test
-    fun `l'anteprima usa la scelta sulle scale appena cambiata anche da dentro una coroutine`() = runTest(main.dispatcher) {
+    fun `l'anteprima del percorso usa la scelta sulle scale appena cambiata anche da dentro una coroutine`() = runTest(main.dispatcher) {
         // Le scale contano solo a piedi in sedia a rotelle.
         usageModes.setAccessible(true)
         usageModes.setAllowSteps(false)

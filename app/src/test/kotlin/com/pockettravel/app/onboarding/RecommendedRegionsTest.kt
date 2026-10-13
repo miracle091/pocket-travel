@@ -37,7 +37,7 @@ class RecommendedRegionsTest {
     }
 
     @Test
-    fun `pacchetti di default come Scarica, rete stradale solo con le indicazioni`() {
+    fun `pacchetti di default come Scarica, rete stradale solo con i percorsi di navigazione`() {
         val item = italia.copy(
             packages = listOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.POI, PackageKind.POI_EXTRA)
                 .map { PackageUiState(it, RegionStatus.NOT_INSTALLED, downloadBytes = 10, installedBytes = null) },

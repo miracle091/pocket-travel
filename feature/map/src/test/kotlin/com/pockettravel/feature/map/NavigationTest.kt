@@ -14,7 +14,7 @@ class NavigationTest {
         assertEquals(BRouterProfile("wheelchair", mapOf("allow_steps" to "1")), brouterProfile(RouteProfile.WALK, accessible = true, allowSteps = true))
         assertTrue(brouterProfile(RouteProfile.WALK, accessible = true, allowSteps = false).wheelchair)
         assertEquals(BRouterProfile("shortest"), brouterProfile(RouteProfile.WALK, accessible = false, allowSteps = true))
-        // Bici e auto restano quelle del mezzo anche con la casella.
+        // Bici e auto restano quelle del modo anche con la casella.
         assertEquals(BRouterProfile("trekking"), brouterProfile(RouteProfile.BIKE, accessible = true, allowSteps = true))
         assertEquals(BRouterProfile("car-vario"), brouterProfile(RouteProfile.CAR, accessible = true, allowSteps = false))
     }
@@ -247,7 +247,7 @@ class NavigationTest {
     }
 
     @Test
-    fun `tempo scaduto e mezzo iniziale dal modo`() {
+    fun `tempo scaduto e modo iniziale dai modi scelti`() {
         assertEquals(NavigationStatus.Unavailable(RouteResult.TimedOut), state(result = RouteResult.TimedOut))
         assertEquals(RouteProfile.CAR, RouteProfile.from(setOf(UsageMode.CAMPER)))
         assertEquals(RouteProfile.BIKE, RouteProfile.from(setOf(UsageMode.BICI)))
@@ -256,7 +256,7 @@ class NavigationTest {
     }
 
     @Test
-    fun `con piu' modi il mezzo iniziale e' l'auto se c'e' auto o camper, poi la bici, poi a piedi`() {
+    fun `con piu' modi il modo iniziale e' l'auto se c'e' auto o camper, poi la bici, poi a piedi`() {
         assertEquals(RouteProfile.CAR, RouteProfile.from(setOf(UsageMode.BICI, UsageMode.CAMPER)))
         assertEquals(RouteProfile.CAR, RouteProfile.from(setOf(UsageMode.A_PIEDI, UsageMode.AUTO)))
         assertEquals(RouteProfile.BIKE, RouteProfile.from(setOf(UsageMode.A_PIEDI, UsageMode.BICI, UsageMode.MEZZI_PUBBLICI)))
@@ -316,7 +316,7 @@ class NavigationTest {
     }
 
     @Test
-    fun `un riquadro vicino al confine, entro il margine, e' della navigazione`() {
+    fun `un rettangolo vicino al confine, entro il margine, e' della navigazione`() {
         // A circa 3 km dal bordo est di San Marino (12.52): dentro il margine di 0,05 gradi.
         val vicino = RoutePoint(43.94, 12.55)
         val lontano = RoutePoint(43.94, 12.60)
@@ -326,7 +326,7 @@ class NavigationTest {
     }
 
     @Test
-    fun `se nessun riquadro tocca il percorso resta la regione di partenza, come prima`() {
+    fun `se nessun rettangolo tocca il percorso resta la regione di partenza, come prima`() {
         val parigi = RoutePoint(48.8566, 2.3522)
         val ricerca = listOf(marino, RoutingRegion("senza-mappa", null))
 
@@ -334,7 +334,7 @@ class NavigationTest {
     }
 
     @Test
-    fun `la regione di partenza senza riquadro resta anche quando un'altra tocca il percorso`() {
+    fun `la regione di partenza senza rettangolo resta anche quando un'altra tocca il percorso`() {
         val senzaMappa = RoutingRegion("senza-mappa", null)
 
         assertEquals(
@@ -359,7 +359,7 @@ class NavigationTest {
     }
 
     @Test
-    fun `una regione senza riquadro non permette di giudicare`() {
+    fun `una regione senza rettangolo non permette di giudicare`() {
         assertFalse(leavesRoutingRegions(listOf(marino, RoutingRegion("senza-mappa", null)), cittaDiSanMarino, RoutePoint(56.952, 24.1147)))
     }
 

@@ -311,7 +311,7 @@ class GenerateManifestTest {
     }
 
     @Test
-    fun `il frammento scrive il riquadro e gli zoom della mappa con i tipi giusti`() {
+    fun `il frammento scrive il rettangolo e gli zoom della mappa con i tipi giusti`() {
         val poi = ManifestFileEntry("poi.db", "https://example.org/poi.db", 1, "b".repeat(64))
         val source = JSONObject(buildRegionFragmentJson("r", "R", "1", "2026-09-10T00:00:00Z", mapSource.copy(minLon = -179.5, maxLat = 83.25), listOf(rd5), poi))
             .getJSONArray("regions").getJSONObject(0).getJSONObject("map").getJSONObject("source")

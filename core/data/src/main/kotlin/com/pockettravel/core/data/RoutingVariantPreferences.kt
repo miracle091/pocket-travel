@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Per quali mezzi si scarica la rete stradale di una regione: solo [CAR] scarica la variante "solo auto". */
+/** Per quali modi si scarica la rete stradale di una regione: solo [CAR] scarica la variante "solo auto". */
 enum class RoutingVariantChoice { CAR, BIKE_FOOT, ALL }
 
 /**

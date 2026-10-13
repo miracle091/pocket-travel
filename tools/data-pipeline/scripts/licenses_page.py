@@ -269,7 +269,7 @@ def main(argv):
     for lang in ("it", "en"):
         with open(os.path.join(site_dir, TEXTS[lang]["file"]), "w", encoding="utf-8", newline="\n") as f:
             f.write(build_page(lang, attributions, feeds, regions, day))
-    print(f"licenze: {len(attributions)} fonti dei civici, {len(feeds)} reti")
+    print(f"licenze: {len(attributions)} fonti dei civici, {len(feeds)} reti dei mezzi pubblici")
     return 0
 
 

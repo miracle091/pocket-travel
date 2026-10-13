@@ -303,7 +303,7 @@ fun main(args: Array<String>) {
         }
     }
     val cellId = requireNotNull(cell) { "--cell <z/x/y> obbligatorio: ogni build scrive i civici di una cella della griglia" }
-    // Con piu' estratti (riquadri adiacenti) un indirizzo sul bordo compare in entrambi.
+    // Con piu' estratti (rettangoli adiacenti) un indirizzo sul bordo compare in entrambi.
     val osmAddresses = inputPaths.map(::File)
         .flatMap {
             if (it.name.endsWith(".tsv")) readAddressPoints(it, minLon, minLat, maxLon, maxLat) else extractAddresses(it, minLon, minLat, maxLon, maxLat)

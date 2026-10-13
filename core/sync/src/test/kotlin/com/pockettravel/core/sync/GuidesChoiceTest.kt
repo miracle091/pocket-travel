@@ -27,7 +27,7 @@ class GuidesChoiceTest {
     }
 
     @Test
-    fun `in italiano, o senza guide inglesi nel manifest, quelle italiane`() {
+    fun `in italiano, o senza guide inglesi nel catalogo, quelle italiane`() {
         assertEquals(GuidesChoice(italian, "2026.09.28.1.1"), manifest(english).guidesChoice("it"))
         assertEquals(GuidesChoice(italian, "2026.09.28.1.1"), manifest(null).guidesChoice("en"))
         assertFalse(isEnglishGuidesVersion("2026.09.28.1.1"))

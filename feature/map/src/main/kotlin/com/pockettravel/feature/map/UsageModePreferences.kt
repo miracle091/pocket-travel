@@ -18,7 +18,7 @@ internal fun legacyUsageModes(name: String?): Set<UsageMode> =
 
 /**
  * Modi scelti (onboarding o Altro, anche piu' d'uno), vuoti finche' l'utente non ne sceglie, la
- * casella "In sedia a rotelle", che vale con qualsiasi modo, e "Indicazioni" (rete stradale scaricata
+ * casella "In sedia a rotelle", che vale con qualsiasi modo, e "Percorsi di navigazione" (rete stradale scaricata
  * con ogni regione).
  */
 @Singleton

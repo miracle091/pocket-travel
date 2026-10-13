@@ -17,7 +17,7 @@ class SyncConfigTest {
 
     @Before
     fun setUp() {
-        // Con un manifest alternativo (-PpocketTravel.manifestUrl, solo debug) indirizzo e host sono quelli del server locale.
+        // Con un catalogo di debug (-PpocketTravel.manifestUrl, solo debug) indirizzo e host sono quelli del server locale.
         assumeTrue(BuildConfig.MANIFEST_URL_OVERRIDE.isEmpty())
         SyncConfig.useCatalog(null)
     }
@@ -47,7 +47,7 @@ class SyncConfigTest {
     }
 
     @Test
-    fun `gli host ammessi sono i fissi e quello del manifest`() {
+    fun `gli host ammessi sono i fissi e quello del catalogo`() {
         val hosts = SyncConfig.ALLOWED_MANIFEST_HOSTS
         assertEquals(setOf("brouter.de", "build.protomaps.com", "github.com", URI(SyncConfig.MANIFEST_URL).host), hosts)
     }
@@ -75,7 +75,7 @@ class SyncConfigTest {
     }
 
     @Test
-    fun `un manifest in chiaro ammette in chiaro solo il proprio host`() {
+    fun `un catalogo in chiaro ammette in chiaro solo il proprio host`() {
         withCatalog(CustomCatalog("http://10.0.2.2:8000/manifest.json", "chiave")) {
             assertEquals("10.0.2.2", SyncConfig.CLEARTEXT_MANIFEST_HOST)
             assertTrue(isAllowedManifestUrl("http://10.0.2.2:8000/poi.db"))

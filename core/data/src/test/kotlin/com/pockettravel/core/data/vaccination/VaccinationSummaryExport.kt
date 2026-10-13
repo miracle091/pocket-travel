@@ -18,7 +18,7 @@ import kotlin.random.Random
 
 /**
  * Non e' un test: esporta i riassunti delle vaccinazioni (toSummaryText, lo stesso testo che l'assistente
- * mette nel contesto) per molti percorsi, in italiano e in inglese, per il dataset di training
+ * mette nel contesto) per molti viaggi, in italiano e in inglese, per il dataset di training
  * (tools/data-pipeline/scripts/generate_sft.py --vaccinations). Gira solo con le variabili d'ambiente
  * VACC_GUIDES_DB (un guides.db con le tabelle vacc_*) e VACC_EXPORT_OUT (file JSONL da scrivere):
  *   VACC_GUIDES_DB=... VACC_EXPORT_OUT=... ./gradlew :core:data:testDebugUnitTest --tests '*VaccinationSummaryExport*'

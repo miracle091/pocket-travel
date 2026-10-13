@@ -7,8 +7,8 @@ costruisce (build-address-cell.sh); il seme e' solo il punto di partenza, non il
 griglia (quello e' z<=14, vedi ValidateManifest).
 
 Stima la dimensione di ogni cella senza dipendenze esterne:
-  1. civici gia' pubblicati: la directory del PMTiles di ogni regione con "addresses.file.url" nel
-     manifest si legge via richieste HTTP Range (solo intestazione e indici, mai il file intero,
+  1. civici gia' pubblicati: la directory del PMTiles di ogni regione con "addresses.file.url" in
+     `manifest.json` si legge via richieste HTTP Range (solo intestazione e indici, mai il file intero,
      vedi tiles()) per il peso di ogni tile z14; il massimo tra regioni diverse toglie i doppioni ai
      confini (una tile puo' comparire nell'estratto di piu' regioni vicine);
   2. Overture: statistiche dei row group Parquet del tema addresses (un CSV con le colonne del
@@ -182,7 +182,7 @@ def overture_rows_per_cell(rowgroups_csv, zoom):
             total_rows += rows
             x0, x1 = lon_to_x(float(row["bbox, xmin_mn"]), zoom), lon_to_x(float(row["bbox, xmax_mx"]), zoom)
             y0, y1 = lat_to_y(float(row["bbox, ymax_mx"]), zoom), lat_to_y(float(row["bbox, ymin_mn"]), zoom)
-            if x1 - x0 > 200 or y1 - y0 > 200:  # riquadro anomalo (dataset intercontinentale): al centro
+            if x1 - x0 > 200 or y1 - y0 > 200:  # rettangolo anomalo (dataset intercontinentale): al centro
                 x1, y1 = x0, y0
             cells = (x1 - x0 + 1) * (y1 - y0 + 1)
             share = rows / cells

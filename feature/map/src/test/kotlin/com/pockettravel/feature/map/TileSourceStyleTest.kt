@@ -178,7 +178,7 @@ class TileSourceStyleTest {
     }
 
     @Test
-    fun `il riquadro include i bordi ma non i punti appena fuori`() {
+    fun `il rettangolo include i bordi ma non i punti appena fuori`() {
         val bounds = MapBounds(12.0, 43.0, 13.0, 44.0)
 
         assertTrue(bounds.contains(latitude = 43.0, longitude = 12.0))
@@ -188,7 +188,7 @@ class TileSourceStyleTest {
     }
 
     @Test
-    fun `il riquadro letto dall'header ha gradi con sette decimali`() {
+    fun `il rettangolo letto dall'header ha gradi con sette decimali`() {
         val header = ByteArray(127)
         java.nio.ByteBuffer.wrap(header, 102, 16).order(java.nio.ByteOrder.LITTLE_ENDIAN)
             .putInt(-1).putInt(1).putInt(1_800_000_000).putInt(900_000_000)

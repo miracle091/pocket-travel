@@ -13,7 +13,7 @@ import java.io.IOException
 
 /**
  * Installa o aggiorna il pacchetto guide (tutte le nazioni, circa 2,6 MB in italiano e 4,5 MB in inglese) se la versione del
- * manifest e' diversa da quella installata. Accodato da [RegionSyncScheduler]: in automatico
+ * catalogo e' diversa da quella installata. Accodato da [RegionSyncScheduler]: in automatico
  * solo su Wi-Fi se pesano 5 MB o piu', subito quando l'utente scarica una regione.
  */
 @HiltWorker
@@ -37,7 +37,7 @@ class GuidesSyncWorker @AssistedInject constructor(
         } catch (_: IOException) {
             // Errore di rete: si riprova, ma non all'infinito (un errore persistente terrebbe il lavoro in
             // attesa per sempre e lo staging delle guide non verrebbe mai ripulito). Il prossimo controllo
-            // periodico del manifest lo riaccoda.
+            // periodico del catalogo lo riaccoda.
             if (shouldRetryGuidesSync(runAttemptCount)) Result.retry() else Result.failure()
         } catch (error: Exception) {
             Log.w(TAG, "Sync guide fallita", error)

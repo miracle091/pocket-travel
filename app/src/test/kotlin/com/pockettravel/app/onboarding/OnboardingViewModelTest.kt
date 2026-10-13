@@ -42,7 +42,7 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun `i modi scelti, la sedia a rotelle e le indicazioni restano per la prossima apertura`() {
+    fun `i modi scelti, la sedia a rotelle e i percorsi di navigazione restano per la prossima apertura`() {
         val viewModel = viewModel()
 
         viewModel.setUsageModes(setOf(UsageMode.A_PIEDI, UsageMode.CAMPER))

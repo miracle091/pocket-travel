@@ -328,7 +328,7 @@ class RegionDatabaseDaoTest {
     }
 
     @Test
-    fun nearestOrdinaPerDistanzaDentroIlRiquadroEEscludeGliExtra() = runBlocking {
+    fun nearestOrdinaPerDistanzaDentroIlRettangoloEEscludeGliExtra() = runBlocking {
         insertPoi("italia", "Lontano", "bar", "amenity=bar", 45.5, 9.5)
         insertPoi("italia", "Vicino", "bar", "amenity=bar", 45.01, 9.01)
         insertPoi("italia", "Fuori", "bar", "amenity=bar", 50.0, 9.0)

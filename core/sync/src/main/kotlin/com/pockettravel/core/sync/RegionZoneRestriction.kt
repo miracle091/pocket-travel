@@ -2,7 +2,7 @@ package com.pockettravel.core.sync
 
 import com.pockettravel.core.data.RegionZone
 
-/** Riquadro in gradi di una tile .rd5 di BRouter. */
+/** Rettangolo in gradi di una tile .rd5 di BRouter. */
 internal data class TileBounds(val minLon: Double, val minLat: Double, val maxLon: Double, val maxLat: Double)
 
 private val RD5_NAME = Regex("^([EW])(\\d+)_([NS])(\\d+)\\.rd5$")
@@ -19,7 +19,7 @@ internal fun rd5TileBounds(name: String): TileBounds? {
 private const val RD5_TILE_DEGREES = 5.0
 
 /**
- * La regione limitata a [zone] (null = tutta): la mappa si estrae solo dal riquadro della zona, dentro quello della
+ * La regione limitata a [zone] (null = tutta): la mappa si estrae solo dal rettangolo della zona, dentro quello della
  * regione; la rete stradale solo dalle tile .rd5 che la toccano; i civici solo dalle celle che la toccano (nessuna = niente
  * civici). Punti di interesse, guide e mezzi pubblici restano interi. Le versioni non cambiano, tranne quella dei
  * civici che si calcola dalle celle: per questo va applicata sia dove si confrontano le versioni sia prima di installare.

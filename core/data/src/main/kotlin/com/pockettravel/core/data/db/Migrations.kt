@@ -94,7 +94,7 @@ val MIGRATION_6_9 = object : Migration(6, 9) {
 
         // 7 -> 8:
         //   Codice paese per la bandiera in Spazio: le regioni gia' installate restano a NULL finche' l'elenco
-        //   regioni non lo riempie dal manifest (RegionListViewModel.refresh).
+        //   regioni non lo riempie dal catalogo (RegionListViewModel.refresh).
         db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `countryCode` TEXT")
 
         // 8 -> 9:
@@ -126,7 +126,7 @@ val MIGRATION_11_15 = object : Migration(11, 15) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionId` ON `poi` (`regionId`)")
 
         // 12 -> 13:
-        //   Anteprima offline della regione (preview.pmtiles, pochi zoom): si installa e aggiorna da sola con
+        //   Mappa d'insieme della regione (preview.pmtiles, pochi zoom): si installa e aggiorna da sola con
         //   ogni download della regione (RegionPackageInstaller), non e' un PackageKind ne' un pacchetto che
         //   l'utente puo' togliere a parte - le regioni gia' installate la prendono al prossimo aggiornamento.
         db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `previewVersion` TEXT")

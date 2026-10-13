@@ -43,7 +43,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * Mappa della navigazione: il percorso intero, il tratto fino alla prossima svolta piu' marcato e
- * la posizione GPS, con la camera che la segue. Nascosta a TalkBack: le indicazioni sono nel
+ * la posizione GPS, con la camera che la segue. Nascosta a TalkBack: le svolte sono nel
  * testo sopra.
  */
 @Composable
@@ -62,7 +62,7 @@ internal fun NavigationMap(
     val mapView = rememberMapViewWithLifecycle()
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val language = LocalLocale.current.platformLocale.language
-    // Con worldFallback: se la posizione esce dal riquadro scaricato restano le nazioni (e, con la rete, la mappa del mondo) invece del vuoto.
+    // Con worldFallback: se la posizione esce dal rettangolo scaricato restano le nazioni (e, con la rete, la mappa del mondo) invece del vuoto.
     // Letti dai file delle mappe, fuori dal main thread (stile null finche' non e' pronto).
     val styleJson by produceState<String?>(null, tileSource, regionIds, dark, language) {
         value = withContext(Dispatchers.IO) { tileSource.navigationStyleJson(regionIds, dark = dark, language = language) }

@@ -5,7 +5,7 @@ import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Serializza l'accesso al file del modello e al motore nativo. */
+/** Serializza l'accesso al file del modello e al codice nativo. */
 @Singleton
 class AiModelCoordinator @Inject constructor() {
     private val mutex = Mutex()

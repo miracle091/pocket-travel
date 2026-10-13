@@ -8,7 +8,7 @@ import kotlin.math.tan
 private const val HALF_WORLD_DEGREES = 180.0
 private const val WORLD_DEGREES = 360.0
 
-/** Intervallo di tile slippy-map (convenzione Google/OSM, la stessa di Hilbert.zxyToIndex) che copre un riquadro lon/lat a un dato zoom. */
+/** Intervallo di tile slippy-map (convenzione Google/OSM, la stessa di Hilbert.zxyToIndex) che copre un rettangolo lon/lat a un dato zoom. */
 internal data class TileRange(val minX: Int, val maxX: Int, val minY: Int, val maxY: Int)
 
 /** Condiviso da PmtilesExtractor (bounding box di una regione) e regionGridCells (bounding box di una cella): stessa proiezione, stesso arrotondamento. */

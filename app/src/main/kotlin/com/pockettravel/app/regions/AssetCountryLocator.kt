@@ -34,7 +34,7 @@ class AssetCountryLocator @Inject constructor(@ApplicationContext private val co
         result
     }
 
-    /** Il centro del riquadro della parte piu' grande di ogni paese (per la Russia non Kaliningrad): per le distanze fra paesi. */
+    /** Il centro del rettangolo della parte piu' grande di ogni paese (per la Russia non Kaliningrad): per le distanze fra paesi. */
     override val centres: Map<String, RoutePoint> by lazy {
         countries.mapNotNull { (iso, polygons) -> countryCentre(polygons)?.let { iso to it } }.toMap()
     }

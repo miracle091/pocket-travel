@@ -9,7 +9,7 @@ import org.junit.Test
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
-/** Il manifest riusato tra le richieste ravvicinate (ManifestClient.recentManifest): solo logica, orologio e rete finti. */
+/** Il `manifest.json` riusato tra le richieste ravvicinate (ManifestClient.recentManifest): solo logica, orologio e rete finti. */
 class RecentFetchTest {
 
     private var clock = 0L

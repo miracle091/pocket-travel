@@ -42,7 +42,7 @@ def points(geometry):
 
 
 def bbox(geometries):
-    """Riquadro di uno o piu' Polygon/MultiPolygon, arrotondato verso l'esterno a 0,01 gradi."""
+    """Rettangolo di uno o piu' Polygon/MultiPolygon, arrotondato verso l'esterno a 0,01 gradi."""
     xs, ys = [], []
     for geometry in geometries:
         gx, gy = points(geometry)
@@ -57,7 +57,7 @@ def bbox(geometries):
 
 
 def center(geometry):
-    """Centro del riquadro della suddivisione: basta per decidere in quale area cade."""
+    """Centro del rettangolo della suddivisione: basta per decidere in quale area cade."""
     xs, ys = points(geometry)
     return (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
 

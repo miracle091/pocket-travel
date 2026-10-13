@@ -1,7 +1,7 @@
 package com.pockettravel.core.sync
 
 /**
- * La regione con la rete stradale "solo auto" al posto di quella completa, se [carOnly] e il manifest li offre: stessi nomi
+ * La regione con la rete stradale "solo auto" al posto di quella completa, se [carOnly] e il catalogo li offre: stessi nomi
  * dei segmenti, quindi installazione, unione fra regioni e zona funzionano uguali. Va applicata prima di restrictedTo.
  */
 fun RegionManifestEntry.withRoutingVariant(carOnly: Boolean): RegionManifestEntry =

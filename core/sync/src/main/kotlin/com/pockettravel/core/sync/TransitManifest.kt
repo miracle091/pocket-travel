@@ -8,7 +8,7 @@ import kotlin.math.cos
 import kotlin.math.sqrt
 
 /**
- * Voce "transit" in cima al manifest: riferimento a transit.json, scaricato e verificato (sha256)
+ * Voce "transit" in cima a `manifest.json`: riferimento a transit.json, scaricato e verificato (sha256)
  * come address-grid.json, vedi TransitClient.
  */
 @Serializable
@@ -16,7 +16,7 @@ data class TransitManifestEntry(val version: String, val url: String, val sizeBy
 
 /**
  * transit.json: le reti dei mezzi pubblici (una transit.db GTFS l'una) con le regioni che servono.
- * Della pipeline si leggono solo i campi che servono all'app (ignoreUnknownKeys): il riquadro, il
+ * Della pipeline si leggono solo i campi che servono all'app (ignoreUnknownKeys): il rettangolo, il
  * numero di fermate e la scadenza degli orari stanno gia' dentro la transit.db.
  */
 @Serializable
@@ -46,7 +46,7 @@ data class TransitFeed(
     val version: String,
     val file: RegionManifestFile,
     val fileXz: RegionManifestFile? = null,
-    // Riquadro delle fermate: minLon, minLat, maxLon, maxLat (build-transit.sh); per le reti vicine.
+    // Rettangolo delle fermate: minLon, minLat, maxLon, maxLat (build-transit.sh); per le reti vicine.
     val bbox: List<Double>? = null,
 ) {
     val downloadFile: RegionManifestFile get() = fileXz ?: file
@@ -89,7 +89,7 @@ fun TransitIndex.validate() {
 
 internal fun TransitFeed.validate() {
     require(isSafeSegment(id)) { "id di rete non valido: $id" }
-    require(bbox == null || bbox.size == BBOX_VALUES) { "riquadro non valido per la rete $id" }
+    require(bbox == null || bbox.size == BBOX_VALUES) { "rettangolo non valido per la rete $id" }
     require(isSafeVersion(version)) { "version non valida per la rete $id" }
     require(name.isNotBlank() && attribution.isNotBlank()) { "nome o attribuzione mancanti per la rete $id" }
     require(regions.all(::isSafeSegment)) { "regione non valida per la rete $id" }
@@ -117,7 +117,7 @@ fun regionTransitVersion(feeds: List<TransitFeed>): String {
 
 /**
  * Arricchisce [entries] con le reti dei mezzi pubblici: le regioni senza reti restano invariate;
- * [index] null (manifest senza transit, o non scaricato) le lascia tutte invariate. [excluded]: le reti
+ * [index] null (catalogo senza transit, o non scaricato) le lascia tutte invariate. [excluded]: le reti
  * tolte dall'utente per regione; se le toglie tutte restano tutte (l'app non lo permette).
  */
 fun attachTransitFeeds(
@@ -138,7 +138,7 @@ fun attachTransitFeeds(
 /** Oltre questo numero di reti in una regione si propongono solo quelle vicine (Regno Unito: 12 aree). */
 private const val MANY_TRANSIT_FEEDS = 3
 
-/** Entro questa distanza dal riquadro delle fermate una rete conta come vicina. */
+/** Entro questa distanza dal rettangolo delle fermate una rete conta come vicina. */
 private const val NEAR_TRANSIT_KM = 50.0
 
 // minLon, minLat, maxLon, maxLat.
@@ -182,7 +182,7 @@ fun defaultTransitChoice(available: List<TransitFeed>, latitude: Double?, longit
     )
 }
 
-// Distanza approssimata (equirettangolare) dal punto al riquadro, 0 se ci sta dentro.
+// Distanza approssimata (equirettangolare) dal punto al rettangolo, 0 se ci sta dentro.
 private fun distanceToBoxKm(box: List<Double>, latitude: Double, longitude: Double): Double {
     val dLat = latitude - latitude.coerceIn(box[1], box[3])
     val dLon = (longitude - longitude.coerceIn(box[0], box[2])) * cos(Math.toRadians(latitude))

@@ -34,7 +34,7 @@ class ZonePickerMapViewModel @Inject constructor(val tileSource: OfflineTileSour
 /**
  * Mappa per scegliere la zona da scaricare di una regione: si sposta e si ingrandisce la mappa, la zona e' tutto quello
  * che si vede. Usa la mappa della regione se c'e' (anche solo la mappa d'insieme), altrimenti la mappa del mondo con
- * citta' e strade principali. [onZoneChange] riceve il riquadro (ovest, sud, est, nord) ogni volta che la mappa si ferma.
+ * citta' e strade principali. [onZoneChange] riceve il rettangolo (ovest, sud, est, nord) ogni volta che la mappa si ferma.
  */
 @Composable
 fun ZonePickerMap(
@@ -84,7 +84,7 @@ fun ZonePickerMap(
                     }
                     map.addOnCameraMoveStartedListener { reason -> if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) moved = true }
                     map.addOnCameraIdleListener { reportZone() }
-                    // Dopo il layout: per inquadrare un riquadro la mappa deve conoscere le sue dimensioni.
+                    // Dopo il layout: per inquadrare un rettangolo la mappa deve conoscere le sue dimensioni.
                     view.post {
                         val bounds = LatLngBounds.Builder()
                             .include(LatLng(initialBounds.maxLat, initialBounds.minLon))

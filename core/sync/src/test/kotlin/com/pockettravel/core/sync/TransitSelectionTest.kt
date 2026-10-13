@@ -31,7 +31,7 @@ class TransitSelectionTest {
         poi = PoiPackageEntry("v1", RegionManifestFile("poi.db", "https://github.com/o/r/poi.db", 1, sha)),
     )
 
-    // Quattro reti lontane tra loro; la prima occupa il riquadro da (0, 0) a (1, 1) gradi.
+    // Quattro reti lontane tra loro; la prima occupa il rettangolo da (0, 0) a (1, 1) gradi.
     private val four = listOf(
         feed("a", listOf(0.0, 0.0, 1.0, 1.0)),
         feed("b", listOf(50.0, 50.0, 51.0, 51.0)),
@@ -52,21 +52,21 @@ class TransitSelectionTest {
     }
 
     @Test
-    fun `se nessuna rete ha il riquadro si scaricano tutte`() {
+    fun `se nessuna rete ha il rettangolo si scaricano tutte`() {
         val noBox = four.map { it.copy(bbox = null) }
         assertEquals(TransitDefault(emptySet(), TransitDefaultReason.ALL), defaultTransitChoice(noBox, 0.5, 0.5))
     }
 
     @Test
-    fun `dentro il riquadro la distanza e' zero e resta quella rete`() {
+    fun `dentro il rettangolo la distanza e' zero e resta quella rete`() {
         val choice = defaultTransitChoice(four, 0.5, 0.5)
         assertEquals(setOf("b", "c", "d"), choice.excluded)
         assertEquals(TransitDefaultReason.NEAR, choice.reason)
     }
 
     @Test
-    fun `la soglia dei 50 km passa fra 44 e 56 km dal riquadro`() {
-        // 0,4 gradi di latitudine = circa 44,5 km a nord del riquadro: vicina.
+    fun `la soglia dei 50 km passa fra 44 e 56 km dal rettangolo`() {
+        // 0,4 gradi di latitudine = circa 44,5 km a nord del rettangolo: vicina.
         assertEquals(TransitDefaultReason.NEAR, defaultTransitChoice(four, 1.4, 0.5).reason)
         // 0,5 gradi = circa 55,7 km: nessuna vicina, resta la piu' vicina.
         val far = defaultTransitChoice(four, 1.5, 0.5)
@@ -76,7 +76,7 @@ class TransitSelectionTest {
 
     @Test
     fun `la distanza in longitudine si accorcia con la latitudine`() {
-        // A 60 gradi nord un grado di longitudine vale circa 56 km: 0,8 gradi dal riquadro sono 44 km e contano come vicini.
+        // A 60 gradi nord un grado di longitudine vale circa 56 km: 0,8 gradi dal rettangolo sono 44 km e contano come vicini.
         val north = listOf(feed("n", listOf(10.0, 60.0, 11.0, 61.0))) + four.drop(1)
         assertEquals(TransitDefaultReason.NEAR, defaultTransitChoice(north, 60.5, 11.8).reason)
         // Alla stessa differenza di longitudine all'equatore sarebbero 89 km.
@@ -85,7 +85,7 @@ class TransitSelectionTest {
     }
 
     @Test
-    fun `il riquadro con longitudini negative si legge allo stesso modo`() {
+    fun `il rettangolo con longitudini negative si legge allo stesso modo`() {
         val west = listOf(feed("w", listOf(-3.0, 51.0, -2.0, 52.0))) + four.drop(1)
         val choice = defaultTransitChoice(west, 51.5, -2.5)
         assertEquals(TransitDefaultReason.NEAR, choice.reason)
@@ -160,7 +160,7 @@ class TransitSelectionTest {
     }
 
     @Test
-    fun `la convalida rifiuta un riquadro che non ha quattro valori e accetta l'assenza`() {
+    fun `la convalida rifiuta un rettangolo che non ha quattro valori e accetta l'assenza`() {
         TransitIndex("v1", listOf(feed("a", bbox = null))).validate()
         TransitIndex("v1", listOf(feed("a", bbox = listOf(0.0, 0.0, 1.0, 1.0)))).validate()
         listOf(emptyList(), listOf(0.0, 0.0, 1.0), listOf(0.0, 0.0, 1.0, 1.0, 2.0)).forEach {
@@ -181,7 +181,7 @@ class TransitSelectionTest {
     }
 
     @Test
-    fun `la voce transit del manifest rifiuta dimensione negativa e versione non sicura`() {
+    fun `la voce transit del catalogo rifiuta dimensione negativa e versione non sicura`() {
         val entry = TransitManifestEntry("1", "https://github.com/o/r/releases/download/t/transit.json", 10, sha)
         entry.validate()
         assertThrows(IllegalArgumentException::class.java) { entry.copy(sizeBytes = -1).validate() }

@@ -389,7 +389,7 @@ class PmtilesExtractorTest {
     }
 
     @Test
-    fun `l'avanzamento arriva al totale delle tile del riquadro`() {
+    fun `l'avanzamento arriva al totale delle tile del rettangolo`() {
         val installed = File(sourceFile.parentFile, "installed.pmtiles").also { writePmtiles(it, oldTiles()) }
         serveNew(newTiles())
         val mapSource = worldZ0to2(server.url("/planet.pmtiles").toString())

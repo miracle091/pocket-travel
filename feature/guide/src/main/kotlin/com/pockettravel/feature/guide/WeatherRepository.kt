@@ -46,7 +46,7 @@ class WeatherRepository(
 
     private val places = preferencesFactory.open("weather_places")
 
-    // Tetto per chiamata: con una rete lenta il riquadro non resta vuota per decine di secondi prima di mostrare
+    // Tetto per chiamata: con una rete lenta il riquadro non resta vuoto per decine di secondi prima di mostrare
     // il meteo salvato (i timeout di connessione e lettura non limitano la chiamata intera).
     private val client = okHttpClient.newBuilder().callTimeout(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS).build()
 

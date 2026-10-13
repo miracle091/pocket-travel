@@ -60,7 +60,7 @@ class MainActivity : FragmentActivity() {
     }
 
     // Guide installate in una lingua diversa da quella dell'interfaccia (lingua appena cambiata):
-    // si scaricano subito quelle giuste. Se il manifest non offre guide inglesi il worker non fa nulla.
+    // si scaricano subito quelle giuste. Se il catalogo non offre guide inglesi il worker non fa nulla.
     private fun syncGuidesLanguage() {
         lifecycleScope.launch {
             val installed = regionRepository.installedGuidesVersion()

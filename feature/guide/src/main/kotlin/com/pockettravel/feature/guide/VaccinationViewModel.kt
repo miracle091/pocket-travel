@@ -41,7 +41,7 @@ data class StopoverInput(
 
 /**
  * Stato del riquadro e della schermata delle vaccinazioni. I paesi sono ISO alpha-2 maiuscoli (come li da' il
- * selettore); [result] e' null quando il percorso non e' valido (partenza mancante, o uguale alla destinazione senza scopo:
+ * selettore); [result] e' null quando il viaggio non e' valido (partenza mancante, o uguale alla destinazione senza scopo:
  * con lo scopo Hajj il motore vale anche per chi parte dal paese stesso).
  */
 data class VaccinationUiState(

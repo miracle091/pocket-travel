@@ -1,10 +1,10 @@
 package com.pockettravel.feature.ai
 
-/** Mezzo chiesto nella frase ("a piedi", "by car"); null se la frase non lo dice. */
+/** Modo chiesto nella frase ("a piedi", "by car"); null se la frase non lo dice. */
 enum class NavigationRequestProfile { WALK, BIKE, CAR }
 
 /**
- * "Portami al Colosseo a piedi": la destinazione da cercare nel Navigatore e il mezzo, se detto. [destinationWithTime] e' la destinazione
+ * "Portami al Colosseo a piedi": la destinazione da cercare nel Navigatore e il modo, se detto. [destinationWithTime] e' la destinazione
  * col momento del giorno che le regole le hanno tolto ("bar stasera" per "bar"), null se non c'era: puo' essere il nome
  * del luogo, e il Navigatore la cerca per prima.
  */
@@ -47,7 +47,7 @@ private val TRIGGER = Regex(
     RegexOption.IGNORE_CASE,
 )
 
-// Il mezzo con il verbo davanti, se c'e' ("vado a piedi", "I'm walking"): si toglie tutto dalla destinazione.
+// Il modo con il verbo davanti, se c'e' ("vado a piedi", "I'm walking"): si toglie tutto dalla destinazione.
 private const val MODE_VERB = "(?:,?\\s*\\b(?:vado|andiamo|vengo|i'm|i am|we're|we are)\\s+)?"
 
 private val MODES = listOf(

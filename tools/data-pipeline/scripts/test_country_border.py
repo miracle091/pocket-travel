@@ -79,7 +79,7 @@ class ConfineTest(unittest.TestCase):
 
 
 def stato(osm_id, code, south, north, west, east):
-    """Risultato di Nominatim per una suddivisione: codice ISO 3166-2 nell'indirizzo, riquadro come stringhe."""
+    """Risultato di Nominatim per una suddivisione: codice ISO 3166-2 nell'indirizzo, rettangolo come stringhe."""
     return {"osm_type": "relation", "osm_id": osm_id, "address": {"ISO3166-2-lvl4": code},
             "boundingbox": [str(south), str(north), str(west), str(east)], "geojson": SAN_MARINO["geojson"]}
 

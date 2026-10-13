@@ -155,7 +155,7 @@ class RegionPackageInstallerDeviceTest {
     }
 
     @Test
-    fun eliminareLaMappaNonToccaLAnteprimaSoloLEliminazioneDellaRegioneLaCancella() = runBlocking {
+    fun eliminareLaMappaNonToccaLaMappaDInsiemeSoloLEliminazioneDellaRegioneLaCancella() = runBlocking {
         files["preview.pmtiles"] = "anteprima".toByteArray()
         val entryConPreview = entryWithPreview()
         installer.install(entryConPreview, entryConPreview.availableKinds)

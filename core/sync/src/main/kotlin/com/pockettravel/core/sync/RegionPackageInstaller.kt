@@ -41,9 +41,9 @@ class RegionPackageInstaller @Inject constructor(
         onInstalling: () -> Unit = {},
     ) {
         require(kinds.isNotEmpty()) { "Nessun pacchetto da installare per ${entry.regionId}" }
-        require(entry.availableKinds.containsAll(kinds)) { "Pacchetti non offerti dal manifest per ${entry.regionId}: ${kinds - entry.availableKinds}" }
+        require(entry.availableKinds.containsAll(kinds)) { "Pacchetti non offerti dal catalogo per ${entry.regionId}: ${kinds - entry.availableKinds}" }
         // La mappa d'insieme non e' tra i pacchetti richiesti (non e' un PackageKind): si installa da sola con
-        // ogni download della regione, quando il manifest la offre con una versione diversa da quella
+        // ogni download della regione, quando il catalogo la offre con una versione diversa da quella
         // gia' installata — cosi' le regioni gia' scaricate la prendono al primo aggiornamento successivo.
         val installPreview = entry.preview != null && regionRepository.installed(entry.regionId)?.previewVersion != entry.preview.version
         // A griglia: solo le celle nuove o cambiate si scaricano, le
@@ -167,7 +167,7 @@ class RegionPackageInstaller @Inject constructor(
  * Prepara la cartella degli orari da attivare: `transit/` in [staging] con una `<id>.db` per rete
  * (gia' scaricata e decompressa, vedi [stagedFile]) e [RegionStorage.TRANSIT_FEEDS_FILE] con nome e
  * attribuzione di ciascuna. Attivata come cartella, sostituisce le reti precedenti: quelle sparite dal
- * manifest spariscono con lei.
+ * catalogo spariscono con lei.
  */
 internal fun assembleTransitDir(staging: File, feeds: List<TransitFeed>) {
     val dir = File(staging, RegionStorage.TRANSIT_DIR)

@@ -20,7 +20,7 @@ internal class PmtilesTileLocations(val offsets: LongArray, val lengths: IntArra
 /**
  * Indice di un archivio PMTiles v3 (locale o remoto) limitato a un insieme di tile: cammina la
  * directory leggendo solo le leaf che possono contenere una delle tile cercate (per il pianeta
- * Protomaps, solo quelle del riquadro della regione), senza leggere nessun dato di tile. Serve
+ * Protomaps, solo quelle del rettangolo della regione), senza leggere nessun dato di tile. Serve
  * all'aggiornamento incrementale della mappa (vedi [PmtilesExtractor]): la lunghezza di una tile
  * nella directory basta a riconoscere quelle cambiate tra due build. Stesso formato letto da
  * [PmtilesDirectoryReader], che invece cammina tutto l'archivio locale leggendo anche i dati.

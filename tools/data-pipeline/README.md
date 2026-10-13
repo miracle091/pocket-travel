@@ -45,7 +45,7 @@ openssl ec -in key.pem -pubout -outform DER | base64 -w0
 gh secret set MANIFEST_SIGNING_KEY < key.pem
 ```
 
-Senza ricompilare l'app, il catalogo di un fork si usa da **Altro → Impostazioni → Catalogo**: si inseriscono l'indirizzo di `manifest.json` (solo https) e la chiave pubblica in base64. L'app scarica il manifest e la sua firma, li verifica e solo allora salva il catalogo e si riavvia. I file del catalogo devono stare sull'host del manifest o su `github.com` (asset delle release). `app-status.json` resta quello del progetto, verificato con la chiave del progetto.
+Senza ricompilare l'app, il catalogo di un fork si usa da **Altro → Impostazioni → Catalogo**: si inseriscono l'indirizzo di `manifest.json` (solo https) e la chiave pubblica in base64. L'app scarica `manifest.json` e la sua firma, li verifica e solo allora salva il catalogo e si riavvia. I file del catalogo devono stare sull'host di `manifest.json` o su `github.com` (asset delle release). `app-status.json` resta quello del progetto, verificato con la chiave del progetto.
 
 Per controllare a mano un file scaricato:
 
@@ -54,14 +54,14 @@ openssl ec -in key.pem -pubout -out pub.pem
 openssl dgst -sha256 -verify pub.pem -signature manifest.json.sig manifest.json
 ```
 
-## Civici a celle (`address-grid.json`)
+## Numeri civici a celle (`address-grid.json`)
 
-I civici (OSM + Overture) non si pubblicano per regione ma in celle di una griglia: job `address-grid` di
+I numeri civici (OSM + Overture) non si pubblicano per regione ma in celle di una griglia: job `address-grid` di
 `publish-regions.yml`, una cella alla volta con `scripts/build-address-cell.sh`, indice unito da
 `GenerateAddressGrid.kt` e controllato da `validateAddressGridJson` (`ValidateManifest.kt`).
 
 - **Cella**: nodo `z/x/y` del quadtree Web Mercator con `z <= 14` (`tileZoom`), che contiene le tile z14
-  discendenti. Il file è un PMTiles con i civici di quelle tile (`GenerateAddresses --cell`) e, se ci sono
+  discendenti. Il file è un PMTiles con i numeri civici di quelle tile (`GenerateAddresses --cell`) e, se ci sono
   vie, un indice di ricerca `addresses-search.db`. Le celle senza dati non esistono.
 - **Partizione**: le celle dell'indice pubblicato più quelle del seme `address-grid-seed.tsv` (righe
   `z/x/y`, da `scripts/seed-address-grid.py`) non ancora coperte, cioè né pubblicate né antenate di una
@@ -81,7 +81,7 @@ I civici (OSM + Overture) non si pubblicano per regione ma in celle di una grigl
   `cell-<z>-<x>-<y>--<version>--addresses.pmtiles.xz` e `...--addresses-search.db.xz`.
 
 Indice, firmato come gli altri JSON e puntato dalla voce `"addressGrid": { "version", "url", "sizeBytes",
-"sha256" }` del manifest:
+"sha256" }` di `manifest.json`:
 
 ```json
 {
@@ -101,8 +101,8 @@ Indice, firmato come gli altri JSON e puntato dalla voce `"addressGrid": { "vers
   decompressi. `search` è facoltativo (le app vecchie lo ignorano).
 - `attributions` (schermata Licenze): OSM, Overture con i distributori e il testo di ogni fonte ammessa
   dalla lista bianca `overture-address-sources.tsv`, anche se le celle di oggi non la usano.
-- L'app scarica le celle che intersecano il riquadro della regione, le unisce in un solo
-  `addresses.pmtiles` locale e usa come versione dei civici `grid-` + i primi 16 esadecimali dello sha256
+- L'app scarica le celle che intersecano il rettangolo della regione, le unisce in un solo
+  `addresses.pmtiles` locale e usa come versione dei numeri civici `grid-` + i primi 16 esadecimali dello sha256
   degli `id@version` delle celle ordinati (`+search` per le celle con l'indice di ricerca;
   `AddressGridSelection.kt`).
 
@@ -177,7 +177,7 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
 - **Misura della scelta del contesto**: `scripts/eval_retrieval.py` replica in Python la scelta del contesto di
   `TravelAssistant.kt` e `FtsRanking.kt` (BM25, città nominata nella domanda, paragrafi del contesto) e la misura sulle
   guide pubblicate di alcune regioni, con Storia e Clima da Wikipedia se i `cities.db` pubblicati non li hanno ancora,
-  e domande costruite da modelli fissi (pratiche sulle città, sul paese, storia e clima). Stampa quante volte la sezione
+  e domande costruite da schemi di domanda fissi (pratiche sulle città, sul paese, storia e clima). Stampa quante volte la sezione
   attesa entra nel contesto e quante volte la risposta ci sta dentro. Va aggiornato insieme alla scelta del contesto
   dell'app; `--lang en` misura le guide e le domande inglesi, `--no-wikipedia` misura senza le due sezioni,
   `--questions reworded` usa le stesse richieste con altre parole e `--questions other-lang` le domande nell'altra
@@ -248,10 +248,10 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   riga dell'app (`emergencyNumbersContext`, da `emergency-numbers.tsv`) in testa al contesto e come risposta, e il
   rifiuto per le regioni senza numero centralizzato. Di default (`--user-style-questions 0.2`) nelle categorie Cosa vedere,
   Alloggio, Sicurezza, Trasporti e Usi e costumi una domanda su cinque, tra positivi e rifiuti, è una domanda di viaggio
-  in stile utente invece di un modello: `scripts/travel_questions.py` prende le prime domande delle conversazioni di
+  in stile utente invece di uno schema di domanda: `scripts/travel_questions.py` prende le prime domande delle conversazioni di
   `soniawmeyer/travel-conversations-finetuning` della sola parte UltraChat (MIT; fuori Reddit e Dolly), tiene quelle
   senza nomi di luogo che toccano una sola categoria e le traduce in italiano con MarianMT per il dataset italiano;
-  senza rete restano i modelli. Di default (`--city-daily-life`) le città hanno anche la sezione "Informazioni utili" /
+  senza rete restano gli schemi di domanda. Di default (`--city-daily-life`) le città hanno anche la sezione "Informazioni utili" /
   "Cope" (Vita quotidiana, come in `cities.db` dell'app), con in più le città oltre `--cities` che la hanno (solo quella
   domanda, nessun rifiuto): nel v9 la categoria aveva solo le sezioni dei paesi e quasi tanti rifiuti quanti positivi. Le
   sue parole chiave in più (uffici turistici, farmacie, consolati) valgono anche per i paesi, e i rifiuti delle città

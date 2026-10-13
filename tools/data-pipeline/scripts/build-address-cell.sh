@@ -37,7 +37,7 @@
 #                                          gia' pubblicata si rigenera
 #   ADDRESS_CELL_MAX_EXTRACT_MB (500)      sopra questa dimensione delle z15 del bbox della cella si
 #                                          prova Overpass (fonte di riserva): una cella e' piccola,
-#                                          il limite e' molto piu' basso che per un riquadro regionale
+#                                          il limite e' molto piu' basso che per il rettangolo di una regione
 #   ADDRESS_CELL_OVERPASS_MAX   (200000)   civici massimi accettati dalla fonte di riserva Overpass
 #   ADDRESSES_ATTEMPTS          (3)        tentativi di stima ed estrazione delle z15
 #   OVERTURE_WHITELIST                     lista bianca dei dataset (default:

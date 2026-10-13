@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ritaglia un segmento BRouter (.rd5, tile 5x5 gradi) sul riquadro di una regione.
+"""Ritaglia un segmento BRouter (.rd5, tile 5x5 gradi) sul rettangolo di una regione.
 
 I .rd5 di brouter.de coprono 5x5 gradi: il Lussemburgo ha due tile da 435 MB di cui usa l'1%.
 Il formato (third-party/brouter-core: PhysicalFile, OsmFile) permette di togliere dati senza
@@ -12,10 +12,10 @@ ricalcolarli:
     dalle micro-celle, ognuna con il proprio CRC in coda (quindi spostabile senza ricalcolo);
   - in coda: creationTime (long), CRC dell'indice (int; xor 2 se divisor 32), 25 CRC degli indici
     dei blocchi (int), tipo di elevazione (byte) ed eventuali estensioni.
-Qui si tengono solo le micro-celle che toccano il riquadro della regione allargato di --margin
+Qui si tengono solo le micro-celle che toccano il rettangolo della regione allargato di --margin
 gradi (le strade di confine restano percorribili per qualche chilometro), si svuotano le altre e
 si riscrivono indici e CRC. I dati delle micro-celle tenute restano identici byte per byte.
-Si leggono solo le parti necessarie (intestazione, coda, indici delle sotto-tile nel riquadro,
+Si leggono solo le parti necessarie (intestazione, coda, indici delle sotto-tile nel rettangolo,
 micro-celle tenute): con un URL di brouter.de si scaricano pochi MB invece dell'intera tile.
 
 Uso: python clip_rd5.py <in.rd5 | URL> <out.rd5> --bbox minLon,minLat,maxLon,maxLat --margin 0.1
@@ -204,12 +204,12 @@ def clip(src, bbox):
     for i in range(25):
         start = ends[i - 1] if i else 200
         lon_deg, lat_deg = lon0 + i // 5, lat0 + i % 5
-        # Sotto-tile vuota o fuori dal riquadro: non si legge nemmeno il suo indice.
+        # Sotto-tile vuota o fuori dal rettangolo: non si legge nemmeno il suo indice.
         if ends[i] == start or not overlaps(lon_deg, lat_deg, 1, bbox):
             blocks.append(b""); header_crcs.append(0)
             continue
         positions = struct.unpack(f">{divisor * divisor}i", src.read(start, start + index_size))
-        # Micro-celle tenute contigue (quelle di una riga del riquadro): un solo intervallo da leggere.
+        # Micro-celle tenute contigue (quelle di una riga del rettangolo): un solo intervallo da leggere.
         new_positions, runs, size, prev = [], [], 0, index_size
         for sub, end in enumerate(positions):
             if end > prev and overlaps(lon_deg + (sub % divisor) * cell, lat_deg + (sub // divisor) * cell, cell, bbox):
@@ -238,7 +238,7 @@ def clip(src, bbox):
     return head + b"".join(blocks) + footer, kept
 
 
-# Codice d'uscita di una tile senza strade nel riquadro: non e' un errore, la tile non serve alla regione.
+# Codice d'uscita di una tile senza strade nel rettangolo: non e' un errore, la tile non serve alla regione.
 EMPTY_EXIT = 3
 
 
@@ -247,7 +247,7 @@ def main():
     ap.add_argument("src", help="file .rd5 locale o URL (http/https, letto con richieste Range)")
     ap.add_argument("dst", type=Path)
     ap.add_argument("--bbox", required=True, help="minLon,minLat,maxLon,maxLat della regione")
-    ap.add_argument("--margin", type=float, required=True, help="gradi aggiunti al riquadro su ogni lato (0,1 = ~11 km)")
+    ap.add_argument("--margin", type=float, required=True, help="gradi aggiunti al rettangolo su ogni lato (0,1 = ~11 km)")
     ap.add_argument("--user-agent", default="PocketTravelDataPipeline clip_rd5.py", help="per le richieste HTTP")
     ap.add_argument("--range-cache", type=Path, help="cartella degli intervalli gia' scaricati, condivisa tra le regioni di un job (solo con URL)")
     a = ap.parse_args()
@@ -259,15 +259,15 @@ def main():
         src = CachedSource(src, a.range_cache)
     out, kept = clip(src, bbox)
     if kept == 0:
-        # La tile esiste ma nel riquadro non ha strade (costa, mare al bordo della regione): non si scrive
+        # La tile esiste ma nel rettangolo non ha strade (costa, mare al bordo della regione): non si scrive
         # un .rd5 vuoto e il chiamante salta solo questa tile, con EMPTY_EXIT distinto da un errore vero.
-        print(f"-- {src.name}: nessuna micro-cella nel riquadro {bbox}, tile saltata", file=sys.stderr)
+        print(f"-- {src.name}: nessuna micro-cella nel rettangolo {bbox}, tile saltata", file=sys.stderr)
         return EMPTY_EXIT
     a.dst.write_bytes(out)
     reused = f", {src.reused / 2**20:.1f} MiB dalla cache" if isinstance(src, CachedSource) else ""
     print(f"{src.name}: {src.size / 2**20:.1f} -> {len(out) / 2**20:.1f} MiB, {kept} micro-celle tenute, "
           f"{src.fetched / 2**20:.1f} MiB {'scaricati' if remote else 'letti'}{reused}", file=sys.stderr)
-    print(src.size)  # dimensione dell'originale, per il sourceKey del manifest (build-region.sh)
+    print(src.size)  # dimensione dell'originale, per il sourceKey di `manifest.json` (build-region.sh)
     return 0
 
 
