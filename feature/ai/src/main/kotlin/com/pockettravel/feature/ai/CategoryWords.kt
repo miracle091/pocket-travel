@@ -12,18 +12,24 @@ package com.pockettravel.feature.ai
 private val categoryTriggers = mapOf(
     "ALLOGGIO" to "allogg dormi pernot notte alberg hotel ostell campeg stay sleep accomm lodg hostel night= camp= camping campsite camera prenot room rooms",
     "CIBO_BEVANDE" to "mangi cibo cucin piatt assag ristor pranz cena cenar colaz specia bere vino birra " +
-        "food eat dish cuisin restaurant lunch dinner breakf tast drink wine beer beve bevi bevan",
-    "COSA_VEDERE" to "veder visit attraz monum muse perder merit see sight attract worth miss to+do things+to+do",
+        "food eat dish cuisin restaurant lunch dinner breakf tast drink wine beer beve bevi bevan " +
+        "dolci= dolce= dessert sweets= pastic pastry trattor osteri tavern",
+    "COSA_VEDERE" to "veder visit attraz monum muse perder merit see sight attract worth miss to+do things+to+do " +
+        "castell castle palazz palace chies church cattedr cathedr duomo",
     "ACQUISTI" to "acqui compr souven negoz mercat manci camerier pagar contan bancom soldi valut " +
-        "shop buy market tip waiter pay cash card= money curren atm paga euro= dollar",
+        "shop buy market tip waiter pay cash card= money curren atm paga euro= dollar " +
+        "ricord regal gift cost= costs= costo= costi= expens costa+la+vita costo+della+vita cost+of+living",
     "TRASPORTI" to "arriv spost muov treno treni autob macchin auto nolegg guidar raggiun " +
-        "bus train car drive rent transp metro reach around stazion station aeroport airport",
+        "bus train car drive rent transp metro reach around stazion station aeroport airport " +
+        "taxi tassi= tram= traghett ferry",
     "DOGANE" to "passap docum front dogan visto alcol sigar passport border custom visa alcoh cigar identit id+card",
-    "SALUTE" to "vacci ammal malat medic osped salute farmac sanit sick ill doctor hospit health jab pharm pronto+soccorso first+aid",
+    "SALUTE" to "vacci ammal malat medic osped salute farmac sanit sick ill doctor hospit health jab pharm pronto+soccorso first+aid " +
+        "rubinett tap+water",
     "SICUREZZA" to "sicur peric derub furt borseg ladr crimin truffa truffe safe danger rob theft thief pickp crime scam",
     "CONNETTIVITA" to "internet telef cellul sim wifi collegar roami online phone mobile connec",
     "STORIA" to "stori origin nata= nato= fondat fondo= passat medioev govern antico antica antich roman guerr " +
-        "histor found establ past= ancien rule= ruled ruler middl war middle+ages costru mura= built wall= ottocent novecent settecent seicent cinquecent quattrocent trecent secol centur",
+        "histor found establ past= ancien rule= ruled ruler middl war middle+ages costru mura= built wall= ottocent novecent settecent seicent cinquecent quattrocent trecent secol centur " +
+        "popol abitat inhabit settl peoples= how+old",
     "CLIMA" to "clima meteo piog piov ombrel tempera primav estat invern autun nevic neve caldo fredd stagion " +
         "climat weather rain umbrel spring summer winter= autumn snow hot cold season " +
         "periodo+migliore quando+andare best+time when+to+go gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre mesi january february march april june july august september october november december months",

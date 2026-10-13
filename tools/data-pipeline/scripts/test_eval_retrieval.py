@@ -138,6 +138,12 @@ class SearchTest(unittest.TestCase):
     def test_parole_di_storia_e_clima(self):
         self.assertTrue(ev.HISTORY_CLIMATE_WORDS.search("Does it rain a lot in Porto?"))
         self.assertFalse(ev.HISTORY_CLIMATE_WORDS.search("How do I get to Porto by train?"))
+        self.assertTrue(ev.HISTORY_CLIMATE_WORDS.search("How old is Lagos?"))
+
+    def test_parole_di_storia_e_clima_come_l_app(self):
+        kotlin = (Path(__file__).resolve().parents[3] / "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/TravelAssistant.kt")
+        block = kotlin.read_text(encoding="utf-8").split("private val historyClimateWords = Regex(")[1].split("RegexOption")[0]
+        self.assertEqual("".join(re.findall(r'"""(.*?)"""', block)), ev.HISTORY_CLIMATE_WORDS.pattern)
 
     def test_due_citta_nominate_e_ripiego_sul_nome(self):
         rows = [

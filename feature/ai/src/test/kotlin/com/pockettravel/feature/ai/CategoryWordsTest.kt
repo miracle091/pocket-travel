@@ -36,6 +36,21 @@ class CategoryWordsTest {
     }
 
     @Test
+    fun `giri di frase delle domande di sviluppo`() {
+        assertEquals(setOf("TRASPORTI"), questionGroups("Ci sono taxi a Concesio?"))
+        assertEquals(setOf("CIBO_BEVANDE"), questionGroups("C'è una trattoria tipica a Fátima?"))
+        assertEquals(setOf("ACQUISTI"), questionGroups("Cosa portare a casa come ricordo da Siena?"))
+        assertEquals(setOf("COSA_VEDERE"), questionGroups("Is there a castle in Guimarães?"))
+        assertEquals(setOf("ACQUISTI"), questionGroups("Quanto costa la vita?"))
+        assertEquals(setOf("STORIA"), questionGroups("How old is Lagos?"))
+        // "dolci" e "costa" solo come parole intere o nell'espressione: Dolceacqua e la costa non sono cibo e prezzi.
+        assertEquals(setOf("COSA_VEDERE"), questionGroups("Cosa vedere a Dolceacqua?"))
+        assertEquals(setOf("COSA_VEDERE"), questionGroups("Cosa vedere sulla costa?"))
+        assertTrue(isHistoryOrClimateQuestion("Quali popoli hanno abitato Spalato?"))
+        assertTrue(isHistoryOrClimateQuestion("How old is Lagos?"))
+    }
+
+    @Test
     fun `aggiunge alla query le parole dei titoli nella lingua della guida`() {
         assertEquals("pernot* OR rimini OR allogg*", withCategoryWords("pernot* OR rimini", "Dove pernottare a Rimini?", "it"))
         assertEquals("\"get in\" OR \"get around\"", withCategoryWords("", "Come si arriva in treno?", "en"))
