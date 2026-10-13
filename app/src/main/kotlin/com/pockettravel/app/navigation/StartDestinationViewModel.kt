@@ -1,8 +1,8 @@
 package com.pockettravel.app.navigation
 
 import androidx.lifecycle.ViewModel
-import com.pockettravel.app.onboarding.OnboardingPreferences
-import com.pockettravel.app.regions.RecentRegionPreferences
+import com.pockettravel.app.onboarding.OnboardingStore
+import com.pockettravel.app.regions.RecentRegionStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -13,13 +13,13 @@ import javax.inject.Inject
 // riparte da li' ma "Indietro" torna all'elenco invece di chiudere l'app.
 @HiltViewModel
 class StartDestinationViewModel @Inject constructor(
-    onboardingPreferences: OnboardingPreferences,
-    recentRegionPreferences: RecentRegionPreferences,
+    onboardingStore: OnboardingStore,
+    recentRegionStore: RecentRegionStore,
 ) : ViewModel() {
-    private val onboardingCompleted = onboardingPreferences.isCompleted()
+    private val onboardingCompleted = onboardingStore.isCompleted()
 
     val startDestination: Any =
         if (onboardingCompleted) RegionsRoute else OnboardingRoute
 
-    val initialRegionId: String? = if (onboardingCompleted) recentRegionPreferences.lastRegionId() else null
+    val initialRegionId: String? = if (onboardingCompleted) recentRegionStore.lastRegionId() else null
 }

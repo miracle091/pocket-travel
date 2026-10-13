@@ -1,19 +1,10 @@
 package com.pockettravel.core.sync
 
+import com.pockettravel.core.sync.testing.FakePublishedAtStore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.fail
 import org.junit.Test
-
-internal class FakePublishedAtStore(private val values: MutableMap<String, Long> = mutableMapOf()) : PublishedAtStore {
-    override fun last(kind: String): Long? = values[kind]
-    override fun save(kind: String, publishedAt: Long) {
-        values[kind] = publishedAt
-    }
-    override fun forgetAllExcept(kept: String) {
-        values.keys.retainAll(setOf(kept))
-    }
-}
 
 /** Confronto di `publishedAt` con l'ultimo accettato (anti-rollback dei file firmati): solo logica, nessuna rete. */
 class PublishedAtTest {

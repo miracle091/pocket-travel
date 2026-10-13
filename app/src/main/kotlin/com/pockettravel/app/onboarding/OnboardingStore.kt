@@ -7,7 +7,7 @@ import javax.inject.Singleton
 
 /** Ricorda se l'utente ha già visto l'onboarding — nessun dato personale, solo un flag locale. */
 @Singleton
-class OnboardingPreferences @Inject constructor(preferences: PreferencesFactory) {
+class OnboardingStore @Inject constructor(preferences: PreferencesFactory) {
 
     private val prefs = preferences.open("onboarding")
 

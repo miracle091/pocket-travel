@@ -2,6 +2,7 @@ package com.pockettravel.core.sync
 
 import androidx.core.content.edit
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
+import com.pockettravel.core.sync.testing.FakePublishedAtStore
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope

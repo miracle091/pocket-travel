@@ -6,20 +6,20 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-class SharedPrefsPublishedAtStoreTest {
+class DefaultPublishedAtStoreTest {
 
     @Test
     fun `un file mai visto non ha data`() {
-        assertNull(SharedPrefsPublishedAtStore(InMemoryPreferencesFactory()).last("manifest.json"))
+        assertNull(DefaultPublishedAtStore(InMemoryPreferencesFactory()).last("manifest.json"))
     }
 
     @Test
     fun `la data salvata resta per la prossima apertura, anche se e' zero`() {
         val files = InMemoryPreferencesFactory()
-        SharedPrefsPublishedAtStore(files).save("manifest.json", 0L)
-        SharedPrefsPublishedAtStore(files).save("transit.json", 1_700_000_000L)
+        DefaultPublishedAtStore(files).save("manifest.json", 0L)
+        DefaultPublishedAtStore(files).save("transit.json", 1_700_000_000L)
 
-        val reopened = SharedPrefsPublishedAtStore(files)
+        val reopened = DefaultPublishedAtStore(files)
 
         assertEquals(0L, reopened.last("manifest.json"))
         assertEquals(1_700_000_000L, reopened.last("transit.json"))
@@ -27,7 +27,7 @@ class SharedPrefsPublishedAtStoreTest {
 
     @Test
     fun `forgetAllExcept tiene solo il file indicato`() {
-        val store = SharedPrefsPublishedAtStore(InMemoryPreferencesFactory())
+        val store = DefaultPublishedAtStore(InMemoryPreferencesFactory())
         store.save("manifest.json", 1L)
         store.save("transit.json", 2L)
         store.save("app-status.json", 3L)
@@ -44,6 +44,6 @@ class SharedPrefsPublishedAtStoreTest {
         val files = InMemoryPreferencesFactory()
         files.open("published_at").edit { putLong("manifest.json", 42L) }
 
-        assertEquals(42L, SharedPrefsPublishedAtStore(files).last("manifest.json"))
+        assertEquals(42L, DefaultPublishedAtStore(files).last("manifest.json"))
     }
 }

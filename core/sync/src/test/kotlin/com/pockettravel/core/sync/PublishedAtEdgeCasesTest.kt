@@ -1,5 +1,6 @@
 package com.pockettravel.core.sync
 
+import com.pockettravel.core.sync.testing.FakePublishedAtStore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows

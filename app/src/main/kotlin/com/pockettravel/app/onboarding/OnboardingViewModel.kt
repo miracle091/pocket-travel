@@ -11,7 +11,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
-    private val onboardingPreferences: OnboardingPreferences,
+    private val onboardingStore: OnboardingStore,
     private val hintsReset: HintsReset,
     private val usageModePreferences: UsageModePreferences,
     private val nationalityPreferences: NationalityPreferences,
@@ -32,7 +32,7 @@ class OnboardingViewModel @Inject constructor(
     fun setNationality(countryCode: String) = nationalityPreferences.setNationality(countryCode)
 
     fun complete() {
-        onboardingPreferences.markCompleted()
+        onboardingStore.markCompleted()
         // Anche con "Rivedi il tutorial": i suggerimenti delle schede tornano a comparire alla prima apertura.
         hintsReset.reset()
     }

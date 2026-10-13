@@ -10,6 +10,9 @@ import com.pockettravel.core.data.testing.FakeRegionRepository
 import com.pockettravel.core.data.testing.FakeTransitRepository
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
 import com.pockettravel.core.poi.PoiCategory
+import com.pockettravel.feature.map.testing.FakeConnectivityObserver
+import com.pockettravel.feature.map.testing.FakeOfflineTileSource
+import com.pockettravel.feature.map.testing.FakePoiDao
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch

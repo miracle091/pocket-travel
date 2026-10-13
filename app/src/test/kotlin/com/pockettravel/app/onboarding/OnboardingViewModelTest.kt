@@ -22,7 +22,7 @@ class OnboardingViewModelTest {
     private fun viewModel(nationality: String? = "IT"): OnboardingViewModel {
         nationality?.let { files.open("profile").edit().putString("nationality", it).apply() }
         return OnboardingViewModel(
-            onboardingPreferences = OnboardingPreferences(files),
+            onboardingStore = OnboardingStore(files),
             hintsReset = HintsReset { hintResets++ },
             usageModePreferences = UsageModePreferences(files, MapFilterPreferences(files), RoutingVariantPreferences(files)),
             nationalityPreferences = NationalityPreferences(files),
@@ -37,7 +37,7 @@ class OnboardingViewModelTest {
         assertFalse(viewModel.accessible.value)
         assertFalse(viewModel.wantsDirections.value)
         assertEquals("IT", viewModel.nationality.value)
-        assertFalse(OnboardingPreferences(files).isCompleted())
+        assertFalse(OnboardingStore(files).isCompleted())
         assertEquals(0, hintResets)
     }
 
@@ -85,7 +85,7 @@ class OnboardingViewModelTest {
 
         viewModel.complete()
 
-        assertTrue(OnboardingPreferences(files).isCompleted())
+        assertTrue(OnboardingStore(files).isCompleted())
         assertEquals(1, hintResets)
     }
 
@@ -96,7 +96,7 @@ class OnboardingViewModelTest {
         viewModel.complete()
         viewModel.complete()
 
-        assertTrue(OnboardingPreferences(files).isCompleted())
+        assertTrue(OnboardingStore(files).isCompleted())
         assertEquals(2, hintResets)
     }
 
@@ -107,7 +107,7 @@ class OnboardingViewModelTest {
         viewModel.setUsageModes(setOf(UsageMode.A_PIEDI))
         viewModel.setNationality("FR")
 
-        assertFalse(OnboardingPreferences(files).isCompleted())
+        assertFalse(OnboardingStore(files).isCompleted())
         assertEquals(0, hintResets)
     }
 }

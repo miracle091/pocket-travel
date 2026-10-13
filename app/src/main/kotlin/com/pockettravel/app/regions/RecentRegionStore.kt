@@ -7,7 +7,7 @@ import javax.inject.Singleton
 
 /** Ricorda l'ultima regione aperta, per riaprirne la mappa all'avvio (vedi StartDestinationViewModel). */
 @Singleton
-class RecentRegionPreferences @Inject constructor(preferences: PreferencesFactory) {
+class RecentRegionStore @Inject constructor(preferences: PreferencesFactory) {
 
     private val prefs = preferences.open("recent_region")
 

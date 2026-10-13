@@ -5,6 +5,11 @@ import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.core.data.testing.FakeRegionRepository
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
+import com.pockettravel.feature.map.testing.FakeGpsLocationSource
+import com.pockettravel.feature.map.testing.FakeGuidanceServiceStarter
+import com.pockettravel.feature.map.testing.FakeOfflineTileSource
+import com.pockettravel.feature.map.testing.FakeRouteSimulationLog
+import com.pockettravel.feature.map.testing.ScriptedRouteEngineFactory
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -40,8 +45,8 @@ class NavigationViewModelTest {
     private val preferences = NavigationPreferences(files)
     // La nazionalita' e' gia' salvata: senza, le preferenze la chiederebbero alle risorse di sistema di Android.
     private val nationality = NationalityPreferences(files.also { it.open("profile").edit().putString("nationality", "IT").commit() })
-    private val starter = RecordingGuidanceServiceStarter()
-    private val simulationLog = RecordingRouteSimulationLog()
+    private val starter = FakeGuidanceServiceStarter()
+    private val simulationLog = FakeRouteSimulationLog()
     private var handle = SavedStateHandle()
     private var host: ViewModelHost<NavigationViewModel>? = null
 

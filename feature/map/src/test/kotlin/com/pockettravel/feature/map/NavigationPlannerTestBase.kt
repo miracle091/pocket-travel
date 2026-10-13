@@ -7,6 +7,11 @@ import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.core.data.testing.FakeAddressSearchRepository
 import com.pockettravel.core.data.testing.FakeRegionRepository
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
+import com.pockettravel.feature.map.testing.FakeDepartureReminderScheduler
+import com.pockettravel.feature.map.testing.FakeGpsLocationSource
+import com.pockettravel.feature.map.testing.FakeOfflineTileSource
+import com.pockettravel.feature.map.testing.FakePoiDao
+import com.pockettravel.feature.map.testing.ScriptedRouteEngineFactory
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch

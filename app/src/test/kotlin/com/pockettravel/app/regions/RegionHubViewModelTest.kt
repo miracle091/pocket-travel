@@ -55,7 +55,7 @@ class RegionHubViewModelTest {
     private val locator = FakeCountryLocator()
     private val ai = FakeAiAvailability()
     private val transitPreferences = TransitNetworkPreferences(files)
-    private val recent = RecentRegionPreferences(files)
+    private val recent = RecentRegionStore(files)
     private lateinit var previousLocale: Locale
 
     @Before

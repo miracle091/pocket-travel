@@ -69,7 +69,7 @@ private data class RegionHeader(
 @HiltViewModel
 class RegionHubViewModel @Inject constructor(
     private val regionRepository: RegionRepository,
-    private val recentRegionPreferences: RecentRegionPreferences,
+    private val recentRegionStore: RecentRegionStore,
     private val manifestClient: ManifestClient,
     private val regionSyncScheduler: RegionSyncScheduler,
     private val transitClient: TransitClient,
@@ -160,7 +160,7 @@ class RegionHubViewModel @Inject constructor(
         header.value = RegionHeader()
         transitOffered.value = null
         transitUpdate.value = null
-        recentRegionPreferences.setLastRegionId(regionId)
+        recentRegionStore.setLastRegionId(regionId)
         viewModelScope.launch {
             val region = regionRepository.installed(regionId)
             val name = region?.let { localizedInstalledName(it.displayName, it.countryCode, Locale.getDefault()) }

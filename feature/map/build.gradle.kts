@@ -6,6 +6,8 @@ plugins {
 
 android {
     namespace = "com.pockettravel.feature.map"
+    // Fake di PoiDao, GPS, tile e scheduler, per i test JVM del modulo.
+    testFixtures { enable = true }
 
     buildFeatures {
         // BuildConfig.DEBUG: il percorso nel log solo in debug, per la simulazione GPS sull'emulatore.
@@ -23,9 +25,17 @@ dependencies {
     // Richiesta del permesso di posizione dalla schermata di navigazione.
     implementation(libs.androidx.activity.compose)
 
+    // Tipi nelle firme dei fake: PoiDao e Flow.
+    testFixturesApi(project(":core:data"))
+    testFixturesApi(libs.kotlinx.coroutines.android)
+    // Il plugin del compilatore Compose del modulo vale anche per i fake e richiede il runtime.
+    testFixturesImplementation(platform(libs.compose.bom))
+    testFixturesImplementation(libs.compose.ui)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(testFixtures(project(":core:data")))
+    testImplementation(testFixtures(project(":feature:map")))
 
     // Test strumentato (androidTest): verifica su device/emulatore reale che il wiring di
     // RouteEngineModule (copia profilo dagli asset, RoutingContext/RoutingEngine di

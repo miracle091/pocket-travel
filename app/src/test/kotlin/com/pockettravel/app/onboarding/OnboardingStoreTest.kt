@@ -5,25 +5,25 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class OnboardingPreferencesTest {
+class OnboardingStoreTest {
 
     @Test
     fun `al primo avvio l'onboarding non e' completato`() {
-        assertFalse(OnboardingPreferences(InMemoryPreferencesFactory()).isCompleted())
+        assertFalse(OnboardingStore(InMemoryPreferencesFactory()).isCompleted())
     }
 
     @Test
     fun `l'onboarding completato resta per la prossima apertura`() {
         val files = InMemoryPreferencesFactory()
-        OnboardingPreferences(files).markCompleted()
+        OnboardingStore(files).markCompleted()
 
-        assertTrue(OnboardingPreferences(files).isCompleted())
+        assertTrue(OnboardingStore(files).isCompleted())
     }
 
     @Test
     fun `il flag sta nel file onboarding con la chiave completed`() {
         val files = InMemoryPreferencesFactory()
-        OnboardingPreferences(files).markCompleted()
+        OnboardingStore(files).markCompleted()
 
         assertTrue(files.open("onboarding").getBoolean("completed", false))
     }

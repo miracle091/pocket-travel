@@ -1,5 +1,6 @@
 package com.pockettravel.core.sync
 
+import com.pockettravel.core.sync.testing.FakePublishedAtStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor

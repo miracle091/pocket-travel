@@ -24,11 +24,11 @@
     <ID>MatchingDeclarationName:MapLegend.kt:LegendGroup</ID>
     <ID>MatchingDeclarationName:WorldMap.kt:CountryStatus</ID>
     <ID>MatchingDeclarationName:ZonePickerMap.kt:ZonePickerMapViewModel : ViewModel</ID>
-    <ID>ReturnCount:Connectivity.kt:AndroidConnectivityChecker$override fun isOnline: Boolean</ID>
+    <ID>ReturnCount:AndroidConnectivityChecker.kt:AndroidConnectivityChecker$override fun isOnline: Boolean</ID>
     <ID>ReturnCount:NavigationPreferences.kt:NavigationPreferences$fun activeNavigation: ActiveNavigation?</ID>
     <ID>ReturnCount:NavigationService.kt:NavigationService$override fun onStartCommand: Int</ID>
     <ID>ReturnCount:NavigationState.kt:fun navigationUiState: NavigationStatus</ID>
-    <ID>ReturnCount:OfflineTileSource.kt:PmtilesTileSource$override fun styleJson: String</ID>
+    <ID>ReturnCount:PmtilesTileSource.kt:PmtilesTileSource$override fun styleJson: String</ID>
     <ID>ReturnCount:OpeningHours.kt:internal fun parseOpeningHours: List&lt;OpeningHoursRow&gt;?</ID>
     <ID>SwallowedException:RouteEngineModule.kt:RouteEngineModule$error: Exception</ID>
     <ID>TooGenericExceptionCaught:NavigationService.kt:NavigationService$error: Exception</ID>
