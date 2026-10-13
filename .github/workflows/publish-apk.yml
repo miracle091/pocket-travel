@@ -105,7 +105,12 @@ jobs:
           distribution: temurin
           java-version: '25'
 
+      # Cache di Gradle in sola lettura: la scrive solo il job "build" di android-ci.yml, che compila anche la
+      # pipeline. Un salvataggio per job riempirebbe il limite di 10 GB delle cache del repository e farebbe
+      # sfrattare le altre (dump, traduzioni, ccache).
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          cache-read-only: true
 
       # Prima di compilare: una release con impronte dei modelli diverse dai file su Hugging Face
       # rifiuterebbe i download, quindi il job si ferma qui.

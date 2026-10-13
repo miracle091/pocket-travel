@@ -17,6 +17,9 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      CCACHE_DIR: /home/runner/.cache/ccache
+      CCACHE_MAXSIZE: 400M
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -28,6 +31,28 @@ jobs:
           java-version: '25'
 
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      # llama.cpp (feature/ai, CMake per arm64-v8a e x86_64) si compila da zero a ogni run, circa 8-10 minuti sul
+      # percorso critico. Il CMakeLists di feature/ai usa ccache se c'e', con gli oggetti ripristinati
+      # dalla cache. La chiave segue sorgenti, patch, CMakeLists e build.gradle.kts di
+      # feature/ai (argomenti CMake, ABI, versione dell'NDK); senza
+      # corrispondenza esatta si riparte dalla cache piu' recente e si ricompilano solo i file cambiati.
+      # Il controllo del compilatore usa la versione dell'NDK (ndkVersion di feature/ai/build.gradle.kts, letta nel passo) e non
+      # la data del file, che cambierebbe se l'NDK venisse reinstallato. Mai bloccante.
+      - name: Installa ccache
+        continue-on-error: true
+        shell: bash
+        run: |
+          sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq ccache
+          echo "CCACHE_COMPILERCHECK=string:ndk-$(sed -n 's/^ *ndkVersion = "\(.*\)"/\1/p' feature/ai/build.gradle.kts)" >> "$GITHUB_ENV"
+
+      - name: Cache di ccache per llama.cpp
+        continue-on-error: true
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /home/runner/.cache/ccache
+          key: ccache-llama-${{ hashFiles('third-party/llama-cpp/**', 'third-party/patches/llama-cpp/**', 'feature/ai/src/main/cpp/**', 'feature/ai/build.gradle.kts') }}
+          restore-keys: ccache-llama-
 
       # Le modifiche locali ai third-party stanno come patch in third-party/patches: dopo un aggiornamento
       # del vendor vanno riapplicate (quelle di llama-cpp le riapplica il CMake di feature/ai, quelle di
@@ -115,6 +140,9 @@ jobs:
   device-tests:
     runs-on: ubuntu-24.04
     timeout-minutes: 75
+    env:
+      CCACHE_DIR: /home/runner/.cache/ccache
+      CCACHE_MAXSIZE: 400M
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -124,7 +152,28 @@ jobs:
           distribution: temurin
           java-version: '25'
 
+      # Cache di Gradle in sola lettura: la scrive solo il job "build" di android-ci.yml, che compila anche la
+      # pipeline. Un salvataggio per job riempirebbe il limite di 10 GB delle cache del repository e farebbe
+      # sfrattare le altre (dump, traduzioni, ccache).
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          cache-read-only: true
+
+      # ccache per llama.cpp, come nel job "build" (stessa chiave: gli oggetti sono gli stessi).
+      - name: Installa ccache
+        continue-on-error: true
+        shell: bash
+        run: |
+          sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq ccache
+          echo "CCACHE_COMPILERCHECK=string:ndk-$(sed -n 's/^ *ndkVersion = "\(.*\)"/\1/p' feature/ai/build.gradle.kts)" >> "$GITHUB_ENV"
+
+      - name: Cache di ccache per llama.cpp
+        continue-on-error: true
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /home/runner/.cache/ccache
+          key: ccache-llama-${{ hashFiles('third-party/llama-cpp/**', 'third-party/patches/llama-cpp/**', 'feature/ai/src/main/cpp/**', 'feature/ai/build.gradle.kts') }}
+          restore-keys: ccache-llama-
 
       # Accelerazione hardware dell'emulatore x86_64 sui runner Linux.
       - name: Abilita KVM
