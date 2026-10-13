@@ -145,7 +145,7 @@ class RegionPackageDownloader @Inject constructor(
             try {
                 FileOutputStream(partFile, append).use { output ->
                     body.byteStream().use { input ->
-                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        val buffer = ByteArray(IO_BUFFER_SIZE)
                         var read: Int
                         while (input.read(buffer).also { read = it } != -1) {
                             // Annullare il download (es. regione eliminata) lo ferma subito, non al prossimo onProgress.
@@ -191,7 +191,7 @@ class RegionPackageDownloader @Inject constructor(
     private fun sha256Of(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
         DigestInputStream(file.inputStream(), digest).use { stream ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            val buffer = ByteArray(IO_BUFFER_SIZE)
             while (stream.read(buffer) != -1) {
                 // DigestInputStream.read aggiorna il digest a ogni lettura
             }
@@ -203,6 +203,9 @@ class RegionPackageDownloader @Inject constructor(
         // Un lock per id di staging, condiviso tra le istanze (il downloader non e' un singleton).
         val locks = ConcurrentHashMap<String, Mutex>()
         const val PROGRESS_STEP_BYTES = 4_000_000L
+
+        // Pacchetti da decine o centinaia di MB: blocchi piu' grandi degli 8 KiB di DEFAULT_BUFFER_SIZE, meno chiamate di sistema per download e SHA-256.
+        const val IO_BUFFER_SIZE = 64 * 1024
         const val BYTE_MASK = 0xFF
     }
 }
