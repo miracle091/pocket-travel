@@ -46,29 +46,48 @@ data class Address(val latE6: Int, val lonE6: Int, val number: String, val stree
 private const val ADDRESS_ZOOM = 15
 
 /** Estrae gli indirizzi da un archivio PMTiles locale (una o piu' tile z15), tenendo solo quelli nel bbox. */
-fun extractAddresses(pmtiles: File, minLon: Double, minLat: Double, maxLon: Double, maxLat: Double): List<Address> {
+fun extractAddresses(pmtiles: File, minLon: Double, minLat: Double, maxLon: Double, maxLat: Double): List<Address> =
+    extractZ15(pmtiles, AddressBbox(minLon, minLat, maxLon, maxLat), wantRoads = false).addresses
+
+/** Rettangolo dei civici, senza normalizzazione: uno invertito (min > max) non contiene nulla. */
+class AddressBbox(val minLon: Double, val minLat: Double, val maxLon: Double, val maxLat: Double)
+
+/** Civici e strade con nome letti dalle stesse tile z15. */
+class Z15Extract(val addresses: List<Address>, val roads: List<Road>)
+
+/**
+ * Una sola passata sulle tile z15 di [pmtiles] (ogni tile si decomprime e si decodifica una volta):
+ * i civici nel rettangolo [addressBbox] (null = nessun civico) e, con [wantRoads], le strade con nome.
+ */
+fun extractZ15(pmtiles: File, addressBbox: AddressBbox?, wantRoads: Boolean): Z15Extract {
     val addresses = mutableListOf<Address>()
+    val roads = mutableListOf<Road>()
     ReadablePmtiles.newReadFromFile(pmtiles.toPath()).use { archive ->
         archive.allTiles.use { tiles ->
             tiles.forEachRemaining { tile ->
                 val coord = tile.coord()
                 if (coord.z() != ADDRESS_ZOOM) return@forEachRemaining
                 VectorTile.decode(gunzipIfNeeded(tile.bytes())).forEach { feature ->
-                    if (feature.layer() != "buildings" || feature.tags()["kind"] != "address") return@forEach
-                    val number = feature.tags()["addr_housenumber"]?.toString()?.trim().orEmpty()
-                    if (number.isEmpty()) return@forEach
-                    val point = feature.geometry().decode() as? Point ?: return@forEach
-                    // decode() restituisce coordinate nella tile scalate su 0..256.
-                    val lon = tileXToLon(coord.x() + point.x / 256.0, ADDRESS_ZOOM)
-                    val lat = tileYToLat(coord.y() + point.y / 256.0, ADDRESS_ZOOM)
-                    if (lon in minLon..maxLon && lat in minLat..maxLat) {
-                        addresses += Address((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), number)
-                    }
+                    if (wantRoads) collectRoads(feature, coord, roads)
+                    if (addressBbox != null) collectAddress(feature, coord, addressBbox, addresses)
                 }
             }
         }
     }
-    return addresses
+    return Z15Extract(addresses, roads)
+}
+
+private fun collectAddress(feature: VectorTile.Feature, coord: TileCoord, bbox: AddressBbox, addresses: MutableList<Address>) {
+    if (feature.layer() != "buildings" || feature.tags()["kind"] != "address") return
+    val number = feature.tags()["addr_housenumber"]?.toString()?.trim().orEmpty()
+    if (number.isEmpty()) return
+    val point = feature.geometry().decode() as? Point ?: return
+    // decode() restituisce coordinate nella tile scalate su 0..256.
+    val lon = tileXToLon(coord.x() + point.x / 256.0, ADDRESS_ZOOM)
+    val lat = tileYToLat(coord.y() + point.y / 256.0, ADDRESS_ZOOM)
+    if (lon in bbox.minLon..bbox.maxLon && lat in bbox.minLat..bbox.maxLat) {
+        addresses += Address((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), number)
+    }
 }
 
 /**
@@ -77,14 +96,14 @@ fun extractAddresses(pmtiles: File, minLon: Double, minLat: Double, maxLon: Doub
  * quelli nel bbox.
  */
 fun readAddressPoints(points: File, minLon: Double, minLat: Double, maxLon: Double, maxLat: Double): List<Address> =
-    points.readLines().mapNotNull { line ->
+    points.useLines { lines -> lines.mapNotNull { line ->
         val fields = line.split('\t')
         val lat = fields.getOrNull(0)?.toDoubleOrNull() ?: return@mapNotNull null
         val lon = fields.getOrNull(1)?.toDoubleOrNull() ?: return@mapNotNull null
         val number = fields.getOrNull(2)?.trim().orEmpty()
         if (number.isEmpty() || lon !in minLon..maxLon || lat !in minLat..maxLat) return@mapNotNull null
         Address((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), number, fields.optionalText(3), fields.optionalText(4))
-    }
+    }.toList() }
 
 // Campo TSV facoltativo: assente o vuoto (anche solo spazi) = nessun valore.
 private fun List<String>.optionalText(index: Int): String? = getOrNull(index)?.trim()?.takeIf { it.isNotEmpty() }
@@ -109,7 +128,7 @@ data class OvertureAddress(
  * tema addresses, vedi scripts/overture_addresses.py), tenendo solo quelli nel bbox.
  */
 fun readOvertureAddressPoints(points: File, minLon: Double, minLat: Double, maxLon: Double, maxLat: Double): List<OvertureAddress> =
-    points.readLines().mapNotNull { line ->
+    points.useLines { lines -> lines.mapNotNull { line ->
         val fields = line.split('\t')
         val lat = fields.getOrNull(0)?.toDoubleOrNull() ?: return@mapNotNull null
         val lon = fields.getOrNull(1)?.toDoubleOrNull() ?: return@mapNotNull null
@@ -117,7 +136,7 @@ fun readOvertureAddressPoints(points: File, minLon: Double, minLat: Double, maxL
         val dataset = fields.getOrNull(3)?.trim().orEmpty()
         if (number.isEmpty() || lon !in minLon..maxLon || lat !in minLat..maxLat) return@mapNotNull null
         OvertureAddress((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), number, dataset, fields.optionalText(4), fields.optionalText(5))
-    }
+    }.toList() }
 
 private val RANGE_NUMBER = Regex("""(\d+[a-z]?)-(\d+[a-z]?)""")
 private val LATIN_SUFFIX_NUMBER = Regex("""(?<=\d)(bis|ter|quater)$""")
@@ -304,9 +323,16 @@ fun main(args: Array<String>) {
     }
     val cellId = requireNotNull(cell) { "--cell <z/x/y> obbligatorio: ogni build scrive i civici di una cella della griglia" }
     // Con piu' estratti (rettangoli adiacenti) un indirizzo sul bordo compare in entrambi.
+    // Le strade per la ricerca vengono dalle stesse z15 dei civici: una sola passata per estratto.
+    val bbox = AddressBbox(minLon, minLat, maxLon, maxLat)
+    val tileExtracts = mutableListOf<Z15Extract>()
     val osmAddresses = inputPaths.map(::File)
         .flatMap {
-            if (it.name.endsWith(".tsv")) readAddressPoints(it, minLon, minLat, maxLon, maxLat) else extractAddresses(it, minLon, minLat, maxLon, maxLat)
+            if (it.name.endsWith(".tsv")) {
+                readAddressPoints(it, minLon, minLat, maxLon, maxLat)
+            } else {
+                extractZ15(it, bbox, wantRoads = searchOutput != null).also(tileExtracts::add).addresses
+            }
         }
         .distinct()
     val overtureAddresses = overtureFile?.let { readOvertureAddressPoints(it, minLon, minLat, maxLon, maxLat) }.orEmpty()
@@ -320,7 +346,7 @@ fun main(args: Array<String>) {
     searchOutput?.let { searchFile ->
         // Le strade vengono dalle stesse z15 gia' scaricate per i civici; con la riserva Overpass (solo
         // .tsv) non ci sono e restano le sole vie della fonte.
-        val roads = inputPaths.map(::File).filterNot { it.name.endsWith(".tsv") }.flatMap(::extractRoads)
+        val roads = tileExtracts.flatMap { it.roads }
         val withStreets = assignStreets(addresses, RoadIndex(roads))
         val rows = writeAddressSearchDb(withStreets, searchFile)
         // Nessuna via: niente indice (il chiamante pubblica solo i file che esistono).

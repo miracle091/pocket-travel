@@ -189,12 +189,16 @@ def segmenti_si_incrociano(a, b, c, d):
 def tocca_bbox(rings, bbox):
     minx, miny, maxx, maxy = bbox
     corners = [(minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)]
+    edges = list(zip(corners, corners[1:] + corners[:1]))
     for ring in rings:
+        # Anello con il rettangolo tutto fuori da bbox: nessun punto in comune (vale per quasi tutti gli estratti dell'indice).
+        rminx, rminy, rmaxx, rmaxy = rettangolo([ring])
+        if rminx > maxx or rmaxx < minx or rminy > maxy or rmaxy < miny:
+            continue
         if any(minx <= x <= maxx and miny <= y <= maxy for x, y in ring):
             return True
         if any(dentro(x, y, ring) for x, y in corners):
             return True
-        edges = list(zip(corners, corners[1:] + corners[:1]))
         if any(segmenti_si_incrociano(p, q, c, d) for p, q in zip(ring, ring[1:]) for c, d in edges):
             return True
     return False

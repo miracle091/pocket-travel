@@ -98,6 +98,16 @@ class AddressSearchTest {
     }
 
     @Test
+    fun `la passata unica sulle z15 da' gli stessi civici e le stesse strade delle due estrazioni separate`() {
+        val fixture = File("testdata/san-marino-center-z15.pmtiles")
+        val combined = extractZ15(fixture, AddressBbox(12.44, 43.93, 12.46, 43.94), wantRoads = true)
+
+        assertEquals(extractAddresses(fixture, 12.44, 43.93, 12.46, 43.94), combined.addresses)
+        assertEquals(extractRoads(fixture).map { it.name to it.points }, combined.roads.map { it.name to it.points })
+        assertTrue(extractZ15(fixture, AddressBbox(12.44, 43.93, 12.46, 43.94), wantRoads = false).roads.isEmpty())
+    }
+
+    @Test
     fun `le strade del fixture di San Marino hanno un nome e cadono vicino ai civici`() {
         val fixture = File("testdata/san-marino-center-z15.pmtiles")
         val roads = extractRoads(fixture)

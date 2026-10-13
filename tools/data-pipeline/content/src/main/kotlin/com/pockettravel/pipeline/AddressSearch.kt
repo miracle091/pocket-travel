@@ -1,15 +1,13 @@
 package com.pockettravel.pipeline
 
 import com.onthegomap.planetiler.VectorTile
-import com.onthegomap.planetiler.pmtiles.ReadablePmtiles
+import com.onthegomap.planetiler.geo.TileCoord
 import org.locationtech.jts.geom.Geometry
 import org.locationtech.jts.geom.LineString
-import java.io.ByteArrayInputStream
 import java.io.File
 import java.sql.DriverManager
 import java.text.Normalizer
 import java.util.Locale
-import java.util.zip.GZIPInputStream
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.hypot
@@ -141,44 +139,29 @@ private val NON_STREET_DETAILS = setOf("runway", "taxiway")
  * Strade con nome delle tile z15 di un PMTiles locale (layer "roads"). Si usa solo l'attributo
  * "name" (la lingua locale): le traduzioni (name:xx) non servono, le vie restano come nei dati.
  */
-fun extractRoads(pmtiles: File): List<Road> {
-    val roads = mutableListOf<Road>()
-    ReadablePmtiles.newReadFromFile(pmtiles.toPath()).use { archive ->
-        archive.allTiles.use { tiles ->
-            tiles.forEachRemaining { tile ->
-                val coord = tile.coord()
-                if (coord.z() != ROADS_ZOOM) return@forEachRemaining
-                val bytes = tile.bytes()
-                val raw = if (bytes.size > 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte()) {
-                    GZIPInputStream(ByteArrayInputStream(bytes)).use { it.readBytes() }
-                } else {
-                    bytes
-                }
-                VectorTile.decode(raw).forEach { feature ->
-                    if (feature.layer() != "roads") return@forEach
-                    val tags = feature.tags()
-                    val name = tags["name"]?.toString()?.trim().orEmpty()
-                    if (name.isEmpty() || tags["kind"]?.toString() in NON_STREET_KINDS || tags["kind_detail"]?.toString() in NON_STREET_DETAILS) {
-                        return@forEach
-                    }
-                    lineStrings(feature.geometry().decode()).forEach { line ->
-                        // decode() restituisce coordinate nella tile scalate su 0..256.
-                        val points = (0 until line.numPoints).map { i ->
-                            val p = line.getCoordinateN(i)
-                            val lon = tileXToLon(coord.x() + p.x / 256.0, ROADS_ZOOM)
-                            val lat = tileYToLat(coord.y() + p.y / 256.0, ROADS_ZOOM)
-                            Math.round(lat * 1e6).toInt() to Math.round(lon * 1e6).toInt()
-                        }
-                        if (points.size >= 2) roads += Road(name, points)
-                    }
-                }
-            }
-        }
+fun extractRoads(pmtiles: File): List<Road> = extractZ15(pmtiles, null, wantRoads = true).roads
+
+/** Aggiunge a [roads] le strade con nome di una feature del layer "roads" della tile [coord]. */
+internal fun collectRoads(feature: VectorTile.Feature, coord: TileCoord, roads: MutableList<Road>) {
+    if (feature.layer() != "roads") return
+    val tags = feature.tags()
+    val name = tags["name"]?.toString()?.trim().orEmpty()
+    if (name.isEmpty() || tags["kind"]?.toString() in NON_STREET_KINDS || tags["kind_detail"]?.toString() in NON_STREET_DETAILS) {
+        return
     }
-    return roads
+    lineStrings(feature.geometry().decode()).forEach { line ->
+        // decode() restituisce coordinate nella tile scalate su 0..256.
+        val points = (0 until line.numPoints).map { i ->
+            val p = line.getCoordinateN(i)
+            val lon = tileXToLon(coord.x() + p.x / 256.0, ROADS_ZOOM)
+            val lat = tileYToLat(coord.y() + p.y / 256.0, ROADS_ZOOM)
+            Math.round(lat * 1e6).toInt() to Math.round(lon * 1e6).toInt()
+        }
+        if (points.size >= 2) roads += Road(name, points)
+    }
 }
 
-private const val ROADS_ZOOM = 15
+internal const val ROADS_ZOOM = 15
 
 private fun lineStrings(geometry: Geometry): List<LineString> =
     (0 until geometry.numGeometries).map { geometry.getGeometryN(it) }.filterIsInstance<LineString>()
@@ -227,6 +210,8 @@ fun writeAddressSearchDb(addresses: List<Address>, output: File): Int {
         conn.createStatement().use { statement ->
             statement.execute("PRAGMA page_size=$SEARCH_PAGE_SIZE")
             statement.execute("PRAGMA journal_mode=DELETE")
+            // Niente fsync: e' un file di build, se la build si interrompe la cella si rifa' da capo.
+            statement.execute("PRAGMA synchronous=OFF")
         }
         // Una sola transazione per le righe (un commit per riga costerebbe minuti su una cella grande);
         // il VACUUM, che non puo' stare in una transazione, viene dopo.

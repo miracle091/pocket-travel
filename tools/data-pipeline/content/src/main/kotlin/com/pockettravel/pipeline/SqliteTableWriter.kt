@@ -28,6 +28,13 @@ fun <T> writeSqliteTable(
     bindRow: (PreparedStatement, T) -> Unit,
 ) {
     DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
+        // File di build: niente fsync ne' journal su disco (una build interrotta rigenera il file da capo). Ogni
+        // tabella apre una connessione e fa un commit: i PRAGMA non finiscono nel file, che resta identico.
+        // Vanno dati prima della transazione, dentro non si cambiano.
+        conn.createStatement().use { statement ->
+            statement.execute("PRAGMA synchronous=OFF")
+            statement.execute("PRAGMA journal_mode=MEMORY")
+        }
         // DROP e CREATE nella stessa transazione degli insert: se un insert fallisce, il rollback
         // (chiusura senza commit) lascia la tabella precedente invece di una vuota.
         conn.autoCommit = false

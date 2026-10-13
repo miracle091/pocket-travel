@@ -113,6 +113,11 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
         }
 
         DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
+            // File di build: niente fsync ne' journal su disco; i PRAGMA vanno dati prima della transazione.
+            conn.createStatement().use { s ->
+                s.execute("PRAGMA synchronous=OFF")
+                s.execute("PRAGMA journal_mode=MEMORY")
+            }
             conn.autoCommit = false
             conn.createStatement().use { s ->
                 s.execute("PRAGMA page_size = 4096")
