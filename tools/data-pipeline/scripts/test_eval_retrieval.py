@@ -204,6 +204,14 @@ class SearchTest(unittest.TestCase):
         self.assertEqual(top, [])
         db.close()
 
+    def test_soglia_della_guida_generale_piu_bassa_in_italiano(self):
+        info = lambda hits: {"p": 1, "c": 2, "hits": [[0, hits]], "docs": [[0, 1]], "n": 10, "avg": [2, 20], "len": [2, 20]}
+        region = [({"category": "DOGANE", "title": "Dogane"}, info(2))]
+        general = [({"category": "DOGANE", "title": "Documenti", "general_guide": True}, info(3))]
+        # Supera la migliore della regione ma non del doppio: in testa nelle guide italiane, fuori in quelle inglesi.
+        self.assertEqual([s["title"] for s in ev.rank_sections(region, [], True, general_guide=general, lang="it")], ["Documenti", "Dogane"])
+        self.assertEqual([s["title"] for s in ev.rank_sections(region, [], True, general_guide=general, lang="en")], ["Dogane"])
+
     def test_contesto_come_nel_prompt_e_sezione_attesa(self):
         top = [{"body": "A" * 1990}, {"body": "Alberghi sul lungomare.\nB" + "b" * 300}]
         row = ev.context_row(top, {"alber"}, [top[1]])

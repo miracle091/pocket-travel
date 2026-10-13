@@ -252,11 +252,10 @@ class TravelAssistantLogicTest {
         val strongGeneral = listOf(guideSection("Jet lag", "generale forte") to info(titleHits = 1, bodyHits = 5), guideSection("Salute", "generale secondo") to info(bodyHits = 2))
         val weakGeneral = listOf(guideSection("Jet lag", "generale debole") to info(bodyHits = 2))
 
-        assertEquals(
-            listOf("generale forte", "corpo A", "corpo B", "corpo C"),
-            rankSections(guide, emptyList(), limit = 3, countryFirst = true, generalGuideMatches = strongGeneral).map { it.body },
-        )
-        assertEquals(listOf("corpo A", "corpo B", "corpo C"), rankSections(guide, emptyList(), limit = 3, generalGuideMatches = weakGeneral).map { it.body })
+        assertEquals(listOf("generale forte", "corpo A", "corpo B", "corpo C"), rankSections(guide, emptyList(), limit = 3, countryFirst = true, generalGuideMatches = strongGeneral).map { it.body })
+        assertEquals(listOf("corpo A", "corpo B", "corpo C"), rankSections(guide, emptyList(), limit = 3, language = "en", generalGuideMatches = weakGeneral).map { it.body })
+        // Nelle guide italiane basta superare la migliore della regione.
+        assertEquals("generale debole", rankSections(guide, emptyList(), limit = 3, countryFirst = true, generalGuideMatches = weakGeneral).first().body)
         // Con una citta' nominata la guida generale non va in testa, e senza posti liberi non entra.
         assertEquals(
             listOf("corpo A", "corpo B", "corpo C"),
@@ -269,8 +268,8 @@ class TravelAssistantLogicTest {
         val guide = listOf(guideSection("A", "corpo A") to info(bodyHits = 2), guideSection("B") to info(bodyHits = 1), guideSection("C") to info(bodyHits = 1))
         val general = listOf(guideSection("Documenti", "generale") to info(bodyHits = 3))
 
-        assertEquals("corpo A", rankSections(guide, emptyList(), limit = 3, countryFirst = true, generalGuideMatches = general).first().body)
-        assertEquals("generale", rankSections(guide, emptyList(), limit = 3, countryFirst = true, generalGuideMatches = general, generalQuestion = true).first().body)
+        assertEquals("corpo A", rankSections(guide, emptyList(), limit = 3, countryFirst = true, language = "en", generalGuideMatches = general).first().body)
+        assertEquals("generale", rankSections(guide, emptyList(), limit = 3, countryFirst = true, language = "en", generalGuideMatches = general, generalQuestion = true).first().body)
         assertTrue(isGeneralTravelQuestion("Cosa faccio se perdo il passaporto all'estero?"))
         assertTrue(isGeneralTravelQuestion("What should I pack when travelling?"))
         assertFalse(isGeneralTravelQuestion("Serve il passaporto per entrare?"))

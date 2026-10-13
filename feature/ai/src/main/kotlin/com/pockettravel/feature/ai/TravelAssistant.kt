@@ -655,9 +655,9 @@ private fun CitySection.toAssistantSection(language: String): AssistantSection {
  * scavalcherebbero le sue con le parole generiche della domanda ("treno", "musei"); con null conta solo il punteggio.
  * Senza [historyOrClimate] (isHistoryOrClimateQuestion) Storia e Clima valgono WIKIPEDIA_OFF_TOPIC_WEIGHT.
  * Dei candidati della guida generale [generalGuideMatches] conta solo il migliore, senza togliere posto alle sezioni della
- * regione: in testa, come sezione in più, se supera di GENERAL_GUIDE_FIRST_RATIO volte la migliore della regione e la domanda non
+ * regione: in testa, come sezione in più, se supera di generalGuideFirstRatio volte la migliore della regione e la domanda non
  * nomina una città ([countryFirst] non false), oppure da sola se la regione non trova nulla; altrimenti non entra. Con
- * [generalQuestion] (isGeneralTravelQuestion: "all'estero", "abroad") basta che superi la migliore della regione. Mai in
+ * [generalQuestion] (isGeneralTravelQuestion: "all'estero", "abroad") e nelle guide italiane basta che superi la migliore della regione. Mai in
  * fondo come riempitivo: una pagina generale debole porta il modello fuori tema (su "Quali piatti tipici devo assaggiare a
  * San Marino?" la pagina Salute, trovata per "mangia", faceva rispondere con una frase sull'igiene).
  * La ricerca (con buildFtsQuery, namedCities, focusStems e selectContext) e' replicata in
@@ -691,17 +691,27 @@ internal fun rankSections(
         .maxByOrNull { it.score }
     return when {
         world == null -> top
-        top.isEmpty() || countryFirst != false && world.score > (if (generalQuestion) 1.0 else GENERAL_GUIDE_FIRST_RATIO) * top.maxOf { it.score } -> listOf(world) + top
+        top.isEmpty() || countryFirst != false && world.score > generalGuideFirstRatio(language, generalQuestion) * top.maxOf { it.score } -> listOf(world) + top
         else -> top
     }.map { it.section }
 }
 
-// Quanto la sezione della guida generale deve superare la migliore della regione per andare in testa (domanda generale). Misurato con
-// eval_retrieval.py il 2026-10-11: con 2 le domande generali la trovano nel 74% (IT) e nel 77% (EN) dei casi, sempre in
-// testa, e le sei serie su regione e citta' non perdono piu' di un punto. Messa anche in fondo nei posti liberi non
+// Quanto la sezione della guida generale deve superare la migliore della regione per andare in testa, nelle guide inglesi
+// (generalGuideFirstRatio). Misurato con eval_retrieval.py il 2026-10-11: con 2 le domande generali la trovano nel 77% dei
+// casi, sempre in testa, e le sei serie su regione e citta' non perdono piu' di un punto. Messa anche in fondo nei posti liberi non
 // cambiava quelle percentuali, ma portava nel contesto pagine deboli che i modelli citavano fuori tema; al posto della
 // terza sezione le domande sul paese perderebbero fino a 7 punti.
 private const val GENERAL_GUIDE_FIRST_RATIO = 2.0
+
+/**
+ * GENERAL_GUIDE_FIRST_RATIO, oppure 1 (basta superare la migliore della regione) con [generalQuestion] e nelle guide
+ * italiane. In italiano, con le liste di parole, le sezioni della regione hanno punteggi piu' alti e con 2 le domande
+ * generali restavano senza la pagina nel 27% dei casi (20 rifiuti del modello 0.8B su 160, misurati con
+ * eval_retrieval.py --contexts ed eval_gguf.py --contexts; con 1 sono 5). Costo: in circa l'1,5% delle domande sul paese
+ * la sezione del paese esce dal contesto, senza piu' rifiuti.
+ */
+private fun generalGuideFirstRatio(language: String, generalQuestion: Boolean) =
+    if (generalQuestion || language == "it") 1.0 else GENERAL_GUIDE_FIRST_RATIO
 
 // Parole che dicono che la domanda non riguarda la nazione aperta ma il viaggio in generale.
 private val generalTravelWords = Regex("""\b(ester[oi]|in viaggio|viaggiando|abroad|overseas|travell?ing)\b""", RegexOption.IGNORE_CASE)

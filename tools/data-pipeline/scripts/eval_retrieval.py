@@ -90,7 +90,7 @@ TITLE_WEIGHT, BODY_WEIGHT = 3.0, 1.0
 BM25_K1, BM25_B, BM25_IDF_SMOOTHING = 1.2, 0.75, 0.5
 WIKI = {"STORIA", "CLIMA"}
 WIKIPEDIA_OFF_TOPIC_WEIGHT = 0.1  # TravelAssistant.WIKIPEDIA_OFF_TOPIC_WEIGHT
-GENERAL_GUIDE_FIRST_RATIO = 2.0          # TravelAssistant.GENERAL_GUIDE_FIRST_RATIO
+GENERAL_GUIDE_FIRST_RATIO = 2.0          # TravelAssistant.GENERAL_GUIDE_FIRST_RATIO (guide inglesi)
 # TravelAssistant.generalTravelWords: con queste parole la soglia della guida generale scende a 1
 GENERAL_TRAVEL_WORDS = re.compile(r"\b(ester[oi]|in viaggio|viaggiando|abroad|overseas|travell?ing)\b", re.IGNORECASE)
 # TravelAssistant.historyClimateWords
@@ -638,12 +638,12 @@ def bm25(info, stats):
     return score
 
 
-def rank_sections(guide, city, country_first, history_or_climate=True, general_guide=(), general_question=False):
+def rank_sections(guide, city, country_first, history_or_climate=True, general_guide=(), general_question=False, lang="it"):
     """rankSections: [(sezione, matchinfo)] della guida del paese e delle citta' -> le MAX_SECTIONS migliori; prima
     quelle del paese con [country_first] True, quelle delle citta' con False, solo per punteggio con None. Della
     guida generale [general_guide] conta solo la migliore: in testa, in piu' alle altre, se supera di GENERAL_GUIDE_FIRST_RATIO
-    volte la migliore delle altre e la domanda non nomina una citta', o da sola se le altre non trovano nulla;
-    altrimenti non entra (mai in fondo come riempitivo)."""
+    volte (1 con [general_question] e nelle guide italiane: generalGuideFirstRatio) la migliore delle altre e la
+    domanda non nomina una citta', o da sola se le altre non trovano nulla; altrimenti non entra (mai in fondo come riempitivo)."""
     tables = [rows[0][1] for rows in (list(guide) + list(general_guide), city) if rows]
     if not tables:
         return []
@@ -656,7 +656,7 @@ def rank_sections(guide, city, country_first, history_or_climate=True, general_g
     sections = [s for _, _, s in top]
     if best is None:
         return sections
-    if not top or (country_first is not False and best[0] > (1.0 if general_question else GENERAL_GUIDE_FIRST_RATIO) * max(r[0] for r in top)):
+    if not top or (country_first is not False and best[0] > (1.0 if general_question or lang == "it" else GENERAL_GUIDE_FIRST_RATIO) * max(r[0] for r in top)):
         return [best[1]] + sections
     return sections
 
@@ -744,7 +744,7 @@ def search(db, region, question, cities, lang="it", word_lists=False, before_rag
     return (rank_sections(guide_candidates(db, guide_regions, fts), city_rows, country_first=not named,
                           history_or_climate=history_or_climate,
                           general_guide=() if before_rag else guide_candidates(db, [GENERAL_GUIDE_REGION_ID], fts),
-                          general_question=bool(GENERAL_TRAVEL_WORDS.search(question))),
+                          general_question=bool(GENERAL_TRAVEL_WORDS.search(question)), lang=lang),
             focus_stems(base, city))
 
 
