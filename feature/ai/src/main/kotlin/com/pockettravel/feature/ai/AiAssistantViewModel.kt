@@ -64,8 +64,8 @@ class AiAssistantViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(
         AiUiState(
-            // Sotto i 4 GB il motore sul dispositivo non va nemmeno offerto come opzione (vedi
-            // messaggio "meno di 4 GB di RAM" in AiAssistantScreen): forzare Online qui evita che
+            // Senza un modello per la RAM del dispositivo il motore sul dispositivo non va nemmeno offerto come
+            // opzione (DeviceAiCapability.isOnDeviceAiSupported): forzare Online qui evita che
             // un motore salvato in precedenza (o il default ON_DEVICE) resti selezionato su un
             // dispositivo che non puo' comunque usarlo.
             mode = if (deviceAiCapability.isOnDeviceAiSupported()) aiSettingsStore.engineMode() else AiEngineMode.ONLINE,

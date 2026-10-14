@@ -323,7 +323,7 @@
     <string name="onboarding_ready_ai_body">Si attiva in Altro, Impostazioni, con un modello sul dispositivo o una chiave API</string>
     <!-- Suggerimenti mostrati la prima volta che si apre la scheda (ContextualHint). -->
     <string name="hint_ai_title">L\'assistente IA ha due motori</string>
-    <string name="hint_ai_body">\"Sul dispositivo\" funziona anche senza internet: un piccolo modello scaricato sul dispositivo (richiede almeno 4 GB di RAM) risponde usando la guida e le note personali. \"Online\" usa un servizio a scelta (ChatGPT, Mistral, Gemini o Claude) con una chiave API personale, che resta sul dispositivo</string>
+    <string name="hint_ai_body">\"Sul dispositivo\" funziona anche senza internet: un piccolo modello scaricato sul dispositivo (richiede almeno 6 GB di RAM) risponde usando la guida e le note personali. \"Online\" usa un servizio a scelta (ChatGPT, Mistral, Gemini o Claude) con una chiave API personale, che resta sul dispositivo</string>
     <string name="hint_vault_title">I documenti restano al sicuro</string>
     <string name="hint_vault_body">Passaporti, biglietti e altri documenti sono protetti dalla biometria e mai inviati fuori dal dispositivo</string>
     <string name="hint_sources_title">Le fonti ufficiali restano esterne</string>

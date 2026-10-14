@@ -180,7 +180,7 @@ private fun AssistantHeader(uiState: AiUiState, isReady: Boolean, actions: AiAct
         modifier = Modifier.fillMaxWidth().padding(start = Spacing.l, end = if (isReady) Spacing.xs else Spacing.l, top = Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Sotto i 4 GB di RAM l'assistente e' solo Online (vedi AiAssistantViewModel: mode e'
+        // Senza un modello per la RAM del dispositivo l'assistente e' solo Online (vedi AiAssistantViewModel: mode e'
         // gia' forzato a ONLINE li'): niente selettore da mostrare, esiste un solo motore.
         if (uiState.isDeviceCapable) {
             ModeSelector(uiState, actions, modifier = Modifier.weight(1f))
@@ -345,7 +345,7 @@ internal fun AiSettingsContent(uiState: AiUiState, actions: AiActions) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        // Sotto i 4 GB di RAM esiste solo Online (vedi AssistantHeader): niente selettore.
+        // Senza un modello per la RAM del dispositivo esiste solo Online (vedi AssistantHeader): niente selettore.
         if (uiState.isDeviceCapable) ModeSelector(uiState, actions, modifier = Modifier.fillMaxWidth())
         when (uiState.mode) {
             AiEngineMode.ON_DEVICE -> ModelList(uiState, actions)

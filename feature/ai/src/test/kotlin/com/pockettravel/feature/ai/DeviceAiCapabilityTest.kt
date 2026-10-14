@@ -11,8 +11,8 @@ private const val GB = 1024L * 1024 * 1024
 
 private fun Double.gib(): Long = (this * GB).toLong()
 
-// Stessa regola di DeviceAiCapability.isOnDeviceAiSupported(), che in JVM puro non si puo' chiamare (serve un Context).
-private fun enablesOnDeviceAi(totalMemBytes: Long) = ramTierFor(totalMemBytes) != RamTier.INSUFFICIENTE
+// Come DeviceAiCapability.isOnDeviceAiSupported(), che in JVM puro non si puo' chiamare (serve un Context).
+private fun enablesOnDeviceAi(totalMemBytes: Long) = DeviceAiCapability.isOnDeviceAiSupportedIn(ramTierFor(totalMemBytes))
 
 class DeviceAiCapabilityTest {
 
@@ -23,15 +23,15 @@ class DeviceAiCapabilityTest {
     }
 
     @Test
-    fun `a 4 GB phone reporting 3,6 GiB enables on-device AI`() {
-        assertTrue(enablesOnDeviceAi(3.6.gib()))
+    fun `a 4 GB phone reporting 3,6 GiB is MINIMO, with no model for now`() {
         assertEquals(RamTier.MINIMO, ramTierFor(3.6.gib()))
+        assertFalse(enablesOnDeviceAi(3.6.gib()))
     }
 
     @Test
-    fun `just below 85 percent of 4 GiB is not enough`() {
-        assertFalse(enablesOnDeviceAi(DeviceAiCapability.MIN_RAM_BYTES - 1))
-        assertTrue(enablesOnDeviceAi(DeviceAiCapability.MIN_RAM_BYTES))
+    fun `on-device AI starts at 85 percent of 6 GiB, the tier of the smallest model`() {
+        assertFalse(enablesOnDeviceAi(DeviceAiCapability.COMFORTABLE_RAM_BYTES - 1))
+        assertTrue(enablesOnDeviceAi(DeviceAiCapability.COMFORTABLE_RAM_BYTES))
     }
 
     @Test

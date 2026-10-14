@@ -53,14 +53,14 @@ Alcuni test dei percorsi usano segmenti BRouter veri, troppo grandi per il repos
 
 Tempo e memoria del calcolo sul dispositivo li misura `RouteEngineBenchmarkDeviceTest` (commento in testa al file per come copiare i segmenti sul dispositivo).
 
-La libreria nativa dell'assistente (llama.cpp) la prova `LlamaEngineDeviceTest` con un modello GGUF vero (Qwen3.5 0.8B, ~530 MB): senza il file i test vengono saltati. Copialo come spiega il commento in testa al file, poi usa `installDebugAndroidTest` e `am instrument` invece di `connectedDebugAndroidTest`, che disinstalla l'app di test e cancella il modello:
+La libreria nativa dell'assistente (llama.cpp) la prova `LlamaEngineDeviceTest` con un modello GGUF vero (Qwen3.5 2B, ~1,3 GB, il più piccolo del catalogo dei modelli): senza il file i test vengono saltati. Copialo come spiega il commento in testa al file, poi usa `installDebugAndroidTest` e `am instrument` invece di `connectedDebugAndroidTest`, che disinstalla l'app di test e cancella il modello:
 
 ```bash
 ./gradlew :feature:ai:installDebugAndroidTest
 adb shell am instrument -w -e class com.pockettravel.feature.ai.LlamaEngineDeviceTest com.pockettravel.feature.ai.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-Sull'emulatore (x86_64) i 4 test durano circa 9 minuti.
+Sull'emulatore (x86_64) i 4 test durano meno di un minuto.
 
 Le conversazioni a più turni (chiarimento, cambio di destinazione, domanda interrotta, navigazione prima di una domanda, prompt oltre il contesto) le prova `MultiTurnDeviceTest`, con il primo modello italiano del catalogo dei modelli copiato nella stessa cartella (per esempio `qwen3.5-0.8b-travel-it-Q4_K_M.gguf`). Stessi comandi, con la classe `com.pockettravel.feature.ai.MultiTurnDeviceTest`; le risposte si leggono con `adb logcat -s MultiTurn`. Sull'emulatore durano meno di un minuto.
 

@@ -9,14 +9,23 @@ class LlmModelCatalogTest {
 
     @Test
     fun `il modello predefinito e' il nostro addestrato della fascia di RAM`() {
-        assertEquals("pt-qwen3.5-0.8b", LlmModelCatalog.defaultFor(RamTier.MINIMO).id)
         assertEquals("pt-qwen3.5-2b", LlmModelCatalog.defaultFor(RamTier.CONFORTEVOLE).id)
         assertEquals("pt-qwen3-4b-2507", LlmModelCatalog.defaultFor(RamTier.AMPIA).id)
     }
 
     @Test
     fun `con RAM insufficiente il predefinito e' il modello piu' leggero`() {
-        assertEquals("pt-qwen3.5-0.8b", LlmModelCatalog.defaultFor(RamTier.INSUFFICIENTE).id)
+        assertEquals("pt-qwen3.5-2b", LlmModelCatalog.defaultFor(RamTier.INSUFFICIENTE).id)
+        assertEquals("pt-qwen3.5-2b", LlmModelCatalog.defaultFor(RamTier.MINIMO).id)
+    }
+
+    @Test
+    fun `per ora nessun modello da 0,8B e niente IA sul dispositivo sotto i 6 GB`() {
+        assertTrue(LlmModelCatalog.ALL.none { "0.8b" in it.id })
+        assertTrue(LlmModelCatalog.visibleFor(RamTier.MINIMO, "it").isEmpty())
+        assertFalse(DeviceAiCapability.isOnDeviceAiSupportedIn(RamTier.MINIMO))
+        assertTrue(DeviceAiCapability.isOnDeviceAiSupportedIn(RamTier.CONFORTEVOLE))
+        assertFalse(DeviceAiCapability.isOnDeviceAiSupportedIn(RamTier.INSUFFICIENTE))
     }
 
     @Test
@@ -30,8 +39,7 @@ class LlmModelCatalogTest {
 
     @Test
     fun `in inglese il predefinito e' il nostro addestrato in inglese della fascia di RAM`() {
-        assertEquals("pt-qwen3.5-0.8b-en", LlmModelCatalog.defaultFor(RamTier.INSUFFICIENTE, "en").id)
-        assertEquals("pt-qwen3.5-0.8b-en", LlmModelCatalog.defaultFor(RamTier.MINIMO, "en").id)
+        assertEquals("pt-qwen3.5-2b-en", LlmModelCatalog.defaultFor(RamTier.INSUFFICIENTE, "en").id)
         assertEquals("pt-qwen3.5-2b-en", LlmModelCatalog.defaultFor(RamTier.CONFORTEVOLE, "en").id)
         assertEquals("pt-qwen3-4b-2507-en", LlmModelCatalog.defaultFor(RamTier.AMPIA, "en").id)
     }
@@ -58,9 +66,9 @@ class LlmModelCatalogTest {
     fun `la lista mostra gli addestrati della lingua dell'interfaccia e gli ufficiali`() {
         for (language in listOf("it", "en")) {
             val visible = LlmModelCatalog.visibleFor(RamTier.AMPIA, language)
-            assertEquals(3, visible.count { it.origin == ModelOrigin.ADDESTRATO && it.language == language })
+            assertEquals(2, visible.count { it.origin == ModelOrigin.ADDESTRATO && it.language == language })
             assertTrue(visible.none { it.origin == ModelOrigin.ADDESTRATO && it.language != language })
-            assertEquals(3, visible.count { it.origin == ModelOrigin.UFFICIALE })
+            assertEquals(2, visible.count { it.origin == ModelOrigin.UFFICIALE })
         }
     }
 

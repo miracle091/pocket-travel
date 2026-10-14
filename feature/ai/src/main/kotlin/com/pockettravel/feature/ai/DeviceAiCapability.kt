@@ -12,11 +12,14 @@ import javax.inject.Inject
  */
 enum class RamTier { INSUFFICIENTE, MINIMO, CONFORTEVOLE, AMPIA }
 
-/** Vincolo tecnico: almeno 4 GB di RAM per abilitare l'IA sul dispositivo, altrimenti va disattivata. */
+/**
+ * Vincolo tecnico: l'IA sul dispositivo c'e' solo se il catalogo dei modelli ha un modello per la fascia di RAM del
+ * dispositivo (oggi da 6 GB, il 2B), altrimenti va disattivata.
+ */
 class DeviceAiCapability @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    fun isOnDeviceAiSupported(): Boolean = ramTier() != RamTier.INSUFFICIENTE
+    fun isOnDeviceAiSupported(): Boolean = isOnDeviceAiSupportedIn(ramTier())
 
     fun ramTier(): RamTier {
         val activityManager = context.getSystemService(ActivityManager::class.java) ?: return RamTier.INSUFFICIENTE
@@ -53,6 +56,10 @@ class DeviceAiCapability @Inject constructor(
             memBytes >= MIN_RAM_BYTES -> RamTier.MINIMO
             else -> RamTier.INSUFFICIENTE
         }
+
+        /** True se almeno un modello del catalogo regge la fascia [tier] (mai sotto i 4 GB). */
+        fun isOnDeviceAiSupportedIn(tier: RamTier): Boolean =
+            tier != RamTier.INSUFFICIENTE && LlmModelCatalog.ALL.any { it.minRamTier <= tier }
 
         // Estratta a parte per essere testabile in JVM puro, stesso motivo di ramTierFor.
         fun inferenceThreadCountFor(ramTier: RamTier, availableCores: Int): Int {

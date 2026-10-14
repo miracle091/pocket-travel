@@ -79,11 +79,10 @@ L'assistente risponde in massimo tre frasi solo con ciò che trova nella guida e
 
 ### 📱 Sul dispositivo (offline)
 
-Il modello gira sul dispositivo e nessun dato ne esce. Servono almeno 4 GB di RAM; l'app propone il modello adatto alla RAM e alla lingua dell'app e lo aggiorna quando migliora.
+Il modello gira sul dispositivo e nessun dato ne esce. Servono almeno 6 GB di RAM (sotto, l'assistente è solo Online); l'app propone il modello adatto alla RAM e alla lingua dell'app e lo aggiorna quando migliora.
 
 | RAM | Addestrato dal progetto (italiano) | Addestrato dal progetto (inglese) | Ufficiale |
 |---|---|---|---|
-| 4 GB | [Pocket Travel 0.8B](tools/data-pipeline/model-cards/qwen3.5-0.8b-travel-it-GGUF.md) – 0,53 GB | [Pocket Travel 0.8B](tools/data-pipeline/model-cards/qwen3.5-0.8b-travel-en-GGUF.md) – 0,53 GB | [Qwen3.5 0.8B](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF) – 0,56 GB |
 | 6 GB | [Pocket Travel 2B](tools/data-pipeline/model-cards/qwen3.5-2b-travel-it-GGUF.md) – 1,27 GB | [Pocket Travel 2B](tools/data-pipeline/model-cards/qwen3.5-2b-travel-en-GGUF.md) – 1,27 GB | [Qwen3.5 2B](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF) – 1,34 GB |
 | 12 GB o più | [Pocket Travel 4B](tools/data-pipeline/model-cards/qwen3-4b-instruct-2507-travel-it-GGUF.md) – 2,50 GB | [Pocket Travel 4B](tools/data-pipeline/model-cards/qwen3-4b-instruct-2507-travel-en-GGUF.md) – 2,50 GB | [Qwen3 4B Instruct 2507](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF) – 2,55 GB |
 

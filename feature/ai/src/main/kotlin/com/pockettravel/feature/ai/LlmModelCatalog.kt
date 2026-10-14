@@ -34,7 +34,10 @@ enum class ModelOrigin {
 }
 
 object LlmModelCatalog {
-    // Fasce MINIMO/CONFORTEVOLE/AMPIA: vedi DeviceAiCapability.RamTier. Un modello ufficiale per fascia,
+    // Fasce MINIMO/CONFORTEVOLE/AMPIA: vedi DeviceAiCapability.RamTier. Per ora (decisione del 2026-10-14) nessun modello
+    // nella fascia MINIMO: i modelli da 0,8B (Qwen3.5 0.8B e Pocket Travel 0.8B, pubblicati su HuggingFace) sono fuori dal
+    // catalogo, il 2B e' il piu' piccolo; senza un modello per la sua fascia il dispositivo usa solo Online
+    // (DeviceAiCapability.isOnDeviceAiSupported). Un modello ufficiale per fascia,
     // della stessa famiglia del modello addestrato da noi nella stessa fascia (confronto diretto).
     // Solo modelli non gated (Apache 2.0/MIT): niente modelli Gemma o altri repo che richiedono
     // accettare una licenza su HuggingFace.
@@ -45,15 +48,6 @@ object LlmModelCatalog {
     // HuggingFace (mai dal riassunto di un fetch automatico, non affidabile su stringhe esadecimali
     // lunghe), dimensione confermata anche via Content-Length sull'URL di download reale.
     val ALL: List<LlmModelDefinition> = listOf(
-        LlmModelDefinition(
-            id = "qwen3.5-0.8b",
-            displayName = "Qwen3.5 0.8B",
-            url = "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-UD-Q4_K_XL.gguf",
-            fileName = "Qwen3.5-0.8B-UD-Q4_K_XL.gguf",
-            sha256 = "3177ebd67afe4438374da19e690bc1b98756f7e0fea9240e1be404336156a7b5",
-            sizeBytes = 558_772_480L,
-            minRamTier = RamTier.MINIMO,
-        ),
         LlmModelDefinition(
             id = "qwen3.5-2b",
             displayName = "Qwen3.5 2B",
@@ -76,17 +70,6 @@ object LlmModelCatalog {
         // pockettravel (upload_hf.py, dataset v10, caricati il 2026-10-11): sha256 e dimensioni ricontrollati via API
         // tree dopo l'upload. Sono i predefiniti delle loro fasce nella loro lingua (vedi defaultFor).
         LlmModelDefinition(
-            id = "pt-qwen3.5-0.8b",
-            displayName = "Pocket Travel 0.8B (Qwen3.5)",
-            url = "https://huggingface.co/pockettravel/qwen3.5-0.8b-travel-it-GGUF/resolve/main/qwen3.5-0.8b-travel-it-Q4_K_M.gguf",
-            fileName = "qwen3.5-0.8b-travel-it-Q4_K_M.gguf",
-            sha256 = "fa28808357a375c2694e40b3782adbd05a76b656d099005f57c0475e763a1739",
-            sizeBytes = 529_297_024L,
-            minRamTier = RamTier.MINIMO,
-            origin = ModelOrigin.ADDESTRATO,
-            language = "it",
-        ),
-        LlmModelDefinition(
             id = "pt-qwen3.5-2b",
             displayName = "Pocket Travel 2B (Qwen3.5)",
             url = "https://huggingface.co/pockettravel/qwen3.5-2b-travel-it-GGUF/resolve/main/qwen3.5-2b-travel-it-Q4_K_M.gguf",
@@ -107,17 +90,6 @@ object LlmModelCatalog {
             minRamTier = RamTier.AMPIA,
             origin = ModelOrigin.ADDESTRATO,
             language = "it",
-        ),
-        LlmModelDefinition(
-            id = "pt-qwen3.5-0.8b-en",
-            displayName = "Pocket Travel 0.8B (Qwen3.5)",
-            url = "https://huggingface.co/pockettravel/qwen3.5-0.8b-travel-en-GGUF/resolve/main/qwen3.5-0.8b-travel-en-Q4_K_M.gguf",
-            fileName = "qwen3.5-0.8b-travel-en-Q4_K_M.gguf",
-            sha256 = "962496502fbfea3864c1f301bf506717d3a375c47d04cefea94385f1b3ad9f0b",
-            sizeBytes = 529_297_024L,
-            minRamTier = RamTier.MINIMO,
-            origin = ModelOrigin.ADDESTRATO,
-            language = "en",
         ),
         LlmModelDefinition(
             id = "pt-qwen3.5-2b-en",
@@ -145,7 +117,7 @@ object LlmModelCatalog {
 
     /**
      * Modello predefinito per la fascia di RAM del dispositivo: il nostro addestrato scaricabile della
-     * fascia (4 GB -> 0.8B, 6 GB -> 2B, 12 GB -> 4B), o il piu' grande tra quelli che la fascia regge;
+     * fascia (6 GB -> 2B, 12 GB -> 4B), o il piu' grande tra quelli che la fascia regge;
      * con RAM insufficiente (IA sul dispositivo disattivata) il piu' leggero. Gli addestrati hanno la precedenza
      * sugli ufficiali perche' rifiutano molto meglio le domande a cui la guida non risponde. Solo quelli
      * addestrati nella lingua dell'interfaccia [language]: senza, gli ufficiali, con la stessa regola
