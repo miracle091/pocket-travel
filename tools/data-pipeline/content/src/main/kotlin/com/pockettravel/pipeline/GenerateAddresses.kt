@@ -13,11 +13,9 @@ import org.locationtech.jts.geom.Envelope
 import org.locationtech.jts.geom.GeometryFactory
 import org.locationtech.jts.geom.Point
 import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.OptionalLong
 import java.util.zip.GZIPInputStream
-import java.util.zip.GZIPOutputStream
 import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.cos
@@ -246,8 +244,11 @@ private const val LAYER = "addresses"
 
 /**
  * Scrive i civici in un PMTiles di soli punti, tutti a z[OUTPUT_ZOOM] (layer "addresses",
- * attributo "number", tile gzip): la mappa dell'app si ferma a z14 e MapLibre sovrazooma queste
+ * attributo "number"): la mappa dell'app si ferma a z14 e MapLibre sovrazooma queste
  * tile fino allo zoom a cui mostra i civici, senza scaricare le z15 della mappa.
+ * Tile senza compressione: il file intero si pubblica compresso con xz, che non trova ripetizioni dentro
+ * i flussi gzip (con le tile senza compressione il .xz pesa circa il 40% in meno). L'app comprime in gzip
+ * queste tile quando unisce le celle nel suo addresses.pmtiles (versionCode 12 e successivi).
  */
 fun writeAddressesPmtiles(addresses: List<Address>, output: File, minLon: Double, minLat: Double, maxLon: Double, maxLat: Double) {
     // worldPixel calcolato una volta per civico: serve sia per la tile sia per il punto dentro la tile.
@@ -262,14 +263,14 @@ fun writeAddressesPmtiles(addresses: List<Address>, output: File, minLon: Double
                     VectorTile.Feature(LAYER, index.toLong(), VectorTile.encodeGeometry(pointInTile(pixel, coord)), mapOf("number" to address.number))
                 }
                 val tile = VectorTile().addLayerFeatures(LAYER, features).encode()
-                writer.write(TileEncodingResult(coord, gzip(tile), OptionalLong.empty()))
+                writer.write(TileEncodingResult(coord, tile, OptionalLong.empty()))
             }
         }
         archive.finish(
             TileArchiveMetadata(
                 "Pocket Travel addresses", null, "© OpenStreetMap contributors", null, "overlay",
                 TileFormat.MVT, Envelope(minLon, maxLon, minLat, maxLat), null, OUTPUT_ZOOM, OUTPUT_ZOOM,
-                null, emptyMap(), TileCompression.GZIP,
+                null, emptyMap(), TileCompression.NONE,
             ),
         )
     }
@@ -297,9 +298,6 @@ private fun pointInTile(pixel: Pair<Double, Double>, coord: TileCoord): Point {
     val (x, y) = pixel
     return geometryFactory.createPoint(Coordinate((x - coord.x()) * 256.0, (y - coord.y()) * 256.0))
 }
-
-private fun gzip(bytes: ByteArray): ByteArray =
-    ByteArrayOutputStream().also { out -> GZIPOutputStream(out).use { it.write(bytes) } }.toByteArray()
 
 fun main(args: Array<String>) {
     require(args.size >= 6) {

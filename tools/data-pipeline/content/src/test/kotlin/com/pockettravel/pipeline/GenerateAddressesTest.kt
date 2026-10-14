@@ -2,6 +2,7 @@ package com.pockettravel.pipeline
 
 import com.onthegomap.planetiler.VectorTile
 import com.onthegomap.planetiler.geo.TileCoord
+import com.onthegomap.planetiler.pmtiles.Pmtiles
 import com.onthegomap.planetiler.pmtiles.ReadablePmtiles
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -9,9 +10,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.locationtech.jts.geom.Point
-import java.io.ByteArrayInputStream
 import java.io.File
-import java.util.zip.GZIPInputStream
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -54,7 +53,7 @@ class GenerateAddressesTest {
                     tiles.forEachRemaining { tile ->
                         val coord = tile.coord()
                         assertEquals(14, coord.z())
-                        VectorTile.decode(GZIPInputStream(ByteArrayInputStream(tile.bytes())).readBytes()).forEach { feature ->
+                        VectorTile.decode(tile.bytes()).forEach { feature ->
                             assertEquals("addresses", feature.layer())
                             val point = feature.geometry().decode() as Point
                             val lon = tileXToLon(coord.x() + point.x / 256.0, 14)
@@ -537,7 +536,7 @@ class GenerateAddressesTest {
                     tiles.forEachRemaining { tile ->
                         val coord = tile.coord()
                         assertEquals(14, coord.z())
-                        byTile["${coord.x()}/${coord.y()}"] = VectorTile.decode(GZIPInputStream(ByteArrayInputStream(tile.bytes())).readBytes())
+                        byTile["${coord.x()}/${coord.y()}"] = VectorTile.decode(tile.bytes())
                             .map { it.tags()["number"].toString() }.sorted()
                     }
                 }
@@ -545,6 +544,8 @@ class GenerateAddressesTest {
 
             assertEquals(2, byTile.size)
             assertEquals(setOf(listOf("1", "2/Ä"), listOf("東京 3")), byTile.values.toSet())
+            // Tile senza compressione: le celle si pubblicano compresse con xz, che rende meglio sui byte nudi.
+            assertEquals(Pmtiles.Compression.NONE, Pmtiles.Header.fromBytes(output.readBytes().copyOf(127)).tileCompression())
         } finally {
             output.delete()
         }
