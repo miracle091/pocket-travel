@@ -231,7 +231,7 @@ fun validateTransitJson(indexJson: String, allowedHosts: Set<String>) {
  * Valida address-grid.json (indice dei civici a celle): duplica qui le
  * stesse regole della griglia dell'app (RegionManifest.kt, core/sync), stesso motivo di
  * validateManifestJson sopra. Celle con id valido (z in 0..14, x/y dentro 0..2^z-1), nessuna
- * discendente di un'altra (isAncestorCell, GenerateAddressGrid.kt), ordinate per id, file/fileXz
+ * discendente di un'altra (isAncestorCell, GenerateAddressGrid.kt), ordinate per id come testo, file/fileXz
  * come le altre voci di `manifest.json` (anche "search", facoltativo), almeno un'attribuzione.
  */
 fun validateAddressGridJson(indexJson: String, allowedHosts: Set<String>) {
@@ -245,7 +245,7 @@ fun validateAddressGridJson(indexJson: String, allowedHosts: Set<String>) {
 
     val seenIds = mutableSetOf<String>()
     val ids = mutableListOf<String>()
-    var previous: Triple<Int, Int, Int>? = null
+    var previous: String? = null
     for (i in 0 until cells.length()) {
         val cell = cells.getJSONObject(i)
         val id = cell.getString("id")
@@ -257,12 +257,9 @@ fun validateAddressGridJson(indexJson: String, allowedHosts: Set<String>) {
             throw ManifestValidationException("address-grid.json: id di cella non valido: $id")
         }
         if (!seenIds.add(id)) throw ManifestValidationException("address-grid.json: id di cella duplicato: $id")
-        val sortKey = Triple(z, x, y)
-        previous?.let { prev ->
-            val cmp = compareValuesBy(sortKey, prev, { it.first }, { it.second }, { it.third })
-            if (cmp < 0) throw ManifestValidationException("address-grid.json: celle non ordinate per id (vicino a $id)")
-        }
-        previous = sortKey
+        // Ordine del testo dell'id, come cells.sortedBy { it.id } nell'app: "4/11/4" prima di "4/9/3".
+        if (previous != null && id < previous) throw ManifestValidationException("address-grid.json: celle non ordinate per id (vicino a $id)")
+        previous = id
         ids += id
 
         validateVersion(cell, "addressGrid/$id")

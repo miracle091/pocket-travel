@@ -339,7 +339,6 @@ class ValidateManifestTest {
             validateAddressGridJson(addressGridIndex(gridCell("12/50/51"), gridCell("12/50/50")), allowedHosts)
         }
     }
-
     @Test
     fun `rifiuta un indice senza attribuzioni`() {
         val json = addressGridIndex(gridCell("11/1/1")).replace(gridAttributions, "[]")
@@ -599,11 +598,12 @@ class ValidateManifestTest {
     }
 
     @Test
-    fun `l'indice dei civici ordina per zoom, poi x, poi y`() {
-        validateAddressGridJson(addressGridIndex(gridCell("5/9/9"), gridCell("11/0/0")), allowedHosts)
-        assertGridInvalid(addressGridIndex(gridCell("11/0/0"), gridCell("5/9/9")))
-        validateAddressGridJson(addressGridIndex(gridCell("12/10/5"), gridCell("12/11/0")), allowedHosts)
-        assertGridInvalid(addressGridIndex(gridCell("12/11/0"), gridCell("12/10/5")))
+    fun `l'indice dei civici ordina le celle per il testo dell'id, come l'app`() {
+        // L'app confronta l'elenco con cells.sortedBy { it.id }: "11/0/0" prima di "5/9/9", "4/11/4" prima di "4/9/3".
+        validateAddressGridJson(addressGridIndex(gridCell("11/0/0"), gridCell("5/9/9")), allowedHosts)
+        assertGridInvalid(addressGridIndex(gridCell("5/9/9"), gridCell("11/0/0")))
+        validateAddressGridJson(addressGridIndex(gridCell("4/11/4"), gridCell("4/9/3")), allowedHosts)
+        assertGridInvalid(addressGridIndex(gridCell("4/9/3"), gridCell("4/11/4")))
     }
 
     @Test

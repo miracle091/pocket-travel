@@ -23,7 +23,7 @@ class GenerateAddressGridTest {
 
     @Test
     fun `senza indice pubblicato scrive solo le celle nuove, ordinate per id`() {
-        // Sottoalberi diversi (nessuna id qui e' antenata di un'altra): l'ordine e' solo (z, x, y).
+        // Sottoalberi diversi (nessuna id qui e' antenata di un'altra): l'ordine e' solo quello dell'id.
         val index = mergeAddressGridJson(
             "1", null,
             listOf(cellEntry("12/50/51"), cellEntry("11/1/1"), cellEntry("12/50/50")),
@@ -132,10 +132,11 @@ class GenerateAddressGridTest {
     private fun publishedWith(vararg cells: String) = """{ "version": "0", "tileZoom": 14, "cells": [${cells.joinToString(",")}], "attributions": [] }"""
 
     @Test
-    fun `l'ordine e' numerico per zoom, x e y e non alfabetico`() {
+    fun `l'ordine e' quello del testo dell'id, come lo controlla l'app`() {
         val index = merge(null, cellEntry("12/10/2"), cellEntry("9/3/3"), cellEntry("12/9/2"), cellEntry("10/0/0"), cellEntry("12/9/10"), cellEntry("12/9/9"))
 
-        assertEquals(listOf("9/3/3", "10/0/0", "12/9/2", "12/9/9", "12/9/10", "12/10/2"), cellsOf(index))
+        assertEquals(listOf("10/0/0", "12/10/2", "12/9/10", "12/9/2", "12/9/9", "9/3/3"), cellsOf(index))
+        validateAddressGridJson(index, setOf("example.org"))
     }
 
     @Test

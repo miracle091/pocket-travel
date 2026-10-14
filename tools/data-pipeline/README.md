@@ -97,7 +97,7 @@ Indice, firmato come gli altri JSON e puntato dalla voce `"addressGrid": { "vers
 }
 ```
 
-- `cells` ordinato per `z`, `x`, `y`; `url` è sempre quello del `.xz`, `file` ne dà dimensione e sha256
+- `cells` ordinato per `id` come testo (`"4/11/4"` prima di `"4/9/3"`): l'app rifiuta l'indice in un altro ordine; `url` è sempre quello del `.xz`, `file` ne dà dimensione e sha256
   decompressi. `search` è facoltativo (le app vecchie lo ignorano).
 - `attributions` (schermata Licenze): OSM, Overture con i distributori e il testo di ogni fonte ammessa
   dalla lista bianca `overture-address-sources.tsv`, anche se le celle di oggi non la usano.

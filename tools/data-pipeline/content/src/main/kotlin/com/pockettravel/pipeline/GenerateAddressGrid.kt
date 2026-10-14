@@ -30,8 +30,9 @@ internal fun isAncestorCell(ancestor: String, descendant: String): Boolean {
  * per cella rigenerata o riusata, vedi build-address-cell.sh --entries): le nuove sostituiscono
  * quelle con lo stesso id o si aggiungono. Quando una cella si e' divisa i suoi figli compaiono tra
  * le voci nuove: la voce del genitore, ancora nell'indice pubblicato, va tolta - le celle non si
- * fondono mai, quindi non serve il caso contrario. Risultato ordinato per id
- * (z, x, y): stesso ordine richiesto da ValidateManifest. [publishedAt] (secondi Unix) e' il campo anti-rollback
+ * fondono mai, quindi non serve il caso contrario. Risultato ordinato per id come testo ("4/11/4" prima di
+ * "4/9/3"): l'app rifiuta l'indice se le celle non sono in questo ordine (AddressGridIndex.validate, core/sync), e
+ * ValidateManifest controlla lo stesso. [publishedAt] (secondi Unix) e' il campo anti-rollback
  * letto dall'app dopo la verifica della firma.
  */
 fun mergeAddressGridJson(
@@ -56,13 +57,7 @@ fun mergeAddressGridJson(
     val ids = cells.keys.toList()
     ids.filter { candidate -> ids.any { other -> isAncestorCell(candidate, other) } }.forEach { cells.remove(it) }
 
-    val sortedCells = cells.values.sortedWith(
-        compareBy(
-            { parseCellIdParts(it.getString("id")).first },
-            { parseCellIdParts(it.getString("id")).second },
-            { parseCellIdParts(it.getString("id")).third },
-        ),
-    )
+    val sortedCells = cells.values.sortedBy { it.getString("id") }
 
     return JSONObject()
         .put("version", version)
