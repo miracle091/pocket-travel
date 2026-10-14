@@ -6,8 +6,10 @@ import com.pockettravel.core.data.mergeAddressSearchOnDevice
 import org.tukaani.xz.LZMA2Options
 import org.tukaani.xz.XZInputStream
 import org.tukaani.xz.XZOutputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.MessageDigest
+import java.util.zip.GZIPOutputStream
 import javax.inject.Inject
 
 /** Tile dei civici, sempre allo stesso zoom (GenerateAddresses). */
@@ -22,7 +24,8 @@ private const val QUADTREE_CHILDREN = 4L
  * gia' installato. Una tile z14 appartiene a una cella se ne e' discendente: le celle sparite dalla
  * regione (es. divise in figlie dalla pipeline) non vengono ricopiate, spariscono col resto del file
  * precedente. Scrive anche [RegionStorage.ADDRESSES_CELLS_FILE] in staging, pronto per
- * RegionStorage.activatePackage come [RegionStorage.ADDRESSES_FILE].
+ * RegionStorage.activatePackage come [RegionStorage.ADDRESSES_FILE]. Le tile del file unito sono sempre in gzip:
+ * quelle delle celle senza compressione si comprimono durante l'unione.
  *
  * Le tile si leggono camminando la directory di ogni file ([PmtilesDirectoryReader]), mai provando
  * le coordinate z14 discendenti di una cella una per una: il seme ha celle molto rade nelle zone a
@@ -78,7 +81,6 @@ class RegionAddressGridInstaller @Inject constructor(
         require(plan.allCells.isNotEmpty()) { "Nessuna cella dei civici per $regionId" }
         val installedAddresses = File(regionStorage.directoryFor(regionId), RegionStorage.ADDRESSES_FILE)
         var metadataJson: String? = null
-        var tileCompression: Byte = Constants.COMPRESSION_GZIP
         var tileType: Byte = Constants.TYPE_MVT
 
         PmtilesTileSpool(staging).use { tiles ->
@@ -88,11 +90,11 @@ class RegionAddressGridInstaller @Inject constructor(
                 PmtilesDirectoryReader(cellFile).use { reader ->
                     if (metadataJson == null) {
                         metadataJson = reader.metadata
-                        tileCompression = reader.tileCompression
                         tileType = reader.tileType
                     }
+                    val toGzip = needsGzip(reader.tileCompression, cell.id)
                     reader.forEachTile(ensureActive) { tileId, data ->
-                        if (belongsTo(tileId, range)) tiles.add(tileId, data)
+                        if (belongsTo(tileId, range)) tiles.add(tileId, if (toGzip) gzip(data) else data)
                     }
                 }
                 // le sue tile sono ormai nello spool: il file per-cella non serve piu'.
@@ -104,11 +106,11 @@ class RegionAddressGridInstaller @Inject constructor(
                 PmtilesDirectoryReader(installedAddresses).use { reader ->
                     if (metadataJson == null) {
                         metadataJson = reader.metadata
-                        tileCompression = reader.tileCompression
                         tileType = reader.tileType
                     }
+                    val toGzip = needsGzip(reader.tileCompression, RegionStorage.ADDRESSES_FILE)
                     reader.forEachTile(ensureActive) { tileId, data ->
-                        if (ranges.any { belongsTo(tileId, it) }) tiles.add(tileId, data)
+                        if (ranges.any { belongsTo(tileId, it) }) tiles.add(tileId, if (toGzip) gzip(data) else data)
                     }
                 }
             }
@@ -116,7 +118,7 @@ class RegionAddressGridInstaller @Inject constructor(
                 outputFile = File(staging, RegionStorage.ADDRESSES_FILE),
                 tiles = tiles,
                 metadataJson = metadataJson ?: "{}",
-                tileCompression = tileCompression,
+                tileCompression = Constants.COMPRESSION_GZIP,
                 tileType = tileType,
                 minZoom = ADDRESS_TILE_ZOOM,
                 maxZoom = ADDRESS_TILE_ZOOM,
@@ -192,6 +194,21 @@ class RegionAddressGridInstaller @Inject constructor(
             unpacked.deleteRecursively()
         }
     }
+
+    /**
+     * true se le tile di [source] vanno compresse in gzip prima di entrare nel file unito. L'intestazione del file unito
+     * dichiara una sola compressione per tutte le tile, sempre gzip, ed e' quella con cui MapLibre le legge. Le celle
+     * possono avere tile in gzip o senza compressione: senza, il loro `.xz` scaricato e' piu' piccolo.
+     */
+    private fun needsGzip(compression: Byte, source: String): Boolean {
+        require(compression == Constants.COMPRESSION_GZIP || compression == Constants.COMPRESSION_NONE) {
+            "Compressione delle tile non supportata in $source: $compression"
+        }
+        return compression == Constants.COMPRESSION_NONE
+    }
+
+    private fun gzip(data: ByteArray): ByteArray =
+        ByteArrayOutputStream().also { out -> GZIPOutputStream(out).use { it.write(data) } }.toByteArray()
 
     private companion object {
         // 4 - 1: divisore della somma sum(4^k) in forma chiusa.

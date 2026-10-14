@@ -43,13 +43,13 @@ class RegionAddressGridInstallerTest {
     private fun tileId(z: Int, x: Int, y: Int): Long = zoomOffset(z) + Hilbert.zxyToIndex(z, x.toLong(), y.toLong())
 
     /** File pmtiles sorgente di una sola cella (o dell'addresses.pmtiles gia' installato), zoom 14 come i civici. */
-    private fun writeFixture(file: File, tiles: Map<Triple<Int, Int, Int>, ByteArray>) {
+    private fun writeFixture(file: File, tiles: Map<Triple<Int, Int, Int>, ByteArray>, tileCompression: Byte = Constants.COMPRESSION_GZIP) {
         val entries = tiles.map { (zxy, data) -> PmtilesEntry(tileId(zxy.first, zxy.second, zxy.third), data) }
         PmtilesWriter.write(
             outputFile = file,
             entries = entries,
             metadataJson = """{"name":"addresses"}""",
-            tileCompression = Constants.COMPRESSION_GZIP,
+            tileCompression = tileCompression,
             tileType = Constants.TYPE_MVT,
             minZoom = 14,
             maxZoom = 14,
@@ -252,6 +252,43 @@ class RegionAddressGridInstallerTest {
             mapOf("12/0/0" to "v1", "12/2/0" to "v2", "12/3/1" to "v2"),
             RegionStorage.decodeAddressCells(File(staging, RegionStorage.ADDRESSES_CELLS_FILE).readText()),
         )
+    }
+
+    private fun gzip(data: ByteArray): ByteArray = java.io.ByteArrayOutputStream().also { out ->
+        java.util.zip.GZIPOutputStream(out).use { it.write(data) }
+    }.toByteArray()
+
+    private fun gunzip(data: ByteArray): ByteArray = java.util.zip.GZIPInputStream(data.inputStream()).use { it.readBytes() }
+
+    @Test
+    fun `celle gzip e senza compressione si uniscono in un file con tutte le tile in gzip`() {
+        val (storage, installer) = newStorageAndInstaller()
+        val regionDir = storage.directoryFor("san-marino").apply { mkdirs() }
+        val tileA = "tile A invariata".toByteArray()
+        val tileB = "tile B gzip".toByteArray()
+        val tileC = "tile C senza compressione".toByteArray()
+        writeFixture(File(regionDir, RegionStorage.ADDRESSES_FILE), mapOf(Triple(14, 1, 1) to gzip(tileA)))
+        File(regionDir, RegionStorage.ADDRESSES_CELLS_FILE).writeText(RegionStorage.encodeAddressCells(mapOf("12/0/0" to "v1")))
+
+        val cellA = AddressGridCell("12/0/0", "v1", cellFile("cell-a.pmtiles")) // invariata, dal file installato
+        val cellB = AddressGridCell("12/1/0", "v2", cellFile("cell-b.pmtiles")) // nuova, tile gzip
+        val cellC = AddressGridCell("12/2/0", "v2", cellFile("cell-c.pmtiles")) // nuova, tile senza compressione
+        val staging = storage.stagingDirectoryFor("san-marino", "v2").apply { mkdirs() }
+        // C prima di B: la compressione del file unito non dipende dalla prima cella letta.
+        writeFixture(File(staging, cellC.file.name), mapOf(Triple(14, 9, 1) to tileC), Constants.COMPRESSION_NONE)
+        writeFixture(File(staging, cellB.file.name), mapOf(Triple(14, 5, 2) to gzip(tileB)))
+
+        val plan = installer.plan("san-marino", RegionAddressGridEntry(listOf(cellA, cellC, cellB)))
+        assertEquals(listOf("12/2/0", "12/1/0"), plan.toDownload.map { it.id })
+        installer.mergeInto("san-marino", mapSource, plan, staging)
+
+        val output = File(staging, RegionStorage.ADDRESSES_FILE)
+        PmtilesDirectoryReader(output).use { assertEquals(Constants.COMPRESSION_GZIP, it.tileCompression) }
+        Reader(output).use { reader ->
+            assertArrayEquals(tileA, gunzip(reader.getTile(14, 1, 1)))
+            assertArrayEquals(tileB, gunzip(reader.getTile(14, 5, 2)))
+            assertArrayEquals(tileC, gunzip(reader.getTile(14, 9, 1)))
+        }
     }
 
     @Test
