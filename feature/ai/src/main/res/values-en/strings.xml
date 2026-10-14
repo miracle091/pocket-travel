@@ -7,7 +7,7 @@
     <string name="ai_models_intro">All models work offline and answer using the downloaded guides. What differs is how they were prepared</string>
     <string name="ai_models_official">Official</string>
     <string name="ai_models_official_desc">General-purpose models, as published by their authors. They are versatile, but sometimes answer with their own knowledge instead of the guide, or don\'t say when the guide isn\'t enough</string>
-    <string name="ai_models_trained">Trained by us</string>
+    <string name="ai_models_trained">Trained on the guides</string>
     <string name="ai_models_trained_desc">The same types of model, trained by Pocket Travel on travel guides: they answer in English in a few sentences, using only the guide content, and state clearly when a piece of information is missing</string>
     <string name="ai_model_coming_soon">Coming soon</string>
     <string name="ai_model_selected">Selected</string>

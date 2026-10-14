@@ -72,7 +72,7 @@ object LlmModelCatalog {
             sizeBytes = 2_546_340_960L,
             minRamTier = RamTier.AMPIA,
         ),
-        // Addestrati da noi (uno per fascia di RAM e per lingua), pubblicati sull'organizzazione HuggingFace
+        // Addestrati sulle guide (uno per fascia di RAM e per lingua), pubblicati sull'organizzazione HuggingFace
         // pockettravel (upload_hf.py, dataset v10, caricati il 2026-10-11): sha256 e dimensioni ricontrollati via API
         // tree dopo l'upload. Sono i predefiniti delle loro fasce nella loro lingua (vedi defaultFor).
         LlmModelDefinition(

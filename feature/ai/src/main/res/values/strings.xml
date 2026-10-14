@@ -7,7 +7,7 @@
     <string name="ai_models_intro">Tutti i modelli funzionano senza connessione e rispondono usando le guide scaricate. Differiscono per il modo in cui sono stati preparati</string>
     <string name="ai_models_official">Ufficiali</string>
     <string name="ai_models_official_desc">Modelli generici, così come li pubblicano i loro autori. Sono versatili, ma a volte rispondono con conoscenze proprie invece che con la guida, o non segnalano quando la guida non basta</string>
-    <string name="ai_models_trained">Addestrati da noi</string>
+    <string name="ai_models_trained">Addestrati sulle guide</string>
     <string name="ai_models_trained_desc">Gli stessi tipi di modello, addestrati da Pocket Travel sulle guide di viaggio: rispondono in italiano in poche frasi, solo con il contenuto della guida, e segnalano chiaramente quando un\'informazione manca</string>
     <string name="ai_model_coming_soon">Presto disponibile</string>
     <string name="ai_model_selected">Selezionato</string>

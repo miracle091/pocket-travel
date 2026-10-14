@@ -5,7 +5,7 @@ object PromptTemplates {
 
     /**
      * [language]: "it" o "en", la lingua dell'interfaccia. Il testo italiano non va toccato: e' quello su
-     * cui sono addestrati i modelli "Addestrati da noi" (generate_sft_dataset.py). Stringhe esplicite, non un raw
+     * cui sono addestrati i modelli "Addestrati sulle guide" (generate_sft_dataset.py). Stringhe esplicite, non un raw
      * string con trimIndent(): il contesto ha righe senza rientro e trimIndent() dopo l'interpolazione lascerebbe
      * nel prompt il rientro del sorgente.
      */
