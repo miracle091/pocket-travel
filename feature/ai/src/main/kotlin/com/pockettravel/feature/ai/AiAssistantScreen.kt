@@ -180,7 +180,7 @@ private fun AssistantHeader(uiState: AiUiState, isReady: Boolean, actions: AiAct
         modifier = Modifier.fillMaxWidth().padding(start = Spacing.l, end = if (isReady) Spacing.xs else Spacing.l, top = Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Senza un modello per la RAM del dispositivo l'assistente e' solo Online (vedi AiAssistantViewModel: mode e'
+        // Sotto i 3 GB di RAM l'assistente e' solo Online (vedi AiAssistantViewModel: mode e'
         // gia' forzato a ONLINE li'): niente selettore da mostrare, esiste un solo motore.
         if (uiState.isDeviceCapable) {
             ModeSelector(uiState, actions, modifier = Modifier.weight(1f))
@@ -345,7 +345,7 @@ internal fun AiSettingsContent(uiState: AiUiState, actions: AiActions) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        // Senza un modello per la RAM del dispositivo esiste solo Online (vedi AssistantHeader): niente selettore.
+        // Sotto i 3 GB di RAM esiste solo Online (vedi AssistantHeader): niente selettore.
         if (uiState.isDeviceCapable) ModeSelector(uiState, actions, modifier = Modifier.fillMaxWidth())
         when (uiState.mode) {
             AiEngineMode.ON_DEVICE -> ModelList(uiState, actions)
@@ -609,13 +609,22 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
     Column {
         ListItem(
             supportingContent = {
-                Text(
-                    when {
-                        !available -> "$size · ${stringResource(R.string.ai_model_coming_soon)}"
-                        isSelected -> "$size · ${stringResource(R.string.ai_model_selected)}"
-                        else -> size
-                    },
-                )
+                Column {
+                    Text(
+                        when {
+                            !available -> "$size · ${stringResource(R.string.ai_model_coming_soon)}"
+                            isSelected -> "$size · ${stringResource(R.string.ai_model_selected)}"
+                            else -> size
+                        },
+                    )
+                    // Modello della fascia di RAM sopra quella del dispositivo (LlmModelCatalog.needsMoreRam).
+                    if (definition.id in uiState.modelsNeedingMoreRam) {
+                        Text(
+                            stringResource(R.string.ai_model_needs_more_ram, definition.minRamTier.gigabytes),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
             },
             leadingContent = {
                 Icon(if (isSelected) AppIcons.Check else AppIcons.AiAssistant, contentDescription = null)

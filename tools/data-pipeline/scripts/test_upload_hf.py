@@ -174,12 +174,12 @@ class UpdateAppStatusTest(unittest.TestCase):
 class RealCatalogTest(unittest.TestCase):
     def test_il_catalogo_dell_app_si_legge_e_si_riscrive_uguale(self):
         text = upload_hf.CATALOG.read_text(encoding="utf-8")
-        targets = upload_hf.catalog_targets(text, "pockettravel/qwen3.5-2b-travel-it-GGUF",
-                                            ["qwen3.5-2b-travel-it-Q4_K_M.gguf"])
-        self.assertEqual([("pt-qwen3.5-2b", "qwen3.5-2b-travel-it-Q4_K_M.gguf")], targets)
-        block = next(b for _, _, b in upload_hf.catalog_blocks(text) if "qwen3.5-2b-travel-it" in b)
+        targets = upload_hf.catalog_targets(text, "pockettravel/qwen3.5-0.8b-travel-it-GGUF",
+                                            ["qwen3.5-0.8b-travel-it-Q4_K_M.gguf"])
+        self.assertEqual([("pt-qwen3.5-0.8b", "qwen3.5-0.8b-travel-it-Q4_K_M.gguf")], targets)
+        block = next(b for _, _, b in upload_hf.catalog_blocks(text) if "qwen3.5-0.8b-travel-it" in b)
         size = int(upload_hf.re.search(r"sizeBytes = ([0-9_]+)L", block).group(1).replace("_", ""))
-        same = upload_hf.update_catalog(text, "qwen3.5-2b-travel-it-Q4_K_M.gguf",
+        same = upload_hf.update_catalog(text, "qwen3.5-0.8b-travel-it-Q4_K_M.gguf",
                                         upload_hf.field(block, "sha256"), size)
         self.assertEqual(text, same)
 

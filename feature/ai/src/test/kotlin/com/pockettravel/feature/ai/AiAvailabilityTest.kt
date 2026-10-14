@@ -17,30 +17,33 @@ class AiAvailabilityTest {
     }
 
     @Test
-    fun laChiaveContaAncheSottoI4GbDiRam() {
+    fun laChiaveContaAncheSottoI3GbDiRam() {
         assertTrue(isAiAvailable(hasApiKey = true, ramTier = RamTier.INSUFFICIENTE, downloadedModelIds = emptySet(), language = "en"))
     }
 
     @Test
     fun ilModelloScaricatoBasta() {
-        assertTrue(isAiAvailable(hasApiKey = false, ramTier = RamTier.CONFORTEVOLE, downloadedModelIds = setOf("qwen3.5-2b"), language = "en"))
+        assertTrue(isAiAvailable(hasApiKey = false, ramTier = RamTier.MINIMO, downloadedModelIds = setOf("qwen3.5-0.8b"), language = "en"))
     }
 
     @Test
-    fun sottoI4GbDiRamUnModelloScaricatoNonConta() {
-        assertFalse(isAiAvailable(hasApiKey = false, ramTier = RamTier.INSUFFICIENTE, downloadedModelIds = setOf("qwen3.5-2b"), language = "it"))
-        // Un modello da 0,8B scaricato prima che uscisse dal catalogo non conta.
-        assertFalse(isAiAvailable(hasApiKey = false, ramTier = RamTier.MINIMO, downloadedModelIds = setOf("pt-qwen3.5-0.8b"), language = "it"))
+    fun sottoI3GbDiRamUnModelloScaricatoNonConta() {
+        assertFalse(isAiAvailable(hasApiKey = false, ramTier = RamTier.INSUFFICIENTE, downloadedModelIds = setOf("qwen3.5-0.8b"), language = "it"))
+    }
+
+    @Test
+    fun con3GbDiRamLo08BScaricatoBasta() {
+        assertTrue(isAiAvailable(hasApiKey = false, ramTier = RamTier.RIDOTTA, downloadedModelIds = setOf("qwen3.5-0.8b"), language = "it"))
     }
 
     @Test
     fun unModelloAddestratoInItalianoNonContaConLeGuideInInglese() {
-        assertFalse(isAiAvailable(hasApiKey = false, ramTier = RamTier.CONFORTEVOLE, downloadedModelIds = setOf("pt-qwen3.5-2b"), language = "en"))
-        assertTrue(isAiAvailable(hasApiKey = false, ramTier = RamTier.CONFORTEVOLE, downloadedModelIds = setOf("pt-qwen3.5-2b"), language = "it"))
+        assertFalse(isAiAvailable(hasApiKey = false, ramTier = RamTier.MINIMO, downloadedModelIds = setOf("pt-qwen3.5-0.8b"), language = "en"))
+        assertTrue(isAiAvailable(hasApiKey = false, ramTier = RamTier.MINIMO, downloadedModelIds = setOf("pt-qwen3.5-0.8b"), language = "it"))
     }
 
     @Test
     fun unModelloOltreLaFasciaDelDispositivoNonConta() {
-        assertFalse(isAiAvailable(hasApiKey = false, ramTier = RamTier.CONFORTEVOLE, downloadedModelIds = setOf("qwen3-4b-instruct-2507"), language = "it"))
+        assertFalse(isAiAvailable(hasApiKey = false, ramTier = RamTier.MINIMO, downloadedModelIds = setOf("qwen3-4b-instruct-2507"), language = "it"))
     }
 }

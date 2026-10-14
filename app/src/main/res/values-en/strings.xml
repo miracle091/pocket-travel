@@ -300,7 +300,7 @@
     <string name="onboarding_ready_ai_body">Turned on in More, Settings, with a model on the device or an API key</string>
     <!-- Hints shown the first time a tab is opened (ContextualHint). -->
     <string name="hint_ai_title">The AI assistant has two engines</string>
-    <string name="hint_ai_body">\"On device\" works even without internet: a small model downloaded to the device (requires at least 6 GB of RAM) answers using the guide and your personal notes. \"Online\" uses a service of your choice (ChatGPT, Mistral, Gemini or Claude) with your own API key, which stays on the device</string>
+    <string name="hint_ai_body">\"On device\" works even without internet: a small model downloaded to the device (requires at least 3 GB of RAM) answers using the guide and your personal notes. \"Online\" uses a service of your choice (ChatGPT, Mistral, Gemini or Claude) with your own API key, which stays on the device</string>
     <string name="hint_vault_title">Your documents stay safe</string>
     <string name="hint_vault_body">Passports, tickets and other documents are protected by biometrics and never sent off the device</string>
     <string name="hint_sources_title">Official sources open online</string>

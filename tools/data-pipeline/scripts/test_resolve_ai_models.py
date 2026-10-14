@@ -43,7 +43,7 @@ class CatalogModelsTest(unittest.TestCase):
     def test_catalogo_vero_dell_app(self):
         path = Path(__file__).resolve().parents[3] / "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/LlmModelCatalog.kt"
         models = r.catalog_models(path.read_text(encoding="utf-8"))
-        self.assertIn("pt-qwen3.5-2b", [m["modelId"] for m in models])
+        self.assertIn("pt-qwen3.5-0.8b", [m["modelId"] for m in models])
         self.assertTrue(all(m["url"].endswith("/" + m["modelVersion"]) for m in models))
 
 

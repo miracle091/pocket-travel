@@ -9,23 +9,31 @@ class LlmModelCatalogTest {
 
     @Test
     fun `il modello predefinito e' il nostro addestrato della fascia di RAM`() {
+        assertEquals("pt-qwen3.5-0.8b", LlmModelCatalog.defaultFor(RamTier.MINIMO).id)
         assertEquals("pt-qwen3.5-2b", LlmModelCatalog.defaultFor(RamTier.CONFORTEVOLE).id)
         assertEquals("pt-qwen3-4b-2507", LlmModelCatalog.defaultFor(RamTier.AMPIA).id)
     }
 
     @Test
-    fun `con RAM insufficiente il predefinito e' il modello piu' leggero`() {
-        assertEquals("pt-qwen3.5-2b", LlmModelCatalog.defaultFor(RamTier.INSUFFICIENTE).id)
-        assertEquals("pt-qwen3.5-2b", LlmModelCatalog.defaultFor(RamTier.MINIMO).id)
+    fun `sotto i 4 GB il predefinito e' il modello piu' leggero`() {
+        assertEquals("pt-qwen3.5-0.8b", LlmModelCatalog.defaultFor(RamTier.RIDOTTA).id)
+        assertEquals("pt-qwen3.5-0.8b", LlmModelCatalog.defaultFor(RamTier.INSUFFICIENTE).id)
     }
 
     @Test
-    fun `per ora nessun modello da 0,8B e niente IA sul dispositivo sotto i 6 GB`() {
-        assertTrue(LlmModelCatalog.ALL.none { "0.8b" in it.id })
-        assertTrue(LlmModelCatalog.visibleFor(RamTier.MINIMO, "it").isEmpty())
-        assertFalse(DeviceAiCapability.isOnDeviceAiSupportedIn(RamTier.MINIMO))
-        assertTrue(DeviceAiCapability.isOnDeviceAiSupportedIn(RamTier.CONFORTEVOLE))
-        assertFalse(DeviceAiCapability.isOnDeviceAiSupportedIn(RamTier.INSUFFICIENTE))
+    fun `la lista mostra anche i modelli della fascia sopra, con l'avviso`() {
+        val ids = { tier: RamTier -> LlmModelCatalog.visibleFor(tier, "it").map { it.id }.toSet() }
+        assertEquals(setOf("qwen3.5-0.8b", "pt-qwen3.5-0.8b"), ids(RamTier.RIDOTTA))
+        assertEquals(setOf("qwen3.5-0.8b", "pt-qwen3.5-0.8b", "qwen3.5-2b", "pt-qwen3.5-2b"), ids(RamTier.MINIMO))
+        assertEquals(6, ids(RamTier.CONFORTEVOLE).size)
+        val twoB = LlmModelCatalog.ALL.first { it.id == "pt-qwen3.5-2b" }
+        assertTrue(LlmModelCatalog.needsMoreRam(twoB, RamTier.MINIMO))
+        assertFalse(LlmModelCatalog.needsMoreRam(twoB, RamTier.CONFORTEVOLE))
+    }
+
+    @Test
+    fun `sotto i 3 GB la lista e' vuota`() {
+        assertTrue(LlmModelCatalog.visibleFor(RamTier.INSUFFICIENTE, "it").isEmpty())
     }
 
     @Test
@@ -39,7 +47,8 @@ class LlmModelCatalogTest {
 
     @Test
     fun `in inglese il predefinito e' il nostro addestrato in inglese della fascia di RAM`() {
-        assertEquals("pt-qwen3.5-2b-en", LlmModelCatalog.defaultFor(RamTier.INSUFFICIENTE, "en").id)
+        assertEquals("pt-qwen3.5-0.8b-en", LlmModelCatalog.defaultFor(RamTier.INSUFFICIENTE, "en").id)
+        assertEquals("pt-qwen3.5-0.8b-en", LlmModelCatalog.defaultFor(RamTier.MINIMO, "en").id)
         assertEquals("pt-qwen3.5-2b-en", LlmModelCatalog.defaultFor(RamTier.CONFORTEVOLE, "en").id)
         assertEquals("pt-qwen3-4b-2507-en", LlmModelCatalog.defaultFor(RamTier.AMPIA, "en").id)
     }
@@ -66,9 +75,9 @@ class LlmModelCatalogTest {
     fun `la lista mostra gli addestrati della lingua dell'interfaccia e gli ufficiali`() {
         for (language in listOf("it", "en")) {
             val visible = LlmModelCatalog.visibleFor(RamTier.AMPIA, language)
-            assertEquals(2, visible.count { it.origin == ModelOrigin.ADDESTRATO && it.language == language })
+            assertEquals(3, visible.count { it.origin == ModelOrigin.ADDESTRATO && it.language == language })
             assertTrue(visible.none { it.origin == ModelOrigin.ADDESTRATO && it.language != language })
-            assertEquals(2, visible.count { it.origin == ModelOrigin.UFFICIALE })
+            assertEquals(3, visible.count { it.origin == ModelOrigin.UFFICIALE })
         }
     }
 

@@ -1,6 +1,7 @@
 package com.pockettravel.feature.ai
 
 import com.pockettravel.feature.ai.DeviceAiCapability.Companion.inferenceThreadCountFor
+import com.pockettravel.feature.ai.DeviceAiCapability.Companion.isOnDeviceAiSupportedIn
 import com.pockettravel.feature.ai.DeviceAiCapability.Companion.ramTierFor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,26 +13,38 @@ private const val GB = 1024L * 1024 * 1024
 private fun Double.gib(): Long = (this * GB).toLong()
 
 // Come DeviceAiCapability.isOnDeviceAiSupported(), che in JVM puro non si puo' chiamare (serve un Context).
-private fun enablesOnDeviceAi(totalMemBytes: Long) = DeviceAiCapability.isOnDeviceAiSupportedIn(ramTierFor(totalMemBytes))
+private fun enablesOnDeviceAi(totalMemBytes: Long) = isOnDeviceAiSupportedIn(ramTierFor(totalMemBytes))
 
 class DeviceAiCapabilityTest {
 
     // totalMem dei telefoni veri: meno della RAM dichiarata (memoria riservata, GB decimali), mai sotto l'85%.
     @Test
-    fun `a 3 GB phone has no on-device AI`() {
-        assertFalse(enablesOnDeviceAi(2.8.gib()))
+    fun `a 2 GB phone has no on-device AI`() {
+        assertFalse(enablesOnDeviceAi(1.8.gib()))
     }
 
     @Test
-    fun `a 4 GB phone reporting 3,6 GiB is MINIMO, with no model for now`() {
+    fun `a 3 GB phone reporting 2,8 GiB is RIDOTTA and enables on-device AI`() {
+        assertEquals(RamTier.RIDOTTA, ramTierFor(2.8.gib()))
+        assertTrue(enablesOnDeviceAi(2.8.gib()))
+    }
+
+    @Test
+    fun `just below 85 percent of 3 GiB is not enough`() {
+        assertFalse(enablesOnDeviceAi(DeviceAiCapability.REDUCED_RAM_BYTES - 1))
+        assertTrue(enablesOnDeviceAi(DeviceAiCapability.REDUCED_RAM_BYTES))
+    }
+
+    @Test
+    fun `a 4 GB phone reporting 3,6 GiB enables on-device AI`() {
+        assertTrue(enablesOnDeviceAi(3.6.gib()))
         assertEquals(RamTier.MINIMO, ramTierFor(3.6.gib()))
-        assertFalse(enablesOnDeviceAi(3.6.gib()))
     }
 
     @Test
-    fun `on-device AI starts at 85 percent of 6 GiB, the tier of the smallest model`() {
-        assertFalse(enablesOnDeviceAi(DeviceAiCapability.COMFORTABLE_RAM_BYTES - 1))
-        assertTrue(enablesOnDeviceAi(DeviceAiCapability.COMFORTABLE_RAM_BYTES))
+    fun `just below 85 percent of 4 GiB is RIDOTTA`() {
+        assertEquals(RamTier.RIDOTTA, ramTierFor(DeviceAiCapability.MIN_RAM_BYTES - 1))
+        assertEquals(RamTier.MINIMO, ramTierFor(DeviceAiCapability.MIN_RAM_BYTES))
     }
 
     @Test
@@ -49,7 +62,16 @@ class DeviceAiCapabilityTest {
     }
 
     @Test
+    fun `each tier shows the GB of its threshold`() {
+        for (tier in RamTier.entries.drop(1)) {
+            assertEquals(tier, ramTierFor(tier.gigabytes * 1_000_000_000L))
+        }
+        assertEquals(6, RamTier.CONFORTEVOLE.gigabytes)
+    }
+
+    @Test
     fun `advertised RAM in decimal GB falls in the same tier`() {
+        assertEquals(RamTier.RIDOTTA, ramTierFor(3_000_000_000L))
         assertEquals(RamTier.MINIMO, ramTierFor(4_000_000_000L))
         assertEquals(RamTier.CONFORTEVOLE, ramTierFor(6_000_000_000L))
         assertEquals(RamTier.CONFORTEVOLE, ramTierFor(8_000_000_000L))

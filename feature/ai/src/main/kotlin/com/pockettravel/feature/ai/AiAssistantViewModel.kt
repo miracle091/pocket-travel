@@ -23,6 +23,8 @@ data class AiUiState(
     val mode: AiEngineMode,
     val isDeviceCapable: Boolean,
     val availableModels: List<LlmModelDefinition> = emptyList(),
+    // Modelli della lista della fascia sopra quella del dispositivo: si scelgono con l'avviso "puo' essere lento".
+    val modelsNeedingMoreRam: Set<String> = emptySet(),
     val selectedModelId: String = "",
     val isModelDownloaded: Boolean,
     // Modelli gia' sul dispositivo: se quello scelto non c'e', se ne propone uno di questi.
@@ -64,15 +66,18 @@ class AiAssistantViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(
         AiUiState(
-            // Senza un modello per la RAM del dispositivo il motore sul dispositivo non va nemmeno offerto come
-            // opzione (DeviceAiCapability.isOnDeviceAiSupported): forzare Online qui evita che
+            // Sotto i 3 GB il motore sul dispositivo non va nemmeno offerto come opzione
+            // (DeviceAiCapability.isOnDeviceAiSupported): forzare Online qui evita che
             // un motore salvato in precedenza (o il default ON_DEVICE) resti selezionato su un
             // dispositivo che non puo' comunque usarlo.
             mode = if (deviceAiCapability.isOnDeviceAiSupported()) aiSettingsStore.engineMode() else AiEngineMode.ONLINE,
             isDeviceCapable = deviceAiCapability.isOnDeviceAiSupported(),
-            // L'ordine di RamTier (INSUFFICIENTE < MINIMO < CONFORTEVOLE < AMPIA) e' significativo
-            // qui: un dispositivo di fascia superiore vede anche i modelli delle fasce inferiori.
+            // L'ordine di RamTier (INSUFFICIENTE < RIDOTTA < MINIMO < CONFORTEVOLE < AMPIA) e' significativo
+            // qui: un dispositivo vede i modelli delle fasce inferiori e quelli della fascia subito sopra.
             availableModels = LlmModelCatalog.visibleFor(deviceAiCapability.ramTier(), currentGuidesLanguage()),
+            modelsNeedingMoreRam = deviceAiCapability.ramTier().let { tier ->
+                LlmModelCatalog.ALL.filter { LlmModelCatalog.needsMoreRam(it, tier) }.map { it.id }.toSet()
+            },
             selectedModelId = aiSettingsStore.selectedModelId(),
             isModelDownloaded = modelManager.isDownloaded(aiSettingsStore.selectedModelDefinition()),
             downloadedModelIds = modelManager.downloadedModelIds.value,

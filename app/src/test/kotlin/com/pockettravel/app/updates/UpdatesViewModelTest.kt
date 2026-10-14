@@ -53,7 +53,7 @@ class UpdatesViewModelTest {
     private lateinit var previousLocale: Locale
 
     private val newApp = AppVersionEntry("1.2.0", 20)
-    private val newModel = AiModelManifestEntry("qwen3.5-2b", "v2.gguf", "d".repeat(64), 500L)
+    private val newModel = AiModelManifestEntry("qwen3.5-0.8b", "v2.gguf", "d".repeat(64), 500L)
 
     @Before
     fun setUp() {

@@ -11,6 +11,8 @@
     <string name="ai_models_trained_desc">The same types of model, trained by Pocket Travel on travel guides: they answer in English in a few sentences, using only the guide content, and state clearly when a piece of information is missing</string>
     <string name="ai_model_coming_soon">Coming soon</string>
     <string name="ai_model_selected">Selected</string>
+    <!-- Under a model of the RAM tier above the device's; %1$d = GB of RAM of the model's tier. -->
+    <string name="ai_model_needs_more_ram">The model needs at least %1$d GB of RAM. The app may slow down or close on this device</string>
     <string name="ai_model_download">Download model</string>
     <string name="ai_model_downloading">Downloading · %1$d%%</string>
     <string name="ai_large_download_title">Large download</string>
