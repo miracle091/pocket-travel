@@ -185,7 +185,9 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   `--questions control` le domande di controllo (mai usate per costruire le liste di parole), `--questions dev` e `dev2`
   i controlli di prima, diventati serie di sviluppo, `--questions other-country` le domande che nominano un'altra nazione (cercate nella sua guida, `CountryGuides.kt`),
   `--guides-db` un `guides.db` locale al posto di quello pubblicato, `--word-lists` la ricerca con le liste di parole
-  che l'app usa (`CategoryWords.kt`; senza l'opzione si misura la ricerca senza liste). La tabella delle guide contiene tutte le regioni,
+  che l'app usa (`CategoryWords.kt`; senza l'opzione si misura la ricerca senza liste), `--model-categories` le categorie
+  che il modello sceglie quando le liste non ne riconoscono nessuna (`ModelQuestionCategory.kt`), scritte da
+  `scripts/model_categories.py` con un GGUF e lo stesso prompt dell'app. La tabella delle guide contiene tutte le regioni,
   come nell'app, perché le statistiche di BM25 valgono per tutta la tabella. Anche `make_context`
   (`generate_sft_dataset.py`), che costruisce il contesto dei dataset SFT e dei set di valutazione, sceglie i paragrafi
   come l'app (`test_make_context.py` lo confronta con la replica di `eval_retrieval.py`).

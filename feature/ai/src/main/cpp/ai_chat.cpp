@@ -768,9 +768,11 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_generateN
 // Sostituisce il sampler: con una grammatica GBNF per le estrazioni strutturate (navigazione), vuota per
 // tornare al campionamento normale. Se la grammatica non si compila resta il sampler di prima e si
 // risponde 1; common_sampler_init in quel caso lancia o restituisce null, a seconda del punto in cui fallisce.
+// Con una grammatica la scelta e' greedy (temperatura 0): un'estrazione o la categoria della domanda devono dare sempre
+// la stessa risposta, come negli script di misura (decodifica greedy).
 static jint set_grammar_impl(JNIEnv *env, jstring jgrammar) {
     const std::string grammar = jstring_to_utf8(env, jgrammar);
-    auto *sampler = new_sampler(DEFAULT_SAMPLER_TEMP, g_top_k, g_top_p, grammar);
+    auto *sampler = new_sampler(grammar.empty() ? DEFAULT_SAMPLER_TEMP : 0.0f, g_top_k, g_top_p, grammar);
     if (!sampler) {
         LOGe("%s: Invalid grammar", __func__);
         return 1;

@@ -98,13 +98,14 @@ internal fun questionGroups(question: String): Set<String> {
 }
 
 /**
- * [ftsQuery] con in OR le parole dei titoli delle guide in [language] delle categorie indicate da [question]
- * (categoryGuideWords), senza doppioni; [ftsQuery] com'e' con [enabled] false. Vuota resta vuota solo se la domanda non
- * indica nessuna categoria. Le radici dei paragrafi (focusStems) vengono dalla query senza queste parole.
+ * [ftsQuery] con in OR le parole dei titoli delle guide in [language] (categoryGuideWords) delle categorie indicate da
+ * [question] e di [extraGroups] (la categoria scelta dal modello, modelQuestionCategory), in fondo e senza doppioni;
+ * [ftsQuery] com'e' con [enabled] false. Vuota resta vuota solo se ne' la domanda ne' [extraGroups] indicano una
+ * categoria. Le radici dei paragrafi (focusStems) vengono dalla query senza queste parole.
  */
-internal fun withCategoryWords(ftsQuery: String, question: String, language: String, enabled: Boolean = true): String {
+internal fun withCategoryWords(ftsQuery: String, question: String, language: String, enabled: Boolean = true, extraGroups: Set<String> = emptySet()): String {
     if (!enabled) return ftsQuery
     val words = categoryGuideWords[language] ?: categoryGuideWords.getValue("en")
-    val extra = questionGroups(question).sorted().flatMap { words[it].orEmpty() }
+    val extra = (questionGroups(question) + extraGroups).sorted().flatMap { words[it].orEmpty() }
     return (ftsQuery.split(" OR ").filter { it.isNotBlank() } + extra).distinct().joinToString(" OR ")
 }

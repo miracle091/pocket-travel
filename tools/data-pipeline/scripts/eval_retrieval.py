@@ -30,15 +30,18 @@ della guida della nazione nominata. Con --guides-db un guides.db locale al posto
 pubblicato, per misurare un cambio delle guide prima di pubblicarlo. Con --word-lists la query ha anche le parole delle
 guide per la categoria della domanda (CategoryWords.kt, accese nell'app; senza l'opzione si misura la ricerca senza liste).
 Con --before-rag la ricerca senza guida generale e senza nazione nominata: senza --word-lists e' quella di prima del RAG.
+Con --model-categories FILE (scritto da model_categories.py) le domande in cui le liste non riconoscono una categoria usano
+quella scelta dal modello, come l'app sul dispositivo (ModelQuestionCategory.kt).
 Con --contexts FILE ogni domanda (distanze escluse) va in JSONL con il contesto che l'app mette nel prompt e la presenza
 della sezione attesa, per far rispondere il modello con eval_gguf.py --contexts (ricerca e modello insieme).
 
 Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|dev|dev2|other-lang|control|general|other-country] [--regions italia ...]
-[--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists] [--before-rag] [--contexts FILE [--contexts-sample N]]
+[--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists [--model-categories FILE]] [--before-rag] [--contexts FILE [--contexts-sample N]]
 (la cache dei file scaricati sta di default nella cartella temporanea di sistema)
 Richiede rete (`manifest.json`, release, API di Wikipedia) e, per Storia e Clima, il gradle wrapper dalla root del repo.
 """
 import argparse
+import atexit
 import json
 import lzma
 import math
@@ -243,6 +246,38 @@ CATEGORY_GUIDE_WORDS = {
            "CONSIGLI": "prepar*, cope, recover*, prevent*, treat*", "EMERGENZE": "lose, lost, stolen", "PERIODI": "climate"},
 }
 SHORT_STEM_CHARS = 4             # CategoryWords.SHORT_STEM_CHARS
+# Categoria scelta dal modello quando le liste non ne riconoscono nessuna (ModelQuestionCategory.kt): (nome, esempi, gruppo).
+# Con --model-categories FILE le categorie gia' scelte dal modello per ogni domanda (model_categories.py).
+MODEL_CATEGORY_LABELS = {
+    "it": [("alloggio", "hotel, dormire, campeggio", "ALLOGGIO"), ("cibo", "ristoranti, piatti, bere", "CIBO_BEVANDE"),
+           ("cosa vedere", "monumenti, musei, gite", "COSA_VEDERE"), ("acquisti", "negozi, prezzi, soldi", "ACQUISTI"),
+           ("trasporti", "treni, autobus, auto, aerei", "TRASPORTI"), ("documenti e dogana", "passaporto, visto", "DOGANE"),
+           ("salute", "medici, ospedali, vaccini", "SALUTE"), ("sicurezza", "criminalita', zone pericolose", "SICUREZZA"),
+           ("telefono e internet", None, "CONNETTIVITA"), ("storia", "passato, fondazione, guerre", "STORIA"),
+           ("clima", "meteo, stagioni, temperature", "CLIMA"), ("viaggio in generale", "jet lag, bagagli, oggetti persi", None)],
+    "en": [("accommodation", "hotels, sleeping, camping", "ALLOGGIO"), ("food", "restaurants, dishes, drinks", "CIBO_BEVANDE"),
+           ("sightseeing", "monuments, museums, trips", "COSA_VEDERE"), ("shopping", "shops, prices, money", "ACQUISTI"),
+           ("transport", "trains, buses, cars, flights", "TRASPORTI"), ("documents and customs", "passport, visa", "DOGANE"),
+           ("health", "doctors, hospitals, vaccines", "SALUTE"), ("safety", "crime, dangerous areas", "SICUREZZA"),
+           ("phone and internet", None, "CONNETTIVITA"), ("history", "past, foundation, wars", "STORIA"),
+           ("climate", "weather, seasons, temperatures", "CLIMA"), ("travel in general", "jet lag, luggage, lost items", None)],
+}
+HISTORY_CLIMATE_GROUPS = {"STORIA", "CLIMA", "PERIODI"}  # ModelQuestionCategory.HISTORY_CLIMATE_GROUPS
+MODEL_CATEGORIES = {}  # domanda -> gruppo, da --model-categories
+MODEL_CATEGORY_MISSES = set()  # domande senza categoria dalle liste e assenti dal file di --model-categories
+
+
+def model_category_prompt(question, lang):
+    """modelCategoryPrompt."""
+    labels = "; ".join(n if e is None else f"{n} ({e})" for n, e, _ in MODEL_CATEGORY_LABELS[lang])
+    if lang == "en":
+        return f"Classify a traveller's question into exactly one category among: {labels}.\nQuestion: {question}\nCategory:"
+    return f"Classifica la domanda di un viaggiatore in una sola categoria tra: {labels}.\nDomanda: {question}\nCategoria:"
+
+
+def model_category_grammar(lang):
+    """modelCategoryGrammar."""
+    return "root ::= " + " | ".join(f'"{n}"' for n, _, _ in MODEL_CATEGORY_LABELS[lang])
 
 
 def question_groups(question):
@@ -259,10 +294,12 @@ def question_groups(question):
     return {cat for cat, stems in CATEGORY_TRIGGERS.items() if any(hit(s) for s in stems.split())}
 
 
-def with_category_words(fts, question, lang):
-    """withCategoryWords: [fts] con in OR le parole dei titoli delle guide in [lang] delle categorie della domanda."""
+def with_category_words(fts, question, lang, extra_groups=()):
+    """withCategoryWords: [fts] con in OR le parole dei titoli delle guide in [lang] delle categorie della domanda e di
+    [extra_groups] (la categoria scelta dal modello)."""
     words = CATEGORY_GUIDE_WORDS.get(lang, CATEGORY_GUIDE_WORDS["en"])
-    extra = [f'"{w}"' if " " in w else w for cat in sorted(question_groups(question)) for w in words.get(cat, "").split(", ") if w]
+    groups = question_groups(question) | set(extra_groups)
+    extra = [f'"{w}"' if " " in w else w for cat in sorted(groups) for w in words.get(cat, "").split(", ") if w]
     return " OR ".join(dict.fromkeys([t for t in fts.split(" OR ") if t] + extra))
 
 
@@ -623,10 +660,10 @@ def corpus_stats(tables):
     }
 
 
-def bm25(info, stats):
-    """bm25Score."""
+def bm25(info, stats, phrases=None):
+    """bm25Score; con [phrases] solo le prime [phrases] frasi della query."""
     score = 0.0
-    for ph in range(info["p"]):
+    for ph in range(info["p"] if phrases is None else min(phrases, info["p"])):
         for col in range(info["c"]):
             tf = info["hits"][ph][col]
             if not tf:
@@ -638,12 +675,16 @@ def bm25(info, stats):
     return score
 
 
-def rank_sections(guide, city, country_first, history_or_climate=True, general_guide=(), general_question=False, lang="it"):
+def rank_sections(guide, city, country_first, history_or_climate=True, general_guide=(), general_question=False, lang="it",
+                  compare_phrases=None):
     """rankSections: [(sezione, matchinfo)] della guida del paese e delle citta' -> le MAX_SECTIONS migliori; prima
     quelle del paese con [country_first] True, quelle delle citta' con False, solo per punteggio con None. Della
     guida generale [general_guide] conta solo la migliore: in testa, in piu' alle altre, se supera di GENERAL_GUIDE_FIRST_RATIO
     volte (1 con [general_question] e nelle guide italiane: generalGuideFirstRatio) la migliore delle altre e la
-    domanda non nomina una citta', o da sola se le altre non trovano nulla; altrimenti non entra (mai in fondo come riempitivo)."""
+    domanda non nomina una citta', o da sola se le altre non trovano nulla; altrimenti non entra (mai in fondo come riempitivo).
+    Con [compare_phrases] il confronto con la guida generale conta solo le prime frasi della query (senza le parole della
+    categoria scelta dal modello, aggiunte in fondo): quelle parole scelgono le sezioni della regione, non se la guida
+    generale va in testa."""
     tables = [rows[0][1] for rows in (list(guide) + list(general_guide), city) if rows]
     if not tables:
         return []
@@ -652,11 +693,16 @@ def rank_sections(guide, city, country_first, history_or_climate=True, general_g
     ranked = [(bm25(info, stats), True, s) for s, info in guide] + [(bm25(info, stats) * weight(s), False, s) for s, info in city]
     ranked.sort(key=lambda r: (country_first is not None and r[1] != country_first, -r[0]))
     top = ranked[:MAX_SECTIONS]
-    best = max(((bm25(info, stats), s) for s, info in general_guide), key=lambda r: r[0], default=None)
+    best = max(((bm25(info, stats, compare_phrases), s) for s, info in general_guide), key=lambda r: r[0], default=None)
     sections = [s for _, _, s in top]
     if best is None:
         return sections
-    if not top or (country_first is not False and best[0] > (1.0 if general_question or lang == "it" else GENERAL_GUIDE_FIRST_RATIO) * max(r[0] for r in top)):
+    infos = {id(s): (info, w) for s, info, w in [(s, i, 1.0) for s, i in guide] + [(s, i, weight(s)) for s, i in city]}
+    if compare_phrases is None:
+        top_score = max((r[0] for r in top), default=0.0)
+    else:
+        top_score = max((bm25(infos[id(s)][0], stats, compare_phrases) * infos[id(s)][1] for _, _, s in top), default=0.0)
+    if not top or (country_first is not False and best[0] > (1.0 if general_question or lang == "it" else GENERAL_GUIDE_FIRST_RATIO) * top_score):
         return [best[1]] + sections
     return sections
 
@@ -727,9 +773,14 @@ def search(db, region, question, cities, lang="it", word_lists=False, before_rag
     named = named_cities(question, cities, lang)
     city = named[0] if len(named) == 1 else None
     country = None if named or before_rag else named_place(question, region, lang)
-    with_words = (lambda q: with_category_words(q, question, lang)) if word_lists else (lambda q: q)
+    groups = question_groups(question) if word_lists else set()
+    # Senza categoria dalle liste, quella scelta dal modello (MODEL_CATEGORIES, come l'app sul dispositivo).
+    model = {MODEL_CATEGORIES[question]} if word_lists and not groups and MODEL_CATEGORIES.get(question) else set()
+    if MODEL_CATEGORIES and word_lists and not groups and question not in MODEL_CATEGORIES:
+        MODEL_CATEGORY_MISSES.add(question)
+    with_words = (lambda q: with_category_words(q, question, lang, model)) if word_lists else (lambda q: q)
     base = fts_query(question, region, city or (country and country[1]),
-                     keep_city_words=not (word_lists and question_groups(question)))
+                     keep_city_words=not (groups or model))
     fts = with_words(base)
     if not fts:
         return [], set()
@@ -739,12 +790,13 @@ def search(db, region, question, cities, lang="it", word_lists=False, before_rag
         base = fts_query(question, region)
         fts = with_words(base)
         city_rows = city_candidates(db, region, fts, named)
-    history_or_climate = bool(HISTORY_CLIMATE_WORDS.search(question))
+    history_or_climate = bool(HISTORY_CLIMATE_WORDS.search(question)) or bool((groups | model) & HISTORY_CLIMATE_GROUPS)
     guide_regions = country[2] if country else [region]
     return (rank_sections(guide_candidates(db, guide_regions, fts), city_rows, country_first=not named,
                           history_or_climate=history_or_climate,
                           general_guide=() if before_rag else guide_candidates(db, [GENERAL_GUIDE_REGION_ID], fts),
-                          general_question=bool(GENERAL_TRAVEL_WORDS.search(question)), lang=lang),
+                          general_question=bool(GENERAL_TRAVEL_WORDS.search(question)), lang=lang,
+                          compare_phrases=len([t for t in base.split(" OR ") if t]) if model else None),
             focus_stems(base, city))
 
 
@@ -962,10 +1014,20 @@ def main():
     ap.add_argument("--contexts", type=Path,
                     help="scrive in JSONL domanda, contesto come nel prompt dell'app e presenza della sezione attesa, per "
                          "eval_gguf.py --contexts (senza le distanze: l'app aggiunge la sua sezione calcolata dalle coordinate)")
+    ap.add_argument("--model-categories", type=Path,
+                    help="JSON {domanda: gruppo} scritto da model_categories.py: con --word-lists, la categoria scelta dal "
+                         "modello per le domande in cui le liste non ne riconoscono nessuna (come l'app sul dispositivo)")
     ap.add_argument("--contexts-sample", type=int, default=0, help="con --contexts: al massimo N domande per tipo (0 = tutte)")
     a = ap.parse_args()
     if a.before_rag and a.word_lists:
         ap.error("--before-rag misura la ricerca senza le liste di parole")
+    if a.model_categories and not a.word_lists:
+        ap.error("--model-categories vale solo con --word-lists, come nell'app")
+    if a.model_categories:
+        MODEL_CATEGORIES.update(json.loads(a.model_categories.read_text(encoding="utf-8")))
+        atexit.register(lambda: MODEL_CATEGORY_MISSES and print(
+            f"attenzione: {len(MODEL_CATEGORY_MISSES)} domande senza categoria nel file di --model-categories (altre regioni o "
+            "cache? rigeneralo con model_categories.py)", file=sys.stderr))
     fetch_data(a.regions, a.cache, a.lang)
     guides_db = a.guides_db or a.cache / f"guides{LANGS[a.lang]['suffix']}.db"
     context_rows = [] if a.contexts else None

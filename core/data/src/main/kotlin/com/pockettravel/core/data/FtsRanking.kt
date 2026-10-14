@@ -104,12 +104,13 @@ class FtsCorpusStats private constructor(
 /**
  * Punteggio BM25 di una riga con le statistiche [stats] (FtsCorpusStats.of): frequenza saturata e normalizzata per
  * lunghezza (una Storia di 4.000 caratteri non vince solo perche' ripete piu' volte le parole), idf sulle righe che
- * contengono la parola, titolo che pesa piu' del corpo. FTS4 non ha bm25() come FTS5. Replicato in
+ * contengono la parola, titolo che pesa piu' del corpo. Con [phrases] conta solo le prime frasi della query (le altre
+ * valgono zero). FTS4 non ha bm25() come FTS5. Replicato in
  * tools/data-pipeline/scripts/eval_retrieval.py, che misura la ricerca su dati pubblicati: va cambiato insieme.
  */
-fun bm25Score(info: FtsMatchInfo, stats: FtsCorpusStats): Double {
+fun bm25Score(info: FtsMatchInfo, stats: FtsCorpusStats, phrases: Int = info.phraseCount): Double {
     var score = 0.0
-    for (phrase in 0 until info.phraseCount) {
+    for (phrase in 0 until minOf(phrases, info.phraseCount)) {
         for (column in 0 until info.columnCount) {
             val tf = info.hitsInRow(phrase, column)
             if (tf == 0) continue

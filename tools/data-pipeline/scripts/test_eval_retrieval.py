@@ -54,6 +54,46 @@ class ReplicaTest(unittest.TestCase):
             block = text.split(f'"{lang}" to mapOf(')[1].split("),")[0]
             self.assertEqual(pairs(block), ev.CATEGORY_GUIDE_WORDS[lang])
 
+    def test_categorie_del_modello_come_l_app(self):
+        kotlin = (Path(__file__).resolve().parents[3] / "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/ModelQuestionCategory.kt")
+        text = kotlin.read_text(encoding="utf-8")
+        for lang, block in (("it", "modelCategoryLabelsIt = listOf("), ("en", "modelCategoryLabelsEn = listOf(")):
+            rows = re.findall(r'ModelCategoryLabel\("([^"]*)", (?:"([^"]*)"|null), (?:"([^"]*)"|null)\)', text.split(block)[1].split("\n)")[0])
+            self.assertEqual([(n, e or None, g or None) for n, e, g in rows], ev.MODEL_CATEGORY_LABELS[lang])
+        self.assertIn('"Classifica la domanda di un viaggiatore in una sola categoria tra: $labels.\\nDomanda: $question\\nCategoria:"', text)
+        self.assertIn('"Classify a traveller\'s question into exactly one category among: $labels.\\nQuestion: $question\\nCategory:"', text)
+        self.assertTrue(ev.model_category_prompt("Tira vento a Zara?", "it").endswith("oggetti persi).\nDomanda: Tira vento a Zara?\nCategoria:"))
+        self.assertEqual(ev.model_category_grammar("it").split(" | ")[0], 'root ::= "alloggio"')
+
+    def test_categoria_del_modello_solo_senza_categoria_dalle_liste(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        guides = Path(tmp.name) / "modello.db"
+        g = sqlite3.connect(guides)
+        g.execute("CREATE TABLE guide_sections (regionId TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT)")
+        g.executemany("INSERT INTO guide_sections VALUES (?,?,?,?,?)", [
+            ("italia", "ALLOGGIO", "Dove alloggiare", "Agriturismi e alberghi in tutta la regione.", "u"),
+            ("italia", "CIBO_BEVANDE", "Mangiare", "Agriturismo con cucina tipica: ogni agriturismo ha una tavola ricca.", "u"),
+        ])
+        g.commit()
+        g.close()
+        db = ev.build_db(guides, "italia", [])
+        q = "Agriturismo consigliato?"
+        try:
+            ev.MODEL_CATEGORIES.update({q: "ALLOGGIO", "Dove mangiare bene?": "ALLOGGIO"})
+            top, _ = ev.search(db, "italia", q, [], "it", word_lists=True)
+            self.assertEqual(top[0]["title"], "Dove alloggiare")
+            # Le liste riconoscono gia' il cibo: la categoria del modello non conta.
+            self.assertEqual(ev.with_category_words("mangi*", "Dove mangiare bene?", "it"), "mangi* OR tavola")
+            top, _ = ev.search(db, "italia", "Dove mangiare bene?", [], "it", word_lists=True)
+            self.assertEqual(top[0]["title"], "Mangiare")
+            # Senza le liste nemmeno la categoria del modello.
+            top, _ = ev.search(db, "italia", q, [], "it", word_lists=False)
+            self.assertEqual(top[0]["title"], "Mangiare")
+        finally:
+            ev.MODEL_CATEGORIES.clear()
+            db.close()
+
     def test_liste_di_parole_nella_query(self):
         self.assertEqual(ev.question_groups("Cerco un posto per pernottare a Rimini"), {"ALLOGGIO"})
         self.assertEqual(ev.question_groups("Che cosa e' tipico della zona?"), set())
@@ -203,6 +243,14 @@ class SearchTest(unittest.TestCase):
         top, _ = ev.search(db, "italia", "Quanti giorni per il recupero dal jet lag?", [], before_rag=True)
         self.assertEqual(top, [])
         db.close()
+
+    def test_parole_del_modello_fuori_dal_confronto_con_la_guida_generale(self):
+        info = lambda q, c: {"p": 2, "c": 2, "hits": [[0, q], [0, c]], "docs": [[2, 3], [2, 3]], "n": 20, "avg": [3, 50], "len": [3, 50]}
+        region = [({"category": "TRASPORTI", "title": "Trasporti"}, info(1, 5))]
+        general = [({"category": "SICUREZZA", "title": "Borseggiatori", "general_guide": True}, info(2, 0))]
+        titles = lambda **kw: [s["title"] for s in ev.rank_sections(region, [], True, general_guide=general, lang="it", **kw)]
+        self.assertEqual(titles(), ["Trasporti"])
+        self.assertEqual(titles(compare_phrases=1), ["Borseggiatori", "Trasporti"])
 
     def test_soglia_della_guida_generale_piu_bassa_in_italiano(self):
         info = lambda hits: {"p": 1, "c": 2, "hits": [[0, hits]], "docs": [[0, 1]], "n": 10, "avg": [2, 20], "len": [2, 20]}

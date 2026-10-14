@@ -115,7 +115,13 @@ class TravelAssistant @Inject constructor(
         // Le citta' nominate nella domanda: le sezioni delle citta' candidate sono solo le loro (due per "quanto dista X da Y").
         val cities = namedCities(question, cityNames, language)
         val city = cities.singleOrNull()
-        val search = searchSections(regionId, question, cities, language)
+        // Sul dispositivo, quando le liste di parole non riconoscono la categoria, la sceglie il modello (modelQuestionCategory).
+        val modelGroups = if (mode == AiEngineMode.ON_DEVICE && wordListsOverride.enabled() && questionGroups(question).isEmpty()) {
+            setOfNotNull(modelQuestionCategory(engine, question, language))
+        } else {
+            emptySet()
+        }
+        val search = searchSections(regionId, question, cities, language, modelGroups)
         val sections = search.sections
         val regulatedMatch = sections.firstOrNull { !it.fromGeneralGuide && it.isRegulatedTopic() }
         // Per Viaggiare Sicuri il banner apre la pagina della nazione nominata nella domanda, o di quella della regione.
@@ -176,21 +182,23 @@ class TravelAssistant @Inject constructor(
      * Le sezioni del contesto per [question], con la query FTS della domanda (da cui vengono le radici dei paragrafi) e la
      * nazione nominata. Una nazione diversa da quella della regione, senza citta' nominate, fa cercare nella sua guida al
      * posto di quella della regione e delle sue citta' (namedPlace), senza il suo nome nella query come per le citta'.
-     * Con le liste di parole (CategoryWords.kt) la ricerca usa la query allargata.
+     * Con le liste di parole (CategoryWords.kt) la ricerca usa la query allargata, anche con le parole della categoria
+     * scelta dal modello ([modelGroups]); storia, clima e periodi delle liste o del modello valgono come domanda di storia
+     * o clima (le sezioni di Wikipedia non si abbassano).
      */
-    private suspend fun searchSections(regionId: String, question: String, cities: List<String>, language: String): SectionSearch {
+    private suspend fun searchSections(regionId: String, question: String, cities: List<String>, language: String, modelGroups: Set<String>): SectionSearch {
         val country = if (cities.isEmpty()) namedPlace(question, regionId, language) else null
         val city = cities.singleOrNull()
         val wordLists = wordListsOverride.enabled()
         // Con le parole della categoria non serve ripiegare sul nome della citta' quando la domanda non ha altre parole
         // ("Where to eat in Collesano?"): il nome vincerebbe sulle sezioni dove compare piu' spesso.
-        val topicBase = buildFtsQuery(question, regionId, city ?: country?.name, keepCityWords = !wordLists || questionGroups(question).isEmpty())
-        val topicQuery = withCategoryWords(topicBase, question, language, wordLists)
+        val topicBase = buildFtsQuery(question, regionId, city ?: country?.name, keepCityWords = !wordLists || (questionGroups(question) + modelGroups).isEmpty())
+        val topicQuery = withCategoryWords(topicBase, question, language, wordLists, modelGroups)
         val topicMatches = if (topicQuery.isBlank() || country != null) emptyList() else cityRepository.candidates(regionId, topicQuery, cities)
         // Nessuna sezione della citta' nominata con le parole della domanda: si cerca anche il suo nome.
         val withCityName = city != null && topicQuery.isNotBlank() && topicMatches.isEmpty()
         val baseQuery = if (withCityName) buildFtsQuery(question, regionId) else topicBase
-        val ftsQuery = withCategoryWords(baseQuery, question, language, wordLists)
+        val ftsQuery = withCategoryWords(baseQuery, question, language, wordLists, modelGroups)
         if (ftsQuery.isBlank()) return SectionSearch(emptyList(), baseQuery, country)
         val nationality = nationalityPreferences.nationality.value
         val sections = rankSections(
@@ -198,10 +206,11 @@ class TravelAssistant @Inject constructor(
             if (withCityName) cityRepository.candidates(regionId, ftsQuery, cities) else topicMatches,
             MAX_SECTIONS,
             countryFirst = cities.isEmpty(),
-            historyOrClimate = isHistoryOrClimateQuestion(question),
+            historyOrClimate = isHistoryOrClimateSearch(question, wordLists, modelGroups),
             language = language,
             generalGuideMatches = guideRepository.searchCandidates(GENERAL_GUIDE_REGION_ID, ftsQuery),
             generalQuestion = isGeneralTravelQuestion(question),
+            comparePhrases = questionPhrases(baseQuery, modelGroups),
         )
         return SectionSearch(sections, baseQuery, country)
     }
@@ -660,6 +669,9 @@ private fun CitySection.toAssistantSection(language: String): AssistantSection {
  * [generalQuestion] (isGeneralTravelQuestion: "all'estero", "abroad") e nelle guide italiane basta che superi la migliore della regione. Mai in
  * fondo come riempitivo: una pagina generale debole porta il modello fuori tema (su "Quali piatti tipici devo assaggiare a
  * San Marino?" la pagina Salute, trovata per "mangia", faceva rispondere con una frase sull'igiene).
+ * Con [comparePhrases] il confronto con la guida generale conta solo le prime frasi della query: le parole della categoria
+ * scelta dal modello (modelQuestionCategory), in fondo, scelgono le sezioni della regione ma non decidono se la guida
+ * generale va in testa (alzerebbero la regione: "Where should I keep my wallet on crowded buses?" scelta "transport").
  * La ricerca (con buildFtsQuery, namedCities, focusStems e selectContext) e' replicata in
  * tools/data-pipeline/scripts/eval_retrieval.py, che la misura su dati pubblicati: va cambiata insieme.
  */
@@ -672,6 +684,7 @@ internal fun rankSections(
     language: String = "it",
     generalGuideMatches: List<Pair<GuideSection, FtsMatchInfo>> = emptyList(),
     generalQuestion: Boolean = false,
+    comparePhrases: Int? = null,
 ): List<AssistantSection> {
     // Le righe della guida generale stanno in guide_sections: stesse statistiche della guida della regione.
     val tables = listOfNotNull((guideMatches + generalGuideMatches).firstOrNull()?.second, cityMatches.firstOrNull()?.second)
@@ -680,18 +693,21 @@ internal fun rankSections(
     val cityWeight = { category: GuideCategory ->
         if (!historyOrClimate && category in WIKIPEDIA_CATEGORIES) WIKIPEDIA_OFF_TOPIC_WEIGHT else 1.0
     }
-    val ranked = guideMatches.map { (section, info) -> RankedSection(section.toAssistantSection(language), bm25Score(info, stats), fromCountry = true) } +
-        cityMatches.map { (section, info) ->
-            RankedSection(section.toAssistantSection(language), bm25Score(info, stats) * cityWeight(section.category), fromCountry = false)
-        }
+    val compared = { info: FtsMatchInfo -> bm25Score(info, stats, comparePhrases ?: info.phraseCount) }
+    val ranked = guideMatches.map { (section, info) ->
+        RankedSection(section.toAssistantSection(language), bm25Score(info, stats), fromCountry = true, compareScore = compared(info))
+    } + cityMatches.map { (section, info) ->
+        val weight = cityWeight(section.category)
+        RankedSection(section.toAssistantSection(language), bm25Score(info, stats) * weight, fromCountry = false, compareScore = compared(info) * weight)
+    }
     val top = ranked
         .sortedWith(compareBy<RankedSection> { countryFirst != null && it.fromCountry != countryFirst }.thenByDescending { it.score })
         .take(limit)
-    val world = generalGuideMatches.map { (section, info) -> RankedSection(section.toAssistantSection(language), bm25Score(info, stats), fromCountry = true) }
+    val world = generalGuideMatches.map { (section, info) -> RankedSection(section.toAssistantSection(language), compared(info), fromCountry = true) }
         .maxByOrNull { it.score }
     return when {
         world == null -> top
-        top.isEmpty() || countryFirst != false && world.score > generalGuideFirstRatio(language, generalQuestion) * top.maxOf { it.score } -> listOf(world) + top
+        top.isEmpty() || countryFirst != false && world.score > generalGuideFirstRatio(language, generalQuestion) * top.maxOf { it.compareScore } -> listOf(world) + top
         else -> top
     }.map { it.section }
 }
@@ -719,7 +735,7 @@ private val generalTravelWords = Regex("""\b(ester[oi]|in viaggio|viaggiando|abr
 /** True se [question] chiede del viaggio in generale ("Cosa faccio se perdo il passaporto all'estero?"). */
 internal fun isGeneralTravelQuestion(question: String): Boolean = generalTravelWords.containsMatchIn(question)
 
-private class RankedSection(val section: AssistantSection, val score: Double, val fromCountry: Boolean)
+private class RankedSection(val section: AssistantSection, val score: Double, val fromCountry: Boolean, val compareScore: Double = score)
 
 // Sezioni delle citta' da Wikipedia, e il loro peso quando la domanda non parla di storia o clima: restano candidate
 // (se non c'e' altro), ma non scavalcano le sezioni pratiche.
