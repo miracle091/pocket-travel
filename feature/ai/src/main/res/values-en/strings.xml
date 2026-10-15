@@ -27,6 +27,14 @@
     <string name="ai_question_hint">Ask a question about the region</string>
     <string name="ai_question_hint_country">Ask a question about the country</string>
     <string name="ai_send">Send question</string>
+    <string name="ai_voice_start">Dictate the question</string>
+    <string name="ai_voice_stop">Stop listening</string>
+    <string name="ai_voice_listening">Listening</string>
+    <string name="ai_voice_permission">Dictating the question needs the microphone permission</string>
+    <string name="ai_voice_no_speech">No words recognized</string>
+    <string name="ai_voice_language_downloading">Downloading the language on the device. Try again when it finishes</string>
+    <string name="ai_voice_language_unavailable">Voice recognition is not available on the device in this language</string>
+    <string name="ai_voice_error">Voice recognition failed</string>
     <string name="ai_thinking">Generating the answer…</string>
     <string name="ai_loading_model">Loading the model…</string>
     <string name="ai_empty_title">Ask a question about the trip</string>

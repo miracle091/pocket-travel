@@ -1,6 +1,10 @@
 package com.pockettravel.feature.ai
 
+import android.Manifest
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.FilledTonalButton
 import android.text.format.Formatter
@@ -46,6 +50,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,7 +76,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
@@ -89,12 +98,38 @@ fun AiAssistantScreen(
     // Regione di una nazione divisa: il campo dice "regione" invece di "nazione".
     splitCountry: Boolean = false,
     viewModel: AiAssistantViewModel = hiltViewModel(),
+    voiceViewModel: VoiceInputViewModel = hiltViewModel(),
     onOpenOfficialSource: (url: String) -> Unit = {},
     onNavigationRequest: (NavigationRequest) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val voiceState by voiceViewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(viewModel) { viewModel.navigationRequests.collect(onNavigationRequest) }
-    AiAssistantContent(uiState = uiState, actions = viewModel.toActions(regionId), onOpenOfficialSource = onOpenOfficialSource, splitCountry = splitCountry)
+    LaunchedEffect(voiceViewModel) { voiceViewModel.text.collect(viewModel::onQuestionChanged) }
+    // Il microfono si chiude quando la schermata non si vede piu' (altra scheda, app in secondo piano).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, voiceViewModel) {
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_STOP) voiceViewModel.stop() }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            voiceViewModel.stop()
+        }
+    }
+    val actions = viewModel.toActions(regionId).copy(
+        onQuestionChanged = { text ->
+            voiceViewModel.clearMessage()
+            viewModel.onQuestionChanged(text)
+        },
+        onAsk = {
+            voiceViewModel.stop()
+            viewModel.ask(regionId)
+        },
+        onVoiceStart = { voiceViewModel.start(uiState.question) },
+        onVoiceStop = voiceViewModel::stop,
+        onVoicePermissionDenied = voiceViewModel::onPermissionDenied,
+    )
+    AiAssistantContent(uiState = uiState, actions = actions, onOpenOfficialSource = onOpenOfficialSource, splitCountry = splitCountry, voice = voiceState)
 }
 
 // Azioni della schermata, raccolte per separare la UI dal ViewModel (@Preview, onboarding).
@@ -113,6 +148,9 @@ data class AiActions(
     val onHideBenchmarkComparison: () -> Unit,
     val onProviderSelected: (OnlineProvider) -> Unit = {},
     val onOnlineModelChanged: (String) -> Unit = {},
+    val onVoiceStart: () -> Unit = {},
+    val onVoiceStop: () -> Unit = {},
+    val onVoicePermissionDenied: () -> Unit = {},
 )
 
 private fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
@@ -133,7 +171,13 @@ private fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
 )
 
 @Composable
-internal fun AiAssistantContent(uiState: AiUiState, actions: AiActions, onOpenOfficialSource: (url: String) -> Unit, splitCountry: Boolean = false) {
+internal fun AiAssistantContent(
+    uiState: AiUiState,
+    actions: AiActions,
+    onOpenOfficialSource: (url: String) -> Unit,
+    splitCountry: Boolean = false,
+    voice: VoiceInputUiState = VoiceInputUiState(isAvailable = false),
+) {
     val isReady = when (uiState.mode) {
         AiEngineMode.ON_DEVICE -> uiState.isModelDownloaded
         AiEngineMode.ONLINE -> uiState.isApiKeyConfigured
@@ -142,7 +186,7 @@ internal fun AiAssistantContent(uiState: AiUiState, actions: AiActions, onOpenOf
         AssistantHeader(uiState = uiState, isReady = isReady, actions = actions)
         if (isReady) {
             Conversation(uiState = uiState, onOpenOfficialSource = onOpenOfficialSource, onClearApiKey = actions.onClearApiKey, modifier = Modifier.weight(1f))
-            QuestionBar(uiState = uiState, actions = actions, splitCountry = splitCountry)
+            QuestionBar(uiState = uiState, actions = actions, splitCountry = splitCountry, voice = voice)
         } else {
             Column(
                 modifier = Modifier
@@ -526,8 +570,13 @@ private fun AnswerContent(
 }
 
 @Composable
-private fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: Boolean) {
+private fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: Boolean, voice: VoiceInputUiState) {
     val canSend = uiState.question.isNotBlank() && !uiState.isThinking
+    val context = LocalContext.current
+    // Il permesso del microfono si chiede al primo tocco, non all'apertura della schermata.
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) actions.onVoiceStart() else actions.onVoicePermissionDenied()
+    }
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = Spacing.l, end = Spacing.s, top = Spacing.s, bottom = Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
@@ -536,7 +585,33 @@ private fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: Bo
             value = uiState.question,
             onValueChange = actions.onQuestionChanged,
             modifier = Modifier.weight(1f),
-            placeholder = { Text(stringResource(if (splitCountry) R.string.ai_question_hint else R.string.ai_question_hint_country)) },
+            placeholder = {
+                val hint = when {
+                    voice.isListening -> R.string.ai_voice_listening
+                    splitCountry -> R.string.ai_question_hint
+                    else -> R.string.ai_question_hint_country
+                }
+                Text(stringResource(hint))
+            },
+            trailingIcon = if (voice.isAvailable) {
+                {
+                    if (voice.isListening) {
+                        IconButton(onClick = actions.onVoiceStop) {
+                            Icon(AppIcons.Stop, contentDescription = stringResource(R.string.ai_voice_stop), tint = MaterialTheme.colorScheme.primary)
+                        }
+                    } else {
+                        IconButton(onClick = {
+                            val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                            if (granted) actions.onVoiceStart() else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }) {
+                            Icon(AppIcons.Mic, contentDescription = stringResource(R.string.ai_voice_start))
+                        }
+                    }
+                }
+            } else {
+                null
+            },
+            supportingText = voice.message?.let { message -> { Text(stringResource(message)) } },
             shape = MaterialTheme.shapes.extraLarge,
             maxLines = 4,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),

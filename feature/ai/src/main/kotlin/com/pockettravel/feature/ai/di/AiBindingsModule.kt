@@ -7,6 +7,8 @@ import com.pockettravel.feature.ai.FileLlmModelManager
 import com.pockettravel.feature.ai.LlamaOnDeviceLlmEngine
 import com.pockettravel.feature.ai.LlmModelManager
 import com.pockettravel.feature.ai.OnDeviceLlmEngine
+import com.pockettravel.feature.ai.OnDeviceVoiceInput
+import com.pockettravel.feature.ai.VoiceInput
 import com.pockettravel.feature.ai.WorkManagerAiModelUpdates
 import dagger.Binds
 import dagger.Module
@@ -29,4 +31,7 @@ interface AiBindingsModule {
 
     @Binds
     fun bindAiModelUpdates(updates: WorkManagerAiModelUpdates): AiModelUpdates
+
+    @Binds
+    fun bindVoiceInput(voiceInput: OnDeviceVoiceInput): VoiceInput
 }

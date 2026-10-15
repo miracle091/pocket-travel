@@ -27,6 +27,14 @@
     <string name="ai_question_hint">Fai una domanda sulla regione</string>
     <string name="ai_question_hint_country">Fai una domanda sulla nazione</string>
     <string name="ai_send">Invia la domanda</string>
+    <string name="ai_voice_start">Detta la domanda</string>
+    <string name="ai_voice_stop">Smetti di ascoltare</string>
+    <string name="ai_voice_listening">In ascolto</string>
+    <string name="ai_voice_permission">Per dettare la domanda serve il permesso del microfono</string>
+    <string name="ai_voice_no_speech">Nessuna parola riconosciuta</string>
+    <string name="ai_voice_language_downloading">Download della lingua in corso sul dispositivo. Riprova al termine</string>
+    <string name="ai_voice_language_unavailable">Riconoscimento vocale non disponibile sul dispositivo in questa lingua</string>
+    <string name="ai_voice_error">Riconoscimento vocale non riuscito</string>
     <string name="ai_thinking">Elaborazione della risposta…</string>
     <string name="ai_loading_model">Caricamento del modello…</string>
     <string name="ai_empty_title">Fai una domanda sul viaggio</string>
