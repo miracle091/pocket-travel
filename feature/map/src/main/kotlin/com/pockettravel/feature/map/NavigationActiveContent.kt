@@ -67,7 +67,6 @@ private fun SpeedCameraNotice() {
                 append(notShown)
                 append(' ')
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(followSigns) }
-                append('.')
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -1,11 +1,11 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="map_filters_only_accessible">Accessible places only</string>
-    <string name="map_filters_only_accessible_body">Places marked as wheelchair accessible, even partly, accessible toilets and disabled parking</string>
+    <string name="map_filters_only_accessible_body">Places marked as wheelchair accessible, even partly, accessible toilets and accessible parking</string>
     <string name="usage_mode_walk">Walking</string>
     <string name="usage_mode_hiking">Hiking</string>
     <string name="usage_mode_bike">Cycling</string>
     <string name="usage_mode_car">By car or motorcycle</string>
-    <string name="usage_mode_camper">By camper</string>
+    <string name="usage_mode_camper">By RV</string>
     <string name="usage_mode_transit">By public transport</string>
     <string name="usage_mode_multiple">Multiple choice</string>
     <string name="usage_mode_wheelchair">In a wheelchair</string>
@@ -37,7 +37,7 @@
     <string name="poi_toilets_wheelchair_yes">Wheelchair accessible toilets</string>
     <string name="poi_toilets_wheelchair_limited">Partially wheelchair accessible toilets</string>
     <string name="poi_toilets_wheelchair_no">Toilets not wheelchair accessible</string>
-    <string name="poi_disabled_parking">Disabled parking spaces: %1$d</string>
+    <string name="poi_disabled_parking">Accessible parking spaces: %1$d</string>
     <string name="transit_stop_wheelchair_yes">Wheelchair accessible public transport stop</string>
     <string name="transit_stop_wheelchair_no">Public transport stop not wheelchair accessible</string>
     <string name="transit_departure_wheelchair_yes">Wheelchair accessible</string>
@@ -106,7 +106,7 @@
     <string name="poi_type_fitness_centre">Gym</string>
     <string name="poi_type_bicycle_repair_station">Bicycle repair station</string>
     <string name="poi_type_alpine_hut">Alpine hut</string>
-    <string name="poi_type_camp_pitch">Tent or camper pitch</string>
+    <string name="poi_type_camp_pitch">Tent or RV site</string>
     <string name="poi_type_wilderness_hut">Bivouac</string>
     <string name="poi_type_shelter">Shelter</string>
     <string name="poi_type_lean_to">Lean-to</string>
@@ -134,7 +134,7 @@
     <string name="poi_type_hairdresser">Hairdresser</string>
     <string name="poi_type_mall">Shopping mall</string>
     <string name="poi_type_bicycle_shop">Bike shop</string>
-    <string name="poi_type_outdoor">Sports goods</string>
+    <string name="poi_type_outdoor">Sporting goods</string>
     <string name="poi_type_shop">Shop</string>
     <string name="world_legend_downloaded">Downloaded</string>
     <string name="world_legend_available">Available</string>
@@ -244,7 +244,7 @@
     <string name="planner_my_position">Your location</string>
     <string name="planner_swap">Swap start and destination</string>
     <string name="planner_recents">Recent</string>
-    <string name="planner_remove_recent">Remove %1$s from recent</string>
+    <string name="planner_remove_recent">Remove %1$s from recent places</string>
     <string name="planner_permission">Starting from the current location requires location permission. The location stays on the device</string>
     <string name="planner_no_location">No GPS signal: turn on GPS or choose a starting point</string>
     <string name="planner_no_routing_data">Calculating the route requires this region\'s road network (downloaded once, then kept on the device)</string>
@@ -261,7 +261,7 @@
     <string name="planner_calculating_progress">%1$s · %2$d%%</string>
     <string name="navigation_then">Then</string>
     <string name="navigation_end">End</string>
-    <string name="navigation_distance_arrival">%1$s · arrive at %2$s</string>
+    <string name="navigation_distance_arrival">%1$s · arrival at %2$s</string>
     <string name="navigation_show_steps">Show or hide the turns</string>
     <string name="planner_arrive_by">Set an arrival time</string>
     <string name="planner_arrive_by_title">When do you want to arrive?</string>
@@ -300,9 +300,9 @@
     <string name="planner_recents_clear_confirm">Clear</string>
     <string name="navigation_drive_left">left</string>
     <string name="navigation_drive_right">right</string>
-    <string name="navigation_drive_side">Country driving on the</string>
+    <string name="navigation_drive_side">This country drives on the</string>
     <string name="maplibre_mapActionDescription" tools:ignore="PrivateResource">Map. Move it by dragging with two fingers, zoom by spreading two fingers</string>
     <string name="maplibre_attributionsIconContentDescription" tools:ignore="PrivateResource">Map credits. Activate to show them</string>
-    <string name="maplibre_compassContentDescription" tools:ignore="PrivateResource">Map compass. Activate to turn north back up</string>
+    <string name="maplibre_compassContentDescription" tools:ignore="PrivateResource">Map compass. Activate to put north back at the top</string>
     <string name="maplibre_myLocationViewContentDescription" tools:ignore="PrivateResource">Your location on the map</string>
 </resources>

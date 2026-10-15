@@ -56,8 +56,8 @@ The app announces new versions with a notification; the changes are in the [CHAN
 | 📖 | **Guide** | What to see, where to eat, how to get around and safety for each country and city; quick facts, emergency numbers, embassies, 7-day weather |
 | 💉 | **Vaccinations** | Required, recommended and to discuss with a doctor, calculated offline from departure, stopovers and countries visited |
 | 🗺️ | **Map** | Restaurants, hotels, pharmacies, ATMs and much more, with hours and contacts, filtered by travel mode |
-| 🧭 | **Navigator** | Walking, cycling and driving routes, across countries too, with turn-by-turn navigation with the screen off |
-| 🚌 | **Public transport** | Departures of the next three hours at stops and stations, for open-data networks in 32 countries, mostly in Europe, and in the United States, Canada, Australia, New Zealand and Japan |
+| 🧭 | **Navigator** | Walking, cycling and driving routes, across countries too, with turn-by-turn navigation even with the screen off |
+| 🚌 | **Public transport** | Departures in the next three hours at stops and stations, for open-data networks in 32 countries, mostly in Europe, and in the United States, Canada, Australia, New Zealand and Japan |
 | 🤖 | **AI assistant** | Short answers based on the downloaded guide and the notes, even without internet |
 | 🔐 | **Documents and notes** | Encrypted passport and tickets, unlocked with fingerprint or face; encrypted travel notes |
 | 🏛️ | **Official sources** | Foreign ministry of the user's country, WHO and CDC |
@@ -90,7 +90,7 @@ The model runs on the device and no data leaves it. It needs at least 3 GB of RA
 
 ### ☁️ Online (with a personal API key)
 
-The assistant uses an AI service with the user's own API key, which stays encrypted on the device. The question goes to the service **without the downloaded guide** and usage is billed to the service account. In the app, choose the service, paste the key and tap **Save key**; **Create the key on …** opens the right page.
+The assistant uses an AI service with the user's own API key, which stays encrypted on the device. The question goes to the service **without the downloaded guide** and usage is billed to the user's account with the service. In the app, choose the service, paste the key and tap **Save key**; **Create the key on …** opens the right page.
 
 | Service | Automatic model | More capable |
 |---|---|---|

@@ -66,7 +66,7 @@
     <string name="ai_online_model_auto">Automatic (recommended)</string>
     <string name="ai_online_model_auto_desc">A fast, low-cost model, updated automatically: suitable for short travel answers. Currently: %1$s</string>
     <string name="ai_online_model_capable">More capable: %1$s</string>
-    <string name="ai_online_model_capable_desc">More accurate answers to complex questions, but it costs more and can be slower</string>
+    <string name="ai_online_model_capable_desc">More accurate answers to complex questions. The model costs more and can be slower</string>
     <string name="ai_online_model_other">Other model</string>
     <string name="ai_online_model_other_desc">Enter the exact name of another model offered by the service</string>
     <string name="ai_online_model_label">Model name</string>

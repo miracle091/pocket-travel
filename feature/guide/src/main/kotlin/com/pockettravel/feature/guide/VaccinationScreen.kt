@@ -48,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -645,7 +646,7 @@ private fun VaccinationItemCard(item: VaccinationItem, nationality: String?, des
                     Text(stringResource(R.string.vacc_sources) + ":", style = MaterialTheme.typography.labelMedium)
                     FlowRow(modifier = Modifier.weight(1f)) {
                         item.sources.forEach { code ->
-                            val name = vaccinationSourceName(code)
+                            val name = vaccinationSourceName(code, en = locale.language == "en")
                             val url = vaccinationSourceUrl(code)
                             if (url != null) {
                                 TextButton(onClick = { onOpenSource(url, name) }, contentPadding = PaddingValues(horizontal = Spacing.s)) { Text(name) }
@@ -808,7 +809,7 @@ private fun VaccinationItem.reasonText(): String? {
     return when (reason) {
         VaccinationReason.YF_ENTRY_ALL -> stringResource(R.string.vacc_reason_yf_all)
         VaccinationReason.YF_ENTRY_FROM_RISK, VaccinationReason.YF_ENTRY_FROM_LIST -> when {
-            hours != null -> stringResource(R.string.vacc_reason_stopover, hours, place)
+            hours != null -> pluralStringResource(R.plurals.vacc_reason_stopover, hours, hours, place)
             stopover -> stringResource(R.string.vacc_reason_stopover_unknown, place)
             reason == VaccinationReason.YF_ENTRY_FROM_RISK -> stringResource(R.string.vacc_reason_from_risk, place)
             else -> stringResource(R.string.vacc_reason_from_list, place)
@@ -839,8 +840,8 @@ private fun VaccinationItem.detailTexts(): List<String> = buildList {
         }
         else -> Unit
     }
-    minDaysBefore?.let { add(stringResource(R.string.vacc_days_before, it)) }
-    validityYears?.let { add(stringResource(R.string.vacc_validity_years, it)) }
+    minDaysBefore?.let { add(pluralStringResource(R.plurals.vacc_days_before, it, it)) }
+    validityYears?.let { add(pluralStringResource(R.plurals.vacc_validity_years, it, it)) }
     val minAge = minAgeMonths
     if (minAge != null) {
         when {

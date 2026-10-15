@@ -10,7 +10,7 @@
     <string name="regions_load_error">Impossibile contattare il catalogo delle nazioni. Riprova più tardi</string>
     <string name="regions_retry">Riprova</string>
     <string name="regions_not_enough_space">Spazio insufficiente per scaricare questa regione</string>
-    <string name="regions_delete_error">Impossibile eliminare i dati, riprova</string>
+    <string name="regions_delete_error">Impossibile eliminare i dati. Riprova</string>
     <string name="regions_status_not_installed">%1$s · non scaricata</string>
     <string name="regions_status_installed">%1$s · scaricata</string>
     <string name="regions_status_update">%1$s · da aggiornare</string>
@@ -23,7 +23,7 @@
     <string name="regions_download">Scarica (%1$s)</string>
     <string name="regions_update">Aggiorna</string>
     <string name="regions_update_region">Aggiorna (%1$s)</string>
-    <string name="regions_delete_title">Eliminare %1$s?</string>
+    <string name="regions_delete_title">%1$s: eliminare tutti i contenuti?</string>
     <string name="regions_delete_message">I contenuti scaricati per questa regione verranno rimossi dal dispositivo</string>
     <string name="regions_delete_all">Elimina tutto</string>
     <string name="regions_replaced">Questa regione è ora divisa in regioni più piccole: scegli quali scaricare. Questa regione non riceve più aggiornamenti</string>
@@ -34,7 +34,7 @@
     <string name="transit_networks_near">Selezionate le reti entro 50 km dall\'ultima posizione nota</string>
     <string name="transit_networks_nearest">Nessuna rete entro 50 km dall\'ultima posizione nota: selezionata la più vicina</string>
     <string name="transit_networks_all">Posizione non nota o in un\'altra nazione: selezionate tutte le reti. Deseleziona quelle non necessarie</string>
-    <string name="transit_missing_timetables">Non incluse, orari scaduti o validi meno di un mese: %1$s</string>
+    <string name="transit_missing_timetables">Non incluse, orari scaduti o validi per meno di un mese: %1$s</string>
     <string name="transit_missing_license">Non incluse, licenza che non consente il riuso dei dati: %1$s</string>
     <string name="transit_missing_other">Non incluse: %1$s</string>
     <string name="package_map">Mappa</string>
@@ -47,7 +47,7 @@
     <string name="package_map_light_detail">Mappa meno dettagliata che occupa circa il 40% di spazio in meno</string>
     <string name="package_routing_for">Rete stradale per</string>
     <string name="package_routing_car">Auto</string>
-    <string name="package_routing_bike_foot">Bici e piedi</string>
+    <string name="package_routing_bike_foot">In bici e a piedi</string>
     <string name="package_routing_all">Tutti</string>
     <string name="package_routing_bike_foot_detail">Tutte le strade e i sentieri: è la rete stradale completa, che vale anche per l\'auto</string>
     <string name="package_routing_all_detail">Tutte le strade e i sentieri, per ogni modo di spostarsi</string>
@@ -58,8 +58,8 @@
     <string name="zone_area">Solo una zona, circa %1$d × %2$d km</string>
     <string name="zone_choice_title">%1$s: tutta la regione o una zona?</string>
     <string name="zone_choice_title_country">%1$s: tutta la nazione o una zona?</string>
-    <string name="zone_choice_message">Questa regione è molto estesa. È possibile scaricare solo la zona necessaria: mappa, rete stradale e numeri civici di quella zona. Punti di interesse e guide restano di tutta la regione</string>
-    <string name="zone_choice_message_country">Questa nazione è molto estesa. È possibile scaricare solo la zona necessaria: mappa, rete stradale e numeri civici di quella zona. Punti di interesse e guide restano di tutta la nazione</string>
+    <string name="zone_choice_message">Questa regione è molto estesa. È possibile scaricare solo la zona necessaria: mappa, rete stradale e numeri civici di quella zona. Punti di interesse e guide coprono tutta la regione</string>
+    <string name="zone_choice_message_country">Questa nazione è molto estesa. È possibile scaricare solo la zona necessaria: mappa, rete stradale e numeri civici di quella zona. Punti di interesse e guide coprono tutta la nazione</string>
     <string name="zone_choice_pick">Scegli una zona</string>
     <string name="zone_hint">La zona è l\'area di mappa visibile: si scarica solo quella, con rete stradale e numeri civici</string>
     <string name="zone_size">Circa %1$d × %2$d km</string>
@@ -91,7 +91,7 @@
     <string name="map_preview_notice">Mappa d\'insieme: per il dettaglio delle strade e per calcolare i percorsi scarica la mappa e la rete stradale della regione</string>
     <string name="map_missing_notice">Mappa non scaricata: scaricala per vedere strade e luoghi. Il calcolo dei percorsi richiede la mappa e la rete stradale scaricate</string>
     <string name="regions_large_download_title">Download di grandi dimensioni</string>
-    <string name="regions_large_download_message">%1$s occupa %2$s e il dispositivo usa la rete mobile. Continuare?</string>
+    <string name="regions_large_download_message">%1$s: %2$s da scaricare con la rete mobile. Continuare?</string>
     <string name="regions_large_download_confirm">Scarica</string>
     <string name="continent_other">Altro</string>
     <string name="continent_europe">Europa</string>
@@ -112,6 +112,10 @@
     <string name="continent_collapsed">chiuso</string>
     <string name="continent_expand">Mostra le nazioni</string>
     <string name="continent_collapse">Nascondi le nazioni</string>
+    <string name="country_regions_expand">Mostra le regioni</string>
+    <string name="country_regions_collapse">Nascondi le regioni</string>
+    <string name="transit_networks_expand">Mostra le reti</string>
+    <string name="transit_networks_collapse">Nascondi le reti</string>
 
     <!-- Aggiornamenti -->
     <string name="more_updates">Aggiornamenti</string>
@@ -193,7 +197,7 @@
     <string name="storage_model">Modello IA sul dispositivo</string>
     <string name="storage_no_model">Nessun modello IA scaricato</string>
     <string name="storage_delete">Elimina (%1$s)</string>
-    <string name="storage_delete_title">Eliminare %1$s?</string>
+    <string name="storage_delete_title">%1$s: eliminare i dati?</string>
     <string name="storage_delete_message">I dati salvati sul dispositivo verranno rimossi per liberare questo spazio</string>
 
     <!-- Anteprima regione -->
@@ -242,9 +246,9 @@
     <string name="licenses_component_kleidiai">KleidiAI (Arm, kernel ottimizzati usati da llama.cpp su arm64)</string>
     <string name="licenses_component_okhttp">OkHttp (download dei contenuti, dei modelli e del meteo)</string>
     <string name="licenses_component_qwen">Modelli Qwen3.5 e Qwen3 (Alibaba Cloud, team Qwen)</string>
-    <string name="licenses_note_qwen">Modelli dell\'assistente sul dispositivo, scaricati su richiesta da HuggingFace nelle versioni GGUF quantizzate da Unsloth</string>
+    <string name="licenses_note_qwen">Modelli dell\'assistente sul dispositivo, scaricati su richiesta da Hugging Face nelle versioni GGUF quantizzate da Unsloth</string>
     <string name="licenses_component_trained_models">Modelli addestrati da Pocket Travel (pockettravel/*-travel-it-GGUF)</string>
-    <string name="licenses_note_trained_models">Fine-tuning dei modelli Qwen, addestrati su testi di Wikivoyage e Wikipedia; scaricati su richiesta da HuggingFace</string>
+    <string name="licenses_note_trained_models">Fine-tuning dei modelli Qwen, addestrati su testi di Wikivoyage e Wikipedia; scaricati su richiesta da Hugging Face</string>
     <string name="licenses_component_pmtiles_reader">pmtiles-reader (lettura PMTiles via HTTP range, core:sync)</string>
     <string name="licenses_component_xz">XZ for Java (decompressione dei punti di interesse, core:sync)</string>
     <string name="licenses_component_protomaps">Basemap Protomaps (software/schema)</string>
@@ -271,26 +275,26 @@
     <string name="licenses_component_weather">Meteo: Open-Meteo.com (previsioni) e GeoNames (posizione delle città)</string>
     <string name="licenses_note_weather">Weather data by Open-Meteo.com, uso non commerciale. Coordinate delle città dal geocoding di Open-Meteo, basato su GeoNames.</string>
     <string name="licenses_component_emergency_canada">Numeri di emergenza: Travel.gc.ca (Governo del Canada)</string>
-    <string name="licenses_note_emergency_canada">Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert - Canada. Confrontati con Wikipedia (CC BY-SA 4.0) e Wikidata (CC0).</string>
+    <string name="licenses_note_emergency_canada">Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert – Canada. Numeri confrontati con Wikipedia (CC BY-SA 4.0) e Wikidata (CC0).</string>
     <string name="licenses_component_emergency_uk">Numeri di emergenza: gov.uk Foreign travel advice (Governo del Regno Unito)</string>
     <string name="licenses_component_travel_advice">Guide in inglese, consigli di viaggio: Travel.gc.ca (Governo del Canada)</string>
     <string name="licenses_note_travel_advice">Contains information licensed under the Open Government Licence – Canada. Testo adattato (senza le parti per i cittadini canadesi), non approvato dal Governo del Canada.</string>
-    <string name="licenses_component_travel_advice_uk">Guide in inglese, consigli di viaggio per Palestina, Pitcairn, Wallis e Futuna: gov.uk Foreign travel advice (FCDO, Governo del Regno Unito)</string>
+    <string name="licenses_component_travel_advice_uk">Guide in inglese, consigli di viaggio (Palestina, Pitcairn, Wallis e Futuna): gov.uk Foreign travel advice (FCDO, Governo del Regno Unito)</string>
     <string name="licenses_note_travel_advice_uk">Contains public sector information licensed under the Open Government Licence v3.0. Testo adattato (senza le parti per i cittadini britannici), non approvato dal Foreign, Commonwealth &amp; Development Office.</string>
     <string name="licenses_component_vaccinations_canada">Vaccinazioni: Travel.gc.ca (Governo del Canada)</string>
-    <string name="licenses_note_vaccinations_canada">Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert - Canada. Fatti riformulati e confrontati con altre fonti.</string>
+    <string name="licenses_note_vaccinations_canada">Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert – Canada. Fatti riformulati e confrontati con altre fonti.</string>
     <string name="licenses_component_vaccinations_uk">Vaccinazioni: TravelHealthPro (UKHSA / NaTHNaC)</string>
     <string name="licenses_note_vaccinations_uk">Contains public sector information published by the UK Health Security Agency (UKHSA) and the National Travel Health Network and Centre (NaTHNaC), licensed under the Open Government Licence v3.0. Fatti riformulati.</string>
     <string name="licenses_component_vaccinations_fcdo">Vaccinazioni: gov.uk Foreign travel advice (Governo del Regno Unito)</string>
-    <string name="licenses_note_vaccinations_fcdo">Contains public sector information licensed under the Open Government Licence v3.0. Requisiti polio d\'ingresso di India, Nepal e Iran, riformulati.</string>
+    <string name="licenses_note_vaccinations_fcdo">Contains public sector information licensed under the Open Government Licence v3.0. Requisiti polio d\'ingresso (India, Nepal e Iran), riformulati.</string>
     <string name="licenses_component_vaccinations_france">Vaccinazioni: France Diplomatie, Conseils aux voyageurs (Ministère de l\'Europe et des Affaires étrangères)</string>
     <string name="licenses_note_vaccinations_france">Requisito polio d\'ingresso dell\'Egitto, dalla pagina Santé aggiornata il 21 settembre 2026, riformulato</string>
 
     <!-- Onboarding -->
-    <string name="onboarding_welcome_title">Ti diamo il benvenuto in Pocket Travel</string>
+    <string name="onboarding_welcome_title">Pocket Travel ti dà il benvenuto</string>
     <string name="onboarding_welcome_body">Guide di viaggio e mappe che funzionano anche senza connessione. Bastano tre scelte per iniziare</string>
     <string name="onboarding_usage_mode_title">Come ti sposti?</string>
-    <string name="onboarding_usage_mode_body">Scelta multipla: la mappa e la rete stradale da scaricare si adattano</string>
+    <string name="onboarding_usage_mode_body">Scelta multipla: la mappa e la rete stradale da scaricare si adattano alla scelta</string>
     <string name="onboarding_nationality_title">Qual è la tua nazionalità?</string>
     <string name="onboarding_nationality_body">Serve per mostrare nella guida ambasciate e consolati del proprio paese</string>
     <string name="onboarding_guides_title">Guide di tutte le nazioni</string>
@@ -326,7 +330,7 @@
     <string name="hint_ai_body">\"Sul dispositivo\" funziona anche senza internet: un piccolo modello scaricato sul dispositivo (richiede almeno 3 GB di RAM) risponde usando la guida e le note personali. \"Online\" usa un servizio a scelta (ChatGPT, Mistral, Gemini o Claude) con una chiave API personale, che resta sul dispositivo</string>
     <string name="hint_vault_title">I documenti restano al sicuro</string>
     <string name="hint_vault_body">Passaporti, biglietti e altri documenti sono protetti dalla biometria e mai inviati fuori dal dispositivo</string>
-    <string name="hint_sources_title">Le fonti ufficiali restano esterne</string>
+    <string name="hint_sources_title">Le fonti ufficiali si aprono online</string>
     <string name="hint_sources_body">Ambasciate, ministeri e OMS si aprono in una scheda del browser e richiedono una connessione: l\'app non li salva mai offline, così restano sempre aggiornati</string>
     <string name="onboarding_step">Passo %1$d di %2$d</string>
     <string name="onboarding_back">Indietro</string>

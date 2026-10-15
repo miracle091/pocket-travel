@@ -154,7 +154,7 @@
     <string name="opening_hours_holidays">festivi</string>
     <!-- Navigazione -->
     <string name="poi_directions">Percorso</string>
-    <string name="navigation_title">Verso %1$s</string>
+    <string name="navigation_title">Destinazione: %1$s</string>
     <string name="navigation_close">Termina la navigazione</string>
     <string name="navigation_no_speed_cameras">Autovelox, limiti di velocità e zone a traffico limitato o a basse emissioni non segnalati:</string>
     <string name="navigation_follow_road_signs">rispetta sempre la segnaletica stradale</string>
@@ -178,13 +178,13 @@
     <string name="usage_mode_directions">Percorsi di navigazione</string>
     <string name="usage_mode_directions_body">Con ogni nazione scelta viene scaricata la rete stradale ed è richiesta la posizione GPS</string>
     <string name="navigation_routing_download">Scarica la rete stradale</string>
-    <string name="navigation_missing_routing_list">Manca la rete stradale di queste regioni, dalla partenza all\'arrivo</string>
+    <string name="navigation_missing_routing_list">Manca la rete stradale di queste regioni, dalla partenza alla destinazione</string>
     <string name="navigation_car_only_routing_list">È installata solo la rete stradale solo auto: per andare a piedi o in bici scarica la rete stradale completa</string>
     <string name="navigation_routing_download_all">Scarica tutta la rete stradale (%1$s)</string>
     <string name="navigation_routing_progress_all">Download della rete stradale · %1$d%%</string>
     <string name="navigation_outside_routing">Il percorso esce dalla zona della rete stradale scaricata</string>
     <string name="navigation_calculating">Calcolo del percorso…</string>
-    <string name="navigation_calculating_progress">Circa il %1$d%% del calcolo</string>
+    <string name="navigation_calculating_progress">Avanzamento del calcolo: circa %1$d%%</string>
     <string name="navigation_calculating_long">In auto, il calcolo dei percorsi lunghi può richiedere alcuni minuti</string>
     <string name="navigation_timed_out">Il percorso è troppo lungo da calcolare sul dispositivo: scegli una destinazione più vicina o un altro modo di spostarsi</string>
     <string name="turn_continue">Prosegui dritto</string>
@@ -206,13 +206,13 @@
     <string name="transit_no_stops">Nessun orario per questa fermata: le reti scaricate non la coprono</string>
     <string name="transit_not_offered">Nessun orario dei mezzi pubblici per questa zona</string>
     <string name="transit_none_soon">Nessuna partenza nelle prossime 3 ore</string>
-    <string name="transit_valid_until">Orari validi fino al %1$s</string>
-    <string name="transit_expired">Gli orari sono scaduti (validi fino al %1$s)</string>
+    <string name="transit_valid_until">Orari validi fino al giorno %1$s</string>
+    <string name="transit_expired">Gli orari sono scaduti (validi fino al giorno %1$s)</string>
     <string name="transit_expiring">Gli orari stanno per scadere</string>
-    <string name="transit_feed_expired">Partenze della rete %1$s non mostrate: orari scaduti (validi fino al %2$s)</string>
-    <string name="transit_feed_expired_unnamed">Partenze di un\'altra rete non mostrate: orari scaduti (validi fino al %1$s)</string>
-    <string name="transit_feed_estimated">Partenze della rete %1$s stimate dalla settimana precedente: orari scaduti (validi fino al %2$s)</string>
-    <string name="transit_feed_estimated_unnamed">Partenze di un\'altra rete stimate dalla settimana precedente: orari scaduti (validi fino al %1$s)</string>
+    <string name="transit_feed_expired">Partenze della rete %1$s non mostrate: orari scaduti (validi fino al giorno %2$s)</string>
+    <string name="transit_feed_expired_unnamed">Partenze di un\'altra rete non mostrate: orari scaduti (validi fino al giorno %1$s)</string>
+    <string name="transit_feed_estimated">Partenze della rete %1$s stimate dalla settimana precedente: orari scaduti (validi fino al giorno %2$s)</string>
+    <string name="transit_feed_estimated_unnamed">Partenze di un\'altra rete stimate dalla settimana precedente: orari scaduti (validi fino al giorno %1$s)</string>
     <string name="transit_mode_estimated">%1$s, orario stimato</string>
     <string name="transit_update">Aggiorna</string>
     <string name="transit_download">Scarica gli orari dei mezzi pubblici</string>
@@ -220,7 +220,7 @@
     <string name="transit_up_to_date">Nessun orario più recente disponibile</string>
     <string name="transit_update_failed">Download degli orari dei mezzi pubblici non riuscito. Controlla la connessione e riprova</string>
     <string name="transit_source">Fonte: %1$s</string>
-    <string name="transit_source_dated">Fonte: %1$s, dati del %2$s</string>
+    <string name="transit_source_dated">Fonte: %1$s, dati del giorno %2$s</string>
     <string name="transit_in_min">tra %1$d min</string>
     <string name="transit_now">ora</string>
     <string name="transit_later">Poi alle %1$s</string>

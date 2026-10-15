@@ -12,6 +12,7 @@ class VaccinationModelTest {
     @Test
     fun `le sigle delle fonti note hanno un nome leggibile, le altre restano com'e'`() {
         assertEquals("OMS (Polio IHR Emergency Committee)", vaccinationSourceName("F3"))
+        assertEquals("WHO (Polio IHR Emergency Committee)", vaccinationSourceName("F3", en = true))
         assertEquals("Travel.gc.ca", vaccinationSourceName("F6"))
         assertEquals("TravelHealthPro", vaccinationSourceName("F7"))
         assertEquals("F99", vaccinationSourceName("F99"))

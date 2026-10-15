@@ -529,7 +529,7 @@ private fun ReplacedRegionRow(item: ReplacedRegionItem, onOpen: () -> Unit, onCh
 private fun CountryRow(country: RegionListEntry.Country, expanded: Boolean, enabled: Boolean, onToggle: () -> Unit) {
     val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "countryChevron")
     val stateText = stringResource(if (expanded) R.string.continent_expanded else R.string.continent_collapsed)
-    val actionLabel = stringResource(if (expanded) R.string.continent_collapse else R.string.continent_expand)
+    val actionLabel = stringResource(if (expanded) R.string.country_regions_collapse else R.string.country_regions_expand)
     ListItem(
         supportingContent = { Text(pluralStringResource(R.plurals.country_region_count, country.items.size, country.items.size)) },
         leadingContent = {

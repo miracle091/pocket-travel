@@ -13,8 +13,8 @@
     <string name="vault_prompt_subtitle">Use the device\'s biometrics</string>
     <string name="vault_prompt_cancel">Cancel</string>
     <string name="vault_unlock_failed">Unlock failed. Try again</string>
-    <string name="vault_key_invalidated_title">The documents key is no longer valid</string>
-    <string name="vault_key_invalidated_body">This can happen if the device fingerprints changed or the key was lost: the saved documents can no longer be opened. Reset the vault to start again</string>
+    <string name="vault_key_invalidated_title">The key for the documents is no longer valid</string>
+    <string name="vault_key_invalidated_body">This can happen if the fingerprints enrolled on the device have changed or the key has been lost: the saved documents can no longer be opened. Reset the vault to start again</string>
     <string name="vault_reset">Reset the vault</string>
     <string name="vault_reset_title">Reset the vault?</string>
     <string name="vault_reset_message">All saved documents and their photos will be permanently deleted</string>
@@ -26,7 +26,7 @@
     <string name="vault_edit">Edit %1$s</string>
     <string name="vault_delete">Delete %1$s</string>
     <string name="vault_delete_title">Delete this document?</string>
-    <string name="vault_delete_message">%1$s will be permanently removed from the vault</string>
+    <string name="vault_delete_message">The document (%1$s) will be permanently removed from the vault</string>
     <string name="vault_photo">Document photo</string>
     <string name="vault_photo_remove">Remove photo</string>
     <string name="vault_close">Close</string>
@@ -36,7 +36,7 @@
     <string name="vault_field_number">Document number</string>
     <string name="vault_field_nationality">Nationality</string>
     <string name="vault_field_expiry">Expiration date (YYYY-MM-DD)</string>
-    <string name="vault_field_note">Note</string>
+    <string name="vault_field_note">Notes</string>
     <string name="vault_field_ticket_carrier">Carrier or company</string>
     <string name="vault_field_ticket_code">Booking code</string>
     <string name="vault_field_ticket_route">Route (from – to)</string>
@@ -62,12 +62,12 @@
     <string name="notes_title">Notes</string>
     <string name="notes_add">Add</string>
     <string name="notes_empty_title">No notes saved</string>
-    <string name="notes_empty_subtitle">Create the first note for travel notes, bookings or addresses. Notes are encrypted on the device and the AI assistant can use them to answer questions</string>
+    <string name="notes_empty_subtitle">Create the first note: travel notes, bookings or addresses. Notes are encrypted on the device and the AI assistant can use them to answer questions</string>
     <string name="notes_privacy_notice">Notes are encrypted on the device. The AI assistant can use them to answer questions</string>
     <string name="notes_edit">Edit %1$s</string>
     <string name="notes_delete">Delete %1$s</string>
     <string name="notes_delete_title">Delete this note?</string>
-    <string name="notes_delete_message">%1$s will be permanently deleted</string>
+    <string name="notes_delete_message">The note (%1$s) will be permanently deleted</string>
     <string name="notes_new">New note</string>
     <string name="notes_edit_title">Edit note</string>
     <string name="notes_field_title">Title</string>

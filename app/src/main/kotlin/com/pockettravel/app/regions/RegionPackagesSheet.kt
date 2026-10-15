@@ -241,7 +241,7 @@ private fun PackageRow(pkg: PackageUiState, enabled: Boolean, onDownload: () -> 
 private fun TransitNetworksToggle(selected: Int, total: Int, expanded: Boolean, onToggle: () -> Unit) {
     val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "networksChevron")
     val stateText = stringResource(if (expanded) R.string.continent_expanded else R.string.continent_collapsed)
-    val actionLabel = stringResource(if (expanded) R.string.continent_collapse else R.string.continent_expand)
+    val actionLabel = stringResource(if (expanded) R.string.transit_networks_collapse else R.string.transit_networks_expand)
     ListItem(
         trailingContent = { Icon(AppIcons.ExpandMore, contentDescription = null, modifier = Modifier.rotate(rotation)) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),

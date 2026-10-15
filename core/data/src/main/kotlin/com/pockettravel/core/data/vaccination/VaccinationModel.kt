@@ -251,9 +251,9 @@ const val POLIO_STALE_DAYS = 120L
  */
 val YF_RISK_FREE_REGIONS = setOf("colombia-san-andres")
 
-/** Nome leggibile delle sigle delle fonti usate nei dati (stesse sigle dei file della pipeline). */
-fun vaccinationSourceName(code: String): String = when (code) {
-    "F3" -> "OMS (Polio IHR Emergency Committee)"
+/** Nome leggibile delle sigle delle fonti usate nei dati (stesse sigle dei file della pipeline), in inglese con [en]. */
+fun vaccinationSourceName(code: String, en: Boolean = false): String = when (code) {
+    "F3" -> if (en) "WHO (Polio IHR Emergency Committee)" else "OMS (Polio IHR Emergency Committee)"
     "F6" -> "Travel.gc.ca"
     "F7" -> "TravelHealthPro"
     "F8" -> "GOV.UK Foreign travel advice"

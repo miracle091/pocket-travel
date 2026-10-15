@@ -1,7 +1,7 @@
 # Stile dei testi
 
 Regole per tutti i testi di Pocket Travel: interfaccia dell'app (italiano e inglese), README, CHANGELOG, `docs/`,
-wiki, model card e commenti nel codice. L'obiettivo e' un testo **chiaro e formale**: preciso, completo, senza
+wiki, model card e commenti nel codice. L'obiettivo è un testo **chiaro e formale**: preciso, completo, senza
 toni colloquiali.
 
 ## Regole comuni
@@ -12,10 +12,10 @@ toni colloquiali.
   "ecc." nei testi dell'interfaccia). Fanno eccezione per le emoji `README.md`, `README.en.md`, `CONTRIBUTING.md`
   e `CONTRIBUTING.en.md`: una sola emoji all'inizio di titoli, passi numerati, elenchi puntati brevi, righe della
   tabella delle funzioni e badge, mai dentro una frase.
-- Numeri, unita' e date nel formato della lingua: in italiano "2,8 milioni", "4–6 settimane", "3 ott 2026"; in
+- Numeri, unità e date nel formato della lingua: in italiano "2,8 milioni", "4–6 settimane", "3 ott 2026"; in
   inglese "2.8 million", "4 to 6 weeks", "Oct 3, 2026".
 - Nessun punto finale nei testi brevi dell'interfaccia di una sola frase (etichette, pulsanti, titoli, descrizioni
-  sotto un titolo, avvisi di una riga); il punto resta tra le frasi di un testo che ne ha piu' d'una.
+  sotto un titolo, avvisi di una riga); il punto resta tra le frasi di un testo che ne ha più d'una.
 - Maiuscola solo all'inizio della frase e nei nomi propri (sentence case, anche in inglese): "Fonti ufficiali",
   "Official sources", non "Official Sources".
 
@@ -42,20 +42,20 @@ toni colloquiali.
 
 - Registro formale e impersonale: "Si lancia con", "Il comando genera"; seconda persona solo nelle istruzioni
   passo per passo.
-- Prima il risultato o la regola, poi il perche'; niente racconto cronologico di come ci si e' arrivati.
+- Prima il risultato o la regola, poi il perché; niente racconto cronologico di come ci si è arrivati.
 - Nomi di file, comandi e codici tra backtick; collegamenti con testo descrittivo, mai "qui".
 
 ## Commenti nel codice
 
-- In italiano, come il resto del codice, al presente e in forma impersonale: cosa fa il codice e perche', non
+- In italiano, come il resto del codice, al presente e in forma impersonale: cosa fa il codice e perché, non
   la storia delle modifiche ("prima faceva...") se non serve a capire una scelta ancora valida.
 - Brevi: una o due righe vicino al codice che spiegano; KDoc/docstring per le funzioni pubbliche.
-- Nessun riferimento a file che chi legge il repository non puo' aprire (piani privati, percorsi locali).
+- Nessun riferimento a file che chi legge il repository non può aprire (piani privati, percorsi locali).
 
 ## Testi da non modificare
 
 Alcuni testi sono anche il formato su cui sono addestrati i modelli dell'assistente: cambiarli peggiorerebbe le
-risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo errori veri:
+risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo errori veri:
 
 - i prompt in `PromptTemplates.kt` e `OnlinePromptTemplates.kt`;
 - le etichette del contesto in `TravelAssistant.kt` ("Nota personale", "Personal note");
@@ -67,9 +67,9 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 
 | Concetto | Italiano | Inglese |
 |---|---|---|
-| Paese o territorio scaricabile | nazione (elenco), regione (unita' che si scarica) | country, region |
+| Paese o territorio scaricabile | nazione (elenco), regione (unità che si scarica) | country, region |
 | Rettangolo di una regione scaricato al posto della regione intera | zona | zone |
-| Rettangolo geografico di una regione, di una zona o di un estratto ("riquadro" e' solo dell'interfaccia) | rettangolo | bounding box |
+| Rettangolo geografico di una regione, di una zona o di un estratto ("riquadro" è solo dell'interfaccia) | rettangolo | bounding box |
 | Scheda della barra con l'elenco delle nazioni | Nazioni | Countries |
 | Pagina con le schede Guida, Mappa, Navigatore, IA | pagina della regione | region page |
 | Pianificatore e navigazione, nella barra e nella pagina della regione | Navigatore | Navigator |
@@ -77,7 +77,7 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Guida di una regione non ancora scaricata | anteprima | preview |
 | Riquadro che spiega una funzione la prima volta che si apre una schermata | suggerimento | hint |
 | Testo di Wikivoyage di una nazione | guida | guide |
-| Testo di Wikivoyage di una citta' | guida della citta' | city guide |
+| Testo di Wikivoyage di una città | guida della città | city guide |
 | Indicazioni durante il viaggio | navigazione | navigation |
 | Voce della barra o della pagina della regione (Nazioni, Guida, IA...) | scheda | tab |
 | Riquadro con un contenuto (meteo, punto di interesse...) | riquadro | card |
@@ -105,13 +105,13 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Contenuto con linee e fermate | mezzi pubblici | public transport |
 | Partenze dalle fermate | orari dei mezzi pubblici | public transport timetables |
 | Contenuto con negozi, ristoranti, musei... (e la sua aggiunta) | punti di interesse (punti di interesse extra) | points of interest (extra points of interest) |
-| Contenuto con le guide di Wikivoyage delle citta' | guide delle citta' | city guides |
+| Contenuto con le guide di Wikivoyage delle città | guide delle città | city guides |
 | Mappa con meno dettagli e meno spazio occupato | mappa leggera | light map |
 | Categorie della mappa da mostrare o nascondere | filtri | filters |
 | Come ci si sposta (A piedi, Bici, Auto...), anche nel selettore del Navigatore | modo (mai "mezzo") | travel mode |
-| Opzione di accessibilita' | in sedia a rotelle | wheelchair |
-| Accessibilita' dal tag OSM `wheelchair`, nel riquadro di treno, metro, autobus e traghetto | stazione | station |
-| Accessibilita' dal GTFS della rete (`wheelchair_boarding`) | fermata dei mezzi | public transport stop |
+| Opzione di accessibilità | in sedia a rotelle | wheelchair |
+| Accessibilità dal tag OSM `wheelchair`, nel riquadro di treno, metro, autobus e traghetto | stazione | station |
+| Accessibilità dal GTFS della rete (`wheelchair_boarding`) | fermata dei mezzi | public transport stop |
 | Categoria della guida con i dati essenziali | Fatti rapidi | Quick facts |
 | Mappa a bassa risoluzione installata da sola | mappa d'insieme | overview map |
 | Mappa per scegliere la nazione | mappa delle nazioni | country map |
@@ -129,12 +129,12 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Proposte sotto un campo mentre si scrive (aeroporti, compagnie) | completamento | autocomplete |
 | Spazio cifrato con la biometria per i documenti | cassaforte | vault |
 | Note di viaggio cifrate, fuori dalla cassaforte | Note | Notes |
-| Paese di cui l'utente ha il passaporto | nazionalita' | nationality |
+| Paese di cui l'utente ha il passaporto | nazionalità | nationality |
 | Schermata con lo spazio occupato dai contenuti | Spazio di archiviazione | Storage |
 | Schermata in Altro con gli aggiornamenti di app, nazioni, guide e modello IA | Aggiornamenti | Updates |
 | Punti di interesse tolti per mancanza di spazio, da scaricare di nuovo | punti di interesse da riscaricare | points of interest to download again |
 | Livello di una vaccinazione non obbligatoria (altrove "consigliato" resta) | raccomandata | recommended |
 | Scalo aereo nelle regole delle vaccinazioni | scalo | stopover |
 
-"Paese" resta per i paesi del mondo che non si scaricano: nazionalita', partenza e destinazione delle vaccinazioni
+"Paese" resta per i paesi del mondo che non si scaricano: nazionalità, partenza e destinazione delle vaccinazioni
 ("Paese di partenza", "del tuo paese").

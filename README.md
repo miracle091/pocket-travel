@@ -56,7 +56,7 @@ L'app segnala le nuove versioni con una notifica; le novità sono nel [CHANGELOG
 | 💉 | **Vaccinazioni** | Obbligatorie, raccomandate e da valutare con il medico, calcolate offline da partenza, scali e paesi visitati |
 | 🗺️ | **Mappa** | Ristoranti, hotel, farmacie, bancomat e molto altro, con orari e contatti, filtrati per modo di spostarsi |
 | 🧭 | **Navigatore** | Percorsi a piedi, in bici e in auto, anche tra nazioni, con la navigazione passo passo a schermo spento |
-| 🚌 | **Mezzi pubblici** | Partenze delle tre ore successive in fermate e stazioni, per le reti con dati aperti di 32 nazioni, per lo più europei, e di Stati Uniti, Canada, Australia, Nuova Zelanda e Giappone |
+| 🚌 | **Mezzi pubblici** | Partenze delle tre ore successive in fermate e stazioni, per le reti con dati aperti di 32 nazioni, per lo più europee, e di Stati Uniti, Canada, Australia, Nuova Zelanda e Giappone |
 | 🤖 | **Assistente IA** | Risposte brevi sulla guida scaricata e sulle note, anche senza internet |
 | 🔐 | **Documenti e note** | Passaporto e biglietti cifrati, sbloccabili con impronta o volto; note di viaggio cifrate |
 | 🏛️ | **Fonti ufficiali** | Ministero degli esteri del proprio paese, OMS e CDC |
@@ -75,7 +75,7 @@ Le 355 regioni sono aggiornate ogni settimana e i loro contenuti si scaricano se
 
 ## Assistente IA
 
-L'assistente risponde in massimo tre frasi solo con ciò che trova nella guida e nelle note, e lo dice quando la guida non basta. Il motore si sceglie in **Impostazioni → Assistente IA**.
+L'assistente risponde in al massimo tre frasi solo con ciò che trova nella guida e nelle note, e lo dice quando la guida non basta. Il motore si sceglie in **Impostazioni → Assistente IA**.
 
 ### 📱 Sul dispositivo (offline)
 
@@ -91,7 +91,7 @@ Il modello gira sul dispositivo e nessun dato ne esce. Servono almeno 3 GB di RA
 
 ### ☁️ Online (con una chiave API personale)
 
-L'assistente usa un servizio di IA con la propria chiave API, che resta cifrata sul dispositivo. La domanda va al servizio **senza la guida scaricata** e l'uso si paga sull'account del servizio. Nell'app si sceglie il servizio, si incolla la chiave e si tocca **Salva la chiave**; **Crea la chiave su …** apre la pagina giusta.
+L'assistente usa un servizio di IA con la chiave API personale dell'utente, che resta cifrata sul dispositivo. La domanda va al servizio **senza la guida scaricata** e l'uso si paga sull'account del servizio. Nell'app si sceglie il servizio, si incolla la chiave e si tocca **Salva la chiave**; **Crea la chiave su …** apre la pagina giusta.
 
 | Servizio | Modello automatico | Più capace |
 |---|---|---|

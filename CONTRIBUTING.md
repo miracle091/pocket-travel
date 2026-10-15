@@ -35,7 +35,7 @@ Una proposta descrive prima il caso d'uso in viaggio, poi la soluzione. Le modif
 
    Per la pipeline anche `python3 tools/data-pipeline/scripts/test_<nome>.py`. I test sul dispositivo si lanciano con `installDebugAndroidTest` e `adb shell am instrument`, non con `connectedDebugAndroidTest`, che cancella i file sul dispositivo come il modello GGUF.
 
-5. Apri la pull request su `main` con cosa cambia e perché, la segnalazione collegata (`Risolve #123`), i test eseguiti e gli screenshot delle modifiche visibili.
+5. Apri la pull request su `main` con cosa cambia e perché, la segnalazione collegata (`Fixes #123`, la parola chiave che GitHub riconosce per chiuderla), i test eseguiti e gli screenshot delle modifiche visibili.
 
 La [guida per sviluppatori](docs/GUIDA.md) spiega come preparare l'ambiente, compilare e generare i dati.
 

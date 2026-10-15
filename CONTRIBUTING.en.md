@@ -25,7 +25,7 @@ A suggestion describes the travel use case first, then the solution. Large chang
 ## Making a change
 
 1. Fork the repository and create a branch from `main` (`fix/weather-offline`, `feat/parking-filter`).
-2. Keep the change to its purpose, with tests: for a bug, first a failing test, then the fix.
+2. Limit the change to its purpose, with tests: for a bug, first a failing test, then the fix.
 3. Update the affected documentation and add an entry to the [CHANGELOG](CHANGELOG.md) under "Non rilasciato" (unreleased), and under "Cambiamenti incompatibili" (breaking changes) if the change breaks earlier versions. The CHANGELOG is in Italian.
 4. Run the CI checks:
 

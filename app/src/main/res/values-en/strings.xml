@@ -10,7 +10,7 @@
     <string name="regions_load_error">Couldn\'t reach the country catalog. Try again later</string>
     <string name="regions_retry">Retry</string>
     <string name="regions_not_enough_space">Not enough space to download this region</string>
-    <string name="regions_delete_error">Couldn\'t delete the data, try again</string>
+    <string name="regions_delete_error">Couldn\'t delete the data. Try again</string>
     <string name="regions_status_not_installed">%1$s · not downloaded</string>
     <string name="regions_status_installed">%1$s · downloaded</string>
     <string name="regions_status_update">%1$s · update available</string>
@@ -46,7 +46,7 @@
     <string name="package_map_light_detail">Less detailed map that takes about 40% less space</string>
     <string name="package_routing_for">Road network for</string>
     <string name="package_routing_car">Car</string>
-    <string name="package_routing_bike_foot">Bike &amp; foot</string>
+    <string name="package_routing_bike_foot">Cycling and walking</string>
     <string name="package_routing_all">All</string>
     <string name="package_routing_bike_foot_detail">All roads and paths: the complete road network, which also works for cars</string>
     <string name="package_routing_all_detail">All roads and paths, for every travel mode</string>
@@ -60,7 +60,7 @@
     <string name="zone_choice_message">This region is very large. You can download only the zone you need: map, road network and house numbers of that zone. Points of interest and guides cover the whole region</string>
     <string name="zone_choice_message_country">This country is very large. You can download only the zone you need: map, road network and house numbers of that zone. Points of interest and guides cover the whole country</string>
     <string name="zone_choice_pick">Choose a zone</string>
-    <string name="zone_hint">The zone is the visible map area: only that is downloaded, with road network and house numbers</string>
+    <string name="zone_hint">The zone is the visible map area: only that is downloaded, with its road network and house numbers</string>
     <string name="zone_size">About %1$d × %2$d km</string>
     <string name="zone_use">Select the zone</string>
     <string name="zone_download">Download this zone</string>
@@ -91,7 +91,7 @@
     <string name="map_preview_notice">Overview map: for street detail and route calculation, download the region\'s map and road network</string>
     <string name="map_missing_notice">Map not downloaded: download it to see streets and places. Route calculation requires the downloaded map and road network</string>
     <string name="regions_large_download_title">Large download</string>
-    <string name="regions_large_download_message">%1$s is %2$s and the device is on mobile data. Continue?</string>
+    <string name="regions_large_download_message">%1$s: %2$s to download on mobile data. Continue?</string>
     <string name="regions_large_download_confirm">Download</string>
     <string name="continent_other">Other</string>
     <string name="continent_europe">Europe</string>
@@ -112,6 +112,10 @@
     <string name="continent_collapsed">collapsed</string>
     <string name="continent_expand">Show countries</string>
     <string name="continent_collapse">Hide countries</string>
+    <string name="country_regions_expand">Show regions</string>
+    <string name="country_regions_collapse">Hide regions</string>
+    <string name="transit_networks_expand">Show networks</string>
+    <string name="transit_networks_collapse">Hide networks</string>
 
     <!-- Updates -->
     <string name="more_updates">Updates</string>
@@ -193,7 +197,7 @@
     <string name="storage_model">On-device AI model</string>
     <string name="storage_no_model">No AI model downloaded</string>
     <string name="storage_delete">Delete %1$s</string>
-    <string name="storage_delete_title">Delete %1$s?</string>
+    <string name="storage_delete_title">%1$s: delete the data?</string>
     <string name="storage_delete_message">The data saved on the device will be removed to free up this space</string>
 
     <!-- Anteprima regione -->
@@ -219,9 +223,9 @@
     <string name="licenses_component_kleidiai">KleidiAI (Arm, optimized kernels used by llama.cpp on arm64)</string>
     <string name="licenses_component_okhttp">OkHttp (downloads of content, models and weather)</string>
     <string name="licenses_component_qwen">Qwen3.5 and Qwen3 models (Alibaba Cloud, Qwen team)</string>
-    <string name="licenses_note_qwen">Models of the on-device assistant, downloaded on request from HuggingFace in the GGUF versions quantized by Unsloth</string>
+    <string name="licenses_note_qwen">Models of the on-device assistant, downloaded on request from Hugging Face in the GGUF versions quantized by Unsloth</string>
     <string name="licenses_component_trained_models">Models trained by Pocket Travel (pockettravel/*-travel-it-GGUF)</string>
-    <string name="licenses_note_trained_models">Fine-tunes of the Qwen models, trained on Wikivoyage and Wikipedia texts; downloaded on request from HuggingFace</string>
+    <string name="licenses_note_trained_models">Fine-tunes of the Qwen models, trained on Wikivoyage and Wikipedia texts; downloaded on request from Hugging Face</string>
     <string name="licenses_component_pmtiles_reader">pmtiles-reader (reading PMTiles with HTTP range requests, core:sync)</string>
     <string name="licenses_component_xz">XZ for Java (decompression of points of interest, core:sync)</string>
     <string name="licenses_component_protomaps">Protomaps basemap (software/schema)</string>
@@ -259,21 +263,21 @@
     <string name="licenses_component_vaccinations_uk">Vaccinations: TravelHealthPro (UKHSA / NaTHNaC)</string>
     <string name="licenses_note_vaccinations_uk">Contains public sector information published by the UK Health Security Agency (UKHSA) and the National Travel Health Network and Centre (NaTHNaC), licensed under the Open Government Licence v3.0. Facts reworded.</string>
     <string name="licenses_component_vaccinations_fcdo">Vaccinations: gov.uk Foreign travel advice (UK government)</string>
-    <string name="licenses_note_vaccinations_fcdo">Contains public sector information licensed under the Open Government Licence v3.0. Polio entry requirements of India, Nepal and Iran, reworded.</string>
+    <string name="licenses_note_vaccinations_fcdo">Contains public sector information licensed under the Open Government Licence v3.0. Polio entry requirements for India, Nepal and Iran, reworded.</string>
     <string name="licenses_component_vaccinations_france">Vaccinations: France Diplomatie, Conseils aux voyageurs (Ministère de l\'Europe et des Affaires étrangères)</string>
-    <string name="licenses_note_vaccinations_france">Polio entry requirement of Egypt, from the Santé page updated on September 21, 2026, reworded</string>
+    <string name="licenses_note_vaccinations_france">Polio entry requirement for Egypt, from the Santé page updated on September 21, 2026, reworded</string>
 
     <!-- Onboarding -->
     <string name="onboarding_welcome_title">Welcome to Pocket Travel</string>
     <string name="onboarding_welcome_body">Travel guides and maps that work even offline. Three choices are enough to get started</string>
     <string name="onboarding_usage_mode_title">How do you travel?</string>
-    <string name="onboarding_usage_mode_body">Multiple choice: the map and the road network to download adapt to it</string>
+    <string name="onboarding_usage_mode_body">Multiple choice: the map and the road network to download adapt to your choice</string>
     <string name="onboarding_nationality_title">What is your nationality?</string>
     <string name="onboarding_nationality_body">Used to show your country\'s embassies and consulates in the guide</string>
     <string name="onboarding_guides_title">Guides for all countries</string>
     <string name="onboarding_guides_downloading">Downloading guides…</string>
     <string name="onboarding_guides_done">Guides downloaded</string>
-    <string name="onboarding_region_title">Choose where you go</string>
+    <string name="onboarding_region_title">Choose where you\'re going</string>
     <string name="onboarding_region_body">Optional: the chosen countries download in the background with Next. Others can be added later from Countries</string>
     <string name="onboarding_region_search">Search for a country</string>
     <string name="onboarding_region_recommended">Suggested for you</string>

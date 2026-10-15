@@ -26,7 +26,7 @@
     <string name="ai_api_key_hide">Nascondi la chiave</string>
     <string name="ai_question_hint">Fai una domanda sulla regione</string>
     <string name="ai_question_hint_country">Fai una domanda sulla nazione</string>
-    <string name="ai_send">Invia domanda</string>
+    <string name="ai_send">Invia la domanda</string>
     <string name="ai_thinking">Elaborazione della risposta…</string>
     <string name="ai_loading_model">Caricamento del modello…</string>
     <string name="ai_empty_title">Fai una domanda sul viaggio</string>
@@ -36,12 +36,12 @@
     <string name="ai_remove_key">Rimuovi la chiave</string>
     <string name="ai_delete_model_title">Eliminare il modello IA?</string>
     <string name="ai_delete_model_message">Per usare di nuovo l\'assistente IA sul dispositivo bisogna scaricare di nuovo il modello</string>
-    <string name="ai_settings_hint">La scheda IA compare nella pagina di ogni regione dopo aver scaricato un modello o inserito una chiave API</string>
+    <string name="ai_settings_hint">La scheda IA compare nella pagina di ogni regione dopo il download di un modello o l\'inserimento di una chiave API</string>
     <string name="ai_api_key_saved">Chiave API salvata</string>
     <string name="ai_model_downloaded">Scaricato</string>
     <string name="ai_remove_key_title">Rimuovere la chiave API?</string>
     <string name="ai_remove_key_message">Per usare di nuovo l\'assistente IA online bisogna inserire di nuovo la chiave</string>
-    <string name="ai_benchmark_run">Esegui benchmark</string>
+    <string name="ai_benchmark_run">Esegui il benchmark</string>
     <string name="ai_benchmark_running">Benchmark in corso…</string>
     <string name="ai_benchmark_compare">Confronta i modelli</string>
     <string name="ai_benchmark_result">%1$d parole/s · qualità %2$d/100</string>
@@ -66,7 +66,7 @@
     <string name="ai_online_model_auto">Automatico (consigliato)</string>
     <string name="ai_online_model_auto_desc">Un modello veloce ed economico, aggiornato automaticamente: adatto alle risposte brevi di viaggio. Attualmente: %1$s</string>
     <string name="ai_online_model_capable">Più capace: %1$s</string>
-    <string name="ai_online_model_capable_desc">Risposte più accurate alle domande complesse, ma ha un costo maggiore e può essere più lento</string>
+    <string name="ai_online_model_capable_desc">Risposte più accurate alle domande complesse. Il modello costa di più e può essere più lento</string>
     <string name="ai_online_model_other">Altro modello</string>
     <string name="ai_online_model_other_desc">Inserisci il nome esatto di un altro modello del servizio</string>
     <string name="ai_online_model_label">Nome del modello</string>

@@ -1,6 +1,6 @@
 # Guida per sviluppatori
 
-Le cose da sapere per lavorare su Pocket Travel. Il **perché** delle scelte tecniche è nella [wiki](https://github.com/miracle091/pocket-travel/wiki).
+Questa guida raccoglie le informazioni per lavorare su Pocket Travel. Il **perché** delle scelte tecniche è nella [wiki](https://github.com/miracle091/pocket-travel/wiki).
 
 ## Cosa serve
 
@@ -21,7 +21,7 @@ Prima di ogni commit, lancia gli stessi controlli della CI (`.github/workflows/a
 for t in tools/data-pipeline/scripts/test_*.py .github/scripts/test_check_dependencies.py; do python "$t" || break; done
 ```
 
-La CI controlla anche le vulnerabilità note (OSV) delle dipendenze di app e pipeline, e segnala come nota le versioni più nuove del catalogo:
+La CI controlla anche le vulnerabilità note (OSV) delle dipendenze di app e pipeline, e segnala come nota le versioni più nuove del catalogo delle versioni (`gradle/libs.versions.toml`):
 
 ```bash
 ./gradlew -q :app:dependencies --configuration releaseRuntimeClasspath > app.txt
@@ -29,7 +29,7 @@ La CI controlla anche le vulnerabilità note (OSV) delle dipendenze di app e pip
 python .github/scripts/check-dependencies.py app.txt pipeline.txt
 ```
 
-detekt segnala solo i problemi nuovi: quelli già presenti stanno nel `detekt-baseline.xml` di ogni modulo. Il baseline di un modulo si rigenera (`./gradlew :feature:map:detektBaseline`) solo quando si sposta codice che contiene già un problema registrato, non per far passare codice nuovo.
+detekt segnala solo i problemi nuovi: quelli già presenti stanno nel `detekt-baseline.xml` di ogni modulo. La baseline di un modulo si rigenera (`./gradlew :feature:map:detektBaseline`) solo quando si sposta codice che contiene già un problema registrato, non per far passare codice nuovo.
 
 I test di interfaccia (`src/androidTest`, con `createComposeRule`) girano sull'emulatore: installa l'APK dei test del modulo e lancia la classe, per esempio:
 
@@ -51,7 +51,7 @@ Alcuni test dei percorsi usano segmenti BRouter veri, troppo grandi per il repos
 - `RD5_CLIP_TEST_DIR`: una cartella con `orig/E10_N40.rd5` (il file di brouter.de) e `clipped/E10_N40.rd5` (lo stesso ritagliato su San Marino con `tools/data-pipeline/scripts/clip_rd5.py --bbox=12.40,43.89,12.52,43.99 --margin 0.1`);
 - `RD5_UK_TEST_DIR`: una cartella con `W5_N50.rd5` (rotonde con guida a sinistra, Milton Keynes).
 
-Tempo e memoria del calcolo sul dispositivo li misura `RouteEngineBenchmarkDeviceTest` (commento in testa al file per come copiare i segmenti sul dispositivo).
+Tempo e memoria del calcolo sul dispositivo li misura `RouteEngineBenchmarkDeviceTest` (il commento in testa al file spiega come copiare i segmenti sul dispositivo).
 
 La libreria nativa dell'assistente (llama.cpp) la prova `LlamaEngineDeviceTest` con un modello GGUF vero (Qwen3.5 0.8B, ~530 MB): senza il file i test vengono saltati. Copialo come spiega il commento in testa al file, poi usa `installDebugAndroidTest` e `am instrument` invece di `connectedDebugAndroidTest`, che disinstalla l'app di test e cancella il modello:
 
@@ -66,7 +66,7 @@ Le conversazioni a più turni (chiarimento, cambio di destinazione, domanda inte
 
 ### Misurare l'assistente su un dispositivo fisico, senza adb
 
-Nelle build di debug la scheda IA, con il motore sul dispositivo, ha nel menu (⋯) il **Task manager dei modelli**. Mostra memoria, CPU e, per l'ultima risposta, il tempo al primo token, la velocità di generazione e la velocità di lettura del prompt (token del prompt diviso il tempo al primo token). "Esporta i log" salva un file di testo con le stesse misure in CSV e il logcat dell'app, da condividere senza collegare il dispositivo al computer.
+Nelle build di debug la scheda IA, con il motore sul dispositivo, ha nel menu (⋯) il **Task manager dei modelli**. Mostra memoria, CPU e, per l'ultima risposta, il tempo al primo token, la velocità di generazione e la velocità di lettura del prompt (token del prompt diviso per il tempo al primo token). "Esporta i log" salva un file di testo con le stesse misure in CSV e il logcat dell'app, da condividere senza collegare il dispositivo al computer.
 
 La sezione **Variante CPU di llama.cpp** serve a confrontare le varianti della libreria su dispositivi diversi. llama.cpp è compilato in più varianti, una per famiglia di CPU (`libggml-cpu-*.so`: per arm64 da `android_armv8.0_1` a `android_armv9.2_2`). All'avvio ggml carica quella con il punteggio più alto per le estensioni della CPU, che non è sempre la più veloce: sui core ARMv9 con vettori SVE a 128 bit la variante SVE2 può leggere il prompt fino a due volte più lentamente di `android_armv8.6_1` (llama.cpp, issue #29884). Per questo, sulle CPU con vettori SVE a 128 bit e senza SME, l'app prova prima `android_armv8.6_1`, poi `android_armv8.2_2` e `android_armv8.2_1`, e lascia la scelta a ggml solo se la CPU le rifiuta tutte. La sezione mostra:
 

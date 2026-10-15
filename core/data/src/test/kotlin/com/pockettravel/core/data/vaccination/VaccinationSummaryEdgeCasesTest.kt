@@ -81,7 +81,7 @@ class VaccinationSummaryEdgeCasesTest {
     fun `la febbre gialla per tutti non cita il paese di provenienza`() {
         val all = VaccinationItem(Vaccine.YELLOW_FEVER, VaccinationLevel.REQUIRED, VaccinationReason.YF_ENTRY_ALL)
         assertTrue(result(all).toSummaryText(trip, "it").contains("- Febbre gialla: richiesto a tutti i viaggiatori in arrivo\n"))
-        assertTrue(result(all).toSummaryText(trip, "en").contains("- Yellow fever: required of all arriving travellers\n"))
+        assertTrue(result(all).toSummaryText(trip, "en").contains("- Yellow fever: required of all arriving travelers\n"))
     }
 
     @Test
@@ -189,7 +189,7 @@ class VaccinationSummaryEdgeCasesTest {
         val b = yfEntry("et").copy(sources = listOf("F3", "F7"))
         val text = result(a, b).toSummaryText(trip, "it")
         assertTrue(text.contains("Fonti: OMS (Polio IHR Emergency Committee), X9, TravelHealthPro\n"))
-        assertTrue(result(a, b).toSummaryText(trip, "en").contains("Sources: OMS (Polio IHR Emergency Committee), X9, TravelHealthPro\n"))
+        assertTrue(result(a, b).toSummaryText(trip, "en").contains("Sources: WHO (Polio IHR Emergency Committee), X9, TravelHealthPro\n"))
     }
 
     @Test

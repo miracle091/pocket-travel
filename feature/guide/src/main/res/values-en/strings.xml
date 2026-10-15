@@ -87,8 +87,8 @@
     <string name="vacc_screen_title">Vaccinations for your trip</string>
     <string name="vacc_card_open">Open vaccinations for your trip</string>
     <string name="vacc_card_route">Departure: %1$s, destination: %2$s</string>
-    <string name="vacc_card_required">%1$s: required</string>
-    <string name="vacc_card_required_exit">%1$s: required on exit</string>
+    <string name="vacc_card_required">%1$s: certificate required</string>
+    <string name="vacc_card_required_exit">%1$s: certificate required on exit</string>
     <string name="vacc_card_more">Vaccination information</string>
     <string name="vacc_choose_departure">Choose a departure country different from the destination to see the results</string>
     <string name="vacc_none_found">The app\'s data (checked on %1$s) shows no certificate required for this trip. This is not a guarantee: check the requirements</string>
@@ -128,12 +128,15 @@
     <string name="vacc_level_required_exit">Required on exit</string>
     <string name="vacc_level_encouraged">Encouraged, not mandatory</string>
     <string name="vacc_level_recommended">Recommended</string>
-    <string name="vacc_level_consider">To consider</string>
+    <string name="vacc_level_consider">Worth considering</string>
     <string name="vacc_level_below_age">Not required at the age given</string>
     <string name="vacc_reason_yf_all">Required of all arriving travelers</string>
     <string name="vacc_reason_from_risk">Arriving from a yellow fever risk country (%1$s)</string>
     <string name="vacc_reason_from_list">Arriving from a country for which the destination requires the certificate (%1$s)</string>
-    <string name="vacc_reason_stopover">%1$d-hour stopover (%2$s)</string>
+    <plurals name="vacc_reason_stopover">
+        <item quantity="one">%1$d-hour stopover (%2$s)</item>
+        <item quantity="other">%1$d-hour stopover (%2$s)</item>
+    </plurals>
     <string name="vacc_reason_stopover_unknown">Stopover of unknown length or over 12 hours (%1$s)</string>
     <string name="vacc_reason_yf_exit">Required when leaving the country (%1$s)</string>
     <string name="vacc_reason_yf_destination">Destination with yellow fever risk areas (%1$s)</string>
@@ -154,14 +157,20 @@
     <string name="vacc_polio_vaccine_ipv">IPV</string>
     <string name="vacc_min_age">From %1$d months of age</string>
     <string name="vacc_below_age">Not required under %1$d months of age</string>
-    <string name="vacc_days_before">At least %1$d days before departure</string>
-    <string name="vacc_validity_years">Valid for %1$d years</string>
+    <plurals name="vacc_days_before">
+        <item quantity="one">At least %1$d day before departure</item>
+        <item quantity="other">At least %1$d days before departure</item>
+    </plurals>
+    <plurals name="vacc_validity_years">
+        <item quantity="one">Valid for %1$d year</item>
+        <item quantity="other">Valid for %1$d years</item>
+    </plurals>
     <string name="vacc_sources">Sources</string>
     <string name="vacc_open_source">Open %1$s</string>
-    <string name="vacc_verified_on">Checked on %1$s</string>
+    <string name="vacc_verified_on">Data checked on %1$s</string>
     <string name="vacc_links_title">Official sources</string>
     <string name="vacc_link_travelhealthpro">Traveler health country pages from the UK health service (UKHSA)</string>
-    <string name="vacc_schedule_link">Vaccination schedule of the departure country, %1$s, as reported to WHO</string>
+    <string name="vacc_schedule_link">Vaccination schedule of the departure country (%1$s) as reported to WHO</string>
     <string name="vacc_vaccine_yellow_fever">Yellow fever</string>
     <string name="vacc_vaccine_polio">Polio</string>
     <string name="vacc_vaccine_menacwy">Meningococcal ACWY</string>
@@ -181,8 +190,8 @@
     <string name="weather_today">Today</string>
     <string name="weather_footer">%1$s · Weather data by Open-Meteo.com</string>
     <string name="weather_updated_today">Updated at %1$s</string>
-    <string name="weather_updated_on">Updated on %1$s</string>
-    <string name="weather_source_open">open Open-Meteo.com</string>
+    <string name="weather_updated_on">Last updated: %1$s</string>
+    <string name="weather_source_open">Open Open-Meteo.com</string>
     <string name="weather_refresh">Refresh the weather</string>
     <string name="weather_day_description">%1$s: %2$s, high %3$s, low %4$s</string>
     <string name="weather_rain_description">, rain %1$d%%</string>

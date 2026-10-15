@@ -77,11 +77,11 @@ fun VaccinationResult.toSummaryText(trip: Trip, language: String = "it"): String
         )
     }
 
-    val sources = items.flatMap { it.sources }.distinct().map(::vaccinationSourceName)
+    val sources = items.flatMap { it.sources }.distinct().map { vaccinationSourceName(it, en) }
     if (sources.isNotEmpty()) lines += pick("Fonti: ", "Sources: ") + sources.joinToString(", ")
     lines += pick(
-        "Verifica sempre i requisiti con l'ambasciata del paese di destinazione e con un centro di medicina dei viaggi, 4-6 settimane prima di partire.",
-        "Always check the requirements with the destination country's embassy and a travel health clinic, 4-6 weeks before you leave.",
+        "Verifica sempre i requisiti con l'ambasciata del paese di destinazione e con un centro di medicina dei viaggi, 4–6 settimane prima di partire.",
+        "Always check the requirements with the destination country's embassy and a travel health clinic, 4–6 weeks before you leave.",
     )
     return lines.joinToString("\n")
 }
@@ -91,7 +91,7 @@ private fun itemLine(item: VaccinationItem, en: Boolean, country: (String) -> St
     val name = vaccineName(item.vaccine, en)
     val where = item.country?.let(country).orEmpty()
     val reason = when (item.reason) {
-        VaccinationReason.YF_ENTRY_ALL -> pick("richiesto a tutti i viaggiatori in arrivo", "required of all arriving travellers")
+        VaccinationReason.YF_ENTRY_ALL -> pick("richiesto a tutti i viaggiatori in arrivo", "required of all arriving travelers")
         VaccinationReason.YF_ENTRY_FROM_RISK, VaccinationReason.YF_ENTRY_FROM_LIST -> when {
             item.transitHours != null -> pick("richiesto per lo scalo di ${item.transitHours} ore ($where)", "required because of the ${item.transitHours}-hour stopover ($where)")
             item.stopover -> pick("richiesto per lo scalo ($where)", "required because of the stopover ($where)")
@@ -114,7 +114,7 @@ private fun itemLine(item: VaccinationItem, en: Boolean, country: (String) -> St
         VaccinationReason.POLIO_ENTRY_UNLISTED -> pick(
             "la destinazione ($where) può chiedere la prova della vaccinazione a chi arriva da paesi in cui circola la polio; le fonti " +
                 "non dicono da quali paesi: verifica sul sito del ministero degli Esteri del tuo paese o con l'ambasciata",
-            "the destination ($where) may ask for proof of vaccination from travellers arriving from countries where polio is circulating; " +
+            "the destination ($where) may ask for proof of vaccination from travelers arriving from countries where polio is circulating; " +
                 "the sources do not say which countries: check your foreign ministry's travel advice or the embassy",
         )
         VaccinationReason.HAJJ_UMRAH -> pick("obbligatorio per Hajj e Umrah", "mandatory for Hajj and Umrah")

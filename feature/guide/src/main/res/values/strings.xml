@@ -72,7 +72,7 @@
     <string name="emergency_kind_consulate">Consolato</string>
     <string name="emergency_embassy_website">Apri il sito (%1$s)</string>
     <string name="emergency_embassy_email">Scrivi una email (%1$s)</string>
-    <string name="emergency_travel_advice_description">Consigli di viaggio e pagine sui paesi del ministero degli esteri del tuo paese</string>
+    <string name="emergency_travel_advice_description">Consigli di viaggio e pagine per paese pubblicati dal ministero degli esteri del tuo paese</string>
     <string name="emergency_travel_advice_fallback_description">Consigli di viaggio del governo britannico, in inglese: sicurezza e salute valgono per tutti, i requisiti d\'ingresso sono quelli per i cittadini britannici</string>
     <string name="emergency_travel_advice_open">Apri %1$s</string>
     <string name="guide_sources_title">Fonti</string>
@@ -87,14 +87,14 @@
     <string name="vacc_screen_title">Vaccinazioni per il viaggio</string>
     <string name="vacc_card_open">Apri le vaccinazioni per il viaggio</string>
     <string name="vacc_card_route">Partenza: %1$s, destinazione: %2$s</string>
-    <string name="vacc_card_required">%1$s: richiesto</string>
-    <string name="vacc_card_required_exit">%1$s: richiesto all\'uscita</string>
+    <string name="vacc_card_required">%1$s: certificato richiesto</string>
+    <string name="vacc_card_required_exit">%1$s: certificato richiesto all\'uscita</string>
     <string name="vacc_card_more">Informazioni sulle vaccinazioni</string>
     <string name="vacc_choose_departure">Scegli un paese di partenza diverso dalla destinazione per vedere i risultati</string>
-    <string name="vacc_none_found">Nei dati dell\'app (verificati il %1$s) nessun certificato risulta richiesto per questo viaggio. Non è una garanzia: verifica i requisiti</string>
+    <string name="vacc_none_found">Nei dati dell\'app (verificati in data %1$s) nessun certificato risulta richiesto per questo viaggio. Non è una garanzia: verifica i requisiti</string>
     <string name="vacc_none_found_no_date">Nei dati dell\'app nessun certificato risulta richiesto per questo viaggio. Non è una garanzia: verifica i requisiti</string>
     <string name="vacc_disclaimer_title">Informazioni generali</string>
-    <string name="vacc_disclaimer">Gli obblighi possono cambiare velocemente: verifica sempre con l\'ambasciata e le fonti ufficiali degli stati interessati</string>
+    <string name="vacc_disclaimer">Gli obblighi possono cambiare velocemente: verifica sempre con l\'ambasciata e le fonti ufficiali degli Stati interessati</string>
     <string name="vacc_disclaimer_doctor">Consulta un medico dalle 4 alle 6 settimane prima di partire</string>
     <string name="vacc_links_italian">In italiano</string>
     <string name="vacc_links_english">In inglese</string>
@@ -130,19 +130,22 @@
     <string name="vacc_level_recommended">Raccomandata</string>
     <string name="vacc_level_consider">Da valutare</string>
     <string name="vacc_level_below_age">Non richiesta per l\'età indicata</string>
-    <string name="vacc_reason_yf_all">Richiesto a tutti i viaggiatori in arrivo</string>
+    <string name="vacc_reason_yf_all">Richiesta a tutti i viaggiatori in arrivo</string>
     <string name="vacc_reason_from_risk">Arrivo da un paese a rischio di febbre gialla (%1$s)</string>
     <string name="vacc_reason_from_list">Arrivo da un paese per cui la destinazione richiede il certificato (%1$s)</string>
-    <string name="vacc_reason_stopover">Scalo di %1$d ore (%2$s)</string>
+    <plurals name="vacc_reason_stopover">
+        <item quantity="one">Scalo di %1$d ora (%2$s)</item>
+        <item quantity="other">Scalo di %1$d ore (%2$s)</item>
+    </plurals>
     <string name="vacc_reason_stopover_unknown">Scalo di durata non indicata o superiore a 12 ore (%1$s)</string>
-    <string name="vacc_reason_yf_exit">Richiesto all\'uscita dal paese (%1$s)</string>
+    <string name="vacc_reason_yf_exit">Richiesta all\'uscita dal paese (%1$s)</string>
     <string name="vacc_reason_yf_destination">Destinazione con aree a rischio di febbre gialla (%1$s)</string>
     <string name="vacc_reason_yf_destination_partial">Solo in alcune aree della destinazione (%1$s)</string>
     <string name="vacc_reason_polio_exit">Partenza da un paese in cui circola il poliovirus (%1$s), dopo un soggiorno di più di 4 settimane</string>
-    <string name="vacc_reason_polio_encouraged">Partenza da un paese in cui è stato rilevato poliovirus di tipo 2 derivato dal vaccino (%1$s)</string>
+    <string name="vacc_reason_polio_encouraged">Partenza da un paese in cui è stato rilevato il poliovirus di tipo 2 derivato dal vaccino (%1$s)</string>
     <string name="vacc_reason_polio_entry">Arrivo da un paese per cui la destinazione richiede la prova di vaccinazione antipolio (%1$s)</string>
     <string name="vacc_reason_polio_entry_unlisted">La destinazione (%1$s) può chiedere la prova di vaccinazione antipolio a chi arriva da paesi in cui circola la polio. Le fonti dell\'app non dicono da quali paesi: controlla la pagina della destinazione sul sito del ministero degli esteri del tuo paese</string>
-    <string name="vacc_reason_hajj">Obbligatorio per i pellegrini di Hajj e Umrah</string>
+    <string name="vacc_reason_hajj">Obbligatoria per i pellegrini di Hajj e Umrah</string>
     <string name="vacc_reason_destination_most">Raccomandata alla maggior parte dei viaggiatori verso la destinazione (%1$s)</string>
     <string name="vacc_reason_destination_some">Per alcuni viaggiatori verso la destinazione (%1$s), secondo durata, attività e zone</string>
     <string name="vacc_reason_routine">Verifica di essere in regola con il calendario vaccinale del tuo paese (per esempio morbillo, tetano, difterite, pertosse, polio)</string>
@@ -154,14 +157,20 @@
     <string name="vacc_polio_vaccine_ipv">IPV</string>
     <string name="vacc_min_age">Da %1$d mesi di età in su</string>
     <string name="vacc_below_age">Non richiesta sotto i %1$d mesi di età</string>
-    <string name="vacc_days_before">Almeno %1$d giorni prima della partenza</string>
-    <string name="vacc_validity_years">Validità: %1$d anni</string>
+    <plurals name="vacc_days_before">
+        <item quantity="one">Almeno %1$d giorno prima della partenza</item>
+        <item quantity="other">Almeno %1$d giorni prima della partenza</item>
+    </plurals>
+    <plurals name="vacc_validity_years">
+        <item quantity="one">Validità: %1$d anno</item>
+        <item quantity="other">Validità: %1$d anni</item>
+    </plurals>
     <string name="vacc_sources">Fonti</string>
     <string name="vacc_open_source">Apri %1$s</string>
-    <string name="vacc_verified_on">Verificato il %1$s</string>
+    <string name="vacc_verified_on">Dati verificati in data %1$s</string>
     <string name="vacc_links_title">Fonti ufficiali</string>
-    <string name="vacc_link_travelhealthpro">Pagine per paese sulla salute dei viaggiatori del servizio sanitario britannico (UKHSA)</string>
-    <string name="vacc_schedule_link">Calendario vaccinale del paese di partenza, %1$s, comunicato all\'OMS</string>
+    <string name="vacc_link_travelhealthpro">Pagine per paese del servizio sanitario britannico (UKHSA) sulla salute dei viaggiatori</string>
+    <string name="vacc_schedule_link">Calendario vaccinale del paese di partenza (%1$s) comunicato all\'OMS</string>
     <string name="vacc_vaccine_yellow_fever">Febbre gialla</string>
     <string name="vacc_vaccine_polio">Poliomielite</string>
     <string name="vacc_vaccine_menacwy">Meningococco ACWY</string>
@@ -179,10 +188,10 @@
     <!-- Riquadro meteo (WeatherCard): dati Open-Meteo, CC BY 4.0 -->
     <string name="weather_near_you">Vicino a te</string>
     <string name="weather_today">Oggi</string>
-    <string name="weather_footer">%1$s · Dati meteo Open-Meteo.com</string>
+    <string name="weather_footer">%1$s · Dati meteo di Open-Meteo.com</string>
     <string name="weather_updated_today">Aggiornato alle %1$s</string>
-    <string name="weather_updated_on">Aggiornato il %1$s</string>
-    <string name="weather_source_open">apri Open-Meteo.com</string>
+    <string name="weather_updated_on">Ultimo aggiornamento: %1$s</string>
+    <string name="weather_source_open">Apri Open-Meteo.com</string>
     <string name="weather_refresh">Aggiorna il meteo</string>
     <string name="weather_day_description">%1$s: %2$s, massima %3$s, minima %4$s</string>
     <string name="weather_rain_description">, pioggia %1$d%%</string>
