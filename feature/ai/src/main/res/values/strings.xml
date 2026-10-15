@@ -32,7 +32,7 @@
     <string name="ai_voice_listening">In ascolto</string>
     <string name="ai_voice_permission">Per dettare la domanda serve il permesso del microfono</string>
     <string name="ai_voice_no_speech">Nessuna parola riconosciuta</string>
-    <string name="ai_voice_language_downloading">Download della lingua in corso sul dispositivo. Riprova al termine</string>
+    <string name="ai_voice_language_download">Per il riconoscimento vocale serve la lingua sul dispositivo. Riprova dopo il download</string>
     <string name="ai_voice_language_unavailable">Riconoscimento vocale non disponibile sul dispositivo in questa lingua</string>
     <string name="ai_voice_error">Riconoscimento vocale non riuscito</string>
     <string name="ai_thinking">Elaborazione della risposta…</string>

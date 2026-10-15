@@ -24,8 +24,8 @@ enum class VoiceInputError {
     // Nessuna parola riconosciuta (silenzio o voce troppo bassa).
     NO_SPEECH,
 
-    // Il pacchetto della lingua manca: il telefono ne ha chiesto lo scaricamento.
-    LANGUAGE_DOWNLOADING,
+    // Il pacchetto della lingua manca: il telefono propone il download con la sua finestra, che si puo' anche annullare.
+    LANGUAGE_DOWNLOAD_OFFERED,
 
     // Il pacchetto della lingua manca e non si puo' chiedere (Android 12) o la lingua non c'e'.
     LANGUAGE_UNAVAILABLE,
@@ -98,7 +98,7 @@ class OnDeviceVoiceInput @Inject constructor(@ApplicationContext private val con
             // Da Android 13 il telefono mostra la sua finestra per scaricare il pacchetto della lingua.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && error == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE) {
                 recognizer.triggerModelDownload(intent)
-                VoiceInputError.LANGUAGE_DOWNLOADING
+                VoiceInputError.LANGUAGE_DOWNLOAD_OFFERED
             } else {
                 VoiceInputError.LANGUAGE_UNAVAILABLE
             }

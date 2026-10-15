@@ -81,7 +81,7 @@ private fun join(before: String, dictated: String) = if (before.isEmpty()) dicta
 @StringRes
 private fun messageFor(error: VoiceInputError): Int = when (error) {
     VoiceInputError.NO_SPEECH -> R.string.ai_voice_no_speech
-    VoiceInputError.LANGUAGE_DOWNLOADING -> R.string.ai_voice_language_downloading
+    VoiceInputError.LANGUAGE_DOWNLOAD_OFFERED -> R.string.ai_voice_language_download
     VoiceInputError.LANGUAGE_UNAVAILABLE -> R.string.ai_voice_language_unavailable
     VoiceInputError.OTHER -> R.string.ai_voice_error
 }

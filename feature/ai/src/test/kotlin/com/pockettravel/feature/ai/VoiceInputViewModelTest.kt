@@ -114,7 +114,7 @@ class VoiceInputViewModelTest {
     fun `gli errori diventano un messaggio e l'ascolto finisce`() = runTest(dispatcher) {
         val expected = mapOf(
             VoiceInputError.NO_SPEECH to R.string.ai_voice_no_speech,
-            VoiceInputError.LANGUAGE_DOWNLOADING to R.string.ai_voice_language_downloading,
+            VoiceInputError.LANGUAGE_DOWNLOAD_OFFERED to R.string.ai_voice_language_download,
             VoiceInputError.LANGUAGE_UNAVAILABLE to R.string.ai_voice_language_unavailable,
             VoiceInputError.OTHER to R.string.ai_voice_error,
         )

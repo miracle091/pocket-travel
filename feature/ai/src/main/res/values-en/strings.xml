@@ -32,7 +32,7 @@
     <string name="ai_voice_listening">Listening</string>
     <string name="ai_voice_permission">Dictating the question needs the microphone permission</string>
     <string name="ai_voice_no_speech">No words recognized</string>
-    <string name="ai_voice_language_downloading">Downloading the language on the device. Try again when it finishes</string>
+    <string name="ai_voice_language_download">Voice recognition needs the language on the device. Try again after the download</string>
     <string name="ai_voice_language_unavailable">Voice recognition is not available on the device in this language</string>
     <string name="ai_voice_error">Voice recognition failed</string>
     <string name="ai_thinking">Generating the answer…</string>
