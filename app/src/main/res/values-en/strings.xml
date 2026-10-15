@@ -46,7 +46,7 @@
     <string name="package_map_light_detail">Less detailed map that takes about 40% less space</string>
     <string name="package_routing_for">Road network for</string>
     <string name="package_routing_car">Car</string>
-    <string name="package_routing_bike_foot">Cycling and walking</string>
+    <string name="package_routing_bike_foot">Bike &amp; walk</string>
     <string name="package_routing_all">All</string>
     <string name="package_routing_bike_foot_detail">All roads and paths: the complete road network, which also works for cars</string>
     <string name="package_routing_all_detail">All roads and paths, for every travel mode</string>
