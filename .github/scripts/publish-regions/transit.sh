@@ -23,10 +23,38 @@ mkdir -p "$OUT" "$RUNNER_TEMP/fragments" "$RUNNER_TEMP/transit-index"
 FAILED=()
 PUBLISHED_ARG=""
 [ ! -s "$PUBLISHED" ] || PUBLISHED_ARG="$PUBLISHED"
-# Gli id sono parole senza spazi; un ciclo "while read" darebbe a build-transit.sh lo stdin del ciclo.
-# shellcheck disable=SC2013
-for id in $(awk -F'\t' '$0 !~ /^#/ && NF >= 5 { print $1 }' tools/data-pipeline/transit-feeds.tsv); do
+# Download in parallelo e conversione una rete alla volta, appena il suo feed e' arrivato: il download vale circa 60%
+# del job (at-toscana da solo ~15 minuti, server lento senza Range), la conversione il resto. I download sono divisi per
+# host: le reti dello stesso host si scaricano una dopo l'altra (al massimo un download per host: Mobility Database,
+# BODS e gli altri non ricevono raffiche), al massimo 4 host insieme, at-toscana per primo. Un download fallito qui
+# si riprova nella conversione (build-transit.sh senza il feed in TRANSIT_PREFETCH_DIR lo scarica da se').
+FEEDS_TSV=tools/data-pipeline/transit-feeds.tsv
+PREFETCH_DIR="$RUNNER_TEMP/transit-feeds"
+LOG_DIR="$RUNNER_TEMP/transit-download-logs"
+DONE_LIST="$LOG_DIR/done.txt"
+mkdir -p "$PREFETCH_DIR" "$LOG_DIR"
+: > "$DONE_LIST"
+export TRANSIT_PREFETCH_DIR="$PREFETCH_DIR"
+mapfile -t FEED_IDS < <(awk -F'\t' '$0 !~ /^#/ && NF >= 5 { print $1 }' "$FEEDS_TSV")
+# Una riga per host con i suoi id: prima il gruppo di at-toscana, poi i gruppi piu' numerosi.
+awk -F'\t' '$0 !~ /^#/ && NF >= 5 {
+    host = ($7 == "" ? "files.mobilitydatabase.org" : $7); sub(/^[a-z]+:\/\//, "", host); sub(/[\/#].*/, "", host)
+    ids[host] = ids[host] " " $1; n[host]++; if ($1 == "at-toscana") first = host }
+  END { for (h in ids) print (h == first ? 999999 : n[h]) "\t" ids[h] }' "$FEEDS_TSV" \
+  | sort -t$'\t' -k1,1nr | cut -f2 > "$LOG_DIR/groups.txt"
+# shellcheck disable=SC2016 # lo script di bash -c riceve i suoi argomenti da xargs
+xargs -P 4 -L 1 bash -c 'for id in "${@:3}"; do
+    tools/data-pipeline/scripts/build-transit.sh --download-only "$id" "$1" > "$2/$id.log" 2>&1 || true
+    echo "$id" >> "$2/done.txt"
+  done' _ "$PREFETCH_DIR" "$LOG_DIR" < "$LOG_DIR/groups.txt" &
+DOWNLOADS_PID=$!
+
+declare -A BUILT=()
+build_feed() {
+  local id="$1"
+  BUILT[$id]=1
   echo "::group::$id"
+  [ ! -s "$LOG_DIR/$id.log" ] || cat "$LOG_DIR/$id.log"
   if ! tools/data-pipeline/scripts/build-transit.sh "$id" "$VERSION" \
     "https://github.com/$GITHUB_REPOSITORY/releases/download/transit-feeds" "$OUT" "$PUBLISHED_ARG"; then
     echo "::warning::rete $id non costruita: resta la voce gia' pubblicata, se c'e'"
@@ -34,6 +62,26 @@ for id in $(awk -F'\t' '$0 !~ /^#/ && NF >= 5 { print $1 }' tools/data-pipeline/
     [ ! -s "$PUBLISHED" ] || jq -c --arg id "$id" '.feeds[]? | select(.id == $id)' "$PUBLISHED" >> "$OUT/transit-entries.jsonl"
   fi
   echo "::endgroup::"
+}
+
+# Conversione nell'ordine in cui i download finiscono (l'ordine delle voci non conta: transit.json le ordina per id).
+# done.txt si legge per indice, cosi' build-transit.sh non riceve lo stdin del ciclo.
+next=0
+while true; do
+  mapfile -t DONE_IDS < "$DONE_LIST"
+  if [ "$next" -lt "${#DONE_IDS[@]}" ]; then
+    build_feed "${DONE_IDS[$next]}"
+    next=$((next + 1))
+  elif kill -0 "$DOWNLOADS_PID" 2>/dev/null; then
+    sleep 2
+  elif [ "$(wc -l < "$DONE_LIST")" -le "$next" ]; then
+    break
+  fi
+done
+wait "$DOWNLOADS_PID" || true
+# Reti senza download in parallelo (xargs interrotto): build-transit.sh le scarica da se'.
+for id in "${FEED_IDS[@]}"; do
+  [ -n "${BUILT[$id]:-}" ] || build_feed "$id"
 done
 shopt -s nullglob
 ASSETS=("$OUT"/*--transit.db "$OUT"/*--transit.db.xz)

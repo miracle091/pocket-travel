@@ -897,14 +897,16 @@ def city_rows_of(cache, region, with_wikipedia, lang="it"):
     """Sezioni delle citta' nell'ordine di import di un cities.db della pipeline: per citta', Wikivoyage poi Wikipedia."""
     sfx = LANGS[lang]["suffix"]
     rows = defaultdict(list)
-    for row in sqlite3.connect(cache / f"{region}.cities{sfx}.db").execute("SELECT city, category, title, body, sourceUrl FROM city_sections"):
-        if with_wikipedia or row[1] not in WIKI:
-            rows[row[0]].append(row)
+    with closing(sqlite3.connect(cache / f"{region}.cities{sfx}.db")) as db:
+        for row in db.execute("SELECT city, category, title, body, sourceUrl FROM city_sections"):
+            if with_wikipedia or row[1] not in WIKI:
+                rows[row[0]].append(row)
     wp_db = cache / f"{region}.wp{sfx}.db"
     if with_wikipedia and wp_db.exists():
-        for row in sqlite3.connect(wp_db).execute("SELECT city, category, title, body, sourceUrl FROM city_sections"):
-            if row[0] in rows:
-                rows[row[0]].append(row)
+        with closing(sqlite3.connect(wp_db)) as db:
+            for row in db.execute("SELECT city, category, title, body, sourceUrl FROM city_sections"):
+                if row[0] in rows:
+                    rows[row[0]].append(row)
     return [r for city_rows in rows.values() for r in city_rows]
 
 

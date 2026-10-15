@@ -12,6 +12,13 @@ on:
 permissions:
   contents: read
 
+# git legge la configurazione anche dall'ambiente: niente suggerimento "Using 'master' as the name for the initial
+# branch" in ogni checkout.
+env:
+  GIT_CONFIG_COUNT: 1
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
 jobs:
   sync:
     runs-on: ubuntu-24.04

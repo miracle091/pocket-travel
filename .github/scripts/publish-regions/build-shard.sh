@@ -94,10 +94,10 @@ BUDGET_SECONDS=$((TIME_BUDGET_MINUTES * 60 - ($(date +%s) - JOB_START)))
 DEFERRED_REGIONS=()
 startedRegions=0
 
-# Citta' delle regioni: un solo passaggio sul dump di
-# Wikivoyage IT per l'intero shard (build-cities-dump.sh), prima del giro per regione qui
-# sotto - mai fatale, se fallisce le regioni di questa run restano senza citta' nuove
-# (build-cities.sh, piu' sotto, tiene la voce gia' pubblicata).
+# Citta' delle regioni: un solo passaggio sui dump di Wikivoyage IT ed EN per l'intero shard (build-cities-dump.sh,
+# di solito ~6 minuti con le richieste a Wikidata e Wikipedia), in sottofondo mentre parte la prima regione: il primo
+# build-cities.sh lo aspetta (wait_cities_dump). Mai fatale: se fallisce le regioni di questa run restano senza citta'
+# nuove (build-cities.sh tiene la voce gia' pubblicata).
 CITIES_REGIONS_TSV="$RUNNER_TEMP/cities-regions.tsv"
 : > "$CITIES_REGIONS_TSV"
 for spec in "${ALL_REGIONS[@]}"; do
@@ -109,12 +109,25 @@ for spec in "${ALL_REGIONS[@]}"; do
   done
 done
 CITIES_JSONL_DIR="$RUNNER_TEMP/cities-jsonl"
+CITIES_DUMP_LOG="$RUNNER_TEMP/cities-dump.log"
 mkdir -p "$CITIES_JSONL_DIR"
-tools/data-pipeline/scripts/build-cities-dump.sh "$CITIES_REGIONS_TSV" "$CITIES_JSONL_DIR" \
-  || echo "::warning::dump citta' non generato per questo shard, regioni senza citta' nuove"
-# Citta' in inglese (voce "citiesEn"): dump di Wikivoyage EN, stessa cartella (file .cities-en.jsonl).
-tools/data-pipeline/scripts/build-cities-dump.sh "$CITIES_REGIONS_TSV" "$CITIES_JSONL_DIR" en \
-  || echo "::warning::dump citta' EN non generato per questo shard, regioni senza citta' inglesi nuove"
+(
+  tools/data-pipeline/scripts/build-cities-dump.sh "$CITIES_REGIONS_TSV" "$CITIES_JSONL_DIR" \
+    || echo "::warning::dump citta' non generato per questo shard, regioni senza citta' nuove"
+  # Citta' in inglese (voce "citiesEn"): dump di Wikivoyage EN, stessa cartella (file .cities-en.jsonl).
+  tools/data-pipeline/scripts/build-cities-dump.sh "$CITIES_REGIONS_TSV" "$CITIES_JSONL_DIR" en \
+    || echo "::warning::dump citta' EN non generato per questo shard, regioni senza citta' inglesi nuove"
+) > "$CITIES_DUMP_LOG" 2>&1 &
+CITIES_DUMP_PID=$!
+# Aspetta il dump delle citta' (solo la prima volta) e ne mostra il log.
+wait_cities_dump() {
+  [ -n "$CITIES_DUMP_PID" ] || return 0
+  local start=$SECONDS
+  wait "$CITIES_DUMP_PID" || true
+  CITIES_DUMP_PID=""
+  echo "-- dump delle citta' dello shard (in sottofondo, atteso $((SECONDS - start)) s):"
+  cat "$CITIES_DUMP_LOG"
+}
 
 # Prima le regioni del giorno (nell'ordine di regions.sh), poi la coda della quota adattiva.
 ORDERED_REGIONS=()
@@ -149,6 +162,10 @@ for regionId in "${ORDERED_REGIONS[@]}"; do
     tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
     "$minLon" "$minLat" "$maxLon" "$maxLat" "$RELEASE_BASE_URL" "$regionOut" \
     "$PUBLISHED_MANIFEST_URL"; then
+    # L'attesa del dump non conta nel tempo della regione (region-timings.tsv pesa gli shard delle prossime run).
+    waitStart=$SECONDS
+    wait_cities_dump
+    regionStart=$((regionStart + SECONDS - waitStart))
     # Citta' (facoltative, mai fatali): aggiunge la voce "cities" al frammento e, se il
     # dump e' stato estratto per questa regione (vedi CITIES_JSONL_DIR sopra) e produce
     # sezioni, lascia cities.db.xz da caricare.
@@ -268,6 +285,7 @@ for regionId in "${ORDERED_REGIONS[@]}"; do
   echo "::endgroup::"
 done
 
+wait_cities_dump
 # Regioni fallite con il motivo: la prima continuazione le riprova una volta (job "publish").
 for idx in "${!FAILED_REGIONS[@]}"; do
   printf '%s\t%s\n' "${FAILED_REGIONS[$idx]}" "${FAILED_REASONS[$idx]}" >> "$RUNNER_TEMP/fragments/failed-$SHARD.txt"

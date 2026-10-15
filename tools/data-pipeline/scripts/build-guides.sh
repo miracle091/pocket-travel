@@ -39,7 +39,10 @@
 # file> per l'italiana; GUIDES_TRANSLATE_SECONDS e' il tempo massimo di traduzione della passata. Senza o se qualcosa
 # non riesce, guide come prima.
 #
-# Richiede: curl, jq (solo se si passa publishedManifestUrl), xz, python3, gradle wrapper dalla root del repo.
+# GUIDES_PAGE_CACHE=<cartella>, la stessa nelle due passate della stessa run: la passata "en" vi lascia le pagine
+# Wikivoyage italiane e inglesi che scarica, e quella italiana le riusa invece di chiederle di nuovo a Wikimedia.
+#
+# Richiede: curl, jq, xz, python3, gradle wrapper dalla root del repo.
 set -euo pipefail
 
 if [ "$#" -lt 3 ] || [ "$#" -gt 5 ]; then
@@ -75,6 +78,28 @@ REGIONS_TSV="$WORKDIR/regions.tsv"
 REGIONS_IT_TSV="$WORKDIR/regions-it.tsv"
 : > "$REGIONS_IT_TSV"
 FAILED=0
+PAGE_CACHE="${GUIDES_PAGE_CACHE:-}"
+# save_page <nome> <file> <url>: pagina scaricata, per la passata dopo. cached_page <nome> <file>: la copia in <file> e
+# stampa l'url, 1 se non c'e'.
+save_page() {
+  [ -n "$PAGE_CACHE" ] || return 0
+  mkdir -p "$PAGE_CACHE"
+  cp "$2" "$PAGE_CACHE/$1.txt"
+  printf '%s' "$3" > "$PAGE_CACHE/$1.url"
+}
+cached_page() {
+  [ -n "$PAGE_CACHE" ] && [ -s "$PAGE_CACHE/$1.txt" ] && [ -s "$PAGE_CACHE/$1.url" ] || return 1
+  cp "$PAGE_CACHE/$1.txt" "$2"
+  cat "$PAGE_CACHE/$1.url"
+}
+# Titoli italiani delle pagine non ancora in cache, a gruppi di 50 (prefetch_it_wikivoyage_titles in lib.sh).
+TITLES_TO_RESOLVE=()
+for spec in "${ALL_REGIONS[@]}"; do
+  IFS='|' read -r regionId _ _ _ _ _ wikiTitle _ <<< "$spec"
+  [ -n "$PAGE_CACHE" ] && [ -s "$PAGE_CACHE/$regionId.it.url" ] && continue
+  TITLES_TO_RESOLVE+=("$wikiTitle")
+done
+prefetch_it_wikivoyage_titles "${TITLES_TO_RESOLVE[@]}"
 for spec in "${ALL_REGIONS[@]}"; do
   IFS='|' read -r regionId _ _ _ _ _ wikiTitle _ <<< "$spec"
   dump="$WORKDIR/$regionId.txt"
@@ -82,7 +107,15 @@ for spec in "${ALL_REGIONS[@]}"; do
     # Pagina inglese per le sezioni, quella italiana solo per i fatti rapidi (vedi englishQuickFactsSection).
     dumpIt="$WORKDIR/$regionId.it.txt"
     if sourceUrl="$(fetch_wikivoyage_en_dump "$wikiTitle" "$dump")"; then
-      sourceUrlIt="$(fetch_wikivoyage_dump "$wikiTitle" "$dumpIt")" || { : > "$dumpIt"; sourceUrlIt=""; }
+      save_page "$regionId.en" "$dump" "$sourceUrl"
+      if sourceUrlIt="$(fetch_wikivoyage_dump "$wikiTitle" "$dumpIt")"; then
+        # Solo una pagina italiana vera: il ripiego sull'inglese (pagina IT assente o non scaricata) la passata
+        # italiana lo riprova da se'.
+        [[ "$sourceUrlIt" != https://it.* ]] || save_page "$regionId.it" "$dumpIt" "$sourceUrlIt"
+      else
+        : > "$dumpIt"
+        sourceUrlIt=""
+      fi
       # La stessa pagina italiana, per la guida italiana "semplice" che serve a tradurre l'inglese povero (sezione 3a).
       printf '%s\t%s\t%s\n' "$regionId" "$(winpath "$dumpIt")" "$sourceUrlIt" >> "$REGIONS_IT_TSV"
       printf '%s\t%s\t%s\t%s\n' "$regionId" "$(winpath "$dump")" "$sourceUrl" "$(winpath "$dumpIt")" >> "$REGIONS_TSV"
@@ -93,13 +126,13 @@ for spec in "${ALL_REGIONS[@]}"; do
     fi
     continue
   fi
-  if sourceUrl="$(fetch_wikivoyage_dump "$wikiTitle" "$dump")"; then
+  if sourceUrl="$(cached_page "$regionId.it" "$dump" || fetch_wikivoyage_dump "$wikiTitle" "$dump")"; then
     # Pagina italiana molto corta (una vera pagina paese e' 20-130 KB; la Siberia, solo titoli, 4
     # KB): si scarica anche quella inglese, e generateGuides la usa se l'italiana non da' sezioni.
     # Solo sotto soglia, per non raddoppiare le richieste a Wikimedia.
     dumpEn="$WORKDIR/$regionId.en.txt"
     if [[ "$sourceUrl" == https://it.* ]] && [ "$(wc -c < "$dump")" -lt 8000 ] \
-      && sourceUrlEn="$(fetch_wikivoyage_en_dump "$wikiTitle" "$dumpEn")"; then
+      && sourceUrlEn="$(cached_page "$regionId.en" "$dumpEn" || fetch_wikivoyage_en_dump "$wikiTitle" "$dumpEn")"; then
       printf '%s\t%s\t%s\t%s\t%s\n' "$regionId" "$(winpath "$dump")" "$sourceUrl" "$(winpath "$dumpEn")" "$sourceUrlEn" >> "$REGIONS_TSV"
     else
       printf '%s\t%s\t%s\n' "$regionId" "$(winpath "$dump")" "$sourceUrl" >> "$REGIONS_TSV"

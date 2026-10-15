@@ -8,6 +8,13 @@ on:
 permissions:
   contents: read
 
+# git legge la configurazione anche dall'ambiente: niente suggerimento "Using 'master' as the name for the initial
+# branch" in ogni checkout.
+env:
+  GIT_CONFIG_COUNT: 1
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
 # Un nuovo push sulla stessa PR annulla la run precedente; su main ogni push completa la sua.
 concurrency:
   group: android-ci-${{ github.event.pull_request.number || github.sha }}
@@ -67,12 +74,21 @@ jobs:
 
       - run: ./gradlew assembleDebug lint detekt testDebugUnitTest :core:poi:test :tools:data-pipeline:content:test --no-daemon
 
-      # Tutti i test Python della pipeline: un test nuovo (test_*.py) viene eseguito senza toccare il workflow.
+      # Tutti i test Python della pipeline e degli script dei workflow: un test nuovo (test_*.py) viene eseguito senza
+      # toccare il workflow. Un file o una connessione lasciati aperti (ResourceWarning) fanno fallire il passo: Python li
+      # segnala solo come avviso, anche con -W error.
       - name: Test Python della pipeline
         shell: bash
         run: |
           set -e
-          for t in tools/data-pipeline/scripts/test_*.py .github/scripts/test_check_dependencies.py; do echo "== $t"; python3 "$t"; done
+          for t in tools/data-pipeline/scripts/test_*.py .github/scripts/test_*.py; do
+            echo "== $t"
+            python3 -W always::ResourceWarning "$t" 2>&1 | tee "$RUNNER_TEMP/python-test.log"
+            if grep -q ResourceWarning "$RUNNER_TEMP/python-test.log"; then
+              echo "::error::$t lascia file o connessioni aperti (ResourceWarning)"
+              exit 1
+            fi
+          done
 
       # Vulnerabilita' note (OSV) nelle dipendenze risolte di app e pipeline: un errore fa fallire il job. Le
       # versioni piu' nuove sono solo note (::notice::); se OSV o i repository non rispondono e' un avviso.
@@ -159,7 +175,8 @@ jobs:
         with:
           cache-read-only: true
 
-      # ccache per llama.cpp, come nel job "build" (stessa chiave: gli oggetti sono gli stessi).
+      # ccache per llama.cpp, come nel job "build" (stessa chiave: gli oggetti sono gli stessi), in sola lettura: la
+      # salva solo il job "build" (due job sulla stessa chiave: "Unable to reserve cache" a ogni run).
       - name: Installa ccache
         continue-on-error: true
         shell: bash
@@ -169,11 +186,20 @@ jobs:
 
       - name: Cache di ccache per llama.cpp
         continue-on-error: true
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /home/runner/.cache/ccache
           key: ccache-llama-${{ hashFiles('third-party/llama-cpp/**', 'third-party/patches/llama-cpp/**', 'feature/ai/src/main/cpp/**', 'feature/ai/build.gradle.kts') }}
           restore-keys: ccache-llama-
+
+      # Immagine di sistema dell'emulatore (~1,3 GB): senza cache sdkmanager la scarica a ogni run (~80 s). La chiave e'
+      # fissa: va cambiata insieme ad api-level, target o arch qui sotto.
+      - name: Cache dell'immagine di sistema dell'emulatore
+        continue-on-error: true
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /usr/local/lib/android/sdk/system-images/android-34/google_apis/x86_64
+          key: android-system-image-34-google_apis-x86_64
 
       # Accelerazione hardware dell'emulatore x86_64 sui runner Linux.
       - name: Abilita KVM

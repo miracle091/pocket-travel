@@ -52,6 +52,11 @@ configurations.configureEach {
 
 val pipelineRoot: File = projectDir.parentFile
 
+// protobuf-java (dipendenza di planetiler) usa sun.misc.Unsafe, che dal JDK 24 stampa un warning a ogni avvio; nessuna
+// versione ne fa a meno. L'opzione esiste dal JDK 23: con un JDK piu' vecchio non si passa.
+val unsafeMemoryAccessArgs: List<String> =
+    if (JavaVersion.current() >= JavaVersion.VERSION_23) listOf("--sun-misc-unsafe-memory-access=allow") else emptyList()
+
 fun registerPipelineTask(name: String, mainClass: String, maxHeap: String? = null, usesSqlite: Boolean = false) {
     tasks.register<JavaExec>(name) {
         group = "data-pipeline"
@@ -63,6 +68,7 @@ fun registerPipelineTask(name: String, mainClass: String, maxHeap: String? = nul
         // un "restricted method" che stampa un warning (bloccato del tutto in una release
         // futura) a meno di dichiarare esplicitamente l'accesso nativo per questo modulo.
         if (usesSqlite) jvmArgs("--enable-native-access=ALL-UNNAMED")
+        jvmArgs(unsafeMemoryAccessArgs)
     }
 }
 
@@ -82,11 +88,13 @@ registerPipelineTask("mapFingerprint", "com.pockettravel.pipeline.MapFingerprint
 registerPipelineTask("mergeManifests", "com.pockettravel.pipeline.MergeManifestsKt")
 registerPipelineTask("validateManifest", "com.pockettravel.pipeline.ValidateManifestKt")
 registerPipelineTask("selectFragments", "com.pockettravel.pipeline.SelectFragmentsKt")
-registerPipelineTask("generateTransit", "com.pockettravel.pipeline.GenerateTransitKt", maxHeap = "2g")
+registerPipelineTask("generateTransit", "com.pockettravel.pipeline.GenerateTransitKt", maxHeap = "2g", usesSqlite = true)
 registerPipelineTask("poiCategoryReport", "com.pockettravel.pipeline.PoiCategoryReportKt", usesSqlite = true)
 
 tasks.test {
     workingDir = pipelineRoot
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    jvmArgs(unsafeMemoryAccessArgs)
 }
 
 // Java e classpath per lanciare CleanWikitextKt da generate_sft_dataset.py (una riga ciascuno): il processo resta

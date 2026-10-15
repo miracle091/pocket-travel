@@ -38,6 +38,13 @@ on:
 permissions:
   contents: read
 
+# git legge la configurazione anche dall'ambiente: niente suggerimento "Using 'master' as the name for the initial
+# branch" in ogni checkout.
+env:
+  GIT_CONFIG_COUNT: 1
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
 jobs:
   check-version-bump:
     runs-on: ubuntu-24.04
@@ -93,6 +100,9 @@ jobs:
     concurrency:
       group: publish-apk
       cancel-in-progress: false
+    env:
+      CCACHE_DIR: /home/runner/.cache/ccache
+      CCACHE_MAXSIZE: 400M
     steps:
       # Niente credenziali git nel checkout: il job non fa operazioni git autenticate e il token di
       # scrittura non deve restare leggibile dal codice di build.
@@ -111,6 +121,24 @@ jobs:
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
           cache-read-only: true
+
+      # Oggetti di llama.cpp gia' compilati dal job "build" di android-ci.yml (stessa chiave, stessa versione dell'NDK),
+      # in sola lettura: senza, llama.cpp si compila da zero (~3,5 minuti). Gli oggetti sono quelli che darebbe la
+      # compilazione da zero; la cache la scrive solo android-ci su main. Mai bloccante.
+      - name: Installa ccache
+        continue-on-error: true
+        shell: bash
+        run: |
+          sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq ccache
+          echo "CCACHE_COMPILERCHECK=string:ndk-$(sed -n 's/^ *ndkVersion = "\(.*\)"/\1/p' feature/ai/build.gradle.kts)" >> "$GITHUB_ENV"
+
+      - name: Cache di ccache per llama.cpp
+        continue-on-error: true
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /home/runner/.cache/ccache
+          key: ccache-llama-${{ hashFiles('third-party/llama-cpp/**', 'third-party/patches/llama-cpp/**', 'feature/ai/src/main/cpp/**', 'feature/ai/build.gradle.kts') }}
+          restore-keys: ccache-llama-
 
       # Prima di compilare: una release con impronte dei modelli diverse dai file su Hugging Face
       # rifiuterebbe i download, quindi il job si ferma qui.

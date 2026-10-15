@@ -25,9 +25,12 @@ testa a `scripts/build-region.sh`).
 | `overture-check` | Controllo Overture | lista bianca delle fonti Overture, una volta per rilascio; esito in una issue |
 | `vaccinations-check` | Controllo vaccinazioni | deriva dei dati vaccinali, il lunedì e nelle run manuali |
 | `publish` | Pubblicazione | unisce i frammenti di catalogo al `manifest.json` pubblicato, lo firma e fa il deploy su Pages |
+| `cleanup` | Pulizia degli asset | toglie dalle release gli asset che il catalogo nuovo e il precedente non referenziano più |
 
 Gli script lunghi dei job stanno in `.github/scripts/publish-regions/`; la preparazione comune (JDK, Gradle con la
-cache in sola lettura, go-pmtiles, duckdb, osmium) è l'azione `.github/actions/setup-pipeline`.
+cache in sola lettura, go-pmtiles, duckdb, osmium) è l'azione `.github/actions/setup-pipeline`. Le cache di Actions
+superate (dump, frasi tradotte, Gradle, ccache) le toglie ogni domenica `.github/workflows/cache-cleanup.yml`: di ogni
+famiglia di chiavi restano le 2 voci usate più di recente; a mano, con `dry_run`, elenca senza cancellare.
 
 **Calendario.** Sette righe `schedule` (una al giorno) rigenerano il bucket del giorno, definito in
 `scripts/weekly-schedule.sh` (generato da `generate-weekly-schedule.sh`): la cadenza è settimanale perché i segmenti
@@ -45,13 +48,25 @@ continuazione automatica.
 
 **Run sovrapposte.** Il workflow non ha `concurrency`: un gruppo tiene al massimo una run in attesa, e una run
 manuale lanciata durante un'altra farebbe annullare il bucket del giorno dopo rimasto in coda. Solo `publish` sta
-nel gruppo `pages`. Gli asset di run diverse non si scontrano (versione unica per run e tentativo) e la pulizia non
-tocca gli asset caricati da meno di 24 ore.
+nel gruppo `pages` e solo `cleanup` nel gruppo `asset-cleanup` (una pulizia annullata in coda non perde nulla: la
+successiva toglie gli stessi asset). Gli asset di run diverse non si scontrano (versione unica per run e tentativo) e
+la pulizia non tocca gli asset caricati da meno di 24 ore.
 
 **Permessi.** A livello di workflow solo `contents: read`; `contents: write` ai job che creano release o caricano
 asset, `pages` e `id-token` solo a `publish`. I checkout dei job che scrivono sulle release hanno
 `persist-credentials: false`, così il token di scrittura non resta nella configurazione git leggibile dal codice di
 build.
+
+**Rumore noto nei log.** Messaggi che non dipendono dal progetto e non vanno inseguiti:
+
+- `DeprecationWarning: Buffer() is deprecated` (Node, nel job `publish`): da `actions/download-artifact` 8.0.2,
+  l'ultima versione;
+- `The Configuration.setVisible(boolean) method has been deprecated` (Gradle, in Android CI): dal plugin Android
+  (AGP 9.4.1, l'ultima stabile), non dagli script del progetto;
+- emulatore su un runner senza schermo (Android CI, `device-tests`): `Could not open libX11.so`, `libX11-xcb.so`,
+  `Feature QuickbootFileBacked is disabled`, `Failed to process .ini file`, `Netsim Wifi ... is gone`,
+  `Emulator client has not yet been configured`, `cannnot unmap ptr`;
+- `if-no-files-found: warn` e `digest-mismatch: error`: parametri delle action stampati nel log, non avvisi.
 
 ## Firma dei file JSON
 

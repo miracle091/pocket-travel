@@ -52,6 +52,8 @@ fi
 echo "-- citta': risolvo la pagina IT Wikivoyage di ogni regione..."
 RESOLVED_TSV="$WORKDIR/resolved.tsv"
 : > "$RESOLVED_TSV"
+mapfile -t WIKI_TITLES < <(cut -f2 "$REGIONS_TSV")
+prefetch_it_wikivoyage_titles "${WIKI_TITLES[@]}"
 while IFS=$'\t' read -r regionId wikiTitle; do
   [ -n "$regionId" ] || continue
   itTitle="$(resolve_it_wikivoyage_title "$wikiTitle")"

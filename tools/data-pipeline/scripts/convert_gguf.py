@@ -65,7 +65,8 @@ def write_calibration(path):
     """Testo di calibrazione per l'imatrix: prompt e risposte del dataset, formattati come a runtime
     (ChatML di ai_chat.cpp), solo regioni di training: l'imatrix pesa i canali che il modello usa davvero
     per questo compito (italiano/inglese, contesto Wikivoyage, rifiuti) invece di un testo generico."""
-    rows = [json.loads(l) for l in open(SFT_DIR / run_dataset(a.merged), encoding="utf-8")]
+    with open(SFT_DIR / run_dataset(a.merged), encoding="utf-8") as f:
+        rows = [json.loads(l) for l in f]
     rows = [r for r in rows if r["region"] not in TEST_REGIONS]
     template = a.merged / "chat_template.jinja"
     thinking = template.exists() and "enable_thinking" in template.read_text(encoding="utf-8")

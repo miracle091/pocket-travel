@@ -129,6 +129,11 @@ class ValoriNonValidiTest(unittest.TestCase):
         self.assertEqual(self.rows["Q3"][10], "info@example.org")
 
 
+def open_lines(path):
+    with open(path, encoding="utf-8") as f:
+        return f.read().splitlines()
+
+
 class MainTest(unittest.TestCase):
     def test_scrittura_atomica_senza_file_temporaneo(self):
         out = os.path.join(tempfile.mkdtemp(), "missions.tsv")
@@ -136,7 +141,7 @@ class MainTest(unittest.TestCase):
         with mock.patch.object(wikidata_missions, "raccogli", return_value=righe), \
                 mock.patch.object(sys, "argv", ["wikidata_missions.py", "--out", out]):
             self.assertEqual(wikidata_missions.main(), 0)
-        self.assertEqual(len(open(out, encoding="utf-8").read().splitlines()), wikidata_missions.MIN_ROWS)
+        self.assertEqual(len(open_lines(out)), wikidata_missions.MIN_ROWS)
         self.assertFalse(os.path.exists(out + ".tmp"))
 
     def test_troppe_poche_righe_esce_con_1_senza_scrivere(self):

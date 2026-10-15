@@ -70,6 +70,11 @@ defaults:
 env:
   # Unica per tutta la run, riusata dai job "build" e "publish".
   PAGES_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+  # git legge la configurazione anche dall'ambiente: niente suggerimento "Using 'master' as the name for the initial
+  # branch" in ogni checkout.
+  GIT_CONFIG_COUNT: 1
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
 
 jobs:
   # Elenco delle regioni della run (bucket del giorno, input manuale o tutte), diviso nei 3 shard del job "build".
@@ -145,7 +150,10 @@ jobs:
       # GUIDES_TRANSLATE_SECONDS: tempo massimo di traduzione di ciascuna passata (60 minuti per l'italiano, che parte
       # da molto piu' testo inglese da tradurre, 15 per l'inglese), cosi' una direzione non toglie tempo all'altra; il
       # job pubblica comunque quello che e' pronto, il resto segue nelle run dopo grazie alla cache.
+      # GUIDES_PAGE_CACHE: la passata italiana riusa le pagine Wikivoyage scaricate da quella inglese.
       - name: Genera guides.db e guides-en.db
+        env:
+          GUIDES_PAGE_CACHE: ${{ runner.temp }}/guides-pages
         run: |
           set -euo pipefail
           source .github/scripts/retry.sh
@@ -307,8 +315,8 @@ jobs:
     needs: plan
     if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
-    # Circa 120 reti, una dopo l'altra: in locale Londra 7,5 min, la Svizzera 4, la Toscana 2, le
-    # altre per lo piu' sotto il minuto.
+    # Circa 120 reti: download in parallelo per host, conversione una rete alla volta (transit.sh); il download piu'
+    # lungo e' la Toscana, ~15 minuti.
     timeout-minutes: 150
     permissions:
       contents: write
@@ -431,8 +439,10 @@ jobs:
         run: |
           set -uo pipefail
           REPORT="$RUNNER_TEMP/vaccinations-drift.md"
-          python3 tools/data-pipeline/scripts/vaccinations_drift.py --report "$REPORT"
-          case $? in
+          # Il codice d'uscita in rc: con -e (la shell dei passi) un 2 fermerebbe il passo prima del case.
+          rc=0
+          python3 tools/data-pipeline/scripts/vaccinations_drift.py --report "$REPORT" || rc=$?
+          case $rc in
             0) ;;
             2)
               cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
@@ -606,13 +616,15 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    # contents: write per togliere gli asset non piu' referenziati; actions: write per rilanciare
+    # contents: write per togliere i frammenti in sospeso gestiti; actions: write per rilanciare
     # le regioni rimandate (passo subito dopo il deploy).
     permissions:
       contents: write
       actions: write
       pages: write
       id-token: write
+    outputs:
+      cleanup: ${{ steps.cleanup-inputs.outcome == 'success' }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -801,8 +813,7 @@ jobs:
           artifact_name: github-pages-${{ github.run_attempt }}
 
       # Continuazione automatica delle regioni rimandate per il budget di tempo. Gira anche se un passo sopra e'
-      # fallito: le regioni rimandate non sono state tentate. Subito dopo il deploy e prima della pulizia degli asset,
-      # che puo' durare a lungo (fino al timeout del job) e non deve ritardare o far perdere la continuazione.
+      # fallito: le regioni rimandate non sono state tentate.
       - name: Rilancia le regioni rimandate
         if: ${{ !cancelled() }}
         env:
@@ -831,11 +842,58 @@ jobs:
           done
           echo "-- $removed frammenti tolti da region-fragments"
 
-      # Dopo il deploy (i vecchi URL restano in uso fino ad allora) e solo con l'elenco dei frammenti in sospeso: senza,
-      # cancellerebbe gli asset di regioni costruite e non ancora pubblicate (li recupera una run successiva).
-      - name: Rimuovi gli asset non piu' referenziati dal catalogo
+      # Catalogo appena pubblicato e catalogo precedente per il job "cleanup": solo dopo il deploy (i vecchi URL restano
+      # in uso fino ad allora) e con l'elenco dei frammenti in sospeso; senza, la pulizia cancellerebbe gli asset di
+      # regioni costruite e non ancora pubblicate (li recupera una run successiva).
+      - name: Prepara i cataloghi per la pulizia degli asset
+        id: cleanup-inputs
         if: steps.pending.outputs.ok == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
           SITE_DIR: ${{ steps.assemble.outputs.site_dir }}
-        run: bash .github/scripts/publish-regions/cleanup-assets.sh "$SITE_DIR" "$RUNNER_TEMP"
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mkdir -p "$RUNNER_TEMP/cleanup/site" "$RUNNER_TEMP/cleanup/previous"
+          for name in manifest.json address-grid.json transit.json; do
+            [ ! -s "$SITE_DIR/$name" ] || cp "$SITE_DIR/$name" "$RUNNER_TEMP/cleanup/site/"
+          done
+          for f in "$RUNNER_TEMP"/previous-*.json "$RUNNER_TEMP/first-publication"; do
+            [ ! -e "$f" ] || cp "$f" "$RUNNER_TEMP/cleanup/previous/"
+          done
+
+      - name: Carica i cataloghi per la pulizia degli asset
+        if: steps.cleanup-inputs.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: asset-cleanup-inputs
+          path: ${{ runner.temp }}/cleanup
+          retention-days: 1
+
+  # Toglie dalle release gli asset che il catalogo appena pubblicato (e quello precedente) non referenziano piu'
+  # (cleanup-assets.sh): migliaia di DELETE, una per asset, fino a 15 minuti. Job a parte dopo "publish", cosi' il
+  # gruppo "pages" si libera subito dopo il deploy; il gruppo "asset-cleanup" tiene una pulizia alla volta.
+  cleanup:
+    name: Pulizia degli asset
+    needs: publish
+    if: needs.publish.outputs.cleanup == 'true'
+    concurrency:
+      group: asset-cleanup
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: asset-cleanup-inputs
+          path: ${{ runner.temp }}/cleanup
+
+      - name: Rimuovi gli asset non piu' referenziati dal catalogo
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/publish-regions/cleanup-assets.sh "$RUNNER_TEMP/cleanup/site" "$RUNNER_TEMP/cleanup/previous"

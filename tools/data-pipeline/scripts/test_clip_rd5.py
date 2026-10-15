@@ -43,6 +43,15 @@ def make_rd5(cells):
     return head + b"".join(blocks) + footer
 
 
+def clip_file(path, bbox):
+    """clip su un .rd5 locale, chiudendo il file alla fine."""
+    src = FileSource(path)
+    try:
+        return clip(src, bbox)
+    finally:
+        src.file.close()
+
+
 def read_cells(rd5):
     """Micro-celle non vuote di un .rd5, controllando CRC dell'indice e degli indici dei blocchi."""
     head = rd5[:200]
@@ -113,7 +122,7 @@ class ClipRd5Test(unittest.TestCase):
                             self.LAT0 + k[0] % 5 + (k[1] // DIVISOR) * cell, cell, self.BBOX)}
 
     def test_tiene_solo_le_micro_celle_nel_riquadro(self):
-        out, kept = clip(FileSource(self.dir / self.NAME), self.BBOX)
+        out, kept = clip_file(self.dir / self.NAME, self.BBOX)
         want = self.expected()
         self.assertTrue(0 < len(want) < len(self.cells) / 10)
         self.assertEqual(kept, len(want))
@@ -130,7 +139,7 @@ class ClipRd5Test(unittest.TestCase):
         self.assertEqual(read_cells(out.read_bytes()), self.expected())
 
     def test_riquadro_senza_dati_da_tile_vuota(self):
-        out, kept = clip(FileSource(self.dir / self.NAME), (50, 50, 51, 51))
+        out, kept = clip_file(self.dir / self.NAME, (50, 50, 51, 51))
         self.assertEqual((kept, read_cells(out)), (0, {}))
 
     def test_riga_di_comando_riquadro_vuoto_fallisce_senza_scrivere(self):
@@ -151,9 +160,10 @@ class ClipRd5Test(unittest.TestCase):
         finally:
             RangeHandler.send_content_range = True
             server.shutdown()
+            server.server_close()
 
     def test_via_http_uguale_al_file_locale_e_scarica_meno(self):
-        local, _ = clip(FileSource(self.dir / self.NAME), self.BBOX)
+        local, _ = clip_file(self.dir / self.NAME, self.BBOX)
         RangeHandler.data, RangeHandler.honor_range = self.rd5, True
         server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), RangeHandler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -168,12 +178,13 @@ class ClipRd5Test(unittest.TestCase):
                 clip(HttpSource(f"http://127.0.0.1:{server.server_port}/{self.NAME}", "test"), self.BBOX)
         finally:
             server.shutdown()
+            server.server_close()
 
     def test_cache_degli_intervalli_riusa_le_parti_gia_scaricate(self):
         # Due regioni vicine sulla stessa tile: la seconda riusa le righe di micro-celle in comune.
         other = (-8.5, -18.95, -6.9, -18.4)
-        want_first, _ = clip(FileSource(self.dir / self.NAME), self.BBOX)
-        want_second, _ = clip(FileSource(self.dir / self.NAME), other)
+        want_first, _ = clip_file(self.dir / self.NAME, self.BBOX)
+        want_second, _ = clip_file(self.dir / self.NAME, other)
         RangeHandler.data, RangeHandler.honor_range = self.rd5, True
         server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), RangeHandler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -192,6 +203,7 @@ class ClipRd5Test(unittest.TestCase):
             self.assertEqual(third.fetched, 200)
         finally:
             server.shutdown()
+            server.server_close()
 
     def test_via_http_file_cambiato_a_meta_errore(self):
         RangeHandler.data, RangeHandler.honor_range = self.rd5, True
@@ -204,6 +216,7 @@ class ClipRd5Test(unittest.TestCase):
         finally:
             RangeHandler.next_data = None
             server.shutdown()
+            server.server_close()
 
 
 def make_rd5_80(cells):
@@ -264,11 +277,11 @@ class DivisorAndCrcTest(unittest.TestCase):
         rd5 = make_rd5_80({(6, 0): b"AAAA", (6, 80 * 80 - 1): b"BB"})
         path = self.dir / "E10_N40.rd5"
         path.write_bytes(rd5)
-        out, kept = clip(FileSource(path), (11.0, 41.0, 11.001, 41.001))   # solo la micro-cella (0, 0)
+        out, kept = clip_file(path, (11.0, 41.0, 11.001, 41.001))   # solo la micro-cella (0, 0)
         self.assertEqual(1, kept)
         self.assertIn(b"AAAA", out)
         self.assertNotIn(b"BB", out)
-        again, kept_again = clip(FileSource(path), (10, 40, 13, 43))
+        again, kept_again = clip_file(path, (10, 40, 13, 43))
         self.assertEqual(2, kept_again)
         self.assertEqual(len(rd5), len(again))   # rettangolo che copre tutto: file identico
 
@@ -278,14 +291,14 @@ class DivisorAndCrcTest(unittest.TestCase):
         path = self.dir / "E10_N40.rd5"
         path.write_bytes(bytes(rd5))
         with self.assertRaises(ValueError) as ctx:
-            clip(FileSource(path), (10, 40, 11, 41))
+            clip_file(path, (10, 40, 11, 41))
         self.assertIn("CRC dell'indice", str(ctx.exception))
 
     def test_tile_con_nome_non_valido(self):
         path = self.dir / "nome-strano.rd5"
         path.write_bytes(make_rd5({(0, 0): b"x"}))
         with self.assertRaises(ValueError):
-            clip(FileSource(path), (10, 40, 11, 41))
+            clip_file(path, (10, 40, 11, 41))
 
     def test_crc_standard_di_brouter(self):
         self.assertEqual(0xFFFFFFFF, brouter_crc(b""))

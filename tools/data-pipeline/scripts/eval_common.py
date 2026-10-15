@@ -128,7 +128,8 @@ def load_test_rows(extended, dataset=None):
     altrimenti dalle regioni di test del dataset di training (default DEFAULT_DATASET)."""
     held_out = set(TEST_REGIONS)
     path = SFT_DIR / (extended_file(dataset) if extended else dataset or DEFAULT_DATASET)
-    rows = [json.loads(l) for l in open(path, encoding="utf-8")]
+    with open(path, encoding="utf-8") as f:
+        rows = [json.loads(l) for l in f]
     return (rows if extended else [r for r in rows if r["region"] in held_out]), held_out
 
 

@@ -185,11 +185,50 @@ wikimedia_curl() { curl -sSf --max-time 120 --speed-limit 1000 --speed-time 30 -
 # titolo, per abbinare le pagine {{QuickbarCity}} del dump alla regione).
 resolve_it_wikivoyage_title() {
   local wikiTitle="$1" langlinks
+  # Gia' chiesto in un gruppo da prefetch_it_wikivoyage_titles (anche "nessuna pagina IT", valore vuoto).
+  if [[ -v IT_WIKIVOYAGE_TITLES["$wikiTitle"] ]]; then
+    printf '%s' "${IT_WIKIVOYAGE_TITLES["$wikiTitle"]}"
+    return 0
+  fi
   # Titolo codificato (--data-urlencode): con lettere accentate in chiaro ("Île-de-France")
   # Wikimedia risponde 400.
   langlinks="$(wikimedia_curl -G "https://en.wikivoyage.org/w/api.php" --data-urlencode "titles=${wikiTitle}" \
     -d action=query -d prop=langlinks -d lllang=it -d format=json -d utf8=1 -d redirects=1 2>/dev/null || true)"
   printf '%s' "$langlinks" | sed -n 's/.*"lang":"it","\*":"\([^"]*\)".*/\1/p'
+}
+
+# Titoli IT di molte pagine EN con una richiesta ogni 50 titoli (il massimo dell'API) invece di una per pagina:
+# riempie IT_WIKIVOYAGE_TITLES, letto da resolve_it_wikivoyage_title. Ogni titolo chiesto segue le normalizzazioni
+# e i redirect dell'API come la richiesta singola. Un gruppo non scaricato resta fuori: quei titoli si chiedono uno
+# per uno. Uso: prefetch_it_wikivoyage_titles <titolo EN>...
+declare -gA IT_WIKIVOYAGE_TITLES=()
+prefetch_it_wikivoyage_titles() {
+  local batch=() title
+  for title in "$@"; do
+    [ -n "$title" ] || continue
+    batch+=("$title")
+    if [ "${#batch[@]}" -eq 50 ]; then
+      _prefetch_it_wikivoyage_batch "${batch[@]}"
+      batch=()
+    fi
+  done
+  [ "${#batch[@]}" -eq 0 ] || _prefetch_it_wikivoyage_batch "${batch[@]}"
+}
+
+_prefetch_it_wikivoyage_batch() {
+  local json from it
+  json="$(IFS='|'; wikimedia_curl -G "https://en.wikivoyage.org/w/api.php" --data-urlencode "titles=$*" \
+    -d action=query -d prop=langlinks -d lllang=it -d lllimit=max -d format=json -d formatversion=2 -d redirects=1 \
+    2>/dev/null)" || return 0
+  # Una pagina senza langlink va comunque in tabella (vuoto): "nessuna pagina IT" non si richiede di nuovo.
+  while IFS=$'\t' read -r from it; do
+    [ -n "$from" ] && IT_WIKIVOYAGE_TITLES["$from"]="${it%$'\r'}"  # \r: jq su Windows
+  done < <(jq -r '.query as $q
+    | ($q.normalized // [] | map({key: .from, value: .to}) | from_entries) as $norm
+    | ($q.redirects // [] | map({key: .from, value: .to}) | from_entries) as $redir
+    | ($q.pages // [] | map({key: .title, value: ((.langlinks // [])[0].title // "")}) | from_entries) as $it
+    | $ARGS.positional[] | . as $t | ($norm[$t] // $t) as $n | ($redir[$n] // $n) as $final
+    | select($it | has($final)) | [$t, $it[$final]] | @tsv' --args "$@" <<< "$json" 2>/dev/null)
 }
 
 fetch_wikivoyage_dump() {
