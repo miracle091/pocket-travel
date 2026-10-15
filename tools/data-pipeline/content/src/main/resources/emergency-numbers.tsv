@@ -7,7 +7,7 @@
 # regionId	general	police	ambulance	fire	fonti	nota
 afghanistan		119	102	112	CA+WP/WD	
 albania	112	129	127	128	CA+WP/WD	
-algeria		17	14	14	CA+WP+WD	ambulanza: WP+WD (CA da' un numero fisso)
+algeria		17	14	14	CA+WP+WD	ambulanza: WP+WD (CA dà un numero fisso)
 andorra	112	110	116	118	CA+WP	
 angola		113	116	115	CA+WP/WD	
 anguilla	911	911	911	911	CA+WP/WD	
@@ -173,7 +173,7 @@ isole-salomone		999	911	988	CA+WD
 isole-vergini-americane	911	911	911	911	CA+WP/WD	
 isole-vergini-britanniche	999	999	999	999	CA+WP/WD	
 israele		100	101	102	CA+WP/WD	
-italia	112	113	118	115	manuale+WP+WD	113/118/115 instradati al 112 dove il NUE e' attivo
+italia	112	113	118	115	manuale+WP+WD	113/118/115 instradati al 112 dove il NUE è attivo
 kazakistan	112	102	103	101	CA+WP/WD	
 kenya	999	999	999	999	CA	
 kirghizistan	112	102	103	101	CA	
