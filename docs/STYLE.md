@@ -94,6 +94,7 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Pulsante di un punto di interesse che apre il Navigatore verso il posto | Percorso | Directions |
 | Partenza e arrivo di un biglietto (solo nei biglietti) | tratta | route |
 | Partenza, scali e destinazione nelle vaccinazioni | viaggio | trip |
+| Dati e fonti su cui l'app basa un esito (mai "nostri") | dati dell'app, fonti dell'app | the app's data, the app's sources |
 | Contenuto con strade e sentieri per calcolare i percorsi | rete stradale | road network |
 | Rete stradale con tutte le strade e i sentieri | rete stradale completa | full road network |
 | Rete stradale con le sole strade percorribili in auto | rete stradale solo auto | car-only road network |
