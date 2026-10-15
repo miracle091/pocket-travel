@@ -16,7 +16,7 @@
     <a href="CONTRIBUTING.en.md"><img src="https://img.shields.io/badge/contributions-welcome-brightgreen?style=flat-square" alt="Contributions welcome" /></a>
   </p>
   <p>
-    <img src="docs/images/guide.png" width="200" alt="San Marino guide with emergency numbers, the embassies of the user's country and quick facts" />
+    <img src="docs/images/guide.png" width="200" alt="San Marino guide with the topic filters, the weather, emergency numbers and the embassy of the user's country" />
     <img src="docs/images/map.png" width="200" alt="Offline map of San Marino with points of interest and the filters button" />
     <img src="docs/images/route.png" width="200" alt="Navigator with a walking route to a café in San Marino: time, distance and the start button" />
   </p>
@@ -82,7 +82,7 @@ The assistant answers in at most three sentences, only with what it finds in the
 
 The model runs on the device and no data leaves it. It needs at least 3 GB of RAM; the app suggests the right model for the RAM and the app language and updates it when it improves. In the table, the model of the next row can be chosen too (with 3 GB the 4 GB one, with 4 GB the 6 GB one, with 6 and 8 GB the 12 GB one): the app warns that the model needs more RAM and that the app may slow down or close.
 
-| RAM | Trained by the project (Italian) | Trained by the project (English) | Official |
+| RAM | Trained on the guides (Italian) | Trained on the guides (English) | Official |
 |---|---|---|---|
 | 4 GB | [Pocket Travel 0.8B](tools/data-pipeline/model-cards/qwen3.5-0.8b-travel-it-GGUF.md) – 0.53 GB | [Pocket Travel 0.8B](tools/data-pipeline/model-cards/qwen3.5-0.8b-travel-en-GGUF.md) – 0.53 GB | [Qwen3.5 0.8B](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF) – 0.56 GB |
 | 6 GB | [Pocket Travel 2B](tools/data-pipeline/model-cards/qwen3.5-2b-travel-it-GGUF.md) – 1.27 GB | [Pocket Travel 2B](tools/data-pipeline/model-cards/qwen3.5-2b-travel-en-GGUF.md) – 1.27 GB | [Qwen3.5 2B](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF) – 1.34 GB |
@@ -103,7 +103,7 @@ The assistant uses an AI service with the user's own API key, which stays encryp
 
 <div align="center">
   <img src="docs/images/regions.png" width="200" alt="Downloaded countries and the others divided by continent, with search at the top and the button for the country map" />
-  <img src="docs/images/guide.png" width="200" alt="San Marino guide with emergency numbers, the embassies of the user's country and quick facts" />
+  <img src="docs/images/guide.png" width="200" alt="San Marino guide with the topic filters, the weather, emergency numbers and the embassy of the user's country" />
   <img src="docs/images/map.png" width="200" alt="Offline map of San Marino with points of interest and the filters button" />
   <img src="docs/images/route.png" width="200" alt="Navigator with a walking route to a café in San Marino: time, distance and the start button" />
 </div>

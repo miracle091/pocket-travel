@@ -82,6 +82,8 @@ risposte finche' i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Assistente, con il modello sul dispositivo o online | assistente | assistant |
 | Dove gira l'assistente | motore (Sul dispositivo, Online; mai "offline" o "locale" per il modello) | engine (On device, Online) |
 | Modello scaricabile | modello (modello IA) | model (AI model) |
+| Gruppo di dispositivi per RAM che decide i modelli proposti | fascia di RAM | RAM tier |
+| Gruppi della lista dei modelli: come li pubblicano gli autori, addestrati dal progetto | Ufficiali, Addestrati sulle guide | Official, Trained on the guides |
 | Chiave personale per il motore Online | chiave API | API key |
 | Fornitore del motore Online (ChatGPT, Mistral...) | servizio | service |
 | Telefono o tablet dell'utente | dispositivo | device |

@@ -16,7 +16,7 @@
     <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/contributi-benvenuti-brightgreen?style=flat-square" alt="Contributi benvenuti" /></a>
   </p>
   <p>
-    <img src="docs/images/guide.png" width="200" alt="Guida di San Marino con i numeri di emergenza, le ambasciate del proprio paese e i fatti rapidi" />
+    <img src="docs/images/guide.png" width="200" alt="Guida di San Marino con i filtri per argomento, il meteo, i numeri di emergenza e l'ambasciata del proprio paese" />
     <img src="docs/images/map.png" width="200" alt="Mappa offline di San Marino con i punti di interesse e il pulsante dei filtri" />
     <img src="docs/images/route.png" width="200" alt="Navigatore con il percorso a piedi fino a un bar di San Marino: tempo, distanza e il pulsante per partire" />
   </p>
@@ -81,7 +81,7 @@ L'assistente risponde in massimo tre frasi solo con ciò che trova nella guida e
 
 Il modello gira sul dispositivo e nessun dato ne esce. Servono almeno 3 GB di RAM; l'app propone il modello adatto alla RAM e alla lingua dell'app e lo aggiorna quando migliora. Nella tabella, con la RAM del dispositivo si può scegliere anche il modello della riga successiva (con 3 GB quello da 4 GB, con 4 GB quello da 6 GB, con 6 e 8 GB quello da 12 GB): l'app avvisa che il modello richiede più RAM e che l'app può rallentare o chiudersi.
 
-| RAM | Addestrato dal progetto (italiano) | Addestrato dal progetto (inglese) | Ufficiale |
+| RAM | Addestrato sulle guide (italiano) | Addestrato sulle guide (inglese) | Ufficiale |
 |---|---|---|---|
 | 4 GB | [Pocket Travel 0.8B](tools/data-pipeline/model-cards/qwen3.5-0.8b-travel-it-GGUF.md) – 0,53 GB | [Pocket Travel 0.8B](tools/data-pipeline/model-cards/qwen3.5-0.8b-travel-en-GGUF.md) – 0,53 GB | [Qwen3.5 0.8B](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF) – 0,56 GB |
 | 6 GB | [Pocket Travel 2B](tools/data-pipeline/model-cards/qwen3.5-2b-travel-it-GGUF.md) – 1,27 GB | [Pocket Travel 2B](tools/data-pipeline/model-cards/qwen3.5-2b-travel-en-GGUF.md) – 1,27 GB | [Qwen3.5 2B](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF) – 1,34 GB |
@@ -104,7 +104,7 @@ L'assistente usa un servizio di IA con la propria chiave API, che resta cifrata 
 
 <div align="center">
   <img src="docs/images/regions.png" width="200" alt="Nazioni scaricate e le altre divise per continente, con la ricerca in cima e il pulsante per la mappa delle nazioni" />
-  <img src="docs/images/guide.png" width="200" alt="Guida di San Marino con i numeri di emergenza, le ambasciate del proprio paese e i fatti rapidi" />
+  <img src="docs/images/guide.png" width="200" alt="Guida di San Marino con i filtri per argomento, il meteo, i numeri di emergenza e l'ambasciata del proprio paese" />
   <img src="docs/images/map.png" width="200" alt="Mappa offline di San Marino con i punti di interesse e il pulsante dei filtri" />
   <img src="docs/images/route.png" width="200" alt="Navigatore con il percorso a piedi fino a un bar di San Marino: tempo, distanza e il pulsante per partire" />
 </div>

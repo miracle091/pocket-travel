@@ -43,8 +43,8 @@ class DeviceAiCapability @Inject constructor(
     fun inferenceThreadCount(): Int = inferenceThreadCountFor(ramTier(), Runtime.getRuntime().availableProcessors())
 
     companion object {
-        // Soglie all'85% di 3, 4, 6 e 12 GiB: un telefono da N GB riporta in totalMem meno di N GiB (memoria riservata,
-        // GB decimali) ma non sotto l'85%, e un telefono della taglia sotto non ci arriva. Le fasce vengono dalla
+        // Soglie all'85% di 3, 4, 6 e 12 GiB: un dispositivo da N GB riporta in totalMem meno di N GiB (memoria riservata,
+        // GB decimali) ma non sotto l'85%, e un dispositivo della taglia sotto non ci arriva. Le fasce vengono dalla
         // memoria misurata con llama.cpp (contesto 4096): 0.8B ~0,8 GiB, 2B ~1,9 GiB, 4B ~4,6 GiB, piu' ~0,4 GB
         // dell'app: modello e app occupano circa il 40% della RAM della fascia o meno, il resto e' per sistema e altre app.
         // I modelli della fascia sopra, che si possono scegliere con un avviso, arrivano al 50-65%.

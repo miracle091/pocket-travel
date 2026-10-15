@@ -28,7 +28,7 @@ explicitly when the context does not contain the answer.
 
 Memory in use: weights, the CPU copy of repacked weights, KV cache and compute buffers, measured with llama.cpp on
 CPU with the app's settings (context 4096 tokens, batch 512, f16 KV cache). With about 0.4 GB for the app itself, model
-and app take about 40% of the suggested device RAM or less, leaving the rest to the system and other apps.
+and app take about 45% of the suggested device RAM or less, leaving the rest to the system and other apps.
 
 ## Intended use
 
@@ -64,7 +64,7 @@ an empty context, 50 answerable and 20 unanswerable city questions, and smaller 
 cities, nearby places and next departures. This model and its base model were evaluated as GGUF with llama.cpp
 (greedy decoding), on the same questions and with the same prompt; the base model is the official
 [unsloth/Qwen3-4B-Instruct-2507-GGUF](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF) quantization (UD-Q4_K_XL) that the app offers in the same
-memory tier. Refusal rates: higher is better on the first block, lower is better on the second.
+RAM tier. Refusal rates: higher is better on the first block, lower is better on the second.
 
 | Metric | This model | Base model (Qwen3-4B-Instruct-2507) |
 |---|---|---|
@@ -84,8 +84,7 @@ memory tier. Refusal rates: higher is better on the first block, lower is better
 A refusal is any recognizable "the context does not say" answer, counted with the same rule for both models (the base
 model words it in its own way). The base model's low rate of wrong refusals on some groups comes with few refusals
 overall: where it does not refuse, it often answers from its own knowledge or with text from the context that does
-not answer the question. This test set is new with this version (more groups, contexts with the app's extra blocks),
-so the numbers are not comparable with the previous version's card.
+not answer the question.
 
 ## Training
 
@@ -108,7 +107,6 @@ so the numbers are not comparable with the previous version's card.
   [alpaca-cleaned](https://huggingface.co/datasets/yahma/alpaca-cleaned) (CC BY 4.0 as declared by the copy; the
   original Stanford Alpaca data is CC BY-NC 4.0), always with a refusal as answer.
 - Quantization: `llama-quantize` Q4_K_M with an importance matrix calibrated on 400 training prompts.
-- Text only: the base model is text only.
 
 ## Limitations
 
