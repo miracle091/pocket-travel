@@ -7,7 +7,7 @@ package com.pockettravel.feature.ai
  * aggiunto al catalogo dei modelli prima della sua pubblicazione.
  * Il catalogo dei modelli contiene solo modelli non gated (Apache 2.0/MIT): il download non richiede alcun
  * token HuggingFace. Ogni `url`/`fileName` referenziato e' un file GGUF quantizzato a ~4 bit
- * (UD-Q4_K_XL per gli ufficiali, Q4_K_M con imatrix per i nostri), l'unico formato che
+ * (UD-Q4_K_XL per gli ufficiali, Q4_K_M con imatrix per gli addestrati sulle guide), l'unico formato che
  * [OnDeviceLlmEngine] (llama.cpp) sa caricare.
  */
 data class LlmModelDefinition(
@@ -19,7 +19,7 @@ data class LlmModelDefinition(
     val sizeBytes: Long,
     val minRamTier: RamTier,
     val origin: ModelOrigin = ModelOrigin.UFFICIALE,
-    // Lingua in cui risponde un modello addestrato da noi ("it" o "en"). Null per gli ufficiali, che
+    // Lingua in cui risponde un modello addestrato sulle guide ("it" o "en"). Null per gli ufficiali, che
     // rispondono nella lingua del prompt.
     val language: String? = null,
 )
@@ -29,13 +29,13 @@ enum class ModelOrigin {
     /** Modello generico cosi' come pubblicato dal suo autore (o da un quantizzatore affidabile). */
     UFFICIALE,
 
-    /** Stesso tipo di modello addestrato da noi sulle guide dell'app (tools/data-pipeline, train_lora.py). */
+    /** Stesso tipo di modello addestrato sulle guide dell'app (tools/data-pipeline, train_lora.py). */
     ADDESTRATO,
 }
 
 object LlmModelCatalog {
     // Fasce MINIMO/CONFORTEVOLE/AMPIA: vedi DeviceAiCapability.RamTier. Un modello ufficiale per fascia,
-    // della stessa famiglia del modello addestrato da noi nella stessa fascia (confronto diretto).
+    // della stessa famiglia del modello addestrato sulle guide nella stessa fascia (confronto diretto).
     // Solo modelli non gated (Apache 2.0/MIT): niente modelli Gemma o altri repo che richiedono
     // accettare una licenza su HuggingFace.
     // Niente modelli solo "reasoning": i Qwen3.5 hanno il thinking, spento da ai_chat.cpp con il blocco
@@ -144,7 +144,7 @@ object LlmModelCatalog {
     )
 
     /**
-     * Modello predefinito per la fascia di RAM del dispositivo: il nostro addestrato scaricabile della
+     * Modello predefinito per la fascia di RAM del dispositivo: l'addestrato sulle guide scaricabile della
      * fascia (4 GB -> 0.8B, 6 GB -> 2B, 12 GB -> 4B), o il piu' grande tra quelli che la fascia regge;
      * con RAM insufficiente (IA sul dispositivo disattivata) il piu' leggero. Gli addestrati hanno la precedenza
      * sugli ufficiali perche' rifiutano molto meglio le domande a cui la guida non risponde. Solo quelli

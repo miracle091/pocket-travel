@@ -27,7 +27,7 @@ class PromptTemplatesTest {
         assertTrue(prompt.contains("in English"))
     }
 
-    // Il prompt italiano e' quello dei dati di addestramento dei nostri modelli: deve restare identico.
+    // Il prompt italiano e' quello dei dati di addestramento dei modelli addestrati sulle guide: deve restare identico.
     @Test
     fun `italian prompt is exactly the training one`() {
         assertEquals(

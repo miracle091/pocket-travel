@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Impronte (sha256, dimensione) dei modelli IA da scrivere in app-status.json, per publish-apk.yml.
 
-Per ogni modello del catalogo dei modelli dell'app (LlmModelCatalog.kt) sceglie, tra le impronte di fonti nostre, quella
+Per ogni modello del catalogo dei modelli dell'app (LlmModelCatalog.kt) sceglie, tra le impronte di fonti del progetto, quella
 che coincide con il file che Hugging Face serve ora (X-Linked-ETag e X-Linked-Size del suo url):
 - quella del catalogo dei modelli;
 - quella dell'app-status.json online, solo se il chiamante ne ha verificato la firma (stesso modelId e nome

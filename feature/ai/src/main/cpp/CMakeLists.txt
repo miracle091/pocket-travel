@@ -43,7 +43,7 @@ if(CCACHE_PROGRAM)
     set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_LAUNCHER})
 endif()
 
-# Le nostre modifiche al vendor stanno come patch in third-party/patches/llama-cpp, cosi' si
+# Le modifiche del progetto al vendor stanno come patch in third-party/patches/llama-cpp, cosi' si
 # riapplicano da sole dopo un aggiornamento di llama.cpp: una patch che passa il --reverse --check
 # e' gia' applicata. Il lock evita che le configurazioni parallele delle ABI la applichino due volte.
 find_package(Git QUIET)

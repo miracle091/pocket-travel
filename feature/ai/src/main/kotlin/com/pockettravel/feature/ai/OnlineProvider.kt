@@ -6,7 +6,7 @@ package com.pockettravel.feature.ai
  * crea la sua chiave. Nessuno dei quattro ha un modello predefinito lato servizio (il nome e'
  * obbligatorio in ogni richiesta), quindi l'opzione "Automatico" usa [autoModel]: un nome che il
  * servizio aggiorna da solo dove esiste (Mistral "-latest", Gemini "gemini-flash-latest"), altrimenti
- * il modello veloce ed economico scelto da noi, aggiornato con l'app. [capableModel]: l'alternativa piu'
+ * il modello veloce ed economico scelto dal progetto, aggiornato con l'app. [capableModel]: l'alternativa piu'
  * capace. Nomi verificati sulle pagine dei servizi il 2026-09-28. [keyPrefix]: com'e' fatta una chiave,
  * per il suggerimento nel campo (null se non ha un prefisso fisso).
  */

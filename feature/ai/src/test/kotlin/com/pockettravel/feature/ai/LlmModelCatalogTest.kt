@@ -8,7 +8,7 @@ import org.junit.Test
 class LlmModelCatalogTest {
 
     @Test
-    fun `il modello predefinito e' il nostro addestrato della fascia di RAM`() {
+    fun `il modello predefinito e' l'addestrato sulle guide della fascia di RAM`() {
         assertEquals("pt-qwen3.5-0.8b", LlmModelCatalog.defaultFor(RamTier.MINIMO).id)
         assertEquals("pt-qwen3.5-2b", LlmModelCatalog.defaultFor(RamTier.CONFORTEVOLE).id)
         assertEquals("pt-qwen3-4b-2507", LlmModelCatalog.defaultFor(RamTier.AMPIA).id)
@@ -46,7 +46,7 @@ class LlmModelCatalogTest {
     }
 
     @Test
-    fun `in inglese il predefinito e' il nostro addestrato in inglese della fascia di RAM`() {
+    fun `in inglese il predefinito e' l'addestrato sulle guide in inglese della fascia di RAM`() {
         assertEquals("pt-qwen3.5-0.8b-en", LlmModelCatalog.defaultFor(RamTier.INSUFFICIENTE, "en").id)
         assertEquals("pt-qwen3.5-0.8b-en", LlmModelCatalog.defaultFor(RamTier.MINIMO, "en").id)
         assertEquals("pt-qwen3.5-2b-en", LlmModelCatalog.defaultFor(RamTier.CONFORTEVOLE, "en").id)
