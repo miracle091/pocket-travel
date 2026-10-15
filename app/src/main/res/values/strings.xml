@@ -234,12 +234,12 @@
     <string name="licenses_name_ogl_uk" translatable="false">Open Government Licence v3.0</string>
     <string name="licenses_name_licence_ouverte" translatable="false">Licence Ouverte 2.0 (Etalab)</string>
     <!-- Dicitura di attribuzione richiesta dalla Open Government Licence v3.0, uguale in ogni lingua -->
-    <string name="licenses_note_emergency_uk" translatable="false">Contains public sector information licensed under the Open Government Licence v3.0.</string>
+    <string name="licenses_note_emergency_uk" translatable="false">Contains public sector information licensed under the Open Government Licence v3.0</string>
 
     <!-- Licenze di terze parti (LicenseData.kt): testi tradotti -->
     <string name="licenses_component_brouter">BRouter Core (vendorizzato, third-party/brouter-core)</string>
     <string name="licenses_component_llama_cpp">llama.cpp (vendorizzato, third-party/llama-cpp)</string>
-    <string name="licenses_note_llama_cpp">Sostituisce LiteRT-LM (Google), senza nuove release da agosto 2026. Non esiste un AAR Maven ufficiale: si compila dal sorgente con NDK e CMake.</string>
+    <string name="licenses_note_llama_cpp">Sostituisce LiteRT-LM (Google), senza nuove release da agosto 2026. Non esiste un AAR Maven ufficiale: si compila dal sorgente con NDK e CMake</string>
     <string name="licenses_component_nlohmann_json">nlohmann/json (usato da llama.cpp, third-party/llama-cpp/vendor/nlohmann)</string>
     <string name="licenses_component_subprocess">sheredom/subprocess.h (usato da llama.cpp, third-party/llama-cpp/vendor/sheredom)</string>
     <string name="licenses_component_cpp_httplib">yhirose/cpp-httplib (usato da llama.cpp, third-party/llama-cpp/vendor/cpp-httplib)</string>
@@ -257,7 +257,7 @@
     <string name="licenses_note_natural_earth">Dati 1:50m, ridotti a confini, codice ISO e nome del paese (feature:map/src/main/assets/world)</string>
     <string name="licenses_component_airports">OurAirports (aeroporti) e Wikidata (compagnie aeree, nomi delle città)</string>
     <string name="licenses_name_airports">Pubblico dominio (OurAirports), CC0 (Wikidata)</string>
-    <string name="licenses_note_airports">Completamento di aeroporti e compagnie nei biglietti dei documenti (feature:vault/src/main/assets). I dati di OurAirports sono forniti senza garanzie.</string>
+    <string name="licenses_note_airports">Completamento di aeroporti e compagnie nei biglietti dei documenti (feature:vault/src/main/assets). I dati di OurAirports sono forniti senza garanzie</string>
     <string name="licenses_component_flags">Bandiere nazionali (westnordost/flags-vector-drawables-android, core:ui/src/main/res/drawable/ic_flag_*)</string>
     <string name="licenses_name_flags">Licenza di ciascuna bandiera su Wikipedia/Wikimedia Commons, in gran parte pubblico dominio</string>
     <string name="licenses_note_flags">Vettoriali esportati dalle bandiere di Wikipedia (Timeline of national flags)</string>
@@ -267,26 +267,26 @@
     <string name="licenses_note_noto_sans">Font Noto Sans (Google) ripacchettato in SDF da openmaptiles/fonts; inclusi i range di latino, greco, cirillico, armeno, ebraico, arabo, thai, georgiano e punteggiatura</string>
     <string name="licenses_component_osm">Dati OpenStreetMap</string>
     <string name="licenses_note_osm">Richiede attribuzione e condivisione delle modifiche al database</string>
-    <string name="licenses_note_wikivoyage">Testo degli autori di Wikivoyage, con il link a ogni pagina usata tra le fonti della guida. Le sezioni sono adattate (estratte e ripulite dalla formattazione); alcune sono tradotte automaticamente dalla pagina nell\'altra lingua (italiano o inglese) con i modelli opus-mt-tc-big di Helsinki-NLP. Anche il testo adattato e tradotto è distribuito con licenza CC BY-SA 4.0.</string>
+    <string name="licenses_note_wikivoyage">Testo degli autori di Wikivoyage, con il link a ogni pagina usata tra le fonti della guida. Le sezioni sono adattate (estratte e ripulite dalla formattazione); alcune sono tradotte automaticamente dalla pagina nell\'altra lingua (italiano o inglese) con i modelli opus-mt-tc-big di Helsinki-NLP. Anche il testo adattato e tradotto è distribuito con licenza CC BY-SA 4.0</string>
     <string name="licenses_component_wikipedia">Wikipedia (storia e clima delle città)</string>
-    <string name="licenses_note_wikipedia">Testo degli autori di Wikipedia: sezioni Storia (accorciata) e Clima della voce di ogni città, con il link alla voce tra le fonti della guida. Se la sezione manca o è povera, è tradotta automaticamente dalla voce nell\'altra lingua, come per Wikivoyage. Anche il testo adattato e tradotto è distribuito con licenza CC BY-SA 4.0.</string>
+    <string name="licenses_note_wikipedia">Testo degli autori di Wikipedia: sezioni Storia (accorciata) e Clima della voce di ogni città, con il link alla voce tra le fonti della guida. Se la sezione manca o è povera, è tradotta automaticamente dalla voce nell\'altra lingua, come per Wikivoyage. Anche il testo adattato e tradotto è distribuito con licenza CC BY-SA 4.0</string>
     <string name="licenses_component_wikidata">Wikidata (ambasciate e consolati, Fatti rapidi delle guide)</string>
     <string name="licenses_note_wikidata">Pubblico dominio: l\'attribuzione non è obbligatoria, ma la fonte è Wikidata</string>
     <string name="licenses_component_weather">Meteo: Open-Meteo.com (previsioni) e GeoNames (posizione delle città)</string>
-    <string name="licenses_note_weather">Weather data by Open-Meteo.com, uso non commerciale. Coordinate delle città dal geocoding di Open-Meteo, basato su GeoNames.</string>
+    <string name="licenses_note_weather">Weather data by Open-Meteo.com, uso non commerciale. Coordinate delle città dal geocoding di Open-Meteo, basato su GeoNames</string>
     <string name="licenses_component_emergency_canada">Numeri di emergenza: Travel.gc.ca (Governo del Canada)</string>
-    <string name="licenses_note_emergency_canada">Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert – Canada. Numeri confrontati con Wikipedia (CC BY-SA 4.0) e Wikidata (CC0).</string>
+    <string name="licenses_note_emergency_canada">Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert – Canada. Numeri confrontati con Wikipedia (CC BY-SA 4.0) e Wikidata (CC0)</string>
     <string name="licenses_component_emergency_uk">Numeri di emergenza: gov.uk Foreign travel advice (Governo del Regno Unito)</string>
     <string name="licenses_component_travel_advice">Guide in inglese, consigli di viaggio: Travel.gc.ca (Governo del Canada)</string>
-    <string name="licenses_note_travel_advice">Contains information licensed under the Open Government Licence – Canada. Testo adattato (senza le parti per i cittadini canadesi), non approvato dal Governo del Canada.</string>
+    <string name="licenses_note_travel_advice">Contains information licensed under the Open Government Licence – Canada. Testo adattato (senza le parti per i cittadini canadesi), non approvato dal Governo del Canada</string>
     <string name="licenses_component_travel_advice_uk">Guide in inglese, consigli di viaggio (Palestina, Pitcairn, Wallis e Futuna): gov.uk Foreign travel advice (FCDO, Governo del Regno Unito)</string>
-    <string name="licenses_note_travel_advice_uk">Contains public sector information licensed under the Open Government Licence v3.0. Testo adattato (senza le parti per i cittadini britannici), non approvato dal Foreign, Commonwealth &amp; Development Office.</string>
+    <string name="licenses_note_travel_advice_uk">Contains public sector information licensed under the Open Government Licence v3.0. Testo adattato (senza le parti per i cittadini britannici), non approvato dal Foreign, Commonwealth &amp; Development Office</string>
     <string name="licenses_component_vaccinations_canada">Vaccinazioni: Travel.gc.ca (Governo del Canada)</string>
-    <string name="licenses_note_vaccinations_canada">Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert – Canada. Fatti riformulati e confrontati con altre fonti.</string>
+    <string name="licenses_note_vaccinations_canada">Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert – Canada. Fatti riformulati e confrontati con altre fonti</string>
     <string name="licenses_component_vaccinations_uk">Vaccinazioni: TravelHealthPro (UKHSA / NaTHNaC)</string>
-    <string name="licenses_note_vaccinations_uk">Contains public sector information published by the UK Health Security Agency (UKHSA) and the National Travel Health Network and Centre (NaTHNaC), licensed under the Open Government Licence v3.0. Fatti riformulati.</string>
+    <string name="licenses_note_vaccinations_uk">Contains public sector information published by the UK Health Security Agency (UKHSA) and the National Travel Health Network and Centre (NaTHNaC), licensed under the Open Government Licence v3.0. Fatti riformulati</string>
     <string name="licenses_component_vaccinations_fcdo">Vaccinazioni: gov.uk Foreign travel advice (Governo del Regno Unito)</string>
-    <string name="licenses_note_vaccinations_fcdo">Contains public sector information licensed under the Open Government Licence v3.0. Requisiti polio d\'ingresso (India, Nepal e Iran), riformulati.</string>
+    <string name="licenses_note_vaccinations_fcdo">Contains public sector information licensed under the Open Government Licence v3.0. Requisiti polio d\'ingresso (India, Nepal e Iran), riformulati</string>
     <string name="licenses_component_vaccinations_france">Vaccinazioni: France Diplomatie, Conseils aux voyageurs (Ministère de l\'Europe et des Affaires étrangères)</string>
     <string name="licenses_note_vaccinations_france">Requisito polio d\'ingresso dell\'Egitto, dalla pagina Santé aggiornata il 21 settembre 2026, riformulato</string>
 
@@ -308,8 +308,8 @@
     <string name="onboarding_region_installed">Già scaricata</string>
     <string name="onboarding_region_downloading">Download in corso…</string>
     <plurals name="onboarding_region_summary">
-        <item quantity="one">%1$d nazione, %2$s. Il download continua in background.</item>
-        <item quantity="other">%1$d nazioni, %2$s. Il download continua in background.</item>
+        <item quantity="one">%1$d nazione, %2$s. Il download continua in background</item>
+        <item quantity="other">%1$d nazioni, %2$s. Il download continua in background</item>
     </plurals>
     <string name="onboarding_accessible">In sedia a rotelle</string>
     <string name="onboarding_directions">Percorsi di navigazione</string>
@@ -349,7 +349,7 @@
     <string name="settings_catalog">Catalogo</string>
     <string name="settings_catalog_official">Catalogo ufficiale di Pocket Travel</string>
     <string name="settings_catalog_custom">Catalogo personalizzato (%1$s)</string>
-    <string name="settings_catalog_body">Il catalogo indica le nazioni, le mappe e le guide che si possono scaricare. Chi pubblica i propri dati con la pipeline di Pocket Travel può indicare qui il suo catalogo e la chiave pubblica che ne verifica la firma. Il catalogo viene provato prima di essere usato; poi l\'app si riavvia.</string>
+    <string name="settings_catalog_body">Il catalogo indica le nazioni, le mappe e le guide che si possono scaricare. Chi pubblica i propri dati con la pipeline di Pocket Travel può indicare qui il suo catalogo e la chiave pubblica che ne verifica la firma. Il catalogo viene provato prima di essere usato; poi l\'app si riavvia</string>
     <string name="settings_catalog_warning">Usare solo un catalogo di cui ci si fida: decide quali dati scarica l\'app e ne riceve le richieste</string>
     <string name="settings_catalog_url">Indirizzo di manifest.json</string>
     <string name="settings_catalog_key">Chiave pubblica (base64)</string>

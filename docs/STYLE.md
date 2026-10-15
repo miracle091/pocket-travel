@@ -14,8 +14,9 @@ toni colloquiali.
   tabella delle funzioni e badge, mai dentro una frase.
 - Numeri, unità e date nel formato della lingua: in italiano "2,8 milioni", "4–6 settimane", "3 ott 2026"; in
   inglese "2.8 million", "4 to 6 weeks", "Oct 3, 2026".
-- Nessun punto finale nei testi brevi dell'interfaccia di una sola frase (etichette, pulsanti, titoli, descrizioni
-  sotto un titolo, avvisi di una riga); il punto resta tra le frasi di un testo che ne ha più d'una.
+- Nessun punto finale nei testi dell'interfaccia, di una frase (etichette, pulsanti, titoli, avvisi) o di più frasi
+  (spiegazioni, note delle Licenze): il punto separa le frasi, l'ultima resta senza. Lo stesso vale per i testi
+  composti nel codice.
 - Maiuscola solo all'inizio della frase e nei nomi propri (sentence case, anche in inglese): "Fonti ufficiali",
   "Official sources", non "Official Sources".
 
