@@ -77,6 +77,8 @@ Le 355 regioni sono aggiornate ogni settimana e i loro contenuti si scaricano se
 
 L'assistente risponde in al massimo tre frasi solo con ciò che trova nella guida e nelle note, e lo dice quando la guida non basta. Il motore si sceglie in **Impostazioni → Assistente IA**.
 
+La domanda si può anche dettare con il microfono nel campo, da Android 12, con entrambi i motori. Il riconoscimento vocale avviene sul dispositivo, anche senza internet, con il pacchetto della lingua del telefono: l'app riceve solo il testo, che resta nel campo da correggere prima dell'invio.
+
 ### 📱 Sul dispositivo (offline)
 
 Il modello gira sul dispositivo e nessun dato ne esce. Servono almeno 3 GB di RAM; l'app propone il modello adatto alla RAM e alla lingua dell'app e lo aggiorna quando migliora. Nella tabella, con la RAM del dispositivo si può scegliere anche il modello della riga successiva (con 3 GB quello da 4 GB, con 4 GB quello da 6 GB, con 6 e 8 GB quello da 12 GB): l'app avvisa che il modello richiede più RAM e che l'app può rallentare o chiudersi.

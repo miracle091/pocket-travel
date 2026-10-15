@@ -78,6 +78,8 @@ The 355 regions are updated every week and their content is downloaded separatel
 
 The assistant answers in at most three sentences, only with what it finds in the guide and the notes, and says when the guide is not enough. The engine is chosen in **Settings → AI assistant**.
 
+The question can also be dictated with the microphone in the field, from Android 12, with both engines. Voice recognition runs on the device, also without internet, with the phone's language pack: the app receives only the text, which stays in the field to be corrected before sending.
+
 ### 📱 On device (offline)
 
 The model runs on the device and no data leaves it. It needs at least 3 GB of RAM; the app suggests the right model for the RAM and the app language and updates it when it improves. In the table, the model of the next row can be chosen too (with 3 GB the 4 GB one, with 4 GB the 6 GB one, with 6 and 8 GB the 12 GB one): the app warns that the model needs more RAM and that the app may slow down or close.

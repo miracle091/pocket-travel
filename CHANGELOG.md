@@ -6,6 +6,9 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ## [Non rilasciato]
 
+### Aggiunto
+- Assistente IA: la domanda si può dettare con il microfono nel campo ("Detta la domanda"), da Android 12, con entrambi i motori. Il riconoscimento vocale avviene sul dispositivo, anche senza internet: l'audio resta al servizio del telefono, l'app riceve solo il testo e non salva né invia audio. Il testo riconosciuto si aggiunge nel campo, da correggere e inviare a mano; "Portami alla stazione" detto e inviato apre il Navigatore come se fosse scritto. Il permesso del microfono si chiede al primo tocco. Se manca il pacchetto della lingua (circa 60 MB), da Android 13 il telefono ne propone il download. Sui telefoni senza riconoscimento sul dispositivo il microfono non compare. Su frasi di prova lette senza rete sull'emulatore, 4 parole sbagliate su 118 in italiano e in inglese.
+
 ### Modificato
 - Vaccinazioni e Licenze in forma impersonale: "Nei dati dell'app nessun certificato risulta richiesto", "Le fonti dell'app non dicono da quali paesi", fatti delle fonti "riformulati" invece di "riscritti con parole nostre" (in inglese "The app's data", "The app's sources", "reworded").
 - Vaccinazioni e contenuti delle nazioni: il nome del paese sta tra parentesi o prima dei due punti, invece che dopo una preposizione senza articolo ("Da Italia a Nepal", "la pagina di Nepal", "Eliminare la mappa di Nepal?"). Esempi: "Partenza: Italia, destinazione: Nepal", "La destinazione (Nepal) può chiedere la prova di vaccinazione antipolio", "Nepal: eliminare la mappa?", "Contenuti (Nepal)". In inglese "Departure: Italy, destination: Nepal" e "the destination (Nepal)".
