@@ -1,0 +1,43 @@
+name: Cache cleanup
+
+# Pulizia delle cache di Actions: di ogni famiglia di chiavi restano le 2 voci usate piu' di recente, le voci di una
+# singola run si tolgono dopo 3 giorni, quelle di ref diversi da main sempre (regole in .github/scripts/cache_cleanup.py).
+# La domenica, il giorno con meno regioni in publish-regions.yml; a mano con dry_run elenca senza cancellare.
+on:
+  schedule:
+    - cron: '0 5 * * 0'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Solo elenco: mostra nel riepilogo le voci che cancellerebbe, senza cancellarle"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# git legge la configurazione anche dall'ambiente: niente suggerimento "Using 'master' as the name for the initial
+# branch" in ogni checkout.
+env:
+  GIT_CONFIG_COUNT: 1
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
+jobs:
+  cleanup:
+    name: Pulizia delle cache
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Togli le cache superate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/cache_cleanup.py ${{ inputs.dry_run && '--dry-run' || '' }}
