@@ -70,8 +70,8 @@
     <string name="emergency_kind_embassy">Ambasciata</string>
     <string name="emergency_kind_consulate_general">Consolato generale</string>
     <string name="emergency_kind_consulate">Consolato</string>
-    <string name="emergency_embassy_website">Apri il sito di %1$s</string>
-    <string name="emergency_embassy_email">Scrivi a %1$s</string>
+    <string name="emergency_embassy_website">Apri il sito (%1$s)</string>
+    <string name="emergency_embassy_email">Scrivi una email (%1$s)</string>
     <string name="emergency_travel_advice_description">Consigli di viaggio e pagine sui paesi del ministero degli esteri del tuo paese</string>
     <string name="emergency_travel_advice_fallback_description">Consigli di viaggio del governo britannico, in inglese: sicurezza e salute valgono per tutti, i requisiti d\'ingresso sono quelli per i cittadini britannici</string>
     <string name="emergency_travel_advice_open">Apri %1$s</string>

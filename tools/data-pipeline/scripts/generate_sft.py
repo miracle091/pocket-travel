@@ -196,7 +196,7 @@ VACC_WORDS = re.compile(r"vaccin|febbre gialla|yellow fever|polio|meningococc|me
 
 def vaccination_answers(text, lang):
     """{tipo di domanda: risposta} estratti dal riassunto (righe intere, come le risposte estrattive delle guide):
-    certificati o la riga "nessun certificato nei nostri dati", poi i vaccini raccomandati (o da valutare col medico),
+    certificati o la riga "nessun certificato nei dati dell'app", poi i vaccini raccomandati (o da valutare col medico),
     e sempre la riga di verifica; al massimo 3 frasi come chiede il prompt."""
     required_head, rec_heads, check_head = VACC_HEADERS[lang]
     lines = text.split("\n")

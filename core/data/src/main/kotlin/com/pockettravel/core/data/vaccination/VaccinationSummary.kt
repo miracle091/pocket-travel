@@ -6,7 +6,7 @@ import java.util.Locale
  * Riassunto in testo semplice di [VaccinationResult] per [trip], da mettere nel contesto dell'assistente
  * IA: obblighi, incoraggiate, raccomandate, fonti e data di verifica, e sempre la riga che rimanda ad
  * ambasciata e centro di medicina dei viaggi. [language] e' "it" o "en" come in PromptTemplates; ogni
- * altro valore da' l'italiano. Quando nessun certificato risulta richiesto lo dice "nei nostri dati",
+ * altro valore da' l'italiano. Quando nessun certificato risulta richiesto lo dice "nei dati dell'app",
  * mai "non serve nulla".
  */
 fun VaccinationResult.toSummaryText(trip: Trip, language: String = "it"): String {
@@ -30,8 +30,8 @@ fun VaccinationResult.toSummaryText(trip: Trip, language: String = "it"): String
     val certificates = items.filter { it.level == VaccinationLevel.REQUIRED || it.level == VaccinationLevel.REQUIRED_EXIT }
     if (certificates.isEmpty()) {
         lines += pick(
-            "Nei nostri dati nessun certificato risulta richiesto per questo percorso (non è una garanzia: verifica i requisiti).",
-            "In our data no certificate is listed as required for this route (not a guarantee: check the requirements).",
+            "Nei dati dell'app nessun certificato risulta richiesto per questo percorso (non è una garanzia: verifica i requisiti).",
+            "In the app's data no certificate is listed as required for this route (not a guarantee: check the requirements).",
         )
     } else {
         lines += pick("Certificati richiesti:", "Required certificates:")
@@ -93,28 +93,28 @@ private fun itemLine(item: VaccinationItem, en: Boolean, country: (String) -> St
     val reason = when (item.reason) {
         VaccinationReason.YF_ENTRY_ALL -> pick("richiesto a tutti i viaggiatori in arrivo", "required of all arriving travellers")
         VaccinationReason.YF_ENTRY_FROM_RISK, VaccinationReason.YF_ENTRY_FROM_LIST -> when {
-            item.transitHours != null -> pick("richiesto per lo scalo di ${item.transitHours} ore in $where", "required because of the ${item.transitHours}-hour stopover in $where")
-            item.stopover -> pick("richiesto per lo scalo in $where", "required because of the stopover in $where")
-            else -> pick("richiesto perché arrivi da $where", "required because you are arriving from $where")
+            item.transitHours != null -> pick("richiesto per lo scalo di ${item.transitHours} ore ($where)", "required because of the ${item.transitHours}-hour stopover ($where)")
+            item.stopover -> pick("richiesto per lo scalo ($where)", "required because of the stopover ($where)")
+            else -> pick("richiesto per il paese di provenienza ($where)", "required because of the country you are arriving from ($where)")
         }
-        VaccinationReason.YF_EXIT -> pick("richiesto all'uscita da $where", "required when leaving $where")
-        VaccinationReason.YF_DESTINATION_RISK -> pick("$where è a rischio", "$where is a risk area")
+        VaccinationReason.YF_EXIT -> pick("richiesto all'uscita dal paese ($where)", "required when leaving the country ($where)")
+        VaccinationReason.YF_DESTINATION_RISK -> pick("destinazione a rischio ($where)", "risk area at the destination ($where)")
         VaccinationReason.POLIO_EXIT -> pick(
-            "una dose ${doseText(item.polioDose, false)} prima di partire da $where, registrata sul certificato internazionale",
-            "one dose ${doseText(item.polioDose, true)} before leaving $where, recorded on the international certificate",
+            "una dose ${doseText(item.polioDose, false)} prima di partire dal paese ($where), registrata sul certificato internazionale",
+            "one dose ${doseText(item.polioDose, true)} before leaving the country ($where), recorded on the international certificate",
         )
         VaccinationReason.POLIO_ENCOURAGED -> pick(
-            "da $where è incoraggiata una dose ${doseText(item.polioDose, false)} prima di partire",
-            "when leaving $where one dose ${doseText(item.polioDose, true)} is encouraged",
+            "in partenza dal paese ($where) è incoraggiata una dose ${doseText(item.polioDose, false)} prima di partire",
+            "when leaving the country ($where) one dose ${doseText(item.polioDose, true)} is encouraged",
         )
         VaccinationReason.POLIO_ENTRY -> pick(
-            "richiesto all'ingresso per chi arriva da $where (${doseText(item.polioDose, false)})",
-            "required on entry for those arriving from $where (${doseText(item.polioDose, true)})",
+            "richiesto all'ingresso per chi arriva dal paese di provenienza, $where (${doseText(item.polioDose, false)})",
+            "required on entry for those arriving from the country of origin, $where (${doseText(item.polioDose, true)})",
         )
         VaccinationReason.POLIO_ENTRY_UNLISTED -> pick(
-            "$where può chiedere la prova della vaccinazione a chi arriva da paesi in cui circola la polio; le fonti " +
+            "la destinazione ($where) può chiedere la prova della vaccinazione a chi arriva da paesi in cui circola la polio; le fonti " +
                 "non dicono da quali paesi: verifica sul sito del ministero degli Esteri del tuo paese o con l'ambasciata",
-            "$where may ask for proof of vaccination from travellers arriving from countries where polio is circulating; " +
+            "the destination ($where) may ask for proof of vaccination from travellers arriving from countries where polio is circulating; " +
                 "the sources do not say which countries: check your foreign ministry's travel advice or the embassy",
         )
         VaccinationReason.HAJJ_UMRAH -> pick("obbligatorio per Hajj e Umrah", "mandatory for Hajj and Umrah")

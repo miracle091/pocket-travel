@@ -192,9 +192,9 @@ class SyntheticCategoriesTest(unittest.TestCase):
                        "Raccomandate per la destinazione:\n- Epatite A\nVerifica sempre le regole ufficiali.",
                  "en": "Vaccinations for a trip from Italy to Ghana\nRequired certificates:\n- Yellow fever\n- Polio\n"
                        "Recommended for the destination:\n- Hepatitis A\nAlways check the official rules."}
-        nessuno = {"it": "Vaccinazioni per un viaggio dall'Italia in Francia\nNessun certificato richiesto nei nostri dati\n"
+        nessuno = {"it": "Vaccinazioni per un viaggio dall'Italia in Francia\nNessun certificato richiesto nei dati dell'app\n"
                          "Verifica sempre le regole ufficiali.",
-                   "en": "Vaccinations for a trip from Italy to France\nNo certificate required in our data\n"
+                   "en": "Vaccinations for a trip from Italy to France\nNo certificate required in the app's data\n"
                          "Always check the official rules."}
         for lang in ("it", "en"):
             rows = []

@@ -40,7 +40,7 @@ class VaccinationSummaryTest {
         assertTrue(text.contains("Kenya -> Etiopia -> Egitto"))
         assertTrue(text.contains("verificati il 2026-10-03"))
         assertTrue(text.contains("Certificati richiesti:"))
-        assertTrue(text.contains("Febbre gialla: richiesto perché arrivi da Kenya; da 9 mesi di età"))
+        assertTrue(text.contains("Febbre gialla: richiesto per il paese di provenienza (Kenya); da 9 mesi di età"))
         assertTrue(text.contains("Raccomandate per la destinazione: Epatite A"))
         assertTrue(text.contains("Da valutare con il medico secondo il viaggio: Rabbia"))
         assertTrue(text.contains("Fonti: Travel.gc.ca, TravelHealthPro"))
@@ -58,10 +58,10 @@ class VaccinationSummaryTest {
         val trip = Trip(departure = "it", destination = "eg")
         val result = evaluateVaccinations(trip, unlisted, today)
         val it = result.toSummaryText(trip, "it")
-        assertTrue(it.contains("Poliomielite: Egitto può chiedere la prova della vaccinazione a chi arriva da paesi in cui circola la polio"))
+        assertTrue(it.contains("Poliomielite: la destinazione (Egitto) può chiedere la prova della vaccinazione a chi arriva da paesi in cui circola la polio"))
         assertTrue(it.contains("Da valutare con il medico secondo il viaggio: Rabbia\n"))
         assertTrue(it.contains("France Diplomatie"))
-        assertTrue(result.toSummaryText(trip, "en").contains("Polio: Egypt may ask for proof of vaccination"))
+        assertTrue(result.toSummaryText(trip, "en").contains("Polio: the destination (Egypt) may ask for proof of vaccination"))
     }
 
     @Test
@@ -70,21 +70,21 @@ class VaccinationSummaryTest {
         val text = evaluateVaccinations(trip, data, today).toSummaryText(trip, "en")
         println(text)
         assertTrue(text.contains("Vaccinations for the trip Kenya -> Egypt (data checked on 2026-10-03):"))
-        assertTrue(text.contains("Yellow fever: required because you are arriving from Kenya; from age 9 months"))
+        assertTrue(text.contains("Yellow fever: required because of the country you are arriving from (Kenya); from age 9 months"))
         assertTrue(text.contains("Recommended for the destination: Hepatitis A"))
         assertTrue(text.contains("embassy"))
         assertTrue(text.contains("travel health clinic"))
     }
 
     @Test
-    fun `senza obblighi dice nei nostri dati e mai che non serve nulla`() {
+    fun `senza obblighi dice nei dati dell'app e mai che non serve nulla`() {
         val trip = Trip(departure = "it", destination = "it")
         val it = evaluateVaccinations(trip, data, today).toSummaryText(trip, "it")
-        assertTrue(it.contains("Nei nostri dati nessun certificato risulta richiesto"))
+        assertTrue(it.contains("Nei dati dell'app nessun certificato risulta richiesto"))
         assertFalse(it.contains("Certificati richiesti"))
         assertFalse(it.contains("non serve"))
         val en = evaluateVaccinations(trip, data, today).toSummaryText(trip, "en")
-        assertTrue(en.contains("In our data no certificate is listed as required"))
+        assertTrue(en.contains("In the app's data no certificate is listed as required"))
     }
 
     @Test
@@ -93,7 +93,7 @@ class VaccinationSummaryTest {
         val result = evaluateVaccinations(trip, data, today.plusDays(200))
         val text = result.toSummaryText(trip, "it")
         println(text)
-        assertTrue(text.contains("Poliomielite (in uscita): una dose bOPV/IPV tra 4 settimane e 12 mesi prima di partire da Afghanistan"))
+        assertTrue(text.contains("Poliomielite (in uscita): una dose bOPV/IPV tra 4 settimane e 12 mesi prima di partire dal paese (Afghanistan)"))
         assertTrue(text.contains("i dati sulla polio potrebbero non essere aggiornati (IHR EC 45)"))
         assertTrue(text.contains("Fonti: OMS (Polio IHR Emergency Committee)"))
     }

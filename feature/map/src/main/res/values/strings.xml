@@ -209,9 +209,9 @@
     <string name="transit_valid_until">Orari validi fino al %1$s</string>
     <string name="transit_expired">Gli orari sono scaduti (validi fino al %1$s)</string>
     <string name="transit_expiring">Gli orari stanno per scadere</string>
-    <string name="transit_feed_expired">Partenze di %1$s non mostrate: orari scaduti (validi fino al %2$s)</string>
+    <string name="transit_feed_expired">Partenze della rete %1$s non mostrate: orari scaduti (validi fino al %2$s)</string>
     <string name="transit_feed_expired_unnamed">Partenze di un\'altra rete non mostrate: orari scaduti (validi fino al %1$s)</string>
-    <string name="transit_feed_estimated">Partenze di %1$s stimate dalla settimana precedente: orari scaduti (validi fino al %2$s)</string>
+    <string name="transit_feed_estimated">Partenze della rete %1$s stimate dalla settimana precedente: orari scaduti (validi fino al %2$s)</string>
     <string name="transit_feed_estimated_unnamed">Partenze di un\'altra rete stimate dalla settimana precedente: orari scaduti (validi fino al %1$s)</string>
     <string name="transit_mode_estimated">%1$s, orario stimato</string>
     <string name="transit_update">Aggiorna</string>
@@ -273,7 +273,7 @@
     <string name="planner_reminder_set">Promemoria alle %1$s</string>
     <string name="planner_departure_channel">Partenze del Navigatore</string>
     <string name="planner_departure_title">È ora di partire</string>
-    <string name="planner_departure_text">Per arrivare in tempo a %1$s</string>
+    <string name="planner_departure_text">Per arrivare in tempo a destinazione: %1$s</string>
     <string name="planner_leave_now_on_time">Parti adesso</string>
     <plurals name="planner_leave_in">
         <item quantity="one">Parti tra %d minuto</item>
@@ -292,7 +292,7 @@
     <string name="navigation_channel">Navigazione</string>
     <string name="navigation_notification_stop">Termina</string>
     <string name="navigation_resume_title">Riprendere la navigazione?</string>
-    <string name="navigation_resume_text">La navigazione verso %1$s si è interrotta perché l\'app è stata chiusa</string>
+    <string name="navigation_resume_text">La navigazione verso la destinazione (%1$s) si è interrotta perché l\'app è stata chiusa</string>
     <string name="navigation_resume">Riprendi</string>
     <string name="navigation_resume_no">No</string>
     <string name="planner_recents_clear">Cancella le ricerche recenti</string>

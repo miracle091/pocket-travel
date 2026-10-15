@@ -57,7 +57,7 @@ class VaccinationSummaryEdgeCasesTest {
     @Test
     fun `senza certificati richiesti ne' altre voci restano la frase prudente, la routine e il rimando`() {
         val text = result(routine).toSummaryText(trip, "it")
-        assertTrue(text.contains("Nei nostri dati nessun certificato risulta richiesto"))
+        assertTrue(text.contains("Nei dati dell'app nessun certificato risulta richiesto"))
         assertFalse(text.contains("Raccomandate per la destinazione"))
         assertFalse(text.contains("Da valutare"))
         assertFalse(text.contains("Fonti:"))
@@ -73,8 +73,8 @@ class VaccinationSummaryEdgeCasesTest {
     @Test
     fun `l'uscita e' segnata nel nome della voce`() {
         val exit = VaccinationItem(Vaccine.YELLOW_FEVER, VaccinationLevel.REQUIRED_EXIT, VaccinationReason.YF_EXIT, country = "ng")
-        assertTrue(result(exit).toSummaryText(trip, "it").contains("- Febbre gialla (in uscita): richiesto all'uscita da Nigeria"))
-        assertTrue(result(exit).toSummaryText(trip, "en").contains("- Yellow fever (on exit): required when leaving Nigeria"))
+        assertTrue(result(exit).toSummaryText(trip, "it").contains("- Febbre gialla (in uscita): richiesto all'uscita dal paese (Nigeria)"))
+        assertTrue(result(exit).toSummaryText(trip, "en").contains("- Yellow fever (on exit): required when leaving the country (Nigeria)"))
     }
 
     @Test
@@ -88,10 +88,10 @@ class VaccinationSummaryEdgeCasesTest {
     fun `lo scalo si descrive con le ore se note, altrimenti senza`() {
         val withHours = yfEntry().copy(transitHours = 14, stopover = true)
         val withoutHours = yfEntry().copy(stopover = true)
-        assertTrue(result(withHours).toSummaryText(trip, "it").contains("richiesto per lo scalo di 14 ore in Kenya"))
-        assertTrue(result(withHours).toSummaryText(trip, "en").contains("required because of the 14-hour stopover in Kenya"))
-        assertTrue(result(withoutHours).toSummaryText(trip, "it").contains("richiesto per lo scalo in Kenya"))
-        assertTrue(result(withoutHours).toSummaryText(trip, "en").contains("required because of the stopover in Kenya"))
+        assertTrue(result(withHours).toSummaryText(trip, "it").contains("richiesto per lo scalo di 14 ore (Kenya)"))
+        assertTrue(result(withHours).toSummaryText(trip, "en").contains("required because of the 14-hour stopover (Kenya)"))
+        assertTrue(result(withoutHours).toSummaryText(trip, "it").contains("richiesto per lo scalo (Kenya)"))
+        assertTrue(result(withoutHours).toSummaryText(trip, "en").contains("required because of the stopover (Kenya)"))
     }
 
     @Test
@@ -113,24 +113,24 @@ class VaccinationSummaryEdgeCasesTest {
     @Test
     fun `una nota vuota o di soli spazi non aggiunge nulla`() {
         val item = yfEntry().copy(noteIt = "   ")
-        assertTrue(result(item).toSummaryText(trip, "it").contains("- Febbre gialla: richiesto perché arrivi da Kenya\n"))
+        assertTrue(result(item).toSummaryText(trip, "it").contains("- Febbre gialla: richiesto per il paese di provenienza (Kenya)\n"))
     }
 
     @Test
     fun `le voci sotto l'eta' minima hanno un blocco proprio e non tra le da valutare`() {
         val below = yfEntry(level = VaccinationLevel.CONSIDER).copy(minAgeMonths = 9, ageNote = AgeNote.BELOW_AGE)
         val text = result(below, routine).toSummaryText(trip, "it")
-        assertTrue(text.contains("Nei nostri dati nessun certificato risulta richiesto"))
-        assertTrue(text.contains("Non richiesti per l'età indicata:\n- Febbre gialla: richiesto perché arrivi da Kenya; non richiesto sotto i 9 mesi"))
+        assertTrue(text.contains("Nei dati dell'app nessun certificato risulta richiesto"))
+        assertTrue(text.contains("Non richiesti per l'età indicata:\n- Febbre gialla: richiesto per il paese di provenienza (Kenya); non richiesto sotto i 9 mesi"))
         assertFalse(text.contains("Da valutare con il medico"))
-        assertTrue(result(below).toSummaryText(trip, "en").contains("Not required at the age given:\n- Yellow fever: required because you are arriving from Kenya; not required under 9 months"))
+        assertTrue(result(below).toSummaryText(trip, "en").contains("Not required at the age given:\n- Yellow fever: required because of the country you are arriving from (Kenya); not required under 9 months"))
     }
 
     @Test
     fun `la soglia di eta' senza eta' indicata dice da quanti mesi`() {
         val fromAge = yfEntry().copy(minAgeMonths = 9, ageNote = AgeNote.FROM_AGE)
-        assertTrue(result(fromAge).toSummaryText(trip, "it").contains("richiesto perché arrivi da Kenya; da 9 mesi di età"))
-        assertTrue(result(fromAge).toSummaryText(trip, "en").contains("required because you are arriving from Kenya; from age 9 months"))
+        assertTrue(result(fromAge).toSummaryText(trip, "it").contains("richiesto per il paese di provenienza (Kenya); da 9 mesi di età"))
+        assertTrue(result(fromAge).toSummaryText(trip, "en").contains("required because of the country you are arriving from (Kenya); from age 9 months"))
     }
 
     @Test
@@ -140,16 +140,16 @@ class VaccinationSummaryEdgeCasesTest {
             polioDose = PolioDose(PolioVaccine.BOPV_OR_IPV, PolioWindow.W4_12M),
         )
         val italian = result(encouraged).toSummaryText(trip, "it")
-        assertTrue(italian.contains("Incoraggiate (non obbligatorie):\n- Poliomielite: da Nigeria è incoraggiata una dose bOPV/IPV tra 4 settimane e 12 mesi prima di partire"))
+        assertTrue(italian.contains("Incoraggiate (non obbligatorie):\n- Poliomielite: in partenza dal paese (Nigeria) è incoraggiata una dose bOPV/IPV tra 4 settimane e 12 mesi prima di partire"))
         val en = result(encouraged).toSummaryText(trip, "en")
-        assertTrue(en.contains("Encouraged (not mandatory):\n- Polio: when leaving Nigeria one dose bOPV/IPV between 4 weeks and 12 months is encouraged"))
+        assertTrue(en.contains("Encouraged (not mandatory):\n- Polio: when leaving the country (Nigeria) one dose bOPV/IPV between 4 weeks and 12 months is encouraged"))
 
         val entry = VaccinationItem(
             Vaccine.POLIO, VaccinationLevel.REQUIRED, VaccinationReason.POLIO_ENTRY, country = "pk",
             polioDose = PolioDose(PolioVaccine.IPV, PolioWindow.ANY, PolioApplies.ALL),
         )
-        assertTrue(result(entry).toSummaryText(trip, "it").contains("richiesto all'ingresso per chi arriva da Pakistan (IPV (certificata))"))
-        assertTrue(result(entry).toSummaryText(trip, "en").contains("required on entry for those arriving from Pakistan (IPV (certified))"))
+        assertTrue(result(entry).toSummaryText(trip, "it").contains("richiesto all'ingresso per chi arriva dal paese di provenienza, Pakistan (IPV (certificata))"))
+        assertTrue(result(entry).toSummaryText(trip, "en").contains("required on entry for those arriving from the country of origin, Pakistan (IPV (certified))"))
         val noDose = entry.copy(polioDose = null)
         assertTrue(result(noDose).toSummaryText(trip, "it").contains("(bOPV/IPV (certificata))"))
     }

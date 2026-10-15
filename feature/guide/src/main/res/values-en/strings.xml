@@ -70,7 +70,7 @@
     <string name="emergency_kind_embassy">Embassy</string>
     <string name="emergency_kind_consulate_general">Consulate general</string>
     <string name="emergency_kind_consulate">Consulate</string>
-    <string name="emergency_embassy_website">Open the website of %1$s</string>
+    <string name="emergency_embassy_website">Open the website (%1$s)</string>
     <string name="emergency_embassy_email">Email %1$s</string>
     <string name="emergency_travel_advice_description">Travel advice and country pages from your country\'s foreign ministry</string>
     <string name="emergency_travel_advice_fallback_description">UK government travel advice: safety and health apply to everyone, entry requirements are those for British citizens</string>
