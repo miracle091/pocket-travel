@@ -189,7 +189,7 @@
     <string name="weather_near_you">Near you</string>
     <string name="weather_today">Today</string>
     <string name="weather_footer">%1$s · Weather data by Open-Meteo.com</string>
-    <string name="weather_updated_today">Updated at %1$s</string>
+    <string name="weather_updated_today">Last updated: %1$s</string>
     <string name="weather_updated_on">Last updated: %1$s</string>
     <string name="weather_source_open">Open Open-Meteo.com</string>
     <string name="weather_refresh">Refresh the weather</string>

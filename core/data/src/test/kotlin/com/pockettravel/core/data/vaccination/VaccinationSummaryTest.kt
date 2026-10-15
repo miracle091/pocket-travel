@@ -40,7 +40,7 @@ class VaccinationSummaryTest {
         assertTrue(text.contains("Kenya -> Etiopia -> Egitto"))
         assertTrue(text.contains("verificati il 2026-10-03"))
         assertTrue(text.contains("Certificati richiesti:"))
-        assertTrue(text.contains("Febbre gialla: richiesto per il paese di provenienza (Kenya); da 9 mesi di età"))
+        assertTrue(text.contains("Febbre gialla: certificato richiesto per il paese di provenienza (Kenya); da 9 mesi di età"))
         assertTrue(text.contains("Raccomandate per la destinazione: Epatite A"))
         assertTrue(text.contains("Da valutare con il medico secondo il viaggio: Rabbia"))
         assertTrue(text.contains("Fonti: Travel.gc.ca, TravelHealthPro"))

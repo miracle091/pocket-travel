@@ -73,14 +73,14 @@ class VaccinationSummaryEdgeCasesTest {
     @Test
     fun `l'uscita e' segnata nel nome della voce`() {
         val exit = VaccinationItem(Vaccine.YELLOW_FEVER, VaccinationLevel.REQUIRED_EXIT, VaccinationReason.YF_EXIT, country = "ng")
-        assertTrue(result(exit).toSummaryText(trip, "it").contains("- Febbre gialla (in uscita): richiesto all'uscita dal paese (Nigeria)"))
+        assertTrue(result(exit).toSummaryText(trip, "it").contains("- Febbre gialla (in uscita): certificato richiesto all'uscita dal paese (Nigeria)"))
         assertTrue(result(exit).toSummaryText(trip, "en").contains("- Yellow fever (on exit): required when leaving the country (Nigeria)"))
     }
 
     @Test
     fun `la febbre gialla per tutti non cita il paese di provenienza`() {
         val all = VaccinationItem(Vaccine.YELLOW_FEVER, VaccinationLevel.REQUIRED, VaccinationReason.YF_ENTRY_ALL)
-        assertTrue(result(all).toSummaryText(trip, "it").contains("- Febbre gialla: richiesto a tutti i viaggiatori in arrivo\n"))
+        assertTrue(result(all).toSummaryText(trip, "it").contains("- Febbre gialla: certificato richiesto a tutti i viaggiatori in arrivo\n"))
         assertTrue(result(all).toSummaryText(trip, "en").contains("- Yellow fever: required of all arriving travelers\n"))
     }
 
@@ -88,10 +88,12 @@ class VaccinationSummaryEdgeCasesTest {
     fun `lo scalo si descrive con le ore se note, altrimenti senza`() {
         val withHours = yfEntry().copy(transitHours = 14, stopover = true)
         val withoutHours = yfEntry().copy(stopover = true)
-        assertTrue(result(withHours).toSummaryText(trip, "it").contains("richiesto per lo scalo di 14 ore (Kenya)"))
+        assertTrue(result(withHours).toSummaryText(trip, "it").contains("certificato richiesto per lo scalo di 14 ore (Kenya)"))
         assertTrue(result(withHours).toSummaryText(trip, "en").contains("required because of the 14-hour stopover (Kenya)"))
-        assertTrue(result(withoutHours).toSummaryText(trip, "it").contains("richiesto per lo scalo (Kenya)"))
+        assertTrue(result(withoutHours).toSummaryText(trip, "it").contains("certificato richiesto per lo scalo (Kenya)"))
         assertTrue(result(withoutHours).toSummaryText(trip, "en").contains("required because of the stopover (Kenya)"))
+        val oneHour = yfEntry().copy(transitHours = 1, stopover = true)
+        assertTrue(result(oneHour).toSummaryText(trip, "it").contains("certificato richiesto per lo scalo di 1 ora (Kenya)"))
     }
 
     @Test
@@ -102,7 +104,7 @@ class VaccinationSummaryEdgeCasesTest {
         )
         assertTrue(
             result(hajj).toSummaryText(trip, "it")
-                .contains("- Meningococco ACWY: obbligatorio per Hajj e Umrah; almeno 10 giorni prima; validità 5 anni; da 12 mesi di età; dose recente\n"),
+                .contains("- Meningococco ACWY: certificato obbligatorio per Hajj e Umrah; almeno 10 giorni prima; validità 5 anni; da 12 mesi di età; dose recente\n"),
         )
         assertTrue(
             result(hajj).toSummaryText(trip, "en")
@@ -113,7 +115,7 @@ class VaccinationSummaryEdgeCasesTest {
     @Test
     fun `una nota vuota o di soli spazi non aggiunge nulla`() {
         val item = yfEntry().copy(noteIt = "   ")
-        assertTrue(result(item).toSummaryText(trip, "it").contains("- Febbre gialla: richiesto per il paese di provenienza (Kenya)\n"))
+        assertTrue(result(item).toSummaryText(trip, "it").contains("- Febbre gialla: certificato richiesto per il paese di provenienza (Kenya)\n"))
     }
 
     @Test
@@ -121,7 +123,7 @@ class VaccinationSummaryEdgeCasesTest {
         val below = yfEntry(level = VaccinationLevel.CONSIDER).copy(minAgeMonths = 9, ageNote = AgeNote.BELOW_AGE)
         val text = result(below, routine).toSummaryText(trip, "it")
         assertTrue(text.contains("Nei dati dell'app nessun certificato risulta richiesto"))
-        assertTrue(text.contains("Non richiesti per l'età indicata:\n- Febbre gialla: richiesto per il paese di provenienza (Kenya); non richiesto sotto i 9 mesi"))
+        assertTrue(text.contains("Non richiesti per l'età indicata:\n- Febbre gialla: certificato richiesto per il paese di provenienza (Kenya); certificato non richiesto sotto i 9 mesi"))
         assertFalse(text.contains("Da valutare con il medico"))
         assertTrue(result(below).toSummaryText(trip, "en").contains("Not required at the age given:\n- Yellow fever: required because of the country you are arriving from (Kenya); not required under 9 months"))
     }
@@ -129,7 +131,7 @@ class VaccinationSummaryEdgeCasesTest {
     @Test
     fun `la soglia di eta' senza eta' indicata dice da quanti mesi`() {
         val fromAge = yfEntry().copy(minAgeMonths = 9, ageNote = AgeNote.FROM_AGE)
-        assertTrue(result(fromAge).toSummaryText(trip, "it").contains("richiesto per il paese di provenienza (Kenya); da 9 mesi di età"))
+        assertTrue(result(fromAge).toSummaryText(trip, "it").contains("certificato richiesto per il paese di provenienza (Kenya); da 9 mesi di età"))
         assertTrue(result(fromAge).toSummaryText(trip, "en").contains("required because of the country you are arriving from (Kenya); from age 9 months"))
     }
 
@@ -148,7 +150,7 @@ class VaccinationSummaryEdgeCasesTest {
             Vaccine.POLIO, VaccinationLevel.REQUIRED, VaccinationReason.POLIO_ENTRY, country = "pk",
             polioDose = PolioDose(PolioVaccine.IPV, PolioWindow.ANY, PolioApplies.ALL),
         )
-        assertTrue(result(entry).toSummaryText(trip, "it").contains("richiesto all'ingresso per chi arriva dal paese di provenienza, Pakistan (IPV (certificata))"))
+        assertTrue(result(entry).toSummaryText(trip, "it").contains("certificato richiesto all'ingresso per chi arriva dal paese di provenienza, Pakistan (IPV (certificata))"))
         assertTrue(result(entry).toSummaryText(trip, "en").contains("required on entry for those arriving from the country of origin, Pakistan (IPV (certified))"))
         val noDose = entry.copy(polioDose = null)
         assertTrue(result(noDose).toSummaryText(trip, "it").contains("(bOPV/IPV (certificata))"))

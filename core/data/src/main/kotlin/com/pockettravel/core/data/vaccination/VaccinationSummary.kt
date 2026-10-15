@@ -91,13 +91,13 @@ private fun itemLine(item: VaccinationItem, en: Boolean, country: (String) -> St
     val name = vaccineName(item.vaccine, en)
     val where = item.country?.let(country).orEmpty()
     val reason = when (item.reason) {
-        VaccinationReason.YF_ENTRY_ALL -> pick("richiesto a tutti i viaggiatori in arrivo", "required of all arriving travelers")
+        VaccinationReason.YF_ENTRY_ALL -> pick("certificato richiesto a tutti i viaggiatori in arrivo", "required of all arriving travelers")
         VaccinationReason.YF_ENTRY_FROM_RISK, VaccinationReason.YF_ENTRY_FROM_LIST -> when {
-            item.transitHours != null -> pick("richiesto per lo scalo di ${item.transitHours} ore ($where)", "required because of the ${item.transitHours}-hour stopover ($where)")
-            item.stopover -> pick("richiesto per lo scalo ($where)", "required because of the stopover ($where)")
-            else -> pick("richiesto per il paese di provenienza ($where)", "required because of the country you are arriving from ($where)")
+            item.transitHours != null -> pick("certificato richiesto per lo scalo di ${item.transitHours} ${if (item.transitHours == 1) "ora" else "ore"} ($where)", "required because of the ${item.transitHours}-hour stopover ($where)")
+            item.stopover -> pick("certificato richiesto per lo scalo ($where)", "required because of the stopover ($where)")
+            else -> pick("certificato richiesto per il paese di provenienza ($where)", "required because of the country you are arriving from ($where)")
         }
-        VaccinationReason.YF_EXIT -> pick("richiesto all'uscita dal paese ($where)", "required when leaving the country ($where)")
+        VaccinationReason.YF_EXIT -> pick("certificato richiesto all'uscita dal paese ($where)", "required when leaving the country ($where)")
         VaccinationReason.YF_DESTINATION_RISK -> pick("destinazione a rischio ($where)", "risk area at the destination ($where)")
         VaccinationReason.POLIO_EXIT -> pick(
             "una dose ${doseText(item.polioDose, false)} prima di partire dal paese ($where), registrata sul certificato internazionale",
@@ -108,7 +108,7 @@ private fun itemLine(item: VaccinationItem, en: Boolean, country: (String) -> St
             "when leaving the country ($where) one dose ${doseText(item.polioDose, true)} is encouraged",
         )
         VaccinationReason.POLIO_ENTRY -> pick(
-            "richiesto all'ingresso per chi arriva dal paese di provenienza, $where (${doseText(item.polioDose, false)})",
+            "certificato richiesto all'ingresso per chi arriva dal paese di provenienza, $where (${doseText(item.polioDose, false)})",
             "required on entry for those arriving from the country of origin, $where (${doseText(item.polioDose, true)})",
         )
         VaccinationReason.POLIO_ENTRY_UNLISTED -> pick(
@@ -117,7 +117,7 @@ private fun itemLine(item: VaccinationItem, en: Boolean, country: (String) -> St
             "the destination ($where) may ask for proof of vaccination from travelers arriving from countries where polio is circulating; " +
                 "the sources do not say which countries: check your foreign ministry's travel advice or the embassy",
         )
-        VaccinationReason.HAJJ_UMRAH -> pick("obbligatorio per Hajj e Umrah", "mandatory for Hajj and Umrah")
+        VaccinationReason.HAJJ_UMRAH -> pick("certificato obbligatorio per Hajj e Umrah", "mandatory for Hajj and Umrah")
         VaccinationReason.DESTINATION_MOST, VaccinationReason.DESTINATION_SOME, VaccinationReason.ROUTINE -> ""
     }
     val details = buildList {
@@ -125,7 +125,7 @@ private fun itemLine(item: VaccinationItem, en: Boolean, country: (String) -> St
         item.validityYears?.let { add(pick("validità $it anni", "valid for $it years")) }
         when (item.ageNote) {
             AgeNote.FROM_AGE -> add(pick("da ${item.minAgeMonths} mesi di età", "from age ${item.minAgeMonths} months"))
-            AgeNote.BELOW_AGE -> add(pick("non richiesto sotto i ${item.minAgeMonths} mesi", "not required under ${item.minAgeMonths} months"))
+            AgeNote.BELOW_AGE -> add(pick("certificato non richiesto sotto i ${item.minAgeMonths} mesi", "not required under ${item.minAgeMonths} months"))
             AgeNote.NONE -> if (item.reason == VaccinationReason.HAJJ_UMRAH && item.minAgeMonths != null) {
                 add(pick("da ${item.minAgeMonths} mesi di età", "from age ${item.minAgeMonths} months"))
             }

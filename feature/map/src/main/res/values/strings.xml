@@ -223,13 +223,13 @@
     <string name="transit_source_dated">Fonte: %1$s, dati del giorno %2$s</string>
     <string name="transit_in_min">tra %1$d min</string>
     <string name="transit_now">ora</string>
-    <string name="transit_later">Poi alle %1$s</string>
+    <string name="transit_later">Partenze successive: %1$s</string>
     <plurals name="transit_in_minutes_spoken">
         <item quantity="one">tra %1$d minuto</item>
         <item quantity="other">tra %1$d minuti</item>
     </plurals>
-    <string name="transit_departure_description">Linea %1$s, %2$s, direzione %3$s, alle %4$s, %5$s</string>
-    <string name="transit_departure_description_no_headsign">Linea %1$s, %2$s, alle %3$s, %4$s</string>
+    <string name="transit_departure_description">Linea %1$s, %2$s, direzione %3$s, orario %4$s, %5$s</string>
+    <string name="transit_departure_description_no_headsign">Linea %1$s, %2$s, orario %3$s, %4$s</string>
     <string name="transit_mode_tram">Tram</string>
     <string name="transit_mode_metro">Metro</string>
     <string name="transit_mode_train">Treno</string>
@@ -262,15 +262,15 @@
     <string name="planner_calculating_progress">%1$s · %2$d%%</string>
     <string name="navigation_then">Poi</string>
     <string name="navigation_end">Termina</string>
-    <string name="navigation_distance_arrival">%1$s · arrivo alle %2$s</string>
+    <string name="navigation_distance_arrival">%1$s · arrivo: %2$s</string>
     <string name="navigation_show_steps">Mostra o nascondi le svolte</string>
     <string name="planner_arrive_by">Programma un orario di arrivo</string>
     <string name="planner_arrive_by_title">A che ora vuoi arrivare?</string>
     <string name="planner_arrive_by_clear">Rimuovi l\'orario di arrivo</string>
-    <string name="planner_leave_at">Parti alle %1$s</string>
-    <string name="planner_to_arrive_at">per arrivare alle %1$s</string>
+    <string name="planner_leave_at">Partenza: %1$s</string>
+    <string name="planner_to_arrive_at">Arrivo: %1$s</string>
     <string name="planner_remind_me">Avvisami quando partire</string>
-    <string name="planner_reminder_set">Promemoria alle %1$s</string>
+    <string name="planner_reminder_set">Promemoria: %1$s</string>
     <string name="planner_departure_channel">Partenze del Navigatore</string>
     <string name="planner_departure_title">È ora di partire</string>
     <string name="planner_departure_text">Per arrivare in tempo a destinazione: %1$s</string>
@@ -279,7 +279,7 @@
         <item quantity="one">Parti tra %d minuto</item>
         <item quantity="other">Parti tra %d minuti</item>
     </plurals>
-    <string name="navigation_on_time">In orario per le %1$s</string>
+    <string name="navigation_on_time">In orario, arrivo: %1$s</string>
     <plurals name="navigation_late">
         <item quantity="one">%d minuto di ritardo</item>
         <item quantity="other">%d minuti di ritardo</item>
