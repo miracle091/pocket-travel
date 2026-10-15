@@ -151,6 +151,51 @@ jobs:
           path: ${{ env.DEBUG_APK_PATH }}
           retention-days: 7
 
+  # Gli script della pipeline e dei workflow girano anche su un PC Windows con Git Bash (prove in locale, README della
+  # pipeline): qui i loro test Python e una prova degli script in modalita' locale, cosi' una modifica che funziona
+  # solo su Linux si vede subito. Il GITHUB_TOKEN legge soltanto, e in modalita' locale gh non scrive comunque.
+  windows-scripts:
+    name: Script su Windows
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: python3 e jq come su Linux
+        run: |
+          set -euo pipefail
+          source tools/data-pipeline/scripts/portable.sh
+          python3 --version
+          [ "$(printf '{"a":"x"}' | jq -r .a)" = "x" ] || { echo "::error::jq scrive ancora le righe con CR LF" >&2; exit 1; }
+
+      - name: Test Python della pipeline e degli script dei workflow
+        run: |
+          set -e
+          for t in tools/data-pipeline/scripts/test_*.py .github/scripts/test_*.py; do
+            echo "== $t"
+            python -W always::ResourceWarning "$t" 2>&1 | tee "$RUNNER_TEMP/python-test.log"
+            if grep -q ResourceWarning "$RUNNER_TEMP/python-test.log"; then
+              echo "::error::$t lascia file o connessioni aperti (ResourceWarning)"
+              exit 1
+            fi
+          done
+
+      # Senza GITHUB_ACTIONS gli script si comportano come su un PC (env.sh): valori di prova e gh in sola lettura.
+      - name: Script di publish-regions in modalita' locale
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          env -u GITHUB_ACTIONS bash .github/scripts/install-go-pmtiles.sh
+          env -u GITHUB_ACTIONS REGIONS_INPUT=andorra,italia GITHUB_OUTPUT="$RUNNER_TEMP/plan-output.txt" \
+            bash .github/scripts/publish-regions/plan-shards.sh
+          grep -q '^shard0=.' "$RUNNER_TEMP/plan-output.txt"
+
   # Test su emulatore (Compose, percorsi di navigazione, migrazioni Room, installazione dei pacchetti), in parallelo al job
   # "build". Quelli che chiedono file sul dispositivo (modello GGUF, segmenti .rd5) qui si saltano da soli (assumeTrue).
   device-tests:

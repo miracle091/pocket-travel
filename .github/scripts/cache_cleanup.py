@@ -12,7 +12,7 @@ cadere voci utili come le dipendenze di Gradle o i dump di Wikivoyage. Regole:
 - la voce piu' recente di una famiglia di main non si tocca mai, anche se vecchia.
 
 Uso: cache_cleanup.py [--dry-run]. Ambiente: GITHUB_REPOSITORY, GH_TOKEN (actions: write), GITHUB_STEP_SUMMARY
-(facoltativo, per il riepilogo).
+(facoltativo, per il riepilogo). Fuori da GitHub Actions vale sempre --dry-run, salvo PUBLISH=1.
 """
 
 import argparse
@@ -87,6 +87,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--dry-run", action="store_true", help="elenca le voci da cancellare senza cancellarle")
     args = parser.parse_args()
+    # Su un PC (fuori da GitHub Actions) solo elenco, come gli script che caricano env.sh; PUBLISH=1 cancella davvero.
+    if os.environ.get("GITHUB_ACTIONS") != "true" and os.environ.get("PUBLISH") != "1":
+        args.dry_run = True
     repo = os.environ["GITHUB_REPOSITORY"]
 
     count_before, size_before = usage(repo)

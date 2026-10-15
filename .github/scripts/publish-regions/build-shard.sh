@@ -8,6 +8,11 @@
 # GITHUB_RUN_ATTEMPT, GH_TOKEN; per gli script della pipeline POI_MAX_AGE_DAYS, WIKIVOYAGE_DUMP_CACHE,
 # CITY_FACTS_CACHE, RD5_RANGE_CACHE, GEOFABRIK_CACHE, TRANSLATE_MAX_SECONDS.
 set -euo pipefail
+source .github/scripts/env.sh
+# Fuori dal workflow, gli stessi valori; le regioni da costruire sono SELECTED (regionId separati da virgola).
+: "${SHARD:=0}" "${SELECTED:=}" "${EXTRA:=}" "${JOB_START:=$(date +%s)}" "${TIME_BUDGET_MINUTES:=280}" "${REGION_TIMEOUT_MINUTES:=45}"
+: "${TRANSLATE_TOTAL_MINUTES:=40}" "${POI_MAX_AGE_DAYS:=6}"
+export POI_MAX_AGE_DAYS
 source tools/data-pipeline/scripts/regions.sh
 # shellcheck source=tools/data-pipeline/scripts/lib.sh
 source tools/data-pipeline/scripts/lib.sh

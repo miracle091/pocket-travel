@@ -5,6 +5,8 @@
 # Ambiente: CONTINUATION, TIME_BUDGET_INPUT, POI_MAX_AGE_INPUT (input della run), REF_NAME (ramo; dall'ambiente perche'
 # il nome di un ramo puo' contenere $(...)), GITHUB_REPOSITORY, GH_TOKEN.
 set -euo pipefail
+source .github/scripts/env.sh
+: "${REF_NAME:=$(git branch --show-current)}"  # fuori dal workflow, il ramo attuale
 source .github/scripts/retry.sh
 shopt -s nullglob
 [[ "${CONTINUATION:-}" =~ ^[0-9]+$ ]] || CONTINUATION=0

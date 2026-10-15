@@ -10,6 +10,7 @@
 # prima della run), o first-publication alla prima pubblicazione.
 # Ambiente: GITHUB_REPOSITORY, GH_TOKEN.
 set -euo pipefail
+source .github/scripts/env.sh
 source .github/scripts/retry.sh
 SITE_DIR="$1"
 PREVIOUS_DIR="$2"

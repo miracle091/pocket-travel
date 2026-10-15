@@ -4,6 +4,8 @@
 # se l'ha rigenerata, il frammento di catalogo in $RUNNER_TEMP/fragments/world-map.json.
 # Ambiente: PAGES_BASE_URL, WORLD_MAP_MAX_AGE_DAYS, GITHUB_REPOSITORY, GH_TOKEN.
 set -euo pipefail
+source .github/scripts/env.sh
+: "${WORLD_MAP_MAX_AGE_DAYS:=30}"  # fuori dal workflow, lo stesso valore
 source .github/scripts/retry.sh
 # shellcheck source=tools/data-pipeline/scripts/lib.sh
 source tools/data-pipeline/scripts/lib.sh

@@ -5,6 +5,7 @@
 # inesistente) andrebbero in race, e il secondo "gh release create" fallirebbe facendo fallire lo shard.
 # Ambiente: GITHUB_REPOSITORY, GH_TOKEN.
 set -euo pipefail
+source .github/scripts/env.sh
 source .github/scripts/retry.sh
 source tools/data-pipeline/scripts/regions.sh
 

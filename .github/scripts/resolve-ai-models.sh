@@ -5,6 +5,7 @@
 # coincide: l'app rifiuterebbe quel download. Da lanciare dalla radice del repository, con GH_TOKEN.
 # Uso: bash .github/scripts/resolve-ai-models.sh <LlmModelCatalog.kt> <output>
 set -euo pipefail
+source .github/scripts/env.sh
 source .github/scripts/retry.sh
 
 catalog="$1"

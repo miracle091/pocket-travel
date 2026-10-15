@@ -6,6 +6,9 @@
 # ADDRESS_CELLS_INPUT (input della run, mai interpolato nello script), GITHUB_REPOSITORY, GITHUB_RUN_NUMBER,
 # GITHUB_RUN_ATTEMPT, GH_TOKEN.
 set -euo pipefail
+source .github/scripts/env.sh
+# Fuori dal workflow, gli stessi valori (ADDRESS_CELLS_INPUT vuoto = quota di oggi).
+: "${ADDRESS_CELL_RELEASES:=12}" "${ADDRESS_CELLS_INPUT:=}"
 # shellcheck source=tools/data-pipeline/scripts/lib.sh
 source tools/data-pipeline/scripts/lib.sh
 INDEX_URL="$PAGES_BASE_URL/address-grid.json"

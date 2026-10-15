@@ -57,6 +57,28 @@ asset, `pages` e `id-token` solo a `publish`. I checkout dei job che scrivono su
 `persist-credentials: false`, così il token di scrittura non resta nella configurazione git leggibile dal codice di
 build.
 
+**Prove in locale.** Gli script dei job (`.github/scripts/`, `.github/scripts/publish-regions/`) e quelli di
+`scripts/` girano anche su un PC, Linux o Windows con Git Bash, dalla root del repository. Servono bash, curl, jq 1.7
+o più recente, xz, unzip, python 3, un JDK per `./gradlew` e `gh` autenticato; go-pmtiles si installa con
+`bash .github/scripts/install-go-pmtiles.sh`, osmium-tool è facoltativo. macOS non è supportato (`date`, `stat` e
+`sed` di BSD). Fuori da GitHub Actions `.github/scripts/env.sh` dà alle variabili del runner un valore di prova
+(cartella temporanea nuova, repository dal remote `origin`, run 0) e stampa invece di eseguire i comandi `gh` che
+scrivono sul repository (esegue solo le letture: release, cache, run, `gh api` in GET): con `PUBLISH=1` li esegue
+davvero. Anche `.github/scripts/cache_cleanup.py` fuori da Actions elenca soltanto, salvo `PUBLISH=1`. Su Git Bash
+`scripts/portable.sh` fa di `python3` un alias di `python` e fa scrivere a `jq` righe senza `\r`. Ogni script crea una
+sua cartella temporanea, che non si cancella da sola: per concatenare più script come nei job (per esempio
+`build-shard.sh` e poi `assemble.sh`) si esporta prima la stessa `RUNNER_TEMP`. Esempi:
+
+```bash
+# Divisione in shard di alcune regioni (stampa il piano, scrive gli output in un file temporaneo)
+REGIONS_INPUT=andorra,italia bash .github/scripts/publish-regions/plan-shards.sh
+# Una regione come nel job "build", senza caricare nulla
+SELECTED=san-marino bash .github/scripts/publish-regions/build-shard.sh
+```
+
+Il job `windows-scripts` di Android CI esegue i test Python e una di queste prove su Windows, perché uno script che
+funziona solo su Linux si veda subito.
+
 **Rumore noto nei log.** Messaggi che non dipendono dal progetto e non vanno inseguiti:
 
 - `DeprecationWarning: Buffer() is deprecated` (Node, nel job `publish`): da `actions/download-artifact` 8.0.2,

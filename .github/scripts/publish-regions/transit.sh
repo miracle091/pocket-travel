@@ -5,6 +5,7 @@
 # tiene la voce gia' pubblicata.
 # Ambiente: PAGES_BASE_URL, GITHUB_REPOSITORY, GITHUB_RUN_NUMBER, GITHUB_RUN_ATTEMPT, GH_TOKEN.
 set -euo pipefail
+source .github/scripts/env.sh
 source .github/scripts/retry.sh
 # shellcheck source=tools/data-pipeline/scripts/lib.sh
 source tools/data-pipeline/scripts/lib.sh

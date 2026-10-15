@@ -5,6 +5,7 @@
 # sezione nel changelog resta com'e'. Da lanciare dalla radice del repository, con GH_TOKEN e GITHUB_REPOSITORY.
 # Uso: bash .github/scripts/sync-release-notes.sh
 set -euo pipefail
+source .github/scripts/env.sh
 source .github/scripts/retry.sh
 
 changelog_url="https://github.com/$GITHUB_REPOSITORY/blob/main/CHANGELOG.md"

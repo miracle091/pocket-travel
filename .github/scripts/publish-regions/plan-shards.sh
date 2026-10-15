@@ -5,6 +5,7 @@
 # Ambiente: REGIONS_INPUT e POI_MAX_AGE_INPUT (input della run, mai interpolati nello script: niente iniezione di
 # comandi), SCHEDULE (stringa cron che ha innescato la run, vuota nelle run manuali), PAGES_BASE_URL.
 set -euo pipefail
+source .github/scripts/env.sh
 source tools/data-pipeline/scripts/regions.sh
 # Serve sempre (non solo nel ramo schedule sotto): WEEKLY_SCHEDULE_TILES e' il peso per
 # regione riusato piu' in basso per bilanciare gli shard.

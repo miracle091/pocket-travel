@@ -5,6 +5,10 @@
 # sourcing sicuro da qualunque script con "set -euo pipefail" gia' attivo.
 # shellcheck shell=bash
 
+# python3 e jq uguali su Linux e su Git Bash per Windows (vedi portable.sh).
+# shellcheck source=tools/data-pipeline/scripts/portable.sh
+source "$(dirname "${BASH_SOURCE[0]}")/portable.sh"
+
 # gradlew invoca java.exe nativo di Windows: gli argomenti --args vogliono path Windows reali (con
 # lettera di unita'), non il path POSIX virtuale di git-bash/MSYS (es. /tmp/xxx), altrimenti
 # java.exe non li trova (visto: FileNotFoundException su un path tipo "\tmp\xxx\dump.txt", senza
@@ -88,6 +92,7 @@ with_retries() {
 # <outFile>, solo se il conteggio e' <= <maxCount>. <areaQuery> e' la clausola Overpass della
 # selezione (es. "nwr[\"addr:housenumber\"](minLat,minLon,maxLat,maxLon)"). Scrive l'esito in
 # <noteVar> (nameref): vuoto se riuscito, altrimenti il motivo per il riepilogo del chiamante.
+# shellcheck disable=SC2034 # note_ref e' un nameref: le assegnazioni scrivono la variabile del chiamante
 fetch_overpass_address_points() {
   local label="$1" areaQuery="$2" maxCount="$3" outFile="$4" noteVar="$5"
   local -n note_ref="$noteVar"
@@ -222,7 +227,7 @@ _prefetch_it_wikivoyage_batch() {
     2>/dev/null)" || return 0
   # Una pagina senza langlink va comunque in tabella (vuoto): "nessuna pagina IT" non si richiede di nuovo.
   while IFS=$'\t' read -r from it; do
-    [ -n "$from" ] && IT_WIKIVOYAGE_TITLES["$from"]="${it%$'\r'}"  # \r: jq su Windows
+    [ -n "$from" ] && IT_WIKIVOYAGE_TITLES["$from"]="$it"
   done < <(jq -r '.query as $q
     | ($q.normalized // [] | map({key: .from, value: .to}) | from_entries) as $norm
     | ($q.redirects // [] | map({key: .from, value: .to}) | from_entries) as $redir

@@ -4,6 +4,7 @@
 # gia' il lavoro delle vecchie (frasi tradotte, popolazione delle citta').
 # Uso: trim-caches.sh <prefisso> <chiave nuova>. Ambiente: GITHUB_REPOSITORY, GH_TOKEN (con actions: write).
 set -euo pipefail
+source .github/scripts/env.sh
 PREFIX="$1"
 NEW_KEY="$2"
 gh cache list --repo "$GITHUB_REPOSITORY" --key "$PREFIX" --sort created_at --order desc --limit 100 --json key --jq '.[].key' \

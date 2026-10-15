@@ -5,6 +5,7 @@
 # perse e la pulizia degli asset. Scrive site_dir e pages_host in $GITHUB_OUTPUT.
 # Ambiente: PAGES_BASE_URL, GITHUB_REPOSITORY_OWNER.
 set -euo pipefail
+source .github/scripts/env.sh
 shopt -s nullglob
 
 SITE_DIR="$RUNNER_TEMP/site"
