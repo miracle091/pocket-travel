@@ -6,7 +6,7 @@
 #
 # guides.db, poi.db e i .rd5 non vivono su GitHub Pages (limite di 1GB per l'intero sito, sforato
 # con la copertura mondiale di regions.sh) ma sugli asset delle release "region-data*" —
-# vedi il commento in testa a publish-regions.yml. releaseBaseUrl e' il prefisso degli URL di
+# vedi tools/data-pipeline/README.md, "Workflow publish-regions.yml". releaseBaseUrl e' il prefisso degli URL di
 # download delle release: come nel workflow, le guide vanno su "region-data-guide" e ogni regione
 # sulla release data da region_release_tag (regions.sh). Default: le release di questo repo.
 #

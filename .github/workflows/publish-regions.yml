@@ -1,35 +1,8 @@
 name: Publish regions
 
-# Pubblica manifest.json su GitHub Pages; i pacchetti (guides.db unico per tutte le
-# regioni, poi.db e segmenti .rd5 per regione: il grosso dei dati) vanno invece sugli asset delle
-# release "region-data*" - GitHub Pages ha un limite fisso di 1GB per l'intero sito, sforato con la
-# copertura mondiale di regions.sh (254 regioni), gli asset di una release no. map.pmtiles
-# non e' mai un file da ospitare (estratto sul dispositivo dalla build Protomaps, vedi
-# PmtilesExtractor); i segmenti .rd5 invece sono ri-ospitati insieme a poi.db (non solo
-# referenziati su brouter.de) perche' quel file cambia dimensione/hash nel tempo — vedi il
-# commento in testa a tools/data-pipeline/scripts/build-region.sh.
-#
-# Il pacchetto guide (job "guides") si rigenera a ogni run per tutte le regioni: e' piccolo, e
-# build-guides.sh pubblica una nuova versione solo se il contenuto e' cambiato. Ogni regione porta
-# anche una mappa d'insieme offline a pochi zoom (preview.pmtiles, stesso trattamento di poi.db - vedi
-# build-region.sh) e `manifest.json` ha in cima "worldMap": mappa del mondo online a bassa risoluzione
-# (job "world-map"), sulla release "world-map", rigenerata solo ogni ~30 giorni o se assente.
-#
-# Trigger: 7 righe schedule (una per giorno) rigenerano automaticamente il bucket del giorno
-# (tools/data-pipeline/scripts/weekly-schedule.sh, generato da generate-weekly-schedule.sh —
-# cadenza settimanale perche' i segmenti .rd5 di BRouter vengono rigenerati settimanalmente, non ha senso
-# ripubblicare piu' spesso). workflow_dispatch resta disponibile per run manuali/mirate (regions
-# esplicito) o per rigenerare tutto l'elenco delle regioni (regions vuoto, fuori da uno schedule).
-#
-# Il lavoro e' spalmato su piu' giorni (bucket) E, dentro ogni bucket, su piu' shard in parallelo
-# (matrice a 3 vie) per due limiti concreti, non teorici:
-#   1. limite di 6h per job di GitHub Actions
-#   2. fair use dei mirror Overpass pubblici (infrastruttura gratuita condivisa, non del progetto)
-# Lo split fra shard e' bilanciato per peso (i secondi dell'ultima generazione di ogni regione,
-# region-timings.tsv sul sito; senza misura le tile land di WEEKLY_SCHEDULE_TILES) e non un semplice round-robin per indice: senza bilanciamento, piu'
-# regioni "gigante" (canada, stati-uniti, russia, brasile, cina, india, ...) capitate per caso nello
-# stesso bucket-giorno potrebbero finire nello stesso shard, rischiando di sforare il limite di 6h
-# mentre gli altri shard restavano quasi vuoti.
+# Pubblica il catalogo (manifest.json e indici) su GitHub Pages e i pacchetti delle regioni sugli asset delle release.
+# Job, calendario settimanale, bucket e shard, run sovrapposte e permessi: sezione "Workflow publish-regions.yml" di
+# tools/data-pipeline/README.md. Gli script lunghi dei job sono in .github/scripts/publish-regions/.
 on:
   schedule:
     - cron: '0 2 * * 1'  # lunedi - bucket giorno 1 (piu' visitate)
@@ -82,30 +55,26 @@ on:
         required: false
         default: ""
 
-# Minimo a livello di workflow: contents: write solo ai job che creano release o ne caricano/tolgono
-# asset, pages/id-token solo al job "publish" che fa il deploy su Pages. Nessun job fa operazioni git
-# autenticate: i checkout hanno persist-credentials: false, cosi' il token di scrittura non resta
-# nella configurazione git leggibile dal codice di build.
+# Minimo a livello di workflow; i permessi in piu' stanno sui singoli job (README della pipeline, "Permessi").
 permissions:
   contents: read
 
-# Nessuna concurrency a livello di workflow: un gruppo tiene al massimo una run in corso e UNA in
-# attesa, e una nuova run in coda annulla quella gia' in attesa (anche con cancel-in-progress:
-# false). Con run che durano ore, una run manuale lanciata durante uno schedule potrebbe far annullare
-# il bucket del giorno successivo rimasto in coda. Il gruppo "pages" sta solo sul job "publish"
-# (pochi minuti: la finestra in cui una terza run puo' scavalcarne una in attesa e' minima). I job
-# di generazione di run diverse possono quindi sovrapporsi: gli asset non si scontrano (VERSION
-# unica per run, vedi job "build") e la pulizia nel job "publish" non tocca gli asset caricati da
-# meno di 24 ore, che possono appartenere a una run ancora in corso.
+# Nessuna concurrency a livello di workflow (README della pipeline, "Run sovrapposte"): solo il job "publish" sta
+# nel gruppo "pages".
+
+# bash con -eo pipefail in ogni passo (lo stesso di "shell: bash" esplicito; senza, GitHub usa "bash -e").
+defaults:
+  run:
+    shell: bash
 
 env:
   # Unica per tutta la run, riusata dai job "build" e "publish".
   PAGES_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
 
 jobs:
-  # Determina l'elenco di regioni da processare in questa run (bucket del giorno, input manuale,
-  # o tutte le regioni) e lo divide in 3 shard per il job a matrice sotto.
+  # Elenco delle regioni della run (bucket del giorno, input manuale o tutte), diviso nei 3 shard del job "build".
   plan:
+    name: Piano degli shard
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -124,207 +93,23 @@ jobs:
         with:
           persist-credentials: false
 
-      # Gira qui (una volta, prima della matrice) e non dentro il job "build": se lo shard 0/1/2
-      # eseguissero tutti "gh release view || gh release create" in parallelo, alla primissima run
-      # in assoluto (release ancora inesistente) andrebbero in race - il secondo "gh release
-      # create" a completare fallirebbe perche' un altro shard ha gia' creato la release nel
-      # frattempo, facendo fallire quello shard senza motivo.
       - name: Assicura le release che ospitano i pacchetti regionali
-        shell: bash
-        run: |
-          set -euo pipefail
-          source .github/scripts/retry.sh
-          source tools/data-pipeline/scripts/regions.sh
-          # Un solo elenco delle release esistenti invece di un "gh release view" per ognuna (~70): ensure_release
-          # solo per le mancanti. Elenco non leggibile o troncato dal limite: restano vuote/mancanti e si ricade su
-          # ensure_release, che controlla da se'.
-          EXISTING_TAGS="$(retry gh release list --repo "${{ github.repository }}" --limit 300 --json tagName --jq '.[].tagName')" || EXISTING_TAGS=""
-          ensure_release_if_missing() {
-            if grep -qxF "$1" <<< "$EXISTING_TAGS"; then return 0; fi
-            ensure_release "$@"
-          }
-          # Le regioni si spartiscono su REGION_RELEASES release "region-data-rNN" (region_release_tag in
-          # regions.sh): GitHub limita ogni release a 1000 asset (HTTP 422 "file_count limited to 1000
-          # assets per release"). Le si creano tutte, anche quelle che oggi non hanno ancora regioni.
-          for n in $(seq 0 $((REGION_RELEASES - 1))); do
-            tag="$(printf 'region-data-r%02d' "$n")"
-            ensure_release_if_missing "$tag" \
-              "Dati regionali ($((n + 1))/$REGION_RELEASES)" \
-              "Asset binari (poi.db + segmenti .rd5) per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
-            # Variante "solo auto" dei segmenti (routingCar, build-region.sh): stessa ripartizione, release a parte
-            # per non sforare i 1000 asset di region-data-rNN.
-            ensure_release_if_missing "$(printf 'region-data-car-r%02d' "$n")" \
-              "Rete stradale solo auto ($((n + 1))/$REGION_RELEASES)" \
-              "Segmenti .rd5 con le sole strade per l'auto, per l'app Pocket Travel, referenziati da manifest.json su GitHub Pages. Non e' una release software."
-          done
-          # Release del pacchetto guide unico: stesso prefisso "region-data" cosi' la pulizia degli
-          # asset non piu' referenziati nel job "publish" la copre senza casi speciali.
-          # Orari delle reti dei mezzi pubblici (job "transit"), referenziati da transit.json su Pages.
-          ensure_release_if_missing "transit-feeds" \
-            "Orari dei mezzi pubblici" \
-            "Pacchetti transit.db (orari GTFS convertiti) per l'app Pocket Travel, referenziati da transit.json su GitHub Pages. Non e' una release software."
-          # Frammenti di catalogo salvati da ogni shard subito dopo ogni regione (<VERSION>--<regionId>.json):
-          # se il job muore prima di pubblicare, il job "publish" di una run successiva li recupera.
-          ensure_release_if_missing "region-fragments" \
-            "Frammenti di catalogo in sospeso" \
-            "Frammenti di catalogo delle regioni costruite e non ancora pubblicate, per la pipeline di Pocket Travel. Non e' una release software."
-          ensure_release_if_missing "region-data-guide" \
-            "Guide di viaggio" \
-            "guides.db (guide Wikivoyage e numeri di emergenza di tutte le regioni) per l'app Pocket Travel, referenziato da manifest.json su GitHub Pages. Non e' una release software."
+        run: bash .github/scripts/publish-regions/ensure-releases.sh
 
       - name: Determina le regioni della run e gli shard
         id: plan
-        shell: bash
-        # L'input arriva da env, non interpolato nello script (niente iniezione di comandi).
+        # Input dall'ambiente, non interpolati nello script (niente iniezione di comandi).
         env:
           REGIONS_INPUT: ${{ github.event.inputs.regions }}
           POI_MAX_AGE_INPUT: ${{ github.event.inputs.poi_max_age_days }}
-        run: |
-          set -euo pipefail
-          source tools/data-pipeline/scripts/regions.sh
-          # Serve sempre (non solo nel ramo schedule sotto): WEEKLY_SCHEDULE_TILES e' il peso per
-          # regione riusato piu' in basso per bilanciare gli shard.
-          source tools/data-pipeline/scripts/weekly-schedule.sh
+          SCHEDULE: ${{ github.event.schedule }}
+        run: bash .github/scripts/publish-regions/plan-shards.sh
 
-          # Spazi tolti ("italia, francia" -> "italia,francia"); ogni regionId deve essere un id
-          # valido, perche' finisce negli output del job e da li' negli script del job "build".
-          SELECTED="$(printf '%s' "${REGIONS_INPUT:-}" | tr -d '[:space:]')"
-          if [ -n "$SELECTED" ] && ! [[ "$SELECTED" =~ ^[a-z0-9-]+(,[a-z0-9-]+)*$ ]]; then
-            echo "regions non valido: '$SELECTED' (regionId separati da virgola, solo a-z, 0-9 e -)" >&2
-            exit 1
-          fi
-          if [ -z "$SELECTED" ] && [ -n "${{ github.event.schedule }}" ]; then
-            # github.event.schedule e' la stringa cron esatta che ha innescato la run (una delle 7
-            # sopra): l'ultimo campo e' il giorno della settimana cron (0=domenica..6=sabato).
-            # weekly-schedule.sh usa invece 1=lunedi..7=domenica (piu' naturale per un bucket
-            # "giorno N della settimana lavorativa+weekend"), da cui il rimappaggio di 0 a 7.
-            SCHEDULE="${{ github.event.schedule }}"
-            DOW="${SCHEDULE##* }"
-            [ "$DOW" = "0" ] && DOW=7
-            varName="WEEKLY_SCHEDULE_DAY_${DOW}"
-            SELECTED="${!varName}"
-            echo "-- trigger schedule ($SCHEDULE): bucket del giorno $DOW"
-            ADAPTIVE_DOW="$DOW"
-          fi
-          if [ -z "$SELECTED" ]; then
-            # workflow_dispatch senza regions esplicite (fuori da uno schedule): tutto l'elenco delle regioni.
-            ids=()
-            for spec in "${ALL_REGIONS[@]}"; do
-              IFS='|' read -r regionId _ <<< "$spec"
-              ids+=("$regionId")
-            done
-            SELECTED="$(IFS=,; echo "${ids[*]}")"
-          fi
-          echo "-- regioni selezionate: $SELECTED"
-
-          # Sharding a matrice in 3 shard fissi, bilanciato per peso (non un semplice round-robin
-          # per indice, vedi commento in testa al file): le regioni selezionate vengono ordinate
-          # per tile land decrescente (WEEKLY_SCHEDULE_TILES) e assegnate una a una, dalla piu'
-          # pesante alla piu' leggera, allo shard con il carico cumulativo piu' basso al momento
-          # (bin-packing goloso, stesso principio di generate-weekly-schedule.sh ma sui 3 shard
-          # invece che sui 7 giorni). Regioni non presenti in WEEKLY_SCHEDULE_TILES (non dovrebbe
-          # succedere: e' generato dallo stesso regions.sh) pesano 0. Per run piccole/manuali
-          # uno o due shard possono restare vuoti - il job "build" per quello shard non fa nulla e
-          # termina subito (vedi sotto), non e' un errore.
-          # Peso = secondi dell'ultima generazione completa della regione (region-timings.tsv,
-          # pubblicato accanto a `manifest.json` dal job "publish"): le tile contano poco per i POI,
-          # rigenerati ogni settimana e lunghi dove i punti sono tanti (Germania: poche tile, molti
-          # POI). Senza misura: 50 s per tile land, la media delle regioni mai generate nella run
-          # completa del 2026-09-28.
-          declare -A TIMINGS=()
-          if curl -sSfL --retry 3 --retry-delay 5 -A "PocketTravelDataPipeline/1.0" "${{ env.PAGES_BASE_URL }}/region-timings.tsv" -o "$RUNNER_TEMP/region-timings.tsv"; then
-            while IFS=$'\t' read -r regionId seconds; do
-              [[ "$seconds" =~ ^[0-9]+$ ]] && TIMINGS[$regionId]="$seconds"
-            done < "$RUNNER_TEMP/region-timings.tsv"
-          fi
-          echo "-- tempi misurati per ${#TIMINGS[@]} regioni"
-          IFS=',' read -ra REGION_ARR <<< "$SELECTED"
-          SORTED_FILE="$RUNNER_TEMP/sorted-regions.tsv"
-          for r in "${REGION_ARR[@]}"; do
-            printf '%d\t%s\n' "${TIMINGS[$r]:-$(( ${WEEKLY_SCHEDULE_TILES[$r]:-1} * 50 ))}" "$r"
-          done | sort -t $'\t' -k1,1nr > "$SORTED_FILE"
-
-          SHARD_COUNT=3
-          declare -a SHARDS
-          declare -a SHARD_LOAD
-          for ((n = 0; n < SHARD_COUNT; n++)); do SHARDS[$n]=""; SHARD_LOAD[$n]=0; done
-          while IFS=$'\t' read -r weight regionId; do
-            lightest=0
-            for ((n = 1; n < SHARD_COUNT; n++)); do
-              [ "${SHARD_LOAD[$n]}" -lt "${SHARD_LOAD[$lightest]}" ] && lightest=$n
-            done
-            if [ -z "${SHARDS[$lightest]}" ]; then SHARDS[$lightest]="$regionId"; else SHARDS[$lightest]="${SHARDS[$lightest]},$regionId"; fi
-            SHARD_LOAD[$lightest]=$((SHARD_LOAD[$lightest] + weight))
-          done < "$SORTED_FILE"
-          echo "-- carico stimato per shard (secondi): ${SHARD_LOAD[0]}, ${SHARD_LOAD[1]}, ${SHARD_LOAD[2]}"
-
-          # Quota adattiva (solo nelle run del calendario): dopo le regioni del giorno, ogni shard riceve
-          # una coda di regioni "in piu'" da fare solo se gli resta tempo (il job build le avvia solo se
-          # la stima ci sta nel budget, e non le rimanda mai alla continuazione). In ordine:
-          #   1. regioni in ritardo: POI pubblicati da piu' di POI_MAX_AGE_DAYS giorni o mai pubblicati
-          #      (fallite, rimandate oltre le continuazioni, nuove), dalla piu' vecchia;
-          #   2. le regioni di domani, cosi' una giornata tranquilla alleggerisce quella dopo.
-          # Una regione fatta in anticipo il suo giorno ha i POI giovani e si salta in fretta; se slitta
-          # oltre il limite d'eta' rientra nella coda 1. Le giornate troppo piene restano gestite dal
-          # budget e dalla continuazione.
-          declare -a EXTRAS=("" "" "")
-          if [ -n "${ADAPTIVE_DOW:-}" ]; then
-            POI_MAX_AGE="${POI_MAX_AGE_INPUT:-6}"
-            declare -A TODAY=()
-            for r in "${REGION_ARR[@]}"; do TODAY[$r]=1; done
-            # Eta' dei POI pubblicati, dal nome dell'asset (regionId--YYYY.MM.DD[.run.tentativo]--poi.db...).
-            declare -A POI_AGE=()
-            if curl -sSfL --retry 3 --retry-delay 5 --max-time 120 -A "PocketTravelDataPipeline/1.0" "${{ env.PAGES_BASE_URL }}/manifest.json" -o "$RUNNER_TEMP/plan-manifest.json"; then
-              NOW_EPOCH="$(date -u +%s)"
-              while IFS=$'\t' read -r regionId url; do
-                d="$(printf '%s' "$url" | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)\(\.[0-9][0-9.]*\)\?--\(poi\|content\)\.db\(\.xz\)\?$#\1#p')"
-                [ -n "$d" ] || continue
-                POI_AGE[$regionId]=$(( (NOW_EPOCH - $(date -u -d "${d//./-}" +%s)) / 86400 ))
-              done < <(jq -r '.regions[] | [.regionId, (.poi.file.url // "")] | @tsv' "$RUNNER_TEMP/plan-manifest.json")
-            else
-              echo "::warning::manifest.json pubblicato non leggibile: niente regioni in ritardo nella quota adattiva"
-            fi
-            EXTRA_FILE="$RUNNER_TEMP/extra-regions.tsv"
-            : > "$EXTRA_FILE"
-            if [ "${#POI_AGE[@]}" -gt 0 ]; then
-              for spec in "${ALL_REGIONS[@]}"; do
-                IFS='|' read -r regionId _ <<< "$spec"
-                [ -z "${TODAY[$regionId]:-}" ] || continue
-                age="${POI_AGE[$regionId]:-9999}"
-                if [ "$age" -gt "$POI_MAX_AGE" ]; then printf '%d\t%s\n' "$age" "$regionId"; fi
-              done | sort -t $'\t' -k1,1nr | cut -f2 >> "$EXTRA_FILE"
-            fi
-            OVERDUE_COUNT="$(wc -l < "$EXTRA_FILE")"
-            nextVar="WEEKLY_SCHEDULE_DAY_$(( ADAPTIVE_DOW % 7 + 1 ))"
-            IFS=',' read -ra TOMORROW <<< "${!nextVar}"
-            for r in "${TOMORROW[@]}"; do
-              if [ -n "$r" ] && [ -z "${TODAY[$r]:-}" ] && ! grep -qxF "$r" "$EXTRA_FILE"; then echo "$r" >> "$EXTRA_FILE"; fi
-            done
-            echo "-- quota adattiva: $OVERDUE_COUNT regioni in ritardo e $(( $(wc -l < "$EXTRA_FILE") - OVERDUE_COUNT )) di domani in coda, se resta tempo"
-            # Stessa spartizione golosa, con il carico gia' assegnato: "id:secondi stimati", in ordine di priorita'.
-            while read -r regionId; do
-              [ -n "$regionId" ] || continue
-              weight="${TIMINGS[$regionId]:-$(( ${WEEKLY_SCHEDULE_TILES[$regionId]:-1} * 50 ))}"
-              lightest=0
-              for ((n = 1; n < SHARD_COUNT; n++)); do
-                [ "${SHARD_LOAD[$n]}" -lt "${SHARD_LOAD[$lightest]}" ] && lightest=$n
-              done
-              EXTRAS[$lightest]="${EXTRAS[$lightest]:+${EXTRAS[$lightest]},}$regionId:$weight"
-              SHARD_LOAD[$lightest]=$((SHARD_LOAD[$lightest] + weight))
-            done < "$EXTRA_FILE"
-          fi
-          echo "shard0_extra=${EXTRAS[0]}" >> "$GITHUB_OUTPUT"
-          echo "shard1_extra=${EXTRAS[1]}" >> "$GITHUB_OUTPUT"
-          echo "shard2_extra=${EXTRAS[2]}" >> "$GITHUB_OUTPUT"
-          echo "shard0=${SHARDS[0]}" >> "$GITHUB_OUTPUT"
-          echo "shard1=${SHARDS[1]}" >> "$GITHUB_OUTPUT"
-          echo "shard2=${SHARDS[2]}" >> "$GITHUB_OUTPUT"
-
-  # Genera il pacchetto guide unico (guides.db) e il suo frammento di catalogo. Un solo job, non
-  # sharded: sono poche centinaia di pagine Wikivoyage di pochi KB ciascuna.
-  # Come "world-map" e "address-grid", non gira nelle continuazioni (input continuation > 0): le ha
-  # gia' fatte la run che ha rimandato le regioni, e il job "publish" tiene le voci pubblicate.
+  # Pacchetto guide unico (guides.db e guides-en.db) e il suo frammento di catalogo: poche centinaia di pagine
+  # Wikivoyage, un solo job. Come "world-map" e "address-grid", non gira nelle continuazioni (input continuation > 0):
+  # le ha gia' fatte la run che ha rimandato le regioni, e il job "publish" tiene le voci pubblicate.
   guides:
+    name: Guide
     needs: plan
     if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
@@ -342,22 +127,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
-        with:
-          distribution: temurin
-          java-version: '25'
-
-      # Cache di Gradle in sola lettura: la scrive solo il job "build" di android-ci.yml, che compila anche la
-      # pipeline. Un salvataggio per job riempirebbe il limite di 10 GB delle cache del repository e farebbe
-      # sfrattare le altre (dump, traduzioni, ccache).
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
-        with:
-          cache-read-only: true
+      - uses: ./.github/actions/setup-pipeline
 
       # Traduzione delle sezioni povere dall'altra lingua (translate_guides.py): motore, modelli e cache delle frasi
       # gia' tradotte (setup-translation). Mai bloccante: senza, le guide escono come prima. Accesa solo con la variabile
       # del repository TRANSLATE_GUIDES = true, dopo una revisione a campione delle traduzioni (sostituiscono gran parte
-      # delle sezioni italiane): senza, nessuna traduzione e guide come prima.
+      # delle sezioni italiane).
       - name: Prepara la traduzione
         if: ${{ vars.TRANSLATE_GUIDES == 'true' }}
         continue-on-error: true
@@ -371,33 +146,35 @@ jobs:
       # da molto piu' testo inglese da tradurre, 15 per l'inglese), cosi' una direzione non toglie tempo all'altra; il
       # job pubblica comunque quello che e' pronto, il resto segue nelle run dopo grazie alla cache.
       - name: Genera guides.db e guides-en.db
-        shell: bash
         run: |
           set -euo pipefail
           source .github/scripts/retry.sh
-          # Data + numero e tentativo della run: unica per run, come nel job "build" (vedi li').
-          VERSION="$(date -u +%Y.%m.%d).${{ github.run_number }}.${{ github.run_attempt }}"
+          # Data + numero e tentativo della run: unica per run, come nel job "build".
+          VERSION="$(date -u +%Y.%m.%d).$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT"
+          RELEASE_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/region-data-guide"
           mkdir -p "$RUNNER_TEMP/fragments"
           # Guida inglese (voce "guidesEn", asset guides-en--...): stessa release, cartella a parte. Se
           # fallisce non blocca quella italiana: `manifest.json` tiene la voce guidesEn gia' pubblicata.
           OUT_EN="$RUNNER_TEMP/guides-en-out"
           EN_FINAL="$RUNNER_TEMP/guides-en-final.db"
-          if GUIDES_TRANSLATE_SECONDS=900 GUIDES_FINAL_COPY="$EN_FINAL" tools/data-pipeline/scripts/build-guides.sh "$VERSION"             "https://github.com/${{ github.repository }}/releases/download/region-data-guide" "$OUT_EN"             "${{ env.PAGES_BASE_URL }}/manifest.json" en; then
+          if GUIDES_TRANSLATE_SECONDS=900 GUIDES_FINAL_COPY="$EN_FINAL" tools/data-pipeline/scripts/build-guides.sh "$VERSION" \
+            "$RELEASE_URL" "$OUT_EN" "$PAGES_BASE_URL/manifest.json" en; then
             if [ -f "$OUT_EN/guides.db.xz" ]; then
               asset="$OUT_EN/guides-en--${VERSION}--guides.db.xz"
               cp "$OUT_EN/guides.db.xz" "$asset"
-              retry gh release upload region-data-guide "$asset" --repo "${{ github.repository }}" --clobber
+              retry gh release upload region-data-guide "$asset" --repo "$GITHUB_REPOSITORY" --clobber
             fi
             cp "$OUT_EN/manifest-fragment.json" "$RUNNER_TEMP/fragments/guides-en.json"
           else
             echo "::warning::guida inglese non generata in questa run, resta quella pubblicata"
           fi
           OUT="$RUNNER_TEMP/guides-out"
-          GUIDES_TRANSLATE_SECONDS=3600 GUIDES_SOURCE_DB="$EN_FINAL" tools/data-pipeline/scripts/build-guides.sh "$VERSION"             "https://github.com/${{ github.repository }}/releases/download/region-data-guide" "$OUT"             "${{ env.PAGES_BASE_URL }}/manifest.json"
+          GUIDES_TRANSLATE_SECONDS=3600 GUIDES_SOURCE_DB="$EN_FINAL" tools/data-pipeline/scripts/build-guides.sh "$VERSION" \
+            "$RELEASE_URL" "$OUT" "$PAGES_BASE_URL/manifest.json"
           if [ -f "$OUT/guides.db.xz" ]; then
             asset="$OUT/guides--${VERSION}--guides.db.xz"
             cp "$OUT/guides.db.xz" "$asset"
-            retry gh release upload region-data-guide "$asset" --repo "${{ github.repository }}" --clobber
+            retry gh release upload region-data-guide "$asset" --repo "$GITHUB_REPOSITORY" --clobber
           fi
           cp "$OUT/manifest-fragment.json" "$RUNNER_TEMP/fragments/guides.json"
 
@@ -411,18 +188,10 @@ jobs:
           path: ${{ github.workspace }}/translate-cache
           key: translations-guides-${{ github.run_id }}-${{ github.run_attempt }}
 
-      # Una cache nuova per run riempie il limite di 10 GB del repository e fa sfrattare modelli, dump e Gradle:
-      # salvata la nuova, si tolgono quelle piu' vecchie con lo stesso prefisso (la nuova contiene gia' le loro frasi).
       - name: Elimina le cache delle frasi piu' vecchie
         if: ${{ always() && steps.save-translations.outcome == 'success' }}
         continue-on-error: true
-        shell: bash
-        run: |
-          set -euo pipefail
-          NEW_KEY="translations-guides-${{ github.run_id }}-${{ github.run_attempt }}"
-          gh cache list --repo "${{ github.repository }}" --key translations-guides- --sort created_at --order desc --limit 100 --json key --jq '.[].key' \
-            | awk -v new="$NEW_KEY" 'found { print } $0 == new { found = 1 }' \
-            | while read -r key; do gh cache delete "$key" --repo "${{ github.repository }}"; done
+        run: bash .github/scripts/trim-caches.sh translations-guides- "translations-guides-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 
       # !cancelled(): anche se la guida italiana fallisce, il frammento della guida inglese (guides-en.json) va al job "publish".
       - name: Carica il frammento di catalogo delle guide
@@ -435,13 +204,11 @@ jobs:
             ${{ runner.temp }}/fragments/guides-en.json
           retention-days: 1
 
-  # Mappa del mondo online a bassa risoluzione (z0-8, ~555 MB), sulla release "world-map": letta
-  # dall'app a pezzi con richieste Range quando la mappa di una regione non e' scaricata ma c'e'
-  # rete. Un solo job,
-  # non sharded: un solo file per l'intero pianeta. Si rigenera solo se quella pubblicata ha piu' di
-  # WORLD_MAP_MAX_AGE_DAYS giorni o manca del tutto - altrimenti il job non produce nulla e la voce
-  # gia' pubblicata resta (mergeManifests la riporta avanti dal `manifest.json` online, come "guides").
+  # Mappa del mondo online a bassa risoluzione (z0-8, ~555 MB, release "world-map"), letta dall'app a pezzi con
+  # richieste Range quando la mappa di una regione non e' scaricata. Rigenerata solo se quella pubblicata ha piu' di
+  # WORLD_MAP_MAX_AGE_DAYS giorni o manca: altrimenti nessun frammento, e mergeManifests riporta la voce pubblicata.
   world-map:
+    name: Mappa del mondo
     if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -455,68 +222,14 @@ jobs:
         with:
           persist-credentials: false
 
-      # go-pmtiles: versione e sha256 fissati in .github/scripts/install-go-pmtiles.sh.
-      - name: Installa go-pmtiles
-        shell: bash
-        run: |
-          bash .github/scripts/install-go-pmtiles.sh
+      - uses: ./.github/actions/setup-pipeline
+        with:
+          gradle: false
+          pmtiles: true
 
       - name: Rigenera la mappa del mondo se serve
         id: build
-        shell: bash
-        run: |
-          set -euo pipefail
-          source .github/scripts/retry.sh
-          # shellcheck source=./tools/data-pipeline/scripts/lib.sh
-          source tools/data-pipeline/scripts/lib.sh
-          PROTOMAPS_DATE="$(resolve_protomaps_date)"
-          echo "-- build Protomaps: ${PROTOMAPS_DATE}.pmtiles"
-
-          # Si rigenera (550 MB) solo con un 404 (nessun `manifest.json`) o se la mappa pubblicata e' vecchia: un errore
-          # di rete su `manifest.json` non deve farla rigenerare, si riprova alla prossima run.
-          PUBLISHED_DATE=""
-          PUBLISHED_HTTP="$(fetch_published_manifest "${{ env.PAGES_BASE_URL }}/manifest.json" "$RUNNER_TEMP/published-manifest.json")"
-          if [ "$PUBLISHED_HTTP" = "200" ]; then
-            PUBLISHED_DATE="$(jq -r '.worldMap.version // ""' "$RUNNER_TEMP/published-manifest.json")"
-          elif [ "$PUBLISHED_HTTP" != "404" ]; then
-            echo "::warning::manifest.json pubblicato non scaricabile (HTTP ${PUBLISHED_HTTP:-000}): non rigenero la mappa del mondo in questa run"
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ -n "$PUBLISHED_DATE" ]; then
-            AGE_DAYS="$(( ($(date -u +%s) - $(date -u -d "$PUBLISHED_DATE" +%s)) / 86400 ))"
-            if [ "$AGE_DAYS" -le "$WORLD_MAP_MAX_AGE_DAYS" ]; then
-              echo "-- mappa del mondo pubblicata il $PUBLISHED_DATE, $AGE_DAYS giorni fa (max $WORLD_MAP_MAX_AGE_DAYS): non la rigenero"
-              echo "changed=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          fi
-
-          ensure_release world-map \
-            "Mappa del mondo" \
-            "Mappa del mondo a bassa risoluzione (z0-8) per l'app Pocket Travel, letta online a pezzi. Non e' una release software."
-
-          # Estratta direttamente col nome dell'asset: niente copia di un file da ~555 MB
-          ASSET_NAME="world-${PROTOMAPS_DATE}-z8.pmtiles"
-          ASSET="$RUNNER_TEMP/$ASSET_NAME"
-          # Fino a 3 tentativi: build.protomaps.com a volte chiude la connessione a meta' download
-          # (stesso problema dei civici, vedi with_retries in build-address-cell.sh).
-          for attempt in 1 2 3; do
-            rm -f "$ASSET"
-            pmtiles extract "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" "$ASSET" --maxzoom=8 && break
-            [ "$attempt" -lt 3 ] || { echo "Estrazione della mappa del mondo fallita dopo 3 tentativi" >&2; exit 1; }
-            echo "-- estrazione della mappa del mondo fallita (tentativo $attempt/3), riprovo tra $((attempt * 60))s"
-            sleep $((attempt * 60))
-          done
-          retry gh release upload world-map "$ASSET" --repo "${{ github.repository }}" --clobber
-
-          SIZE="$(wc -c < "$ASSET" | tr -d ' ')"
-          mkdir -p "$RUNNER_TEMP/fragments"
-          jq -n -c --arg version "$PROTOMAPS_DATE" \
-            --arg url "https://github.com/${{ github.repository }}/releases/download/world-map/$ASSET_NAME" --argjson size "$SIZE" \
-            '{manifestVersion: 2, worldMap: {version: $version, maxZoom: 8, url: $url, sizeBytes: $size}, regions: []}' \
-            > "$RUNNER_TEMP/fragments/world-map.json"
-          echo "changed=true" >> "$GITHUB_OUTPUT"
+        run: bash .github/scripts/publish-regions/world-map.sh
 
       - name: Carica il frammento di catalogo della mappa del mondo
         if: steps.build.outputs.changed == 'true'
@@ -526,21 +239,14 @@ jobs:
           path: ${{ runner.temp }}/fragments/world-map.json
           retention-days: 1
 
-  # Celle della griglia adattiva dei civici (OSM + Overture):
-  # una quota giornaliera (hash stabile dell'id mod 30, come un calendario a 30 giorni) cosi' ogni
-  # cella si ricostruisce al piu' ogni 30 giorni - build-address-cell.sh ha comunque il proprio
-  # controllo d'eta' come le regioni, quindi una quota imprecisa e' innocua, solo un po' di lavoro
-  # sprecato. Un solo job (non a matrice): con ~1.640 celle nel seme una quota di 1/30 (circa 55
-  # celle) impiega poche decine di minuti, ben sotto il limite di 6h. Le celle vivono sulle release
-  # "address-cells-<n>" (n = hash stabile dell'id mod ADDRESS_CELL_RELEASES, stesso motivo del
-  # limite di 1000 asset per release di region_release_tag in regions.sh) invece che su
-  # "region-data*": non sono legate a una regione. Dalle 6 release iniziali (0..5) a 12: 12 e' un
-  # multiplo di 6, quindi una cella con (hash mod 12) < 6 resta dov'e' e le altre passano alla release
-  # n+6 solo quando si rigenerano; gli URL assoluti di address-grid.json restano validi finche' non
-  # cambiano, e la pulizia finale guarda tutte le release "address-cells-*".
-  # L'indice (address-grid.json) e il suo frammento di catalogo (voce "addressGrid") vanno al job "publish" come artifact, stesso schema di "guides"/"world-map".
-  # Nelle continuazioni (stesso giorno, quindi stesso slot e stesse celle) non gira.
+  # Celle della griglia adattiva dei civici (OSM + Overture), README della pipeline "Numeri civici a celle": una quota
+  # giornaliera (hash stabile dell'id mod 30), cosi' ogni cella si ricostruisce al piu' ogni 30 giorni; circa 55 celle,
+  # poche decine di minuti. Le celle vivono sulle release "address-cells-<n>" (n = hash dell'id mod
+  # ADDRESS_CELL_RELEASES, per il limite di 1000 asset per release). Da 6 release a 12: 12 e' multiplo di 6, quindi
+  # una cella con (hash mod 12) < 6 resta dov'e' e le altre passano alla release n+6 solo quando si rigenerano.
+  # Indice (address-grid.json) e frammento di catalogo vanno al job "publish" come artifact. Non gira nelle continuazioni.
   address-grid:
+    name: Civici
     if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
@@ -549,7 +255,6 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       PYTHON_BIN: python3
-      # Numero di release "address-cells-<n>" su cui si spartiscono le celle (vedi commento sopra al job).
       ADDRESS_CELL_RELEASES: 12
       ADDRESS_CELL_MAX_AGE_DAYS: ${{ github.event.inputs.address_cell_max_age_days || (github.event.inputs.address_cells && '-1') || '30' }}
       # Dall'env, non interpolato nello script (niente iniezione di comandi).
@@ -559,35 +264,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      # duckdb (con httpfs/spatial, caricate a runtime da overture_addresses.py).
+      - uses: ./.github/actions/setup-pipeline
         with:
-          distribution: temurin
-          java-version: '25'
-
-      # Cache di Gradle in sola lettura, come sopra.
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
-        with:
-          cache-read-only: true
-
-      # go-pmtiles: versione e sha256 fissati in .github/scripts/install-go-pmtiles.sh.
-      - name: Installa go-pmtiles
-        shell: bash
-        run: |
-          bash .github/scripts/install-go-pmtiles.sh
-
-      # duckdb (con httpfs/spatial, caricate a runtime da overture_addresses.py) con versione e hash
-      # fissati in tools/data-pipeline/requirements-ci.txt: il job ha un token che scrive sulle release, e
-      # pip deve installare solo quei file esatti. Il token non e' nell'ambiente di questo passo.
-      - name: Installa duckdb
-        shell: bash
-        env:
-          GH_TOKEN: ''
-        run: |
-          python3 -m pip install --quiet --disable-pip-version-check --retries 10 --timeout 60 \
-            --require-hashes --only-binary :all: -r tools/data-pipeline/requirements-ci.txt
+          pmtiles: true
+          duckdb: true
 
       - name: Assicura le release delle celle
-        shell: bash
         run: |
           set -euo pipefail
           source .github/scripts/retry.sh
@@ -598,165 +281,10 @@ jobs:
           done
 
       - name: Costruisci la quota di celle di oggi
-        id: build
-        shell: bash
-        run: |
-          set -euo pipefail
-          # shellcheck source=./tools/data-pipeline/scripts/lib.sh
-          source tools/data-pipeline/scripts/lib.sh
-          PAGES_BASE_URL="${{ env.PAGES_BASE_URL }}"
-          INDEX_URL="$PAGES_BASE_URL/address-grid.json"
+        run: bash .github/scripts/publish-regions/address-grid.sh
 
-          # Partizione attuale: le celle dell'indice pubblicato (fonte di verita', include le celle
-          # divise da run precedenti) piu' le celle del seme versionato nel repo non ancora coperte,
-          # cioe' ne' pubblicate ne' antenate di una cella pubblicata (divisa). Senza il seme la
-          # partizione resterebbe ferma alle celle della prima quota pubblicata. Alla primissima
-          # pubblicazione (404) e' il solo seme.
-          IDS_FILE="$RUNNER_TEMP/all-cell-ids.txt"
-          PUBLISHED_INDEX_FILE="$RUNNER_TEMP/published-index.json"
-          # File locale scaricato una volta per l'intero job (non uno per cella): passato cosi'
-          # com'e' a build-address-cell.sh piu' sotto (fetch_published_manifest, lib.sh, accetta
-          # un path al posto dell'URL).
-          PUBLISHED_INDEX_ARG=""
-          PUBLISHED_INDEX_HTTP="$(fetch_published_manifest "$INDEX_URL" "$PUBLISHED_INDEX_FILE")"
-          if [ "$PUBLISHED_INDEX_HTTP" = "200" ]; then
-            jq -r '.cells[].id' "$PUBLISHED_INDEX_FILE" > "$IDS_FILE"
-            # Prima passata (le celle pubblicate): segna ognuna e tutti i suoi antenati come
-            # coperti. Seconda passata (il seme): aggiunge le celle non coperte.
-            awk -F/ 'NR == FNR { z = $1; x = $2; y = $3
-                                 while (z >= 0) { covered[z "/" x "/" y] = 1; z--; x = int(x / 2); y = int(y / 2) }
-                                 next }
-                     $0 != "" && !($0 in covered)' "$IDS_FILE" tools/data-pipeline/address-grid-seed.tsv \
-              > "$RUNNER_TEMP/uncovered-seed-ids.txt"
-            cat "$RUNNER_TEMP/uncovered-seed-ids.txt" >> "$IDS_FILE"
-            PUBLISHED_INDEX_ARG="$PUBLISHED_INDEX_FILE"
-          elif [ "$PUBLISHED_INDEX_HTTP" = "404" ]; then
-            cp tools/data-pipeline/address-grid-seed.tsv "$IDS_FILE"
-            rm -f "$PUBLISHED_INDEX_FILE"
-          else
-            echo "ERRORE: indice civici non scaricabile da $INDEX_URL (HTTP ${PUBLISHED_INDEX_HTTP:-000})" >&2
-            exit 1
-          fi
-          echo "-- $(wc -l < "$IDS_FILE") celle nella partizione attuale"
-
-          # Slot 0..29 stabile per id (cksum: nessuna dipendenza in piu', basta per distribuire il
-          # lavoro sui giorni - non serve crittografico). Giorni dall'epoca, non giorno del mese:
-          # niente bias sui bordi del mese.
-          TODAY_SLOT=$(( $(date -u +%s) / 86400 % 30 ))
-          SELECTED_FILE="$RUNNER_TEMP/selected-cells.txt"
-          : > "$SELECTED_FILE"
-          if [ -n "$ADDRESS_CELLS_INPUT" ]; then
-            # Celle scelte a mano (input address_cells): solo id della partizione attuale, cosi' una
-            # cella gia' divisa o inesistente non rientra nell'indice.
-            IFS=',' read -ra CHOSEN_CELLS <<< "$(printf '%s' "$ADDRESS_CELLS_INPUT" | tr -d '[:space:]')"
-            for id in "${CHOSEN_CELLS[@]}"; do
-              if ! [[ "$id" =~ ^[0-9]+/[0-9]+/[0-9]+$ ]]; then
-                echo "address_cells non valido: '$id' (id z/x/y separati da virgola)" >&2
-                exit 1
-              fi
-              if ! grep -qxF "$id" "$IDS_FILE"; then
-                echo "address_cells: la cella $id non e' nella partizione attuale" >&2
-                exit 1
-              fi
-              echo "$id" >> "$SELECTED_FILE"
-            done
-            echo "-- celle scelte a mano: $(wc -l < "$SELECTED_FILE")"
-          else
-            while IFS= read -r id; do
-              [ -n "$id" ] || continue
-              slot=$(( $(printf '%s' "$id" | cksum | cut -d' ' -f1) % 30 ))
-              [ "$slot" -eq "$TODAY_SLOT" ] && echo "$id" >> "$SELECTED_FILE"
-            done < "$IDS_FILE"
-            echo "-- quota di oggi (slot $TODAY_SLOT/30): $(wc -l < "$SELECTED_FILE") celle"
-          fi
-
-          PROTOMAPS_DATE="$(resolve_protomaps_date)"
-          SOURCE_URL="https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles"
-          echo "-- build Protomaps: ${PROTOMAPS_DATE}.pmtiles"
-          # Stesso rilascio Overture per tutte le celle della run (il piu' recente, risolto una volta).
-          OVERTURE_RELEASE="$(python3 tools/data-pipeline/scripts/overture_addresses.py --print-release)"
-          export OVERTURE_RELEASE
-          echo "-- rilascio Overture: $OVERTURE_RELEASE"
-          VERSION="$(date -u +%Y.%m.%d).${{ github.run_number }}.${{ github.run_attempt }}"
-
-          ALL_ENTRIES="$RUNNER_TEMP/all-entries.jsonl"
-          : > "$ALL_ENTRIES"
-          FAILED_CELLS=()
-          while IFS= read -r id; do
-            [ -n "$id" ] || continue
-            n=$(( $(printf '%s' "$id" | cksum | cut -d' ' -f1) % ADDRESS_CELL_RELEASES ))
-            tag="address-cells-$n"
-            CELL_OUT="$RUNNER_TEMP/cell-out"
-            rm -rf "$CELL_OUT"
-            mkdir -p "$CELL_OUT"
-            echo "::group::$id"
-            if ! tools/data-pipeline/scripts/build-address-cell.sh "$id" "$VERSION" "$SOURCE_URL" \
-              "https://github.com/${{ github.repository }}/releases/download/$tag" "$CELL_OUT" \
-              "$PUBLISHED_INDEX_ARG"; then
-              echo "::warning::cella $id fallita, salto e continuo"
-              FAILED_CELLS+=("$id")
-              echo "::endgroup::"
-              continue
-            fi
-            shopt -s nullglob
-            # Civici e indice di ricerca per via (quest'ultimo solo se nuovo o cambiato).
-            assets=("$CELL_OUT"/cell-*"--${VERSION}--addresses.pmtiles.xz" "$CELL_OUT"/cell-*"--${VERSION}--addresses-search.db.xz")
-            if [ "${#assets[@]}" -gt 0 ]; then
-              uploadOk=false
-              for attempt in 1 2 3; do
-                if gh release upload "$tag" "${assets[@]}" --repo "${{ github.repository }}" --clobber; then
-                  uploadOk=true
-                  break
-                fi
-                [ "$attempt" -lt 3 ] && sleep $((attempt * 30))
-              done
-              if [ "$uploadOk" != true ]; then
-                echo "::warning::upload della cella $id fallito, salto e continuo"
-                FAILED_CELLS+=("$id")
-                echo "::endgroup::"
-                continue
-              fi
-            fi
-            [ ! -f "$CELL_OUT/address-grid-entries.jsonl" ] || cat "$CELL_OUT/address-grid-entries.jsonl" >> "$ALL_ENTRIES"
-            echo "::endgroup::"
-          done < "$SELECTED_FILE"
-          if [ "${#FAILED_CELLS[@]}" -gt 0 ]; then
-            echo "::warning::celle fallite in questa run (restano con la voce gia' pubblicata, se c'era): ${FAILED_CELLS[*]}"
-          fi
-
-          # Attribuzioni per la schermata Licenze: OSM, Overture e i distributori (OpenAddresses,
-          # AddressForAll), piu' il testo richiesto da ogni fonte ammessa dalla lista bianca (tutte
-          # quelle che la griglia puo' usare nel tempo, non solo quelle toccate dalle celle di oggi -
-          # sapere quali finiscono davvero in OGNI cella pubblicata richiederebbe di leggerle tutte a
-          # ogni run). {anno} e {data} nei testi: data del rilascio Overture usato. Testi uguali una volta sola.
-          ATTRIBUTIONS_TSV="$RUNNER_TEMP/attributions.tsv"
-          OVERTURE_DATE="${OVERTURE_RELEASE%%.*}"
-          {
-            printf 'OpenStreetMap\tODbL-1.0\thttps://www.openstreetmap.org/copyright\n'
-            printf 'Overture Maps Foundation (overturemaps.org), OpenAddresses, AddressForAll\tvarie\thttps://docs.overturemaps.org/attribution/\n'
-            awk -F'\t' -v anno="${OVERTURE_DATE%%-*}" -v data="$OVERTURE_DATE" \
-              '$0 !~ /^#/ && NF >= 5 && $4 == "allow" && !seen[$5]++ {
-                 text = $5; gsub(/\{anno\}/, anno, text); gsub(/\{data\}/, data, text)
-                 printf "%s\t%s\thttps://docs.overturemaps.org/attribution/\n", text, $3
-               }' tools/data-pipeline/overture-address-sources.tsv
-          } > "$ATTRIBUTIONS_TSV"
-
-          mkdir -p "$RUNNER_TEMP/fragments" "$RUNNER_TEMP/address-grid-index"
-          INDEX_OUT="$RUNNER_TEMP/address-grid-index/address-grid.json"
-          FRAGMENT_OUT="$RUNNER_TEMP/fragments/address-grid.json"
-          # Stesso schema di ARGS_STR in assemble-site.sh: costruita per pezzi (non con
-          # un'espansione di array dentro una stringa gia' tra doppi apici, che non separerebbe
-          # correttamente gli elementi).
-          ARGS_STR="\"$VERSION\" \"$INDEX_URL\" \"$(winpath "$INDEX_OUT")\" \"$(winpath "$FRAGMENT_OUT")\" \"$(winpath "$ATTRIBUTIONS_TSV")\""
-          [ ! -s "$PUBLISHED_INDEX_FILE" ] || ARGS_STR="$ARGS_STR --published \"$(winpath "$PUBLISHED_INDEX_FILE")\""
-          [ ! -s "$ALL_ENTRIES" ] || ARGS_STR="$ARGS_STR --entries \"$(winpath "$ALL_ENTRIES")\""
-          ./gradlew -q :tools:data-pipeline:content:generateAddressGrid --args="$ARGS_STR"
-
-      # Due artifact distinti e non solo per ordine: il job "publish" scarica "manifest-fragments-*"
-      # con merge-multiple (tutti i frammenti appiattiti nella stessa cartella, stesso nome di file
-      # accettato perche' ognuno e' un frammento di catalogo valido) - l'indice vero e proprio non lo
-      # e' (niente "manifestVersion", schema diverso) e finirebbe scambiato per un frammento se
-      # stesse nello stesso artifact/pattern.
+      # Due artifact distinti: il job "publish" scarica "manifest-fragments-*" con merge-multiple (tutti i frammenti
+      # nella stessa cartella), e l'indice, che non e' un frammento di catalogo, finirebbe scambiato per uno.
       - name: Carica il frammento di catalogo dell'indice dei civici
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -771,12 +299,11 @@ jobs:
           path: ${{ runner.temp }}/address-grid-index/address-grid.json
           retention-days: 1
 
-  # Reti dei mezzi pubblici (GTFS) di tools/data-pipeline/transit-feeds.tsv: una per una, dalla copia
-  # del Mobility Database, in transit.db (build-transit.sh), ricostruite solo se il feed e' cambiato o
-  # la voce pubblicata ha piu' di 7 giorni. L'indice (transit.json) e il suo frammento di catalogo (voce
-  # "transit") vanno al job "publish" come artifact, stesso schema dei civici. Una rete che fallisce
-  # tiene la voce gia' pubblicata. Non gira nelle continuazioni.
+  # Reti dei mezzi pubblici (GTFS) di tools/data-pipeline/transit-feeds.tsv, ricostruite solo se il feed e' cambiato o
+  # la voce pubblicata ha piu' di 7 giorni. Indice (transit.json) e frammento di catalogo al job "publish" come
+  # artifact, come i civici. Non gira nelle continuazioni.
   transit:
+    name: Mezzi pubblici
     needs: plan
     if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
@@ -792,75 +319,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
-        with:
-          distribution: temurin
-          java-version: '25'
-
-      # Cache di Gradle in sola lettura, come sopra.
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
-        with:
-          cache-read-only: true
+      - uses: ./.github/actions/setup-pipeline
 
       - name: Costruisci le reti dei mezzi pubblici
-        id: build
-        shell: bash
-        run: |
-          set -euo pipefail
-          source .github/scripts/retry.sh
-          # shellcheck source=./tools/data-pipeline/scripts/lib.sh
-          source tools/data-pipeline/scripts/lib.sh
-          INDEX_URL="${{ env.PAGES_BASE_URL }}/transit.json"
-          PUBLISHED="$RUNNER_TEMP/published-transit.json"
-          PUBLISHED_HTTP="$(fetch_published_manifest "$INDEX_URL" "$PUBLISHED")"
-          if [ "$PUBLISHED_HTTP" = "404" ]; then
-            rm -f "$PUBLISHED"
-          elif [ "$PUBLISHED_HTTP" != "200" ]; then
-            echo "ERRORE: transit.json non scaricabile da $INDEX_URL (HTTP ${PUBLISHED_HTTP:-000})" >&2
-            exit 1
-          fi
-          VERSION="$(date -u +%Y.%m.%d).${{ github.run_number }}.${{ github.run_attempt }}"
-          OUT="$RUNNER_TEMP/transit-out"
-          mkdir -p "$OUT" "$RUNNER_TEMP/fragments" "$RUNNER_TEMP/transit-index"
-          FAILED=()
-          PUBLISHED_ARG=""
-          [ ! -s "$PUBLISHED" ] || PUBLISHED_ARG="$PUBLISHED"
-          for id in $(awk -F'\t' '$0 !~ /^#/ && NF >= 5 { print $1 }' tools/data-pipeline/transit-feeds.tsv); do
-            echo "::group::$id"
-            if ! tools/data-pipeline/scripts/build-transit.sh "$id" "$VERSION" \
-              "https://github.com/${{ github.repository }}/releases/download/transit-feeds" "$OUT" "$PUBLISHED_ARG"; then
-              echo "::warning::rete $id non costruita: resta la voce gia' pubblicata, se c'e'"
-              FAILED+=("$id")
-              [ ! -s "$PUBLISHED" ] || jq -c --arg id "$id" '.feeds[]? | select(.id == $id)' "$PUBLISHED" >> "$OUT/transit-entries.jsonl"
-            fi
-            echo "::endgroup::"
-          done
-          shopt -s nullglob
-          ASSETS=("$OUT"/*--transit.db "$OUT"/*--transit.db.xz)
-          if [ "${#ASSETS[@]}" -gt 0 ]; then
-            retry gh release upload transit-feeds "${ASSETS[@]}" --repo "${{ github.repository }}" --clobber
-          fi
-          if [ ! -s "$OUT/transit-entries.jsonl" ]; then
-            echo "Nessuna rete da pubblicare" >&2
-            exit 1
-          fi
-          INDEX="$RUNNER_TEMP/transit-index/transit.json"
-          # publishedAt (secondi Unix) dentro i byte firmati e coperti dallo sha256 del frammento: l'app rifiuta
-          # un valore piu' basso dell'ultimo accettato (niente ritorno a una vecchia coppia file + .sig).
-          # missing: le reti escluse di transit-missing.tsv, che l'app mostra come "Non incluse" con il motivo.
-          MISSING="$(jq -Rn '[inputs | select(length > 0 and (startswith("#") | not)) | split("\t")
-            | {id: .[0], regions: (.[1] | split(",")), name: .[2], reason: .[3]}]' tools/data-pipeline/transit-missing.tsv)"
-          jq -s --arg v "$VERSION" --argjson at "$(date +%s)" --argjson missing "$MISSING" \
-            '{version: $v, publishedAt: $at, feeds: (unique_by(.id)), missing: $missing}' "$OUT/transit-entries.jsonl" > "$INDEX"
-          jq -n --arg v "$VERSION" --arg url "$INDEX_URL" --argjson size "$(stat -c %s "$INDEX")" \
-            --arg sha "$(sha256sum "$INDEX" | cut -d' ' -f1)" \
-            '{manifestVersion: 2, transit: {version: $v, url: $url, sizeBytes: $size, sha256: $sha}, regions: []}' \
-            > "$RUNNER_TEMP/fragments/transit.json"
-          {
-            echo "### Reti dei mezzi pubblici"
-            jq -r '.feeds[] | "- \(.id) \(.name): valido fino al \(.validUntil), versione \(.version)"' "$INDEX"
-            [ "${#FAILED[@]}" -eq 0 ] || echo "Non costruite (resta la voce pubblicata): ${FAILED[*]}"
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: bash .github/scripts/publish-regions/transit.sh
 
       - name: Carica il frammento di catalogo delle reti dei mezzi pubblici
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -882,6 +344,7 @@ jobs:
   # chiave della cache di Actions. Job a parte che nessuno aspetta (la query legge tutto il tema,
   # decine di minuti) e mai bloccante: se fallisce si ripete alla run successiva.
   overture-check:
+    name: Controllo Overture
     if: ${{ !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -893,19 +356,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Stessa installazione con hash fissati del job address-grid (vedi li'), senza il token nell'ambiente.
-      - name: Installa duckdb
-        shell: bash
-        env:
-          GH_TOKEN: ''
-        run: |
-          python3 -m pip install --quiet --disable-pip-version-check --retries 10 --timeout 60 \
-            --require-hashes --only-binary :all: -r tools/data-pipeline/requirements-ci.txt
+      - uses: ./.github/actions/setup-pipeline
+        with:
+          gradle: false
+          duckdb: true
 
       - name: Rilascio Overture da controllare
         id: overture-release
         continue-on-error: true
-        shell: bash
         run: |
           set -euo pipefail
           echo "release=$(python3 tools/data-pipeline/scripts/overture_addresses.py --print-release)" >> "$GITHUB_OUTPUT"
@@ -923,7 +381,6 @@ jobs:
         id: overture-check
         if: steps.overture-release.outputs.release != '' && steps.overture-checked.outputs.cache-hit != 'true'
         continue-on-error: true
-        shell: bash
         env:
           OVERTURE_RELEASE: ${{ steps.overture-release.outputs.release }}
         run: |
@@ -935,12 +392,12 @@ jobs:
             cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
             TITLE="Overture $OVERTURE_RELEASE: fonti dei civici da rivedere"
             echo "::warning::$TITLE (lista bianca tools/data-pipeline/overture-address-sources.tsv, dettagli nel riepilogo)"
-            gh label create overture-licenze --repo "${{ github.repository }}" --color d93f0b \
+            gh label create overture-licenze --repo "$GITHUB_REPOSITORY" --color d93f0b \
               --description "Fonti Overture dei civici da rivedere" --force
-            EXISTING="$(gh issue list --repo "${{ github.repository }}" --label overture-licenze --state all \
+            EXISTING="$(gh issue list --repo "$GITHUB_REPOSITORY" --label overture-licenze --state all \
               --search "\"$OVERTURE_RELEASE\" in:title" --json number --jq 'length')"
             if [ "$EXISTING" -eq 0 ]; then
-              gh issue create --repo "${{ github.repository }}" --title "$TITLE" --label overture-licenze --body-file "$REPORT"
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --label overture-licenze --body-file "$REPORT"
             fi
           else
             echo "-- rilascio $OVERTURE_RELEASE: nessuna fonte nuova o sparita"
@@ -961,6 +418,7 @@ jobs:
   # Se qualcosa e' cambiato lascia un warning e il resoconto nel riepilogo della run; non tocca i TSV
   # e non blocca la pubblicazione (nessuno lo aspetta, gli errori di rete diventano un warning).
   vaccinations-check:
+    name: Controllo vaccinazioni
     if: ${{ github.event.schedule == '0 2 * * 1' || (github.event_name == 'workflow_dispatch' && !(github.event.inputs.continuation > 0)) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -970,7 +428,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Controlla le fonti dei dati vaccinali
-        shell: bash
         run: |
           set -uo pipefail
           REPORT="$RUNNER_TEMP/vaccinations-drift.md"
@@ -984,17 +441,17 @@ jobs:
             *) echo "::warning::controllo deriva dei dati vaccinali non riuscito (fonte non raggiungibile?), si ripete la settimana prossima" ;;
           esac
 
-  # Genera i pacchetti regionali (poi.db + .rd5) per lo shard assegnato e carica gli asset
-  # sulla release "region-data". I frammenti di catalogo prodotti vanno come artifact al job
-  # "publish" sotto (job diversi non condividono il filesystem).
+  # Pacchetti delle regioni dello shard (poi.db, .rd5, citta', mappa d'insieme) sulle release "region-data*"; i
+  # frammenti di catalogo vanno come artifact al job "publish" (job diversi non condividono il filesystem).
   build:
+    name: Regioni (shard ${{ matrix.shard }})
     needs: plan
     runs-on: ubuntu-24.04
     # Sotto le 6 h di GitHub (che interrompono il passo senza caricare i frammenti, run del
     # 2026-09-28): budget di TIME_BUDGET_MINUTES (280) + una regione al massimo di
     # REGION_TIMEOUT_MINUTES (45) + preparazione e upload.
     timeout-minutes: 350
-    # actions: write per togliere le cache delle frasi tradotte piu' vecchie (passo dopo il salvataggio).
+    # actions: write per togliere le cache delle frasi tradotte e delle citta' piu' vecchie (passi dopo il salvataggio).
     permissions:
       contents: write
       actions: write
@@ -1004,6 +461,7 @@ jobs:
         shard: [0, 1, 2]
     env:
       GH_TOKEN: ${{ github.token }}
+      SHARD: ${{ matrix.shard }}
       # Ogni regione torna in rotazione ogni 7 giorni e si rigenera oltre POI_MAX_AGE_DAYS giorni:
       # 6 rinnova i POI a ogni turno (7 li rinnoverebbe ogni due settimane).
       POI_MAX_AGE_DAYS: ${{ github.event.inputs.poi_max_age_days || '6' }}
@@ -1014,44 +472,26 @@ jobs:
       REGION_TIMEOUT_MINUTES: 45
       # Traduzione delle sezioni povere delle citta' dall'altra lingua (translate_guides.py cities), tolta al budget di sopra:
       # al massimo 120 secondi per ogni cities.db (italiano e inglese ciascuno) e 40 minuti in tutto per lo shard
-      # (TRANSLATE_DEADLINE, fissato all'inizio del passo "Genera i pacchetti regionali dello shard"); passati questi
-      # tempi le citta' restano com'erano e il resto segue alla prossima rotazione della regione, la cache tiene il lavoro fatto.
+      # (TRANSLATE_DEADLINE, fissato all'inizio di build-shard.sh); passati questi tempi le citta' restano com'erano e il
+      # resto segue alla prossima rotazione della regione, la cache tiene il lavoro fatto.
       TRANSLATE_MAX_SECONDS: 120
       TRANSLATE_TOTAL_MINUTES: 40
     steps:
       # Inizio del job (epoca): il budget di tempo dello shard si conta da qui, non dall'inizio del passo che
       # genera le regioni, dopo checkout, Gradle, traduzione e cache.
       - name: Segna l'inizio del job
-        shell: bash
         run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      # go-pmtiles estrae la mappa d'insieme della regione (preview.pmtiles); osmium estrae i POI dagli estratti
+      # Geofabrik (senza, build-region.sh interroga Overpass).
+      - uses: ./.github/actions/setup-pipeline
         with:
-          distribution: temurin
-          java-version: '25'
-
-      # Cache di Gradle in sola lettura, come sopra.
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
-        with:
-          cache-read-only: true
-
-      # go-pmtiles estrae la mappa d'insieme offline della regione (preview.pmtiles, build-region.sh):
-      # versione e sha256 fissati in .github/scripts/install-go-pmtiles.sh.
-      - name: Installa go-pmtiles
-        shell: bash
-        run: |
-          bash .github/scripts/install-go-pmtiles.sh
-
-      # osmium estrae i POI dagli estratti Geofabrik (geofabrik_pois.py, build-region.sh); senza,
-      # build-region.sh interroga Overpass. Mai bloccante.
-      - name: Installa osmium-tool
-        continue-on-error: true
-        shell: bash
-        run: sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq osmium-tool
+          pmtiles: true
+          osmium: true
 
       # Dump di Wikivoyage (MediaWiki Content File Exports, IT ~57 MB, EN ~190 MB, uno al mese il 1°) nella cache di
       # Actions, con la chiave dagli SHA256SUMS del dump corrente: gli shard e le run del mese non li riscaricano
@@ -1059,7 +499,6 @@ jobs:
       - name: Chiave dei dump di Wikivoyage
         id: dumps
         continue-on-error: true
-        shell: bash
         run: |
           set -euo pipefail
           source tools/data-pipeline/scripts/lib.sh
@@ -1096,8 +535,9 @@ jobs:
 
       - name: Genera i pacchetti regionali dello shard
         id: build
-        shell: bash
         env:
+          SELECTED: ${{ needs.plan.outputs[format('shard{0}', matrix.shard)] }}
+          EXTRA: ${{ needs.plan.outputs[format('shard{0}_extra', matrix.shard)] }}
           WIKIVOYAGE_DUMP_CACHE: ${{ runner.temp }}/wikivoyage-dumps
           CITY_FACTS_CACHE: ${{ github.workspace }}/city-facts/city-facts.json
           # Intervalli dei .rd5 gia' scaricati, riusati dalle regioni dopo nello stesso shard (34% dei
@@ -1105,316 +545,7 @@ jobs:
           RD5_RANGE_CACHE: ${{ runner.temp }}/rd5-range-cache
           # Estratti Geofabrik ridotti ai POI, riusati dalle regioni vicine dello stesso shard.
           GEOFABRIK_CACHE: ${{ runner.temp }}/geofabrik
-        run: |
-          set -euo pipefail
-          source tools/data-pipeline/scripts/regions.sh
-          # shellcheck source=./tools/data-pipeline/scripts/lib.sh
-          source tools/data-pipeline/scripts/lib.sh
-          # Tetto comune di traduzione delle citta' per l'intero shard (translate_overlay in lib.sh).
-          TRANSLATE_DEADLINE=$(( $(date +%s) + TRANSLATE_TOTAL_MINUTES * 60 ))
-          export TRANSLATE_DEADLINE
-
-          case "${{ matrix.shard }}" in
-            0) SELECTED="${{ needs.plan.outputs.shard0 }}"; EXTRA="${{ needs.plan.outputs.shard0_extra }}" ;;
-            1) SELECTED="${{ needs.plan.outputs.shard1 }}"; EXTRA="${{ needs.plan.outputs.shard1_extra }}" ;;
-            2) SELECTED="${{ needs.plan.outputs.shard2 }}"; EXTRA="${{ needs.plan.outputs.shard2_extra }}" ;;
-          esac
-          if [ -z "$SELECTED" ] && [ -z "$EXTRA" ]; then
-            echo "-- shard ${{ matrix.shard }} vuoto, nulla da fare"
-            echo "has_fragments=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          OUTPUT_ROOT="$RUNNER_TEMP/regions-out"
-          # Pages ospita solo manifest.json + index.html + bandiere (pochi KB, mai vicino al
-          # limite di 1GB). poi.db e i .rd5 (il grosso dei dati) vivono invece sugli asset
-          # della release "region-data": a differenza di Pages, che sostituisce l'intero sito ad
-          # ogni deploy, gli asset di una release non spariscono mai da soli - vedi il commento in
-          # testa a assemble-site.sh per il problema che questo risolve (sito cumulativo sopra
-          # 1GB con 254 regioni).
-          PAGES_BASE_URL="${{ env.PAGES_BASE_URL }}"
-          RELEASE_BASE_URL_PREFIX="https://github.com/${{ github.repository }}/releases/download"
-          PUBLISHED_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
-          # Data + numero e tentativo della run (YYYY.MM.DD.<run>.<tentativo>): con la sola data una
-          # seconda run nello stesso giorno ricaricherebbe con --clobber asset con lo stesso nome (e byte
-          # diversi) gia' referenziati dal `manifest.json` online. Gli script leggono la data dai nomi degli
-          # asset ignorando il suffisso (vedi POI_DATE in build-region.sh).
-          VERSION="$(date -u +%Y.%m.%d).${{ github.run_number }}.${{ github.run_attempt }}"
-          mkdir -p "$OUTPUT_ROOT" "$RUNNER_TEMP/fragments"
-
-          # `manifest.json` pubblicato scaricato una volta per shard e passato come file locale a
-          # build-region.sh e build-cities.sh (fetch_published_manifest in lib.sh),
-          # invece di due download per regione. Stessa semantica degli script: non scaricabile =
-          # errore, 404 = prima pubblicazione (si lascia l'URL, gli script vedono lo stesso 404).
-          PUBLISHED_MANIFEST_FILE="$RUNNER_TEMP/published-manifest.json"
-          PUBLISHED_MANIFEST_HTTP="$(fetch_published_manifest "$PUBLISHED_MANIFEST_URL" "$PUBLISHED_MANIFEST_FILE")"
-          if [ "$PUBLISHED_MANIFEST_HTTP" = "200" ]; then
-            PUBLISHED_MANIFEST_URL="$PUBLISHED_MANIFEST_FILE"
-          elif [ "$PUBLISHED_MANIFEST_HTTP" != "404" ]; then
-            echo "ERRORE: manifest.json pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL (HTTP ${PUBLISHED_MANIFEST_HTTP:-000})" >&2
-            exit 1
-          fi
-
-          # Risolta una volta per l'intero shard (non da ogni build-region.sh, vedi lib.sh): stessa
-          # build Protomaps per tutte le regioni di questa run, evita fino a 4 richieste HEAD
-          # identiche ripetute per ogni singola regione dello shard.
-          PROTOMAPS_DATE_OVERRIDE="$(resolve_protomaps_date)"
-          export PROTOMAPS_DATE_OVERRIDE
-          echo "-- build Protomaps: ${PROTOMAPS_DATE_OVERRIDE}.pmtiles"
-
-          # Una regione che fallisce (es. query Overpass troppo pesante per un bbox enorme) non
-          # deve far perdere il lavoro gia' fatto per le regioni precedenti nello stesso shard: con
-          # "set -e" un fallimento non protetto da if/else interromperebbe subito lo script, e le
-          # regioni gia' completate non verrebbero pubblicate. L'if/else qui sotto e' una delle eccezioni
-          # riconosciute da "set -e" (il comando testato in una condizione if non fa terminare lo
-          # script), quindi si continua con le regioni successive.
-          FAILED_REGIONS=()
-          # Motivo di ogni regione fallita (stesso ordine di FAILED_REGIONS), per il riepilogo e per il
-          # nuovo tentativo nella continuazione (failed-<shard>.txt).
-          FAILED_REASONS=()
-          IFS=',' read -ra SHARD_REGIONS <<< "$SELECTED"
-          # Coda della quota adattiva ("id:secondi stimati", vedi il job plan): dopo le regioni del giorno,
-          # ognuna solo se la sua stima ci sta ancora nel budget; quelle che non ci stanno non si rimandano.
-          declare -A EXTRA_ESTIMATE=()
-          EXTRA_REGIONS=()
-          if [ -n "${EXTRA:-}" ]; then
-            IFS=',' read -ra EXTRA_ITEMS <<< "$EXTRA"
-            for item in "${EXTRA_ITEMS[@]}"; do
-              EXTRA_REGIONS+=("${item%%:*}")
-              EXTRA_ESTIMATE[${item%%:*}]="${item##*:}"
-            done
-          fi
-          EXTRA_DONE=()
-          EXTRA_SKIPPED=0
-          declare -A SPEC_BY_ID=()
-          for spec in "${ALL_REGIONS[@]}"; do SPEC_BY_ID[${spec%%|*}]="$spec"; done
-          # Budget dall'inizio del job (JOB_START), dump delle citta' compreso. SECONDS conta dall'inizio di
-          # questo passo: il tempo gia' passato prima si toglie dal budget. Almeno una regione parte sempre,
-          # cosi' ogni continuazione fa qualche progresso.
-          if ! [[ "$TIME_BUDGET_MINUTES" =~ ^[0-9]+$ ]]; then
-            echo "time_budget_minutes non valido: '$TIME_BUDGET_MINUTES' (minuti, intero)" >&2
-            exit 1
-          fi
-          BUDGET_SECONDS=$((TIME_BUDGET_MINUTES * 60 - ($(date +%s) - JOB_START)))
-          DEFERRED_REGIONS=()
-          startedRegions=0
-
-          # Citta' delle regioni: un solo passaggio sul dump di
-          # Wikivoyage IT per l'intero shard (build-cities-dump.sh), prima del giro per regione qui
-          # sotto - mai fatale, se fallisce le regioni di questa run restano senza citta' nuove
-          # (build-cities.sh, piu' sotto, tiene la voce gia' pubblicata).
-          CITIES_REGIONS_TSV="$RUNNER_TEMP/cities-regions.tsv"
-          : > "$CITIES_REGIONS_TSV"
-          for spec in "${ALL_REGIONS[@]}"; do
-            IFS='|' read -r regionId _displayName _minLon _minLat _maxLon _maxLat wikiTitle _flag _groupName _groupLabel _continent <<< "$spec"
-            for r in "${SHARD_REGIONS[@]}" "${EXTRA_REGIONS[@]}"; do
-              [ "$r" = "$regionId" ] || continue
-              printf '%s\t%s\n' "$regionId" "$wikiTitle" >> "$CITIES_REGIONS_TSV"
-              break
-            done
-          done
-          CITIES_JSONL_DIR="$RUNNER_TEMP/cities-jsonl"
-          mkdir -p "$CITIES_JSONL_DIR"
-          tools/data-pipeline/scripts/build-cities-dump.sh "$CITIES_REGIONS_TSV" "$CITIES_JSONL_DIR" \
-            || echo "::warning::dump citta' non generato per questo shard, regioni senza citta' nuove"
-          # Citta' in inglese (voce "citiesEn"): dump di Wikivoyage EN, stessa cartella (file .cities-en.jsonl).
-          tools/data-pipeline/scripts/build-cities-dump.sh "$CITIES_REGIONS_TSV" "$CITIES_JSONL_DIR" en \
-            || echo "::warning::dump citta' EN non generato per questo shard, regioni senza citta' inglesi nuove"
-
-          # Prima le regioni del giorno (nell'ordine di regions.sh), poi la coda della quota adattiva.
-          ORDERED_REGIONS=()
-          for spec in "${ALL_REGIONS[@]}"; do
-            id="${spec%%|*}"
-            for r in "${SHARD_REGIONS[@]}"; do [ "$r" = "$id" ] && ORDERED_REGIONS+=("$id") && break; done
-          done
-          ORDERED_REGIONS+=("${EXTRA_REGIONS[@]}")
-          for regionId in "${ORDERED_REGIONS[@]}"; do
-            spec="${SPEC_BY_ID[$regionId]:-}"
-            [ -n "$spec" ] || continue
-            IFS='|' read -r regionId displayName minLon minLat maxLon maxLat _wikiTitle flag groupName groupLabel continent <<< "$spec"
-            if [ -n "${EXTRA_ESTIMATE[$regionId]:-}" ]; then
-              if [ $((SECONDS + EXTRA_ESTIMATE[$regionId])) -gt "$BUDGET_SECONDS" ]; then
-                EXTRA_SKIPPED=$((EXTRA_SKIPPED + 1))
-                continue
-              fi
-              EXTRA_DONE+=("$regionId")
-            elif [ "$startedRegions" -gt 0 ] && [ "$SECONDS" -ge "$BUDGET_SECONDS" ]; then
-              DEFERRED_REGIONS+=("$regionId")
-              continue
-            fi
-            startedRegions=$((startedRegions + 1))
-
-            releaseTag="$(region_release_tag "$regionId")"
-            RELEASE_BASE_URL="$RELEASE_BASE_URL_PREFIX/$releaseTag"
-            echo "::group::$regionId"
-            regionStart=$SECONDS
-            regionOut="$OUTPUT_ROOT/$regionId"
-            # timeout segnala l'intero gruppo di processi (anche java, python e curl lanciati dallo script).
-            if timeout --kill-after=2m "${REGION_TIMEOUT_MINUTES}m" \
-              tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
-              "$minLon" "$minLat" "$maxLon" "$maxLat" "$RELEASE_BASE_URL" "$regionOut" \
-              "$PUBLISHED_MANIFEST_URL"; then
-              # Citta' (facoltative, mai fatali): aggiunge la voce "cities" al frammento e, se il
-              # dump e' stato estratto per questa regione (vedi CITIES_JSONL_DIR sopra) e produce
-              # sezioni, lascia cities.db.xz da caricare.
-              tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
-                "$RELEASE_BASE_URL" "$regionOut" "$CITIES_JSONL_DIR" \
-                "$PUBLISHED_MANIFEST_URL" || echo "::warning::citta' di $regionId non generate"
-              tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
-                "$RELEASE_BASE_URL" "$regionOut" "$CITIES_JSONL_DIR" \
-                "$PUBLISHED_MANIFEST_URL" en || echo "::warning::citta' EN di $regionId non generate"
-              if [ -f "$regionOut/.skipped" ]; then
-                # Controllo di necessita' in build-region.sh: tile .rd5 attese invariate rispetto
-                # al `manifest.json` gia' pubblicato, il frammento e' quello di sempre, niente da
-                # ricaricare sulla release (vedi build-region.sh, sezione "2bis").
-                echo "-- $regionId invariata: riuso il frammento pubblicato, nessun asset da ricaricare"
-              else
-                # poi.db.xz, poi-extra.db.xz + segmenti .rd5 (zero o piu' a seconda di quante tile intersecano il
-                # bbox) caricati come asset della release, rinominati con un prefisso
-                # regionId--version-- per essere univoci nell'intera release (che accumula tutte
-                # le regioni). --clobber: un nuovo tentativo di upload qui sotto deve poter
-                # sovrascrivere l'asset caricato a meta' dal tentativo fallito (VERSION e' unica per
-                # run e tentativo, quindi non tocca mai asset di altre run).
-                # In modalita' incrementale (.incremental, vedi build-region.sh sezione 2bis) si
-                # caricano solo le tile cambiate, piu' poi.db.xz/poi-extra.db.xz se erano scaduti e sono cambiati,
-                # e cities.db.xz se build-cities.sh ne ha prodotto uno nuovo.
-                uploads=()
-                # I POI, la mappa d'insieme e le citta' si caricano solo compressi (vedi xz_entry
-                # in lib.sh, build_preview in build-region.sh).
-                for xz in poi.db.xz poi-extra.db.xz preview.pmtiles.xz cities.db.xz cities-en.db.xz; do
-                  [ -f "$regionOut/$xz" ] || continue
-                  xzAsset="$regionOut/${regionId}--${VERSION}--$xz"
-                  cp "$regionOut/$xz" "$xzAsset"
-                  uploads+=("$xzAsset")
-                done
-                for rd5 in "$regionOut"/*.rd5; do
-                  [ -e "$rd5" ] || continue
-                  rd5Asset="$regionOut/${regionId}--${VERSION}--$(basename "$rd5")"
-                  cp "$rd5" "$rd5Asset"
-                  uploads+=("$rd5Asset")
-                done
-                # Variante "solo auto" (build-region.sh, cartella car/): sulla release region-data-car-rNN.
-                carUploads=()
-                for rd5 in "$regionOut"/car/*.rd5; do
-                  [ -e "$rd5" ] || continue
-                  carAsset="$regionOut/car/${regionId}--${VERSION}--car-$(basename "$rd5")"
-                  cp "$rd5" "$carAsset"
-                  carUploads+=("$carAsset")
-                done
-                # Fino a 3 tentativi: l'API a volte risponde "release not found" su una release che
-                # esiste (tanzania, run del 2026-09-24). --clobber rende sicuro il ricaricamento.
-                # Nessun file (es. la regione ha perso solo i POI extra): cambia solo il manifest.
-                uploadOk=true
-                [ "${#uploads[@]}" -eq 0 ] || uploadOk=false
-                for attempt in 1 2 3; do
-                  [ "${#uploads[@]}" -gt 0 ] || break
-                  if gh release upload "$releaseTag" "${uploads[@]}" --repo "${{ github.repository }}" --clobber; then
-                    uploadOk=true
-                    break
-                  fi
-                  if [ "$attempt" -lt 3 ]; then
-                    echo "-- upload di $regionId fallito (tentativo $attempt/3), riprovo tra $((attempt * 30))s"
-                    sleep $((attempt * 30))
-                  fi
-                done
-                carReleaseTag="${releaseTag/region-data-r/region-data-car-r}"
-                for attempt in 1 2 3; do
-                  [ "$uploadOk" = true ] && [ "${#carUploads[@]}" -gt 0 ] || break
-                  if gh release upload "$carReleaseTag" "${carUploads[@]}" --repo "${{ github.repository }}" --clobber; then
-                    break
-                  fi
-                  if [ "$attempt" -lt 3 ]; then
-                    echo "-- upload della rete stradale solo auto di $regionId fallito (tentativo $attempt/3), riprovo tra $((attempt * 30))s"
-                    sleep $((attempt * 30))
-                  else
-                    uploadOk=false
-                  fi
-                done
-                if [ "$uploadOk" != true ]; then
-                  echo "::warning::upload asset di $regionId fallito, salto e continuo con le prossime"
-                  FAILED_REGIONS+=("$regionId")
-                  FAILED_REASONS+=("upload degli asset fallito")
-                  rm -rf "$regionOut"
-                  echo "::endgroup::"
-                  continue
-                fi
-              fi
-              # Nome unico per regione: piu' regioni condividerebbero altrimenti lo stesso nome di
-              # file "manifest-fragment.json" una volta appiattite nella stessa cartella artifact.
-              cp "$regionOut/manifest-fragment.json" "$RUNNER_TEMP/fragments/${regionId}.json"
-              # Copia durevole subito, oltre all'artifact di fine passo: se il job muore dopo (annullato,
-              # runner perso) il job "publish" di una run successiva la recupera (selectFragments).
-              # Non fatale: senza, resta il percorso normale dell'artifact.
-              cp "$regionOut/manifest-fragment.json" "$regionOut/${VERSION}--${regionId}.json"
-              gh release upload region-fragments "$regionOut/${VERSION}--${regionId}.json" --repo "${{ github.repository }}" --clobber \
-                || echo "::warning::frammento di $regionId non salvato su region-fragments (resta l'artifact di fine passo)"
-              # Durata della regione, per bilanciare gli shard delle prossime run (region-timings.tsv).
-              # Solo le build complete: non le regioni saltate perche' invariate ne' gli aggiornamenti
-              # incrementali, che abbasserebbero la misura (una settimana dopo la regione puo' dover
-              # ripartire da zero).
-              if [ ! -f "$regionOut/.skipped" ] && [ ! -f "$regionOut/.incremental" ]; then
-                printf '%s\t%d\n' "$regionId" "$((SECONDS - regionStart))" >> "$RUNNER_TEMP/fragments/timings-${{ matrix.shard }}.tsv"
-              fi
-              # File della regione gia' caricati: via dal disco (una copia rinominata per asset li
-              # raddoppierebbe), cosi' resta posto per le cache di Geofabrik e dei .rd5 dello shard.
-              rm -rf "$regionOut"
-            else
-              rc=$?
-              if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
-                echo "::warning::regione $regionId oltre ${REGION_TIMEOUT_MINUTES} min, interrotta: salto e continuo con le prossime"
-                FAILED_REASONS+=("oltre ${REGION_TIMEOUT_MINUTES} min")
-              else
-                echo "::warning::regione $regionId fallita, salto e continuo con le prossime"
-                FAILED_REASONS+=("build-region.sh uscito con $rc")
-              fi
-              FAILED_REGIONS+=("$regionId")
-              rm -rf "$regionOut"
-            fi
-            echo "::endgroup::"
-          done
-
-          # Regioni fallite con il motivo: la prima continuazione le riprova una volta (job "publish").
-          for idx in "${!FAILED_REGIONS[@]}"; do
-            printf '%s\t%s\n' "${FAILED_REGIONS[$idx]}" "${FAILED_REASONS[$idx]}" >> "$RUNNER_TEMP/fragments/failed-${{ matrix.shard }}.txt"
-          done
-          # Regioni rimandate: le rilancia il job "publish" (continuazione automatica).
-          if [ "${#EXTRA_REGIONS[@]}" -gt 0 ]; then
-            echo "-- quota adattiva: ${#EXTRA_DONE[@]} regioni in piu' avviate (${EXTRA_DONE[*]:-nessuna}), $EXTRA_SKIPPED non entrate nel budget"
-          fi
-          if [ "${#DEFERRED_REGIONS[@]}" -gt 0 ]; then
-            printf '%s\n' "${DEFERRED_REGIONS[@]}" > "$RUNNER_TEMP/fragments/deferred-${{ matrix.shard }}.txt"
-            echo "::warning::budget di ${TIME_BUDGET_MINUTES} min superato: ${#DEFERRED_REGIONS[@]} regioni rimandate alla continuazione: ${DEFERRED_REGIONS[*]}"
-          fi
-
-          # Riepilogo nella pagina del job, per non dover cercare i problemi nel log.
-          {
-            echo "### Shard ${{ matrix.shard }}"
-            if [ "${#FAILED_REGIONS[@]}" -gt 0 ]; then
-              echo "Regioni fallite (non pubblicate, da rilanciare a parte): ${FAILED_REGIONS[*]}"
-              echo
-            elif [ "${#DEFERRED_REGIONS[@]}" -eq 0 ]; then
-              echo "Nessun problema."
-            fi
-            if [ "${#DEFERRED_REGIONS[@]}" -gt 0 ]; then
-              echo "Regioni rimandate (budget di ${TIME_BUDGET_MINUTES} min superato, rilanciate dalla continuazione): ${DEFERRED_REGIONS[*]}"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          fragmentCount="$(find "$RUNNER_TEMP/fragments" -maxdepth 1 -name '*.json' | wc -l)"
-          if [ "$fragmentCount" -eq 0 ]; then
-            # Con regioni rimandate o fallite l'artifact serve comunque, per la continuazione.
-            if [ "${#DEFERRED_REGIONS[@]}" -gt 0 ] || [ "${#FAILED_REGIONS[@]}" -gt 0 ]; then
-              echo "has_fragments=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "has_fragments=false" >> "$GITHUB_OUTPUT"
-            fi
-            echo "Nessuna regione completata con successo in questo shard: $SELECTED" >&2
-            exit 1
-          fi
-          if [ "${#FAILED_REGIONS[@]}" -gt 0 ]; then
-            echo "::warning::regioni fallite in questo shard (non pubblicate, da rilanciare a parte): ${FAILED_REGIONS[*]}"
-          fi
-          echo "has_fragments=true" >> "$GITHUB_OUTPUT"
+        run: bash .github/scripts/publish-regions/build-shard.sh
 
       # Nuova cache delle frasi di questo shard solo se il passo sopra ne ha tradotte di nuove (translate-grown.flag).
       - name: Salva le frasi tradotte delle citta'
@@ -1426,17 +557,10 @@ jobs:
           path: ${{ github.workspace }}/translate-cache
           key: translations-cities-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
 
-      # Come nel job "guides": salvata la cache nuova, si tolgono le piu' vecchie dello stesso shard.
       - name: Elimina le cache delle frasi piu' vecchie
         if: ${{ always() && steps.save-translations.outcome == 'success' }}
         continue-on-error: true
-        shell: bash
-        run: |
-          set -euo pipefail
-          NEW_KEY="translations-cities-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}"
-          gh cache list --repo "${{ github.repository }}" --key translations-cities-${{ matrix.shard }}- --sort created_at --order desc --limit 100 --json key --jq '.[].key' \
-            | awk -v new="$NEW_KEY" 'found { print } $0 == new { found = 1 }' \
-            | while read -r key; do gh cache delete "$key" --repo "${{ github.repository }}"; done
+        run: bash .github/scripts/trim-caches.sh "translations-cities-$SHARD-" "translations-cities-$SHARD-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 
       # Ogni shard salva la sua copia, con le citta' nuove di questa run; poi si tolgono le copie piu' vecchie dello
       # stesso shard. Il ripristino sopra prende la piu' recente di tutti gli shard.
@@ -1452,13 +576,7 @@ jobs:
       - name: Elimina le cache delle citta' piu' vecchie
         if: ${{ always() && steps.save-city-facts.outcome == 'success' }}
         continue-on-error: true
-        shell: bash
-        run: |
-          set -euo pipefail
-          NEW_KEY="city-facts-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}"
-          gh cache list --repo "${{ github.repository }}" --key city-facts-${{ matrix.shard }}- --sort created_at --order desc --limit 100 --json key --jq '.[].key' \
-            | awk -v new="$NEW_KEY" 'found { print } $0 == new { found = 1 }' \
-            | while read -r key; do gh cache delete "$key" --repo "${{ github.repository }}"; done
+        run: bash .github/scripts/trim-caches.sh "city-facts-$SHARD-" "city-facts-$SHARD-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 
       # !cancelled(): anche quando il passo sopra esce con errore (nessuna regione completata) ma ha
       # regioni rimandate da passare alla continuazione.
@@ -1473,18 +591,16 @@ jobs:
             ${{ runner.temp }}/fragments/*.txt
           retention-days: 1
 
-  # Riunisce i frammenti di catalogo di tutti gli shard (e delle guide, e della mappa del mondo) col
-  # `manifest.json` gia' pubblicato e pubblica su Pages. Gira comunque (!cancelled()) anche se uno shard e'
-  # fallito del tutto, cosi' il lavoro degli shard riusciti non va perso — se pero' NESSuno shard ha
-  # prodotto frammenti, il passo sotto fallisce esplicitamente (niente da assemblare/pubblicare).
-  # Senza il frammento guide `manifest.json` resta con le guide gia' pubblicate; se non ce ne sono
-  # (prima run nel formato a pacchetti) la validazione fallisce e non si pubblica nulla. Senza il
-  # frammento world-map (nessuna rigenerazione in questa run, il caso comune) resta la mappa del
-  # mondo gia' pubblicata, se c'e'.
+  # Unisce i frammenti di catalogo di shard, guide, mappa del mondo, civici e mezzi pubblici al `manifest.json` gia'
+  # pubblicato e pubblica su Pages. Gira anche se uno shard e' fallito del tutto (!cancelled()), cosi' il lavoro degli
+  # shard riusciti non va perso; senza nessun frammento il passo "Assembla il sito" fallisce. Senza il frammento di un
+  # job (guide, mappa del mondo) resta la voce gia' pubblicata; se manca la voce delle guide la validazione ferma il
+  # deploy (la mappa del mondo e' facoltativa).
   publish:
+    name: Pubblicazione
     needs: [guides, world-map, address-grid, transit, build]
     if: ${{ !cancelled() }}
-    # Un deploy su Pages (e un merge/pulizia sul catalogo) alla volta: vedi il commento sulla concurrency in testa al file.
+    # Un deploy su Pages (e un merge/pulizia sul catalogo) alla volta (README della pipeline, "Run sovrapposte").
     concurrency:
       group: pages
       cancel-in-progress: false
@@ -1510,12 +626,11 @@ jobs:
       # chiedendo un aggiornamento che non c'e' ancora. versionCode rilasciato = app-status.json
       # (publish-apk.yml), lo stesso che legge il controllo aggiornamenti sul dispositivo.
       - name: Controlla che l'app richiesta dai dati sia gia' rilasciata
-        shell: bash
         run: |
           set -euo pipefail
           MIN_APP_VERSION_CODE="$(tr -dc '0-9' < tools/data-pipeline/min-app-version-code)"
           RELEASED_VERSION_CODE="$(curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 \
-            "https://github.com/${{ github.repository }}/releases/download/app-status/app-status.json" \
+            "https://github.com/$GITHUB_REPOSITORY/releases/download/app-status/app-status.json" \
             | jq -r '.appVersion.versionCode // empty')"
           if ! [[ "$RELEASED_VERSION_CODE" =~ ^[0-9]+$ ]]; then
             echo "versionCode dell'app rilasciata non trovato in app-status.json: non pubblico" >&2
@@ -1534,10 +649,9 @@ jobs:
           merge-multiple: true
         continue-on-error: true
 
-      # address-grid.json (l'indice, non un frammento di catalogo: niente "manifestVersion", non deve
-      # entrare nel merge sopra) - facoltativo, assente se il job "address-grid" e' fallito del
-      # tutto o non ha prodotto nulla (continue-on-error qui sotto, come per i frammenti).
-      # Solo se il job l'ha prodotto: in una continuazione e' saltato, e il download fallito finiva tra gli errori della run.
+      # Indici dei civici e dei mezzi pubblici (non frammenti di catalogo: fuori dal merge sopra), solo se il job li ha
+      # prodotti: in una continuazione e' saltato, e il download fallito finiva tra gli errori della run. Senza, si
+      # ripubblica l'indice precedente (assemble.sh).
       - if: needs.address-grid.result == 'success'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -1545,8 +659,6 @@ jobs:
           path: ${{ runner.temp }}/address-grid-index
         continue-on-error: true
 
-      # transit.json (indice delle reti dei mezzi pubblici), stesso trattamento di address-grid.json.
-      # Solo se il job l'ha prodotto: in una continuazione e' saltato, e il download fallito finiva tra gli errori della run.
       - if: needs.transit.result == 'success'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -1554,23 +666,14 @@ jobs:
           path: ${{ runner.temp }}/transit-index
         continue-on-error: true
 
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
-        with:
-          distribution: temurin
-          java-version: '25'
-
-      # Cache di Gradle in sola lettura, come sopra.
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
-        with:
-          cache-read-only: true
+      - uses: ./.github/actions/setup-pipeline
 
       # Frammenti in sospeso (release region-fragments): quelli di questa run, ma anche di run
-      # annullate o morte prima di pubblicare. selectFragments (passo sotto) tiene solo quelli piu'
+      # annullate o morte prima di pubblicare. selectFragments (in assemble.sh) tiene solo quelli piu'
       # recenti del pubblicato. Senza questo elenco la pulizia degli asset non gira: cancellerebbe
       # gli asset di regioni costruite e non ancora pubblicate.
       - name: Scarica i frammenti in sospeso
         id: pending
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -1578,13 +681,13 @@ jobs:
           source .github/scripts/retry.sh
           PENDING_DIR="$RUNNER_TEMP/pending-fragments"
           mkdir -p "$PENDING_DIR"
-          if ! NAMES="$(retry gh release view region-fragments --repo "${{ github.repository }}" --json assets --jq '.assets[].name')"; then
+          if ! NAMES="$(retry gh release view region-fragments --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"; then
             echo "::warning::release region-fragments non leggibile: niente recupero, e niente pulizia degli asset in questa run"
             echo "ok=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if [ -n "$NAMES" ]; then
-            retry gh release download region-fragments --repo "${{ github.repository }}" --pattern '*.json' --dir "$PENDING_DIR" --clobber
+            retry gh release download region-fragments --repo "$GITHUB_REPOSITORY" --pattern '*.json' --dir "$PENDING_DIR" --clobber
           fi
           COUNT="$(find "$PENDING_DIR" -name '*.json' | wc -l)"
           EXPECTED="$(grep -c '\.json$' <<< "$NAMES" || true)"
@@ -1600,135 +703,15 @@ jobs:
 
       - name: Assembla il sito
         id: assemble
-        shell: bash
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-
-          SITE_DIR="$RUNNER_TEMP/site"
-          PAGES_BASE_URL="${{ env.PAGES_BASE_URL }}"
-          mkdir -p "$SITE_DIR"
-          # `manifest.json` pubblicato prima di questa run: lo usano il controllo sulle regioni perse (prima
-          # del deploy) e la pulizia degli asset (ultimo passo) per il periodo di grazia di una generazione.
-          # Solo un 404 vale come "prima pubblicazione" (segnata da first-publication): ogni altro
-          # esito (rete, 5xx) dopo i tentativi ferma il passo, altrimenti il controllo sulle regioni
-          # perse e la pulizia degli asset verrebbero saltati in silenzio.
-          rm -f "$RUNNER_TEMP/previous-manifest.json" "$RUNNER_TEMP/first-publication"
-          MANIFEST_HTTP="$(curl -sSL --max-time 120 --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/manifest.json" \
-            -o "$RUNNER_TEMP/previous-manifest.json" -w '%{http_code}' || true)"
-          case "$MANIFEST_HTTP" in
-            200) ;;
-            404)
-              rm -f "$RUNNER_TEMP/previous-manifest.json"
-              touch "$RUNNER_TEMP/first-publication"
-              echo "::notice::nessun manifest.json pubblicato (404): prima pubblicazione"
-              ;;
-            *)
-              echo "::error::manifest.json pubblicato non scaricabile da $PAGES_BASE_URL/manifest.json (HTTP ${MANIFEST_HTTP:-000}): non pubblico senza il confronto con il precedente" >&2
-              exit 1
-              ;;
-          esac
-          # address-grid.json pubblicato prima di questa run: gli URL delle celle non toccate oggi
-          # vivono solo li' (non in manifest.json, che ha solo il puntatore "addressGrid"), servono
-          # alla pulizia degli asset (ultimo passo) per lo stesso periodo di grazia.
-          # Stesso motivo per transit.json (URL degli orari delle reti). Come per `manifest.json`, solo
-          # un 404 vale come "indice non ancora pubblicato": ogni altro esito dopo i tentativi ferma
-          # il passo, altrimenti il sito si ripubblicherebbe senza l'indice precedente e le sue voci
-          # sparirebbero (e la pulizia degli asset cancellerebbe i file a cui puntavano).
-          for index_name in address-grid transit; do
-            INDEX_FILE="$RUNNER_TEMP/previous-$index_name.json"
-            rm -f "$INDEX_FILE"
-            INDEX_HTTP="$(curl -sSL --max-time 120 --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/$index_name.json" \
-              -o "$INDEX_FILE" -w '%{http_code}' || true)"
-            case "$INDEX_HTTP" in
-              200) ;;
-              404)
-                rm -f "$INDEX_FILE"
-                echo "::notice::nessun $index_name.json pubblicato (404)"
-                ;;
-              *)
-                echo "::error::$index_name.json pubblicato non scaricabile da $PAGES_BASE_URL/$index_name.json (HTTP ${INDEX_HTTP:-000}): non pubblico senza l'indice precedente" >&2
-                exit 1
-                ;;
-            esac
-          done
-          # Stesso file anche per il merge (curl legge file://), senza scaricarlo una seconda volta; se
-          # il download sopra e' fallito assemble-site.sh riprova dall'URL e decide lui (errore, o
-          # BOOTSTRAP=1 alla prima pubblicazione).
-          MERGE_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
-          [ ! -s "$RUNNER_TEMP/previous-manifest.json" ] || MERGE_MANIFEST_URL="file://$RUNNER_TEMP/previous-manifest.json"
-
-          # Frammenti da unire (selectFragments): quelli di questa run validati regione per regione (una
-          # regione non valida si scarta, le altre si pubblicano) e quelli in sospeso di run precedenti
-          # piu' recenti del pubblicato e non piu' vecchi di 7 giorni.
-          RUN_FRAGMENTS=("$RUNNER_TEMP/fragments"/*.json)
-          PENDING_FRAGMENTS=("$RUNNER_TEMP/pending-fragments"/*.json)
-          SELECTED_LIST="$RUNNER_TEMP/selected-fragments.txt"
-          SELECTION_REPORT="$RUNNER_TEMP/fragments-report.tsv"
-          SELECT_ARGS="--pages-host ${{ github.repository_owner }}.github.io --max-age-days 7 --out-list $SELECTED_LIST --out-report $SELECTION_REPORT"
-          [ ! -s "$RUNNER_TEMP/previous-manifest.json" ] || SELECT_ARGS="$SELECT_ARGS --published $RUNNER_TEMP/previous-manifest.json"
-          [ "${#RUN_FRAGMENTS[@]}" -eq 0 ] || SELECT_ARGS="$SELECT_ARGS --run ${RUN_FRAGMENTS[*]}"
-          [ "${#PENDING_FRAGMENTS[@]}" -eq 0 ] || SELECT_ARGS="$SELECT_ARGS --pending ${PENDING_FRAGMENTS[*]}"
-          ./gradlew -q :tools:data-pipeline:content:selectFragments --args="$SELECT_ARGS"
-          mapfile -t FRAGMENT_FILES < "$SELECTED_LIST"
-          {
-            echo "### Frammenti di catalogo"
-            echo "| Regione | Esito | Motivo |"
-            echo "|---|---|---|"
-            awk -F'\t' '$3 != "superata" { printf "| %s | %s | %s |\n", ($2 == "" ? $1 : $2), $3, $4 }' "$SELECTION_REPORT"
-            echo
-            echo "Superate (gia' pubblicate o sostituite da un frammento piu' recente): $(awk -F'\t' '$3 == "superata"' "$SELECTION_REPORT" | wc -l)"
-          } >> "$GITHUB_STEP_SUMMARY"
-          while IFS=$'\t' read -r _ regionId outcome reason; do
-            if [ "$outcome" = "scartata" ]; then echo "::warning::frammento di ${regionId:-?} scartato: $reason"; fi
-          done < "$SELECTION_REPORT"
-          if [ "${#FRAGMENT_FILES[@]}" -eq 0 ]; then
-            echo "Nessun frammento di catalogo da unire (ne' di questa run ne' in sospeso), niente da pubblicare" >&2
-            exit 1
-          fi
-          tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$MERGE_MANIFEST_URL" "${FRAGMENT_FILES[@]}"
-          # Tempi per regione (peso degli shard nel job "plan"): quelli pubblicati, aggiornati con
-          # quelli di questa run. Pages sostituisce l'intero sito, quindi si riportano ogni volta.
-          PUBLISHED_TIMINGS="$RUNNER_TEMP/published-timings.tsv"
-          curl -sSfL --retry 3 --retry-delay 5 -A "PocketTravelDataPipeline/1.0" "$PAGES_BASE_URL/region-timings.tsv" -o "$PUBLISHED_TIMINGS" || : > "$PUBLISHED_TIMINGS"
-          cat "$PUBLISHED_TIMINGS" "$RUNNER_TEMP/fragments"/timings-*.tsv \
-            | awk -F'\t' 'NF == 2 && $2 ~ /^[0-9]+$/ { t[$1] = $2 } END { for (r in t) print r "\t" t[r] }' \
-            | sort > "$SITE_DIR/region-timings.tsv"
-
-          # address-grid.json (indice dei civici a celle, job "address-grid"): accanto a
-          # manifest.json su Pages, come region-timings.tsv sopra - non e' un frammento da
-          # unire (e' gia' il risultato finale del merge fatto da generateAddressGrid nel suo
-          # job). Se quel job non ha prodotto nulla (download-artifact sopra in continue-on-error),
-          # mergeManifests tiene la voce "addressGrid" del `manifest.json` pubblicato: si ripubblica
-          # allora l'indice precedente, lo stesso file (e sha256) a cui quella voce punta, invece
-          # di lasciare il puntatore verso un file sparito dal sito.
-          ADDRESS_GRID_FILE="$RUNNER_TEMP/address-grid-index/address-grid.json"
-          if [ -s "$ADDRESS_GRID_FILE" ]; then
-            cp "$ADDRESS_GRID_FILE" "$SITE_DIR/address-grid.json"
-          elif [ -s "$RUNNER_TEMP/previous-address-grid.json" ]; then
-            cp "$RUNNER_TEMP/previous-address-grid.json" "$SITE_DIR/address-grid.json"
-          fi
-          if [ -s "$RUNNER_TEMP/transit-index/transit.json" ]; then
-            cp "$RUNNER_TEMP/transit-index/transit.json" "$SITE_DIR/transit.json"
-          elif [ -s "$RUNNER_TEMP/previous-transit.json" ]; then
-            cp "$RUNNER_TEMP/previous-transit.json" "$SITE_DIR/transit.json"
-          fi
-
-          # Pagine delle licenze (licenses.html, licenses-en.html), collegate dal README: dagli indici
-          # appena copiati, cosi' fonti dei civici e reti dei mezzi pubblici corrispondono ai dati pubblicati. Non blocca la
-          # pubblicazione: se fallisce, Pages resta senza le pagine fino alla run successiva.
-          python3 tools/data-pipeline/scripts/licenses_page.py "$SITE_DIR" \
-            || echo "::warning::pagine delle licenze non generate"
-
-          echo "site_dir=$SITE_DIR" >> "$GITHUB_OUTPUT"
-          echo "pages_host=${{ github.repository_owner }}.github.io" >> "$GITHUB_OUTPUT"
+        run: bash .github/scripts/publish-regions/assemble.sh
 
       - name: Valida il catalogo prima del deploy
-        shell: bash
+        env:
+          SITE_DIR: ${{ steps.assemble.outputs.site_dir }}
+          PAGES_HOST: ${{ steps.assemble.outputs.pages_host }}
         run: |
           set -euo pipefail
-          SITE_DIR="${{ steps.assemble.outputs.site_dir }}"
-          ARGS="$SITE_DIR/manifest.json ${{ steps.assemble.outputs.pages_host }}"
+          ARGS="$SITE_DIR/manifest.json $PAGES_HOST"
           [ ! -s "$SITE_DIR/address-grid.json" ] || ARGS="$ARGS $SITE_DIR/address-grid.json"
           [ ! -s "$SITE_DIR/transit.json" ] || ARGS="$ARGS --transit $SITE_DIR/transit.json"
           ./gradlew -q :tools:data-pipeline:content:validateManifest --args="$ARGS"
@@ -1753,10 +736,10 @@ jobs:
       # MergeManifests.kt). Altrimenti e' quasi certamente un merge incompleto: pubblicarlo farebbe
       # sparire regioni dall'app e la pulizia ne cancellerebbe gli asset.
       - name: Controlla che il nuovo manifest.json non perda regioni
-        shell: bash
+        env:
+          MANIFEST: ${{ steps.assemble.outputs.site_dir }}/manifest.json
         run: |
           set -euo pipefail
-          MANIFEST="${{ steps.assemble.outputs.site_dir }}/manifest.json"
           PREVIOUS_MANIFEST="$RUNNER_TEMP/previous-manifest.json"
           if [ ! -s "$PREVIOUS_MANIFEST" ]; then
             if [ ! -e "$RUNNER_TEMP/first-publication" ]; then
@@ -1785,12 +768,11 @@ jobs:
       # del deploy. Senza il secret MANIFEST_SIGNING_KEY il job fallisce, vedi sign-files.sh. La chiave
       # e' nell'ambiente solo di questo passo.
       - name: Firma i file JSON del sito
-        shell: bash
         env:
           MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
+          SITE_DIR: ${{ steps.assemble.outputs.site_dir }}
         run: |
           set -euo pipefail
-          SITE_DIR="${{ steps.assemble.outputs.site_dir }}"
           # publishedAt (secondi Unix) in `manifest.json`, prima della firma: l'app rifiuta un valore piu' basso
           # dell'ultimo accettato (niente ritorno a una vecchia coppia file + .sig). address-grid.json e
           # transit.json lo hanno gia' dalla generazione (il loro sha256 e' in `manifest.json`, non si toccano qui).
@@ -1818,68 +800,24 @@ jobs:
         with:
           artifact_name: github-pages-${{ github.run_attempt }}
 
-      # Continuazione automatica: le regioni che gli shard hanno rimandato per il budget di tempo
-      # (deferred-<shard>.txt negli artifact dei frammenti) ripartono in una run nuova, lanciata con
-      # workflow_dispatch (il GITHUB_TOKEN puo' farlo; con gli altri eventi non creerebbe una run).
-      # Al massimo 4 continuazioni in fila. Gira anche se un passo sopra e' fallito: le regioni
-      # rimandate non sono state tentate. Subito dopo il deploy e prima della pulizia degli asset, che
-      # puo' durare a lungo (fino al timeout del job) e non deve ritardare o far perdere la continuazione.
+      # Continuazione automatica delle regioni rimandate per il budget di tempo. Gira anche se un passo sopra e'
+      # fallito: le regioni rimandate non sono state tentate. Subito dopo il deploy e prima della pulizia degli asset,
+      # che puo' durare a lungo (fino al timeout del job) e non deve ritardare o far perdere la continuazione.
       - name: Rilancia le regioni rimandate
         if: ${{ !cancelled() }}
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          # Dall'ambiente e non interpolato nello script: il nome di un ramo puo' contenere $(...).
           REF_NAME: ${{ github.ref_name }}
           CONTINUATION: ${{ github.event.inputs.continuation }}
           TIME_BUDGET_INPUT: ${{ github.event.inputs.time_budget_minutes }}
           POI_MAX_AGE_INPUT: ${{ github.event.inputs.poi_max_age_days }}
-        run: |
-          set -euo pipefail
-          source .github/scripts/retry.sh
-          shopt -s nullglob
-          [[ "${CONTINUATION:-}" =~ ^[0-9]+$ ]] || CONTINUATION=0
-          # Rimandate per il budget, e (solo dalla run iniziale, non dalle continuazioni) le fallite:
-          # un nuovo tentativo, in fondo; se falliscono ancora restano al calendario settimanale.
-          LIST_FILES=("$RUNNER_TEMP/fragments"/deferred-*.txt)
-          if [ "$CONTINUATION" -eq 0 ]; then
-            LIST_FILES+=("$RUNNER_TEMP/fragments"/failed-*.txt)
-          fi
-          if [ "${#LIST_FILES[@]}" -eq 0 ]; then
-            echo "-- nessuna regione rimandata o da riprovare"
-            exit 0
-          fi
-          DEFERRED="$(cut -f1 "${LIST_FILES[@]}" | grep -E '^[a-z0-9-]+$' | sort -u | paste -sd, - || true)"
-          if [ -z "$DEFERRED" ]; then
-            echo "-- nessuna regione rimandata o da riprovare"
-            exit 0
-          fi
-          NEXT=$((CONTINUATION + 1))
-          if [ "$NEXT" -gt 4 ]; then
-            echo "::warning::regioni rimandate dopo 4 continuazioni, non rilancio (restano al calendario settimanale): $DEFERRED"
-            exit 0
-          fi
-          ARGS=(-f regions="$DEFERRED" -f continuation="$NEXT")
-          [ -z "${TIME_BUDGET_INPUT:-}" ] || ARGS+=(-f time_budget_minutes="$TIME_BUDGET_INPUT")
-          [ -z "${POI_MAX_AGE_INPUT:-}" ] || ARGS+=(-f poi_max_age_days="$POI_MAX_AGE_INPUT")
-          retry gh workflow run publish-regions.yml --repo "${{ github.repository }}" --ref "$REF_NAME" "${ARGS[@]}"
-          echo "-- continuazione $NEXT lanciata con $(tr ',' '\n' <<< "$DEFERRED" | wc -l) regioni"
-          echo "Continuazione $NEXT lanciata con le regioni rimandate: $DEFERRED" >> "$GITHUB_STEP_SUMMARY"
+        run: bash .github/scripts/publish-regions/continue-deferred.sh
 
-      # Gli asset si chiamano regionId--VERSION--file: ogni rigenerazione ne aggiunge di nuovi
-      # senza togliere i vecchi, e ogni release e' limitata a 1000 asset. Dopo il deploy (i vecchi
-      # URL restano in uso fino ad allora) si cancella da ogni release "region-data*" e da
-      # "world-map" cio' che il catalogo appena pubblicato non referenzia piu'. `manifest.json` e'
-      # cumulativo (frammenti di questa run + regioni/mappa del mondo gia' pubblicate), quindi le
-      # regioni non toccate restano intatte. Periodo di grazia di una generazione: resta anche cio'
-      # che referenziava il catalogo precedente (le app che l'hanno appena letto scaricano ancora
-      # quegli URL).
       # Dopo il deploy i frammenti in sospeso scaricati sono tutti sistemati: uniti, gia' superati dal
       # pubblicato, scaduti o non validi. Si tolgono solo quelli scaricati: una run in corso puo'
       # averne caricati altri nel frattempo.
       - name: Togli i frammenti in sospeso gestiti
         if: steps.pending.outputs.ok == 'true'
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -1887,103 +825,17 @@ jobs:
           shopt -s nullglob
           removed=0
           for f in "$RUNNER_TEMP/pending-fragments"/*.json; do
-            if gh release delete-asset region-fragments "$(basename "$f")" --repo "${{ github.repository }}" --yes; then
+            if gh release delete-asset region-fragments "$(basename "$f")" --repo "$GITHUB_REPOSITORY" --yes; then
               removed=$((removed + 1))
             fi
           done
           echo "-- $removed frammenti tolti da region-fragments"
 
-      # Solo con l'elenco dei frammenti in sospeso: senza, cancellerebbe gli asset di regioni costruite
-      # e non ancora pubblicate (li recupera una run successiva).
+      # Dopo il deploy (i vecchi URL restano in uso fino ad allora) e solo con l'elenco dei frammenti in sospeso: senza,
+      # cancellerebbe gli asset di regioni costruite e non ancora pubblicate (li recupera una run successiva).
       - name: Rimuovi gli asset non piu' referenziati dal catalogo
         if: steps.pending.outputs.ok == 'true'
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          source .github/scripts/retry.sh
-          MANIFEST="${{ steps.assemble.outputs.site_dir }}/manifest.json"
-          PREVIOUS_MANIFEST="$RUNNER_TEMP/previous-manifest.json"
-          if [ ! -s "$PREVIOUS_MANIFEST" ]; then
-            if [ ! -e "$RUNNER_TEMP/first-publication" ]; then
-              echo "::error::manifest.json precedente mancante senza che sia una prima pubblicazione: non cancello nulla e fermo il passo" >&2
-              exit 1
-            fi
-            echo "::warning::manifest.json precedente non disponibile: non cancello nulla in questa run"
-            exit 0
-          fi
-          # Le regioni perse per un merge incompleto le ferma gia' il controllo prima del deploy.
-          # Gli URL delle celle dei civici vivono in address-grid.json, non in manifest.json (che ha
-          # solo il puntatore "addressGrid"): senza questi due file la pulizia cancellerebbe subito
-          # gli asset di ogni cella non toccata dalla run di oggi (quasi tutte, vedi la quota
-          # giornaliera nel job "address-grid").
-          REFERENCED="$RUNNER_TEMP/referenced.txt"
-          SCAN_FILES=("$MANIFEST" "$PREVIOUS_MANIFEST")
-          for f in "${{ steps.assemble.outputs.site_dir }}/address-grid.json" "$RUNNER_TEMP/previous-address-grid.json" \
-            "${{ steps.assemble.outputs.site_dir }}/transit.json" "$RUNNER_TEMP/previous-transit.json"; do
-            if [ -s "$f" ]; then SCAN_FILES+=("$f"); fi
-          done
-          cat "${SCAN_FILES[@]}" \
-            | grep -oE 'https://github\.com/[^"]+/releases/download/[^"/]+/[^"]+' \
-            | sed -E 's#.*/releases/download/##' | sort -u > "$REFERENCED"
-          if [ ! -s "$REFERENCED" ]; then
-            echo "Il catalogo non referenzia alcun asset di release: non cancello nulla" >&2
-            exit 1
-          fi
-          # Gli asset caricati nelle ultime 24 ore restano anche se non referenziati: possono essere di
-          # un'altra run ancora in corso (vedi il commento sulla concurrency in testa al file), la
-          # pulizia della run successiva li togliera'.
-          CUTOFF="$(date -u -d '-24 hours' +%Y-%m-%dT%H:%M:%SZ)"
-          for tag in $(retry gh release list --repo "${{ github.repository }}" --limit 200 --json tagName --jq '.[].tagName' | grep -E '^(region-data|world-map|address-cells-|transit-feeds$)'); do
-            deleted=0
-            failed=0
-            total=0
-            # Elenco completo a pagine di 100 (quello dentro la release puo' essere troncato), scritto prima su
-            # file e con retry: letto direttamente dall'API, un errore darebbe un elenco vuoto (total=0, kept=0)
-            # e una release legacy verrebbe cancellata con i suoi asset. Elenco non leggibile: si salta il tag.
-            if ! releaseId="$(retry gh api "repos/${{ github.repository }}/releases/tags/$tag" --jq '.id')"; then
-              echo "::warning::$tag: release non leggibile dopo i tentativi, la salto fino alla prossima pulizia"
-              continue
-            fi
-            ASSETS_FILE="$RUNNER_TEMP/assets-$tag.tsv"
-            list_assets() {
-              gh api --paginate "repos/${{ github.repository }}/releases/$releaseId/assets?per_page=100" --jq '.[] | [.name, .created_at, .id] | @tsv' > "$ASSETS_FILE"
-            }
-            if ! retry list_assets; then
-              echo "::warning::$tag: elenco degli asset non leggibile dopo i tentativi, salto la release fino alla prossima pulizia"
-              continue
-            fi
-            while IFS=$'\t' read -r name createdAt assetId; do
-              [ -n "$name" ] || continue
-              total=$((total + 1))
-              if ! grep -qxF "$tag/$name" "$REFERENCED" && [[ "$createdAt" < "$CUTOFF" ]]; then
-                # Per id e non per nome (una release puo' avere piu' asset con lo stesso nome). Con retry e, se
-                # fallisce ancora (es. HTTP 502), solo un avviso: l'asset resta e lo toglie la pulizia della
-                # run successiva, non deve far fallire il job dopo il deploy.
-                if retry gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$assetId" --silent; then
-                  deleted=$((deleted + 1))
-                else
-                  failed=$((failed + 1))
-                  echo "::warning::$tag: asset $name non rimosso dopo i tentativi, resta fino alla prossima pulizia"
-                fi
-              fi
-            done < "$ASSETS_FILE"
-            kept=$((total - deleted))
-            echo "-- $tag: $deleted asset non referenziati rimossi ($failed non rimovibili), $kept restano"
-            # Vecchie release per continente (prima di region-data-rNN), vuote dopo che le loro regioni si sono
-            # rigenerate: si tolgono, cosi' non restano release vuote ne' serve farlo a mano.
-            if [ "$kept" -eq 0 ] && [[ "$tag" == region-data-* ]] && ! [[ "$tag" =~ ^region-data-((car-)?r[0-9]{2}|guide)$ ]]; then
-              if retry gh release delete "$tag" --repo "${{ github.repository }}" --yes --cleanup-tag; then
-                echo "-- $tag: release vuota rimossa"
-              else
-                echo "::warning::$tag: release vuota non rimossa, ci riprova la prossima pulizia"
-              fi
-              continue
-            fi
-            # Durante una rigenerazione completa i nuovi asset si sommano ai vecchi: sopra i 500
-            # stabili una release rischia di superare il limite di 1000 (vedi REGION_RELEASES e region_release_tag).
-            if [ "$kept" -gt 500 ]; then
-              echo "::warning::$tag ha $kept asset: rischia il limite di 1000 durante una rigenerazione completa, aumenta REGION_RELEASES in regions.sh (ADDRESS_CELL_RELEASES per le celle dei civici)"
-            fi
-          done
+          SITE_DIR: ${{ steps.assemble.outputs.site_dir }}
+        run: bash .github/scripts/publish-regions/cleanup-assets.sh "$SITE_DIR" "$RUNNER_TEMP"

@@ -1,0 +1,56 @@
+name: Prepara la pipeline dei dati
+description: >
+  Preparazione comune dei job di publish-regions.yml, dopo actions/checkout: JDK 25 (lo stesso del daemon Gradle, come
+  negli altri workflow), Gradle con la cache in sola lettura e, a richiesta, go-pmtiles, duckdb e osmium-tool.
+inputs:
+  gradle:
+    description: Installa JDK e Gradle (i job che non lanciano ./gradlew li saltano).
+    default: "true"
+  pmtiles:
+    description: Installa go-pmtiles (versione e sha256 fissati in .github/scripts/install-go-pmtiles.sh).
+    default: "false"
+  duckdb:
+    description: Installa duckdb da tools/data-pipeline/requirements-ci.txt (versioni e hash fissati).
+    default: "false"
+  osmium:
+    description: Installa osmium-tool (POI dagli estratti Geofabrik); mai bloccante, senza si interroga Overpass.
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      if: inputs.gradle == 'true'
+      with:
+        distribution: temurin
+        java-version: '25'
+
+    # Cache di Gradle in sola lettura: la scrive solo il job "build" di android-ci.yml, che compila anche la
+    # pipeline. Un salvataggio per job riempirebbe il limite di 10 GB delle cache del repository e farebbe
+    # sfrattare le altre (dump, traduzioni, ccache).
+    - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      if: inputs.gradle == 'true'
+      with:
+        cache-read-only: true
+
+    - name: Installa go-pmtiles
+      if: inputs.pmtiles == 'true'
+      shell: bash
+      run: bash .github/scripts/install-go-pmtiles.sh
+
+    # Il job puo' avere un token che scrive sulle release, e pip deve installare solo i file con gli hash fissati: il
+    # token non e' nell'ambiente di questo passo.
+    - name: Installa duckdb
+      if: inputs.duckdb == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ''
+      run: |
+        python3 -m pip install --quiet --disable-pip-version-check --retries 10 --timeout 60 \
+          --require-hashes --only-binary :all: -r tools/data-pipeline/requirements-ci.txt
+
+    - name: Installa osmium-tool
+      if: inputs.osmium == 'true'
+      shell: bash
+      run: |
+        sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq osmium-tool \
+          || echo "::warning::osmium-tool non installato: i POI vengono da Overpass"

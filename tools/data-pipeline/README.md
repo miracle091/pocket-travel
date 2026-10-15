@@ -4,6 +4,55 @@ Script, tool Kotlin e workflow (`.github/workflows/publish-regions.yml`) che pro
 scaricati dall'app: il catalogo (`manifest.json`, `transit.json`, `address-grid.json`) e i file che elenca.
 La panoramica è nel `README.md` della root.
 
+## Workflow `publish-regions.yml`
+
+`manifest.json`, `address-grid.json`, `transit.json` e `region-timings.tsv` si pubblicano su GitHub Pages; i
+pacchetti (guide, POI, segmenti `.rd5`, città, mappe d'insieme, celle dei civici, orari) sono asset delle release
+`region-data*`, `address-cells-*`, `transit-feeds` e `world-map`. Pages ha un limite fisso di 1 GB per l'intero sito,
+superato con la copertura mondiale di `regions.sh`; gli asset di una release no (al massimo 1000 per release, da cui
+le release numerate). `map.pmtiles` non si ospita: l'app lo estrae dalla build Protomaps (`PmtilesExtractor`). I
+segmenti `.rd5` invece si ripubblicano, perché i file di brouter.de cambiano dimensione e hash nel tempo (commento in
+testa a `scripts/build-region.sh`).
+
+| Job | Nome | Cosa fa |
+|---|---|---|
+| `plan` | Piano degli shard | crea le release mancanti, sceglie le regioni della run e le divide in 3 shard |
+| `build` | Regioni (shard N) | genera i pacchetti delle regioni dello shard (`scripts/build-region.sh`, `build-cities.sh`) |
+| `guides` | Guide | rigenera `guides.db` e `guides-en.db` per tutte le regioni; pubblica solo se cambiano |
+| `world-map` | Mappa del mondo | mappa del mondo z0-8, rigenerata ogni ~30 giorni o se assente |
+| `address-grid` | Civici | celle dei numeri civici della quota del giorno (sezione sotto) |
+| `transit` | Mezzi pubblici | reti di `transit-feeds.tsv`, ricostruite se il feed cambia o dopo 7 giorni |
+| `overture-check` | Controllo Overture | lista bianca delle fonti Overture, una volta per rilascio; esito in una issue |
+| `vaccinations-check` | Controllo vaccinazioni | deriva dei dati vaccinali, il lunedì e nelle run manuali |
+| `publish` | Pubblicazione | unisce i frammenti di catalogo al `manifest.json` pubblicato, lo firma e fa il deploy su Pages |
+
+Gli script lunghi dei job stanno in `.github/scripts/publish-regions/`; la preparazione comune (JDK, Gradle con la
+cache in sola lettura, go-pmtiles, duckdb, osmium) è l'azione `.github/actions/setup-pipeline`.
+
+**Calendario.** Sette righe `schedule` (una al giorno) rigenerano il bucket del giorno, definito in
+`scripts/weekly-schedule.sh` (generato da `generate-weekly-schedule.sh`): la cadenza è settimanale perché i segmenti
+`.rd5` di BRouter si rigenerano ogni settimana. `workflow_dispatch` serve per le run mirate (`regions`) o per
+rigenerare tutte le regioni (`regions` vuoto).
+
+**Bucket e shard.** Il lavoro si divide su più giorni e, in ogni giorno, su 3 shard in parallelo, per due limiti:
+le 6 ore massime di un job di GitHub Actions e l'uso corretto dei mirror Overpass pubblici. La divisione tra shard è
+per peso, non per indice: il peso è il tempo dell'ultima generazione completa della regione (`region-timings.tsv`
+sul sito), o 50 secondi per tile di terra se non c'è una misura. Senza bilanciamento più regioni grandi (Canada,
+Stati Uniti, Russia, Brasile) potrebbero finire nello stesso shard e superare le 6 ore. Nelle run del calendario,
+dopo le regioni del giorno, ogni shard riceve una coda di regioni in ritardo e di quelle del giorno dopo (quota
+adattiva), avviate solo se la stima sta nel budget di tempo; le regioni del giorno oltre il budget passano a una
+continuazione automatica.
+
+**Run sovrapposte.** Il workflow non ha `concurrency`: un gruppo tiene al massimo una run in attesa, e una run
+manuale lanciata durante un'altra farebbe annullare il bucket del giorno dopo rimasto in coda. Solo `publish` sta
+nel gruppo `pages`. Gli asset di run diverse non si scontrano (versione unica per run e tentativo) e la pulizia non
+tocca gli asset caricati da meno di 24 ore.
+
+**Permessi.** A livello di workflow solo `contents: read`; `contents: write` ai job che creano release o caricano
+asset, `pages` e `id-token` solo a `publish`. I checkout dei job che scrivono sulle release hanno
+`persist-credentials: false`, così il token di scrittura non resta nella configurazione git leggibile dal codice di
+build.
+
 ## Firma dei file JSON
 
 I JSON che l'app scarica sono firmati con ECDSA P-256 e SHA-256 (supportati da `java.security` su
