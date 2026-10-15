@@ -798,7 +798,9 @@ private fun Vaccine.nameRes(): Int = when (this) {
     Vaccine.ROUTINE -> R.string.vacc_vaccine_routine
 }
 
-// "Perché arrivi dal Kenya", "Per lo scalo di 14 ore in Etiopia"...: il motivo della voce nella lingua dell'interfaccia.
+// "Arrivo da un paese a rischio di febbre gialla (Kenya)", "Scalo di 14 ore (Etiopia)"...: il motivo della voce nella
+// lingua dell'interfaccia. Il nome del paese sta tra parentesi: dopo una preposizione l'italiano vorrebbe l'articolo
+// ("dal Kenya", "del Nepal"), che il nome da solo non porta.
 @Composable
 private fun VaccinationItem.reasonText(): String? {
     val place = country?.let { countryName(it.uppercase()) }.orEmpty()

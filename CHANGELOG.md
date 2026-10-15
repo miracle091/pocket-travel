@@ -8,6 +8,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ### Modificato
 - Vaccinazioni e Licenze in forma impersonale: "Nei dati dell'app nessun certificato risulta richiesto", "Le fonti dell'app non dicono da quali paesi", fatti delle fonti "riformulati" invece di "riscritti con parole nostre" (in inglese "The app's data", "The app's sources", "reworded").
+- Vaccinazioni e contenuti delle nazioni: il nome del paese sta tra parentesi o prima dei due punti, invece che dopo una preposizione senza articolo ("Da Italia a Nepal", "la pagina di Nepal", "Eliminare la mappa di Nepal?"). Esempi: "Partenza: Italia, destinazione: Nepal", "La destinazione (Nepal) può chiedere la prova di vaccinazione antipolio", "Nepal: eliminare la mappa?", "Contenuti (Nepal)". In inglese "Departure: Italy, destination: Nepal" e "the destination (Nepal)".
 
 ## [0.11.0] - 2026-10-15
 
