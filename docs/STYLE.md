@@ -28,6 +28,9 @@ toni colloquiali.
 - Spiegazioni e avvisi in forma impersonale, senza rivolgersi direttamente a chi legge quando non serve:
   "La guida si aggiorna da sola" invece di "Non devi aggiornare la guida".
 - Apostrofi e accenti corretti ("perché", "è", "qual è"); in `strings.xml` l'apostrofo si scrive `\'`.
+- Un nome inserito nel testo (paese, luogo, rete, documento) non segue una preposizione o un verbo che vorrebbero
+  l'articolo ("di Nepal", "Chiama Consolato italiano"): va tra parentesi o dopo i due punti, come "Scarica (Nepal)" e
+  "Partenza: Italia, destinazione: Nepal". Restano diretti i numeri di telefono e i nomi di prodotti e siti.
 
 ## Interfaccia in inglese
 
