@@ -14,7 +14,7 @@
     <string name="emergency_police">Police</string>
     <string name="emergency_ambulance">Ambulance</string>
     <string name="emergency_fire">Fire department</string>
-    <string name="emergency_call">Call %1$s, %2$s</string>
+    <string name="emergency_call">Call %2$s (%1$s)</string>
     <string name="emergency_no_central_number">This country has no national emergency number. Before you leave, note down the local police and healthcare contacts for the area</string>
     <string name="category_customs_usages">Culture &amp; etiquette</string>
     <string name="category_customs">Customs</string>

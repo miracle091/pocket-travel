@@ -245,7 +245,7 @@
     <string name="planner_my_position">La tua posizione</string>
     <string name="planner_swap">Scambia partenza e destinazione</string>
     <string name="planner_recents">Recenti</string>
-    <string name="planner_remove_recent">Rimuovi %1$s dai recenti</string>
+    <string name="planner_remove_recent">Rimuovi dai recenti (%1$s)</string>
     <string name="planner_permission">Per partire dalla posizione attuale serve l\'autorizzazione alla posizione. La posizione resta sul dispositivo</string>
     <string name="planner_no_location">Segnale GPS assente: attiva il GPS o scegli un punto di partenza</string>
     <string name="planner_no_routing_data">Il calcolo del percorso richiede la rete stradale di questa regione (si scarica una sola volta e resta sul dispositivo)</string>

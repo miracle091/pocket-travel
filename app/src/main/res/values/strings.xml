@@ -20,9 +20,9 @@
     <string name="regions_status_installing">Installazione…</string>
     <string name="regions_size_plus_map">%1$s + mappa</string>
     <string name="regions_size_map_only">Mappa</string>
-    <string name="regions_download">Scarica %1$s</string>
+    <string name="regions_download">Scarica (%1$s)</string>
     <string name="regions_update">Aggiorna</string>
-    <string name="regions_update_region">Aggiorna %1$s</string>
+    <string name="regions_update_region">Aggiorna (%1$s)</string>
     <string name="regions_delete_title">Eliminare %1$s?</string>
     <string name="regions_delete_message">I contenuti scaricati per questa regione verranno rimossi dal dispositivo</string>
     <string name="regions_delete_all">Elimina tutto</string>
@@ -77,8 +77,8 @@
     <string name="package_status_not_installed_no_size">Non scaricato</string>
     <string name="package_status_unavailable">Non disponibile per questa regione</string>
     <string name="package_status_unavailable_country">Non disponibile per questa nazione</string>
-    <string name="package_download">Scarica %1$s</string>
-    <string name="package_delete">Elimina %1$s</string>
+    <string name="package_download">Scarica (%1$s)</string>
+    <string name="package_delete">Elimina (%1$s)</string>
     <string name="package_delete_title_map">%1$s: eliminare la mappa?</string>
     <string name="package_delete_title_routing">%1$s: eliminare la rete stradale?</string>
     <string name="package_delete_title_poi">%1$s: eliminare i punti di interesse?</string>
@@ -192,7 +192,7 @@
     <string name="storage_guides_download">Scarica le guide</string>
     <string name="storage_model">Modello IA sul dispositivo</string>
     <string name="storage_no_model">Nessun modello IA scaricato</string>
-    <string name="storage_delete">Elimina %1$s</string>
+    <string name="storage_delete">Elimina (%1$s)</string>
     <string name="storage_delete_title">Eliminare %1$s?</string>
     <string name="storage_delete_message">I dati salvati sul dispositivo verranno rimossi per liberare questo spazio</string>
 

@@ -24,7 +24,7 @@
     <string name="vault_empty_subtitle">Usa \"Aggiungi\" per salvare passaporti, biglietti e altri documenti</string>
     <string name="vault_expiry">Scadenza: %1$s</string>
     <string name="vault_edit">Modifica %1$s</string>
-    <string name="vault_delete">Elimina %1$s</string>
+    <string name="vault_delete">Elimina il documento (%1$s)</string>
     <string name="vault_delete_title">Eliminare questo documento?</string>
     <string name="vault_delete_message">%1$s verrà rimosso definitivamente dalla cassaforte</string>
     <string name="vault_photo">Foto del documento</string>
@@ -65,7 +65,7 @@
     <string name="notes_empty_subtitle">Crea la prima nota: note di viaggio, prenotazioni o indirizzi. Le note sono cifrate sul dispositivo e l\'assistente IA può usarle per rispondere alle domande</string>
     <string name="notes_privacy_notice">Le note sono cifrate sul dispositivo. L\'assistente IA può usarle per rispondere alle domande</string>
     <string name="notes_edit">Modifica %1$s</string>
-    <string name="notes_delete">Elimina %1$s</string>
+    <string name="notes_delete">Elimina la nota (%1$s)</string>
     <string name="notes_delete_title">Eliminare questa nota?</string>
     <string name="notes_delete_message">%1$s verrà eliminata definitivamente</string>
     <string name="notes_new">Nuova nota</string>

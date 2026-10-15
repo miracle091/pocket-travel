@@ -14,7 +14,7 @@
     <string name="emergency_police">Polizia</string>
     <string name="emergency_ambulance">Ambulanza</string>
     <string name="emergency_fire">Vigili del fuoco</string>
-    <string name="emergency_call">Chiama %1$s, %2$s</string>
+    <string name="emergency_call">Chiama %2$s (%1$s)</string>
     <string name="emergency_no_central_number">Questa nazione non ha un numero di emergenza unico. Prima di partire, annota i contatti della polizia e delle strutture sanitarie della zona</string>
     <string name="category_customs_usages">Usi e costumi</string>
     <string name="category_customs">Dogane</string>
@@ -116,7 +116,7 @@
     <string name="vacc_previous_expand">Mostra</string>
     <string name="vacc_previous_collapse">Nascondi</string>
     <string name="vacc_add_country">Aggiungi un paese</string>
-    <string name="vacc_remove_country">Rimuovi %1$s</string>
+    <string name="vacc_remove_country">Rimuovi il paese (%1$s)</string>
     <string name="vacc_child">Viaggi con un bambino sotto 1 anno?</string>
     <string name="vacc_child_months">Età del bambino (mesi)</string>
     <string name="vacc_stay_4w">Vivi nel paese di partenza o ci resti più di 4 settimane?</string>
