@@ -267,7 +267,7 @@
     <string name="planner_arrive_by_title">When do you want to arrive?</string>
     <string name="planner_arrive_by_clear">Remove the arrival time</string>
     <string name="planner_leave_at">Leave at %1$s</string>
-    <string name="planner_to_arrive_at">to arrive at %1$s</string>
+    <string name="planner_to_arrive_at">Arrival: %1$s</string>
     <string name="planner_remind_me">Remind me when to leave</string>
     <string name="planner_reminder_set">Reminder at %1$s</string>
     <string name="planner_departure_channel">Navigator departures</string>

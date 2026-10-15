@@ -23,7 +23,7 @@
     <string name="regions_download">Download %1$s</string>
     <string name="regions_update">Update</string>
     <string name="regions_update_region">Update %1$s</string>
-    <string name="regions_delete_title">Delete %1$s?</string>
+    <string name="regions_delete_title">%1$s: delete all content?</string>
     <string name="regions_delete_message">Downloaded content for this region will be removed from the device</string>
     <string name="regions_delete_all">Delete all</string>
     <string name="regions_replaced">This region is now split into smaller regions: choose which ones to download. This region no longer receives updates</string>

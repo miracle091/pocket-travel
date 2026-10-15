@@ -104,12 +104,12 @@ private fun itemLine(item: VaccinationItem, en: Boolean, country: (String) -> St
             "one dose ${doseText(item.polioDose, true)} before leaving the country ($where), recorded on the international certificate",
         )
         VaccinationReason.POLIO_ENCOURAGED -> pick(
-            "in partenza dal paese ($where) è incoraggiata una dose ${doseText(item.polioDose, false)} prima di partire",
-            "when leaving the country ($where) one dose ${doseText(item.polioDose, true)} is encouraged",
+            "è incoraggiata una dose ${doseText(item.polioDose, false)} prima di partire dal paese ($where)",
+            "one dose ${doseText(item.polioDose, true)} is encouraged before leaving the country ($where)",
         )
         VaccinationReason.POLIO_ENTRY -> pick(
-            "certificato richiesto all'ingresso per chi arriva dal paese di provenienza, $where (${doseText(item.polioDose, false)})",
-            "required on entry for those arriving from the country of origin, $where (${doseText(item.polioDose, true)})",
+            "certificato richiesto all'ingresso per il paese di provenienza, $where (${doseText(item.polioDose, false)})",
+            "required on entry because of the country you are arriving from, $where (${doseText(item.polioDose, true)})",
         )
         VaccinationReason.POLIO_ENTRY_UNLISTED -> pick(
             "la destinazione ($where) può chiedere la prova della vaccinazione a chi arriva da paesi in cui circola la polio; le fonti " +
@@ -121,8 +121,8 @@ private fun itemLine(item: VaccinationItem, en: Boolean, country: (String) -> St
         VaccinationReason.DESTINATION_MOST, VaccinationReason.DESTINATION_SOME, VaccinationReason.ROUTINE -> ""
     }
     val details = buildList {
-        item.minDaysBefore?.let { add(pick("almeno $it giorni prima", "at least $it days before")) }
-        item.validityYears?.let { add(pick("validità $it anni", "valid for $it years")) }
+        item.minDaysBefore?.let { add(pick("almeno $it ${if (it == 1) "giorno" else "giorni"} prima", "at least $it ${if (it == 1) "day" else "days"} before")) }
+        item.validityYears?.let { add(pick("validità $it ${if (it == 1) "anno" else "anni"}", "valid for $it ${if (it == 1) "year" else "years"}")) }
         when (item.ageNote) {
             AgeNote.FROM_AGE -> add(pick("da ${item.minAgeMonths} mesi di età", "from age ${item.minAgeMonths} months"))
             AgeNote.BELOW_AGE -> add(pick("certificato non richiesto sotto i ${item.minAgeMonths} mesi", "not required under ${item.minAgeMonths} months"))

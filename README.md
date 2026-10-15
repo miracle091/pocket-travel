@@ -55,7 +55,7 @@ L'app segnala le nuove versioni con una notifica; le novità sono nel [CHANGELOG
 | 📖 | **Guida** | Cosa vedere, dove mangiare, come muoversi e sicurezza per ogni nazione e città; fatti rapidi, numeri di emergenza, ambasciate, meteo a 7 giorni |
 | 💉 | **Vaccinazioni** | Obbligatorie, raccomandate e da valutare con il medico, calcolate offline da partenza, scali e paesi visitati |
 | 🗺️ | **Mappa** | Ristoranti, hotel, farmacie, bancomat e molto altro, con orari e contatti, filtrati per modo di spostarsi |
-| 🧭 | **Navigatore** | Percorsi a piedi, in bici e in auto, anche tra nazioni, con la navigazione passo passo a schermo spento |
+| 🧭 | **Navigatore** | Percorsi a piedi, in bici e in auto, anche tra nazioni, con la navigazione passo passo anche a schermo spento |
 | 🚌 | **Mezzi pubblici** | Partenze delle tre ore successive in fermate e stazioni, per le reti con dati aperti di 32 nazioni, per lo più europee, e di Stati Uniti, Canada, Australia, Nuova Zelanda e Giappone |
 | 🤖 | **Assistente IA** | Risposte brevi sulla guida scaricata e sulle note, anche senza internet |
 | 🔐 | **Documenti e note** | Passaporto e biglietti cifrati, sbloccabili con impronta o volto; note di viaggio cifrate |

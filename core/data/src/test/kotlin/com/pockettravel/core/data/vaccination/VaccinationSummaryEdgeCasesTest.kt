@@ -110,6 +110,9 @@ class VaccinationSummaryEdgeCasesTest {
             result(hajj).toSummaryText(trip, "en")
                 .contains("- Meningococcal ACWY: mandatory for Hajj and Umrah; at least 10 days before; valid for 5 years; from age 12 months; recent dose\n"),
         )
+        val one = hajj.copy(minDaysBefore = 1, validityYears = 1)
+        assertTrue(result(one).toSummaryText(trip, "it").contains("almeno 1 giorno prima; validità 1 anno;"))
+        assertTrue(result(one).toSummaryText(trip, "en").contains("at least 1 day before; valid for 1 year;"))
     }
 
     @Test
@@ -142,16 +145,16 @@ class VaccinationSummaryEdgeCasesTest {
             polioDose = PolioDose(PolioVaccine.BOPV_OR_IPV, PolioWindow.W4_12M),
         )
         val italian = result(encouraged).toSummaryText(trip, "it")
-        assertTrue(italian.contains("Incoraggiate (non obbligatorie):\n- Poliomielite: in partenza dal paese (Nigeria) è incoraggiata una dose bOPV/IPV tra 4 settimane e 12 mesi prima di partire"))
+        assertTrue(italian.contains("Incoraggiate (non obbligatorie):\n- Poliomielite: è incoraggiata una dose bOPV/IPV tra 4 settimane e 12 mesi prima di partire dal paese (Nigeria)"))
         val en = result(encouraged).toSummaryText(trip, "en")
-        assertTrue(en.contains("Encouraged (not mandatory):\n- Polio: when leaving the country (Nigeria) one dose bOPV/IPV between 4 weeks and 12 months is encouraged"))
+        assertTrue(en.contains("Encouraged (not mandatory):\n- Polio: one dose bOPV/IPV between 4 weeks and 12 months is encouraged before leaving the country (Nigeria)"))
 
         val entry = VaccinationItem(
             Vaccine.POLIO, VaccinationLevel.REQUIRED, VaccinationReason.POLIO_ENTRY, country = "pk",
             polioDose = PolioDose(PolioVaccine.IPV, PolioWindow.ANY, PolioApplies.ALL),
         )
-        assertTrue(result(entry).toSummaryText(trip, "it").contains("certificato richiesto all'ingresso per chi arriva dal paese di provenienza, Pakistan (IPV (certificata))"))
-        assertTrue(result(entry).toSummaryText(trip, "en").contains("required on entry for those arriving from the country of origin, Pakistan (IPV (certified))"))
+        assertTrue(result(entry).toSummaryText(trip, "it").contains("certificato richiesto all'ingresso per il paese di provenienza, Pakistan (IPV (certificata))"))
+        assertTrue(result(entry).toSummaryText(trip, "en").contains("required on entry because of the country you are arriving from, Pakistan (IPV (certified))"))
         val noDose = entry.copy(polioDose = null)
         assertTrue(result(noDose).toSummaryText(trip, "it").contains("(bOPV/IPV (certificata))"))
     }
