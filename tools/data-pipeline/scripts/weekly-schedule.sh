@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034 # solo elenchi, letti dagli script che caricano questo file con source
 # Generato da generate-weekly-schedule.sh il 2026-09-25 — NON MODIFICARE A MANO.
 # Rilancia generate-weekly-schedule.sh per rigenerarlo (es. dopo una modifica a
 # regions.sh). Ogni WEEKLY_SCHEDULE_DAY_N e' l'elenco regionId, separati da virgola,

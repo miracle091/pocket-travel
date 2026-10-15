@@ -204,6 +204,7 @@ awk -F'\t' -v giantsFile="$GIANTS_FILE" -v nonGiantFile="$NONGIANT_FILE" '
 # --- passo 6: scrittura di weekly-schedule.sh, un giorno per regione nell'ordine di regions.sh --
 {
   echo "#!/usr/bin/env bash"
+  echo "# shellcheck disable=SC2034 # solo elenchi, letti dagli script che caricano questo file con source"
   echo "# Generato da generate-weekly-schedule.sh il $(date -u +%Y-%m-%d) — NON MODIFICARE A MANO."
   echo "# Rilancia generate-weekly-schedule.sh per rigenerarlo (es. dopo una modifica a"
   echo "# regions.sh). Ogni WEEKLY_SCHEDULE_DAY_N e' l'elenco regionId, separati da virgola,"

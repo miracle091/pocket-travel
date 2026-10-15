@@ -126,6 +126,7 @@ has_published_descendant() {
 # e' un errore (estrazione e Overpass non raggiungibili), non una risposta definitiva (z15 troppo
 # grandi e Overpass con 0 civici o troppi): in quel caso build_cell non ripubblica una cella gia' pubblicata.
 OSM_FAILED=false
+# shellcheck disable=SC2034 # result_ref e' un nameref: le assegnazioni scrivono la variabile del chiamante
 extract_osm_points() {
   local label="$1" minLon="$2" minLat="$3" maxLon="$4" maxLat="$5" workdir="$6" resultVar="$7"
   local -n result_ref="$resultVar"

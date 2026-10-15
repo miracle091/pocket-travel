@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034 # solo elenchi, letti dagli script che caricano questo file con source
 # Elenco delle regioni — sorgente unica condivisa da
 # build-all-regions.sh (esecuzione locale, tutte le regioni) e dal workflow publish-regions.yml
 # (esecuzione selettiva via input workflow_dispatch), per evitare due copie che possono

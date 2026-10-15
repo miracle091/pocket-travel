@@ -87,7 +87,9 @@ if [ -n "$PRUNE" ]; then
     old="${old%/}"
     d="$(basename "$old")"
     # solo le cartelle che crea questo script (nome AAAA-MM-GG e almeno un <wiki>.SHA256SUMS dentro)
-    [[ "$d" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && compgen -G "$old/*.SHA256SUMS" >/dev/null || continue
+    if ! [[ "$d" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || ! compgen -G "$old/*.SHA256SUMS" >/dev/null; then
+      continue
+    fi
     if [[ "$d" < "$DATE" ]]; then
       echo "cancello il dump vecchio $old"
       rm -rf "$old"
