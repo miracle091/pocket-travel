@@ -579,7 +579,7 @@ private fun StaleCard(result: VaccinationResult) {
 }
 
 // Obbligatorie / Raccomandate (con le incoraggiate) / Da valutare con il medico. Senza certificati la prima
-// sezione lo dice "nei nostri dati", con la data: mai "non serve".
+// sezione lo dice "nei dati dell'app", con la data: mai "non serve".
 private fun LazyListScope.resultGroups(
     result: VaccinationResult,
     nationality: String?,

@@ -231,7 +231,7 @@ data class VaccinationItem(
 
 /**
  * Esito per un viaggio. [noCertificateFound] e' true quando nessuna voce e' REQUIRED o REQUIRED_EXIT: la
- * UI deve dire "nei nostri dati, verificati il [checkedOn], nessun certificato risulta richiesto", mai
+ * UI deve dire "nei dati dell'app, verificati il [checkedOn], nessun certificato risulta richiesto", mai
  * "non serve nulla". [polioDataStale]: i dati polio hanno piu' di [POLIO_STALE_DAYS] giorni.
  */
 data class VaccinationResult(

@@ -24,7 +24,7 @@ toni colloquiali.
 - Pulsanti e istruzioni brevi all'imperativo di seconda persona singolare, come le app di sistema Android in
   italiano: "Scarica", "Scegli il paese", "Apri la guida".
 - Etichette, titoli e stati come sostantivi o forme impersonali: "Paese di partenza", "Download in corso",
-  "Nessun certificato richiesto nei nostri dati".
+  "Nessun certificato richiesto nei dati dell'app".
 - Spiegazioni e avvisi in forma impersonale, senza rivolgersi direttamente a chi legge quando non serve:
   "La guida si aggiorna da sola" invece di "Non devi aggiornare la guida".
 - Apostrofi e accenti corretti ("perché", "è", "qual è"); in `strings.xml` l'apostrofo si scrive `\'`.

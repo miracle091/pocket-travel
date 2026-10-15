@@ -91,8 +91,8 @@
     <string name="vacc_card_required_exit">%1$s: richiesto all\'uscita</string>
     <string name="vacc_card_more">Informazioni sulle vaccinazioni</string>
     <string name="vacc_choose_departure">Scegli un paese di partenza diverso dalla destinazione per vedere i risultati</string>
-    <string name="vacc_none_found">Nei nostri dati (verificati il %1$s) nessun certificato risulta richiesto per questo viaggio. Non è una garanzia: verifica i requisiti</string>
-    <string name="vacc_none_found_no_date">Nei nostri dati nessun certificato risulta richiesto per questo viaggio. Non è una garanzia: verifica i requisiti</string>
+    <string name="vacc_none_found">Nei dati dell\'app (verificati il %1$s) nessun certificato risulta richiesto per questo viaggio. Non è una garanzia: verifica i requisiti</string>
+    <string name="vacc_none_found_no_date">Nei dati dell\'app nessun certificato risulta richiesto per questo viaggio. Non è una garanzia: verifica i requisiti</string>
     <string name="vacc_disclaimer_title">Informazioni generali</string>
     <string name="vacc_disclaimer">Gli obblighi possono cambiare velocemente: verifica sempre con l\'ambasciata e le fonti ufficiali degli stati interessati</string>
     <string name="vacc_disclaimer_doctor">Consulta un medico dalle 4 alle 6 settimane prima di partire</string>
@@ -141,7 +141,7 @@
     <string name="vacc_reason_polio_exit">Perché parti da %1$s, dove circola il poliovirus, dopo un soggiorno di più di 4 settimane</string>
     <string name="vacc_reason_polio_encouraged">Perché parti da %1$s, dove è stato rilevato poliovirus di tipo 2 derivato dal vaccino</string>
     <string name="vacc_reason_polio_entry">Perché arrivi da %1$s: la destinazione richiede la prova di vaccinazione antipolio</string>
-    <string name="vacc_reason_polio_entry_unlisted">%1$s può chiedere la prova di vaccinazione antipolio a chi arriva da paesi in cui circola la polio. Le nostre fonti non dicono da quali paesi: controlla la pagina di %1$s sul sito del ministero degli esteri del tuo paese</string>
+    <string name="vacc_reason_polio_entry_unlisted">%1$s può chiedere la prova di vaccinazione antipolio a chi arriva da paesi in cui circola la polio. Le fonti dell\'app non dicono da quali paesi: controlla la pagina di %1$s sul sito del ministero degli esteri del tuo paese</string>
     <string name="vacc_reason_hajj">Obbligatorio per i pellegrini di Hajj e Umrah</string>
     <string name="vacc_reason_destination_most">Raccomandata alla maggior parte dei viaggiatori verso %1$s</string>
     <string name="vacc_reason_destination_some">Per alcuni viaggiatori verso %1$s, secondo durata, attività e zone</string>

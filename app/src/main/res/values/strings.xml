@@ -278,13 +278,13 @@
     <string name="licenses_component_travel_advice_uk">Guide in inglese, consigli di viaggio per Palestina, Pitcairn, Wallis e Futuna: gov.uk Foreign travel advice (FCDO, Governo del Regno Unito)</string>
     <string name="licenses_note_travel_advice_uk">Contains public sector information licensed under the Open Government Licence v3.0. Testo adattato (senza le parti per i cittadini britannici), non approvato dal Foreign, Commonwealth &amp; Development Office.</string>
     <string name="licenses_component_vaccinations_canada">Vaccinazioni: Travel.gc.ca (Governo del Canada)</string>
-    <string name="licenses_note_vaccinations_canada">Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert - Canada. Fatti riscritti con parole nostre e confrontati con altre fonti.</string>
+    <string name="licenses_note_vaccinations_canada">Contiene informazioni concesse in licenza ai sensi della Licence du gouvernement ouvert - Canada. Fatti riformulati e confrontati con altre fonti.</string>
     <string name="licenses_component_vaccinations_uk">Vaccinazioni: TravelHealthPro (UKHSA / NaTHNaC)</string>
-    <string name="licenses_note_vaccinations_uk">Contains public sector information published by the UK Health Security Agency (UKHSA) and the National Travel Health Network and Centre (NaTHNaC), licensed under the Open Government Licence v3.0. Fatti riscritti con parole nostre.</string>
+    <string name="licenses_note_vaccinations_uk">Contains public sector information published by the UK Health Security Agency (UKHSA) and the National Travel Health Network and Centre (NaTHNaC), licensed under the Open Government Licence v3.0. Fatti riformulati.</string>
     <string name="licenses_component_vaccinations_fcdo">Vaccinazioni: gov.uk Foreign travel advice (Governo del Regno Unito)</string>
-    <string name="licenses_note_vaccinations_fcdo">Contains public sector information licensed under the Open Government Licence v3.0. Requisiti polio d\'ingresso di India, Nepal e Iran, riscritti con parole nostre.</string>
+    <string name="licenses_note_vaccinations_fcdo">Contains public sector information licensed under the Open Government Licence v3.0. Requisiti polio d\'ingresso di India, Nepal e Iran, riformulati.</string>
     <string name="licenses_component_vaccinations_france">Vaccinazioni: France Diplomatie, Conseils aux voyageurs (Ministère de l\'Europe et des Affaires étrangères)</string>
-    <string name="licenses_note_vaccinations_france">Requisito polio d\'ingresso dell\'Egitto, dalla pagina Santé aggiornata il 21 settembre 2026, riscritto con parole nostre</string>
+    <string name="licenses_note_vaccinations_france">Requisito polio d\'ingresso dell\'Egitto, dalla pagina Santé aggiornata il 21 settembre 2026, riformulato</string>
 
     <!-- Onboarding -->
     <string name="onboarding_welcome_title">Ti diamo il benvenuto in Pocket Travel</string>
