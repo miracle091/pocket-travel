@@ -178,23 +178,12 @@ STATS="$(cd "$REPO_ROOT" && ./gradlew -q :tools:data-pipeline:content:generateTr
 # Tab -> \x1f prima di leggere: il tab e' uno spazio per IFS, due tab di fila (validUntil vuoto) ne valgono
 # uno e il bbox finirebbe in VALID_UNTIL.
 IFS=$'\x1f' read -r STOPS ROUTES TRIPS STOP_TIMES VALID_UNTIL BBOX <<< "${STATS//$'\t'/$'\x1f'}"
-# Ultimo giorno con corse secondo il feed (end_date di calendar.txt, giorni aggiunti in calendar_dates.txt), anche fuori
-# dalla finestra: per dire quando sono scaduti gli orari di un feed senza corse nei prossimi giorni.
-feed_end_date() {
-  local d
-  d="$({ unzip -p "$FEED_ZIP" calendar.txt 2>/dev/null \
-      | awk -F, 'NR == 1 { for (i = 1; i <= NF; i++) { gsub(/["\r]|^\xef\xbb\xbf/, "", $i); if ($i == "end_date") c = i }; next }
-                 c { gsub(/["\r ]/, "", $c); print $c }'
-    unzip -p "$FEED_ZIP" calendar_dates.txt 2>/dev/null \
-      | awk -F, 'NR == 1 { for (i = 1; i <= NF; i++) { gsub(/["\r]|^\xef\xbb\xbf/, "", $i); if ($i == "date") c = i; if ($i == "exception_type") e = i }; next }
-                 c && e { gsub(/["\r ]/, "", $c); gsub(/["\r ]/, "", $e); if ($e == "1") print $c }'
-  } | grep -E '^[0-9]{8}$' | sort | tail -1 || true)"
-  [ -n "$d" ] && echo "${d:0:4}-${d:4:2}-${d:6:2}" || echo "?"
-}
-echo "-- $FEED_ID: $STOPS fermate, $ROUTES linee, $TRIPS corse, $STOP_TIMES partenze, valido fino al ${VALID_UNTIL:-$(feed_end_date)}"
+# gtfs_end_date (lib.sh) guarda anche fuori dalla finestra: dice quando sono scaduti gli orari di un feed senza corse
+# nei prossimi giorni.
+echo "-- $FEED_ID: $STOPS fermate, $ROUTES linee, $TRIPS corse, $STOP_TIMES partenze, valido fino al ${VALID_UNTIL:-$(gtfs_end_date "$FEED_ZIP")}"
 # Anche senza partenze (stop_times.txt assente o illeggibile): corse senza orari non servono al tabellone.
 if [ "${TRIPS:-0}" -eq 0 ] || [ "${STOP_TIMES:-0}" -eq 0 ] || [ -z "$VALID_UNTIL" ]; then
-  echo "-- $FEED_ID: nessuna corsa nei prossimi $TRANSIT_WINDOW_DAYS giorni (orari del feed fino al $(feed_end_date)), non pubblico" >&2
+  echo "-- $FEED_ID: nessuna corsa nei prossimi $TRANSIT_WINDOW_DAYS giorni (orari del feed fino al $(gtfs_end_date "$FEED_ZIP")), non pubblico" >&2
   exit 1
 fi
 

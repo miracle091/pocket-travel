@@ -34,8 +34,9 @@
 # Trenitalia ha orari validi (fino al 2026-12-12); TPL Linea (fino al 2026-09-06), Riviera Trasporti
 # (2026-09-13), ATC (2026-09-12) e AMT extraurbano (2026-08-04) sono scaduti: tolte finche' la
 # Regione non pubblica i file nuovi (altrimenti il workflow ripubblica la voce vecchia, con orari
-# scaduti). Per rimetterle: righe come lig-trenitalia, dataset ds-642 (lig-amt-extraurbano), ds-640
-# (lig-atc), ds-639 (lig-riviera), ds-638 (lig-tpl-linea), stessa regex di cerca_ultimo.
+# scaduti). Per rimetterle: righe come lig-trenitalia, con url_feed e cerca_ultimo della loro riga di
+# transit-missing.tsv (dataset ds-642, ds-640, ds-639, ds-638); il controllo settimanale del job "transit"
+# segnala quando i file nuovi hanno orari validi.
 # Le reti escluse per orari o licenza che l'app mostra come "Non incluse" sono in transit-missing.tsv.
 # Traghetti di sardegnamobilita.it (pagina open-data/offerta-servizi, CC BY 4.0), verificati il 10
 # ottobre 2026, tutti fuori: Tirrenia (R_SARDEGTRASP_00026, corse fino al 2022-12-31; il nuovo

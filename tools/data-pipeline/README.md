@@ -21,7 +21,7 @@ testa a `scripts/build-region.sh`).
 | `guides` | Guide | rigenera `guides.db` e `guides-en.db` per tutte le regioni; pubblica solo se cambiano |
 | `world-map` | Mappa del mondo | mappa del mondo z0-8, rigenerata ogni ~30 giorni o se assente |
 | `address-grid` | Civici | celle dei numeri civici della quota del giorno (sezione sotto) |
-| `transit` | Mezzi pubblici | reti di `transit-feeds.tsv`, ricostruite se il feed cambia o dopo 7 giorni |
+| `transit` | Mezzi pubblici | reti di `transit-feeds.tsv`, ricostruite se il feed cambia o dopo 7 giorni; la domenica e nelle run manuali segnala le reti di `transit-missing.tsv` escluse per gli orari che tornano valide |
 | `overture-check` | Controllo Overture | lista bianca delle fonti Overture, una volta per rilascio; esito in una issue |
 | `vaccinations-check` | Controllo vaccinazioni | deriva dei dati vaccinali, il lunedì e nelle run manuali |
 | `publish` | Pubblicazione | unisce i frammenti di catalogo al `manifest.json` pubblicato, lo firma e fa il deploy su Pages |

@@ -434,3 +434,18 @@ translate_overlay() {
   fi
   [ -s "$overlay" ]
 }
+
+# gtfs_end_date <zip>: ultimo giorno con corse secondo un feed GTFS (end_date di calendar.txt, giorni aggiunti in
+# calendar_dates.txt) come AAAA-MM-GG, "?" se il feed non lo dice. Usata da build-transit.sh per dire quando sono
+# scaduti gli orari e dal controllo settimanale delle reti escluse (transit-missing-check.sh).
+gtfs_end_date() {
+  local d
+  d="$({ unzip -p "$1" calendar.txt 2>/dev/null \
+      | awk -F, 'NR == 1 { for (i = 1; i <= NF; i++) { gsub(/["\r]|^\xef\xbb\xbf/, "", $i); if ($i == "end_date") c = i }; next }
+                 c { gsub(/["\r ]/, "", $c); print $c }'
+    unzip -p "$1" calendar_dates.txt 2>/dev/null \
+      | awk -F, 'NR == 1 { for (i = 1; i <= NF; i++) { gsub(/["\r]|^\xef\xbb\xbf/, "", $i); if ($i == "date") c = i; if ($i == "exception_type") e = i }; next }
+                 c && e { gsub(/["\r ]/, "", $c); gsub(/["\r ]/, "", $e); if ($e == "1") print $c }'
+  } | grep -E '^[0-9]{8}$' | sort | tail -1 || true)"
+  [ -n "$d" ] && echo "${d:0:4}-${d:4:2}-${d:6:2}" || echo "?"
+}

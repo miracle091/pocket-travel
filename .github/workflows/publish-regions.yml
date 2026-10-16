@@ -346,6 +346,15 @@ jobs:
           path: ${{ runner.temp }}/transit-index/transit.json
           retention-days: 1
 
+      # Reti escluse per gli orari (transit-missing.tsv con url_feed): segnala con un ::notice:: quando l'ente pubblica
+      # orari validi. Domenica (il bucket con meno regioni) e nelle run manuali; non blocca la pubblicazione: un
+      # download bloccato scade dopo 15 minuti invece di portare il job oltre il suo timeout-minutes.
+      - name: Controlla le reti escluse per gli orari
+        if: ${{ github.event.schedule == '0 2 * * 0' || github.event_name == 'workflow_dispatch' }}
+        continue-on-error: true
+        timeout-minutes: 15
+        run: bash .github/scripts/publish-regions/transit-missing-check.sh
+
   # Controllo della lista bianca Overture, una volta per rilascio: le coppie (paese, dataset,
   # licenza) nuove o sparite finirebbero scartate in silenzio dalle celle dei civici. Esito in una
   # issue (etichetta overture-licenze), che arriva per email; il rilascio controllato resta come

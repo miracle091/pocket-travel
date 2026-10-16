@@ -6,11 +6,15 @@
 # regioni: regionId di regions.sh separati da virgola, come in transit-feeds.tsv.
 # motivo: "orari" (scaduti o validi meno di un mese) o "licenza" (non consente il riuso dei dati).
 #
-# id	regioni	nome	motivo
-lig-amt-extraurbano	italia	Genova, autobus extraurbani (AMT)	orari
-lig-atc	italia	La Spezia e Cinque Terre, autobus (ATC)	orari
-lig-riviera	italia	Imperia e Riviera di Ponente, autobus (Riviera Trasporti)	orari
-lig-tpl-linea	italia	Savona, autobus (TPL Linea)	orari
+# url_feed, cerca_ultimo (facoltative, stesso significato che in transit-feeds.tsv): dove trovare il feed
+# di una rete esclusa per gli orari. Il job "transit" lo riscarica una volta a settimana e nelle run manuali
+# (transit-missing-check.sh) e segnala quando gli orari tornano validi per almeno un mese.
+#
+# id	regioni	nome	motivo	url_feed	cerca_ultimo
+lig-amt-extraurbano	italia	Genova, autobus extraurbani (AMT)	orari	{ultimo}	https://dati.regione.liguria.it/api/3/action/package_show?id=ds-642 https://srvcarto\.regione\.liguria\.it/[^"]*/GTFS/GTFS-IT-ITC3-[^"]*\.zip
+lig-atc	italia	La Spezia e Cinque Terre, autobus (ATC)	orari	{ultimo}	https://dati.regione.liguria.it/api/3/action/package_show?id=ds-640 https://srvcarto\.regione\.liguria\.it/[^"]*/GTFS/GTFS-IT-ITC3-[^"]*\.zip
+lig-riviera	italia	Imperia e Riviera di Ponente, autobus (Riviera Trasporti)	orari	{ultimo}	https://dati.regione.liguria.it/api/3/action/package_show?id=ds-639 https://srvcarto\.regione\.liguria\.it/[^"]*/GTFS/GTFS-IT-ITC3-[^"]*\.zip
+lig-tpl-linea	italia	Savona, autobus (TPL Linea)	orari	{ultimo}	https://dati.regione.liguria.it/api/3/action/package_show?id=ds-638 https://srvcarto\.regione\.liguria\.it/[^"]*/GTFS/GTFS-IT-ITC3-[^"]*\.zip
 sard-tirrenia	italia	Traghetti per la Sardegna (Tirrenia)	orari
 sard-grimaldi	italia	Traghetti per la Sardegna (Grimaldi)	orari
 sard-sardinia-ferries	italia	Traghetti per la Sardegna (Corsica Ferries - Sardinia Ferries)	orari
