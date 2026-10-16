@@ -11,6 +11,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import java.time.Clock
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -23,6 +24,10 @@ object PlatformModule {
     @Provides
     @DefaultDispatcher
     fun provideDefaultDispatcher(): CoroutineDispatcher = Dispatchers.Default
+
+    // Ora e data correnti, nel fuso del dispositivo: le classi che le usano le ricevono qui, i test passano Clock.fixed.
+    @Provides
+    fun provideClock(): Clock = Clock.systemDefaultZone()
 
     @Provides
     fun providePreferencesFactory(@ApplicationContext context: Context): PreferencesFactory =

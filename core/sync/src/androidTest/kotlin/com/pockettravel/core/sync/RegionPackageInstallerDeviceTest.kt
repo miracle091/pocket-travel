@@ -36,6 +36,9 @@ import org.tukaani.xz.XZOutputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.MessageDigest
+import java.time.Clock
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 /**
  * RegionPackageInstaller con Room, SQLite e file system reali: ogni pacchetto (mappa, rete stradale,
@@ -89,19 +92,26 @@ class RegionPackageInstallerDeviceTest {
         db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).build()
         storage = RegionStorage(File(workDir, "regions").apply { mkdirs() }, File(workDir, "staging").apply { mkdirs() })
         repository = RoomRegionRepository(db.installedRegionDao(), db.poiDao(), storage, db, db.cityDao(), Dispatchers.IO)
-        installer = RegionPackageInstaller(
-            RegionPackageDownloader(OkHttpClient(), storage, Dispatchers.IO),
-            repository,
-            storage,
-            PoiImporter(db.poiDao(), db, Dispatchers.IO),
-            RoutingSegmentsInstaller(Dispatchers.IO),
-            PmtilesExtractor(),
-            CityImporter(db.cityDao(), db, Dispatchers.IO),
-            RegionAddressGridInstaller(storage),
-            MapDetailPreferences { name -> context.getSharedPreferences(name, Context.MODE_PRIVATE) },
-            Dispatchers.IO,
-        )
+        installer = newInstaller(Clock.systemDefaultZone())
     }
+
+    private fun newInstaller(clock: Clock) = RegionPackageInstaller(
+        RegionPackageDownloader(OkHttpClient(), storage, Dispatchers.IO),
+        repository,
+        storage,
+        PoiImporter(db.poiDao(), db, Dispatchers.IO),
+        RoutingSegmentsInstaller(Dispatchers.IO),
+        PmtilesExtractor(),
+        CityImporter(db.cityDao(), db, Dispatchers.IO),
+        RegionAddressGridInstaller(storage),
+        MapDetailPreferences { name -> context.getSharedPreferences(name, Context.MODE_PRIVATE) },
+        Dispatchers.IO,
+        clock,
+    )
+
+    // L'installatore con la data di oggi fissata a [day], nel fuso UTC.
+    private fun installerOn(day: String) =
+        newInstaller(Clock.fixed(LocalDate.parse(day).atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC))
 
     @After
     fun tearDown() {
@@ -350,6 +360,43 @@ class RegionPackageInstallerDeviceTest {
         android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(file, null).use { cities ->
             cities.execSQL("CREATE TABLE city_sections (city TEXT NOT NULL, category TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, sourceUrl TEXT NOT NULL)")
             cities.execSQL("INSERT INTO city_sections VALUES ('Citta di San Marino', 'COSA_VEDERE', 'Cosa vedere', 'corpo', 'https://it.wikivoyage.org/wiki/Citta_di_San_Marino')")
+        }
+        val bytes = file.readBytes()
+        file.delete()
+        return bytes
+    }
+
+    @Test
+    fun unaReteToltaDalCatalogoRestaFinoAllaScadenzaDegliOrari() = runBlocking {
+        files["a.db"] = transitDbBytes(validUntil = "20261212", seed = "a")
+        files["b.db"] = transitDbBytes(validUntil = "20261212", seed = "b")
+        val a = transitFeed("a")
+        val b = transitFeed("b")
+        installerOn("2026-10-16").install(entry().copy(transit = RegionTransitEntry(listOf(a, b))), setOf(PackageKind.TRANSIT))
+
+        // b non e' piu' nell'indice ma i suoi orari valgono ancora: l'aggiornamento la tiene.
+        installerOn("2026-10-16").install(entry().copy(transit = RegionTransitEntry(listOf(a))), setOf(PackageKind.TRANSIT))
+        assertEquals(listOf("a", "b"), storage.installedTransitFeeds("san-marino").map { it.id })
+        assertTrue(File(regionDir, "${RegionStorage.TRANSIT_DIR}/b.db").isFile)
+
+        // Dopo l'ultimo giorno valido il prossimo aggiornamento la toglie.
+        installerOn("2026-12-13").install(entry().copy(transit = RegionTransitEntry(listOf(a))), setOf(PackageKind.TRANSIT))
+        assertEquals(listOf("a"), storage.installedTransitFeeds("san-marino").map { it.id })
+        assertFalse(File(regionDir, "${RegionStorage.TRANSIT_DIR}/b.db").exists())
+    }
+
+    private fun transitFeed(id: String) = TransitFeed(
+        id = id, name = "Rete $id", regions = listOf("san-marino"), license = "CC0", attribution = "Ente $id",
+        version = "v1", file = manifestFile("$id.db"),
+    )
+
+    /** transit.db minima: solo la tabella meta con valid_until (AAAAMMGG), quanto basta all'installatore. */
+    private fun transitDbBytes(validUntil: String, seed: String): ByteArray {
+        val file = File(workDir, "transit-src.db")
+        file.delete()
+        android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(file, null).use { transit ->
+            transit.execSQL("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            transit.execSQL("INSERT INTO meta VALUES ('valid_until', '$validUntil'), ('feed', '$seed')")
         }
         val bytes = file.readBytes()
         file.delete()

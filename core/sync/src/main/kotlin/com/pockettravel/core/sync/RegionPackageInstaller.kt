@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.time.Clock
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -31,6 +32,7 @@ class RegionPackageInstaller @Inject constructor(
     private val addressGridInstaller: RegionAddressGridInstaller,
     private val mapDetailPreferences: MapDetailPreferences,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val clock: Clock,
 ) {
     suspend fun install(
         entry: RegionManifestEntry,
@@ -92,7 +94,7 @@ class RegionPackageInstaller @Inject constructor(
                     val carried = carriedOverTransitFeeds(
                         regionStorage.installedTransitFeeds(entry.regionId),
                         entry.transit.available.mapTo(mutableSetOf()) { it.id },
-                        LocalDate.now(),
+                        LocalDate.now(clock),
                     ) { readTransitValidUntil(File(installedDir, "${it.id}.db")) }
                     assembleTransitDir(staging, entry.transit.feeds, carried, installedDir)
                 }
