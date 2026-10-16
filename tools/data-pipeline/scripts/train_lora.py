@@ -14,8 +14,11 @@ Scelte che contano per la qualita':
 - split train/test per regione: lo stesso CONTESTO compare in piu' righe, con uno split casuale
   quasi tutto il test e' gia' nel train e la eval loss non dice nulla;
 - righe piu' lunghe di --max-len scartate, non troncate (troncare taglierebbe la risposta);
-- enable_thinking=False: per i template Qwen3 il blocco <think></think> vuoto sta nel prompt e non
-  nella risposta da imparare (gli altri template ignorano il parametro);
+- niente vision ne' thinking (text_only.py): i modelli vision-language si addestrano da una copia solo testo, e il
+  chat template diventa il ChatML che manda l'app, senza blocco <think>; prima del training controlli brevi (copia con
+  gli stessi tensori di testo dell'originale e caricata da transformers senza chiavi mancanti, embedding caricati
+  uguali a quelli della copia, nessun parametro vision, testo di training uguale al ChatML dell'app) fermano lo
+  script se qualcosa non torna;
 - loss pesata per categoria (WeightedTrainer): SICUREZZA/SALUTE/DOGANE/TRASPORTI hanno 3-9x piu' righe
   delle altre (Viaggiare Sicuri le copre tutte e quattro); senza pesatura il modello vedrebbe soprattutto
   quelle. Il peso di ogni riga e' media_conteggio_categoria / conteggio_della_sua_categoria (nel train
@@ -40,6 +43,7 @@ from pathlib import Path
 
 from eval_common import TEST_REGIONS, chat_prompt_and_answer, question_of
 from status import Progress, phase
+from text_only import CHATML, check_chat_format, check_loaded_embeddings, check_no_vision, text_only_base
 
 try:
     import unsloth  # noqa: F401  patch di compatibilita' Windows/ROCm (torch senza distributed), serve anche senza --unsloth
@@ -87,19 +91,26 @@ LORA.update(r=a.lora_r, lora_alpha=a.lora_alpha)
 FP32 = not BF16 and not a.four_bit and a.unsloth and torch.cuda.is_available() and "GTX 16" in torch.cuda.get_device_name()
 DTYPE = torch.bfloat16 if BF16 else torch.float32 if FP32 else torch.float16
 
-phase("caricamento modello", f"{a.model} ({'Unsloth' if a.unsloth else 'peft'}, {'bf16' if BF16 else 'fp32' if FP32 else 'fp16'})")
+phase("base solo testo", a.model)
+base = text_only_base(a.model)
+phase("caricamento modello", f"{base} ({'Unsloth' if a.unsloth else 'peft'}, {'bf16' if BF16 else 'fp32' if FP32 else 'fp16'})")
 if a.unsloth:
     from unsloth import FastLanguageModel
     model, tok = FastLanguageModel.from_pretrained(
-        a.model, max_seq_length=a.max_len, load_in_4bit=a.four_bit, dtype=DTYPE)
+        base, max_seq_length=a.max_len, load_in_4bit=a.four_bit, dtype=DTYPE)
     model = FastLanguageModel.get_peft_model(
         model, **LORA, use_gradient_checkpointing="unsloth", random_state=42)
-    # modelli vision-language (es. Qwen3.5): Unsloth restituisce un processor, qui serve solo il testo
-    tok = getattr(tok, "tokenizer", tok)
+    tok = getattr(tok, "tokenizer", tok)  # con un processor (modello vision-language) serve solo il tokenizer
 else:
-    tok = AutoTokenizer.from_pretrained(a.model)
-    model = get_peft_model(AutoModelForCausalLM.from_pretrained(a.model, dtype=DTYPE),
+    tok = AutoTokenizer.from_pretrained(base)
+    model = get_peft_model(AutoModelForCausalLM.from_pretrained(base, dtype=DTYPE),
                            LoraConfig(**LORA, task_type="CAUSAL_LM"))
+tok.chat_template = CHATML
+check_no_vision(model)
+if Path(base).is_dir():
+    check_loaded_embeddings(model, base)
+# adapter_config.json e README della LoRA: l'id del modello, non la cartella locale della copia solo testo
+model.peft_config["default"].base_model_name_or_path = a.model
 
 class FreeCacheAfterEval(TrainerCallback):
     # Dopo l'eval la cache di PyTorch resta occupata: il loss fuso di Unsloth vede poca VRAM libera
@@ -193,6 +204,7 @@ dataset_path = SFT_DIR / a.dataset
 # verificare le fonti usate per QUESTO training, non solo l'ultimo dataset generato in data/sft/.
 attribution_path = SFT_DIR / a.dataset.replace("pocket_travel_sft", "ATTRIBUTION").replace(".jsonl", ".tsv")
 ds = load_dataset("json", data_files=str(dataset_path), split="train")
+check_chat_format(tok, ds.shuffle(seed=42).select(range(min(50, len(ds)))))
 ds = ds.map(encode).filter(lambda r: len(r["input_ids"]) <= a.max_len)
 held_out = TEST_REGIONS
 train_ds = ds.filter(lambda r: r["region"] not in held_out)
@@ -239,7 +251,7 @@ trainer = WeightedTrainer(
 # iperparametri il Trainer riprenderebbe lo stato (passi, scheduler) del training vecchio.
 run_key = {"model": a.model, "dataset": a.dataset, "dataset_sha256": hashlib.sha256(dataset_path.read_bytes()).hexdigest(),
            "max_len": a.max_len, "batch": a.batch, "group_by_length": not a.no_group_by_length, "epochs": a.epochs, "max_steps": a.max_steps, "four_bit": a.four_bit,
-           "lr": a.lr, "lora_r": a.lora_r, "lora_alpha": a.lora_alpha}
+           "lr": a.lr, "lora_r": a.lora_r, "lora_alpha": a.lora_alpha, "text_only_chatml": True}
 run_key_path = Path(a.out) / "run.json"
 last_checkpoint = get_last_checkpoint(a.out) if Path(a.out).is_dir() else None
 if last_checkpoint:

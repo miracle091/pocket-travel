@@ -25,6 +25,7 @@ import sys
 from pathlib import Path
 
 from eval_common import SFT_DIR, TEST_REGIONS, chat_prompt_and_answer, extended_file
+from text_only import text_only_base
 
 GROUPS = ("neg_city", "pos_city", "pos_near", "neg_near")
 
@@ -139,7 +140,9 @@ def main():
     # Modello di partenza: il modello base del run con la sua LoRA fusa. Non la cartella merged: Unsloth 2026.9.7 (quello
     # dei modelli v10) la salva per Qwen3.5 con nomi annidati (model.language_model.language_model.language_model.*), che
     # transformers scarta senza errori, lasciando pesi casuali.
-    base_model = json.loads((Path(a.base) / "run.json").read_text(encoding="utf-8"))["model"]
+    run = json.loads((Path(a.base) / "run.json").read_text(encoding="utf-8"))
+    # Run senza vision ne' thinking (text_only.py): la LoRA e' della copia solo testo, non del modello vision-language
+    base_model = text_only_base(run["model"]) if run.get("text_only_chatml") else run["model"]
     phase("caricamento modello", f"{base_model} + {a.base}/lora")
     tok = AutoTokenizer.from_pretrained(Path(a.base) / "lora")
     tok = getattr(tok, "tokenizer", tok)

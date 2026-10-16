@@ -2,8 +2,7 @@
 """Categoria di ogni domanda delle serie di eval_retrieval.py scelta da un modello GGUF, come fa l'app sul dispositivo
 quando le liste di parole non riconoscono la categoria (ModelQuestionCategory.kt): stesso prompt, stessa grammatica
 (solo i nomi delle categorie), decodifica greedy come ai_chat.cpp con una grammatica, prompt ChatML a turno singolo con
-il blocco <think> vuoto come eval_gguf.py --empty-think (vale per i modelli Qwen3.5 dell'app, il cui template ha
-enable_thinking; per un modello con un altro template va tolto). Scrive
+il blocco <think> vuoto solo se il chat template del GGUF usa enable_thinking, come ai_chat.cpp ed eval_gguf.py. Scrive
 {domanda: gruppo o null} in JSON, da passare a eval_retrieval.py --model-categories.
 
 Uso: python model_categories.py <file .gguf> --llama-cpp <cartella dei binari> --lang it|en --out FILE
@@ -20,6 +19,8 @@ import tempfile
 import time
 import urllib.request
 from pathlib import Path
+
+from gguf import GGUFReader
 
 import eval_retrieval as ev
 from eval_common import find_llama_bin, llama_env
@@ -70,9 +71,12 @@ def main():
             except OSError:
                 time.sleep(0.5)
         result = {}
+        template = GGUFReader(a.model).fields.get("tokenizer.chat_template")
+        think = "<think>\n\n</think>\n\n" if template is not None and "enable_thinking" in bytes(
+            template.parts[template.data[0]]).decode("utf-8") else ""
         for q in questions(a.lang, a.cache, a.regions):
-            # Come ai_chat.cpp: un turno utente e il blocco <think> vuoto dei modelli Qwen3.5 dell'app.
-            prompt = f"<|im_start|>user\n{ev.model_category_prompt(q, a.lang)}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+            # Come ai_chat.cpp: un turno utente, piu' il blocco <think> vuoto per i template con enable_thinking
+            prompt = f"<|im_start|>user\n{ev.model_category_prompt(q, a.lang)}<|im_end|>\n<|im_start|>assistant\n{think}"
             body = json.dumps({"prompt": prompt, "n_predict": 8, "temperature": 0, "top_k": 1, "grammar": grammar})
             request = urllib.request.Request(f"{url}/completion", body.encode("utf-8"), {"Content-Type": "application/json"})
             with urllib.request.urlopen(request, timeout=120) as r:

@@ -287,7 +287,8 @@ static std::string chat_add_and_format(const std::string &role, const std::strin
     chat_msgs.push_back(new_msg);
     // Il formatter CHATML hardcoded (use_jinja=false) non inserisce mai un blocco "think": lo si forza
     // vuoto qui, dopo l'apertura del turno assistente, per i template con enable_thinking (vedi prepare_impl), perche'
-    // il training (enable_thinking=False) lo assume sempre presente nel prefisso del turno assistente.
+    // quei modelli sono addestrati (enable_thinking=False) con il blocco nel prefisso del turno assistente. I modelli
+    // addestrati senza thinking (text_only.py) hanno un ChatML senza enable_thinking e non lo ricevono.
     if (add_ass && g_chat_template_supports_thinking) {
         formatted += "<think>\n\n</think>\n\n";
     }
