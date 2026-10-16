@@ -67,6 +67,9 @@ ap.add_argument("--4bit", dest="four_bit", action="store_true",
 ap.add_argument("--max-steps", type=int, default=-1, help="-1 = usa --epochs")
 ap.add_argument("--epochs", type=float, default=2)
 ap.add_argument("--max-len", type=int, default=1024)
+ap.add_argument("--lr", type=float, default=2e-4, help="learning rate (schedule cosine, 5 passi di warmup)")
+ap.add_argument("--lora-r", type=int, default=LORA["r"], help="rango della LoRA")
+ap.add_argument("--lora-alpha", type=int, default=LORA["lora_alpha"], help="alpha della LoRA")
 ap.add_argument("--batch", type=int, default=4, help="esempi per passo sulla GPU (16 effettivi: cala se manca VRAM)")
 ap.add_argument("--no-group-by-length", action="store_true",
                 help="batch in ordine casuale invece che per lunghezza (come i training fino al 4B del 2026-09-26)")
@@ -77,6 +80,7 @@ ap.add_argument("--out", default=str(SFT_DIR / "run-smollm2-135m"))
 a = ap.parse_args()
 if a.four_bit and not a.unsloth:
     ap.error("--4bit richiede --unsloth")
+LORA.update(r=a.lora_r, lora_alpha=a.lora_alpha)
 # GTX 16xx (Turing senza tensor core): con Unsloth fp32 e' piu' veloce di fp16
 # (misurato su GTX 1660 SUPER, Qwen3-0.6B: 52-55 s/passo in fp32 contro 98-100 in fp16, stessa VRAM di picco).
 # Solo con Unsloth senza --4bit: fp32 con --4bit o col backend peft non e' stato misurato, li' resta fp16
@@ -155,8 +159,15 @@ class WeightedTrainer(Trainer):
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         weight = inputs.pop("weight")
         labels = inputs.pop("labels")
-        logits = model(**inputs).logits
-        shift_labels = labels[:, 1:]
+        # Logits solo dalla posizione prima del primo token di risposta del batch (logits_to_keep): il prompt e'
+        # ~80% dei token e la testa di output (vocabolario Qwen3.5 ~248k) ne e' una parte grossa del calcolo.
+        width = labels.shape[1]
+        first = int(labels.ne(-100).int().argmax(1).min().clamp(min=1))
+        keep = width - first + 1
+        logits = model(**inputs, logits_to_keep=keep).logits
+        if logits.shape[1] != keep:  # modello che ignora logits_to_keep: stessa finestra dai logits completi
+            logits = logits[:, width - keep:, :]
+        shift_labels = labels[:, width - keep + 1:]
         mask = shift_labels.ne(-100)
         # Cross-entropy solo sui token della risposta (~20%): il prompt e' mascherato, calcolarla su tutte
         # le posizioni (vocabolario Qwen3.5 ~248k) e poi azzerarla costerebbe ~5 volte il necessario, piu' una
@@ -213,9 +224,11 @@ trainer = WeightedTrainer(
         # eval con lo stesso batch del training: il default (8) con vocabolari grandi (Qwen3.5 ~248k token)
         # supera la VRAM e Windows riversa in RAM di sistema (picco 17 GB su 12 con Qwen3.5-0.8B)
         per_device_eval_batch_size=a.batch,
-        learning_rate=2e-4, lr_scheduler_type="cosine", warmup_steps=5,
+        prediction_loss_only=True,  # della valutazione intermedia serve solo eval_loss, non i logits delle righe
+        learning_rate=a.lr, lr_scheduler_type="cosine", warmup_steps=5,
         num_train_epochs=a.epochs, max_steps=a.max_steps,
-        logging_steps=5, eval_strategy="steps", eval_steps=100,  # come save_steps; ~50-65 s per eval
+        # eval ogni 200 passi (~20 s l'una con logits_to_keep): serve solo a vedere l'andamento di eval_loss
+        logging_steps=5, eval_strategy="steps", eval_steps=200,
         # checkpoint ogni 100 passi (solo l'ultimo): un training interrotto riparte da li' rilanciando
         # lo stesso comando, invece che da zero
         output_dir=a.out, save_strategy="steps", save_steps=100, save_total_limit=1, report_to="none", seed=42,
@@ -225,7 +238,8 @@ trainer = WeightedTrainer(
 # Si riprende un checkpoint solo se e' dello stesso training: con un altro modello, dataset o
 # iperparametri il Trainer riprenderebbe lo stato (passi, scheduler) del training vecchio.
 run_key = {"model": a.model, "dataset": a.dataset, "dataset_sha256": hashlib.sha256(dataset_path.read_bytes()).hexdigest(),
-           "max_len": a.max_len, "batch": a.batch, "group_by_length": not a.no_group_by_length, "epochs": a.epochs, "max_steps": a.max_steps, "four_bit": a.four_bit}
+           "max_len": a.max_len, "batch": a.batch, "group_by_length": not a.no_group_by_length, "epochs": a.epochs, "max_steps": a.max_steps, "four_bit": a.four_bit,
+           "lr": a.lr, "lora_r": a.lora_r, "lora_alpha": a.lora_alpha}
 run_key_path = Path(a.out) / "run.json"
 last_checkpoint = get_last_checkpoint(a.out) if Path(a.out).is_dir() else None
 if last_checkpoint:

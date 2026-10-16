@@ -35,6 +35,7 @@ def run_main(info, argv, unsloth=False, system="Linux", msvc=None):
             mock.patch("platform.system", return_value=system), \
             mock.patch.object(train_auto, "msvc_env", return_value=msvc), \
             mock.patch("subprocess.call", side_effect=fake_call), \
+            mock.patch.object(train_auto, "run_watched", side_effect=fake_call), \
             mock.patch.object(sys, "argv", ["train_auto.py", *argv]), redirect_stdout(out):
         try:
             train_auto.main()
@@ -104,6 +105,30 @@ class MainTest(unittest.TestCase):
         info = {"cuda": None, "hip": "6.2", "gpus": [DGPU]}
         _, called, _, _ = run_main(info, ["--max-steps", "30", "--merge"])
         self.assertEqual([sys.executable, str(train_auto.HERE / "train_lora.py"), "--max-steps", "30", "--merge"], called["cmd"])
+
+    def test_watchdog_acceso_di_default(self):
+        info = {"cuda": None, "hip": "6.2", "gpus": [DGPU]}
+        with mock.patch.object(train_auto, "probe", return_value=info), mock.patch.object(train_auto.vram, "check"), \
+                mock.patch("importlib.util.find_spec", return_value=None), \
+                mock.patch("subprocess.call", return_value=0) as call, \
+                mock.patch.object(train_auto, "run_watched", return_value=0) as watched, \
+                mock.patch.object(sys, "argv", ["train_auto.py", "--merge"]), redirect_stdout(io.StringIO()), \
+                self.assertRaises(SystemExit):
+            train_auto.main()
+        watched.assert_called_once()
+        call.assert_not_called()
+
+    def test_no_watchdog_lancia_senza_controllo(self):
+        info = {"cuda": None, "hip": "6.2", "gpus": [DGPU]}
+        with mock.patch.object(train_auto, "probe", return_value=info), mock.patch.object(train_auto.vram, "check"), \
+                mock.patch("importlib.util.find_spec", return_value=None), \
+                mock.patch("subprocess.call", return_value=0) as call, \
+                mock.patch.object(train_auto, "run_watched", return_value=0) as watched, \
+                mock.patch.object(sys, "argv", ["train_auto.py", "--no-watchdog", "--merge"]), \
+                redirect_stdout(io.StringIO()), self.assertRaises(SystemExit):
+            train_auto.main()
+        watched.assert_not_called()
+        self.assertEqual("--merge", call.call_args.args[0][-1])
 
     def test_soglia_vram_passata_a_check(self):
         info = {"cuda": None, "hip": "6.2", "gpus": [DGPU]}
@@ -177,6 +202,88 @@ class MsvcEnvTest(unittest.TestCase):
             env = train_auto.msvc_env()
         self.assertEqual({"INCLUDE": "C:\\inc", "LIB": "C:\\lib;D:\\x=y"}, env)
         self.assertIn("vcvars64.bat", calls[1])
+
+
+class SpeedWatchdogTest(unittest.TestCase):
+    def feed(self, dog, start, steps, seconds_per_step, t0=0.0):
+        t = t0
+        for step in range(start, start + steps):
+            dog.step(t, step)
+            t += seconds_per_step
+        return t
+
+    def test_velocita_costante_non_ferma(self):
+        dog = train_auto.SpeedWatchdog(window=900)
+        t = self.feed(dog, 1, 1000, 4.0)
+        self.assertIsNone(dog.check(t))
+
+    def test_velocita_raddoppiata_ferma(self):
+        dog = train_auto.SpeedWatchdog(window=900)
+        t = self.feed(dog, 1, 400, 4.0)
+        self.assertIsNone(dog.check(t))
+        t = self.feed(dog, 401, 200, 9.5, t0=t)
+        self.assertIn("contro un migliore di 4.0", dog.check(t))
+
+    def test_rallentamento_sotto_il_doppio_non_ferma(self):
+        dog = train_auto.SpeedWatchdog(window=900)
+        t = self.feed(dog, 1, 400, 4.0)
+        dog.check(t)
+        t = self.feed(dog, 401, 400, 7.0, t0=t)
+        self.assertIsNone(dog.check(t))
+
+    def test_nessun_passo_per_30_minuti_ferma(self):
+        dog = train_auto.SpeedWatchdog(stall=1800)
+        t = self.feed(dog, 1, 10, 4.0)
+        self.assertIsNone(dog.check(t + 1700))
+        self.assertIn("nessun passo", dog.check(t + 1810))
+
+    def test_dopo_il_training_nessun_controllo(self):
+        dog = train_auto.SpeedWatchdog(stall=1800)
+        t = self.feed(dog, 1, 10, 4.0)
+        dog.phase()  # merge, eval: lunghi e senza passi
+        self.assertIsNone(dog.check(t + 7200))
+
+    def test_prima_della_finestra_nessuna_misura(self):
+        dog = train_auto.SpeedWatchdog(window=900)
+        t = self.feed(dog, 1, 100, 30.0)
+        self.assertIsNone(dog.check(t))
+
+
+class RunWatchedTest(unittest.TestCase):
+    CHILD = ("print('[fase] training', flush=True)\n"
+             "for i in range(1, 4): print(f'[training] {i}/3', flush=True)\n"
+             "print('fine', flush=True)\n")
+
+    def run_watched(self, dog, max_restarts=2):
+        out = io.BytesIO()
+        fake_stdout = SimpleNamespace(buffer=out, flush=lambda: None)
+        with mock.patch.object(sys, "stdout", fake_stdout), mock.patch("builtins.print"), \
+                mock.patch.object(train_auto.time, "sleep"):
+            code = train_auto.run_watched([sys.executable, "-c", self.CHILD], dict(os.environ),
+                                          max_restarts=max_restarts, watchdog=dog, poll=5)
+        return code, out.getvalue()
+
+    def test_copia_l_output_e_restituisce_il_codice(self):
+        code, out = self.run_watched(train_auto.SpeedWatchdog)
+        self.assertEqual(0, code)
+        self.assertIn(b"[training] 3/3", out)
+        self.assertIn(b"fine", out)
+
+    def test_rilancia_quando_il_watchdog_ferma(self):
+        starts = []
+
+        class StopAtFirstStep(train_auto.SpeedWatchdog):
+            def __init__(self):
+                super().__init__()
+                starts.append(1)
+
+            def check(self, now):
+                return "lento" if self.samples else None
+
+        code, out = self.run_watched(StopAtFirstStep, max_restarts=2)
+        self.assertEqual(3, len(starts))  # primo lancio piu' due riavvii, poi lo lascia finire
+        self.assertIn(b"fine", out)
+        self.assertEqual(0, code)
 
 
 if __name__ == "__main__":
