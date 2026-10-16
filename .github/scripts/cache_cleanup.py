@@ -70,11 +70,6 @@ def gh(*args):
     return subprocess.run(["gh", *args], check=True, capture_output=True, text=True).stdout
 
 
-def usage(repo):
-    data = json.loads(gh("api", f"repos/{repo}/actions/cache/usage"))
-    return data["active_caches_count"], data["active_caches_size_in_bytes"]
-
-
 def cell(text):
     return text.replace("|", r"\|")
 
@@ -92,9 +87,10 @@ def main():
         args.dry_run = True
     repo = os.environ["GITHUB_REPOSITORY"]
 
-    count_before, size_before = usage(repo)
     entries = json.loads(gh("cache", "list", "--repo", repo, "--limit", "1000",
                             "--json", "id,key,ref,sizeInBytes,createdAt,lastAccessedAt"))
+    # Dall'elenco e non da actions/cache/usage, che si aggiorna con minuti di ritardo dopo le cancellazioni.
+    count_before, size_before = len(entries), sum(e["sizeInBytes"] for e in entries)
     to_delete = plan(entries, datetime.now(timezone.utc))
 
     failed = []
@@ -108,12 +104,8 @@ def main():
     deleted = [(e, why) for e, why in to_delete if e["key"] not in failed]
     freed = sum(e["sizeInBytes"] for e, _ in deleted)
 
-    if args.dry_run:
-        count_after, size_after = count_before - len(deleted), size_before - freed
-        title = "### Pulizia delle cache (prova, nessuna voce cancellata)"
-    else:
-        count_after, size_after = usage(repo)
-        title = "### Pulizia delle cache"
+    count_after, size_after = count_before - len(deleted), size_before - freed
+    title = "### Pulizia delle cache" + (" (prova, nessuna voce cancellata)" if args.dry_run else "")
     lines = [
         title,
         "",
