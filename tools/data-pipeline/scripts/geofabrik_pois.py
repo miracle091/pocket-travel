@@ -16,13 +16,15 @@ sull'indice o con un indice ritoccato.
 3. "osmium export" calcola le geometrie; di ogni oggetto che passa lo stesso filtro della query
    Overpass (filtro_overpass) e il cui centro cade nel bbox si scrive un <node>, o una <way>/<relation>
    con il <center> del suo rettangolo come "out center" di Overpass. Le relazioni che osmium export non
-   assembla (non multipolygon ne' boundary) prendono il centro dai loro membri (relazioni_non_aree).
+   assembla (non multipolygon ne' boundary) prendono il centro dai loro membri (relazioni_non_aree). Con --border
+   si scrive solo un oggetto con il centro dentro il confine o a meno di MARGINE_CONFINE metri (Confine).
 
 Esce con codice 1 se qualcosa non va (download, osmium): build-region.sh ripiega allora su Overpass.
 """
 
 import argparse
 import json
+import math
 import os
 import re
 import subprocess
@@ -56,6 +58,9 @@ NODE_KEYS = ("amenity", "shop", "tourism", "leisure", "historic")
 WR_TOURISM_NAMED = {"museum", "gallery", "attraction"}
 WR_HISTORIC_NAMED = {"castle", "monument", "ruins", "archaeological_site", "fort", "city_gate"}
 WAY_AMENITY = {"parking", "bus_station", "hospital", "fire_station", "monastery", "ferry_terminal"}
+# Metri oltre il confine entro cui un centro vale ancora (Confine): vie e aree a cavallo, punti sul confine che
+# country_border.py semplifica a circa 10 m.
+MARGINE_CONFINE = 100
 
 
 def filtro_overpass(kind, tags):
@@ -374,6 +379,67 @@ def centro(geometry):
     return (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
 
 
+class Confine:
+    """Confine di --border (Feature GeoJSON Polygon/MultiPolygon, buchi compresi: Pechino e Tianjin sono buchi
+    dell'Hebei) per scrivi_xml. Vale un centro dentro il confine o a meno di MARGINE_CONFINE metri: le vie e le aree a
+    cavallo, che `osmium extract -s smart` tiene intere, restano; i membri lontani delle relazioni lunghe, che
+    `-S types=any` completa per intero (i tratti della Grande Muraglia per la Mongolia Interna), no. I lati stanno in
+    fasce orizzontali: ogni punto guarda solo quelli della sua fascia, non le decine di migliaia del confine."""
+
+    def __init__(self, geometry, fasce=None):
+        geometry = geometry.get("geometry", geometry)
+        polys = [geometry["coordinates"]] if geometry["type"] == "Polygon" else geometry["coordinates"]
+        self.lati = [(x1, y1, x2, y2) for poly in polys for ring in poly
+                     for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]) if (x1, y1) != (x2, y2)]
+        if not self.lati:
+            raise ValueError("confine senza lati")
+        self.miny = min(min(y1, y2) for _, y1, _, y2 in self.lati)
+        maxy = max(max(y1, y2) for _, y1, _, y2 in self.lati)
+        self.n = fasce or max(1, min(len(self.lati), 4096))
+        self.h = (maxy - self.miny) / self.n or 1.0
+        self.fasce = [[] for _ in range(self.n)]
+        for lato in self.lati:
+            for i in range(self.fascia(min(lato[1], lato[3])), self.fascia(max(lato[1], lato[3])) + 1):
+                self.fasce[i].append(lato)
+
+    def fascia(self, y):
+        return min(self.n - 1, max(0, int((y - self.miny) / self.h)))
+
+    def dentro(self, x, y):
+        """Punto nel poligono (ray casting, pari-dispari su tutti gli anelli: un buco toglie)."""
+        if not self.miny <= y <= self.miny + self.n * self.h:
+            return False
+        inside = False
+        for x1, y1, x2, y2 in self.fasce[self.fascia(y)]:
+            if (y1 > y) != (y2 > y) and x < x1 + (y - y1) * (x2 - x1) / (y2 - y1):
+                inside = not inside
+        return inside
+
+    def distanza(self, x, y, limite):
+        """Metri dal lato piu' vicino, se sotto limite; altrimenti limite (proiezione equirettangolare sul punto)."""
+        kx, ky = 111320 * math.cos(math.radians(y)), 110540
+        dy = limite / ky
+        dx = limite / max(kx, 1.0)
+        best = limite
+        visti = set()
+        for i in range(self.fascia(y - dy), self.fascia(y + dy) + 1):
+            for lato in self.fasce[i]:
+                x1, y1, x2, y2 = lato
+                if lato in visti or min(x1, x2) > x + dx or max(x1, x2) < x - dx or \
+                        min(y1, y2) > y + dy or max(y1, y2) < y - dy:
+                    continue
+                visti.add(lato)
+                ax, ay = (x1 - x) * kx, (y1 - y) * ky
+                bx, by = (x2 - x) * kx, (y2 - y) * ky
+                vx, vy = bx - ax, by - ay
+                t = max(0.0, min(1.0, -(ax * vx + ay * vy) / (vx * vx + vy * vy))) if vx or vy else 0.0
+                best = min(best, math.hypot(ax + t * vx, ay + t * vy))
+        return best
+
+    def tiene(self, x, y):
+        return self.dentro(x, y) or self.distanza(x, y, MARGINE_CONFINE) < MARGINE_CONFINE
+
+
 def leggi_opl(path):
     """Nodi {id: (lon, lat)}, way {id: [id dei nodi]} e relazioni {id: (tag, [(n|w|r, id)])} di un file OPL di osmium
     (formato "opl,add_metadata=false": un oggetto per riga, campi separati da spazi, caratteri speciali come %hex%)."""
@@ -446,11 +512,11 @@ def relazioni_non_aree(clipped, tmp, nome):
     return out
 
 
-def scrivi_xml(sources, bbox, out, relazioni=()):
+def scrivi_xml(sources, bbox, out, relazioni=(), confine=None):
     """Scrive gli oggetti di ogni geojsonseq in sources, piu' le relazioni [(id, tag, lon, lat)] di relazioni_non_aree,
-    nell'XML di Overpass; ritorna quanti."""
+    nell'XML di Overpass; ritorna quanti. Con confine (Confine) solo quelli che tiene."""
     minx, miny, maxx, maxy = bbox
-    seen = set()
+    seen, fuori = set(), set()
 
     def oggetti():
         for source in sources:
@@ -474,6 +540,9 @@ def scrivi_xml(sources, bbox, out, relazioni=()):
             lon, lat = centro(geometry)
             if not (minx <= lon <= maxx and miny <= lat <= maxy):
                 continue
+            if confine and not confine.tiene(lon, lat):
+                fuori.add((kind, oid))
+                continue
             seen.add((kind, oid))
             tags = "".join(f"<tag k={quoteattr(k)} v={quoteattr(str(v))}/>" for k, v in props.items())
             if kind == "node":
@@ -481,6 +550,9 @@ def scrivi_xml(sources, bbox, out, relazioni=()):
             else:
                 xml.write(f'<{kind} id="{oid}"><center lat="{lat:.7f}" lon="{lon:.7f}"/>{tags}</{kind}>\n')
         xml.write("</osm>\n")
+    if confine:
+        # Una relazione divisa tra due estratti ha un centro per ciascuno: conta se uno dei due vale.
+        print(f"-- geofabrik: {len(fuori - seen)} oggetti con il centro oltre {MARGINE_CONFINE} m dal confine scartati", flush=True)
     return len(seen)
 
 
@@ -520,7 +592,8 @@ def main():
                             "-b", ",".join(str(v) for v in bbox), reduced, "-o", clipped], check=True)
             if args.border:
                 # Poi sul confine della nazione: il rettangolo di San Marino o dell'Ungheria comprende anche l'Italia o
-                # Vienna. Le vie e le relazioni a cavallo restano (strategia smart, come sopra).
+                # Vienna. Le vie e le relazioni a cavallo restano intere (strategia smart, come sopra), con i membri
+                # lontani delle relazioni lunghe: li scarta scrivi_xml, sul centro (Confine).
                 inside = os.path.join(tmp, f"{nome_file(cid)}-confine.osm.pbf")
                 subprocess.run(["osmium", "extract", "--overwrite", "--no-progress", "-s", "smart", "-S", "types=any",
                                 "-p", args.border, clipped, "-o", inside], check=True)
@@ -530,7 +603,11 @@ def main():
                             "-x", "print_record_separator=false", "-a", "type,id", clipped, "-o", source], check=True)
             sources.append(source)
             relazioni += relazioni_non_aree(clipped, tmp, nome_file(cid))
-        count = scrivi_xml(sources, bbox, args.out, relazioni)
+        confine = None
+        if args.border:
+            with open(args.border, encoding="utf-8") as f:
+                confine = Confine(json.load(f))
+        count = scrivi_xml(sources, bbox, args.out, relazioni, confine)
     # Nessun oggetto e' quasi certamente un errore (formato di osmium cambiato, filtro sbagliato): meglio Overpass.
     if count == 0:
         sys.exit("nessun oggetto POI dagli estratti Geofabrik")

@@ -402,6 +402,12 @@ BORDER_FILE=""
 BORDER_AREA=""
 BORDER_RELATION=""
 BORDER_CHECKED=""
+# Regola del taglio sul confine, in manifest.json come poi.borderRule: un pacchetto pubblicato con un'altra regola si
+# rigenera una volta anche se recente. 2: geofabrik_pois.py tiene solo gli oggetti con il centro dentro il confine o a
+# meno di 100 m, senza i membri lontani delle relazioni a cavallo (1.534 POI su 7.546 della Mongolia Interna in Shanxi,
+# Hebei, Pechino e Tianjin, tratti della Grande Muraglia). Il controllo sulla meta' dei POI pubblicati resta valido: il
+# taglio ne toglie al massimo il 20% (Mongolia Interna).
+POI_BORDER_RULE=2
 find_border() {
   BORDER_CHECKED=true
   if [ -n "$REGION_ISO" ] && BORDER_RELATION="$(python3 "$SCRIPT_DIR/country_border.py" --iso "$REGION_ISO" --name "$REGION_TITLE" --out "$WORKDIR/confine.geojson" \
@@ -504,6 +510,9 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
     find_border
     if [ -n "$BORDER_FILE" ] && [ "$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.borderRelation // ""' 2>/dev/null || true)" != "$BORDER_RELATION" ]; then
       echo "-- $REGION_ID: POI pubblicati non tagliati sul confine $BORDER_RELATION: li rigenero"
+      POI_STALE=true
+    elif [ -n "$BORDER_FILE" ] && [ "$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.borderRule // ""' 2>/dev/null || true)" != "$POI_BORDER_RULE" ]; then
+      echo "-- $REGION_ID: POI pubblicati tagliati senza la regola $POI_BORDER_RULE del confine: li rigenero"
       POI_STALE=true
     fi
 
@@ -819,7 +828,14 @@ poi_count() {
 # risultato vuoto (un estratto incompleto fa gia' fallire geofabrik_pois.py).
 PUBLISHED_POI_COUNT="$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.count // empty' 2>/dev/null || true)"
 POI_BORDER=false
-[ -n "$BORDER_FILE" ] && POI_BORDER=true
+POI_BORDER_RULE_JSON=null
+if [ -n "$BORDER_FILE" ]; then
+  POI_BORDER=true
+  # La regola la applica geofabrik_pois.py: i POI di Overpass (ripiego) restano senza, e la run dopo li rigenera.
+  if [ -n "$GEOFABRIK_XML" ]; then
+    POI_BORDER_RULE_JSON="$POI_BORDER_RULE"
+  fi
+fi
 # Primo pacchetto tagliato su questo confine: quello pubblicato aveva anche i POI dei paesi o degli stati vicini (Oman:
 # due terzi negli Emirati; Virginia Occidentale: tre quarti negli stati vicini), quindi il confronto con la meta'
 # scarterebbe il risultato giusto. Resta il controllo sul risultato vuoto.
@@ -868,12 +884,19 @@ if [ "$POI_ONLY" = "true" ]; then
     hash="$(sha256sum < "$file" | awk '{print $1}')"
     if [ "$hash" = "$(printf '%s' "$PUBLISHED_REGION" | jq -r --arg key "$key" '.[$key].file.sha256 // ""')" ]; then
       rm -f "$file"
+      # Stessi POI con la regola nuova del confine: la voce pubblicata la registra, altrimenti ogni run li rigenera.
+      if [ "$key" = "poi" ]; then
+        jq -c --argjson borderRule "$POI_BORDER_RULE_JSON" '.regions |= map(.poi.borderRule = $borderRule)' \
+          "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
+        mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
+      fi
       return 0
     fi
     jq -c --arg key "$key" --arg version "$VERSION" --arg name "$name" --arg url "$url" \
-      --argjson size "$(wc -c < "$file" | tr -d ' ')" --arg hash "$hash" --argjson xz "$(xz_entry "$file" "$url")" --argjson count "$POI_COUNT" --argjson border "$POI_BORDER" --argjson borderRelation "${BORDER_RELATION:-null}" '
+      --argjson size "$(wc -c < "$file" | tr -d ' ')" --arg hash "$hash" --argjson xz "$(xz_entry "$file" "$url")" --argjson count "$POI_COUNT" --argjson border "$POI_BORDER" --argjson borderRelation "${BORDER_RELATION:-null}" \
+      --argjson borderRule "$POI_BORDER_RULE_JSON" '
       .regions |= map(.[$key] = {version: $version, file: {name: $name, url: $url, sizeBytes: $size, sha256: $hash}, fileXz: $xz}
-        + (if $key == "poi" then {count: $count, border: $border, borderRelation: $borderRelation} else {} end))' \
+        + (if $key == "poi" then {count: $count, border: $border, borderRelation: $borderRelation, borderRule: $borderRule} else {} end))' \
       "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
     mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
   }
@@ -954,11 +977,12 @@ echo "-- genero il frammento di catalogo..."
 POI_XZ="$(xz_entry "$POI_DB" "$POI_DB_URL")"
 POI_EXTRA_XZ="null"
 [ -f "$POI_EXTRA_DB" ] && POI_EXTRA_XZ="$(xz_entry "$POI_EXTRA_DB" "$POI_EXTRA_DB_URL")"
-# border: POI tagliati su un confine OSM; borderRelation: la relazione (nazione o suddivisione). Il controllo del
-# conteggio sopra e la rigenerazione anticipata confrontano solo pacchetti tagliati sulla stessa relazione.
+# border: POI tagliati su un confine OSM; borderRelation: la relazione (nazione o suddivisione); borderRule: la regola
+# del taglio (POI_BORDER_RULE). Il controllo del conteggio sopra e la rigenerazione anticipata confrontano solo
+# pacchetti tagliati sulla stessa relazione.
 jq -c --argjson xz "$POI_XZ" --argjson extraXz "$POI_EXTRA_XZ" --argjson count "$POI_COUNT" --argjson border "$POI_BORDER" \
-  --argjson borderRelation "${BORDER_RELATION:-null}" \
-  '.regions |= map(.poi.fileXz = $xz | .poi.count = $count | .poi.border = $border | .poi.borderRelation = $borderRelation | if .poiExtra and $extraXz then .poiExtra.fileXz = $extraXz else . end)' \
+  --argjson borderRelation "${BORDER_RELATION:-null}" --argjson borderRule "$POI_BORDER_RULE_JSON" \
+  '.regions |= map(.poi.fileXz = $xz | .poi.count = $count | .poi.border = $border | .poi.borderRelation = $borderRelation | .poi.borderRule = $borderRule | if .poiExtra and $extraXz then .poiExtra.fileXz = $extraXz else . end)' \
   "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
 mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
 # Mappa d'insieme compressa (voce fileXz): dimensione/hash gia' calcolati da build_preview, niente

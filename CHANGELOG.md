@@ -23,6 +23,9 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Vaccinazioni e numeri di emergenza: le note in italiano hanno le lettere accentate invece dell'apostrofo ("se si è a contatto con animali", "chi ha già avuto la dengue", "Bogotá"). Arrivano con il prossimo aggiornamento delle guide.
 - Assistente IA: il riassunto delle vaccinazioni nel contesto dice "Nei dati dell'app" invece di "Nei nostri dati", mette il nome del paese tra parentesi o dopo una virgola come la schermata Vaccinazioni e accorda le voci con "certificato richiesto" ("Febbre gialla: certificato richiesto per il paese di provenienza (Kenya)", "la destinazione (Egitto) può chiedere", "scalo di 1 ora", "almeno 1 giorno"). In inglese dice "WHO" invece di "OMS" e "travelers". I modelli addestrati sulle guide hanno visto il testo precedente: il nuovo entra nei dati di addestramento al prossimo addestramento.
 
+### Corretto
+- Punti di interesse tagliati sul confine: restano solo quelli con il centro dentro il confine o a meno di 100 m. I tratti lontani delle relazioni a cavallo del confine, che il taglio teneva tutti, non ci sono più: la Mongolia Interna aveva 1.534 punti su 7.546 in altre province, quasi tutti tratti della Grande Muraglia ("Great Wall of China") in Shanxi, Hebei, Pechino e Tianjin, e anche Hebei e Shanxi avevano centinaia di punti lontani dal confine. Arrivano con il prossimo aggiornamento dei punti di interesse: le regioni tagliate sul confine si rigenerano una volta, anche se aggiornate da poco.
+
 ## [0.11.0] - 2026-10-15
 
 ### Cambiamenti incompatibili

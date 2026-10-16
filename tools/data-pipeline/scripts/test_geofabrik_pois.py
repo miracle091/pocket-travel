@@ -312,6 +312,72 @@ class ScriviXmlTest(unittest.TestCase):
         self.assertEqual(xml.count("<way "), 1)
 
 
+def anello(x0, y0, x1, y1):
+    return [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]
+
+
+class ConfineTest(unittest.TestCase):
+    # Regione 110-112 E, 40-42 N con un buco (Pechino nell'Hebei) a 110,8-111,2; un'isola a 113-113,2.
+    CONFINE = {"type": "Feature", "properties": {}, "geometry": {"type": "MultiPolygon", "coordinates": [
+        [anello(110, 40, 112, 42), anello(110.8, 40.8, 111.2, 41.2)], [anello(113, 40, 113.2, 40.2)]]}}
+
+    def test_dentro_fuori_buco_e_isola_con_poche_o_tante_fasce(self):
+        for fasce in (1, 3, None):
+            confine = geofabrik_pois.Confine(self.CONFINE, fasce)
+            self.assertTrue(confine.dentro(110.5, 41.5), fasce)
+            self.assertFalse(confine.dentro(111, 41), fasce)
+            self.assertTrue(confine.dentro(113.1, 40.1), fasce)
+            self.assertFalse(confine.dentro(112.5, 41), fasce)
+            self.assertFalse(confine.dentro(111, 39), fasce)
+            self.assertFalse(confine.dentro(111, 43), fasce)
+
+    def test_fascia_di_100_metri_oltre_il_confine_anche_nel_buco(self):
+        confine = geofabrik_pois.Confine(self.CONFINE["geometry"])
+        # A 41 N un grado di longitudine e' circa 84 km: 0,0006 gradi sono circa 50 m, 0,0018 circa 150 m.
+        self.assertTrue(confine.tiene(112.0006, 41))
+        self.assertFalse(confine.tiene(112.0018, 41))
+        self.assertTrue(confine.tiene(110.8006, 41))
+        self.assertFalse(confine.tiene(110.8018, 41))
+        # Oltre il vertice, in diagonale: circa 71 m.
+        self.assertTrue(confine.tiene(112.0006, 42.00045))
+        self.assertAlmostEqual(confine.distanza(112.0018, 41, 1000), 151, delta=2)
+
+    def test_scrivi_xml_scarta_i_membri_della_relazione_fuori_dal_confine(self):
+        # Tratti di una relazione lunga (la Grande Muraglia) che osmium extract -S types=any completa per intero: uno
+        # dentro, uno a cavallo con il centro a 50 m dal confine, uno lontano, uno nel buco; e la relazione stessa
+        # (type=route, centro dai membri) con il centro fuori.
+        muro = {"historic": "citywalls", "name": "Great Wall of China", "wikidata": "Q12501"}
+        features = [
+            {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[110.2, 41.5], [110.4, 41.6]]},
+             "properties": {"@type": "way", "@id": 1, **muro}},
+            {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[111.99, 41], [112.0112, 41]]},
+             "properties": {"@type": "way", "@id": 2, **muro}},
+            {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[112.4, 41.2], [112.6, 41.3]]},
+             "properties": {"@type": "way", "@id": 3, **muro}},
+            {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[110.9, 40.9], [111.1, 41.1]]},
+             "properties": {"@type": "way", "@id": 4, **muro}},
+            {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[112.4, 41.2], [112.6, 41.2], [112.6, 41.3], [112.4, 41.2]]]},
+             "properties": {"@type": "way", "@id": 3, **muro}},
+            {"type": "Feature", "geometry": {"type": "Point", "coordinates": [111.5, 41.5]},
+             "properties": {"@type": "node", "@id": 5, "amenity": "cafe"}},
+        ]
+        relazioni = [(9, {"type": "route", "historic": "citywalls", "name": "Great Wall of China", "wikidata": "Q12501"},
+                      113.5, 41.0)]
+        with tempfile.TemporaryDirectory() as tmp:
+            source = os.path.join(tmp, "a.geojsonseq")
+            with open(source, "w", encoding="utf-8") as f:
+                f.writelines(json.dumps(x) + "\n" for x in features)
+            out = os.path.join(tmp, "out.osm.xml")
+            with mock.patch("sys.stdout", new_callable=io.StringIO) as stdout:
+                count = geofabrik_pois.scrivi_xml([source], (109, 39, 114, 43), out, relazioni,
+                                                  geofabrik_pois.Confine(self.CONFINE))
+            root = ElementTree.parse(out).getroot()
+
+        self.assertEqual(count, 3)
+        self.assertEqual(sorted((e.tag, e.get("id")) for e in root), [("node", "5"), ("way", "1"), ("way", "2")])
+        self.assertIn("3 oggetti con il centro oltre 100 m dal confine scartati", stdout.getvalue())
+
+
 class FileDatatoTest(unittest.TestCase):
     def test_il_piu_recente_della_cartella(self):
         listing = (b'<a href="iceland-260929.osm.pbf">x</a><a href="iceland-260930.osm.pbf">x</a>'
