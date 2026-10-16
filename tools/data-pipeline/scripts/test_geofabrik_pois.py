@@ -6,6 +6,7 @@ Uso: python test_geofabrik_pois.py
 import io
 import json
 import os
+import random
 import sys
 import tempfile
 import unittest
@@ -242,7 +243,7 @@ class FiltroOverpassTest(unittest.TestCase):
 
 
 class RelazioniNonAreeTest(unittest.TestCase):
-    def test_opl_e_centro_dai_membri_anche_annidati(self):
+    def test_opl_e_punto_da_un_membro_anche_annidato(self):
         opl = (
             "n1 x12.3350000 y45.4380000\n"
             "n2 x12.3360000 y45.4385000\n"
@@ -265,14 +266,34 @@ class RelazioniNonAreeTest(unittest.TestCase):
         self.assertEqual(tags["name"], "Ponte di Rialto")
         self.assertEqual(members, [("w", 10), ("r", 21), ("n", 99)])
         self.assertEqual(relations[22], ({}, [("n", 9)]))
-        # Il nodo 99 manca (fuori dal ritaglio): conta quello che c'e'.
-        points = geofabrik_pois.punti_relazione(20, nodes, ways, relations)
-        self.assertEqual(sorted(points), [(12.335, 45.438), (12.336, 45.4385), (12.34, 45.43)])
+        # Il punto viene sempre dalla way membro con l'id piu' basso (qui l'unica), a meta' della sua lunghezza.
+        x, y = geofabrik_pois.punto_relazione(20, nodes, ways, relations)
+        self.assertEqual((round(x, 5), round(y, 5)), (12.3355, 45.43825))
+        # Senza way, il nodo; senza nodi, la relazione figlia.
+        self.assertEqual(geofabrik_pois.punto_relazione(21, nodes, ways, relations), (12.34, 45.43))
+        relations[23] = ({}, [("r", 21), ("r", 99)])
+        self.assertEqual(geofabrik_pois.punto_relazione(23, nodes, ways, relations), (12.34, 45.43))
+
+    def test_way_con_lo_stesso_id_della_relazione(self):
+        relations = {100: ({}, [("w", 100)])}
+
+        self.assertEqual(geofabrik_pois.punto_relazione(100, {1: (0.0, 0.0), 2: (2.0, 0.0)}, {100: [1, 2]}, relations),
+                         (1.0, 0.0))
+
+    def test_membro_scelto_fuori_dal_ritaglio(self):
+        # La way 10 (id piu' basso) non c'e': il punto sarebbe fuori dal ritaglio, la relazione la tiene un'altra regione.
+        relations = {1: ({}, [("w", 11), ("w", 10)])}
+        ways = {11: [1, 2]}
+        nodes = {1: (0.0, 0.0), 2: (1.0, 0.0)}
+
+        self.assertIsNone(geofabrik_pois.punto_relazione(1, nodes, ways, relations))
+        # Way con un nodo mancante: niente punto parziale, diverso da quello delle altre regioni.
+        self.assertIsNone(geofabrik_pois.punto_relazione(1, {1: (0.0, 0.0)}, {10: [1, 2], 11: [1, 2]}, relations))
 
     def test_relazione_ciclica_finisce(self):
         relations = {1: ({}, [("r", 2)]), 2: ({}, [("r", 1), ("n", 5)])}
 
-        self.assertEqual(geofabrik_pois.punti_relazione(1, {5: (1.0, 2.0)}, {}, relations), [(1.0, 2.0)])
+        self.assertEqual(geofabrik_pois.punto_relazione(1, {5: (1.0, 2.0)}, {}, relations), (1.0, 2.0))
 
 
 class ScriviXmlTest(unittest.TestCase):
@@ -331,73 +352,73 @@ class ConfineTest(unittest.TestCase):
             self.assertFalse(confine.dentro(111, 39), fasce)
             self.assertFalse(confine.dentro(111, 43), fasce)
 
-    def test_fascia_di_100_metri_oltre_il_confine_anche_nel_buco(self):
-        confine = geofabrik_pois.Confine(self.CONFINE["geometry"])
-        # A 41 N un grado di longitudine e' circa 84 km: 0,0006 gradi sono circa 50 m, 0,0018 circa 150 m.
-        self.assertTrue(confine.tiene(112.0006, 41))
-        self.assertFalse(confine.tiene(112.0018, 41))
-        self.assertTrue(confine.tiene(110.8006, 41))
-        self.assertFalse(confine.tiene(110.8018, 41))
-        # Oltre il vertice, in diagonale: circa 71 m.
-        self.assertTrue(confine.tiene(112.0006, 42.00045))
-        self.assertAlmostEqual(confine.distanza(112.0018, 41, 1000), 151, delta=2)
+    def test_punto_sul_confine_comune_in_una_sola_regione(self):
+        # Due regioni con il lato in comune percorso in versi opposti, vicino al meridiano 0 dove l'arrotondamento conta.
+        rnd = random.Random(1)
+        comune = [(rnd.uniform(-0.001, 0.001), i / 50) for i in range(51)]
+        ovest = geofabrik_pois.Confine({"type": "Polygon", "coordinates": [comune + [(-1, 1), (-1, 0), comune[0]]]})
+        est = geofabrik_pois.Confine({"type": "Polygon", "coordinates": [[comune[0], (1, 0), (1, 1)] + comune[::-1]]})
+        for x, y in comune[1:-1]:
+            self.assertEqual(ovest.dentro(x, y) + est.dentro(x, y), 1, (x, y))
 
-    def test_vie_e_aree_che_entrano_nel_confine(self):
-        confine = geofabrik_pois.Confine(self.CONFINE)
+    def test_punto_sull_oggetto(self):
+        punto = geofabrik_pois.punto
+        self.assertEqual(punto({"type": "Point", "coordinates": [9.5, 45.1]}), (9.5, 45.1))
+        # Via aperta: a meta' della lunghezza (4 su 8), non al centro del rettangolo (2, 1,5).
+        x, y = punto({"type": "LineString", "coordinates": [[0, 0], [0, 3], [4, 3], [4, 2]]})
+        self.assertEqual((round(x, 2), y), (1.0, 3.0))
+        # Area convessa: il centro del rettangolo, come "out center" di Overpass; la way chiusa come linea vale uguale.
+        quadrato = anello(0, 0, 4, 2)
+        self.assertEqual(punto({"type": "Polygon", "coordinates": [quadrato]}), (2.0, 1.0))
+        self.assertEqual(punto({"type": "LineString", "coordinates": quadrato}), (2.0, 1.0))
+        # Area a C, il centro del rettangolo e' nel vuoto: il centro del tratto interno piu' largo a meta' altezza.
+        c = [[0, 0], [10, 0], [10, 2], [2, 2], [2, 8], [10, 8], [10, 10], [0, 10], [0, 0]]
+        self.assertEqual(punto({"type": "Polygon", "coordinates": [c]}), (1.0, 5.0))
+        # Centro nel buco: un punto dell'area.
+        x, y = punto({"type": "Polygon", "coordinates": [anello(0, 0, 10, 10), anello(2, 2, 8, 8)]})
+        self.assertTrue(x < 2 or x > 8)
+        # Multipoligono: il centro del rettangolo cade tra le parti, il punto nella parte piu' grande.
+        multi = {"type": "MultiPolygon", "coordinates": [[anello(0, 0, 1, 1)], [anello(5, 0, 9, 4)]]}
+        self.assertEqual(punto(multi), (7.0, 2.0))
 
-        def poligono(*ring):
-            return {"type": "Polygon", "coordinates": [anello(*ring)]}
-
-        # Riserva a cavallo con il centro del rettangolo a 50 km dal confine: un vertice dentro.
-        self.assertTrue(confine.tocca(poligono(111.9, 41, 113, 41.2)))
-        # Striscia che attraversa la regione senza vertici dentro: i lati incrociano il confine.
-        self.assertTrue(confine.tocca(poligono(109, 41.5, 114, 41.6)))
-        self.assertTrue(confine.tocca({"type": "LineString", "coordinates": [[109, 41.5], [114, 41.6]]}))
-        # Area che contiene tutta la regione.
-        self.assertTrue(confine.tocca(poligono(100, 30, 120, 50)))
-        # Area e via fuori, anche vicine; la via nel buco non entra.
-        self.assertFalse(confine.tocca(poligono(112.1, 41, 112.9, 41.2)))
-        self.assertFalse(confine.tocca({"type": "MultiLineString", "coordinates": [[[110.9, 40.9], [111.1, 41.1]]]}))
-        self.assertFalse(confine.tocca({"type": "Point", "coordinates": [111, 41]}))
-
-    def test_scrivi_xml_scarta_i_membri_della_relazione_fuori_dal_confine(self):
+    def test_scrivi_xml_un_oggetto_in_una_sola_regione(self):
         # Tratti di una relazione lunga (la Grande Muraglia) che osmium extract -S types=any completa per intero: uno
-        # dentro, uno a cavallo con il centro a 50 m dal confine, uno lontano, uno nel buco; e la relazione stessa
-        # (type=route, centro dai membri) con il centro fuori.
+        # dentro, uno a cavallo del confine con la regione vicina (110-112 e 112-114 E), uno lontano, uno nel buco; una
+        # riserva a cavallo; la relazione stessa (type=route, centro dai membri) fuori da tutte e due.
         muro = {"historic": "citywalls", "name": "Great Wall of China", "wikidata": "Q12501"}
         features = [
             {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[110.2, 41.5], [110.4, 41.6]]},
              "properties": {"@type": "way", "@id": 1, **muro}},
-            {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[111.99, 41], [112.0112, 41]]},
+            {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[111.5, 41], [112.1, 41]]},
              "properties": {"@type": "way", "@id": 2, **muro}},
-            {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[112.4, 41.2], [112.6, 41.3]]},
+            {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[115.4, 41.2], [115.6, 41.3]]},
              "properties": {"@type": "way", "@id": 3, **muro}},
             {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[110.9, 40.9], [111.1, 41.1]]},
              "properties": {"@type": "way", "@id": 4, **muro}},
-            {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[112.4, 41.2], [112.6, 41.2], [112.6, 41.3], [112.4, 41.2]]]},
-             "properties": {"@type": "way", "@id": 3, **muro}},
             {"type": "Feature", "geometry": {"type": "Point", "coordinates": [111.5, 41.5]},
              "properties": {"@type": "node", "@id": 5, "amenity": "cafe"}},
-            # Riserva a cavallo con il centro lontano dal confine: entra nella regione, resta.
             {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [anello(111.9, 41, 113, 41.2)]},
              "properties": {"@type": "way", "@id": 6, "leisure": "nature_reserve", "name": "Riserva"}},
         ]
         relazioni = [(9, {"type": "route", "historic": "citywalls", "name": "Great Wall of China", "wikidata": "Q12501"},
-                      113.5, 41.0)]
+                      115.5, 41.0)]
+        vicina = {"type": "Polygon", "coordinates": [anello(112, 40, 114, 42)]}
+        ids, logs = {}, {}
         with tempfile.TemporaryDirectory() as tmp:
             source = os.path.join(tmp, "a.geojsonseq")
             with open(source, "w", encoding="utf-8") as f:
                 f.writelines(json.dumps(x) + "\n" for x in features)
-            out = os.path.join(tmp, "out.osm.xml")
-            with mock.patch("sys.stdout", new_callable=io.StringIO) as stdout:
-                count = geofabrik_pois.scrivi_xml([source], (109, 39, 114, 43), out, relazioni,
-                                                  geofabrik_pois.Confine(self.CONFINE))
-            root = ElementTree.parse(out).getroot()
+            for nome, confine in (("regione", self.CONFINE), ("vicina", vicina)):
+                out = os.path.join(tmp, f"{nome}.osm.xml")
+                with mock.patch("sys.stdout", new_callable=io.StringIO) as stdout:
+                    geofabrik_pois.scrivi_xml([source], (109, 39, 116, 43), out, relazioni,
+                                              geofabrik_pois.Confine(confine))
+                ids[nome] = sorted((e.tag, e.get("id")) for e in ElementTree.parse(out).getroot())
+                logs[nome] = stdout.getvalue()
 
-        self.assertEqual(count, 4)
-        self.assertEqual(sorted((e.tag, e.get("id")) for e in root),
-                         [("node", "5"), ("way", "1"), ("way", "2"), ("way", "6")])
-        self.assertIn("3 oggetti fuori dal confine scartati", stdout.getvalue())
+        self.assertEqual(ids["regione"], [("node", "5"), ("way", "1"), ("way", "2")])
+        self.assertEqual(ids["vicina"], [("way", "6")])
+        self.assertIn("4 oggetti fuori dal confine scartati", logs["regione"])
 
 
 class FileDatatoTest(unittest.TestCase):

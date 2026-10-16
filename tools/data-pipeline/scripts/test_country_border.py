@@ -61,7 +61,7 @@ class ConfineTest(unittest.TestCase):
 
     def test_main_scrive_la_feature_e_stampa_l_id(self):
         with tempfile.TemporaryDirectory() as cache, mock.patch.object(country_border, "cerca", return_value=[SAN_MARINO]), \
-                mock.patch("sys.stdout") as stdout:
+                mock.patch.object(country_border.time, "sleep"), mock.patch("sys.stdout") as stdout:
             out = os.path.join(cache, "confine.geojson")
             with mock.patch.object(sys, "argv", ["country_border.py", "--iso", "sm", "--out", out, "--cache", cache]):
                 country_border.main()
@@ -70,6 +70,40 @@ class ConfineTest(unittest.TestCase):
 
         self.assertEqual(feature["geometry"], SAN_MARINO["geojson"])
         self.assertIn("54624", "".join(call.args[0] for call in stdout.write.call_args_list))
+
+    def test_main_scrive_il_poligono_completo_della_relazione_scelta(self):
+        # La ricerca sceglie la relazione con i poligoni semplificati; il lookup ne da' quello completo, che resta in cache.
+        completo = {"type": "Polygon", "coordinates": [[[12.4, 43.9], [12.45, 43.89], [12.5, 43.9], [12.5, 44.0], [12.4, 43.9]]]}
+        with tempfile.TemporaryDirectory() as cache, \
+                mock.patch.object(country_border, "cerca", side_effect=[[SAN_MARINO], [{**SAN_MARINO, "geojson": completo}]]) as cerca, \
+                mock.patch.object(country_border.time, "sleep"), mock.patch("sys.stdout"):
+            out = os.path.join(cache, "confine.geojson")
+            with mock.patch.object(sys, "argv", ["country_border.py", "--iso", "sm", "--out", out, "--cache", cache]):
+                country_border.main()
+                country_border.main()
+            with open(out, encoding="utf-8") as f:
+                feature = json.load(f)
+
+        self.assertEqual(feature["geometry"], completo)
+        self.assertEqual(cerca.call_count, 2)
+        self.assertEqual(cerca.call_args_list[1].args, ({"osm_ids": "R54624"}, "PocketTravel-pipeline", "lookup"))
+
+    def test_main_senza_poligono_completo_usa_quello_semplificato(self):
+        # Lookup senza poligono, o fallito (rete, risposta troncata): vale quello della ricerca, e il fallimento non resta
+        # in cache.
+        for lookup in ([], OSError("rete"), ValueError("JSON troncato")):
+            with tempfile.TemporaryDirectory() as cache, \
+                    mock.patch.object(country_border, "cerca", side_effect=[[SAN_MARINO], lookup]), \
+                    mock.patch.object(country_border.time, "sleep"), mock.patch("sys.stdout"), mock.patch("sys.stderr"):
+                out = os.path.join(cache, "confine.geojson")
+                with mock.patch.object(sys, "argv", ["country_border.py", "--iso", "sm", "--out", out, "--cache", cache]):
+                    country_border.main()
+                with open(out, encoding="utf-8") as f:
+                    feature = json.load(f)
+                cached = os.path.exists(os.path.join(cache, "confine-r54624.json"))
+
+            self.assertEqual(feature["geometry"], SAN_MARINO["geojson"])
+            self.assertEqual(cached, lookup == [])
 
     def test_main_senza_confine_esce_con_errore(self):
         with tempfile.TemporaryDirectory() as cache, mock.patch.object(country_border, "cerca", return_value=[]), \
@@ -122,7 +156,7 @@ class SuddivisioneTest(unittest.TestCase):
     def test_main_senza_suddivisione_usa_la_nazione(self):
         russia = {**SAN_MARINO, "osm_id": 60189, "extratags": {"ISO3166-1": "RU"}}
         with tempfile.TemporaryDirectory() as cache, \
-                mock.patch.object(country_border, "cerca", side_effect=[[], [], [russia]]), \
+                mock.patch.object(country_border, "cerca", side_effect=[[], [], [russia], [russia]]), \
                 mock.patch.object(country_border.time, "sleep"), mock.patch("sys.stdout") as stdout, mock.patch("sys.stderr"):
             argv = ["country_border.py", "--iso", "ru", "--name", "Volga Region", "--subdivision", "--bbox", "41,51,53,58",
                     "--out", os.path.join(cache, "c.geojson"), "--cache", cache]
@@ -135,7 +169,7 @@ class SuddivisioneTest(unittest.TestCase):
         # "--bbox -82.62,..." argparse lo legge come un'opzione: build-region.sh passa "--bbox=-82.62,...".
         virginia = stato(162068, "US-WV", 37.2, 40.64, -82.64, -77.72)
         with tempfile.TemporaryDirectory() as cache, mock.patch.object(country_border, "cerca", return_value=[virginia]), \
-                mock.patch("sys.stdout") as stdout:
+                mock.patch.object(country_border.time, "sleep"), mock.patch("sys.stdout") as stdout:
             argv = ["country_border.py", "--iso", "us", "--name", "West Virginia", "--subdivision",
                     "--bbox=-82.62,37.20,-77.72,40.65", "--out", os.path.join(cache, "c.geojson"), "--cache", cache]
             with mock.patch.object(sys, "argv", argv):
@@ -165,9 +199,17 @@ class CercaTest(unittest.TestCase):
         self.assertEqual([{"osm_id": 1}], result)
         request = urlopen.call_args.args[0]
         self.assertEqual("UA-di-prova", request.get_header("User-agent"))
-        for fragment in ("polygon_geojson=1", "format=jsonv2", "limit=5", "extratags=1", "addressdetails=1",
-                         "q=Citt%C3%A0+del+Messico"):
+        self.assertTrue(request.full_url.startswith("https://nominatim.openstreetmap.org/search?"))
+        for fragment in ("polygon_geojson=1", "polygon_threshold=0.0001", "format=jsonv2", "limit=5", "extratags=1",
+                         "addressdetails=1", "q=Citt%C3%A0+del+Messico"):
             self.assertIn(fragment, request.full_url)
+
+    def test_lookup_con_il_poligono_completo(self):
+        with mock.patch("urllib.request.urlopen", return_value=FakeResponse([])) as urlopen:
+            country_border.cerca({"osm_ids": "R161349"}, "ua", "lookup")
+        url = urlopen.call_args.args[0].full_url
+        self.assertTrue(url.startswith("https://nominatim.openstreetmap.org/lookup?osm_ids=R161349&polygon_geojson=1"))
+        self.assertNotIn("polygon_threshold", url)
 
     def test_riprova_e_per_429_attende_di_piu(self):
         too_many = urllib.error.HTTPError("https://n", 429, "Too Many Requests", {}, None)

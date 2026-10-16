@@ -14,11 +14,11 @@ sull'indice o con un indice ritoccato.
    chiederebbe (piu' i nodi delle way e i membri delle relazioni, per la geometria). Il file ridotto
    resta in --cache: le regioni successive dello stesso job non riscaricano lo stesso estratto.
 3. "osmium export" calcola le geometrie; di ogni oggetto che passa lo stesso filtro della query
-   Overpass (filtro_overpass) e il cui centro cade nel bbox si scrive un <node>, o una <way>/<relation>
-   con il <center> del suo rettangolo come "out center" di Overpass. Le relazioni che osmium export non
-   assembla (non multipolygon ne' boundary) prendono il centro dai loro membri (relazioni_non_aree). Con --border
-   si scrive solo un oggetto con il centro dentro il confine o a meno di MARGINE_CONFINE metri, o che entra nel confine
-   (Confine).
+   Overpass (filtro_overpass) e il cui punto (punto: il nodo, il centro del rettangolo come "out center" di
+   Overpass se cade nell'area, altrimenti un punto sull'oggetto) cade nel bbox si scrive un <node>, o una
+   <way>/<relation> con quel punto come <center>. Le relazioni che osmium export non assembla (non multipolygon ne'
+   boundary) prendono il centro dai loro membri (relazioni_non_aree). Con --border si scrive solo un oggetto con il
+   punto dentro il confine (Confine).
 
 Esce con codice 1 se qualcosa non va (download, osmium): build-region.sh ripiega allora su Overpass.
 """
@@ -59,9 +59,6 @@ NODE_KEYS = ("amenity", "shop", "tourism", "leisure", "historic")
 WR_TOURISM_NAMED = {"museum", "gallery", "attraction"}
 WR_HISTORIC_NAMED = {"castle", "monument", "ruins", "archaeological_site", "fort", "city_gate"}
 WAY_AMENITY = {"parking", "bus_station", "hospital", "fire_station", "monastery", "ferry_terminal"}
-# Metri oltre il confine entro cui un centro vale ancora (Confine): vie e aree a cavallo, punti sul confine che
-# country_border.py semplifica a circa 10 m.
-MARGINE_CONFINE = 100
 
 
 def filtro_overpass(kind, tags):
@@ -380,27 +377,69 @@ def centro(geometry):
     return (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
 
 
+def punto(geometry):
+    """Punto che rappresenta l'oggetto, sempre sull'oggetto: il nodo; per una via aperta il punto a meta' della
+    lunghezza; per un'area il centro del rettangolo (il <center> di Overpass) se cade dentro, altrimenti il centro del
+    tratto interno piu' largo sull'orizzontale a meta' altezza della parte piu' grande (aree a C o a L). Ogni oggetto
+    ha un solo punto, dentro una sola regione: due regioni vicine non ripetono le vie e le aree a cavallo."""
+    kind, coords = geometry["type"], geometry["coordinates"]
+    if kind == "Point":
+        return tuple(coords)
+    if kind == "LineString" and len(coords) > 3 and coords[0] == coords[-1]:
+        # Way chiusa: osmium la da' anche come area, e deve avere lo stesso punto.
+        kind, coords = "Polygon", [coords]
+    if kind in ("LineString", "MultiLineString"):
+        segs = [(p, q) for line in ([coords] if kind == "LineString" else coords) for p, q in zip(line, line[1:])]
+        k = math.cos(math.radians(centro(geometry)[1]))
+        lens = [math.hypot((q[0] - p[0]) * k, q[1] - p[1]) for p, q in segs]
+        rest = sum(lens) / 2
+        for (p, q), d in zip(segs, lens):
+            if rest <= d and d:
+                t = rest / d
+                return p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])
+            rest -= d
+        return centro(geometry)
+    polys = [coords] if kind == "Polygon" else coords
+    x, y = centro(geometry)
+    if sum(dentro(x, y, ring) for poly in polys for ring in poly) % 2:
+        return x, y
+
+    def area_anello(ring):
+        return abs(sum(x1 * y2 - x2 * y1 for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]))) / 2
+    poly = max(polys, key=lambda p: area_anello(p[0]))
+    _, miny, _, maxy = rettangolo(poly[:1])
+    ym = (miny + maxy) / 2
+    xs = sorted(x1 + (ym - y1) * (x2 - x1) / (y2 - y1) for ring in poly
+                for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]) if (y1 > ym) != (y2 > ym))
+    tratti = list(zip(xs[::2], xs[1::2]))
+    if not tratti:
+        return x, y
+    a, b = max(tratti, key=lambda t: t[1] - t[0])
+    return (a + b) / 2, ym
+
+
 class Confine:
     """Confine di --border (Feature GeoJSON Polygon/MultiPolygon, buchi compresi: Pechino e Tianjin sono buchi
-    dell'Hebei) per scrivi_xml. Vale un centro dentro il confine o a meno di MARGINE_CONFINE metri, o una via o un'area
-    che entra nel confine (tocca): quelle a cavallo, che `osmium extract -s smart` tiene intere, restano; i membri
-    lontani delle relazioni lunghe, che
-    `-S types=any` completa per intero (i tratti della Grande Muraglia per la Mongolia Interna), no. I lati stanno in
-    fasce orizzontali: ogni punto guarda solo quelli della sua fascia, non le decine di migliaia del confine."""
+    dell'Hebei) per scrivi_xml: un oggetto resta se il suo punto (punto) e' dentro. I membri lontani delle relazioni
+    lunghe, che `osmium extract -S types=any` completa per intero (i tratti della Grande Muraglia per la Mongolia
+    Interna), restano fuori; le vie e le aree a cavallo restano in una sola delle regioni vicine. I lati stanno in fasce
+    orizzontali: ogni punto guarda solo quelli della sua fascia, non le decine di migliaia del confine."""
 
     def __init__(self, geometry, fasce=None):
         geometry = geometry.get("geometry", geometry)
         polys = [geometry["coordinates"]] if geometry["type"] == "Polygon" else geometry["coordinates"]
-        self.lati = [(x1, y1, x2, y2) for poly in polys for ring in poly
-                     for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]) if (x1, y1) != (x2, y2)]
-        if not self.lati:
+        # Ogni lato dal basso in alto: il lato in comune con la regione vicina, percorso al contrario, da' lo stesso
+        # incrocio fino all'ultima cifra, e un punto su un vertice del confine sta in una regione sola.
+        lati = [(x1, y1, x2, y2) if y1 < y2 else (x2, y2, x1, y1) for poly in polys for ring in poly
+                for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]) if y1 != y2]
+        if not lati:
             raise ValueError("confine senza lati")
-        self.miny = min(min(y1, y2) for _, y1, _, y2 in self.lati)
-        maxy = max(max(y1, y2) for _, y1, _, y2 in self.lati)
-        self.n = fasce or max(1, min(len(self.lati), 4096))
-        self.h = (maxy - self.miny) / self.n or 1.0
+        self.miny = min(min(y1, y2) for _, y1, _, y2 in lati)
+        maxy = max(max(y1, y2) for _, y1, _, y2 in lati)
+        self.n = fasce or max(1, min(len(lati), 4096))
+        self.h = (maxy - self.miny) / self.n
         self.fasce = [[] for _ in range(self.n)]
-        for lato in self.lati:
+        for lato in lati:
             for i in range(self.fascia(min(lato[1], lato[3])), self.fascia(max(lato[1], lato[3])) + 1):
                 self.fasce[i].append(lato)
 
@@ -417,48 +456,6 @@ class Confine:
                 inside = not inside
         return inside
 
-    def distanza(self, x, y, limite):
-        """Metri dal lato piu' vicino, se sotto limite; altrimenti limite (proiezione equirettangolare sul punto)."""
-        kx, ky = 111320 * math.cos(math.radians(y)), 110540
-        dy = limite / ky
-        dx = limite / max(kx, 1.0)
-        best = limite
-        visti = set()
-        for i in range(self.fascia(y - dy), self.fascia(y + dy) + 1):
-            for lato in self.fasce[i]:
-                x1, y1, x2, y2 = lato
-                if lato in visti or min(x1, x2) > x + dx or max(x1, x2) < x - dx or \
-                        min(y1, y2) > y + dy or max(y1, y2) < y - dy:
-                    continue
-                visti.add(lato)
-                ax, ay = (x1 - x) * kx, (y1 - y) * ky
-                bx, by = (x2 - x) * kx, (y2 - y) * ky
-                vx, vy = bx - ax, by - ay
-                t = max(0.0, min(1.0, -(ax * vx + ay * vy) / (vx * vx + vy * vy))) if vx or vy else 0.0
-                best = min(best, math.hypot(ax + t * vx, ay + t * vy))
-        return best
-
-    def tiene(self, x, y):
-        return self.dentro(x, y) or self.distanza(x, y, MARGINE_CONFINE) < MARGINE_CONFINE
-
-    def tocca(self, geometry):
-        """True se la via o l'area entra nel confine: un suo vertice dentro, un suo lato che incrocia il confine o, per
-        un'area, la regione tutta dentro. Un parco o una riserva a cavallo con il centro del rettangolo fuori resta cosi'
-        nella regione."""
-        kind = geometry["type"]
-        if kind not in ("LineString", "MultiLineString", "Polygon", "MultiPolygon"):
-            return False
-        lines = {"LineString": [geometry["coordinates"]], "MultiLineString": geometry["coordinates"],
-                 "Polygon": geometry["coordinates"]}.get(kind) or [r for poly in geometry["coordinates"] for r in poly]
-        if any(self.dentro(x, y) for line in lines for x, y in line):
-            return True
-        for line in lines:
-            for p, q in zip(line, line[1:]):
-                for i in range(self.fascia(min(p[1], q[1])), self.fascia(max(p[1], q[1])) + 1):
-                    if any(segmenti_si_incrociano(p, q, (x1, y1), (x2, y2)) for x1, y1, x2, y2 in self.fasce[i]):
-                        return True
-        x, y = self.lati[0][:2]
-        return kind in ("Polygon", "MultiPolygon") and Confine(geometry).dentro(x, y)
 
 
 def leggi_opl(path):
@@ -486,26 +483,35 @@ def leggi_opl(path):
     return nodes, ways, relations
 
 
-def punti_relazione(rid, nodes, ways, relations, seen=None):
-    """Coordinate dei nodi di una relazione: i nodi membri, quelli delle way membri e delle relazioni figlie."""
+def punto_relazione(rid, nodes, ways, relations, seen=None):
+    """Punto di una relazione: quello (punto) della sua way membro con l'id piu' basso, o del nodo membro, o della
+    relazione figlia. Sempre lo stesso membro, qualunque parte della relazione ci sia nel ritaglio: due regioni vicine
+    danno alla relazione lo stesso punto, e la tiene solo quella che lo contiene. None se quel membro non c'e' (e' fuori
+    dal ritaglio, quindi lo e' anche il punto)."""
     seen = seen if seen is not None else set()
     seen.add(rid)
-    points = []
-    for kind, mid in relations.get(rid, ({}, []))[1]:
-        if kind == "n" and mid in nodes:
-            points.append(nodes[mid])
-        elif kind == "w":
-            points += [nodes[n] for n in ways.get(mid, []) if n in nodes]
-        elif kind == "r" and mid not in seen:
-            points += punti_relazione(mid, nodes, ways, relations, seen)
-    return points
+    members = relations.get(rid, ({}, []))[1]
+    for kind in ("w", "n", "r"):
+        # Le relazioni figlie fuori dal filtro di tags-filter mancano dappertutto: vale la prima che c'e'.
+        ids = sorted(mid for k, mid in members if k == kind and (kind != "r" or (mid in relations and mid not in seen)))
+        if not ids:
+            continue
+        if kind == "n":
+            return nodes.get(ids[0])
+        if kind == "r":
+            return punto_relazione(ids[0], nodes, ways, relations, seen)
+        refs = ways.get(ids[0], [])
+        if not refs or any(n not in nodes for n in refs):
+            return None
+        return punto({"type": "LineString", "coordinates": [list(nodes[n]) for n in refs]})
+    return None
 
 
 def relazioni_non_aree(clipped, tmp, nome):
     """[(id, tag, lon, lat)] delle relazioni del filtro che osmium export non assembla come aree, perche' non sono
     multipolygon o boundary (Ponte di Rialto type=building, Palmeral di Elche type=collection, Museo di storia
-    naturale di Parigi type=site): Overpass le restituisce con "out center", qui il centro e' quello del rettangolo
-    dei loro membri, come il suo."""
+    naturale di Parigi type=site): Overpass le restituisce con "out center", qui con il punto di un loro membro
+    (punto_relazione)."""
     rels = os.path.join(tmp, f"{nome}-relazioni.opl")
     subprocess.run(["osmium", "cat", "--overwrite", "--no-progress", "-t", "relation", clipped,
                     "-f", "opl,add_metadata=false", "-o", rels], check=True)
@@ -517,7 +523,7 @@ def relazioni_non_aree(clipped, tmp, nome):
     with open(ids, "w", encoding="utf-8") as f:
         f.writelines(f"r{rid}\n" for rid in candidates)
     members = os.path.join(tmp, f"{nome}-membri.opl")
-    # Codice 1: alcuni membri non ci sono (relazioni figlie fuori dal filtro); il centro viene da quelli che restano. Senza
+    # Codice 1: alcuni membri non ci sono (relazioni figlie fuori dal filtro, membri fuori dal ritaglio). Senza
     # il file scritto e' invece un errore di osmium, che altrimenti perderebbe in silenzio tutte queste relazioni.
     result = subprocess.run(["osmium", "getid", "--overwrite", "--no-progress", "-r", "-i", ids, clipped,
                              "-f", "opl,add_metadata=false", "-o", members])
@@ -526,16 +532,15 @@ def relazioni_non_aree(clipped, tmp, nome):
     nodes, ways, relations = leggi_opl(members)
     out = []
     for rid in candidates:
-        points = punti_relazione(rid, nodes, ways, relations)
-        if points:
-            minx, miny, maxx, maxy = rettangolo([points])
-            out.append((rid, relations[rid][0], (minx + maxx) / 2, (miny + maxy) / 2))
+        point = punto_relazione(rid, nodes, ways, relations)
+        if point:
+            out.append((rid, relations[rid][0], *point))
     return out
 
 
 def scrivi_xml(sources, bbox, out, relazioni=(), confine=None):
     """Scrive gli oggetti di ogni geojsonseq in sources, piu' le relazioni [(id, tag, lon, lat)] di relazioni_non_aree,
-    nell'XML di Overpass; ritorna quanti. Con confine (Confine) solo quelli che tiene."""
+    nell'XML di Overpass; ritorna quanti. Con confine (Confine) solo quelli con il punto dentro."""
     minx, miny, maxx, maxy = bbox
     seen, fuori = set(), set()
 
@@ -558,10 +563,10 @@ def scrivi_xml(sources, bbox, out, relazioni=(), confine=None):
             # osmium export da' una way chiusa sia come linea sia come area: conta una volta.
             if (kind, oid) in seen or not filtro_overpass(kind, props):
                 continue
-            lon, lat = centro(geometry)
+            lon, lat = punto(geometry)
             if not (minx <= lon <= maxx and miny <= lat <= maxy):
                 continue
-            if confine and not (confine.tiene(lon, lat) or confine.tocca(geometry)):
+            if confine and not confine.dentro(lon, lat):
                 fuori.add((kind, oid))
                 continue
             seen.add((kind, oid))
@@ -572,8 +577,8 @@ def scrivi_xml(sources, bbox, out, relazioni=(), confine=None):
                 xml.write(f'<{kind} id="{oid}"><center lat="{lat:.7f}" lon="{lon:.7f}"/>{tags}</{kind}>\n')
         xml.write("</osm>\n")
     if confine:
-        # Una relazione divisa tra due estratti ha un centro per ciascuno: conta se uno dei due vale.
-        print(f"-- geofabrik: {len(fuori - seen)} oggetti fuori dal confine scartati (centro oltre {MARGINE_CONFINE} m)", flush=True)
+        # Una relazione divisa tra due estratti ha un centro per ciascuno: resta se uno dei due e' dentro.
+        print(f"-- geofabrik: {len(fuori - seen)} oggetti fuori dal confine scartati", flush=True)
     return len(seen)
 
 
@@ -614,7 +619,7 @@ def main():
             if args.border:
                 # Poi sul confine della nazione: il rettangolo di San Marino o dell'Ungheria comprende anche l'Italia o
                 # Vienna. Le vie e le relazioni a cavallo restano intere (strategia smart, come sopra), con i membri
-                # lontani delle relazioni lunghe: li scarta scrivi_xml, sul centro (Confine).
+                # lontani delle relazioni lunghe: scrivi_xml tiene solo gli oggetti con il punto dentro (Confine).
                 inside = os.path.join(tmp, f"{nome_file(cid)}-confine.osm.pbf")
                 subprocess.run(["osmium", "extract", "--overwrite", "--no-progress", "-s", "smart", "-S", "types=any",
                                 "-p", args.border, clipped, "-o", inside], check=True)

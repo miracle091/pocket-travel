@@ -4,8 +4,10 @@
 Uso: country_border.py --iso XX [--name NOME] [--subdivision --bbox minLon,minLat,maxLon,maxLat] --out confine.geojson
      --cache DIR [--user-agent UA]
 
-Chiede a Nominatim (geocoder di OpenStreetMap) il poligono della relazione della nazione con quel codice ISO 3166-1
-(semplificato a circa 10 m) e lo scrive in --out come Feature GeoJSON, che `osmium extract -p` legge. Stampa l'id
+Chiede a Nominatim (geocoder di OpenStreetMap) la relazione della nazione con quel codice ISO 3166-1 e ne scrive il
+poligono completo (lookup, non semplificato) in --out come Feature GeoJSON, che `osmium extract -p` legge: i poligoni
+semplificati di due regioni vicine si sovrappongono o si staccano di qualche metro, e un punto sul confine finirebbe
+in tutte e due o in nessuna. Stampa l'id
 della relazione: l'area Overpass della nazione e' 3600000000 + id. La risposta resta in --cache (le regioni di una
 stessa nazione nello stesso job non la richiedono di nuovo; Nominatim chiede al massimo una richiesta al secondo).
 I territori d'oltremare (Riunione, Porto Rico, Svalbard) non sono "country" per Nominatim: si cercano per --name (il
@@ -30,18 +32,20 @@ import time
 import urllib.parse
 import urllib.request
 
-NOMINATIM = "https://nominatim.openstreetmap.org/search"
+NOMINATIM = "https://nominatim.openstreetmap.org"
 # Quota minima del rettangolo della regione (regions.sh, da Natural Earth) coperta da quello della suddivisione trovata.
 # Non l'intersezione su unione: in OSM il rettangolo di Hawaii, Alaska (oltre l'antimeridiano), Shanghai e Tianjin
 # comprende isole lontane o mare e supera di 10 volte quello della regione. Hebei per la regione dello Hubei copre 0.
 MIN_COVERAGE = 0.7
 
 
-def cerca(params, user_agent):
-    """Risultati di Nominatim per [params] (country/featureType o q), con poligono, tag e indirizzo."""
-    query = urllib.parse.urlencode({**params, "polygon_geojson": 1, "polygon_threshold": 0.0001, "format": "jsonv2",
-                                    "limit": 5, "extratags": 1, "addressdetails": 1})
-    request = urllib.request.Request(f"{NOMINATIM}?{query}", headers={"User-Agent": user_agent})
+def cerca(params, user_agent, endpoint="search"):
+    """Risultati di Nominatim per [params] (country/featureType o q; osm_ids per "lookup"), con poligono, tag e
+    indirizzo. La ricerca ha i poligoni semplificati a circa 10 m (fino a cinque risultati), il lookup quello completo."""
+    extra = {"polygon_threshold": 0.0001, "limit": 5} if endpoint == "search" else {}
+    query = urllib.parse.urlencode({**params, "polygon_geojson": 1, **extra, "format": "jsonv2", "extratags": 1,
+                                    "addressdetails": 1})
+    request = urllib.request.Request(f"{NOMINATIM}/{endpoint}?{query}", headers={"User-Agent": user_agent})
     for attempt in range(1, 4):
         try:
             with urllib.request.urlopen(request, timeout=120) as response:
@@ -139,6 +143,21 @@ def confine_suddivisione(iso, name, bbox, cache, user_agent):
     return scegli(in_cache(os.path.join(cache, f"confine-{iso.lower()}-{slug}.json"), fetch), valida)
 
 
+def poligono_completo(relation, cache, user_agent):
+    """Poligono non semplificato della relazione [relation], dalla cache o dal lookup di Nominatim; None senza."""
+    def fetch():
+        time.sleep(1)
+        return cerca({"osm_ids": f"R{relation}"}, user_agent, "lookup")
+
+    try:
+        found = scegli(in_cache(os.path.join(cache, f"confine-r{relation}.json"), fetch), lambda r: True)
+    except (OSError, ValueError) as error:
+        # La ricerca ha gia' trovato la relazione: senza il lookup (rete, risposta troncata) vale quello semplificato.
+        print(f"-- confine: lookup della relazione {relation}: {error}", file=sys.stderr, flush=True)
+        return None
+    return found[1] if found and found[0] == relation else None
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--iso", required=True)
@@ -162,6 +181,11 @@ def main():
     if not found:
         sys.exit(f"nessun confine OSM per {args.iso}")
     relation, geometry = found
+    complete = poligono_completo(relation, args.cache, args.user_agent)
+    if not complete:
+        print(f"-- confine: nessun poligono completo per la relazione {relation}, uso quello semplificato",
+              file=sys.stderr, flush=True)
+    geometry = complete or geometry
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump({"type": "Feature", "properties": {}, "geometry": geometry}, f)
     print(relation)
