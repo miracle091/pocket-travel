@@ -86,6 +86,8 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Assistente, con il modello sul dispositivo o online | assistente | assistant |
 | Testo dalla voce, sul dispositivo, nel campo dell'assistente | riconoscimento vocale | voice recognition |
 | Dire la domanda al posto di scriverla | dettare (Detta la domanda) | dictate (Dictate the question) |
+| Domande e risposte di seguito con l'assistente | conversazione | conversation |
+| Elenco delle conversazioni salvate (solo con il motore Sul dispositivo) | cronologia | history |
 | Dove gira l'assistente | motore (Sul dispositivo, Online; mai "offline" o "locale" per il modello) | engine (On device, Online) |
 | Modello scaricabile | modello (modello IA) | model (AI model) |
 | Gruppo di dispositivi per RAM che decide i modelli proposti | fascia di RAM | RAM tier |
