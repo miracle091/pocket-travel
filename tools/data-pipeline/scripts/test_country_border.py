@@ -85,13 +85,15 @@ class ConfineTest(unittest.TestCase):
                 feature = json.load(f)
 
         self.assertEqual(feature["geometry"], completo)
+        self.assertEqual(feature["properties"], {"completo": True})
         self.assertEqual(cerca.call_count, 2)
         self.assertEqual(cerca.call_args_list[1].args, ({"osm_ids": "R54624"}, "PocketTravel-pipeline", "lookup"))
 
     def test_main_senza_poligono_completo_usa_quello_semplificato(self):
-        # Lookup senza poligono, o fallito (rete, risposta troncata): vale quello della ricerca, e il fallimento non resta
-        # in cache.
-        for lookup in ([], OSError("rete"), ValueError("JSON troncato")):
+        # Lookup senza poligono, o fallito (rete, risposta troncata): vale quello della ricerca, segnato come non completo,
+        # e la risposta non resta in cache.
+        for lookup in ([], [{**SAN_MARINO, "geojson": {"type": "Point", "coordinates": [12.4, 43.9]}}],
+                       OSError("rete"), ValueError("JSON troncato")):
             with tempfile.TemporaryDirectory() as cache, \
                     mock.patch.object(country_border, "cerca", side_effect=[[SAN_MARINO], lookup]), \
                     mock.patch.object(country_border.time, "sleep"), mock.patch("sys.stdout"), mock.patch("sys.stderr"):
@@ -103,7 +105,8 @@ class ConfineTest(unittest.TestCase):
                 cached = os.path.exists(os.path.join(cache, "confine-r54624.json"))
 
             self.assertEqual(feature["geometry"], SAN_MARINO["geojson"])
-            self.assertEqual(cached, lookup == [])
+            self.assertEqual(feature["properties"], {"completo": False})
+            self.assertFalse(cached)
 
     def test_main_senza_confine_esce_con_errore(self):
         with tempfile.TemporaryDirectory() as cache, mock.patch.object(country_border, "cerca", return_value=[]), \

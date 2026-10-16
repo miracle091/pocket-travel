@@ -434,10 +434,12 @@ class Confine:
                 for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]) if y1 != y2]
         if not lati:
             raise ValueError("confine senza lati")
-        self.miny = min(min(y1, y2) for _, y1, _, y2 in lati)
-        maxy = max(max(y1, y2) for _, y1, _, y2 in lati)
-        self.n = fasce or max(1, min(len(lati), 4096))
-        self.h = (maxy - self.miny) / self.n
+        self.miny = min(y1 for _, y1, _, _ in lati)
+        self.maxy = max(y2 for _, _, _, y2 in lati)
+        # Circa 16 lati per fascia anche con il confine completo di Russia o Canada (milioni di lati); il tetto limita
+        # le copie dei lati lunghi (confini marittimi), che stanno in ogni fascia che attraversano.
+        self.n = fasce or max(1, min(len(lati) // 16, 1 << 16))
+        self.h = (self.maxy - self.miny) / self.n
         self.fasce = [[] for _ in range(self.n)]
         for lato in lati:
             for i in range(self.fascia(min(lato[1], lato[3])), self.fascia(max(lato[1], lato[3])) + 1):
@@ -448,14 +450,13 @@ class Confine:
 
     def dentro(self, x, y):
         """Punto nel poligono (ray casting, pari-dispari su tutti gli anelli: un buco toglie)."""
-        if not self.miny <= y <= self.miny + self.n * self.h:
+        if not self.miny <= y <= self.maxy:
             return False
         inside = False
         for x1, y1, x2, y2 in self.fasce[self.fascia(y)]:
             if (y1 > y) != (y2 > y) and x < x1 + (y - y1) * (x2 - x1) / (y2 - y1):
                 inside = not inside
         return inside
-
 
 
 def leggi_opl(path):
@@ -487,7 +488,8 @@ def punto_relazione(rid, nodes, ways, relations, seen=None):
     """Punto di una relazione: quello (punto) della sua way membro con l'id piu' basso, o del nodo membro, o della
     relazione figlia. Sempre lo stesso membro, qualunque parte della relazione ci sia nel ritaglio: due regioni vicine
     danno alla relazione lo stesso punto, e la tiene solo quella che lo contiene. None se quel membro non c'e' (e' fuori
-    dal ritaglio, quindi lo e' anche il punto)."""
+    dal ritaglio, quindi lo e' anche il punto). Senza --border anche il punto fuori dal bbox esclude la relazione, pure
+    con altri membri dentro: lo stesso criterio delle vie e delle aree."""
     seen = seen if seen is not None else set()
     seen.add(rid)
     members = relations.get(rid, ({}, []))[1]
@@ -577,7 +579,7 @@ def scrivi_xml(sources, bbox, out, relazioni=(), confine=None):
                 xml.write(f'<{kind} id="{oid}"><center lat="{lat:.7f}" lon="{lon:.7f}"/>{tags}</{kind}>\n')
         xml.write("</osm>\n")
     if confine:
-        # Una relazione divisa tra due estratti ha un centro per ciascuno: resta se uno dei due e' dentro.
+        # Una relazione in due estratti conta una volta: fuori solo se non e' entrata da nessuno dei due.
         print(f"-- geofabrik: {len(fuori - seen)} oggetti fuori dal confine scartati", flush=True)
     return len(seen)
 

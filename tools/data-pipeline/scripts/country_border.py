@@ -149,13 +149,18 @@ def poligono_completo(relation, cache, user_agent):
         time.sleep(1)
         return cerca({"osm_ids": f"R{relation}"}, user_agent, "lookup")
 
+    path = os.path.join(cache, f"confine-r{relation}.json")
     try:
-        found = scegli(in_cache(os.path.join(cache, f"confine-r{relation}.json"), fetch), lambda r: True)
+        found = scegli(in_cache(path, fetch), lambda r: True)
     except (OSError, ValueError) as error:
         # La ricerca ha gia' trovato la relazione: senza il lookup (rete, risposta troncata) vale quello semplificato.
         print(f"-- confine: lookup della relazione {relation}: {error}", file=sys.stderr, flush=True)
         return None
-    return found[1] if found and found[0] == relation else None
+    if found and found[0] == relation:
+        return found[1]
+    # Una risposta senza il poligono non resta in cache: le regioni dopo, nello stesso job, riprovano il lookup.
+    os.remove(path)
+    return None
 
 
 def main():
@@ -185,9 +190,10 @@ def main():
     if not complete:
         print(f"-- confine: nessun poligono completo per la relazione {relation}, uso quello semplificato",
               file=sys.stderr, flush=True)
-    geometry = complete or geometry
+    # completo: build-region.sh registra la regola del taglio (poi.borderRule) solo con il poligono completo, cosi'
+    # un pacchetto tagliato su quello semplificato si rigenera alla run dopo.
     with open(args.out, "w", encoding="utf-8") as f:
-        json.dump({"type": "Feature", "properties": {}, "geometry": geometry}, f)
+        json.dump({"type": "Feature", "properties": {"completo": bool(complete)}, "geometry": complete or geometry}, f)
     print(relation)
 
 

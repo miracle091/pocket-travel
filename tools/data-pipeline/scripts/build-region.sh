@@ -406,8 +406,8 @@ BORDER_CHECKED=""
 # rigenera una volta anche se recente. 2: geofabrik_pois.py tiene solo gli oggetti con il punto (sull'oggetto) dentro il
 # confine completo di country_border.py, quindi ogni via o area a cavallo in una sola regione e nessun membro lontano
 # delle relazioni a cavallo (con la sola strategia smart di osmium: 1.534 POI su 7.546 della Mongolia Interna in Shanxi,
-# Hebei, Pechino e Tianjin, tratti della Grande Muraglia). Il controllo sulla meta' dei POI pubblicati resta valido: il taglio ne toglie
-# al massimo il 20% (Mongolia Interna).
+# Hebei, Pechino e Tianjin, tratti della Grande Muraglia). Il controllo sulla meta' dei POI pubblicati resta valido:
+# il taglio ne toglie al massimo il 20% (Mongolia Interna).
 POI_BORDER_RULE=2
 find_border() {
   BORDER_CHECKED=true
@@ -832,8 +832,9 @@ POI_BORDER=false
 POI_BORDER_RULE_JSON=null
 if [ -n "$BORDER_FILE" ]; then
   POI_BORDER=true
-  # La regola la applica geofabrik_pois.py: i POI di Overpass (ripiego) restano senza, e la run dopo li rigenera.
-  if [ -n "$GEOFABRIK_XML" ]; then
+  # La regola la applica geofabrik_pois.py sul confine completo: i POI di Overpass (ripiego) o tagliati sul confine
+  # semplificato (lookup di Nominatim fallito) restano senza, e la run dopo li rigenera.
+  if [ -n "$GEOFABRIK_XML" ] && [ "$(jq -r '.properties.completo // false' "$BORDER_FILE" 2>/dev/null || true)" = true ]; then
     POI_BORDER_RULE_JSON="$POI_BORDER_RULE"
   fi
 fi

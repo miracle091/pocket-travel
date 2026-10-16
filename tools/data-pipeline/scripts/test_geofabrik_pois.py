@@ -5,6 +5,7 @@ Uso: python test_geofabrik_pois.py
 """
 import io
 import json
+import math
 import os
 import random
 import sys
@@ -351,6 +352,16 @@ class ConfineTest(unittest.TestCase):
             self.assertFalse(confine.dentro(112.5, 41), fasce)
             self.assertFalse(confine.dentro(111, 39), fasce)
             self.assertFalse(confine.dentro(111, 43), fasce)
+
+    def test_tante_fasce_come_una_sola(self):
+        # Confine con molti lati (un cerchio di 1.600): le fasce scalate danno gli stessi risultati di una fascia sola.
+        cerchio = [(math.cos(i * math.pi / 800) * 2, math.sin(i * math.pi / 800)) for i in range(1600)]
+        geometry = {"type": "Polygon", "coordinates": [cerchio + cerchio[:1]]}
+        tante, una = geofabrik_pois.Confine(geometry), geofabrik_pois.Confine(geometry, 1)
+        self.assertEqual(tante.n, 100)
+        rnd = random.Random(2)
+        for x, y in [(rnd.uniform(-2.2, 2.2), rnd.uniform(-1.1, 1.1)) for _ in range(2000)] + cerchio:
+            self.assertEqual(tante.dentro(x, y), una.dentro(x, y), (x, y))
 
     def test_punto_sul_confine_comune_in_una_sola_regione(self):
         # Due regioni con il lato in comune percorso in versi opposti, vicino al meridiano 0 dove l'arrotondamento conta.
