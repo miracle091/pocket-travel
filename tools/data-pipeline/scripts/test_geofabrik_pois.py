@@ -342,6 +342,24 @@ class ConfineTest(unittest.TestCase):
         self.assertTrue(confine.tiene(112.0006, 42.00045))
         self.assertAlmostEqual(confine.distanza(112.0018, 41, 1000), 151, delta=2)
 
+    def test_vie_e_aree_che_entrano_nel_confine(self):
+        confine = geofabrik_pois.Confine(self.CONFINE)
+
+        def poligono(*ring):
+            return {"type": "Polygon", "coordinates": [anello(*ring)]}
+
+        # Riserva a cavallo con il centro del rettangolo a 50 km dal confine: un vertice dentro.
+        self.assertTrue(confine.tocca(poligono(111.9, 41, 113, 41.2)))
+        # Striscia che attraversa la regione senza vertici dentro: i lati incrociano il confine.
+        self.assertTrue(confine.tocca(poligono(109, 41.5, 114, 41.6)))
+        self.assertTrue(confine.tocca({"type": "LineString", "coordinates": [[109, 41.5], [114, 41.6]]}))
+        # Area che contiene tutta la regione.
+        self.assertTrue(confine.tocca(poligono(100, 30, 120, 50)))
+        # Area e via fuori, anche vicine; la via nel buco non entra.
+        self.assertFalse(confine.tocca(poligono(112.1, 41, 112.9, 41.2)))
+        self.assertFalse(confine.tocca({"type": "MultiLineString", "coordinates": [[[110.9, 40.9], [111.1, 41.1]]]}))
+        self.assertFalse(confine.tocca({"type": "Point", "coordinates": [111, 41]}))
+
     def test_scrivi_xml_scarta_i_membri_della_relazione_fuori_dal_confine(self):
         # Tratti di una relazione lunga (la Grande Muraglia) che osmium extract -S types=any completa per intero: uno
         # dentro, uno a cavallo con il centro a 50 m dal confine, uno lontano, uno nel buco; e la relazione stessa
@@ -360,6 +378,9 @@ class ConfineTest(unittest.TestCase):
              "properties": {"@type": "way", "@id": 3, **muro}},
             {"type": "Feature", "geometry": {"type": "Point", "coordinates": [111.5, 41.5]},
              "properties": {"@type": "node", "@id": 5, "amenity": "cafe"}},
+            # Riserva a cavallo con il centro lontano dal confine: entra nella regione, resta.
+            {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [anello(111.9, 41, 113, 41.2)]},
+             "properties": {"@type": "way", "@id": 6, "leisure": "nature_reserve", "name": "Riserva"}},
         ]
         relazioni = [(9, {"type": "route", "historic": "citywalls", "name": "Great Wall of China", "wikidata": "Q12501"},
                       113.5, 41.0)]
@@ -373,9 +394,10 @@ class ConfineTest(unittest.TestCase):
                                                   geofabrik_pois.Confine(self.CONFINE))
             root = ElementTree.parse(out).getroot()
 
-        self.assertEqual(count, 3)
-        self.assertEqual(sorted((e.tag, e.get("id")) for e in root), [("node", "5"), ("way", "1"), ("way", "2")])
-        self.assertIn("3 oggetti con il centro oltre 100 m dal confine scartati", stdout.getvalue())
+        self.assertEqual(count, 4)
+        self.assertEqual(sorted((e.tag, e.get("id")) for e in root),
+                         [("node", "5"), ("way", "1"), ("way", "2"), ("way", "6")])
+        self.assertIn("3 oggetti fuori dal confine scartati", stdout.getvalue())
 
 
 class FileDatatoTest(unittest.TestCase):

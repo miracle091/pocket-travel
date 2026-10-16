@@ -17,7 +17,8 @@ sull'indice o con un indice ritoccato.
    Overpass (filtro_overpass) e il cui centro cade nel bbox si scrive un <node>, o una <way>/<relation>
    con il <center> del suo rettangolo come "out center" di Overpass. Le relazioni che osmium export non
    assembla (non multipolygon ne' boundary) prendono il centro dai loro membri (relazioni_non_aree). Con --border
-   si scrive solo un oggetto con il centro dentro il confine o a meno di MARGINE_CONFINE metri (Confine).
+   si scrive solo un oggetto con il centro dentro il confine o a meno di MARGINE_CONFINE metri, o che entra nel confine
+   (Confine).
 
 Esce con codice 1 se qualcosa non va (download, osmium): build-region.sh ripiega allora su Overpass.
 """
@@ -381,8 +382,9 @@ def centro(geometry):
 
 class Confine:
     """Confine di --border (Feature GeoJSON Polygon/MultiPolygon, buchi compresi: Pechino e Tianjin sono buchi
-    dell'Hebei) per scrivi_xml. Vale un centro dentro il confine o a meno di MARGINE_CONFINE metri: le vie e le aree a
-    cavallo, che `osmium extract -s smart` tiene intere, restano; i membri lontani delle relazioni lunghe, che
+    dell'Hebei) per scrivi_xml. Vale un centro dentro il confine o a meno di MARGINE_CONFINE metri, o una via o un'area
+    che entra nel confine (tocca): quelle a cavallo, che `osmium extract -s smart` tiene intere, restano; i membri
+    lontani delle relazioni lunghe, che
     `-S types=any` completa per intero (i tratti della Grande Muraglia per la Mongolia Interna), no. I lati stanno in
     fasce orizzontali: ogni punto guarda solo quelli della sua fascia, non le decine di migliaia del confine."""
 
@@ -438,6 +440,25 @@ class Confine:
 
     def tiene(self, x, y):
         return self.dentro(x, y) or self.distanza(x, y, MARGINE_CONFINE) < MARGINE_CONFINE
+
+    def tocca(self, geometry):
+        """True se la via o l'area entra nel confine: un suo vertice dentro, un suo lato che incrocia il confine o, per
+        un'area, la regione tutta dentro. Un parco o una riserva a cavallo con il centro del rettangolo fuori resta cosi'
+        nella regione."""
+        kind = geometry["type"]
+        if kind not in ("LineString", "MultiLineString", "Polygon", "MultiPolygon"):
+            return False
+        lines = {"LineString": [geometry["coordinates"]], "MultiLineString": geometry["coordinates"],
+                 "Polygon": geometry["coordinates"]}.get(kind) or [r for poly in geometry["coordinates"] for r in poly]
+        if any(self.dentro(x, y) for line in lines for x, y in line):
+            return True
+        for line in lines:
+            for p, q in zip(line, line[1:]):
+                for i in range(self.fascia(min(p[1], q[1])), self.fascia(max(p[1], q[1])) + 1):
+                    if any(segmenti_si_incrociano(p, q, (x1, y1), (x2, y2)) for x1, y1, x2, y2 in self.fasce[i]):
+                        return True
+        x, y = self.lati[0][:2]
+        return kind in ("Polygon", "MultiPolygon") and Confine(geometry).dentro(x, y)
 
 
 def leggi_opl(path):
@@ -540,7 +561,7 @@ def scrivi_xml(sources, bbox, out, relazioni=(), confine=None):
             lon, lat = centro(geometry)
             if not (minx <= lon <= maxx and miny <= lat <= maxy):
                 continue
-            if confine and not confine.tiene(lon, lat):
+            if confine and not (confine.tiene(lon, lat) or confine.tocca(geometry)):
                 fuori.add((kind, oid))
                 continue
             seen.add((kind, oid))
@@ -552,7 +573,7 @@ def scrivi_xml(sources, bbox, out, relazioni=(), confine=None):
         xml.write("</osm>\n")
     if confine:
         # Una relazione divisa tra due estratti ha un centro per ciascuno: conta se uno dei due vale.
-        print(f"-- geofabrik: {len(fuori - seen)} oggetti con il centro oltre {MARGINE_CONFINE} m dal confine scartati", flush=True)
+        print(f"-- geofabrik: {len(fuori - seen)} oggetti fuori dal confine scartati (centro oltre {MARGINE_CONFINE} m)", flush=True)
     return len(seen)
 
 
