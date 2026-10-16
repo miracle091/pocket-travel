@@ -208,6 +208,7 @@
     <string name="transit_none_soon">Nessuna partenza nelle prossime 3 ore</string>
     <string name="transit_valid_until">Orari validi fino al giorno %1$s</string>
     <string name="transit_expired">Gli orari sono scaduti (validi fino al giorno %1$s)</string>
+    <string name="transit_feed_stale">Orari non più aggiornati: %1$s</string>
     <string name="transit_expiring">Gli orari stanno per scadere</string>
     <string name="transit_feed_expired">Partenze della rete %1$s non mostrate: orari scaduti (validi fino al giorno %2$s)</string>
     <string name="transit_feed_expired_unnamed">Partenze di un\'altra rete non mostrate: orari scaduti (validi fino al giorno %1$s)</string>

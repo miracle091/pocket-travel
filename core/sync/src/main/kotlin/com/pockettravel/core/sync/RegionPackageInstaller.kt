@@ -6,10 +6,12 @@ import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.TransitFeedInfo
+import com.pockettravel.core.data.readTransitValidUntil
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.time.LocalDate
 import javax.inject.Inject
 
 /**
@@ -84,7 +86,16 @@ class RegionPackageInstaller @Inject constructor(
             if (PackageKind.CITIES in kinds) unpackXz(staging, entry.cities!!.file, entry.cities.fileXz, ioDispatcher)
             if (PackageKind.TRANSIT in kinds) {
                 entry.transit!!.feeds.forEach { unpackXz(staging, it.stagedFile, it.stagedFileXz, ioDispatcher) }
-                withContext(ioDispatcher) { assembleTransitDir(staging, entry.transit.feeds) }
+                withContext(ioDispatcher) {
+                    // Le reti sparite dall'indice restano finche' i loro orari sono validi.
+                    val installedDir = File(regionStorage.directoryFor(entry.regionId), RegionStorage.TRANSIT_DIR)
+                    val carried = carriedOverTransitFeeds(
+                        regionStorage.installedTransitFeeds(entry.regionId),
+                        entry.transit.available.mapTo(mutableSetOf()) { it.id },
+                        LocalDate.now(),
+                    ) { readTransitValidUntil(File(installedDir, "${it.id}.db")) }
+                    assembleTransitDir(staging, entry.transit.feeds, carried, installedDir)
+                }
             }
             if (installPreview) unpackXz(staging, entry.preview.file, entry.preview.fileXz, ioDispatcher)
 
@@ -167,14 +178,23 @@ class RegionPackageInstaller @Inject constructor(
  * Prepara la cartella degli orari da attivare: `transit/` in [staging] con una `<id>.db` per rete
  * (gia' scaricata e decompressa, vedi [stagedFile]) e [RegionStorage.TRANSIT_FEEDS_FILE] con nome e
  * attribuzione di ciascuna. Attivata come cartella, sostituisce le reti precedenti: quelle sparite dal
- * catalogo spariscono con lei.
+ * catalogo spariscono con lei, tranne le [carried] (vedi [carriedOverTransitFeeds]), copiate da [installedDir].
  */
-internal fun assembleTransitDir(staging: File, feeds: List<TransitFeed>) {
+internal fun assembleTransitDir(
+    staging: File,
+    feeds: List<TransitFeed>,
+    carried: List<TransitFeedInfo> = emptyList(),
+    installedDir: File? = null,
+) {
     val dir = File(staging, RegionStorage.TRANSIT_DIR)
     dir.deleteRecursively()
     check(dir.mkdirs()) { "Impossibile creare ${RegionStorage.TRANSIT_DIR}" }
     feeds.forEach { feed ->
         check(File(staging, feed.stagedFile.name).renameTo(File(dir, feed.stagedFile.name))) { "Impossibile installare la rete ${feed.id}" }
     }
-    File(dir, RegionStorage.TRANSIT_FEEDS_FILE).writeText(TransitFeedInfo.encode(feeds.map { it.info() }))
+    carried.forEach { info ->
+        val source = File(requireNotNull(installedDir) { "Cartella installata mancante" }, "${info.id}.db")
+        source.copyTo(File(dir, source.name))
+    }
+    File(dir, RegionStorage.TRANSIT_FEEDS_FILE).writeText(TransitFeedInfo.encode(feeds.map { it.info() } + carried))
 }

@@ -207,6 +207,7 @@
     <string name="transit_none_soon">No departures in the next 3 hours</string>
     <string name="transit_valid_until">Timetables valid until %1$s</string>
     <string name="transit_expired">The timetables have expired (valid until %1$s)</string>
+    <string name="transit_feed_stale">Timetables no longer updated: %1$s</string>
     <string name="transit_expiring">The timetables are about to expire</string>
     <string name="transit_feed_expired">%1$s departures not shown: timetables expired (valid until %2$s)</string>
     <string name="transit_feed_expired_unnamed">Departures of another network not shown: timetables expired (valid until %1$s)</string>

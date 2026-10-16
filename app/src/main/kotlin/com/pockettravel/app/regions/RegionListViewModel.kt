@@ -75,6 +75,8 @@ data class PackageUiState(
     val transitDefaultReason: TransitDefaultReason? = null,
     // Mezzi pubblici: le reti della regione non ancora incluse, con il motivo.
     val missingNetworks: List<TransitMissing> = emptyList(),
+    // Mezzi pubblici: nomi delle reti installate i cui orari non sono piu' aggiornati.
+    val staleNetworks: List<String> = emptyList(),
 )
 
 data class TransitNetworkUi(val id: String, val name: String, val downloadBytes: Long, val selected: Boolean)
@@ -232,9 +234,17 @@ class RegionListViewModel @Inject constructor(
         refresh()
         // Le reti scelte cambiano versione e dimensione del pacchetto: le regioni si ricalcolano subito.
         viewModelScope.launch {
-            combine(baseRegions, transitIndex, transitNetworkPreferences.excluded, place) { regions, index, stored, here ->
+            combine(baseRegions, transitIndex, transitNetworkPreferences.excluded, place, regionRepository.observeInstalled()) { regions, index, stored, here, installed ->
                 val choices = effectiveTransitChoices(regions, index, stored, here)
-                attachTransitFeeds(regions, index, choices.excluded, choices.reasons)
+                // Le reti installate si leggono dal disco, solo per le regioni con gli orari e solo con l'indice.
+                val feeds = if (index == null) {
+                    emptyMap()
+                } else {
+                    withContext(ioDispatcher) {
+                        installed.filter { it.transitVersion != null }.associate { it.regionId to regionRepository.installedTransitFeeds(it.regionId) }
+                    }
+                }
+                attachTransitFeeds(regions, index, choices.excluded, choices.reasons, feeds)
             }.collect { manifestRegions.value = it }
         }
         viewModelScope.launch(defaultDispatcher) {
@@ -534,10 +544,16 @@ internal fun regionUiItem(
             },
             downloadBytes = remote.downloadBytes(setOf(kind), addressCellVersions),
             installedBytes = local?.let { installedBytes(it, kind) },
-            detail = if (kind == PackageKind.TRANSIT && remote.transit?.available.orEmpty().size <= 1) remote.transit?.feeds?.joinToString { it.name } else null,
+            detail = if (kind == PackageKind.TRANSIT && remote.transit?.available.orEmpty().size <= 1) remote.transit?.feeds?.joinToString { it.name }?.ifEmpty { null } else null,
             networks = if (kind == PackageKind.TRANSIT) remote.transitNetworks() else emptyList(),
             transitDefaultReason = if (kind == PackageKind.TRANSIT) remote.transit?.defaultReason else null,
-            missingNetworks = if (kind == PackageKind.TRANSIT) remote.transit?.missing.orEmpty() else emptyList(),
+            // Una rete scaricata e non piu' pubblicata compare solo tra quelle non piu' aggiornate, non due volte.
+            missingNetworks = if (kind == PackageKind.TRANSIT) {
+                remote.transit?.missing.orEmpty().filter { it.name !in remote.transit?.stale.orEmpty() }
+            } else {
+                emptyList()
+            },
+            staleNetworks = if (kind == PackageKind.TRANSIT) remote.transit?.stale.orEmpty() else emptyList(),
         )
     }
     val toDownload = when (status) {

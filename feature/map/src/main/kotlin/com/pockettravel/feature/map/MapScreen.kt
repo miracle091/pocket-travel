@@ -125,6 +125,7 @@ fun MapScreen(
     transitPackage: TransitPackageState = TransitPackageState.UNKNOWN,
     transitBoard: TransitBoard? = null,
     transitUpdateResult: TransitUpdateResult? = null,
+    staleTransit: List<String> = emptyList(),
     onDownloadTransit: () -> Unit = {},
     onTransitStopChange: (MapPin?) -> Unit = {},
     // Area inquadrata a ogni fermo della mappa, dopo il primo inquadramento: i segnalini si leggono solo li'.
@@ -391,7 +392,7 @@ fun MapScreen(
                 }
                 pin.address?.let { PoiDetailRow(AppIcons.Place, it) }
                 pin.openingHours?.let { OpeningHoursDetail(it) }
-                if (pin.category in TRANSIT_CATEGORIES) TransitDeparturesSection(transitPackage, transitBoard, hideInaccessible, transitUpdateResult, onDownloadTransit)
+                if (pin.category in TRANSIT_CATEGORIES) TransitDeparturesSection(transitPackage, transitBoard, hideInaccessible, transitUpdateResult, staleTransit, onDownloadTransit)
                 onNavigate?.let { navigate ->
                     Spacer(modifier = Modifier.padding(top = Spacing.l))
                     Button(

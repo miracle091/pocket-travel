@@ -140,6 +140,12 @@ class RegionStorage @Inject constructor(
         return if (file.isFile) decodeAddressCells(file.readText()) else emptyMap()
     }
 
+    /** Le reti dei mezzi pubblici installate (da [TRANSIT_FEEDS_FILE]), vuoto se la regione non le ha o il file non si legge. */
+    fun installedTransitFeeds(regionId: String): List<TransitFeedInfo> {
+        val file = File(directoryFor(regionId), "$TRANSIT_DIR/$TRANSIT_FEEDS_FILE")
+        return runCatching { TransitFeedInfo.decode(file.readText()) }.getOrDefault(emptyList())
+    }
+
     /**
      * Ricerca per cella (sorgente dell'aggiornamento incrementale, vedi [ADDRESSES_SEARCH_DIR]): `.db.xz`, oppure
      * `.db` per le installazioni fatte prima della compressione; vuoto se non ce ne sono.

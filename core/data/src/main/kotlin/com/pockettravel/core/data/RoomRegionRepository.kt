@@ -224,6 +224,8 @@ class RoomRegionRepository @Inject constructor(
     override fun availableStorageBytes(): Long = regionStorage.availableBytes()
 
     override fun installedAddressCells(regionId: String): Map<String, String> = regionStorage.installedAddressCells(regionId)
+
+    override fun installedTransitFeeds(regionId: String): List<TransitFeedInfo> = regionStorage.installedTransitFeeds(regionId)
 }
 
 private val FILE_PACKAGES = mapOf(

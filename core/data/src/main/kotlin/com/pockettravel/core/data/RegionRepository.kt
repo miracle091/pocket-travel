@@ -67,4 +67,7 @@ interface RegionRepository {
 
     /** Celle dei civici a griglia gia' installate (id -> version), per la dimensione da scaricare (RegionListViewModel). */
     fun installedAddressCells(regionId: String): Map<String, String>
+
+    /** Le reti dei mezzi pubblici installate per la regione (nome e id dal disco), vuoto se non ce ne sono. */
+    fun installedTransitFeeds(regionId: String): List<TransitFeedInfo>
 }

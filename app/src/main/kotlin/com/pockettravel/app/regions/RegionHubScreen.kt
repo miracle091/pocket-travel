@@ -195,6 +195,7 @@ fun RegionHubScreen(
                                         transitPackage = hubState.transitState,
                                         transitBoard = mapScreen.transitBoard,
                                         transitUpdateResult = hubState.transitUpdateResult,
+                                        staleTransit = hubState.staleTransit,
                                         onDownloadTransit = viewModel::downloadTransit,
                                         onTransitStopChange = mapViewModel::showDepartures,
                                         onViewportChange = mapViewModel::setViewport,

@@ -12,6 +12,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.time.LocalDate
 import kotlin.io.path.createTempDirectory
 
 class TransitManifestTest {
@@ -128,6 +129,44 @@ class TransitManifestTest {
     }
 
     @Test
+    fun `una rete installata passata a missing e' non piu' aggiornata, una tornata in feeds no`() {
+        val installed = listOf(TransitFeedInfo("mdb-100", "Milano", "ATM"), TransitFeedInfo("mdb-ex", "Torino", "GTT"))
+        val withMissing = index().let { it.copy(missing = listOf(TransitMissing("Torino", listOf("italia"), "orari", id = "mdb-ex"))) }
+
+        assertEquals(listOf("mdb-ex"), staleTransitFeeds(withMissing, "italia", installed).map { it.id })
+        // Torna valida: e' di nuovo tra i feeds, non e' piu' non aggiornata.
+        val back = withMissing.copy(feeds = withMissing.feeds + index().feeds[2].copy(id = "mdb-ex", name = "Torino", regions = listOf("italia")))
+        assertTrue(staleTransitFeeds(back, "italia", installed).isEmpty())
+        // Il confronto e' per id: un nome uguale con un altro id non basta.
+        assertEquals(listOf("mdb-ex"), staleTransitFeeds(withMissing, "italia", listOf(TransitFeedInfo("mdb-ex", "Milano", "GTT"))).map { it.id })
+    }
+
+    @Test
+    fun `una regione senza reti pubblicate riceve comunque le mancanti e quelle non piu' aggiornate, senza offrire il pacchetto`() {
+        val missing = TransitMissing("Torino", listOf("francia"), "orari", id = "mdb-ex")
+        val index = index().copy(missing = listOf(missing))
+        val installed = mapOf("francia" to listOf(TransitFeedInfo("mdb-ex", "Torino", "GTT")))
+        val (francia, spagna) = attachTransitFeeds(listOf(region("francia"), region("spagna")), index, installed = installed)
+
+        assertEquals(listOf(missing), francia.transit!!.missing)
+        assertEquals(listOf("Torino"), francia.transit!!.stale)
+        assertTrue(francia.transit!!.feeds.isEmpty())
+        assertNull("senza reti pubblicate il pacchetto non e' offerto", francia.versionOf(PackageKind.TRANSIT))
+        assertFalse(PackageKind.TRANSIT in francia.availableKinds)
+        assertEquals(0L, francia.downloadBytes(setOf(PackageKind.TRANSIT)))
+        francia.validate()
+        assertNull("nessuna rete ne' mancante ne' installata", spagna.transit)
+    }
+
+    @Test
+    fun `un indice senza id nelle reti mancanti si legge ancora`() {
+        val old = index(sampleIndex.replaceFirst("\"feeds\":", """"missing": [{"name": "Marche", "regions": ["italia"], "reason": "licenza"}], "feeds":"""))
+        assertEquals("", old.missing.single().id)
+        val withId = index(sampleIndex.replaceFirst("\"feeds\":", """"missing": [{"id": "marche", "name": "Marche", "regions": ["italia"], "reason": "licenza"}], "feeds":"""))
+        assertEquals("marche", withId.missing.single().id)
+    }
+
+    @Test
     fun `la versione del pacchetto deriva dalle reti, non dall'ordine`() {
         val feeds = regionTransitFeeds(index(), "lettonia")
         val version = regionTransitVersion(feeds)
@@ -188,5 +227,46 @@ class TransitManifestTest {
         assertEquals("Rigas satiksme (data.gov.lv, CC0 1.0)", infos[0].attribution)
         assertEquals("https://creativecommons.org/publicdomain/zero/1.0/", infos[0].licenseUrl)
         staging.deleteRecursively()
+    }
+
+    private val today = LocalDate.of(2026, 10, 16)
+
+    private fun carried(published: Set<String>, validity: Map<String, LocalDate?>) =
+        carriedOverTransitFeeds(validity.keys.map { TransitFeedInfo(it, it, "x") }, published, today) { validity[it.id] }.map { it.id }
+
+    @Test
+    fun `una rete sparita dall'indice resta finche' gli orari sono validi, anche l'ultimo giorno`() {
+        val validity = mapOf("valida" to today.plusDays(3), "oggi" to today, "scaduta" to today.minusDays(1))
+        assertEquals(listOf("valida", "oggi"), carried(emptySet(), validity))
+    }
+
+    @Test
+    fun `le reti ancora pubblicate, anche quelle tolte dall'utente, non si portano avanti`() {
+        val validity = mapOf("scaricata" to today.plusDays(9), "tolta" to today.plusDays(9), "sparita" to today.plusDays(9))
+        assertEquals(listOf("sparita"), carried(setOf("scaricata", "tolta"), validity))
+    }
+
+    @Test
+    fun `una rete con orari illeggibili si scarta`() {
+        assertEquals(emptyList<String>(), carried(emptySet(), mapOf("rotta" to null)))
+    }
+
+    @Test
+    fun `assembleTransitDir copia le reti portate avanti accanto a quelle nuove`() {
+        val staging = createTempDirectory("pocket-travel-transit-test").toFile()
+        val installed = createTempDirectory("pocket-travel-transit-installed").toFile()
+        File(installed, "vecchia.db").writeText("db-vecchia")
+        val feeds = regionTransitFeeds(index(), "lettonia")
+        feeds.forEach { File(staging, it.stagedFile.name).writeText("db-${it.id}") }
+        val old = TransitFeedInfo("vecchia", "Vecchia", "Fonte")
+
+        assembleTransitDir(staging, feeds, listOf(old), installed)
+
+        val dir = File(staging, RegionStorage.TRANSIT_DIR)
+        assertEquals("db-vecchia", File(dir, "vecchia.db").readText())
+        assertEquals("db-vecchia", File(installed, "vecchia.db").readText())
+        assertEquals(listOf("mdb-3502", "mdb-3503", "vecchia"), TransitFeedInfo.decode(File(dir, RegionStorage.TRANSIT_FEEDS_FILE).readText()).map { it.id })
+        staging.deleteRecursively()
+        installed.deleteRecursively()
     }
 }

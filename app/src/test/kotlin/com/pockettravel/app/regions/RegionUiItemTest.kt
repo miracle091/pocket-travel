@@ -3,6 +3,7 @@ package com.pockettravel.app.regions
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.data.POI_TO_REDOWNLOAD_VERSION
+import com.pockettravel.core.data.TransitFeedInfo
 import com.pockettravel.core.sync.AddressGridCell
 import com.pockettravel.core.sync.MapExtractionSource
 import com.pockettravel.core.sync.MapPackageEntry
@@ -93,6 +94,27 @@ class RegionUiItemTest {
 
         assertEquals(listOf(marche), packages.first { it.kind == PackageKind.TRANSIT }.missingNetworks)
         assertTrue(packages.filter { it.kind != PackageKind.TRANSIT }.all { it.missingNetworks.isEmpty() })
+    }
+
+    @Test
+    fun `le reti installate non piu' pubblicate arrivano al pacchetto dei mezzi pubblici, anche senza reti pubblicate`() {
+        val gone = TransitFeedInfo("mdb-ex", "Torino, GTT", "GTT")
+        val installed = mapOf("italia" to listOf(gone, TransitFeedInfo("mdb-1", "Riga", "Rigas")))
+        val withFeeds = TransitIndex("v1", withTransit.transit!!.feeds)
+        val transit = regionUiItem(attachTransitFeeds(listOf(remote), withFeeds, installed = installed).single(), null, noBytes)
+            .packages.first { it.kind == PackageKind.TRANSIT }
+        assertEquals(listOf("Torino, GTT"), transit.staleNetworks)
+
+        // Nessuna rete pubblicata: la regione installata mostra comunque la riga con le non piu' aggiornate e le mancanti.
+        val missing = TransitMissing("Torino, GTT", listOf("italia"), "orari", id = "mdb-ex")
+        val empty = attachTransitFeeds(listOf(remote), TransitIndex("v1", emptyList(), listOf(missing)), installed = installed).single()
+        val item = regionUiItem(empty, local(map = "m1", routing = "r1", poi = "p1").copy(transitVersion = "transit-x"), noBytes)
+        val row = item.packages.first { it.kind == PackageKind.TRANSIT }
+        assertEquals(listOf("Torino, GTT", "Riga"), row.staleNetworks)
+        // Torino e' gia' tra le non piu' aggiornate: non compare anche tra le non incluse.
+        assertEquals(emptyList<TransitMissing>(), row.missingNetworks)
+        assertEquals(null, row.detail)
+        assertTrue(item.packages.filter { it.kind != PackageKind.TRANSIT }.all { it.staleNetworks.isEmpty() })
     }
 
     @Test

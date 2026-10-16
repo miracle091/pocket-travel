@@ -4,6 +4,7 @@ import com.pockettravel.core.data.TransitFeedInfo
 import kotlinx.serialization.Serializable
 import java.net.URI
 import java.security.MessageDigest
+import java.time.LocalDate
 import kotlin.math.cos
 import kotlin.math.sqrt
 
@@ -23,12 +24,12 @@ data class TransitManifestEntry(val version: String, val url: String, val sizeBy
 data class TransitIndex(val version: String, val feeds: List<TransitFeed>, val missing: List<TransitMissing> = emptyList())
 
 /**
- * Una rete che la pipeline non pubblica ancora (transit-missing.tsv), solo da mostrare nei Contenuti.
- * [reason]: "orari" (scaduti o validi meno di un mese), "licenza" (non aperta); un valore che l'app non
- * conosce si mostra senza motivo.
+ * Una rete che la pipeline non pubblica (esclusa in transit-missing.tsv o con gli orari scaduti), solo da mostrare nei Contenuti.
+ * [reason]: "orari" (scaduti), "licenza" (non aperta); un valore che l'app non
+ * conosce si mostra senza motivo. [id]: quello della rete in `feeds` quando era pubblicata; vuoto negli indici che non lo hanno.
  */
 @Serializable
-data class TransitMissing(val name: String, val regions: List<String>, val reason: String)
+data class TransitMissing(val name: String, val regions: List<String>, val reason: String, val id: String = "")
 
 /**
  * Una rete: [file] e' la transit.db, [fileXz], se c'e', il file da scaricare, compresso con xz, il cui
@@ -64,6 +65,8 @@ data class RegionTransitEntry(
     val defaultReason: TransitDefaultReason? = null,
     // Reti della regione non ancora pubblicate, con il motivo (TransitIndex.missing).
     val missing: List<TransitMissing> = emptyList(),
+    // Nomi delle reti installate che l'indice non pubblica piu' per la regione: gli orari non sono piu' aggiornati.
+    val stale: List<String> = emptyList(),
 )
 
 internal val TransitFeed.stagedFile: RegionManifestFile get() = file.copy(name = "$id.db")
@@ -116,22 +119,51 @@ fun regionTransitVersion(feeds: List<TransitFeed>): String {
 }
 
 /**
- * Arricchisce [entries] con le reti dei mezzi pubblici: le regioni senza reti restano invariate;
- * [index] null (catalogo senza transit, o non scaricato) le lascia tutte invariate. [excluded]: le reti
- * tolte dall'utente per regione; se le toglie tutte restano tutte (l'app non lo permette).
+ * Le reti installate per cui l'indice non pubblica piu' niente per [regionId]: passate a `missing` o tolte.
+ * Il confronto e' per id, non per nome.
+ */
+fun staleTransitFeeds(index: TransitIndex, regionId: String, installed: List<TransitFeedInfo>): List<TransitFeedInfo> {
+    val published = regionTransitFeeds(index, regionId).mapTo(mutableSetOf()) { it.id }
+    return installed.filter { it.id !in published }
+}
+
+/**
+ * Le reti installate da tenere in un aggiornamento: quelle che l'indice non pubblica per la regione ([publishedIds], comprese
+ * le tolte dall'utente) e con gli orari ancora validi oggi. [validUntil] legge l'ultimo giorno valido di una rete, null se illeggibile.
+ */
+internal fun carriedOverTransitFeeds(
+    installed: List<TransitFeedInfo>,
+    publishedIds: Set<String>,
+    today: LocalDate,
+    validUntil: (TransitFeedInfo) -> LocalDate?,
+): List<TransitFeedInfo> =
+    installed.filter { it.id !in publishedIds && validUntil(it)?.let { last -> last >= today } == true }
+
+/**
+ * Arricchisce [entries] con le reti dei mezzi pubblici: le regioni senza reti pubblicate, e senza reti
+ * mancanti o non piu' aggiornate da mostrare, restano invariate; [index] null (catalogo senza transit, o
+ * non scaricato) le lascia tutte invariate. [excluded]: le reti tolte dall'utente per regione; se le toglie
+ * tutte restano tutte (l'app non lo permette). [installed]: le reti installate per regione, per segnalare
+ * quelle non piu' aggiornate.
  */
 fun attachTransitFeeds(
     entries: List<RegionManifestEntry>,
     index: TransitIndex?,
     excluded: Map<String, Set<String>> = emptyMap(),
     defaultReasons: Map<String, TransitDefaultReason> = emptyMap(),
+    installed: Map<String, List<TransitFeedInfo>> = emptyMap(),
 ): List<RegionManifestEntry> {
     if (index == null) return entries
     return entries.map { entry ->
         val all = regionTransitFeeds(index, entry.regionId)
         val chosen = all.filter { it.id !in excluded[entry.regionId].orEmpty() }.ifEmpty { all }
         val missing = index.missing.filter { entry.regionId in it.regions }
-        if (all.isEmpty()) entry else entry.copy(transit = RegionTransitEntry(chosen, all, defaultReasons[entry.regionId], missing))
+        val stale = staleTransitFeeds(index, entry.regionId, installed[entry.regionId].orEmpty()).map { it.name }
+        if (all.isEmpty() && missing.isEmpty() && stale.isEmpty()) {
+            entry
+        } else {
+            entry.copy(transit = RegionTransitEntry(chosen, all, defaultReasons[entry.regionId], missing, stale))
+        }
     }
 }
 

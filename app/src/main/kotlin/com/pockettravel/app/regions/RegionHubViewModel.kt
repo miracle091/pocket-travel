@@ -1,6 +1,7 @@
 package com.pockettravel.app.regions
 
 import com.pockettravel.core.data.DefaultDispatcher
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.LastKnownPosition
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,6 +15,7 @@ import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.TransitClient
 import com.pockettravel.core.sync.attachTransitFeeds
 import com.pockettravel.core.sync.regionTransitFeeds
+import com.pockettravel.core.sync.staleTransitFeeds
 import com.pockettravel.feature.ai.AiAvailability
 import com.pockettravel.feature.map.TransitPackageState
 import com.pockettravel.feature.map.TransitUpdateResult
@@ -45,7 +47,8 @@ enum class RegionMapState { LOADING, INSTALLED, MISSING, DOWNLOADING }
  * ha escluso la regione dal database, e la schermata esce da sola (rotta di avvio con un'ultima regione poi eliminata);
  * [aiAvailable]: la scheda IA c'e' solo con un modello scaricato o una chiave API; [transitState]: orari dei mezzi pubblici
  * per il riquadro delle fermate (in scaricamento anche durante un aggiornamento chiesto dal riquadro);
- * [transitUpdateResult]: esito di "Aggiorna" quando non scarica nulla.
+ * [transitUpdateResult]: esito di "Aggiorna" quando non scarica nulla; [staleTransit]: nomi delle reti installate
+ * che il catalogo non pubblica piu' (orari non piu' aggiornati).
  */
 data class RegionHubUiState(
     val displayName: String? = null,
@@ -55,6 +58,7 @@ data class RegionHubUiState(
     val aiAvailable: Boolean = false,
     val transitState: TransitPackageState = TransitPackageState.UNKNOWN,
     val transitUpdateResult: TransitUpdateResult? = null,
+    val staleTransit: List<String> = emptyList(),
 )
 
 private data class RegionHeader(
@@ -78,6 +82,7 @@ class RegionHubViewModel @Inject constructor(
     private val countryLocator: CountryLocator,
     private val aiAvailability: AiAvailability,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     // Dopo un cambio di lingua: i modelli addestrati valgono solo per la lingua delle guide.
@@ -102,6 +107,9 @@ class RegionHubViewModel @Inject constructor(
     // La regione ha reti dei mezzi pubblici nel catalogo (letto solo se gli orari non sono ancora installati);
     // null finche' non si sa (offline, catalogo non letto).
     private val transitOffered = MutableStateFlow<Boolean?>(null)
+
+    // Nomi delle reti installate nella regione che il catalogo non pubblica piu'; vuoto finche' non si sa.
+    private val staleTransit = MutableStateFlow<List<String>>(emptyList())
 
     // L'ultimo tocco su "Aggiorna" o "Scarica" nel riquadro delle fermate della regione aperta, null se nessuno.
     private val transitUpdate = MutableStateFlow<TransitUpdate?>(null)
@@ -138,8 +146,8 @@ class RegionHubViewModel @Inject constructor(
 
     /** Tutto quello che l'hub legge, in un solo stato. */
     val uiState: StateFlow<RegionHubUiState> = combine(
-        header, mapState, aiAvailability.available, transitState, transitUpdateResult,
-    ) { currentHeader, map, ai, transit, transitResult ->
+        header, mapState, aiAvailability.available, transitState, combine(transitUpdateResult, staleTransit, ::Pair),
+    ) { currentHeader, map, ai, transit, (transitResult, stale) ->
         RegionHubUiState(
             displayName = currentHeader.displayName,
             splitCountry = currentHeader.splitCountry,
@@ -148,6 +156,7 @@ class RegionHubViewModel @Inject constructor(
             aiAvailable = ai,
             transitState = transit,
             transitUpdateResult = transitResult,
+            staleTransit = stale,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RegionHubUiState(aiAvailable = aiAvailability.available.value))
 
@@ -159,6 +168,7 @@ class RegionHubViewModel @Inject constructor(
         this.regionId.value = regionId
         header.value = RegionHeader()
         transitOffered.value = null
+        staleTransit.value = emptyList()
         transitUpdate.value = null
         recentRegionStore.setLastRegionId(regionId)
         viewModelScope.launch {
@@ -175,11 +185,20 @@ class RegionHubViewModel @Inject constructor(
         viewModelScope.launch {
             val installed = regionRepository.installed(regionId)?.transitVersion != null
             // Senza transit.json nel catalogo non si sa ancora: niente "non ci sono orari".
-            val offered = if (installed) null else runCatchingCancellable {
-                val manifest = manifestClient.recentManifest()
-                manifest.transit?.let { regionTransitFeeds(transitClient.fetchIndex(it), regionId).isNotEmpty() }
+            val index = runCatchingCancellable {
+                manifestClient.recentManifest().transit?.let { transitClient.fetchIndex(it) }
             }.getOrNull()
-            if (this@RegionHubViewModel.regionId.value == regionId) transitOffered.value = offered
+            val offered = if (installed) null else index?.let { regionTransitFeeds(it, regionId).isNotEmpty() }
+            // Reti installate che l'indice non pubblica piu' (orari non piu' aggiornati).
+            val stale = if (installed && index != null) {
+                withContext(ioDispatcher) { staleTransitFeeds(index, regionId, regionRepository.installedTransitFeeds(regionId)).map { it.name } }
+            } else {
+                emptyList()
+            }
+            if (this@RegionHubViewModel.regionId.value == regionId) {
+                transitOffered.value = offered
+                staleTransit.value = stale
+            }
         }
     }
 

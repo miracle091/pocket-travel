@@ -9,6 +9,7 @@ import com.pockettravel.app.transitManifestEntry
 import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.PackageKind
+import com.pockettravel.core.data.TransitFeedInfo
 import com.pockettravel.core.data.testing.FakeLastKnownPosition
 import com.pockettravel.core.data.testing.FakeRegionRepository
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
@@ -70,7 +71,7 @@ class RegionHubViewModelTest {
     }
 
     private fun viewModel() = RegionHubViewModel(
-        repository, recent, manifests, scheduler, transitClient, transitPreferences, position, locator, ai, mainDispatcher.dispatcher,
+        repository, recent, manifests, scheduler, transitClient, transitPreferences, position, locator, ai, mainDispatcher.dispatcher, mainDispatcher.dispatcher,
     )
 
     // I StateFlow con WhileSubscribed hanno valori solo con un osservatore.
@@ -218,7 +219,7 @@ class RegionHubViewModelTest {
             }
         }
         val viewModel = RegionHubViewModel(
-            slow, recent, manifests, scheduler, transitClient, transitPreferences, position, locator, ai, mainDispatcher.dispatcher,
+            slow, recent, manifests, scheduler, transitClient, transitPreferences, position, locator, ai, mainDispatcher.dispatcher, mainDispatcher.dispatcher,
         )
         observe(viewModel)
         viewModel.load("italia")
@@ -303,7 +304,7 @@ class RegionHubViewModelTest {
     }
 
     @Test
-    fun `gli orari gia' installati risultano installati senza leggere il catalogo`() = runTest {
+    fun `gli orari gia' installati risultano installati anche senza catalogo`() = runTest {
         repository.installedRegions.value = listOf(installed(transit = "transit-1"))
         val viewModel = viewModel()
 
@@ -311,7 +312,34 @@ class RegionHubViewModelTest {
         observe(viewModel)
 
         assertEquals(TransitPackageState.INSTALLED, viewModel.uiState.value.transitState)
-        assertEquals(0, manifests.recentCount)
+        assertTrue(viewModel.uiState.value.staleTransit.isEmpty())
+    }
+
+    @Test
+    fun `una rete installata che il catalogo non pubblica piu' risulta non aggiornata`() = runTest {
+        repository.installedRegions.value = listOf(installed(transit = "transit-1"))
+        repository.transitFeeds["italia"] = listOf(TransitFeedInfo("mdb-1", "Milano", "ATM"), TransitFeedInfo("mdb-ex", "Torino", "GTT"))
+        withTransitOffered()
+        val viewModel = viewModel()
+
+        viewModel.load("italia")
+        observe(viewModel)
+
+        assertEquals(listOf("Torino"), viewModel.uiState.value.staleTransit)
+        assertEquals(TransitPackageState.INSTALLED, viewModel.uiState.value.transitState)
+    }
+
+    @Test
+    fun `se la rete installata e' tornata nel catalogo non e' non aggiornata`() = runTest {
+        repository.installedRegions.value = listOf(installed(transit = "transit-1"))
+        repository.transitFeeds["italia"] = listOf(TransitFeedInfo("mdb-1", "Milano", "ATM"))
+        withTransitOffered()
+        val viewModel = viewModel()
+
+        viewModel.load("italia")
+        observe(viewModel)
+
+        assertTrue(viewModel.uiState.value.staleTransit.isEmpty())
     }
 
     @Test

@@ -127,6 +127,7 @@ internal fun RegionPackagesSheet(
                             pkg.transitDefaultReason?.let { TransitNetworksNote(it) }
                         }
                         // Sempre visibili, anche con le reti chiuse: chi cerca una rete mancante legge subito il perche'.
+                        if (pkg.staleNetworks.isNotEmpty()) TransitStaleNote(pkg.staleNetworks)
                         if (pkg.missingNetworks.isNotEmpty()) TransitMissingNote(pkg.missingNetworks)
                         if (pkg.kind == PackageKind.ROUTING && item.routingCarAvailable) {
                             val choice by remember(item.regionId) { actions.observeRoutingChoice(item.regionId) }
@@ -368,6 +369,17 @@ private fun TransitMissingNote(missing: List<TransitMissing>) {
             modifier = Modifier.padding(start = Spacing.xl + Spacing.l, end = Spacing.l, bottom = Spacing.s),
         )
     }
+}
+
+// Sotto i mezzi pubblici: le reti scaricate i cui orari non sono piu' aggiornati.
+@Composable
+private fun TransitStaleNote(names: List<String>) {
+    Text(
+        stringResource(R.string.transit_stale, names.joinToString("; ")),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.error,
+        modifier = Modifier.padding(start = Spacing.xl + Spacing.l, end = Spacing.l, bottom = Spacing.s),
+    )
 }
 
 // Pacchetto che il catalogo non offre per la regione: nessuna azione, solo il motivo. "regione" solo per una parte di

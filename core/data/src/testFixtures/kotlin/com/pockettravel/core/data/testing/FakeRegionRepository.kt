@@ -4,6 +4,7 @@ import com.pockettravel.core.data.InstalledGuides
 import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.TransitFeedInfo
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -23,6 +24,7 @@ class FakeRegionRepository(initial: List<InstalledRegion> = emptyList()) : Regio
     /** Pacchetti registrati ma senza file su disco, per regione: li toglie [forgetMissingPackages]. */
     val missingPackages = mutableMapOf<String, Set<PackageKind>>()
     val addressCells = mutableMapOf<String, Map<String, String>>()
+    val transitFeeds = mutableMapOf<String, List<TransitFeedInfo>>()
     var availableBytes: Long = Long.MAX_VALUE
 
     val removedPackages = mutableListOf<Pair<String, PackageKind>>()
@@ -165,4 +167,6 @@ class FakeRegionRepository(initial: List<InstalledRegion> = emptyList()) : Regio
     override fun availableStorageBytes(): Long = availableBytes
 
     override fun installedAddressCells(regionId: String): Map<String, String> = addressCells[regionId].orEmpty()
+
+    override fun installedTransitFeeds(regionId: String): List<TransitFeedInfo> = transitFeeds[regionId].orEmpty()
 }

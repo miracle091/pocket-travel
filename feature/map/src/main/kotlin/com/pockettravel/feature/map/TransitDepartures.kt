@@ -77,7 +77,7 @@ fun transitStationModes(osmTag: String): Set<TransitMode> = when (osmTag) {
  * "Prossime partenze" nel riquadro di un POI di trasporto: le righe del tabellone, la scadenza degli
  * orari e le fonti; se gli orari non sono installati, il pulsante per scaricarli. [board] e' null
  * finche' si legge. [onDownload] scarica o aggiorna il pacchetto orari della regione; [updateResult] e' l'esito
- * dell'ultimo tocco, se non ha avviato un download.
+ * dell'ultimo tocco, se non ha avviato un download. [staleNetworks]: nomi delle reti installate non piu' pubblicate.
  */
 @Composable
 internal fun TransitDeparturesSection(
@@ -85,6 +85,7 @@ internal fun TransitDeparturesSection(
     board: TransitBoard?,
     showAccessibility: Boolean,
     updateResult: TransitUpdateResult?,
+    staleNetworks: List<String>,
     onDownload: () -> Unit,
 ) {
     if (state == TransitPackageState.UNKNOWN) return
@@ -94,6 +95,22 @@ internal fun TransitDeparturesSection(
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.semantics { heading() },
         )
+        // Reti installate che il catalogo non pubblica piu', solo tra quelle del tabellone di questa fermata: "Aggiorna"
+        // non porterebbe nulla, quindi niente pulsante.
+        // Una rete non piu' pubblicata ha di solito gli orari scaduti: accanto a reti valide sta in Departures.expired.
+        val boardFeeds = when (board) {
+            is TransitBoard.Departures -> board.feeds + board.expired.flatMap { it.feeds }
+            is TransitBoard.Expired -> board.feeds
+            TransitBoard.NoStops, null -> emptyList()
+        }
+        val staleHere = staleNetworks.filter { name -> boardFeeds.any { it.name == name } }
+        if (state == TransitPackageState.INSTALLED && staleHere.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.transit_feed_stale, staleHere.joinToString("; ")),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         when (state) {
             TransitPackageState.NOT_OFFERED -> Note(stringResource(R.string.transit_not_offered))
             TransitPackageState.AVAILABLE -> FilledTonalButton(onClick = onDownload) {
@@ -106,7 +123,10 @@ internal fun TransitDeparturesSection(
                 TransitBoard.NoStops -> Note(stringResource(R.string.transit_no_stops))
                 is TransitBoard.Expired -> {
                     Note(stringResource(R.string.transit_expired, formatDate(board.validUntil)))
-                    TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
+                    // Se tutte le reti sono quelle non piu' pubblicate, un aggiornamento non cambierebbe nulla.
+                    if (board.feeds.isEmpty() || board.feeds.any { it.name !in staleNetworks }) {
+                        TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
+                    }
                     Sources(board.feeds)
                 }
                 is TransitBoard.Departures -> {
@@ -117,9 +137,13 @@ internal fun TransitDeparturesSection(
                         }
                     }
                     // Reti scadute accanto a reti valide: si dice quali partenze mancano, sopra l'elenco.
+                    // Come sopra: niente "Aggiorna" se le reti scadute sono tutte non piu' pubblicate.
+                    val expiredFeeds = board.expired.flatMap { it.feeds }
+                    val updateNearExpired = board.expired.isNotEmpty() &&
+                        (expiredFeeds.isEmpty() || expiredFeeds.any { it.name !in staleNetworks })
                     if (board.expired.isNotEmpty()) {
                         board.expired.forEach { ExpiredFeedNote(it) }
-                        TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
+                        if (updateNearExpired) TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
                     }
                     if (board.items.isEmpty()) Note(stringResource(R.string.transit_none_soon))
                     board.items.forEach { DepartureRow(it, showAccessibility) }
@@ -133,8 +157,8 @@ internal fun TransitDeparturesSection(
                                 color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.weight(1f),
                             )
-                            // "Aggiorna" e' gia' sopra, accanto alle reti scadute.
-                            if (board.expired.isEmpty()) TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
+                            // Se c'e', "Aggiorna" e' gia' sopra, accanto alle reti scadute.
+                            if (!updateNearExpired) TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
                         }
                     }
                     Sources(board.feeds)

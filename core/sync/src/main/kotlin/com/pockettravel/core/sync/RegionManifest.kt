@@ -107,7 +107,8 @@ data class RegionManifestEntry(
         PackageKind.POI_EXTRA -> poiExtra?.version
         PackageKind.ADDRESSES -> addressGrid?.let { regionAddressesGridVersion(it.cells) }
         PackageKind.CITIES -> cities?.version
-        PackageKind.TRANSIT -> transit?.let { regionTransitVersion(it.feeds) }
+        // Senza reti pubblicate (solo mancanti o non piu' aggiornate) la regione non offre il pacchetto.
+        PackageKind.TRANSIT -> transit?.takeIf { it.feeds.isNotEmpty() }?.let { regionTransitVersion(it.feeds) }
     }
 
     /** I pacchetti che il catalogo offre per questa regione (tutti tranne, a volte, POI extra, civici e mezzi pubblici). */

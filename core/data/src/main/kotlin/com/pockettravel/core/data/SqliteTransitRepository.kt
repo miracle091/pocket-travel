@@ -6,6 +6,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 /** [TransitRepository] sulle reti GTFS installate, aperte in sola lettura con SQLite. */
@@ -33,6 +35,16 @@ class SqliteTransitRepository @Inject constructor(
             combineBoards(boards)
         }
 }
+
+/** L'ultimo giorno di validita' degli orari di una transit.db (`valid_until`), null se il file non si apre o la data manca. */
+fun readTransitValidUntil(dbFile: File): LocalDate? =
+    runCatching {
+        SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+            db.rawQuery("SELECT value FROM meta WHERE key = 'valid_until'", null).use { cursor ->
+                if (cursor.moveToFirst()) LocalDate.parse(cursor.getString(0), DateTimeFormatter.BASIC_ISO_DATE) else null
+            }
+        }
+    }.getOrNull()
 
 private class SqliteTransitQuery(private val db: SQLiteDatabase) : TransitQuery {
     override fun <T> query(sql: String, read: (TransitRow) -> T): List<T> =
