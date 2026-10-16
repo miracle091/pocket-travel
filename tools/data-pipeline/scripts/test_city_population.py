@@ -94,7 +94,10 @@ class GetTest(unittest.TestCase):
         headers = email.message.Message()
         if retry_after is not None:
             headers["Retry-After"] = retry_after
-        return urllib.error.HTTPError("http://x", 429, "Too Many Requests", headers, None)
+        error = urllib.error.HTTPError("http://x", 429, "Too Many Requests", headers, None)
+        # Da Python 3.14 un HTTPError mai chiuso da' un ResourceWarning, che il controllo dei test conta come errore.
+        self.addCleanup(error.close)
+        return error
 
     def test_riprova_dopo_un_errore_e_poi_riesce(self):
         with mock.patch("city_population.urllib.request.urlopen", side_effect=[OSError("rete"), self._response({"a": 1})]), \

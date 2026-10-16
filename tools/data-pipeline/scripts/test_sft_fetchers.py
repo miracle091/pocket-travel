@@ -51,7 +51,10 @@ class FetchVsTest(unittest.TestCase):
 
     def test_404_e_pagina_assente_gli_altri_errori_salgono(self):
         def error(code):
-            return urllib.error.HTTPError("https://x", code, "x", {}, None)
+            error = urllib.error.HTTPError("https://x", code, "x", {}, None)
+            # Da Python 3.14 un HTTPError mai chiuso da' un ResourceWarning, che il controllo dei test conta come errore.
+            self.addCleanup(error.close)
+            return error
 
         with mock.patch.object(g, "get", side_effect=error(404)):
             self.assertIsNone(g.fetch_vs("XXX"))
@@ -222,6 +225,8 @@ class OffTopicTest(unittest.TestCase):
         sources = {"prova": ("ds/prova", "default", "train", "q", "MIT", 1)}
         too_many = urllib.error.HTTPError("https://x", 429, "x", {}, None)
         not_found = urllib.error.HTTPError("https://x", 404, "x", {}, None)
+        self.addCleanup(too_many.close)
+        self.addCleanup(not_found.close)
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "raw").mkdir()
             with mock.patch.object(g, "OUT", Path(tmp)), mock.patch.object(g, "require_revision"), \

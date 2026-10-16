@@ -216,6 +216,8 @@ class CercaTest(unittest.TestCase):
 
     def test_riprova_e_per_429_attende_di_piu(self):
         too_many = urllib.error.HTTPError("https://n", 429, "Too Many Requests", {}, None)
+        # Da Python 3.14 un HTTPError mai chiuso da' un ResourceWarning, che il controllo dei test conta come errore.
+        self.addCleanup(too_many.close)
         with mock.patch("urllib.request.urlopen", side_effect=[too_many, OSError("rete"), FakeResponse([])]), \
                 mock.patch("time.sleep") as sleep, mock.patch("sys.stderr"):
             self.assertEqual([], country_border.cerca({"q": "x"}, "ua"))

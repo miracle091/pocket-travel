@@ -212,14 +212,16 @@ class FakeHttpResponse:
         return json.dumps(self.payload).encode("utf-8")
 
 
-def http_error(code, retry_after=None):
-    import urllib.error
-    headers = {"Retry-After": retry_after} if retry_after else {}
-    return urllib.error.HTTPError("https://query.wikidata.org/sparql", code, "x", headers, None)
-
-
 class SparqlTest(unittest.TestCase):
     ok = {"results": {"bindings": [{"m": {"type": "uri", "value": E + "Q1"}, "v": {"type": "literal", "value": "Città"}}]}}
+
+    def errore_http(self, code, retry_after=None):
+        import urllib.error
+        headers = {"Retry-After": retry_after} if retry_after else {}
+        error = urllib.error.HTTPError("https://query.wikidata.org/sparql", code, "x", headers, None)
+        # Da Python 3.14 un HTTPError mai chiuso da' un ResourceWarning, che il controllo dei test conta come errore.
+        self.addCleanup(error.close)
+        return error
 
     def setUp(self):
         patcher = mock.patch.object(wikidata_missions, "_deadline", None)
@@ -241,30 +243,30 @@ class SparqlTest(unittest.TestCase):
         self.assertIn(b"query=SELECT+1", request.data)
 
     def test_riprova_su_503_con_attesa_crescente(self):
-        with mock.patch("urllib.request.urlopen", side_effect=[http_error(503), http_error(502), FakeHttpResponse(self.ok)]):
+        with mock.patch("urllib.request.urlopen", side_effect=[self.errore_http(503), self.errore_http(502), FakeHttpResponse(self.ok)]):
             rows = wikidata_missions.sparql("q", "ua")
         self.assertEqual(1, len(rows))
         self.assertEqual([mock.call(20), mock.call(40)], self.sleep.call_args_list)
 
     def test_429_rispetta_retry_after_se_piu_lungo(self):
-        with mock.patch("urllib.request.urlopen", side_effect=[http_error(429, "90"), FakeHttpResponse(self.ok)]):
+        with mock.patch("urllib.request.urlopen", side_effect=[self.errore_http(429, "90"), FakeHttpResponse(self.ok)]):
             wikidata_missions.sparql("q", "ua")
         self.sleep.assert_called_once_with(90)
 
     def test_429_retry_after_non_numerico_usa_l_attesa_base(self):
-        with mock.patch("urllib.request.urlopen", side_effect=[http_error(429, "domani"), FakeHttpResponse(self.ok)]):
+        with mock.patch("urllib.request.urlopen", side_effect=[self.errore_http(429, "domani"), FakeHttpResponse(self.ok)]):
             wikidata_missions.sparql("q", "ua")
         self.sleep.assert_called_once_with(20)
 
     def test_4xx_diverso_da_429_non_si_riprova(self):
-        with mock.patch("urllib.request.urlopen", side_effect=[http_error(400)]) as urlopen:
+        with mock.patch("urllib.request.urlopen", side_effect=[self.errore_http(400)]) as urlopen:
             with self.assertRaises(__import__("urllib.error").error.HTTPError):
                 wikidata_missions.sparql("q", "ua")
         self.assertEqual(1, urlopen.call_count)
         self.sleep.assert_not_called()
 
     def test_dopo_l_ultimo_tentativo_rilancia(self):
-        with mock.patch("urllib.request.urlopen", side_effect=[http_error(500)] * 3) as urlopen:
+        with mock.patch("urllib.request.urlopen", side_effect=[self.errore_http(500)] * 3) as urlopen:
             with self.assertRaises(__import__("urllib.error").error.HTTPError):
                 wikidata_missions.sparql("q", "ua", attempts=3)
         self.assertEqual(3, urlopen.call_count)

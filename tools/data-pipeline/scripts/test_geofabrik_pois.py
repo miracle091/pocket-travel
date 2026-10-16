@@ -459,6 +459,8 @@ class FileDatatoTest(unittest.TestCase):
     def test_404_sul_latest_ripiega_sul_datato_con_id_con_la_barra(self):
         url = "https://d.example/north-america/us/alaska-latest.osm.pbf"
         error = urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+        # Da Python 3.14 un HTTPError mai chiuso da' un ResourceWarning, che il controllo dei test conta come errore.
+        self.addCleanup(error.close)
         calls = []
 
         def scarica(u, dest, _ua):
@@ -611,6 +613,7 @@ class ScaricaTest(unittest.TestCase):
 
     def test_4xx_non_si_riprova(self):
         error = urllib.error.HTTPError("https://d.example/x", 404, "Not Found", {}, None)
+        self.addCleanup(error.close)
         with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", side_effect=error) as urlopen:
             with self.assertRaises(urllib.error.HTTPError):
                 geofabrik_pois.scarica("https://d.example/x.osm.pbf", self.dest, "ua")
@@ -618,6 +621,7 @@ class ScaricaTest(unittest.TestCase):
 
     def test_5xx_si_riprova(self):
         error = urllib.error.HTTPError("https://d.example/x", 503, "Unavailable", {}, None)
+        self.addCleanup(error.close)
         with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", side_effect=[error, FakeDownload(b"ok")]) as urlopen:
             geofabrik_pois.scarica("https://d.example/x.osm.pbf", self.dest, "ua")
         self.assertEqual(2, urlopen.call_count)

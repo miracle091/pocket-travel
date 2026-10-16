@@ -81,6 +81,8 @@ class FetchTest(unittest.TestCase):
 
     def test_404_salva_file_vuoto_e_restituisce_none(self):
         error = urllib.error.HTTPError("http://x", 404, "Not Found", {}, None)
+        # Da Python 3.14 un HTTPError mai chiuso da' un ResourceWarning, che il controllo dei test conta come errore.
+        self.addCleanup(error.close)
         with tempfile.TemporaryDirectory() as d, \
                 mock.patch("vaccinations_draft.urllib.request.urlopen", side_effect=error):
             self.assertIsNone(vd.fetch("c.json", Path(d)))
@@ -88,6 +90,7 @@ class FetchTest(unittest.TestCase):
 
     def test_altri_errori_http_rilanciati(self):
         error = urllib.error.HTTPError("http://x", 500, "Boom", {}, None)
+        self.addCleanup(error.close)
         with tempfile.TemporaryDirectory() as d, \
                 mock.patch("vaccinations_draft.urllib.request.urlopen", side_effect=error):
             with self.assertRaises(urllib.error.HTTPError):

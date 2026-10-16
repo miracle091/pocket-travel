@@ -235,7 +235,10 @@ class PageTest(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def error(self, code):
-        return urllib.error.HTTPError("https://x", code, "x", {}, None)
+        error = urllib.error.HTTPError("https://x", code, "x", {}, None)
+        # Da Python 3.14 un HTTPError mai chiuso da' un ResourceWarning, che il controllo dei test conta come errore.
+        self.addCleanup(error.close)
+        return error
 
     def test_429_si_riprova_con_attesa_crescente(self):
         with mock.patch.object(tq, "_get", side_effect=[self.error(429), self.error(503), {"rows": []}]):
