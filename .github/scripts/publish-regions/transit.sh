@@ -2,8 +2,10 @@
 # Job "transit" di publish-regions.yml: costruisce le reti dei mezzi pubblici di tools/data-pipeline/transit-feeds.tsv
 # (build-transit.sh), le carica sulla release "transit-feeds" e scrive l'indice transit.json e il suo frammento di
 # catalogo ($RUNNER_TEMP/transit-index/transit.json, $RUNNER_TEMP/fragments/transit.json). Una rete che fallisce
-# tiene la voce gia' pubblicata.
-# Ambiente: PAGES_BASE_URL, GITHUB_REPOSITORY, GITHUB_RUN_NUMBER, GITHUB_RUN_ATTEMPT, GH_TOKEN.
+# tiene la voce gia' pubblicata; una rete con gli orari scaduti va tra le "Non incluse" con un warning, e torna
+# pubblicata, con un altro warning, quando l'ente mette online orari validi.
+# Ambiente: PAGES_BASE_URL, GITHUB_REPOSITORY, GITHUB_RUN_NUMBER, GITHUB_RUN_ATTEMPT, GH_TOKEN; facoltative JOB_START
+# (inizio del job, secondi Unix) e TRANSIT_JOB_MINUTES (150).
 set -euo pipefail
 source .github/scripts/env.sh
 source .github/scripts/retry.sh
@@ -22,6 +24,7 @@ VERSION="$(date -u +%Y.%m.%d).$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT"
 OUT="$RUNNER_TEMP/transit-out"
 mkdir -p "$OUT" "$RUNNER_TEMP/fragments" "$RUNNER_TEMP/transit-index"
 FAILED=()
+EXPIRED=()
 PUBLISHED_ARG=""
 [ ! -s "$PUBLISHED" ] || PUBLISHED_ARG="$PUBLISHED"
 # Download in parallelo e conversione una rete alla volta, appena il suo feed e' arrivato: il download vale circa 60%
@@ -36,6 +39,10 @@ DONE_LIST="$LOG_DIR/done.txt"
 mkdir -p "$PREFETCH_DIR" "$LOG_DIR"
 : > "$DONE_LIST"
 export TRANSIT_PREFETCH_DIR="$PREFETCH_DIR"
+# Nessun download oltre questo momento: dall'inizio del job (JOB_START, o da ora fuori da Actions) il suo timeout
+# (TRANSIT_JOB_MINUTES, come timeout-minutes del job) meno 20 minuti per la conversione delle ultime reti, l'upload e
+# l'indice (l'ultima conversione, at-toscana, dura ~1 minuto).
+export TRANSIT_DEADLINE=$((${JOB_START:-$(date -u +%s)} + (${TRANSIT_JOB_MINUTES:-150} - 20) * 60))
 mapfile -t FEED_IDS < <(awk -F'\t' '$0 !~ /^#/ && NF >= 5 { print $1 }' "$FEEDS_TSV")
 # Una riga per host con i suoi id: prima il gruppo di at-toscana, poi i gruppi piu' numerosi.
 awk -F'\t' '$0 !~ /^#/ && NF >= 5 {
@@ -56,13 +63,34 @@ build_feed() {
   BUILT[$id]=1
   echo "::group::$id"
   [ ! -s "$LOG_DIR/$id.log" ] || cat "$LOG_DIR/$id.log"
-  if ! tools/data-pipeline/scripts/build-transit.sh "$id" "$VERSION" \
-    "https://github.com/$GITHUB_REPOSITORY/releases/download/transit-feeds" "$OUT" "$PUBLISHED_ARG"; then
-    echo "::warning::rete $id non costruita: resta la voce gia' pubblicata, se c'e'"
-    FAILED+=("$id")
-    [ ! -s "$PUBLISHED" ] || jq -c --arg id "$id" '.feeds[]? | select(.id == $id)' "$PUBLISHED" >> "$OUT/transit-entries.jsonl"
-  fi
+  local rc=0
+  tools/data-pipeline/scripts/build-transit.sh "$id" "$VERSION" \
+    "https://github.com/$GITHUB_REPOSITORY/releases/download/transit-feeds" "$OUT" "$PUBLISHED_ARG" || rc=$?
   echo "::endgroup::"
+  case $rc in
+    0) ;;
+    3)
+      # Orari scaduti: la voce pubblicata non resta (orari vecchi), la rete va tra le "Non incluse" (transit-expired.jsonl).
+      local until
+      until="$(jq -r --arg id "$id" 'select(.id == $id) | .feedEnd' "$OUT/transit-expired.jsonl" | tail -1)"
+      echo "::warning::rete $id: orari scaduti (fino al $until), non pubblicata e mostrata tra le Non incluse finche' l'ente non pubblica orari validi"
+      EXPIRED+=("$id")
+      ;;
+    *)
+      echo "::warning::rete $id non costruita: resta la voce gia' pubblicata, se c'e'"
+      FAILED+=("$id")
+      if [ -s "$PUBLISHED" ]; then
+        # Si tiene solo una voce con orari ancora validi; una gia' scaduta va tra le "Non incluse", come con il codice 3.
+        jq -c --arg id "$id" --arg today "$(date -u +%Y-%m-%d)" \
+          '.feeds[]? | select(.id == $id and .validUntil >= $today)' "$PUBLISHED" >> "$OUT/transit-entries.jsonl"
+        jq -c --arg id "$id" --arg today "$(date -u +%Y-%m-%d)" \
+          '.feeds[]? | select(.id == $id and .validUntil < $today) | {id, regions, name, reason: "orari", feedEnd: .validUntil}' \
+          "$PUBLISHED" >> "$OUT/transit-expired.jsonl"
+        # Una rete gia' tra le "Non incluse" per gli orari ci resta finche' non si riesce a ricontrollarla.
+        jq -c --arg id "$id" '.missing[]? | select(.id == $id and .reason == "orari")' "$PUBLISHED" >> "$OUT/transit-expired.jsonl"
+      fi
+      ;;
+  esac
 }
 
 # Conversione nell'ordine in cui i download finiscono (l'ordine delle voci non conta: transit.json le ordina per id).
@@ -96,11 +124,24 @@ fi
 INDEX="$RUNNER_TEMP/transit-index/transit.json"
 # publishedAt (secondi Unix) dentro i byte firmati e coperti dallo sha256 del frammento: l'app rifiuta
 # un valore piu' basso dell'ultimo accettato (niente ritorno a una vecchia coppia file + .sig).
-# missing: le reti escluse di transit-missing.tsv, che l'app mostra come "Non incluse" con il motivo.
+# missing: le reti escluse a mano (transit-missing.tsv) e quelle con gli orari scaduti in questa run
+# (transit-expired.jsonl), che l'app mostra come "Non incluse" con il motivo.
 MISSING="$(jq -Rn '[inputs | select(length > 0 and (startswith("#") | not)) | split("\t")
   | {id: .[0], regions: (.[1] | split(",")), name: .[2], reason: .[3]}]' tools/data-pipeline/transit-missing.tsv)"
+touch "$OUT/transit-expired.jsonl"
+MISSING="$(jq -s --argjson listed "$MISSING" '$listed + map(del(.feedEnd)) | unique_by(.id)' "$OUT/transit-expired.jsonl")"
 jq -s --arg v "$VERSION" --argjson at "$(date +%s)" --argjson missing "$MISSING" \
   '{version: $v, publishedAt: $at, feeds: (unique_by(.id)), missing: $missing}' "$OUT/transit-entries.jsonl" > "$INDEX"
+# Reti di nuovo valide: tra le "Non incluse" per gli orari nell'indice pubblicato, pubblicate in questo.
+RETURNED=()
+if [ -s "$PUBLISHED" ]; then
+  mapfile -t RETURNED < <(jq -r --slurpfile new "$INDEX" \
+    '[.missing[]? | select(.reason == "orari") | .id] as $was | $new[0].feeds[] | select(.id as $id | $was | index($id)) | "\(.id)\t\(.validUntil)"' \
+    "$PUBLISHED")
+fi
+for line in "${RETURNED[@]}"; do
+  echo "::warning::rete ${line%%$'\t'*}: orari di nuovo validi (fino al ${line#*$'\t'}), di nuovo pubblicata"
+done
 jq -n --arg v "$VERSION" --arg url "$INDEX_URL" --argjson size "$(stat -c %s "$INDEX")" \
   --arg sha "$(sha256sum "$INDEX" | cut -d' ' -f1)" \
   '{manifestVersion: 2, transit: {version: $v, url: $url, sizeBytes: $size, sha256: $sha}, regions: []}' \
@@ -109,4 +150,6 @@ jq -n --arg v "$VERSION" --arg url "$INDEX_URL" --argjson size "$(stat -c %s "$I
   echo "### Reti dei mezzi pubblici"
   jq -r '.feeds[] | "- \(.id) \(.name): valido fino al \(.validUntil), versione \(.version)"' "$INDEX"
   [ "${#FAILED[@]}" -eq 0 ] || echo "Non costruite (resta la voce pubblicata): ${FAILED[*]}"
+  [ "${#EXPIRED[@]}" -eq 0 ] || echo "Orari scaduti (tra le Non incluse): ${EXPIRED[*]}"
+  [ "${#RETURNED[@]}" -eq 0 ] || echo "Di nuovo pubblicate (orari di nuovo validi): ${RETURNED[*]%%$'\t'*}"
 } >> "$GITHUB_STEP_SUMMARY"

@@ -24,6 +24,12 @@
 #   TRANSIT_FEEDS              lista delle reti (default: tools/data-pipeline/transit-feeds.tsv)
 #   TRANSIT_PREFETCH_DIR       cartella dei feed gia' scaricati con --download-only: <feedId>.zip si usa (e si toglie)
 #                              al posto di un nuovo download; se manca, il feed si scarica qui
+#   TRANSIT_DEADLINE           ora (secondi Unix) oltre la quale nessun download continua (la imposta transit.sh dal
+#                              timeout del job); se manca, nessun limite di tempo totale
+#
+# Codici d'uscita: 0 rete pronta (nuova o riusata), 3 orari scaduti (nessuna corsa nei prossimi TRANSIT_WINDOW_DAYS
+# giorni e ultimo giorno del feed gia' passato: la rete va tra le "Non incluse", con una riga in
+# <outputDir>/transit-expired.jsonl), altro errore.
 #
 # Richiede: jq, curl, unzip, sha256sum, xz, perl ({ultimo}), python3 (script:), gradle wrapper dalla root
 # del repo.
@@ -116,7 +122,17 @@ download_feed() {
   # --compressed: rata.digitraffic.fi (treni finlandesi) risponde 406 senza Accept-Encoding.
   for attempt in 1 2 3; do
     [[ "$FEED_URL" == script:* ]] && break
-    if curl -sSfL --compressed --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" -o "$FEED_ZIP" "$FEED_URL"; then
+    # Limiti che seguono il download invece di un tempo fisso (la dimensione non si sa prima: at-toscana risponde 405
+    # a HEAD e impiega ~15 minuti): si ferma se resta sotto 10 KB/s per 5 minuti, e non va oltre TRANSIT_DEADLINE,
+    # tentativi interni di curl compresi (timeout sull'intero comando: --max-time vale per un tentativo solo).
+    LIMITS=(--speed-limit 10240 --speed-time 300)
+    CAP=()
+    if [ -n "${TRANSIT_DEADLINE:-}" ]; then
+      LEFT=$((TRANSIT_DEADLINE - $(date -u +%s)))
+      [ "$LEFT" -ge 60 ] || { echo "-- $FEED_ID: tempo del job finito, download saltato" >&2; exit 1; }
+      CAP=(timeout "$LEFT")
+    fi
+    if "${CAP[@]}" curl -sSfL --compressed --retry 3 --retry-delay 5 "${LIMITS[@]}" -A "$PIPELINE_USER_AGENT" -o "$FEED_ZIP" "$FEED_URL"; then
       ok=true
       break
     fi
@@ -156,7 +172,9 @@ SOURCE_SHA="$(sha256sum "$FEED_ZIP" | cut -d' ' -f1)"
 # Voce gia' pubblicata: si tiene se il feed non e' cambiato ed e' abbastanza recente.
 if [ -n "$PUBLISHED_INDEX" ] && [ -s "$PUBLISHED_INDEX" ]; then
   PUBLISHED_ENTRY="$(jq -c --arg id "$FEED_ID" '.feeds[]? | select(.id == $id)' "$PUBLISHED_INDEX")"
-  if [ -n "$PUBLISHED_ENTRY" ] && [ "$(jq -r '.sourceSha256' <<< "$PUBLISHED_ENTRY")" = "$SOURCE_SHA" ]; then
+  # Non si tiene una voce con gli orari gia' finiti: la conversione decide se la rete e' scaduta.
+  if [ -n "$PUBLISHED_ENTRY" ] && [ "$(jq -r '.sourceSha256' <<< "$PUBLISHED_ENTRY")" = "$SOURCE_SHA" ] \
+    && [[ ! "$(jq -r '.validUntil' <<< "$PUBLISHED_ENTRY")" < "$(date -u +%Y-%m-%d)" ]]; then
     PUBLISHED_DATE="$(jq -r '.version' <<< "$PUBLISHED_ENTRY" | cut -d. -f1-3 | tr . -)"
     AGE_DAYS=$(( ( $(date -u +%s) - $(date -u -d "$PUBLISHED_DATE" +%s) ) / 86400 ))
     if [ "$AGE_DAYS" -lt "$TRANSIT_MAX_AGE_DAYS" ]; then
@@ -183,8 +201,18 @@ IFS=$'\x1f' read -r STOPS ROUTES TRIPS STOP_TIMES VALID_UNTIL BBOX <<< "${STATS/
 echo "-- $FEED_ID: $STOPS fermate, $ROUTES linee, $TRIPS corse, $STOP_TIMES partenze, valido fino al ${VALID_UNTIL:-$(gtfs_end_date "$FEED_ZIP")}"
 # Anche senza partenze (stop_times.txt assente o illeggibile): corse senza orari non servono al tabellone.
 if [ "${TRIPS:-0}" -eq 0 ] || [ "${STOP_TIMES:-0}" -eq 0 ] || [ -z "$VALID_UNTIL" ]; then
-  echo "-- $FEED_ID: nessuna corsa nei prossimi $TRANSIT_WINDOW_DAYS giorni (orari del feed fino al $(gtfs_end_date "$FEED_ZIP")), non pubblico" >&2
-  exit 1
+  END_DATE="$(gtfs_end_date "$FEED_ZIP")"
+  echo "-- $FEED_ID: nessuna corsa nei prossimi $TRANSIT_WINDOW_DAYS giorni (orari del feed fino al $END_DATE), non pubblico" >&2
+  # Scaduta solo se il feed dice che gli orari sono finiti: un feed rotto (stop_times.txt mancante, date illeggibili)
+  # e' un errore qualsiasi, e resta la voce pubblicata.
+  if [ "$END_DATE" = "?" ] || [[ ! "$END_DATE" < "$WINDOW_START" ]]; then
+    exit 1
+  fi
+  # Voce di "missing" di transit.json, piu' la data del feed per il warning della run (transit.sh la toglie).
+  jq -c -n --arg id "$FEED_ID" --arg regions "$REGIONS" --arg name "$NAME" --arg until "$END_DATE" \
+    '{id: $id, regions: ($regions | split(",")), name: $name, reason: "orari", feedEnd: $until}' \
+    >> "$OUTPUT_DIR/transit-expired.jsonl"
+  exit 3
 fi
 
 ASSET="${FEED_ID}--${VERSION}--transit.db"

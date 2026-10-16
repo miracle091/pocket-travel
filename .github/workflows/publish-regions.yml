@@ -308,8 +308,8 @@ jobs:
           retention-days: 1
 
   # Reti dei mezzi pubblici (GTFS) di tools/data-pipeline/transit-feeds.tsv, ricostruite solo se il feed e' cambiato o
-  # la voce pubblicata ha piu' di 7 giorni. Indice (transit.json) e frammento di catalogo al job "publish" come
-  # artifact, come i civici. Non gira nelle continuazioni.
+  # la voce pubblicata ha piu' di 7 giorni; quelle con gli orari scaduti vanno tra le "Non incluse". Indice
+  # (transit.json) e frammento di catalogo al job "publish" come artifact, come i civici. Non gira nelle continuazioni.
   transit:
     name: Mezzi pubblici
     needs: plan
@@ -323,6 +323,10 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
+      # Inizio del job (epoca): l'ora limite dei download si conta da qui, preparazione compresa.
+      - name: Segna l'inizio del job
+        run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -331,6 +335,9 @@ jobs:
 
       - name: Costruisci le reti dei mezzi pubblici
         run: bash .github/scripts/publish-regions/transit.sh
+        env:
+          # Come timeout-minutes del job: transit.sh ne ricava l'ora oltre la quale nessun download continua.
+          TRANSIT_JOB_MINUTES: 150
 
       - name: Carica il frammento di catalogo delle reti dei mezzi pubblici
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -345,15 +352,6 @@ jobs:
           name: transit-index
           path: ${{ runner.temp }}/transit-index/transit.json
           retention-days: 1
-
-      # Reti escluse per gli orari (transit-missing.tsv con url_feed): segnala con un ::notice:: quando l'ente pubblica
-      # orari validi. Domenica (il bucket con meno regioni) e nelle run manuali; non blocca la pubblicazione: un
-      # download bloccato scade dopo 15 minuti invece di portare il job oltre il suo timeout-minutes.
-      - name: Controlla le reti escluse per gli orari
-        if: ${{ github.event.schedule == '0 2 * * 0' || github.event_name == 'workflow_dispatch' }}
-        continue-on-error: true
-        timeout-minutes: 15
-        run: bash .github/scripts/publish-regions/transit-missing-check.sh
 
   # Controllo della lista bianca Overture, una volta per rilascio: le coppie (paese, dataset,
   # licenza) nuove o sparite finirebbero scartate in silenzio dalle celle dei civici. Esito in una
