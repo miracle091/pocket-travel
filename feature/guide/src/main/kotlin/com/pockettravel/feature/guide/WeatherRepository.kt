@@ -15,7 +15,7 @@ import okhttp3.Request
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
-import java.time.Instant
+import java.time.Clock
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -34,6 +34,7 @@ class WeatherRepository(
     okHttpClient: OkHttpClient,
     private val json: Json,
     private val ioDispatcher: CoroutineDispatcher,
+    private val clock: Clock,
 ) {
     @Inject
     constructor(
@@ -42,7 +43,8 @@ class WeatherRepository(
         okHttpClient: OkHttpClient,
         json: Json,
         @IoDispatcher ioDispatcher: CoroutineDispatcher,
-    ) : this(File(context.filesDir, "weather"), preferencesFactory, okHttpClient, json, ioDispatcher)
+        clock: Clock,
+    ) : this(File(context.filesDir, "weather"), preferencesFactory, okHttpClient, json, ioDispatcher, clock)
 
     private val places = preferencesFactory.open("weather_places")
 
@@ -58,12 +60,12 @@ class WeatherRepository(
     suspend fun weather(cacheKey: String, coordinates: suspend () -> Pair<Double, Double>?): WeatherResult? =
         withContext(ioDispatcher) {
             val file = File(cacheDir, cacheKey.toFileName())
-            val fresh = System.currentTimeMillis() - file.lastModified() < WEATHER_MIN_REFRESH_MILLIS && cached(file) != null
+            val fresh = clock.millis() - file.lastModified() < WEATHER_MIN_REFRESH_MILLIS && cached(file) != null
             if (!fresh) try {
                 coordinates()?.let { (lat, lon) ->
                     val body = get(forecastUrl(lat, lon))
                     // Salvata solo se si legge: una risposta rotta non sostituisce l'ultima buona.
-                    parseForecast(json, body, Instant.now())
+                    parseForecast(json, body, clock.instant())
                     cacheDir.mkdirs()
                     // Prima in un file a parte, poi al suo posto: una scrittura interrotta non lascia una risposta troncata.
                     val partial = File.createTempFile("weather", ".part", cacheDir)
@@ -100,7 +102,7 @@ class WeatherRepository(
     }
 
     private fun cached(file: File): WeatherResult? = runCatching {
-        parseForecast(json, file.readText(), Instant.now())?.let { WeatherResult(it, file.lastModified()) }
+        parseForecast(json, file.readText(), clock.instant())?.let { WeatherResult(it, file.lastModified()) }
     }.getOrNull()
 
     private fun get(url: String): String =

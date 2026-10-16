@@ -12,6 +12,8 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import java.io.File
 import java.security.MessageDigest
+import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlin.io.path.createTempDirectory
@@ -23,8 +25,9 @@ class WeatherRepositoryTest {
     private val cacheDir = createTempDirectory("weather-repository-test").toFile()
     private val files = InMemoryPreferencesFactory()
     private val json = Json { ignoreUnknownKeys = true }
+    private val clock = Clock.fixed(Instant.parse("2026-10-12T12:00:00Z"), ZoneOffset.UTC)
 
-    private fun newRepository() = WeatherRepository(cacheDir, files, OkHttpClient(), json, dispatcher)
+    private fun newRepository() = WeatherRepository(cacheDir, files, OkHttpClient(), json, dispatcher, clock)
 
     @After
     fun tearDown() {
@@ -38,7 +41,7 @@ class WeatherRepositoryTest {
     )
 
     private fun forecastBody(): String {
-        val today = LocalDate.now(ZoneOffset.UTC)
+        val today = LocalDate.now(clock)
         return """
             {"utc_offset_seconds":0,
              "current":{"temperature_2m":18.5,"weather_code":1},
@@ -70,7 +73,7 @@ class WeatherRepositoryTest {
 
     @Test
     fun `una risposta salvata da poco si mostra senza chiedere le coordinate`() = runTest(dispatcher) {
-        cacheFile("city|IT|Roma").writeText(forecastBody())
+        cacheFile("city|IT|Roma").apply { writeText(forecastBody()) }.setLastModified(clock.millis() - WEATHER_MIN_REFRESH_MILLIS + 1_000)
         var asked = 0
 
         val result = newRepository().weather("city|IT|Roma") { asked++; null }
@@ -78,6 +81,17 @@ class WeatherRepositoryTest {
         assertNotNull(result)
         assertEquals(18.5, requireNotNull(result).weather.temperature, 0.0)
         assertEquals(0, asked)
+    }
+
+    @Test
+    fun `una risposta salvata da piu' dell'intervallo chiede le coordinate e senza rete resta quella salvata`() = runTest(dispatcher) {
+        cacheFile("city|IT|Roma").apply { writeText(forecastBody()) }.setLastModified(clock.millis() - WEATHER_MIN_REFRESH_MILLIS - 1_000)
+        var asked = 0
+
+        val result = newRepository().weather("city|IT|Roma") { asked++; null }
+
+        assertEquals(1, asked)
+        assertEquals(18.5, requireNotNull(result).weather.temperature, 0.0)
     }
 
     @Test

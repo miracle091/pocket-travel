@@ -13,8 +13,10 @@ import com.pockettravel.feature.map.testing.ScriptedRouteEngineFactory
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -25,8 +27,27 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.time.Clock
+import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
+
+/** Orologio che parte da un'ora fissa e avanza con il tempo virtuale di [scheduler]. */
+@OptIn(ExperimentalCoroutinesApi::class)
+private class SchedulerClock(private val scheduler: TestCoroutineScheduler) : Clock() {
+    override fun getZone(): ZoneId = ZoneOffset.UTC
+
+    override fun withZone(zone: ZoneId): Clock = this
+
+    override fun instant(): Instant = Instant.ofEpochMilli(millis())
+
+    override fun millis(): Long = START_MILLIS + scheduler.currentTime
+
+    private companion object {
+        val START_MILLIS = Instant.parse("2026-10-12T12:00:00Z").toEpochMilli()
+    }
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class NavigationViewModelTest {
@@ -34,6 +55,8 @@ class NavigationViewModelTest {
     @get:Rule
     val main = MainDispatcherRule(UnconfinedTestDispatcher())
 
+    // Il tempo del test e' quello virtuale dello scheduler: il ViewModel e il GPS finto vedono lo stesso orologio.
+    private val clock = SchedulerClock(main.dispatcher.scheduler)
     private val files = InMemoryPreferencesFactory()
     private val engines = ScriptedRouteEngineFactory()
     private val regions = FakeRegionRepository(listOf(installedRegion("r1", countryCode = "IT")))
@@ -72,7 +95,7 @@ class NavigationViewModelTest {
         val created = ViewModelHost(NavigationViewModel::class.java) {
             NavigationViewModel(
                 handle, engines, regions, gps, tileSource, usageModes, session, preferences, variants, nationality, starter,
-                simulationLog, main.dispatcher,
+                simulationLog, main.dispatcher, clock,
             )
         }
         host = created
@@ -80,7 +103,7 @@ class NavigationViewModelTest {
         return created.viewModel
     }
 
-    private fun fix(point: RoutePoint, timeMillis: Long = System.currentTimeMillis(), accuracy: Float = 5f) =
+    private fun fix(point: RoutePoint, timeMillis: Long = clock.millis(), accuracy: Float = 5f) =
         GpsFix(point.latitude, point.longitude, accuracy, timeMillis)
 
     private fun minutes(time: LocalDateTime) = time.toEpochSecond(ZoneOffset.UTC) / 60
@@ -144,7 +167,7 @@ class NavigationViewModelTest {
         assertEquals(NavigationSnapshot("Destinazione", null, 0.0, 0.0, 0.0, waitingForFix = true), session.snapshot.value)
         assertEquals(1, starter.starts)
         assertEquals(1, gps.listeners)
-        val saved = preferences.activeNavigation()
+        val saved = preferences.activeNavigation(clock.millis())
         assertEquals(destination, saved?.place)
         assertEquals(RouteProfile.CAR, saved?.mode)
         assertEquals("r1", saved?.regionId)
@@ -183,7 +206,7 @@ class NavigationViewModelTest {
         assertNull(viewModel.uiState.value.target)
         assertNull(viewModel.uiState.value.arriveBy)
         assertNull(session.snapshot.value)
-        assertNull(preferences.activeNavigation())
+        assertNull(preferences.activeNavigation(clock.millis()))
         assertNull(handle.get<String>("destination"))
         assertEquals(0, gps.listeners)
     }
@@ -347,7 +370,7 @@ class NavigationViewModelTest {
         engines.defaultResult = RouteResult.Found(route)
         val viewModel = viewModel()
         viewModel.begin()
-        val t0 = System.currentTimeMillis()
+        val t0 = clock.millis()
         gps.emit(fix(origin, t0))
         runCurrent()
         assertEquals(1, engines.requests.size)
@@ -379,7 +402,7 @@ class NavigationViewModelTest {
         engines.defaultResult = RouteResult.Found(route)
         val viewModel = viewModel()
         viewModel.begin()
-        val t0 = System.currentTimeMillis()
+        val t0 = clock.millis()
         gps.emit(fix(origin, t0))
         runCurrent()
 
@@ -397,12 +420,29 @@ class NavigationViewModelTest {
         gps.emit(fix(origin))
         runCurrent()
 
-        gps.emit(fix(corner, System.currentTimeMillis() - 60_000))
+        gps.emit(fix(corner, clock.millis() - 60_000))
         runCurrent()
 
         val state = viewModel.uiState.value.status as NavigationStatus.Navigating
         assertTrue(state.signalLost)
         assertEquals(corner, state.position)
+    }
+
+    @Test
+    fun `una posizione che invecchia senza nuove posizioni passa al segnale perso`() = runTest {
+        engines.defaultResult = RouteResult.Found(route)
+        val viewModel = viewModel()
+        viewModel.begin()
+        gps.emit(fix(origin))
+        runCurrent()
+        assertFalse((viewModel.uiState.value.status as NavigationStatus.Navigating).signalLost)
+
+        advanceTimeBy(FIX_MAX_AGE_MILLIS + 2_000)
+        runCurrent()
+
+        val state = viewModel.uiState.value.status as NavigationStatus.Navigating
+        assertTrue(state.signalLost)
+        assertEquals(origin, state.position)
     }
 
     @Test
@@ -475,7 +515,7 @@ class NavigationViewModelTest {
         assertEquals(NavigationStatus.Arrived, viewModel.uiState.value.status)
         assertNotNull(viewModel.uiState.value.arrivedAtMillis)
         assertNull(session.snapshot.value)
-        assertNull(preferences.activeNavigation())
+        assertNull(preferences.activeNavigation(clock.millis()))
         assertEquals(0, gps.listeners)
         // La destinazione resta fino a "Termina": e' il Navigatore a chiudere la schermata.
         assertEquals(destination, viewModel.uiState.value.target)
@@ -496,9 +536,9 @@ class NavigationViewModelTest {
         assertNotNull(first)
         assertTrue(viewModel.uiState.value.status is NavigationStatus.Navigating)
         assertEquals(1, gps.listeners)
-        assertNotNull(preferences.activeNavigation())
+        assertNotNull(preferences.activeNavigation(clock.millis()))
 
-        gps.emit(fix(end, System.currentTimeMillis() + 5))
+        gps.emit(fix(end, clock.millis() + 5))
         runCurrent()
         assertEquals(first, viewModel.uiState.value.arrivedAtMillis)
     }
@@ -548,7 +588,7 @@ class NavigationViewModelTest {
     @Test
     fun `dal disco la navigazione interrotta riparte con regione, modo e ora salvati`() = runTest {
         preferences.saveActiveNavigation(
-            ActiveNavigation("r1", destination, RouteProfile.CAR, minutes(arrival), System.currentTimeMillis()),
+            ActiveNavigation("r1", destination, RouteProfile.CAR, minutes(arrival), clock.millis()),
         )
         val viewModel = viewModel()
         assertEquals(destination, viewModel.uiState.value.resumeOffer)
@@ -564,7 +604,7 @@ class NavigationViewModelTest {
     @Test
     fun `una navigazione salvata da troppo tempo non si propone`() = runTest {
         preferences.saveActiveNavigation(
-            ActiveNavigation("r1", destination, RouteProfile.CAR, null, System.currentTimeMillis() - 13 * 60 * 60 * 1000L),
+            ActiveNavigation("r1", destination, RouteProfile.CAR, null, clock.millis() - 13 * 60 * 60 * 1000L),
         )
 
         val viewModel = viewModel()
@@ -575,7 +615,7 @@ class NavigationViewModelTest {
     @Test
     fun `No dimentica la navigazione interrotta ovunque sia salvata`() = runTest {
         handle = SavedStateHandle(mapOf("destination" to destination.toSavedState(), "arriveBy" to minutes(arrival)))
-        preferences.saveActiveNavigation(ActiveNavigation("r1", destination, RouteProfile.CAR, null, System.currentTimeMillis()))
+        preferences.saveActiveNavigation(ActiveNavigation("r1", destination, RouteProfile.CAR, null, clock.millis()))
         val viewModel = viewModel()
 
         viewModel.dismissResume()
@@ -583,7 +623,7 @@ class NavigationViewModelTest {
         assertNull(viewModel.uiState.value.resumeOffer)
         assertNull(viewModel.uiState.value.arriveBy)
         assertNull(handle.get<String>("destination"))
-        assertNull(preferences.activeNavigation())
+        assertNull(preferences.activeNavigation(clock.millis()))
         viewModel.resume()
         assertEquals("senza proposta Riprendi non fa nulla", 0, starter.starts)
     }

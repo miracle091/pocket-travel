@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RoutingVariantPreferences
+import java.time.Clock
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import kotlinx.coroutines.CoroutineStart
@@ -57,6 +58,7 @@ class NavigationViewModel @Inject constructor(
     private val serviceStarter: GuidanceServiceStarter,
     private val simulationLog: RouteSimulationLog,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val clock: Clock,
 ) : ViewModel() {
     // La regione da cui si e' partiti (la scheda aperta) e la destinazione; null = non si sta navigando.
     private var regionId: String = savedStateHandle[KEY_REGION] ?: ""
@@ -67,7 +69,7 @@ class NavigationViewModel @Inject constructor(
      */
     val isNavigating: Boolean get() = destination.value != null
     // Navigazione interrotta: dallo stato salvato da Android (app riaperta dalle recenti) o dal disco (riaperta dall'icona).
-    private val savedNavigation = navigationPreferences.activeNavigation()
+    private val savedNavigation = navigationPreferences.activeNavigation(clock.millis())
     private val _resumeOffer = MutableStateFlow(savedStateHandle.savedPlace(KEY_DESTINATION) ?: savedNavigation?.place)
     private val arrival = MutableStateFlow(savedStateHandle.get<Long>(KEY_ARRIVE_BY)?.let { LocalDateTime.ofEpochSecond(it * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC) })
 
@@ -104,9 +106,9 @@ class NavigationViewModel @Inject constructor(
 
     // Ticchetta ogni secondo: una posizione che invecchia deve far passare a "segnale perso"
     // anche se il GPS non ne manda di nuove.
-    private val clock = flow {
+    private val ticks = flow {
         while (true) {
-            emit(System.currentTimeMillis())
+            emit(clock.millis())
             delay(1_000)
         }
     }
@@ -124,7 +126,7 @@ class NavigationViewModel @Inject constructor(
         combine(calculating, calculationStartedMillis, calculationProgress, routeResult, arrived) { isCalculating, started, progress, result, hasArrived ->
             CalculationInputs(isCalculating, started, progress, result, hasArrived)
         },
-        clock,
+        ticks,
     ) { (permission, enabled, fix), calc, now ->
         navigationUiState(permission, enabled, fix, now, calc.calculating, calc.result, calc.arrived, calc.startedMillis, calc.progress, ::trackerFor)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NavigationStatus.WaitingForFix)
@@ -257,7 +259,7 @@ class NavigationViewModel @Inject constructor(
         savedStateHandle[KEY_ARRIVE_BY] = arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }
         savedStateHandle[KEY_DESTINATION] = place.toSavedState()
         navigationPreferences.saveActiveNavigation(
-            ActiveNavigation(regionId, place, mode, arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }, System.currentTimeMillis()),
+            ActiveNavigation(regionId, place, mode, arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }, clock.millis()),
         )
     }
 
@@ -314,14 +316,14 @@ class NavigationViewModel @Inject constructor(
             is RouteResult.Found -> {
                 val progress = trackerFor(result.route).progress(RoutePoint(fix.latitude, fix.longitude))
                 if (progress.arrived && navigationPreferences.stopGpsOnArrival.value) {
-                    _arrivedAtMillis.value = System.currentTimeMillis()
+                    _arrivedAtMillis.value = clock.millis()
                     arrived.value = true
                     session.clear()
                     navigationPreferences.clearActiveNavigation()
                 } else {
                     // Con "Spegni il GPS all'arrivo" tolto la navigazione resta aperta: l'arrivo si segna una volta sola
                     // (per l'avviso), poi si continua a seguire la posizione finche' non si chiude.
-                    if (progress.arrived && _arrivedAtMillis.value == null) _arrivedAtMillis.value = System.currentTimeMillis()
+                    if (progress.arrived && _arrivedAtMillis.value == null) _arrivedAtMillis.value = clock.millis()
                     publish(result.route, progress)
                     if (shouldRecalculate(progress, calculating.value, lastCalculationMillis, fix.timeMillis, fix.accuracyMeters)) calculate(fix)
                 }
@@ -337,7 +339,7 @@ class NavigationViewModel @Inject constructor(
         val target = destination.value ?: return
         if (calculating.value) return
         lastCalculationMillis = from.timeMillis
-        calculationStartedMillis.value = System.currentTimeMillis()
+        calculationStartedMillis.value = clock.millis()
         calculationProgress.value = 0.0
         calculating.value = true
         // Prima posizione arrivata: la notifica passa da "In attesa del segnale GPS…" a "Calcolo del percorso".
