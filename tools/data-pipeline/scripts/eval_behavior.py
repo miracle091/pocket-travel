@@ -8,6 +8,7 @@ Il test qui non scarta le righe oltre --max-len di train_lora.py: le regioni son
 le righe possono essere qualcuna in piu'.
 """
 import argparse
+import sys
 
 try:
     import unsloth  # noqa: F401  patch di compatibilita' Windows/ROCm
@@ -40,7 +41,17 @@ tok = AutoTokenizer.from_pretrained(a.model, padding_side="left")
 # non riconosce (tutti i pesi "MISSING", modello casuale, 0% ovunque). Si usa la classe multimodale.
 config = AutoConfig.from_pretrained(a.model)
 auto = AutoModelForImageTextToText if hasattr(config, "vision_config") else AutoModelForCausalLM
-model = auto.from_pretrained(a.model, config=config, dtype=DTYPE).to("cuda").eval()
+# Unsloth 2026.9.7 (quello dei modelli v10) salva il merge di Qwen3.5 con i prefissi spostati: il testo sotto
+# model.language_model.language_model.language_model.*, la parte visiva sotto model.language_model.visual.*.
+# transformers li scarterebbe senza errori, lasciando pesi casuali: si rimappano. Il testo va su "language_model.",
+# non su "model.language_model.": le rinomine di transformers per Qwen3.5, applicate dopo queste, tolgono e
+# rimettono il prefisso "model." (provato con transformers 5.5; se cambiano, il controllo sotto ferma lo script).
+NESTED_KEYS = {r"^model\.language_model\.language_model\.language_model\.": "language_model.",
+               r"^model\.language_model\.visual\.": "model.visual."}
+model, info = auto.from_pretrained(a.model, config=config, dtype=DTYPE, key_mapping=NESTED_KEYS, output_loading_info=True)
+if info["missing_keys"]:
+    sys.exit(f"Pesi non trovati in {a.model}: {sorted(info['missing_keys'])[:5]}")
+model = model.to("cuda").eval()
 
 test, held_out = load_test_rows(a.extended, run_dataset(a.model))
 phase("eval", f"{len(test)} righe {'(test esteso)' if a.extended else '(test base)'}, batch {a.batch}")
