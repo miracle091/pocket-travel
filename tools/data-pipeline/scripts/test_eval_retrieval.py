@@ -208,14 +208,19 @@ class SearchTest(unittest.TestCase):
             ("palestina", "SICUREZZA", "Aree a rischio", "Evitare Gaza e le aree a rischio.", "u#for-nationality=IL"),
             ("palestina", "SICUREZZA", "Israele", "Vedi la guida di Israele per le aree a rischio.", "u#not-for-nationality=IL"),
             ("palestina", "SALUTE", "Salute", "Bere acqua.", "u"),
+            ("palestina", "DOGANE", "Ingresso", "Serve il passaporto britannico per entrare.", "u#for-nationality=GB"),
+            ("palestina", "DOGANE", "Ingresso e uscita", "Serve il passaporto canadese per entrare.", "u#for-nationality=CA"),
         ])
         g.commit()
         g.close()
         db = ev.build_db(guides, "palestina", [])
         # Nella tabella tutte le righe, come nell'app (contano per BM25); tra i candidati non quelle per una nazionalita'.
-        self.assertEqual(db.execute("SELECT COUNT(*) FROM guide_sections").fetchone()[0], 3)
+        self.assertEqual(db.execute("SELECT COUNT(*) FROM guide_sections").fetchone()[0], 5)
         top, _ = ev.search(db, "palestina", "Quali sono le aree a rischio?", [])
         self.assertEqual([s["title"] for s in top], ["Israele"])
+        # Il passaporto britannico o canadese non e' un candidato senza nazionalita'.
+        top, _ = ev.search(db, "palestina", "Serve il passaporto per entrare?", [])
+        self.assertEqual(top, [])
         db.close()
 
     def test_guida_generale_come_nell_app(self):

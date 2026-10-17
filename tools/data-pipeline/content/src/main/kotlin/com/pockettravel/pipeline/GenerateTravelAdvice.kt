@@ -12,16 +12,20 @@ import java.util.Locale
  * dell'assistente. Fonte: il JSON open data data.international.gc.ca/travel-voyage/cta-cap-<iso2>.json (Open
  * Government Licence – Canada 2.0: copia, modifica e traduzione permesse, con l'attribuzione "Contains information
  * licensed under the Open Government Licence – Canada."; i termini del sito canada.ca non valgono per i dati aperti).
- * Il testo e' scritto per i canadesi solo in alcune parti, misurate il 2026-10-07 sulle 237 pagine: restano fuori
- * ingresso e uscita (passaporti canadesi), uffici consolari, i sottotitoli di excludedAdviceHeadings e, nel resto, le
- * frasi che nominano il Canada. Fuori anche i vaccini: li da' gia' la schermata delle vaccinazioni, dalla stessa fonte.
+ * Il testo e' scritto per i canadesi solo in alcune parti, misurate il 2026-10-07 sulle 237 pagine. Nelle sezioni per tutti
+ * restano fuori ingresso e uscita (passaporti canadesi), uffici consolari, i sottotitoli di excludedAdviceHeadings e, nel
+ * resto, le frasi che nominano il Canada; fuori anche i vaccini: li da' gia' la schermata delle vaccinazioni, dalla stessa
+ * fonte. Ingresso e uscita e uffici consolari diventano due sezioni a parte, intere, visibili solo con la nazionalita'
+ * canadese (link col suffisso "#for-nationality=CA").
  *
  * Per i territori senza pagina su travel.gc.ca (Palestina, Pitcairn, Wallis e Futuna; misura del 2026-10-08) le stesse
  * quattro sezioni vengono dai consigli del Foreign, Commonwealth & Development Office del Regno Unito: GOV.UK Content API
  * www.gov.uk/api/content/foreign-travel-advice/<slug> (Open Government Licence v3.0: copia, adattamento, traduzione e uso
  * commerciale permessi, con l'attribuzione "Contains public sector information licensed under the Open Government Licence
  * v3.0." e senza far pensare a un avallo). Della pagina restano Safety and security, Regional risks e Health, senza le
- * frasi sui britannici, il Regno Unito o l'FCDO; fuori ingresso, assistenza consolare e assicurazioni, tutte per i britannici.
+ * frasi sui britannici, il Regno Unito o l'FCDO; fuori assicurazioni e, per tutti i paesi, ingresso e assistenza consolare
+ * (Entry requirements, Getting help), che l'FCDO scrive per i britannici: due sezioni a parte, intere, visibili solo con la
+ * nazionalita' britannica (link col suffisso "#for-nationality=GB"). La pagina FCDO si legge percio' per ogni paese.
  */
 
 const val TRAVEL_ADVICE_HOST = "travel.gc.ca"
@@ -391,6 +395,92 @@ fun fcdoAdviceSections(json: String): List<GuideSectionRow> {
     return sections.take(1) + sharedSections + sections.drop(1)
 }
 
+// Nazionalita' dei cittadini a cui i due governi scrivono ingresso e assistenza consolare.
+private const val BRITISH = "GB"
+private const val CANADIAN = "CA"
+
+// Filtro che non toglie nulla: le parti per i connazionali si tengono intere, comprese le frasi sul Regno Unito o sul Canada.
+private val keepEverything = Regex("(?!)")
+
+private data class NationalityPart(val key: String, val category: String, val title: String)
+
+private val fcdoBritishParts = listOf(
+    NationalityPart("Entry requirements", "DOGANE", "Entry requirements"),
+    NationalityPart("Getting help", "SICUREZZA", "Getting help"),
+)
+
+private val officeDetailsRegex = Regex("""<details\b.*?</details>""", htmlOptions)
+
+private fun plainField(obj: JSONObject, key: String): String =
+    if (obj.isNull(key)) "" else decodeHtmlEntities(obj.optString(key).replace(anyTagRegex, " ")).replace(' ', ' ').replace(spacesRegex, " ").trim()
+
+/**
+ * Le sezioni per i cittadini britannici da una pagina FCDO: Entry requirements e Getting help, per intero, con l'url che
+ * finisce in "#for-nationality=GB". Vuota se la pagina non le ha; null se [json] non e' una pagina FCDO leggibile.
+ */
+fun fcdoBritishSections(json: String): List<GuideSectionRow>? {
+    val root = runCatching { JSONObject(json) }.getOrNull() ?: return null
+    val parts = root.optJSONObject("details")?.optJSONArray("parts") ?: return null
+    val path = root.optString("base_path").takeIf { it.startsWith("/foreign-travel-advice/") } ?: return null
+    val bodies = (0 until parts.length()).mapNotNull(parts::optJSONObject)
+        .associate { it.optString("title") to it.optString("body").replace(fcdoExampleRegex, "") }
+    val updated = runCatching { OffsetDateTime.parse(root.optString("public_updated_at")).format(fcdoDateFormat) }.getOrNull()
+    val footer = updated?.let { "\n\nLast updated by the UK government: $it." }.orEmpty()
+    return fcdoBritishParts.mapNotNull { part ->
+        val text = adviceHtmlToText(bodies[part.key].orEmpty(), keepEverything, { false }).takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        val slug = part.key.lowercase().replace(' ', '-')
+        GuideSectionRow(part.category, "${part.title} (UK government)", text + footer, "https://www.gov.uk$path/$slug$FOR_NATIONALITY$BRITISH")
+    }
+}
+
+// Un ufficio consolare di travel.gc.ca ("offices"): titolo e righe "Etichetta: valore", senza fax, social e note sui social.
+private val officeFields = listOf(
+    "address" to "Address", "postal-address" to "Postal address", "tel-legacy" to "Telephone",
+    "emergency-toll-free-legacy" to "Emergency toll-free", "email-1" to "Email", "email-2" to "Email", "email-3" to "Email",
+    "internet" to "Website", "consular-district" to "Consular district",
+)
+
+private fun officeText(office: JSONObject): String? {
+    val city = plainField(office, "city")
+    val type = plainField(office, "type")
+    val title = listOf(city, type).filter { it.isNotEmpty() }.joinToString(" - ").takeIf { it.isNotEmpty() } ?: return null
+    val lines = officeFields.mapNotNull { (key, label) -> plainField(office, key).takeIf { it.isNotEmpty() }?.let { "• $label: $it" } }
+    val notes = (1..3).mapNotNull { n ->
+        val note = plainField(office, "note-$n-text").takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+        val noteTitle = plainField(office, "note-$n-title")
+        if ("social media" in noteTitle.lowercase()) null else if (noteTitle.isEmpty()) note else "$noteTitle: $note"
+    }
+    return (listOf("▸ $title") + lines + notes).joinToString("\n")
+}
+
+/**
+ * Le sezioni per i cittadini canadesi da un cta-cap-<iso2>.json di travel.gc.ca: ingresso e uscita (entry-exit) e uffici
+ * consolari (le righe di "offices" dopo il testo sull'assistenza consolare di offices-html), per intero, con l'url che
+ * finisce in "#for-nationality=CA". Vuota se il JSON non le ha; null se non si legge o non ha la parte inglese.
+ */
+fun canadianSections(json: String): List<GuideSectionRow>? {
+    val data = runCatching { JSONObject(json).getJSONObject("data") }.getOrNull() ?: return null
+    val eng = data.optJSONObject("eng") ?: return null
+    val iso = data.optString("country-iso").lowercase().takeIf { it.length == 2 } ?: return null
+    val url = "https://$TRAVEL_ADVICE_HOST/destinations/$iso$FOR_NATIONALITY$CANADIAN"
+    val updated = friendlyDateRegex.find(eng.optString("friendly-date"))?.value
+    val footer = updated?.let { "\n\nLast updated by the Government of Canada: $it." }.orEmpty()
+    val entry = adviceHtmlToText(eng.optString("entry-exit"), keepEverything, { false })
+    val offices = eng.optJSONArray("offices")?.let { array -> (0 until array.length()).mapNotNull { array.optJSONObject(it)?.let(::officeText) } }.orEmpty()
+    val help = listOf(
+        adviceHtmlToText(eng.optString("offices-html").replace(officeDetailsRegex, ""), keepEverything, { false }),
+        offices.joinToString("\n\n"),
+    ).filter { it.isNotBlank() }.joinToString("\n\n")
+    return listOf(
+        Triple("DOGANE", "Entry and exit requirements (Government of Canada)", entry),
+        Triple("SICUREZZA", "Getting help (Government of Canada)", help),
+    ).filter { it.third.isNotBlank() }.map { (category, title, text) -> GuideSectionRow(category, title, text + footer, url) }
+}
+
+/** True per le sezioni per i soli britannici o canadesi (link con "#for-nationality=GB" o "=CA"). */
+private fun isForBritishOrCanadian(section: GuideSectionRow): Boolean =
+    section.sourceUrl?.let { it.endsWith("$FOR_NATIONALITY$BRITISH") || it.endsWith("$FOR_NATIONALITY$CANADIAN") } == true
+
 /** True per le sezioni che vengono da travel.gc.ca o dall'FCDO (url della pagina del paese). */
 fun isTravelAdvice(section: GuideSectionRow): Boolean =
     section.sourceUrl?.let { "://$TRAVEL_ADVICE_HOST/" in it || it.startsWith(FCDO_ADVICE_PREFIX) } == true
@@ -426,10 +516,13 @@ private fun fcdoAdviceState(json: String, fetched: LocalDate): TravelAdviceMeta?
 }.getOrNull()
 
 /**
- * I consigli di viaggio per regione da [tsv] ("regionId<TAB>file JSON" di travel.gc.ca o dell'FCDO, riconosciuto dal
- * contenuto; vuoto o assente se non scaricato in questa run): dal JSON, con il livello di rischio e la data [today]; o,
- * se manca o non si legge, quelle della regione nel guides.db pubblicato ([publishedSections], [publishedMeta], con la loro data), cosi' un errore di rete non fa
- * sparire i consigli. Le regioni dello stesso paese (stati USA, regioni francesi) hanno le stesse.
+ * I consigli di viaggio per regione da [tsv] ("regionId<TAB>file JSON di travel.gc.ca o dell'FCDO<TAB>file JSON dell'FCDO",
+ * il tipo del primo riconosciuto dal contenuto; colonne vuote o assenti se non scaricate in questa run): dal JSON, con il
+ * livello di rischio e la data [today]; o, se manca o non si legge, quelle della regione nel guides.db pubblicato
+ * ([publishedSections], [publishedMeta], con la loro data), cosi' un errore di rete non fa sparire i consigli. Le sezioni
+ * per i soli britannici (pagina FCDO, la terza colonna o la seconda se e' dell'FCDO) e per i soli canadesi (travel.gc.ca)
+ * hanno lo stesso ripiego a parte: una pagina FCDO non scaricata non toglie le sezioni di travel.gc.ca e viceversa. Le
+ * regioni dello stesso paese (stati USA, regioni francesi) hanno le stesse.
  */
 fun readTravelAdvice(
     tsv: File,
@@ -438,16 +531,21 @@ fun readTravelAdvice(
     today: LocalDate,
 ): Map<String, RegionAdvice> =
     tsv.readLines().filter { it.isNotBlank() }.associate { line ->
-        val regionId = line.substringBefore('\t')
-        val json = line.substringAfter('\t', "").takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.length() > 0 }?.readText()
+        val columns = line.split('\t')
+        val regionId = columns[0]
+        fun read(column: Int) = columns.getOrNull(column)?.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.length() > 0 }?.readText()
+        val json = read(1)
         val fcdo = json != null && isFcdoJson(json)
         val sections = json?.let { if (fcdo) fcdoAdviceSections(it) else travelAdviceSections(it) }.orEmpty()
         val meta = json?.let { if (fcdo) fcdoAdviceState(it, today) else adviceState(it, today) }
+        val published by lazy { publishedSections(regionId).filter(::isTravelAdvice) }
+        val british = (read(2) ?: json?.takeIf { fcdo })?.let(::fcdoBritishSections) ?: published.filter { it.sourceUrl?.endsWith("$FOR_NATIONALITY$BRITISH") == true }
+        val canadian = json?.takeIf { !fcdo }?.let(::canadianSections) ?: published.filter { it.sourceUrl?.endsWith("$FOR_NATIONALITY$CANADIAN") == true }
         regionId to if (sections.isNotEmpty() && meta != null) {
-            RegionAdvice(sections, meta)
+            RegionAdvice(sections + british + canadian, meta)
         } else {
             if (json != null) println("guide: $regionId, consigli di viaggio illeggibili, ricopio quelli pubblicati")
-            RegionAdvice(publishedSections(regionId).filter(::isTravelAdvice), publishedMeta[regionId])
+            RegionAdvice(published.filterNot(::isForBritishOrCanadian) + british + canadian, publishedMeta[regionId])
         }
     }
 

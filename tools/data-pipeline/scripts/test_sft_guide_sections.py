@@ -34,6 +34,10 @@ ROWS = [
     ("giappone", "FATTI_RAPIDI", "Quick facts", "Capital: Tokyo", "https://en.wikivoyage.org/wiki/Japan"),
     ("palestina", "SICUREZZA", "Israel: areas (UK government)", "Avoid the border.", UK + "#for-nationality=IL"),
     ("palestina", "SICUREZZA", "Israel (UK government)", "See the Israel guide.", UK + "#not-for-nationality=IL"),
+    # ingresso e assistenza consolare per i soli britannici e canadesi
+    ("giappone", "DOGANE", "Entry requirements (UK government)", "You need a British passport.",
+     "https://www.gov.uk/foreign-travel-advice/japan/entry-requirements#for-nationality=GB"),
+    ("giappone", "DOGANE", "Entry and exit requirements (Government of Canada)", "Your Canadian passport must be valid.", GC + "#for-nationality=CA"),
     ("francia", "ALLOGGIO", "Dove alloggiare", "Gli alberghi sono cari.", "https://it.wikivoyage.org/wiki/Francia"),
 ]
 
@@ -56,6 +60,7 @@ class LoadGuideSectionsTest(unittest.TestCase):
         return {rid: [b for _, b, _, _ in secs] for rid, secs in load_guide_sections(self.db, lang).items()}
 
     def test_english_dataset(self):
+        # fuori anche le sezioni per i soli britannici (GB) e canadesi (CA)
         self.assertEqual(self.bodies("en"), {
             "giappone": ["Take normal security precautions.", "Health care is very good.", "Ryokan are traditional inns."],
             "palestina": ["See the Israel guide."]})  # fuori la sezione per i soli cittadini israeliani

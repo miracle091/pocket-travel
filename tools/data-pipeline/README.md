@@ -299,15 +299,22 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   frase ("There is a risk of typhoid fever in this destination, but the risk is low for most travellers."); fuori la
   prevenzione generica (`genericHealthHeadings`). Palestina, Pitcairn e Wallis e Futuna, senza pagina su travel.gc.ca,
   prendono le stesse quattro sezioni dalla pagina FCDO della GOV.UK Content API
-  (`www.gov.uk/api/content/foreign-travel-advice/<slug>`, `FCDO_SLUGS` in `build-guides.sh`, Open Government Licence
+  (`www.gov.uk/api/content/foreign-travel-advice/<slug>`, `FCDO_BASE_CODES` in `build-guides.sh`, Open Government Licence
   v3.0): Safety and security divisa per sottotitolo, Regional risks, Health, il livello di `alert_status` e le aree da
-  evitare di Warnings and insurance, senza ingresso, assistenza consolare e assicurazioni e senza le frasi sui britannici,
-  il Regno Unito o l'FCDO. Delle frasi in cui parla il governo ("we", "our", tolte per entrambe le fonti) le poche utili
-  diventano impersonali (`impersonalRewrites`: "where we advise against" -> "where the advice is against"). La pagina
+  evitare di Warnings and insurance, senza assicurazioni e senza le frasi sui britannici, il Regno Unito o l'FCDO. Delle
+  frasi in cui parla il governo ("we", "our", tolte per entrambe le fonti) le poche utili diventano impersonali (`impersonalRewrites`: "where we advise against" -> "where the advice is against"). La pagina
   della Palestina copre "Israel and Palestine": i sottotitoli solo israeliani (`fcdoSharedCountries`) vanno in una
   sezione col link che finisce in `#for-nationality=IL`, che l'app mostra solo con la nazionalità israeliana; per gli
   altri c'è un rimando alla guida di Israele (`#not-for-nationality=IL`). L'app toglie il suffisso dai link
-  (`GuideSectionAudience.kt`). Un paese non
+  (`GuideSectionAudience.kt`). Per tutti i paesi, fuori dalle sezioni per tutti, due sezioni per i soli britannici
+  (`fcdoBritishSections`: Entry requirements e Getting help della pagina FCDO, per intero, link con
+  `#for-nationality=GB`) e due per i soli canadesi (`canadianSections`: `entry-exit` e gli uffici di `offices` con il
+  testo sull'assistenza consolare di `offices-html`, link con `#for-nationality=CA`). La pagina FCDO di ogni nazione si
+  scarica con lo slug di `fcdo-slugs.tsv` (codice ISO, slug; mancano Regno Unito, Vaticano, Fær Øer, Groenlandia,
+  Svalbard, Norfolk, Isola di Natale, Cocos, Canarie e i territori statunitensi): `build-guides.sh` scrive nel TSV dei
+  consigli la colonna del JSON di travel.gc.ca e quella dell'FCDO, e una colonna vuota tiene le sezioni pubblicate di
+  quella fonte. Sui dati del 2026-10-17: 680 sezioni britanniche e 668 canadesi, `guides-en.db` da 23,2 a 30,0 MB e da
+  4,46 a 4,73 MB compresso (+0,27 MB). Un paese non
   scaricato tiene i consigli del `guides-en.db` pubblicato. Sui dati di set–ott 2026: 336 regioni, +5,8 MB di
   `guides-en.db` e +0,4 MB compresso. Il testo cambia per quasi tutti i paesi ogni due
   settimane e il job `guides` gira ogni giorno: per regione la tabella `travel_advice_meta` (livello di rischio, avvisi

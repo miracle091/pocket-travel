@@ -290,7 +290,7 @@ class GenerateTravelAdviceTest {
 
         val advice = readTravelAdvice(tsv, { emptyList() }, emptyMap(), day0).getValue("wallis-futuna")
         assertEquals(TravelAdviceMeta(2, 0, day0), advice.meta)
-        assertEquals(4, advice.sections.size)
+        assertEquals(4 + 2, advice.sections.size) // quattro per tutti, ingresso e assistenza per i britannici
         assertTrue(advice.sections.first().body.contains("against all but essential travel to the whole country."))
         dir.deleteRecursively()
     }
@@ -596,6 +596,193 @@ class GenerateTravelAdviceTest {
             val tsv = File(dir, "advice.tsv").apply { writeText("italia\t${italy.path}\n") }
 
             assertEquals(TravelAdviceMeta(3, 1, day0), readTravelAdvice(tsv, { emptyList() }, emptyMap(), day0).getValue("italia").meta)
+        }
+    }
+
+    // --- sezioni per i soli britannici e canadesi ---
+
+    private val britishLink = "https://www.gov.uk/foreign-travel-advice/wallis-and-futuna"
+
+    @Test
+    fun `FCDO - ingresso e assistenza consolare per intero, solo per i britannici`() {
+        val sections = fcdoBritishSections(fcdoJson())!!
+
+        assertEquals(listOf("DOGANE", "SICUREZZA"), sections.map { it.category })
+        assertEquals(listOf("Entry requirements (UK government)", "Getting help (UK government)"), sections.map { it.title })
+        assertEquals(
+            listOf("$britishLink/entry-requirements#for-nationality=GB", "$britishLink/getting-help#for-nationality=GB"),
+            sections.map { it.sourceUrl },
+        )
+        assertEquals(
+            listOf("You need a British passport.", "We can help British nationals."),
+            sections.map { it.body.substringBefore("\n\nLast updated") },
+        )
+        assertTrue(sections.all { it.body.endsWith("Last updated by the UK government: December 10, 2025.") && isTravelAdvice(it) })
+    }
+
+    @Test
+    fun `FCDO - le sezioni per tutti non cambiano e restano senza ingresso e assistenza`() {
+        val everyone = fcdoAdviceSections(fcdoJson())
+
+        assertEquals(4, everyone.size)
+        assertTrue(everyone.none { "#for-nationality=" in it.sourceUrl.orEmpty() || "British passport" in it.body || "British nationals" in it.body })
+    }
+
+    @Test
+    fun `FCDO - sottotitoli, elenchi e link orfani delle parti per i britannici`() {
+        val json = JSONObject(
+            mapOf(
+                "base_path" to "/foreign-travel-advice/japan",
+                "details" to mapOf(
+                    "parts" to listOf(
+                        mapOf(
+                            "title" to "Entry requirements",
+                            "body" to "<div class=\"example\"><p>Covers Japan.</p></div><h2 id=\"a\">Visa requirements  </h2>" +
+                                "<p>You can get a visa on arrival.</p><ul><li>Up to 90 days</li></ul><p><a href=\"https://x.test\">Check the rules</a></p>",
+                        ),
+                    ),
+                ),
+            ),
+        ).toString()
+
+        val entry = fcdoBritishSections(json)!!.single()
+        assertEquals("▸ Visa requirements\nYou can get a visa on arrival.\n• Up to 90 days", entry.body)
+        assertEquals("https://www.gov.uk/foreign-travel-advice/japan/entry-requirements#for-nationality=GB", entry.sourceUrl)
+    }
+
+    @Test
+    fun `FCDO - senza le due parti la lista e' vuota, con un JSON estraneo o illeggibile e' null`() {
+        assertEquals(emptyList<GuideSectionRow>(), fcdoBritishSections(fcdoMinimal(health = "<p>Ok.</p>")))
+        assertEquals(null, fcdoBritishSections("non json"))
+        assertEquals(null, fcdoBritishSections(fcdoMinimal(basePath = "/altro/percorso")))
+        assertEquals(null, fcdoBritishSections(json(mapOf("security" to "<p>Ok.</p>"))))
+    }
+
+    // JSON di travel.gc.ca con gli uffici in "offices" (struttura reale: campi nulli o vuoti dove mancano).
+    private fun canadianJson(entry: String = "<p>Your passport must be valid.</p>", help: String = "<h3>Consular assistance</h3><p>Contact the nearest office.</p>") = JSONObject(
+        mapOf(
+            "data" to mapOf(
+                "country-iso" to "JP", "advisory-state" to 0, "has-regional-advisory" to 0,
+                "eng" to mapOf(
+                    "friendly-date" to "September 22, 2026 05:35 EDT",
+                    "entry-exit" to entry,
+                    "offices-html" to "<h3>Local services</h3><section><details><summary>Emergency services</summary><div><p>Dial 110.</p></div></details></section>" +
+                        help + "<details class=\"span-3\"><summary><strong>Tokyo</strong> - Embassy of Canada</summary><div>Street Address Akasaka</div></details>",
+                    "offices" to listOf(
+                        mapOf(
+                            "city" to "Tokyo", "type" to "Embassy of Canada", "address" to "3-38 Akasaka, Tokyo", "postal-address" to "",
+                            "tel-legacy" to "81 (3) 5412-6200", "fax-legacy" to "81 (3) 5412-6289", "email-1" to "tokyo@international.gc.ca",
+                            "internet" to "https://www.international.gc.ca/tokyo", "facebook" to "https://facebook.example/x",
+                            "note-1-title" to "", "note-1-text" to "",
+                        ),
+                        mapOf(
+                            "city" to "Osaka", "type" to "Honorary consul of Canada", "address" to "Osaka Castle Hotel", "tel-legacy" to JSONObject.NULL,
+                            "note-2-title" to "Consular services", "note-2-text" to "Not all services.<Br>Contact the Embassy.",
+                            "note-3-title" to "Other social media", "note-3-text" to "@CanadaNihon",
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    ).toString()
+
+    @Test
+    fun `travel_gc_ca - ingresso e uscita e uffici consolari per intero, solo per i canadesi`() {
+        val sections = canadianSections(canadianJson())!!
+
+        assertEquals(listOf("DOGANE", "SICUREZZA"), sections.map { it.category })
+        assertEquals(
+            listOf("Entry and exit requirements (Government of Canada)", "Getting help (Government of Canada)"),
+            sections.map { it.title },
+        )
+        assertTrue(sections.all { it.sourceUrl == "https://travel.gc.ca/destinations/jp#for-nationality=CA" && isTravelAdvice(it) })
+        val footer = "\n\nLast updated by the Government of Canada: September 22, 2026."
+        assertEquals("Your passport must be valid.$footer", sections[0].body)
+        assertEquals(
+            "▸ Consular assistance\nContact the nearest office.\n\n" +
+                "▸ Tokyo - Embassy of Canada\n• Address: 3-38 Akasaka, Tokyo\n• Telephone: 81 (3) 5412-6200\n" +
+                "• Email: tokyo@international.gc.ca\n• Website: https://www.international.gc.ca/tokyo\n\n" +
+                "▸ Osaka - Honorary consul of Canada\n• Address: Osaka Castle Hotel\nConsular services: Not all services. Contact the Embassy.$footer",
+            sections[1].body,
+        )
+    }
+
+    @Test
+    fun `travel_gc_ca - le sezioni per tutti non cambiano e restano senza ingresso e uffici`() {
+        val everyone = travelAdviceSections(canadianJson().replace("\"eng\":{", "\"eng\":{\"security\":\"<p>Be careful.</p>\","))
+
+        assertEquals(listOf("Safety and security (Government of Canada)"), everyone.map { it.title })
+        assertTrue(everyone.none { "#for-nationality=" in it.sourceUrl.orEmpty() || "passport" in it.body || "Akasaka" in it.body })
+    }
+
+    @Test
+    fun `travel_gc_ca - una sola parte basta, nessuna da' lista vuota, JSON illeggibile e' null`() {
+        // Senza il testo sull'assistenza consolare restano gli uffici; senza ingresso e uscita, la sola assistenza.
+        assertTrue(canadianSections(canadianJson(help = ""))!![1].body.startsWith("▸ Tokyo - Embassy of Canada"))
+        assertEquals(listOf("SICUREZZA"), canadianSections(canadianJson(entry = ""))!!.map { it.category })
+        assertEquals(emptyList<GuideSectionRow>(), canadianSections(json(mapOf("security" to "<p>Ok.</p>"))))
+        assertEquals(null, canadianSections("<html>404</html>"))
+        assertEquals(null, canadianSections("""{"data": {"country-iso": "JP"}}"""))
+        assertEquals(null, canadianSections(json(mapOf("entry-exit" to "<p>Ok.</p>"), iso = "JPN")))
+    }
+
+    @Test
+    fun `readTravelAdvice aggiunge le sezioni per i britannici e i canadesi dopo quelle per tutti`() {
+        withDir { dir ->
+            val gc = File(dir, "jp.json").apply { writeText(canadianJson().replace("\"eng\":{", "\"eng\":{\"security\":\"<p>Be careful.</p>\",")) }
+            val fcdo = File(dir, "jp.fcdo.json").apply { writeText(fcdoJson()) }
+            val tsv = File(dir, "advice.tsv").apply { writeText("giappone\t${gc.path}\t${fcdo.path}\n") }
+
+            val advice = readTravelAdvice(tsv, { emptyList() }, emptyMap(), day0).getValue("giappone")
+
+            assertEquals(
+                listOf(
+                    "Safety and security (Government of Canada)", "Entry requirements (UK government)", "Getting help (UK government)",
+                    "Entry and exit requirements (Government of Canada)", "Getting help (Government of Canada)",
+                ),
+                advice.sections.map { it.title },
+            )
+            assertEquals(TravelAdviceMeta(0, 0, day0), advice.meta)
+        }
+    }
+
+    @Test
+    fun `readTravelAdvice - la pagina FCDO del tipo del primo file da' anche le sezioni per i britannici`() {
+        withDir { dir ->
+            val fcdo = File(dir, "wf.json").apply { writeText(fcdoJson()) }
+            val tsv = File(dir, "advice.tsv").apply { writeText("wallis-futuna\t${fcdo.path}\n") }
+
+            val titles = readTravelAdvice(tsv, { emptyList() }, emptyMap(), day0).getValue("wallis-futuna").sections.map { it.title }
+
+            assertEquals(6, titles.size)
+            assertEquals(listOf("Entry requirements (UK government)", "Getting help (UK government)"), titles.takeLast(2))
+        }
+    }
+
+    @Test
+    fun `readTravelAdvice - una pagina non scaricata lascia le sezioni pubblicate della sua nazionalita'`() {
+        withDir { dir ->
+            val gc = File(dir, "jp.json").apply { writeText(canadianJson().replace("\"eng\":{", "\"eng\":{\"security\":\"<p>Be careful.</p>\",")) }
+            val fcdo = File(dir, "jp.fcdo.json").apply { writeText(fcdoJson()) }
+            val oldBritish = GuideSectionRow("DOGANE", "Entry requirements (UK government)", "vecchio", "$britishLink/entry-requirements#for-nationality=GB")
+            val oldCanadian = GuideSectionRow("DOGANE", "Old (Government of Canada)", "vecchio", "https://travel.gc.ca/destinations/jp#for-nationality=CA")
+            val oldEveryone = GuideSectionRow("SICUREZZA", "Old (Government of Canada)", "vecchio", "https://travel.gc.ca/destinations/jp")
+            val published = { _: String -> listOf(oldEveryone, oldBritish, oldCanadian) }
+
+            // FCDO non scaricata: restano quelle pubblicate per i britannici, le altre sono nuove.
+            val noFcdo = File(dir, "a.tsv").apply { writeText("giappone\t${gc.path}\t\n") }
+            val first = readTravelAdvice(noFcdo, published, emptyMap(), day0).getValue("giappone").sections
+            assertEquals(listOf("Safety and security (Government of Canada)", "Entry requirements (UK government)"), first.take(2).map { it.title })
+            assertEquals(oldBritish, first[1])
+            assertEquals(2, first.count { it.sourceUrl.orEmpty().endsWith("#for-nationality=CA") })
+
+            // travel.gc.ca non scaricato: tutto quello pubblicato per tutti e per i canadesi, le sezioni britanniche nuove.
+            val noGc = File(dir, "b.tsv").apply { writeText("giappone\t\t${fcdo.path}\n") }
+            val second = readTravelAdvice(noGc, published, mapOf("giappone" to TravelAdviceMeta(1, 0, day0.minusDays(1))), day0).getValue("giappone")
+            assertEquals(listOf(oldEveryone), second.sections.take(1))
+            assertEquals(listOf("Entry requirements (UK government)", "Getting help (UK government)"), second.sections.drop(1).take(2).map { it.title })
+            assertEquals(oldCanadian, second.sections.last())
+            assertEquals(day0.minusDays(1), second.meta?.fetched)
         }
     }
 

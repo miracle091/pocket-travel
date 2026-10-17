@@ -30,6 +30,8 @@
 #
 # Guida inglese con i consigli di viaggio del Governo del Canada (sezione 2c, JSON open data di travel.gc.ca, Open
 # Government Licence - Canada): sicurezza e livello di rischio, leggi e cultura, catastrofi naturali e clima, salute.
+# Per tutti i paesi anche, dalla pagina FCDO, ingresso e assistenza consolare per i soli britannici, e da travel.gc.ca
+# ingresso e uscita e uffici consolari per i soli canadesi (sezioni visibili solo con quella nazionalita').
 #
 # Sezioni tradotte dall'altra lingua (sezione 3a): con TRANSLATE_CACHE_DIR e i modelli attivi (vedi translate_overlay in
 # lib.sh) translate_guides.py traduce le sezioni del governo canadese della guida inglese, che si aggiungono alla guida
@@ -240,18 +242,25 @@ if [ -z "$(find "$MISSIONS_TSV" -mmin -120 -size +0 2>/dev/null)" ]; then
     || echo "AVVISO: missioni diplomatiche da Wikidata non scaricate, riuso quelle pubblicate se ci sono" >&2
 fi
 
-# --- 2c. Consigli di viaggio di travel.gc.ca (solo guida inglese) ---------------------------------
-# Un JSON open data per paese (flagCode di regions.sh; le regioni dello stesso paese lo condividono), vedi
-# GenerateTravelAdvice.kt. Uno non scaricato lascia la riga vuota: generateGuides ricopia i consigli pubblicati.
-# I territori senza pagina su travel.gc.ca prendono la pagina FCDO (GOV.UK Content API) di FCDO_SLUGS.
+# --- 2c. Consigli di viaggio di travel.gc.ca e dell'FCDO (solo guida inglese) ----------------------
+# Un JSON open data di travel.gc.ca per paese (flagCode di regions.sh; le regioni dello stesso paese lo condividono), vedi
+# GenerateTravelAdvice.kt, e la pagina FCDO (GOV.UK Content API) dello stesso paese per le sezioni dei britannici, con lo
+# slug di fcdo-slugs.tsv. Uno non scaricato lascia la colonna vuota: generateGuides ricopia i consigli pubblicati.
+# FCDO_BASE_CODES: i territori senza pagina su travel.gc.ca, per cui la pagina FCDO e' anche la fonte delle sezioni per tutti.
+# Richieste a GOV.UK: una per paese (circa 220), a distanza di 0,2 s (il limite e' 10 al secondo), con User-Agent esplicito.
 ADVICE_TSV=""
-declare -A FCDO_SLUGS=([ps]=palestine [pn]=pitcairn-island [wf]=wallis-and-futuna)
+declare -A FCDO_SLUGS=()
+while IFS=$'\t' read -r iso slug; do
+  case "$iso" in ''|'#'*) continue ;; esac
+  FCDO_SLUGS[$iso]="$slug"
+done < "$SCRIPT_DIR/../fcdo-slugs.tsv"
+FCDO_BASE_CODES=" ps pn wf "
 if [ "$LANG_CODE" = "en" ]; then
   ADVICE_DIR="$WORKDIR/travel-advice"
   ADVICE_TSV="$WORKDIR/travel-advice.tsv"
   mkdir -p "$ADVICE_DIR"
   : > "$ADVICE_TSV"
-  ADVICE_OK=0 ADVICE_TRIED=0
+  ADVICE_OK=0 ADVICE_TRIED=0 FCDO_OK=0 FCDO_TRIED=0
   for spec in "${ALL_REGIONS[@]}"; do
     IFS='|' read -r regionId _ _ _ _ _ _ flagCode _ <<< "$spec"
     [ -n "$flagCode" ] || { printf '%s\t\n' "$regionId" >> "$ADVICE_TSV"; continue; }
@@ -264,23 +273,33 @@ if [ "$LANG_CODE" = "en" ]; then
       else
         rm -f "$advice"
         : > "$advice.none"  # niente pagina (es. il Canada stesso) o errore: non si riprova per le altre regioni del paese
-        slug="${FCDO_SLUGS[$flagCode]:-}"
-        if [ -n "$slug" ] && curl -sSf --max-time 60 --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" -o "$advice" \
-          "https://www.gov.uk/api/content/foreign-travel-advice/$slug" 2>/dev/null; then
-          ADVICE_OK=$((ADVICE_OK + 1))
-        else
-          rm -f "$advice"
-        fi
       fi
       sleep 0.2
     fi
-    if [ -s "$advice" ]; then
-      printf '%s\t%s\n' "$regionId" "$(winpath "$advice")" >> "$ADVICE_TSV"
-    else
-      printf '%s\t\n' "$regionId" >> "$ADVICE_TSV"
+    fcdo="$ADVICE_DIR/$flagCode.fcdo.json"
+    slug="${FCDO_SLUGS[$flagCode]:-}"
+    if [ -n "$slug" ] && [ ! -e "$fcdo" ] && [ ! -e "$fcdo.none" ]; then
+      FCDO_TRIED=$((FCDO_TRIED + 1))
+      if curl -sSf --compressed --max-time 60 --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" -o "$fcdo" \
+        "https://www.gov.uk/api/content/foreign-travel-advice/$slug" 2>/dev/null; then
+        FCDO_OK=$((FCDO_OK + 1))
+      else
+        rm -f "$fcdo"
+        : > "$fcdo.none"
+      fi
+      sleep 0.2
     fi
+    gcFile="" fcdoFile=""
+    [ -s "$advice" ] && gcFile="$(winpath "$advice")"
+    [ -s "$fcdo" ] && fcdoFile="$(winpath "$fcdo")"
+    # Territorio senza pagina su travel.gc.ca: la pagina FCDO sta nella seconda colonna, come fonte delle sezioni per tutti.
+    if [ -z "$gcFile" ] && [[ "$FCDO_BASE_CODES" == *" $flagCode "* ]]; then
+      gcFile="$fcdoFile"
+      fcdoFile=""
+    fi
+    printf '%s\t%s\t%s\n' "$regionId" "$gcFile" "$fcdoFile" >> "$ADVICE_TSV"
   done
-  echo "-- consigli di travel.gc.ca e FCDO: $ADVICE_OK/$ADVICE_TRIED paesi scaricati"
+  echo "-- consigli di travel.gc.ca: $ADVICE_OK/$ADVICE_TRIED paesi scaricati; dell'FCDO: $FCDO_OK/$FCDO_TRIED"
 fi
 
 # --- 3. guides.db ---------------------------------------------------------------------------------

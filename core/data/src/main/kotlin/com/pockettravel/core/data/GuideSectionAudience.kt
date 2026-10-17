@@ -2,8 +2,9 @@ package com.pockettravel.core.data
 
 /*
  * Sezioni di guida per una sola nazionalita': il pipeline lo scrive in fondo al link della sezione, "#for-nationality=IL"
- * (solo per chi ha nazionalita' israeliana) o "#not-for-nationality=IL" (per tutti gli altri). Oggi le usano solo i
- * consigli FCDO della Palestina, la cui pagina copre anche Israele.
+ * (solo per chi ha nazionalita' israeliana) o "#not-for-nationality=IL" (per tutti gli altri). Le usano i consigli FCDO
+ * della Palestina, la cui pagina copre anche Israele, e ingresso e assistenza consolare dei consigli di viaggio, scritti
+ * per i propri cittadini dal Regno Unito ("#for-nationality=GB") e dal Canada ("#for-nationality=CA").
  */
 private const val FOR_NATIONALITY = "#for-nationality="
 private const val NOT_FOR_NATIONALITY = "#not-for-nationality="
