@@ -109,7 +109,8 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Contenuto con i numeri civici | numeri civici | house numbers |
 | Contenuto con linee e fermate | mezzi pubblici | public transport |
 | Partenze dalle fermate | orari dei mezzi pubblici | public transport timetables |
-| Reti scaricate che il catalogo non pubblica più (orari scaduti o rete tolta) | orari non più aggiornati | timetables no longer updated |
+| Reti scaricate che il catalogo sposta tra le "Non incluse" (orari scaduti, licenza) | orari non più aggiornati | timetables no longer updated |
+| Rete scaricata che il catalogo toglie del tutto, di solito perché un'altra la sostituisce | rete sostituita | replaced network |
 | Contenuto con negozi, ristoranti, musei... (e la sua aggiunta) | punti di interesse (punti di interesse extra) | points of interest (extra points of interest) |
 | Contenuto con le guide di Wikivoyage delle città | guide delle città | city guides |
 | Mappa con meno dettagli e meno spazio occupato | mappa leggera | light map |
