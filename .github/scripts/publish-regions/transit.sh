@@ -2,8 +2,10 @@
 # Job "transit" di publish-regions.yml: costruisce le reti dei mezzi pubblici di tools/data-pipeline/transit-feeds.tsv
 # (build-transit.sh), le carica sulla release "transit-feeds" e scrive l'indice transit.json e il suo frammento di
 # catalogo ($RUNNER_TEMP/transit-index/transit.json, $RUNNER_TEMP/fragments/transit.json). Una rete che fallisce
-# tiene la voce gia' pubblicata; una rete con gli orari scaduti va tra le "Non incluse" con un warning, e torna
-# pubblicata, con un altro warning, quando l'ente mette online orari validi.
+# tiene la voce gia' pubblicata; una rete con gli orari scaduti va tra le "Non incluse" e torna pubblicata
+# quando l'ente mette online orari validi. I warning escono solo al cambio di stato (rete che scade, rete di nuovo
+# valida): una rete gia' scaduta nell'indice pubblicato resta muta, a parte la riga "Orari scaduti" del riepilogo, e se
+# il suo feed ha lo stesso sha256 (sourceSha256 nella voce di "missing") non si riconverte.
 # Ambiente: PAGES_BASE_URL, GITHUB_REPOSITORY, GITHUB_RUN_NUMBER, GITHUB_RUN_ATTEMPT, GH_TOKEN; facoltative JOB_START
 # (inizio del job, secondi Unix) e TRANSIT_JOB_MINUTES (150).
 set -euo pipefail
@@ -73,9 +75,12 @@ build_feed() {
     0) ;;
     3)
       # Orari scaduti: la voce pubblicata non resta (orari vecchi), la rete va tra le "Non incluse" (transit-expired.jsonl).
-      local until
-      until="$(jq -r --arg id "$id" 'select(.id == $id) | .feedEnd' "$OUT/transit-expired.jsonl" | tail -1)"
-      echo "::warning::rete $id: orari scaduti (fino al $until), non pubblicata e mostrata tra le Non incluse finche' l'ente non pubblica orari validi"
+      # Il warning solo se la rete non era gia' tra le "Non incluse" per gli orari nell'indice pubblicato.
+      if [ ! -s "$PUBLISHED" ] || ! jq -e --arg id "$id" '.missing[]? | select(.id == $id and .reason == "orari")' "$PUBLISHED" > /dev/null; then
+        local until
+        until="$(jq -r --arg id "$id" 'select(.id == $id) | .feedEnd' "$OUT/transit-expired.jsonl" | tail -1)"
+        echo "::warning::rete $id: orari scaduti (fino al $until), non pubblicata e mostrata tra le Non incluse finche' l'ente non pubblica orari validi"
+      fi
       EXPIRED+=("$id")
       ;;
     *)
@@ -127,7 +132,8 @@ INDEX="$RUNNER_TEMP/transit-index/transit.json"
 # publishedAt (secondi Unix) dentro i byte firmati e coperti dallo sha256 del frammento: l'app rifiuta
 # un valore piu' basso dell'ultimo accettato (niente ritorno a una vecchia coppia file + .sig).
 # missing: le reti escluse a mano (transit-missing.tsv) e quelle con gli orari scaduti in questa run
-# (transit-expired.jsonl), che l'app mostra come "Non incluse" con il motivo.
+# (transit-expired.jsonl), che l'app mostra come "Non incluse" con il motivo; sourceSha256 resta nella voce (l'app
+# ignora le chiavi che non conosce), feedEnd si toglie.
 MISSING="$(jq -Rn '[inputs | select(length > 0 and (startswith("#") | not)) | split("\t")
   | {id: .[0], regions: (.[1] | split(",")), name: .[2], reason: .[3]}]' tools/data-pipeline/transit-missing.tsv)"
 touch "$OUT/transit-expired.jsonl"

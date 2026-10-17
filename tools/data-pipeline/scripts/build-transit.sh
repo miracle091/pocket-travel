@@ -29,7 +29,9 @@
 #
 # Codici d'uscita: 0 rete pronta (nuova o riusata), 3 orari scaduti (nessuna corsa nei prossimi TRANSIT_WINDOW_DAYS
 # giorni e ultimo giorno del feed gia' passato: la rete va tra le "Non incluse", con una riga in
-# <outputDir>/transit-expired.jsonl), altro errore.
+# <outputDir>/transit-expired.jsonl con lo sha256 del feed in sourceSha256), altro errore. Se il feed ha lo stesso
+# sha256 della voce "missing" (motivo "orari") dell'indice pubblicato, la rete e' ancora scaduta: la voce si riusa
+# senza convertire e si esce con 3.
 #
 # Richiede: jq, curl, unzip, sha256sum, xz, perl ({ultimo}), python3 (script:), gradle wrapper dalla root
 # del repo.
@@ -188,6 +190,20 @@ if [ -n "$PUBLISHED_INDEX" ] && [ -s "$PUBLISHED_INDEX" ]; then
   fi
 fi
 
+# Rete gia' tra le "Non incluse" per gli orari con lo stesso feed: e' ancora scaduta, niente conversione. Una voce
+# senza sourceSha256 (indice di prima di questo campo) non coincide mai e la rete si converte.
+if [ -n "$PUBLISHED_INDEX" ] && [ -s "$PUBLISHED_INDEX" ]; then
+  EXPIRED_ENTRY="$(jq -c --arg id "$FEED_ID" --arg sha "$SOURCE_SHA" \
+    '.missing[]? | select(.id == $id and .reason == "orari" and .sourceSha256 == $sha)' "$PUBLISHED_INDEX" | head -1)"
+  if [ -n "$EXPIRED_ENTRY" ]; then
+    echo "-- $FEED_ID: feed invariato e orari ancora scaduti, non converto"
+    # Nome e regioni dalla lista di oggi (possono cambiare senza convertire).
+    jq -c --arg name "$NAME" --arg regions "$REGIONS" '.name = $name | .regions = ($regions | split(","))' \
+      <<< "$EXPIRED_ENTRY" >> "$OUTPUT_DIR/transit-expired.jsonl"
+    exit 3
+  fi
+fi
+
 DB="$WORKDIR/transit.db"
 WINDOW_START="$(date -u +%Y-%m-%d)"
 echo "-- $FEED_ID: converto (finestra di $TRANSIT_WINDOW_DAYS giorni da $WINDOW_START)..."
@@ -208,9 +224,10 @@ if [ "${TRIPS:-0}" -eq 0 ] || [ "${STOP_TIMES:-0}" -eq 0 ] || [ -z "$VALID_UNTIL
   if [ "$END_DATE" = "?" ] || [[ ! "$END_DATE" < "$WINDOW_START" ]]; then
     exit 1
   fi
-  # Voce di "missing" di transit.json, piu' la data del feed per il warning della run (transit.sh la toglie).
-  jq -c -n --arg id "$FEED_ID" --arg regions "$REGIONS" --arg name "$NAME" --arg until "$END_DATE" \
-    '{id: $id, regions: ($regions | split(",")), name: $name, reason: "orari", feedEnd: $until}' \
+  # Voce di "missing" di transit.json con lo sha256 del feed (la run dopo salta la conversione se non cambia), piu'
+  # la data del feed per il warning della run (transit.sh la toglie).
+  jq -c -n --arg id "$FEED_ID" --arg regions "$REGIONS" --arg name "$NAME" --arg until "$END_DATE" --arg sha "$SOURCE_SHA" \
+    '{id: $id, regions: ($regions | split(",")), name: $name, reason: "orari", sourceSha256: $sha, feedEnd: $until}' \
     >> "$OUTPUT_DIR/transit-expired.jsonl"
   exit 3
 fi
