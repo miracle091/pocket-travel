@@ -14,6 +14,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.time.Clock
 import java.util.Locale
@@ -68,11 +70,13 @@ class WeatherRepository(
                     parseForecast(json, body, clock.instant())
                     cacheDir.mkdirs()
                     // Prima in un file a parte, poi al suo posto: una scrittura interrotta non lascia una risposta troncata.
+                    // Files.move sostituisce la risposta vecchia anche dove renameTo non sovrascrive (JVM su Windows).
                     val partial = File.createTempFile("weather", ".part", cacheDir)
-                    partial.writeText(body)
-                    if (!partial.renameTo(file)) {
+                    try {
+                        partial.writeText(body)
+                        Files.move(partial.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+                    } finally {
                         partial.delete()
-                        throw IOException("Meteo non salvato")
                     }
                 }
             } catch (cancellation: CancellationException) {
