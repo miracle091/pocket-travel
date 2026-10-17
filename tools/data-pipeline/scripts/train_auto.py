@@ -10,7 +10,7 @@ Cosa decide, ad ogni lancio:
 - backend: --unsloth se Unsloth e' installato e, su Windows, il compilatore MSVC e' disponibile
   (Triton compila con clang-cl e gli servono INCLUDE/LIB); altrimenti peft puro;
 - variabili d'ambiente per il figlio: CUDA_VISIBLE_DEVICES / HIP_VISIBLE_DEVICES, ambiente MSVC.
-Non passa --4bit da solo: va scelto a mano (solo NVIDIA).
+Non passa --4bit da solo: va scelto a mano (GPU con poca VRAM; sconsigliato per i Qwen3.5).
 
 Watchdog (--no-watchdog per spegnerlo): legge le righe "[training] N/T" di train_lora.py e lo ferma quando la velocita'
 degli ultimi 15 minuti e' piu' del doppio piu' lenta della migliore dello stesso processo, o quando nessun passo avanza

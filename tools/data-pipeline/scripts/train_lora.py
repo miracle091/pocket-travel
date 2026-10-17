@@ -6,7 +6,8 @@ Due backend, stessi iperparametri:
   --unsloth   kernel Unsloth (Triton); su Windows serve l'ambiente MSVC: usa train_auto.py
 Va lanciato limitando HIP_VISIBLE_DEVICES alla sola GPU discreta (l'iGPU compare come device 0):
   HIP_VISIBLE_DEVICES=<indice GPU> python train_lora.py --max-steps 30
-Pesi in bf16; --4bit (QLoRA) solo su NVIDIA (su AMD bug NaN di bitsandbytes).
+Pesi in bf16; --4bit (QLoRA, AMD e NVIDIA) solo per GPU con poca VRAM: Unsloth la sconsiglia per i Qwen3.5
+(differenze di quantizzazione piu' alte del normale). Con --merge la LoRA si fonde nel modello base a piena precisione.
 
 Scelte che contano per la qualita':
 - loss solo sulla risposta dell'assistente (etichette del prompt = -100): il prompt e' ~80% dei token
@@ -76,7 +77,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--model", default="HuggingFaceTB/SmolLM2-135M-Instruct")
 ap.add_argument("--unsloth", action="store_true", help="usa i kernel Unsloth")
 ap.add_argument("--4bit", dest="four_bit", action="store_true",
-                help="QLoRA 4-bit (solo con --unsloth; non su AMD: bug NaN di bitsandbytes)")
+                help="QLoRA 4-bit (solo con --unsloth; sconsigliata per i Qwen3.5, per GPU con poca VRAM)")
 ap.add_argument("--max-steps", type=int, default=-1, help="-1 = usa --epochs")
 ap.add_argument("--epochs", type=float, default=2)
 ap.add_argument("--max-len", type=int, default=1024)
@@ -301,9 +302,22 @@ for kind in ("pos", "pos", "neg", "neg"):
     print("  ottenuto:", tok.decode(out[0][ids["input_ids"].shape[1]:], skip_special_tokens=True)[:160])
 print("LoRA salvato in", a.out + "/lora")
 # Il merge modifica il modello sul posto: va dopo il controllo a occhio
+def merge_full_precision(base, lora_dir, out, dtype):
+    """Fonde la LoRA in una copia del modello base a piena precisione, caricata su CPU. Serve con --4bit:
+    merge_and_unload sul modello a 4 bit riquantizza i pesi fusi in nf4 e salva un modello bitsandbytes,
+    che convert_hf_to_gguf.py non converte ("Quant method is not yet supported: 'bitsandbytes'")."""
+    from peft import PeftModel
+    full, info = AutoModelForCausalLM.from_pretrained(base, dtype=dtype, output_loading_info=True)
+    if info["missing_keys"]:
+        sys.exit(f"Pesi non trovati in {base}: {sorted(info['missing_keys'])[:5]}")
+    PeftModel.from_pretrained(full, lora_dir).merge_and_unload().save_pretrained(out)
+
 if a.merge:
     phase("merge", a.out + "/merged")
-    model.merge_and_unload().save_pretrained(a.out + "/merged")
+    if a.four_bit:
+        merge_full_precision(base, a.out + "/lora", a.out + "/merged", DTYPE)
+    else:
+        model.merge_and_unload().save_pretrained(a.out + "/merged")
     tok.save_pretrained(a.out + "/merged")
     copy_attribution(a.out + "/merged")
 # Libera la VRAM prima dell'eval (processo figlio) e dell'uscita: con ROCm su Windows il processo
