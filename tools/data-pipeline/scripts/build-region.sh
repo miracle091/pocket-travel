@@ -886,9 +886,12 @@ if [ "$POI_ONLY" = "true" ]; then
     hash="$(sha256sum < "$file" | awk '{print $1}')"
     if [ "$hash" = "$(printf '%s' "$PUBLISHED_REGION" | jq -r --arg key "$key" '.[$key].file.sha256 // ""')" ]; then
       rm -f "$file"
-      # Stessi POI con la regola nuova del confine: la voce pubblicata la registra, altrimenti ogni run li rigenera.
+      # Stessi POI con la regola nuova del confine: la voce pubblicata la registra, insieme a confine, relazione e
+      # conteggio (assenti nelle voci piu' vecchie), altrimenti ogni run li rigenera.
       if [ "$key" = "poi" ]; then
-        jq -c --argjson borderRule "$POI_BORDER_RULE_JSON" '.regions |= map(.poi.borderRule = $borderRule)' \
+        jq -c --argjson count "$POI_COUNT" --argjson border "$POI_BORDER" --argjson borderRelation "${BORDER_RELATION:-null}" \
+          --argjson borderRule "$POI_BORDER_RULE_JSON" \
+          '.regions |= map(.poi.count = $count | .poi.border = $border | .poi.borderRelation = $borderRelation | .poi.borderRule = $borderRule)' \
           "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
         mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
       fi

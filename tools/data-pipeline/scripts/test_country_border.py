@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Test di country_border.py (unittest, senza rete)."""
 
+import http.client
 import json
 import os
 import sys
@@ -93,7 +94,7 @@ class ConfineTest(unittest.TestCase):
         # Lookup senza poligono, o fallito (rete, risposta troncata): vale quello della ricerca, segnato come non completo,
         # e la risposta non resta in cache.
         for lookup in ([], [{**SAN_MARINO, "geojson": {"type": "Point", "coordinates": [12.4, 43.9]}}],
-                       OSError("rete"), ValueError("JSON troncato")):
+                       OSError("rete"), ValueError("JSON troncato"), http.client.IncompleteRead(b"[{")):
             with tempfile.TemporaryDirectory() as cache, \
                     mock.patch.object(country_border, "cerca", side_effect=[[SAN_MARINO], lookup]), \
                     mock.patch.object(country_border.time, "sleep"), mock.patch("sys.stdout"), mock.patch("sys.stderr"):
@@ -222,6 +223,11 @@ class CercaTest(unittest.TestCase):
                 mock.patch("time.sleep") as sleep, mock.patch("sys.stderr"):
             self.assertEqual([], country_border.cerca({"q": "x"}, "ua"))
         self.assertEqual([mock.call(60), mock.call(10)], sleep.call_args_list)
+
+    def test_riprova_con_il_corpo_troncato(self):
+        with mock.patch("urllib.request.urlopen", side_effect=[http.client.IncompleteRead(b"[{"), FakeResponse([])]),                 mock.patch("time.sleep") as sleep, mock.patch("sys.stderr"):
+            self.assertEqual([], country_border.cerca({"q": "x"}, "ua"))
+        self.assertEqual([mock.call(5)], sleep.call_args_list)
 
     def test_dopo_tre_tentativi_rilancia(self):
         with mock.patch("urllib.request.urlopen", side_effect=OSError("rete")) as urlopen, \

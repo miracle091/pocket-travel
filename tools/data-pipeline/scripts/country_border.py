@@ -24,6 +24,7 @@ confine della nazione.
 """
 
 import argparse
+import http.client
 import json
 import os
 import re
@@ -50,7 +51,8 @@ def cerca(params, user_agent, endpoint="search"):
         try:
             with urllib.request.urlopen(request, timeout=120) as response:
                 return json.load(response)
-        except OSError as error:
+        except (OSError, http.client.HTTPException) as error:
+            # IncompleteRead (corpo troncato) non e' ne' OSError ne' ValueError.
             if attempt == 3:
                 raise
             print(f"-- confine: {error}, riprovo ({attempt}/3)", file=sys.stderr, flush=True)
@@ -152,7 +154,7 @@ def poligono_completo(relation, cache, user_agent):
     path = os.path.join(cache, f"confine-r{relation}.json")
     try:
         found = scegli(in_cache(path, fetch), lambda r: True)
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError, http.client.HTTPException) as error:
         # La ricerca ha gia' trovato la relazione: senza il lookup (rete, risposta troncata) vale quello semplificato.
         print(f"-- confine: lookup della relazione {relation}: {error}", file=sys.stderr, flush=True)
         return None
