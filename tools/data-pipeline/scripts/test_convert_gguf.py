@@ -98,6 +98,30 @@ class ConvertGgufTest(unittest.TestCase):
         self.assertRegex(calibration, r"<\|im_start\|>user\nDomanda (\d) città\?<\|im_end\|>\n"
                                       r"<\|im_start\|>assistant\nRisposta \1 è così\.<\|im_end\|>\n")
 
+    def test_qwen35_quantizzazione_mista_di_default(self):
+        qwen35 = {"text_config": {"layer_types": ["linear_attention", "full_attention"]}}
+        with tempfile.TemporaryDirectory() as tmp:
+            commands, _, _, _ = run(Workspace(tmp, config=qwen35))
+        quantize = commands[2][0]
+        self.assertEqual("Q5_K_M", quantize[-1])
+        self.assertEqual(["--imatrix", "imatrix.gguf", "--token-embedding-type", "q5_k", "--output-tensor-type", "q5_k"],
+                         quantize[1:7])
+        overrides = [quantize[i + 1] for i, arg in enumerate(quantize) if arg == "--tensor-type"]
+        self.assertEqual([r"attn_q\.=q6_k", r"attn_k\.=q6_k", r"attn_v\.=q6_k", "attn_output=q6_k", "ssm_out=q6_k"],
+                         overrides)
+
+    def test_quantize_esplicito_vince_su_auto(self):
+        qwen35 = {"layer_types": ["linear_attention"]}
+        with tempfile.TemporaryDirectory() as tmp:
+            plain, _, _, _ = run(Workspace(tmp, config=qwen35), ["--quantize", "Q4_K_M"])
+        with tempfile.TemporaryDirectory() as tmp:
+            mixed, _, _, _ = run(Workspace(tmp), ["--quantize", "Q5_K_M-mix"])
+        self.assertEqual(["llama-quantize", "--imatrix", "imatrix.gguf"], [Path(plain[2][0][0]).name, *plain[2][0][1:3]])
+        self.assertNotIn("--tensor-type", plain[2][0])
+        self.assertEqual("Q4_K_M", plain[2][0][-1])
+        self.assertIn("--tensor-type", mixed[2][0])
+        self.assertEqual("Q5_K_M", mixed[2][0][-1])
+
     def test_imatrix_rows_zero_salta_l_imatrix(self):
         with tempfile.TemporaryDirectory() as tmp:
             ws = Workspace(tmp)

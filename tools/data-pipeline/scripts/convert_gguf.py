@@ -10,7 +10,7 @@ third-party/llama-cpp â€” v0.6.0, vedi feature/ai/src/main/cpp/CMakeLists.txt â€
 Python installate: `pip install -r <llama.cpp>/requirements/requirements-convert_hf_to_gguf.txt`,
 e llama-quantize compilato: `cmake -B build && cmake --build build --target llama-quantize`):
   python convert_gguf.py <cartella merged> <file .gguf di output> \
-      --llama-cpp <path al clone di llama.cpp> [--quantize Q4_K_M]
+      --llama-cpp <path al clone di llama.cpp> [--quantize auto]
 third-party/llama-cpp resta un vendor solo Android (niente strumenti Python): il clone di conversione
 vive fuori dal repo, solo sulla macchina di training.
 
@@ -40,7 +40,9 @@ ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDe
 ap.add_argument("merged", type=Path)
 ap.add_argument("output", type=Path)
 ap.add_argument("--llama-cpp", type=Path, required=True, help="cartella del clone locale di llama.cpp (tag v0.6.0)")
-ap.add_argument("--quantize", default="Q4_K_M", help='tipo llama-quantize (es. Q4_K_M, Q8_0), "none" per tenere il f16')
+ap.add_argument("--quantize", default="auto",
+                help='tipo llama-quantize (es. Q4_K_M, Q8_0), Q5_K_M-mix (vedi MIXED), "none" per tenere il f16; '
+                     'auto = Q5_K_M-mix per i Qwen3.5, Q4_K_M per gli altri')
 ap.add_argument("--bin-dir", type=Path, help="cartella con llama-quantize/llama-imatrix (get_llama_tools.py), se non sono nel clone o nel PATH")
 ap.add_argument("--gpu-layers", type=int, default=0,
                 help="layer su GPU per llama-imatrix (99 = tutti; serve una build GPU di get_llama_tools.py, e la GPU libera)")
@@ -94,6 +96,21 @@ def step(name, detail, cmd, cwd=None):
 config = json.loads((a.merged / "config.json").read_text(encoding="utf-8"))
 no_mtp = ["--no-mtp"] if config.get("text_config", config).get("mtp_num_hidden_layers") else []
 
+# Quantizzazione mista dei Qwen3.5 (layer Gated DeltaNet piu' uno di attenzione piena ogni quattro): Q5_K_M, con
+# l'embedding (condiviso con lo strato di uscita) sceso a Q5_K e i tensori piu' sensibili in Q6_K, attenzione piena
+# e ssm_out. Misurata sui v10 con il KL contro il GGUF bf16 sul testo delle regioni di test (llama-perplexity
+# --kl-divergence, llama.cpp b11429): 0.8B da 0,043 (EN) e 0,057 (IT) del Q4_K_M a 0,014 e 0,020 con il 4,5% di
+# file in piu' (528 MiB contro 505), 2B da 0,023 (EN) e 0,032 (IT) a 0,009 e 0,012 con il 7% in piu'. L'embedding in Q8_0 sul Q4_K_M quasi
+# non cambia il KL: perde il corpo a 4 bit. Su ARM llama.cpp riorganizza al caricamento Q5_K e Q6_K come Q4_K
+# (ggml-cpu/repack.cpp), quindi la velocita' resta quella dei tipi veloci. Le regex sono cercate nel nome del
+# tensore: "attn_q\." per non prendere anche attn_qkv.
+MIXED = ["--token-embedding-type", "q5_k", "--output-tensor-type", "q5_k",
+         *(arg for name in (r"attn_q\.", r"attn_k\.", r"attn_v\.", "attn_output", "ssm_out")
+           for arg in ("--tensor-type", f"{name}=q6_k"))]
+qwen35 = "linear_attention" in config.get("text_config", config).get("layer_types", [])
+quantize = ("Q5_K_M-mix" if qwen35 else "Q4_K_M") if a.quantize == "auto" else a.quantize
+qtype, qargs = ("Q5_K_M", MIXED) if quantize == "Q5_K_M-mix" else (quantize, [])
+
 if a.gpu_layers and a.imatrix_rows and a.quantize.lower() != "none":  # subito, non dopo la conversione F16
     imatrix_bin = find_bin("llama-imatrix")
     vram.check_llama(imatrix_bin, llama_env(imatrix_bin), a.device, a.max_vram_held)
@@ -116,7 +133,7 @@ with tempfile.TemporaryDirectory() as tmp:
                  [find_bin("llama-imatrix"), "-m", str(f16_path), "-f", calib, "-o", imatrix_path, "-c", "512",
                   "-ngl", str(a.gpu_layers), *(["--device", a.device] if a.device else [])], cwd=tmp)
             imatrix = ["--imatrix", imatrix_path]
-        step("quantizzazione", a.quantize + (" con imatrix" if imatrix else ""),
-             [find_bin("llama-quantize"), *imatrix, str(f16_path), str(a.output.resolve()), a.quantize], cwd=tmp)
+        step("quantizzazione", quantize + (" con imatrix" if imatrix else ""),
+             [find_bin("llama-quantize"), *imatrix, *qargs, str(f16_path), str(a.output.resolve()), qtype], cwd=tmp)
 
 phase("fatto", f"{a.output} ({a.output.stat().st_size / 2**20:.1f} MiB)")
