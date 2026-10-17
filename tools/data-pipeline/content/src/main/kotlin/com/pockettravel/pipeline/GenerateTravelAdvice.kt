@@ -433,6 +433,16 @@ fun fcdoBritishSections(json: String): List<GuideSectionRow>? {
     }
 }
 
+// Recapiti del centro di emergenza di Ottawa, aperto sempre: il testo sull'assistenza consolare lo nomina con un link a
+// travel.gc.ca/assistance/emergency-assistance, senza numeri, e senza rete il link non si apre. Dalla pagina del link
+// (2026-10-17).
+private const val EMERGENCY_CENTRE = "Emergency Watch and Response Centre"
+private val emergencyCentreContacts = listOf(
+    "• Telephone: +1-613-996-8885 (call collect where available)",
+    "• SMS: +1-613-686-3658",
+    "• Email: SOS@international.gc.ca",
+).joinToString("\n")
+
 // Un ufficio consolare di travel.gc.ca ("offices"): titolo e righe "Etichetta: valore", senza fax, social e note sui social.
 private val officeFields = listOf(
     "address" to "Address", "postal-address" to "Postal address", "tel-legacy" to "Telephone",
@@ -467,8 +477,10 @@ fun canadianSections(json: String): List<GuideSectionRow>? {
     val footer = updated?.let { "\n\nLast updated by the Government of Canada: $it." }.orEmpty()
     val entry = adviceHtmlToText(eng.optString("entry-exit"), keepEverything, { false })
     val offices = eng.optJSONArray("offices")?.let { array -> (0 until array.length()).mapNotNull { array.optJSONObject(it)?.let(::officeText) } }.orEmpty()
+    val consular = adviceHtmlToText(eng.optString("offices-html").replace(officeDetailsRegex, ""), keepEverything, { false })
+        .let { if (EMERGENCY_CENTRE in it) "$it\n$emergencyCentreContacts" else it }
     val help = listOf(
-        adviceHtmlToText(eng.optString("offices-html").replace(officeDetailsRegex, ""), keepEverything, { false }),
+        consular,
         offices.joinToString("\n\n"),
     ).filter { it.isNotBlank() }.joinToString("\n\n")
     return listOf(

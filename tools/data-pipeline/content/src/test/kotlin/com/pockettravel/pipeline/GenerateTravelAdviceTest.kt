@@ -708,6 +708,22 @@ class GenerateTravelAdviceTest {
     }
 
     @Test
+    fun `travel_gc_ca - il centro di emergenza di Ottawa nominato senza numeri riceve i suoi recapiti`() {
+        val help = "<h3>Consular assistance</h3><p>For emergency assistance at any time: contact the " +
+            "<a href=\"http://travel.gc.ca/assistance/emergency-assistance\">Emergency Watch and Response Centre</a> in Ottawa.</p>"
+
+        val body = canadianSections(canadianJson(help = help))!![1].body
+
+        assertTrue(
+            body.startsWith(
+                "▸ Consular assistance\nFor emergency assistance at any time: contact the Emergency Watch and Response Centre in Ottawa.\n" +
+                    "• Telephone: +1-613-996-8885 (call collect where available)\n• SMS: +1-613-686-3658\n" +
+                    "• Email: SOS@international.gc.ca\n\n▸ Tokyo - Embassy of Canada",
+            ),
+        )
+    }
+
+    @Test
     fun `travel_gc_ca - le sezioni per tutti non cambiano e restano senza ingresso e uffici`() {
         val everyone = travelAdviceSections(canadianJson().replace("\"eng\":{", "\"eng\":{\"security\":\"<p>Be careful.</p>\","))
 
