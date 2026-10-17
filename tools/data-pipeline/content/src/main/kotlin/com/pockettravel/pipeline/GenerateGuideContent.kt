@@ -595,10 +595,15 @@ fun main(rawArgs: Array<String>) {
     // --general-guide <tsv>: pagine tematiche di Wikivoyage della guida generale (readGeneralGuide).
     val generalGuideIndex = withoutAdvice.indexOf("--general-guide")
     val generalGuideTsv = if (generalGuideIndex >= 0) withoutAdvice.getOrNull(generalGuideIndex + 1)?.let(::File) else null
-    val args = if (generalGuideIndex >= 0) withoutAdvice.take(generalGuideIndex) + withoutAdvice.drop(generalGuideIndex + 2) else withoutAdvice
+    val withoutGeneralGuide = if (generalGuideIndex >= 0) withoutAdvice.take(generalGuideIndex) + withoutAdvice.drop(generalGuideIndex + 2) else withoutAdvice
+    // --emergency-centre <html>: pagina travel.gc.ca/assistance/emergency-assistance, recapiti del centro di emergenza di
+    // Ottawa per le sezioni dei canadesi (emergencyCentreContacts).
+    val emergencyIndex = withoutGeneralGuide.indexOf("--emergency-centre")
+    val emergencyHtml = if (emergencyIndex >= 0) withoutGeneralGuide.getOrNull(emergencyIndex + 1)?.let(::File) else null
+    val args = if (emergencyIndex >= 0) withoutGeneralGuide.take(emergencyIndex) + withoutGeneralGuide.drop(emergencyIndex + 2) else withoutGeneralGuide
     require(args.size in 2..3) {
         "Uso: generateGuides [--lang en] [--missions <missioni.tsv>] [--translated <tradotte.jsonl>] [--travel-advice <consigli.tsv>] " +
-            "[--general-guide <guida-generale.tsv>] <regioni.tsv> <output guides.db> [guides.db pubblicato]"
+            "[--general-guide <guida-generale.tsv>] [--emergency-centre <pagina.html>] <regioni.tsv> <output guides.db> [guides.db pubblicato]"
     }
     val outputDb = File(args[1])
     val publishedDb = args.getOrNull(2)?.let(::File)?.takeIf { it.exists() }
@@ -607,7 +612,9 @@ fun main(rawArgs: Array<String>) {
     val publishedAdviceMeta = publishedDb?.let(::readTravelAdviceMeta).orEmpty()
     val advice = adviceTsv?.takeIf { it.exists() }?.let { tsv ->
         val publishedSections = { regionId: String -> publishedDb?.let { readRegionGuide(it, regionId) }?.sections.orEmpty() }
-        readTravelAdvice(tsv, publishedSections, publishedAdviceMeta, LocalDate.now(ZoneOffset.UTC))
+        val emergencyContacts = emergencyHtml?.takeIf { it.length() > 0 }?.readText()?.let(::emergencyCentreContacts)
+        if (emergencyContacts == null) println("AVVISO: recapiti del centro di emergenza di Ottawa non letti, restano quelli pubblicati")
+        readTravelAdvice(tsv, publishedSections, publishedAdviceMeta, LocalDate.now(ZoneOffset.UTC), emergencyContacts)
     }
     val guides = File(args[0]).readLines().filter { it.isNotBlank() }.map { line ->
         val columns = line.split('\t')

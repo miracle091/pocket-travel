@@ -659,12 +659,19 @@ class GenerateTravelAdviceTest {
     }
 
     // JSON di travel.gc.ca con gli uffici in "offices" (struttura reale: campi nulli o vuoti dove mancano).
-    private fun canadianJson(entry: String = "<p>Your passport must be valid.</p>", help: String = "<h3>Consular assistance</h3><p>Contact the nearest office.</p>") = JSONObject(
+    private fun canadianJson(
+        entry: String = "<p>Your passport must be valid.</p>",
+        help: String = "<h3>Consular assistance</h3><p>Contact the nearest office.</p>",
+        geoGroup: String = "Asia",
+        health: String = "",
+    ) = JSONObject(
         mapOf(
             "data" to mapOf(
                 "country-iso" to "JP", "advisory-state" to 0, "has-regional-advisory" to 0,
                 "eng" to mapOf(
                     "friendly-date" to "September 22, 2026 05:35 EDT",
+                    "geo-group" to geoGroup,
+                    "health" to health,
                     "entry-exit" to entry,
                     "offices-html" to "<h3>Local services</h3><section><details><summary>Emergency services</summary><div><p>Dial 110.</p></div></details></section>" +
                         help + "<details class=\"span-3\"><summary><strong>Tokyo</strong> - Embassy of Canada</summary><div>Street Address Akasaka</div></details>",
@@ -707,20 +714,71 @@ class GenerateTravelAdviceTest {
         )
     }
 
-    @Test
-    fun `travel_gc_ca - il centro di emergenza di Ottawa nominato senza numeri riceve i suoi recapiti`() {
-        val help = "<h3>Consular assistance</h3><p>For emergency assistance at any time: contact the " +
-            "<a href=\"http://travel.gc.ca/assistance/emergency-assistance\">Emergency Watch and Response Centre</a> in Ottawa.</p>"
+    private val emergencyHelp = "<h3>Consular assistance</h3><p>For emergency assistance at any time: contact the " +
+        "<a href=\"http://travel.gc.ca/assistance/emergency-assistance\">Emergency Watch and Response Centre</a> in Ottawa.</p>"
 
-        val body = canadianSections(canadianJson(help = help))!![1].body
+    // Parti della pagina travel.gc.ca/assistance/emergency-assistance (struttura reale del 2026-10-17), con una versione
+    // vecchia commentata nell'HTML, che non conta.
+    private val emergencyPage = "<!-- <section><p><strong>Email:</strong> <a href=\"mailto:old@international.gc.ca\">old</a></p></section> -->" +
+        "<p><strong>Email:</strong> <a href=\"mailto:SOS@international.gc.ca\">SOS@international.gc.ca </a></p>" +
+        "<p><strong>Telephone, from outside Canada: </strong></p><ul><li><a href=\"/en/assistance/embassies-consulates\">" +
+        "Contact the nearest embassy or&nbsp;consulate</a></li><li>+1-613-996-8885 (call collect where available)</li>" +
+        "<li><a href=\"/en/assistance/emergency-assistance/toll-free-numbers\">Toll-free numbers in some countries </a></li></ul>" +
+        "<p><strong>SMS:</strong> +1-613-686-3658 (carrier charges may apply) </p>"
+    private val contacts = "• Telephone: +1-613-996-8885 (call collect where available)\n• SMS: +1-613-686-3658\n• Email: SOS@international.gc.ca"
+
+    @Test
+    fun `travel_gc_ca - recapiti del centro di emergenza letti dalla pagina, null se la pagina e' cambiata`() {
+        assertEquals(contacts, emergencyCentreContacts(emergencyPage))
+        assertEquals(null, emergencyCentreContacts("<html><p>Page not found</p></html>"))
+    }
+
+    @Test
+    fun `travel_gc_ca - il centro di emergenza nominato senza numeri riceve i recapiti della pagina`() {
+        val body = canadianSections(canadianJson(help = emergencyHelp), contacts)!![1].body
 
         assertTrue(
             body.startsWith(
                 "▸ Consular assistance\nFor emergency assistance at any time: contact the Emergency Watch and Response Centre in Ottawa.\n" +
-                    "• Telephone: +1-613-996-8885 (call collect where available)\n• SMS: +1-613-686-3658\n" +
-                    "• Email: SOS@international.gc.ca\n\n▸ Tokyo - Embassy of Canada",
+                    "$contacts\n\n▸ Tokyo - Embassy of Canada",
             ),
         )
+        // Senza recapiti letti la frase resta com'e'.
+        assertTrue(canadianSections(canadianJson(help = emergencyHelp))!![1].body.contains("in Ottawa.\n\n▸ Tokyo"))
+    }
+
+    @Test
+    fun `travel_gc_ca - senza la pagina dei recapiti restano quelli della sezione pubblicata`() {
+        val dir = createTempDirectory("advice-emergency").toFile()
+        val japan = File(dir, "jp.json").apply { writeText(canadianJson(help = emergencyHelp).replace("\"eng\":{", "\"eng\":{\"security\":\"<p>Ok.</p>\",")) }
+        val tsv = File(dir, "advice.tsv").apply { writeText("giappone\t${japan.path}\t\n") }
+        val published = GuideSectionRow(
+            "SICUREZZA", "Getting help (Government of Canada)",
+            "▸ Consular assistance\nContact the Emergency Watch and Response Centre in Ottawa.\n$contacts\n\n▸ Tokyo - Embassy of Canada",
+            "https://travel.gc.ca/destinations/jp#for-nationality=CA",
+        )
+
+        val help = readTravelAdvice(tsv, { listOf(published) }, emptyMap(), day0).getValue("giappone").sections
+            .single { it.title == "Getting help (Government of Canada)" }
+
+        assertTrue(help.body.contains("in Ottawa.\n$contacts\n\n▸ Tokyo"))
+        dir.deleteRecursively()
+    }
+
+    private val genericEbola = "<p>Some countries have imposed measures in response to the " +
+        "<a href=\"https://travel.gc.ca/travelling/health-safety/travel-health-notices/549\">Ebola disease outbreak</a>. " +
+        "These can include restrictions on entry and health screening measures.</p>"
+    private val specificEbola = "<p>Travellers arriving from countries affected by Ebola virus disease outbreaks may be denied entry.</p>"
+
+    @Test
+    fun `travel_gc_ca - avviso generico sull'Ebola solo in Africa o dove la salute nomina l'Ebola`() {
+        fun entry(geoGroup: String, health: String = "") =
+            canadianSections(canadianJson(entry = genericEbola + specificEbola + "<p>Passport valid 6 months.</p>", geoGroup = geoGroup, health = health))!![0].body
+
+        assertFalse(entry("Asia").contains("Some countries have imposed"))
+        assertTrue(entry("Asia").startsWith("Travellers arriving from countries affected by Ebola")) // paragrafo del paese: resta
+        assertTrue(entry("Africa").startsWith("Some countries have imposed measures"))
+        assertTrue(entry("Asia", health = "<h3>Ebola disease</h3><p>Sporadic outbreaks.</p>").startsWith("Some countries have imposed"))
     }
 
     @Test

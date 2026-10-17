@@ -309,8 +309,13 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   (`GuideSectionAudience.kt`). Per tutti i paesi, fuori dalle sezioni per tutti, due sezioni per i soli britannici
   (`fcdoBritishSections`: Entry requirements e Getting help della pagina FCDO, per intero, link con
   `#for-nationality=GB`) e due per i soli canadesi (`canadianSections`: `entry-exit` e gli uffici di `offices` con il
-  testo sull'assistenza consolare di `offices-html`, link con `#for-nationality=CA`). La pagina FCDO di ogni nazione si
-  scarica con lo slug di `fcdo-slugs.tsv` (codice ISO, slug; mancano Regno Unito, Vaticano, Fær Øer, Groenlandia,
+  testo sull'assistenza consolare di `offices-html`, link con `#for-nationality=CA`). Il testo canadese nomina il centro
+  di emergenza di Ottawa senza numeri: telefono dall'estero, SMS ed email si leggono a ogni run dalla pagina
+  `travel.gc.ca/assistance/emergency-assistance` (`--emergency-centre` di `generateGuides`, `emergencyCentreContacts`), e
+  se la pagina non si scarica o cambia forma restano quelli della sezione pubblicata. L'avviso generico all'inizio di
+  `entry-exit` ("Some countries have imposed measures in response to the Ebola disease outbreak") resta solo in Africa
+  (`geo-group`) e dove la salute della pagina nomina l'Ebola; i paragrafi scritti per un paese restano sempre. La
+  pagina FCDO di ogni nazione si scarica con lo slug di `fcdo-slugs.tsv` (codice ISO, slug; mancano Regno Unito, Vaticano, Fær Øer, Groenlandia,
   Svalbard, Norfolk, Isola di Natale, Cocos, Canarie e i territori statunitensi): `build-guides.sh` scrive nel TSV dei
   consigli la colonna del JSON di travel.gc.ca e quella dell'FCDO, e una colonna vuota tiene le sezioni pubblicate di
   quella fonte. Sui dati del 2026-10-17: 680 sezioni britanniche e 668 canadesi, `guides-en.db` da 23,2 a 30,0 MB e da

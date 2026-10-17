@@ -300,6 +300,12 @@ if [ "$LANG_CODE" = "en" ]; then
     printf '%s\t%s\t%s\n' "$regionId" "$gcFile" "$fcdoFile" >> "$ADVICE_TSV"
   done
   echo "-- consigli di travel.gc.ca: $ADVICE_OK/$ADVICE_TRIED paesi scaricati; dell'FCDO: $FCDO_OK/$FCDO_TRIED"
+  # Recapiti del centro di emergenza di Ottawa per le sezioni dei canadesi, letti a ogni run: se la pagina non si scarica
+  # restano quelli pubblicati (GenerateTravelAdvice.kt).
+  EMERGENCY_HTML="$ADVICE_DIR/emergency-assistance.html"
+  curl -sSf --compressed --max-time 60 --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" -o "$EMERGENCY_HTML" \
+    "https://travel.gc.ca/assistance/emergency-assistance" 2>/dev/null \
+    || { rm -f "$EMERGENCY_HTML"; echo "::warning::pagina dei recapiti di emergenza di travel.gc.ca non scaricata" >&2; }
 fi
 
 # --- 3. guides.db ---------------------------------------------------------------------------------
@@ -340,6 +346,7 @@ fi
 GUIDES_ARGS="--general-guide \"$(winpath "$GENERAL_GUIDE_TSV")\" $GUIDES_ARGS"
 [ -s "$MISSIONS_TSV" ] && GUIDES_ARGS="--missions \"$(winpath "$MISSIONS_TSV")\" $GUIDES_ARGS"
 [ -n "$ADVICE_TSV" ] && GUIDES_ARGS="--travel-advice \"$(winpath "$ADVICE_TSV")\" $GUIDES_ARGS"
+[ -s "${EMERGENCY_HTML:-}" ] && GUIDES_ARGS="--emergency-centre \"$(winpath "$EMERGENCY_HTML")\" $GUIDES_ARGS"
 [ "$LANG_CODE" = "en" ] && GUIDES_ARGS="--lang en $GUIDES_ARGS"
 [ -n "$PUBLISHED_DB" ] && GUIDES_ARGS="$GUIDES_ARGS \"$(winpath "$PUBLISHED_DB")\""
 ./gradlew -q :tools:data-pipeline:content:generateGuides --args="$GUIDES_ARGS"

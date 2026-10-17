@@ -433,15 +433,36 @@ fun fcdoBritishSections(json: String): List<GuideSectionRow>? {
     }
 }
 
-// Recapiti del centro di emergenza di Ottawa, aperto sempre: il testo sull'assistenza consolare lo nomina con un link a
-// travel.gc.ca/assistance/emergency-assistance, senza numeri, e senza rete il link non si apre. Dalla pagina del link
-// (2026-10-17).
+// Centro di emergenza di Ottawa, aperto sempre: il testo sull'assistenza consolare lo nomina con un link a
+// travel.gc.ca/assistance/emergency-assistance, senza numeri, e senza rete il link non si apre. I recapiti si leggono a
+// ogni run da quella pagina (emergencyCentreContacts), cosi' seguono i cambi del Governo del Canada.
 private const val EMERGENCY_CENTRE = "Emergency Watch and Response Centre"
-private val emergencyCentreContacts = listOf(
-    "• Telephone: +1-613-996-8885 (call collect where available)",
-    "• SMS: +1-613-686-3658",
-    "• Email: SOS@international.gc.ca",
-).joinToString("\n")
+private val htmlCommentRegex = Regex("<!--.*?-->", RegexOption.DOT_MATCHES_ALL)
+private val emergencyPhoneRegex = Regex("""Telephone, from outside Canada:.*?<li>\s*(\+[^<]*?)\s*</li>""", htmlOptions)
+private val emergencySmsRegex = Regex("""SMS:\s*</strong>\s*(\+[\d -]+\d)""", htmlOptions)
+private val emergencyEmailRegex = Regex("""mailto:([^"?\s]+@international\.gc\.ca)""", htmlOptions)
+// Le righe dei recapiti dopo la frase che nomina il centro, in una sezione gia' pubblicata.
+private val publishedContactsRegex = Regex("""$EMERGENCY_CENTRE[^\n]*\n((?:• [^\n]+(?:\n|$))+)""")
+
+/**
+ * Telefono dall'estero, SMS ed email del centro di emergenza dalla pagina travel.gc.ca/assistance/emergency-assistance,
+ * come righe "• Etichetta: valore"; null se la pagina non ha telefono ed email (scaricata male o cambiata di forma).
+ */
+fun emergencyCentreContacts(html: String): String? {
+    val page = html.replace(htmlCommentRegex, "")
+    val phone = emergencyPhoneRegex.find(page)?.groupValues?.get(1)?.let(::decodeHtmlEntities)?.replace(spacesRegex, " ") ?: return null
+    val email = emergencyEmailRegex.find(page)?.groupValues?.get(1) ?: return null
+    val sms = emergencySmsRegex.find(page)?.groupValues?.get(1)
+    return listOfNotNull("• Telephone: $phone", sms?.let { "• SMS: $it" }, "• Email: $email").joinToString("\n")
+}
+
+// Avviso generico di travel.gc.ca, uguale in quasi tutte le pagine d'ingresso: "alcuni paesi" hanno misure per l'epidemia
+// di Ebola. Resta in Africa e dove la salute della pagina nomina l'Ebola (paesi colpiti); altrove si toglie. I paragrafi
+// scritti per un paese (controlli agli arrivi da un paese colpito) restano sempre.
+private val genericEbolaNoticeRegex = Regex("""<p>\s*Some countries have imposed measures in response to the\b[^<]*<a\b[^>]*>[^<]*Ebola.*?</p>""", htmlOptions)
+
+private fun ebolaNoticeApplies(eng: JSONObject): Boolean =
+    eng.optString("geo-group") == "Africa" || "ebola" in eng.optString("health").lowercase()
 
 // Un ufficio consolare di travel.gc.ca ("offices"): titolo e righe "Etichetta: valore", senza fax, social e note sui social.
 private val officeFields = listOf(
@@ -466,19 +487,21 @@ private fun officeText(office: JSONObject): String? {
 /**
  * Le sezioni per i cittadini canadesi da un cta-cap-<iso2>.json di travel.gc.ca: ingresso e uscita (entry-exit) e uffici
  * consolari (le righe di "offices" dopo il testo sull'assistenza consolare di offices-html), per intero, con l'url che
- * finisce in "#for-nationality=CA". Vuota se il JSON non le ha; null se non si legge o non ha la parte inglese.
+ * finisce in "#for-nationality=CA". Dopo la frase che nomina il centro di emergenza di Ottawa i recapiti [emergencyContacts]
+ * (emergencyCentreContacts), se ci sono. Vuota se il JSON non le ha; null se non si legge o non ha la parte inglese.
  */
-fun canadianSections(json: String): List<GuideSectionRow>? {
+fun canadianSections(json: String, emergencyContacts: String? = null): List<GuideSectionRow>? {
     val data = runCatching { JSONObject(json).getJSONObject("data") }.getOrNull() ?: return null
     val eng = data.optJSONObject("eng") ?: return null
     val iso = data.optString("country-iso").lowercase().takeIf { it.length == 2 } ?: return null
     val url = "https://$TRAVEL_ADVICE_HOST/destinations/$iso$FOR_NATIONALITY$CANADIAN"
     val updated = friendlyDateRegex.find(eng.optString("friendly-date"))?.value
     val footer = updated?.let { "\n\nLast updated by the Government of Canada: $it." }.orEmpty()
-    val entry = adviceHtmlToText(eng.optString("entry-exit"), keepEverything, { false })
+    val entryHtml = eng.optString("entry-exit").let { if (ebolaNoticeApplies(eng)) it else it.replace(genericEbolaNoticeRegex, "") }
+    val entry = adviceHtmlToText(entryHtml, keepEverything, { false })
     val offices = eng.optJSONArray("offices")?.let { array -> (0 until array.length()).mapNotNull { array.optJSONObject(it)?.let(::officeText) } }.orEmpty()
     val consular = adviceHtmlToText(eng.optString("offices-html").replace(officeDetailsRegex, ""), keepEverything, { false })
-        .let { if (EMERGENCY_CENTRE in it) "$it\n$emergencyCentreContacts" else it }
+        .let { if (emergencyContacts != null && EMERGENCY_CENTRE in it) "$it\n$emergencyContacts" else it }
     val help = listOf(
         consular,
         offices.joinToString("\n\n"),
@@ -534,13 +557,15 @@ private fun fcdoAdviceState(json: String, fetched: LocalDate): TravelAdviceMeta?
  * ([publishedSections], [publishedMeta], con la loro data), cosi' un errore di rete non fa sparire i consigli. Le sezioni
  * per i soli britannici (pagina FCDO, la terza colonna o la seconda se e' dell'FCDO) e per i soli canadesi (travel.gc.ca)
  * hanno lo stesso ripiego a parte: una pagina FCDO non scaricata non toglie le sezioni di travel.gc.ca e viceversa. Le
- * regioni dello stesso paese (stati USA, regioni francesi) hanno le stesse.
+ * regioni dello stesso paese (stati USA, regioni francesi) hanno le stesse. I recapiti del centro di emergenza vengono da
+ * [emergencyContacts] o, se la pagina non si e' letta, dalla sezione canadese pubblicata della regione.
  */
 fun readTravelAdvice(
     tsv: File,
     publishedSections: (String) -> List<GuideSectionRow>,
     publishedMeta: Map<String, TravelAdviceMeta>,
     today: LocalDate,
+    emergencyContacts: String? = null,
 ): Map<String, RegionAdvice> =
     tsv.readLines().filter { it.isNotBlank() }.associate { line ->
         val columns = line.split('\t')
@@ -552,7 +577,10 @@ fun readTravelAdvice(
         val meta = json?.let { if (fcdo) fcdoAdviceState(it, today) else adviceState(it, today) }
         val published by lazy { publishedSections(regionId).filter(::isTravelAdvice) }
         val british = (read(2) ?: json?.takeIf { fcdo })?.let(::fcdoBritishSections) ?: published.filter { it.sourceUrl?.endsWith("$FOR_NATIONALITY$BRITISH") == true }
-        val canadian = json?.takeIf { !fcdo }?.let(::canadianSections) ?: published.filter { it.sourceUrl?.endsWith("$FOR_NATIONALITY$CANADIAN") == true }
+        val publishedCanadian by lazy { published.filter { it.sourceUrl?.endsWith("$FOR_NATIONALITY$CANADIAN") == true } }
+        val contacts = emergencyContacts
+            ?: publishedCanadian.firstNotNullOfOrNull { publishedContactsRegex.find(it.body)?.groupValues?.get(1)?.trimEnd() }
+        val canadian = json?.takeIf { !fcdo }?.let { canadianSections(it, contacts) } ?: publishedCanadian
         regionId to if (sections.isNotEmpty() && meta != null) {
             RegionAdvice(sections + british + canadian, meta)
         } else {
