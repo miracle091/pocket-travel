@@ -286,6 +286,7 @@ if [ "$LANG_CODE" = "en" ]; then
       else
         rm -f "$fcdo"
         : > "$fcdo.none"
+        echo "::warning::pagina FCDO non scaricata per $flagCode ($slug): restano le sezioni britanniche pubblicate"
       fi
       sleep 0.2
     fi

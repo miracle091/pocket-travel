@@ -1,8 +1,9 @@
 # Pagina dei consigli di viaggio dell'FCDO (GOV.UK Content API, /api/content/foreign-travel-advice/<slug>) di ogni nazione di
 # regions.sh: "codice ISO 3166-1 alpha-2 minuscolo<TAB>slug". build-guides.sh la legge per le sezioni dei britannici
-# (Entry requirements, Getting help). Mancano le nazioni senza pagina FCDO (Regno Unito, Vaticano, Fær Øer, Groenlandia,
-# Svalbard, Norfolk, Isola di Natale, Cocos, Canarie e i territori statunitensi). Una pagina rinominata dall'FCDO risponde
-# 404: la run salta il paese e tiene le sezioni gia' pubblicate.
+# (Entry requirements, Getting help). Groenlandia e Fær Øer usano la pagina della Danimarca, Svalbard quella della
+# Norvegia: non hanno una pagina propria, ma la parte sull'ingresso ne parla. Mancano le nazioni senza pagina FCDO (Regno
+# Unito, Vaticano, Norfolk, Isola di Natale, Cocos, Canarie e i territori statunitensi). Una pagina rinominata dall'FCDO
+# risponde 404: la run salta il paese e tiene le sezioni gia' pubblicate.
 ad	andorra
 ae	united-arab-emirates
 af	afghanistan
@@ -69,6 +70,7 @@ fi	finland
 fj	fiji
 fk	falkland-islands
 fm	federated-states-of-micronesia
+fo	denmark
 fr	france
 ga	gabon
 gd	grenada
@@ -76,6 +78,7 @@ ge	georgia
 gf	french-guiana
 gh	ghana
 gi	gibraltar
+gl	denmark
 gm	the-gambia
 gn	guinea
 gp	guadeloupe
@@ -182,6 +185,7 @@ sd	sudan
 se	sweden
 sg	singapore
 si	slovenia
+sj	norway
 sk	slovakia
 sl	sierra-leone
 sm	san-marino

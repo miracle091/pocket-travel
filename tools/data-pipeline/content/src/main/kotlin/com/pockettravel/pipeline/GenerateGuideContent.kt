@@ -613,7 +613,7 @@ fun main(rawArgs: Array<String>) {
     val advice = adviceTsv?.takeIf { it.exists() }?.let { tsv ->
         val publishedSections = { regionId: String -> publishedDb?.let { readRegionGuide(it, regionId) }?.sections.orEmpty() }
         val emergencyContacts = emergencyHtml?.takeIf { it.length() > 0 }?.readText()?.let(::emergencyCentreContacts)
-        if (emergencyContacts == null) println("AVVISO: recapiti del centro di emergenza di Ottawa non letti, restano quelli pubblicati")
+        if (emergencyContacts == null) println("::warning::recapiti del centro di emergenza di Ottawa non letti, restano quelli pubblicati")
         readTravelAdvice(tsv, publishedSections, publishedAdviceMeta, LocalDate.now(ZoneOffset.UTC), emergencyContacts)
     }
     val guides = File(args[0]).readLines().filter { it.isNotBlank() }.map { line ->

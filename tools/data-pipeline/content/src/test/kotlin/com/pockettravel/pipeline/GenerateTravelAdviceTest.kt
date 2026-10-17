@@ -651,6 +651,30 @@ class GenerateTravelAdviceTest {
     }
 
     @Test
+    fun `FCDO - titoli con spazi attorno o maiuscole diverse non perdono le parti`() {
+        fun part(title: String, body: String) = mapOf("title" to title, "body" to body)
+        val json = JSONObject(
+            mapOf(
+                "base_path" to "/foreign-travel-advice/italy",
+                "details" to mapOf(
+                    "parts" to listOf(
+                        part("Entry requirements ", "<p>Passport needed.</p>"),
+                        part(" Getting help", "<p>Call us.</p>"),
+                        part("Safety and security ", "<h2>Crime</h2><p>Watch bags.</p>"),
+                        part("Health ", "<p>Drink water.</p>"),
+                        part("Regional Risks", "<p>Avoid the north.</p>"),
+                    ),
+                ),
+            ),
+        ).toString()
+
+        assertEquals(listOf("Passport needed.", "Call us."), fcdoBritishSections(json)!!.map { it.body })
+        val everyone = fcdoAdviceSections(json)
+        assertTrue(everyone.any { it.category == "SALUTE" && "Drink water." in it.body })
+        assertTrue(everyone.any { it.category == "SICUREZZA" && "Watch bags." in it.body && "Avoid the north." in it.body })
+    }
+
+    @Test
     fun `FCDO - senza le due parti la lista e' vuota, con un JSON estraneo o illeggibile e' null`() {
         assertEquals(emptyList<GuideSectionRow>(), fcdoBritishSections(fcdoMinimal(health = "<p>Ok.</p>")))
         assertEquals(null, fcdoBritishSections("non json"))
@@ -745,6 +769,28 @@ class GenerateTravelAdviceTest {
         )
         // Senza recapiti letti la frase resta com'e'.
         assertTrue(canadianSections(canadianJson(help = emergencyHelp))!![1].body.contains("in Ottawa.\n\n▸ Tokyo"))
+    }
+
+    @Test
+    fun `travel_gc_ca - i recapiti seguono la frase del centro anche se dopo c'e' altro testo`() {
+        val help = "<h3>Consular assistance</h3><p>For emergency assistance: contact the " +
+            "<a href=\"http://travel.gc.ca/assistance/emergency-assistance\">Emergency Watch and Response Centre</a> in Ottawa.</p>" +
+            "<p>Sign up to Smartraveller.</p>"
+        val body = canadianSections(canadianJson(help = help), contacts)!![1].body
+
+        assertTrue(body, body.contains("in Ottawa.\n$contacts\n\nSign up to Smartraveller."))
+
+        // Andata e ritorno: senza la pagina dei recapiti il ripiego rilegge quelli pubblicati.
+        val dir = createTempDirectory("advice-emergency-trailing").toFile()
+        val japan = File(dir, "jp.json").apply { writeText(canadianJson(help = help).replace("\"eng\":{", "\"eng\":{\"security\":\"<p>Ok.</p>\",")) }
+        val tsv = File(dir, "advice.tsv").apply { writeText("giappone\t${japan.path}\t\n") }
+        val published = GuideSectionRow("SICUREZZA", "Getting help (Government of Canada)", body, "https://travel.gc.ca/destinations/jp#for-nationality=CA")
+
+        val again = readTravelAdvice(tsv, { listOf(published) }, emptyMap(), day0).getValue("giappone").sections
+            .single { it.title == "Getting help (Government of Canada)" }
+
+        assertTrue(again.body, again.body.contains("in Ottawa.\n$contacts\n\nSign up to Smartraveller."))
+        dir.deleteRecursively()
     }
 
     @Test

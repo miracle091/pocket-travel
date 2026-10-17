@@ -339,8 +339,8 @@ fun fcdoAdviceSections(json: String): List<GuideSectionRow> {
     val parts = root.optJSONObject("details")?.optJSONArray("parts") ?: return emptyList()
     val path = root.optString("base_path").takeIf { it.startsWith("/foreign-travel-advice/") } ?: return emptyList()
     val bodies = (0 until parts.length()).mapNotNull(parts::optJSONObject)
-        .associate { it.optString("title") to it.optString("body").replace(fcdoExampleRegex, "") }
-    val safety = bodies["Safety and security"].orEmpty().split(h2StartRegex).groupBy { chunk ->
+        .associate { it.optString("title").trim().lowercase() to it.optString("body").replace(fcdoExampleRegex, "") }
+    val safety = bodies["safety and security"].orEmpty().split(h2StartRegex).groupBy { chunk ->
         when (h2TextRegex.find(chunk)?.groupValues?.get(1)?.trim()?.lowercase()) {
             "laws and cultural differences" -> "laws-culture"
             "extreme weather and natural disasters" -> "disasters-climate"
@@ -351,13 +351,13 @@ fun fcdoAdviceSections(json: String): List<GuideSectionRow> {
     val level = fcdoAlerts.filter { it.first in alerts }.map { it.second }
         .takeIf { it.isNotEmpty() }?.let { "▸ Travel advice level\nThe UK government advises ${it.joinToString(" and ")}." }
     val shared = fcdoSharedCountries[path]
-    val (security, sharedHtml) = (fcdoAreasToAvoid(bodies["Warnings and insurance"].orEmpty()) + safety["security"].orEmpty() + bodies["Regional risks"].orEmpty())
+    val (security, sharedHtml) = (fcdoAreasToAvoid(bodies["warnings and insurance"].orEmpty()) + safety["security"].orEmpty() + bodies["regional risks"].orEmpty())
         .let { if (shared != null) splitOutHeadings(it, shared.headings) else it to "" }
     val html = mapOf(
         "security" to security,
         "laws-culture" to safety["laws-culture"].orEmpty(),
         "disasters-climate" to safety["disasters-climate"].orEmpty(),
-        "health" to bodies["Health"].orEmpty(),
+        "health" to bodies["health"].orEmpty(),
     )
     val updated = runCatching { OffsetDateTime.parse(root.optString("public_updated_at")).format(fcdoDateFormat) }.getOrNull()
     val footer = updated?.let { "\n\nLast updated by the UK government: $it." }.orEmpty()
@@ -423,11 +423,11 @@ fun fcdoBritishSections(json: String): List<GuideSectionRow>? {
     val parts = root.optJSONObject("details")?.optJSONArray("parts") ?: return null
     val path = root.optString("base_path").takeIf { it.startsWith("/foreign-travel-advice/") } ?: return null
     val bodies = (0 until parts.length()).mapNotNull(parts::optJSONObject)
-        .associate { it.optString("title") to it.optString("body").replace(fcdoExampleRegex, "") }
+        .associate { it.optString("title").trim().lowercase() to it.optString("body").replace(fcdoExampleRegex, "") }
     val updated = runCatching { OffsetDateTime.parse(root.optString("public_updated_at")).format(fcdoDateFormat) }.getOrNull()
     val footer = updated?.let { "\n\nLast updated by the UK government: $it." }.orEmpty()
     return fcdoBritishParts.mapNotNull { part ->
-        val text = adviceHtmlToText(bodies[part.key].orEmpty(), keepEverything, { false }).takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        val text = adviceHtmlToText(bodies[part.key.lowercase()].orEmpty(), keepEverything, { false }).takeIf { it.isNotBlank() } ?: return@mapNotNull null
         val slug = part.key.lowercase().replace(' ', '-')
         GuideSectionRow(part.category, "${part.title} (UK government)", text + footer, "https://www.gov.uk$path/$slug$FOR_NATIONALITY$BRITISH")
     }
@@ -484,6 +484,14 @@ private fun officeText(office: JSONObject): String? {
     return (listOf("▸ $title") + lines + notes).joinToString("\n")
 }
 
+// Inserisce i recapiti subito dopo la riga che nomina il centro di emergenza, prima dell'eventuale testo che segue.
+private fun withContactsAfterCentre(text: String, contacts: String): String {
+    val lines = text.split('\n')
+    val index = lines.indexOfFirst { EMERGENCY_CENTRE in it }
+    if (index < 0) return text
+    return (lines.take(index + 1) + contacts + lines.drop(index + 1)).joinToString("\n")
+}
+
 /**
  * Le sezioni per i cittadini canadesi da un cta-cap-<iso2>.json di travel.gc.ca: ingresso e uscita (entry-exit) e uffici
  * consolari (le righe di "offices" dopo il testo sull'assistenza consolare di offices-html), per intero, con l'url che
@@ -501,7 +509,7 @@ fun canadianSections(json: String, emergencyContacts: String? = null): List<Guid
     val entry = adviceHtmlToText(entryHtml, keepEverything, { false })
     val offices = eng.optJSONArray("offices")?.let { array -> (0 until array.length()).mapNotNull { array.optJSONObject(it)?.let(::officeText) } }.orEmpty()
     val consular = adviceHtmlToText(eng.optString("offices-html").replace(officeDetailsRegex, ""), keepEverything, { false })
-        .let { if (emergencyContacts != null && EMERGENCY_CENTRE in it) "$it\n$emergencyContacts" else it }
+        .let { if (emergencyContacts != null) withContactsAfterCentre(it, emergencyContacts) else it }
     val help = listOf(
         consular,
         offices.joinToString("\n\n"),
