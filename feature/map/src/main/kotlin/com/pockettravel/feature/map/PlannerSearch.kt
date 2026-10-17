@@ -82,7 +82,7 @@ internal fun PlannerSearch(
                 if (field == PlannerField.FROM) {
                     item {
                         ListItem(
-                            headlineContent = { Text(stringResource(R.string.planner_my_position)) },
+                            content = { Text(stringResource(R.string.planner_my_position)) },
                             leadingContent = { Icon(ImageVector.vectorResource(UiR.drawable.ms_my_location), contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                             modifier = Modifier.clickable(onClick = onUseMyPosition),
                         )
@@ -91,7 +91,7 @@ internal fun PlannerSearch(
                 if (query.trim().length < 2) {
                     items(recents) { place ->
                         ListItem(
-                            headlineContent = { Text(place.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            content = { Text(place.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             leadingContent = { Icon(ImageVector.vectorResource(UiR.drawable.ms_history), contentDescription = null) },
                             modifier = Modifier.clickable { onChoose(place) },
                         )
@@ -121,7 +121,7 @@ private fun ResultRow(result: PlannerResult, onClick: () -> Unit) {
         result.otherRegionName,
     ).joinToString(" · ")
     ListItem(
-        headlineContent = { Text(result.place.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        content = { Text(result.place.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = if (details.isNotEmpty()) {
             { Text(details, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         } else {

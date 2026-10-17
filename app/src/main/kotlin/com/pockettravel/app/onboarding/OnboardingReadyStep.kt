@@ -94,7 +94,7 @@ internal fun OnboardingReadyStep(
 private fun SummaryRow(icon: ImageVector, title: String, value: String, flagCountry: String? = null) {
     ListItem(
         leadingContent = { CountryFlag(flagCountry, size = 24.dp) { Icon(icon, contentDescription = null) } },
-        headlineContent = { Text(title) },
+        content = { Text(title) },
         supportingContent = { Text(value) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
     )

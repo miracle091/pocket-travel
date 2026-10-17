@@ -111,7 +111,7 @@ internal fun MapLegendSheet(
             if (onlyAccessible != null) {
                 ListItem(
                     leadingContent = { Icon(ImageVector.vectorResource(UiR.drawable.ms_accessible), contentDescription = null) },
-                    headlineContent = { Text(stringResource(R.string.map_filters_only_accessible)) },
+                    content = { Text(stringResource(R.string.map_filters_only_accessible)) },
                     supportingContent = { Text(stringResource(R.string.map_filters_only_accessible_body)) },
                     trailingContent = { Switch(checked = onlyAccessible, onCheckedChange = null) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),

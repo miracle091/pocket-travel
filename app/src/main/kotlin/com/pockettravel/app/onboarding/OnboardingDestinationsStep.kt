@@ -210,7 +210,7 @@ private fun OnboardingRegionRow(
     Column {
         ListItem(
             leadingContent = { CountryFlag(item.countryCode, size = 32.dp) { Icon(AppIcons.World, contentDescription = null) } },
-            headlineContent = { Text(item.displayName) },
+            content = { Text(item.displayName) },
             supportingContent = {
                 Text(
                     when {

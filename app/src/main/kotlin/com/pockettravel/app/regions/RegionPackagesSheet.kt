@@ -260,7 +260,7 @@ private fun TransitNetworksToggle(selected: Int, total: Int, expanded: Boolean, 
 private fun TransitNetworkRow(network: TransitNetworkUi, enabled: Boolean, onChange: (Boolean) -> Unit) {
     val size = if (network.downloadBytes > 0) Formatter.formatShortFileSize(LocalContext.current, network.downloadBytes) else null
     ListItem(
-        headlineContent = { Text(network.name) },
+        content = { Text(network.name) },
         supportingContent = size?.let { { Text(it) } },
         leadingContent = { Checkbox(checked = network.selected, onCheckedChange = null) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
