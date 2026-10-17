@@ -42,6 +42,7 @@ from collections import Counter
 from pathlib import Path
 
 from eval_common import TEST_REGIONS, chat_prompt_and_answer, question_of
+import gpu_lock
 from status import Progress, phase
 from text_only import CHATML, check_chat_format, check_loaded_embeddings, check_no_vision, text_only_base
 
@@ -54,12 +55,20 @@ from datasets import load_dataset
 from peft import LoraConfig, get_peft_model
 from transformers import (AutoModelForCausalLM, AutoTokenizer, DataCollatorForSeq2Seq, Trainer,
                           TrainerCallback, TrainingArguments)
-from transformers.trainer_utils import get_last_checkpoint
 
 # bf16 nativo (stessa regola per NVIDIA e AMD): capability >= 8 (Ampere+; su ROCm gfx9+). Su Turing/Pascal is_bf16_supported() e' vero ma emulato (lento): meglio fp16
 BF16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported() and torch.cuda.get_device_capability()[0] >= 8
 
 SFT_DIR = Path(__file__).resolve().parent.parent / "data" / "sft"
+
+
+def last_complete_checkpoint(out):
+    """Il checkpoint-N piu' recente con trainer_state.json (il Trainer lo scrive per ultimo): una cartella lasciata a
+    meta' da un'interruzione durante il salvataggio non si riprende. None se non ce ne sono."""
+    done = [c for c in Path(out).glob("checkpoint-*") if c.name[11:].isdigit() and (c / "trainer_state.json").is_file()]
+    return str(max(done, key=lambda c: int(c.name[11:]))) if done else None
+
+
 LORA = dict(r=16, lora_alpha=32, lora_dropout=0.0,
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"])
 
@@ -82,6 +91,7 @@ ap.add_argument("--dataset", default="pocket_travel_sft.v10.it.jsonl",
                 help="file dentro data/sft/ (default: il v10 italiano, pubblicabile; pocket_travel_sft.v10.en.jsonl per l'inglese)")
 ap.add_argument("--out", default=str(SFT_DIR / "run-smollm2-135m"))
 a = ap.parse_args()
+gpu_lock.gpu_job("train_lora.py")
 if a.four_bit and not a.unsloth:
     ap.error("--4bit richiede --unsloth")
 LORA.update(r=a.lora_r, lora_alpha=a.lora_alpha)
@@ -253,7 +263,7 @@ run_key = {"model": a.model, "dataset": a.dataset, "dataset_sha256": hashlib.sha
            "max_len": a.max_len, "batch": a.batch, "group_by_length": not a.no_group_by_length, "epochs": a.epochs, "max_steps": a.max_steps, "four_bit": a.four_bit,
            "lr": a.lr, "lora_r": a.lora_r, "lora_alpha": a.lora_alpha, "text_only_chatml": True}
 run_key_path = Path(a.out) / "run.json"
-last_checkpoint = get_last_checkpoint(a.out) if Path(a.out).is_dir() else None
+last_checkpoint = last_complete_checkpoint(a.out)
 if last_checkpoint:
     if not run_key_path.exists() or json.loads(run_key_path.read_text(encoding="utf-8")) != run_key:
         sys.exit(f"{last_checkpoint} e' di un training diverso (modello, dataset o parametri): cancellalo o usa un altro --out")

@@ -108,6 +108,8 @@ class Translator:
         from transformers import MarianMTModel, MarianTokenizer
         name = MODELS[(self.src, self.tgt)]
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        import gpu_lock
+        gpu_lock.gpu_job(f"traduzione {self.src}-{self.tgt}", gpu=self.device == "cuda")
         self.tokenizer = MarianTokenizer.from_pretrained(name, revision=REVISIONS[name])
         model = MarianMTModel.from_pretrained(name, revision=REVISIONS[name])
         # transformers 5 non lega lm_head agli embedding quando i pesi sono solo in pytorch_model.bin

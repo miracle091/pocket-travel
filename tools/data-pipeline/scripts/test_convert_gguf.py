@@ -62,7 +62,7 @@ def run(ws, extra=(), bins=None):
     with mock.patch("subprocess.run", side_effect=fake_run), \
             mock.patch.object(eval_common, "SFT_DIR", ws.sft), \
             mock.patch.object(eval_common, "find_llama_bin", side_effect=lambda name, *d: str(Path(ws.clone) / name)), \
-            mock.patch("vram.check_llama") as check_llama, \
+            mock.patch("vram.check_llama") as check_llama, mock.patch("gpu_lock.gpu_job"), \
             mock.patch.object(sys, "argv", argv), mock.patch("status.phase") as phase:
         runpy.run_path(str(HERE / "convert_gguf.py"), run_name="__main__")
     return commands, seen.get("calibration"), phase, check_llama
@@ -87,7 +87,8 @@ class ConvertGgufTest(unittest.TestCase):
             self.assertEqual(b"Q4", ws.output.read_bytes())
         self.assertEqual(3, len(commands))
         imatrix, quantize = commands[1], commands[2]
-        self.assertEqual(["-f", "calibration.txt", "-o", "imatrix.gguf", "-c", "512", "-ngl", "0"], imatrix[0][3:11])
+        self.assertEqual(["-f", "calibration.txt", "-o", "imatrix.gguf", "-c", "512", "--parse-special", "-ngl", "0"],
+                         imatrix[0][3:12])
         self.assertEqual(["--imatrix", "imatrix.gguf"], quantize[0][1:3])
         self.assertEqual("Q4_K_M", quantize[0][-1])
         self.assertEqual(imatrix[1], quantize[1])  # stessa cartella temporanea: i nomi relativi funzionano
@@ -99,16 +100,26 @@ class ConvertGgufTest(unittest.TestCase):
                                       r"<\|im_start\|>assistant\nRisposta \1 è così\.<\|im_end\|>\n")
 
     def test_qwen35_quantizzazione_mista_di_default(self):
-        qwen35 = {"text_config": {"layer_types": ["linear_attention", "full_attention"]}}
+        qwen35 = {"text_config": {"layer_types": ["linear_attention", "full_attention"], "tie_word_embeddings": True}}
         with tempfile.TemporaryDirectory() as tmp:
             commands, _, _, _ = run(Workspace(tmp, config=qwen35))
         quantize = commands[2][0]
         self.assertEqual("Q5_K_M", quantize[-1])
-        self.assertEqual(["--imatrix", "imatrix.gguf", "--token-embedding-type", "q5_k", "--output-tensor-type", "q5_k"],
-                         quantize[1:7])
+        self.assertEqual(["--imatrix", "imatrix.gguf", "--token-embedding-type", "q5_k"], quantize[1:5])
+        self.assertEqual("q5_k", quantize[quantize.index("--output-tensor-type") + 1])
         overrides = [quantize[i + 1] for i, arg in enumerate(quantize) if arg == "--tensor-type"]
         self.assertEqual([r"attn_q\.=q6_k", r"attn_k\.=q6_k", r"attn_v\.=q6_k", "attn_output=q6_k", "ssm_out=q6_k"],
                          overrides)
+
+    def test_output_tensor_type_solo_con_embedding_condiviso(self):
+        for config, expected in (
+                ({"text_config": {"layer_types": ["linear_attention"], "tie_word_embeddings": False}}, False),
+                ({"text_config": {"layer_types": ["linear_attention"]}}, False),
+                ({"tie_word_embeddings": True, "text_config": {"layer_types": ["linear_attention"]}}, True),
+                ({"tie_word_embeddings": True, "layer_types": ["linear_attention"]}, True)):
+            with tempfile.TemporaryDirectory() as tmp:
+                commands, _, _, _ = run(Workspace(tmp, config=config))
+            self.assertEqual(expected, "--output-tensor-type" in commands[2][0], config)
 
     def test_quantize_esplicito_vince_su_auto(self):
         qwen35 = {"layer_types": ["linear_attention"]}

@@ -15,7 +15,20 @@ from unittest import mock
 
 import train_auto
 
-IGPU = {"index": 0, "name": "AMD Radeon(TM) Graphics", "vram_gib": 0.5, "free_gib": 0.4, "integrated": True}
+# main() prende il lucchetto della GPU e accende il monitor: nei test nessuno dei due (il lucchetto vero farebbe aspettare
+# il test finche' un training vero tiene la GPU)
+_GPU_JOB = mock.patch.object(train_auto.gpu_lock, "gpu_job")
+
+
+def setUpModule():
+    _GPU_JOB.start()
+
+
+def tearDownModule():
+    _GPU_JOB.stop()
+
+
+IGPU ={"index": 0, "name": "AMD Radeon(TM) Graphics", "vram_gib": 0.5, "free_gib": 0.4, "integrated": True}
 DGPU = {"index": 1, "name": "AMD Radeon RX 7800 XT", "vram_gib": 16.0, "free_gib": 15.0, "integrated": False}
 SMALL = {"index": 2, "name": "NVIDIA GTX", "vram_gib": 6.0, "free_gib": 6.0, "integrated": False}
 
@@ -284,6 +297,24 @@ class RunWatchedTest(unittest.TestCase):
         self.assertEqual(3, len(starts))  # primo lancio piu' due riavvii, poi lo lascia finire
         self.assertIn(b"fine", out)
         self.assertEqual(0, code)
+
+    def test_la_migliore_velocita_passa_al_riavvio(self):
+        bests = []
+
+        class Slow(train_auto.SpeedWatchdog):
+            def __init__(self):
+                super().__init__()
+                bests.append(None)
+
+            def check(self, now):
+                if len(bests) == 1:
+                    self.best = 4.0  # misurata nel primo lancio
+                    return "lento" if self.samples else None
+                bests[-1] = self.best
+                return None
+
+        self.run_watched(Slow, max_restarts=1)
+        self.assertEqual([None, 4.0], bests)
 
 
 if __name__ == "__main__":

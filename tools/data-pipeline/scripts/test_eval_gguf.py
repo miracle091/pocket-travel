@@ -79,7 +79,7 @@ class EvalGgufTest(unittest.TestCase):
                 mock.patch.object(eval_common, "load_test_rows", return_value=(list(rows), {"canada"})), \
                 mock.patch("subprocess.Popen", return_value=server) as popen, \
                 mock.patch("urllib.request.urlopen", side_effect=urlopen), mock.patch("time.sleep"), \
-                mock.patch("status.phase"):
+                mock.patch("status.phase"), mock.patch("gpu_lock.gpu_job"):  # niente lucchetto ne' monitor veri
             try:
                 runpy.run_path(str(HERE / "eval_gguf.py"), run_name="__main__")
             except SystemExit as e:
@@ -148,7 +148,7 @@ class EvalGgufTest(unittest.TestCase):
                 mock.patch.object(sys, "stdout", io.StringIO()), mock.patch.object(sys, "stderr", io.StringIO()), \
                 mock.patch.object(eval_common, "find_llama_bin", return_value="llama-server"), \
                 mock.patch.object(eval_common, "load_test_rows", return_value=([row("pos", "D?", "R.")], set())), \
-                mock.patch("subprocess.Popen", return_value=dead), mock.patch("status.phase"):
+                mock.patch("subprocess.Popen", return_value=dead), mock.patch("status.phase"), mock.patch("gpu_lock.gpu_job"):
             with self.assertRaises(SystemExit) as ctx:
                 runpy.run_path(str(HERE / "eval_gguf.py"), run_name="__main__")
         self.assertIn("codice 3", str(ctx.exception))

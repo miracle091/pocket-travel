@@ -6,7 +6,7 @@ Uso: python test_dpo_lora.py
 import math
 import unittest
 
-from dpo_lora import build_pairs, context_of, dpo_loss, dpo_margin, first_sentence
+from dpo_lora import build_pairs, context_of, dpo_loss, dpo_margin, first_sentence, leftover_scale
 
 
 def row(kind, region, category, context, answer, question="Cosa c'e'?"):
@@ -78,6 +78,13 @@ class LossTest(unittest.TestCase):
     def test_loss_stable_for_large_margins(self):
         self.assertAlmostEqual(dpo_loss(1e6, 0.1), 0.0)
         self.assertAlmostEqual(dpo_loss(-1e6, 0.1), 1e5)
+
+
+class AccumulationTest(unittest.TestCase):
+    def test_resto_di_fine_epoca_riscalato_sulle_coppie_presenti(self):
+        # 3 coppie con loss/16 sommano 3/16 del gradiente medio: il fattore le porta alla media
+        self.assertAlmostEqual(3 / 16 * leftover_scale(3, 16), 1.0)
+        self.assertEqual(1.0, leftover_scale(16, 16))
 
 
 if __name__ == "__main__":

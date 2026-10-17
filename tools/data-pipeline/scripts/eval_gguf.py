@@ -27,6 +27,7 @@ from pathlib import Path
 
 from gguf import GGUFReader
 
+import gpu_lock
 import vram
 from eval_common import (DEFAULT_DATASET, chatml_prompt, context_report, find_llama_bin, is_refusal, llama_env, load_test_rows,
                          on_device_prompt, print_report, question_of, refusal_summary, score, uses_empty_think)
@@ -51,6 +52,7 @@ ap.add_argument("--contexts", type=Path, nargs="+",
                 help="file di eval_retrieval.py --contexts al posto delle righe di test: il prompt dell'app con il contesto "
                      "della ricerca vera, e i rifiuti contati con e senza la sezione attesa nel contesto")
 a = ap.parse_args()
+gpu_lock.gpu_job("eval_gguf.py", gpu=a.gpu_layers > 0)
 
 # Come ai_chat.cpp: i template con enable_thinking (Qwen3.5 del v10) ricevono il blocco <think> vuoto che il training
 # (enable_thinking=False) mette nel turno assistente.

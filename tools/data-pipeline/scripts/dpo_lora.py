@@ -73,6 +73,12 @@ def dpo_loss(margin, beta):
     return F.softplus(-beta * margin)
 
 
+def leftover_scale(pending, accum):
+    """Fattore per i gradienti di un passo con meno di `accum` coppie: la loss e' gia' divisa per accum, e il passo
+    deve valere la media delle coppie presenti."""
+    return accum / pending
+
+
 def build_pairs(rows, excluded_regions, per_group, seed=42):
     """{gruppo: [(messaggi del prompt, preferita, scartata)]}, al piu' per_group[gruppo] coppie per gruppo."""
     rows = [r for r in rows if r["region"] not in excluded_regions and r["region"] not in TEST_REGIONS]
@@ -117,7 +123,9 @@ def main():
     ap.add_argument("--merge", action="store_true", help="salva anche i pesi con la LoRA fusa (per convert_gguf.py)")
     a = ap.parse_args()
 
+    import gpu_lock
     from status import Progress, phase
+    gpu_lock.gpu_job("dpo_lora.py")
     try:
         import unsloth  # noqa: F401  patch di compatibilita' Windows/ROCm, come in train_lora.py
     except ImportError:
@@ -188,14 +196,30 @@ def main():
         return torch.zeros(len(ids_list), device="cuda").index_add(0, rows_of, picked)
 
     optimizer = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=a.lr)
-    total = a.epochs * len(data) // a.accum
+    total = a.epochs * math.ceil(len(data) / a.accum)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda step: max(0.0, 1 - step / max(total, 1)))
     phase("DPO", f"{len(data)} coppie, {total} passi, beta {a.beta}, lr {a.lr}")
     progress = Progress("DPO", total, "passo", every=60)
     model.train()
     step, losses, wins = 0, [], []
+
+    def optimizer_step(pending):
+        nonlocal step
+        if pending < a.accum:
+            for p in model.parameters():
+                if p.grad is not None:
+                    p.grad *= leftover_scale(pending, a.accum)
+        optimizer.step()
+        scheduler.step()
+        optimizer.zero_grad()
+        step += 1
+        recent = slice(-a.accum * 10, None)
+        progress.update(step, f"loss {sum(losses[recent]) / len(losses[recent]):.3f} · "
+                              f"preferita sopra {100 * sum(wins[recent]) / len(wins[recent]):.0f}%".replace(".", ","))
+
     for _ in range(a.epochs):
-        for i, (prompt_messages, chosen, rejected) in enumerate(data, 1):
+        pending = 0  # coppie accumulate dall'ultimo passo dell'ottimizzatore
+        for prompt_messages, chosen, rejected in data:
             (chosen_ids, start), (rejected_ids, _) = encode(prompt_messages, chosen), encode(prompt_messages, rejected)
             if max(len(chosen_ids), len(rejected_ids)) > a.max_len:
                 continue
@@ -207,14 +231,12 @@ def main():
             (loss / a.accum).backward()
             losses.append(loss.item())
             wins.append(float(margin.item() > 0))
-            if i % a.accum == 0:
-                optimizer.step()
-                scheduler.step()
-                optimizer.zero_grad()
-                step += 1
-                recent = slice(-a.accum * 10, None)
-                progress.update(step, f"loss {sum(losses[recent]) / len(losses[recent]):.3f} · "
-                                      f"preferita sopra {100 * sum(wins[recent]) / len(wins[recent]):.0f}%".replace(".", ","))
+            pending += 1
+            if pending == a.accum:
+                optimizer_step(pending)
+                pending = 0
+        if pending:  # coppie rimaste a fine epoca: un passo a parte, senza trascinarle nell'epoca successiva
+            optimizer_step(pending)
     print("peak VRAM GiB:", round(torch.cuda.max_memory_allocated() / 2**30, 2))
     Path(a.out).mkdir(parents=True, exist_ok=True)
     (Path(a.out) / "run.json").write_text(json.dumps({"base": a.base, "dataset": a.dataset, "beta": a.beta, "lr": a.lr,

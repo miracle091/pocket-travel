@@ -32,6 +32,7 @@ import tempfile
 import time
 from pathlib import Path
 
+import gpu_lock
 import vram
 from eval_common import SFT_DIR, TEST_REGIONS, chatml_answer, chatml_prompt, find_llama_bin, llama_env, run_dataset, uses_empty_think
 from status import duration, phase
@@ -53,6 +54,7 @@ ap.add_argument("--imatrix-rows", type=int, default=400,
 ap.add_argument("--empty-think", action="store_true",
                 help="forza il blocco <think> vuoto nella calibrazione (di default: se il chat template usa enable_thinking, come ai_chat.cpp)")
 a = ap.parse_args()
+gpu_lock.gpu_job("convert_gguf.py", gpu=bool(a.gpu_layers and a.imatrix_rows and a.quantize.lower() != "none"))
 
 HERE = Path(__file__).resolve().parent
 
@@ -104,12 +106,15 @@ no_mtp = ["--no-mtp"] if config.get("text_config", config).get("mtp_num_hidden_l
 # non cambia il KL: perde il corpo a 4 bit. Su ARM llama.cpp riorganizza al caricamento Q5_K e Q6_K come Q4_K
 # (ggml-cpu/repack.cpp), quindi la velocita' resta quella dei tipi veloci. Le regex sono cercate nel nome del
 # tensore: "attn_q\." per non prendere anche attn_qkv.
-MIXED = ["--token-embedding-type", "q5_k", "--output-tensor-type", "q5_k",
+MIXED = ["--token-embedding-type", "q5_k",
          *(arg for name in (r"attn_q\.", r"attn_k\.", r"attn_v\.", "attn_output", "ssm_out")
            for arg in ("--tensor-type", f"{name}=q6_k"))]
-qwen35 = "linear_attention" in config.get("text_config", config).get("layer_types", [])
+text_config = config.get("text_config", config)
+qwen35 = "linear_attention" in text_config.get("layer_types", [])
+# Con l'embedding non condiviso output.weight resta a Q6_K (default di Q5_K_M): scenderlo a Q5_K non e' misurato.
+tied = text_config.get("tie_word_embeddings", config.get("tie_word_embeddings", False))
 quantize = ("Q5_K_M-mix" if qwen35 else "Q4_K_M") if a.quantize == "auto" else a.quantize
-qtype, qargs = ("Q5_K_M", MIXED) if quantize == "Q5_K_M-mix" else (quantize, [])
+qtype, qargs = ("Q5_K_M", MIXED + (["--output-tensor-type", "q5_k"] if tied else [])) if quantize == "Q5_K_M-mix" else (quantize, [])
 
 if a.gpu_layers and a.imatrix_rows and a.quantize.lower() != "none":  # subito, non dopo la conversione F16
     imatrix_bin = find_bin("llama-imatrix")
@@ -131,6 +136,7 @@ with tempfile.TemporaryDirectory() as tmp:
             write_calibration(Path(tmp) / calib)
             step("calcolo imatrix", f"{a.imatrix_rows} righe del dataset di training",
                  [find_bin("llama-imatrix"), "-m", str(f16_path), "-f", calib, "-o", imatrix_path, "-c", "512",
+                  "--parse-special",  # <|im_start|>, <|im_end|>, <think> come token speciali, come li manda l'app
                   "-ngl", str(a.gpu_layers), *(["--device", a.device] if a.device else [])], cwd=tmp)
             imatrix = ["--imatrix", imatrix_path]
         step("quantizzazione", quantize + (" con imatrix" if imatrix else ""),

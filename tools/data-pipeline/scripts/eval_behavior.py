@@ -17,6 +17,7 @@ except ImportError:
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForImageTextToText, AutoTokenizer
 
+import gpu_lock
 import vram
 from eval_common import (SFT_DIR, chat_prompt_and_answer, load_test_rows, print_report, question_of, refusal_prefix, refusal_summary,
                          run_dataset, score)
@@ -29,6 +30,7 @@ ap.add_argument("--extended", action="store_true", help="test esteso (generate_e
 ap.add_argument("--max-vram-held", type=float, default=vram.DEFAULT_MAX_HELD_PCT, help=vram.HELP)
 ap.add_argument("--errors", action="store_true", help="con --extended: elenca i positivi rifiutati (categoria, domanda)")
 a = ap.parse_args()
+gpu_lock.gpu_job("eval_behavior.py")
 
 # bf16 nativo solo se supportato e capability >= 8, come train_lora.py (NVIDIA e AMD), altrimenti fp16
 BF16 = torch.cuda.is_bf16_supported() and torch.cuda.get_device_capability()[0] >= 8

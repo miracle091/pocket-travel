@@ -31,6 +31,7 @@ import threading
 import time
 from pathlib import Path
 
+import gpu_lock
 import vram
 
 HERE = Path(__file__).resolve().parent
@@ -120,12 +121,14 @@ class SpeedWatchdog:
 
 def run_watched(cmd, env, max_restarts=6, watchdog=SpeedWatchdog, clock=time.monotonic, poll=30):
     """Lancia cmd, copia il suo output e lo rilancia (al piu' max_restarts volte) quando il watchdog lo ferma."""
+    best = None
     for attempt in range(max_restarts + 1):
         with subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as proc:
             lines = queue.Queue()
             threading.Thread(target=lambda: [lines.put(l) for l in iter(proc.stdout.readline, b"")] + [lines.put(None)],
                              daemon=True).start()
             dog, reason = watchdog(), None
+            dog.best = best  # la migliore velocita' vista passa ai riavvii: un processo lento fin dal primo passo si ferma
             while True:
                 try:
                     line = lines.get(timeout=poll)
@@ -141,6 +144,7 @@ def run_watched(cmd, env, max_restarts=6, watchdog=SpeedWatchdog, clock=time.mon
                     elif PHASE_LINE.match(line):
                         dog.phase()
                 reason = dog.check(clock())
+                best = dog.best
                 if reason and attempt < max_restarts:
                     break
             print(f"-- watchdog: {reason}; fermo train_lora.py e lo rilancio dall'ultimo checkpoint "
@@ -156,6 +160,8 @@ def main():
     ap.add_argument("--max-vram-held", type=float, default=vram.DEFAULT_MAX_HELD_PCT, help=vram.HELP)
     ap.add_argument("--no-watchdog", action="store_true", help="non fermare e rilanciare un training rallentato")
     a, passthrough = ap.parse_known_args()
+    if not a.dry_run:
+        gpu_lock.gpu_job("train_auto.py")  # tenuto anche nei riavvii del watchdog; train_lora.py lo eredita
 
     info = probe()
     if not info["gpus"]:
