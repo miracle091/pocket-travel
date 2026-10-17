@@ -17,7 +17,7 @@ import sys
 from contextlib import ExitStack
 from pathlib import Path
 
-from eval_common import chat_prompt_and_answer
+from eval_common import chat_prompt_and_answer, chatml_answer, chatml_prompt
 
 # Con trim_blocks e lstrip_blocks di transformers: nessun a capo subito dopo un tag {% %}, che verrebbe tolto
 CHATML = ("{% for m in messages %}<|im_start|>{{ m['role'] }}\n{{ m['content'] }}<|im_end|>\n{% endfor %}"
@@ -56,7 +56,7 @@ def check_chat_format(tok, rows):
     for r in rows:
         user, answer = (m["content"] for m in r["messages"][:2])
         got = chat_prompt_and_answer(tok, r["messages"])
-        want = (f"<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n", f"{answer}<|im_end|>\n")
+        want = (chatml_prompt(user), chatml_answer(answer))
         if got != want:
             fail(f"testo di training diverso dal ChatML dell'app\n  atteso: {want!r:.300}\n  ottenuto: {got!r:.300}")
 

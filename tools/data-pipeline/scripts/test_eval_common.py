@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Test delle parti di eval_common.py usate da eval_gguf.py --contexts: il prompt come PromptTemplates.kt, il
-riconoscimento dei rifiuti e il conteggio dei rifiuti con e senza la sezione attesa nel contesto.
+riconoscimento dei rifiuti e il conteggio dei rifiuti con e senza la sezione attesa nel contesto; il testo ChatML
+(chatml_prompt, chatml_answer) confrontato con il formatter CHATML di llama.cpp e con il blocco <think> di ai_chat.cpp.
 
 Uso: python test_eval_common.py
 """
@@ -17,8 +18,10 @@ from unittest import mock
 import eval_common
 from eval_common import EMPTY_THINK, context_report, is_refusal, on_device_prompt
 
-PROMPT_TEMPLATES = (Path(__file__).resolve().parents[3]
-                    / "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/PromptTemplates.kt").read_text(encoding="utf-8")
+REPO = Path(__file__).resolve().parents[3]
+PROMPT_TEMPLATES = (REPO / "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/PromptTemplates.kt").read_text(encoding="utf-8")
+LLAMA_CHAT = (REPO / "third-party/llama-cpp/src/llama-chat.cpp").read_text(encoding="utf-8")
+AI_CHAT = (REPO / "feature/ai/src/main/cpp/ai_chat.cpp").read_text(encoding="utf-8")
 
 
 def kotlin_prompt(branch, context, question):
@@ -106,6 +109,44 @@ class ChatPromptTest(unittest.TestCase):
         tok.apply_chat_template = lambda m, add_generation_prompt=False, **k: "prompt" if add_generation_prompt else "diverso"
         with self.assertRaises(AssertionError):
             eval_common.chat_prompt_and_answer(tok, MESSAGES)
+
+
+def llama_chatml(messages, add_ass):
+    """Uscita del formatter CHATML di llama.cpp (ramo LLM_CHAT_TEMPLATE_CHATML di src/llama-chat.cpp), ricostruita
+    dalle sue istruzioni `ss << ...`: una per messaggio nel ciclo, una per l'apertura del turno assistente."""
+    branch = LLAMA_CHAT.split("if (tmpl == LLM_CHAT_TEMPLATE_CHATML) {")[1].split("} else if")[0]
+    loop, ass = branch.split("if (add_ass)")
+    fields = {"message->role": "role", "message->content": "content"}
+
+    def render(source, message=None):
+        parts = (p.strip() for p in re.search(r"ss << (.*?);", source, re.S).group(1).split(" << "))
+        return "".join(p[1:-1].replace("\\n", "\n") if p.startswith('"') else message[fields[p]] for p in parts)
+
+    return "".join(render(loop, m) for m in messages) + (render(ass) if add_ass else "")
+
+
+class ChatmlTest(unittest.TestCase):
+    """chatml_prompt e chatml_answer contro il formatter CHATML di llama.cpp e il blocco <think> di ai_chat.cpp."""
+    user = {"role": "user", "content": "Contesto:\nA tavola.\n\nDomanda: Cosa mangio?"}
+    assistant = {"role": "assistant", "content": "La torta Titano."}
+
+    def test_prompt_uguale_al_formatter_di_llama_cpp(self):
+        self.assertEqual(eval_common.chatml_prompt(self.user["content"]), llama_chatml([self.user], add_ass=True))
+
+    def test_prompt_e_risposta_uguali_al_formatter_di_llama_cpp(self):
+        self.assertEqual(eval_common.chatml_prompt(self.user["content"]) + eval_common.chatml_answer(self.assistant["content"]),
+                         llama_chatml([self.user, self.assistant], add_ass=False))
+
+    def test_blocco_think_uguale_a_quello_di_ai_chat_cpp(self):
+        block = re.search(r'formatted \+= "(<think>[^"]*)";', AI_CHAT).group(1).replace("\\n", "\n")
+        self.assertEqual(EMPTY_THINK, block)
+        self.assertEqual(eval_common.chatml_prompt("D", empty_think=True), llama_chatml([{"role": "user", "content": "D"}], True) + block)
+
+    def test_regola_del_blocco_think_come_ai_chat_cpp(self):
+        self.assertIn('std::strstr(chat_template, "enable_thinking")', AI_CHAT)
+        self.assertTrue(eval_common.uses_empty_think("{% if enable_thinking is defined %}...{% endif %}"))
+        self.assertFalse(eval_common.uses_empty_think("{% if '<think>' in content %}...{% endif %}"))  # Qwen3-4B-Instruct-2507
+        self.assertFalse(eval_common.uses_empty_think(None))
 
 
 class FindLlamaBinTest(unittest.TestCase):

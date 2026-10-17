@@ -10,7 +10,7 @@ Con --contexts il modello risponde con il contesto prodotto dalla ricerca vera (
 serie e variante della ricerca, rifiuti con la sezione attesa nel contesto (del modello) e senza (della ricerca).
 Stesse regioni di test di train_lora.py (TEST_REGIONS in eval_common.py) e stesse metriche di eval_behavior.py; decodifica
 greedy (temperature 0, top-k 1). Il modello si carica una volta sola in llama-server e ogni riga e' una
-richiesta /completion. Il prompt viene formattato qui a mano nello stesso ChatML "grezzo" che
+richiesta /completion. Il prompt e' lo stesso ChatML "grezzo" (chatml_prompt di eval_common.py) che
 OnDeviceLlmEngine/ai_chat.cpp costruisce a runtime (un solo turno utente, nessun turno system — vedi
 chat_add_and_format/reset_long_term_states in ai_chat.cpp), non il chat_template jinja scritto nel GGUF
 da convert_gguf.py: l'app non lo usa (common_chat_format_single e' chiamato con use_jinja=false, quindi
@@ -28,8 +28,8 @@ from pathlib import Path
 from gguf import GGUFReader
 
 import vram
-from eval_common import (DEFAULT_DATASET, context_report, find_llama_bin, is_refusal, llama_env, load_test_rows, on_device_prompt,
-                         print_report, question_of, refusal_summary, score)
+from eval_common import (DEFAULT_DATASET, chatml_prompt, context_report, find_llama_bin, is_refusal, llama_env, load_test_rows,
+                         on_device_prompt, print_report, question_of, refusal_summary, score, uses_empty_think)
 from status import Progress, phase
 
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -52,10 +52,11 @@ ap.add_argument("--contexts", type=Path, nargs="+",
                      "della ricerca vera, e i rifiuti contati con e senza la sezione attesa nel contesto")
 a = ap.parse_args()
 
-# Come ai_chat.cpp (common_chat_templates_support_enable_thinking): i template con thinking (Qwen3.5)
-# ricevono il blocco <think> vuoto che il training (enable_thinking=False) mette nel turno assistente.
+# Come ai_chat.cpp: i template con enable_thinking (Qwen3.5 del v10) ricevono il blocco <think> vuoto che il training
+# (enable_thinking=False) mette nel turno assistente.
 template = GGUFReader(a.model).fields.get("tokenizer.chat_template")
-empty_think = a.empty_think or (template is not None and "enable_thinking" in bytes(template.parts[template.data[0]]).decode("utf-8"))
+empty_think = a.empty_think or uses_empty_think(
+    bytes(template.parts[template.data[0]]).decode("utf-8") if template is not None else None)
 
 if a.contexts:
     test = [json.loads(line) for f in a.contexts for line in open(f, encoding="utf-8")]
@@ -95,10 +96,7 @@ def start_server():
 
 
 def ask(url, content):
-    prompt = f"<|im_start|>user\n{content}<|im_end|>\n<|im_start|>assistant\n"
-    if empty_think:
-        prompt += "<think>\n\n</think>\n\n"
-    body = json.dumps({"prompt": prompt, "n_predict": 110, "temperature": 0, "top_k": 1, "cache_prompt": False})
+    body = json.dumps({"prompt": chatml_prompt(content, empty_think), "n_predict": 110, "temperature": 0, "top_k": 1, "cache_prompt": False})
     request = urllib.request.Request(f"{url}/completion", body.encode("utf-8"), {"Content-Type": "application/json"})
     with urllib.request.urlopen(request, timeout=600) as r:
         return json.load(r)["content"].strip()

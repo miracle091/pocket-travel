@@ -33,7 +33,7 @@ import time
 from pathlib import Path
 
 import vram
-from eval_common import SFT_DIR, TEST_REGIONS, find_llama_bin, llama_env, run_dataset
+from eval_common import SFT_DIR, TEST_REGIONS, chatml_answer, chatml_prompt, find_llama_bin, llama_env, run_dataset, uses_empty_think
 from status import duration, phase
 
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -69,12 +69,11 @@ def write_calibration(path):
         rows = [json.loads(l) for l in f]
     rows = [r for r in rows if r["region"] not in TEST_REGIONS]
     template = a.merged / "chat_template.jinja"
-    thinking = template.exists() and "enable_thinking" in template.read_text(encoding="utf-8")
-    think = "<think>\n\n</think>\n\n" if a.empty_think or thinking else ""
+    think = a.empty_think or uses_empty_think(template.read_text(encoding="utf-8") if template.exists() else None)
     with open(path, "w", encoding="utf-8") as f:
         for r in random.Random(42).sample(rows, min(a.imatrix_rows, len(rows))):
             user, answer = r["messages"][0]["content"], r["messages"][1]["content"]
-            f.write(f"<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n{think}{answer}<|im_end|>\n")
+            f.write(chatml_prompt(user, think) + chatml_answer(answer))
 
 
 convert_script = a.llama_cpp / "convert_hf_to_gguf.py"

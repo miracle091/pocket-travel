@@ -23,7 +23,7 @@ from pathlib import Path
 from gguf import GGUFReader
 
 import eval_retrieval as ev
-from eval_common import find_llama_bin, llama_env
+from eval_common import chatml_prompt, find_llama_bin, llama_env, uses_empty_think
 
 SERIES = ["direct", "reworded", "dev", "dev2", "other-lang", "control"]
 
@@ -72,11 +72,10 @@ def main():
                 time.sleep(0.5)
         result = {}
         template = GGUFReader(a.model).fields.get("tokenizer.chat_template")
-        think = "<think>\n\n</think>\n\n" if template is not None and "enable_thinking" in bytes(
-            template.parts[template.data[0]]).decode("utf-8") else ""
+        think = uses_empty_think(bytes(template.parts[template.data[0]]).decode("utf-8") if template is not None else None)
         for q in questions(a.lang, a.cache, a.regions):
             # Come ai_chat.cpp: un turno utente, piu' il blocco <think> vuoto per i template con enable_thinking
-            prompt = f"<|im_start|>user\n{ev.model_category_prompt(q, a.lang)}<|im_end|>\n<|im_start|>assistant\n{think}"
+            prompt = chatml_prompt(ev.model_category_prompt(q, a.lang), think)
             body = json.dumps({"prompt": prompt, "n_predict": 8, "temperature": 0, "top_k": 1, "grammar": grammar})
             request = urllib.request.Request(f"{url}/completion", body.encode("utf-8"), {"Content-Type": "application/json"})
             with urllib.request.urlopen(request, timeout=120) as r:

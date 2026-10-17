@@ -13,6 +13,25 @@ from pathlib import Path
 EMPTY_THINK = "<think>\n\n</think>\n\n"
 
 
+def uses_empty_think(chat_template):
+    """Regola del blocco <think> vuoto, la stessa di ai_chat.cpp: solo i chat template con la variabile
+    enable_thinking (i Qwen3.5 del v10, addestrati con enable_thinking=False). Non bastano i blocchi <think> nel
+    template: Qwen3-4B-Instruct-2507 li gestisce ma non ha la variabile."""
+    return chat_template is not None and "enable_thinking" in chat_template
+
+
+def chatml_prompt(user, empty_think=False):
+    """Prompt a turno singolo come lo manda l'app: il formatter CHATML di llama.cpp (src/llama-chat.cpp, chiamato
+    da ai_chat.cpp con use_jinja=false) per il turno utente e l'apertura del turno assistente, piu' il blocco <think>
+    vuoto che ai_chat.cpp aggiunge quando uses_empty_think() vale per il template del modello."""
+    return f"<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n" + (EMPTY_THINK if empty_think else "")
+
+
+def chatml_answer(answer):
+    """Risposta chiusa come nel formatter CHATML: <|im_end|> e a capo."""
+    return f"{answer}<|im_end|>\n"
+
+
 def chat_prompt_and_answer(tok, messages):
     """(prompt, risposta) come testo, nel formato che l'app usa a runtime (ai_chat.cpp): ChatML del turno
     utente, piu' il blocco <think> vuoto se il chat template supporta enable_thinking. La risposta (da
@@ -21,7 +40,7 @@ def chat_prompt_and_answer(tok, messages):
     e il modello imparerebbe a scriverlo da solo (con il 4B le risposte iniziavano con "<think>..." e nessun
     rifiuto veniva riconosciuto). Con un solo messaggio si ottiene solo il prompt (risposta vuota)."""
     prompt = tok.apply_chat_template(messages[:1], add_generation_prompt=True, tokenize=False, enable_thinking=False)
-    if "enable_thinking" in (tok.chat_template or "") and not prompt.endswith(EMPTY_THINK):
+    if uses_empty_think(tok.chat_template) and not prompt.endswith(EMPTY_THINK):
         prompt += EMPTY_THINK
     if len(messages) < 2:
         return prompt, ""
