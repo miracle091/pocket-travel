@@ -72,6 +72,13 @@ class TravelAdviceTest(unittest.TestCase):
         self.assertEqual([("a", "SALUTE", ["Drink water."]), ("a", "SICUREZZA", ["Crime occurs."])],
                          [(p[0], p[1], [r[1] for r in p[2]]) for p in picks])
 
+    def test_le_sezioni_per_una_sola_nazionalita_non_si_traducono(self):
+        en = tg.group(rows("a", "SICUREZZA", "Crime occurs.", url=self.GC)
+                      + rows("a", "DOGANE", "Canadian passport.", url=self.GC + "#for-nationality=CA")
+                      + rows("a", "SICUREZZA", "Call Ottawa.", url=self.GC + "#for-nationality=CA"))
+        picks = tg.pick_travel_advice(en, {"a": "a"})
+        self.assertEqual([("a", "SICUREZZA", ["Crime occurs."])], [(p[0], p[1], [r[1] for r in p[2]]) for p in picks])
+
     def test_titoli_fissi(self):
         with tempfile.TemporaryDirectory() as d:
             t = FakeTranslator(d)

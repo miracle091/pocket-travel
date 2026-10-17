@@ -128,11 +128,13 @@ def pick_sections(own_sections, source, source_owner):
 
 def pick_travel_advice(source, source_owner):
     """[(proprietario, categoria, righe d'origine)]: le sezioni di travel.gc.ca di [source] (group()) per i proprietari di
-    [source_owner], tutte, a prescindere da cosa c'e' nella guida da arricchire: non la sostituiscono, si aggiungono."""
+    [source_owner], tutte, a prescindere da cosa c'e' nella guida da arricchire: non la sostituiscono, si aggiungono.
+    Fuori le sezioni per una sola nazionalita' (link con "#for-nationality=": ingresso e uffici consolari per i canadesi):
+    requisiti d'ingresso, indirizzi e numeri non passano dalla traduzione automatica e restano nella guida inglese."""
     picks = []
     for owner, other in sorted(source_owner.items()):
         for (o, category), rows in sorted(source.items()):
-            advice = [r for r in rows if TRAVEL_ADVICE_HOST in r[2]]
+            advice = [r for r in rows if TRAVEL_ADVICE_HOST in r[2] and "#for-nationality=" not in r[2]]
             if o == other and advice:
                 picks.append((owner, category, advice))
     return picks

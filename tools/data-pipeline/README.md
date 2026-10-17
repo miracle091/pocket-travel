@@ -413,8 +413,9 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   riuscito le parti dei dump vecchi escono dalla cache.
 - **Guide arricchite dall'altra lingua**: `scripts/translate_guides.py` traduce con MarianMT (`opus-mt-tc-big-en-it`,
   CC BY 4.0, CTranslate2 int8 su CPU) le sezioni del Governo del Canada della guida inglese che pubblica la passata
-  `en` (`GUIDES_FINAL_COPY`, poi `GUIDES_SOURCE_DB` della passata italiana); `generateGuides --translated` le aggiunge in
-  fondo alla guida italiana, con titoli fissi e `translated = 1`, che le app vecchie ignorano. Le frasi inglesi più
+  `en` (`GUIDES_FINAL_COPY`, poi `GUIDES_SOURCE_DB` della passata italiana), senza quelle per i soli canadesi
+  (`#for-nationality=CA`: requisiti d'ingresso, indirizzi e numeri restano nella guida inglese); `generateGuides
+  --translated` le aggiunge in fondo alla guida italiana, con titoli fissi e `translated = 1`, che le app vecchie ignorano. Le frasi inglesi più
   frequenti hanno una traduzione rivista in `translation-corrections.en-it.tsv` (una riga "inglese<TAB>italiano"), che
   prevale sul modello e non passa dal controllo automatico; le altre frasi con numeri diversi, lunghezza fuori misura o
   un carattere perso (" ⁇ ") fanno scartare la loro sezione. Il confronto delle sezioni di Wikivoyage con quelle
