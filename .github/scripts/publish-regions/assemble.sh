@@ -6,6 +6,8 @@
 # Ambiente: PAGES_BASE_URL, GITHUB_REPOSITORY_OWNER.
 set -euo pipefail
 source .github/scripts/env.sh
+# shellcheck source=tools/data-pipeline/scripts/lib.sh
+source tools/data-pipeline/scripts/lib.sh
 shopt -s nullglob
 
 SITE_DIR="$RUNNER_TEMP/site"
@@ -58,7 +60,14 @@ done
 # il download sopra e' fallito assemble-site.sh riprova dall'URL e decide lui (errore, o
 # BOOTSTRAP=1 alla prima pubblicazione).
 MERGE_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
-[ ! -s "$RUNNER_TEMP/previous-manifest.json" ] || MERGE_MANIFEST_URL="file://$RUNNER_TEMP/previous-manifest.json"
+if [ -s "$RUNNER_TEMP/previous-manifest.json" ]; then
+  # Su Git Bash curl e' nativo di Windows: vuole file:///C:/..., non il path POSIX virtuale (su Linux winpath non cambia nulla).
+  PREVIOUS_MANIFEST_PATH="$(winpath "$RUNNER_TEMP/previous-manifest.json")"
+  case "$PREVIOUS_MANIFEST_PATH" in
+    /*) MERGE_MANIFEST_URL="file://$PREVIOUS_MANIFEST_PATH" ;;
+    *) MERGE_MANIFEST_URL="file:///$PREVIOUS_MANIFEST_PATH" ;;
+  esac
+fi
 
 # Frammenti da unire (selectFragments): quelli di questa run validati regione per regione (una
 # regione non valida si scarta, le altre si pubblicano) e quelli in sospeso di run precedenti
@@ -67,10 +76,17 @@ RUN_FRAGMENTS=("$RUNNER_TEMP/fragments"/*.json)
 PENDING_FRAGMENTS=("$RUNNER_TEMP/pending-fragments"/*.json)
 SELECTED_LIST="$RUNNER_TEMP/selected-fragments.txt"
 SELECTION_REPORT="$RUNNER_TEMP/fragments-report.tsv"
-SELECT_ARGS="--pages-host $GITHUB_REPOSITORY_OWNER.github.io --max-age-days 7 --out-list $SELECTED_LIST --out-report $SELECTION_REPORT"
-[ ! -s "$RUNNER_TEMP/previous-manifest.json" ] || SELECT_ARGS="$SELECT_ARGS --published $RUNNER_TEMP/previous-manifest.json"
-[ "${#RUN_FRAGMENTS[@]}" -eq 0 ] || SELECT_ARGS="$SELECT_ARGS --run ${RUN_FRAGMENTS[*]}"
-[ "${#PENDING_FRAGMENTS[@]}" -eq 0 ] || SELECT_ARGS="$SELECT_ARGS --pending ${PENDING_FRAGMENTS[*]}"
+# java.exe (via gradlew) vuole path Windows reali: winpath (vedi lib.sh), che su Linux lascia i path invariati.
+SELECT_ARGS="--pages-host $GITHUB_REPOSITORY_OWNER.github.io --max-age-days 7 --out-list $(winpath "$SELECTED_LIST") --out-report $(winpath "$SELECTION_REPORT")"
+[ ! -s "$RUNNER_TEMP/previous-manifest.json" ] || SELECT_ARGS="$SELECT_ARGS --published $(winpath "$RUNNER_TEMP/previous-manifest.json")"
+if [ "${#RUN_FRAGMENTS[@]}" -gt 0 ]; then
+  SELECT_ARGS="$SELECT_ARGS --run"
+  for f in "${RUN_FRAGMENTS[@]}"; do SELECT_ARGS="$SELECT_ARGS $(winpath "$f")"; done
+fi
+if [ "${#PENDING_FRAGMENTS[@]}" -gt 0 ]; then
+  SELECT_ARGS="$SELECT_ARGS --pending"
+  for f in "${PENDING_FRAGMENTS[@]}"; do SELECT_ARGS="$SELECT_ARGS $(winpath "$f")"; done
+fi
 ./gradlew -q :tools:data-pipeline:content:selectFragments --args="$SELECT_ARGS"
 mapfile -t FRAGMENT_FILES < "$SELECTED_LIST"
 {

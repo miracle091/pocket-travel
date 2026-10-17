@@ -46,7 +46,9 @@ export TRANSIT_DEADLINE=$((${JOB_START:-$(date -u +%s)} + (${TRANSIT_JOB_MINUTES
 mapfile -t FEED_IDS < <(awk -F'\t' '$0 !~ /^#/ && NF >= 5 { print $1 }' "$FEEDS_TSV")
 # Una riga per host con i suoi id: prima il gruppo di at-toscana, poi i gruppi piu' numerosi.
 awk -F'\t' '$0 !~ /^#/ && NF >= 5 {
-    host = ($7 == "" ? "files.mobilitydatabase.org" : $7); sub(/^[a-z]+:\/\//, "", host); sub(/[\/#].*/, "", host)
+    host = ($7 == "" ? "files.mobilitydatabase.org" : $7)
+    if (host == "{ultimo}") { split($8, indice, " "); host = indice[1] }  # {ultimo}: il feed sta dove punta cerca_ultimo
+    sub(/^[a-z]+:\/\//, "", host); sub(/[\/#].*/, "", host)
     ids[host] = ids[host] " " $1; n[host]++; if ($1 == "at-toscana") first = host }
   END { for (h in ids) print (h == first ? 999999 : n[h]) "\t" ids[h] }' "$FEEDS_TSV" \
   | sort -t$'\t' -k1,1nr | cut -f2 > "$LOG_DIR/groups.txt"
