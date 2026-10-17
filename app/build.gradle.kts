@@ -70,6 +70,9 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            // Arrivano gia' senza simboli dalle loro AAR (MapLibre, androidx.graphics): AGP non riesce a passarle
+            // a llvm-strip e lo segnala a ogni build ("Unable to strip"); saltarle non cambia l'APK.
+            keepDebugSymbols += setOf("**/libmaplibre.so", "**/libandroidx.graphics.path.so")
         }
     }
 
