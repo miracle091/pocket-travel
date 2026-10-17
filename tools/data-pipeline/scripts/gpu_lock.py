@@ -2,9 +2,8 @@
 """Lucchetto della GPU discreta condiviso da tutti i processi del PC: un solo lavoro alla volta sulla GPU.
 
 Due lavori insieme sulla stessa GPU (un training e un llama-server di un'altra sessione) riempiono la VRAM:
-con ROCm su Windows il lavoro finisce in memoria condivisa, molte volte piu' lento, e il 2026-10-17 il PC
-si e' bloccato del tutto (schermi spenti, nessun dump) mentre una sessione addestrava con DPO e un'altra
-teneva sulla stessa GPU un llama-server da 9,1 GB.
+con ROCm su Windows il lavoro finisce in memoria condivisa, molte volte piu' lento, e il PC puo' bloccarsi
+del tutto (schermi spenti, nessun dump), come con un training DPO e un llama-server da 9,1 GB sulla stessa GPU.
 
 Il lucchetto e' un blocco del sistema operativo su ~/.cache/pocket-travel/gpu.lock (msvcrt su Windows,
 flock su Linux): lo libera il sistema quando il processo finisce, anche se muore o il PC si blocca, quindi

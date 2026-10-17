@@ -158,7 +158,7 @@ internal fun TransitDeparturesSection(
                                 modifier = Modifier.weight(1f),
                             )
                             // Se c'e', "Aggiorna" e' gia' sopra, accanto alle reti scadute; niente "Aggiorna" se le reti
-                            // della fermata sono tutte non piu' pubblicate.
+                            // della fermata hanno tutte gli orari non piu' aggiornati.
                             if (!updateNearExpired && board.feeds.any { it.name !in staleNetworks }) {
                                 TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
                             }
