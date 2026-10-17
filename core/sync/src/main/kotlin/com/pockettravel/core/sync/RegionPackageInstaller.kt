@@ -89,11 +89,12 @@ class RegionPackageInstaller @Inject constructor(
             if (PackageKind.TRANSIT in kinds) {
                 entry.transit!!.feeds.forEach { unpackXz(staging, it.stagedFile, it.stagedFileXz, ioDispatcher) }
                 withContext(ioDispatcher) {
-                    // Le reti sparite dall'indice restano finche' i loro orari sono validi.
+                    // Le reti passate tra le "non incluse" restano finche' i loro orari sono validi.
                     val installedDir = File(regionStorage.directoryFor(entry.regionId), RegionStorage.TRANSIT_DIR)
                     val carried = carriedOverTransitFeeds(
                         regionStorage.installedTransitFeeds(entry.regionId),
                         entry.transit.available.mapTo(mutableSetOf()) { it.id },
+                        entry.transit.missing.mapTo(mutableSetOf()) { it.id },
                         LocalDate.now(clock),
                     ) { readTransitValidUntil(File(installedDir, "${it.id}.db")) }
                     assembleTransitDir(staging, entry.transit.feeds, carried, installedDir)

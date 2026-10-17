@@ -14,6 +14,7 @@ import com.pockettravel.core.data.testing.FakeLastKnownPosition
 import com.pockettravel.core.data.testing.FakeRegionRepository
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
 import com.pockettravel.core.sync.TransitIndex
+import com.pockettravel.core.sync.TransitMissing
 import com.pockettravel.core.sync.attachTransitFeeds
 import com.pockettravel.core.sync.testing.FakeManifestClient
 import com.pockettravel.core.sync.testing.FakeRegionSyncScheduler
@@ -318,8 +319,14 @@ class RegionHubViewModelTest {
     @Test
     fun `una rete installata che il catalogo non pubblica piu' risulta non aggiornata`() = runTest {
         repository.installedRegions.value = listOf(installed(transit = "transit-1"))
-        repository.transitFeeds["italia"] = listOf(TransitFeedInfo("mdb-1", "Milano", "ATM"), TransitFeedInfo("mdb-ex", "Torino", "GTT"))
+        repository.transitFeeds["italia"] = listOf(
+            TransitFeedInfo("mdb-1", "Milano", "ATM"), TransitFeedInfo("mdb-ex", "Torino", "GTT"), TransitFeedInfo("mdb-old", "Bari", "AMTAB"),
+        )
         withTransitOffered()
+        // Torino e' tra le non incluse; Bari e' sparita dall'indice (sostituita da un'altra rete): non conta.
+        transitClient.index = TransitIndex(
+            "t1", listOf(transitFeed("mdb-1", listOf("italia"), "v1")), listOf(TransitMissing("Torino", listOf("italia"), "orari", id = "mdb-ex")),
+        )
         val viewModel = viewModel()
 
         viewModel.load("italia")

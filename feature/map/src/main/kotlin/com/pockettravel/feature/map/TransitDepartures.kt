@@ -157,8 +157,11 @@ internal fun TransitDeparturesSection(
                                 color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.weight(1f),
                             )
-                            // Se c'e', "Aggiorna" e' gia' sopra, accanto alle reti scadute.
-                            if (!updateNearExpired) TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
+                            // Se c'e', "Aggiorna" e' gia' sopra, accanto alle reti scadute; niente "Aggiorna" se le reti
+                            // della fermata sono tutte non piu' pubblicate.
+                            if (!updateNearExpired && board.feeds.any { it.name !in staleNetworks }) {
+                                TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
+                            }
                         }
                     }
                     Sources(board.feeds)

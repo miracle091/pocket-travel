@@ -139,6 +139,8 @@ class TransitManifestTest {
         assertTrue(staleTransitFeeds(back, "italia", installed).isEmpty())
         // Il confronto e' per id: un nome uguale con un altro id non basta.
         assertEquals(listOf("mdb-ex"), staleTransitFeeds(withMissing, "italia", listOf(TransitFeedInfo("mdb-ex", "Milano", "GTT"))).map { it.id })
+        // Tolta del tutto dall'indice (sostituita da un'altra rete): non e' "non piu' aggiornata", l'aggiornamento la toglie.
+        assertTrue(staleTransitFeeds(index(), "italia", listOf(TransitFeedInfo("mdb-sostituita", "Torino", "GTT"))).isEmpty())
     }
 
     @Test
@@ -231,11 +233,11 @@ class TransitManifestTest {
 
     private val today = LocalDate.of(2026, 10, 16)
 
-    private fun carried(published: Set<String>, validity: Map<String, LocalDate?>) =
-        carriedOverTransitFeeds(validity.keys.map { TransitFeedInfo(it, it, "x") }, published, today) { validity[it.id] }.map { it.id }
+    private fun carried(published: Set<String>, validity: Map<String, LocalDate?>, missing: Set<String> = validity.keys) =
+        carriedOverTransitFeeds(validity.keys.map { TransitFeedInfo(it, it, "x") }, published, missing, today) { validity[it.id] }.map { it.id }
 
     @Test
-    fun `una rete sparita dall'indice resta finche' gli orari sono validi, anche l'ultimo giorno`() {
+    fun `una rete passata tra le non incluse resta finche' gli orari sono validi, anche l'ultimo giorno`() {
         val validity = mapOf("valida" to today.plusDays(3), "oggi" to today, "scaduta" to today.minusDays(1))
         assertEquals(listOf("valida", "oggi"), carried(emptySet(), validity))
     }
@@ -244,6 +246,12 @@ class TransitManifestTest {
     fun `le reti ancora pubblicate, anche quelle tolte dall'utente, non si portano avanti`() {
         val validity = mapOf("scaricata" to today.plusDays(9), "tolta" to today.plusDays(9), "sparita" to today.plusDays(9))
         assertEquals(listOf("sparita"), carried(setOf("scaricata", "tolta"), validity))
+    }
+
+    @Test
+    fun `una rete tolta del tutto dall'indice, sostituita da un'altra, non si porta avanti`() {
+        val validity = mapOf("non-inclusa" to today.plusDays(9), "sostituita" to today.plusDays(9))
+        assertEquals(listOf("non-inclusa"), carried(emptySet(), validity, missing = setOf("non-inclusa")))
     }
 
     @Test

@@ -100,17 +100,18 @@ class RegionUiItemTest {
     fun `le reti installate non piu' pubblicate arrivano al pacchetto dei mezzi pubblici, anche senza reti pubblicate`() {
         val gone = TransitFeedInfo("mdb-ex", "Torino, GTT", "GTT")
         val installed = mapOf("italia" to listOf(gone, TransitFeedInfo("mdb-1", "Riga", "Rigas")))
-        val withFeeds = TransitIndex("v1", withTransit.transit!!.feeds)
+        val missing = TransitMissing("Torino, GTT", listOf("italia"), "orari", id = "mdb-ex")
+        val withFeeds = TransitIndex("v1", withTransit.transit!!.feeds, listOf(missing))
         val transit = regionUiItem(attachTransitFeeds(listOf(remote), withFeeds, installed = installed).single(), null, noBytes)
             .packages.first { it.kind == PackageKind.TRANSIT }
         assertEquals(listOf("Torino, GTT"), transit.staleNetworks)
 
         // Nessuna rete pubblicata: la regione installata mostra comunque la riga con le non piu' aggiornate e le mancanti.
-        val missing = TransitMissing("Torino, GTT", listOf("italia"), "orari", id = "mdb-ex")
+        // Riga (mdb-1), sparita dall'indice e non tra le non incluse, non conta: l'aggiornamento la toglie.
         val empty = attachTransitFeeds(listOf(remote), TransitIndex("v1", emptyList(), listOf(missing)), installed = installed).single()
         val item = regionUiItem(empty, local(map = "m1", routing = "r1", poi = "p1").copy(transitVersion = "transit-x"), noBytes)
         val row = item.packages.first { it.kind == PackageKind.TRANSIT }
-        assertEquals(listOf("Torino, GTT", "Riga"), row.staleNetworks)
+        assertEquals(listOf("Torino, GTT"), row.staleNetworks)
         // Torino e' gia' tra le non piu' aggiornate: non compare anche tra le non incluse.
         assertEquals(emptyList<TransitMissing>(), row.missingNetworks)
         assertEquals(null, row.detail)

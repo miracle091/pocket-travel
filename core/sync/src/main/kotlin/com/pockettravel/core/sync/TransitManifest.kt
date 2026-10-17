@@ -119,25 +119,30 @@ fun regionTransitVersion(feeds: List<TransitFeed>): String {
 }
 
 /**
- * Le reti installate per cui l'indice non pubblica piu' niente per [regionId]: passate a `missing` o tolte.
- * Il confronto e' per id, non per nome.
+ * Le reti installate che l'indice non pubblica piu' per [regionId] e che elenca tra le "non incluse": orari scaduti o
+ * licenza, senza una rete che le sostituisce. Una rete tolta del tutto dall'indice (sostituita da un'altra, come le reti
+ * svedesi da Sverige 2) non conta: l'aggiornamento la toglie. Il confronto e' per id, non per nome.
  */
 fun staleTransitFeeds(index: TransitIndex, regionId: String, installed: List<TransitFeedInfo>): List<TransitFeedInfo> {
     val published = regionTransitFeeds(index, regionId).mapTo(mutableSetOf()) { it.id }
-    return installed.filter { it.id !in published }
+    val missing = index.missing.filter { regionId in it.regions }.mapTo(mutableSetOf()) { it.id }
+    return installed.filter { it.id !in published && it.id in missing }
 }
 
 /**
- * Le reti installate da tenere in un aggiornamento: quelle che l'indice non pubblica per la regione ([publishedIds], comprese
- * le tolte dall'utente) e con gli orari ancora validi oggi. [validUntil] legge l'ultimo giorno valido di una rete, null se illeggibile.
+ * Le reti installate da tenere in un aggiornamento: quelle che l'indice elenca tra le "non incluse" della regione
+ * ([missingIds]), non tra le pubblicate ([publishedIds], comprese le tolte dall'utente), e con gli orari ancora validi
+ * oggi. Le reti tolte del tutto dall'indice, di solito sostituite da un'altra, si tolgono: tenerle duplicherebbe le
+ * partenze di quella nuova. [validUntil] legge l'ultimo giorno valido di una rete, null se illeggibile.
  */
 internal fun carriedOverTransitFeeds(
     installed: List<TransitFeedInfo>,
     publishedIds: Set<String>,
+    missingIds: Set<String>,
     today: LocalDate,
     validUntil: (TransitFeedInfo) -> LocalDate?,
 ): List<TransitFeedInfo> =
-    installed.filter { it.id !in publishedIds && validUntil(it)?.let { last -> last >= today } == true }
+    installed.filter { it.id !in publishedIds && it.id in missingIds && validUntil(it)?.let { last -> last >= today } == true }
 
 /**
  * Arricchisce [entries] con le reti dei mezzi pubblici: le regioni senza reti pubblicate, e senza reti

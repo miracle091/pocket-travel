@@ -370,17 +370,22 @@ class RegionPackageInstallerDeviceTest {
     fun unaReteToltaDalCatalogoRestaFinoAllaScadenzaDegliOrari() = runBlocking {
         files["a.db"] = transitDbBytes(validUntil = "20261212", seed = "a")
         files["b.db"] = transitDbBytes(validUntil = "20261212", seed = "b")
+        files["c.db"] = transitDbBytes(validUntil = "20261212", seed = "c")
         val a = transitFeed("a")
         val b = transitFeed("b")
-        installerOn("2026-10-16").install(entry().copy(transit = RegionTransitEntry(listOf(a, b))), setOf(PackageKind.TRANSIT))
+        val c = transitFeed("c")
+        installerOn("2026-10-16").install(entry().copy(transit = RegionTransitEntry(listOf(a, b, c))), setOf(PackageKind.TRANSIT))
 
-        // b non e' piu' nell'indice ma i suoi orari valgono ancora: l'aggiornamento la tiene.
-        installerOn("2026-10-16").install(entry().copy(transit = RegionTransitEntry(listOf(a))), setOf(PackageKind.TRANSIT))
+        // b passa tra le "non incluse" con gli orari ancora validi: l'aggiornamento la tiene. c sparisce dall'indice
+        // (sostituita da un'altra rete): l'aggiornamento la toglie.
+        val onlyA = RegionTransitEntry(listOf(a), missing = listOf(TransitMissing(b.name, listOf("san-marino"), "orari", id = "b")))
+        installerOn("2026-10-16").install(entry().copy(transit = onlyA), setOf(PackageKind.TRANSIT))
         assertEquals(listOf("a", "b"), storage.installedTransitFeeds("san-marino").map { it.id })
         assertTrue(File(regionDir, "${RegionStorage.TRANSIT_DIR}/b.db").isFile)
+        assertFalse(File(regionDir, "${RegionStorage.TRANSIT_DIR}/c.db").exists())
 
         // Dopo l'ultimo giorno valido il prossimo aggiornamento la toglie.
-        installerOn("2026-12-13").install(entry().copy(transit = RegionTransitEntry(listOf(a))), setOf(PackageKind.TRANSIT))
+        installerOn("2026-12-13").install(entry().copy(transit = onlyA), setOf(PackageKind.TRANSIT))
         assertEquals(listOf("a"), storage.installedTransitFeeds("san-marino").map { it.id })
         assertFalse(File(regionDir, "${RegionStorage.TRANSIT_DIR}/b.db").exists())
     }
