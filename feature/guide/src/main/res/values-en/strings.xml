@@ -8,6 +8,8 @@
     <string name="guide_source_title_travel_gc">Government of Canada travel advice</string>
     <string name="guide_source_title_fcdo">UK government travel advice: safety and security</string>
     <string name="guide_source_title_fcdo_health">UK government travel advice: health</string>
+    <string name="guide_source_title_fcdo_entry">UK government travel advice: entry requirements</string>
+    <string name="guide_source_title_fcdo_help">UK government travel advice: consular assistance</string>
     <string name="emergency_title">Emergency numbers</string>
     <string name="emergency_general">General</string>
     <string name="emergency_single">Emergency</string>

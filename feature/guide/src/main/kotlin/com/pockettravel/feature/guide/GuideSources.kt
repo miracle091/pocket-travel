@@ -38,6 +38,8 @@ internal fun GuideSourcesCard(
     val travelAdviceTitle = stringResource(R.string.guide_source_title_travel_gc)
     val fcdoAdviceTitle = stringResource(R.string.guide_source_title_fcdo)
     val fcdoHealthTitle = stringResource(R.string.guide_source_title_fcdo_health)
+    val fcdoEntryTitle = stringResource(R.string.guide_source_title_fcdo_entry)
+    val fcdoHelpTitle = stringResource(R.string.guide_source_title_fcdo_help)
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(vertical = Spacing.l)) {
             Text(
@@ -51,7 +53,12 @@ internal fun GuideSourcesCard(
                     GuideSourceSite.WIKIVOYAGE -> wikivoyageTitle
                     GuideSourceSite.WIKIPEDIA -> wikipediaTitle
                     GuideSourceSite.TRAVEL_GC_CA -> travelAdviceTitle
-                    GuideSourceSite.FCDO -> if (isFcdoHealthPage(url)) fcdoHealthTitle else fcdoAdviceTitle
+                    GuideSourceSite.FCDO -> when (fcdoPageOf(url)) {
+                        FcdoPage.HEALTH -> fcdoHealthTitle
+                        FcdoPage.ENTRY_REQUIREMENTS -> fcdoEntryTitle
+                        FcdoPage.GETTING_HELP -> fcdoHelpTitle
+                        FcdoPage.SAFETY -> fcdoAdviceTitle
+                    }
                 }
                 ListItem(
                     supportingContent = {
@@ -67,9 +74,17 @@ internal fun GuideSourcesCard(
     }
 }
 
-// I consigli dell'FCDO citano due pagine per paese, ".../<paese>/health" per la salute e ".../<paese>/safety-and-security" per
-// il resto: nelle Fonti hanno nomi diversi, altrimenti si vedrebbero due righe uguali.
-internal fun isFcdoHealthPage(url: String): Boolean = url.substringBefore('#').trimEnd('/').endsWith("/health")
+// I consigli dell'FCDO citano piu' pagine per paese: ".../<paese>/health" per la salute, ".../entry-requirements" e
+// ".../getting-help" per ingresso e assistenza consolare (sezioni per i soli britannici), ".../safety-and-security" per il
+// resto. Nelle Fonti hanno nomi diversi, altrimenti si vedrebbero righe uguali.
+internal enum class FcdoPage { HEALTH, ENTRY_REQUIREMENTS, GETTING_HELP, SAFETY }
+
+internal fun fcdoPageOf(url: String): FcdoPage = when (url.substringBefore('#').trimEnd('/').substringAfterLast('/')) {
+    "health" -> FcdoPage.HEALTH
+    "entry-requirements" -> FcdoPage.ENTRY_REQUIREMENTS
+    "getting-help" -> FcdoPage.GETTING_HELP
+    else -> FcdoPage.SAFETY
+}
 
 // "https://it.wikivoyage.org/wiki/San_Marino" -> "San Marino"; l'URL intero se non ha /wiki/.
 internal fun sourcePageTitle(url: String): String =
