@@ -73,6 +73,9 @@ def llama_env(exe):
 
 SFT_DIR = Path(__file__).resolve().parent.parent / "data" / "sft"
 DEFAULT_DATASET = "pocket_travel_sft.v10.it.jsonl"
+# Token massimi di una risposta nei test: le risposte del dataset arrivano a 450 caratteri (~120 token), quindi con
+# 256 una risposta piu' lunga del training resta intera. Rifiuti e "inizio uguale" leggono solo l'inizio.
+ANSWER_TOKENS = 256
 REFUSAL = "Il contesto non contiene informazioni"
 # Dataset inglese (generate_sft.py --lang en): stesso criterio con il rifiuto inglese, riconosciuto dal prompt
 REFUSAL_EN = "The context does not contain information"

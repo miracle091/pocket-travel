@@ -58,7 +58,8 @@ class EvalGgufTest(unittest.TestCase):
         self.prompts = []
 
     def run_script(self, *argv, template=None, replies=(), rows=()):
-        """Esegue eval_gguf.py; replies = risposte successive di /completion. Restituisce l'output."""
+        """Esegue eval_gguf.py; replies = risposte successive di /completion (testo, o dict della risposta intera).
+        Restituisce l'output."""
         replies = list(replies)
 
         def urlopen(request, timeout):
@@ -67,7 +68,8 @@ class EvalGgufTest(unittest.TestCase):
                 return FakeResponse(status=200)
             body = json.loads(request.data.decode("utf-8"))
             self.prompts.append(body)
-            return FakeResponse({"content": replies.pop(0)})
+            reply = replies.pop(0)
+            return FakeResponse(reply if isinstance(reply, dict) else {"content": reply})
 
         server = mock.Mock(poll=lambda: None)
         out = io.StringIO()
@@ -95,7 +97,7 @@ class EvalGgufTest(unittest.TestCase):
         out = self.run_script(replies=["Si mangia il pesce fresco ovunque.", REFUSAL + " sulla salute: altro."], rows=rows)
         self.assertEqual("<|im_start|>user\nSei una guida.\n\nDOMANDA: Cosa mangiare?<|im_end|>\n<|im_start|>assistant\n",
                          self.prompts[0]["prompt"])
-        self.assertEqual({"n_predict": 110, "temperature": 0, "top_k": 1, "cache_prompt": False},
+        self.assertEqual({"n_predict": 256, "temperature": 0, "top_k": 1, "cache_prompt": False},
                          {k: v for k, v in self.prompts[0].items() if k != "prompt"})
         self.assertIn("POS: rifiuto sbagliato 0.0% | inizio uguale all'atteso 100.0%", out)
         self.assertIn("NEG: rifiuta 100.0% | tema del rifiuto giusto 100.0%", out)
@@ -117,11 +119,13 @@ class EvalGgufTest(unittest.TestCase):
     def test_limit_e_answers(self):
         rows = [row("pos", f"Q: Domanda {i}?\n\nDOMANDA: Domanda {i}?", f"Risposta {i}.") for i in range(5)]
         answers = self.tmp / "answers.jsonl"
-        self.run_script("--limit", "2", "--answers", str(answers), replies=["Risposta 0.", "Altro."], rows=rows)
+        self.run_script("--limit", "2", "--answers", str(answers), replies=["Risposta 0.", {"content": "Altro", "stop_type": "limit"}],
+                        rows=rows)
         lines = [json.loads(l) for l in answers.read_text(encoding="utf-8").splitlines()]
         self.assertEqual(2, len(lines))
         self.assertEqual({"kind": "pos", "region": "canada", "category": "SALUTE", "question": "Domanda 0?",
-                          "want": "Risposta 0.", "got": "Risposta 0."}, lines[0])
+                          "want": "Risposta 0.", "got": "Risposta 0.", "truncated": False}, lines[0])
+        self.assertTrue(lines[1]["truncated"])  # llama-server fermo al limite di token
 
     def test_contexts_conta_i_rifiuti_con_e_senza_la_sezione(self):
         contexts = self.tmp / "contexts.jsonl"

@@ -29,7 +29,7 @@ from gguf import GGUFReader
 
 import gpu_lock
 import vram
-from eval_common import (DEFAULT_DATASET, chatml_prompt, context_report, find_llama_bin, is_refusal, llama_env, load_test_rows,
+from eval_common import (ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, find_llama_bin, is_refusal, llama_env, load_test_rows,
                          on_device_prompt, print_report, question_of, refusal_summary, score, uses_empty_think)
 from status import Progress, phase
 
@@ -98,10 +98,13 @@ def start_server():
 
 
 def ask(url, content):
-    body = json.dumps({"prompt": chatml_prompt(content, empty_think), "n_predict": 110, "temperature": 0, "top_k": 1, "cache_prompt": False})
+    """(risposta, troncata): troncata se llama-server si e' fermato al limite di token (stop_type "limit")."""
+    body = json.dumps({"prompt": chatml_prompt(content, empty_think), "n_predict": ANSWER_TOKENS, "temperature": 0, "top_k": 1,
+                       "cache_prompt": False})
     request = urllib.request.Request(f"{url}/completion", body.encode("utf-8"), {"Content-Type": "application/json"})
     with urllib.request.urlopen(request, timeout=600) as r:
-        return json.load(r)["content"].strip()
+        reply = json.load(r)
+    return reply["content"].strip(), reply.get("stop_type") == "limit"
 
 
 def answer_contexts(url):
@@ -113,7 +116,7 @@ def answer_contexts(url):
         prompt = on_device_prompt(r["context"], r["question"], r["lang"])
         if prompt not in seen:
             seen[prompt] = ask(url, prompt)
-        r["got"] = seen[prompt]
+        r["got"], r["truncated"] = seen[prompt]
         r["refused"] = is_refusal(r["got"], r["lang"])
         if answers:
             answers.write(json.dumps(r, ensure_ascii=False) + "\n")
@@ -137,13 +140,13 @@ if a.contexts:
 progress = Progress("eval", len(test), "riga", every=30)
 try:
     for n, r in enumerate(test, 1):
-        got = ask(url, r["messages"][0]["content"])
+        got, truncated = ask(url, r["messages"][0]["content"])
         score(stats, r, got)
         progress.update(n, refusal_summary(stats))
         if answers:
             answers.write(json.dumps({"kind": r["kind"], "region": r["region"], "category": r.get("category"),
                                       "question": question_of(r).strip(),
-                                      "want": r["messages"][1]["content"], "got": got}, ensure_ascii=False) + "\n")
+                                      "want": r["messages"][1]["content"], "got": got, "truncated": truncated}, ensure_ascii=False) + "\n")
 finally:
     server.kill()
 

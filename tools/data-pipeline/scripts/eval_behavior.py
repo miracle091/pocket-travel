@@ -19,7 +19,7 @@ from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForImageText
 
 import gpu_lock
 import vram
-from eval_common import (SFT_DIR, chat_prompt_and_answer, load_test_rows, print_report, question_of, refusal_prefix, refusal_summary,
+from eval_common import (ANSWER_TOKENS, SFT_DIR, chat_prompt_and_answer, load_test_rows, print_report, question_of, refusal_prefix, refusal_summary,
                          run_dataset, score)
 from status import Progress, phase
 
@@ -65,7 +65,7 @@ for i in range(0, len(test), a.batch):
     enc = tok([chat_prompt_and_answer(tok, r["messages"][:1])[0] for r in batch], add_special_tokens=False,
               return_tensors="pt", padding=True).to("cuda")
     with torch.no_grad():
-        out = model.generate(**enc, max_new_tokens=110, do_sample=False)
+        out = model.generate(**enc, max_new_tokens=ANSWER_TOKENS, do_sample=False)
     for r, o in zip(batch, out):
         got = tok.decode(o[enc["input_ids"].shape[1]:], skip_special_tokens=True).strip()
         score(stats, r, got)
