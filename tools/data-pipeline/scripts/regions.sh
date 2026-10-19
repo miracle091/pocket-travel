@@ -383,7 +383,10 @@ ALL_REGIONS=(
   "australia|Australia|113.34|-43.63|153.57|-10.67|Australia|au|||Oceania"
   "nuova-zelanda|Nuova Zelanda|166.51|-46.64|178.52|-34.45|New_Zealand|nz|||Oceania"
   # Figi e Kiribati attraversano davvero l'antimeridiano: sono spezzate in due region con lo stesso flag, stesso schema usato
-  # sopra per Russia/Stati Uniti.
+  # sopra per Russia/Stati Uniti. Restano senza region, come la punta della Chukotka, le terre oltre l'antimeridiano di
+  # una nazione con un solo rettangolo: Chatham e Kermadec (Nuova Zelanda), Attu e Shemya (Alaska), le Phoenix
+  # occidentali (Kiribati). Mappa, percorsi e punti di interesse non le comprendono. bbox_audit.py elenca le terre di
+  # ogni confine fuori da tutti i rettangoli.
   "figi-occidentali|Figi - Isole occidentali|177.00|-20.70|180.00|-15.50|Fiji|fj|Figi|Isole occidentali (Viti Levu, Vanua Levu)|Oceania"
   "figi-lau|Figi - Isole Lau|-179.90|-21.05|-178.00|-15.60|Fiji|fj|Figi|Isole Lau|Oceania"
   "papua-nuova-guinea|Papua Nuova Guinea|141.00|-10.65|156.02|-2.50|Papua_New_Guinea|pg|||Oceania"
